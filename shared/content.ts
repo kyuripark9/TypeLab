@@ -161,13 +161,13 @@ export const STYLES: StyleDef[] = [
       crossbar: 0.95, letterSpacing: 0.45, wordSpacing: 0.5 })
 ];
 
-export const CATEGORIES: { id: CategoryId; label: string; hint: string }[] = [
-  { id: 'style', label: 'Style', hint: 'Pick a starting point' },
-  { id: 'structure', label: 'Structure', hint: 'Weight, width, height, slant, contrast' },
-  { id: 'shape', label: 'Shape', hint: 'Corners, curves, serifs, handwriting' },
-  { id: 'proportion', label: 'Proportion', hint: 'x-height, counters, openings' },
-  { id: 'spacing', label: 'Spacing', hint: 'Room between letters and words' },
-  { id: 'personality', label: 'Personality', hint: 'Big moves across the whole design' }
+export const CATEGORIES: { id: CategoryId; label: string }[] = [
+  { id: 'style', label: 'Style' },
+  { id: 'structure', label: 'Structure' },
+  { id: 'shape', label: 'Shape' },
+  { id: 'proportion', label: 'Proportion' },
+  { id: 'spacing', label: 'Spacing' },
+  { id: 'personality', label: 'Personality' }
 ];
 
 /* friendly = what it does in plain words; tech = the typographer's term */

@@ -23,21 +23,11 @@ function StylePanel() {
   if (!style) return null;
   return (
     <div className="panel-pad">
-      <div className="eyebrow">Current starting style</div>
+      <div className="eyebrow">Current style</div>
       <h2 className="panel-title">{style.name}</h2>
       <p className="panel-text">{style.desc}</p>
       <p className="panel-like"><span>Similar to</span>{style.like}</p>
       <button className="btn wide" onClick={() => actions.loadStyle(style.id)}>Reset to {style.name} defaults</button>
-      <div className="how">
-        <div className="eyebrow">How TypeLab works</div>
-        <ol>
-          <li><b>Pick a style</b> as your starting system.</li>
-          <li><b>Open a category</b> on the left — each control shows which part of the letter it changes.</li>
-          <li><b>Click any letter</b> to inspect its anatomy.</li>
-          <li><b>Save</b> it to your library and <b>export</b> a real font file.</li>
-        </ol>
-        <p className="motto">Don’t edit numbers. Design letters.</p>
-      </div>
     </div>
   );
 }
@@ -55,9 +45,6 @@ function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> })
           return <SliderControl key={k} k={k as NumericParam} def={c} />;
         })}
       </div>
-      {category === 'personality' && (
-        <p className="panel-note">Personality sliders are big gestures: each one nudges several properties at once, on top of your other settings.</p>
-      )}
     </>
   );
 }

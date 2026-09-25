@@ -14,7 +14,6 @@ export function Nav() {
         <button key={c.id} className={c.id === category ? 'nav-item on' : 'nav-item'} aria-current={c.id === category ? 'page' : undefined}
           onClick={() => actions.setCategory(c.id)}>
           <span className="nav-label">{c.label}</span>
-          <span className="nav-hint">{c.hint}</span>
         </button>
       ))}
       <div className="nav-foot"><span>Based on</span><b>{style?.name}</b></div>

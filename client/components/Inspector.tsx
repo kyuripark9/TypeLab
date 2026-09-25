@@ -141,7 +141,7 @@ function InspectorSide({ ch, g }: { ch: string; g: Glyph }) {
   const part = useEditor(s => s.part), serif = useEditor(s => s.params.serif), active = useEditor(s => controlFor(s.active));
   return (
     <div className="insp-side">
-      <div className="eyebrow">Anatomy — hover to find it</div>
+      <div className="eyebrow">Anatomy</div>
       <ul className="anat">
         {features(g, ch).map(f => (
           <li key={f} data-part={f} className={f === part ? 'on' : undefined}>
@@ -157,7 +157,6 @@ function InspectorSide({ ch, g }: { ch: string; g: Glyph }) {
           </button>
         ))}
       </div>
-      <p className="hint">Pick a property, then drag its control on the right. The highlighted area shows what it changes — across every letter, not just this one.</p>
     </div>
   );
 }

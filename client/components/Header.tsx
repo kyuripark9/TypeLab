@@ -7,7 +7,7 @@ import { actions, isDirty, useEditor } from '../state/editor';
 
 /** Logo and tagline; a link back to the editor when `to` is given. */
 export function Brand({ to }: { to?: string }) {
-  const inner = <><span className="brand-name">Type<em>Lab</em></span><span className="brand-tag">Experiment with type.</span></>;
+  const inner = <><span className="brand-name">TypeLab</span><span className="brand-tag">Experiment with type.</span></>;
   return to ? <Link to={to} className="brand" title="Back to the editor">{inner}</Link> : <div className="brand">{inner}</div>;
 }
 

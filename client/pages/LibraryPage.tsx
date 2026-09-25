@@ -73,7 +73,6 @@ export function LibraryPage() {
         ) : designs.length === 0 ? (
           <div className="lib-empty">
             <h2>No saved designs yet</h2>
-            <p>Shape a typeface in the editor, then press <b>Save</b> — it will appear here.</p>
             <button className="btn primary" onClick={startNew}>Start designing</button>
           </div>
         ) : (

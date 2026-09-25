@@ -32,7 +32,6 @@ function StageBar() {
           <button key={id} role="tab" aria-selected={id === mode} className={id === mode ? 'tab on' : 'tab'} onClick={() => actions.setMode(id)}>{label}</button>
         ))}
       </div>
-      <span className="bar-hint">Click any letter to inspect it</span>
       <label className="size">
         <span>Size</span>
         <input type="range" min={14} max={220} value={size} onChange={e => actions.setSize(Number(e.target.value))} />
@@ -64,7 +63,6 @@ function StyleCards() {
     <div className="style-cards">
       <div className="cards-head">
         <h1>Start with a style</h1>
-        <p>These aren’t finished fonts — they’re starting systems. Pick one, then reshape everything.</p>
       </div>
       <div className="style-filter">
         <span className="filter-label" id="f-class">Classification</span>
