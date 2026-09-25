@@ -49,7 +49,7 @@ export function Diagram({ font, k, W = 340, H = 178 }: { font: Font; k: ActiveKe
     if (nx) band(`g${i}`, it.x + it.adv - font.glyph(it.ch)!.rsb, nx.x + font.glyph(nx.ch)!.lsb);
   });
   if (k === 'wordSpacing') line.items.forEach((it, i) => { if (it.ch === ' ') band(`w${i}`, it.x, it.x + it.adv); });
-  if (k === 'sideBearing') items.forEach((it, i) => {
+  if (k === 'sideBearing' || k === 'mono') items.forEach((it, i) => {
     const g = font.glyph(it.ch)!;
     band(`l${i}`, it.x, it.x + g.lsb);
     band(`r${i}`, it.x + it.adv - g.rsb, it.x + it.adv);

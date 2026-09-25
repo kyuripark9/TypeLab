@@ -79,11 +79,16 @@ function sShape(g: Builder, m: Metrics, x0: number, W: number, yB: number, yT: n
     { s: T, e: T, part: 'spine', ...o });
 }
 
-function arch(g: Builder, m: Metrics, x0: number, x1: number, yTop: number, yFoot: number, o?: StrokeOpts) {
-  const X = m.xh, ah = X * 0.4;
+function arch(g: Builder, m: Metrics, x0: number, x1: number, yTop: number, yFoot: number, o?: StrokeOpts, exit = false) {
+  const X = m.xh, ah = X * 0.4, r = exit ? hookR(m) : 0;
   const cx = (x0 + x1) / 2 + (x1 - x0) * 0.1 * m.org;
-  g.path([['M', x0, X - ah], ['vh', cx, yTop], ['hv', x1, X - ah * 0.95], ['L', x1, yFoot]],
-    { s: J, e: 'flat', ws: 0.6, part: 'shoulder', serifE: 'both', ...o });
+  const head: Cmd[] = [['M', x0, X - ah], ['vh', cx, yTop], ['hv', x1, X - ah * 0.95]];
+  if (r) {
+    g.path([...head, ...exitTail(m, x1, r)], { s: J, e: T, ws: 0.6, we: 0.75, part: 'shoulder', ...o });
+    g.mark('exit', x1 + r * 2.3, r * 1.2);
+    g.reachR = Math.max(g.reachR, x1 + r * 2.3);
+  }
+  else g.path([...head, ['L', x1, yFoot]], { s: J, e: 'flat', ws: 0.6, part: 'shoulder', serifE: 'both', ...o });
 }
 
 /* leg of K/k: starts flush with the upper edge of the arm so nothing pokes through */
@@ -91,6 +96,38 @@ function kLeg(g: Builder, m: Metrics, x0: number, ay: number, r: number, top: nu
   const dx = r - x0, dy = top - ay, l = Math.hypot(dx, dy), ex = r + m.s * 0.05;
   const bx = jx - (ex - jx) * 0.25, by = jy + jy * 0.25;
   g.line(bx, by, ex, 0, { s: J, e: H, part: 'leg', serifE: 'both', clip: { planes: [{ x: x0, y: ay, nx: -dy / l, ny: dx / l }] } });
+}
+
+/* ---------- cursive: entry and exit strokes ---------- */
+
+/** Radius of the cursive hooks; 0 when the design has no cursive at all. */
+const hookR = (m: Metrics) => (m.cur < 0.04 ? 0 : lerp(m.s * 0.55, m.xh * 0.26 + m.s * 0.35, m.cur));
+
+/* the tail of a stroke arriving at the baseline: curls round and flicks up to the right */
+const exitTail = (m: Metrics, x: number, r: number): Cmd[] => {
+  const yb = -m.os + m.hT / 2;
+  return [['L', x, yb + r], ['vh', x + r, yb], ['C', x + r * 1.55, yb, x + r * 2, yb + r * 0.45, x + r * 2.3, yb + r * 1.2]];
+};
+
+/** Stem from `top` to the baseline. In cursive designs its foot becomes an exit stroke. */
+function footStem(g: Builder, m: Metrics, x: number, top: number, o: StrokeOpts = {}) {
+  const r = hookR(m);
+  if (!r) { g.stem(x, 0, top, o); return; }
+  g.path([['M', x, top], ...exitTail(m, x, r)], { s: 'flat', e: T, we: 0.75, part: 'stem', serifS: o.serifE });
+  g.mark('exit', x + r * 2.3, r * 1.2);
+  g.reachR = Math.max(g.reachR, x + r * 2.3);
+}
+
+/** Upstroke leading into the top of a stem from the left. Returns false when not drawn. */
+function entry(g: Builder, m: Metrics, x: number, top: number) {
+  const r = hookR(m) * 0.85;
+  if (!r) return false;
+  const y = top - m.hT / 2;
+  g.path([['M', x - r * 1.25, y - r * 0.95], ['C', x - r * 0.75, y - r * 0.3, x - r * 0.3, y, x + m.s * 0.2, y]],
+    { s: T, e: 'flat', ws: 0.7, part: 'entry' });
+  g.mark('entry', x - r * 1.25, y - r * 0.95);
+  g.reachL = Math.min(g.reachL, x - r * 1.25);
+  return true;
 }
 
 const mapCmds = (cmds: Cmd[], f: (x: number, y: number) => [number, number]): Cmd[] => cmds.map(c => {
@@ -123,7 +160,8 @@ def('B', [1, 0.55], (g, m) => {
 def('C', [0.55, 0.4], (g, m) => {
   const W = m.W(640, 'r'), C = m.cap, hs = m.s / 2, hh = m.hT / 2, u = lerp(0.25, 0.6, m.ap);
   openBowl(g, m, hs, W - hs, -m.os + hh, C + m.os - hh, u, 1 - u);
-  return W * 0.97;
+  // the more open the mouth, the further the terminals sit from the right edge
+  return W * (0.97 - 0.12 * m.ap);
 }, { params: ['aperture', 'terminal', 'curve', 'contrast'] });
 
 def('D', [1, 0.55], (g, m) => {
@@ -160,7 +198,22 @@ def('H', [1, 1], (g, m) => {
   return W;
 }, { params: ['crossbar', 'height', 'width', 'weight'] });
 
-def('I', [1, 1], (g, m) => { g.stem(m.s / 2, 0, m.cap, { serifS: 'both', serifE: 'both' }); return m.s; });
+/* in a monospaced sans the narrow letters get bars, so they fill their cell like the others */
+const monoBars = (m: Metrics) => m.p.mono >= 0.5 && !m.serif;
+def('I', [1, 1], (g, m) => {
+  if (monoBars(m)) {
+    const W = m.W(340), hh = m.hT / 2;
+    g.stem(W / 2, 0, m.cap); g.line(0, m.cap - hh, W, m.cap - hh, { part: 'bar' }); g.line(0, hh, W, hh, { part: 'bar' });
+    return W;
+  }
+  g.stem(m.s / 2, 0, m.cap, { serifS: 'both', serifE: 'both' }); return m.s;
+});
+/* i and l of a monospaced sans: a flag at the top and a bar at the foot */
+function monoStem(g: Builder, m: Metrics, top: number) {
+  const W = m.W(360), hh = m.hT / 2, x = W * 0.52;
+  g.stem(x, 0, top); g.line(W * 0.12, top - hh, x, top - hh, { s: T, part: 'bar' }); g.line(0, hh, W, hh, { part: 'bar' });
+  return { W, x };
+}
 
 def('J', [0.4, 1], (g, m) => {
   const W = m.W(390), C = m.cap, hs = m.s / 2, hh = m.hT / 2, xr = W - hs, xl = hs, yb = -m.os + hh;
@@ -285,8 +338,10 @@ const lc = (m: Metrics) => ({ X: m.xh, hs: m.s / 2, hh: m.hT / 2, yt: m.xh + m.o
 def('a', [0.6, 0.9], (g, m) => {
   const { X, hs, yt, yb } = lc(m), W = m.W(450, 'r'), xr = W - hs, xl = hs, ra = X * 0.34;
   const cxa = (xl + xr) / 2 + W * 0.02;
+  const r = hookR(m);
   g.path([['M', xr, 0], ['L', xr, X - ra], ['vh', cxa, yt], ['hv', xl + W * 0.05, X - ra, { u1: lerp(0.85, 0.5, m.ap) }]],
-    { e: T, part: 'stem', serifS: 'b' });
+    { e: T, part: 'stem', serifS: r ? null : 'b' });
+  if (r) footStem(g, m, xr, X * 0.5);
   const bt = X * 0.57, cxb = (xl + xr) / 2 + W * 0.04, bcy = (bt + yb) / 2;
   g.path([['M', xr, bt], ['L', cxb, bt], ['hv', xl, bcy], ['vh', cxb, yb], ['hv', xr, bcy + X * 0.04]], { s: J, e: J, we: 0.7, part: 'bowl', counter: true });
   return W;
@@ -294,7 +349,7 @@ def('a', [0.6, 0.9], (g, m) => {
 
 def('a.alt', [0.55, 1], (g, m) => {
   const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r');
-  g.stem(W - hs, 0, X, { serifS: 'b' });
+  footStem(g, m, W - hs, X, { serifS: 'b' });
   branchBowl(g, m, W - hs, hs, yt, yb);
   return W;
 }, { params: ['counter', 'curve', 'xHeight', 'weight'] });
@@ -305,11 +360,11 @@ def('b', [1, 0.55], (g, m) => {
 });
 def('c', [0.55, 0.35], (g, m) => {
   const { hs, yt, yb } = lc(m), W = m.W(430, 'r'), u = lerp(0.22, 0.58, m.ap);
-  openBowl(g, m, hs, W - hs, yb, yt, u, 1 - u); return W * 0.96;
+  openBowl(g, m, hs, W - hs, yb, yt, u, 1 - u); return W * (0.96 - 0.12 * m.ap);
 }, { params: ['aperture', 'terminal', 'curve', 'xHeight'] });
 def('d', [0.55, 1], (g, m) => {
   const { hs, yt, yb } = lc(m), W = m.W(480, 'r');
-  g.stem(W - hs, 0, m.asc, { serifE: 'a', serifS: 'b' }); branchBowl(g, m, W - hs, hs, yt, yb); return W;
+  footStem(g, m, W - hs, m.asc, { serifE: 'a', serifS: 'b' }); branchBowl(g, m, W - hs, hs, yt, yb); return W;
 });
 def('e', [0.55, 0.5], (g, m) => {
   const { X, hs, hh, yt, yb } = lc(m), W = m.W(460, 'r'), xl = hs, xr = W - hs, cx = W / 2, cy = X / 2;
@@ -325,15 +380,39 @@ def('f', [0.35, 0.1], (g, m) => {
   g.line(0, X - hh, W * 0.92, X - hh, { s: T, e: T, part: 'crossbar' });
   return W;
 });
+/* descender of g (and the script y): a hook, or in script designs a loop that swings back
+   up through the stem and out to the right */
+function descender(g: Builder, m: Metrics, xr: number, xl: number, W: number, o?: StrokeOpts) {
+  const { X, hh } = lc(m), db = m.desc + hh, ry = db + Math.min((xr - xl) * 0.55, -m.desc * 0.7), r = hookR(m);
+  const head: Cmd[] = [['M', xr, X], ['L', xr, ry], ['vh', (xr + xl) / 2, db]];
+  if (m.cur < 0.35) { g.path([...head, ['hv', xl + W * 0.04, ry, { u1: 0.62 }]], { e: T, part: 'stem', serifS: 'b', ...o }); return; }
+  const lx = xl - W * 0.08, ly = db * 0.45, ex = xr + r * 1.5, ey = r * 0.8;
+  g.path([...head, ['hv', lx, ly], ['C', lx, ly * 0.2, xr - W * 0.2, -m.s * 0.4, ex, ey]], { e: T, we: 0.8, part: 'stem', serifS: 'b', ...o });
+  g.mark('exit', ex, ey);
+  g.reachR = Math.max(g.reachR, ex);
+}
+def('f.cur', [0.2, 0.1], (g, m) => {
+  const { X, hh } = lc(m), W = m.W(310), xs = W * 0.5, top = m.asc + m.os - hh, r = (W - xs) * 1.05, db = m.desc + hh, rb = r * 0.95;
+  g.path([['M', xs + r, top], ['hv', xs, top - r * 0.9, { u0: 0.2 }], ['L', xs, db + rb * 0.9], ['vh', xs - rb, db, { u1: 0.8 }]], { s: T, e: T, part: 'stem' });
+  g.line(W * 0.05, X - hh, W * 0.95, X - hh, { s: T, e: T, part: 'crossbar' });
+  return W;
+});
 def('g', [0.55, 1], (g, m) => {
-  const { X, hs, hh, yt, yb } = lc(m), W = m.W(480, 'r'), xr = W - hs, db = m.desc + hh, ry = db + Math.min((xr - hs) * 0.55, -m.desc * 0.7);
-  g.path([['M', xr, X], ['L', xr, ry], ['vh', W / 2, db], ['hv', hs + W * 0.04, ry, { u1: 0.62 }]], { e: T, part: 'stem', serifS: 'b' });
+  const { hs, yt, yb } = lc(m), W = m.W(480, 'r'), xr = W - hs;
+  descender(g, m, xr, hs, W);
   branchBowl(g, m, xr, hs, yt, yb);
+  return W;
+});
+def('y.cur', [0.9, 0.7], (g, m) => {
+  const { X, hs, yb } = lc(m), W = m.W(455), xr = W - hs, ah = X * 0.4;
+  const en = entry(g, m, hs, X);
+  g.path([['M', hs, X], ['L', hs, ah * 0.95], ['vh', W / 2 - W * 0.1 * m.org, yb], ['hv', xr, ah]], { e: J, we: 0.6, part: 'shoulder', serifS: en ? null : 'a' });
+  descender(g, m, xr, hs, W, { serifS: null, serifE: null });
   return W;
 });
 def('h', [1, 1], (g, m) => {
   const { hs, yt } = lc(m), W = m.W(455);
-  g.stem(hs, 0, m.asc, { serifS: 'both', serifE: 'a' }); arch(g, m, hs, W - hs, yt, 0); return W;
+  g.stem(hs, 0, m.asc, { serifS: 'both', serifE: 'a' }); arch(g, m, hs, W - hs, yt, 0, undefined, true); return W;
 });
 /* dot of i/j: keeps a clear gap; in very heavy, tall-x-height designs the stem gives way */
 function tittle(m: Metrics) {
@@ -341,10 +420,15 @@ function tittle(m: Metrics) {
   const cy = Math.min(m.xh + gap + d / 2 + (m.asc - m.xh) * 0.12, m.asc + m.cap * 0.07 - d / 2);
   return { d, cy, top: Math.min(m.xh, cy - d / 2 - gap) };
 }
-def('i', [1, 1], (g, m) => { const t = tittle(m); g.stem(m.s / 2, 0, t.top, { serifS: 'both', serifE: 'a' }); g.dot(m.s / 2, t.cy, t.d); return m.s; });
+def('i', [1, 1], (g, m) => {
+  if (monoBars(m)) { const t = tittle(m), { W, x } = monoStem(g, m, t.top); g.dot(x, t.cy, t.d); return W; }
+  const t = tittle(m), en = entry(g, m, m.s / 2, t.top);
+  footStem(g, m, m.s / 2, t.top, { serifS: 'both', serifE: en ? null : 'a' }); g.dot(m.s / 2, t.cy, t.d); return m.s;
+});
 def('j', [0.2, 1], (g, m) => {
   const { hs, hh } = lc(m), t = tittle(m), W = m.W(240), xs = W - hs, db = m.desc + hh, ry = db + Math.min(W * 0.7, -m.desc * 0.6);
-  g.path([['M', xs, t.top], ['L', xs, ry], ['vh', xs - (W - hs) * 0.75, db, { u1: 0.85 }]], { e: T, part: 'stem', serifS: 'a' });
+  const en = entry(g, m, xs, t.top);
+  g.path([['M', xs, t.top], ['L', xs, ry], ['vh', xs - (W - hs) * 0.75, db, { u1: 0.85 }]], { e: T, part: 'stem', serifS: en ? null : 'a' });
   g.dot(xs, t.cy, t.d);
   return W;
 });
@@ -355,30 +439,36 @@ def('k', [1, 0.2], (g, m) => {
   kLeg(g, m, hs, ay, r, X, jx, jy);
   return W;
 });
-def('l', [1, 1], (g, m) => { g.stem(m.s / 2, 0, m.asc, { serifS: 'both', serifE: 'a' }); return m.s; });
+def('l', [1, 1], (g, m) => {
+  if (monoBars(m)) return monoStem(g, m, m.asc).W;
+  footStem(g, m, m.s / 2, m.asc, { serifS: 'both', serifE: 'a' }); return m.s;
+});
 def('m', [1, 1], (g, m) => {
   const { X, hs, yt } = lc(m), W = m.W(700);
-  g.stem(hs, 0, X, { serifS: 'both', serifE: 'a' });
-  arch(g, m, hs, W / 2, yt, 0); arch(g, m, W / 2, W - hs, yt, 0);
+  const en = entry(g, m, hs, X);
+  g.stem(hs, 0, X, { serifS: 'both', serifE: en ? null : 'a' });
+  arch(g, m, hs, W / 2, yt, 0); arch(g, m, W / 2, W - hs, yt, 0, undefined, true);
   return W;
 });
 def('n', [1, 1], (g, m) => {
   const { X, hs, yt } = lc(m), W = m.W(455);
-  g.stem(hs, 0, X, { serifS: 'both', serifE: 'a' }); arch(g, m, hs, W - hs, yt, 0); return W;
+  const en = entry(g, m, hs, X);
+  g.stem(hs, 0, X, { serifS: 'both', serifE: en ? null : 'a' }); arch(g, m, hs, W - hs, yt, 0, undefined, true); return W;
 }, { params: ['xHeight', 'curve', 'weight', 'width'] });
 def('o', [0.55, 0.55], (g, m) => { const { hs, yt, yb } = lc(m), W = m.W(490, 'r'); oval(g, m, hs, W - hs, yb, yt); return W; },
   { params: ['counter', 'curve', 'xHeight', 'contrast'] });
 def('p', [1, 0.55], (g, m) => {
   const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r');
-  g.stem(hs, m.desc, X, { serifS: 'both', serifE: 'a' }); branchBowl(g, m, hs, W - hs, yt, yb); return W;
+  const en = entry(g, m, hs, X);
+  g.stem(hs, m.desc, X, { serifS: 'both', serifE: en ? null : 'a' }); branchBowl(g, m, hs, W - hs, yt, yb); return W;
 });
 def('q', [0.55, 1], (g, m) => {
   const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r');
   g.stem(W - hs, m.desc, X, { serifS: 'both' }); branchBowl(g, m, W - hs, hs, yt, yb); return W;
 });
 def('r', [1, 0.15], (g, m) => {
-  const { X, hs, yt } = lc(m), W = m.W(310), ah = X * 0.4;
-  g.stem(hs, 0, X, { serifS: 'both', serifE: 'a' });
+  const { X, hs, yt } = lc(m), W = m.W(310), ah = X * 0.4, en = entry(g, m, hs, X);
+  g.stem(hs, 0, X, { serifS: 'both', serifE: en ? null : 'a' });
   g.path([['M', hs, X - ah], ['vh', W * 0.66, yt], ['hv', W, X - ah * 0.8, { u1: lerp(0.62, 0.35, m.ap) }]], { s: J, e: T, ws: 0.6, part: 'shoulder' });
   return W;
 });
@@ -392,8 +482,9 @@ def('t', [0.3, 0.3], (g, m) => {
 });
 def('u', [1, 1], (g, m) => {
   const { X, hs, yb } = lc(m), W = m.W(455), xr = W - hs, ah = X * 0.4;
-  g.path([['M', hs, X], ['L', hs, ah * 0.95], ['vh', W / 2 - W * 0.1 * m.org, yb], ['hv', xr, ah]], { e: J, we: 0.6, part: 'shoulder', serifS: 'a' });
-  g.stem(xr, 0, X, { serifS: 'b', serifE: 'a' });
+  const en = entry(g, m, hs, X);
+  g.path([['M', hs, X], ['L', hs, ah * 0.95], ['vh', W / 2 - W * 0.1 * m.org, yb], ['hv', xr, ah]], { e: J, we: 0.6, part: 'shoulder', serifS: en ? null : 'a' });
+  footStem(g, m, xr, X, { serifS: 'b', serifE: 'a' });
   return W;
 });
 def('v', [0.2, 0.2], (g, m) => { const W = m.W(450), l = m.s * 0.55; zig(g, m, [l, W / 2, W - l], m.xh, 0, true); return W; });

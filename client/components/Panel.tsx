@@ -25,8 +25,8 @@ function StylePanel() {
     <div className="panel-pad">
       <div className="eyebrow">Current starting style</div>
       <h2 className="panel-title">{style.name}</h2>
-      <p className="panel-tags">{style.tags}</p>
       <p className="panel-text">{style.desc}</p>
+      <p className="panel-like"><span>Similar to</span>{style.like}</p>
       <button className="btn wide" onClick={() => actions.loadStyle(style.id)}>Reset to {style.name} defaults</button>
       <div className="how">
         <div className="eyebrow">How TypeLab works</div>

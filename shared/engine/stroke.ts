@@ -150,6 +150,8 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     if (s.w != null) t = lerp(t, lerp(thin, thick, s.w), s.mask);
     if (ws !== 1) t *= lerp(ws, 1, smoothstep(s.len / taperLen));
     if (we !== 1) t *= lerp(we, 1, smoothstep((total - s.len) / taperLen));
+    // a hand-held pen never presses evenly
+    if (ctx.wobble) t *= 1 + ctx.wobble * 0.22 * Math.sin(s.len / (thick * 1.8 + 60) + (ctx.seed || 0));
     s.t = t;
   }
 

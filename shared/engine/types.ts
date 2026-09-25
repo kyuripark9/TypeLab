@@ -64,6 +64,9 @@ export interface PenCtx {
   org: number;
   terminal: string;
   serif?: SerifSpec | null;
+  /** hand-drawn irregularity (0..1) and a per-glyph phase for it */
+  wobble?: number;
+  seed?: number;
 }
 
 export interface StrokeEnd { x: number; y: number; dx: number; dy: number; t: number; type: EndType; which: 's' | 'e' }

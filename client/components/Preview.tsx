@@ -47,7 +47,7 @@ function PreviewLine({ line, y, font, hl, topU, LH, widthU }: { line: Line; y: n
     if (hl === 'wordSpacing' && it.ch === ' ') band(`w${j}`, it.x, it.adv);
     if (!g) return;
     const c = it.ch.charCodeAt(0);
-    if (hl === 'sideBearing') { band(`l${j}`, it.x, g.lsb); band(`r${j}`, it.x + it.adv - g.rsb, g.rsb); }
+    if (hl === 'sideBearing' || hl === 'mono') { band(`l${j}`, it.x, g.lsb); band(`r${j}`, it.x + it.adv - g.rsb, g.rsb); }
     if (hl === 'letterSpacing') {
       const nx = line.items[j + 1], g2 = nx && font.glyph(nx.ch);
       if (nx && g2) band(`t${j}`, it.x + it.adv - g.rsb, nx.x + g2.lsb - (it.x + it.adv - g.rsb));

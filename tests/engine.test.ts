@@ -6,7 +6,9 @@ import { DEFAULTS, isValidParams, sanitizeParams, type Params } from '../shared/
 
 const extremes: Params[] = [
   { ...DEFAULTS, weight: 1, width: 0, height: 1, slant: 1, contrast: 1, xHeight: 1, counter: 0, roundness: 1, terminal: 'sharp', serif: true, serifShape: 'wedge', playfulFormal: 0 },
-  { ...DEFAULTS, weight: 0, width: 1, height: 0, contrast: 0, xHeight: 0, counter: 1, aperture: 1, apex: 1, terminal: 'angled', serif: true, serifShape: 'slab', geoHuman: 0, classicFuture: 1 }
+  { ...DEFAULTS, weight: 0, width: 1, height: 0, contrast: 0, xHeight: 0, counter: 1, aperture: 1, apex: 1, terminal: 'angled', serif: true, serifShape: 'slab', geoHuman: 0, classicFuture: 1 },
+  { ...DEFAULTS, weight: 1, width: 0, slant: 1, contrast: 1, wobble: 1, cursive: 1, mono: 1, serif: true, terminal: 'tapered', letterSpacing: 0 },
+  { ...DEFAULTS, weight: 0, width: 1, wobble: 1, cursive: 0.2, mono: 1, roundness: 1, terminal: 'round' }
 ];
 
 describe('font engine', () => {
@@ -27,6 +29,19 @@ describe('font engine', () => {
     const light = buildFont({ ...DEFAULTS, weight: 0.1 }), bold = buildFont({ ...DEFAULTS, weight: 0.9 });
     assert.ok(bold.m.s > light.m.s * 3);
     assert.notEqual(light.glyph('n')!.d, bold.glyph('n')!.d);
+  });
+
+  it('monospacing gives every glyph the same advance', () => {
+    const font = buildFont({ ...DEFAULTS, mono: 1 });
+    const advs = new Set([...'ilmwMW0.'].map(ch => Math.round(font.glyph(ch)!.adv)));
+    assert.equal(advs.size, 1);
+  });
+
+  it('cursive switches to italic letterforms and adds exit strokes', () => {
+    const print = buildFont(DEFAULTS), script = buildFont({ ...DEFAULTS, cursive: 1 });
+    assert.ok(script.glyph('n')!.marks.some(k => k.type === 'exit'));
+    assert.ok(!print.glyph('n')!.marks.some(k => k.type === 'exit'));
+    assert.notEqual(print.glyph('y')!.d, script.glyph('y')!.d);
   });
 
   it('wraps text to a width', () => {

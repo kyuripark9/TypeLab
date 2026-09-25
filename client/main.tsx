@@ -18,7 +18,7 @@ function NotFound() {
 const router = createBrowserRouter([
   // one editor instance serves both a new design and a saved one, so saving (/ → /d/:id)
   // doesn't remount it
-  { element: <EditorPage />, children: [{ index: true }, { path: 'd/:id' }] },
+  { element: <EditorPage />, children: [{ index: true, element: null }, { path: 'd/:id', element: null }] },
   { path: 'designs', element: <LibraryPage /> },
   { path: '*', element: <NotFound /> }
 ]);

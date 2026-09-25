@@ -26,6 +26,8 @@ export interface Metrics {
   /** overshoot of round letters */ os: number;
   /** width scale */ ws: number;
   thin: number; stress: number; k: number; org: number; sq: number;
+  /** cursive amount and hand-drawn irregularity */ cur: number; wob: number;
+  /** the shared advance width that monospacing pulls every glyph toward */ monoAdv: number;
   bar: number; apex: number; ap: number; cnt: number;
   serif: boolean;
   ctx: PenCtx;
@@ -99,8 +101,9 @@ export function resolve(p: Partial<Params>): Effective {
   e.square = 0.85 * future;
   e.classic = classic;
   e.bounce = playful;
-  e.singleStory = gh < -0.3;
-  e.stressDeg = e.curve * 10 + human * 9 + classic * 7;
+  // italic and script hands use the single-storey a and hold the pen at a steeper angle
+  e.singleStory = gh < -0.3 || e.cursive >= 0.35;
+  e.stressDeg = e.curve * 10 + human * 9 + classic * 7 + e.cursive * 14;
   return e;
 }
 
@@ -124,6 +127,7 @@ function metrics(e: Effective): Metrics {
   };
   const tDir = (dx: number, dy: number) => { const l = Math.hypot(dx, dy) || 1; return autoThickness(dx / l, dy / l, ctx, s, thin); };
   const cnt = (e.counter - 0.5) * 2;
+  const sb = Math.max(14, 64 * (0.65 + 0.35 * ws) - (s - 80) * 0.12 + (e.sideBearing - 0.5) * 130 + (ctx.serif ? ctx.serif.len * 0.3 : 0));
   /* body width: base is drawn for a regular weight at normal width.
      cls: 'r' letters built around a counter, 'c' classically narrow caps, 'n' normal */
   const W = (base: number, cls?: 'r' | 'c') => {
@@ -138,13 +142,13 @@ function metrics(e: Effective): Metrics {
     asc: Math.max(cap * 1.05, xh * 1.18),
     desc: -cap * 0.3,
     os: cap * 0.014,
-    ws, thin, stress, k, org, sq: e.square,
+    ws, thin, stress, k, org, sq: e.square, cur: e.cursive, wob: e.wobble, monoAdv: W(500) + sb * 1.5,
     bar: e.crossbar, apex: e.apex, ap: e.aperture, cnt,
     serif: !!e.serif,
     ctx, tDir, hT: tDir(1, 0), W,
-    sb: Math.max(14, 64 * (0.65 + 0.35 * ws) - (s - 80) * 0.12 + (e.sideBearing - 0.5) * 130 + (ctx.serif ? ctx.serif.len * 0.3 : 0)),
+    sb,
     track: (e.letterSpacing - 0.2) * 260,
-    space: W(210) + (e.wordSpacing - 0.35) * 520,
+    space: lerp(W(210) + (e.wordSpacing - 0.35) * 520, W(500) + sb * 1.5, e.mono),
     slant: Math.tan(e.slant * 20 * Math.PI / 180),
     R: e.roundness * s * 0.5,
     dotRound: Math.max(e.roundness, e.terminal === 'round' ? 1 : 0),
@@ -162,6 +166,8 @@ export class Builder {
   strokes: RawStroke[] = [];
   counters: Pt[][] = [];
   marks: Mark[] = [];
+  /** how far cursive strokes reach past the body on the left (as a negative x) and right */
+  reachL = 0; reachR = 0;
   constructor(public m: Metrics) {}
   path(cmds: Cmd[], o?: StrokeOpts) { this.strokes.push({ cmds, o: o || {} }); return this; }
   line(x0: number, y0: number, x1: number, y1: number, o?: StrokeOpts) { return this.path([['M', x0, y0], ['L', x1, y1]], o); }
@@ -182,6 +188,23 @@ export class Builder {
 
 const hash = (n: number, k: number) => { const v = Math.sin(n * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
 
+/* Hand-drawn irregularity: a smooth displacement field, different for every glyph. Every
+   stroke of a glyph moves through the same field, so strokes that touch keep touching. */
+function wobbler(code: number, m: Metrics) {
+  const A = m.wob * m.xh * 0.085, f = 2 * Math.PI / (m.xh * 1.1);
+  const p = [1, 2, 3, 4, 5, 6].map(k => hash(code, k + 10) * 2 * Math.PI);
+  const dx = (x: number, y: number) => A * (0.5 * Math.sin(x * f * 0.7 + y * f * 0.5 + p[0]) + 0.3 * Math.sin(y * f * 1.3 + p[1]) + 0.2 * Math.sin(y * f * 3.1 + x * f * 0.9 + p[4]));
+  const dy = (x: number, y: number) => A * 0.75 * (0.5 * Math.sin(x * f * 1.1 - y * f * 0.4 + p[2]) + 0.3 * Math.sin(x * f * 0.5 + p[3]) + 0.2 * Math.sin(x * f * 2.9 - y * f * 1.3 + p[5]));
+  const pt = (x: number, y: number): [number, number] => [x + dx(x, y), y + dy(x, y)];
+  const cmds = (c: Cmd[]): Cmd[] => c.map(cmd => {
+    if (cmd[0] === 'Z') return cmd;
+    const o = cmd.slice() as Cmd;
+    for (let i = 1; i + 1 < cmd.length && typeof cmd[i] === 'number'; i += 2) [o[i], o[i + 1]] = pt(cmd[i], cmd[i + 1]);
+    return o;
+  });
+  return { pt, cmds };
+}
+
 function isHorizontal(cmds: Cmd[]) {
   if (cmds.length !== 2 || cmds[1][0] !== 'L') return false;
   return Math.abs(cmds[1][2] - cmds[0][2]) < Math.abs(cmds[1][1] - cmds[0][1]) * 0.2;
@@ -192,6 +215,18 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   if (!def) return null;
   const b = new Builder(m);
   const W = def.fn(b, m);
+  const code = ch.charCodeAt(0);
+  let ctx = m.ctx;
+  if (m.wob > 0) {
+    const wb = wobbler(code, m);
+    for (const st of b.strokes) {
+      if (st.cmds) st.cmds = wb.cmds(st.cmds);
+      if (st.poly) st.poly = st.poly.map(q => { const [x, y] = wb.pt(q.x, q.y); return { ...q, x, y }; });
+    }
+    b.counters = b.counters.map(pts => pts.map(q => { const [x, y] = wb.pt(q.x, q.y); return { x, y }; }));
+    b.marks.forEach(k => { [k.x, k.y] = wb.pt(k.x, k.y); });
+    ctx = { ...ctx, wobble: m.wob, seed: hash(code, 5) * 2 * Math.PI };
+  }
   const out = {
     ch, strokes: [] as GlyphStroke[], serifs: [] as Cmd[][], counters: [] as Cmd[][], marks: b.marks.slice(),
     corners: [] as Pt[], skeleton: [] as Pt[][], meta: def.meta, bodyW: W
@@ -212,7 +247,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     const so = { ...o };
     if (serifS && so.s === 'term') so.s = 'flat';
     if (serifE && so.e === 'term') so.e = 'flat';
-    const ex = expandStroke(st.cmds!, so, m.ctx);
+    const ex = expandStroke(st.cmds!, so, ctx);
     if (!ex) continue;
     const R = m.R * (o.scale || 1);
     if (ex.loop) {
@@ -233,20 +268,35 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     for (const end of ex.ends) {
       const want = end.which === 's' ? serifS : serifE;
       if (want) {
-        const sp = buildSerif(end, (end.which === 's' ? o.serifS : o.serifE) ?? null, m.ctx, o.serifScale);
+        const sp = buildSerif(end, (end.which === 's' ? o.serifS : o.serifE) ?? null, ctx, o.serifScale);
         const c = sp && finish(sp, 1, m.R * 0.5); if (c) out.serifs.push(c);
       } else if (end.type === 'term') out.marks.push({ type: 'terminal', x: end.x, y: end.y, r: end.t * 0.5 });
     }
   }
   b.counters.forEach(pts => { const c = finish(pts, 1, 0); if (c) out.counters.push(c); });
 
-  // place: side bearings, playful bounce, slant
-  const lsb = m.sb * def.sb[0], rsb = m.sb * def.sb[1];
-  const adv = Math.max(10, lsb + W + rsb);
-  let M: Mat = [1, 0, 0, 1, lsb, 0];
-  if (m.p.bounce > 0) {
-    const code = ch.charCodeAt(0), a = (hash(code, 1) - 0.5) * 2 * 0.11 * m.p.bounce, dy = (hash(code, 2) - 0.5) * 2 * 38 * m.p.bounce;
-    const cx = adv / 2, cy = m.xh / 2, c = Math.cos(a), s = Math.sin(a);
+  // place: side bearings, monospacing, playful bounce and hand jitter, slant.
+  // cursive strokes that reach past the body get most of the room they need, so they
+  // touch the neighbouring letter instead of running through it
+  const padL = Math.max(0, -b.reachL - m.sb * 1.3), padR = Math.max(0, b.reachR - W - m.sb * 1.3);
+  let lsb = m.sb * def.sb[0] + padL, rsb = m.sb * def.sb[1] + padR, sx = 1;
+  let adv = Math.max(10, lsb + W + rsb);
+  const mono = m.p.mono;
+  if (mono > 0) {
+    // wide letters are squeezed a little, narrow ones centred in the shared width
+    const T = m.monoAdv;
+    sx = lerp(1, clamp(T * 0.94 / adv, 0.62, 1), mono);
+    adv = lerp(adv, T, mono);
+    lsb = lerp(lsb, (adv - W * sx) / 2, mono);
+    rsb = adv - lsb - W * sx;
+  }
+  let M: Mat = [sx, 0, 0, 1, lsb, 0];
+  const bounce = m.p.bounce, wob = m.wob;
+  if (bounce > 0 || wob > 0) {
+    const a = (hash(code, 1) - 0.5) * 2 * (0.11 * bounce + 0.05 * wob);
+    const dy = (hash(code, 2) - 0.5) * 2 * (38 * bounce + 18 * wob);
+    const k = 1 + (hash(code, 3) - 0.5) * 0.1 * wob;
+    const cx = adv / 2, cy = m.xh / 2, c = Math.cos(a) * k, s = Math.sin(a) * k;
     M = mulM([c, s, -s, c, cx - c * cx + s * cy, cy - s * cx - c * cy + dy], M);
   }
   if (m.slant) M = mulM([1, 0, m.slant, 1, -m.slant * m.xh * 0.4, 0], M);
@@ -263,7 +313,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
 }
 
 /* ---- highlight layers: which part of a glyph does a parameter touch? */
-export const RING_KEYS: Record<string, true> = { terminal: true, aperture: true, apex: true, roundness: true };
+export const RING_KEYS: Record<string, true> = { terminal: true, aperture: true, apex: true, roundness: true, cursive: true };
 
 function highlightD(g: Glyph, key: string, m: Metrics): string {
   const strokes = (f: (s: GlyphStroke) => boolean | undefined) => g.strokes.filter(f).map(s => cmdsToD(s.cmds)).join('');
@@ -277,6 +327,7 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
     case 'terminal': case 'aperture': return ringsD(g.marks.filter(k => k.type === 'terminal'), Math.max(26, m.s * 0.62));
     case 'apex': return ringsD(g.marks.filter(k => k.type === 'apex' || k.type === 'vertex'), Math.max(30, m.s * 0.7));
     case 'roundness': return ringsD(g.corners, Math.max(16, m.s * 0.3));
+    case 'cursive': return ringsD(g.marks.filter(k => k.type === 'exit' || k.type === 'entry'), Math.max(30, m.s * 0.7));
     default: return '';
   }
 }
@@ -289,7 +340,8 @@ export function buildFont(params: Params): Font {
     glyph(ch) {
       let g = cache.get(ch);
       if (g === undefined) {
-        g = buildGlyph(ch === 'a' && e.singleStory ? 'a.alt' : ch, m);
+        const alt = ch === 'a' && e.singleStory ? 'a.alt' : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
+        g = buildGlyph(alt, m);
         if (g) g.ch = ch;
         cache.set(ch, g);
       }
