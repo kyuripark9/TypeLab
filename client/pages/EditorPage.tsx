@@ -8,6 +8,7 @@ import { isTyping } from '../lib/hooks';
 import { actions, isDirty, useEditor, type PreviewMode } from '../state/editor';
 import { GlyphStrip, Nav, Toast } from '../components/Chrome';
 import { GlyphDefs } from '../components/GlyphDefs';
+import { Guide, guideSeen } from '../components/Guide';
 import { Header } from '../components/Header';
 import { Panel } from '../components/Panel';
 import { Stage } from '../components/Stage';
@@ -19,6 +20,8 @@ export function EditorPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status>('ready');
   const [loadError, setLoadError] = useState('');
+  // first visit gets the tour, unless it arrived on a deep link
+  const [guide, setGuide] = useState(() => !guideSeen() && !window.location.search);
 
   // load the design named in the URL (or start fresh on /)
   useEffect(() => {
@@ -60,7 +63,7 @@ export function EditorPage() {
 
   return (
     <div className="editor">
-      <Header onSave={save} />
+      <Header onSave={save} onGuide={() => setGuide(true)} />
       <Nav />
       <Stage />
       <Panel />
@@ -68,6 +71,7 @@ export function EditorPage() {
       <GlyphDefs />
       <Toast />
       {status === 'loading' && <div className="loading" role="status">Opening design…</div>}
+      {guide && status === 'ready' && <Guide onClose={() => setGuide(false)} />}
     </div>
   );
 }

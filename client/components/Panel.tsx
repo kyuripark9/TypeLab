@@ -12,7 +12,7 @@ import { Diagram, SerifIcon, TerminalIcon } from './Diagram';
 export function Panel() {
   const category = useEditor(s => s.category);
   return (
-    <aside className="panel" aria-label="Controls" onPointerLeave={() => actions.setHot(false)}>
+    <aside className="panel" aria-label="Controls" data-guide="panel" onPointerLeave={() => actions.setHot(false)}>
       {category === 'style' ? <StylePanel /> : <ControlsPanel category={category} />}
     </aside>
   );

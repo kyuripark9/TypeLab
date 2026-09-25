@@ -231,6 +231,19 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .toast { position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 8px); background: var(--sabi); color: #fff; padding: 9px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500; box-shadow: var(--shadow); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; z-index: 40; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---------- guide */
+.guide { position: fixed; inset: 0; z-index: 50; }
+.guide-dim, .guide-spot { position: fixed; pointer-events: none; }
+.guide-dim { inset: 0; background: rgba(46, 59, 62, .45); animation: fade .2s ease; }
+.guide-spot { border-radius: var(--radius-l); box-shadow: 0 0 0 100vmax rgba(46, 59, 62, .45); transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease; }
+.guide-card { position: fixed; width: 300px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); box-shadow: var(--shadow); padding: 18px 18px 14px; transition: left .25s ease, top .25s ease; }
+.guide-card h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.guide-card p { margin: 0; color: var(--ink-2); font-size: 13px; }
+.guide-step { font-size: 12px; font-weight: 500; color: var(--accent-ink); margin-bottom: 6px; }
+.guide-foot { display: flex; align-items: center; gap: 4px; margin-top: 16px; }
+.guide-foot .btn.ghost { color: var(--ink-3); }
+.guide-grow { flex: 1; }
+
 @media (max-width: 1280px) { .editor { grid-template-columns: 184px minmax(0, 1fr) 328px; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 

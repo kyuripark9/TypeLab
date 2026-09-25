@@ -13,7 +13,7 @@ export function Stage() {
   return (
     <main className="stage">
       <StageBar />
-      <div className="stage-scroll" ref={scrollRef}>
+      <div className="stage-scroll" ref={scrollRef} data-guide="stage">
         {category === 'style' && <StyleCards />}
         {mode === 'custom' && <CustomText />}
         <Preview width={Math.max(200, size.width - 96)} />

@@ -11,7 +11,7 @@ export function Brand({ to }: { to?: string }) {
   return to ? <Link to={to} className="brand" title="Back to the editor">{inner}</Link> : <div className="brand">{inner}</div>;
 }
 
-export function Header({ onSave }: { onSave: () => void }) {
+export function Header({ onSave, onGuide }: { onSave: () => void; onGuide: () => void }) {
   const name = useEditor(s => s.name), dirty = useEditor(isDirty), saving = useEditor(s => s.saving);
   const canUndo = useEditor(s => s.hi > 0), canRedo = useEditor(s => s.hi < s.history.length - 1);
   return (
@@ -24,7 +24,7 @@ export function Header({ onSave }: { onSave: () => void }) {
           onBlur={() => actions.setName(cleanName(name))}
           onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }} />
       </div>
-      <div className="top-actions">
+      <div className="top-actions" data-guide="actions">
         <button className="btn ghost icon" onClick={() => actions.travel(-1)} disabled={!canUndo} title="Undo (⌘Z)">
           <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7.5 4 3.5 8l4 4M4 8h7.5a4.5 4.5 0 0 1 0 9H9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
           <span>Undo</span>
@@ -34,6 +34,7 @@ export function Header({ onSave }: { onSave: () => void }) {
           <span>Redo</span>
         </button>
         <span className="sep" />
+        <button className="btn ghost" onClick={onGuide}>Guide</button>
         <Link className="btn ghost" to="/designs">My designs</Link>
         <button className="btn ghost" onClick={onSave} disabled={saving} title="Save (⌘S)">
           {saving ? 'Saving…' : 'Save'}<i className={dirty ? 'dirty on' : 'dirty'} aria-label={dirty ? 'Unsaved changes' : undefined} />
