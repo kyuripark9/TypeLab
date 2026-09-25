@@ -279,7 +279,7 @@ export const PART_CONTROL: Partial<Record<string, ControlKey>> = {
 };
 
 export const TEXTS = {
-  sentence: 'The quick brown fox jumps over the lazy dog.',
+  sentence: 'If you can design one thing, you can design everything.',
   alphabet: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n0123456789',
   punct: '.,!?;:\'"()-/&@#$%+',
   paragraph: 'Type is the voice of written words. Every letter is a small drawing, and a typeface is hundreds of drawings that agree with each other: the same stroke, the same curve, the same rhythm repeated until a texture appears. Change one decision (how heavy, how round, how open) and the whole voice changes with it.\n\nSphinx of black quartz, judge my vow! Pack my box with five dozen liquor jugs & 1,234 more @ $5.67 (+89%).'
