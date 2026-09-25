@@ -5,7 +5,7 @@ import { CATEGORIES, CONTROLS, SERIF_SUBS, type ActiveKey, type CategoryId } fro
 import { cleanName } from '../../shared/design';
 import { ApiError, api, errorMessage } from '../lib/api';
 import { isTyping } from '../lib/hooks';
-import { actions, isDirty, useEditor, type PreviewMode } from '../state/editor';
+import { actions, isDirty, useEditor } from '../state/editor';
 import { GlyphStrip, Nav, Toast } from '../components/Chrome';
 import { GlyphDefs } from '../components/GlyphDefs';
 import { Guide, guideSeen } from '../components/Guide';
@@ -45,7 +45,7 @@ export function EditorPage() {
   useLeaveGuard();
   useDeepLinks();
 
-  const name = useEditor(s => s.name);
+  const name = useEditor(s => s.name), category = useEditor(s => s.category);
   useEffect(() => { document.title = `${cleanName(name)} — TypeLab`; }, [name]);
 
   if (status === 'missing' || status === 'error') {
@@ -67,7 +67,7 @@ export function EditorPage() {
       <Nav />
       <Stage />
       <Panel />
-      <GlyphStrip />
+      {category !== 'style' && <GlyphStrip />}
       <GlyphDefs />
       <Toast />
       {status === 'loading' && <div className="loading" role="status">Opening design…</div>}
@@ -145,13 +145,13 @@ function useLeaveGuard() {
   }, [blocker]);
 }
 
-/** ?style=serif&cat=shape&active=serif&inspect=R&mode=paragraph&hot=1 — handy for demos. */
+/** ?style=serif&cat=shape&active=serif&inspect=R&text=Hello&hot=1 — handy for demos. */
 function useDeepLinks() {
   const [q] = useSearchParams();
   useEffect(() => {
-    const style = q.get('style'), mode = q.get('mode'), cat = q.get('cat'), active = q.get('active'), inspect = q.get('inspect');
+    const style = q.get('style'), text = q.get('text'), cat = q.get('cat'), active = q.get('active'), inspect = q.get('inspect');
     if (style) actions.loadStyle(style);
-    if (mode && ['sentence', 'alphabet', 'paragraph', 'custom'].includes(mode)) actions.setMode(mode as PreviewMode);
+    if (text) actions.setCustom(text);
     if (cat && CATEGORIES.some(c => c.id === cat)) {
       const a = active && (active in CONTROLS || active in SERIF_SUBS) ? active as ActiveKey : undefined;
       actions.setCategory(cat as CategoryId, a);

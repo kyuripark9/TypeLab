@@ -1,19 +1,15 @@
 import { useMemo } from 'react';
 import { TEXTS } from '../../shared/content';
-import { useEditor, type PreviewMode } from '../state/editor';
+import { useEditor } from '../state/editor';
 
 export interface Block { text: string; size: number; sub?: boolean }
 
-export function blocksFor(mode: PreviewMode, custom: string, size: number): Block[] {
-  if (mode === 'sentence') return [{ text: TEXTS.sentence, size }, { text: TEXTS.alphabet, size: Math.max(18, size * 0.42), sub: true }];
-  if (mode === 'alphabet') return [{ text: TEXTS.alphabet + '\n' + TEXTS.punct, size }];
-  if (mode === 'paragraph') return [{ text: TEXTS.paragraph, size }];
-  return [{ text: custom || ' ', size }];
-}
+/** What to set: the typed text, or the default sentence while the field is empty. */
+export const sampleText = (custom: string) => custom.trim() ? custom : TEXTS.sentence;
 
 export function useBlocks() {
-  const mode = useEditor(s => s.mode), custom = useEditor(s => s.custom), size = useEditor(s => s.sizes[s.mode]);
-  return useMemo(() => blocksFor(mode, custom, size), [mode, custom, size]);
+  const custom = useEditor(s => s.custom), size = useEditor(s => s.size);
+  return useMemo((): Block[] => [{ text: sampleText(custom), size }], [custom, size]);
 }
 
 /** Characters on screen right now: these get rebuilt first while a slider moves. */

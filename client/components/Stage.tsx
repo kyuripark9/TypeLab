@@ -1,36 +1,31 @@
-import { useState } from 'react';
-import { FEELINGS, STYLE_GROUPS, STYLES, type Feeling, type StyleDef, type StyleGroup } from '../../shared/content';
+import { STYLE_GROUPS, STYLES, type StyleDef } from '../../shared/content';
 import { n1, useSize } from '../lib/hooks';
-import { actions, fontFor, useEditor, type PreviewMode } from '../state/editor';
+import { sampleText } from '../lib/preview';
+import { actions, fontFor, useEditor } from '../state/editor';
 import { Inspector } from './Inspector';
 import { Preview } from './Preview';
 
-const MODES: [PreviewMode, string][] = [['sentence', 'Sentence'], ['alphabet', 'Alphabet'], ['paragraph', 'Paragraph'], ['custom', 'Custom']];
-
+/* Like Google Fonts: one "Type something" bar on top sets the sample text and size, both for the
+   style cards and for the live preview of the design. */
 export function Stage() {
-  const category = useEditor(s => s.category), mode = useEditor(s => s.mode);
-  const [scrollRef, size] = useSize<HTMLDivElement>();
+  const style = useEditor(s => s.category === 'style');
   return (
     <main className="stage">
-      <StageBar />
-      <div className="stage-scroll" ref={scrollRef} data-guide="stage">
-        {category === 'style' && <StyleCards />}
-        {mode === 'custom' && <CustomText />}
-        <Preview width={Math.max(200, size.width - 96)} />
-      </div>
+      <PreviewBar />
+      {style ? <div className="stage-scroll" data-guide="stage"><StyleCards /></div> : <SampleText />}
       <Inspector />
     </main>
   );
 }
 
-function StageBar() {
-  const mode = useEditor(s => s.mode), size = useEditor(s => s.sizes[s.mode]);
+function PreviewBar() {
+  const custom = useEditor(s => s.custom), size = useEditor(s => s.size);
   return (
     <div className="stage-bar">
-      <div className="tabs" role="tablist" aria-label="Preview text">
-        {MODES.map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={id === mode} className={id === mode ? 'tab on' : 'tab'} onClick={() => actions.setMode(id)}>{label}</button>
-        ))}
+      <div className="type-field">
+        <input type="text" spellCheck={false} placeholder="Type something" aria-label="Preview text"
+          value={custom} onChange={e => actions.setCustom(e.target.value)} />
+        {custom && <button className="type-clear" aria-label="Clear preview text" onClick={() => actions.setCustom('')}>✕</button>}
       </div>
       <label className="size">
         <span>Size</span>
@@ -41,65 +36,57 @@ function StageBar() {
   );
 }
 
-function CustomText() {
-  const custom = useEditor(s => s.custom);
+/** The live preview, laid out to the scroll box's width minus its side padding. */
+function SampleText() {
+  const [scrollRef, size] = useSize<HTMLDivElement>();
   return (
-    <div className="custom-wrap">
-      <textarea rows={2} spellCheck={false} placeholder="Type anything…" aria-label="Custom preview text" autoFocus
-        value={custom} onChange={e => actions.setCustom(e.target.value)} />
+    <div className="stage-scroll" ref={scrollRef} data-guide="stage">
+      <Preview width={Math.max(200, size.width - 96)} />
     </div>
   );
 }
 
-/* Filters work like the ones on Google Fonts: one classification plus an optional feeling. */
+/** Cards are grouped by type (Sans Serif > Geometric, …). */
 function StyleCards() {
-  const current = useEditor(s => s.styleId);
-  const [group, setGroup] = useState<StyleGroup | 'all'>('all');
-  const [feel, setFeel] = useState<Feeling | null>(null);
-  const inGroup = (s: StyleDef, g: StyleGroup | 'all') => g === 'all' || s.group === g;
-  const hasFeel = (s: StyleDef, f: Feeling | null) => !f || s.feel.includes(f);
-  const shown = STYLES.filter(s => inGroup(s, group) && hasFeel(s, feel));
+  const text = sampleText(useEditor(s => s.custom)), size = useEditor(s => s.size);
   return (
     <div className="style-cards">
       <div className="cards-head">
         <h1>Start with a style</h1>
       </div>
-      <div className="style-filter">
-        <span className="filter-label" id="f-class">Classification</span>
-        <div className="chips" role="group" aria-labelledby="f-class">
-          {([['all', 'All'], ...STYLE_GROUPS] as [StyleGroup | 'all', string][]).map(([id, label]) => (
-            <button key={id} className={id === group ? 'chip on' : 'chip'} aria-pressed={id === group} onClick={() => setGroup(id)}>
-              {label}<span className="count">{STYLES.filter(s => inGroup(s, id) && hasFeel(s, feel)).length}</span>
-            </button>
-          ))}
-        </div>
-        <span className="filter-label" id="f-feel">Feeling</span>
-        <div className="chips" role="group" aria-labelledby="f-feel">
-          {FEELINGS.map(([id, label]) => {
-            const n = STYLES.filter(s => inGroup(s, group) && hasFeel(s, id)).length;
-            return (
-              <button key={id} className={id === feel ? 'chip on' : 'chip'} aria-pressed={id === feel} disabled={!n && id !== feel}
-                onClick={() => setFeel(id === feel ? null : id)}>{label}</button>
-            );
-          })}
-        </div>
-      </div>
-      <div className="cards">
-        {shown.map(s => {
-          const f = fontFor(s.params), ln = f.layout('Aa', Infinity)[0], vw = Math.max(1500, ln.width + 160), pad = (vw - ln.width) / 2;
-          return (
-            <button key={s.id} className={s.id === current ? 'card on' : 'card'} onClick={() => actions.loadStyle(s.id)}>
-              <svg viewBox={`${n1(-pad)} -900 ${n1(vw)} 1150`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                {ln.items.map((it, i) => <path key={i} d={f.glyph(it.ch)!.d} transform={`translate(${n1(it.x)},0)`} />)}
-              </svg>
-              <span className="card-name">{s.name}</span>
-            </button>
-          );
-        })}
-        {!shown.length && (
-          <p className="cards-empty">No styles match. <button className="link" onClick={() => { setGroup('all'); setFeel(null); }}>Clear filters</button></p>
-        )}
+      <div className="style-groups">
+        {STYLE_GROUPS.map(g => (
+          <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
+            <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
+            <div className="cards">
+              {STYLES.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} text={text} size={size} />)}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
+  );
+}
+
+/** Each card shows the sample text set in that style, wrapped to the card's width. */
+function StyleCard({ style: s, text, size }: { style: StyleDef; text: string; size: number }) {
+  const on = useEditor(st => st.styleId === s.id);
+  const [ref, box] = useSize<HTMLButtonElement>();
+  const f = fontFor(s.params), sc = size / 1000, width = Math.max(1, box.width - 36);
+  const top = Math.max(f.m.asc, f.m.cap) + 30, LH = top - f.m.desc + 40;
+  const lines = box.width ? f.layout(text, width / sc) : [];
+  const H = n1(lines.length * LH * sc);
+  return (
+    <button ref={ref} className={on ? 'card on' : 'card'} title={s.desc} onClick={() => actions.loadStyle(s.id)}>
+      <span className="card-name">{s.name}</span>
+      <svg width={n1(width)} height={H} viewBox={`0 0 ${n1(width)} ${H}`} aria-hidden="true">
+        <g transform={`scale(${sc})`}>
+          {lines.map((ln, i) => ln.items.map((it, j) => {
+            const g = f.glyph(it.ch);
+            return g && <path key={`${i}-${j}`} d={g.d} transform={`translate(${n1(it.x)},${n1(top + i * LH)})`} />;
+          }))}
+        </g>
+      </svg>
+    </button>
   );
 }

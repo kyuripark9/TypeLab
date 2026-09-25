@@ -1,18 +1,20 @@
 /* Right-hand panel: the starting-style summary, or the controls of the open category with a
-   live explainer. Every control leads with plain language; the typographic term comes second. */
+   live explainer. While a letter is inspected, the sliders are grouped by the parts of that
+   letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
 import {
-  CONTROLS, SERIF_SHAPE_OPTIONS, SERIF_SUBS, TERMINAL_OPTIONS, controlFor, styleById,
+  ANATOMY, CATEGORIES, CONTROLS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, TERMINAL_OPTIONS, controlFor, groupLabel, moodLabels, styleById,
   type ActiveKey, type CategoryId, type ControlKey, type SerifSubKey
 } from '../../shared/content';
 import type { NumericParam } from '../../shared/params';
 import { actions, useEditor, useFont } from '../state/editor';
 import { Diagram, SerifIcon, TerminalIcon } from './Diagram';
+import { letterControls } from './Inspector';
 
 export function Panel() {
   const category = useEditor(s => s.category);
   return (
-    <aside className="panel" aria-label="Controls" data-guide="panel" onPointerLeave={() => actions.setHot(false)}>
+    <aside className="panel" aria-label="Controls" data-guide="panel" onPointerLeave={() => { actions.setHot(false); actions.setPart(null); }}>
       {category === 'style' ? <StylePanel /> : <ControlsPanel category={category} />}
     </aside>
   );
@@ -23,9 +25,10 @@ function StylePanel() {
   if (!style) return null;
   return (
     <div className="panel-pad">
-      <div className="eyebrow">Current style</div>
+      <div className="eyebrow">{groupLabel(style.group)}</div>
       <h2 className="panel-title">{style.name}</h2>
       <p className="panel-text">{style.desc}</p>
+      <p className="panel-like"><span>Mood</span>{moodLabels(style.moods)}</p>
       <p className="panel-like"><span>Similar to</span>{style.like}</p>
       <button className="btn wide" onClick={() => actions.loadStyle(style.id)}>Reset to {style.name} defaults</button>
     </div>
@@ -34,32 +37,83 @@ function StylePanel() {
 
 function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
   const keys = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category);
+  const inspecting = useEditor(s => !!s.inspect);
   return (
     <>
       <Explainer />
-      <div className="ctl-list">
-        {keys.map(k => {
-          const c = CONTROLS[k];
-          if (c.type === 'options') return <TerminalControl key={k} />;
-          if (c.type === 'serif') return <SerifControl key={k} />;
-          return <SliderControl key={k} k={k as NumericParam} def={c} />;
-        })}
-      </div>
+      {inspecting ? <LetterControls keys={keys} category={category} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}</div>}
     </>
   );
 }
 
-function Explainer() {
-  const active = useEditor(s => s.active), font = useFont();
-  const c = CONTROLS[controlFor(active)], sub = SERIF_SUBS[active as SerifSubKey];
+/** The inspected letter's sliders, named by the parts they shape, then the rest of the category. */
+function LetterControls({ keys, category }: { keys: ControlKey[]; category: Exclude<CategoryId, 'style'> }) {
+  const ch = useEditor(s => s.inspect)!, serif = useEditor(s => s.params.serif), font = useFont();
+  const g = font.glyph(ch);
+  const rows = g ? letterControls(g, ch, serif) : [];
+  const rest = keys.filter(k => !rows.some(r => r.key === k));
   return (
-    <div className="explainer">
-      <div className="diagram-box"><Diagram font={font} k={active} /></div>
-      <div className="ex-text">
-        <div className="ex-tech">{(sub ?? c).tech}</div>
-        <h3>{(sub ?? c).friendly}</h3>
-        <p>{c.explain}</p>
+    <div className="ctl-list">
+      <div className="list-head">Parts of {ch}</div>
+      {rows.map(r => <Control key={r.key} k={r.key} parts={r.parts} />)}
+      {rest.length > 0 && <div className="list-head">More {CATEGORIES.find(c => c.id === category)?.label.toLowerCase()}</div>}
+      {rest.map(k => <Control key={k} k={k} />)}
+    </div>
+  );
+}
+
+function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
+  const c = CONTROLS[k];
+  if (c.type === 'options') return <TerminalControl parts={parts} />;
+  if (c.type === 'serif') return <SerifControl parts={parts} />;
+  return <SliderControl k={k as NumericParam} def={c} parts={parts} />;
+}
+
+/** A control's title. Named by letter parts, the parts lead and each one can be pointed at. */
+function CtlHead({ friendly, tech, parts, advanced }: { friendly: string; tech: string; parts?: string[]; advanced?: boolean }) {
+  const part = useEditor(s => s.part);
+  if (!parts?.length) {
+    return (
+      <div className="ctl-head">
+        <span className="ctl-friendly">{friendly}</span>
+        <span className="ctl-tech">{tech}{advanced && <em>Advanced</em>}</span>
       </div>
+    );
+  }
+  return (
+    <div className="ctl-head">
+      <span className="ctl-parts">
+        {parts.map(p => (
+          <span key={p} className={p === part ? 'part on' : 'part'}
+            onPointerEnter={() => actions.setPart(p)} onPointerLeave={() => actions.setPart(null)}>{ANATOMY[p][0]}</span>
+        ))}
+      </span>
+      <span className="ctl-tech">{friendly}</span>
+    </div>
+  );
+}
+function Explainer() {
+  const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
+  const part = useEditor(s => s.inspect ? s.part : null);
+  const c = CONTROLS[controlFor(active)], sub = SERIF_SUBS[active as SerifSubKey];
+  const shapedBy = part && PART_CONTROL[part];
+  // while inspecting, the large letter on the stage already shows the part, so drop the diagram
+  return (
+    <div className={inspecting ? 'explainer compact' : 'explainer'}>
+      {!inspecting && <div className="diagram-box"><Diagram font={font} k={active} /></div>}
+      {part ? (
+        <div className="ex-text">
+          <div className="ex-tech">Anatomy{shapedBy && ` · shaped by ${CONTROLS[shapedBy].tech.split(' · ')[0]}`}</div>
+          <h3>{ANATOMY[part][0]}</h3>
+          <p>{ANATOMY[part][1]}</p>
+        </div>
+      ) : (
+        <div className="ex-text">
+          <div className="ex-tech">{(sub ?? c).tech}</div>
+          <h3>{(sub ?? c).friendly}</h3>
+          <p>{c.explain}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -76,15 +130,12 @@ function useControlFocus(key: ActiveKey) {
 
 interface SliderDef { friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; advanced?: boolean }
 
-function SliderControl({ k, def }: { k: NumericParam; def: SliderDef }) {
+function SliderControl({ k, def, parts }: { k: NumericParam; def: SliderDef; parts?: string[] }) {
   const value = useEditor(s => s.params[k]), active = useEditor(s => s.active === k);
   const cls = ['ctl', def.bipolar && 'bipolar', active && 'active'].filter(Boolean).join(' ');
   return (
-    <div className={cls} {...useControlFocus(k)}>
-      <div className="ctl-head">
-        <span className="ctl-friendly">{def.friendly}</span>
-        <span className="ctl-tech">{def.tech}{def.advanced && <em>Advanced</em>}</span>
-      </div>
+    <div className={cls} data-ctl={k} {...useControlFocus(k)}>
+      <CtlHead friendly={def.friendly} tech={def.tech} parts={parts} advanced={def.advanced} />
       <Range
         value={value}
         label={def.tech}
@@ -119,12 +170,12 @@ function Range({ value, label, onInput, onCommit, onReset }: { value: number; la
   );
 }
 
-function TerminalControl() {
+function TerminalControl({ parts }: { parts?: string[] }) {
   const terminal = useEditor(s => s.params.terminal), active = useEditor(s => s.active === 'terminal');
   const c = CONTROLS.terminal;
   return (
-    <div className={active ? 'ctl active' : 'ctl'} {...useControlFocus('terminal')}>
-      <div className="ctl-head"><span className="ctl-friendly">{c.friendly}</span><span className="ctl-tech">{c.tech}</span></div>
+    <div className={active ? 'ctl active' : 'ctl'} data-ctl="terminal" {...useControlFocus('terminal')}>
+      <CtlHead friendly={c.friendly} tech={c.tech} parts={parts} />
       <div className="opts six" role="radiogroup" aria-label={c.tech}>
         {TERMINAL_OPTIONS.map(([id, label]) => (
           <button key={id} role="radio" aria-checked={terminal === id} className={terminal === id ? 'opt on' : 'opt'}
@@ -137,13 +188,13 @@ function TerminalControl() {
   );
 }
 
-function SerifControl() {
+function SerifControl({ parts }: { parts?: string[] }) {
   const p = useEditor(s => s.params), active = useEditor(s => controlFor(s.active) === 'serif');
   const c = CONTROLS.serif;
   return (
-    <div className={active ? 'ctl active' : 'ctl'} {...useControlFocus('serif')}>
+    <div className={active ? 'ctl active' : 'ctl'} data-ctl="serif" {...useControlFocus('serif')}>
       <div className="ctl-row">
-        <div className="ctl-head"><span className="ctl-friendly">{c.friendly}</span><span className="ctl-tech">{c.tech}</span></div>
+        <CtlHead friendly={c.friendly} tech={c.tech} parts={parts} />
         <button className={p.serif ? 'switch on' : 'switch'} role="switch" aria-checked={p.serif} aria-label="Serifs"
           onClick={() => actions.setOption('serif', !p.serif)}><i /></button>
       </div>

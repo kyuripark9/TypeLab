@@ -1,12 +1,10 @@
 /* Editor state. One store for the open design (with undo history) and the UI around it.
    Actions live outside the store so components can import them without subscribing. */
 import { create } from 'zustand';
-import { CONTROLS, SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey } from '../../shared/content';
+import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey } from '../../shared/content';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
 import type { Params } from '../../shared/params';
-
-export type PreviewMode = 'sentence' | 'alphabet' | 'paragraph' | 'custom';
 
 interface Doc { designId: string | null; name: string; styleId: string; params: Params }
 
@@ -21,9 +19,9 @@ export interface EditorState extends Doc {
   active: ActiveKey;
   /** true while the pointer is over the controls: highlight affected glyph parts */
   hot: boolean;
-  mode: PreviewMode;
+  /** the preview text; empty shows the default sentence */
   custom: string;
-  sizes: Record<PreviewMode, number>;
+  size: number;
   inspect: string | null;
   part: string | null;
   skeleton: boolean;
@@ -56,9 +54,8 @@ export const useEditor = create<EditorState>()(() => ({
   category: 'style',
   active: 'weight',
   hot: false,
-  mode: 'sentence',
-  custom: 'Hamburgefonstiv 123',
-  sizes: { sentence: 76, alphabet: 62, paragraph: 30, custom: 96 },
+  custom: '',
+  size: 48,
   inspect: null,
   part: null,
   skeleton: false,
@@ -151,9 +148,8 @@ export const actions = {
   setHot(hot: boolean) { if (get().hot !== hot) set({ hot }); },
   /** Point at a control: make it active and show what it changes. */
   focusControl(key: ActiveKey) { set({ active: key, hot: true }); },
-  setMode(mode: PreviewMode) { set({ mode }); },
   setCustom(custom: string) { set({ custom }); },
-  setSize(size: number) { set(s => ({ sizes: { ...s.sizes, [s.mode]: size } })); },
+  setSize(size: number) { set({ size }); },
   openInspector(ch: string) {
     if (!fontFor(get().params).glyph(ch)) return;
     const s = get();
@@ -163,12 +159,6 @@ export const actions = {
   stepInspector(d: number) {
     const i = ALL_CHARS.indexOf(get().inspect ?? 'A');
     actions.openInspector(ALL_CHARS[(i + d + ALL_CHARS.length) % ALL_CHARS.length]);
-  },
-  /** Jump to a property from the inspector's chips. */
-  pickProperty(key: ControlKey) {
-    const cat = CONTROLS[key].cat;
-    set({ part: null });
-    if (cat !== get().category) actions.setCategory(cat, key); else actions.setActive(key);
   },
   setPart(part: string | null) { if (get().part !== part) set({ part }); },
   setSkeleton(skeleton: boolean) { set({ skeleton }); },
