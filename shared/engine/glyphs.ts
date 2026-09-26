@@ -7,7 +7,7 @@
    Path commands: ['M',x,y] ['L',x,y,{w}] ['C',x1,y1,x2,y2,x,y,{w}] ['hv'|'vh',x,y,{u0,u1,w}] ['Z']
    Stroke ends (s = start, e = end): 'flat' | 'term' (styled terminal) | 'h'/'v' (axis cut) | 'join' */
 import { defGlyph as def, type Builder, type Metrics } from './font';
-import { lerp } from './geom';
+import { clamp, lerp } from './geom';
 import type { Cmd, StrokeOpts } from './types';
 
 const J = 'join', T = 'term', H = 'h';
@@ -45,12 +45,24 @@ function capBowl(g: Builder, m: Metrics, x0: number, yT: number, yB: number, R: 
   g.path([['M', x0, yT], ['L', xa, yT], ['hv', R, cy], ['vh', xa, yB], ['L', x0, yB]], { s: J, e: J, part: 'bowl', counter: true });
 }
 
-/* bowl branching out of a stem (b d p q a g) */
+/** How far the overlap setting pushes a bowl off its stem: none from half overlap up, and below
+    that up to the point where the o's side only just touches the stem. */
+const bowlGap = (m: Metrics) => m.s * 0.9 * clamp(1 - m.p.overlap * 2);
+
+/* bowl beside a stem (b d p q a g). Fully overlapped it branches out of the stem; toward half
+   overlap its inner side rounds out into a whole o standing on the stem, and below half that o
+   slides off the stem. Callers leave bowlGap(m) of extra room between xStem and xFar. */
 function branchBowl(g: Builder, m: Metrics, xStem: number, xFar: number, yT: number, yB: number, o?: StrokeOpts) {
-  const jh = (yT - yB) * 0.36, dir = Math.sign(xFar - xStem);
-  const cx = (xStem + xFar) / 2 + dir * m.s * 0.14, cy = (yT + yB) / 2;
+  const dir = Math.sign(xFar - xStem), cy = (yT + yB) / 2, xn = xStem + dir * bowlGap(m);
+  const f = clamp(m.p.overlap * 2 - 1), cx = (xn + xFar) / 2 + dir * m.s * 0.14 * f;
+  g.mark('overlap', xn, cy);
+  if (f === 0) {
+    g.path([['M', cx, yT], ['hv', xFar, cy], ['vh', cx, yB], ['hv', xn, cy], ['vh', cx, yT], ['Z']], { part: 'bowl', ...o });
+    return;
+  }
+  const jh = (yT - yB) * lerp(0.5, 0.36, f), w = lerp(1, 0.6, f);
   g.path([['M', xStem, yT - jh], ['vh', cx, yT], ['hv', xFar, cy], ['vh', cx, yB], ['hv', xStem, yB + jh]],
-    { s: J, e: J, ws: 0.6, we: 0.6, part: 'bowl', counter: true, ...o });
+    { s: J, e: J, ws: w, we: w, part: 'bowl', counter: true, ...o });
 }
 
 function oval(g: Builder, _m: Metrics, xl: number, xr: number, yb: number, yt: number, o?: StrokeOpts) {
@@ -348,14 +360,14 @@ def('a', [0.6, 0.9], (g, m) => {
 }, { params: ['story', 'aperture', 'counter', 'terminal', 'xHeight'] });
 
 def('a.alt', [0.55, 1], (g, m) => {
-  const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r');
+  const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r') + bowlGap(m);
   footStem(g, m, W - hs, X, { serifS: 'b' });
   branchBowl(g, m, W - hs, hs, yt, yb);
   return W;
-}, { params: ['story', 'counter', 'curve', 'xHeight', 'weight'] });
+}, { params: ['story', 'overlap', 'counter', 'curve', 'xHeight', 'weight'] });
 
 def('b', [1, 0.55], (g, m) => {
-  const { hs, yt, yb } = lc(m), W = m.W(480, 'r');
+  const { hs, yt, yb } = lc(m), W = m.W(480, 'r') + bowlGap(m);
   g.stem(hs, 0, m.asc, { serifE: 'a' }); branchBowl(g, m, hs, W - hs, yt, yb); return W;
 });
 def('c', [0.55, 0.35], (g, m) => {
@@ -363,7 +375,7 @@ def('c', [0.55, 0.35], (g, m) => {
   openBowl(g, m, hs, W - hs, yb, yt, u, 1 - u); return W * (0.96 - 0.12 * m.ap);
 }, { params: ['aperture', 'terminal', 'curve', 'xHeight'] });
 def('d', [0.55, 1], (g, m) => {
-  const { hs, yt, yb } = lc(m), W = m.W(480, 'r');
+  const { hs, yt, yb } = lc(m), W = m.W(480, 'r') + bowlGap(m);
   footStem(g, m, W - hs, m.asc, { serifE: 'a', serifS: 'b' }); branchBowl(g, m, W - hs, hs, yt, yb); return W;
 });
 def('e', [0.55, 0.5], (g, m) => {
@@ -398,7 +410,7 @@ def('f.cur', [0.2, 0.1], (g, m) => {
   return W;
 });
 def('g', [0.55, 1], (g, m) => {
-  const { hs, yt, yb } = lc(m), W = m.W(480, 'r'), xr = W - hs;
+  const { hs, yt, yb } = lc(m), W = m.W(480, 'r') + bowlGap(m), xr = W - hs;
   descender(g, m, xr, hs, W);
   branchBowl(g, m, xr, hs, yt, yb);
   return W;
@@ -458,12 +470,12 @@ def('n', [1, 1], (g, m) => {
 def('o', [0.55, 0.55], (g, m) => { const { hs, yt, yb } = lc(m), W = m.W(490, 'r'); oval(g, m, hs, W - hs, yb, yt); return W; },
   { params: ['counter', 'curve', 'xHeight', 'contrast'] });
 def('p', [1, 0.55], (g, m) => {
-  const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r');
+  const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r') + bowlGap(m);
   const en = entry(g, m, hs, X);
   g.stem(hs, m.desc, X, { serifS: 'both', serifE: en ? null : 'a' }); branchBowl(g, m, hs, W - hs, yt, yb); return W;
 });
 def('q', [0.55, 1], (g, m) => {
-  const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r');
+  const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r') + bowlGap(m);
   g.stem(W - hs, m.desc, X, { serifS: 'both' }); branchBowl(g, m, W - hs, hs, yt, yb); return W;
 });
 def('r', [1, 0.15], (g, m) => {

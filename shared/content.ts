@@ -6,7 +6,7 @@ import { DEFAULTS, type Fill, type Params, type SerifShape, type Story, type Ter
 export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality' | 'effects';
 export type ControlKey =
   | 'weight' | 'width' | 'height' | 'slant' | 'contrast' | 'reverse'
-  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'serif' | 'apex' | 'joints' | 'cursive' | 'wobble'
+  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'overlap' | 'serif' | 'apex' | 'joints' | 'cursive' | 'wobble'
   | 'xHeight' | 'extenders' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
   | 'geoHuman' | 'softSharp' | 'classicFuture' | 'playfulFormal'
@@ -279,6 +279,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'A terminal is the end of a stroke that doesn’t meet another stroke — the tips of C, a, s, e or r.' },
   story: { cat: 'shape', type: 'story', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
     explain: 'A double-storey a stacks a small bowl under a hook, as in most book and sans type. A single-storey a is just a bowl and a stem, like handwriting, italics and geometric faces. Until you pick one, the personality and cursive settings choose.' },
+  overlap: { cat: 'shape', friendly: 'Let the bowl sink into the stem or stand apart', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
+    explain: 'Letters like b, d, p, q and the single-storey a are a bowl and a stem, an o and an l. Merged, the bowl grows out of the stem. Halfway, it is a whole o standing on the stem; below that the o slides off until the two only touch.' },
   serif: { cat: 'shape', type: 'serif', friendly: 'Add small feet to the strokes', tech: 'Serifs', demo: 'In',
     explain: 'Serifs are the small finishing strokes at the ends of stems. They guide the eye along a line of text and set a classical tone.' },
   apex: { cat: 'shape', friendly: 'Make peaks pointed or flat', tech: 'Apex', lo: 'Pointed', hi: 'Flat', demo: 'AV',

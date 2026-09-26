@@ -59,6 +59,17 @@ describe('font engine', () => {
     assert.notEqual(a({ cursive: 1 }), a({ cursive: 1, story: 'double' }));
   });
 
+  it('bowl overlap pulls the o of b d p q off the stem', () => {
+    const f = (overlap: number) => buildFont({ ...DEFAULTS, story: 'single', overlap });
+    for (const ch of 'abdgpq') {
+      // from half overlap up the bowl only changes shape; below half it slides off and the letter widens
+      assert.equal(f(0.5).glyph(ch)!.bodyW, f(1).glyph(ch)!.bodyW, ch);
+      assert.ok(f(0).glyph(ch)!.bodyW > f(0.5).glyph(ch)!.bodyW, ch);
+      assert.notEqual(f(0.75).glyph(ch)!.d, f(1).glyph(ch)!.d, ch);
+    }
+    assert.equal(f(0).glyph('n')!.d, f(1).glyph('n')!.d);
+  });
+
   it('squares and facets curves', () => {
     const round = buildFont(DEFAULTS), square = buildFont({ ...DEFAULTS, squareness: 1 }), cut = buildFont({ ...DEFAULTS, chamfer: 1 });
     assert.notEqual(round.glyph('O')!.d, square.glyph('O')!.d);

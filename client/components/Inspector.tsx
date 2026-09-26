@@ -34,6 +34,7 @@ function glyphParams(g: Glyph, ch: string, serif: boolean): ControlKey[] {
     p = [];
     if (g.marks.some(k => k.type === 'apex' || k.type === 'vertex')) p.push('apex');
     if (g.strokes.some(s => s.part === 'crossbar')) p.push('crossbar');
+    if (g.marks.some(k => k.type === 'overlap')) p.push('overlap');
     if (g.counters.length) p.push('counter');
     if (g.marks.some(k => k.type === 'terminal')) p.push('terminal');
     if (g.strokes.some(s => s.curved)) p.push('curve');
