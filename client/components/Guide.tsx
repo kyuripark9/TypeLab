@@ -16,7 +16,7 @@ const STEPS: Step[] = [
   { target: 'panel', side: 'left', category: 'structure', title: 'Controls',
     body: 'Drag a slider to reshape every letter at once. The diagram shows the part it changes. Double-click a slider to reset it.' },
   { target: 'stage', side: 'right', category: 'structure', title: 'Live preview',
-    body: 'Click any letter to see its anatomy. Change the sample text and size in the bar above.' },
+    body: 'Click any letter to see its anatomy, then drag its parts to reshape it. Change the sample text and size in the bar above.' },
   { target: 'strip', side: 'top', title: 'Every glyph',
     body: 'Letters, figures and punctuation in your current design. Click one to inspect it.' },
   { target: 'actions', side: 'bottom', title: 'Save and export',

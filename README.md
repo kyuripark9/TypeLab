@@ -95,4 +95,10 @@ There are no user accounts: the library belongs to whoever runs the server.
 `⌘/Ctrl+Z` undo · `⇧⌘/Ctrl+Z` redo · `⌘/Ctrl+S` save · `Esc` close inspector or menu ·
 `←/→` previous/next glyph · double-click a slider to reset it to the starting style's value.
 
+In the glyph inspector, drag the letter itself: a stroke to change the weight, a crossbar, counter or
+serif to reshape it, a guide line to move the x-height, cap height or extenders, and the advance box's
+right edge to change the width. Like the sliders, a drag reshapes every letter, and it is one undo step.
+Pointing at a part shows its grab handle and which way does what; pointing at a slider shows handles
+wherever the letter can be dragged to make the same change.
+
 Deep links for demos: `/?style=serif&cat=shape&active=serif&inspect=R&mode=paragraph&hot=1`.

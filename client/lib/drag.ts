@@ -1,0 +1,188 @@
+/* Dragging the parts of the inspected letter. Every part is driven by one parameter, and dragging
+   it finds the value that puts the grabbed thing under the pointer: a guide line or crossbar moves
+   to the pointer, a stroke, counter or serif grows toward it. Like the sliders, a drag reshapes
+   every letter at once, since the design is the parameters. */
+import { buildFont, clamp, type Cmd, type Font, type Glyph } from '../../shared/engine';
+import type { NumericParam, Params } from '../../shared/params';
+
+export type Axis = 'x' | 'y';
+
+/** How pointer travel along one axis drives one parameter. */
+export interface Drive {
+  key: NumericParam;
+  /** a length or position (font units) read from a font built with a trial value; null if missing */
+  measure?: (f: Font) => number | null;
+  /** how much the measure changes per unit of travel: 2 when a shape grows on both sides at once */
+  gain?: number;
+  /** -1 when travel toward -axis should grow the measure (grabbing the left or bottom side) */
+  sign: 1 | -1;
+  /** without a measure (or when it barely moves): font units of travel for the whole 0..1 range */
+  span?: number;
+  /** where to draw its grab handle (font units, y up): the edge or line that moves */
+  at: { x: number; y: number };
+}
+export type DragSpec = Partial<Record<Axis, Drive>>;
+
+interface Box { x0: number; y0: number; x1: number; y1: number }
+
+function bbox(cmds: Cmd[]): Box | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of cmds) {
+    for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
+      x0 = Math.min(x0, c[i]); x1 = Math.max(x1, c[i]);
+      y0 = Math.min(y0, c[i + 1]); y1 = Math.max(y1, c[i + 1]);
+    }
+  }
+  return x0 <= x1 ? { x0, y0, x1, y1 } : null;
+}
+
+/** The separate shapes of a part: each stroke, counter or serif. */
+function pieces(g: Glyph, part: string): Cmd[][] {
+  if (part === 'counter') return g.counters;
+  if (part === 'serif') return g.serifs;
+  return g.strokes.filter(s => s.part === part).map(s => s.cmds);
+}
+
+/** Index of the piece under (or nearest) the grab point; the smaller one wins where they overlap. */
+function nearest(boxes: (Box | null)[], p: { x: number; y: number }): number {
+  let best = -1, bd = Infinity;
+  boxes.forEach((b, i) => {
+    if (!b) return;
+    const d = Math.hypot(Math.max(b.x0 - p.x, 0, p.x - b.x1), Math.max(b.y0 - p.y, 0, p.y - b.y1));
+    const score = d * 1e6 + (b.x1 - b.x0) * (b.y1 - b.y0);
+    if (score < bd) { bd = score; best = i; }
+  });
+  return best;
+}
+
+const side = (v: number, mid: number): 1 | -1 => (v < mid ? -1 : 1);
+
+/** What dragging `part` of `ch` does, grabbed at `grab` (font units, y up). Null if it can't be dragged. */
+export function dragSpec(part: string, font: Font, ch: string, grab: { x: number; y: number }): DragSpec | null {
+  const g = font.glyph(ch);
+  if (!g) return null;
+  switch (part) {
+    case 'xHeight': return { y: { key: 'xHeight', sign: 1, measure: f => f.m.xh, at: { x: grab.x, y: font.m.xh } } };
+    case 'capHeight': return { y: { key: 'height', sign: 1, measure: f => f.m.cap, at: { x: grab.x, y: font.m.cap } } };
+    case 'ascender': return { y: { key: 'extenders', sign: 1, measure: f => f.m.asc, at: { x: grab.x, y: font.m.asc } } };
+    case 'descender': return { y: { key: 'extenders', sign: 1, measure: f => f.m.desc, at: { x: grab.x, y: font.m.desc } } };
+    case 'advance': return { x: { key: 'width', sign: 1, measure: f => f.glyph(ch)?.adv ?? null, at: { x: g.adv, y: grab.y } } };
+    case 'apex': case 'vertex': {
+      const marks = g.marks.filter(k => k.type === part);
+      const k = marks[nearest(marks.map(k => ({ x0: k.x, x1: k.x, y0: k.y, y1: k.y })), grab)];
+      return k ? { x: { key: 'apex', sign: side(grab.x, k.x), span: 500, at: { x: k.x, y: k.y } } } : null;
+    }
+    case 'entry': return { x: { key: 'cursive', sign: -1, span: 600, at: grab } };
+    case 'terminal': case 'baseline': return null;
+  }
+
+  const boxes = pieces(g, part).map(bbox), i = nearest(boxes, grab), b = boxes[i];
+  if (!b) return null;
+  const piece = (f: Font) => { const pg = f.glyph(ch); return pg ? bbox(pieces(pg, part)[i] ?? []) : null; };
+  const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, w = b.x1 - b.x0, h = b.y1 - b.y0;
+  const sx = side(grab.x, cx), sy = side(grab.y, cy), ex = sx > 0 ? b.x1 : b.x0, ey = sy > 0 ? b.y1 : b.y0;
+
+  if (part === 'crossbar' || part === 'bar') {
+    return { y: { key: 'crossbar', sign: 1, measure: f => { const p = piece(f); return p && (p.y0 + p.y1) / 2; }, at: { x: grab.x, y: cy } } };
+  }
+  if (part === 'counter') {
+    return { x: { key: 'counter', sign: sx, gain: 2, measure: f => { const p = piece(f); return p && p.x1 - p.x0; }, at: { x: ex, y: grab.y } } };
+  }
+  if (part === 'serif') {
+    // a serif's free edge faces away from the letter: up for a foot serif, down for one on top
+    const gb = bbox(g.cmds), foot = !gb || cy < (gb.y0 + gb.y1) / 2;
+    return {
+      x: { key: 'serifSize', sign: sx, gain: 2, measure: f => { const p = piece(f); return p && p.x1 - p.x0; }, at: { x: ex, y: cy } },
+      y: { key: 'serifThickness', sign: foot ? 1 : -1, measure: f => { const p = piece(f); return p && p.y1 - p.y0; }, at: { x: cx, y: foot ? b.y1 : b.y0 } }
+    };
+  }
+  // every other part is a stroke, and dragging it outward makes the letters heavier: a tall
+  // stroke by its side, a flat one by its top or bottom, a round one by the side it was grabbed on
+  const spec: DragSpec = {}, byX = Math.abs(grab.x - cx) / (w || 1) >= Math.abs(grab.y - cy) / (h || 1);
+  if (h > w * 0.6 && (w <= h * 0.6 || byX)) spec.x = { key: 'weight', sign: sx, gain: 2, measure: f => f.m.s, at: { x: ex, y: clamp(grab.y, b.y0, b.y1) } };
+  if (w > h * 0.6 && (h <= w * 0.6 || !byX)) spec.y = { key: 'weight', sign: sy, gain: 2, measure: f => f.m.hT, at: { x: clamp(grab.x, b.x0, b.x1), y: ey } };
+  return spec;
+}
+
+/** The pointer direction along the drive's axis (+1 right or up) that raises its value. */
+export function towardMore(d: Drive, base: Params): 1 | -1 {
+  if (!d.measure) return d.sign;
+  const v = base[d.key], at = (x: number) => d.measure!(buildFont({ ...base, [d.key]: clamp(x) }));
+  const a = at(v - 0.03), b = at(v + 0.03);
+  if (a == null || b == null || Math.abs(b - a) < 1e-6) return d.sign;
+  return (b - a) * d.sign * (d.gain ?? 1) > 0 ? 1 : -1;
+}
+
+/** Guide lines whose handles sit just left of the letter, and the drag that sets the width. */
+const LINES = ['xHeight', 'capHeight', 'ascender', 'descender', 'advance'];
+
+/**
+ * Grab handles for every place on the letter that drives `key`, so pointing at a slider can show
+ * where the same change can be dragged. `parts` are the letter's anatomy parts and visible guides.
+ */
+export interface Handle { part: string; axis: Axis; x: number; y: number }
+export function handlesFor(key: NumericParam, font: Font, ch: string, parts: string[]): Handle[] {
+  const g = font.glyph(ch);
+  if (!g) return [];
+  const out: Handle[] = [];
+  const add = (part: string, grab: { x: number; y: number }) => {
+    const spec = dragSpec(part, font, ch, grab);
+    const axis = (['x', 'y'] as const).find(a => spec?.[a]?.key === key);
+    if (axis) out.push({ part, axis, ...spec![axis]!.at });
+  };
+  for (const part of parts) {
+    if (LINES.includes(part)) add(part, { x: -70, y: font.m.cap / 2 });
+    else if (part === 'apex' || part === 'vertex') g.marks.filter(k => k.type === part).forEach(k => add(part, { x: k.x + 1, y: k.y }));
+    else if (part === 'entry') g.strokes.filter(s => s.part === part).forEach(s => { const b = bbox(s.cmds); if (b) add(part, { x: b.x0, y: (b.y0 + b.y1) / 2 }); });
+    else pieces(g, part).forEach(c => { const b = bbox(c); if (b) add(part, { x: b.x1, y: (b.y0 + b.y1) / 2 + (b.y1 - b.y0) * 0.1 }); });
+  }
+  return out.slice(0, 6);
+}
+
+/** The axis a drag follows once it has moved: the one it moves along most, if the part allows it. */
+export function pickAxis(spec: DragSpec, dx: number, dy: number): Axis | null {
+  const want: Axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+  return spec[want] ? want : spec.x ? 'x' : spec.y ? 'y' : null;
+}
+
+const SAMPLES = 40;
+const step = (v: number) => Math.round(v * 100) / 100;
+
+/**
+ * Sample how the drive's measure responds across 0..1 (with the rest of `base` held), then map
+ * pointer travel (font units along the axis, y up) to the value whose measure lands on the pointer.
+ * Where several values fit, the one nearest the last answer wins, so a drag never jumps.
+ */
+export function solver(d: Drive, base: Params): (travel: number) => number {
+  const v0 = base[d.key];
+  const linear = (t: number) => step(clamp(v0 + d.sign * t / (d.span ?? 400)));
+  if (!d.measure) return linear;
+
+  const vs: number[] = [], ms: number[] = [];
+  for (const v of [...Array.from({ length: SAMPLES + 1 }, (_, i) => i / SAMPLES), v0].sort((a, b) => a - b)) {
+    const m = d.measure(buildFont({ ...base, [d.key]: v }));
+    if (m != null && Number.isFinite(m)) { vs.push(v); ms.push(m); }
+  }
+  const i0 = vs.indexOf(v0);
+  if (i0 < 0 || Math.max(...ms) - Math.min(...ms) < 4) return linear;
+  const m0 = ms[i0], gain = (d.gain ?? 1) * d.sign;
+  let last = v0;
+
+  return t => {
+    const target = m0 + gain * t;
+    let best = NaN;
+    const take = (v: number) => { if (Number.isNaN(best) || Math.abs(v - last) < Math.abs(best - last)) best = v; };
+    for (let i = 0; i + 1 < vs.length; i++) {
+      const a = ms[i], b = ms[i + 1];
+      if ((target - a) * (target - b) > 0) continue;
+      take(a === b ? vs[i] : vs[i] + (target - a) / (b - a) * (vs[i + 1] - vs[i]));
+    }
+    if (Number.isNaN(best)) {
+      // past what the parameter can reach: hold at the closest end
+      const miss = Math.min(...ms.map(m => Math.abs(m - target)));
+      vs.forEach((v, i) => { if (Math.abs(ms[i] - target) - miss < 1e-6) take(v); });
+    }
+    last = best;
+    return step(best);
+  };
+}

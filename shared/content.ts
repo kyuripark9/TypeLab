@@ -377,7 +377,7 @@ export const PART_CONTROL: Partial<Record<string, ControlKey>> = {
   shoulder: 'weight', spine: 'weight', hook: 'weight', dot: 'weight',
   crossbar: 'crossbar', bar: 'crossbar', counter: 'counter', terminal: 'terminal',
   apex: 'apex', vertex: 'apex', serif: 'serif', entry: 'cursive',
-  xHeight: 'xHeight', capHeight: 'height', ascender: 'height', descender: 'height'
+  xHeight: 'xHeight', capHeight: 'height', ascender: 'extenders', descender: 'extenders'
 };
 
 export const TEXTS = {
