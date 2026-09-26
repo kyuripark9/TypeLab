@@ -1,7 +1,7 @@
 /* Right-hand panel: the starting-style filters, or the controls of the open category with a
    live explainer. While a letter is inspected, the sliders are grouped by the parts of that
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
-import { useEffect, useRef, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
 import {
   ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, LOOKS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS, STYLE_GROUPS, STYLES, SUBS,
   TAG_FACE, TERMINAL_OPTIONS, controlFor, styleById, styleMatches,
@@ -132,13 +132,13 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
 }
 
 /** A control's title. Named by letter parts, the parts lead and each one can be pointed at. */
-function CtlHead({ friendly, tech, parts, advanced }: { friendly: string; tech: string; parts?: string[]; advanced?: boolean }) {
+function CtlHead({ friendly, tech, parts, advanced }: { friendly: string; tech?: string; parts?: string[]; advanced?: boolean }) {
   const part = useEditor(s => s.part);
   if (!parts?.length) {
     return (
       <div className="ctl-head">
         <span className="ctl-friendly">{friendly}</span>
-        <span className="ctl-tech">{tech}{advanced && <em>Advanced</em>}</span>
+        {(tech || advanced) && <span className="ctl-tech">{tech}{advanced && <em>Advanced</em>}</span>}
       </div>
     );
   }
@@ -197,13 +197,17 @@ function SliderControl({ k, def, parts }: { k: NumericParam; def: SliderDef; par
   const cls = ['ctl', def.bipolar && 'bipolar', active && 'active'].filter(Boolean).join(' ');
   return (
     <div className={cls} data-ctl={k} {...useControlFocus(k)}>
-      <CtlHead friendly={def.friendly} tech={def.tech} parts={parts} advanced={def.advanced} />
+      <div className="ctl-top">
+        {/* a two-ended slider already names both ends under the bar */}
+        <CtlHead friendly={def.friendly} tech={def.bipolar ? undefined : def.tech} parts={parts} advanced={def.advanced} />
+        <NumberField value={value} label={def.tech} onChange={v => { actions.focusControl(k); actions.setParam(k, v); actions.commit(); }} />
+      </div>
       <Range
         value={value}
         label={def.tech}
         onInput={v => {
-          // personality sliders snap to their neutral middle
-          if (def.bipolar && Math.abs(v - 0.5) < 0.025) v = 0.5;
+          // the middle is sticky: near 50 snaps onto the dot
+          if (Math.abs(v - 0.5) <= 0.03) v = 0.5;
           actions.focusControl(k);
           actions.setParam(k, v);
         }}
@@ -215,7 +219,34 @@ function SliderControl({ k, def, parts }: { k: NumericParam; def: SliderDef; par
   );
 }
 
-/** A 0..1 range input. `onInput` fires while dragging; `onCommit` once on release (one undo step). */
+/** The slider's value as a whole number from 0 to 100, typed over directly. Enter or leaving the box applies it
+    (clamped to 0..100); Escape puts the old value back; the arrow keys step by 1, or 10 with Shift. */
+function NumberField({ value, label, onChange }: { value: number; label: string; onChange: (v: number) => void }) {
+  const shown = String(Math.round(value * 100));
+  const [draft, setDraft] = useState<string | null>(null);
+  const apply = (text: string) => {
+    setDraft(null);
+    const n = Math.round(Number(text));
+    if (text.trim() !== '' && Number.isFinite(n) && String(Math.min(100, Math.max(0, n))) !== shown) onChange(Math.min(100, Math.max(0, n)) / 100);
+  };
+  return (
+    <input className="ctl-num" type="text" inputMode="numeric" aria-label={`${label} value`} value={draft ?? shown}
+      onFocus={e => e.target.select()}
+      onChange={e => setDraft(e.target.value.replace(/[^0-9-]/g, '').slice(0, 4))}
+      onBlur={e => apply(e.target.value)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+        else if (e.key === 'Escape') { setDraft(null); requestAnimationFrame(() => (e.target as HTMLInputElement).blur()); }
+        else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          const step = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1);
+          apply(String(Number(draft ?? shown) + step));
+        }
+      }} />
+  );
+}
+
+/** A 0..1 range input shown as whole steps from 0 to 100. `onInput` fires while dragging; `onCommit` once on release (one undo step). */
 function Range({ value, label, onInput, onCommit, onReset }: { value: number; label: string; onInput: (v: number) => void; onCommit: () => void; onReset: () => void }) {
   const ref = useRef<HTMLInputElement>(null);
   const commit = useRef(onCommit);
@@ -226,9 +257,9 @@ function Range({ value, label, onInput, onCommit, onReset }: { value: number; la
     return () => el.removeEventListener('change', h);
   }, []);
   return (
-    <input ref={ref} type="range" min={0} max={1000} value={Math.round(value * 1000)} aria-label={label}
+    <input ref={ref} type="range" min={0} max={100} step={1} value={Math.round(value * 100)} aria-label={label}
       title="Double-click to reset" style={{ '--v': value } as CSSProperties}
-      onChange={e => onInput(Number(e.target.value) / 1000)} onDoubleClick={onReset} />
+      onChange={e => onInput(Number(e.target.value) / 100)} onDoubleClick={onReset} />
   );
 }
 

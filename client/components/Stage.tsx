@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { STYLE_GROUPS, STYLES, styleMatches, type StyleDef } from '../../shared/content';
 import { n1, useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
@@ -27,13 +28,43 @@ function PreviewBar() {
           value={custom} onChange={e => actions.setCustom(e.target.value)} />
         {custom && <button className="type-clear" aria-label="Clear preview text" onClick={() => actions.setCustom('')}>✕</button>}
       </div>
-      <label className="size">
+      <div className="size">
         <span>Size</span>
-        <input type="range" min={14} max={220} value={size} onChange={e => actions.setSize(Number(e.target.value))} />
-        <output>{size}px</output>
-      </label>
+        <input type="range" min={14} max={220} value={size} aria-label="Size" onChange={e => actions.setSize(Number(e.target.value))} />
+        <SizeValue size={size} />
+      </div>
       {style && <ViewToggle />}
     </div>
+  );
+}
+
+/** The size readout; double-click it to type an exact size in px. Enter or leaving the box applies it
+    (clamped to 8..400); Escape puts the old value back; the arrow keys step by 1, or 10 with Shift. */
+function SizeValue({ size }: { size: number }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const cancelled = useRef(false);
+  const apply = (text: string) => {
+    const n = Math.round(Number(text));
+    if (text.trim() !== '' && Number.isFinite(n)) actions.setSize(Math.min(400, Math.max(8, n)));
+  };
+  if (draft === null) return <output title="Double-click to type a size" onDoubleClick={() => { cancelled.current = false; setDraft(String(size)); }}>{size}px</output>;
+  return (
+    <span className="size-edit">
+      <input type="text" inputMode="numeric" aria-label="Size in px" autoFocus value={draft}
+        onFocus={e => e.target.select()}
+        onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+        onBlur={e => { if (!cancelled.current) apply(e.target.value); setDraft(null); }}
+        onKeyDown={e => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          else if (e.key === 'Escape') { e.stopPropagation(); cancelled.current = true; e.currentTarget.blur(); }
+          else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const n = Math.min(400, Math.max(8, Number(draft || size) + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)));
+            setDraft(String(n));
+            actions.setSize(n);
+          }
+        }} />px
+    </span>
   );
 }
 
