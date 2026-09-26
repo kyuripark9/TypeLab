@@ -131,26 +131,20 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   return <SliderControl k={k as NumericParam} def={c} parts={parts} />;
 }
 
-/** A control's title. Named by letter parts, the parts lead and each one can be pointed at. */
-function CtlHead({ friendly, tech, parts, advanced }: { friendly: string; tech?: string; parts?: string[]; advanced?: boolean }) {
+/** A control's short title. While a letter is inspected, the parts it shapes follow in grey and each one can be pointed at. */
+function CtlHead({ label, parts, advanced }: { label: string; parts?: string[]; advanced?: boolean }) {
   const part = useEditor(s => s.part);
-  if (!parts?.length) {
-    return (
-      <div className="ctl-head">
-        <span className="ctl-friendly">{friendly}</span>
-        {(tech || advanced) && <span className="ctl-tech">{tech}{advanced && <em>Advanced</em>}</span>}
-      </div>
-    );
-  }
   return (
     <div className="ctl-head">
-      <span className="ctl-parts">
-        {parts.map(p => (
-          <span key={p} className={p === part ? 'part on' : 'part'}
-            onPointerEnter={() => actions.setPart(p)} onPointerLeave={() => actions.setPart(null)}>{ANATOMY[p][0]}</span>
-        ))}
-      </span>
-      <span className="ctl-tech">{friendly}</span>
+      <span className="ctl-label">{label}{advanced && <em>Advanced</em>}</span>
+      {!!parts?.length && (
+        <span className="ctl-parts">
+          {parts.map(p => (
+            <span key={p} className={p === part ? 'part on' : 'part'}
+              onPointerEnter={() => actions.setPart(p)} onPointerLeave={() => actions.setPart(null)}>{ANATOMY[p][0]}</span>
+          ))}
+        </span>
+      )}
     </div>
   );
 }
@@ -190,7 +184,7 @@ function useControlFocus(key: ActiveKey) {
   };
 }
 
-interface SliderDef { friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; advanced?: boolean }
+interface SliderDef { label: string; friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; advanced?: boolean }
 
 function SliderControl({ k, def, parts }: { k: NumericParam; def: SliderDef; parts?: string[] }) {
   const value = useEditor(s => s.params[k]), active = useEditor(s => s.active === k);
@@ -198,8 +192,7 @@ function SliderControl({ k, def, parts }: { k: NumericParam; def: SliderDef; par
   return (
     <div className={cls} data-ctl={k} {...useControlFocus(k)}>
       <div className="ctl-top">
-        {/* a two-ended slider already names both ends under the bar */}
-        <CtlHead friendly={def.friendly} tech={def.bipolar ? undefined : def.tech} parts={parts} advanced={def.advanced} />
+        <CtlHead label={def.label} parts={parts} advanced={def.advanced} />
         <NumberField value={value} label={def.tech} onChange={v => { actions.focusControl(k); actions.setParam(k, v); actions.commit(); }} />
       </div>
       <Range
@@ -268,7 +261,7 @@ function TerminalControl({ parts }: { parts?: string[] }) {
   const c = CONTROLS.terminal;
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="terminal" {...useControlFocus('terminal')}>
-      <CtlHead friendly={c.friendly} tech={c.tech} parts={parts} />
+      <CtlHead label={c.label} parts={parts} />
       <div className="opts six" role="radiogroup" aria-label={c.tech}>
         {TERMINAL_OPTIONS.map(([id, label]) => (
           <button key={id} role="radio" aria-checked={terminal === id} className={terminal === id ? 'opt on' : 'opt'}
@@ -287,7 +280,7 @@ function StoryControl({ parts }: { parts?: string[] }) {
   const c = CONTROLS.story, current = single ? 'single' : 'double';
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="story" {...useControlFocus('story')}>
-      <CtlHead friendly={c.friendly} tech={c.tech} parts={parts} />
+      <CtlHead label={c.label} parts={parts} />
       <div className="opts two" role="radiogroup" aria-label={c.tech}>
         {STORY_OPTIONS.map(([id, label]) => (
           <button key={id} role="radio" aria-checked={current === id} className={current === id ? 'opt on' : 'opt'}
@@ -306,7 +299,7 @@ function SerifControl({ parts }: { parts?: string[] }) {
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="serif" {...useControlFocus('serif')}>
       <div className="ctl-row">
-        <CtlHead friendly={c.friendly} tech={c.tech} parts={parts} />
+        <CtlHead label={c.label} parts={parts} />
         <button className={p.serif ? 'switch on' : 'switch'} role="switch" aria-checked={p.serif} aria-label="Serifs"
           onClick={() => actions.setOption('serif', !p.serif)}><i /></button>
       </div>
@@ -333,7 +326,7 @@ function FillControl() {
   const c = CONTROLS.fill, solid = fill === 'solid';
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="fill" {...useControlFocus('fill')}>
-      <CtlHead friendly={c.friendly} tech={c.tech} />
+      <CtlHead label={c.label} />
       <div className="opts five" role="radiogroup" aria-label={c.tech}>
         {FILL_OPTIONS.map(([id, label]) => (
           <button key={id} role="radio" aria-checked={fill === id} className={fill === id ? 'opt on' : 'opt'}

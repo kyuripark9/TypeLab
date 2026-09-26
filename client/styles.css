@@ -143,7 +143,7 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .d-dim.light line { stroke: #fff; }
 .d-axis { stroke: var(--accent); stroke-width: 1.5; }
 .d-axis.ghost { stroke: var(--ink-3); stroke-dasharray: 3 3; stroke-width: 1; }
-.ex-text { padding: 12px 22px 14px; min-height: 122px; }
+.ex-text { padding: 12px 22px 14px; min-height: 100px; }
 .explainer.compact .ex-text { min-height: 0; }
 .ex-tech { font-size: 12px; font-weight: 500; color: var(--accent-ink); }
 .ex-text h3 { margin: 2px 0 4px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; }
@@ -152,10 +152,10 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .ctl-list { padding: 10px 10px 24px; display: grid; gap: 4px; }
 .list-head { padding: 12px 12px 2px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
 .list-head:first-child { padding-top: 4px; }
-.ctl-parts { display: flex; flex-wrap: wrap; gap: 0 4px; font-weight: 500; font-size: 14px; line-height: 1.3; }
+.ctl-parts { display: flex; flex-wrap: wrap; gap: 0 4px; font-size: 12px; color: var(--ink-3); }
 .ctl-parts .part { border-radius: var(--radius-s); padding: 0 4px; margin: 0 -4px; cursor: default; transition: background .15s, color .15s; }
 .ctl-parts .part + .part::before { content: "·"; color: var(--ink-3); margin-right: 4px; pointer-events: none; }
-.ctl-parts .part.on { background: var(--accent-soft); color: var(--accent-ink); }
+.ctl-parts .part:hover, .ctl-parts .part.on { background: var(--accent-soft); color: var(--accent-ink); }
 .ctl { padding: 11px 12px 9px; border-radius: var(--radius); border: 1px solid transparent; transition: background .15s, border-color .15s; }
 .ctl.active { background: var(--surface); border-color: var(--line); }
 .ctl .ctl { padding: 12px 0 0; border: 0; background: none; }
@@ -167,9 +167,8 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .ctl-num:hover { border-color: var(--ink-3); }
 .ctl-num:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .ctl-row .ctl-head { margin-bottom: 0; }
-.ctl-friendly { font-weight: 500; font-size: 14px; line-height: 1.3; }
-.ctl-tech { font-size: 12px; color: var(--ink-3); }
-.ctl-tech em { font-style: normal; font-size: 10.5px; font-weight: 500; color: var(--ink-3); border: 1px solid var(--line-2); border-radius: var(--radius-s); padding: 0 5px; margin-left: 6px; }
+.ctl-label { font-weight: 500; font-size: 14px; line-height: 26px; }
+.ctl-label em { font-style: normal; font-size: 10.5px; font-weight: 500; color: var(--ink-3); border: 1px solid var(--line-2); border-radius: var(--radius-s); padding: 0 5px; margin-left: 6px; }
 .ctl-ends { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ink-3); margin-top: 0; }
 .ctl.active > .ctl-ends, .ctl.active .ctl.active > .ctl-ends { color: var(--ink-2); }
 

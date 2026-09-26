@@ -18,7 +18,9 @@ export type ActiveKey = ControlKey | SerifSubKey | FillSubKey;
 
 export interface ControlDef {
   cat: Exclude<CategoryId, 'style'>;
-  /** plain-language label, shown first */
+  /** short title shown on the control */
+  label: string;
+  /** what it does in plain words, shown in the explainer */
   friendly: string;
   /** the typographer's term */
   tech: string;
@@ -31,7 +33,7 @@ export interface ControlDef {
   bipolar?: boolean;
   advanced?: boolean;
 }
-export interface SubControlDef { friendly: string; tech: string; lo: string; hi: string }
+export interface SubControlDef { label: string; friendly: string; tech: string; lo: string; hi: string }
 
 /* Starting styles are browsed like the tag filters on Google Fonts: each style sits in one
    type group (Google's Sans Serif, Serif, Slab, Calligraphy and Appearance tags) and carries a few
@@ -252,89 +254,89 @@ export const CATEGORIES: { id: CategoryId; label: string }[] = [
   { id: 'effects', label: 'Effects' }
 ];
 
-/* friendly = what it does in plain words; tech = the typographer's term */
+/* label = the control's short title; friendly = what it does in plain words; tech = the typographer's term */
 export const CONTROLS: Record<ControlKey, ControlDef> = {
-  weight: { cat: 'structure', friendly: 'Make strokes thicker', tech: 'Weight', lo: 'Thin', hi: 'Bold', demo: 'n',
-    explain: 'Weight is the thickness of the main strokes. The highlighted stems grow, and letters widen slightly so the inside space never closes up.' },
-  width: { cat: 'structure', friendly: 'Make letters narrower or wider', tech: 'Width', lo: 'Condensed', hi: 'Expanded', demo: 'H',
-    explain: 'Width stretches the skeleton of each letter sideways while the stroke thickness stays the same — unlike simply squashing text.' },
-  height: { cat: 'structure', friendly: 'Make letters taller or shorter', tech: 'Height', lo: 'Short', hi: 'Tall', demo: 'Hx',
-    explain: 'Height moves the cap line — the top of capital letters. Lowercase letters, ascenders and descenders follow in proportion.' },
-  slant: { cat: 'structure', friendly: 'Tilt the letters', tech: 'Slant', lo: 'Upright', hi: 'Italic', demo: 'Hn',
-    explain: 'Slant leans every letter to the right around its middle, like an oblique italic. Vertical stems follow the dashed axis.' },
-  contrast: { cat: 'structure', friendly: 'Increase the difference between thick and thin strokes', tech: 'Contrast', lo: 'Low', hi: 'High', demo: 'Oe',
-    explain: 'Contrast thins the horizontal parts of a stroke while vertical parts stay heavy — compare the side of the O with its top.' },
-  reverse: { cat: 'structure', friendly: 'Make the horizontal strokes the heavy ones', tech: 'Reverse contrast', lo: 'Normal', hi: 'Reversed', demo: 'HOe',
-    explain: 'Normally stems are heavy and bars are thin. Reverse contrast flips that: bars and the tops of curves carry the weight while stems go thin. It works with Contrast — the more contrast, the stronger the flip.' },
+  weight: { cat: 'structure', label: 'Weight', friendly: 'Make strokes thicker', tech: 'Weight', lo: 'Thin', hi: 'Bold', demo: 'n',
+    explain: 'Letters widen a little so their insides stay open.' },
+  width: { cat: 'structure', label: 'Width', friendly: 'Make letters narrower or wider', tech: 'Width', lo: 'Condensed', hi: 'Expanded', demo: 'H',
+    explain: 'Stretches letters sideways; strokes keep their thickness.' },
+  height: { cat: 'structure', label: 'Height', friendly: 'Make letters taller or shorter', tech: 'Height', lo: 'Short', hi: 'Tall', demo: 'Hx',
+    explain: 'Moves the top of the capitals; lowercase follows.' },
+  slant: { cat: 'structure', label: 'Slant', friendly: 'Tilt the letters', tech: 'Slant', lo: 'Upright', hi: 'Italic', demo: 'Hn',
+    explain: 'Leans each letter to the right, like an oblique italic.' },
+  contrast: { cat: 'structure', label: 'Contrast', friendly: 'Vary thick and thin strokes', tech: 'Contrast', lo: 'Low', hi: 'High', demo: 'Oe',
+    explain: 'Horizontal strokes thin out while verticals stay heavy.' },
+  reverse: { cat: 'structure', label: 'Reverse contrast', friendly: 'Make the horizontal strokes the heavy ones', tech: 'Reverse contrast', lo: 'Normal', hi: 'Reversed', demo: 'HOe',
+    explain: 'Bars go heavy and stems go thin. Stronger with more Contrast.' },
 
-  roundness: { cat: 'shape', friendly: 'Make the letters softer or sharper', tech: 'Roundness', lo: 'Sharp', hi: 'Round', demo: 'Ek',
-    explain: 'Roundness softens every corner and stroke end. The marked corners turn from crisp angles into smooth arcs.' },
-  curve: { cat: 'shape', friendly: 'Make curves more geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
-    explain: 'Geometric curves are compass-drawn circles. Organic curves have fuller shoulders and a tilted axis, as if written with a pen.' },
-  squareness: { cat: 'shape', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',
-    explain: 'A superellipse sits between a circle and a rectangle. Pushing it squares off every bowl while the corners stay smooth.' },
-  chamfer: { cat: 'shape', friendly: 'Cut curves into straight lines and corners', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
-    explain: 'Faceted letters swap every curve for straight lines with cut-off corners, as if built on a grid. First the curves become octagons, then the cuts shrink and the corners square up.' },
-  terminal: { cat: 'shape', type: 'options', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
-    explain: 'A terminal is the end of a stroke that doesn’t meet another stroke — the tips of C, a, s, e or r.' },
-  story: { cat: 'shape', type: 'story', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
-    explain: 'A double-storey a stacks a small bowl under a hook, as in most book and sans type. A single-storey a is just a bowl and a stem, like handwriting, italics and geometric faces. Until you pick one, the personality and cursive settings choose.' },
-  overlap: { cat: 'shape', friendly: 'Let the bowl sink into the stem or stand apart', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
-    explain: 'Letters like b, d, p, q and the single-storey a are a bowl and a stem, an o and an l. Merged, the bowl grows out of the stem. Halfway, it is a whole o standing on the stem; below that the o slides off until the two only touch.' },
-  serif: { cat: 'shape', type: 'serif', friendly: 'Add small feet to the strokes', tech: 'Serifs', demo: 'In',
-    explain: 'Serifs are the small finishing strokes at the ends of stems. They guide the eye along a line of text and set a classical tone.' },
-  apex: { cat: 'shape', friendly: 'Make peaks pointed or flat', tech: 'Apex', lo: 'Pointed', hi: 'Flat', demo: 'AV',
-    explain: 'The apex is where two diagonals meet — the top of A, the bottom of V and W. It can be a needle point or a flat cut.' },
-  joints: { cat: 'shape', friendly: 'Thin the strokes where they meet', tech: 'Ink traps · Joints', lo: 'Solid', hi: 'Trapped', demo: 'nab',
-    explain: 'Where one stroke branches from another, ink pools in the corner. Ink traps carve that corner out: strokes narrow on the inside as they join, which keeps heavy letters open and looks sharp and engineered.' },
-  cursive: { cat: 'shape', friendly: 'Add strokes that lead into the next letter', tech: 'Cursive · Entry & exit strokes', lo: 'Print', hi: 'Script', demo: 'nigu',
-    explain: 'Script hands flick every stroke on toward the next letter. Stems curl out at the baseline, upstrokes lead in, and past halfway the a, f, g and y switch to their italic forms.' },
-  wobble: { cat: 'shape', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
-    explain: 'A real hand never draws the same line twice. Strokes drift, pressure swells and fades, and each letter sits a little off the baseline.' },
+  roundness: { cat: 'shape', label: 'Roundness', friendly: 'Make the letters softer or sharper', tech: 'Roundness', lo: 'Sharp', hi: 'Round', demo: 'Ek',
+    explain: 'Crisp corners and stroke ends become smooth arcs.' },
+  curve: { cat: 'shape', label: 'Curves', friendly: 'Make curves more geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
+    explain: 'Compass-drawn circles, or fuller pen-like curves.' },
+  squareness: { cat: 'shape', label: 'Squareness', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',
+    explain: 'Bowls square off while the corners stay smooth.' },
+  chamfer: { cat: 'shape', label: 'Facets', friendly: 'Cut curves into straight lines and corners', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
+    explain: 'Curves become straight lines with cut-off corners.' },
+  terminal: { cat: 'shape', type: 'options', label: 'Stroke ends', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
+    explain: 'The free tips of strokes, as on C, a, s and r.' },
+  story: { cat: 'shape', type: 'story', label: 'Letter a', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
+    explain: 'Two-storey like book type, or one bowl like handwriting.' },
+  overlap: { cat: 'shape', label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
+    explain: 'Applies to b, d, p, q and the single-storey a.' },
+  serif: { cat: 'shape', type: 'serif', label: 'Serifs', friendly: 'Add small feet to the strokes', tech: 'Serifs', demo: 'In',
+    explain: 'Small finishing strokes at the ends of stems.' },
+  apex: { cat: 'shape', label: 'Peaks', friendly: 'Make peaks pointed or flat', tech: 'Apex', lo: 'Pointed', hi: 'Flat', demo: 'AV',
+    explain: 'Where diagonals meet — the top of A, the bottom of V.' },
+  joints: { cat: 'shape', label: 'Ink traps', friendly: 'Thin the strokes where they meet', tech: 'Ink traps · Joints', lo: 'Solid', hi: 'Trapped', demo: 'nab',
+    explain: 'Corners are carved out where strokes join.' },
+  cursive: { cat: 'shape', label: 'Cursive', friendly: 'Add strokes that lead into the next letter', tech: 'Cursive · Entry & exit strokes', lo: 'Print', hi: 'Script', demo: 'nigu',
+    explain: 'Strokes flick on toward the next letter, like script.' },
+  wobble: { cat: 'shape', label: 'Hand-drawn', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
+    explain: 'Strokes drift, swell and sit a little off the line.' },
 
-  xHeight: { cat: 'proportion', friendly: 'Make lowercase letters taller', tech: 'x-height', lo: 'Small', hi: 'Large', demo: 'Hxn',
-    explain: 'The x-height is the height of lowercase letters like x, a and n compared with capitals. Taller lowercase feels modern and reads well small.' },
-  extenders: { cat: 'proportion', friendly: 'Make ascenders and descenders longer', tech: 'Ascenders & descenders', lo: 'Short', hi: 'Long', demo: 'hpdy',
-    explain: 'Ascenders rise above the x-height (b, d, h, l) and descenders drop below the baseline (g, p, y). Long ones feel elegant and airy; short ones let lines sit close together.' },
-  counter: { cat: 'proportion', friendly: 'Change the space inside letters', tech: 'Counter', lo: 'Small', hi: 'Large', demo: 'Bo',
-    explain: 'A counter is the enclosed space inside letters like O, B, a and e. Bigger counters feel open and airy, smaller ones feel compact.' },
-  aperture: { cat: 'proportion', friendly: 'Open or close the mouths of letters', tech: 'Aperture', lo: 'Closed', hi: 'Open', demo: 'ces',
-    explain: 'Aperture is the opening of partly-enclosed letters such as c, e, a and s. Open apertures stay legible at small sizes.' },
-  crossbar: { cat: 'proportion', friendly: 'Move the horizontal bars up or down', tech: 'Crossbar', lo: 'Low', hi: 'High', demo: 'AHe',
-    explain: 'The crossbar is the horizontal stroke in A, H, e and the waist of B, E, R. Moving it changes the letters’ center of gravity.' },
+  xHeight: { cat: 'proportion', label: 'Lowercase height', friendly: 'Make lowercase letters taller', tech: 'x-height', lo: 'Small', hi: 'Large', demo: 'Hxn',
+    explain: 'Taller lowercase feels modern and reads well small.' },
+  extenders: { cat: 'proportion', label: 'Stem length', friendly: 'Make ascenders and descenders longer', tech: 'Ascenders & descenders', lo: 'Short', hi: 'Long', demo: 'hpdy',
+    explain: 'The parts above (b, d, h) and below (g, p, y) the letters.' },
+  counter: { cat: 'proportion', label: 'Inner space', friendly: 'Change the space inside letters', tech: 'Counter', lo: 'Small', hi: 'Large', demo: 'Bo',
+    explain: 'The enclosed space inside O, B, a and e.' },
+  aperture: { cat: 'proportion', label: 'Openness', friendly: 'Open or close the mouths of letters', tech: 'Aperture', lo: 'Closed', hi: 'Open', demo: 'ces',
+    explain: 'Open mouths on c, e and s stay readable when small.' },
+  crossbar: { cat: 'proportion', label: 'Crossbar height', friendly: 'Move the horizontal bars up or down', tech: 'Crossbar', lo: 'Low', hi: 'High', demo: 'AHe',
+    explain: 'The bars in A, H and e, and the waist of B, E, R.' },
 
-  letterSpacing: { cat: 'spacing', friendly: 'Add or remove space between letters', tech: 'Letter spacing · Tracking', lo: 'Tight', hi: 'Open', demo: 'type',
-    explain: 'Tracking changes the gap between every pair of letters equally. The shaded bands show the space being adjusted.' },
-  wordSpacing: { cat: 'spacing', friendly: 'Change the gap between words', tech: 'Word spacing', lo: 'Compact', hi: 'Spacious', demo: 'to be',
-    explain: 'Word spacing sets the width of the space character. Too tight and words merge, too loose and lines fall apart.' },
-  mono: { cat: 'spacing', friendly: 'Give every letter the same width', tech: 'Monospace', lo: 'Proportional', hi: 'Monospaced', demo: 'milk',
-    explain: 'In a monospaced font every character takes up the same width, like a typewriter or a code editor. Narrow letters get extra room, wide ones are squeezed in.' },
-  sideBearing: { cat: 'spacing', advanced: true, friendly: 'Adjust the built-in margins of each letter', tech: 'Side bearing', lo: 'Narrow', hi: 'Wide', demo: 'HO',
-    explain: 'Side bearings are the small margins built into each glyph. Round letters get smaller bearings than straight ones so the rhythm looks even.' },
+  letterSpacing: { cat: 'spacing', label: 'Letter spacing', friendly: 'Add or remove space between letters', tech: 'Letter spacing · Tracking', lo: 'Tight', hi: 'Open', demo: 'type',
+    explain: 'The same gap changes between every pair of letters.' },
+  wordSpacing: { cat: 'spacing', label: 'Word spacing', friendly: 'Change the gap between words', tech: 'Word spacing', lo: 'Compact', hi: 'Spacious', demo: 'to be',
+    explain: 'Too tight and words merge; too loose and lines fall apart.' },
+  mono: { cat: 'spacing', label: 'Monospace', friendly: 'Give every letter the same width', tech: 'Monospace', lo: 'Proportional', hi: 'Monospaced', demo: 'milk',
+    explain: 'Every character takes the same width, like a typewriter.' },
+  sideBearing: { cat: 'spacing', advanced: true, label: 'Side margins', friendly: 'Adjust the space around each letter', tech: 'Side bearing', lo: 'Narrow', hi: 'Wide', demo: 'HO',
+    explain: 'The small margins built into each letter.' },
 
-  geoHuman: { cat: 'personality', bipolar: true, friendly: 'Constructed or hand-made?', tech: 'Geometric ↔ Humanist', lo: 'Geometric', hi: 'Humanist', demo: 'Rag',
-    explain: 'Geometric leans on pure circles and a single-storey a. Humanist opens the letters, tilts the stress and adds warmth.' },
-  softSharp: { cat: 'personality', bipolar: true, friendly: 'Gentle or edgy?', tech: 'Soft ↔ Sharp', lo: 'Soft', hi: 'Sharp', demo: 'AMk',
-    explain: 'Soft rounds corners and flattens peaks. Sharp keeps every corner crisp and draws peaks to a point.' },
-  classicFuture: { cat: 'personality', bipolar: true, friendly: 'Timeless or tomorrow?', tech: 'Classic ↔ Futuristic', lo: 'Classic', hi: 'Futuristic', demo: 'Rose',
-    explain: 'Classic adds stroke contrast, a smaller x-height and old-style proportions. Futuristic squares the curves, widens and evens everything out.' },
-  playfulFormal: { cat: 'personality', bipolar: true, friendly: 'Fun or serious?', tech: 'Playful ↔ Formal', lo: 'Playful', hi: 'Formal', demo: 'jump',
-    explain: 'Playful lets letters bounce and tilt with a bigger x-height. Formal straightens up, tightens the width and refines the contrast.' },
+  geoHuman: { cat: 'personality', bipolar: true, label: 'Construction', friendly: 'Constructed or hand-made?', tech: 'Geometric ↔ Humanist', lo: 'Geometric', hi: 'Humanist', demo: 'Rag',
+    explain: 'Pure circles, or open, warm, pen-like letters.' },
+  softSharp: { cat: 'personality', bipolar: true, label: 'Edges', friendly: 'Gentle or edgy?', tech: 'Soft ↔ Sharp', lo: 'Soft', hi: 'Sharp', demo: 'AMk',
+    explain: 'Rounded corners and flat peaks, or crisp corners and points.' },
+  classicFuture: { cat: 'personality', bipolar: true, label: 'Era', friendly: 'Timeless or tomorrow?', tech: 'Classic ↔ Futuristic', lo: 'Classic', hi: 'Futuristic', demo: 'Rose',
+    explain: 'Old-style contrast, or squared and even shapes.' },
+  playfulFormal: { cat: 'personality', bipolar: true, label: 'Tone', friendly: 'Fun or serious?', tech: 'Playful ↔ Formal', lo: 'Playful', hi: 'Formal', demo: 'jump',
+    explain: 'Bouncy and tilted, or upright and refined.' },
 
-  fill: { cat: 'effects', type: 'fill', friendly: 'Build the letters from something else', tech: 'Fill', demo: 'Rg',
-    explain: 'Draw each letter in solid ink, as the outline of every stroke like a construction drawing, or rebuild it on a grid of square pixels, round dots or horizontal lines.' },
-  stencil: { cat: 'effects', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
-    explain: 'A stencil must hold together when it is cut from a sheet, so strokes break apart where they join and round letters split in two. The gaps become part of the design.' },
-  slice: { cat: 'effects', friendly: 'Cut one line through every letter', tech: 'Slice', lo: 'None', hi: 'Wide', demo: 'type',
-    explain: 'A single horizontal cut runs through the middle of the lowercase and across the whole line of text, like a strip of tape pulled out of the letters.' }
+  fill: { cat: 'effects', type: 'fill', label: 'Fill', friendly: 'Build the letters from something else', tech: 'Fill', demo: 'Rg',
+    explain: 'Solid ink, outlines, or a grid of pixels, dots or lines.' },
+  stencil: { cat: 'effects', label: 'Stencil', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
+    explain: 'Strokes break where they join, as if cut from a sheet.' },
+  slice: { cat: 'effects', label: 'Slice', friendly: 'Cut one line through every letter', tech: 'Slice', lo: 'None', hi: 'Wide', demo: 'type',
+    explain: 'One horizontal cut runs across the whole line.' }
 };
 export const SERIF_SUBS: Record<SerifSubKey, SubControlDef> = {
-  serifSize: { friendly: 'Make the feet longer', tech: 'Serif size', lo: 'Short', hi: 'Long' },
-  serifThickness: { friendly: 'Make the feet heavier', tech: 'Serif thickness', lo: 'Hairline', hi: 'Heavy' },
-  serifAngle: { friendly: 'Slope the top of the feet', tech: 'Serif angle', lo: 'Flat', hi: 'Sloped' }
+  serifSize: { label: 'Length', friendly: 'Make the feet longer', tech: 'Serif size', lo: 'Short', hi: 'Long' },
+  serifThickness: { label: 'Thickness', friendly: 'Make the feet heavier', tech: 'Serif thickness', lo: 'Hairline', hi: 'Heavy' },
+  serifAngle: { label: 'Angle', friendly: 'Slope the top of the feet', tech: 'Serif angle', lo: 'Flat', hi: 'Sloped' }
 };
 export const FILL_SUBS: Record<FillSubKey, SubControlDef> = {
-  module: { friendly: 'Change the size of the grid or line', tech: 'Module size', lo: 'Fine', hi: 'Coarse' }
+  module: { label: 'Grid size', friendly: 'Change the size of the grid or line', tech: 'Module size', lo: 'Fine', hi: 'Coarse' }
 };
 /** Every nested sub-slider, whichever control it belongs to. */
 export const SUBS: Record<SerifSubKey | FillSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS };
