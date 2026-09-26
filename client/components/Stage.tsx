@@ -38,7 +38,7 @@ function PreviewBar() {
   );
 }
 
-/** The size readout; double-click it to type an exact size in px. Enter or leaving the box applies it
+/** The size as an always-visible box you type into, with "px" inside it. Enter or leaving the box applies it
     (clamped to 8..400); Escape puts the old value back; the arrow keys step by 1, or 10 with Shift. */
 function SizeValue({ size }: { size: number }) {
   const [draft, setDraft] = useState<string | null>(null);
@@ -47,24 +47,24 @@ function SizeValue({ size }: { size: number }) {
     const n = Math.round(Number(text));
     if (text.trim() !== '' && Number.isFinite(n)) actions.setSize(Math.min(400, Math.max(8, n)));
   };
-  if (draft === null) return <output title="Double-click to type a size" onDoubleClick={() => { cancelled.current = false; setDraft(String(size)); }}>{size}px</output>;
   return (
-    <span className="size-edit">
-      <input type="text" inputMode="numeric" aria-label="Size in px" autoFocus value={draft}
-        onFocus={e => e.target.select()}
+    <label className="size-field" title="Type a size">
+      <input type="text" inputMode="numeric" aria-label="Size in px" value={draft ?? String(size)}
+        onFocus={e => { cancelled.current = false; e.target.select(); }}
         onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
-        onBlur={e => { if (!cancelled.current) apply(e.target.value); setDraft(null); }}
+        onBlur={e => { if (!cancelled.current && draft !== null) apply(e.target.value); setDraft(null); }}
         onKeyDown={e => {
           if (e.key === 'Enter') e.currentTarget.blur();
           else if (e.key === 'Escape') { e.stopPropagation(); cancelled.current = true; e.currentTarget.blur(); }
           else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             e.preventDefault();
-            const n = Math.min(400, Math.max(8, Number(draft || size) + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)));
+            const n = Math.min(400, Math.max(8, Number(draft ?? size) + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)));
             setDraft(String(n));
             actions.setSize(n);
           }
-        }} />px
-    </span>
+        }} />
+      <span>px</span>
+    </label>
   );
 }
 
