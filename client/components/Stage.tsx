@@ -1,7 +1,7 @@
-import { STYLE_GROUPS, STYLES, type StyleDef } from '../../shared/content';
+import { STYLE_GROUPS, STYLES, styleMatches, type StyleDef } from '../../shared/content';
 import { n1, useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
-import { actions, fontFor, useEditor } from '../state/editor';
+import { actions, fontFor, useEditor, type CardView } from '../state/editor';
 import { Inspector } from './Inspector';
 import { Preview } from './Preview';
 
@@ -19,7 +19,7 @@ export function Stage() {
 }
 
 function PreviewBar() {
-  const custom = useEditor(s => s.custom), size = useEditor(s => s.size);
+  const custom = useEditor(s => s.custom), size = useEditor(s => s.size), style = useEditor(s => s.category === 'style');
   return (
     <div className="stage-bar">
       <div className="type-field">
@@ -32,6 +32,29 @@ function PreviewBar() {
         <input type="range" min={14} max={220} value={size} onChange={e => actions.setSize(Number(e.target.value))} />
         <output>{size}px</output>
       </label>
+      {style && <ViewToggle />}
+    </div>
+  );
+}
+
+const VIEWS: [CardView, string, string][] = [
+  ['list', 'List', 'M3 5h14M3 10h14M3 15h14'],
+  ['grid', 'Grid', 'M3.5 3.5h5v5h-5zM11.5 3.5h5v5h-5zM3.5 11.5h5v5h-5zM11.5 11.5h5v5h-5z']
+];
+
+/** List or grid layout for the style cards. */
+function ViewToggle() {
+  const view = useEditor(s => s.view);
+  return (
+    <div className="view-toggle" role="radiogroup" aria-label="Layout">
+      {VIEWS.map(([id, label, d]) => (
+        <button key={id} role="radio" aria-checked={view === id} aria-label={label} title={label}
+          className={view === id ? 'on' : undefined} onClick={() => actions.setView(id)}>
+          <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+            <path d={d} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      ))}
     </div>
   );
 }
@@ -46,24 +69,31 @@ function SampleText() {
   );
 }
 
-/** Cards are grouped by type (Sans Serif > Geometric, …). */
+/** Cards are grouped by type (Sans Serif > Geometric, …) and narrowed by the panel's filters. */
 function StyleCards() {
   const text = sampleText(useEditor(s => s.custom)), size = useEditor(s => s.size);
+  const groups = useEditor(s => s.groups), moods = useEditor(s => s.moods), view = useEditor(s => s.view);
+  const shown = STYLES.filter(s => styleMatches(s, groups, moods));
   return (
     <div className="style-cards">
       <div className="cards-head">
         <h1>Start with a style</h1>
+        {shown.length < STYLES.length && <span>{shown.length} of {STYLES.length} styles</span>}
       </div>
-      <div className="style-groups">
-        {STYLE_GROUPS.map(g => (
-          <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
-            <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
-            <div className="cards">
-              {STYLES.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} text={text} size={size} />)}
-            </div>
-          </section>
-        ))}
-      </div>
+      {shown.length ? (
+        <div className="style-groups">
+          {STYLE_GROUPS.filter(g => shown.some(s => s.group === g.id)).map(g => (
+            <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
+              <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
+              <div className={view === 'list' ? 'cards list' : 'cards'}>
+                {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} text={text} size={size} />)}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <p className="cards-empty">No styles match these filters. <button className="link" onClick={actions.clearFilters}>Clear filters</button></p>
+      )}
     </div>
   );
 }

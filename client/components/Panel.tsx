@@ -1,10 +1,10 @@
-/* Right-hand panel: the starting-style summary, or the controls of the open category with a
+/* Right-hand panel: the starting-style filters, or the controls of the open category with a
    live explainer. While a letter is inspected, the sliders are grouped by the parts of that
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
 import {
-  ANATOMY, CATEGORIES, CONTROLS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, TERMINAL_OPTIONS, controlFor, groupLabel, moodLabels, styleById,
-  type ActiveKey, type CategoryId, type ControlKey, type SerifSubKey
+  ANATOMY, CATEGORIES, CONTROLS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STYLE_GROUPS, STYLES, TERMINAL_OPTIONS, controlFor, styleMatches,
+  type ActiveKey, type CategoryId, type ControlKey, type Mood, type SerifSubKey, type StyleGroup
 } from '../../shared/content';
 import type { NumericParam } from '../../shared/params';
 import { actions, useEditor, useFont } from '../state/editor';
@@ -15,22 +15,45 @@ export function Panel() {
   const category = useEditor(s => s.category);
   return (
     <aside className="panel" aria-label="Controls" data-guide="panel" onPointerLeave={() => { actions.setHot(false); actions.setPart(null); }}>
-      {category === 'style' ? <StylePanel /> : <ControlsPanel category={category} />}
+      {category === 'style' ? <StyleFilters /> : <ControlsPanel category={category} />}
     </aside>
   );
 }
 
-function StylePanel() {
-  const style = useEditor(s => styleById(s.styleId));
-  if (!style) return null;
+/** Style page: filter the starting styles by type and mood, like the Google Fonts filters. */
+function StyleFilters() {
+  const groups = useEditor(s => s.groups), moods = useEditor(s => s.moods);
+  // each option's count is what picking it would show, given the other facet
+  const count = (g: StyleGroup[], m: Mood[]) => STYLES.filter(s => styleMatches(s, g, m)).length;
   return (
-    <div className="panel-pad">
-      <div className="eyebrow">{groupLabel(style.group)}</div>
-      <h2 className="panel-title">{style.name}</h2>
-      <p className="panel-text">{style.desc}</p>
-      <p className="panel-like"><span>Mood</span>{moodLabels(style.moods)}</p>
-      <p className="panel-like"><span>Similar to</span>{style.like}</p>
-      <button className="btn wide" onClick={() => actions.loadStyle(style.id)}>Reset to {style.name} defaults</button>
+    <div className="panel-pad filters">
+      <div className="filters-head">
+        <h2 className="panel-title">Filters</h2>
+        {(groups.length > 0 || moods.length > 0) && <button className="btn ghost small" onClick={actions.clearFilters}>Clear</button>}
+      </div>
+      <div className="facet" role="group" aria-labelledby="f-type">
+        <div className="facet-label" id="f-type">Type</div>
+        {STYLE_GROUPS.map(g => (
+          <label key={g.id} className="facet-row" title={g.hint}>
+            <input type="checkbox" checked={groups.includes(g.id)} onChange={() => actions.toggleGroup(g.id)} />
+            <span>{g.label}</span>
+            <span className="count">{count([g.id], moods)}</span>
+          </label>
+        ))}
+      </div>
+      <div className="facet" role="group" aria-labelledby="f-mood">
+        <div className="facet-label" id="f-mood">Mood</div>
+        <div className="chips">
+          {MOODS.map(([id, label]) => {
+            const on = moods.includes(id), n = count(groups, [id]);
+            return (
+              <button key={id} className={on ? 'chip on' : 'chip'} aria-pressed={on} disabled={!n && !on} onClick={() => actions.toggleMood(id)}>
+                {label}<span className="count">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

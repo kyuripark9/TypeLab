@@ -286,8 +286,9 @@ export const TEXTS = {
 };
 
 export const styleById = (id: string | null | undefined) => STYLES.find(s => s.id === id);
-export const groupLabel = (g: StyleGroup) => STYLE_GROUPS.find(x => x.id === g)!.label;
-export const moodLabels = (moods: Mood[]) => moods.map(m => MOODS.find(x => x[0] === m)![1]).join(', ');
+/** Faceted like Google Fonts: any of the picked groups, and any of the picked moods. */
+export const styleMatches = (s: StyleDef, groups: StyleGroup[], moods: Mood[]) =>
+  (!groups.length || groups.includes(s.group)) && (!moods.length || s.moods.some(m => moods.includes(m)));
 
 /** First control of each category, opened when the category is picked. */
 export const firstControl = (cat: CategoryId) =>

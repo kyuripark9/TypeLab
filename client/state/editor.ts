@@ -1,10 +1,17 @@
 /* Editor state. One store for the open design (with undo history) and the UI around it.
    Actions live outside the store so components can import them without subscribing. */
 import { create } from 'zustand';
-import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey } from '../../shared/content';
+import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Mood, type StyleGroup } from '../../shared/content';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
 import type { Params } from '../../shared/params';
+
+export type CardView = 'grid' | 'list';
+
+const VIEW_KEY = 'typelab.cardView';
+const savedView = (): CardView => {
+  try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid'; } catch { return 'grid'; }
+};
 
 interface Doc { designId: string | null; name: string; styleId: string; params: Params }
 
@@ -22,6 +29,11 @@ export interface EditorState extends Doc {
   /** the preview text; empty shows the default sentence */
   custom: string;
   size: number;
+  /** Style page filters; an empty list means no filter on that facet */
+  groups: StyleGroup[];
+  moods: Mood[];
+  /** Style page layout: cards in a grid, or one per row */
+  view: CardView;
   inspect: string | null;
   part: string | null;
   skeleton: boolean;
@@ -56,6 +68,9 @@ export const useEditor = create<EditorState>()(() => ({
   hot: false,
   custom: '',
   size: 48,
+  groups: [],
+  moods: [],
+  view: savedView(),
   inspect: null,
   part: null,
   skeleton: false,
@@ -64,6 +79,8 @@ export const useEditor = create<EditorState>()(() => ({
 }));
 
 const set = useEditor.setState, get = useEditor.getState;
+
+const toggle = <T,>(list: T[], x: T) => list.includes(x) ? list.filter(y => y !== x) : [...list, x];
 
 export const isDirty = (s: EditorState) => docSnap(s) !== s.saved;
 
@@ -150,6 +167,13 @@ export const actions = {
   focusControl(key: ActiveKey) { set({ active: key, hot: true }); },
   setCustom(custom: string) { set({ custom }); },
   setSize(size: number) { set({ size }); },
+  toggleGroup(g: StyleGroup) { set(s => ({ groups: toggle(s.groups, g) })); },
+  toggleMood(m: Mood) { set(s => ({ moods: toggle(s.moods, m) })); },
+  clearFilters() { set({ groups: [], moods: [] }); },
+  setView(view: CardView) {
+    set({ view });
+    try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode: the choice lasts this visit */ }
+  },
   openInspector(ch: string) {
     if (!fontFor(get().params).glyph(ch)) return;
     const s = get();
