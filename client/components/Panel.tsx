@@ -3,11 +3,12 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
 import {
-  ANATOMY, CATEGORIES, CONTROLS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STYLE_GROUPS, STYLES, TERMINAL_OPTIONS, controlFor, styleMatches,
+  ANATOMY, CATEGORIES, CONTROLS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STYLE_GROUPS, STYLES, TAG_FACE, TERMINAL_OPTIONS, controlFor, styleById, styleMatches,
   type ActiveKey, type CategoryId, type ControlKey, type Mood, type SerifSubKey, type StyleGroup
 } from '../../shared/content';
 import type { NumericParam } from '../../shared/params';
-import { actions, useEditor, useFont } from '../state/editor';
+import { n1 } from '../lib/hooks';
+import { actions, fontFor, useEditor, useFont } from '../state/editor';
 import { Diagram, SerifIcon, TerminalIcon } from './Diagram';
 import { letterControls } from './Inspector';
 
@@ -36,7 +37,7 @@ function StyleFilters() {
         {STYLE_GROUPS.map(g => (
           <label key={g.id} className="facet-row" title={g.hint}>
             <input type="checkbox" checked={groups.includes(g.id)} onChange={() => actions.toggleGroup(g.id)} />
-            <span>{g.label}</span>
+            <TagText tag={g.id} label={g.label} />
             <span className="count">{count([g.id], moods)}</span>
           </label>
         ))}
@@ -48,13 +49,35 @@ function StyleFilters() {
             const on = moods.includes(id), n = count(groups, [id]);
             return (
               <button key={id} className={on ? 'chip on' : 'chip'} aria-pressed={on} disabled={!n && !on} onClick={() => actions.toggleMood(id)}>
-                {label}<span className="count">{n}</span>
+                <TagText tag={id} label={label} /><span className="count">{n}</span>
               </button>
             );
           })}
         </div>
       </div>
     </div>
+  );
+}
+
+/** Cap height of a tag label in px, so every face reads at about the size of the UI text. */
+const TAG_CAP = 9.5;
+
+/** A filter tag's name, drawn in a starting style that belongs to it. */
+function TagText({ tag, label }: { tag: StyleGroup | Mood; label: string }) {
+  const f = fontFor(styleById(TAG_FACE[tag])!.params);
+  const sc = TAG_CAP / f.m.cap, top = Math.max(f.m.asc, f.m.cap), line = f.layout(label, Infinity)[0];
+  const W = n1(line.width * sc), H = n1((top - f.m.desc) * sc);
+  return (
+    <span className="tag-face">
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
+        <g transform={`scale(${sc})`}>
+          {line.items.map((it, j) => {
+            const g = f.glyph(it.ch);
+            return g && <path key={j} d={g.d} transform={`translate(${n1(it.x)},${n1(top)})`} />;
+          })}
+        </g>
+      </svg>
+    </span>
   );
 }
 

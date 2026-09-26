@@ -290,6 +290,14 @@ export const styleById = (id: string | null | undefined) => STYLES.find(s => s.i
 export const styleMatches = (s: StyleDef, groups: StyleGroup[], moods: Mood[]) =>
   (!groups.length || groups.includes(s.group)) && (!moods.length || s.moods.some(m => moods.includes(m)));
 
+/** The starting style each filter tag is set in: one that belongs to the group or carries the mood. */
+export const TAG_FACE: Record<StyleGroup | Mood, string> = {
+  sans: 'grotesque', serif: 'serif', slab: 'slab', mono: 'code', hand: 'casual', display: 'woodtype',
+  business: 'grotesque', calm: 'humanist', happy: 'soft', playful: 'display', cute: 'upright', childlike: 'casual',
+  fancy: 'didone', sophisticated: 'chancery', artistic: 'brush', loud: 'fatface', rugged: 'marker', vintage: 'typewriter',
+  futuristic: 'techno'
+};
+
 /** First control of each category, opened when the category is picked. */
 export const firstControl = (cat: CategoryId) =>
   (Object.keys(CONTROLS) as ControlKey[]).find(k => CONTROLS[k].cat === cat) ?? 'weight';

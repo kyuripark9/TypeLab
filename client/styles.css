@@ -116,6 +116,8 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .facet-row input { margin: 0; accent-color: var(--sabi); width: 15px; height: 15px; }
 .facet-row span:first-of-type { flex: 1; }
 .count { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.tag-face { display: flex; align-items: center; min-width: 0; }
+.tag-face svg { display: block; fill: currentColor; overflow: visible; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 100px; border: 1px solid var(--line-2); font-size: 12.5px; font-weight: 500; background: var(--surface); transition: background .15s, border-color .15s, color .15s; }
 .chip:hover { border-color: var(--ink-3); }
