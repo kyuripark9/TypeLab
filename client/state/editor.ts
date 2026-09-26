@@ -1,7 +1,7 @@
 /* Editor state. One store for the open design (with undo history) and the UI around it.
    Actions live outside the store so components can import them without subscribing. */
 import { create } from 'zustand';
-import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleGroup } from '../../shared/content';
+import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleGroup, type Weight } from '../../shared/content';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
 import type { Params } from '../../shared/params';
@@ -33,6 +33,7 @@ export interface EditorState extends Doc {
   groups: StyleGroup[];
   moods: Mood[];
   looks: Look[];
+  weights: Weight[];
   /** Style page layout: cards in a grid, or one per row */
   view: CardView;
   inspect: string | null;
@@ -72,6 +73,7 @@ export const useEditor = create<EditorState>()(() => ({
   groups: [],
   moods: [],
   looks: [],
+  weights: [],
   view: savedView(),
   inspect: null,
   part: null,
@@ -172,7 +174,8 @@ export const actions = {
   toggleGroup(g: StyleGroup) { set(s => ({ groups: toggle(s.groups, g) })); },
   toggleMood(m: Mood) { set(s => ({ moods: toggle(s.moods, m) })); },
   toggleLook(l: Look) { set(s => ({ looks: toggle(s.looks, l) })); },
-  clearFilters() { set({ groups: [], moods: [], looks: [] }); },
+  toggleWeight(w: Weight) { set(s => ({ weights: toggle(s.weights, w) })); },
+  clearFilters() { set({ groups: [], moods: [], looks: [], weights: [] }); },
   setView(view: CardView) {
     set({ view });
     try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode: the choice lasts this visit */ }

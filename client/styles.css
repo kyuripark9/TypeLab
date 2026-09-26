@@ -129,6 +129,10 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .chip.on .count { color: inherit; opacity: .7; }
 .chip:disabled { opacity: .35; cursor: default; }
 .chip:disabled:hover { border-color: var(--line-2); }
+.facet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.facet-head .facet-label { margin-bottom: 0; }
+.facet-more { font-size: 12px; font-weight: 500; color: var(--ink-3); transition: color .15s; }
+.facet-more:hover { color: var(--ink); }
 
 .explainer { position: sticky; top: 0; z-index: 2; background: var(--surface); border-bottom: 1px solid var(--line); }
 .diagram-box { height: 178px; display: grid; place-items: center; border-bottom: 1px solid var(--line); background: var(--surface); }

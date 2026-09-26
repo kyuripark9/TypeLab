@@ -4,8 +4,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
 import {
   ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, LOOKS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS, STYLE_GROUPS, STYLES, SUBS,
-  TAG_FACE, TERMINAL_OPTIONS, controlFor, styleById, styleMatches,
-  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Look, type Mood, type SerifSubKey, type StyleGroup
+  TAG_FACE, TERMINAL_OPTIONS, WEIGHTS, controlFor, styleById, styleMatches,
+  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Look, type Mood, type SerifSubKey, type StyleFilter, type StyleGroup,
+  type Weight
 } from '../../shared/content';
 import type { NumericParam } from '../../shared/params';
 import { n1 } from '../lib/hooks';
@@ -22,52 +23,70 @@ export function Panel() {
   );
 }
 
-/** Style page: filter the starting styles by type and mood, like the Google Fonts filters. */
+/** Style page: filter the starting styles by type, weight, mood and look, like the Google Fonts filters. */
 function StyleFilters() {
-  const groups = useEditor(s => s.groups), moods = useEditor(s => s.moods), looks = useEditor(s => s.looks);
+  const f: StyleFilter = {
+    groups: useEditor(s => s.groups), moods: useEditor(s => s.moods), looks: useEditor(s => s.looks), weights: useEditor(s => s.weights)
+  };
   // each option's count is what picking it would show, given the other facets
-  const count = (g: StyleGroup[], m: Mood[], l: Look[]) => STYLES.filter(s => styleMatches(s, g, m, l)).length;
+  const count = (pick: Partial<StyleFilter>) => STYLES.filter(s => styleMatches(s, { ...f, ...pick })).length;
+  const picked = f.groups.length + f.moods.length + f.looks.length + f.weights.length > 0;
   return (
     <div className="panel-pad filters">
       <div className="filters-head">
         <h2 className="panel-title">Filters</h2>
-        {(groups.length > 0 || moods.length > 0 || looks.length > 0) && <button className="btn ghost small" onClick={actions.clearFilters}>Clear</button>}
+        {picked && <button className="btn ghost small" onClick={actions.clearFilters}>Clear</button>}
       </div>
       <div className="facet" role="group" aria-labelledby="f-type">
         <div className="facet-label" id="f-type">Type</div>
         {STYLE_GROUPS.map(g => (
           <label key={g.id} className="facet-row" title={g.hint}>
-            <input type="checkbox" checked={groups.includes(g.id)} onChange={() => actions.toggleGroup(g.id)} />
+            <input type="checkbox" checked={f.groups.includes(g.id)} onChange={() => actions.toggleGroup(g.id)} />
             <TagText tag={g.id} label={g.label} />
-            <span className="count">{count([g.id], moods, looks)}</span>
+            <span className="count">{count({ groups: [g.id] })}</span>
           </label>
         ))}
       </div>
-      <div className="facet" role="group" aria-labelledby="f-mood">
-        <div className="facet-label" id="f-mood">Mood</div>
-        <div className="chips">
-          {MOODS.map(([id, label]) => {
-            const on = moods.includes(id), n = count(groups, [id], looks);
-            return (
-              <button key={id} className={on ? 'chip on' : 'chip'} aria-pressed={on} disabled={!n && !on} onClick={() => actions.toggleMood(id)}>
-                <TagText tag={id} label={label} /><span className="count">{n}</span>
-              </button>
-            );
-          })}
-        </div>
+      <ChipFacet id="weight" label="Weight" tags={WEIGHTS} picked={f.weights} count={w => count({ weights: [w] })} toggle={actions.toggleWeight} />
+      <ChipFacet id="mood" label="Mood" tags={MOOD_TAGS} picked={f.moods} count={m => count({ moods: [m] })} toggle={actions.toggleMood} />
+      <ChipFacet id="look" label="Look" tags={LOOKS} picked={f.looks} count={l => count({ looks: [l] })} toggle={actions.toggleLook} />
+    </div>
+  );
+}
+
+type Tag = StyleGroup | Mood | Look | Weight;
+const MOOD_TAGS = MOODS.map(([id, label]) => ({ id, label }));
+
+/** Chips a facet shows before "Show more". Picked chips always stay visible. */
+const FACET_LIMIT = 8;
+
+/** One facet of chips; a long one folds down to its first few until expanded. */
+function ChipFacet<T extends Tag>({ id, label, tags, picked, count, toggle }: {
+  id: string; label: string; tags: { id: T; label: string; hint?: string }[]; picked: T[];
+  count: (tag: T) => number; toggle: (tag: T) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const shown = open ? tags : tags.filter((t, i) => i < FACET_LIMIT || picked.includes(t.id));
+  const more = tags.length - shown.length;
+  return (
+    <div className="facet" role="group" aria-labelledby={`f-${id}`}>
+      <div className="facet-head">
+        <div className="facet-label" id={`f-${id}`}>{label}</div>
+        {(open || more > 0) && (
+          <button className="facet-more" aria-expanded={open} aria-controls={`c-${id}`} onClick={() => setOpen(!open)}>
+            {open ? 'Show less' : `Show ${more} more`}
+          </button>
+        )}
       </div>
-      <div className="facet" role="group" aria-labelledby="f-look">
-        <div className="facet-label" id="f-look">Look</div>
-        <div className="chips">
-          {LOOKS.map(({ id, label, hint }) => {
-            const on = looks.includes(id), n = count(groups, moods, [id]);
-            return (
-              <button key={id} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} disabled={!n && !on} onClick={() => actions.toggleLook(id)}>
-                <TagText tag={id} label={label} /><span className="count">{n}</span>
-              </button>
-            );
-          })}
-        </div>
+      <div className="chips" id={`c-${id}`}>
+        {shown.map(({ id: tag, label, hint }) => {
+          const on = picked.includes(tag), n = count(tag);
+          return (
+            <button key={tag} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} disabled={!n && !on} onClick={() => toggle(tag)}>
+              <TagText tag={tag} label={label} /><span className="count">{n}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -77,7 +96,7 @@ function StyleFilters() {
 const TAG_CAP = 9.5;
 
 /** A filter tag's name, drawn in a starting style that belongs to it. */
-function TagText({ tag, label }: { tag: StyleGroup | Mood | Look; label: string }) {
+function TagText({ tag, label }: { tag: Tag; label: string }) {
   const f = fontFor(styleById(TAG_FACE[tag])!.params);
   const sc = TAG_CAP / f.m.cap, top = Math.max(f.m.asc, f.m.cap), line = f.layout(label, Infinity)[0];
   const W = n1(line.width * sc), H = n1((top - f.m.desc) * sc);
