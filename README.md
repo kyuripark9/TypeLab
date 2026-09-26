@@ -56,6 +56,13 @@ and builds exported fonts on the server. A full rebuild of every glyph takes abo
 | `stroke.ts` | Centerline → outline: pen-model contrast, terminals, joins, serifs |
 | `font.ts` | Params → metrics → glyphs; personality macros; text layout; highlight layers |
 | `glyphs.ts` | Parametric skeletons for A–Z, a–z, 0–9 and `.,!?;:'"()-/&@#$%+` |
+| `effects.ts` | Whole-outline effects: the slice cut, and the wireframe, pixel, dot and line fills |
+
+Beyond weight, width and contrast, the pen model also does squircle bowls (*Squareness*),
+faceted octagonal curves (*Chamfer*), reverse contrast and ink-trap joints, and glyph assembly
+can cut stencil gaps where one stroke joins another. The fills run last, on the glyph's final
+outline, so a pixel or dot grid stays aligned across a whole line: advances and tracking snap
+to the grid.
 
 ### Client (`client/`)
 

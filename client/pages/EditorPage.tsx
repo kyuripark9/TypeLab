@@ -1,7 +1,7 @@
 /* The editor, for a new design (/) or a saved one (/d/:id). */
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
-import { CATEGORIES, CONTROLS, SERIF_SUBS, type ActiveKey, type CategoryId } from '../../shared/content';
+import { CATEGORIES, CONTROLS, SUBS, type ActiveKey, type CategoryId } from '../../shared/content';
 import { cleanName } from '../../shared/design';
 import { ApiError, api, errorMessage } from '../lib/api';
 import { isTyping } from '../lib/hooks';
@@ -153,7 +153,7 @@ function useDeepLinks() {
     if (style) actions.loadStyle(style);
     if (text) actions.setCustom(text);
     if (cat && CATEGORIES.some(c => c.id === cat)) {
-      const a = active && (active in CONTROLS || active in SERIF_SUBS) ? active as ActiveKey : undefined;
+      const a = active && (active in CONTROLS || active in SUBS) ? active as ActiveKey : undefined;
       actions.setCategory(cat as CategoryId, a);
     }
     if (q.get('hot')) actions.setHot(true);

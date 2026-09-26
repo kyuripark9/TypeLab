@@ -2,8 +2,8 @@
    the demo letters, the affected part highlighted, and a measurement or guide. */
 import type { ReactNode } from 'react';
 import { CONTROLS, controlFor, type ActiveKey } from '../../shared/content';
-import { RING_KEYS, applyM, buildSerif, cmdsToD, expandStroke, roundContour, signedArea, type Font, type LineItem, type Pt } from '../../shared/engine';
-import type { SerifShape, Terminal } from '../../shared/params';
+import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, signedArea, type Font, type LineItem, type Pt } from '../../shared/engine';
+import { DEFAULTS, type Fill, type SerifShape, type Terminal } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 
 export function Diagram({ font, k, W = 340, H = 178 }: { font: Font; k: ActiveKey; W?: number; H?: number }) {
@@ -123,4 +123,16 @@ export function SerifIcon({ shape }: { shape: SerifShape }) {
     serifPaths.set(shape, d);
   }
   return <svg viewBox="0 -160 200 170" width="52" height="44" aria-hidden="true"><path d={d} /></svg>;
+}
+
+/* Fill icons are a real 'a' from the engine, bold and on a coarse grid so the fill reads small. */
+const fillPaths = new Map<Fill, { d: string; w: number }>();
+export function FillIcon({ fill }: { fill: Fill }) {
+  let icon = fillPaths.get(fill);
+  if (!icon) {
+    const g = buildFont({ ...DEFAULTS, weight: 0.72, xHeight: 0.8, counter: 0.6, fill, module: fill === 'wire' ? 0.4 : 0.62 }).glyph('a');
+    icon = { d: g?.d ?? '', w: g?.adv ?? 500 };
+    fillPaths.set(fill, icon);
+  }
+  return <svg viewBox={`0 -620 ${n1(icon.w)} 680`} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
 }

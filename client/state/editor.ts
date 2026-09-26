@@ -1,7 +1,7 @@
 /* Editor state. One store for the open design (with undo history) and the UI around it.
    Actions live outside the store so components can import them without subscribing. */
 import { create } from 'zustand';
-import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Mood, type StyleGroup } from '../../shared/content';
+import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleGroup } from '../../shared/content';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
 import type { Params } from '../../shared/params';
@@ -32,6 +32,7 @@ export interface EditorState extends Doc {
   /** Style page filters; an empty list means no filter on that facet */
   groups: StyleGroup[];
   moods: Mood[];
+  looks: Look[];
   /** Style page layout: cards in a grid, or one per row */
   view: CardView;
   inspect: string | null;
@@ -70,6 +71,7 @@ export const useEditor = create<EditorState>()(() => ({
   size: 48,
   groups: [],
   moods: [],
+  looks: [],
   view: savedView(),
   inspect: null,
   part: null,
@@ -169,7 +171,8 @@ export const actions = {
   setSize(size: number) { set({ size }); },
   toggleGroup(g: StyleGroup) { set(s => ({ groups: toggle(s.groups, g) })); },
   toggleMood(m: Mood) { set(s => ({ moods: toggle(s.moods, m) })); },
-  clearFilters() { set({ groups: [], moods: [] }); },
+  toggleLook(l: Look) { set(s => ({ looks: toggle(s.looks, l) })); },
+  clearFilters() { set({ groups: [], moods: [], looks: [] }); },
   setView(view: CardView) {
     set({ view });
     try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode: the choice lasts this visit */ }

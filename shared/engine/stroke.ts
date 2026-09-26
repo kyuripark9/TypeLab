@@ -3,7 +3,7 @@
    into an outline polygon whose thickness follows the pen model: thick where the
    stroke runs vertically, thin where it runs horizontally (scaled by Contrast),
    with styled terminals, mitered joins and optional serifs. */
-import { clamp, cubicAt, lerp, quarter, smoothstep, subCubic } from './geom';
+import { clamp, cubicAt, lerp, lerpP, quarter, smoothstep, subCubic } from './geom';
 import type { Cmd, EndType, PenCtx, Pt, SerifSides, StrokeEnd, StrokeOpts, StrokeWeight } from './types';
 
 const CURVE_N = 16;
@@ -12,10 +12,66 @@ interface Sample {
   x: number; y: number; tx: number; ty: number;
   w: number | null; mask: number; smooth: boolean;
   len: number; t: number;
+  /** sideways shift of the outline (toward the left of travel), for one-sided thinning */
+  off?: number;
 }
 type Dir = { x: number; y: number };
 
 const wNum = (w: StrokeWeight) => (w === 'thin' ? 0 : w === 'thick' ? 1 : w);
+
+/* Cut corners: the straight-line counterpart of a curve. Its corner is where the two end
+   tangents meet, and the cut runs between points a fraction `f` of the way back from the
+   corner (0 = square corner, 1 = straight chord). Without a usable corner (parallel
+   tangents, as in the spine of an S) the curve becomes its chord. */
+function chamferPoly(P: Dir[], f: number): Dir[] {
+  const [p0, p1, p2, p3] = P;
+  const d0 = { x: p1.x - p0.x, y: p1.y - p0.y }, d1 = { x: p3.x - p2.x, y: p3.y - p2.y };
+  const wx = p3.x - p0.x, wy = p3.y - p0.y, cr = d0.x * d1.y - d0.y * d1.x;
+  if (Math.abs(cr) > 1e-6 * Math.hypot(d0.x, d0.y) * Math.hypot(d1.x, d1.y)) {
+    const s = (wx * d1.y - wy * d1.x) / cr, t = (wx * d0.y - wy * d0.x) / cr;
+    if (s > 0 && t < 0) {
+      const c = { x: p0.x + s * d0.x, y: p0.y + s * d0.y };
+      return [p0, lerpP(c, p0, f), lerpP(c, p3, f), p3];
+    }
+  }
+  return [p0, p3];
+}
+
+/* Samples of cubic P over [u0,u1], pulled toward its cut-corner polygon by `mix`. Each straight
+   side becomes its own list, so the corners between them stay corners. */
+function chamferSamples(P: Dir[], u0: number, u1: number, chamfer: number, w: number | null, minLen: number): Sample[][] {
+  // the first 30% of the slider morphs the curve into a regular octagon; the rest shrinks the cuts
+  const mix = smoothstep(chamfer / 0.3), f = lerp(0.586, 0.2, clamp((chamfer - 0.3) / 0.7));
+  const poly = chamferPoly(P, f), cum = [0];
+  for (let i = 1; i < poly.length; i++) cum.push(cum[i - 1] + Math.hypot(poly[i].x - poly[i - 1].x, poly[i].y - poly[i - 1].y));
+  const total = cum[cum.length - 1] || 1;
+  const at = (u: number) => {
+    const s = clamp(u) * total;
+    let i = 1;
+    while (i < poly.length - 1 && cum[i] < s) i++;
+    const seg = cum[i] - cum[i - 1];
+    const q = lerpP(poly[i - 1], poly[i], seg > 0 ? (s - cum[i - 1]) / seg : 0), c = cubicAt(P, u);
+    return { x: lerp(c.x, q.x, mix), y: lerp(c.y, q.y, mix) };
+  };
+  const out: Sample[][] = [], span = u1 - u0 || 1;
+  for (let k = 1; k < poly.length; k++) {
+    let a = Math.max(u0, cum[k - 1] / total), b = Math.min(u1, cum[k] / total);
+    if (b - a < 1e-4) continue;
+    // a side cut short by the curve's start or end, shorter than the stroke is thick, would
+    // only leave a spike at the corner: let the stroke start or end at the corner instead
+    if ((b - a) * total < minLen && k < poly.length - 1 && a > cum[k - 1] / total + 1e-6 && u1 > cum[k] / total + 1e-4) continue;
+    if ((b - a) * total < minLen && k > 1 && b < cum[k] / total - 1e-6 && u0 < cum[k - 1] / total - 1e-4) continue;
+    const n = mix < 1 ? 8 : 1, seg: Sample[] = [], eps = (b - a) * 1e-3;
+    for (let i = 0; i <= n; i++) {
+      const u = lerp(a, b, i / n), p = at(u), p0 = at(Math.max(a, u - eps)), p1 = at(Math.min(b, u + eps));
+      const dx = p1.x - p0.x, dy = p1.y - p0.y, l = Math.hypot(dx, dy) || 1, lu = (u - u0) / span;
+      seg.push({ x: p.x, y: p.y, tx: dx / l, ty: dy / l, w, mask: smoothstep(Math.min(lu, 1 - lu) * 3.2),
+        smooth: i > 0 && i < n, len: 0, t: 0 });
+    }
+    out.push(seg);
+  }
+  return out;
+}
 
 /* ---- 1. flatten path commands into runs of samples (a run has a continuous tangent) */
 function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
@@ -56,7 +112,12 @@ function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
       const k = clamp(ctx.k * (1 + (dx * dy < 0 ? 0.13 : -0.09) * ctx.org), 0.3, 0.97);
       P = quarter(cur.x, cur.y, c[1], c[2], op, k);
     }
-    P = subCubic(P, o.u0 || 0, o.u1 == null ? 1 : o.u1);
+    const u0 = o.u0 || 0, u1 = o.u1 == null ? 1 : o.u1;
+    if (ctx.chamfer) {
+      chamferSamples(P, u0, u1, ctx.chamfer, o.w != null ? wNum(o.w) : null, ctx.thick * 0.9).forEach(push);
+      cur = P[3]; continue;
+    }
+    P = subCubic(P, u0, u1);
     const out: Sample[] = [];
     for (let i = 0; i <= CURVE_N; i++) {
       const u = i / CURVE_N, p = cubicAt(P, u);
@@ -71,7 +132,10 @@ function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
 /* ---- 2. pen model */
 export function autoThickness(tx: number, ty: number, ctx: PenCtx, thick: number, thin: number) {
   const th = Math.atan2(ty, tx);
-  const v = clamp(Math.abs(Math.sin(th - ctx.stress)) / Math.cos(ctx.stress));
+  let v = clamp(Math.abs(Math.sin(th - ctx.stress)) / Math.cos(ctx.stress));
+  // reversed, the weight follows cos²: flat at the heavy horizontals and, unlike a plain cosine,
+  // without a sharp dip where tight curves turn vertical
+  if (ctx.reverse) v = lerp(v, Math.cos(th - ctx.stress) ** 2, ctx.reverse);
   return thin + (thick - thin) * Math.pow(v, 1.15);
 }
 
@@ -131,7 +195,15 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     if (o.s === 'term') ws = Math.min(ws, 0.42);
     if (o.e === 'term') we = Math.min(we, 0.42);
   }
-  const tapered = ws !== 1 || we !== 1;
+  // thin joints: a stroke narrows where it runs into another, opening up the crotch
+  let js = 1, je = 1;
+  if (ctx.joints) {
+    // never past half: where two strokes overlap (the waist of B) each keeps its shared half
+    const f = lerp(1, 0.45, ctx.joints);
+    if (o.s === 'join') js = f;
+    if (o.e === 'join') je = f;
+  }
+  const tapered = ws !== 1 || we !== 1 || js !== 1 || je !== 1;
   const { runs, closed } = flatten(cmds, ctx, tapered);
   if (!runs.length) return null;
 
@@ -143,32 +215,45 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     s.len = total; all.push(s);
   }));
   const taperLen = Math.max(1, Math.min(total * 0.45, thick * 3));
-  const pathW = o.w == null ? null : wNum(o.w);
+  // explicit weights name the thick or thin stroke of a pair, so reverse contrast swaps them
+  const rev = (w: number) => ctx.reverse ? lerp(w, 1 - w, ctx.reverse) : w;
+  const pathW = o.w == null ? null : rev(wNum(o.w));
   for (const s of all) {
     let t = autoThickness(s.tx, s.ty, ctx, thick, thin);
     if (pathW != null) t = lerp(thin, thick, pathW);
-    if (s.w != null) t = lerp(t, lerp(thin, thick, s.w), s.mask);
+    if (s.w != null) t = lerp(t, lerp(thin, thick, rev(s.w)), s.mask);
     if (ws !== 1) t *= lerp(ws, 1, smoothstep(s.len / taperLen));
     if (we !== 1) t *= lerp(we, 1, smoothstep((total - s.len) / taperLen));
     // a hand-held pen never presses evenly
     if (ctx.wobble) t *= 1 + ctx.wobble * 0.22 * Math.sin(s.len / (thick * 1.8 + 60) + (ctx.seed || 0));
     s.t = t;
   }
+  if (js !== 1 || je !== 1) {
+    // a curved stroke keeps its outer edge and thins only on the side of the counter it
+    // wraps, like an ink trap; a straight one thins evenly on both sides
+    let turn = 0;
+    for (let i = 1; i < all.length; i++) {
+      const a = all[i - 1], b = all[i];
+      turn += Math.atan2(a.tx * b.ty - a.ty * b.tx, a.tx * b.tx + a.ty * b.ty);
+    }
+    const keep = Math.abs(turn) < 0.5 ? 0 : turn < 0 ? 1 : -1;
+    for (const s of all) {
+      let f = 1;
+      if (js !== 1) f *= lerp(js, 1, smoothstep(s.len / taperLen));
+      if (je !== 1) f *= lerp(je, 1, smoothstep((total - s.len) / taperLen));
+      s.off = keep * s.t * (1 - f) / 2;
+      s.t *= f;
+    }
+  }
 
-  const sideOf = (s: Sample, sg: number): Pt => ({ x: s.x - sg * s.ty * s.t / 2, y: s.y + sg * s.tx * s.t / 2, smooth: s.smooth });
+  const sideOf = (s: Sample, sg: number): Pt => {
+    const d = sg * s.t / 2 + (s.off || 0);
+    return { x: s.x - s.ty * d, y: s.y + s.tx * d, smooth: s.smooth };
+  };
   const Lr: (Pt | null)[][] = runs.map(r => r.map(s => sideOf(s, 1)));
   const Rr: (Pt | null)[][] = runs.map(r => r.map(s => sideOf(s, -1)));
   const curved = cmds.some(c => c[0] === 'C' || c[0] === 'hv' || c[0] === 'vh');
   const skeleton = runs.map(r => r.map(s => ({ x: s.x, y: s.y })));
-
-  const isLoop = closed && runs.length === 1 &&
-    Math.hypot(all[0].x - all[all.length - 1].x, all[0].y - all[all.length - 1].y) < 0.5;
-  if (isLoop) {
-    const l = Lr[0] as Pt[], r = Rr[0] as Pt[];
-    l.pop(); r.pop();
-    l.forEach(p => p.smooth = true); r.forEach(p => p.smooth = true);
-    return { contours: [l, r], loop: true, ends: [], skeleton, curved: true, thickness: all.map(s => s.t) };
-  }
 
   // joins between runs
   const limit = o.miter || 5;
@@ -191,6 +276,21 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     }
   };
   for (let i = 0; i + 1 < runs.length; i++) join(i, i + 1);
+
+  // a closed path is a ring: two contours, no ends. Cut corners split it into several runs,
+  // so the last run is mitered into the first like any other join.
+  const isLoop = closed && Math.hypot(all[0].x - all[all.length - 1].x, all[0].y - all[all.length - 1].y) < 0.5;
+  if (isLoop) {
+    if (runs.length > 1) join(runs.length - 1, 0);
+    const ring = (sides: (Pt | null)[][]) => {
+      const pts = sides.flat().filter((p): p is Pt => !!p), a = pts[0], b = pts[pts.length - 1];
+      if (pts.length > 1 && Math.hypot(a.x - b.x, a.y - b.y) < 0.5) pts.pop();
+      if (runs.length === 1) pts.forEach(p => p.smooth = true);
+      return pts;
+    };
+    return { contours: [ring(Lr), ring(Rr)], loop: true, ends: [], skeleton, curved, thickness: all.map(s => s.t) };
+  }
+
   const L = Lr.flat().filter((p): p is Pt => !!p), R = Rr.flat().filter((p): p is Pt => !!p);
 
   const first = all[0], last = all[all.length - 1];

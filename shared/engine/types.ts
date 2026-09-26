@@ -64,6 +64,12 @@ export interface PenCtx {
   org: number;
   terminal: string;
   serif?: SerifSpec | null;
+  /** curves become straight segments with cut corners (0..1) */
+  chamfer?: number;
+  /** strokes thin out where they join another (0..1) */
+  joints?: number;
+  /** reverse contrast: horizontals thick, verticals thin (0..1) */
+  reverse?: number;
   /** hand-drawn irregularity (0..1) and a per-glyph phase for it */
   wobble?: number;
   seed?: number;

@@ -3,13 +3,14 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
 import {
-  ANATOMY, CATEGORIES, CONTROLS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STYLE_GROUPS, STYLES, TAG_FACE, TERMINAL_OPTIONS, controlFor, styleById, styleMatches,
-  type ActiveKey, type CategoryId, type ControlKey, type Mood, type SerifSubKey, type StyleGroup
+  ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, LOOKS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STYLE_GROUPS, STYLES, SUBS,
+  TAG_FACE, TERMINAL_OPTIONS, controlFor, styleById, styleMatches,
+  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Look, type Mood, type SerifSubKey, type StyleGroup
 } from '../../shared/content';
 import type { NumericParam } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 import { actions, fontFor, useEditor, useFont } from '../state/editor';
-import { Diagram, SerifIcon, TerminalIcon } from './Diagram';
+import { Diagram, FillIcon, SerifIcon, TerminalIcon } from './Diagram';
 import { letterControls } from './Inspector';
 
 export function Panel() {
@@ -23,14 +24,14 @@ export function Panel() {
 
 /** Style page: filter the starting styles by type and mood, like the Google Fonts filters. */
 function StyleFilters() {
-  const groups = useEditor(s => s.groups), moods = useEditor(s => s.moods);
-  // each option's count is what picking it would show, given the other facet
-  const count = (g: StyleGroup[], m: Mood[]) => STYLES.filter(s => styleMatches(s, g, m)).length;
+  const groups = useEditor(s => s.groups), moods = useEditor(s => s.moods), looks = useEditor(s => s.looks);
+  // each option's count is what picking it would show, given the other facets
+  const count = (g: StyleGroup[], m: Mood[], l: Look[]) => STYLES.filter(s => styleMatches(s, g, m, l)).length;
   return (
     <div className="panel-pad filters">
       <div className="filters-head">
         <h2 className="panel-title">Filters</h2>
-        {(groups.length > 0 || moods.length > 0) && <button className="btn ghost small" onClick={actions.clearFilters}>Clear</button>}
+        {(groups.length > 0 || moods.length > 0 || looks.length > 0) && <button className="btn ghost small" onClick={actions.clearFilters}>Clear</button>}
       </div>
       <div className="facet" role="group" aria-labelledby="f-type">
         <div className="facet-label" id="f-type">Type</div>
@@ -38,7 +39,7 @@ function StyleFilters() {
           <label key={g.id} className="facet-row" title={g.hint}>
             <input type="checkbox" checked={groups.includes(g.id)} onChange={() => actions.toggleGroup(g.id)} />
             <TagText tag={g.id} label={g.label} />
-            <span className="count">{count([g.id], moods)}</span>
+            <span className="count">{count([g.id], moods, looks)}</span>
           </label>
         ))}
       </div>
@@ -46,9 +47,22 @@ function StyleFilters() {
         <div className="facet-label" id="f-mood">Mood</div>
         <div className="chips">
           {MOODS.map(([id, label]) => {
-            const on = moods.includes(id), n = count(groups, [id]);
+            const on = moods.includes(id), n = count(groups, [id], looks);
             return (
               <button key={id} className={on ? 'chip on' : 'chip'} aria-pressed={on} disabled={!n && !on} onClick={() => actions.toggleMood(id)}>
+                <TagText tag={id} label={label} /><span className="count">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="facet" role="group" aria-labelledby="f-look">
+        <div className="facet-label" id="f-look">Look</div>
+        <div className="chips">
+          {LOOKS.map(({ id, label, hint }) => {
+            const on = looks.includes(id), n = count(groups, moods, [id]);
+            return (
+              <button key={id} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} disabled={!n && !on} onClick={() => actions.toggleLook(id)}>
                 <TagText tag={id} label={label} /><span className="count">{n}</span>
               </button>
             );
@@ -63,7 +77,7 @@ function StyleFilters() {
 const TAG_CAP = 9.5;
 
 /** A filter tag's name, drawn in a starting style that belongs to it. */
-function TagText({ tag, label }: { tag: StyleGroup | Mood; label: string }) {
+function TagText({ tag, label }: { tag: StyleGroup | Mood | Look; label: string }) {
   const f = fontFor(styleById(TAG_FACE[tag])!.params);
   const sc = TAG_CAP / f.m.cap, top = Math.max(f.m.asc, f.m.cap), line = f.layout(label, Infinity)[0];
   const W = n1(line.width * sc), H = n1((top - f.m.desc) * sc);
@@ -112,6 +126,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   const c = CONTROLS[k];
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'serif') return <SerifControl parts={parts} />;
+  if (c.type === 'fill') return <FillControl />;
   return <SliderControl k={k as NumericParam} def={c} parts={parts} />;
 }
 
@@ -141,7 +156,7 @@ function CtlHead({ friendly, tech, parts, advanced }: { friendly: string; tech: 
 function Explainer() {
   const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
   const part = useEditor(s => s.inspect ? s.part : null);
-  const c = CONTROLS[controlFor(active)], sub = SERIF_SUBS[active as SerifSubKey];
+  const c = CONTROLS[controlFor(active)], sub = SUBS[active as SerifSubKey | FillSubKey];
   const shapedBy = part && PART_CONTROL[part];
   // while inspecting, the large letter on the stage already shows the part, so drop the diagram
   return (
@@ -256,6 +271,29 @@ function SerifControl({ parts }: { parts?: string[] }) {
             ))}
           </div>
           {(Object.keys(SERIF_SUBS) as SerifSubKey[]).map(k => <SliderControl key={k} k={k} def={SERIF_SUBS[k]} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FillControl() {
+  const fill = useEditor(s => s.params.fill), active = useEditor(s => controlFor(s.active) === 'fill');
+  const c = CONTROLS.fill, solid = fill === 'solid';
+  return (
+    <div className={active ? 'ctl active' : 'ctl'} data-ctl="fill" {...useControlFocus('fill')}>
+      <CtlHead friendly={c.friendly} tech={c.tech} />
+      <div className="opts five" role="radiogroup" aria-label={c.tech}>
+        {FILL_OPTIONS.map(([id, label]) => (
+          <button key={id} role="radio" aria-checked={fill === id} className={fill === id ? 'opt on' : 'opt'}
+            onClick={() => actions.setOption('fill', id)}>
+            <FillIcon fill={id} /><span>{label}</span>
+          </button>
+        ))}
+      </div>
+      <div className={solid ? 'reveal' : 'reveal open'} inert={solid}>
+        <div>
+          {(Object.keys(FILL_SUBS) as FillSubKey[]).map(k => <SliderControl key={k} k={k} def={FILL_SUBS[k]} />)}
         </div>
       </div>
     </div>

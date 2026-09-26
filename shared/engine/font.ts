@@ -5,8 +5,9 @@
    few milliseconds, so sliders can drive it directly. */
 import { DEFAULTS, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, mulM, quarter, ringsD, roundContour, signedArea, transformCmds } from './geom';
-import { autoThickness, buildSerif, expandStroke } from './stroke';
-import type { Cmd, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent } from './types';
+import { fillOutline, slice } from './effects';
+import { autoThickness, buildSerif, expandStroke, type Expanded } from './stroke';
+import type { Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent } from './types';
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
@@ -28,6 +29,8 @@ export interface Metrics {
   thin: number; stress: number; k: number; org: number; sq: number;
   /** cursive amount and hand-drawn irregularity */ cur: number; wob: number;
   /** the shared advance width that monospacing pulls every glyph toward */ monoAdv: number;
+  /** grid size of the pixel, dot and line fills (0 = none); advances snap to it for pixels and dots */ cell: number;
+  /** stencil gap, and the band the slice removes (both 0 when off) */ gap: number; sliceY: number; sliceH: number;
   bar: number; apex: number; ap: number; cnt: number;
   serif: boolean;
   ctx: PenCtx;
@@ -98,7 +101,7 @@ export function resolve(p: Partial<Params>): Effective {
   e.xHeight = clamp(e.xHeight + 0.18 * cf + 0.12 * playful);
   e.width = clamp(e.width + 0.1 * future - 0.07 * formal);
   e.letterSpacing = clamp(e.letterSpacing + 0.04 * formal);
-  e.square = 0.85 * future;
+  e.square = clamp(0.85 * future + e.squareness);
   e.classic = classic;
   e.bounce = playful;
   // italic and script hands use the single-storey a and hold the pen at a steeper angle
@@ -118,7 +121,7 @@ function metrics(e: Effective): Metrics {
   const k = 0.5523 + 0.05 * e.curve + 0.36 * e.square;
   const org = e.curve;
   const ctx: PenCtx = {
-    thick: s, thin, stress, k, org, terminal: e.terminal,
+    thick: s, thin, stress, k, org, terminal: e.terminal, chamfer: e.chamfer, joints: e.joints, reverse: e.reverse,
     serif: e.serif ? {
       len: lerp(28, 175, e.serifSize) * (0.75 + 0.25 * ws),
       th: lerp(8, 95, e.serifThickness) * ({ unbracketed: 0.6, slab: 1.5, wedge: 1, bracketed: 1 }[e.serifShape] || 1),
@@ -137,18 +140,23 @@ function metrics(e: Effective): Metrics {
     if (cls === 'r') w *= 1 + 0.05 * e.classic;
     return w + (s - 80) * 0.62;
   };
+  // pixels and dots sit on one grid across the line, so spacing moves in whole cells
+  const cell = e.fill === 'pixels' || e.fill === 'dots' || e.fill === 'lines' ? cap / lerp(30, 7, e.module) : 0;
+  const snap = (v: number) => (cell && e.fill !== 'lines' ? Math.round(v / cell) * cell : v);
+  const sliceH = e.slice > 0 ? lerp(4, xh * 0.14, e.slice) : 0;
   return {
     p: e, s, cap, xh,
-    asc: Math.max(cap * 1.05, xh * 1.18),
-    desc: -cap * 0.3,
+    asc: Math.max(xh * 1.12, Math.max(cap * 1.05, xh * 1.18) + (e.extenders - 0.5) * cap * 0.5),
+    desc: -cap * 0.3 * lerp(0.55, 1.45, e.extenders),
     os: cap * 0.014,
     ws, thin, stress, k, org, sq: e.square, cur: e.cursive, wob: e.wobble, monoAdv: W(500) + sb * 1.5,
+    cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, sliceY: xh * 0.5, sliceH,
     bar: e.crossbar, apex: e.apex, ap: e.aperture, cnt,
     serif: !!e.serif,
     ctx, tDir, hT: tDir(1, 0), W,
     sb,
-    track: (e.letterSpacing - 0.2) * 260,
-    space: lerp(W(210) + (e.wordSpacing - 0.35) * 520, W(500) + sb * 1.5, e.mono),
+    track: snap((e.letterSpacing - 0.2) * 260),
+    space: Math.max(snap(lerp(W(210) + (e.wordSpacing - 0.35) * 520, W(500) + sb * 1.5, e.mono)), cell),
     slant: Math.tan(e.slant * 20 * Math.PI / 180),
     R: e.roundness * s * 0.5,
     dotRound: Math.max(e.roundness, e.terminal === 'round' ? 1 : 0),
@@ -210,6 +218,44 @@ function isHorizontal(cmds: Cmd[]) {
   return Math.abs(cmds[1][2] - cmds[0][2]) < Math.abs(cmds[1][1] - cmds[0][1]) * 0.2;
 }
 
+/* Stencil: where stroke i joins another stroke (its host), cut it back so a gap opens between
+   the two. The cut runs parallel to the host at the point where the join lands. When two
+   strokes end in each other (the waist of a 3), only the later one is cut. */
+interface Host { score: number; j: number; px: number; py: number; tx: number; ty: number; half: number; atEnd: boolean }
+function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): HalfPlane[] {
+  const ex = exps[i]!, own = ex.skeleton.flat(), planes: HalfPlane[] = [];
+  const cx = own.reduce((a, q) => a + q.x, 0) / own.length, cy = own.reduce((a, q) => a + q.y, 0) / own.length;
+  for (const end of ex.ends) {
+    if (end.type !== 'join') continue;
+    let best: Host | null = null;
+    for (let j = 0; j < exps.length; j++) {
+      const h = exps[j];
+      if (!h || j === i) continue;
+      const pts = h.skeleton.flat();
+      for (let k = 0; k + 1 < pts.length; k++) {
+        const a = pts[k], c = pts[k + 1], dx = c.x - a.x, dy = c.y - a.y, l2 = dx * dx + dy * dy;
+        if (l2 < 1e-9) continue;
+        const t = clamp(((end.x - a.x) * dx + (end.y - a.y) * dy) / l2);
+        const px = a.x + dx * t, py = a.y + dy * t, d = Math.hypot(end.x - px, end.y - py), half = h.thickness[k] / 2;
+        if (d > half + 1) continue;
+        const atEnd = (k === 0 && t < 0.01) || (k + 2 === pts.length && t > 0.99);
+        const score = d / (half + 1) + (atEnd ? 1 : 0), l = Math.sqrt(l2);
+        if (!best || score < best.score) best = { score, j, px, py, tx: dx / l, ty: dy / l, half, atEnd };
+      }
+    }
+    if (!best) continue;
+    const bj = best;
+    if (bj.atEnd && bj.j > i && exps[bj.j]!.ends.some(e => e.type === 'join' && Math.hypot(e.x - end.x, e.y - end.y) < 1)) continue;
+    let nx = -bj.ty, ny = bj.tx;
+    const side = (cx - bj.px) * nx + (cy - bj.py) * ny;
+    if (Math.abs(side) < 1) continue;
+    if (side < 0) { nx = -nx; ny = -ny; }
+    const off = bj.half + gap;
+    planes.push({ x: bj.px + nx * off, y: bj.py + ny * off, nx: -nx, ny: -ny });
+  }
+  return planes;
+}
+
 function buildGlyph(ch: string, m: Metrics): Glyph | null {
   const def = GLYPHS[ch];
   if (!def) return null;
@@ -236,30 +282,48 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     if ((signedArea(pts) < 0) !== (sign < 0)) pts = pts.slice().reverse();
     return roundContour(pts, R, cornersOut);
   };
-  for (const st of b.strokes) {
-    const o = st.o; let cmds: Cmd[] = [];
-    if (st.poly) {
-      const c = finish(st.poly, 1, 0); if (c) cmds = c;
-      out.strokes.push({ part: o.part || 'dot', cmds, curved: false, dot: true });
-      continue;
-    }
+  // expand every stroke first: a stencil cut needs to know which stroke each join runs into
+  const exps = b.strokes.map(st => {
+    if (st.poly) return null;
+    const o = st.o;
     const serifS = m.serif && !!o.serifS && !o.scale, serifE = m.serif && !!o.serifE && !o.scale;
     const so = { ...o };
     if (serifS && so.s === 'term') so.s = 'flat';
     if (serifE && so.e === 'term') so.e = 'flat';
-    const ex = expandStroke(st.cmds!, so, ctx);
-    if (!ex) continue;
+    return { ex: expandStroke(st.cmds!, so, ctx), serifS, serifE };
+  });
+  const expanded = exps.map(x => x?.ex ?? null);
+  b.strokes.forEach((st, si) => {
+    const o = st.o; let cmds: Cmd[] = [];
+    if (st.poly) {
+      const c = finish(st.poly, 1, 0); if (c) cmds = c;
+      out.strokes.push({ part: o.part || 'dot', cmds, curved: false, dot: true });
+      return;
+    }
+    const { ex, serifS, serifE } = exps[si]!;
+    if (!ex) return;
     const R = m.R * (o.scale || 1);
     if (ex.loop) {
       const [a, c] = ex.contours;
       const outerIsA = Math.abs(signedArea(a)) >= Math.abs(signedArea(c));
-      const o1 = finish(outerIsA ? a : c, 1, 0), i1 = finish(outerIsA ? c : a, -1, 0);
-      if (o1) cmds = cmds.concat(o1);
-      if (i1) cmds = cmds.concat(i1);
-      if (o.counter !== false && i1) out.counters.push(i1);
+      const outer = outerIsA ? a : c, inner = outerIsA ? c : a;
+      // a stencilled ring is split down the middle into two halves
+      let xl = Infinity, xr = -Infinity;
+      for (const q of outer) { xl = Math.min(xl, q.x); xr = Math.max(xr, q.x); }
+      const cx = (xl + xr) / 2, g = m.gap;
+      const halves: HalfPlane[][] = g ? [[{ x: cx - g / 2, y: 0, nx: 1, ny: 0 }], [{ x: cx + g / 2, y: 0, nx: -1, ny: 0 }]] : [[]];
+      for (const planes of halves) {
+        const o1 = finish(planes.length ? clipPoly(outer, { planes }) : outer, 1, 0);
+        const i1 = finish(planes.length ? clipPoly(inner, { planes }) : inner, -1, 0);
+        if (o1) cmds = cmds.concat(o1);
+        if (i1) cmds = cmds.concat(i1);
+      }
+      const hole = finish(inner, -1, 0);
+      if (o.counter !== false && hole) out.counters.push(hole);
     } else {
       let pts = ex.contours[0];
       if (o.clip) pts = clipPoly(pts, o.clip);
+      if (m.gap) { const planes = stencilCuts(si, expanded, m.gap); if (planes.length) pts = clipPoly(pts, { planes }); }
       const c = finish(pts, 1, R, out.corners); if (c) cmds = c;
       if (o.counter) out.counters.push(finish(ex.skeleton.flat(), 1, 0) || []);
     }
@@ -272,7 +336,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
         const c = sp && finish(sp, 1, m.R * 0.5); if (c) out.serifs.push(c);
       } else if (end.type === 'term') out.marks.push({ type: 'terminal', x: end.x, y: end.y, r: end.t * 0.5 });
     }
-  }
+  });
   b.counters.forEach(pts => { const c = finish(pts, 1, 0); if (c) out.counters.push(c); });
 
   // place: side bearings, monospacing, playful bounce and hand jitter, slant.
@@ -290,6 +354,11 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     lsb = lerp(lsb, (adv - W * sx) / 2, mono);
     rsb = adv - lsb - W * sx;
   }
+  if (m.cell && m.p.fill !== 'lines') {
+    // pixels and dots: whole cells, with the letter centred in its cells
+    const snapped = Math.max(m.cell, Math.round(adv / m.cell) * m.cell);
+    lsb += (snapped - adv) / 2; rsb += (snapped - adv) / 2; adv = snapped;
+  }
   let M: Mat = [sx, 0, 0, 1, lsb, 0];
   const bounce = m.p.bounce, wob = m.wob;
   if (bounce > 0 || wob > 0) {
@@ -304,7 +373,11 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   const tp = <T extends Pt>(p: T): T => { const q = applyM(M, p.x, p.y); return { ...p, x: q[0], y: q[1] }; };
   out.strokes.forEach(s => s.cmds = tf(s.cmds));
   const serifs = out.serifs.map(tf);
-  const cmds = [...out.strokes.flatMap(s => s.cmds), ...serifs.flat()];
+  let cmds = [...out.strokes.flatMap(s => s.cmds), ...serifs.flat()];
+  if (m.sliceH) cmds = slice(cmds, m.sliceY - m.sliceH / 2, m.sliceY + m.sliceH / 2, m.R);
+  if (m.p.fill !== 'solid') {
+    cmds = fillOutline(cmds, { fill: m.p.fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness });
+  }
   return {
     ...out, serifs, counters: out.counters.map(tf),
     marks: out.marks.map(tp), corners: out.corners.map(tp), skeleton: out.skeleton.map(r => r.map(tp)),

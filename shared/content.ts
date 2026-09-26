@@ -1,17 +1,20 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
-import { DEFAULTS, type Params, type SerifShape, type Terminal } from './params';
+import { resolve, type Effective } from './engine/font';
+import { DEFAULTS, type Fill, type Params, type SerifShape, type Terminal } from './params';
 
-export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality';
+export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality' | 'effects';
 export type ControlKey =
-  | 'weight' | 'width' | 'height' | 'slant' | 'contrast'
-  | 'roundness' | 'curve' | 'terminal' | 'serif' | 'apex' | 'cursive' | 'wobble'
-  | 'xHeight' | 'counter' | 'aperture' | 'crossbar'
+  | 'weight' | 'width' | 'height' | 'slant' | 'contrast' | 'reverse'
+  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'serif' | 'apex' | 'joints' | 'cursive' | 'wobble'
+  | 'xHeight' | 'extenders' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
-  | 'geoHuman' | 'softSharp' | 'classicFuture' | 'playfulFormal';
+  | 'geoHuman' | 'softSharp' | 'classicFuture' | 'playfulFormal'
+  | 'fill' | 'stencil' | 'slice';
 export type SerifSubKey = 'serifSize' | 'serifThickness' | 'serifAngle';
-/** Anything the control panel can focus: a control or one of the serif sub-sliders. */
-export type ActiveKey = ControlKey | SerifSubKey;
+export type FillSubKey = 'module';
+/** Anything the control panel can focus: a control or one of its nested sub-sliders. */
+export type ActiveKey = ControlKey | SerifSubKey | FillSubKey;
 
 export interface ControlDef {
   cat: Exclude<CategoryId, 'style'>;
@@ -24,7 +27,7 @@ export interface ControlDef {
   /** letters drawn in the explainer diagram */
   demo: string;
   explain: string;
-  type?: 'options' | 'serif';
+  type?: 'options' | 'serif' | 'fill';
   bipolar?: boolean;
   advanced?: boolean;
 }
@@ -51,15 +54,36 @@ export const MOODS: [Mood, string][] = [
   ['vintage', 'Vintage'], ['futuristic', 'Futuristic']
 ];
 
+/* A third facet, like Google's Appearance tags: what the letters look like. Unlike groups and
+   moods these are not hand-picked but read off each style's settings, so they stay true as
+   styles are tuned. */
+export type Look = 'grid' | 'stencil' | 'outline' | 'squared' | 'faceted' | 'inktrap' | 'rounded' | 'contrast' | 'wide' | 'narrow';
+export const LOOKS: { id: Look; label: string; hint: string; test: (e: Effective) => boolean }[] = [
+  { id: 'grid', label: 'Pixel & Dot', hint: 'Built from a grid of pixels, dots or lines', test: e => e.fill === 'pixels' || e.fill === 'dots' || e.fill === 'lines' },
+  { id: 'stencil', label: 'Stencil & Cut', hint: 'Letters cut apart by gaps', test: e => e.stencil > 0 || e.slice > 0 },
+  { id: 'outline', label: 'Outline', hint: 'Drawn as lines, not filled in', test: e => e.fill === 'wire' },
+  { id: 'squared', label: 'Squared', hint: 'Round letters drawn as rounded squares', test: e => e.square >= 0.4 && e.chamfer < 0.2 },
+  { id: 'faceted', label: 'Faceted', hint: 'Straight lines and cut-off corners instead of curves', test: e => e.chamfer >= 0.2 },
+  { id: 'inktrap', label: 'Ink Traps', hint: 'Strokes narrow where they meet', test: e => e.joints >= 0.4 },
+  { id: 'rounded', label: 'Rounded', hint: 'Soft corners and stroke endings', test: e => e.roundness >= 0.6 },
+  { id: 'contrast', label: 'High Contrast', hint: 'Strong difference between thick and thin', test: e => e.contrast >= 0.5 },
+  { id: 'wide', label: 'Wide', hint: 'Stretched out sideways', test: e => e.width >= 0.68 },
+  { id: 'narrow', label: 'Narrow', hint: 'Squeezed tall and thin', test: e => e.width <= 0.35 }
+];
+
 export interface StyleDef {
   id: string; name: string; group: StyleGroup; moods: Mood[]; desc: string;
   /** Google Fonts families in the same genre, for reference */
   like: string;
   params: Params;
+  /** read off the params, see LOOKS */
+  looks: Look[];
 }
 
-const style = (id: string, group: StyleGroup, name: string, moods: Mood[], like: string, desc: string, p: Partial<Params>): StyleDef =>
-  ({ id, name, group, moods, desc, like, params: { ...DEFAULTS, ...p } });
+const style = (id: string, group: StyleGroup, name: string, moods: Mood[], like: string, desc: string, p: Partial<Params>): StyleDef => {
+  const params = { ...DEFAULTS, ...p }, e = resolve(params);
+  return { id, name, group, moods, desc, like, params, looks: LOOKS.filter(l => l.test(e)).map(l => l.id) };
+};
 
 /* Ids are stored with saved designs, so they never change even when a style is renamed. */
 export const STYLES: StyleDef[] = [
@@ -82,6 +106,18 @@ export const STYLES: StyleDef[] = [
   style('extended', 'sans', 'Squared', ['futuristic'], 'Michroma, Oxanium, Rajdhani',
     'Round letters drawn as squarish ovals, somewhere between a circle and a rectangle. Wide, stable and technical.',
     { weight: 0.46, width: 0.72, contrast: 0.02, classicFuture: 0.82, xHeight: 0.5, apex: 0.75, counter: 0.52, letterSpacing: 0.26 }),
+  style('tightgeo', 'sans', 'Tight Geometric', ['loud', 'sophisticated'], 'Outfit, Urbanist, Lexend',
+    'A 70s logotype sans after Herb Lubalin: perfect circles, a single-storey a, towering ascenders and letters packed so close they nearly touch.',
+    { weight: 0.66, contrast: 0.02, curve: 0, geoHuman: 0.1, apex: 0.1, counter: 0.72, xHeight: 0.64, extenders: 1, aperture: 0.35,
+      letterSpacing: 0.04, width: 0.55 }),
+  style('squircle', 'sans', 'Superellipse', ['futuristic', 'calm'], 'Unbounded, Syne, Lexend Zetta',
+    'Every bowl is a squircle, halfway between a circle and a square, and the strokes pinch in where they meet. Soft but engineered.',
+    { weight: 0.5, width: 0.64, contrast: 0.04, squareness: 0.62, joints: 0.55, curve: 0, geoHuman: 0.35, apex: 0.7, xHeight: 0.56,
+      counter: 0.56, letterSpacing: 0.22 }),
+  style('inktrap', 'sans', 'Ink Trap', ['loud', 'artistic'], 'Bricolage Grotesque, Syne, Darker Grotesque',
+    'A heavy display grotesque with deep ink traps: strokes narrow sharply where they branch, so the black letters stay open.',
+    { weight: 0.72, width: 0.58, contrast: 0.35, squareness: 0.45, joints: 1, curve: 0.1, geoHuman: 0.4, apex: 0.6, xHeight: 0.6,
+      aperture: 0.3, counter: 0.44, letterSpacing: 0.16 }),
   style('flared', 'sans', 'Flared', ['sophisticated', 'vintage'], 'Marcellus, Julius Sans One, Philosopher',
     'A sans serif carved like stone lettering: strokes swell toward their ends and thin in the middle, with no serifs.',
     { weight: 0.38, contrast: 0.42, terminal: 'tapered', curve: 0.4, geoHuman: 0.65, classicFuture: 0.38, xHeight: 0.46, aperture: 0.6, apex: 0.3, width: 0.48 }),
@@ -123,6 +159,10 @@ export const STYLES: StyleDef[] = [
     'Every letter the same width, with soft slab serifs and slightly uneven ink, like keys struck through a ribbon.',
     { weight: 0.3, contrast: 0, serif: true, serifShape: 'slab', serifSize: 0.55, serifThickness: 0.3, serifAngle: 0, mono: 1, wobble: 0.15,
       roundness: 0.7, terminal: 'round', curve: 0.3, xHeight: 0.52, letterSpacing: 0.2, wordSpacing: 0.35 }),
+  style('squaremono', 'mono', 'Square Mono', ['futuristic'], 'Major Mono Display, Syne Mono, Space Mono',
+    'A wide monospace with square bowls and square dots. Reads like numbers on a train departure board.',
+    { weight: 0.42, width: 0.68, contrast: 0.02, mono: 1, squareness: 1, curve: 0, geoHuman: 0.3, xHeight: 0.62, apex: 0.9,
+      aperture: 0.35, letterSpacing: 0.22, terminal: 'cut' }),
   style('code', 'mono', 'Code', ['calm', 'futuristic'], 'IBM Plex Mono, Space Mono, Ubuntu Mono',
     'A code-editor face: one width for every character, a tall x-height and plain, open shapes that keep 0, O, l and 1 apart.',
     { weight: 0.42, contrast: 0.02, mono: 1, curve: 0.15, geoHuman: 0.45, xHeight: 0.6, aperture: 0.5, apex: 0.6, classicFuture: 0.6, letterSpacing: 0.2 }),
@@ -165,6 +205,37 @@ export const STYLES: StyleDef[] = [
     'Soft, puffy and heavy, like letters squeezed out of a tube. Every letter bounces to its own beat.',
     { weight: 0.74, width: 0.55, contrast: 0, roundness: 1, terminal: 'round', wobble: 0.35, xHeight: 0.66, counter: 0.4,
       aperture: 0.35, softSharp: 0.2, playfulFormal: 0.1, geoHuman: 0.45, apex: 0.7, letterSpacing: 0.24 }),
+  style('pixel', 'display', 'Pixel', ['futuristic', 'playful'], 'Silkscreen, Pixelify Sans, Jersey 10',
+    'Rebuilt on a coarse grid of square pixels with softened corners, like an old handheld game screen.',
+    { weight: 0.55, width: 0.6, contrast: 0, squareness: 0.8, fill: 'pixels', module: 0.78, roundness: 0.55, apex: 0.9, xHeight: 0.62,
+      counter: 0.55, letterSpacing: 0.2, geoHuman: 0.4 }),
+  style('dotmatrix', 'display', 'Dot Matrix', ['futuristic', 'vintage'], 'Doto, DotGothic16, Codystar',
+    'Letters printed from a grid of round dots, like a departure board or an old receipt printer. Faceted corners keep it mechanical.',
+    { weight: 0.62, width: 0.62, contrast: 0, chamfer: 0.55, fill: 'dots', module: 0.55, apex: 1, xHeight: 0.6, counter: 0.5,
+      letterSpacing: 0.22, geoHuman: 0.35 }),
+  style('striped', 'display', 'Striped', ['vintage', 'loud', 'artistic'], 'Monoton, Tilt Prism, Bungee Inline',
+    'A 70s disco face made from horizontal stripes with rounded ends: the letters appear only where the lines are.',
+    { weight: 0.82, width: 0.72, contrast: 0, squareness: 0.35, fill: 'lines', module: 0.45, roundness: 1, xHeight: 0.62, counter: 0.5,
+      apex: 0.8, letterSpacing: 0.26 }),
+  style('octagon', 'display', 'Octagonal', ['futuristic', 'rugged'], 'Chakra Petch, Tomorrow, Bai Jamjuree',
+    'Modular letters built on a square grid, after Ben Bos and Wim Crouwel: no curves at all, just straight strokes and cut corners.',
+    { weight: 0.74, width: 0.56, contrast: 0, chamfer: 0.62, apex: 1, curve: 0, geoHuman: 0.3, xHeight: 0.62, counter: 0.48,
+      aperture: 0.3, letterSpacing: 0.22, terminal: 'flat' }),
+  style('stencil', 'display', 'Stencil', ['rugged', 'loud'], 'Stardos Stencil, Allerta Stencil, Big Shoulders Stencil',
+    'Geometric letters with gaps cut where the strokes meet, so they could be sprayed through a sheet. Round letters split in two.',
+    { weight: 0.62, contrast: 0.02, stencil: 0.45, curve: 0, geoHuman: 0.3, apex: 0.3, counter: 0.58, xHeight: 0.52, letterSpacing: 0.24 }),
+  style('split', 'display', 'Split Line', ['futuristic', 'sophisticated'], 'Syncopate, Michroma, Krona One',
+    'Ultra-wide and squared off, with a single hairline cut running through the whole line of text.',
+    { weight: 0.72, width: 1, height: 0.4, contrast: 0.02, squareness: 0.85, slice: 0.18, apex: 1, xHeight: 0.66, counter: 0.5,
+      aperture: 0.25, letterSpacing: 0.2 }),
+  style('construction', 'display', 'Construction', ['artistic', 'futuristic'], 'Bungee Outline, Train One, Kumar One Outline',
+    'Drawn as the outline of every stroke, overlaps and all, like a letter still on the drawing board.',
+    { weight: 0.6, contrast: 0.02, fill: 'wire', module: 0.35, curve: 0, geoHuman: 0.25, apex: 0.1, counter: 0.62, xHeight: 0.5,
+      letterSpacing: 0.3 }),
+  style('reverse', 'display', 'Reverse Contrast', ['futuristic', 'loud', 'artistic'], 'Ewert, Sancreek, Rye',
+    'Contrast turned on its side: fat horizontals and hairline stems. Wide, strange and made for posters.',
+    { weight: 0.55, width: 0.86, contrast: 0.62, reverse: 1, curve: 0, squareness: 0.3, apex: 0.8, xHeight: 0.56, counter: 0.5,
+      letterSpacing: 0.26 }),
   style('hairline', 'display', 'Art Deco', ['vintage', 'sophisticated', 'artistic'], 'Poiret One, Limelight, Federo',
     'Jazz-age glamour: a fine single line, geometric circles, a tiny x-height and crossbars pushed up high.',
     { weight: 0.04, width: 0.6, contrast: 0, curve: 0, geoHuman: 0.25, apex: 0.05, counter: 0.65, xHeight: 0, height: 0.62,
@@ -177,7 +248,8 @@ export const CATEGORIES: { id: CategoryId; label: string }[] = [
   { id: 'shape', label: 'Shape' },
   { id: 'proportion', label: 'Proportion' },
   { id: 'spacing', label: 'Spacing' },
-  { id: 'personality', label: 'Personality' }
+  { id: 'personality', label: 'Personality' },
+  { id: 'effects', label: 'Effects' }
 ];
 
 /* friendly = what it does in plain words; tech = the typographer's term */
@@ -192,17 +264,25 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Slant leans every letter to the right around its middle, like an oblique italic. Vertical stems follow the dashed axis.' },
   contrast: { cat: 'structure', friendly: 'Increase the difference between thick and thin strokes', tech: 'Contrast', lo: 'Low', hi: 'High', demo: 'Oe',
     explain: 'Contrast thins the horizontal parts of a stroke while vertical parts stay heavy — compare the side of the O with its top.' },
+  reverse: { cat: 'structure', friendly: 'Make the horizontal strokes the heavy ones', tech: 'Reverse contrast', lo: 'Normal', hi: 'Reversed', demo: 'HOe',
+    explain: 'Normally stems are heavy and bars are thin. Reverse contrast flips that: bars and the tops of curves carry the weight while stems go thin. It works with Contrast — the more contrast, the stronger the flip.' },
 
   roundness: { cat: 'shape', friendly: 'Make the letters softer or sharper', tech: 'Roundness', lo: 'Sharp', hi: 'Round', demo: 'Ek',
     explain: 'Roundness softens every corner and stroke end. The marked corners turn from crisp angles into smooth arcs.' },
   curve: { cat: 'shape', friendly: 'Make curves more geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
     explain: 'Geometric curves are compass-drawn circles. Organic curves have fuller shoulders and a tilted axis, as if written with a pen.' },
+  squareness: { cat: 'shape', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',
+    explain: 'A superellipse sits between a circle and a rectangle. Pushing it squares off every bowl while the corners stay smooth.' },
+  chamfer: { cat: 'shape', friendly: 'Cut curves into straight lines and corners', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
+    explain: 'Faceted letters swap every curve for straight lines with cut-off corners, as if built on a grid. First the curves become octagons, then the cuts shrink and the corners square up.' },
   terminal: { cat: 'shape', type: 'options', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
     explain: 'A terminal is the end of a stroke that doesn’t meet another stroke — the tips of C, a, s, e or r.' },
   serif: { cat: 'shape', type: 'serif', friendly: 'Add small feet to the strokes', tech: 'Serifs', demo: 'In',
     explain: 'Serifs are the small finishing strokes at the ends of stems. They guide the eye along a line of text and set a classical tone.' },
   apex: { cat: 'shape', friendly: 'Make peaks pointed or flat', tech: 'Apex', lo: 'Pointed', hi: 'Flat', demo: 'AV',
     explain: 'The apex is where two diagonals meet — the top of A, the bottom of V and W. It can be a needle point or a flat cut.' },
+  joints: { cat: 'shape', friendly: 'Thin the strokes where they meet', tech: 'Ink traps · Joints', lo: 'Solid', hi: 'Trapped', demo: 'nab',
+    explain: 'Where one stroke branches from another, ink pools in the corner. Ink traps carve that corner out: strokes narrow on the inside as they join, which keeps heavy letters open and looks sharp and engineered.' },
   cursive: { cat: 'shape', friendly: 'Add strokes that lead into the next letter', tech: 'Cursive · Entry & exit strokes', lo: 'Print', hi: 'Script', demo: 'nigu',
     explain: 'Script hands flick every stroke on toward the next letter. Stems curl out at the baseline, upstrokes lead in, and past halfway the a, f, g and y switch to their italic forms.' },
   wobble: { cat: 'shape', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
@@ -210,6 +290,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
 
   xHeight: { cat: 'proportion', friendly: 'Make lowercase letters taller', tech: 'x-height', lo: 'Small', hi: 'Large', demo: 'Hxn',
     explain: 'The x-height is the height of lowercase letters like x, a and n compared with capitals. Taller lowercase feels modern and reads well small.' },
+  extenders: { cat: 'proportion', friendly: 'Make ascenders and descenders longer', tech: 'Ascenders & descenders', lo: 'Short', hi: 'Long', demo: 'hpdy',
+    explain: 'Ascenders rise above the x-height (b, d, h, l) and descenders drop below the baseline (g, p, y). Long ones feel elegant and airy; short ones let lines sit close together.' },
   counter: { cat: 'proportion', friendly: 'Change the space inside letters', tech: 'Counter', lo: 'Small', hi: 'Large', demo: 'Bo',
     explain: 'A counter is the enclosed space inside letters like O, B, a and e. Bigger counters feel open and airy, smaller ones feel compact.' },
   aperture: { cat: 'proportion', friendly: 'Open or close the mouths of letters', tech: 'Aperture', lo: 'Closed', hi: 'Open', demo: 'ces',
@@ -233,13 +315,26 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   classicFuture: { cat: 'personality', bipolar: true, friendly: 'Timeless or tomorrow?', tech: 'Classic ↔ Futuristic', lo: 'Classic', hi: 'Futuristic', demo: 'Rose',
     explain: 'Classic adds stroke contrast, a smaller x-height and old-style proportions. Futuristic squares the curves, widens and evens everything out.' },
   playfulFormal: { cat: 'personality', bipolar: true, friendly: 'Fun or serious?', tech: 'Playful ↔ Formal', lo: 'Playful', hi: 'Formal', demo: 'jump',
-    explain: 'Playful lets letters bounce and tilt with a bigger x-height. Formal straightens up, tightens the width and refines the contrast.' }
+    explain: 'Playful lets letters bounce and tilt with a bigger x-height. Formal straightens up, tightens the width and refines the contrast.' },
+
+  fill: { cat: 'effects', type: 'fill', friendly: 'Build the letters from something else', tech: 'Fill', demo: 'Rg',
+    explain: 'Draw each letter in solid ink, as the outline of every stroke like a construction drawing, or rebuild it on a grid of square pixels, round dots or horizontal lines.' },
+  stencil: { cat: 'effects', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
+    explain: 'A stencil must hold together when it is cut from a sheet, so strokes break apart where they join and round letters split in two. The gaps become part of the design.' },
+  slice: { cat: 'effects', friendly: 'Cut one line through every letter', tech: 'Slice', lo: 'None', hi: 'Wide', demo: 'type',
+    explain: 'A single horizontal cut runs through the middle of the lowercase and across the whole line of text, like a strip of tape pulled out of the letters.' }
 };
 export const SERIF_SUBS: Record<SerifSubKey, SubControlDef> = {
   serifSize: { friendly: 'Make the feet longer', tech: 'Serif size', lo: 'Short', hi: 'Long' },
   serifThickness: { friendly: 'Make the feet heavier', tech: 'Serif thickness', lo: 'Hairline', hi: 'Heavy' },
   serifAngle: { friendly: 'Slope the top of the feet', tech: 'Serif angle', lo: 'Flat', hi: 'Sloped' }
 };
+export const FILL_SUBS: Record<FillSubKey, SubControlDef> = {
+  module: { friendly: 'Change the size of the grid or line', tech: 'Module size', lo: 'Fine', hi: 'Coarse' }
+};
+/** Every nested sub-slider, whichever control it belongs to. */
+export const SUBS: Record<SerifSubKey | FillSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS };
+export const FILL_OPTIONS: [Fill, string][] = [['solid', 'Solid'], ['wire', 'Wireframe'], ['pixels', 'Pixels'], ['dots', 'Dots'], ['lines', 'Lines']];
 export const TERMINAL_OPTIONS: [Terminal, string][] = [['flat', 'Flat'], ['round', 'Rounded'], ['sharp', 'Sharp'], ['angled', 'Angled'], ['cut', 'Cut'], ['tapered', 'Tapered']];
 export const SERIF_SHAPE_OPTIONS: [SerifShape, string][] = [['bracketed', 'Bracketed'], ['unbracketed', 'Unbracketed'], ['slab', 'Slab'], ['wedge', 'Wedge']];
 
@@ -286,12 +381,15 @@ export const TEXTS = {
 };
 
 export const styleById = (id: string | null | undefined) => STYLES.find(s => s.id === id);
-/** Faceted like Google Fonts: any of the picked groups, and any of the picked moods. */
-export const styleMatches = (s: StyleDef, groups: StyleGroup[], moods: Mood[]) =>
-  (!groups.length || groups.includes(s.group)) && (!moods.length || s.moods.some(m => moods.includes(m)));
+/** Faceted like Google Fonts: any of the picked groups, any of the picked moods and any of the picked looks. */
+export const styleMatches = (s: StyleDef, groups: StyleGroup[], moods: Mood[], looks: Look[] = []) =>
+  (!groups.length || groups.includes(s.group)) && (!moods.length || s.moods.some(m => moods.includes(m))) &&
+  (!looks.length || s.looks.some(l => looks.includes(l)));
 
 /** The starting style each filter tag is set in: one that belongs to the group or carries the mood. */
-export const TAG_FACE: Record<StyleGroup | Mood, string> = {
+export const TAG_FACE: Record<StyleGroup | Mood | Look, string> = {
+  grid: 'pixel', stencil: 'stencil', outline: 'construction', squared: 'squaremono', faceted: 'octagon', inktrap: 'inktrap',
+  rounded: 'soft', contrast: 'didone', wide: 'split', narrow: 'condensed',
   sans: 'grotesque', serif: 'serif', slab: 'slab', mono: 'code', hand: 'casual', display: 'woodtype',
   business: 'grotesque', calm: 'humanist', happy: 'soft', playful: 'display', cute: 'upright', childlike: 'casual',
   fancy: 'didone', sophisticated: 'chancery', artistic: 'brush', loud: 'fatface', rugged: 'marker', vintage: 'typewriter',
@@ -302,6 +400,6 @@ export const TAG_FACE: Record<StyleGroup | Mood, string> = {
 export const firstControl = (cat: CategoryId) =>
   (Object.keys(CONTROLS) as ControlKey[]).find(k => CONTROLS[k].cat === cat) ?? 'weight';
 
-/** The control a key belongs to: serif sub-sliders fold into 'serif'. */
+/** The control a key belongs to: serif sub-sliders fold into 'serif', the module size into 'fill'. */
 export const controlFor = (key: ActiveKey): ControlKey =>
-  key in SERIF_SUBS ? 'serif' : key as ControlKey;
+  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key as ControlKey;
