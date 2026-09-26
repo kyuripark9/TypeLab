@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Link, RouterProvider, createBrowserRouter } from 'react-router';
+import { Intro } from './components/Intro';
 import { EditorPage } from './pages/EditorPage';
 import { LibraryPage } from './pages/LibraryPage';
 import './styles.css';
@@ -26,5 +27,6 @@ const router = createBrowserRouter([
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <RouterProvider router={router} />
+    <Intro />
   </StrictMode>
 );

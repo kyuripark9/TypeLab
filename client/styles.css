@@ -29,7 +29,6 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .brand { display: flex; align-items: baseline; gap: 10px; text-decoration: none; flex: none; }
 a.brand:hover .brand-name { color: var(--accent-ink); }
 .brand-name { font-size: 16px; font-weight: 700; letter-spacing: -.02em; transition: color .15s; }
-.brand-tag { color: var(--ink-3); font-size: 13px; }
 .top-actions { display: flex; align-items: center; gap: 4px; }
 .sep { width: 1px; height: 20px; background: var(--line); margin: 0 8px; }
 .btn { text-decoration: none; white-space: nowrap; height: 34px; padding: 0 12px; border-radius: var(--radius); font-weight: 500; font-size: 13px; display: inline-flex; align-items: center; gap: 7px; transition: background .15s, border-color .15s, color .15s, opacity .15s; }
@@ -301,6 +300,16 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .guide-grow { flex: 1; }
 
 @media (max-width: 1280px) { .editor { grid-template-columns: 184px minmax(0, 1fr) 328px; } }
+
+/* ---------- opening title card */
+.intro { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; gap: 10px; background: var(--paper); cursor: default; transition: opacity .45s ease; }
+.intro.leave { opacity: 0; pointer-events: none; }
+.intro-name { font-size: 56px; font-weight: 700; letter-spacing: -.04em; color: var(--ink); animation: intro-name .9s cubic-bezier(.2, .7, .2, 1) both; }
+.intro-tag { display: flex; gap: .3em; font-size: 18px; color: var(--ink-3); }
+.intro-tag span { animation: intro-word .5s ease both; }
+@keyframes intro-name { from { opacity: 0; transform: translateY(10px); font-weight: 400; letter-spacing: 0; } }
+@keyframes intro-word { from { opacity: 0; transform: translateY(6px); } }
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 /* ---------- document name (header) */
