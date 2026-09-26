@@ -180,6 +180,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .size input[type=range]::-webkit-slider-runnable-track { background: var(--stone); }
 
 .opts { display: grid; gap: 6px; }
+.opts.two { grid-template-columns: repeat(2, 1fr); }
 .opts.six { grid-template-columns: repeat(3, 1fr); }
 .opts.four { grid-template-columns: repeat(4, 1fr); }
 .opts.five { grid-template-columns: repeat(5, 1fr); }

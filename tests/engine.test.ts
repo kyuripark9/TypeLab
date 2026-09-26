@@ -48,6 +48,17 @@ describe('font engine', () => {
     assert.notEqual(print.glyph('y')!.d, script.glyph('y')!.d);
   });
 
+  it('a picked storey overrides the one the other settings choose', () => {
+    const single = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p }).eff.singleStory;
+    const a = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p }).glyph('a')!.d;
+    assert.ok(!single({}) && single({ cursive: 1 }) && single({ geoHuman: 0 }));
+    assert.ok(single({ story: 'single' }) && !single({ story: 'double', cursive: 1 }) && !single({ story: 'double', geoHuman: 0 }));
+    assert.equal(a({}), a({ story: 'double' }));
+    assert.notEqual(a({}), a({ story: 'single' }));
+    assert.equal(a({ cursive: 1 }), a({ cursive: 1, story: 'single' }));
+    assert.notEqual(a({ cursive: 1 }), a({ cursive: 1, story: 'double' }));
+  });
+
   it('squares and facets curves', () => {
     const round = buildFont(DEFAULTS), square = buildFont({ ...DEFAULTS, squareness: 1 }), cut = buildFont({ ...DEFAULTS, chamfer: 1 });
     assert.notEqual(round.glyph('O')!.d, square.glyph('O')!.d);
@@ -102,13 +113,14 @@ describe('font engine', () => {
 
 describe('params validation', () => {
   it('clamps numbers, drops unknown keys and falls back on bad values', () => {
-    const p = sanitizeParams({ weight: 7, width: -1, contrast: 'x', terminal: 'blobby', serif: 'yes', fill: 'glitter', evil: '<script>' });
+    const p = sanitizeParams({ weight: 7, width: -1, contrast: 'x', terminal: 'blobby', serif: 'yes', fill: 'glitter', story: 'triple', evil: '<script>' });
     assert.equal(p.weight, 1);
     assert.equal(p.width, 0);
     assert.equal(p.contrast, DEFAULTS.contrast);
     assert.equal(p.terminal, DEFAULTS.terminal);
     assert.equal(p.serif, DEFAULTS.serif);
     assert.equal(p.fill, DEFAULTS.fill);
+    assert.equal(p.story, DEFAULTS.story);
     assert.ok(!('evil' in p));
   });
 

@@ -1,12 +1,12 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
 import { resolve, type Effective } from './engine/font';
-import { DEFAULTS, type Fill, type Params, type SerifShape, type Terminal } from './params';
+import { DEFAULTS, type Fill, type Params, type SerifShape, type Story, type Terminal } from './params';
 
 export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality' | 'effects';
 export type ControlKey =
   | 'weight' | 'width' | 'height' | 'slant' | 'contrast' | 'reverse'
-  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'serif' | 'apex' | 'joints' | 'cursive' | 'wobble'
+  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'serif' | 'apex' | 'joints' | 'cursive' | 'wobble'
   | 'xHeight' | 'extenders' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
   | 'geoHuman' | 'softSharp' | 'classicFuture' | 'playfulFormal'
@@ -27,7 +27,7 @@ export interface ControlDef {
   /** letters drawn in the explainer diagram */
   demo: string;
   explain: string;
-  type?: 'options' | 'serif' | 'fill';
+  type?: 'options' | 'story' | 'serif' | 'fill';
   bipolar?: boolean;
   advanced?: boolean;
 }
@@ -277,6 +277,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Faceted letters swap every curve for straight lines with cut-off corners, as if built on a grid. First the curves become octagons, then the cuts shrink and the corners square up.' },
   terminal: { cat: 'shape', type: 'options', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
     explain: 'A terminal is the end of a stroke that doesn’t meet another stroke — the tips of C, a, s, e or r.' },
+  story: { cat: 'shape', type: 'story', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
+    explain: 'A double-storey a stacks a small bowl under a hook, as in most book and sans type. A single-storey a is just a bowl and a stem, like handwriting, italics and geometric faces. Until you pick one, the personality and cursive settings choose.' },
   serif: { cat: 'shape', type: 'serif', friendly: 'Add small feet to the strokes', tech: 'Serifs', demo: 'In',
     explain: 'Serifs are the small finishing strokes at the ends of stems. They guide the eye along a line of text and set a classical tone.' },
   apex: { cat: 'shape', friendly: 'Make peaks pointed or flat', tech: 'Apex', lo: 'Pointed', hi: 'Flat', demo: 'AV',
@@ -334,6 +336,7 @@ export const FILL_SUBS: Record<FillSubKey, SubControlDef> = {
 };
 /** Every nested sub-slider, whichever control it belongs to. */
 export const SUBS: Record<SerifSubKey | FillSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS };
+export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 export const FILL_OPTIONS: [Fill, string][] = [['solid', 'Solid'], ['wire', 'Wireframe'], ['pixels', 'Pixels'], ['dots', 'Dots'], ['lines', 'Lines']];
 export const TERMINAL_OPTIONS: [Terminal, string][] = [['flat', 'Flat'], ['round', 'Rounded'], ['sharp', 'Sharp'], ['angled', 'Angled'], ['cut', 'Cut'], ['tapered', 'Tapered']];
 export const SERIF_SHAPE_OPTIONS: [SerifShape, string][] = [['bracketed', 'Bracketed'], ['unbracketed', 'Unbracketed'], ['slab', 'Slab'], ['wedge', 'Wedge']];

@@ -104,8 +104,8 @@ export function resolve(p: Partial<Params>): Effective {
   e.square = clamp(0.85 * future + e.squareness);
   e.classic = classic;
   e.bounce = playful;
-  // italic and script hands use the single-storey a and hold the pen at a steeper angle
-  e.singleStory = gh < -0.3 || e.cursive >= 0.35;
+  // italic and script hands use the single-storey a (unless one is picked) and hold the pen at a steeper angle
+  e.singleStory = e.story === 'auto' ? gh < -0.3 || e.cursive >= 0.35 : e.story === 'single';
   e.stressDeg = e.curve * 10 + human * 9 + classic * 7 + e.cursive * 14;
   return e;
 }
@@ -401,6 +401,7 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
     case 'apex': return ringsD(g.marks.filter(k => k.type === 'apex' || k.type === 'vertex'), Math.max(30, m.s * 0.7));
     case 'roundness': return ringsD(g.corners, Math.max(16, m.s * 0.3));
     case 'cursive': return ringsD(g.marks.filter(k => k.type === 'exit' || k.type === 'entry'), Math.max(30, m.s * 0.7));
+    case 'story': return g.ch === 'a' ? g.d : '';
     default: return '';
   }
 }

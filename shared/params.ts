@@ -4,9 +4,12 @@ export const TERMINALS = ['flat', 'round', 'sharp', 'angled', 'cut', 'tapered'] 
 export const SERIF_SHAPES = ['bracketed', 'unbracketed', 'slab', 'wedge'] as const;
 /** What the letters are built from: solid ink, a wireframe of every stroke, or a grid of pixels, dots or lines. */
 export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines'] as const;
+/** The lowercase a: two storeys (bowl under a hook) or one (just a bowl). 'auto' lets the personality and cursive settings pick. */
+export const STORIES = ['auto', 'double', 'single'] as const;
 export type Terminal = (typeof TERMINALS)[number];
 export type SerifShape = (typeof SERIF_SHAPES)[number];
 export type Fill = (typeof FILLS)[number];
+export type Story = (typeof STORIES)[number];
 
 export interface Params {
   weight: number; width: number; height: number; slant: number; contrast: number;
@@ -19,6 +22,7 @@ export interface Params {
   /** strokes thin out where they join another stroke */ joints: number;
   /** thick horizontals and thin verticals */ reverse: number;
   /** length of ascenders and descenders */ extenders: number;
+  /** double- or single-storey a */ story: Story;
   fill: Fill;
   /** size of the pixels, dots or lines, or the wireframe's line weight */ module: number;
   /** gaps where strokes meet, like a stencil */ stencil: number;
@@ -35,7 +39,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.05,
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', wobble: 0, cursive: 0,
-  squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5,
+  squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, story: 'auto',
   fill: 'solid', module: 0.4, stencil: 0, slice: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   letterSpacing: 0.2, wordSpacing: 0.35, sideBearing: 0.5, mono: 0,
@@ -59,6 +63,7 @@ export function sanitizeParams(input: unknown): Params {
     else if (k === 'terminal') { if ((TERMINALS as readonly unknown[]).includes(v)) out[k] = v; }
     else if (k === 'serifShape') { if ((SERIF_SHAPES as readonly unknown[]).includes(v)) out[k] = v; }
     else if (k === 'fill') { if ((FILLS as readonly unknown[]).includes(v)) out[k] = v; }
+    else if (k === 'story') { if ((STORIES as readonly unknown[]).includes(v)) out[k] = v; }
   }
   return out as unknown as Params;
 }

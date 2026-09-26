@@ -345,14 +345,14 @@ def('a', [0.6, 0.9], (g, m) => {
   const bt = X * 0.57, cxb = (xl + xr) / 2 + W * 0.04, bcy = (bt + yb) / 2;
   g.path([['M', xr, bt], ['L', cxb, bt], ['hv', xl, bcy], ['vh', cxb, yb], ['hv', xr, bcy + X * 0.04]], { s: J, e: J, we: 0.7, part: 'bowl', counter: true });
   return W;
-}, { params: ['aperture', 'counter', 'terminal', 'xHeight'] });
+}, { params: ['story', 'aperture', 'counter', 'terminal', 'xHeight'] });
 
 def('a.alt', [0.55, 1], (g, m) => {
   const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r');
   footStem(g, m, W - hs, X, { serifS: 'b' });
   branchBowl(g, m, W - hs, hs, yt, yb);
   return W;
-}, { params: ['counter', 'curve', 'xHeight', 'weight'] });
+}, { params: ['story', 'counter', 'curve', 'xHeight', 'weight'] });
 
 def('b', [1, 0.55], (g, m) => {
   const { hs, yt, yb } = lc(m), W = m.W(480, 'r');

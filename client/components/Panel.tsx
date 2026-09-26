@@ -3,14 +3,14 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
 import {
-  ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, LOOKS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STYLE_GROUPS, STYLES, SUBS,
+  ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, LOOKS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS, STYLE_GROUPS, STYLES, SUBS,
   TAG_FACE, TERMINAL_OPTIONS, controlFor, styleById, styleMatches,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Look, type Mood, type SerifSubKey, type StyleGroup
 } from '../../shared/content';
 import type { NumericParam } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 import { actions, fontFor, useEditor, useFont } from '../state/editor';
-import { Diagram, FillIcon, SerifIcon, TerminalIcon } from './Diagram';
+import { Diagram, FillIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { letterControls } from './Inspector';
 
 export function Panel() {
@@ -125,6 +125,7 @@ function LetterControls({ keys, category }: { keys: ControlKey[]; category: Excl
 function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   const c = CONTROLS[k];
   if (c.type === 'options') return <TerminalControl parts={parts} />;
+  if (c.type === 'story') return <StoryControl parts={parts} />;
   if (c.type === 'serif') return <SerifControl parts={parts} />;
   if (c.type === 'fill') return <FillControl />;
   return <SliderControl k={k as NumericParam} def={c} parts={parts} />;
@@ -242,6 +243,25 @@ function TerminalControl({ parts }: { parts?: string[] }) {
           <button key={id} role="radio" aria-checked={terminal === id} className={terminal === id ? 'opt on' : 'opt'}
             onClick={() => actions.setOption('terminal', id)}>
             <TerminalIcon kind={id} /><span>{label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Double or single storey. Left on auto, the form the other settings picked shows as chosen. */
+function StoryControl({ parts }: { parts?: string[] }) {
+  const single = useFont().eff.singleStory, active = useEditor(s => s.active === 'story');
+  const c = CONTROLS.story, current = single ? 'single' : 'double';
+  return (
+    <div className={active ? 'ctl active' : 'ctl'} data-ctl="story" {...useControlFocus('story')}>
+      <CtlHead friendly={c.friendly} tech={c.tech} parts={parts} />
+      <div className="opts two" role="radiogroup" aria-label={c.tech}>
+        {STORY_OPTIONS.map(([id, label]) => (
+          <button key={id} role="radio" aria-checked={current === id} className={current === id ? 'opt on' : 'opt'}
+            onClick={() => actions.setOption('story', id)}>
+            <StoryIcon story={id} /><span>{label}</span>
           </button>
         ))}
       </div>

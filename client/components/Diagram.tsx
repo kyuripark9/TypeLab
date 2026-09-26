@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { CONTROLS, controlFor, type ActiveKey } from '../../shared/content';
 import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, signedArea, type Font, type LineItem, type Pt } from '../../shared/engine';
-import { DEFAULTS, type Fill, type SerifShape, type Terminal } from '../../shared/params';
+import { DEFAULTS, type Fill, type SerifShape, type Story, type Terminal } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 
 export function Diagram({ font, k, W = 340, H = 178 }: { font: Font; k: ActiveKey; W?: number; H?: number }) {
@@ -133,6 +133,18 @@ export function FillIcon({ fill }: { fill: Fill }) {
     const g = buildFont({ ...DEFAULTS, weight: 0.72, xHeight: 0.8, counter: 0.6, fill, module: fill === 'wire' ? 0.4 : 0.62 }).glyph('a');
     icon = { d: g?.d ?? '', w: g?.adv ?? 500 };
     fillPaths.set(fill, icon);
+  }
+  return <svg viewBox={`0 -620 ${n1(icon.w)} 680`} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
+}
+
+/* Storey icons are the engine's two a's, bold enough to read small. */
+const storyPaths = new Map<Story, { d: string; w: number }>();
+export function StoryIcon({ story }: { story: Story }) {
+  let icon = storyPaths.get(story);
+  if (!icon) {
+    const g = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: 0.8, story }).glyph('a');
+    icon = { d: g?.d ?? '', w: g?.adv ?? 500 };
+    storyPaths.set(story, icon);
   }
   return <svg viewBox={`0 -620 ${n1(icon.w)} 680`} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
 }
