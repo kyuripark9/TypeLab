@@ -1,9 +1,11 @@
 /* Glyph inspector: one letter, large, on the stage. Its parts are live: pointing at one
-   highlights it and the slider that shapes it, and the side panel groups its sliders by part
-   (letterControls). */
-import type { CSSProperties } from 'react';
-import { ANATOMY, PART_CONTROL, controlFor, type ControlKey } from '../../shared/content';
+   highlights it and the slider that shapes it, dragging it reshapes the design (lib/drag), and
+   the side panel groups its sliders by part (letterControls). */
+import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
 import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph } from '../../shared/engine';
+import type { NumericParam } from '../../shared/params';
+import { dragSpec, pickAxis, solver, type Axis, type DragSpec } from '../lib/drag';
 import { n1, unicodeLabel, useSize } from '../lib/hooks';
 import { actions, useEditor, useFont } from '../state/editor';
 
@@ -61,10 +63,16 @@ function pointPart(id: string | null) {
   if (k) actions.setActive(k);
 }
 
-/** Click a part: bring its slider into view. */
+/** Click a part: scroll the panel so its slider sits at the top of the visible list, just under
+    the sticky explainer. */
 function pickPart(id: string) {
   const k = PART_CONTROL[id];
-  if (k) document.querySelector(`[data-ctl="${k}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  const el = k && document.querySelector<HTMLElement>(`[data-ctl="${k}"]`);
+  const panel = el && el.closest<HTMLElement>('.panel');
+  if (!el || !panel) return;
+  const cover = panel.querySelector<HTMLElement>('.explainer')?.offsetHeight ?? 0;
+  const top = panel.scrollTop + el.getBoundingClientRect().top - panel.getBoundingClientRect().top - cover - 8;
+  panel.scrollTo({ top, behavior: 'smooth' });
 }
 
 /** Parts drawn as guide lines rather than shapes. */
