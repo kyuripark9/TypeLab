@@ -29,6 +29,9 @@ export function LibraryPage() {
   };
   useEffect(() => { document.title = 'My designs — TypeLab'; load(); }, []);
 
+  // the latest save — a new design or the last one edited — gets a badge so it's easy to find again
+  const recentId = designs?.reduce<Design | null>((a, d) => (!a || d.updatedAt > a.updatedAt ? d : a), null)?.id;
+
   const startNew = () => { actions.newDesign(); navigate('/'); };
 
   const duplicate = async (d: Design) => {
@@ -77,7 +80,7 @@ export function LibraryPage() {
           </div>
         ) : (
           <div className="lib-grid">
-            {designs.map(d => <DesignCard key={d.id} d={d} onDuplicate={() => duplicate(d)} onDelete={() => remove(d)} />)}
+            {designs.map(d => <DesignCard key={d.id} d={d} recent={d.id === recentId} onDuplicate={() => duplicate(d)} onDelete={() => remove(d)} />)}
           </div>
         )}
       </main>
@@ -86,12 +89,13 @@ export function LibraryPage() {
   );
 }
 
-function DesignCard({ d, onDuplicate, onDelete }: { d: Design; onDuplicate: () => void; onDelete: () => void }) {
+function DesignCard({ d, recent, onDuplicate, onDelete }: { d: Design; recent: boolean; onDuplicate: () => void; onDelete: () => void }) {
   const f = fontFor(d.params), ln = f.layout('Ag', Infinity)[0], sample = f.layout('Hamburgefonstiv', Infinity)[0];
   const pad = (1500 - ln.width) / 2, spad = Math.max(0, (9000 - sample.width) / 2);
   return (
-    <article className="lib-card">
+    <article className={recent ? 'lib-card recent' : 'lib-card'}>
       <Link to={`/d/${d.id}`} className="lib-open" aria-label={`Open ${d.name}`}>
+        {recent && <span className="lib-badge">{d.createdAt === d.updatedAt ? 'Recently added' : 'Recently edited'}</span>}
         <svg className="lib-big" viewBox={`${-pad} -900 1500 1150`} aria-hidden="true">
           {ln.items.map((it, i) => <path key={i} d={f.glyph(it.ch)!.d} transform={`translate(${n1(it.x)},0)`} />)}
         </svg>
