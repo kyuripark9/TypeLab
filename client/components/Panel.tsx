@@ -9,7 +9,8 @@ import {
 } from '../../shared/content';
 import { isGlyphKey, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
-import { strokeEnds } from '../lib/drag';
+import type { Glyph } from '../../shared/engine';
+import { strokeEnds, type StrokeEndInfo } from '../lib/drag';
 import { actions, endOf, fontFor, isOn, letterOf, useEditor, useFont, useParam, useScopedFont } from '../state/editor';
 import { Diagram, FillIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { letterControls } from './Inspector';
@@ -327,44 +328,63 @@ function TerminalControl({ parts }: { parts?: string[] }) {
   );
 }
 
-/** While a letter is customized, a length for each of its stroke ends; while every letter is in
-    sync, a way into customizing, since ends are set one by one only on a single letter. */
+/** While a letter is customized, a length for each of its stroke ends, each shown as a small
+    picture of the letter with that end marked; while every letter is in sync, a way into customizing,
+    since ends are set one by one only on a single letter. */
 function EachEnd() {
   const ch = useEditor(s => s.inspect), letter = useEditor(letterOf), font = useScopedFont();
   const g = ch ? font.glyph(ch) : null, ends = g ? strokeEnds(g) : [];
-  if (!ch || !ends.length) return null;
+  if (!ch || !g || !ends.length) return null;
   if (!letter) {
     return (
-      <p className="end-note">
-        To set each end of {ch} on its own, <button className="link" onClick={() => actions.setScope('letter')}>customize {ch}</button>.
-      </p>
+      <div className="each-end locked">
+        <EndThumb g={g} ends={ends} />
+        <div className="sub-label">Each end</div>
+        <button className="btn wide small" onClick={() => actions.setScope('letter')}>Customize {ch}</button>
+      </div>
     );
   }
   return (
     <div className="each-end">
-      <div className="sub-label">Each end of {ch}</div>
-      {ends.map(e => <EndSlider key={e.id} id={e.id} label={e.label} />)}
+      <div className="sub-label">Each end</div>
+      {ends.map(e => <EndSlider key={e.id} g={g} ends={ends} end={e} />)}
     </div>
   );
 }
 
-function EndSlider({ id, label }: { id: string; label: string }) {
-  const value = useEditor(s => endOf(s, id)), hot = useEditor(s => s.hotEnd === id);
+/** The letter in miniature with its stroke ends dotted, or only the one `on`. */
+function EndThumb({ g, ends, on }: { g: Glyph; ends: StrokeEndInfo[]; on?: string }) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of g.cmds) {
+    for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
+      x0 = Math.min(x0, c[i]); x1 = Math.max(x1, c[i]); y0 = Math.min(y0, -c[i + 1]); y1 = Math.max(y1, -c[i + 1]);
+    }
+  }
+  if (!(x0 <= x1)) return null;
+  const pad = Math.max(x1 - x0, y1 - y0) * 0.16, r = pad * (on ? 0.95 : 0.7);
+  return (
+    <svg className="end-thumb" viewBox={`${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}`} aria-hidden="true">
+      <path d={g.d} />
+      {ends.filter(e => !on || e.id === on).map(e => <circle key={e.id} cx={e.x} cy={-e.y} r={r} />)}
+    </svg>
+  );
+}
+
+function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: StrokeEndInfo[]; end: StrokeEndInfo }) {
+  const value = useEditor(s => endOf(s, id, hook)), hot = useEditor(s => s.hotEnd === id);
   const own = useEditor(s => { const ch = letterOf(s); return !!ch && s.params.glyphs[ch]?.terminalEnds?.[id] !== undefined; });
   const name = `${label} length`;
   return (
-    <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id}
+    <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id} title={label}
       onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
-      <div className="ctl-top">
-        <div className="ctl-head">
-          <span className="ctl-label">{label}{own && <em className="own" title="This end has its own length. Double-click the slider to follow Length again.">Own</em>}</span>
-        </div>
-        <div className="ctl-tools">
-          <NumberField value={value} label={name} onChange={v => { actions.focusControl('terminalLength'); actions.setEnd(id, v); actions.commit(); }} />
-        </div>
-      </div>
+      <EndThumb g={g} ends={ends} on={id} />
       <Range value={value} label={name} onInput={v => { actions.focusControl('terminalLength'); actions.setEnd(id, v); }} onCommit={actions.commit}
         onReset={() => actions.resetEnd(id)} />
+      <NumberField value={value} label={name} onChange={v => { actions.focusControl('terminalLength'); actions.setEnd(id, v); actions.commit(); }} />
+      <button className="end-reset" disabled={!own} aria-label={`Reset ${label}`} title={hook ? 'Reset this end' : 'Follow Length again'}
+        onClick={() => actions.resetEnd(id)}>
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7a4.5 4.5 0 1 0 1.3-3.2M2.5 1.8v2.4h2.4" /></svg>
+      </button>
     </div>
   );
 }
