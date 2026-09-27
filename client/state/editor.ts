@@ -4,9 +4,11 @@ import { create } from 'zustand';
 import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood } from '../../shared/content';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
-import type { Params } from '../../shared/params';
+import { isGlyphKey, type GlyphParams, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
+/** What the controls change while a letter is inspected: every letter in sync, or just that one. */
+export type Scope = 'all' | 'letter';
 
 const VIEW_KEY = 'typelab.cardView';
 const savedView = (): CardView => {
@@ -36,6 +38,7 @@ export interface EditorState extends Doc {
   /** Style page layout: cards in a grid, or one per row */
   view: CardView;
   inspect: string | null;
+  scope: Scope;
   part: string | null;
   skeleton: boolean;
   exportOpen: boolean;
@@ -74,6 +77,7 @@ export const useEditor = create<EditorState>()(() => ({
   kinds: [],
   view: savedView(),
   inspect: null,
+  scope: 'all',
   part: null,
   skeleton: false,
   exportOpen: false,
@@ -90,6 +94,26 @@ export const isDirty = (s: EditorState) => docSnap(s) !== s.saved;
 export const hlKeyOf = (s: EditorState): ControlKey | null =>
   s.hot && s.category !== 'style' ? controlFor(s.active) : null;
 
+/** The letter that edits go to instead of the whole alphabet, or null. */
+export const letterOf = (s: EditorState) => (s.scope === 'letter' ? s.inspect : null);
+
+/** The value a control shows: the inspected letter's own one when edits go to that letter. */
+export function paramOf<K extends keyof Params>(s: EditorState, key: K): Params[K] {
+  const ch = letterOf(s), own = ch && isGlyphKey(key) ? s.params.glyphs[ch]?.[key] : undefined;
+  return (own ?? s.params[key]) as Params[K];
+}
+export const useParam = <K extends keyof Params>(key: K) => useEditor(s => paramOf(s, key));
+
+/** Params with one letter's override of `key` set, or removed when `v` is undefined. Letters
+    left with no overrides drop out, so a letter reset to match the others is stored as such. */
+function withGlyph(p: Params, ch: string, key: keyof GlyphParams, v: unknown): Params {
+  const own: Record<string, unknown> = { ...p.glyphs[ch] };
+  if (v === undefined) delete own[key]; else own[key] = v;
+  const glyphs = { ...p.glyphs };
+  if (Object.keys(own).length) glyphs[ch] = own as GlyphParams; else delete glyphs[ch];
+  return { ...p, glyphs };
+}
+
 /* ---------------------------------------------------------------- fonts
    Params objects are replaced on every change, so a WeakMap gives each exactly one build. */
 const fonts = new WeakMap<Params, Font>();
@@ -99,6 +123,11 @@ export function fontFor(p: Params): Font {
   return f;
 }
 export const useFont = () => fontFor(useEditor(s => s.params));
+/** The font the controls act on: the inspected letter's own while edits go to that letter. */
+export function useScopedFont() {
+  const font = useFont(), ch = useEditor(letterOf);
+  return ch ? font.letter(ch) : font;
+}
 
 let toastId = 0;
 
@@ -122,9 +151,13 @@ export const actions = {
   setName(name: string) { set({ name }); },
   setSaving(saving: boolean) { set({ saving }); },
 
-  /** Live change while dragging: no history entry until commit(). */
+  /** Live change while dragging: no history entry until commit(). While edits go to one letter,
+      its settings change and the other letters stay as they are. */
   setParam<K extends keyof Params>(key: K, v: Params[K]) {
-    set(s => ({ params: { ...s.params, [key]: v } }));
+    set(s => {
+      const ch = letterOf(s);
+      return { params: ch && isGlyphKey(key) ? withGlyph(s.params, ch, key, v) : { ...s.params, [key]: v } };
+    });
   },
   commit() {
     const s = get(), snap = histSnap(s.params, s.styleId);
@@ -152,10 +185,28 @@ export const actions = {
     actions.commit();
     actions.toast(`${st.name} loaded — now make it yours`);
   },
-  /** Reset one slider to the starting style's value. */
+  /** Reset one slider to the starting style's value, or, while edits go to one letter, to the
+      value the other letters share. */
   resetParam(key: keyof Params) {
-    const st = styleById(get().styleId) ?? STYLES[0];
+    const s = get(), ch = letterOf(s);
+    if (ch && isGlyphKey(key)) {
+      if (s.params.glyphs[ch]?.[key] === undefined) return;
+      set({ params: withGlyph(s.params, ch, key, undefined) });
+      actions.commit();
+      return;
+    }
+    const st = styleById(s.styleId) ?? STYLES[0];
     actions.setOption(key, st.params[key]);
+  },
+  /** Put a customized letter back in sync with the rest of the alphabet. */
+  syncLetter(ch: string) {
+    const s = get();
+    if (!s.params.glyphs[ch]) return;
+    const glyphs = { ...s.params.glyphs };
+    delete glyphs[ch];
+    set({ params: { ...s.params, glyphs } });
+    actions.commit();
+    actions.toast(`${ch} is synced with the other letters again`);
   },
 
   /* ---- UI */
@@ -183,6 +234,7 @@ export const actions = {
     set({ inspect: ch, part: null, ...(s.category === 'style' ? { category: 'structure' as const, active: 'weight' as const } : {}) });
   },
   closeInspector() { set({ inspect: null, part: null }); },
+  setScope(scope: Scope) { set({ scope }); },
   stepInspector(d: number) {
     const i = ALL_CHARS.indexOf(get().inspect ?? 'A');
     actions.openInspector(ALL_CHARS[(i + d + ALL_CHARS.length) % ALL_CHARS.length]);

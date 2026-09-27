@@ -129,6 +129,17 @@ describe('font engine', () => {
     }
   });
 
+  it('a customized letter changes on its own, and the rest follow the design', () => {
+    const base = buildFont(DEFAULTS), own = buildFont({ ...DEFAULTS, glyphs: { R: { weight: 0.9, terminal: 'round' } } });
+    assert.notEqual(own.glyph('R')!.d, base.glyph('R')!.d);
+    assert.equal(own.glyph('R')!.d, buildFont({ ...DEFAULTS, weight: 0.9, terminal: 'round' }).glyph('R')!.d);
+    for (const ch of 'HOag') assert.equal(own.glyph(ch)!.d, base.glyph(ch)!.d);
+    assert.equal(own.letter('H'), own);
+    assert.equal(own.letter('R').params.weight, 0.9);
+    // the lines every letter stands on stay shared
+    assert.equal(own.letter('R').m.xh, own.m.xh);
+  });
+
   it('wraps text to a width', () => {
     const font = buildFont(DEFAULTS);
     const lines = font.layout('the quick brown fox jumps over the lazy dog', 4000);
@@ -150,6 +161,12 @@ describe('params validation', () => {
     assert.ok(!('evil' in p));
   });
 
+  it('keeps only valid per-letter settings, one character each', () => {
+    const p = sanitizeParams({ glyphs: { R: { weight: 3, xHeight: 0.9, terminal: 'blobby', serif: true }, ab: { weight: 0.2 }, e: {}, g: 'x' } });
+    assert.deepEqual(p.glyphs, { R: { weight: 1, serif: true } });
+    assert.deepEqual(sanitizeParams({ glyphs: [1] }).glyphs, {});
+  });
+
   it('fills in new settings for designs saved before they existed', () => {
     const { squareness, chamfer, fill, stencil, ...old } = DEFAULTS;
     void squareness; void chamfer; void fill; void stencil;
@@ -160,6 +177,8 @@ describe('params validation', () => {
     assert.ok(isValidParams({ ...DEFAULTS }));
     assert.ok(!isValidParams({ ...DEFAULTS, weight: 2 }));
     assert.ok(!isValidParams({ weight: 0.5 }));
+    assert.ok(isValidParams({ ...DEFAULTS, glyphs: { R: { weight: 0.9, terminal: 'round' } } }));
+    assert.ok(!isValidParams({ ...DEFAULTS, glyphs: { R: { xHeight: 0.9 } } }));
     assert.ok(!isValidParams(null));
   });
 });

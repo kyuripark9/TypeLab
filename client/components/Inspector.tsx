@@ -7,7 +7,7 @@ import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph } from '../../shared/
 import type { NumericParam, Params } from '../../shared/params';
 import { dragSpec, handlesFor, pickAxis, solver, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { n1, unicodeLabel, useSize } from '../lib/hooks';
-import { actions, useEditor, useFont } from '../state/editor';
+import { actions, useEditor, useFont, useParam, useScopedFont } from '../state/editor';
 
 const kindOf = (ch: string) =>
   /[A-Z]/.test(ch) ? 'Uppercase' : /[a-z]/.test(ch) ? 'Lowercase' : /[0-9]/.test(ch) ? 'Figure' : 'Punctuation';
@@ -106,6 +106,7 @@ export function Inspector() {
         <button className="btn ghost round" onClick={() => actions.stepInspector(-1)} aria-label="Previous glyph">←</button>
         <div className="insp-title"><h2>{ch}</h2><span>{kindOf(ch)} · {unicodeLabel(ch)}</span></div>
         <button className="btn ghost round" onClick={() => actions.stepInspector(1)} aria-label="Next glyph">→</button>
+        <ScopeToggle ch={ch} />
         <span className="grow" />
         <SkeletonToggle />
         <button className="btn ghost icon" onClick={actions.closeInspector} aria-label="Close inspector" title="Close (Esc)">
@@ -116,6 +117,31 @@ export function Inspector() {
         <InspectorCanvas ch={ch} g={g} font={font} />
       </div>
     </section>
+  );
+}
+
+/** Whether the controls reshape every letter in sync or only this one. A letter with settings of
+    its own can be put back in sync with the rest. */
+function ScopeToggle({ ch }: { ch: string }) {
+  const scope = useEditor(s => s.scope), custom = useEditor(s => !!s.params.glyphs[ch]);
+  const opts: [typeof scope, string, string][] = [
+    ['all', 'Sync all letters', 'Changes reshape every letter at once'],
+    ['letter', `Customize ${ch}`, `Changes reshape only ${ch}; the other letters stay as they are`]
+  ];
+  return (
+    <>
+      <div className="scope" role="radiogroup" aria-label="Editing mode">
+        {opts.map(([id, label, title]) => (
+          <button key={id} role="radio" aria-checked={scope === id} className={scope === id ? 'on' : undefined} title={title}
+            onClick={() => actions.setScope(id)}>{label}</button>
+        ))}
+      </div>
+      {custom && (
+        <button className="btn ghost small" onClick={() => actions.syncLetter(ch)} title={`Drop ${ch}'s own settings so it follows the other letters again`}>
+          Re-sync {ch}
+        </button>
+      )}
+    </>
   );
 }
 
@@ -163,6 +189,8 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
   // the control the pointer is on in the side panel: its handles show on the letter
   const hotKey = useEditor(s => (s.hot ? s.active : null));
   const more = useRef<{ p: Params | null; m: Map<string, 1 | -1> }>({ p: null, m: new Map() });
+  // drags measure and change the font the controls act on: this letter's own while only it changes
+  const lf = useScopedFont();
   useEffect(() => () => drag.current?.end(), []);
 
   const W = Math.max(320, size.width), H = Math.max(300, size.height), m = font.m;
@@ -191,13 +219,13 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
      wherever the letter can be dragged to make the same change. */
   const towardMoreOf = (id: string, axis: Axis, d: Drive) => {
     const c = more.current;
-    if (c.p !== font.params) { c.p = font.params; c.m.clear(); }
+    if (c.p !== lf.params) { c.p = lf.params; c.m.clear(); }
     const k = `${id}:${axis}:${d.sign}`;
     let v = c.m.get(k);
-    if (v === undefined) { v = towardMore(d, font.params); c.m.set(k, v); }
+    if (v === undefined) { v = towardMore(d, lf.params); c.m.set(k, v); }
     return v;
   };
-  const hoverSpec = hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, font, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }) : null;
+  const hoverSpec = hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, lf, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }) : null;
   const hoverAxes = AXES.filter(a => hoverSpec?.[a]);
   const tip: TipRow[] = hoverAxes.map(a => {
     const d = hoverSpec![a]!, def = defOf(d.key), up = towardMoreOf(hover!.id, a, d) > 0;
@@ -206,7 +234,7 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
   });
   const guideKey = hotKey === 'serif' ? 'serifSize' : hotKey;
   const showKey = hover || dragging ? null : guideKey && typeof font.params[guideKey as keyof Params] === 'number' ? guideKey as NumericParam : intro ? 'weight' : null;
-  const handles: Handle[] = showKey ? handlesFor(showKey, font, ch, [...parts, ...guides.map(([id]) => id), 'advance']) : [];
+  const handles: Handle[] = showKey ? handlesFor(showKey, lf, ch, [...parts, ...guides.map(([id]) => id), 'advance']) : [];
 
   let hl: { d: string; ring?: boolean };
   if (part) hl = partD(g, part, font);
@@ -228,7 +256,7 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
     e.preventDefault();
     setHover(null);
     const r = svgRef.current.getBoundingClientRect(), view = { sc, ox, oy }, x0 = e.clientX, y0 = e.clientY;
-    const spec: DragSpec = (!FIXED_PARTS.has(id) && dragSpec(id, font, ch, { x: (x0 - r.left - ox) / sc, y: (oy - (y0 - r.top)) / sc })) || {};
+    const spec: DragSpec = (!FIXED_PARTS.has(id) && dragSpec(id, lf, ch, { x: (x0 - r.left - ox) / sc, y: (oy - (y0 - r.top)) / sc })) || {};
     let solve: ((t: number) => number) | null = null;
     const move = (ev: PointerEvent) => {
       const d = drag.current!, dx = ev.clientX - x0, dy = ev.clientY - y0;
@@ -238,7 +266,7 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
         if (!axis) return;
         const drive = spec[axis]!;
         d.axis = axis; d.key = drive.key;
-        solve = solver(drive, useEditor.getState().params);
+        solve = solver(drive, lf.params);
         actions.setActive(drive.key as ActiveKey);
         setHeld(view);
         if (intro) { setIntro(false); markTipSeen(); }
@@ -347,6 +375,6 @@ function DragTip({ x, y, W, H, rows }: { x: number; y: number; W: number; H: num
 
 /** The value being dragged, beside the pointer. */
 function DragReadout({ x, y, param }: Readout) {
-  const v = useEditor(s => s.params[param]);
+  const v = useParam(param);
   return <div className="i-readout" style={{ left: x + 14, top: y + 16 }}>{labelOf(param)} <b>{Math.round(v * 100)}</b></div>;
 }

@@ -33,7 +33,17 @@ export interface Params {
   letterSpacing: number; wordSpacing: number; sideBearing: number;
   /** blend toward one fixed advance width for every glyph */ mono: number;
   geoHuman: number; softSharp: number; classicFuture: number; playfulFormal: number;
+  /** letters customized on their own: each overrides some of the settings above, by character */ glyphs: Record<string, GlyphParams>;
 }
+
+/** Settings every letter shares. The heights are the lines all letters stand on, spacing and the
+    fills and slice run across a whole line, and the personality macros push the heights too. */
+export const GLOBAL_KEYS = ['height', 'xHeight', 'extenders', 'letterSpacing', 'wordSpacing', 'mono', 'fill', 'module', 'slice',
+  'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal', 'glyphs'] as const;
+/** A setting one letter can have its own value of. */
+export type GlyphKey = Exclude<keyof Params, (typeof GLOBAL_KEYS)[number]>;
+export type GlyphParams = Partial<Pick<Params, GlyphKey>>;
+export const isGlyphKey = (k: string): k is GlyphKey => k in DEFAULTS && !(GLOBAL_KEYS as readonly string[]).includes(k);
 
 export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K : never }[keyof Params];
 
@@ -45,10 +55,35 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   fill: 'solid', module: 0.4, stencil: 0, slice: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   letterSpacing: 0.2, wordSpacing: 0.35, sideBearing: 0.5, mono: 0,
-  geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5
+  geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5, glyphs: Object.freeze({})
 });
 
 const PARAM_KEYS = Object.keys(DEFAULTS) as (keyof Params)[];
+
+/** A valid value for setting `k`, or undefined. Numbers are clamped to 0..1. */
+function cleanValue(k: keyof Params, v: unknown): unknown {
+  const d = DEFAULTS[k];
+  if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
+  if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
+  const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, serifShape: SERIF_SHAPES, fill: FILLS, story: STORIES };
+  return opts[k]?.includes(v) ? v : undefined;
+}
+
+/** Per-letter overrides: one character per key, only settings a letter can own, no empty entries. */
+function cleanGlyphs(v: unknown): Record<string, GlyphParams> {
+  const out: Record<string, GlyphParams> = {};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
+  for (const [ch, ov] of Object.entries(v)) {
+    if ([...ch].length !== 1 || !ov || typeof ov !== 'object') continue;
+    const g: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(ov)) {
+      const c = isGlyphKey(k) ? cleanValue(k, x) : undefined;
+      if (c !== undefined) g[k] = c;
+    }
+    if (Object.keys(g).length) out[ch] = g as GlyphParams;
+  }
+  return out;
+}
 
 /**
  * Turn untrusted input (an imported file, a request body) into valid Params.
@@ -59,13 +94,8 @@ export function sanitizeParams(input: unknown): Params {
   const src = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   const out = { ...DEFAULTS } as Record<string, unknown>;
   for (const k of PARAM_KEYS) {
-    const v = src[k], d = DEFAULTS[k];
-    if (typeof d === 'number') { if (typeof v === 'number' && Number.isFinite(v)) out[k] = Math.min(1, Math.max(0, v)); }
-    else if (typeof d === 'boolean') { if (typeof v === 'boolean') out[k] = v; }
-    else if (k === 'terminal') { if ((TERMINALS as readonly unknown[]).includes(v)) out[k] = v; }
-    else if (k === 'serifShape') { if ((SERIF_SHAPES as readonly unknown[]).includes(v)) out[k] = v; }
-    else if (k === 'fill') { if ((FILLS as readonly unknown[]).includes(v)) out[k] = v; }
-    else if (k === 'story') { if ((STORIES as readonly unknown[]).includes(v)) out[k] = v; }
+    const c = k === 'glyphs' ? cleanGlyphs(src[k]) : cleanValue(k, src[k]);
+    if (c !== undefined) out[k] = c;
   }
   return out as unknown as Params;
 }
@@ -75,5 +105,5 @@ export function isValidParams(input: unknown): input is Params {
   if (!input || typeof input !== 'object') return false;
   const src = input as Record<string, unknown>;
   const clean = sanitizeParams(input) as unknown as Record<string, unknown>;
-  return PARAM_KEYS.every(k => src[k] === clean[k]);
+  return PARAM_KEYS.every(k => k === 'glyphs' ? JSON.stringify(src[k]) === JSON.stringify(clean[k]) : src[k] === clean[k]);
 }

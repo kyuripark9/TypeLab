@@ -72,6 +72,8 @@ export interface Font {
   eff: Effective;
   m: Metrics;
   glyph(ch: string): Glyph | null;
+  /** The font `ch` is drawn from: one built with its own settings when it has any, else this one. */
+  letter(ch: string): Font;
   /** SVG path data of the part of `ch` that parameter `key` affects ('' if none). */
   hl(ch: string, key: string): string;
   advance(ch: string): number;
@@ -410,15 +412,26 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
 
 export function buildFont(params: Params): Font {
   const e = resolve(params), m = metrics(e);
-  const cache = new Map<string, Glyph | null>(), hlCache = new Map<string, string>();
+  const cache = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
   const font: Font = {
     params, eff: e, m,
+    letter(ch) {
+      const own = params.glyphs?.[ch];
+      if (!own) return font;
+      let f = letters.get(ch);
+      if (!f) { f = buildFont({ ...params, ...own, glyphs: {} }); letters.set(ch, f); }
+      return f;
+    },
     glyph(ch) {
       let g = cache.get(ch);
       if (g === undefined) {
-        const alt = ch === 'a' && e.singleStory ? 'a.alt' : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
-        g = buildGlyph(alt, m);
-        if (g) g.ch = ch;
+        const lf = font.letter(ch);
+        if (lf !== font) g = lf.glyph(ch);
+        else {
+          const alt = ch === 'a' && e.singleStory ? 'a.alt' : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
+          g = buildGlyph(alt, m);
+          if (g) g.ch = ch;
+        }
         cache.set(ch, g);
       }
       return g;
@@ -428,7 +441,7 @@ export function buildFont(params: Params): Font {
       let d = hlCache.get(id);
       if (d === undefined) {
         const g = font.glyph(ch);
-        d = g ? highlightD(g, key, m) : '';
+        d = g ? highlightD(g, key, font.letter(ch).m) : '';
         hlCache.set(id, d);
       }
       return d;

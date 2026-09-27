@@ -7,9 +7,9 @@ import {
   STYLES, SUBS, TAG_FACE, TERMINAL_OPTIONS, controlFor, styleById, styleMatches,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter
 } from '../../shared/content';
-import type { NumericParam } from '../../shared/params';
+import { isGlyphKey, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
-import { actions, fontFor, useEditor, useFont } from '../state/editor';
+import { actions, fontFor, letterOf, useEditor, useFont, useParam, useScopedFont } from '../state/editor';
 import { Diagram, FillIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { letterControls } from './Inspector';
 
@@ -129,9 +129,9 @@ function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> })
 
 /** The inspected letter's sliders, named by the parts they shape, then the rest of the category. */
 function LetterControls({ keys, category }: { keys: ControlKey[]; category: Exclude<CategoryId, 'style'> }) {
-  const ch = useEditor(s => s.inspect)!, serif = useEditor(s => s.params.serif), font = useFont();
+  const ch = useEditor(s => s.inspect)!, font = useFont();
   const g = font.glyph(ch);
-  const rows = g ? letterControls(g, ch, serif) : [];
+  const rows = g ? letterControls(g, ch, font.letter(ch).params.serif) : [];
   const rest = keys.filter(k => !rows.some(r => r.key === k));
   return (
     <div className="ctl-list">
@@ -153,11 +153,14 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
 }
 
 /** A control's short title. While a letter is inspected, the parts it shapes follow in grey and each one can be pointed at. */
-function CtlHead({ label, parts, advanced }: { label: string; parts?: string[]; advanced?: boolean }) {
+function CtlHead({ k, label, parts, advanced }: { k: keyof Params; label: string; parts?: string[]; advanced?: boolean }) {
   const part = useEditor(s => s.part);
+  const inspect = useEditor(s => s.inspect), letter = useEditor(letterOf);
+  const own = useEditor(s => !!s.inspect && isGlyphKey(k) && s.params.glyphs[s.inspect]?.[k] !== undefined);
+  const tag = scopeTag(inspect, letter, own, k);
   return (
     <div className="ctl-head">
-      <span className="ctl-label">{label}{advanced && <em>Advanced</em>}</span>
+      <span className="ctl-label">{label}{advanced && <em>Advanced</em>}{tag && <em className={tag.own ? 'own' : undefined} title={tag.title}>{tag.text}</em>}</span>
       {!!parts?.length && (
         <span className="ctl-parts">
           {parts.map(p => (
@@ -169,6 +172,16 @@ function CtlHead({ label, parts, advanced }: { label: string; parts?: string[]; 
     </div>
   );
 }
+/** While a letter is inspected: whether it has its own value of `k`, and while edits go to that
+    letter, which controls still change every letter. */
+function scopeTag(inspect: string | null, letter: string | null, own: boolean, k: keyof Params) {
+  if (!inspect) return null;
+  if (own) {
+    return { own: true, text: 'Custom', title: letter ? `Only ${inspect} has this value. Double-click the slider to sync it with the other letters.` : `${inspect} keeps its own value when this changes` };
+  }
+  return letter && !isGlyphKey(k) ? { own: false, text: 'Whole font', title: `Every letter shares this setting, so it changes all of them even while customizing ${letter}` } : null;
+}
+
 function Explainer() {
   const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
   const part = useEditor(s => s.inspect ? s.part : null);
@@ -208,12 +221,12 @@ function useControlFocus(key: ActiveKey) {
 interface SliderDef { label: string; friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; advanced?: boolean }
 
 function SliderControl({ k, def, parts }: { k: NumericParam; def: SliderDef; parts?: string[] }) {
-  const value = useEditor(s => s.params[k]), active = useEditor(s => s.active === k);
+  const value = useParam(k), active = useEditor(s => s.active === k);
   const cls = ['ctl', def.bipolar && 'bipolar', active && 'active'].filter(Boolean).join(' ');
   return (
     <div className={cls} data-ctl={k} {...useControlFocus(k)}>
       <div className="ctl-top">
-        <CtlHead label={def.label} parts={parts} advanced={def.advanced} />
+        <CtlHead k={k} label={def.label} parts={parts} advanced={def.advanced} />
         <NumberField value={value} label={def.tech} onChange={v => { actions.focusControl(k); actions.setParam(k, v); actions.commit(); }} />
       </div>
       <Range
@@ -278,11 +291,11 @@ function Range({ value, label, onInput, onCommit, onReset }: { value: number; la
 }
 
 function TerminalControl({ parts }: { parts?: string[] }) {
-  const terminal = useEditor(s => s.params.terminal), active = useEditor(s => s.active === 'terminal');
+  const terminal = useParam('terminal'), active = useEditor(s => s.active === 'terminal');
   const c = CONTROLS.terminal;
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="terminal" {...useControlFocus('terminal')}>
-      <CtlHead label={c.label} parts={parts} />
+      <CtlHead k="terminal" label={c.label} parts={parts} />
       <div className="opts six" role="radiogroup" aria-label={c.tech}>
         {TERMINAL_OPTIONS.map(([id, label]) => (
           <button key={id} role="radio" aria-checked={terminal === id} className={terminal === id ? 'opt on' : 'opt'}
@@ -297,11 +310,11 @@ function TerminalControl({ parts }: { parts?: string[] }) {
 
 /** Double or single storey. Left on auto, the form the other settings picked shows as chosen. */
 function StoryControl({ parts }: { parts?: string[] }) {
-  const single = useFont().eff.singleStory, active = useEditor(s => s.active === 'story');
+  const single = useScopedFont().eff.singleStory, active = useEditor(s => s.active === 'story');
   const c = CONTROLS.story, current = single ? 'single' : 'double';
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="story" {...useControlFocus('story')}>
-      <CtlHead label={c.label} parts={parts} />
+      <CtlHead k="story" label={c.label} parts={parts} />
       <div className="opts two" role="radiogroup" aria-label={c.tech}>
         {STORY_OPTIONS.map(([id, label]) => (
           <button key={id} role="radio" aria-checked={current === id} className={current === id ? 'opt on' : 'opt'}
@@ -315,12 +328,12 @@ function StoryControl({ parts }: { parts?: string[] }) {
 }
 
 function SerifControl({ parts }: { parts?: string[] }) {
-  const p = useEditor(s => s.params), active = useEditor(s => controlFor(s.active) === 'serif');
+  const p = { serif: useParam('serif'), serifShape: useParam('serifShape') }, active = useEditor(s => controlFor(s.active) === 'serif');
   const c = CONTROLS.serif;
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="serif" {...useControlFocus('serif')}>
       <div className="ctl-row">
-        <CtlHead label={c.label} parts={parts} />
+        <CtlHead k="serif" label={c.label} parts={parts} />
         <button className={p.serif ? 'switch on' : 'switch'} role="switch" aria-checked={p.serif} aria-label="Serifs"
           onClick={() => actions.setOption('serif', !p.serif)}><i /></button>
       </div>
@@ -347,7 +360,7 @@ function FillControl() {
   const c = CONTROLS.fill, solid = fill === 'solid';
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="fill" {...useControlFocus('fill')}>
-      <CtlHead label={c.label} />
+      <CtlHead k="fill" label={c.label} />
       <div className="opts five" role="radiogroup" aria-label={c.tech}>
         {FILL_OPTIONS.map(([id, label]) => (
           <button key={id} role="radio" aria-checked={fill === id} className={fill === id ? 'opt on' : 'opt'}
