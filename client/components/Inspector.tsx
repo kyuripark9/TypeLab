@@ -6,11 +6,8 @@ import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type
 import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph } from '../../shared/engine';
 import type { NumericParam, Params } from '../../shared/params';
 import { dragSpec, handlesFor, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
-import { n1, unicodeLabel, useSize } from '../lib/hooks';
+import { n1, useSize } from '../lib/hooks';
 import { actions, endOf, letterOf, useEditor, useFont, useParam, useScopedFont, type Scope } from '../state/editor';
-
-const kindOf = (ch: string) =>
-  /[A-Z]/.test(ch) ? 'Uppercase' : /[a-z]/.test(ch) ? 'Lowercase' : /[0-9]/.test(ch) ? 'Figure' : 'Punctuation';
 
 /** Anatomy terms that apply to this glyph, in a sensible reading order. */
 function features(g: Glyph, ch: string): string[] {
@@ -104,7 +101,7 @@ export function Inspector() {
     <section className={letter ? 'inspector customizing' : 'inspector'} aria-label={`Glyph inspector: ${ch}`}>
       <div className="insp-head">
         <button className="btn ghost round" onClick={() => actions.stepInspector(-1)} aria-label="Previous glyph">←</button>
-        <div className="insp-title"><h2>{ch}</h2><span>{kindOf(ch)} · {unicodeLabel(ch)}</span></div>
+        <div className="insp-title"><h2>{ch}</h2></div>
         <button className="btn ghost round" onClick={() => actions.stepInspector(1)} aria-label="Next glyph">→</button>
         <ScopeToggle ch={ch} />
         <span className="grow" />

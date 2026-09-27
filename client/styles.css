@@ -236,7 +236,6 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .insp-head { display: flex; align-items: center; gap: 10px; padding: 10px 24px; border-bottom: 1px solid var(--line); }
 .insp-title { display: flex; align-items: baseline; gap: 8px; min-width: 28px; justify-content: center; }
 .insp-title h2 { margin: 0; font-size: 20px; font-weight: 600; }
-.insp-title span { color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; }
 .grow { flex: 1; }
 .scope { display: flex; flex: none; gap: 3px; padding: 3px; margin-left: 8px; background: var(--tint); border-radius: var(--radius); }
 .scope button { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--radius-s); font-size: 13px; font-weight: 500; color: var(--ink-2); white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }

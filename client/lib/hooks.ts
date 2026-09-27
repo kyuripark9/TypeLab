@@ -21,4 +21,3 @@ export function useSize<T extends HTMLElement>(): [(el: T | null) => void, { wid
 export const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && !['range', 'checkbox', 'radio', 'button'].includes(t.type));
 
-export const unicodeLabel = (ch: string) => 'U+' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
