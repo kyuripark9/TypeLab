@@ -339,14 +339,18 @@ function stretchEnd(cmds: Cmd[], which: 's' | 'e', d: number, m: Metrics): { cmd
 }
 
 /* Curling an end: the last stretch of the stroke, up to CURL_REACH of the x-height back from its
-   tip, is redrawn by following its own tangents and turning a little more at every step. Below
-   0.5 a curved end unbends until it is straight, then flares out the other way (a straight end
-   flares straight away); above it the end curls on round the way it already turns, or for a
-   straight end toward the middle of the letter. The longer the end, the further round it can
-   curl, but never tighter than the stroke is thick. Its length changes as with stretchEnd. */
-const CURL_REACH = 0.45;
+   tip, is redrawn by following its own tangents and turning more at every step. Above 0.5 the
+   end curls on round the way it already turns (a straight end toward the middle of the letter);
+   below it a curved end first unbends until it is straight, and then, like a straight end, curls
+   the other way. A curl winds like a volute, gently where it leaves the stroke and tighter toward
+   the tip, up to CURL_TURNS times round; it draws the end out as far as it needs for that, up to
+   CURL_LONGEST x-heights, and never turns tighter at the tip than CURL_TIGHT of the stroke width.
+   Its length changes as with stretchEnd. */
+const CURL_REACH = 0.45, CURL_TURNS = 1.25, CURL_LONGEST = 2.2, CURL_TIGHT = 0.7;
+/** How much of the lower half of Curl a curved end takes to straighten. */
+const CURL_UNBEND = 0.3;
 
-function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Metrics, mid: Pt): { cmds: Cmd[]; from: Pt; to: Pt } | null {
+function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Metrics, mid: Pt): { cmds: Cmd[]; from: Pt; to: Pt; span?: { x0: number; x1: number } } | null {
   if (Math.abs(curl - 0.5) < 0.005) return stretchEnd(cmds, which, d, m);
   const e = endCmd(cmds, which, m);
   if (!e) return null;
@@ -367,25 +371,31 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
   const drawn = (s: number) => { const f = clamp(s / S0) * N, k = Math.min(N - 1, Math.floor(f)); return lerp(ang[k], ang[k + 1], f - k); };
   const J = at(0), tip = at(S0), turned = ang[N] - ang[0], curved = Math.abs(turned) > 0.05;
   const way = Math.sign(curved ? turned : tip.tx * (mid.y - tip.y) - tip.ty * (mid.x - tip.x)) || 1;
-  const k2 = (curl - 0.5) * 2, room = Sn / (m.s * 1.3);
-  const straighten = k2 < 0 && curved ? Math.min(1, -k2 * 2) : 0, flare = k2 >= 0 ? 0 : curved ? Math.max(0, -k2 * 2 - 1) : -k2;
-  const more = k2 > 0 ? way * k2 * Math.min(1.5 * Math.PI, room) : -way * flare * Math.min(Math.PI * 0.6, room);
-  const angle = (s: number) => lerp(drawn(s), ang[0], straighten) + more * s / Sn;
-  const M = 64, h = Sn / M, pts: Pt[] = [{ x: J.x, y: J.y }];
+  const k2 = (curl - 0.5) * 2, straighten = k2 < 0 && curved ? Math.min(1, -k2 / CURL_UNBEND) : 0;
+  const amount = k2 >= 0 ? k2 : curved ? Math.max(0, (-k2 - CURL_UNBEND) / (1 - CURL_UNBEND)) : -k2;
+  // the extra turn grows with the square of the distance, so its curvature is tightest at the
+  // tip: 2 * turn / length there
+  const rTip = Math.max(m.s * CURL_TIGHT, m.xh * 0.08);
+  const Sc = Math.max(Sn, Math.min(2 * amount * CURL_TURNS * 2 * Math.PI * rTip, m.xh * CURL_LONGEST));
+  const turn = (k2 >= 0 ? way : -way) * Math.min(amount * CURL_TURNS * 2 * Math.PI, Sc / (2 * rTip));
+  const angle = (s: number) => lerp(drawn(s), ang[0], straighten) + turn * (s / Sc) ** 2;
+  const M = 192, h = Sc / M, pts: Pt[] = [{ x: J.x, y: J.y }];
   for (let k = 1; k <= M; k++) { const t = angle(h * (k - 0.5)), p = pts[k - 1]; pts.push({ x: p.x + Math.cos(t) * h, y: p.y + Math.sin(t) * h }); }
-  // back to béziers, a quarter turn at most each
-  const n = Math.max(1, Math.ceil(Math.abs(angle(Sn) - angle(0)) / (Math.PI / 2))), pieces: Pt[][] = [];
-  for (let k = 0; k < n; k++) {
-    const i0 = Math.round(M * k / n), i1 = Math.round(M * (k + 1) / n), A = pts[i0], B = pts[i1];
-    const ta = angle(h * i0), tb = angle(h * i1), L = h * (i1 - i0), dt = Math.abs(tb - ta);
+  // back to béziers, an eighth of a turn at most each
+  const pieces: Pt[][] = [];
+  for (let i0 = 0, k = 1; k <= M; k++) {
+    if (k < M && Math.abs(angle(h * k) - angle(h * i0)) < Math.PI / 4) continue;
+    const A = pts[i0], B = pts[k], ta = angle(h * i0), tb = angle(h * k), L = h * (k - i0), dt = Math.abs(tb - ta);
     const hl = dt < 1e-4 ? L / 3 : (4 / 3) * Math.tan(dt / 4) * L / dt;
     pieces.push([A, { x: A.x + Math.cos(ta) * hl, y: A.y + Math.sin(ta) * hl }, { x: B.x - Math.cos(tb) * hl, y: B.y - Math.sin(tb) * hl }, B]);
+    i0 = k;
   }
+  const xs = pts.map(p => p.x), span = { x0: Math.min(...xs), x1: Math.max(...xs) };
   const uJ = uAt(which === 'e' ? b - S0 : a + S0), w = o.w != null ? { w: o.w } : {}, to = pts[M], out = cmds.slice();
   if (which === 'e') {
     const keep: Cmd = e.line ? ['L', J.x, J.y, ...c.slice(3)] : [c[0], ...c.slice(1, oi), { ...o, u1: uJ }];
     out.splice(i, 1, keep, ...pieces.map(q => ['C', q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y, w] as Cmd));
-    return { cmds: out, from: cubicAt(P, u1), to };
+    return { cmds: out, from: cubicAt(P, u1), to, span };
   }
   // at the start the stroke now begins at the new tip, so what's left of the first command is
   // written out as a plain curve from J
@@ -393,7 +403,7 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
   delete rest.u0; delete rest.u1;
   const keep: Cmd = e.line ? c : ['C', Q[1].x, Q[1].y, Q[2].x, Q[2].y, Q[3].x, Q[3].y, rest];
   out.splice(0, 2, ['M', to.x, to.y], ...pieces.reverse().map(q => ['C', q[2].x, q[2].y, q[1].x, q[1].y, q[0].x, q[0].y, w] as Cmd), keep);
-  return { cmds: out, from: cubicAt(P, u0), to };
+  return { cmds: out, from: cubicAt(P, u0), to, span };
 }
 
 /** Stretch or trim every styled terminal of a glyph (body width W) by the stroke end length, or
@@ -426,8 +436,9 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>)
       if (!r) continue;
       st.cmds = r.cmds;
       if (tip) { tip.x = r.to.x; tip.y = r.to.y; }
-      grow.l = Math.max(grow.l, Math.min(0, r.from.x) - r.to.x);
-      grow.r = Math.max(grow.r, r.to.x - Math.max(W, r.from.x));
+      // a curl can swing out further than its tip ends up
+      grow.l = Math.max(grow.l, Math.min(0, r.from.x) - (r.span?.x0 ?? r.to.x));
+      grow.r = Math.max(grow.r, (r.span?.x1 ?? r.to.x) - Math.max(W, r.from.x));
     }
   });
   return grow;

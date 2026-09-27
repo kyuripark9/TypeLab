@@ -145,7 +145,14 @@ describe('font engine', () => {
     assert.ok(flat.tip.y > top.tip.y);
     // no jump on leaving 0.5: a step half as big moves the tip half as far
     const step = (v: number) => Math.hypot(C(v).tip.x - top.tip.x, C(v).tip.y - top.tip.y);
-    assert.ok(step(0.51) < 6 && Math.abs(step(0.51) - 2 * step(0.505)) < 0.3);
+    assert.ok(step(0.51) < 15 && Math.abs(step(0.51) - 2 * step(0.505)) < 0.3);
+    // all the way, an end winds round more than once, drawing itself out as far as it needs
+    const reach = (g: typeof round.g) => {
+      const tip = g.marks.find(k => k.id === top.e.id)!;
+      return Math.hypot(tip.x - top.e.x, tip.y - top.e.y);
+    };
+    assert.ok(reach(round.g) > 60 && reach(C(0).g) > 60);
+    assert.ok(C(0, 'c').g.adv > C(0.5, 'c').g.adv, 'a curl swinging out widens its letter');
     assert.equal(sanitizeParams({ glyphs: { C: { terminalCurls: { '0e': 1.4, x: 0.2 } } } }).glyphs.C.terminalCurls!['0e'], 1);
   });
 

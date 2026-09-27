@@ -383,7 +383,7 @@ function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: Stro
       <EndRow id={id} k="terminalEnds" name="Length" label={label} value={length}
         tip="Trim the end back, or draw it on, much further than Length goes" reset={hook ? 'Reset its length' : 'Follow Length again'} />
       <EndRow id={id} k="terminalCurls" name="Curl" label={label} value={curl}
-        tip="Left straightens the end, then flares it out; right curls it round. Longer ends curl further" reset="Reset its curl" />
+        tip="Left straightens the end, then swirls it outward; right curls it on round, into a spiral like a swash" reset="Reset its curl" />
     </div>
   );
 }
