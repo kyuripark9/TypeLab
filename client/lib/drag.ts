@@ -3,7 +3,7 @@
    to the pointer, a stroke, counter or serif grows toward it. Like the sliders, a drag reshapes
    every letter at once, since the design is the parameters. */
 import { buildFont, clamp, type Cmd, type Font, type Glyph } from '../../shared/engine';
-import type { NumericParam, Params } from '../../shared/params';
+import { endLength, type NumericParam, type Params } from '../../shared/params';
 
 export type Axis = 'x' | 'y';
 
@@ -22,23 +22,25 @@ export interface Drive {
   at: { x: number; y: number };
   /** set only this one stroke end's length (key 'terminalLength'), not every end's */
   end?: string;
+  /** that end is the tip of a hook, tail or cursive stroke (see endLength) */
+  hook?: boolean;
 }
 export type DragSpec = Partial<Record<Axis, Drive>>;
 
 /** The value a drive moves, and the params with it set. */
-export const driveValue = (d: Drive, p: Params) => (d.end ? p.terminalEnds[d.end] ?? p.terminalLength : p[d.key]);
+export const driveValue = (d: Drive, p: Params) => (d.end ? endLength(p, d.end, d.hook) : p[d.key]);
 export const withDrive = (d: Drive, p: Params, v: number): Params =>
   d.end ? { ...p, terminalEnds: { ...p.terminalEnds, [d.end]: v } } : { ...p, [d.key]: v };
 
 /** A letter's stroke ends, top to bottom, each named by where it sits: "Top end", "Bottom left end". */
-export interface StrokeEndInfo { id: string; x: number; y: number; label: string }
+export interface StrokeEndInfo { id: string; x: number; y: number; label: string; hook: boolean }
 export function strokeEnds(g: Glyph): StrokeEndInfo[] {
   const ks = g.marks.filter(k => k.type === 'terminal' && k.id);
   if (!ks.length) return [];
   const b = bbox(g.cmds) ?? { x0: 0, x1: g.adv, y0: 0, y1: 1 }, w = b.x1 - b.x0 || 1, h = b.y1 - b.y0 || 1;
   const v = (y: number) => ((y - b.y0) / h > 0.62 ? 'Top' : (y - b.y0) / h < 0.38 ? 'Bottom' : 'Middle');
   const hz = (x: number) => ((x - b.x0) / w < 0.5 ? 'left' : 'right');
-  const ends = ks.map(k => ({ id: k.id!, x: k.x, y: k.y, label: v(k.y) })).sort((a, c) => c.y - a.y || a.x - c.x);
+  const ends = ks.map(k => ({ id: k.id!, x: k.x, y: k.y, label: v(k.y), hook: !!k.hook })).sort((a, c) => c.y - a.y || a.x - c.x);
   // two ends at the same height are told apart by side, and failing that by number
   const tally = () => { const n: Record<string, number> = {}; ends.forEach(e => { n[e.label] = (n[e.label] ?? 0) + 1; }); return n; };
   let n = tally();
@@ -107,7 +109,7 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
       if (!k) return null;
       const end = oneEnd && part === 'terminal' ? k.id : undefined;
       const tip = (f: Font) => (end ? tips(f).find(t => t.id === end) : tips(f)[i]);
-      const d0: Drive = { key, end, sign: 1, at: { x: k.x, y: k.y } };
+      const d0: Drive = { key, end, hook: end ? k.hook : undefined, sign: 1, at: { x: k.x, y: k.y } };
       const lo = tip(buildFont(withDrive(d0, font.params, 0))), hi = tip(buildFont(withDrive(d0, font.params, 1)));
       const axis: Axis = !lo || !hi || Math.abs(hi.x - lo.x) >= Math.abs(hi.y - lo.y) ? 'x' : 'y';
       return { [axis]: { ...d0, measure: (f: Font) => tip(f)?.[axis] ?? null } };

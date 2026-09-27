@@ -185,7 +185,7 @@ const markTipSeen = () => { try { localStorage.setItem(TIP_KEY, '1'); } catch { 
 interface View { sc: number; ox: number; oy: number }
 interface Drag { part: string; axis?: Axis; key?: NumericParam; strokeEnd?: string; end: () => void }
 /** `end` names the one stroke end being dragged, while a letter is customized */
-interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string } }
+interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string; hook: boolean } }
 /** The pointer over a draggable part, in canvas px */
 interface Hover { id: string; x: number; y: number }
 interface TipRow { axis: Axis; label: string; ends: [string, string] }
@@ -242,13 +242,13 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
     if (v === undefined) { v = towardMore(d, lf.params); c.m.set(k, v); }
     return v;
   };
-  const ends = strokeEnds(g), endLabel = (id?: string) => ends.find(e => e.id === id)?.label;
+  const ends = strokeEnds(g), endInfo = (id?: string) => ends.find(e => e.id === id);
   const hoverSpec = hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, lf, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }, oneEnd) : null;
   const hoverAxes = AXES.filter(a => hoverSpec?.[a]);
   const tip: TipRow[] = hoverAxes.map(a => {
     const d = hoverSpec![a]!, def = defOf(d.key), up = towardMoreOf(hover!.id, a, d) > 0;
     const hi = def?.hi ?? 'More', lo = def?.lo ?? 'Less', plus = up ? hi : lo, minus = up ? lo : hi;
-    return { axis: a, label: d.end ? `${endLabel(d.end) ?? 'End'} length` : labelOf(d.key), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
+    return { axis: a, label: d.end ? `${endInfo(d.end)?.label ?? 'End'} length` : labelOf(d.key), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
   });
   const guideKey = hotKey === 'serif' ? 'serifSize' : hotKey === 'terminal' ? 'terminalLength' : hotKey;
   const showKey = hover || dragging ? null : guideKey && typeof font.params[guideKey as keyof Params] === 'number' ? guideKey as NumericParam : intro ? 'weight' : null;
@@ -293,8 +293,7 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
       }
       const v = solve!(d.axis === 'x' ? dx / view.sc : -dy / view.sc);
       if (d.strokeEnd) actions.setEnd(d.strokeEnd, v); else actions.setParam(d.key!, v);
-      const label = endLabel(d.strokeEnd);
-      setReadout({ x: ev.clientX - r.left, y: ev.clientY - r.top, param: d.key!, end: d.strokeEnd && label ? { id: d.strokeEnd, label } : undefined });
+      setReadout({ x: ev.clientX - r.left, y: ev.clientY - r.top, param: d.key!, end: endInfo(d.strokeEnd) });
     };
     const end = () => {
       window.removeEventListener('pointermove', move);
@@ -398,6 +397,6 @@ function DragTip({ x, y, W, H, rows }: { x: number; y: number; W: number; H: num
 
 /** The value being dragged, beside the pointer. */
 function DragReadout({ x, y, param, end }: Readout) {
-  const v = useParam(param), ev = useEditor(s => (end ? endOf(s, end.id) : 0));
+  const v = useParam(param), ev = useEditor(s => (end ? endOf(s, end.id, end.hook) : 0));
   return <div className="i-readout" style={{ left: x + 14, top: y + 16 }}>{end ? `${end.label} length` : labelOf(param)} <b>{Math.round((end ? ev : v) * 100)}</b></div>;
 }

@@ -118,6 +118,20 @@ describe('font engine', () => {
     assert.equal(own.glyph('c')!.d, base.glyph('c')!.d);
   });
 
+  it('sets the tip of a hook or tail only by its own length', () => {
+    for (const [ch, p] of [['f', {}], ['y', {}], ['Q', {}], ['n', { cursive: 0.8 }]] as const) {
+      const base = buildFont({ ...DEFAULTS, ...p }), tips = base.glyph(ch)!.marks.filter(k => k.type === 'terminal' && k.hook);
+      assert.ok(tips.length, ch);
+      // Length leaves it alone, so Tail (or Cursive) sets it (y and Q have no other ends to shift the letter)
+      if (ch === 'y' || ch === 'Q') assert.equal(buildFont({ ...DEFAULTS, ...p, terminalLength: 1 }).glyph(ch)!.d, base.glyph(ch)!.d, ch);
+      const own = buildFont({ ...DEFAULTS, ...p, glyphs: { [ch]: { terminalEnds: { [tips[0].id!]: 1 } } } }).glyph(ch)!;
+      const q = own.marks.find(k => k.id === tips[0].id)!;
+      assert.ok(Math.hypot(q.x - tips[0].x, q.y - tips[0].y) > 20, ch);
+      // the tail's own drag handle goes with it
+      if (ch !== 'n') assert.ok(own.marks.some(k => k.type === 'tail' && Math.hypot(k.x - q.x, k.y - q.y) < 1), ch);
+    }
+  });
+
   it('squares and facets curves', () => {
     const round = buildFont(DEFAULTS), square = buildFont({ ...DEFAULTS, squareness: 1 }), cut = buildFont({ ...DEFAULTS, chamfer: 1 });
     assert.notEqual(round.glyph('O')!.d, square.glyph('O')!.d);

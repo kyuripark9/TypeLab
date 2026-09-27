@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood } from '../../shared/content';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
-import { isGlyphKey, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
+import { endLength, isGlyphKey, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
 /** What the controls change while a letter is inspected: every letter in sync, or just that one. */
@@ -111,8 +111,10 @@ export function paramOf<K extends keyof Params>(s: EditorState, key: K): Params[
   return (own ?? s.params[key]) as Params[K];
 }
 export const useParam = <K extends keyof Params>(key: K) => useEditor(s => paramOf(s, key));
-/** The length of one stroke end of the letter being customized: its own, else the letter's Length. */
-export const endOf = (s: EditorState, id: string) => paramOf(s, 'terminalEnds')[id] ?? paramOf(s, 'terminalLength');
+/** The length of one stroke end of the letter being customized: its own, else the letter's Length
+    (or for the tip of a hook, tail or cursive stroke, the usual length its own control draws it at). */
+export const endOf = (s: EditorState, id: string, hook = false) =>
+  endLength({ terminalEnds: paramOf(s, 'terminalEnds'), terminalLength: paramOf(s, 'terminalLength') }, id, hook);
 
 /** Whether an optional slider is switched on: away from its off value, or switched on by hand. */
 export const isOn = (s: EditorState, key: NumericParam, off: number) => paramOf(s, key) !== off || s.switchedOn.includes(key);

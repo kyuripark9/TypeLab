@@ -64,6 +64,10 @@ const PARAM_KEYS = Object.keys(DEFAULTS) as (keyof Params)[];
 
 /** A stroke end's id: the index of its stroke in the glyph, then 's' for its start or 'e' for its end. */
 export const isEndId = (id: string) => /^\d{1,2}[se]$/.test(id);
+/** How far one stroke end reaches: its own length, else the stroke end length, except that the tip
+    of a hook, tail or cursive stroke follows its own control instead and sits at the usual length (0.5). */
+export const endLength = (p: Pick<Params, 'terminalLength'> & { terminalEnds?: Record<string, number> }, id: string, hook = false) =>
+  p.terminalEnds?.[id] ?? (hook ? 0.5 : p.terminalLength);
 
 /** A valid value for setting `k`, or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {

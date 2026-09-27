@@ -3,7 +3,7 @@
    -> expanded outlines. Pure math with no DOM, so the browser (live preview) and the
    server (font export) run exactly the same code. A full rebuild of every glyph takes a
    few milliseconds, so sliders can drive it directly. */
-import { DEFAULTS, type Params } from '../params';
+import { DEFAULTS, endLength, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, mulM, quarter, ringsD, roundContour, signedArea, transformCmds } from './geom';
 import { fillOutline, slice } from './effects';
 import { autoThickness, buildSerif, expandStroke, type Expanded } from './stroke';
@@ -330,24 +330,28 @@ function stretchEnd(cmds: Cmd[], which: 's' | 'e', d: number, m: Metrics): { cmd
 }
 
 /** Stretch or trim every styled terminal of a glyph (body width W) by the stroke end length, or
-    by the length set for that one end. Tails, hooks and cursive strokes are left to their own
-    controls, and ends with a serif keep theirs.
-    Returns how far the ends now reach past the body on the left and right, to widen it by. */
-function stretchTerminals(b: Builder, m: Metrics, W: number) {
-  const own = m.p.terminalEnds ?? {}, grow = { l: 0, r: 0 };
-  const len = (id: string) => ((own[id] ?? m.p.terminalLength) - 0.5) * 2 * m.xh * 0.12;
-  if (m.p.terminalLength === 0.5 && !Object.keys(own).length) return grow;
-  const tip = (p: Pt) => b.marks.some(k => (k.type === 'tail' || k.type === 'exit') && Math.hypot(k.x - p.x, k.y - p.y) < 1);
+    by the length set for that one end. Ends with a serif keep theirs. Tails, hooks and cursive
+    strokes are left to their own controls, so their tips move only by a length set for that one
+    end, measured from where their own control puts them (0.5).
+    Notes the ids of those tips in `hooks`, and returns how far the ends now reach past the body
+    on the left and right, to widen it by. */
+function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>) {
+  const grow = { l: 0, r: 0 };
+  const tipAt = (p: Pt) => b.marks.find(k => (k.type === 'tail' || k.type === 'exit') && Math.hypot(k.x - p.x, k.y - p.y) < 1);
   b.strokes.forEach((st, si) => {
-    if (!st.cmds || st.o.part === 'tail' || st.o.part === 'entry') return;
-    const o = st.o;
+    if (!st.cmds) return;
+    const o = st.o, own = o.part === 'tail' || o.part === 'entry';
     for (const which of ['s', 'e'] as const) {
       const serif = m.serif && !o.scale && !!(which === 's' ? o.serifS : o.serifE);
-      const d = len(`${si}${which}`) * (o.scale || 1);
-      if ((which === 's' ? o.s : o.e) !== 'term' || serif || Math.abs(d) < 0.01) continue;
-      const r = stretchEnd(st.cmds!, which, d, m);
-      if (!r || tip(r.from)) continue;
+      if ((which === 's' ? o.s : o.e) !== 'term' || serif) continue;
+      const id = `${si}${which}`, at = stretchEnd(st.cmds, which, 0, m), tip = at && tipAt(at.from);
+      if (own || tip) hooks.add(id);
+      const d = (endLength(m.p, id, own || !!tip) - 0.5) * 2 * m.xh * 0.12 * (o.scale || 1);
+      if (Math.abs(d) < 0.01) continue;
+      const r = stretchEnd(st.cmds, which, d, m);
+      if (!r) continue;
       st.cmds = r.cmds;
+      if (tip) { tip.x = r.to.x; tip.y = r.to.y; }
       grow.l = Math.max(grow.l, Math.min(0, r.from.x) - r.to.x);
       grow.r = Math.max(grow.r, r.to.x - Math.max(W, r.from.x));
     }
@@ -359,7 +363,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   const def = GLYPHS[ch];
   if (!def) return null;
   const b = new Builder(m);
-  const W0 = def.fn(b, m), grow = stretchTerminals(b, m, W0), W = W0 + grow.r;
+  const hooks = new Set<string>(), W0 = def.fn(b, m), grow = stretchTerminals(b, m, W0, hooks), W = W0 + grow.r;
   const code = ch.charCodeAt(0);
   let ctx = m.ctx;
   if (m.wob > 0) {
@@ -433,7 +437,10 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       if (want) {
         const sp = buildSerif(end, (end.which === 's' ? o.serifS : o.serifE) ?? null, ctx, o.serifScale);
         const c = sp && finish(sp, 1, m.R * 0.5); if (c) out.serifs.push(c);
-      } else if (end.type === 'term') out.marks.push({ type: 'terminal', x: end.x, y: end.y, r: end.t * 0.5, id: `${si}${end.which}` });
+      } else if (end.type === 'term') {
+        const id = `${si}${end.which}`;
+        out.marks.push({ type: 'terminal', x: end.x, y: end.y, r: end.t * 0.5, id, ...(hooks.has(id) && { hook: true }) });
+      }
     }
   });
   b.counters.forEach(pts => { const c = finish(pts, 1, 0); if (c) out.counters.push(c); });
