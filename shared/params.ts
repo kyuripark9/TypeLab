@@ -1,6 +1,16 @@
 /* The design parameters a user edits. Every number is 0..1; the engine maps them to geometry. */
 
 export const TERMINALS = ['flat', 'round', 'sharp', 'angled', 'cut', 'tapered'] as const;
+/** The forms each kind of stroke end comes in; the first is the kind as it always looked. */
+export const TERMINAL_FORMS = {
+  flat: ['plain', 'flared', 'scooped'], round: ['round', 'droplet', 'ball'], sharp: ['pointed', 'clipped'],
+  angled: ['outer', 'inner'], cut: ['level', 'notched'], tapered: ['taper', 'brush']
+} as const satisfies Record<(typeof TERMINALS)[number], readonly string[]>;
+export type TerminalForm = (typeof TERMINAL_FORMS)[keyof typeof TERMINAL_FORMS][number];
+const FORM_IDS: readonly string[] = Object.values(TERMINAL_FORMS).flat();
+/** The form stroke ends of kind `t` take: `form` when it is one of that kind's, else the kind's first. */
+export const formOf = (t: Terminal, form: string): TerminalForm =>
+  ((TERMINAL_FORMS[t] as readonly string[]).includes(form) ? form : TERMINAL_FORMS[t][0]) as TerminalForm;
 export const SERIF_SHAPES = ['bracketed', 'unbracketed', 'slab', 'wedge'] as const;
 /** What the letters are built from: solid ink, a wireframe of every stroke, or a grid of pixels, dots or lines. */
 export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines'] as const;
@@ -19,11 +29,15 @@ export interface Params {
   /** one letter's ends set one by one, by end id (see isEndId): each overrides terminalLength for that end */ terminalEnds: Record<string, number>;
   /** how one letter's ends bend, by end id: 0.5 as drawn, lower straightens them and then flares
       them out, higher curls them on round the way they turn */ terminalCurls: Record<string, number>;
-  /* The finer shape of each kind of stroke end. Each applies only while its kind is picked, and
+  /** the form of the picked kind of stroke end (see TERMINAL_FORMS); one of another kind means its first */ terminalForm: TerminalForm;
+  /* The finer shape of each form of stroke end. Each applies only while its form is picked, and
      its default draws the end as before. */
-  /** flat: the end widens as it finishes, 0 not at all */ terminalFlare: number;
+  /** flared: how much the end widens as it finishes */ terminalFlare: number;
   /** rounded: soft corners (0) to a full half circle (1) */ terminalRound: number;
+  /** scooped and notched: how deep the end is hollowed */ terminalDepth: number;
+  /** droplet and ball: how big the drop is */ terminalSize: number;
   /** sharp: how far the point reaches past the end, 0.5 as usual */ terminalPoint: number;
+  /** clipped: how much of the point is cut off */ terminalClip: number;
   /** sharp: where the point sits across the end, 0 on the inner edge, 0.5 in the middle, 1 on the outer */ terminalLean: number;
   /** angled: how steeply the end is cut, 0.5 as usual */ terminalSlope: number;
   /** cut: the cut turned off level or plumb, 0.5 not at all */ terminalTilt: number;
@@ -65,7 +79,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.05,
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurls: Object.freeze({}),
-  terminalFlare: 0, terminalRound: 1, terminalPoint: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
+  terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, story: 'auto', overlap: 1, tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, slice: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
@@ -111,7 +125,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   }
   if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
-  const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, serifShape: SERIF_SHAPES, fill: FILLS, story: STORIES };
+  const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, fill: FILLS, story: STORIES };
   return opts[k]?.includes(v) ? v : undefined;
 }
 

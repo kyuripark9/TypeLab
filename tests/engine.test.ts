@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { STYLES, TERMINAL_DETAILS } from '../shared/content';
 import { ALL_CHARS, buildFont } from '../shared/engine';
-import { DEFAULTS, isValidParams, onEndScale, sanitizeParams, type Params } from '../shared/params';
+import { DEFAULTS, TERMINAL_FORMS, isValidParams, onEndScale, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
 
 const extremes: Params[] = [
   { ...DEFAULTS, weight: 1, width: 0, height: 1, slant: 1, contrast: 1, xHeight: 1, counter: 0, roundness: 1, terminal: 'sharp', serif: true, serifShape: 'wedge', playfulFormal: 0 },
@@ -187,24 +187,32 @@ describe('font engine', () => {
     assert.equal(sanitizeParams({ glyphs: { C: { terminalCurls: { '0e': 1.4, x: 0.2 } } } }).glyphs.C.terminalCurls!['0e'], 1);
   });
 
-  it('shapes each kind of stroke end in finer detail, and only that kind', () => {
-    for (const [kind, keys] of Object.entries(TERMINAL_DETAILS) as [Params['terminal'], (keyof Params)[]][]) {
-      const base = buildFont({ ...DEFAULTS, terminal: kind }).glyph('c')!.d;
-      for (const k of keys) {
-        for (const v of [0, 1]) {
-          if (v === DEFAULTS[k]) continue;
-          const d = buildFont({ ...DEFAULTS, terminal: kind, [k]: v }).glyph('c')!.d;
-          assert.notEqual(d, base, `${k} ${v} on ${kind}`);
-          assert.ok(!d.includes('NaN'), `${k} ${v}`);
-          const other = kind === 'flat' ? 'round' : 'flat';
-          assert.equal(buildFont({ ...DEFAULTS, terminal: other, [k]: v }).glyph('c')!.d, buildFont({ ...DEFAULTS, terminal: other }).glyph('c')!.d, `${k} leaves ${other} alone`);
+  it('draws each form of each kind of stroke end, and shapes it in finer detail', () => {
+    const c = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p }).glyph('c')!.d;
+    for (const [kind, forms] of Object.entries(TERMINAL_FORMS) as [Params['terminal'], readonly TerminalForm[]][]) {
+      const first = c({ terminal: kind });
+      forms.forEach((form, i) => {
+        const base = c({ terminal: kind, terminalForm: form });
+        assert.ok(!base.includes('NaN'), form);
+        // the first form is the kind as it always looked; the others differ from it
+        if (i === 0) assert.equal(base, first, form); else assert.notEqual(base, first, form);
+        // a form of another kind leaves this one as it was
+        if (i > 0) assert.equal(c({ terminal: kind === 'flat' ? 'round' : 'flat', terminalForm: form }), c({ terminal: kind === 'flat' ? 'round' : 'flat' }), `${form} elsewhere`);
+        for (const k of TERMINAL_DETAILS[form]) {
+          for (const v of [0, 1]) {
+            if (v === DEFAULTS[k]) continue;
+            const d = c({ terminal: kind, terminalForm: form, [k]: v });
+            assert.notEqual(d, base, `${k} ${v} on ${form}`);
+            assert.ok(!d.includes('NaN'), `${k} ${v} on ${form}`);
+          }
         }
-      }
+      });
     }
     // a letter can have its own
-    const font = buildFont({ ...DEFAULTS, terminal: 'sharp', glyphs: { c: { terminalPoint: 1 } } });
-    assert.notEqual(font.glyph('c')!.d, buildFont({ ...DEFAULTS, terminal: 'sharp' }).glyph('c')!.d);
-    assert.equal(font.glyph('e')!.d, buildFont({ ...DEFAULTS, terminal: 'sharp' }).glyph('e')!.d);
+    const font = buildFont({ ...DEFAULTS, terminal: 'round', glyphs: { c: { terminalForm: 'droplet' } } });
+    assert.notEqual(font.glyph('c')!.d, c({ terminal: 'round' }));
+    assert.equal(font.glyph('e')!.d, buildFont({ ...DEFAULTS, terminal: 'round' }).glyph('e')!.d);
+    assert.equal(sanitizeParams({ terminalForm: 'spiky' }).terminalForm, DEFAULTS.terminalForm);
   });
 
   it('sets the tip of a hook or tail only by its own length', () => {

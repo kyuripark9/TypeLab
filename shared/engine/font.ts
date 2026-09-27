@@ -3,11 +3,11 @@
    -> expanded outlines. Pure math with no DOM, so the browser (live preview) and the
    server (font export) run exactly the same code. A full rebuild of every glyph takes a
    few milliseconds, so sliders can drive it directly. */
-import { DEFAULTS, endCurl, endLength, endReach, type Params } from '../params';
+import { DEFAULTS, endCurl, endLength, endReach, formOf, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, subCubic, transformCmds } from './geom';
 import { fillOutline, slice } from './effects';
 import { autoThickness, buildSerif, expandStroke, type Expanded } from './stroke';
-import type { Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent } from './types';
+import type { Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
@@ -112,6 +112,15 @@ export function resolve(p: Partial<Params>): Effective {
   return e;
 }
 
+/** The finer shape of the picked kind and form of stroke end, for the stroke expander. */
+export const termSpec = (e: Params): TermSpec => ({
+  form: formOf(e.terminal, e.terminalForm), flare: lerp(1.15, 1.6, e.terminalFlare), depth: lerp(0.08, 0.45, e.terminalDepth),
+  size: lerp(0.58, 1.05, e.terminalSize), clip: lerp(0.15, 0.7, e.terminalClip), round: lerp(0.1, 0.5, e.terminalRound),
+  point: e.terminalPoint < 0.5 ? lerp(0.35, 0.95, e.terminalPoint * 2) : lerp(0.95, 1.4, e.terminalPoint * 2 - 1), lean: e.terminalLean - 0.5,
+  slope: 0.6 * 2 ** ((e.terminalSlope - 0.5) * 2), tilt: (e.terminalTilt - 0.5) * 2 * 35 * Math.PI / 180,
+  tip: Math.max(0.03, 0.84 * (1 - e.terminalTip)), taper: e.terminalTaper < 0.5 ? lerp(2.2, 3, e.terminalTaper * 2) : lerp(3, 6, e.terminalTaper * 2 - 1)
+});
+
 function metrics(e: Effective): Metrics {
   const s = 18 + 200 * Math.pow(e.weight, 1.25);
   const cap = lerp(560, 840, e.height);
@@ -124,12 +133,7 @@ function metrics(e: Effective): Metrics {
   const org = e.curve;
   const ctx: PenCtx = {
     thick: s, thin, stress, k, org, terminal: e.terminal, chamfer: e.chamfer, joints: e.joints, reverse: e.reverse,
-    term: {
-      flare: 1 + 0.6 * e.terminalFlare, round: lerp(0.1, 0.5, e.terminalRound),
-      point: e.terminalPoint < 0.5 ? lerp(0.35, 0.95, e.terminalPoint * 2) : lerp(0.95, 1.4, e.terminalPoint * 2 - 1), lean: e.terminalLean - 0.5,
-      slope: 0.6 * 2 ** ((e.terminalSlope - 0.5) * 2), tilt: (e.terminalTilt - 0.5) * 2 * 35 * Math.PI / 180,
-      tip: Math.max(0.03, 0.84 * (1 - e.terminalTip)), taper: e.terminalTaper < 0.5 ? lerp(2.2, 3, e.terminalTaper * 2) : lerp(3, 6, e.terminalTaper * 2 - 1)
-    },
+    term: termSpec(e),
     serif: e.serif ? {
       len: lerp(28, 175, e.serifSize) * (0.75 + 0.25 * ws),
       th: lerp(8, 95, e.serifThickness) * ({ unbracketed: 0.6, slab: 1.5, wedge: 1, bracketed: 1 }[e.serifShape] || 1),

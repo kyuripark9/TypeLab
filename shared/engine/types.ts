@@ -57,7 +57,11 @@ export interface SerifSpec { len: number; th: number; shape: string; angle: numb
 
 /** The finer shape of each kind of terminal, in stroke widths unless noted. */
 export interface TermSpec {
-  /** flat: thickness at the very end, 1 = none */ flare: number;
+  /** which form of the picked kind (see TERMINAL_FORMS in params) */ form: string;
+  /** flared: thickness at the very end, 1 = none */ flare: number;
+  /** scooped and notched: how far the end is hollowed back */ depth: number;
+  /** droplet and ball: radius of the drop */ size: number;
+  /** clipped: the share of the point cut off */ clip: number;
   /** rounded: corner radius */ round: number;
   /** sharp: how far the point reaches past the end, and how far across it sits (+ toward the outer edge) */ point: number; lean: number;
   /** angled: how far the outer edge runs on past the inner */ slope: number;

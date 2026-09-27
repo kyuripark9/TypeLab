@@ -4,10 +4,10 @@
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
 import {
   ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
-  SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_OPTIONS, TERMINAL_SUBS, controlFor, styleById, styleMatches,
+  SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, controlFor, styleById, styleMatches,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type TerminalSubKey
 } from '../../shared/content';
-import { isGlyphKey, type NumericParam, type Params } from '../../shared/params';
+import { TERMINAL_FORMS, formOf, isGlyphKey, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 import type { Glyph } from '../../shared/engine';
 import { strokeEnds, type StrokeEndInfo } from '../lib/drag';
@@ -312,8 +312,8 @@ function Range({ value, label, onInput, onCommit, onReset }: { value: number; la
 }
 
 function TerminalControl({ parts }: { parts?: string[] }) {
-  const terminal = useParam('terminal'), active = useEditor(s => controlFor(s.active) === 'terminal');
-  const c = CONTROLS.terminal;
+  const terminal = useParam('terminal'), form = formOf(terminal, useParam('terminalForm')), active = useEditor(s => controlFor(s.active) === 'terminal');
+  const c = CONTROLS.terminal, forms = TERMINAL_FORMS[terminal], kindLabel = TERMINAL_OPTIONS.find(([id]) => id === terminal)![1];
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="terminal" {...useControlFocus('terminal')}>
       <CtlHead k="terminal" label={c.label} parts={parts} />
@@ -325,7 +325,16 @@ function TerminalControl({ parts }: { parts?: string[] }) {
           </button>
         ))}
       </div>
-      {TERMINAL_DETAILS[terminal].map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}
+      <div className="sub-label">{kindLabel} shape</div>
+      <div className={forms.length === 3 ? 'opts three' : 'opts two'} role="radiogroup" aria-label={`${kindLabel} shape`}>
+        {forms.map(id => (
+          <button key={id} role="radio" aria-checked={form === id} className={form === id ? 'opt on' : 'opt'}
+            onClick={() => actions.setOption('terminalForm', id)}>
+            <TerminalIcon kind={terminal} form={id} /><span>{TERMINAL_FORM_LABELS[id]}</span>
+          </button>
+        ))}
+      </div>
+      {TERMINAL_DETAILS[form].map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}
       <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} />
       <EachEnd />
     </div>

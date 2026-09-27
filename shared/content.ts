@@ -1,7 +1,7 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
 import { resolve, type Effective } from './engine/font';
-import { DEFAULTS, type Fill, type Params, type SerifShape, type Story, type Terminal } from './params';
+import { DEFAULTS, type Fill, type Params, type SerifShape, type Story, type Terminal, type TerminalForm } from './params';
 
 export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality' | 'effects';
 export type ControlKey =
@@ -13,7 +13,7 @@ export type ControlKey =
   | 'fill' | 'stencil' | 'slice';
 export type SerifSubKey = 'serifSize' | 'serifThickness' | 'serifAngle';
 export type FillSubKey = 'module';
-export type TerminalSubKey = 'terminalLength' | 'terminalFlare' | 'terminalRound' | 'terminalPoint' | 'terminalLean' | 'terminalSlope' | 'terminalTilt' | 'terminalTip' | 'terminalTaper';
+export type TerminalSubKey = 'terminalLength' | 'terminalFlare' | 'terminalDepth' | 'terminalSize' | 'terminalRound' | 'terminalPoint' | 'terminalClip' | 'terminalLean' | 'terminalSlope' | 'terminalTilt' | 'terminalTip' | 'terminalTaper';
 /** Anything the control panel can focus: a control or one of its nested sub-sliders. */
 export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey;
 
@@ -596,19 +596,30 @@ export const FILL_SUBS: Record<FillSubKey, SubControlDef> = {
 };
 export const TERMINAL_SUBS: Record<TerminalSubKey, SubControlDef> = {
   terminalLength: { label: 'Length', friendly: 'Make the stroke ends longer or shorter', tech: 'Terminal length', lo: 'Short', hi: 'Long' },
-  terminalFlare: { label: 'Flare', friendly: 'Widen the stroke as it ends', tech: 'Flared terminal', lo: 'Straight', hi: 'Flared' },
+  terminalFlare: { label: 'Flare', friendly: 'Widen the stroke as it ends', tech: 'Flared terminal', lo: 'Slight', hi: 'Wide' },
+  terminalDepth: { label: 'Depth', friendly: 'Hollow the end out a little or a lot', tech: 'Terminal depth', lo: 'Shallow', hi: 'Deep' },
+  terminalSize: { label: 'Size', friendly: 'Make the drop on the end smaller or bigger', tech: 'Ball size', lo: 'Small', hi: 'Big' },
   terminalRound: { label: 'Roundness', friendly: 'Round the end from soft corners to a half circle', tech: 'Terminal radius', lo: 'Soft corners', hi: 'Half circle' },
-  terminalPoint: { label: 'Point', friendly: 'Make the point short and blunt or long and sharp', tech: 'Point length', lo: 'Blunt', hi: 'Long' },
+  terminalPoint: { label: 'Sharpness', friendly: 'Make the point less sharp or sharper', tech: 'Point length', lo: 'Less sharp', hi: 'Sharper' },
+  terminalClip: { label: 'Cut off', friendly: 'Cut a little or a lot off the tip of the point', tech: 'Clipped point', lo: 'Little', hi: 'Lot' },
   terminalLean: { label: 'Lean', friendly: 'Move the point toward the inside or outside edge', tech: 'Point offset', lo: 'Inside', hi: 'Outside', bipolar: true },
   terminalSlope: { label: 'Slope', friendly: 'Cut the end at a gentle or steep angle', tech: 'Terminal angle', lo: 'Gentle', hi: 'Steep' },
   terminalTilt: { label: 'Tilt', friendly: 'Turn the level cut one way or the other', tech: 'Cut angle', lo: 'Falling', hi: 'Rising', bipolar: true },
   terminalTip: { label: 'Tip', friendly: 'Make the tapered tip blunt or fine', tech: 'Taper tip width', lo: 'Blunt', hi: 'Fine' },
   terminalTaper: { label: 'Taper length', friendly: 'Start the taper close to the tip or far back', tech: 'Taper length', lo: 'Short', hi: 'Long' }
 };
-/** The finer shape sliders of each kind of stroke end, shown while that kind is picked. */
-export const TERMINAL_DETAILS: Record<Terminal, TerminalSubKey[]> = {
-  flat: ['terminalFlare'], round: ['terminalRound'], sharp: ['terminalPoint', 'terminalLean'],
-  angled: ['terminalSlope'], cut: ['terminalTilt'], tapered: ['terminalTip', 'terminalTaper']
+/** The forms of each kind of stroke end, picked under its kind. */
+export const TERMINAL_FORM_LABELS: Record<TerminalForm, string> = {
+  plain: 'Plain', flared: 'Flared', scooped: 'Scooped', round: 'Round', droplet: 'Droplet', ball: 'Ball', pointed: 'Pointed', clipped: 'Clipped',
+  outer: 'Outward', inner: 'Inward', level: 'Straight', notched: 'Notched', taper: 'Even', brush: 'Brush'
+};
+/** The finer shape sliders of each form of stroke end, shown while that form is picked. */
+export const TERMINAL_DETAILS: Record<TerminalForm, TerminalSubKey[]> = {
+  plain: [], flared: ['terminalFlare'], scooped: ['terminalDepth'],
+  round: ['terminalRound'], droplet: ['terminalSize'], ball: ['terminalSize'],
+  pointed: ['terminalPoint', 'terminalLean'], clipped: ['terminalPoint', 'terminalClip'],
+  outer: ['terminalSlope'], inner: ['terminalSlope'], level: ['terminalTilt'], notched: ['terminalDepth', 'terminalTilt'],
+  taper: ['terminalTip', 'terminalTaper'], brush: ['terminalTip', 'terminalTaper']
 };
 /** Every nested sub-slider, whichever control it belongs to. */
 export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS };

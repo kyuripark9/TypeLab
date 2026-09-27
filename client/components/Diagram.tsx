@@ -2,8 +2,8 @@
    the demo letters, the affected part highlighted, and a measurement or guide. */
 import type { ReactNode } from 'react';
 import { CONTROLS, controlFor, type ActiveKey } from '../../shared/content';
-import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, signedArea, type Font, type LineItem, type Pt } from '../../shared/engine';
-import { DEFAULTS, type Fill, type SerifShape, type Story, type Terminal } from '../../shared/params';
+import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, signedArea, termSpec, type Font, type LineItem, type Pt } from '../../shared/engine';
+import { DEFAULTS, TERMINAL_FORMS, type Fill, type SerifShape, type Story, type Terminal, type TerminalForm } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 
 export function Diagram({ font, k, W = 340, H = 178 }: { font: Font; k: ActiveKey; W?: number; H?: number }) {
@@ -99,16 +99,21 @@ export function Diagram({ font, k, W = 340, H = 178 }: { font: Font; k: ActiveKe
 /* ---- small static previews for option buttons */
 const outlineD = (pts: Pt[]) => cmdsToD(roundContour(signedArea(pts) < 0 ? pts.slice().reverse() : pts, 0));
 
-const terminalPaths = new Map<Terminal, string>();
-export function TerminalIcon({ kind }: { kind: Terminal }) {
-  let d = terminalPaths.get(kind);
-  if (d === undefined) {
-    const ctx = { thick: 64, thin: 58, stress: 0, k: 0.5523, org: 0, terminal: kind };
+const terminalPaths = new Map<string, { d: string; box: string }>();
+/** A stroke end of `kind`, in its `form` when given (else the kind's first), drawn by the stroke expander. */
+export function TerminalIcon({ kind, form }: { kind: Terminal; form?: TerminalForm }) {
+  const key = `${kind}:${form ?? ''}`;
+  let icon = terminalPaths.get(key);
+  if (icon === undefined) {
+    const ctx = { thick: 64, thin: 58, stress: 0, k: 0.5523, org: 0, terminal: kind, term: termSpec({ ...DEFAULTS, terminal: kind, terminalForm: form ?? TERMINAL_FORMS[kind][0] }) };
     const ex = expandStroke([['M', -40, -46], ['C', 60, -46, 130, -10, 172, 46]], { s: 'join', e: 'term' }, ctx);
-    d = ex ? outlineD(ex.contours[0]) : '';
-    terminalPaths.set(kind, d);
+    // the usual frame, grown to take in a drop that reaches past it
+    let x1 = 226, y0 = -100, y1 = 90;
+    for (const q of ex?.contours[0] ?? []) { x1 = Math.max(x1, q.x + 14); y0 = Math.min(y0, q.y - 14); y1 = Math.max(y1, q.y + 14); }
+    icon = { d: ex ? outlineD(ex.contours[0]) : '', box: `-14 ${n1(y0)} ${n1(x1 + 14)} ${n1(y1 - y0)}` };
+    terminalPaths.set(key, icon);
   }
-  return <svg viewBox="-14 -100 240 190" width="60" height="46" aria-hidden="true"><path d={d} /></svg>;
+  return <svg viewBox={icon.box} width="60" height="46" aria-hidden="true"><path d={icon.d} /></svg>;
 }
 
 const serifPaths = new Map<SerifShape, string>();

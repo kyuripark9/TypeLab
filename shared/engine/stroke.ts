@@ -19,7 +19,7 @@ type Dir = { x: number; y: number };
 
 const wNum = (w: StrokeWeight) => (w === 'thin' ? 0 : w === 'thick' ? 1 : w);
 /** Terminals as drawn when the design gives no finer shape. */
-const TERM: TermSpec = { flare: 1, round: 0.5, point: 0.95, lean: 0, slope: 0.6, tilt: 0, tip: 0.42, taper: 3 };
+const TERM: TermSpec = { form: '', flare: 1, depth: 0.3, size: 0.8, clip: 0.4, round: 0.5, point: 0.95, lean: 0, slope: 0.6, tilt: 0, tip: 0.42, taper: 3 };
 
 /* Cut corners: the straight-line counterpart of a curve. Its corner is where the two end
    tangents meet, and the cut runs between points a fraction `f` of the way back from the
@@ -151,7 +151,12 @@ function cutSide(side: Pt[], p: Dir, d: Dir, axis: 'h' | 'v', t: number, tilt = 
     const lim = 55 * Math.PI / 180, toD = Math.atan2(o.x * d.y - o.y * d.x, o.x * d.x + o.y * d.y);
     tilt = clamp(tilt, toD - lim, toD + lim);
   }
-  const cs = Math.cos(tilt), sn = Math.sin(tilt), out = { x: o.x * cs - o.y * sn, y: o.x * sn + o.y * cs };
+  const cs = Math.cos(tilt), sn = Math.sin(tilt);
+  cutAt(side, p, d, { x: o.x * cs - o.y * sn, y: o.x * sn + o.y * cs }, t);
+}
+/* Cut one side of a stroke end off along the line through p square to `out`. */
+function cutAt(side: Pt[], p: Dir, d: Dir, out: Dir, t: number) {
+  if (side.length < 2) return;
   const off = (q: Dir) => (q.x - p.x) * out.x + (q.y - p.y) * out.y;
   while (side.length > 2 && off(side[side.length - 2]) > 1e-6 && Math.hypot(side[side.length - 2].x - p.x, side[side.length - 2].y - p.y) < t * 1.6) side.pop();
   const q = side[side.length - 1], prev = side[side.length - 2];
@@ -161,6 +166,50 @@ function cutSide(side: Pt[], p: Dir, d: Dir, axis: 'h' | 'v', t: number, tilt = 
   if (Math.abs(den) < 0.12) return;
   const s = clamp(-off(q) / den, -Math.max(l * 0.9, t), 4 * t);
   side[side.length - 1] = { x: q.x + dx * s, y: q.y + dy * s };
+}
+
+/* A round drop on a stroke end: a ball whose back meets the stroke's edges, or a droplet whose
+   sides run straight off the edges onto it. The stroke is drawn shorter by dropBack, so the drop
+   reaches only a little past where it would have ended. */
+const dropR = (T: TermSpec, t: number) => Math.max(T.size * t, t * 0.525);
+const dropK = (T: TermSpec, t: number) => { const R = dropR(T, t); return Math.sqrt(R * R - t * t / 4) + (T.form === 'ball' ? 0 : 0.5 * R); };
+const dropBack = (T: TermSpec, t: number) => dropK(T, t) + (T.form === 'ball' ? 0.15 : 0.3) * dropR(T, t);
+/* The drop's outline on an end at p heading d, from a (A's edge) round to b (B's). */
+function drop(a: Pt, b: Pt, p: Dir, d: Dir, t: number, T: TermSpec): Pt[] {
+  const R = dropR(T, t), k = dropK(T, t), ball = T.form === 'ball', c = { x: p.x + d.x * k, y: p.y + d.y * k };
+  // the angle round the drop (0 straight ahead, positive toward a) where each edge meets it
+  const meet = (e: Pt, sg: number) => {
+    const al = (e.x - c.x) * d.x + (e.y - c.y) * d.y, lat = (e.x - c.x) * -d.y + (e.y - c.y) * d.x, D = Math.hypot(al, lat);
+    return ball || D <= R ? Math.atan2(lat, al) : Math.atan2(lat, al) - sg * Math.acos(R / D);
+  };
+  const fa = meet(a, 1), fb = meet(b, -1), n = 20, out: Pt[] = [];
+  a.sharp = b.sharp = true;
+  for (let i = ball ? 1 : 0; i <= (ball ? n - 1 : n); i++) {
+    const f = lerp(fa, fb, i / n), cs = Math.cos(f), sn = Math.sin(f);
+    out.push({ x: c.x + R * (cs * d.x - sn * d.y), y: c.y + R * (cs * d.y + sn * d.x), smooth: i > 0 && i < n });
+  }
+  return out;
+}
+
+/* Shorten a stroke's runs to end `back` before the end (or start that far in, `atStart`), with a
+   sample placed exactly there. A run left empty goes altogether. */
+function trimRuns(runs: Sample[][], total: number, back: number, atStart: boolean) {
+  const cut = atStart ? back : total - back, past = (s: Sample) => atStart ? s.len < cut : s.len > cut;
+  while (runs.length) {
+    const r = atStart ? runs[0] : runs[runs.length - 1];
+    while (r.length && past(atStart ? r[0] : r[r.length - 1])) {
+      const gone = atStart ? r.shift()! : r.pop()!, near = r.length ? (atStart ? r[0] : r[r.length - 1]) : null;
+      if (near && !past(near)) {
+        const u = (cut - gone.len) / (near.len - gone.len || 1), tx = lerp(gone.tx, near.tx, u), ty = lerp(gone.ty, near.ty, u), l = Math.hypot(tx, ty) || 1;
+        const at: Sample = { ...near, x: lerp(gone.x, near.x, u), y: lerp(gone.y, near.y, u), tx: tx / l, ty: ty / l, t: lerp(gone.t, near.t, u),
+          off: lerp(gone.off || 0, near.off || 0, u), len: cut, smooth: false };
+        if (atStart) r.unshift(at); else r.push(at);
+        return;
+      }
+    }
+    if (r.length > 1) return;
+    if (atStart) runs.shift(); else runs.pop();
+  }
 }
 
 /* A is the side to the left of the outward direction d, B to the right. Returns points
@@ -173,20 +222,42 @@ function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: Pe
   a.smooth = b.smooth = false;
   const T = ctx.term ?? TERM;
   switch (ctx.terminal) {
-    case 'round': a.r = b.r = t * T.round + 0.5; return [];
+    case 'flat': {
+      if (T.form !== 'scooped') return [];
+      // hollowed: the end curves back into the stroke between its two corners
+      const out: Pt[] = [], n = 10;
+      for (let i = 1; i < n; i++) {
+        const u = i / n, q = lerpP(a, b, u), k = T.depth * t * Math.sin(Math.PI * u);
+        out.push({ x: q.x - d.x * k, y: q.y - d.y * k, smooth: true });
+      }
+      a.sharp = b.sharp = true;
+      return out;
+    }
+    case 'round':
+      if (T.form === 'droplet' || T.form === 'ball') return drop(a, b, p, d, t, T);
+      a.r = b.r = t * T.round + 0.5; return [];
     case 'sharp': {
       // leaning toward the outer edge: A lies to the left of d
       const lean = T.lean * t * (outerIsA ? 1 : -1);
-      return [{ x: p.x + d.x * t * T.point - d.y * lean, y: p.y + d.y * t * T.point + d.x * lean, sharp: true }];
+      const tip = { x: p.x + d.x * t * T.point - d.y * lean, y: p.y + d.y * t * T.point + d.x * lean };
+      if (T.form !== 'clipped') return [{ ...tip, sharp: true }];
+      // the point with its tip cut off straight across
+      return [{ ...lerpP(a, tip, 1 - T.clip), sharp: true }, { ...lerpP(b, tip, 1 - T.clip), sharp: true }];
     }
     case 'angled': {
-      const side = outerIsA ? A : B, q = side[side.length - 1];
+      // the outer edge runs on past the inner one, or the inner past the outer
+      const side = outerIsA !== (T.form === 'inner') ? A : B, q = side[side.length - 1];
       side[side.length - 1] = { x: q.x + d.x * t * T.slope, y: q.y + d.y * t * T.slope };
       return [];
     }
     case 'cut': {
       const axis = Math.abs(d.x) > Math.abs(d.y) ? 'v' : 'h';
-      cutSide(A, p, d, axis, t, T.tilt); cutSide(B, p, d, axis, t, T.tilt); return [];
+      cutSide(A, p, d, axis, t, T.tilt); cutSide(B, p, d, axis, t, T.tilt);
+      if (T.form !== 'notched') return [];
+      // a V cut back into the middle of the end, like a swallowtail
+      const ea = A[A.length - 1], eb = B[B.length - 1], m = lerpP(ea, eb, 0.5), k = T.depth * t * 1.3;
+      ea.sharp = eb.sharp = true;
+      return [{ x: m.x - d.x * k, y: m.y - d.y * k, sharp: true }];
     }
     default: return [];
   }
@@ -210,7 +281,7 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   if (tapers) {
     if (o.s === 'term') ws = Math.min(ws, T.tip);
     if (o.e === 'term') we = Math.min(we, T.tip);
-  } else if (ctx.terminal === 'flat') {
+  } else if (ctx.terminal === 'flat' && T.form === 'flared') {
     if (o.s === 'term') ws *= T.flare;
     if (o.e === 'term') we *= T.flare;
   }
@@ -237,6 +308,16 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   // a tapered terminal thins over its own length, and a long one may run most of the way along
   const termLen = tapers ? Math.max(1, Math.min(total * Math.min(0.85, 0.15 * T.taper), thick * T.taper)) : taperLen;
   const lenS = o.s === 'term' ? termLen : taperLen, lenE = o.e === 'term' ? termLen : taperLen;
+  // the side a brush taper keeps: the outside of a curve, the upper side of a straight stroke
+  const turnOf = () => {
+    let turn = 0;
+    for (let i = 1; i < all.length; i++) {
+      const a = all[i - 1], b = all[i];
+      turn += Math.atan2(a.tx * b.ty - a.ty * b.tx, a.tx * b.tx + a.ty * b.ty);
+    }
+    return turn;
+  };
+  const brush = tapers && T.form === 'brush' ? (tn => Math.abs(tn) < 0.5 ? Math.sign(all[0].tx) || 1 : tn < 0 ? 1 : -1)(turnOf()) : 0;
   // explicit weights name the thick or thin stroke of a pair, so reverse contrast swaps them
   const rev = (w: number) => ctx.reverse ? lerp(w, 1 - w, ctx.reverse) : w;
   const pathW = o.w == null ? null : rev(wNum(o.w));
@@ -244,8 +325,12 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     let t = autoThickness(s.tx, s.ty, ctx, thick, thin);
     if (pathW != null) t = lerp(thin, thick, pathW);
     if (s.w != null) t = lerp(t, lerp(thin, thick, rev(s.w)), s.mask);
-    if (ws !== 1) t *= lerp(ws, 1, smoothstep(s.len / lenS));
-    if (we !== 1) t *= lerp(we, 1, smoothstep((total - s.len) / lenE));
+    let f = 1;
+    if (ws !== 1) f *= lerp(ws, 1, smoothstep(s.len / lenS));
+    if (we !== 1) f *= lerp(we, 1, smoothstep((total - s.len) / lenE));
+    // a brush lifts off the inside of its stroke and keeps the outer edge running on
+    if (brush && f < 1) s.off = brush * t * (1 - f) / 2;
+    t *= f;
     // a hand-held pen never presses evenly
     if (ctx.wobble) t *= 1 + ctx.wobble * 0.22 * Math.sin(s.len / (thick * 1.8 + 60) + (ctx.seed || 0));
     s.t = t;
@@ -253,19 +338,24 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   if (js !== 1 || je !== 1) {
     // a curved stroke keeps its outer edge and thins only on the side of the counter it
     // wraps, like an ink trap; a straight one thins evenly on both sides
-    let turn = 0;
-    for (let i = 1; i < all.length; i++) {
-      const a = all[i - 1], b = all[i];
-      turn += Math.atan2(a.tx * b.ty - a.ty * b.tx, a.tx * b.tx + a.ty * b.ty);
-    }
-    const keep = Math.abs(turn) < 0.5 ? 0 : turn < 0 ? 1 : -1;
+    const turn = turnOf(), keep = Math.abs(turn) < 0.5 ? 0 : turn < 0 ? 1 : -1;
     for (const s of all) {
       let f = 1;
       if (js !== 1) f *= lerp(js, 1, smoothstep(s.len / taperLen));
       if (je !== 1) f *= lerp(je, 1, smoothstep((total - s.len) / taperLen));
-      s.off = keep * s.t * (1 - f) / 2;
+      s.off = (s.off || 0) + keep * s.t * (1 - f) / 2;
       s.t *= f;
     }
+  }
+
+  // the skeleton is the whole stroke, even where a drop covers its end
+  const skeleton = runs.map(r => r.map(s => ({ x: s.x, y: s.y })));
+  // a drop sits on the end it finishes: draw the stroke that much shorter under it
+  if (ctx.terminal === 'round' && (T.form === 'droplet' || T.form === 'ball')) {
+    const s0 = all[0], s1 = all[all.length - 1];
+    if (o.e === 'term') trimRuns(runs, total, Math.min(dropBack(T, s1.t), total * 0.4), false);
+    if (o.s === 'term' && runs.length) trimRuns(runs, total, Math.min(dropBack(T, s0.t), total * 0.4), true);
+    if (!runs.length) return null;
   }
 
   const sideOf = (s: Sample, sg: number): Pt => {
@@ -275,7 +365,6 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   const Lr: (Pt | null)[][] = runs.map(r => r.map(s => sideOf(s, 1)));
   const Rr: (Pt | null)[][] = runs.map(r => r.map(s => sideOf(s, -1)));
   const curved = cmds.some(c => c[0] === 'C' || c[0] === 'hv' || c[0] === 'vh');
-  const skeleton = runs.map(r => r.map(s => ({ x: s.x, y: s.y })));
 
   // joins between runs
   const limit = o.miter || 5;
@@ -315,9 +404,10 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
 
   const L = Lr.flat().filter((p): p is Pt => !!p), R = Rr.flat().filter((p): p is Pt => !!p);
 
-  const first = all[0], last = all[all.length - 1];
-  const turn = (a: Sample, b: Sample) => a.tx * b.ty - a.ty * b.tx;
   const lastRun = runs[runs.length - 1], firstRun = runs[0];
+  // the stroke's own ends, and where its outline ends (short of them under a drop)
+  const s0 = all[0], s1 = all[all.length - 1], first = firstRun[0], last = lastRun[lastRun.length - 1];
+  const turn = (a: Sample, b: Sample) => a.tx * b.ty - a.ty * b.tx;
   const endTurn = turn(lastRun[Math.max(0, lastRun.length - 5)], last);
   const startTurn = turn(first, firstRun[Math.min(firstRun.length - 1, 4)]);
   const pickA = (tn: number, aIsLeft: boolean, A: Pt[], B: Pt[]) => {
@@ -333,8 +423,8 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   const contour = [...L, ...endX, ...R.slice().reverse(), ...startX];
 
   const ends: StrokeEnd[] = [
-    { x: first.x, y: first.y, dx: ds.x, dy: ds.y, t: first.t, type: o.s || 'flat', which: 's' },
-    { x: last.x, y: last.y, dx: de.x, dy: de.y, t: last.t, type: o.e || 'flat', which: 'e' }
+    { x: s0.x, y: s0.y, dx: -s0.tx, dy: -s0.ty, t: s0.t, type: o.s || 'flat', which: 's' },
+    { x: s1.x, y: s1.y, dx: s1.tx, dy: s1.ty, t: s1.t, type: o.e || 'flat', which: 'e' }
   ];
   return { contours: [contour], loop: false, ends, skeleton, curved, thickness: all.map(s => s.t) };
 }
