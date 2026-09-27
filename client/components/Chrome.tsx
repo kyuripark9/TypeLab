@@ -36,16 +36,18 @@ export function GlyphStrip() {
       {GROUPS.map(([label, chars]) => (
         <div key={label} className="strip-group">
           <span className="strip-label">{label}</span>
-          {[...chars].map(ch => {
-            const c = ch.charCodeAt(0), g = font.glyph(ch);
-            return (
-              <button key={c} className={ch === inspect ? 'cell on' : 'cell'} title={`Inspect ${ch}`}
-                ref={el => { if (el) cells.current.set(ch, el); else cells.current.delete(ch); }}
-                onClick={() => actions.openInspector(ch)}>
-                <svg viewBox="0 -880 1000 1180" aria-hidden="true"><use href={`#g${c}`} x={g ? n1((1000 - g.adv) / 2) : 0} /></svg>
-              </button>
-            );
-          })}
+          <div className="strip-cells">
+            {[...chars].map(ch => {
+              const c = ch.charCodeAt(0), g = font.glyph(ch);
+              return (
+                <button key={c} className={ch === inspect ? 'cell on' : 'cell'} title={`Inspect ${ch}`}
+                  ref={el => { if (el) cells.current.set(ch, el); else cells.current.delete(ch); }}
+                  onClick={() => actions.openInspector(ch)}>
+                  <svg viewBox="0 -880 1000 1180" aria-hidden="true"><use href={`#g${c}`} x={g ? n1((1000 - g.adv) / 2) : 0} /></svg>
+                </button>
+              );
+            })}
+          </div>
         </div>
       ))}
     </footer>

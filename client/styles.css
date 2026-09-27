@@ -275,10 +275,11 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .i-skel circle { fill: var(--surface); stroke: var(--accent); stroke-width: var(--sw); }
 
 /* ---------- glyph strip */
-.strip { grid-area: strip; height: 76px; border-top: 1px solid var(--line); background: var(--surface); display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; padding: 0 12px; scrollbar-width: thin; }
-.strip-group { display: flex; align-items: center; padding: 0 10px 0 0; margin-right: 10px; border-right: 1px solid var(--line); position: relative; padding-top: 14px; }
+.strip { grid-area: strip; min-height: 76px; border-top: 1px solid var(--line); background: var(--surface); display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; padding: 0 12px; scrollbar-width: thin; }
+.strip-group { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 10px 4px 0; margin-right: 10px; border-right: 1px solid var(--line); }
 .strip-group:last-child { border-right: 0; }
-.strip-label { position: absolute; top: 5px; left: 4px; font-size: 10.5px; }
+.strip-label { padding-left: 4px; font-size: 10.5px; line-height: 14px; }
+.strip-cells { display: flex; }
 .cell { width: 38px; height: 48px; border-radius: 6px; flex: none; display: grid; place-items: center; transition: background .15s; }
 .cell svg { width: 38px; height: 45px; fill: var(--ink); pointer-events: none; overflow: visible; }
 .cell:hover { background: var(--hover); }
