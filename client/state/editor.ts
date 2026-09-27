@@ -14,6 +14,10 @@ const VIEW_KEY = 'typelab.cardView';
 const savedView = (): CardView => {
   try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid'; } catch { return 'grid'; }
 };
+const FOLD_KEY = 'typelab.folded';
+const savedFolded = (): ControlKey[] => {
+  try { const v = JSON.parse(localStorage.getItem(FOLD_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+};
 
 interface Doc { designId: string | null; name: string; styleId: string; params: Params }
 
@@ -37,6 +41,8 @@ export interface EditorState extends Doc {
   kinds: Kind[];
   /** Style page layout: cards in a grid, or one per row */
   view: CardView;
+  /** long panel sections folded down to their heading */
+  folded: ControlKey[];
   inspect: string | null;
   scope: Scope;
   /** optional sliders switched on while still at their off value, so they stay open */
@@ -82,6 +88,7 @@ export const useEditor = create<EditorState>()(() => ({
   looks: [],
   kinds: [],
   view: savedView(),
+  folded: savedFolded(),
   inspect: null,
   scope: 'all',
   switchedOn: [],
@@ -280,6 +287,13 @@ export const actions = {
   setView(view: CardView) {
     set({ view });
     try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode: the choice lasts this visit */ }
+  },
+  /** Fold a long panel section down to its heading, or open it again; `open` forces one way. */
+  toggleFold(k: ControlKey, open = get().folded.includes(k)) {
+    if (open !== get().folded.includes(k)) return;
+    const folded = open ? get().folded.filter(x => x !== k) : [...get().folded, k];
+    set({ folded });
+    try { localStorage.setItem(FOLD_KEY, JSON.stringify(folded)); } catch { /* private mode: the fold lasts this visit */ }
   },
   openInspector(ch: string) {
     if (!fontFor(get().params).glyph(ch)) return;

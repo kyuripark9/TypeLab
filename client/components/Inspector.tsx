@@ -65,6 +65,8 @@ function pointPart(id: string | null) {
     the sticky explainer. */
 function pickPart(id: string) {
   const k = PART_CONTROL[id];
+  // a folded section opens, so the slider is there to find
+  if (k) actions.toggleFold(k, true);
   const el = k && document.querySelector<HTMLElement>(`[data-ctl="${k}"]`);
   const panel = el && el.closest<HTMLElement>('.panel');
   if (!el || !panel) return;

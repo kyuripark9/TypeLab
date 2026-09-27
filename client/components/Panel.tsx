@@ -1,7 +1,7 @@
 /* Right-hand panel: the starting-style filters, or the controls of the open category with a
    live explainer. While a letter is inspected, the sliders are grouped by the parts of that
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
-import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import {
   ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
   SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, controlFor, styleById, styleMatches,
@@ -185,6 +185,40 @@ function scopeTag(inspect: string | null, letter: string | null, own: boolean, k
   return letter && !isGlyphKey(k) ? { own: false, text: 'Whole font', title: `Every letter shares this setting, so it changes all of them even while customizing ${letter}` } : null;
 }
 
+/** The long controls, whose settings fold away under their heading. */
+type FoldKey = 'terminal' | 'serif' | 'fill';
+
+/** A long control's heading: its title, then a chevron that folds the rest of it away. Folded, it
+    names the current choice. `tools` sit before the chevron (the serif switch); while `shut` (serifs
+    switched off) there is nothing to fold, so the chevron hides. */
+function FoldHead({ k, label, parts, summary, tools, shut }: { k: FoldKey; label: string; parts?: string[]; summary: string; tools?: ReactNode; shut?: boolean }) {
+  const folded = useEditor(s => s.folded.includes(k));
+  return (
+    <div className="ctl-top fold-head">
+      <CtlHead k={k} label={label} parts={parts} />
+      <div className="ctl-tools">
+        {folded && !shut && <span className="fold-sum">{summary}</span>}
+        {tools}
+        <button className="fold-btn" disabled={shut} aria-expanded={!folded && !shut} aria-controls={`fold-${k}`}
+          aria-label={`${folded ? 'Show' : 'Hide'} ${label.toLowerCase()} settings`} title={folded ? 'Show settings' : 'Hide settings'}
+          onClick={() => actions.toggleFold(k)}>
+          <svg className="facet-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5" /></svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** The body under a FoldHead, open unless folded or `shut`. */
+function Fold({ k, shut, children }: { k: FoldKey; shut?: boolean; children: ReactNode }) {
+  const open = !useEditor(s => s.folded.includes(k)) && !shut;
+  return (
+    <div className={open ? 'reveal fold open' : 'reveal fold'} id={`fold-${k}`} inert={!open}>
+      <div><div className="fold-body">{children}</div></div>
+    </div>
+  );
+}
+
 function Explainer() {
   const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
   const part = useEditor(s => s.inspect ? s.part : null);
@@ -316,27 +350,29 @@ function TerminalControl({ parts }: { parts?: string[] }) {
   const c = CONTROLS.terminal, forms = TERMINAL_FORMS[terminal], kindLabel = TERMINAL_OPTIONS.find(([id]) => id === terminal)![1];
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="terminal" {...useControlFocus('terminal')}>
-      <CtlHead k="terminal" label={c.label} parts={parts} />
-      <div className="opts six" role="radiogroup" aria-label={c.tech}>
-        {TERMINAL_OPTIONS.map(([id, label]) => (
-          <button key={id} role="radio" aria-checked={terminal === id} className={terminal === id ? 'opt on' : 'opt'}
-            onClick={() => actions.setOption('terminal', id)}>
-            <TerminalIcon kind={id} /><span>{label}</span>
-          </button>
-        ))}
-      </div>
-      <div className="sub-label">{kindLabel} shape</div>
-      <div className={forms.length === 3 ? 'opts three' : 'opts two'} role="radiogroup" aria-label={`${kindLabel} shape`}>
-        {forms.map(id => (
-          <button key={id} role="radio" aria-checked={form === id} className={form === id ? 'opt on' : 'opt'}
-            onClick={() => actions.setOption('terminalForm', id)}>
-            <TerminalIcon kind={terminal} form={id} /><span>{TERMINAL_FORM_LABELS[id]}</span>
-          </button>
-        ))}
-      </div>
-      {TERMINAL_DETAILS[form].map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}
-      <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} />
-      <EachEnd />
+      <FoldHead k="terminal" label={c.label} parts={parts} summary={`${kindLabel} · ${TERMINAL_FORM_LABELS[form]}`} />
+      <Fold k="terminal">
+        <div className="opts six" role="radiogroup" aria-label={c.tech}>
+          {TERMINAL_OPTIONS.map(([id, label]) => (
+            <button key={id} role="radio" aria-checked={terminal === id} className={terminal === id ? 'opt on' : 'opt'}
+              onClick={() => actions.setOption('terminal', id)}>
+              <TerminalIcon kind={id} /><span>{label}</span>
+            </button>
+          ))}
+        </div>
+        <div className="sub-label">{kindLabel} shape</div>
+        <div className={forms.length === 3 ? 'opts three' : 'opts two'} role="radiogroup" aria-label={`${kindLabel} shape`}>
+          {forms.map(id => (
+            <button key={id} role="radio" aria-checked={form === id} className={form === id ? 'opt on' : 'opt'}
+              onClick={() => actions.setOption('terminalForm', id)}>
+              <TerminalIcon kind={terminal} form={id} /><span>{TERMINAL_FORM_LABELS[id]}</span>
+            </button>
+          ))}
+        </div>
+        {TERMINAL_DETAILS[form].map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}
+        <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} />
+        <EachEnd />
+      </Fold>
     </div>
   );
 }
@@ -437,25 +473,21 @@ function SerifControl({ parts }: { parts?: string[] }) {
   const c = CONTROLS.serif;
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="serif" {...useControlFocus('serif')}>
-      <div className="ctl-row">
-        <CtlHead k="serif" label={c.label} parts={parts} />
-        <button className={p.serif ? 'switch on' : 'switch'} role="switch" aria-checked={p.serif} aria-label="Serifs"
-          onClick={() => actions.setOption('serif', !p.serif)}><i /></button>
-      </div>
-      <div className={p.serif ? 'reveal open' : 'reveal'} inert={!p.serif}>
-        <div>
-          <div className="sub-label">Serif shape</div>
-          <div className="opts four" role="radiogroup" aria-label="Serif shape">
-            {SERIF_SHAPE_OPTIONS.map(([id, label]) => (
-              <button key={id} role="radio" aria-checked={p.serifShape === id} className={p.serifShape === id ? 'opt on' : 'opt'}
-                onClick={() => actions.setOption('serifShape', id)}>
-                <SerifIcon shape={id} /><span>{label}</span>
-              </button>
-            ))}
-          </div>
-          {(Object.keys(SERIF_SUBS) as SerifSubKey[]).map(k => <SliderControl key={k} k={k} def={SERIF_SUBS[k]} />)}
+      <FoldHead k="serif" label={c.label} parts={parts} shut={!p.serif} summary={SERIF_SHAPE_OPTIONS.find(([id]) => id === p.serifShape)?.[1] ?? ''}
+        tools={<button className={p.serif ? 'switch on' : 'switch'} role="switch" aria-checked={p.serif} aria-label="Serifs"
+          onClick={() => actions.setOption('serif', !p.serif)}><i /></button>} />
+      <Fold k="serif" shut={!p.serif}>
+        <div className="sub-label">Serif shape</div>
+        <div className="opts four" role="radiogroup" aria-label="Serif shape">
+          {SERIF_SHAPE_OPTIONS.map(([id, label]) => (
+            <button key={id} role="radio" aria-checked={p.serifShape === id} className={p.serifShape === id ? 'opt on' : 'opt'}
+              onClick={() => actions.setOption('serifShape', id)}>
+              <SerifIcon shape={id} /><span>{label}</span>
+            </button>
+          ))}
         </div>
-      </div>
+        {(Object.keys(SERIF_SUBS) as SerifSubKey[]).map(k => <SliderControl key={k} k={k} def={SERIF_SUBS[k]} />)}
+      </Fold>
     </div>
   );
 }
@@ -465,20 +497,22 @@ function FillControl() {
   const c = CONTROLS.fill, solid = fill === 'solid';
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="fill" {...useControlFocus('fill')}>
-      <CtlHead k="fill" label={c.label} />
-      <div className="opts five" role="radiogroup" aria-label={c.tech}>
-        {FILL_OPTIONS.map(([id, label]) => (
-          <button key={id} role="radio" aria-checked={fill === id} className={fill === id ? 'opt on' : 'opt'}
-            onClick={() => actions.setOption('fill', id)}>
-            <FillIcon fill={id} /><span>{label}</span>
-          </button>
-        ))}
-      </div>
-      <div className={solid ? 'reveal' : 'reveal open'} inert={solid}>
-        <div>
-          {(Object.keys(FILL_SUBS) as FillSubKey[]).map(k => <SliderControl key={k} k={k} def={FILL_SUBS[k]} />)}
+      <FoldHead k="fill" label={c.label} summary={FILL_OPTIONS.find(([id]) => id === fill)![1]} />
+      <Fold k="fill">
+        <div className="opts five" role="radiogroup" aria-label={c.tech}>
+          {FILL_OPTIONS.map(([id, label]) => (
+            <button key={id} role="radio" aria-checked={fill === id} className={fill === id ? 'opt on' : 'opt'}
+              onClick={() => actions.setOption('fill', id)}>
+              <FillIcon fill={id} /><span>{label}</span>
+            </button>
+          ))}
         </div>
-      </div>
+        <div className={solid ? 'reveal' : 'reveal open'} inert={solid}>
+          <div>
+            {(Object.keys(FILL_SUBS) as FillSubKey[]).map(k => <SliderControl key={k} k={k} def={FILL_SUBS[k]} />)}
+          </div>
+        </div>
+      </Fold>
     </div>
   );
 }

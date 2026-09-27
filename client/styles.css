@@ -247,6 +247,18 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .reveal { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease; }
 .reveal > div { overflow: hidden; }
 .reveal.open { grid-template-rows: 1fr; }
+/* long controls fold down to their heading, which then names the current choice */
+.fold-head .ctl-head { margin-bottom: 0; }
+.fold-btn { display: grid; place-items: center; width: 24px; height: 24px; margin-right: -2px; border-radius: var(--radius-s); color: var(--ink-3); transition: color .15s, background .15s; }
+.fold-btn:hover { color: var(--ink); background: var(--hover); }
+.fold-btn:disabled { visibility: hidden; }
+.fold-btn[aria-expanded=false] .facet-chevron { transform: rotate(180deg); }
+.fold-sum { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+/* the reveal clips its content, so it widens by the option rings' reach and pads it back in */
+.reveal.fold { margin: 0 -4px; transition: grid-template-rows .25s ease, margin-bottom .25s ease; }
+.reveal.fold.open { margin-bottom: -4px; }
+.fold-body { padding: 0 4px 4px; }
+.fold-body > .opts:first-child { margin-top: 6px; }
 
 /* ---------- inspector */
 .inspector { position: absolute; inset: 0; background: var(--surface); display: flex; flex-direction: column; z-index: 5; animation: fade .15s ease; }
