@@ -25,13 +25,11 @@ export function Header({ onSave, onGuide }: { onSave: () => void; onGuide: () =>
           onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }} />
       </div>
       <div className="top-actions" data-guide="actions">
-        <button className="btn ghost icon" onClick={() => actions.travel(-1)} disabled={!canUndo} title="Undo (⌘Z)">
-          <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7.5 4 3.5 8l4 4M4 8h7.5a4.5 4.5 0 0 1 0 9H9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          <span>Undo</span>
+        <button className="btn ghost icon" onClick={() => actions.travel(-1)} disabled={!canUndo} title="Undo (⌘Z)" aria-label="Undo">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" strokeLinejoin="round" /></svg>
         </button>
-        <button className="btn ghost icon" onClick={() => actions.travel(1)} disabled={!canRedo} title="Redo (⇧⌘Z)">
-          <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4l4 4-4 4M16 8H8.5a4.5 4.5 0 0 0 0 9H11" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          <span>Redo</span>
+        <button className="btn ghost icon" onClick={() => actions.travel(1)} disabled={!canRedo} title="Redo (⇧⌘Z)" aria-label="Redo">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" strokeLinejoin="round" /></svg>
         </button>
         <span className="sep" />
         <button className="btn ghost" onClick={onGuide}>Guide</button>
