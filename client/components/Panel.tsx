@@ -69,25 +69,27 @@ function ChipFacet<T extends Tag>({ id, label, tags, picked, count, toggle }: {
         )}
         <svg className="facet-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5" /></svg>
       </button>
-      {!closed && (
-        <div className="facet-body" id={`c-${id}`}>
-          <div className="chips">
-            {shown.map(({ id: tag, label, hint }) => {
-              const on = picked.includes(tag), n = count(tag);
-              return (
-                <button key={tag} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} disabled={!n && !on} onClick={() => toggle(tag)}>
-                  <TagText tag={tag} label={label} /><span className="count">{n}</span>
-                </button>
-              );
-            })}
+      <div className={closed ? 'reveal' : 'reveal open'} id={`c-${id}`} inert={closed}>
+        <div>
+          <div className="facet-body">
+            <div className="chips">
+              {shown.map(({ id: tag, label, hint }) => {
+                const on = picked.includes(tag), n = count(tag);
+                return (
+                  <button key={tag} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} disabled={!n && !on} onClick={() => toggle(tag)}>
+                    <TagText tag={tag} label={label} /><span className="count">{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {(open || more > 0) && (
+              <button className="facet-more" aria-expanded={open} onClick={() => setOpen(!open)}>
+                {open ? 'Show less' : `Show ${more} more`}
+              </button>
+            )}
           </div>
-          {(open || more > 0) && (
-            <button className="facet-more" aria-expanded={open} onClick={() => setOpen(!open)}>
-              {open ? 'Show less' : `Show ${more} more`}
-            </button>
-          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

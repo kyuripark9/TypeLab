@@ -38,6 +38,9 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .btn.wide { width: 100%; justify-content: center; border: 1px solid var(--line-2); background: var(--surface); }
 .btn.wide:hover { border-color: var(--ink-3); }
 .btn.round { width: 34px; padding: 0; justify-content: center; border: 1px solid var(--line); font-size: 15px; }
+.btn.icon { width: 34px; padding: 0; justify-content: center; color: var(--ink-2); }
+.btn.icon:hover { color: var(--ink); }
+.btn.icon svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 .btn:disabled { opacity: .35; pointer-events: none; }
 .dirty { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity .15s; }
 .dirty.on { opacity: 1; }
@@ -129,9 +132,12 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .facet-head:hover { color: var(--ink); }
 .facet-head .facet-label { margin-bottom: 0; color: inherit; }
 .facet-picked { min-width: 16px; padding: 0 5px; border-radius: 100px; background: var(--sabi); color: #fff; font-size: 10.5px; font-weight: 600; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
-.facet-chevron { margin-left: auto; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
+.facet-chevron { margin-left: auto; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: transform .25s ease; }
 .facet-head[aria-expanded=false] .facet-chevron { transform: rotate(180deg); }
-.facet-body { margin-top: 8px; }
+/* the reveal clips its content, so it widens by the focus ring's reach and pads it back in */
+.facet .reveal { margin: 0 -4px; transition: grid-template-rows .25s ease, margin-bottom .25s ease; }
+.facet .reveal.open { margin-bottom: -4px; }
+.facet-body { padding: 8px 4px 4px; }
 .facet-more { margin-top: 10px; font-size: 12px; font-weight: 500; color: var(--ink-3); transition: color .15s; }
 .facet-more:hover { color: var(--ink); }
 

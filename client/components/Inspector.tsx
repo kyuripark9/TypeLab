@@ -104,7 +104,9 @@ export function Inspector() {
         <button className="btn ghost round" onClick={() => actions.stepInspector(1)} aria-label="Next glyph">→</button>
         <span className="grow" />
         <SkeletonToggle />
-        <button className="btn ghost" onClick={actions.closeInspector}>Close ✕</button>
+        <button className="btn ghost icon" onClick={actions.closeInspector} aria-label="Close inspector" title="Close (Esc)">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+        </button>
       </div>
       <div className="insp-body">
         <InspectorCanvas ch={ch} g={g} font={font} />
