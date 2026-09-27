@@ -97,8 +97,7 @@ function arch(g: Builder, m: Metrics, x0: number, x1: number, yTop: number, yFoo
   const head: Cmd[] = [['M', x0, X - ah], ['vh', cx, yTop], ['hv', x1, X - ah * 0.95]];
   if (r) {
     g.path([...head, ...exitTail(m, x1, r)], { s: J, e: T, ws: 0.6, we: 0.75, part: 'shoulder', ...o });
-    g.mark('exit', x1 + r * 2.3, r * 1.2);
-    g.reachR = Math.max(g.reachR, x1 + r * 2.3);
+    exitMark(g, m, x1, r);
   }
   else g.path([...head, ['L', x1, yFoot]], { s: J, e: 'flat', ws: 0.6, part: 'shoulder', serifE: 'both', ...o });
 }
@@ -110,24 +109,51 @@ function kLeg(g: Builder, m: Metrics, x0: number, ay: number, r: number, top: nu
   g.line(bx, by, ex, 0, { s: J, e: H, part: 'leg', serifE: 'both', clip: { planes: [{ x: x0, y: ay, nx: -dy / l, ny: dx / l }] } });
 }
 
+/* ---------- tails and hooks ---------- */
+
+/** How long straight tails and flicks are: 1 at the usual length, 0.6 short, 1.5 long. */
+const tailK = (m: Metrics) => (m.p.tail < 0.5 ? lerp(0.6, 1, m.p.tail * 2) : lerp(1, 1.5, m.p.tail * 2 - 1));
+/** How far round a hook curls, as the drawn share `u` of its last quarter turn: the usual `u`
+    at the middle, a stub when short, the whole turn when long. */
+const hookU = (m: Metrics, u: number) => (m.p.tail < 0.5 ? lerp(u * 0.35, u, m.p.tail * 2) : lerp(u, 1, m.p.tail * 2 - 1));
+/** Long hooks also swing further out, up to a third wider. */
+const hookK = (m: Metrics) => 1 + Math.max(0, m.p.tail * 2 - 1) / 3;
+
+/** Mark the free end of a tail or hook, and note how far past the body it reaches. */
+function tailEnd(g: Builder, x: number, y: number, W: number) {
+  g.mark('tail', x, y);
+  if (x > W) g.reachR = Math.max(g.reachR, x);
+  if (x < 0) g.reachL = Math.min(g.reachL, x);
+}
+
 /* ---------- cursive: entry and exit strokes ---------- */
 
 /** Radius of the cursive hooks; 0 when the design has no cursive at all. */
 const hookR = (m: Metrics) => (m.cur < 0.04 ? 0 : lerp(m.s * 0.55, m.xh * 0.26 + m.s * 0.35, m.cur));
 
+/** Where an exit stroke leaving a stem at `x` ends. */
+const exitEnd = (m: Metrics, x: number, r: number) => ({ x: x + r * (1 + 1.3 * tailK(m)), y: -m.os + m.hT / 2 + r * 1.2 * tailK(m) });
+
 /* the tail of a stroke arriving at the baseline: curls round and flicks up to the right */
 const exitTail = (m: Metrics, x: number, r: number): Cmd[] => {
-  const yb = -m.os + m.hT / 2;
-  return [['L', x, yb + r], ['vh', x + r, yb], ['C', x + r * 1.55, yb, x + r * 2, yb + r * 0.45, x + r * 2.3, yb + r * 1.2]];
+  const yb = -m.os + m.hT / 2, k = tailK(m), e = exitEnd(m, x, r);
+  return [['L', x, yb + r], ['vh', x + r, yb], ['C', x + r * (1 + 0.55 * k), yb, x + r * (1 + k), yb + r * 0.45 * k, e.x, e.y]];
 };
+
+/** Mark an exit stroke's end and make room for it. */
+function exitMark(g: Builder, m: Metrics, x: number, r: number) {
+  const e = exitEnd(m, x, r);
+  g.mark('exit', e.x, e.y);
+  g.mark('tail', e.x, e.y);
+  g.reachR = Math.max(g.reachR, e.x);
+}
 
 /** Stem from `top` to the baseline. In cursive designs its foot becomes an exit stroke. */
 function footStem(g: Builder, m: Metrics, x: number, top: number, o: StrokeOpts = {}) {
   const r = hookR(m);
   if (!r) { g.stem(x, 0, top, o); return; }
   g.path([['M', x, top], ...exitTail(m, x, r)], { s: 'flat', e: T, we: 0.75, part: 'stem', serifS: o.serifE });
-  g.mark('exit', x + r * 2.3, r * 1.2);
-  g.reachR = Math.max(g.reachR, x + r * 2.3);
+  exitMark(g, m, x, r);
 }
 
 /** Upstroke leading into the top of a stem from the left. Returns false when not drawn. */
@@ -230,7 +256,9 @@ function monoStem(g: Builder, m: Metrics, top: number) {
 def('J', [0.4, 1], (g, m) => {
   const W = m.W(390), C = m.cap, hs = m.s / 2, hh = m.hT / 2, xr = W - hs, xl = hs, yb = -m.os + hh;
   const ry = yb + Math.min((xr - xl) * 0.55, C * 0.4), cx = (xl + xr) / 2;
-  g.path([['M', xr, C], ['L', xr, ry], ['vh', cx, yb], ['hv', xl, ry, { u1: 0.6 }]], { e: T, part: 'stem', serifS: 'a' });
+  g.path([['M', xr, C], ['L', xr, ry], ['vh', cx, yb], ['hv', xl, ry, { u1: hookU(m, 0.6) }]], { e: T, part: 'stem', serifS: 'a' });
+  const e = m.qpt(cx, yb, xl, ry, 'hv', hookU(m, 0.6));
+  tailEnd(g, e.x, e.y, W);
   return W;
 });
 
@@ -282,7 +310,9 @@ def('P', [1, 0.5], (g, m) => {
 def('Q', [0.55, 0.55], (g, m) => {
   const W = m.W(690, 'r'), C = m.cap, hs = m.s / 2, hh = m.hT / 2;
   oval(g, m, hs, W - hs, -m.os + hh, C + m.os - hh);
-  g.line(W * 0.56, C * 0.2, W * 0.97, -C * 0.07, { s: J, e: T, part: 'tail' });
+  const k = tailK(m), x0 = W * 0.56, y0 = C * 0.2, ex = x0 + W * 0.41 * k, ey = y0 - C * 0.27 * k;
+  g.line(x0, y0, ex, ey, { s: J, e: T, part: 'tail' });
+  tailEnd(g, ex, ey, W);
   return W;
 });
 
@@ -387,25 +417,38 @@ def('e', [0.55, 0.5], (g, m) => {
   return W;
 }, { params: ['crossbar', 'aperture', 'terminal', 'xHeight'] });
 def('f', [0.35, 0.1], (g, m) => {
-  const { X, hh } = lc(m), W = m.W(310), xs = W * 0.36, top = m.asc + m.os - hh, r = (W - xs) * 1.05;
-  g.path([['M', xs, 0], ['L', xs, top - r * 0.9], ['vh', xs + r, top, { u1: 0.8 }]], { e: T, part: 'stem', serifS: 'both' });
+  const { X, hh } = lc(m), W = m.W(310), xs = W * 0.36, top = m.asc + m.os - hh, r = (W - xs) * 1.05, xh = xs + r * hookK(m);
+  g.path([['M', xs, 0], ['L', xs, top - r * 0.9], ['vh', xh, top, { u1: hookU(m, 0.8) }]], { e: T, part: 'stem', serifS: 'both' });
+  const e = m.qpt(xs, top - r * 0.9, xh, top, 'vh', hookU(m, 0.8));
+  tailEnd(g, e.x, e.y, W);
   g.line(0, X - hh, W * 0.92, X - hh, { s: T, e: T, part: 'crossbar' });
-  return W;
+  // a longer hook takes its extra reach with it, so the next letter doesn't run into it
+  return W + r * (hookK(m) - 1);
 });
 /* descender of g (and the script y): a hook, or in script designs a loop that swings back
    up through the stem and out to the right */
 function descender(g: Builder, m: Metrics, xr: number, xl: number, W: number, o?: StrokeOpts) {
   const { X, hh } = lc(m), db = m.desc + hh, ry = db + Math.min((xr - xl) * 0.55, -m.desc * 0.7), r = hookR(m);
   const head: Cmd[] = [['M', xr, X], ['L', xr, ry], ['vh', (xr + xl) / 2, db]];
-  if (m.cur < 0.35) { g.path([...head, ['hv', xl + W * 0.04, ry, { u1: 0.62 }]], { e: T, part: 'stem', serifS: 'b', ...o }); return; }
-  const lx = xl - W * 0.08, ly = db * 0.45, ex = xr + r * 1.5, ey = r * 0.8;
+  if (m.cur < 0.35) {
+    const u = hookU(m, 0.62), e = m.qpt((xr + xl) / 2, db, xl + W * 0.04, ry, 'hv', u);
+    g.path([...head, ['hv', xl + W * 0.04, ry, { u1: u }]], { e: T, part: 'stem', serifS: 'b', ...o });
+    tailEnd(g, e.x, e.y, W);
+    return;
+  }
+  const k = tailK(m), lx = xl - W * 0.08, ly = db * 0.45, ex = xr + r * 1.5 * k, ey = r * 0.8 * k;
   g.path([...head, ['hv', lx, ly], ['C', lx, ly * 0.2, xr - W * 0.2, -m.s * 0.4, ex, ey]], { e: T, we: 0.8, part: 'stem', serifS: 'b', ...o });
   g.mark('exit', ex, ey);
+  g.mark('tail', ex, ey);
   g.reachR = Math.max(g.reachR, ex);
 }
 def('f.cur', [0.2, 0.1], (g, m) => {
   const { X, hh } = lc(m), W = m.W(310), xs = W * 0.5, top = m.asc + m.os - hh, r = (W - xs) * 1.05, db = m.desc + hh, rb = r * 0.95;
-  g.path([['M', xs + r, top], ['hv', xs, top - r * 0.9, { u0: 0.2 }], ['L', xs, db + rb * 0.9], ['vh', xs - rb, db, { u1: 0.8 }]], { s: T, e: T, part: 'stem' });
+  const xt = xs + r * hookK(m), xb = xs - rb * hookK(m), u = hookU(m, 0.8);
+  g.path([['M', xt, top], ['hv', xs, top - r * 0.9, { u0: 1 - u }], ['L', xs, db + rb * 0.9], ['vh', xb, db, { u1: u }]], { s: T, e: T, part: 'stem' });
+  const et = m.qpt(xt, top, xs, top - r * 0.9, 'hv', 1 - u), eb = m.qpt(xs, db + rb * 0.9, xb, db, 'vh', u);
+  tailEnd(g, et.x, et.y, W);
+  tailEnd(g, eb.x, eb.y, W);
   g.line(W * 0.05, X - hh, W * 0.95, X - hh, { s: T, e: T, part: 'crossbar' });
   return W;
 });
@@ -440,7 +483,9 @@ def('i', [1, 1], (g, m) => {
 def('j', [0.2, 1], (g, m) => {
   const { hs, hh } = lc(m), t = tittle(m), W = m.W(240), xs = W - hs, db = m.desc + hh, ry = db + Math.min(W * 0.7, -m.desc * 0.6);
   const en = entry(g, m, xs, t.top);
-  g.path([['M', xs, t.top], ['L', xs, ry], ['vh', xs - (W - hs) * 0.75, db, { u1: 0.85 }]], { e: T, part: 'stem', serifS: en ? null : 'a' });
+  const xh = xs - (W - hs) * 0.75 * hookK(m), u = hookU(m, 0.85), e = m.qpt(xs, ry, xh, db, 'vh', u);
+  g.path([['M', xs, t.top], ['L', xs, ry], ['vh', xh, db, { u1: u }]], { e: T, part: 'stem', serifS: en ? null : 'a' });
+  tailEnd(g, e.x, e.y, W);
   g.dot(xs, t.cy, t.d);
   return W;
 });
@@ -488,9 +533,11 @@ def('s', [0.5, 0.5], (g, m) => { const W = m.W(395, 'c'); sShape(g, m, 0, W, -m.
   { params: ['curve', 'terminal', 'aperture', 'xHeight'] });
 def('t', [0.3, 0.3], (g, m) => {
   const { X, hh, yb } = lc(m), W = m.W(320), xs = W * 0.36, ry = yb + (W - xs) * 0.75;
-  g.path([['M', xs, X + (m.asc - X) * 0.62], ['L', xs, ry], ['vh', xs + (W - xs) * 0.66, yb], ['hv', W, ry, { u1: 0.5 }]], { e: T, part: 'stem' });
+  const hw = (W - xs) * hookK(m), xm = xs + hw * 0.66, u = hookU(m, 0.5), e = m.qpt(xm, yb, xs + hw, ry, 'hv', u);
+  g.path([['M', xs, X + (m.asc - X) * 0.62], ['L', xs, ry], ['vh', xm, yb], ['hv', xs + hw, ry, { u1: u }]], { e: T, part: 'stem' });
+  tailEnd(g, e.x, e.y, W);
   g.line(0, X - hh, W * 0.95, X - hh, { s: T, e: T, part: 'crossbar' });
-  return W;
+  return W + (W - xs) * (hookK(m) - 1);
 });
 def('u', [1, 1], (g, m) => {
   const { X, hs, yb } = lc(m), W = m.W(455), xr = W - hs, ah = X * 0.4;
@@ -512,8 +559,9 @@ def('x', [0.25, 0.25], (g, m) => {
 });
 def('y', [0.2, 0.2], (g, m) => {
   const W = m.W(450), X = m.xh, l = m.s * 0.55, r = W - l, cx = W / 2 + m.s * 0.1;
-  const xd = cx + (cx - r) * (-m.desc * 0.92) / X;
-  g.line(r, X, xd, m.desc * 0.92, { s: H, e: T, w: 'thin', part: 'tail', serifS: 'both' });
+  const yd = m.desc * 0.92 * tailK(m), xd = cx + (cx - r) * -yd / X;
+  g.line(r, X, xd, yd, { s: H, e: T, w: 'thin', part: 'tail', serifS: 'both' });
+  tailEnd(g, xd, yd, W);
   g.line(l, X, cx, 0, { s: H, e: J, part: 'diagonal', serifS: 'both', clip: { y0: -m.s * 0.1 } });
   return W;
 });
@@ -587,9 +635,10 @@ def('9', [0.55, 0.55], (g, m) => six(g, m, true));
 
 const ds = (m: Metrics) => m.s * 1.18;
 function comma(g: Builder, m: Metrics, x: number, y: number) {
-  const d = ds(m);
+  const d = ds(m), k = tailK(m), ex = x + d * (0.22 - 0.52 * k), ey = y - d * (0.1 + 1.15 * k);
   g.dot(x, y, d);
-  g.line(x + d * 0.22, y - d * 0.1, x - d * 0.3, y - d * 1.25, { s: J, e: T, we: 0.45, scale: 0.75, part: 'tail' });
+  g.line(x + d * 0.22, y - d * 0.1, ex, ey, { s: J, e: T, we: 0.45, scale: 0.75, part: 'tail' });
+  tailEnd(g, ex, ey, d);
 }
 def('.', [0.8, 0.8], (g, m) => { g.dot(ds(m) / 2, ds(m) / 2, ds(m)); return ds(m); });
 def(',', [0.8, 0.8], (g, m) => { comma(g, m, ds(m) / 2, ds(m) / 2); return ds(m); });

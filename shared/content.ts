@@ -7,7 +7,7 @@ export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spaci
 export type ControlKey =
   | 'weight' | 'width' | 'height' | 'slant' | 'contrast' | 'reverse'
   | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'overlap' | 'serif' | 'apex' | 'joints' | 'cursive' | 'wobble'
-  | 'xHeight' | 'extenders' | 'counter' | 'aperture' | 'crossbar'
+  | 'xHeight' | 'extenders' | 'tail' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
   | 'geoHuman' | 'softSharp' | 'classicFuture' | 'playfulFormal'
   | 'fill' | 'stencil' | 'slice';
@@ -334,6 +334,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Taller lowercase feels modern and reads well small.' },
   extenders: { cat: 'proportion', label: 'Stem length', friendly: 'Make ascenders and descenders longer', tech: 'Ascenders & descenders', lo: 'Short', hi: 'Long', demo: 'hpdy',
     explain: 'The parts above (b, d, h) and below (g, p, y) the letters.' },
+  tail: { cat: 'proportion', label: 'Tails & hooks', friendly: 'Make tails and hooks longer or shorter', tech: 'Tail · Hook', lo: 'Short', hi: 'Long', demo: 'Qjty',
+    explain: 'The trailing ends of Q, y, g, j, t, f and the comma.' },
   counter: { cat: 'proportion', label: 'Inner space', friendly: 'Change the space inside letters', tech: 'Counter', lo: 'Small', hi: 'Large', demo: 'Bo',
     explain: 'The enclosed space inside O, B, a and e.' },
   aperture: { cat: 'proportion', label: 'Openness', friendly: 'Open or close the mouths of letters', tech: 'Aperture', lo: 'Closed', hi: 'Open', demo: 'ces',
@@ -409,7 +411,7 @@ export const ANATOMY: Record<string, [string, string]> = {
 
 /** The control that shapes each anatomy part. Parts missing here (the baseline) have none. */
 export const PART_CONTROL: Partial<Record<string, ControlKey>> = {
-  stem: 'weight', diagonal: 'weight', bowl: 'weight', arm: 'weight', leg: 'weight', tail: 'weight',
+  stem: 'weight', diagonal: 'weight', bowl: 'weight', arm: 'weight', leg: 'weight', tail: 'tail',
   shoulder: 'weight', spine: 'weight', hook: 'weight', dot: 'weight',
   crossbar: 'crossbar', bar: 'crossbar', counter: 'counter', terminal: 'terminal',
   apex: 'apex', vertex: 'apex', serif: 'serif', entry: 'cursive',

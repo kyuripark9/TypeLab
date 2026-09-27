@@ -56,6 +56,16 @@ describe('dragging the inspected letter', () => {
     assert.equal(towardMore(dragSpec('ascender', font, 'd', { x: 0, y: font.m.asc })!.y!, base), 1);
   });
 
+  it('drags the tip of a tail or hook to make tails longer', () => {
+    const Q = font.glyph('Q')!, qTip = Q.marks.find(k => k.type === 'tail')!;
+    const q = dragSpec('tail', font, 'Q', qTip)!;
+    assert.equal(q.x?.key, 'tail');
+    assert.ok(solver(q.x!, base)(60) > base.tail && solver(q.x!, base)(-60) < base.tail);
+    const y = dragSpec('tail', font, 'y', font.glyph('y')!.marks.find(k => k.type === 'tail')!)!;
+    assert.equal(towardMore(y.y!, base), -1);
+    assert.deepEqual(handlesFor('tail', font, 'j', ['stem', 'tail']).map(h => h.part), ['tail']);
+  });
+
   it('finds the handles for a control on the letter', () => {
     const weight = handlesFor('weight', font, 'H', ['stem', 'crossbar']);
     assert.deepEqual(weight.map(h => [h.part, h.axis]), [['stem', 'x'], ['stem', 'x']]);

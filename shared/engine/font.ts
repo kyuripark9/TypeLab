@@ -386,7 +386,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
 }
 
 /* ---- highlight layers: which part of a glyph does a parameter touch? */
-export const RING_KEYS: Record<string, true> = { terminal: true, aperture: true, apex: true, roundness: true, cursive: true, overlap: true };
+export const RING_KEYS: Record<string, true> = { terminal: true, aperture: true, apex: true, roundness: true, cursive: true, overlap: true, tail: true };
 
 function highlightD(g: Glyph, key: string, m: Metrics): string {
   const strokes = (f: (s: GlyphStroke) => boolean | undefined) => g.strokes.filter(f).map(s => cmdsToD(s.cmds)).join('');
@@ -403,6 +403,7 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
     case 'cursive': return ringsD(g.marks.filter(k => k.type === 'exit' || k.type === 'entry'), Math.max(30, m.s * 0.7));
     case 'story': return g.ch === 'a' ? g.d : '';
     case 'overlap': return ringsD(g.marks.filter(k => k.type === 'overlap'), Math.max(30, m.s * 0.8));
+    case 'tail': return ringsD(g.marks.filter(k => k.type === 'tail'), Math.max(30, m.s * 0.7));
     default: return '';
   }
 }

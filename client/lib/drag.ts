@@ -73,6 +73,15 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
       return k ? { x: { key: 'apex', sign: side(grab.x, k.x), span: 500, at: { x: k.x, y: k.y } } } : null;
     }
     case 'entry': return { x: { key: 'cursive', sign: -1, span: 600, at: grab } };
+    case 'tail': {
+      // the tip of a tail or hook follows the pointer along the axis it grows on most
+      const tips = (f: Font) => f.glyph(ch)?.marks.filter(k => k.type === 'tail') ?? [];
+      const marks = tips(font), i = nearest(marks.map(k => ({ x0: k.x, x1: k.x, y0: k.y, y1: k.y })), grab), k = marks[i];
+      if (!k) return null;
+      const lo = tips(buildFont({ ...font.params, tail: 0 }))[i], hi = tips(buildFont({ ...font.params, tail: 1 }))[i];
+      const axis: Axis = !lo || !hi || Math.abs(hi.x - lo.x) >= Math.abs(hi.y - lo.y) ? 'x' : 'y';
+      return { [axis]: { key: 'tail', sign: 1, measure: (f: Font) => tips(f)[i]?.[axis] ?? null, at: { x: k.x, y: k.y } } };
+    }
     case 'terminal': case 'baseline': return null;
   }
 
@@ -133,6 +142,7 @@ export function handlesFor(key: NumericParam, font: Font, ch: string, parts: str
   for (const part of parts) {
     if (LINES.includes(part)) add(part, { x: -70, y: font.m.cap / 2 });
     else if (part === 'apex' || part === 'vertex') g.marks.filter(k => k.type === part).forEach(k => add(part, { x: k.x + 1, y: k.y }));
+    else if (part === 'tail') g.marks.filter(k => k.type === part).forEach(k => add(part, k));
     else if (part === 'entry') g.strokes.filter(s => s.part === part).forEach(s => { const b = bbox(s.cmds); if (b) add(part, { x: b.x0, y: (b.y0 + b.y1) / 2 }); });
     else pieces(g, part).forEach(c => { const b = bbox(c); if (b) add(part, { x: b.x1, y: (b.y0 + b.y1) / 2 + (b.y1 - b.y0) * 0.1 }); });
   }

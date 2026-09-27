@@ -37,6 +37,7 @@ function glyphParams(g: Glyph, ch: string, serif: boolean): ControlKey[] {
     if (g.marks.some(k => k.type === 'apex' || k.type === 'vertex')) p.push('apex');
     if (g.strokes.some(s => s.part === 'crossbar')) p.push('crossbar');
     if (g.marks.some(k => k.type === 'overlap')) p.push('overlap');
+    if (g.marks.some(k => k.type === 'tail')) p.push('tail');
     if (g.counters.length) p.push('counter');
     if (g.marks.some(k => k.type === 'terminal')) p.push('terminal');
     if (g.strokes.some(s => s.curved)) p.push('curve');
@@ -78,7 +79,7 @@ function pickPart(id: string) {
 /** Parts drawn as guide lines rather than shapes. */
 const GUIDE_PARTS = new Set(['baseline', 'xHeight', 'capHeight', 'ascender', 'descender']);
 /** Hit-test stacking: counters under strokes, point marks on top. */
-const hitOrder = (id: string) => id === 'counter' ? 0 : id === 'apex' || id === 'vertex' || id === 'terminal' ? 2 : 1;
+const hitOrder = (id: string) => id === 'counter' ? 0 : id === 'apex' || id === 'vertex' || id === 'terminal' || id === 'tail' ? 2 : 1;
 
 /** Path data for one anatomy part of a glyph. */
 function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } {
@@ -87,7 +88,10 @@ function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } 
   if (id === 'terminal' || id === 'apex' || id === 'vertex') {
     return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(34, font.m.s * 0.75)) };
   }
-  return { d: g.strokes.filter(s => s.part === id).map(s => cmdsToD(s.cmds)).join('') };
+  const d = g.strokes.filter(s => s.part === id).map(s => cmdsToD(s.cmds)).join('');
+  // a hook is the end of a longer stroke (j, t, f): ring its tip
+  if (!d && id === 'tail') return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(34, font.m.s * 0.75)) };
+  return { d };
 }
 
 export function Inspector() {
