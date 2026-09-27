@@ -85,6 +85,26 @@ describe('font engine', () => {
     assert.ok(tip(f(1, { cursive: 1 }), 'n').x > tip(f(0, { cursive: 1 }), 'n').x);
   });
 
+  it('stroke end length stretches and trims the terminals, and leaves tails and hooks alone', () => {
+    const f = (terminalLength: number, p: Partial<Params> = {}) => buildFont({ ...DEFAULTS, ...p, terminalLength });
+    const ends = (font: ReturnType<typeof buildFont>, ch: string) => font.glyph(ch)!.marks.filter(k => k.type === 'terminal');
+    for (const ch of 'CcaesrE2') {
+      assert.notEqual(f(0).glyph(ch)!.d, f(0.5).glyph(ch)!.d, ch);
+      assert.notEqual(f(1).glyph(ch)!.d, f(0.5).glyph(ch)!.d, ch);
+      assert.equal(ends(f(0), ch).length, ends(f(0.5), ch).length, ch);
+    }
+    // the C's lower end reaches further right and curls further up as it grows
+    const low = (font: ReturnType<typeof buildFont>) => ends(font, 'C').reduce((a, k) => (k.y < a.y ? k : a));
+    assert.ok(low(f(1)).y > low(f(0.5)).y && low(f(0.5)).y > low(f(0)).y);
+    // the r's arm draws on to the right
+    const r = (font: ReturnType<typeof buildFont>) => Math.max(...ends(font, 'r').map(k => k.x));
+    assert.ok(r(f(1)) > r(f(0.5)) && r(f(0.5)) > r(f(0)));
+    // a longer arm widens its letter so it doesn't run into the next
+    assert.ok(f(1).glyph('E')!.adv > f(0.5).glyph('E')!.adv);
+    for (const ch of 'HOonjQy,') assert.equal(f(0).glyph(ch)!.d, f(1).glyph(ch)!.d, ch);
+    assert.equal(f(0, { cursive: 1 }).glyph('n')!.d, f(1, { cursive: 1 }).glyph('n')!.d);
+  });
+
   it('squares and facets curves', () => {
     const round = buildFont(DEFAULTS), square = buildFont({ ...DEFAULTS, squareness: 1 }), cut = buildFont({ ...DEFAULTS, chamfer: 1 });
     assert.notEqual(round.glyph('O')!.d, square.glyph('O')!.d);

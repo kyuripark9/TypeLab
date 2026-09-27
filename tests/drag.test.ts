@@ -43,8 +43,7 @@ describe('dragging the inspected letter', () => {
     assert.equal(solve(-1e5), 0);
   });
 
-  it('leaves terminals and the baseline to their controls', () => {
-    assert.equal(dragSpec('terminal', font, 'c', { x: 0, y: 0 }), null);
+  it('leaves the baseline to its control', () => {
     assert.equal(dragSpec('baseline', font, 'c', { x: 0, y: 0 }), null);
   });
 
@@ -64,6 +63,14 @@ describe('dragging the inspected letter', () => {
     const y = dragSpec('tail', font, 'y', font.glyph('y')!.marks.find(k => k.type === 'tail')!)!;
     assert.equal(towardMore(y.y!, base), -1);
     assert.deepEqual(handlesFor('tail', font, 'j', ['stem', 'tail']).map(h => h.part), ['tail']);
+  });
+
+  it('drags a stroke end to lengthen the terminals', () => {
+    const tip = font.glyph('r')!.marks.find(k => k.type === 'terminal')!;
+    const spec = dragSpec('terminal', font, 'r', tip)!, d = (spec.x ?? spec.y)!, up = towardMore(d, base);
+    assert.equal(d.key, 'terminalLength');
+    assert.ok(solver(d, base)(60 * up) > base.terminalLength && solver(d, base)(-60 * up) < base.terminalLength);
+    assert.deepEqual(handlesFor('terminalLength', font, 'r', ['stem', 'shoulder', 'terminal']).map(h => h.part), ['terminal']);
   });
 
   it('finds the handles for a control on the letter', () => {

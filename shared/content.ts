@@ -13,8 +13,9 @@ export type ControlKey =
   | 'fill' | 'stencil' | 'slice';
 export type SerifSubKey = 'serifSize' | 'serifThickness' | 'serifAngle';
 export type FillSubKey = 'module';
+export type TerminalSubKey = 'terminalLength';
 /** Anything the control panel can focus: a control or one of its nested sub-sliders. */
-export type ActiveKey = ControlKey | SerifSubKey | FillSubKey;
+export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey;
 
 export interface ControlDef {
   cat: Exclude<CategoryId, 'style'>;
@@ -314,7 +315,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   chamfer: { cat: 'shape', label: 'Facets', friendly: 'Cut curves into straight lines and corners', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
     explain: 'Curves become straight lines with cut-off corners.' },
   terminal: { cat: 'shape', type: 'options', label: 'Stroke ends', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
-    explain: 'The free tips of strokes, as on C, a, s and r.' },
+    explain: 'The free tips of strokes, as on C, a, s and r, and how far they reach.' },
   story: { cat: 'shape', type: 'story', label: 'Letter a', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
     explain: 'Two-storey like book type, or one bowl like handwriting.' },
   overlap: { cat: 'shape', label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
@@ -376,8 +377,11 @@ export const SERIF_SUBS: Record<SerifSubKey, SubControlDef> = {
 export const FILL_SUBS: Record<FillSubKey, SubControlDef> = {
   module: { label: 'Grid size', friendly: 'Change the size of the grid or line', tech: 'Module size', lo: 'Fine', hi: 'Coarse' }
 };
+export const TERMINAL_SUBS: Record<TerminalSubKey, SubControlDef> = {
+  terminalLength: { label: 'Length', friendly: 'Make the stroke ends longer or shorter', tech: 'Terminal length', lo: 'Short', hi: 'Long' }
+};
 /** Every nested sub-slider, whichever control it belongs to. */
-export const SUBS: Record<SerifSubKey | FillSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS };
+export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 export const FILL_OPTIONS: [Fill, string][] = [['solid', 'Solid'], ['wire', 'Wireframe'], ['pixels', 'Pixels'], ['dots', 'Dots'], ['lines', 'Lines']];
 export const TERMINAL_OPTIONS: [Terminal, string][] = [['flat', 'Flat'], ['round', 'Rounded'], ['sharp', 'Sharp'], ['angled', 'Angled'], ['cut', 'Cut'], ['tapered', 'Tapered']];
@@ -450,6 +454,7 @@ export const TAG_FACE: Record<Mood | Look | Kind, string> = {
 export const firstControl = (cat: CategoryId) =>
   (Object.keys(CONTROLS) as ControlKey[]).find(k => CONTROLS[k].cat === cat) ?? 'weight';
 
-/** The control a key belongs to: serif sub-sliders fold into 'serif', the module size into 'fill'. */
+/** The control a key belongs to: serif sub-sliders fold into 'serif', the module size into 'fill',
+    the stroke end length into 'terminal'. */
 export const controlFor = (key: ActiveKey): ControlKey =>
-  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key as ControlKey;
+  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key as ControlKey;

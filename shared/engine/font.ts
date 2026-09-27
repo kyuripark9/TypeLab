@@ -258,11 +258,105 @@ function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): HalfPla
   return planes;
 }
 
+/* Stroke end length: a terminal grows on along its own curve, then straight on past the curve's
+   end, or draws back along it. Trimming always leaves 40% of the end segment. */
+function arcTable(P: Pt[], n = 48) {
+  const cum = [0];
+  let prev = P[0];
+  for (let i = 1; i <= n; i++) { const q = cubicAt(P, i / n); cum.push(cum[i - 1] + Math.hypot(q.x - prev.x, q.y - prev.y)); prev = q; }
+  const arc = (u: number) => { const f = clamp(u) * n, i = Math.min(n - 1, Math.floor(f)); return lerp(cum[i], cum[i + 1], f - i); };
+  const uAt = (s: number) => {
+    let i = 1;
+    while (i < n && cum[i] < s) i++;
+    const seg = cum[i] - cum[i - 1];
+    return clamp((i - 1 + (seg > 0 ? (s - cum[i - 1]) / seg : 0)) / n);
+  };
+  return { arc, uAt, total: cum[n] };
+}
+
+/** Move the start ('s') or end ('e') of an open centerline by `d` along it (negative trims).
+    Returns the new commands and where that end was and now is, or null if it can't. */
+function stretchEnd(cmds: Cmd[], which: 's' | 'e', d: number, m: Metrics): { cmds: Cmd[]; from: Pt; to: Pt } | null {
+  if (cmds[0]?.[0] !== 'M' || cmds.some((c, i) => i > 0 && (c[0] === 'M' || c[0] === 'Z'))) return null;
+  const i = which === 's' ? 1 : cmds.length - 1, c = cmds[i];
+  if (!c) return null;
+  let cur: Pt = { x: cmds[0][1], y: cmds[0][2] };
+  for (let j = 1; j < i; j++) { const n = cmds[j].length, off = typeof cmds[j][n - 1] === 'number' ? 2 : 3; cur = { x: cmds[j][n - off], y: cmds[j][n - off + 1] }; }
+  const out = cmds.slice();
+  if (c[0] === 'L') {
+    const dx = c[1] - cur.x, dy = c[2] - cur.y, l = Math.hypot(dx, dy);
+    if (l < 1) return null;
+    const nl = Math.max(l * 0.4, l + d), ux = dx / l, uy = dy / l;
+    if (which === 'e') {
+      const to = { x: cur.x + ux * nl, y: cur.y + uy * nl };
+      out[i] = ['L', to.x, to.y, ...c.slice(3)];
+      return { cmds: out, from: { x: c[1], y: c[2] }, to };
+    }
+    const to = { x: c[1] - ux * nl, y: c[2] - uy * nl };
+    out[0] = ['M', to.x, to.y];
+    return { cmds: out, from: cur, to };
+  }
+  let P: Pt[], oi: number;
+  if (c[0] === 'C') { P = [cur, { x: c[1], y: c[2] }, { x: c[3], y: c[4] }, { x: c[5], y: c[6] }]; oi = 7; }
+  else if (c[0] === 'hv' || c[0] === 'vh') {
+    const kk = clamp(m.k * (1 + ((c[1] - cur.x) * (c[2] - cur.y) < 0 ? 0.13 : -0.09) * m.org), 0.3, 0.97);
+    P = quarter(cur.x, cur.y, c[1], c[2], c[0], kk); oi = 3;
+  } else return null;
+  const o = { ...(c[oi] || {}) }, u0 = o.u0 || 0, u1 = o.u1 == null ? 1 : o.u1;
+  const { arc, uAt, total } = arcTable(P), a = arc(u0), b = arc(u1);
+  const next = c.slice(0, oi) as Cmd;
+  next[oi] = o;
+  out[i] = next;
+  if (which === 'e') {
+    const s = Math.max(a + (b - a) * 0.4, b + d), from = cubicAt(P, u1);
+    o.u1 = s < total ? uAt(s) : 1;
+    let to: Pt = cubicAt(P, o.u1);
+    if (s > total) {
+      const t = cubicAt(P, 1);
+      to = { x: t.x + t.tx * (s - total), y: t.y + t.ty * (s - total) };
+      out.push(['L', to.x, to.y, o.w != null ? { w: o.w } : {}]);
+    }
+    return { cmds: out, from, to };
+  }
+  const s = Math.min(b - (b - a) * 0.4, a - d), from = cubicAt(P, u0);
+  o.u0 = s > 0 ? uAt(s) : 0;
+  let to: Pt = cubicAt(P, o.u0);
+  if (s < 0) {
+    const t = cubicAt(P, 0);
+    to = { x: t.x + t.tx * s, y: t.y + t.ty * s };
+    out.splice(0, 1, ['M', to.x, to.y], ['L', t.x, t.y, o.w != null ? { w: o.w } : {}]);
+  }
+  return { cmds: out, from, to };
+}
+
+/** Stretch or trim every styled terminal of a glyph (body width W) by the stroke end length.
+    Tails, hooks and cursive strokes are left to their own controls, and ends with a serif keep theirs.
+    Returns how far the ends now reach past the body on the left and right, to widen it by. */
+function stretchTerminals(b: Builder, m: Metrics, W: number) {
+  const d0 = (m.p.terminalLength - 0.5) * 2 * m.xh * 0.12, grow = { l: 0, r: 0 };
+  if (Math.abs(d0) < 0.01) return grow;
+  const tip = (p: Pt) => b.marks.some(k => (k.type === 'tail' || k.type === 'exit') && Math.hypot(k.x - p.x, k.y - p.y) < 1);
+  for (const st of b.strokes) {
+    if (!st.cmds || st.o.part === 'tail' || st.o.part === 'entry') continue;
+    const o = st.o, d = d0 * (o.scale || 1);
+    for (const which of ['s', 'e'] as const) {
+      const serif = m.serif && !o.scale && !!(which === 's' ? o.serifS : o.serifE);
+      if ((which === 's' ? o.s : o.e) !== 'term' || serif) continue;
+      const r = stretchEnd(st.cmds, which, d, m);
+      if (!r || tip(r.from)) continue;
+      st.cmds = r.cmds;
+      grow.l = Math.max(grow.l, Math.min(0, r.from.x) - r.to.x);
+      grow.r = Math.max(grow.r, r.to.x - Math.max(W, r.from.x));
+    }
+  }
+  return grow;
+}
+
 function buildGlyph(ch: string, m: Metrics): Glyph | null {
   const def = GLYPHS[ch];
   if (!def) return null;
   const b = new Builder(m);
-  const W = def.fn(b, m);
+  const W0 = def.fn(b, m), grow = stretchTerminals(b, m, W0), W = W0 + grow.r;
   const code = ch.charCodeAt(0);
   let ctx = m.ctx;
   if (m.wob > 0) {
@@ -345,7 +439,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   // cursive strokes that reach past the body get most of the room they need, so they
   // touch the neighbouring letter instead of running through it
   const padL = Math.max(0, -b.reachL - m.sb * 1.3), padR = Math.max(0, b.reachR - W - m.sb * 1.3);
-  let lsb = m.sb * def.sb[0] + padL, rsb = m.sb * def.sb[1] + padR, sx = 1;
+  let lsb = m.sb * def.sb[0] + padL + grow.l, rsb = m.sb * def.sb[1] + padR, sx = 1;
   let adv = Math.max(10, lsb + W + rsb);
   const mono = m.p.mono;
   if (mono > 0) {

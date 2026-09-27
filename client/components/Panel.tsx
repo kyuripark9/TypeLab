@@ -4,8 +4,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
 import {
   ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, KIND_SECTIONS, LOOKS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
-  STYLES, SUBS, TAG_FACE, TERMINAL_OPTIONS, controlFor, styleById, styleMatches,
-  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter
+  STYLES, SUBS, TAG_FACE, TERMINAL_OPTIONS, TERMINAL_SUBS, controlFor, styleById, styleMatches,
+  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type TerminalSubKey
 } from '../../shared/content';
 import { isGlyphKey, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
@@ -185,7 +185,7 @@ function scopeTag(inspect: string | null, letter: string | null, own: boolean, k
 function Explainer() {
   const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
   const part = useEditor(s => s.inspect ? s.part : null);
-  const c = CONTROLS[controlFor(active)], sub = SUBS[active as SerifSubKey | FillSubKey];
+  const c = CONTROLS[controlFor(active)], sub = SUBS[active as SerifSubKey | FillSubKey | TerminalSubKey];
   const shapedBy = part && PART_CONTROL[part];
   // while inspecting, the large letter on the stage already shows the part, so drop the diagram
   return (
@@ -291,7 +291,7 @@ function Range({ value, label, onInput, onCommit, onReset }: { value: number; la
 }
 
 function TerminalControl({ parts }: { parts?: string[] }) {
-  const terminal = useParam('terminal'), active = useEditor(s => s.active === 'terminal');
+  const terminal = useParam('terminal'), active = useEditor(s => controlFor(s.active) === 'terminal');
   const c = CONTROLS.terminal;
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="terminal" {...useControlFocus('terminal')}>
@@ -304,6 +304,7 @@ function TerminalControl({ parts }: { parts?: string[] }) {
           </button>
         ))}
       </div>
+      {(Object.keys(TERMINAL_SUBS) as TerminalSubKey[]).map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}
     </div>
   );
 }
