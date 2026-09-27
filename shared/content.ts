@@ -379,6 +379,13 @@ export const STYLES: StyleDef[] = [
       counter: 0.4, aperture: 0.25, classicFuture: 0.9, letterSpacing: 0.12 })
 ];
 
+/* The style page shows solid letters only: styles built on an effect (a fill other than solid ink,
+   stencil gaps or a slice) stay defined, so designs saved from them still open, but get no card. */
+const isSolid = (p: Params) => p.fill === 'solid' && !p.stencil && !p.slice;
+export const PAGE_STYLES = STYLES.filter(s => isSolid(s.params));
+/** Appearance tags that some card on the style page carries. */
+export const PAGE_LOOKS = LOOKS.filter(l => PAGE_STYLES.some(s => s.looks.includes(l.id)));
+
 export const CATEGORIES: { id: CategoryId; label: string }[] = [
   { id: 'style', label: 'Style' },
   { id: 'structure', label: 'Structure' },

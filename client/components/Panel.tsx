@@ -3,8 +3,8 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
 import {
-  ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, KIND_SECTIONS, LOOKS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
-  STYLES, SUBS, TAG_FACE, TERMINAL_OPTIONS, TERMINAL_SUBS, controlFor, styleById, styleMatches,
+  ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
+  SUBS, TAG_FACE, TERMINAL_OPTIONS, TERMINAL_SUBS, controlFor, styleById, styleMatches,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type TerminalSubKey
 } from '../../shared/content';
 import { isGlyphKey, type NumericParam, type Params } from '../../shared/params';
@@ -28,7 +28,7 @@ export function Panel() {
 function StyleFilters() {
   const f: StyleFilter = { moods: useEditor(s => s.moods), looks: useEditor(s => s.looks), kinds: useEditor(s => s.kinds) };
   // each tag's count is what picking it would show, given the other facets
-  const count = (pick: Partial<StyleFilter>) => STYLES.filter(s => styleMatches(s, { ...f, ...pick })).length;
+  const count = (pick: Partial<StyleFilter>) => PAGE_STYLES.filter(s => styleMatches(s, { ...f, ...pick })).length;
   const picked = f.moods.length + f.looks.length + f.kinds.length > 0;
   return (
     <div className="panel-pad filters">
@@ -37,7 +37,7 @@ function StyleFilters() {
         {picked && <button className="btn ghost small" onClick={actions.clearFilters}>Clear</button>}
       </div>
       <ChipFacet id="feeling" label="Feeling" tags={MOODS} picked={f.moods} count={m => count({ moods: [m] })} toggle={actions.toggleMood} />
-      <ChipFacet id="appearance" label="Appearance" tags={LOOKS} picked={f.looks} count={l => count({ looks: [l] })} toggle={actions.toggleLook} />
+      <ChipFacet id="appearance" label="Appearance" tags={PAGE_LOOKS} picked={f.looks} count={l => count({ looks: [l] })} toggle={actions.toggleLook} />
       {KIND_SECTIONS.map(sec => (
         <ChipFacet key={sec.id} id={sec.id} label={sec.label} tags={sec.tags} picked={f.kinds} count={k => count({ kinds: [k] })} toggle={actions.toggleKind} />
       ))}

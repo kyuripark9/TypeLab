@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { STYLE_GROUPS, STYLES, styleMatches, type StyleDef } from '../../shared/content';
+import { PAGE_STYLES, STYLE_GROUPS, styleMatches, type StyleDef } from '../../shared/content';
 import { n1, useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
 import { actions, fontFor, useEditor, type CardView } from '../state/editor';
@@ -105,12 +105,12 @@ function StyleCards() {
   const text = sampleText(useEditor(s => s.custom)), size = useEditor(s => s.size);
   const moods = useEditor(s => s.moods), looks = useEditor(s => s.looks), kinds = useEditor(s => s.kinds);
   const view = useEditor(s => s.view);
-  const shown = STYLES.filter(s => styleMatches(s, { moods, looks, kinds }));
+  const shown = PAGE_STYLES.filter(s => styleMatches(s, { moods, looks, kinds }));
   return (
     <div className="style-cards">
       <div className="cards-head">
         <h1>Start with a style</h1>
-        {shown.length < STYLES.length && <span>{shown.length} of {STYLES.length} styles</span>}
+        {shown.length < PAGE_STYLES.length && <span>{shown.length} of {PAGE_STYLES.length} styles</span>}
       </div>
       {shown.length ? (
         <div className="style-groups">
