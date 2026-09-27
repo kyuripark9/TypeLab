@@ -160,6 +160,18 @@ describe('font engine', () => {
       const low = arm.cmds.filter(c => typeof c[2] === 'number' && c[2] < font.m.xh * 0.5).map(c => c[1] as number);
       assert.ok(low.length && Math.min(...low) > Math.max(...xs(stem)) + font.m.s * 0.2, `r at length ${len}`);
     }
+    // wound round more than once, a curl's tip stays clear of the turn around it, however heavy
+    for (const weight of [0.3, 0.5, 0.75]) {
+      const { e } = C(0, 'j'), font = buildFont({ ...DEFAULTS, weight, glyphs: { j: { terminalCurls: { [e.id!]: 0 } } } });
+      for (const line of font.glyph('j')!.skeleton) {
+        const tip = line[line.length - 1];
+        let arc = 0;
+        for (let k = line.length - 2; k >= 0; k--) {
+          arc += Math.hypot(line[k + 1].x - line[k].x, line[k + 1].y - line[k].y);
+          if (arc > Math.PI * font.m.s * 1.3) assert.ok(Math.hypot(line[k].x - tip.x, line[k].y - tip.y) > font.m.s * 1.5, `j at weight ${weight}`);
+        }
+      }
+    }
     assert.equal(sanitizeParams({ glyphs: { C: { terminalCurls: { '0e': 1.4, x: 0.2 } } } }).glyphs.C.terminalCurls!['0e'], 1);
   });
 

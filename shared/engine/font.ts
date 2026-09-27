@@ -371,10 +371,11 @@ function stretchEnd(cmds: Cmd[], which: 's' | 'e', d: number, m: Metrics): { cmd
    Its length changes as with stretchEnd, and any length past what the curl takes first draws
    the end on along its own path, carrying the curl further out.
    A curl keeps CURL_CLEAR of the stroke width clear of the rest of the letter (centerline to
-   centerline), and its tip clear of its own earlier turns. Where it would run into another
-   stroke it draws the end on first, up to CURL_LEAD x-heights, winds less and smaller, or, when the length drawn on first is what runs
-   into the letter, gives some of that up, whichever changes it least (see CURL_TRIES). */
-const CURL_REACH = 0.45, CURL_TURNS = 1.25, CURL_LONGEST = 2.2, CURL_TIGHT = 0.7, CURL_CLEAR = 1.6, CURL_GAP = 1.35;
+   centerline), and CURL_GAP clear of its own earlier turns and of the rest of its own stroke,
+   bar where it leaves it. Where it would run into another stroke it draws the end on first, up
+   to CURL_LEAD x-heights, winds less and smaller, or, when the length drawn on first is what
+   runs into the letter, gives some of that up, whichever changes it least (see CURL_TRIES). */
+const CURL_REACH = 0.45, CURL_TURNS = 1.25, CURL_LONGEST = 2.2, CURL_TIGHT = 0.9, CURL_CLEAR = 1.6, CURL_GAP = 1.5;
 /** How much of the lower half of Curl a curved end takes to straighten. */
 const CURL_UNBEND = 0.3;
 /** The ways a crowded curl can give way, as [how much further on it starts, in x-heights; its
@@ -434,27 +435,35 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
     for (let k = 1; k <= M; k++) { const t = angle(h * (k - 0.5)), p = pts[k - 1]; pts.push({ x: p.x + Math.cos(t) * h, y: p.y + Math.sin(t) * h }); }
     return { angle, pts, h };
   };
-  // the rest of the letter on a grid, each point with how near the curl may come: CURL_CLEAR,
-  // or less where the end as drawn already comes nearer (where it leaves the stroke, or across a
-  // narrow opening)
+  // how near the curl may come to a point: `most`, or less where the end as drawn already comes
+  // nearer (across a narrow opening, say)
+  const nOwn = Math.ceil(S0 / m.s * 5), own = Array.from({ length: nOwn + 1 }, (_, k) => at(S0 * k / nOwn));
+  const room = (q: Pt, most: number) => Math.min(most, 0.85 * Math.min(...own.map(p => Math.hypot(p.x - q.x, p.y - q.y))));
+  // the rest of the letter, on a grid
   const clear = m.s * CURL_CLEAR, key = (x: number, y: number) => Math.floor(x / clear) * 65536 + Math.floor(y / clear);
-  const nOwn = Math.ceil(S0 / clear * 3), own = Array.from({ length: nOwn + 1 }, (_, k) => at(S0 * k / nOwn));
   const grid = new Map<number, { x: number; y: number; r: number }[]>();
   for (const q of crowd()) {
-    const r = Math.min(clear, 0.85 * Math.min(...own.map(p => Math.hypot(p.x - q.x, p.y - q.y))));
+    const r = room(q, clear);
     if (r < m.s * 0.5) continue;
     const k = key(q.x, q.y), g = { x: q.x, y: q.y, r };
     grid.get(k)?.push(g) ?? grid.set(k, [g]);
   }
-  // two points of the curl itself touch if they are nearer than this but further apart along it
-  // than any bend can bring them
-  const self = m.s * 1.3, apart = Math.PI * self;
+  // two points along the stroke touch if they are nearer than `gap` but further apart along it
+  // than any bend can bring them. The rest of the stroke, each point with how far back from J it
+  // lies along it
+  const gap = m.s * CURL_GAP, apart = Math.PI * gap, line = centerPoints(cmds, m, m.s * 0.5);
+  if (which === 's') line.reverse();
+  const arcs = line.map((q, k) => k ? Math.hypot(q.x - line[k - 1].x, q.y - line[k - 1].y) : 0);
+  for (let k = 1; k < arcs.length; k++) arcs[k] += arcs[k - 1];
+  const upTo = arcs[arcs.length - 1] - S0;
+  const before = line.flatMap((q, k) => arcs[k] < upTo ? [{ x: q.x, y: q.y, back: upTo - arcs[k], r: room(q, gap) }] : []);
   const hits = (pts: Pt[], h: number, most = Infinity) => {
     let n = 0;
     for (let k = 2; k <= M && n < most; k += 2) {
       const p = pts[k];
       let own = false;
-      for (let j = 0; !own && (k - j) * h > apart; j += 2) own = Math.hypot(p.x - pts[j].x, p.y - pts[j].y) < self;
+      for (let j = 0; !own && (k - j) * h > apart; j += 2) own = Math.hypot(p.x - pts[j].x, p.y - pts[j].y) < gap;
+      for (const q of before) if (!own && k * h + q.back > apart) own = Math.hypot(p.x - q.x, p.y - q.y) < q.r;
       if (own) { n++; continue; }
       near: for (const dx of [-clear, 0, clear]) for (const dy of [-clear, 0, clear]) {
         for (const q of grid.get(key(p.x + dx, p.y + dy)) ?? []) if (Math.hypot(p.x - q.x, p.y - q.y) < q.r) { n++; break near; }
@@ -523,7 +532,7 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
       const d = endReach(endLength(m.p, id, own || !!tip)) * m.xh * (o.scale || 1), curl = endCurl(m.p, id);
       if (Math.abs(d) < 0.01 && curl === 0.5) continue;
       const r = shapeEnd(st.cmds, which, d, curl, m, mid ??= middle(),
-        () => b.strokes.flatMap(t => t.cmds ? centerPoints(t.cmds, m, m.s * 0.5) : t.poly ?? []));
+        () => b.strokes.flatMap((t, ti) => ti === si ? [] : t.cmds ? centerPoints(t.cmds, m, m.s * 0.5) : t.poly ?? []));
       if (!r) continue;
       st.cmds = r.cmds;
       if (tip) { tip.x = r.to.x; tip.y = r.to.y; }
