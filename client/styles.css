@@ -369,6 +369,9 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 /* ---------- library */
 .library { min-height: 100vh; display: flex; flex-direction: column; }
 .library .top { position: sticky; top: 0; z-index: 5; height: 56px; }
+.library .top .btn.primary { height: 38px; padding: 0 18px; font-size: 14px; font-weight: 600; background: var(--accent-ink); box-shadow: 0 1px 2px rgba(52, 100, 196, .25), 0 2px 8px rgba(77, 128, 230, .25); }
+.library .top .btn.primary:hover { background: #2b53a6; }
+.library .top .btn.primary svg { stroke-width: 2.2; }
 .lib-main { width: 100%; max-width: 1240px; margin: 0 auto; padding: 32px 32px 64px; }
 .lib-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
 .lib-head h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -.02em; }
