@@ -48,11 +48,12 @@ type Tag = Mood | Look | Kind;
 /** Chips a long facet shows before "Show more". Picked chips always stay visible. */
 const FACET_LIMIT = 8;
 
-/** One section of tag chips; a long one folds down to its first few until expanded. */
+/** One section of tag chips. Its heading opens and closes it; a long one also folds down to its first few until expanded. */
 function ChipFacet<T extends Tag>({ id, label, tags, picked, count, toggle }: {
   id: string; label: string; tags: { id: T; label: string; hint?: string }[]; picked: T[];
   count: (tag: T) => number; toggle: (tag: T) => void;
 }) {
+  const [closed, setClosed] = useState(false);
   const [open, setOpen] = useState(false);
   // folding away just one or two chips saves no room, so only long sections fold
   const folds = tags.length > FACET_LIMIT + 2;
@@ -60,24 +61,33 @@ function ChipFacet<T extends Tag>({ id, label, tags, picked, count, toggle }: {
   const more = tags.length - shown.length;
   return (
     <div className="facet" role="group" aria-labelledby={`f-${id}`}>
-      <div className="facet-head">
-        <div className="facet-label" id={`f-${id}`}>{label}</div>
-        {(open || more > 0) && (
-          <button className="facet-more" aria-expanded={open} aria-controls={`c-${id}`} onClick={() => setOpen(!open)}>
-            {open ? 'Show less' : `Show ${more} more`}
-          </button>
+      <button className="facet-head" aria-expanded={!closed} aria-controls={`c-${id}`} onClick={() => setClosed(!closed)}>
+        <span className="facet-label" id={`f-${id}`}>{label}</span>
+        {/* a closed section still says how many of its tags are picked */}
+        {closed && picked.some(t => tags.some(x => x.id === t)) && (
+          <span className="facet-picked">{tags.filter(x => picked.includes(x.id)).length}</span>
         )}
-      </div>
-      <div className="chips" id={`c-${id}`}>
-        {shown.map(({ id: tag, label, hint }) => {
-          const on = picked.includes(tag), n = count(tag);
-          return (
-            <button key={tag} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} disabled={!n && !on} onClick={() => toggle(tag)}>
-              <TagText tag={tag} label={label} /><span className="count">{n}</span>
+        <svg className="facet-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5" /></svg>
+      </button>
+      {!closed && (
+        <div className="facet-body" id={`c-${id}`}>
+          <div className="chips">
+            {shown.map(({ id: tag, label, hint }) => {
+              const on = picked.includes(tag), n = count(tag);
+              return (
+                <button key={tag} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} disabled={!n && !on} onClick={() => toggle(tag)}>
+                  <TagText tag={tag} label={label} /><span className="count">{n}</span>
+                </button>
+              );
+            })}
+          </div>
+          {(open || more > 0) && (
+            <button className="facet-more" aria-expanded={open} onClick={() => setOpen(!open)}>
+              {open ? 'Show less' : `Show ${more} more`}
             </button>
-          );
-        })}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

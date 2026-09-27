@@ -125,9 +125,14 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .chip.on .count { color: inherit; opacity: .7; }
 .chip:disabled { opacity: .35; cursor: default; }
 .chip:disabled:hover { border-color: var(--line-2); }
-.facet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-.facet-head .facet-label { margin-bottom: 0; }
-.facet-more { font-size: 12px; font-weight: 500; color: var(--ink-3); transition: color .15s; }
+.facet-head { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; color: var(--ink-3); transition: color .15s; }
+.facet-head:hover { color: var(--ink); }
+.facet-head .facet-label { margin-bottom: 0; color: inherit; }
+.facet-picked { min-width: 16px; padding: 0 5px; border-radius: 100px; background: var(--sabi); color: #fff; font-size: 10.5px; font-weight: 600; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+.facet-chevron { margin-left: auto; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
+.facet-head[aria-expanded=false] .facet-chevron { transform: rotate(180deg); }
+.facet-body { margin-top: 8px; }
+.facet-more { margin-top: 10px; font-size: 12px; font-weight: 500; color: var(--ink-3); transition: color .15s; }
 .facet-more:hover { color: var(--ink); }
 
 .explainer { position: sticky; top: 0; z-index: 2; background: var(--surface); border-bottom: 1px solid var(--line); }
@@ -216,7 +221,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .inspector { position: absolute; inset: 0; background: var(--surface); display: flex; flex-direction: column; z-index: 5; animation: fade .15s ease; }
 @keyframes fade { from { opacity: 0; } }
 .insp-head { display: flex; align-items: center; gap: 10px; padding: 10px 24px; border-bottom: 1px solid var(--line); }
-.insp-title { display: flex; align-items: baseline; gap: 8px; min-width: 150px; justify-content: center; }
+.insp-title { display: flex; align-items: baseline; gap: 8px; min-width: 28px; justify-content: center; }
 .insp-title h2 { margin: 0; font-size: 20px; font-weight: 600; }
 .insp-title span { color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; }
 .grow { flex: 1; }
