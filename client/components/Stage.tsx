@@ -103,9 +103,9 @@ function SampleText() {
 /** Cards are grouped by type (Sans Serif > Geometric, …) and narrowed by the panel's filters. */
 function StyleCards() {
   const text = sampleText(useEditor(s => s.custom)), size = useEditor(s => s.size);
-  const groups = useEditor(s => s.groups), moods = useEditor(s => s.moods), looks = useEditor(s => s.looks), weights = useEditor(s => s.weights);
+  const moods = useEditor(s => s.moods), looks = useEditor(s => s.looks), kinds = useEditor(s => s.kinds);
   const view = useEditor(s => s.view);
-  const shown = STYLES.filter(s => styleMatches(s, { groups, moods, looks, weights }));
+  const shown = STYLES.filter(s => styleMatches(s, { moods, looks, kinds }));
   return (
     <div className="style-cards">
       <div className="cards-head">

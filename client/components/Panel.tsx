@@ -3,10 +3,9 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent } from 'react';
 import {
-  ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, LOOKS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS, STYLE_GROUPS, STYLES, SUBS,
-  TAG_FACE, TERMINAL_OPTIONS, WEIGHTS, controlFor, styleById, styleMatches,
-  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Look, type Mood, type SerifSubKey, type StyleFilter, type StyleGroup,
-  type Weight
+  ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, KIND_SECTIONS, LOOKS, MOODS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
+  STYLES, SUBS, TAG_FACE, TERMINAL_OPTIONS, controlFor, styleById, styleMatches,
+  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter
 } from '../../shared/content';
 import type { NumericParam } from '../../shared/params';
 import { n1 } from '../lib/hooks';
@@ -23,50 +22,41 @@ export function Panel() {
   );
 }
 
-/** Style page: filter the starting styles by type, weight, mood and look, like the Google Fonts filters. */
+/** Style page: filter the starting styles by tag, in the sections of the Google Fonts filters. */
 function StyleFilters() {
-  const f: StyleFilter = {
-    groups: useEditor(s => s.groups), moods: useEditor(s => s.moods), looks: useEditor(s => s.looks), weights: useEditor(s => s.weights)
-  };
-  // each option's count is what picking it would show, given the other facets
+  const f: StyleFilter = { moods: useEditor(s => s.moods), looks: useEditor(s => s.looks), kinds: useEditor(s => s.kinds) };
+  // each tag's count is what picking it would show, given the other facets
   const count = (pick: Partial<StyleFilter>) => STYLES.filter(s => styleMatches(s, { ...f, ...pick })).length;
-  const picked = f.groups.length + f.moods.length + f.looks.length + f.weights.length > 0;
+  const picked = f.moods.length + f.looks.length + f.kinds.length > 0;
   return (
     <div className="panel-pad filters">
       <div className="filters-head">
         <h2 className="panel-title">Filters</h2>
         {picked && <button className="btn ghost small" onClick={actions.clearFilters}>Clear</button>}
       </div>
-      <div className="facet" role="group" aria-labelledby="f-type">
-        <div className="facet-label" id="f-type">Type</div>
-        {STYLE_GROUPS.map(g => (
-          <label key={g.id} className="facet-row" title={g.hint}>
-            <input type="checkbox" checked={f.groups.includes(g.id)} onChange={() => actions.toggleGroup(g.id)} />
-            <TagText tag={g.id} label={g.label} />
-            <span className="count">{count({ groups: [g.id] })}</span>
-          </label>
-        ))}
-      </div>
-      <ChipFacet id="weight" label="Weight" tags={WEIGHTS} picked={f.weights} count={w => count({ weights: [w] })} toggle={actions.toggleWeight} />
-      <ChipFacet id="mood" label="Mood" tags={MOOD_TAGS} picked={f.moods} count={m => count({ moods: [m] })} toggle={actions.toggleMood} />
-      <ChipFacet id="look" label="Look" tags={LOOKS} picked={f.looks} count={l => count({ looks: [l] })} toggle={actions.toggleLook} />
+      <ChipFacet id="feeling" label="Feeling" tags={MOODS} picked={f.moods} count={m => count({ moods: [m] })} toggle={actions.toggleMood} />
+      <ChipFacet id="appearance" label="Appearance" tags={LOOKS} picked={f.looks} count={l => count({ looks: [l] })} toggle={actions.toggleLook} />
+      {KIND_SECTIONS.map(sec => (
+        <ChipFacet key={sec.id} id={sec.id} label={sec.label} tags={sec.tags} picked={f.kinds} count={k => count({ kinds: [k] })} toggle={actions.toggleKind} />
+      ))}
     </div>
   );
 }
 
-type Tag = StyleGroup | Mood | Look | Weight;
-const MOOD_TAGS = MOODS.map(([id, label]) => ({ id, label }));
+type Tag = Mood | Look | Kind;
 
-/** Chips a facet shows before "Show more". Picked chips always stay visible. */
+/** Chips a long facet shows before "Show more". Picked chips always stay visible. */
 const FACET_LIMIT = 8;
 
-/** One facet of chips; a long one folds down to its first few until expanded. */
+/** One section of tag chips; a long one folds down to its first few until expanded. */
 function ChipFacet<T extends Tag>({ id, label, tags, picked, count, toggle }: {
   id: string; label: string; tags: { id: T; label: string; hint?: string }[]; picked: T[];
   count: (tag: T) => number; toggle: (tag: T) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const shown = open ? tags : tags.filter((t, i) => i < FACET_LIMIT || picked.includes(t.id));
+  // folding away just one or two chips saves no room, so only long sections fold
+  const folds = tags.length > FACET_LIMIT + 2;
+  const shown = open || !folds ? tags : tags.filter((t, i) => i < FACET_LIMIT || picked.includes(t.id));
   const more = tags.length - shown.length;
   return (
     <div className="facet" role="group" aria-labelledby={`f-${id}`}>

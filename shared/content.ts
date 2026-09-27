@@ -35,9 +35,9 @@ export interface ControlDef {
 }
 export interface SubControlDef { label: string; friendly: string; tech: string; lo: string; hi: string }
 
-/* Starting styles are browsed like the tag filters on Google Fonts: each style sits in one
-   type group (Google's Sans Serif, Serif, Slab, Calligraphy and Appearance tags) and carries a few
-   moods (Google's Feeling tags). Group names are plainer than Google's where that helps. */
+/* Starting styles are browsed like the tag filters on Google Fonts, in five sections: Feeling,
+   Appearance, then the classification tags of Calligraphy, Serif and Sans Serif. The group only
+   lays out the cards on the stage; the filters use the tags. */
 export type StyleGroup = 'sans' | 'serif' | 'slab' | 'mono' | 'hand' | 'display';
 export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string }[] = [
   { id: 'sans', label: 'Sans Serif', hint: 'Clean letters with no serifs' },
@@ -49,213 +49,232 @@ export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string }[] = [
 ];
 export type Mood = 'business' | 'calm' | 'sincere' | 'happy' | 'excited' | 'playful' | 'cute' | 'childlike' | 'fancy' | 'sophisticated'
   | 'artistic' | 'innovative' | 'loud' | 'rugged' | 'stiff' | 'vintage' | 'futuristic';
-/* Each style's moods follow the Google Fonts Feeling scores of its reference families. */
-export const MOODS: [Mood, string][] = [
-  ['business', 'Business'], ['calm', 'Calm'], ['sincere', 'Sincere'], ['happy', 'Happy'], ['excited', 'Excited'], ['playful', 'Playful'],
-  ['cute', 'Cute'], ['childlike', 'Childlike'], ['fancy', 'Fancy'], ['sophisticated', 'Sophisticated'], ['artistic', 'Artistic'],
-  ['innovative', 'Innovative'], ['loud', 'Loud'], ['rugged', 'Rugged'], ['stiff', 'Stiff'], ['vintage', 'Vintage'], ['futuristic', 'Futuristic']
-];
+/* Each style's moods follow the Google Fonts Feeling scores of its reference families, listed in Google's order. */
+export const MOODS: { id: Mood; label: string }[] = ([
+  ['business', 'Business'], ['calm', 'Calm'], ['cute', 'Cute'], ['playful', 'Playful'], ['fancy', 'Fancy'], ['stiff', 'Stiff'],
+  ['vintage', 'Vintage'], ['happy', 'Happy'], ['futuristic', 'Futuristic'], ['excited', 'Excited'], ['rugged', 'Rugged'],
+  ['childlike', 'Childlike'], ['loud', 'Loud'], ['artistic', 'Artistic'], ['sophisticated', 'Sophisticated'], ['innovative', 'Innovative'],
+  ['sincere', 'Sincere']
+] as [Mood, string][]).map(([id, label]) => ({ id, label }));
 
-/* A third facet, like Google's Appearance tags: what the letters look like. Unlike groups and
-   moods these are not hand-picked but read off each style's settings, so they stay true as
+/* Appearance, like Google's tags of that name: what the letters look like. Unlike the other
+   tags these are not hand-picked but read off each style's settings, so they stay true as
    styles are tuned. */
-export type Look = 'grid' | 'stencil' | 'outline' | 'squared' | 'faceted' | 'inktrap' | 'rounded' | 'contrast' | 'wide' | 'narrow'
-  | 'slanted' | 'wobbly' | 'tapered' | 'bigx' | 'smallx' | 'singlea';
+export type Look = 'mono' | 'pixel' | 'stencil' | 'outline' | 'techno' | 'inktrap' | 'contrast' | 'wide' | 'narrow';
 export const LOOKS: { id: Look; label: string; hint: string; test: (e: Effective) => boolean }[] = [
-  { id: 'grid', label: 'Pixel & Dot', hint: 'Built from a grid of pixels, dots or lines', test: e => e.fill === 'pixels' || e.fill === 'dots' || e.fill === 'lines' },
-  { id: 'stencil', label: 'Stencil & Cut', hint: 'Letters cut apart by gaps', test: e => e.stencil > 0 || e.slice > 0 },
+  { id: 'mono', label: 'Monospace', hint: 'Every letter takes the same width', test: e => e.mono >= 0.5 },
+  { id: 'pixel', label: 'Pixel', hint: 'Built from a grid of pixels or dots', test: e => e.fill === 'pixels' || e.fill === 'dots' },
+  { id: 'stencil', label: 'Stencil', hint: 'Letters cut apart by gaps', test: e => e.stencil > 0 || e.slice > 0 },
   { id: 'outline', label: 'Outline', hint: 'Drawn as lines, not filled in', test: e => e.fill === 'wire' },
-  { id: 'squared', label: 'Squared', hint: 'Round letters drawn as rounded squares', test: e => e.square >= 0.4 && e.chamfer < 0.2 },
-  { id: 'faceted', label: 'Faceted', hint: 'Straight lines and cut-off corners instead of curves', test: e => e.chamfer >= 0.2 },
+  { id: 'techno', label: 'Techno', hint: 'Squared-off bowls or cut corners instead of curves', test: e => e.fill === 'solid' && (e.square >= 0.5 || e.chamfer >= 0.2) },
   { id: 'inktrap', label: 'Ink Traps', hint: 'Strokes narrow where they meet', test: e => e.joints >= 0.4 },
-  { id: 'rounded', label: 'Rounded', hint: 'Soft corners and stroke endings', test: e => e.roundness >= 0.6 },
   { id: 'contrast', label: 'High Contrast', hint: 'Strong difference between thick and thin', test: e => e.contrast >= 0.5 },
   { id: 'wide', label: 'Wide', hint: 'Stretched out sideways', test: e => e.width >= 0.68 },
-  { id: 'narrow', label: 'Narrow', hint: 'Squeezed tall and thin', test: e => e.width <= 0.35 },
-  { id: 'slanted', label: 'Slanted', hint: 'Leaning forward, like italics', test: e => e.slant >= 0.2 },
-  { id: 'wobbly', label: 'Wobbly', hint: 'Uneven lines, as if drawn by hand', test: e => e.wobble >= 0.3 },
-  { id: 'tapered', label: 'Tapered Ends', hint: 'Strokes thin to a point where they end', test: e => e.terminal === 'tapered' },
-  { id: 'bigx', label: 'Big Lowercase', hint: 'Lowercase letters nearly as tall as capitals', test: e => e.xHeight >= 0.66 },
-  { id: 'smallx', label: 'Small Lowercase', hint: 'Short lowercase under tall capitals', test: e => e.xHeight <= 0.42 },
-  { id: 'singlea', label: 'Single-storey a', hint: 'A lowercase a that is just a round bowl', test: e => e.singleStory }
+  { id: 'narrow', label: 'Narrow', hint: 'Squeezed tall and thin', test: e => e.width <= 0.35 }
 ];
 
-/* Weight is read off the settings too. Unlike looks, every style has exactly one: the first band it fits. */
-export type Weight = 'light' | 'regular' | 'bold' | 'heavy';
-export const WEIGHTS: { id: Weight; label: string; hint: string; test: (e: Effective) => boolean }[] = [
-  { id: 'light', label: 'Light', hint: 'Thin strokes', test: e => e.weight < 0.4 },
-  { id: 'regular', label: 'Regular', hint: 'Everyday reading weight', test: e => e.weight < 0.55 },
-  { id: 'bold', label: 'Bold', hint: 'Thick strokes', test: e => e.weight < 0.7 },
-  { id: 'heavy', label: 'Heavy', hint: 'As black as it gets', test: () => true }
+/* Classification, like Google's Calligraphy, Serif and Sans Serif tags: the genre a style is
+   drawn in. Hand-picked, and a style may carry more than one (a Clarendon is also a Slab).
+   Together they are one facet, so picking Didone and Geometric shows both. */
+export type Kind = 'handwritten' | 'upright' | 'informal' | 'formal' | 'brush' | 'marker'
+  | 'oldstyle' | 'transitional' | 'didone' | 'fatface' | 'wedge' | 'slab' | 'clarendon'
+  | 'geometric' | 'neogrotesque' | 'grotesque' | 'humanist' | 'rounded' | 'superellipse' | 'flared';
+type TagDef<T> = { id: T; label: string; hint: string };
+export const KIND_SECTIONS: { id: string; label: string; tags: TagDef<Kind>[] }[] = [
+  { id: 'calligraphy', label: 'Calligraphy', tags: [
+    { id: 'handwritten', label: 'Handwritten', hint: 'Everyday writing with a pen' },
+    { id: 'upright', label: 'Upright', hint: 'Handwriting that stands up straight' },
+    { id: 'informal', label: 'Informal', hint: 'Loose, lively and slanted' },
+    { id: 'formal', label: 'Formal', hint: 'Elegant, joined-up script' },
+    { id: 'brush', label: 'Brush', hint: 'Painted with a loaded brush' },
+    { id: 'marker', label: 'Marker', hint: 'Thick, even felt-marker lines' }
+  ] },
+  { id: 'serif', label: 'Serif', tags: [
+    { id: 'oldstyle', label: 'Old Style', hint: 'Renaissance book type with angled stress' },
+    { id: 'transitional', label: 'Transitional', hint: 'Crisp serifs and upright stress' },
+    { id: 'didone', label: 'Didone', hint: 'Extreme contrast and hairline serifs' },
+    { id: 'fatface', label: 'Fat Face', hint: 'A Didone as heavy as it goes' },
+    { id: 'wedge', label: 'Wedge', hint: 'Triangular, chisel-cut serifs' },
+    { id: 'slab', label: 'Slab', hint: 'Heavy, block-shaped serifs' },
+    { id: 'clarendon', label: 'Clarendon', hint: 'A slab with soft, bracketed serifs' }
+  ] },
+  { id: 'sans', label: 'Sans Serif', tags: [
+    { id: 'geometric', label: 'Geometric', hint: 'Built from circles and straight lines' },
+    { id: 'neogrotesque', label: 'Neo Grotesque', hint: 'Neutral and even, like Helvetica' },
+    { id: 'grotesque', label: 'Grotesque', hint: 'Early sans serifs, dense and gritty' },
+    { id: 'humanist', label: 'Humanist', hint: 'Shaped like writing with a pen' },
+    { id: 'rounded', label: 'Rounded', hint: 'Soft corners and stroke endings' },
+    { id: 'superellipse', label: 'Superellipse', hint: 'Bowls halfway between a circle and a square' },
+    { id: 'flared', label: 'Flared', hint: 'Strokes swell toward their ends (Google: Glyphic)' }
+  ] }
 ];
 
 export interface StyleDef {
-  id: string; name: string; group: StyleGroup; moods: Mood[]; desc: string;
+  id: string; name: string; group: StyleGroup; kinds: Kind[]; moods: Mood[]; desc: string;
   /** Google Fonts families in the same genre, for reference */
   like: string;
   params: Params;
-  /** read off the params, see LOOKS and WEIGHTS */
+  /** read off the params, see LOOKS */
   looks: Look[];
-  weight: Weight;
 }
 
-const style = (id: string, group: StyleGroup, name: string, moods: Mood[], like: string, desc: string, p: Partial<Params>): StyleDef => {
+const style = (id: string, group: StyleGroup, kinds: Kind[], name: string, moods: Mood[], like: string, desc: string, p: Partial<Params>): StyleDef => {
   const params = { ...DEFAULTS, ...p }, e = resolve(params);
-  return { id, name, group, moods, desc, like, params, looks: LOOKS.filter(l => l.test(e)).map(l => l.id), weight: WEIGHTS.find(w => w.test(e))!.id };
+  return { id, name, group, kinds, moods, desc, like, params, looks: LOOKS.filter(l => l.test(e)).map(l => l.id) };
 };
 
 /* Ids are stored with saved designs, so they never change even when a style is renamed. */
 export const STYLES: StyleDef[] = [
   /* ---- Sans Serif */
-  style('geometric', 'sans', 'Geometric', ['calm', 'business'], 'Poppins, Montserrat, Jost',
+  style('geometric', 'sans', ['geometric'], 'Geometric', ['calm', 'business'], 'Poppins, Montserrat, Jost',
     'Built from circles and straight lines. Neutral, even strokes and pointed peaks.',
     { weight: 0.4, contrast: 0.02, curve: 0, geoHuman: 0.3, apex: 0.12, counter: 0.58, xHeight: 0.46, aperture: 0.45 }),
-  style('grotesque', 'sans', 'Neo Grotesque', ['calm', 'business', 'stiff'], 'Roboto, Inter, Work Sans',
+  style('grotesque', 'sans', ['neogrotesque'], 'Neo Grotesque', ['calm', 'business', 'stiff'], 'Roboto, Inter, Work Sans',
     'The Swiss workhorse. Tall lowercase, tight openings and level stroke endings make it calm, dense and matter-of-fact.',
     { weight: 0.5, contrast: 0.04, curve: 0.12, geoHuman: 0.42, aperture: 0.22, xHeight: 0.62, apex: 0.62, counter: 0.5, letterSpacing: 0.17 }),
-  style('humanist', 'sans', 'Humanist', ['business', 'calm', 'sincere'], 'Open Sans, Source Sans 3, Fira Sans',
+  style('humanist', 'sans', ['humanist'], 'Humanist', ['business', 'calm', 'sincere'], 'Open Sans, Source Sans 3, Fira Sans',
     'Shaped like writing with a pen. Open letterforms, gentle stroke contrast and a human rhythm.',
     { weight: 0.4, contrast: 0.2, curve: 0.65, geoHuman: 0.85, terminal: 'angled', xHeight: 0.52, aperture: 0.75, apex: 0.45, width: 0.46 }),
-  style('condensed', 'sans', 'Condensed', ['loud', 'rugged', 'stiff'], 'Oswald, Bebas Neue, Anton',
+  style('condensed', 'sans', ['grotesque'], 'Condensed', ['loud', 'rugged', 'stiff'], 'Oswald, Bebas Neue, Anton',
     'Tall, narrow and squared-off. Fits long headlines into tight columns without losing punch.',
     { weight: 0.54, width: 0.18, height: 0.7, xHeight: 0.64, contrast: 0.06, aperture: 0.3, classicFuture: 0.6, apex: 0.7, counter: 0.45, letterSpacing: 0.24 }),
-  style('soft', 'sans', 'Rounded', ['calm', 'happy', 'cute'], 'Nunito, Varela Round, Quicksand',
+  style('soft', 'sans', ['rounded'], 'Rounded', ['calm', 'happy', 'cute'], 'Nunito, Varela Round, Quicksand',
     'Every corner and stroke ending is rounded. Low contrast, generous counters, easy-going.',
     { weight: 0.52, contrast: 0, roundness: 1, terminal: 'round', xHeight: 0.6, counter: 0.6, softSharp: 0.35, playfulFormal: 0.38, geoHuman: 0.4, apex: 0.5 }),
-  style('extended', 'sans', 'Squared', ['futuristic'], 'Michroma, Oxanium, Rajdhani',
+  style('extended', 'sans', ['superellipse'], 'Squared', ['futuristic'], 'Michroma, Oxanium, Rajdhani',
     'Round letters drawn as squarish ovals, somewhere between a circle and a rectangle. Wide, stable and technical.',
     { weight: 0.46, width: 0.72, contrast: 0.02, classicFuture: 0.82, xHeight: 0.5, apex: 0.75, counter: 0.52, letterSpacing: 0.26 }),
-  style('tightgeo', 'sans', 'Tight Geometric', ['loud', 'sophisticated'], 'Outfit, Urbanist, Lexend',
+  style('tightgeo', 'sans', ['geometric'], 'Tight Geometric', ['loud', 'sophisticated'], 'Outfit, Urbanist, Lexend',
     'A 70s logotype sans after Herb Lubalin: perfect circles, a single-storey a, towering ascenders and letters packed so close they nearly touch.',
     { weight: 0.66, contrast: 0.02, curve: 0, geoHuman: 0.1, apex: 0.1, counter: 0.72, xHeight: 0.64, extenders: 1, aperture: 0.35,
       letterSpacing: 0.04, width: 0.55 }),
-  style('squircle', 'sans', 'Superellipse', ['futuristic', 'calm', 'innovative'], 'Unbounded, Syne, Lexend Zetta',
+  style('squircle', 'sans', ['superellipse'], 'Superellipse', ['futuristic', 'calm', 'innovative'], 'Unbounded, Syne, Lexend Zetta',
     'Every bowl is a squircle, halfway between a circle and a square, and the strokes pinch in where they meet. Soft but engineered.',
     { weight: 0.5, width: 0.64, contrast: 0.04, squareness: 0.62, joints: 0.55, curve: 0, geoHuman: 0.35, apex: 0.7, xHeight: 0.56,
       counter: 0.56, letterSpacing: 0.22 }),
-  style('inktrap', 'sans', 'Ink Trap', ['loud', 'artistic', 'innovative'], 'Bricolage Grotesque, Syne, Darker Grotesque',
+  style('inktrap', 'sans', ['grotesque'], 'Ink Trap', ['loud', 'artistic', 'innovative'], 'Bricolage Grotesque, Syne, Darker Grotesque',
     'A heavy display grotesque with deep ink traps: strokes narrow sharply where they branch, so the black letters stay open.',
     { weight: 0.72, width: 0.58, contrast: 0.35, squareness: 0.45, joints: 1, curve: 0.1, geoHuman: 0.4, apex: 0.6, xHeight: 0.6,
       aperture: 0.3, counter: 0.44, letterSpacing: 0.16 }),
-  style('flared', 'sans', 'Flared', ['sophisticated', 'vintage'], 'Marcellus, Julius Sans One, Philosopher',
+  style('flared', 'sans', ['flared'], 'Flared', ['sophisticated', 'vintage'], 'Marcellus, Julius Sans One, Philosopher',
     'A sans serif carved like stone lettering: strokes swell toward their ends and thin in the middle, with no serifs.',
     { weight: 0.38, contrast: 0.42, terminal: 'tapered', curve: 0.4, geoHuman: 0.65, classicFuture: 0.38, xHeight: 0.46, aperture: 0.6, apex: 0.3, width: 0.48 }),
 
   /* ---- Serif */
-  style('oldstyle', 'serif', 'Old Style', ['business', 'vintage', 'sophisticated', 'sincere'], 'EB Garamond, Cormorant Garamond, Crimson Pro',
+  style('oldstyle', 'serif', ['oldstyle'], 'Old Style', ['business', 'vintage', 'sophisticated', 'sincere'], 'EB Garamond, Cormorant Garamond, Crimson Pro',
     'Renaissance book type. Angled stress, sloped serifs, a small x-height and open, calligraphic curves.',
     { weight: 0.36, width: 0.46, contrast: 0.42, serif: true, serifShape: 'bracketed', serifSize: 0.4, serifThickness: 0.2, serifAngle: 0.75,
       terminal: 'tapered', curve: 0.7, geoHuman: 0.8, classicFuture: 0.15, xHeight: 0.45, aperture: 0.7, apex: 0.2 }),
-  style('serif', 'serif', 'Transitional', ['business', 'calm', 'sincere'], 'Libre Baskerville, Source Serif 4, Lora',
+  style('serif', 'serif', ['transitional'], 'Transitional', ['business', 'calm', 'sincere'], 'Libre Baskerville, Source Serif 4, Lora',
     'Crisp serifs, clear thick-and-thin strokes and upright stress. Made for headlines and long reads alike.',
     { weight: 0.43, contrast: 0.55, serif: true, serifShape: 'bracketed', serifSize: 0.42, serifThickness: 0.22, serifAngle: 0.15,
       terminal: 'tapered', classicFuture: 0.3, curve: 0.45, xHeight: 0.5, apex: 0.3, letterSpacing: 0.22 }),
-  style('didone', 'serif', 'Didone', ['fancy', 'sophisticated', 'vintage'], 'Playfair Display, Bodoni Moda, Prata',
+  style('didone', 'serif', ['didone'], 'Didone', ['fancy', 'sophisticated', 'vintage'], 'Playfair Display, Bodoni Moda, Prata',
     'Extreme contrast: heavy upright stems against hairline serifs and ball-shaped endings. Built for magazine covers.',
     { weight: 0.5, contrast: 0.88, serif: true, serifShape: 'unbracketed', serifSize: 0.45, serifThickness: 0.12, serifAngle: 0,
       terminal: 'round', curve: 0, geoHuman: 0.4, classicFuture: 0.4, aperture: 0.3, xHeight: 0.5, apex: 0.1 }),
-  style('fatface', 'serif', 'Fat Face', ['loud', 'vintage', 'rugged'], 'Abril Fatface, Rozha One, Ultra',
+  style('fatface', 'serif', ['fatface', 'didone'], 'Fat Face', ['loud', 'vintage', 'rugged'], 'Abril Fatface, Rozha One, Ultra',
     'A Didone pushed to the limit: stems as heavy as they go, hairlines as thin as they go, tiny counters.',
     { weight: 0.78, width: 0.62, contrast: 0.82, serif: true, serifShape: 'unbracketed', serifSize: 0.3, serifThickness: 0.2, serifAngle: 0,
       terminal: 'round', curve: 0.05, xHeight: 0.5, aperture: 0.28, counter: 0.42, letterSpacing: 0.2 }),
-  style('wedge', 'serif', 'Wedge Serif', ['vintage', 'fancy'], 'Cinzel, Forum, Marcellus SC',
+  style('wedge', 'serif', ['wedge'], 'Wedge Serif', ['vintage', 'fancy'], 'Cinzel, Forum, Marcellus SC',
     'Triangular, chisel-cut serifs and pointed peaks. Feels engraved, heroic and a little mythic.',
     { weight: 0.46, contrast: 0.35, serif: true, serifShape: 'wedge', serifSize: 0.5, serifThickness: 0.45, serifAngle: 0.3,
       terminal: 'sharp', softSharp: 0.8, apex: 0.05, classicFuture: 0.35, xHeight: 0.5, curve: 0.35 }),
 
   /* ---- Slab Serif */
-  style('slab', 'slab', 'Geometric Slab', ['rugged', 'loud'], 'Roboto Slab, Arvo, Rokkitt',
+  style('slab', 'slab', ['slab'], 'Geometric Slab', ['rugged', 'loud'], 'Roboto Slab, Arvo, Rokkitt',
     'Block-shaped serifs as thick as the stems, even strokes and round, geometric bowls. Confident and hard-wearing.',
     { weight: 0.46, contrast: 0.03, serif: true, serifShape: 'slab', serifSize: 0.3, serifThickness: 0.45, serifAngle: 0,
       curve: 0.05, geoHuman: 0.4, xHeight: 0.55, apex: 0.5, counter: 0.55, letterSpacing: 0.26 }),
-  style('clarendon', 'slab', 'Clarendon', ['business', 'rugged', 'vintage', 'sincere'], 'Crete Round, Zilla Slab, Besley',
+  style('clarendon', 'slab', ['clarendon', 'slab'], 'Clarendon', ['business', 'rugged', 'vintage', 'sincere'], 'Crete Round, Zilla Slab, Besley',
     'A friendlier slab: the serifs flow into the stems through soft brackets, with some contrast and ball-like endings.',
     { weight: 0.55, contrast: 0.32, serif: true, serifShape: 'bracketed', serifSize: 0.32, serifThickness: 0.62, serifAngle: 0,
       terminal: 'round', roundness: 0.35, curve: 0.45, xHeight: 0.58, aperture: 0.4, counter: 0.5, letterSpacing: 0.24 }),
 
   /* ---- Monospace */
-  style('typewriter', 'mono', 'Typewriter', ['vintage', 'sincere'], 'Courier Prime, Cutive Mono, Special Elite',
+  style('typewriter', 'mono', ['slab'], 'Typewriter', ['vintage', 'sincere'], 'Courier Prime, Cutive Mono, Special Elite',
     'Every letter the same width, with soft slab serifs and slightly uneven ink, like keys struck through a ribbon.',
     { weight: 0.3, contrast: 0, serif: true, serifShape: 'slab', serifSize: 0.55, serifThickness: 0.3, serifAngle: 0, mono: 1, wobble: 0.15,
       roundness: 0.7, terminal: 'round', curve: 0.3, xHeight: 0.52, letterSpacing: 0.2, wordSpacing: 0.35 }),
-  style('squaremono', 'mono', 'Square Mono', ['futuristic', 'stiff'], 'Major Mono Display, Syne Mono, Space Mono',
+  style('squaremono', 'mono', [], 'Square Mono', ['futuristic', 'stiff'], 'Major Mono Display, Syne Mono, Space Mono',
     'A wide monospace with square bowls and square dots. Reads like numbers on a train departure board.',
     { weight: 0.42, width: 0.68, contrast: 0.02, mono: 1, squareness: 1, curve: 0, geoHuman: 0.3, xHeight: 0.62, apex: 0.9,
       aperture: 0.35, letterSpacing: 0.22, terminal: 'cut' }),
-  style('code', 'mono', 'Code', ['calm', 'futuristic', 'stiff'], 'IBM Plex Mono, Space Mono, Ubuntu Mono',
+  style('code', 'mono', [], 'Code', ['calm', 'futuristic', 'stiff'], 'IBM Plex Mono, Space Mono, Ubuntu Mono',
     'A code-editor face: one width for every character, a tall x-height and plain, open shapes that keep 0, O, l and 1 apart.',
     { weight: 0.42, contrast: 0.02, mono: 1, curve: 0.15, geoHuman: 0.45, xHeight: 0.6, aperture: 0.5, apex: 0.6, classicFuture: 0.6, letterSpacing: 0.2 }),
 
   /* ---- Handwriting */
-  style('casual', 'hand', 'Casual Handwriting', ['happy', 'playful', 'childlike'], 'Caveat, Indie Flower, Shadows Into Light',
+  style('casual', 'hand', ['handwritten', 'informal'], 'Casual Handwriting', ['happy', 'playful', 'childlike'], 'Caveat, Indie Flower, Shadows Into Light',
     'Quick everyday handwriting with a felt pen: narrow, a little slanted, letters that half-join and never sit quite still.',
     { weight: 0.28, width: 0.34, height: 0.62, slant: 0.25, contrast: 0, roundness: 1, terminal: 'round', wobble: 0.9, cursive: 0.45,
       xHeight: 0.3, curve: 0.7, geoHuman: 0.8, letterSpacing: 0.12 }),
-  style('upright', 'hand', 'Hand Printed', ['childlike', 'happy', 'cute', 'sincere'], 'Patrick Hand, Gochi Hand, Mansalva',
+  style('upright', 'hand', ['handwritten', 'upright'], 'Hand Printed', ['childlike', 'happy', 'cute', 'sincere'], 'Patrick Hand, Gochi Hand, Mansalva',
     'Printed by hand, letter by letter. Upright and friendly, with round pen ends and wobbly lines.',
     { weight: 0.38, width: 0.45, contrast: 0, roundness: 1, terminal: 'round', wobble: 0.75, cursive: 0.12,
       xHeight: 0.55, curve: 0.6, geoHuman: 0.75, playfulFormal: 0.3 }),
-  style('informal', 'hand', 'Retro Script', ['vintage', 'playful', 'artistic', 'excited'], 'Pacifico, Lobster, Yellowtail',
+  style('informal', 'hand', ['informal'], 'Retro Script', ['vintage', 'playful', 'artistic', 'excited'], 'Pacifico, Lobster, Yellowtail',
     'A bold, joined-up script with a retro sign-painter swing: every letter flows into the next.',
     { weight: 0.62, width: 0.45, slant: 0.45, contrast: 0.3, roundness: 0.8, terminal: 'round', wobble: 0.25, cursive: 1,
       xHeight: 0.45, curve: 0.8, geoHuman: 0.8, letterSpacing: 0.02 }),
-  style('chancery', 'hand', 'Formal Script', ['fancy', 'sophisticated'], 'Great Vibes, Tangerine, Pinyon Script',
+  style('chancery', 'hand', ['formal'], 'Formal Script', ['fancy', 'sophisticated'], 'Great Vibes, Tangerine, Pinyon Script',
     'Copperplate elegance: a steep slant, hairline upstrokes, swelling downstrokes and a tiny x-height.',
     { weight: 0.36, width: 0.32, height: 0.75, slant: 1, contrast: 0.8, terminal: 'tapered', cursive: 1,
       xHeight: 0.22, curve: 1, geoHuman: 1, letterSpacing: 0.02 }),
-  style('brush', 'hand', 'Brush', ['artistic', 'loud', 'excited'], 'Kaushan Script, Oregano, Mr Dafoe',
+  style('brush', 'hand', ['brush', 'informal'], 'Brush', ['artistic', 'loud', 'excited'], 'Kaushan Script, Oregano, Mr Dafoe',
     'Fast, heavy strokes from a loaded brush. A strong lean, tapering ends and a rough, lively rhythm.',
     { weight: 0.7, width: 0.4, slant: 0.55, contrast: 0.45, terminal: 'tapered', wobble: 0.7, cursive: 0.55,
       xHeight: 0.5, curve: 0.8, geoHuman: 0.9, letterSpacing: 0.08 }),
-  style('marker', 'hand', 'Marker', ['loud', 'playful', 'rugged', 'excited'], 'Permanent Marker, Rock Salt, Sedgwick Ave',
+  style('marker', 'hand', ['handwritten', 'upright', 'marker'], 'Marker', ['loud', 'playful', 'rugged', 'excited'], 'Permanent Marker, Rock Salt, Sedgwick Ave',
     'Thick, even lines from a felt marker: upright, big and a bit rough, with round, blunt stroke ends.',
     { weight: 0.62, width: 0.5, slant: 0.08, contrast: 0, roundness: 1, terminal: 'round', wobble: 0.55,
       xHeight: 0.68, curve: 0.45, geoHuman: 0.7, counter: 0.45, aperture: 0.45, letterSpacing: 0.16 }),
 
   /* ---- Display */
-  style('woodtype', 'display', 'Wood Type', ['rugged', 'vintage', 'loud'], 'Alfa Slab One, Sancreek, Rye',
+  style('woodtype', 'display', ['slab'], 'Wood Type', ['rugged', 'vintage', 'loud'], 'Alfa Slab One, Sancreek, Rye',
     'Poster letters cut from wood for Wild West handbills: heavy, compact and squared, with chunky slabs.',
     { weight: 0.82, width: 0.36, height: 0.62, contrast: 0.18, serif: true, serifShape: 'slab', serifSize: 0.22, serifThickness: 0.5, serifAngle: 0,
       classicFuture: 0.72, xHeight: 0.66, aperture: 0.3, counter: 0.4, apex: 0.8, letterSpacing: 0.3 }),
-  style('techno', 'display', 'Techno', ['futuristic', 'loud'], 'Orbitron, Zen Dots, Audiowide',
+  style('techno', 'display', ['superellipse'], 'Techno', ['futuristic', 'loud'], 'Orbitron, Zen Dots, Audiowide',
     'Rounded rectangles instead of circles, flat peaks and a huge x-height. Straight out of a control panel.',
     { weight: 0.62, width: 0.85, contrast: 0, classicFuture: 1, xHeight: 0.6, apex: 0.95, terminal: 'cut', softSharp: 0.6, counter: 0.55, letterSpacing: 0.3 }),
-  style('display', 'display', 'Blobby', ['cute', 'happy', 'playful', 'loud', 'excited'], 'Chewy, Sour Gummy, DynaPuff',
+  style('display', 'display', ['rounded'], 'Blobby', ['cute', 'happy', 'playful', 'loud', 'excited'], 'Chewy, Sour Gummy, DynaPuff',
     'Soft, puffy and heavy, like letters squeezed out of a tube. Every letter bounces to its own beat.',
     { weight: 0.74, width: 0.55, contrast: 0, roundness: 1, terminal: 'round', wobble: 0.35, xHeight: 0.66, counter: 0.4,
       aperture: 0.35, softSharp: 0.2, playfulFormal: 0.1, geoHuman: 0.45, apex: 0.7, letterSpacing: 0.24 }),
-  style('pixel', 'display', 'Pixel', ['futuristic', 'playful'], 'Silkscreen, Pixelify Sans, Jersey 10',
+  style('pixel', 'display', [], 'Pixel', ['futuristic', 'playful'], 'Silkscreen, Pixelify Sans, Jersey 10',
     'Rebuilt on a coarse grid of square pixels with softened corners, like an old handheld game screen.',
     { weight: 0.55, width: 0.6, contrast: 0, squareness: 0.8, fill: 'pixels', module: 0.78, roundness: 0.55, apex: 0.9, xHeight: 0.62,
       counter: 0.55, letterSpacing: 0.2, geoHuman: 0.4 }),
-  style('dotmatrix', 'display', 'Dot Matrix', ['futuristic', 'vintage'], 'Doto, DotGothic16, Codystar',
+  style('dotmatrix', 'display', [], 'Dot Matrix', ['futuristic', 'vintage'], 'Doto, DotGothic16, Codystar',
     'Letters printed from a grid of round dots, like a departure board or an old receipt printer. Faceted corners keep it mechanical.',
     { weight: 0.62, width: 0.62, contrast: 0, chamfer: 0.55, fill: 'dots', module: 0.55, apex: 1, xHeight: 0.6, counter: 0.5,
       letterSpacing: 0.22, geoHuman: 0.35 }),
-  style('striped', 'display', 'Striped', ['vintage', 'loud', 'artistic', 'excited'], 'Monoton, Tilt Prism, Bungee Inline',
+  style('striped', 'display', [], 'Striped', ['vintage', 'loud', 'artistic', 'excited'], 'Monoton, Tilt Prism, Bungee Inline',
     'A 70s disco face made from horizontal stripes with rounded ends: the letters appear only where the lines are.',
     { weight: 0.82, width: 0.72, contrast: 0, squareness: 0.35, fill: 'lines', module: 0.45, roundness: 1, xHeight: 0.62, counter: 0.5,
       apex: 0.8, letterSpacing: 0.26 }),
-  style('octagon', 'display', 'Octagonal', ['futuristic', 'rugged', 'stiff'], 'Chakra Petch, Tomorrow, Bai Jamjuree',
+  style('octagon', 'display', [], 'Octagonal', ['futuristic', 'rugged', 'stiff'], 'Chakra Petch, Tomorrow, Bai Jamjuree',
     'Modular letters built on a square grid, after Ben Bos and Wim Crouwel: no curves at all, just straight strokes and cut corners.',
     { weight: 0.74, width: 0.56, contrast: 0, chamfer: 0.62, apex: 1, curve: 0, geoHuman: 0.3, xHeight: 0.62, counter: 0.48,
       aperture: 0.3, letterSpacing: 0.22, terminal: 'flat' }),
-  style('stencil', 'display', 'Stencil', ['rugged', 'loud'], 'Stardos Stencil, Allerta Stencil, Big Shoulders Stencil',
+  style('stencil', 'display', ['geometric'], 'Stencil', ['rugged', 'loud'], 'Stardos Stencil, Allerta Stencil, Big Shoulders Stencil',
     'Geometric letters with gaps cut where the strokes meet, so they could be sprayed through a sheet. Round letters split in two.',
     { weight: 0.62, contrast: 0.02, stencil: 0.45, curve: 0, geoHuman: 0.3, apex: 0.3, counter: 0.58, xHeight: 0.52, letterSpacing: 0.24 }),
-  style('split', 'display', 'Split Line', ['futuristic', 'sophisticated', 'innovative'], 'Syncopate, Michroma, Krona One',
+  style('split', 'display', ['superellipse'], 'Split Line', ['futuristic', 'sophisticated', 'innovative'], 'Syncopate, Michroma, Krona One',
     'Ultra-wide and squared off, with a single hairline cut running through the whole line of text.',
     { weight: 0.72, width: 1, height: 0.4, contrast: 0.02, squareness: 0.85, slice: 0.18, apex: 1, xHeight: 0.66, counter: 0.5,
       aperture: 0.25, letterSpacing: 0.2 }),
-  style('construction', 'display', 'Construction', ['artistic', 'futuristic', 'innovative'], 'Bungee Outline, Train One, Kumar One Outline',
+  style('construction', 'display', ['geometric'], 'Construction', ['artistic', 'futuristic', 'innovative'], 'Bungee Outline, Train One, Kumar One Outline',
     'Drawn as the outline of every stroke, overlaps and all, like a letter still on the drawing board.',
     { weight: 0.6, contrast: 0.02, fill: 'wire', module: 0.35, curve: 0, geoHuman: 0.25, apex: 0.1, counter: 0.62, xHeight: 0.5,
       letterSpacing: 0.3 }),
-  style('reverse', 'display', 'Reverse Contrast', ['futuristic', 'loud', 'artistic', 'innovative'], 'Ewert, Sancreek, Rye',
+  style('reverse', 'display', [], 'Reverse Contrast', ['futuristic', 'loud', 'artistic', 'innovative'], 'Ewert, Sancreek, Rye',
     'Contrast turned on its side: fat horizontals and hairline stems. Wide, strange and made for posters.',
     { weight: 0.55, width: 0.86, contrast: 0.62, reverse: 1, curve: 0, squareness: 0.3, apex: 0.8, xHeight: 0.56, counter: 0.5,
       letterSpacing: 0.26 }),
-  style('hairline', 'display', 'Art Deco', ['vintage', 'sophisticated', 'artistic'], 'Poiret One, Limelight, Federo',
+  style('hairline', 'display', ['geometric'], 'Art Deco', ['vintage', 'sophisticated', 'artistic'], 'Poiret One, Limelight, Federo',
     'Jazz-age glamour: a fine single line, geometric circles, a tiny x-height and crossbars pushed up high.',
     { weight: 0.04, width: 0.6, contrast: 0, curve: 0, geoHuman: 0.25, apex: 0.05, counter: 0.65, xHeight: 0, height: 0.62,
       crossbar: 0.95, letterSpacing: 0.45, wordSpacing: 0.5 })
@@ -406,22 +425,23 @@ export const TEXTS = {
 
 export const styleById = (id: string | null | undefined) => STYLES.find(s => s.id === id);
 /** The picked tags of each facet; an empty list means no filter on that facet. */
-export interface StyleFilter { groups: StyleGroup[]; moods: Mood[]; looks: Look[]; weights: Weight[] }
+export interface StyleFilter { moods: Mood[]; looks: Look[]; kinds: Kind[] }
 /** Faceted like Google Fonts: any of the picked tags within a facet, every facet at once. */
 export const styleMatches = (s: StyleDef, f: StyleFilter) =>
-  (!f.groups.length || f.groups.includes(s.group)) && (!f.moods.length || s.moods.some(m => f.moods.includes(m))) &&
-  (!f.looks.length || s.looks.some(l => f.looks.includes(l))) && (!f.weights.length || f.weights.includes(s.weight));
+  (!f.moods.length || s.moods.some(m => f.moods.includes(m))) && (!f.looks.length || s.looks.some(l => f.looks.includes(l))) &&
+  (!f.kinds.length || s.kinds.some(k => f.kinds.includes(k)));
 
-/** The starting style each filter tag is set in: one that belongs to the group or carries the mood. */
-export const TAG_FACE: Record<StyleGroup | Mood | Look | Weight, string> = {
-  grid: 'pixel', stencil: 'stencil', outline: 'construction', squared: 'squaremono', faceted: 'octagon', inktrap: 'inktrap',
-  rounded: 'soft', contrast: 'didone', wide: 'split', narrow: 'condensed', slanted: 'informal', wobbly: 'upright',
-  tapered: 'flared', bigx: 'techno', smallx: 'oldstyle', singlea: 'geometric',
-  light: 'oldstyle', regular: 'grotesque', bold: 'tightgeo', heavy: 'inktrap',
-  sans: 'grotesque', serif: 'serif', slab: 'slab', mono: 'code', hand: 'casual', display: 'woodtype',
+/** The starting style each filter tag is set in: one that carries the tag. */
+export const TAG_FACE: Record<Mood | Look | Kind, string> = {
   business: 'grotesque', calm: 'humanist', happy: 'soft', playful: 'display', cute: 'upright', childlike: 'casual',
   fancy: 'didone', sophisticated: 'chancery', artistic: 'brush', loud: 'fatface', rugged: 'marker', vintage: 'typewriter',
-  futuristic: 'techno', sincere: 'clarendon', excited: 'marker', innovative: 'squircle', stiff: 'code'
+  futuristic: 'techno', sincere: 'clarendon', excited: 'marker', innovative: 'squircle', stiff: 'code',
+  mono: 'code', pixel: 'pixel', stencil: 'stencil', outline: 'construction', techno: 'techno', inktrap: 'inktrap',
+  contrast: 'didone', wide: 'split', narrow: 'condensed',
+  handwritten: 'casual', upright: 'upright', informal: 'informal', formal: 'chancery', brush: 'brush', marker: 'marker',
+  oldstyle: 'oldstyle', transitional: 'serif', didone: 'didone', fatface: 'fatface', wedge: 'wedge', slab: 'slab', clarendon: 'clarendon',
+  geometric: 'geometric', neogrotesque: 'grotesque', grotesque: 'condensed', humanist: 'humanist', rounded: 'soft',
+  superellipse: 'squircle', flared: 'flared'
 };
 
 /** First control of each category, opened when the category is picked. */
