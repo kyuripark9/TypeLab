@@ -33,6 +33,8 @@ export interface ControlDef {
   type?: 'options' | 'story' | 'serif' | 'fill';
   bipolar?: boolean;
   advanced?: boolean;
+  /** An optional slider: its value where it changes nothing. It gets an on/off switch, and off hides the slider. */
+  off?: number;
 }
 export interface SubControlDef { label: string; friendly: string; tech: string; lo: string; hi: string }
 
@@ -303,32 +305,32 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Leans each letter to the right, like an oblique italic.' },
   contrast: { cat: 'structure', label: 'Contrast', friendly: 'Vary thick and thin strokes', tech: 'Contrast', lo: 'Low', hi: 'High', demo: 'Oe',
     explain: 'Horizontal strokes thin out while verticals stay heavy.' },
-  reverse: { cat: 'structure', label: 'Reverse contrast', friendly: 'Make the horizontal strokes the heavy ones', tech: 'Reverse contrast', lo: 'Normal', hi: 'Reversed', demo: 'HOe',
+  reverse: { cat: 'structure', off: 0, label: 'Reverse contrast', friendly: 'Make the horizontal strokes the heavy ones', tech: 'Reverse contrast', lo: 'Normal', hi: 'Reversed', demo: 'HOe',
     explain: 'Bars go heavy and stems go thin. Stronger with more Contrast.' },
 
   roundness: { cat: 'shape', label: 'Roundness', friendly: 'Make the letters softer or sharper', tech: 'Roundness', lo: 'Sharp', hi: 'Round', demo: 'Ek',
     explain: 'Crisp corners and stroke ends become smooth arcs.' },
   curve: { cat: 'shape', label: 'Curves', friendly: 'Make curves more geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
     explain: 'Compass-drawn circles, or fuller pen-like curves.' },
-  squareness: { cat: 'shape', label: 'Squareness', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',
+  squareness: { cat: 'shape', off: 0, label: 'Squareness', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',
     explain: 'Bowls square off while the corners stay smooth.' },
-  chamfer: { cat: 'shape', label: 'Facets', friendly: 'Cut curves into straight lines and corners', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
+  chamfer: { cat: 'shape', off: 0, label: 'Facets', friendly: 'Cut curves into straight lines and corners', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
     explain: 'Curves become straight lines with cut-off corners.' },
   terminal: { cat: 'shape', type: 'options', label: 'Stroke ends', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
     explain: 'The free tips of strokes, as on C, a, s and r, and how far they reach.' },
   story: { cat: 'shape', type: 'story', label: 'Letter a', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
     explain: 'Two-storey like book type, or one bowl like handwriting.' },
-  overlap: { cat: 'shape', label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
+  overlap: { cat: 'shape', off: 1, label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
     explain: 'Applies to b, d, p, q and the single-storey a.' },
   serif: { cat: 'shape', type: 'serif', label: 'Serifs', friendly: 'Add small feet to the strokes', tech: 'Serifs', demo: 'In',
     explain: 'Small finishing strokes at the ends of stems.' },
   apex: { cat: 'shape', label: 'Peaks', friendly: 'Make peaks pointed or flat', tech: 'Apex', lo: 'Pointed', hi: 'Flat', demo: 'AV',
     explain: 'Where diagonals meet — the top of A, the bottom of V.' },
-  joints: { cat: 'shape', label: 'Ink traps', friendly: 'Thin the strokes where they meet', tech: 'Ink traps · Joints', lo: 'Solid', hi: 'Trapped', demo: 'nab',
+  joints: { cat: 'shape', off: 0, label: 'Ink traps', friendly: 'Thin the strokes where they meet', tech: 'Ink traps · Joints', lo: 'Solid', hi: 'Trapped', demo: 'nab',
     explain: 'Corners are carved out where strokes join.' },
-  cursive: { cat: 'shape', label: 'Cursive', friendly: 'Add strokes that lead into the next letter', tech: 'Cursive · Entry & exit strokes', lo: 'Print', hi: 'Script', demo: 'nigu',
+  cursive: { cat: 'shape', off: 0, label: 'Cursive', friendly: 'Add strokes that lead into the next letter', tech: 'Cursive · Entry & exit strokes', lo: 'Print', hi: 'Script', demo: 'nigu',
     explain: 'Strokes flick on toward the next letter, like script.' },
-  wobble: { cat: 'shape', label: 'Hand-drawn', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
+  wobble: { cat: 'shape', off: 0, label: 'Hand-drawn', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
     explain: 'Strokes drift, swell and sit a little off the line.' },
 
   xHeight: { cat: 'proportion', label: 'Lowercase height', friendly: 'Make lowercase letters taller', tech: 'x-height', lo: 'Small', hi: 'Large', demo: 'Hxn',
@@ -348,7 +350,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'The same gap changes between every pair of letters.' },
   wordSpacing: { cat: 'spacing', label: 'Word spacing', friendly: 'Change the gap between words', tech: 'Word spacing', lo: 'Compact', hi: 'Spacious', demo: 'to be',
     explain: 'Too tight and words merge; too loose and lines fall apart.' },
-  mono: { cat: 'spacing', label: 'Monospace', friendly: 'Give every letter the same width', tech: 'Monospace', lo: 'Proportional', hi: 'Monospaced', demo: 'milk',
+  mono: { cat: 'spacing', off: 0, label: 'Monospace', friendly: 'Give every letter the same width', tech: 'Monospace', lo: 'Proportional', hi: 'Monospaced', demo: 'milk',
     explain: 'Every character takes the same width, like a typewriter.' },
   sideBearing: { cat: 'spacing', advanced: true, label: 'Side margins', friendly: 'Adjust the space around each letter', tech: 'Side bearing', lo: 'Narrow', hi: 'Wide', demo: 'HO',
     explain: 'The small margins built into each letter.' },
@@ -364,9 +366,9 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
 
   fill: { cat: 'effects', type: 'fill', label: 'Fill', friendly: 'Build the letters from something else', tech: 'Fill', demo: 'Rg',
     explain: 'Solid ink, outlines, or a grid of pixels, dots or lines.' },
-  stencil: { cat: 'effects', label: 'Stencil', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
+  stencil: { cat: 'effects', off: 0, label: 'Stencil', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
     explain: 'Strokes break where they join, as if cut from a sheet.' },
-  slice: { cat: 'effects', label: 'Slice', friendly: 'Cut one line through every letter', tech: 'Slice', lo: 'None', hi: 'Wide', demo: 'type',
+  slice: { cat: 'effects', off: 0, label: 'Slice', friendly: 'Cut one line through every letter', tech: 'Slice', lo: 'None', hi: 'Wide', demo: 'type',
     explain: 'One horizontal cut runs across the whole line.' }
 };
 export const SERIF_SUBS: Record<SerifSubKey, SubControlDef> = {

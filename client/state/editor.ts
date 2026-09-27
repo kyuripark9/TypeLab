@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood } from '../../shared/content';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
-import { isGlyphKey, type GlyphParams, type Params } from '../../shared/params';
+import { isGlyphKey, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
 /** What the controls change while a letter is inspected: every letter in sync, or just that one. */
@@ -39,6 +39,8 @@ export interface EditorState extends Doc {
   view: CardView;
   inspect: string | null;
   scope: Scope;
+  /** optional sliders switched on while still at their off value, so they stay open */
+  switchedOn: NumericParam[];
   part: string | null;
   skeleton: boolean;
   exportOpen: boolean;
@@ -57,6 +59,7 @@ function freshDocState(doc: Doc): Partial<EditorState> {
     history: [histSnap(doc.params, doc.styleId)],
     hi: 0,
     inspect: null,
+    switchedOn: [],
     part: null
   };
 }
@@ -78,6 +81,7 @@ export const useEditor = create<EditorState>()(() => ({
   view: savedView(),
   inspect: null,
   scope: 'all',
+  switchedOn: [],
   part: null,
   skeleton: false,
   exportOpen: false,
@@ -103,6 +107,11 @@ export function paramOf<K extends keyof Params>(s: EditorState, key: K): Params[
   return (own ?? s.params[key]) as Params[K];
 }
 export const useParam = <K extends keyof Params>(key: K) => useEditor(s => paramOf(s, key));
+
+/** Whether an optional slider is switched on: away from its off value, or switched on by hand. */
+export const isOn = (s: EditorState, key: NumericParam, off: number) => paramOf(s, key) !== off || s.switchedOn.includes(key);
+/** The value each optional slider had when it was switched off, to come back to. */
+const lastOn: Partial<Record<NumericParam, number>> = {};
 
 /** Params with one letter's override of `key` set, or removed when `v` is undefined. Letters
     left with no overrides drop out, so a letter reset to match the others is stored as such. */
@@ -181,7 +190,7 @@ export const actions = {
   },
   loadStyle(id: string) {
     const st = styleById(id); if (!st) return;
-    set({ params: { ...st.params }, styleId: id });
+    set({ params: { ...st.params }, styleId: id, switchedOn: [] });
     actions.commit();
     actions.toast(`${st.name} loaded — now make it yours`);
   },
@@ -197,6 +206,22 @@ export const actions = {
     }
     const st = styleById(s.styleId) ?? STYLES[0];
     actions.setOption(key, st.params[key]);
+  },
+  /** Switch an optional slider on, back to the value it had (or halfway), or off, to `off` where it changes nothing. */
+  switchControl(key: NumericParam, on: boolean, off: number) {
+    const v = paramOf(get(), key);
+    if (on) {
+      actions.keepOn(key);
+      actions.setOption(key, lastOn[key] ?? 0.5);
+    } else {
+      if (v !== off) lastOn[key] = v;
+      set(s => ({ switchedOn: s.switchedOn.filter(k => k !== key) }));
+      actions.setOption(key, off);
+    }
+  },
+  /** Keep an optional slider open while it's being used, even when dragged to its off value. */
+  keepOn(key: NumericParam) {
+    if (!get().switchedOn.includes(key)) set(s => ({ switchedOn: [...s.switchedOn, key] }));
   },
   /** Put a customized letter back in sync with the rest of the alphabet. */
   syncLetter(ch: string) {

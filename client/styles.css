@@ -184,7 +184,9 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .ctl-label em { font-style: normal; font-size: 10.5px; font-weight: 500; color: var(--ink-3); border: 1px solid var(--line-2); border-radius: var(--radius-s); padding: 0 5px; margin-left: 6px; }
 .ctl-label em.own { color: var(--accent-ink); border-color: var(--accent); }
 .ctl-ends { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ink-3); margin-top: 0; }
-.ctl.active > .ctl-ends, .ctl.active .ctl.active > .ctl-ends { color: var(--ink-2); }
+.ctl.active > .reveal > div > .ctl-ends { color: var(--ink-2); }
+.ctl-tools { display: flex; align-items: center; gap: 8px; height: 26px; flex: none; }
+.ctl.off .ctl-label { color: var(--ink-2); }
 
 input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 20px; background: none; margin: 0; cursor: pointer; --v: .5; }
 input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--sabi) calc(var(--v) * 100%), var(--stone) 0); }

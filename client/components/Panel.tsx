@@ -9,7 +9,7 @@ import {
 } from '../../shared/content';
 import { isGlyphKey, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
-import { actions, fontFor, letterOf, useEditor, useFont, useParam, useScopedFont } from '../state/editor';
+import { actions, fontFor, isOn, letterOf, useEditor, useFont, useParam, useScopedFont } from '../state/editor';
 import { Diagram, FillIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { letterControls } from './Inspector';
 
@@ -219,30 +219,45 @@ function useControlFocus(key: ActiveKey) {
   };
 }
 
-interface SliderDef { label: string; friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; advanced?: boolean }
+interface SliderDef { label: string; friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; advanced?: boolean; off?: number }
 
+/** A slider. An optional one (with an `off` value) has a switch; switched off, its slider folds away. */
 function SliderControl({ k, def, parts }: { k: NumericParam; def: SliderDef; parts?: string[] }) {
   const value = useParam(k), active = useEditor(s => s.active === k);
-  const cls = ['ctl', def.bipolar && 'bipolar', active && 'active'].filter(Boolean).join(' ');
+  const optional = def.off !== undefined, on = useEditor(s => !optional || isOn(s, k, def.off!));
+  // using the slider keeps it open, even dragged all the way to its off value
+  const keep = () => { if (optional) actions.keepOn(k); };
+  const cls = ['ctl', def.bipolar && 'bipolar', active && 'active', !on && 'off'].filter(Boolean).join(' ');
   return (
     <div className={cls} data-ctl={k} {...useControlFocus(k)}>
       <div className="ctl-top">
         <CtlHead k={k} label={def.label} parts={parts} advanced={def.advanced} />
-        <NumberField value={value} label={def.tech} onChange={v => { actions.focusControl(k); actions.setParam(k, v); actions.commit(); }} />
+        <div className="ctl-tools">
+          {on && <NumberField value={value} label={def.tech} onChange={v => { keep(); actions.focusControl(k); actions.setParam(k, v); actions.commit(); }} />}
+          {optional && (
+            <button className={on ? 'switch on' : 'switch'} role="switch" aria-checked={on} aria-label={def.label}
+              onClick={() => { actions.focusControl(k); actions.switchControl(k, !on, def.off!); }}><i /></button>
+          )}
+        </div>
       </div>
-      <Range
-        value={value}
-        label={def.tech}
-        onInput={v => {
-          // the middle is sticky: near 50 snaps onto the dot
-          if (Math.abs(v - 0.5) <= 0.03) v = 0.5;
-          actions.focusControl(k);
-          actions.setParam(k, v);
-        }}
-        onCommit={actions.commit}
-        onReset={() => actions.resetParam(k)}
-      />
-      <div className="ctl-ends"><span>{def.lo}</span><span>{def.hi}</span></div>
+      <div className={on ? 'reveal open' : 'reveal'} inert={!on}>
+        <div>
+          <Range
+            value={value}
+            label={def.tech}
+            onInput={v => {
+              // the middle is sticky: near 50 snaps onto the dot
+              if (Math.abs(v - 0.5) <= 0.03) v = 0.5;
+              keep();
+              actions.focusControl(k);
+              actions.setParam(k, v);
+            }}
+            onCommit={actions.commit}
+            onReset={() => { keep(); actions.resetParam(k); }}
+          />
+          <div className="ctl-ends"><span>{def.lo}</span><span>{def.hi}</span></div>
+        </div>
+      </div>
     </div>
   );
 }
