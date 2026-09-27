@@ -160,6 +160,18 @@ describe('font engine', () => {
       const low = arm.cmds.filter(c => typeof c[2] === 'number' && c[2] < font.m.xh * 0.5).map(c => c[1] as number);
       assert.ok(low.length && Math.min(...low) > Math.max(...xs(stem)) + font.m.s * 0.2, `r at length ${len}`);
     }
+    // all the way out, a curl with room to wind winds round far more than once (along the arm,
+    // which first unbends, it turns over twice)
+    const wound = (weight: number) => {
+      const { e } = C(0, 'r'), line = buildFont({ ...DEFAULTS, weight, glyphs: { r: { terminalCurls: { [e.id!]: 0 } } } }).glyph('r')!.skeleton.at(-1)!;
+      let turned = 0;
+      for (let k = 2; k < line.length; k++) {
+        const a = Math.atan2(line[k - 1].y - line[k - 2].y, line[k - 1].x - line[k - 2].x), b = Math.atan2(line[k].y - line[k - 1].y, line[k].x - line[k - 1].x);
+        turned += Math.atan2(Math.sin(b - a), Math.cos(b - a));
+      }
+      return Math.abs(turned) / (2 * Math.PI);
+    };
+    assert.ok(wound(0.5) > 2 && wound(0.5) < 3.5, `${wound(0.5)}`);
     // wound round more than once, a curl's tip stays clear of the turn around it, however heavy
     for (const weight of [0.3, 0.5, 0.75]) {
       const { e } = C(0, 'j'), font = buildFont({ ...DEFAULTS, weight, glyphs: { j: { terminalCurls: { [e.id!]: 0 } } } });
