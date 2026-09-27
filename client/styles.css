@@ -162,7 +162,9 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .ex-text { position: relative; padding: 12px 44px 14px 22px; min-height: 100px; }
 .ex-close { position: absolute; top: 8px; right: 10px; }
 .explainer.compact .ex-text { min-height: 0; }
-.diagram-box:last-child { border-bottom: 0; }
+.ex-open { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 9px 22px; font-size: 12px; font-weight: 500; color: var(--ink-3); transition: color .15s, background .15s; }
+.ex-open:hover { color: var(--ink); background: var(--hover); }
+.ex-open svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .ex-tech { font-size: 12px; font-weight: 500; color: var(--accent-ink); }
 .ex-text h3 { margin: 2px 0 4px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; }
 .ex-text p { margin: 0; color: var(--ink-2); font-size: 12.5px; line-height: 1.45; }

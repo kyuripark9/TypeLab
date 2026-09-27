@@ -47,7 +47,7 @@ export interface EditorState extends Doc {
   view: CardView;
   /** long panel sections folded down to their heading */
   folded: ControlKey[];
-  /** the explanation at the top of the panel; closing it hides it until the Guide is opened */
+  /** the explanation at the top of the panel; closed, it folds to a "Show explanation" row */
   tips: boolean;
   inspect: string | null;
   scope: Scope;
