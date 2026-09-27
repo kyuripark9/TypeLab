@@ -83,6 +83,13 @@ describe('dragging the inspected letter', () => {
     assert.deepEqual(strokeEnds(font.glyph('s')!).map(e => e.label), ['Top end', 'Bottom end']);
   });
 
+  it('keeps the ends in their order while one is curled or drawn out', () => {
+    for (const [ch, id, k] of [['t', '1s', 'terminalCurls'], ['-', '0s', 'terminalCurls'], ['c', '0e', 'terminalEnds']] as const) {
+      const order = (v: number) => strokeEnds(buildFont({ ...base, glyphs: { [ch]: { [k]: { [id]: v } } } }).glyph(ch)!).map(e => e.id);
+      for (const v of [0, 0.3, 0.7, 1]) assert.deepEqual(order(v), order(0.5), `${ch} ${id} ${k} ${v}`);
+    }
+  });
+
   it('finds the handles for a control on the letter', () => {
     const weight = handlesFor('weight', font, 'H', ['stem', 'crossbar']);
     assert.deepEqual(weight.map(h => [h.part, h.axis]), [['stem', 'x'], ['stem', 'x']]);

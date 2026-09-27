@@ -2,7 +2,7 @@
    it finds the value that puts the grabbed thing under the pointer: a guide line or crossbar moves
    to the pointer, a stroke, counter or serif grows toward it. Like the sliders, a drag reshapes
    every letter at once, since the design is the parameters. */
-import { buildFont, clamp, type Cmd, type Font, type Glyph } from '../../shared/engine';
+import { buildFont, clamp, type Cmd, type Font, type Glyph, type Mark } from '../../shared/engine';
 import { endLength, type NumericParam, type Params } from '../../shared/params';
 
 export type Axis = 'x' | 'y';
@@ -40,11 +40,15 @@ export function strokeEnds(g: Glyph): StrokeEndInfo[] {
   const b = bbox(g.cmds) ?? { x0: 0, x1: g.adv, y0: 0, y1: 1 }, w = b.x1 - b.x0 || 1, h = b.y1 - b.y0 || 1;
   const v = (y: number) => ((y - b.y0) / h > 0.62 ? 'Top' : (y - b.y0) / h < 0.38 ? 'Bottom' : 'Middle');
   const hz = (x: number) => ((x - b.x0) / w < 0.5 ? 'left' : 'right');
-  const ends = ks.map(k => ({ id: k.id!, x: k.x, y: k.y, label: v(k.y), hook: !!k.hook })).sort((a, c) => c.y - a.y || a.x - c.x);
+  // named and ordered by where each end sits before its own length and curl, so dragging one
+  // doesn't reshuffle them
+  const home = (k: Mark) => k.home ?? k, at = new Map(ks.map(k => [k.id!, home(k)]));
+  const ends = ks.map(k => ({ id: k.id!, x: k.x, y: k.y, label: v(home(k).y), hook: !!k.hook }))
+    .sort((a, c) => at.get(c.id)!.y - at.get(a.id)!.y || at.get(a.id)!.x - at.get(c.id)!.x);
   // two ends at the same height are told apart by side, and failing that by number
   const tally = () => { const n: Record<string, number> = {}; ends.forEach(e => { n[e.label] = (n[e.label] ?? 0) + 1; }); return n; };
   let n = tally();
-  ends.forEach(e => { if (n[e.label] > 1) e.label += ` ${hz(e.x)}`; });
+  ends.forEach(e => { if (n[e.label] > 1) e.label += ` ${hz(at.get(e.id)!.x)}`; });
   n = tally();
   const seen: Record<string, number> = {};
   return ends.map(e => { seen[e.label] = (seen[e.label] ?? 0) + 1; return { ...e, label: `${e.label} end${n[e.label] > 1 ? ` ${seen[e.label]}` : ''}` }; });

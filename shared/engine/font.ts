@@ -411,9 +411,10 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
     serif keep theirs. Tails, hooks and cursive strokes are left to their own controls, so their
     tips move only by a length set for that one end, measured from where their own control puts
     them (0.5).
-    Notes the ids of those tips in `hooks`, and returns how far the ends now reach past the body
-    on the left and right, to widen it by. */
-function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>) {
+    Notes the ids of those tips in `hooks`, where each end sat before its own length and curl in
+    `homes`, and returns how far the ends now reach past the body on the left and right, to widen
+    it by. */
+function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>, homes: Map<string, Pt>) {
   const grow = { l: 0, r: 0 };
   let mid: Pt | null = null;
   const middle = () => {
@@ -430,6 +431,7 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>)
       if ((which === 's' ? o.s : o.e) !== 'term' || serif) continue;
       const id = `${si}${which}`, at = stretchEnd(st.cmds, which, 0, m), tip = at && tipAt(at.from);
       if (own || tip) hooks.add(id);
+      if (at) homes.set(id, at.from);
       const d = endReach(endLength(m.p, id, own || !!tip)) * m.xh * (o.scale || 1), curl = endCurl(m.p, id);
       if (Math.abs(d) < 0.01 && curl === 0.5) continue;
       const r = shapeEnd(st.cmds, which, d, curl, m, mid ??= middle());
@@ -448,7 +450,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   const def = GLYPHS[ch];
   if (!def) return null;
   const b = new Builder(m);
-  const hooks = new Set<string>(), W0 = def.fn(b, m), grow = stretchTerminals(b, m, W0, hooks), W = W0 + grow.r;
+  const hooks = new Set<string>(), homes = new Map<string, Pt>(), W0 = def.fn(b, m), grow = stretchTerminals(b, m, W0, hooks, homes), W = W0 + grow.r;
   const code = ch.charCodeAt(0);
   let ctx = m.ctx;
   if (m.wob > 0) {
@@ -459,6 +461,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     }
     b.counters = b.counters.map(pts => pts.map(q => { const [x, y] = wb.pt(q.x, q.y); return { x, y }; }));
     b.marks.forEach(k => { [k.x, k.y] = wb.pt(k.x, k.y); });
+    homes.forEach((q, id) => { const [x, y] = wb.pt(q.x, q.y); homes.set(id, { x, y }); });
     ctx = { ...ctx, wobble: m.wob, seed: hash(code, 5) * 2 * Math.PI };
   }
   const out = {
@@ -524,7 +527,8 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
         const c = sp && finish(sp, 1, m.R * 0.5); if (c) out.serifs.push(c);
       } else if (end.type === 'term') {
         const id = `${si}${end.which}`;
-        out.marks.push({ type: 'terminal', x: end.x, y: end.y, r: end.t * 0.5, id, ...(hooks.has(id) && { hook: true }) });
+        const home = homes.get(id);
+        out.marks.push({ type: 'terminal', x: end.x, y: end.y, r: end.t * 0.5, id, ...(hooks.has(id) && { hook: true }), ...(home && { home }) });
       }
     }
   });
@@ -571,7 +575,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   }
   return {
     ...out, serifs, counters: out.counters.map(tf),
-    marks: out.marks.map(tp), corners: out.corners.map(tp), skeleton: out.skeleton.map(r => r.map(tp)),
+    marks: out.marks.map(k => k.home ? { ...tp(k), home: tp(k.home) } : tp(k)), corners: out.corners.map(tp), skeleton: out.skeleton.map(r => r.map(tp)),
     lsb, rsb, adv, M, cmds, d: cmdsToD(cmds)
   };
 }

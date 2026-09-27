@@ -78,5 +78,6 @@ export interface PenCtx {
 export interface StrokeEnd { x: number; y: number; dx: number; dy: number; t: number; type: EndType; which: 's' | 'e' }
 
 /** A point of interest on a glyph. Terminals carry their end's id (see isEndId in params), and
-    `hook` when the end is the tip of a hook, tail or cursive stroke, which the stroke end length leaves alone. */
-export interface Mark { type: string; x: number; y: number; r?: number; id?: string; hook?: boolean }
+    `hook` when the end is the tip of a hook, tail or cursive stroke, which the stroke end length leaves alone,
+    and `home`, where the end sits before its own length and curl move it. */
+export interface Mark { type: string; x: number; y: number; r?: number; id?: string; hook?: boolean; home?: { x: number; y: number } }
