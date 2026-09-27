@@ -8,7 +8,7 @@
   --ink: #2e3b3e; --ink-2: #47585c; --ink-3: #5a6e71;
   --line: #e0e4e4; --line-2: #c6cfd0;
   --accent: #4d80e6; --accent-ink: #3464c4; --accent-soft: rgba(77, 128, 230, .12);
-  --custom: #5100ff; --custom-ink: #5100ff; --custom-soft: rgba(81, 0, 255, .1); --custom-tint: #e9e1fa; --custom-wash: #f2eefa;
+  --custom: #7700ff; --custom-ink: #7700ff; --custom-soft: rgba(119, 0, 255, .1); --custom-tint: #ede1fa; --custom-wash: #f3eefa;
   --hover: rgba(46, 59, 62, .05); --active: rgba(46, 59, 62, .08);
   --radius: 8px; --radius-s: 4px; --radius-l: 12px;
   --shadow: 0 1px 2px rgba(46, 59, 62, .06), 0 8px 24px rgba(46, 59, 62, .08);
