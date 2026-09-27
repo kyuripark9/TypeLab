@@ -101,7 +101,7 @@ right edge to change the width. Like the sliders, a drag reshapes every letter, 
 Pointing at a part shows its grab handle and which way does what; pointing at a slider shows handles
 wherever the letter can be dragged to make the same change.
 
-To customize one letter, switch the inspector from **Sync all letters** to **Customize R**: sliders and
+To customize one letter, switch the inspector from **Sync all** to **Customize R**: sliders and
 drags then reshape just that letter, which keeps its own values when the rest of the design changes (a dot
 marks it in the glyph strip, and its own values are tagged *Custom*). Heights, spacing, fills and
 personality are tagged *Whole font*: every letter sits on the same lines, so they stay shared.

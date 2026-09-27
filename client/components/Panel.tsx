@@ -129,12 +129,13 @@ function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> })
 
 /** The inspected letter's sliders, named by the parts they shape, then the rest of the category. */
 function LetterControls({ keys, category }: { keys: ControlKey[]; category: Exclude<CategoryId, 'style'> }) {
-  const ch = useEditor(s => s.inspect)!, font = useFont();
+  const ch = useEditor(s => s.inspect)!, font = useFont(), customizing = useEditor(s => !!letterOf(s));
   const g = font.glyph(ch);
   const rows = g ? letterControls(g, ch, font.letter(ch).params.serif) : [];
   const rest = keys.filter(k => !rows.some(r => r.key === k));
   return (
     <div className="ctl-list">
+      {customizing && <div className="scope-note">Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</div>}
       <div className="list-head">Parts of {ch}</div>
       {rows.map(r => <Control key={r.key} k={r.key} parts={r.parts} />)}
       {rest.length > 0 && <div className="list-head">More {CATEGORIES.find(c => c.id === category)?.label.toLowerCase()}</div>}

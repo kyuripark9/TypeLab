@@ -7,7 +7,7 @@ import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph } from '../../shared/
 import type { NumericParam, Params } from '../../shared/params';
 import { dragSpec, handlesFor, pickAxis, solver, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { n1, unicodeLabel, useSize } from '../lib/hooks';
-import { actions, useEditor, useFont, useParam, useScopedFont } from '../state/editor';
+import { actions, letterOf, useEditor, useFont, useParam, useScopedFont, type Scope } from '../state/editor';
 
 const kindOf = (ch: string) =>
   /[A-Z]/.test(ch) ? 'Uppercase' : /[a-z]/.test(ch) ? 'Lowercase' : /[0-9]/.test(ch) ? 'Figure' : 'Punctuation';
@@ -95,13 +95,13 @@ function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } 
 }
 
 export function Inspector() {
-  const ch = useEditor(s => s.inspect);
+  const ch = useEditor(s => s.inspect), letter = useEditor(letterOf);
   const font = useFont();
   const g = ch ? font.glyph(ch) : null;
   if (!ch || !g) return null;
 
   return (
-    <section className="inspector" aria-label={`Glyph inspector: ${ch}`}>
+    <section className={letter ? 'inspector customizing' : 'inspector'} aria-label={`Glyph inspector: ${ch}`}>
       <div className="insp-head">
         <button className="btn ghost round" onClick={() => actions.stepInspector(-1)} aria-label="Previous glyph">←</button>
         <div className="insp-title"><h2>{ch}</h2><span>{kindOf(ch)} · {unicodeLabel(ch)}</span></div>
@@ -115,6 +115,12 @@ export function Inspector() {
       </div>
       <div className="insp-body">
         <InspectorCanvas ch={ch} g={g} font={font} />
+        {letter && (
+          <div className="scope-banner" role="status">
+            <ScopeIcon id="letter" /><span>Customizing <b>{ch}</b> · the other letters won't change</span>
+            <button className="link" onClick={() => actions.setScope('all')}>Sync all</button>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -124,16 +130,16 @@ export function Inspector() {
     its own can be put back in sync with the rest. */
 function ScopeToggle({ ch }: { ch: string }) {
   const scope = useEditor(s => s.scope), custom = useEditor(s => !!s.params.glyphs[ch]);
-  const opts: [typeof scope, string, string][] = [
-    ['all', 'Sync all letters', 'Changes reshape every letter at once'],
+  const opts: [Scope, string, string][] = [
+    ['all', 'Sync all', 'Changes reshape every letter at once'],
     ['letter', `Customize ${ch}`, `Changes reshape only ${ch}; the other letters stay as they are`]
   ];
   return (
     <>
       <div className="scope" role="radiogroup" aria-label="Editing mode">
         {opts.map(([id, label, title]) => (
-          <button key={id} role="radio" aria-checked={scope === id} className={scope === id ? 'on' : undefined} title={title}
-            onClick={() => actions.setScope(id)}>{label}</button>
+          <button key={id} role="radio" aria-checked={scope === id} data-scope={id} className={scope === id ? 'on' : undefined} title={title}
+            onClick={() => actions.setScope(id)}><ScopeIcon id={id} />{label}</button>
         ))}
       </div>
       {custom && (
@@ -142,6 +148,17 @@ function ScopeToggle({ ch }: { ch: string }) {
         </button>
       )}
     </>
+  );
+}
+
+/** Three letters in a row: all outlined alike (in sync), or the middle one picked out. */
+function ScopeIcon({ id }: { id: Scope }) {
+  return (
+    <svg className="scope-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="1" y="4" width="3.5" height="8" rx="1" opacity={id === 'letter' ? 0.4 : 1} />
+      <rect x="6.25" y="4" width="3.5" height="8" rx="1" className={id === 'letter' ? 'fill' : undefined} />
+      <rect x="11.5" y="4" width="3.5" height="8" rx="1" opacity={id === 'letter' ? 0.4 : 1} />
+    </svg>
   );
 }
 

@@ -232,10 +232,22 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .insp-title h2 { margin: 0; font-size: 20px; font-weight: 600; }
 .insp-title span { color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; }
 .grow { flex: 1; }
-.scope { display: flex; flex: none; gap: 2px; padding: 2px; margin-left: 6px; border: 1px solid var(--line-2); border-radius: var(--radius); }
-.scope button { height: 28px; padding: 0 10px; border-radius: var(--radius-s); font-size: 12.5px; font-weight: 500; color: var(--ink-3); white-space: nowrap; transition: background .15s, color .15s; }
-.scope button:hover { background: var(--hover); color: var(--ink); }
-.scope button.on { background: var(--active); color: var(--ink); }
+.scope { display: flex; flex: none; gap: 3px; padding: 3px; margin-left: 8px; background: var(--tint); border-radius: var(--radius); }
+.scope button { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--radius-s); font-size: 13px; font-weight: 500; color: var(--ink-2); white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }
+.scope button:hover { color: var(--ink); }
+.scope button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(46, 59, 62, .14); }
+.scope button.on[data-scope="letter"] { background: var(--accent); color: #fff; box-shadow: none; }
+.scope-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.3; }
+.scope-icon .fill { fill: currentColor; }
+/* customizing one letter: the letter is framed and a banner says so, so the mode can't be missed */
+.inspector.customizing .insp-body { position: relative; box-shadow: inset 0 0 0 2px var(--accent); }
+.scope-banner { position: absolute; top: 12px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+  border-radius: 100px; background: var(--accent); color: #fff; font-size: 13px; white-space: nowrap; pointer-events: auto; }
+.scope-banner b { font-weight: 600; }
+.scope-banner .link { color: #fff; text-decoration: underline; text-underline-offset: 2px; margin-left: 4px; }
+.scope-banner .scope-icon { stroke: #fff; }
+.scope-note { margin: 4px 12px 6px; padding: 9px 12px; border-radius: var(--radius); background: var(--accent-soft); color: var(--accent-ink); font-size: 12.5px; line-height: 1.45; }
+.scope-note em { font-style: normal; font-weight: 600; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
 .check input { accent-color: var(--accent); }
 .insp-body { flex: 1; display: flex; min-height: 0; }
