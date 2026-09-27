@@ -4,7 +4,7 @@
    stroke runs vertically, thin where it runs horizontally (scaled by Contrast),
    with styled terminals, mitered joins and optional serifs. */
 import { clamp, cubicAt, lerp, lerpP, quarter, smoothstep, subCubic } from './geom';
-import type { Cmd, EndType, PenCtx, Pt, SerifSides, StrokeEnd, StrokeOpts, StrokeWeight } from './types';
+import type { Cmd, EndType, PenCtx, Pt, SerifSides, StrokeEnd, StrokeOpts, StrokeWeight, TermSpec } from './types';
 
 const CURVE_N = 16;
 
@@ -18,6 +18,8 @@ interface Sample {
 type Dir = { x: number; y: number };
 
 const wNum = (w: StrokeWeight) => (w === 'thin' ? 0 : w === 'thick' ? 1 : w);
+/** Terminals as drawn when the design gives no finer shape. */
+const TERM: TermSpec = { flare: 1, round: 0.5, point: 0.95, lean: 0, slope: 0.6, tilt: 0, tip: 0.42, taper: 3 };
 
 /* Cut corners: the straight-line counterpart of a curve. Its corner is where the two end
    tangents meet, and the cut runs between points a fraction `f` of the way back from the
@@ -139,9 +141,17 @@ export function autoThickness(tx: number, ty: number, ctx: PenCtx, thick: number
   return thin + (thick - thin) * Math.pow(v, 1.15);
 }
 
-function cutSide(side: Pt[], p: Dir, d: Dir, axis: 'h' | 'v', t: number) {
+/* Cut one side of a stroke end off along a line through p, level ('h') or plumb ('v'), turned
+   counterclockwise by `tilt` radians. */
+function cutSide(side: Pt[], p: Dir, d: Dir, axis: 'h' | 'v', t: number, tilt = 0) {
   if (side.length < 2) return;
-  const out = axis === 'h' ? { x: 0, y: Math.sign(d.y) || 1 } : { x: Math.sign(d.x) || 1, y: 0 };
+  const o = axis === 'h' ? { x: 0, y: Math.sign(d.y) || 1 } : { x: Math.sign(d.x) || 1, y: 0 };
+  // a cut turned nearly along the stroke would draw it out into a spike: keep within 55° of square to it
+  if (tilt) {
+    const lim = 55 * Math.PI / 180, toD = Math.atan2(o.x * d.y - o.y * d.x, o.x * d.x + o.y * d.y);
+    tilt = clamp(tilt, toD - lim, toD + lim);
+  }
+  const cs = Math.cos(tilt), sn = Math.sin(tilt), out = { x: o.x * cs - o.y * sn, y: o.x * sn + o.y * cs };
   const off = (q: Dir) => (q.x - p.x) * out.x + (q.y - p.y) * out.y;
   while (side.length > 2 && off(side[side.length - 2]) > 1e-6 && Math.hypot(side[side.length - 2].x - p.x, side[side.length - 2].y - p.y) < t * 1.6) side.pop();
   const q = side[side.length - 1], prev = side[side.length - 2];
@@ -161,17 +171,22 @@ function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: Pe
   if (type === 'h' || type === 'v') { cutSide(A, p, d, type, t); cutSide(B, p, d, type, t); return []; }
   if (type !== 'term') { a.smooth = b.smooth = false; return []; }
   a.smooth = b.smooth = false;
+  const T = ctx.term ?? TERM;
   switch (ctx.terminal) {
-    case 'round': a.r = b.r = t / 2 + 0.5; return [];
-    case 'sharp': return [{ x: p.x + d.x * t * 0.95, y: p.y + d.y * t * 0.95, sharp: true }];
+    case 'round': a.r = b.r = t * T.round + 0.5; return [];
+    case 'sharp': {
+      // leaning toward the outer edge: A lies to the left of d
+      const lean = T.lean * t * (outerIsA ? 1 : -1);
+      return [{ x: p.x + d.x * t * T.point - d.y * lean, y: p.y + d.y * t * T.point + d.x * lean, sharp: true }];
+    }
     case 'angled': {
       const side = outerIsA ? A : B, q = side[side.length - 1];
-      side[side.length - 1] = { x: q.x + d.x * t * 0.6, y: q.y + d.y * t * 0.6 };
+      side[side.length - 1] = { x: q.x + d.x * t * T.slope, y: q.y + d.y * t * T.slope };
       return [];
     }
     case 'cut': {
       const axis = Math.abs(d.x) > Math.abs(d.y) ? 'v' : 'h';
-      cutSide(A, p, d, axis, t); cutSide(B, p, d, axis, t); return [];
+      cutSide(A, p, d, axis, t, T.tilt); cutSide(B, p, d, axis, t, T.tilt); return [];
     }
     default: return [];
   }
@@ -191,9 +206,13 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   const sc = o.scale || 1;
   const thick = ctx.thick * sc, thin = Math.min(ctx.thin * sc, thick);
   let ws = o.ws == null ? 1 : o.ws, we = o.we == null ? 1 : o.we;
-  if (ctx.terminal === 'tapered') {
-    if (o.s === 'term') ws = Math.min(ws, 0.42);
-    if (o.e === 'term') we = Math.min(we, 0.42);
+  const T = ctx.term ?? TERM, tapers = ctx.terminal === 'tapered';
+  if (tapers) {
+    if (o.s === 'term') ws = Math.min(ws, T.tip);
+    if (o.e === 'term') we = Math.min(we, T.tip);
+  } else if (ctx.terminal === 'flat') {
+    if (o.s === 'term') ws *= T.flare;
+    if (o.e === 'term') we *= T.flare;
   }
   // thin joints: a stroke narrows where it runs into another, opening up the crotch
   let js = 1, je = 1;
@@ -215,6 +234,9 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     s.len = total; all.push(s);
   }));
   const taperLen = Math.max(1, Math.min(total * 0.45, thick * 3));
+  // a tapered terminal thins over its own length, and a long one may run most of the way along
+  const termLen = tapers ? Math.max(1, Math.min(total * Math.min(0.85, 0.15 * T.taper), thick * T.taper)) : taperLen;
+  const lenS = o.s === 'term' ? termLen : taperLen, lenE = o.e === 'term' ? termLen : taperLen;
   // explicit weights name the thick or thin stroke of a pair, so reverse contrast swaps them
   const rev = (w: number) => ctx.reverse ? lerp(w, 1 - w, ctx.reverse) : w;
   const pathW = o.w == null ? null : rev(wNum(o.w));
@@ -222,8 +244,8 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     let t = autoThickness(s.tx, s.ty, ctx, thick, thin);
     if (pathW != null) t = lerp(thin, thick, pathW);
     if (s.w != null) t = lerp(t, lerp(thin, thick, rev(s.w)), s.mask);
-    if (ws !== 1) t *= lerp(ws, 1, smoothstep(s.len / taperLen));
-    if (we !== 1) t *= lerp(we, 1, smoothstep((total - s.len) / taperLen));
+    if (ws !== 1) t *= lerp(ws, 1, smoothstep(s.len / lenS));
+    if (we !== 1) t *= lerp(we, 1, smoothstep((total - s.len) / lenE));
     // a hand-held pen never presses evenly
     if (ctx.wobble) t *= 1 + ctx.wobble * 0.22 * Math.sin(s.len / (thick * 1.8 + 60) + (ctx.seed || 0));
     s.t = t;

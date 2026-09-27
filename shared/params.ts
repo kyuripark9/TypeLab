@@ -19,6 +19,16 @@ export interface Params {
   /** one letter's ends set one by one, by end id (see isEndId): each overrides terminalLength for that end */ terminalEnds: Record<string, number>;
   /** how one letter's ends bend, by end id: 0.5 as drawn, lower straightens them and then flares
       them out, higher curls them on round the way they turn */ terminalCurls: Record<string, number>;
+  /* The finer shape of each kind of stroke end. Each applies only while its kind is picked, and
+     its default draws the end as before. */
+  /** flat: the end widens as it finishes, 0 not at all */ terminalFlare: number;
+  /** rounded: soft corners (0) to a full half circle (1) */ terminalRound: number;
+  /** sharp: how far the point reaches past the end, 0.5 as usual */ terminalPoint: number;
+  /** sharp: where the point sits across the end, 0 on the inner edge, 0.5 in the middle, 1 on the outer */ terminalLean: number;
+  /** angled: how steeply the end is cut, 0.5 as usual */ terminalSlope: number;
+  /** cut: the cut turned off level or plumb, 0.5 not at all */ terminalTilt: number;
+  /** tapered: how fine the tip gets, 0.5 as usual */ terminalTip: number;
+  /** tapered: how far back from the tip the taper starts, 0.5 as usual */ terminalTaper: number;
   /** hand-drawn irregularity */ wobble: number;
   /** entry/exit strokes, looped descenders and italic letterforms */ cursive: number;
   /** round curves drawn as squircles */ squareness: number;
@@ -54,7 +64,8 @@ export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K :
 export const DEFAULTS: Readonly<Params> = Object.freeze({
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.05,
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
-  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurls: Object.freeze({}), wobble: 0, cursive: 0,
+  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurls: Object.freeze({}),
+  terminalFlare: 0, terminalRound: 1, terminalPoint: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, story: 'auto', overlap: 1, tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, slice: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,

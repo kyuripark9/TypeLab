@@ -55,6 +55,16 @@ export interface StrokeOpts {
 
 export interface SerifSpec { len: number; th: number; shape: string; angle: number }
 
+/** The finer shape of each kind of terminal, in stroke widths unless noted. */
+export interface TermSpec {
+  /** flat: thickness at the very end, 1 = none */ flare: number;
+  /** rounded: corner radius */ round: number;
+  /** sharp: how far the point reaches past the end, and how far across it sits (+ toward the outer edge) */ point: number; lean: number;
+  /** angled: how far the outer edge runs on past the inner */ slope: number;
+  /** cut: turn of the cut off the axis, in radians (+ counterclockwise) */ tilt: number;
+  /** tapered: thickness at the tip, and taper length in stroke widths */ tip: number; taper: number;
+}
+
 /** What the stroke expander needs to know about the design. */
 export interface PenCtx {
   thick: number;
@@ -63,6 +73,8 @@ export interface PenCtx {
   k: number;
   org: number;
   terminal: string;
+  /** the finer shape of the picked terminal (see TermSpec); missing draws them as usual */
+  term?: TermSpec;
   serif?: SerifSpec | null;
   /** curves become straight segments with cut corners (0..1) */
   chamfer?: number;

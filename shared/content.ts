@@ -13,7 +13,7 @@ export type ControlKey =
   | 'fill' | 'stencil' | 'slice';
 export type SerifSubKey = 'serifSize' | 'serifThickness' | 'serifAngle';
 export type FillSubKey = 'module';
-export type TerminalSubKey = 'terminalLength';
+export type TerminalSubKey = 'terminalLength' | 'terminalFlare' | 'terminalRound' | 'terminalPoint' | 'terminalLean' | 'terminalSlope' | 'terminalTilt' | 'terminalTip' | 'terminalTaper';
 /** Anything the control panel can focus: a control or one of its nested sub-sliders. */
 export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey;
 
@@ -36,7 +36,7 @@ export interface ControlDef {
   /** An optional slider: its value where it changes nothing. It gets an on/off switch, and off hides the slider. */
   off?: number;
 }
-export interface SubControlDef { label: string; friendly: string; tech: string; lo: string; hi: string }
+export interface SubControlDef { label: string; friendly: string; tech: string; lo: string; hi: string; bipolar?: boolean }
 
 /* Starting styles are browsed like the tag filters on Google Fonts, in five sections: Feeling,
    Appearance, then the classification tags of Calligraphy, Serif and Sans Serif. The group only
@@ -533,7 +533,20 @@ export const FILL_SUBS: Record<FillSubKey, SubControlDef> = {
   module: { label: 'Grid size', friendly: 'Change the size of the grid or line', tech: 'Module size', lo: 'Fine', hi: 'Coarse' }
 };
 export const TERMINAL_SUBS: Record<TerminalSubKey, SubControlDef> = {
-  terminalLength: { label: 'Length', friendly: 'Make the stroke ends longer or shorter', tech: 'Terminal length', lo: 'Short', hi: 'Long' }
+  terminalLength: { label: 'Length', friendly: 'Make the stroke ends longer or shorter', tech: 'Terminal length', lo: 'Short', hi: 'Long' },
+  terminalFlare: { label: 'Flare', friendly: 'Widen the stroke as it ends', tech: 'Flared terminal', lo: 'Straight', hi: 'Flared' },
+  terminalRound: { label: 'Roundness', friendly: 'Round the end from soft corners to a half circle', tech: 'Terminal radius', lo: 'Soft corners', hi: 'Half circle' },
+  terminalPoint: { label: 'Point', friendly: 'Make the point short and blunt or long and sharp', tech: 'Point length', lo: 'Blunt', hi: 'Long' },
+  terminalLean: { label: 'Lean', friendly: 'Move the point toward the inside or outside edge', tech: 'Point offset', lo: 'Inside', hi: 'Outside', bipolar: true },
+  terminalSlope: { label: 'Slope', friendly: 'Cut the end at a gentle or steep angle', tech: 'Terminal angle', lo: 'Gentle', hi: 'Steep' },
+  terminalTilt: { label: 'Tilt', friendly: 'Turn the level cut one way or the other', tech: 'Cut angle', lo: 'Falling', hi: 'Rising', bipolar: true },
+  terminalTip: { label: 'Tip', friendly: 'Make the tapered tip blunt or fine', tech: 'Taper tip width', lo: 'Blunt', hi: 'Fine' },
+  terminalTaper: { label: 'Taper length', friendly: 'Start the taper close to the tip or far back', tech: 'Taper length', lo: 'Short', hi: 'Long' }
+};
+/** The finer shape sliders of each kind of stroke end, shown while that kind is picked. */
+export const TERMINAL_DETAILS: Record<Terminal, TerminalSubKey[]> = {
+  flat: ['terminalFlare'], round: ['terminalRound'], sharp: ['terminalPoint', 'terminalLean'],
+  angled: ['terminalSlope'], cut: ['terminalTilt'], tapered: ['terminalTip', 'terminalTaper']
 };
 /** Every nested sub-slider, whichever control it belongs to. */
 export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS };

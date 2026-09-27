@@ -124,6 +124,12 @@ function metrics(e: Effective): Metrics {
   const org = e.curve;
   const ctx: PenCtx = {
     thick: s, thin, stress, k, org, terminal: e.terminal, chamfer: e.chamfer, joints: e.joints, reverse: e.reverse,
+    term: {
+      flare: 1 + 0.6 * e.terminalFlare, round: lerp(0.1, 0.5, e.terminalRound),
+      point: e.terminalPoint < 0.5 ? lerp(0.35, 0.95, e.terminalPoint * 2) : lerp(0.95, 1.4, e.terminalPoint * 2 - 1), lean: e.terminalLean - 0.5,
+      slope: 0.6 * 2 ** ((e.terminalSlope - 0.5) * 2), tilt: (e.terminalTilt - 0.5) * 2 * 35 * Math.PI / 180,
+      tip: Math.max(0.03, 0.84 * (1 - e.terminalTip)), taper: e.terminalTaper < 0.5 ? lerp(2.2, 3, e.terminalTaper * 2) : lerp(3, 6, e.terminalTaper * 2 - 1)
+    },
     serif: e.serif ? {
       len: lerp(28, 175, e.serifSize) * (0.75 + 0.25 * ws),
       th: lerp(8, 95, e.serifThickness) * ({ unbracketed: 0.6, slab: 1.5, wedge: 1, bracketed: 1 }[e.serifShape] || 1),
@@ -161,7 +167,7 @@ function metrics(e: Effective): Metrics {
     space: Math.max(snap(lerp(W(210) + (e.wordSpacing - 0.35) * 520, W(500) + sb * 1.5, e.mono)), cell),
     slant: Math.tan(e.slant * 20 * Math.PI / 180),
     R: e.roundness * s * 0.5,
-    dotRound: Math.max(e.roundness, e.terminal === 'round' ? 1 : 0),
+    dotRound: Math.max(e.roundness, e.terminal === 'round' ? e.terminalRound : 0),
     qpt: (x0, y0, x1, y1, mode, u) => {
       const kk = clamp(k * (1 + ((x1 - x0) * (y1 - y0) < 0 ? 0.13 : -0.09) * org), 0.3, 0.97);
       return cubicAt(quarter(x0, y0, x1, y1, mode, kk), u);

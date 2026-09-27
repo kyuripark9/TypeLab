@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { STYLES } from '../shared/content';
+import { STYLES, TERMINAL_DETAILS } from '../shared/content';
 import { ALL_CHARS, buildFont } from '../shared/engine';
 import { DEFAULTS, isValidParams, onEndScale, sanitizeParams, type Params } from '../shared/params';
 
@@ -173,6 +173,26 @@ describe('font engine', () => {
       }
     }
     assert.equal(sanitizeParams({ glyphs: { C: { terminalCurls: { '0e': 1.4, x: 0.2 } } } }).glyphs.C.terminalCurls!['0e'], 1);
+  });
+
+  it('shapes each kind of stroke end in finer detail, and only that kind', () => {
+    for (const [kind, keys] of Object.entries(TERMINAL_DETAILS) as [Params['terminal'], (keyof Params)[]][]) {
+      const base = buildFont({ ...DEFAULTS, terminal: kind }).glyph('c')!.d;
+      for (const k of keys) {
+        for (const v of [0, 1]) {
+          if (v === DEFAULTS[k]) continue;
+          const d = buildFont({ ...DEFAULTS, terminal: kind, [k]: v }).glyph('c')!.d;
+          assert.notEqual(d, base, `${k} ${v} on ${kind}`);
+          assert.ok(!d.includes('NaN'), `${k} ${v}`);
+          const other = kind === 'flat' ? 'round' : 'flat';
+          assert.equal(buildFont({ ...DEFAULTS, terminal: other, [k]: v }).glyph('c')!.d, buildFont({ ...DEFAULTS, terminal: other }).glyph('c')!.d, `${k} leaves ${other} alone`);
+        }
+      }
+    }
+    // a letter can have its own
+    const font = buildFont({ ...DEFAULTS, terminal: 'sharp', glyphs: { c: { terminalPoint: 1 } } });
+    assert.notEqual(font.glyph('c')!.d, buildFont({ ...DEFAULTS, terminal: 'sharp' }).glyph('c')!.d);
+    assert.equal(font.glyph('e')!.d, buildFont({ ...DEFAULTS, terminal: 'sharp' }).glyph('e')!.d);
   });
 
   it('sets the tip of a hook or tail only by its own length', () => {
