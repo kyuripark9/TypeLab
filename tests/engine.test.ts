@@ -187,6 +187,21 @@ describe('font engine', () => {
     assert.equal(sanitizeParams({ glyphs: { C: { terminalCurls: { '0e': 1.4, x: 0.2 } } } }).glyphs.C.terminalCurls!['0e'], 1);
   });
 
+  it('curls every terminal in sync with Curl, unless an end has a curl of its own', () => {
+    const base = buildFont(DEFAULTS), e = base.glyph('c')!.marks.filter(k => k.type === 'terminal').map(k => k.id!);
+    const one = (curls: Record<string, number>) => buildFont({ ...DEFAULTS, glyphs: { c: { terminalCurls: curls } } }).glyph('c')!.d;
+    const all = (v: number, p: Partial<Params> = {}) => buildFont({ ...DEFAULTS, ...p, terminalCurl: v });
+    assert.equal(all(0.5).glyph('c')!.d, base.glyph('c')!.d);
+    for (const v of [0.2, 0.8]) assert.equal(all(v).glyph('c')!.d, one(Object.fromEntries(e.map(id => [id, v]))), `${v}`);
+    for (const ch of 'CfrtyJ') assert.notEqual(all(0.8).glyph(ch)!.d, base.glyph(ch)!.d, ch);
+    // an end's own curl wins over it, and one letter can have a Curl of its own
+    assert.equal(all(0.8, { glyphs: { c: { terminalCurls: { [e[0]]: 0.5 } } } }).glyph('c')!.d, one({ [e[1]]: 0.8 }));
+    const own = all(0.5, { glyphs: { c: { terminalCurl: 0.8 } } });
+    assert.equal(own.glyph('c')!.d, all(0.8).glyph('c')!.d);
+    assert.equal(own.glyph('C')!.d, base.glyph('C')!.d);
+    assert.equal(sanitizeParams({ terminalCurl: 2 }).terminalCurl, 1);
+  });
+
   it('draws each form of each kind of stroke end, and shapes it in finer detail', () => {
     const c = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p }).glyph('c')!.d;
     for (const [kind, forms] of Object.entries(TERMINAL_FORMS) as [Params['terminal'], readonly TerminalForm[]][]) {
@@ -235,11 +250,11 @@ describe('font engine', () => {
     // an end buried in another stroke (T's stem top, under the bar) and a closed shape have none
     assert.deepEqual(plain('T').map(k => k.id), ['p0s']);
     assert.equal(plain('O').length, 0);
-    // Length and a curl on every terminal (as a swash style sets) leave them where they are drawn
-    const swash = STYLES.find(s => Object.keys(s.params.terminalCurls).length)!.params;
+    // Length and Curl (as a swash style sets it) leave them where they are drawn
+    const swash = STYLES.find(s => s.params.terminalCurl !== 0.5)!.params;
     for (const ch of 'lA') {
       assert.equal(buildFont({ ...DEFAULTS, terminalLength: 1 }).glyph(ch)!.d, base.glyph(ch)!.d, ch);
-      assert.equal(buildFont({ ...DEFAULTS, terminalCurls: swash.terminalCurls }).glyph(ch)!.d, base.glyph(ch)!.d, ch);
+      assert.equal(buildFont({ ...DEFAULTS, terminalCurl: swash.terminalCurl }).glyph(ch)!.d, base.glyph(ch)!.d, ch);
     }
     // their own length draws them on, past the clip at A's feet
     const foot = plain('A').find(k => k.id === 'p0s')!;

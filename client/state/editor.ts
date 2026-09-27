@@ -129,8 +129,8 @@ export const useParam = <K extends keyof Params>(key: K) => useEditor(s => param
     (or for the tip of a hook, tail or cursive stroke, the usual length its own control draws it at). */
 export const endOf = (s: EditorState, id: string, hook = false) =>
   endLength({ terminalEnds: paramOf(s, 'terminalEnds'), terminalLength: paramOf(s, 'terminalLength') }, id, hook);
-/** How one stroke end of the letter being customized bends: its own curl, else 0.5, as drawn. */
-export const curlOf = (s: EditorState, id: string) => endCurl({ terminalCurls: paramOf(s, 'terminalCurls') }, id);
+/** How one stroke end of the letter being customized bends: its own curl, else the letter's Curl. */
+export const curlOf = (s: EditorState, id: string) => endCurl({ terminalCurls: paramOf(s, 'terminalCurls'), terminalCurl: paramOf(s, 'terminalCurl') }, id);
 /** What can be set on each stroke end of a customized letter: its length or its curl. */
 export type EndKey = 'terminalEnds' | 'terminalCurls';
 
@@ -256,7 +256,7 @@ export const actions = {
       return ch ? { params: withGlyph(s.params, ch, key, { ...paramOf(s, key), [id]: v }) } : {};
     });
   },
-  /** Let one stroke end follow the letter's Length again (or take back its curl). */
+  /** Let one stroke end follow the letter's Length (or Curl) again. */
   resetEnd(id: string, key: EndKey = 'terminalEnds') {
     const s = get(), ch = letterOf(s), own = ch ? s.params.glyphs[ch]?.[key] : undefined;
     if (!ch || !own || own[id] === undefined) return;

@@ -27,8 +27,9 @@ export interface Params {
   roundness: number; curve: number; apex: number; terminal: Terminal;
   /** how far stroke ends reach: 0.5 is the usual length, lower trims them back, higher draws them on */ terminalLength: number;
   /** one letter's ends set one by one, by end id (see isEndId): each overrides terminalLength for that end */ terminalEnds: Record<string, number>;
-  /** how one letter's ends bend, by end id: 0.5 as drawn, lower straightens them and then flares
-      them out, higher curls them on round the way they turn */ terminalCurls: Record<string, number>;
+  /** how stroke ends bend: 0.5 as drawn, lower straightens them and then flares them out, higher
+      curls them on round the way they turn */ terminalCurl: number;
+  /** one letter's ends bent one by one, by end id: each overrides terminalCurl for that end */ terminalCurls: Record<string, number>;
   /** the form of the picked kind of stroke end (see TERMINAL_FORMS); one of another kind means its first */ terminalForm: TerminalForm;
   /* The finer shape of each form of stroke end. Each applies only while its form is picked, and
      its default draws the end as before. */
@@ -78,7 +79,7 @@ export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K :
 export const DEFAULTS: Readonly<Params> = Object.freeze({
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.05,
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
-  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurls: Object.freeze({}),
+  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}),
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, story: 'auto', overlap: 1, tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, slice: 0,
@@ -91,8 +92,8 @@ const PARAM_KEYS = Object.keys(DEFAULTS) as (keyof Params)[];
 
 /** A stroke end's id: the index of its stroke in the glyph, then 's' for its start or 'e' for its end.
     A 'p' in front marks a plain end, one that isn't a styled terminal (the foot of a stem, the tip
-    of a leg): it keeps the length and curl it is drawn with unless given its own, so a curl set on
-    every terminal (see curlEnds in content) leaves it alone. */
+    of a leg): it keeps the length and curl it is drawn with unless given its own, so the stroke end
+    length and curl leave it alone. */
 export const isEndId = (id: string) => /^p?\d{1,2}[se]$/.test(id);
 /** How far past its usual length an end reaches, in x-heights (negative trims), at `v` on an end's
     own length scale. The letter's Length spans the lower three quarters of it, an eighth of an
@@ -114,8 +115,10 @@ export function onEndScale(len: number) {
     control instead and sits at the usual length (0.5). */
 export const endLength = (p: Pick<Params, 'terminalLength'> & { terminalEnds?: Record<string, number> }, id: string, hook = false) =>
   p.terminalEnds?.[id] ?? (hook ? 0.5 : onEndScale(p.terminalLength));
-/** How one stroke end bends (see terminalCurls): 0.5, as drawn, unless it has a curl of its own. */
-export const endCurl = (p: { terminalCurls?: Record<string, number> }, id: string) => p.terminalCurls?.[id] ?? 0.5;
+/** How one stroke end bends (see terminalCurl): its own curl, else the stroke end curl, except
+    that a plain end (see isEndId) stays as drawn (0.5). */
+export const endCurl = (p: { terminalCurl?: number; terminalCurls?: Record<string, number> }, id: string) =>
+  p.terminalCurls?.[id] ?? (id.startsWith('p') ? 0.5 : p.terminalCurl ?? 0.5);
 
 /** A valid value for setting `k`, or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {

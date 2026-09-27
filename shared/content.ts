@@ -13,7 +13,7 @@ export type ControlKey =
   | 'fill' | 'stencil' | 'slice';
 export type SerifSubKey = 'serifSize' | 'serifThickness' | 'serifAngle';
 export type FillSubKey = 'module';
-export type TerminalSubKey = 'terminalLength' | 'terminalFlare' | 'terminalDepth' | 'terminalSize' | 'terminalRound' | 'terminalPoint' | 'terminalClip' | 'terminalLean' | 'terminalSlope' | 'terminalTilt' | 'terminalTip' | 'terminalTaper';
+export type TerminalSubKey = 'terminalLength' | 'terminalCurl' | 'terminalFlare' | 'terminalDepth' | 'terminalSize' | 'terminalRound' | 'terminalPoint' | 'terminalClip' | 'terminalLean' | 'terminalSlope' | 'terminalTilt' | 'terminalTip' | 'terminalTaper';
 /** Anything the control panel can focus: a control or one of its nested sub-sliders. */
 export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey;
 
@@ -131,10 +131,6 @@ const style = (id: string, group: StyleGroup, kinds: Kind[], name: string, moods
   const params = { ...DEFAULTS, ...p }, e = resolve(params);
   return { id, name, group, kinds, moods, desc, like, params, looks: LOOKS.filter(l => l.test(e)).map(l => l.id) };
 };
-/** The same curl on every stroke end of every letter (see terminalCurls): above 0.5 each end winds
-    on round the way it already turns, which gives a script its swash flourishes. */
-const curlEnds = (v: number) =>
-  Object.fromEntries(Array.from({ length: 16 }, (_, i) => [[`${i}s`, v], [`${i}e`, v]]).flat()) as Record<string, number>;
 
 /* Ids are stored with saved designs, so they never change even when a style is renamed. */
 export const STYLES: StyleDef[] = [
@@ -372,23 +368,23 @@ export const STYLES: StyleDef[] = [
       xHeight: 0.74, extenders: 0.3, curve: 0.3, geoHuman: 0.6, counter: 0.38, aperture: 0.4, letterSpacing: 0.14 }),
   style('swash', 'hand', ['formal', 'swash'], 'Swash Script', ['fancy', 'sophisticated', 'artistic'], 'Parisienne, Alex Brush, Italianno',
     'A wedding-invitation script: a steep lean, thick and thin strokes, and every stroke end wound into a curling flourish.',
-    { weight: 0.4, width: 0.36, height: 0.7, slant: 0.7, contrast: 0.7, terminal: 'tapered', cursive: 1, terminalCurls: curlEnds(0.61),
+    { weight: 0.4, width: 0.36, height: 0.7, slant: 0.7, contrast: 0.7, terminal: 'tapered', cursive: 1, terminalCurl: 0.61,
       xHeight: 0.3, extenders: 0.8, curve: 1, geoHuman: 1, letterSpacing: 0.04 }),
   style('italic', 'hand', ['italic', 'formal'], 'Chancery Italic', ['sophisticated', 'vintage', 'calm'], 'Cormorant Italic, Kalam, Satisfy',
     'Written with a broad-nib pen held at an angle: a narrow, springy italic with sharp thick-and-thin, angled cuts and ends that turn up in gentle hooks.',
-    { weight: 0.44, width: 0.3, height: 0.65, slant: 0.3, contrast: 0.68, terminal: 'angled', cursive: 0.4, terminalCurls: curlEnds(0.58),
+    { weight: 0.44, width: 0.3, height: 0.65, slant: 0.3, contrast: 0.68, terminal: 'angled', cursive: 0.4, terminalCurl: 0.58,
       xHeight: 0.42, extenders: 0.7, curve: 0.9, geoHuman: 1, aperture: 0.7, letterSpacing: 0.1 }),
   style('monoline', 'hand', ['monoline', 'informal', 'swash'], 'Monoline Script', ['happy', 'calm', 'cute', 'playful'], 'Dancing Script, Sacramento, Cookie',
     'One even pen line looping from letter to letter, with round, curly ends and a relaxed, easy lean.',
-    { weight: 0.26, width: 0.46, slant: 0.35, contrast: 0, roundness: 1, terminal: 'round', cursive: 1, terminalCurls: curlEnds(0.63),
+    { weight: 0.26, width: 0.46, slant: 0.35, contrast: 0, roundness: 1, terminal: 'round', cursive: 1, terminalCurl: 0.63,
       xHeight: 0.42, extenders: 0.7, curve: 0.9, geoHuman: 0.8, letterSpacing: 0.06 }),
   style('curly', 'hand', ['handwritten', 'upright', 'swash'], 'Curly Hand', ['cute', 'happy', 'childlike', 'playful'], 'Sniglet, Grandstander, Chilanka',
     'Bouncy, upright printing that curls up at every end, like doodled notes in the margin of a sketchbook.',
-    { weight: 0.42, width: 0.5, contrast: 0, roundness: 1, terminal: 'round', wobble: 0.45, terminalCurls: curlEnds(0.61),
+    { weight: 0.42, width: 0.5, contrast: 0, roundness: 1, terminal: 'round', wobble: 0.45, terminalCurl: 0.61,
       xHeight: 0.6, curve: 0.7, geoHuman: 0.7, playfulFormal: 0.15, counter: 0.6, letterSpacing: 0.22 }),
   style('signature', 'hand', ['signature', 'informal', 'monoline'], 'Signature', ['sophisticated', 'artistic', 'excited'], 'Mrs Saint Delafield, Monsieur La Doulaise, Herr Von Muellerhoff',
     'Signed at speed: a fine, fast line, a very steep lean, a tiny lowercase under towering loops and long tails that whip out past the letters.',
-    { weight: 0.14, width: 0.28, height: 0.8, slant: 0.9, contrast: 0.1, terminal: 'tapered', wobble: 0.5, cursive: 1, terminalCurls: curlEnds(0.64),
+    { weight: 0.14, width: 0.28, height: 0.8, slant: 0.9, contrast: 0.1, terminal: 'tapered', wobble: 0.5, cursive: 1, terminalCurl: 0.64,
       terminalLength: 0.7, tail: 0.85, xHeight: 0.14, extenders: 1, curve: 1, geoHuman: 1, letterSpacing: 0, wordSpacing: 0.6 }),
   style('blackletter', 'hand', ['blackletter'], 'Blackletter', ['vintage', 'rugged', 'fancy'], 'UnifrakturMaguntia, Pirata One, Grenze Gotisch',
     'Gothic textura from a broad pen: tall, narrow and packed close, every curve broken into straight cuts, with diamond-sharp serifs.',
@@ -464,7 +460,7 @@ export const STYLES: StyleDef[] = [
   style('neon', 'display', ['monoline', 'informal'], 'Neon Script', ['excited', 'artistic', 'vintage'], 'Neonderthaw, Tilt Neon, Beon',
     'A glowing sign bent from glass tube: a joined-up script drawn as one outlined line with round ends and curling tips.',
     { weight: 0.42, width: 0.5, slant: 0.3, contrast: 0, fill: 'wire', module: 0.3, roundness: 1, terminal: 'round', cursive: 1,
-      terminalCurls: curlEnds(0.6), xHeight: 0.45, extenders: 0.7, curve: 0.9, geoHuman: 0.75, letterSpacing: 0.12 }),
+      terminalCurl: 0.6, xHeight: 0.45, extenders: 0.7, curve: 0.9, geoHuman: 0.75, letterSpacing: 0.12 }),
   style('creepy', 'display', [], 'Creepy', ['loud', 'rugged', 'artistic', 'excited'], 'Creepster, Nosifer, Butcherman',
     'Horror-poster lettering: tall, jittery strokes that sharpen to thorn-like points, as if scratched out by candlelight.',
     { weight: 0.72, width: 0.42, height: 0.72, slant: 0.1, contrast: 0.5, terminal: 'tapered', terminalLength: 0.9, softSharp: 1,
@@ -479,11 +475,11 @@ export const STYLES: StyleDef[] = [
       extenders: 0.25, aperture: 0.3, counter: 0.36, apex: 0.7, letterSpacing: 0.14 }),
   style('nouveau', 'display', ['flared'], 'Art Nouveau', ['vintage', 'artistic', 'fancy'], 'Macondo, Almendra, Federo',
     'Belle Époque poster lettering, after Mucha: flowing curves, strokes that swell and taper, a small lowercase and crossbars dropped low.',
-    { weight: 0.4, width: 0.4, height: 0.72, contrast: 0.72, terminal: 'tapered', terminalLength: 0.8, terminalCurls: curlEnds(0.57), curve: 1,
+    { weight: 0.4, width: 0.4, height: 0.72, contrast: 0.72, terminal: 'tapered', terminalLength: 0.8, terminalCurl: 0.57, curve: 1,
       geoHuman: 0.9, xHeight: 0.34, extenders: 0.8, crossbar: 0.08, aperture: 0.7, apex: 0.2, letterSpacing: 0.22 }),
   style('psychedelic', 'display', ['swash'], 'Psychedelic', ['excited', 'artistic', 'vintage', 'playful'], 'Shrikhand, Kavoon, Bagel Fat One',
     'A 60s concert poster: heavy, melting letters that lean and bounce, with every stroke end curling up.',
-    { weight: 0.8, width: 0.62, slant: 0.25, contrast: 0.35, roundness: 1, terminal: 'round', wobble: 0.45, terminalCurls: curlEnds(0.56),
+    { weight: 0.8, width: 0.62, slant: 0.25, contrast: 0.35, roundness: 1, terminal: 'round', wobble: 0.45, terminalCurl: 0.56,
       curve: 1, geoHuman: 0.8, xHeight: 0.62, counter: 0.3, aperture: 0.3, letterSpacing: 0.14 }),
   style('bauhaus', 'display', ['geometric'], 'Bauhaus', ['artistic', 'vintage', 'innovative'], 'Righteous, Comfortaa, Baumans',
     'Built with a compass and ruler at the 1920s Bauhaus, after Herbert Bayer: wide circles, a lowercase nearly as tall as the capitals and stubby ascenders.',
@@ -596,6 +592,7 @@ export const FILL_SUBS: Record<FillSubKey, SubControlDef> = {
 };
 export const TERMINAL_SUBS: Record<TerminalSubKey, SubControlDef> = {
   terminalLength: { label: 'Length', friendly: 'Make the stroke ends longer or shorter', tech: 'Terminal length', lo: 'Short', hi: 'Long' },
+  terminalCurl: { label: 'Curl', friendly: 'Straighten the stroke ends or curl them round', tech: 'Terminal curl', lo: 'Flared out', hi: 'Curled in', bipolar: true },
   terminalFlare: { label: 'Flare', friendly: 'Widen the stroke as it ends', tech: 'Flared terminal', lo: 'Slight', hi: 'Wide' },
   terminalDepth: { label: 'Depth', friendly: 'Hollow the end out a little or a lot', tech: 'Terminal depth', lo: 'Shallow', hi: 'Deep' },
   terminalSize: { label: 'Size', friendly: 'Make the drop on the end smaller or bigger', tech: 'Ball size', lo: 'Small', hi: 'Big' },

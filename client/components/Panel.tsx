@@ -383,13 +383,14 @@ function TerminalControl({ parts }: { parts?: string[] }) {
         </div>
         {TERMINAL_DETAILS[form].map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}
         <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} />
+        <SliderControl k="terminalCurl" def={TERMINAL_SUBS.terminalCurl} />
         <EachEnd />
       </Fold>
     </div>
   );
 }
 
-/** While a letter is customized, a length for each of its stroke ends, each shown as a small
+/** While a letter is customized, a length and curl for each of its stroke ends, each shown as a small
     picture of the letter with that end marked; while every letter is in sync, a way into customizing,
     since ends are set one by one only on a single letter. */
 function EachEnd() {
@@ -434,6 +435,7 @@ function EndThumb({ g, ends, on }: { g: Glyph; ends: StrokeEndInfo[]; on?: strin
 /** One end's length and curl beside a picture of the letter with that end marked. */
 function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: StrokeEndInfo[]; end: StrokeEndInfo }) {
   const length = useEditor(s => endOf(s, id, hook)), curl = useEditor(s => curlOf(s, id)), hot = useEditor(s => s.hotEnd === id);
+  const plain = id.startsWith('p');
   return (
     <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id} title={label}
       onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
@@ -441,14 +443,14 @@ function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: Stro
       <EndRow id={id} k="terminalEnds" name="Length" label={label} value={length}
         tip="Trim the end back, or draw it on, much further than Length goes" reset={hook ? 'Reset its length' : 'Follow Length again'} />
       <EndRow id={id} k="terminalCurls" name="Curl" label={label} value={curl}
-        tip="Left straightens the end, then swirls it outward; right curls it on round, into a spiral like a swash" reset="Reset its curl" />
+        tip="Left straightens the end, then swirls it outward; right curls it on round, into a spiral like a swash" reset={plain ? 'Reset its curl' : 'Follow Curl again'} />
     </div>
   );
 }
 
 function EndRow({ id, k, name, label, value, tip, reset }: { id: string; k: EndKey; name: string; label: string; value: number; tip: string; reset: string }) {
   const own = useEditor(s => { const ch = letterOf(s); return !!ch && s.params.glyphs[ch]?.[k]?.[id] !== undefined; });
-  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl('terminalLength'); actions.setEnd(id, v, k); };
+  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
   return (
     <>
       <span className="end-name" title={tip}>{name}</span>
