@@ -8,7 +8,7 @@
   --ink: #2e3b3e; --ink-2: #47585c; --ink-3: #5a6e71;
   --line: #e0e4e4; --line-2: #c6cfd0;
   --accent: #4d80e6; --accent-ink: #3464c4; --accent-soft: rgba(77, 128, 230, .12);
-  --lavender: #b8afca; --custom: #8370a9; --custom-ink: #514072; --custom-soft: rgba(184, 175, 202, .3);
+  --lavender: #b8afca; --lavender-wash: #eeecf2; --custom: #8370a9; --custom-ink: #514072; --custom-soft: rgba(184, 175, 202, .3);
   --hover: rgba(46, 59, 62, .05); --active: rgba(46, 59, 62, .08);
   --radius: 8px; --radius-s: 4px; --radius-l: 12px;
   --shadow: 0 1px 2px rgba(46, 59, 62, .06), 0 8px 24px rgba(46, 59, 62, .08);
@@ -195,7 +195,7 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .each-end.locked { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 0 10px; padding-top: 12px; }
 .each-end.locked .sub-label { margin: 0; }
 .each-end.locked .btn { width: auto; }
-.each-end:not(.locked) { --accent: var(--custom); --accent-soft: var(--custom-soft); }
+.each-end:not(.locked) { --accent: var(--custom); --accent-soft: var(--custom-soft); --fill: var(--custom); }
 .end-thumb { width: 40px; height: 40px; flex: none; border-radius: var(--radius-s); background: var(--paper); border: 1px solid var(--line); transition: border-color .15s; }
 .end-thumb path { fill: var(--line-2); }
 .end-thumb circle { fill: var(--accent); stroke: var(--paper); stroke-width: 18; paint-order: stroke; }
@@ -211,22 +211,22 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .end-reset svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
 input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 20px; background: none; margin: 0; cursor: pointer; --v: .5; }
-input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--sabi) calc(var(--v) * 100%), var(--stone) 0); }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--fill, var(--sabi)) calc(var(--v) * 100%), var(--stone) 0); }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%; background: #fff; border: 1px solid var(--line-2); box-shadow: 0 1px 3px rgba(46, 59, 62, .2); transition: border-color .15s; }
 input[type=range]:hover::-webkit-slider-thumb { border-color: var(--ink-3); }
 input[type=range]:active::-webkit-slider-thumb { border-color: var(--accent); }
 input[type=range]::-moz-range-track { height: 4px; border-radius: 4px; background: var(--stone); }
-input[type=range]::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--sabi); }
+input[type=range]::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--fill, var(--sabi)); }
 input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 1px solid var(--line-2); box-shadow: 0 1px 3px rgba(46, 59, 62, .2); }
 /* Control sliders mark their middle (50) with a dot. The track is taller than the 4px bar so the dot can overhang it;
    the thumb's centre sits exactly on the track's centre at 50, so the two line up. */
 .ctl { --mid-dot: radial-gradient(circle, var(--ink-3) 0 2.5px, var(--surface) 3px 3.5px, transparent 4px) 50% 50% / 8px 8px no-repeat; }
 .ctl input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 0; background: var(--mid-dot),
-  linear-gradient(to right, var(--sabi) calc(var(--v) * 100%), var(--stone) 0) 50% 50% / 100% 4px no-repeat; }
+  linear-gradient(to right, var(--fill, var(--sabi)) calc(var(--v) * 100%), var(--stone) 0) 50% 50% / 100% 4px no-repeat; }
 .ctl input[type=range]::-webkit-slider-thumb { margin-top: -4px; }
 .ctl input[type=range]::-moz-range-track { background: var(--mid-dot), linear-gradient(var(--stone), var(--stone)) 50% 50% / 100% 4px no-repeat; height: 8px; border-radius: 0; }
 .bipolar input[type=range]::-webkit-slider-runnable-track { background: var(--mid-dot),
-  linear-gradient(to right, var(--stone) calc(min(var(--v), .5) * 100%), var(--sabi) 0, var(--sabi) calc(max(var(--v), .5) * 100%), var(--stone) 0) 50% 50% / 100% 4px no-repeat; }
+  linear-gradient(to right, var(--stone) calc(min(var(--v), .5) * 100%), var(--fill, var(--sabi)) 0, var(--fill, var(--sabi)) calc(max(var(--v), .5) * 100%), var(--stone) 0) 50% 50% / 100% 4px no-repeat; }
 .size input[type=range]::-webkit-slider-runnable-track { background: var(--stone); }
 
 .opts { display: grid; gap: 6px; }
@@ -271,7 +271,16 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .scope-banner b { font-weight: 600; }
 .scope-banner .link { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; margin-left: 4px; }
 .scope-banner .scope-icon { stroke: var(--ink); }
-.scope-note { margin: 4px 12px 6px; padding: 9px 12px; border-radius: var(--radius); background: var(--custom-soft); color: var(--custom-ink); font-size: 12.5px; line-height: 1.45; }
+.scope-note { display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 6px; padding: 10px 12px; border-radius: var(--radius); background: var(--lavender); color: var(--ink); font-size: 12.5px; line-height: 1.45; }
+.scope-note .scope-icon { margin-top: 1px; }
+/* customizing one letter: the panel is edged and washed in lavender like the inspector's frame, and the controls
+   that reshape only that letter take its colour; Whole font ones keep theirs */
+.panel.customizing { background: var(--lavender-wash); box-shadow: inset 2px 0 0 var(--custom); }
+.panel.customizing .explainer { box-shadow: inset 2px 0 0 var(--custom); --accent-ink: var(--custom-ink); }
+.ctl[data-letter] { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --fill: var(--custom); }
+.ctl.active[data-letter] { border-color: var(--lavender); }
+.ctl[data-letter] input[type=range]::-webkit-slider-thumb { border-color: var(--custom); }
+.ctl[data-letter] input[type=range]::-moz-range-thumb { border-color: var(--custom); }
 .scope-note em { font-style: normal; font-weight: 600; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
 .check input { accent-color: var(--accent); }

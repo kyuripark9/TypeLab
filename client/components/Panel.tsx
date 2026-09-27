@@ -13,12 +13,12 @@ import type { Glyph } from '../../shared/engine';
 import { strokeEnds, type StrokeEndInfo } from '../lib/drag';
 import { actions, curlOf, endOf, fontFor, isOn, letterOf, useEditor, useFont, useParam, useScopedFont, type EndKey } from '../state/editor';
 import { Diagram, FillIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
-import { letterControls } from './Inspector';
+import { ScopeIcon, letterControls } from './Inspector';
 
 export function Panel() {
-  const category = useEditor(s => s.category);
+  const category = useEditor(s => s.category), customizing = useEditor(s => !!letterOf(s));
   return (
-    <aside className="panel" aria-label="Controls" data-guide="panel" onPointerLeave={() => { actions.setHot(false); actions.setPart(null); }}>
+    <aside className={customizing ? 'panel customizing' : 'panel'} aria-label="Controls" data-guide="panel" onPointerLeave={() => { actions.setHot(false); actions.setPart(null); }}>
       {category === 'style' ? <StyleFilters /> : <ControlsPanel category={category} />}
     </aside>
   );
@@ -137,7 +137,7 @@ function LetterControls({ keys, category }: { keys: ControlKey[]; category: Excl
   const rest = keys.filter(k => !rows.some(r => r.key === k));
   return (
     <div className="ctl-list">
-      {customizing && <div className="scope-note">Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</div>}
+      {customizing && <div className="scope-note"><ScopeIcon id="letter" /><span>Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</span></div>}
       <div className="list-head">Parts of {ch}</div>
       {rows.map(r => <Control key={r.key} k={r.key} parts={r.parts} />)}
       {rest.length > 0 && <div className="list-head">More {CATEGORIES.find(c => c.id === category)?.label.toLowerCase()}</div>}
@@ -213,9 +213,12 @@ function Explainer() {
 
 /** Pointing at or focusing a control makes it the active one. Nested controls (serif
     sub-sliders) win over their parent. */
+/** Also marks a control that, while a letter is customized, reshapes only that letter. */
 function useControlFocus(key: ActiveKey) {
   const own = (e: PointerEvent | FocusEvent) => (e.target as Element).closest('.ctl') === e.currentTarget;
+  const letterOnly = useEditor(s => !!letterOf(s) && isGlyphKey(key));
   return {
+    'data-letter': letterOnly || undefined,
     onPointerOver: (e: PointerEvent) => { if (own(e)) actions.focusControl(key); },
     onFocus: (e: FocusEvent) => { if (own(e)) actions.focusControl(key); }
   };

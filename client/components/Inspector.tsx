@@ -149,7 +149,7 @@ function ScopeToggle({ ch }: { ch: string }) {
 }
 
 /** Three letters in a row: all outlined alike (in sync), or the middle one picked out. */
-function ScopeIcon({ id }: { id: Scope }) {
+export function ScopeIcon({ id }: { id: Scope }) {
   return (
     <svg className="scope-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
       <rect x="1" y="4" width="3.5" height="8" rx="1" opacity={id === 'letter' ? 0.4 : 1} />
