@@ -1,5 +1,5 @@
 /* Clean, neutral UI in one typeface (Inter). Colours from the Nuevo.Tokyo "Japanese Colours for UI /
-   Greydients" palette: soft greys, Sabi Nezu slate and one Nezuogusa blue accent. A vivid orange is kept
+   Greydients" palette: soft greys, Sabi Nezu slate and one Nezuogusa blue accent. A muted burnt orange is kept
    for customizing a single letter, so anything that belongs to one letter alone reads apart from the rest;
    --custom-ink is a deeper shade of it for text, and --custom-tint and --custom-wash are pale mixes for backgrounds. */
 :root {
@@ -8,7 +8,7 @@
   --ink: #2e3b3e; --ink-2: #47585c; --ink-3: #5a6e71;
   --line: #e0e4e4; --line-2: #c6cfd0;
   --accent: #4d80e6; --accent-ink: #3464c4; --accent-soft: rgba(77, 128, 230, .12);
-  --custom: #ff8e24; --custom-ink: #b35c00; --custom-soft: rgba(255, 142, 36, .12); --custom-tint: #ffeede; --custom-wash: #fff6ed;
+  --custom: #cc6e2e; --custom-ink: #a3531c; --custom-soft: rgba(204, 110, 46, .12); --custom-tint: #f8ebe2; --custom-wash: #fbf5f0;
   --hover: rgba(46, 59, 62, .05); --active: rgba(46, 59, 62, .08);
   --radius: 8px; --radius-s: 4px; --radius-l: 12px;
   --shadow: 0 1px 2px rgba(46, 59, 62, .06), 0 8px 24px rgba(46, 59, 62, .08);
@@ -259,7 +259,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .scope button { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--radius-s); font-size: 13px; font-weight: 500; color: var(--ink-2); white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }
 .scope button:hover { color: var(--ink); }
 .scope button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(46, 59, 62, .14); }
-.scope button.on[data-scope="letter"] { background: var(--custom); color: var(--ink); box-shadow: none; }
+.scope button.on[data-scope="letter"] { background: var(--custom); color: #fff; box-shadow: none; }
 .scope-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.3; }
 .scope-icon .fill { fill: currentColor; }
 /* customizing one letter: the letter is framed and a banner says so, so the mode can't be missed.
@@ -267,10 +267,10 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .inspector.customizing { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); }
 .inspector.customizing .insp-body { position: relative; box-shadow: inset 0 0 0 2px var(--custom); }
 .scope-banner { position: absolute; top: 12px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 8px; padding: 7px 14px;
-  border-radius: 100px; background: var(--custom); color: var(--ink); font-size: 13px; white-space: nowrap; pointer-events: auto; }
+  border-radius: 100px; background: var(--custom); color: #fff; font-size: 13px; white-space: nowrap; pointer-events: auto; }
 .scope-banner b { font-weight: 600; }
-.scope-banner .link { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; margin-left: 4px; }
-.scope-banner .scope-icon { stroke: var(--ink); }
+.scope-banner .link { color: #fff; text-decoration: underline; text-underline-offset: 2px; margin-left: 4px; }
+.scope-banner .scope-icon { stroke: #fff; }
 .scope-note { display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 6px; padding: 10px 12px; border-radius: var(--radius); background: var(--custom-tint); color: var(--ink); font-size: 12.5px; line-height: 1.45; }
 .scope-note .scope-icon { margin-top: 1px; color: var(--custom); }
 /* customizing one letter: the panel is edged and washed in orange like the inspector's frame, and the controls
