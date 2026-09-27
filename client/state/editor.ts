@@ -18,6 +18,10 @@ const FOLD_KEY = 'typelab.folded';
 const savedFolded = (): ControlKey[] => {
   try { const v = JSON.parse(localStorage.getItem(FOLD_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
 };
+const TIPS_KEY = 'typelab.tipsHidden';
+const savedTips = (): boolean => {
+  try { return localStorage.getItem(TIPS_KEY) !== '1'; } catch { return true; }
+};
 
 interface Doc { designId: string | null; name: string; styleId: string; params: Params }
 
@@ -43,6 +47,8 @@ export interface EditorState extends Doc {
   view: CardView;
   /** long panel sections folded down to their heading */
   folded: ControlKey[];
+  /** the explanation at the top of the panel; closing it hides it until the Guide is opened */
+  tips: boolean;
   inspect: string | null;
   scope: Scope;
   /** optional sliders switched on while still at their off value, so they stay open */
@@ -89,6 +95,7 @@ export const useEditor = create<EditorState>()(() => ({
   kinds: [],
   view: savedView(),
   folded: savedFolded(),
+  tips: savedTips(),
   inspect: null,
   scope: 'all',
   switchedOn: [],
@@ -294,6 +301,10 @@ export const actions = {
     const folded = open ? get().folded.filter(x => x !== k) : [...get().folded, k];
     set({ folded });
     try { localStorage.setItem(FOLD_KEY, JSON.stringify(folded)); } catch { /* private mode: the fold lasts this visit */ }
+  },
+  setTips(tips: boolean) {
+    set({ tips });
+    try { if (tips) localStorage.removeItem(TIPS_KEY); else localStorage.setItem(TIPS_KEY, '1'); } catch { /* private mode: lasts this visit */ }
   },
   openInspector(ch: string) {
     if (!fontFor(get().params).glyph(ch)) return;

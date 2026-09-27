@@ -63,7 +63,7 @@ export function EditorPage() {
 
   return (
     <div className="editor">
-      <Header onSave={save} onGuide={() => setGuide(true)} />
+      <Header onSave={save} onGuide={() => { actions.setTips(true); setGuide(true); }} />
       <Nav />
       <Stage />
       <Panel />

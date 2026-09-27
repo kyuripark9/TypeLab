@@ -221,21 +221,29 @@ function Fold({ k, shut, children }: { k: FoldKey; shut?: boolean; children: Rea
 
 function Explainer() {
   const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
-  const part = useEditor(s => s.inspect ? s.part : null);
+  const part = useEditor(s => s.inspect ? s.part : null), tips = useEditor(s => s.tips);
   const c = CONTROLS[controlFor(active)], sub = SUBS[active as SerifSubKey | FillSubKey | TerminalSubKey];
   const shapedBy = part && PART_CONTROL[part];
   // while inspecting, the large letter on the stage already shows the part, so drop the diagram
+  if (!tips && inspecting) return null;
+  const close = (
+    <button className="btn ghost icon small ex-close" onClick={() => actions.setTips(false)} aria-label="Hide explanations" title="Hide explanations (Guide brings them back)">
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+    </button>
+  );
   return (
     <div className={inspecting ? 'explainer compact' : 'explainer'}>
       {!inspecting && <div className="diagram-box"><Diagram font={font} k={active} /></div>}
-      {part ? (
+      {!tips ? null : part ? (
         <div className="ex-text">
+          {close}
           <div className="ex-tech">Anatomy{shapedBy && ` · shaped by ${CONTROLS[shapedBy].tech.split(' · ')[0]}`}</div>
           <h3>{ANATOMY[part][0]}</h3>
           <p>{ANATOMY[part][1]}</p>
         </div>
       ) : (
         <div className="ex-text">
+          {close}
           <div className="ex-tech">{(sub ?? c).tech}</div>
           <h3>{(sub ?? c).friendly}</h3>
           <p>{c.explain}</p>
