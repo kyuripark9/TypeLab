@@ -1,7 +1,6 @@
 /* My designs: every saved font, previewed in its own letterforms. */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { styleById } from '../../shared/content';
 import type { Design } from '../../shared/design';
 import { api, errorMessage } from '../lib/api';
 import { n1 } from '../lib/hooks';
@@ -57,8 +56,7 @@ export function LibraryPage() {
       <header className="top">
         <div className="top-left"><Brand to={openId ? `/d/${openId}` : '/'} /></div>
         <div className="top-actions">
-          <Link className="btn ghost" to={openId ? `/d/${openId}` : '/'}>Back to editor</Link>
-          <button className="btn primary" onClick={startNew}>New design</button>
+          <button className="btn primary" onClick={startNew}><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>New design</button>
         </div>
       </header>
       <main className="lib-main">
@@ -81,6 +79,10 @@ export function LibraryPage() {
         ) : (
           <div className="lib-grid">
             {designs.map(d => <DesignCard key={d.id} d={d} recent={d.id === recentId} onDuplicate={() => duplicate(d)} onDelete={() => remove(d)} />)}
+            <button className="lib-new" onClick={startNew}>
+              <span className="lib-new-icon"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M11 4v14M4 11h14" /></svg></span>
+              <b>New design</b>
+            </button>
           </div>
         )}
       </main>
@@ -105,12 +107,39 @@ function DesignCard({ d, recent, onDuplicate, onDelete }: { d: Design; recent: b
       </Link>
       <div className="lib-meta">
         <h3 title={d.name}>{d.name}</h3>
-        <div className="lib-actions">
-          <button className="btn ghost small" onClick={onDuplicate}>Duplicate</button>
-          <button className="btn ghost small danger" onClick={onDelete}>Delete</button>
-        </div>
-        <p title={new Date(d.updatedAt).toLocaleString()}>{styleById(d.styleId)?.name ?? 'Custom'} · edited {ago(d.updatedAt)}</p>
+        <CardMenu name={d.name} onDuplicate={onDuplicate} onDelete={onDelete} />
+        <p title={new Date(d.updatedAt).toLocaleString()}>Edited {ago(d.updatedAt)}</p>
       </div>
     </article>
+  );
+}
+
+/** The ⋯ button on a card, holding Duplicate and Delete. */
+function CardMenu({ name, onDuplicate, onDelete }: { name: string; onDuplicate: () => void; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', esc); };
+  }, [open]);
+
+  const pick = (fn: () => void) => () => { setOpen(false); fn(); };
+  return (
+    <div className="lib-actions" ref={wrap}>
+      <button className="btn icon small" aria-label={`More actions for ${name}`} title="More actions" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(o => !o)}>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h.01M8 8h.01M12.5 8h.01" /></svg>
+      </button>
+      {open && (
+        <div className="popover lib-menu" role="menu">
+          <button role="menuitem" onClick={pick(onDuplicate)}>Duplicate</button>
+          <button role="menuitem" className="danger" onClick={pick(onDelete)}>Delete</button>
+        </div>
+      )}
+    </div>
   );
 }
