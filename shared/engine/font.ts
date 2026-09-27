@@ -365,13 +365,16 @@ function stretchEnd(cmds: Cmd[], which: 's' | 'e', d: number, m: Metrics): { cmd
    the other way. A curl winds like a volute, gently where it leaves the stroke and tighter toward
    the tip, up to CURL_TURNS times round; it draws the end out as far as it needs for that, up to
    CURL_LONGEST x-heights, and never turns tighter at the tip than CURL_TIGHT of the stroke width.
+   Winding more than once round, it never turns so tight that a turn comes nearer the one around
+   it than CURL_GAP stroke widths (centerline to centerline), and runs on a little further to
+   wind round instead.
    Its length changes as with stretchEnd, and any length past what the curl takes first draws
    the end on along its own path, carrying the curl further out.
    A curl keeps CURL_CLEAR of the stroke width clear of the rest of the letter (centerline to
-   centerline). Where it would run into another stroke it draws the end on first, up to
-   CURL_LEAD x-heights, winds less and smaller, or, when the length drawn on first is what runs
+   centerline), and its tip clear of its own earlier turns. Where it would run into another
+   stroke it draws the end on first, up to CURL_LEAD x-heights, winds less and smaller, or, when the length drawn on first is what runs
    into the letter, gives some of that up, whichever changes it least (see CURL_TRIES). */
-const CURL_REACH = 0.45, CURL_TURNS = 1.25, CURL_LONGEST = 2.2, CURL_TIGHT = 0.7, CURL_CLEAR = 1.6;
+const CURL_REACH = 0.45, CURL_TURNS = 1.25, CURL_LONGEST = 2.2, CURL_TIGHT = 0.7, CURL_CLEAR = 1.6, CURL_GAP = 1.35;
 /** How much of the lower half of Curl a curved end takes to straighten. */
 const CURL_UNBEND = 0.3;
 /** The ways a crowded curl can give way, as [how much further on it starts, in x-heights; its
@@ -405,16 +408,28 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
   const amount = k2 >= 0 ? k2 : curved ? Math.max(0, (-k2 - CURL_UNBEND) / (1 - CURL_UNBEND)) : -k2;
   // the extra turn grows with the square of the distance into the curl, so its curvature is
   // tightest at the tip: 2 * turn / length there
-  const rTip = Math.max(m.s * CURL_TIGHT, m.xh * 0.08);
+  const want = amount * CURL_TURNS * 2 * Math.PI, rTip = Math.max(m.s * CURL_TIGHT, m.xh * 0.08);
   // the curl takes the stretch redrawn, or as long as it needs; any length past that comes first
-  const Ls = Math.min(2 * amount * CURL_TURNS * 2 * Math.PI * rTip, m.xh * CURL_LONGEST), Lc = Math.min(Math.max(Sn, Ls), Math.max(S0, Ls));
-  const turn0 = (k2 >= 0 ? way : -way) * Math.min(amount * CURL_TURNS * 2 * Math.PI, Lc / (2 * rTip));
-  const M = 192;
+  const Ls = Math.min(2 * want * rTip, m.xh * CURL_LONGEST), Lc = Math.min(Math.max(Sn, Ls), Math.max(S0, Ls));
+  const turn0 = (k2 >= 0 ? way : -way) * Math.min(want, Lc / (2 * rTip));
+  const M = 192, spread = m.s * CURL_GAP / (2 * Math.PI);
   // the curl at `f` of its size, keeping `g` of the length drawn on before it, and starting
   // `lead` further on
   const draw = (lead: number, f: number, g: number) => {
-    const Lq = Lc * f, turn = turn0 * f, L0 = Math.max(0, Sn - Lq) * g + lead, h = (L0 + Lq) / M;
-    const angle = (s: number) => lerp(drawn(s), ang[0], straighten) + turn * (Math.max(0, s - L0) / Lq) ** 2;
+    const Lq = Lc * f, T = Math.abs(turn0) * f, L0 = Math.max(0, Sn - Lq) * g + lead;
+    // the extra turn along the curl, as s², except that with `left` still to wind it turns no
+    // tighter than round rTip + spread * left, an Archimedean spiral that keeps its turns apart
+    const dh = Lq / M, turns = [0];
+    for (let k = 0, v = 0; v < T && k < 2 * M; k++) {
+      v = Math.min(T, v + dh * Math.min(2 * T * (k + 0.5) * dh / (Lq * Lq), 1 / (rTip + spread * (T - v))));
+      turns.push(v);
+    }
+    const extra = (s: number) => {
+      const t = Math.max(0, s - L0) / dh, k = Math.min(turns.length - 2, Math.floor(t));
+      return k < 0 ? 0 : t >= turns.length - 1 ? turns[turns.length - 1] : lerp(turns[k], turns[k + 1], t - k);
+    };
+    const sign = Math.sign(turn0), h = (L0 + (turns.length - 1) * dh) / M;
+    const angle = (s: number) => lerp(drawn(s), ang[0], straighten) + sign * extra(s);
     const pts: Pt[] = [{ x: J.x, y: J.y }];
     for (let k = 1; k <= M; k++) { const t = angle(h * (k - 0.5)), p = pts[k - 1]; pts.push({ x: p.x + Math.cos(t) * h, y: p.y + Math.sin(t) * h }); }
     return { angle, pts, h };
@@ -431,20 +446,26 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
     const k = key(q.x, q.y), g = { x: q.x, y: q.y, r };
     grid.get(k)?.push(g) ?? grid.set(k, [g]);
   }
-  const hits = (pts: Pt[], most = Infinity) => {
+  // two points of the curl itself touch if they are nearer than this but further apart along it
+  // than any bend can bring them
+  const self = m.s * 1.3, apart = Math.PI * self;
+  const hits = (pts: Pt[], h: number, most = Infinity) => {
     let n = 0;
     for (let k = 2; k <= M && n < most; k += 2) {
       const p = pts[k];
+      let own = false;
+      for (let j = 0; !own && (k - j) * h > apart; j += 2) own = Math.hypot(p.x - pts[j].x, p.y - pts[j].y) < self;
+      if (own) { n++; continue; }
       near: for (const dx of [-clear, 0, clear]) for (const dy of [-clear, 0, clear]) {
         for (const q of grid.get(key(p.x + dx, p.y + dy)) ?? []) if (Math.hypot(p.x - q.x, p.y - q.y) < q.r) { n++; break near; }
       }
     }
     return n;
   };
-  let best = draw(0, 1, 1), fewest = grid.size ? hits(best.pts) : 0;
+  let best = draw(0, 1, 1), fewest = hits(best.pts, best.h);
   for (const [x, f, g] of CURL_TRIES) {
     if (!fewest) break;
-    const r = draw(x * m.xh, f, g), n = hits(r.pts, fewest);
+    const r = draw(x * m.xh, f, g), n = hits(r.pts, r.h, fewest);
     if (n < fewest) { best = r; fewest = n; }
   }
   const { angle, pts, h } = best;
