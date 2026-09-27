@@ -229,6 +229,35 @@ describe('font engine', () => {
     }
   });
 
+  it('gives the free ends of stems, legs and diagonals a length and curl of their own', () => {
+    const base = buildFont(DEFAULTS), plain = (ch: string, f = base) => f.glyph(ch)!.marks.filter(k => k.type === 'end');
+    for (const ch of 'lAHkxn') assert.ok(plain(ch).length, ch);
+    // an end buried in another stroke (T's stem top, under the bar) and a closed shape have none
+    assert.deepEqual(plain('T').map(k => k.id), ['p0s']);
+    assert.equal(plain('O').length, 0);
+    // Length and a curl on every terminal (as a swash style sets) leave them where they are drawn
+    const swash = STYLES.find(s => Object.keys(s.params.terminalCurls).length)!.params;
+    for (const ch of 'lA') {
+      assert.equal(buildFont({ ...DEFAULTS, terminalLength: 1 }).glyph(ch)!.d, base.glyph(ch)!.d, ch);
+      assert.equal(buildFont({ ...DEFAULTS, terminalCurls: swash.terminalCurls }).glyph(ch)!.d, base.glyph(ch)!.d, ch);
+    }
+    // their own length draws them on, past the clip at A's feet
+    const foot = plain('A').find(k => k.id === 'p0s')!;
+    const long = plain('A', buildFont({ ...DEFAULTS, glyphs: { A: { terminalEnds: { p0s: 0.9 } } } })).find(k => k.id === 'p0s')!;
+    assert.ok(long.y < foot.y - 100, `${long.y}`);
+    // and their own curl bends them
+    assert.notEqual(buildFont({ ...DEFAULTS, glyphs: { l: { terminalCurls: { p0e: 0.8 } } } }).glyph('l')!.d, base.glyph('l')!.d);
+    assert.deepEqual(sanitizeParams({ terminalEnds: { p0s: 0.3, q0s: 1 } }).terminalEnds, { p0s: 0.3 });
+    // with serifs on, every letter keeps the same ends: a serif goes with its end, and a curl lets it go
+    const serif = buildFont({ ...DEFAULTS, serif: true }), ids = (f: typeof base, ch: string) => f.glyph(ch)!.marks.filter(k => k.id).map(k => k.id).sort();
+    for (const ch of 'lHkEf') assert.deepEqual(ids(serif, ch), ids(base, ch), ch);
+    const l = serif.glyph('l')!, top = l.marks.find(k => k.id === 'p0e')!;
+    const tall = buildFont({ ...DEFAULTS, serif: true, glyphs: { l: { terminalEnds: { p0e: 0.9 } } } }).glyph('l')!;
+    assert.ok(tall.marks.find(k => k.id === 'p0e')!.y > top.y + 100);
+    assert.equal(tall.serifs.length, l.serifs.length);
+    assert.equal(buildFont({ ...DEFAULTS, serif: true, glyphs: { l: { terminalCurls: { p0e: 0.8 } } } }).glyph('l')!.serifs.length, l.serifs.length - 1);
+  });
+
   it('squares and facets curves', () => {
     const round = buildFont(DEFAULTS), square = buildFont({ ...DEFAULTS, squareness: 1 }), cut = buildFont({ ...DEFAULTS, chamfer: 1 });
     assert.notEqual(round.glyph('O')!.d, square.glyph('O')!.d);

@@ -89,8 +89,11 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
 
 const PARAM_KEYS = Object.keys(DEFAULTS) as (keyof Params)[];
 
-/** A stroke end's id: the index of its stroke in the glyph, then 's' for its start or 'e' for its end. */
-export const isEndId = (id: string) => /^\d{1,2}[se]$/.test(id);
+/** A stroke end's id: the index of its stroke in the glyph, then 's' for its start or 'e' for its end.
+    A 'p' in front marks a plain end, one that isn't a styled terminal (the foot of a stem, the tip
+    of a leg): it keeps the length and curl it is drawn with unless given its own, so a curl set on
+    every terminal (see curlEnds in content) leaves it alone. */
+export const isEndId = (id: string) => /^p?\d{1,2}[se]$/.test(id);
 /** How far past its usual length an end reaches, in x-heights (negative trims), at `v` on an end's
     own length scale. The letter's Length spans the lower three quarters of it, an eighth of an
     x-height either way; the last quarter draws one end on as far as a whole x-height. */

@@ -257,7 +257,7 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
   const handles: Handle[] = showKey ? handlesFor(showKey, lf, ch, [...parts, ...guides.map(([id]) => id), 'advance']) : [];
 
   let hl: { d: string; ring?: boolean };
-  if (hotEnd) hl = { ring: true, d: ringsD(g.marks.filter(k => k.type === 'terminal' && k.id === hotEnd), Math.max(34, m.s * 0.75)) };
+  if (hotEnd) hl = { ring: true, d: ringsD(g.marks.filter(k => k.id === hotEnd), Math.max(34, m.s * 0.75)) };
   else if (part) hl = partD(g, part, font);
   else { const k = controlFor(active); hl = { d: font.hl(ch, k), ring: !!RING_KEYS[k] }; }
 

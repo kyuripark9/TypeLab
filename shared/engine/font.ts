@@ -7,7 +7,7 @@ import { DEFAULTS, endCurl, endLength, endReach, formOf, type Params } from '../
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, subCubic, transformCmds } from './geom';
 import { fillOutline, slice } from './effects';
 import { autoThickness, buildSerif, expandStroke, type Expanded } from './stroke';
-import type { Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
+import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
@@ -537,11 +537,32 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
     serif keep theirs. Tails, hooks and cursive strokes are left to their own controls, so their
     tips move only by a length set for that one end, measured from where their own control puts
     them (0.5).
-    Notes the ids of those tips in `hooks`, where each end sat before its own length and curl in
-    `homes`, and returns how far the ends now reach past the body on the left and right, to widen
-    it by. */
-function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>, homes: Map<string, Pt>) {
+    Plain ends (the free ends of stems, legs and bars that aren't styled terminals, and not buried
+    in another stroke) and ends with a serif move only by a length or curl of their own, from where
+    they are drawn: the serif goes with the end, or goes when it curls. A curled plain end is cut
+    straight across instead of level or plumb, and its stroke's clip gives way.
+    Notes the ids of those tips in `hooks` and of plain ends in `plains`, where each end sat before
+    its own length and curl in `homes`, and returns how far the ends now reach past the body on the
+    left and right, to widen it by. */
+function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>, plains: Set<string>, homes: Map<string, Pt>) {
   const grow = { l: 0, r: 0 };
+  // every stroke's centerline as drawn, to tell a free end from one buried in another stroke
+  const drawn = b.strokes.map(t => t.cmds ? centerPoints(t.cmds, m, m.s * 0.25) : null);
+  const buried = (si: number, q: Pt) => b.strokes.some((t, ti) => {
+    if (ti === si) return false;
+    if (t.poly) {
+      const xs = t.poly.map(p => p.x), ys = t.poly.map(p => p.y);
+      return q.x >= Math.min(...xs) - 1 && q.x <= Math.max(...xs) + 1 && q.y >= Math.min(...ys) - 1 && q.y <= Math.max(...ys) + 1;
+    }
+    const pts = drawn[ti]!, sc = t.o.scale || 1;
+    for (let k = 0; k + 1 < pts.length; k++) {
+      const a = pts[k], c = pts[k + 1], dx = c.x - a.x, dy = c.y - a.y, l2 = dx * dx + dy * dy;
+      if (l2 < 1e-9) continue;
+      const u = clamp(((q.x - a.x) * dx + (q.y - a.y) * dy) / l2), half = (t.o.w === 'thin' ? m.thin : m.tDir(dx, dy)) * sc / 2;
+      if (Math.hypot(q.x - a.x - dx * u, q.y - a.y - dy * u) <= half + 1) return true;
+    }
+    return false;
+  });
   let mid: Pt | null = null;
   const middle = () => {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -553,17 +574,25 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
     if (!st.cmds) return;
     const o = st.o, own = o.part === 'tail' || o.part === 'entry';
     for (const which of ['s', 'e'] as const) {
-      const serif = m.serif && !o.scale && !!(which === 's' ? o.serifS : o.serifE);
-      if ((which === 's' ? o.s : o.e) !== 'term' || serif) continue;
-      const id = `${si}${which}`, at = stretchEnd(st.cmds, which, 0, m), tip = at && tipAt(at.from);
-      if (own || tip) hooks.add(id);
+      const serif = m.serif && !o.scale && !!(which === 's' ? o.serifS : o.serifE), type = (which === 's' ? o.s : o.e) || 'flat';
+      if (type === 'join') continue;
+      const plain = type !== 'term', at = stretchEnd(st.cmds, which, 0, m);
+      if (plain && (!at || buried(si, at.from))) continue;
+      const id = `${plain ? 'p' : ''}${si}${which}`, tip = !plain && at && tipAt(at.from);
+      // an end with a serif is drawn plain, whatever its kind
+      if (plain || serif) plains.add(id);
+      if (!plain && (own || tip || serif)) hooks.add(id);
       if (at) homes.set(id, at.from);
-      const d = endReach(endLength(m.p, id, own || !!tip)) * m.xh * (o.scale || 1), curl = endCurl(m.p, id);
+      const d = endReach(endLength(m.p, id, plain || serif || own || !!tip)) * m.xh * (o.scale || 1), curl = endCurl(m.p, id);
       if (Math.abs(d) < 0.01 && curl === 0.5) continue;
-      const r = shapeEnd(st.cmds, which, d, curl, m, mid ??= middle(),
+      const before = st.cmds, r = shapeEnd(st.cmds, which, d, curl, m, mid ??= middle(),
         () => b.strokes.flatMap((t, ti) => ti === si ? [] : t.cmds ? centerPoints(t.cmds, m, m.s * 0.5) : t.poly ?? []));
       if (!r) continue;
       st.cmds = r.cmds;
+      if (plain && type !== 'flat' && curl !== 0.5) st.o = { ...st.o, [which]: 'flat' };
+      // a serif sits level or plumb, which a curled end no longer runs, so it lets it go
+      if (serif && curl !== 0.5) st.o = { ...st.o, [which === 's' ? 'serifS' : 'serifE']: null };
+      if (plain && st.o.clip) st.o = { ...st.o, clip: widenClip(st.o.clip, r.from, before, r.cmds, m) };
       if (tip) { tip.x = r.to.x; tip.y = r.to.y; }
       // a curl can swing out further than its tip ends up
       grow.l = Math.max(grow.l, Math.min(0, r.from.x) - (r.span?.x0 ?? r.to.x));
@@ -573,11 +602,25 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
   return grow;
 }
 
+/** A stroke's clip, given way where the end that sat at `from` now reaches past it: each side of
+    the box that end sat at moves out as far as the stroke now reaches further, and a little more. */
+function widenClip(clip: ClipBox, from: Pt, before: Cmd[], after: Cmd[], m: Metrics): ClipBox {
+  const a = centerPoints(before, m, m.s * 0.5), b = centerPoints(after, m, m.s * 0.5), out = { ...clip }, near = m.s * 1.5;
+  const most = (pts: Pt[], k: 'x' | 'y', s: 1 | -1) => Math.max(...pts.map(p => p[k] * s));
+  const side = (key: 'x0' | 'x1' | 'y0' | 'y1', k: 'x' | 'y', s: 1 | -1) => {
+    const v = out[key], past = most(b, k, s) - most(a, k, s);
+    if (v != null && Math.abs(from[k] - v) < near && past > 0.5) out[key] = v + s * (past + m.s * 0.6);
+  };
+  side('x0', 'x', -1); side('x1', 'x', 1); side('y0', 'y', -1); side('y1', 'y', 1);
+  return out;
+}
+
 function buildGlyph(ch: string, m: Metrics): Glyph | null {
   const def = GLYPHS[ch];
   if (!def) return null;
   const b = new Builder(m);
-  const hooks = new Set<string>(), homes = new Map<string, Pt>(), W0 = def.fn(b, m), grow = stretchTerminals(b, m, W0, hooks, homes), W = W0 + grow.r;
+  const hooks = new Set<string>(), plains = new Set<string>(), homes = new Map<string, Pt>(), W0 = def.fn(b, m);
+  const grow = stretchTerminals(b, m, W0, hooks, plains, homes), W = W0 + grow.r;
   const code = ch.charCodeAt(0);
   let ctx = m.ctx;
   if (m.wob > 0) {
@@ -652,10 +695,15 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       if (want) {
         const sp = buildSerif(end, (end.which === 's' ? o.serifS : o.serifE) ?? null, ctx, o.serifScale);
         const c = sp && finish(sp, 1, m.R * 0.5); if (c) out.serifs.push(c);
-      } else if (end.type === 'term') {
-        const id = `${si}${end.which}`;
+      }
+      const term = `${si}${end.which}`, id = plains.has(term) ? term : `p${term}`;
+      if (!want && end.type === 'term') {
+        const home = homes.get(term);
+        out.marks.push({ type: 'terminal', x: end.x, y: end.y, r: end.t * 0.5, id: term, ...(hooks.has(term) && { hook: true }), ...(home && { home }) });
+      } else if (plains.has(id)) {
+        // a plain or serifed end keeps where it is drawn unless it has a length of its own, like a hook's tip
         const home = homes.get(id);
-        out.marks.push({ type: 'terminal', x: end.x, y: end.y, r: end.t * 0.5, id, ...(hooks.has(id) && { hook: true }), ...(home && { home }) });
+        out.marks.push({ type: 'end', x: end.x, y: end.y, r: end.t * 0.5, id, hook: true, ...(home && { home }) });
       }
     }
   });

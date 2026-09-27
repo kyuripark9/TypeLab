@@ -35,7 +35,7 @@ export const withDrive = (d: Drive, p: Params, v: number): Params =>
 /** A letter's stroke ends, top to bottom, each named by where it sits: "Top end", "Bottom left end". */
 export interface StrokeEndInfo { id: string; x: number; y: number; label: string; hook: boolean }
 export function strokeEnds(g: Glyph): StrokeEndInfo[] {
-  const ks = g.marks.filter(k => k.type === 'terminal' && k.id);
+  const ks = g.marks.filter(k => (k.type === 'terminal' || k.type === 'end') && k.id);
   if (!ks.length) return [];
   const b = bbox(g.cmds) ?? { x0: 0, x1: g.adv, y0: 0, y1: 1 }, w = b.x1 - b.x0 || 1, h = b.y1 - b.y0 || 1;
   const v = (y: number) => ((y - b.y0) / h > 0.62 ? 'Top' : (y - b.y0) / h < 0.38 ? 'Bottom' : 'Middle');
