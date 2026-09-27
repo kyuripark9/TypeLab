@@ -169,6 +169,15 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
   parts.sort((a, b) => hitOrder(a) - hitOrder(b));
   const guides = ([['baseline', 0, 'Baseline'], ['xHeight', m.xh, 'x-height'], ['capHeight', m.cap, 'Cap height'], ['ascender', m.asc, 'Ascender'], ['descender', m.desc, 'Descender']] as [string, number, string][])
     .filter(([id]) => !(Math.abs(m.asc - m.cap) < 45 && id === 'ascender' && !lower));
+  // each label sits just above its line; when lines are too close for that (cap height and
+  // ascender often are), the lower one's label drops below its line so the two never overlap
+  const labelY = new Map<string, number>();
+  let prevY = -Infinity;
+  for (const [id, y] of [...guides].sort((a, b) => b[1] - a[1])) {
+    const above = Y(y) - 5, ly = above >= prevY + 11 ? above : Math.max(Y(y) + 13, prevY + 11);
+    labelY.set(id, ly);
+    prevY = ly;
+  }
   const dragging = held !== null;
 
   /* Guidance. Pointing at a part shows grab handles where it moves and a tip naming what each
@@ -258,7 +267,7 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
             return (
               <g key={id}>
                 <line className={hot ? 'i-guide hot' : 'i-guide'} x1={12} x2={W - 12} y1={Y(y)} y2={Y(y)} />
-                <text className={hot ? 'i-label hot' : 'i-label'} x={14} y={Y(y) - 5}>{label}</text>
+                <text className={hot ? 'i-label hot' : 'i-label'} x={14} y={labelY.get(id)}>{label}</text>
                 <line className={'i-hit line' + cursor(id)} x1={12} x2={W - 12} y1={Y(y)} y2={Y(y)}
                   onPointerEnter={() => point(id)} onPointerMove={track(id)} onPointerLeave={leave} onPointerDown={press(id)} />
               </g>
