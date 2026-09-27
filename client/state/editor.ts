@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood } from '../../shared/content';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
-import { endLength, isGlyphKey, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
+import { endCurl, endLength, isGlyphKey, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
 /** What the controls change while a letter is inspected: every letter in sync, or just that one. */
@@ -115,6 +115,10 @@ export const useParam = <K extends keyof Params>(key: K) => useEditor(s => param
     (or for the tip of a hook, tail or cursive stroke, the usual length its own control draws it at). */
 export const endOf = (s: EditorState, id: string, hook = false) =>
   endLength({ terminalEnds: paramOf(s, 'terminalEnds'), terminalLength: paramOf(s, 'terminalLength') }, id, hook);
+/** How one stroke end of the letter being customized bends: its own curl, else 0.5, as drawn. */
+export const curlOf = (s: EditorState, id: string) => endCurl({ terminalCurls: paramOf(s, 'terminalCurls') }, id);
+/** What can be set on each stroke end of a customized letter: its length or its curl. */
+export type EndKey = 'terminalEnds' | 'terminalCurls';
 
 /** Whether an optional slider is switched on: away from its off value, or switched on by hand. */
 export const isOn = (s: EditorState, key: NumericParam, off: number) => paramOf(s, key) !== off || s.switchedOn.includes(key);
@@ -231,20 +235,20 @@ export const actions = {
   keepOn(key: NumericParam) {
     if (!get().switchedOn.includes(key)) set(s => ({ switchedOn: [...s.switchedOn, key] }));
   },
-  /** Live change of one stroke end's length. Only a letter being customized has ends of its own. */
-  setEnd(id: string, v: number) {
+  /** Live change of one stroke end's length (or curl). Only a letter being customized has ends of its own. */
+  setEnd(id: string, v: number, key: EndKey = 'terminalEnds') {
     set(s => {
       const ch = letterOf(s);
-      return ch ? { params: withGlyph(s.params, ch, 'terminalEnds', { ...paramOf(s, 'terminalEnds'), [id]: v }) } : {};
+      return ch ? { params: withGlyph(s.params, ch, key, { ...paramOf(s, key), [id]: v }) } : {};
     });
   },
-  /** Let one stroke end follow the letter's Length again. */
-  resetEnd(id: string) {
-    const s = get(), ch = letterOf(s), own = ch ? s.params.glyphs[ch]?.terminalEnds : undefined;
+  /** Let one stroke end follow the letter's Length again (or take back its curl). */
+  resetEnd(id: string, key: EndKey = 'terminalEnds') {
+    const s = get(), ch = letterOf(s), own = ch ? s.params.glyphs[ch]?.[key] : undefined;
     if (!ch || !own || own[id] === undefined) return;
     const rest = { ...own };
     delete rest[id];
-    set({ params: withGlyph(s.params, ch, 'terminalEnds', Object.keys(rest).length ? rest : undefined) });
+    set({ params: withGlyph(s.params, ch, key, Object.keys(rest).length ? rest : undefined) });
     actions.commit();
   },
   /** Put a customized letter back in sync with the rest of the alphabet. */

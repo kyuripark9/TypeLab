@@ -11,7 +11,7 @@ import { isGlyphKey, type NumericParam, type Params } from '../../shared/params'
 import { n1 } from '../lib/hooks';
 import type { Glyph } from '../../shared/engine';
 import { strokeEnds, type StrokeEndInfo } from '../lib/drag';
-import { actions, endOf, fontFor, isOn, letterOf, useEditor, useFont, useParam, useScopedFont } from '../state/editor';
+import { actions, curlOf, endOf, fontFor, isOn, letterOf, useEditor, useFont, useParam, useScopedFont, type EndKey } from '../state/editor';
 import { Diagram, FillIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { letterControls } from './Inspector';
 
@@ -370,22 +370,33 @@ function EndThumb({ g, ends, on }: { g: Glyph; ends: StrokeEndInfo[]; on?: strin
   );
 }
 
+/** One end's length and curl beside a picture of the letter with that end marked. */
 function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: StrokeEndInfo[]; end: StrokeEndInfo }) {
-  const value = useEditor(s => endOf(s, id, hook)), hot = useEditor(s => s.hotEnd === id);
-  const own = useEditor(s => { const ch = letterOf(s); return !!ch && s.params.glyphs[ch]?.terminalEnds?.[id] !== undefined; });
-  const name = `${label} length`;
+  const length = useEditor(s => endOf(s, id, hook)), curl = useEditor(s => curlOf(s, id)), hot = useEditor(s => s.hotEnd === id);
   return (
     <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id} title={label}
       onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
       <EndThumb g={g} ends={ends} on={id} />
-      <Range value={value} label={name} onInput={v => { actions.focusControl('terminalLength'); actions.setEnd(id, v); }} onCommit={actions.commit}
-        onReset={() => actions.resetEnd(id)} />
-      <NumberField value={value} label={name} onChange={v => { actions.focusControl('terminalLength'); actions.setEnd(id, v); actions.commit(); }} />
-      <button className="end-reset" disabled={!own} aria-label={`Reset ${label}`} title={hook ? 'Reset this end' : 'Follow Length again'}
-        onClick={() => actions.resetEnd(id)}>
+      <EndRow id={id} k="terminalEnds" name="Length" label={label} value={length}
+        tip="Trim the end back, or draw it on, much further than Length goes" reset={hook ? 'Reset its length' : 'Follow Length again'} />
+      <EndRow id={id} k="terminalCurls" name="Curl" label={label} value={curl}
+        tip="Left straightens the end, then flares it out; right curls it round. Longer ends curl further" reset="Reset its curl" />
+    </div>
+  );
+}
+
+function EndRow({ id, k, name, label, value, tip, reset }: { id: string; k: EndKey; name: string; label: string; value: number; tip: string; reset: string }) {
+  const own = useEditor(s => { const ch = letterOf(s); return !!ch && s.params.glyphs[ch]?.[k]?.[id] !== undefined; });
+  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl('terminalLength'); actions.setEnd(id, v, k); };
+  return (
+    <>
+      <span className="end-name" title={tip}>{name}</span>
+      <Range value={value} label={aria} onInput={set} onCommit={actions.commit} onReset={() => actions.resetEnd(id, k)} />
+      <NumberField value={value} label={aria} onChange={v => { set(v); actions.commit(); }} />
+      <button className="end-reset" disabled={!own} aria-label={`Reset ${aria}`} title={reset} onClick={() => actions.resetEnd(id, k)}>
         <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7a4.5 4.5 0 1 0 1.3-3.2M2.5 1.8v2.4h2.4" /></svg>
       </button>
-    </div>
+    </>
   );
 }
 

@@ -3,8 +3,8 @@
    -> expanded outlines. Pure math with no DOM, so the browser (live preview) and the
    server (font export) run exactly the same code. A full rebuild of every glyph takes a
    few milliseconds, so sliders can drive it directly. */
-import { DEFAULTS, endLength, type Params } from '../params';
-import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, mulM, quarter, ringsD, roundContour, signedArea, transformCmds } from './geom';
+import { DEFAULTS, endCurl, endLength, endReach, type Params } from '../params';
+import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, subCubic, transformCmds } from './geom';
 import { fillOutline, slice } from './effects';
 import { autoThickness, buildSerif, expandStroke, type Expanded } from './stroke';
 import type { Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent } from './types';
@@ -274,16 +274,32 @@ function arcTable(P: Pt[], n = 48) {
   return { arc, uAt, total: cum[n] };
 }
 
-/** Move the start ('s') or end ('e') of an open centerline by `d` along it (negative trims).
-    Returns the new commands and where that end was and now is, or null if it can't. */
-function stretchEnd(cmds: Cmd[], which: 's' | 'e', d: number, m: Metrics): { cmds: Cmd[]; from: Pt; to: Pt } | null {
+/** The command at the start ('s') or end ('e') of an open centerline, the point it starts from,
+    and its cubic (a line as a straight one). Null if the line isn't open or can't be read there. */
+function endCmd(cmds: Cmd[], which: 's' | 'e', m: Metrics) {
   if (cmds[0]?.[0] !== 'M' || cmds.some((c, i) => i > 0 && (c[0] === 'M' || c[0] === 'Z'))) return null;
   const i = which === 's' ? 1 : cmds.length - 1, c = cmds[i];
   if (!c) return null;
   let cur: Pt = { x: cmds[0][1], y: cmds[0][2] };
   for (let j = 1; j < i; j++) { const n = cmds[j].length, off = typeof cmds[j][n - 1] === 'number' ? 2 : 3; cur = { x: cmds[j][n - off], y: cmds[j][n - off + 1] }; }
-  const out = cmds.slice();
-  if (c[0] === 'L') {
+  let P: Pt[], oi: number;
+  if (c[0] === 'L') { const to = { x: c[1], y: c[2] }; P = [cur, lerpP(cur, to, 1 / 3), lerpP(cur, to, 2 / 3), to]; oi = 3; }
+  else if (c[0] === 'C') { P = [cur, { x: c[1], y: c[2] }, { x: c[3], y: c[4] }, { x: c[5], y: c[6] }]; oi = 7; }
+  else if (c[0] === 'hv' || c[0] === 'vh') {
+    const kk = clamp(m.k * (1 + ((c[1] - cur.x) * (c[2] - cur.y) < 0 ? 0.13 : -0.09) * m.org), 0.3, 0.97);
+    P = quarter(cur.x, cur.y, c[1], c[2], c[0], kk); oi = 3;
+  } else return null;
+  const o = { ...(c[oi] || {}) }, line = c[0] === 'L';
+  return { i, c, cur, P, oi, o, line, u0: line ? 0 : o.u0 || 0, u1: line || o.u1 == null ? 1 : o.u1 };
+}
+
+/** Move the start ('s') or end ('e') of an open centerline by `d` along it (negative trims).
+    Returns the new commands and where that end was and now is, or null if it can't. */
+function stretchEnd(cmds: Cmd[], which: 's' | 'e', d: number, m: Metrics): { cmds: Cmd[]; from: Pt; to: Pt } | null {
+  const e = endCmd(cmds, which, m);
+  if (!e) return null;
+  const { i, c, cur, P, oi, o, u0, u1 } = e, out = cmds.slice();
+  if (e.line) {
     const dx = c[1] - cur.x, dy = c[2] - cur.y, l = Math.hypot(dx, dy);
     if (l < 1) return null;
     const nl = Math.max(l * 0.4, l + d), ux = dx / l, uy = dy / l;
@@ -296,13 +312,6 @@ function stretchEnd(cmds: Cmd[], which: 's' | 'e', d: number, m: Metrics): { cmd
     out[0] = ['M', to.x, to.y];
     return { cmds: out, from: cur, to };
   }
-  let P: Pt[], oi: number;
-  if (c[0] === 'C') { P = [cur, { x: c[1], y: c[2] }, { x: c[3], y: c[4] }, { x: c[5], y: c[6] }]; oi = 7; }
-  else if (c[0] === 'hv' || c[0] === 'vh') {
-    const kk = clamp(m.k * (1 + ((c[1] - cur.x) * (c[2] - cur.y) < 0 ? 0.13 : -0.09) * m.org), 0.3, 0.97);
-    P = quarter(cur.x, cur.y, c[1], c[2], c[0], kk); oi = 3;
-  } else return null;
-  const o = { ...(c[oi] || {}) }, u0 = o.u0 || 0, u1 = o.u1 == null ? 1 : o.u1;
   const { arc, uAt, total } = arcTable(P), a = arc(u0), b = arc(u1);
   const next = c.slice(0, oi) as Cmd;
   next[oi] = o;
@@ -329,14 +338,79 @@ function stretchEnd(cmds: Cmd[], which: 's' | 'e', d: number, m: Metrics): { cmd
   return { cmds: out, from, to };
 }
 
+/* Curling an end: the last stretch of the stroke, up to CURL_REACH of the x-height back from its
+   tip, is redrawn by following its own tangents and turning a little more at every step. Below
+   0.5 a curved end unbends until it is straight, then flares out the other way (a straight end
+   flares straight away); above it the end curls on round the way it already turns, or for a
+   straight end toward the middle of the letter. The longer the end, the further round it can
+   curl, but never tighter than the stroke is thick. Its length changes as with stretchEnd. */
+const CURL_REACH = 0.45;
+
+function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Metrics, mid: Pt): { cmds: Cmd[]; from: Pt; to: Pt } | null {
+  if (Math.abs(curl - 0.5) < 0.005) return stretchEnd(cmds, which, d, m);
+  const e = endCmd(cmds, which, m);
+  if (!e) return null;
+  const { i, c, P, oi, o, u0, u1 } = e, { arc, uAt } = arcTable(P), a = arc(u0), b = arc(u1), len = b - a;
+  if (len < 1) return null;
+  // the stretch redrawn (more of it when a trim cuts deeper), and how long it becomes
+  const S0 = Math.min(len * 0.98, Math.max(m.xh * CURL_REACH, 1 - d * 1.5)), Sn = S0 + Math.max(d, -len * 0.6);
+  // s runs from the joint J, where the redrawn stretch leaves the stroke, out to the tip
+  const at = (s: number) => {
+    const t = cubicAt(P, uAt(which === 'e' ? b - S0 + s : a + S0 - s));
+    return which === 'e' ? t : { ...t, tx: -t.tx, ty: -t.ty };
+  };
+  const N = 48, ang: number[] = [];
+  for (let k = 0; k <= N; k++) {
+    const t = at(S0 * k / N), v = Math.atan2(t.ty, t.tx);
+    ang.push(k ? v + Math.round((ang[k - 1] - v) / (2 * Math.PI)) * 2 * Math.PI : v);
+  }
+  const drawn = (s: number) => { const f = clamp(s / S0) * N, k = Math.min(N - 1, Math.floor(f)); return lerp(ang[k], ang[k + 1], f - k); };
+  const J = at(0), tip = at(S0), turned = ang[N] - ang[0], curved = Math.abs(turned) > 0.05;
+  const way = Math.sign(curved ? turned : tip.tx * (mid.y - tip.y) - tip.ty * (mid.x - tip.x)) || 1;
+  const k2 = (curl - 0.5) * 2, room = Sn / (m.s * 1.3);
+  const straighten = k2 < 0 && curved ? Math.min(1, -k2 * 2) : 0, flare = k2 >= 0 ? 0 : curved ? Math.max(0, -k2 * 2 - 1) : -k2;
+  const more = k2 > 0 ? way * k2 * Math.min(1.5 * Math.PI, room) : -way * flare * Math.min(Math.PI * 0.6, room);
+  const angle = (s: number) => lerp(drawn(s), ang[0], straighten) + more * s / Sn;
+  const M = 64, h = Sn / M, pts: Pt[] = [{ x: J.x, y: J.y }];
+  for (let k = 1; k <= M; k++) { const t = angle(h * (k - 0.5)), p = pts[k - 1]; pts.push({ x: p.x + Math.cos(t) * h, y: p.y + Math.sin(t) * h }); }
+  // back to béziers, a quarter turn at most each
+  const n = Math.max(1, Math.ceil(Math.abs(angle(Sn) - angle(0)) / (Math.PI / 2))), pieces: Pt[][] = [];
+  for (let k = 0; k < n; k++) {
+    const i0 = Math.round(M * k / n), i1 = Math.round(M * (k + 1) / n), A = pts[i0], B = pts[i1];
+    const ta = angle(h * i0), tb = angle(h * i1), L = h * (i1 - i0), dt = Math.abs(tb - ta);
+    const hl = dt < 1e-4 ? L / 3 : (4 / 3) * Math.tan(dt / 4) * L / dt;
+    pieces.push([A, { x: A.x + Math.cos(ta) * hl, y: A.y + Math.sin(ta) * hl }, { x: B.x - Math.cos(tb) * hl, y: B.y - Math.sin(tb) * hl }, B]);
+  }
+  const uJ = uAt(which === 'e' ? b - S0 : a + S0), w = o.w != null ? { w: o.w } : {}, to = pts[M], out = cmds.slice();
+  if (which === 'e') {
+    const keep: Cmd = e.line ? ['L', J.x, J.y, ...c.slice(3)] : [c[0], ...c.slice(1, oi), { ...o, u1: uJ }];
+    out.splice(i, 1, keep, ...pieces.map(q => ['C', q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y, w] as Cmd));
+    return { cmds: out, from: cubicAt(P, u1), to };
+  }
+  // at the start the stroke now begins at the new tip, so what's left of the first command is
+  // written out as a plain curve from J
+  const Q = subCubic(P, uJ, u1), rest = { ...o };
+  delete rest.u0; delete rest.u1;
+  const keep: Cmd = e.line ? c : ['C', Q[1].x, Q[1].y, Q[2].x, Q[2].y, Q[3].x, Q[3].y, rest];
+  out.splice(0, 2, ['M', to.x, to.y], ...pieces.reverse().map(q => ['C', q[2].x, q[2].y, q[1].x, q[1].y, q[0].x, q[0].y, w] as Cmd), keep);
+  return { cmds: out, from: cubicAt(P, u0), to };
+}
+
 /** Stretch or trim every styled terminal of a glyph (body width W) by the stroke end length, or
-    by the length set for that one end. Ends with a serif keep theirs. Tails, hooks and cursive
-    strokes are left to their own controls, so their tips move only by a length set for that one
-    end, measured from where their own control puts them (0.5).
+    by the length set for that one end, and curl the ends given a curl of their own. Ends with a
+    serif keep theirs. Tails, hooks and cursive strokes are left to their own controls, so their
+    tips move only by a length set for that one end, measured from where their own control puts
+    them (0.5).
     Notes the ids of those tips in `hooks`, and returns how far the ends now reach past the body
     on the left and right, to widen it by. */
 function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>) {
   const grow = { l: 0, r: 0 };
+  let mid: Pt | null = null;
+  const middle = () => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const st of b.strokes) for (const c of st.cmds ?? []) if (typeof c[1] === 'number') { x0 = Math.min(x0, c[1]); x1 = Math.max(x1, c[1]); y0 = Math.min(y0, c[2]); y1 = Math.max(y1, c[2]); }
+    return x0 <= x1 ? { x: (x0 + x1) / 2, y: (y0 + y1) / 2 } : { x: W / 2, y: m.xh / 2 };
+  };
   const tipAt = (p: Pt) => b.marks.find(k => (k.type === 'tail' || k.type === 'exit') && Math.hypot(k.x - p.x, k.y - p.y) < 1);
   b.strokes.forEach((st, si) => {
     if (!st.cmds) return;
@@ -346,9 +420,9 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>)
       if ((which === 's' ? o.s : o.e) !== 'term' || serif) continue;
       const id = `${si}${which}`, at = stretchEnd(st.cmds, which, 0, m), tip = at && tipAt(at.from);
       if (own || tip) hooks.add(id);
-      const d = (endLength(m.p, id, own || !!tip) - 0.5) * 2 * m.xh * 0.12 * (o.scale || 1);
-      if (Math.abs(d) < 0.01) continue;
-      const r = stretchEnd(st.cmds, which, d, m);
+      const d = endReach(endLength(m.p, id, own || !!tip)) * m.xh * (o.scale || 1), curl = endCurl(m.p, id);
+      if (Math.abs(d) < 0.01 && curl === 0.5) continue;
+      const r = shapeEnd(st.cmds, which, d, curl, m, mid ??= middle());
       if (!r) continue;
       st.cmds = r.cmds;
       if (tip) { tip.x = r.to.x; tip.y = r.to.y; }

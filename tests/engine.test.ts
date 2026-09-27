@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
 import { ALL_CHARS, buildFont } from '../shared/engine';
-import { DEFAULTS, isValidParams, sanitizeParams, type Params } from '../shared/params';
+import { DEFAULTS, isValidParams, onEndScale, sanitizeParams, type Params } from '../shared/params';
 
 const extremes: Params[] = [
   { ...DEFAULTS, weight: 1, width: 0, height: 1, slant: 1, contrast: 1, xHeight: 1, counter: 0, roundness: 1, terminal: 'sharp', serif: true, serifShape: 'wedge', playfulFormal: 0 },
@@ -113,9 +113,40 @@ describe('font engine', () => {
     const moved = (id: string) => { const p = ends(base).find(k => k.id === id)!, q = ends(own).find(k => k.id === id)!; return Math.hypot(p.x - q.x, p.y - q.y); };
     assert.ok(moved(a.id!) > 20);
     assert.ok(moved(b.id!) < 0.01);
-    // the same as setting the whole letter's Length, for that one end
-    assert.deepEqual(ends(own).find(k => k.id === a.id), ends(buildFont({ ...DEFAULTS, terminalLength: 1 })).find(k => k.id === a.id));
     assert.equal(own.glyph('c')!.d, base.glyph('c')!.d);
+    // the letter's Length sits on the lower part of an end's own scale, and reaches as far there
+    const at = (v: number) => ends(buildFont({ ...DEFAULTS, glyphs: { C: { terminalEnds: { [a.id!]: v } } } })).find(k => k.id === a.id)!;
+    const full = ends(buildFont({ ...DEFAULTS, terminalLength: 1 })).find(k => k.id === a.id)!, v = onEndScale(1);
+    assert.ok(v > 0.7 && v < 0.8, `${v}`);
+    assert.ok(Math.hypot(at(v).x - full.x, at(v).y - full.y) < 0.01);
+    assert.equal(onEndScale(0.3), 0.3);
+    // and past it the end draws on much further than Length can take it
+    assert.ok(moved(a.id!) > 3 * Math.hypot(full.x - a.x, full.y - a.y));
+  });
+
+  it('curls, straightens and flares one end on its own', () => {
+    const C = (curl: number, ch = 'C') => {
+      const base = buildFont(DEFAULTS), e = base.glyph(ch)!.marks.find(k => k.type === 'terminal')!;
+      const g = buildFont({ ...DEFAULTS, glyphs: { [ch]: { terminalCurls: { [e.id!]: curl } } } }).glyph(ch)!;
+      return { g, base: base.glyph(ch)!, e, tip: g.marks.find(k => k.id === e.id)! };
+    };
+    for (const ch of 'CcfrtyJ') {
+      assert.equal(C(0.5, ch).g.d, C(0.5, ch).base.d, ch);
+      for (const v of [0, 0.25, 0.75, 1]) {
+        const { g, base } = C(v, ch);
+        assert.notEqual(g.d, base.d, `${ch} ${v}`);
+        assert.equal(g.marks.filter(k => k.type === 'terminal').length, base.marks.filter(k => k.type === 'terminal').length, `${ch} ${v}`);
+      }
+    }
+    // the C's top end, curving down and round to the left, curls further round; straightened it
+    // heads off to the right from where its curve starts
+    const top = C(0.5), round = C(1), flat = C(0.25);
+    assert.ok(round.tip.x < top.tip.x && round.tip.y < top.tip.y);
+    assert.ok(flat.tip.y > top.tip.y);
+    // no jump on leaving 0.5: a step half as big moves the tip half as far
+    const step = (v: number) => Math.hypot(C(v).tip.x - top.tip.x, C(v).tip.y - top.tip.y);
+    assert.ok(step(0.51) < 6 && Math.abs(step(0.51) - 2 * step(0.505)) < 0.3);
+    assert.equal(sanitizeParams({ glyphs: { C: { terminalCurls: { '0e': 1.4, x: 0.2 } } } }).glyphs.C.terminalCurls!['0e'], 1);
   });
 
   it('sets the tip of a hook or tail only by its own length', () => {
