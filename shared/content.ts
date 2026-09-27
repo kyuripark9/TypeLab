@@ -524,7 +524,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Bars go heavy and stems go thin. Stronger with more Contrast.' },
 
   roundness: { cat: 'shape', label: 'Roundness', friendly: 'Make the letters softer or sharper', tech: 'Roundness', lo: 'Sharp', hi: 'Round', demo: 'Ek',
-    explain: 'Crisp corners and stroke ends become smooth arcs.' },
+    explain: 'Corners and stroke ends round off.' },
   curve: { cat: 'shape', label: 'Curves', friendly: 'Make curves more geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
     explain: 'Compass-drawn circles, or fuller pen-like curves.' },
   squareness: { cat: 'shape', off: 0, label: 'Squareness', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',
