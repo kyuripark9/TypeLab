@@ -20,8 +20,33 @@ export interface Drive {
   span?: number;
   /** where to draw its grab handle (font units, y up): the edge or line that moves */
   at: { x: number; y: number };
+  /** set only this one stroke end's length (key 'terminalLength'), not every end's */
+  end?: string;
 }
 export type DragSpec = Partial<Record<Axis, Drive>>;
+
+/** The value a drive moves, and the params with it set. */
+export const driveValue = (d: Drive, p: Params) => (d.end ? p.terminalEnds[d.end] ?? p.terminalLength : p[d.key]);
+export const withDrive = (d: Drive, p: Params, v: number): Params =>
+  d.end ? { ...p, terminalEnds: { ...p.terminalEnds, [d.end]: v } } : { ...p, [d.key]: v };
+
+/** A letter's stroke ends, top to bottom, each named by where it sits: "Top end", "Bottom left end". */
+export interface StrokeEndInfo { id: string; x: number; y: number; label: string }
+export function strokeEnds(g: Glyph): StrokeEndInfo[] {
+  const ks = g.marks.filter(k => k.type === 'terminal' && k.id);
+  if (!ks.length) return [];
+  const b = bbox(g.cmds) ?? { x0: 0, x1: g.adv, y0: 0, y1: 1 }, w = b.x1 - b.x0 || 1, h = b.y1 - b.y0 || 1;
+  const v = (y: number) => ((y - b.y0) / h > 0.62 ? 'Top' : (y - b.y0) / h < 0.38 ? 'Bottom' : 'Middle');
+  const hz = (x: number) => ((x - b.x0) / w < 0.5 ? 'left' : 'right');
+  const ends = ks.map(k => ({ id: k.id!, x: k.x, y: k.y, label: v(k.y) })).sort((a, c) => c.y - a.y || a.x - c.x);
+  // two ends at the same height are told apart by side, and failing that by number
+  const tally = () => { const n: Record<string, number> = {}; ends.forEach(e => { n[e.label] = (n[e.label] ?? 0) + 1; }); return n; };
+  let n = tally();
+  ends.forEach(e => { if (n[e.label] > 1) e.label += ` ${hz(e.x)}`; });
+  n = tally();
+  const seen: Record<string, number> = {};
+  return ends.map(e => { seen[e.label] = (seen[e.label] ?? 0) + 1; return { ...e, label: `${e.label} end${n[e.label] > 1 ? ` ${seen[e.label]}` : ''}` }; });
+}
 
 interface Box { x0: number; y0: number; x1: number; y1: number }
 
@@ -58,7 +83,7 @@ function nearest(boxes: (Box | null)[], p: { x: number; y: number }): number {
 const side = (v: number, mid: number): 1 | -1 => (v < mid ? -1 : 1);
 
 /** What dragging `part` of `ch` does, grabbed at `grab` (font units, y up). Null if it can't be dragged. */
-export function dragSpec(part: string, font: Font, ch: string, grab: { x: number; y: number }): DragSpec | null {
+export function dragSpec(part: string, font: Font, ch: string, grab: { x: number; y: number }, oneEnd = false): DragSpec | null {
   const g = font.glyph(ch);
   if (!g) return null;
   switch (part) {
@@ -75,13 +100,17 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
     case 'entry': return { x: { key: 'cursive', sign: -1, span: 600, at: grab } };
     case 'tail': case 'terminal': {
       // the tip of a tail, hook or stroke end follows the pointer along the axis it grows on most
+      // while customizing a letter, a stroke end moves on its own
       const key = part === 'tail' ? 'tail' : 'terminalLength';
       const tips = (f: Font) => f.glyph(ch)?.marks.filter(k => k.type === part) ?? [];
       const marks = tips(font), i = nearest(marks.map(k => ({ x0: k.x, x1: k.x, y0: k.y, y1: k.y })), grab), k = marks[i];
       if (!k) return null;
-      const lo = tips(buildFont({ ...font.params, [key]: 0 }))[i], hi = tips(buildFont({ ...font.params, [key]: 1 }))[i];
+      const end = oneEnd && part === 'terminal' ? k.id : undefined;
+      const tip = (f: Font) => (end ? tips(f).find(t => t.id === end) : tips(f)[i]);
+      const d0: Drive = { key, end, sign: 1, at: { x: k.x, y: k.y } };
+      const lo = tip(buildFont(withDrive(d0, font.params, 0))), hi = tip(buildFont(withDrive(d0, font.params, 1)));
       const axis: Axis = !lo || !hi || Math.abs(hi.x - lo.x) >= Math.abs(hi.y - lo.y) ? 'x' : 'y';
-      return { [axis]: { key, sign: 1, measure: (f: Font) => tips(f)[i]?.[axis] ?? null, at: { x: k.x, y: k.y } } };
+      return { [axis]: { ...d0, measure: (f: Font) => tip(f)?.[axis] ?? null } };
     }
     case 'baseline': return null;
   }
@@ -117,7 +146,7 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
 /** The pointer direction along the drive's axis (+1 right or up) that raises its value. */
 export function towardMore(d: Drive, base: Params): 1 | -1 {
   if (!d.measure) return d.sign;
-  const v = base[d.key], at = (x: number) => d.measure!(buildFont({ ...base, [d.key]: clamp(x) }));
+  const v = driveValue(d, base), at = (x: number) => d.measure!(buildFont(withDrive(d, base, clamp(x))));
   const a = at(v - 0.03), b = at(v + 0.03);
   if (a == null || b == null || Math.abs(b - a) < 1e-6) return d.sign;
   return (b - a) * d.sign * (d.gain ?? 1) > 0 ? 1 : -1;
@@ -165,13 +194,13 @@ const step = (v: number) => Math.round(v * 100) / 100;
  * Where several values fit, the one nearest the last answer wins, so a drag never jumps.
  */
 export function solver(d: Drive, base: Params): (travel: number) => number {
-  const v0 = base[d.key];
+  const v0 = driveValue(d, base);
   const linear = (t: number) => step(clamp(v0 + d.sign * t / (d.span ?? 400)));
   if (!d.measure) return linear;
 
   const vs: number[] = [], ms: number[] = [];
   for (const v of [...Array.from({ length: SAMPLES + 1 }, (_, i) => i / SAMPLES), v0].sort((a, b) => a - b)) {
-    const m = d.measure(buildFont({ ...base, [d.key]: v }));
+    const m = d.measure(buildFont(withDrive(d, base, v)));
     if (m != null && Number.isFinite(m)) { vs.push(v); ms.push(m); }
   }
   const i0 = vs.indexOf(v0);

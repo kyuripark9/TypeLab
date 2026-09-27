@@ -329,26 +329,29 @@ function stretchEnd(cmds: Cmd[], which: 's' | 'e', d: number, m: Metrics): { cmd
   return { cmds: out, from, to };
 }
 
-/** Stretch or trim every styled terminal of a glyph (body width W) by the stroke end length.
-    Tails, hooks and cursive strokes are left to their own controls, and ends with a serif keep theirs.
+/** Stretch or trim every styled terminal of a glyph (body width W) by the stroke end length, or
+    by the length set for that one end. Tails, hooks and cursive strokes are left to their own
+    controls, and ends with a serif keep theirs.
     Returns how far the ends now reach past the body on the left and right, to widen it by. */
 function stretchTerminals(b: Builder, m: Metrics, W: number) {
-  const d0 = (m.p.terminalLength - 0.5) * 2 * m.xh * 0.12, grow = { l: 0, r: 0 };
-  if (Math.abs(d0) < 0.01) return grow;
+  const own = m.p.terminalEnds ?? {}, grow = { l: 0, r: 0 };
+  const len = (id: string) => ((own[id] ?? m.p.terminalLength) - 0.5) * 2 * m.xh * 0.12;
+  if (m.p.terminalLength === 0.5 && !Object.keys(own).length) return grow;
   const tip = (p: Pt) => b.marks.some(k => (k.type === 'tail' || k.type === 'exit') && Math.hypot(k.x - p.x, k.y - p.y) < 1);
-  for (const st of b.strokes) {
-    if (!st.cmds || st.o.part === 'tail' || st.o.part === 'entry') continue;
-    const o = st.o, d = d0 * (o.scale || 1);
+  b.strokes.forEach((st, si) => {
+    if (!st.cmds || st.o.part === 'tail' || st.o.part === 'entry') return;
+    const o = st.o;
     for (const which of ['s', 'e'] as const) {
       const serif = m.serif && !o.scale && !!(which === 's' ? o.serifS : o.serifE);
-      if ((which === 's' ? o.s : o.e) !== 'term' || serif) continue;
-      const r = stretchEnd(st.cmds, which, d, m);
+      const d = len(`${si}${which}`) * (o.scale || 1);
+      if ((which === 's' ? o.s : o.e) !== 'term' || serif || Math.abs(d) < 0.01) continue;
+      const r = stretchEnd(st.cmds!, which, d, m);
       if (!r || tip(r.from)) continue;
       st.cmds = r.cmds;
       grow.l = Math.max(grow.l, Math.min(0, r.from.x) - r.to.x);
       grow.r = Math.max(grow.r, r.to.x - Math.max(W, r.from.x));
     }
-  }
+  });
   return grow;
 }
 
@@ -430,7 +433,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       if (want) {
         const sp = buildSerif(end, (end.which === 's' ? o.serifS : o.serifE) ?? null, ctx, o.serifScale);
         const c = sp && finish(sp, 1, m.R * 0.5); if (c) out.serifs.push(c);
-      } else if (end.type === 'term') out.marks.push({ type: 'terminal', x: end.x, y: end.y, r: end.t * 0.5 });
+      } else if (end.type === 'term') out.marks.push({ type: 'terminal', x: end.x, y: end.y, r: end.t * 0.5, id: `${si}${end.which}` });
     }
   });
   b.counters.forEach(pts => { const c = finish(pts, 1, 0); if (c) out.counters.push(c); });

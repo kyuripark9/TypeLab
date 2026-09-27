@@ -105,6 +105,19 @@ describe('font engine', () => {
     assert.equal(f(0, { cursive: 1 }).glyph('n')!.d, f(1, { cursive: 1 }).glyph('n')!.d);
   });
 
+  it('a customized letter sets each stroke end on its own', () => {
+    const ends = (font: ReturnType<typeof buildFont>) => font.glyph('C')!.marks.filter(k => k.type === 'terminal');
+    const base = buildFont(DEFAULTS), [a, b] = ends(base);
+    assert.ok(a.id && b.id && a.id !== b.id);
+    const own = buildFont({ ...DEFAULTS, glyphs: { C: { terminalEnds: { [a.id!]: 1 } } } });
+    const moved = (id: string) => { const p = ends(base).find(k => k.id === id)!, q = ends(own).find(k => k.id === id)!; return Math.hypot(p.x - q.x, p.y - q.y); };
+    assert.ok(moved(a.id!) > 20);
+    assert.ok(moved(b.id!) < 0.01);
+    // the same as setting the whole letter's Length, for that one end
+    assert.deepEqual(ends(own).find(k => k.id === a.id), ends(buildFont({ ...DEFAULTS, terminalLength: 1 })).find(k => k.id === a.id));
+    assert.equal(own.glyph('c')!.d, base.glyph('c')!.d);
+  });
+
   it('squares and facets curves', () => {
     const round = buildFont(DEFAULTS), square = buildFont({ ...DEFAULTS, squareness: 1 }), cut = buildFont({ ...DEFAULTS, chamfer: 1 });
     assert.notEqual(round.glyph('O')!.d, square.glyph('O')!.d);
@@ -185,6 +198,8 @@ describe('params validation', () => {
     const p = sanitizeParams({ glyphs: { R: { weight: 3, xHeight: 0.9, terminal: 'blobby', serif: true }, ab: { weight: 0.2 }, e: {}, g: 'x' } });
     assert.deepEqual(p.glyphs, { R: { weight: 1, serif: true } });
     assert.deepEqual(sanitizeParams({ glyphs: [1] }).glyphs, {});
+    const ends = sanitizeParams({ glyphs: { C: { terminalEnds: { '0s': 2, '1e': 0.3, top: 0.5, '2e': 'x' } }, c: { terminalEnds: {} } } }).glyphs;
+    assert.deepEqual(ends, { C: { terminalEnds: { '0s': 1, '1e': 0.3 } } });
   });
 
   it('fills in new settings for designs saved before they existed', () => {
@@ -199,6 +214,8 @@ describe('params validation', () => {
     assert.ok(!isValidParams({ weight: 0.5 }));
     assert.ok(isValidParams({ ...DEFAULTS, glyphs: { R: { weight: 0.9, terminal: 'round' } } }));
     assert.ok(!isValidParams({ ...DEFAULTS, glyphs: { R: { xHeight: 0.9 } } }));
+    assert.ok(isValidParams({ ...DEFAULTS, glyphs: { C: { terminalEnds: { '0s': 0.8 } } } }));
+    assert.ok(!isValidParams({ ...DEFAULTS, glyphs: { C: { terminalEnds: { '0s': 3 } } } }));
     assert.ok(!isValidParams(null));
   });
 });

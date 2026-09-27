@@ -16,6 +16,7 @@ export interface Params {
   xHeight: number; counter: number; aperture: number; crossbar: number;
   roundness: number; curve: number; apex: number; terminal: Terminal;
   /** how far stroke ends reach: 0.5 is the usual length, lower trims them back, higher draws them on */ terminalLength: number;
+  /** one letter's ends set one by one, by end id (see isEndId): each overrides terminalLength for that end */ terminalEnds: Record<string, number>;
   /** hand-drawn irregularity */ wobble: number;
   /** entry/exit strokes, looped descenders and italic letterforms */ cursive: number;
   /** round curves drawn as squircles */ squareness: number;
@@ -51,7 +52,7 @@ export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K :
 export const DEFAULTS: Readonly<Params> = Object.freeze({
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.05,
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
-  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, wobble: 0, cursive: 0,
+  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), wobble: 0, cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, story: 'auto', overlap: 1, tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, slice: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
@@ -61,9 +62,18 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
 
 const PARAM_KEYS = Object.keys(DEFAULTS) as (keyof Params)[];
 
+/** A stroke end's id: the index of its stroke in the glyph, then 's' for its start or 'e' for its end. */
+export const isEndId = (id: string) => /^\d{1,2}[se]$/.test(id);
+
 /** A valid value for setting `k`, or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {
   const d = DEFAULTS[k];
+  if (k === 'terminalEnds') {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+    const out: Record<string, number> = {};
+    for (const [id, x] of Object.entries(v)) if (isEndId(id) && typeof x === 'number' && Number.isFinite(x)) out[id] = Math.min(1, Math.max(0, x));
+    return out;
+  }
   if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
   const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, serifShape: SERIF_SHAPES, fill: FILLS, story: STORIES };
@@ -81,6 +91,7 @@ function cleanGlyphs(v: unknown): Record<string, GlyphParams> {
       const c = isGlyphKey(k) ? cleanValue(k, x) : undefined;
       if (c !== undefined) g[k] = c;
     }
+    if (g.terminalEnds && !Object.keys(g.terminalEnds).length) delete g.terminalEnds;
     if (Object.keys(g).length) out[ch] = g as GlyphParams;
   }
   return out;
@@ -106,5 +117,5 @@ export function isValidParams(input: unknown): input is Params {
   if (!input || typeof input !== 'object') return false;
   const src = input as Record<string, unknown>;
   const clean = sanitizeParams(input) as unknown as Record<string, unknown>;
-  return PARAM_KEYS.every(k => k === 'glyphs' ? JSON.stringify(src[k]) === JSON.stringify(clean[k]) : src[k] === clean[k]);
+  return PARAM_KEYS.every(k => typeof clean[k] === 'object' ? JSON.stringify(src[k]) === JSON.stringify(clean[k]) : src[k] === clean[k]);
 }

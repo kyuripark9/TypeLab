@@ -5,9 +5,9 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as R
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
 import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph } from '../../shared/engine';
 import type { NumericParam, Params } from '../../shared/params';
-import { dragSpec, handlesFor, pickAxis, solver, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
+import { dragSpec, handlesFor, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { n1, unicodeLabel, useSize } from '../lib/hooks';
-import { actions, letterOf, useEditor, useFont, useParam, useScopedFont, type Scope } from '../state/editor';
+import { actions, endOf, letterOf, useEditor, useFont, useParam, useScopedFont, type Scope } from '../state/editor';
 
 const kindOf = (ch: string) =>
   /[A-Z]/.test(ch) ? 'Uppercase' : /[a-z]/.test(ch) ? 'Lowercase' : /[0-9]/.test(ch) ? 'Figure' : 'Punctuation';
@@ -186,8 +186,9 @@ const tipSeen = () => { try { return localStorage.getItem(TIP_KEY) === '1'; } ca
 const markTipSeen = () => { try { localStorage.setItem(TIP_KEY, '1'); } catch { /* the tip returns next visit */ } };
 
 interface View { sc: number; ox: number; oy: number }
-interface Drag { part: string; axis?: Axis; key?: NumericParam; end: () => void }
-interface Readout { x: number; y: number; param: NumericParam }
+interface Drag { part: string; axis?: Axis; key?: NumericParam; strokeEnd?: string; end: () => void }
+/** `end` names the one stroke end being dragged, while a letter is customized */
+interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string } }
 /** The pointer over a draggable part, in canvas px */
 interface Hover { id: string; x: number; y: number }
 interface TipRow { axis: Axis; label: string; ends: [string, string] }
@@ -196,6 +197,8 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
   const part = useEditor(s => s.part), active = useEditor(s => s.active), skeleton = useEditor(s => s.skeleton);
+  // while only this letter changes, each stroke end is dragged on its own
+  const oneEnd = useEditor(s => !!letterOf(s)), hotEnd = useEditor(s => s.hotEnd);
   const drag = useRef<Drag | null>(null);
   // while a drag runs the view holds still, so the part grows under the pointer instead of the letter re-centring
   const [held, setHeld] = useState<View | null>(null);
@@ -242,19 +245,21 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
     if (v === undefined) { v = towardMore(d, lf.params); c.m.set(k, v); }
     return v;
   };
-  const hoverSpec = hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, lf, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }) : null;
+  const ends = strokeEnds(g), endLabel = (id?: string) => ends.find(e => e.id === id)?.label;
+  const hoverSpec = hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, lf, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }, oneEnd) : null;
   const hoverAxes = AXES.filter(a => hoverSpec?.[a]);
   const tip: TipRow[] = hoverAxes.map(a => {
     const d = hoverSpec![a]!, def = defOf(d.key), up = towardMoreOf(hover!.id, a, d) > 0;
     const hi = def?.hi ?? 'More', lo = def?.lo ?? 'Less', plus = up ? hi : lo, minus = up ? lo : hi;
-    return { axis: a, label: labelOf(d.key), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
+    return { axis: a, label: d.end ? `${endLabel(d.end) ?? 'End'} length` : labelOf(d.key), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
   });
   const guideKey = hotKey === 'serif' ? 'serifSize' : hotKey === 'terminal' ? 'terminalLength' : hotKey;
   const showKey = hover || dragging ? null : guideKey && typeof font.params[guideKey as keyof Params] === 'number' ? guideKey as NumericParam : intro ? 'weight' : null;
   const handles: Handle[] = showKey ? handlesFor(showKey, lf, ch, [...parts, ...guides.map(([id]) => id), 'advance']) : [];
 
   let hl: { d: string; ring?: boolean };
-  if (part) hl = partD(g, part, font);
+  if (hotEnd) hl = { ring: true, d: ringsD(g.marks.filter(k => k.type === 'terminal' && k.id === hotEnd), Math.max(34, m.s * 0.75)) };
+  else if (part) hl = partD(g, part, font);
   else { const k = controlFor(active); hl = { d: font.hl(ch, k), ring: !!RING_KEYS[k] }; }
 
   // hovering never changes the highlight mid-drag, since the parts reshape under the pointer
@@ -273,7 +278,7 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
     e.preventDefault();
     setHover(null);
     const r = svgRef.current.getBoundingClientRect(), view = { sc, ox, oy }, x0 = e.clientX, y0 = e.clientY;
-    const spec: DragSpec = (!FIXED_PARTS.has(id) && dragSpec(id, lf, ch, { x: (x0 - r.left - ox) / sc, y: (oy - (y0 - r.top)) / sc })) || {};
+    const spec: DragSpec = (!FIXED_PARTS.has(id) && dragSpec(id, lf, ch, { x: (x0 - r.left - ox) / sc, y: (oy - (y0 - r.top)) / sc }, oneEnd)) || {};
     let solve: ((t: number) => number) | null = null;
     const move = (ev: PointerEvent) => {
       const d = drag.current!, dx = ev.clientX - x0, dy = ev.clientY - y0;
@@ -282,14 +287,17 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
         const axis = pickAxis(spec, dx, dy);
         if (!axis) return;
         const drive = spec[axis]!;
-        d.axis = axis; d.key = drive.key;
+        d.axis = axis; d.key = drive.key; d.strokeEnd = drive.end;
         solve = solver(drive, lf.params);
         actions.setActive(drive.key as ActiveKey);
+        if (drive.end) actions.setHotEnd(drive.end);
         setHeld(view);
         if (intro) { setIntro(false); markTipSeen(); }
       }
-      actions.setParam(d.key!, solve!(d.axis === 'x' ? dx / view.sc : -dy / view.sc));
-      setReadout({ x: ev.clientX - r.left, y: ev.clientY - r.top, param: d.key! });
+      const v = solve!(d.axis === 'x' ? dx / view.sc : -dy / view.sc);
+      if (d.strokeEnd) actions.setEnd(d.strokeEnd, v); else actions.setParam(d.key!, v);
+      const label = endLabel(d.strokeEnd);
+      setReadout({ x: ev.clientX - r.left, y: ev.clientY - r.top, param: d.key!, end: d.strokeEnd && label ? { id: d.strokeEnd, label } : undefined });
     };
     const end = () => {
       window.removeEventListener('pointermove', move);
@@ -298,6 +306,7 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
       const d = drag.current;
       drag.current = null;
       if (d?.axis) { actions.commit(); setHeld(null); setReadout(null); }
+      if (d?.strokeEnd) actions.setHotEnd(null);
       return d;
     };
     const up = () => { const d = end(); if (d && !d.axis) pickPart(id); };
@@ -391,7 +400,7 @@ function DragTip({ x, y, W, H, rows }: { x: number; y: number; W: number; H: num
 }
 
 /** The value being dragged, beside the pointer. */
-function DragReadout({ x, y, param }: Readout) {
-  const v = useParam(param);
-  return <div className="i-readout" style={{ left: x + 14, top: y + 16 }}>{labelOf(param)} <b>{Math.round(v * 100)}</b></div>;
+function DragReadout({ x, y, param, end }: Readout) {
+  const v = useParam(param), ev = useEditor(s => (end ? endOf(s, end.id) : 0));
+  return <div className="i-readout" style={{ left: x + 14, top: y + 16 }}>{end ? `${end.label} length` : labelOf(param)} <b>{Math.round((end ? ev : v) * 100)}</b></div>;
 }

@@ -42,6 +42,8 @@ export interface EditorState extends Doc {
   /** optional sliders switched on while still at their off value, so they stay open */
   switchedOn: NumericParam[];
   part: string | null;
+  /** the stroke end (by id) pointed at in the list of a customized letter's ends */
+  hotEnd: string | null;
   skeleton: boolean;
   exportOpen: boolean;
   toast: { id: number; msg: string } | null;
@@ -60,7 +62,8 @@ function freshDocState(doc: Doc): Partial<EditorState> {
     hi: 0,
     inspect: null,
     switchedOn: [],
-    part: null
+    part: null,
+    hotEnd: null
   };
 }
 
@@ -83,6 +86,7 @@ export const useEditor = create<EditorState>()(() => ({
   scope: 'all',
   switchedOn: [],
   part: null,
+  hotEnd: null,
   skeleton: false,
   exportOpen: false,
   toast: null
@@ -107,6 +111,8 @@ export function paramOf<K extends keyof Params>(s: EditorState, key: K): Params[
   return (own ?? s.params[key]) as Params[K];
 }
 export const useParam = <K extends keyof Params>(key: K) => useEditor(s => paramOf(s, key));
+/** The length of one stroke end of the letter being customized: its own, else the letter's Length. */
+export const endOf = (s: EditorState, id: string) => paramOf(s, 'terminalEnds')[id] ?? paramOf(s, 'terminalLength');
 
 /** Whether an optional slider is switched on: away from its off value, or switched on by hand. */
 export const isOn = (s: EditorState, key: NumericParam, off: number) => paramOf(s, key) !== off || s.switchedOn.includes(key);
@@ -223,6 +229,22 @@ export const actions = {
   keepOn(key: NumericParam) {
     if (!get().switchedOn.includes(key)) set(s => ({ switchedOn: [...s.switchedOn, key] }));
   },
+  /** Live change of one stroke end's length. Only a letter being customized has ends of its own. */
+  setEnd(id: string, v: number) {
+    set(s => {
+      const ch = letterOf(s);
+      return ch ? { params: withGlyph(s.params, ch, 'terminalEnds', { ...paramOf(s, 'terminalEnds'), [id]: v }) } : {};
+    });
+  },
+  /** Let one stroke end follow the letter's Length again. */
+  resetEnd(id: string) {
+    const s = get(), ch = letterOf(s), own = ch ? s.params.glyphs[ch]?.terminalEnds : undefined;
+    if (!ch || !own || own[id] === undefined) return;
+    const rest = { ...own };
+    delete rest[id];
+    set({ params: withGlyph(s.params, ch, 'terminalEnds', Object.keys(rest).length ? rest : undefined) });
+    actions.commit();
+  },
   /** Put a customized letter back in sync with the rest of the alphabet. */
   syncLetter(ch: string) {
     const s = get();
@@ -265,6 +287,7 @@ export const actions = {
     actions.openInspector(ALL_CHARS[(i + d + ALL_CHARS.length) % ALL_CHARS.length]);
   },
   setPart(part: string | null) { if (get().part !== part) set({ part }); },
+  setHotEnd(hotEnd: string | null) { if (get().hotEnd !== hotEnd) set({ hotEnd }); },
   setSkeleton(skeleton: boolean) { set({ skeleton }); },
   setExportOpen(exportOpen: boolean) { set({ exportOpen }); },
   toast(msg: string) { set({ toast: { id: ++toastId, msg } }); }

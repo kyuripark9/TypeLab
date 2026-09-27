@@ -77,4 +77,5 @@ export interface PenCtx {
 
 export interface StrokeEnd { x: number; y: number; dx: number; dy: number; t: number; type: EndType; which: 's' | 'e' }
 
-export interface Mark { type: string; x: number; y: number; r?: number }
+/** A point of interest on a glyph. Terminals carry their end's id (see isEndId in params). */
+export interface Mark { type: string; x: number; y: number; r?: number; id?: string }

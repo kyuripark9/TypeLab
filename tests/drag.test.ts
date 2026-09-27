@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { dragSpec, handlesFor, pickAxis, solver, towardMore } from '../client/lib/drag';
+import { dragSpec, handlesFor, pickAxis, solver, strokeEnds, towardMore } from '../client/lib/drag';
 import { buildFont, type Glyph } from '../shared/engine';
 import { DEFAULTS, type Params } from '../shared/params';
 
@@ -71,6 +71,16 @@ describe('dragging the inspected letter', () => {
     assert.equal(d.key, 'terminalLength');
     assert.ok(solver(d, base)(60 * up) > base.terminalLength && solver(d, base)(-60 * up) < base.terminalLength);
     assert.deepEqual(handlesFor('terminalLength', font, 'r', ['stem', 'shoulder', 'terminal']).map(h => h.part), ['terminal']);
+  });
+
+  it('drags one stroke end on its own while customizing, and names each end', () => {
+    const C = font.glyph('C')!, ends = strokeEnds(C);
+    assert.deepEqual(ends.map(e => e.label), ['Top end', 'Bottom end']);
+    const spec = dragSpec('terminal', font, 'C', ends[1], true)!, d = (spec.x ?? spec.y)!;
+    assert.equal(d.end, ends[1].id);
+    const v = solver(d, base)(60 * towardMore(d, base));
+    assert.ok(v > base.terminalLength);
+    assert.deepEqual(strokeEnds(font.glyph('s')!).map(e => e.label), ['Top end', 'Bottom end']);
   });
 
   it('finds the handles for a control on the letter', () => {

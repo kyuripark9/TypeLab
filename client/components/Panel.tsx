@@ -9,7 +9,8 @@ import {
 } from '../../shared/content';
 import { isGlyphKey, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
-import { actions, fontFor, isOn, letterOf, useEditor, useFont, useParam, useScopedFont } from '../state/editor';
+import { strokeEnds } from '../lib/drag';
+import { actions, endOf, fontFor, isOn, letterOf, useEditor, useFont, useParam, useScopedFont } from '../state/editor';
 import { Diagram, FillIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { letterControls } from './Inspector';
 
@@ -321,6 +322,49 @@ function TerminalControl({ parts }: { parts?: string[] }) {
         ))}
       </div>
       {(Object.keys(TERMINAL_SUBS) as TerminalSubKey[]).map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}
+      <EachEnd />
+    </div>
+  );
+}
+
+/** While a letter is customized, a length for each of its stroke ends; while every letter is in
+    sync, a way into customizing, since ends are set one by one only on a single letter. */
+function EachEnd() {
+  const ch = useEditor(s => s.inspect), letter = useEditor(letterOf), font = useScopedFont();
+  const g = ch ? font.glyph(ch) : null, ends = g ? strokeEnds(g) : [];
+  if (!ch || !ends.length) return null;
+  if (!letter) {
+    return (
+      <p className="end-note">
+        To set each end of {ch} on its own, <button className="link" onClick={() => actions.setScope('letter')}>customize {ch}</button>.
+      </p>
+    );
+  }
+  return (
+    <div className="each-end">
+      <div className="sub-label">Each end of {ch}</div>
+      {ends.map(e => <EndSlider key={e.id} id={e.id} label={e.label} />)}
+    </div>
+  );
+}
+
+function EndSlider({ id, label }: { id: string; label: string }) {
+  const value = useEditor(s => endOf(s, id)), hot = useEditor(s => s.hotEnd === id);
+  const own = useEditor(s => { const ch = letterOf(s); return !!ch && s.params.glyphs[ch]?.terminalEnds?.[id] !== undefined; });
+  const name = `${label} length`;
+  return (
+    <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id}
+      onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
+      <div className="ctl-top">
+        <div className="ctl-head">
+          <span className="ctl-label">{label}{own && <em className="own" title="This end has its own length. Double-click the slider to follow Length again.">Own</em>}</span>
+        </div>
+        <div className="ctl-tools">
+          <NumberField value={value} label={name} onChange={v => { actions.focusControl('terminalLength'); actions.setEnd(id, v); actions.commit(); }} />
+        </div>
+      </div>
+      <Range value={value} label={name} onInput={v => { actions.focusControl('terminalLength'); actions.setEnd(id, v); }} onCommit={actions.commit}
+        onReset={() => actions.resetEnd(id)} />
     </div>
   );
 }
