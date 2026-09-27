@@ -80,7 +80,7 @@ export const LOOKS: { id: Look; label: string; hint: string; test: (e: Effective
    drawn in. Hand-picked, and a style may carry more than one (a Clarendon is also a Slab).
    Together they are one facet, so picking Didone and Geometric shows both. */
 export type Kind = 'handwritten' | 'upright' | 'informal' | 'formal' | 'brush' | 'marker' | 'swash' | 'italic' | 'monoline' | 'signature' | 'blackletter'
-  | 'oldstyle' | 'transitional' | 'didone' | 'fatface' | 'wedge' | 'slab' | 'clarendon'
+  | 'venetian' | 'oldstyle' | 'transitional' | 'didone' | 'fatface' | 'wedge' | 'slab' | 'clarendon'
   | 'geometric' | 'neogrotesque' | 'grotesque' | 'humanist' | 'rounded' | 'superellipse' | 'flared';
 type TagDef<T> = { id: T; label: string; hint: string };
 export const KIND_SECTIONS: { id: string; label: string; tags: TagDef<Kind>[] }[] = [
@@ -98,6 +98,7 @@ export const KIND_SECTIONS: { id: string; label: string; tags: TagDef<Kind>[] }[
     { id: 'blackletter', label: 'Blackletter', hint: 'Dense, broken Gothic strokes from a broad pen' }
   ] },
   { id: 'serif', label: 'Serif', tags: [
+    { id: 'venetian', label: 'Venetian', hint: 'The first roman type: dark, low contrast, sloped serifs' },
     { id: 'oldstyle', label: 'Old Style', hint: 'Renaissance book type with angled stress' },
     { id: 'transitional', label: 'Transitional', hint: 'Crisp serifs and upright stress' },
     { id: 'didone', label: 'Didone', hint: 'Extreme contrast and hairline serifs' },
@@ -206,6 +207,18 @@ export const STYLES: StyleDef[] = [
     'As black as a geometric sans can go: wide letters packed close, with pinhole counters and deep ink traps where strokes meet.',
     { weight: 1, width: 0.7, contrast: 0.1, joints: 0.8, squareness: 0.2, curve: 0, geoHuman: 0.2, counter: 0.2, aperture: 0.1,
       xHeight: 0.7, extenders: 0.25, apex: 0.3, letterSpacing: 0.02 }),
+  style('thinsans', 'sans', ['geometric'], 'Thin Sans', ['sophisticated', 'calm', 'fancy'], 'Raleway, Josefin Sans, Jost',
+    'The thinnest line there is, drawn on round, open letters with long ascenders and airy spacing. Quiet and elegant at large sizes.',
+    { weight: 0, width: 0.52, contrast: 0, curve: 0.2, geoHuman: 0.45, xHeight: 0.44, extenders: 0.8, apex: 0.3, counter: 0.62,
+      aperture: 0.55, letterSpacing: 0.36 }),
+  style('sporty', 'sans', ['neogrotesque'], 'Sport Italic', ['excited', 'loud', 'futuristic'], 'Kanit Italic, Saira Italic, Racing Sans One',
+    'A bold, squarish sans leaning hard into the wind, with cut stroke ends and tight spacing, like the lettering on a team jersey.',
+    { weight: 0.8, width: 0.62, slant: 0.55, contrast: 0.1, squareness: 0.35, terminal: 'cut', apex: 0.8, xHeight: 0.66, aperture: 0.25,
+      counter: 0.4, classicFuture: 0.75, letterSpacing: 0.1 }),
+  style('chunkyround', 'sans', ['rounded'], 'Chunky Rounded', ['happy', 'cute', 'childlike', 'playful'], 'Fredoka, Baloo 2, Mochiy Pop One',
+    'Bold, round-ended and steady: a big lowercase with a single-storey a and soft, open shapes, like a friendly app icon.',
+    { weight: 0.74, width: 0.56, contrast: 0, roundness: 1, terminal: 'round', curve: 0.3, geoHuman: 0.4, xHeight: 0.68, counter: 0.5,
+      aperture: 0.55, story: 'single', softSharp: 0.1, playfulFormal: 0.45, letterSpacing: 0.14 }),
 
   /* ---- Serif */
   style('oldstyle', 'serif', ['oldstyle'], 'Old Style', ['business', 'vintage', 'sophisticated', 'sincere'], 'EB Garamond, Cormorant Garamond, Crimson Pro',
@@ -265,6 +278,11 @@ export const STYLES: StyleDef[] = [
     'Wide, light, even letters with tiny spur serifs and airy spacing, like an engraved letterhead or business card.',
     { weight: 0.36, width: 0.82, height: 0.4, contrast: 0.08, serif: true, serifShape: 'unbracketed', serifSize: 0.22, serifThickness: 0.2,
       serifAngle: 0, curve: 0.2, geoHuman: 0.4, xHeight: 0.66, extenders: 0.35, aperture: 0.4, apex: 0.6, counter: 0.5, letterSpacing: 0.36 }),
+  style('venetian', 'serif', ['venetian'], 'Venetian', ['vintage', 'sincere', 'sophisticated', 'calm'], 'Alegreya, Sorts Mill Goudy, Cardo',
+    'The first roman type, cut in 1470s Venice: dark and even, with little contrast, steeply sloped serifs, a small lowercase and a calligraphic swing.',
+    { weight: 0.46, width: 0.5, contrast: 0.22, serif: true, serifShape: 'bracketed', serifSize: 0.4, serifThickness: 0.3, serifAngle: 1,
+      terminal: 'angled', curve: 0.8, geoHuman: 1, classicFuture: 0, xHeight: 0.3, extenders: 0.8, aperture: 0.8, apex: 0.15, crossbar: 0.66,
+      letterSpacing: 0.18 }),
 
   /* ---- Slab Serif */
   style('slab', 'slab', ['slab'], 'Geometric Slab', ['calm', 'business', 'stiff'], 'Josefin Slab, Arvo, Rokkitt',
@@ -288,6 +306,10 @@ export const STYLES: StyleDef[] = [
     'A friendly modern slab after Museo Slab: sturdy, even strokes and square slabs with their corners softened, over a big lowercase.',
     { weight: 0.6, width: 0.5, contrast: 0.08, serif: true, serifShape: 'slab', serifSize: 0.3, serifThickness: 0.6, serifAngle: 0,
       roundness: 0.35, curve: 0.2, geoHuman: 0.4, xHeight: 0.62, aperture: 0.4, counter: 0.5, apex: 0.4, story: 'double', letterSpacing: 0.16 }),
+  style('wideslab', 'slab', ['slab'], 'Expanded Slab', ['loud', 'vintage', 'rugged'], 'Rammetto One, Bowlby One, Alfa Slab One',
+    'A heavy slab stretched as wide and low as it goes, with thick square serifs. Made for circus posters and bold packaging.',
+    { weight: 0.74, width: 1, height: 0.4, contrast: 0.12, serif: true, serifShape: 'slab', serifSize: 0.3, serifThickness: 0.8, serifAngle: 0,
+      curve: 0.1, xHeight: 0.66, counter: 0.4, aperture: 0.3, apex: 0.6, letterSpacing: 0.14 }),
 
   /* ---- Monospace */
   style('typewriter', 'mono', ['slab'], 'Typewriter', ['vintage', 'sincere'], 'Courier Prime, Cutive Mono, Special Elite',
@@ -310,6 +332,18 @@ export const STYLES: StyleDef[] = [
     'Green-screen computer text: tall, narrow monospace letters built from fine square pixels, as on an 80s terminal.',
     { weight: 0.4, width: 0.36, height: 0.7, contrast: 0, mono: 1, squareness: 0.9, fill: 'pixels', module: 0.3, curve: 0, geoHuman: 0.35,
       xHeight: 0.62, apex: 0.9, aperture: 0.35, counter: 0.5, letterSpacing: 0.2 }),
+  style('cursivemono', 'mono', [], 'Cursive Mono', ['artistic', 'calm', 'sophisticated'], 'Victor Mono Italic, JetBrains Mono Italic, Courier Prime Italic',
+    'A coding italic: every letter the same width, but slanted and joined up in handwritten shapes, with round, looping ends.',
+    { weight: 0.3, width: 0.42, slant: 0.35, contrast: 0.1, mono: 1, cursive: 0.75, roundness: 0.6, terminal: 'round', curve: 0.8,
+      geoHuman: 0.8, xHeight: 0.56, extenders: 0.55, letterSpacing: 0.2 }),
+  style('boldmono', 'mono', [], 'Heavy Mono', ['loud', 'futuristic', 'innovative'], 'Space Mono Bold, Chivo Mono Black, Martian Mono',
+    'A black, wide monospace with squarish bowls and ink traps where strokes meet. Blunt and technical, for headlines on a grid.',
+    { weight: 0.84, width: 0.62, contrast: 0.04, mono: 1, squareness: 0.3, joints: 0.35, curve: 0.1, geoHuman: 0.4, xHeight: 0.62,
+      aperture: 0.3, counter: 0.4, apex: 0.7, letterSpacing: 0.18 }),
+  style('serifmono', 'mono', [], 'Serif Mono', ['sophisticated', 'vintage', 'calm'], 'Xanh Mono, Anonymous Pro, IBM Plex Mono',
+    'A bookish monospace: fine bracketed serifs and real thick-and-thin strokes squeezed onto one fixed width.',
+    { weight: 0.4, width: 0.44, contrast: 0.62, mono: 1, serif: true, serifShape: 'bracketed', serifSize: 0.4, serifThickness: 0.14,
+      serifAngle: 0.2, terminal: 'round', curve: 0.4, geoHuman: 0.6, xHeight: 0.5, extenders: 0.6, letterSpacing: 0.2 }),
 
   /* ---- Handwriting */
   style('casual', 'hand', ['handwritten', 'informal', 'monoline'], 'Casual Handwriting', ['happy', 'playful', 'childlike'], 'Caveat, Indie Flower, Shadows Into Light',
@@ -365,6 +399,18 @@ export const STYLES: StyleDef[] = [
     'Outlined in pencil and never inked in: each stroke drawn as a shaky double line, like letters roughed out in a sketchbook.',
     { weight: 0.62, width: 0.5, contrast: 0, fill: 'wire', module: 0.3, roundness: 0.6, terminal: 'round', wobble: 1, curve: 0.5,
       geoHuman: 0.7, xHeight: 0.58, counter: 0.5, letterSpacing: 0.26 }),
+  style('comic', 'hand', ['handwritten', 'upright'], 'Comic', ['childlike', 'happy', 'playful', 'sincere'], 'Comic Neue, Short Stack, Schoolbell',
+    'Speech-bubble lettering: an even, round-ended pen line, upright and open, drawn neatly enough to read at any size.',
+    { weight: 0.46, width: 0.54, contrast: 0, roundness: 1, terminal: 'round', wobble: 0.12, curve: 0.6, geoHuman: 0.7, playfulFormal: 0.38,
+      xHeight: 0.56, counter: 0.56, aperture: 0.62, story: 'single', letterSpacing: 0.18 }),
+  style('architect', 'hand', ['handwritten', 'upright'], 'Architect', ['sincere', 'calm', 'artistic'], 'Architects Daughter, Nanum Pen Script, Covered By Your Grace',
+    'Neat drafting-table lettering: a fine, tall and narrow pen hand with a lowercase almost as tall as the capitals and a slight shake.',
+    { weight: 0.16, width: 0.3, height: 0.72, slant: 0.04, contrast: 0, roundness: 1, terminal: 'round', wobble: 0.45, curve: 0.2,
+      geoHuman: 0.55, xHeight: 0.72, extenders: 0.3, aperture: 0.5, letterSpacing: 0.22 }),
+  style('upscript', 'hand', ['informal', 'upright'], 'Upright Script', ['cute', 'happy', 'sincere', 'playful'], 'Sofia, Oleo Script, Damion',
+    'Joined-up writing that stands straight: every letter flows into the next with no lean at all, soft and round.',
+    { weight: 0.46, width: 0.5, contrast: 0.2, roundness: 0.8, terminal: 'round', cursive: 1, curve: 0.9, geoHuman: 0.8, xHeight: 0.5,
+      extenders: 0.6, letterSpacing: 0.04 }),
 
   /* ---- Display */
   style('woodtype', 'display', ['slab'], 'Wood Type', ['rugged', 'vintage', 'loud'], 'Alfa Slab One, Sancreek, Rye',
@@ -426,7 +472,23 @@ export const STYLES: StyleDef[] = [
   style('speed', 'display', [], 'Speed Lines', ['futuristic', 'excited', 'loud'], 'Faster One, Bungee Shade, Racing Sans One',
     'A heavy, wide, hard-leaning face cut into horizontal streaks, like a logo for a race car moving too fast to see.',
     { weight: 0.86, width: 0.8, slant: 0.7, contrast: 0, squareness: 0.5, fill: 'lines', module: 0.3, apex: 0.9, xHeight: 0.66,
-      counter: 0.4, aperture: 0.25, classicFuture: 0.9, letterSpacing: 0.12 })
+      counter: 0.4, aperture: 0.25, classicFuture: 0.9, letterSpacing: 0.12 }),
+  style('comicbook', 'display', [], 'Comic Book', ['loud', 'excited', 'playful'], 'Bangers, Luckiest Guy, Bowlby One',
+    'Sound-effect lettering from a comic panel: black, tall and narrow, leaning forward with a little wobble. POW.',
+    { weight: 0.84, width: 0.4, height: 0.7, slant: 0.22, contrast: 0.1, wobble: 0.25, curve: 0.2, squareness: 0.2, xHeight: 0.74,
+      extenders: 0.25, aperture: 0.3, counter: 0.36, apex: 0.7, letterSpacing: 0.14 }),
+  style('nouveau', 'display', ['flared'], 'Art Nouveau', ['vintage', 'artistic', 'fancy'], 'Macondo, Almendra, Federo',
+    'Belle Époque poster lettering, after Mucha: flowing curves, strokes that swell and taper, a small lowercase and crossbars dropped low.',
+    { weight: 0.4, width: 0.4, height: 0.72, contrast: 0.72, terminal: 'tapered', terminalLength: 0.8, terminalCurls: curlEnds(0.57), curve: 1,
+      geoHuman: 0.9, xHeight: 0.34, extenders: 0.8, crossbar: 0.08, aperture: 0.7, apex: 0.2, letterSpacing: 0.22 }),
+  style('psychedelic', 'display', ['swash'], 'Psychedelic', ['excited', 'artistic', 'vintage', 'playful'], 'Shrikhand, Kavoon, Bagel Fat One',
+    'A 60s concert poster: heavy, melting letters that lean and bounce, with every stroke end curling up.',
+    { weight: 0.8, width: 0.62, slant: 0.25, contrast: 0.35, roundness: 1, terminal: 'round', wobble: 0.45, terminalCurls: curlEnds(0.56),
+      curve: 1, geoHuman: 0.8, xHeight: 0.62, counter: 0.3, aperture: 0.3, letterSpacing: 0.14 }),
+  style('bauhaus', 'display', ['geometric'], 'Bauhaus', ['artistic', 'vintage', 'innovative'], 'Righteous, Comfortaa, Baumans',
+    'Built with a compass and ruler at the 1920s Bauhaus, after Herbert Bayer: wide circles, a lowercase nearly as tall as the capitals and stubby ascenders.',
+    { weight: 0.5, width: 0.8, contrast: 0, roundness: 1, terminal: 'round', curve: 0, geoHuman: 0.1, aperture: 0.8, story: 'single',
+      xHeight: 0.84, extenders: 0.18, counter: 0.8, apex: 0.8, letterSpacing: 0.2 })
 ];
 
 /* The style page shows solid letters only: styles built on an effect (a fill other than solid ink,
@@ -614,7 +676,7 @@ export const TAG_FACE: Record<Mood | Look | Kind, string> = {
   contrast: 'didone', wide: 'split', narrow: 'condensed',
   handwritten: 'casual', upright: 'upright', informal: 'informal', formal: 'chancery', brush: 'brush', marker: 'marker',
   swash: 'swash', italic: 'italic', monoline: 'monoline', signature: 'signature', blackletter: 'blackletter',
-  oldstyle: 'oldstyle', transitional: 'serif', didone: 'didone', fatface: 'fatface', wedge: 'wedge', slab: 'slab', clarendon: 'clarendon',
+  venetian: 'venetian', oldstyle: 'oldstyle', transitional: 'serif', didone: 'didone', fatface: 'fatface', wedge: 'wedge', slab: 'slab', clarendon: 'clarendon',
   geometric: 'geometric', neogrotesque: 'grotesque', grotesque: 'condensed', humanist: 'humanist', rounded: 'soft',
   superellipse: 'squircle', flared: 'flared'
 };
