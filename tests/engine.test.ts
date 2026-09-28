@@ -640,8 +640,8 @@ describe('font engine', () => {
 
   it('stencil gaps move out along the stroke and round their corners', () => {
     const at = (p: Partial<Params>) => buildFont({ ...DEFAULTS, stencil: 0.5, ...p }).glyph('H')!.d;
-    // moved out, the bar keeps a stub on each stem
-    assert.equal(contours(at({ stencilPos: 0.5 })) - contours(at({})), 2);
+    // moved out, the bar keeps a stub on the stem it's cut from
+    assert.equal(contours(at({ stencilPos: 0.5 })) - contours(at({})), 1);
     assert.ok(curves(at({ stencilRound: 1 })) > curves(at({})));
     assert.ok(curves(at({ stencilRound: 1, stencilPos: 0.5 })) > curves(at({ stencilPos: 0.5 })));
     // a rounded O rounds the corners of its halves, and they stay two pieces
@@ -685,12 +685,12 @@ describe('font engine', () => {
       return [...a].every(x => near(x, b)) && [...b].every(x => near(x, a));
     };
     const mid = (q: { x: number; y: number }[]) => q.reduce((a, p) => a + p.x, 0) / q.length;
-    // the bar of an A is cut parallel to its legs at the join, and stays so moved out, the middle
-    // piece always left
+    // the bar of an A is cut parallel to its legs at the join, and stays so moved out, the rest of
+    // the bar always left
     const bar0 = angles(pieces(at('A', 0), 'crossbar')[0]);
     for (const stencilPos of [0.5, 1]) {
       const bar = pieces(at('A', stencilPos), 'crossbar').sort((a, b) => mid(a) - mid(b));
-      assert.equal(bar.length, 3, `${stencilPos}`);
+      assert.equal(bar.length, 2, `${stencilPos}`);
       assert.ok(same(angles(bar[1]), bar0), `${stencilPos}`);
     }
     // the leg of an R is cut level with the foot of the bowl it joins, however far down its gap goes
@@ -700,6 +700,20 @@ describe('font engine', () => {
     // the arch of an n leaves the stem along it, and its gap still moves out
     assert.notEqual(at('n', 0.5).d, at('n', 0).d);
     assert.equal(contours(at('n', 0.5).d), contours(at('n', 0).d) + 1);
+  });
+
+  it('a stroke joined at both ends is cut at one, its gap moving right like every other', () => {
+    const at = (ch: string, stencilPos: number) => buildFont({ ...DEFAULTS, stencil: 0.5, stencilPos }).glyph(ch)!;
+    const bar = (ch: string, part: string, stencilPos: number) => at(ch, stencilPos).strokes.filter(s => s.part === part).map(s => cmdsToD(s.cmds)).join('');
+    for (const [ch, part] of [['H', 'crossbar'], ['A', 'crossbar'], ['e', 'crossbar']]) {
+      // one gap, at the left end: the bar's right end still runs into the stroke it joins
+      assert.equal(contours(bar(ch, part, 0)), 1, ch);
+      const solid = buildFont(DEFAULTS).glyph(ch)!.strokes.filter(s => s.part === part).map(s => cmdsToD(s.cmds)).join('');
+      assert.equal(Math.max(...xsOf(bar(ch, part, 0))).toFixed(1), Math.max(...xsOf(solid)).toFixed(1), ch);
+      assert.ok(Math.min(...xsOf(bar(ch, part, 0))) > Math.min(...xsOf(solid)), ch);
+      // moved out, it leaves a stub on the left and the rest of the bar
+      assert.equal(contours(bar(ch, part, 0.5)), 2, ch);
+    }
   });
 
   it('a gap stays at the join on a straight stroke meeting its host at a slant', () => {

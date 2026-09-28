@@ -325,9 +325,10 @@ interface Host { score: number; j: number; px: number; py: number; tx: number; t
 /** One join's cut, at the join end (x, y) into stroke `host`, for a gap moved `off` out. `back` is
     the host's far edge, which the stub left on the host stops at: a stroke meeting its host at a
     slant (the arm of a y) runs on through it and would poke out the other side. `across(off)`: the
-    stroke still crosses the gap moved `off` out steeply enough for it to cut across the stroke. */
+    stroke still crosses the gap moved `off` out steeply enough for it to cut across the stroke.
+    (nx, ny): the way the gap moves out, away from the host. */
 interface StencilCut {
-  x: number; y: number; host: number; back: HalfPlane;
+  x: number; y: number; host: number; nx: number; ny: number; back: HalfPlane;
   at: (off: number) => { far: HalfPlane; near: HalfPlane | null }; across: (off: number) => boolean;
 }
 function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): StencilCut[] {
@@ -374,9 +375,13 @@ function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): Stencil
       }
       return steep;
     };
-    cuts.push({ x: end.x, y: end.y, host: bj.j, back: { ...at(-bj.half), nx: -nx, ny: -ny }, across, at: o => ({ far: { ...at(bj.half + o + gap), nx: -nx, ny: -ny }, near: o > 0 ? { ...at(bj.half + o), nx, ny } : null }) });
+    cuts.push({ x: end.x, y: end.y, host: bj.j, nx, ny, back: { ...at(-bj.half), nx: -nx, ny: -ny }, across, at: o => ({ far: { ...at(bj.half + o + gap), nx: -nx, ny: -ny }, near: o > 0 ? { ...at(bj.half + o), nx, ny } : null }) });
   }
-  return cuts;
+  // a stroke joined at both ends (the bar of an H, an A or an e) is cut at one end only, so its
+  // gap moves the way every other gap does, rightwards (down an upright stroke), not in from both
+  // ends at once. A bowl joined twice to its stem (a P) keeps both: they move the same way
+  const lead = (c: StencilCut) => c.nx - c.ny * 0.5;
+  return cuts.filter(c => !cuts.some(k => k !== c && k.nx * c.nx + k.ny * c.ny < -0.3 && lead(k) > lead(c)));
 }
 
 /** A stroke cut by one join's cut, its gap `off` out: the far side, and the near side when the gap is moved out. */
@@ -386,9 +391,8 @@ const cutBy = (q: Pt[], cut: StencilCut, off: number) => {
 };
 
 /* A stroke cut at its joins, its gaps moved `off` out. A gap only moves out as far as keeps ink
-   past every gap (the middle of an A's bar, cut at both ends) and every piece a solid bit of ink,
-   no sliver: on short strokes (the middle arm of an E) the gaps stop where they must, or stay at
-   the join. Nor does a gap land where another stroke joins this one (the leg of an R on the foot
+   past every gap (the rest of an A's bar) and every piece a solid bit of ink, no sliver: on short
+   strokes (the middle arm of an E) the gaps stop where they must, or stay at the join. Nor does a gap land where another stroke joins this one (the leg of an R on the foot
    of its bowl): `others` are the other strokes' outlines, by stroke. A stroke too short to leave a
    solid piece past a gap even at the join (the spur of an a) isn't cut at all. Returns the pieces
    and how far out the gaps went (null: not cut). */
