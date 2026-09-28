@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { STYLES, TERMINAL_DETAILS } from '../shared/content';
-import { ALL_CHARS, buildFont } from '../shared/engine';
+import { ALL_CHARS, buildFont, cmdsToD, type Glyph } from '../shared/engine';
 import { DEFAULTS, TERMINAL_FORMS, isValidParams, onEndScale, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
 
 const extremes: Params[] = [
@@ -668,18 +668,44 @@ describe('font engine', () => {
     assert.notEqual(part(0.6, 'leg'), part(0, 'leg'));
   });
 
-  it('a gap moved out stays on its stroke and cuts straight across it', () => {
-    const at = (ch: string, stencilPos: number) => buildFont({ ...DEFAULTS, stencil: 0.5, stencilPos }).glyph(ch)!.d;
-    // the bar of an A is cut into upright pieces, however far out its gaps are moved, and the
-    // middle piece is always left
-    for (const stencilPos of [0.1, 0.5, 1]) {
-      const pieces = at('A', stencilPos).split('M').slice(1).map(c => xsOf(`M${c}`));
-      assert.equal(pieces.length, contours(at('A', 0)) + 2, `${stencilPos}`);
-      assert.ok(pieces.some(xs => new Set(xs.map(x => x.toFixed(1))).size === 2), `${stencilPos}`);
+  it('a gap moved out stays on its stroke and keeps the angle it has at the join', () => {
+    const at = (ch: string, stencilPos: number) => buildFont({ ...DEFAULTS, stencil: 0.5, stencilPos }).glyph(ch)!;
+    // each piece of a stroke as its points, and the angles its edges run at, to the degree
+    const pieces = (g: Glyph, part: string) => g.strokes.filter(s => s.part === part).flatMap(s => cmdsToD(s.cmds).split('M').slice(1).map(c => {
+      const xs = xsOf(`M${c}`), ys = [...`M${c}`.matchAll(/[ML]([^MLCZ]*)/g)].map(m => Number(m[1].trim().split(/\s+/)[1]));
+      return xs.map((x, i) => ({ x, y: ys[i] }));
+    }));
+    const angles = (q: { x: number; y: number }[]) => new Set(q.map((p, i) => {
+      const n = q[(i + 1) % q.length];
+      return Math.hypot(n.x - p.x, n.y - p.y) < 5 ? null : Math.round((Math.atan2(n.y - p.y, n.x - p.x) * 180 / Math.PI + 360) % 180) % 180;
+    }).filter(a => a !== null));
+    // two pieces run their edges at the same angles, give or take two degrees
+    const same = (a: Set<number>, b: Set<number>) => {
+      const near = (x: number, ys: Set<number>) => [...ys].some(y => Math.min(Math.abs(x - y), 180 - Math.abs(x - y)) <= 2);
+      return [...a].every(x => near(x, b)) && [...b].every(x => near(x, a));
+    };
+    const mid = (q: { x: number; y: number }[]) => q.reduce((a, p) => a + p.x, 0) / q.length;
+    // the bar of an A is cut parallel to its legs at the join, and stays so moved out, the middle
+    // piece always left
+    const bar0 = angles(pieces(at('A', 0), 'crossbar')[0]);
+    for (const stencilPos of [0.5, 1]) {
+      const bar = pieces(at('A', stencilPos), 'crossbar').sort((a, b) => mid(a) - mid(b));
+      assert.equal(bar.length, 3, `${stencilPos}`);
+      assert.ok(same(angles(bar[1]), bar0), `${stencilPos}`);
     }
+    // the leg of an R is cut level with the foot of the bowl it joins, however far down its gap goes
+    const foot = (stencilPos: number) => pieces(at('R', stencilPos), 'leg').sort((a, b) => Math.max(...b.map(p => p.y)) - Math.max(...a.map(p => p.y)))[0];
+    assert.ok(same(angles(foot(1)), angles(foot(0))));
+    assert.notEqual(Math.min(...foot(1).map(p => p.y)), Math.min(...foot(0).map(p => p.y)));
     // the arch of an n leaves the stem along it, and its gap still moves out
-    assert.notEqual(at('n', 0.5), at('n', 0));
-    assert.equal(contours(at('n', 0.5)), contours(at('n', 0)) + 1);
+    assert.notEqual(at('n', 0.5).d, at('n', 0).d);
+    assert.equal(contours(at('n', 0.5).d), contours(at('n', 0).d) + 1);
+  });
+
+  it('a gap stays at the join on a straight stroke meeting its host at a slant', () => {
+    // moved parallel to the tail, a gap on the arm of a heavy y would run down the arm's length
+    const y = (stencilPos: number) => buildFont({ ...DEFAULTS, weight: 0.76, width: 0.46, stencil: 0.55, stencilPos }).glyph('y')!.d;
+    assert.equal(y(1), y(0));
   });
 
   it('the slice moves up and down and rounds its corners', () => {

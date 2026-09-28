@@ -317,12 +317,19 @@ function isHorizontal(cmds: Cmd[]) {
 
 /* Stencil: where stroke i joins another stroke (its host), cut it back so a gap opens between
    the two. The cut runs parallel to the host at the point where the join lands. Moved `off` out
-   from the host, the gap opens further along the stroke and a stub of it stays on the host: the
-   gap is then a band straight across the stroke, the far side kept and the near side too. When two
-   strokes end in each other (the waist of a 3), only the later one is cut. */
+   from the host, the gap slides further along the stroke, still parallel to the host so every gap
+   keeps the angle it has at its join (upright by a stem, level by a bar), and a stub of the stroke
+   stays on the host: the far side kept and the near side too. When two strokes end in each other
+   (the waist of a 3), only the later one is cut. */
 interface Host { score: number; j: number; px: number; py: number; tx: number; ty: number; half: number; atEnd: boolean }
-/** One join's cut, at the join end (x, y) into stroke `host`, for a gap moved `off` out. */
-interface StencilCut { x: number; y: number; host: number; at: (off: number) => { far: HalfPlane; near: HalfPlane | null } }
+/** One join's cut, at the join end (x, y) into stroke `host`, for a gap moved `off` out. `back` is
+    the host's far edge, which the stub left on the host stops at: a stroke meeting its host at a
+    slant (the arm of a y) runs on through it and would poke out the other side. `across(off)`: the
+    stroke still crosses the gap moved `off` out steeply enough for it to cut across the stroke. */
+interface StencilCut {
+  x: number; y: number; host: number; back: HalfPlane;
+  at: (off: number) => { far: HalfPlane; near: HalfPlane | null }; across: (off: number) => boolean;
+}
 function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): StencilCut[] {
   const ex = exps[i]!, own = ex.skeleton.flat(), cuts: StencilCut[] = [];
   const cx = own.reduce((a, q) => a + q.x, 0) / own.length, cy = own.reduce((a, q) => a + q.y, 0) / own.length;
@@ -352,19 +359,22 @@ function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): Stencil
     if (Math.abs(side) < 1) continue;
     if (side < 0) { nx = -nx; ny = -ny; }
     const at = (d: number) => ({ x: bj.px + nx * d, y: bj.py + ny * d });
-    // moved out, the gap runs straight across a stroke that leaves the host steeply (the bar of an
-    // A), from where its centre line crosses the host's edge; one that sets off along the host (the
-    // arch of an n) is cut parallel to the host still, further out
-    const ux = -end.dx, uy = -end.dy, un = ux * nx + uy * ny;
-    if (un < 0.6) {
-      cuts.push({ x: end.x, y: end.y, host: bj.j, at: o => ({ far: { ...at(bj.half + o + gap), nx: -nx, ny: -ny }, near: o > 0 ? { ...at(bj.half + o), nx, ny } : null }) });
-      continue;
-    }
-    const t0 = (bj.half - ((end.x - bj.px) * nx + (end.y - bj.py) * ny)) / un;
-    const along = (d: number) => ({ x: end.x + ux * (t0 + d), y: end.y + uy * (t0 + d) });
-    cuts.push({ x: end.x, y: end.y, host: bj.j, at: o => (o > 0
-      ? { far: { ...along(o + gap), nx: -ux, ny: -uy }, near: { ...along(o), nx: ux, ny: uy } }
-      : { far: { ...at(bj.half + gap), nx: -nx, ny: -ny }, near: null }) });
+    // kept parallel to the host, a gap moved out cuts across the stroke only where the stroke leaves
+    // the host steeply: the arch of an n soon does, but a straight arm meeting it at a slant (the
+    // arm of a y) never does, and a gap on it would run down its length, so it stays at the join
+    const across = (o: number) => {
+      const d = bj.half + o + gap / 2, dist = (q: Pt) => (q.x - bj.px) * nx + (q.y - bj.py) * ny;
+      let best = Infinity, steep = false;
+      for (const line of ex.skeleton) for (let k = 0; k + 1 < line.length; k++) {
+        const a = line[k], c = line[k + 1], da = dist(a) - d, dc = dist(c) - d;
+        if (da * dc > 0) continue;
+        const l = Math.hypot(c.x - a.x, c.y - a.y), near = Math.hypot((a.x + c.x) / 2 - end.x, (a.y + c.y) / 2 - end.y);
+        if (l < 1e-9 || near > best) continue;
+        best = near; steep = Math.abs(dc - da) / l > 0.6;
+      }
+      return steep;
+    };
+    cuts.push({ x: end.x, y: end.y, host: bj.j, back: { ...at(-bj.half), nx: -nx, ny: -ny }, across, at: o => ({ far: { ...at(bj.half + o + gap), nx: -nx, ny: -ny }, near: o > 0 ? { ...at(bj.half + o), nx, ny } : null }) });
   }
   return cuts;
 }
@@ -372,7 +382,7 @@ function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): Stencil
 /** A stroke cut by one join's cut, its gap `off` out: the far side, and the near side when the gap is moved out. */
 const cutBy = (q: Pt[], cut: StencilCut, off: number) => {
   const { far, near } = cut.at(off);
-  return [...splitPoly([q], far), ...(near ? splitPoly([q], near) : [])];
+  return [...splitPoly([q], far), ...(near ? splitPoly(splitPoly([q], near), cut.back) : [])];
 };
 
 /* A stroke cut at its joins, its gaps moved `off` out. A gap only moves out as far as keeps ink
@@ -403,10 +413,11 @@ function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s: number
   const clear = (cut: StencilCut, o: number) => {
     const { far, near } = cut.at(o);
     const f = (pl: HalfPlane, p: Pt) => (p.x - pl.x) * pl.nx + (p.y - pl.y) * pl.ny;
-    return dense.every((pts, j) => j === cut.host || pts.every(p => !(f(far, p) > 0 && near && f(near, p) > 0)));
+    // with a quarter stem to spare, so a stroke's corner doesn't just clip the gap
+    return dense.every((pts, j) => j === cut.host || pts.every(p => !(f(far, p) > -s * 0.25 && near && f(near, p) > -s * 0.25)));
   };
   const cutAt = (o: number) => {
-    if (o > 0 && !cuts.every(c => clear(c, o))) return null;
+    if (o > 0 && !cuts.every(c => c.across(o) && clear(c, o))) return null;
     let pieces = [contour], past = [contour];
     for (const cut of cuts) {
       pieces = pieces.flatMap(q => cutBy(q, cut, o));
@@ -417,12 +428,15 @@ function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s: number
   if (!cuts.length) return { pieces: [contour], off: null };
   const atJoin = cutAt(0);
   if (!atJoin) return { pieces: [contour], off: null };
-  // the furthest out the gaps can go, so dragged past it they stay put
+  // the furthest out the gaps can go, so dragged past it they stay put. Where another stroke
+  // joins close to the join (the leg of a K on its arm) the gaps can't sit on it, but can past it
   const lo = s * 0.55;
-  if (off < lo || !cutAt(lo)) return { pieces: atJoin, off: 0 };
-  let a = lo, b = off;
-  if (cutAt(b)) a = b;
-  else for (let k = 0; k < 8; k++) { const c = (a + b) / 2; if (cutAt(c)) a = c; else b = c; }
+  if (off < lo) return { pieces: atJoin, off: 0 };
+  if (cutAt(off)) return { pieces: cutAt(off)!, off };
+  let a = -1, b = off;
+  for (let k = 1; k <= 12 && a < 0; k++) { const c = off - (off - lo) * k / 12; if (cutAt(c)) a = c; else b = c; }
+  if (a < 0) return { pieces: atJoin, off: 0 };
+  for (let k = 0; k < 8; k++) { const c = (a + b) / 2; if (cutAt(c)) a = c; else b = c; }
   return { pieces: cutAt(a)!, off: a };
 }
 
