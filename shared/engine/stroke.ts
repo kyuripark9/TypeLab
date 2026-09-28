@@ -28,6 +28,12 @@ export function innerFloor(o: number, t: number, cos: number) {
   return k < 1e-3 ? 0 : Math.max(0, o - (t / s - t / 2) / k);
 }
 
+/** The tension of a quarter turn running (dx, dy): organic curves give the diagonal quadrants
+    unequal tension, like a hand-drawn bowl, fuller on one diagonal and pinched on the other. */
+export const organicK = (k: number, org: number, dx: number, dy: number) =>
+  clamp(k * (1 + (dx * dy < 0 ? ORG_FULL : -ORG_PINCH) * org), 0.3, 0.97);
+const ORG_FULL = 0.4, ORG_PINCH = 0.22;
+
 const wNum = (w: StrokeWeight) => (w === 'thin' ? 0 : w === 'thick' ? 1 : w);
 /** Terminals as drawn when the design gives no finer shape. */
 const TERM: TermSpec = { form: '', flare: 1, depth: 0.3, size: 0.8, clip: 0.4, round: 0.5, point: 0.95, lean: 0, slope: 0.6, tilt: 0, tip: 0.42, taper: 3 };
@@ -121,9 +127,7 @@ function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
     } else { // 'hv' | 'vh'
       o = c[3] || {};
       const dx = c[1] - cur.x, dy = c[2] - cur.y;
-      // organic curves: diagonal quadrants get unequal tension, like a hand-drawn bowl
-      const k = clamp(ctx.k * (1 + (dx * dy < 0 ? 0.13 : -0.09) * ctx.org), 0.3, 0.97);
-      P = quarter(cur.x, cur.y, c[1], c[2], op, k);
+      P = quarter(cur.x, cur.y, c[1], c[2], op, organicK(ctx.k, ctx.org, dx, dy));
     }
     const u0 = o.u0 || 0, u1 = o.u1 == null ? 1 : o.u1;
     if (ctx.chamfer) {

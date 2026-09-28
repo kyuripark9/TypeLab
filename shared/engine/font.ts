@@ -6,7 +6,7 @@
 import { DEFAULTS, contrastOf, endCurl, endLength, endReach, formOf, weightScale, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, splitPoly, subCubic, transformCmds } from './geom';
 import { fillOutline, slice } from './effects';
-import { autoThickness, buildSerif, expandStroke, innerFloor, type Expanded } from './stroke';
+import { autoThickness, buildSerif, expandStroke, innerFloor, organicK, type Expanded } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
 
 export const CHARSET = {
@@ -185,8 +185,7 @@ function metrics(e: Effective): Metrics {
     R: e.roundness * s * 0.5,
     dotRound: e.dots === 'round' ? 1 : e.dots === 'square' ? 0 : Math.max(e.roundness, e.terminal === 'round' ? e.terminalRound : 0),
     qpt: (x0, y0, x1, y1, mode, u) => {
-      const kk = clamp(k * (1 + ((x1 - x0) * (y1 - y0) < 0 ? 0.13 : -0.09) * org), 0.3, 0.97);
-      return cubicAt(quarter(x0, y0, x1, y1, mode, kk), u);
+      return cubicAt(quarter(x0, y0, x1, y1, mode, organicK(k, org, x1 - x0, y1 - y0)), u);
     }
   };
 }
@@ -444,7 +443,7 @@ function arcTable(P: Pt[], n = 48) {
 }
 
 /** The tension of a quarter-turn command drawn from `cur`, as stroke.ts draws it. */
-const quarterK = (cur: Pt, c: Cmd, m: Metrics) => clamp(m.k * (1 + ((c[1] - cur.x) * (c[2] - cur.y) < 0 ? 0.13 : -0.09) * m.org), 0.3, 0.97);
+const quarterK = (cur: Pt, c: Cmd, m: Metrics) => organicK(m.k, m.org, c[1] - cur.x, c[2] - cur.y);
 
 /** Points along a centerline, about `step` apart. */
 function centerPoints(cmds: Cmd[], m: Metrics, step: number): Pt[] {
