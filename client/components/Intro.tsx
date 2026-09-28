@@ -3,25 +3,14 @@ import { useEffect, useState } from 'react';
 const SEEN_KEY = 'typelab.intro.seen';
 const HOLD_MS = 1900, FADE_MS = 450;
 
-const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 function shouldPlay() {
-  if (reducedMotion()) return false;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
   try { return sessionStorage.getItem(SEEN_KEY) !== '1'; } catch { return true; }
 }
-
-let replay: (() => void) | null = null;
-/** Play the title card again, as when the logo takes you back to the start. */
-export function playIntro() { replay?.(); }
 
 /** Opening title card, played once per browser tab: the wordmark, then the tagline, then a fade to the app. */
 export function Intro() {
   const [phase, setPhase] = useState<'show' | 'leave' | 'done'>(() => (shouldPlay() ? 'show' : 'done'));
-
-  useEffect(() => {
-    replay = () => { if (!reducedMotion()) setPhase('show'); };
-    return () => { replay = null; };
-  }, []);
 
   useEffect(() => {
     if (phase === 'done') return;

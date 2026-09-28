@@ -1,23 +1,17 @@
-import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent as ReactMouseEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { Link, useLocation } from 'react-router';
 import { NAME_MAX, cleanName, slug } from '../../shared/design';
 import { sanitizeParams } from '../../shared/params';
 import { api, download, errorMessage } from '../lib/api';
 import { actions, isDirty, useEditor } from '../state/editor';
-import { playIntro } from './Intro';
 
-/** Logo: back to the start — the title card, then a fresh design. */
+/** Logo: back to the Style tab of the design in progress. */
 export function Brand() {
-  const navigate = useNavigate();
-  const goHome = (e: ReactMouseEvent) => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; // let the browser open a new tab
-    e.preventDefault();
-    if (isDirty(useEditor.getState()) && !window.confirm('You have unsaved changes. Leave without saving?')) return;
-    actions.newDesign();
-    navigate('/');
-    playIntro();
-  };
-  return <Link to="/" className="brand" title="Back to the start" onClick={goHome}><span className="brand-name">TypeLab</span></Link>;
+  const id = useEditor(s => s.designId), to = id ? `/d/${id}` : '/';
+  const here = useLocation().pathname === to; // already in the editor: just switch tabs, don't navigate
+  return <Link to={to} className="brand" title="Back to Style" onClick={e => { if (here) e.preventDefault(); actions.setCategory('style'); }}>
+    <span className="brand-name">TypeLab</span>
+  </Link>;
 }
 
 export function Header({ onSave, onGuide }: { onSave: () => void; onGuide: () => void }) {
