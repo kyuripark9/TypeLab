@@ -4,7 +4,7 @@
    stroke runs vertically, thin where it runs horizontally (scaled by Contrast),
    with styled terminals, mitered joins and optional serifs. */
 import { clamp, cubicAt, lerp, lerpP, quarter, smoothstep, subCubic } from './geom';
-import type { Cmd, EndType, PenCtx, Pt, SerifSides, StrokeEnd, StrokeOpts, StrokeWeight, TermSpec } from './types';
+import type { Cmd, EndType, PenCtx, Pt, SerifSides, StrokeEnd, StrokeOpts, StrokeWeight, TermSpec, TurnR } from './types';
 
 const CURVE_N = 16;
 
@@ -16,6 +16,8 @@ interface Sample {
   off?: number;
 }
 type Dir = { x: number; y: number };
+/** A run of samples with a continuous tangent, and the radii of the turn it starts with, if given. */
+type Run = Sample[] & { turn?: TurnR };
 
 const wNum = (w: StrokeWeight) => (w === 'thin' ? 0 : w === 'thick' ? 1 : w);
 /** Terminals as drawn when the design gives no finer shape. */
@@ -77,15 +79,15 @@ function chamferSamples(P: Dir[], u0: number, u1: number, chamfer: number, w: nu
 
 /* ---- 1. flatten path commands into runs of samples (a run has a continuous tangent) */
 function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
-  const runs: Sample[][] = [];
-  let run: Sample[] | null = null, cur: Dir = { x: 0, y: 0 }, closed = false;
-  const push = (samples: Sample[]) => {
+  const runs: Run[] = [];
+  let run: Run | null = null, cur: Dir = { x: 0, y: 0 }, closed = false;
+  const push = (samples: Sample[], turn?: TurnR) => {
     if (!samples.length) return;
     const first = samples[0];
     if (run && run.length) {
       const last = run[run.length - 1];
       if (last.tx * first.tx + last.ty * first.ty > 0.9994) { samples = samples.slice(1); last.smooth = true; }
-      else { run = []; runs.push(run); }
+      else { run = Object.assign([], { turn }); runs.push(run); }
     } else { run = []; runs.push(run); }
     for (const s of samples) run.push(s);
   };
@@ -102,7 +104,7 @@ function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
         out.push({ x: cur.x + dx * i / n, y: cur.y + dy * i / n, tx: dx / l, ty: dy / l,
           w: o.w != null ? wNum(o.w) : null, mask: 1, smooth: i > 0 && i < n, len: 0, t: 0 });
       }
-      push(out); cur = to; continue;
+      push(out, o.turn); cur = to; continue;
     }
     let P: Dir[], o;
     if (op === 'C') {
@@ -116,17 +118,18 @@ function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
     }
     const u0 = o.u0 || 0, u1 = o.u1 == null ? 1 : o.u1;
     if (ctx.chamfer) {
-      chamferSamples(P, u0, u1, ctx.chamfer, o.w != null ? wNum(o.w) : null, ctx.thick * 0.9).forEach(push);
+      chamferSamples(P, u0, u1, ctx.chamfer, o.w != null ? wNum(o.w) : null, ctx.thick * 0.9).forEach((r, k) => push(r, k ? undefined : o.turn));
       cur = P[3]; continue;
     }
     P = subCubic(P, u0, u1);
-    const out: Sample[] = [];
-    for (let i = 0; i <= CURVE_N; i++) {
-      const u = i / CURVE_N, p = cubicAt(P, u);
+    // a free cubic can turn tightly near its ends (the spine of a squared S): twice the samples
+    const out: Sample[] = [], n = op === 'C' ? CURVE_N * 2 : CURVE_N;
+    for (let i = 0; i <= n; i++) {
+      const u = i / n, p = cubicAt(P, u);
       out.push({ x: p.x, y: p.y, tx: p.tx, ty: p.ty, w: o.w != null ? wNum(o.w) : null,
-        mask: smoothstep(Math.min(u, 1 - u) * 3.2), smooth: i > 0 && i < CURVE_N, len: 0, t: 0 });
+        mask: smoothstep(Math.min(u, 1 - u) * 3.2), smooth: i > 0 && i < n, len: 0, t: 0 });
     }
-    push(out); cur = P[3];
+    push(out, o.turn); cur = P[3];
   }
   return { runs, closed };
 }
@@ -263,10 +266,21 @@ function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: Pe
   }
 }
 
+/** Whether an end of this type is drawn square across, with two corners of its own to round. */
+function squareEnd(type: EndType, ctx: PenCtx) {
+  if (type === 'flat' || type === 'h' || type === 'v') return true;
+  if (type !== 'term') return false;
+  const form = (ctx.term ?? TERM).form;
+  return (ctx.terminal === 'flat' && form !== 'scooped') || ctx.terminal === 'angled' || (ctx.terminal === 'cut' && form !== 'notched');
+}
+
 export interface Expanded {
   contours: Pt[][];
   loop: boolean;
   ends: StrokeEnd[];
+  /** the two corners of each end drawn square across (flat or cut, not rounded, pointed or tapered):
+      the outline's own points, 'l' left of the way out of the stroke and 'r' right of it */
+  endCorners: { which: 's' | 'e'; side: 'l' | 'r'; pt: Pt }[];
   skeleton: Pt[][];
   curved: boolean;
   thickness: number[];
@@ -366,22 +380,23 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   const Rr: (Pt | null)[][] = runs.map(r => r.map(s => sideOf(s, -1)));
   const curved = cmds.some(c => c[0] === 'C' || c[0] === 'hv' || c[0] === 'vh');
 
-  // joins between runs
+  // joins between runs. A turn given radii always mitres, and rounds its outside and inside by them
   const limit = o.miter || 5;
   const join = (i: number, j: number) => {
-    const ra = runs[i], rb = runs[j], sa = ra[ra.length - 1], sb = rb[0];
+    const ra = runs[i], rb = runs[j], sa = ra[ra.length - 1], sb = rb[0], turn = (rb as Run).turn;
     const cross = sa.tx * sb.ty - sa.ty * sb.tx;
     if (Math.abs(cross) < 1e-3) return;
     const lenA = ra[ra.length - 1].len - ra[0].len, lenB = rb[rb.length - 1].len - rb[0].len;
     for (const sides of [Lr, Rr]) {
       const A = sides[i][sides[i].length - 1] as Pt, B = sides[j][0] as Pt;
       const s = ((B.x - A.x) * sb.ty - (B.y - A.y) * sb.tx) / cross;
-      const P = { x: A.x + s * sa.tx, y: A.y + s * sa.ty };
+      const P: Pt = { x: A.x + s * sa.tx, y: A.y + s * sa.ty };
       const u = (P.x - B.x) * sb.tx + (P.y - B.y) * sb.ty;
       const outer = s > 0;
       if (outer) {
-        if (Math.hypot(P.x - sa.x, P.y - sa.y) > limit * Math.max(sa.t, sb.t) / 2) continue;
+        if (!turn && Math.hypot(P.x - sa.x, P.y - sa.y) > limit * Math.max(sa.t, sb.t) / 2) continue;
       } else if (-s > lenA * 0.95 || u > lenB * 0.95) continue;
+      if (turn) { const r = outer ? turn.o : turn.i; if (r > 0) P.r = r; else P.sharp = true; }
       sides[i][sides[i].length - 1] = P;
       sides[j][0] = null;
     }
@@ -399,7 +414,7 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
       if (runs.length === 1) pts.forEach(p => p.smooth = true);
       return pts;
     };
-    return { contours: [ring(Lr), ring(Rr)], loop: true, ends: [], skeleton, curved, thickness: all.map(s => s.t) };
+    return { contours: [ring(Lr), ring(Rr)], loop: true, ends: [], endCorners: [], skeleton, curved, thickness: all.map(s => s.t) };
   }
 
   const L = Lr.flat().filter((p): p is Pt => !!p), R = Rr.flat().filter((p): p is Pt => !!p);
@@ -415,10 +430,12 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     const a = A[A.length - 1], b = B[B.length - 1];
     return a.y >= b.y;
   };
-  const de = { x: last.tx, y: last.ty }, ds = { x: -first.tx, y: -first.ty };
+  const de = { x: last.tx, y: last.ty }, ds = { x: -first.tx, y: -first.ty }, endCorners: Expanded['endCorners'] = [];
   const endX = cap(L, R, last, de, last.t, o.e || 'flat', ctx, pickA(endTurn, true, L, R));
+  if (squareEnd(o.e || 'flat', ctx)) endCorners.push({ which: 'e', side: 'l', pt: L[L.length - 1] }, { which: 'e', side: 'r', pt: R[R.length - 1] });
   L.reverse(); R.reverse();
   const startX = cap(R, L, first, ds, first.t, o.s || 'flat', ctx, pickA(startTurn, false, R, L));
+  if (squareEnd(o.s || 'flat', ctx)) endCorners.push({ which: 's', side: 'l', pt: R[R.length - 1] }, { which: 's', side: 'r', pt: L[L.length - 1] });
   L.reverse(); R.reverse();
   const contour = [...L, ...endX, ...R.slice().reverse(), ...startX];
 
@@ -426,7 +443,7 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     { x: s0.x, y: s0.y, dx: -s0.tx, dy: -s0.ty, t: s0.t, type: o.s || 'flat', which: 's' },
     { x: s1.x, y: s1.y, dx: s1.tx, dy: s1.ty, t: s1.t, type: o.e || 'flat', which: 'e' }
   ];
-  return { contours: [contour], loop: false, ends, skeleton, curved, thickness: all.map(s => s.t) };
+  return { contours: [contour], loop: false, ends, endCorners, skeleton, curved, thickness: all.map(s => s.t) };
 }
 
 type ProfilePt = [number, number, ('smooth' | 'sharp')?];

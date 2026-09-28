@@ -131,8 +131,8 @@ export const endOf = (s: EditorState, id: string, hook = false) =>
   endLength({ terminalEnds: paramOf(s, 'terminalEnds'), terminalLength: paramOf(s, 'terminalLength') }, id, hook);
 /** How one stroke end of the letter being customized bends: its own curl, else the letter's Curl. */
 export const curlOf = (s: EditorState, id: string) => endCurl({ terminalCurls: paramOf(s, 'terminalCurls'), terminalCurl: paramOf(s, 'terminalCurl') }, id);
-/** What can be set on each stroke end of a customized letter: its length or its curl. */
-export type EndKey = 'terminalEnds' | 'terminalCurls';
+/** What can be set one by one on a customized letter: each stroke end's length or curl, or each corner's roundness. */
+export type EndKey = 'terminalEnds' | 'terminalCurls' | 'corners';
 
 /** Whether an optional slider is switched on: away from its off value, or switched on by hand. */
 export const isOn = (s: EditorState, key: NumericParam, off: number) => paramOf(s, key) !== off || s.switchedOn.includes(key);
@@ -249,14 +249,15 @@ export const actions = {
   keepOn(key: NumericParam) {
     if (!get().switchedOn.includes(key)) set(s => ({ switchedOn: [...s.switchedOn, key] }));
   },
-  /** Live change of one stroke end's length (or curl). Only a letter being customized has ends of its own. */
+  /** Live change of one stroke end's length (or curl), or one corner's roundness. Only a letter
+      being customized has ends and corners of its own. */
   setEnd(id: string, v: number, key: EndKey = 'terminalEnds') {
     set(s => {
       const ch = letterOf(s);
       return ch ? { params: withGlyph(s.params, ch, key, { ...paramOf(s, key), [id]: v }) } : {};
     });
   },
-  /** Let one stroke end follow the letter's Length (or Curl) again. */
+  /** Let one stroke end follow the letter's Length (or Curl) again, or a corner be drawn as the design draws it. */
   resetEnd(id: string, key: EndKey = 'terminalEnds') {
     const s = get(), ch = letterOf(s), own = ch ? s.params.glyphs[ch]?.[key] : undefined;
     if (!ch || !own || own[id] === undefined) return;

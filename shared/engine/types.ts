@@ -15,6 +15,10 @@ export interface Pt {
 /** Point plus unit tangent. */
 export interface Tangent extends Pt { tx: number; ty: number }
 
+/** The outline's corner radii where a centerline turns: outside and inside the turn (0 = sharp). A
+    path command carries it as its `turn` option, for the turn at its start. */
+export interface TurnR { o: number; i: number }
+
 /**
  * Path command. Skeletons use ['M',x,y] ['L',x,y,opts?] ['C',x1,y1,x2,y2,x,y,opts?]
  * ['hv'|'vh',x,y,opts?] ['Z']; outlines use only M, L, C and Z.
@@ -97,4 +101,5 @@ export interface StrokeEnd { x: number; y: number; dx: number; dy: number; t: nu
     aren't styled terminals), carry their end's id (see isEndId in params), and
     `hook` when the end is the tip of a hook, tail or cursive stroke, which the stroke end length leaves alone,
     and `home`, where the end sits before its own length and curl move it. */
-export interface Mark { type: string; x: number; y: number; r?: number; id?: string; hook?: boolean; home?: { x: number; y: number } }
+export interface Mark { type: string; x: number; y: number; r?: number; id?: string; hook?: boolean; home?: { x: number; y: number };
+  /** a corner's roundness as drawn, on the scale of its own control (see params) */ v?: number }

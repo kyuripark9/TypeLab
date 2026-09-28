@@ -20,38 +20,52 @@ export interface Drive {
   span?: number;
   /** where to draw its grab handle (font units, y up): the edge or line that moves */
   at: { x: number; y: number };
-  /** set only this one stroke end's length (key 'terminalLength'), not every end's */
+  /** set only this one stroke end's length (key 'terminalLength'), not every end's, or with
+      `endKey` 'corners' only this one corner's roundness (key 'roundness') */
   end?: string;
+  endKey?: 'corners';
+  /** that corner's roundness as drawn before it has one of its own */
+  base?: number;
   /** that end is the tip of a hook, tail or cursive stroke (see endLength) */
   hook?: boolean;
 }
 export type DragSpec = Partial<Record<Axis, Drive>>;
 
 /** The value a drive moves, and the params with it set. */
-export const driveValue = (d: Drive, p: Params) => (d.end ? endLength(p, d.end, d.hook) : p[d.key]);
+export const driveValue = (d: Drive, p: Params) =>
+  d.endKey ? p.corners[d.end!] ?? d.base ?? 0 : d.end ? endLength(p, d.end, d.hook) : p[d.key];
 export const withDrive = (d: Drive, p: Params, v: number): Params =>
-  d.end ? { ...p, terminalEnds: { ...p.terminalEnds, [d.end]: v } } : { ...p, [d.key]: v };
+  d.endKey ? { ...p, corners: { ...p.corners, [d.end!]: v } } : d.end ? { ...p, terminalEnds: { ...p.terminalEnds, [d.end]: v } } : { ...p, [d.key]: v };
 
 /** A letter's stroke ends, top to bottom, each named by where it sits: "Top end", "Bottom left end". */
 export interface StrokeEndInfo { id: string; x: number; y: number; label: string; hook: boolean }
 export function strokeEnds(g: Glyph): StrokeEndInfo[] {
-  const ks = g.marks.filter(k => (k.type === 'terminal' || k.type === 'end') && k.id);
+  // named and ordered by where each end sits before its own length and curl, so dragging one
+  // doesn't reshuffle them
+  return byPlace(g, g.marks.filter(k => (k.type === 'terminal' || k.type === 'end') && k.id), 'end').map(({ k, label }) => ({ id: k.id!, x: k.x, y: k.y, label, hook: !!k.hook }));
+}
+
+/** A letter's corners, top to bottom, each named by where it sits: "Top left corner", with its roundness as drawn. */
+export interface CornerInfo { id: string; x: number; y: number; label: string; v: number }
+export function letterCorners(g: Glyph): CornerInfo[] {
+  return byPlace(g, g.marks.filter(k => k.type === 'corner' && k.id), 'corner').map(({ k, label }) => ({ id: k.id!, x: k.x, y: k.y, label, v: k.v ?? 0 }));
+}
+
+/** Marks top to bottom (then left to right), each named by where it sits before it was moved: its
+    third of the letter's height, then its side when two share a height, then a number. */
+function byPlace(g: Glyph, ks: Mark[], noun: string): { k: Mark; label: string }[] {
   if (!ks.length) return [];
   const b = bbox(g.cmds) ?? { x0: 0, x1: g.adv, y0: 0, y1: 1 }, w = b.x1 - b.x0 || 1, h = b.y1 - b.y0 || 1;
   const v = (y: number) => ((y - b.y0) / h > 0.62 ? 'Top' : (y - b.y0) / h < 0.38 ? 'Bottom' : 'Middle');
   const hz = (x: number) => ((x - b.x0) / w < 0.5 ? 'left' : 'right');
-  // named and ordered by where each end sits before its own length and curl, so dragging one
-  // doesn't reshuffle them
-  const home = (k: Mark) => k.home ?? k, at = new Map(ks.map(k => [k.id!, home(k)]));
-  const ends = ks.map(k => ({ id: k.id!, x: k.x, y: k.y, label: v(home(k).y), hook: !!k.hook }))
-    .sort((a, c) => at.get(c.id)!.y - at.get(a.id)!.y || at.get(a.id)!.x - at.get(c.id)!.x);
-  // two ends at the same height are told apart by side, and failing that by number
-  const tally = () => { const n: Record<string, number> = {}; ends.forEach(e => { n[e.label] = (n[e.label] ?? 0) + 1; }); return n; };
+  const home = (k: Mark) => k.home ?? k;
+  const out = ks.map(k => ({ k, label: v(home(k).y) })).sort((a, c) => home(c.k).y - home(a.k).y || home(a.k).x - home(c.k).x);
+  const tally = () => { const n: Record<string, number> = {}; out.forEach(e => { n[e.label] = (n[e.label] ?? 0) + 1; }); return n; };
   let n = tally();
-  ends.forEach(e => { if (n[e.label] > 1) e.label += ` ${hz(at.get(e.id)!.x)}`; });
+  out.forEach(e => { if (n[e.label] > 1) e.label += ` ${hz(home(e.k).x)}`; });
   n = tally();
   const seen: Record<string, number> = {};
-  return ends.map(e => { seen[e.label] = (seen[e.label] ?? 0) + 1; return { ...e, label: `${e.label} end${n[e.label] > 1 ? ` ${seen[e.label]}` : ''}` }; });
+  return out.map(e => { seen[e.label] = (seen[e.label] ?? 0) + 1; return { k: e.k, label: `${e.label} ${noun}${n[e.label] > 1 ? ` ${seen[e.label]}` : ''}` }; });
 }
 
 interface Box { x0: number; y0: number; x1: number; y1: number }
@@ -104,6 +118,15 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
       return k ? { x: { key: 'apex', sign: side(grab.x, k.x), span: 500, at: { x: k.x, y: k.y } } } : null;
     }
     case 'entry': return { x: { key: 'cursive', sign: -1, span: 600, at: grab } };
+    case 'corner': {
+      // pulled in toward the middle of the letter a corner rounds off, pushed out it sharpens; while
+      // customizing a letter each corner goes its own way, else Roundness rounds them all
+      const marks = g.marks.filter(k => k.type === 'corner'), k = marks[nearest(marks.map(k => ({ x0: k.x, x1: k.x, y0: k.y, y1: k.y })), grab)];
+      const b = bbox(g.cmds);
+      if (!k || !b) return null;
+      const d: Omit<Drive, 'sign'> = oneEnd ? { key: 'roundness', end: k.id, endKey: 'corners', base: k.v, span: 260, at: { x: k.x, y: k.y } } : { key: 'roundness', span: 260, at: { x: k.x, y: k.y } };
+      return { x: { ...d, sign: k.x < (b.x0 + b.x1) / 2 ? 1 : -1 }, y: { ...d, sign: k.y < (b.y0 + b.y1) / 2 ? 1 : -1 } };
+    }
     case 'tail': case 'terminal': {
       // the tip of a tail, hook or stroke end follows the pointer along the axis it grows on most
       // while customizing a letter, a stroke end moves on its own
@@ -178,7 +201,7 @@ export function handlesFor(key: NumericParam, font: Font, ch: string, parts: str
   for (const part of parts) {
     if (LINES.includes(part)) add(part, { x: -70, y: font.m.cap / 2 });
     else if (part === 'apex' || part === 'vertex') g.marks.filter(k => k.type === part).forEach(k => add(part, { x: k.x + 1, y: k.y }));
-    else if (part === 'tail' || part === 'terminal') g.marks.filter(k => k.type === part).forEach(k => add(part, k));
+    else if (part === 'tail' || part === 'terminal' || part === 'corner') g.marks.filter(k => k.type === part).forEach(k => add(part, k));
     else if (part === 'entry') g.strokes.filter(s => s.part === part).forEach(s => { const b = bbox(s.cmds); if (b) add(part, { x: b.x0, y: (b.y0 + b.y1) / 2 }); });
     else pieces(g, part).forEach(c => { const b = bbox(c); if (b) add(part, { x: b.x1, y: (b.y0 + b.y1) / 2 + (b.y1 - b.y0) * 0.1 }); });
   }

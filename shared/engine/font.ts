@@ -7,7 +7,7 @@ import { DEFAULTS, endCurl, endLength, endReach, formOf, type Params } from '../
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, subCubic, transformCmds } from './geom';
 import { fillOutline, slice } from './effects';
 import { autoThickness, buildSerif, expandStroke, type Expanded } from './stroke';
-import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
+import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
@@ -579,6 +579,166 @@ function runStraight(cmds: Cmd[], which: 's' | 'e', hook: boolean, m: Metrics): 
   return { cmds: out, from, to };
 }
 
+/* ---- corners
+   A corner is where a centerline turns (a turn), or one of the two corners of an end drawn square
+   across. Each has a roundness from 0 (sharp) to 1 (round), which a letter can set one by one. */
+
+/** The outline radii of a turn at roundness v, for a stroke t thick: up to halfway only its outside
+    rounds, until it turns round as wide as the stroke, leaving the inside square; past halfway the
+    inside rounds too, with the outside a stroke width wider. */
+export const turnRadii = (v: number, t: number): TurnR =>
+  v <= 0.5 ? { o: 2 * v * t, i: 0 } : { o: t + (v - 0.5) * 4 * t, i: (v - 0.5) * 4 * t };
+/** The roundness of a turn with outline radii r. */
+export const turnRoundness = (r: TurnR, t: number) => clamp(r.i > 0 ? 0.5 + r.i / (4 * t) : r.o / (2 * t));
+/** The radius of an end's corner at roundness v: at 1 half the stroke, so the end rounds right off. */
+const endCornerR = (v: number, t: number) => v * t / 2;
+
+/** Every turn of a centerline, in order: where a command leaves in another direction than the last
+    one arrived, with the index of that command, the point, and the directions in and out. */
+function turnsOf(cmds: Cmd[], m: Metrics) {
+  const out: { ci: number; x: number; y: number; din: Tangent; dout: Tangent }[] = [];
+  let cur: Pt = { x: 0, y: 0 }, din: Tangent | null = null;
+  cmds.forEach((c, ci) => {
+    if (c[0] === 'M') { cur = { x: c[1], y: c[2] }; din = null; return; }
+    let P: Pt[];
+    if (c[0] === 'L') P = [cur, lerpP(cur, { x: c[1], y: c[2] }, 1 / 3), lerpP(cur, { x: c[1], y: c[2] }, 2 / 3), { x: c[1], y: c[2] }];
+    else if (c[0] === 'C') P = [cur, { x: c[1], y: c[2] }, { x: c[3], y: c[4] }, { x: c[5], y: c[6] }];
+    else if (c[0] === 'hv' || c[0] === 'vh') { const o = c[3] || {}; P = subCubic(quarter(cur.x, cur.y, c[1], c[2], c[0], quarterK(cur, c, m)), o.u0 || 0, o.u1 ?? 1); }
+    else return;
+    if (Math.hypot(P[3].x - P[0].x, P[3].y - P[0].y) < 0.5) return;
+    const a = cubicAt(P, 0), b = cubicAt(P, 1);
+    if (din && din.tx * a.tx + din.ty * a.ty < Math.cos(0.2)) out.push({ ci, x: cur.x, y: cur.y, din, dout: a });
+    din = b; cur = P[3];
+  });
+  return out;
+}
+
+/** Give every turn of a glyph's strokes its id, the roundness its letter sets for it (as the
+    `turn` of the command leaving it), and a mark on the outside of the turn. */
+function markTurns(b: Builder, m: Metrics) {
+  b.strokes.forEach((st, si) => {
+    if (!st.cmds) return;
+    const t = m.s * (st.o.scale || 1);
+    turnsOf(st.cmds, m).forEach((tn, k) => {
+      const id = `${si}t${k}`, own = m.p.corners?.[id], c = st.cmds![tn.ci], oi = c[0] === 'C' ? 7 : 3;
+      let o = c[oi] || {};
+      if (own != null) {
+        o = { ...o, turn: turnRadii(own, t) };
+        const nc = c.slice() as Cmd;
+        nc[oi] = o;
+        st.cmds![tn.ci] = nc;
+      }
+      // marked where the outside of the turn is drawn: its mitred point, or the middle of its round
+      // (sin h: the sine of half the angle inside the turn)
+      const ox = tn.din.tx - tn.dout.tx, oy = tn.din.ty - tn.dout.ty, l = Math.hypot(ox, oy) || 1, ro = o.turn?.o ?? 0;
+      const h = Math.sqrt(Math.max(1e-3, 1 - l * l / 4)), out = t / 2 / h - ro * (1 / h - 1);
+      // (at home on the turn itself, which rounding doesn't move, so the corners keep their order)
+      b.marks.push({ type: 'corner', id, x: tn.x + ox / l * out, y: tn.y + oy / l * out, v: o.turn ? turnRoundness(o.turn, t) : 0, home: { x: tn.x, y: tn.y } });
+    });
+  });
+}
+
+/** Box bowls: every quarter turn (hv, vh) becomes its two straight sides meeting in a corner that
+    rounds on the outside as wide as the stroke and stays square on the inside.
+    A quarter drawn only in part ends on the side its drawn part runs along, as far out as its tip
+    reached (as runStraight does); the tip of a hook or tail drawn more than halfway round instead
+    finishes the turn, so it keeps its hook, and its mark moves with it. */
+function boxQuarters(b: Builder, m: Metrics) {
+  for (const st of b.strokes) {
+    if (!st.cmds?.some(c => c[0] === 'hv' || c[0] === 'vh')) continue;
+    const out: Cmd[] = [], t = m.s * (st.o.scale || 1);
+    let cur: Pt = { x: 0, y: 0 };
+    for (const c of st.cmds) {
+      if (c[0] === 'Z') { out.push(c); continue; }
+      const n = c.length, off = typeof c[n - 1] === 'number' ? 2 : 3, to = { x: c[n - off], y: c[n - off + 1] };
+      if (c[0] !== 'hv' && c[0] !== 'vh') { out.push(c); cur = to; continue; }
+      const o = c[3] || {}, corner = c[0] === 'hv' ? { x: to.x, y: cur.y } : { x: cur.x, y: to.y };
+      const la = Math.hypot(corner.x - cur.x, corner.y - cur.y), lb = Math.hypot(to.x - corner.x, to.y - corner.y);
+      if (la < 1 || lb < 1) { out.push(c); cur = to; continue; }
+      // the corner turns round half the stroke on its centerline, less where a side is too short
+      const r = Math.min(t / 2, la, lb), total = la + lb;
+      const da = { x: (corner.x - cur.x) / la, y: (corner.y - cur.y) / la }, db = { x: (to.x - corner.x) / lb, y: (to.y - corner.y) / lb };
+      const at = (s: number) => s <= la ? { x: cur.x + da.x * s, y: cur.y + da.y * s } : { x: corner.x + db.x * (s - la), y: corner.y + db.y * (s - la) };
+      // where the drawn part of the quarter starts and ends along its two sides
+      const P = quarter(cur.x, cur.y, to.x, to.y, c[0], quarterK(cur, c, m));
+      const place = (u: number, drawnAfter: boolean) => {
+        const tip = cubicAt(P, u), mark = b.marks.find(k => (k.type === 'tail' || k.type === 'exit') && Math.hypot(k.x - tip.x, k.y - tip.y) < 1.5);
+        if (mark && (drawnAfter ? u < 0.5 : u > 0.5)) return { s: drawnAfter ? 0 : total, mark };
+        const s = drawnAfter ? clamp(la + (tip.x - corner.x) * db.x + (tip.y - corner.y) * db.y, la + r, total)
+          : clamp((tip.x - cur.x) * da.x + (tip.y - cur.y) * da.y, 0, la - r);
+        return { s, mark };
+      };
+      const start = o.u0 > 0 ? place(o.u0, true) : null, end = o.u1 != null && o.u1 < 1 ? place(o.u1, false) : null;
+      const s0 = start?.s ?? 0, s1 = Math.max(s0 + 1, end?.s ?? total), w = o.w != null ? { w: o.w } : {};
+      if (s0 > 0) {
+        const p = at(s0);
+        if (out[out.length - 1]?.[0] === 'M') out[out.length - 1] = ['M', p.x, p.y]; else out.push(['L', p.x, p.y, w]);
+        if (start!.mark) { start!.mark.x = p.x; start!.mark.y = p.y; }
+      }
+      const e = at(s1);
+      if (s0 < la && s1 > la) out.push(['L', corner.x, corner.y, w], ['L', e.x, e.y, { ...w, turn: { o: r + t / 2, i: Math.max(0, r - t / 2) } }]);
+      else out.push(['L', e.x, e.y, w]);
+      if (end?.mark) { end.mark.x = e.x; end.mark.y = e.y; }
+      cur = to;
+    }
+    st.cmds = out;
+  }
+}
+
+/** The square ends' corners of a glyph's expanded strokes that show: each rounded as its letter sets
+    it (or by Roundness), and marked. A corner on the edge of another stroke, or inside it, is hidden
+    and left out, unless it sits on a corner of that stroke too (the top left of an E, where the stem
+    and the arm both end): then the two are one corner, rounded together under the first one's id. */
+function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | null)[], marks: Mark[]) {
+  const polys = b.strokes.map((st, j) => st.poly ? [st.poly] : exps[j]?.ex?.contours ?? []);
+  const inside = (poly: Pt[], q: Pt) => {
+    let c = false;
+    for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) {
+      const a = poly[i], p = poly[k];
+      if ((a.y > q.y) !== (p.y > q.y) && q.x < (p.x - a.x) * (q.y - a.y) / (p.y - a.y) + a.x) c = !c;
+    }
+    return c;
+  };
+  const edge = (poly: Pt[], q: Pt) => {
+    let d = Infinity;
+    for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) {
+      const a = poly[k], p = poly[i], dx = p.x - a.x, dy = p.y - a.y, l2 = dx * dx + dy * dy;
+      const u = l2 ? clamp(((q.x - a.x) * dx + (q.y - a.y) * dy) / l2) : 0;
+      d = Math.min(d, Math.hypot(q.x - a.x - dx * u, q.y - a.y - dy * u));
+    }
+    return d;
+  };
+  const groups: { id: string; t: number; pts: Pt[] }[] = [];
+  exps.forEach((x, si) => {
+    for (const c of x?.ex?.endCorners ?? []) {
+      const q = c.pt, near = groups.find(g => Math.hypot(g.pts[0].x - q.x, g.pts[0].y - q.y) < 1.5);
+      if (near) { near.pts.push(q); continue; }
+      let hidden = false;
+      const also: Pt[] = [];
+      polys.forEach((ps, j) => {
+        if (j === si || hidden) return;
+        // a loop's outer ring holds its inner one: inside the stroke is inside an odd number of them
+        const inStroke = ps.filter(poly => inside(poly, q)).length % 2 === 1;
+        for (const poly of ps) {
+          if (edge(poly, q) > 1.5) continue;
+          const v = poly.find(p => !p.smooth && Math.hypot(p.x - q.x, p.y - q.y) < 1.5);
+          if (v) also.push(v); else hidden = true;
+        }
+        if (!also.length && inStroke) hidden = true;
+      });
+      if (!hidden) groups.push({ id: `${si}${c.which}${c.side}`, t: m.s * (b.strokes[si].o.scale || 1), pts: [q, ...also] });
+    }
+  });
+  for (const g of groups) {
+    const own = m.p.corners?.[g.id];
+    if (own != null) {
+      const r = endCornerR(own, g.t);
+      for (const p of g.pts) { if (r >= 0.6) { p.r = r; p.sharp = false; } else { delete p.r; p.sharp = true; } }
+    }
+    marks.push({ type: 'corner', id: g.id, x: g.pts[0].x, y: g.pts[0].y, v: own ?? clamp(m.R / (g.t / 2)) });
+  }
+}
+
 /** Stretch or trim every styled terminal of a glyph (body width W) by the stroke end length, or
     by the length set for that one end, and curl the ends given a curl of their own. Ends with a
     serif keep theirs. Tails, hooks and cursive strokes are left to their own controls, so their
@@ -677,6 +837,8 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   if (!def) return null;
   const b = new Builder(m);
   const hooks = new Set<string>(), plains = new Set<string>(), homes = new Map<string, Pt>(), W0 = def.fn(b, m);
+  if (m.p.bowlForm === 'box') boxQuarters(b, m);
+  markTurns(b, m);
   const grow = stretchTerminals(b, m, W0, hooks, plains, homes), W = W0 + grow.r;
   const code = ch.charCodeAt(0);
   let ctx = m.ctx;
@@ -711,6 +873,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     return { ex: expandStroke(st.cmds!, so, ctx), serifS, serifE };
   });
   const expanded = exps.map(x => x?.ex ?? null);
+  endCorners(b, m, exps, out.marks);
   b.strokes.forEach((st, si) => {
     const o = st.o; let cmds: Cmd[] = [];
     if (st.poly) {
@@ -826,12 +989,19 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
     case 'serif': return g.serifs.map(cmdsToD).join('');
     case 'terminal': case 'aperture': return ringsD(g.marks.filter(k => k.type === 'terminal'), Math.max(26, m.s * 0.62));
     case 'apex': return ringsD(g.marks.filter(k => k.type === 'apex' || k.type === 'vertex'), Math.max(30, m.s * 0.7));
-    case 'roundness': return ringsD(g.corners, Math.max(16, m.s * 0.3));
+    case 'roundness': return ringsD(g.marks.filter(k => k.type === 'corner'), Math.max(16, m.s * 0.3));
     case 'cursive': return ringsD(g.marks.filter(k => k.type === 'exit' || k.type === 'entry'), Math.max(30, m.s * 0.7));
     case 'story': return g.ch === 'a' ? g.d : '';
     case 'gForm': return g.ch === 'g' ? g.d : '';
     case 'sForm': return /[sS$]/.test(g.ch) ? strokes(s => s.part === 'spine') : '';
     case 'kForm': return g.ch === 'k' || g.ch === 'K' ? strokes(s => s.part === 'arm' || s.part === 'leg') : '';
+    case 'iForm': return /[IJil]/.test(g.ch) ? g.d : '';
+    case 'diagonals': return /[AVWvw]/.test(g.ch) ? g.d : '';
+    case 'yForm': return /[Yy]/.test(g.ch) ? g.d : '';
+    case 'qForm': return g.ch === 'Q' ? g.d : '';
+    case 'rForm': return g.ch === 'R' ? g.d : '';
+    case 'bowlForm': return strokes(s => s.curved);
+    case 'bends': return /[AMNVWYZvwyz]/.test(g.ch) ? g.d : '';
     case 'bowlJoin': return /[abdgpq]/.test(g.ch) ? strokes(s => s.part === 'bowl') : /[hmnru]/.test(g.ch) ? strokes(s => s.part === 'shoulder') : '';
     case 'dots': return strokes(s => !!s.dot);
     case 'overlap': return ringsD(g.marks.filter(k => k.type === 'overlap'), Math.max(30, m.s * 0.8));

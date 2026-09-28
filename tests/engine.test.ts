@@ -12,7 +12,11 @@ const extremes: Params[] = [
   { ...DEFAULTS, weight: 1, chamfer: 1, squareness: 1, joints: 1, reverse: 1, contrast: 1, extenders: 1, stencil: 1, slice: 1, fill: 'wire', module: 1 },
   { ...DEFAULTS, weight: 0, chamfer: 0.1, joints: 1, reverse: 0.5, extenders: 0, stencil: 0.3, fill: 'pixels', module: 0, slant: 1, wobble: 1 },
   { ...DEFAULTS, weight: 1, width: 0, fill: 'dots', module: 1, cursive: 1, serif: true },
-  { ...DEFAULTS, weight: 0.5, fill: 'lines', module: 0, roundness: 1, mono: 1, playfulFormal: 0 }
+  { ...DEFAULTS, weight: 0.5, fill: 'lines', module: 0, roundness: 1, mono: 1, playfulFormal: 0 },
+  { ...DEFAULTS, weight: 1, width: 0, apex: 1, diagonals: 'upright', bends: 'round', yForm: 'cup', qForm: 'inside', iForm: 'bars', serif: true, cursive: 1, tail: 1, bowlForm: 'box', rForm: 'loop' },
+  { ...DEFAULTS, weight: 0, width: 1, apex: 0, diagonals: 'upright', bends: 'round', yForm: 'cup', qForm: 'inside', chamfer: 1, stencil: 1, contrast: 1, tail: 0, bowlForm: 'box', rForm: 'loop', wobble: 1 },
+  { ...DEFAULTS, weight: 1, width: 1, apex: 0, diagonals: 'upright', yForm: 'cup', qForm: 'inside', iForm: 'bars', serif: true, contrast: 1, squareness: 1, rForm: 'loop' },
+  { ...DEFAULTS, bowlForm: 'box', cursive: 1, terminal: 'round', terminalCurl: 0.9, mono: 1, fill: 'wire' }
 ];
 
 describe('font engine', () => {
@@ -115,6 +119,116 @@ describe('font engine', () => {
       assert.equal(w({ mono: 1 }, ch), w({ mono: 1, iForm: 'bars' }, ch), ch);
       assert.ok(w({ mono: 1, iForm: 'plain' }, ch) < w({ mono: 1 }, ch), ch);
     }
+  });
+
+  it('I and J take bars with i and l', () => {
+    const f = (iForm: Params['iForm']) => buildFont({ ...DEFAULTS, iForm });
+    assert.ok(f('bars').glyph('I')!.bodyW > f('plain').glyph('I')!.bodyW * 2);
+    assert.ok(f('bars').glyph('J')!.bodyW > f('plain').glyph('J')!.bodyW);
+  });
+
+  it('A V W and v w can stand one side upright, and the upright A has no crossbar', () => {
+    const f = (diagonals: Params['diagonals']) => buildFont({ ...DEFAULTS, diagonals });
+    for (const ch of 'AVWvw') assert.notEqual(f('symmetric').glyph(ch)!.d, f('upright').glyph(ch)!.d, ch);
+    assert.ok(!f('upright').glyph('A')!.strokes.some(s => s.part === 'crossbar'));
+    // the right side is a stem: its foot sits under its top
+    const V = f('upright').glyph('V')!, xs = V.skeleton.flat().map(q => q.x);
+    assert.ok(Math.max(...xs) - Math.min(...xs) > V.bodyW * 0.7);
+    assert.equal(f('symmetric').glyph('X')!.d, f('upright').glyph('X')!.d);
+  });
+
+  it('round bends turn A M N V W Z in one smooth stroke that still reaches the cap height and baseline', () => {
+    const f = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p });
+    for (const ch of 'AMNVWZvwz') {
+      const round = f({ bends: 'round' }).glyph(ch)!, sharp = f({}).glyph(ch)!;
+      assert.notEqual(round.d, sharp.d, ch);
+      assert.ok(round.cmds.some(c => c[0] === 'C'), ch);
+    }
+    // the outline's heights, its curves sampled along their length
+    const ys = (ch: string, p: Partial<Params>) => {
+      const out: number[] = [];
+      let y0 = 0;
+      for (const c of f(p).glyph(ch)!.cmds) {
+        if (c[0] === 'C') for (let k = 1; k <= 8; k++) { const t = k / 8, u = 1 - t; out.push(u * u * u * y0 + 3 * u * u * t * c[2] + 3 * u * t * t * c[4] + t * t * t * c[6]); }
+        else if (c[0] !== 'Z') out.push(c[2]);
+        if (c[0] !== 'Z') y0 = c[c.length - 1];
+      }
+      return out;
+    };
+    for (const apex of [0, 0.5, 1]) {
+      const m = f({ bends: 'round', apex }).m, y = ys('M', { bends: 'round', apex });
+      assert.ok(Math.abs(Math.max(...y) - m.cap - m.os) < 3 && Math.abs(Math.min(...y) + m.os) < 3, `M at apex ${apex}`);
+    }
+    // Peaks sets how wide a round bend turns
+    assert.notEqual(f({ bends: 'round', apex: 0 }).glyph('N')!.d, f({ bends: 'round', apex: 1 }).glyph('N')!.d);
+    assert.equal(f({ bends: 'round' }).glyph('O')!.d, f({}).glyph('O')!.d);
+  });
+
+  it('box bowls round their corners outside and keep them square inside', () => {
+    const f = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p });
+    const rings = (p: Partial<Params>) => {
+      const out: number[][][] = [];
+      for (const c of f(p).glyph('O')!.strokes[0].cmds) {
+        if (c[0] === 'M') out.push([]);
+        if (c[0] !== 'Z') out[out.length - 1].push([c[c.length - 2], c[c.length - 1]]);
+      }
+      // each ring's bounding box corner, and how near the ring comes to it
+      return out.map(r => {
+        const x = Math.min(...r.map(q => q[0])), y = Math.max(...r.map(q => q[1]));
+        return { w: Math.max(...r.map(q => q[0])) - x, near: Math.min(...r.map(q => Math.hypot(q[0] - x, q[1] - y))) };
+      }).sort((a, b) => a.w - b.w);
+    };
+    const s = f({}).m.s, [inner, outer] = rings({ bowlForm: 'box' });
+    assert.ok(inner.near < 2, 'square inside');
+    assert.ok(outer.near > s * 0.2, 'round outside');
+    assert.ok(rings({})[0].near > s * 0.2, 'an oval rounds inside too');
+    // the J keeps its hook, and letters without curves don't change
+    const J = f({ bowlForm: 'box' }).glyph('J')!, tip = J.marks.find(k => k.type === 'tail')!;
+    assert.ok(tip.y > f({}).m.cap * 0.2);
+    for (const ch of 'EHKLTX') assert.equal(f({ bowlForm: 'box' }).glyph(ch)!.d, f({}).glyph(ch)!.d, ch);
+  });
+
+  it('rounds each corner of a letter on its own, from sharp to round inside and out', () => {
+    const f = (ch: string, corners: Record<string, number> = {}, p: Partial<Params> = {}) =>
+      buildFont({ ...DEFAULTS, ...p, glyphs: { [ch]: { corners } } }).glyph(ch)!;
+    const ids = (g: ReturnType<typeof f>) => g.marks.filter(k => k.type === 'corner').map(k => k.id).sort();
+    // a boxed O turns four times; each corner can be set without moving the others
+    const box = { bowlForm: 'box' } as const, O = f('O', {}, box);
+    assert.deepEqual(ids(O), ['0t0', '0t1', '0t2', '0t3']);
+    assert.ok(O.marks.every(k => k.type !== 'corner' || k.v === 0.5), 'a box corner is round outside, square inside');
+    const sharp = f('O', { '0t0': 0 }, box), round = f('O', { '0t0': 1 }, box);
+    assert.notEqual(sharp.d, O.d);
+    assert.notEqual(round.d, O.d);
+    assert.equal(sharp.marks.find(k => k.id === '0t0')!.v, 0);
+    assert.equal(sharp.marks.find(k => k.id === '0t1')!.v, 0.5);
+    // the ends of E's arms and the corners of its stem show; where the stem and an arm end together
+    // they are one corner, and the stem's corners along the arms are hidden
+    assert.deepEqual(ids(f('E')), ['0el', '0sr', '1el', '1er', '2el', '2er', '3el', '3er']);
+    assert.notEqual(f('E', { '0el': 1 }).d, f('E').d);
+    // the stem of T ends inside its bar, so only its foot has corners
+    assert.ok(!ids(f('T')).includes('0el') && ids(f('T')).includes('0sl'));
+    // a sharpened apex still comes to the cap height
+    const A = f('A', { '0t0': 0 }, { diagonals: 'upright', bends: 'round' }), m = buildFont(DEFAULTS).m;
+    const top = Math.max(...A.cmds.filter(c => c[0] !== 'Z').map(c => c[c.length - 1] as number));
+    assert.ok(Math.abs(top - m.cap - m.os) < 2, `apex at ${top}`);
+    // a corner's own roundness belongs to its letter alone
+    assert.equal(buildFont({ ...DEFAULTS, ...box, glyphs: { O: { corners: { '0t0': 0 } } } }).glyph('D')!.d, buildFont({ ...DEFAULTS, ...box }).glyph('D')!.d);
+  });
+
+  it('the loop R turns its bowl back into the leg short of the stem', () => {
+    const f = (rForm: Params['rForm']) => buildFont({ ...DEFAULTS, rForm });
+    assert.notEqual(f('leg').glyph('R')!.d, f('loop').glyph('R')!.d);
+    // the bowl runs on round into the leg in one stroke, beside the stem
+    assert.equal(f('loop').glyph('R')!.strokes.length, 2);
+    assert.equal(f('leg').glyph('P')!.d, f('loop').glyph('P')!.d);
+  });
+
+  it('the Y can be a cup, and the tail of Q can run from inside the bowl', () => {
+    const f = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p });
+    for (const ch of 'Yy') assert.notEqual(f({ yForm: 'cup' }).glyph(ch)!.d, f({}).glyph(ch)!.d, ch);
+    const q = f({ qForm: 'inside' }).glyph('Q')!, tip = q.marks.find(k => k.type === 'tail')!;
+    assert.ok(tip.x < q.bodyW && tip.y > 0, 'the tail ends inside the bowl');
+    assert.ok(f({ qForm: 'inside', tail: 1 }).glyph('Q')!.d !== q.d);
   });
 
   it('straight stroke ends run level or plumb without closing a mouth or losing a hook', () => {
@@ -451,6 +565,11 @@ describe('params validation', () => {
     assert.equal(p.fill, DEFAULTS.fill);
     assert.equal(p.story, DEFAULTS.story);
     assert.ok(!('evil' in p));
+  });
+
+  it('keeps only corner ids it knows, clamped', () => {
+    const p = sanitizeParams({ glyphs: { O: { corners: { '0t1': 2, '3sl': 0.4, bogus: 1, '0x': 0.2 } } } });
+    assert.deepEqual(p.glyphs.O?.corners, { '0t1': 1, '3sl': 0.4 });
   });
 
   it('keeps only valid per-letter settings, one character each', () => {

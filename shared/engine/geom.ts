@@ -83,7 +83,8 @@ export function clipPoly(pts: Pt[], box: ClipBox): Pt[] {
   return out;
 }
 
-interface Corner { i: number; th: number; r: number; d: number }
+/** f: the radius was given for this corner (a turn's or a terminal's), not the default */
+interface Corner { i: number; th: number; r: number; d: number; f: boolean }
 
 /* Turn a polygon into path commands, replacing corners with circular-ish fillets.
    Point flags: smooth (sampled curve, never a corner), sharp (never rounded),
@@ -117,7 +118,7 @@ export function roundContour(src: Pt[], R: number, cornersOut?: Pt[]): Cmd[] {
     const ux = p.x - a.x, uy = p.y - a.y, vx = b.x - p.x, vy = b.y - p.y;
     const th = Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy));
     if (th < 0.07) continue;
-    corners.push({ i, th, r: p.sharp ? 0 : (p.r != null ? p.r : R), d: 0 });
+    corners.push({ i, th, r: p.sharp ? 0 : (p.r != null ? p.r : R), d: 0, f: !p.sharp && p.r != null });
   }
 
   const cmds: Cmd[] = [];
@@ -132,7 +133,10 @@ export function roundContour(src: Pt[], R: number, cornersOut?: Pt[]): Cmd[] {
     const lenPrev = ((S[c.i] - S[prev.i]) + total) % total || total;
     const lenNext = ((S[next.i] - S[c.i]) + total) % total || total;
     const want = c.r > 0 ? c.r * Math.tan(Math.min(c.th, 2.6) / 2) : 0;
-    c.d = Math.min(want, lenPrev * 0.5, lenNext * 0.5);
+    // two rounded corners share the side between them; a corner given its own radius may take
+    // nearly all of a side that runs to a sharp one (the tight turn of a U)
+    const room = (o: Corner) => (c.f && o.r === 0 ? 0.95 : 0.5);
+    c.d = Math.min(want, lenPrev * room(prev), lenNext * room(next));
     if (c.d < 0.6) c.d = 0;
     if (cornersOut && !pts[c.i].sharp) cornersOut.push({ x: pts[c.i].x, y: pts[c.i].y });
   }

@@ -5,18 +5,19 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as R
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
 import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph } from '../../shared/engine';
 import type { NumericParam, Params } from '../../shared/params';
-import { dragSpec, handlesFor, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
+import { dragSpec, handlesFor, letterCorners, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { n1, useSize } from '../lib/hooks';
-import { actions, endOf, letterOf, useEditor, useFont, useParam, useScopedFont, type Scope } from '../state/editor';
+import { actions, endOf, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type EndKey, type Scope } from '../state/editor';
 
 /** Anatomy terms that apply to this glyph, in a sensible reading order. */
 function features(g: Glyph, ch: string): string[] {
   const out: string[] = [];
   const add = (id: string | null) => { if (id && !out.includes(id) && ANATOMY[id]) out.push(id); };
-  g.marks.forEach(k => add(k.type === 'terminal' ? null : k.type));
+  g.marks.forEach(k => add(k.type === 'terminal' || k.type === 'corner' ? null : k.type));
   g.strokes.forEach(s => add(s.part));
   if (g.counters.length) add('counter');
   if (g.marks.some(k => k.type === 'terminal')) add('terminal');
+  if (g.marks.some(k => k.type === 'corner')) add('corner');
   if (g.serifs.length) add('serif');
   if (/[a-z]/.test(ch)) add('xHeight'); else if (/[A-Z0-9]/.test(ch)) add('capHeight');
   if (/[bdfhklt]/.test(ch)) add('ascender');
@@ -35,7 +36,12 @@ function glyphParams(g: Glyph, ch: string, serif: boolean): ControlKey[] {
     if (ch === 'g') p.push('gForm');
     if (ch === 'k' || ch === 'K') p.push('kForm');
     if (ch === 's' || ch === 'S' || ch === '$') p.push('sForm');
+    if ('IJil'.includes(ch)) p.push('iForm');
+    if ('Yy'.includes(ch)) p.push('yForm');
+    if ('Wvw'.includes(ch)) p.push('diagonals');
+    if ('NWYZvwyz'.includes(ch)) p.push('bends');
     if (/[bdgpqhmnru]/.test(ch)) p.push('bowlJoin');
+    if (g.strokes.some(s => s.curved) && !/[AMNVWZvwz]/.test(ch)) p.push('bowlForm');
     if (g.strokes.some(s => s.dot)) p.push('dots');
     if (g.marks.some(k => k.type === 'apex' || k.type === 'vertex')) p.push('apex');
     if (g.strokes.some(s => s.part === 'crossbar')) p.push('crossbar');
@@ -84,7 +90,7 @@ function pickPart(id: string) {
 /** Parts drawn as guide lines rather than shapes. */
 const GUIDE_PARTS = new Set(['baseline', 'xHeight', 'capHeight', 'ascender', 'descender']);
 /** Hit-test stacking: counters under strokes, point marks on top. */
-const hitOrder = (id: string) => id === 'counter' ? 0 : id === 'apex' || id === 'vertex' || id === 'terminal' || id === 'tail' ? 2 : 1;
+const hitOrder = (id: string) => id === 'counter' ? 0 : id === 'corner' ? 3 : id === 'apex' || id === 'vertex' || id === 'terminal' || id === 'tail' ? 2 : 1;
 
 /** Path data for one anatomy part of a glyph. */
 function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } {
@@ -93,6 +99,8 @@ function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } 
   if (id === 'terminal' || id === 'apex' || id === 'vertex') {
     return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(34, font.m.s * 0.75)) };
   }
+  // corners sit close together, at the ends of strokes: small rings, so the ends stay grabbable between them
+  if (id === 'corner') return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(20, font.m.s * 0.32)) };
   const d = g.strokes.filter(s => s.part === id).map(s => cmdsToD(s.cmds)).join('');
   // a hook is the end of a longer stroke (j, t, f): ring its tip
   if (!d && id === 'tail') return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(34, font.m.s * 0.75)) };
@@ -191,9 +199,9 @@ const tipSeen = () => { try { return localStorage.getItem(TIP_KEY) === '1'; } ca
 const markTipSeen = () => { try { localStorage.setItem(TIP_KEY, '1'); } catch { /* the tip returns next visit */ } };
 
 interface View { sc: number; ox: number; oy: number }
-interface Drag { part: string; axis?: Axis; key?: NumericParam; strokeEnd?: string; end: () => void }
+interface Drag { part: string; axis?: Axis; key?: NumericParam; strokeEnd?: string; endKey?: EndKey; end: () => void }
 /** `end` names the one stroke end being dragged, while a letter is customized */
-interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string; hook: boolean } }
+interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string; hook?: boolean; corner?: boolean } }
 /** The pointer over a draggable part, in canvas px */
 interface Hover { id: string; x: number; y: number }
 interface TipRow { axis: Axis; label: string; ends: [string, string] }
@@ -250,13 +258,14 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
     if (v === undefined) { v = towardMore(d, lf.params); c.m.set(k, v); }
     return v;
   };
-  const ends = strokeEnds(g), endInfo = (id?: string) => ends.find(e => e.id === id);
+  const ends = strokeEnds(g), corners = letterCorners(g);
+  const endInfo = (id?: string) => ends.find(e => e.id === id) ?? (id ? corners.map(c => ({ ...c, corner: true })).find(c => c.id === id) : undefined);
   const hoverSpec = hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, lf, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }, oneEnd) : null;
   const hoverAxes = AXES.filter(a => hoverSpec?.[a]);
   const tip: TipRow[] = hoverAxes.map(a => {
     const d = hoverSpec![a]!, def = defOf(d.key), up = towardMoreOf(hover!.id, a, d) > 0;
     const hi = def?.hi ?? 'More', lo = def?.lo ?? 'Less', plus = up ? hi : lo, minus = up ? lo : hi;
-    return { axis: a, label: d.end ? `${endInfo(d.end)?.label ?? 'End'} length` : labelOf(d.key), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
+    return { axis: a, label: d.endKey ? `${endInfo(d.end)?.label ?? 'Corner'} roundness` : d.end ? `${endInfo(d.end)?.label ?? 'End'} length` : labelOf(d.key), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
   });
   const guideKey = hotKey === 'serif' ? 'serifSize' : hotKey === 'terminal' ? 'terminalLength' : hotKey;
   const showKey = hover || dragging ? null : guideKey && typeof font.params[guideKey as keyof Params] === 'number' ? guideKey as NumericParam : intro ? 'weight' : null;
@@ -292,7 +301,7 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
         const axis = pickAxis(spec, dx, dy);
         if (!axis) return;
         const drive = spec[axis]!;
-        d.axis = axis; d.key = drive.key; d.strokeEnd = drive.end;
+        d.axis = axis; d.key = drive.key; d.strokeEnd = drive.end; d.endKey = drive.endKey;
         solve = solver(drive, lf.params);
         actions.setActive(drive.key as ActiveKey);
         if (drive.end) actions.setHotEnd(drive.end);
@@ -300,7 +309,7 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
         if (intro) { setIntro(false); markTipSeen(); }
       }
       const v = solve!(d.axis === 'x' ? dx / view.sc : -dy / view.sc);
-      if (d.strokeEnd) actions.setEnd(d.strokeEnd, v); else actions.setParam(d.key!, v);
+      if (d.strokeEnd) actions.setEnd(d.strokeEnd, v, d.endKey); else actions.setParam(d.key!, v);
       setReadout({ x: ev.clientX - r.left, y: ev.clientY - r.top, param: d.key!, end: endInfo(d.strokeEnd) });
     };
     const end = () => {
@@ -405,6 +414,7 @@ function DragTip({ x, y, W, H, rows }: { x: number; y: number; W: number; H: num
 
 /** The value being dragged, beside the pointer. */
 function DragReadout({ x, y, param, end }: Readout) {
-  const v = useParam(param), ev = useEditor(s => (end ? endOf(s, end.id, end.hook) : 0));
-  return <div className="i-readout" style={{ left: x + 14, top: y + 16 }}>{end ? `${end.label} length` : labelOf(param)} <b>{Math.round((end ? ev : v) * 100)}</b></div>;
+  const v = useParam(param), ev = useEditor(s => (!end ? 0 : end.corner ? paramOf(s, 'corners')[end.id] ?? 0 : endOf(s, end.id, end.hook)));
+  const label = !end ? labelOf(param) : `${end.label} ${end.corner ? 'roundness' : 'length'}`;
+  return <div className="i-readout" style={{ left: x + 14, top: y + 16 }}>{label} <b>{Math.round((end ? ev : v) * 100)}</b></div>;
 }

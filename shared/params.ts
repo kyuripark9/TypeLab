@@ -24,8 +24,22 @@ export const G_FORMS = ['hook', 'mirrored'] as const;
 export const K_FORMS = ['arm', 'stem', 'bar'] as const;
 /** The dots of i, j and the punctuation. 'auto' squares them unless Roundness or round stroke ends round them off. */
 export const DOTS = ['auto', 'square', 'round'] as const;
-/** i and l: a plain stem, or a flag at the top and a bar at the foot. 'auto' gives a monospaced sans the bars. */
+/** I i J l: a plain stem, or bars: a flag at the top and a bar at the foot (I gets a bar at the top and foot, J one
+    across the top). 'auto' gives a monospaced sans the bars. */
 export const I_FORMS = ['auto', 'plain', 'bars'] as const;
+/** Bowls and curves: oval (a circle, or a rounded square with Squareness), or box: straight sides
+    meeting in corners that round on the outside and stay square on the inside. */
+export const BOWL_FORMS = ['oval', 'box'] as const;
+/** A V W and v w: symmetric, or with the right-hand side upright, the diagonal leaning on it (the A then has no crossbar). */
+export const DIAGONALS = ['symmetric', 'upright'] as const;
+/** Where the strokes of A M N V W Z (and v w z) turn: in a sharp point, or in a round bend like bent wire. */
+export const BENDS = ['sharp', 'round'] as const;
+/** The Y and y: two arms forking off a stem, or a cup whose right side runs on down into a diagonal. */
+export const Y_FORMS = ['forked', 'cup'] as const;
+/** The tail of Q: crossing the bowl at the bottom right, or running from inside the bowl into its bottom right corner. */
+export const Q_FORMS = ['crossing', 'inside'] as const;
+/** The R: a leg from the bowl, or a loop: the bowl's lower bar stops short of the stem and turns back into the leg. */
+export const R_FORMS = ['leg', 'loop'] as const;
 /** The spine of s, S and $: a curve running corner to corner, or level between two tight turns, like two rounded boxes stacked. */
 export const S_FORMS = ['curved', 'flat'] as const;
 /** Curved stroke ends: stop part way round the curve, or turn onto the nearest level or plumb line and run straight out. */
@@ -41,6 +55,12 @@ export type Dots = (typeof DOTS)[number];
 export type IForm = (typeof I_FORMS)[number];
 export type SForm = (typeof S_FORMS)[number];
 export type TerminalRun = (typeof TERMINAL_RUNS)[number];
+export type BowlForm = (typeof BOWL_FORMS)[number];
+export type Diagonals = (typeof DIAGONALS)[number];
+export type Bends = (typeof BENDS)[number];
+export type YForm = (typeof Y_FORMS)[number];
+export type QForm = (typeof Q_FORMS)[number];
+export type RForm = (typeof R_FORMS)[number];
 
 export interface Params {
   weight: number; width: number; height: number; slant: number; contrast: number;
@@ -51,6 +71,7 @@ export interface Params {
   /** how stroke ends bend: 0.5 as drawn, lower straightens them and then flares them out, higher
       curls them on round the way they turn */ terminalCurl: number;
   /** one letter's ends bent one by one, by end id: each overrides terminalCurl for that end */ terminalCurls: Record<string, number>;
+  /** one letter's corners rounded one by one, by corner id (see isCornerId), from 0 sharp to 1 round */ corners: Record<string, number>;
   /** whether curved stroke ends follow the curve or run straight out (see TERMINAL_RUNS) */ terminalRun: TerminalRun;
   /** the form of the picked kind of stroke end (see TERMINAL_FORMS); one of another kind means its first */ terminalForm: TerminalForm;
   /* The finer shape of each form of stroke end. Each applies only while its form is picked, and
@@ -81,8 +102,14 @@ export interface Params {
   /** where the arm and leg of k and K meet (see K_FORMS) */ kForm: KForm;
   /** square or round dots (see DOTS) */ dots: Dots;
   /** how big the dots are: 0.5 as usual */ dotSize: number;
-  /** plain i and l, or with a flag and foot (see I_FORMS) */ iForm: IForm;
+  /** plain I i J l, or with bars (see I_FORMS) */ iForm: IForm;
   /** the spine of s (see S_FORMS) */ sForm: SForm;
+  /** oval or box bowls (see BOWL_FORMS) */ bowlForm: BowlForm;
+  /** symmetric A V W, or with one side upright (see DIAGONALS) */ diagonals: Diagonals;
+  /** sharp or round turns in A M N V W Z (see BENDS); Peaks sets how wide a round one is */ bends: Bends;
+  /** the shape of the Y (see Y_FORMS) */ yForm: YForm;
+  /** the tail of the Q (see Q_FORMS) */ qForm: QForm;
+  /** the leg of the R (see R_FORMS) */ rForm: RForm;
   /** length of tails and hooks (Q y j g t f, the comma, cursive exits): 0.5 is the usual length */ tail: number;
   fill: Fill;
   /** size of the pixels, dots or lines, or the wireframe's line weight */ module: number;
@@ -109,9 +136,10 @@ export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K :
 export const DEFAULTS: Readonly<Params> = Object.freeze({
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.05,
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
-  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), terminalRun: 'curved',
+  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
-  squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved', tail: 0.5,
+  squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved',
+  bowlForm: 'oval', diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, slice: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   letterSpacing: 0.2, wordSpacing: 0.35, sideBearing: 0.5, mono: 0,
@@ -125,6 +153,10 @@ const PARAM_KEYS = Object.keys(DEFAULTS) as (keyof Params)[];
     of a leg): it keeps the length and curl it is drawn with unless given its own, so the stroke end
     length and curl leave it alone. */
 export const isEndId = (id: string) => /^p?\d{1,2}[se]$/.test(id);
+/** A corner's id: the index of its stroke in the glyph, then 't' and the number of the turn along the
+    stroke's centerline (from 0), or the end ('s' start, 'e' end) and its side ('l' or 'r', looking
+    out of the stroke). */
+export const isCornerId = (id: string) => /^\d{1,2}(t\d{1,2}|[se][lr])$/.test(id);
 /** How far past its usual length an end reaches, in x-heights (negative trims), at `v` on an end's
     own length scale. The letter's Length spans the lower three quarters of it, an eighth of an
     x-height either way; the last quarter draws one end on as far as a whole x-height. */
@@ -153,16 +185,17 @@ export const endCurl = (p: { terminalCurl?: number; terminalCurls?: Record<strin
 /** A valid value for setting `k`, or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {
   const d = DEFAULTS[k];
-  if (k === 'terminalEnds' || k === 'terminalCurls') {
+  if (k === 'terminalEnds' || k === 'terminalCurls' || k === 'corners') {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
-    const out: Record<string, number> = {};
-    for (const [id, x] of Object.entries(v)) if (isEndId(id) && typeof x === 'number' && Number.isFinite(x)) out[id] = Math.min(1, Math.max(0, x));
+    const out: Record<string, number> = {}, ok = k === 'corners' ? isCornerId : isEndId;
+    for (const [id, x] of Object.entries(v)) if (ok(id) && typeof x === 'number' && Number.isFinite(x)) out[id] = Math.min(1, Math.max(0, x));
     return out;
   }
   if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
   const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, fill: FILLS, story: STORIES,
-    bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, terminalRun: TERMINAL_RUNS };
+    bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, terminalRun: TERMINAL_RUNS,
+    bowlForm: BOWL_FORMS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS };
   return opts[k]?.includes(v) ? v : undefined;
 }
 
@@ -177,7 +210,7 @@ function cleanGlyphs(v: unknown): Record<string, GlyphParams> {
       const c = isGlyphKey(k) ? cleanValue(k, x) : undefined;
       if (c !== undefined) g[k] = c;
     }
-    for (const e of ['terminalEnds', 'terminalCurls']) if (g[e] && !Object.keys(g[e] as object).length) delete g[e];
+    for (const e of ['terminalEnds', 'terminalCurls', 'corners']) if (g[e] && !Object.keys(g[e] as object).length) delete g[e];
     if (Object.keys(g).length) out[ch] = g as GlyphParams;
   }
   return out;

@@ -6,9 +6,10 @@
 
    Path commands: ['M',x,y] ['L',x,y,{w}] ['C',x1,y1,x2,y2,x,y,{w}] ['hv'|'vh',x,y,{u0,u1,w}] ['Z']
    Stroke ends (s = start, e = end): 'flat' | 'term' (styled terminal) | 'h'/'v' (axis cut) | 'join' */
-import { defGlyph as def, type Builder, type Metrics } from './font';
-import { clamp, lerp } from './geom';
-import type { Cmd, StrokeOpts } from './types';
+import { defGlyph as def, turnRadii, type Builder, type Metrics } from './font';
+import { clamp, cubicAt, lerp, roundContour } from './geom';
+import { expandStroke } from './stroke';
+import type { ClipBox, Cmd, Pt, StrokeOpts, TurnR } from './types';
 
 const J = 'join', T = 'term', H = 'h';
 
@@ -17,15 +18,21 @@ const J = 'join', T = 'term', H = 'h';
 /* zig-zag of diagonals (A V W M v w): apex sharpness comes from m.apex */
 function zig(g: Builder, m: Metrics, xs: number[], yT: number, yB: number, startTop: boolean, o?: StrokeOpts) {
   const a = m.apex, n = xs.length, Hh = yT - yB, ys: number[] = [];
+  const top = (i: number) => startTop ? i % 2 === 0 : i % 2 === 1;
+  if (roundBends(m) || ownTurns(m, n, g.strokes.length)) {
+    const reach = xs.slice(1, -1).map((_, k): Reach => ({ i: k + 1, ax: 1, at: top(k + 1) ? yT : yB, dir: top(k + 1) ? 1 : -1 }));
+    const { clipX, ...rest } = o ?? {};
+    return turnStroke(g, m, xs.map((x, i): XY => [x, top(i) ? yT : yB]), reach,
+      { s: H, e: H, part: 'diagonal', serifS: 'both', serifE: 'both', clip: { ...clipX }, ...rest }).map(q => q[1]);
+  }
   for (let i = 0; i < n; i++) {
-    const top = startTop ? i % 2 === 0 : i % 2 === 1;
-    let y = top ? yT : yB;
+    let y = top(i) ? yT : yB;
     if (i > 0 && i < n - 1) {
       const dx = (xs[i] - xs[i - 1] + xs[i + 1] - xs[i]) / 2;
       const half = Math.atan2(dx, Hh), t = (m.tDir(dx, Hh) + m.thin) / 2;
       const tip = (t / 2) / Math.sin(half), ext = a > 0.03 ? a * 1.5 * m.s : m.os;
-      y = top ? yT + ext - tip : yB - ext + tip;
-      g.mark(top ? 'apex' : 'vertex', xs[i], top ? yT : yB);
+      y = top(i) ? yT + ext - tip : yB - ext + tip;
+      g.mark(top(i) ? 'apex' : 'vertex', xs[i], top(i) ? yT : yB);
     }
     ys.push(y);
   }
@@ -112,8 +119,16 @@ function sShape(g: Builder, m: Metrics, x0: number, W: number, yB: number, yT: n
   const sc = o?.scale || 1, hs = m.s * sc / 2, hh = m.hT * sc / 2, Hh = yT - yB;
   const t = yT - hh, b = yB + hh, xl = x0 + hs, xr = x0 + W - hs, cx = x0 + W / 2;
   const xlT = xl + W * 0.035, xrT = xr - W * 0.035;
-  const y1 = yB + Hh * 0.74, y2 = yB + Hh * 0.27, c = (y1 - y2) * 0.6;
+  // squared off, the spine's handles lengthen until it runs level through the middle, like a Z bent round
+  const y1 = yB + Hh * 0.74, y2 = yB + Hh * 0.27, c = (y1 - y2) * lerp(0.6, 1, m.sq);
   const u0 = lerp(0.2, 0.55, m.ap);
+  if (m.p.bowlForm === 'box') {
+    // two stacked bowls of quarter turns, which box into a level spine with square corners inside
+    const mid = (t + b) / 2;
+    g.path([['M', xr, (t + mid) / 2], ['vh', cx, t, { u0 }], ['hv', xl, (t + mid) / 2], ['vh', cx, mid], ['hv', xr, (mid + b) / 2],
+      ['vh', cx, b], ['hv', xl, (mid + b) / 2, { u1: 1 - u0 }]], { s: T, e: T, part: 'spine', ...o });
+    return;
+  }
   // the spine carries the weight, but in black weights it must leave room for both counters
   const thick = m.s * sc, thin = Math.min(m.thin * sc, thick), spineT = Math.min(thick, Hh * 0.25);
   const sw = thick > thin ? Math.max(0, Math.min(1, (spineT - thin) / (thick - thin))) : 1;
@@ -149,7 +164,6 @@ function fillet(g: Builder, m: Metrics, x: number, y: number, sx: number, sy: nu
   if (m.p.fill !== 'wire') g.fillet(x, y, sx, sy, r);
 }
 
-
 /* arm and leg of K/k, off a stem at x0 up to `top`, the arm reaching r. The leg springs from the
    arm (leaving the stem at ay, the leg from f of the way up it), or both meet at the stem, or at the
    end of a short bar out from it (m.p.kForm). */
@@ -168,6 +182,136 @@ function kArms(g: Builder, m: Metrics, x0: number, top: number, r: number, ay: n
   const yj = top * 0.5, head: Cmd[] = m.p.kForm === 'bar' ? [['M', x0, yj], ['L', x0 + m.s * 1.85, yj]] : [['M', x0, yj]];
   g.path([...head, ['L', r, top, { w: 'thin' }]], { s: J, e: H, part: 'arm', miter: 18, clip: { x0, ...clip }, serifE: 'both' });
   g.path([...head, ['L', ex, 0]], { s: J, e: H, part: 'leg', miter: 18, clip: { x0, y0: 0 }, serifE: 'both' });
+}
+
+/* ---------- turns: one stroke changing direction at a point (A M N V W Z) ---------- */
+
+type XY = [number, number];
+/** A turn of a stroke that reaches a line: the outer edge of the turn at point `i` touches `at`
+    on axis `ax` (0 = x, 1 = y), which lies beyond it in direction `dir` (+1 = up or right).
+    An `inner` turn (the middle peak of a W) reaches its line with its centerline instead, and
+    isn't cut off or marked there. */
+interface Reach { i: number; ax: 0 | 1; at: number; dir: 1 | -1; inner?: boolean }
+
+const roundBends = (m: Metrics) => m.p.bends === 'round';
+/** Radius of a round bend's centerline: wide with flat peaks, and with pointed ones half the stroke
+    weight, so the bend rounds on the outside and comes to a sharp corner on the inside. */
+const bendR = (m: Metrics) => m.s * lerp(0.5, 1.6, m.apex);
+
+/** The outline radii of a round bend: its centerline turns round bendR, so the outside rounds half
+    a stroke wider and the inside half a stroke tighter. */
+const bendTurn = (m: Metrics): TurnR => { const r = bendR(m); return { o: r + m.s / 2, i: r - m.s / 2 }; };
+
+/** The radii of the turns between the ends of `pts`, drawn as stroke `si` of the glyph: each turn's
+    own roundness when its letter sets one (see markTurns), else a round bend's with round bends,
+    else none, a sharp mitred corner. */
+function turnsFor(m: Metrics, pts: XY[], si: number): (TurnR | null)[] {
+  return pts.slice(1, -1).map((_, k) => {
+    const own = m.p.corners?.[`${si}t${k}`];
+    return own != null ? turnRadii(own, m.s) : roundBends(m) ? bendTurn(m) : null;
+  });
+}
+/** Whether its letter rounds any turn of `pts`, drawn as stroke `si`, one by one. */
+const ownTurns = (m: Metrics, n: number, si: number) => Array.from({ length: n - 2 }, (_, k) => m.p.corners?.[`${si}t${k}`] != null).some(Boolean);
+
+/** How far the outline of the stroke through `pts`, turning with radii `turns`, reaches on axis
+    `ax` (in direction `dir`) at its turn at pts[i], drawn and rounded as the glyph will be: over the
+    part of the outline nearer that turn than any other point of the stroke. */
+function outlineExtent(m: Metrics, pts: XY[], turns: (TurnR | null)[], i: number, ax: 0 | 1, dir: number) {
+  const cmds: Cmd[] = [['M', ...pts[0]], ...pts.slice(1).map((q, k): Cmd => ['L', q[0], q[1], k && turns[k - 1] ? { turn: turns[k - 1] } : {}])];
+  const ex = expandStroke(cmds, { miter: 18 }, m.ctx), V = { x: pts[i][0], y: pts[i][1] };
+  const mine = (q: Pt) => pts.every((o, j) => j === i || Math.hypot(q.x - o[0], q.y - o[1]) >= Math.hypot(q.x - V.x, q.y - V.y));
+  let most = -Infinity, cur = V;
+  for (const c of ex ? roundContour(ex.contours[0], 0) : []) {
+    const P = c[0] === 'C' ? [cur, { x: c[1], y: c[2] }, { x: c[3], y: c[4] }, { x: c[5], y: c[6] }] : c[0] === 'Z' ? null : [{ x: c[1], y: c[2] }];
+    if (!P) continue;
+    for (let k = 0; k <= (P.length > 1 ? 8 : 0); k++) {
+      const q = P.length > 1 ? cubicAt(P, k / 8) : P[0];
+      if (mine(q)) most = Math.max(most, (ax ? q.y : q.x) * dir);
+    }
+    cur = P[P.length - 1];
+  }
+  return most * dir;
+}
+
+/** Where the outer point of the sharp, mitred turn at pts[i] reaches on axis `ax`. */
+function turnExtent(m: Metrics, pts: XY[], i: number, ax: 0 | 1) {
+  const V = pts[i], a = pts[i - 1], b = pts[i + 1];
+  const la = Math.hypot(a[0] - V[0], a[1] - V[1]) || 1, lb = Math.hypot(b[0] - V[0], b[1] - V[1]) || 1;
+  const u: XY = [(a[0] - V[0]) / la, (a[1] - V[1]) / la], v: XY = [(b[0] - V[0]) / lb, (b[1] - V[1]) / lb];
+  const bx = u[0] + v[0], by = u[1] + v[1], bl = Math.hypot(bx, by) || 1, bis: XY = [bx / bl, by / bl];
+  const half = Math.max(0.03, Math.acos(clamp(u[0] * v[0] + u[1] * v[1], -1, 1)) / 2), t = (m.tDir(u[0], u[1]) + m.tDir(v[0], v[1])) / 2;
+  return V[ax] - bis[ax] * (t / 2) / Math.sin(half);
+}
+
+/** The turning points of `pts`, each one in `reach` moved along its axis until the outer edge of
+    its turn meets its line (see turnStroke). `turns` are the turns' radii (see turnsFor); `ext` is
+    how far past the line a sharp turn's point reaches, to be cut off there, by default as Peaks says. */
+function placeTurns(m: Metrics, pts: XY[], reach: Reach[], turns: (TurnR | null)[], ext = m.apex > 0.03 ? m.apex * 1.5 * m.s : m.os): XY[] {
+  const p = pts.map(q => [q[0], q[1]] as XY), ro = (q: Reach) => turns[q.i - 1]?.o ?? 0;
+  const at = (q: Reach) => q.inner ? p[q.i][q.ax] : ro(q) > 0 ? outlineExtent(m, p, turns, q.i, q.ax, q.dir) : turnExtent(m, p, q.i, q.ax);
+  // a wide bend short of room on its legs moves less than its point does, so each step goes by how
+  // far a small nudge of the point moves it
+  for (let k = 0; k < 12; k++) {
+    let off = 0;
+    for (const q of reach) {
+      // a turn rounded, or sharpened by its letter, comes just past the line like a bowl; one left
+      // as Peaks draws it reaches `ext` past, to be cut off there
+      const want = q.inner ? q.at : q.at + q.dir * (turns[q.i - 1] ? m.os : ext), now = at(q);
+      if (!Number.isFinite(now) || Math.abs(want - now) < 0.1) continue;
+      off = Math.max(off, Math.abs(want - now));
+      p[q.i][q.ax] += 1;
+      const rate = Math.max(0.2, at(q) - now);
+      p[q.i][q.ax] += (want - now) / rate - 1;
+    }
+    if (!off) break;
+  }
+  return p;
+}
+
+/** One stroke through `pts`, turning at each point between its ends: in a round bend with round
+    bends, else in a mitred corner, unless its letter rounds that turn its own way. Each turn in
+    `reach` moves along its axis until its outer edge meets its line: a round one overshoots it like a
+    bowl, a sharp one is pointed or cut flat there as Peaks says, like the apex of an A. Marks those
+    turns and returns the points as placed. */
+function turnStroke(g: Builder, m: Metrics, pts: XY[], reach: Reach[], o: StrokeOpts = {}): XY[] {
+  const turns = turnsFor(m, pts, g.strokes.length), p = placeTurns(m, pts, reach, turns);
+  const clip: ClipBox = { ...o.clip };
+  for (const q of reach) {
+    if (q.inner) continue;
+    const pos: XY = [p[q.i][0], p[q.i][1]];
+    pos[q.ax] = q.at;
+    if (q.ax === 1) g.mark(q.dir > 0 ? 'apex' : 'vertex', pos[0], pos[1]);
+    if (!turns[q.i - 1]) clip[`${q.ax ? 'y' : 'x'}${q.dir > 0 ? 1 : 0}` as 'x0'] = q.at + q.dir * (m.apex > 0.03 ? 0 : m.os);
+  }
+  // each leg carries the radii of the turn it leaves; sharp, the strokes rising to the right are
+  // the thin ones of the pair, as in a V
+  const round = roundBends(m);
+  g.path([['M', p[0][0], p[0][1]], ...p.slice(1).map((q, i): Cmd => {
+    const turn = i ? turns[i - 1] : null, thin = !round && q[1] > p[i][1] && Math.abs(q[0] - p[i][0]) > 1;
+    return ['L', q[0], q[1], { ...(thin && { w: 'thin' }), ...(turn && { turn }) }];
+  })], { miter: 18, ...o, clip });
+  return p;
+}
+
+/** How far in from the edge a diagonal cut level at its foot stands, so the cut starts at the edge. */
+const footIn = (m: Metrics, dx: number, dy: number) => (m.tDir(dx, dy) / 2) / Math.max(0.2, Math.abs(dy) / Math.hypot(dx, dy));
+
+/** Whether A V W (v w) take their upright form. */
+const upright = (m: Metrics) => m.p.diagonals === 'upright';
+
+/** V and v with the right side upright: a diagonal down from the top left into a stem on the right. */
+function uprightV(g: Builder, m: Metrics, W: number, top: number) {
+  const xr = W - m.s / 2, l = footIn(m, xr, top);
+  turnStroke(g, m, [[l, top], [xr, 0], [xr, top]], [{ i: 1, ax: 1, at: 0, dir: -1 }],
+    { s: H, e: H, part: 'diagonal', serifS: 'both', serifE: 'both' });
+}
+/** W and w with the right side upright: down, up to a lower middle peak, down, and up the stem. */
+function uprightW(g: Builder, m: Metrics, W: number, top: number) {
+  const xr = W - m.s / 2, l = footIn(m, W * 0.36, top);
+  turnStroke(g, m, [[l, top], [lerp(l, xr, 0.36), 0], [lerp(l, xr, 0.64), top * 0.76], [xr, 0], [xr, top]],
+    [{ i: 1, ax: 1, at: 0, dir: -1 }, { i: 2, ax: 1, at: top * 0.76, dir: 1, inner: true }, { i: 3, ax: 1, at: 0, dir: -1 }],
+    { s: H, e: H, part: 'diagonal', serifS: 'both', serifE: 'both' });
 }
 
 /* ---------- tails and hooks ---------- */
@@ -239,6 +383,12 @@ const mapCmds = (cmds: Cmd[], f: (x: number, y: number) => [number, number]): Cm
 /* ---------- UPPERCASE ---------- */
 
 def('A', [0.25, 0.25], (g, m) => {
+  if (upright(m)) {
+    // a diagonal leaning on a stem at the right, meeting it in the apex: no crossbar
+    const W = m.W(600), C = m.cap, xr = W - m.s / 2, l = footIn(m, xr, C);
+    turnStroke(g, m, [[l, 0], [xr, C], [xr, 0]], [{ i: 1, ax: 1, at: C, dir: 1 }], { s: H, e: H, part: 'diagonal', serifS: 'both', serifE: 'both' });
+    return W;
+  }
   const W = m.W(620), C = m.cap, l = m.s * 0.55, r = W - l, cx = W / 2;
   const ys = zig(g, m, [l, cx, r], C, 0, false, { part: 'stem' });
   const by = C * (0.12 + 0.36 * m.bar), f = by / ys[1];
@@ -246,7 +396,7 @@ def('A', [0.25, 0.25], (g, m) => {
   g.line(xl, by, xr, by, { s: J, e: J, part: 'crossbar' });
   g.counter([[cx, ys[1]], [xl, by], [xr, by]]);
   return W;
-}, { parts: ['apex', 'stem', 'crossbar', 'counter'], params: ['apex', 'crossbar', 'counter', 'weight'] });
+}, { parts: ['apex', 'stem', 'crossbar', 'counter'], params: ['diagonals', 'bends', 'apex', 'crossbar', 'weight'] });
 
 def('B', [1, 0.55], (g, m) => {
   const W = m.W(540, 'c'), C = m.cap, hs = m.s / 2, hh = m.hT / 2, mid = C * (0.45 + 0.14 * m.bar);
@@ -261,7 +411,7 @@ def('C', [0.55, 0.4], (g, m) => {
   openBowl(g, m, hs, W - hs, -m.os + hh, C + m.os - hh, u, 1 - u);
   // the more open the mouth, the further the terminals sit from the right edge
   return W * (0.97 - 0.12 * m.ap);
-}, { params: ['aperture', 'terminal', 'curve', 'contrast'] });
+}, { params: ['bowlForm', 'aperture', 'terminal', 'curve', 'contrast'] });
 
 def('D', [1, 0.55], (g, m) => {
   const W = m.W(610, 'r'), C = m.cap, hs = m.s / 2, hh = m.hT / 2;
@@ -302,7 +452,7 @@ const monoBars = (m: Metrics) => m.p.mono >= 0.5 && !m.serif;
 /** Whether i and l get their flag and foot: picked, or left to monospacing. */
 const iBars = (m: Metrics) => m.p.iForm === 'bars' || (m.p.iForm === 'auto' && monoBars(m));
 def('I', [1, 1], (g, m) => {
-  if (monoBars(m)) {
+  if (iBars(m)) {
     const W = m.W(340), hh = m.hT / 2;
     g.stem(W / 2, 0, m.cap); g.line(0, m.cap - hh, W, m.cap - hh, { part: 'bar' }); g.line(0, hh, W, hh, { part: 'bar' });
     return W;
@@ -319,9 +469,11 @@ function monoStem(g: Builder, m: Metrics, top: number) {
 }
 
 def('J', [0.4, 1], (g, m) => {
-  const W = m.W(390), C = m.cap, hs = m.s / 2, hh = m.hT / 2, xr = W - hs, xl = hs, yb = -m.os + hh;
+  // barred, a bar runs in across the top and the J is as wide as a U
+  const bar = iBars(m), W = m.W(bar ? 540 : 390), C = m.cap, hs = m.s / 2, hh = m.hT / 2, xr = W - hs, xl = hs, yb = -m.os + hh;
   const ry = yb + Math.min((xr - xl) * 0.55, C * 0.4), cx = (xl + xr) / 2;
-  g.path([['M', xr, C], ['L', xr, ry], ['vh', cx, yb], ['hv', xl, ry, { u1: hookU(m, 0.6) }]], { e: T, part: 'stem', serifS: 'a' });
+  const head: Cmd[] = bar ? [['M', 0, C - hh], ['L', xr, C - hh]] : [['M', xr, C]];
+  g.path([...head, ['L', xr, ry], ['vh', cx, yb], ['hv', xl, ry, { u1: hookU(m, 0.6) }]], { e: T, part: 'stem', serifS: bar ? null : 'a' });
   const e = m.qpt(cx, yb, xl, ry, 'hv', hookU(m, 0.6));
   tailEnd(g, e.x, e.y, W);
   return W;
@@ -343,14 +495,25 @@ def('L', [1, 0.3], (g, m) => {
 
 def('M', [1, 1], (g, m) => {
   const W = m.W(740), C = m.cap, hs = m.s / 2;
+  if (roundBends(m)) {
+    // one stroke, bent round at the top of each stem and at the foot of the V
+    turnStroke(g, m, [[hs, 0], [hs, C], [W / 2, 0], [W - hs, C], [W - hs, 0]],
+      [{ i: 1, ax: 1, at: C, dir: 1 }, { i: 2, ax: 1, at: 0, dir: -1 }, { i: 3, ax: 1, at: C, dir: 1 }], { s: H, e: H, part: 'stem', serifS: 'both', serifE: 'both' });
+    return W;
+  }
   g.stem(hs, 0, C, { serifS: 'both', serifE: 'a', w: lerp(1, 0.35, m.p.contrast) });
   g.stem(W - hs, 0, C, { serifS: 'both', serifE: 'b' });
   zig(g, m, [hs, W / 2, W - hs], C, 0, true, { serifS: null, serifE: null, clipX: { x0: 0, x1: W } });
   return W;
-}, { params: ['apex', 'weight', 'contrast'] });
+}, { params: ['bends', 'apex', 'weight', 'contrast'] });
 
 def('N', [1, 1], (g, m) => {
   const W = m.W(600), C = m.cap, hs = m.s / 2, thin = lerp(1, 0.3, m.p.contrast);
+  if (roundBends(m)) {
+    turnStroke(g, m, [[hs, 0], [hs, C], [W - hs, 0], [W - hs, C]],
+      [{ i: 1, ax: 1, at: C, dir: 1 }, { i: 2, ax: 1, at: 0, dir: -1 }], { s: H, e: H, part: 'stem', serifS: 'both', serifE: 'both' });
+    return W;
+  }
   g.stem(hs, 0, C, { serifS: 'both', serifE: 'a', w: thin });
   g.stem(W - hs, 0, C, { serifS: 'b', serifE: 'both', w: thin });
   g.line(hs, C, W - hs, 0, { s: H, e: H, part: 'diagonal', w: 'thick', clip: { x0: 0, x1: W } });
@@ -361,7 +524,7 @@ def('O', [0.55, 0.55], (g, m) => {
   const W = m.W(690, 'r'), hs = m.s / 2, hh = m.hT / 2;
   oval(g, m, hs, W - hs, -m.os + hh, m.cap + m.os - hh);
   return W;
-}, { parts: ['bowl', 'counter'], params: ['counter', 'curve', 'contrast', 'width'] });
+}, { parts: ['bowl', 'counter'], params: ['bowlForm', 'counter', 'curve', 'contrast', 'width'] });
 
 def('P', [1, 0.5], (g, m) => {
   const W = m.W(510, 'c'), C = m.cap, hs = m.s / 2, hh = m.hT / 2;
@@ -372,23 +535,48 @@ def('P', [1, 0.5], (g, m) => {
 
 def('Q', [0.55, 0.55], (g, m) => {
   const W = m.W(690, 'r'), C = m.cap, hs = m.s / 2, hh = m.hT / 2;
+  if (m.p.qForm === 'inside') {
+    // the bowl runs round from the middle of its foot and down the right side, which turns in its
+    // bottom right corner and runs back up into the bowl as the tail
+    const xl = hs, xr = W - hs, yb = -m.os + hh, yt = C + m.os - hh, cx = W / 2, cy = C / 2, k = tailK(m);
+    // a sharp corner comes to a point just under the baseline, like the bowl beside it
+    const bend = roundBends(m) ? bendTurn(m) : null, corner = placeTurns(m, [[xr, cy], [xr, 0], [cx, C * 0.3]], [{ i: 1, ax: 1, at: 0, dir: -1 }], [bend], m.os);
+    const dx = cx - corner[1][0], dy = C * 0.3 - corner[1][1], ex = corner[1][0] + dx * k, ey = corner[1][1] + dy * k;
+    const turn: Cmd[] = [['L', ...corner[1]], ['L', ex, ey, bend ? { turn: bend } : {}]];
+    g.path([['M', lerp(cx, xr, 0.06), yb], ['L', cx, yb], ['hv', xl, cy], ['vh', cx, yt], ['hv', xr, cy], ...turn], { s: T, e: T, part: 'bowl', miter: 18 });
+    g.counter([[xl, cy], [cx, yt], [xr, cy], [xr, C * 0.25], [cx, yb]]);
+    tailEnd(g, ex, ey, W);
+    return W;
+  }
   oval(g, m, hs, W - hs, -m.os + hh, C + m.os - hh);
   const k = tailK(m), x0 = W * 0.56, y0 = C * 0.2, ex = x0 + W * 0.41 * k, ey = y0 - C * 0.27 * k;
   g.line(x0, y0, ex, ey, { s: J, e: T, part: 'tail' });
   tailEnd(g, ex, ey, W);
   return W;
-});
+}, { params: ['qForm', 'tail', 'counter', 'curve', 'weight'] });
 
 def('R', [1, 0.2], (g, m) => {
   const W = m.W(550, 'c'), C = m.cap, hs = m.s / 2, hh = m.hT / 2, mid = C * (0.4 + 0.14 * m.bar), R1 = W * 0.94 - hs;
   g.stem(hs, 0, C, { serifS: 'both', serifE: 'a' });
+  if (m.p.rForm === 'loop') {
+    // the bowl comes back along its lower bar, stops a stroke clear of the stem and turns back
+    // round into the leg, which runs out low to the baseline
+    const ry = (C - hh - mid) / 2, rx = Math.max(m.s * 0.3, Math.min(R1 - hs - m.s * 0.25, ry * (1.2 + m.sq))), xa = R1 - rx, cy = mid + ry;
+    // one stroke, so the bar runs on into the turn without a seam; sharp, the turn comes to a point at the edge
+    const edge = hs + m.s * 1.5, xe = W - footIn(m, W - edge, mid), bend = roundBends(m) ? bendTurn(m) : null;
+    const [, turn] = placeTurns(m, [[R1, mid], [edge + m.s, mid], [xe, 0]], [{ i: 1, ax: 0, at: edge, dir: -1 }], [bend], 0);
+    g.path([['M', hs, C - hh], ['L', xa, C - hh], ['hv', R1, cy], ['vh', xa, mid], ['L', turn[0], turn[1]], ['L', xe, 0, bend ? { turn: bend } : {}]],
+      { s: J, e: H, part: 'bowl', miter: 18, serifE: 'both' });
+    g.counter([[hs, C - hh], [xa, C - hh], [R1, cy], [xa, mid], [hs, mid]]);
+    return W;
+  }
   capBowl(g, m, hs, C - hh, mid, R1);
   g.line(lerp(hs, R1, 0.42), mid + hh * 0.5, W - m.s * 0.5, 0, { s: J, e: H, part: 'leg', clip: { y1: mid + hh * 0.9 }, serifE: 'both' });
   return W;
-}, { params: ['counter', 'crossbar', 'curve', 'weight'] });
+}, { params: ['rForm', 'counter', 'crossbar', 'curve', 'weight'] });
 
 def('S', [0.5, 0.5], (g, m) => { const W = m.W(520, 'c'); sShape(g, m, 0, W, -m.os, m.cap + m.os); return W; },
-  { parts: ['spine', 'terminal'], params: ['curve', 'terminal', 'aperture', 'weight'] });
+  { parts: ['spine', 'terminal'], params: ['bowlForm', 'curve', 'terminal', 'aperture', 'weight'] });
 
 def('T', [0.3, 0.3], (g, m) => {
   const W = m.W(530), hh = m.hT / 2;
@@ -404,10 +592,14 @@ def('U', [1, 1], (g, m) => {
   return W;
 });
 
-def('V', [0.2, 0.2], (g, m) => { const W = m.W(590), l = m.s * 0.55; zig(g, m, [l, W / 2, W - l], m.cap, 0, true); return W; },
-  { params: ['apex', 'weight', 'contrast'] });
+def('V', [0.2, 0.2], (g, m) => {
+  const W = m.W(590), l = m.s * 0.55;
+  if (upright(m)) uprightV(g, m, W, m.cap); else zig(g, m, [l, W / 2, W - l], m.cap, 0, true);
+  return W;
+}, { params: ['diagonals', 'bends', 'apex', 'weight', 'contrast'] });
 
 def('W', [0.2, 0.2], (g, m) => {
+  if (upright(m)) { const W = m.W(680); uprightW(g, m, W, m.cap); return W; }
   const W = m.W(880), l = m.s * 0.55;
   zig(g, m, [l, lerp(l, W - l, 0.27), W / 2, lerp(l, W - l, 0.73), W - l], m.cap, 0, true);
   return W;
@@ -420,16 +612,35 @@ def('X', [0.25, 0.25], (g, m) => {
   return W;
 });
 
+/* Y and y as a cup: the left side comes down and runs across into the right, which runs on
+   down into a diagonal to the baseline (Y) or the descender (y) */
+function cupY(g: Builder, m: Metrics, W: number, top: number, yb: number, foot: XY, o: StrokeOpts) {
+  const hs = m.s / 2, xr = W - hs;
+  g.path([['M', hs, top], ['L', hs, yb], ['L', xr, yb, roundBends(m) ? { turn: bendTurn(m) } : {}]],
+    { e: J, part: 'stem', serifS: 'both' });
+  turnStroke(g, m, [[xr, top], [xr, yb], foot], [], { s: H, part: 'diagonal', serifS: 'both', ...o });
+}
 def('Y', [0.2, 0.2], (g, m) => {
+  if (m.p.yForm === 'cup') {
+    const W = m.W(560), C = m.cap;
+    cupY(g, m, W, C, C * (0.3 + 0.3 * m.bar), [footIn(m, W * 0.6, C * 0.45) + W * 0.3, 0], { e: H, serifE: 'both' });
+    return W;
+  }
   const W = m.W(570), C = m.cap, l = m.s * 0.55, ym = C * 0.42;
   g.stem(W / 2, 0, ym + m.s * 0.2, { serifS: 'both' });
   g.line(l, C, W / 2, ym, { s: H, e: J, part: 'diagonal', serifS: 'both', clip: { y0: ym - m.s * 0.3 } });
   g.line(W - l, C, W / 2, ym, { s: H, e: J, w: 'thin', part: 'diagonal', serifS: 'both', clip: { y0: ym - m.s * 0.3 } });
   return W;
-});
+}, { params: ['yForm', 'bends', 'crossbar', 'weight', 'width'] });
 
 function zed(g: Builder, m: Metrics, W: number, top: number) {
   const hh = m.hT / 2, o = m.s * 0.62;
+  if (roundBends(m)) {
+    // one stroke, bent round where the diagonal leaves the top bar and meets the bottom one
+    turnStroke(g, m, [[0, top - hh], [W, top - hh], [0, hh], [W, hh]],
+      [{ i: 1, ax: 0, at: W, dir: 1 }, { i: 2, ax: 0, at: 0, dir: -1 }], { s: T, e: T, part: 'arm', serifS: 'a', serifE: 'b', serifScale: 0.7 });
+    return;
+  }
   g.line(0, top - hh, W, top - hh, { s: T, part: 'arm', serifS: 'a', serifScale: 0.7 });
   g.line(W - o, top, o, 0, { s: H, e: H, w: 'thick', part: 'diagonal', clip: { x0: 0, x1: W } });
   g.line(0, hh, W, hh, { e: T, part: 'arm', serifE: 'b', serifScale: 0.7 });
@@ -658,8 +869,13 @@ def('u', [1, 1], (g, m) => {
   footStem(g, m, xr, X, { serifS: 'b', serifE: 'a' });
   return W;
 });
-def('v', [0.2, 0.2], (g, m) => { const W = m.W(450), l = m.s * 0.55; zig(g, m, [l, W / 2, W - l], m.xh, 0, true); return W; });
+def('v', [0.2, 0.2], (g, m) => {
+  const W = m.W(450), l = m.s * 0.55;
+  if (upright(m)) uprightV(g, m, W, m.xh); else zig(g, m, [l, W / 2, W - l], m.xh, 0, true);
+  return W;
+});
 def('w', [0.2, 0.2], (g, m) => {
+  if (upright(m)) { const W = m.W(540); uprightW(g, m, W, m.xh); return W; }
   const W = m.W(700), l = m.s * 0.55;
   zig(g, m, [l, lerp(l, W - l, 0.27), W / 2, lerp(l, W - l, 0.73), W - l], m.xh, 0, true); return W;
 });
@@ -670,6 +886,14 @@ def('x', [0.25, 0.25], (g, m) => {
   return W;
 });
 def('y', [0.2, 0.2], (g, m) => {
+  if (m.p.yForm === 'cup') {
+    // a u whose right side runs on down through the baseline into a diagonal descender
+    const W = m.W(455), X = m.xh, hh = m.hT / 2, xr = W - m.s / 2, yd = m.desc * 0.92 * tailK(m);
+    const foot: XY = [xr - (xr - W * 0.2) * yd / (m.desc * 0.92), yd];
+    cupY(g, m, W, X, hh, foot, { e: T });
+    tailEnd(g, foot[0], foot[1], W);
+    return W;
+  }
   const W = m.W(450), X = m.xh, l = m.s * 0.55, r = W - l, cx = W / 2 + m.s * 0.1;
   const yd = m.desc * 0.92 * tailK(m), xd = cx + (cx - r) * -yd / X;
   g.line(r, X, xd, yd, { s: H, e: T, w: 'thin', part: 'tail', serifS: 'both' });
@@ -713,6 +937,13 @@ def('4', [0.3, 0.5], (g, m) => {
 def('5', [0.6, 0.55], (g, m) => {
   const W = m.W(520), C = m.cap, hs = m.s / 2, hh = m.hT / 2, xl = hs, xr = W - hs, yb = -m.os + hh, bt = C * 0.63 - hh;
   const xv = hs + W * 0.1, st = m.qpt(xl, C * 0.44, W / 2, bt, 'vh', 0.4);
+  if (m.p.bowlForm === 'box') {
+    // boxed, the stem drops plumb from the arm and turns square into the top of the bowl
+    g.line(0, C - hh, W * 0.9, C - hh, { e: T, part: 'arm' });
+    g.path([['M', xl, C], ['L', xl, bt], ['L', W / 2, bt], ['hv', xr, (bt + yb) / 2], ['vh', W * 0.48, yb], ['hv', xl, C * 0.26, { u1: lerp(0.78, 0.5, m.ap) }]],
+      { s: J, e: T, part: 'bowl' });
+    return W;
+  }
   g.line(xv - hs, C - hh, W * 0.9, C - hh, { e: T, part: 'arm' });
   g.line(xv, C, st.x + m.s * 0.1, st.y - hh, { e: J, w: 'thin', part: 'stem' });
   g.path([['M', xl, C * 0.44], ['vh', W / 2, bt, { u0: 0.4 }], ['hv', xr, (bt + yb) / 2], ['vh', W * 0.48, yb], ['hv', xl, C * 0.26, { u1: lerp(0.78, 0.5, m.ap) }]],
@@ -724,7 +955,7 @@ function six(g: Builder, m: Metrics, flip: boolean) {
   const yt = C + m.os - hh, yb = -m.os + hh, bTop = C * 0.62 - hh, cyb = (bTop + yb) / 2;
   const f = flip ? (x: number, y: number): [number, number] => [W - x, C - y] : (x: number, y: number): [number, number] => [x, y];
   g.path(mapCmds([['M', xr - W * 0.02, C * 0.7], ['vh', cx + W * 0.03, yt, { u0: lerp(0.35, 0.65, m.ap) }], ['hv', xl, C * 0.5], ['L', xl, cyb],
-    ['vh', cx, yb], ['hv', xr, cyb], ['vh', cx, bTop], ['hv', xl + m.s * 0.2, cyb]], f), { s: T, e: J, we: 0.75, part: 'bowl' });
+    ['vh', cx, yb], ['hv', xr, cyb], ['vh', cx, bTop], ['hv', m.p.bowlForm === 'box' ? xl : xl + m.s * 0.2, cyb]], f), { s: T, e: J, we: m.p.bowlForm === 'box' ? 1 : 0.75, part: 'bowl' });
   const c = f(cx, cyb); g.ellipseCounter(c[0], c[1], (xr - xl) / 2, (bTop - yb) / 2);
   return W;
 }

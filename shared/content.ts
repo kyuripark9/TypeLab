@@ -1,12 +1,12 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
 import { resolve, type Effective } from './engine/font';
-import { DEFAULTS, type BowlJoin, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type SerifShape, type Story, type Terminal, type TerminalForm, type TerminalRun } from './params';
+import { DEFAULTS, type Bends, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifShape, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
 
 export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality' | 'effects';
 export type ControlKey =
   | 'weight' | 'width' | 'height' | 'slant' | 'contrast' | 'reverse'
-  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'apex' | 'joints' | 'cursive' | 'wobble'
+  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'apex' | 'bends' | 'joints' | 'cursive' | 'wobble'
   | 'xHeight' | 'extenders' | 'descender' | 'tail' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
   | 'geoHuman' | 'softSharp' | 'classicFuture' | 'playfulFormal'
@@ -521,11 +521,13 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Bars go heavy and stems go thin. Stronger with more Contrast.' },
 
   roundness: { cat: 'shape', label: 'Roundness', friendly: 'Make the letters softer or sharper', tech: 'Roundness', lo: 'Sharp', hi: 'Round', demo: 'Ek',
-    explain: 'Corners and stroke ends round off.' },
+    explain: 'Corners and stroke ends round off. Customize a letter to round or sharpen each corner on its own.' },
   curve: { cat: 'shape', label: 'Curves', friendly: 'Make curves more geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
     explain: 'Compass-drawn circles, or fuller pen-like curves.' },
   squareness: { cat: 'shape', off: 0, label: 'Squareness', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',
     explain: 'Bowls square off while the corners stay smooth.' },
+  bowlForm: { cat: 'shape', type: 'form', label: 'Bowls', friendly: 'Draw curves as ovals or as boxes', tech: 'Oval or box bowls', demo: 'OCS',
+    explain: 'Box bowls have straight sides and corners that round on the outside and stay square on the inside. Squareness shapes the ovals.' },
   chamfer: { cat: 'shape', off: 0, label: 'Facets', friendly: 'Cut curves into straight lines and corners', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
     explain: 'Curves become straight lines with cut-off corners.' },
   terminal: { cat: 'shape', type: 'options', label: 'Stroke ends', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
@@ -536,10 +538,18 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'The tail hooks back under the bowl, or drops from its left side and hooks out to the right.' },
   kForm: { cat: 'shape', type: 'form', label: 'Letter k', friendly: 'Choose where the arm and leg of k meet', tech: 'k and K junction', demo: 'kK',
     explain: 'The leg springs from the arm, both meet at the stem, or both meet at the end of a short bar.' },
-  iForm: { cat: 'shape', type: 'form', label: 'Letters i and l', friendly: 'Give i and l a flag and a foot', tech: 'Barred i and l', demo: 'ilil',
-    explain: 'A plain stem, or a flag at the top and a bar along the foot, as in a typewriter face.' },
+  iForm: { cat: 'shape', type: 'form', label: 'Letters I, J, i and l', friendly: 'Give I, J, i and l bars', tech: 'Barred I, J, i and l', demo: 'IJil',
+    explain: 'A plain stem, or bars as in a typewriter face: i and l get a flag and a foot, I a bar at the top and foot, J a bar across the top.' },
   sForm: { cat: 'shape', type: 'form', label: 'Letter s', friendly: 'Choose the shape of the s', tech: 'Spine of s', demo: 'sS$',
     explain: 'A spine curving from corner to corner, or running flat between two tight turns, like two rounded boxes stacked.' },
+  diagonals: { cat: 'shape', type: 'form', label: 'Letters A, V and W', friendly: 'Stand one side of A, V and W upright', tech: 'Symmetric or upright diagonals', demo: 'AVW',
+    explain: 'Two matching diagonals, or one diagonal leaning on an upright stem at the right. The upright A has no crossbar. Also v and w.' },
+  yForm: { cat: 'shape', type: 'form', label: 'Letter Y', friendly: 'Choose the shape of the Y', tech: 'Forked or cup Y', demo: 'Yy',
+    explain: 'Two arms forking off a stem, or a cup whose right side runs on down into a diagonal, like a 4. Also y.' },
+  qForm: { cat: 'shape', type: 'form', label: 'Letter Q', friendly: 'Choose where the tail of Q goes', tech: 'Q tail', demo: 'QO',
+    explain: 'The tail crosses the bowl at the bottom right, or runs from inside the bowl into its bottom right corner.' },
+  rForm: { cat: 'shape', type: 'form', label: 'Letter R', friendly: 'Choose how the leg of R leaves the bowl', tech: 'R leg', demo: 'RP',
+    explain: 'The leg runs down from the bowl, or the bowl\u2019s lower bar stops short of the stem and loops back round into the leg.' },
   bowlJoin: { cat: 'shape', type: 'form', label: 'Joins', friendly: 'Curve bowls and arches out of their stems or run them in flat', tech: 'Bowl & shoulder joins', demo: 'dnu',
     explain: 'Square joins meet the stem in a flat top or bottom, like a D. Applies to b d p q g, n m h r u and the single-storey a.' },
   overlap: { cat: 'shape', off: 1, label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
@@ -549,7 +559,9 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   serif: { cat: 'shape', type: 'serif', label: 'Serifs', friendly: 'Add small feet to the strokes', tech: 'Serifs', demo: 'In',
     explain: 'Small finishing strokes at the ends of stems.' },
   apex: { cat: 'shape', label: 'Peaks', friendly: 'Make peaks pointed or flat', tech: 'Apex', lo: 'Pointed', hi: 'Flat', demo: 'AV',
-    explain: 'Where diagonals meet — the top of A, the bottom of V.' },
+    explain: 'Where diagonals meet — the top of A, the bottom of V. With round bends, how wide they turn.' },
+  bends: { cat: 'shape', type: 'form', label: 'Bends', friendly: 'Turn the strokes in a sharp point or a round bend', tech: 'Sharp or round vertices', demo: 'MNZ',
+    explain: 'Where a stroke changes direction, as in A, M, N, V, W and Z: a point, or a round bend like bent wire. Peaks sets how wide.' },
   joints: { cat: 'shape', off: 0, label: 'Ink traps', friendly: 'Thin the strokes where they meet', tech: 'Ink traps · Joints', lo: 'Solid', hi: 'Trapped', demo: 'nab',
     explain: 'Corners are carved out where strokes join.' },
   cursive: { cat: 'shape', off: 0, label: 'Cursive', friendly: 'Add strokes that lead into the next letter', tech: 'Cursive · Entry & exit strokes', lo: 'Print', hi: 'Script', demo: 'nigu',
@@ -640,12 +652,18 @@ export const DOT_SUBS: Record<DotSubKey, SubControlDef> = {
 export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
-export type FormKey = 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'bowlJoin' | 'dots' | 'terminalRun';
+export type FormKey = 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun';
 export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Params[K], 'auto'>, string][] } } = {
   gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored']] as [GForm, string][] },
   kForm: { ch: 'k', options: [['arm', 'From arm'], ['stem', 'From stem'], ['bar', 'On a bar']] as [KForm, string][] },
-  iForm: { ch: 'i', options: [['plain', 'Plain'], ['bars', 'Flag and foot']] as [Exclude<IForm, 'auto'>, string][] },
+  iForm: { ch: 'i', options: [['plain', 'Plain'], ['bars', 'Bars']] as [Exclude<IForm, 'auto'>, string][] },
   sForm: { ch: 's', options: [['curved', 'Curved'], ['flat', 'Flat spine']] as [SForm, string][] },
+  diagonals: { ch: 'A', options: [['symmetric', 'Symmetric'], ['upright', 'Upright']] as [Diagonals, string][] },
+  yForm: { ch: 'Y', options: [['forked', 'Forked'], ['cup', 'Cup']] as [YForm, string][] },
+  qForm: { ch: 'Q', options: [['crossing', 'Crossing'], ['inside', 'Inside']] as [QForm, string][] },
+  rForm: { ch: 'R', options: [['leg', 'Leg'], ['loop', 'Loop']] as [RForm, string][] },
+  bowlForm: { ch: 'O', options: [['oval', 'Oval'], ['box', 'Box']] as [BowlForm, string][] },
+  bends: { ch: 'N', options: [['sharp', 'Sharp'], ['round', 'Round']] as [Bends, string][] },
   terminalRun: { ch: 'c', options: [['curved', 'Curved'], ['straight', 'Straight']] as [TerminalRun, string][] },
   bowlJoin: { ch: 'd', options: [['curved', 'Curved'], ['square', 'Square']] as [BowlJoin, string][] },
   dots: { ch: 'i', options: [['square', 'Square'], ['round', 'Round']] as [Exclude<Dots, 'auto'>, string][] }
@@ -669,6 +687,7 @@ export const ANATOMY: Record<string, [string, string]> = {
   dot: ['Dot', 'The dot above i and j is called a tittle.'],
   counter: ['Counter', 'The enclosed space inside a letter.'],
   terminal: ['Terminal', 'The free end of a stroke.'],
+  corner: ['Corner', 'Where a stroke turns, or a corner of a stroke end.'],
   apex: ['Apex', 'The peak where two diagonals meet at the top.'],
   vertex: ['Vertex', 'The point where two diagonals meet at the bottom.'],
   serif: ['Serif', 'A small finishing stroke at the end of a stem.'],
@@ -684,7 +703,7 @@ export const ANATOMY: Record<string, [string, string]> = {
 export const PART_CONTROL: Partial<Record<string, ControlKey>> = {
   stem: 'weight', diagonal: 'weight', bowl: 'weight', arm: 'weight', leg: 'weight', tail: 'tail',
   shoulder: 'weight', spine: 'weight', hook: 'weight', dot: 'weight',
-  crossbar: 'crossbar', bar: 'crossbar', counter: 'counter', terminal: 'terminal',
+  crossbar: 'crossbar', bar: 'crossbar', counter: 'counter', terminal: 'terminal', corner: 'roundness',
   apex: 'apex', vertex: 'apex', serif: 'serif', entry: 'cursive',
   xHeight: 'xHeight', capHeight: 'height', ascender: 'extenders', descender: 'extenders'
 };

@@ -10,7 +10,7 @@ import {
 import { TERMINAL_FORMS, formOf, isGlyphKey, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 import type { Glyph } from '../../shared/engine';
-import { strokeEnds, type StrokeEndInfo } from '../lib/drag';
+import { letterCorners, strokeEnds, type CornerInfo, type StrokeEndInfo } from '../lib/drag';
 import { actions, curlOf, endOf, fontFor, isOn, letterOf, useEditor, useFont, useParam, useScopedFont, type EndKey } from '../state/editor';
 import { Diagram, FillIcon, FormIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { ScopeIcon, letterControls } from './Inspector';
@@ -151,6 +151,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'story') return <StoryControl parts={parts} />;
   if (c.type === 'form') return <FormControl k={k as LetterFormKey} parts={parts} />;
+  if (k === 'roundness') return <SliderControl k={k} def={c} parts={parts}><EachCorner /></SliderControl>;
   if (c.type === 'serif') return <SerifControl parts={parts} />;
   if (c.type === 'fill') return <FillControl />;
   return <SliderControl k={k as NumericParam} def={c} parts={parts} />;
@@ -274,7 +275,8 @@ function useControlFocus(key: ActiveKey) {
 interface SliderDef { label: string; friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; advanced?: boolean; off?: number }
 
 /** A slider. An optional one (with an `off` value) has a switch; switched off, its slider folds away. */
-function SliderControl({ k, def, parts }: { k: NumericParam; def: SliderDef; parts?: string[] }) {
+/** `children` follow the slider inside its control, like the corners under Roundness. */
+function SliderControl({ k, def, parts, children }: { k: NumericParam; def: SliderDef; parts?: string[]; children?: ReactNode }) {
   const value = useParam(k), active = useEditor(s => s.active === k);
   const optional = def.off !== undefined, on = useEditor(s => !optional || isOn(s, k, def.off!));
   // using the slider keeps it open, even dragged all the way to its off value
@@ -310,6 +312,7 @@ function SliderControl({ k, def, parts }: { k: NumericParam; def: SliderDef; par
           <div className="ctl-ends"><span>{def.lo}</span><span>{def.hi}</span></div>
         </div>
       </div>
+      {children}
     </div>
   );
 }
@@ -417,8 +420,46 @@ function EachEnd() {
   );
 }
 
-/** The letter in miniature with its stroke ends dotted, or only the one `on`. */
-function EndThumb({ g, ends, on }: { g: Glyph; ends: StrokeEndInfo[]; on?: string }) {
+/** While a letter is customized, a roundness for each of its corners (where a stroke turns, and the
+    corners of its square ends), each beside a picture of the letter with that corner marked; while
+    every letter is in sync, a way into customizing, since corners are rounded one by one only on a
+    single letter. */
+function EachCorner() {
+  const ch = useEditor(s => s.inspect), letter = useEditor(letterOf), font = useScopedFont();
+  const g = ch ? font.glyph(ch) : null, corners = g ? letterCorners(g) : [];
+  if (!ch || !g || !corners.length) return null;
+  if (!letter) {
+    return (
+      <div className="each-end locked">
+        <EndThumb g={g} ends={corners} />
+        <div className="sub-label">Each corner</div>
+        <button className="btn wide small" onClick={() => actions.setScope('letter')}>Customize {ch}</button>
+      </div>
+    );
+  }
+  return (
+    <div className="each-end">
+      <div className="sub-label">Each corner</div>
+      {corners.map(c => <CornerSlider key={c.id} g={g} corners={corners} corner={c} />)}
+    </div>
+  );
+}
+
+/** One corner's roundness beside a picture of the letter with that corner marked. */
+function CornerSlider({ g, corners, corner: { id, label, v } }: { g: Glyph; corners: CornerInfo[]; corner: CornerInfo }) {
+  const hot = useEditor(s => s.hotEnd === id);
+  return (
+    <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id} title={label}
+      onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
+      <EndThumb g={g} ends={corners} on={id} />
+      <EndRow id={id} k="corners" name="Round" label={label} value={v}
+        tip="Left makes the corner sharp; the middle rounds only its outside, keeping the inside square; right rounds both" reset="Draw it as the design does" />
+    </div>
+  );
+}
+
+/** The letter in miniature with its stroke ends (or corners) dotted, or only the one `on`. */
+function EndThumb({ g, ends, on }: { g: Glyph; ends: { id: string; x: number; y: number }[]; on?: string }) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const c of g.cmds) {
     for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
@@ -453,7 +494,7 @@ function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: Stro
 
 function EndRow({ id, k, name, label, value, tip, reset }: { id: string; k: EndKey; name: string; label: string; value: number; tip: string; reset: string }) {
   const own = useEditor(s => { const ch = letterOf(s); return !!ch && s.params.glyphs[ch]?.[k]?.[id] !== undefined; });
-  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
+  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'corners' ? 'roundness' : k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
   return (
     <>
       <span className="end-name" title={tip}>{name}</span>
