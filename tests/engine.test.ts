@@ -643,6 +643,24 @@ describe('font engine', () => {
     assert.ok(curves(O) > curves(buildFont({ ...DEFAULTS, stencil: 0.5 }).glyph('O')!.d));
   });
 
+  it('a stencil leaves no chips: a short spur stays whole, and a square join goes with its cut', () => {
+    const at = (ch: string, stencilPos: number) => buildFont({ ...DEFAULTS, story: 'single', aForm: 'spur', weight: 0.8, bowlJoin: 'square', stencil: 0.37, stencilRound: 0.75, stencilPos }).glyph(ch)!;
+    const ms = (cmds: { 0: string }[]) => cmds.filter(c => c[0] === 'M').length;
+    // the spur is too short to leave a solid piece past a gap, so it stays on the stem
+    assert.equal(ms(at('a', 0).strokes.find(s => s.part === 'spur')!.cmds), 1);
+    // the fillets rounding a bowl into its stem go with the join they round, however far out the gap
+    for (const ch of 'abdn') for (const pos of [0, 0.5]) for (const s of at(ch, pos).strokes.filter(s => s.part === 'fillet')) assert.equal(s.cmds.length, 0, `${ch} ${pos}`);
+  });
+
+  it('a gap moved out keeps off another stroke joining its stroke', () => {
+    // the R's leg springs from the foot of its bowl, so the bowl's gaps stay at the stem, while
+    // the leg's own gap still moves out along it
+    const R = (stencilPos: number) => buildFont({ ...DEFAULTS, weight: 0.6, stencil: 0.37, stencilPos }).glyph('R')!;
+    const part = (pos: number, name: string) => JSON.stringify(R(pos).strokes.find(s => s.part === name)!.cmds);
+    assert.equal(part(0.6, 'bowl'), part(0, 'bowl'));
+    assert.notEqual(part(0.6, 'leg'), part(0, 'leg'));
+  });
+
   it('a gap moved out stays on its stroke and cuts straight across it', () => {
     const at = (ch: string, stencilPos: number) => buildFont({ ...DEFAULTS, stencil: 0.5, stencilPos }).glyph(ch)!.d;
     // the bar of an A is cut into upright pieces, however far out its gaps are moved, and the

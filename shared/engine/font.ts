@@ -322,7 +322,8 @@ function isHorizontal(cmds: Cmd[]) {
    gap is then a band straight across the stroke, the far side kept and the near side too. When two
    strokes end in each other (the waist of a 3), only the later one is cut. */
 interface Host { score: number; j: number; px: number; py: number; tx: number; ty: number; half: number; atEnd: boolean }
-type StencilCut = (off: number) => { far: HalfPlane; near: HalfPlane | null };
+/** One join's cut, at the join end (x, y) into stroke `host`, for a gap moved `off` out. */
+interface StencilCut { x: number; y: number; host: number; at: (off: number) => { far: HalfPlane; near: HalfPlane | null } }
 function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): StencilCut[] {
   const ex = exps[i]!, own = ex.skeleton.flat(), cuts: StencilCut[] = [];
   const cx = own.reduce((a, q) => a + q.x, 0) / own.length, cy = own.reduce((a, q) => a + q.y, 0) / own.length;
@@ -357,23 +358,32 @@ function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): Stencil
     // arch of an n) is cut parallel to the host still, further out
     const ux = -end.dx, uy = -end.dy, un = ux * nx + uy * ny;
     if (un < 0.6) {
-      cuts.push(o => ({ far: { ...at(bj.half + o + gap), nx: -nx, ny: -ny }, near: o > 0 ? { ...at(bj.half + o), nx, ny } : null }));
+      cuts.push({ x: end.x, y: end.y, host: bj.j, at: o => ({ far: { ...at(bj.half + o + gap), nx: -nx, ny: -ny }, near: o > 0 ? { ...at(bj.half + o), nx, ny } : null }) });
       continue;
     }
     const t0 = (bj.half - ((end.x - bj.px) * nx + (end.y - bj.py) * ny)) / un;
     const along = (d: number) => ({ x: end.x + ux * (t0 + d), y: end.y + uy * (t0 + d) });
-    cuts.push(o => (o > 0
+    cuts.push({ x: end.x, y: end.y, host: bj.j, at: o => (o > 0
       ? { far: { ...along(o + gap), nx: -ux, ny: -uy }, near: { ...along(o), nx: ux, ny: uy } }
-      : { far: { ...at(bj.half + gap), nx: -nx, ny: -ny }, near: null }));
+      : { far: { ...at(bj.half + gap), nx: -nx, ny: -ny }, near: null }) });
   }
   return cuts;
 }
 
+/** A stroke cut by one join's cut, its gap `off` out: the far side, and the near side when the gap is moved out. */
+const cutBy = (q: Pt[], cut: StencilCut, off: number) => {
+  const { far, near } = cut.at(off);
+  return [...splitPoly([q], far), ...(near ? splitPoly([q], near) : [])];
+};
+
 /* A stroke cut at its joins, its gaps moved `off` out. A gap only moves out as far as keeps ink
    past every gap (the middle of an A's bar, cut at both ends) and every piece a solid bit of ink,
    no sliver: on short strokes (the middle arm of an E) the gaps stop where they must, or stay at
-   the join. */
-function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s: number, t: number): Pt[][] {
+   the join. Nor does a gap land where another stroke joins this one (the leg of an R on the foot
+   of its bowl): `others` are the other strokes' outlines, by stroke. A stroke too short to leave a
+   solid piece past a gap even at the join (the spur of an a) isn't cut at all. Returns the pieces
+   and how far out the gaps went (null: not cut). */
+function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s: number, t: number, others: (Pt[] | null)[]): { pieces: Pt[][]; off: number | null } {
   // a piece's narrowest width is about its area over its length; it has to be a good part of a
   // stem's width, or of the stroke's own where that is thinner (a hairline bar)
   const min = Math.min(s * 0.5, t * 0.9);
@@ -381,22 +391,40 @@ function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s: number
     const xs = q.map(p => p.x), ys = q.map(p => p.y);
     return Math.abs(signedArea(q)) / Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) >= min;
   };
+  // the other strokes' outlines as points no further apart than a quarter stem, and those inside this stroke
+  const dense = others.map(q => {
+    if (!q) return [];
+    const pts: Pt[] = [];
+    for (let k = 0; k < q.length; k++) {
+      const a = q[k], b = q[(k + 1) % q.length], n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (s * 0.25));
+      for (let j = 0; j < n; j++) pts.push(lerpP(a, b, j / n));
+    }
+    return pts.filter(p => inPoly(contour, p));
+  });
+  const clear = (cut: StencilCut, o: number) => {
+    const { far, near } = cut.at(o);
+    const f = (pl: HalfPlane, p: Pt) => (p.x - pl.x) * pl.nx + (p.y - pl.y) * pl.ny;
+    return dense.every((pts, j) => j === cut.host || pts.every(p => !(f(far, p) > 0 && near && f(near, p) > 0)));
+  };
   const cutAt = (o: number) => {
+    if (o > 0 && !cuts.every(c => clear(c, o))) return null;
     let pieces = [contour], past = [contour];
     for (const cut of cuts) {
-      const { far, near } = cut(o);
-      pieces = pieces.flatMap(q => [...splitPoly([q], far), ...(near ? splitPoly([q], near) : [])]);
-      past = past.flatMap(q => splitPoly([q], far));
+      pieces = pieces.flatMap(q => cutBy(q, cut, o));
+      past = past.flatMap(q => splitPoly([q], cut.at(o).far));
     }
-    return o === 0 || (past.length && pieces.every(solid)) ? pieces : null;
+    return past.length && pieces.every(solid) ? pieces : null;
   };
+  if (!cuts.length) return { pieces: [contour], off: null };
+  const atJoin = cutAt(0);
+  if (!atJoin) return { pieces: [contour], off: null };
   // the furthest out the gaps can go, so dragged past it they stay put
   const lo = s * 0.55;
-  if (off < lo || !cutAt(lo)) return cutAt(0)!;
+  if (off < lo || !cutAt(lo)) return { pieces: atJoin, off: 0 };
   let a = lo, b = off;
   if (cutAt(b)) a = b;
   else for (let k = 0; k < 8; k++) { const c = (a + b) / 2; if (cutAt(c)) a = c; else b = c; }
-  return cutAt(a)!;
+  return { pieces: cutAt(a)!, off: a };
 }
 
 /* Stroke end length: a terminal grows on along its own curve, then straight on past the curve's
@@ -1253,10 +1281,26 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   const expanded = exps.map(x => x?.ex ?? null);
   endCorners(b, m, exps, out.marks);
   for (const poly of joinCorners(b, m, exps, out.marks)) b.strokes.push({ poly, o: { part: 'fillet' } });
+  // stencil every stroke first, so a fillet rounding a join (a square-joined bowl into its stem)
+  // goes when the stencil cuts that join, like the fillets Roundness adds: there is no join left to round
+  const outlines = b.strokes.map((st, si) => st.poly ?? exps[si]?.ex?.contours[0] ?? null);
+  const stencilled = b.strokes.map((st, si) => {
+    const ex = exps[si]?.ex;
+    if (!m.gap || !ex || ex.loop) return null;
+    const contour = st.o.clip ? clipPoly(ex.contours[0], st.o.clip) : ex.contours[0];
+    const cuts = stencilCuts(si, expanded, m.gap), others = outlines.map((q, j) => (j === si || b.strokes[j].o.part === 'fillet' ? null : q));
+    return { contour, cuts, ...stencilPieces(contour, cuts, m.gapOff, m.s, Math.min(...ex.thickness), others) };
+  });
+  const filletCut = (poly: Pt[]) => {
+    for (const sc of stencilled) {
+      if (sc && sc.off !== null && sc.cuts.some(cut => poly.some(q => Math.hypot(q.x - cut.x, q.y - cut.y) < m.s))) return true;
+    }
+    return false;
+  };
   b.strokes.forEach((st, si) => {
     const o = st.o; let cmds: Cmd[] = [];
     if (st.poly) {
-      const c = finish(st.poly, 1, 0); if (c) cmds = c;
+      if (!(m.gap && o.part === 'fillet' && filletCut(st.poly))) { const c = finish(st.poly, 1, 0); if (c) cmds = c; }
       out.strokes.push({ part: o.part || 'dot', cmds, curved: false, dot: (o.part || 'dot') === 'dot' });
       return;
     }
@@ -1287,10 +1331,10 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     } else {
       let pieces = [ex.contours[0]];
       if (o.clip) pieces = [clipPoly(pieces[0], o.clip)];
-      if (m.gap) {
-        const drawn = new Set(pieces[0]);
-        pieces = stencilPieces(pieces[0], stencilCuts(si, expanded, m.gap), m.gapOff, m.s, Math.min(...ex.thickness));
-        pieces = pieces.map(q => cutRound(q, drawn, m.gapR * (o.scale || 1) * strokeWt(m, si)));
+      const sc = stencilled[si];
+      if (sc) {
+        const drawn = new Set(sc.contour);
+        pieces = sc.pieces.map(q => cutRound(q, drawn, m.gapR * (o.scale || 1) * strokeWt(m, si)));
       }
       for (const q of pieces) { const c = finish(q, 1, R, out.corners); if (c) cmds = cmds.concat(c); }
       if (o.counter) out.counters.push(finish(ex.skeleton.flat(), 1, 0) || []);
