@@ -9,7 +9,6 @@ export function Nav() {
   const category = useEditor(s => s.category), style = useEditor(s => styleById(s.styleId));
   return (
     <nav className="nav" aria-label="Design categories" data-guide="nav">
-      <div className="nav-title">Design</div>
       {CATEGORIES.map(c => (
         <button key={c.id} className={c.id === category ? 'nav-item on' : 'nav-item'} aria-current={c.id === category ? 'page' : undefined}
           onClick={() => actions.setCategory(c.id)}>

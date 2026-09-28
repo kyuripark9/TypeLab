@@ -50,8 +50,7 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 
 /* ---------- left nav */
 .nav { grid-area: nav; padding: 20px 12px 14px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; overflow: auto; }
-.nav-title, .strip-label, .sub-label { font-size: 12px; font-weight: 500; color: var(--ink-3); }
-.nav-title { padding: 0 10px 8px; }
+.strip-label, .sub-label { font-size: 12px; font-weight: 500; color: var(--ink-3); }
 .nav-item { text-align: left; padding: 8px 10px; border-radius: var(--radius); display: flex; flex-direction: column; gap: 1px; transition: background .15s; }
 .nav-item:hover { background: var(--hover); }
 .nav-label { font-size: 14px; font-weight: 500; }
