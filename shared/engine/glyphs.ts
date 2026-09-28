@@ -139,17 +139,19 @@ function sShape(g: Builder, m: Metrics, x0: number, W: number, yB: number, yT: n
 }
 
 /* shoulder of n m h: springs from the stem at x0 and comes down at x1. With square joins it runs
-   flat out of the top of the stem and turns down in one round corner. */
-function arch(g: Builder, m: Metrics, x0: number, x1: number, yTop: number, yFoot: number, o?: StrokeOpts, exit = false) {
+   flat out of the top of the stem and turns down in one round corner; `runOn` (the first shoulder
+   of an m) turns down square instead, as the next shoulder runs on flat out of the top of x1. */
+function arch(g: Builder, m: Metrics, x0: number, x1: number, yTop: number, yFoot: number, o?: StrokeOpts, exit = false, runOn = false) {
   const X = m.xh, ah = X * 0.4, r = exit ? hookR(m) : 0;
   const cx = (x0 + x1) / 2 + (x1 - x0) * 0.1 * m.org;
   const t = X - m.hT / 2, rc = squareR(m, x1 - x0), square = m.p.bowlJoin === 'square';
-  const head: Cmd[] = square ? [['M', x0, t], ['L', x1 - rc, t], ['hv', x1, t - rc]]
+  const head: Cmd[] = square ? (runOn ? [['M', x0, t], ['L', x1, t]] : [['M', x0, t], ['L', x1 - rc, t], ['hv', x1, t - rc]])
     : [['M', x0, X - ah], ['vh', cx, yTop], ['hv', x1, X - ah * 0.95]];
   // a shoulder springing from the side of the stem thins where it leaves it; a square one runs out of its top at full weight,
   // its counter rounding into the stem as it does on the far side
   const ws = square ? 1 : 0.6;
   if (square) fillet(g, m, x0 + m.s / 2, t - m.hT / 2, 1, -1, rc - m.s / 2);
+  if (square && runOn) fillet(g, m, x1 - m.s / 2, t - m.hT / 2, -1, -1, rc - m.s / 2);
   if (r) {
     g.path([...head, ...exitTail(m, x1, r)], { s: J, e: T, ws, we: 0.75, part: 'shoulder', ...o });
     exitMark(g, m, x1, r);
@@ -639,13 +641,18 @@ def('Y', [0.2, 0.2], (g, m) => {
 }, { params: ['yForm', 'bends', 'crossbar', 'weight', 'width'] });
 
 function zed(g: Builder, m: Metrics, W: number, top: number) {
-  const hh = m.hT / 2, o = m.s * 0.62;
+  const hh = m.hT / 2;
   if (roundBends(m)) {
     // one stroke, bent round where the diagonal leaves the top bar and meets the bottom one
     turnStroke(g, m, [[0, top - hh], [W, top - hh], [0, hh], [W, hh]],
       [{ i: 1, ax: 0, at: W, dir: 1 }, { i: 2, ax: 0, at: 0, dir: -1 }], { s: T, e: T, part: 'arm', serifS: 'a', serifE: 'b', serifScale: 0.7 });
     return;
   }
+  // the diagonal's outer edges run into the bars' inside corners, so neither bar steps out past it:
+  // its centerline turns about the middle until it is half a stroke from the corner (W, top - bar)
+  const qx = W / 2, qy = top / 2 - m.hT, rho = Math.hypot(qx, qy);
+  const phi = Math.atan2(qy, qx) + Math.asin(Math.min(0.99, m.s / 2 / rho));
+  const o = clamp(W / 2 - top / 2 / Math.tan(phi), 0, W / 2);
   g.line(0, top - hh, W, top - hh, { s: T, part: 'arm', serifS: 'a', serifScale: 0.7 });
   g.line(W - o, top, o, 0, { s: H, e: H, w: 'thick', part: 'diagonal', clip: { x0: 0, x1: W } });
   g.line(0, hh, W, hh, { e: T, part: 'arm', serifE: 'b', serifScale: 0.7 });
@@ -836,7 +843,7 @@ def('m', [1, 1], (g, m) => {
   const { X, hs, yt } = lc(m), W = m.W(700);
   const en = entry(g, m, hs, X);
   g.stem(hs, 0, X, { serifS: 'both', serifE: en ? null : 'a' });
-  arch(g, m, hs, W / 2, yt, 0); arch(g, m, W / 2, W - hs, yt, 0, undefined, true);
+  arch(g, m, hs, W / 2, yt, 0, undefined, false, true); arch(g, m, W / 2, W - hs, yt, 0, undefined, true);
   return W;
 });
 def('n', [1, 1], (g, m) => {
@@ -918,7 +925,18 @@ def('y', [0.2, 0.2], (g, m) => {
   const yd = m.desc * 0.92 * tailK(m), xd = cx + (cx - r) * -yd / X;
   g.line(r, X, xd, yd, { s: H, e: T, w: 'thin', part: 'tail', serifS: 'both' });
   tailEnd(g, xd, yd, W);
-  g.line(l, X, cx, 0, { s: H, e: J, part: 'diagonal', serifS: 'both', clip: { y0: -m.s * 0.1 } });
+  // the arm stops inside the tail, so where it outweighs the tail it never pokes out the far side
+  // (a wireframe shows every stroke as drawn)
+  const lt = Math.hypot(xd - r, yd - X), tx = (xd - r) / lt, ty = (yd - X) / lt, ht = m.thin / 2, wire = m.p.fill === 'wire';
+  g.line(l, X, cx, 0, { s: H, e: J, part: 'diagonal', serifS: 'both', clip: wire ? { y0: -m.s * 0.1 } : { planes: [{ x: r, y: X, nx: -ty, ny: tx }] } });
+  // and below its end, its outer edge runs on down into the tail's (a little way into both, so no seam shows)
+  const ov = Math.min(2, ht), edge = { x: r + ty * (ht - ov), y: X - tx * (ht - ov), nx: -ty, ny: tx };
+  const la = Math.hypot(cx - l, X), ax = (cx - l) / la, ay = -X / la;
+  // (thin joints narrow the arm as it arrives, and it arrives running straight again)
+  const ha = m.tDir(ax, ay) / 2 * lerp(1, 0.45, m.p.joints);
+  const q = { x: cx + ay * ha - ax * ov, y: -ax * ha - ay * ov }, side = (p: Pt) => (p.x - edge.x) * edge.nx + (p.y - edge.y) * edge.ny;
+  const meet = (d: Pt) => { const k = -side(q) / (d.x * edge.nx + d.y * edge.ny); return { x: q.x + d.x * k, y: q.y + d.y * k }; };
+  if (!wire && side(q) < -ov) g.blob([q, meet({ x: ax, y: ay }), meet({ x: -ay, y: ax })]);
   return W;
 });
 def('z', [0.4, 0.4], (g, m) => { const W = m.W(410); zed(g, m, W, m.xh); return W; });
