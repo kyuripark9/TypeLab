@@ -643,6 +643,20 @@ describe('font engine', () => {
     assert.ok(curves(O) > curves(buildFont({ ...DEFAULTS, stencil: 0.5 }).glyph('O')!.d));
   });
 
+  it('a gap moved out stays on its stroke and cuts straight across it', () => {
+    const at = (ch: string, stencilPos: number) => buildFont({ ...DEFAULTS, stencil: 0.5, stencilPos }).glyph(ch)!.d;
+    // the bar of an A is cut into upright pieces, however far out its gaps are moved, and the
+    // middle piece is always left
+    for (const stencilPos of [0.1, 0.5, 1]) {
+      const pieces = at('A', stencilPos).split('M').slice(1).map(c => xsOf(`M${c}`));
+      assert.equal(pieces.length, contours(at('A', 0)) + 2, `${stencilPos}`);
+      assert.ok(pieces.some(xs => new Set(xs.map(x => x.toFixed(1))).size === 2), `${stencilPos}`);
+    }
+    // the arch of an n leaves the stem along it, and its gap still moves out
+    assert.notEqual(at('n', 0.5), at('n', 0));
+    assert.equal(contours(at('n', 0.5)), contours(at('n', 0)) + 1);
+  });
+
   it('the slice moves up and down and rounds its corners', () => {
     const f = (p: Partial<Params>) => buildFont({ ...DEFAULTS, slice: 0.5, ...p });
     assert.equal(f({ slicePos: 0.5 }).glyph('H')!.d, f({}).glyph('H')!.d);
@@ -655,6 +669,22 @@ describe('font engine', () => {
     assert.ok(curves(f({ sliceRound: 1 }).glyph('H')!.d) > curves(f({}).glyph('H')!.d));
     // a sliced o is two arcs of ink, the counter cut with them, however round the cut
     for (const sliceRound of [0, 1]) assert.equal(contours(f({ sliceRound }).glyph('o')!.d), 2);
+  });
+
+  it('the slice cuts through the letters at either end of its range, and leaves no slivers', () => {
+    const ys = (d: string) => xsOf(d.replace(/(-?[\d.]+) (-?[\d.]+)/g, '$2 $1'));
+    const plain = buildFont(DEFAULTS).glyph('H')!.d;
+    for (const slicePos of [0, 1]) {
+      const H = buildFont({ ...DEFAULTS, slice: 1, slicePos }).glyph('H')!.d;
+      // the H keeps its full height, split into a piece above the cut and one below
+      assert.deepEqual([Math.min(...ys(H)), Math.max(...ys(H))], [Math.min(...ys(plain)), Math.max(...ys(plain))], `${slicePos}`);
+      assert.equal(contours(H), contours(plain) + 2, `${slicePos}`);
+    }
+    // a band grazing the e's bar takes the bar's edge with it, not a hairline of it
+    const f = buildFont({ ...DEFAULTS, slice: 0.5 }), e = f.glyph('e')!.d, sliver = f.m.s * 0.35;
+    for (const c of e.split('M').slice(1)) { const y = ys(`M${c}`); assert.ok(Math.max(...y) - Math.min(...y) >= sliver); }
+    // but a hyphen the band runs through is kept
+    assert.ok(f.glyph('-')!.d.length > 10);
   });
 
   it('pixel and dot fills sit on one grid across the line', () => {

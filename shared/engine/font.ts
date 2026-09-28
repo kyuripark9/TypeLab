@@ -171,7 +171,7 @@ function metrics(e: Effective): Metrics {
     os: cap * 0.014,
     ws, thin, stress, k, org, sq: e.square, cur: e.cursive, wob: e.wobble, monoAdv: W(500) + sb * 1.5,
     // a gap moved out starts a stub's width out, so it never leaves a hairline on the stroke it joins
-    cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, gapOff: e.stencilPos > 0 ? lerp(s * 0.35, xh * 0.4, e.stencilPos) : 0, gapR: e.stencilRound * s,
+    cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, gapOff: e.stencilPos > 0 ? lerp(s * 0.55, xh * 0.4, e.stencilPos) : 0, gapR: e.stencilRound * s,
     // the slice keeps a stroke's width of ink below it and above it, so at either end it still cuts through the letters
     sliceY: e.slicePos < 0.5 ? lerp(Math.min(xh * 0.5, s + sliceH / 2), xh * 0.5, e.slicePos * 2) : lerp(xh * 0.5, Math.max(xh * 0.5, cap - s - sliceH / 2), e.slicePos * 2 - 1),
     sliceH, sliceR: e.sliceRound * s,
@@ -373,11 +373,13 @@ function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): Stencil
    past every gap (the middle of an A's bar, cut at both ends) and every piece a solid bit of ink,
    no sliver: on short strokes (the middle arm of an E) the gaps stop where they must, or stay at
    the join. */
-function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s: number): Pt[][] {
+function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s: number, t: number): Pt[][] {
+  // a piece's narrowest width is about its area over its length; it has to be a good part of a
+  // stem's width, or of the stroke's own where that is thinner (a hairline bar)
+  const min = Math.min(s * 0.5, t * 0.9);
   const solid = (q: Pt[]) => {
-    let per = 0;
-    for (let k = 0; k < q.length; k++) per += Math.hypot(q[k].x - q[(k + 1) % q.length].x, q[k].y - q[(k + 1) % q.length].y);
-    return 2 * Math.abs(signedArea(q)) / per >= s * 0.15;
+    const xs = q.map(p => p.x), ys = q.map(p => p.y);
+    return Math.abs(signedArea(q)) / Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) >= min;
   };
   const cutAt = (o: number) => {
     let pieces = [contour], past = [contour];
@@ -389,7 +391,7 @@ function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s: number
     return o === 0 || (past.length && pieces.every(solid)) ? pieces : null;
   };
   // the furthest out the gaps can go, so dragged past it they stay put
-  const lo = s * 0.3;
+  const lo = s * 0.55;
   if (off < lo || !cutAt(lo)) return cutAt(0)!;
   let a = lo, b = off;
   if (cutAt(b)) a = b;
@@ -1287,7 +1289,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       if (o.clip) pieces = [clipPoly(pieces[0], o.clip)];
       if (m.gap) {
         const drawn = new Set(pieces[0]);
-        pieces = stencilPieces(pieces[0], stencilCuts(si, expanded, m.gap), m.gapOff, m.s);
+        pieces = stencilPieces(pieces[0], stencilCuts(si, expanded, m.gap), m.gapOff, m.s, Math.min(...ex.thickness));
         pieces = pieces.map(q => cutRound(q, drawn, m.gapR * (o.scale || 1) * strokeWt(m, si)));
       }
       for (const q of pieces) { const c = finish(q, 1, R, out.corners); if (c) cmds = cmds.concat(c); }
