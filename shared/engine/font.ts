@@ -212,8 +212,11 @@ function weighFillets(b: Builder, m: Metrics) {
     const f = strokeWt(m, si), sc = st.o.scale || 1;
     let cur: Pt | null = null;
     for (const c of st.cmds) {
-      if (c[0] === 'M' || c[0] === 'L') {
-        const q = { x: c[1] as number, y: c[2] as number }, w = c[0] === 'L' ? (c[3] as { w?: unknown } | undefined)?.w ?? st.o.w : null;
+      if (c[0] === 'Z') { cur = null; continue; }
+      // every command ends at its last point, which the next one runs on from
+      const n = c.length, off = typeof c[n - 1] === 'number' ? 2 : 3, q = { x: c[n - off] as number, y: c[n - off + 1] as number };
+      if (c[0] === 'L') {
+        const w = (c[3] as { w?: unknown } | undefined)?.w ?? st.o.w;
         if (cur && (Math.abs(q.x - cur.x) < 0.5) !== (Math.abs(q.y - cur.y) < 0.5)) {
           // a plumb or level side of the stroke, how far its edges sit off its centerline as the
           // letters reckon it (a stroke, or a bar), and as the pen draws it
@@ -222,8 +225,8 @@ function weighFillets(b: Builder, m: Metrics) {
           edges.push(plumb ? { ax: 'x', at: q.x, from: Math.min(cur.y, q.y), to: Math.max(cur.y, q.y), half, drawn, f }
             : { ax: 'y', at: q.y, from: Math.min(cur.x, q.x), to: Math.max(cur.x, q.x), half, drawn, f });
         }
-        cur = q;
-      } else cur = null;
+      }
+      cur = q;
     }
   });
   for (const st of b.strokes) {

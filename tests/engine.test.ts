@@ -625,6 +625,14 @@ describe('font engine', () => {
       const stemL = Math.min(...xs(g.strokes[0].cmds)), fillets = g.strokes.filter(s => s.part === 'fillet');
       assert.equal(fillets.length, 2);
       for (const s of fillets) assert.ok(Math.abs(Math.max(...xs(s.cmds)) - stemL) < 3, `a ${bowlForm} bowl's round meets a stem weighed ${w}`);
+      // and the bars of a bowl weighed on its own, at its top and its foot
+      const h = buildFont({ ...DEFAULTS, story: 'single', bowlJoin: 'square', bowlForm, glyphs: { a: { strokeWeights: { 1: w } } } }).glyph('a')!;
+      const hStem = Math.min(...xs(h.strokes[0].cmds)), pts = h.strokes[1].cmds.flatMap(c => c.slice(1).reduce<number[][]>((a, v, i, r) => i % 2 ? a : [...a, [v as number, r[i + 1] as number]], []));
+      const barYs = pts.filter(([x]) => x > hStem - 30).map(([, y]) => y);
+      for (const s of h.strokes.filter(t => t.part === 'fillet')) {
+        const ys = s.cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 1)) as number[], y0 = Math.min(...ys), y1 = Math.max(...ys);
+        assert.ok(barYs.some(y => Math.abs(y - y0) < 3 || Math.abs(y - y1) < 3), `a ${bowlForm} bowl weighed ${w} keeps its round on its bar`);
+      }
     }
   });
 
