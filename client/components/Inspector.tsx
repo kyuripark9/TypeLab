@@ -2,12 +2,12 @@
    highlights it and the slider that shapes it, dragging it reshapes the design (lib/drag), and
    the side panel groups its sliders by part (letterControls). */
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
-import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
+import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, type ActiveKey, type ControlKey } from '../../shared/content';
 import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph } from '../../shared/engine';
-import type { NumericParam, Params } from '../../shared/params';
-import { dragSpec, handlesFor, letterCorners, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
+import { isStrokeId, type NumericParam, type Params } from '../../shared/params';
+import { dragSpec, handlesFor, letterCorners, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { n1, useSize } from '../lib/hooks';
-import { actions, endOf, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type EndKey, type Scope } from '../state/editor';
+import { actions, endOf, hlKey, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type EndKey, type Scope } from '../state/editor';
 
 /** Anatomy terms that apply to this glyph, in a sensible reading order. */
 function features(g: Glyph, ch: string): string[] {
@@ -200,8 +200,8 @@ const markTipSeen = () => { try { localStorage.setItem(TIP_KEY, '1'); } catch { 
 
 interface View { sc: number; ox: number; oy: number }
 interface Drag { part: string; axis?: Axis; key?: NumericParam; strokeEnd?: string; endKey?: EndKey; end: () => void }
-/** `end` names the one stroke end being dragged, while a letter is customized */
-interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string; hook?: boolean; corner?: boolean } }
+/** `end` names the one stroke end (or corner, or stroke) being dragged, while a letter is customized */
+interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string; hook?: boolean; corner?: boolean; stroke?: boolean } }
 /** The pointer over a draggable part, in canvas px */
 interface Hover { id: string; x: number; y: number }
 interface TipRow { axis: Axis; label: string; ends: [string, string] }
@@ -259,22 +259,24 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
     return v;
   };
   const ends = strokeEnds(g), corners = letterCorners(g);
-  const endInfo = (id?: string) => ends.find(e => e.id === id) ?? (id ? corners.map(c => ({ ...c, corner: true })).find(c => c.id === id) : undefined);
+  const endInfo = (id?: string) => ends.find(e => e.id === id) ?? (!id ? undefined : isStrokeId(id)
+    ? letterStrokes(g).map(t => ({ ...t, stroke: true })).find(t => t.id === id) : corners.map(c => ({ ...c, corner: true })).find(c => c.id === id));
   const hoverSpec = hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, lf, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }, oneEnd) : null;
   const hoverAxes = AXES.filter(a => hoverSpec?.[a]);
   const tip: TipRow[] = hoverAxes.map(a => {
     const d = hoverSpec![a]!, def = defOf(d.key), up = towardMoreOf(hover!.id, a, d) > 0;
     const hi = def?.hi ?? 'More', lo = def?.lo ?? 'Less', plus = up ? hi : lo, minus = up ? lo : hi;
-    return { axis: a, label: d.endKey ? `${endInfo(d.end)?.label ?? 'Corner'} roundness` : d.end ? `${endInfo(d.end)?.label ?? 'End'} length` : labelOf(d.key), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
+    return { axis: a, label: d.endKey === 'strokeWeights' ? `${endInfo(d.end)?.label ?? 'Stroke'} weight` : d.endKey ? `${endInfo(d.end)?.label ?? 'Corner'} roundness` : d.end ? `${endInfo(d.end)?.label ?? 'End'} length` : labelOf(d.key), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
   });
   const guideKey = hotKey === 'serif' ? 'serifSize' : hotKey === 'terminal' ? 'terminalLength' : hotKey;
   const showKey = hover || dragging ? null : guideKey && typeof font.params[guideKey as keyof Params] === 'number' ? guideKey as NumericParam : intro ? 'weight' : null;
   const handles: Handle[] = showKey ? handlesFor(showKey, lf, ch, [...parts, ...guides.map(([id]) => id), 'advance']) : [];
 
   let hl: { d: string; ring?: boolean };
-  if (hotEnd) hl = { ring: true, d: ringsD(g.marks.filter(k => k.id === hotEnd), Math.max(34, m.s * 0.75)) };
+  if (hotEnd && isStrokeId(hotEnd)) hl = { d: g.strokes.filter(s => s.id === hotEnd).map(s => cmdsToD(s.cmds)).join('') };
+  else if (hotEnd) hl = { ring: true, d: ringsD(g.marks.filter(k => k.id === hotEnd), Math.max(34, m.s * 0.75)) };
   else if (part) hl = partD(g, part, font);
-  else { const k = controlFor(active); hl = { d: font.hl(ch, k), ring: !!RING_KEYS[k] }; }
+  else { const k = hlKey(active); hl = { d: font.hl(ch, k), ring: !!RING_KEYS[k] }; }
 
   // hovering never changes the highlight mid-drag, since the parts reshape under the pointer
   const point = (id: string | null) => { if (!drag.current) pointPart(id); };
@@ -414,7 +416,8 @@ function DragTip({ x, y, W, H, rows }: { x: number; y: number; W: number; H: num
 
 /** The value being dragged, beside the pointer. */
 function DragReadout({ x, y, param, end }: Readout) {
-  const v = useParam(param), ev = useEditor(s => (!end ? 0 : end.corner ? paramOf(s, 'corners')[end.id] ?? 0 : endOf(s, end.id, end.hook)));
-  const label = !end ? labelOf(param) : `${end.label} ${end.corner ? 'roundness' : 'length'}`;
+  const v = useParam(param), ev = useEditor(s => (!end ? 0 : end.stroke ? paramOf(s, 'strokeWeights')[end.id] ?? 0.5
+    : end.corner ? paramOf(s, 'corners')[end.id] ?? 0 : endOf(s, end.id, end.hook)));
+  const label = !end ? labelOf(param) : `${end.label} ${end.stroke ? 'weight' : end.corner ? 'roundness' : 'length'}`;
   return <div className="i-readout" style={{ left: x + 14, top: y + 16 }}>{label} <b>{Math.round((end ? ev : v) * 100)}</b></div>;
 }

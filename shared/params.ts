@@ -64,6 +64,9 @@ export type RForm = (typeof R_FORMS)[number];
 
 export interface Params {
   weight: number; width: number; height: number; slant: number; contrast: number;
+  /** the vertical strokes alone (stems), and the horizontal ones alone (bars): 0.5 as Weight and
+      Contrast make them, lower lighter, higher heavier */ vWeight: number; hWeight: number;
+  /** one letter's strokes weighted one by one, by stroke id (see isStrokeId): 0.5 as drawn, lower lighter, higher heavier */ strokeWeights: Record<string, number>;
   xHeight: number; counter: number; aperture: number; crossbar: number;
   roundness: number; curve: number; apex: number; terminal: Terminal;
   /** how far stroke ends reach: 0.5 is the usual length, lower trims them back, higher draws them on */ terminalLength: number;
@@ -134,7 +137,7 @@ export const isGlyphKey = (k: string): k is GlyphKey => k in DEFAULTS && !(GLOBA
 export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K : never }[keyof Params];
 
 export const DEFAULTS: Readonly<Params> = Object.freeze({
-  weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.05,
+  weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.05, vWeight: 0.5, hWeight: 0.5, strokeWeights: Object.freeze({}),
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
@@ -157,6 +160,10 @@ export const isEndId = (id: string) => /^p?\d{1,2}[se]$/.test(id);
     stroke's centerline (from 0), or the end ('s' start, 'e' end) and its side ('l' or 'r', looking
     out of the stroke). */
 export const isCornerId = (id: string) => /^\d{1,2}(t\d{1,2}|[se][lr])$/.test(id);
+/** A stroke's id: its index in the glyph. */
+export const isStrokeId = (id: string) => /^\d{1,2}$/.test(id);
+/** How much heavier a stroke is drawn at `v` on a weight scale centred on 0.5: a quarter as heavy at 0, two and a half times at 1. */
+export const weightScale = (v: number) => (v < 0.5 ? 0.25 + 1.5 * v : 1 + 3 * (v - 0.5));
 /** How far past its usual length an end reaches, in x-heights (negative trims), at `v` on an end's
     own length scale. The letter's Length spans the lower three quarters of it, an eighth of an
     x-height either way; the last quarter draws one end on as far as a whole x-height. */
@@ -185,9 +192,9 @@ export const endCurl = (p: { terminalCurl?: number; terminalCurls?: Record<strin
 /** A valid value for setting `k`, or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {
   const d = DEFAULTS[k];
-  if (k === 'terminalEnds' || k === 'terminalCurls' || k === 'corners') {
+  if (k === 'terminalEnds' || k === 'terminalCurls' || k === 'corners' || k === 'strokeWeights') {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
-    const out: Record<string, number> = {}, ok = k === 'corners' ? isCornerId : isEndId;
+    const out: Record<string, number> = {}, ok = k === 'corners' ? isCornerId : k === 'strokeWeights' ? isStrokeId : isEndId;
     for (const [id, x] of Object.entries(v)) if (ok(id) && typeof x === 'number' && Number.isFinite(x)) out[id] = Math.min(1, Math.max(0, x));
     return out;
   }
@@ -210,7 +217,7 @@ function cleanGlyphs(v: unknown): Record<string, GlyphParams> {
       const c = isGlyphKey(k) ? cleanValue(k, x) : undefined;
       if (c !== undefined) g[k] = c;
     }
-    for (const e of ['terminalEnds', 'terminalCurls', 'corners']) if (g[e] && !Object.keys(g[e] as object).length) delete g[e];
+    for (const e of ['terminalEnds', 'terminalCurls', 'corners', 'strokeWeights']) if (g[e] && !Object.keys(g[e] as object).length) delete g[e];
     if (Object.keys(g).length) out[ch] = g as GlyphParams;
   }
   return out;

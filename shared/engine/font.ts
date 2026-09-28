@@ -3,7 +3,7 @@
    -> expanded outlines. Pure math with no DOM, so the browser (live preview) and the
    server (font export) run exactly the same code. A full rebuild of every glyph takes a
    few milliseconds, so sliders can drive it directly. */
-import { DEFAULTS, endCurl, endLength, endReach, formOf, type Params } from '../params';
+import { DEFAULTS, endCurl, endLength, endReach, formOf, weightScale, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, subCubic, transformCmds } from './geom';
 import { fillOutline, slice } from './effects';
 import { autoThickness, buildSerif, expandStroke, type Expanded } from './stroke';
@@ -45,7 +45,8 @@ export interface GlyphMeta { parts?: string[]; params?: string[] }
 export type GlyphFn = (g: Builder, m: Metrics) => number;
 interface GlyphDef { ch: string; sb: [number, number]; fn: GlyphFn; meta: GlyphMeta }
 
-export interface GlyphStroke { part: string; cmds: Cmd[]; curved: boolean; horizontal?: boolean; dot?: boolean }
+/** `id` is the stroke's own (see isStrokeId), for the strokes a letter can weight one by one. */
+export interface GlyphStroke { part: string; cmds: Cmd[]; curved: boolean; horizontal?: boolean; dot?: boolean; id?: string }
 
 export interface Glyph {
   ch: string;
@@ -122,12 +123,14 @@ export const termSpec = (e: Params): TermSpec => ({
 });
 
 function metrics(e: Effective): Metrics {
-  const s = 18 + 200 * Math.pow(e.weight, 1.25);
+  // Verticals weigh the stems on their own, and Horizontals the bars: each scales its side of the
+  // pen, so a heavier stem leaves the bars as they were
+  const s0 = 18 + 200 * Math.pow(e.weight, 1.25), s = Math.min(s0 * weightScale(e.vWeight), Math.max(s0, 300));
   const cap = lerp(560, 840, e.height);
   const xh = cap * lerp(0.5, 0.86, e.xHeight);
   const ws = e.width < 0.5 ? lerp(0.6, 1, e.width * 2) : lerp(1, 1.5, (e.width - 0.5) * 2);
   const ratio = 1 - 0.08 - 0.84 * e.contrast;
-  const thin = Math.max(8, Math.min(s * ratio, xh * 0.2));
+  const thin = clamp(Math.max(8, Math.min(s0 * ratio, xh * 0.2)) * weightScale(e.hWeight), 4, xh * 0.32);
   const stress = e.stressDeg * Math.PI / 180;
   const k = 0.5523 + 0.05 * e.curve + 0.36 * e.square;
   const org = e.curve;
@@ -618,7 +621,7 @@ function turnsOf(cmds: Cmd[], m: Metrics) {
 function markTurns(b: Builder, m: Metrics) {
   b.strokes.forEach((st, si) => {
     if (!st.cmds) return;
-    const t = m.s * (st.o.scale || 1);
+    const t = m.s * (st.o.scale || 1) * strokeWt(m, si);
     turnsOf(st.cmds, m).forEach((tn, k) => {
       const id = `${si}t${k}`, own = m.p.corners?.[id], c = st.cmds![tn.ci], oi = c[0] === 'C' ? 7 : 3;
       let o = c[oi] || {};
@@ -726,7 +729,7 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
         }
         if (!also.length && inStroke) hidden = true;
       });
-      if (!hidden) groups.push({ id: `${si}${c.which}${c.side}`, t: m.s * (b.strokes[si].o.scale || 1), pts: [q, ...also] });
+      if (!hidden) groups.push({ id: `${si}${c.which}${c.side}`, t: m.s * (b.strokes[si].o.scale || 1) * strokeWt(m, si), pts: [q, ...also] });
     }
   });
   for (const g of groups) {
@@ -765,7 +768,7 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
     for (let k = 0; k + 1 < pts.length; k++) {
       const a = pts[k], c = pts[k + 1], dx = c.x - a.x, dy = c.y - a.y, l2 = dx * dx + dy * dy;
       if (l2 < 1e-9) continue;
-      const u = clamp(((q.x - a.x) * dx + (q.y - a.y) * dy) / l2), half = (t.o.w === 'thin' ? m.thin : m.tDir(dx, dy)) * sc / 2;
+      const u = clamp(((q.x - a.x) * dx + (q.y - a.y) * dy) / l2), half = (t.o.w === 'thin' ? m.thin : m.tDir(dx, dy)) * sc * strokeWt(m, ti) / 2;
       if (Math.hypot(q.x - a.x - dx * u, q.y - a.y - dy * u) <= half + 1) return true;
     }
     return false;
@@ -832,6 +835,12 @@ function widenClip(clip: ClipBox, from: Pt, before: Cmd[], after: Cmd[], m: Metr
   return out;
 }
 
+/** How much heavier stroke `si` is drawn than the design draws it: by its own weight, if its letter gives it one. */
+function strokeWt(m: Metrics, si: number) {
+  const v = m.p.strokeWeights?.[si];
+  return v == null ? 1 : weightScale(v);
+}
+
 function buildGlyph(ch: string, m: Metrics): Glyph | null {
   const def = GLYPHS[ch];
   if (!def) return null;
@@ -863,14 +872,15 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     return roundContour(pts, R, cornersOut);
   };
   // expand every stroke first: a stencil cut needs to know which stroke each join runs into
-  const exps = b.strokes.map(st => {
+  const exps = b.strokes.map((st, si) => {
     if (st.poly) return null;
     const o = st.o;
     const serifS = m.serif && !!o.serifS && !o.scale, serifE = m.serif && !!o.serifE && !o.scale;
     const so = { ...o };
     if (serifS && so.s === 'term') so.s = 'flat';
     if (serifE && so.e === 'term') so.e = 'flat';
-    return { ex: expandStroke(st.cmds!, so, ctx), serifS, serifE };
+    const f = strokeWt(m, si);
+    return { ex: expandStroke(st.cmds!, so, f === 1 ? ctx : { ...ctx, thick: ctx.thick * f, thin: ctx.thin * f }), serifS, serifE };
   });
   const expanded = exps.map(x => x?.ex ?? null);
   endCorners(b, m, exps, out.marks);
@@ -883,7 +893,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     }
     const { ex, serifS, serifE } = exps[si]!;
     if (!ex) return;
-    const R = m.R * (o.scale || 1);
+    const R = m.R * (o.scale || 1) * strokeWt(m, si);
     if (ex.loop) {
       const [a, c] = ex.contours;
       const outerIsA = Math.abs(signedArea(a)) >= Math.abs(signedArea(c));
@@ -908,7 +918,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       const c = finish(pts, 1, R, out.corners); if (c) cmds = c;
       if (o.counter) out.counters.push(finish(ex.skeleton.flat(), 1, 0) || []);
     }
-    out.strokes.push({ part: o.part || 'stroke', cmds, curved: ex.curved, horizontal: isHorizontal(st.cmds!) });
+    out.strokes.push({ part: o.part || 'stroke', cmds, curved: ex.curved, horizontal: isHorizontal(st.cmds!), id: String(si) });
     ex.skeleton.forEach(r => out.skeleton.push(r));
     for (const end of ex.ends) {
       const want = end.which === 's' ? serifS : serifE;

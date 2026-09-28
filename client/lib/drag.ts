@@ -3,6 +3,7 @@
    to the pointer, a stroke, counter or serif grows toward it. Like the sliders, a drag reshapes
    every letter at once, since the design is the parameters. */
 import { buildFont, clamp, type Cmd, type Font, type Glyph, type Mark } from '../../shared/engine';
+import { ANATOMY } from '../../shared/content';
 import { endLength, type NumericParam, type Params } from '../../shared/params';
 
 export type Axis = 'x' | 'y';
@@ -21,10 +22,11 @@ export interface Drive {
   /** where to draw its grab handle (font units, y up): the edge or line that moves */
   at: { x: number; y: number };
   /** set only this one stroke end's length (key 'terminalLength'), not every end's, or with
-      `endKey` 'corners' only this one corner's roundness (key 'roundness') */
+      `endKey` 'corners' only this one corner's roundness (key 'roundness'), or with 'strokeWeights'
+      only this one stroke's weight (key 'weight') */
   end?: string;
-  endKey?: 'corners';
-  /** that corner's roundness as drawn before it has one of its own */
+  endKey?: 'corners' | 'strokeWeights';
+  /** that corner's roundness (or stroke's weight) as drawn before it has one of its own */
   base?: number;
   /** that end is the tip of a hook, tail or cursive stroke (see endLength) */
   hook?: boolean;
@@ -33,9 +35,9 @@ export type DragSpec = Partial<Record<Axis, Drive>>;
 
 /** The value a drive moves, and the params with it set. */
 export const driveValue = (d: Drive, p: Params) =>
-  d.endKey ? p.corners[d.end!] ?? d.base ?? 0 : d.end ? endLength(p, d.end, d.hook) : p[d.key];
+  d.endKey ? p[d.endKey][d.end!] ?? d.base ?? 0 : d.end ? endLength(p, d.end, d.hook) : p[d.key];
 export const withDrive = (d: Drive, p: Params, v: number): Params =>
-  d.endKey ? { ...p, corners: { ...p.corners, [d.end!]: v } } : d.end ? { ...p, terminalEnds: { ...p.terminalEnds, [d.end]: v } } : { ...p, [d.key]: v };
+  d.endKey ? { ...p, [d.endKey]: { ...p[d.endKey], [d.end!]: v } } : d.end ? { ...p, terminalEnds: { ...p.terminalEnds, [d.end]: v } } : { ...p, [d.key]: v };
 
 /** A letter's stroke ends, top to bottom, each named by where it sits: "Top end", "Bottom left end". */
 export interface StrokeEndInfo { id: string; x: number; y: number; label: string; hook: boolean }
@@ -49,6 +51,26 @@ export function strokeEnds(g: Glyph): StrokeEndInfo[] {
 export interface CornerInfo { id: string; x: number; y: number; label: string; v: number }
 export function letterCorners(g: Glyph): CornerInfo[] {
   return byPlace(g, g.marks.filter(k => k.type === 'corner' && k.id), 'corner').map(({ k, label }) => ({ id: k.id!, x: k.x, y: k.y, label, v: k.v ?? 0 }));
+}
+
+/** A letter's strokes (not its dots), each named by its part, and by where it sits when the letter
+    has more than one of that part: "Stem", "Left stem", "Top arm". */
+export interface StrokeInfo { id: string; label: string }
+export function letterStrokes(g: Glyph): StrokeInfo[] {
+  const out = g.strokes.flatMap(s => {
+    const b = s.id && !s.dot ? bbox(s.cmds) : null;
+    return b ? [{ id: s.id!, noun: ANATOMY[s.part]?.[0] ?? 'Stroke', x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }] : [];
+  });
+  return out.map(s => {
+    const same = out.filter(t => t.noun === s.noun);
+    if (same.length === 1) return { id: s.id, label: s.noun };
+    const xs = same.map(t => t.x), ys = same.map(t => t.y), n = s.noun.toLowerCase();
+    const across = Math.max(...xs) - Math.min(...xs) >= Math.max(...ys) - Math.min(...ys);
+    const at = across ? xs : ys, v = across ? s.x : s.y, lo = Math.min(...at), hi = Math.max(...at);
+    const where = v <= lo + 1 ? (across ? 'Left' : 'Bottom') : v >= hi - 1 ? (across ? 'Right' : 'Top') : 'Middle';
+    const twins = same.filter(t => (across ? t.x : t.y) === v).length > 1 || (where === 'Middle' && same.length > 3);
+    return { id: s.id, label: twins ? `${s.noun} ${same.indexOf(s) + 1}` : `${where} ${n}` };
+  });
 }
 
 /** Marks top to bottom (then left to right), each named by where it sits before it was moved: its
@@ -165,10 +187,18 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
     };
   }
   // every other part is a stroke, and dragging it outward makes the letters heavier: a tall
-  // stroke by its side, a flat one by its top or bottom, a round one by the side it was grabbed on
+  // stroke by its side, a flat one by its top or bottom, a round one by the side it was grabbed on.
+  // While customizing a letter, only the stroke grabbed gets heavier
   const spec: DragSpec = {}, byX = Math.abs(grab.x - cx) / (w || 1) >= Math.abs(grab.y - cy) / (h || 1);
-  if (h > w * 0.6 && (w <= h * 0.6 || byX)) spec.x = { key: 'weight', sign: sx, gain: 2, measure: f => f.m.s, at: { x: ex, y: clamp(grab.y, b.y0, b.y1) } };
-  if (w > h * 0.6 && (h <= w * 0.6 || !byX)) spec.y = { key: 'weight', sign: sy, gain: 2, measure: f => f.m.hT, at: { x: clamp(grab.x, b.x0, b.x1), y: ey } };
+  const id = oneEnd ? g.strokes.filter(s => s.part === part)[i]?.id : undefined;
+  const own = (f: Font) => { const s = f.glyph(ch)?.strokes.find(t => t.id === id); return s ? bbox(s.cmds) : null; };
+  const one = id ? { end: id, endKey: 'strokeWeights' as const, base: 0.5 } : {};
+  if (h > w * 0.6 && (w <= h * 0.6 || byX)) {
+    spec.x = { key: 'weight', ...one, sign: sx, gain: 2, measure: id ? f => { const p = own(f); return p && p.x1 - p.x0; } : f => f.m.s, at: { x: ex, y: clamp(grab.y, b.y0, b.y1) } };
+  }
+  if (w > h * 0.6 && (h <= w * 0.6 || !byX)) {
+    spec.y = { key: 'weight', ...one, sign: sy, gain: 2, measure: id ? f => { const p = own(f); return p && p.y1 - p.y0; } : f => f.m.hT, at: { x: clamp(grab.x, b.x0, b.x1), y: ey } };
+  }
   return spec;
 }
 

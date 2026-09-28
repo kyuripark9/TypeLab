@@ -16,7 +16,8 @@ export type FillSubKey = 'module';
 export type TerminalSubKey = 'terminalLength' | 'terminalCurl' | 'terminalFlare' | 'terminalDepth' | 'terminalSize' | 'terminalRound' | 'terminalPoint' | 'terminalClip' | 'terminalLean' | 'terminalSlope' | 'terminalTilt' | 'terminalTip' | 'terminalTaper';
 /** Anything the control panel can focus: a control or one of its nested sub-sliders. */
 export type DotSubKey = 'dotSize';
-export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey;
+export type WeightSubKey = 'vWeight' | 'hWeight';
+export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey;
 
 export interface ControlDef {
   cat: Exclude<CategoryId, 'style'>;
@@ -508,7 +509,7 @@ export const CATEGORIES: { id: CategoryId; label: string }[] = [
 /* label = the control's short title; friendly = what it does in plain words; tech = the typographer's term */
 export const CONTROLS: Record<ControlKey, ControlDef> = {
   weight: { cat: 'structure', label: 'Weight', friendly: 'Make strokes thicker', tech: 'Weight', lo: 'Thin', hi: 'Bold', demo: 'n',
-    explain: 'Letters widen a little so their insides stay open.' },
+    explain: 'Letters widen a little so their insides stay open. Verticals and Horizontals weigh the stems and the bars on their own; customize a letter to weigh each of its strokes.' },
   width: { cat: 'structure', label: 'Width', friendly: 'Make letters narrower or wider', tech: 'Width', lo: 'Condensed', hi: 'Expanded', demo: 'H',
     explain: 'Stretches letters sideways; strokes keep their thickness.' },
   height: { cat: 'structure', label: 'Height', friendly: 'Make letters taller or shorter', tech: 'Height', lo: 'Short', hi: 'Tall', demo: 'Hx',
@@ -649,7 +650,11 @@ export const TERMINAL_DETAILS: Record<TerminalForm, TerminalSubKey[]> = {
 export const DOT_SUBS: Record<DotSubKey, SubControlDef> = {
   dotSize: { label: 'Size', friendly: 'Make the dots smaller or bigger', tech: 'Dot size', lo: 'Small', hi: 'Big' }
 };
-export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS };
+export const WEIGHT_SUBS: Record<WeightSubKey, SubControlDef> = {
+  vWeight: { label: 'Verticals', friendly: 'Make the upright strokes lighter or heavier', tech: 'Stem weight', lo: 'Lighter', hi: 'Heavier', bipolar: true },
+  hWeight: { label: 'Horizontals', friendly: 'Make the level strokes lighter or heavier', tech: 'Bar weight', lo: 'Lighter', hi: 'Heavier', bipolar: true }
+};
+export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...WEIGHT_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
 export type FormKey = 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun';
@@ -744,4 +749,4 @@ export const firstControl = (cat: CategoryId) =>
 /** The control a key belongs to: serif sub-sliders fold into 'serif', the module size into 'fill',
     the stroke end length into 'terminal'. */
 export const controlFor = (key: ActiveKey): ControlKey =>
-  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key as ControlKey;
+  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in WEIGHT_SUBS ? 'weight' : key as ControlKey;

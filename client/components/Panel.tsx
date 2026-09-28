@@ -4,14 +4,14 @@
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import {
   ANATOMY, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
-  SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, controlFor, styleById, styleMatches,
-  type ActiveKey, type CategoryId, type ControlKey, type DotSubKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type TerminalSubKey
+  SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, WEIGHT_SUBS, controlFor, styleById, styleMatches,
+  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter
 } from '../../shared/content';
 import { TERMINAL_FORMS, formOf, isGlyphKey, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
-import type { Glyph } from '../../shared/engine';
-import { letterCorners, strokeEnds, type CornerInfo, type StrokeEndInfo } from '../lib/drag';
-import { actions, curlOf, endOf, fontFor, isOn, letterOf, useEditor, useFont, useParam, useScopedFont, type EndKey } from '../state/editor';
+import { cmdsToD, type Glyph } from '../../shared/engine';
+import { letterCorners, letterStrokes, strokeEnds, type CornerInfo, type StrokeEndInfo, type StrokeInfo } from '../lib/drag';
+import { actions, curlOf, endOf, fontFor, isOn, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type EndKey } from '../state/editor';
 import { Diagram, FillIcon, FormIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { ScopeIcon, letterControls } from './Inspector';
 
@@ -152,6 +152,15 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   if (c.type === 'story') return <StoryControl parts={parts} />;
   if (c.type === 'form') return <FormControl k={k as LetterFormKey} parts={parts} />;
   if (k === 'roundness') return <SliderControl k={k} def={c} parts={parts}><EachCorner /></SliderControl>;
+  if (k === 'weight') {
+    return (
+      <SliderControl k={k} def={c} parts={parts}>
+        <SliderControl k="vWeight" def={WEIGHT_SUBS.vWeight} />
+        <SliderControl k="hWeight" def={WEIGHT_SUBS.hWeight} />
+        <EachStroke />
+      </SliderControl>
+    );
+  }
   if (c.type === 'serif') return <SerifControl parts={parts} />;
   if (c.type === 'fill') return <FillControl />;
   return <SliderControl k={k as NumericParam} def={c} parts={parts} />;
@@ -224,7 +233,7 @@ function Fold({ k, shut, children }: { k: FoldKey; shut?: boolean; children: Rea
 function Explainer() {
   const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
   const part = useEditor(s => s.inspect ? s.part : null), tips = useEditor(s => s.tips);
-  const c = CONTROLS[controlFor(active)], sub = SUBS[active as SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey];
+  const c = CONTROLS[controlFor(active)], sub = SUBS[active as keyof typeof SUBS];
   const shapedBy = part && PART_CONTROL[part];
   const close = (
     <button className="btn ghost icon small ex-close" onClick={() => actions.setTips(false)} aria-label="Hide explanation" title="Hide explanation">
@@ -445,6 +454,68 @@ function EachCorner() {
   );
 }
 
+/** While a letter is customized, a weight for each of its strokes, each beside a picture of the letter
+    with that stroke picked out; while every letter is in sync, a way into customizing, since strokes
+    are weighted one by one only on a single letter. */
+function EachStroke() {
+  const ch = useEditor(s => s.inspect), letter = useEditor(letterOf), font = useScopedFont();
+  const g = ch ? font.glyph(ch) : null, strokes = g ? letterStrokes(g) : [];
+  if (!ch || !g || !strokes.length) return null;
+  if (!letter) {
+    return (
+      <div className="each-end locked">
+        <StrokeThumb g={g} />
+        <div className="sub-label">Each stroke</div>
+        <button className="btn wide small" onClick={() => actions.setScope('letter')}>Customize {ch}</button>
+      </div>
+    );
+  }
+  return (
+    <div className="each-end">
+      <div className="sub-label">Each stroke</div>
+      {strokes.map(t => <StrokeSlider key={t.id} g={g} stroke={t} />)}
+    </div>
+  );
+}
+
+/** One stroke's weight beside a picture of the letter with that stroke picked out. */
+function StrokeSlider({ g, stroke: { id, label } }: { g: Glyph; stroke: StrokeInfo }) {
+  const hot = useEditor(s => s.hotEnd === id), v = useEditor(s => paramOf(s, 'strokeWeights')[id] ?? 0.5);
+  return (
+    <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id} title={label}
+      onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
+      <StrokeThumb g={g} on={id} />
+      <EndRow id={id} k="strokeWeights" name="Weight" label={label} value={v}
+        tip="Left makes this stroke lighter, right heavier; the middle draws it as the design does" reset="Draw it as the design does" />
+    </div>
+  );
+}
+
+/** The letter in miniature with every stroke picked out, or only the stroke `on`. */
+function StrokeThumb({ g, on }: { g: Glyph; on?: string }) {
+  const box = thumbBox(g);
+  if (!box) return null;
+  return (
+    <svg className="end-thumb stroke-thumb" viewBox={box.join(' ')} aria-hidden="true">
+      <path d={g.d} />
+      <path className="on" d={g.strokes.filter(s => s.id && !s.dot && (!on || s.id === on)).map(s => cmdsToD(s.cmds)).join('')} />
+    </svg>
+  );
+}
+
+/** A letter's miniature view box, [x, y, width, height] (y down), with room round it for dots on its ends. */
+function thumbBox(g: Glyph) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of g.cmds) {
+    for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
+      x0 = Math.min(x0, c[i]); x1 = Math.max(x1, c[i]); y0 = Math.min(y0, -c[i + 1]); y1 = Math.max(y1, -c[i + 1]);
+    }
+  }
+  if (!(x0 <= x1)) return null;
+  const pad = Math.max(x1 - x0, y1 - y0) * 0.16;
+  return [x0 - pad, y0 - pad, x1 - x0 + pad * 2, y1 - y0 + pad * 2];
+}
+
 /** One corner's roundness beside a picture of the letter with that corner marked. */
 function CornerSlider({ g, corners, corner: { id, label, v } }: { g: Glyph; corners: CornerInfo[]; corner: CornerInfo }) {
   const hot = useEditor(s => s.hotEnd === id);
@@ -460,16 +531,11 @@ function CornerSlider({ g, corners, corner: { id, label, v } }: { g: Glyph; corn
 
 /** The letter in miniature with its stroke ends (or corners) dotted, or only the one `on`. */
 function EndThumb({ g, ends, on }: { g: Glyph; ends: { id: string; x: number; y: number }[]; on?: string }) {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const c of g.cmds) {
-    for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
-      x0 = Math.min(x0, c[i]); x1 = Math.max(x1, c[i]); y0 = Math.min(y0, -c[i + 1]); y1 = Math.max(y1, -c[i + 1]);
-    }
-  }
-  if (!(x0 <= x1)) return null;
-  const pad = Math.max(x1 - x0, y1 - y0) * 0.16, r = pad * (on ? 0.95 : 0.7);
+  const box = thumbBox(g);
+  if (!box) return null;
+  const r = Math.max(box[2], box[3]) / 1.32 * 0.16 * (on ? 0.95 : 0.7);
   return (
-    <svg className="end-thumb" viewBox={`${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}`} aria-hidden="true">
+    <svg className="end-thumb" viewBox={box.join(' ')} aria-hidden="true">
       <path d={g.d} />
       {ends.filter(e => !on || e.id === on).map(e => <circle key={e.id} cx={e.x} cy={-e.y} r={r} />)}
     </svg>
@@ -494,7 +560,7 @@ function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: Stro
 
 function EndRow({ id, k, name, label, value, tip, reset }: { id: string; k: EndKey; name: string; label: string; value: number; tip: string; reset: string }) {
   const own = useEditor(s => { const ch = letterOf(s); return !!ch && s.params.glyphs[ch]?.[k]?.[id] !== undefined; });
-  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'corners' ? 'roundness' : k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
+  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'corners' ? 'roundness' : k === 'strokeWeights' ? 'weight' : k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
   return (
     <>
       <span className="end-name" title={tip}>{name}</span>

@@ -289,7 +289,8 @@ export interface Expanded {
 /* ---- 3. expand one stroke */
 export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded | null {
   const sc = o.scale || 1;
-  const thick = ctx.thick * sc, thin = Math.min(ctx.thin * sc, thick);
+  // Horizontals can outweigh Verticals, so the thin stroke may be the heavier one
+  const thick = ctx.thick * sc, thin = ctx.thin * sc;
   let ws = o.ws == null ? 1 : o.ws, we = o.we == null ? 1 : o.we;
   const T = ctx.term ?? TERM, tapers = ctx.terminal === 'tapered';
   if (tapers) {

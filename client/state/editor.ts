@@ -114,7 +114,9 @@ export const isDirty = (s: EditorState) => docSnap(s) !== s.saved;
 
 /** The key whose affected parts are highlighted, or null. Serif sub-sliders highlight serifs. */
 export const hlKeyOf = (s: EditorState): ControlKey | null =>
-  s.hot && s.category !== 'style' ? controlFor(s.active) : null;
+  s.hot && s.category !== 'style' ? hlKey(s.active) : null;
+/** The key whose parts `active` highlights: Horizontals the level strokes Contrast thins, else its control's. */
+export const hlKey = (active: ActiveKey): ControlKey => (active === 'hWeight' ? 'contrast' : controlFor(active));
 
 /** The letter that edits go to instead of the whole alphabet, or null. */
 export const letterOf = (s: EditorState) => (s.scope === 'letter' ? s.inspect : null);
@@ -131,8 +133,8 @@ export const endOf = (s: EditorState, id: string, hook = false) =>
   endLength({ terminalEnds: paramOf(s, 'terminalEnds'), terminalLength: paramOf(s, 'terminalLength') }, id, hook);
 /** How one stroke end of the letter being customized bends: its own curl, else the letter's Curl. */
 export const curlOf = (s: EditorState, id: string) => endCurl({ terminalCurls: paramOf(s, 'terminalCurls'), terminalCurl: paramOf(s, 'terminalCurl') }, id);
-/** What can be set one by one on a customized letter: each stroke end's length or curl, or each corner's roundness. */
-export type EndKey = 'terminalEnds' | 'terminalCurls' | 'corners';
+/** What can be set one by one on a customized letter: each stroke end's length or curl, each corner's roundness, or each stroke's weight. */
+export type EndKey = 'terminalEnds' | 'terminalCurls' | 'corners' | 'strokeWeights';
 
 /** Whether an optional slider is switched on: away from its off value, or switched on by hand. */
 export const isOn = (s: EditorState, key: NumericParam, off: number) => paramOf(s, key) !== off || s.switchedOn.includes(key);

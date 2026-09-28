@@ -16,7 +16,10 @@ const extremes: Params[] = [
   { ...DEFAULTS, weight: 1, width: 0, apex: 1, diagonals: 'upright', bends: 'round', yForm: 'cup', qForm: 'inside', iForm: 'bars', serif: true, cursive: 1, tail: 1, bowlForm: 'box', rForm: 'loop' },
   { ...DEFAULTS, weight: 0, width: 1, apex: 0, diagonals: 'upright', bends: 'round', yForm: 'cup', qForm: 'inside', chamfer: 1, stencil: 1, contrast: 1, tail: 0, bowlForm: 'box', rForm: 'loop', wobble: 1 },
   { ...DEFAULTS, weight: 1, width: 1, apex: 0, diagonals: 'upright', yForm: 'cup', qForm: 'inside', iForm: 'bars', serif: true, contrast: 1, squareness: 1, rForm: 'loop' },
-  { ...DEFAULTS, bowlForm: 'box', cursive: 1, terminal: 'round', terminalCurl: 0.9, mono: 1, fill: 'wire' }
+  { ...DEFAULTS, bowlForm: 'box', cursive: 1, terminal: 'round', terminalCurl: 0.9, mono: 1, fill: 'wire' },
+  { ...DEFAULTS, weight: 1, vWeight: 1, hWeight: 1, contrast: 0.5, serif: true, bowlForm: 'box' },
+  { ...DEFAULTS, weight: 0, vWeight: 0, hWeight: 0, contrast: 0, terminal: 'tapered' },
+  { ...DEFAULTS, vWeight: 0, hWeight: 1, glyphs: { a: { strokeWeights: { 0: 1, 1: 0 } }, H: { strokeWeights: { 2: 1 } } } }
 ];
 
 describe('font engine', () => {
@@ -546,6 +549,37 @@ describe('font engine', () => {
     assert.equal(own.letter('R').m.xh, own.m.xh);
   });
 
+  it('weighs the verticals, the horizontals, and each stroke of one letter on their own', () => {
+    const box = (cmds: (string | number)[][]) => {
+      const xs = cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 0)) as number[], ys = cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 1)) as number[];
+      return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+    };
+    // the H: its stems' width, and its crossbar's height
+    const H = (p: Partial<Params>) => {
+      const g = buildFont({ ...DEFAULTS, ...p }).glyph('H')!;
+      return { stem: box(g.strokes.find(s => s.part === 'stem')!.cmds).w, bar: box(g.strokes.find(s => s.part === 'crossbar')!.cmds).h };
+    };
+    const base = H({}), heavyV = H({ vWeight: 1 }), lightV = H({ vWeight: 0 }), heavyH = H({ hWeight: 1 }), lightH = H({ hWeight: 0 });
+    assert.ok(heavyV.stem > base.stem * 1.8 && lightV.stem < base.stem * 0.5, 'Verticals weigh the stems');
+    // (all but the little the pen's slant takes from the stems' weight)
+    assert.ok(Math.abs(heavyV.bar - base.bar) < base.bar * 0.05 && Math.abs(lightV.bar - base.bar) < base.bar * 0.05, 'and leave the bars');
+    assert.ok(heavyH.bar > base.bar * 1.5 && lightH.bar < base.bar * 0.5, 'Horizontals weigh the bars');
+    assert.ok(Math.abs(heavyH.stem - base.stem) < base.stem * 0.05 && Math.abs(lightH.stem - base.stem) < base.stem * 0.05, 'and leave the stems');
+    // Horizontals can outweigh Verticals, like reverse contrast
+    const rev = H({ vWeight: 0.2, hWeight: 0.9, contrast: 0.5 });
+    assert.ok(rev.bar > rev.stem, 'bars heavier than stems');
+
+    // one stroke of a customized letter, and nothing else
+    const f = buildFont({ ...DEFAULTS, glyphs: { H: { strokeWeights: { 0: 1 } } } }), plain = buildFont(DEFAULTS);
+    const [a, b] = [f.glyph('H')!, plain.glyph('H')!];
+    assert.deepEqual(a.strokes.map(s => s.id), ['0', '1', '2']);
+    assert.ok(box(a.strokes[0].cmds).w > box(b.strokes[0].cmds).w * 1.8, 'the stroke weighed gets heavier');
+    assert.equal(a.strokes[1].cmds.join(), b.strokes[1].cmds.join(), 'the other stem stays');
+    assert.equal(a.strokes[2].cmds.join(), b.strokes[2].cmds.join(), 'the crossbar stays');
+    assert.equal(f.glyph('I')!.d, plain.glyph('I')!.d, 'other letters stay');
+    assert.equal(buildFont({ ...DEFAULTS, glyphs: { H: { strokeWeights: { 0: 0.5 } } } }).glyph('H')!.d, b.d, 'the middle draws it as the design does');
+  });
+
   it('wraps text to a width', () => {
     const font = buildFont(DEFAULTS);
     const lines = font.layout('the quick brown fox jumps over the lazy dog', 4000);
@@ -570,6 +604,13 @@ describe('params validation', () => {
   it('keeps only corner ids it knows, clamped', () => {
     const p = sanitizeParams({ glyphs: { O: { corners: { '0t1': 2, '3sl': 0.4, bogus: 1, '0x': 0.2 } } } });
     assert.deepEqual(p.glyphs.O?.corners, { '0t1': 1, '3sl': 0.4 });
+  });
+
+  it('keeps only stroke ids it knows, clamped', () => {
+    const p = sanitizeParams({ ...DEFAULTS, glyphs: { H: { strokeWeights: { 0: 2, 12: 0.3, '0s': 0.5, x: 1, 1: 'a' } } } });
+    assert.deepEqual(p.glyphs.H.strokeWeights, { 0: 1, 12: 0.3 });
+    assert.deepEqual(sanitizeParams({ ...DEFAULTS, glyphs: { H: { strokeWeights: { x: 1 } } } }).glyphs, {});
+    assert.equal(sanitizeParams({ vWeight: 3, hWeight: -1 }).vWeight, 1);
   });
 
   it('keeps only valid per-letter settings, one character each', () => {

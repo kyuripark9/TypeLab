@@ -217,6 +217,7 @@ body.resizing.y { cursor: row-resize; }
 .end-thumb { width: 40px; height: 40px; flex: none; border-radius: var(--radius-s); background: var(--paper); border: 1px solid var(--line); transition: border-color .15s; }
 .end-thumb path { fill: var(--line-2); }
 .end-thumb circle { fill: var(--accent); stroke: var(--paper); stroke-width: 18; paint-order: stroke; }
+.end-thumb path.on { fill: var(--accent); }
 .ctl .ctl.end { display: grid; grid-template-columns: 40px auto 1fr auto 22px; align-items: center; gap: 0 10px; margin: 0 -6px; padding: 4px 6px; border-radius: var(--radius-s); transition: background .15s; }
 .ctl.end .end-thumb { grid-row: span 2; }
 .end-name { font-size: 12px; color: var(--ink-2); cursor: default; }
