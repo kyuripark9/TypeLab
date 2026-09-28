@@ -194,6 +194,13 @@ describe('font engine', () => {
     const J = f({ bowlForm: 'box' }).glyph('J')!, tip = J.marks.find(k => k.type === 'tail')!;
     assert.ok(tip.y > f({}).m.cap * 0.2);
     for (const ch of 'EHKLTX') assert.equal(f({ bowlForm: 'box' }).glyph(ch)!.d, f({}).glyph(ch)!.d, ch);
+    // Box corners: sharp at 0, as drawn at 0.5, wider at 1, square inside all the way; ovals ignore it
+    const [in0, out0] = rings({ bowlForm: 'box', boxRound: 0 }), [in1, out1] = rings({ bowlForm: 'box', boxRound: 1 });
+    assert.ok(out0.near < 2, 'sharp box corners at 0');
+    assert.ok(out1.near > outer.near * 1.5, 'wider box corners at 1');
+    assert.ok(in0.near < 2 && in1.near < 2, 'square inside either way');
+    assert.equal(f({ bowlForm: 'box', boxRound: 0.5 }).glyph('O')!.d, f({ bowlForm: 'box' }).glyph('O')!.d);
+    assert.equal(f({ boxRound: 1 }).glyph('O')!.d, f({}).glyph('O')!.d);
   });
 
   it('rounds each corner of a letter on its own, from sharp to round inside and out', () => {

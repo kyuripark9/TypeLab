@@ -16,12 +16,13 @@ export type FillSubKey = 'module';
 export type TerminalSubKey = 'terminalLength' | 'terminalCurl' | 'terminalFlare' | 'terminalDepth' | 'terminalSize' | 'terminalRound' | 'terminalPoint' | 'terminalClip' | 'terminalLean' | 'terminalSlope' | 'terminalTilt' | 'terminalTip' | 'terminalTaper';
 /** Anything the control panel can focus: a control or one of its nested sub-sliders. */
 export type DotSubKey = 'dotSize';
+export type BowlSubKey = 'boxRound';
 export type WeightSubKey = 'vWeight' | 'hWeight';
 export type RoundSubKey = 'joinRound';
 /** A stencil's and a slice's own value is their thickness, so it sits among their sub-sliders. */
 export type StencilSubKey = 'stencil' | 'stencilPos' | 'stencilRound';
 export type SliceSubKey = 'slice' | 'slicePos' | 'sliceRound';
-export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey | RoundSubKey | StencilSubKey | SliceSubKey;
+export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | StencilSubKey | SliceSubKey;
 
 export interface ControlDef {
   cat: Exclude<CategoryId, 'style'>;
@@ -221,6 +222,13 @@ export const STYLES: StyleDef[] = [
     'Bold, round-ended and steady: a big lowercase with a single-storey a and soft, open shapes, like a friendly app icon.',
     { weight: 0.74, width: 0.56, contrast: 0.5, roundness: 1, terminal: 'round', curve: 0.3, geoHuman: 0.4, xHeight: 0.68, counter: 0.5,
       aperture: 0.55, story: 'single', softSharp: 0.1, playfulFormal: 0.45, letterSpacing: 0.14 }),
+  style('radial', 'sans', ['geometric'], 'Radial', ['innovative', 'artistic', 'calm'], 'Space Grotesk, Lexend, Syne',
+    'A lowercase as tall as the capitals, with perfectly round bowls running square into their stems, barred i and l, round dots and a spur on the a.',
+    { weight: 0.42, width: 0.52, contrast: 0.45, xHeight: 1, counter: 1, curve: 0, terminalRun: 'straight', extenders: 0.45, descender: 0.1,
+      story: 'double', bowlJoin: 'square', dots: 'round', dotSize: 0.7, iForm: 'bars', aForm: 'spur',
+      glyphs: { a: { width: 0.15, aperture: 1, crossbar: 0.6, terminalEnds: { '0e': 0.15 } }, u: { width: 0.27 }, r: { width: 0.7 },
+        t: { width: 0.72, terminalEnds: { p0s: 0.7 }, corners: { '0j1': 0.33 } }, f: { width: 0.68, crossbar: 0.22, corners: { '0j2': 0.33 } },
+        i: { width: 0.6 }, l: { width: 0.6 }, s: { aperture: 0.2 }, y: { corners: { '0j0': 0.33 }, terminal: 'cut', terminalForm: 'level' } } }),
 
   /* ---- Serif */
   style('oldstyle', 'serif', ['oldstyle'], 'Old Style', ['business', 'vintage', 'sophisticated', 'sincere'], 'EB Garamond, Cormorant Garamond, Crimson Pro',
@@ -346,6 +354,14 @@ export const STYLES: StyleDef[] = [
     'A bookish monospace: fine bracketed serifs and real thick-and-thin strokes squeezed onto one fixed width.',
     { weight: 0.4, width: 0.44, contrast: 0.8, mono: 1, serif: true, serifShape: 'bracketed', serifSize: 0.4, serifThickness: 0.14,
       serifAngle: 0.2, terminal: 'round', curve: 0.4, geoHuman: 0.6, xHeight: 0.5, extenders: 0.6, letterSpacing: 0.2 }),
+  style('boxmono', 'mono', [], 'Box Mono', ['futuristic', 'stiff', 'innovative'], 'Martian Mono, Space Mono, Major Mono Display',
+    'A monospace built from boxes: straight-sided bowls whose corners round wide on the outside and stay square inside, running flat into the stems.',
+    { weight: 0.38, width: 0.6, contrast: 0.5, mono: 1, bowlForm: 'box', boxRound: 0.85, bowlJoin: 'square', squareness: 1, curve: 0,
+      terminalRun: 'straight', apex: 1, geoHuman: 0.3, xHeight: 0.62, letterSpacing: 0.12 }),
+  style('scoreboard', 'mono', ['superellipse'], 'Scoreboard Mono', ['excited', 'futuristic', 'stiff'], 'Share Tech Mono, Azeret Mono, Chakra Petch',
+    'Tall, narrow numbers for a stadium scoreboard: rounded-rectangle bowls, straight-cut ends, barred I and every character on the same width.',
+    { weight: 0.42, width: 0.36, height: 0.75, contrast: 0.5, mono: 1, squareness: 0.75, curve: 0, terminalRun: 'straight', apex: 1, iForm: 'bars',
+      geoHuman: 0.3, xHeight: 0.7, letterSpacing: 0.14 }),
 
   /* ---- Handwriting */
   style('casual', 'hand', ['handwritten', 'informal', 'monoline'], 'Casual Handwriting', ['happy', 'playful', 'childlike'], 'Caveat, Indie Flower, Shadows Into Light',
@@ -490,7 +506,28 @@ export const STYLES: StyleDef[] = [
   style('bauhaus', 'display', ['geometric'], 'Bauhaus', ['artistic', 'vintage', 'innovative'], 'Righteous, Comfortaa, Baumans',
     'Built with a compass and ruler at the 1920s Bauhaus, after Herbert Bayer: wide circles, a lowercase nearly as tall as the capitals and stubby ascenders.',
     { weight: 0.5, width: 0.8, contrast: 0.5, roundness: 1, terminal: 'round', curve: 0, geoHuman: 0.1, aperture: 0.8, story: 'single',
-      xHeight: 0.84, extenders: 0.18, counter: 0.8, apex: 0.8, letterSpacing: 0.2 })
+      xHeight: 0.84, extenders: 0.18, counter: 0.8, apex: 0.8, letterSpacing: 0.2 }),
+  style('heavybox', 'display', [], 'Heavy Box', ['loud', 'futuristic', 'innovative'], 'Russo One, Goldman, Orbitron',
+    'Black, wide and low, drawn in boxes: bowls with big rounds outside and square counters inside, flat into the stems, like freight stencilling or a car badge.',
+    { weight: 0.9, width: 0.95, height: 0.45, contrast: 0.5, bowlForm: 'box', boxRound: 0.7, bowlJoin: 'square', squareness: 1, curve: 0,
+      terminalRun: 'straight', apex: 1, geoHuman: 0.3, xHeight: 0.7, counter: 0.4, letterSpacing: 0.06 }),
+  style('boxcontrast', 'display', [], 'Box Contrast', ['loud', 'sophisticated', 'artistic'], 'Dela Gothic One, Syne, Bricolage Grotesque',
+    'A heavy box face with thinned bars: tall stems, square counters, a two-storey a and letters set nearly touching, for big posters.',
+    { weight: 0.88, width: 0.62, contrast: 0.7, bowlForm: 'box', boxRound: 0.6, bowlJoin: 'square', squareness: 1, curve: 0, terminalRun: 'straight',
+      apex: 1, story: 'double', xHeight: 0.72, counter: 0.45, letterSpacing: 0.04 }),
+  style('reversebox', 'display', [], 'Reverse Box', ['futuristic', 'artistic', 'innovative'], 'Michroma, Syncopate, Krona One',
+    'Wide boxes with heavy bars and hairline stems: one side of A V W stands upright, M N W turn in round bends like bent wire, and the R loops into its leg.',
+    { weight: 0.52, width: 0.8, contrast: 0, bowlForm: 'box', bowlJoin: 'square', squareness: 1, curve: 0, apex: 0, terminalRun: 'straight',
+      diagonals: 'upright', bends: 'round', yForm: 'cup', qForm: 'inside', rForm: 'loop', kForm: 'stem', iForm: 'bars', geoHuman: 0.3,
+      xHeight: 0.62, letterSpacing: 0.16 }),
+  style('modular', 'display', ['geometric'], 'Modular', ['artistic', 'innovative', 'playful'], 'Righteous, Syne, Unbounded',
+    'Drawn on a grid with compass and ruler: perfect circles, a huge lowercase, and diagonals that turn in round bends so v w z look bent from one line.',
+    { weight: 0.72, width: 0.62, contrast: 0.5, bends: 'round', curve: 0, geoHuman: 0, story: 'single', terminalRun: 'straight', xHeight: 0.85,
+      extenders: 0.3, counter: 0.85, aperture: 0.3, letterSpacing: 0.04 }),
+  style('stadium', 'display', ['geometric'], 'Stadium', ['loud', 'vintage', 'excited'], 'Bungee, Days One, Righteous',
+    'A black 70s poster face: wide round letters with slit counters, bowls running square into their stems and M N V W bent round at the bottom.',
+    { weight: 0.85, width: 0.9, height: 0.5, contrast: 0.5, bends: 'round', bowlJoin: 'square', curve: 0, terminalRun: 'straight', apex: 1,
+      xHeight: 0.75, counter: 0, aperture: 0, letterSpacing: 0.02 })
 ];
 
 /* The style page shows solid letters only: styles built on an effect (a fill other than solid ink,
@@ -652,6 +689,9 @@ export const TERMINAL_DETAILS: Record<TerminalForm, TerminalSubKey[]> = {
 export const DOT_SUBS: Record<DotSubKey, SubControlDef> = {
   dotSize: { label: 'Size', friendly: 'Make the dots smaller or bigger', tech: 'Dot size', lo: 'Small', hi: 'Big' }
 };
+export const BOWL_SUBS: Record<BowlSubKey, SubControlDef> = {
+  boxRound: { label: 'Corners', friendly: 'Round the outside corners of box bowls tighter or wider; the inside stays square', tech: 'Box corner radius', lo: 'Sharp', hi: 'Wide' }
+};
 export const WEIGHT_SUBS: Record<WeightSubKey, SubControlDef> = {
   vWeight: { label: 'Verticals', friendly: 'Make the upright strokes lighter or heavier', tech: 'Stem weight', lo: 'Lighter', hi: 'Heavier', bipolar: true },
   hWeight: { label: 'Horizontals', friendly: 'Make the level strokes lighter or heavier', tech: 'Bar weight', lo: 'Lighter', hi: 'Heavier', bipolar: true }
@@ -669,8 +709,8 @@ export const SLICE_SUBS: Record<SliceSubKey, SubControlDef> = {
   slicePos: { label: 'Position', friendly: 'Move the cut up or down the letters', tech: 'Slice height', lo: 'Low', hi: 'High' },
   sliceRound: { label: 'Rounding', friendly: 'Round the corners the cut leaves', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
 };
-export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey | RoundSubKey | StencilSubKey | SliceSubKey, SubControlDef> =
-  { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
+export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | StencilSubKey | SliceSubKey, SubControlDef> =
+  { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
 export type FormKey = 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
@@ -766,5 +806,5 @@ export const firstControl = (cat: CategoryId) =>
 /** The control a key belongs to: serif sub-sliders fold into 'serif', the module size into 'fill',
     the stroke end length into 'terminal'. */
 export const controlFor = (key: ActiveKey): ControlKey =>
-  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in WEIGHT_SUBS ? 'weight' : key in ROUND_SUBS ? 'roundness'
+  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in BOWL_SUBS ? 'bowlForm' : key in WEIGHT_SUBS ? 'weight' : key in ROUND_SUBS ? 'roundness'
     : key in STENCIL_SUBS ? 'stencil' : key in SLICE_SUBS ? 'slice' : key as ControlKey;

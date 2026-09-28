@@ -68,7 +68,7 @@ Some letters also come in named shapes: a single- or double-storey a, with or wi
 a k whose arm and leg meet at the arm, the stem or a short bar, i and l with a flag and foot,
 square or round dots, barred I and J, A V W with one side upright, a cup-shaped Y, a Q whose tail
 runs from inside its bowl, an R whose bowl loops back into its leg, box bowls (straight sides, corners
-round outside and square inside), strokes that turn in a round bend like bent wire (A M N V W Z), and bowls and arches that curve out of their stems or run flat into them.
+round outside, from sharp to twice the stroke wide, and square inside), strokes that turn in a round bend like bent wire (A M N V W Z), and bowls and arches that curve out of their stems or run flat into them.
 Every corner has a roundness of its own, from sharp through round outside and square inside to round
 both ways: where a stroke turns, the centerline keeps a sharp corner and the outline rounds its outside
 and inside by their own radii, and the square ends of strokes round their two corners. Where one

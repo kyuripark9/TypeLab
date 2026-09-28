@@ -793,10 +793,14 @@ function markTurns(b: Builder, m: Metrics) {
 }
 
 /** Box bowls: every quarter turn (hv, vh) becomes its two straight sides meeting in a corner that
-    rounds on the outside as wide as the stroke and stays square on the inside.
+    rounds on the outside and stays square on the inside: by Box corners (boxRound), from sharp
+    through as wide as the stroke (at 0.5) to twice the stroke, as far as its sides let it (any wider and
+    the stroke would thin to under half its weight across the corner, so the inside would round too).
     A quarter drawn only in part ends on the side its drawn part runs along, as far out as its tip
     reached (as runStraight does); the tip of a hook or tail drawn more than halfway round instead
     finishes the turn, so it keeps its hook, and its mark moves with it. */
+/** The outside radius of a box bowl's corner at Box corners v, for a stroke t thick. */
+const boxOuter = (v: number, t: number) => 2 * v * t;
 function boxQuarters(b: Builder, m: Metrics) {
   for (const st of b.strokes) {
     if (!st.cmds?.some(c => c[0] === 'hv' || c[0] === 'vh')) continue;
@@ -810,7 +814,7 @@ function boxQuarters(b: Builder, m: Metrics) {
       const la = Math.hypot(corner.x - cur.x, corner.y - cur.y), lb = Math.hypot(to.x - corner.x, to.y - corner.y);
       if (la < 1 || lb < 1) { out.push(c); cur = to; continue; }
       // the corner turns round half the stroke on its centerline, less where a side is too short
-      const r = Math.min(t / 2, la, lb), total = la + lb;
+      const r = Math.min(t / 2, la, lb), total = la + lb, ro = Math.min(boxOuter(m.p.boxRound, t), Math.min(la, lb) + t / 2);
       const da = { x: (corner.x - cur.x) / la, y: (corner.y - cur.y) / la }, db = { x: (to.x - corner.x) / lb, y: (to.y - corner.y) / lb };
       const at = (s: number) => s <= la ? { x: cur.x + da.x * s, y: cur.y + da.y * s } : { x: corner.x + db.x * (s - la), y: corner.y + db.y * (s - la) };
       // where the drawn part of the quarter starts and ends along its two sides
@@ -830,7 +834,7 @@ function boxQuarters(b: Builder, m: Metrics) {
         if (start!.mark) { start!.mark.x = p.x; start!.mark.y = p.y; }
       }
       const e = at(s1);
-      if (s0 < la && s1 > la) out.push(['L', corner.x, corner.y, w], ['L', e.x, e.y, { ...w, turn: { o: r + t / 2, i: Math.max(0, r - t / 2) } }]);
+      if (s0 < la && s1 > la) out.push(['L', corner.x, corner.y, w], ['L', e.x, e.y, { ...w, turn: { o: ro, i: Math.max(0, r - t / 2) } }]);
       else out.push(['L', e.x, e.y, w]);
       if (end?.mark) { end.mark.x = e.x; end.mark.y = e.y; }
       cur = to;

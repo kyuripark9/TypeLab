@@ -117,6 +117,7 @@ export interface Params {
   /** how round the inside corners are where one stroke meets another (see joinR), from 0 sharp;
       a letter can round each of them on its own (see isCornerId) */ joinRound: number;
   /** oval or box bowls (see BOWL_FORMS) */ bowlForm: BowlForm;
+  /** box bowls: how far their corners round on the outside, from 0 sharp through one stroke wide (0.5) to two */ boxRound: number;
   /** symmetric A V W, or with one side upright (see DIAGONALS) */ diagonals: Diagonals;
   /** sharp or round turns in A M N V W Z (see BENDS); Peaks sets how wide a round one is */ bends: Bends;
   /** the shape of the Y (see Y_FORMS) */ yForm: YForm;
@@ -155,7 +156,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), innerCorners: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved', aForm: 'plain', joinRound: 0,
-  bowlForm: 'oval', diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', tail: 0.5,
+  bowlForm: 'oval', boxRound: 0.5, diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, stencilPos: 0, stencilRound: 0, slice: 0, slicePos: 0.5, sliceRound: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   letterSpacing: 0.2, wordSpacing: 0.35, sideBearing: 0.5, mono: 0,

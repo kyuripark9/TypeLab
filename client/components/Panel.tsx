@@ -3,7 +3,7 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ANATOMY, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
+  ANATOMY, BOWL_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
   SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById, styleMatches,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter
 } from '../../shared/content';
@@ -641,12 +641,13 @@ type LetterFormKey = Exclude<FormKey, 'terminalRun' | 'aForm'>;
 /** A pick between named shapes of a letter or part, each drawn by the engine. Left on auto, the
     shape the other settings give shows as chosen. */
 function FormControl({ k, parts }: { k: LetterFormKey; parts?: string[] }) {
-  const active = useEditor(s => controlFor(s.active) === k), c = CONTROLS[k];
+  const active = useEditor(s => controlFor(s.active) === k), c = CONTROLS[k], box = useParam('bowlForm') === 'box';
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl={k} {...useControlFocus(k)}>
       <CtlHead k={k} label={c.label} parts={parts} />
       <FormOptions k={k} label={c.tech} />
       {k === 'dots' && <SliderControl k="dotSize" def={DOT_SUBS.dotSize} />}
+      {k === 'bowlForm' && box && <SliderControl k="boxRound" def={BOWL_SUBS.boxRound} />}
     </div>
   );
 }
