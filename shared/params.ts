@@ -42,6 +42,8 @@ export const Q_FORMS = ['crossing', 'inside'] as const;
 export const R_FORMS = ['leg', 'loop'] as const;
 /** The spine of s, S and $: a curve running corner to corner, or level between two tight turns, like two rounded boxes stacked. */
 export const S_FORMS = ['curved', 'flat'] as const;
+/** The foot of the a: a plain stem, or a spur running out to the right along the baseline. */
+export const A_FORMS = ['plain', 'spur'] as const;
 /** Curved stroke ends: stop part way round the curve, or turn onto the nearest level or plumb line and run straight out. */
 export const TERMINAL_RUNS = ['curved', 'straight'] as const;
 export type Terminal = (typeof TERMINALS)[number];
@@ -54,6 +56,7 @@ export type KForm = (typeof K_FORMS)[number];
 export type Dots = (typeof DOTS)[number];
 export type IForm = (typeof I_FORMS)[number];
 export type SForm = (typeof S_FORMS)[number];
+export type AForm = (typeof A_FORMS)[number];
 export type TerminalRun = (typeof TERMINAL_RUNS)[number];
 export type BowlForm = (typeof BOWL_FORMS)[number];
 export type Diagonals = (typeof DIAGONALS)[number];
@@ -110,6 +113,9 @@ export interface Params {
   /** how big the dots are: 0.5 as usual */ dotSize: number;
   /** plain I i J l, or with bars (see I_FORMS) */ iForm: IForm;
   /** the spine of s (see S_FORMS) */ sForm: SForm;
+  /** the foot of the a (see A_FORMS) */ aForm: AForm;
+  /** how round the inside corners are where one stroke meets another (see joinR), from 0 sharp;
+      a letter can round each of them on its own (see isCornerId) */ joinRound: number;
   /** oval or box bowls (see BOWL_FORMS) */ bowlForm: BowlForm;
   /** symmetric A V W, or with one side upright (see DIAGONALS) */ diagonals: Diagonals;
   /** sharp or round turns in A M N V W Z (see BENDS); Peaks sets how wide a round one is */ bends: Bends;
@@ -144,7 +150,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), innerCorners: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
-  squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved',
+  squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved', aForm: 'plain', joinRound: 0,
   bowlForm: 'oval', diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, slice: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
@@ -161,8 +167,9 @@ const PARAM_KEYS = Object.keys(DEFAULTS) as (keyof Params)[];
 export const isEndId = (id: string) => /^p?\d{1,2}[se]$/.test(id);
 /** A corner's id: the index of its stroke in the glyph, then 't' and the number of the turn along the
     stroke's centerline (from 0), or the end ('s' start, 'e' end) and its side ('l' or 'r', looking
-    out of the stroke). */
-export const isCornerId = (id: string) => /^\d{1,2}(t\d{1,2}|[se][lr])$/.test(id);
+    out of the stroke), or 'j' and the number of an inside corner where it meets a later stroke of
+    the glyph (a join, from 0). */
+export const isCornerId = (id: string) => /^\d{1,2}(t\d{1,2}|j\d{1,2}|[se][lr])$/.test(id);
 /** A turn's id (see isCornerId): only a turn has an inside to round. */
 export const isTurnId = (id: string) => /^\d{1,2}t\d{1,2}$/.test(id);
 /** A stroke's id: its index in the glyph. */
@@ -220,7 +227,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
   const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, fill: FILLS, story: STORIES,
-    bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, terminalRun: TERMINAL_RUNS,
+    bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, aForm: A_FORMS, terminalRun: TERMINAL_RUNS,
     bowlForm: BOWL_FORMS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS };
   return opts[k]?.includes(v) ? v : undefined;
 }

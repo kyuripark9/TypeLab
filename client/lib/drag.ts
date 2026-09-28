@@ -143,11 +143,13 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
     case 'entry': return { x: { key: 'cursive', sign: -1, span: 600, at: grab } };
     case 'corner': {
       // pulled in toward the middle of the letter a corner rounds off, pushed out it sharpens; while
-      // customizing a letter each corner goes its own way, else Roundness rounds them all
+      // customizing a letter each corner goes its own way, else Roundness rounds them all, or Joins
+      // the inside corners where strokes meet
       const marks = g.marks.filter(k => k.type === 'corner'), k = marks[nearest(marks.map(k => ({ x0: k.x, x1: k.x, y0: k.y, y1: k.y })), grab)];
       const b = bbox(g.cmds);
       if (!k || !b) return null;
-      const d: Omit<Drive, 'sign'> = oneEnd ? { key: 'roundness', end: k.id, endKey: 'corners', base: k.v, span: 260, at: { x: k.x, y: k.y } } : { key: 'roundness', span: 260, at: { x: k.x, y: k.y } };
+      const d: Omit<Drive, 'sign'> = oneEnd ? { key: 'roundness', end: k.id, endKey: 'corners', base: k.v, span: 260, at: { x: k.x, y: k.y } }
+        : { key: k.id?.includes('j') ? 'joinRound' : 'roundness', span: 260, at: { x: k.x, y: k.y } };
       return { x: { ...d, sign: k.x < (b.x0 + b.x1) / 2 ? 1 : -1 }, y: { ...d, sign: k.y < (b.y0 + b.y1) / 2 ? 1 : -1 } };
     }
     case 'tail': case 'terminal': {

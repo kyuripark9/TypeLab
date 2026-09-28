@@ -201,11 +201,13 @@ function filletPts({ x, y, sx, sy, r }: Fillet): Pt[] {
   return pts;
 }
 
-/** Fillets moved onto the edges of the strokes they round into, where those are weighted one by
-    one: a lighter stem pulls its edge in, and the fillet with it, so no gap opens between them; a
-    heavier one pushes it out, and it rounds no further than the stroke it runs along reaches. */
+/** Fillets moved onto the edges of the strokes they round into, where those are drawn lighter or
+    heavier than the stem weight the letters reckon with (weighted one by one, or thinned by a
+    contrast turned round): a lighter stem pulls its edge in, and the fillet with it, so no gap
+    opens between them; a heavier one pushes it out, and it rounds no further than the stroke it
+    runs along reaches. */
 function weighFillets(b: Builder, m: Metrics) {
-  if (!b.strokes.some((st, si) => st.cmds && strokeWt(m, si) !== 1)) return;
+  if (Math.abs(m.tDir(0, 1) - m.s) < 0.5 && !b.strokes.some((st, si) => st.cmds && strokeWt(m, si) !== 1)) return;
   const edges: { ax: 'x' | 'y'; at: number; from: number; to: number; half: number; drawn: number; f: number }[] = [];
   b.strokes.forEach((st, si) => {
     if (!st.cmds) return;
@@ -238,7 +240,7 @@ function weighFillets(b: Builder, m: Metrics) {
       return Math.min(Math.abs(pos - (e.at + s * e.half)), Math.abs(pos - (e.at + s * e.drawn))) <= 1.5 && along >= e.from - 1 && along <= e.to + 1;
     });
     const moved = { ...fl };
-    for (const e of on) if (e.f !== 1) moved[e.ax] = fl[e.ax] + (e.ax === 'x' ? fl.sx : fl.sy) * e.drawn * (e.f - 1);
+    for (const e of on) if (e.f !== 1 || Math.abs(e.drawn - e.half) >= 0.5) moved[e.ax] = e.at + (e.ax === 'x' ? fl.sx : fl.sy) * e.drawn * e.f;
     if (moved.x === fl.x && moved.y === fl.y) continue;
     for (const e of on) {
       // along a level edge it reaches across in x, along a plumb one in y
@@ -921,6 +923,140 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
   }
 }
 
+/* ---- joins
+   Where one stroke meets another their outlines cross, and each crossing that leaves a corner
+   inside the letter (under the arm of an r, beside the crossbar of a t, in the crotch of a y) is a
+   corner too: 'j' and its number among the joins of the earlier of the two strokes. A join rounds
+   by Joins, or by a roundness its letter gives it, filled in with a fillet that runs along both
+   strokes' edges and curves across between them. */
+
+/** The radius of a join's round at roundness v, in a font with stems `s` thick: two stems at 1. */
+export const joinR = (v: number, s: number) => 2 * s * clamp(v);
+
+/** Whether q lies inside the closed polygon `poly` (even-odd). */
+function inPoly(poly: Pt[], q: Pt) {
+  let c = false;
+  for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) {
+    const a = poly[i], p = poly[k];
+    if ((a.y > q.y) !== (p.y > q.y) && q.x < (p.x - a.x) * (q.y - a.y) / (p.y - a.y) + a.x) c = !c;
+  }
+  return c;
+}
+
+/** Mark every join of a glyph's expanded strokes and return the fillets that round them. A crossing
+    counts when one wedge around it is left empty, narrower than a straight line (so not where an
+    edge only runs on flush past another, as along the top of an r); the round is as wide as the
+    edges on both sides let it be, following them as they curve. */
+function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | null)[], marks: Mark[]): Pt[][] {
+  // a stencil opens the joins up, and a wireframe shows every stroke as drawn
+  if (m.gap || m.p.fill === 'wire') return [];
+  const rings: Pt[][][] = b.strokes.map((st, si) => {
+    if (st.poly) return st.poly.length > 2 ? [st.poly] : [];
+    const ex = exps[si]?.ex;
+    if (!ex) return [];
+    return (ex.loop ? ex.contours : [st.o.clip ? clipPoly(ex.contours[0], st.o.clip) : ex.contours[0]]).filter(c => c.length > 2);
+  });
+  const boxOf = (pts: Pt[]) => pts.reduce((o, q) => ({ x0: Math.min(o.x0, q.x), x1: Math.max(o.x1, q.x), y0: Math.min(o.y0, q.y), y1: Math.max(o.y1, q.y) }),
+    { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
+  const boxes = rings.map(rs => rs.map(boxOf));
+  const inStroke = (si: number, q: Pt) => rings[si].filter((poly, k) => {
+    const bx = boxes[si][k];
+    return q.x >= bx.x0 && q.x <= bx.x1 && q.y >= bx.y0 && q.y <= bx.y1 && inPoly(poly, q);
+  }).length % 2 === 1;
+  const inked = (q: Pt, but = -1) => rings.some((_, si) => si !== but && inStroke(si, q));
+  /* From the crossing p, on edge k of ring `ring` (stroke si), along the outline one way (dir ±1)
+     for up to `want`: the points passed, stopping where it turns off by more than 50 degrees or
+     runs into another stroke. */
+  const walk = (si: number, ring: Pt[], k: number, dir: 1 | -1, p: Pt, want: number) => {
+    const n = ring.length, pts: Pt[] = [p];
+    let len = 0, at = p, i = dir > 0 ? (k + 1) % n : k, d0: Pt | null = null;
+    for (let step = 0; step < n && len < want; step++, i = (i + dir + n) % n) {
+      const q = ring[i], dx = q.x - at.x, dy = q.y - at.y, l = Math.hypot(dx, dy);
+      if (l < 1e-6) continue;
+      d0 ??= { x: dx / l, y: dy / l };
+      if ((dx * d0.x + dy * d0.y) / l < Math.cos(50 * Math.PI / 180)) break;
+      const take = Math.min(l, want - len), e = { x: at.x + dx / l * take, y: at.y + dy / l * take };
+      if (inked(e, si)) break;
+      pts.push(e); len += take; at = e;
+    }
+    return { pts, len };
+  };
+  const cut = (w: { pts: Pt[] }, d: number) => {
+    const out = [w.pts[0]];
+    let len = 0;
+    for (let i = 1; i < w.pts.length; i++) {
+      const a = w.pts[i - 1], q = w.pts[i], l = Math.hypot(q.x - a.x, q.y - a.y);
+      if (len + l >= d) { const f = l ? (d - len) / l : 0; out.push({ x: a.x + (q.x - a.x) * f, y: a.y + (q.y - a.y) * f }); return out; }
+      out.push(q); len += l;
+    }
+    return out;
+  };
+  const fillets: Pt[][] = [], count = new Map<number, number>();
+  for (let i = 0; i < b.strokes.length; i++) {
+    if (!b.strokes[i].cmds) continue;
+    const found: Pt[] = [];
+    for (let j = i + 1; j < b.strokes.length; j++) {
+      if (!b.strokes[j].cmds) continue;
+      rings[i].forEach((A, ca) => rings[j].forEach((B, cb) => {
+        const ba = boxes[i][ca], bb = boxes[j][cb];
+        if (ba.x0 > bb.x1 || bb.x0 > ba.x1 || ba.y0 > bb.y1 || bb.y0 > ba.y1) return;
+        for (let ka = 0; ka < A.length; ka++) {
+          const a0 = A[ka], a1 = A[(ka + 1) % A.length];
+          if (Math.max(a0.x, a1.x) < bb.x0 || Math.min(a0.x, a1.x) > bb.x1 || Math.max(a0.y, a1.y) < bb.y0 || Math.min(a0.y, a1.y) > bb.y1) continue;
+          for (let kb = 0; kb < B.length; kb++) {
+            const b0 = B[kb], b1 = B[(kb + 1) % B.length];
+            const rx = a1.x - a0.x, ry = a1.y - a0.y, sx = b1.x - b0.x, sy = b1.y - b0.y, den = rx * sy - ry * sx;
+            if (Math.abs(den) < 1e-9) continue;
+            const t = ((b0.x - a0.x) * sy - (b0.y - a0.y) * sx) / den, u = ((b0.x - a0.x) * ry - (b0.y - a0.y) * rx) / den;
+            if (t <= 1e-6 || t >= 1 - 1e-6 || u <= 1e-6 || u >= 1 - 1e-6) continue;
+            const p = { x: a0.x + rx * t, y: a0.y + ry * t };
+            if (found.some(q => Math.hypot(q.x - p.x, q.y - p.y) < 1.5)) continue;
+            // the four ways out of the crossing along the two edges, in order round it
+            const la = Math.hypot(rx, ry), lb = Math.hypot(sx, sy);
+            const rays = [
+              { x: rx / la, y: ry / la, si: i, ring: A, k: ka, dir: 1 as const }, { x: -rx / la, y: -ry / la, si: i, ring: A, k: ka, dir: -1 as const },
+              { x: sx / lb, y: sy / lb, si: j, ring: B, k: kb, dir: 1 as const }, { x: -sx / lb, y: -sy / lb, si: j, ring: B, k: kb, dir: -1 as const }
+            ].sort((P, Q) => Math.atan2(P.y, P.x) - Math.atan2(Q.y, Q.x));
+            const free = rays.map((r1, n) => {
+              const r2 = rays[(n + 1) % 4];
+              let span = Math.atan2(r2.y, r2.x) - Math.atan2(r1.y, r1.x);
+              if (span <= 0) span += 2 * Math.PI;
+              const bx = r1.x + r2.x, by = r1.y + r2.y, bl = Math.hypot(bx, by) || 1, e = 2 / Math.max(0.1, Math.sin(span / 2));
+              return { r1, r2, span, bis: { x: bx / bl, y: by / bl }, empty: !inked({ x: p.x + bx / bl * e, y: p.y + by / bl * e }) };
+            }).filter(w => w.empty);
+            if (free.length !== 1 || free[0].span > Math.PI - 0.05) continue;
+            found.push(p);
+            const id = `${i}j${count.get(i) ?? 0}`;
+            count.set(i, (count.get(i) ?? 0) + 1);
+            const own = m.p.corners?.[id], v = own ?? m.p.joinRound, mark: Mark = { type: 'corner', id, x: p.x, y: p.y, v };
+            marks.push(mark);
+            const R = joinR(v, m.s);
+            if (R < 0.6) continue;
+            // how far along each edge the round starts, as wide as both let it
+            const { r1, r2, span, bis } = free[0], d = R / Math.tan(span / 2);
+            const w1 = walk(r1.si, r1.ring, r1.k, r1.dir, p, d), w2 = walk(r2.si, r2.ring, r2.k, r2.dir, p, d);
+            const dd = Math.min(d, w1.len * 0.95, w2.len * 0.95);
+            if (dd < 0.6) continue;
+            const s1 = cut(w1, dd), s2 = cut(w2, dd), T1 = s1[s1.length - 1], T2 = s2[s2.length - 1];
+            const u1 = s1.length > 1 ? s1[s1.length - 2] : p, u2 = s2.length > 1 ? s2[s2.length - 2] : p;
+            const t1 = { x: T1.x - u1.x, y: T1.y - u1.y }, t2 = { x: T2.x - u2.x, y: T2.y - u2.y }, l1 = Math.hypot(t1.x, t1.y) || 1, l2 = Math.hypot(t2.x, t2.y) || 1;
+            // the round across, a quarter-circle-like curve from where it leaves one edge to where it meets the other
+            const h = (4 / 3) * Math.tan((Math.PI - span) / 4) * dd * Math.tan(span / 2);
+            const C = [T1, { x: T1.x - t1.x / l1 * h, y: T1.y - t1.y / l1 * h }, { x: T2.x - t2.x / l2 * h, y: T2.y - t2.y / l2 * h }, T2];
+            const arc = Array.from({ length: 11 }, (_, n) => { const q = cubicAt(C, n / 10); return { x: q.x, y: q.y, smooth: n > 0 && n < 10 }; });
+            // marked on the round, where the corner now is
+            Object.assign(mark, { x: arc[5].x, y: arc[5].y, home: p });
+            // it reaches a little into the strokes at the crossing, so no hairline shows between them
+            fillets.push([{ x: p.x - bis.x * 2, y: p.y - bis.y * 2, sharp: true }, ...s1.slice(1, -1).map(q => ({ ...q, smooth: true })),
+              ...arc, ...s2.slice(1, -1).reverse().map(q => ({ ...q, smooth: true }))]);
+          }
+        }
+      }));
+    }
+  }
+  return fillets;
+}
+
 /** Stretch or trim every styled terminal of a glyph (body width W) by the stroke end length, or
     by the length set for that one end, and curl the ends given a curl of their own. Ends with a
     serif keep theirs. Tails, hooks and cursive strokes are left to their own controls, so their
@@ -1064,6 +1200,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   });
   const expanded = exps.map(x => x?.ex ?? null);
   endCorners(b, m, exps, out.marks);
+  for (const poly of joinCorners(b, m, exps, out.marks)) b.strokes.push({ poly, o: { part: 'fillet' } });
   b.strokes.forEach((st, si) => {
     const o = st.o; let cmds: Cmd[] = [];
     if (st.poly) {

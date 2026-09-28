@@ -222,7 +222,7 @@ describe('font engine', () => {
     assert.ok(pts(round).filter(p => Math.abs(p.y - yTop) < 1).every(p => p.x < mid), 'the round reaches past the middle of the top');
     // the ends of E's arms and the corners of its stem show; where the stem and an arm end together
     // they are one corner, and the stem's corners along the arms are hidden
-    assert.deepEqual(ids(f('E')), ['0el', '0sr', '1el', '1er', '2el', '2er', '3el', '3er']);
+    assert.deepEqual(ids(f('E')).filter(id => !id!.includes('j')), ['0el', '0sr', '1el', '1er', '2el', '2er', '3el', '3er']);
     assert.notEqual(f('E', { '0el': 1 }).d, f('E').d);
     // the stem of T ends inside its bar, so only its foot has corners
     assert.ok(!ids(f('T')).includes('0el') && ids(f('T')).includes('0sl'));
@@ -257,6 +257,53 @@ describe('font engine', () => {
     // half a stroke across (as far as an end's corner rounds when both show) would still be square there
     assert.ok(inset(1) > 1, `rounded right round, it sweeps into the bowl (${inset(1)})`);
     assert.ok(inset(0.5) > 0.2 && inset(0.5) < inset(1));
+  });
+
+  it('rounds the inside corners where strokes meet, all by Joins or each on its own', () => {
+    const f = (ch: string, p: Partial<Params> = {}) => buildFont({ ...DEFAULTS, ...p }).glyph(ch)!;
+    const joins = (g: ReturnType<typeof f>) => g.marks.filter(k => k.type === 'corner' && k.id!.includes('j'));
+    // the crossbar of a t makes four inside corners with the stem; the bar of a T two, its top running flush
+    const t = f('t');
+    assert.deepEqual(joins(t).map(k => k.id).sort(), ['0j0', '0j1', '0j2', '0j3']);
+    assert.equal(joins(f('T')).length, 2);
+    assert.ok(joins(t).every(k => k.v === 0), 'sharp unless rounded');
+    // Joins rounds them all, filling ink into the corners
+    const all = f('t', { joinRound: 0.4 });
+    assert.notEqual(all.d, t.d);
+    assert.ok(joins(all).every(k => k.v === 0.4));
+    assert.ok(all.strokes.filter(s => s.part === 'fillet').length === 4);
+    // a letter rounds one on its own, leaving the rest sharp
+    const below = joins(t).reduce((a, k) => (k.y < a.y || (k.y === a.y && k.x > a.x) ? k : a)).id!;
+    const one = f('t', { glyphs: { t: { corners: { [below]: 0.5 } } } });
+    assert.equal(one.strokes.filter(s => s.part === 'fillet').length, 1);
+    assert.ok(joins(one).every(k => k.v === (k.id === below ? 0.5 : 0)));
+    // a stencil keeps its gaps and a wireframe its strokes as drawn
+    assert.equal(f('t', { joinRound: 0.5, stencil: 0.5 }).strokes.filter(s => s.part === 'fillet').length, 0);
+    assert.equal(sanitizeParams({ glyphs: { t: { corners: { '0j2': 0.3 } } } }).glyphs.t?.corners?.['0j2'], 0.3);
+  });
+
+  it('keeps the fillets of square joins on stems a contrast turned round draws thinner', () => {
+    // evened out, the stems draw thinner than the stem weight the letters reckon with
+    const g = buildFont({ ...DEFAULTS, bowlJoin: 'square', contrast: 0.45 }).glyph('d')!;
+    const xs = (part: string) => g.strokes.filter(s => s.part === part).flatMap(s => s.cmds.filter(c => c[0] !== 'Z').map(c => c[c.length - 2] as number));
+    const stemLeft = Math.min(...xs('stem')), filletRight = Math.max(...xs('fillet'));
+    assert.ok(filletRight > stemLeft, `the fillets reach into the stem (${filletRight} against ${stemLeft})`);
+  });
+
+  it('gives the a a spur, a square-joined bowl, and moves the crossbars of f and t', () => {
+    const f = (p: Partial<Params> = {}) => buildFont({ ...DEFAULTS, story: 'double', ...p });
+    const a = f().glyph('a')!, spur = f({ aForm: 'spur' }).glyph('a')!;
+    assert.ok(spur.strokes.some(s => s.part === 'spur') && spur.bodyW > a.bodyW, 'the spur runs out past the stem');
+    assert.ok(!f({ aForm: 'spur', serif: true }).glyph('a')!.strokes.some(s => s.part === 'spur'), 'a serif stands in for it');
+    assert.notEqual(f({ bowlJoin: 'square' }).glyph('a')!.d, a.d, 'the double-storey bowl joins square too');
+    const bar = (ch: string, crossbar: number) => {
+      const s = f({ crossbar }).glyph(ch)!.strokes.find(s => s.part === 'crossbar')!;
+      return Math.min(...s.cmds.filter(c => c[0] !== 'Z').map(c => c[c.length - 1] as number));
+    };
+    for (const ch of 'ft') {
+      assert.equal(f().glyph(ch)!.d, f({ crossbar: 0.5 }).glyph(ch)!.d);
+      assert.ok(bar(ch, 0.2) < bar(ch, 0.5) && bar(ch, 0.8) > bar(ch, 0.5), `${ch}'s crossbar follows Crossbar`);
+    }
   });
 
   it('the loop R turns its bowl back into the leg short of the stem', () => {

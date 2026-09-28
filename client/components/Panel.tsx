@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import {
   ANATOMY, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
-  SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, WEIGHT_SUBS, controlFor, styleById, styleMatches,
+  SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById, styleMatches,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter
 } from '../../shared/content';
 import { TERMINAL_FORMS, formOf, isGlyphKey, type NumericParam, type Params } from '../../shared/params';
@@ -151,7 +151,14 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'story') return <StoryControl parts={parts} />;
   if (c.type === 'form') return <FormControl k={k as LetterFormKey} parts={parts} />;
-  if (k === 'roundness') return <SliderControl k={k} def={c} parts={parts}><EachCorner /></SliderControl>;
+  if (k === 'roundness') {
+    return (
+      <SliderControl k={k} def={c} parts={parts}>
+        <SliderControl k="joinRound" def={ROUND_SUBS.joinRound} />
+        <EachCorner />
+      </SliderControl>
+    );
+  }
   if (k === 'weight') {
     return (
       <SliderControl k={k} def={c} parts={parts}>
@@ -597,11 +604,13 @@ function StoryControl({ parts }: { parts?: string[] }) {
           </button>
         ))}
       </div>
+      <div className="sub-label">Foot</div>
+      <FormOptions k="aForm" label="Foot of the a" />
     </div>
   );
 }
 
-type LetterFormKey = Exclude<FormKey, 'terminalRun'>;
+type LetterFormKey = Exclude<FormKey, 'terminalRun' | 'aForm'>;
 
 /** A pick between named shapes of a letter or part, each drawn by the engine. Left on auto, the
     shape the other settings give shows as chosen. */

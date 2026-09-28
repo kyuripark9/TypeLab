@@ -67,8 +67,9 @@ function branchBowl(g: Builder, m: Metrics, xStem: number, xFar: number, yT: num
     // flat, so it sits on the x-height and baseline like the stem instead of overshooting them
     const t = yT - m.os, b = yB + m.os, rx = Math.max(0, Math.min(Math.abs(xFar - xStem) - m.s * 0.25, (t - b) / 2)), xa = xFar - dir * rx;
     g.path([['M', xStem, t], ['L', xa, t], ['hv', xFar, cy], ['vh', xa, b], ['L', xStem, b]], { s: J, e: J, part: 'bowl', counter: true, ...o });
-    // inside, the counter rounds into the stem nearly as fully as on its far side
-    const xi = xStem + dir * m.s / 2, ri = 0.9 * Math.min(rx - m.s / 2, Math.abs(xa - xi));
+    // inside, the counter rounds into the stem as fully as on its far side, so a round bowl's
+    // counter can close into a circle; a box bowl's, square on its far side, nearly as fully
+    const xi = xStem + dir * m.s / 2, ri = (m.p.bowlForm === 'box' ? 0.9 : 1) * Math.min(rx - m.s / 2, Math.abs(xa - xi));
     fillet(g, m, xi, t - m.hT / 2, dir, -1, ri);
     fillet(g, m, xi, b + m.hT / 2, dir, 1, ri);
     return;
@@ -655,6 +656,16 @@ def('Z', [0.4, 0.4], (g, m) => { const W = m.W(530); zed(g, m, W, m.cap); return
 
 const lc = (m: Metrics) => ({ X: m.xh, hs: m.s / 2, hh: m.hT / 2, yt: m.xh + m.os - m.hT / 2, yb: -m.os + m.hT / 2 });
 
+/** How far the spur of an a (see A_FORMS) reaches out past its stem; 0 when it has none: with
+    serifs the stem's foot serif stands in for it, and a cursive a has an exit stroke instead. */
+const spurOf = (m: Metrics) => (m.p.aForm === 'spur' && !m.serif && !hookR(m) ? m.s * 0.55 : 0);
+/** The spur of an a whose stem stands at x: a short bar out to the right along the baseline. */
+function spur(g: Builder, m: Metrics, x: number) {
+  const d = spurOf(m);
+  if (d) g.line(x, m.hT / 2, x + m.s / 2 + d, m.hT / 2, { s: J, part: 'spur' });
+  return d;
+}
+
 def('a', [0.6, 0.9], (g, m) => {
   const { X, hs, yt, yb } = lc(m), W = m.W(450, 'r'), xr = W - hs, xl = hs, ra = X * 0.34;
   const cxa = (xl + xr) / 2 + W * 0.02;
@@ -662,16 +673,19 @@ def('a', [0.6, 0.9], (g, m) => {
   g.path([['M', xr, 0], ['L', xr, X - ra], ['vh', cxa, yt], ['hv', xl + W * 0.05, X - ra, { u1: lerp(0.85, 0.5, m.ap) }]],
     { e: T, part: 'stem', serifS: r ? null : 'b' });
   if (r) footStem(g, m, xr, X * 0.5);
-  const bt = X * 0.57, cxb = (xl + xr) / 2 + W * 0.04, bcy = (bt + yb) / 2;
-  g.path([['M', xr, bt], ['L', cxb, bt], ['hv', xl, bcy], ['vh', cxb, yb], ['hv', xr, bcy + X * 0.04]], { s: J, e: J, we: 0.7, part: 'bowl', counter: true });
-  return W;
-}, { params: ['story', 'aperture', 'counter', 'terminal', 'xHeight'] });
+  // the bowl's top is the a's waist, and Crossbar moves it like the bar of an e
+  const bt = X * (0.57 + (m.bar - 0.5) * 0.3), cxb = (xl + xr) / 2 + W * 0.04, bcy = (bt + yb) / 2;
+  // square-joined, the bowl is a D whose flat top and bottom run straight into the stem
+  if (m.p.bowlJoin === 'square') branchBowl(g, m, xr, xl, bt + m.os, yb);
+  else g.path([['M', xr, bt], ['L', cxb, bt], ['hv', xl, bcy], ['vh', cxb, yb], ['hv', xr, bcy + X * 0.04]], { s: J, e: J, we: 0.7, part: 'bowl', counter: true });
+  return W + spur(g, m, xr);
+}, { params: ['story', 'bowlJoin', 'crossbar', 'aperture', 'counter', 'terminal', 'xHeight'] });
 
 def('a.alt', [0.55, 1], (g, m) => {
   const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r') + bowlGap(m);
   footStem(g, m, W - hs, X, { serifS: 'b' });
   branchBowl(g, m, W - hs, hs, yt, yb);
-  return W;
+  return W + spur(g, m, W - hs);
 }, { params: ['story', 'bowlJoin', 'overlap', 'counter', 'curve', 'xHeight'] });
 
 def('b', [1, 0.55], (g, m) => {
@@ -694,12 +708,14 @@ def('e', [0.55, 0.5], (g, m) => {
   g.counter([[xl, by], [xl + W * 0.06, X * 0.8], [cx, yt], [xr - W * 0.06, X * 0.8], [xr, by]]);
   return W;
 }, { params: ['crossbar', 'aperture', 'terminal', 'xHeight'] });
+/** How far Crossbar moves the crossbars of f and t off the x-height: not at all at the middle. */
+const fBar = (m: Metrics) => (m.bar - 0.5) * m.xh * 0.5;
 def('f', [0.35, 0.1], (g, m) => {
   const { X, hh } = lc(m), W = m.W(310), xs = W * 0.36, top = m.asc + m.os - hh, r = (W - xs) * 1.05, xh = xs + r * hookK(m);
   g.path([['M', xs, 0], ['L', xs, top - r * 0.9], ['vh', xh, top, { u1: hookU(m, 0.8) }]], { e: T, part: 'stem', serifS: 'both' });
   const e = m.qpt(xs, top - r * 0.9, xh, top, 'vh', hookU(m, 0.8));
   tailEnd(g, e.x, e.y, W);
-  g.line(0, X - hh, W * 0.92, X - hh, { s: T, e: T, part: 'crossbar' });
+  g.line(0, X - hh + fBar(m), W * 0.92, X - hh + fBar(m), { s: T, e: T, part: 'crossbar' });
   // a longer hook takes its extra reach with it, so the next letter doesn't run into it
   return W + r * (hookK(m) - 1);
 });
@@ -727,7 +743,7 @@ def('f.cur', [0.2, 0.1], (g, m) => {
   const et = m.qpt(xt, top, xs, top - r * 0.9, 'hv', 1 - u), eb = m.qpt(xs, db + rb * 0.9, xb, db, 'vh', u);
   tailEnd(g, et.x, et.y, W);
   tailEnd(g, eb.x, eb.y, W);
-  g.line(W * 0.05, X - hh, W * 0.95, X - hh, { s: T, e: T, part: 'crossbar' });
+  g.line(W * 0.05, X - hh + fBar(m), W * 0.95, X - hh + fBar(m), { s: T, e: T, part: 'crossbar' });
   return W;
 });
 /** Fill the crotch below a circle (centre cx, cy, outer radius R) where it meets the right-hand
@@ -858,7 +874,7 @@ def('t', [0.3, 0.3], (g, m) => {
   const u = hookU(m, 0.5), e = m.qpt(xm, yb, xs + hw, ry, 'hv', u);
   g.path([['M', xs, X + (m.asc - X) * 0.62], ['L', xs, ry], ['vh', xm, yb], ['hv', xs + hw, ry, { u1: u }]], { e: T, part: 'stem' });
   tailEnd(g, e.x, e.y, W);
-  g.line(0, X - hh, W * 0.95, X - hh, { s: T, e: T, part: 'crossbar' });
+  g.line(0, X - hh + fBar(m), W * 0.95, X - hh + fBar(m), { s: T, e: T, part: 'crossbar' });
   return W + (W - xs) * (hookK(m) - 1);
 });
 def('u', [1, 1], (g, m) => {

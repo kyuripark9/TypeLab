@@ -1,7 +1,7 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
 import { resolve, type Effective } from './engine/font';
-import { DEFAULTS, type Bends, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifShape, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
+import { DEFAULTS, type AForm, type Bends, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifShape, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
 
 export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality' | 'effects';
 export type ControlKey =
@@ -17,7 +17,8 @@ export type TerminalSubKey = 'terminalLength' | 'terminalCurl' | 'terminalFlare'
 /** Anything the control panel can focus: a control or one of its nested sub-sliders. */
 export type DotSubKey = 'dotSize';
 export type WeightSubKey = 'vWeight' | 'hWeight';
-export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey;
+export type RoundSubKey = 'joinRound';
+export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey | RoundSubKey;
 
 export interface ControlDef {
   cat: Exclude<CategoryId, 'style'>;
@@ -520,7 +521,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Above the middle the horizontals thin out while the stems stay heavy; below it the stems thin out under heavy horizontals.' },
 
   roundness: { cat: 'shape', label: 'Roundness', friendly: 'Make the letters softer or sharper', tech: 'Roundness', lo: 'Sharp', hi: 'Round', demo: 'Ek',
-    explain: 'Corners and stroke ends round off. Customize a letter to round or sharpen each corner on its own.' },
+    explain: 'Corners and stroke ends round off; Joins rounds where strokes meet.' },
   curve: { cat: 'shape', label: 'Curves', friendly: 'Make curves more geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
     explain: 'Compass-drawn circles, or fuller pen-like curves.' },
   squareness: { cat: 'shape', off: 0, label: 'Squareness', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',
@@ -532,7 +533,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   terminal: { cat: 'shape', type: 'options', label: 'Stroke ends', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
     explain: 'The free tips of strokes, as on C, a, s and r: their shape, which way they run and how far they reach.' },
   story: { cat: 'shape', type: 'story', label: 'Letter a', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
-    explain: 'Two-storey like book type, or one bowl like handwriting.' },
+    explain: 'Two-storey like book type, or one bowl like handwriting. Its foot can run out in a spur along the baseline.' },
   gForm: { cat: 'shape', type: 'form', label: 'Letter g', friendly: 'Choose the shape of the g', tech: 'Single-storey g', demo: 'gag',
     explain: 'The tail hooks back under the bowl, or drops from its left side and hooks out to the right.' },
   kForm: { cat: 'shape', type: 'form', label: 'Letter k', friendly: 'Choose where the arm and leg of k meet', tech: 'k and K junction', demo: 'kK',
@@ -550,7 +551,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   rForm: { cat: 'shape', type: 'form', label: 'Letter R', friendly: 'Choose how the leg of R leaves the bowl', tech: 'R leg', demo: 'RP',
     explain: 'The leg runs down from the bowl, or the bowl\u2019s lower bar stops short of the stem and loops back round into the leg.' },
   bowlJoin: { cat: 'shape', type: 'form', label: 'Joins', friendly: 'Curve bowls and arches out of their stems or run them in flat', tech: 'Bowl & shoulder joins', demo: 'dnu',
-    explain: 'Square joins meet the stem in a flat top or bottom, like a D. Applies to b d p q g, n m h r u and the single-storey a.' },
+    explain: 'Square joins meet the stem in a flat top or bottom, like a D. Applies to b d p q g, n m h r u and a.' },
   overlap: { cat: 'shape', off: 1, label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
     explain: 'Applies to b, d, p, q and the single-storey a.' },
   dots: { cat: 'shape', type: 'form', label: 'Dots', friendly: 'Make the dots square or round', tech: 'Tittles & periods', demo: 'ij.!',
@@ -581,7 +582,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   aperture: { cat: 'proportion', label: 'Openness', friendly: 'Open or close the mouths of letters', tech: 'Aperture', lo: 'Closed', hi: 'Open', demo: 'ces',
     explain: 'Open mouths on c, e and s stay readable when small.' },
   crossbar: { cat: 'proportion', label: 'Crossbar height', friendly: 'Move the horizontal bars up or down', tech: 'Crossbar', lo: 'Low', hi: 'High', demo: 'AHe',
-    explain: 'The bars in A, H and e, and the waist of B, E, R.' },
+    explain: 'The bars in A, H and e, the waist of B, E, R, and the crossbars of f and t, and the top of the a\u2019s bowl.' },
 
   letterSpacing: { cat: 'spacing', label: 'Letter spacing', friendly: 'Add or remove space between letters', tech: 'Letter spacing · Tracking', lo: 'Tight', hi: 'Open', demo: 'type',
     explain: 'The same gap changes between every pair of letters.' },
@@ -652,10 +653,13 @@ export const WEIGHT_SUBS: Record<WeightSubKey, SubControlDef> = {
   vWeight: { label: 'Verticals', friendly: 'Make the upright strokes lighter or heavier', tech: 'Stem weight', lo: 'Lighter', hi: 'Heavier', bipolar: true },
   hWeight: { label: 'Horizontals', friendly: 'Make the level strokes lighter or heavier', tech: 'Bar weight', lo: 'Lighter', hi: 'Heavier', bipolar: true }
 };
-export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...WEIGHT_SUBS };
+export const ROUND_SUBS: Record<RoundSubKey, SubControlDef> = {
+  joinRound: { label: 'Joins', friendly: 'Round the inside corners where one stroke meets another', tech: 'Fillets', lo: 'Sharp', hi: 'Round' }
+};
+export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey | RoundSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
-export type FormKey = 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun';
+export type FormKey = 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
 export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Params[K], 'auto'>, string][] } } = {
   gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored']] as [GForm, string][] },
   kForm: { ch: 'k', options: [['arm', 'From arm'], ['stem', 'From stem'], ['bar', 'On a bar']] as [KForm, string][] },
@@ -669,7 +673,8 @@ export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Par
   bends: { ch: 'N', options: [['sharp', 'Sharp'], ['round', 'Round']] as [Bends, string][] },
   terminalRun: { ch: 'c', options: [['curved', 'Curved'], ['straight', 'Straight']] as [TerminalRun, string][] },
   bowlJoin: { ch: 'd', options: [['curved', 'Curved'], ['square', 'Square']] as [BowlJoin, string][] },
-  dots: { ch: 'i', options: [['square', 'Square'], ['round', 'Round']] as [Exclude<Dots, 'auto'>, string][] }
+  dots: { ch: 'i', options: [['square', 'Square'], ['round', 'Round']] as [Exclude<Dots, 'auto'>, string][] },
+  aForm: { ch: 'a', options: [['plain', 'Plain'], ['spur', 'Spur']] as [AForm, string][] }
 };
 export const FILL_OPTIONS: [Fill, string][] = [['solid', 'Solid'], ['wire', 'Wireframe'], ['pixels', 'Pixels'], ['dots', 'Dots'], ['lines', 'Lines']];
 export const TERMINAL_OPTIONS: [Terminal, string][] = [['flat', 'Flat'], ['round', 'Rounded'], ['sharp', 'Sharp'], ['angled', 'Angled'], ['cut', 'Cut'], ['tapered', 'Tapered']];
@@ -747,4 +752,4 @@ export const firstControl = (cat: CategoryId) =>
 /** The control a key belongs to: serif sub-sliders fold into 'serif', the module size into 'fill',
     the stroke end length into 'terminal'. */
 export const controlFor = (key: ActiveKey): ControlKey =>
-  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in WEIGHT_SUBS ? 'weight' : key as ControlKey;
+  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in WEIGHT_SUBS ? 'weight' : key in ROUND_SUBS ? 'roundness' : key as ControlKey;
