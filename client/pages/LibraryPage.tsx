@@ -54,7 +54,7 @@ export function LibraryPage() {
   return (
     <div className="library">
       <header className="top">
-        <div className="top-left"><Brand to={openId ? `/d/${openId}` : '/'} /></div>
+        <div className="top-left"><Brand to={openId ? `/d/${openId}` : '/'} title="Back to the editor" /></div>
         <div className="top-actions">
           <button className="btn primary" onClick={startNew}><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>New design</button>
         </div>

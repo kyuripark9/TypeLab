@@ -5,10 +5,9 @@ import { sanitizeParams } from '../../shared/params';
 import { api, download, errorMessage } from '../lib/api';
 import { actions, isDirty, useEditor } from '../state/editor';
 
-/** Logo; a link back to the editor when `to` is given. */
-export function Brand({ to }: { to?: string }) {
-  const inner = <span className="brand-name">TypeLab</span>;
-  return to ? <Link to={to} className="brand" title="Back to the editor">{inner}</Link> : <div className="brand">{inner}</div>;
+/** Logo, linking to `to`. */
+export function Brand({ to, title }: { to: string; title: string }) {
+  return <Link to={to} className="brand" title={title}><span className="brand-name">TypeLab</span></Link>;
 }
 
 export function Header({ onSave, onGuide }: { onSave: () => void; onGuide: () => void }) {
@@ -17,7 +16,7 @@ export function Header({ onSave, onGuide }: { onSave: () => void; onGuide: () =>
   return (
     <header className="top">
       <div className="top-left">
-        <Brand />
+        <Brand to="/" title="Start a new design" />
         <input className="doc-name" value={name} maxLength={NAME_MAX} aria-label="Font name" spellCheck={false}
           onChange={e => actions.setName(e.target.value)}
           onBlur={() => actions.setName(cleanName(name))}
