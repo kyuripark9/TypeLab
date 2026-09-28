@@ -45,26 +45,27 @@ export interface ControlDef {
 }
 export interface SubControlDef { label: string; friendly: string; tech: string; lo: string; hi: string; bipolar?: boolean }
 
-/* Starting styles are browsed like the tag filters on Google Fonts, in five sections: Feeling,
-   Appearance, then the classification tags of Calligraphy, Serif and Sans Serif. The group only
-   lays out the cards on the stage; the filters use the tags. */
+/* Starting styles are browsed like the tag filters on Google Fonts. The group is a style's
+   Category: it sorts the cards on the stage and is the first filter, so every heading over the
+   cards is also a filter. Then come the finer Classification tags (Sans Serif, Serif and
+   Calligraphy, in the order of the card groups), Appearance and Feeling. */
 export type StyleGroup = 'sans' | 'serif' | 'slab' | 'mono' | 'hand' | 'display';
 export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string }[] = [
   { id: 'sans', label: 'Sans Serif', hint: 'Clean letters with no serifs' },
   { id: 'serif', label: 'Serif', hint: 'Small finishing strokes on each letter' },
   { id: 'slab', label: 'Slab Serif', hint: 'Heavy, block-shaped serifs' },
   { id: 'mono', label: 'Monospace', hint: 'Every letter takes the same width' },
-  { id: 'hand', label: 'Handwriting', hint: 'Drawn by hand with a pen or brush' },
+  { id: 'hand', label: 'Calligraphy', hint: 'Drawn by hand with a pen or brush' },
   { id: 'display', label: 'Display', hint: 'Decorative, made for headlines' }
 ];
 export type Mood = 'business' | 'calm' | 'sincere' | 'happy' | 'excited' | 'playful' | 'cute' | 'childlike' | 'fancy' | 'sophisticated'
   | 'artistic' | 'innovative' | 'loud' | 'rugged' | 'stiff' | 'vintage' | 'futuristic';
-/* Each style's moods follow the Google Fonts Feeling scores of its reference families, listed in Google's order. */
+/* Each style's moods follow the Google Fonts Feeling scores of its reference families. Listed A to Z,
+   so a mood is quick to find among the seventeen. */
 export const MOODS: { id: Mood; label: string }[] = ([
-  ['business', 'Business'], ['calm', 'Calm'], ['cute', 'Cute'], ['playful', 'Playful'], ['fancy', 'Fancy'], ['stiff', 'Stiff'],
-  ['vintage', 'Vintage'], ['happy', 'Happy'], ['futuristic', 'Futuristic'], ['excited', 'Excited'], ['rugged', 'Rugged'],
-  ['childlike', 'Childlike'], ['loud', 'Loud'], ['artistic', 'Artistic'], ['sophisticated', 'Sophisticated'], ['innovative', 'Innovative'],
-  ['sincere', 'Sincere']
+  ['artistic', 'Artistic'], ['business', 'Business'], ['calm', 'Calm'], ['childlike', 'Childlike'], ['cute', 'Cute'], ['excited', 'Excited'],
+  ['fancy', 'Fancy'], ['futuristic', 'Futuristic'], ['happy', 'Happy'], ['innovative', 'Innovative'], ['loud', 'Loud'], ['playful', 'Playful'],
+  ['rugged', 'Rugged'], ['sincere', 'Sincere'], ['sophisticated', 'Sophisticated'], ['stiff', 'Stiff'], ['vintage', 'Vintage']
 ] as [Mood, string][]).map(([id, label]) => ({ id, label }));
 
 /* Appearance, like Google's tags of that name: what the letters look like. Unlike the other
@@ -83,15 +84,35 @@ export const LOOKS: { id: Look; label: string; hint: string; test: (e: Effective
   { id: 'narrow', label: 'Narrow', hint: 'Squeezed tall and thin', test: e => e.width <= 0.35 }
 ];
 
-/* Classification, like Google's Calligraphy, Serif and Sans Serif tags: the genre a style is
-   drawn in. Hand-picked, and a style may carry more than one (a Clarendon is also a Slab).
-   Together they are one facet, so picking Didone and Geometric shows both. */
+/* Classification, like Google's Sans Serif, Serif and Calligraphy tags: the genre a style is
+   drawn in, finer than its Category. Hand-picked, and a style may carry more than one (a
+   Clarendon is also a Slab). Together they are one facet, so picking Didone and Geometric shows both. */
 export type Kind = 'handwritten' | 'upright' | 'informal' | 'formal' | 'brush' | 'marker' | 'swash' | 'italic' | 'monoline' | 'signature' | 'blackletter'
   | 'venetian' | 'oldstyle' | 'transitional' | 'didone' | 'fatface' | 'wedge' | 'slab' | 'clarendon'
   | 'geometric' | 'neogrotesque' | 'grotesque' | 'humanist' | 'rounded' | 'superellipse' | 'flared';
 type TagDef<T> = { id: T; label: string; hint: string };
-export const KIND_SECTIONS: { id: string; label: string; tags: TagDef<Kind>[] }[] = [
-  { id: 'calligraphy', label: 'Calligraphy', tags: [
+/** Each section also names the Categories whose finer genres it holds. */
+export const KIND_SECTIONS: { id: string; label: string; groups: StyleGroup[]; tags: TagDef<Kind>[] }[] = [
+  { id: 'sans', label: 'Sans Serif', groups: ['sans'], tags: [
+    { id: 'geometric', label: 'Geometric', hint: 'Built from circles and straight lines' },
+    { id: 'neogrotesque', label: 'Neo Grotesque', hint: 'Neutral and even, like Helvetica' },
+    { id: 'grotesque', label: 'Grotesque', hint: 'Early sans serifs, dense and gritty' },
+    { id: 'humanist', label: 'Humanist', hint: 'Shaped like writing with a pen' },
+    { id: 'rounded', label: 'Rounded', hint: 'Soft corners and stroke endings' },
+    { id: 'superellipse', label: 'Superellipse', hint: 'Bowls halfway between a circle and a square' },
+    { id: 'flared', label: 'Flared', hint: 'Strokes swell toward their ends (Google: Glyphic)' }
+  ] },
+  { id: 'serif', label: 'Serif', groups: ['serif', 'slab'], tags: [
+    { id: 'venetian', label: 'Venetian', hint: 'The first roman type: dark, low contrast, sloped serifs' },
+    { id: 'oldstyle', label: 'Old Style', hint: 'Renaissance book type with angled stress' },
+    { id: 'transitional', label: 'Transitional', hint: 'Crisp serifs and upright stress' },
+    { id: 'didone', label: 'Didone', hint: 'Extreme contrast and hairline serifs' },
+    { id: 'fatface', label: 'Fat Face', hint: 'A Didone as heavy as it goes' },
+    { id: 'wedge', label: 'Wedge', hint: 'Triangular, chisel-cut serifs' },
+    { id: 'slab', label: 'Slab', hint: 'Heavy, block-shaped serifs' },
+    { id: 'clarendon', label: 'Clarendon', hint: 'A slab with soft, bracketed serifs' }
+  ] },
+  { id: 'calligraphy', label: 'Calligraphy', groups: ['hand'], tags: [
     { id: 'handwritten', label: 'Handwritten', hint: 'Everyday writing with a pen' },
     { id: 'upright', label: 'Upright', hint: 'Handwriting that stands up straight' },
     { id: 'informal', label: 'Informal', hint: 'Loose, lively and slanted' },
@@ -103,25 +124,6 @@ export const KIND_SECTIONS: { id: string; label: string; tags: TagDef<Kind>[] }[
     { id: 'monoline', label: 'Monoline', hint: 'An even pen line with no thick and thin' },
     { id: 'signature', label: 'Signature', hint: 'Fast, loose and tall, like signing your name' },
     { id: 'blackletter', label: 'Blackletter', hint: 'Dense, broken Gothic strokes from a broad pen' }
-  ] },
-  { id: 'serif', label: 'Serif', tags: [
-    { id: 'venetian', label: 'Venetian', hint: 'The first roman type: dark, low contrast, sloped serifs' },
-    { id: 'oldstyle', label: 'Old Style', hint: 'Renaissance book type with angled stress' },
-    { id: 'transitional', label: 'Transitional', hint: 'Crisp serifs and upright stress' },
-    { id: 'didone', label: 'Didone', hint: 'Extreme contrast and hairline serifs' },
-    { id: 'fatface', label: 'Fat Face', hint: 'A Didone as heavy as it goes' },
-    { id: 'wedge', label: 'Wedge', hint: 'Triangular, chisel-cut serifs' },
-    { id: 'slab', label: 'Slab', hint: 'Heavy, block-shaped serifs' },
-    { id: 'clarendon', label: 'Clarendon', hint: 'A slab with soft, bracketed serifs' }
-  ] },
-  { id: 'sans', label: 'Sans Serif', tags: [
-    { id: 'geometric', label: 'Geometric', hint: 'Built from circles and straight lines' },
-    { id: 'neogrotesque', label: 'Neo Grotesque', hint: 'Neutral and even, like Helvetica' },
-    { id: 'grotesque', label: 'Grotesque', hint: 'Early sans serifs, dense and gritty' },
-    { id: 'humanist', label: 'Humanist', hint: 'Shaped like writing with a pen' },
-    { id: 'rounded', label: 'Rounded', hint: 'Soft corners and stroke endings' },
-    { id: 'superellipse', label: 'Superellipse', hint: 'Bowls halfway between a circle and a square' },
-    { id: 'flared', label: 'Flared', hint: 'Strokes swell toward their ends (Google: Glyphic)' }
   ] }
 ];
 
@@ -534,8 +536,9 @@ export const STYLES: StyleDef[] = [
    stencil gaps or a slice) stay defined, so designs saved from them still open, but get no card. */
 const isSolid = (p: Params) => p.fill === 'solid' && !p.stencil && !p.slice;
 export const PAGE_STYLES = STYLES.filter(s => isSolid(s.params));
-/** Appearance tags that some card on the style page carries. */
-export const PAGE_LOOKS = LOOKS.filter(l => PAGE_STYLES.some(s => s.looks.includes(l.id)));
+/** Appearance tags that some card on the style page carries. Monospace is left out: there it
+    picks the same cards as the Monospace Category. */
+export const PAGE_LOOKS = LOOKS.filter(l => l.id !== 'mono' && PAGE_STYLES.some(s => s.looks.includes(l.id)));
 
 export const CATEGORIES: { id: CategoryId; label: string }[] = [
   { id: 'style', label: 'Style' },
@@ -779,14 +782,15 @@ export const TEXTS = {
 
 export const styleById = (id: string | null | undefined) => STYLES.find(s => s.id === id);
 /** The picked tags of each facet; an empty list means no filter on that facet. */
-export interface StyleFilter { moods: Mood[]; looks: Look[]; kinds: Kind[] }
+export interface StyleFilter { groups: StyleGroup[]; kinds: Kind[]; looks: Look[]; moods: Mood[] }
 /** Faceted like Google Fonts: any of the picked tags within a facet, every facet at once. */
 export const styleMatches = (s: StyleDef, f: StyleFilter) =>
-  (!f.moods.length || s.moods.some(m => f.moods.includes(m))) && (!f.looks.length || s.looks.some(l => f.looks.includes(l))) &&
+  (!f.groups.length || f.groups.includes(s.group)) && (!f.moods.length || s.moods.some(m => f.moods.includes(m))) && (!f.looks.length || s.looks.some(l => f.looks.includes(l))) &&
   (!f.kinds.length || s.kinds.some(k => f.kinds.includes(k)));
 
 /** The starting style each filter tag is set in: one that carries the tag. */
-export const TAG_FACE: Record<Mood | Look | Kind, string> = {
+export const TAG_FACE: Record<StyleGroup | Mood | Look | Kind, string> = {
+  sans: 'grotesque', serif: 'oldstyle', hand: 'casual', display: 'display',
   business: 'grotesque', calm: 'humanist', happy: 'soft', playful: 'display', cute: 'upright', childlike: 'casual',
   fancy: 'didone', sophisticated: 'chancery', artistic: 'brush', loud: 'fatface', rugged: 'marker', vintage: 'typewriter',
   futuristic: 'techno', sincere: 'clarendon', excited: 'marker', innovative: 'squircle', stiff: 'code',

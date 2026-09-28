@@ -3,9 +3,9 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ANATOMY, BOWL_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
+  ANATOMY, BOWL_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
   SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById, styleMatches,
-  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter
+  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type StyleGroup
 } from '../../shared/content';
 import { TERMINAL_FORMS, formOf, isGlyphKey, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
@@ -18,74 +18,98 @@ import { ScopeIcon, letterControls } from './Inspector';
 export function Panel() {
   const category = useEditor(s => s.category), customizing = useEditor(s => !!letterOf(s));
   return (
-    <aside className={customizing ? 'panel customizing' : 'panel'} aria-label="Controls" data-guide="panel" onPointerLeave={() => { actions.setHot(false); actions.setPart(null); }}>
+    <aside className={customizing ? 'panel customizing' : 'panel'} aria-label={category === 'style' ? 'Filters' : 'Controls'} data-guide="panel"
+      onPointerLeave={() => { actions.setHot(false); actions.setPart(null); }}>
       {category === 'style' ? <StyleFilters /> : <ControlsPanel category={category} />}
     </aside>
   );
 }
 
-/** Style page: filter the starting styles by tag, in the sections of the Google Fonts filters. */
+/** The Filters heading; the stage's "Skip to filters" and clearing the filters move focus here. */
+export const FILTERS_TITLE = 'filters-title';
+export const focusFilters = () => document.getElementById(FILTERS_TITLE)?.focus();
+
+/** Style page: filter the starting styles by tag, in the sections of the Google Fonts filters.
+    Category comes first and matches the headings over the cards; the Classification sections
+    after it hold the finer genres of each category and together make one facet. */
 function StyleFilters() {
-  const f: StyleFilter = { moods: useEditor(s => s.moods), looks: useEditor(s => s.looks), kinds: useEditor(s => s.kinds) };
+  const f: StyleFilter = { groups: useEditor(s => s.groups), kinds: useEditor(s => s.kinds), looks: useEditor(s => s.looks), moods: useEditor(s => s.moods) };
+  const current = useEditor(s => styleById(s.styleId));
   // each tag's count is what picking it would show, given the other facets
   const count = (pick: Partial<StyleFilter>) => PAGE_STYLES.filter(s => styleMatches(s, { ...f, ...pick })).length;
-  const picked = f.moods.length + f.looks.length + f.kinds.length > 0;
+  const picked = f.groups.length + f.kinds.length + f.looks.length + f.moods.length > 0;
+  // the Classification sections start folded, except one that holds a picked tag or Category, or else the current style
+  const relevant = (sec: (typeof KIND_SECTIONS)[number]) => sec.tags.some(t => f.kinds.includes(t.id)) ||
+    (f.groups.length ? sec.groups.some(g => f.groups.includes(g)) : sec.tags.some(t => !!current?.kinds.includes(t.id)));
   return (
     <div className="panel-pad filters">
       <div className="filters-head">
-        <h2 className="panel-title">Filters</h2>
-        {picked && <button className="btn ghost small" onClick={actions.clearFilters}>Clear</button>}
+        <h2 className="panel-title" id={FILTERS_TITLE} tabIndex={-1}>Filters</h2>
+        {/* the button leaves once pressed, so focus goes back to the heading rather than the page */}
+        {picked && <button className="btn ghost small" aria-label="Clear filters" onClick={() => { actions.clearFilters(); focusFilters(); }}>Clear</button>}
       </div>
-      <ChipFacet id="feeling" label="Feeling" tags={MOODS} picked={f.moods} count={m => count({ moods: [m] })} toggle={actions.toggleMood} />
+      <ChipFacet id="category" label="Category" tags={STYLE_GROUPS} picked={f.groups} count={g => count({ groups: [g] })} toggle={actions.toggleGroup} />
+      <div className="facet facet-set" role="group" aria-labelledby="f-classification">
+        <h3 className="facet-label" id="f-classification">Classification</h3>
+        {KIND_SECTIONS.map(sec => (
+          <ChipFacet key={sec.id} id={sec.id} label={sec.label} level={4} startClosed={!relevant(sec)}
+            tags={sec.tags} picked={f.kinds} count={k => count({ kinds: [k] })} toggle={actions.toggleKind} />
+        ))}
+      </div>
       <ChipFacet id="appearance" label="Appearance" tags={PAGE_LOOKS} picked={f.looks} count={l => count({ looks: [l] })} toggle={actions.toggleLook} />
-      {KIND_SECTIONS.map(sec => (
-        <ChipFacet key={sec.id} id={sec.id} label={sec.label} tags={sec.tags} picked={f.kinds} count={k => count({ kinds: [k] })} toggle={actions.toggleKind} />
-      ))}
+      <ChipFacet id="feeling" label="Feeling" tags={MOODS} picked={f.moods} count={m => count({ moods: [m] })} toggle={actions.toggleMood} />
     </div>
   );
 }
 
-type Tag = Mood | Look | Kind;
+type Tag = StyleGroup | Mood | Look | Kind;
 
 /** Chips a long facet shows before "Show more". Picked chips always stay visible. */
 const FACET_LIMIT = 8;
 
 /** One section of tag chips. Its heading opens and closes it; a long one also folds down to its first few until expanded. */
-function ChipFacet<T extends Tag>({ id, label, tags, picked, count, toggle }: {
+function ChipFacet<T extends Tag>({ id, label, tags, picked, count, toggle, level = 3, startClosed = false }: {
   id: string; label: string; tags: { id: T; label: string; hint?: string }[]; picked: T[];
-  count: (tag: T) => number; toggle: (tag: T) => void;
+  count: (tag: T) => number; toggle: (tag: T) => void; level?: 3 | 4; startClosed?: boolean;
 }) {
-  const [closed, setClosed] = useState(false);
+  const [closed, setClosed] = useState(startClosed);
+  // a section that becomes relevant (its Category was picked) opens; one that stops being so stays as it is
+  useEffect(() => { if (!startClosed) setClosed(false); }, [startClosed]);
   const [open, setOpen] = useState(false);
   // folding away just one or two chips saves no room, so only long sections fold
   const folds = tags.length > FACET_LIMIT + 2;
   const shown = open || !folds ? tags : tags.filter((t, i) => i < FACET_LIMIT || picked.includes(t.id));
   const more = tags.length - shown.length;
+  const nPicked = tags.filter(x => picked.includes(x.id)).length;
+  const H = level === 3 ? 'h3' : 'h4';
   return (
-    <div className="facet" role="group" aria-labelledby={`f-${id}`}>
-      <button className="facet-head" aria-expanded={!closed} aria-controls={`c-${id}`} onClick={() => setClosed(!closed)}>
-        <span className="facet-label" id={`f-${id}`}>{label}</span>
-        {/* a closed section still says how many of its tags are picked */}
-        {closed && picked.some(t => tags.some(x => x.id === t)) && (
-          <span className="facet-picked">{tags.filter(x => picked.includes(x.id)).length}</span>
-        )}
-        <svg className="facet-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5" /></svg>
-      </button>
+    <div className={level === 3 ? 'facet' : 'facet sub'} role="group" aria-labelledby={`f-${id}`}>
+      <H className="facet-h">
+        <button className="facet-head" aria-expanded={!closed} aria-controls={`c-${id}`} onClick={() => setClosed(!closed)}
+          aria-label={closed && nPicked > 0 ? `${label}, ${nPicked} selected` : undefined}>
+          <span className="facet-label" id={`f-${id}`}>{label}</span>
+          {/* a closed section still says how many of its tags are picked */}
+          {closed && nPicked > 0 && <span className="facet-picked">{nPicked}</span>}
+          <svg className="facet-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5" /></svg>
+        </button>
+      </H>
       <div className={closed ? 'reveal' : 'reveal open'} id={`c-${id}`} inert={closed}>
         <div>
           <div className="facet-body">
-            <div className="chips">
+            <div className="chips" id={`chips-${id}`}>
               {shown.map(({ id: tag, label, hint }) => {
-                const on = picked.includes(tag), n = count(tag);
+                const on = picked.includes(tag), n = count(tag), none = !n && !on;
+                // a tag with no matches stays focusable, so it can still be found, but does nothing
                 return (
-                  <button key={tag} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} disabled={!n && !on} onClick={() => toggle(tag)}>
-                    <TagText tag={tag} label={label} /><span className="count">{n}</span>
+                  <button key={tag} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} aria-disabled={none || undefined}
+                    aria-label={`${label}, ${n} ${n === 1 ? 'style' : 'styles'}`} onClick={() => { if (!none) toggle(tag); }}>
+                    <TagText tag={tag} label={label} /><span className="count" aria-hidden="true">{n}</span>
                   </button>
                 );
               })}
             </div>
             {(open || more > 0) && (
-              <button className="facet-more" aria-expanded={open} onClick={() => setOpen(!open)}>
+              <button className="facet-more" aria-expanded={open} aria-controls={`chips-${id}`} onClick={() => setOpen(!open)}>
                 {open ? 'Show less' : `Show ${more} more`}
               </button>
             )}
@@ -99,14 +123,15 @@ function ChipFacet<T extends Tag>({ id, label, tags, picked, count, toggle }: {
 /** Cap height of a tag label in px, so every face reads at about the size of the UI text. */
 const TAG_CAP = 9.5;
 
-/** A filter tag's name, drawn in a starting style that belongs to it. */
+/** A filter tag's name, drawn in a starting style that belongs to it. The chip carries the
+    name for screen readers, so the drawing is hidden from them. */
 function TagText({ tag, label }: { tag: Tag; label: string }) {
   const f = fontFor(styleById(TAG_FACE[tag])!.params);
   const sc = TAG_CAP / f.m.cap, top = Math.max(f.m.asc, f.m.cap), line = f.layout(label, Infinity)[0];
   const W = n1(line.width * sc), H = n1((top - f.m.desc) * sc);
   return (
     <span className="tag-face">
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
         <g transform={`scale(${sc})`}>
           {line.items.map((it, j) => {
             const g = f.glyph(it.ch);

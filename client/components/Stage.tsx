@@ -4,6 +4,7 @@ import { n1, useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
 import { actions, fontFor, useEditor, type CardView } from '../state/editor';
 import { Inspector } from './Inspector';
+import { focusFilters } from './Panel';
 import { Preview } from './Preview';
 
 /* Like Google Fonts: one "Type something" bar on top sets the sample text and size, both for the
@@ -100,17 +101,22 @@ function SampleText() {
   );
 }
 
-/** Cards are grouped by type (Sans Serif > Geometric, …) and narrowed by the panel's filters. */
+/** Cards are grouped by Category, the panel's first filter, and narrowed by all the filters. */
 function StyleCards() {
   const text = sampleText(useEditor(s => s.custom)), size = useEditor(s => s.size);
-  const moods = useEditor(s => s.moods), looks = useEditor(s => s.looks), kinds = useEditor(s => s.kinds);
+  const groups = useEditor(s => s.groups), moods = useEditor(s => s.moods), looks = useEditor(s => s.looks), kinds = useEditor(s => s.kinds);
   const view = useEditor(s => s.view);
-  const shown = PAGE_STYLES.filter(s => styleMatches(s, { moods, looks, kinds }));
+  const head = useRef<HTMLHeadingElement>(null);
+  const shown = PAGE_STYLES.filter(s => styleMatches(s, { groups, kinds, looks, moods }));
+  const all = PAGE_STYLES.length;
   return (
     <div className="style-cards">
       <div className="cards-head">
-        <h1>Start with a style</h1>
-        {shown.length < PAGE_STYLES.length && <span>{shown.length} of {PAGE_STYLES.length} styles</span>}
+        <h1 ref={head} tabIndex={-1}>Start with a style</h1>
+        {/* a status, so screen readers hear the count change as filters are picked */}
+        <span role="status">{shown.length < all ? `${shown.length} of ${all} styles` : `${all} styles`}</span>
+        {/* the filters sit after every card in tab order; this jumps there, and shows only when focused */}
+        <button className="skip" onClick={focusFilters}>Skip to filters</button>
       </div>
       {shown.length ? (
         <div className="style-groups">
@@ -124,7 +130,7 @@ function StyleCards() {
           ))}
         </div>
       ) : (
-        <p className="cards-empty">No styles match these filters. <button className="link" onClick={actions.clearFilters}>Clear filters</button></p>
+        <p className="cards-empty">No styles match these filters. <button className="link" onClick={() => { actions.clearFilters(); head.current?.focus(); }}>Clear filters</button></p>
       )}
     </div>
   );
@@ -139,7 +145,7 @@ function StyleCard({ style: s, text, size }: { style: StyleDef; text: string; si
   const lines = box.width ? f.layout(text, width / sc) : [];
   const H = n1(lines.length * LH * sc);
   return (
-    <button ref={ref} className={on ? 'card on' : 'card'} title={s.desc} onClick={() => actions.loadStyle(s.id)}>
+    <button ref={ref} className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
       <span className="card-name">{s.name}</span>
       <svg width={n1(width)} height={H} viewBox={`0 0 ${n1(width)} ${H}`} aria-hidden="true">
         <g transform={`scale(${sc})`}>

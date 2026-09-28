@@ -98,6 +98,9 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 /* style cards */
 .cards-head { padding: 4px 0 18px; display: flex; align-items: baseline; gap: 12px; }
 .cards-head span { font-size: 13px; color: var(--ink-3); }
+.cards-head .skip { margin-left: auto; }
+.skip:not(:focus) { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skip { font-size: 13px; font-weight: 500; color: var(--accent-ink); }
 .cards-empty { color: var(--ink-2); }
 .link { color: var(--accent-ink); font-weight: 500; }
 .link:hover { text-decoration: underline; }
@@ -136,6 +139,14 @@ body.resizing.y { cursor: row-resize; }
 /* style filters */
 .filters-head { display: flex; align-items: center; justify-content: space-between; min-height: 28px; margin-bottom: 16px; }
 .facet + .facet { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.facet-h { margin: 0; font: inherit; }
+/* Classification: one facet made of a section per category, each a quieter heading under its label */
+.facet-set > .facet-label { margin: 0 0 4px; }
+.facet.sub { margin-top: 0; padding-top: 0; border-top: 0; }
+.facet.sub .facet-head { padding: 6px 0; color: var(--ink-2); }
+.facet.sub .facet-head:hover { color: var(--ink); }
+.facet.sub .facet-label { font-size: 13px; }
+.facet.sub .facet-body { padding-bottom: 8px; }
 .facet-label { margin-bottom: 8px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
 .count { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .tag-face { display: flex; align-items: center; min-width: 0; }
@@ -145,8 +156,8 @@ body.resizing.y { cursor: row-resize; }
 .chip:hover { border-color: var(--ink-3); }
 .chip.on { background: var(--sabi); border-color: var(--sabi); color: #fff; }
 .chip.on .count { color: inherit; opacity: .7; }
-.chip:disabled { opacity: .35; cursor: default; }
-.chip:disabled:hover { border-color: var(--line-2); }
+.chip[aria-disabled=true] { opacity: .45; cursor: default; }
+.chip[aria-disabled=true]:hover { border-color: var(--line-2); }
 .facet-head { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; color: var(--ink-3); transition: color .15s; }
 .facet-head:hover { color: var(--ink); }
 .facet-head .facet-label { margin-bottom: 0; color: inherit; }

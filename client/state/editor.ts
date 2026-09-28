@@ -1,7 +1,7 @@
 /* Editor state. One store for the open design (with undo history) and the UI around it.
    Actions live outside the store so components can import them without subscribing. */
 import { create } from 'zustand';
-import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood } from '../../shared/content';
+import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood, type StyleGroup } from '../../shared/content';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
 import { endCurl, endLength, isGlyphKey, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
@@ -40,6 +40,7 @@ export interface EditorState extends Doc {
   custom: string;
   size: number;
   /** Style page filters; an empty list means no filter on that facet */
+  groups: StyleGroup[];
   moods: Mood[];
   looks: Look[];
   kinds: Kind[];
@@ -90,6 +91,7 @@ export const useEditor = create<EditorState>()(() => ({
   hot: false,
   custom: '',
   size: 48,
+  groups: [],
   moods: [],
   looks: [],
   kinds: [],
@@ -291,10 +293,11 @@ export const actions = {
   focusControl(key: ActiveKey) { set({ active: key, hot: true }); },
   setCustom(custom: string) { set({ custom }); },
   setSize(size: number) { set({ size }); },
+  toggleGroup(g: StyleGroup) { set(s => ({ groups: toggle(s.groups, g) })); },
   toggleMood(m: Mood) { set(s => ({ moods: toggle(s.moods, m) })); },
   toggleLook(l: Look) { set(s => ({ looks: toggle(s.looks, l) })); },
   toggleKind(k: Kind) { set(s => ({ kinds: toggle(s.kinds, k) })); },
-  clearFilters() { set({ moods: [], looks: [], kinds: [] }); },
+  clearFilters() { set({ groups: [], moods: [], looks: [], kinds: [] }); },
   setView(view: CardView) {
     set({ view });
     try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode: the choice lasts this visit */ }
