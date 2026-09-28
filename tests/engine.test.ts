@@ -243,6 +243,22 @@ describe('font engine', () => {
     assert.equal(buildFont({ ...DEFAULTS, ...box, glyphs: { O: { corners: { '0t0': 0 } } } }).glyph('D')!.d, buildFont({ ...DEFAULTS, ...box }).glyph('D')!.d);
   });
 
+  it("rounds an end's corner right round when its other corner is hidden in another stroke", () => {
+    // the top of a single-story a's stem: its other corner is in the bowl, which runs on from it
+    const p = { ...DEFAULTS, story: 'single', bowlJoin: 'square' } as const;
+    const inset = (v?: number) => {
+      const f = buildFont({ ...p, glyphs: { a: { corners: v == null ? {} : { '0er': v } } } }), g = f.glyph('a')!;
+      const pts = g.cmds.filter(c => c[0] !== 'Z').map(c => ({ x: c[c.length - 2] as number, y: c[c.length - 1] as number }));
+      const top = Math.max(...pts.map(q => q.y)), right = Math.max(...pts.map(q => q.x));
+      // how far in from the stem's side the outline is, half a stroke down from the top
+      return (right - Math.max(...pts.filter(q => q.y > top - f.m.s / 2).map(q => q.x))) / f.m.s;
+    };
+    assert.ok(inset() < 0.05, 'square as drawn');
+    // half a stroke across (as far as an end's corner rounds when both show) would still be square there
+    assert.ok(inset(1) > 1, `rounded right round, it sweeps into the bowl (${inset(1)})`);
+    assert.ok(inset(0.5) > 0.2 && inset(0.5) < inset(1));
+  });
+
   it('the loop R turns its bowl back into the leg short of the stem', () => {
     const f = (rForm: Params['rForm']) => buildFont({ ...DEFAULTS, rForm });
     assert.notEqual(f('leg').glyph('R')!.d, f('loop').glyph('R')!.d);

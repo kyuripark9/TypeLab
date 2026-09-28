@@ -759,20 +759,68 @@ function boxQuarters(b: Builder, m: Metrics) {
   }
 }
 
+/** Whether q is inside polygon poly (even-odd). */
+function insidePoly(poly: Pt[], q: Pt) {
+  let c = false;
+  for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) {
+    const a = poly[i], p = poly[k];
+    if ((a.y > q.y) !== (p.y > q.y) && q.x < (p.x - a.x) * (q.y - a.y) / (p.y - a.y) + a.x) c = !c;
+  }
+  return c;
+}
+
+/** A corner at q between sides running off along unit directions a and b, rounded r across: where
+    the round touches its sides (k along each), its center, and whether a point lies in the cap the
+    round cuts off (within the corner, outside the round, on the corner's side of the line between
+    where it touches). */
+function cornerRound(q: Pt, a: Pt, b: Pt, r: number) {
+  const half = Math.acos(clamp(a.x * b.x + a.y * b.y, -1, 1)) / 2, bl = Math.hypot(a.x + b.x, a.y + b.y) || 1;
+  const bis = { x: (a.x + b.x) / bl, y: (a.y + b.y) / bl }, k = r / Math.tan(half), h = r / Math.sin(half);
+  const C = { x: q.x + bis.x * h, y: q.y + bis.y * h };
+  // the insides of the two sides, facing each other
+  const na = { x: b.x - a.x * (a.x * b.x + a.y * b.y), y: b.y - a.y * (a.x * b.x + a.y * b.y) }, nb = { x: a.x - b.x * (a.x * b.x + a.y * b.y), y: a.y - b.y * (a.x * b.x + a.y * b.y) };
+  const chord = k * Math.cos(half);
+  const inCap = (p: Pt) => {
+    const dx = p.x - q.x, dy = p.y - q.y;
+    return dx * na.x + dy * na.y > -1 && dx * nb.x + dy * nb.y > -1 && dx * bis.x + dy * bis.y < chord - 0.01 && Math.hypot(p.x - C.x, p.y - C.y) > r + 0.01;
+  };
+  return { k, C, inCap, Ta: { x: q.x + a.x * k, y: q.y + a.y * k }, Tb: { x: q.x + b.x * k, y: q.y + b.y * k } };
+}
+
+/** Cut the cap of a round (see cornerRound) out of an outline in place: its sides are cut into short
+    steps near the corner, and every point in the cap moves out from the round's center onto it. */
+function carveRound(poly: Pt[], q: Pt, round: ReturnType<typeof cornerRound>, r: number) {
+  const { C, inCap, Ta, Tb } = round, step = Math.max(1, r / 20);
+  const x0 = Math.min(q.x, Ta.x, Tb.x) - 1, x1 = Math.max(q.x, Ta.x, Tb.x) + 1, y0 = Math.min(q.y, Ta.y, Tb.y) - 1, y1 = Math.max(q.y, Ta.y, Tb.y) + 1;
+  const out: Pt[] = [];
+  let hit = false;
+  poly.forEach((p, i) => {
+    const n = poly[(i + 1) % poly.length];
+    out.push(p);
+    if (Math.max(p.x, n.x) < x0 || Math.min(p.x, n.x) > x1 || Math.max(p.y, n.y) < y0 || Math.min(p.y, n.y) > y1) return;
+    const steps = Math.ceil(Math.hypot(n.x - p.x, n.y - p.y) / step);
+    for (let s = 1; s < steps; s++) out.push({ ...lerpP(p, n, s / steps), smooth: true });
+  });
+  for (const p of out) {
+    if (!inCap(p)) continue;
+    const d = Math.hypot(p.x - C.x, p.y - C.y);
+    p.x = C.x + (p.x - C.x) * r / d; p.y = C.y + (p.y - C.y) * r / d;
+    p.smooth = true; p.sharp = false; delete p.r;
+    hit = true;
+  }
+  if (hit) poly.splice(0, poly.length, ...out);
+}
+
 /** The square ends' corners of a glyph's expanded strokes that show: each rounded as its letter sets
     it (or by Roundness), and marked. A corner on the edge of another stroke, or inside it, is hidden
     and left out, unless it sits on a corner of that stroke too (the top left of an E, where the stem
-    and the arm both end): then the two are one corner, rounded together under the first one's id. */
+    and the arm both end): then the two are one corner, rounded together under the first one's id.
+    A corner whose end's other corner is hidden (the top of a's stem, the other in its bowl) stands
+    where the stroke that hides that one runs on from the end: it rounds across every stroke there,
+    as far as the ink round it keeps most of its thickness. */
 function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | null)[], marks: Mark[]) {
   const polys = b.strokes.map((st, j) => st.poly ? [st.poly] : exps[j]?.ex?.contours ?? []);
-  const inside = (poly: Pt[], q: Pt) => {
-    let c = false;
-    for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) {
-      const a = poly[i], p = poly[k];
-      if ((a.y > q.y) !== (p.y > q.y) && q.x < (p.x - a.x) * (q.y - a.y) / (p.y - a.y) + a.x) c = !c;
-    }
-    return c;
-  };
+  const inside = insidePoly;
   const edge = (poly: Pt[], q: Pt) => {
     let d = Infinity;
     for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) {
@@ -782,10 +830,13 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
     }
     return d;
   };
-  const groups: { id: string; t: number; pts: Pt[] }[] = [];
+  const groups: { id: string; t: number; pts: Pt[]; partner: string; at: Pt | undefined }[] = [];
+  // whether each end corner shows, by its id
+  const shows = new Map<string, boolean>();
   exps.forEach((x, si) => {
     for (const c of x?.ex?.endCorners ?? []) {
-      const q = c.pt, near = groups.find(g => Math.hypot(g.pts[0].x - q.x, g.pts[0].y - q.y) < 1.5);
+      const q = c.pt, near = groups.find(g => Math.hypot(g.pts[0].x - q.x, g.pts[0].y - q.y) < 1.5), side = c.side === 'l' ? 'r' : 'l';
+      shows.set(`${si}${c.which}${c.side}`, true);
       if (near) { near.pts.push(q); continue; }
       let hidden = false;
       const also: Pt[] = [];
@@ -800,16 +851,73 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
         }
         if (!also.length && inStroke) hidden = true;
       });
-      if (!hidden) groups.push({ id: `${si}${c.which}${c.side}`, t: m.s * (b.strokes[si].o.scale || 1) * strokeWt(m, si), pts: [q, ...also] });
+      if (hidden) { shows.set(`${si}${c.which}${c.side}`, false); continue; }
+      groups.push({ id: `${si}${c.which}${c.side}`, t: m.s * (b.strokes[si].o.scale || 1) * strokeWt(m, si), pts: [q, ...also],
+        partner: `${si}${c.which}${side}`, at: x!.ex!.endCorners.find(e => e.which === c.which && e.side === side)?.pt });
     }
   });
+  const ink = (p: Pt) => polys.some(ps => ps.filter(poly => insidePoly(poly, p)).length % 2 === 1);
+  /** For a corner q whose end runs toward its hidden other corner `at`, the directions of the end and
+      of the stroke's side from it, and the widest round that fits there. */
+  const lone = (q: Pt, at: Pt, t: number) => {
+    const al = Math.hypot(at.x - q.x, at.y - q.y);
+    if (al < 1) return null;
+    const a = { x: (at.x - q.x) / al, y: (at.y - q.y) / al }, poly = polys.flat().find(p => p.includes(q));
+    if (!poly) return null;
+    const i = poly.indexOf(q), side = (dir: number) => {
+      for (let s = 1; s < poly.length; s++) {
+        const n = poly[(i + dir * s + poly.length * s) % poly.length], d = Math.hypot(n.x - q.x, n.y - q.y);
+        if (d > 1) return { x: (n.x - q.x) / d, y: (n.y - q.y) / d };
+      }
+      return a;
+    };
+    const s1 = side(1), s2 = side(-1), bdir = Math.abs(s1.x * a.x + s1.y * a.y) < Math.abs(s2.x * a.x + s2.y * a.y) ? s1 : s2;
+    if (Math.abs(bdir.x * a.x + bdir.y * a.y) > 0.9) return null;
+    // how deep the ink runs in from p along d, as far as `most`
+    const depth = (p: Pt, d: Pt, most: number) => {
+      let s = 0.5;
+      while (s < most && ink({ x: p.x + d.x * s, y: p.y + d.y * s })) s += t / 12;
+      return Math.min(s, most);
+    };
+    const fits = (r: number) => {
+      const rd = cornerRound(q, a, bdir, r), toC = (p: Pt) => { const l = Math.hypot(rd.C.x - p.x, rd.C.y - p.y) || 1; return { x: (rd.C.x - p.x) / l, y: (rd.C.y - p.y) / l }; };
+      const da = depth(rd.Ta, toC(rd.Ta), t), db = depth(rd.Tb, toC(rd.Tb), t);
+      if (Math.min(da, db) < t * 0.3) return false;
+      const need = 0.9 * Math.min(da, db);
+      for (let j = 1; j < 10; j++) {
+        const u = j / 10, p = { x: lerp(rd.Ta.x, rd.Tb.x, u) - rd.C.x, y: lerp(rd.Ta.y, rd.Tb.y, u) - rd.C.y }, l = Math.hypot(p.x, p.y) || 1;
+        const on = { x: rd.C.x + p.x * r / l, y: rd.C.y + p.y * r / l };
+        if (depth(on, toC(on), need) < need) return false;
+      }
+      return true;
+    };
+    // the widest round that fits: stepped out, then narrowed down between the last fit and the first miss
+    let lo = t / 2, hi = lo;
+    while (hi < m.cap && fits(hi + t / 4)) hi += t / 4;
+    lo = hi; hi = Math.min(m.cap, hi + t / 4);
+    for (let n = 0; n < 5 && hi - lo > 1; n++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
+    return { a, b: bdir, most: lo };
+  };
   for (const g of groups) {
-    const own = m.p.corners?.[g.id];
+    const own = m.p.corners?.[g.id], q = g.pts[0], x = q.x, y = q.y;
+    const alone = shows.get(g.partner) === false && g.at ? lone(q, g.at, g.t) : null;
+    if (alone) {
+      const r = (own ?? 0) * alone.most;
+      if (own != null) {
+        if (r >= 0.6) {
+          // (from where the corner stood: carving moves its point onto the round)
+          const at = { x, y }, rd = cornerRound(at, alone.a, alone.b, r);
+          for (const ps of polys) for (const poly of ps) carveRound(poly, at, rd, r);
+        } else for (const p of g.pts) { delete p.r; p.sharp = true; }
+      }
+      marks.push({ type: 'corner', id: g.id, x, y, v: own ?? clamp(m.R / alone.most) });
+      continue;
+    }
     if (own != null) {
       const r = endCornerR(own, g.t);
       for (const p of g.pts) { if (r >= 0.6) { p.r = r; p.sharp = false; } else { delete p.r; p.sharp = true; } }
     }
-    marks.push({ type: 'corner', id: g.id, x: g.pts[0].x, y: g.pts[0].y, v: own ?? clamp(m.R / (g.t / 2)) });
+    marks.push({ type: 'corner', id: g.id, x, y, v: own ?? clamp(m.R / (g.t / 2)) });
   }
 }
 
