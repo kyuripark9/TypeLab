@@ -509,7 +509,7 @@ export const CATEGORIES: { id: CategoryId; label: string }[] = [
 /* label = the control's short title; friendly = what it does in plain words; tech = the typographer's term */
 export const CONTROLS: Record<ControlKey, ControlDef> = {
   weight: { cat: 'structure', label: 'Weight', friendly: 'Make strokes thicker', tech: 'Weight', lo: 'Thin', hi: 'Bold', demo: 'n',
-    explain: 'Letters widen a little so their insides stay open. Verticals and Horizontals weigh the stems and the bars on their own; customize a letter to weigh each of its strokes.' },
+    explain: 'Letters widen a little so their insides stay open.' },
   width: { cat: 'structure', label: 'Width', friendly: 'Make letters narrower or wider', tech: 'Width', lo: 'Condensed', hi: 'Expanded', demo: 'H',
     explain: 'Stretches letters sideways; strokes keep their thickness.' },
   height: { cat: 'structure', label: 'Height', friendly: 'Make letters taller or shorter', tech: 'Height', lo: 'Short', hi: 'Tall', demo: 'Hx',
