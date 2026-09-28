@@ -29,7 +29,8 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 /* ---------- header */
 .top { grid-area: top; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .top-left { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.brand { display: flex; align-items: baseline; gap: 10px; text-decoration: none; flex: none; }
+.brand { display: flex; align-items: baseline; gap: 10px; text-decoration: none; flex: none; cursor: default; user-select: none; -webkit-user-select: none; }
+a.brand { cursor: pointer; }
 a.brand:hover .brand-name { color: var(--accent-ink); }
 .brand-name { font-size: 16px; font-weight: 700; letter-spacing: -.02em; transition: color .15s; }
 .top-actions { display: flex; align-items: center; gap: 4px; }
