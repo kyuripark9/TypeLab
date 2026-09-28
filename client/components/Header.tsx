@@ -18,7 +18,6 @@ export function Header({ onSave, onGuide }: { onSave: () => void; onGuide: () =>
     <header className="top">
       <div className="top-left">
         <Brand />
-        <span className="sep" />
         <input className="doc-name" value={name} maxLength={NAME_MAX} aria-label="Font name" spellCheck={false}
           onChange={e => actions.setName(e.target.value)}
           onBlur={() => actions.setName(cleanName(name))}

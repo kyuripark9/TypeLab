@@ -413,6 +413,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .doc-name:hover { border-color: var(--line); }
 .doc-name:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .top .sep { margin: 0 10px; }
+.top-left .brand { margin-right: 12px; }
 
 .btn.small { height: 28px; padding: 0 10px; font-size: 12px; }
 .btn.danger:hover { background: var(--accent-soft); color: var(--accent-ink); }
