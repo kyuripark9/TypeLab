@@ -5,7 +5,7 @@ import { DEFAULTS, type AForm, type Bends, type Build, type BowlForm, type BowlJ
 
 export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality' | 'effects';
 export type ControlKey =
-  | 'weight' | 'width' | 'height' | 'slant' | 'contrast'
+  | 'weight' | 'width' | 'height' | 'slant' | 'rotation' | 'contrast'
   | 'build' | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'apex' | 'bends' | 'joints' | 'cursive' | 'wobble'
   | 'xHeight' | 'extenders' | 'descender' | 'tail' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
@@ -39,6 +39,8 @@ export interface ControlDef {
   explain: string;
   type?: 'options' | 'story' | 'form' | 'serif' | 'fill';
   bipolar?: boolean;
+  /** a turn: shown in degrees, -180 to 180, rather than 0 to 100 */
+  degrees?: boolean;
   advanced?: boolean;
   /** An optional slider: its value where it changes nothing. It gets an on/off switch, and off hides the slider. */
   off?: number;
@@ -560,6 +562,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Moves the top of the capitals; lowercase follows.' },
   slant: { cat: 'structure', label: 'Slant', friendly: 'Tilt the letters', tech: 'Slant', lo: 'Upright', hi: 'Italic', demo: 'Hn',
     explain: 'Leans each letter to the right, like an oblique italic.' },
+  rotation: { cat: 'structure', label: 'Rotation', friendly: 'Turn the letters round', tech: 'Rotation', lo: 'Anticlockwise', hi: 'Clockwise', demo: 'Hag', bipolar: true, degrees: true,
+    explain: 'Turns each letter about its own middle, and spaces the letters to fit. Synced, every letter turns the same way; customize a letter to give it its own angle.' },
   contrast: { cat: 'structure', label: 'Contrast', friendly: 'Vary thick and thin strokes', tech: 'Contrast · Reverse contrast', lo: 'Reversed', hi: 'High', demo: 'HOe', bipolar: true,
     explain: 'Above the middle the horizontals thin out while the stems stay heavy; below it the stems thin out under heavy horizontals.' },
 

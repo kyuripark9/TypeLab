@@ -935,3 +935,55 @@ describe('params validation', () => {
     assert.ok(!isValidParams(null));
   });
 });
+
+describe('rotation', () => {
+  /** The ink's box in font units, from the outline's points. */
+  const box = (g: Glyph) => {
+    const xs: number[] = [], ys: number[] = [];
+    for (const c of g.cmds) for (let i = 1; i < c.length; i += 2) { xs.push(c[i]); ys.push(c[i + 1]); }
+    return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys), x0: Math.min(...xs) };
+  };
+
+  it('turns every letter alike when synced, and spaces them to fit', () => {
+    const up = buildFont({ ...DEFAULTS }), turned = buildFont({ ...DEFAULTS, rotation: 0.75 });
+    for (const ch of 'lHo') {
+      const a = box(up.glyph(ch)!), b = box(turned.glyph(ch)!);
+      // a quarter turn swaps the ink's width and height
+      assert.ok(Math.abs(a.w - b.h) < 1 && Math.abs(a.h - b.w) < 1, ch);
+      // and the letter keeps its gap to the left, taking the room its turned ink needs
+      assert.ok(Math.abs(up.glyph(ch)!.adv - a.w - (turned.glyph(ch)!.adv - b.w)) < 1, ch);
+      assert.ok(Math.abs(a.x0 - b.x0) < 1, ch);
+    }
+    // half a turn either way is the same letter upside down, as wide as it was
+    const half = buildFont({ ...DEFAULTS, rotation: 1 }), back = buildFont({ ...DEFAULTS, rotation: 0 });
+    assert.ok(Math.abs(half.glyph('R')!.adv - up.glyph('R')!.adv) < 0.5);
+    assert.equal(half.glyph('R')!.d, back.glyph('R')!.d);
+    assert.equal(buildFont({ ...DEFAULTS, rotation: 0.5 }).glyph('R')!.d, up.glyph('R')!.d);
+  });
+
+  it('turns clockwise above the middle', () => {
+    // the P's bowl sits at its top; a quarter turn clockwise brings it round to the right
+    const g = buildFont({ ...DEFAULTS, rotation: 0.75 }).glyph('P')!, up = buildFont({ ...DEFAULTS }).glyph('P')!;
+    const mid = (cs: Glyph['cmds'], i: 1 | 2) => { const v = cs.filter(c => c.length > 1).map(c => c[c.length - 3 + i]); return (Math.min(...v) + Math.max(...v)) / 2; };
+    assert.ok(mid(up.counters.flat(), 2) > mid(up.cmds, 2) + 50);
+    assert.ok(mid(g.counters.flat(), 1) > mid(g.cmds, 1) + 50);
+  });
+
+  it('lets one letter take its own angle while the rest stay synced', () => {
+    const f = buildFont({ ...DEFAULTS, glyphs: { a: { rotation: 0.6 } } }), up = buildFont({ ...DEFAULTS });
+    assert.notEqual(f.glyph('a')!.d, up.glyph('a')!.d);
+    assert.equal(f.glyph('b')!.d, up.glyph('b')!.d);
+    assert.equal(buildFont({ ...DEFAULTS, rotation: 0.6 }).glyph('a')!.d, f.glyph('a')!.d);
+    assert.ok(isValidParams({ ...DEFAULTS, glyphs: { a: { rotation: 0.6 } } }));
+  });
+
+  it('turns block letters and every fill without breaking', () => {
+    for (const p of [{ build: 'blocks' as const }, { fill: 'pixels' as const, slice: 1 }, { mono: 1, slant: 1, wobble: 1 }, { serif: true, cursive: 1 }]) {
+      const f = buildFont({ ...DEFAULTS, ...p, rotation: 0.37 });
+      for (const ch of ALL_CHARS) {
+        const g = f.glyph(ch);
+        if (g) assert.ok(!g.d.includes('NaN') && Number.isFinite(g.adv) && g.adv > 0, ch);
+      }
+    }
+  });
+});

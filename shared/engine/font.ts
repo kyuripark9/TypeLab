@@ -3,7 +3,7 @@
    -> expanded outlines. Pure math with no DOM, so the browser (live preview) and the
    server (font export) run exactly the same code. A full rebuild of every glyph takes a
    few milliseconds, so sliders can drive it directly. */
-import { DEFAULTS, contrastOf, endCurl, endLength, endReach, formOf, weightScale, type Params } from '../params';
+import { DEFAULTS, contrastOf, endCurl, endLength, endReach, formOf, rotationDeg, weightScale, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, splitPoly, subCubic, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, slice } from './effects';
@@ -42,6 +42,7 @@ export interface Metrics {
   /** thickness of a horizontal stroke */ hT: number;
   /** body width for a base design width. cls: 'r' round, 'c' classically narrow */ W: (base: number, cls?: 'r' | 'c') => number;
   sb: number; track: number; space: number; slant: number; R: number; dotRound: number;
+  /** how far each letter is turned, in radians clockwise */ rot: number;
   qpt: (x0: number, y0: number, x1: number, y1: number, mode: string, u: number) => Tangent;
 }
 
@@ -183,6 +184,7 @@ function metrics(e: Effective): Metrics {
     track: snap((e.letterSpacing - 0.2) * 260),
     space: Math.max(snap(lerp(W(210) + (e.wordSpacing - 0.35) * 520, W(500) + sb * 1.5, e.mono)), cell),
     slant: Math.tan(e.slant * 20 * Math.PI / 180),
+    rot: rotationDeg(e.rotation) * Math.PI / 180,
     R: e.roundness * s * 0.5,
     dotRound: e.dots === 'round' ? 1 : e.dots === 'square' ? 0 : Math.max(e.roundness, e.terminal === 'round' ? e.terminalRound : 0),
     qpt: (x0, y0, x1, y1, mode, u) => {
@@ -1413,9 +1415,11 @@ function buildBlock(ch: string, m: Metrics): Glyph | null {
   return placeGlyph(out, b.W, sb, sb, code, m);
 }
 
-/** Place a glyph drawn `W` wide between side bearings lsb and rsb: monospacing, the pixel grid,
+/** Place a glyph drawn `W` wide between side bearings lsb and rsb: rotation, monospacing, the pixel grid,
     playful bounce and hand jitter, slant, then the slice and the fills, which run on its final outline. */
 function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: number, m: Metrics): Glyph {
+  const turn = m.rot ? turnAbout(out, m.rot) : null;
+  if (turn) { lsb += turn.grow; rsb += turn.grow; }
   let sx = 1, adv = Math.max(10, lsb + W + rsb);
   const mono = m.p.mono;
   if (mono > 0) {
@@ -1432,6 +1436,7 @@ function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: nu
     lsb += (snapped - adv) / 2; rsb += (snapped - adv) / 2; adv = snapped;
   }
   let M: Mat = [sx, 0, 0, 1, lsb, 0];
+  if (turn) M = mulM(M, turn.M);
   const bounce = m.p.bounce, wob = m.wob;
   if (bounce > 0 || wob > 0) {
     const a = (hash(code, 1) - 0.5) * 2 * (0.11 * bounce + 0.05 * wob);
@@ -1454,6 +1459,23 @@ function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: nu
     ...out, serifs, counters: out.counters.map(tf),
     marks: out.marks.map(k => k.home ? { ...tp(k), home: tp(k.home) } : tp(k)), corners: out.corners.map(tp), skeleton: out.skeleton.map(r => r.map(tp)),
     lsb, rsb, adv, M, cmds, d: cmdsToD(cmds)
+  };
+}
+
+/** Turning a letter `a` radians clockwise about the middle of its ink, and how much wider (or, negative,
+    narrower) the turned ink is on each side, so it keeps the gaps to its neighbours it had upright. */
+function turnAbout(out: Unplaced, a: number): { M: Mat; grow: number } | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of [...out.strokes.flatMap(s => s.cmds), ...out.serifs.flat()]) {
+    for (let i = 1; i < c.length; i += 2) {
+      x0 = Math.min(x0, c[i]); x1 = Math.max(x1, c[i]); y0 = Math.min(y0, c[i + 1]); y1 = Math.max(y1, c[i + 1]);
+    }
+  }
+  if (x0 > x1) return null;
+  const cos = Math.cos(a), sin = Math.sin(a), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, w = x1 - x0, h = y1 - y0;
+  return {
+    M: [cos, -sin, sin, cos, cx - cos * cx - sin * cy, cy + sin * cx - cos * cy],
+    grow: (Math.abs(w * cos) + Math.abs(h * sin) - w) / 2
   };
 }
 

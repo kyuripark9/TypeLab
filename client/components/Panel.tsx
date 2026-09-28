@@ -7,7 +7,7 @@ import {
   SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById, styleMatches,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type StyleGroup
 } from '../../shared/content';
-import { TERMINAL_FORMS, formOf, isGlyphKey, type NumericParam, type Params } from '../../shared/params';
+import { TERMINAL_FORMS, formOf, isGlyphKey, rotationDeg, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 import { cmdsToD, type Glyph } from '../../shared/engine';
 import { letterCorners, letterStrokes, strokeEnds, type CornerInfo, type StrokeEndInfo, type StrokeInfo } from '../lib/drag';
@@ -314,7 +314,7 @@ function useControlFocus(key: ActiveKey) {
   };
 }
 
-interface SliderDef { label: string; friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; advanced?: boolean; off?: number }
+interface SliderDef { label: string; friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; degrees?: boolean; advanced?: boolean; off?: number }
 
 /** A slider. An optional one (with an `off` value) has a switch; switched off, its slider folds away. */
 /** `children` follow the slider inside its control, like the corners under Roundness. `holdsOn`
@@ -330,7 +330,7 @@ function SliderControl({ k, def, parts, children, holdsOn }: { k: NumericParam; 
       <div className="ctl-top">
         <CtlHead k={k} label={def.label} parts={parts} advanced={def.advanced} />
         <div className="ctl-tools">
-          {on && <NumberField value={value} label={def.tech} onChange={v => { keep(); actions.focusControl(k); actions.setParam(k, v); actions.commit(); }} />}
+          {on && <NumberField value={value} label={def.tech} degrees={def.degrees} onChange={v => { keep(); actions.focusControl(k); actions.setParam(k, v); actions.commit(); }} />}
           {optional && (
             <button className={on ? 'switch on' : 'switch'} role="switch" aria-checked={on} aria-label={def.label}
               onClick={() => { actions.focusControl(k); actions.switchControl(k, !on, def.off!); }}><i /></button>
@@ -342,9 +342,11 @@ function SliderControl({ k, def, parts, children, holdsOn }: { k: NumericParam; 
           <Range
             value={value}
             label={def.tech}
+            steps={def.degrees ? 360 : 100}
             onInput={v => {
-              // the middle is sticky: near 50 snaps onto the dot
-              if (Math.abs(v - 0.5) <= 0.03) v = 0.5;
+              // the middle is sticky: near 50 snaps onto the dot; a turn snaps onto the quarter turns
+              const q = Math.round(v * 4) / 4;
+              if (def.degrees ? Math.abs(v - q) * 360 <= 3 : Math.abs(v - 0.5) <= 0.03) v = def.degrees ? q : 0.5;
               keep();
               actions.focusControl(k);
               actions.setParam(k, v);
@@ -384,15 +386,17 @@ function CutControl({ k, parts }: { k: 'stencil' | 'slice'; parts?: string[] }) 
   );
 }
 
-/** The slider's value as a whole number from 0 to 100, typed over directly. Enter or leaving the box applies it
-    (clamped to 0..100); Escape puts the old value back; the arrow keys step by 1, or 10 with Shift. */
-function NumberField({ value, label, onChange }: { value: number; label: string; onChange: (v: number) => void }) {
-  const shown = String(Math.round(value * 100));
+/** The slider's value as a whole number from 0 to 100 (or a turn, in degrees from -180 to 180), typed over
+    directly. Enter or leaving the box applies it (clamped to that range); Escape puts the old value back; the
+    arrow keys step by 1, or 10 with Shift. */
+function NumberField({ value, label, onChange, degrees }: { value: number; label: string; onChange: (v: number) => void; degrees?: boolean }) {
+  const [lo, hi] = degrees ? [-180, 180] : [0, 100];
+  const shown = String(Math.round(degrees ? rotationDeg(value) : value * 100));
   const [draft, setDraft] = useState<string | null>(null);
   const apply = (text: string) => {
     setDraft(null);
-    const n = Math.round(Number(text));
-    if (text.trim() !== '' && Number.isFinite(n) && String(Math.min(100, Math.max(0, n))) !== shown) onChange(Math.min(100, Math.max(0, n)) / 100);
+    const n = Math.min(hi, Math.max(lo, Math.round(Number(text))));
+    if (text.trim() !== '' && Number.isFinite(n) && String(n) !== shown) onChange(degrees ? n / 360 + 0.5 : n / 100);
   };
   return (
     <input className="ctl-num" type="text" inputMode="numeric" aria-label={`${label} value`} value={draft ?? shown}
@@ -411,8 +415,8 @@ function NumberField({ value, label, onChange }: { value: number; label: string;
   );
 }
 
-/** A 0..1 range input shown as whole steps from 0 to 100. `onInput` fires while dragging; `onCommit` once on release (one undo step). */
-function Range({ value, label, onInput, onCommit, onReset }: { value: number; label: string; onInput: (v: number) => void; onCommit: () => void; onReset: () => void }) {
+/** A 0..1 range input shown as whole steps from 0 to 100 (or `steps`). `onInput` fires while dragging; `onCommit` once on release (one undo step). */
+function Range({ value, label, onInput, onCommit, onReset, steps = 100 }: { value: number; label: string; onInput: (v: number) => void; onCommit: () => void; onReset: () => void; steps?: number }) {
   const ref = useRef<HTMLInputElement>(null);
   const commit = useRef(onCommit);
   commit.current = onCommit;
@@ -422,9 +426,9 @@ function Range({ value, label, onInput, onCommit, onReset }: { value: number; la
     return () => el.removeEventListener('change', h);
   }, []);
   return (
-    <input ref={ref} type="range" min={0} max={100} step={1} value={Math.round(value * 100)} aria-label={label}
+    <input ref={ref} type="range" min={0} max={steps} step={1} value={Math.round(value * steps)} aria-label={label}
       title="Double-click to reset" style={{ '--v': value } as CSSProperties}
-      onChange={e => onInput(Number(e.target.value) / 100)} onDoubleClick={onReset} />
+      onChange={e => onInput(Number(e.target.value) / steps)} onDoubleClick={onReset} />
   );
 }
 

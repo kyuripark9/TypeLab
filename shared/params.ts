@@ -72,6 +72,7 @@ export type RForm = (typeof R_FORMS)[number];
 export interface Params {
   /** strokes or blocks (see BUILDS) */ build: Build;
   weight: number; width: number; height: number; slant: number;
+  /** each letter turned about its own middle: 0.5 upright, lower anticlockwise and higher clockwise, half a turn at either end (see rotationDeg) */ rotation: number;
   /** thick and thin (see contrastOf): 0.5 as drawn, higher thins the horizontals against the stems,
       lower turns it round, to the mirror of 1 at 0 */ contrast: number;
   /** the vertical strokes alone (stems), and the horizontal ones alone (bars): 0.5 as Weight and
@@ -157,7 +158,7 @@ export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K :
 
 export const DEFAULTS: Readonly<Params> = Object.freeze({
   build: 'strokes',
-  weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.5, vWeight: 0.5, hWeight: 0.5, strokeWeights: Object.freeze({}),
+  weight: 0.4, width: 0.5, height: 0.5, slant: 0, rotation: 0.5, contrast: 0.5, vWeight: 0.5, hWeight: 0.5, strokeWeights: Object.freeze({}),
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), innerCorners: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
@@ -185,6 +186,8 @@ export const isCornerId = (id: string) => /^\d{1,2}(t\d{1,2}|j\d{1,2}|[se][lr])$
 export const isTurnId = (id: string) => /^\d{1,2}t\d{1,2}$/.test(id);
 /** A stroke's id: its index in the glyph. */
 export const isStrokeId = (id: string) => /^\d{1,2}$/.test(id);
+/** The turn, in degrees clockwise, at `v` on the Rotation scale. */
+export const rotationDeg = (v: number) => (v - 0.5) * 360;
 /** How much heavier a stroke is drawn at `v` on a weight scale centred on 0.5: a quarter as heavy at 0, two and a half times at 1. */
 export const weightScale = (v: number) => (v < 0.5 ? 0.25 + 1.5 * v : 1 + 3 * (v - 0.5));
 /** The pen's contrast at `v` on the Contrast scale: `amount` of thick against thin (0.05 at 0.5, as
