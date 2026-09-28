@@ -63,7 +63,9 @@ export type QForm = (typeof Q_FORMS)[number];
 export type RForm = (typeof R_FORMS)[number];
 
 export interface Params {
-  weight: number; width: number; height: number; slant: number; contrast: number;
+  weight: number; width: number; height: number; slant: number;
+  /** thick and thin (see contrastOf): 0.5 as drawn, higher thins the horizontals against the stems,
+      lower turns it round, to the mirror of 1 at 0 */ contrast: number;
   /** the vertical strokes alone (stems), and the horizontal ones alone (bars): 0.5 as Weight and
       Contrast make them, lower lighter, higher heavier */ vWeight: number; hWeight: number;
   /** one letter's strokes weighted one by one, by stroke id (see isStrokeId): 0.5 as drawn, lower lighter, higher heavier */ strokeWeights: Record<string, number>;
@@ -95,7 +97,6 @@ export interface Params {
   /** round curves drawn as squircles */ squareness: number;
   /** curves replaced by straight, cut-off corners (octagonal) */ chamfer: number;
   /** strokes thin out where they join another stroke */ joints: number;
-  /** thick horizontals and thin verticals */ reverse: number;
   /** length of ascenders and descenders */ extenders: number;
   /** descenders alone: 0.5 as long as the stem length makes them, lower shorter, higher longer */ descender: number;
   /** double- or single-storey a */ story: Story;
@@ -137,11 +138,11 @@ export const isGlyphKey = (k: string): k is GlyphKey => k in DEFAULTS && !(GLOBA
 export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K : never }[keyof Params];
 
 export const DEFAULTS: Readonly<Params> = Object.freeze({
-  weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.05, vWeight: 0.5, hWeight: 0.5, strokeWeights: Object.freeze({}),
+  weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.5, vWeight: 0.5, hWeight: 0.5, strokeWeights: Object.freeze({}),
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
-  squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved',
+  squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved',
   bowlForm: 'oval', diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, slice: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
@@ -164,6 +165,20 @@ export const isCornerId = (id: string) => /^\d{1,2}(t\d{1,2}|[se][lr])$/.test(id
 export const isStrokeId = (id: string) => /^\d{1,2}$/.test(id);
 /** How much heavier a stroke is drawn at `v` on a weight scale centred on 0.5: a quarter as heavy at 0, two and a half times at 1. */
 export const weightScale = (v: number) => (v < 0.5 ? 0.25 + 1.5 * v : 1 + 3 * (v - 0.5));
+/** The pen's contrast at `v` on the Contrast scale: `amount` of thick against thin (0.05 at 0.5, as
+    the letters are drawn, to 1 at either end) and how far it is `reverse`d, horizontals heavy and
+    stems thin. Turning round, the gentle contrast as drawn evens out first (by 0.45) and is all the
+    way round by 0.4, then the contrast grows to the mirror of 1 at 0, so no stroke thins on the way. */
+export function contrastOf(v: number) {
+  if (v >= 0.5) return { amount: 0.05 + 0.95 * (v - 0.5) * 2, reverse: 0 };
+  const t = (0.5 - v) * 2;
+  return { amount: 0.05 + 0.95 * Math.max(0, (t - 0.1) / 0.9), reverse: Math.min(1, t / 0.2) };
+}
+/** A contrast saved before it ran both ways, as an amount with a separate reverse, on today's scale. */
+export function contrastFromOld(amount: number, reverse: number) {
+  const u = Math.min(1, Math.max(0, (amount - 0.05) / 0.95));
+  return reverse >= 0.5 ? 0.5 - (0.1 + 0.9 * u) / 2 : 0.5 + u / 2;
+}
 /** How far past its usual length an end reaches, in x-heights (negative trims), at `v` on an end's
     own length scale. The letter's Length spans the lower three quarters of it, an eighth of an
     x-height either way; the last quarter draws one end on as far as a whole x-height. */
@@ -223,13 +238,32 @@ function cleanGlyphs(v: unknown): Record<string, GlyphParams> {
   return out;
 }
 
+/** Settings saved while Reverse contrast was its own slider (they carry a `reverse`), with their
+    contrasts, the font's and each letter's own, moved onto the two-way Contrast scale. */
+function fromOldContrast(src: Record<string, unknown>): Record<string, unknown> {
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+  const base = num(src.contrast) ?? 0.05, rev = num(src.reverse)!;
+  // a letter with only its own reverse takes the font's contrast amount
+  const move = (o: Record<string, unknown>) => {
+    const c = num(o.contrast), r = num(o.reverse);
+    const { reverse: _, ...rest } = o;
+    return c === undefined && r === undefined ? rest : { ...rest, contrast: contrastFromOld(c ?? base, r ?? rev) };
+  };
+  const out = move(src);
+  const g = src.glyphs;
+  if (g && typeof g === 'object' && !Array.isArray(g))
+    out.glyphs = Object.fromEntries(Object.entries(g).map(([ch, ov]) => [ch, ov && typeof ov === 'object' ? move(ov as Record<string, unknown>) : ov]));
+  return out;
+}
+
 /**
  * Turn untrusted input (an imported file, a request body) into valid Params.
  * Unknown keys are dropped, missing or invalid values fall back to the defaults and
  * numbers are clamped to 0..1, so the engine never sees NaN or an unknown option.
  */
 export function sanitizeParams(input: unknown): Params {
-  const src = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+  let src = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+  if (typeof src.reverse === 'number') src = fromOldContrast(src);
   const out = { ...DEFAULTS } as Record<string, unknown>;
   for (const k of PARAM_KEYS) {
     const c = k === 'glyphs' ? cleanGlyphs(src[k]) : cleanValue(k, src[k]);

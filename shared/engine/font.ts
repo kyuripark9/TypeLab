@@ -3,7 +3,7 @@
    -> expanded outlines. Pure math with no DOM, so the browser (live preview) and the
    server (font export) run exactly the same code. A full rebuild of every glyph takes a
    few milliseconds, so sliders can drive it directly. */
-import { DEFAULTS, endCurl, endLength, endReach, formOf, weightScale, type Params } from '../params';
+import { DEFAULTS, contrastOf, endCurl, endLength, endReach, formOf, weightScale, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, subCubic, transformCmds } from './geom';
 import { fillOutline, slice } from './effects';
 import { autoThickness, buildSerif, expandStroke, type Expanded } from './stroke';
@@ -17,6 +17,8 @@ export const ALL_CHARS = CHARSET.upper + CHARSET.lower + CHARSET.digits + CHARSE
 
 /** Parameters after the personality macros have been applied, plus derived switches. */
 export interface Effective extends Params {
+  /** from here on contrast is the pen's amount of thick against thin (see contrastOf), and reverse how
+      far it is turned round */ reverse: number;
   square: number; classic: number; bounce: number; singleStory: boolean; stressDeg: number;
 }
 
@@ -98,7 +100,9 @@ export function resolve(p: Partial<Params>): Effective {
   const playful = Math.max(0, -pf), formal = Math.max(0, pf);
   e.curve = clamp(e.curve + 0.45 * gh);
   e.aperture = clamp(e.aperture + 0.3 * gh - 0.3 * future);
-  e.contrast = clamp(e.contrast + 0.08 * human + 0.25 * classic + 0.1 * formal - 0.05 * future);
+  const c = contrastOf(e.contrast);
+  e.reverse = c.reverse;
+  e.contrast = clamp(c.amount + 0.08 * human + 0.25 * classic + 0.1 * formal - 0.05 * future);
   e.roundness = clamp(e.roundness - 0.7 * ss + 0.15 * playful);
   e.apex = clamp(e.apex - 0.5 * ss);
   e.xHeight = clamp(e.xHeight + 0.18 * cf + 0.12 * playful);

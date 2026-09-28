@@ -9,8 +9,8 @@ const extremes: Params[] = [
   { ...DEFAULTS, weight: 0, width: 1, height: 0, contrast: 0, xHeight: 0, counter: 1, aperture: 1, apex: 1, terminal: 'angled', serif: true, serifShape: 'slab', geoHuman: 0, classicFuture: 1 },
   { ...DEFAULTS, weight: 1, width: 0, slant: 1, contrast: 1, wobble: 1, cursive: 1, mono: 1, serif: true, terminal: 'tapered', letterSpacing: 0 },
   { ...DEFAULTS, weight: 0, width: 1, wobble: 1, cursive: 0.2, mono: 1, roundness: 1, terminal: 'round' },
-  { ...DEFAULTS, weight: 1, chamfer: 1, squareness: 1, joints: 1, reverse: 1, contrast: 1, extenders: 1, stencil: 1, slice: 1, fill: 'wire', module: 1 },
-  { ...DEFAULTS, weight: 0, chamfer: 0.1, joints: 1, reverse: 0.5, extenders: 0, stencil: 0.3, fill: 'pixels', module: 0, slant: 1, wobble: 1 },
+  { ...DEFAULTS, weight: 1, chamfer: 1, squareness: 1, joints: 1, contrast: 0, extenders: 1, stencil: 1, slice: 1, fill: 'wire', module: 1 },
+  { ...DEFAULTS, weight: 0, chamfer: 0.1, joints: 1, contrast: 0.45, extenders: 0, stencil: 0.3, fill: 'pixels', module: 0, slant: 1, wobble: 1 },
   { ...DEFAULTS, weight: 1, width: 0, fill: 'dots', module: 1, cursive: 1, serif: true },
   { ...DEFAULTS, weight: 0.5, fill: 'lines', module: 0, roundness: 1, mono: 1, playfulFormal: 0 },
   { ...DEFAULTS, weight: 1, width: 0, apex: 1, diagonals: 'upright', bends: 'round', yForm: 'cup', qForm: 'inside', iForm: 'bars', serif: true, cursive: 1, tail: 1, bowlForm: 'box', rForm: 'loop' },
@@ -503,9 +503,23 @@ describe('font engine', () => {
     assert.ok(points(round.glyph('O')!.d) > 60);
   });
 
-  it('reverse contrast makes horizontals thicker than stems', () => {
-    const f = buildFont({ ...DEFAULTS, contrast: 0.8, reverse: 1 });
-    assert.ok(f.m.hT > f.m.tDir(0, 1) * 2);
+  it('contrast runs both ways from the letters as drawn', () => {
+    const at = (contrast: number) => { const f = buildFont({ ...DEFAULTS, contrast }); return { v: f.m.tDir(0, 1), h: f.m.tDir(1, 0) }; };
+    const mid = at(0.5), high = at(1), low = at(0), rev = at(0.1);
+    assert.equal(DEFAULTS.contrast, 0.5, 'the middle is the default');
+    assert.ok(mid.h < mid.v && mid.h > mid.v * 0.8, 'the middle keeps the gentle contrast letters are drawn with');
+    assert.ok(high.h < high.v * 0.15, 'the top thins the horizontals');
+    assert.ok(Math.abs(low.v - high.h) < high.v * 0.05 && Math.abs(low.h - high.v) < high.v * 0.05, 'the bottom is its mirror');
+    assert.ok(rev.h > rev.v * 2, 'below the middle the horizontals outweigh the stems');
+  });
+
+  it('moves a contrast saved with a separate reverse onto the two-way scale', () => {
+    const p = sanitizeParams({ ...DEFAULTS, contrast: 0.62, reverse: 1, glyphs: { a: { contrast: 1 }, b: { reverse: 0 } } });
+    assert.ok(Math.abs(p.contrast - 0.18) < 1e-9);
+    assert.ok(!('reverse' in p));
+    assert.deepEqual(p.glyphs, { a: { contrast: 0 }, b: { contrast: 0.8 } });
+    assert.equal(sanitizeParams({ ...DEFAULTS, contrast: 0.05, reverse: 0 }).contrast, 0.5, 'the old default is the middle');
+    assert.equal(sanitizeParams({ contrast: 0.3 }).contrast, 0.3, 'today\'s settings stay as they are');
   });
 
   it('extenders lengthen ascenders and descenders', () => {
