@@ -1,13 +1,23 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-import { Link } from 'react-router';
+import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { Link, useNavigate } from 'react-router';
 import { NAME_MAX, cleanName, slug } from '../../shared/design';
 import { sanitizeParams } from '../../shared/params';
 import { api, download, errorMessage } from '../lib/api';
 import { actions, isDirty, useEditor } from '../state/editor';
+import { playIntro } from './Intro';
 
-/** Logo, linking to `to`. */
-export function Brand({ to, title }: { to: string; title: string }) {
-  return <Link to={to} className="brand" title={title}><span className="brand-name">TypeLab</span></Link>;
+/** Logo: back to the start — the title card, then a fresh design. */
+export function Brand() {
+  const navigate = useNavigate();
+  const goHome = (e: ReactMouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; // let the browser open a new tab
+    e.preventDefault();
+    if (isDirty(useEditor.getState()) && !window.confirm('You have unsaved changes. Leave without saving?')) return;
+    actions.newDesign();
+    navigate('/');
+    playIntro();
+  };
+  return <Link to="/" className="brand" title="Back to the start" onClick={goHome}><span className="brand-name">TypeLab</span></Link>;
 }
 
 export function Header({ onSave, onGuide }: { onSave: () => void; onGuide: () => void }) {
@@ -16,7 +26,7 @@ export function Header({ onSave, onGuide }: { onSave: () => void; onGuide: () =>
   return (
     <header className="top">
       <div className="top-left">
-        <Brand to="/" title="Start a new design" />
+        <Brand />
         <input className="doc-name" value={name} maxLength={NAME_MAX} aria-label="Font name" spellCheck={false}
           onChange={e => actions.setName(e.target.value)}
           onBlur={() => actions.setName(cleanName(name))}
