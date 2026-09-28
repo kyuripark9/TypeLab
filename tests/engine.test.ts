@@ -592,6 +592,15 @@ describe('font engine', () => {
     assert.equal(a.strokes[2].cmds.join(), b.strokes[2].cmds.join(), 'the crossbar stays');
     assert.equal(f.glyph('I')!.d, plain.glyph('I')!.d, 'other letters stay');
     assert.equal(buildFont({ ...DEFAULTS, glyphs: { H: { strokeWeights: { 0: 0.5 } } } }).glyph('H')!.d, b.d, 'the middle draws it as the design does');
+
+    // the rounds inside a square-joined bowl follow its stem's edge, lighter or heavier
+    const xs = (cmds: (string | number)[][]) => cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 0)) as number[];
+    for (const bowlForm of ['oval', 'box'] as const) for (const w of [0.1, 0.9]) {
+      const g = buildFont({ ...DEFAULTS, story: 'single', bowlJoin: 'square', bowlForm, glyphs: { a: { strokeWeights: { 0: w } } } }).glyph('a')!;
+      const stemL = Math.min(...xs(g.strokes[0].cmds)), fillets = g.strokes.filter(s => s.part === 'fillet');
+      assert.equal(fillets.length, 2);
+      for (const s of fillets) assert.ok(Math.abs(Math.max(...xs(s.cmds)) - stemL) < 3, `a ${bowlForm} bowl's round meets a stem weighed ${w}`);
+    }
   });
 
   it('wraps text to a width', () => {

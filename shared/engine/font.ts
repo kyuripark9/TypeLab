@@ -186,7 +186,66 @@ function metrics(e: Effective): Metrics {
   };
 }
 
-interface RawStroke { cmds?: Cmd[]; poly?: Pt[]; o: StrokeOpts }
+/** A fillet's inside corner at (x, y), filling toward (sx, sy) up to a quarter circle r across. */
+interface Fillet { x: number; y: number; sx: number; sy: number; r: number }
+interface RawStroke { cmds?: Cmd[]; poly?: Pt[]; o: StrokeOpts; fillet?: Fillet }
+
+function filletPts({ x, y, sx, sy, r }: Fillet): Pt[] {
+  // it reaches a little into both strokes, so no hairline shows between them
+  const e = 2, cx = x + sx * r, cy = y + sy * r, pts: Pt[] = [{ x: x - sx * e, y: y - sy * e, sharp: true }, { x: cx, y: y - sy * e, sharp: true }];
+  for (let i = 0; i <= 12; i++) {
+    const a = (i / 12) * Math.PI / 2;
+    pts.push({ x: cx - sx * r * Math.sin(a), y: cy - sy * r * Math.cos(a), smooth: i > 0 && i < 12 });
+  }
+  pts.push({ x: x - sx * e, y: cy, sharp: true });
+  return pts;
+}
+
+/** Fillets moved onto the edges of the strokes they round into, where those are weighted one by
+    one: a lighter stem pulls its edge in, and the fillet with it, so no gap opens between them; a
+    heavier one pushes it out, and it rounds no further than the stroke it runs along reaches. */
+function weighFillets(b: Builder, m: Metrics) {
+  if (!b.strokes.some((st, si) => st.cmds && strokeWt(m, si) !== 1)) return;
+  const edges: { ax: 'x' | 'y'; at: number; from: number; to: number; half: number; drawn: number; f: number }[] = [];
+  b.strokes.forEach((st, si) => {
+    if (!st.cmds) return;
+    const f = strokeWt(m, si), sc = st.o.scale || 1;
+    let cur: Pt | null = null;
+    for (const c of st.cmds) {
+      if (c[0] === 'M' || c[0] === 'L') {
+        const q = { x: c[1] as number, y: c[2] as number }, w = c[0] === 'L' ? (c[3] as { w?: unknown } | undefined)?.w ?? st.o.w : null;
+        if (cur && (Math.abs(q.x - cur.x) < 0.5) !== (Math.abs(q.y - cur.y) < 0.5)) {
+          // a plumb or level side of the stroke, how far its edges sit off its centerline as the
+          // letters reckon it (a stroke, or a bar), and as the pen draws it
+          const plumb = Math.abs(q.x - cur.x) < 0.5, thin = w === 'thin';
+          const half = (thin ? m.thin : plumb ? m.s : m.hT) * sc / 2, drawn = (thin ? m.thin : plumb ? m.tDir(0, 1) : m.hT) * sc / 2;
+          edges.push(plumb ? { ax: 'x', at: q.x, from: Math.min(cur.y, q.y), to: Math.max(cur.y, q.y), half, drawn, f }
+            : { ax: 'y', at: q.y, from: Math.min(cur.x, q.x), to: Math.max(cur.x, q.x), half, drawn, f });
+        }
+        cur = q;
+      } else cur = null;
+    }
+  });
+  for (const st of b.strokes) {
+    const fl = st.fillet;
+    if (!fl) continue;
+    // the fillet sits on the side of each edge it fills away from that stroke's centerline
+    const on = edges.filter(e => {
+      const [pos, along, s] = e.ax === 'x' ? [fl.x, fl.y, fl.sx] : [fl.y, fl.x, fl.sy];
+      return Math.min(Math.abs(pos - (e.at + s * e.half)), Math.abs(pos - (e.at + s * e.drawn))) <= 1.5 && along >= e.from - 1 && along <= e.to + 1;
+    });
+    const moved = { ...fl };
+    for (const e of on) if (e.f !== 1) moved[e.ax] = fl[e.ax] + (e.ax === 'x' ? fl.sx : fl.sy) * e.drawn * (e.f - 1);
+    if (moved.x === fl.x && moved.y === fl.y) continue;
+    for (const e of on) {
+      // along a level edge it reaches across in x, along a plumb one in y
+      const k = e.ax === 'x' ? 'y' : 'x', s = k === 'x' ? fl.sx : fl.sy;
+      moved.r = Math.min(moved.r, s > 0 ? e.to - moved[k] : moved[k] - e.from);
+    }
+    st.fillet = moved;
+    st.poly = moved.r < 1 ? [] : filletPts(moved);
+  }
+}
 
 /** Glyph builder handed to each glyph function. */
 export class Builder {
@@ -208,14 +267,8 @@ export class Builder {
       corner toward (sx, sy) (each ±1) up to a quarter circle. The outside of the join stays square. */
   fillet(x: number, y: number, sx: number, sy: number, r: number) {
     if (r < 1) return this;
-    // it reaches a little into both strokes, so no hairline shows between them
-    const e = 2, cx = x + sx * r, cy = y + sy * r, pts: Pt[] = [{ x: x - sx * e, y: y - sy * e, sharp: true }, { x: cx, y: y - sy * e, sharp: true }];
-    for (let i = 0; i <= 12; i++) {
-      const a = (i / 12) * Math.PI / 2;
-      pts.push({ x: cx - sx * r * Math.sin(a), y: cy - sy * r * Math.cos(a), smooth: i > 0 && i < 12 });
-    }
-    pts.push({ x: x - sx * e, y: cy, sharp: true });
-    this.strokes.push({ poly: pts, o: { part: 'fillet' } });
+    const fillet = { x, y, sx, sy, r };
+    this.strokes.push({ poly: filletPts(fillet), o: { part: 'fillet' }, fillet });
     return this;
   }
   /** A filled shape, like a fillet, for a corner no stroke draws. */
@@ -851,6 +904,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   const b = new Builder(m);
   const hooks = new Set<string>(), plains = new Set<string>(), homes = new Map<string, Pt>(), W0 = def.fn(b, m);
   if (m.p.bowlForm === 'box') boxQuarters(b, m);
+  weighFillets(b, m);
   markTurns(b, m);
   const grow = stretchTerminals(b, m, W0, hooks, plains, homes), W = W0 + grow.r;
   const code = ch.charCodeAt(0);
