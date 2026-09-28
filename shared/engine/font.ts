@@ -6,7 +6,7 @@
 import { DEFAULTS, contrastOf, endCurl, endLength, endReach, formOf, weightScale, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, subCubic, transformCmds } from './geom';
 import { fillOutline, slice } from './effects';
-import { autoThickness, buildSerif, expandStroke, type Expanded } from './stroke';
+import { autoThickness, buildSerif, expandStroke, innerFloor, type Expanded } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
 
 export const CHARSET = {
@@ -641,15 +641,25 @@ function runStraight(cmds: Cmd[], which: 's' | 'e', hook: boolean, m: Metrics): 
 
 /* ---- corners
    A corner is where a centerline turns (a turn), or one of the two corners of an end drawn square
-   across. Each has a roundness from 0 (sharp) to 1 (round), which a letter can set one by one. */
+   across. Each has a roundness from 0 (sharp) to 1 (round), which a letter can set one by one; a
+   turn has two, one for its outside and one for its inside. */
 
-/** The outline radii of a turn at roundness v, for a stroke t thick: up to halfway only its outside
-    rounds, until it turns round as wide as the stroke, leaving the inside square; past halfway the
-    inside rounds too, with the outside a stroke width wider. */
-export const turnRadii = (v: number, t: number): TurnR =>
-  v <= 0.5 ? { o: 2 * v * t, i: 0 } : { o: t + (v - 0.5) * 4 * t, i: (v - 0.5) * 4 * t };
-/** The roundness of a turn with outline radii r. */
-export const turnRoundness = (r: TurnR, t: number) => clamp(r.i > 0 ? 0.5 + r.i / (4 * t) : r.o / (2 * t));
+/** The outline radius of one side of a turn at roundness v, in a font whose letters stand `full`
+    high (the cap height): all the way, as wide as the letter is high, round enough to take up a
+    whole side (it then rounds as far as its sides let it). */
+export const turnR = (v: number, full: number) => full * clamp(v) ** 1.5;
+/** The roundness of one side of a turn with outline radius r. */
+export const turnV = (r: number, full: number) => clamp(r / full) ** (2 / 3);
+/** A turn's outline radii as its letter sets them, over those it is drawn with (`drawn`, or a sharp
+    corner): the outside by the corner's own roundness, the inside by its own inside roundness, or
+    else a stroke tighter than the outside, so the stroke keeps its thickness round the turn. Null
+    while the letter sets neither. */
+export function ownTurn(m: Metrics, id: string, t: number, drawn: TurnR | null | undefined): TurnR | null {
+  const vo = m.p.corners?.[id], vi = m.p.innerCorners?.[id];
+  if (vo == null && vi == null) return null;
+  const o = vo != null ? turnR(vo, m.cap) : drawn?.o ?? 0;
+  return { o, i: vi != null ? turnR(vi, m.cap) : vo != null ? Math.max(0, o - t) : drawn?.i ?? 0 };
+}
 /** The radius of an end's corner at roundness v: at 1 half the stroke, so the end rounds right off. */
 const endCornerR = (v: number, t: number) => v * t / 2;
 
@@ -680,10 +690,11 @@ function markTurns(b: Builder, m: Metrics) {
     if (!st.cmds) return;
     const t = m.s * (st.o.scale || 1) * strokeWt(m, si);
     turnsOf(st.cmds, m).forEach((tn, k) => {
-      const id = `${si}t${k}`, own = m.p.corners?.[id], c = st.cmds![tn.ci], oi = c[0] === 'C' ? 7 : 3;
+      const id = `${si}t${k}`, c = st.cmds![tn.ci], oi = c[0] === 'C' ? 7 : 3;
       let o = c[oi] || {};
-      if (own != null) {
-        o = { ...o, turn: turnRadii(own, t) };
+      const own = ownTurn(m, id, t, o.turn);
+      if (own) {
+        o = { ...o, turn: own };
         const nc = c.slice() as Cmd;
         nc[oi] = o;
         st.cmds![tn.ci] = nc;
@@ -693,7 +704,7 @@ function markTurns(b: Builder, m: Metrics) {
       const ox = tn.din.tx - tn.dout.tx, oy = tn.din.ty - tn.dout.ty, l = Math.hypot(ox, oy) || 1, ro = o.turn?.o ?? 0;
       const h = Math.sqrt(Math.max(1e-3, 1 - l * l / 4)), out = t / 2 / h - ro * (1 / h - 1);
       // (at home on the turn itself, which rounding doesn't move, so the corners keep their order)
-      b.marks.push({ type: 'corner', id, x: tn.x + ox / l * out, y: tn.y + oy / l * out, v: o.turn ? turnRoundness(o.turn, t) : 0, home: { x: tn.x, y: tn.y } });
+      b.marks.push({ type: 'corner', id, x: tn.x + ox / l * out, y: tn.y + oy / l * out, v: turnV(ro, m.cap), vi: turnV(Math.max(o.turn?.i ?? 0, innerFloor(ro, t, tn.din.tx * tn.dout.tx + tn.din.ty * tn.dout.ty)), m.cap), home: { x: tn.x, y: tn.y } });
     });
   });
 }

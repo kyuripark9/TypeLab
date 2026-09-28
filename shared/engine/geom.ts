@@ -128,15 +128,16 @@ export function roundContour(src: Pt[], R: number, cornersOut?: Pt[]): Cmd[] {
     return cmds;
   }
   const m = corners.length;
+  const want = (c: Corner) => c.r > 0 ? c.r * Math.tan(Math.min(c.th, 2.6) / 2) : 0;
   for (let j = 0; j < m; j++) {
     const c = corners[j], prev = corners[(j + m - 1) % m], next = corners[(j + 1) % m];
     const lenPrev = ((S[c.i] - S[prev.i]) + total) % total || total;
     const lenNext = ((S[next.i] - S[c.i]) + total) % total || total;
-    const want = c.r > 0 ? c.r * Math.tan(Math.min(c.th, 2.6) / 2) : 0;
     // two rounded corners share the side between them; a corner given its own radius may take
-    // nearly all of a side that runs to a sharp one (the tight turn of a U)
-    const room = (o: Corner) => (c.f && o.r === 0 ? 0.95 : 0.5);
-    c.d = Math.min(want, lenPrev * room(prev), lenNext * room(next));
+    // nearly all of a side the corner at its other end leaves it (the tight turn of a U, or one
+    // corner of a box rounded right round)
+    const room = (o: Corner, len: number) => c.f ? Math.max(len / 2, len * 0.95 - want(o)) : len / 2;
+    c.d = Math.min(want(c), room(prev, lenPrev), room(next, lenNext));
     if (c.d < 0.6) c.d = 0;
     if (cornersOut && !pts[c.i].sharp) cornersOut.push({ x: pts[c.i].x, y: pts[c.i].y });
   }

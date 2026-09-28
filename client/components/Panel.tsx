@@ -516,15 +516,24 @@ function thumbBox(g: Glyph) {
   return [x0 - pad, y0 - pad, x1 - x0 + pad * 2, y1 - y0 + pad * 2];
 }
 
-/** One corner's roundness beside a picture of the letter with that corner marked. */
-function CornerSlider({ g, corners, corner: { id, label, v } }: { g: Glyph; corners: CornerInfo[]; corner: CornerInfo }) {
-  const hot = useEditor(s => s.hotEnd === id);
+/** One corner's roundness beside a picture of the letter with that corner marked: where a stroke
+    turns, its outside and inside one by one. */
+function CornerSlider({ g, corners, corner: { id, label, v, vi: drawn } }: { g: Glyph; corners: CornerInfo[]; corner: CornerInfo }) {
+  // an inside set sharper than a wide outside lets it is drawn rounder, but the slider stays where it was put
+  const hot = useEditor(s => s.hotEnd === id), own = useEditor(s => paramOf(s, 'innerCorners')[id]), vi = drawn == null ? drawn : own ?? drawn;
   return (
     <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id} title={label}
       onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
       <EndThumb g={g} ends={corners} on={id} />
-      <EndRow id={id} k="corners" name="Round" label={label} value={v}
-        tip="Left makes the corner sharp; the middle rounds only its outside, keeping the inside square; right rounds both" reset="Draw it as the design does" />
+      {vi == null
+        ? <EndRow id={id} k="corners" name="Round" label={label} value={v}
+            tip="Left makes the corner sharp; right rounds the end right off" reset="Draw it as the design does" />
+        : <>
+            <EndRow id={id} k="corners" name="Outside" label={label} value={v}
+              tip="Left makes the outside of the turn sharp; right rounds it as far as its sides let it. The inside follows, keeping the stroke even, until it has its own" reset="Draw it as the design does" />
+            <EndRow id={id} k="innerCorners" name="Inside" label={label} value={vi}
+              tip="Left makes the inside of the turn square; right rounds it wide, thickening the corner. Well under the outside, the stroke thins across the corner, though never to less than half" reset="Follow the outside again" />
+          </>}
     </div>
   );
 }
@@ -560,7 +569,7 @@ function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: Stro
 
 function EndRow({ id, k, name, label, value, tip, reset }: { id: string; k: EndKey; name: string; label: string; value: number; tip: string; reset: string }) {
   const own = useEditor(s => { const ch = letterOf(s); return !!ch && s.params.glyphs[ch]?.[k]?.[id] !== undefined; });
-  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'corners' ? 'roundness' : k === 'strokeWeights' ? 'weight' : k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
+  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'corners' || k === 'innerCorners' ? 'roundness' : k === 'strokeWeights' ? 'weight' : k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
   return (
     <>
       <span className="end-name" title={tip}>{name}</span>

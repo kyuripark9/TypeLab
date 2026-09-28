@@ -198,12 +198,28 @@ describe('font engine', () => {
     // a boxed O turns four times; each corner can be set without moving the others
     const box = { bowlForm: 'box' } as const, O = f('O', {}, box);
     assert.deepEqual(ids(O), ['0t0', '0t1', '0t2', '0t3']);
-    assert.ok(O.marks.every(k => k.type !== 'corner' || k.v === 0.5), 'a box corner is round outside, square inside');
+    const near = (a: number, b: number) => Math.abs(a - b) < 1e-6;
+    // (a box corner rounds outside as wide as the stroke: low on a scale that runs to the letter's height)
+    const boxV = O.marks.find(k => k.type === 'corner')!.v!;
+    assert.ok(boxV > 0.1 && boxV < 0.4);
+    assert.ok(O.marks.every(k => k.type !== 'corner' || (near(k.v!, boxV) && k.vi === 0)), 'a box corner is round outside, square inside');
     const sharp = f('O', { '0t0': 0 }, box), round = f('O', { '0t0': 1 }, box);
     assert.notEqual(sharp.d, O.d);
     assert.notEqual(round.d, O.d);
     assert.equal(sharp.marks.find(k => k.id === '0t0')!.v, 0);
-    assert.equal(sharp.marks.find(k => k.id === '0t1')!.v, 0.5);
+    assert.ok(near(sharp.marks.find(k => k.id === '0t1')!.v!, boxV));
+    // rounded right up, the four corners of a box make a ring as round as an O's
+    const ring = f('O', { '0t0': 1, '0t1': 1, '0t2': 1, '0t3': 1 }, box), wide = (g: ReturnType<typeof f>) => {
+      const xs = g.cmds.filter(c => c[0] !== 'Z').map(c => c[c.length - 2] as number);
+      return Math.max(...xs) - Math.min(...xs);
+    };
+    assert.ok(Math.abs(wide(ring) - wide(O)) < 2, 'rounding keeps the box as wide');
+    assert.notEqual(ring.d, round.d);
+    // one corner rounded right up takes what the square-ish corners beside it leave, well past half
+    // of each side, sweeping round like a quarter circle
+    const pts = (g: ReturnType<typeof f>) => g.cmds.filter(c => c[0] !== 'Z').map(c => ({ x: c[c.length - 2] as number, y: c[c.length - 1] as number }));
+    const yTop = Math.max(...pts(O).map(p => p.y)), xs = pts(O).map(p => p.x), mid = (Math.min(...xs) + Math.max(...xs)) / 2;
+    assert.ok(pts(round).filter(p => Math.abs(p.y - yTop) < 1).every(p => p.x < mid), 'the round reaches past the middle of the top');
     // the ends of E's arms and the corners of its stem show; where the stem and an arm end together
     // they are one corner, and the stem's corners along the arms are hidden
     assert.deepEqual(ids(f('E')), ['0el', '0sr', '1el', '1er', '2el', '2er', '3el', '3er']);
@@ -214,6 +230,15 @@ describe('font engine', () => {
     const A = f('A', { '0t0': 0 }, { diagonals: 'upright', bends: 'round' }), m = buildFont(DEFAULTS).m;
     const top = Math.max(...A.cmds.filter(c => c[0] !== 'Z').map(c => c[c.length - 1] as number));
     assert.ok(Math.abs(top - m.cap - m.os) < 2, `apex at ${top}`);
+    // the inside of a turn rounds on its own; left alone it follows the outside, keeping the stroke even
+    const inner = (v: number, o?: number) => buildFont({ ...DEFAULTS, ...box, glyphs: { O: { innerCorners: { '0t0': v }, ...(o != null ? { corners: { '0t0': o } } : {}) } } }).glyph('O')!;
+    assert.notEqual(inner(0.5).d, O.d);
+    assert.equal(inner(0).d, O.d, 'a square inside, as a box draws it');
+    assert.ok(near(inner(0.5).marks.find(k => k.id === '0t0')!.vi!, 0.5));
+    assert.ok(near(inner(0.5).marks.find(k => k.id === '0t0')!.v!, boxV), 'the outside stays as drawn');
+    assert.notEqual(inner(0.2, 0.6).d, round.d);
+    assert.ok(round.marks.find(k => k.id === '0t0')!.vi! > 0, 'rounded wide, the outside brings the inside with it');
+    assert.equal(f('E').marks.find(k => k.id === '0el')!.vi, undefined, "an end's corner has no inside");
     // a corner's own roundness belongs to its letter alone
     assert.equal(buildFont({ ...DEFAULTS, ...box, glyphs: { O: { corners: { '0t0': 0 } } } }).glyph('D')!.d, buildFont({ ...DEFAULTS, ...box }).glyph('D')!.d);
   });
@@ -625,8 +650,9 @@ describe('params validation', () => {
   });
 
   it('keeps only corner ids it knows, clamped', () => {
-    const p = sanitizeParams({ glyphs: { O: { corners: { '0t1': 2, '3sl': 0.4, bogus: 1, '0x': 0.2 } } } });
+    const p = sanitizeParams({ glyphs: { O: { corners: { '0t1': 2, '3sl': 0.4, bogus: 1, '0x': 0.2 }, innerCorners: { '0t1': -1, '3sl': 0.4 } } } });
     assert.deepEqual(p.glyphs.O?.corners, { '0t1': 1, '3sl': 0.4 });
+    assert.deepEqual(p.glyphs.O?.innerCorners, { '0t1': 0 }, 'only a turn has an inside');
   });
 
   it('keeps only stroke ids it knows, clamped', () => {

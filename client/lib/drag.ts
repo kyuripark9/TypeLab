@@ -47,10 +47,11 @@ export function strokeEnds(g: Glyph): StrokeEndInfo[] {
   return byPlace(g, g.marks.filter(k => (k.type === 'terminal' || k.type === 'end') && k.id), 'end').map(({ k, label }) => ({ id: k.id!, x: k.x, y: k.y, label, hook: !!k.hook }));
 }
 
-/** A letter's corners, top to bottom, each named by where it sits: "Top left corner", with its roundness as drawn. */
-export interface CornerInfo { id: string; x: number; y: number; label: string; v: number }
+/** A letter's corners, top to bottom, each named by where it sits: "Top left corner", with its
+    roundness as drawn: a turn's outside, and its inside in `vi` (the corners of an end have none). */
+export interface CornerInfo { id: string; x: number; y: number; label: string; v: number; vi?: number }
 export function letterCorners(g: Glyph): CornerInfo[] {
-  return byPlace(g, g.marks.filter(k => k.type === 'corner' && k.id), 'corner').map(({ k, label }) => ({ id: k.id!, x: k.x, y: k.y, label, v: k.v ?? 0 }));
+  return byPlace(g, g.marks.filter(k => k.type === 'corner' && k.id), 'corner').map(({ k, label }) => ({ id: k.id!, x: k.x, y: k.y, label, v: k.v ?? 0, ...(k.vi != null ? { vi: k.vi } : {}) }));
 }
 
 /** A letter's strokes (not its dots), each named by its part, and by where it sits when the letter

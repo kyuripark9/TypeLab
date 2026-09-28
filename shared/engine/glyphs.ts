@@ -6,7 +6,7 @@
 
    Path commands: ['M',x,y] ['L',x,y,{w}] ['C',x1,y1,x2,y2,x,y,{w}] ['hv'|'vh',x,y,{u0,u1,w}] ['Z']
    Stroke ends (s = start, e = end): 'flat' | 'term' (styled terminal) | 'h'/'v' (axis cut) | 'join' */
-import { defGlyph as def, turnRadii, type Builder, type Metrics } from './font';
+import { defGlyph as def, ownTurn, type Builder, type Metrics } from './font';
 import { clamp, cubicAt, lerp, roundContour } from './geom';
 import { expandStroke } from './stroke';
 import type { ClipBox, Cmd, Pt, StrokeOpts, TurnR } from './types';
@@ -207,19 +207,23 @@ const bendTurn = (m: Metrics): TurnR => { const r = bendR(m); return { o: r + m.
     else none, a sharp mitred corner. */
 function turnsFor(m: Metrics, pts: XY[], si: number): (TurnR | null)[] {
   return pts.slice(1, -1).map((_, k) => {
-    const own = m.p.corners?.[`${si}t${k}`];
-    return own != null ? turnRadii(own, m.s) : roundBends(m) ? bendTurn(m) : null;
+    const drawn = roundBends(m) ? bendTurn(m) : null;
+    return ownTurn(m, `${si}t${k}`, m.s, drawn) ?? drawn;
   });
 }
 /** Whether its letter rounds any turn of `pts`, drawn as stroke `si`, one by one. */
-const ownTurns = (m: Metrics, n: number, si: number) => Array.from({ length: n - 2 }, (_, k) => m.p.corners?.[`${si}t${k}`] != null).some(Boolean);
+const ownTurns = (m: Metrics, n: number, si: number) => Array.from({ length: n - 2 }, (_, k) => ownTurn(m, `${si}t${k}`, m.s, null) != null).some(Boolean);
+
+/** A turn fitted to a line rounds along at most half of each leg: rounding further as its point
+    moves out to the line lengthens the legs, it would never get there. */
+const FIT_ROOM = 0.5;
 
 /** How far the outline of the stroke through `pts`, turning with radii `turns`, reaches on axis
     `ax` (in direction `dir`) at its turn at pts[i], drawn and rounded as the glyph will be: over the
     part of the outline nearer that turn than any other point of the stroke. */
 function outlineExtent(m: Metrics, pts: XY[], turns: (TurnR | null)[], i: number, ax: 0 | 1, dir: number) {
   const cmds: Cmd[] = [['M', ...pts[0]], ...pts.slice(1).map((q, k): Cmd => ['L', q[0], q[1], k && turns[k - 1] ? { turn: turns[k - 1] } : {}])];
-  const ex = expandStroke(cmds, { miter: 18 }, m.ctx), V = { x: pts[i][0], y: pts[i][1] };
+  const ex = expandStroke(cmds, { miter: 18, endRoom: FIT_ROOM }, m.ctx), V = { x: pts[i][0], y: pts[i][1] };
   const mine = (q: Pt) => pts.every((o, j) => j === i || Math.hypot(q.x - o[0], q.y - o[1]) >= Math.hypot(q.x - V.x, q.y - V.y));
   let most = -Infinity, cur = V;
   for (const c of ex ? roundContour(ex.contours[0], 0) : []) {
@@ -290,7 +294,7 @@ function turnStroke(g: Builder, m: Metrics, pts: XY[], reach: Reach[], o: Stroke
   g.path([['M', p[0][0], p[0][1]], ...p.slice(1).map((q, i): Cmd => {
     const turn = i ? turns[i - 1] : null, thin = !round && q[1] > p[i][1] && Math.abs(q[0] - p[i][0]) > 1;
     return ['L', q[0], q[1], { ...(thin && { w: 'thin' }), ...(turn && { turn }) }];
-  })], { miter: 18, ...o, clip });
+  })], { miter: 18, endRoom: FIT_ROOM, ...o, clip });
   return p;
 }
 

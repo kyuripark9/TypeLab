@@ -76,7 +76,9 @@ export interface Params {
   /** how stroke ends bend: 0.5 as drawn, lower straightens them and then flares them out, higher
       curls them on round the way they turn */ terminalCurl: number;
   /** one letter's ends bent one by one, by end id: each overrides terminalCurl for that end */ terminalCurls: Record<string, number>;
-  /** one letter's corners rounded one by one, by corner id (see isCornerId), from 0 sharp to 1 round */ corners: Record<string, number>;
+  /** one letter's corners rounded one by one, by corner id (see isCornerId), from 0 sharp to 1 round;
+      for a turn, its outside */ corners: Record<string, number>;
+  /** one letter's turns rounded on the inside one by one, by turn id (see isTurnId), from 0 sharp to 1 round */ innerCorners: Record<string, number>;
   /** whether curved stroke ends follow the curve or run straight out (see TERMINAL_RUNS) */ terminalRun: TerminalRun;
   /** the form of the picked kind of stroke end (see TERMINAL_FORMS); one of another kind means its first */ terminalForm: TerminalForm;
   /* The finer shape of each form of stroke end. Each applies only while its form is picked, and
@@ -140,7 +142,7 @@ export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K :
 export const DEFAULTS: Readonly<Params> = Object.freeze({
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.5, vWeight: 0.5, hWeight: 0.5, strokeWeights: Object.freeze({}),
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
-  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), terminalRun: 'curved',
+  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), innerCorners: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved',
   bowlForm: 'oval', diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', tail: 0.5,
@@ -161,6 +163,8 @@ export const isEndId = (id: string) => /^p?\d{1,2}[se]$/.test(id);
     stroke's centerline (from 0), or the end ('s' start, 'e' end) and its side ('l' or 'r', looking
     out of the stroke). */
 export const isCornerId = (id: string) => /^\d{1,2}(t\d{1,2}|[se][lr])$/.test(id);
+/** A turn's id (see isCornerId): only a turn has an inside to round. */
+export const isTurnId = (id: string) => /^\d{1,2}t\d{1,2}$/.test(id);
 /** A stroke's id: its index in the glyph. */
 export const isStrokeId = (id: string) => /^\d{1,2}$/.test(id);
 /** How much heavier a stroke is drawn at `v` on a weight scale centred on 0.5: a quarter as heavy at 0, two and a half times at 1. */
@@ -207,9 +211,9 @@ export const endCurl = (p: { terminalCurl?: number; terminalCurls?: Record<strin
 /** A valid value for setting `k`, or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {
   const d = DEFAULTS[k];
-  if (k === 'terminalEnds' || k === 'terminalCurls' || k === 'corners' || k === 'strokeWeights') {
+  if (k === 'terminalEnds' || k === 'terminalCurls' || k === 'corners' || k === 'innerCorners' || k === 'strokeWeights') {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
-    const out: Record<string, number> = {}, ok = k === 'corners' ? isCornerId : k === 'strokeWeights' ? isStrokeId : isEndId;
+    const out: Record<string, number> = {}, ok = k === 'corners' ? isCornerId : k === 'innerCorners' ? isTurnId : k === 'strokeWeights' ? isStrokeId : isEndId;
     for (const [id, x] of Object.entries(v)) if (ok(id) && typeof x === 'number' && Number.isFinite(x)) out[id] = Math.min(1, Math.max(0, x));
     return out;
   }
@@ -232,7 +236,7 @@ function cleanGlyphs(v: unknown): Record<string, GlyphParams> {
       const c = isGlyphKey(k) ? cleanValue(k, x) : undefined;
       if (c !== undefined) g[k] = c;
     }
-    for (const e of ['terminalEnds', 'terminalCurls', 'corners', 'strokeWeights']) if (g[e] && !Object.keys(g[e] as object).length) delete g[e];
+    for (const e of ['terminalEnds', 'terminalCurls', 'corners', 'innerCorners', 'strokeWeights']) if (g[e] && !Object.keys(g[e] as object).length) delete g[e];
     if (Object.keys(g).length) out[ch] = g as GlyphParams;
   }
   return out;

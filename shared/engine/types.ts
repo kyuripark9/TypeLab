@@ -49,6 +49,9 @@ export interface StrokeOpts {
   we?: number;
   scale?: number;
   miter?: number;
+  /** how far along a side that runs on to the stroke's end its turn may round, as a share of it:
+      by default nearly all of it, short of a stroke's width */
+  endRoom?: number;
   clip?: ClipBox;
   clipX?: ClipBox;
   counter?: boolean;
@@ -102,4 +105,5 @@ export interface StrokeEnd { x: number; y: number; dx: number; dy: number; t: nu
     `hook` when the end is the tip of a hook, tail or cursive stroke, which the stroke end length leaves alone,
     and `home`, where the end sits before its own length and curl move it. */
 export interface Mark { type: string; x: number; y: number; r?: number; id?: string; hook?: boolean; home?: { x: number; y: number };
-  /** a corner's roundness as drawn, on the scale of its own control (see params) */ v?: number }
+  /** a corner's roundness as drawn, on the scale of its own control (see params): a turn's outside */ v?: number;
+  /** a turn's inside roundness as drawn */ vi?: number }

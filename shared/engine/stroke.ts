@@ -19,6 +19,15 @@ type Dir = { x: number; y: number };
 /** A run of samples with a continuous tangent, and the radii of the turn it starts with, if given. */
 type Run = Sample[] & { turn?: TurnR };
 
+/** The radius a turn's inside rounds by at least, for its outside to round by `o`: rounding the
+    outside further than the inside thins the stroke across the corner, and the inside comes along
+    once it would be under half a stroke there. `t` is the stroke's thickness, `cos` the cosine of
+    the angle it turns through. */
+export function innerFloor(o: number, t: number, cos: number) {
+  const s = Math.sqrt(Math.max(1e-6, (1 + cos) / 2)), k = 1 / s - 1;
+  return k < 1e-3 ? 0 : Math.max(0, o - (t / s - t / 2) / k);
+}
+
 const wNum = (w: StrokeWeight) => (w === 'thin' ? 0 : w === 'thick' ? 1 : w);
 /** Terminals as drawn when the design gives no finer shape. */
 const TERM: TermSpec = { form: '', flare: 1, depth: 0.3, size: 0.8, clip: 0.4, round: 0.5, point: 0.95, lean: 0, slope: 0.6, tilt: 0, tip: 0.42, taper: 3 };
@@ -383,11 +392,43 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
 
   // joins between runs. A turn given radii always mitres, and rounds its outside and inside by them
   const limit = o.miter || 5;
+  // a closed path is a ring: two contours, no ends
+  const isLoop = closed && Math.hypot(all[0].x - all[all.length - 1].x, all[0].y - all[all.length - 1].y) < 0.5;
+  const runLen = (r: Sample[]) => r[r.length - 1].len - r[0].len;
+  /** The length of run k and the runs carrying straight on from it, back (-1) or forward (+1),
+      round a ring, and how much of it the turn at its far end takes up on its centerline: where the
+      side ends the stroke, a stroke's width, so the round doesn't reach into the stroke it starts from. */
+  const straight = (k: number, dir: -1 | 1) => {
+    const N = runs.length;
+    let n = runLen(runs[k]), a = k;
+    for (let step = 1; step < N; step++) {
+      const b = isLoop ? (a + dir + N) % N : a + dir;
+      if (b < 0 || b >= N) return { n, far: o.endRoom != null ? n * (0.95 - o.endRoom) : runs[a][dir > 0 ? runs[a].length - 1 : 0].t };
+      const [x, y] = dir > 0 ? [a, b] : [b, a], p = runs[x][runs[x].length - 1], q = runs[y][0], cos = p.tx * q.tx + p.ty * q.ty, far = (runs[y] as Run).turn;
+      if (far) return { n, far: Math.max(0, far.o - (p.t + q.t) / 4) * Math.sqrt(Math.max(0, (1 - cos) / (1 + cos))) };
+      if (cos < 0.999) break;
+      n += runLen(runs[b]);
+      a = b;
+    }
+    return { n, far: 0 };
+  };
+  /** How far along a side of length n a turn may round, with `far` taken by the turn at its other
+      end: whatever that one leaves, or half the side when both want more. */
+  const room = ({ n, far }: { n: number; far: number }) => Math.max(n / 2, n * 0.95 - far);
   const join = (i: number, j: number) => {
     const ra = runs[i], rb = runs[j], sa = ra[ra.length - 1], sb = rb[0], turn = (rb as Run).turn;
     const cross = sa.tx * sb.ty - sa.ty * sb.tx;
     if (Math.abs(cross) < 1e-3) return;
     const lenA = ra[ra.length - 1].len - ra[0].len, lenB = rb[rb.length - 1].len - rb[0].len;
+    // a turn rounds on its centerline as far along its sides as the turns at their other ends leave
+    // it: rounded further, its outside and inside ease off together, keeping the stroke across the
+    // corner as thick
+    let ro = 0, ri = 0;
+    if (turn) {
+      const cos = sa.tx * sb.tx + sa.ty * sb.ty, t = (sa.t + sb.t) / 2, tanH = Math.sqrt(Math.max(0, (1 - cos) / (1 + cos)));
+      ro = Math.min(turn.o, Math.min(room(straight(i, -1)), room(straight(j, 1))) / Math.max(tanH, 1e-3) + t / 2);
+      ri = Math.max(turn.i - (turn.o - ro), innerFloor(ro, t, cos));
+    }
     for (const sides of [Lr, Rr]) {
       const A = sides[i][sides[i].length - 1] as Pt, B = sides[j][0] as Pt;
       const s = ((B.x - A.x) * sb.ty - (B.y - A.y) * sb.tx) / cross;
@@ -397,16 +438,15 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
       if (outer) {
         if (!turn && Math.hypot(P.x - sa.x, P.y - sa.y) > limit * Math.max(sa.t, sb.t) / 2) continue;
       } else if (-s > lenA * 0.95 || u > lenB * 0.95) continue;
-      if (turn) { const r = outer ? turn.o : turn.i; if (r > 0) P.r = r; else P.sharp = true; }
+      if (turn) { const r = outer ? ro : ri; if (r > 0) P.r = r; else P.sharp = true; }
       sides[i][sides[i].length - 1] = P;
       sides[j][0] = null;
     }
   };
   for (let i = 0; i + 1 < runs.length; i++) join(i, i + 1);
 
-  // a closed path is a ring: two contours, no ends. Cut corners split it into several runs,
-  // so the last run is mitered into the first like any other join.
-  const isLoop = closed && Math.hypot(all[0].x - all[all.length - 1].x, all[0].y - all[all.length - 1].y) < 0.5;
+  // a ring's cut corners split it into several runs, so the last run is mitered into the first
+  // like any other join
   if (isLoop) {
     if (runs.length > 1) join(runs.length - 1, 0);
     const ring = (sides: (Pt | null)[][]) => {
