@@ -70,6 +70,75 @@ describe('font engine', () => {
     assert.equal(f(0).glyph('n')!.d, f(1).glyph('n')!.d);
   });
 
+  it('square joins run bowls and arches flat into their stems', () => {
+    const f = (bowlJoin: Params['bowlJoin']) => buildFont({ ...DEFAULTS, story: 'single', bowlJoin });
+    const curved = f('curved'), square = f('square');
+    for (const ch of 'abdgpqnmhru') assert.notEqual(curved.glyph(ch)!.d, square.glyph(ch)!.d, ch);
+    for (const ch of 'oceilkv') assert.equal(curved.glyph(ch)!.d, square.glyph(ch)!.d, ch);
+    // flat on the x-height like the stem, where a curved bowl overshoots it
+    const top = (font: ReturnType<typeof buildFont>) => Math.max(...font.glyph('d')!.skeleton.flat().filter(q => q.x < font.m.s * 2).map(q => q.y));
+    assert.ok(top(square) < top(curved));
+  });
+
+  it('the mirrored g drops its tail from the left of the bowl and hooks it right', () => {
+    const f = (gForm: Params['gForm']) => buildFont({ ...DEFAULTS, gForm });
+    const hook = f('hook').glyph('g')!, mirrored = f('mirrored').glyph('g')!;
+    const tip = (g: typeof hook) => g.marks.find(k => k.type === 'tail')!;
+    assert.ok(tip(hook).x < hook.bodyW / 2 && tip(mirrored).x > mirrored.bodyW / 2);
+    assert.equal(f('hook').glyph('q')!.d, f('mirrored').glyph('q')!.d);
+  });
+
+  it('the arm and leg of k and K meet where the k form says', () => {
+    const f = (kForm: Params['kForm']) => buildFont({ ...DEFAULTS, kForm });
+    for (const ch of 'kK') {
+      const ds = new Set((['arm', 'stem', 'bar'] as const).map(k => f(k).glyph(ch)!.d));
+      assert.equal(ds.size, 3, ch);
+    }
+    // on a bar, arm and leg leave the stem a bar's length out
+    const leg = (kForm: Params['kForm']) => f(kForm).glyph('k')!.strokes.find(s => s.part === 'leg')!;
+    assert.ok(leg('bar') && leg('stem'));
+    assert.equal(f('arm').glyph('n')!.d, f('bar').glyph('n')!.d);
+  });
+
+  it('dots can be picked round or square whatever the corners do', () => {
+    const dot = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p }).glyph('.')!.d;
+    assert.equal(dot({}), dot({ dots: 'square' }));
+    assert.notEqual(dot({}), dot({ dots: 'round' }));
+    assert.equal(dot({ roundness: 1, dots: 'round' }), dot({ dots: 'round' }));
+    assert.equal(dot({ roundness: 1, dots: 'square' }), dot({}));
+  });
+
+  it('i and l take a flag and a foot when picked, and in a monospaced sans on auto', () => {
+    const w = (p: Partial<Params>, ch: string) => buildFont({ ...DEFAULTS, ...p }).glyph(ch)!.bodyW;
+    for (const ch of 'il') {
+      assert.ok(w({ iForm: 'bars' }, ch) > w({}, ch) * 2, ch);
+      assert.equal(w({ mono: 1 }, ch), w({ mono: 1, iForm: 'bars' }, ch), ch);
+      assert.ok(w({ mono: 1, iForm: 'plain' }, ch) < w({ mono: 1 }, ch), ch);
+    }
+  });
+
+  it('straight stroke ends run level or plumb without closing a mouth or losing a hook', () => {
+    const curved = buildFont(DEFAULTS), straight = buildFont({ ...DEFAULTS, terminalRun: 'straight' });
+    // the top end of c runs level along the top of the bowl
+    const c = straight.glyph('c')!, ends = c.marks.filter(k => k.type === 'terminal'), top = Math.max(...ends.map(k => k.y));
+    assert.ok(Math.abs(top - Math.max(...c.skeleton.flat().map(q => q.y))) < 1);
+    const terms = (font: ReturnType<typeof buildFont>, ch: string) => font.glyph(ch)!.marks.filter(k => k.type === 'terminal').length;
+    for (const ch of 'cesaCGS') assert.equal(terms(straight, ch), terms(curved, ch), ch);
+    // the mouth stays open: its two ends stand well apart
+    assert.ok(Math.abs(ends[0].y - ends[1].y) > c.bodyW * 0.5);
+    // the hook of j finishes its turn instead of straightening out
+    const j = straight.glyph('j')!, tip = j.marks.find(k => k.type === 'tail')!;
+    assert.ok(tip.x < j.bodyW - straight.m.s);
+    for (const ch of 'noilkx') assert.equal(curved.glyph(ch)!.d, straight.glyph(ch)!.d, ch);
+  });
+
+  it('descender length moves the descenders only', () => {
+    const f = (descender: number) => buildFont({ ...DEFAULTS, descender }).m;
+    assert.ok(f(0).desc > f(0.5).desc && f(1).desc < f(0.5).desc);
+    assert.equal(f(0).asc, f(1).asc);
+    assert.equal(buildFont(DEFAULTS).m.desc, f(0.5).desc);
+  });
+
   it('tail length stretches the tails and hooks, and nothing else', () => {
     const f = (tail: number, p: Partial<Params> = {}) => buildFont({ ...DEFAULTS, ...p, tail });
     const tip = (font: ReturnType<typeof buildFont>, ch: string) => font.glyph(ch)!.marks.find(k => k.type === 'tail')!;

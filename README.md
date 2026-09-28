@@ -64,6 +64,11 @@ can cut stencil gaps where one stroke joins another. The fills run last, on the 
 outline, so a pixel or dot grid stays aligned across a whole line: advances and tracking snap
 to the grid.
 
+Some letters also come in named shapes: a single- or double-storey a, a hooked or mirrored g,
+a k whose arm and leg meet at the arm, the stem or a short bar, i and l with a flag and foot,
+square or round dots, and bowls and arches that curve out of their stems or run flat into them.
+Curved stroke ends can follow the curve or turn and run straight out, level or plumb.
+
 ### Client (`client/`)
 
 - `state/editor.ts`: a zustand store holding the open design, undo history, dirty tracking and UI state.

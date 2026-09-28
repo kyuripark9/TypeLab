@@ -51,9 +51,18 @@ const bowlGap = (m: Metrics) => m.s * 0.9 * clamp(1 - m.p.overlap * 2);
 
 /* bowl beside a stem (b d p q a g). Fully overlapped it branches out of the stem; toward half
    overlap its inner side rounds out into a whole o standing on the stem, and below half that o
-   slides off the stem. Callers leave bowlGap(m) of extra room between xStem and xFar. */
+   slides off the stem. Callers leave bowlGap(m) of extra room between xStem and xFar.
+   With square joins it is a half round on the far side whose flat top and bottom run straight
+   into the stem, like a D, and stays on the stem whatever the overlap. */
 function branchBowl(g: Builder, m: Metrics, xStem: number, xFar: number, yT: number, yB: number, o?: StrokeOpts) {
-  const dir = Math.sign(xFar - xStem), cy = (yT + yB) / 2, xn = xStem + dir * bowlGap(m);
+  const dir = Math.sign(xFar - xStem), cy = (yT + yB) / 2;
+  if (m.p.bowlJoin === 'square') {
+    // flat, so it sits on the x-height and baseline like the stem instead of overshooting them
+    const t = yT - m.os, b = yB + m.os, rx = Math.max(0, Math.min(Math.abs(xFar - xStem) - m.s * 0.25, (t - b) / 2)), xa = xFar - dir * rx;
+    g.path([['M', xStem, t], ['L', xa, t], ['hv', xFar, cy], ['vh', xa, b], ['L', xStem, b]], { s: J, e: J, part: 'bowl', counter: true, ...o });
+    return;
+  }
+  const xn = xStem + dir * bowlGap(m);
   const f = clamp(m.p.overlap * 2 - 1), cx = (xn + xFar) / 2 + dir * m.s * 0.14 * f;
   g.mark('overlap', xn, cy);
   if (f === 0) {
@@ -91,22 +100,44 @@ function sShape(g: Builder, m: Metrics, x0: number, W: number, yB: number, yT: n
     { s: T, e: T, part: 'spine', ...o });
 }
 
+/* shoulder of n m h: springs from the stem at x0 and comes down at x1. With square joins it runs
+   flat out of the top of the stem and turns down in one round corner. */
 function arch(g: Builder, m: Metrics, x0: number, x1: number, yTop: number, yFoot: number, o?: StrokeOpts, exit = false) {
   const X = m.xh, ah = X * 0.4, r = exit ? hookR(m) : 0;
   const cx = (x0 + x1) / 2 + (x1 - x0) * 0.1 * m.org;
-  const head: Cmd[] = [['M', x0, X - ah], ['vh', cx, yTop], ['hv', x1, X - ah * 0.95]];
+  const t = X - m.hT / 2, rc = squareR(m, x1 - x0), square = m.p.bowlJoin === 'square';
+  const head: Cmd[] = square ? [['M', x0, t], ['L', x1 - rc, t], ['hv', x1, t - rc]]
+    : [['M', x0, X - ah], ['vh', cx, yTop], ['hv', x1, X - ah * 0.95]];
+  // a shoulder springing from the side of the stem thins where it leaves it; a square one runs out of its top at full weight
+  const ws = square ? 1 : 0.6;
   if (r) {
-    g.path([...head, ...exitTail(m, x1, r)], { s: J, e: T, ws: 0.6, we: 0.75, part: 'shoulder', ...o });
+    g.path([...head, ...exitTail(m, x1, r)], { s: J, e: T, ws, we: 0.75, part: 'shoulder', ...o });
     exitMark(g, m, x1, r);
   }
-  else g.path([...head, ['L', x1, yFoot]], { s: J, e: 'flat', ws: 0.6, part: 'shoulder', serifE: 'both', ...o });
+  else g.path([...head, ['L', x1, yFoot]], { s: J, e: 'flat', ws, part: 'shoulder', serifE: 'both', ...o });
 }
 
-/* leg of K/k: starts flush with the upper edge of the arm so nothing pokes through */
-function kLeg(g: Builder, m: Metrics, x0: number, ay: number, r: number, top: number, jx: number, jy: number) {
-  const dx = r - x0, dy = top - ay, l = Math.hypot(dx, dy), ex = r + m.s * 0.05;
-  const bx = jx - (ex - jx) * 0.25, by = jy + jy * 0.25;
-  g.line(bx, by, ex, 0, { s: J, e: H, part: 'leg', serifE: 'both', clip: { planes: [{ x: x0, y: ay, nx: -dy / l, ny: dx / l }] } });
+/** Radius of the round corner of a square-joined shoulder `span` wide (centerline to centerline). */
+const squareR = (m: Metrics, span: number) => Math.max(0, Math.min(span - m.s * 0.25, span * 0.55));
+
+/* arm and leg of K/k, off a stem at x0 up to `top`, the arm reaching r. The leg springs from the
+   arm (leaving the stem at ay, the leg from f of the way up it), or both meet at the stem, or at the
+   end of a short bar out from it (m.p.kForm). */
+function kArms(g: Builder, m: Metrics, x0: number, top: number, r: number, ay: number, f: number, clip: { y1?: number }) {
+  const ex = r + m.s * 0.05;
+  if (m.p.kForm === 'arm') {
+    g.line(x0, ay, r, top, { s: J, e: H, w: 'thin', part: 'arm', clip: { x0, ...clip }, serifE: 'both' });
+    // the leg starts flush with the upper edge of the arm, so nothing pokes through
+    const jx = lerp(x0, r, f), jy = lerp(ay, top, f), dx = r - x0, dy = top - ay, l = Math.hypot(dx, dy);
+    const bx = jx - (ex - jx) * 0.25, by = jy + jy * 0.25;
+    g.line(bx, by, ex, 0, { s: J, e: H, part: 'leg', serifE: 'both', clip: { planes: [{ x: x0, y: ay, nx: -dy / l, ny: dx / l }] } });
+    return;
+  }
+  // both leave the stem, or the bar, at one point a little under halfway up: the bar runs a stroke
+  // and a half clear of the stem, then the arm and leg share it, so they meet it in mitred corners
+  const yj = top * 0.47, head: Cmd[] = m.p.kForm === 'bar' ? [['M', x0, yj], ['L', x0 + m.s * 2, yj]] : [['M', x0, yj]];
+  g.path([...head, ['L', r, top, { w: 'thin' }]], { s: J, e: H, part: 'arm', miter: 18, clip: { x0, ...clip }, serifE: 'both' });
+  g.path([...head, ['L', ex, 0]], { s: J, e: H, part: 'leg', miter: 18, clip: { x0, y0: 0 }, serifE: 'both' });
 }
 
 /* ---------- tails and hooks ---------- */
@@ -238,6 +269,8 @@ def('H', [1, 1], (g, m) => {
 
 /* in a monospaced sans the narrow letters get bars, so they fill their cell like the others */
 const monoBars = (m: Metrics) => m.p.mono >= 0.5 && !m.serif;
+/** Whether i and l get their flag and foot: picked, or left to monospacing. */
+const iBars = (m: Metrics) => m.p.iForm === 'bars' || (m.p.iForm === 'auto' && monoBars(m));
 def('I', [1, 1], (g, m) => {
   if (monoBars(m)) {
     const W = m.W(340), hh = m.hT / 2;
@@ -265,9 +298,7 @@ def('J', [0.4, 1], (g, m) => {
 def('K', [1, 0.2], (g, m) => {
   const W = m.W(570), C = m.cap, hs = m.s / 2, r = W - m.s * 0.55;
   g.stem(hs, 0, C, { serifS: 'both', serifE: 'both' });
-  const ay = C * 0.34, f = 0.36, jx = lerp(hs, r, f), jy = lerp(ay, C, f);
-  g.line(hs, ay, r, C, { s: J, e: H, w: 'thin', part: 'arm', clip: { x0: hs, y1: C }, serifE: 'both' });
-  kLeg(g, m, hs, ay, r, C, jx, jy);
+  kArms(g, m, hs, C, r, C * 0.34, 0.36, { y1: C });
   return W;
 });
 
@@ -394,7 +425,7 @@ def('a.alt', [0.55, 1], (g, m) => {
   footStem(g, m, W - hs, X, { serifS: 'b' });
   branchBowl(g, m, W - hs, hs, yt, yb);
   return W;
-}, { params: ['story', 'overlap', 'counter', 'curve', 'xHeight', 'weight'] });
+}, { params: ['story', 'bowlJoin', 'overlap', 'counter', 'curve', 'xHeight'] });
 
 def('b', [1, 0.55], (g, m) => {
   const { hs, yt, yb } = lc(m), W = m.W(480, 'r') + bowlGap(m);
@@ -452,8 +483,20 @@ def('f.cur', [0.2, 0.1], (g, m) => {
   g.line(W * 0.05, X - hh, W * 0.95, X - hh, { s: T, e: T, part: 'crossbar' });
   return W;
 });
+/* the mirrored g: one stroke runs in from a square ear at the top right, over the bowl and down its
+   left side into the descender, which hooks back out to the right; the bowl's right side closes on it */
+function mirroredG(g: Builder, m: Metrics, W: number) {
+  const { X, hs, hh, yb } = lc(m), xl = hs, xr = W - hs, cx = W / 2, t = X - hh, cy = (t + yb) / 2;
+  const db = m.desc + hh, ry = db + Math.min((xr - xl) * 0.55, -m.desc * 0.7), xe = xr - W * 0.04, u = hookU(m, 0.62);
+  g.path([['M', W, t], ['L', cx, t], ['hv', xl, cy], ['L', xl, ry], ['vh', cx, db], ['hv', xe, ry, { u1: u }]], { e: T, part: 'stem' });
+  const e = m.qpt(cx, db, xe, ry, 'hv', u);
+  tailEnd(g, e.x, e.y, W);
+  g.path([['M', xr, t], ['L', xr, cy], ['vh', cx, yb], ['hv', xl, cy]], { s: J, e: J, part: 'bowl' });
+  g.ellipseCounter(cx, cy, (xr - xl) / 2 - hs, (t - yb) / 2 - hh);
+}
 def('g', [0.55, 1], (g, m) => {
   const { hs, yt, yb } = lc(m), W = m.W(480, 'r') + bowlGap(m), xr = W - hs;
+  if (m.p.gForm === 'mirrored') { mirroredG(g, m, W); return W; }
   descender(g, m, xr, hs, W);
   branchBowl(g, m, xr, hs, yt, yb);
   return W;
@@ -476,7 +519,7 @@ function tittle(m: Metrics) {
   return { d, cy, top: Math.min(m.xh, cy - d / 2 - gap) };
 }
 def('i', [1, 1], (g, m) => {
-  if (monoBars(m)) { const t = tittle(m), { W, x } = monoStem(g, m, t.top); g.dot(x, t.cy, t.d); return W; }
+  if (iBars(m)) { const t = tittle(m), { W, x } = monoStem(g, m, t.top); g.dot(x, t.cy, t.d); return W; }
   const t = tittle(m), en = entry(g, m, m.s / 2, t.top);
   footStem(g, m, m.s / 2, t.top, { serifS: 'both', serifE: en ? null : 'a' }); g.dot(m.s / 2, t.cy, t.d); return m.s;
 });
@@ -490,14 +533,13 @@ def('j', [0.2, 1], (g, m) => {
   return W;
 });
 def('k', [1, 0.2], (g, m) => {
-  const { X, hs } = lc(m), W = m.W(450), r = W - m.s * 0.55, ay = X * 0.3, f = 0.4, jx = lerp(hs, r, f), jy = lerp(ay, X, f);
+  const { X, hs } = lc(m), W = m.W(450), r = W - m.s * 0.55;
   g.stem(hs, 0, m.asc, { serifS: 'both', serifE: 'a' });
-  g.line(hs, ay, r, X, { s: J, e: H, w: 'thin', part: 'arm', clip: { x0: hs }, serifE: 'both' });
-  kLeg(g, m, hs, ay, r, X, jx, jy);
+  kArms(g, m, hs, X, r, X * 0.3, 0.4, {});
   return W;
 });
 def('l', [1, 1], (g, m) => {
-  if (monoBars(m)) return monoStem(g, m, m.asc).W;
+  if (iBars(m)) return monoStem(g, m, m.asc).W;
   footStem(g, m, m.s / 2, m.asc, { serifS: 'both', serifE: 'a' }); return m.s;
 });
 def('m', [1, 1], (g, m) => {
@@ -524,9 +566,12 @@ def('q', [0.55, 1], (g, m) => {
   g.stem(W - hs, m.desc, X, { serifS: 'both' }); branchBowl(g, m, W - hs, hs, yt, yb); return W;
 });
 def('r', [1, 0.15], (g, m) => {
-  const { X, hs, yt } = lc(m), W = m.W(310), ah = X * 0.4, en = entry(g, m, hs, X);
+  const { X, hs, hh, yt } = lc(m), W = m.W(310), ah = X * 0.4, en = entry(g, m, hs, X), u1 = lerp(0.62, 0.35, m.ap);
   g.stem(hs, 0, X, { serifS: 'both', serifE: en ? null : 'a' });
-  g.path([['M', hs, X - ah], ['vh', W * 0.66, yt], ['hv', W, X - ah * 0.8, { u1: lerp(0.62, 0.35, m.ap) }]], { s: J, e: T, ws: 0.6, part: 'shoulder' });
+  if (m.p.bowlJoin === 'square') {
+    const rc = squareR(m, W - hs) * 0.8;
+    g.path([['M', hs, X - hh], ['L', W - rc, X - hh], ['hv', W, X - hh - rc, { u1 }]], { s: J, e: T, part: 'shoulder' });
+  } else g.path([['M', hs, X - ah], ['vh', W * 0.66, yt], ['hv', W, X - ah * 0.8, { u1 }]], { s: J, e: T, ws: 0.6, part: 'shoulder' });
   return W;
 });
 def('s', [0.5, 0.5], (g, m) => { const W = m.W(395, 'c'); sShape(g, m, 0, W, -m.os, m.xh + m.os); return W; },
@@ -541,8 +586,12 @@ def('t', [0.3, 0.3], (g, m) => {
 });
 def('u', [1, 1], (g, m) => {
   const { X, hs, yb } = lc(m), W = m.W(455), xr = W - hs, ah = X * 0.4;
-  const en = entry(g, m, hs, X);
-  g.path([['M', hs, X], ['L', hs, ah * 0.95], ['vh', W / 2 - W * 0.1 * m.org, yb], ['hv', xr, ah]], { e: J, we: 0.6, part: 'shoulder', serifS: en ? null : 'a' });
+  const en = entry(g, m, hs, X), serifS = en ? null : 'a';
+  if (m.p.bowlJoin === 'square') {
+    // the bowl turns in one round corner and runs flat along the baseline into the stem
+    const rc = squareR(m, xr - hs), b = m.hT / 2;
+    g.path([['M', hs, X], ['L', hs, b + rc], ['vh', hs + rc, b], ['L', xr, b]], { e: J, part: 'shoulder', serifS });
+  } else g.path([['M', hs, X], ['L', hs, ah * 0.95], ['vh', W / 2 - W * 0.1 * m.org, yb], ['hv', xr, ah]], { e: J, we: 0.6, part: 'shoulder', serifS });
   footStem(g, m, xr, X, { serifS: 'b', serifE: 'a' });
   return W;
 });

@@ -16,10 +16,28 @@ export const SERIF_SHAPES = ['bracketed', 'unbracketed', 'slab', 'wedge'] as con
 export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines'] as const;
 /** The lowercase a: two storeys (bowl under a hook) or one (just a bowl). 'auto' lets the personality and cursive settings pick. */
 export const STORIES = ['auto', 'double', 'single'] as const;
+/** How a bowl meets its stem (b d p q g, the single-storey a): curving out of it, or square, its flat top and bottom running straight into it. */
+export const BOWL_JOINS = ['curved', 'square'] as const;
+/** The g: its descender hooks back under the bowl from a stem on the right, or drops from the left of the bowl and hooks out to the right. */
+export const G_FORMS = ['hook', 'mirrored'] as const;
+/** Where the arm and leg of k and K meet: the leg springs from the arm, both meet at the stem, or both meet at the end of a short bar out from it. */
+export const K_FORMS = ['arm', 'stem', 'bar'] as const;
+/** The dots of i, j and the punctuation. 'auto' squares them unless Roundness or round stroke ends round them off. */
+export const DOTS = ['auto', 'square', 'round'] as const;
+/** i and l: a plain stem, or a flag at the top and a bar at the foot. 'auto' gives a monospaced sans the bars. */
+export const I_FORMS = ['auto', 'plain', 'bars'] as const;
+/** Curved stroke ends: stop part way round the curve, or turn onto the nearest level or plumb line and run straight out. */
+export const TERMINAL_RUNS = ['curved', 'straight'] as const;
 export type Terminal = (typeof TERMINALS)[number];
 export type SerifShape = (typeof SERIF_SHAPES)[number];
 export type Fill = (typeof FILLS)[number];
 export type Story = (typeof STORIES)[number];
+export type BowlJoin = (typeof BOWL_JOINS)[number];
+export type GForm = (typeof G_FORMS)[number];
+export type KForm = (typeof K_FORMS)[number];
+export type Dots = (typeof DOTS)[number];
+export type IForm = (typeof I_FORMS)[number];
+export type TerminalRun = (typeof TERMINAL_RUNS)[number];
 
 export interface Params {
   weight: number; width: number; height: number; slant: number; contrast: number;
@@ -30,6 +48,7 @@ export interface Params {
   /** how stroke ends bend: 0.5 as drawn, lower straightens them and then flares them out, higher
       curls them on round the way they turn */ terminalCurl: number;
   /** one letter's ends bent one by one, by end id: each overrides terminalCurl for that end */ terminalCurls: Record<string, number>;
+  /** whether curved stroke ends follow the curve or run straight out (see TERMINAL_RUNS) */ terminalRun: TerminalRun;
   /** the form of the picked kind of stroke end (see TERMINAL_FORMS); one of another kind means its first */ terminalForm: TerminalForm;
   /* The finer shape of each form of stroke end. Each applies only while its form is picked, and
      its default draws the end as before. */
@@ -51,8 +70,14 @@ export interface Params {
   /** strokes thin out where they join another stroke */ joints: number;
   /** thick horizontals and thin verticals */ reverse: number;
   /** length of ascenders and descenders */ extenders: number;
+  /** descenders alone: 0.5 as long as the stem length makes them, lower shorter, higher longer */ descender: number;
   /** double- or single-storey a */ story: Story;
   /** how far a bowl sinks into its stem (b d p q): 1 branches out of it, 0 is a whole o beside it */ overlap: number;
+  /** how bowls meet their stems (see BOWL_JOINS) */ bowlJoin: BowlJoin;
+  /** the shape of the g (see G_FORMS) */ gForm: GForm;
+  /** where the arm and leg of k and K meet (see K_FORMS) */ kForm: KForm;
+  /** square or round dots (see DOTS) */ dots: Dots;
+  /** plain i and l, or with a flag and foot (see I_FORMS) */ iForm: IForm;
   /** length of tails and hooks (Q y j g t f, the comma, cursive exits): 0.5 is the usual length */ tail: number;
   fill: Fill;
   /** size of the pixels, dots or lines, or the wireframe's line weight */ module: number;
@@ -67,7 +92,7 @@ export interface Params {
 
 /** Settings every letter shares. The heights are the lines all letters stand on, spacing and the
     fills and slice run across a whole line, and the personality macros push the heights too. */
-export const GLOBAL_KEYS = ['height', 'xHeight', 'extenders', 'letterSpacing', 'wordSpacing', 'mono', 'fill', 'module', 'slice',
+export const GLOBAL_KEYS = ['height', 'xHeight', 'extenders', 'descender', 'letterSpacing', 'wordSpacing', 'mono', 'fill', 'module', 'slice',
   'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal', 'glyphs'] as const;
 /** A setting one letter can have its own value of. */
 export type GlyphKey = Exclude<keyof Params, (typeof GLOBAL_KEYS)[number]>;
@@ -79,9 +104,9 @@ export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K :
 export const DEFAULTS: Readonly<Params> = Object.freeze({
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.05,
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
-  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}),
+  roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
-  squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, story: 'auto', overlap: 1, tail: 0.5,
+  squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', iForm: 'auto', tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, slice: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   letterSpacing: 0.2, wordSpacing: 0.35, sideBearing: 0.5, mono: 0,
@@ -131,7 +156,8 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   }
   if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
-  const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, fill: FILLS, story: STORIES };
+  const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, fill: FILLS, story: STORIES,
+    bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, terminalRun: TERMINAL_RUNS };
   return opts[k]?.includes(v) ? v : undefined;
 }
 

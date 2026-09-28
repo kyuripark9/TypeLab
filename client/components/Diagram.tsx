@@ -1,7 +1,7 @@
 /* Live explainer diagrams. Each control gets a small figure drawn with the real glyph engine:
    the demo letters, the affected part highlighted, and a measurement or guide. */
 import type { ReactNode } from 'react';
-import { CONTROLS, controlFor, type ActiveKey } from '../../shared/content';
+import { CONTROLS, FORM_OPTIONS, controlFor, type ActiveKey, type FormKey } from '../../shared/content';
 import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, signedArea, termSpec, type Font, type LineItem, type Pt } from '../../shared/engine';
 import { DEFAULTS, TERMINAL_FORMS, type Fill, type SerifShape, type Story, type Terminal, type TerminalForm } from '../../shared/params';
 import { n1 } from '../lib/hooks';
@@ -152,4 +152,18 @@ export function StoryIcon({ story }: { story: Story }) {
     storyPaths.set(story, icon);
   }
   return <svg viewBox={`0 -620 ${n1(icon.w)} 680`} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
+}
+
+/* Letter-shape icons: the letter each option shapes, drawn by the engine in that shape, bold
+   enough to read small and framed from descender to ascender. */
+const formPaths = new Map<string, { d: string; box: string }>();
+export function FormIcon({ k, id }: { k: FormKey; id: string }) {
+  const key = `${k}:${id}`;
+  let icon = formPaths.get(key);
+  if (!icon) {
+    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: 0.8, [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
+    icon = { d: g?.d ?? '', box: `0 ${n1(-f.m.asc - 30)} ${n1(g?.adv ?? 500)} ${n1(f.m.asc - f.m.desc + 60)}` };
+    formPaths.set(key, icon);
+  }
+  return <svg viewBox={icon.box} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
 }

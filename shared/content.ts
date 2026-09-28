@@ -1,13 +1,13 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
 import { resolve, type Effective } from './engine/font';
-import { DEFAULTS, type Fill, type Params, type SerifShape, type Story, type Terminal, type TerminalForm } from './params';
+import { DEFAULTS, type BowlJoin, type Dots, type Fill, type GForm, type IForm, type KForm, type Params, type SerifShape, type Story, type Terminal, type TerminalForm, type TerminalRun } from './params';
 
 export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality' | 'effects';
 export type ControlKey =
   | 'weight' | 'width' | 'height' | 'slant' | 'contrast' | 'reverse'
-  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'overlap' | 'serif' | 'apex' | 'joints' | 'cursive' | 'wobble'
-  | 'xHeight' | 'extenders' | 'tail' | 'counter' | 'aperture' | 'crossbar'
+  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'apex' | 'joints' | 'cursive' | 'wobble'
+  | 'xHeight' | 'extenders' | 'descender' | 'tail' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
   | 'geoHuman' | 'softSharp' | 'classicFuture' | 'playfulFormal'
   | 'fill' | 'stencil' | 'slice';
@@ -30,7 +30,7 @@ export interface ControlDef {
   /** letters drawn in the explainer diagram */
   demo: string;
   explain: string;
-  type?: 'options' | 'story' | 'serif' | 'fill';
+  type?: 'options' | 'story' | 'form' | 'serif' | 'fill';
   bipolar?: boolean;
   advanced?: boolean;
   /** An optional slider: its value where it changes nothing. It gets an on/off switch, and off hides the slider. */
@@ -528,11 +528,21 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   chamfer: { cat: 'shape', off: 0, label: 'Facets', friendly: 'Cut curves into straight lines and corners', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
     explain: 'Curves become straight lines with cut-off corners.' },
   terminal: { cat: 'shape', type: 'options', label: 'Stroke ends', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
-    explain: 'The free tips of strokes, as on C, a, s and r, and how far they reach.' },
+    explain: 'The free tips of strokes, as on C, a, s and r: their shape, which way they run and how far they reach.' },
   story: { cat: 'shape', type: 'story', label: 'Letter a', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
     explain: 'Two-storey like book type, or one bowl like handwriting.' },
+  gForm: { cat: 'shape', type: 'form', label: 'Letter g', friendly: 'Choose the shape of the g', tech: 'Single-storey g', demo: 'gag',
+    explain: 'The tail hooks back under the bowl, or drops from its left side and hooks out to the right.' },
+  kForm: { cat: 'shape', type: 'form', label: 'Letter k', friendly: 'Choose where the arm and leg of k meet', tech: 'k and K junction', demo: 'kK',
+    explain: 'The leg springs from the arm, both meet at the stem, or both meet at the end of a short bar.' },
+  iForm: { cat: 'shape', type: 'form', label: 'Letters i and l', friendly: 'Give i and l a flag and a foot', tech: 'Barred i and l', demo: 'ilil',
+    explain: 'A plain stem, or a flag at the top and a bar along the foot, as in a typewriter face.' },
+  bowlJoin: { cat: 'shape', type: 'form', label: 'Joins', friendly: 'Curve bowls and arches out of their stems or run them in flat', tech: 'Bowl & shoulder joins', demo: 'dnu',
+    explain: 'Square joins meet the stem in a flat top or bottom, like a D. Applies to b d p q g, n m h r u and the single-storey a.' },
   overlap: { cat: 'shape', off: 1, label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
     explain: 'Applies to b, d, p, q and the single-storey a.' },
+  dots: { cat: 'shape', type: 'form', label: 'Dots', friendly: 'Make the dots square or round', tech: 'Tittles & periods', demo: 'ij.!',
+    explain: 'The dots on i and j and in the punctuation, whatever the corners do.' },
   serif: { cat: 'shape', type: 'serif', label: 'Serifs', friendly: 'Add small feet to the strokes', tech: 'Serifs', demo: 'In',
     explain: 'Small finishing strokes at the ends of stems.' },
   apex: { cat: 'shape', label: 'Peaks', friendly: 'Make peaks pointed or flat', tech: 'Apex', lo: 'Pointed', hi: 'Flat', demo: 'AV',
@@ -548,6 +558,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Taller lowercase feels modern and reads well small.' },
   extenders: { cat: 'proportion', label: 'Stem length', friendly: 'Make ascenders and descenders longer', tech: 'Ascenders & descenders', lo: 'Short', hi: 'Long', demo: 'hpdy',
     explain: 'The parts above (b, d, h) and below (g, p, y) the letters.' },
+  descender: { cat: 'proportion', advanced: true, label: 'Descender length', friendly: 'Make only the descenders longer or shorter', tech: 'Descenders', lo: 'Short', hi: 'Long', demo: 'gpy',
+    explain: 'The parts below the baseline, apart from the ascenders above the x-height.' },
   tail: { cat: 'proportion', label: 'Tails & hooks', friendly: 'Make tails and hooks longer or shorter', tech: 'Tail · Hook', lo: 'Short', hi: 'Long', demo: 'Qjty',
     explain: 'The trailing ends of Q, y, g, j, t, f and the comma.' },
   counter: { cat: 'proportion', label: 'Inner space', friendly: 'Change the space inside letters', tech: 'Counter', lo: 'Small', hi: 'Large', demo: 'Bo',
@@ -621,6 +633,16 @@ export const TERMINAL_DETAILS: Record<TerminalForm, TerminalSubKey[]> = {
 /** Every nested sub-slider, whichever control it belongs to. */
 export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
+/** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
+export type FormKey = 'gForm' | 'kForm' | 'iForm' | 'bowlJoin' | 'dots' | 'terminalRun';
+export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Params[K], 'auto'>, string][] } } = {
+  gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored']] as [GForm, string][] },
+  kForm: { ch: 'k', options: [['arm', 'From arm'], ['stem', 'From stem'], ['bar', 'On a bar']] as [KForm, string][] },
+  iForm: { ch: 'i', options: [['plain', 'Plain'], ['bars', 'Flag and foot']] as [Exclude<IForm, 'auto'>, string][] },
+  terminalRun: { ch: 'c', options: [['curved', 'Curved'], ['straight', 'Straight']] as [TerminalRun, string][] },
+  bowlJoin: { ch: 'd', options: [['curved', 'Curved'], ['square', 'Square']] as [BowlJoin, string][] },
+  dots: { ch: 'i', options: [['square', 'Square'], ['round', 'Round']] as [Exclude<Dots, 'auto'>, string][] }
+};
 export const FILL_OPTIONS: [Fill, string][] = [['solid', 'Solid'], ['wire', 'Wireframe'], ['pixels', 'Pixels'], ['dots', 'Dots'], ['lines', 'Lines']];
 export const TERMINAL_OPTIONS: [Terminal, string][] = [['flat', 'Flat'], ['round', 'Rounded'], ['sharp', 'Sharp'], ['angled', 'Angled'], ['cut', 'Cut'], ['tapered', 'Tapered']];
 export const SERIF_SHAPE_OPTIONS: [SerifShape, string][] = [['bracketed', 'Bracketed'], ['unbracketed', 'Unbracketed'], ['slab', 'Slab'], ['wedge', 'Wedge']];

@@ -159,7 +159,7 @@ function metrics(e: Effective): Metrics {
   return {
     p: e, s, cap, xh,
     asc: Math.max(xh * 1.12, Math.max(cap * 1.05, xh * 1.18) + (e.extenders - 0.5) * cap * 0.5),
-    desc: -cap * 0.3 * lerp(0.55, 1.45, e.extenders),
+    desc: -cap * 0.3 * lerp(0.55, 1.45, e.extenders) * (e.descender < 0.5 ? lerp(0.45, 1, e.descender * 2) : lerp(1, 1.6, e.descender * 2 - 1)),
     os: cap * 0.014,
     ws, thin, stress, k, org, sq: e.square, cur: e.cursive, wob: e.wobble, monoAdv: W(500) + sb * 1.5,
     cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, sliceY: xh * 0.5, sliceH,
@@ -171,7 +171,7 @@ function metrics(e: Effective): Metrics {
     space: Math.max(snap(lerp(W(210) + (e.wordSpacing - 0.35) * 520, W(500) + sb * 1.5, e.mono)), cell),
     slant: Math.tan(e.slant * 20 * Math.PI / 180),
     R: e.roundness * s * 0.5,
-    dotRound: Math.max(e.roundness, e.terminal === 'round' ? e.terminalRound : 0),
+    dotRound: e.dots === 'round' ? 1 : e.dots === 'square' ? 0 : Math.max(e.roundness, e.terminal === 'round' ? e.terminalRound : 0),
     qpt: (x0, y0, x1, y1, mode, u) => {
       const kk = clamp(k * (1 + ((x1 - x0) * (y1 - y0) < 0 ? 0.13 : -0.09) * org), 0.3, 0.97);
       return cubicAt(quarter(x0, y0, x1, y1, mode, kk), u);
@@ -532,6 +532,37 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
   return { cmds: out, from: cubicAt(P, u0), to, span };
 }
 
+/** Turn a curved end (the partly drawn quarter turn at the start 's' or end 'e' of an open
+    centerline) onto a level or plumb line: back to where the quarter last ran that way, then
+    straight out as far as the tip reached along that line. The tip of a hook or tail (`hook`)
+    instead takes whichever line is nearer along the curve, so one nearly turned round finishes
+    the turn rather than losing its hook; the mouth of a c or s never closes up that way. Null when
+    the end isn't a partly drawn quarter turn. */
+function runStraight(cmds: Cmd[], which: 's' | 'e', hook: boolean, m: Metrics): { cmds: Cmd[]; from: Pt; to: Pt } | null {
+  const e = endCmd(cmds, which, m);
+  if (!e || (e.c[0] !== 'hv' && e.c[0] !== 'vh')) return null;
+  const { i, c, P, o, u0, u1 } = e, start = which === 's';
+  // only one end of the quarter cut short, at the stroke's own end
+  if (start ? u0 < 0.01 || u1 < 1 : u1 > 0.99 || u0 > 0) return null;
+  const tip = cubicAt(P, start ? u0 : u1), from = { x: tip.x, y: tip.y }, out = cmds.slice(), rest = { ...o };
+  delete rest.u0; delete rest.u1;
+  // on round to the end of the quarter, which already runs level or plumb
+  if (hook && (start ? u0 < 0.5 : u1 > 0.5)) {
+    out[i] = [c[0], c[1], c[2], rest];
+    const to = start ? P[0] : P[3];
+    if (start) out[0] = ['M', to.x, to.y];
+    return { cmds: out, from, to };
+  }
+  // back to the other end of it, and straight out from there
+  const B = start ? P[3] : P[0], d = start ? { x: P[2].x - P[3].x, y: P[2].y - P[3].y } : { x: P[1].x - P[0].x, y: P[1].y - P[0].y };
+  const l = Math.hypot(d.x, d.y) || 1, ux = d.x / l, uy = d.y / l, reach = (tip.x - B.x) * ux + (tip.y - B.y) * uy;
+  if (reach < 1) return null;
+  const to = { x: B.x + ux * reach, y: B.y + uy * reach }, w = o.w != null ? { w: o.w } : {};
+  if (start) out.splice(0, 2, ['M', to.x, to.y], ['L', B.x, B.y, w]);
+  else out[i] = ['L', to.x, to.y, w];
+  return { cmds: out, from, to };
+}
+
 /** Stretch or trim every styled terminal of a glyph (body width W) by the stroke end length, or
     by the length set for that one end, and curl the ends given a curl of their own. Ends with a
     serif keep theirs. Tails, hooks and cursive strokes are left to their own controls, so their
@@ -576,6 +607,16 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
     for (const which of ['s', 'e'] as const) {
       const serif = m.serif && !o.scale && !!(which === 's' ? o.serifS : o.serifE), type = (which === 's' ? o.s : o.e) || 'flat';
       if (type === 'join') continue;
+      if (type === 'term' && m.p.terminalRun === 'straight') {
+        const at0 = stretchEnd(st.cmds, which, 0, m), tip = at0 && tipAt(at0.from), r = runStraight(st.cmds, which, !!tip, m);
+        if (r) {
+          st.cmds = r.cmds;
+          if (tip) { tip.x = r.to.x; tip.y = r.to.y; }
+          // a hook that finishes its turn can reach past the body
+          grow.l = Math.max(grow.l, Math.min(0, r.from.x) - r.to.x);
+          grow.r = Math.max(grow.r, r.to.x - Math.max(W, r.from.x));
+        }
+      }
       const plain = type !== 'term', at = stretchEnd(st.cmds, which, 0, m);
       if (plain && (!at || buried(si, at.from))) continue;
       const id = `${plain ? 'p' : ''}${si}${which}`, tip = !plain && at && tipAt(at.from);
@@ -772,6 +813,10 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
     case 'roundness': return ringsD(g.corners, Math.max(16, m.s * 0.3));
     case 'cursive': return ringsD(g.marks.filter(k => k.type === 'exit' || k.type === 'entry'), Math.max(30, m.s * 0.7));
     case 'story': return g.ch === 'a' ? g.d : '';
+    case 'gForm': return g.ch === 'g' ? g.d : '';
+    case 'kForm': return g.ch === 'k' || g.ch === 'K' ? strokes(s => s.part === 'arm' || s.part === 'leg') : '';
+    case 'bowlJoin': return /[abdgpq]/.test(g.ch) ? strokes(s => s.part === 'bowl') : /[hmnru]/.test(g.ch) ? strokes(s => s.part === 'shoulder') : '';
+    case 'dots': return strokes(s => !!s.dot);
     case 'overlap': return ringsD(g.marks.filter(k => k.type === 'overlap'), Math.max(30, m.s * 0.8));
     case 'tail': return ringsD(g.marks.filter(k => k.type === 'tail'), Math.max(30, m.s * 0.7));
     default: return '';

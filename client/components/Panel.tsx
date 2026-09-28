@@ -3,16 +3,16 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
+  ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
   SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, controlFor, styleById, styleMatches,
-  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type TerminalSubKey
+  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type TerminalSubKey
 } from '../../shared/content';
 import { TERMINAL_FORMS, formOf, isGlyphKey, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 import type { Glyph } from '../../shared/engine';
 import { strokeEnds, type StrokeEndInfo } from '../lib/drag';
 import { actions, curlOf, endOf, fontFor, isOn, letterOf, useEditor, useFont, useParam, useScopedFont, type EndKey } from '../state/editor';
-import { Diagram, FillIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
+import { Diagram, FillIcon, FormIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { ScopeIcon, letterControls } from './Inspector';
 
 export function Panel() {
@@ -150,6 +150,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   const c = CONTROLS[k];
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'story') return <StoryControl parts={parts} />;
+  if (c.type === 'form') return <FormControl k={k as LetterFormKey} parts={parts} />;
   if (c.type === 'serif') return <SerifControl parts={parts} />;
   if (c.type === 'fill') return <FillControl />;
   return <SliderControl k={k as NumericParam} def={c} parts={parts} />;
@@ -358,11 +359,11 @@ function Range({ value, label, onInput, onCommit, onReset }: { value: number; la
 }
 
 function TerminalControl({ parts }: { parts?: string[] }) {
-  const terminal = useParam('terminal'), form = formOf(terminal, useParam('terminalForm')), active = useEditor(s => controlFor(s.active) === 'terminal');
+  const terminal = useParam('terminal'), form = formOf(terminal, useParam('terminalForm')), run = useParam('terminalRun'), active = useEditor(s => controlFor(s.active) === 'terminal');
   const c = CONTROLS.terminal, forms = TERMINAL_FORMS[terminal], kindLabel = TERMINAL_OPTIONS.find(([id]) => id === terminal)![1];
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="terminal" {...useControlFocus('terminal')}>
-      <FoldHead k="terminal" label={c.label} parts={parts} summary={`${kindLabel} · ${TERMINAL_FORM_LABELS[form]}`} />
+      <FoldHead k="terminal" label={c.label} parts={parts} summary={`${kindLabel} · ${TERMINAL_FORM_LABELS[form]}${run === 'straight' ? ' · Straight' : ''}`} />
       <Fold k="terminal">
         <div className="opts six" role="radiogroup" aria-label={c.tech}>
           {TERMINAL_OPTIONS.map(([id, label]) => (
@@ -382,6 +383,8 @@ function TerminalControl({ parts }: { parts?: string[] }) {
           ))}
         </div>
         {TERMINAL_DETAILS[form].map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}
+        <div className="sub-label">Direction</div>
+        <FormOptions k="terminalRun" label="Direction of curved stroke ends" />
         <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} />
         <SliderControl k="terminalCurl" def={TERMINAL_SUBS.terminalCurl} />
         <EachEnd />
@@ -478,6 +481,36 @@ function StoryControl({ parts }: { parts?: string[] }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+type LetterFormKey = Exclude<FormKey, 'terminalRun'>;
+
+/** A pick between named shapes of a letter or part, each drawn by the engine. Left on auto, the
+    shape the other settings give shows as chosen. */
+function FormControl({ k, parts }: { k: LetterFormKey; parts?: string[] }) {
+  const active = useEditor(s => s.active === k), c = CONTROLS[k];
+  return (
+    <div className={active ? 'ctl active' : 'ctl'} data-ctl={k} {...useControlFocus(k)}>
+      <CtlHead k={k} label={c.label} parts={parts} />
+      <FormOptions k={k} label={c.tech} />
+    </div>
+  );
+}
+
+/** The named shapes of `k` as a row of pictured options. */
+function FormOptions({ k, label }: { k: FormKey; label: string }) {
+  const value = useParam(k), font = useScopedFont(), { options } = FORM_OPTIONS[k];
+  const current = value !== 'auto' ? value : k === 'dots' ? (font.m.dotRound >= 0.5 ? 'round' : 'square') : font.eff.mono >= 0.5 && !font.eff.serif ? 'bars' : 'plain';
+  return (
+    <div className={options.length === 3 ? 'opts three' : 'opts two'} role="radiogroup" aria-label={label}>
+      {options.map(([id, name]) => (
+        <button key={id} role="radio" aria-checked={current === id} className={current === id ? 'opt on' : 'opt'}
+          onClick={() => actions.setOption(k, id as never)}>
+          <FormIcon k={k} id={id} /><span>{name}</span>
+        </button>
+      ))}
     </div>
   );
 }
