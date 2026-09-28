@@ -24,7 +24,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-s); }
 
 .editor { display: grid; height: 100vh; min-width: 1080px; overflow: hidden;
-  grid-template: "top top top" 56px "nav stage panel" minmax(0, 1fr) "strip strip strip" auto / 208px minmax(0, 1fr) 356px; }
+  grid-template: "top top top" 56px "nav stage panel" minmax(0, 1fr) "strip strip strip" auto / var(--nav-w, 208px) minmax(0, 1fr) var(--panel-w, 356px); }
 
 /* ---------- header */
 .top { grid-area: top; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
@@ -111,6 +111,20 @@ a.brand:hover .brand-name { color: var(--accent-ink); }
 .card:hover { border-color: var(--line-2); }
 .card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .card.on .card-name { color: var(--accent-ink); }
+
+/* ---------- panel resize handles: an 8px grab strip centred on the border, lit in the accent while used */
+.resizer { position: relative; z-index: 6; touch-action: none; }
+.resize-nav, .resize-panel { grid-row: 2; width: 8px; cursor: col-resize; }
+.resize-nav { grid-column: 1; justify-self: end; margin-right: -4px; }
+.resize-panel { grid-column: 3; justify-self: start; margin-left: -4px; }
+.resize-strip { grid-row: 3; grid-column: 1 / -1; align-self: start; height: 8px; margin-top: -4px; cursor: row-resize; }
+.resizer::after { content: ''; position: absolute; inset: 0 3px; background: var(--accent); opacity: 0; transition: opacity .15s; }
+.resize-strip::after { inset: 3px 0; }
+.resizer:hover::after, .resizer.on::after, .resizer:focus-visible::after { opacity: 1; transition-delay: .1s; }
+.resizer.on::after { transition-delay: 0s; }
+.resizer:focus-visible { outline: none; }
+body.resizing { cursor: col-resize; user-select: none; }
+body.resizing.y { cursor: row-resize; }
 
 /* ---------- right panel */
 .panel { grid-area: panel; border-left: 1px solid var(--line); overflow: auto; background: var(--paper); }
@@ -341,14 +355,14 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 @media (prefers-reduced-motion: reduce) { .i-knob .halo { animation: none; opacity: .6; } }
 .i-skel circle { fill: var(--surface); stroke: var(--accent); stroke-width: var(--sw); }
 
-/* ---------- glyph strip */
-.strip { grid-area: strip; min-height: 76px; border-top: 1px solid var(--line); background: var(--surface); display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; padding: 0 12px; scrollbar-width: thin; }
+/* ---------- glyph strip: its cells grow with its height (--strip-h, set by dragging its top border) */
+.strip { grid-area: strip; min-height: var(--strip-h, 76px); --cell-h: calc(var(--strip-h, 76px) - 28px); border-top: 1px solid var(--line); background: var(--surface); display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; padding: 0 12px; scrollbar-width: thin; }
 .strip-group { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 10px 4px 0; margin-right: 10px; border-right: 1px solid var(--line); }
 .strip-group:last-child { border-right: 0; }
 .strip-label { padding-left: 4px; font-size: 10.5px; line-height: 14px; }
 .strip-cells { display: flex; }
-.cell { position: relative; width: 38px; height: 48px; border-radius: 6px; flex: none; display: grid; place-items: center; transition: background .15s; }
-.cell svg { width: 38px; height: 45px; fill: var(--ink); pointer-events: none; overflow: visible; }
+.cell { position: relative; width: calc(var(--cell-h) * 38 / 48); height: var(--cell-h); border-radius: 6px; flex: none; display: grid; place-items: center; transition: background .15s; }
+.cell svg { width: 100%; height: calc(var(--cell-h) * 45 / 48); fill: var(--ink); pointer-events: none; overflow: visible; }
 .cell:hover { background: var(--hover); }
 .cell.on { background: var(--accent-soft); }
 .cell.on svg { fill: var(--accent-ink); }
@@ -364,7 +378,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .exp b { font-size: 13.5px; font-weight: 500; }
 .exp span { font-size: 12px; color: var(--ink-3); }
 .exp.import { border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); margin-top: 4px; padding-top: 10px; }
-.toast { position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 8px); background: var(--sabi); color: #fff; padding: 9px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500; box-shadow: var(--shadow); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; z-index: 40; }
+.toast { position: fixed; left: 50%; bottom: calc(var(--strip-h, 76px) + 20px); transform: translate(-50%, 8px); background: var(--sabi); color: #fff; padding: 9px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500; box-shadow: var(--shadow); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; z-index: 40; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---------- guide */
@@ -380,7 +394,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .guide-foot .btn.ghost { color: var(--ink-3); }
 .guide-grow { flex: 1; }
 
-@media (max-width: 1280px) { .editor { grid-template-columns: 184px minmax(0, 1fr) 328px; } }
+@media (max-width: 1280px) { .editor { grid-template-columns: var(--nav-w, 184px) minmax(0, 1fr) var(--panel-w, 328px); } }
 
 /* ---------- opening title card */
 .intro { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; gap: 10px; background: var(--paper); cursor: default; transition: opacity .45s ease; }
@@ -403,7 +417,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .btn.danger:hover { background: var(--accent-soft); color: var(--accent-ink); }
 
 /* ---------- loading & message pages */
-.loading { position: fixed; inset: 56px 0 76px; display: grid; place-items: center; background: rgba(243, 243, 243, .75); font-weight: 500; color: var(--ink-2); z-index: 20; }
+.loading { position: fixed; inset: 56px 0 var(--strip-h, 76px); display: grid; place-items: center; background: rgba(243, 243, 243, .75); font-weight: 500; color: var(--ink-2); z-index: 20; }
 .message-page { min-height: 100vh; display: grid; place-content: center; justify-items: center; text-align: center; gap: 4px; padding: 24px; }
 .message-page h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
 .message-page p { margin: 0 0 16px; color: var(--ink-2); }

@@ -11,6 +11,7 @@ import { GlyphDefs } from '../components/GlyphDefs';
 import { Guide, guideSeen } from '../components/Guide';
 import { Header } from '../components/Header';
 import { Panel } from '../components/Panel';
+import { Resizer } from '../components/Resizer';
 import { Stage } from '../components/Stage';
 
 type Status = 'ready' | 'loading' | 'missing' | 'error';
@@ -67,7 +68,9 @@ export function EditorPage() {
       <Nav />
       <Stage />
       <Panel />
-      {category !== 'style' && <GlyphStrip />}
+      <Resizer side="nav" />
+      <Resizer side="panel" />
+      {category !== 'style' && <><GlyphStrip /><Resizer side="strip" /></>}
       <GlyphDefs />
       <Toast />
       {status === 'loading' && <div className="loading" role="status">Opening design…</div>}
