@@ -18,7 +18,9 @@ export type TerminalSubKey = 'terminalLength' | 'terminalCurl' | 'terminalFlare'
 export type DotSubKey = 'dotSize';
 export type WeightSubKey = 'vWeight' | 'hWeight';
 export type RoundSubKey = 'joinRound';
-export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey | RoundSubKey;
+export type StencilSubKey = 'stencilPos' | 'stencilRound';
+export type SliceSubKey = 'slicePos' | 'sliceRound';
+export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey | RoundSubKey | StencilSubKey | SliceSubKey;
 
 export interface ControlDef {
   cat: Exclude<CategoryId, 'style'>;
@@ -605,9 +607,9 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   fill: { cat: 'effects', type: 'fill', label: 'Fill', friendly: 'Build the letters from something else', tech: 'Fill', demo: 'Rg',
     explain: 'Solid ink, outlines, or a grid of pixels, dots or lines.' },
   stencil: { cat: 'effects', off: 0, label: 'Stencil', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
-    explain: 'Strokes break where they join, as if cut from a sheet.' },
+    explain: 'Strokes break where they join, as if cut from a sheet. Position moves the gaps out along the strokes; Rounding softens their corners.' },
   slice: { cat: 'effects', off: 0, label: 'Slice', friendly: 'Cut one line through every letter', tech: 'Slice', lo: 'None', hi: 'Wide', demo: 'type',
-    explain: 'One horizontal cut runs across the whole line.' }
+    explain: 'One horizontal cut runs across the whole line. Position moves it up or down; Rounding softens its corners.' }
 };
 export const SERIF_SUBS: Record<SerifSubKey, SubControlDef> = {
   serifSize: { label: 'Length', friendly: 'Make the feet longer', tech: 'Serif size', lo: 'Short', hi: 'Long' },
@@ -656,7 +658,16 @@ export const WEIGHT_SUBS: Record<WeightSubKey, SubControlDef> = {
 export const ROUND_SUBS: Record<RoundSubKey, SubControlDef> = {
   joinRound: { label: 'Joins', friendly: 'Round the inside corners where one stroke meets another', tech: 'Fillets', lo: 'Sharp', hi: 'Round' }
 };
-export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey | RoundSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS };
+export const STENCIL_SUBS: Record<StencilSubKey, SubControlDef> = {
+  stencilPos: { label: 'Position', friendly: 'Move the gaps out along the strokes, away from where they meet', tech: 'Gap position', lo: 'At the join', hi: 'Further out' },
+  stencilRound: { label: 'Rounding', friendly: 'Round the corners the gaps cut', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
+};
+export const SLICE_SUBS: Record<SliceSubKey, SubControlDef> = {
+  slicePos: { label: 'Position', friendly: 'Move the cut up or down the letters', tech: 'Slice height', lo: 'Low', hi: 'High' },
+  sliceRound: { label: 'Rounding', friendly: 'Round the corners the cut leaves', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
+};
+export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey | RoundSubKey | StencilSubKey | SliceSubKey, SubControlDef> =
+  { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
 export type FormKey = 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
@@ -752,4 +763,5 @@ export const firstControl = (cat: CategoryId) =>
 /** The control a key belongs to: serif sub-sliders fold into 'serif', the module size into 'fill',
     the stroke end length into 'terminal'. */
 export const controlFor = (key: ActiveKey): ControlKey =>
-  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in WEIGHT_SUBS ? 'weight' : key in ROUND_SUBS ? 'roundness' : key as ControlKey;
+  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in WEIGHT_SUBS ? 'weight' : key in ROUND_SUBS ? 'roundness'
+    : key in STENCIL_SUBS ? 'stencil' : key in SLICE_SUBS ? 'slice' : key as ControlKey;

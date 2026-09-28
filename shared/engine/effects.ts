@@ -2,7 +2,7 @@
    a letter as a wireframe or from a grid of pixels, dots or lines. They run on the glyph's final
    outline (after slant and spacing), so a grid lines up from one letter to the next. The outline
    is read with the nonzero rule, like the font itself: overlapping strokes count once. */
-import { clipPoly, cubicAt, dist, roundContour, signedArea } from './geom';
+import { cubicAt, dist, roundContour, signedArea, splitPoly } from './geom';
 import type { Cmd, Pt } from './types';
 
 /** Outline commands to polygons, curves sampled. Every point is `smooth`, so re-rounding
@@ -34,13 +34,38 @@ export function toPolys(cmds: Cmd[]): Pt[][] {
 
 const polysToCmds = (polys: Pt[][], R: number) => polys.flatMap(p => roundContour(p, R));
 
-/** Remove the band [y0, y1] from every contour. */
-export function slice(cmds: Cmd[], y0: number, y1: number, R: number): Cmd[] {
-  const out: Pt[][] = [];
-  for (const p of toPolys(cmds)) {
-    for (const box of [{ y1: y0 }, { y0: y1 }]) { const q = clipPoly(p, box); if (q.length > 2) out.push(q); }
+/** Whether p is inside the polygon (even-odd). */
+function within(poly: Pt[], p: Pt) {
+  let on = false;
+  for (let i = 0, n = poly.length, j = n - 1; i < n; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x)) on = !on;
   }
-  return polysToCmds(out, R);
+  return on;
+}
+
+/** Remove the band [y0, y1] from every contour, rounding the corners it cuts by R. Each outline
+    is cut together with the holes inside it (the counter of an o), so the corners rounded are
+    the ink's. */
+export function slice(cmds: Cmd[], y0: number, y1: number, R: number): Cmd[] {
+  const polys = toPolys(cmds), area = polys.map(signedArea);
+  // a hole is wound against the outlines: it goes with the smallest outline around it
+  const groups = new Map<number, Pt[][]>();
+  polys.forEach((p, i) => {
+    let home = i;
+    if (area[i] < 0) {
+      for (let j = 0; j < polys.length; j++) {
+        if (area[j] > 0 && Math.abs(area[j]) > Math.abs(area[i]) && within(polys[j], p[0]) && (home === i || area[j] < area[home])) home = j;
+      }
+    }
+    (groups.get(home) ?? groups.set(home, []).get(home)!).push(p);
+  });
+  const out: Pt[][] = [];
+  for (const g of groups.values()) {
+    for (const pl of [{ x: 0, y: y0, nx: 0, ny: 1 }, { x: 0, y: y1, nx: 0, ny: -1 }]) out.push(...splitPoly(g, pl));
+  }
+  // the corners the band cuts are the only ones not on the outline before
+  return polysToCmds(out.map(p => p.map(q => (q.sharp && R > 0 ? { x: q.x, y: q.y, r: R } : q))), 0);
 }
 
 /** Where the scanline at height y is inside the outline (nonzero winding), as [x0, x1] spans. */

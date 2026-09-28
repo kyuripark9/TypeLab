@@ -22,6 +22,11 @@ const extremes: Params[] = [
   { ...DEFAULTS, vWeight: 0, hWeight: 1, glyphs: { a: { strokeWeights: { 0: 1, 1: 0 } }, H: { strokeWeights: { 2: 1 } } } }
 ];
 
+/** In SVG path data: how many contours, how many curves, and every x. */
+const contours = (d: string) => d.split('M').length - 1;
+const curves = (d: string) => d.split('C').length - 1;
+const xsOf = (d: string) => [...d.matchAll(/[MLC]([^MLCZ]*)/g)].flatMap(m => m[1].trim().split(/\s+/).map(Number).filter((_, i) => i % 2 === 0));
+
 describe('font engine', () => {
   for (const p of [...STYLES.map(s => s.params), ...extremes]) {
     it(`draws every glyph with finite outlines (${STYLES.find(s => s.params === p)?.id ?? 'extreme settings'})`, () => {
@@ -618,9 +623,38 @@ describe('font engine', () => {
 
   it('stencil cuts joined strokes apart and splits round letters', () => {
     const solid = buildFont(DEFAULTS), cut = buildFont({ ...DEFAULTS, stencil: 0.5 });
-    const contours = (d: string) => d.split('M').length - 1;
-    assert.ok(contours(cut.glyph('O')!.d) > contours(solid.glyph('O')!.d));
+    // the O's two halves are each one piece of ink, the hole cut with the ring, on either side of the gap
+    const O = cut.glyph('O')!, mid = (Math.min(...xsOf(O.d)) + Math.max(...xsOf(O.d))) / 2;
+    assert.equal(contours(solid.glyph('O')!.d), 2);
+    assert.equal(contours(O.d), 2);
+    for (const c of O.d.split('M').slice(1)) { const xs = xsOf(`M${c}`); assert.ok(Math.max(...xs) < mid || Math.min(...xs) > mid); }
     assert.notEqual(cut.glyph('H')!.d, solid.glyph('H')!.d);
+  });
+
+  it('stencil gaps move out along the stroke and round their corners', () => {
+    const at = (p: Partial<Params>) => buildFont({ ...DEFAULTS, stencil: 0.5, ...p }).glyph('H')!.d;
+    // moved out, the bar keeps a stub on each stem
+    assert.equal(contours(at({ stencilPos: 0.5 })) - contours(at({})), 2);
+    assert.ok(curves(at({ stencilRound: 1 })) > curves(at({})));
+    assert.ok(curves(at({ stencilRound: 1, stencilPos: 0.5 })) > curves(at({ stencilPos: 0.5 })));
+    // a rounded O rounds the corners of its halves, and they stay two pieces
+    const O = buildFont({ ...DEFAULTS, stencil: 0.5, stencilRound: 1 }).glyph('O')!.d;
+    assert.equal(contours(O), 2);
+    assert.ok(curves(O) > curves(buildFont({ ...DEFAULTS, stencil: 0.5 }).glyph('O')!.d));
+  });
+
+  it('the slice moves up and down and rounds its corners', () => {
+    const f = (p: Partial<Params>) => buildFont({ ...DEFAULTS, slice: 0.5, ...p });
+    assert.equal(f({ slicePos: 0.5 }).glyph('H')!.d, f({}).glyph('H')!.d);
+    assert.notEqual(f({ slicePos: 0.8 }).glyph('H')!.d, f({}).glyph('H')!.d);
+    // at the cap height it misses the lowercase
+    const x = f({ slicePos: 1 }).glyph('x')!.d, plain = buildFont(DEFAULTS).glyph('x')!.d, ys = (d: string) => xsOf(d.replace(/(-?[\d.]+) (-?[\d.]+)/g, '$2 $1'));
+    assert.equal(contours(x), contours(plain));
+    assert.deepEqual([Math.min(...ys(x)), Math.max(...ys(x))], [Math.min(...ys(plain)), Math.max(...ys(plain))]);
+    assert.notEqual(f({ slicePos: 1 }).glyph('H')!.d, buildFont(DEFAULTS).glyph('H')!.d);
+    assert.ok(curves(f({ sliceRound: 1 }).glyph('H')!.d) > curves(f({}).glyph('H')!.d));
+    // a sliced o is two arcs of ink, the counter cut with them, however round the cut
+    for (const sliceRound of [0, 1]) assert.equal(contours(f({ sliceRound }).glyph('o')!.d), 2);
   });
 
   it('pixel and dot fills sit on one grid across the line', () => {

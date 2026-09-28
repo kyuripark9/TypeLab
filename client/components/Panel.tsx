@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import {
   ANATOMY, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
-  SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById, styleMatches,
+  SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById, styleMatches,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter
 } from '../../shared/content';
 import { TERMINAL_FORMS, formOf, isGlyphKey, type NumericParam, type Params } from '../../shared/params';
@@ -168,6 +168,14 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
       </SliderControl>
     );
   }
+  if (k === 'stencil' || k === 'slice') {
+    const subs = k === 'stencil' ? STENCIL_SUBS : SLICE_SUBS;
+    return (
+      <SliderControl k={k} def={c} parts={parts}>
+        {(Object.keys(subs) as (keyof typeof subs)[]).map(s => <SliderControl key={s} k={s} def={subs[s]} />)}
+      </SliderControl>
+    );
+  }
   if (c.type === 'serif') return <SerifControl parts={parts} />;
   if (c.type === 'fill') return <FillControl />;
   return <SliderControl k={k as NumericParam} def={c} parts={parts} />;
@@ -326,9 +334,10 @@ function SliderControl({ k, def, parts, children }: { k: NumericParam; def: Slid
             onReset={() => { keep(); actions.resetParam(k); }}
           />
           <div className="ctl-ends"><span>{def.lo}</span><span>{def.hi}</span></div>
+          {optional && children}
         </div>
       </div>
-      {children}
+      {!optional && children}
     </div>
   );
 }

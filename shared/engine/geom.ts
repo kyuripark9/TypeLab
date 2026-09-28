@@ -1,5 +1,5 @@
 /* Geometry helpers: béziers, polygon clipping, corner rounding, path output. */
-import type { ClipBox, Cmd, Mat, Pt, Tangent } from './types';
+import type { ClipBox, Cmd, HalfPlane, Mat, Pt, Tangent } from './types';
 
 type P = { x: number; y: number };
 
@@ -79,6 +79,52 @@ export function clipPoly(pts: Pt[], box: ClipBox): Pt[] {
       }
     }
     if (out.length < 3) return [];
+  }
+  return out;
+}
+
+/** The part of a shape on the kept side of a half-plane (as clipPoly keeps it), as separate
+    polygons. The shape is an outline and the holes inside it, wound the other way (a ring, as
+    an O is drawn): where they cross the line, the pieces of each are joined along it into whole
+    outlines, so a cut corner is the corner of the ink, and a rounded one rounds the ink (clipPoly
+    cuts each contour on its own, and joins a contour's pieces with edges running back and forth
+    along the line). Contours the line misses are kept or dropped whole. The new points are
+    `sharp`, as clipPoly makes them. Where the crossings don't pair up (a contour that runs over
+    itself), each contour is clipped on its own instead. */
+export function splitPoly(contours: Pt[][], pl: HalfPlane): Pt[][] {
+  const out: Pt[][] = [], runs: Pt[][] = [];
+  const fOf = (p: Pt) => (p.x - pl.x) * pl.nx + (p.y - pl.y) * pl.ny;
+  for (const pts of contours) {
+    const n = pts.length, f = pts.map(fOf), inside = f.map(v => v <= 0);
+    if (inside.every(Boolean)) { out.push(pts); continue; }
+    if (!inside.some(Boolean)) continue;
+    // each run of kept points, from where the contour comes in over the line to where it leaves
+    const cross = (i: number): Pt => { const j = (i + 1) % n, t = f[i] / (f[i] - f[j]); return { x: lerp(pts[i].x, pts[j].x, t), y: lerp(pts[i].y, pts[j].y, t), sharp: true }; };
+    for (let i = 0; i < n; i++) {
+      if (inside[i] || !inside[(i + 1) % n]) continue;
+      const run = [cross(i)];
+      let j = (i + 1) % n;
+      while (inside[j]) { run.push(pts[j]); j = (j + 1) % n; }
+      run.push(cross((j + n - 1) % n));
+      runs.push(run);
+    }
+  }
+  // along the line, the ink is every other gap between crossings: each run's exit pairs with the
+  // entry of the run it goes on into
+  const along = (p: Pt) => p.y * pl.nx - p.x * pl.ny;
+  const ends = runs.flatMap((r, k) => [{ k, entry: true, s: along(r[0]) }, { k, entry: false, s: along(r[r.length - 1]) }]).sort((a, b) => a.s - b.s);
+  const next = new Map<number, number>();
+  for (let i = 0; i + 1 < ends.length; i += 2) {
+    const a = ends[i], b = ends[i + 1];
+    if (a.entry === b.entry) return contours.map(c => clipPoly(c, { planes: [pl] })).filter(c => c.length > 2);
+    next.set(a.entry ? b.k : a.k, a.entry ? a.k : b.k);
+  }
+  const used = new Set<number>();
+  for (let k = 0; k < runs.length; k++) {
+    if (used.has(k)) continue;
+    const poly: Pt[] = [];
+    for (let r: number | undefined = k; r !== undefined && !used.has(r); r = next.get(r)) { used.add(r); poly.push(...runs[r]); }
+    if (poly.length > 2) out.push(poly);
   }
   return out;
 }

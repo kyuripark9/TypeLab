@@ -4,7 +4,7 @@
    server (font export) run exactly the same code. A full rebuild of every glyph takes a
    few milliseconds, so sliders can drive it directly. */
 import { DEFAULTS, contrastOf, endCurl, endLength, endReach, formOf, weightScale, type Params } from '../params';
-import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, subCubic, transformCmds } from './geom';
+import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, splitPoly, subCubic, transformCmds } from './geom';
 import { fillOutline, slice } from './effects';
 import { autoThickness, buildSerif, expandStroke, innerFloor, type Expanded } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
@@ -33,6 +33,7 @@ export interface Metrics {
   /** the shared advance width that monospacing pulls every glyph toward */ monoAdv: number;
   /** grid size of the pixel, dot and line fills (0 = none); advances snap to it for pixels and dots */ cell: number;
   /** stencil gap, and the band the slice removes (both 0 when off) */ gap: number; sliceY: number; sliceH: number;
+  /** how far out from a join its stencil gap opens, and the radius the stencil and slice round their cuts by */ gapOff: number; gapR: number; sliceR: number;
   bar: number; apex: number; ap: number; cnt: number;
   serif: boolean;
   ctx: PenCtx;
@@ -169,7 +170,8 @@ function metrics(e: Effective): Metrics {
     desc: -cap * 0.3 * lerp(0.55, 1.45, e.extenders) * (e.descender < 0.5 ? lerp(0.45, 1, e.descender * 2) : lerp(1, 1.6, e.descender * 2 - 1)),
     os: cap * 0.014,
     ws, thin, stress, k, org, sq: e.square, cur: e.cursive, wob: e.wobble, monoAdv: W(500) + sb * 1.5,
-    cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, sliceY: xh * 0.5, sliceH,
+    cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, gapOff: e.stencilPos * xh * 0.4, gapR: e.stencilRound * s,
+    sliceY: e.slicePos < 0.5 ? lerp(0, xh * 0.5, e.slicePos * 2) : lerp(xh * 0.5, cap, e.slicePos * 2 - 1), sliceH, sliceR: e.sliceRound * s,
     bar: e.crossbar, apex: e.apex, ap: e.aperture, cnt,
     serif: !!e.serif,
     ctx, tDir, hT: tDir(1, 0), W,
@@ -312,11 +314,13 @@ function isHorizontal(cmds: Cmd[]) {
 }
 
 /* Stencil: where stroke i joins another stroke (its host), cut it back so a gap opens between
-   the two. The cut runs parallel to the host at the point where the join lands. When two
+   the two. The cut runs parallel to the host at the point where the join lands. Moved `off` out
+   from the host, the gap opens further along the stroke and a stub of it stays on the host: the
+   gap is then a band between two cuts, the far side kept and the near side too. When two
    strokes end in each other (the waist of a 3), only the later one is cut. */
 interface Host { score: number; j: number; px: number; py: number; tx: number; ty: number; half: number; atEnd: boolean }
-function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): HalfPlane[] {
-  const ex = exps[i]!, own = ex.skeleton.flat(), planes: HalfPlane[] = [];
+function stencilCuts(i: number, exps: (Expanded | null)[], gap: number, off: number): { far: HalfPlane; near: HalfPlane | null }[] {
+  const ex = exps[i]!, own = ex.skeleton.flat(), planes: { far: HalfPlane; near: HalfPlane | null }[] = [];
   const cx = own.reduce((a, q) => a + q.x, 0) / own.length, cy = own.reduce((a, q) => a + q.y, 0) / own.length;
   for (const end of ex.ends) {
     if (end.type !== 'join') continue;
@@ -343,8 +347,8 @@ function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): HalfPla
     const side = (cx - bj.px) * nx + (cy - bj.py) * ny;
     if (Math.abs(side) < 1) continue;
     if (side < 0) { nx = -nx; ny = -ny; }
-    const off = bj.half + gap;
-    planes.push({ x: bj.px + nx * off, y: bj.py + ny * off, nx: -nx, ny: -ny });
+    const at = (d: number) => ({ x: bj.px + nx * d, y: bj.py + ny * d });
+    planes.push({ far: { ...at(bj.half + off + gap), nx: -nx, ny: -ny }, near: off > 0 ? { ...at(bj.half + off), nx, ny } : null });
   }
   return planes;
 }
@@ -1182,11 +1186,13 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     ch, strokes: [] as GlyphStroke[], serifs: [] as Cmd[][], counters: [] as Cmd[][], marks: b.marks.slice(),
     corners: [] as Pt[], skeleton: [] as Pt[][], meta: def.meta, bodyW: W
   };
+  const wind = (pts: Pt[], sign: number) => ((signedArea(pts) < 0) !== (sign < 0) ? pts.slice().reverse() : pts);
   const finish = (pts: Pt[], sign: number, R: number, cornersOut?: Pt[]) => {
     if (pts.length < 3) return null;
-    if ((signedArea(pts) < 0) !== (sign < 0)) pts = pts.slice().reverse();
-    return roundContour(pts, R, cornersOut);
+    return roundContour(wind(pts, sign), R, cornersOut);
   };
+  // the corners a stencil cuts are the points that weren't on the stroke as drawn
+  const cutRound = (pts: Pt[], drawn: Set<Pt>, r: number) => (r > 0 ? pts.map(q => (q.sharp && !drawn.has(q) ? { x: q.x, y: q.y, r } : q)) : pts);
   // expand every stroke first: a stencil cut needs to know which stroke each join runs into
   const exps = b.strokes.map((st, si) => {
     if (st.poly) return null;
@@ -1219,20 +1225,30 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       let xl = Infinity, xr = -Infinity;
       for (const q of outer) { xl = Math.min(xl, q.x); xr = Math.max(xr, q.x); }
       const cx = (xl + xr) / 2, g = m.gap;
-      const halves: HalfPlane[][] = g ? [[{ x: cx - g / 2, y: 0, nx: 1, ny: 0 }], [{ x: cx + g / 2, y: 0, nx: -1, ny: 0 }]] : [[]];
-      for (const planes of halves) {
-        const o1 = finish(planes.length ? clipPoly(outer, { planes }) : outer, 1, 0);
-        const i1 = finish(planes.length ? clipPoly(inner, { planes }) : inner, -1, 0);
+      if (g) {
+        // each half is cut as one piece of ink, the hole with the ring, so its cut corners round the ink
+        const ring = [wind(outer, 1), wind(inner, -1)], drawn = new Set(ring.flat()), r = m.gapR * (o.scale || 1) * strokeWt(m, si);
+        for (const pl of [{ x: cx - g / 2, y: 0, nx: 1, ny: 0 }, { x: cx + g / 2, y: 0, nx: -1, ny: 0 }]) {
+          for (const q of splitPoly(ring, pl)) { const c = finish(cutRound(q, drawn, r), signedArea(q) < 0 ? -1 : 1, 0); if (c) cmds = cmds.concat(c); }
+        }
+      } else {
+        const o1 = finish(outer, 1, 0), i1 = finish(inner, -1, 0);
         if (o1) cmds = cmds.concat(o1);
         if (i1) cmds = cmds.concat(i1);
       }
       const hole = finish(inner, -1, 0);
       if (o.counter !== false && hole) out.counters.push(hole);
     } else {
-      let pts = ex.contours[0];
-      if (o.clip) pts = clipPoly(pts, o.clip);
-      if (m.gap) { const planes = stencilCuts(si, expanded, m.gap); if (planes.length) pts = clipPoly(pts, { planes }); }
-      const c = finish(pts, 1, R, out.corners); if (c) cmds = c;
+      let pieces = [ex.contours[0]];
+      if (o.clip) pieces = [clipPoly(pieces[0], o.clip)];
+      if (m.gap) {
+        const drawn = new Set(pieces[0]);
+        for (const { far, near } of stencilCuts(si, expanded, m.gap, m.gapOff)) {
+          pieces = pieces.flatMap(q => [...splitPoly([q], far), ...(near ? splitPoly([q], near) : [])]);
+        }
+        pieces = pieces.map(q => cutRound(q, drawn, m.gapR * (o.scale || 1) * strokeWt(m, si)));
+      }
+      for (const q of pieces) { const c = finish(q, 1, R, out.corners); if (c) cmds = cmds.concat(c); }
       if (o.counter) out.counters.push(finish(ex.skeleton.flat(), 1, 0) || []);
     }
     out.strokes.push({ part: o.part || 'stroke', cmds, curved: ex.curved, horizontal: isHorizontal(st.cmds!), id: String(si) });
@@ -1291,7 +1307,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   out.strokes.forEach(s => s.cmds = tf(s.cmds));
   const serifs = out.serifs.map(tf);
   let cmds = [...out.strokes.flatMap(s => s.cmds), ...serifs.flat()];
-  if (m.sliceH) cmds = slice(cmds, m.sliceY - m.sliceH / 2, m.sliceY + m.sliceH / 2, m.R);
+  if (m.sliceH) cmds = slice(cmds, m.sliceY - m.sliceH / 2, m.sliceY + m.sliceH / 2, m.sliceR);
   if (m.p.fill !== 'solid') {
     cmds = fillOutline(cmds, { fill: m.p.fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness });
   }

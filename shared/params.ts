@@ -126,7 +126,11 @@ export interface Params {
   fill: Fill;
   /** size of the pixels, dots or lines, or the wireframe's line weight */ module: number;
   /** gaps where strokes meet, like a stencil */ stencil: number;
+  /** how far out along a stroke from the join its stencil gap is cut, from 0 right at the join */ stencilPos: number;
+  /** how round the corners a stencil gap cuts are, from 0 sharp */ stencilRound: number;
   /** a horizontal cut through every letter */ slice: number;
+  /** the height of the slice: 0 the baseline, 0.5 half the x-height, 1 the cap height */ slicePos: number;
+  /** how round the corners the slice cuts are, from 0 sharp */ sliceRound: number;
   serif: boolean; serifSize: number; serifThickness: number; serifShape: SerifShape; serifAngle: number;
   letterSpacing: number; wordSpacing: number; sideBearing: number;
   /** blend toward one fixed advance width for every glyph */ mono: number;
@@ -136,7 +140,7 @@ export interface Params {
 
 /** Settings every letter shares. The heights are the lines all letters stand on, spacing and the
     fills and slice run across a whole line, and the personality macros push the heights too. */
-export const GLOBAL_KEYS = ['height', 'xHeight', 'extenders', 'descender', 'letterSpacing', 'wordSpacing', 'mono', 'fill', 'module', 'slice',
+export const GLOBAL_KEYS = ['height', 'xHeight', 'extenders', 'descender', 'letterSpacing', 'wordSpacing', 'mono', 'fill', 'module', 'slice', 'slicePos', 'sliceRound',
   'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal', 'glyphs'] as const;
 /** A setting one letter can have its own value of. */
 export type GlyphKey = Exclude<keyof Params, (typeof GLOBAL_KEYS)[number]>;
@@ -152,7 +156,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved', aForm: 'plain', joinRound: 0,
   bowlForm: 'oval', diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', tail: 0.5,
-  fill: 'solid', module: 0.4, stencil: 0, slice: 0,
+  fill: 'solid', module: 0.4, stencil: 0, stencilPos: 0, stencilRound: 0, slice: 0, slicePos: 0.5, sliceRound: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   letterSpacing: 0.2, wordSpacing: 0.35, sideBearing: 0.5, mono: 0,
   geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5, glyphs: Object.freeze({})
