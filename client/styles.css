@@ -16,7 +16,10 @@
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-body { background: var(--paper); color: var(--ink); font: 400 14px/1.45 var(--ui); letter-spacing: -.006em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { background: var(--paper); color: var(--ink); font: 400 14px/1.45 var(--ui); letter-spacing: -.006em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  cursor: default; user-select: none; -webkit-user-select: none; }
+/* The I-beam and text selection belong only to fields you type into. */
+input:not([type]), input[type=text], input[type=search], input[type=number], textarea, [contenteditable]:not([contenteditable=false]) { cursor: text; user-select: text; -webkit-user-select: text; }
 ::selection { background: var(--accent-soft); color: var(--ink); }
 a { color: inherit; }
 button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
@@ -29,7 +32,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 /* ---------- header */
 .top { grid-area: top; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .top-left { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.brand { display: flex; align-items: baseline; gap: 10px; text-decoration: none; flex: none; cursor: default; user-select: none; -webkit-user-select: none; }
+.brand { display: flex; align-items: baseline; gap: 10px; text-decoration: none; flex: none; }
 a.brand { cursor: pointer; }
 a.brand:hover .brand-name { color: var(--accent-ink); }
 .brand-name { font-size: 16px; font-weight: 700; letter-spacing: -.02em; transition: color .15s; }
