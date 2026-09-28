@@ -168,14 +168,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
       </SliderControl>
     );
   }
-  if (k === 'stencil' || k === 'slice') {
-    const subs = k === 'stencil' ? STENCIL_SUBS : SLICE_SUBS;
-    return (
-      <SliderControl k={k} def={c} parts={parts}>
-        {(Object.keys(subs) as (keyof typeof subs)[]).map(s => <SliderControl key={s} k={s} def={subs[s]} />)}
-      </SliderControl>
-    );
-  }
+  if (k === 'stencil' || k === 'slice') return <CutControl k={k} parts={parts} />;
   if (c.type === 'serif') return <SerifControl parts={parts} />;
   if (c.type === 'fill') return <FillControl />;
   return <SliderControl k={k as NumericParam} def={c} parts={parts} />;
@@ -299,12 +292,13 @@ function useControlFocus(key: ActiveKey) {
 interface SliderDef { label: string; friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; advanced?: boolean; off?: number }
 
 /** A slider. An optional one (with an `off` value) has a switch; switched off, its slider folds away. */
-/** `children` follow the slider inside its control, like the corners under Roundness. */
-function SliderControl({ k, def, parts, children }: { k: NumericParam; def: SliderDef; parts?: string[]; children?: ReactNode }) {
+/** `children` follow the slider inside its control, like the corners under Roundness. `holdsOn`
+    marks the amount of a control switched on above it (a stencil's thickness): using it keeps that open. */
+function SliderControl({ k, def, parts, children, holdsOn }: { k: NumericParam; def: SliderDef; parts?: string[]; children?: ReactNode; holdsOn?: boolean }) {
   const value = useParam(k), active = useEditor(s => s.active === k);
   const optional = def.off !== undefined, on = useEditor(s => !optional || isOn(s, k, def.off!));
   // using the slider keeps it open, even dragged all the way to its off value
-  const keep = () => { if (optional) actions.keepOn(k); };
+  const keep = () => { if (optional || holdsOn) actions.keepOn(k); };
   const cls = ['ctl', def.bipolar && 'bipolar', active && 'active', !on && 'off'].filter(Boolean).join(' ');
   return (
     <div className={cls} data-ctl={k} {...useControlFocus(k)}>
@@ -338,6 +332,29 @@ function SliderControl({ k, def, parts, children }: { k: NumericParam; def: Slid
         </div>
       </div>
       {!optional && children}
+    </div>
+  );
+}
+
+/** Stencil and Slice: a switch, then how thick the cut is, where it runs and how round its corners are. */
+function CutControl({ k, parts }: { k: 'stencil' | 'slice'; parts?: string[] }) {
+  const c = CONTROLS[k], subs = k === 'stencil' ? STENCIL_SUBS : SLICE_SUBS;
+  const on = useEditor(s => isOn(s, k, c.off!)), active = useEditor(s => controlFor(s.active) === k);
+  const cls = ['ctl', active && 'active', !on && 'off'].filter(Boolean).join(' ');
+  return (
+    <div className={cls} data-ctl={k} {...useControlFocus(k)}>
+      <div className="ctl-top">
+        <CtlHead k={k} label={c.label} parts={parts} />
+        <div className="ctl-tools">
+          <button className={on ? 'switch on' : 'switch'} role="switch" aria-checked={on} aria-label={c.label}
+            onClick={() => { actions.focusControl(k); actions.switchControl(k, !on, c.off!); }}><i /></button>
+        </div>
+      </div>
+      <div className={on ? 'reveal open' : 'reveal'} inert={!on}>
+        <div>
+          {(Object.keys(subs) as (keyof typeof subs)[]).map(s => <SliderControl key={s} k={s} def={subs[s]} holdsOn={s === k} />)}
+        </div>
+      </div>
     </div>
   );
 }

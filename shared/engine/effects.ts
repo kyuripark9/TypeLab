@@ -46,8 +46,9 @@ function within(poly: Pt[], p: Pt) {
 
 /** Remove the band [y0, y1] from every contour, rounding the corners it cuts by R. Each outline
     is cut together with the holes inside it (the counter of an o), so the corners rounded are
-    the ink's. */
-export function slice(cmds: Cmd[], y0: number, y1: number, R: number): Cmd[] {
+    the ink's. Ink the band leaves thinner than `minH` (where it grazes a bar) goes with it, unless
+    that is all the outline leaves (a hyphen the band runs through). */
+export function slice(cmds: Cmd[], y0: number, y1: number, R: number, minH = 0): Cmd[] {
   const polys = toPolys(cmds), area = polys.map(signedArea);
   // a hole is wound against the outlines: it goes with the smallest outline around it
   const groups = new Map<number, Pt[][]>();
@@ -62,11 +63,15 @@ export function slice(cmds: Cmd[], y0: number, y1: number, R: number): Cmd[] {
   });
   const out: Pt[][] = [];
   for (const g of groups.values()) {
-    for (const pl of [{ x: 0, y: y0, nx: 0, ny: 1 }, { x: 0, y: y1, nx: 0, ny: -1 }]) out.push(...splitPoly(g, pl));
+    const pieces = [{ x: 0, y: y0, nx: 0, ny: 1 }, { x: 0, y: y1, nx: 0, ny: -1 }].flatMap(pl => splitPoly(g, pl));
+    const solid = pieces.filter(p => signedArea(p) < 0 || height(p) >= minH);
+    out.push(...(solid.some(p => signedArea(p) > 0) ? solid : pieces));
   }
   // the corners the band cuts are the only ones not on the outline before
   return polysToCmds(out.map(p => p.map(q => (q.sharp && R > 0 ? { x: q.x, y: q.y, r: R } : q))), 0);
 }
+
+const height = (p: Pt[]) => Math.max(...p.map(q => q.y)) - Math.min(...p.map(q => q.y));
 
 /** Where the scanline at height y is inside the outline (nonzero winding), as [x0, x1] spans. */
 function spans(polys: Pt[][], y: number): [number, number][] {

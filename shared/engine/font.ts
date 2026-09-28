@@ -170,8 +170,11 @@ function metrics(e: Effective): Metrics {
     desc: -cap * 0.3 * lerp(0.55, 1.45, e.extenders) * (e.descender < 0.5 ? lerp(0.45, 1, e.descender * 2) : lerp(1, 1.6, e.descender * 2 - 1)),
     os: cap * 0.014,
     ws, thin, stress, k, org, sq: e.square, cur: e.cursive, wob: e.wobble, monoAdv: W(500) + sb * 1.5,
-    cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, gapOff: e.stencilPos * xh * 0.4, gapR: e.stencilRound * s,
-    sliceY: e.slicePos < 0.5 ? lerp(0, xh * 0.5, e.slicePos * 2) : lerp(xh * 0.5, cap, e.slicePos * 2 - 1), sliceH, sliceR: e.sliceRound * s,
+    // a gap moved out starts a stub's width out, so it never leaves a hairline on the stroke it joins
+    cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, gapOff: e.stencilPos > 0 ? lerp(s * 0.35, xh * 0.4, e.stencilPos) : 0, gapR: e.stencilRound * s,
+    // the slice keeps a stroke's width of ink below it and above it, so at either end it still cuts through the letters
+    sliceY: e.slicePos < 0.5 ? lerp(Math.min(xh * 0.5, s + sliceH / 2), xh * 0.5, e.slicePos * 2) : lerp(xh * 0.5, Math.max(xh * 0.5, cap - s - sliceH / 2), e.slicePos * 2 - 1),
+    sliceH, sliceR: e.sliceRound * s,
     bar: e.crossbar, apex: e.apex, ap: e.aperture, cnt,
     serif: !!e.serif,
     ctx, tDir, hT: tDir(1, 0), W,
@@ -316,11 +319,12 @@ function isHorizontal(cmds: Cmd[]) {
 /* Stencil: where stroke i joins another stroke (its host), cut it back so a gap opens between
    the two. The cut runs parallel to the host at the point where the join lands. Moved `off` out
    from the host, the gap opens further along the stroke and a stub of it stays on the host: the
-   gap is then a band between two cuts, the far side kept and the near side too. When two
+   gap is then a band straight across the stroke, the far side kept and the near side too. When two
    strokes end in each other (the waist of a 3), only the later one is cut. */
 interface Host { score: number; j: number; px: number; py: number; tx: number; ty: number; half: number; atEnd: boolean }
-function stencilCuts(i: number, exps: (Expanded | null)[], gap: number, off: number): { far: HalfPlane; near: HalfPlane | null }[] {
-  const ex = exps[i]!, own = ex.skeleton.flat(), planes: { far: HalfPlane; near: HalfPlane | null }[] = [];
+type StencilCut = (off: number) => { far: HalfPlane; near: HalfPlane | null };
+function stencilCuts(i: number, exps: (Expanded | null)[], gap: number): StencilCut[] {
+  const ex = exps[i]!, own = ex.skeleton.flat(), cuts: StencilCut[] = [];
   const cx = own.reduce((a, q) => a + q.x, 0) / own.length, cy = own.reduce((a, q) => a + q.y, 0) / own.length;
   for (const end of ex.ends) {
     if (end.type !== 'join') continue;
@@ -348,9 +352,49 @@ function stencilCuts(i: number, exps: (Expanded | null)[], gap: number, off: num
     if (Math.abs(side) < 1) continue;
     if (side < 0) { nx = -nx; ny = -ny; }
     const at = (d: number) => ({ x: bj.px + nx * d, y: bj.py + ny * d });
-    planes.push({ far: { ...at(bj.half + off + gap), nx: -nx, ny: -ny }, near: off > 0 ? { ...at(bj.half + off), nx, ny } : null });
+    // moved out, the gap runs straight across a stroke that leaves the host steeply (the bar of an
+    // A), from where its centre line crosses the host's edge; one that sets off along the host (the
+    // arch of an n) is cut parallel to the host still, further out
+    const ux = -end.dx, uy = -end.dy, un = ux * nx + uy * ny;
+    if (un < 0.6) {
+      cuts.push(o => ({ far: { ...at(bj.half + o + gap), nx: -nx, ny: -ny }, near: o > 0 ? { ...at(bj.half + o), nx, ny } : null }));
+      continue;
+    }
+    const t0 = (bj.half - ((end.x - bj.px) * nx + (end.y - bj.py) * ny)) / un;
+    const along = (d: number) => ({ x: end.x + ux * (t0 + d), y: end.y + uy * (t0 + d) });
+    cuts.push(o => (o > 0
+      ? { far: { ...along(o + gap), nx: -ux, ny: -uy }, near: { ...along(o), nx: ux, ny: uy } }
+      : { far: { ...at(bj.half + gap), nx: -nx, ny: -ny }, near: null }));
   }
-  return planes;
+  return cuts;
+}
+
+/* A stroke cut at its joins, its gaps moved `off` out. A gap only moves out as far as keeps ink
+   past every gap (the middle of an A's bar, cut at both ends) and every piece a solid bit of ink,
+   no sliver: on short strokes (the middle arm of an E) the gaps stop where they must, or stay at
+   the join. */
+function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s: number): Pt[][] {
+  const solid = (q: Pt[]) => {
+    let per = 0;
+    for (let k = 0; k < q.length; k++) per += Math.hypot(q[k].x - q[(k + 1) % q.length].x, q[k].y - q[(k + 1) % q.length].y);
+    return 2 * Math.abs(signedArea(q)) / per >= s * 0.15;
+  };
+  const cutAt = (o: number) => {
+    let pieces = [contour], past = [contour];
+    for (const cut of cuts) {
+      const { far, near } = cut(o);
+      pieces = pieces.flatMap(q => [...splitPoly([q], far), ...(near ? splitPoly([q], near) : [])]);
+      past = past.flatMap(q => splitPoly([q], far));
+    }
+    return o === 0 || (past.length && pieces.every(solid)) ? pieces : null;
+  };
+  // the furthest out the gaps can go, so dragged past it they stay put
+  const lo = s * 0.3;
+  if (off < lo || !cutAt(lo)) return cutAt(0)!;
+  let a = lo, b = off;
+  if (cutAt(b)) a = b;
+  else for (let k = 0; k < 8; k++) { const c = (a + b) / 2; if (cutAt(c)) a = c; else b = c; }
+  return cutAt(a)!;
 }
 
 /* Stroke end length: a terminal grows on along its own curve, then straight on past the curve's
@@ -1243,9 +1287,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       if (o.clip) pieces = [clipPoly(pieces[0], o.clip)];
       if (m.gap) {
         const drawn = new Set(pieces[0]);
-        for (const { far, near } of stencilCuts(si, expanded, m.gap, m.gapOff)) {
-          pieces = pieces.flatMap(q => [...splitPoly([q], far), ...(near ? splitPoly([q], near) : [])]);
-        }
+        pieces = stencilPieces(pieces[0], stencilCuts(si, expanded, m.gap), m.gapOff, m.s);
         pieces = pieces.map(q => cutRound(q, drawn, m.gapR * (o.scale || 1) * strokeWt(m, si)));
       }
       for (const q of pieces) { const c = finish(q, 1, R, out.corners); if (c) cmds = cmds.concat(c); }
@@ -1307,7 +1349,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   out.strokes.forEach(s => s.cmds = tf(s.cmds));
   const serifs = out.serifs.map(tf);
   let cmds = [...out.strokes.flatMap(s => s.cmds), ...serifs.flat()];
-  if (m.sliceH) cmds = slice(cmds, m.sliceY - m.sliceH / 2, m.sliceY + m.sliceH / 2, m.sliceR);
+  if (m.sliceH) cmds = slice(cmds, m.sliceY - m.sliceH / 2, m.sliceY + m.sliceH / 2, m.sliceR, m.s * 0.35);
   if (m.p.fill !== 'solid') {
     cmds = fillOutline(cmds, { fill: m.p.fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness });
   }

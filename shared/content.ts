@@ -18,8 +18,9 @@ export type TerminalSubKey = 'terminalLength' | 'terminalCurl' | 'terminalFlare'
 export type DotSubKey = 'dotSize';
 export type WeightSubKey = 'vWeight' | 'hWeight';
 export type RoundSubKey = 'joinRound';
-export type StencilSubKey = 'stencilPos' | 'stencilRound';
-export type SliceSubKey = 'slicePos' | 'sliceRound';
+/** A stencil's and a slice's own value is their thickness, so it sits among their sub-sliders. */
+export type StencilSubKey = 'stencil' | 'stencilPos' | 'stencilRound';
+export type SliceSubKey = 'slice' | 'slicePos' | 'sliceRound';
 export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | WeightSubKey | RoundSubKey | StencilSubKey | SliceSubKey;
 
 export interface ControlDef {
@@ -607,9 +608,9 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   fill: { cat: 'effects', type: 'fill', label: 'Fill', friendly: 'Build the letters from something else', tech: 'Fill', demo: 'Rg',
     explain: 'Solid ink, outlines, or a grid of pixels, dots or lines.' },
   stencil: { cat: 'effects', off: 0, label: 'Stencil', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
-    explain: 'Strokes break where they join, as if cut from a sheet. Position moves the gaps out along the strokes; Rounding softens their corners.' },
+    explain: 'Strokes break where they join, as if cut from a sheet. Thickness sets how wide the gaps open; Position moves the gaps out along the strokes; Rounding softens their corners.' },
   slice: { cat: 'effects', off: 0, label: 'Slice', friendly: 'Cut one line through every letter', tech: 'Slice', lo: 'None', hi: 'Wide', demo: 'type',
-    explain: 'One horizontal cut runs across the whole line. Position moves it up or down; Rounding softens its corners.' }
+    explain: 'One horizontal cut runs across the whole line. Thickness sets how tall the cut is; Position moves it up or down; Rounding softens its corners.' }
 };
 export const SERIF_SUBS: Record<SerifSubKey, SubControlDef> = {
   serifSize: { label: 'Length', friendly: 'Make the feet longer', tech: 'Serif size', lo: 'Short', hi: 'Long' },
@@ -659,10 +660,12 @@ export const ROUND_SUBS: Record<RoundSubKey, SubControlDef> = {
   joinRound: { label: 'Joins', friendly: 'Round the inside corners where one stroke meets another', tech: 'Fillets', lo: 'Sharp', hi: 'Round' }
 };
 export const STENCIL_SUBS: Record<StencilSubKey, SubControlDef> = {
+  stencil: { label: 'Thickness', friendly: 'Open the gaps wider', tech: 'Gap width', lo: 'Thin', hi: 'Thick' },
   stencilPos: { label: 'Position', friendly: 'Move the gaps out along the strokes, away from where they meet', tech: 'Gap position', lo: 'At the join', hi: 'Further out' },
   stencilRound: { label: 'Rounding', friendly: 'Round the corners the gaps cut', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
 };
 export const SLICE_SUBS: Record<SliceSubKey, SubControlDef> = {
+  slice: { label: 'Thickness', friendly: 'Make the cut taller', tech: 'Cut height', lo: 'Thin', hi: 'Thick' },
   slicePos: { label: 'Position', friendly: 'Move the cut up or down the letters', tech: 'Slice height', lo: 'Low', hi: 'High' },
   sliceRound: { label: 'Rounding', friendly: 'Round the corners the cut leaves', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
 };
