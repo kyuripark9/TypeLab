@@ -5,6 +5,7 @@
    few milliseconds, so sliders can drive it directly. */
 import { DEFAULTS, contrastOf, endCurl, endLength, endReach, formOf, weightScale, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, splitPoly, subCubic, transformCmds } from './geom';
+import { blockDims, blockRings } from './blocks';
 import { fillOutline, slice } from './effects';
 import { autoThickness, buildSerif, expandStroke, innerFloor, organicK, type Expanded } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
@@ -1381,12 +1382,41 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   });
   b.counters.forEach(pts => { const c = finish(pts, 1, 0); if (c) out.counters.push(c); });
 
-  // place: side bearings, monospacing, playful bounce and hand jitter, slant.
   // cursive strokes that reach past the body get most of the room they need, so they
   // touch the neighbouring letter instead of running through it
   const padL = Math.max(0, -b.reachL - m.sb * 1.3), padR = Math.max(0, b.reachR - W - m.sb * 1.3);
-  let lsb = m.sb * def.sb[0] + padL + grow.l, rsb = m.sb * def.sb[1] + padR, sx = 1;
-  let adv = Math.max(10, lsb + W + rsb);
+  return placeGlyph(out, W, m.sb * def.sb[0] + padL + grow.l, m.sb * def.sb[1] + padR, code, m);
+}
+
+type Unplaced = Omit<Glyph, 'lsb' | 'rsb' | 'adv' | 'M' | 'cmds' | 'd'>;
+
+/** A block letter (see blocks.ts): its outlines rounded corner by corner, Roundness rounding the outer
+    corners and the ends of arms and slots, Joins the small rounds inside, then placed like any glyph.
+    A lowercase letter is its capital, drawn as a small capital at the x-height. Null when the
+    character has no block shape. */
+function buildBlock(ch: string, m: Metrics): Glyph | null {
+  const e = m.p, small = ch !== ch.toUpperCase();
+  const b = blockRings(ch, blockDims(small ? m.xh : m.cap, e), { o: e.roundness, e: Math.min(1, e.roundness), i: Math.min(2, e.joinRound * 2) });
+  if (!b) return null;
+  const code = ch.charCodeAt(0);
+  let rings = b.rings;
+  if (m.wob > 0) {
+    const wb = wobbler(code, m);
+    rings = rings.map(r => r.map(q => { const [x, y] = wb.pt(q.x, q.y); return { ...q, x, y }; }));
+  }
+  // blocks sit close: at the middle of Side margins a thirtieth of the cap height each side
+  const sb = m.cap * (0.004 + 0.06 * e.sideBearing);
+  const out: Unplaced = {
+    ch, strokes: [{ part: 'stem', cmds: rings.flatMap(r => roundContour(r, 0)), curved: true, id: '0' }], serifs: [],
+    counters: rings.slice(rings.length - b.holes).map(r => roundContour(r, 0)), marks: [], corners: [], skeleton: [], meta: {}, bodyW: b.W
+  };
+  return placeGlyph(out, b.W, sb, sb, code, m);
+}
+
+/** Place a glyph drawn `W` wide between side bearings lsb and rsb: monospacing, the pixel grid,
+    playful bounce and hand jitter, slant, then the slice and the fills, which run on its final outline. */
+function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: number, m: Metrics): Glyph {
+  let sx = 1, adv = Math.max(10, lsb + W + rsb);
   const mono = m.p.mono;
   if (mono > 0) {
     // wide letters are squeezed a little, narrow ones centred in the shared width
@@ -1479,6 +1509,7 @@ export function buildFont(params: Params): Font {
       if (g === undefined) {
         const lf = font.letter(ch);
         if (lf !== font) g = lf.glyph(ch);
+        else if (e.build === 'blocks' && (g = buildBlock(ch, m))) g.ch = ch;
         else {
           const alt = ch === 'a' && e.singleStory ? 'a.alt' : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
           g = buildGlyph(alt, m);

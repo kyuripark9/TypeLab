@@ -1,12 +1,12 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
 import { resolve, type Effective } from './engine/font';
-import { DEFAULTS, type AForm, type Bends, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifShape, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
+import { DEFAULTS, type AForm, type Bends, type Build, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifShape, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
 
 export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality' | 'effects';
 export type ControlKey =
   | 'weight' | 'width' | 'height' | 'slant' | 'contrast'
-  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'apex' | 'bends' | 'joints' | 'cursive' | 'wobble'
+  | 'build' | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'apex' | 'bends' | 'joints' | 'cursive' | 'wobble'
   | 'xHeight' | 'extenders' | 'descender' | 'tail' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
   | 'geoHuman' | 'softSharp' | 'classicFuture' | 'playfulFormal'
@@ -563,6 +563,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   contrast: { cat: 'structure', label: 'Contrast', friendly: 'Vary thick and thin strokes', tech: 'Contrast · Reverse contrast', lo: 'Reversed', hi: 'High', demo: 'HOe', bipolar: true,
     explain: 'Above the middle the horizontals thin out while the stems stay heavy; below it the stems thin out under heavy horizontals.' },
 
+  build: { cat: 'shape', type: 'form', label: 'Built from', friendly: 'Draw letters as strokes or cut them from solid blocks', tech: 'Stroke or block construction', demo: 'EOS',
+    explain: 'Blocks are solid shapes with their insides cut in as narrow slots. Weight closes the slots up, Roundness rounds the corners and slot ends, Joins the small inside curves. Lowercase become small capitals.' },
   roundness: { cat: 'shape', label: 'Roundness', friendly: 'Make the letters softer or sharper', tech: 'Roundness', lo: 'Sharp', hi: 'Round', demo: 'Ek',
     explain: 'Corners and stroke ends round off; Joins rounds where strokes meet.' },
   curve: { cat: 'shape', label: 'Curves', friendly: 'Make curves more geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
@@ -716,8 +718,9 @@ export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey 
   { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
-export type FormKey = 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
+export type FormKey = 'build' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
 export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Params[K], 'auto'>, string][] } } = {
+  build: { ch: 'E', options: [['strokes', 'Strokes'], ['blocks', 'Blocks']] as [Build, string][] },
   gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored']] as [GForm, string][] },
   kForm: { ch: 'k', options: [['arm', 'From arm'], ['stem', 'From stem'], ['bar', 'On a bar']] as [KForm, string][] },
   iForm: { ch: 'i', options: [['plain', 'Plain'], ['bars', 'Bars']] as [Exclude<IForm, 'auto'>, string][] },

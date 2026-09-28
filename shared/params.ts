@@ -44,6 +44,9 @@ export const R_FORMS = ['leg', 'loop'] as const;
 export const S_FORMS = ['curved', 'flat'] as const;
 /** The foot of the a: a plain stem, or a spur running out to the right along the baseline. */
 export const A_FORMS = ['plain', 'spur'] as const;
+/** What the letters are built from: strokes drawn along a skeleton, or solid blocks with their counters cut in as slots
+    (see blocks.ts). Blocks draw the capitals, figures and punctuation; the lowercase are small capitals. */
+export const BUILDS = ['strokes', 'blocks'] as const;
 /** Curved stroke ends: stop part way round the curve, or turn onto the nearest level or plumb line and run straight out. */
 export const TERMINAL_RUNS = ['curved', 'straight'] as const;
 export type Terminal = (typeof TERMINALS)[number];
@@ -58,6 +61,7 @@ export type IForm = (typeof I_FORMS)[number];
 export type SForm = (typeof S_FORMS)[number];
 export type AForm = (typeof A_FORMS)[number];
 export type TerminalRun = (typeof TERMINAL_RUNS)[number];
+export type Build = (typeof BUILDS)[number];
 export type BowlForm = (typeof BOWL_FORMS)[number];
 export type Diagonals = (typeof DIAGONALS)[number];
 export type Bends = (typeof BENDS)[number];
@@ -66,6 +70,7 @@ export type QForm = (typeof Q_FORMS)[number];
 export type RForm = (typeof R_FORMS)[number];
 
 export interface Params {
+  /** strokes or blocks (see BUILDS) */ build: Build;
   weight: number; width: number; height: number; slant: number;
   /** thick and thin (see contrastOf): 0.5 as drawn, higher thins the horizontals against the stems,
       lower turns it round, to the mirror of 1 at 0 */ contrast: number;
@@ -151,6 +156,7 @@ export const isGlyphKey = (k: string): k is GlyphKey => k in DEFAULTS && !(GLOBA
 export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K : never }[keyof Params];
 
 export const DEFAULTS: Readonly<Params> = Object.freeze({
+  build: 'strokes',
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, contrast: 0.5, vWeight: 0.5, hWeight: 0.5, strokeWeights: Object.freeze({}),
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), innerCorners: Object.freeze({}), terminalRun: 'curved',
@@ -233,7 +239,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
   const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, fill: FILLS, story: STORIES,
     bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, aForm: A_FORMS, terminalRun: TERMINAL_RUNS,
-    bowlForm: BOWL_FORMS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS };
+    bowlForm: BOWL_FORMS, build: BUILDS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS };
   return opts[k]?.includes(v) ? v : undefined;
 }
 

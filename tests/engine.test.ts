@@ -19,7 +19,11 @@ const extremes: Params[] = [
   { ...DEFAULTS, bowlForm: 'box', cursive: 1, terminal: 'round', terminalCurl: 0.9, mono: 1, fill: 'wire' },
   { ...DEFAULTS, weight: 1, vWeight: 1, hWeight: 1, contrast: 0.5, serif: true, bowlForm: 'box' },
   { ...DEFAULTS, weight: 0, vWeight: 0, hWeight: 0, contrast: 0, terminal: 'tapered' },
-  { ...DEFAULTS, vWeight: 0, hWeight: 1, glyphs: { a: { strokeWeights: { 0: 1, 1: 0 } }, H: { strokeWeights: { 2: 1 } } } }
+  { ...DEFAULTS, vWeight: 0, hWeight: 1, glyphs: { a: { strokeWeights: { 0: 1, 1: 0 } }, H: { strokeWeights: { 2: 1 } } } },
+  { ...DEFAULTS, build: 'blocks', weight: 1, width: 0, roundness: 1, joinRound: 1, vWeight: 1, hWeight: 1, slant: 1, wobble: 1, mono: 1 },
+  { ...DEFAULTS, build: 'blocks', weight: 0, width: 1, height: 0, xHeight: 0, roundness: 0, vWeight: 0, hWeight: 0, slice: 1, fill: 'pixels' },
+  { ...DEFAULTS, build: 'blocks', weight: 0.6, roundness: 1, joinRound: 0.5, fill: 'wire', playfulFormal: 0, softSharp: 0 },
+  { ...DEFAULTS, build: 'blocks', roundness: 0.5, glyphs: { E: { build: 'strokes' }, n: { weight: 1 } } }
 ];
 
 /** In SVG path data: how many contours, how many curves, and every x. */
@@ -833,6 +837,50 @@ describe('font engine', () => {
     const lines = font.layout('the quick brown fox jumps over the lazy dog', 4000);
     assert.ok(lines.length > 1);
     for (const ln of lines) assert.ok(ln.width <= 4000 || ln.items.length === 1);
+  });
+});
+
+describe('block letters', () => {
+  const blocks = { ...DEFAULTS, build: 'blocks' as const, weight: 0.6, roundness: 1, joinRound: 0.5 };
+  /** The height and width of the ink of path data. */
+  const size = (d: string) => {
+    const ys = [...d.matchAll(/[MLC]([^MLCZ]*)/g)].flatMap(m => m[1].trim().split(/\s+/).map(Number).filter((_, i) => i % 2 === 1)), xs = xsOf(d);
+    return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+  };
+
+  it('draws the capitals, figures and punctuation as blocks with slots and holes cut in', () => {
+    const font = buildFont(blocks);
+    for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,!?;:\'"()-/&@#$%+') {
+      const g = font.glyph(ch)!;
+      assert.equal(g.strokes.length, 1, `${ch} is one block`);
+      assert.equal(g.marks.length, 0, `${ch} has no stroke ends or corners to edit`);
+    }
+    const E = font.glyph('E')!, O = font.glyph('O')!, I = font.glyph('I')!;
+    assert.equal(contours(E.d), 1, 'the slots of E run in from its side');
+    assert.equal(contours(O.d), 2);
+    assert.equal(O.counters.length, 1, 'the hole of O is its counter');
+    assert.equal(contours(I.d), 2, 'I is a bar over a block');
+    // wider than high, like the reference: 224 by 175
+    assert.ok(Math.abs(E.bodyW / font.m.cap - 224 / 175) < 0.01);
+  });
+
+  it('draws the lowercase as small capitals', () => {
+    const font = buildFont({ ...blocks, xHeight: 1 }), E = size(font.glyph('E')!.d), e = size(font.glyph('e')!.d);
+    assert.ok(Math.abs(E.h - font.m.cap) < 2 && Math.abs(e.h - font.m.xh) < 2);
+    assert.ok(Math.abs(e.w / e.h - E.w / E.h) < 0.01, 'the same shape, smaller');
+  });
+
+  it('closes the slots up as the weight grows, and rounds by Roundness', () => {
+    const hole = (w: number) => size(cmdsToD(buildFont({ ...blocks, weight: w }).glyph('O')!.counters[0])).h;
+    assert.ok(hole(0.2) > hole(0.6) && hole(0.6) > hole(1));
+    assert.equal(curves(buildFont({ ...blocks, roundness: 0, joinRound: 0 }).glyph('E')!.d), 0, 'square blocks at no roundness');
+    assert.ok(curves(buildFont(blocks).glyph('E')!.d) >= 10);
+  });
+
+  it('keeps strokes for a letter set to them on its own', () => {
+    const font = buildFont({ ...blocks, glyphs: { E: { build: 'strokes' } } });
+    assert.ok(font.glyph('E')!.strokes.length > 1);
+    assert.equal(font.glyph('F')!.strokes.length, 1);
   });
 });
 

@@ -57,6 +57,7 @@ and builds exported fonts on the server. A full rebuild of every glyph takes abo
 | `font.ts` | Params → metrics → glyphs; personality macros; text layout; highlight layers |
 | `glyphs.ts` | Parametric skeletons for A–Z, a–z, 0–9 and `.,!?;:'"()-/&@#$%+` |
 | `effects.ts` | Whole-outline effects: the slice cut, and the wireframe, pixel, dot and line fills |
+| `blocks.ts` | Block letters: solid rounded blocks with their counters cut in as slots (*Built from: Blocks*) |
 
 Beyond weight, width and contrast, the pen model also does squircle bowls (*Squareness*),
 faceted octagonal curves (*Chamfer*), reverse contrast and ink-trap joints, and glyph assembly
@@ -76,6 +77,11 @@ stroke meets another, each inside corner their outlines leave (under the arm of 
 crossbar of a t, in the crotch of a y) is a corner too, rounded by *Joins* with a fillet that follows
 both strokes' edges. A customized letter can set each corner one by one.
 Curved stroke ends can follow the curve or turn and run straight out, level or plumb.
+
+Letters can also be *built from blocks* instead of strokes: each capital, figure and punctuation mark is a
+solid block with its counters cut in as narrow slots, drawn as outlines of corners that each carry their
+own radius. Weight closes the slots up, Roundness rounds the corners and slot ends, Joins the small
+inside curves, and the lowercase become small capitals.
 
 ### Client (`client/`)
 
