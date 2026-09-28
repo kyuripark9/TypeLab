@@ -34,6 +34,7 @@ function glyphParams(g: Glyph, ch: string, serif: boolean): ControlKey[] {
     // the letter's own shape pickers lead
     if (ch === 'g') p.push('gForm');
     if (ch === 'k' || ch === 'K') p.push('kForm');
+    if (ch === 's' || ch === 'S' || ch === '$') p.push('sForm');
     if (/[bdgpqhmnru]/.test(ch)) p.push('bowlJoin');
     if (g.strokes.some(s => s.dot)) p.push('dots');
     if (g.marks.some(k => k.type === 'apex' || k.type === 'vertex')) p.push('apex');

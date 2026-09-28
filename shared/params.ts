@@ -26,6 +26,8 @@ export const K_FORMS = ['arm', 'stem', 'bar'] as const;
 export const DOTS = ['auto', 'square', 'round'] as const;
 /** i and l: a plain stem, or a flag at the top and a bar at the foot. 'auto' gives a monospaced sans the bars. */
 export const I_FORMS = ['auto', 'plain', 'bars'] as const;
+/** The spine of s, S and $: a curve running corner to corner, or level between two tight turns, like two rounded boxes stacked. */
+export const S_FORMS = ['curved', 'flat'] as const;
 /** Curved stroke ends: stop part way round the curve, or turn onto the nearest level or plumb line and run straight out. */
 export const TERMINAL_RUNS = ['curved', 'straight'] as const;
 export type Terminal = (typeof TERMINALS)[number];
@@ -37,6 +39,7 @@ export type GForm = (typeof G_FORMS)[number];
 export type KForm = (typeof K_FORMS)[number];
 export type Dots = (typeof DOTS)[number];
 export type IForm = (typeof I_FORMS)[number];
+export type SForm = (typeof S_FORMS)[number];
 export type TerminalRun = (typeof TERMINAL_RUNS)[number];
 
 export interface Params {
@@ -77,7 +80,9 @@ export interface Params {
   /** the shape of the g (see G_FORMS) */ gForm: GForm;
   /** where the arm and leg of k and K meet (see K_FORMS) */ kForm: KForm;
   /** square or round dots (see DOTS) */ dots: Dots;
+  /** how big the dots are: 0.5 as usual */ dotSize: number;
   /** plain i and l, or with a flag and foot (see I_FORMS) */ iForm: IForm;
+  /** the spine of s (see S_FORMS) */ sForm: SForm;
   /** length of tails and hooks (Q y j g t f, the comma, cursive exits): 0.5 is the usual length */ tail: number;
   fill: Fill;
   /** size of the pixels, dots or lines, or the wireframe's line weight */ module: number;
@@ -106,7 +111,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
-  squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', iForm: 'auto', tail: 0.5,
+  squareness: 0, chamfer: 0, joints: 0, reverse: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved', tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, slice: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   letterSpacing: 0.2, wordSpacing: 0.35, sideBearing: 0.5, mono: 0,
@@ -157,7 +162,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
   const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, fill: FILLS, story: STORIES,
-    bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, terminalRun: TERMINAL_RUNS };
+    bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, terminalRun: TERMINAL_RUNS };
   return opts[k]?.includes(v) ? v : undefined;
 }
 

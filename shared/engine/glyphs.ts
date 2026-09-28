@@ -60,6 +60,10 @@ function branchBowl(g: Builder, m: Metrics, xStem: number, xFar: number, yT: num
     // flat, so it sits on the x-height and baseline like the stem instead of overshooting them
     const t = yT - m.os, b = yB + m.os, rx = Math.max(0, Math.min(Math.abs(xFar - xStem) - m.s * 0.25, (t - b) / 2)), xa = xFar - dir * rx;
     g.path([['M', xStem, t], ['L', xa, t], ['hv', xFar, cy], ['vh', xa, b], ['L', xStem, b]], { s: J, e: J, part: 'bowl', counter: true, ...o });
+    // inside, the counter rounds into the stem nearly as fully as on its far side
+    const xi = xStem + dir * m.s / 2, ri = 0.9 * Math.min(rx - m.s / 2, Math.abs(xa - xi));
+    fillet(g, m, xi, t - m.hT / 2, dir, -1, ri);
+    fillet(g, m, xi, b + m.hT / 2, dir, 1, ri);
     return;
   }
   const xn = xStem + dir * bowlGap(m);
@@ -86,7 +90,25 @@ function openBowl(g: Builder, _m: Metrics, xl: number, xr: number, yb: number, y
     { s: T, e: T, part: 'bowl', ...o });
 }
 
+/* the flat-spined s: two rounded boxes stacked, the spine running level a little above the middle
+   between two tight turns, the ends running level out from the top left and bottom right */
+function flatS(g: Builder, m: Metrics, x0: number, W: number, yB: number, yT: number, o?: StrokeOpts) {
+  const sc = o?.scale || 1, hs = m.s * sc / 2, hh = m.hT * sc / 2;
+  const t = yT - hh - m.os, b = yB + hh + m.os, xl = x0 + hs, xr = x0 + W - hs, ym = lerp(b, t, 0.52);
+  // the lower bowl is the bigger, and rounder at its outer corner
+  const r1 = Math.min((xr - xl) * 0.32, (t - ym) * 0.6), r3 = Math.min((xr - xl) * 0.36, (ym - b) * 0.6);
+  const r2 = Math.min((xr - xl) * 0.3, (t - ym) * 0.4, (ym - b) * 0.4);
+  // the more open, the further the ends stop short of the sides
+  const off = W * lerp(0.04, 0.3, m.ap);
+  g.path([['M', x0 + W - off, t], ['L', xl + r1, t], ['hv', xl, t - r1], ['L', xl, ym + r2], ['vh', xl + r2, ym], ['L', xr - r2, ym],
+    ['hv', xr, ym - r2], ['L', xr, b + r3], ['vh', xr - r3, b], ['L', x0 + off * 0.6, b]], { s: T, e: T, part: 'spine', ...o });
+  // the counters round into the spine more fully than its turns do outside
+  fillet(g, m, xl + hs, ym + hh, 1, 1, m.s * sc * 1.1);
+  fillet(g, m, xr - hs, ym - hh, -1, -1, m.s * sc * 0.8);
+}
+
 function sShape(g: Builder, m: Metrics, x0: number, W: number, yB: number, yT: number, o?: StrokeOpts) {
+  if (m.p.sForm === 'flat') { flatS(g, m, x0, W, yB, yT, o); return; }
   const sc = o?.scale || 1, hs = m.s * sc / 2, hh = m.hT * sc / 2, Hh = yT - yB;
   const t = yT - hh, b = yB + hh, xl = x0 + hs, xr = x0 + W - hs, cx = x0 + W / 2;
   const xlT = xl + W * 0.035, xrT = xr - W * 0.035;
@@ -108,8 +130,10 @@ function arch(g: Builder, m: Metrics, x0: number, x1: number, yTop: number, yFoo
   const t = X - m.hT / 2, rc = squareR(m, x1 - x0), square = m.p.bowlJoin === 'square';
   const head: Cmd[] = square ? [['M', x0, t], ['L', x1 - rc, t], ['hv', x1, t - rc]]
     : [['M', x0, X - ah], ['vh', cx, yTop], ['hv', x1, X - ah * 0.95]];
-  // a shoulder springing from the side of the stem thins where it leaves it; a square one runs out of its top at full weight
+  // a shoulder springing from the side of the stem thins where it leaves it; a square one runs out of its top at full weight,
+  // its counter rounding into the stem as it does on the far side
   const ws = square ? 1 : 0.6;
+  if (square) fillet(g, m, x0 + m.s / 2, t - m.hT / 2, 1, -1, rc - m.s / 2);
   if (r) {
     g.path([...head, ...exitTail(m, x1, r)], { s: J, e: T, ws, we: 0.75, part: 'shoulder', ...o });
     exitMark(g, m, x1, r);
@@ -118,7 +142,13 @@ function arch(g: Builder, m: Metrics, x0: number, x1: number, yTop: number, yFoo
 }
 
 /** Radius of the round corner of a square-joined shoulder `span` wide (centerline to centerline). */
-const squareR = (m: Metrics, span: number) => Math.max(0, Math.min(span - m.s * 0.25, span * 0.55));
+const squareR = (m: Metrics, span: number) => Math.max(0, Math.min(span - m.s * 0.25, span * 0.45));
+/** Round the inside corner of a square join (see Builder.fillet). A wireframe shows every stroke
+    as drawn, so it leaves the corner be. */
+function fillet(g: Builder, m: Metrics, x: number, y: number, sx: number, sy: number, r: number) {
+  if (m.p.fill !== 'wire') g.fillet(x, y, sx, sy, r);
+}
+
 
 /* arm and leg of K/k, off a stem at x0 up to `top`, the arm reaching r. The leg springs from the
    arm (leaving the stem at ay, the leg from f of the way up it), or both meet at the stem, or at the
@@ -133,9 +163,9 @@ function kArms(g: Builder, m: Metrics, x0: number, top: number, r: number, ay: n
     g.line(bx, by, ex, 0, { s: J, e: H, part: 'leg', serifE: 'both', clip: { planes: [{ x: x0, y: ay, nx: -dy / l, ny: dx / l }] } });
     return;
   }
-  // both leave the stem, or the bar, at one point a little under halfway up: the bar runs a stroke
-  // and a half clear of the stem, then the arm and leg share it, so they meet it in mitred corners
-  const yj = top * 0.47, head: Cmd[] = m.p.kForm === 'bar' ? [['M', x0, yj], ['L', x0 + m.s * 2, yj]] : [['M', x0, yj]];
+  // both leave the stem, or the bar, at one point halfway up: the bar runs about a stroke clear of
+  // the stem, then the arm and leg share it, so they meet it in mitred corners
+  const yj = top * 0.5, head: Cmd[] = m.p.kForm === 'bar' ? [['M', x0, yj], ['L', x0 + m.s * 1.85, yj]] : [['M', x0, yj]];
   g.path([...head, ['L', r, top, { w: 'thin' }]], { s: J, e: H, part: 'arm', miter: 18, clip: { x0, ...clip }, serifE: 'both' });
   g.path([...head, ['L', ex, 0]], { s: J, e: H, part: 'leg', miter: 18, clip: { x0, y0: 0 }, serifE: 'both' });
 }
@@ -283,6 +313,8 @@ def('I', [1, 1], (g, m) => {
 function monoStem(g: Builder, m: Metrics, top: number) {
   const W = m.W(360), hh = m.hT / 2, x = W * 0.52;
   g.stem(x, 0, top); g.line(W * 0.12, top - hh, x, top - hh, { s: T, part: 'bar' }); g.line(0, hh, W, hh, { part: 'bar' });
+  // with square joins the flag turns out of the stem like an arm, round on the inside
+  if (m.p.bowlJoin === 'square') fillet(g, m, x - m.s / 2, top - m.hT, -1, -1, m.s * 0.8);
   return { W, x };
 }
 
@@ -483,20 +515,44 @@ def('f.cur', [0.2, 0.1], (g, m) => {
   g.line(W * 0.05, X - hh, W * 0.95, X - hh, { s: T, e: T, part: 'crossbar' });
   return W;
 });
-/* the mirrored g: one stroke runs in from a square ear at the top right, over the bowl and down its
-   left side into the descender, which hooks back out to the right; the bowl's right side closes on it */
+/** Fill the crotch below a circle (centre cx, cy, outer radius R) where it meets the right-hand
+    edge xS of a stroke running down past it, with a round of radius r tangent to both. */
+function crotch(g: Builder, cx: number, cy: number, R: number, xS: number, r: number) {
+  const dx0 = xS - cx;
+  if (Math.abs(dx0) >= R) return;
+  const fx = xS + r, fy = cy - Math.sqrt(Math.max(0, (R + r) ** 2 - (fx - cx) ** 2));
+  // where the round touches the circle, and where the circle meets the edge
+  const k = R / (R + r), t2 = { x: cx + (fx - cx) * k, y: cy + (fy - cy) * k }, y0 = cy - Math.sqrt(R * R - dx0 * dx0);
+  const a0 = Math.atan2(y0 - cy, dx0), a1 = Math.atan2(t2.y - cy, t2.x - cx), b0 = Math.atan2(t2.y - fy, t2.x - fx), e = 2;
+  const pts: { x: number; y: number; smooth?: boolean; sharp?: boolean }[] = [{ x: xS - e, y: y0 + e, sharp: true }];
+  // a little inside the circle's ink, round to where the round leaves it, then along the round to the edge
+  for (let i = 0; i <= 8; i++) { const a = lerp(a0, a1, i / 8); pts.push({ x: cx + (R - e) * Math.cos(a), y: cy + (R - e) * Math.sin(a), smooth: i > 0 && i < 8 }); }
+  for (let i = 0; i <= 12; i++) { const a = lerp(b0, Math.PI, i / 12); pts.push({ x: fx + r * Math.cos(a), y: fy + r * Math.sin(a), smooth: i > 0 && i < 12 }); }
+  pts.push({ x: xS - e, y: fy, sharp: true });
+  g.blob(pts);
+}
+
+/* the mirrored g: a round bowl hung from the x-height, as tall as it is wide, whose left side runs
+   straight on down past the baseline, turns and runs flat back under the bowl. Its top right is
+   square outside and round inside, the top running on a little past it in an ear. Returns the
+   width, ear included. */
 function mirroredG(g: Builder, m: Metrics, W: number) {
-  const { X, hs, hh, yb } = lc(m), xl = hs, xr = W - hs, cx = W / 2, t = X - hh, cy = (t + yb) / 2;
-  const db = m.desc + hh, ry = db + Math.min((xr - xl) * 0.55, -m.desc * 0.7), xe = xr - W * 0.04, u = hookU(m, 0.62);
-  g.path([['M', W, t], ['L', cx, t], ['hv', xl, cy], ['L', xl, ry], ['vh', cx, db], ['hv', xe, ry, { u1: u }]], { e: T, part: 'stem' });
-  const e = m.qpt(cx, db, xe, ry, 'hv', u);
-  tailEnd(g, e.x, e.y, W);
-  g.path([['M', xr, t], ['L', xr, cy], ['vh', cx, yb], ['hv', xl, cy]], { s: J, e: J, part: 'bowl' });
-  g.ellipseCounter(cx, cy, (xr - xl) / 2 - hs, (t - yb) / 2 - hh);
+  const { X, hs, hh } = lc(m), xl = hs, xr = W - hs, cx = W / 2, t = X - hh, ear = m.s * 0.65;
+  // round, and no taller than the x-height
+  const bb = t - Math.min(xr - xl, X - m.hT), cy = (t + bb) / 2, db = m.desc + hh, rt = Math.min((cx - xl) * 0.45, (cy - db) * 0.5);
+  const xt = xl + rt + Math.max(m.s * 0.5, (cx - xl - rt) * tailK(m));
+  g.path([['M', W + ear, t], ['L', cx, t], ['hv', xl, cy], ['L', xl, db + rt], ['vh', xl + rt, db], ['L', xt, db]], { e: T, part: 'stem' });
+  tailEnd(g, xt, db, W + ear);
+  g.path([['M', xr, t], ['L', xr, cy], ['vh', cx, bb], ['hv', xl, cy]], { s: J, e: J, part: 'bowl' });
+  fillet(g, m, xr - hs, t - m.hT / 2, -1, -1, 0.9 * ((xr - xl) / 2 - hs));
+  // and under the bowl, where its outside meets the stroke running on down, the crotch fills in
+  if (m.p.fill !== 'wire') crotch(g, cx, cy, (xr - xl) / 2 + m.hT / 2, xl + hs, m.s);
+  g.ellipseCounter(cx, cy, (xr - xl) / 2 - hs, (t - bb) / 2 - hh);
+  return W + ear;
 }
 def('g', [0.55, 1], (g, m) => {
   const { hs, yt, yb } = lc(m), W = m.W(480, 'r') + bowlGap(m), xr = W - hs;
-  if (m.p.gForm === 'mirrored') { mirroredG(g, m, W); return W; }
+  if (m.p.gForm === 'mirrored') return mirroredG(g, m, W);
   descender(g, m, xr, hs, W);
   branchBowl(g, m, xr, hs, yt, yb);
   return W;
@@ -513,9 +569,12 @@ def('h', [1, 1], (g, m) => {
   g.stem(hs, 0, m.asc, { serifS: 'both', serifE: 'a' }); arch(g, m, hs, W - hs, yt, 0, undefined, true); return W;
 });
 /* dot of i/j: keeps a clear gap; in very heavy, tall-x-height designs the stem gives way */
+/** How much bigger or smaller than usual Dot size makes the dots. */
+const dotK = (m: Metrics) => (m.p.dotSize < 0.5 ? lerp(0.7, 1, m.p.dotSize * 2) : lerp(1, 1.5, m.p.dotSize * 2 - 1));
 function tittle(m: Metrics) {
-  const d = m.s * 1.12, gap = Math.max(m.s * 0.3, m.cap * 0.05);
-  const cy = Math.min(m.xh + gap + d / 2 + (m.asc - m.xh) * 0.12, m.asc + m.cap * 0.07 - d / 2);
+  // placed as a dot of the usual size, then grown or shrunk round its centre
+  const d0 = m.s * 1.12, d = d0 * dotK(m), gap = Math.max(m.s * 0.3, m.cap * 0.05);
+  const cy = Math.min(m.xh + gap + d0 / 2 + (m.asc - m.xh) * 0.12, m.asc + m.cap * 0.07 - d0 / 2);
   return { d, cy, top: Math.min(m.xh, cy - d / 2 - gap) };
 }
 def('i', [1, 1], (g, m) => {
@@ -571,14 +630,17 @@ def('r', [1, 0.15], (g, m) => {
   if (m.p.bowlJoin === 'square') {
     const rc = squareR(m, W - hs) * 0.8;
     g.path([['M', hs, X - hh], ['L', W - rc, X - hh], ['hv', W, X - hh - rc, { u1 }]], { s: J, e: T, part: 'shoulder' });
+    fillet(g, m, m.s, X - m.hT, 1, -1, Math.max(rc - hs, m.s));
   } else g.path([['M', hs, X - ah], ['vh', W * 0.66, yt], ['hv', W, X - ah * 0.8, { u1 }]], { s: J, e: T, ws: 0.6, part: 'shoulder' });
   return W;
 });
 def('s', [0.5, 0.5], (g, m) => { const W = m.W(395, 'c'); sShape(g, m, 0, W, -m.os, m.xh + m.os); return W; },
   { params: ['curve', 'terminal', 'aperture', 'xHeight'] });
 def('t', [0.3, 0.3], (g, m) => {
-  const { X, hh, yb } = lc(m), W = m.W(320), xs = W * 0.36, ry = yb + (W - xs) * 0.75;
-  const hw = (W - xs) * hookK(m), xm = xs + hw * 0.66, u = hookU(m, 0.5), e = m.qpt(xm, yb, xs + hw, ry, 'hv', u);
+  const { X, hh } = lc(m), W = m.W(320), xs = W * 0.36, square = m.p.bowlJoin === 'square';
+  // with square joins the foot turns in a tighter round, like the other square-joined turns, and runs flat along the baseline
+  const yb = square ? hh : lc(m).yb, ry = yb + (W - xs) * (square ? 0.38 : 0.75), hw = (W - xs) * hookK(m), xm = xs + hw * (square ? 0.38 : 0.66);
+  const u = hookU(m, 0.5), e = m.qpt(xm, yb, xs + hw, ry, 'hv', u);
   g.path([['M', xs, X + (m.asc - X) * 0.62], ['L', xs, ry], ['vh', xm, yb], ['hv', xs + hw, ry, { u1: u }]], { e: T, part: 'stem' });
   tailEnd(g, e.x, e.y, W);
   g.line(0, X - hh, W * 0.95, X - hh, { s: T, e: T, part: 'crossbar' });
@@ -591,6 +653,7 @@ def('u', [1, 1], (g, m) => {
     // the bowl turns in one round corner and runs flat along the baseline into the stem
     const rc = squareR(m, xr - hs), b = m.hT / 2;
     g.path([['M', hs, X], ['L', hs, b + rc], ['vh', hs + rc, b], ['L', xr, b]], { e: J, part: 'shoulder', serifS });
+    fillet(g, m, xr - hs, m.hT, -1, 1, rc - hs);
   } else g.path([['M', hs, X], ['L', hs, ah * 0.95], ['vh', W / 2 - W * 0.1 * m.org, yb], ['hv', xr, ah]], { e: J, we: 0.6, part: 'shoulder', serifS });
   footStem(g, m, xr, X, { serifS: 'b', serifE: 'a' });
   return W;
@@ -682,7 +745,7 @@ def('9', [0.55, 0.55], (g, m) => six(g, m, true));
 
 /* ---------- punctuation ---------- */
 
-const ds = (m: Metrics) => m.s * 1.18;
+const ds = (m: Metrics) => m.s * 1.18 * dotK(m);
 function comma(g: Builder, m: Metrics, x: number, y: number) {
   const d = ds(m), k = tailK(m), ex = x + d * (0.22 - 0.52 * k), ey = y - d * (0.1 + 1.15 * k);
   g.dot(x, y, d);

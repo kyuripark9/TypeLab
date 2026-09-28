@@ -1,12 +1,12 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
 import { resolve, type Effective } from './engine/font';
-import { DEFAULTS, type BowlJoin, type Dots, type Fill, type GForm, type IForm, type KForm, type Params, type SerifShape, type Story, type Terminal, type TerminalForm, type TerminalRun } from './params';
+import { DEFAULTS, type BowlJoin, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type SerifShape, type Story, type Terminal, type TerminalForm, type TerminalRun } from './params';
 
 export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality' | 'effects';
 export type ControlKey =
   | 'weight' | 'width' | 'height' | 'slant' | 'contrast' | 'reverse'
-  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'apex' | 'joints' | 'cursive' | 'wobble'
+  | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'apex' | 'joints' | 'cursive' | 'wobble'
   | 'xHeight' | 'extenders' | 'descender' | 'tail' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
   | 'geoHuman' | 'softSharp' | 'classicFuture' | 'playfulFormal'
@@ -15,7 +15,8 @@ export type SerifSubKey = 'serifSize' | 'serifThickness' | 'serifAngle';
 export type FillSubKey = 'module';
 export type TerminalSubKey = 'terminalLength' | 'terminalCurl' | 'terminalFlare' | 'terminalDepth' | 'terminalSize' | 'terminalRound' | 'terminalPoint' | 'terminalClip' | 'terminalLean' | 'terminalSlope' | 'terminalTilt' | 'terminalTip' | 'terminalTaper';
 /** Anything the control panel can focus: a control or one of its nested sub-sliders. */
-export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey;
+export type DotSubKey = 'dotSize';
+export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey;
 
 export interface ControlDef {
   cat: Exclude<CategoryId, 'style'>;
@@ -537,6 +538,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'The leg springs from the arm, both meet at the stem, or both meet at the end of a short bar.' },
   iForm: { cat: 'shape', type: 'form', label: 'Letters i and l', friendly: 'Give i and l a flag and a foot', tech: 'Barred i and l', demo: 'ilil',
     explain: 'A plain stem, or a flag at the top and a bar along the foot, as in a typewriter face.' },
+  sForm: { cat: 'shape', type: 'form', label: 'Letter s', friendly: 'Choose the shape of the s', tech: 'Spine of s', demo: 'sS$',
+    explain: 'A spine curving from corner to corner, or running flat between two tight turns, like two rounded boxes stacked.' },
   bowlJoin: { cat: 'shape', type: 'form', label: 'Joins', friendly: 'Curve bowls and arches out of their stems or run them in flat', tech: 'Bowl & shoulder joins', demo: 'dnu',
     explain: 'Square joins meet the stem in a flat top or bottom, like a D. Applies to b d p q g, n m h r u and the single-storey a.' },
   overlap: { cat: 'shape', off: 1, label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
@@ -631,14 +634,18 @@ export const TERMINAL_DETAILS: Record<TerminalForm, TerminalSubKey[]> = {
   taper: ['terminalTip', 'terminalTaper'], brush: ['terminalTip', 'terminalTaper']
 };
 /** Every nested sub-slider, whichever control it belongs to. */
-export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS };
+export const DOT_SUBS: Record<DotSubKey, SubControlDef> = {
+  dotSize: { label: 'Size', friendly: 'Make the dots smaller or bigger', tech: 'Dot size', lo: 'Small', hi: 'Big' }
+};
+export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey, SubControlDef> = { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
-export type FormKey = 'gForm' | 'kForm' | 'iForm' | 'bowlJoin' | 'dots' | 'terminalRun';
+export type FormKey = 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'bowlJoin' | 'dots' | 'terminalRun';
 export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Params[K], 'auto'>, string][] } } = {
   gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored']] as [GForm, string][] },
   kForm: { ch: 'k', options: [['arm', 'From arm'], ['stem', 'From stem'], ['bar', 'On a bar']] as [KForm, string][] },
   iForm: { ch: 'i', options: [['plain', 'Plain'], ['bars', 'Flag and foot']] as [Exclude<IForm, 'auto'>, string][] },
+  sForm: { ch: 's', options: [['curved', 'Curved'], ['flat', 'Flat spine']] as [SForm, string][] },
   terminalRun: { ch: 'c', options: [['curved', 'Curved'], ['straight', 'Straight']] as [TerminalRun, string][] },
   bowlJoin: { ch: 'd', options: [['curved', 'Curved'], ['square', 'Square']] as [BowlJoin, string][] },
   dots: { ch: 'i', options: [['square', 'Square'], ['round', 'Round']] as [Exclude<Dots, 'auto'>, string][] }
@@ -718,4 +725,4 @@ export const firstControl = (cat: CategoryId) =>
 /** The control a key belongs to: serif sub-sliders fold into 'serif', the module size into 'fill',
     the stroke end length into 'terminal'. */
 export const controlFor = (key: ActiveKey): ControlKey =>
-  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key as ControlKey;
+  key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key as ControlKey;

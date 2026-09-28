@@ -3,9 +3,9 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ANATOMY, CATEGORIES, CONTROLS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
+  ANATOMY, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
   SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, controlFor, styleById, styleMatches,
-  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type TerminalSubKey
+  type ActiveKey, type CategoryId, type ControlKey, type DotSubKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type TerminalSubKey
 } from '../../shared/content';
 import { TERMINAL_FORMS, formOf, isGlyphKey, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
@@ -223,7 +223,7 @@ function Fold({ k, shut, children }: { k: FoldKey; shut?: boolean; children: Rea
 function Explainer() {
   const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
   const part = useEditor(s => s.inspect ? s.part : null), tips = useEditor(s => s.tips);
-  const c = CONTROLS[controlFor(active)], sub = SUBS[active as SerifSubKey | FillSubKey | TerminalSubKey];
+  const c = CONTROLS[controlFor(active)], sub = SUBS[active as SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey];
   const shapedBy = part && PART_CONTROL[part];
   const close = (
     <button className="btn ghost icon small ex-close" onClick={() => actions.setTips(false)} aria-label="Hide explanation" title="Hide explanation">
@@ -490,11 +490,12 @@ type LetterFormKey = Exclude<FormKey, 'terminalRun'>;
 /** A pick between named shapes of a letter or part, each drawn by the engine. Left on auto, the
     shape the other settings give shows as chosen. */
 function FormControl({ k, parts }: { k: LetterFormKey; parts?: string[] }) {
-  const active = useEditor(s => s.active === k), c = CONTROLS[k];
+  const active = useEditor(s => controlFor(s.active) === k), c = CONTROLS[k];
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl={k} {...useControlFocus(k)}>
       <CtlHead k={k} label={c.label} parts={parts} />
       <FormOptions k={k} label={c.tech} />
+      {k === 'dots' && <SliderControl k="dotSize" def={DOT_SUBS.dotSize} />}
     </div>
   );
 }

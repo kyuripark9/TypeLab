@@ -197,6 +197,22 @@ export class Builder {
     this.strokes.push({ poly: [[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h]].map(p => ({ x: p[0], y: p[1], r })), o: { part: part || 'dot' } });
     return this;
   }
+  /** A round in the inside corner at (x, y) where two strokes meet square, `r` across, filling the
+      corner toward (sx, sy) (each ±1) up to a quarter circle. The outside of the join stays square. */
+  fillet(x: number, y: number, sx: number, sy: number, r: number) {
+    if (r < 1) return this;
+    // it reaches a little into both strokes, so no hairline shows between them
+    const e = 2, cx = x + sx * r, cy = y + sy * r, pts: Pt[] = [{ x: x - sx * e, y: y - sy * e, sharp: true }, { x: cx, y: y - sy * e, sharp: true }];
+    for (let i = 0; i <= 12; i++) {
+      const a = (i / 12) * Math.PI / 2;
+      pts.push({ x: cx - sx * r * Math.sin(a), y: cy - sy * r * Math.cos(a), smooth: i > 0 && i < 12 });
+    }
+    pts.push({ x: x - sx * e, y: cy, sharp: true });
+    this.strokes.push({ poly: pts, o: { part: 'fillet' } });
+    return this;
+  }
+  /** A filled shape, like a fillet, for a corner no stroke draws. */
+  blob(pts: Pt[], part = 'fillet') { if (pts.length > 2) this.strokes.push({ poly: pts, o: { part } }); return this; }
   counter(pts: number[][]) { this.counters.push(pts.map(p => ({ x: p[0], y: p[1] }))); return this; }
   ellipseCounter(cx: number, cy: number, rx: number, ry: number) {
     const pts: number[][] = [];
@@ -699,7 +715,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     const o = st.o; let cmds: Cmd[] = [];
     if (st.poly) {
       const c = finish(st.poly, 1, 0); if (c) cmds = c;
-      out.strokes.push({ part: o.part || 'dot', cmds, curved: false, dot: true });
+      out.strokes.push({ part: o.part || 'dot', cmds, curved: false, dot: (o.part || 'dot') === 'dot' });
       return;
     }
     const { ex, serifS, serifE } = exps[si]!;
@@ -814,6 +830,7 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
     case 'cursive': return ringsD(g.marks.filter(k => k.type === 'exit' || k.type === 'entry'), Math.max(30, m.s * 0.7));
     case 'story': return g.ch === 'a' ? g.d : '';
     case 'gForm': return g.ch === 'g' ? g.d : '';
+    case 'sForm': return /[sS$]/.test(g.ch) ? strokes(s => s.part === 'spine') : '';
     case 'kForm': return g.ch === 'k' || g.ch === 'K' ? strokes(s => s.part === 'arm' || s.part === 'leg') : '';
     case 'bowlJoin': return /[abdgpq]/.test(g.ch) ? strokes(s => s.part === 'bowl') : /[hmnru]/.test(g.ch) ? strokes(s => s.part === 'shoulder') : '';
     case 'dots': return strokes(s => !!s.dot);

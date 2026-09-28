@@ -139,6 +139,41 @@ describe('font engine', () => {
     assert.equal(buildFont(DEFAULTS).m.desc, f(0.5).desc);
   });
 
+  it('square joins round the inside corner and keep the outside square', () => {
+    const fillets = (p: Partial<Params>, ch: string) => buildFont({ ...DEFAULTS, ...p }).glyph(ch)!.strokes.filter(s => s.part === 'fillet').length;
+    for (const ch of 'nmhurdbpq') {
+      assert.ok(fillets({ bowlJoin: 'square' }, ch) > 0, ch);
+      assert.equal(fillets({}, ch), 0, ch);
+    }
+    // a wireframe shows the strokes as drawn
+    assert.equal(fillets({ bowlJoin: 'square', fill: 'wire' }, 'n'), 0);
+    // flat on the x-height: the n's top is level all the way from the stem to its round corner
+    const n = buildFont({ ...DEFAULTS, bowlJoin: 'square' }).glyph('n')!, m = buildFont(DEFAULTS).m;
+    const top = n.skeleton.flat().filter(q => q.x < n.bodyW / 2).map(q => q.y);
+    assert.ok(Math.max(...top) - Math.min(...top.filter(y => y > m.xh * 0.8)) < m.hT);
+  });
+
+  it('the flat-spined s runs its spine level between two turns', () => {
+    const f = (sForm: Params['sForm']) => buildFont({ ...DEFAULTS, sForm });
+    for (const ch of 'sS$') assert.notEqual(f('curved').glyph(ch)!.d, f('flat').glyph(ch)!.d, ch);
+    // the middle stretch of the spine lies on one level
+    const s = f('flat').glyph('s')!, mid = s.skeleton.flat().filter(q => Math.abs(q.x - s.bodyW / 2) < s.bodyW * 0.15 && q.y > 0 && q.y < f('flat').m.xh * 0.8);
+    assert.ok(mid.length > 0 && Math.max(...mid.map(q => q.y)) - Math.min(...mid.map(q => q.y)) < 1);
+    assert.equal(f('curved').glyph('o')!.d, f('flat').glyph('o')!.d);
+  });
+
+  it('dot size grows the dots round their centres', () => {
+    const dot = (dotSize: number, ch = 'i') => {
+      const g = buildFont({ ...DEFAULTS, dotSize }).glyph(ch)!, d = g.strokes.find(s => s.dot)!;
+      const ys = d.cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 1) as number[]);
+      return { h: Math.max(...ys) - Math.min(...ys), cy: (Math.max(...ys) + Math.min(...ys)) / 2 };
+    };
+    assert.ok(dot(1).h > dot(0.5).h && dot(0).h < dot(0.5).h);
+    assert.ok(Math.abs(dot(1).cy - dot(0.5).cy) < 1);
+    assert.ok(dot(1, '.').h > dot(0.5, '.').h);
+    assert.equal(buildFont(DEFAULTS).glyph('i')!.d, buildFont({ ...DEFAULTS, dotSize: 0.5 }).glyph('i')!.d);
+  });
+
   it('tail length stretches the tails and hooks, and nothing else', () => {
     const f = (tail: number, p: Partial<Params> = {}) => buildFont({ ...DEFAULTS, ...p, tail });
     const tip = (font: ReturnType<typeof buildFont>, ch: string) => font.glyph(ch)!.marks.find(k => k.type === 'tail')!;
