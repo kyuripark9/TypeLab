@@ -137,7 +137,7 @@ export const endOf = (s: EditorState, id: string, hook = false) =>
 export const curlOf = (s: EditorState, id: string) => endCurl({ terminalCurls: paramOf(s, 'terminalCurls'), terminalCurl: paramOf(s, 'terminalCurl') }, id);
 /** What can be set one by one on a customized letter: each stroke end's length or curl, each
     corner's roundness (a turn's outside) and each turn's inside roundness, or each stroke's weight. */
-export type EndKey = 'terminalEnds' | 'terminalCurls' | 'corners' | 'innerCorners' | 'strokeWeights';
+export type EndKey = 'terminalEnds' | 'terminalCurls' | 'corners' | 'innerCorners' | 'cornerSteps' | 'strokeWeights';
 
 /** Whether an optional slider is switched on: away from its off value, or switched on by hand. */
 export const isOn = (s: EditorState, key: NumericParam, off: number) => paramOf(s, key) !== off || s.switchedOn.includes(key);

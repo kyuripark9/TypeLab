@@ -129,6 +129,47 @@ export function splitPoly(contours: Pt[][], pl: HalfPlane): Pt[][] {
   return out;
 }
 
+/** Cut a square step out of every corner given one (Pt.step): the corner's two sides stop `step` short
+    of it and a notch runs in between, square to them, so the corner stands back like a stair. A step
+    takes no more than 0.95 of either side, up to the next corner. The notch's three corners round like
+    the corner would have (by its own radius, or the outline's). */
+function stepCorners(pts: Pt[]): Pt[] {
+  const n = pts.length, cut = new Map<number, Pt[]>(), drop = new Set<number>();
+  for (let i = 0; i < n; i++) {
+    const p = pts[i];
+    if (!p.step || p.smooth) continue;
+    // each side's length up to the next corner, and the point `d` along it
+    const side = (dir: 1 | -1) => {
+      let len = 0;
+      for (let k = 1; k < n; k++) {
+        const q = pts[(i + dir * k + n * k) % n], o = pts[(i + dir * (k - 1) + n * k) % n];
+        len += dist(o, q);
+        if (!q.smooth) break;
+      }
+      return len;
+    };
+    const d = Math.min(p.step, side(-1) * 0.95, side(1) * 0.95);
+    if (d < 1) continue;
+    const walk = (dir: 1 | -1) => {
+      let left = d, o = p;
+      for (let k = 1; k < n; k++) {
+        const j = (i + dir * k + n * k) % n, q = pts[j], l = dist(o, q);
+        if (l >= left) return lerpP(o, q, left / l);
+        drop.add(j); left -= l; o = q;
+      }
+      return o;
+    };
+    const A = walk(-1), B = walk(1), flags = p.r != null ? { r: p.r } : {};
+    cut.set(i, [{ x: A.x, y: A.y, ...flags }, { x: A.x + B.x - p.x, y: A.y + B.y - p.y, ...flags }, { x: B.x, y: B.y, ...flags }]);
+  }
+  const out: Pt[] = [];
+  for (let i = 0; i < n; i++) {
+    if (cut.has(i)) out.push(...cut.get(i)!);
+    else if (!drop.has(i)) out.push(pts[i]);
+  }
+  return out;
+}
+
 /** f: the radius was given for this corner (a turn's or a terminal's), not the default */
 interface Corner { i: number; th: number; r: number; d: number; f: boolean }
 
@@ -142,6 +183,7 @@ export function roundContour(src: Pt[], R: number, cornersOut?: Pt[]): Cmd[] {
     if (!q || dist(p, q) > 0.05) pts.push(p);
   }
   while (pts.length > 1 && dist(pts[0], pts[pts.length - 1]) <= 0.05) pts.pop();
+  if (pts.some(p => p.step && !p.smooth)) pts.splice(0, pts.length, ...stepCorners(pts));
   const n = pts.length;
   if (n < 3) return [];
 

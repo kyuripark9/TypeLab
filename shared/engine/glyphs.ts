@@ -306,6 +306,21 @@ const footIn = (m: Metrics, dx: number, dy: number) => (m.tDir(dx, dy) / 2) / Ma
 
 /** Whether A V W (v w) take their upright form. */
 const upright = (m: Metrics) => m.p.diagonals === 'upright';
+/** Whether A M N V W (v w) are drawn as arches, with no diagonals. */
+const arched = (m: Metrics) => m.p.diagonals === 'arch';
+
+/** An arch `top` high and W wide (A M N): a U upturned, its sides running down to the baseline. */
+function archUp(g: Builder, m: Metrics, W: number, top: number) {
+  g.sb = [1, 1];
+  const hs = m.s / 2, hh = m.hT / 2, xr = W - hs, yt = top + m.os - hh, ry = yt - Math.min((xr - hs) * 0.55, top * 0.45);
+  g.path([['M', hs, 0], ['L', hs, ry], ['vh', W / 2, yt], ['hv', xr, ry], ['L', xr, 0]], { part: 'stem', serifS: 'both', serifE: 'both' });
+}
+/** A cup `top` high and W wide (V W, v w): a U. */
+function cup(g: Builder, m: Metrics, W: number, top: number) {
+  g.sb = [1, 1];
+  const hs = m.s / 2, hh = m.hT / 2, xr = W - hs, yb = -m.os + hh, ry = yb + Math.min((xr - hs) * 0.55, top * 0.45);
+  g.path([['M', hs, top], ['L', hs, ry], ['vh', W / 2, yb], ['hv', xr, ry], ['L', xr, top]], { part: 'stem', serifS: 'both', serifE: 'both' });
+}
 
 /** V and v with the right side upright: a diagonal down from the top left into a stem on the right. */
 function uprightV(g: Builder, m: Metrics, W: number, top: number) {
@@ -390,6 +405,13 @@ const mapCmds = (cmds: Cmd[], f: (x: number, y: number) => [number, number]): Cm
 /* ---------- UPPERCASE ---------- */
 
 def('A', [0.25, 0.25], (g, m) => {
+  if (arched(m)) {
+    // an arch with a bar across, like an H whose stems bend together at the top
+    const W = m.W(590), C = m.cap, hs = m.s / 2, by = C * (0.34 + 0.26 * m.bar);
+    archUp(g, m, W, C);
+    g.line(hs, by, W - hs, by, { s: J, e: J, part: 'crossbar' });
+    return W;
+  }
   if (upright(m)) {
     // a diagonal leaning on a stem at the right, meeting it in the apex: no crossbar
     const W = m.W(600), C = m.cap, xr = W - m.s / 2, l = footIn(m, xr, C);
@@ -502,6 +524,7 @@ def('L', [1, 0.3], (g, m) => {
 
 def('M', [1, 1], (g, m) => {
   const W = m.W(740), C = m.cap, hs = m.s / 2;
+  if (arched(m)) { archUp(g, m, W, C); g.stem(W / 2, 0, C, { s: 'flat', e: J, serifS: 'both' }); return W; }
   if (roundBends(m)) {
     // one stroke, bent round at the top of each stem and at the foot of the V
     turnStroke(g, m, [[hs, 0], [hs, C], [W / 2, 0], [W - hs, C], [W - hs, 0]],
@@ -516,6 +539,7 @@ def('M', [1, 1], (g, m) => {
 
 def('N', [1, 1], (g, m) => {
   const W = m.W(600), C = m.cap, hs = m.s / 2, thin = lerp(1, 0.3, m.p.contrast);
+  if (arched(m)) { archUp(g, m, W, C); return W; }
   if (roundBends(m)) {
     turnStroke(g, m, [[hs, 0], [hs, C], [W - hs, 0], [W - hs, C]],
       [{ i: 1, ax: 1, at: C, dir: 1 }, { i: 2, ax: 1, at: 0, dir: -1 }], { s: H, e: H, part: 'stem', serifS: 'both', serifE: 'both' });
@@ -601,11 +625,13 @@ def('U', [1, 1], (g, m) => {
 
 def('V', [0.2, 0.2], (g, m) => {
   const W = m.W(590), l = m.s * 0.55;
-  if (upright(m)) uprightV(g, m, W, m.cap); else zig(g, m, [l, W / 2, W - l], m.cap, 0, true);
+  if (arched(m)) cup(g, m, W, m.cap);
+  else if (upright(m)) uprightV(g, m, W, m.cap); else zig(g, m, [l, W / 2, W - l], m.cap, 0, true);
   return W;
 }, { params: ['diagonals', 'bends', 'apex', 'weight', 'contrast'] });
 
 def('W', [0.2, 0.2], (g, m) => {
+  if (arched(m)) { const W = m.W(740); cup(g, m, W, m.cap); g.stem(W / 2, 0, m.cap, { s: J, serifE: 'both' }); return W; }
   if (upright(m)) { const W = m.W(680); uprightW(g, m, W, m.cap); return W; }
   const W = m.W(880), l = m.s * 0.55;
   zig(g, m, [l, lerp(l, W - l, 0.27), W / 2, lerp(l, W - l, 0.73), W - l], m.cap, 0, true);
@@ -898,10 +924,12 @@ def('u', [1, 1], (g, m) => {
 });
 def('v', [0.2, 0.2], (g, m) => {
   const W = m.W(450), l = m.s * 0.55;
-  if (upright(m)) uprightV(g, m, W, m.xh); else zig(g, m, [l, W / 2, W - l], m.xh, 0, true);
+  if (arched(m)) cup(g, m, W, m.xh);
+  else if (upright(m)) uprightV(g, m, W, m.xh); else zig(g, m, [l, W / 2, W - l], m.xh, 0, true);
   return W;
 });
 def('w', [0.2, 0.2], (g, m) => {
+  if (arched(m)) { const W = m.W(620); cup(g, m, W, m.xh); g.stem(W / 2, 0, m.xh, { s: J, serifE: 'both' }); return W; }
   if (upright(m)) { const W = m.W(540); uprightW(g, m, W, m.xh); return W; }
   const W = m.W(700), l = m.s * 0.55;
   zig(g, m, [l, lerp(l, W - l, 0.27), W / 2, lerp(l, W - l, 0.73), W - l], m.xh, 0, true); return W;

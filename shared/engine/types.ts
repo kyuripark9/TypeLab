@@ -10,6 +10,8 @@ export interface Pt {
   sharp?: boolean;
   /** forced corner radius (round terminals) */
   r?: number;
+  /** a square step this wide cut out of the corner instead of rounding it (see roundContour) */
+  step?: number;
 }
 
 /** Point plus unit tangent. */
@@ -17,11 +19,13 @@ export interface Tangent extends Pt { tx: number; ty: number }
 
 /** The outline's corner radii where a centerline turns: outside and inside the turn (0 = sharp). A
     path command carries it as its `turn` option, for the turn at its start. */
-export interface TurnR { o: number; i: number }
+export interface TurnR { o: number; i: number;
+  /** a square step this wide cut out of the outside instead */ step?: number }
 
 /**
  * Path command. Skeletons use ['M',x,y] ['L',x,y,opts?] ['C',x1,y1,x2,y2,x,y,opts?]
- * ['hv'|'vh',x,y,opts?] ['Z']; outlines use only M, L, C and Z.
+ * ['hv'|'vh',x,y,opts?] ['Z']; outlines use only M, L, C and Z. A command's weight `w` eases in from
+ * its ends, unless it is `even` (the pieces of a curl, each carrying on the weight of the one before).
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Cmd = [string, ...any[]];
@@ -93,6 +97,9 @@ export interface PenCtx {
   joints?: number;
   /** reverse contrast: horizontals thick, verticals thin (0..1) */
   reverse?: number;
+  /** strokes thin toward the level line at y, by `amount` there (1 to a point), back to their full
+      weight `reach` above and below it */
+  pinch?: { y: number; amount: number; reach: number };
   /** hand-drawn irregularity (0..1) and a per-glyph phase for it */
   wobble?: number;
   seed?: number;
@@ -106,4 +113,5 @@ export interface StrokeEnd { x: number; y: number; dx: number; dy: number; t: nu
     and `home`, where the end sits before its own length and curl move it. */
 export interface Mark { type: string; x: number; y: number; r?: number; id?: string; hook?: boolean; home?: { x: number; y: number };
   /** a corner's roundness as drawn, on the scale of its own control (see params): a turn's outside */ v?: number;
-  /** a turn's inside roundness as drawn */ vi?: number }
+  /** a turn's inside roundness as drawn */ vi?: number;
+  /** a corner's step as drawn, on the scale of Steps (0 when none; missing where a corner can't have one, a join) */ st?: number }

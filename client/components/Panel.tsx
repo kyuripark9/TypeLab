@@ -3,7 +3,7 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ANATOMY, BOWL_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
+  ANATOMY, BOWL_SUBS, PINCH_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
   SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById, styleMatches,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type StyleGroup
 } from '../../shared/content';
@@ -180,6 +180,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
     return (
       <SliderControl k={k} def={c} parts={parts}>
         <SliderControl k="joinRound" def={ROUND_SUBS.joinRound} />
+        <SliderControl k="innerRound" def={ROUND_SUBS.innerRound} />
         <EachCorner />
       </SliderControl>
     );
@@ -190,6 +191,13 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
         <SliderControl k="vWeight" def={WEIGHT_SUBS.vWeight} />
         <SliderControl k="hWeight" def={WEIGHT_SUBS.hWeight} />
         <EachStroke />
+      </SliderControl>
+    );
+  }
+  if (k === 'pinch') {
+    return (
+      <SliderControl k={k} def={c} parts={parts}>
+        <SliderControl k="pinchPos" def={PINCH_SUBS.pinchPos} />
       </SliderControl>
     );
   }
@@ -580,11 +588,13 @@ function thumbBox(g: Glyph) {
 
 /** One corner's roundness beside a picture of the letter with that corner marked: where a stroke
     turns, its outside and inside one by one. */
-function CornerSlider({ g, corners, corner: { id, label, v, vi: drawn } }: { g: Glyph; corners: CornerInfo[]; corner: CornerInfo }) {
+function CornerSlider({ g, corners, corner: { id, label, v, vi: drawn, st } }: { g: Glyph; corners: CornerInfo[]; corner: CornerInfo }) {
   // an inside set sharper than a wide outside lets it is drawn rounder, but the slider stays where it was put
   const hot = useEditor(s => s.hotEnd === id), own = useEditor(s => paramOf(s, 'innerCorners')[id]), vi = drawn == null ? drawn : own ?? drawn;
+  // a corner can be stepped while Steps is on, or once it has a step of its own
+  const stepped = useEditor(s => st != null && (paramOf(s, 'steps') > 0 || paramOf(s, 'cornerSteps')[id] != null));
   return (
-    <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id} title={label}
+    <div className={['ctl end', hot && 'hot', stepped && vi != null && 'rows3'].filter(Boolean).join(' ')} data-end={id} title={label}
       onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
       <EndThumb g={g} ends={corners} on={id} />
       {vi == null
@@ -596,6 +606,8 @@ function CornerSlider({ g, corners, corner: { id, label, v, vi: drawn } }: { g: 
             <EndRow id={id} k="innerCorners" name="Inside" label={label} value={vi}
               tip="Left makes the inside of the turn square; right rounds it wide, thickening the corner. Well under the outside, the stroke thins across the corner, though never to less than half" reset="Follow the outside again" />
           </>}
+      {stepped && <EndRow id={id} k="cornerSteps" name="Step" label={label} value={st!}
+        tip="Left leaves the corner whole; right cuts a square step out of it, up to nearly the stroke's width" reset="Follow Steps again" />}
     </div>
   );
 }
@@ -631,7 +643,7 @@ function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: Stro
 
 function EndRow({ id, k, name, label, value, tip, reset }: { id: string; k: EndKey; name: string; label: string; value: number; tip: string; reset: string }) {
   const own = useEditor(s => { const ch = letterOf(s); return !!ch && s.params.glyphs[ch]?.[k]?.[id] !== undefined; });
-  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'corners' || k === 'innerCorners' ? 'roundness' : k === 'strokeWeights' ? 'weight' : k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
+  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'corners' || k === 'innerCorners' ? 'roundness' : k === 'cornerSteps' ? 'steps' : k === 'strokeWeights' ? 'weight' : k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
   return (
     <>
       <span className="end-name" title={tip}>{name}</span>

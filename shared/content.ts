@@ -1,12 +1,12 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
 import { resolve, type Effective } from './engine/font';
-import { DEFAULTS, type AForm, type Bends, type Build, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifShape, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
+import { DEFAULTS, type AForm, type Mirror, type Bends, type Build, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifShape, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
 
 export type CategoryId = 'style' | 'structure' | 'shape' | 'proportion' | 'spacing' | 'personality' | 'effects';
 export type ControlKey =
-  | 'weight' | 'width' | 'height' | 'slant' | 'rotation' | 'contrast'
-  | 'build' | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'apex' | 'bends' | 'joints' | 'cursive' | 'wobble'
+  | 'weight' | 'width' | 'height' | 'slant' | 'rotation' | 'contrast' | 'pinch'
+  | 'build' | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'steps' | 'swash' | 'mirror' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'apex' | 'bends' | 'joints' | 'cursive' | 'wobble'
   | 'xHeight' | 'extenders' | 'descender' | 'tail' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
   | 'geoHuman' | 'softSharp' | 'classicFuture' | 'playfulFormal'
@@ -18,11 +18,12 @@ export type TerminalSubKey = 'terminalLength' | 'terminalCurl' | 'terminalFlare'
 export type DotSubKey = 'dotSize';
 export type BowlSubKey = 'boxRound';
 export type WeightSubKey = 'vWeight' | 'hWeight';
-export type RoundSubKey = 'joinRound';
+export type RoundSubKey = 'joinRound' | 'innerRound';
+export type PinchSubKey = 'pinchPos';
 /** A stencil's and a slice's own value is their thickness, so it sits among their sub-sliders. */
 export type StencilSubKey = 'stencil' | 'stencilPos' | 'stencilRound';
 export type SliceSubKey = 'slice' | 'slicePos' | 'sliceRound';
-export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | StencilSubKey | SliceSubKey;
+export type ActiveKey = ControlKey | SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | StencilSubKey | SliceSubKey;
 
 export interface ControlDef {
   cat: Exclude<CategoryId, 'style'>;
@@ -233,6 +234,10 @@ export const STYLES: StyleDef[] = [
       glyphs: { a: { width: 0.15, aperture: 1, crossbar: 0.6, terminalEnds: { '0e': 0.15 } }, u: { width: 0.27 }, r: { width: 0.7 },
         t: { width: 0.72, terminalEnds: { p0s: 0.7 }, corners: { '0j1': 0.33 } }, f: { width: 0.68, crossbar: 0.22, corners: { '0j2': 0.33 } },
         i: { width: 0.6 }, l: { width: 0.6 }, s: { aperture: 0.2 }, y: { corners: { '0j0': 0.33 }, terminal: 'cut', terminalForm: 'level' } } }),
+  style('mirrorsans', 'sans', ['geometric'], 'Mirror Sans', ['playful', 'artistic', 'innovative'], 'Space Grotesk, Syne, Unbounded',
+    'A quirky geometric sans after Gebuk: an even line, round open bowls, a big lowercase and an e drawn back to front.',
+    { weight: 0.42, width: 0.6, contrast: 0.5, curve: 0, geoHuman: 0.1, xHeight: 0.7, extenders: 0.45, counter: 0.8, aperture: 0.3, story: 'single',
+      kForm: 'stem', letterSpacing: 0.12, glyphs: { e: { mirror: 'mirrored' } } }),
 
   /* ---- Serif */
   style('oldstyle', 'serif', ['oldstyle'], 'Old Style', ['business', 'vintage', 'sophisticated', 'sincere'], 'EB Garamond, Cormorant Garamond, Crimson Pro',
@@ -297,6 +302,11 @@ export const STYLES: StyleDef[] = [
     { weight: 0.46, width: 0.5, contrast: 0.59, serif: true, serifShape: 'bracketed', serifSize: 0.4, serifThickness: 0.3, serifAngle: 1,
       terminal: 'angled', curve: 0.8, geoHuman: 1, classicFuture: 0, xHeight: 0.3, extenders: 0.8, aperture: 0.8, apex: 0.15, crossbar: 0.66,
       letterSpacing: 0.18 }),
+  style('swashitalic', 'serif', ['oldstyle', 'swash'], 'Swash Italic', ['fancy', 'sophisticated', 'vintage', 'artistic'], 'Libre Caslon Text Italic, EB Garamond Italic, Cormorant Italic',
+    'An old-style italic after Caslon: a steady lean, bracketed serifs, ball ends, and swash capitals whose first stroke curls out into a flourish.',
+    { weight: 0.4, width: 0.36, height: 0.7, slant: 0.5, contrast: 0.84, serif: true, serifShape: 'bracketed', serifSize: 0.3, serifThickness: 0.1,
+      serifAngle: 0.7, terminal: 'round', terminalForm: 'ball', terminalSize: 0.55, cursive: 0.45, curve: 0.75, geoHuman: 0.8, xHeight: 0.3,
+      extenders: 0.75, aperture: 0.5, apex: 0.15, swash: 0.75, letterSpacing: 0.06 }),
 
   /* ---- Slab Serif */
   style('slab', 'slab', ['slab'], 'Geometric Slab', ['calm', 'business', 'stiff'], 'Josefin Slab, Arvo, Rokkitt',
@@ -531,7 +541,20 @@ export const STYLES: StyleDef[] = [
   style('stadium', 'display', ['geometric'], 'Stadium', ['loud', 'vintage', 'excited'], 'Bungee, Days One, Righteous',
     'A black 70s poster face: wide round letters with slit counters, bowls running square into their stems and M N V W bent round at the bottom.',
     { weight: 0.85, width: 0.9, height: 0.5, contrast: 0.5, bends: 'round', bowlJoin: 'square', curve: 0, terminalRun: 'straight', apex: 1,
-      xHeight: 0.75, counter: 0, aperture: 0, letterSpacing: 0.02 })
+      xHeight: 0.75, counter: 0, aperture: 0, letterSpacing: 0.02 }),
+  style('stepped', 'display', [], 'Stepped', ['futuristic', 'playful', 'innovative'], 'Workbench, Jersey 10, Pixelify Sans',
+    'Wide, heavy letters built on a grid, after LOTECH: square counters, soft corners, and a stroke-wide step cut out of a corner here and there, as at the foot of the L.',
+    { weight: 0.8, width: 0.85, contrast: 0.5, hWeight: 0.68, bowlForm: 'box', boxRound: 0.12, bowlJoin: 'square', squareness: 1, curve: 0, steps: 1,
+      roundness: 0.3, terminalRun: 'straight', apex: 1, iForm: 'bars', xHeight: 0.72, extenders: 0.3, counter: 0.4, aperture: 0.3, letterSpacing: 0.1,
+      glyphs: { O: { cornerSteps: { '0t1': 0, '0t3': 0 } }, 0: { cornerSteps: { '0t1': 0, '0t3': 0 } }, g: { cornerSteps: { '0t1': 0 } } } }),
+  style('hairbox', 'display', [], 'Hairline Box', ['futuristic', 'sophisticated', 'innovative'], 'Syncopate, Michroma, Tektur',
+    'A hairline drawn in rounded rectangles: A, M and N arch over, V and W cup, and wherever strokes meet the corner fills in with a curved wedge of ink.',
+    { weight: 0.02, width: 0.62, height: 0.7, contrast: 0.5, squareness: 1, curve: 0, innerRound: 0.55, diagonals: 'arch', kForm: 'stem', yForm: 'cup',
+      apex: 1, terminalRun: 'straight', iForm: 'bars', xHeight: 0.75, counter: 0.6, letterSpacing: 0.05 }),
+  style('pinched', 'display', ['geometric'], 'Pinched', ['artistic', 'innovative', 'sophisticated'], 'Syne, Unbounded, Righteous',
+    'Heavy geometric letters pinched to a point halfway up the lowercase: stems become hourglasses and round bowls wrap almond-shaped counters, after aplo.',
+    { weight: 0.8, width: 0.6, contrast: 0.5, pinch: 1, curve: 0, geoHuman: 0, story: 'single', xHeight: 0.55, extenders: 0.6, counter: 1,
+      overlap: 0.5, letterSpacing: 0.15 })
 ];
 
 /* The style page shows solid letters only: styles built on an effect (a fill other than solid ink,
@@ -566,6 +589,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Turns each letter about its own middle, and spaces the letters to fit. Synced, every letter turns the same way; customize a letter to give it its own angle.' },
   contrast: { cat: 'structure', label: 'Contrast', friendly: 'Vary thick and thin strokes', tech: 'Contrast · Reverse contrast', lo: 'Reversed', hi: 'High', demo: 'HOe', bipolar: true,
     explain: 'Above the middle the horizontals thin out while the stems stay heavy; below it the stems thin out under heavy horizontals.' },
+  pinch: { cat: 'structure', off: 0, label: 'Pinch', friendly: 'Thin every stroke to a point along one line', tech: 'Pinch · Waist', lo: 'Slight', hi: 'To a point', demo: 'aplo',
+    explain: 'Strokes narrow in straight wedges toward a level line and swell back out above and below it: stems turn into hourglasses and round letters get almond-shaped counters. Position moves the line.' },
 
   build: { cat: 'shape', type: 'form', label: 'Built from', friendly: 'Draw letters as strokes or cut them from solid blocks', tech: 'Stroke or block construction', demo: 'EOS',
     explain: 'Blocks are solid shapes with their insides cut in as narrow slots. Weight closes the slots up, Roundness rounds the corners and slot ends, Joins the small inside curves. Lowercase become small capitals.' },
@@ -579,6 +604,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Box bowls have straight sides and corners that round on the outside and stay square on the inside. Squareness shapes the ovals.' },
   chamfer: { cat: 'shape', off: 0, label: 'Facets', friendly: 'Cut curves into straight lines and corners', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
     explain: 'Curves become straight lines with cut-off corners.' },
+  steps: { cat: 'shape', off: 0, label: 'Steps', friendly: 'Cut a square step into the corners of the letters', tech: 'Stepped corners · Notches', lo: 'Small', hi: 'Stroke wide', demo: 'LOE',
+    explain: 'Each square corner a stroke turns (every corner of box bowls), and each corner where two strokes end together (the foot of an L), gets a square notch, like a letter built on a grid. Customize a letter to step each corner its own way.' },
   terminal: { cat: 'shape', type: 'options', label: 'Stroke ends', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
     explain: 'The free tips of strokes, as on C, a, s and r: their shape, which way they run and how far they reach.' },
   story: { cat: 'shape', type: 'story', label: 'Letter a', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
@@ -591,8 +618,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'A plain stem, or bars as in a typewriter face: i and l get a flag and a foot, I a bar at the top and foot, J a bar across the top.' },
   sForm: { cat: 'shape', type: 'form', label: 'Letter s', friendly: 'Choose the shape of the s', tech: 'Spine of s', demo: 'sS$',
     explain: 'A spine curving from corner to corner, or running flat between two tight turns, like two rounded boxes stacked.' },
-  diagonals: { cat: 'shape', type: 'form', label: 'Letters A, V and W', friendly: 'Stand one side of A, V and W upright', tech: 'Symmetric or upright diagonals', demo: 'AVW',
-    explain: 'Two matching diagonals, or one diagonal leaning on an upright stem at the right. The upright A has no crossbar. Also v and w.' },
+  diagonals: { cat: 'shape', type: 'form', label: 'Letters A, V and W', friendly: 'Stand one side of A, V and W upright, or bend them into arches', tech: 'Symmetric, upright or arched diagonals', demo: 'AVW',
+    explain: 'Two matching diagonals, or one diagonal leaning on an upright stem at the right (the upright A has no crossbar). Arches have no diagonals at all: A and N bend over like an upturned U, M with a stem down the middle, V is a U and W a U with a stem up the middle. Also v and w.' },
   yForm: { cat: 'shape', type: 'form', label: 'Letter Y', friendly: 'Choose the shape of the Y', tech: 'Forked or cup Y', demo: 'Yy',
     explain: 'Two arms forking off a stem, or a cup whose right side runs on down into a diagonal, like a 4. Also y.' },
   qForm: { cat: 'shape', type: 'form', label: 'Letter Q', friendly: 'Choose where the tail of Q goes', tech: 'Q tail', demo: 'QO',
@@ -615,6 +642,10 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Corners are carved out where strokes join.' },
   cursive: { cat: 'shape', off: 0, label: 'Cursive', friendly: 'Add strokes that lead into the next letter', tech: 'Cursive · Entry & exit strokes', lo: 'Print', hi: 'Script', demo: 'nigu',
     explain: 'Strokes flick on toward the next letter, like script.' },
+  swash: { cat: 'shape', off: 0, label: 'Swash capitals', friendly: 'Curl the capitals into flourishes', tech: 'Swash capitals', lo: 'Small', hi: 'Big', demo: 'PRT',
+    explain: 'The first stroke of each capital runs on at the top left (the stem of P, the bar of T, or else the foot of A) and curls out, finishing like the other stroke ends: pick Rounded, Ball ends for a ball.' },
+  mirror: { cat: 'shape', type: 'form', label: 'Mirror', friendly: 'Flip letters left to right', tech: 'Mirrored letters', demo: 'eRs',
+    explain: 'Draws letters back to front. Customize one letter to mirror only that one, like the reversed e of a quirky display face.' },
   wobble: { cat: 'shape', off: 0, label: 'Hand-drawn', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
     explain: 'Strokes drift, swell and sit a little off the line.' },
 
@@ -706,7 +737,11 @@ export const WEIGHT_SUBS: Record<WeightSubKey, SubControlDef> = {
   hWeight: { label: 'Horizontals', friendly: 'Make the level strokes lighter or heavier', tech: 'Bar weight', lo: 'Lighter', hi: 'Heavier', bipolar: true }
 };
 export const ROUND_SUBS: Record<RoundSubKey, SubControlDef> = {
-  joinRound: { label: 'Joins', friendly: 'Round the inside corners where one stroke meets another', tech: 'Fillets', lo: 'Sharp', hi: 'Round' }
+  joinRound: { label: 'Joins', friendly: 'Round the inside corners where one stroke meets another', tech: 'Fillets', lo: 'Sharp', hi: 'Round' },
+  innerRound: { label: 'Counters', friendly: 'Round the corners inside the letters by the same amount, however light the strokes', tech: 'Counter corner radius', lo: 'As drawn', hi: 'Round' }
+};
+export const PINCH_SUBS: Record<PinchSubKey, SubControlDef> = {
+  pinchPos: { label: 'Position', friendly: 'Move the pinch up or down the letters', tech: 'Pinch height', lo: 'Baseline', hi: 'Cap height' }
 };
 export const STENCIL_SUBS: Record<StencilSubKey, SubControlDef> = {
   stencil: { label: 'Thickness', friendly: 'Open the gaps wider', tech: 'Gap width', lo: 'Thin', hi: 'Thick' },
@@ -718,18 +753,19 @@ export const SLICE_SUBS: Record<SliceSubKey, SubControlDef> = {
   slicePos: { label: 'Position', friendly: 'Move the cut up or down the letters', tech: 'Slice height', lo: 'Low', hi: 'High' },
   sliceRound: { label: 'Rounding', friendly: 'Round the corners the cut leaves', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
 };
-export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | StencilSubKey | SliceSubKey, SubControlDef> =
-  { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
+export const SUBS: Record<SerifSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | StencilSubKey | SliceSubKey, SubControlDef> =
+  { ...SERIF_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...PINCH_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
-export type FormKey = 'build' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
+export type FormKey = 'build' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
 export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Params[K], 'auto'>, string][] } } = {
   build: { ch: 'E', options: [['strokes', 'Strokes'], ['blocks', 'Blocks']] as [Build, string][] },
   gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored']] as [GForm, string][] },
   kForm: { ch: 'k', options: [['arm', 'From arm'], ['stem', 'From stem'], ['bar', 'On a bar']] as [KForm, string][] },
   iForm: { ch: 'i', options: [['plain', 'Plain'], ['bars', 'Bars']] as [Exclude<IForm, 'auto'>, string][] },
   sForm: { ch: 's', options: [['curved', 'Curved'], ['flat', 'Flat spine']] as [SForm, string][] },
-  diagonals: { ch: 'A', options: [['symmetric', 'Symmetric'], ['upright', 'Upright']] as [Diagonals, string][] },
+  diagonals: { ch: 'A', options: [['symmetric', 'Symmetric'], ['upright', 'Upright'], ['arch', 'Arches']] as [Diagonals, string][] },
+  mirror: { ch: 'e', options: [['normal', 'As drawn'], ['mirrored', 'Mirrored']] as [Mirror, string][] },
   yForm: { ch: 'Y', options: [['forked', 'Forked'], ['cup', 'Cup']] as [YForm, string][] },
   qForm: { ch: 'Q', options: [['crossing', 'Crossing'], ['inside', 'Inside']] as [QForm, string][] },
   rForm: { ch: 'R', options: [['leg', 'Leg'], ['loop', 'Loop']] as [RForm, string][] },
@@ -818,4 +854,4 @@ export const firstControl = (cat: CategoryId) =>
     the stroke end length into 'terminal'. */
 export const controlFor = (key: ActiveKey): ControlKey =>
   key in SERIF_SUBS ? 'serif' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in BOWL_SUBS ? 'bowlForm' : key in WEIGHT_SUBS ? 'weight' : key in ROUND_SUBS ? 'roundness'
-    : key in STENCIL_SUBS ? 'stencil' : key in SLICE_SUBS ? 'slice' : key as ControlKey;
+    : key in PINCH_SUBS ? 'pinch' : key in STENCIL_SUBS ? 'stencil' : key in SLICE_SUBS ? 'slice' : key as ControlKey;

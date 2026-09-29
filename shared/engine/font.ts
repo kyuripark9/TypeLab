@@ -35,6 +35,7 @@ export interface Metrics {
   /** grid size of the pixel, dot and line fills (0 = none); advances snap to it for pixels and dots */ cell: number;
   /** stencil gap, and the band the slice removes (both 0 when off) */ gap: number; sliceY: number; sliceH: number;
   /** how far out from a join its stencil gap opens, and the radius the stencil and slice round their cuts by */ gapOff: number; gapR: number; sliceR: number;
+  /** the radius Inside corners rounds the counters' corners by, whatever the weight (0 when off) */ innerR: number;
   bar: number; apex: number; ap: number; cnt: number;
   serif: boolean;
   ctx: PenCtx;
@@ -129,6 +130,11 @@ export const termSpec = (e: Params): TermSpec => ({
   tip: Math.max(0.03, 0.84 * (1 - e.terminalTip)), taper: e.terminalTaper < 0.5 ? lerp(2.2, 3, e.terminalTaper * 2) : lerp(3, 6, e.terminalTaper * 2 - 1)
 });
 
+/** The height of the pinch's line at `pos` on its scale: the baseline, half the x-height at the middle, the cap height. */
+const pinchY = (pos: number, xh: number, cap: number) => (pos < 0.5 ? lerp(0, xh / 2, pos * 2) : lerp(xh / 2, cap, pos * 2 - 1));
+/** How wide a step Steps cuts at v, for a stroke t thick: as wide as the stroke at 1. */
+export const stepW = (v: number, t: number) => v * t;
+
 function metrics(e: Effective): Metrics {
   // Verticals weigh the stems on their own, and Horizontals the bars: each scales its side of the
   // pen, so a heavier stem leaves the bars as they were
@@ -144,6 +150,7 @@ function metrics(e: Effective): Metrics {
   const ctx: PenCtx = {
     thick: s, thin, stress, k, org, terminal: e.terminal, chamfer: e.chamfer, joints: e.joints, reverse: e.reverse,
     term: termSpec(e),
+    pinch: e.pinch > 0 ? { y: pinchY(e.pinchPos, xh, cap), amount: e.pinch, reach: xh / 2 } : undefined,
     serif: e.serif ? {
       len: lerp(28, 175, e.serifSize) * (0.75 + 0.25 * ws),
       th: lerp(8, 95, e.serifThickness) * ({ unbracketed: 0.6, slab: 1.5, wedge: 1, bracketed: 1 }[e.serifShape] || 1),
@@ -176,7 +183,7 @@ function metrics(e: Effective): Metrics {
     cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, gapOff: e.stencilPos > 0 ? lerp(s * 0.55, xh * 0.4, e.stencilPos) : 0, gapR: e.stencilRound * s,
     // the slice keeps a stroke's width of ink below it and above it, so at either end it still cuts through the letters
     sliceY: e.slicePos < 0.5 ? lerp(Math.min(xh * 0.5, s + sliceH / 2), xh * 0.5, e.slicePos * 2) : lerp(xh * 0.5, Math.max(xh * 0.5, cap - s - sliceH / 2), e.slicePos * 2 - 1),
-    sliceH, sliceR: e.sliceRound * s,
+    sliceH, sliceR: e.sliceRound * s, innerR: e.innerRound * cap * 0.4,
     bar: e.crossbar, apex: e.apex, ap: e.aperture, cnt,
     serif: !!e.serif,
     ctx, tDir, hT: tDir(1, 0), W,
@@ -266,6 +273,8 @@ export class Builder {
   marks: Mark[] = [];
   /** how far cursive strokes reach past the body on the left (as a negative x) and right */
   reachL = 0; reachR = 0;
+  /** side-bearing factors for a form of the letter with other sides than its usual one (an arched V's stems) */
+  sb?: [number, number];
   constructor(public m: Metrics) {}
   path(cmds: Cmd[], o?: StrokeOpts) { this.strokes.push({ cmds, o: o || {} }); return this; }
   line(x0: number, y0: number, x1: number, y1: number, o?: StrokeOpts) { return this.path([['M', x0, y0], ['L', x1, y1]], o); }
@@ -696,7 +705,7 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
     i0 = k;
   }
   const xs = pts.map(p => p.x), span = { x0: Math.min(...xs), x1: Math.max(...xs) };
-  const uJ = uAt(which === 'e' ? b - S0 : a + S0), w = o.w != null ? { w: o.w } : {}, to = pts[steps], out = cmds.slice();
+  const uJ = uAt(which === 'e' ? b - S0 : a + S0), w = o.w != null ? { w: o.w, even: true } : {}, to = pts[steps], out = cmds.slice();
   if (which === 'e') {
     const keep: Cmd = e.line ? ['L', J.x, J.y, ...c.slice(3)] : [c[0], ...c.slice(1, oi), { ...o, u1: uJ }];
     out.splice(i, 1, keep, ...pieces.map(q => ['C', q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y, w] as Cmd));
@@ -795,9 +804,15 @@ function markTurns(b: Builder, m: Metrics) {
     turnsOf(st.cmds, m).forEach((tn, k) => {
       const id = `${si}t${k}`, c = st.cmds![tn.ci], oi = c[0] === 'C' ? 7 : 3;
       let o = c[oi] || {};
-      const own = ownTurn(m, id, t, o.turn);
-      if (own) {
-        o = { ...o, turn: own };
+      let turn: TurnR | null = ownTurn(m, id, t, o.turn) ?? o.turn ?? null;
+      // Inside corners rounds the inside of every turn at least as far, and Steps cuts a step out of the
+      // outside of every square one; a letter can step each of its corners its own way
+      const cos = tn.din.tx * tn.dout.tx + tn.din.ty * tn.dout.ty;
+      if (m.innerR > 0 && m.p.innerCorners?.[id] == null) turn = { ...turn, o: turn?.o ?? 0, i: Math.max(turn?.i ?? 0, innerFor(m, Math.acos(clamp(-cos, -1, 1)))) };
+      const square = Math.abs(cos) < 0.35, sv = m.p.cornerSteps?.[id] ?? (square ? m.p.steps : 0);
+      if (sv > 0) turn = { ...(turn ?? { o: 0, i: 0 }), step: stepW(sv, t) };
+      if (turn && turn !== o.turn) {
+        o = { ...o, turn };
         const nc = c.slice() as Cmd;
         nc[oi] = o;
         st.cmds![tn.ci] = nc;
@@ -807,7 +822,7 @@ function markTurns(b: Builder, m: Metrics) {
       const ox = tn.din.tx - tn.dout.tx, oy = tn.din.ty - tn.dout.ty, l = Math.hypot(ox, oy) || 1, ro = o.turn?.o ?? 0;
       const h = Math.sqrt(Math.max(1e-3, 1 - l * l / 4)), out = t / 2 / h - ro * (1 / h - 1);
       // (at home on the turn itself, which rounding doesn't move, so the corners keep their order)
-      b.marks.push({ type: 'corner', id, x: tn.x + ox / l * out, y: tn.y + oy / l * out, v: turnV(ro, m.cap), vi: turnV(Math.max(o.turn?.i ?? 0, innerFloor(ro, t, tn.din.tx * tn.dout.tx + tn.din.ty * tn.dout.ty)), m.cap), home: { x: tn.x, y: tn.y } });
+      b.marks.push({ type: 'corner', id, x: tn.x + ox / l * out, y: tn.y + oy / l * out, v: turnV(ro, m.cap), vi: turnV(Math.max(o.turn?.i ?? 0, innerFloor(ro, t, tn.din.tx * tn.dout.tx + tn.din.ty * tn.dout.ty)), m.cap), st: sv, home: { x: tn.x, y: tn.y } });
     });
   });
 }
@@ -1004,6 +1019,10 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
   };
   for (const g of groups) {
     const own = m.p.corners?.[g.id], q = g.pts[0], x = q.x, y = q.y;
+    // Steps cuts a step out of a corner of the letter, where two strokes end together (the foot of an L)
+    const sv = m.p.cornerSteps?.[g.id] ?? (g.pts.length > 1 ? m.p.steps : 0);
+    // (one size for every stroke there, no deeper than 0.85 of the thinner of the stroke and the bars, so they stay joined)
+    if (sv > 0) for (const p of g.pts) p.step = Math.min(stepW(sv, g.t), 0.85 * Math.min(g.t, m.hT));
     const alone = shows.get(g.partner) === false && g.at ? lone(q, g.at, g.t) : null;
     if (alone) {
       const r = (own ?? 0) * alone.most;
@@ -1014,14 +1033,14 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
           for (const ps of polys) for (const poly of ps) carveRound(poly, at, rd, r);
         } else for (const p of g.pts) { delete p.r; p.sharp = true; }
       }
-      marks.push({ type: 'corner', id: g.id, x, y, v: own ?? clamp(m.R / alone.most) });
+      marks.push({ type: 'corner', id: g.id, x, y, v: own ?? clamp(m.R / alone.most), st: sv });
       continue;
     }
     if (own != null) {
       const r = endCornerR(own, g.t);
       for (const p of g.pts) { if (r >= 0.6) { p.r = r; p.sharp = false; } else { delete p.r; p.sharp = true; } }
     }
-    marks.push({ type: 'corner', id: g.id, x, y, v: own ?? clamp(m.R / (g.t / 2)) });
+    marks.push({ type: 'corner', id: g.id, x, y, v: own ?? clamp(m.R / (g.t / 2)), st: sv });
   }
 }
 
@@ -1031,6 +1050,10 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
    corner too: 'j' and its number among the joins of the earlier of the two strokes. A join rounds
    by Joins, or by a roundness its letter gives it, filled in with a fillet that runs along both
    strokes' edges and curves across between them. */
+
+/** How far Inside corners rounds a corner whose inside is `angle` across: all the way at a right angle
+    or wider, less and less as it narrows, so a sharp crotch (the arms of a K, an X) doesn't fill in black. */
+const innerFor = (m: Metrics, angle: number) => m.innerR * Math.min(1, angle / (Math.PI / 2)) ** 2;
 
 /** The radius of a join's round at roundness v, in a font with stems `s` thick: two stems at 1. */
 export const joinR = (v: number, s: number) => 2 * s * clamp(v);
@@ -1132,7 +1155,8 @@ function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nu
             count.set(i, (count.get(i) ?? 0) + 1);
             const own = m.p.corners?.[id], v = own ?? m.p.joinRound, mark: Mark = { type: 'corner', id, x: p.x, y: p.y, v };
             marks.push(mark);
-            const R = joinR(v, m.s);
+            // Inside corners rounds every join at least as far, unless its letter rounds it its own way
+            const R = own != null ? joinR(own, m.s) : Math.max(joinR(v, m.s), innerFor(m, free[0].span));
             if (R < 0.6) continue;
             // how far along each edge the round starts, as wide as both let it
             const { r1, r2, span, bis } = free[0], d = R / Math.tan(span / 2);
@@ -1171,7 +1195,7 @@ function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nu
     Notes the ids of those tips in `hooks` and of plain ends in `plains`, where each end sat before
     its own length and curl in `homes`, and returns how far the ends now reach past the body on the
     left and right, to widen it by. */
-function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>, plains: Set<string>, homes: Map<string, Pt>) {
+function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>, plains: Set<string>, homes: Map<string, Pt>, capital = false) {
   const grow = { l: 0, r: 0 };
   // every stroke's centerline as drawn, to tell a free end from one buried in another stroke
   const drawn = b.strokes.map(t => t.cmds ? centerPoints(t.cmds, m, m.s * 0.25) : null);
@@ -1197,6 +1221,7 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
     return x0 <= x1 ? { x: (x0 + x1) / 2, y: (y0 + y1) / 2 } : { x: W / 2, y: m.xh / 2 };
   };
   const tipAt = (p: Pt) => b.marks.find(k => (k.type === 'tail' || k.type === 'exit') && Math.hypot(k.x - p.x, k.y - p.y) < 1);
+  const swash = capital && m.p.swash > 0 ? swashEnd(b, m, W) : null;
   b.strokes.forEach((st, si) => {
     if (!st.cmds) return;
     const o = st.o, own = o.part === 'tail' || o.part === 'entry';
@@ -1213,20 +1238,25 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
           grow.r = Math.max(grow.r, r.to.x - Math.max(W, r.from.x));
         }
       }
-      const plain = type !== 'term', at = stretchEnd(st.cmds, which, 0, m);
-      if (plain && (!at || buried(si, at.from))) continue;
+      const plain = type !== 'term', at = stretchEnd(st.cmds, which, 0, m), sw = swash?.si === si && swash.which === which ? swash : null;
+      // (a swash runs on out of the stroke it is buried in, as a P's stem out of the top of its bowl)
+      if (plain && (!at || (!sw && buried(si, at.from)))) continue;
       const id = `${plain ? 'p' : ''}${si}${which}`, tip = !plain && at && tipAt(at.from);
       // an end with a serif is drawn plain, whatever its kind
       if (plain || serif) plains.add(id);
       if (!plain && (own || tip || serif)) hooks.add(id);
       if (at) homes.set(id, at.from);
-      const d = endReach(endLength(m.p, id, plain || serif || own || !!tip)) * m.xh * (o.scale || 1), curl = endCurl(m.p, id);
+      // a swash end draws on and curls out, unless the letter sets it its own way
+      const d = endReach(sw && m.p.terminalEnds?.[id] == null ? sw.len : endLength(m.p, id, plain || serif || own || !!tip)) * m.xh * (o.scale || 1);
+      const curl = sw && m.p.terminalCurls?.[id] == null ? sw.curl : endCurl(m.p, id);
       if (Math.abs(d) < 0.01 && curl === 0.5) continue;
-      const before = st.cmds, r = shapeEnd(st.cmds, which, d, curl, m, mid ??= middle(),
+      const before = st.cmds, r = shapeEnd(st.cmds, which, d, curl, m, sw && curl === sw.curl ? sw.mid : (mid ??= middle()),
         () => b.strokes.flatMap((t, ti) => ti === si ? [] : t.cmds ? centerPoints(t.cmds, m, m.s * 0.5) : t.poly ?? []));
       if (!r) continue;
       st.cmds = r.cmds;
       if (plain && type !== 'flat' && curl !== 0.5) st.o = { ...st.o, [which]: 'flat' };
+      // and finishes as a stroke end does, in a ball where they have one
+      if (sw) st.o = { ...st.o, [which]: 'term' };
       // a serif sits level or plumb, which a curled end no longer runs, so it lets it go
       if (serif && curl !== 0.5) st.o = { ...st.o, [which === 's' ? 'serifS' : 'serifE']: null };
       if (plain && st.o.clip) st.o = { ...st.o, clip: widenClip(st.o.clip, r.from, before, r.cmds, m) };
@@ -1237,6 +1267,31 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
     }
   });
   return grow;
+}
+
+/** The end a swash capital curls out (see Params.swash): its first free end at the top left, as the
+    top of a P's stem or the left end of a T's bar, or else at the bottom left, as the foot of an A;
+    none on the right half (a C, an S). With how far it draws on, how far it curls, and the point it
+    curls toward. */
+function swashEnd(b: Builder, m: Metrics, W: number) {
+  const ends: { si: number; which: 's' | 'e'; x: number; y: number; ox: number; oy: number; level: boolean }[] = [];
+  b.strokes.forEach((st, si) => {
+    if (!st.cmds || st.o.part === 'entry') return;
+    for (const which of ['s', 'e'] as const) {
+      if ((which === 's' ? st.o.s : st.o.e) === 'join') continue;
+      const e = endCmd(st.cmds, which, m);
+      if (!e) continue;
+      const q = cubicAt(e.P, which === 's' ? e.u0 : e.u1), sg = which === 's' ? -1 : 1;
+      if (q.x <= W * 0.5 + 1) ends.push({ si, which, x: q.x, y: q.y, ox: q.tx * sg, oy: q.ty * sg, level: Math.abs(q.ty) < 0.5 });
+    }
+  });
+  const pick = (f: (e: typeof ends[number]) => boolean) => ends.filter(f).sort((a, c) => a.x - c.x)[0];
+  const end = pick(e => e.y >= m.cap * 0.85) ?? pick(e => e.y <= m.cap * 0.15);
+  if (!end) return null;
+  // it curls round toward a point beside it, so it always winds the same way: counterclockwise from
+  // the top or a level end (out and down), clockwise from the foot (out and up)
+  const k = m.p.swash, ccw = end.level || end.y > m.cap / 2 ? 1 : -1, far = m.cap * 10;
+  return { ...end, len: 0.5 + 0.25 * k, curl: 0.5 + 0.3 * k, mid: { x: end.x - end.oy * ccw * far, y: end.y + end.ox * ccw * far } };
 }
 
 /** A stroke's clip, given way where the end that sat at `from` now reaches past it: each side of
@@ -1266,7 +1321,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   if (m.p.bowlForm === 'box') boxQuarters(b, m);
   weighFillets(b, m);
   markTurns(b, m);
-  const grow = stretchTerminals(b, m, W0, hooks, plains, homes), W = W0 + grow.r;
+  const grow = stretchTerminals(b, m, W0, hooks, plains, homes, /^[A-Z]$/.test(ch)), W = W0 + grow.r;
   const code = ch.charCodeAt(0);
   let ctx = m.ctx;
   if (m.wob > 0) {
@@ -1387,7 +1442,8 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   // cursive strokes that reach past the body get most of the room they need, so they
   // touch the neighbouring letter instead of running through it
   const padL = Math.max(0, -b.reachL - m.sb * 1.3), padR = Math.max(0, b.reachR - W - m.sb * 1.3);
-  return placeGlyph(out, W, m.sb * def.sb[0] + padL + grow.l, m.sb * def.sb[1] + padR, code, m);
+  const sbf = b.sb ?? def.sb;
+  return placeGlyph(out, W, m.sb * sbf[0] + padL + grow.l, m.sb * sbf[1] + padR, code, m);
 }
 
 type Unplaced = Omit<Glyph, 'lsb' | 'rsb' | 'adv' | 'M' | 'cmds' | 'd'>;
@@ -1420,6 +1476,9 @@ function buildBlock(ch: string, m: Metrics): Glyph | null {
 function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: number, m: Metrics): Glyph {
   const turn = m.rot ? turnAbout(out, m.rot) : null;
   if (turn) { lsb += turn.grow; rsb += turn.grow; }
+  // mirrored, the letter's margins change sides with it
+  const flip = m.p.mirror === 'mirrored';
+  if (flip) [lsb, rsb] = [rsb, lsb];
   let sx = 1, adv = Math.max(10, lsb + W + rsb);
   const mono = m.p.mono;
   if (mono > 0) {
@@ -1435,7 +1494,7 @@ function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: nu
     const snapped = Math.max(m.cell, Math.round(adv / m.cell) * m.cell);
     lsb += (snapped - adv) / 2; rsb += (snapped - adv) / 2; adv = snapped;
   }
-  let M: Mat = [sx, 0, 0, 1, lsb, 0];
+  let M: Mat = flip ? [-sx, 0, 0, 1, lsb + W * sx, 0] : [sx, 0, 0, 1, lsb, 0];
   if (turn) M = mulM(M, turn.M);
   const bounce = m.p.bounce, wob = m.wob;
   if (bounce > 0 || wob > 0) {

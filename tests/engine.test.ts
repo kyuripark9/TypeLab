@@ -23,7 +23,10 @@ const extremes: Params[] = [
   { ...DEFAULTS, build: 'blocks', weight: 1, width: 0, roundness: 1, joinRound: 1, vWeight: 1, hWeight: 1, slant: 1, wobble: 1, mono: 1 },
   { ...DEFAULTS, build: 'blocks', weight: 0, width: 1, height: 0, xHeight: 0, roundness: 0, vWeight: 0, hWeight: 0, slice: 1, fill: 'pixels' },
   { ...DEFAULTS, build: 'blocks', weight: 0.6, roundness: 1, joinRound: 0.5, fill: 'wire', playfulFormal: 0, softSharp: 0 },
-  { ...DEFAULTS, build: 'blocks', roundness: 0.5, glyphs: { E: { build: 'strokes' }, n: { weight: 1 } } }
+  { ...DEFAULTS, build: 'blocks', roundness: 0.5, glyphs: { E: { build: 'strokes' }, n: { weight: 1 } } },
+  { ...DEFAULTS, weight: 1, pinch: 1, pinchPos: 0, steps: 1, bowlForm: 'box', innerRound: 1, swash: 1, serif: true, diagonals: 'arch', mirror: 'mirrored', slant: 1 },
+  { ...DEFAULTS, weight: 0, pinch: 1, pinchPos: 1, steps: 1, innerRound: 1, swash: 1, cursive: 1, terminal: 'round', terminalForm: 'ball', chamfer: 1, stencil: 1, fill: 'wire', diagonals: 'arch', bends: 'round' },
+  { ...DEFAULTS, weight: 0.6, steps: 0.5, roundness: 1, innerRound: 0.5, swash: 0.5, wobble: 1, mono: 1, glyphs: { O: { cornerSteps: { '0t0': 0 } }, e: { mirror: 'mirrored' } } }
 ];
 
 /** In SVG path data: how many contours, how many curves, and every x. */
@@ -884,6 +887,103 @@ describe('block letters', () => {
   });
 });
 
+describe('reference font features', () => {
+  /** Every point an outline passes through (the ends of its lines and curves). */
+  const pts = (d: string) => [...d.matchAll(/[MLC]([^MLCZ]*)/g)].flatMap(m => {
+    const n = m[1].trim().split(/\s+/).map(Number), out: { x: number; y: number }[] = [];
+    for (let i = 0; i + 1 < n.length; i += 2) out.push({ x: n[i], y: -n[i + 1] });
+    return out.slice(-1);
+  });
+  /** How wide the ink of a letter is at height y, from its outline's points there. */
+  const across = (d: string, y: number) => { const xs = pts(d).filter(q => Math.abs(q.y - y) < 1).map(q => q.x); return Math.max(...xs) - Math.min(...xs); };
+
+  it('pinch thins every stroke to a point on its line, and Position moves the line', () => {
+    const f = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p });
+    const full = f({}), pinched = f({ pinch: 1 }), half = f({ pinch: 0.5 }), s = full.m.s, mid = full.m.xh / 2;
+    assert.ok(across(pinched.glyph('l')!.d, mid) < s * 0.05, 'the l comes to a point halfway up the x-height');
+    assert.ok(Math.abs(across(half.glyph('l')!.d, mid) - s / 2) < s * 0.1, 'half a pinch keeps half the stroke');
+    assert.ok(Math.abs(across(pinched.glyph('l')!.d, full.m.asc) - across(full.glyph('l')!.d, full.m.asc)) < 1, 'and the top of the l keeps its weight');
+    // the o's sides pinch too, and its top and bottom keep their weight
+    assert.notEqual(pinched.glyph('o')!.d, full.glyph('o')!.d);
+    const high = f({ pinch: 1, pinchPos: 1 });
+    assert.ok(across(high.glyph('I')!.d, high.m.cap * 0.999) < s * 0.2, 'at the top, the pinch is at the cap height');
+    assert.ok(across(high.glyph('l')!.d, 0) > s * 0.9, 'and far below it, full weight');
+  });
+
+  it('steps cut a square notch out of the corners of a letter, and a letter can step each corner its own way', () => {
+    const base = { ...DEFAULTS, weight: 0.7, contrast: 0.5, hWeight: 0.54, bowlForm: 'box' as const, boxRound: 0, bowlJoin: 'square' as const };
+    const plain = buildFont(base), stepped = buildFont({ ...base, steps: 1 });
+    const corner = (d: string) => { const q = pts(d); const x0 = Math.min(...q.map(p => p.x)), y0 = Math.min(...q.map(p => p.y)); return q.some(p => Math.hypot(p.x - x0, p.y - y0) < 2); };
+    // the foot of the L, where its stem and arm end together, stands back in a step
+    assert.ok(corner(plain.glyph('L')!.d) && !corner(stepped.glyph('L')!.d));
+    for (const ch of 'LOEC') assert.equal(contours(stepped.glyph(ch)!.d), contours(plain.glyph(ch)!.d), `the steps leave ${ch} in one piece`);
+    // every corner of a box O is a square turn, stepped by Steps
+    const O = stepped.glyph('O')!.marks.filter(k => k.type === 'corner');
+    assert.deepEqual(O.map(k => k.st), [1, 1, 1, 1]);
+    assert.notEqual(stepped.glyph('O')!.d, plain.glyph('O')!.d);
+    // a letter can take the step off each corner, or give one where Steps is off
+    const own = buildFont({ ...base, steps: 1, glyphs: { O: { cornerSteps: { '0t0': 0, '0t1': 0, '0t2': 0, '0t3': 0 } } } });
+    assert.equal(own.glyph('O')!.d, plain.glyph('O')!.d);
+    assert.equal(buildFont({ ...base, glyphs: { O: { cornerSteps: { '0t2': 1 } } } }).glyph('O')!.marks.filter(k => k.st).length, 1);
+    // joins have no step
+    assert.ok(stepped.glyph('E')!.marks.filter(k => k.id?.includes('j')).every(k => k.st === undefined));
+  });
+
+  it('inside corners round the counters the same whatever the weight, filling square corners in', () => {
+    const fillets = (p: Partial<Params>, ch: string) => buildFont({ ...DEFAULTS, ...p }).glyph(ch)!.strokes.filter(s => s.part === 'fillet' && s.cmds.length);
+    const size = (d: string) => { const xs = xsOf(d); return Math.max(...xs) - Math.min(...xs); };
+    assert.equal(fillets({ weight: 0 }, 'H').length, 0);
+    const H = fillets({ weight: 0, innerRound: 0.5 }, 'H'), cap = buildFont(DEFAULTS).m.cap;
+    assert.equal(H.length, 4, 'above and below the crossbar on both sides');
+    assert.ok(H.every(s => size(cmdsToD(s.cmds)) > cap * 0.1), 'much wider than the hairline strokes');
+    // the same size at any weight
+    const heavy = fillets({ weight: 0.6, innerRound: 0.5 }, 'H');
+    assert.ok(Math.abs(size(cmdsToD(heavy[0].cmds)) - size(cmdsToD(H[0].cmds))) < cap * 0.03);
+    // a narrow crotch rounds less, so it doesn't fill in black
+    const K = fillets({ weight: 0, innerRound: 0.5, kForm: 'stem' }, 'K');
+    assert.ok(K.every(s => size(cmdsToD(s.cmds)) < size(cmdsToD(H[0].cmds))));
+    // and the turns of box bowls round inside
+    assert.notEqual(buildFont({ ...DEFAULTS, bowlForm: 'box', innerRound: 0.5 }).glyph('O')!.d, buildFont({ ...DEFAULTS, bowlForm: 'box' }).glyph('O')!.d);
+  });
+
+  it('swash capitals curl the first stroke out and leave the rest alone', () => {
+    const base = { ...DEFAULTS, terminal: 'round' as const, terminalForm: 'ball' as const }, off = buildFont(base), on = buildFont({ ...base, swash: 1 });
+    for (const ch of 'PRTBIAHM') {
+      assert.notEqual(on.glyph(ch)!.d, off.glyph(ch)!.d, ch);
+      assert.ok(on.glyph(ch)!.lsb > off.glyph(ch)!.lsb, `${ch} makes room for its curl on the left`);
+    }
+    for (const ch of 'COGnhe1') assert.equal(on.glyph(ch)!.d, off.glyph(ch)!.d, ch);
+    // it runs on up out of the top of the P's stem and curls out to the left of it
+    const P = on.glyph('P')!, left = (g: typeof P) => Math.min(...xsOf(g.d)) - g.lsb;
+    assert.ok(Math.max(...pts(P.d).map(q => q.y)) > on.m.cap + 5);
+    assert.ok(left(P) < left(off.glyph('P')!) - on.m.s);
+    // a letter can set the end its own way
+    const own = buildFont({ ...base, swash: 1, glyphs: { P: { terminalCurls: { p0e: 0.5 }, terminalEnds: { p0e: 0.5 } } } });
+    assert.equal(own.glyph('P')!.d, off.glyph('P')!.d);
+  });
+
+  it('mirrors a letter left to right, on its own', () => {
+    const plain = buildFont(DEFAULTS), f = buildFont({ ...DEFAULTS, glyphs: { e: { mirror: 'mirrored' }, R: { mirror: 'mirrored' } } });
+    for (const ch of 'eR') {
+      const g = f.glyph(ch)!, p = plain.glyph(ch)!;
+      assert.equal(Math.round(g.adv), Math.round(p.adv));
+      const a = xsOf(g.d).map(x => Math.round(x)).sort((u, v) => u - v), b = xsOf(p.d).map(x => Math.round(p.adv - x)).sort((u, v) => u - v);
+      assert.ok(a.every((x, i) => Math.abs(x - b[i]) <= 1), `${ch} is its mirror image`);
+    }
+    assert.equal(f.glyph('a')!.d, plain.glyph('a')!.d);
+  });
+
+  it('A M N V W and v w can be drawn as arches, with no diagonals', () => {
+    const f = buildFont({ ...DEFAULTS, diagonals: 'arch' });
+    for (const ch of 'AMNVWvw') assert.ok(!f.glyph(ch)!.strokes.some(s => s.part === 'diagonal'), ch);
+    assert.ok(f.glyph('A')!.strokes.some(s => s.part === 'crossbar'));
+    assert.ok(!f.glyph('N')!.strokes.some(s => s.part === 'crossbar'));
+    // their sides stand upright, so they take a stem's margins
+    assert.equal(f.glyph('V')!.lsb, f.glyph('U')!.lsb);
+    assert.ok(f.glyph('V')!.lsb > buildFont(DEFAULTS).glyph('V')!.lsb);
+  });
+});
+
 describe('params validation', () => {
   it('clamps numbers, drops unknown keys and falls back on bad values', () => {
     const p = sanitizeParams({ weight: 7, width: -1, contrast: 'x', terminal: 'blobby', serif: 'yes', fill: 'glitter', story: 'triple', evil: '<script>' });
@@ -901,6 +1001,12 @@ describe('params validation', () => {
     const p = sanitizeParams({ glyphs: { O: { corners: { '0t1': 2, '3sl': 0.4, bogus: 1, '0x': 0.2 }, innerCorners: { '0t1': -1, '3sl': 0.4 } } } });
     assert.deepEqual(p.glyphs.O?.corners, { '0t1': 1, '3sl': 0.4 });
     assert.deepEqual(p.glyphs.O?.innerCorners, { '0t1': 0 }, 'only a turn has an inside');
+  });
+
+  it('keeps only the corner ids and mirror forms it knows', () => {
+    const p = sanitizeParams({ mirror: 'sideways', glyphs: { O: { cornerSteps: { '0t1': 3, '1sl': 0.2, x: 1 }, mirror: 'mirrored' } } });
+    assert.equal(p.mirror, 'normal');
+    assert.deepEqual(p.glyphs.O, { cornerSteps: { '0t1': 1, '1sl': 0.2 }, mirror: 'mirrored' });
   });
 
   it('keeps only stroke ids it knows, clamped', () => {

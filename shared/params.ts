@@ -30,8 +30,10 @@ export const I_FORMS = ['auto', 'plain', 'bars'] as const;
 /** Bowls and curves: oval (a circle, or a rounded square with Squareness), or box: straight sides
     meeting in corners that round on the outside and stay square on the inside. */
 export const BOWL_FORMS = ['oval', 'box'] as const;
-/** A V W and v w: symmetric, or with the right-hand side upright, the diagonal leaning on it (the A then has no crossbar). */
-export const DIAGONALS = ['symmetric', 'upright'] as const;
+/** A V W and v w: symmetric, or with the right-hand side upright, the diagonal leaning on it (the A then has no crossbar),
+    or arches with no diagonals at all: A and N an upturned U (A with a bar), M one with a stem down its middle, V a U,
+    W a U with a stem up its middle. */
+export const DIAGONALS = ['symmetric', 'upright', 'arch'] as const;
 /** Where the strokes of A M N V W Z (and v w z) turn: in a sharp point, or in a round bend like bent wire. */
 export const BENDS = ['sharp', 'round'] as const;
 /** The Y and y: two arms forking off a stem, or a cup whose right side runs on down into a diagonal. */
@@ -47,6 +49,8 @@ export const A_FORMS = ['plain', 'spur'] as const;
 /** What the letters are built from: strokes drawn along a skeleton, or solid blocks with their counters cut in as slots
     (see blocks.ts). Blocks draw the capitals, figures and punctuation; the lowercase are small capitals. */
 export const BUILDS = ['strokes', 'blocks'] as const;
+/** A letter as drawn, or mirrored left to right (a reversed e). */
+export const MIRRORS = ['normal', 'mirrored'] as const;
 /** Curved stroke ends: stop part way round the curve, or turn onto the nearest level or plumb line and run straight out. */
 export const TERMINAL_RUNS = ['curved', 'straight'] as const;
 export type Terminal = (typeof TERMINALS)[number];
@@ -62,6 +66,7 @@ export type SForm = (typeof S_FORMS)[number];
 export type AForm = (typeof A_FORMS)[number];
 export type TerminalRun = (typeof TERMINAL_RUNS)[number];
 export type Build = (typeof BUILDS)[number];
+export type Mirror = (typeof MIRRORS)[number];
 export type BowlForm = (typeof BOWL_FORMS)[number];
 export type Diagonals = (typeof DIAGONALS)[number];
 export type Bends = (typeof BENDS)[number];
@@ -104,6 +109,17 @@ export interface Params {
   /** tapered: how fine the tip gets, 0.5 as usual */ terminalTip: number;
   /** tapered: how far back from the tip the taper starts, 0.5 as usual */ terminalTaper: number;
   /** hand-drawn irregularity */ wobble: number;
+  /** strokes thin toward a level line, to a point at 1 (see pinchPos) */ pinch: number;
+  /** the height of that line: 0 the baseline, 0.5 half the x-height, 1 the cap height */ pinchPos: number;
+  /** a square step cut out of each corner of a letter (the turns of its strokes, and corners where two
+      strokes end together, as at the foot of an L), from none to nearly the stroke's width */ steps: number;
+  /** one letter's corners stepped one by one, by corner id (see isCornerId), each overriding steps */ cornerSteps: Record<string, number>;
+  /** how round the inside corners of counters are, where strokes meet or turn, from 0 as the strokes
+      draw them to 1, most of a cap height across, whatever the weight: light strokes fill in solid
+      where the round leaves a square corner outside */ innerRound: number;
+  /** capitals start with a curl: the top of the first stroke (the foot of an A, the left end of a T's
+      bar) runs on and curls out into a flourish */ swash: number;
+  /** the letter as drawn, or mirrored (see MIRRORS) */ mirror: Mirror;
   /** entry/exit strokes, looped descenders and italic letterforms */ cursive: number;
   /** round curves drawn as squircles */ squareness: number;
   /** curves replaced by straight, cut-off corners (octagonal) */ chamfer: number;
@@ -124,7 +140,7 @@ export interface Params {
       a letter can round each of them on its own (see isCornerId) */ joinRound: number;
   /** oval or box bowls (see BOWL_FORMS) */ bowlForm: BowlForm;
   /** box bowls: how far their corners round on the outside, from 0 sharp through one stroke wide (0.5) to two */ boxRound: number;
-  /** symmetric A V W, or with one side upright (see DIAGONALS) */ diagonals: Diagonals;
+  /** symmetric A V W, with one side upright, or arches (see DIAGONALS) */ diagonals: Diagonals;
   /** sharp or round turns in A M N V W Z (see BENDS); Peaks sets how wide a round one is */ bends: Bends;
   /** the shape of the Y (see Y_FORMS) */ yForm: YForm;
   /** the tail of the Q (see Q_FORMS) */ qForm: QForm;
@@ -161,7 +177,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, rotation: 0.5, contrast: 0.5, vWeight: 0.5, hWeight: 0.5, strokeWeights: Object.freeze({}),
   xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), innerCorners: Object.freeze({}), terminalRun: 'curved',
-  terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, cursive: 0,
+  terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, pinch: 0, pinchPos: 0.5, steps: 0, cornerSteps: Object.freeze({}), innerRound: 0, swash: 0, mirror: 'normal', cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved', aForm: 'plain', joinRound: 0,
   bowlForm: 'oval', boxRound: 0.5, diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, stencilPos: 0, stencilRound: 0, slice: 0, slicePos: 0.5, sliceRound: 0,
@@ -232,9 +248,9 @@ export const endCurl = (p: { terminalCurl?: number; terminalCurls?: Record<strin
 /** A valid value for setting `k`, or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {
   const d = DEFAULTS[k];
-  if (k === 'terminalEnds' || k === 'terminalCurls' || k === 'corners' || k === 'innerCorners' || k === 'strokeWeights') {
+  if (k === 'terminalEnds' || k === 'terminalCurls' || k === 'corners' || k === 'innerCorners' || k === 'cornerSteps' || k === 'strokeWeights') {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
-    const out: Record<string, number> = {}, ok = k === 'corners' ? isCornerId : k === 'innerCorners' ? isTurnId : k === 'strokeWeights' ? isStrokeId : isEndId;
+    const out: Record<string, number> = {}, ok = k === 'corners' || k === 'cornerSteps' ? isCornerId : k === 'innerCorners' ? isTurnId : k === 'strokeWeights' ? isStrokeId : isEndId;
     for (const [id, x] of Object.entries(v)) if (ok(id) && typeof x === 'number' && Number.isFinite(x)) out[id] = Math.min(1, Math.max(0, x));
     return out;
   }
@@ -242,7 +258,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
   const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, fill: FILLS, story: STORIES,
     bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, aForm: A_FORMS, terminalRun: TERMINAL_RUNS,
-    bowlForm: BOWL_FORMS, build: BUILDS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS };
+    bowlForm: BOWL_FORMS, build: BUILDS, mirror: MIRRORS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS };
   return opts[k]?.includes(v) ? v : undefined;
 }
 
@@ -257,7 +273,7 @@ function cleanGlyphs(v: unknown): Record<string, GlyphParams> {
       const c = isGlyphKey(k) ? cleanValue(k, x) : undefined;
       if (c !== undefined) g[k] = c;
     }
-    for (const e of ['terminalEnds', 'terminalCurls', 'corners', 'innerCorners', 'strokeWeights']) if (g[e] && !Object.keys(g[e] as object).length) delete g[e];
+    for (const e of ['terminalEnds', 'terminalCurls', 'corners', 'innerCorners', 'cornerSteps', 'strokeWeights']) if (g[e] && !Object.keys(g[e] as object).length) delete g[e];
     if (Object.keys(g).length) out[ch] = g as GlyphParams;
   }
   return out;

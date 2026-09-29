@@ -114,11 +114,13 @@ function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
       const o = c[3] || {}, to = { x: c[1], y: c[2] };
       const dx = to.x - cur.x, dy = to.y - cur.y, l = Math.hypot(dx, dy);
       if (l < 0.01) continue;
-      const n = subdivLines ? 8 : 1, out: Sample[] = [];
-      for (let i = 0; i <= n; i++) {
-        out.push({ x: cur.x + dx * i / n, y: cur.y + dy * i / n, tx: dx / l, ty: dy / l,
-          w: o.w != null ? wNum(o.w) : null, mask: 1, smooth: i > 0 && i < n, len: 0, t: 0 });
-      }
+      // under a pinch a line is sampled finely, and exactly where it crosses the pinch's line, so its point comes out sharp
+      const pc = ctx.pinch, n = pc ? Math.max(8, Math.ceil(l / (pc.reach / 12))) : subdivLines ? 8 : 1, us: number[] = [];
+      for (let i = 0; i <= n; i++) us.push(i / n);
+      const cross = pc && Math.abs(dy) > 1e-6 ? (pc.y - cur.y) / dy : -1;
+      if (cross > 0 && cross < 1) us.push(cross), us.sort((a, b) => a - b);
+      const out: Sample[] = us.map((u, i) => ({ x: cur.x + dx * u, y: cur.y + dy * u, tx: dx / l, ty: dy / l,
+        w: o.w != null ? wNum(o.w) : null, mask: 1, smooth: i > 0 && i < us.length - 1, len: 0, t: 0 }));
       push(out, o.turn); cur = to; continue;
     }
     let P: Dir[], o;
@@ -140,12 +142,17 @@ function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
     for (let i = 0; i <= n; i++) {
       const u = i / n, p = cubicAt(P, u);
       out.push({ x: p.x, y: p.y, tx: p.tx, ty: p.ty, w: o.w != null ? wNum(o.w) : null,
-        mask: smoothstep(Math.min(u, 1 - u) * 3.2), smooth: i > 0 && i < n, len: 0, t: 0 });
+        mask: o.even ? 1 : smoothstep(Math.min(u, 1 - u) * 3.2), smooth: i > 0 && i < n, len: 0, t: 0 });
     }
     push(out, o.turn); cur = P[3];
   }
   return { runs, closed };
 }
+
+/** How much of its weight a stroke keeps at height y under a pinch (see PenCtx). A hairline at the
+    line itself, so the two sides never cross. */
+export const pinchAt = (pc: NonNullable<PenCtx['pinch']>, y: number) =>
+  Math.max(0.012, 1 - pc.amount * (1 - Math.min(1, Math.abs(y - pc.y) / pc.reach)));
 
 /* ---- 2. pen model */
 export function autoThickness(tx: number, ty: number, ctx: PenCtx, thick: number, thin: number) {
@@ -359,6 +366,8 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     // a brush lifts off the inside of its stroke and keeps the outer edge running on
     if (brush && f < 1) s.off = brush * t * (1 - f) / 2;
     t *= f;
+    // a pinch draws every stroke in toward its line, straight-sided like two wedges tip to tip
+    if (ctx.pinch) t *= pinchAt(ctx.pinch, s.y);
     // a hand-held pen never presses evenly
     if (ctx.wobble) t *= 1 + ctx.wobble * 0.22 * Math.sin(s.len / (thick * 1.8 + 60) + (ctx.seed || 0));
     s.t = t;
@@ -442,7 +451,10 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
       if (outer) {
         if (!turn && Math.hypot(P.x - sa.x, P.y - sa.y) > limit * Math.max(sa.t, sb.t) / 2) continue;
       } else if (-s > lenA * 0.95 || u > lenB * 0.95) continue;
-      if (turn) { const r = outer ? ro : ri; if (r > 0) P.r = r; else P.sharp = true; }
+      // a stepped turn has a square step cut out of its outside, and its notch rounds like any corner
+      // (no deeper than 0.85 of the thinner side, so the two sides stay joined across the step)
+      if (turn && outer && turn.step) P.step = Math.min(turn.step, 0.85 * Math.min(sa.t, sb.t));
+      else if (turn) { const r = outer ? ro : ri; if (r > 0) P.r = r; else P.sharp = true; }
       sides[i][sides[i].length - 1] = P;
       sides[j][0] = null;
     }
