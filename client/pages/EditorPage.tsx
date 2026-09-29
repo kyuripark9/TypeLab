@@ -10,7 +10,7 @@ import { GlyphStrip, Nav, Toast } from '../components/Chrome';
 import { GlyphDefs } from '../components/GlyphDefs';
 import { Guide, guideSeen } from '../components/Guide';
 import { Header } from '../components/Header';
-import { Panel } from '../components/Panel';
+import { Panel, focusSearch } from '../components/Panel';
 import { Resizer } from '../components/Resizer';
 import { Stage } from '../components/Stage';
 
@@ -114,6 +114,7 @@ function useShortcuts(save: () => void) {
       if (mod && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); actions.travel(e.shiftKey ? 1 : -1); }
       else if (mod && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); actions.travel(1); }
       else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+      else if (e.key === '/' && !mod && !typing && s.category === 'style') { e.preventDefault(); focusSearch(); }
       else if (e.key === 'Escape') { if (s.exportOpen) actions.setExportOpen(false); else actions.closeInspector(); }
       else if (s.inspect && !typing && (e.target as HTMLInputElement).type !== 'range' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault();

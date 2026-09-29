@@ -13,6 +13,8 @@ const STEPS: Step[] = [
     body: 'Work through your font one area at a time, from Style down to Effects.' },
   { target: 'stage', side: 'right', category: 'style', title: 'Starting styles',
     body: 'Choose a style to begin with. Type in the bar above to see your own words in every style.' },
+  { target: 'panel', side: 'left', category: 'style', title: 'Find and adjust',
+    body: 'Search or filter the styles under Filter. Under Adjust, set a weight, width, serifs and more, and every style takes them on, so any mix is a click away.' },
   { target: 'panel', side: 'left', category: 'structure', title: 'Controls',
     body: 'Drag a slider to reshape every letter at once. The diagram shows the part it changes. Double-click a slider to reset it.' },
   { target: 'stage', side: 'right', category: 'structure', title: 'Live preview',

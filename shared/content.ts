@@ -140,8 +140,8 @@ export interface StyleDef {
 }
 
 const style = (id: string, group: StyleGroup, kinds: Kind[], name: string, moods: Mood[], like: string, desc: string, p: Partial<Params>): StyleDef => {
-  const params = { ...DEFAULTS, ...p }, e = resolve(params);
-  return { id, name, group, kinds, moods, desc, like, params, looks: LOOKS.filter(l => l.test(e)).map(l => l.id) };
+  const params = { ...DEFAULTS, ...p };
+  return { id, name, group, kinds, moods, desc, like, params, looks: looksOf(params) };
 };
 
 /* Ids are stored with saved designs, so they never change even when a style is renamed. */
@@ -842,12 +842,30 @@ export const TEXTS = {
 };
 
 export const styleById = (id: string | null | undefined) => STYLES.find(s => s.id === id);
-/** The picked tags of each facet; an empty list means no filter on that facet. */
-export interface StyleFilter { groups: StyleGroup[]; kinds: Kind[]; looks: Look[]; moods: Mood[] }
-/** Faceted like Google Fonts: any of the picked tags within a facet, every facet at once. */
-export const styleMatches = (s: StyleDef, f: StyleFilter) =>
-  (!f.groups.length || f.groups.includes(s.group)) && (!f.moods.length || s.moods.some(m => f.moods.includes(m))) && (!f.looks.length || s.looks.some(l => f.looks.includes(l))) &&
-  (!f.kinds.length || s.kinds.some(k => f.kinds.includes(k)));
+/** The picked tags of each facet; an empty list means no filter on that facet. `query` is typed search words. */
+export interface StyleFilter { groups: StyleGroup[]; kinds: Kind[]; looks: Look[]; moods: Mood[]; query?: string }
+/** Faceted like Google Fonts: any of the picked tags within a facet, every facet at once. `looks`
+    are the style's Appearance as shown, which traits laid over it may change. */
+export const styleMatches = (s: StyleDef, f: StyleFilter, looks: Look[] = s.looks) =>
+  (!f.groups.length || f.groups.includes(s.group)) && (!f.moods.length || s.moods.some(m => f.moods.includes(m))) && (!f.looks.length || looks.some(l => f.looks.includes(l))) &&
+  (!f.kinds.length || s.kinds.some(k => f.kinds.includes(k))) && searchMatches(s, f.query ?? '', looks);
+
+/** Everything a search can find a style by: its name, genre, feelings, looks, description and the Google Fonts families like it. */
+const words = (s: StyleDef, looks: Look[]) => [
+  s.name, STYLE_GROUPS.find(g => g.id === s.group)!.label, s.like, s.desc,
+  ...s.kinds.map(k => KIND_SECTIONS.flatMap(x => x.tags).find(t => t.id === k)!.label),
+  ...s.moods.map(m => MOODS.find(x => x.id === m)!.label), ...looks.map(l => LOOKS.find(x => x.id === l)!.label)
+].join(' ');
+const normal = (text: string) => ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, ' ')}`;
+/** Every word typed starts a word somewhere in the style (so "futura", "round mono" and "heavy slab" all work). */
+export const searchMatches = (s: StyleDef, query: string, looks: Look[] = s.looks) => {
+  const q = normal(query).split(' ').filter(Boolean);
+  if (!q.length) return true;
+  const w = normal(words(s, looks));
+  return q.every(t => w.includes(` ${t}`));
+};
+/** The Appearance tags a set of params shows. */
+export function looksOf(p: Params): Look[] { const e = resolve(p); return LOOKS.filter(l => l.test(e)).map(l => l.id); }
 
 /** The starting style each filter tag is set in: one that carries the tag. */
 export const TAG_FACE: Record<StyleGroup | Mood | Look | Kind, string> = {

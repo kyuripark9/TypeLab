@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
-import { PAGE_STYLES, STYLE_GROUPS, styleMatches, type StyleDef } from '../../shared/content';
+import { useDeferredValue, useRef, useState } from 'react';
+import { KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, type StyleDef } from '../../shared/content';
+import type { Params } from '../../shared/params';
 import { n1, useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
-import { actions, fontFor, useEditor, type CardView } from '../state/editor';
+import { actions, adjustedParams, fontFor, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
 import { Inspector } from './Inspector';
 import { focusFilters } from './Panel';
 import { Preview } from './Preview';
@@ -101,13 +102,16 @@ function SampleText() {
   );
 }
 
-/** Cards are grouped by Category, the panel's first filter, and narrowed by all the filters. */
+/** Cards are grouped by Category, the panel's first filter, and narrowed by all the filters. Each
+    is drawn with the Adjust tab's traits laid over its style. */
 function StyleCards() {
   const text = sampleText(useEditor(s => s.custom)), size = useEditor(s => s.size);
-  const groups = useEditor(s => s.groups), moods = useEditor(s => s.moods), looks = useEditor(s => s.looks), kinds = useEditor(s => s.kinds);
   const view = useEditor(s => s.view);
   const head = useRef<HTMLHeadingElement>(null);
-  const shown = PAGE_STYLES.filter(s => styleMatches(s, { groups, kinds, looks, moods }));
+  const { traits: now, matches } = useStyleMatch();
+  // redrawing every card takes a moment, so the panel answers first and the cards follow
+  const traits = useDeferredValue(now);
+  const shown = PAGE_STYLES.filter(s => matches(s, {}, traits));
   const all = PAGE_STYLES.length;
   return (
     <div className="style-cards">
@@ -118,13 +122,14 @@ function StyleCards() {
         {/* the filters sit after every card in tab order; this jumps there, and shows only when focused */}
         <button className="skip" onClick={focusFilters}>Skip to filters</button>
       </div>
+      <ActiveBar onClear={() => head.current?.focus()} />
       {shown.length ? (
-        <div className="style-groups">
+        <div className={traits === now ? 'style-groups' : 'style-groups stale'}>
           {STYLE_GROUPS.filter(g => shown.some(s => s.group === g.id)).map(g => (
             <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
               <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
               <div className={view === 'list' ? 'cards list' : 'cards'}>
-                {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} text={text} size={size} />)}
+                {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} params={adjustedParams(s, traits)} text={text} size={size} />)}
               </div>
             </section>
           ))}
@@ -136,17 +141,45 @@ function StyleCards() {
   );
 }
 
+/** Everything picked in the panel, search, filters and traits, as one row of chips, each removed
+    with a click; the traits say they change every card. */
+function ActiveBar({ onClear }: { onClear: () => void }) {
+  const { f, traits } = useStyleMatch();
+  const tag = <T extends string>(list: { id: T; label: string }[], id: T) => list.find(x => x.id === id)!.label;
+  const kinds = KIND_SECTIONS.flatMap(sec => sec.tags);
+  const items: { key: string; label: string; trait?: boolean; remove: () => void }[] = [
+    ...(f.query?.trim() ? [{ key: 'q', label: `“${f.query.trim()}”`, remove: () => actions.setQuery('') }] : []),
+    ...f.groups.map(g => ({ key: `g-${g}`, label: tag(STYLE_GROUPS, g), remove: () => actions.toggleGroup(g) })),
+    ...f.kinds.map(k => ({ key: `k-${k}`, label: tag(kinds, k), remove: () => actions.toggleKind(k) })),
+    ...f.looks.map(l => ({ key: `l-${l}`, label: tag(LOOKS, l), remove: () => actions.toggleLook(l) })),
+    ...f.moods.map(m => ({ key: `m-${m}`, label: tag(MOODS, m), remove: () => actions.toggleMood(m) })),
+    ...traitLabels(traits).map(t => ({ key: `t-${t.id}`, label: t.label, trait: true, remove: () => actions.setTrait(t.id, null) }))
+  ];
+  if (!items.length) return null;
+  return (
+    <div className="active-bar" role="group" aria-label="Active filters and traits">
+      {items.map(it => (
+        <button key={it.key} className={it.trait ? 'active-chip trait' : 'active-chip'} onClick={it.remove} aria-label={`Remove ${it.label}`}>
+          {it.label}
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg>
+        </button>
+      ))}
+      {items.length > 1 && <button className="link small" onClick={() => { actions.clearFilters(); actions.clearTraits(); onClear(); }}>Clear all</button>}
+    </div>
+  );
+}
+
 /** Each card shows the sample text set in that style, wrapped to the card's width. */
-function StyleCard({ style: s, text, size }: { style: StyleDef; text: string; size: number }) {
+function StyleCard({ style: s, params, text, size }: { style: StyleDef; params: Params; text: string; size: number }) {
   const on = useEditor(st => st.styleId === s.id);
   const [ref, box] = useSize<HTMLButtonElement>();
-  const f = fontFor(s.params), sc = size / 1000, width = Math.max(1, box.width - 36);
+  const f = fontFor(params), sc = size / 1000, width = Math.max(1, box.width - 36);
   const top = Math.max(f.m.asc, f.m.cap) + 30, LH = top - f.m.desc + 40;
   const lines = box.width ? f.layout(text, width / sc) : [];
   const H = n1(lines.length * LH * sc);
   return (
     <button ref={ref} className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
-      <span className="card-name">{s.name}</span>
+      <span className="card-name">{s.name}<span className="card-like">{s.like}</span></span>
       <svg width={n1(width)} height={H} viewBox={`0 0 ${n1(width)} ${H}`} aria-hidden="true">
         <g transform={`scale(${sc})`}>
           {lines.map((ln, i) => ln.items.map((it, j) => {

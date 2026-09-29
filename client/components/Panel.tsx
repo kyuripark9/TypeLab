@@ -1,51 +1,99 @@
 /* Right-hand panel: the starting-style filters, or the controls of the open category with a
    live explainer. While a letter is inspected, the sliders are grouped by the parts of that
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
-import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ANATOMY, BOWL_SUBS, PINCH_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
-  SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById, styleMatches,
+  ANATOMY, BOWL_SUBS, PINCH_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_SHAPE_OPTIONS, SERIF_SUBS, STORY_OPTIONS,
+  SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type SerifSubKey, type StyleFilter, type StyleGroup
 } from '../../shared/content';
 import { TERMINAL_FORMS, formOf, isGlyphKey, rotationDeg, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 import { cmdsToD, type Glyph } from '../../shared/engine';
 import { letterCorners, letterStrokes, strokeEnds, type CornerInfo, type StrokeEndInfo, type StrokeInfo } from '../lib/drag';
-import { actions, curlOf, endOf, fontFor, isOn, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type EndKey } from '../state/editor';
+import { actions, adjustedLooks, adjustedParams, curlOf, endOf, fontFor, isOn, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, useStyleMatch, type EndKey, type StyleTab } from '../state/editor';
+import { TRAIT_SECTIONS, type TraitDef } from '../../shared/traits';
 import { Diagram, FillIcon, FormIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { ScopeIcon, letterControls } from './Inspector';
 
 export function Panel() {
   const category = useEditor(s => s.category), customizing = useEditor(s => !!letterOf(s));
   return (
-    <aside className={customizing ? 'panel customizing' : 'panel'} aria-label={category === 'style' ? 'Filters' : 'Controls'} data-guide="panel"
+    <aside className={customizing ? 'panel customizing' : 'panel'} aria-label={category === 'style' ? 'Find and adjust styles' : 'Controls'} data-guide="panel"
       onPointerLeave={() => { actions.setHot(false); actions.setPart(null); }}>
-      {category === 'style' ? <StyleFilters /> : <ControlsPanel category={category} />}
+      {category === 'style' ? <StylePanel /> : <ControlsPanel category={category} />}
     </aside>
   );
 }
 
-/** The Filters heading; the stage's "Skip to filters" and clearing the filters move focus here. */
-export const FILTERS_TITLE = 'filters-title';
-export const focusFilters = () => document.getElementById(FILTERS_TITLE)?.focus();
+/** The Style page's panel opens on its Filter or Adjust tab; the stage's "Skip to filters" and
+    clearing the filters move focus to the open tab. */
+export const SEARCH_ID = 'style-search';
+export const focusFilters = () => document.querySelector<HTMLElement>('.style-tabs [aria-selected=true]')?.focus();
+/** Open the Filter tab and put the cursor in its search box (the / key). */
+export const focusSearch = () => {
+  actions.setStyleTab('filter');
+  requestAnimationFrame(() => document.getElementById(SEARCH_ID)?.focus());
+};
 
-/** Style page: filter the starting styles by tag, in the sections of the Google Fonts filters.
-    Category comes first and matches the headings over the cards; the Classification sections
-    after it hold the finer genres of each category and together make one facet. */
+const STYLE_TABS: [StyleTab, string][] = [['filter', 'Filter'], ['adjust', 'Adjust']];
+
+/** Style page: Filter narrows the starting styles by search and tag; Adjust lays traits over every
+    one of them, so each card shows its style with them and any mix can be started from. */
+function StylePanel() {
+  const tab = useEditor(s => s.styleTab);
+  const nFilters = useEditor(s => s.groups.length + s.kinds.length + s.looks.length + s.moods.length + (s.query.trim() ? 1 : 0));
+  const nTraits = useEditor(s => Object.keys(s.traits).length);
+  const counts = { filter: nFilters, adjust: nTraits };
+  const move = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const next = tab === 'filter' ? 'adjust' : 'filter';
+    actions.setStyleTab(next);
+    requestAnimationFrame(() => document.getElementById(`tab-${next}`)?.focus());
+  };
+  return (
+    <div className="panel-pad filters">
+      <div className="style-tabs" role="tablist" aria-label="Style panel">
+        {STYLE_TABS.map(([id, label]) => (
+          <button key={id} id={`tab-${id}`} role="tab" aria-selected={tab === id} aria-controls={`tp-${id}`} tabIndex={tab === id ? 0 : -1}
+            className={tab === id ? 'on' : undefined} onClick={() => actions.setStyleTab(id)} onKeyDown={move}>
+            {label}{counts[id] > 0 && <span className="facet-picked" aria-label={`, ${counts[id]} on`}>{counts[id]}</span>}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`tp-${tab}`} aria-labelledby={`tab-${tab}`}>
+        {tab === 'filter' ? <StyleFilters /> : <StyleTraits />}
+      </div>
+    </div>
+  );
+}
+
+/** Search, then the tag filters in the sections of the Google Fonts filters. Category comes first
+    and matches the headings over the cards; the Classification sections after it hold the finer
+    genres of each category and together make one facet. */
 function StyleFilters() {
-  const f: StyleFilter = { groups: useEditor(s => s.groups), kinds: useEditor(s => s.kinds), looks: useEditor(s => s.looks), moods: useEditor(s => s.moods) };
+  const { f, traits, matches } = useStyleMatch();
   const current = useEditor(s => styleById(s.styleId));
   // each tag's count is what picking it would show, given the other facets
-  const count = (pick: Partial<StyleFilter>) => PAGE_STYLES.filter(s => styleMatches(s, { ...f, ...pick })).length;
-  const picked = f.groups.length + f.kinds.length + f.looks.length + f.moods.length > 0;
+  const count = (pick: Partial<StyleFilter>) => PAGE_STYLES.filter(s => matches(s, pick)).length;
+  const picked = f.groups.length + f.kinds.length + f.looks.length + f.moods.length > 0 || !!f.query?.trim();
   // the Classification sections start folded, except one that holds a picked tag or Category, or else the current style
   const relevant = (sec: (typeof KIND_SECTIONS)[number]) => sec.tags.some(t => f.kinds.includes(t.id)) ||
     (f.groups.length ? sec.groups.some(g => f.groups.includes(g)) : sec.tags.some(t => !!current?.kinds.includes(t.id)));
+  // Appearance offers the looks some card shows as the traits draw it, and any already picked
+  const looks = LOOKS.filter(l => l.id !== 'mono' && (f.looks.includes(l.id) || PAGE_STYLES.some(s => adjustedLooks(s, traits).includes(l.id))));
   return (
-    <div className="panel-pad filters">
-      <div className="filters-head">
-        <h2 className="panel-title" id={FILTERS_TITLE} tabIndex={-1}>Filters</h2>
-        {/* the button leaves once pressed, so focus goes back to the heading rather than the page */}
+    <>
+      <div className="search-row">
+        <div className="search-field">
+          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.6" /><path d="m10.4 10.4 3.6 3.6" /></svg>
+          <input id={SEARCH_ID} type="search" spellCheck={false} autoComplete="off" placeholder="Search styles, fonts, feelings"
+            aria-label="Search styles" aria-keyshortcuts="/" value={f.query}
+            onChange={e => actions.setQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Escape' && f.query) { e.stopPropagation(); actions.setQuery(''); } }} />
+          <kbd aria-hidden="true">/</kbd>
+        </div>
+        {/* the button leaves once pressed, so focus goes back to the tab rather than the page */}
         {picked && <button className="btn ghost small" aria-label="Clear filters" onClick={() => { actions.clearFilters(); focusFilters(); }}>Clear</button>}
       </div>
       <ChipFacet id="category" label="Category" tags={STYLE_GROUPS} picked={f.groups} count={g => count({ groups: [g] })} toggle={actions.toggleGroup} />
@@ -56,9 +104,86 @@ function StyleFilters() {
             tags={sec.tags} picked={f.kinds} count={k => count({ kinds: [k] })} toggle={actions.toggleKind} />
         ))}
       </div>
-      <ChipFacet id="appearance" label="Appearance" tags={PAGE_LOOKS} picked={f.looks} count={l => count({ looks: [l] })} toggle={actions.toggleLook} />
+      <ChipFacet id="appearance" label="Appearance" tags={looks} picked={f.looks} count={l => count({ looks: [l] })} toggle={actions.toggleLook} />
       <ChipFacet id="feeling" label="Feeling" tags={MOODS} picked={f.moods} count={m => count({ moods: [m] })} toggle={actions.toggleMood} />
+    </>
+  );
+}
+
+/** The Adjust tab: every trait as a row of named steps, each drawn as the current style would look
+    with it. A step applies to every card at once; picking it again (or Any) hands the trait back
+    to each style. */
+function StyleTraits() {
+  const n = useEditor(s => Object.keys(s.traits).length);
+  return (
+    <>
+      <div className="traits-head">
+        <p>Every style takes on the traits you set here. Mix them to make any face.</p>
+        <div className="traits-tools">
+          <button className="btn ghost small" onClick={actions.shuffleTraits} title="Pick a random mix of traits">
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h2.5c3.5 0 3.5 7 7 7H14M2 11.5h2.5c1.4 0 2.2-1.1 2.9-2.4M9.6 6.9c.7-1.3 1.5-2.4 2.9-2.4H14M12 2.5l2 2-2 2M12 9.5l2 2-2 2" /></svg>
+            Shuffle
+          </button>
+          {n > 0 && <button className="btn ghost small" onClick={() => { actions.clearTraits(); focusFilters(); }}>Clear</button>}
+        </div>
+      </div>
+      {TRAIT_SECTIONS.map(sec => (
+        <div key={sec.id} className="facet trait-set" role="group" aria-labelledby={`t-${sec.id}`}>
+          <h3 className="facet-label" id={`t-${sec.id}`}>{sec.label}</h3>
+          {sec.traits.map(t => <TraitRow key={t.id} def={t} />)}
+        </div>
+      ))}
+    </>
+  );
+}
+
+/** Height of the drawing on a trait step, in px. */
+const TRAIT_H = 24;
+
+function TraitRow({ def }: { def: TraitDef }) {
+  const picked = useEditor(s => s.traits[def.id]), traits = useEditor(s => s.traits);
+  const base = useEditor(s => styleById(s.styleId)) ?? PAGE_STYLES[0];
+  return (
+    <div className="trait" role="group" aria-labelledby={`tr-${def.id}`}>
+      <div className="trait-head">
+        <span className="trait-label" id={`tr-${def.id}`} title={def.hint}>{def.label}</span>
+        {picked
+          ? <button className="trait-any" onClick={() => actions.setTrait(def.id, null)} title="Let each style keep its own">Any</button>
+          : <span className="trait-hint">{def.hint}</span>}
+      </div>
+      <div className="trait-opts" style={{ gridTemplateColumns: `repeat(${def.options.length}, minmax(0, 1fr))` }}>
+        {def.options.map(o => (
+          <button key={o.id} className={picked === o.id ? 'opt on' : 'opt'} aria-pressed={picked === o.id}
+            onClick={() => actions.setTrait(def.id, o.id)}>
+            <Specimen params={adjustedParams(base, { ...traits, [def.id]: o.id })} text={def.sample} h={TRAIT_H} />
+            <span>{o.label}</span>
+          </button>
+        ))}
+      </div>
     </div>
+  );
+}
+
+/** `text` drawn in a font made from `params`, its ink fitted into `h` px high and `maxW` px wide, so
+    each step of a trait fills its button. Hidden from screen readers. */
+function Specimen({ params, text, h, maxW = 44 }: { params: Params; text: string; h: number; maxW?: number }) {
+  const f = fontFor(params), items = f.layout(text, Infinity)[0].items.filter(it => f.glyph(it.ch));
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const it of items) {
+    for (const c of f.glyph(it.ch)!.cmds) {
+      for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
+        x0 = Math.min(x0, it.x + c[i]); x1 = Math.max(x1, it.x + c[i]); y0 = Math.min(y0, -c[i + 1]); y1 = Math.max(y1, -c[i + 1]);
+      }
+    }
+  }
+  if (!(x0 < x1)) return null;
+  const sc = Math.min(h / (y1 - y0), maxW / (x1 - x0)), W = n1((x1 - x0) * sc);
+  return (
+    <svg className="specimen" width={W} height={h} viewBox={`0 0 ${W} ${h}`} aria-hidden="true">
+      <g transform={`translate(0 ${n1((h - (y1 - y0) * sc) / 2)}) scale(${sc}) translate(${n1(-x0)} ${n1(-y0)})`}>
+        {items.map((it, j) => <path key={j} d={f.glyph(it.ch)!.d} transform={`translate(${n1(it.x)},0)`} />)}
+      </g>
+    </svg>
   );
 }
 

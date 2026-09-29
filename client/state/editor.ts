@@ -1,12 +1,15 @@
 /* Editor state. One store for the open design (with undo history) and the UI around it.
    Actions live outside the store so components can import them without subscribing. */
 import { create } from 'zustand';
-import { SERIF_SUBS, STYLES, controlFor, firstControl, styleById, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood, type StyleGroup } from '../../shared/content';
+import { SERIF_SUBS, STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
+import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
 import { endCurl, endLength, isGlyphKey, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
+/** The Style page's panel: filters that narrow the cards, or traits laid over every card. */
+export type StyleTab = 'filter' | 'adjust';
 /** What the controls change while a letter is inspected: every letter in sync, or just that one. */
 export type Scope = 'all' | 'letter';
 
@@ -44,6 +47,13 @@ export interface EditorState extends Doc {
   moods: Mood[];
   looks: Look[];
   kinds: Kind[];
+  /** Style page search words */
+  query: string;
+  /** Style page traits, laid over every starting style */
+  traits: Traits;
+  styleTab: StyleTab;
+  /** the params as last picked on the Style page; while the design still matches them, it follows the traits */
+  picked: string | null;
   /** Style page layout: cards in a grid, or one per row */
   view: CardView;
   /** long panel sections folded down to their heading */
@@ -70,6 +80,7 @@ const blankDoc = (): Doc => ({ designId: null, name: DEFAULT_NAME, styleId: STYL
 function freshDocState(doc: Doc): Partial<EditorState> {
   return {
     ...doc,
+    picked: JSON.stringify(doc.params),
     saved: docSnap(doc),
     history: [histSnap(doc.params, doc.styleId)],
     hi: 0,
@@ -95,6 +106,10 @@ export const useEditor = create<EditorState>()(() => ({
   moods: [],
   looks: [],
   kinds: [],
+  query: '',
+  traits: {},
+  styleTab: 'filter',
+  picked: JSON.stringify(blankDoc().params),
   view: savedView(),
   folded: savedFolded(),
   tips: savedTips(),
@@ -171,6 +186,47 @@ export function useScopedFont() {
 
 let toastId = 0;
 
+/** A starting style with the traits laid over it: one params object per style and set of traits, so fonts build once. */
+const adjustedCache = new Map<string, Params>();
+export function adjustedParams(s: StyleDef, traits: Traits): Params {
+  const key = `${s.id}|${traitsKey(traits)}`;
+  let p = adjustedCache.get(key);
+  if (!p) {
+    if (adjustedCache.size > 3000) adjustedCache.clear();
+    p = Object.keys(traits).length ? applyTraits(s.params, traits) : s.params;
+    adjustedCache.set(key, p);
+  }
+  return p;
+}
+const looksCache = new WeakMap<Params, Look[]>();
+/** The Appearance a starting style shows with the traits laid over it. */
+export function adjustedLooks(s: StyleDef, traits: Traits): Look[] {
+  const p = adjustedParams(s, traits);
+  let l = looksCache.get(p);
+  if (!l) { l = p === s.params ? s.looks : looksOf(p); looksCache.set(p, l); }
+  return l;
+}
+/** The Style page's filters, and a test of whether a starting style (as the traits show it) passes them, or would with `pick` in place of its facet. */
+export function useStyleMatch() {
+  const groups = useEditor(s => s.groups), kinds = useEditor(s => s.kinds), looks = useEditor(s => s.looks), moods = useEditor(s => s.moods);
+  const query = useEditor(s => s.query), traits = useEditor(s => s.traits);
+  const f: StyleFilter = { groups, kinds, looks, moods, query };
+  return { f, traits, matches: (s: StyleDef, pick: Partial<StyleFilter> = {}, t = traits) => styleMatches(s, { ...f, ...pick }, adjustedLooks(s, t)) };
+}
+/** The picked steps as "Weight: Bold", in the order of the Adjust tab. */
+export const traitLabels = (traits: Traits) =>
+  TRAIT_SECTIONS.flatMap(sec => sec.traits).filter(t => traits[t.id]).map(t => ({ id: t.id, label: `${t.label}: ${traitOption(t.id, traits[t.id])!.label}` }));
+
+/** New traits. A design still as it was picked on the Style page follows them. */
+function setTraits(traits: Traits) {
+  const s = get(), st = styleById(s.styleId);
+  if (st && s.picked !== null && s.picked === JSON.stringify(s.params)) {
+    const params = { ...applyTraits(st.params, traits) };
+    set({ traits, params, picked: JSON.stringify(params) });
+    actions.commit();
+  } else set({ traits });
+}
+
 export const actions = {
   /* ---- document */
   newDesign() {
@@ -179,7 +235,7 @@ export const actions = {
   loadDesign(d: Design) {
     const s = get();
     set({ ...freshDocState({ designId: d.id, name: d.name, styleId: d.styleId, params: d.params }),
-      category: s.category === 'style' ? 'structure' : s.category, hot: false });
+      category: s.category === 'style' ? 'structure' : s.category, hot: false, picked: null });
   },
   /** Record a successful save. `sent` is what went to the server, which may differ from the
       current state if the user kept editing while the request was in flight. */
@@ -219,11 +275,13 @@ export const actions = {
     const [styleId, params] = JSON.parse(s.history[j]) as [string, Params];
     set({ hi: j, styleId, params });
   },
+  /** Start from a style, with the Style page's traits laid over it. */
   loadStyle(id: string) {
     const st = styleById(id); if (!st) return;
-    set({ params: { ...st.params }, styleId: id, switchedOn: [] });
+    const traits = get().traits, params = { ...applyTraits(st.params, traits) }, n = Object.keys(traits).length;
+    set({ params, styleId: id, switchedOn: [], picked: JSON.stringify(params) });
     actions.commit();
-    actions.toast(`${st.name} loaded — now make it yours`);
+    actions.toast(`${st.name} loaded${n ? ` with ${n} ${n === 1 ? 'trait' : 'traits'}` : ''} — now make it yours`);
   },
   /** Reset one slider to the starting style's value, or, while edits go to one letter, to the
       value the other letters share. */
@@ -297,7 +355,26 @@ export const actions = {
   toggleMood(m: Mood) { set(s => ({ moods: toggle(s.moods, m) })); },
   toggleLook(l: Look) { set(s => ({ looks: toggle(s.looks, l) })); },
   toggleKind(k: Kind) { set(s => ({ kinds: toggle(s.kinds, k) })); },
-  clearFilters() { set({ groups: [], moods: [], looks: [], kinds: [] }); },
+  clearFilters() { set({ groups: [], moods: [], looks: [], kinds: [], query: '' }); },
+  setQuery(query: string) { set({ query }); },
+  setStyleTab(styleTab: StyleTab) { set({ styleTab }); },
+  /** Pick a step of a trait, or with null (or the step already picked) let each style keep its own. */
+  setTrait(id: TraitId, option: string | null) {
+    const traits = { ...get().traits };
+    if (option === null || traits[id] === option) delete traits[id]; else traits[id] = option;
+    setTraits(traits);
+  },
+  clearTraits() { setTraits({}); },
+  /** A random mix: most of the shape traits, now and then a finish. */
+  shuffleTraits() {
+    const traits: Traits = {};
+    for (const sec of TRAIT_SECTIONS) {
+      for (const t of sec.traits) {
+        if (Math.random() < (sec.id === 'finish' ? 0.12 : 0.55)) traits[t.id] = t.options[Math.floor(Math.random() * t.options.length)].id;
+      }
+    }
+    setTraits(traits);
+  },
   setView(view: CardView) {
     set({ view });
     try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode: the choice lasts this visit */ }

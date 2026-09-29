@@ -116,6 +116,19 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .card:hover { border-color: var(--line-2); }
 .card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .card.on .card-name { color: var(--accent-ink); }
+.card-like { margin-left: 8px; font-weight: 400; color: var(--ink-3); opacity: 0; transition: opacity .15s; }
+.card:hover .card-like, .card:focus-visible .card-like { opacity: 1; }
+/* while the cards catch up with a new trait, they dim a little */
+.style-groups { transition: opacity .15s; }
+.style-groups.stale { opacity: .55; }
+/* everything picked in the panel, over the cards */
+.active-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -6px 0 20px; }
+.active-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px 0 10px; border-radius: 100px; background: var(--sabi); color: #fff; font-size: 12px; font-weight: 500; transition: background .15s; }
+.active-chip:hover { background: var(--ink); }
+.active-chip.trait { background: var(--accent-soft); color: var(--accent-ink); }
+.active-chip.trait:hover { background: rgba(77, 128, 230, .2); }
+.active-chip svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; opacity: .75; }
+.link.small { font-size: 12px; margin-left: 4px; }
 
 /* ---------- panel resize handles: an 8px grab strip centred on the border, lit in the accent while used */
 .resizer { position: relative; z-index: 6; touch-action: none; }
@@ -138,6 +151,36 @@ body.resizing.y { cursor: row-resize; }
 
 /* style filters */
 .filters-head { display: flex; align-items: center; justify-content: space-between; min-height: 28px; margin-bottom: 16px; }
+/* Filter / Adjust: a segmented switch across the top of the panel */
+.style-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; margin-bottom: 18px; border-radius: var(--radius); background: var(--tint); }
+.style-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); transition: background .15s, color .15s, box-shadow .15s; }
+.style-tabs button:hover { color: var(--ink); }
+.style-tabs button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(46, 59, 62, .1); }
+.search-row { display: flex; align-items: center; gap: 6px; margin-bottom: 18px; }
+.search-field { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; }
+.search-field > svg { position: absolute; left: 11px; fill: none; stroke: var(--ink-3); stroke-width: 1.6; stroke-linecap: round; pointer-events: none; }
+.search-field input { width: 100%; height: 34px; padding: 0 30px 0 32px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--surface); font: 400 13px var(--ui); color: var(--ink); transition: border-color .15s, box-shadow .15s; }
+.search-field input::placeholder { color: var(--ink-3); }
+.search-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.search-field input::-webkit-search-cancel-button { display: none; }
+.search-field kbd { position: absolute; right: 8px; min-width: 18px; height: 18px; border: 1px solid var(--line-2); border-radius: 4px; font: 500 11px/16px var(--ui); color: var(--ink-3); text-align: center; pointer-events: none; }
+.search-field input:focus ~ kbd, .search-field input:not(:placeholder-shown) ~ kbd { display: none; }
+/* Adjust: a row of named steps per trait, each drawn in the current style */
+.traits-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 18px; }
+.traits-head p { flex: 1; margin: 0; font-size: 12.5px; color: var(--ink-2); }
+.traits-tools { display: flex; gap: 2px; flex: none; margin-top: -4px; }
+.traits-tools svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.trait-set > .facet-label { margin-bottom: 10px; }
+.trait + .trait { margin-top: 14px; }
+.trait-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; min-height: 18px; }
+.trait-label { font-size: 13px; font-weight: 500; }
+.trait-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: var(--ink-3); }
+.trait-any { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--accent-ink); }
+.trait-any:hover { text-decoration: underline; }
+.trait-opts { display: grid; gap: 4px; }
+.trait-opts .opt { gap: 3px; padding: 6px 2px 5px; min-width: 0; }
+.trait-opts .opt span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.specimen { display: block; overflow: visible; }
 .facet + .facet { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
 .facet-h { margin: 0; font: inherit; }
 /* Classification: one facet made of a section per category, each a quieter heading under its label */
