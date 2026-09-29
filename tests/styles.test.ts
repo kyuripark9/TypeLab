@@ -1,0 +1,78 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, STYLE_GROUPS, STYLES, TAG_FACE } from '../shared/content';
+import { buildFont } from '../shared/engine';
+
+/** The lowest point of a glyph's ink, in font units above the baseline (outlines are drawn y-down). */
+const inkBottom = (d: string) => {
+  const n = d.match(/-?\d+(\.\d+)?/g)!.map(Number);
+  let y = -Infinity;
+  for (let i = 1; i < n.length; i += 2) y = Math.max(y, n[i]);
+  return -y;
+};
+
+describe('style page', () => {
+  it('shows each style once, and only solid letters', () => {
+    assert.equal(new Set(PAGE_STYLES.map(s => s.id)).size, PAGE_STYLES.length);
+    for (const s of PAGE_STYLES) {
+      assert.ok(s, 'every card names a defined style');
+      assert.ok(s.params.fill === 'solid' && !s.params.stencil && !s.params.slice, s.id);
+    }
+  });
+
+  it('keeps every filter tag live: each Category, genre and feeling has a card', () => {
+    for (const g of STYLE_GROUPS) assert.ok(PAGE_STYLES.some(s => s.group === g.id), g.id);
+    for (const t of KIND_SECTIONS.flatMap(sec => sec.tags)) assert.ok(PAGE_STYLES.some(s => s.kinds.includes(t.id)), t.id);
+    for (const m of MOODS) assert.ok(PAGE_STYLES.some(s => s.moods.includes(m.id)), m.id);
+  });
+
+  it('draws each filter tag in a style on the page that carries it', () => {
+    const tags: [string, (id: string) => boolean][] = [
+      ...STYLE_GROUPS.map(g => [g.id, (id: string) => STYLES.find(s => s.id === id)!.group === g.id] as [string, (id: string) => boolean]),
+      ...KIND_SECTIONS.flatMap(sec => sec.tags).map(t => [t.id, (id: string) => STYLES.find(s => s.id === id)!.kinds.includes(t.id)] as [string, (id: string) => boolean]),
+      ...MOODS.map(m => [m.id, (id: string) => STYLES.find(s => s.id === id)!.moods.includes(m.id)] as [string, (id: string) => boolean]),
+      ...PAGE_LOOKS.map(l => [l.id, (id: string) => STYLES.find(s => s.id === id)!.looks.includes(l.id)] as [string, (id: string) => boolean])
+    ];
+    const onPage = new Set(PAGE_STYLES.map(s => s.id));
+    for (const [tag, carries] of tags) {
+      const face = TAG_FACE[tag as keyof typeof TAG_FACE];
+      assert.ok(onPage.has(face), `${tag} is drawn in ${face}, which has no card`);
+      assert.ok(carries(face), `${tag} is drawn in ${face}, which does not carry it`);
+    }
+  });
+});
+
+describe('word spaces', () => {
+  /** The ink gap between the n and the o of "n o", in font units. */
+  const wordGap = (id: string) => {
+    const f = buildFont(STYLES.find(s => s.id === id)!.params), ln = f.layout('n o', Infinity)[0];
+    const edge = (i: number, right: boolean) => {
+      const it = ln.items[i], n = f.glyph(it.ch)!.d.match(/-?\d+(\.\d+)?/g)!.map(Number), xs = n.filter((_, k) => k % 2 === 0);
+      return it.x + (right ? Math.max(...xs) : Math.min(...xs));
+    };
+    return (edge(2, false) - edge(0, true)) / f.m.xh;
+  };
+  it('keep joined-up scripts apart word by word', () => {
+    for (const s of PAGE_STYLES.filter(s => s.params.cursive >= 0.5)) assert.ok(wordGap(s.id) > 0.35, `${s.id}: ${wordGap(s.id).toFixed(2)} x-heights`);
+  });
+});
+
+describe('diagonal letters', () => {
+  it('stand v w V W on the baseline, however narrow, heavy or round', () => {
+    for (const s of PAGE_STYLES) {
+      const f = buildFont(s.params);
+      for (const ch of ['v', 'w', 'V', 'W']) {
+        const b = inkBottom(f.glyph(ch)!.d);
+        // Didone hairlines and blackletter cuts come to a point a little way up; nothing floats a stroke clear
+        assert.ok(b < f.m.s * 0.8, `${s.id} ${ch} floats ${Math.round(b)} above the baseline`);
+      }
+    }
+  });
+
+  it('leaves no gap after a Q whose tail curls out', () => {
+    for (const id of ['swash', 'nouveau']) {
+      const f = buildFont(STYLES.find(s => s.id === id)!.params);
+      assert.ok(f.glyph('Q')!.adv < f.glyph('O')!.adv * 1.1, id);
+    }
+  });
+});

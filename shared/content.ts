@@ -379,9 +379,9 @@ export const STYLES: StyleDef[] = [
 
   /* ---- Handwriting */
   style('casual', 'hand', ['handwritten', 'informal', 'monoline'], 'Casual Handwriting', ['happy', 'playful', 'childlike'], 'Caveat, Indie Flower, Shadows Into Light',
-    'Quick everyday handwriting with a felt pen: narrow, a little slanted, letters that half-join and never sit quite still.',
-    { weight: 0.28, width: 0.34, height: 0.62, slant: 0.25, contrast: 0.5, roundness: 1, terminal: 'round', wobble: 0.9, cursive: 0.45,
-      xHeight: 0.3, curve: 0.7, geoHuman: 0.8, letterSpacing: 0.12 }),
+    'Quick everyday handwriting with a felt pen: narrow, a little slanted, with small flicks at the stroke ends and letters that never sit quite still.',
+    { weight: 0.28, width: 0.34, height: 0.62, slant: 0.25, contrast: 0.5, roundness: 1, terminal: 'round', wobble: 0.5, cursive: 0.3,
+      xHeight: 0.3, curve: 0.7, geoHuman: 0.8, letterSpacing: 0.3 }),
   style('upright', 'hand', ['handwritten', 'upright'], 'Hand Printed', ['childlike', 'happy', 'cute', 'sincere'], 'Patrick Hand, Gochi Hand, Mansalva',
     'Printed by hand, letter by letter. Upright and friendly, with round pen ends and wobbly lines.',
     { weight: 0.38, width: 0.45, contrast: 0.5, roundness: 1, terminal: 'round', wobble: 0.75, cursive: 0.12,
@@ -389,20 +389,20 @@ export const STYLES: StyleDef[] = [
   style('informal', 'hand', ['informal'], 'Retro Script', ['vintage', 'playful', 'artistic', 'excited'], 'Pacifico, Lobster, Yellowtail',
     'A bold, joined-up script with a retro sign-painter swing: every letter flows into the next.',
     { weight: 0.62, width: 0.45, slant: 0.45, contrast: 0.63, roundness: 0.8, terminal: 'round', wobble: 0.25, cursive: 1,
-      xHeight: 0.45, curve: 0.8, geoHuman: 0.8, letterSpacing: 0.02 }),
+      xHeight: 0.45, curve: 0.35, geoHuman: 0.45, letterSpacing: 0.02 }),
   style('chancery', 'hand', ['formal'], 'Formal Script', ['fancy', 'sophisticated'], 'Great Vibes, Tangerine, Pinyon Script',
     'Copperplate elegance: a steep slant, hairline upstrokes, swelling downstrokes and a tiny x-height.',
     { weight: 0.36, width: 0.32, height: 0.75, slant: 1, contrast: 0.89, terminal: 'tapered', cursive: 1,
       xHeight: 0.22, curve: 1, geoHuman: 1, letterSpacing: 0.02 }),
   style('brush', 'hand', ['brush', 'informal'], 'Brush', ['artistic', 'loud', 'excited'], 'Kaushan Script, Oregano, Mr Dafoe',
     'Fast, heavy strokes from a loaded brush. A strong lean, tapering ends and a rough, lively rhythm.',
-    { weight: 0.7, width: 0.4, slant: 0.55, contrast: 0.71, terminal: 'tapered', wobble: 0.7, cursive: 0.55,
-      xHeight: 0.5, curve: 0.8, geoHuman: 0.9, letterSpacing: 0.08 }),
+    { weight: 0.7, width: 0.4, slant: 0.55, contrast: 0.66, terminal: 'tapered', wobble: 0.3, cursive: 0.55,
+      xHeight: 0.5, curve: 0.4, geoHuman: 0.5, letterSpacing: 0.08 }),
   style('marker', 'hand', ['handwritten', 'upright', 'marker'], 'Marker', ['loud', 'playful', 'rugged', 'excited'], 'Permanent Marker, Rock Salt, Sedgwick Ave',
     'Thick, even lines from a felt marker: narrow, tall and a bit rough, leaning slightly, with round, blunt stroke ends.',
     { weight: 0.56, width: 0.36, height: 0.7, slant: 0.14, contrast: 0.5, roundness: 1, terminal: 'round', wobble: 0.8,
       xHeight: 0.74, extenders: 0.3, curve: 0.3, geoHuman: 0.6, counter: 0.38, aperture: 0.4, letterSpacing: 0.14 }),
-  style('swash', 'hand', ['formal', 'swash'], 'Swash Script', ['fancy', 'sophisticated', 'artistic'], 'Parisienne, Alex Brush, Italianno',
+  style('swash', 'hand', ['formal', 'swash', 'italic'], 'Swash Script', ['fancy', 'sophisticated', 'artistic'], 'Parisienne, Alex Brush, Italianno',
     'A wedding-invitation script: a steep lean, thick and thin strokes, and every stroke end wound into a curling flourish.',
     { weight: 0.4, width: 0.36, height: 0.7, slant: 0.7, contrast: 0.84, terminal: 'tapered', cursive: 1, terminalCurl: 0.61,
       xHeight: 0.3, extenders: 0.8, curve: 1, geoHuman: 1, letterSpacing: 0.04 }),
@@ -424,9 +424,9 @@ export const STYLES: StyleDef[] = [
       terminalLength: 0.7, tail: 0.85, xHeight: 0.14, extenders: 1, curve: 1, geoHuman: 1, letterSpacing: 0, wordSpacing: 0.6 }),
   style('blackletter', 'hand', ['blackletter'], 'Blackletter', ['vintage', 'rugged', 'fancy'], 'UnifrakturMaguntia, Pirata One, Grenze Gotisch',
     'Gothic textura from a broad pen: tall, narrow and packed close, every curve broken into straight cuts, with diamond-sharp serifs.',
-    { weight: 0.6, width: 0.24, height: 0.72, contrast: 0.79, chamfer: 0.8, curve: 0, serif: true, serifShape: 'wedge', serifSize: 0.3,
+    { weight: 0.6, width: 0.3, height: 0.72, contrast: 0.79, chamfer: 0.8, curve: 0, serif: true, serifShape: 'wedge', serifSize: 0.18,
       serifThickness: 0.6, serifAngle: 1, terminal: 'angled', softSharp: 1, geoHuman: 0.7, xHeight: 0.6, extenders: 0.45, aperture: 0.15,
-      apex: 0.1, counter: 0.36, letterSpacing: 0.1 }),
+      apex: 0.1, counter: 0.36, letterSpacing: 0.2 }),
   style('sketch', 'hand', ['handwritten', 'upright'], 'Sketch', ['artistic', 'playful', 'childlike'], 'Cabin Sketch, Londrina Sketch, Rubik Doodle Shadow',
     'Outlined in pencil and never inked in: each stroke drawn as a shaky double line, like letters roughed out in a sketchbook.',
     { weight: 0.62, width: 0.5, contrast: 0.5, fill: 'wire', module: 0.3, roundness: 0.6, terminal: 'round', wobble: 1, curve: 0.5,
@@ -557,10 +557,28 @@ export const STYLES: StyleDef[] = [
       overlap: 0.5, letterSpacing: 0.15 })
 ];
 
-/* The style page shows solid letters only: styles built on an effect (a fill other than solid ink,
-   stencil gaps or a slice) stay defined, so designs saved from them still open, but get no card. */
-const isSolid = (p: Params) => p.fill === 'solid' && !p.stencil && !p.slice;
-export const PAGE_STYLES = STYLES.filter(s => isSolid(s.params));
+/* The style page's cards, in the order they are shown under each Category heading: plain text faces
+   first, then their rounder, bolder, narrower and wider cousins, so neighbours read as a family.
+   Every card is solid letters, and no two are near-copies. Styles left out stay defined, so designs
+   saved from them still open: those built on an effect (a fill other than solid ink, stencil gaps
+   or a slice), and those too close to a card here or too rough to start from. */
+const PAGE_ORDER = [
+  // Sans Serif: neutral, humanist, geometric, then bold geometric, then narrow to wide
+  'grotesque', 'industrial', 'humanist', 'flared', 'geometric', 'soft', 'mirrorsans', 'squircle', 'inktrap', 'chunkyround',
+  'condensed', 'softcond', 'extended', 'wide',
+  // Serif: the book faces by age, then the headline cuts, then the wide ones
+  'venetian', 'oldstyle', 'serif', 'serifitalic', 'swashitalic', 'didone', 'hairserif', 'fatface', 'news', 'headline', 'condserif',
+  'wedge', 'copperplate',
+  'slab', 'softslab', 'clarendon', 'humanslab', 'wideslab',
+  'code', 'roundmono', 'boxmono', 'scoreboard', 'boldmono', 'typewriter', 'cursivemono',
+  // Calligraphy: printing, then scripts from quick to formal, then the heavy ones and blackletter
+  'casual', 'upright', 'comic', 'architect', 'marker', 'upscript', 'signature', 'chancery', 'swash', 'informal', 'brush',
+  'blackletter',
+  // Display: heavy poster letters, then geometric and techno, then the fine ones
+  'woodtype', 'display', 'comicbook', 'octagon', 'heavybox', 'boxcontrast', 'stepped', 'modular',
+  'pinched', 'bauhaus', 'reverse', 'techno', 'hairbox', 'hairline', 'nouveau'
+];
+export const PAGE_STYLES = PAGE_ORDER.map(id => STYLES.find(s => s.id === id)!);
 /** Appearance tags that some card on the style page carries. Monospace is left out: there it
     picks the same cards as the Monospace Category. */
 export const PAGE_LOOKS = LOOKS.filter(l => l.id !== 'mono' && PAGE_STYLES.some(s => s.looks.includes(l.id)));
@@ -838,9 +856,9 @@ export const TAG_FACE: Record<StyleGroup | Mood | Look | Kind, string> = {
   fancy: 'didone', sophisticated: 'chancery', artistic: 'brush', loud: 'fatface', rugged: 'marker', vintage: 'typewriter',
   futuristic: 'techno', sincere: 'clarendon', excited: 'marker', innovative: 'squircle', stiff: 'code',
   mono: 'code', pixel: 'pixel', stencil: 'stencil', outline: 'construction', techno: 'techno', inktrap: 'inktrap',
-  contrast: 'didone', wide: 'split', narrow: 'condensed',
+  contrast: 'didone', wide: 'wide', narrow: 'condensed',
   handwritten: 'casual', upright: 'upright', informal: 'informal', formal: 'chancery', brush: 'brush', marker: 'marker',
-  swash: 'swash', italic: 'italic', monoline: 'monoline', signature: 'signature', blackletter: 'blackletter',
+  swash: 'swash', italic: 'swash', monoline: 'signature', signature: 'signature', blackletter: 'blackletter',
   venetian: 'venetian', oldstyle: 'oldstyle', transitional: 'serif', didone: 'didone', fatface: 'fatface', wedge: 'wedge', slab: 'slab', clarendon: 'clarendon',
   geometric: 'geometric', neogrotesque: 'grotesque', grotesque: 'condensed', humanist: 'humanist', rounded: 'soft',
   superellipse: 'squircle', flared: 'flared'

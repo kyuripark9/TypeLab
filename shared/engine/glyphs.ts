@@ -31,7 +31,10 @@ function zig(g: Builder, m: Metrics, xs: number[], yT: number, yB: number, start
       const dx = (xs[i] - xs[i - 1] + xs[i + 1] - xs[i]) / 2;
       const half = Math.atan2(dx, Hh), t = (m.tDir(dx, Hh) + m.thin) / 2;
       const tip = (t / 2) / Math.sin(half), ext = a > 0.03 ? a * 1.5 * m.s : m.os;
-      y = top(i) ? yT + ext - tip : yB - ext + tip;
+      // steep, heavy strokes would pull the vertex so far in that a w's middle flattens out: it stops
+      // a little way in, and the clip squares off the point it leaves beyond the line
+      const lift = Math.min(tip - ext, Hh * 0.3 * (1 - 0.6 * m.p.roundness));
+      y = top(i) ? yT - lift : yB + lift;
       g.mark(top(i) ? 'apex' : 'vertex', xs[i], top(i) ? yT : yB);
     }
     ys.push(y);
@@ -763,8 +766,11 @@ function descender(g: Builder, m: Metrics, xr: number, xl: number, W: number, o?
     tailEnd(g, e.x, e.y, W);
     return;
   }
-  const k = tailK(m), lx = xl - W * 0.08, ly = db * 0.45, ex = xr + r * 1.5 * k, ey = r * 0.8 * k;
-  g.path([...head, ['hv', lx, ly], ['C', lx, ly * 0.2, xr - W * 0.2, -m.s * 0.4, ex, ey]], { e: T, we: 0.8, part: 'stem', serifS: 'b', ...o });
+  // the loop is a narrow teardrop hanging under the bowl: it turns at the foot, rises steeply up
+  // its left side and swings back through the stem into the same exit stroke as the other letters
+  const e = exitEnd(m, xr, r), lx = lerp(xl, (xr + xl) / 2, 0.25), ly = db * 0.5, ex = e.x, ey = e.y;
+  const tail: Cmd[] = [['hv', lx, ly], ['C', lx, lerp(ly, ey, 0.6), ex - r * 1.1, ey - r * 0.95, ex, ey]];
+  g.path([...head, ...tail], { e: T, we: 0.8, part: 'stem', serifS: 'b', ...o });
   g.mark('exit', ex, ey);
   g.mark('tail', ex, ey);
   g.reachR = Math.max(g.reachR, ex);

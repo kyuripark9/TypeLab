@@ -189,7 +189,10 @@ function metrics(e: Effective): Metrics {
     ctx, tDir, hT: tDir(1, 0), W,
     sb,
     track: snap((e.letterSpacing - 0.2) * 260),
-    space: Math.max(snap(lerp(W(210) + (e.wordSpacing - 0.35) * 520, W(500) + sb * 1.5, e.mono)), cell),
+    // joined-up letters leave no gap of their own, and their entry and exit strokes swing out into
+    // the space, so a cursive design gets a wider one (about its hooks' size) to keep words apart
+    space: Math.max(snap(lerp(W(210) + (e.wordSpacing - 0.35) * 520 + (e.cursive < 0.04 ? 0 : lerp(s * 0.55, xh * 0.26 + s * 0.35, e.cursive) * 0.8),
+      W(500) + sb * 1.5, e.mono)), cell),
     slant: Math.tan(e.slant * 20 * Math.PI / 180),
     rot: rotationDeg(e.rotation) * Math.PI / 180,
     R: e.roundness * s * 0.5,
@@ -1261,9 +1264,10 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
       if (serif && curl !== 0.5) st.o = { ...st.o, [which === 's' ? 'serifS' : 'serifE']: null };
       if (plain && st.o.clip) st.o = { ...st.o, clip: widenClip(st.o.clip, r.from, before, r.cmds, m) };
       if (tip) { tip.x = r.to.x; tip.y = r.to.y; }
-      // a curl can swing out further than its tip ends up
+      // a curl can swing out further than its tip ends up. A Q's tail runs on under the next letter
+      // instead, as in type, so it leaves no gap after the Q
       grow.l = Math.max(grow.l, Math.min(0, r.from.x) - (r.span?.x0 ?? r.to.x));
-      grow.r = Math.max(grow.r, (r.span?.x1 ?? r.to.x) - Math.max(W, r.from.x));
+      if (o.part !== 'tail') grow.r = Math.max(grow.r, (r.span?.x1 ?? r.to.x) - Math.max(W, r.from.x));
     }
   });
   return grow;
