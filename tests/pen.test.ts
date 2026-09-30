@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ALL_CHARS, buildFont, drawnCmds, fitOutline, type Cmd, type Node } from '../shared/engine';
 import { STYLES } from '../shared/content';
 import { DEFAULTS, isValidParams, sanitizeParams, type Params } from '../shared/params';
-import { contourArea, deleteAnchors, moveAnchors, nearestSegment, reshapeSegment, reverseContour, setHandle, splitSegment, toggleSmooth } from '../client/lib/pen';
+import { contourArea, deleteAnchors, moveAnchors, movePeers, nearestSegment, peersOf, reshapeSegment, reverseContour, samePoints, setHandle, splitSegment, toggleSmooth, traceOf } from '../client/lib/pen';
 
 type P = { x: number; y: number };
 
@@ -129,5 +129,34 @@ describe('pen: editing points', () => {
     assert.notDeepEqual(bent[0][1], tri[0][1]);
     assert.equal(bent[0][1].x, 100);
     assert.ok(Math.sign(contourArea(reverseContour(tri, 0)[0])) === -Math.sign(contourArea(tri[0])));
+  });
+});
+
+describe('Sync all with the pen', () => {
+  const font = buildFont(STYLES[0].params);
+  const outline = (ch: string) => traceOf(font.glyph(ch)!);
+
+  it('finds the same point in letters of other widths: as high, and as far from the nearer side or the middle', () => {
+    const a = { adv: 500, contours: [[{ x: 60, y: 0 }, { x: 440, y: 0 }, { x: 250, y: 500 }]] };
+    const b = { adv: 700, contours: [[{ x: 640, y: 0 }, { x: 61, y: 1 }, { x: 350, y: 500 }, { x: 350, y: 400 }]] };
+    assert.deepEqual(samePoints(a, [{ c: 0, i: 0 }, { c: 0, i: 1 }, { c: 0, i: 2 }], b), [{ c: 0, i: 1 }, { c: 0, i: 0 }, { c: 0, i: 2 }]);
+    // nothing in the same place, and a point taken once isn't taken again
+    assert.deepEqual(samePoints(a, [{ c: 0, i: 0 }, { c: 0, i: 0 }], { adv: 500, contours: [[{ x: 60, y: 0 }, { x: 60, y: 300 }]] }), [{ c: 0, i: 0 }, null]);
+  });
+
+  it('reaches only the letters of its own kind that share the point', () => {
+    const n = outline('n');
+    // the foot of n's stem, at the baseline on the left
+    const foot = n.contours.flatMap((con, c) => con.map((p, i) => ({ c, i, p }))).find(o => o.p.y === 0 && o.p.x < n.adv / 3)!;
+    const peers = peersOf('n', n, [foot], outline);
+    const chs = peers.map(p => p.ch);
+    assert.ok(chs.includes('m') && chs.includes('r'), chs.join(''));
+    assert.ok(chs.every(ch => /[a-z]/.test(ch)) && !chs.includes('n') && !chs.includes('o'));
+    const moved = movePeers(peers, 10, 0);
+    for (const p of peers) {
+      const r = p.refs[0]!, was = p.doc.contours[r.c][r.i], now = moved[p.ch].contours[r.c][r.i];
+      assert.deepEqual([now.x - was.x, now.y - was.y], [10, 0]);
+      assert.equal(moved[p.ch].contours.flat().filter((q, k) => q.x !== p.doc.contours.flat()[k].x).length, 1);
+    }
   });
 });

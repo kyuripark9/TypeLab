@@ -112,12 +112,13 @@ function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } 
 export function Inspector() {
   const ch = useEditor(s => s.inspect), pen = useEditor(s => s.penMode), letter = useEditor(s => (s.penMode ? null : letterOf(s)));
   const drawn = useEditor(s => !!s.inspect && !!s.params.outlines[s.inspect]);
+  const sync = useEditor(s => s.scope === 'all');
   const font = useFont();
   const g = ch ? font.glyph(ch) : null;
   const grid = useGrid(font, ch);
   if (!ch || !g) return null;
-  // the pen's points and a drawing belong to this letter alone, like its own settings
-  const own = !!letter || pen || drawn;
+  // a drawing belongs to this letter alone, like its own settings, and so do the pen's points unless they move in sync
+  const own = pen ? !sync : !!letter || drawn;
 
   return (
     <section className={own ? 'inspector customizing' : 'inspector'} aria-label={`Glyph inspector: ${ch}`} data-guide="inspector">
@@ -126,7 +127,7 @@ export function Inspector() {
         <div className="insp-title"><h2>{ch}</h2></div>
         <button className="btn ghost round" onClick={() => actions.stepInspector(1)} aria-label="Next glyph">→</button>
         <ModeToggle />
-        {!pen && !drawn && <ScopeToggle ch={ch} />}
+        {(pen || !drawn) && <ScopeToggle ch={ch} pen={pen} />}
         {drawn && (
           <span className="drawn-note">
             Drawn by hand · the settings no longer shape {ch}
@@ -145,7 +146,13 @@ export function Inspector() {
       {grid && <GridBar ch={ch} font={font} group={grid.group} />}
       <div className="insp-body">
         {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} />}
-        {pen && !drawn && (
+        {pen && sync && (
+          <div className="scope-banner sync" role="status">
+            <ScopeIcon id="all" /><span>Moving a point moves it in the other letters with one in the same place · they turn into drawings too</span>
+            <button className="link" onClick={() => actions.setScope('letter')}>Customize {ch}</button>
+          </div>
+        )}
+        {pen && !sync && !drawn && (
           <div className="scope-banner" role="status">
             <ScopeIcon id="letter" /><span>Moving a point turns <b>{ch}</b> into a drawing · the settings stop shaping it, until you go back</span>
           </div>
@@ -190,10 +197,14 @@ function ModeToggle() {
 }
 
 /** Whether the controls reshape every letter in sync or only this one. A letter with settings of
-    its own can be put back in sync with the rest. */
-function ScopeToggle({ ch }: { ch: string }) {
-  const scope = useEditor(s => s.scope), custom = useEditor(s => !!s.params.glyphs[ch]);
-  const opts: [Scope, string, string][] = [
+    its own can be put back in sync with the rest. With the pen, Sync all moves a point in every
+    letter that has one in the same place. */
+function ScopeToggle({ ch, pen }: { ch: string; pen: boolean }) {
+  const scope = useEditor(s => s.scope), custom = useEditor(s => !pen && !!s.params.glyphs[ch]);
+  const opts: [Scope, string, string][] = pen ? [
+    ['all', 'Sync all', `Moving a point of ${ch} moves it in the other letters with a point in the same place: the same height, and as far from the side (or the middle)`],
+    ['letter', `Customize ${ch}`, `Moving a point changes only ${ch}; the other letters stay as they are`]
+  ] : [
     ['all', 'Sync all', 'Changes reshape every letter at once'],
     ['letter', `Customize ${ch}`, `Changes reshape only ${ch}; the other letters stay as they are`]
   ];

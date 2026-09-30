@@ -2,13 +2,14 @@
    editor. The Direct selection tool moves points, handles and curves; the Pen adds points (or
    draws new contours) and removes them; Convert switches points between corner and smooth. A letter
    not yet drawn shows its outline traced into points (fitOutline), and becomes a drawing, which the
-   settings no longer shape, with the first edit. Every change is one undo step. */
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { cmdsToD, drawnCmds, fitOutline, hasIn, hasOut, segment, type Drawn, type Font, type Glyph, type GlyphGrid, type Node } from '../../shared/engine';
+   settings no longer shape, with the first edit. Every change is one undo step. With Sync all, a
+   point or handle moved here moves in the other letters with a point in the same place too. */
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { cmdsToD, drawnCmds, hasIn, hasOut, segment, type Drawn, type Font, type Glyph, type GlyphGrid, type Node } from '../../shared/engine';
 import { isTyping, n1, useSize } from '../lib/hooks';
 import {
-  anchorsIn, constrain, contourArea, deleteAnchors, keyRef, moveAnchors, nearestSegment, pullHandles, refKey, reshapeSegment,
-  reverseContour, setHandle, setSmooth, splitSegment, toggleSmooth, type Ref
+  anchorsIn, constrain, contourArea, deleteAnchors, handlePeers, keyRef, moveAnchors, movePeers, nearestSegment, peersOf, pullHandles, refKey,
+  reshapeSegment, reverseContour, setHandle, setSmooth, splitSegment, toggleSmooth, traceOf, type Peer, type Ref
 } from '../lib/pen';
 import { actions, useEditor } from '../state/editor';
 import { GridLines } from './ConstructionGrid';
@@ -31,8 +32,9 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
   const stored = useEditor(s => s.params.outlines[ch]);
+  const sync = useEditor(s => s.scope === 'all');
   // before the first edit, the letter as the settings draw it, traced into points
-  const traced = useMemo<Drawn>(() => ({ adv: Math.round(g.adv), contours: fitOutline(g.cmds) }), [g]);
+  const traced = traceOf(g);
   const doc = stored ?? traced;
   const cs = doc.contours;
   const [tool, setTool] = useState<Tool>('select');
@@ -61,11 +63,21 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
 
   /** the outline right now, read at the time of the gesture */
   const current = (): Drawn => useEditor.getState().params.outlines[ch] ?? traced;
-  const write = (contours: Node[][], adv = current().adv) => {
+  /** Write the letter's outline, and with `also` the other letters' a synced edit reached. */
+  const write = (contours: Node[][], adv = current().adv, also: Record<string, Drawn> = {}) => {
     const s = useEditor.getState();
-    actions.setParam('outlines', { ...s.params.outlines, [ch]: { adv, contours } });
+    actions.setParam('outlines', { ...s.params.outlines, ...also, [ch]: { adv, contours } });
   };
-  const commit = (contours: Node[][], adv?: number) => { write(contours, adv); actions.commit(); };
+  const commit = (contours: Node[][], adv?: number, also?: Record<string, Drawn>) => { write(contours, adv, also); actions.commit(); };
+  /** With Sync all, the other letters with points in the same places as `refs`, which move along;
+      each as it is now (drawn, or as the settings draw it). */
+  const peers = (refs: Ref[]): Peer[] => {
+    if (!sync) return [];
+    const outs = useEditor.getState().params.outlines;
+    return peersOf(ch, current(), refs, o => { const og = outs[o] ? null : font.glyph(o); return outs[o] ?? (og ? traceOf(og) : null); });
+  };
+  /** Move points by (dx, dy), and the same points in the letters in sync with this one. */
+  const nudge = (refs: Ref[], dx: number, dy: number) => commit(moveAnchors(current().contours, refs, dx, dy), undefined, movePeers(peers(refs), dx, dy));
   /** Stop drawing; a contour left with a single point goes. */
   const finish = () => {
     const c = drawingOk;
@@ -125,11 +137,11 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   /** Drag anchor points from where they are when the drag starts: the grabbed one follows the
       pointer (snapped), the rest keep their places relative to it; Shift keeps to 45° steps. */
   const dragAnchors = (e: ReactPointerEvent, refs: Ref[], grab: Ref) => {
-    const base = current().contours, a = base[grab.c][grab.i], skip = new Set(refs.map(refKey));
+    const base = current().contours, a = base[grab.c][grab.i], skip = new Set(refs.map(refKey)), along = peers(refs);
     start(e, {
       move: (p, ev) => {
         const q = snapTo(ev.shiftKey ? constrain(a, p) : p, skip);
-        write(moveAnchors(base, refs, q.x - a.x, q.y - a.y));
+        write(moveAnchors(base, refs, q.x - a.x, q.y - a.y), undefined, movePeers(along, q.x - a.x, q.y - a.y));
       },
       up: moved => { if (moved) actions.commit(); }
     });
@@ -175,13 +187,14 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
 
   const onHandle = (r: Ref, side: 'i' | 'o') => (e: ReactPointerEvent) => {
     if (e.button !== 0 || space) return;
-    const base = current().contours;
+    const base = current().contours, n = base[r.c][r.i], along = peers([r]);
+    const h0 = side === 'i' ? { x: n.ix!, y: n.iy! } : { x: n.ox!, y: n.oy! };
     // Alt, or the Convert tool, moves one handle on its own and makes the point a corner
     const free = e.altKey || tool === 'convert';
     start(e, {
       move: (p, ev) => {
-        const n = base[r.c][r.i];
-        write(setHandle(base, r, side, snapTo(ev.shiftKey ? constrain(n, p) : p), free || ev.altKey));
+        const q = snapTo(ev.shiftKey ? constrain(n, p) : p), f = free || ev.altKey;
+        write(setHandle(base, r, side, q, f), undefined, handlePeers(along, side, q.x - h0.x, q.y - h0.y, f));
       },
       up: moved => { if (moved) actions.commit(); }
     });
@@ -325,7 +338,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     if (arrow && selRefs.length) {
       stop();
       const d = e.shiftKey ? 10 : 1;
-      commit(moveAnchors(current().contours, selRefs, arrow[0] * d, arrow[1] * d));
+      nudge(selRefs, arrow[0] * d, arrow[1] * d);
     }
   };
   useEffect(() => {
@@ -353,6 +366,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const one = selRefs.length === 1 ? cs[selRefs[0].c][selRefs[0].i] : null;
   const count = cs.reduce((a, c) => a + c.length, 0);
   const cursor = space ? 'grab' : tool === 'pen' ? 'crosshair' : 'default';
+  // with Sync all, the letters the picked points would move in too
+  const reach = sync && selRefs.length ? peers(selRefs).map(p => p.ch) : [];
 
   return (
     <div className="pen-wrap">
@@ -426,14 +441,19 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             {box && <rect className="pen-box" x={box.x0} y={box.y0} width={box.x1 - box.x0} height={box.y1 - box.y0} />}
           </svg>
         )}
+        {reach.length > 0 && (
+          <div className="pen-reach" role="status" title={`Moving the picked points moves them in ${reach.join(' ')} too, which become drawings`}>
+            Also moves in <b>{reach.join(' ')}</b>
+          </div>
+        )}
       </div>
 
       <div className="pen-bar">
         {one ? (
           <>
             <span className="pen-bar-label">Point</span>
-            <NumField label="X" value={one.x} onSet={v => commit(moveAnchors(current().contours, selRefs, v - one.x, 0))} />
-            <NumField label="Y" value={one.y} onSet={v => commit(moveAnchors(current().contours, selRefs, 0, v - one.y))} />
+            <NumField label="X" value={one.x} onSet={v => nudge(selRefs, v - one.x, 0)} />
+            <NumField label="Y" value={one.y} onSet={v => nudge(selRefs, 0, v - one.y)} />
             <PointKind smooth={!!one.s} onSet={s => commit(setSmooth(current().contours, selRefs, s))} />
           </>
         ) : selRefs.length > 1 ? (
@@ -456,7 +476,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
         <span className="grow" />
         <label className="check" title="Snap to the guide lines and to other points"><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} /> Snap</label>
         <NumField label="Width" value={doc.adv} onSet={v => commit(current().contours, Math.max(0, v))} />
-        <span className="pen-bar-label muted" title="Anchor points">{count} pts · {Math.round(sc / fitSc * 100)}%</span>
+        <span className="pen-bar-label muted pen-count" title="Anchor points">{count} pts · {Math.round(sc / fitSc * 100)}%</span>
       </div>
     </div>
   );
