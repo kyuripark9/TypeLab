@@ -42,6 +42,11 @@ const STEPS: Step[] = [
     task: 'Click a letter', done: s => !!s.inspect },
   { target: 'inspector', side: 'right', category: 'weight', inspector: 'open', label: 'Letter',
     task: 'Drag a part of the letter', done: (s, t) => s.params !== t.params },
+  { target: 'scope', side: 'bottom', category: 'weight', inspector: 'open', label: 'Customize',
+    task: 'Switch to Customize', note: 'Changes then reshape this letter alone.', done: s => s.scope === 'letter' },
+  { target: 'inspector', side: 'right', category: 'weight', inspector: 'open', label: 'Customize',
+    task: 'Drag a part again', note: 'Only this letter changes; Sync all puts it back in step.',
+    done: (s, t) => s.scope === 'letter' && s.params.glyphs !== t.params.glyphs },
   { target: 'strip', side: 'top', category: 'weight', inspector: 'keep', label: 'Glyphs',
     task: 'Click another glyph', done: (s, t) => !!s.inspect && s.inspect !== t.inspect },
   { target: 'actions', side: 'bottom', inspector: 'keep', label: 'Undo, save, export',
@@ -97,7 +102,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
   // remember where the user was, and put them back when the tour ends
   const start = useRef((() => {
     const s = useEditor.getState();
-    return { category: s.category, cards: s.cards, styleTab: s.styleTab, focus: document.activeElement as HTMLElement | null };
+    return { category: s.category, cards: s.cards, styleTab: s.styleTab, scope: s.scope, focus: document.activeElement as HTMLElement | null };
   })());
   const close = () => {
     markSeen();
@@ -106,9 +111,13 @@ export function Guide({ onClose }: { onClose: () => void }) {
     actions.setCategory(s.category);
     if (useEditor.getState().cards !== s.cards) actions.setCards(s.cards);
     actions.setStyleTab(s.styleTab);
+    actions.setScope(s.scope);
     s.focus?.focus();
     onClose();
   };
+
+  // the tour starts with every letter in sync, so customizing is a step of its own
+  useEffect(() => { actions.setScope('all'); }, []);
 
   // set the stage for the step, then watch the editor for its task
   useEffect(() => {

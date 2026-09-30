@@ -199,7 +199,7 @@ function ScopeToggle({ ch }: { ch: string }) {
   ];
   return (
     <>
-      <div className="scope" role="radiogroup" aria-label="Editing mode">
+      <div className="scope" role="radiogroup" aria-label="Editing mode" data-guide="scope">
         {opts.map(([id, label, title]) => (
           <button key={id} role="radio" aria-checked={scope === id} data-scope={id} className={scope === id ? 'on' : undefined} title={title}
             onClick={() => actions.setScope(id)}><ScopeIcon id={id} />{label}</button>
