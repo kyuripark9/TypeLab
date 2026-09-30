@@ -62,7 +62,7 @@ export function useFinder(): Finder {
   return { on, question: null, answers };
 }
 
-/** The answers so far as a trail, each one a way back to its question, with a way out to every card. */
+/** The answers so far as a trail, each one a way back to its question. */
 export function FinderTrail({ finder }: { finder: Finder }) {
   const { question, answers } = finder;
   return (
@@ -77,7 +77,6 @@ export function FinderTrail({ finder }: { finder: Finder }) {
         ))}
         {question && answers.length > 0 && <li aria-current="step"><Chevron /><span className="crumb now">{question.step === 'mood' ? 'Feeling' : 'Genre'}</span></li>}
       </ol>
-      <button className="link small" onClick={() => actions.setFinder(false)}>Browse all styles</button>
     </nav>
   );
 }

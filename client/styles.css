@@ -147,7 +147,6 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .crumb:hover { background: var(--hover); }
 .crumb:disabled { color: var(--ink-3); background: none; }
 .crumb.now { display: inline-flex; align-items: center; color: var(--ink-3); font-weight: 400; }
-.finder-trail .link.small { margin-left: auto; }
 .finder-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 12px; }
 .finder-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; outline: none; }
 .finder-head span { font-size: 13px; color: var(--ink-3); }
