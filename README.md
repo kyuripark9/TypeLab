@@ -59,6 +59,7 @@ and builds exported fonts on the server. A full rebuild of every glyph takes abo
 | `effects.ts` | Whole-outline effects: the slice cut, and the wireframe, pixel, dot and line fills |
 | `blocks.ts` | Block letters: solid rounded blocks with their counters cut in as slots (*Built from: Blocks*) |
 | `outline.ts` | Letters drawn by hand with the pen: anchor points and bézier handles, and the curve fitting that traces a generated letter into them |
+| `grid.ts` | Construction grids: the lines and circles a letter is built on, and the groups of letters that share a grid |
 
 Beyond weight, width and contrast, the pen model also does squircle bowls (*Squareness*),
 faceted octagonal curves (*Chamfer*), reverse contrast and ink-trap joints, and glyph assembly
@@ -150,6 +151,15 @@ lines and other points. `⌘`-scroll zooms, Space-drag pans, `⌘0` fits the let
 turns a contour inside another into a hole (or back). The first edit makes the letter a drawing, saved
 with the design (`params.outlines`) and exported as it is: the settings no longer shape it until
 **Back to settings**.
+
+**Construction grid**, in the inspector's header, draws the letter as an outline on the grid it is
+built on, like the grid pages of a type specimen: its straight edges carried on across the canvas,
+the level and upright lines its curves turn on, and the circles and ellipses its corners and bowls
+are arcs of. Letters built the same way share a grid, named in the bar under the header: Grid A to D
+are the capitals (straight strokes, diagonals, stems and curves, round), E to H the lowercase, I to L
+the figures, M to P the punctuation. The bar lists the letters on the same grid (click one to inspect
+it); lines and circles the letter has in common with its group are drawn in one colour, its own in
+another. The grid follows the letter as it is dragged, and shows in Points mode too.
 
 Deep links for demos: `/?style=serif&cat=serifs&active=serifTip&inspect=R&mode=paragraph&hot=1` (add `&pen=1` for Points).
 `cat` names a page, or a group to open its first page; an `active` control opens the page it is on.
