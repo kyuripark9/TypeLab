@@ -90,7 +90,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .cards-switch { display: flex; flex: none; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
 .view-toggle { display: flex; flex: none; gap: 2px; padding: 2px; border: 1px solid var(--line-2); border-radius: var(--radius); }
 .view-toggle button { width: 30px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-3); transition: background .15s, color .15s; }
-.view-toggle button:hover { background: var(--hover); color: var(--ink); }
+.view-toggle button:hover { color: var(--ink); }
 .view-toggle button.on { background: var(--active); color: var(--ink); }
 .stage-scroll { flex: 1; overflow: auto; padding: 24px 48px 60px; }
 .preview svg { display: block; fill: var(--ink); overflow: visible; }
