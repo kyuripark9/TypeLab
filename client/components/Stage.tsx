@@ -89,9 +89,10 @@ const VIEWS: [CardView, string, string][] = [
   ['grid', 'Grid', 'M3.5 3.5h5v5h-5zM11.5 3.5h5v5h-5zM3.5 11.5h5v5h-5zM11.5 11.5h5v5h-5z']
 ];
 
-/** List or grid layout for the style cards. */
+/** List or grid layout for the style cards; hidden while the finder asks a question, which has no cards to lay out. */
 function ViewToggle() {
   const view = useEditor(s => s.view);
+  if (useFinder().question) return null;
   return (
     <div className="view-toggle" role="radiogroup" aria-label="Layout">
       {VIEWS.map(([id, label, d]) => (
