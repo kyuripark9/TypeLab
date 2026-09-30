@@ -11,6 +11,7 @@ import {
   reverseContour, setHandle, setSmooth, splitSegment, toggleSmooth, type Ref
 } from '../lib/pen';
 import { actions, useEditor } from '../state/editor';
+import { FontGrid, gridStep } from './FontGrid';
 
 type Tool = 'select' | 'pen' | 'convert';
 type P = { x: number; y: number };
@@ -29,7 +30,7 @@ const HIT = 7; // px around an anchor or handle that grabs it
 export function PenCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) {
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
-  const stored = useEditor(s => s.params.outlines[ch]);
+  const stored = useEditor(s => s.params.outlines[ch]), grid = useEditor(s => s.grid);
   // before the first edit, the letter as the settings draw it, traced into points
   const traced = useMemo<Drawn>(() => ({ adv: Math.round(g.adv), contours: fitOutline(g.cmds) }), [g]);
   const doc = stored ?? traced;
@@ -80,7 +81,7 @@ export function PenCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font })
   };
 
   /** Snap a point to whole units, and (with Snap on) to the guide lines, the advance and other points
-      within a few pixels. `skip` are the points being moved. */
+      within a few pixels, or failing those to the font grid when it shows. `skip` are the points being moved. */
   const snapTo = (p: P, skip: Set<string> = new Set()): P => {
     let x = Math.round(p.x), y = Math.round(p.y);
     const gl: { x?: number; y?: number } = {};
@@ -92,6 +93,9 @@ export function PenCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font })
       const sx = near(p.x, xs), sy = near(p.y, ys);
       if (sx !== null) { x = sx; gl.x = sx; }
       if (sy !== null) { y = sy; gl.y = sy; }
+      const step = gridStep(sc), onGrid = (v: number) => Math.round(v / step) * step;
+      if (grid && sx === null && Math.abs(onGrid(p.x) - p.x) <= tol) x = onGrid(p.x);
+      if (grid && sy === null && Math.abs(onGrid(p.y) - p.y) <= tol) y = onGrid(p.y);
     }
     setGuides(gl);
     return { x, y };
@@ -374,6 +378,7 @@ export function PenCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font })
             <rect className="pen-bg" width={W} height={H} onPointerDown={onBackground}
               onPointerMove={e => setPtr(toFont(e))} onPointerLeave={() => setPtr(null)} />
             <g pointerEvents="none">
+              {grid && <FontGrid W={W} H={H} sc={sc} ox={ox} oy={oy} />}
               <rect className="i-adv" x={n1(X(0))} y={n1(Y(top - 40))} width={n1(doc.adv * sc)} height={n1((top - 40 - bot - 20) * sc)} />
               {guideLines.map(([y, label]) => (
                 <g key={label}>

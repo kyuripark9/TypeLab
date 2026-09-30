@@ -372,7 +372,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .ctl[data-letter] input[type=range]::-webkit-slider-thumb { border-color: var(--custom); }
 .ctl[data-letter] input[type=range]::-moz-range-thumb { border-color: var(--custom); }
 .scope-note em { font-style: normal; font-weight: 600; }
-.check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
 .check input { accent-color: var(--accent); }
 .insp-body { flex: 1; display: flex; min-height: 0; position: relative; }
 .insp-canvas { flex: 1; min-width: 0; min-height: 0; overflow: hidden; position: relative; user-select: none; touch-action: none; }
@@ -381,6 +381,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .i-ink.dim { opacity: .22; }
 .i-hl { fill: var(--accent); }
 .i-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: var(--sw); }
+.i-grid path { fill: none; stroke: var(--line); stroke-width: 1; }
+.i-grid path.major { stroke: var(--line-2); }
 .i-adv { fill: rgba(46, 59, 62, .025); stroke: var(--line-2); stroke-dasharray: 3 4; }
 .i-guide { stroke: var(--line-2); }
 .i-guide.hot { stroke: var(--accent); stroke-width: 1.5; }

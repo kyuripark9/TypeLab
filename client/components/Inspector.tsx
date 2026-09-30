@@ -7,6 +7,7 @@ import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph } from '../../shared/
 import { isStrokeId, type NumericParam, type Params } from '../../shared/params';
 import { dragSpec, handlesFor, letterCorners, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { n1, useSize } from '../lib/hooks';
+import { FontGrid } from './FontGrid';
 import { PenCanvas } from './PenCanvas';
 import { actions, endOf, hlKey, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type EndKey, type Scope } from '../state/editor';
 
@@ -130,6 +131,7 @@ export function Inspector() {
           </span>
         )}
         <span className="grow" />
+        <GridToggle />
         {!pen && !drawn && <SkeletonToggle />}
         <button className="btn ghost icon" onClick={actions.closeInspector} aria-label="Close inspector" title="Close (Esc)">
           <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
@@ -208,6 +210,16 @@ export function ScopeIcon({ id }: { id: Scope }) {
   );
 }
 
+/** The font grid behind the letter, on or off. */
+function GridToggle() {
+  const on = useEditor(s => s.grid);
+  return (
+    <label className="check">
+      <input type="checkbox" checked={on} onChange={e => actions.setGrid(e.target.checked)} /> Grid
+    </label>
+  );
+}
+
 function SkeletonToggle() {
   const on = useEditor(s => s.skeleton);
   return (
@@ -242,7 +254,7 @@ interface TipRow { axis: Axis; label: string; ends: [string, string] }
 function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) {
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
-  const part = useEditor(s => s.part), active = useEditor(s => s.active), skeleton = useEditor(s => s.skeleton);
+  const part = useEditor(s => s.part), active = useEditor(s => s.active), skeleton = useEditor(s => s.skeleton), grid = useEditor(s => s.grid);
   // while only this letter changes, each stroke end is dragged on its own
   const oneEnd = useEditor(s => !!letterOf(s)), hotEnd = useEditor(s => s.hotEnd);
   const drag = useRef<Drag | null>(null);
@@ -369,6 +381,7 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
     <div className={dragging ? 'insp-canvas dragging' : 'insp-canvas'} ref={ref}>
       {size.width > 0 && (
         <svg ref={svgRef} width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+          {grid && <FontGrid W={W} H={H} sc={sc} ox={ox} oy={oy} />}
           <rect className="i-adv" x={X(0)} y={Y(top - 40)} width={n1(g.adv * sc)} height={n1((top - 40 - bot - 20) * sc)} />
           {guides.map(([id, y, label]) => {
             const hot = part === id || (!part && ((id === 'xHeight' && active === 'xHeight') || (id === 'capHeight' && active === 'height')));
