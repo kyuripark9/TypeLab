@@ -35,6 +35,14 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
     { id: 'slant', label: 'Slant', hint: 'How far the letters lean', sample: 'H', options: [
       opt('upright', 'Upright', { slant: 0 }), opt('italic', 'Italic', { slant: 0.35 }), opt('steep', 'Steep', { slant: 0.75 })] }
   ] },
+  { id: 'proportion', label: 'Proportion', traits: [
+    { id: 'xHeight', label: 'Lowercase', hint: 'How tall the lowercase is next to the capitals', sample: 'Hx', options: [
+      opt('small', 'Small', { xHeight: 0.24 }), opt('medium', 'Medium', { xHeight: 0.5 }), opt('large', 'Large', { xHeight: 0.72 }),
+      opt('caps', 'Cap high', { xHeight: 1 })] },
+    { id: 'spacing', label: 'Spacing', hint: 'The room between letters', sample: 'ill', options: [
+      opt('tight', 'Tight', { letterSpacing: 0.04, mono: 0 }), opt('normal', 'Normal', { letterSpacing: 0.2, mono: 0 }),
+      opt('loose', 'Loose', { letterSpacing: 0.4, mono: 0 }), opt('mono', 'Mono', { mono: 1 })] }
+  ] },
   { id: 'details', label: 'Details', traits: [
     { id: 'serif', label: 'Serifs', hint: 'The small feet at the ends of stems', sample: 'n', options: [
       opt('none', 'None', { serif: false }),
@@ -51,14 +59,6 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
       opt('sharp', 'Sharp', { roundness: 0 }), opt('soft', 'Soft', { roundness: 0.5 }), opt('round', 'Round', { roundness: 1 })] },
     { id: 'ends', label: 'Stroke ends', hint: 'How the free ends of strokes finish', sample: 'c',
       options: TERMINALS.map(t => opt(t, ENDS[t], { terminal: t, terminalForm: TERMINAL_FORMS[t][0] })) }
-  ] },
-  { id: 'proportion', label: 'Proportion', traits: [
-    { id: 'xHeight', label: 'Lowercase', hint: 'How tall the lowercase is next to the capitals', sample: 'Hx', options: [
-      opt('small', 'Small', { xHeight: 0.24 }), opt('medium', 'Medium', { xHeight: 0.5 }), opt('large', 'Large', { xHeight: 0.72 }),
-      opt('caps', 'Cap high', { xHeight: 1 })] },
-    { id: 'spacing', label: 'Spacing', hint: 'The room between letters', sample: 'ill', options: [
-      opt('tight', 'Tight', { letterSpacing: 0.04, mono: 0 }), opt('normal', 'Normal', { letterSpacing: 0.2, mono: 0 }),
-      opt('loose', 'Loose', { letterSpacing: 0.4, mono: 0 }), opt('mono', 'Mono', { mono: 1 })] }
   ] },
   { id: 'finish', label: 'Finish', traits: [
     { id: 'fill', label: 'Fill', hint: 'What the letters are made of', sample: 'R', options: [

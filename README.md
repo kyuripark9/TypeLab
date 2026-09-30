@@ -105,8 +105,9 @@ inside curves, and the lowercase become small capitals.
   a deferred render, so dragging stays at 60 fps.
 - `pages/EditorPage.tsx` (`/` and `/d/:id`) and `pages/LibraryPage.tsx` (`/designs`).
 - The editor's pages are listed in `shared/content.ts` (`CATEGORIES`), and each control names the page it
-  is on. Structure, Shape and Proportion are groups: their pages (Weight & contrast, Corners, Stroke ends,
-  Serifs, Letters…) sit under them in the navigation.
+  is on. Structure, Proportion and Shape are groups: their pages (Weight & contrast, Heights, Corners,
+  Stroke ends, Serifs, Letters…) sit under them in the navigation. Pages run from the broadest settings
+  to the finest, and a page shows its controls in the order they are listed in `CONTROLS`.
 
 ### API (`server/`)
 

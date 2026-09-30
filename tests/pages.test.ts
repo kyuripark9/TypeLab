@@ -27,6 +27,21 @@ describe('editor pages', () => {
     assert.deepEqual(controls.filter(k => k.startsWith('serif')).map(k => CONTROLS[k].cat), Array(8).fill('serifs'));
   });
 
+  it('runs from the broadest settings to the finest, on the navigation and on each page', () => {
+    const at = (id: string) => CATEGORIES.findIndex(c => c.id === id || c.group === id);
+    const nav = ['style', 'personality', 'structure', 'proportion', 'shape', 'spacing', 'effects'];
+    assert.deepEqual([...nav].sort((a, b) => at(a) - at(b)), nav);
+    const on = (cat: string) => controls.filter(k => CONTROLS[k].cat === cat);
+    // a choice of shape leads the sliders that tune it
+    assert.ok(on('curves').indexOf('bowlForm') < on('curves').indexOf('squareness'));
+    assert.ok(on('corners').indexOf('bends') < on('corners').indexOf('apex'));
+    // the advanced controls close their page
+    for (const c of CATEGORIES) {
+      const flags = on(c.id).map(k => !!CONTROLS[k].advanced);
+      assert.deepEqual(flags, [...flags].sort((a, b) => Number(a) - Number(b)), c.id);
+    }
+  });
+
   it('opens a group on its first page, so links from before the pages still work', () => {
     assert.equal(pageOf('serifs'), 'serifs');
     assert.equal(pageOf('structure'), 'weight');

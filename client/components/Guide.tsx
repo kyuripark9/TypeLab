@@ -10,7 +10,7 @@ interface Step { target?: string; side?: Side; category?: CategoryId; title: str
 const STEPS: Step[] = [
   { title: 'Welcome to TypeLab', body: 'Design your own typeface by shaping letters, not numbers. Here’s a quick tour.' },
   { target: 'nav', side: 'right', title: 'Design categories',
-    body: 'Work through your font one area at a time, from Style down to Effects. Structure, Shape and Proportion each open into pages of their own, like Serifs.' },
+    body: 'Work through your font one area at a time, from Style down to Effects. Structure, Proportion and Shape each open into pages of their own, like Serifs.' },
   { target: 'stage', side: 'right', category: 'style', title: 'Starting styles',
     body: 'Choose a style to begin with. Type in the bar above to see your own words in every style.' },
   { target: 'panel', side: 'left', category: 'style', title: 'Find and adjust',
