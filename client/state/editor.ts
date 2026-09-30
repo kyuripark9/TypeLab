@@ -21,9 +21,9 @@ const CARDS_KEY = 'typelab.cardsHidden';
 const savedCards = (): boolean => {
   try { return localStorage.getItem(CARDS_KEY) !== '1'; } catch { return true; }
 };
-const GRID_KEY = 'typelab.gridHidden';
-const savedGrid = (): boolean => {
-  try { return localStorage.getItem(GRID_KEY) !== '1'; } catch { return true; }
+const FONT_GRID_KEY = 'typelab.fontGridHidden';
+const savedFontGrid = (): boolean => {
+  try { return localStorage.getItem(FONT_GRID_KEY) !== '1'; } catch { return true; }
 };
 const FOLD_KEY = 'typelab.folded';
 const savedFolded = (): ControlKey[] => {
@@ -78,8 +78,8 @@ export interface EditorState extends Doc {
   /** the stroke end (by id) pointed at in the list of a customized letter's ends */
   hotEnd: string | null;
   skeleton: boolean;
-  /** the inspector draws the font grid behind the letter */
-  grid: boolean;
+  /** the inspector shows the letter among the design's other letters, in a grid of words */
+  fontGrid: boolean;
   /** the inspector edits the letter's anchor points with the pen, instead of dragging its parts */
   penMode: boolean;
   exportOpen: boolean;
@@ -134,7 +134,7 @@ export const useEditor = create<EditorState>()(() => ({
   part: null,
   hotEnd: null,
   skeleton: false,
-  grid: savedGrid(),
+  fontGrid: savedFontGrid(),
   penMode: false,
   exportOpen: false,
   toast: null
@@ -425,9 +425,9 @@ export const actions = {
   setPart(part: string | null) { if (get().part !== part) set({ part }); },
   setHotEnd(hotEnd: string | null) { if (get().hotEnd !== hotEnd) set({ hotEnd }); },
   setSkeleton(skeleton: boolean) { set({ skeleton }); },
-  setGrid(grid: boolean) {
-    set({ grid });
-    try { if (grid) localStorage.removeItem(GRID_KEY); else localStorage.setItem(GRID_KEY, '1'); } catch { /* private mode: lasts this visit */ }
+  setFontGrid(fontGrid: boolean) {
+    set({ fontGrid });
+    try { if (fontGrid) localStorage.removeItem(FONT_GRID_KEY); else localStorage.setItem(FONT_GRID_KEY, '1'); } catch { /* private mode: lasts this visit */ }
   },
   setPenMode(penMode: boolean) { set({ penMode }); },
   /** Give a letter drawn by hand back to the settings, which shape it again. */

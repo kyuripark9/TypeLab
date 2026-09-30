@@ -7,7 +7,7 @@ import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph } from '../../shared/
 import { isStrokeId, type NumericParam, type Params } from '../../shared/params';
 import { dragSpec, handlesFor, letterCorners, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { n1, useSize } from '../lib/hooks';
-import { FontGrid } from './FontGrid';
+import { ContextGrid } from './ContextGrid';
 import { PenCanvas } from './PenCanvas';
 import { actions, endOf, hlKey, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type EndKey, type Scope } from '../state/editor';
 
@@ -111,7 +111,7 @@ function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } 
 
 export function Inspector() {
   const ch = useEditor(s => s.inspect), pen = useEditor(s => s.penMode), letter = useEditor(s => (s.penMode ? null : letterOf(s)));
-  const drawn = useEditor(s => !!s.inspect && !!s.params.outlines[s.inspect]);
+  const drawn = useEditor(s => !!s.inspect && !!s.params.outlines[s.inspect]), fontGrid = useEditor(s => s.fontGrid);
   const font = useFont();
   const g = ch ? font.glyph(ch) : null;
   if (!ch || !g) return null;
@@ -131,7 +131,7 @@ export function Inspector() {
           </span>
         )}
         <span className="grow" />
-        <GridToggle />
+        <FontGridToggle />
         {!pen && !drawn && <SkeletonToggle />}
         <button className="btn ghost icon" onClick={actions.closeInspector} aria-label="Close inspector" title="Close (Esc)">
           <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
@@ -148,6 +148,7 @@ export function Inspector() {
           </div>
         )}
       </div>
+      {fontGrid && <ContextGrid ch={ch} font={font} />}
     </section>
   );
 }
@@ -210,12 +211,12 @@ export function ScopeIcon({ id }: { id: Scope }) {
   );
 }
 
-/** The font grid behind the letter, on or off. */
-function GridToggle() {
-  const on = useEditor(s => s.grid);
+/** The font grid under the letter: it set among the other letters, on or off. */
+function FontGridToggle() {
+  const on = useEditor(s => s.fontGrid);
   return (
-    <label className="check">
-      <input type="checkbox" checked={on} onChange={e => actions.setGrid(e.target.checked)} /> Grid
+    <label className="check" title="Show the letter among the others, in words">
+      <input type="checkbox" checked={on} onChange={e => actions.setFontGrid(e.target.checked)} /> Font grid
     </label>
   );
 }
@@ -254,7 +255,7 @@ interface TipRow { axis: Axis; label: string; ends: [string, string] }
 function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) {
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
-  const part = useEditor(s => s.part), active = useEditor(s => s.active), skeleton = useEditor(s => s.skeleton), grid = useEditor(s => s.grid);
+  const part = useEditor(s => s.part), active = useEditor(s => s.active), skeleton = useEditor(s => s.skeleton);
   // while only this letter changes, each stroke end is dragged on its own
   const oneEnd = useEditor(s => !!letterOf(s)), hotEnd = useEditor(s => s.hotEnd);
   const drag = useRef<Drag | null>(null);
@@ -381,7 +382,6 @@ function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) 
     <div className={dragging ? 'insp-canvas dragging' : 'insp-canvas'} ref={ref}>
       {size.width > 0 && (
         <svg ref={svgRef} width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-          {grid && <FontGrid W={W} H={H} sc={sc} ox={ox} oy={oy} />}
           <rect className="i-adv" x={X(0)} y={Y(top - 40)} width={n1(g.adv * sc)} height={n1((top - 40 - bot - 20) * sc)} />
           {guides.map(([id, y, label]) => {
             const hot = part === id || (!part && ((id === 'xHeight' && active === 'xHeight') || (id === 'capHeight' && active === 'height')));
