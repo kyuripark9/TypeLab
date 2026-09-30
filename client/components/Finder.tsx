@@ -2,11 +2,12 @@
    which genre of them and how they should feel, one question at a time, and then shows the cards
    that fit. Each answer is a filter in the panel, so the panel, the chips and the finder stay in
    step; a question that wouldn't narrow anything is left out. Each option is drawn in the most
-   basic style it would keep (the first on the page), so the choice is made by eye. */
+   basic style it would keep (the first on the page), so the choice is made by eye; once something
+   is typed in the bar on top, each tile draws that text instead, under the answer and the style's name. */
 import { useEffect, useRef } from 'react';
 import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, type StyleDef, type StyleFilter } from '../../shared/content';
 import type { Traits } from '../../shared/traits';
-import { n1 } from '../lib/hooks';
+import { n1, useSize } from '../lib/hooks';
 import { actions, adjustedParams, fontFor, passKey, useEditor, useStyleMatch, type FinderStep } from '../state/editor';
 
 interface Option { id: string; label: string; hint?: string; count: number; sample: StyleDef }
@@ -87,9 +88,9 @@ const Chevron = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" /></svg>
 );
 
-/** The question asked now: one tile per answer, its name drawn in a style it would keep, and "Any". */
+/** The question asked now: one tile per answer, its name (or the typed text) drawn in a style it would keep, and "Any". */
 export function FinderQuestion({ question: q }: { question: Question }) {
-  const traits = useEditor(s => s.traits);
+  const traits = useEditor(s => s.traits), typed = useEditor(s => s.custom).trim();
   const head = useRef<HTMLHeadingElement>(null), first = useRef(true);
   // after an answer, the next question takes the focus; the first one leaves it where it is
   useEffect(() => {
@@ -104,7 +105,10 @@ export function FinderQuestion({ question: q }: { question: Question }) {
       <div className="finder-options">
         {q.options.map(o => (
           <button key={o.id} className="finder-option" aria-label={`${o.label}, ${o.count} ${o.count === 1 ? 'style' : 'styles'}`} onClick={() => actions.answer(q.step, o.id)}>
-            <Sample style={o.sample} traits={traits} text={o.label} />
+            {typed ? <>
+              <span className="finder-label">{o.label}<span className="finder-style">{o.sample.name}</span></span>
+              <Typed style={o.sample} traits={traits} text={typed} />
+            </> : <Sample style={o.sample} traits={traits} text={o.label} />}
           </button>
         ))}
         <button className="finder-option any" onClick={() => actions.pass(q.step)}>
@@ -127,5 +131,26 @@ function Sample({ style, traits, text }: { style: StyleDef; traits: Traits; text
         return g && <path key={i} d={g.d} transform={`translate(${n1(it.x)},${n1(top)})`} />;
       })}
     </svg>
+  );
+}
+
+/** Typed text set in a style at one size for every tile, wrapped to the tile's width. */
+function Typed({ style, traits, text }: { style: StyleDef; traits: Traits; text: string }) {
+  const f = fontFor(adjustedParams(style, traits));
+  const [ref, box] = useSize<HTMLDivElement>();
+  const top = Math.max(f.m.asc, f.m.cap), H = top - f.m.desc, LH = H * 1.2, sc = 34 / H;
+  const lines = box.width ? f.layout(text, box.width / sc) : [];
+  const h = n1(lines.length * LH * sc);
+  return (
+    <div ref={ref} className="finder-typed">
+      <svg width={n1(box.width)} height={h} viewBox={`0 0 ${n1(box.width)} ${h}`} aria-hidden="true">
+        <g transform={`scale(${n1(sc * 1000) / 1000})`}>
+          {lines.map((ln, i) => ln.items.map((it, j) => {
+            const g = f.glyph(it.ch);
+            return g && <path key={`${i}-${j}`} d={g.d} transform={`translate(${n1(it.x)},${n1(top + i * LH)})`} />;
+          }))}
+        </g>
+      </svg>
+    </div>
   );
 }
