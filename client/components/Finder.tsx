@@ -10,8 +10,8 @@ import { n1 } from '../lib/hooks';
 import { actions, adjustedParams, fontFor, passKey, useEditor, useStyleMatch, type FinderStep } from '../state/editor';
 
 interface Option { id: string; label: string; hint?: string; count: number; sample: StyleDef }
-export interface Question { step: FinderStep; title: string; note: string; options: Option[]; count: number }
-interface Answer { step: FinderStep; label: string }
+export interface Question { step: FinderStep; title: string; options: Option[]; count: number }
+interface Answer { step: FinderStep; label: string; count: number }
 export interface Finder { on: boolean; question: Question | null; answers: Answer[] }
 
 const TITLES: Record<FinderStep, string> = {
@@ -37,7 +37,7 @@ export function useFinder(): Finder {
     // a question is only worth asking if some answer leaves out some cards
     if (options.length < 2 || !options.some(o => o.count < count)) return null;
     const what = STYLE_GROUPS.filter(g => f.groups.includes(g.id)).map(g => g.label).join(' or ');
-    return { step, title: TITLES[step].replace('{}', what), note: `${count} ${count === 1 ? 'style' : 'styles'} left`, options, count };
+    return { step, title: TITLES[step].replace('{}', what), options, count };
   };
 
   // each step: already answered (by the finder or the panel), passed with "Any", skipped as pointless, or asked now
@@ -53,9 +53,11 @@ export function useFinder(): Finder {
         return q && q.count > 4 ? { ...q, options: [...q.options].sort((a, b) => b.count - a.count) } : null;
       }]
   ];
+  // how many cards an answer leaves, before the answers after it narrow them further
+  const left = (step: FinderStep) => fits(step === 'group' ? { kinds: [], moods: [] } : step === 'kind' ? { moods: [] } : {}).length;
   for (const [step, picked, question] of steps) {
-    if (picked.length) { answers.push({ step, label: picked.join(', ') }); continue; }
-    if (passed[step] === passKey(f, step)) { answers.push({ step, label: step === 'group' ? 'Any kind' : step === 'kind' ? 'Any genre' : 'Any feeling' }); continue; }
+    if (picked.length) { answers.push({ step, label: picked.join(', '), count: left(step) }); continue; }
+    if (passed[step] === passKey(f, step)) { answers.push({ step, label: step === 'group' ? 'Any kind' : step === 'kind' ? 'Any genre' : 'Any feeling', count: left(step) }); continue; }
     const q = question();
     if (q) return { on, question: q, answers };
   }
@@ -68,11 +70,11 @@ export function FinderTrail({ finder }: { finder: Finder }) {
   return (
     <nav className="finder-trail" aria-label="Your answers">
       <ol>
-        <li><button className="crumb" disabled={!answers.length} onClick={() => actions.backTo('group')}>All styles</button></li>
+        <li><button className="crumb" disabled={!answers.length} onClick={() => actions.backTo('group')}>All styles<span className="crumb-count">{PAGE_STYLES.length}</span></button></li>
         {answers.map(a => (
           <li key={a.step}>
             <Chevron />
-            <button className="crumb" title="Change this answer" onClick={() => actions.backTo(a.step)}>{a.label}</button>
+            <button className="crumb" title="Change this answer" onClick={() => actions.backTo(a.step)}>{a.label}<span className="crumb-count">{a.count}</span></button>
           </li>
         ))}
         {question && answers.length > 0 && <li aria-current="step"><Chevron /><span className="crumb now">{question.step === 'mood' ? 'Feeling' : 'Genre'}</span></li>}
@@ -98,7 +100,6 @@ export function FinderQuestion({ question: q }: { question: Question }) {
     <section className="finder" aria-labelledby="finder-q">
       <div className="finder-head">
         <h2 id="finder-q" ref={head} tabIndex={-1}>{q.title}</h2>
-        <span>{q.note}</span>
       </div>
       <div className="finder-options">
         {q.options.map(o => (

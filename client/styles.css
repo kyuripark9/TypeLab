@@ -146,10 +146,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .crumb { height: 26px; padding: 0 8px; border-radius: var(--radius-s); font-size: 13px; font-weight: 500; color: var(--ink); transition: background .15s; }
 .crumb:hover { background: var(--hover); }
 .crumb:disabled { color: var(--ink-3); background: none; }
+.crumb-count { margin-left: 6px; color: var(--ink-3); font-weight: 400; }
 .crumb.now { display: inline-flex; align-items: center; color: var(--ink-3); font-weight: 400; }
 .finder-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 12px; }
 .finder-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; outline: none; }
-.finder-head span { font-size: 13px; color: var(--ink-3); }
 .finder-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 .finder-option { text-align: left; min-width: 0; display: flex; flex-direction: column; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface); transition: border-color .15s; }
 .finder-option:hover { border-color: var(--line-2); }

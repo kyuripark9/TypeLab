@@ -129,13 +129,10 @@ function StyleCards() {
   // redrawing every card takes a moment, so the panel answers first and the cards follow
   const traits = useDeferredValue(now);
   const shown = PAGE_STYLES.filter(s => matches(s, {}, traits));
-  const all = PAGE_STYLES.length;
   return (
     <div className="style-cards">
       <div className="cards-head">
         <h1 ref={head} tabIndex={-1}>Start with a style</h1>
-        {/* a status, so screen readers hear the count change as filters are picked */}
-        <span role="status">{shown.length < all ? `${shown.length} of ${all} styles` : `${all} styles`}</span>
         {/* one spot for both ways in: the questions, or every card at once */}
         <button className="link small" onClick={() => actions.setFinder(!finder.on)}>{finder.on ? 'Browse all styles' : 'Help me choose'}</button>
         {/* the filters sit after every card in tab order; this jumps there, and shows only when focused */}
