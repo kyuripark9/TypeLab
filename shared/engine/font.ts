@@ -603,7 +603,20 @@ const CURL_LEAD = 0.6;
 const CURL_TRIES = [1, 0.5, 0].flatMap(g => [0, 0.1, 0.2, 0.3, 0.45, CURL_LEAD].flatMap(x => [1, 0.85, 0.7, 0.55, 0.42, 0.3, 0.2, 0.12, 0.06, 0].map(f => [x, f, g])))
   .map(t => ({ t, cost: t[0] * 2 + 1 - t[1] + (1 - t[2]) * 0.5 })).sort((p, q) => p.cost - q.cost).map(({ t }) => t).slice(1);
 
-function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Metrics, mid: Pt, crowd: () => Pt[]): { cmds: Cmd[]; from: Pt; to: Pt; span?: { x0: number; x1: number } } | null {
+/** A dot's outline, a point every `step` along it (its own points marked `corner`), and its middle, for a curl to keep off. */
+function dotPoints(poly: Pt[], step: number): (Pt & { dot: true; corner?: boolean })[] {
+  const out: (Pt & { dot: true; corner?: boolean })[] = [];
+  let cx = 0, cy = 0;
+  poly.forEach((a, k) => {
+    const b = poly[(k + 1) % poly.length], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / step));
+    for (let j = 0; j < n; j++) out.push({ x: lerp(a.x, b.x, j / n), y: lerp(a.y, b.y, j / n), dot: true, corner: !j });
+    cx += a.x / poly.length; cy += a.y / poly.length;
+  });
+  out.push({ x: cx, y: cy, dot: true });
+  return out;
+}
+
+function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Metrics, mid: Pt, crowd: () => (Pt & { dot?: boolean; corner?: boolean })[], mine = false): { cmds: Cmd[]; from: Pt; to: Pt; span?: { x0: number; x1: number } } | null {
   if (Math.abs(curl - 0.5) < 0.005) return stretchEnd(cmds, which, d, m);
   const e = endCmd(cmds, which, m);
   if (!e) return null;
@@ -678,19 +691,30 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
   // the rest of the letter on a grid, each point with how near the curl may come, and for the
   // rest of this stroke how far back from J it lies along it
   const key = (x: number, y: number) => Math.floor(x / clear) * 65536 + Math.floor(y / clear);
-  const grid = new Map<number, { x: number; y: number; r: number; back: number }[]>();
+  // `loose` is the same but for dots, which it only keeps the curl off the ink of (see below)
+  type Cell = { x: number; y: number; r: number; back: number };
+  const grid = new Map<number, Cell[]>(), loose = new Map<number, Cell[]>();
+  const add = (to: Map<number, Cell[]>, q: Pt, r: number, back: number) => {
+    const k = key(q.x, q.y), g = { x: q.x, y: q.y, r, back };
+    to.get(k)?.push(g) ?? to.set(k, [g]);
+  };
   const put = (q: Pt, r: number, back: number) => {
     if (r < m.s * 0.5) return;
-    const k = key(q.x, q.y), g = { x: q.x, y: q.y, r, back };
-    grid.get(k)?.push(g) ?? grid.set(k, [g]);
+    add(grid, q, r, back); add(loose, q, r, back);
   };
-  for (const q of crowd()) put(q, room(q, clear), Infinity);
+  for (const q of crowd()) {
+    if (!q.dot) { put(q, room(q, clear), Infinity); continue; }
+    if (q.corner) { const r = room(q, clear); if (r >= m.s * 0.5) add(grid, q, r, Infinity); }
+    // (all of a dot's outline and its middle, kept off by as much as keeps the curl off its ink, and no
+    // more than the end as drawn keeps off them)
+    add(loose, q, Math.min(m.s * 0.55, room(q, Infinity) * 0.95), Infinity);
+  }
   const line = centerPoints(cmds, m, m.s * 0.5);
   if (which === 's') line.reverse();
   let along = 0;
   const arcs = line.map((q, k) => along += k ? Math.hypot(q.x - line[k - 1].x, q.y - line[k - 1].y) : 0), upTo = along - S0;
   line.forEach((q, k) => { if (arcs[k] < upTo) put(q, room(q, gap), upTo - arcs[k]); });
-  const hits = (pts: Pt[], h: number, T: number, most = Infinity) => {
+  const hits = (pts: Pt[], h: number, T: number, most = Infinity, cells = grid) => {
     let n = 0;
     // less than about a turn, a curl can't come back on itself
     const wound = T > 1.6 * Math.PI;
@@ -700,7 +724,7 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
       for (let j = 0; wound && !hit && (k - j) * h > apart; j += 2) hit = Math.hypot(p.x - pts[j].x, p.y - pts[j].y) < gap;
       near: for (const dx of [-clear, 0, clear]) for (const dy of [-clear, 0, clear]) {
         if (hit) break near;
-        for (const q of grid.get(key(p.x + dx, p.y + dy)) ?? []) if (k * h + q.back > apart && Math.hypot(p.x - q.x, p.y - q.y) < q.r) { hit = true; break near; }
+        for (const q of cells.get(key(p.x + dx, p.y + dy)) ?? []) if (k * h + q.back > apart && Math.hypot(p.x - q.x, p.y - q.y) < q.r) { hit = true; break near; }
       }
       if (hit) n++;
     }
@@ -711,6 +735,19 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
     if (!fewest) break;
     const r = draw(x * m.xh, f, g), n = hits(r.pts, r.h, r.T, fewest);
     if (n < fewest) { best = r; fewest = n; }
+  }
+  // an end curled on its own (`mine`) and left not wound at all only keeps off a dot's ink (the dot of an i
+  // sits too close to its stem for more), and takes the most it can that comes no nearer than the end as
+  // drawn already does (the top of the stem of an @ runs along its bowl from the start); failing that it
+  // curls less, as far as fits, so its control never springs back straight as it is turned up
+  if (mine && amount > 0 && best.T === 0) {
+    const home = draw(0, 0, 1), base = hits(home.pts, home.h, home.T, Infinity, loose);
+    for (const [x, f, g] of [[0, 1, 1], ...CURL_TRIES]) {
+      if (!f) continue;
+      const r = draw(x * m.xh, f, g);
+      if (hits(r.pts, r.h, r.T, base + 1, loose) <= base) { best = r; break; }
+    }
+    if (best.T === 0 && Math.abs(curl - 0.5) > 0.04) return shapeEnd(cmds, which, d, 0.5 + (curl - 0.5) * 0.8, m, mid, crowd, true);
   }
   const { angle, pts, h, n: steps } = best;
   // back to béziers, an eighth of a turn at most each
@@ -958,7 +995,7 @@ function carveRound(poly: Pt[], q: Pt, round: ReturnType<typeof cornerRound>, r:
     A corner whose end's other corner is hidden (the top of a's stem, the other in its bowl) stands
     where the stroke that hides that one runs on from the end: it rounds across every stroke there,
     as far as the ink round it keeps most of its thickness. */
-function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | null)[], marks: Mark[]) {
+function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | null)[], marks: Mark[], clipMade: Set<Pt>) {
   const polys = b.strokes.map((st, j) => st.poly ? [st.poly] : exps[j]?.ex?.contours ?? []);
   const inside = insidePoly;
   const edge = (poly: Pt[], q: Pt) => {
@@ -975,6 +1012,8 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
   const shows = new Map<string, boolean>();
   exps.forEach((x, si) => {
     for (const c of x?.ex?.endCorners ?? []) {
+      // a corner the stroke's clip cut off isn't drawn
+      if (!polys[si].some(poly => poly.includes(c.pt))) continue;
       const q = c.pt, near = groups.find(g => Math.hypot(g.pts[0].x - q.x, g.pts[0].y - q.y) < 1.5), side = c.side === 'l' ? 'r' : 'l';
       shows.set(`${si}${c.which}${c.side}`, true);
       if (near) { near.pts.push(q); continue; }
@@ -1045,13 +1084,39 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
     const q = g.pts[0], p = { x: q.x + (g.at.x - q.x) * 1.5, y: q.y + (g.at.y - q.y) * 1.5 };
     return polys.some((ps, j) => j !== +g.id.slice(0, -2) && ps.some(poly => edge(poly, p) < 1.5));
   };
+  /** How deep a step the group's corner has room for: 0 unless every stroke's outline turns square
+      there (not where a diagonal meets a bar in a point), and none where a stroke's clip cut the corner
+      (N's diagonal, cut off at its stem), whose sides can't step back with the rest; otherwise no deeper
+      than the shortest side any of them runs along from it, so each stroke steps back alike. */
+  const stepRoom = (g: (typeof groups)[number]) => {
+    let room = Infinity;
+    for (const p of g.pts) {
+      if (clipMade.has(p)) return 0;
+      const poly = polys.flat().find(q => q.includes(p));
+      if (!poly) return 0;
+      const n = poly.length, i = poly.indexOf(p), way = (dir: number) => {
+        let len = 0, o = p, d0: Pt | null = null;
+        for (let k = 1; k < n; k++) {
+          const q = poly[(i + dir * k + n * k) % n], l = Math.hypot(q.x - o.x, q.y - o.y);
+          if (!d0 && l > 1) d0 = { x: (q.x - p.x) / Math.hypot(q.x - p.x, q.y - p.y), y: (q.y - p.y) / Math.hypot(q.x - p.x, q.y - p.y) };
+          len += l; o = q;
+          if (!q.smooth) break;
+        }
+        return { len, d: d0 };
+      };
+      const a = way(1), c = way(-1);
+      if (!a.d || !c.d || Math.abs(a.d.x * c.d.x + a.d.y * c.d.y) > 0.35) return 0;
+      room = Math.min(room, 0.95 * a.len, 0.95 * c.len);
+    }
+    return room >= g.t * 0.25 ? room : 0;
+  };
   for (const g of groups) {
     const own = m.p.corners?.[g.id], q = g.pts[0], x = q.x, y = q.y;
-    // Steps cuts a step out of a corner of the letter, where two strokes end together (the foot of an L)
-    // or where another stroke runs on flush out of the end (the top of D's stem, its bowl running on to the right)
-    const sv = m.p.cornerSteps?.[g.id] ?? (g.pts.length > 1 || runsOn(g) ? m.p.steps : 0);
+    // Steps cuts a step out of a square corner of the letter, where two strokes end together (the foot of
+    // an L) or where another stroke runs on flush out of the end (the top of D's stem, its bowl running on to the right)
+    const room = stepRoom(g), steppable = room > 0, sv = !steppable ? 0 : m.p.cornerSteps?.[g.id] ?? (g.pts.length > 1 || runsOn(g) ? m.p.steps : 0);
     // (one size for every stroke there, no deeper than 0.85 of the thinner of the stroke and the bars, so they stay joined)
-    if (sv > 0) for (const p of g.pts) p.step = Math.min(stepW(sv, g.t), 0.85 * Math.min(g.t, m.hT));
+    if (sv > 0) for (const p of g.pts) p.step = Math.min(stepW(sv, g.t), 0.85 * Math.min(g.t, m.hT), room);
     const alone = shows.get(g.partner) === false && g.at ? lone(q, g.at, g.t) : null;
     if (alone) {
       const r = (own ?? 0) * alone.most;
@@ -1062,14 +1127,14 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
           for (const ps of polys) for (const poly of ps) carveRound(poly, at, rd, r);
         } else for (const p of g.pts) { delete p.r; p.sharp = true; }
       }
-      marks.push({ type: 'corner', id: g.id, x, y, v: own ?? clamp(m.R / alone.most), st: sv });
+      marks.push({ type: 'corner', id: g.id, x, y, v: own ?? clamp(m.R / alone.most), st: steppable ? sv : undefined });
       continue;
     }
     if (own != null) {
       const r = endCornerR(own, g.t);
       for (const p of g.pts) { if (r >= 0.6) { p.r = r; p.sharp = false; } else { delete p.r; p.sharp = true; } }
     }
-    marks.push({ type: 'corner', id: g.id, x, y, v: own ?? clamp(m.R / (g.t / 2)), st: sv });
+    marks.push({ type: 'corner', id: g.id, x, y, v: own ?? clamp(m.R / (g.t / 2)), st: steppable ? sv : undefined });
   }
 }
 
@@ -1120,18 +1185,29 @@ function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nu
   const inked = (q: Pt, but = -1) => rings.some((_, si) => si !== but && inStroke(si, q));
   /* From the crossing p, on edge k of ring `ring` (stroke si), along the outline one way (dir ±1)
      for up to `want`: the points passed, stopping where it turns off by more than 50 degrees or
-     runs into another stroke. */
-  const walk = (si: number, ring: Pt[], k: number, dir: 1 | -1, p: Pt, want: number) => {
+     runs into another stroke. Ink is looked for a hair off the edge, toward the empty wedge `bis`
+     points into, so an edge another stroke's edge runs along (the waist of a B, where both bowls'
+     bars lie) stays clear; and a step that runs into ink goes as far as it can first. */
+  const walk = (si: number, ring: Pt[], k: number, dir: 1 | -1, p: Pt, want: number, bis: Pt) => {
     const n = ring.length, pts: Pt[] = [p];
     let len = 0, at = p, i = dir > 0 ? (k + 1) % n : k, d0: Pt | null = null;
     for (let step = 0; step < n && len < want; step++, i = (i + dir + n) % n) {
       const q = ring[i], dx = q.x - at.x, dy = q.y - at.y, l = Math.hypot(dx, dy);
       if (l < 1e-6) continue;
+      // (a sliver of an edge, where the outline was cut at the crossing, has no way of its own: taken as it is)
+      if (l < 3 && !d0) { pts.push({ x: q.x, y: q.y }); len += l; at = q; continue; }
       d0 ??= { x: dx / l, y: dy / l };
       if ((dx * d0.x + dy * d0.y) / l < Math.cos(50 * Math.PI / 180)) break;
-      const take = Math.min(l, want - len), e = { x: at.x + dx / l * take, y: at.y + dy / l * take };
-      if (inked(e, si)) break;
-      pts.push(e); len += take; at = e;
+      const side = -dy * bis.x + dx * bis.y > 0 ? 1.5 / l : -1.5 / l, off = { x: -dy * side, y: dx * side };
+      const clear = (f: number) => !inked({ x: at.x + dx / l * f + off.x, y: at.y + dy / l * f + off.y }, si);
+      let take = Math.min(l, want - len), stop = false;
+      if (!clear(take)) {
+        let lo = 0, hi = take;
+        for (let it = 0; it < 12; it++) { const mid = (lo + hi) / 2; if (clear(mid)) lo = mid; else hi = mid; }
+        take = lo; stop = true;
+      }
+      if (take > 1e-6) { const e = { x: at.x + dx / l * take, y: at.y + dy / l * take }; pts.push(e); len += take; at = e; }
+      if (stop) break;
     }
     return { pts, len };
   };
@@ -1189,7 +1265,7 @@ function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nu
             if (R < 0.6) continue;
             // how far along each edge the round starts, as wide as both let it
             const { r1, r2, span, bis } = free[0], d = R / Math.tan(span / 2);
-            const w1 = walk(r1.si, r1.ring, r1.k, r1.dir, p, d), w2 = walk(r2.si, r2.ring, r2.k, r2.dir, p, d);
+            const w1 = walk(r1.si, r1.ring, r1.k, r1.dir, p, d, bis), w2 = walk(r2.si, r2.ring, r2.k, r2.dir, p, d, bis);
             const dd = Math.min(d, w1.len * 0.95, w2.len * 0.95);
             if (dd < 0.6) continue;
             const s1 = cut(w1, dd), s2 = cut(w2, dd), T1 = s1[s1.length - 1], T2 = s2[s2.length - 1];
@@ -1280,7 +1356,8 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
       const curl = sw && m.p.terminalCurls?.[id] == null ? sw.curl : endCurl(m.p, id);
       if (Math.abs(d) < 0.01 && curl === 0.5) continue;
       const before = st.cmds, r = shapeEnd(st.cmds, which, d, curl, m, sw && curl === sw.curl ? sw.mid : (mid ??= middle()),
-        () => b.strokes.flatMap((t, ti) => ti === si ? [] : t.cmds ? centerPoints(t.cmds, m, m.s * 0.5) : t.poly ?? []));
+        () => b.strokes.flatMap((t, ti) => ti === si ? [] : t.cmds ? centerPoints(t.cmds, m, m.s * 0.5) : t.poly ? dotPoints(t.poly, m.s * 0.25) : []),
+        m.p.terminalCurls?.[id] != null);
       if (!r) continue;
       st.cmds = r.cmds;
       if (plain && type !== 'flat' && curl !== 0.5) st.o = { ...st.o, [which]: 'flat' };
@@ -1449,7 +1526,17 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     return { ex: expandStroke(st.cmds!, so, f === 1 ? ctx : { ...ctx, thick: ctx.thick * f, thin: ctx.thin * f }), serifS, serifE };
   });
   const expanded = exps.map(x => x?.ex ?? null);
-  endCorners(b, m, exps, out.marks);
+  // each stroke clipped once, here, so the corners its clip leaves (the top left of an N, where the
+  // diagonal is cut off at the stem) are the ones rounded, and drawn so (clipping again is a no-op)
+  const clipMade = new Set<Pt>();
+  b.strokes.forEach((st, si) => {
+    const ex = exps[si]?.ex;
+    if (!ex || ex.loop || !st.o.clip) return;
+    const own = new Set(ex.contours[0]);
+    ex.contours[0] = clipPoly(ex.contours[0], st.o.clip);
+    for (const p of ex.contours[0]) if (!own.has(p)) clipMade.add(p);
+  });
+  endCorners(b, m, exps, out.marks, clipMade);
   for (const poly of joinCorners(b, m, exps, out.marks)) b.strokes.push({ poly, o: { part: 'fillet' } });
   // stencil every stroke first, so a fillet rounding a join (a square-joined bowl into its stem)
   // goes when the stencil cuts that join, like the fillets Roundness adds: there is no join left to round
