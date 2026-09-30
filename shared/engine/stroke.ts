@@ -14,6 +14,8 @@ interface Sample {
   len: number; t: number;
   /** sideways shift of the outline (toward the left of travel), for one-sided thinning */
   off?: number;
+  /** thinned or thickened on purpose here (a taper, a thin joint, a pinch, a wobble): its outline may dip */
+  shaped?: boolean;
 }
 type Dir = { x: number; y: number };
 /** A run of samples with a continuous tangent, and the radii of the turn it starts with, if given. */
@@ -156,13 +158,18 @@ export const pinchAt = (pc: NonNullable<PenCtx['pinch']>, y: number) =>
   Math.max(0.012, 1 - pc.amount * (1 - Math.min(1, Math.abs(y - pc.y) / pc.reach)));
 
 /* ---- 2. pen model */
+const SOFT = 0.2;
 export function autoThickness(tx: number, ty: number, ctx: PenCtx, thick: number, thin: number) {
   const th = Math.atan2(ty, tx);
-  let v = clamp(Math.abs(Math.sin(th - ctx.stress)) / Math.cos(ctx.stress));
+  // |sin| comes to a sharp V where the stroke is thinnest, which dents the outline there (the top
+  // and bottom of a bowl) and draws its counter to a point: its bottom is eased round instead,
+  // keeping the weight elsewhere much as |sin|^1.15 had it
+  const a = clamp(Math.abs(Math.sin(th - ctx.stress)) / Math.cos(ctx.stress));
+  let v = (Math.hypot(a, SOFT) - SOFT) / (Math.hypot(1, SOFT) - SOFT);
   // reversed, the weight follows cos²: flat at the heavy horizontals and, unlike a plain cosine,
   // without a sharp dip where tight curves turn vertical
-  if (ctx.reverse) v = lerp(v, Math.cos(th - ctx.stress) ** 2, ctx.reverse);
-  return thin + (thick - thin) * Math.pow(v, 1.15);
+  if (ctx.reverse) v = lerp(v, Math.abs(Math.cos(th - ctx.stress)) ** 2.3, ctx.reverse);
+  return thin + (thick - thin) * v;
 }
 
 /* Cut one side of a stroke end off along a line through p, level ('h') or plumb ('v'), turned
@@ -295,6 +302,106 @@ function squareEnd(type: EndType, ctx: PenCtx) {
   return (ctx.terminal === 'flat' && form !== 'scooped') || ctx.terminal === 'angled' || (ctx.terminal === 'cut' && form !== 'notched');
 }
 
+/** Where segments ab and cd cross, if they do. */
+function crossing(a: Dir, b: Dir, c: Dir, d: Dir): Dir | null {
+  const rx = b.x - a.x, ry = b.y - a.y, sx = d.x - c.x, sy = d.y - c.y, den = rx * sy - ry * sx;
+  if (Math.abs(den) < 1e-9) return null;
+  const t = ((c.x - a.x) * sy - (c.y - a.y) * sx) / den, u = ((c.x - a.x) * ry - (c.y - a.y) * rx) / den;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? { x: a.x + rx * t, y: a.y + ry * t } : null;
+}
+/** How many samples either side of a swallowtail to look for where the side crosses itself. */
+const LOOP_REACH = 24;
+
+/** One side of a run of samples, cleaned up. Where the centerline bends one way, both sides of the
+    stroke bend that way too, as a pen draws them: a side that bends back is bridged straight across,
+    the way a convex hull would be. Offset from a heavy stroke, a side can otherwise dent where the
+    stroke thickens faster than it turns (the top of a bowl), go lumpy round a counter, or run
+    backwards and loop over itself inside a turn tighter than half the stroke (a swallowtail, the
+    little hook inside the spine of a heavy s). Where the stroke is thinned on purpose (a taper, an
+    ink trap) the dip is meant, and only a side running backwards goes. Then, unless the side should
+    keep a point (a pinch), it is eased smooth: a heavy stroke's inside magnifies every change in how
+    sharply the centerline bends (where the quarters of an organic bowl meet) into a kink. */
+function evenSide(side: Pt[], run: Sample[], ease: boolean): Pt[] {
+  const n = side.length;
+  if (n < 3) return side;
+  // the swallowtails first: where the side runs backwards, it is cut from where it last crossed
+  // itself before to where it crosses back after (or, when it never does, only the backward part goes)
+  const keep = side.map(() => true), at = new Map<number, Pt>();
+  for (let i = 0; i + 1 < n; i++) {
+    const s = run[i], p = side[i], q = side[i + 1];
+    if ((q.x - p.x) * s.tx + (q.y - p.y) * s.ty >= 0) continue;
+    let e = i;
+    while (e + 2 < n && (side[e + 2].x - side[e + 1].x) * run[e + 1].tx + (side[e + 2].y - side[e + 1].y) * run[e + 1].ty < 0) e++;
+    // segments i..e run backwards; find the crossing of one before them with one after, spanning least
+    let best: { a: number; b: number; x: Pt } | null = null;
+    for (let a = i - 1; a >= Math.max(0, i - LOOP_REACH); a--) {
+      for (let b = e + 1; b + 1 < n && b <= e + LOOP_REACH; b++) {
+        if (best && b - a >= best.b - best.a) break;
+        const x = crossing(side[a], side[a + 1], side[b], side[b + 1]);
+        if (x) best = { a, b, x: { ...x, smooth: true } };
+      }
+    }
+    const from = best ? best.a + 1 : i + 1, to = best ? best.b : e;
+    for (let k = from; k <= to; k++) if (k > 0 && k < n - 1) keep[k] = false;
+    if (best && best.a + 1 > 0 && best.a + 1 < n - 1) at.set(best.a + 1, best.x);
+    i = Math.max(i, to);
+  }
+  const pts: Pt[] = [], tan: Sample[] = [];
+  side.forEach((p, k) => { const x = at.get(k); if (keep[k] || x) { pts.push(x ?? p); tan.push(run[k]); } });
+  side = pts; run = tan; const m = side.length;
+  // which way the centerline bends at each sample (0 barely at all)
+  const bend = run.map((s, i) => {
+    const a = run[Math.max(0, i - 1)], b = run[Math.min(m - 1, i + 1)], c = a.tx * b.ty - a.ty * b.tx;
+    return Math.abs(c) < 1e-4 ? 0 : Math.sign(c);
+  });
+  const out: Pt[] = [], idx: number[] = [];
+  let sg = 0, floor = 0;
+  for (let i = 0; i < m; i++) {
+    const p = side[i];
+    if (bend[i]) {
+      // where it bends the other way, the side keeps what it has so far
+      if (sg && bend[i] !== sg) floor = out.length - 1;
+      sg = bend[i];
+    }
+    while (sg && out.length - 1 > floor) {
+      const k = idx[idx.length - 1], a = out[out.length - 2], b = out[out.length - 1];
+      const ux = b.x - a.x, uy = b.y - a.y, vx = p.x - b.x, vy = p.y - b.y;
+      const wrong = sg * (ux * vy - uy * vx) < -2e-3 * Math.hypot(ux, uy) * Math.hypot(vx, vy);
+      const back = ux * run[k].tx + uy * run[k].ty < 0 || vx * run[k].tx + vy * run[k].ty < 0;
+      if (!wrong || (run[k].shaped && !back) || !b.smooth) break;
+      out.pop(); idx.pop();
+    }
+    out.push(p); idx.push(i);
+  }
+  if (!ease || out.length < 5) return out;
+  // a bridge takes back the points it went past, spread along it as they were along the side, for
+  // the smoothing to round its ends into the curve
+  const cum = [0];
+  for (let i = 1; i < m; i++) cum.push(cum[i - 1] + Math.hypot(side[i].x - side[i - 1].x, side[i].y - side[i - 1].y));
+  const full: Pt[] = [out[0]];
+  for (let j = 1; j < out.length; j++) {
+    const a = idx[j - 1], b = idx[j], span = cum[b] - cum[a];
+    for (let k = a + 1; k < b; k++) full.push({ ...lerpP(out[j - 1], out[j], span > 0 ? (cum[k] - cum[a]) / span : 0), smooth: true });
+    full.push(out[j]);
+  }
+  // Taubin smoothing: a step in, then a slightly larger step back out, so curves don't shrink
+  const N = full.length, X = new Float64Array(N), Y = new Float64Array(N), PX = new Float64Array(N), PY = new Float64Array(N);
+  full.forEach((p, i) => { X[i] = p.x; Y[i] = p.y; });
+  for (let pass = 0; pass < 16; pass++) {
+    const f = pass % 2 ? -0.53 : 0.5;
+    PX.set(X); PY.set(Y);
+    for (let i = 1; i < N - 1; i++) {
+      if (!full[i].smooth) continue;
+      const ax = PX[i - 1], ay = PY[i - 1], dx = PX[i + 1] - ax, dy = PY[i + 1] - ay, l2 = dx * dx + dy * dy;
+      if (l2 < 1e-9) continue;
+      // toward the chord between its neighbours, square to it, so straight stretches stay put
+      const u = ((PX[i] - ax) * dx + (PY[i] - ay) * dy) / l2;
+      X[i] += f * (ax + dx * u - PX[i]); Y[i] += f * (ay + dy * u - PY[i]);
+    }
+  }
+  return full.map((p, i) => (p.x === X[i] && p.y === Y[i] ? p : { ...p, x: X[i], y: Y[i] }));
+}
+
 export interface Expanded {
   contours: Pt[][];
   loop: boolean;
@@ -373,6 +480,7 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     // a hand-held pen never presses evenly
     if (ctx.wobble) t *= 1 + ctx.wobble * 0.22 * Math.sin(s.len / (thick * 1.8 + 60) + (ctx.seed || 0));
     s.t = t;
+    if (f !== 1 || ctx.pinch || ctx.wobble) s.shaped = true;
   }
   if (js !== 1 || je !== 1) {
     // a curved stroke keeps its outer edge and thins only on the side of the counter it
@@ -384,6 +492,7 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
       if (je !== 1) f *= lerp(je, 1, smoothstep((total - s.len) / taperLen));
       s.off = (s.off || 0) + keep * s.t * (1 - f) / 2;
       s.t *= f;
+      if (f !== 1) s.shaped = true;
     }
   }
   // a sharp turn is a join too (the point of a V, the vertices of a W or an M): the stroke thins into
@@ -401,6 +510,7 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
         const g = lerp(f, 1, smoothstep(u));
         s.off = (s.off || 0) + keep * s.t * (1 - g) / 2;
         s.t *= g;
+        if (g !== 1) s.shaped = true;
       }
     }
   }
@@ -419,8 +529,18 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     const d = sg * s.t / 2 + (s.off || 0);
     return { x: s.x - s.ty * d, y: s.y + s.tx * d, smooth: s.smooth };
   };
-  const Lr: (Pt | null)[][] = runs.map(r => r.map(s => sideOf(s, 1)));
-  const Rr: (Pt | null)[][] = runs.map(r => r.map(s => sideOf(s, -1)));
+  // a ring in one piece (an o) starts at the top, where it is thinnest and its outline most
+  // likely to dent: its sides are evened out starting from its thickest point instead
+  const whole = runs.length === 1 && closed && Math.hypot(all[0].x - all[all.length - 1].x, all[0].y - all[all.length - 1].y) < 0.5;
+  const turned = (r: Sample[]) => {
+    if (!whole) return r;
+    let k = 0;
+    r.forEach((s, i) => { if (s.t > r[k].t) k = i; });
+    const body = r.slice(0, -1);
+    return [...body.slice(k), ...body.slice(0, k), body[k]].map((s, i, a) => ({ ...s, smooth: i > 0 && i < a.length - 1 }));
+  };
+  const sidesOf = (sg: number) => runs.map(r => { const q = turned(r); return evenSide(q.map(s => sideOf(s, sg)), q, !ctx.pinch) as (Pt | null)[]; });
+  const Lr = sidesOf(1), Rr = sidesOf(-1);
   const curved = cmds.some(c => c[0] === 'C' || c[0] === 'hv' || c[0] === 'vh');
 
   // joins between runs. A turn given radii always mitres, and rounds its outside and inside by them
@@ -514,7 +634,7 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   const startX = cap(R, L, first, ds, first.t, o.s || 'flat', ctx, pickA(startTurn, false, R, L));
   if (squareEnd(o.s || 'flat', ctx)) endCorners.push({ which: 's', side: 'l', pt: R[R.length - 1] }, { which: 's', side: 'r', pt: L[L.length - 1] });
   L.reverse(); R.reverse();
-  const contour = [...L, ...endX, ...R.slice().reverse(), ...startX];
+  const contour = [...L, ...endX, ...R.slice().reverse(), ...startX]
 
   const ends: StrokeEnd[] = [
     { x: s0.x, y: s0.y, dx: -s0.tx, dy: -s0.ty, t: s0.t, type: o.s || 'flat', which: 's' },
