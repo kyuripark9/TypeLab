@@ -58,6 +58,7 @@ and builds exported fonts on the server. A full rebuild of every glyph takes abo
 | `glyphs.ts` | Parametric skeletons for A–Z, a–z, 0–9 and `.,!?;:'"()-/&@#$%+` |
 | `effects.ts` | Whole-outline effects: the slice cut, and the wireframe, pixel, dot and line fills |
 | `blocks.ts` | Block letters: solid rounded blocks with their counters cut in as slots (*Built from: Blocks*) |
+| `outline.ts` | Letters drawn by hand with the pen: anchor points and bézier handles, and the curve fitting that traces a generated letter into them |
 
 Beyond weight, width and contrast, the pen model also does squircle bowls (*Squareness*),
 faceted octagonal curves (*Chamfer*), reverse contrast and ink-trap joints, and glyph assembly
@@ -127,4 +128,17 @@ personality are tagged *Whole font*: every letter sits on the same lines, so the
 **Re-sync R** puts the letter back in sync. Per-letter settings are saved with the design
 (`params.glyphs`) and exported with the font.
 
-Deep links for demos: `/?style=serif&cat=shape&active=serif&inspect=R&mode=paragraph&hot=1`.
+To draw a letter point by point, switch the inspector from **Shape** to **Points**. The letter shows
+as anchor points and bézier handles, traced from its outline with points on the curves' extremes, and
+the tools work like a vector editor's: **Direct selection** (`A`) drags points, handles and curves (Shift-click or
+drag a box to pick several, arrows nudge by one unit, Shift by ten, Alt-drag a handle to break a smooth
+point, double-click a point to switch corner ↔ smooth); the **Pen** (`P`) adds a point where it clicks the
+outline, deletes a point it clicks, and draws new shapes (click for corners, drag for curves, click the
+first point to close); **Convert point** (`⇧C`) switches corner ↔ smooth or pulls out new handles. The bar
+below types exact coordinates and the width; points snap to whole units, and with *Snap* to the guide
+lines and other points. `⌘`-scroll zooms, Space-drag pans, `⌘0` fits the letter. **Reverse direction**
+turns a contour inside another into a hole (or back). The first edit makes the letter a drawing, saved
+with the design (`params.outlines`) and exported as it is: the settings no longer shape it until
+**Back to settings**.
+
+Deep links for demos: `/?style=serif&cat=shape&active=serif&inspect=R&mode=paragraph&hot=1` (add `&pen=1` for Points).

@@ -25,7 +25,7 @@ const GROUPS: [string, string][] = [['Uppercase', CHARSET.upper], ['Lowercase', 
 export function GlyphStrip() {
   // the strip is off-screen detail: let it lag a frame behind while sliders move
   const font = useDeferredValue(useFont());
-  const inspect = useEditor(s => s.inspect), custom = useEditor(s => s.params.glyphs);
+  const inspect = useEditor(s => s.inspect), custom = useEditor(s => s.params.glyphs), drawn = useEditor(s => s.params.outlines);
   const cells = useRef(new Map<string, HTMLButtonElement>());
   useEffect(() => {
     if (inspect) cells.current.get(inspect)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
@@ -39,8 +39,8 @@ export function GlyphStrip() {
             {[...chars].map(ch => {
               const c = ch.charCodeAt(0), g = font.glyph(ch);
               return (
-                <button key={c} className={['cell', ch === inspect && 'on', custom[ch] && 'custom'].filter(Boolean).join(' ')}
-                  title={custom[ch] ? `Inspect ${ch} (customized)` : `Inspect ${ch}`}
+                <button key={c} className={['cell', ch === inspect && 'on', (custom[ch] || drawn[ch]) && 'custom'].filter(Boolean).join(' ')}
+                  title={drawn[ch] ? `Inspect ${ch} (drawn by hand)` : custom[ch] ? `Inspect ${ch} (customized)` : `Inspect ${ch}`}
                   ref={el => { if (el) cells.current.set(ch, el); else cells.current.delete(ch); }}
                   onClick={() => actions.openInspector(ch)}>
                   <svg viewBox="0 -880 1000 1180" aria-hidden="true"><use href={`#g${c}`} x={g ? n1((1000 - g.adv) / 2) : 0} /></svg>

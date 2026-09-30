@@ -68,6 +68,8 @@ export interface EditorState extends Doc {
   /** the stroke end (by id) pointed at in the list of a customized letter's ends */
   hotEnd: string | null;
   skeleton: boolean;
+  /** the inspector edits the letter's anchor points with the pen, instead of dragging its parts */
+  penMode: boolean;
   exportOpen: boolean;
   toast: { id: number; msg: string } | null;
 }
@@ -119,6 +121,7 @@ export const useEditor = create<EditorState>()(() => ({
   part: null,
   hotEnd: null,
   skeleton: false,
+  penMode: false,
   exportOpen: false,
   toast: null
 }));
@@ -404,6 +407,17 @@ export const actions = {
   setPart(part: string | null) { if (get().part !== part) set({ part }); },
   setHotEnd(hotEnd: string | null) { if (get().hotEnd !== hotEnd) set({ hotEnd }); },
   setSkeleton(skeleton: boolean) { set({ skeleton }); },
+  setPenMode(penMode: boolean) { set({ penMode }); },
+  /** Give a letter drawn by hand back to the settings, which shape it again. */
+  undrawLetter(ch: string) {
+    const s = get();
+    if (!s.params.outlines[ch]) return;
+    const outlines = { ...s.params.outlines };
+    delete outlines[ch];
+    set({ params: { ...s.params, outlines } });
+    actions.commit();
+    actions.toast(`${ch} follows the settings again · ⌘Z brings the drawing back`);
+  },
   setExportOpen(exportOpen: boolean) { set({ exportOpen }); },
   toast(msg: string) { set({ toast: { id: ++toastId, msg } }); }
 };

@@ -6,3 +6,5 @@ export type { Effective, Font, Glyph, GlyphStroke, Line, LineItem, Metrics } fro
 export { buildSerif, expandStroke } from './stroke';
 export { applyM, clamp, cmdsToD, ringsD, roundContour, signedArea } from './geom';
 export type { Cmd, Mark, Pt } from './types';
+export { drawnCmds, fitOutline, hasIn, hasOut, segment, tidy } from './outline';
+export type { Drawn, Node } from './outline';

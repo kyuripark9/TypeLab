@@ -33,7 +33,7 @@ export function createApp(store: DesignStore) {
   const app = express();
   app.disable('x-powered-by');
   const api = express.Router();
-  api.use(express.json({ limit: '64kb' }));
+  api.use(express.json({ limit: '4mb' }));
 
   api.get('/health', (_req, res) => { res.json({ ok: true }); });
 

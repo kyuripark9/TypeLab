@@ -373,7 +373,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .scope-note em { font-style: normal; font-weight: 600; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
 .check input { accent-color: var(--accent); }
-.insp-body { flex: 1; display: flex; min-height: 0; }
+.insp-body { flex: 1; display: flex; min-height: 0; position: relative; }
 .insp-canvas { flex: 1; min-width: 0; min-height: 0; overflow: hidden; position: relative; user-select: none; touch-action: none; }
 .insp-canvas svg { display: block; }
 .i-ink { fill: var(--ink); transition: opacity .15s; }
@@ -413,6 +413,52 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .i-tip-ends { display: flex; justify-content: space-between; gap: 20px; color: var(--accent-ink); font-weight: 500; }
 @media (prefers-reduced-motion: reduce) { .i-knob .halo { animation: none; opacity: .6; } }
 .i-skel circle { fill: var(--surface); stroke: var(--accent); stroke-width: var(--sw); }
+
+/* ---------- the pen: a letter's anchor points and handles */
+.scope.mode { margin-left: 8px; }
+.drawn-note { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
+.pen-note { position: absolute; top: 12px; left: 50%; translate: -50% 0; padding: 6px 12px; border-radius: 999px; background: var(--tint); color: var(--ink-2); font-size: 12px; white-space: nowrap; pointer-events: auto; }
+.pen-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+.pen-canvas { flex: 1; min-height: 0; overflow: hidden; position: relative; touch-action: none; }
+.pen-canvas svg { display: block; }
+.pen-tools { position: absolute; top: 12px; left: 12px; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+.pen-tools button { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-2); }
+.pen-tools button:hover { background: var(--hover); color: var(--ink); }
+.pen-tools button.on { background: var(--accent-soft); color: var(--accent-ink); }
+.pen-tools svg { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.pen-tools svg .fill { fill: currentColor; }
+.pen-sep { height: 1px; margin: 3px 4px; background: var(--line); }
+.pen-bg { fill: transparent; }
+.pen-ink { fill: rgba(46, 59, 62, .16); pointer-events: none; }
+.pen-fill { fill: transparent; }
+.pen-fill.hit { cursor: move; }
+.pen-line { fill: none; stroke: var(--ink); pointer-events: none; }
+.pen-seg { fill: none; stroke: transparent; pointer-events: stroke; }
+.pen-band { fill: none; stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
+.pen-edge { stroke: var(--line-2); stroke-width: 1; cursor: col-resize; }
+.pen-edge:hover { stroke: var(--accent); stroke-width: 2; }
+.pen-snap { stroke: #d94f8c; stroke-width: 1; pointer-events: none; }
+.pen-num { fill: var(--ink-3); opacity: .7; }
+.pen-pt { cursor: default; }
+.pen-pt .grab, .pen-h .grab { fill: transparent; }
+.pen-pt rect, .pen-pt circle:not(.grab) { fill: var(--surface); stroke: var(--accent); stroke-width: 1.3; }
+.pen-pt:hover rect, .pen-pt:hover circle:not(.grab) { stroke-width: 2; }
+.pen-pt.on rect, .pen-pt.on circle:not(.grab) { fill: var(--accent); }
+.pen-pt.first rect, .pen-pt.first circle:not(.grab) { stroke-width: 2.4; }
+.pen-h line { stroke: var(--accent); stroke-width: 1; pointer-events: none; }
+.pen-h circle:not(.grab) { fill: var(--accent); }
+.pen-h { cursor: default; }
+.pen-box { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; pointer-events: none; }
+.pen-bar { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 7px 16px; border-top: 1px solid var(--line); background: var(--surface); font-size: 12.5px; }
+.pen-bar-label { color: var(--ink); font-weight: 500; white-space: nowrap; }
+.pen-bar-label.muted { color: var(--ink-3); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
+.pen-num-field { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); }
+.pen-num-field input { width: 58px; height: 28px; padding: 0 8px; border: 1px solid var(--line-2); border-radius: var(--radius-s); background: var(--surface); font: inherit; color: var(--ink); font-variant-numeric: tabular-nums; }
+.pen-num-field input:focus { outline: none; border-color: var(--accent); }
+.pen-kind { display: flex; gap: 2px; padding: 2px; background: var(--tint); border-radius: var(--radius-s); }
+.pen-kind button { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border-radius: 3px; color: var(--ink-2); }
+.pen-kind button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(46, 59, 62, .14); }
+.pen-kind svg { fill: none; stroke: currentColor; stroke-width: 1.2; }
 
 /* ---------- glyph strip: its cells grow with its height (--strip-h, set by dragging its top border) */
 .strip { grid-area: strip; min-height: var(--strip-h, 76px); --cell-h: calc(var(--strip-h, 76px) - 28px); border-top: 1px solid var(--line); background: var(--surface); display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; padding: 0 12px; scrollbar-width: thin; }

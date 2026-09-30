@@ -7,6 +7,7 @@ import { DEFAULTS, contrastOf, endCurl, endLength, endReach, formOf, rotationDeg
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, splitPoly, subCubic, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, slice } from './effects';
+import { drawnCmds, type Drawn } from './outline';
 import { autoThickness, buildSerif, expandStroke, innerFloor, organicK, type Expanded } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
 
@@ -1542,6 +1543,15 @@ function turnAbout(out: Unplaced, a: number): { M: Mat; grow: number } | null {
   };
 }
 
+/** A letter drawn by hand: its outline as it is, with no parts for the controls to find. */
+function drawnGlyph(ch: string, drawn: Drawn): Glyph {
+  const cmds = drawnCmds(drawn.contours);
+  return {
+    ch, strokes: [{ part: 'drawn', cmds, curved: false }], serifs: [], counters: [], marks: [], corners: [], skeleton: [], meta: {},
+    bodyW: drawn.adv, lsb: 0, rsb: 0, adv: drawn.adv, M: [1, 0, 0, 1, 0, 0], cmds, d: cmdsToD(cmds)
+  };
+}
+
 /* ---- highlight layers: which part of a glyph does a parameter touch? */
 export const RING_KEYS: Record<string, true> = { terminal: true, aperture: true, apex: true, roundness: true, cursive: true, overlap: true, tail: true };
 
@@ -1592,8 +1602,9 @@ export function buildFont(params: Params): Font {
     glyph(ch) {
       let g = cache.get(ch);
       if (g === undefined) {
-        const lf = font.letter(ch);
-        if (lf !== font) g = lf.glyph(ch);
+        const lf = font.letter(ch), drawn = params.outlines?.[ch];
+        if (drawn) g = drawnGlyph(ch, drawn);
+        else if (lf !== font) g = lf.glyph(ch);
         else if (e.build === 'blocks' && (g = buildBlock(ch, m))) g.ch = ch;
         else {
           const alt = ch === 'a' && e.singleStory ? 'a.alt' : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;

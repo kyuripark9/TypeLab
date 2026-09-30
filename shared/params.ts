@@ -1,4 +1,5 @@
 /* The design parameters a user edits. Every number is 0..1; the engine maps them to geometry. */
+import { cleanDrawn, type Drawn } from './engine/outline';
 
 export const TERMINALS = ['flat', 'round', 'sharp', 'angled', 'cut', 'tapered'] as const;
 /** The forms each kind of stroke end comes in; the first is the kind as it always looked. */
@@ -159,12 +160,13 @@ export interface Params {
   /** blend toward one fixed advance width for every glyph */ mono: number;
   geoHuman: number; softSharp: number; classicFuture: number; playfulFormal: number;
   /** letters customized on their own: each overrides some of the settings above, by character */ glyphs: Record<string, GlyphParams>;
+  /** letters drawn by hand with the pen, by character: drawn as they are, the settings above no longer shape them */ outlines: Record<string, Drawn>;
 }
 
 /** Settings every letter shares. The heights are the lines all letters stand on, spacing and the
     fills and slice run across a whole line, and the personality macros push the heights too. */
 export const GLOBAL_KEYS = ['height', 'xHeight', 'extenders', 'descender', 'letterSpacing', 'wordSpacing', 'mono', 'fill', 'module', 'slice', 'slicePos', 'sliceRound',
-  'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal', 'glyphs'] as const;
+  'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal', 'glyphs', 'outlines'] as const;
 /** A setting one letter can have its own value of. */
 export type GlyphKey = Exclude<keyof Params, (typeof GLOBAL_KEYS)[number]>;
 export type GlyphParams = Partial<Pick<Params, GlyphKey>>;
@@ -183,7 +185,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   fill: 'solid', module: 0.4, stencil: 0, stencilPos: 0, stencilRound: 0, slice: 0, slicePos: 0.5, sliceRound: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   letterSpacing: 0.2, wordSpacing: 0.35, sideBearing: 0.5, mono: 0,
-  geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5, glyphs: Object.freeze({})
+  geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5, glyphs: Object.freeze({}), outlines: Object.freeze({})
 });
 
 const PARAM_KEYS = Object.keys(DEFAULTS) as (keyof Params)[];
@@ -279,6 +281,17 @@ function cleanGlyphs(v: unknown): Record<string, GlyphParams> {
   return out;
 }
 
+/** Drawn letters: one character per key, each a valid outline. */
+function cleanOutlines(v: unknown): Record<string, Drawn> {
+  const out: Record<string, Drawn> = {};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
+  for (const [ch, d] of Object.entries(v)) {
+    const c = [...ch].length === 1 ? cleanDrawn(d) : undefined;
+    if (c) out[ch] = c;
+  }
+  return out;
+}
+
 /** Settings saved while Reverse contrast was its own slider (they carry a `reverse`), with their
     contrasts, the font's and each letter's own, moved onto the two-way Contrast scale. */
 function fromOldContrast(src: Record<string, unknown>): Record<string, unknown> {
@@ -307,7 +320,7 @@ export function sanitizeParams(input: unknown): Params {
   if (typeof src.reverse === 'number') src = fromOldContrast(src);
   const out = { ...DEFAULTS } as Record<string, unknown>;
   for (const k of PARAM_KEYS) {
-    const c = k === 'glyphs' ? cleanGlyphs(src[k]) : cleanValue(k, src[k]);
+    const c = k === 'glyphs' ? cleanGlyphs(src[k]) : k === 'outlines' ? cleanOutlines(src[k]) : cleanValue(k, src[k]);
     if (c !== undefined) out[k] = c;
   }
   return out as unknown as Params;
@@ -318,5 +331,9 @@ export function isValidParams(input: unknown): input is Params {
   if (!input || typeof input !== 'object') return false;
   const src = input as Record<string, unknown>;
   const clean = sanitizeParams(input) as unknown as Record<string, unknown>;
-  return PARAM_KEYS.every(k => typeof clean[k] === 'object' ? JSON.stringify(src[k]) === JSON.stringify(clean[k]) : src[k] === clean[k]);
+  return PARAM_KEYS.every(k => typeof clean[k] === 'object' ? sorted(src[k]) === sorted(clean[k]) : src[k] === clean[k]);
 }
+
+/** JSON with every object's keys in order, so the same settings written in another order compare equal. */
+const sorted = (v: unknown): string => JSON.stringify(v, (_, x) =>
+  x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map(k => [k, x[k]])) : x);

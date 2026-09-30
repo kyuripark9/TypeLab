@@ -149,7 +149,7 @@ function useLeaveGuard() {
   }, [blocker]);
 }
 
-/** ?style=serif&cat=shape&active=serif&inspect=R&text=Hello&hot=1 — handy for demos. */
+/** ?style=serif&cat=shape&active=serif&inspect=R&text=Hello&hot=1&pen=1 — handy for demos. */
 function useDeepLinks() {
   const [q] = useSearchParams();
   useEffect(() => {
@@ -162,6 +162,7 @@ function useDeepLinks() {
     }
     if (q.get('hot')) actions.setHot(true);
     if (inspect) actions.openInspector(inspect);
+    if (q.get('pen')) actions.setPenMode(true);
     // run once on arrival
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
