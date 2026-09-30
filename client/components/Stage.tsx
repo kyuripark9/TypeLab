@@ -12,7 +12,7 @@ import { Preview } from './Preview';
 /* Like Google Fonts: one "Type something" bar on top sets the sample text and size, both for the
    style cards and for the live preview of the design. */
 export function Stage() {
-  const style = useEditor(s => s.category === 'style' && s.cards);
+  const style = useEditor(s => s.category === 'style');
   return (
     <main className="stage">
       <PreviewBar />
@@ -24,7 +24,6 @@ export function Stage() {
 
 function PreviewBar() {
   const custom = useEditor(s => s.custom), size = useEditor(s => s.size), style = useEditor(s => s.category === 'style');
-  const cards = useEditor(s => s.cards);
   return (
     <div className="stage-bar">
       <div className="type-field" data-guide="type">
@@ -37,8 +36,7 @@ function PreviewBar() {
         <input type="range" min={14} max={220} value={size} aria-label="Size" onChange={e => actions.setSize(Number(e.target.value))} />
         <SizeValue size={size} />
       </div>
-      {style && <CardsSwitch on={cards} />}
-      {style && cards && <ViewToggle />}
+      {style && <ViewToggle />}
     </div>
   );
 }
@@ -69,17 +67,6 @@ function SizeValue({ size }: { size: number }) {
           }
         }} />
       <span>px</span>
-    </label>
-  );
-}
-
-/** Shows the grid of style cards, or hides it to see the design's own preview. */
-function CardsSwitch({ on }: { on: boolean }) {
-  return (
-    <label className="cards-switch">
-      <span>Styles</span>
-      <button className={on ? 'switch on' : 'switch'} role="switch" aria-checked={on} aria-label="Show styles"
-        title={on ? 'Hide the styles to see your design' : 'Show every style'} onClick={() => actions.setCards(!on)}><i /></button>
     </label>
   );
 }

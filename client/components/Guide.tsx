@@ -102,14 +102,13 @@ export function Guide({ onClose }: { onClose: () => void }) {
   // remember where the user was, and put them back when the tour ends
   const start = useRef((() => {
     const s = useEditor.getState();
-    return { category: s.category, cards: s.cards, styleTab: s.styleTab, scope: s.scope, focus: document.activeElement as HTMLElement | null };
+    return { category: s.category, styleTab: s.styleTab, scope: s.scope, focus: document.activeElement as HTMLElement | null };
   })());
   const close = () => {
     markSeen();
     const s = start.current;
     if (useEditor.getState().inspect) actions.closeInspector();
     actions.setCategory(s.category);
-    if (useEditor.getState().cards !== s.cards) actions.setCards(s.cards);
     actions.setStyleTab(s.styleTab);
     actions.setScope(s.scope);
     s.focus?.focus();
@@ -126,7 +125,6 @@ export function Guide({ onClose }: { onClose: () => void }) {
     if (step.inspector === 'open') { if (!s.inspect) actions.openInspector('R'); }
     else if (step.inspector !== 'keep' && s.inspect) actions.closeInspector();
     if (step.category === 'style' || (step.category && s.category === 'style')) actions.setCategory(step.category);
-    if (step.category === 'style' && !s.cards) actions.setCards(true);
     if (step.target === 'panel' && step.category === 'style') actions.setStyleTab('adjust');
     s = useEditor.getState();
     setCan(!step.can || step.can(s));

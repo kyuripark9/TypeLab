@@ -17,10 +17,6 @@ const VIEW_KEY = 'typelab.cardView';
 const savedView = (): CardView => {
   try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid'; } catch { return 'grid'; }
 };
-const CARDS_KEY = 'typelab.cardsHidden';
-const savedCards = (): boolean => {
-  try { return localStorage.getItem(CARDS_KEY) !== '1'; } catch { return true; }
-};
 const FINDER_KEY = 'typelab.browseAll';
 const savedFinder = (): boolean => {
   try { return localStorage.getItem(FINDER_KEY) !== '1'; } catch { return true; }
@@ -72,8 +68,6 @@ export interface EditorState extends Doc {
   picked: string | null;
   /** Style page layout: cards in a grid, or one per row */
   view: CardView;
-  /** the Style page shows the grid of style cards; off, it shows the design's own preview */
-  cards: boolean;
   /** long panel sections folded down to their heading */
   folded: ControlKey[];
   /** the explanation at the top of the panel; closed, it folds to a "Show explanation" row */
@@ -135,7 +129,6 @@ export const useEditor = create<EditorState>()(() => ({
   styleTab: 'filter',
   picked: JSON.stringify(blankDoc().params),
   view: savedView(),
-  cards: savedCards(),
   folded: savedFolded(),
   tips: savedTips(),
   inspect: null,
@@ -433,10 +426,6 @@ export const actions = {
   setView(view: CardView) {
     set({ view });
     try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode: the choice lasts this visit */ }
-  },
-  setCards(cards: boolean) {
-    set({ cards });
-    try { if (cards) localStorage.removeItem(CARDS_KEY); else localStorage.setItem(CARDS_KEY, '1'); } catch { /* private mode: lasts this visit */ }
   },
   /** Fold a long panel section down to its heading, or open it again; `open` forces one way. */
   toggleFold(k: ControlKey, open = get().folded.includes(k)) {

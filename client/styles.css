@@ -87,7 +87,6 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .size-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .size .size-field input { width: 34px; height: 100%; padding: 0 2px 0 7px; border: 0; background: none; outline: none;
   font: 500 13px var(--ui); font-variant-numeric: tabular-nums; text-align: right; color: var(--ink); }
-.cards-switch { display: flex; flex: none; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
 .view-toggle { display: flex; flex: none; gap: 2px; padding: 2px; border: 1px solid var(--line-2); border-radius: var(--radius); }
 .view-toggle button { width: 30px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-3); transition: background .15s, color .15s; }
 .view-toggle button:hover { color: var(--ink); }
