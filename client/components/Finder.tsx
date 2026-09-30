@@ -95,7 +95,8 @@ export function FinderQuestion({ question: q, text }: { question: Question; text
     if (first.current) { first.current = false; return; }
     head.current?.focus();
   }, [q.step, q.title]);
-  const word = text.trim().split(/\s+/).slice(0, 2).join(' ').slice(0, 14) || 'Handgloves';
+  // the typed text if any, else each tile's style names itself
+  const word = text.trim().split(/\s+/).slice(0, 2).join(' ').slice(0, 14);
   return (
     <section className="finder" aria-labelledby="finder-q">
       <div className="finder-head">
@@ -105,7 +106,7 @@ export function FinderQuestion({ question: q, text }: { question: Question; text
       <div className="finder-options">
         {q.options.map(o => (
           <button key={o.id} className="finder-option" onClick={() => actions.answer(q.step, o.id)}>
-            <Sample style={o.sample} traits={traits} text={word} />
+            <Sample style={o.sample} traits={traits} text={word || o.sample.name} />
             <span className="finder-label">{o.label}<span>{o.count}</span></span>
             {o.hint && <span className="finder-hint">{o.hint}</span>}
           </button>
