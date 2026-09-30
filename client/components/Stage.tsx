@@ -4,6 +4,7 @@ import type { Params } from '../../shared/params';
 import { n1, useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
 import { actions, adjustedParams, fontFor, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
+import { FinderQuestion, FinderTrail, useFinder } from './Finder';
 import { Inspector } from './Inspector';
 import { focusFilters } from './Panel';
 import { Preview } from './Preview';
@@ -116,9 +117,11 @@ function SampleText() {
 }
 
 /** Cards are grouped by Category, the panel's first filter, and narrowed by all the filters. Each
-    is drawn with the Adjust tab's traits laid over its style. */
+    is drawn with the Adjust tab's traits laid over its style. The finder asks its questions first,
+    and the cards come once they're answered. */
 function StyleCards() {
-  const text = sampleText(useEditor(s => s.custom)), size = useEditor(s => s.size);
+  const custom = useEditor(s => s.custom), text = sampleText(custom), size = useEditor(s => s.size);
+  const finder = useFinder();
   const view = useEditor(s => s.view);
   const head = useRef<HTMLHeadingElement>(null);
   const { traits: now, matches } = useStyleMatch();
@@ -132,11 +135,13 @@ function StyleCards() {
         <h1 ref={head} tabIndex={-1}>Start with a style</h1>
         {/* a status, so screen readers hear the count change as filters are picked */}
         <span role="status">{shown.length < all ? `${shown.length} of ${all} styles` : `${all} styles`}</span>
+        {!finder.on && <button className="link small" onClick={() => actions.setFinder(true)}>Help me choose</button>}
         {/* the filters sit after every card in tab order; this jumps there, and shows only when focused */}
         <button className="skip" onClick={focusFilters}>Skip to filters</button>
       </div>
-      <ActiveBar onClear={() => head.current?.focus()} />
-      {shown.length ? (
+      {finder.on && <FinderTrail finder={finder} />}
+      <ActiveBar onClear={() => head.current?.focus()} finder={finder.on} />
+      {finder.question ? <FinderQuestion question={finder.question} text={custom} /> : shown.length ? (
         <div className={traits === now ? 'style-groups' : 'style-groups stale'}>
           {STYLE_GROUPS.filter(g => shown.some(s => s.group === g.id)).map(g => (
             <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
@@ -155,17 +160,18 @@ function StyleCards() {
 }
 
 /** Everything picked in the panel, search, filters and traits, as one row of chips, each removed
-    with a click; the traits say they change every card. */
-function ActiveBar({ onClear }: { onClear: () => void }) {
+    with a click; the traits say they change every card. While the finder is on, its trail shows
+    the Category, Classification and Feeling instead. */
+function ActiveBar({ onClear, finder }: { onClear: () => void; finder: boolean }) {
   const { f, traits } = useStyleMatch();
   const tag = <T extends string>(list: { id: T; label: string }[], id: T) => list.find(x => x.id === id)!.label;
   const kinds = KIND_SECTIONS.flatMap(sec => sec.tags);
   const items: { key: string; label: string; trait?: boolean; remove: () => void }[] = [
     ...(f.query?.trim() ? [{ key: 'q', label: `“${f.query.trim()}”`, remove: () => actions.setQuery('') }] : []),
-    ...f.groups.map(g => ({ key: `g-${g}`, label: tag(STYLE_GROUPS, g), remove: () => actions.toggleGroup(g) })),
-    ...f.kinds.map(k => ({ key: `k-${k}`, label: tag(kinds, k), remove: () => actions.toggleKind(k) })),
+    ...(finder ? [] : f.groups.map(g => ({ key: `g-${g}`, label: tag(STYLE_GROUPS, g), remove: () => actions.toggleGroup(g) }))),
+    ...(finder ? [] : f.kinds.map(k => ({ key: `k-${k}`, label: tag(kinds, k), remove: () => actions.toggleKind(k) }))),
     ...f.looks.map(l => ({ key: `l-${l}`, label: tag(LOOKS, l), remove: () => actions.toggleLook(l) })),
-    ...f.moods.map(m => ({ key: `m-${m}`, label: tag(MOODS, m), remove: () => actions.toggleMood(m) })),
+    ...(finder ? [] : f.moods.map(m => ({ key: `m-${m}`, label: tag(MOODS, m), remove: () => actions.toggleMood(m) }))),
     ...traitLabels(traits).map(t => ({ key: `t-${t.id}`, label: t.label, trait: true, remove: () => actions.setTrait(t.id, null) }))
   ];
   if (!items.length) return null;

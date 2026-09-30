@@ -138,6 +138,28 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .active-chip.trait:hover { background: rgba(77, 128, 230, .2); }
 .active-chip svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; opacity: .75; }
 .link.small { font-size: 12px; margin-left: 4px; }
+/* the style finder: the answers so far as a trail, then the question asked now as a grid of tiles */
+.finder-trail { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin: -6px 0 20px; }
+.finder-trail ol { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.finder-trail li { display: flex; align-items: center; gap: 2px; }
+.finder-trail svg { fill: none; stroke: var(--ink-3); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.crumb { height: 26px; padding: 0 8px; border-radius: var(--radius-s); font-size: 13px; font-weight: 500; color: var(--ink); transition: background .15s; }
+.crumb:hover { background: var(--hover); }
+.crumb:disabled { color: var(--ink-3); background: none; }
+.crumb.now { display: inline-flex; align-items: center; color: var(--ink-3); font-weight: 400; }
+.finder-trail .link.small { margin-left: auto; }
+.finder-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 12px; }
+.finder-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; outline: none; }
+.finder-head span { font-size: 13px; color: var(--ink-3); }
+.finder-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.finder-option { text-align: left; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface); transition: border-color .15s; }
+.finder-option:hover { border-color: var(--line-2); }
+.finder-sample { display: block; width: 100%; height: 56px; margin-bottom: 10px; fill: var(--ink); overflow: visible; }
+.finder-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.finder-label span { font-size: 12px; font-weight: 400; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.finder-hint { font-size: 12.5px; line-height: 1.4; color: var(--ink-3); }
+.finder-option.any { justify-content: center; border-style: dashed; background: none; }
+.finder-option.any:hover { background: var(--hover); }
 
 /* ---------- panel resize handles: an 8px grab strip centred on the border, lit in the accent while used */
 .resizer { position: relative; z-index: 6; touch-action: none; }

@@ -29,7 +29,7 @@ interface Step {
 const STEPS: Step[] = [
   { task: 'Welcome to TypeLab', note: 'Try the basics, one click each.' },
   { target: 'stage', side: 'right', category: 'style', label: 'Styles',
-    task: 'Click a style to start from', done: (s, t) => s.styleId !== t.styleId },
+    task: 'Click a style to start from', note: 'Answer a question or two to narrow them down.', done: (s, t) => s.styleId !== t.styleId },
   { target: 'type', side: 'bottom', category: 'style', label: 'Sample text',
     task: 'Type a word', done: (s, t) => !!s.custom.trim() && s.custom !== t.custom },
   { target: 'panel', side: 'left', category: 'style', label: 'Traits',

@@ -21,6 +21,10 @@ const CARDS_KEY = 'typelab.cardsHidden';
 const savedCards = (): boolean => {
   try { return localStorage.getItem(CARDS_KEY) !== '1'; } catch { return true; }
 };
+const FINDER_KEY = 'typelab.browseAll';
+const savedFinder = (): boolean => {
+  try { return localStorage.getItem(FINDER_KEY) !== '1'; } catch { return true; }
+};
 const CONSTRUCTION_KEY = 'typelab.construction';
 const savedConstruction = (): boolean => {
   try { return localStorage.getItem(CONSTRUCTION_KEY) === '1'; } catch { return false; }
@@ -57,6 +61,10 @@ export interface EditorState extends Doc {
   kinds: Kind[];
   /** Style page search words */
   query: string;
+  /** the Style page asks a few questions (Category, Classification, Feeling) before it shows the cards */
+  finder: boolean;
+  /** finder steps answered with "Any", each with what the steps before it had picked then (see passKey) */
+  passed: Partial<Record<FinderStep, string>>;
   /** Style page traits, laid over every starting style */
   traits: Traits;
   styleTab: StyleTab;
@@ -121,6 +129,8 @@ export const useEditor = create<EditorState>()(() => ({
   looks: [],
   kinds: [],
   query: '',
+  finder: savedFinder(),
+  passed: {},
   traits: {},
   styleTab: 'filter',
   picked: JSON.stringify(blankDoc().params),
@@ -230,6 +240,22 @@ export function useStyleMatch() {
   const f: StyleFilter = { groups, kinds, looks, moods, query };
   return { f, traits, matches: (s: StyleDef, pick: Partial<StyleFilter> = {}, t = traits) => styleMatches(s, { ...f, ...pick }, adjustedLooks(s, t)) };
 }
+/** The style finder's questions, in order, and the filter facet each one sets. */
+export type FinderStep = 'group' | 'kind' | 'mood';
+export const FINDER_STEPS: FinderStep[] = ['group', 'kind', 'mood'];
+const FACET = { group: 'groups', kind: 'kinds', mood: 'moods' } as const;
+/** What the steps before `step` had picked. A step answered "Any" stays passed only while they
+    still hold, so going back and picking something else asks it again. */
+export const passKey = (s: Pick<EditorState, 'groups' | 'kinds'>, step: FinderStep) =>
+  JSON.stringify(step === 'group' ? [] : step === 'kind' ? [s.groups] : [s.groups, s.kinds]);
+/** `step` and the steps after it, emptied and asked again. */
+function reopen(s: EditorState, step: FinderStep): Partial<EditorState> {
+  const later = FINDER_STEPS.slice(FINDER_STEPS.indexOf(step));
+  const passed = { ...s.passed };
+  for (const k of later) delete passed[k];
+  return { passed, ...Object.fromEntries(later.map(k => [FACET[k], []])) };
+}
+
 /** The picked steps as "Weight: Bold", in the order of the Adjust tab. */
 export const traitLabels = (traits: Traits) =>
   TRAIT_SECTIONS.flatMap(sec => sec.traits).filter(t => traits[t.id]).map(t => ({ id: t.id, label: `${t.label}: ${traitOption(t.id, traits[t.id])!.label}` }));
@@ -372,7 +398,19 @@ export const actions = {
   toggleMood(m: Mood) { set(s => ({ moods: toggle(s.moods, m) })); },
   toggleLook(l: Look) { set(s => ({ looks: toggle(s.looks, l) })); },
   toggleKind(k: Kind) { set(s => ({ kinds: toggle(s.kinds, k) })); },
-  clearFilters() { set({ groups: [], moods: [], looks: [], kinds: [], query: '' }); },
+  clearFilters() { set({ groups: [], moods: [], looks: [], kinds: [], query: '', passed: {} }); },
+  /** Answer a finder step with one tag: its facet becomes just that, and the steps after it are asked again. */
+  answer(step: FinderStep, id: string) { set(s => ({ ...reopen(s, step), [FACET[step]]: [id] })); },
+  /** Answer a finder step with "Any": it picks nothing and the next step comes up. */
+  pass(step: FinderStep) { set(s => ({ passed: { ...s.passed, [step]: passKey(s, step) } })); },
+  /** Go back to a finder step, dropping its answer and the ones after it. */
+  backTo(step: FinderStep) { set(s => reopen(s, step)); },
+  /** Ask the finder's questions again from the start, or leave them and browse every card. */
+  setFinder(finder: boolean) {
+    if (finder) actions.clearFilters();
+    set({ finder });
+    try { if (finder) localStorage.removeItem(FINDER_KEY); else localStorage.setItem(FINDER_KEY, '1'); } catch { /* private mode: lasts this visit */ }
+  },
   setQuery(query: string) { set({ query }); },
   setStyleTab(styleTab: StyleTab) { set({ styleTab }); },
   /** Pick a step of a trait, or with null (or the step already picked) let each style keep its own. */
