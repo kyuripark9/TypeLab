@@ -614,7 +614,8 @@ def('S', [0.5, 0.5], (g, m) => { const W = m.W(520, 'c'); sShape(g, m, 0, W, -m.
 
 def('T', [0.3, 0.3], (g, m) => {
   const W = m.W(530), hh = m.hT / 2;
-  g.stem(W / 2, 0, m.cap, { serifS: 'both' });
+  // the stem joins the bar, so a stencil opens a gap under it and thin joints thin it there
+  g.stem(W / 2, 0, m.cap - hh, { serifS: 'both', e: J });
   g.line(0, m.cap - hh, W, m.cap - hh, { s: T, e: T, part: 'arm', serifS: 'a', serifE: 'a', serifScale: 0.75 });
   return W;
 });

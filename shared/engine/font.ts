@@ -828,7 +828,11 @@ function markTurns(b: Builder, m: Metrics) {
       const cos = tn.din.tx * tn.dout.tx + tn.din.ty * tn.dout.ty;
       if (m.innerR > 0 && m.p.innerCorners?.[id] == null) turn = { ...turn, o: turn?.o ?? 0, i: Math.max(turn?.i ?? 0, innerFor(m, Math.acos(clamp(-cos, -1, 1)))) };
       const square = Math.abs(cos) < 0.35, sv = m.p.cornerSteps?.[id] ?? (square ? m.p.steps : 0);
-      if (sv > 0) turn = { ...(turn ?? { o: 0, i: 0 }), step: stepW(sv, t) };
+      // a point the stroke's clip cuts off (the foot of a V, squared off on the baseline) has no corner left to step
+      const ox = tn.din.tx - tn.dout.tx, oy = tn.din.ty - tn.dout.ty, l = Math.hypot(ox, oy) || 1;
+      const h = Math.sqrt(Math.max(1e-3, 1 - l * l / 4)), cl = st.o.clip, px = tn.x + ox / l * t / 2 / h, py = tn.y + oy / l * t / 2 / h;
+      const cut = !!cl && (py < (cl.y0 ?? -Infinity) - 0.5 || py > (cl.y1 ?? Infinity) + 0.5 || px < (cl.x0 ?? -Infinity) - 0.5 || px > (cl.x1 ?? Infinity) + 0.5);
+      if (sv > 0 && !cut) turn = { ...(turn ?? { o: 0, i: 0 }), step: stepW(sv, t) };
       if (turn && turn !== o.turn) {
         o = { ...o, turn };
         const nc = c.slice() as Cmd;
@@ -837,10 +841,9 @@ function markTurns(b: Builder, m: Metrics) {
       }
       // marked where the outside of the turn is drawn: its mitred point, or the middle of its round
       // (sin h: the sine of half the angle inside the turn)
-      const ox = tn.din.tx - tn.dout.tx, oy = tn.din.ty - tn.dout.ty, l = Math.hypot(ox, oy) || 1, ro = o.turn?.o ?? 0;
-      const h = Math.sqrt(Math.max(1e-3, 1 - l * l / 4)), out = t / 2 / h - ro * (1 / h - 1);
+      const ro = o.turn?.o ?? 0, out = t / 2 / h - ro * (1 / h - 1);
       // (at home on the turn itself, which rounding doesn't move, so the corners keep their order)
-      b.marks.push({ type: 'corner', id, x: tn.x + ox / l * out, y: tn.y + oy / l * out, v: turnV(ro, m.cap), vi: turnV(Math.max(o.turn?.i ?? 0, innerFloor(ro, t, tn.din.tx * tn.dout.tx + tn.din.ty * tn.dout.ty)), m.cap), st: sv, home: { x: tn.x, y: tn.y } });
+      b.marks.push({ type: 'corner', id, x: tn.x + ox / l * out, y: tn.y + oy / l * out, v: turnV(ro, m.cap), vi: turnV(Math.max(o.turn?.i ?? 0, innerFloor(ro, t, tn.din.tx * tn.dout.tx + tn.din.ty * tn.dout.ty)), m.cap), st: cut ? undefined : sv, home: { x: tn.x, y: tn.y } });
     });
   });
 }
@@ -1035,10 +1038,18 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
     for (let n = 0; n < 5 && hi - lo > 1; n++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
     return { a, b: bdir, most: lo };
   };
+  /** Whether a corner whose end's other corner is hidden has the edge across that end run straight on
+      past it along another stroke, so the two draw one side of the letter (D's stem top and its bowl). */
+  const runsOn = (g: (typeof groups)[number]) => {
+    if (shows.get(g.partner) !== false || !g.at) return false;
+    const q = g.pts[0], p = { x: q.x + (g.at.x - q.x) * 1.5, y: q.y + (g.at.y - q.y) * 1.5 };
+    return polys.some((ps, j) => j !== +g.id.slice(0, -2) && ps.some(poly => edge(poly, p) < 1.5));
+  };
   for (const g of groups) {
     const own = m.p.corners?.[g.id], q = g.pts[0], x = q.x, y = q.y;
     // Steps cuts a step out of a corner of the letter, where two strokes end together (the foot of an L)
-    const sv = m.p.cornerSteps?.[g.id] ?? (g.pts.length > 1 ? m.p.steps : 0);
+    // or where another stroke runs on flush out of the end (the top of D's stem, its bowl running on to the right)
+    const sv = m.p.cornerSteps?.[g.id] ?? (g.pts.length > 1 || runsOn(g) ? m.p.steps : 0);
     // (one size for every stroke there, no deeper than 0.85 of the thinner of the stroke and the bars, so they stay joined)
     if (sv > 0) for (const p of g.pts) p.step = Math.min(stepW(sv, g.t), 0.85 * Math.min(g.t, m.hT));
     const alone = shows.get(g.partner) === false && g.at ? lone(q, g.at, g.t) : null;

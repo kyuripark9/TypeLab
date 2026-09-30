@@ -3,7 +3,7 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ANATOMY, BOWL_SUBS, PINCH_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS, SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
+  ANATOMY, BLOCK_CONTROLS, BOWL_SUBS, PINCH_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS, SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
   SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type SerifInnerSubKey, type Kind, type Look, type Mood, type StyleFilter, type StyleGroup
 } from '../../shared/content';
@@ -270,12 +270,17 @@ function TagText({ tag, label }: { tag: Tag; label: string }) {
 
 function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
   const serifs = useParam('serif'), wedge = useParam('serifShape') === 'wedge', outside = useParam('serifSides') === 'outside';
+  const blocks = useParam('build') === 'blocks';
   // the Serifs page has nothing to shape while serifs are off, a wedge, already a point, has no tip to finish,
-  // and serifs that only reach out of the letter leave none inside it
-  const keys = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category &&
+  // and serifs that only reach out of the letter leave none inside it; letters built from blocks have no
+  // strokes, so only the controls that shape blocks show
+  const all = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category);
+  const keys = all.filter(k => (!blocks || BLOCK_CONTROLS.includes(k)) &&
     (category !== 'serifs' || k === 'serif' || (serifs && !(wedge && k === 'serifTip') && !(outside && k === 'serifInner'))));
   const inspecting = useEditor(s => !!s.inspect);
-  const note = category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
+  const note = blocks && keys.length < all.length
+    ? <p className="page-note">{keys.length ? 'Letters built from blocks use only these settings here.' : 'Letters built from blocks have nothing to shape here.'} Switch Built from back to Strokes for the rest.</p>
+    : category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
   return (
     <>
       <Explainer />

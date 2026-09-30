@@ -115,7 +115,8 @@ function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
       const dx = to.x - cur.x, dy = to.y - cur.y, l = Math.hypot(dx, dy);
       if (l < 0.01) continue;
       // under a pinch a line is sampled finely, and exactly where it crosses the pinch's line, so its point comes out sharp
-      const pc = ctx.pinch, n = pc ? Math.max(8, Math.ceil(l / (pc.reach / 12))) : subdivLines ? 8 : 1, us: number[] = [];
+      // (and under thin joints, finely enough for the short thinning into a sharp turn to come out smooth)
+      const pc = ctx.pinch, n = pc ? Math.max(8, Math.ceil(l / (pc.reach / 12))) : subdivLines ? Math.max(8, ctx.joints ? Math.ceil(l / (ctx.thick / 6)) : 0) : 1, us: number[] = [];
       for (let i = 0; i <= n; i++) us.push(i / n);
       const cross = pc && Math.abs(dy) > 1e-6 ? (pc.y - cur.y) / dy : -1;
       if (cross > 0 && cross < 1) us.push(cross), us.sort((a, b) => a - b);
@@ -328,7 +329,8 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     if (o.s === 'join') js = f;
     if (o.e === 'join') je = f;
   }
-  const tapered = ws !== 1 || we !== 1 || js !== 1 || je !== 1;
+  // (thin joints also thin a stroke into its sharp turns, so it is sampled finely enough to show it)
+  const tapered = ws !== 1 || we !== 1 || js !== 1 || je !== 1 || !!ctx.joints;
   const { runs, closed } = flatten(cmds, ctx, tapered);
   if (!runs.length) return null;
 
@@ -382,6 +384,24 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
       if (je !== 1) f *= lerp(je, 1, smoothstep((total - s.len) / taperLen));
       s.off = (s.off || 0) + keep * s.t * (1 - f) / 2;
       s.t *= f;
+    }
+  }
+  // a sharp turn is a join too (the point of a V, the vertices of a W or an M): the stroke thins into
+  // it from both sides, keeping its outer edge, so the crotch inside opens up like an ink trap
+  if (ctx.joints) {
+    const f = lerp(1, 0.45, ctx.joints);
+    for (let i = 0; i + 1 < runs.length; i++) {
+      const ra = runs[i], rb = runs[i + 1], sa = ra[ra.length - 1], sb = rb[0];
+      if (sa.tx * sb.tx + sa.ty * sb.ty > -0.2) continue;
+      const keep = sa.tx * sb.ty - sa.ty * sb.tx > 0 ? -1 : 1, at = sa.len;
+      const reach = Math.max(1, Math.min(2 * Math.max(sa.t, sb.t), (sa.len - ra[0].len) * 0.6, (rb[rb.length - 1].len - sb.len) * 0.6));
+      for (const s of [...ra, ...rb]) {
+        const u = Math.abs(s.len - at) / reach;
+        if (u >= 1) continue;
+        const g = lerp(f, 1, smoothstep(u));
+        s.off = (s.off || 0) + keep * s.t * (1 - g) / 2;
+        s.t *= g;
+      }
     }
   }
 

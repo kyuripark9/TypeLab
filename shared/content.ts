@@ -749,6 +749,10 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   slice: { cat: 'effects', off: 0, label: 'Slice', friendly: 'Cut one line through every letter', tech: 'Slice', lo: 'None', hi: 'Wide', demo: 'type',
     explain: 'One horizontal cut runs across the whole line. Thickness sets how tall the cut is; Position moves it up or down; Rounding softens its corners.' }
 };
+/** The controls that shape letters built from blocks (see blocks.ts): their size, weight and corners, the
+    hand, spacing and the effects that run on any outline. The rest shape strokes, which blocks don't have. */
+export const BLOCK_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'build', 'roundness', 'mirror', 'wobble',
+  'xHeight', 'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'softSharp', 'classicFuture', 'playfulFormal', 'fill', 'slice'];
 export const SERIF_SUBS: Record<SerifSubKey, SubControlDef> = {
   serifSize: { label: 'Length', friendly: 'Make the feet longer', tech: 'Serif size', lo: 'Short', hi: 'Long' },
   serifThickness: { label: 'Thickness', friendly: 'Make the feet heavier', tech: 'Serif thickness', lo: 'Hairline', hi: 'Heavy' },
