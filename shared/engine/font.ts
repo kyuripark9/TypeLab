@@ -1187,17 +1187,28 @@ function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nu
      for up to `want`: the points passed, stopping where it turns off by more than 50 degrees or
      runs into another stroke. Ink is looked for a hair off the edge, toward the empty wedge `bis`
      points into, so an edge another stroke's edge runs along (the waist of a B, where both bowls'
-     bars lie) stays clear; and a step that runs into ink goes as far as it can first. */
+     bars lie) stays clear; and a step that runs into ink goes as far as it can first.
+     At a corner of the outline that turns away from the wedge it stops sooner, short of as much of
+     it as Roundness or a round terminal rounds off later (the top of a t's stem, the ends of its
+     crossbar), so no round is left standing out past a corner that isn't there any more. */
+  const cornerR = (si: number, q: Pt) => (q.sharp ? 0 : q.r ?? (exps[si]?.ex?.loop ? 0 : m.R * (b.strokes[si].o.scale || 1) * strokeWt(m, si)));
   const walk = (si: number, ring: Pt[], k: number, dir: 1 | -1, p: Pt, want: number, bis: Pt) => {
     const n = ring.length, pts: Pt[] = [p];
-    let len = 0, at = p, i = dir > 0 ? (k + 1) % n : k, d0: Pt | null = null;
+    let len = 0, at = p, i = dir > 0 ? (k + 1) % n : k, d0: Pt | null = null, wing = 0, trim = 0;
+    let last: { x: number; y: number; l: number; q: Pt } | null = null;
     for (let step = 0; step < n && len < want; step++, i = (i + dir + n) % n) {
       const q = ring[i], dx = q.x - at.x, dy = q.y - at.y, l = Math.hypot(dx, dy);
       if (l < 1e-6) continue;
       // (a sliver of an edge, where the outline was cut at the crossing, has no way of its own: taken as it is)
       if (l < 3 && !d0) { pts.push({ x: q.x, y: q.y }); len += l; at = q; continue; }
-      d0 ??= { x: dx / l, y: dy / l };
-      if ((dx * d0.x + dy * d0.y) / l < Math.cos(50 * Math.PI / 180)) break;
+      if (!d0) { d0 = { x: dx / l, y: dy / l }; wing = Math.sign(d0.x * bis.y - d0.y * bis.x); }
+      // the turn at the point just reached, + toward the wedge
+      const turn = last ? Math.atan2(last.x * dy - last.y * dx, last.x * dx + last.y * dy) * wing : 0;
+      const corner = !!last && !last.q.smooth && Math.abs(turn) >= 0.07;
+      if ((dx * d0.x + dy * d0.y) / l < Math.cos(50 * Math.PI / 180) || (corner && turn < -0.25)) {
+        if (corner) trim = cornerR(si, last!.q) * Math.tan(Math.min(Math.abs(turn), 2.6) / 2);
+        break;
+      }
       const side = -dy * bis.x + dx * bis.y > 0 ? 1.5 / l : -1.5 / l, off = { x: -dy * side, y: dx * side };
       const clear = (f: number) => !inked({ x: at.x + dx / l * f + off.x, y: at.y + dy / l * f + off.y }, si);
       let take = Math.min(l, want - len), stop = false;
@@ -1208,8 +1219,9 @@ function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nu
       }
       if (take > 1e-6) { const e = { x: at.x + dx / l * take, y: at.y + dy / l * take }; pts.push(e); len += take; at = e; }
       if (stop) break;
+      last = { x: dx / l, y: dy / l, l, q };
     }
-    return { pts, len };
+    return { pts, len: Math.max(0, len - trim) };
   };
   const cut = (w: { pts: Pt[] }, d: number) => {
     const out = [w.pts[0]];
@@ -1272,7 +1284,11 @@ function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nu
             const u1 = s1.length > 1 ? s1[s1.length - 2] : p, u2 = s2.length > 1 ? s2[s2.length - 2] : p;
             const t1 = { x: T1.x - u1.x, y: T1.y - u1.y }, t2 = { x: T2.x - u2.x, y: T2.y - u2.y }, l1 = Math.hypot(t1.x, t1.y) || 1, l2 = Math.hypot(t2.x, t2.y) || 1;
             // the round across, a quarter-circle-like curve from where it leaves one edge to where it meets the other
-            const h = (4 / 3) * Math.tan((Math.PI - span) / 4) * dd * Math.tan(span / 2);
+            // (where a curve followed round has swung its edge away from the corner, turning only as far as
+            // the edges' own ways at its ends, or it would overshoot them and leave a lip)
+            const phi = Math.abs(Math.atan2(t1.y * t2.x - t1.x * t2.y, -(t1.x * t2.x + t1.y * t2.y))), chord = Math.hypot(T2.x - T1.x, T2.y - T1.y);
+            const h = phi > Math.PI - span + 1e-3 ? (4 / 3) * Math.tan(phi / 4) * chord / (2 * Math.sin(phi / 2))
+              : (4 / 3) * Math.tan((Math.PI - span) / 4) * dd * Math.tan(span / 2);
             const C = [T1, { x: T1.x - t1.x / l1 * h, y: T1.y - t1.y / l1 * h }, { x: T2.x - t2.x / l2 * h, y: T2.y - t2.y / l2 * h }, T2];
             const arc = Array.from({ length: 11 }, (_, n) => { const q = cubicAt(C, n / 10); return { x: q.x, y: q.y, smooth: n > 0 && n < 10 }; });
             // marked on the round, where the corner now is
