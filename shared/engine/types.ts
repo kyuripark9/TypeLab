@@ -65,7 +65,7 @@ export interface StrokeOpts {
 }
 
 /** A serif's finer shape is optional: left out, it is bracketed as usual, square at its tips, flat underneath,
-    the same length both ways and everywhere. */
+    the same both ways and the same length everywhere. */
 export interface SerifSpec {
   len: number; th: number; shape: string; angle: number;
   /** bracketed: how far up the stroke the curve runs, in serif lengths */ bracket?: number;
@@ -74,6 +74,9 @@ export interface SerifSpec {
   /** angled tips: how far the cut leans, in tip thicknesses: + runs the foot of the tip further out, - its top */ tipSlant?: number;
   /** cupped: how high the base arches, as a share of the most it can (see serifCup) */ cup?: number;
   /** serifs on stems: -1 to 1, longer toward -x or toward +x */ balance?: number;
+  /** serifs on stems: the sides they reach to (see SERIF_SIDES in params) */ sides?: string;
+  /** serifs on stems, where the ones that reach into the letter differ from the rest: their shape and thickness,
+      and their length against the others */ inner?: { shape: string; th: number; len: number } | null;
   /** the length of serifs on top of stems, and on the ends of arms, against the ones at the foot */ tops?: number; arms?: number;
 }
 

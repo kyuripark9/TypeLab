@@ -3,9 +3,9 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ANATOMY, BOWL_SUBS, PINCH_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_SHAPE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
+  ANATOMY, BOWL_SUBS, PINCH_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS, SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
   SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById,
-  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type Kind, type Look, type Mood, type StyleFilter, type StyleGroup
+  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type SerifInnerSubKey, type Kind, type Look, type Mood, type StyleFilter, type StyleGroup
 } from '../../shared/content';
 import { TERMINAL_FORMS, formOf, isGlyphKey, rotationDeg, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
@@ -13,7 +13,7 @@ import { cmdsToD, type Glyph } from '../../shared/engine';
 import { letterCorners, letterStrokes, strokeEnds, type CornerInfo, type StrokeEndInfo, type StrokeInfo } from '../lib/drag';
 import { actions, adjustedLooks, adjustedParams, curlOf, endOf, fontFor, isOn, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, useStyleMatch, type EndKey, type StyleTab } from '../state/editor';
 import { TRAIT_SECTIONS, type TraitDef } from '../../shared/traits';
-import { Diagram, FillIcon, FormIcon, SerifIcon, StoryIcon, TerminalIcon } from './Diagram';
+import { Diagram, FillIcon, FormIcon, SerifIcon, SerifSidesIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { ScopeIcon, letterControls } from './Inspector';
 
 export function Panel() {
@@ -269,10 +269,11 @@ function TagText({ tag, label }: { tag: Tag; label: string }) {
 }
 
 function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
-  const serifs = useParam('serif'), wedge = useParam('serifShape') === 'wedge';
-  // the Serifs page has nothing to shape while serifs are off, and a wedge, already a point, has no tip to finish
+  const serifs = useParam('serif'), wedge = useParam('serifShape') === 'wedge', outside = useParam('serifSides') === 'outside';
+  // the Serifs page has nothing to shape while serifs are off, a wedge, already a point, has no tip to finish,
+  // and serifs that only reach out of the letter leave none inside it
   const keys = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category &&
-    (category !== 'serifs' || k === 'serif' || (serifs && !(wedge && k === 'serifTip'))));
+    (category !== 'serifs' || k === 'serif' || (serifs && !(wedge && k === 'serifTip') && !(outside && k === 'serifInner'))));
   const inspecting = useEditor(s => !!s.inspect);
   const note = category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
   return (
@@ -332,7 +333,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   }
   if (k === 'stencil' || k === 'slice') return <CutControl k={k} parts={parts} />;
   if (c.type === 'serif') return <SerifControl parts={parts} />;
-  if (c.type === 'serifForm') return <SerifFormControl k={k as 'serifTip' | 'serifBase'} />;
+  if (c.type === 'serifForm') return <SerifFormControl k={k as SerifFormKey} />;
   if (c.type === 'fill') return <FillControl />;
   return <SliderControl k={k as NumericParam} def={c} parts={parts} />;
 }
@@ -863,10 +864,11 @@ function SerifControl({ parts }: { parts?: string[] }) {
   );
 }
 
-/** A finer choice on the Serifs page, the tips or the base: each option drawn on a serif of the design's
-    own shape, then the sliders of the picked one. */
-function SerifFormControl({ k }: { k: 'serifTip' | 'serifBase' }) {
-  const shape = useParam('serifShape'), tip = useParam('serifTip'), base = useParam('serifBase');
+type SerifFormKey = 'serifTip' | 'serifBase' | 'serifSides' | 'serifInner';
+/** A finer choice on the Serifs page, the tips, the base, the sides the serifs reach to or the shape of the ones
+    inside the letter: each option drawn on a serif of the design's own shape, then the sliders of the picked one. */
+function SerifFormControl({ k }: { k: SerifFormKey }) {
+  const shape = useParam('serifShape'), tip = useParam('serifTip'), base = useParam('serifBase'), sides = useParam('serifSides'), inner = useParam('serifInner');
   const active = useEditor(s => controlFor(s.active) === k), c = CONTROLS[k];
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl={k} {...useControlFocus(k)}>
@@ -881,6 +883,25 @@ function SerifFormControl({ k }: { k: 'serifTip' | 'serifBase' }) {
             ))}
           </div>
           {SERIF_TIP_DETAILS[tip].map(s => <SliderControl key={s} k={s} def={SERIF_TIP_SUBS[s]} />)}
+        </>
+      ) : k === 'serifSides' ? (
+        <div className="opts five" role="radiogroup" aria-label={c.tech}>
+          {SERIF_SIDE_OPTIONS.map(([id, label]) => (
+            <button key={id} role="radio" aria-checked={sides === id} className={sides === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifSides', id)}>
+              <SerifSidesIcon shape={shape} sides={id} /><span>{label}</span>
+            </button>
+          ))}
+        </div>
+      ) : k === 'serifInner' ? (
+        <>
+          <div className="opts three" role="radiogroup" aria-label={c.tech}>
+            {SERIF_INNER_OPTIONS.map(([id, label]) => (
+              <button key={id} role="radio" aria-checked={inner === id} className={inner === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifInner', id)}>
+                <SerifSidesIcon shape={shape} sides={sides === 'outside' ? 'both' : sides} inner={id} large /><span>{label}</span>
+              </button>
+            ))}
+          </div>
+          {(Object.keys(SERIF_INNER_SUBS) as SerifInnerSubKey[]).map(s => <SliderControl key={s} k={s} def={SERIF_INNER_SUBS[s]} />)}
         </>
       ) : (
         <>

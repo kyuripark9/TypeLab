@@ -514,10 +514,20 @@ export const serifPlace = (end: Pick<StrokeEnd, 'dx' | 'dy' | 'type'>): SerifPla
 /** How high the base of a cupped serif arches: up to three quarters of its thickness, and a third of its length. */
 export const serifCup = (sf: SerifSpec) => (sf.cup ?? 0) * Math.min(sf.th * 0.75, sf.len * 0.3);
 
+/** The sides of a stem's end its serif is drawn on: the ones the letter gives it, less those the design leaves
+    off (`keep`, see SERIF_SIDES in params). `inward` are the sides that face into the letter. */
+export function serifSides(given: SerifSides, keep: string | undefined, inward: SerifSides): SerifSides {
+  const on = (s: 'a' | 'b') => (given === 'both' || given === s) && (keep === 'left' ? s === 'a' : keep === 'right' ? s === 'b'
+    : keep === 'inside' || keep === 'outside' ? (keep === 'inside') === (inward === 'both' || inward === s) : true);
+  const a = on('a'), b = on('b');
+  return a && b ? 'both' : a ? 'a' : b ? 'b' : null;
+}
+
 /* ---- 4. serifs. sides: 'both' | 'a' | 'b' (a = toward -x or -y). `cup` is how far short of its line the
    end was drawn for a cupped serif (see serifCup): the serif's tips reach on to the line, and between them
-   its base arches up to the end. */
-export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?: number, cup = 0): Pt[] | null {
+   its base arches up to the end. `inward` are the sides of a stem's end that face into the letter, which
+   take the inner serifs' shape where the design gives them one. */
+export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?: number, cup = 0, inward: SerifSides = null): Pt[] | null {
   const sf = ctx.serif; if (!sf) return null;
   const horiz = levelEnd(end);
   const out = horiz ? { x: Math.sign(end.dx), y: 0 } : { x: 0, y: Math.sign(end.dy) || -1 };
@@ -526,9 +536,10 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
   const hw = (end.t / 2) / Math.max(0.35, along);
   const Ln = sf.len * (scale || 1) * (horiz ? sf.arms ?? 1 : out.y > 0 ? sf.tops ?? 1 : 1);
   const th = sf.th * (horiz ? 0.9 : 1);
-  const ang = sf.angle, tip = sf.tip ?? 'square', wedge = sf.shape === 'wedge';
+  const ang = sf.angle, tip = sf.tip ?? 'square';
   // one side, L long, as [across, depth] from the tip inwards to the stem
-  const side = (L: number): ProfilePt[] => {
+  const side = (L: number, shape: string, th: number): ProfilePt[] => {
+    const wedge = shape === 'wedge';
     // the tip: its foot on the line, then its top. A pointed one has no top, and stays sharp
     const tt = wedge ? Math.max(4, th * 0.2) : th * (1 - 0.65 * ang);
     const foot: ProfilePt = [hw + L, 0], top: ProfilePt = wedge ? [hw + L, -tt, 'sharp'] : [hw + L, -tt];
@@ -541,7 +552,7 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
     const tipPts = tip === 'pointed' ? [foot] : [foot, top];
     if (wedge) return [...tipPts, [hw, -(th * 0.6 + L * (0.75 + ang * 0.5))]];
     const thTip = -top[1], thStem = th + L * ang * 0.35;
-    if (sf.shape !== 'bracketed') return [...tipPts, [hw, -thStem, 'sharp']];
+    if (shape !== 'bracketed') return [...tipPts, [hw, -thStem, 'sharp']];
     const br = L * (sf.bracket ?? 0.85);
     const P = [{ x: top[0], y: -thTip }, { x: hw + L * 0.3, y: -thTip - (thStem - thTip) * 0.6 },
       { x: hw, y: -thStem - br * 0.25 }, { x: hw, y: -(thStem + br) }];
@@ -552,7 +563,9 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
   // serifs on stems can reach further one way than the other
   const bal = horiz ? 0 : 0.6 * clamp(sf.balance ?? 0, -1, 1);
   const wantB = sides !== 'a', wantA = sides !== 'b';
-  const profB = side(Ln * (1 + bal)), profA = side(Ln * (1 - bal));
+  const inner = horiz ? null : sf.inner;
+  const half = (s: 'a' | 'b', L: number) => (inner && (inward === 'both' || inward === s) ? side(L * inner.len, inner.shape, inner.th) : side(L, sf.shape, th));
+  const profB = half('b', Ln * (1 + bal)), profA = half('a', Ln * (1 - bal));
   const depth = (prof: ProfilePt[]) => -prof[prof.length - 1][1];
   const pts: Pt[] = [];
   // diagonal strokes: shear the serif so its inner edges follow the stroke

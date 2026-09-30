@@ -17,6 +17,10 @@ export const SERIF_SHAPES = ['bracketed', 'unbracketed', 'slab', 'wedge'] as con
 export const SERIF_TIPS = ['square', 'round', 'pointed', 'angled'] as const;
 /** The underside of a serif: flat on its line, or cupped, arching up under the stroke so only its tips touch the line. */
 export const SERIF_BASES = ['flat', 'cupped'] as const;
+/** Which way the serifs on stems reach: both ways, to one hand only, or only into the letter or out of it. */
+export const SERIF_SIDES = ['both', 'left', 'right', 'inside', 'outside'] as const;
+/** The shape of the serifs that reach into the letter: the same as the rest, or one of their own. */
+export const SERIF_INNERS = ['same', ...SERIF_SHAPES] as const;
 /** What the letters are built from: solid ink, a wireframe of every stroke, or a grid of pixels, dots or lines. */
 export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines'] as const;
 /** The lowercase a: two storeys (bowl under a hook) or one (just a bowl). 'auto' lets the personality and cursive settings pick. */
@@ -62,6 +66,8 @@ export type Terminal = (typeof TERMINALS)[number];
 export type SerifShape = (typeof SERIF_SHAPES)[number];
 export type SerifTip = (typeof SERIF_TIPS)[number];
 export type SerifBase = (typeof SERIF_BASES)[number];
+export type SerifSide = (typeof SERIF_SIDES)[number];
+export type SerifInner = (typeof SERIF_INNERS)[number];
 export type Fill = (typeof FILLS)[number];
 export type Story = (typeof STORIES)[number];
 export type BowlJoin = (typeof BOWL_JOINS)[number];
@@ -168,6 +174,9 @@ export interface Params {
   /** angled tips: which way the cut leans and how far, 0.5 not at all: higher runs the foot of the tip further out, lower its top */ serifTipSlant: number;
   /** flat or cupped undersides (see SERIF_BASES) */ serifBase: SerifBase;
   /** cupped serifs: how high the base arches */ serifCup: number;
+  /** which sides of a stem its serifs reach to (see SERIF_SIDES) */ serifSides: SerifSide;
+  /** the shape of the serifs that reach into the letter (see SERIF_INNERS), and their length and thickness
+      against the ones that reach out: 0.5 the same */ serifInner: SerifInner; serifInnerSize: number; serifInnerThickness: number;
   /** the serifs on stems, longer to the left (lower) or to the right (higher): 0.5 the same both ways */ serifBalance: number;
   /** the size of the serifs on top of stems, and of those on the ends of arms (E, F, T): 0.5 as drawn */ serifTops: number; serifArms: number;
   letterSpacing: number; wordSpacing: number; sideBearing: number;
@@ -198,7 +207,8 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   bowlForm: 'oval', boxRound: 0.5, diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, stencilPos: 0, stencilRound: 0, slice: 0, slicePos: 0.5, sliceRound: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
-  serifBracket: 0.5, serifTip: 'square', serifTipRound: 1, serifTipSlant: 0.8, serifBase: 'flat', serifCup: 0.5, serifBalance: 0.5, serifTops: 0.5, serifArms: 0.5,
+  serifBracket: 0.5, serifTip: 'square', serifTipRound: 1, serifTipSlant: 0.8, serifBase: 'flat', serifCup: 0.5,
+  serifSides: 'both', serifInner: 'same', serifInnerSize: 0.5, serifInnerThickness: 0.5, serifBalance: 0.5, serifTops: 0.5, serifArms: 0.5,
   letterSpacing: 0.2, wordSpacing: 0.35, sideBearing: 0.5, mono: 0,
   geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5, glyphs: Object.freeze({}), outlines: Object.freeze({})
 });
@@ -273,7 +283,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   }
   if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
-  const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, serifTip: SERIF_TIPS, serifBase: SERIF_BASES, fill: FILLS, story: STORIES,
+  const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, serifTip: SERIF_TIPS, serifBase: SERIF_BASES, serifSides: SERIF_SIDES, serifInner: SERIF_INNERS, fill: FILLS, story: STORIES,
     bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, aForm: A_FORMS, terminalRun: TERMINAL_RUNS,
     bowlForm: BOWL_FORMS, build: BUILDS, mirror: MIRRORS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS };
   return opts[k]?.includes(v) ? v : undefined;

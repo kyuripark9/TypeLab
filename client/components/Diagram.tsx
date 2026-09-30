@@ -2,8 +2,8 @@
    the demo letters, the affected part highlighted, and a measurement or guide. */
 import type { ReactNode } from 'react';
 import { CONTROLS, FORM_OPTIONS, controlFor, type ActiveKey, type FormKey } from '../../shared/content';
-import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, serifCup, signedArea, termSpec, type Font, type LineItem, type Pt } from '../../shared/engine';
-import { DEFAULTS, TERMINAL_FORMS, type Fill, type SerifShape, type SerifTip, type Story, type Terminal, type TerminalForm } from '../../shared/params';
+import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, serifCup, serifSides, signedArea, termSpec, type Font, type LineItem, type Pt } from '../../shared/engine';
+import { DEFAULTS, TERMINAL_FORMS, type Fill, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 
 export function Diagram({ font, k, W = 340, H = 178 }: { font: Font; k: ActiveKey; W?: number; H?: number }) {
@@ -137,6 +137,27 @@ export function SerifIcon({ shape, tip = 'square', cupped = false, view = 'foot'
   if (view === 'tip') return <svg viewBox="92 -78 112 90" width="52" height="42" aria-hidden="true"><path d={d} /></svg>;
   if (view === 'base') return <svg viewBox="0 -76 200 88" width="96" height="42" aria-hidden="true"><path d={d} /></svg>;
   return <svg viewBox="0 -160 200 170" width="52" height="44" aria-hidden="true"><path d={d} /></svg>;
+}
+
+/** The foot of a letter with two stems, as of an n, drawn by the serif builder: its serifs on the sides `sides`
+    keeps, and the ones that reach in between the stems in the shape `inner`, when that is one of their own. */
+export function SerifSidesIcon({ shape, sides = 'both', inner = 'same', large = false }: { shape: SerifShape; sides?: SerifSide; inner?: SerifInner; large?: boolean }) {
+  const key = `${shape}:${sides}:${inner}:sides`;
+  let d = serifPaths.get(key);
+  if (d === undefined) {
+    const th = (sh: string) => 15 * (({ unbracketed: 0.6, slab: 1.6 } as Record<string, number>)[sh] ?? 1);
+    const serif = { len: 27, th: th(shape), shape, angle: 0.15, inner: inner === 'same' ? null : { shape: inner, th: th(inner), len: 1 } };
+    const ctx = { thick: 30, thin: 22, stress: 0, k: 0.5523, org: 0, terminal: 'flat', serif };
+    // the two stems hang from a bar, so they read as one letter with an inside
+    d = outlineD([{ x: 35, y: 150 }, { x: 35, y: 124 }, { x: 165, y: 124 }, { x: 165, y: 150 }]);
+    for (const [x, inward] of [[50, 'b'], [150, 'a']] as const) {
+      const keep = serifSides('both', sides, inward);
+      const sf = keep && buildSerif({ x, y: 0, dx: 0, dy: -1, t: 30, type: 'flat' }, keep, ctx, undefined, 0, inward);
+      d += outlineD([{ x: x - 15, y: 150 }, { x: x - 15, y: 0 }, { x: x + 15, y: 0 }, { x: x + 15, y: 150 }]) + (sf ? outlineD(sf) : '');
+    }
+    serifPaths.set(key, d);
+  }
+  return <svg viewBox="0 -150 200 160" width={large ? 65 : 50} height={large ? 52 : 40} aria-hidden="true"><path d={d} /></svg>;
 }
 
 /* Fill icons are a real 'a' from the engine, bold and on a coarse grid so the fill reads small. */

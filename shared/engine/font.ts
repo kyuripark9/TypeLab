@@ -8,8 +8,8 @@ import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, 
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, slice } from './effects';
 import { drawnCmds, type Drawn } from './outline';
-import { autoThickness, buildSerif, expandStroke, innerFloor, organicK, serifCup, serifPlace, type Expanded, type SerifPlace } from './stroke';
-import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
+import { autoThickness, buildSerif, expandStroke, innerFloor, organicK, serifCup, serifPlace, serifSides, type Expanded, type SerifPlace } from './stroke';
+import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, SerifSides, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
@@ -139,6 +139,8 @@ export const stepW = (v: number, t: number) => v * t;
 
 /** A serif measure at `v` on a scale centred on 0.5, where it is as drawn: `lo` times that at 0, `hi` times at 1. */
 const serifScale = (v: number, lo: number, hi: number) => (v < 0.5 ? lerp(lo, 1, v * 2) : lerp(1, hi, v * 2 - 1));
+/** How thick a serif of each shape is at `v` on the Thickness scale. */
+const serifTh = (v: number, shape: string) => lerp(8, 95, v) * ({ unbracketed: 0.6, slab: 1.5 }[shape] ?? 1);
 
 function metrics(e: Effective): Metrics {
   // Verticals weigh the stems on their own, and Horizontals the bars: each scales its side of the
@@ -158,11 +160,16 @@ function metrics(e: Effective): Metrics {
     pinch: e.pinch > 0 ? { y: pinchY(e.pinchPos, xh, cap), amount: e.pinch, reach: xh / 2 } : undefined,
     serif: e.serif ? {
       len: lerp(28, 175, e.serifSize) * (0.75 + 0.25 * ws),
-      th: lerp(8, 95, e.serifThickness) * ({ unbracketed: 0.6, slab: 1.5, wedge: 1, bracketed: 1 }[e.serifShape] || 1),
+      th: serifTh(e.serifThickness, e.serifShape),
       shape: e.serifShape, angle: e.serifAngle,
       bracket: 0.85 * serifScale(e.serifBracket, 0.25, 1.8), tip: e.serifTip, tipRound: lerp(0.1, 0.5, e.serifTipRound), tipSlant: (e.serifTipSlant - 0.5) * 2,
       cup: e.serifBase === 'cupped' ? lerp(0.15, 1, e.serifCup) : 0,
-      balance: (e.serifBalance - 0.5) * 2, tops: serifScale(e.serifTops, 0.4, 1.8), arms: serifScale(e.serifArms, 0.4, 1.8)
+      balance: (e.serifBalance - 0.5) * 2, tops: serifScale(e.serifTops, 0.4, 1.8), arms: serifScale(e.serifArms, 0.4, 1.8),
+      sides: e.serifSides,
+      inner: e.serifInner !== 'same' || e.serifInnerSize !== 0.5 || e.serifInnerThickness !== 0.5 ? {
+        shape: e.serifInner === 'same' ? e.serifShape : e.serifInner, len: serifScale(e.serifInnerSize, 0.3, 1.8),
+        th: serifTh(e.serifThickness, e.serifInner === 'same' ? e.serifShape : e.serifInner) * serifScale(e.serifInnerThickness, 0.3, 2.2)
+      } : null
     } : null
   };
   const tDir = (dx: number, dy: number) => { const l = Math.hypot(dx, dy) || 1; return autoThickness(dx / l, dy / l, ctx, s, thin); };
@@ -1319,16 +1326,49 @@ function widenClip(clip: ClipBox, from: Pt, before: Cmd[], after: Cmd[], m: Metr
   return out;
 }
 
+/** A stem's end and the rest of the letter: the sides of the end that face into the letter, and the sides
+    its serif is drawn on. */
+interface SerifFacing { inward: SerifSides; sides: SerifSides }
+
+/** How each stroke end with a serif at its foot or on top faces the rest of the letter, by stroke index and
+    end, for a design whose serifs don't all reach both ways alike (else null). A side faces into the letter
+    when more of the letter stands beside it on the same line: the right of an n's first stem, both sides of
+    an m's middle one, neither side of an I. */
+function faceSerifs(b: Builder, m: Metrics): Map<string, SerifFacing> | null {
+  const sf = m.ctx.serif!, keep = sf.sides ?? 'both';
+  if (!sf.inner && keep === 'both') return null;
+  const facing = new Map<string, SerifFacing>();
+  const lines = sf.inner || keep === 'inside' || keep === 'outside' ? b.strokes.map(t => (t.cmds ? centerPoints(t.cmds, m, m.s * 0.25) : [])) : [];
+  const band = Math.max(m.xh * 0.2, m.s * 0.75), clear = m.s * 0.6;
+  b.strokes.forEach((st, si) => {
+    if (!st.cmds || st.o.scale) return;
+    for (const which of ['s', 'e'] as const) {
+      const given = (which === 's' ? st.o.serifS : st.o.serifE) ?? null, type = (which === 's' ? st.o.s : st.o.e) || 'flat';
+      const step = given && type !== 'join' ? stretchEnd(st.cmds, which, -1, m) : null;
+      if (!step) continue;
+      const { x, y } = step.from, dy = y - step.to.y;
+      if (serifPlace({ dx: x - step.to.x, dy, type }) === 'arm') continue;
+      // the line the end stands on, and the letter a little way above it (below it, on top of a stroke)
+      const y0 = dy > 0 ? y - band : y - 1, y1 = dy > 0 ? y + 1 : y + band;
+      let a = false, c = false;
+      for (const pts of lines) for (const q of pts) if (q.y >= y0 && q.y <= y1) { if (q.x < x - clear) a = true; else if (q.x > x + clear) c = true; }
+      const inward = a && c ? 'both' : a ? 'a' : c ? 'b' : null;
+      facing.set(`${si}${which}`, { inward, sides: serifSides(given, keep, inward) });
+    }
+  });
+  return facing;
+}
+
 /** Draw every stroke end that carries a cupped serif short by the height of the cup, so the serif can arch
     up under it (or down into it, on top of a stroke), and return how far short of its line each end now
-    stops, by stroke index and end. */
-function cupSerifs(b: Builder, m: Metrics): Map<string, number> {
+    stops, by stroke index and end. An end whose serif the design leaves off (see faceSerifs) stays as drawn. */
+function cupSerifs(b: Builder, m: Metrics, facing: Map<string, SerifFacing> | null): Map<string, number> {
   const cups = new Map<string, number>(), cup = serifCup(m.ctx.serif!);
   b.strokes.forEach((st, si) => {
     if (!st.cmds || st.o.scale) return;
     for (const which of ['s', 'e'] as const) {
       const type = (which === 's' ? st.o.s : st.o.e) || 'flat';
-      if (!(which === 's' ? st.o.serifS : st.o.serifE) || type === 'join') continue;
+      if (!(which === 's' ? st.o.serifS : st.o.serifE) || type === 'join' || facing?.get(`${si}${which}`)?.sides === null) continue;
       // which way the end runs, from a small step back along it
       const step = stretchEnd(st.cmds, which, -1, m);
       if (!step) continue;
@@ -1360,7 +1400,8 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   weighFillets(b, m);
   markTurns(b, m);
   const grow = stretchTerminals(b, m, W0, hooks, plains, homes, /^[A-Z]$/.test(ch)), W = W0 + grow.r;
-  const cups = m.ctx.serif?.cup ? cupSerifs(b, m) : null;
+  const facing = m.ctx.serif ? faceSerifs(b, m) : null;
+  const cups = m.ctx.serif?.cup ? cupSerifs(b, m, facing) : null;
   const code = ch.charCodeAt(0);
   let ctx = m.ctx;
   if (m.wob > 0) {
@@ -1462,7 +1503,8 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     for (const end of ex.ends) {
       const want = end.which === 's' ? serifS : serifE;
       if (want) {
-        const sp = buildSerif(end, (end.which === 's' ? o.serifS : o.serifE) ?? null, ctx, o.serifScale, cups?.get(`${si}${end.which}`));
+        const key = `${si}${end.which}`, face = facing?.get(key), sides = face ? face.sides : (end.which === 's' ? o.serifS : o.serifE) ?? null;
+        const sp = sides && buildSerif(end, sides, ctx, o.serifScale, cups?.get(key), face?.inward);
         const c = sp && finish(sp, 1, m.R * 0.5); if (c) { out.serifs.push(c); out.serifAt.push(serifPlace(end)); }
       }
       const term = `${si}${end.which}`, id = plains.has(term) ? term : `p${term}`;
@@ -1598,7 +1640,7 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
     case 'curve': return strokes(s => s.curved);
     case 'crossbar': return strokes(s => s.part === 'crossbar' || s.part === 'bar');
     case 'serif': case 'serifTip': case 'serifBase': return g.serifs.map(cmdsToD).join('');
-    case 'serifBalance': return g.serifs.filter((_, i) => g.serifAt[i] !== 'arm').map(cmdsToD).join('');
+    case 'serifBalance': case 'serifSides': case 'serifInner': return g.serifs.filter((_, i) => g.serifAt[i] !== 'arm').map(cmdsToD).join('');
     case 'serifTops': return g.serifs.filter((_, i) => g.serifAt[i] === 'top').map(cmdsToD).join('');
     case 'serifArms': return g.serifs.filter((_, i) => g.serifAt[i] === 'arm').map(cmdsToD).join('');
     case 'terminal': case 'aperture': return ringsD(g.marks.filter(k => k.type === 'terminal'), Math.max(26, m.s * 0.62));

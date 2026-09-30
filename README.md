@@ -83,9 +83,13 @@ Curved stroke ends can follow the curve or turn and run straight out, level or p
 Serifs have a page of their own. A shape (bracketed, unbracketed, slab or wedge) sets their length,
 thickness and angle, and a bracketed one how far its curve runs up the stem. Their tips are cut square,
 rounded, drawn out to a point or cut on a slant, and their base is flat or cupped: the stroke is drawn
-short by the height of the cup and the serif arches up to it, so its tips stay on the line. *Balance*
-reaches further to one side, and the serifs on top of stems and across the ends of arms are sized apart
-from the feet.
+short by the height of the cup and the serif arches up to it, so its tips stay on the line. *Sides*
+keeps the serifs on stems to the left or the right only, or to the sides that face into the letter or
+out of it: a side faces in where more of the letter stands beside the stem on the same line (the right
+of an n's first stem, both sides of an m's middle one, neither side of an I). *Inside serifs* gives
+the ones that reach in a shape, length and thickness of their own, apart from the ones that reach out.
+*Balance* reaches further to one side, and the serifs on top of stems and across the ends of arms are
+sized apart from the feet.
 
 Letters can also be *built from blocks* instead of strokes: each capital, figure and punctuation mark is a
 solid block with its counters cut in as narrow slots, drawn as outlines of corners that each carry their

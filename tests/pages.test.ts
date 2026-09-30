@@ -24,7 +24,7 @@ describe('editor pages', () => {
     }
     // Serifs has a page to itself
     assert.deepEqual(new Set(controls.filter(k => CONTROLS[k].cat === 'serifs').map(k => k.slice(0, 5))), new Set(['serif']));
-    assert.deepEqual(controls.filter(k => k.startsWith('serif')).map(k => CONTROLS[k].cat), Array(6).fill('serifs'));
+    assert.deepEqual(controls.filter(k => k.startsWith('serif')).map(k => CONTROLS[k].cat), Array(8).fill('serifs'));
   });
 
   it('opens a group on its first page, so links from before the pages still work', () => {
@@ -45,5 +45,6 @@ describe('editor pages', () => {
     assert.equal(controlFor('serifBracket'), 'serif');
     assert.equal(controlFor('serifTipSlant'), 'serifTip');
     assert.equal(controlFor('serifCup'), 'serifBase');
+    assert.equal(controlFor('serifInnerSize'), 'serifInner');
   });
 });
