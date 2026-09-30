@@ -14,43 +14,38 @@ interface Step {
   category?: CategoryId;
   /** 'open' shows a letter in the inspector, 'keep' leaves it as it is; otherwise it closes */
   inspector?: 'open' | 'keep';
-  title: string; body: string;
-  /** the thing to try, done once `done` holds against the editor as it was when the step began */
-  task?: string;
+  /** the area, named small above the task */
+  label?: string;
+  /** the thing to try, as the card's heading; done once `done` holds against the editor as it was when the step began */
+  task: string;
+  /** one short line, only where the task alone doesn't say enough */
+  note?: string;
   done?: (now: EditorState, then: EditorState) => boolean;
-  /** whether the task can be tried at all */
+  /** whether the task can be tried at all; if not, `idle` is the heading */
   can?: (s: EditorState) => boolean;
+  idle?: string;
 }
 
 const STEPS: Step[] = [
-  { title: 'Welcome to TypeLab', body: 'Design your own typeface by shaping letters, not numbers. Try each main feature once in this short tour; anything you change can be undone.' },
-  { target: 'stage', side: 'right', category: 'style', title: 'Start with a style',
-    body: 'Every design begins from a starting style. Each card shows it set in your text.',
-    task: 'Click a style card to start from it', done: (s, t) => s.styleId !== t.styleId },
-  { target: 'type', side: 'bottom', category: 'style', title: 'Your own words',
-    body: 'The bar above the stage sets the sample text and size, for the cards and for your design alike.',
-    task: 'Type a word in the box', done: (s, t) => !!s.custom.trim() && s.custom !== t.custom },
-  { target: 'panel', side: 'left', category: 'style', title: 'Adjust every style',
-    body: 'Under Adjust, a trait like a weight or width is laid over every style at once, so any mix is a click away. Filter narrows the cards down.',
-    task: 'Pick a step of any trait, like Bold', done: (s, t) => s.traits !== t.traits },
-  { target: 'nav', side: 'right', title: 'Design categories',
-    body: 'Work through your font one area at a time, from Style down to Effects. Structure, Proportion and Shape each open into pages of their own.',
-    task: 'Open any page, like Weight & contrast', done: (s, t) => s.category !== t.category },
-  { target: 'panel', side: 'left', category: 'weight', title: 'Controls',
-    body: 'Each control reshapes every letter at once, and its diagram shows the part it changes. Double-click a slider to reset it.',
-    task: 'Drag a slider and watch the letters change', done: (s, t) => s.params !== t.params },
-  { target: 'stage', side: 'right', category: 'weight', title: 'Live preview',
-    body: 'Your design, set in the sample text. Any letter opens up to show its anatomy.',
-    task: 'Click a letter in the preview', done: s => !!s.inspect },
-  { target: 'inspector', side: 'right', category: 'weight', inspector: 'open', title: 'Shape a letter',
-    body: 'Point at a part to see what it is called and which control shapes it. Customize a letter to change it alone.',
-    task: 'Drag a stem, bowl or end of the letter', done: (s, t) => s.params !== t.params },
-  { target: 'strip', side: 'top', category: 'weight', inspector: 'keep', title: 'Every glyph',
-    body: 'Letters, figures and punctuation in your current design. Customized letters are marked.',
-    task: 'Click another glyph to inspect it', done: (s, t) => !!s.inspect && s.inspect !== t.inspect },
-  { target: 'actions', side: 'bottom', inspector: 'keep', title: 'Undo, save and export',
-    body: 'Save keeps the design in My designs, and Export makes an installable .otf font. Open Guide to take this tour again.',
-    task: 'Undo your last change (⌘Z)', done: (s, t) => s.hi < t.hi, can: s => s.hi > 0 }
+  { task: 'Welcome to TypeLab', note: 'Try the basics, one click each.' },
+  { target: 'stage', side: 'right', category: 'style', label: 'Styles',
+    task: 'Click a style to start from', done: (s, t) => s.styleId !== t.styleId },
+  { target: 'type', side: 'bottom', category: 'style', label: 'Sample text',
+    task: 'Type a word', done: (s, t) => !!s.custom.trim() && s.custom !== t.custom },
+  { target: 'panel', side: 'left', category: 'style', label: 'Traits',
+    task: 'Pick a trait, like Bold', note: 'Every style takes it on.', done: (s, t) => s.traits !== t.traits },
+  { target: 'nav', side: 'right', label: 'Pages',
+    task: 'Open another page', done: (s, t) => s.category !== t.category },
+  { target: 'panel', side: 'left', category: 'weight', label: 'Controls',
+    task: 'Drag a slider', done: (s, t) => s.params !== t.params },
+  { target: 'stage', side: 'right', category: 'weight', label: 'Preview',
+    task: 'Click a letter', done: s => !!s.inspect },
+  { target: 'inspector', side: 'right', category: 'weight', inspector: 'open', label: 'Letter',
+    task: 'Drag a part of the letter', done: (s, t) => s.params !== t.params },
+  { target: 'strip', side: 'top', category: 'weight', inspector: 'keep', label: 'Glyphs',
+    task: 'Click another glyph', done: (s, t) => !!s.inspect && s.inspect !== t.inspect },
+  { target: 'actions', side: 'bottom', inspector: 'keep', label: 'Undo, save, export',
+    task: 'Undo your last change', note: 'Save and Export are up here too.', done: (s, t) => s.hi < t.hi, can: s => s.hi > 0, idle: 'Save and export up here' }
 ];
 
 const SEEN_KEY = 'typelab.guide.seen';
@@ -166,7 +161,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
     return () => removeEventListener('keydown', onKey, true);
   });
 
-  const ok = done.has(i), task = step.task && can;
+  const ok = done.has(i), task = !!step.done && can;
   return (
     <div className="guide">
       {rect
@@ -179,26 +174,26 @@ export function Guide({ onClose }: { onClose: () => void }) {
             <div className="guide-block" style={{ left: rect.x + rect.w, top: rect.y, right: 0, height: rect.h }} />
           </>
         : <div className="guide-dim" />}
-      <div ref={card} className="guide-card" role="dialog" aria-modal="false" aria-labelledby="guide-title" aria-describedby="guide-body"
+      <div ref={card} className="guide-card" role="dialog" aria-modal="false" aria-labelledby="guide-title"
         style={pos ?? { visibility: 'hidden' }}>
-        {i > 0 && <div className="guide-step">{i} of {STEPS.length - 1}</div>}
-        <h2 id="guide-title">{step.title}</h2>
-        <p id="guide-body">{step.body}</p>
-        {task && (
-          <div className={ok ? 'guide-task done' : 'guide-task'} role="status">
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+        {i > 0 && <div className="guide-step">{i}/{STEPS.length - 1}<span>{step.label}</span></div>}
+        {/* the task is the heading; its circle fills in once it's done */}
+        <h2 id="guide-title" className={task ? (ok ? 'guide-task done' : 'guide-task') : undefined} aria-live="polite">
+          {task && (
+            <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
               <circle cx="8" cy="8" r="7" />
               {ok && <path d="M4.8 8.2l2.2 2.2 4.2-4.6" />}
             </svg>
-            <span>{step.task}{ok && <span className="sr"> — done</span>}</span>
-          </div>
-        )}
+          )}
+          <span>{can ? step.task : step.idle}{ok && <span className="sr"> — done</span>}</span>
+        </h2>
+        {step.note && can && <p>{step.note}</p>}
         <div className="guide-foot">
-          {!last && <button className="btn ghost small" onClick={close}>{i === 0 ? 'Skip' : 'Skip tour'}</button>}
+          {!last && <button className="btn ghost small" onClick={close}>Skip</button>}
           <span className="guide-grow" />
           {i > 1 && <button className="btn ghost small" onClick={() => go(-1)}>Back</button>}
           <button ref={next} className={task && !ok ? 'btn wait small' : 'btn primary small'} onClick={() => (last ? close() : go(1))}>
-            {i === 0 ? 'Start tour' : last ? 'Done' : 'Next'}
+            {i === 0 ? 'Start' : last ? 'Done' : 'Next'}
           </button>
         </div>
       </div>
