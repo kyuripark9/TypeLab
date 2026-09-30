@@ -8,3 +8,5 @@ export { applyM, clamp, cmdsToD, ringsD, roundContour, signedArea } from './geom
 export type { Cmd, Mark, Pt } from './types';
 export { drawnCmds, fitOutline, hasIn, hasOut, segment, tidy } from './outline';
 export type { Drawn, Node } from './outline';
+export { glyphGrid, gridGroups, gridOf } from './grid';
+export type { GlyphGrid, GridGroup, GridKind, GridLine, GridRound, GridSet } from './grid';
