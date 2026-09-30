@@ -59,7 +59,6 @@ and builds exported fonts on the server. A full rebuild of every glyph takes abo
 | `effects.ts` | Whole-outline effects: the slice cut, and the wireframe, pixel, dot and line fills |
 | `blocks.ts` | Block letters: solid rounded blocks with their counters cut in as slots (*Built from: Blocks*) |
 | `outline.ts` | Letters drawn by hand with the pen: anchor points and bézier handles, and the curve fitting that traces a generated letter into them |
-| `grid.ts` | Construction grids: the lines and circles a letter is built on, and the groups of letters that share a grid |
 
 Beyond weight, width and contrast, the pen model also does squircle bowls (*Squareness*),
 faceted octagonal curves (*Chamfer*), reverse contrast and ink-trap joints, and glyph assembly
@@ -80,6 +79,13 @@ crossbar of a t, in the crotch of a y) is a corner too, rounded by *Joins* with 
 both strokes' edges. A customized letter can set each corner one by one.
 Curved stroke ends can follow the curve or turn and run straight out, level or plumb.
 
+Serifs have a page of their own. A shape (bracketed, unbracketed, slab or wedge) sets their length,
+thickness and angle, and a bracketed one how far its curve runs up the stem. Their tips are cut square,
+rounded, drawn out to a point or cut on a slant, and their base is flat or cupped: the stroke is drawn
+short by the height of the cup and the serif arches up to it, so its tips stay on the line. *Balance*
+reaches further to one side, and the serifs on top of stems and across the ends of arms are sized apart
+from the feet.
+
 Letters can also be *built from blocks* instead of strokes: each capital, figure and punctuation mark is a
 solid block with its counters cut in as narrow slots, drawn as outlines of corners that each carry their
 own radius. Weight closes the slots up, Roundness rounds the corners and slot ends, Joins the small
@@ -93,6 +99,9 @@ inside curves, and the lowercase become small capitals.
   `<use>` by the preview and the glyph strip. Glyphs on screen update immediately; the rest follow in
   a deferred render, so dragging stays at 60 fps.
 - `pages/EditorPage.tsx` (`/` and `/d/:id`) and `pages/LibraryPage.tsx` (`/designs`).
+- The editor's pages are listed in `shared/content.ts` (`CATEGORIES`), and each control names the page it
+  is on. Structure, Shape and Proportion are groups: their pages (Weight & contrast, Corners, Stroke ends,
+  Serifs, Letters…) sit under them in the navigation.
 
 ### API (`server/`)
 
@@ -142,13 +151,5 @@ turns a contour inside another into a hole (or back). The first edit makes the l
 with the design (`params.outlines`) and exported as it is: the settings no longer shape it until
 **Back to settings**.
 
-**Construction grid**, in the inspector's header, draws the letter as an outline on the grid it is
-built on, like the grid pages of a type specimen: its straight edges carried on across the canvas,
-the level and upright lines its curves turn on, and the circles and ellipses its corners and bowls
-are arcs of. Letters built the same way share a grid, named in the bar under the header: Grid A to D
-are the capitals (straight strokes, diagonals, stems and curves, round), E to H the lowercase, I to L
-the figures, M to P the punctuation. The bar lists the letters on the same grid (click one to inspect
-it); lines and circles the letter has in common with its group are drawn in one colour, its own in
-another. The grid follows the letter as it is dragged, and shows in Points mode too.
-
-Deep links for demos: `/?style=serif&cat=shape&active=serif&inspect=R&mode=paragraph&hot=1` (add `&pen=1` for Points).
+Deep links for demos: `/?style=serif&cat=serifs&active=serifTip&inspect=R&mode=paragraph&hot=1` (add `&pen=1` for Points).
+`cat` names a page, or a group to open its first page; an `active` control opens the page it is on.

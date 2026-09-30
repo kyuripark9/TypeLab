@@ -2,8 +2,8 @@
    the demo letters, the affected part highlighted, and a measurement or guide. */
 import type { ReactNode } from 'react';
 import { CONTROLS, FORM_OPTIONS, controlFor, type ActiveKey, type FormKey } from '../../shared/content';
-import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, signedArea, termSpec, type Font, type LineItem, type Pt } from '../../shared/engine';
-import { DEFAULTS, TERMINAL_FORMS, type Fill, type SerifShape, type Story, type Terminal, type TerminalForm } from '../../shared/params';
+import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, serifCup, signedArea, termSpec, type Font, type LineItem, type Pt } from '../../shared/engine';
+import { DEFAULTS, TERMINAL_FORMS, type Fill, type SerifShape, type SerifTip, type Story, type Terminal, type TerminalForm } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 
 export function Diagram({ font, k, W = 340, H = 178 }: { font: Font; k: ActiveKey; W?: number; H?: number }) {
@@ -11,10 +11,12 @@ export function Diagram({ font, k, W = 340, H = 178 }: { font: Font; k: ActiveKe
   const m = font.m, text = ctl.demo, line = font.layout(text, Infinity)[0];
   const hasDesc = /[gjpqy]/.test(text);
   const guides = k === 'xHeight' || k === 'height';
-  const top = Math.max(m.asc, m.cap) + 50, bot = hasDesc ? m.desc - 30 : k === 'width' ? -190 : -110;
-  const padL = guides ? 64 : 22, padR = 22;
+  // a serif's finer shape shows only close up: the diagram then frames the foot of the letters, on a baseline near its bottom edge
+  const sf = ctl.zoom ? m.ctx.serif : null, foot = sf ? Math.max(sf.len * 1.2, sf.th * 2.4, m.s * 0.8) + sf.th : 0;
+  const top = sf ? foot : Math.max(m.asc, m.cap) + 50, bot = sf ? -foot * 0.2 : hasDesc ? m.desc - 30 : k === 'width' ? -190 : -110;
+  const padL = guides ? 64 : sf ? 52 : 22, padR = sf ? 52 : 22;
   const sc = Math.min((H - 18) / (top - bot), (W - padL - padR) / Math.max(1, line.width));
-  const ox = padL + (W - padL - padR - line.width * sc) / 2, oy = (H - (top - bot) * sc) / 2 + top * sc;
+  const ox = padL + (W - padL - padR - line.width * sc) / 2, oy = sf ? H - 30 : (H - (top - bot) * sc) / 2 + top * sc;
   const X = (x: number) => n1(ox + x * sc), Y = (y: number) => n1(oy - y * sc);
   const body = (it: LineItem, x: number, y: number): [number, number] => {
     const p = applyM(font.glyph(it.ch)!.M, x, y);
@@ -116,17 +118,24 @@ export function TerminalIcon({ kind, form }: { kind: Terminal; form?: TerminalFo
   return <svg viewBox={icon.box} width="60" height="46" aria-hidden="true"><path d={icon.d} /></svg>;
 }
 
-const serifPaths = new Map<SerifShape, string>();
-export function SerifIcon({ shape }: { shape: SerifShape }) {
-  let d = serifPaths.get(shape);
+const serifPaths = new Map<string, string>();
+/** A stem's foot and its serif, drawn by the serif builder: the whole foot for the shapes, a closer view of
+    one tip for the ways a serif can finish, or of the underside for a flat or cupped base. */
+export function SerifIcon({ shape, tip = 'square', cupped = false, view = 'foot' }: { shape: SerifShape; tip?: SerifTip; cupped?: boolean; view?: 'foot' | 'tip' | 'base' }) {
+  const key = `${shape}:${tip}:${cupped}:${view}`;
+  let d = serifPaths.get(key);
   if (d === undefined) {
-    const ctx = { thick: 56, thin: 40, stress: 0, k: 0.5523, org: 0, terminal: 'flat',
-      serif: { len: 62, th: 22 * (({ unbracketed: 0.6, slab: 1.6 } as Record<string, number>)[shape] ?? 1), shape, angle: 0.15 } };
-    const stem = [{ x: 72, y: 150 }, { x: 72, y: 0 }, { x: 128, y: 0 }, { x: 128, y: 150 }];
-    const sf = buildSerif({ x: 100, y: 0, dx: 0, dy: -1, t: 56, type: 'flat' }, 'both', ctx);
+    // the closer views draw a heavier serif, so its finish reads at this size
+    const th = (view === 'foot' ? 22 : 30) * (({ unbracketed: 0.6, slab: 1.6 } as Record<string, number>)[shape] ?? 1);
+    const serif = { len: 62, th, shape, angle: 0.15, tip, tipRound: 0.5, tipSlant: 0.6, cup: cupped ? 1 : 0 }, cup = serifCup(serif);
+    const ctx = { thick: 56, thin: 40, stress: 0, k: 0.5523, org: 0, terminal: 'flat', serif };
+    const stem = [{ x: 72, y: 150 }, { x: 72, y: cup }, { x: 128, y: cup }, { x: 128, y: 150 }];
+    const sf = buildSerif({ x: 100, y: cup, dx: 0, dy: -1, t: 56, type: 'flat' }, 'both', ctx, undefined, cup);
     d = outlineD(stem) + (sf ? outlineD(sf) : '');
-    serifPaths.set(shape, d);
+    serifPaths.set(key, d);
   }
+  if (view === 'tip') return <svg viewBox="92 -78 112 90" width="52" height="42" aria-hidden="true"><path d={d} /></svg>;
+  if (view === 'base') return <svg viewBox="0 -76 200 88" width="96" height="42" aria-hidden="true"><path d={d} /></svg>;
   return <svg viewBox="0 -160 200 170" width="52" height="44" aria-hidden="true"><path d={d} /></svg>;
 }
 

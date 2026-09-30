@@ -64,7 +64,18 @@ export interface StrokeOpts {
   serifScale?: number;
 }
 
-export interface SerifSpec { len: number; th: number; shape: string; angle: number }
+/** A serif's finer shape is optional: left out, it is bracketed as usual, square at its tips, flat underneath,
+    the same length both ways and everywhere. */
+export interface SerifSpec {
+  len: number; th: number; shape: string; angle: number;
+  /** bracketed: how far up the stroke the curve runs, in serif lengths */ bracket?: number;
+  /** how the tips finish (see SERIF_TIPS in params) */ tip?: string;
+  /** round tips: the corner radius, as a share of the tip's thickness (0.5 a half circle) */ tipRound?: number;
+  /** angled tips: how far the cut leans, in tip thicknesses: + runs the foot of the tip further out, - its top */ tipSlant?: number;
+  /** cupped: how high the base arches, as a share of the most it can (see serifCup) */ cup?: number;
+  /** serifs on stems: -1 to 1, longer toward -x or toward +x */ balance?: number;
+  /** the length of serifs on top of stems, and on the ends of arms, against the ones at the foot */ tops?: number; arms?: number;
+}
 
 /** The finer shape of each kind of terminal, in stroke widths unless noted. */
 export interface TermSpec {

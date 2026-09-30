@@ -25,10 +25,6 @@ const FONT_GRID_KEY = 'typelab.fontGridHidden';
 const savedFontGrid = (): boolean => {
   try { return localStorage.getItem(FONT_GRID_KEY) !== '1'; } catch { return true; }
 };
-const CONSTRUCTION_KEY = 'typelab.construction';
-const savedConstruction = (): boolean => {
-  try { return localStorage.getItem(CONSTRUCTION_KEY) === '1'; } catch { return false; }
-};
 const FOLD_KEY = 'typelab.folded';
 const savedFolded = (): ControlKey[] => {
   try { const v = JSON.parse(localStorage.getItem(FOLD_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
@@ -84,8 +80,6 @@ export interface EditorState extends Doc {
   skeleton: boolean;
   /** the inspector shows the letter among the design's other letters, in a grid of words */
   fontGrid: boolean;
-  /** the inspector draws the letter's construction grid: the lines and circles it is built on, and the letters that share them */
-  construction: boolean;
   /** the inspector edits the letter's anchor points with the pen, instead of dragging its parts */
   penMode: boolean;
   exportOpen: boolean;
@@ -141,7 +135,6 @@ export const useEditor = create<EditorState>()(() => ({
   hotEnd: null,
   skeleton: false,
   fontGrid: savedFontGrid(),
-  construction: savedConstruction(),
   penMode: false,
   exportOpen: false,
   toast: null
@@ -259,7 +252,7 @@ export const actions = {
   loadDesign(d: Design) {
     const s = get();
     set({ ...freshDocState({ designId: d.id, name: d.name, styleId: d.styleId, params: d.params }),
-      category: s.category === 'style' ? 'structure' : s.category, hot: false, picked: null });
+      category: s.category === 'style' ? 'weight' : s.category, hot: false, picked: null });
   },
   /** Record a successful save. `sent` is what went to the server, which may differ from the
       current state if the user kept editing while the request was in flight. */
@@ -421,7 +414,7 @@ export const actions = {
   openInspector(ch: string) {
     if (!fontFor(get().params).glyph(ch)) return;
     const s = get();
-    set({ inspect: ch, part: null, ...(s.category === 'style' ? { category: 'structure' as const, active: 'weight' as const } : {}) });
+    set({ inspect: ch, part: null, ...(s.category === 'style' ? { category: 'weight' as const, active: 'weight' as const } : {}) });
   },
   closeInspector() { set({ inspect: null, part: null }); },
   setScope(scope: Scope) { set({ scope }); },
@@ -435,10 +428,6 @@ export const actions = {
   setFontGrid(fontGrid: boolean) {
     set({ fontGrid });
     try { if (fontGrid) localStorage.removeItem(FONT_GRID_KEY); else localStorage.setItem(FONT_GRID_KEY, '1'); } catch { /* private mode: lasts this visit */ }
-  },
-  setConstruction(construction: boolean) {
-    set({ construction });
-    try { if (construction) localStorage.setItem(CONSTRUCTION_KEY, '1'); else localStorage.removeItem(CONSTRUCTION_KEY); } catch { /* private mode: lasts this visit */ }
   },
   setPenMode(penMode: boolean) { set({ penMode }); },
   /** Give a letter drawn by hand back to the settings, which shape it again. */

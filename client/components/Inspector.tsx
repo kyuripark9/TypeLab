@@ -3,11 +3,10 @@
    the side panel groups its sliders by part (letterControls). */
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, type ActiveKey, type ControlKey } from '../../shared/content';
-import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph, type GlyphGrid } from '../../shared/engine';
+import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph } from '../../shared/engine';
 import { isStrokeId, type NumericParam, type Params } from '../../shared/params';
 import { dragSpec, handlesFor, letterCorners, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { n1, useSize } from '../lib/hooks';
-import { GridBar, GridLines, useGrid } from './ConstructionGrid';
 import { ContextGrid } from './ContextGrid';
 import { PenCanvas } from './PenCanvas';
 import { actions, endOf, hlKey, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type EndKey, type Scope } from '../state/editor';
@@ -115,7 +114,6 @@ export function Inspector() {
   const drawn = useEditor(s => !!s.inspect && !!s.params.outlines[s.inspect]), fontGrid = useEditor(s => s.fontGrid);
   const font = useFont();
   const g = ch ? font.glyph(ch) : null;
-  const grid = useGrid(font, ch);
   if (!ch || !g) return null;
 
   return (
@@ -132,19 +130,15 @@ export function Inspector() {
             <button className="link" onClick={() => actions.undrawLetter(ch)} title={`Drop the drawing so the settings shape ${ch} again`}>Back to settings</button>
           </span>
         )}
-        {/* what the canvas shows: the switches keep together, and drop to a line of their own when the head runs out of room */}
-        <div className="insp-view">
-          <ConstructionToggle />
-          <FontGridToggle />
-          {!pen && !drawn && <SkeletonToggle />}
-        </div>
-        <button className="btn ghost icon insp-close" onClick={actions.closeInspector} aria-label="Close inspector" title="Close (Esc)">
+        <span className="grow" />
+        <FontGridToggle />
+        {!pen && !drawn && <SkeletonToggle />}
+        <button className="btn ghost icon" onClick={actions.closeInspector} aria-label="Close inspector" title="Close (Esc)">
           <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
         </button>
       </div>
-      {grid && <GridBar ch={ch} font={font} group={grid.group} />}
       <div className="insp-body">
-        {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} />}
+        {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} /> : <InspectorCanvas ch={ch} g={g} font={font} />}
         {pen && !drawn && <div className="pen-note" role="status">Moving a point turns {ch} into a drawing: the settings stop shaping it, until you go back</div>}
         {!pen && drawn && <div className="pen-note" role="status">{ch} is drawn by hand · edit its points with <button className="link" onClick={() => actions.setPenMode(true)}>Points</button></div>}
         {letter && !drawn && (
@@ -217,16 +211,6 @@ export function ScopeIcon({ id }: { id: Scope }) {
   );
 }
 
-/** The construction grid through the letter: the lines and circles it is built on, on or off. */
-function ConstructionToggle() {
-  const on = useEditor(s => s.construction);
-  return (
-    <label className="check" title="Show the lines and circles the letter is built on, and the letters built on the same ones">
-      <input type="checkbox" checked={on} onChange={e => actions.setConstruction(e.target.checked)} /> Construction grid
-    </label>
-  );
-}
-
 /** The font grid under the letter: it set among the other letters, on or off. */
 function FontGridToggle() {
   const on = useEditor(s => s.fontGrid);
@@ -268,7 +252,7 @@ interface Readout { x: number; y: number; param: NumericParam; end?: { id: strin
 interface Hover { id: string; x: number; y: number }
 interface TipRow { axis: Axis; label: string; ends: [string, string] }
 
-function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Font; grid?: GlyphGrid }) {
+function InspectorCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) {
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
   const part = useEditor(s => s.part), active = useEditor(s => s.active), skeleton = useEditor(s => s.skeleton);
@@ -395,7 +379,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
   const cursor = (id: string) => (FIXED_PARTS.has(id) ? ' fixed' : '');
 
   return (
-    <div className={['insp-canvas', dragging && 'dragging', grid && 'gridded'].filter(Boolean).join(' ')} ref={ref}>
+    <div className={dragging ? 'insp-canvas dragging' : 'insp-canvas'} ref={ref}>
       {size.width > 0 && (
         <svg ref={svgRef} width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
           <rect className="i-adv" x={X(0)} y={Y(top - 40)} width={n1(g.adv * sc)} height={n1((top - 40 - bot - 20) * sc)} />
@@ -411,11 +395,8 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
             );
           })}
           <g transform={`translate(${n1(ox)},${n1(oy)}) scale(${sc.toFixed(5)})`} style={{ '--sw': n1(2 / sc) } as CSSProperties}>
-            {/* on its construction grid the letter is an outline: a stroke, its inner half covered */}
-            {grid && <path className="i-trace" d={g.d} style={{ strokeWidth: n1(4 / sc) }} />}
-            <path className={grid ? 'i-ink bare' : skeleton ? 'i-ink dim' : 'i-ink'} d={g.d} />
+            <path className={skeleton ? 'i-ink dim' : 'i-ink'} d={g.d} />
             <path className={hl.ring ? 'i-ring' : 'i-hl'} d={hl.d} />
-            {grid && <GridLines grid={grid} />}
             <g aria-hidden="true">
               {parts.map(f => (
                 <path key={f} className={'i-hit' + cursor(f)} d={partD(g, f, font).d}

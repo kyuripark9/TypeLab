@@ -4,14 +4,13 @@
    not yet drawn shows its outline traced into points (fitOutline), and becomes a drawing, which the
    settings no longer shape, with the first edit. Every change is one undo step. */
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { cmdsToD, drawnCmds, fitOutline, hasIn, hasOut, segment, type Drawn, type Font, type Glyph, type GlyphGrid, type Node } from '../../shared/engine';
+import { cmdsToD, drawnCmds, fitOutline, hasIn, hasOut, segment, type Drawn, type Font, type Glyph, type Node } from '../../shared/engine';
 import { isTyping, n1, useSize } from '../lib/hooks';
 import {
   anchorsIn, constrain, contourArea, deleteAnchors, keyRef, moveAnchors, nearestSegment, pullHandles, refKey, reshapeSegment,
   reverseContour, setHandle, setSmooth, splitSegment, toggleSmooth, type Ref
 } from '../lib/pen';
 import { actions, useEditor } from '../state/editor';
-import { GridLines } from './ConstructionGrid';
 
 type Tool = 'select' | 'pen' | 'convert';
 type P = { x: number; y: number };
@@ -27,7 +26,7 @@ const TOOLS: { id: Tool; label: string; key: string; icon: ReactNode }[] = [
 
 const HIT = 7; // px around an anchor or handle that grabs it
 
-export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Font; grid?: GlyphGrid }) {
+export function PenCanvas({ ch, g, font }: { ch: string; g: Glyph; font: Font }) {
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
   const stored = useEditor(s => s.params.outlines[ch]);
@@ -387,7 +386,6 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             </g>
             <g transform={`translate(${n1(ox)},${n1(oy)}) scale(${sc.toFixed(5)})`}>
               <path className="pen-ink" d={d} />
-              {grid && <GridLines grid={grid} />}
               {order.map(c => (
                 <path key={c} className={tool === 'select' ? 'pen-fill hit' : 'pen-fill'} d={cmdsToD(drawnCmds([cs[c]]))}
                   onPointerDown={tool === 'select' ? onContour(c) : onBackground}

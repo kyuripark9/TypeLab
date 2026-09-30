@@ -9,7 +9,6 @@
   --line: #e0e4e4; --line-2: #c6cfd0;
   --accent: #4d80e6; --accent-ink: #3464c4; --accent-soft: rgba(77, 128, 230, .12);
   --custom: #cc6e2e; --custom-ink: #a3531c; --custom-soft: rgba(204, 110, 46, .12); --custom-tint: #f8ebe2; --custom-wash: #fbf5f0;
-  --grid-shared: #2a9db5; --grid-own: #d0458a;
   --hover: rgba(46, 59, 62, .05); --active: rgba(46, 59, 62, .08);
   --radius: 8px; --radius-s: 4px; --radius-l: 12px;
   --shadow: 0 1px 2px rgba(46, 59, 62, .06), 0 8px 24px rgba(46, 59, 62, .08);
@@ -59,7 +58,14 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .nav-item:hover { background: var(--hover); }
 .nav-label { font-size: 14px; font-weight: 500; }
 .nav-item.on { background: var(--active); }
-.nav-item.on .nav-label { font-weight: 600; }
+.nav-item.on .nav-label, .nav-item.open .nav-label { font-weight: 600; }
+/* a group's pages sit under its name, on a hairline */
+.nav-group { display: flex; flex-direction: column; }
+.nav-sub { display: flex; flex-direction: column; gap: 1px; margin: 0 0 4px 14px; padding-left: 5px; border-left: 1px solid var(--line); }
+.nav-item.sub { padding: 4px 8px; }
+.nav-item.sub .nav-label { font-size: 13px; font-weight: 400; color: var(--ink-2); }
+.nav-item.sub:hover .nav-label { color: var(--ink); }
+.nav-item.sub.on .nav-label { font-weight: 600; color: var(--ink); }
 .nav-foot { margin-top: auto; padding: 12px 10px 0; font-size: 12px; color: var(--ink-3); display: flex; flex-direction: column; gap: 1px; border-top: 1px solid var(--line); }
 .nav-foot b { color: var(--ink); font-size: 13px; font-weight: 600; }
 
@@ -244,6 +250,7 @@ body.resizing.y { cursor: row-resize; }
 .ctl-list { padding: 10px 10px 24px; display: grid; gap: 4px; }
 .list-head { padding: 12px 12px 2px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
 .list-head:first-child { padding-top: 4px; }
+.page-note { margin: 0; padding: 6px 12px; font-size: 12.5px; color: var(--ink-3); }
 .ctl-parts { display: flex; flex-wrap: wrap; gap: 0 4px; font-size: 12px; color: var(--ink-3); }
 .ctl-parts .part { border-radius: var(--radius-s); padding: 0 4px; margin: 0 -4px; cursor: default; transition: background .15s, color .15s; }
 .ctl-parts .part + .part::before { content: "·"; color: var(--ink-3); margin-right: 4px; pointer-events: none; }
@@ -342,10 +349,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 /* ---------- inspector */
 .inspector { position: absolute; inset: 0; background: var(--surface); display: flex; flex-direction: column; z-index: 5; animation: fade .15s ease; }
 @keyframes fade { from { opacity: 0; } }
-.insp-head { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 68px 10px 24px; border-bottom: 1px solid var(--line); }
-.insp-head > * { flex: none; }
-.insp-view { display: flex; align-items: center; gap: 14px; min-height: 34px; margin-left: auto; }
-.insp-close { position: absolute; top: 10px; right: 24px; }
+.insp-head { display: flex; align-items: center; gap: 10px; padding: 10px 24px; border-bottom: 1px solid var(--line); }
 .insp-title { display: flex; align-items: baseline; gap: 8px; min-width: 28px; justify-content: center; }
 .insp-title h2 { margin: 0; font-size: 20px; font-weight: 600; }
 .grow { flex: 1; }
@@ -395,20 +399,6 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .i-hl { fill: var(--accent); }
 .i-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: var(--sw); }
 .i-adv { fill: rgba(46, 59, 62, .025); stroke: var(--line-2); stroke-dasharray: 3 4; }
-/* the construction grid: a bar naming the grid and the letters on it, and in the canvas the letter as an
-   outline with its lines and circles drawn through it (shared with the group in one colour, its own in the other) */
-.grid-bar { flex: none; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 4px 24px; border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
-.grid-bar > * { flex: none; }
-.grid-name { font-weight: 600; color: var(--ink); letter-spacing: .04em; text-transform: uppercase; }
-.grid-bar .grid-chars { display: flex; flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; --cell-h: 34px; }
-.grid-key { display: inline-flex; align-items: center; gap: 6px; }
-.grid-key i { width: 14px; height: 0; border-top: 1.5px solid var(--grid-own); }
-.grid-key.shared i { border-color: var(--grid-shared); }
-.cg line, .cg ellipse { fill: none; stroke: var(--grid-own); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.cg .shared { stroke: var(--grid-shared); }
-.i-trace { fill: none; stroke: var(--ink); stroke-linejoin: round; }
-.i-ink.bare { fill: var(--surface); }
-.insp-canvas.gridded .i-hl { opacity: .16; }
 .i-guide { stroke: var(--line-2); }
 .i-guide.hot { stroke: var(--accent); stroke-width: 1.5; }
 .i-label { font: 500 10px var(--ui); fill: var(--ink-3); }

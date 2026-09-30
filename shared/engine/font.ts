@@ -8,7 +8,7 @@ import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, 
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, slice } from './effects';
 import { drawnCmds, type Drawn } from './outline';
-import { autoThickness, buildSerif, expandStroke, innerFloor, organicK, type Expanded } from './stroke';
+import { autoThickness, buildSerif, expandStroke, innerFloor, organicK, serifCup, serifPlace, type Expanded, type SerifPlace } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
 
 export const CHARSET = {
@@ -59,6 +59,7 @@ export interface Glyph {
   ch: string;
   strokes: GlyphStroke[];
   serifs: Cmd[][];
+  /** where each of the serifs sits, in their order */ serifAt: SerifPlace[];
   counters: Cmd[][];
   marks: Mark[];
   corners: Pt[];
@@ -136,6 +137,9 @@ const pinchY = (pos: number, xh: number, cap: number) => (pos < 0.5 ? lerp(0, xh
 /** How wide a step Steps cuts at v, for a stroke t thick: as wide as the stroke at 1. */
 export const stepW = (v: number, t: number) => v * t;
 
+/** A serif measure at `v` on a scale centred on 0.5, where it is as drawn: `lo` times that at 0, `hi` times at 1. */
+const serifScale = (v: number, lo: number, hi: number) => (v < 0.5 ? lerp(lo, 1, v * 2) : lerp(1, hi, v * 2 - 1));
+
 function metrics(e: Effective): Metrics {
   // Verticals weigh the stems on their own, and Horizontals the bars: each scales its side of the
   // pen, so a heavier stem leaves the bars as they were
@@ -155,7 +159,10 @@ function metrics(e: Effective): Metrics {
     serif: e.serif ? {
       len: lerp(28, 175, e.serifSize) * (0.75 + 0.25 * ws),
       th: lerp(8, 95, e.serifThickness) * ({ unbracketed: 0.6, slab: 1.5, wedge: 1, bracketed: 1 }[e.serifShape] || 1),
-      shape: e.serifShape, angle: e.serifAngle
+      shape: e.serifShape, angle: e.serifAngle,
+      bracket: 0.85 * serifScale(e.serifBracket, 0.25, 1.8), tip: e.serifTip, tipRound: lerp(0.1, 0.5, e.serifTipRound), tipSlant: (e.serifTipSlant - 0.5) * 2,
+      cup: e.serifBase === 'cupped' ? lerp(0.15, 1, e.serifCup) : 0,
+      balance: (e.serifBalance - 0.5) * 2, tops: serifScale(e.serifTops, 0.4, 1.8), arms: serifScale(e.serifArms, 0.4, 1.8)
     } : null
   };
   const tDir = (dx: number, dy: number) => { const l = Math.hypot(dx, dy) || 1; return autoThickness(dx / l, dy / l, ctx, s, thin); };
@@ -1312,6 +1319,32 @@ function widenClip(clip: ClipBox, from: Pt, before: Cmd[], after: Cmd[], m: Metr
   return out;
 }
 
+/** Draw every stroke end that carries a cupped serif short by the height of the cup, so the serif can arch
+    up under it (or down into it, on top of a stroke), and return how far short of its line each end now
+    stops, by stroke index and end. */
+function cupSerifs(b: Builder, m: Metrics): Map<string, number> {
+  const cups = new Map<string, number>(), cup = serifCup(m.ctx.serif!);
+  b.strokes.forEach((st, si) => {
+    if (!st.cmds || st.o.scale) return;
+    for (const which of ['s', 'e'] as const) {
+      const type = (which === 's' ? st.o.s : st.o.e) || 'flat';
+      if (!(which === 's' ? st.o.serifS : st.o.serifE) || type === 'join') continue;
+      // which way the end runs, from a small step back along it
+      const step = stretchEnd(st.cmds, which, -1, m);
+      if (!step) continue;
+      const dx = step.to.x - step.from.x, dy = step.to.y - step.from.y, l = Math.hypot(dx, dy);
+      if (l < 1e-6) continue;
+      // the serifs at the foot and on top of strokes are cupped; one across the end of an arm stays flat
+      if (serifPlace({ dx: -dx, dy: -dy, type }) === 'arm') continue;
+      const r = stretchEnd(st.cmds, which, -cup / Math.max(0.35, Math.abs(dy) / l), m);
+      if (!r) continue;
+      st.cmds = r.cmds;
+      cups.set(`${si}${which}`, Math.abs(r.to.y - r.from.y));
+    }
+  });
+  return cups;
+}
+
 /** How much heavier stroke `si` is drawn than the design draws it: by its own weight, if its letter gives it one. */
 function strokeWt(m: Metrics, si: number) {
   const v = m.p.strokeWeights?.[si];
@@ -1327,6 +1360,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   weighFillets(b, m);
   markTurns(b, m);
   const grow = stretchTerminals(b, m, W0, hooks, plains, homes, /^[A-Z]$/.test(ch)), W = W0 + grow.r;
+  const cups = m.ctx.serif?.cup ? cupSerifs(b, m) : null;
   const code = ch.charCodeAt(0);
   let ctx = m.ctx;
   if (m.wob > 0) {
@@ -1341,7 +1375,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     ctx = { ...ctx, wobble: m.wob, seed: hash(code, 5) * 2 * Math.PI };
   }
   const out = {
-    ch, strokes: [] as GlyphStroke[], serifs: [] as Cmd[][], counters: [] as Cmd[][], marks: b.marks.slice(),
+    ch, strokes: [] as GlyphStroke[], serifs: [] as Cmd[][], serifAt: [] as SerifPlace[], counters: [] as Cmd[][], marks: b.marks.slice(),
     corners: [] as Pt[], skeleton: [] as Pt[][], meta: def.meta, bodyW: W
   };
   const wind = (pts: Pt[], sign: number) => ((signedArea(pts) < 0) !== (sign < 0) ? pts.slice().reverse() : pts);
@@ -1428,8 +1462,8 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     for (const end of ex.ends) {
       const want = end.which === 's' ? serifS : serifE;
       if (want) {
-        const sp = buildSerif(end, (end.which === 's' ? o.serifS : o.serifE) ?? null, ctx, o.serifScale);
-        const c = sp && finish(sp, 1, m.R * 0.5); if (c) out.serifs.push(c);
+        const sp = buildSerif(end, (end.which === 's' ? o.serifS : o.serifE) ?? null, ctx, o.serifScale, cups?.get(`${si}${end.which}`));
+        const c = sp && finish(sp, 1, m.R * 0.5); if (c) { out.serifs.push(c); out.serifAt.push(serifPlace(end)); }
       }
       const term = `${si}${end.which}`, id = plains.has(term) ? term : `p${term}`;
       if (!want && end.type === 'term') {
@@ -1470,7 +1504,7 @@ function buildBlock(ch: string, m: Metrics): Glyph | null {
   // blocks sit close: at the middle of Side margins a thirtieth of the cap height each side
   const sb = m.cap * (0.004 + 0.06 * e.sideBearing);
   const out: Unplaced = {
-    ch, strokes: [{ part: 'stem', cmds: rings.flatMap(r => roundContour(r, 0)), curved: true, id: '0' }], serifs: [],
+    ch, strokes: [{ part: 'stem', cmds: rings.flatMap(r => roundContour(r, 0)), curved: true, id: '0' }], serifs: [], serifAt: [],
     counters: rings.slice(rings.length - b.holes).map(r => roundContour(r, 0)), marks: [], corners: [], skeleton: [], meta: {}, bodyW: b.W
   };
   return placeGlyph(out, b.W, sb, sb, code, m);
@@ -1547,7 +1581,7 @@ function turnAbout(out: Unplaced, a: number): { M: Mat; grow: number } | null {
 function drawnGlyph(ch: string, drawn: Drawn): Glyph {
   const cmds = drawnCmds(drawn.contours);
   return {
-    ch, strokes: [{ part: 'drawn', cmds, curved: false }], serifs: [], counters: [], marks: [], corners: [], skeleton: [], meta: {},
+    ch, strokes: [{ part: 'drawn', cmds, curved: false }], serifs: [], serifAt: [], counters: [], marks: [], corners: [], skeleton: [], meta: {},
     bodyW: drawn.adv, lsb: 0, rsb: 0, adv: drawn.adv, M: [1, 0, 0, 1, 0, 0], cmds, d: cmdsToD(cmds)
   };
 }
@@ -1563,7 +1597,10 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
     case 'counter': return g.counters.map(cmdsToD).join('');
     case 'curve': return strokes(s => s.curved);
     case 'crossbar': return strokes(s => s.part === 'crossbar' || s.part === 'bar');
-    case 'serif': return g.serifs.map(cmdsToD).join('');
+    case 'serif': case 'serifTip': case 'serifBase': return g.serifs.map(cmdsToD).join('');
+    case 'serifBalance': return g.serifs.filter((_, i) => g.serifAt[i] !== 'arm').map(cmdsToD).join('');
+    case 'serifTops': return g.serifs.filter((_, i) => g.serifAt[i] === 'top').map(cmdsToD).join('');
+    case 'serifArms': return g.serifs.filter((_, i) => g.serifAt[i] === 'arm').map(cmdsToD).join('');
     case 'terminal': case 'aperture': return ringsD(g.marks.filter(k => k.type === 'terminal'), Math.max(26, m.s * 0.62));
     case 'apex': return ringsD(g.marks.filter(k => k.type === 'apex' || k.type === 'vertex'), Math.max(30, m.s * 0.7));
     case 'roundness': return ringsD(g.marks.filter(k => k.type === 'corner'), Math.max(16, m.s * 0.3));

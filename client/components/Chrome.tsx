@@ -1,26 +1,46 @@
 /* The frame around the stage: category navigation, glyph strip and toast. */
 import { useDeferredValue, useEffect, useRef, useState } from 'react';
-import { CATEGORIES, styleById } from '../../shared/content';
+import { CATEGORIES, GROUPS, styleById, type CategoryId, type GroupId } from '../../shared/content';
 import { CHARSET } from '../../shared/engine';
 import { n1 } from '../lib/hooks';
 import { actions, useEditor, useFont } from '../state/editor';
 
+/** The navigation's rows: a page on its own, or a group with its pages under it. */
+type NavRow = { id: CategoryId; label: string } | { group: GroupId; pages: { id: CategoryId; label: string }[] };
+const NAV: NavRow[] = [];
+for (const c of CATEGORIES) {
+  const last = NAV[NAV.length - 1];
+  if (!c.group) NAV.push(c);
+  else if (last && 'group' in last && last.group === c.group) last.pages.push(c);
+  else NAV.push({ group: c.group, pages: [c] });
+}
+
 export function Nav() {
   const category = useEditor(s => s.category), style = useEditor(s => styleById(s.styleId));
+  const page = ({ id, label }: { id: CategoryId; label: string }, sub = false) => (
+    <button key={id} className={['nav-item', sub && 'sub', id === category && 'on'].filter(Boolean).join(' ')} aria-current={id === category ? 'page' : undefined}
+      onClick={() => actions.setCategory(id)}>
+      <span className="nav-label">{label}</span>
+    </button>
+  );
   return (
     <nav className="nav" aria-label="Design categories" data-guide="nav">
-      {CATEGORIES.map(c => (
-        <button key={c.id} className={c.id === category ? 'nav-item on' : 'nav-item'} aria-current={c.id === category ? 'page' : undefined}
-          onClick={() => actions.setCategory(c.id)}>
-          <span className="nav-label">{c.label}</span>
-        </button>
-      ))}
+      {NAV.map(row => 'group' in row ? (
+        <div key={row.group} className="nav-group" role="group" aria-label={GROUPS[row.group]}>
+          {/* a group's name opens its first page, unless one of its pages is open already */}
+          <button className={row.pages.some(p => p.id === category) ? 'nav-item open' : 'nav-item'}
+            onClick={() => { if (!row.pages.some(p => p.id === category)) actions.setCategory(row.pages[0].id); }}>
+            <span className="nav-label">{GROUPS[row.group]}</span>
+          </button>
+          <div className="nav-sub">{row.pages.map(p => page(p, true))}</div>
+        </div>
+      ) : page(row))}
       <div className="nav-foot"><span>Based on</span><b>{style?.name}</b></div>
     </nav>
   );
 }
 
-const GROUPS: [string, string][] = [['Uppercase', CHARSET.upper], ['Lowercase', CHARSET.lower], ['Figures', CHARSET.digits], ['Punctuation', CHARSET.punct]];
+const STRIP_GROUPS: [string, string][] = [['Uppercase', CHARSET.upper], ['Lowercase', CHARSET.lower], ['Figures', CHARSET.digits], ['Punctuation', CHARSET.punct]];
 
 export function GlyphStrip() {
   // the strip is off-screen detail: let it lag a frame behind while sliders move
@@ -32,7 +52,7 @@ export function GlyphStrip() {
   }, [inspect]);
   return (
     <footer className="strip" aria-label="Glyphs" data-guide="strip">
-      {GROUPS.map(([label, chars]) => (
+      {STRIP_GROUPS.map(([label, chars]) => (
         <div key={label} className="strip-group">
           <span className="strip-label">{label}</span>
           <div className="strip-cells">

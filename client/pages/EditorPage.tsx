@@ -1,7 +1,7 @@
 /* The editor, for a new design (/) or a saved one (/d/:id). */
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
-import { CATEGORIES, CONTROLS, SUBS, type ActiveKey, type CategoryId } from '../../shared/content';
+import { CONTROLS, SUBS, controlFor, pageOf, type ActiveKey } from '../../shared/content';
 import { cleanName } from '../../shared/design';
 import { ApiError, api, errorMessage } from '../lib/api';
 import { isTyping } from '../lib/hooks';
@@ -149,17 +149,17 @@ function useLeaveGuard() {
   }, [blocker]);
 }
 
-/** ?style=serif&cat=shape&active=serif&inspect=R&text=Hello&hot=1&pen=1 — handy for demos. */
+/** ?style=serif&cat=serifs&active=serifTip&inspect=R&text=Hello&hot=1&pen=1 — handy for demos. `cat` names
+    a page or a group of them (shape); an `active` control opens the page it is on. */
 function useDeepLinks() {
   const [q] = useSearchParams();
   useEffect(() => {
     const style = q.get('style'), text = q.get('text'), cat = q.get('cat'), active = q.get('active'), inspect = q.get('inspect');
     if (style) actions.loadStyle(style);
     if (text) actions.setCustom(text);
-    if (cat && CATEGORIES.some(c => c.id === cat)) {
-      const a = active && (active in CONTROLS || active in SUBS) ? active as ActiveKey : undefined;
-      actions.setCategory(cat as CategoryId, a);
-    }
+    const a = active && (active in CONTROLS || active in SUBS) ? active as ActiveKey : undefined;
+    const page = cat === 'style' ? 'style' : a ? CONTROLS[controlFor(a)].cat : pageOf(cat);
+    if (page) actions.setCategory(page, a);
     if (q.get('hot')) actions.setHot(true);
     if (inspect) actions.openInspector(inspect);
     if (q.get('pen')) actions.setPenMode(true);

@@ -4,7 +4,7 @@
    stroke runs vertically, thin where it runs horizontally (scaled by Contrast),
    with styled terminals, mitered joins and optional serifs. */
 import { clamp, cubicAt, lerp, lerpP, quarter, smoothstep, subCubic } from './geom';
-import type { Cmd, EndType, PenCtx, Pt, SerifSides, StrokeEnd, StrokeOpts, StrokeWeight, TermSpec, TurnR } from './types';
+import type { Cmd, EndType, PenCtx, Pt, SerifSides, SerifSpec, StrokeEnd, StrokeOpts, StrokeWeight, TermSpec, TurnR } from './types';
 
 const CURVE_N = 16;
 
@@ -503,48 +503,85 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   return { contours: [contour], loop: false, ends, endCorners, skeleton, curved, thickness: all.map(s => s.t) };
 }
 
-type ProfilePt = [number, number, ('smooth' | 'sharp')?];
+type ProfilePt = [number, number, ('smooth' | 'sharp' | number)?];
+type SerifEnd = Pick<StrokeEnd, 'x' | 'y' | 'dx' | 'dy' | 't' | 'type'>;
 
-/* ---- 4. serifs. sides: 'both' | 'a' | 'b' (a = toward -x or -y) */
-export function buildSerif(end: Pick<StrokeEnd, 'x' | 'y' | 'dx' | 'dy' | 't' | 'type'>, sides: SerifSides, ctx: PenCtx, scale?: number): Pt[] | null {
+/** Whether a stroke end runs level, so that its serif stands upright across it. */
+const levelEnd = (end: Pick<StrokeEnd, 'dx' | 'dy' | 'type'>) => (end.type === 'h' ? false : end.type === 'v' ? true : Math.abs(end.dx) > Math.abs(end.dy));
+/** Where a serif sits: on the end of an arm (a level stroke), on top of a stroke, or at its foot. */
+export type SerifPlace = 'arm' | 'top' | 'foot';
+export const serifPlace = (end: Pick<StrokeEnd, 'dx' | 'dy' | 'type'>): SerifPlace => (levelEnd(end) ? 'arm' : end.dy > 0 ? 'top' : 'foot');
+/** How high the base of a cupped serif arches: up to three quarters of its thickness, and a third of its length. */
+export const serifCup = (sf: SerifSpec) => (sf.cup ?? 0) * Math.min(sf.th * 0.75, sf.len * 0.3);
+
+/* ---- 4. serifs. sides: 'both' | 'a' | 'b' (a = toward -x or -y). `cup` is how far short of its line the
+   end was drawn for a cupped serif (see serifCup): the serif's tips reach on to the line, and between them
+   its base arches up to the end. */
+export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?: number, cup = 0): Pt[] | null {
   const sf = ctx.serif; if (!sf) return null;
-  const horiz = end.type === 'h' ? false : end.type === 'v' ? true : Math.abs(end.dx) > Math.abs(end.dy);
+  const horiz = levelEnd(end);
   const out = horiz ? { x: Math.sign(end.dx), y: 0 } : { x: 0, y: Math.sign(end.dy) || -1 };
   const u = horiz ? { x: 0, y: 1 } : { x: 1, y: 0 };
   const along = Math.abs(end.dx * out.x + end.dy * out.y);
   const hw = (end.t / 2) / Math.max(0.35, along);
-  const k = scale || 1;
-  const Ln = sf.len * k;
+  const Ln = sf.len * (scale || 1) * (horiz ? sf.arms ?? 1 : out.y > 0 ? sf.tops ?? 1 : 1);
   const th = sf.th * (horiz ? 0.9 : 1);
-  const ang = sf.angle;
-  let prof: ProfilePt[]; // one side, [across, depth] from the tip inwards to the stem
-  if (sf.shape === 'wedge') {
-    prof = [[hw + Ln, 0], [hw + Ln, -Math.max(4, th * 0.2), 'sharp'], [hw, -(th * 0.6 + Ln * (0.75 + ang * 0.5))]];
-  } else {
-    const thTip = th * (1 - 0.65 * ang), thStem = th + Ln * ang * 0.35;
-    if (sf.shape === 'bracketed') {
-      const br = Ln * 0.85;
-      const P = [{ x: hw + Ln, y: -thTip }, { x: hw + Ln * 0.3, y: -thTip - (thStem - thTip) * 0.6 },
-        { x: hw, y: -thStem - br * 0.25 }, { x: hw, y: -(thStem + br) }];
-      prof = [[hw + Ln, 0], [hw + Ln, -thTip]];
-      for (let i = 1; i <= 8; i++) { const s = cubicAt(P, i / 8); prof.push([s.x, s.y, i < 8 ? 'smooth' : 'sharp']); }
-    } else {
-      prof = [[hw + Ln, 0], [hw + Ln, -thTip], [hw, -thStem, 'sharp']];
+  const ang = sf.angle, tip = sf.tip ?? 'square', wedge = sf.shape === 'wedge';
+  // one side, L long, as [across, depth] from the tip inwards to the stem
+  const side = (L: number): ProfilePt[] => {
+    // the tip: its foot on the line, then its top. A pointed one has no top, and stays sharp
+    const tt = wedge ? Math.max(4, th * 0.2) : th * (1 - 0.65 * ang);
+    const foot: ProfilePt = [hw + L, 0], top: ProfilePt = wedge ? [hw + L, -tt, 'sharp'] : [hw + L, -tt];
+    if (tip === 'round') foot[2] = top[2] = tt * (sf.tipRound ?? 0.5);
+    else if (tip === 'pointed') { foot[2] = 'sharp'; top[1] = 0; }
+    else if (tip === 'angled') {
+      const lean = clamp(sf.tipSlant ?? 0, -1, 1) * Math.min(Math.max(tt * 1.5, L * 0.2), L * 0.7);
+      if (lean > 0) top[0] -= lean; else foot[0] += lean;
     }
-  }
-  const depth = -prof[prof.length - 1][1];
+    const tipPts = tip === 'pointed' ? [foot] : [foot, top];
+    if (wedge) return [...tipPts, [hw, -(th * 0.6 + L * (0.75 + ang * 0.5))]];
+    const thTip = -top[1], thStem = th + L * ang * 0.35;
+    if (sf.shape !== 'bracketed') return [...tipPts, [hw, -thStem, 'sharp']];
+    const br = L * (sf.bracket ?? 0.85);
+    const P = [{ x: top[0], y: -thTip }, { x: hw + L * 0.3, y: -thTip - (thStem - thTip) * 0.6 },
+      { x: hw, y: -thStem - br * 0.25 }, { x: hw, y: -(thStem + br) }];
+    const prof = tipPts.slice();
+    for (let i = 1; i <= 8; i++) { const c = cubicAt(P, i / 8); prof.push([c.x, c.y, i < 8 ? 'smooth' : 'sharp']); }
+    return prof;
+  };
+  // serifs on stems can reach further one way than the other
+  const bal = horiz ? 0 : 0.6 * clamp(sf.balance ?? 0, -1, 1);
+  const wantB = sides !== 'a', wantA = sides !== 'b';
+  const profB = side(Ln * (1 + bal)), profA = side(Ln * (1 - bal));
+  const depth = (prof: ProfilePt[]) => -prof[prof.length - 1][1];
   const pts: Pt[] = [];
   // diagonal strokes: shear the serif so its inner edges follow the stroke
   const dOut = end.dx * out.x + end.dy * out.y, shear = Math.abs(dOut) > 0.3 ? (end.dx * u.x + end.dy * u.y) / dOut : 0;
-  const put = (a: number, d: number, flag?: 'smooth' | 'sharp') => {
-    a += shear * d * Math.min(1, -d / (th * 1.2 + 1));
-    const p: Pt = { x: end.x + u.x * a + out.x * d, y: end.y + u.y * a + out.y * d };
+  const put = (a: number, d: number, flag?: ProfilePt[2]) => {
+    a += shear * (cup + d * Math.min(1, -d / (th * 1.2 + 1)));
+    const p: Pt = { x: end.x + u.x * a + out.x * (d + cup), y: end.y + u.y * a + out.y * (d + cup) };
     if (flag === 'smooth') p.smooth = true;
-    if (flag === 'sharp') p.sharp = true;
+    else if (flag === 'sharp') p.sharp = true;
+    else if (flag != null) p.r = flag;
     pts.push(p);
   };
-  const wantB = sides !== 'a', wantA = sides !== 'b';
-  if (wantB) prof.forEach(q => put(q[0], q[1], q[2])); else { put(hw, 0, 'sharp'); put(hw, -depth, 'sharp'); }
-  if (wantA) prof.slice().reverse().forEach(q => put(-q[0], q[1], q[2])); else { put(-hw, -depth, 'sharp'); put(-hw, 0, 'sharp'); }
+  if (wantB) profB.forEach(q => put(q[0], q[1], q[2])); else { put(hw, 0, 'sharp'); put(hw, -depth(profA), 'sharp'); }
+  if (wantA) profA.slice().reverse().forEach(q => put(-q[0], q[1], q[2])); else { put(-hw, -depth(profB), 'sharp'); put(-hw, 0, 'sharp'); }
+  if (cup > 0) {
+    // the base arches from one foot to the other, never through more than most of the serif above it
+    const a0 = wantA ? -profA[0][0] : -hw, a1 = wantB ? profB[0][0] : hw;
+    const above = (prof: ProfilePt[], a: number) => {
+      for (let i = 0; i + 1 < prof.length; i++) {
+        const [xa, da] = prof[i], [xb, db] = prof[i + 1];
+        if (a <= Math.max(xa, xb) && a >= Math.min(xa, xb) && xa !== xb) return -lerp(da, db, (a - xa) / (xb - xa));
+      }
+      return Infinity;
+    };
+    const N = 14;
+    for (let i = 1; i < N; i++) {
+      const t = i / N, a = lerp(a0, a1, t), room = a > hw ? (wantB ? above(profB, a) : 0) : a < -hw ? (wantA ? above(profA, -a) : 0) : Infinity;
+      put(a, -Math.min(cup * 4 * t * (1 - t), room * 0.7), 'smooth');
+    }
+  }
   return pts;
 }
