@@ -8,7 +8,6 @@ import { isStrokeId, type NumericParam, type Params } from '../../shared/params'
 import { dragSpec, handlesFor, letterCorners, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { n1, useSize } from '../lib/hooks';
 import { GridBar, GridLines, useGrid } from './ConstructionGrid';
-import { ContextGrid } from './ContextGrid';
 import { PenCanvas } from './PenCanvas';
 import { actions, endOf, hlKey, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type EndKey, type Scope } from '../state/editor';
 
@@ -112,7 +111,7 @@ function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } 
 
 export function Inspector() {
   const ch = useEditor(s => s.inspect), pen = useEditor(s => s.penMode), letter = useEditor(s => (s.penMode ? null : letterOf(s)));
-  const drawn = useEditor(s => !!s.inspect && !!s.params.outlines[s.inspect]), fontGrid = useEditor(s => s.fontGrid);
+  const drawn = useEditor(s => !!s.inspect && !!s.params.outlines[s.inspect]);
   const font = useFont();
   const g = ch ? font.glyph(ch) : null;
   const grid = useGrid(font, ch);
@@ -135,7 +134,6 @@ export function Inspector() {
         {/* what the canvas shows: the switches keep together, and drop to a line of their own when the head runs out of room */}
         <div className="insp-view">
           <ConstructionToggle />
-          <FontGridToggle />
           {!pen && !drawn && <SkeletonToggle />}
         </div>
         <button className="btn ghost icon insp-close" onClick={actions.closeInspector} aria-label="Close inspector" title="Close (Esc)">
@@ -154,7 +152,6 @@ export function Inspector() {
           </div>
         )}
       </div>
-      {fontGrid && <ContextGrid ch={ch} font={font} />}
     </section>
   );
 }
@@ -223,16 +220,6 @@ function ConstructionToggle() {
   return (
     <label className="check" title="Show the lines and circles the letter is built on, and the letters built on the same ones">
       <input type="checkbox" checked={on} onChange={e => actions.setConstruction(e.target.checked)} /> Construction grid
-    </label>
-  );
-}
-
-/** The font grid under the letter: it set among the other letters, on or off. */
-function FontGridToggle() {
-  const on = useEditor(s => s.fontGrid);
-  return (
-    <label className="check" title="Show the letter among the others, in words">
-      <input type="checkbox" checked={on} onChange={e => actions.setFontGrid(e.target.checked)} /> Font grid
     </label>
   );
 }

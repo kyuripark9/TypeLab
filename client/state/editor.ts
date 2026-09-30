@@ -21,10 +21,6 @@ const CARDS_KEY = 'typelab.cardsHidden';
 const savedCards = (): boolean => {
   try { return localStorage.getItem(CARDS_KEY) !== '1'; } catch { return true; }
 };
-const FONT_GRID_KEY = 'typelab.fontGridHidden';
-const savedFontGrid = (): boolean => {
-  try { return localStorage.getItem(FONT_GRID_KEY) !== '1'; } catch { return true; }
-};
 const CONSTRUCTION_KEY = 'typelab.construction';
 const savedConstruction = (): boolean => {
   try { return localStorage.getItem(CONSTRUCTION_KEY) === '1'; } catch { return false; }
@@ -82,8 +78,6 @@ export interface EditorState extends Doc {
   /** the stroke end (by id) pointed at in the list of a customized letter's ends */
   hotEnd: string | null;
   skeleton: boolean;
-  /** the inspector shows the letter among the design's other letters, in a grid of words */
-  fontGrid: boolean;
   /** the inspector draws the letter's construction grid: the lines and circles it is built on, and the letters that share them */
   construction: boolean;
   /** the inspector edits the letter's anchor points with the pen, instead of dragging its parts */
@@ -140,7 +134,6 @@ export const useEditor = create<EditorState>()(() => ({
   part: null,
   hotEnd: null,
   skeleton: false,
-  fontGrid: savedFontGrid(),
   construction: savedConstruction(),
   penMode: false,
   exportOpen: false,
@@ -432,10 +425,6 @@ export const actions = {
   setPart(part: string | null) { if (get().part !== part) set({ part }); },
   setHotEnd(hotEnd: string | null) { if (get().hotEnd !== hotEnd) set({ hotEnd }); },
   setSkeleton(skeleton: boolean) { set({ skeleton }); },
-  setFontGrid(fontGrid: boolean) {
-    set({ fontGrid });
-    try { if (fontGrid) localStorage.removeItem(FONT_GRID_KEY); else localStorage.setItem(FONT_GRID_KEY, '1'); } catch { /* private mode: lasts this visit */ }
-  },
   setConstruction(construction: boolean) {
     set({ construction });
     try { if (construction) localStorage.setItem(CONSTRUCTION_KEY, '1'); else localStorage.removeItem(CONSTRUCTION_KEY); } catch { /* private mode: lasts this visit */ }
