@@ -86,8 +86,8 @@ const Chevron = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" /></svg>
 );
 
-/** The question asked now: one tile per answer, each drawn in a style it would keep, and "Any". */
-export function FinderQuestion({ question: q, text }: { question: Question; text: string }) {
+/** The question asked now: one tile per answer, its name drawn in a style it would keep, and "Any". */
+export function FinderQuestion({ question: q }: { question: Question }) {
   const traits = useEditor(s => s.traits);
   const head = useRef<HTMLHeadingElement>(null), first = useRef(true);
   // after an answer, the next question takes the focus; the first one leaves it where it is
@@ -95,8 +95,6 @@ export function FinderQuestion({ question: q, text }: { question: Question; text
     if (first.current) { first.current = false; return; }
     head.current?.focus();
   }, [q.step, q.title]);
-  // the typed text if any, else each tile's style names itself
-  const word = text.trim().split(/\s+/).slice(0, 2).join(' ').slice(0, 14);
   return (
     <section className="finder" aria-labelledby="finder-q">
       <div className="finder-head">
@@ -105,15 +103,12 @@ export function FinderQuestion({ question: q, text }: { question: Question; text
       </div>
       <div className="finder-options">
         {q.options.map(o => (
-          <button key={o.id} className="finder-option" onClick={() => actions.answer(q.step, o.id)}>
-            <Sample style={o.sample} traits={traits} text={word || o.sample.name} />
-            <span className="finder-label">{o.label}<span>{o.count}</span></span>
-            {o.hint && <span className="finder-hint">{o.hint}</span>}
+          <button key={o.id} className="finder-option" aria-label={`${o.label}, ${o.count} ${o.count === 1 ? 'style' : 'styles'}`} onClick={() => actions.answer(q.step, o.id)}>
+            <Sample style={o.sample} traits={traits} text={o.label} />
           </button>
         ))}
         <button className="finder-option any" onClick={() => actions.pass(q.step)}>
-          <span className="finder-label">Any<span>{q.count}</span></span>
-          <span className="finder-hint">{q.step === 'mood' ? 'Show every style left' : 'Skip this question'}</span>
+          <span className="finder-label">Any</span>
         </button>
       </div>
     </section>
