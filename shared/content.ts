@@ -566,26 +566,28 @@ export const STYLES: StyleDef[] = [
       overlap: 0.5, letterSpacing: 0.15 })
 ];
 
-/* The style page's cards, in the order they are shown under each Category heading: plain text faces
-   first, then their rounder, bolder, narrower and wider cousins, so neighbours read as a family.
-   Every card is solid letters, and no two are near-copies. Styles left out stay defined, so designs
-   saved from them still open: those built on an effect (a fill other than solid ink, stencil gaps
-   or a slice), and those too close to a card here or too rough to start from. */
+/* The style page's cards, in the order they are shown under each Category heading: the most useful
+   starting points first, plain faces of middling weight and width that the sliders reshape into almost
+   anything, then the ones set further out (very light or black, narrow or wide), and last those built
+   on a special shape (box bowls, bent diagonals, pinches, steps, curls, swashes) that change less
+   easily. Every card is solid letters, and no two are near-copies. Styles left out stay defined, so
+   designs saved from them still open: those built on an effect (a fill other than solid ink, stencil
+   gaps or a slice), and those too close to a card here or too rough to start from. */
 const PAGE_ORDER = [
-  // Sans Serif: neutral, humanist, geometric, then bold geometric, then narrow to wide
-  'grotesque', 'industrial', 'humanist', 'flared', 'geometric', 'soft', 'mirrorsans', 'squircle', 'inktrap', 'chunkyround',
-  'condensed', 'softcond', 'extended', 'wide',
-  // Serif: the book faces by age, then the headline cuts, then the wide ones
-  'venetian', 'oldstyle', 'serif', 'serifitalic', 'swashitalic', 'didone', 'hairserif', 'fatface', 'news', 'headline', 'condserif',
-  'wedge', 'copperplate',
-  'slab', 'softslab', 'clarendon', 'humanslab', 'wideslab',
-  'code', 'roundmono', 'boxmono', 'scoreboard', 'boldmono', 'typewriter', 'cursivemono',
-  // Calligraphy: printing, then scripts from quick to formal, then the heavy ones and blackletter
-  'casual', 'upright', 'comic', 'architect', 'marker', 'upscript', 'signature', 'chancery', 'swash', 'informal', 'brush',
-  'blackletter',
-  // Display: heavy poster letters, then geometric and techno, then the fine ones
-  'woodtype', 'display', 'comicbook', 'octagon', 'heavybox', 'boxcontrast', 'stepped', 'modular',
-  'pinched', 'bauhaus', 'reverse', 'techno', 'hairbox', 'hairline', 'nouveau'
+  // Sans Serif: the everyday text faces, then rounder, narrower and squarer, then the heavy and wide, then the odd one out
+  'grotesque', 'humanist', 'geometric', 'soft', 'industrial', 'condensed', 'chunkyround', 'squircle', 'softcond',
+  'extended', 'flared', 'inktrap', 'wide', 'mirrorsans',
+  // Serif: book and news text, then the headline cuts, then the hairline, black and carved ones, then swashes
+  'serif', 'news', 'oldstyle', 'venetian', 'headline', 'didone', 'serifitalic', 'condserif', 'hairserif', 'fatface',
+  'wedge', 'copperplate', 'swashitalic',
+  'softslab', 'slab', 'clarendon', 'humanslab', 'wideslab',
+  'code', 'roundmono', 'typewriter', 'boldmono', 'scoreboard', 'boxmono', 'cursivemono',
+  // Calligraphy: plain printing, then scripts from casual to formal, then the fast ones and blackletter
+  'comic', 'upright', 'casual', 'marker', 'architect', 'upscript', 'informal', 'brush', 'chancery', 'swash',
+  'signature', 'blackletter',
+  // Display: poster letters made from the ordinary sliders, then those built on box bowls, bends, pinches and curls
+  'woodtype', 'comicbook', 'display', 'bauhaus', 'octagon', 'techno', 'reverse', 'hairline', 'heavybox', 'boxcontrast',
+  'modular', 'pinched', 'stepped', 'hairbox', 'nouveau'
 ];
 export const PAGE_STYLES = PAGE_ORDER.map(id => STYLES.find(s => s.id === id)!);
 /** Appearance tags that some card on the style page carries. Monospace is left out: there it
