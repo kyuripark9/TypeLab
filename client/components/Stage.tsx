@@ -26,7 +26,7 @@ function PreviewBar() {
   const cards = useEditor(s => s.cards);
   return (
     <div className="stage-bar">
-      <div className="type-field">
+      <div className="type-field" data-guide="type">
         <input type="text" spellCheck={false} placeholder="Type something" aria-label="Preview text"
           value={custom} onChange={e => actions.setCustom(e.target.value)} />
         {custom && <button className="type-clear" aria-label="Clear preview text" onClick={() => actions.setCustom('')}>✕</button>}

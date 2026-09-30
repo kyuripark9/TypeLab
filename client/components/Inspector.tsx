@@ -120,7 +120,7 @@ export function Inspector() {
   const own = !!letter || pen || drawn;
 
   return (
-    <section className={own ? 'inspector customizing' : 'inspector'} aria-label={`Glyph inspector: ${ch}`}>
+    <section className={own ? 'inspector customizing' : 'inspector'} aria-label={`Glyph inspector: ${ch}`} data-guide="inspector">
       <div className="insp-head">
         <button className="btn ghost round" onClick={() => actions.stepInspector(-1)} aria-label="Previous glyph">←</button>
         <div className="insp-title"><h2>{ch}</h2></div>
