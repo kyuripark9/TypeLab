@@ -116,9 +116,11 @@ export function Inspector() {
   const g = ch ? font.glyph(ch) : null;
   const grid = useGrid(font, ch);
   if (!ch || !g) return null;
+  // the pen's points and a drawing belong to this letter alone, like its own settings
+  const own = !!letter || pen || drawn;
 
   return (
-    <section className={letter ? 'inspector customizing' : 'inspector'} aria-label={`Glyph inspector: ${ch}`}>
+    <section className={own ? 'inspector customizing' : 'inspector'} aria-label={`Glyph inspector: ${ch}`}>
       <div className="insp-head">
         <button className="btn ghost round" onClick={() => actions.stepInspector(-1)} aria-label="Previous glyph">←</button>
         <div className="insp-title"><h2>{ch}</h2></div>
@@ -143,8 +145,17 @@ export function Inspector() {
       {grid && <GridBar ch={ch} font={font} group={grid.group} />}
       <div className="insp-body">
         {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} />}
-        {pen && !drawn && <div className="pen-note" role="status">Moving a point turns {ch} into a drawing: the settings stop shaping it, until you go back</div>}
-        {!pen && drawn && <div className="pen-note" role="status">{ch} is drawn by hand · edit its points with <button className="link" onClick={() => actions.setPenMode(true)}>Points</button></div>}
+        {pen && !drawn && (
+          <div className="scope-banner" role="status">
+            <ScopeIcon id="letter" /><span>Moving a point turns <b>{ch}</b> into a drawing · the settings stop shaping it, until you go back</span>
+          </div>
+        )}
+        {!pen && drawn && (
+          <div className="scope-banner" role="status">
+            <ScopeIcon id="letter" /><span><b>{ch}</b> is drawn by hand · edit its points with</span>
+            <button className="link" onClick={() => actions.setPenMode(true)}>Points</button>
+          </div>
+        )}
         {letter && !drawn && (
           <div className="scope-banner" role="status">
             <ScopeIcon id="letter" /><span>Customizing <b>{ch}</b> · the other letters won't change</span>
@@ -166,7 +177,7 @@ function ModeToggle() {
   return (
     <div className="scope mode" role="radiogroup" aria-label="Edit with">
       {opts.map(([on, label, title]) => (
-        <button key={label} role="radio" aria-checked={pen === on} className={pen === on ? 'on' : undefined} title={title} onClick={() => actions.setPenMode(on)}>
+        <button key={label} role="radio" aria-checked={pen === on} data-mode={on ? 'points' : 'shape'} className={pen === on ? 'on' : undefined} title={title} onClick={() => actions.setPenMode(on)}>
           <svg className="scope-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
             {on ? <><path d="M3 13C5 6 9 4 13 3" /><rect x="1.5" y="11.5" width="3" height="3" className="fill" /><rect x="11.5" y="1.5" width="3" height="3" className="fill" /><path d="M13 3L8 9" strokeDasharray="1.2 1.6" /></>
               : <path d="M3 13V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v8M6 13V8h4v5" />}

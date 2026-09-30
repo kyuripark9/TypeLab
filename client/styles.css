@@ -361,11 +361,11 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .scope button { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--radius-s); font-size: 13px; font-weight: 500; color: var(--ink-2); white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }
 .scope button:hover { color: var(--ink); }
 .scope button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(46, 59, 62, .14); }
-.scope button.on[data-scope="letter"] { background: var(--custom); color: #fff; box-shadow: none; }
+.scope button.on[data-scope="letter"], .scope button.on[data-mode="points"] { background: var(--custom); color: #fff; box-shadow: none; }
 .scope-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.3; }
 .scope-icon .fill { fill: currentColor; }
-/* customizing one letter: the letter is framed and a banner says so, so the mode can't be missed.
-   The inspector's highlights and handles all turn orange too. */
+/* customizing one letter, through its own settings or point by point with the pen: the letter is framed
+   and a banner says so, so the mode can't be missed. The inspector's highlights and handles all turn orange too. */
 .inspector.customizing { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); }
 .inspector.customizing .insp-body { position: relative; box-shadow: inset 0 0 0 2px var(--custom); }
 .scope-banner { position: absolute; top: 12px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 8px; padding: 7px 14px;
@@ -441,11 +441,11 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 @media (prefers-reduced-motion: reduce) { .i-knob .halo { animation: none; opacity: .6; } }
 .i-skel circle { fill: var(--surface); stroke: var(--accent); stroke-width: var(--sw); }
 
-/* ---------- the pen: a letter's anchor points and handles */
+/* ---------- the pen: a letter's anchor points and handles. Points belong to the one letter, so the pen is
+   dressed as customizing: its points, handles and picked tool take the orange, its bar the wash, inside the frame */
 .scope.mode { margin-left: 8px; }
 .drawn-note { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
-.pen-note { position: absolute; top: 12px; left: 50%; translate: -50% 0; padding: 6px 12px; border-radius: 999px; background: var(--tint); color: var(--ink-2); font-size: 12px; white-space: nowrap; pointer-events: auto; }
-.pen-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+.pen-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; padding: 2px; }
 .pen-canvas { flex: 1; min-height: 0; overflow: hidden; position: relative; touch-action: none; }
 .pen-canvas svg { display: block; }
 .pen-tools { position: absolute; top: 12px; left: 12px; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
@@ -476,7 +476,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-h circle:not(.grab) { fill: var(--accent); }
 .pen-h { cursor: default; }
 .pen-box { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; pointer-events: none; }
-.pen-bar { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 7px 16px; border-top: 1px solid var(--line); background: var(--surface); font-size: 12.5px; }
+.pen-bar { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 7px 16px; border-top: 1px solid var(--line); background: var(--custom-wash); font-size: 12.5px; }
 .pen-bar-label { color: var(--ink); font-weight: 500; white-space: nowrap; }
 .pen-bar-label.muted { color: var(--ink-3); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
 .pen-num-field { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); }
