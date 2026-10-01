@@ -84,6 +84,8 @@ export interface EditorState extends Doc {
   construction: boolean;
   /** the inspector edits the letter's anchor points with the pen, instead of dragging its parts */
   penMode: boolean;
+  /** the pen mirrors an edit across the letter's middle: 'x' left ↔ right, 'y' top ↔ bottom */
+  mirror: ('x' | 'y')[];
   exportOpen: boolean;
   toast: { id: number; msg: string } | null;
 }
@@ -139,6 +141,7 @@ export const useEditor = create<EditorState>()(() => ({
   skeleton: false,
   construction: savedConstruction(),
   penMode: false,
+  mirror: [],
   exportOpen: false,
   toast: null
 }));
@@ -457,6 +460,7 @@ export const actions = {
     try { if (construction) localStorage.setItem(CONSTRUCTION_KEY, '1'); else localStorage.removeItem(CONSTRUCTION_KEY); } catch { /* private mode: lasts this visit */ }
   },
   setPenMode(penMode: boolean) { set({ penMode }); },
+  setMirror(mirror: ('x' | 'y')[]) { set({ mirror }); },
   /** Give a letter drawn by hand back to the settings, which shape it again. */
   undrawLetter(ch: string) {
     const s = get();

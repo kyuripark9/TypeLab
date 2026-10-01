@@ -266,3 +266,111 @@ export function handlePeers(peers: Peer[], side: 'i' | 'o', dx: number, dy: numb
   }
   return out;
 }
+
+/* ---- Mirror: a point moved on one side of a letter moves the same way, flipped, on the other */
+
+/** Which way a mirrored edit flips: 'x' left ↔ right across an upright line, 'y' top ↔ bottom across a level one. */
+export type Axis = 'x' | 'y';
+
+const along = (n: P, axis: Axis) => (axis === 'x' ? n.x : n.y);
+
+/** The letter's middle across `axis`: halfway between its outermost points, to the half unit. */
+export function mirrorLine(cs: Node[][], axis: Axis): number {
+  let lo = Infinity, hi = -Infinity;
+  for (const con of cs) for (const n of con) { const v = along(n, axis); lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  return lo <= hi ? Math.round(lo + hi) / 2 : 0;
+}
+
+/** Each anchor's partner across the line, by key: the anchor where its reflection falls (within `tol`
+    units, each the other's nearest), or itself where it sits on the line. Anchors without one are left out. */
+export function mirrorPairs(cs: Node[][], axis: Axis, line: number, tol = 4): Map<string, Ref> {
+  const all: Ref[] = cs.flatMap((con, c) => con.map((_, i) => ({ c, i })));
+  const near = new Map<string, Ref>();
+  for (const r of all) {
+    const n = cs[r.c][r.i];
+    if (Math.abs(along(n, axis) - line) <= tol / 2) { near.set(refKey(r), r); continue; }
+    const fx = axis === 'x' ? 2 * line - n.x : n.x, fy = axis === 'y' ? 2 * line - n.y : n.y;
+    let best: Ref | null = null, bd = tol;
+    for (const o of all) {
+      const m = cs[o.c][o.i], d = Math.max(Math.abs(m.x - fx), Math.abs(m.y - fy));
+      if (d <= bd && !(o.c === r.c && o.i === r.i)) { best = o; bd = d; }
+    }
+    if (best) near.set(refKey(r), best);
+  }
+  const out = new Map<string, Ref>();
+  for (const [k, p] of near) if (refKey(p) === k || refKey(near.get(refKey(p)) ?? { c: -1, i: -1 }) === k) out.set(k, p);
+  return out;
+}
+
+const sameNode = (a: Node, b: Node) => a.x === b.x && a.y === b.y && a.ix === b.ix && a.iy === b.iy && a.ox === b.ox && a.oy === b.oy && !a.s === !b.s;
+const prevRef = (cs: Node[][], { c, i }: Ref): Ref => ({ c, i: (i + cs[c].length - 1) % cs[c].length });
+
+/** Make an edit symmetric: `edited` is `base` with some points or handles changed, and each changed point
+    whose partner across an axis didn't change moves its partner the same way, flipped (handles too). A
+    point on the line stays on it, its handles mirroring each other. An edit that moved both points of a
+    pair (a whole letter, say) is left as it is. Axes apply in turn, so with both a corner reaches all four.
+    Adding or removing points isn't mirrored: the edit comes back as it is. `held` is the handle being
+    dragged, if any: on a smooth point on the line both handles turn, and the held one leads. */
+export function mirrorEdit(base: Node[][], edited: Node[][], axes: Axis[], held?: { r: Ref; side: 'i' | 'o' }): Node[][] {
+  if (!axes.length || base.length !== edited.length || base.some((con, c) => con.length !== edited[c].length)) return edited;
+  const out = copy(edited);
+  const all: Ref[] = base.flatMap((con, c) => con.map((_, i) => ({ c, i })));
+  const lines = axes.map(axis => ({ axis, line: mirrorLine(base, axis) })), pairs = lines.map(({ axis, line }) => mirrorPairs(base, axis, line));
+  const moved = (r: Ref) => !sameNode(base[r.c][r.i], out[r.c][r.i]);
+
+  // points on a line keep to it, unless the edit moved pairs together
+  lines.forEach(({ axis, line }, k) => {
+    const changed = all.filter(moved);
+    if (changed.some(r => { const p = pairs[k].get(refKey(r)); return p && refKey(p) !== refKey(r) && moved(p); })) return;
+    for (const r of changed) {
+      const p = pairs[k].get(refKey(r));
+      if (!p || refKey(p) !== refKey(r)) continue;
+      const b = base[r.c][r.i], n = out[r.c][r.i], d = line - along(n, axis);
+      const shift = (v: number | undefined) => (v === undefined ? v : R(v + d));
+      if (axis === 'x') { n.x = line; n.ix = shift(n.ix); n.ox = shift(n.ox); } else { n.y = line; n.iy = shift(n.iy); n.oy = shift(n.oy); }
+      // one handle pulled on its own: the other mirrors it
+      let iMoved = n.ix !== b.ix || n.iy !== b.iy, oMoved = n.ox !== b.ox || n.oy !== b.oy;
+      if (iMoved && oMoved && held && refKey(held.r) === refKey(r)) { iMoved = held.side === 'i'; oMoved = !iMoved; }
+      if (b.x === n.x && b.y === n.y && iMoved !== oMoved && hasIn(n) && hasOut(n)) {
+        const [fx, fy] = iMoved ? [n.ix!, n.iy!] : [n.ox!, n.oy!];
+        const mx = axis === 'x' ? R(2 * n.x - fx) : fx, my = axis === 'y' ? R(2 * n.y - fy) : fy;
+        if (iMoved) { n.ox = mx; n.oy = my; } else { n.ix = mx; n.iy = my; }
+        // still smooth only if the two handles are in line
+        const cross = (n.ix! - n.x) * (n.oy! - n.y) - (n.iy! - n.y) * (n.ox! - n.x);
+        if (n.s && Math.abs(cross) > 0.02 * Math.hypot(n.ix! - n.x, n.iy! - n.y) * Math.hypot(n.ox! - n.x, n.oy! - n.y)) delete n.s;
+      }
+    }
+  });
+
+  // then each changed point's partner follows, flipped
+  lines.forEach(({ axis }, k) => {
+    const changed = all.filter(moved), done = new Set(changed.map(refKey));
+    const flipX = axis === 'x' ? -1 : 1, flipY = axis === 'y' ? -1 : 1;
+    for (const r of changed) {
+      const p = pairs[k].get(refKey(r));
+      if (!p || refKey(p) === refKey(r) || done.has(refKey(p))) continue;
+      done.add(refKey(p));
+      const ba = base[r.c][r.i], e = out[r.c][r.i], bp = base[p.c][p.i], q = out[p.c][p.i];
+      q.x = R(bp.x + flipX * (e.x - ba.x)); q.y = R(bp.y + flipY * (e.y - ba.y));
+      // a flip runs the outline the other way, so in handles usually answer out handles: read it off the neighbours
+      const pp = pairs[k].get(refKey(prevRef(base, r)));
+      const swap = pp ? refKey(pp) !== refKey(prevRef(base, p)) : true;
+      for (const side of ['i', 'o'] as const) {
+        const to = swap ? (side === 'i' ? 'o' : 'i') : side;
+        const has = side === 'i' ? hasIn(e) : hasOut(e), hadA = side === 'i' ? hasIn(ba) : hasOut(ba), hadP = to === 'i' ? hasIn(bp) : hasOut(bp);
+        const ex = side === 'i' ? e.ix : e.ox, ey = side === 'i' ? e.iy : e.oy;
+        let hx: number | undefined, hy: number | undefined;
+        if (has && hadA && hadP) {
+          // moved by as much as this one's, flipped, so the partner keeps its own small differences
+          hx = R((to === 'i' ? bp.ix! : bp.ox!) + flipX * (ex! - (side === 'i' ? ba.ix! : ba.ox!)));
+          hy = R((to === 'i' ? bp.iy! : bp.oy!) + flipY * (ey! - (side === 'i' ? ba.iy! : ba.oy!)));
+        } else if (has) { hx = R(q.x + flipX * (ex! - e.x)); hy = R(q.y + flipY * (ey! - e.y)); }
+        else if (!hadA) continue;
+        if (to === 'i') { q.ix = hx; q.iy = hy; if (hx === undefined) { delete q.ix; delete q.iy; } }
+        else { q.ox = hx; q.oy = hy; if (hx === undefined) { delete q.ox; delete q.oy; } }
+      }
+      if (e.s) q.s = 1; else delete q.s;
+    }
+  });
+  return out;
+}

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ALL_CHARS, buildFont, drawnCmds, fitOutline, type Cmd, type Node } from '../shared/engine';
 import { STYLES } from '../shared/content';
 import { DEFAULTS, isValidParams, sanitizeParams, type Params } from '../shared/params';
-import { contourArea, deleteAnchors, moveAnchors, movePeers, nearestSegment, peersOf, reshapeSegment, reverseContour, samePoints, setHandle, splitSegment, toggleSmooth, traceOf } from '../client/lib/pen';
+import { contourArea, deleteAnchors, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment, peersOf, reshapeSegment, reverseContour, samePoints, setHandle, splitSegment, toggleSmooth, traceOf } from '../client/lib/pen';
 
 type P = { x: number; y: number };
 
@@ -158,5 +158,50 @@ describe('Sync all with the pen', () => {
       assert.deepEqual([now.x - was.x, now.y - was.y], [10, 0]);
       assert.equal(moved[p.ch].contours.flat().filter((q, k) => q.x !== p.doc.contours.flat()[k].x).length, 1);
     }
+  });
+});
+
+describe('Mirror with the pen', () => {
+  // a diamond, anticlockwise from the bottom: its sides are partners left and right, top and bottom on the line
+  const dia: Node[][] = [[
+    { x: 250, y: 0 }, { x: 450, y: 300, ix: 450, iy: 200, ox: 450, oy: 400, s: 1 }, { x: 250, y: 600, ix: 350, iy: 600, ox: 150, oy: 600, s: 1 },
+    { x: 50, y: 300, ix: 50, iy: 400, ox: 50, oy: 200, s: 1 }
+  ]];
+  const font = buildFont(STYLES[0].params);
+
+  it('pairs each point with the one across the middle, and points on the middle with themselves', () => {
+    assert.equal(mirrorLine(dia, 'x'), 250);
+    const pairs = mirrorPairs(dia, 'x', 250);
+    assert.deepEqual(pairs.get('0:1'), { c: 0, i: 3 });
+    assert.deepEqual(pairs.get('0:3'), { c: 0, i: 1 });
+    assert.deepEqual(pairs.get('0:0'), { c: 0, i: 0 });
+    // in a traced O every point has a partner
+    const o = traceOf(font.glyph('O')!).contours;
+    assert.equal(mirrorPairs(o, 'x', mirrorLine(o, 'x')).size, o.flat().length);
+  });
+
+  it('moves a point\'s partner the other way, handles and all', () => {
+    const out = mirrorEdit(dia, moveAnchors(dia, [{ c: 0, i: 1 }], 30, 10), ['x']);
+    assert.deepEqual(out[0][3], { x: 20, y: 310, ix: 20, iy: 410, ox: 20, oy: 210, s: 1 });
+    const h = mirrorEdit(dia, setHandle(dia, { c: 0, i: 1 }, 'o', { x: 480, y: 400 }), ['x'], { r: { c: 0, i: 1 }, side: 'o' })[0][3];
+    assert.deepEqual([h.ix, h.iy, h.s], [20, 400, 1]);
+    assert.ok(h.ox! > 50 && h.oy! < 300);
+  });
+
+  it('keeps a point on the middle there, its handles mirroring each other', () => {
+    const top = mirrorEdit(dia, moveAnchors(dia, [{ c: 0, i: 2 }], 40, 20), ['x'])[0][2];
+    assert.deepEqual([top.x, top.y, top.ix, top.ox], [250, 620, 350, 150]);
+    const peak = mirrorEdit(dia, setHandle(dia, { c: 0, i: 2 }, 'i', { x: 350, y: 560 }), ['x'], { r: { c: 0, i: 2 }, side: 'i' })[0][2];
+    assert.deepEqual([peak.ox, peak.oy, peak.s], [150, 560, undefined]);
+  });
+
+  it('reaches all four corners with both flips, and leaves symmetric moves and new points alone', () => {
+    const sq: Node[][] = [[{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }]];
+    const out = mirrorEdit(sq, moveAnchors(sq, [{ c: 0, i: 2 }], 10, 10), ['x', 'y'])[0];
+    assert.deepEqual(out.map(n => [n.x, n.y]), [[-10, -10], [110, -10], [110, 110], [-10, 110]]);
+    const all = moveAnchors(dia, [0, 1, 2, 3].map(i => ({ c: 0, i })), 40, 0);
+    assert.deepEqual(mirrorEdit(dia, all, ['x']), all);
+    const added = splitSegment(dia, 0, 0, 0.5);
+    assert.equal(mirrorEdit(dia, added, ['x']), added);
   });
 });
