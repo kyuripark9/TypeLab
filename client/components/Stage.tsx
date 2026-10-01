@@ -127,7 +127,7 @@ function StyleCards() {
       </div>
       {finder.on && <FinderTrail finder={finder} />}
       <ActiveBar onClear={() => head.current?.focus()} finder={finder.on} />
-      {finder.question ? <FinderQuestion question={finder.question} /> : shown.length ? (
+      {finder.question ? <FinderQuestion question={finder.question} back={finder.answers.at(-1)?.step ?? null} /> : shown.length ? (
         <div className={traits === now ? 'style-groups' : 'style-groups stale'}>
           {STYLE_GROUPS.filter(g => shown.some(s => s.group === g.id)).map(g => (
             <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>

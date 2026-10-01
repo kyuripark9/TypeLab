@@ -147,17 +147,32 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .crumb:disabled { color: var(--ink-3); background: none; }
 .crumb-count { margin-left: 6px; color: var(--ink-3); font-weight: 400; }
 .crumb.now { display: inline-flex; align-items: center; color: var(--ink-3); font-weight: 400; }
-.finder-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 12px; }
-.finder-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; outline: none; }
+.finder-head { margin: 0 0 16px; }
+.finder-head h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.015em; outline: none; }
+.finder-head p { margin: 4px 0 0; max-width: 640px; font-size: 13px; color: var(--ink-2); }
+.finder-head p span { color: var(--ink-3); }
 .finder-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.finder-option { text-align: left; min-width: 0; display: flex; flex-direction: column; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface); transition: border-color .15s; }
-.finder-option:hover { border-color: var(--line-2); }
+/* tiles come in one after another; pointed at, a tile lifts a little, takes the accent and shows what it means */
+.finder-option { text-align: left; min-width: 0; display: flex; flex-direction: column; padding: 16px 18px 12px; border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface);
+  transition: border-color .15s, box-shadow .15s, transform .15s; animation: finder-in .3s ease-out both; }
+.finder-option:hover, .finder-option:focus-visible { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-2px); }
+.finder-option:active { transform: translateY(0) scale(.985); box-shadow: none; }
+.finder-option:focus-visible { outline-offset: 0; border-radius: var(--radius-l); }
+@keyframes finder-in { from { opacity: 0; transform: translateY(6px); } }
 .finder-sample { display: block; width: 100%; height: 56px; fill: var(--ink); overflow: visible; }
 .finder-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
 .finder-typed { margin-top: 10px; min-width: 0; }
 .finder-typed svg { display: block; fill: var(--ink); overflow: visible; }
-.finder-option.any { min-height: 90px; justify-content: center; border-style: dashed; background: none; }
-.finder-option.any:hover { background: var(--hover); }
+.finder-more { display: flex; align-items: baseline; gap: 8px; min-height: 16px; margin-top: 8px; font-size: 12px; line-height: 1.35; color: var(--ink-3); opacity: 0; transition: opacity .15s; }
+/* hints run to two lines, so their room is kept and showing them doesn't shift the row */
+.finder-options.hints .finder-more { min-height: 32px; }
+.finder-option:hover .finder-more, .finder-option:focus-visible .finder-more { opacity: 1; }
+@media (hover: none) { .finder-more { opacity: 1; } }
+.finder-hint { flex: 1; min-width: 0; }
+.finder-count { flex: none; margin-left: auto; font-weight: 500; color: var(--accent-ink); }
+.finder-option.any { min-height: 90px; justify-content: center; gap: 2px; padding-bottom: 16px; border-style: dashed; background: none; }
+.finder-option.any:hover, .finder-option.any:focus-visible { background: var(--hover); border-color: var(--line-2); box-shadow: none; transform: none; }
+.finder-sub { font-size: 12px; color: var(--ink-3); }
 
 /* ---------- panel resize handles: an 8px grab strip centred on the border, lit in the accent while used */
 .resizer { position: relative; z-index: 6; touch-action: none; }

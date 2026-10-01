@@ -2,15 +2,17 @@
    which genre of them and how they should feel, one question at a time, and then shows the cards
    that fit. Each answer is a filter in the panel, so the panel, the chips and the finder stay in
    step; a question that wouldn't narrow anything is left out. Each option is drawn in the most
-   basic style it would keep (the first on the page), so the choice is made by eye; once something
-   is typed in the bar on top, each tile draws that text instead, under the answer. */
-import { useEffect, useRef } from 'react';
+   basic style it would keep (the first on the page), so the choice is made by eye; pointing at a
+   tile flips through the other styles it keeps and says what the answer means. Once something is
+   typed in the bar on top, each tile draws that text instead, under the answer. */
+import { useEffect, useRef, useState } from 'react';
 import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, type StyleDef, type StyleFilter } from '../../shared/content';
 import type { Traits } from '../../shared/traits';
 import { n1, useSize } from '../lib/hooks';
-import { actions, adjustedParams, fontFor, passKey, useEditor, useStyleMatch, type FinderStep } from '../state/editor';
+import { actions, adjustedParams, fontFor, FINDER_STEPS, passKey, useEditor, useStyleMatch, type FinderStep } from '../state/editor';
 
-interface Option { id: string; label: string; hint?: string; count: number; sample: StyleDef }
+/** An answer: what it means, how many styles it keeps and a few of them to draw it in, plainest first. */
+interface Option { id: string; label: string; hint?: string; count: number; samples: StyleDef[] }
 export interface Question { step: FinderStep; title: string; options: Option[]; count: number }
 interface Answer { step: FinderStep; label: string; count: number }
 export interface Finder { on: boolean; question: Question | null; answers: Answer[] }
@@ -20,6 +22,13 @@ const TITLES: Record<FinderStep, string> = {
   kind: 'Which kind of {}?',
   mood: 'How should it feel?'
 };
+const LEADS: Record<FinderStep, string> = {
+  group: 'Go with whichever looks closest to what you have in mind. You can change any answer later.',
+  kind: 'Each one is drawn the way that genre looks.',
+  mood: 'Pick the feeling your letters should give off.'
+};
+/** how many styles a tile flips through while pointed at */
+const FLIP = 8;
 
 /** Where the finder is: the question to ask now (null once the cards show) and the answers so far. */
 export function useFinder(): Finder {
@@ -33,7 +42,7 @@ export function useFinder(): Finder {
     const count = fits({}).length;
     const options = tags.flatMap(t => {
       const hit = fits(pick(t.id));
-      return hit.length ? [{ ...t, count: hit.length, sample: hit[0] }] : [];
+      return hit.length ? [{ ...t, count: hit.length, samples: hit.slice(0, FLIP) }] : [];
     });
     // a question is only worth asking if some answer leaves out some cards
     if (options.length < 2 || !options.some(o => o.count < count)) return null;
@@ -88,10 +97,12 @@ const Chevron = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" /></svg>
 );
 
-/** The question asked now: one tile per answer, its name (or the typed text) drawn in a style it would keep, and "Any". */
-export function FinderQuestion({ question: q }: { question: Question }) {
+/** The question asked now: which step of how many, a friendly lead, a way back, then one tile per
+    answer, its name (or the typed text) drawn in a style it would keep, and "No preference". */
+export function FinderQuestion({ question: q, back }: { question: Question; back: FinderStep | null }) {
   const traits = useEditor(s => s.traits), typed = useEditor(s => s.custom).trim();
   const head = useRef<HTMLHeadingElement>(null), first = useRef(true);
+  const at = FINDER_STEPS.indexOf(q.step);
   // after an answer, the next question takes the focus; the first one leaves it where it is
   useEffect(() => {
     if (first.current) { first.current = false; return; }
@@ -99,23 +110,53 @@ export function FinderQuestion({ question: q }: { question: Question }) {
   }, [q.step, q.title]);
   return (
     <section className="finder" aria-labelledby="finder-q">
+      <div className="finder-step">
+        <span className="finder-steps" aria-hidden="true">
+          {FINDER_STEPS.map((st, i) => <span key={st} className={i <= at ? 'on' : undefined} />)}
+        </span>
+        Question {at + 1} of {FINDER_STEPS.length}
+        {back && <button className="link small finder-back" onClick={() => actions.backTo(back)}>Back</button>}
+      </div>
       <div className="finder-head">
         <h2 id="finder-q" ref={head} tabIndex={-1}>{q.title}</h2>
+        <p>{LEADS[q.step]} <span>{typed ? 'Point at a tile to see your text in more of its styles.' : 'Point at a tile to flip through its styles, or type in the bar above to try your own words.'}</span></p>
       </div>
-      <div className="finder-options">
-        {q.options.map(o => (
-          <button key={o.id} className="finder-option" aria-label={`${o.label}, ${o.count} ${o.count === 1 ? 'style' : 'styles'}`} onClick={() => actions.answer(q.step, o.id)}>
-            {typed ? <>
-              <span className="finder-label">{o.label}</span>
-              <Typed style={o.sample} traits={traits} text={typed} />
-            </> : <Sample style={o.sample} traits={traits} text={o.label} />}
-          </button>
-        ))}
-        <button className="finder-option any" onClick={() => actions.pass(q.step)}>
-          <span className="finder-label">Any</span>
+      {/* keyed by the question, so each new one's tiles come in afresh */}
+      <div className={q.options.some(o => o.hint) ? 'finder-options hints' : 'finder-options'} key={`${q.step}:${q.title}`}>
+        {q.options.map((o, i) => <FinderOption key={o.id} step={q.step} option={o} index={i} traits={traits} typed={typed} />)}
+        <button className="finder-option any" style={{ animationDelay: `${q.options.length * 30}ms` }} onClick={() => actions.pass(q.step)}>
+          <span className="finder-label">No preference</span>
+          <span className="finder-sub">Keep every {q.step === 'group' ? 'kind' : q.step === 'kind' ? 'genre' : 'feeling'}</span>
         </button>
       </div>
     </section>
+  );
+}
+
+/** One answer's tile. Pointed at or focused, it flips through the styles the answer keeps, and
+    says what the answer means and how many styles it leaves. */
+function FinderOption({ step, option: o, index, traits, typed }: { step: FinderStep; option: Option; index: number; traits: Traits; typed: string }) {
+  const [live, setLive] = useState(false), [n, setN] = useState(0);
+  useEffect(() => {
+    if (!live || o.samples.length < 2) { setN(0); return; }
+    const t = setInterval(() => setN(i => (i + 1) % o.samples.length), 700);
+    return () => clearInterval(t);
+  }, [live, o.samples.length]);
+  const style = o.samples[n] ?? o.samples[0];
+  const count = `${o.count} ${o.count === 1 ? 'style' : 'styles'}`;
+  return (
+    <button className="finder-option" style={{ animationDelay: `${index * 30}ms` }}
+      aria-label={`${o.label}${o.hint ? `: ${o.hint}` : ''}, ${count}`} onClick={() => actions.answer(step, o.id)}
+      onPointerEnter={() => setLive(true)} onPointerLeave={() => setLive(false)} onFocus={() => setLive(true)} onBlur={() => setLive(false)}>
+      {typed ? <>
+        <span className="finder-label">{o.label}</span>
+        <Typed style={style} traits={traits} text={typed} />
+      </> : <Sample style={style} traits={traits} text={o.label} />}
+      <span className="finder-more" aria-hidden="true">
+        <span className="finder-hint">{o.hint}</span>
+        <span className="finder-count">{count}</span>
+      </span>
+    </button>
   );
 }
 
