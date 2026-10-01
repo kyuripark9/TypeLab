@@ -3,14 +3,13 @@
    draws new contours) and removes them; Convert switches points between corner and smooth. A letter
    not yet drawn shows its outline traced into points (fitOutline), and becomes a drawing, which the
    settings no longer shape, with the first edit. Every change is one undo step. With Sync all, a
-   point or handle moved here moves in the other letters with a point in the same place too; with
-   Mirror, it moves the other way in its partner across the letter's middle. */
+   point or handle moved here moves in the other letters with a point in the same place too. */
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { cmdsToD, drawnCmds, hasIn, hasOut, segment, type Drawn, type Font, type Glyph, type GlyphGrid, type Node } from '../../shared/engine';
 import { isTyping, n1, useSize } from '../lib/hooks';
 import {
-  anchorsIn, constrain, contourArea, deleteAnchors, handlePeers, keyRef, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment,
-  peersOf, pullHandles, refKey, reshapeSegment, reverseContour, setHandle, setSmooth, splitSegment, toggleSmooth, traceOf, type Axis, type Peer, type Ref
+  anchorsIn, constrain, contourArea, deleteAnchors, handlePeers, keyRef, moveAnchors, movePeers, nearestSegment, peersOf, pullHandles, refKey,
+  reshapeSegment, reverseContour, setHandle, setSmooth, splitSegment, toggleSmooth, traceOf, type Peer, type Ref
 } from '../lib/pen';
 import { actions, useEditor } from '../state/editor';
 import { GridLines } from './ConstructionGrid';
@@ -34,7 +33,6 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const svgRef = useRef<SVGSVGElement>(null);
   const stored = useEditor(s => s.params.outlines[ch]);
   const sync = useEditor(s => s.scope === 'all');
-  const mirror = useEditor(s => s.mirror);
   // before the first edit, the letter as the settings draw it, traced into points
   const traced = traceOf(g);
   const doc = stored ?? traced;
@@ -78,25 +76,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     const outs = useEditor.getState().params.outlines;
     return peersOf(ch, current(), refs, o => { const og = outs[o] ? null : font.glyph(o); return outs[o] ?? (og ? traceOf(og) : null); });
   };
-  /** With Mirror, `edited` (an edit of `base`) made on the other side of the letter too; `held` is the handle dragged. */
-  const sym = (base: Node[][], edited: Node[][], held?: { r: Ref; side: 'i' | 'o' }) => mirrorEdit(base, edited, mirror, held);
-  /** The same for the letters a synced edit reached, each across its own middle. */
-  const symPeers = (along: Peer[], also: Record<string, Drawn>, side?: 'i' | 'o') => {
-    if (!mirror.length) return also;
-    const out: Record<string, Drawn> = {};
-    for (const p of along) {
-      const e = also[p.ch], r = p.refs[0];
-      if (e) out[p.ch] = { adv: e.adv, contours: sym(p.doc.contours, e.contours, side && r ? { r, side } : undefined) };
-    }
-    return out;
-  };
   /** Move points by (dx, dy), and the same points in the letters in sync with this one. */
-  const nudge = (refs: Ref[], dx: number, dy: number) => {
-    const base = current().contours, along = peers(refs);
-    commit(sym(base, moveAnchors(base, refs, dx, dy)), undefined, symPeers(along, movePeers(along, dx, dy)));
-  };
-  /** Commit an edit of the outline as it is now, mirrored. */
-  const edit = (f: (cs: Node[][]) => Node[][]) => { const base = current().contours; commit(sym(base, f(base))); };
+  const nudge = (refs: Ref[], dx: number, dy: number) => commit(moveAnchors(current().contours, refs, dx, dy), undefined, movePeers(peers(refs), dx, dy));
   /** Stop drawing; a contour left with a single point goes. */
   const finish = () => {
     const c = drawingOk;
@@ -160,7 +141,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     start(e, {
       move: (p, ev) => {
         const q = snapTo(ev.shiftKey ? constrain(a, p) : p, skip);
-        write(sym(base, moveAnchors(base, refs, q.x - a.x, q.y - a.y)), undefined, symPeers(along, movePeers(along, q.x - a.x, q.y - a.y)));
+        write(moveAnchors(base, refs, q.x - a.x, q.y - a.y), undefined, movePeers(along, q.x - a.x, q.y - a.y));
       },
       up: moved => { if (moved) actions.commit(); }
     });
@@ -191,8 +172,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     if (tool === 'convert') {
       const base = current().contours;
       start(e, {
-        move: p => write(sym(base, pullHandles(base, r, snapTo(p)), { r, side: 'o' })),
-        up: moved => { if (moved) actions.commit(); else commit(sym(base, toggleSmooth(base, r))); setSel([k]); }
+        move: p => write(pullHandles(base, r, snapTo(p))),
+        up: moved => { if (moved) actions.commit(); else commit(toggleSmooth(base, r)); setSel([k]); }
       });
       return;
     }
@@ -213,7 +194,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     start(e, {
       move: (p, ev) => {
         const q = snapTo(ev.shiftKey ? constrain(n, p) : p), f = free || ev.altKey;
-        write(sym(base, setHandle(base, r, side, q, f), { r, side }), undefined, symPeers(along, handlePeers(along, side, q.x - h0.x, q.y - h0.y, f), side));
+        write(setHandle(base, r, side, q, f), undefined, handlePeers(along, side, q.x - h0.x, q.y - h0.y, f));
       },
       up: moved => { if (moved) actions.commit(); }
     });
@@ -238,7 +219,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     start(e, {
       move: pp => {
         const q = curve ? { x: pp.x, y: pp.y } : snapTo(pp);
-        write(sym(base, reshapeSegment(base, hit.c, hit.i, hit.t, q.x - p.x, q.y - p.y)));
+        write(reshapeSegment(base, hit.c, hit.i, hit.t, q.x - p.x, q.y - p.y));
       },
       up: moved => { if (moved) actions.commit(); }
     });
@@ -396,17 +377,6 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const cursor = space ? 'grab' : tool === 'pen' ? 'crosshair' : 'default';
   // with Sync all, the letters the picked points would move in too
   const reach = sync && selRefs.length ? peers(selRefs).map(p => p.ch) : [];
-  // with Mirror, the letter's middle on each axis, and the partners of the picked points, which move the other way
-  const lines = mirror.map(axis => ({ axis, at: mirrorLine(cs, axis) }));
-  const twins = new Set<string>();
-  {
-    let reached = selRefs.map(refKey);
-    for (const { axis, at } of lines) {
-      const pairs = mirrorPairs(cs, axis, at), more = reached.map(k => pairs.get(k)).filter((r): r is Ref => !!r).map(refKey);
-      reached = [...new Set([...reached, ...more])];
-    }
-    reached.forEach(k => { if (!selSet.has(k)) twins.add(k); });
-  }
 
   return (
     <div className="pen-wrap">
@@ -438,9 +408,6 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
               ))}
               {guides.x !== undefined && <line className="pen-snap" x1={n1(X(guides.x))} x2={n1(X(guides.x))} y1={0} y2={H} />}
               {guides.y !== undefined && <line className="pen-snap" x1={0} x2={W} y1={n1(Y(guides.y))} y2={n1(Y(guides.y))} />}
-              {lines.map(({ axis, at }) => axis === 'x'
-                ? <line key={axis} className="pen-axis" x1={n1(X(at))} x2={n1(X(at))} y1={0} y2={H} />
-                : <line key={axis} className="pen-axis" x1={0} x2={W} y1={n1(Y(at))} y2={n1(Y(at))} />)}
             </g>
             <g transform={`translate(${n1(ox)},${n1(oy)}) scale(${sc.toFixed(5)})`}>
               <path className="pen-ink" d={d} />
@@ -473,8 +440,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
               const k = `${c}:${i}`, on = selSet.has(k), first = drawingOk === c && i === 0 && con.length > 1;
               const x = n1(X(n.x)), y = n1(Y(n.y));
               return (
-                <g key={k} className={['pen-pt', on && 'on', twins.has(k) && 'twin', first && 'first', tool === 'pen' && drawingOk === null && 'del'].filter(Boolean).join(' ')}
-                  onPointerDown={onAnchor({ c, i })} onDoubleClick={() => { if (tool === 'select') edit(o => toggleSmooth(o, { c, i })); }}>
+                <g key={k} className={['pen-pt', on && 'on', first && 'first', tool === 'pen' && drawingOk === null && 'del'].filter(Boolean).join(' ')}
+                  onPointerDown={onAnchor({ c, i })} onDoubleClick={() => { if (tool === 'select') commit(toggleSmooth(current().contours, { c, i })); }}>
                   <circle className="grab" cx={x} cy={y} r={HIT} />
                   {n.s ? <circle cx={x} cy={y} r={4} /> : <rect x={x - 3.5} y={y - 3.5} width={7} height={7} />}
                 </g>
@@ -496,12 +463,12 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             <span className="pen-bar-label">Point</span>
             <NumField label="X" value={one.x} onSet={v => nudge(selRefs, v - one.x, 0)} />
             <NumField label="Y" value={one.y} onSet={v => nudge(selRefs, 0, v - one.y)} />
-            <PointKind smooth={!!one.s} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
+            <PointKind smooth={!!one.s} onSet={s => commit(setSmooth(current().contours, selRefs, s))} />
           </>
         ) : selRefs.length > 1 ? (
           <>
             <span className="pen-bar-label">{selRefs.length} points</span>
-            <PointKind smooth={selRefs.every(r => cs[r.c][r.i].s)} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
+            <PointKind smooth={selRefs.every(r => cs[r.c][r.i].s)} onSet={s => commit(setSmooth(current().contours, selRefs, s))} />
           </>
         ) : (
           <span className="pen-bar-label muted">{hint(tool, drawingOk !== null)}</span>
@@ -516,7 +483,6 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
           </>
         )}
         <span className="grow" />
-        <Mirror axes={mirror} onSet={actions.setMirror} />
         <label className="check" title="Snap to the guide lines and to other points"><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} /> Snap</label>
         <NumField label="Width" value={doc.adv} onSet={v => commit(current().contours, Math.max(0, v))} />
         <span className="pen-bar-label muted pen-count" title="Anchor points">{count} pts · {Math.round(sc / fitSc * 100)}%</span>
@@ -552,32 +518,6 @@ function PointKind({ smooth, onSet }: { smooth: boolean; onSet: (smooth: boolean
       <button role="radio" aria-checked={smooth} className={smooth ? 'on' : undefined} onClick={() => onSet(true)} title="Smooth: the handles stay in line">
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" /></svg>Smooth
       </button>
-    </div>
-  );
-}
-
-/** Mirror: turn on either flip, or both, so an edit on one side of the letter is made on the other side too. */
-function Mirror({ axes, onSet }: { axes: Axis[]; onSet: (axes: Axis[]) => void }) {
-  const opts: { id: Axis; label: string; title: string; icon: ReactNode }[] = [
-    { id: 'x', label: 'Mirror left and right', title: 'Mirror left ↔ right: a point moved on one side moves the other way on the other, and points on the middle stay on it',
-      icon: <><path d="M6 4L2 11h4z" /><path d="M10 4l4 7h-4z" /><path d="M8 2v12" strokeDasharray="1.5 1.5" /></> },
-    { id: 'y', label: 'Mirror top and bottom', title: 'Mirror top ↕ bottom: a point moved in the top half moves the other way in the bottom half, and points on the middle stay on it',
-      icon: <><path d="M4 6l7-4v4z" /><path d="M4 10l7 4v-4z" /><path d="M2 8h12" strokeDasharray="1.5 1.5" /></> }
-  ];
-  return (
-    <div className="pen-mirror" role="group" aria-label="Mirror">
-      <span>Mirror</span>
-      <div className="pen-kind">
-        {opts.map(o => {
-          const on = axes.includes(o.id);
-          return (
-            <button key={o.id} aria-pressed={on} aria-label={o.label} title={o.title} className={on ? 'on' : undefined}
-              onClick={() => onSet(on ? axes.filter(a => a !== o.id) : [...axes, o.id].sort())}>
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">{o.icon}</svg>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
