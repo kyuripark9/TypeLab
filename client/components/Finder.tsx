@@ -23,9 +23,9 @@ const TITLES: Record<FinderStep, string> = {
   mood: 'How should it feel?'
 };
 const LEADS: Record<FinderStep, string> = {
-  group: 'Go with whichever looks closest to what you have in mind. You can change any answer later.',
-  kind: 'Each one is drawn the way that genre looks.',
-  mood: 'Pick the feeling your letters should give off.'
+  group: 'Pick the closest; you can change it later.',
+  kind: 'Each is drawn the way that genre looks.',
+  mood: 'The feeling your letters should give off.'
 };
 /** how many styles a tile flips through while pointed at */
 const FLIP = 8;
@@ -74,9 +74,11 @@ export function useFinder(): Finder {
   return { on, question: null, answers };
 }
 
-/** The answers so far as a trail, each one a way back to its question. */
+/** The answers so far as a trail, each one a way back to its question, and on the same row which
+    question this is and a way back to the one before. */
 export function FinderTrail({ finder }: { finder: Finder }) {
   const { question, answers } = finder;
+  const at = question ? FINDER_STEPS.indexOf(question.step) : -1, back = answers.at(-1)?.step;
   return (
     <nav className="finder-trail" aria-label="Your answers">
       <ol>
@@ -89,6 +91,13 @@ export function FinderTrail({ finder }: { finder: Finder }) {
         ))}
         {question && answers.length > 0 && <li aria-current="step"><Chevron /><span className="crumb now">{question.step === 'mood' ? 'Feeling' : 'Genre'}</span></li>}
       </ol>
+      {question && <div className="finder-step">
+        <span className="finder-steps" aria-hidden="true">
+          {FINDER_STEPS.map((st, i) => <span key={st} className={i <= at ? 'on' : undefined} />)}
+        </span>
+        <span aria-label={`Question ${at + 1} of ${FINDER_STEPS.length}`}>{at + 1} of {FINDER_STEPS.length}</span>
+        {back && <button className="link small" onClick={() => actions.backTo(back)}>Back</button>}
+      </div>}
     </nav>
   );
 }
@@ -97,12 +106,11 @@ const Chevron = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" /></svg>
 );
 
-/** The question asked now: which step of how many, a friendly lead, a way back, then one tile per
-    answer, its name (or the typed text) drawn in a style it would keep, and "No preference". */
-export function FinderQuestion({ question: q, back }: { question: Question; back: FinderStep | null }) {
+/** The question asked now and a one-line lead, then one tile per answer, its name (or the typed
+    text) drawn in a style it would keep, and "No preference". */
+export function FinderQuestion({ question: q }: { question: Question }) {
   const traits = useEditor(s => s.traits), typed = useEditor(s => s.custom).trim();
   const head = useRef<HTMLHeadingElement>(null), first = useRef(true);
-  const at = FINDER_STEPS.indexOf(q.step);
   // after an answer, the next question takes the focus; the first one leaves it where it is
   useEffect(() => {
     if (first.current) { first.current = false; return; }
@@ -110,16 +118,9 @@ export function FinderQuestion({ question: q, back }: { question: Question; back
   }, [q.step, q.title]);
   return (
     <section className="finder" aria-labelledby="finder-q">
-      <div className="finder-step">
-        <span className="finder-steps" aria-hidden="true">
-          {FINDER_STEPS.map((st, i) => <span key={st} className={i <= at ? 'on' : undefined} />)}
-        </span>
-        Question {at + 1} of {FINDER_STEPS.length}
-        {back && <button className="link small finder-back" onClick={() => actions.backTo(back)}>Back</button>}
-      </div>
       <div className="finder-head">
         <h2 id="finder-q" ref={head} tabIndex={-1}>{q.title}</h2>
-        <p>{LEADS[q.step]} <span>{typed ? 'Point at a tile to see your text in more of its styles.' : 'Point at a tile to flip through its styles, or type in the bar above to try your own words.'}</span></p>
+        <p>{LEADS[q.step]} <span>{typed ? 'Point at a tile for more of its styles.' : 'Point at a tile for more, or type above to try your words.'}</span></p>
       </div>
       {/* keyed by the question, so each new one's tiles come in afresh */}
       <div className={q.options.some(o => o.hint) ? 'finder-options hints' : 'finder-options'} key={`${q.step}:${q.title}`}>
