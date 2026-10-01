@@ -22,11 +22,6 @@ const TITLES: Record<FinderStep, string> = {
   kind: 'Which kind of {}?',
   mood: 'How should it feel?'
 };
-const LEADS: Record<FinderStep, string> = {
-  group: 'Pick the closest; you can change it later.',
-  kind: 'Each is drawn the way that genre looks.',
-  mood: 'The feeling your letters should give off.'
-};
 /** how many styles a tile flips through while pointed at */
 const FLIP = 8;
 
@@ -106,7 +101,7 @@ const Chevron = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" /></svg>
 );
 
-/** The question asked now and a one-line lead, then one tile per answer, its name (or the typed
+/** The question asked now and a short tip, then one tile per answer, its name (or the typed
     text) drawn in a style it would keep, and "No preference". */
 export function FinderQuestion({ question: q }: { question: Question }) {
   const traits = useEditor(s => s.traits), typed = useEditor(s => s.custom).trim();
@@ -120,7 +115,7 @@ export function FinderQuestion({ question: q }: { question: Question }) {
     <section className="finder" aria-labelledby="finder-q">
       <div className="finder-head">
         <h2 id="finder-q" ref={head} tabIndex={-1}>{q.title}</h2>
-        <p>{LEADS[q.step]} <span>{typed ? 'Point at a tile for more of its styles.' : 'Point at a tile for more, or type above to try your words.'}</span></p>
+        <p>Hover a tile for more</p>
       </div>
       {/* keyed by the question, so each new one's tiles come in afresh */}
       <div className={q.options.some(o => o.hint) ? 'finder-options hints' : 'finder-options'} key={`${q.step}:${q.title}`}>

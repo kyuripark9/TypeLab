@@ -154,8 +154,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .finder-steps span.on { background: var(--accent); }
 .finder-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; margin: 0 0 14px; }
 .finder-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.015em; outline: none; }
-.finder-head p { margin: 0; font-size: 13px; color: var(--ink-2); }
-.finder-head p span { color: var(--ink-3); }
+.finder-head p { margin: 0; font-size: 13px; color: var(--ink-3); }
 .finder-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 /* tiles come in one after another; pointed at, a tile lifts a little, takes the accent and shows what it means */
 .finder-option { text-align: left; min-width: 0; display: flex; flex-direction: column; padding: 16px 18px 12px; border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface);
