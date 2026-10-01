@@ -3,7 +3,7 @@
    that fit. Each answer is a filter in the panel, so the panel, the chips and the finder stay in
    step; a question that wouldn't narrow anything is left out. Each option is drawn in the most
    basic style it would keep (the first on the page), so the choice is made by eye; once something
-   is typed in the bar on top, each tile draws that text instead, under the answer and the style's name. */
+   is typed in the bar on top, each tile draws that text instead, under the answer. */
 import { useEffect, useRef } from 'react';
 import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, type StyleDef, type StyleFilter } from '../../shared/content';
 import type { Traits } from '../../shared/traits';
@@ -106,7 +106,7 @@ export function FinderQuestion({ question: q }: { question: Question }) {
         {q.options.map(o => (
           <button key={o.id} className="finder-option" aria-label={`${o.label}, ${o.count} ${o.count === 1 ? 'style' : 'styles'}`} onClick={() => actions.answer(q.step, o.id)}>
             {typed ? <>
-              <span className="finder-label">{o.label}<span className="finder-style">{o.sample.name}</span></span>
+              <span className="finder-label">{o.label}</span>
               <Typed style={o.sample} traits={traits} text={typed} />
             </> : <Sample style={o.sample} traits={traits} text={o.label} />}
           </button>
