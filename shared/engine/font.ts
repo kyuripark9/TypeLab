@@ -355,7 +355,8 @@ interface Host { score: number; j: number; px: number; py: number; tx: number; t
 /** Where stroke i ends in another stroke (its host): the join's id (see isJoinId), the join end
     (x, y), and (nx, ny), the way a gap there opens, away from the host. `lies`: the end isn't drawn
     as a join but lies inside the host (the top arm of an F over its stem), which Stencil leaves whole. */
-interface Join { id: string; x: number; y: number; nx: number; ny: number; bj: Host; lies: boolean }
+interface Join { id: string; x: number; y: number; nx: number; ny: number; bj: Host; lies: boolean;
+  /** the way into the stroke from its end, and its thickness there */ ix: number; iy: number; t: number }
 /** One join's cut, its gap `off` out and `gap` wide (times `k` when the letter sets it on its own,
     `own`, so a gap too wide for the stroke can be narrowed). `back` is the host's far edge, which the
     stub left on the host stops at: a stroke meeting its host at a slant (the arm of a y) runs on
@@ -393,7 +394,7 @@ function strokeJoins(i: number, exps: (Expanded | null)[]): Join[] {
     const side = (cx - bj.px) * nx + (cy - bj.py) * ny;
     if (Math.abs(side) < 1) continue;
     if (side < 0) { nx = -nx; ny = -ny; }
-    out.push({ id: `${i}${end.which}`, x: end.x, y: end.y, nx, ny, bj, lies });
+    out.push({ id: `${i}${end.which}`, x: end.x, y: end.y, nx, ny, bj, lies, ix: -end.dx, iy: -end.dy, t: end.t });
   }
   return out;
 }
@@ -404,8 +405,22 @@ function stencilOpens(joins: Join[]): Set<string> {
   const lead = (c: Join) => c.nx - c.ny * 0.5, drawn = joins.filter(c => !c.lies);
   return new Set(drawn.filter(c => !drawn.some(k => k !== c && k.nx * c.nx + k.ny * c.ny < -0.3 && lead(k) > lead(c))).map(c => c.id));
 }
-function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean): StencilCut {
+/** `square`: cut straight across the stroke instead (a crossbar made shorter), where both its edges are clear of the host. */
+function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean, square = false): StencilCut {
   const { bj, nx, ny } = jn, end = jn;
+  if (square) {
+    const l = Math.hypot(jn.ix, jn.iy) || 1, dx = jn.ix / l, dy = jn.iy / l, dn = dx * nx + dy * ny;
+    if (dn > 0.2) {
+      // how far in from the end each edge of the stroke leaves the host's far side
+      const clear = Math.max(...[1, -1].map(o => {
+        const qx = end.x - dy * o * jn.t / 2, qy = end.y + dx * o * jn.t / 2;
+        return (bj.half - ((qx - bj.px) * nx + (qy - bj.py) * ny)) / dn;
+      }));
+      const at = (d: number) => ({ x: end.x + dx * d, y: end.y + dy * d });
+      return { x: end.x, y: end.y, host: bj.j, nx, ny, own, back: { ...at(0), nx: -dx, ny: -dy }, across: () => true,
+        at: (o, k = 1) => ({ far: { ...at(clear + o + gap * (own ? k : 1)), nx: -dx, ny: -dy }, near: o > 0 ? { ...at(clear + o), nx: dx, ny: dy } : null }) };
+    }
+  }
   const at = (d: number) => ({ x: bj.px + nx * d, y: bj.py + ny * d });
   // kept parallel to the host, a gap moved out cuts across the stroke only where the stroke leaves
   // the host steeply: the arch of an n soon does, but a straight arm meeting it at a slant (the
@@ -425,12 +440,22 @@ function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean): StencilC
   return { x: end.x, y: end.y, host: bj.j, nx, ny, own, back: { ...at(-bj.half), nx: -nx, ny: -ny }, across,
     at: (o, k = 1) => ({ far: { ...at(bj.half + o + gap * (own ? k : 1)), nx: -nx, ny: -ny }, near: o > 0 ? { ...at(bj.half + o), nx, ny } : null }) };
 }
-/** The cuts on stroke i: at each join, the letter's own gap there (none at 0), else Stencil's where it opens one. */
-function stencilCuts(i: number, exps: (Expanded | null)[], m: Metrics): StencilCut[] {
+/** The gap at one join of a stroke that is a crossbar (`bar`, cut square when its gap is set) or not, on the join's own Gap scale: the
+    letter's own gap there, else the crossbars' Gap, else Stencil's where it opens one (`opens`). `own`:
+    it is set for this join or this kind of stroke, so it narrows to fit a short stroke rather than go. */
+function gapOf(m: Metrics, id: string, bar: boolean, opens: boolean) {
+  const v = m.p.joinGaps?.[id];
+  if (v != null) return { v, own: true };
+  if (bar && m.p.barGap > 0) return { v: m.p.barGap, own: true };
+  return { v: opens ? m.gap / joinGap(1, m.s) : 0, own: false };
+}
+const isBar = (part?: string) => part === 'crossbar' || part === 'bar';
+/** The cuts on stroke i: at each join, the letter's own gap there (none at 0), else the crossbars' or Stencil's (see gapOf). */
+function stencilCuts(i: number, exps: (Expanded | null)[], m: Metrics, bar: boolean): StencilCut[] {
   const joins = strokeJoins(i, exps), opens = stencilOpens(joins), cuts: StencilCut[] = [];
   for (const jn of joins) {
-    const v = m.p.joinGaps?.[jn.id], gap = v != null ? joinGap(v, m.s) : opens.has(jn.id) ? m.gap : 0;
-    if (gap > 0) cuts.push(stencilCut(exps[i]!, jn, gap, v != null));
+    const { v, own } = gapOf(m, jn.id, bar, opens.has(jn.id)), gap = joinGap(v, m.s);
+    if (gap > 0) cuts.push(stencilCut(exps[i]!, jn, gap, own, bar && own));
   }
   return cuts;
 }
@@ -1671,7 +1696,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   // every join is marked, so the letter can open each on its own, with the gap it has as drawn
   // (on its own Gap scale) and the way the gap opens
   // (on its own Gap scale) and the way the gap opens; and so is every turn, which Stencil leaves whole
-  const opened = Object.values(m.p.joinGaps ?? {}).some(v => v > 0), full = joinGap(1, m.s);
+  const opened = m.p.barGap > 0 || Object.values(m.p.joinGaps ?? {}).some(v => v > 0);
   const turns = b.strokes.map((st, si) => (st.cmds && exps[si]?.ex && !exps[si]!.ex!.loop ? turnsOf(st.cmds, m).map((tn, k) => ({ ...tn, id: `${si}t${k}` })) : []));
   b.strokes.forEach((st, si) => {
     const ex = exps[si]?.ex;
@@ -1680,8 +1705,8 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     for (const jn of joins) {
       // a join only where enough of its stroke reaches out of the one it meets to pull back (not the
       // short arm of a heavy z, all but buried in the diagonal)
-      if (stencilPieces(contour, [stencilCut(ex, jn, m.s * 0.1, true)], 0, m.s, Math.min(...ex.thickness), []).off === null) continue;
-      const v = m.p.joinGaps?.[jn.id] ?? (opens.has(jn.id) ? m.gap / full : 0);
+      if (stencilPieces(contour, [stencilCut(ex, jn, m.s * 0.1, true, isBar(st.o.part))], 0, m.s, Math.min(...ex.thickness), []).off === null) continue;
+      const { v } = gapOf(m, jn.id, isBar(st.o.part), opens.has(jn.id));
       out.marks.push({ type: 'join', x: jn.x, y: jn.y, id: jn.id, v, dx: jn.nx, dy: jn.ny });
     }
     for (const tn of turns[si]) {
@@ -1693,7 +1718,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     const ex = exps[si]?.ex;
     if (!(m.gap || opened) || !ex || ex.loop) return null;
     const contour = st.o.clip ? clipPoly(ex.contours[0], st.o.clip) : ex.contours[0], t = Math.min(...ex.thickness);
-    const cuts = stencilCuts(si, expanded, m), others = outlines.map((q, j) => (j === si || b.strokes[j].o.part === 'fillet' ? null : q));
+    const cuts = stencilCuts(si, expanded, m, isBar(st.o.part)), others = outlines.map((q, j) => (j === si || b.strokes[j].o.part === 'fillet' ? null : q));
     const open = turns[si].flatMap(tn => { const v = m.p.joinGaps?.[tn.id] ?? 0; return v > 0 ? [{ ...tn, gap: joinGap(v, m.s) }] : []; });
     const tp = open.length ? turnPieces(st.cmds!, exps[si]!.so, exps[si]!.pen, open, cuts, m, t, others) : null;
     if (tp) return { drawn: tp.drawn, cuts, pieces: tp.pieces, off: 0 };
@@ -1751,7 +1776,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     ex.skeleton.forEach(r => out.skeleton.push(r));
     for (const end of ex.ends) {
       // an end pulled back from the stroke it lies in leaves its serif behind with it
-      const want = (end.which === 's' ? serifS : serifE) && !(stencilled[si]?.off != null && (m.p.joinGaps?.[`${si}${end.which}`] ?? 0) > 0);
+      const want = (end.which === 's' ? serifS : serifE) && !(stencilled[si]?.off != null && stencilled[si]!.cuts.some(c => c.own && Math.hypot(c.x - end.x, c.y - end.y) < 1));
       if (want) {
         const key = `${si}${end.which}`, face = facing?.get(key), sides = face ? face.sides : (end.which === 's' ? o.serifS : o.serifE) ?? null;
         const sp = sides && buildSerif(end, sides, ctx, o.serifScale, cups?.get(key), face?.inward);

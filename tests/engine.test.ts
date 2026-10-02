@@ -678,6 +678,24 @@ describe('font engine', () => {
     assert.notEqual(bar(H), bar(shut));
   });
 
+  it('Gap shortens the crossbars so they stop short of the strokes they meet, cut square', () => {
+    const at = (barGap: number, ch: string) => buildFont({ ...DEFAULTS, barGap }).glyph(ch)!;
+    const bar = (g: Glyph) => g.strokes.find(t => t.part === 'crossbar')!;
+    for (const ch of 'eAHEF') {
+      const xs0 = xsOf(cmdsToD(bar(at(0, ch)).cmds)), xs1 = xsOf(cmdsToD(bar(at(0.15, ch)).cmds));
+      assert.ok(Math.min(...xs1) > Math.min(...xs0) + 10, `${ch} pulls in from the left`);
+      assert.equal(contours(cmdsToD(bar(at(0.15, ch)).cmds)), 1, `${ch} keeps one bar`);
+    }
+    // both ends of a bar joined at both, square: its ends run straight up and down
+    for (const ch of 'eAH') {
+      const xs = xsOf(cmdsToD(bar(at(0.15, ch)).cmds)), xs0 = xsOf(cmdsToD(bar(at(0, ch)).cmds));
+      assert.ok(Math.max(...xs) < Math.max(...xs0) - 10, `${ch} pulls in from the right`);
+      assert.equal(new Set(xs.map(Math.round)).size, 2, `${ch} is cut square`);
+    }
+    // bars that cross a stem or end free (t f) stay as they are
+    for (const ch of 'tf') assert.equal(at(0.3, ch).d, at(0, ch).d);
+  });
+
   it('stencil gaps move out along the stroke and round their corners', () => {
     const at = (p: Partial<Params>) => buildFont({ ...DEFAULTS, stencil: 0.5, ...p }).glyph('H')!.d;
     // moved out, the bar keeps a stub on the stem it's cut from

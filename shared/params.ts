@@ -97,6 +97,7 @@ export interface Params {
       Contrast make them, lower lighter, higher heavier */ vWeight: number; hWeight: number;
   /** one letter's strokes weighted one by one, by stroke id (see isStrokeId): 0.5 as drawn, lower lighter, higher heavier */ strokeWeights: Record<string, number>;
   xHeight: number; counter: number; aperture: number; crossbar: number;
+  /** how far the crossbars stop short of the strokes they meet (e A H E F), 0 touching them (see joinGap) */ barGap: number;
   roundness: number; curve: number; apex: number; terminal: Terminal;
   /** how far stroke ends reach: 0.5 is the usual length, lower trims them back, higher draws them on */ terminalLength: number;
   /** one letter's ends set one by one, by end id (see isEndId): each overrides terminalLength for that end */ terminalEnds: Record<string, number>;
@@ -203,7 +204,7 @@ export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K :
 export const DEFAULTS: Readonly<Params> = Object.freeze({
   build: 'strokes',
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, rotation: 0.5, contrast: 0.5, vWeight: 0.5, hWeight: 0.5, strokeWeights: Object.freeze({}),
-  xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5,
+  xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5, barGap: 0,
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), innerCorners: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, pinch: 0, pinchPos: 0.5, steps: 0, cornerSteps: Object.freeze({}), innerRound: 0, swash: 0, mirror: 'normal', cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved', aForm: 'plain', joinRound: 0,

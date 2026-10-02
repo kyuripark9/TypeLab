@@ -3,7 +3,7 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ANATOMY, BLOCK_CONTROLS, BOWL_SUBS, PINCH_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS, SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
+  ANATOMY, BLOCK_CONTROLS, BOWL_SUBS, PINCH_SUBS, CROSSBAR_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS, SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
   SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type SerifInnerSubKey, type Kind, type Look, type Mood, type StyleFilter, type StyleGroup
 } from '../../shared/content';
@@ -333,6 +333,13 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
     return (
       <SliderControl k={k} def={c} parts={parts}>
         <SliderControl k="pinchPos" def={PINCH_SUBS.pinchPos} />
+      </SliderControl>
+    );
+  }
+  if (k === 'crossbar') {
+    return (
+      <SliderControl k={k} def={c} parts={parts}>
+        <SliderControl k="barGap" def={CROSSBAR_SUBS.barGap} />
       </SliderControl>
     );
   }

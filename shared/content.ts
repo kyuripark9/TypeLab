@@ -27,10 +27,11 @@ export type BowlSubKey = 'boxRound';
 export type WeightSubKey = 'vWeight' | 'hWeight';
 export type RoundSubKey = 'joinRound' | 'innerRound';
 export type PinchSubKey = 'pinchPos';
+export type CrossbarSubKey = 'barGap';
 /** A stencil's and a slice's own value is their thickness, so it sits among their sub-sliders. */
 export type StencilSubKey = 'stencil' | 'stencilPos' | 'stencilRound';
 export type SliceSubKey = 'slice' | 'slicePos' | 'sliceRound';
-export type ActiveKey = ControlKey | SerifSubKey | SerifTipSubKey | SerifBaseSubKey | SerifInnerSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | StencilSubKey | SliceSubKey;
+export type ActiveKey = ControlKey | SerifSubKey | SerifTipSubKey | SerifBaseSubKey | SerifInnerSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | CrossbarSubKey | StencilSubKey | SliceSubKey;
 
 export interface ControlDef {
   cat: Exclude<CategoryId, 'style'>;
@@ -826,6 +827,9 @@ export const ROUND_SUBS: Record<RoundSubKey, SubControlDef> = {
 export const PINCH_SUBS: Record<PinchSubKey, SubControlDef> = {
   pinchPos: { label: 'Position', friendly: 'Move the pinch up or down the letters', tech: 'Pinch height', lo: 'Baseline', hi: 'Cap height' }
 };
+export const CROSSBAR_SUBS: Record<CrossbarSubKey, SubControlDef> = {
+  barGap: { label: 'Gap', friendly: 'Shorten the crossbars so they stop short of the strokes they meet', tech: 'Crossbar gap', lo: 'Touching', hi: 'Apart' }
+};
 export const STENCIL_SUBS: Record<StencilSubKey, SubControlDef> = {
   stencil: { label: 'Thickness', friendly: 'Open the gaps wider', tech: 'Gap width', lo: 'Thin', hi: 'Thick' },
   stencilPos: { label: 'Position', friendly: 'Move the gaps out along the strokes, away from where they meet', tech: 'Gap position', lo: 'At the join', hi: 'Further out' },
@@ -836,8 +840,8 @@ export const SLICE_SUBS: Record<SliceSubKey, SubControlDef> = {
   slicePos: { label: 'Position', friendly: 'Move the cut up or down the letters', tech: 'Slice height', lo: 'Low', hi: 'High' },
   sliceRound: { label: 'Rounding', friendly: 'Round the corners the cut leaves', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
 };
-export const SUBS: Record<SerifSubKey | SerifTipSubKey | SerifBaseSubKey | SerifInnerSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | StencilSubKey | SliceSubKey, SubControlDef> =
-  { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...PINCH_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
+export const SUBS: Record<SerifSubKey | SerifTipSubKey | SerifBaseSubKey | SerifInnerSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | CrossbarSubKey | StencilSubKey | SliceSubKey, SubControlDef> =
+  { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...PINCH_SUBS, ...CROSSBAR_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
 export type FormKey = 'build' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
@@ -959,4 +963,4 @@ export const firstControl = (cat: CategoryId) =>
     the stroke end length into 'terminal'. */
 export const controlFor = (key: ActiveKey): ControlKey =>
   key in SERIF_SUBS ? 'serif' : key in SERIF_TIP_SUBS ? 'serifTip' : key in SERIF_BASE_SUBS ? 'serifBase' : key in SERIF_INNER_SUBS ? 'serifInner' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in BOWL_SUBS ? 'bowlForm' : key in WEIGHT_SUBS ? 'weight' : key in ROUND_SUBS ? 'roundness'
-    : key in PINCH_SUBS ? 'pinch' : key in STENCIL_SUBS ? 'stencil' : key in SLICE_SUBS ? 'slice' : key as ControlKey;
+    : key in PINCH_SUBS ? 'pinch' : key in CROSSBAR_SUBS ? 'crossbar' : key in STENCIL_SUBS ? 'stencil' : key in SLICE_SUBS ? 'slice' : key as ControlKey;
