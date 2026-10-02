@@ -183,6 +183,8 @@ export interface Params {
       against the ones that reach out: 0.5 the same */ serifInner: SerifInner; serifInnerSize: number; serifInnerThickness: number;
   /** the serifs on stems, longer to the left (lower) or to the right (higher): 0.5 the same both ways */ serifBalance: number;
   /** the size of the serifs on top of stems, and of those on the ends of arms (E, F, T): 0.5 as drawn */ serifTops: number; serifArms: number;
+  /** the serifs on the ends of arms: how heavy they are against the rest, 0.5 as drawn, and which way they lean,
+      0.5 upright, higher splayed out away from the letter, lower in under the arm */ serifArmThickness: number; serifArmLean: number;
   letterSpacing: number; wordSpacing: number; sideBearing: number;
   /** blend toward one fixed advance width for every glyph */ mono: number;
   geoHuman: number; softSharp: number; classicFuture: number; playfulFormal: number;
@@ -212,7 +214,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   fill: 'solid', module: 0.4, stencil: 0, stencilPos: 0, stencilRound: 0, joinGaps: Object.freeze({}), slice: 0, slicePos: 0.5, sliceRound: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   serifBracket: 0.5, serifTip: 'square', serifTipRound: 1, serifTipSlant: 0.8, serifBase: 'flat', serifCup: 0.5,
-  serifSides: 'both', serifInner: 'same', serifInnerSize: 0.5, serifInnerThickness: 0.5, serifBalance: 0.5, serifTops: 0.5, serifArms: 0.5,
+  serifSides: 'both', serifInner: 'same', serifInnerSize: 0.5, serifInnerThickness: 0.5, serifBalance: 0.5, serifTops: 0.5, serifArms: 0.5, serifArmThickness: 0.5, serifArmLean: 0.5,
   letterSpacing: 0.2, wordSpacing: 0.35, sideBearing: 0.5, mono: 0,
   geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5, glyphs: Object.freeze({}), outlines: Object.freeze({})
 });

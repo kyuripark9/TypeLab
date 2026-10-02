@@ -151,6 +151,29 @@ describe('serif details', () => {
     assert.deepEqual(at(E({ serifArms: 1 }), 'foot'), at(E({}), 'foot'));
   });
 
+  it('thickens and leans the serifs on arms, leaving the rest alone', () => {
+    const T = (p: Partial<Params>) => glyph({ serifArms: 1, ...p }, 'T');
+    const arms = (g: Glyph) => at(g, 'arm').map(s => box([s]));
+    // heavier serifs on arms reach further in under the arm; the foot stays as it was
+    assert.ok(arms(T({ serifArmThickness: 1 }))[0].w > arms(T({}))[0].w + 10);
+    assert.ok(arms(T({ serifArmThickness: 0 }))[0].w < arms(T({}))[0].w - 10);
+    const foot = (g: Glyph) => { const b = box(at(g, 'foot')); return [b.w, b.h].map(Math.round); };
+    assert.deepEqual(foot(T({ serifArmThickness: 1, serifArmLean: 1 })), foot(T({})));
+    // upright, the outer edge of each serif lines up with the end of its arm; leaning out, the tips splay past it
+    const bar = (g: Glyph) => box([g.strokes.find(s => s.part === 'arm')!.cmds]);
+    const up = T({}), out = T({ serifArmLean: 1 }), inn = T({ serifArmLean: 0 });
+    assert.ok(Math.abs(box(at(up, 'arm')).x0 - bar(up).x0) < 1 && Math.abs(box(at(up, 'arm')).x1 - bar(up).x1) < 1);
+    assert.ok(box(at(out, 'arm')).x0 < bar(out).x0 - 30 && box(at(out, 'arm')).x1 > bar(out).x1 + 30);
+    assert.ok(box(at(inn, 'arm')).x0 >= bar(inn).x0 - 1 && box(at(inn, 'arm')).x1 <= bar(inn).x1 + 1);
+    // and the letter takes the room they reach into, so they don't run into the next one
+    assert.ok(out.lsb > up.lsb + 30 && out.rsb > up.rsb + 30);
+    assert.equal(T({ serifArmLean: 0.5 }).d, up.d);
+    for (const serifArmLean of [0, 1]) for (const serifTip of SERIF_TIPS) for (const serifShape of SERIF_SHAPES) {
+      const f = buildFont({ ...serif, serifArmLean, serifArmThickness: serifArmLean, serifTip, serifShape, slant: 0.3 });
+      for (const ch of ALL_CHARS) assert.doesNotMatch(f.glyph(ch)!.d, /NaN|Infinity/, `${serifArmLean} ${serifTip} ${serifShape}: ${ch}`);
+    }
+  });
+
   it('lets one letter take serif details of its own', () => {
     const f = buildFont({ ...serif, glyphs: { n: { serifTip: 'round', serifBase: 'cupped' } } });
     assert.notEqual(f.glyph('n')!.d, buildFont(serif).glyph('n')!.d);

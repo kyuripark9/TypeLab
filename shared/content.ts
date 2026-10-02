@@ -19,6 +19,7 @@ export type SerifSubKey = 'serifSize' | 'serifThickness' | 'serifAngle' | 'serif
 export type SerifTipSubKey = 'serifTipRound' | 'serifTipSlant';
 export type SerifBaseSubKey = 'serifCup';
 export type SerifInnerSubKey = 'serifInnerSize' | 'serifInnerThickness';
+export type SerifArmSubKey = 'serifArmThickness' | 'serifArmLean';
 export type FillSubKey = 'module';
 export type TerminalSubKey = 'terminalLength' | 'terminalCurl' | 'terminalFlare' | 'terminalDepth' | 'terminalSize' | 'terminalRound' | 'terminalPoint' | 'terminalClip' | 'terminalLean' | 'terminalSlope' | 'terminalTilt' | 'terminalTip' | 'terminalTaper';
 /** Anything the control panel can focus: a control or one of its nested sub-sliders. */
@@ -31,7 +32,7 @@ export type CrossbarSubKey = 'barGap';
 /** A stencil's and a slice's own value is their thickness, so it sits among their sub-sliders. */
 export type StencilSubKey = 'stencil' | 'stencilPos' | 'stencilRound';
 export type SliceSubKey = 'slice' | 'slicePos' | 'sliceRound';
-export type ActiveKey = ControlKey | SerifSubKey | SerifTipSubKey | SerifBaseSubKey | SerifInnerSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | CrossbarSubKey | StencilSubKey | SliceSubKey;
+export type ActiveKey = ControlKey | SerifSubKey | SerifTipSubKey | SerifBaseSubKey | SerifInnerSubKey | SerifArmSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | CrossbarSubKey | StencilSubKey | SliceSubKey;
 
 export interface ControlDef {
   cat: Exclude<CategoryId, 'style'>;
@@ -682,7 +683,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   serifTops: { cat: 'serifs', bipolar: true, label: 'Top serifs', friendly: 'Make the serifs on top smaller or bigger', tech: 'Head serifs', lo: 'Small', hi: 'Large', demo: 'Hdn',
     explain: 'The serifs on top of stems, set apart from the feet on the baseline.' },
   serifArms: { cat: 'serifs', bipolar: true, label: 'Arm serifs', friendly: 'Make the serifs on arms smaller or bigger', tech: 'Arm serifs · Beaks', lo: 'Small', hi: 'Large', demo: 'ETZ',
-    explain: 'The upright serifs across the ends of arms, as on E, F, L, T and Z.' },
+    explain: 'The serifs across the ends of arms, as on E, F, L, T and Z: their length, their thickness against the other serifs, and how they lean. Leaning out, they splay away from the letter like the arms of a T bent down at the ends, cut square across at their tips.' },
   story: { cat: 'letters', type: 'story', label: 'Letter a', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
     explain: 'Two-storey like book type, or one bowl like handwriting. Its foot can run out in a spur along the baseline.' },
   diagonals: { cat: 'letters', type: 'form', label: 'Letters A, V and W', friendly: 'Stand one side of A, V and W upright, or bend them into arches', tech: 'Symmetric, upright or arched diagonals', demo: 'AVW',
@@ -778,6 +779,10 @@ export const SERIF_INNER_SUBS: Record<SerifInnerSubKey, SubControlDef> = {
   serifInnerSize: { label: 'Length', friendly: 'Make the inside serifs shorter or longer than the outside ones', tech: 'Inner serif size', lo: 'Shorter', hi: 'Longer', bipolar: true },
   serifInnerThickness: { label: 'Thickness', friendly: 'Make the inside serifs lighter or heavier than the outside ones', tech: 'Inner serif thickness', lo: 'Lighter', hi: 'Heavier', bipolar: true }
 };
+export const SERIF_ARM_SUBS: Record<SerifArmSubKey, SubControlDef> = {
+  serifArmThickness: { label: 'Thickness', friendly: 'Make the serifs on arms lighter or heavier than the rest', tech: 'Arm serif thickness', lo: 'Lighter', hi: 'Heavier', bipolar: true },
+  serifArmLean: { label: 'Lean', friendly: 'Lean the serifs on arms in under the arm or splay them out', tech: 'Splayed arm serifs', lo: 'In', hi: 'Out', bipolar: true }
+};
 export const FILL_SUBS: Record<FillSubKey, SubControlDef> = {
   module: { label: 'Grid size', friendly: 'Change the size of the grid or line', tech: 'Module size', lo: 'Fine', hi: 'Coarse' }
 };
@@ -840,8 +845,8 @@ export const SLICE_SUBS: Record<SliceSubKey, SubControlDef> = {
   slicePos: { label: 'Position', friendly: 'Move the cut up or down the letters', tech: 'Slice height', lo: 'Low', hi: 'High' },
   sliceRound: { label: 'Rounding', friendly: 'Round the corners the cut leaves', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
 };
-export const SUBS: Record<SerifSubKey | SerifTipSubKey | SerifBaseSubKey | SerifInnerSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | CrossbarSubKey | StencilSubKey | SliceSubKey, SubControlDef> =
-  { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...PINCH_SUBS, ...CROSSBAR_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
+export const SUBS: Record<SerifSubKey | SerifTipSubKey | SerifBaseSubKey | SerifInnerSubKey | SerifArmSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | CrossbarSubKey | StencilSubKey | SliceSubKey, SubControlDef> =
+  { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...SERIF_ARM_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...PINCH_SUBS, ...CROSSBAR_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
 export type FormKey = 'build' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
@@ -962,5 +967,5 @@ export const firstControl = (cat: CategoryId) =>
 /** The control a key belongs to: serif sub-sliders fold into 'serif', the module size into 'fill',
     the stroke end length into 'terminal'. */
 export const controlFor = (key: ActiveKey): ControlKey =>
-  key in SERIF_SUBS ? 'serif' : key in SERIF_TIP_SUBS ? 'serifTip' : key in SERIF_BASE_SUBS ? 'serifBase' : key in SERIF_INNER_SUBS ? 'serifInner' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in BOWL_SUBS ? 'bowlForm' : key in WEIGHT_SUBS ? 'weight' : key in ROUND_SUBS ? 'roundness'
+  key in SERIF_SUBS ? 'serif' : key in SERIF_TIP_SUBS ? 'serifTip' : key in SERIF_BASE_SUBS ? 'serifBase' : key in SERIF_INNER_SUBS ? 'serifInner' : key in SERIF_ARM_SUBS ? 'serifArms' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in BOWL_SUBS ? 'bowlForm' : key in WEIGHT_SUBS ? 'weight' : key in ROUND_SUBS ? 'roundness'
     : key in PINCH_SUBS ? 'pinch' : key in CROSSBAR_SUBS ? 'crossbar' : key in STENCIL_SUBS ? 'stencil' : key in SLICE_SUBS ? 'slice' : key as ControlKey;

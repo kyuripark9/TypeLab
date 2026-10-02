@@ -78,6 +78,8 @@ export interface SerifSpec {
   /** serifs on stems, where the ones that reach into the letter differ from the rest: their shape and thickness,
       and their length against the others */ inner?: { shape: string; th: number; len: number } | null;
   /** the length of serifs on top of stems, and on the ends of arms, against the ones at the foot */ tops?: number; arms?: number;
+  /** serifs on the ends of arms: their thickness against the others, and how far they lean out from upright, in
+      radians (- in under the arm); a leaning one is cut square across at its tip */ armTh?: number; armLean?: number;
 }
 
 /** The finer shape of each kind of terminal, in stroke widths unless noted. */

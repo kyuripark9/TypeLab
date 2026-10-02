@@ -142,6 +142,8 @@ const pinchY = (pos: number, xh: number, cap: number) => (pos < 0.5 ? lerp(0, xh
 const serifScale = (v: number, lo: number, hi: number) => (v < 0.5 ? lerp(lo, 1, v * 2) : lerp(1, hi, v * 2 - 1));
 /** How thick a serif of each shape is at `v` on the Thickness scale. */
 const serifTh = (v: number, shape: string) => lerp(8, 95, v) * ({ unbracketed: 0.6, slab: 1.5 }[shape] ?? 1);
+/** How far the serifs on arms lean from upright at either end of the Lean scale, in radians (35°). */
+const ARM_LEAN = 0.61;
 
 function metrics(e: Effective): Metrics {
   // Verticals weigh the stems on their own, and Horizontals the bars: each scales its side of the
@@ -169,6 +171,7 @@ function metrics(e: Effective): Metrics {
       bracket: 0.85 * serifScale(e.serifBracket, 0.25, 1.8), tip: e.serifTip, tipRound: lerp(0.1, 0.5, e.serifTipRound), tipSlant: (e.serifTipSlant - 0.5) * 2,
       cup: e.serifBase === 'cupped' ? lerp(0.15, 1, e.serifCup) : 0,
       balance: (e.serifBalance - 0.5) * 2, tops: serifScale(e.serifTops, 0.4, 1.8), arms: serifScale(e.serifArms, 0.4, 1.8),
+      armTh: serifScale(e.serifArmThickness, 0.3, 2.2), armLean: (e.serifArmLean - 0.5) * 2 * ARM_LEAN,
       sides: e.serifSides,
       inner: e.serifInner !== 'same' || e.serifInnerSize !== 0.5 || e.serifInnerThickness !== 0.5 ? {
         shape: e.serifInner === 'same' ? e.serifShape : e.serifInner, len: serifScale(e.serifInnerSize, 0.3, 1.8),
@@ -1747,6 +1750,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     }
     return false;
   };
+  let leanL = 0, leanR = 0;
   b.strokes.forEach((st, si) => {
     const o = st.o; let cmds: Cmd[] = [];
     if (st.poly) {
@@ -1798,6 +1802,11 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
         const key = `${si}${end.which}`, face = facing?.get(key), sides = face ? face.sides : (end.which === 's' ? o.serifS : o.serifE) ?? null;
         const sp = sides && buildSerif(end, sides, ctx, o.serifScale, cups?.get(key), face?.inward);
         const c = sp && finish(sp, 1, m.R * 0.5); if (c) { out.serifs.push(c); out.serifAt.push(serifPlace(end)); }
+        // a serif leaning out past the end of its arm takes the room it reaches into from the side bearing
+        if (sp && ctx.serif!.armLean && serifPlace(end) === 'arm') {
+          const dir = Math.sign(end.dx), past = Math.max(0, ...sp.map(q => (q.x - end.x) * dir));
+          if (dir < 0) leanL = Math.max(leanL, past - end.x); else leanR = Math.max(leanR, end.x + past - W);
+        }
       }
       const term = `${si}${end.which}`, id = plains.has(term) ? term : `p${term}`;
       if (!want && end.type === 'term') {
@@ -1816,7 +1825,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   // touch the neighbouring letter instead of running through it
   const padL = Math.max(0, -b.reachL - m.sb * 1.3), padR = Math.max(0, b.reachR - W - m.sb * 1.3);
   const sbf = b.sb ?? def.sb;
-  return placeGlyph(out, W, m.sb * sbf[0] + padL + grow.l, m.sb * sbf[1] + padR, code, m);
+  return placeGlyph(out, W, m.sb * sbf[0] + padL + grow.l + leanL, m.sb * sbf[1] + padR + leanR, code, m);
 }
 
 type Unplaced = Omit<Glyph, 'lsb' | 'rsb' | 'adv' | 'M' | 'cmds' | 'd'>;
@@ -1934,7 +1943,7 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
     case 'serif': case 'serifTip': case 'serifBase': return g.serifs.map(cmdsToD).join('');
     case 'serifBalance': case 'serifSides': case 'serifInner': return g.serifs.filter((_, i) => g.serifAt[i] !== 'arm').map(cmdsToD).join('');
     case 'serifTops': return g.serifs.filter((_, i) => g.serifAt[i] === 'top').map(cmdsToD).join('');
-    case 'serifArms': return g.serifs.filter((_, i) => g.serifAt[i] === 'arm').map(cmdsToD).join('');
+    case 'serifArms': case 'serifArmThickness': case 'serifArmLean': return g.serifs.filter((_, i) => g.serifAt[i] === 'arm').map(cmdsToD).join('');
     case 'terminal': case 'aperture': return ringsD(g.marks.filter(k => k.type === 'terminal'), Math.max(26, m.s * 0.62));
     case 'apex': return ringsD(g.marks.filter(k => k.type === 'apex' || k.type === 'vertex'), Math.max(30, m.s * 0.7));
     case 'roundness': return ringsD(g.marks.filter(k => k.type === 'corner'), Math.max(16, m.s * 0.3));

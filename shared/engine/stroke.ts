@@ -675,8 +675,10 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
   const along = Math.abs(end.dx * out.x + end.dy * out.y);
   const hw = (end.t / 2) / Math.max(0.35, along);
   const Ln = sf.len * (scale || 1) * (horiz ? sf.arms ?? 1 : out.y > 0 ? sf.tops ?? 1 : 1);
-  const th = sf.th * (horiz ? 0.9 : 1);
+  const th = sf.th * (horiz ? 0.9 * (sf.armTh ?? 1) : 1);
   const ang = sf.angle, tip = sf.tip ?? 'square';
+  // a serif on an arm can lean out from upright (or in under the arm), its tip cut square across it
+  const armLean = horiz ? sf.armLean ?? 0 : 0, tan = Math.tan(armLean);
   // one side, L long, as [across, depth] from the tip inwards to the stem
   const side = (L: number, shape: string, th: number): ProfilePt[] => {
     const wedge = shape === 'wedge';
@@ -689,6 +691,7 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
       const lean = clamp(sf.tipSlant ?? 0, -1, 1) * Math.min(Math.max(tt * 1.5, L * 0.2), L * 0.7);
       if (lean > 0) top[0] -= lean; else foot[0] += lean;
     }
+    if (tan && tip !== 'pointed') top[0] += tt * Math.sin(2 * armLean) / 2;
     const tipPts = tip === 'pointed' ? [foot] : [foot, top];
     if (wedge) return [...tipPts, [hw, -(th * 0.6 + L * (0.75 + ang * 0.5))]];
     const thTip = -top[1], thStem = th + L * ang * 0.35;
@@ -706,6 +709,15 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
   const inner = horiz ? null : sf.inner;
   const half = (s: 'a' | 'b', L: number) => (inner && (inward === 'both' || inward === s) ? side(L * inner.len, inner.shape, inner.th) : side(L, sf.shape, th));
   const profB = half('b', Ln * (1 + bal)), profA = half('a', Ln * (1 - bal));
+  if (tan) {
+    // leaning: each point moves out by how far it lies from the edge of the arm with no serif (from the middle
+    // when both have one), so the outer edge runs straight from that corner; where it meets the arm stays inside it
+    const from = wantA && wantB ? 0 : hw;
+    for (const prof of [profA, profB]) {
+      for (const q of prof) q[1] += (q[0] + from) * tan;
+      const end = prof[prof.length - 1]; end[1] = Math.min(end[1], -th * 0.3);
+    }
+  }
   const depth = (prof: ProfilePt[]) => -prof[prof.length - 1][1];
   const pts: Pt[] = [];
   // diagonal strokes: shear the serif so its inner edges follow the stroke
