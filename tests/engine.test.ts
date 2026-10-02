@@ -31,7 +31,8 @@ const extremes: Params[] = [
   { ...DEFAULTS, weight: 1, serif: true, serifShape: 'wedge', serifSize: 0, serifThickness: 0, serifTip: 'pointed', serifBase: 'cupped', serifCup: 1, serifBalance: 0, serifTops: 1, serifArms: 0, serifSides: 'left', serifInner: 'slab', serifInnerThickness: 0, cursive: 1, contrast: 1 },
   { ...DEFAULTS, serif: true, serifShape: 'slab', serifSize: 1, serifThickness: 0, serifTip: 'angled', serifTipSlant: 0, serifBase: 'cupped', serifCup: 1, mono: 1, fill: 'pixels', stencil: 1, bowlForm: 'box', diagonals: 'upright' },
   { ...DEFAULTS, weight: 1, serif: true, stencil: 0.5, stencilPos: 1, stencilRound: 1, wobble: 1, slant: 1, bowlForm: 'box',
-    glyphs: { F: { joinGaps: { '0e': 1, '1s': 1, '2s': 1 } }, M: { joinGaps: { '2s': 1, '2e': 1, '2t0': 1 } }, A: { joinGaps: { '0t0': 1, '1s': 0 } }, B: { joinGaps: { '0t0': 1, '1t0': 1, '1t1': 1 } }, Z: { joinGaps: { '0e': 1, '1s': 1, '1e': 1, '2s': 1 } } } }
+    glyphs: { F: { joinGaps: { '0e': 1, '1s': 1, '2s': 1 } }, M: { joinGaps: { '2s': 1, '2e': 1, '2t0': 1 } }, A: { joinGaps: { '0t0': 1, '1s': 0 } }, B: { joinGaps: { '0t0': 1, '1t0': 1, '1t1': 1 } }, Z: { joinGaps: { '0e': 1, '1s': 1, '1e': 1, '2s': 1 } } } },
+  { ...DEFAULTS, weight: 1, barGap: 1, barEnds: 'through', crossbar: 0, serif: true, stencil: 0.5, slant: 1, wobble: 1, glyphs: { A: { diagonals: 'arch' }, e: { weight: 0 } } }
 ];
 
 /** In SVG path data: how many contours, how many curves, and every x. */
@@ -696,6 +697,25 @@ describe('font engine', () => {
     for (const ch of 'tf') assert.equal(at(0.3, ch).d, at(0, ch).d);
   });
 
+  it('a crossbar run through the strokes it meets stands free, out to their outside edges', () => {
+    const at = (barGap: number, ch: string) => buildFont({ ...DEFAULTS, barGap, barEnds: 'through' }).glyph(ch)!;
+    const bar = (g: Glyph) => xsOf(cmdsToD(g.strokes.find(t => t.part === 'crossbar')!.cmds));
+    for (const ch of 'AH') {
+      const g = at(0.4, ch), xs = bar(g), ink = xsOf(g.d), plain = bar(at(0, ch));
+      assert.ok(Math.min(...xs) < Math.min(...plain) - 10 && Math.max(...xs) > Math.max(...plain) + 10, `${ch} runs out past where it met`);
+      assert.ok(Math.max(...xs) - Math.min(...xs) > (Math.max(...ink) - Math.min(...ink)) * 0.6, `${ch} reaches the outside edges`);
+      assert.equal(new Set(xs.map(Math.round)).size, 2, `${ch} is cut square`);
+      // the strokes it meets come apart above and below it: the H's two stems in four pieces, and the bar
+      if (ch === 'H') assert.equal(contours(g.d), 5);
+    }
+    // the E's stem is cut where its middle arm runs through it, out to its outside edge
+    const E = at(0.4, 'E');
+    assert.equal(Math.round(Math.min(...bar(E))), Math.round(Math.min(...xsOf(E.d))));
+    // at 0 the bars stay joined, and bars that cross a stem or end free (t f) stay as they are
+    assert.equal(at(0, 'A').d, buildFont(DEFAULTS).glyph('A')!.d);
+    for (const ch of 'tf') assert.equal(at(0.4, ch).d, at(0, ch).d);
+  });
+
   it('stencil gaps move out along the stroke and round their corners', () => {
     const at = (p: Partial<Params>) => buildFont({ ...DEFAULTS, stencil: 0.5, ...p }).glyph('H')!.d;
     // moved out, the bar keeps a stub on the stem it's cut from
@@ -1163,6 +1183,7 @@ describe('slider ranges', () => {
     ['Steps', { weight: 0.7 }, 'steps', 'LE'],
     ['Joins rounding, heavy', { weight: 1 }, 'joinRound', 'nh'],
     ['crossbar Gap, heavy', { weight: 1 }, 'barGap', 'eH'],
+    ['crossbar Gap run through, heavy', { weight: 1, barEnds: 'through' }, 'barGap', 'AH'],
     ['Horizontals, heavy', { weight: 0.85 }, 'hWeight', 'He'],
     ['Verticals, heavy', { weight: 1 }, 'vWeight', 'Hn'],
     ['Horizontals, blocks', { build: 'blocks' }, 'hWeight', 'He']

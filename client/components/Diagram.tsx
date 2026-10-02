@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { CONTROLS, FORM_OPTIONS, controlFor, type ActiveKey, type FormKey } from '../../shared/content';
 import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, serifCup, serifSides, signedArea, termSpec, type Font, type LineItem, type Pt } from '../../shared/engine';
-import { DEFAULTS, TERMINAL_FORMS, type Fill, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm } from '../../shared/params';
+import { DEFAULTS, TERMINAL_FORMS, type BarEnds, type Fill, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 
 export function Diagram({ font, k, W = 340, H = 178 }: { font: Font; k: ActiveKey; W?: number; H?: number }) {
@@ -182,6 +182,18 @@ export function StoryIcon({ story }: { story: Story }) {
     storyPaths.set(story, icon);
   }
   return <svg viewBox={`0 -620 ${n1(icon.w)} 680`} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
+}
+
+/* Crossbar gap icons: the engine's A with its bar's gap open each way, bold enough to read small. */
+const barPaths = new Map<BarEnds, { d: string; box: string }>();
+export function BarEndsIcon({ ends }: { ends: BarEnds }) {
+  let icon = barPaths.get(ends);
+  if (!icon) {
+    const f = buildFont({ ...DEFAULTS, weight: 0.6, crossbar: 0.4, barGap: ends === 'through' ? 0.5 : 0.3, barEnds: ends }), g = f.glyph('A');
+    icon = { d: g?.d ?? '', box: `0 ${n1(-f.m.cap - 60)} ${n1(g?.adv ?? 600)} ${n1(f.m.cap + 120)}` };
+    barPaths.set(ends, icon);
+  }
+  return <svg viewBox={icon.box} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
 }
 
 /* Letter-shape icons: the letter each option shapes, drawn by the engine in that shape, bold

@@ -62,6 +62,9 @@ export const BUILDS = ['strokes', 'blocks'] as const;
 export const MIRRORS = ['normal', 'mirrored'] as const;
 /** Curved stroke ends: stop part way round the curve, or turn onto the nearest level or plumb line and run straight out. */
 export const TERMINAL_RUNS = ['curved', 'straight'] as const;
+/** Where a crossbar's Gap opens: at its ends, the bar stopping short of the strokes it meets, or above and below it, the bar
+    running on through those strokes to their outside edges and the strokes cut across a gap from it (a stencil A). */
+export const BAR_ENDS = ['short', 'through'] as const;
 export type Terminal = (typeof TERMINALS)[number];
 export type SerifShape = (typeof SERIF_SHAPES)[number];
 export type SerifTip = (typeof SERIF_TIPS)[number];
@@ -78,6 +81,7 @@ export type IForm = (typeof I_FORMS)[number];
 export type SForm = (typeof S_FORMS)[number];
 export type AForm = (typeof A_FORMS)[number];
 export type TerminalRun = (typeof TERMINAL_RUNS)[number];
+export type BarEnds = (typeof BAR_ENDS)[number];
 export type Build = (typeof BUILDS)[number];
 export type Mirror = (typeof MIRRORS)[number];
 export type BowlForm = (typeof BOWL_FORMS)[number];
@@ -97,7 +101,8 @@ export interface Params {
       Contrast make them, lower lighter, higher heavier */ vWeight: number; hWeight: number;
   /** one letter's strokes weighted one by one, by stroke id (see isStrokeId): 0.5 as drawn, lower lighter, higher heavier */ strokeWeights: Record<string, number>;
   xHeight: number; counter: number; aperture: number; crossbar: number;
-  /** how far the crossbars stop short of the strokes they meet (e A H E F), 0 touching them (see joinGap) */ barGap: number;
+  /** how far the crossbars stop short of the strokes they meet (e A H E F), 0 touching them (see joinGap), or with
+      barEnds 'through', how far the strokes they run through are cut back above and below them (see barCut) */ barGap: number; barEnds: BarEnds;
   roundness: number; curve: number; apex: number; terminal: Terminal;
   /** how far stroke ends reach: 0.5 is the usual length, lower trims them back, higher draws them on */ terminalLength: number;
   /** one letter's ends set one by one, by end id (see isEndId): each overrides terminalLength for that end */ terminalEnds: Record<string, number>;
@@ -206,7 +211,7 @@ export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K :
 export const DEFAULTS: Readonly<Params> = Object.freeze({
   build: 'strokes',
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, rotation: 0.5, contrast: 0.5, vWeight: 0.5, hWeight: 0.5, strokeWeights: Object.freeze({}),
-  xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5, barGap: 0,
+  xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5, barGap: 0, barEnds: 'short',
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), innerCorners: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, pinch: 0, pinchPos: 0.5, steps: 0, cornerSteps: Object.freeze({}), innerRound: 0, swash: 0, mirror: 'normal', cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved', aForm: 'plain', joinRound: 0,
@@ -232,6 +237,8 @@ export const isJoinId = (id: string) => /^\d{1,2}([se]|t\d{1,2})$/.test(id);
 /** How far a stroke ending in another is pulled back from it, in font units, at `v` on a join's own
     Gap scale, for stems `s` wide: up to two stems and a bit at 1. */
 export const joinGap = (v: number, s: number) => v * (24 + s * 2);
+/** How far the strokes a crossbar runs through are cut back above and below it, at `v` on its Gap scale (s: the stem). */
+export const barCut = (v: number, s: number) => v * (12 + s);
 /** A corner's id: the index of its stroke in the glyph, then 't' and the number of the turn along the
     stroke's centerline (from 0), or the end ('s' start, 'e' end) and its side ('l' or 'r', looking
     out of the stroke), or 'j' and the number of an inside corner where it meets a later stroke of
@@ -302,7 +309,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
   const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, serifTip: SERIF_TIPS, serifBase: SERIF_BASES, serifSides: SERIF_SIDES, serifInner: SERIF_INNERS, fill: FILLS, story: STORIES,
-    bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, aForm: A_FORMS, terminalRun: TERMINAL_RUNS,
+    bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, aForm: A_FORMS, terminalRun: TERMINAL_RUNS, barEnds: BAR_ENDS,
     bowlForm: BOWL_FORMS, build: BUILDS, mirror: MIRRORS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS };
   return opts[k]?.includes(v) ? v : undefined;
 }

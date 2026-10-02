@@ -3,7 +3,7 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ANATOMY, BLOCK_CONTROLS, BOWL_SUBS, PINCH_SUBS, CROSSBAR_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS, SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
+  ANATOMY, BAR_END_OPTIONS, BLOCK_CONTROLS, BOWL_SUBS, PINCH_SUBS, CROSSBAR_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS, SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
   SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type SerifInnerSubKey, type Kind, type Look, type Mood, type StyleFilter, type StyleGroup
 } from '../../shared/content';
@@ -13,7 +13,7 @@ import { cmdsToD, type Glyph } from '../../shared/engine';
 import { letterCorners, letterJoins, letterStrokes, strokeEnds, type CornerInfo, type JoinInfo, type StrokeEndInfo, type StrokeInfo } from '../lib/drag';
 import { actions, adjustedLooks, adjustedParams, curlOf, endOf, fontFor, isOn, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, useStyleMatch, type EndKey, type StyleTab } from '../state/editor';
 import { TRAIT_SECTIONS, type TraitDef } from '../../shared/traits';
-import { Diagram, FillIcon, FormIcon, SerifIcon, SerifSidesIcon, StoryIcon, TerminalIcon } from './Diagram';
+import { BarEndsIcon, Diagram, FillIcon, FormIcon, SerifIcon, SerifSidesIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { ScopeIcon, letterControls } from './Inspector';
 
 export function Panel() {
@@ -347,7 +347,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   if (k === 'crossbar') {
     return (
       <SliderControl k={k} def={c} parts={parts}>
-        <SliderControl k="barGap" def={CROSSBAR_SUBS.barGap} />
+        <BarEndsControl />
       </SliderControl>
     );
   }
@@ -519,6 +519,26 @@ function SliderControl({ k, def, parts, children, holdsOn }: { k: NumericParam; 
       </div>
       {!optional && children}
     </div>
+  );
+}
+
+/** The crossbars' Gap and where it opens: at the bar's ends, or above and below it with the bar run
+    through the strokes it meets. Picking a way while the bars are joined opens a gap to show it. */
+function BarEndsControl() {
+  const ends = useParam('barEnds'), gap = useParam('barGap');
+  return (
+    <>
+      <div className="sub-label">Ends</div>
+      <div className="opts two" role="radiogroup" aria-label="Crossbar gap">
+        {BAR_END_OPTIONS.map(([id, label]) => (
+          <button key={id} role="radio" aria-checked={ends === id} className={ends === id ? 'opt on' : 'opt'}
+            onClick={() => { actions.focusControl('barGap'); actions.setParam('barEnds', id); if (!gap) actions.setParam('barGap', 0.4); actions.commit(); }}>
+            <BarEndsIcon ends={id} /><span>{label}</span>
+          </button>
+        ))}
+      </div>
+      <SliderControl k="barGap" def={CROSSBAR_SUBS.barGap} />
+    </>
   );
 }
 

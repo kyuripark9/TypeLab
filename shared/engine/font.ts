@@ -3,7 +3,7 @@
    -> expanded outlines. Pure math with no DOM, so the browser (live preview) and the
    server (font export) run exactly the same code. A full rebuild of every glyph takes a
    few milliseconds, so sliders can drive it directly. */
-import { DEFAULTS, contrastOf, endCurl, endLength, endReach, formOf, joinGap, rotationDeg, weighed, weightScale, type Params } from '../params';
+import { DEFAULTS, barCut, contrastOf, endCurl, endLength, endReach, formOf, joinGap, rotationDeg, weighed, weightScale, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, roundCuts, signedArea, splitPoly, subCubic, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, slice } from './effects';
@@ -455,10 +455,48 @@ function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean, square = 
 function gapOf(m: Metrics, id: string, bar: boolean, opens: boolean) {
   const v = m.p.joinGaps?.[id];
   if (v != null) return { v, own: true };
-  if (bar && m.p.barGap > 0) return { v: m.p.barGap, own: true };
+  if (bar && m.p.barGap > 0 && m.p.barEnds !== 'through') return { v: m.p.barGap, own: true };
   return { v: opens ? m.gap / joinGap(1, m.s) : 0, own: false };
 }
 const isBar = (part?: string) => part === 'crossbar' || part === 'bar';
+
+/* Crossbars run through (Ends: Through): a level crossbar runs on past each stroke its ends meet, out
+   to that stroke's outside edge, where it is cut square, and the strokes it meets are cut across above
+   and below it, the Gap from it, so the bar stands free between their pieces (a stencil A). `bars`: the
+   bars' new outlines, by stroke; `bands`: the levels cut out of the strokes they meet; `at`: the joins. */
+interface Through { bars: Map<number, Pt[]>; bands: Map<number, [number, number][]>; at: Pt[] }
+function barsThrough(b: Builder, exps: (Expanded | null)[], m: Metrics): Through | null {
+  const cut = barCut(m.p.barGap, m.s);
+  if (m.p.barEnds !== 'through' || !(cut > 0)) return null;
+  const out: Through = { bars: new Map(), bands: new Map(), at: [] };
+  b.strokes.forEach((st, si) => {
+    const ex = exps[si];
+    if (!ex || ex.loop || st.poly || !isBar(st.o.part) || !isHorizontal(st.cmds!)) return;
+    // only where the bar ends in a stroke (A H e E F), not where it crosses one or ends free (t f)
+    const joins = strokeJoins(si, exps).filter(jn => !jn.lies && !exps[jn.bj.j]!.loop);
+    if (!joins.length) return;
+    const ys = ex.contours[0].map(q => q.y), y0 = Math.min(...ys), y1 = Math.max(...ys), ym = (y0 + y1) / 2;
+    let bar = ex.contours[0];
+    for (const jn of joins) {
+      // the host's outside edge, at the middle of the bar: the first edge past the join, going out
+      const dir = jn.ix < 0 ? 1 : -1, host = exps[jn.bj.j]!.contours[0];
+      let edge = jn.x;
+      for (let k = 0; k < host.length; k++) {
+        const a = host[k], c = host[(k + 1) % host.length];
+        if ((a.y <= ym) === (c.y <= ym)) continue;
+        const x = a.x + (ym - a.y) / (c.y - a.y) * (c.x - a.x);
+        if ((x - jn.x) * dir > 0 && (edge === jn.x || (x - edge) * dir < 0)) edge = x;
+      }
+      // cut square just inside the end, then drawn out to the edge
+      const px = jn.x - dir;
+      bar = clipPoly(bar, { planes: [{ x: px, y: 0, nx: dir, ny: 0 }] }).map(q => (Math.abs(q.x - px) < 1e-6 ? { ...q, x: edge, sharp: true } : q));
+      (out.bands.get(jn.bj.j) ?? out.bands.set(jn.bj.j, []).get(jn.bj.j)!).push([y0 - cut, y1 + cut]);
+      out.at.push({ x: jn.x, y: jn.y });
+    }
+    out.bars.set(si, bar);
+  });
+  return out.bars.size ? out : null;
+}
 /** The cuts on stroke i: at each join, the letter's own gap there (none at 0), else the crossbars' or Stencil's (see gapOf). */
 function stencilCuts(i: number, exps: (Expanded | null)[], m: Metrics, bar: boolean): StencilCut[] {
   const joins = strokeJoins(i, exps), opens = stencilOpens(joins), cuts: StencilCut[] = [];
@@ -1717,7 +1755,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   // every join is marked, so the letter can open each on its own, with the gap it has as drawn
   // (on its own Gap scale) and the way the gap opens
   // (on its own Gap scale) and the way the gap opens; and so is every turn, which Stencil leaves whole
-  const opened = m.p.barGap > 0 || Object.values(m.p.joinGaps ?? {}).some(v => v > 0);
+  const opened = (m.p.barGap > 0 && m.p.barEnds !== 'through') || Object.values(m.p.joinGaps ?? {}).some(v => v > 0);
   const turns = b.strokes.map((st, si) => (st.cmds && exps[si]?.ex && !exps[si]!.ex!.loop ? turnsOf(st.cmds, m).map((tn, k) => ({ ...tn, id: `${si}t${k}` })) : []));
   b.strokes.forEach((st, si) => {
     const ex = exps[si]?.ex;
@@ -1735,9 +1773,10 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       out.marks.push({ type: 'join', x: tn.x, y: tn.y, id: tn.id, v: m.p.joinGaps?.[tn.id] ?? 0, dx: nx, dy: ny });
     }
   });
+  const through = barsThrough(b, expanded, m);
   const stencilled = b.strokes.map((st, si) => {
     const ex = exps[si]?.ex;
-    if (!(m.gap || opened) || !ex || ex.loop) return null;
+    if (!(m.gap || opened) || !ex || ex.loop || through?.bars.has(si)) return null;
     const contour = st.o.clip ? clipPoly(ex.contours[0], st.o.clip) : ex.contours[0], t = Math.min(...ex.thickness);
     const cuts = stencilCuts(si, expanded, m, isBar(st.o.part)), others = outlines.map((q, j) => (j === si || b.strokes[j].o.part === 'fillet' ? null : q));
     const open = turns[si].flatMap(tn => { const v = m.p.joinGaps?.[tn.id] ?? 0; return v > 0 ? [{ ...tn, gap: joinGap(v, m.s) }] : []; });
@@ -1746,6 +1785,8 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     return { drawn: new Set(contour), cuts, ...stencilPieces(contour, cuts, m.gapOff, m.s, t, others) };
   });
   const filletCut = (poly: Pt[]) => {
+    // a bar run through the strokes it met no longer meets them: no join left to round
+    if (through?.at.some(j => poly.some(q => Math.hypot(q.x - j.x, q.y - j.y) < m.s))) return true;
     for (const sc of stencilled) {
       if (sc && sc.off !== null && sc.cuts.some(cut => poly.some(q => Math.hypot(q.x - cut.x, q.y - cut.y) < m.s))) return true;
     }
@@ -1793,6 +1834,13 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       if (sc) {
         const drawn = sc.drawn;
         pieces = sc.pieces.map(q => cutRound(q, drawn, m.s * (o.scale || 1) * strokeWt(m, si)));
+      }
+      const bar = through?.bars.get(si);
+      if (bar) pieces = [bar];
+      for (const [y0, y1] of through?.bands.get(si) ?? []) {
+        // a wide gap leaves no sliver of the stroke past it (the foot of an A's leg)
+        const cut = pieces.flatMap(q => [...splitPoly([q], { x: 0, y: y1, nx: 0, ny: -1 }), ...splitPoly([q], { x: 0, y: y0, nx: 0, ny: 1 })]);
+        pieces = cut.filter(q => Math.max(...q.map(p => p.y)) - Math.min(...q.map(p => p.y)) >= m.s * 0.35);
       }
       for (const q of pieces) { const c = finish(q, 1, R, out.corners); if (c) cmds = cmds.concat(c); }
       if (o.counter) out.counters.push(finish(ex.skeleton.flat(), 1, 0) || []);

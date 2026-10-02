@@ -1,7 +1,7 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
 import { resolve, type Effective } from './engine/font';
-import { DEFAULTS, type AForm, type Mirror, type Bends, type Build, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifBase, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
+import { DEFAULTS, type AForm, type BarEnds, type Mirror, type Bends, type Build, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifBase, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
 
 /** A page of the editor: Style, or one set of controls. */
 export type CategoryId = 'style' | 'personality' | 'weight' | 'size' | 'heights' | 'insides' | 'curves' | 'corners' | 'ends' | 'serifs' | 'letters' | 'script'
@@ -833,7 +833,7 @@ export const PINCH_SUBS: Record<PinchSubKey, SubControlDef> = {
   pinchPos: { label: 'Position', friendly: 'Move the pinch up or down the letters', tech: 'Pinch height', lo: 'Baseline', hi: 'Cap height' }
 };
 export const CROSSBAR_SUBS: Record<CrossbarSubKey, SubControlDef> = {
-  barGap: { label: 'Gap', friendly: 'Shorten the crossbars so they stop short of the strokes they meet', tech: 'Crossbar gap', lo: 'Touching', hi: 'Apart' }
+  barGap: { label: 'Gap', friendly: 'Open a gap where the crossbars meet other strokes: at the ends of the bars, or above and below them', tech: 'Crossbar gap', lo: 'Touching', hi: 'Apart' }
 };
 export const STENCIL_SUBS: Record<StencilSubKey, SubControlDef> = {
   stencil: { label: 'Thickness', friendly: 'Open the gaps wider', tech: 'Gap width', lo: 'Thin', hi: 'Thick' },
@@ -873,6 +873,8 @@ export const TERMINAL_OPTIONS: [Terminal, string][] = [['flat', 'Flat'], ['round
 export const SERIF_SHAPE_OPTIONS: [SerifShape, string][] = [['bracketed', 'Bracketed'], ['unbracketed', 'Unbracketed'], ['slab', 'Slab'], ['wedge', 'Wedge']];
 export const SERIF_TIP_OPTIONS: [SerifTip, string][] = [['square', 'Square'], ['round', 'Round'], ['pointed', 'Pointed'], ['angled', 'Angled']];
 export const SERIF_BASE_OPTIONS: [SerifBase, string][] = [['flat', 'Flat'], ['cupped', 'Cupped']];
+/** Where a crossbar's Gap opens: the bar stopping short of the strokes it meets, or running through them, cut free above and below. */
+export const BAR_END_OPTIONS: [BarEnds, string][] = [['short', 'Short'], ['through', 'Through']];
 export const SERIF_SIDE_OPTIONS: [SerifSide, string][] = [['both', 'Both'], ['left', 'Left'], ['right', 'Right'], ['inside', 'Inside'], ['outside', 'Outside']];
 export const SERIF_INNER_OPTIONS: [SerifInner, string][] = [['same', 'Same'], ...SERIF_SHAPE_OPTIONS];
 

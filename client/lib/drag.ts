@@ -201,7 +201,9 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
   if (part === 'crossbar' || part === 'bar') {
     // pulled in from either end, a bar that meets other strokes stops short of them (its Gap)
     const sid = g.strokes.filter(s => s.part === part)[i]?.id;
-    const joined = sid != null && g.marks.some(k => k.type === 'join' && String(parseInt(k.id!, 10)) === sid);
+    // (a bar run through them opens its gap above and below instead: the Gap slider sets that)
+    const through = (font.params.glyphs[ch]?.barEnds ?? font.params.barEnds) === 'through';
+    const joined = !through && sid != null && g.marks.some(k => k.type === 'join' && String(parseInt(k.id!, 10)) === sid);
     return {
       y: { key: 'crossbar', sign: 1, measure: f => { const p = piece(f); return p && (p.y0 + p.y1) / 2; }, at: { x: grab.x, y: cy } },
       ...(joined && { x: { key: 'barGap' as const, sign: grab.x < cx ? 1 as const : -1 as const, span: joinGap(1, font.m.s), at: { x: grab.x < cx ? b.x0 : b.x1, y: cy } } })
