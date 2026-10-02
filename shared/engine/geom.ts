@@ -170,6 +170,24 @@ function stepCorners(pts: Pt[]): Pt[] {
   return out;
 }
 
+/** Round the corners a cut leaves (the points `cut` picks), `f` of the way to a half round across
+    the cut: each corner rounds by `f` of half the cut it shares with the corner at its other end,
+    so at 1 the two meet in the middle however wide the stroke cut there is. A cut corner with no
+    other at the far end of either side rounds as if the cut were `w` wide. */
+export function roundCuts(p: Pt[], cut: (q: Pt) => boolean, f: number, w: number): Pt[] {
+  if (!(f > 0)) return p;
+  const n = p.length;
+  return p.map((q, i) => {
+    if (!cut(q)) return q;
+    const a = p[(i + n - 1) % n], b = p[(i + 1) % n];
+    const L = Math.min(cut(a) ? dist(a, q) : Infinity, cut(b) ? dist(b, q) : Infinity), half = f * (L < Infinity ? L : w) / 2;
+    // roundContour takes a radius: the one whose fillet starts `half` from the corner
+    const ux = q.x - a.x, uy = q.y - a.y, vx = b.x - q.x, vy = b.y - q.y;
+    const th = Math.min(Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)), 2.6);
+    return { x: q.x, y: q.y, r: th > 0.07 ? half / Math.tan(th / 2) : half };
+  });
+}
+
 /** f: the radius was given for this corner (a turn's or a terminal's), not the default */
 interface Corner { i: number; th: number; r: number; d: number; f: boolean }
 

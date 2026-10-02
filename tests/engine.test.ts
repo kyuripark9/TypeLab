@@ -1153,3 +1153,27 @@ describe('rotation', () => {
     }
   });
 });
+
+describe('slider ranges', () => {
+  // a slider whose last stretch changes nothing feels broken: at 87 it should look different from 100
+  const d = (p: Partial<Params>, chars: string) => chars.split('').map(ch => buildFont({ ...DEFAULTS, ...p }).glyph(ch)?.d).join('|');
+  const cases: [string, Partial<Params>, keyof Params, string][] = [
+    ['Stencil rounding', { stencil: 0.6, weight: 0.7 }, 'stencilRound', 'HAno'],
+    ['Slice rounding', { slice: 0.6, weight: 0.7 }, 'sliceRound', 'Hn'],
+    ['Steps', { weight: 0.7 }, 'steps', 'LE'],
+    ['Joins rounding, heavy', { weight: 1 }, 'joinRound', 'nh'],
+    ['crossbar Gap, heavy', { weight: 1 }, 'barGap', 'eH'],
+    ['Horizontals, heavy', { weight: 0.85 }, 'hWeight', 'He'],
+    ['Verticals, heavy', { weight: 1 }, 'vWeight', 'Hn'],
+    ['Horizontals, blocks', { build: 'blocks' }, 'hWeight', 'He']
+  ];
+  for (const [name, ctx, k, chars] of cases) {
+    it(`${name} still changes the letters near the top of its scale`, () => {
+      assert.notEqual(d({ ...ctx, [k]: 0.875 }, chars), d({ ...ctx, [k]: 1 }, chars));
+    });
+  }
+  it('Contrast keeps thinning the bars of heavy letters from the middle of its scale', () => {
+    const at = (v: number) => buildFont({ ...DEFAULTS, weight: 0.85, contrast: v }).m.thin;
+    assert.ok(at(0.6) < at(0.5) && at(0.7) < at(0.6));
+  });
+});

@@ -243,6 +243,12 @@ export const isStrokeId = (id: string) => /^\d{1,2}$/.test(id);
 export const rotationDeg = (v: number) => (v - 0.5) * 360;
 /** How much heavier a stroke is drawn at `v` on a weight scale centred on 0.5: a quarter as heavy at 0, two and a half times at 1. */
 export const weightScale = (v: number) => (v < 0.5 ? 0.25 + 1.5 * v : 1 + 3 * (v - 0.5));
+/** `base` weighed by `v` on that scale but kept between `lo` and `hi`, reaching either only at the end of
+    the scale, so the scale eases toward the limit all the way along rather than stopping at it part way. */
+export function weighed(base: number, v: number, lo: number, hi: number) {
+  const b = Math.min(hi, Math.max(lo, base));
+  return v < 0.5 ? b + (Math.max(lo, Math.min(b, base * 0.25)) - b) * (1 - v * 2) : b + (Math.min(hi, Math.max(b, base * 2.5)) - b) * (v * 2 - 1);
+}
 /** The pen's contrast at `v` on the Contrast scale: `amount` of thick against thin (0.05 at 0.5, as
     the letters are drawn, to 1 at either end) and how far it is `reverse`d, horizontals heavy and
     stems thin. Turning round, the gentle contrast as drawn evens out first (by 0.45) and is all the

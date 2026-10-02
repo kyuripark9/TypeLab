@@ -3,8 +3,8 @@
    -> expanded outlines. Pure math with no DOM, so the browser (live preview) and the
    server (font export) run exactly the same code. A full rebuild of every glyph takes a
    few milliseconds, so sliders can drive it directly. */
-import { DEFAULTS, contrastOf, endCurl, endLength, endReach, formOf, joinGap, rotationDeg, weightScale, type Params } from '../params';
-import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, signedArea, splitPoly, subCubic, transformCmds } from './geom';
+import { DEFAULTS, contrastOf, endCurl, endLength, endReach, formOf, joinGap, rotationDeg, weighed, weightScale, type Params } from '../params';
+import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, roundCuts, signedArea, splitPoly, subCubic, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, slice } from './effects';
 import { drawnCmds, type Drawn } from './outline';
@@ -35,7 +35,7 @@ export interface Metrics {
   /** the shared advance width that monospacing pulls every glyph toward */ monoAdv: number;
   /** grid size of the pixel, dot and line fills (0 = none); advances snap to it for pixels and dots */ cell: number;
   /** stencil gap, and the band the slice removes (both 0 when off) */ gap: number; sliceY: number; sliceH: number;
-  /** how far out from a join its stencil gap opens, and the radius the stencil and slice round their cuts by */ gapOff: number; gapR: number; sliceR: number;
+  /** how far out from a join its stencil gap opens, and how far the stencil and slice round the corners they cut, 1 a half round across the stroke cut */ gapOff: number; gapRound: number; sliceRound: number;
   /** the radius Inside corners rounds the counters' corners by, whatever the weight (0 when off) */ innerR: number;
   bar: number; apex: number; ap: number; cnt: number;
   serif: boolean;
@@ -104,16 +104,19 @@ export function resolve(p: Partial<Params>): Effective {
   const cf = (e.classicFuture - 0.5) * 2, pf = (e.playfulFormal - 0.5) * 2;
   const human = Math.max(0, gh), classic = Math.max(0, -cf), future = Math.max(0, cf);
   const playful = Math.max(0, -pf), formal = Math.max(0, pf);
-  e.curve = clamp(e.curve + 0.45 * gh);
-  e.aperture = clamp(e.aperture + 0.3 * gh - 0.3 * future);
+  // each pushes a setting up to `by` (down, below 0) at full turn, but where that would run past 0 or 1,
+  // only as far as 0 or 1, so the setting keeps moving all the way along the macro rather than stopping
+  const push = (v: number, by: number, amt: number) => (amt ? lerp(v, clamp(v + by * Math.sign(amt)), Math.abs(amt)) : v);
+  e.curve = push(e.curve, 0.45, gh);
+  e.aperture = push(push(e.aperture, 0.3, gh), -0.3, future);
   const c = contrastOf(e.contrast);
   e.reverse = c.reverse;
-  e.contrast = clamp(c.amount + 0.08 * human + 0.25 * classic + 0.1 * formal - 0.05 * future);
-  e.roundness = clamp(e.roundness - 0.7 * ss + 0.15 * playful);
-  e.apex = clamp(e.apex - 0.5 * ss);
-  e.xHeight = clamp(e.xHeight + 0.18 * cf + 0.12 * playful);
-  e.width = clamp(e.width + 0.1 * future - 0.07 * formal);
-  e.letterSpacing = clamp(e.letterSpacing + 0.04 * formal);
+  e.contrast = push(push(push(push(c.amount, 0.08, human), 0.25, classic), 0.1, formal), -0.05, future);
+  e.roundness = push(push(e.roundness, -0.7, ss), 0.15, playful);
+  e.apex = push(e.apex, -0.5, ss);
+  e.xHeight = push(push(e.xHeight, 0.18, cf), 0.12, playful);
+  e.width = push(push(e.width, 0.1, future), -0.07, formal);
+  e.letterSpacing = push(e.letterSpacing, 0.04, formal);
   e.square = clamp(0.85 * future + e.squareness);
   e.classic = classic;
   e.bounce = playful;
@@ -134,8 +137,6 @@ export const termSpec = (e: Params): TermSpec => ({
 
 /** The height of the pinch's line at `pos` on its scale: the baseline, half the x-height at the middle, the cap height. */
 const pinchY = (pos: number, xh: number, cap: number) => (pos < 0.5 ? lerp(0, xh / 2, pos * 2) : lerp(xh / 2, cap, pos * 2 - 1));
-/** How wide a step Steps cuts at v, for a stroke t thick: as wide as the stroke at 1. */
-export const stepW = (v: number, t: number) => v * t;
 
 /** A serif measure at `v` on a scale centred on 0.5, where it is as drawn: `lo` times that at 0, `hi` times at 1. */
 const serifScale = (v: number, lo: number, hi: number) => (v < 0.5 ? lerp(lo, 1, v * 2) : lerp(1, hi, v * 2 - 1));
@@ -145,12 +146,15 @@ const serifTh = (v: number, shape: string) => lerp(8, 95, v) * ({ unbracketed: 0
 function metrics(e: Effective): Metrics {
   // Verticals weigh the stems on their own, and Horizontals the bars: each scales its side of the
   // pen, so a heavier stem leaves the bars as they were
-  const s0 = 18 + 200 * Math.pow(e.weight, 1.25), s = Math.min(s0 * weightScale(e.vWeight), Math.max(s0, 300));
+  const s0 = 18 + 200 * Math.pow(e.weight, 1.25), s = weighed(s0, e.vWeight, 0, Math.max(s0, 300));
   const cap = lerp(560, 840, e.height);
   const xh = cap * lerp(0.5, 0.86, e.xHeight);
   const ws = e.width < 0.5 ? lerp(0.6, 1, e.width * 2) : lerp(1, 1.5, (e.width - 0.5) * 2);
-  const ratio = 1 - 0.08 - 0.84 * e.contrast;
-  const thin = clamp(Math.max(8, Math.min(s0 * ratio, xh * 0.2)) * weightScale(e.hWeight), 4, xh * 0.32);
+  // the bars thin with contrast, from no heavier than a fifth of the x-height to no lighter than 8; past
+  // its gentle start, contrast runs the whole way between the two, so neither limit stops it part way
+  const thinAt = (c: number) => Math.max(8, Math.min(s0 * (1 - 0.08 - 0.84 * c), xh * 0.2));
+  const thin = weighed(e.contrast <= 0.05 ? thinAt(e.contrast) : lerp(thinAt(0.05), thinAt(1), (e.contrast - 0.05) / 0.95), e.hWeight, 4, xh * 0.32);
+
   const stress = e.stressDeg * Math.PI / 180;
   const k = 0.5523 + 0.05 * e.curve + 0.36 * e.square;
   const org = e.curve;
@@ -195,10 +199,10 @@ function metrics(e: Effective): Metrics {
     os: cap * 0.014,
     ws, thin, stress, k, org, sq: e.square, cur: e.cursive, wob: e.wobble, monoAdv: W(500) + sb * 1.5,
     // a gap moved out starts a stub's width out, so it never leaves a hairline on the stroke it joins
-    cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, gapOff: e.stencilPos > 0 ? lerp(s * 0.55, xh * 0.4, e.stencilPos) : 0, gapR: e.stencilRound * s,
+    cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, gapOff: e.stencilPos > 0 ? lerp(s * 0.55, xh * 0.4, e.stencilPos) : 0, gapRound: e.stencilRound,
     // the slice keeps a stroke's width of ink below it and above it, so at either end it still cuts through the letters
     sliceY: e.slicePos < 0.5 ? lerp(Math.min(xh * 0.5, s + sliceH / 2), xh * 0.5, e.slicePos * 2) : lerp(xh * 0.5, Math.max(xh * 0.5, cap - s - sliceH / 2), e.slicePos * 2 - 1),
-    sliceH, sliceR: e.sliceRound * s, innerR: e.innerRound * cap * 0.4,
+    sliceH, sliceRound: e.sliceRound, innerR: e.innerRound * cap * 0.4,
     bar: e.crossbar, apex: e.apex, ap: e.aperture, cnt,
     serif: !!e.serif,
     ctx, tDir, hT: tDir(1, 0), W,
@@ -364,6 +368,7 @@ interface Join { id: string; x: number; y: number; nx: number; ny: number; bj: H
     moved `off` out steeply enough for it to cut across the stroke. */
 interface StencilCut {
   x: number; y: number; host: number; nx: number; ny: number; back: HalfPlane; own: boolean;
+  /** how far up its Gap scale an `own` gap is set */ v: number;
   at: (off: number, k?: number) => { far: HalfPlane; near: HalfPlane | null }; across: (off: number) => boolean;
 }
 function strokeJoins(i: number, exps: (Expanded | null)[]): Join[] {
@@ -406,7 +411,7 @@ function stencilOpens(joins: Join[]): Set<string> {
   return new Set(drawn.filter(c => !drawn.some(k => k !== c && k.nx * c.nx + k.ny * c.ny < -0.3 && lead(k) > lead(c))).map(c => c.id));
 }
 /** `square`: cut straight across the stroke instead (a crossbar made shorter), where both its edges are clear of the host. */
-function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean, square = false): StencilCut {
+function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean, square = false, v = 1): StencilCut {
   const { bj, nx, ny } = jn, end = jn;
   if (square) {
     const l = Math.hypot(jn.ix, jn.iy) || 1, dx = jn.ix / l, dy = jn.iy / l, dn = dx * nx + dy * ny;
@@ -417,7 +422,7 @@ function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean, square = 
         return (bj.half - ((qx - bj.px) * nx + (qy - bj.py) * ny)) / dn;
       }));
       const at = (d: number) => ({ x: end.x + dx * d, y: end.y + dy * d });
-      return { x: end.x, y: end.y, host: bj.j, nx, ny, own, back: { ...at(0), nx: -dx, ny: -dy }, across: () => true,
+      return { x: end.x, y: end.y, host: bj.j, nx, ny, own, v, back: { ...at(0), nx: -dx, ny: -dy }, across: () => true,
         at: (o, k = 1) => ({ far: { ...at(clear + o + gap * (own ? k : 1)), nx: -dx, ny: -dy }, near: o > 0 ? { ...at(clear + o), nx: dx, ny: dy } : null }) };
     }
   }
@@ -437,7 +442,7 @@ function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean, square = 
     }
     return steep;
   };
-  return { x: end.x, y: end.y, host: bj.j, nx, ny, own, back: { ...at(-bj.half), nx: -nx, ny: -ny }, across,
+  return { x: end.x, y: end.y, host: bj.j, nx, ny, own, v, back: { ...at(-bj.half), nx: -nx, ny: -ny }, across,
     at: (o, k = 1) => ({ far: { ...at(bj.half + o + gap * (own ? k : 1)), nx: -nx, ny: -ny }, near: o > 0 ? { ...at(bj.half + o), nx, ny } : null }) };
 }
 /** The gap at one join of a stroke that is a crossbar (`bar`, cut square when its gap is set) or not, on the join's own Gap scale: the
@@ -455,7 +460,7 @@ function stencilCuts(i: number, exps: (Expanded | null)[], m: Metrics, bar: bool
   const joins = strokeJoins(i, exps), opens = stencilOpens(joins), cuts: StencilCut[] = [];
   for (const jn of joins) {
     const { v, own } = gapOf(m, jn.id, bar, opens.has(jn.id)), gap = joinGap(v, m.s);
-    if (gap > 0) cuts.push(stencilCut(exps[i]!, jn, gap, own, bar && own));
+    if (gap > 0) cuts.push(stencilCut(exps[i]!, jn, gap, own, bar && own, v));
   }
   return cuts;
 }
@@ -509,13 +514,21 @@ function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s: number
     return past.length && pieces.every(solid) ? pieces : null;
   };
   if (!cuts.length) return { pieces: [contour], off: null };
-  let atJoin = cutAt(0);
-  if (!atJoin && cuts.some(c => c.own)) {
-    let a = 0, b = 1;
-    for (let n = 0; n < 10; n++) { k = (a + b) / 2; if (cutAt(0)) a = k; else b = k; }
-    k = a;
-    if (a > 0.02) atJoin = cutAt(0);
-  }
+  let atJoin = null;
+  if (cuts.some(c => c.own)) {
+    // the gaps the letter sets narrow together, in proportion to their settings, so that the widest
+    // would just leave solid ink at the top of its scale: then each keeps widening all the way along
+    // its scale rather than stopping where the stroke runs out
+    const top = Math.max(...cuts.filter(c => c.own).map(c => c.v));
+    k = 1 / top;
+    if (!cutAt(0)) {
+      let a = 0, b = k;
+      for (let n = 0; n < 10; n++) { k = (a + b) / 2; if (cutAt(0)) a = k; else b = k; }
+      k = a;
+    }
+    k *= top;
+    if (k > 0.02) atJoin = cutAt(0);
+  } else atJoin = cutAt(0);
   if (!atJoin) return { pieces: [contour], off: null };
   // the furthest out the gaps can go, so dragged past it they stay put. Where another stroke
   // joins close to the join (the leg of a K on its arm) the gaps can't sit on it, but can past it
@@ -1005,7 +1018,7 @@ function markTurns(b: Builder, m: Metrics) {
       const ox = tn.din.tx - tn.dout.tx, oy = tn.din.ty - tn.dout.ty, l = Math.hypot(ox, oy) || 1;
       const h = Math.sqrt(Math.max(1e-3, 1 - l * l / 4)), cl = st.o.clip, px = tn.x + ox / l * t / 2 / h, py = tn.y + oy / l * t / 2 / h;
       const cut = !!cl && (py < (cl.y0 ?? -Infinity) - 0.5 || py > (cl.y1 ?? Infinity) + 0.5 || px < (cl.x0 ?? -Infinity) - 0.5 || px > (cl.x1 ?? Infinity) + 0.5);
-      if (sv > 0 && !cut) turn = { ...(turn ?? { o: 0, i: 0 }), step: stepW(sv, t) };
+      if (sv > 0 && !cut) turn = { ...(turn ?? { o: 0, i: 0 }), step: sv };
       if (turn && turn !== o.turn) {
         o = { ...o, turn };
         const nc = c.slice() as Cmd;
@@ -1251,8 +1264,10 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
     // Steps cuts a step out of a square corner of the letter, where two strokes end together (the foot of
     // an L) or where another stroke runs on flush out of the end (the top of D's stem, its bowl running on to the right)
     const room = stepRoom(g), steppable = room > 0, sv = !steppable ? 0 : m.p.cornerSteps?.[g.id] ?? (g.pts.length > 1 || runsOn(g) ? m.p.steps : 0);
-    // (one size for every stroke there, no deeper than 0.85 of the thinner of the stroke and the bars, so they stay joined)
-    if (sv > 0) for (const p of g.pts) p.step = Math.min(stepW(sv, g.t), 0.85 * Math.min(g.t, m.hT), room);
+    // (one size for every stroke there, at 1 as deep as it can be: 0.85 of the thinner of the stroke and the bars, so
+    // they stay joined, or the room there is)
+    if (sv > 0) for (const p of g.pts) p.step = sv * Math.min(0.85 * Math.min(g.t, m.hT), room);
+
     const alone = shows.get(g.partner) === false && g.at ? lone(q, g.at, g.t) : null;
     if (alone) {
       const r = (own ?? 0) * alone.most;
@@ -1411,10 +1426,12 @@ function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nu
             // Inside corners rounds every join at least as far, unless its letter rounds it its own way
             const R = own != null ? joinR(own, m.s) : Math.max(joinR(v, m.s), innerFor(m, free[0].span));
             if (R < 0.6) continue;
-            // how far along each edge the round starts, as wide as both let it
-            const { r1, r2, span, bis } = free[0], d = R / Math.tan(span / 2);
+            // how far along each edge the round starts: R's share of as far as the round of Joins at 1 would
+            // start, or as far as both edges let it if that is nearer, so Joins rounds on all the way to 1
+            // even where the edges run out first (in heavy letters)
+            const { r1, r2, span, bis } = free[0], most = Math.max(R, joinR(1, m.s)), d = most / Math.tan(span / 2);
             const w1 = walk(r1.si, r1.ring, r1.k, r1.dir, p, d, bis), w2 = walk(r2.si, r2.ring, r2.k, r2.dir, p, d, bis);
-            const dd = Math.min(d, w1.len * 0.95, w2.len * 0.95);
+            const dd = Math.min(d, w1.len * 0.95, w2.len * 0.95) * R / most;
             if (dd < 0.6) continue;
             const s1 = cut(w1, dd), s2 = cut(w2, dd), T1 = s1[s1.length - 1], T2 = s2[s2.length - 1];
             const u1 = s1.length > 1 ? s1[s1.length - 2] : p, u2 = s2.length > 1 ? s2[s2.length - 2] : p;
@@ -1665,7 +1682,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     return roundContour(wind(pts, sign), R, cornersOut);
   };
   // the corners a stencil cuts are the points that weren't on the stroke as drawn
-  const cutRound = (pts: Pt[], drawn: Set<Pt>, r: number) => (r > 0 ? pts.map(q => (q.sharp && !drawn.has(q) ? { x: q.x, y: q.y, r } : q)) : pts);
+  const cutRound = (pts: Pt[], drawn: Set<Pt>, w: number) => roundCuts(pts, q => !!q.sharp && !drawn.has(q), m.gapRound, w);
   // expand every stroke first: a stencil cut needs to know which stroke each join runs into
   const exps = b.strokes.map((st, si) => {
     if (st.poly) return null;
@@ -1750,9 +1767,9 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       const cx = (xl + xr) / 2, g = m.gap;
       if (g) {
         // each half is cut as one piece of ink, the hole with the ring, so its cut corners round the ink
-        const ring = [wind(outer, 1), wind(inner, -1)], drawn = new Set(ring.flat()), r = m.gapR * (o.scale || 1) * strokeWt(m, si);
+        const ring = [wind(outer, 1), wind(inner, -1)], drawn = new Set(ring.flat()), w = m.s * (o.scale || 1) * strokeWt(m, si);
         for (const pl of [{ x: cx - g / 2, y: 0, nx: 1, ny: 0 }, { x: cx + g / 2, y: 0, nx: -1, ny: 0 }]) {
-          for (const q of splitPoly(ring, pl)) { const c = finish(cutRound(q, drawn, r), signedArea(q) < 0 ? -1 : 1, 0); if (c) cmds = cmds.concat(c); }
+          for (const q of splitPoly(ring, pl)) { const c = finish(cutRound(q, drawn, w), signedArea(q) < 0 ? -1 : 1, 0); if (c) cmds = cmds.concat(c); }
         }
       } else {
         const o1 = finish(outer, 1, 0), i1 = finish(inner, -1, 0);
@@ -1767,7 +1784,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       const sc = stencilled[si];
       if (sc) {
         const drawn = sc.drawn;
-        pieces = sc.pieces.map(q => cutRound(q, drawn, m.gapR * (o.scale || 1) * strokeWt(m, si)));
+        pieces = sc.pieces.map(q => cutRound(q, drawn, m.s * (o.scale || 1) * strokeWt(m, si)));
       }
       for (const q of pieces) { const c = finish(q, 1, R, out.corners); if (c) cmds = cmds.concat(c); }
       if (o.counter) out.counters.push(finish(ex.skeleton.flat(), 1, 0) || []);
@@ -1866,7 +1883,7 @@ function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: nu
   out.strokes.forEach(s => s.cmds = tf(s.cmds));
   const serifs = out.serifs.map(tf);
   let cmds = [...out.strokes.flatMap(s => s.cmds), ...serifs.flat()];
-  if (m.sliceH) cmds = slice(cmds, m.sliceY - m.sliceH / 2, m.sliceY + m.sliceH / 2, m.sliceR, m.s * 0.35);
+  if (m.sliceH) cmds = slice(cmds, m.sliceY - m.sliceH / 2, m.sliceY + m.sliceH / 2, m.sliceRound, m.s, m.s * 0.35);
   if (m.p.fill !== 'solid') {
     cmds = fillOutline(cmds, { fill: m.p.fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness });
   }

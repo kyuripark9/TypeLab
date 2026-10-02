@@ -592,8 +592,8 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
         if (!turn && Math.hypot(P.x - sa.x, P.y - sa.y) > limit * Math.max(sa.t, sb.t) / 2) continue;
       } else if (-s > lenA * 0.95 || u > lenB * 0.95) continue;
       // a stepped turn has a square step cut out of its outside, and its notch rounds like any corner
-      // (no deeper than 0.85 of the thinner side, so the two sides stay joined across the step)
-      if (turn && outer && turn.step) P.step = Math.min(turn.step, 0.85 * Math.min(sa.t, sb.t));
+      // (at its deepest 0.85 of the thinner side, so the two sides stay joined across the step)
+      if (turn && outer && turn.step) P.step = turn.step * 0.85 * Math.min(sa.t, sb.t);
       else if (turn) { const r = outer ? ro : ri; if (r > 0) P.r = r; else P.sharp = true; }
       sides[i][sides[i].length - 1] = P;
       sides[j][0] = null;

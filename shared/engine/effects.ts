@@ -2,7 +2,7 @@
    a letter as a wireframe or from a grid of pixels, dots or lines. They run on the glyph's final
    outline (after slant and spacing), so a grid lines up from one letter to the next. The outline
    is read with the nonzero rule, like the font itself: overlapping strokes count once. */
-import { cubicAt, dist, roundContour, signedArea, splitPoly } from './geom';
+import { cubicAt, dist, roundContour, roundCuts, signedArea, splitPoly } from './geom';
 import type { Cmd, Pt } from './types';
 
 /** Outline commands to polygons, curves sampled. Every point is `smooth`, so re-rounding
@@ -44,11 +44,12 @@ function within(poly: Pt[], p: Pt) {
   return on;
 }
 
-/** Remove the band [y0, y1] from every contour, rounding the corners it cuts by R. Each outline
+/** Remove the band [y0, y1] from every contour, rounding the corners it cuts `round` of the way to
+    a half round across each stroke it cuts (as if `w` wide where that can't be told). Each outline
     is cut together with the holes inside it (the counter of an o), so the corners rounded are
     the ink's. Ink the band leaves thinner than `minH` (where it grazes a bar) goes with it, unless
     that is all the letter keeps (a hyphen the band runs through). */
-export function slice(cmds: Cmd[], y0: number, y1: number, R: number, minH = 0): Cmd[] {
+export function slice(cmds: Cmd[], y0: number, y1: number, round: number, w: number, minH = 0): Cmd[] {
   const polys = toPolys(cmds), area = polys.map(signedArea);
   // a hole is wound against the outlines: it goes with the smallest outline around it
   const groups = new Map<number, Pt[][]>();
@@ -68,7 +69,7 @@ export function slice(cmds: Cmd[], y0: number, y1: number, R: number, minH = 0):
   const solid = out.filter(p => signedArea(p) < 0 || height(p) >= minH);
   if (solid.some(p => signedArea(p) > 0)) out = solid;
   // the corners the band cuts are the only ones not on the outline before
-  return polysToCmds(out.map(p => p.map(q => (q.sharp && R > 0 ? { x: q.x, y: q.y, r: R } : q))), 0);
+  return polysToCmds(out.map(p => roundCuts(p, q => !!q.sharp, round, w)), 0);
 }
 
 const height = (p: Pt[]) => Math.max(...p.map(q => q.y)) - Math.min(...p.map(q => q.y));

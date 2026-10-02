@@ -12,8 +12,8 @@
    'o' outer corners and the rounds of counters (Roundness), 'e' the ends of arms and slots, round
    right off at full Roundness, 'i' the small rounds where one part turns into another (Joins,
    as drawn at 0.5), 's' always sharp. */
-import { clamp, lerp, signedArea } from './geom';
-import { weightScale } from '../params';
+import { lerp, signedArea } from './geom';
+import { weighed } from '../params';
 import type { Pt } from './types';
 
 type Kind = 'o' | 'e' | 'i' | 's';
@@ -36,7 +36,7 @@ export function blockDims(H: number, p: { weight: number; width: number; vWeight
   const W = H * (224 / 175) * ws, k = H / 175;
   // heavier, the walls thicken and the slots close up
   const t = H * (0.07 + 0.12 * p.weight), g = H * (0.28 - 0.2 * p.weight);
-  const tv = t * clamp(weightScale(p.vWeight), 0.4, 1.6), th = t * clamp(weightScale(p.hWeight), 0.4, 1.6);
+  const tv = t * weighed(1, p.vWeight, 0.4, 1.6), th = t * weighed(1, p.hWeight, 0.4, 1.6);
   const X = (v: number) => v * W / 224, Y = (v: number) => v * k;
   return { W, H, tv, th, g, k, X, Y, S: X(124), R: 50 * k };
 }

@@ -20,7 +20,7 @@ export interface Tangent extends Pt { tx: number; ty: number }
 /** The outline's corner radii where a centerline turns: outside and inside the turn (0 = sharp). A
     path command carries it as its `turn` option, for the turn at its start. */
 export interface TurnR { o: number; i: number;
-  /** a square step this wide cut out of the outside instead */ step?: number }
+  /** a square step cut out of the outside instead, this share of as deep as it can be */ step?: number }
 
 /**
  * Path command. Skeletons use ['M',x,y] ['L',x,y,opts?] ['C',x1,y1,x2,y2,x,y,opts?]
