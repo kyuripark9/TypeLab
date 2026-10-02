@@ -164,6 +164,9 @@ export interface Params {
   /** gaps where strokes meet, like a stencil */ stencil: number;
   /** how far out along a stroke from the join its stencil gap is cut, from 0 right at the join */ stencilPos: number;
   /** how round the corners a stencil gap cuts are, from 0 sharp */ stencilRound: number;
+  /** one letter's joins and turns opened one by one, by join id (see isJoinId): how far the stroke ending
+      there (or the side of the turn running less upright) is pulled back from the one it meets, 0 joined,
+      each overriding Stencil at that join (see joinGap) */ joinGaps: Record<string, number>;
   /** a horizontal cut through every letter */ slice: number;
   /** the height of the slice: 0 the baseline, 0.5 half the x-height, 1 the cap height */ slicePos: number;
   /** how round the corners the slice cuts are, from 0 sharp */ sliceRound: number;
@@ -205,7 +208,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, pinch: 0, pinchPos: 0.5, steps: 0, cornerSteps: Object.freeze({}), innerRound: 0, swash: 0, mirror: 'normal', cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved', aForm: 'plain', joinRound: 0,
   bowlForm: 'oval', boxRound: 0.5, diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', tail: 0.5,
-  fill: 'solid', module: 0.4, stencil: 0, stencilPos: 0, stencilRound: 0, slice: 0, slicePos: 0.5, sliceRound: 0,
+  fill: 'solid', module: 0.4, stencil: 0, stencilPos: 0, stencilRound: 0, joinGaps: Object.freeze({}), slice: 0, slicePos: 0.5, sliceRound: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   serifBracket: 0.5, serifTip: 'square', serifTipRound: 1, serifTipSlant: 0.8, serifBase: 'flat', serifCup: 0.5,
   serifSides: 'both', serifInner: 'same', serifInnerSize: 0.5, serifInnerThickness: 0.5, serifBalance: 0.5, serifTops: 0.5, serifArms: 0.5,
@@ -220,6 +223,12 @@ const PARAM_KEYS = Object.keys(DEFAULTS) as (keyof Params)[];
     of a leg): it keeps the length and curl it is drawn with unless given its own, so the stroke end
     length and curl leave it alone. */
 export const isEndId = (id: string) => /^p?\d{1,2}[se]$/.test(id);
+/** A join's id: the index of the stroke that ends in another one, then 's' or 'e' for the end that
+    joins; or a turn's (see isCornerId), where a stroke can come apart like two strokes joined. */
+export const isJoinId = (id: string) => /^\d{1,2}([se]|t\d{1,2})$/.test(id);
+/** How far a stroke ending in another is pulled back from it, in font units, at `v` on a join's own
+    Gap scale, for stems `s` wide: up to two stems and a bit at 1. */
+export const joinGap = (v: number, s: number) => v * (24 + s * 2);
 /** A corner's id: the index of its stroke in the glyph, then 't' and the number of the turn along the
     stroke's centerline (from 0), or the end ('s' start, 'e' end) and its side ('l' or 'r', looking
     out of the stroke), or 'j' and the number of an inside corner where it meets a later stroke of
@@ -275,9 +284,9 @@ export const endCurl = (p: { terminalCurl?: number; terminalCurls?: Record<strin
 /** A valid value for setting `k`, or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {
   const d = DEFAULTS[k];
-  if (k === 'terminalEnds' || k === 'terminalCurls' || k === 'corners' || k === 'innerCorners' || k === 'cornerSteps' || k === 'strokeWeights') {
+  if (k === 'terminalEnds' || k === 'terminalCurls' || k === 'corners' || k === 'innerCorners' || k === 'cornerSteps' || k === 'strokeWeights' || k === 'joinGaps') {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
-    const out: Record<string, number> = {}, ok = k === 'corners' || k === 'cornerSteps' ? isCornerId : k === 'innerCorners' ? isTurnId : k === 'strokeWeights' ? isStrokeId : isEndId;
+    const out: Record<string, number> = {}, ok = k === 'corners' || k === 'cornerSteps' ? isCornerId : k === 'innerCorners' ? isTurnId : k === 'strokeWeights' ? isStrokeId : k === 'joinGaps' ? isJoinId : isEndId;
     for (const [id, x] of Object.entries(v)) if (ok(id) && typeof x === 'number' && Number.isFinite(x)) out[id] = Math.min(1, Math.max(0, x));
     return out;
   }
@@ -300,7 +309,7 @@ function cleanGlyphs(v: unknown): Record<string, GlyphParams> {
       const c = isGlyphKey(k) ? cleanValue(k, x) : undefined;
       if (c !== undefined) g[k] = c;
     }
-    for (const e of ['terminalEnds', 'terminalCurls', 'corners', 'innerCorners', 'cornerSteps', 'strokeWeights']) if (g[e] && !Object.keys(g[e] as object).length) delete g[e];
+    for (const e of ['terminalEnds', 'terminalCurls', 'corners', 'innerCorners', 'cornerSteps', 'strokeWeights', 'joinGaps']) if (g[e] && !Object.keys(g[e] as object).length) delete g[e];
     if (Object.keys(g).length) out[ch] = g as GlyphParams;
   }
   return out;

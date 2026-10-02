@@ -4,7 +4,7 @@
    every letter at once, since the design is the parameters. */
 import { buildFont, clamp, type Cmd, type Font, type Glyph, type Mark } from '../../shared/engine';
 import { ANATOMY } from '../../shared/content';
-import { endLength, type NumericParam, type Params } from '../../shared/params';
+import { endLength, joinGap, type NumericParam, type Params } from '../../shared/params';
 
 export type Axis = 'x' | 'y';
 
@@ -23,10 +23,10 @@ export interface Drive {
   at: { x: number; y: number };
   /** set only this one stroke end's length (key 'terminalLength'), not every end's, or with
       `endKey` 'corners' only this one corner's roundness (key 'roundness'), or with 'strokeWeights'
-      only this one stroke's weight (key 'weight') */
+      only this one stroke's weight (key 'weight'), or with 'joinGaps' only this one join's gap (key 'stencil') */
   end?: string;
-  endKey?: 'corners' | 'strokeWeights';
-  /** that corner's roundness (or stroke's weight) as drawn before it has one of its own */
+  endKey?: 'corners' | 'strokeWeights' | 'joinGaps';
+  /** that corner's roundness (or stroke's weight, or join's gap) as drawn before it has one of its own */
   base?: number;
   /** that end is the tip of a hook, tail or cursive stroke (see endLength) */
   hook?: boolean;
@@ -52,6 +52,19 @@ export function strokeEnds(g: Glyph): StrokeEndInfo[] {
 export interface CornerInfo { id: string; x: number; y: number; label: string; v: number; vi?: number; st?: number }
 export function letterCorners(g: Glyph): CornerInfo[] {
   return byPlace(g, g.marks.filter(k => k.type === 'corner' && k.id), 'corner').map(({ k, label }) => ({ id: k.id!, x: k.x, y: k.y, label, v: k.v ?? 0, ...(k.vi != null ? { vi: k.vi } : {}), ...(k.st != null ? { st: k.st } : {}) }));
+}
+
+/** A letter's joins, where a stroke ends in another or turns, top to bottom, each named by the
+    stroke it pulls back and where: "Arm, top left", with that stroke's id and its gap as drawn (see joinGap). */
+export interface JoinInfo { id: string; x: number; y: number; label: string; v: number; stroke: string }
+export function letterJoins(g: Glyph): JoinInfo[] {
+  const names = new Map(letterStrokes(g).map(t => [t.id, t.label]));
+  const out = byPlace(g, g.marks.filter(k => k.type === 'join' && k.id), 'join').map(({ k, label }) => {
+    const stroke = String(parseInt(k.id!, 10)), where = label.replace(/ join( \d+)?$/, '').toLowerCase();
+    return { id: k.id!, x: k.x, y: k.y, label: `${names.get(stroke) ?? 'Stroke'}, ${where}`, v: k.v ?? 0, stroke };
+  });
+  // one stroke can join at the same place twice (a bowl into the top and foot of a short stem)
+  return out.map(j => { const same = out.filter(o => o.label === j.label); return same.length > 1 ? { ...j, label: `${j.label} ${same.indexOf(j) + 1}` } : j; });
 }
 
 /** A letter's strokes (not its dots), each named by its part, and by where it sits when the letter
@@ -152,6 +165,16 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
         : { key: k.id?.includes('j') ? 'joinRound' : 'roundness', span: 260, at: { x: k.x, y: k.y } };
       return { x: { ...d, sign: k.x < (b.x0 + b.x1) / 2 ? 1 : -1 }, y: { ...d, sign: k.y < (b.y0 + b.y1) / 2 ? 1 : -1 } };
     }
+    case 'join': {
+      // pulled out the way its gap opens, a join opens up: on its own while customizing a letter,
+      // else Stencil opens every join it cuts
+      const marks = g.marks.filter(k => k.type === 'join'), k = marks[nearest(marks.map(k => ({ x0: k.x, x1: k.x, y0: k.y, y1: k.y })), grab)];
+      if (!k || k.dx == null || k.dy == null) return null;
+      const axis: Axis = Math.abs(k.dx) >= Math.abs(k.dy) ? 'x' : 'y', along = axis === 'x' ? k.dx : k.dy, sign: 1 | -1 = along < 0 ? -1 : 1;
+      const at = { x: k.x, y: k.y }, s = font.m.s;
+      return { [axis]: oneEnd ? { key: 'stencil', end: k.id, endKey: 'joinGaps', base: k.v ?? 0, sign, span: joinGap(1, s) * Math.abs(along), at }
+        : { key: 'stencil', sign, span: (12 + s * 0.55) * Math.abs(along), at } };
+    }
     case 'tail': case 'terminal': {
       // the tip of a tail, hook or stroke end follows the pointer along the axis it grows on most
       // while customizing a letter, a stroke end moves on its own
@@ -234,7 +257,7 @@ export function handlesFor(key: NumericParam, font: Font, ch: string, parts: str
   for (const part of parts) {
     if (LINES.includes(part)) add(part, { x: -70, y: font.m.cap / 2 });
     else if (part === 'apex' || part === 'vertex') g.marks.filter(k => k.type === part).forEach(k => add(part, { x: k.x + 1, y: k.y }));
-    else if (part === 'tail' || part === 'terminal' || part === 'corner') g.marks.filter(k => k.type === part).forEach(k => add(part, k));
+    else if (part === 'tail' || part === 'terminal' || part === 'corner' || part === 'join') g.marks.filter(k => k.type === part).forEach(k => add(part, k));
     else if (part === 'entry') g.strokes.filter(s => s.part === part).forEach(s => { const b = bbox(s.cmds); if (b) add(part, { x: b.x0, y: (b.y0 + b.y1) / 2 }); });
     else pieces(g, part).forEach(c => { const b = bbox(c); if (b) add(part, { x: b.x1, y: (b.y0 + b.y1) / 2 + (b.y1 - b.y0) * 0.1 }); });
   }

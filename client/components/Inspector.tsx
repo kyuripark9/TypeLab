@@ -2,10 +2,10 @@
    highlights it and the slider that shapes it, dragging it reshapes the design (lib/drag), and
    the side panel groups its sliders by part (letterControls). */
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
-import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, type ActiveKey, type ControlKey } from '../../shared/content';
+import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
 import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph, type GlyphGrid } from '../../shared/engine';
 import { isStrokeId, type NumericParam, type Params } from '../../shared/params';
-import { dragSpec, handlesFor, letterCorners, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
+import { dragSpec, handlesFor, letterCorners, letterJoins, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { n1, useSize } from '../lib/hooks';
 import { GridBar, GridLines, useGrid } from './ConstructionGrid';
 import { PenCanvas } from './PenCanvas';
@@ -92,7 +92,7 @@ function pickPart(id: string) {
 /** Parts drawn as guide lines rather than shapes. */
 const GUIDE_PARTS = new Set(['baseline', 'xHeight', 'capHeight', 'ascender', 'descender']);
 /** Hit-test stacking: counters under strokes, point marks on top. */
-const hitOrder = (id: string) => id === 'counter' ? 0 : id === 'corner' ? 3 : id === 'apex' || id === 'vertex' || id === 'terminal' || id === 'tail' ? 2 : 1;
+const hitOrder = (id: string) => id === 'counter' ? 0 : id === 'corner' || id === 'join' ? 3 : id === 'apex' || id === 'vertex' || id === 'terminal' || id === 'tail' ? 2 : 1;
 
 /** Path data for one anatomy part of a glyph. */
 function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } {
@@ -102,7 +102,7 @@ function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } 
     return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(34, font.m.s * 0.75)) };
   }
   // corners sit close together, at the ends of strokes: small rings, so the ends stay grabbable between them
-  if (id === 'corner') return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(20, font.m.s * 0.32)) };
+  if (id === 'corner' || id === 'join') return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(20, font.m.s * 0.32)) };
   const d = g.strokes.filter(s => s.part === id).map(s => cmdsToD(s.cmds)).join('');
   // a hook is the end of a longer stroke (j, t, f): ring its tip
   if (!d && id === 'tail') return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(34, font.m.s * 0.75)) };
@@ -271,8 +271,8 @@ const markTipSeen = () => { try { localStorage.setItem(TIP_KEY, '1'); } catch { 
 
 interface View { sc: number; ox: number; oy: number }
 interface Drag { part: string; axis?: Axis; key?: NumericParam; strokeEnd?: string; endKey?: EndKey; end: () => void }
-/** `end` names the one stroke end (or corner, or stroke) being dragged, while a letter is customized */
-interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string; hook?: boolean; corner?: boolean; stroke?: boolean } }
+/** `end` names the one stroke end (or corner, stroke or join) being dragged, while a letter is customized */
+interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string; hook?: boolean; corner?: boolean; stroke?: boolean; join?: boolean; v?: number } }
 /** The pointer over a draggable part, in canvas px */
 interface Hover { id: string; x: number; y: number }
 interface TipRow { axis: Axis; label: string; ends: [string, string] }
@@ -304,6 +304,8 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
   const Y = (y: number) => n1(oy - y * sc), X = (x: number) => n1(ox + x * sc);
   const lower = /[a-z]/.test(ch);
   const parts = features(g, ch).filter(f => !GUIDE_PARTS.has(f));
+  // the joins can be grabbed while Stencil is the control in hand, so they don't get in the way of the strokes
+  if (controlFor(active) === 'stencil' && g.marks.some(k => k.type === 'join')) parts.push('join');
   parts.sort((a, b) => hitOrder(a) - hitOrder(b));
   const guides = ([['baseline', 0, 'Baseline'], ['xHeight', m.xh, 'x-height'], ['capHeight', m.cap, 'Cap height'], ['ascender', m.asc, 'Ascender'], ['descender', m.desc, 'Descender']] as [string, number, string][])
     .filter(([id]) => !(Math.abs(m.asc - m.cap) < 45 && id === 'ascender' && !lower));
@@ -330,14 +332,15 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
     return v;
   };
   const ends = strokeEnds(g), corners = letterCorners(g);
-  const endInfo = (id?: string) => ends.find(e => e.id === id) ?? (!id ? undefined : isStrokeId(id)
-    ? letterStrokes(g).map(t => ({ ...t, stroke: true })).find(t => t.id === id) : corners.map(c => ({ ...c, corner: true })).find(c => c.id === id));
+  const endInfo = (id?: string, key?: string) => (!id ? undefined : key === 'joinGaps' ? letterJoins(g).map(({ id, label, v }) => ({ id, label, v, join: true })).find(j => j.id === id)
+    : ends.find(e => e.id === id) ?? (isStrokeId(id)
+      ? letterStrokes(g).map(t => ({ ...t, stroke: true })).find(t => t.id === id) : corners.map(c => ({ ...c, corner: true })).find(c => c.id === id)));
   const hoverSpec = hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, lf, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }, oneEnd) : null;
   const hoverAxes = AXES.filter(a => hoverSpec?.[a]);
   const tip: TipRow[] = hoverAxes.map(a => {
     const d = hoverSpec![a]!, def = defOf(d.key), up = towardMoreOf(hover!.id, a, d) > 0;
     const hi = def?.hi ?? 'More', lo = def?.lo ?? 'Less', plus = up ? hi : lo, minus = up ? lo : hi;
-    return { axis: a, label: d.endKey === 'strokeWeights' ? `${endInfo(d.end)?.label ?? 'Stroke'} weight` : d.endKey ? `${endInfo(d.end)?.label ?? 'Corner'} roundness` : d.end ? `${endInfo(d.end)?.label ?? 'End'} length` : labelOf(d.key), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
+    return { axis: a, label: d.endKey === 'joinGaps' ? `${endInfo(d.end, d.endKey)?.label ?? 'Join'} gap` : d.endKey === 'strokeWeights' ? `${endInfo(d.end)?.label ?? 'Stroke'} weight` : d.endKey ? `${endInfo(d.end)?.label ?? 'Corner'} roundness` : d.end ? `${endInfo(d.end)?.label ?? 'End'} length` : labelOf(d.key), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
   });
   const guideKey = hotKey === 'serif' ? 'serifSize' : hotKey === 'terminal' ? 'terminalLength' : hotKey;
   const showKey = hover || dragging ? null : guideKey && typeof font.params[guideKey as keyof Params] === 'number' ? guideKey as NumericParam : intro ? 'weight' : null;
@@ -383,7 +386,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
       }
       const v = solve!(d.axis === 'x' ? dx / view.sc : -dy / view.sc);
       if (d.strokeEnd) actions.setEnd(d.strokeEnd, v, d.endKey); else actions.setParam(d.key!, v);
-      setReadout({ x: ev.clientX - r.left, y: ev.clientY - r.top, param: d.key!, end: endInfo(d.strokeEnd) });
+      setReadout({ x: ev.clientX - r.left, y: ev.clientY - r.top, param: d.key!, end: endInfo(d.strokeEnd, d.endKey) });
     };
     const end = () => {
       window.removeEventListener('pointermove', move);
@@ -491,7 +494,7 @@ function DragTip({ x, y, W, H, rows }: { x: number; y: number; W: number; H: num
 /** The value being dragged, beside the pointer. */
 function DragReadout({ x, y, param, end }: Readout) {
   const v = useParam(param), ev = useEditor(s => (!end ? 0 : end.stroke ? paramOf(s, 'strokeWeights')[end.id] ?? 0.5
-    : end.corner ? paramOf(s, 'corners')[end.id] ?? 0 : endOf(s, end.id, end.hook)));
-  const label = !end ? labelOf(param) : `${end.label} ${end.stroke ? 'weight' : end.corner ? 'roundness' : 'length'}`;
+    : end.join ? paramOf(s, 'joinGaps')[end.id] ?? end.v ?? 0 : end.corner ? paramOf(s, 'corners')[end.id] ?? 0 : endOf(s, end.id, end.hook)));
+  const label = !end ? labelOf(param) : `${end.label} ${end.stroke ? 'weight' : end.join ? 'gap' : end.corner ? 'roundness' : 'length'}`;
   return <div className="i-readout" style={{ left: x + 14, top: y + 16 }}>{label} <b>{Math.round((end ? ev : v) * 100)}</b></div>;
 }

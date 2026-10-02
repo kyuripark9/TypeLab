@@ -898,7 +898,7 @@ export const ANATOMY: Record<string, [string, string]> = {
 export const PART_CONTROL: Partial<Record<string, ControlKey>> = {
   stem: 'weight', diagonal: 'weight', bowl: 'weight', arm: 'weight', leg: 'weight', tail: 'tail',
   shoulder: 'weight', spine: 'weight', hook: 'weight', dot: 'weight',
-  crossbar: 'crossbar', bar: 'crossbar', counter: 'counter', terminal: 'terminal', corner: 'roundness',
+  crossbar: 'crossbar', bar: 'crossbar', counter: 'counter', terminal: 'terminal', corner: 'roundness', join: 'stencil',
   apex: 'apex', vertex: 'apex', serif: 'serif', entry: 'cursive',
   xHeight: 'xHeight', capHeight: 'height', ascender: 'extenders', descender: 'extenders'
 };

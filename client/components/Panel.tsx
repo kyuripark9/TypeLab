@@ -10,7 +10,7 @@ import {
 import { TERMINAL_FORMS, formOf, isGlyphKey, rotationDeg, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 import { cmdsToD, type Glyph } from '../../shared/engine';
-import { letterCorners, letterStrokes, strokeEnds, type CornerInfo, type StrokeEndInfo, type StrokeInfo } from '../lib/drag';
+import { letterCorners, letterJoins, letterStrokes, strokeEnds, type CornerInfo, type JoinInfo, type StrokeEndInfo, type StrokeInfo } from '../lib/drag';
 import { actions, adjustedLooks, adjustedParams, curlOf, endOf, fontFor, isOn, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, useStyleMatch, type EndKey, type StyleTab } from '../state/editor';
 import { TRAIT_SECTIONS, type TraitDef } from '../../shared/traits';
 import { Diagram, FillIcon, FormIcon, SerifIcon, SerifSidesIcon, StoryIcon, TerminalIcon } from './Diagram';
@@ -526,6 +526,59 @@ function CutControl({ k, parts }: { k: 'stencil' | 'slice'; parts?: string[] }) 
           {(Object.keys(subs) as (keyof typeof subs)[]).map(s => <SliderControl key={s} k={s} def={subs[s]} holdsOn={s === k} />)}
         </div>
       </div>
+      {k === 'stencil' && <EachJoin />}
+    </div>
+  );
+}
+
+/** While a letter is customized, a gap for each of its joins (where a stroke ends in another, or
+    turns), each beside a picture of the letter with that join marked: the stroke pulled back from
+    the one it meets, on or off the Stencil; while every letter is in sync, a way into customizing. */
+function EachJoin() {
+  const ch = useEditor(s => s.inspect), letter = useEditor(letterOf), font = useScopedFont();
+  const g = ch ? font.glyph(ch) : null, joins = g ? letterJoins(g) : [];
+  if (!ch || !g || !joins.length) return null;
+  if (!letter) {
+    return (
+      <div className="each-end locked">
+        <JoinThumb g={g} joins={joins} />
+        <div className="sub-label">Each join</div>
+        <button className="btn wide small" onClick={() => actions.setScope('letter')}>Customize {ch}</button>
+      </div>
+    );
+  }
+  return (
+    <div className="each-end">
+      <div className="sub-label">Each join</div>
+      {joins.map(j => <JoinSlider key={j.id} g={g} joins={joins} join={j} />)}
+    </div>
+  );
+}
+
+/** The letter in miniature with its joins dotted, or only the join `on` and the stroke it pulls back picked out,
+    so two joins in one place (an F's arm off its stem, or the stem off the arm) tell apart. */
+function JoinThumb({ g, joins, on }: { g: Glyph; joins: JoinInfo[]; on?: string }) {
+  const box = thumbBox(g), j = on ? joins.find(k => k.id === on) : undefined;
+  if (!box) return null;
+  const r = Math.max(box[2], box[3]) / 1.32 * 0.16 * (on ? 0.95 : 0.7);
+  return (
+    <svg className="end-thumb" viewBox={box.join(' ')} aria-hidden="true">
+      <path d={g.d} />
+      {j && <path className="on" d={g.strokes.filter(s => s.id === j.stroke).map(s => cmdsToD(s.cmds)).join('')} />}
+      {joins.filter(k => !on || k.id === on).map(k => <circle key={k.id} cx={k.x} cy={-k.y} r={r} />)}
+    </svg>
+  );
+}
+
+/** One join's gap beside a picture of the letter with that join marked. */
+function JoinSlider({ g, joins, join: { id, label, v: drawn } }: { g: Glyph; joins: JoinInfo[]; join: JoinInfo }) {
+  const hot = useEditor(s => s.hotEnd === id), v = useEditor(s => paramOf(s, 'joinGaps')[id]) ?? drawn;
+  return (
+    <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id} title={label}
+      onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
+      <JoinThumb g={g} joins={joins} on={id} />
+      <EndRow id={id} k="joinGaps" name="Gap" label={label} value={v}
+        tip="Left keeps the strokes joined; right pulls this stroke back from the one it meets, opening a gap up to two stems wide" reset="Follow Stencil again" />
     </div>
   );
 }
@@ -779,7 +832,7 @@ function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: Stro
 
 function EndRow({ id, k, name, label, value, tip, reset }: { id: string; k: EndKey; name: string; label: string; value: number; tip: string; reset: string }) {
   const own = useEditor(s => { const ch = letterOf(s); return !!ch && s.params.glyphs[ch]?.[k]?.[id] !== undefined; });
-  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'corners' || k === 'innerCorners' ? 'roundness' : k === 'cornerSteps' ? 'steps' : k === 'strokeWeights' ? 'weight' : k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
+  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'corners' || k === 'innerCorners' ? 'roundness' : k === 'cornerSteps' ? 'steps' : k === 'strokeWeights' ? 'weight' : k === 'joinGaps' ? 'stencil' : k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
   return (
     <>
       <span className="end-name" title={tip}>{name}</span>

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { STYLES, TERMINAL_DETAILS } from '../shared/content';
 import { ALL_CHARS, buildFont, cmdsToD, type Glyph } from '../shared/engine';
-import { DEFAULTS, TERMINAL_FORMS, isValidParams, onEndScale, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
+import { DEFAULTS, TERMINAL_FORMS, isValidParams, joinGap, onEndScale, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
 
 const extremes: Params[] = [
   { ...DEFAULTS, weight: 1, width: 0, height: 1, slant: 1, contrast: 1, xHeight: 1, counter: 0, roundness: 1, terminal: 'sharp', serif: true, serifShape: 'wedge', playfulFormal: 0 },
@@ -29,7 +29,9 @@ const extremes: Params[] = [
   { ...DEFAULTS, weight: 0.6, steps: 0.5, roundness: 1, innerRound: 0.5, swash: 0.5, wobble: 1, mono: 1, glyphs: { O: { cornerSteps: { '0t0': 0 } }, e: { mirror: 'mirrored' } } },
   { ...DEFAULTS, weight: 0, serif: true, serifSize: 1, serifThickness: 1, serifAngle: 1, serifBracket: 1, serifTip: 'round', serifBase: 'cupped', serifCup: 1, serifBalance: 1, serifTops: 0, serifArms: 1, serifSides: 'inside', serifInner: 'wedge', serifInnerSize: 1, wobble: 1, slant: 1 },
   { ...DEFAULTS, weight: 1, serif: true, serifShape: 'wedge', serifSize: 0, serifThickness: 0, serifTip: 'pointed', serifBase: 'cupped', serifCup: 1, serifBalance: 0, serifTops: 1, serifArms: 0, serifSides: 'left', serifInner: 'slab', serifInnerThickness: 0, cursive: 1, contrast: 1 },
-  { ...DEFAULTS, serif: true, serifShape: 'slab', serifSize: 1, serifThickness: 0, serifTip: 'angled', serifTipSlant: 0, serifBase: 'cupped', serifCup: 1, mono: 1, fill: 'pixels', stencil: 1, bowlForm: 'box', diagonals: 'upright' }
+  { ...DEFAULTS, serif: true, serifShape: 'slab', serifSize: 1, serifThickness: 0, serifTip: 'angled', serifTipSlant: 0, serifBase: 'cupped', serifCup: 1, mono: 1, fill: 'pixels', stencil: 1, bowlForm: 'box', diagonals: 'upright' },
+  { ...DEFAULTS, weight: 1, serif: true, stencil: 0.5, stencilPos: 1, stencilRound: 1, wobble: 1, slant: 1, bowlForm: 'box',
+    glyphs: { F: { joinGaps: { '0e': 1, '1s': 1, '2s': 1 } }, M: { joinGaps: { '2s': 1, '2e': 1, '2t0': 1 } }, A: { joinGaps: { '0t0': 1, '1s': 0 } }, B: { joinGaps: { '0t0': 1, '1t0': 1, '1t1': 1 } }, Z: { joinGaps: { '0e': 1, '1s': 1, '1e': 1, '2s': 1 } } } }
 ];
 
 /** In SVG path data: how many contours, how many curves, and every x. */
@@ -648,6 +650,34 @@ describe('font engine', () => {
     assert.notEqual(cut.glyph('H')!.d, solid.glyph('H')!.d);
   });
 
+  it('a letter opens each join on its own, pulling the stroke back from the one it meets', () => {
+    const plain = buildFont({ ...DEFAULTS, weight: 0.6 }), F = plain.glyph('F')!, s = plain.m.s;
+    const xs = (g: Glyph, part: string) => xsOf(g.strokes.filter(t => t.part === part).map(t => cmdsToD(t.cmds)).join(''));
+    // every join is marked: where a stroke ends in another, and where one turns
+    const ids = (ch: string) => plain.glyph(ch)!.marks.filter(k => k.type === 'join').map(k => k.id);
+    assert.ok(['0e', '1s', '2s'].every(id => ids('F').includes(id)), `F: ${ids('F')}`);
+    assert.ok(ids('A').includes('0t0') && ids('M').includes('2s'), `A: ${ids('A')} M: ${ids('M')}`);
+    // the top arm of an F, drawn over its stem, comes off it by the gap; the rest stays put
+    const open = buildFont({ ...DEFAULTS, weight: 0.6, glyphs: { F: { joinGaps: { '1s': 0.2 } } } }).glyph('F')!;
+    const stemRight = Math.max(...xs(F, 'stem')), armLeft = Math.min(...xs(open, 'arm'));
+    assert.ok(Math.abs(armLeft - (stemRight + joinGap(0.2, s))) < 2, `arm starts at ${armLeft}, stem ends at ${stemRight}`);
+    assert.equal(JSON.stringify(xs(open, 'stem')), JSON.stringify(xs(F, 'stem')));
+    assert.equal(open.marks.find(k => k.id === '1s' && k.type === 'join')!.v, 0.2);
+    // a turn comes apart: the A's two legs, drawn as one stroke, part at the apex
+    const A = buildFont({ ...DEFAULTS, glyphs: { A: { joinGaps: { '0t0': 0.2 } } } }).glyph('A')!;
+    assert.equal(contours(cmdsToD(A.strokes[0].cmds)), 2);
+    // a gap wider than the stroke has room for narrows, and leaves it some ink
+    const E = buildFont({ ...DEFAULTS, glyphs: { E: { joinGaps: { '2s': 1 } } } }).glyph('E')!;
+    assert.equal(contours(cmdsToD(E.strokes.find(t => t.part === 'crossbar')!.cmds)), 1);
+    // 0 keeps a join Stencil opens joined, and the mark shows Stencil's gap until then
+    const st = buildFont({ ...DEFAULTS, stencil: 0.5 }), H = st.glyph('H')!, bar = (g: Glyph) => JSON.stringify(g.strokes.find(t => t.part === 'crossbar')!.cmds);
+    const cutAt = H.marks.filter(k => k.type === 'join' && k.v! > 0).map(k => k.id!);
+    assert.equal(cutAt.length, 1);
+    const shut = buildFont({ ...DEFAULTS, stencil: 0.5, glyphs: { H: { joinGaps: { [cutAt[0]]: 0 } } } }).glyph('H')!;
+    assert.equal(bar(shut), bar(buildFont(DEFAULTS).glyph('H')!));
+    assert.notEqual(bar(H), bar(shut));
+  });
+
   it('stencil gaps move out along the stroke and round their corners', () => {
     const at = (p: Partial<Params>) => buildFont({ ...DEFAULTS, stencil: 0.5, ...p }).glyph('H')!.d;
     // moved out, the bar keeps a stub on the stem it's cut from
@@ -1016,6 +1046,7 @@ describe('params validation', () => {
     const p = sanitizeParams({ ...DEFAULTS, glyphs: { H: { strokeWeights: { 0: 2, 12: 0.3, '0s': 0.5, x: 1, 1: 'a' } } } });
     assert.deepEqual(p.glyphs.H.strokeWeights, { 0: 1, 12: 0.3 });
     assert.deepEqual(sanitizeParams({ ...DEFAULTS, glyphs: { H: { strokeWeights: { x: 1 } } } }).glyphs, {});
+    assert.deepEqual(sanitizeParams({ ...DEFAULTS, glyphs: { F: { joinGaps: { '1s': 2, '0t1': 0.3, '2': 0.5, '0j1': 0.5, '1x': 1 } } } }).glyphs.F.joinGaps, { '1s': 1, '0t1': 0.3 });
     assert.equal(sanitizeParams({ vWeight: 3, hWeight: -1 }).vWeight, 1);
   });
 

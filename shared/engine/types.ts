@@ -128,4 +128,5 @@ export interface StrokeEnd { x: number; y: number; dx: number; dy: number; t: nu
 export interface Mark { type: string; x: number; y: number; r?: number; id?: string; hook?: boolean; home?: { x: number; y: number };
   /** a corner's roundness as drawn, on the scale of its own control (see params): a turn's outside */ v?: number;
   /** a turn's inside roundness as drawn */ vi?: number;
-  /** a corner's step as drawn, on the scale of Steps (0 when none; missing where a corner can't have one, a join) */ st?: number }
+  /** a corner's step as drawn, on the scale of Steps (0 when none; missing where a corner can't have one, a join) */ st?: number;
+  /** a join (type 'join'): the way its gap opens, away from the stroke it meets; `v` is its gap as drawn, on its own Gap scale */ dx?: number; dy?: number }
