@@ -505,6 +505,25 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-edge { stroke: var(--line-2); stroke-width: 1; cursor: col-resize; }
 .pen-edge:hover { stroke: var(--accent); stroke-width: 2; }
 .pen-snap { stroke: #d94f8c; stroke-width: 1; pointer-events: none; }
+.pen-catch path { fill: none; stroke: #d94f8c; stroke-width: 1.5; }
+.pen-catch text { font: 500 10.5px var(--ui); fill: #d94f8c; stroke: var(--surface); stroke-width: 3px; paint-order: stroke; }
+.pen-snapper { position: relative; flex: none; }
+.pen-snapper .pen-kind button { padding: 0 7px; }
+.pen-snapper .pen-kind button + button { padding: 0 5px; }
+.pen-snapper .pen-kind svg { stroke-linecap: round; stroke-linejoin: round; }
+.popover.pen-snap-menu { top: auto; bottom: calc(100% + 8px); width: 290px; }
+.pen-snap-head { padding: 6px 10px 4px; font-size: 11.5px; font-weight: 500; color: var(--ink-3); }
+.pen-snap-menu > button { display: grid; grid-template-columns: 16px 1fr 12px; align-items: center; gap: 10px; padding: 7px 10px; border-radius: var(--radius); text-align: left; color: var(--ink-3); transition: background .15s, color .15s; }
+.pen-snap-menu > button:hover { background: var(--hover); }
+.pen-snap-menu > button.on { color: var(--ink); }
+.pen-snap-menu b { display: block; font-size: 13px; font-weight: 500; }
+.pen-snap-menu small { display: block; font-size: 11.5px; color: var(--ink-3); line-height: 1.35; }
+.pen-snap-icon { fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.pen-snap-icon .fill { fill: currentColor; stroke: none; }
+.pen-snap-menu > button.on .pen-snap-icon { color: var(--accent); }
+.pen-snap-tick { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; visibility: hidden; }
+.pen-snap-menu > button.on .pen-snap-tick { visibility: visible; }
+.pen-snap-foot { margin-top: 4px; padding: 8px 10px 4px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--ink-3); }
 .pen-num { fill: var(--ink-3); opacity: .7; }
 .pen-pt { cursor: default; }
 .pen-pt .grab, .pen-h .grab { fill: transparent; }

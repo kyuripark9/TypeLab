@@ -374,3 +374,135 @@ export function mirrorEdit(base: Node[][], edited: Node[][], axes: Axis[], held?
   });
   return out;
 }
+
+/* ---- Snapping: a dragged point or handle catches on places in the letter near the pointer */
+
+/** What a point can snap to; each can be turned on or off. */
+export type SnapKind = 'points' | 'guides' | 'centers' | 'midpoints' | 'outline' | 'crossings' | 'tangents';
+export const SNAP_KINDS: SnapKind[] = ['points', 'guides', 'centers', 'midpoints', 'outline', 'crossings', 'tangents'];
+
+/** A place a point snaps onto, and what it is. */
+export interface Spot { x: number; y: number; label: string }
+/** A line a point lines up with, across one axis. */
+export interface Level { v: number; label: string }
+/** Everything near which a point snaps, gathered once per drag. */
+export interface SnapScene { spots: Spot[]; xs: Level[]; ys: Level[]; pieces: [P, P][] }
+
+/** The letter's guide heights. */
+export interface Heights { xh: number; cap: number; asc: number; desc: number }
+
+const STEPS = 16; // pieces a curve is cut into for crossing and contact tests
+
+/**
+ * The places a point snaps to in the outline `cs` of width `adv`, for the kinds on. `skip` are the
+ * points being dragged (not snapped to), `live` the points whose curves change as they're dragged
+ * (their curves aren't snapped to either). `from` are points a tangent is drawn from: where a straight
+ * line from one of them would just touch a curve.
+ */
+export function snapScene(cs: Node[][], adv: number, h: Heights, kinds: SnapKind[], skip: Set<string>, live: Set<string> = skip, from: P[] = []): SnapScene {
+  const on = new Set(kinds), spots: Spot[] = [], xs: Level[] = [], ys: Level[] = [];
+  // the curves and lines that stay put, each as its four bézier points
+  const segs: { c: number; i: number; B: P[]; curve: boolean; pts: P[] }[] = [];
+  cs.forEach((con, c) => {
+    if (con.length < 2) return;
+    con.forEach((a, i) => {
+      const j = (i + 1) % con.length;
+      if (live.has(refKey({ c, i })) || live.has(refKey({ c, i: j }))) return;
+      const b = con[j], s = segment(a, b), B = s ?? [a, a, b, b];
+      segs.push({ c, i, B, curve: !!s, pts: Array.from({ length: STEPS + 1 }, (_, k) => s ? bez(B, k / STEPS) : { x: a.x + (b.x - a.x) * k / STEPS, y: a.y + (b.y - a.y) * k / STEPS }) });
+    });
+  });
+  const pieces: [P, P][] = segs.flatMap(s => s.pts.slice(1).map((q, k) => [s.pts[k], q] as [P, P]));
+  const anchors: P[] = [];
+  cs.forEach((con, c) => con.forEach((n, i) => { if (!skip.has(refKey({ c, i }))) anchors.push(n); }));
+
+  if (on.has('points')) for (const n of anchors) { spots.push({ x: n.x, y: n.y, label: 'anchor' }); xs.push({ v: n.x, label: 'point' }); ys.push({ v: n.y, label: 'point' }); }
+  if (on.has('guides')) {
+    ys.push({ v: 0, label: 'baseline' }, { v: h.xh, label: 'x-height' }, { v: h.cap, label: 'cap height' }, { v: h.asc, label: 'ascender' }, { v: h.desc, label: 'descender' });
+    xs.push({ v: 0, label: 'left side' }, { v: adv, label: 'right side' });
+  }
+  if (on.has('centers')) {
+    xs.push({ v: R(adv / 2), label: 'center' });
+    ys.push({ v: R(h.xh / 2), label: 'x-height middle' }, { v: R(h.cap / 2), label: 'cap height middle' });
+    // the middle of each shape that stays put
+    cs.forEach((con, c) => {
+      if (con.length < 2 || con.some((_, i) => live.has(refKey({ c, i })))) return;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const s of segs) if (s.c === c) for (const q of s.pts) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+      if (x0 <= x1) spots.push({ x: R((x0 + x1) / 2), y: R((y0 + y1) / 2), label: 'center' });
+    });
+  }
+  if (on.has('midpoints')) for (const s of segs) { const q = bez(s.B, 0.5); spots.push({ x: R(q.x), y: R(q.y), label: 'midpoint' }); }
+  if (on.has('crossings')) {
+    const nearAnchor = (q: P) => anchors.some(n => Math.abs(n.x - q.x) < 1.5 && Math.abs(n.y - q.y) < 1.5);
+    const add = (q: P) => { if (!nearAnchor(q)) spots.push({ x: R(q.x), y: R(q.y), label: 'intersect' }); };
+    const box = (pts: P[]) => pts.reduce((b, q) => [Math.min(b[0], q.x), Math.min(b[1], q.y), Math.max(b[2], q.x), Math.max(b[3], q.y)], [Infinity, Infinity, -Infinity, -Infinity]);
+    const boxes = segs.map(s => box(s.pts));
+    // where two curves cross (curves that meet end to end don't count)
+    for (let a = 0; a < segs.length; a++) for (let b = a + 1; b < segs.length; b++) {
+      const A = boxes[a], B = boxes[b];
+      if (A[0] > B[2] || B[0] > A[2] || A[1] > B[3] || B[1] > A[3]) continue;
+      const sa = segs[a], sb = segs[b], n = cs[sa.c].length;
+      if (sa.c === sb.c && (sb.i === (sa.i + 1) % n || sa.i === (sb.i + 1) % n)) continue;
+      for (let k = 0; k < STEPS; k++) for (let l = 0; l < STEPS; l++) {
+        const q = crossing(sa.pts[k], sa.pts[k + 1], sb.pts[l], sb.pts[l + 1]);
+        if (q) add(q);
+      }
+    }
+    // where a curve crosses a guide line, or the middle of the width
+    for (const y of [0, h.xh, h.cap, h.asc, h.desc]) for (const [p, q] of pieces) if ((p.y - y) * (q.y - y) < 0) add({ x: p.x + (q.x - p.x) * (y - p.y) / (q.y - p.y), y });
+    for (const [p, q] of pieces) if ((p.x - adv / 2) * (q.x - adv / 2) < 0) add({ x: adv / 2, y: p.y + (q.y - p.y) * (adv / 2 - p.x) / (q.x - p.x) });
+  }
+  if (on.has('tangents')) for (const f of from) for (const s of segs) if (s.curve) for (const t of tangentsFrom(s.B, f)) { const q = bez(s.B, t); spots.push({ x: R(q.x), y: R(q.y), label: 'tangent' }); }
+  return { spots, xs, ys, pieces: on.has('outline') ? pieces : [] };
+}
+
+/** Where the line pieces a–b and c–d cross, if they do. */
+function crossing(a: P, b: P, c: P, d: P): P | null {
+  const rx = b.x - a.x, ry = b.y - a.y, sx = d.x - c.x, sy = d.y - c.y, den = rx * sy - ry * sx;
+  if (Math.abs(den) < 1e-9) return null;
+  const t = ((c.x - a.x) * sy - (c.y - a.y) * sx) / den, u = ((c.x - a.x) * ry - (c.y - a.y) * rx) / den;
+  return t >= 0 && t < 1 && u >= 0 && u < 1 ? { x: a.x + rx * t, y: a.y + ry * t } : null;
+}
+
+/** Where along the curve B a straight line from `f` just touches it, away from its ends. */
+export function tangentsFrom(B: P[], f: P): number[] {
+  const d = (t: number): P => {
+    const u = 1 - t;
+    return { x: 3 * u * u * (B[1].x - B[0].x) + 6 * u * t * (B[2].x - B[1].x) + 3 * t * t * (B[3].x - B[2].x), y: 3 * u * u * (B[1].y - B[0].y) + 6 * u * t * (B[2].y - B[1].y) + 3 * t * t * (B[3].y - B[2].y) };
+  };
+  const g = (t: number) => { const q = bez(B, t), v = d(t); return (q.x - f.x) * v.y - (q.y - f.y) * v.x; };
+  const out: number[] = [], N = 48;
+  for (let k = 0; k < N; k++) {
+    let a = k / N, b = (k + 1) / N, ga = g(a);
+    if (ga * g(b) > 0) continue;
+    for (let it = 0; it < 30; it++) { const m = (a + b) / 2, gm = g(m); if (ga * gm <= 0) b = m; else { a = m; ga = gm; } }
+    const t = (a + b) / 2, q = bez(B, t);
+    // not at an end, and not a curve running straight through f
+    if (t > 0.02 && t < 0.98 && Math.hypot(q.x - f.x, q.y - f.y) > 2 && !out.some(o => Math.abs(o - t) < 0.01)) out.push(t);
+  }
+  return out;
+}
+
+/** What snapping `p` came to: where it lands, the place it caught on (if any) and the lines it lines up with. */
+export interface Snapped { x: number; y: number; at?: Spot; gx?: Level; gy?: Level }
+
+/** Snap `p` within `tol` units: onto a place first, then onto the outline, then lining up across and up. */
+export function snapIn(scene: SnapScene, p: P, tol: number): Snapped {
+  let best: Spot | null = null, bd = tol * 1.25;
+  for (const s of scene.spots) { const d = Math.hypot(s.x - p.x, s.y - p.y); if (d <= bd) { best = s; bd = d; } }
+  const on1 = (v: number, ls: Level[]) => ls.find(l => Math.abs(l.v - v) < 0.5);
+  if (best) return { x: best.x, y: best.y, at: best, gx: on1(best.x, scene.xs), gy: on1(best.y, scene.ys) };
+  let on: P | null = null, od = tol;
+  for (const [a, b] of scene.pieces) {
+    const vx = b.x - a.x, vy = b.y - a.y, l2 = vx * vx + vy * vy;
+    const t = l2 ? Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / l2)) : 0;
+    const q = { x: a.x + vx * t, y: a.y + vy * t }, d = Math.hypot(q.x - p.x, q.y - p.y);
+    if (d < od) { on = q; od = d; }
+  }
+  if (on) { const q = { x: R(on.x), y: R(on.y) }; return { ...q, at: { ...q, label: 'on outline' } }; }
+  // the nearest line each way; a guide or center wins over a point at the same place, as it names more
+  const near = (v: number, ls: Level[]) => ls.reduce<Level | undefined>((b, l) => (Math.abs(l.v - v) <= tol && (!b || Math.abs(l.v - v) < Math.abs(b.v - v) - 0.01 || (Math.abs(l.v - b.v) < 0.5 && b.label === 'point')) ? l : b), undefined);
+  const sx = near(p.x, scene.xs), sy = near(p.y, scene.ys);
+  return { x: sx?.v ?? R(p.x), y: sy?.v ?? R(p.y), gx: sx, gy: sy };
+}

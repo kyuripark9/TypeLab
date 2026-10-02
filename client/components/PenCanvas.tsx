@@ -4,13 +4,16 @@
    not yet drawn shows its outline traced into points (fitOutline), and becomes a drawing, which the
    settings no longer shape, with the first edit. Every change is one undo step. With Sync all, a
    point or handle moved here moves in the other letters with a point in the same place too; with
-   Mirror, it moves the other way in its partner across the letter's middle. */
+   Mirror, it moves the other way in its partner across the letter's middle. Snapping catches a dragged
+   point or handle on points, guide lines, centers, midpoints, the outline, crossings and tangents
+   (each can be turned off); ⌘ held while dragging places it freely. */
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { cmdsToD, drawnCmds, hasIn, hasOut, segment, type Drawn, type Font, type Glyph, type GlyphGrid, type Node } from '../../shared/engine';
 import { isTyping, n1, useSize } from '../lib/hooks';
 import {
   anchorsIn, constrain, contourArea, deleteAnchors, handlePeers, keyRef, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment,
-  peersOf, pullHandles, refKey, reshapeSegment, reverseContour, setHandle, setSmooth, splitSegment, toggleSmooth, traceOf, type Axis, type Peer, type Ref
+  peersOf, pullHandles, refKey, reshapeSegment, reverseContour, setHandle, setSmooth, snapIn, snapScene, splitSegment, toggleSmooth, traceOf,
+  SNAP_KINDS, type Axis, type Peer, type Ref, type SnapKind, type SnapScene, type Snapped
 } from '../lib/pen';
 import { actions, useEditor } from '../state/editor';
 import { GridLines } from './ConstructionGrid';
@@ -35,6 +38,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const stored = useEditor(s => s.params.outlines[ch]);
   const sync = useEditor(s => s.scope === 'all');
   const mirror = useEditor(s => s.mirror);
+  const snap = useEditor(s => s.snap);
   // before the first edit, the letter as the settings draw it, traced into points
   const traced = traceOf(g);
   const doc = stored ?? traced;
@@ -45,10 +49,12 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const [view, setView] = useState<View | null>(null);
   const [ptr, setPtr] = useState<P | null>(null);
   const [box, setBox] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
-  const [snap, setSnap] = useState(true);
-  const [guides, setGuides] = useState<{ x?: number; y?: number }>({});
+  const [caught, setCaught] = useState<Snapped | null>(null);
   const [space, setSpace] = useState(false);
   const gesture = useRef<Gesture | null>(null);
+  // ⌘ (or Ctrl) held during a drag: no snapping
+  const free = useRef(false);
+  const scene = useRef<{ cs: Node[][]; key: string; s: SnapScene } | null>(null);
 
   const W = Math.max(320, size.width), H = Math.max(300, size.height), m = font.m;
   const top = Math.max(m.asc, m.cap) + 90, bot = m.desc - 60;
@@ -111,22 +117,35 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     return { x: (e.clientX - r.left - ox) / sc, y: (oy - (e.clientY - r.top)) / sc };
   };
 
-  /** Snap a point to whole units, and (with Snap on) to the guide lines, the advance and other points
-      within a few pixels. `skip` are the points being moved. */
-  const snapTo = (p: P, skip: Set<string> = new Set()): P => {
-    let x = Math.round(p.x), y = Math.round(p.y);
-    const gl: { x?: number; y?: number } = {};
-    if (snap) {
-      const tol = 6 / sc;
-      const ys = [0, m.xh, m.cap, m.asc, m.desc], xs = [0, doc.adv];
-      cs.forEach((con, c) => con.forEach((n, i) => { if (!skip.has(refKey({ c, i }))) { xs.push(n.x); ys.push(n.y); } }));
-      const near = (v: number, list: number[]) => list.reduce<number | null>((b, w) => (Math.abs(w - v) <= tol && (b === null || Math.abs(w - v) < Math.abs(b - v)) ? w : b), null);
-      const sx = near(p.x, xs), sy = near(p.y, ys);
-      if (sx !== null) { x = sx; gl.x = sx; }
-      if (sy !== null) { y = sy; gl.y = sy; }
+  /** With Mirror, the partners of `keys` across the letter's middle, which move with them. */
+  const withTwins = (keys: string[]) => {
+    let out = keys;
+    for (const axis of mirror) {
+      const pairs = mirrorPairs(cs, axis, mirrorLine(cs, axis));
+      out = [...new Set([...out, ...out.map(k => pairs.get(k)).filter((r): r is Ref => !!r).map(refKey)])];
     }
-    setGuides(gl);
-    return { x, y };
+    return new Set(out);
+  };
+  /** Snap a point to whole units, and (with Snap on) to the places near it within a few pixels.
+      `skip` are the points being moved, `live` the points whose curves change with the drag, `from`
+      the points a tangent may be drawn from; `level` snaps only across and up, to lines. */
+  const snapTo = (p: P, o: { skip?: string[]; live?: string[]; from?: P[]; level?: boolean } = {}): P => {
+    if (!snap.on || !snap.kinds.length || free.current) { setCaught(null); return { x: Math.round(p.x), y: Math.round(p.y) }; }
+    const skip = withTwins(o.skip ?? []), live = withTwins(o.live ?? o.skip ?? []);
+    const kinds: SnapKind[] = o.level ? snap.kinds.filter(k => k === 'points' || k === 'guides' || k === 'centers') : snap.kinds;
+    const key = [kinds, [...skip], [...live], (o.from ?? []).map(f => `${f.x},${f.y}`), doc.adv].join('|');
+    if (scene.current?.cs !== cs || scene.current.key !== key)
+      scene.current = { cs, key, s: snapScene(cs, doc.adv, m, kinds, skip, live, o.from) };
+    const s = o.level ? { ...scene.current.s, spots: [], pieces: [] } : scene.current.s;
+    const r = snapIn(s, p, 6 / sc);
+    setCaught(r.at || r.gx || r.gy ? r : null);
+    return { x: r.x, y: r.y };
+  };
+  /** The points either side of `r` that stay put, which a tangent may be drawn from. */
+  const beside = (r: Ref, skip: string[]): P[] => {
+    const con = cs[r.c];
+    if (!con || con.length < 2) return [];
+    return [(r.i + con.length - 1) % con.length, (r.i + 1) % con.length].filter(i => !skip.includes(refKey({ c: r.c, i }))).map(i => con[i]);
   };
 
   /* ---- gestures: pointer down on something starts one, moves drive it, up ends it */
@@ -138,6 +157,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     const move = (ev: PointerEvent) => {
       if (!gs.moved && Math.hypot(ev.clientX - gs.x0, ev.clientY - gs.y0) < 3) return;
       gs.moved = true;
+      free.current = ev.metaKey || ev.ctrlKey;
       gs.move(toFont(ev), ev);
     };
     const up = () => {
@@ -145,7 +165,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
       gesture.current = null;
-      setGuides({});
+      free.current = false;
+      setCaught(null);
       gs.up(gs.moved);
     };
     window.addEventListener('pointermove', move);
@@ -156,10 +177,10 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   /** Drag anchor points from where they are when the drag starts: the grabbed one follows the
       pointer (snapped), the rest keep their places relative to it; Shift keeps to 45° steps. */
   const dragAnchors = (e: ReactPointerEvent, refs: Ref[], grab: Ref) => {
-    const base = current().contours, a = base[grab.c][grab.i], skip = new Set(refs.map(refKey)), along = peers(refs);
+    const base = current().contours, a = base[grab.c][grab.i], skip = refs.map(refKey), along = peers(refs), from = beside(grab, skip);
     start(e, {
       move: (p, ev) => {
-        const q = snapTo(ev.shiftKey ? constrain(a, p) : p, skip);
+        const q = snapTo(ev.shiftKey ? constrain(a, p) : p, { skip, from });
         write(sym(base, moveAnchors(base, refs, q.x - a.x, q.y - a.y)), undefined, symPeers(along, movePeers(along, q.x - a.x, q.y - a.y)));
       },
       up: moved => { if (moved) actions.commit(); }
@@ -174,7 +195,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       if (drawingOk === r.c && r.i === 0 && cs[r.c].length > 1) {
         const base = current().contours;
         start(e, {
-          move: p => write(pullHandles(base, r, snapTo(p))),
+          move: p => write(pullHandles(base, r, snapTo(p, { live: [k], from: [base[r.c][r.i]] }))),
           up: moved => { if (moved) actions.commit(); setDrawing(null); setSel([k]); }
         });
         return;
@@ -191,7 +212,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     if (tool === 'convert') {
       const base = current().contours;
       start(e, {
-        move: p => write(sym(base, pullHandles(base, r, snapTo(p)), { r, side: 'o' })),
+        move: p => write(sym(base, pullHandles(base, r, snapTo(p, { live: [k], from: [base[r.c][r.i]] })), { r, side: 'o' })),
         up: moved => { if (moved) actions.commit(); else commit(sym(base, toggleSmooth(base, r))); setSel([k]); }
       });
       return;
@@ -209,10 +230,10 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     const base = current().contours, n = base[r.c][r.i], along = peers([r]);
     const h0 = side === 'i' ? { x: n.ix!, y: n.iy! } : { x: n.ox!, y: n.oy! };
     // Alt, or the Convert tool, moves one handle on its own and makes the point a corner
-    const free = e.altKey || tool === 'convert';
+    const alone = e.altKey || tool === 'convert';
     start(e, {
       move: (p, ev) => {
-        const q = snapTo(ev.shiftKey ? constrain(n, p) : p), f = free || ev.altKey;
+        const q = snapTo(ev.shiftKey ? constrain(n, p) : p, { live: [refKey(r)], from: [n] }), f = alone || ev.altKey;
         write(sym(base, setHandle(base, r, side, q, f), { r, side }), undefined, symPeers(along, handlePeers(along, side, q.x - h0.x, q.y - h0.y, f), side));
       },
       up: moved => { if (moved) actions.commit(); }
@@ -237,7 +258,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     const curve = !!segment(a, b);
     start(e, {
       move: pp => {
-        const q = curve ? { x: pp.x, y: pp.y } : snapTo(pp);
+        const q = curve ? { x: pp.x, y: pp.y } : snapTo(pp, { skip: [refKey({ c: hit.c, i: hit.i }), refKey({ c: hit.c, i: (hit.i + 1) % base[hit.c].length })] });
         write(sym(base, reshapeSegment(base, hit.c, hit.i, hit.t, q.x - p.x, q.y - p.y)));
       },
       up: moved => { if (moved) actions.commit(); }
@@ -272,7 +293,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       const base = current().contours;
       let out: Node[][], c: number;
       const last = drawingOk !== null ? base[drawingOk][base[drawingOk].length - 1] : null;
-      const q = snapTo(e.shiftKey && last ? constrain(last, p) : p);
+      free.current = e.metaKey || e.ctrlKey;
+      const q = snapTo(e.shiftKey && last ? constrain(last, p) : p, { from: last ? [last] : [] });
       if (drawingOk === null) { out = [...base.map(k => k.slice()), [{ x: q.x, y: q.y }]]; c = out.length - 1; }
       else { out = base.map(k => k.slice()); c = drawingOk; out[c] = [...out[c], { x: q.x, y: q.y }]; }
       const r = { c, i: out[c].length - 1 };
@@ -280,8 +302,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       setDrawing(c);
       setSel([refKey(r)]);
       start(e, {
-        move: (pp, ev) => { const h = snapTo(ev.shiftKey ? constrain(q, pp) : pp); write(pullHandles(out, r, h)); },
-        up: () => actions.commit()
+        move: (pp, ev) => { const h = snapTo(ev.shiftKey ? constrain(q, pp) : pp, { live: [refKey(r)], from: [q] }); write(pullHandles(out, r, h)); },
+        up: () => { setCaught(null); actions.commit(); }
       });
       return;
     }
@@ -305,7 +327,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     if (e.button !== 0) return;
     const base = current();
     start(e, {
-      move: p => write(base.contours, Math.max(0, snapTo({ x: p.x, y: 0 }).x)),
+      move: p => write(base.contours, Math.max(0, snapTo({ x: p.x, y: 0 }, { level: true }).x)),
       up: moved => { if (moved) actions.commit(); }
     });
   };
@@ -436,8 +458,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
                   <text className="i-label" x={64} y={n1(labelY.get(label)!)}>{label} <tspan className="pen-num">{Math.round(y)}</tspan></text>
                 </g>
               ))}
-              {guides.x !== undefined && <line className="pen-snap" x1={n1(X(guides.x))} x2={n1(X(guides.x))} y1={0} y2={H} />}
-              {guides.y !== undefined && <line className="pen-snap" x1={0} x2={W} y1={n1(Y(guides.y))} y2={n1(Y(guides.y))} />}
+              {caught?.gx && <line className="pen-snap" x1={n1(X(caught.gx.v))} x2={n1(X(caught.gx.v))} y1={0} y2={H} />}
+              {caught?.gy && <line className="pen-snap" x1={0} x2={W} y1={n1(Y(caught.gy.v))} y2={n1(Y(caught.gy.v))} />}
               {lines.map(({ axis, at }) => axis === 'x'
                 ? <line key={axis} className="pen-axis" x1={n1(X(at))} x2={n1(X(at))} y1={0} y2={H} />
                 : <line key={axis} className="pen-axis" x1={0} x2={W} y1={n1(Y(at))} y2={n1(Y(at))} />)}
@@ -481,6 +503,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
               );
             }))}
             {box && <rect className="pen-box" x={box.x0} y={box.y0} width={box.x1 - box.x0} height={box.y1 - box.y0} />}
+            {caught && <SnapMark hit={caught} x={X(caught.x)} y={Y(caught.y)} />}
           </svg>
         )}
         {reach.length > 0 && (
@@ -517,7 +540,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
         )}
         <span className="grow" />
         <Mirror axes={mirror} onSet={actions.setMirror} />
-        <label className="check" title="Snap to the guide lines and to other points"><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} /> Snap</label>
+        <SnapMenu snap={snap} onSet={actions.setSnap} />
         <NumField label="Width" value={doc.adv} onSet={v => commit(current().contours, Math.max(0, v))} />
         <span className="pen-bar-label muted pen-count" title="Anchor points">{count} pts · {Math.round(sc / fitSc * 100)}%</span>
       </div>
@@ -529,7 +552,86 @@ function hint(tool: Tool, drawing: boolean) {
   if (tool === 'pen') return drawing ? 'Click to add points · drag to pull a curve · click the first point to close · Esc to finish'
     : 'Click the outline to add a point · click a point to delete it · click empty space to start a new shape';
   if (tool === 'convert') return 'Click a point to switch corner ↔ smooth · drag from a point to pull out handles';
-  return 'Drag points, handles or curves · Shift-click or drag a box to pick several · arrows nudge (Shift ×10) · Space-drag to pan, ⌘-scroll to zoom';
+  return 'Drag points, handles or curves (hold ⌘ not to snap) · Shift-click or drag a box to pick several · arrows nudge (Shift ×10) · Space-drag to pan, ⌘-scroll to zoom';
+}
+
+/** Where a drag caught: a mark on the place it snapped to and what that is, or the names of the lines it lines up with. */
+function SnapMark({ hit, x, y }: { hit: Snapped; x: number; y: number }) {
+  const lines = [hit.gx, hit.gy].filter(l => l && l.label !== 'point').map(l => l!.label);
+  const label = hit.at ? hit.at.label : lines.join(' · ');
+  return (
+    <g className="pen-catch" pointerEvents="none">
+      {hit.at && <path d={`M${n1(x)} ${n1(y - 5)}l5 5-5 5-5-5z`} />}
+      {label && <text x={n1(x + 9)} y={n1(y - 8)}>{label}</text>}
+    </g>
+  );
+}
+
+const SNAPS: { id: SnapKind; label: string; note: string; icon: ReactNode }[] = [
+  { id: 'points', label: 'Points', note: 'Anchor points, and lining up with them',
+    icon: <><rect x="5.5" y="5.5" width="5" height="5" /><path d="M1 8h3M12 8h3" strokeDasharray="1.5 1.5" /></> },
+  { id: 'guides', label: 'Guides', note: 'Baseline, x-height, cap height, the sides',
+    icon: <><path d="M1.5 4.5h13M1.5 11.5h13" /><circle className="fill" cx="8" cy="11.5" r="1.6" /></> },
+  { id: 'centers', label: 'Centers', note: 'Middle of the width, the heights, each shape',
+    icon: <><circle cx="8" cy="8" r="5.5" /><path d="M8 5.5v5M5.5 8h5" /></> },
+  { id: 'midpoints', label: 'Midpoints', note: 'Halfway along each curve or line',
+    icon: <><path d="M2 13L14 3" /><path className="fill" d="M8 5.6l2.4 2.4L8 10.4 5.6 8z" /></> },
+  { id: 'outline', label: 'Point of contact', note: 'Anywhere along the outline',
+    icon: <><path d="M2 13.5C3 5 13 5 14 13.5" /><circle className="fill" cx="8" cy="7.2" r="1.7" /></> },
+  { id: 'crossings', label: 'Intersections', note: 'Where outlines and guide lines cross',
+    icon: <><path d="M2.5 13.5l11-11M2.5 2.5l11 11" /><circle cx="8" cy="8" r="2.2" /></> },
+  { id: 'tangents', label: 'Tangents', note: 'Where a line from the next point grazes a curve',
+    icon: <><circle cx="9" cy="9.5" r="4.5" /><path d="M1.5 5h13" /><circle className="fill" cx="9" cy="5" r="1.5" /></> }
+];
+
+/** Snap: on or off, and a menu of what it catches on. */
+function SnapMenu({ snap, onSet }: { snap: { on: boolean; kinds: SnapKind[] }; onSet: (s: { on: boolean; kinds: SnapKind[] }) => void }) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as globalThis.Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); setOpen(false); } };
+    document.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', esc, true);
+    return () => { document.removeEventListener('pointerdown', close); window.removeEventListener('keydown', esc, true); };
+  }, [open]);
+  const on = snap.on && snap.kinds.length > 0;
+  // picking a kind while snapping is off turns it back on
+  const toggle = (k: SnapKind) => {
+    const has = snap.kinds.includes(k);
+    onSet(!snap.on ? { on: true, kinds: has ? snap.kinds : SNAP_KINDS.filter(o => o === k || snap.kinds.includes(o)) }
+      : { on: true, kinds: has ? snap.kinds.filter(o => o !== k) : SNAP_KINDS.filter(o => o === k || snap.kinds.includes(o)) });
+  };
+  return (
+    <div className="pen-snapper" ref={wrap}>
+      <div className="pen-kind">
+        <button aria-pressed={on} className={on ? 'on' : undefined} title="Snap dragged points and handles (hold ⌘ while dragging to place one freely)"
+          onClick={() => onSet({ on: !on, kinds: snap.kinds.length ? snap.kinds : [...SNAP_KINDS] })}>
+          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v6a4 4 0 008 0v-6M4 5.5h3M9 5.5h3" /></svg>Snap
+        </button>
+        <button aria-label="What to snap to" title="What to snap to" aria-haspopup="true" aria-expanded={open} className={open ? 'on' : undefined} onClick={() => setOpen(o => !o)}>
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 6.5L5 3.5l3 3" /></svg>
+        </button>
+      </div>
+      {open && (
+        <div className="popover pen-snap-menu" role="group" aria-label="Snap to">
+          <div className="pen-snap-head">Snap to</div>
+          {SNAPS.map(o => {
+            const picked = snap.on && snap.kinds.includes(o.id);
+            return (
+              <button key={o.id} role="menuitemcheckbox" aria-checked={picked} className={picked ? 'on' : undefined} onClick={() => toggle(o.id)}>
+                <svg className="pen-snap-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">{o.icon}</svg>
+                <span><b>{o.label}</b><small>{o.note}</small></span>
+                <svg className="pen-snap-tick" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.5l2.3 2.3 4.7-5" /></svg>
+              </button>
+            );
+          })}
+          <div className="pen-snap-foot">Hold ⌘ while dragging to place a point freely</div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** A handle: a line from its anchor to a small round knob. */

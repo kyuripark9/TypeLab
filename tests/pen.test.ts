@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ALL_CHARS, buildFont, drawnCmds, fitOutline, type Cmd, type Node } from '../shared/engine';
 import { STYLES } from '../shared/content';
 import { DEFAULTS, isValidParams, sanitizeParams, type Params } from '../shared/params';
-import { contourArea, deleteAnchors, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment, peersOf, reshapeSegment, reverseContour, samePoints, setHandle, splitSegment, toggleSmooth, traceOf } from '../client/lib/pen';
+import { contourArea, deleteAnchors, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment, peersOf, reshapeSegment, reverseContour, samePoints, setHandle, snapIn, snapScene, splitSegment, tangentsFrom, toggleSmooth, traceOf, SNAP_KINDS } from '../client/lib/pen';
 
 type P = { x: number; y: number };
 
@@ -203,5 +203,67 @@ describe('Mirror with the pen', () => {
     assert.deepEqual(mirrorEdit(dia, all, ['x']), all);
     const added = splitSegment(dia, 0, 0, 0.5);
     assert.equal(mirrorEdit(dia, added, ['x']), added);
+  });
+});
+
+describe('Snapping with the pen', () => {
+  const h = { xh: 500, cap: 700, asc: 750, desc: -200 };
+  // a square stem and a bar crossing it, and a round bowl to the right
+  const stem: Node[] = [{ x: 100, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 700 }, { x: 100, y: 700 }];
+  const bar: Node[] = [{ x: 50, y: 300 }, { x: 250, y: 300 }, { x: 250, y: 400 }, { x: 50, y: 400 }];
+  const bowl: Node[] = [
+    { x: 400, y: 250, ix: 400, iy: 112, ox: 400, oy: 388, s: 1 }, { x: 525, y: 500, ix: 456, iy: 500, ox: 594, oy: 500, s: 1 },
+    { x: 650, y: 250, ix: 650, iy: 388, ox: 650, oy: 112, s: 1 }, { x: 525, y: 0, ix: 594, iy: 0, ox: 456, oy: 0, s: 1 }
+  ];
+  const cs = [stem, bar, bowl];
+  const scene = (kinds = SNAP_KINDS, from: { x: number; y: number }[] = []) => snapScene(cs, 800, h, kinds, new Set(), new Set(), from);
+  const has = (s: ReturnType<typeof scene>, label: string, x: number, y: number) => s.spots.some(p => p.label === label && Math.abs(p.x - x) <= 1 && Math.abs(p.y - y) <= 1);
+
+  it('finds the middle of the width and of each shape, and halfway along each line and curve', () => {
+    const s = scene(['centers', 'midpoints']);
+    assert.ok(has(s, 'center', 150, 350) && has(s, 'center', 150, 350) && has(s, 'center', 525, 250));
+    assert.ok(s.xs.some(l => l.v === 400 && l.label === 'center') && s.ys.some(l => l.v === 250) && s.ys.some(l => l.v === 350));
+    assert.ok(has(s, 'midpoint', 150, 0) && has(s, 'midpoint', 200, 350));
+    // halfway along a curve is on the curve, not between its ends
+    assert.ok(s.spots.some(p => p.label === 'midpoint' && Math.hypot(p.x - 525, p.y - 250) > 170));
+  });
+
+  it('finds where outlines cross each other and the guide lines, but not where they meet end to end', () => {
+    const s = scene(['crossings']);
+    for (const [x, y] of [[100, 300], [200, 300], [100, 400], [200, 400]]) assert.ok(has(s, 'intersect', x, y), `${x},${y}`);
+    assert.ok(!has(s, 'intersect', 100, 0) && !has(s, 'intersect', 525, 500));
+    // the bowl crosses the middle of the width (x 400) only at its leftmost point, which is an anchor
+    assert.ok(s.spots.filter(p => p.label === 'intersect' && p.y === 700).length === 0);
+  });
+
+  it('finds where a line from a point just touches a curve', () => {
+    // the bowl's top right quarter is touched once from above, nowhere from inside the bowl
+    assert.equal(tangentsFrom([bowl[1], { x: 594, y: 500 }, { x: 650, y: 388 }, bowl[2]], { x: 525, y: 900 }).length, 1);
+    assert.equal(tangentsFrom([bowl[1], { x: 594, y: 500 }, { x: 650, y: 388 }, bowl[2]], { x: 525, y: 250 }).length, 0);
+    const s = scene(['tangents'], [{ x: 525, y: 900 }]);
+    // from straight above the bowl, the lines touch its two sides
+    const t = s.spots.filter(p => p.label === 'tangent');
+    assert.equal(t.length, 2);
+    assert.ok(t.every(p => p.y > 300 && p.y < 500) && t.some(p => p.x < 525) && t.some(p => p.x > 525));
+  });
+
+  it('catches on a place first, then on the outline, then lines up across and up', () => {
+    const tol = 8;
+    assert.deepEqual(snapIn(scene(), { x: 103, y: 297 }, tol).at, { x: 100, y: 300, label: 'intersect' });
+    const on = snapIn(scene(['outline']), { x: 405, y: 150 }, tol);
+    assert.equal(on.at?.label, 'on outline');
+    assert.ok(on.x > 400 && on.x < 415 && Math.abs(on.y - 150) < 8);
+    const line = snapIn(scene(['guides', 'centers']), { x: 397, y: 505 }, tol);
+    assert.deepEqual([line.x, line.y, line.gx?.label, line.gy?.label, line.at], [400, 500, 'center', 'x-height', undefined]);
+    const none = snapIn(scene([]), { x: 397.4, y: 505.6 }, tol);
+    assert.deepEqual([none.x, none.y, none.at, none.gx, none.gy], [397, 506, undefined, undefined, undefined]);
+  });
+
+  it('leaves out the points being dragged and the curves that move with them', () => {
+    const s = snapScene(cs, 800, h, ['points', 'midpoints', 'outline'], new Set(['0:2']), new Set(['0:2']));
+    assert.ok(!has(s, 'anchor', 200, 700) && has(s, 'anchor', 100, 700));
+    assert.ok(!has(s, 'midpoint', 200, 350) && !has(s, 'midpoint', 150, 700) && has(s, 'midpoint', 100, 350));
+    assert.equal(snapIn(s, { x: 230, y: 402 }, 6).at?.label, 'on outline'); // the bar's top, still there
+    assert.equal(snapIn(s, { x: 203, y: 550 }, 6).at, undefined);
   });
 });

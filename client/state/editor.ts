@@ -5,6 +5,7 @@ import { SERIF_SUBS, STYLES, controlFor, firstControl, looksOf, styleById, style
 import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
+import { SNAP_KINDS, type SnapKind } from '../lib/pen';
 import { endCurl, endLength, isGlyphKey, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
@@ -28,6 +29,15 @@ const savedConstruction = (): boolean => {
 const FOLD_KEY = 'typelab.folded';
 const savedFolded = (): ControlKey[] => {
   try { const v = JSON.parse(localStorage.getItem(FOLD_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+};
+const SNAP_KEY = 'typelab.pen.snap';
+/** The pen's snapping: on or off, and what it snaps to (everything, until changed). */
+const savedSnap = (): { on: boolean; kinds: SnapKind[] } => {
+  try {
+    const v = JSON.parse(localStorage.getItem(SNAP_KEY) ?? 'null');
+    if (v && typeof v.on === 'boolean' && Array.isArray(v.kinds)) return { on: v.on, kinds: SNAP_KINDS.filter(k => v.kinds.includes(k)) };
+  } catch { /* fall through */ }
+  return { on: true, kinds: [...SNAP_KINDS] };
 };
 const TIPS_KEY = 'typelab.tipsHidden';
 const savedTips = (): boolean => {
@@ -86,6 +96,8 @@ export interface EditorState extends Doc {
   penMode: boolean;
   /** the pen mirrors an edit across the letter's middle: 'x' left ↔ right, 'y' top ↔ bottom */
   mirror: ('x' | 'y')[];
+  /** the pen snaps dragged points and handles (when on) to the kinds of place listed */
+  snap: { on: boolean; kinds: SnapKind[] };
   exportOpen: boolean;
   toast: { id: number; msg: string } | null;
 }
@@ -142,6 +154,7 @@ export const useEditor = create<EditorState>()(() => ({
   construction: savedConstruction(),
   penMode: false,
   mirror: [],
+  snap: savedSnap(),
   exportOpen: false,
   toast: null
 }));
@@ -462,6 +475,10 @@ export const actions = {
   },
   setPenMode(penMode: boolean) { set({ penMode }); },
   setMirror(mirror: ('x' | 'y')[]) { set({ mirror }); },
+  setSnap(snap: { on: boolean; kinds: SnapKind[] }) {
+    set({ snap });
+    try { localStorage.setItem(SNAP_KEY, JSON.stringify(snap)); } catch { /* private mode: lasts this visit */ }
+  },
   /** Give a letter drawn by hand back to the settings, which shape it again. */
   undrawLetter(ch: string) {
     const s = get();
