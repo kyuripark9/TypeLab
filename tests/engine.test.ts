@@ -794,6 +794,14 @@ describe('font engine', () => {
     for (const sliceRound of [0, 1]) assert.equal(contours(f({ sliceRound }).glyph('o')!.d), 2);
   });
 
+  it('one letter can have a slice of its own, the rest left as they are', () => {
+    const f = buildFont({ ...DEFAULTS, glyphs: { H: { slice: 0.5, slicePos: 0.8 } } }), plain = buildFont(DEFAULTS), cut = buildFont({ ...DEFAULTS, slice: 0.5, slicePos: 0.8 });
+    assert.equal(f.glyph('H')!.d, cut.glyph('H')!.d);
+    assert.equal(f.glyph('E')!.d, plain.glyph('E')!.d);
+    // and a letter can leave out the slice the rest share
+    assert.equal(buildFont({ ...DEFAULTS, slice: 0.5, glyphs: { o: { slice: 0 } } }).glyph('o')!.d, plain.glyph('o')!.d);
+  });
+
   it('the slice cuts through the letters at either end of its range, and leaves no slivers', () => {
     const ys = (d: string) => xsOf(d.replace(/(-?[\d.]+) (-?[\d.]+)/g, '$2 $1'));
     const plain = buildFont(DEFAULTS).glyph('H')!.d;

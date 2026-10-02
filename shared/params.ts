@@ -191,8 +191,8 @@ export interface Params {
 }
 
 /** Settings every letter shares. The heights are the lines all letters stand on, spacing and the
-    fills and slice run across a whole line, and the personality macros push the heights too. */
-export const GLOBAL_KEYS = ['height', 'xHeight', 'extenders', 'descender', 'letterSpacing', 'wordSpacing', 'mono', 'fill', 'module', 'slice', 'slicePos', 'sliceRound',
+    fills run across a whole line, and the personality macros push the heights too. */
+export const GLOBAL_KEYS = ['height', 'xHeight', 'extenders', 'descender', 'letterSpacing', 'wordSpacing', 'mono', 'fill', 'module',
   'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal', 'glyphs', 'outlines'] as const;
 /** A setting one letter can have its own value of. */
 export type GlyphKey = Exclude<keyof Params, (typeof GLOBAL_KEYS)[number]>;
