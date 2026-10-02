@@ -66,7 +66,7 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
       opt('dots', 'Dots', { fill: 'dots', module: 0.5 }), opt('lines', 'Lines', { fill: 'lines', module: 0.4 })] },
     { id: 'cuts', label: 'Cuts', hint: 'Gaps cut into the letters', sample: 'B', options: [
       opt('none', 'None', { joints: 0, stencil: 0, slice: 0 }), opt('inktrap', 'Ink traps', { joints: 0.8, stencil: 0, slice: 0 }),
-      opt('stencil', 'Stencil', { stencil: 0.5, joints: 0, slice: 0 }), opt('slice', 'Slice', { slice: 0.18, joints: 0, stencil: 0 })] },
+      opt('stencil', 'Stencil', { stencil: 0.15, joints: 0, slice: 0 }), opt('slice', 'Slice', { slice: 0.05, joints: 0, stencil: 0 })] },
     { id: 'hand', label: 'Hand-drawn', hint: 'Precise, or a little shaky like a pen', sample: 'a', options: [
       opt('precise', 'Precise', { wobble: 0 }), opt('slight', 'Slight', { wobble: 0.3 }), opt('rough', 'Rough', { wobble: 0.75 })] },
     { id: 'joined', label: 'Joined-up', hint: 'Separate printed letters, or script that flows on', sample: 'nu', options: [

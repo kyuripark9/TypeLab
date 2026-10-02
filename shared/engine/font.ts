@@ -194,7 +194,8 @@ function metrics(e: Effective): Metrics {
   // pixels and dots sit on one grid across the line, so spacing moves in whole cells
   const cell = e.fill === 'pixels' || e.fill === 'dots' || e.fill === 'lines' ? cap / lerp(30, 7, e.module) : 0;
   const snap = (v: number) => (cell && e.fill !== 'lines' ? Math.round(v / cell) * cell : v);
-  const sliceH = e.slice > 0 ? lerp(4, xh * 0.14, e.slice) : 0;
+  // at 100 the slice takes the middle half of the x-height, short of a thin stroke's width at the top and bottom
+  const sliceH = e.slice > 0 ? lerp(4, Math.max(xh * 0.14, Math.min(xh * 0.5, xh - 2 * thin)), e.slice) : 0;
   return {
     p: e, s, cap, xh,
     asc: Math.max(xh * 1.12, Math.max(cap * 1.05, xh * 1.18) + (e.extenders - 0.5) * cap * 0.5),
@@ -202,7 +203,7 @@ function metrics(e: Effective): Metrics {
     os: cap * 0.014,
     ws, thin, stress, k, org, sq: e.square, cur: e.cursive, wob: e.wobble, monoAdv: W(500) + sb * 1.5,
     // a gap moved out starts a stub's width out, so it never leaves a hairline on the stroke it joins
-    cell, gap: e.stencil > 0 ? e.stencil * (12 + s * 0.55) : 0, gapOff: e.stencilPos > 0 ? lerp(s * 0.55, xh * 0.4, e.stencilPos) : 0, gapRound: e.stencilRound,
+    cell, gap: e.stencil > 0 ? joinGap(e.stencil, s) : 0, gapOff: e.stencilPos > 0 ? lerp(s * 0.55, xh * 0.4, e.stencilPos) : 0, gapRound: e.stencilRound,
     // the slice keeps a stroke's width of ink below it and above it, so at either end it still cuts through the letters
     sliceY: e.slicePos < 0.5 ? lerp(Math.min(xh * 0.5, s + sliceH / 2), xh * 0.5, e.slicePos * 2) : lerp(xh * 0.5, Math.max(xh * 0.5, cap - s - sliceH / 2), e.slicePos * 2 - 1),
     sliceH, sliceRound: e.sliceRound, innerR: e.innerRound * cap * 0.4,
@@ -1768,7 +1769,10 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       // a stencilled ring is split down the middle into two halves
       let xl = Infinity, xr = -Infinity;
       for (const q of outer) { xl = Math.min(xl, q.x); xr = Math.max(xr, q.x); }
-      const cx = (xl + xr) / 2, g = m.gap;
+      // as wide as the gaps at its joins, but at most leaving each half half its side's width, so a heavy ring isn't cut away
+      let il = Infinity, ir = -Infinity;
+      for (const q of inner) { il = Math.min(il, q.x); ir = Math.max(ir, q.x); }
+      const cx = (xl + xr) / 2, g = m.gap && m.gap / joinGap(1, m.s) * Math.min(joinGap(1, m.s), (xr - xl + ir - il) / 2);
       if (g) {
         // each half is cut as one piece of ink, the hole with the ring, so its cut corners round the ink
         const ring = [wind(outer, 1), wind(inner, -1)], drawn = new Set(ring.flat()), w = m.s * (o.scale || 1) * strokeWt(m, si);

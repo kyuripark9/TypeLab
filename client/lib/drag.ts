@@ -173,7 +173,7 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
       const axis: Axis = Math.abs(k.dx) >= Math.abs(k.dy) ? 'x' : 'y', along = axis === 'x' ? k.dx : k.dy, sign: 1 | -1 = along < 0 ? -1 : 1;
       const at = { x: k.x, y: k.y }, s = font.m.s;
       return { [axis]: oneEnd ? { key: 'stencil', end: k.id, endKey: 'joinGaps', base: k.v ?? 0, sign, span: joinGap(1, s) * Math.abs(along), at }
-        : { key: 'stencil', sign, span: (12 + s * 0.55) * Math.abs(along), at } };
+        : { key: 'stencil', sign, span: joinGap(1, s) * Math.abs(along), at } };
     }
     case 'tail': case 'terminal': {
       // the tip of a tail, hook or stroke end follows the pointer along the axis it grows on most
