@@ -3,7 +3,7 @@
    or cast a shadow behind it. They run on the glyph's final
    outline (after slant and spacing), so a grid lines up from one letter to the next. The outline
    is read with the nonzero rule, like the font itself: overlapping strokes count once. */
-import { combine, shape } from './boolean';
+import { combine, shape, type Shape } from './boolean';
 import { cubicAt, dist, roundContour, roundCuts, signedArea, splitPoly } from './geom';
 import type { Cmd, Pt } from './types';
 
@@ -203,6 +203,7 @@ export interface FillOpts {
   /** the size the fill is set at, 0 to 1 (Module) */ size: number;
   /** stem thickness, and the thickness of a stroke running in direction (dx, dy) */ stem: number; thick: (dx: number, dy: number) => number;
   /** the letter's centerlines, placed like its outline (the inline runs down them) */ skeleton: Pt[][];
+  /** whether a stroke ending at p runs on into the next letter (the entry and exit of a joined-up hand) */ joins: (p: Pt) => boolean;
 }
 
 /** How far down and to the right a shadow falls, for a stem `stem` thick at size `size`. */
@@ -218,16 +219,41 @@ function toSeg(p: Pt, a: Pt, b: Pt) {
   return Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t);
 }
 
+/** How far the ink reaches from p each way along (nx, ny) and back, up to `max`: the first place
+    it runs out, past the sides of strokes overlapping inside it. Null where p isn't in the ink. */
+function across(ink: Shape, p: Pt, nx: number, ny: number, max: number): [number, number] | null {
+  if (!ink.has(p.x, p.y)) return null;
+  const hits: number[] = [];
+  for (const poly of ink.polys) for (let i = 0, n = poly.length; i < n; i++) {
+    const a = poly[i], b = poly[(i + 1) % n], ex = b.x - a.x, ey = b.y - a.y, d = nx * ey - ny * ex;
+    if (Math.abs(d) < 1e-12) continue;
+    const qx = a.x - p.x, qy = a.y - p.y, s = (qx * ey - qy * ex) / d, u = (qx * ny - qy * nx) / d;
+    if (u >= 0 && u < 1 && Math.abs(s) < max) hits.push(s);
+  }
+  const reach = (sign: number) => {
+    for (const s of hits.filter(s => s * sign > 0).sort((a, b) => (a - b) * sign)) {
+      const t = s + sign * 0.01;
+      if (!ink.has(p.x + nx * t, p.y + ny * t)) return Math.abs(s);
+    }
+    return max;
+  };
+  return [reach(1), reach(-1)];
+}
+
 /** A line `w` wide down each centerline, where the stroke is thick enough to leave ink either side
     of it: it fades out in hairlines and stops short of the free ends of strokes (not where a stroke
     runs into another, so the lines of an H meet), and each run of it is a band polygon. */
-function inlineBands(sk: Pt[][], w: number, o: FillOpts): Pt[][] {
+function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape): Pt[][] {
   const lines = sk.filter(l => l.length > 1);
   const near = (p: Pt, self: number) => lines.some((l, i) => i !== self && l.some((q, k) => k + 1 < l.length && toSeg(p, q, l[k + 1]) < o.stem * 0.6));
-  const out: Pt[][] = [];
-  lines.forEach((line, li) => {
+  const ways = lines.map((line, li) => {
     const closed = dist(line[0], line[line.length - 1]) < 1;
-    let pts = line.slice();
+    // in steps no longer than the line is wide, so a straight stroke is looked at all along
+    let pts: Pt[] = [line[0]];
+    for (let k = 1; k < line.length; k++) {
+      const a = line[k - 1], b = line[k], n = Math.ceil(dist(a, b) / w);
+      for (let i = 1; i <= n; i++) pts.push({ x: a.x + (b.x - a.x) * i / n, y: a.y + (b.y - a.y) * i / n });
+    }
     // a free end loses as much as the stroke is thick there, plus the line's width
     const trim = (from: number) => {
       const s0 = pts[from], s1 = pts[from ? from - 1 : 1];
@@ -241,20 +267,89 @@ function inlineBands(sk: Pt[][], w: number, o: FillOpts): Pt[][] {
         } else { if (from) pts.pop(); else pts.shift(); cut -= l; }
       }
     };
+    // (an end where the letter joins the next runs right out, so the line carries on into it)
     if (!closed) {
-      if (!near(pts[0], li)) trim(0);
-      if (pts.length > 1 && !near(pts[pts.length - 1], li)) trim(pts.length - 1);
+      if (!near(pts[0], li) && !o.joins(pts[0])) trim(0);
+      if (pts.length > 1 && !near(pts[pts.length - 1], li) && !o.joins(pts[pts.length - 1])) trim(pts.length - 1);
     }
-    // runs of the centerline where the stroke is at least 2.4 lines thick
-    let run: Pt[] = [];
-    const flush = () => { if (run.length > 1) out.push(band(run, w)); run = []; };
-    for (let k = 0; k + 1 < pts.length; k++) {
-      const a = pts[k], b = pts[k + 1];
-      if (o.thick(b.x - a.x, b.y - a.y) >= w * 2.4) { if (!run.length) run.push(a); run.push(b); }
-      else flush();
+    // how far along the line, and how much it has turned, up to each point
+    const S = [0], T = [0];
+    for (let k = 1; k < pts.length; k++) {
+      S.push(S[k - 1] + dist(pts[k - 1], pts[k]));
+      const a = pts[k - 2], b = pts[k - 1], c = pts[k];
+      T.push(T[k - 1] + (a ? Math.abs(Math.atan2((b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x), (b.x - a.x) * (c.x - b.x) + (b.y - a.y) * (c.y - b.y))) : 0));
     }
-    flush();
+    // how far the ink reaches either side of each point, straight across the line (a hairline the
+    // direction alone calls thick enough, as in a pointed pen's script, would be cut right through)
+    const room = pts.map((p, k) => {
+      const a = pts[Math.max(0, k - 1)], b = pts[Math.min(pts.length - 1, k + 1)], l = dist(a, b) || 1;
+      const r = across(ink, p, -(b.y - a.y) / l, (b.x - a.x) / l, o.stem * 4);
+      return r ? Math.min(r[0], r[1]) : 0;
+    });
+    // where the stroke is at least 2.4 lines thick, and the ink beside the line no thinner than a
+    // share of it. Where a wobbling hand thins the stroke for a moment and the line still fits, it
+    // carries on through rather than breaking into dashes
+    const ok = pts.slice(1).map((b, k) => {
+      const a = pts[k], r = Math.min(room[k], room[k + 1]);
+      return o.thick(b.x - a.x, b.y - a.y) < w * 2.4 ? 0 : r >= w * 0.85 ? 2 : r >= w * 0.6 ? 1 : 0;
+    });
+    for (let k = 0; k < ok.length; k++) {
+      if (ok[k] !== 1) continue;
+      let e = k;
+      while (e < ok.length && ok[e] === 1) e++;
+      const fill = k > 0 && e < ok.length && ok[k - 1] === 2 && ok[e] === 2 && S[e] - S[k] < o.stem;
+      for (let i = k; i < e; i++) ok[i] = fill ? 2 : 0;
+      k = e - 1;
+    }
+    return { pts, S, T, room, ok, keep: ok.map(() => false) };
   });
+  // where the pen goes back over a line it has drawn (as a script does, up a stem and down again),
+  // the line is laid down once: two bands on top of each other would cross at a hair's angle all
+  // along and break the cut into dashes. The pieces with the most ink either side go first, so of
+  // a hairline and the shaded stroke beside it, the line keeps to the middle of the shade. A piece
+  // goes over another when it runs alongside it (on its own line, when that one is well along
+  // from it or the line turned back between them). Laid pieces are found by where they are.
+  const gap = Math.max(w * 4, o.stem), cell = w * 2, grid = new Map<string, [number, number][]>();
+  const at = (p: Pt) => [Math.floor(p.x / cell), Math.floor(p.y / cell)];
+  const mid = (li: number, k: number) => { const { pts } = ways[li]; return { x: (pts[k].x + pts[k + 1].x) / 2, y: (pts[k].y + pts[k + 1].y) / 2 }; };
+  const over = (li: number, k: number) => {
+    const W = ways[li], a = W.pts[k], b = W.pts[k + 1], l = dist(a, b) || 1, m = mid(li, k), [i0, j0] = at(m);
+    for (let i = i0 - 1; i <= i0 + 1; i++) for (let j = j0 - 1; j <= j0 + 1; j++) for (const [lj, kj] of grid.get(i + ',' + j) ?? []) {
+      const V = ways[lj];
+      if (lj === li && Math.abs(W.S[k] - V.S[kj]) < gap && Math.abs(W.T[k] - V.T[kj]) < 2) continue;
+      const c = V.pts[kj], d = V.pts[kj + 1], sl = dist(c, d) || 1;
+      if (Math.abs((b.x - a.x) * (d.x - c.x) + (b.y - a.y) * (d.y - c.y)) / l / sl > 0.9 && toSeg(m, c, d) < w * 0.6) return true;
+    }
+    return false;
+  };
+  const order: [number, number, number][] = [];
+  ways.forEach((W, li) => W.ok.forEach((v, k) => { if (v === 2) order.push([li, k, Math.round(Math.min(W.room[k], W.room[k + 1]) / (w * 0.25))]); }));
+  order.sort((p, q) => q[2] - p[2] || p[0] - q[0] || p[1] - q[1]);
+  for (const [li, k] of order) {
+    if (over(li, k)) continue;
+    ways[li].keep[k] = true;
+    const key = at(mid(li, k)).join(',');
+    (grid.get(key) ?? grid.set(key, []).get(key)!).push([li, k]);
+  }
+  // each run of kept pieces is a band. Where one stops only because another takes over, it runs on
+  // a step, so the two overlap rather than leave a sliver of ink between them (their points don't
+  // line up)
+  const out: Pt[][] = [];
+  for (const { pts, keep, ok } of ways) {
+    let run: Pt[] = [];
+    const on = (p: Pt, q: Pt): Pt => ({ x: p.x + (p.x - q.x) / (dist(p, q) || 1) * w, y: p.y + (p.y - q.y) / (dist(p, q) || 1) * w });
+    const flush = (k: number) => {
+      if (run.length > 1) {
+        const k0 = k - run.length;
+        if (k0 >= 0 && ok[k0] === 2) run.unshift(on(run[0], run[1]));
+        if (k < ok.length && ok[k] === 2) run.push(on(run[run.length - 1], run[run.length - 2]));
+        out.push(band(run, w));
+      }
+      run = [];
+    };
+    keep.forEach((kept, k) => { if (kept) { if (!run.length) run.push(pts[k]); run.push(pts[k + 1]); } else flush(k); });
+    flush(keep.length);
+  }
   return out;
 }
 
@@ -315,9 +410,9 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
     }
     case 'inline': {
       // the ink with a line cut down the middle of its strokes
-      const w = o.stem * (0.08 + 0.3 * o.size), bands = inlineBands(o.skeleton, w, o);
+      const w = o.stem * (0.08 + 0.3 * o.size), ink = shape(polys), bands = inlineBands(o.skeleton, w, o, ink);
       if (!bands.length) return cmds;
-      const ink = shape(polys), cut = shape(bands);
+      const cut = shape(bands);
       return polysToCmds(combine([ink, cut], (x, y) => ink.has(x, y) && !cut.has(x, y)), 0);
     }
     case 'shadow': {

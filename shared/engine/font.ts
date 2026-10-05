@@ -2005,7 +2005,9 @@ function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: nu
   const skeleton = out.skeleton.map(r => r.map(tp));
   if (m.p.fill !== 'solid') {
     cmds = fillOutline(cmds, { fill: m.p.fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness, size: m.p.module,
-      stem: m.s, thick: m.tDir, skeleton });
+      // an entry or exit stroke reaches out of the letter's own room into its neighbour's, between
+      // the baseline and the x-height (a tail or an overhanging f goes below or above it)
+      stem: m.s, thick: m.tDir, skeleton, joins: p => (p.x < 0 || p.x > adv) && p.y > 0 && p.y < m.xh });
   }
   return {
     ...out, serifs, counters: out.counters.map(tf),

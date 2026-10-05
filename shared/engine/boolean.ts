@@ -52,18 +52,22 @@ export function combine(shapes: Shape[], keep: (x: number, y: number) => boolean
   edges.sort((e, f) => e.x0 - f.x0);
   for (let i = 0; i < edges.length; i++) {
     const e = edges[i];
-    for (let j = i + 1; j < edges.length && edges[j].x0 <= e.x1; j++) {
+    // (edges an EPS apart are still tried: two along the same line are often a hair off it)
+    for (let j = i + 1; j < edges.length && edges[j].x0 <= e.x1 + EPS; j++) {
       const f = edges[j];
-      if (f.y0 > e.y1 || f.y1 < e.y0) continue;
+      if (f.y0 > e.y1 + EPS || f.y1 < e.y0 - EPS) continue;
       const rx = e.b.x - e.a.x, ry = e.b.y - e.a.y, sx = f.b.x - f.a.x, sy = f.b.y - f.a.y;
       // an end of one lying on the other (also where the two run along the same line): the other is
       // cut there, so they meet at the same point. Told by distance, as edges nearly parallel would
-      // put a crossing worked out from their lines a little off.
+      // put a crossing worked out from their lines a little off. The cut is made at the point
+      // straight across on the edge, not at the end itself: that may lie off the edge by more than
+      // the sides of a piece are tested at, and would tip the piece over to the wrong side.
       const touch = (g: E, p: Pt) => {
         const gx = g.b.x - g.a.x, gy = g.b.y - g.a.y, l2 = gx * gx + gy * gy, t = ((p.x - g.a.x) * gx + (p.y - g.a.y) * gy) / l2;
         if (t <= 0 || t >= 1) return false;
-        if (Math.hypot(g.a.x + gx * t - p.x, g.a.y + gy * t - p.y) > EPS) return false;
-        if (Math.hypot(p.x - g.a.x, p.y - g.a.y) > EPS && Math.hypot(p.x - g.b.x, p.y - g.b.y) > EPS) g.cuts.push({ t, p });
+        const on = { x: g.a.x + gx * t, y: g.a.y + gy * t };
+        if (Math.hypot(on.x - p.x, on.y - p.y) > EPS) return false;
+        if (Math.hypot(p.x - g.a.x, p.y - g.a.y) > EPS && Math.hypot(p.x - g.b.x, p.y - g.b.y) > EPS) g.cuts.push({ t, p: on });
         return true;
       };
       const ends = +touch(e, f.a) + +touch(e, f.b) + +touch(f, e.a) + +touch(f, e.b);
@@ -80,20 +84,27 @@ export function combine(shapes: Shape[], keep: (x: number, y: number) => boolean
   }
   // the pieces that bound the region, turned to keep it on their left
   // points closer than a hundredth of a unit are one (three edges crossing at a point give it
-  // three slightly different ways), found through a grid of cells that size
-  const ids = new Map<string, { x: number; y: number; id: string }[]>();
+  // three slightly different ways), found through a grid of cells that size. A point keeps the
+  // one it was first given, as a point found later nearby could otherwise win it the next time
+  // and a chain would lose its way there
+  const ids = new Map<string, { x: number; y: number; id: string }[]>(), had = new Map<string, string>();
   let n = 0;
   const key = (p: Pt) => {
+    const at = p.x + ',' + p.y, was = had.get(at);
+    if (was) return was;
     const i = Math.floor(p.x * 100), j = Math.floor(p.y * 100);
     for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
-      for (const q of ids.get(`${i + a},${j + b}`) ?? []) if (Math.abs(q.x - p.x) <= 0.01 && Math.abs(q.y - p.y) <= 0.01) return q.id;
+      for (const q of ids.get(`${i + a},${j + b}`) ?? []) if (Math.abs(q.x - p.x) <= 0.01 && Math.abs(q.y - p.y) <= 0.01) { had.set(at, q.id); return q.id; }
     }
     const id = `${i},${j}`, c = { x: p.x, y: p.y, id: id + ':' + n++ };
     (ids.get(id) ?? ids.set(id, []).get(id)!).push(c);
+    had.set(at, c.id);
     return c.id;
   };
-  const from = new Map<string, { a: Pt; b: Pt; used: boolean }[]>();
-  const seen = new Set<string>();
+  // an edge two shapes share (a stroke's side running along another's) is kept once, and one
+  // going back the way another came cancels it (a spike no wider than a hair, which would otherwise
+  // leave a chain with no way on): each pair of points keeps one edge, the way more of them go
+  const pairs = new Map<string, { a: Pt; b: Pt; ka: string; kb: string; n: number }>();
   for (const e of edges) {
     const pts = [e.a, ...e.cuts.sort((p, q) => p.t - q.t).map(c => c.p), e.b];
     for (let k = 0; k + 1 < pts.length; k++) {
@@ -102,14 +113,18 @@ export function combine(shapes: Shape[], keep: (x: number, y: number) => boolean
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, o = Math.min(1e-4, l * 0.25), nx = -dy / l * o, ny = dx / l * o;
       const L = keep(mx + nx, my + ny), R = keep(mx - nx, my - ny);
       if (L === R) continue;
-      const [p, q] = L ? [a, b] : [b, a];
-      // an edge two shapes share (a stroke's side running along another's) is kept once
-      const id = key(p) + '>' + key(q);
-      if (seen.has(id)) continue;
-      seen.add(id);
-      const k0 = key(p);
-      (from.get(k0) ?? from.set(k0, []).get(k0)!).push({ a: p, b: q, used: false });
+      const [p, q] = L ? [a, b] : [b, a], kp = key(p), kq = key(q);
+      if (kp === kq) continue;
+      const id = kp < kq ? kp + '>' + kq : kq + '>' + kp, pair = pairs.get(id);
+      if (!pair) pairs.set(id, { a: p, b: q, ka: kp, kb: kq, n: 1 });
+      else pair.n += pair.ka === kp ? 1 : -1;
     }
+  }
+  const from = new Map<string, { a: Pt; b: Pt; used: boolean }[]>();
+  for (const { a, b, ka, kb, n } of pairs.values()) {
+    if (!n) continue;
+    const [p, q, k0] = n > 0 ? [a, b, ka] : [b, a, kb];
+    (from.get(k0) ?? from.set(k0, []).get(k0)!).push({ a: p, b: q, used: false });
   }
   const out: Pt[][] = [];
   for (const list of from.values()) for (const start of list) {

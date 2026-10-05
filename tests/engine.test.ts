@@ -889,6 +889,28 @@ describe('font engine', () => {
     for (const st of STYLES) for (const ch of 'BRg&@') assert.ok(buildFont({ ...st.params, fill: 'inline' }).glyph(ch)!.d, `${st.id} ${ch}`);
   });
 
+  it('an inline only takes ink away, in joined-up scripts too, and runs on where letters join', () => {
+    // a script goes back over its own lines and swells beside them: the cut once came apart there and
+    // filled whole counters in
+    for (const id of ['monoline', 'swash', 'brush', 'signature']) {
+      const p = { ...STYLES.find(s => s.id === id)!.params, weight: 0.55 }, solid = buildFont(p), f = buildFont({ ...p, fill: 'inline' });
+      for (const ch of 'youcandesigthr') {
+        const ink = shape(toPolys(f.glyph(ch)!.cmds)), full = shape(toPolys(solid.glyph(ch)!.cmds));
+        let inside = 0, extra = 0;
+        for (let x = -100; x < 900; x += 6) for (let y = -300; y < 900; y += 6) {
+          if (full.has(x, y)) inside++;
+          else if (ink.has(x, y)) extra++;
+        }
+        assert.ok(extra <= inside * 0.002, `${id} ${ch}: ${extra} of ${inside}`);
+      }
+      // the entry and exit strokes of an even pen line keep the line right out to their ends
+      if (id !== 'monoline') continue;
+      const g = f.glyph('n')!, sk = g.skeleton.flat(), ink = shape(toPolys(g.cmds));
+      const exit = sk.reduce((m, q) => (q.x > m.x ? q : m)), back = sk.find(q => Math.hypot(q.x - exit.x, q.y - exit.y) > f.m.s * 0.3 && q.x > exit.x - f.m.s)!;
+      assert.ok(!ink.has((exit.x * 3 + back.x) / 4, (exit.y * 3 + back.y) / 4), `${id}: the line runs out of the exit`);
+    }
+  });
+
   it('a shadow falls down to the right of the letter, a gap apart, and takes its own room', () => {
     const solid = buildFont({ ...DEFAULTS, weight: 0.7 }), f = buildFont({ ...DEFAULTS, weight: 0.7, fill: 'shadow', module: 0.5 });
     const g = f.glyph('l')!, l = solid.glyph('l')!, xs = (l.cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 0)) as number[]);
@@ -913,6 +935,16 @@ describe('font engine', () => {
     const joined = combine([c], c.has);
     assert.equal(joined.length, 1);
     assert.ok(Math.abs(signedArea(joined[0]) - 200) < 1e-6);
+    // two strokes whose tops lie a hair apart on one line still count once
+    const d = shape([sq(0, 0, 10), [{ x: 5, y: 1e-13 }, { x: 20, y: 1e-13 }, { x: 20, y: 10 + 1e-13 }, { x: 5, y: 10 + 1e-13 }]]);
+    const level = combine([d], d.has);
+    assert.equal(level.length, 1);
+    assert.ok(Math.abs(signedArea(level[0]) - 200) < 1e-6);
+    // a spike out and back along an edge leaves one closed outline
+    const e = shape([sq(0, 0, 10), [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4.0001, y: 0 }, { x: 4, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 5 }, { x: 0, y: 5 }]]);
+    const spiked = combine([e], e.has);
+    assert.equal(spiked.length, 1);
+    assert.ok(Math.abs(signedArea(spiked[0]) - 100) < 1e-6);
   });
 
   it('keeps the hook of an f clear of its crossbar, however short the ascenders', () => {
