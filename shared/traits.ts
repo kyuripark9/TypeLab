@@ -63,7 +63,8 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
   { id: 'finish', label: 'Finish', traits: [
     { id: 'fill', label: 'Fill', hint: 'What the letters are made of', sample: 'R', options: [
       opt('solid', 'Solid', { fill: 'solid' }), opt('wire', 'Outline', { fill: 'wire' }), opt('pixels', 'Pixels', { fill: 'pixels', module: 0.55 }),
-      opt('dots', 'Dots', { fill: 'dots', module: 0.5 }), opt('lines', 'Lines', { fill: 'lines', module: 0.4 })] },
+      opt('dots', 'Dots', { fill: 'dots', module: 0.5 }), opt('lines', 'Lines', { fill: 'lines', module: 0.4 }),
+      opt('inline', 'Inline', { fill: 'inline', module: 0.35 }), opt('shadow', 'Shadow', { fill: 'shadow', module: 0.35 })] },
     { id: 'cuts', label: 'Cuts', hint: 'Gaps cut into the letters', sample: 'B', options: [
       opt('none', 'None', { joints: 0, stencil: 0, slice: 0 }), opt('inktrap', 'Ink traps', { joints: 0.8, stencil: 0, slice: 0 }),
       opt('stencil', 'Stencil', { stencil: 0.15, joints: 0, slice: 0 }), opt('slice', 'Slice', { slice: 0.05, joints: 0, stencil: 0 })] },

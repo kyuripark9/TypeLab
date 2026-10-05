@@ -1,7 +1,9 @@
 /* Effects on finished outlines: a horizontal slice through every letter, and fills that rebuild
-   a letter as a wireframe or from a grid of pixels, dots or lines. They run on the glyph's final
+   a letter as a wireframe or from a grid of pixels, dots or lines, cut an inline down its strokes
+   or cast a shadow behind it. They run on the glyph's final
    outline (after slant and spacing), so a grid lines up from one letter to the next. The outline
    is read with the nonzero rule, like the font itself: overlapping strokes count once. */
+import { combine, shape } from './boolean';
 import { cubicAt, dist, roundContour, roundCuts, signedArea, splitPoly } from './geom';
 import type { Cmd, Pt } from './types';
 
@@ -191,7 +193,80 @@ function offset(p: Pt[], d: number): Pt[] {
   return out;
 }
 
-export interface FillOpts { fill: string; cell: number; line: number; roundness: number }
+export interface FillOpts {
+  fill: string; cell: number; line: number; roundness: number;
+  /** the size the fill is set at, 0 to 1 (Module) */ size: number;
+  /** stem thickness, and the thickness of a stroke running in direction (dx, dy) */ stem: number; thick: (dx: number, dy: number) => number;
+  /** the letter's centerlines, placed like its outline (the inline runs down them) */ skeleton: Pt[][];
+}
+
+/** How far down and to the right a shadow falls, for a stem `stem` thick at size `size`. */
+export const shadowShift = (stem: number, size: number) => {
+  const d = stem * (0.25 + 1.35 * size) + 12;
+  return { dx: d * 0.75, dy: -d * 0.75 };
+};
+
+/** Distance from p to the segment ab. */
+function toSeg(p: Pt, a: Pt, b: Pt) {
+  const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+  const t = l2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
+  return Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t);
+}
+
+/** A line `w` wide down each centerline, where the stroke is thick enough to leave ink either side
+    of it: it fades out in hairlines and stops short of the free ends of strokes (not where a stroke
+    runs into another, so the lines of an H meet), and each run of it is a band polygon. */
+function inlineBands(sk: Pt[][], w: number, o: FillOpts): Pt[][] {
+  const lines = sk.filter(l => l.length > 1);
+  const near = (p: Pt, self: number) => lines.some((l, i) => i !== self && l.some((q, k) => k + 1 < l.length && toSeg(p, q, l[k + 1]) < o.stem * 0.6));
+  const out: Pt[][] = [];
+  lines.forEach((line, li) => {
+    const closed = dist(line[0], line[line.length - 1]) < 1;
+    let pts = line.slice();
+    // a free end loses as much as the stroke is thick there, plus the line's width
+    const trim = (from: number) => {
+      const s0 = pts[from], s1 = pts[from ? from - 1 : 1];
+      let cut = o.thick(s1.x - s0.x, s1.y - s0.y) * 0.5 + w;
+      while (pts.length > 1 && cut > 0) {
+        const a = from ? pts[pts.length - 1] : pts[0], b = from ? pts[pts.length - 2] : pts[1], l = dist(a, b);
+        if (l > cut) {
+          const q = { x: a.x + (b.x - a.x) * cut / l, y: a.y + (b.y - a.y) * cut / l };
+          if (from) pts[pts.length - 1] = q; else pts[0] = q;
+          cut = 0;
+        } else { if (from) pts.pop(); else pts.shift(); cut -= l; }
+      }
+    };
+    if (!closed) {
+      if (!near(pts[0], li)) trim(0);
+      if (pts.length > 1 && !near(pts[pts.length - 1], li)) trim(pts.length - 1);
+    }
+    // runs of the centerline where the stroke is at least 2.4 lines thick
+    let run: Pt[] = [];
+    const flush = () => { if (run.length > 1) out.push(band(run, w)); run = []; };
+    for (let k = 0; k + 1 < pts.length; k++) {
+      const a = pts[k], b = pts[k + 1];
+      if (o.thick(b.x - a.x, b.y - a.y) >= w * 2.4) { if (!run.length) run.push(a); run.push(b); }
+      else flush();
+    }
+    flush();
+  });
+  return out;
+}
+
+/** The outline of a band `w` wide along the polyline, mitred where it turns. */
+function band(run: Pt[], w: number): Pt[] {
+  const n = run.length, L: Pt[] = [], R: Pt[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = run[Math.max(0, i - 1)], b = run[i], c = run[Math.min(n - 1, i + 1)];
+    let tx = c.x - a.x, ty = c.y - a.y;
+    const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+    // the miter grows where the line turns, up to twice as wide
+    const ux = b.x - a.x, uy = b.y - a.y, ul = Math.hypot(ux, uy);
+    const cos = ul && i > 0 && i < n - 1 ? Math.max(0.5, (ux * tx + uy * ty) / ul) : 1, h = w / 2 / cos;
+    L.push({ x: b.x - ty * h, y: b.y + tx * h }); R.push({ x: b.x + ty * h, y: b.y - tx * h });
+  }
+  return [...R, ...L.reverse()];
+}
 
 /** Rebuild an outline with a fill other than solid ink. */
 export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
@@ -232,6 +307,21 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
         }
       }
       return out;
+    }
+    case 'inline': {
+      // the ink with a line cut down the middle of its strokes
+      const w = o.stem * (0.08 + 0.3 * o.size), bands = inlineBands(o.skeleton, w, o);
+      if (!bands.length) return cmds;
+      const ink = shape(polys), cut = shape(bands);
+      return polysToCmds(combine([ink, cut], (x, y) => ink.has(x, y) && !cut.has(x, y)), 0);
+    }
+    case 'shadow': {
+      // a copy of the letter falls behind it down to the right, kept apart from it by a gap
+      const ink = shape(polys), { dx, dy } = shadowShift(o.stem, o.size), gap = Math.max(10, o.stem * 0.16);
+      // the letter grown by the gap: its joined outline pushed out, to the right of each contour, as
+      // outlines come out of combine anticlockwise and holes clockwise
+      const grown = shape(combine([ink], ink.has).map(p => offset(p, -gap))), back = shape(polys.map(p => p.map(q => ({ ...q, x: q.x + dx, y: q.y + dy }))));
+      return polysToCmds(combine([ink, grown, back], (x, y) => ink.has(x, y) || (back.has(x, y) && !grown.has(x, y))), 0);
     }
     default: return cmds;
   }

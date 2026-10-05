@@ -85,12 +85,14 @@ export const MOODS: { id: Mood; label: string }[] = ([
 /* Appearance, like Google's tags of that name: what the letters look like. Unlike the other
    tags these are not hand-picked but read off each style's settings, so they stay true as
    styles are tuned. */
-export type Look = 'mono' | 'pixel' | 'stencil' | 'outline' | 'techno' | 'inktrap' | 'contrast' | 'wide' | 'narrow';
+export type Look = 'mono' | 'pixel' | 'stencil' | 'outline' | 'inline' | 'shadow' | 'techno' | 'inktrap' | 'contrast' | 'wide' | 'narrow';
 export const LOOKS: { id: Look; label: string; hint: string; test: (e: Effective) => boolean }[] = [
   { id: 'mono', label: 'Monospace', hint: 'Every letter takes the same width', test: e => e.mono >= 0.5 },
   { id: 'pixel', label: 'Pixel', hint: 'Built from a grid of pixels or dots', test: e => e.fill === 'pixels' || e.fill === 'dots' },
   { id: 'stencil', label: 'Stencil', hint: 'Letters cut apart by gaps', test: e => e.stencil > 0 || e.slice > 0 },
   { id: 'outline', label: 'Outline', hint: 'Drawn as lines, not filled in', test: e => e.fill === 'wire' },
+  { id: 'inline', label: 'Inline', hint: 'A line cut down the middle of the strokes', test: e => e.fill === 'inline' },
+  { id: 'shadow', label: 'Shadow', hint: 'Letters cast a shadow behind them', test: e => e.fill === 'shadow' },
   { id: 'techno', label: 'Techno', hint: 'Squared-off bowls or cut corners instead of curves', test: e => e.fill === 'solid' && (e.square >= 0.5 || e.chamfer >= 0.2) },
   { id: 'inktrap', label: 'Ink Traps', hint: 'Strokes narrow where they meet', test: e => e.joints >= 0.4 },
   { id: 'contrast', label: 'High Contrast', hint: 'Strong difference between thick and thin', test: e => e.contrast >= 0.5 },
@@ -434,10 +436,10 @@ export const STYLES: StyleDef[] = [
     { weight: 0.14, width: 0.28, height: 0.8, slant: 0.9, contrast: 0.53, terminal: 'tapered', wobble: 0.5, cursive: 1, terminalCurl: 0.64,
       terminalLength: 0.7, tail: 0.85, xHeight: 0.14, extenders: 1, curve: 1, geoHuman: 1, letterSpacing: 0, wordSpacing: 0.6 }),
   style('blackletter', 'hand', ['blackletter'], 'Blackletter', ['vintage', 'rugged', 'fancy'], 'UnifrakturMaguntia, Pirata One, Grenze Gotisch',
-    'Gothic textura from a broad pen: tall, narrow and packed close, every curve broken into straight cuts, with diamond-sharp serifs.',
-    { weight: 0.6, width: 0.3, height: 0.72, contrast: 0.79, chamfer: 0.8, curve: 0, serif: true, serifShape: 'wedge', serifSize: 0.18,
-      serifThickness: 0.6, serifAngle: 1, terminal: 'angled', softSharp: 1, geoHuman: 0.7, xHeight: 0.6, extenders: 0.45, aperture: 0.15,
-      apex: 0.1, counter: 0.36, letterSpacing: 0.2 }),
+    'Gothic textura from a broad pen: tall, narrow and packed close, every curve broken into straight cuts, each stem standing on a diamond.',
+    { weight: 0.62, width: 0.2, height: 0.72, contrast: 0.85, chamfer: 1, squareness: 1, curve: 1, serif: true, serifShape: 'diamond', serifSize: 0.18,
+      serifThickness: 0.5, serifAngle: 1, terminal: 'angled', softSharp: 1, geoHuman: 1, xHeight: 0.6, extenders: 0.45, aperture: 0.1,
+      apex: 0.1, counter: 0.3, letterSpacing: 0.12 }),
   style('sketch', 'hand', ['handwritten', 'upright'], 'Sketch', ['artistic', 'playful', 'childlike'], 'Cabin Sketch, Londrina Sketch, Rubik Doodle Shadow',
     'Outlined in pencil and never inked in: each stroke drawn as a shaky double line, like letters roughed out in a sketchbook.',
     { weight: 0.62, width: 0.5, contrast: 0.5, fill: 'wire', module: 0.3, roundness: 0.6, terminal: 'round', wobble: 1, curve: 0.5,
@@ -496,6 +498,14 @@ export const STYLES: StyleDef[] = [
     'Drawn as the outline of every stroke, overlaps and all, like a letter still on the drawing board.',
     { weight: 0.6, contrast: 0.5, fill: 'wire', module: 0.35, curve: 0, geoHuman: 0.25, apex: 0.1, counter: 0.62, xHeight: 0.5,
       letterSpacing: 0.3 }),
+  style('inline', 'display', ['geometric'], 'Inline', ['vintage', 'fancy', 'artistic'], 'Bungee Inline, Monoton, Limelight',
+    'Bold geometric capitals with a fine line cut down the middle of every stroke, like Art Deco signs and theatre posters.',
+    { weight: 0.78, width: 0.6, contrast: 0.5, fill: 'inline', module: 0.3, curve: 0, geoHuman: 0.2, apex: 0.2, counter: 0.6, xHeight: 0.62,
+      letterSpacing: 0.3 }),
+  style('shadow', 'display', ['slab'], 'Shadow', ['vintage', 'loud', 'excited'], 'Bungee Shade, Rubik Mono One, Ewert',
+    'A heavy slab with a copy of each letter set down to the right behind it, a white gap between, like a circus or saloon sign.',
+    { weight: 0.72, width: 0.62, contrast: 0.55, serif: true, serifShape: 'slab', serifSize: 0.35, serifThickness: 0.6, fill: 'shadow', module: 0.35,
+      curve: 0.2, xHeight: 0.62, counter: 0.5, aperture: 0.4, letterSpacing: 0.3 }),
   style('reverse', 'display', [], 'Reverse Contrast', ['futuristic', 'loud', 'artistic', 'innovative'], 'Ewert, Sancreek, Rye',
     'Contrast turned on its side: fat horizontals and hairline stems. Wide, strange and made for posters.',
     { weight: 0.55, width: 0.86, contrast: 0.18, curve: 0, squareness: 0.3, apex: 0.8, xHeight: 0.56, counter: 0.5,
@@ -750,7 +760,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Bouncy and tilted, or upright and refined.' },
 
   fill: { cat: 'effects', type: 'fill', label: 'Fill', friendly: 'Build the letters from something else', tech: 'Fill', demo: 'Rg',
-    explain: 'Solid ink, outlines, or a grid of pixels, dots or lines.' },
+    explain: 'Solid ink, outlines, a grid of pixels, dots or lines, a line cut down the middle of each stroke, or a shadow cast down to the right. Size sets how coarse the grid is, how wide the line, or how far the shadow falls.' },
   stencil: { cat: 'effects', off: 0, label: 'Stencil', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
     explain: 'Strokes break where they join, as if cut from a sheet. Thickness sets how wide the gaps open; Position moves the gaps out along the strokes; Rounding softens their corners.' },
   slice: { cat: 'effects', off: 0, label: 'Slice', friendly: 'Cut one line through every letter', tech: 'Slice', lo: 'None', hi: 'Wide', demo: 'type',
@@ -768,7 +778,7 @@ export const SERIF_SUBS: Record<SerifSubKey, SubControlDef> = {
 };
 /** The sliders every serif shape has, and the finer ones of each shape, shown while that shape is picked. */
 export const SERIF_SIZES: SerifSubKey[] = ['serifSize', 'serifThickness', 'serifAngle'];
-export const SERIF_DETAILS: Record<SerifShape, SerifSubKey[]> = { bracketed: ['serifBracket'], unbracketed: [], slab: [], wedge: [] };
+export const SERIF_DETAILS: Record<SerifShape, SerifSubKey[]> = { bracketed: ['serifBracket'], unbracketed: [], slab: [], wedge: [], diamond: [] };
 export const SERIF_TIP_SUBS: Record<SerifTipSubKey, SubControlDef> = {
   serifTipRound: { label: 'Roundness', friendly: 'Round the tips from soft corners to a half circle', tech: 'Tip radius', lo: 'Soft corners', hi: 'Half circle' },
   serifTipSlant: { label: 'Slant', friendly: 'Lean the cut under the tip or back over it', tech: 'Tip angle', lo: 'Undercut', hi: 'Sloped', bipolar: true }
@@ -787,7 +797,7 @@ export const SERIF_ARM_SUBS: Record<SerifArmSubKey, SubControlDef> = {
   serifArmLean: { label: 'Lean', friendly: 'Lean the serifs on arms in under the arm or splay them out', tech: 'Splayed arm serifs', lo: 'In', hi: 'Out', bipolar: true }
 };
 export const FILL_SUBS: Record<FillSubKey, SubControlDef> = {
-  module: { label: 'Grid size', friendly: 'Change the size of the grid or line', tech: 'Module size', lo: 'Fine', hi: 'Coarse' }
+  module: { label: 'Size', friendly: 'Change the size of the grid, the line or the shadow', tech: 'Module size', lo: 'Fine', hi: 'Coarse' }
 };
 export const TERMINAL_SUBS: Record<TerminalSubKey, SubControlDef> = {
   terminalLength: { label: 'Length', friendly: 'Make the stroke ends longer or shorter', tech: 'Terminal length', lo: 'Short', hi: 'Long' },
@@ -871,9 +881,9 @@ export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Par
   dots: { ch: 'i', options: [['square', 'Square'], ['round', 'Round']] as [Exclude<Dots, 'auto'>, string][] },
   aForm: { ch: 'a', options: [['plain', 'Plain'], ['spur', 'Spur']] as [AForm, string][] }
 };
-export const FILL_OPTIONS: [Fill, string][] = [['solid', 'Solid'], ['wire', 'Wireframe'], ['pixels', 'Pixels'], ['dots', 'Dots'], ['lines', 'Lines']];
+export const FILL_OPTIONS: [Fill, string][] = [['solid', 'Solid'], ['wire', 'Wireframe'], ['pixels', 'Pixels'], ['dots', 'Dots'], ['lines', 'Lines'], ['inline', 'Inline'], ['shadow', 'Shadow']];
 export const TERMINAL_OPTIONS: [Terminal, string][] = [['flat', 'Flat'], ['round', 'Rounded'], ['sharp', 'Sharp'], ['angled', 'Angled'], ['cut', 'Cut'], ['tapered', 'Tapered']];
-export const SERIF_SHAPE_OPTIONS: [SerifShape, string][] = [['bracketed', 'Bracketed'], ['unbracketed', 'Unbracketed'], ['slab', 'Slab'], ['wedge', 'Wedge']];
+export const SERIF_SHAPE_OPTIONS: [SerifShape, string][] = [['bracketed', 'Bracketed'], ['unbracketed', 'Unbracketed'], ['slab', 'Slab'], ['wedge', 'Wedge'], ['diamond', 'Diamond']];
 export const SERIF_TIP_OPTIONS: [SerifTip, string][] = [['square', 'Square'], ['round', 'Round'], ['pointed', 'Pointed'], ['angled', 'Angled']];
 export const SERIF_BASE_OPTIONS: [SerifBase, string][] = [['flat', 'Flat'], ['cupped', 'Cupped']];
 /** Where a crossbar's Gap opens: the bar stopping short of the strokes it meets, or running through them, cut free above and below. */
@@ -956,7 +966,7 @@ export const TAG_FACE: Record<StyleGroup | Mood | Look | Kind, string> = {
   business: 'grotesque', calm: 'humanist', happy: 'soft', playful: 'display', cute: 'upright', childlike: 'casual',
   fancy: 'didone', sophisticated: 'chancery', artistic: 'brush', loud: 'fatface', rugged: 'marker', vintage: 'typewriter',
   futuristic: 'techno', sincere: 'clarendon', excited: 'marker', innovative: 'squircle', stiff: 'code',
-  mono: 'code', pixel: 'pixel', stencil: 'stencil', outline: 'construction', techno: 'techno', inktrap: 'inktrap',
+  mono: 'code', pixel: 'pixel', stencil: 'stencil', outline: 'construction', inline: 'inline', shadow: 'shadow', techno: 'techno', inktrap: 'inktrap',
   contrast: 'didone', wide: 'wide', narrow: 'condensed',
   handwritten: 'casual', upright: 'upright', informal: 'informal', formal: 'chancery', brush: 'brush', marker: 'marker',
   swash: 'swash', italic: 'swash', monoline: 'signature', signature: 'signature', blackletter: 'blackletter',

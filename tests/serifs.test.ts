@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { ALL_CHARS, buildFont, type Cmd, type Glyph } from '../shared/engine';
+import { shape } from '../shared/engine/boolean';
+import { toPolys } from '../shared/engine/effects';
 import { DEFAULTS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, isValidParams, sanitizeParams, type Params } from '../shared/params';
 
 const serif: Params = { ...DEFAULTS, serif: true, serifThickness: 0.5 };
@@ -178,6 +180,24 @@ describe('serif details', () => {
     const f = buildFont({ ...serif, glyphs: { n: { serifTip: 'round', serifBase: 'cupped' } } });
     assert.notEqual(f.glyph('n')!.d, buildFont(serif).glyph('n')!.d);
     assert.equal(f.glyph('m')!.d, buildFont(serif).glyph('m')!.d);
+  });
+
+  it('stands a blackletter stem on a diamond, its end cut on a slant', () => {
+    const p = { ...serif, serifShape: 'diamond' as const, weight: 0.7 }, g = glyph(p, 'l');
+    const ink = shape(toPolys(g.cmds)), stem = box(g.strokes.map(s => s.cmds)), t = stem.w;
+    // the foot: its left corner cut away, a point under the right edge, and the diamond reaching right
+    assert.ok(!ink.has(stem.x0 + t * 0.15, t * 0.15), 'the left corner of the foot is cut away');
+    assert.ok(ink.has(stem.x1 - 2, 3), 'the point under the right edge');
+    assert.ok(box(at(g, 'foot')).x1 > stem.x1 + t * 0.3, 'the diamond reaches right of the stem');
+    // the head is the same turned round: it reaches left
+    assert.ok(box(at(g, 'top')).x0 < stem.x0 - t * 0.3, 'the head reaches left');
+    // Thickness stands it taller
+    const tall = box(at(glyph({ ...p, serifThickness: 1 }, 'l'), 'foot')).h, flat = box(at(glyph({ ...p, serifThickness: 0 }, 'l'), 'foot')).h;
+    assert.ok(tall > flat * 2, `${tall} against ${flat}`);
+    // the other arm of a v keeps its whole length, and arms get wedges
+    const v = glyph(p, 'v'), sv = glyph({ ...p, serif: false }, 'v');
+    assert.ok(box([v.cmds]).w >= box([sv.cmds]).w - 1);
+    assert.ok(at(glyph(p, 'E'), 'arm').length >= 2);
   });
 
   it('falls back on tips and bases it does not know', () => {

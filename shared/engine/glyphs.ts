@@ -748,11 +748,20 @@ def('e', [0.55, 0.5], (g, m) => {
 /** How far Crossbar moves the crossbars of f and t off the x-height: not at all at the middle. */
 const fBar = (m: Metrics) => (m.bar - 0.5) * m.xh * 0.5;
 def('f', [0.35, 0.1], (g, m) => {
-  const { X, hh } = lc(m), W = m.W(310), xs = W * 0.36, top = m.asc + m.os - hh, r = (W - xs) * 1.05, xh = xs + r * hookK(m);
-  g.path([['M', xs, 0], ['L', xs, top - r * 0.9], ['vh', xh, top, { u1: hookU(m, 0.8) }]], { e: T, part: 'stem', serifS: 'both' });
-  const e = m.qpt(xs, top - r * 0.9, xh, top, 'vh', hookU(m, 0.8));
+  const { X, hh } = lc(m), W = m.W(310), xs = W * 0.36, r = (W - xs) * 1.05, xh = xs + r * hookK(m);
+  // with short ascenders and heavy strokes the hook would sit right on the crossbar and the f read
+  // as an r: it keeps nearly two strokes between them, half by rising, half by lowering the bar
+  let top = m.asc + m.os - hh, by = X - hh + fBar(m);
+  const short = Math.max(0, 1.8 * m.s - (top - by));
+  top += short / 2; by -= short / 2;
+  // the hook runs on until it reaches out past the stem by most of a stroke, where a closed aperture or a
+  // squared turn would stop it over the stem (a narrow blackletter f read as a t)
+  let u = hookU(m, 0.8);
+  while (u < 1 && m.qpt(xs, top - r * 0.9, xh, top, 'vh', u).x < xs + m.s * 1.15) u = Math.min(1, u + 0.04);
+  g.path([['M', xs, 0], ['L', xs, top - r * 0.9], ['vh', xh, top, { u1: u }]], { e: T, part: 'stem', serifS: 'both' });
+  const e = m.qpt(xs, top - r * 0.9, xh, top, 'vh', u);
   tailEnd(g, e.x, e.y, W);
-  g.line(0, X - hh + fBar(m), W * 0.92, X - hh + fBar(m), { s: T, e: T, part: 'crossbar' });
+  g.line(0, by, W * 0.92, by, { s: T, e: T, part: 'crossbar' });
   // a longer hook takes its extra reach with it, so the next letter doesn't run into it
   return W + r * (hookK(m) - 1);
 });

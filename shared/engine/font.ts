@@ -6,9 +6,9 @@
 import { DEFAULTS, barCut, contrastOf, endCurl, endLength, endReach, formOf, joinGap, rotationDeg, weighed, weightScale, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, roundCuts, signedArea, splitPoly, subCubic, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
-import { fillOutline, slice } from './effects';
+import { fillOutline, shadowShift, slice } from './effects';
 import { drawnCmds, type Drawn } from './outline';
-import { autoThickness, buildSerif, expandStroke, innerFloor, organicK, serifCup, serifPlace, serifSides, type Expanded, type SerifPlace } from './stroke';
+import { autoThickness, buildSerif, diamondCut, diamondEnd, expandStroke, innerFloor, organicK, serifCup, serifPlace, serifSides, type Expanded, type SerifPlace } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, SerifSides, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
 
 export const CHARSET = {
@@ -1837,6 +1837,12 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       }
       const bar = through?.bars.get(si);
       if (bar) pieces = [bar];
+      // under a diamond serif the stem's end is cut off on a slant, the diamond standing on it
+      for (const end of ex.ends) {
+        if (!(end.which === 's' ? serifS : serifE) || !diamondEnd(end, ctx)) continue;
+        const face = facing?.get(`${si}${end.which}`), sides = face ? face.sides : (end.which === 's' ? o.serifS : o.serifE) ?? null;
+        if (sides) { const cut = diamondCut(end, ctx); pieces = pieces.flatMap(q => cut.flatMap(pl => splitPoly([q], pl))); }
+      }
       for (const [y0, y1] of through?.bands.get(si) ?? []) {
         // a wide gap leaves no sliver of the stroke past it (the foot of an A's leg)
         const cut = pieces.flatMap(q => [...splitPoly([q], { x: 0, y: y1, nx: 0, ny: -1 }), ...splitPoly([q], { x: 0, y: y0, nx: 0, ny: 1 })]);
@@ -1928,6 +1934,8 @@ function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: nu
     const snapped = Math.max(m.cell, Math.round(adv / m.cell) * m.cell);
     lsb += (snapped - adv) / 2; rsb += (snapped - adv) / 2; adv = snapped;
   }
+  // a shadow takes its own room on the right, so it doesn't run into the next letter
+  if (m.p.fill === 'shadow') { const sh = shadowShift(m.s, m.p.module).dx; rsb += sh; adv += sh; }
   let M: Mat = flip ? [-sx, 0, 0, 1, lsb + W * sx, 0] : [sx, 0, 0, 1, lsb, 0];
   if (turn) M = mulM(M, turn.M);
   const bounce = m.p.bounce, wob = m.wob;
@@ -1945,12 +1953,14 @@ function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: nu
   const serifs = out.serifs.map(tf);
   let cmds = [...out.strokes.flatMap(s => s.cmds), ...serifs.flat()];
   if (m.sliceH) cmds = slice(cmds, m.sliceY - m.sliceH / 2, m.sliceY + m.sliceH / 2, m.sliceRound, m.s, m.s * 0.35);
+  const skeleton = out.skeleton.map(r => r.map(tp));
   if (m.p.fill !== 'solid') {
-    cmds = fillOutline(cmds, { fill: m.p.fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness });
+    cmds = fillOutline(cmds, { fill: m.p.fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness, size: m.p.module,
+      stem: m.s, thick: m.tDir, skeleton });
   }
   return {
     ...out, serifs, counters: out.counters.map(tf),
-    marks: out.marks.map(k => k.home ? { ...tp(k), home: tp(k.home) } : tp(k)), corners: out.corners.map(tp), skeleton: out.skeleton.map(r => r.map(tp)),
+    marks: out.marks.map(k => k.home ? { ...tp(k), home: tp(k.home) } : tp(k)), corners: out.corners.map(tp), skeleton,
     lsb, rsb, adv, M, cmds, d: cmdsToD(cmds)
   };
 }

@@ -12,7 +12,9 @@ const FORM_IDS: readonly string[] = Object.values(TERMINAL_FORMS).flat();
 /** The form stroke ends of kind `t` take: `form` when it is one of that kind's, else the kind's first. */
 export const formOf = (t: Terminal, form: string): TerminalForm =>
   ((TERMINAL_FORMS[t] as readonly string[]).includes(form) ? form : TERMINAL_FORMS[t][0]) as TerminalForm;
-export const SERIF_SHAPES = ['bracketed', 'unbracketed', 'slab', 'wedge'] as const;
+/** The shape of the serifs. A diamond is the lozenge a broad pen leaves at the foot and head of a blackletter stem: the
+    stem's end cut off on a slant, and a square stood on its corner there, reaching right at the foot and left at the head. */
+export const SERIF_SHAPES = ['bracketed', 'unbracketed', 'slab', 'wedge', 'diamond'] as const;
 /** How a serif finishes at its tips: cut square, rounded off, drawn out to a point, or cut on a slant. */
 export const SERIF_TIPS = ['square', 'round', 'pointed', 'angled'] as const;
 /** The underside of a serif: flat on its line, or cupped, arching up under the stroke so only its tips touch the line. */
@@ -21,8 +23,9 @@ export const SERIF_BASES = ['flat', 'cupped'] as const;
 export const SERIF_SIDES = ['both', 'left', 'right', 'inside', 'outside'] as const;
 /** The shape of the serifs that reach into the letter: the same as the rest, or one of their own. */
 export const SERIF_INNERS = ['same', ...SERIF_SHAPES] as const;
-/** What the letters are built from: solid ink, a wireframe of every stroke, or a grid of pixels, dots or lines. */
-export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines'] as const;
+/** What the letters are built from: solid ink, a wireframe of every stroke, a grid of pixels, dots or lines, ink with a
+    line cut down its strokes (inline), or ink casting a shadow down to the right. */
+export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines', 'inline', 'shadow'] as const;
 /** The lowercase a: two storeys (bowl under a hook) or one (just a bowl). 'auto' lets the personality and cursive settings pick. */
 export const STORIES = ['auto', 'double', 'single'] as const;
 /** How a bowl meets its stem (b d p q g, the single-storey a): curving out of it, or square, its flat top and bottom running straight into it. */

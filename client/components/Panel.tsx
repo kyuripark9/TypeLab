@@ -289,9 +289,9 @@ function TagText({ tag, label }: { tag: Tag; label: string }) {
 }
 
 function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
-  const serifs = useParam('serif'), wedge = useParam('serifShape') === 'wedge', outside = useParam('serifSides') === 'outside';
+  const serifs = useParam('serif'), shape = useParam('serifShape'), wedge = shape === 'wedge' || shape === 'diamond', outside = useParam('serifSides') === 'outside';
   const blocks = useParam('build') === 'blocks';
-  // the Serifs page has nothing to shape while serifs are off, a wedge, already a point, has no tip to finish,
+  // the Serifs page has nothing to shape while serifs are off, a wedge or a diamond, already a point, has no tip to finish,
   // and serifs that only reach out of the letter leave none inside it; letters built from blocks have no
   // strokes, so only the controls that shape blocks show
   const all = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category);
@@ -1139,7 +1139,7 @@ function FillControl() {
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="fill" {...useControlFocus('fill')}>
       <FoldHead k="fill" label={c.label} summary={FILL_OPTIONS.find(([id]) => id === fill)![1]} />
       <Fold k="fill">
-        <div className="opts five" role="radiogroup" aria-label={c.tech}>
+        <div className="opts four" role="radiogroup" aria-label={c.tech}>
           {FILL_OPTIONS.map(([id, label]) => (
             <button key={id} role="radio" aria-checked={fill === id} className={fill === id ? 'opt on' : 'opt'}
               onClick={() => actions.setOption('fill', id)}>

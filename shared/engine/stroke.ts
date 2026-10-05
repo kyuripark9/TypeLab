@@ -4,7 +4,7 @@
    stroke runs vertically, thin where it runs horizontally (scaled by Contrast),
    with styled terminals, mitered joins and optional serifs. */
 import { clamp, cubicAt, lerp, lerpP, quarter, smoothstep, subCubic } from './geom';
-import type { Cmd, EndType, PenCtx, Pt, SerifSides, SerifSpec, StrokeEnd, StrokeOpts, StrokeWeight, TermSpec, TurnR } from './types';
+import type { Cmd, EndType, HalfPlane, PenCtx, Pt, SerifSides, SerifSpec, StrokeEnd, StrokeOpts, StrokeWeight, TermSpec, TurnR } from './types';
 
 const CURVE_N = 16;
 
@@ -667,9 +667,42 @@ export function serifSides(given: SerifSides, keep: string | undefined, inward: 
    end was drawn for a cupped serif (see serifCup): the serif's tips reach on to the line, and between them
    its base arches up to the end. `inward` are the sides of a stem's end that face into the letter, which
    take the inner serifs' shape where the design gives them one. */
+/** Whether the serif on this end is a diamond: the serifs are diamonds, and the end is a heavy stroke's within 40° of
+    upright. An arm or a hairline keeps a wedge, as a broad pen leaves only a flick there. */
+export const diamondEnd = (end: SerifEnd, ctx: PenCtx) =>
+  ctx.serif?.shape === 'diamond' && !levelEnd(end) && Math.abs(end.dy) >= 0.76 * Math.hypot(end.dx, end.dy) && end.t >= ctx.thick * 0.5;
+/* A diamond's frame: `o` straight out of the end, up or down, as the pen stands the same way on every stroke, `u` across
+   to the side the diamond reaches (right at a foot, left at a head), and the stroke's half width along the end. */
+const diamondFrame = (end: SerifEnd) => {
+  const l = Math.hypot(end.dx, end.dy) || 1, o = { x: 0, y: Math.sign(end.dy) || -1 };
+  return { o, u: { x: -o.y, y: 0 }, hw: end.t / 2 / (Math.abs(end.dy) / l) };
+};
+/** How tall a diamond stands for its width: Thickness, from half as tall (flat) through square at 0.5 to half as tall again. */
+const diamondK = (ctx: PenCtx) => lerp(0.5, 1.5, clamp(((ctx.serif?.th ?? 51.5) - 8) / 87));
+/** What a stroke keeps under a diamond: all but the corner of its end cut off on a slant, from its far edge at the end
+    back to its near edge one stroke width in. That corner is a small triangle, so the cut reaches no further along the
+    stroke (the other arm of a v). Its stroke keeps the three pieces beyond each side of the triangle, which overlap, and
+    as they are wound alike they fill as one (splitPoly keeps the side each normal points away from). */
+export function diamondCut(end: SerifEnd, ctx: PenCtx): HalfPlane[] {
+  const { o, u, hw } = diamondFrame(end), e = 1, k = diamondK(ctx);
+  return [
+    { x: end.x + u.x * hw, y: end.y + u.y * hw, nx: o.x / k - u.x, ny: o.y / k - u.y },
+    { x: end.x - u.x * (hw + e), y: end.y - u.y * (hw + e), nx: u.x, ny: u.y },
+    { x: end.x + o.x * e, y: end.y + o.y * e, nx: -o.x, ny: -o.y }
+  ];
+}
+/** The diamond: a square stood on its corner, that corner on the end under the stem's far edge, `D` from its middle to
+    its side corners and `k` times that to its top, so it reaches D past the stem one way and fills the slanted cut the other. */
+function diamond(end: SerifEnd, D: number, k: number): Pt[] {
+  const { o, u, hw } = diamondFrame(end), at = (a: number, v: number): Pt => ({ x: end.x + u.x * a - o.x * v, y: end.y + u.y * a - o.y * v, sharp: true });
+  return [at(hw, 0), at(hw + D, D * k), at(hw, 2 * D * k), at(hw - D, D * k)];
+}
+
 export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?: number, cup = 0, inward: SerifSides = null): Pt[] | null {
   const sf = ctx.serif; if (!sf) return null;
   const horiz = levelEnd(end);
+  // a diamond reaches past the stem about half its length, and always at least half a stroke
+  if (diamondEnd(end, ctx)) return diamond(end, end.t / 2 + sf.len * (scale || 1) * (end.dy > 0 ? sf.tops ?? 1 : 1) * 0.5, diamondK(ctx));
   const out = horiz ? { x: Math.sign(end.dx), y: 0 } : { x: 0, y: Math.sign(end.dy) || -1 };
   const u = horiz ? { x: 0, y: 1 } : { x: 1, y: 0 };
   const along = Math.abs(end.dx * out.x + end.dy * out.y);
@@ -681,7 +714,7 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
   const armLean = horiz ? sf.armLean ?? 0 : 0, tan = Math.tan(armLean);
   // one side, L long, as [across, depth] from the tip inwards to the stem
   const side = (L: number, shape: string, th: number): ProfilePt[] => {
-    const wedge = shape === 'wedge';
+    const wedge = shape === 'wedge' || shape === 'diamond';
     // the tip: its foot on the line, then its top. A pointed one has no top, and stays sharp
     const tt = wedge ? Math.max(4, th * 0.2) : th * (1 - 0.65 * ang);
     const foot: ProfilePt = [hw + L, 0], top: ProfilePt = wedge ? [hw + L, -tt, 'sharp'] : [hw + L, -tt];

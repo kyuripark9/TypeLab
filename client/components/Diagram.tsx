@@ -165,7 +165,7 @@ const fillPaths = new Map<Fill, { d: string; w: number }>();
 export function FillIcon({ fill }: { fill: Fill }) {
   let icon = fillPaths.get(fill);
   if (!icon) {
-    const g = buildFont({ ...DEFAULTS, weight: 0.72, xHeight: 0.8, counter: 0.6, fill, module: fill === 'wire' ? 0.4 : 0.62 }).glyph('a');
+    const g = buildFont({ ...DEFAULTS, weight: 0.72, xHeight: 0.8, counter: 0.6, fill, module: fill === 'wire' ? 0.4 : fill === 'shadow' ? 0.3 : 0.62 }).glyph('a');
     icon = { d: g?.d ?? '', w: g?.adv ?? 500 };
     fillPaths.set(fill, icon);
   }

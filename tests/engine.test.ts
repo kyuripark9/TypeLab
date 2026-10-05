@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { STYLES, TERMINAL_DETAILS } from '../shared/content';
 import { ALL_CHARS, buildFont, cmdsToD, type Glyph } from '../shared/engine';
+import { combine, shape } from '../shared/engine/boolean';
+import { toPolys } from '../shared/engine/effects';
+import { signedArea } from '../shared/engine/geom';
 import { DEFAULTS, TERMINAL_FORMS, isValidParams, joinGap, onEndScale, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
 
 const extremes: Params[] = [
@@ -849,9 +852,57 @@ describe('font engine', () => {
   });
 
   it('every fill draws every glyph', () => {
-    for (const fill of ['wire', 'pixels', 'dots', 'lines'] as const) {
+    for (const fill of ['wire', 'pixels', 'dots', 'lines', 'inline', 'shadow'] as const) {
       const f = buildFont({ ...DEFAULTS, fill });
       for (const ch of 'HOag') assert.notEqual(f.glyph(ch)!.d, buildFont(DEFAULTS).glyph(ch)!.d);
+    }
+  });
+
+  it('an inline cuts a line down the middle of the strokes and leaves ink either side of it', () => {
+    const solid = buildFont({ ...DEFAULTS, weight: 0.7 }), f = buildFont({ ...DEFAULTS, weight: 0.7, fill: 'inline', module: 0.5 });
+    const g = f.glyph('H')!, stem = solid.glyph('H')!.strokes.find(s => s.part === 'stem')!, ink = shape(toPolys(g.cmds));
+    const xs = stem.cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 0)) as number[], x0 = Math.min(...xs), x1 = Math.max(...xs), mid = (x0 + x1) / 2;
+    assert.ok(!ink.has(mid, f.m.cap / 4), 'the middle of the stem is cut');
+    assert.ok(ink.has(x0 + 3, f.m.cap / 4) && ink.has(x1 - 3, f.m.cap / 4), 'ink either side of the line');
+    assert.ok(ink.has(mid, 3), 'the line stops short of the free end of the stem');
+    for (const st of STYLES) for (const ch of 'BRg&@') assert.ok(buildFont({ ...st.params, fill: 'inline' }).glyph(ch)!.d, `${st.id} ${ch}`);
+  });
+
+  it('a shadow falls down to the right of the letter, a gap apart, and takes its own room', () => {
+    const solid = buildFont({ ...DEFAULTS, weight: 0.7 }), f = buildFont({ ...DEFAULTS, weight: 0.7, fill: 'shadow', module: 0.5 });
+    const g = f.glyph('l')!, l = solid.glyph('l')!, xs = (l.cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 0)) as number[]);
+    const x1 = Math.max(...xs), ink = shape(toPolys(g.cmds)), y = f.m.xh / 2;
+    assert.ok(ink.has(x1 - 3, y), 'the letter itself');
+    assert.ok(!ink.has(x1 + 2, y), 'a gap beside it');
+    assert.ok(ink.has(x1 + f.m.s * 0.4, y - f.m.s * 0.5), 'the shadow beyond the gap');
+    assert.ok(g.adv > l.adv, 'the shadow widens the letter');
+  });
+
+  it('joins and cuts outlines with the nonzero rule', () => {
+    const sq = (x: number, y: number, w: number) => [{ x, y }, { x: x + w, y }, { x: x + w, y: y + w }, { x, y: y + w }];
+    const a = shape([sq(0, 0, 10)]), b = shape([sq(5, 5, 10)]), hole = shape([sq(3, 3, 4)]);
+    const both = combine([a, b], (x, y) => a.has(x, y) || b.has(x, y));
+    assert.equal(both.length, 1);
+    assert.equal(both[0].length, 8);
+    assert.ok(Math.abs(signedArea(both[0]) - 175) < 1e-6);
+    const cut = combine([a, hole], (x, y) => a.has(x, y) && !hole.has(x, y));
+    assert.deepEqual(cut.map(p => Math.round(signedArea(p))).sort((p, q) => p - q), [-16, 100]);
+    // two strokes along the same edge count once
+    const c = shape([sq(0, 0, 10), sq(10, 0, 10)]);
+    const joined = combine([c], c.has);
+    assert.equal(joined.length, 1);
+    assert.ok(Math.abs(signedArea(joined[0]) - 200) < 1e-6);
+  });
+
+  it('keeps the hook of an f clear of its crossbar, however short the ascenders', () => {
+    for (const st of STYLES) {
+      if (st.params.build === 'blocks' || st.params.cursive > 0.3) continue;
+      const f = buildFont({ ...st.params, fill: 'solid', stencil: 0, slice: 0, rotation: 0.5, slant: 0, wobble: 0, bounce: 0 } as Params), g = f.glyph('f')!;
+      const ys = (s: { cmds: (string | number)[][] }) => s.cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 1)) as number[];
+      const stem = g.strokes.find(s => s.part === 'stem'), bar = g.strokes.find(s => s.part === 'crossbar');
+      if (!stem || !bar) continue;
+      const top = Math.max(...ys(stem)), barTop = Math.max(...ys(bar));
+      assert.ok(top - barTop > f.m.s * 0.6, `${st.id}: ${Math.round(top - barTop)} between the bar and the top of the hook`);
     }
   });
 
