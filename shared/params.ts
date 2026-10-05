@@ -54,6 +54,9 @@ export const Y_FORMS = ['forked', 'cup'] as const;
 export const Q_FORMS = ['crossing', 'inside'] as const;
 /** The R: a leg from the bowl, or a loop: the bowl's lower bar stops short of the stem and turns back into the leg. */
 export const R_FORMS = ['leg', 'loop'] as const;
+/** The letters: built as print type, or written as a joined-up script's (see script.ts); auto writes them in a
+    design that is more than half cursive. */
+export const SCRIPT_FORMS = ['auto', 'print', 'script'] as const;
 /** The spine of s, S and $: a curve running corner to corner, or level between two tight turns, like two rounded boxes stacked. */
 export const S_FORMS = ['curved', 'flat'] as const;
 /** The foot of the a: a plain stem, or a spur running out to the right along the baseline. */
@@ -93,6 +96,7 @@ export type Bends = (typeof BENDS)[number];
 export type YForm = (typeof Y_FORMS)[number];
 export type QForm = (typeof Q_FORMS)[number];
 export type RForm = (typeof R_FORMS)[number];
+export type ScriptForm = (typeof SCRIPT_FORMS)[number];
 
 export interface Params {
   /** strokes or blocks (see BUILDS) */ build: Build;
@@ -167,6 +171,7 @@ export interface Params {
   /** the shape of the Y (see Y_FORMS) */ yForm: YForm;
   /** the tail of the Q (see Q_FORMS) */ qForm: QForm;
   /** the leg of the R (see R_FORMS) */ rForm: RForm;
+  /** print or joined-up script letters (see SCRIPT_FORMS) */ scriptForm: ScriptForm;
   /** length of tails and hooks (Q y j g t f, the comma, cursive exits): 0.5 is the usual length */ tail: number;
   fill: Fill;
   /** size of the pixels, dots or lines, or the wireframe's line weight */ module: number;
@@ -218,7 +223,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), innerCorners: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, pinch: 0, pinchPos: 0.5, steps: 0, cornerSteps: Object.freeze({}), innerRound: 0, swash: 0, mirror: 'normal', cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved', aForm: 'plain', joinRound: 0,
-  bowlForm: 'oval', boxRound: 0.5, diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', tail: 0.5,
+  bowlForm: 'oval', boxRound: 0.5, diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', scriptForm: 'auto', tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, stencilPos: 0, stencilRound: 0, joinGaps: Object.freeze({}), slice: 0, slicePos: 0.5, sliceRound: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   serifBracket: 0.5, serifTip: 'square', serifTipRound: 1, serifTipSlant: 0.8, serifBase: 'flat', serifCup: 0.5,
@@ -313,7 +318,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
   const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, serifTip: SERIF_TIPS, serifBase: SERIF_BASES, serifSides: SERIF_SIDES, serifInner: SERIF_INNERS, fill: FILLS, story: STORIES,
     bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, aForm: A_FORMS, terminalRun: TERMINAL_RUNS, barEnds: BAR_ENDS,
-    bowlForm: BOWL_FORMS, build: BUILDS, mirror: MIRRORS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS };
+    bowlForm: BOWL_FORMS, build: BUILDS, mirror: MIRRORS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS, scriptForm: SCRIPT_FORMS };
   return opts[k]?.includes(v) ? v : undefined;
 }
 

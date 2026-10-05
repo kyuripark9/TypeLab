@@ -1,7 +1,8 @@
 /* Public entry point of the font engine. Importing it registers every glyph. */
 import './glyphs';
+import './script';
 
-export { ALL_CHARS, CHARSET, RING_KEYS, buildFont, hasGlyph, resolve, termSpec } from './font';
+export { ALL_CHARS, CHARSET, RING_KEYS, buildFont, hasGlyph, resolve, scriptForms, termSpec } from './font';
 export type { Effective, Font, Glyph, GlyphStroke, Line, LineItem, Metrics } from './font';
 export { buildSerif, expandStroke, serifCup, serifSides } from './stroke';
 export { applyM, clamp, cmdsToD, ringsD, roundContour, signedArea } from './geom';

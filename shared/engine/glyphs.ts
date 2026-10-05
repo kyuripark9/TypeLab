@@ -391,10 +391,14 @@ function entry(g: Builder, m: Metrics, x: number, top: number) {
   const r = hookR(m) * 0.85;
   if (!r) return false;
   const y = top - m.hT / 2;
-  g.path([['M', x - r * 1.25, y - r * 0.95], ['C', x - r * 0.75, y - r * 0.3, x - r * 0.3, y, x + m.s * 0.2, y]],
+  // a short flick into the top in a hand that is only a little cursive; in a joined-up hand it starts
+  // low, near the baseline where the letter before lets go, so it rises under that letter's bowl
+  // (an o, b or p, fullest halfway up) instead of running into it
+  const k = clamp((m.cur - 0.35) / 0.65), xs = x - r * lerp(1.25, 1.4, k), ys = lerp(y - r * 0.95, Math.min(y - r * 0.95, m.xh * 0.22), k);
+  g.path([['M', xs, ys], ['C', lerp(x - r * 0.75, xs + (x - xs) * 0.45, k), lerp(y - r * 0.3, ys + (y - ys) * 0.7, k), x - r * 0.3, y, x + m.s * 0.2, y]],
     { s: T, e: 'flat', ws: 0.7, part: 'entry' });
-  g.mark('entry', x - r * 1.25, y - r * 0.95);
-  g.reachL = Math.min(g.reachL, x - r * 1.25);
+  g.mark('entry', xs, ys);
+  g.reachL = Math.min(g.reachL, xs);
   return true;
 }
 

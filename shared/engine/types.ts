@@ -62,6 +62,9 @@ export interface StrokeOpts {
   serifS?: SerifSides;
   serifE?: SerifSides;
   serifScale?: number;
+  /** 'pointed': weighed as a pointed pen or brush writes, swelling only where it presses down and a
+      hairline everywhere else (up, across), instead of by the way it runs alone, as a broad nib does */
+  pen?: 'pointed';
 }
 
 /** A serif's finer shape is optional: left out, it is bracketed as usual, square at its tips, flat underneath,

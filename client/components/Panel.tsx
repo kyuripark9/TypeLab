@@ -11,7 +11,7 @@ import { TERMINAL_FORMS, formOf, isGlyphKey, rotationDeg, type GlyphParams, type
 import { n1 } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
 import { reachOf, type Reach } from '../lib/reach';
-import { cmdsToD, type Glyph } from '../../shared/engine';
+import { cmdsToD, scriptForms, type Glyph } from '../../shared/engine';
 import { letterCorners, letterJoins, letterStrokes, strokeEnds, type CornerInfo, type JoinInfo, type StrokeEndInfo, type StrokeInfo } from '../lib/drag';
 import { actions, adjustedParams, curlOf, endOf, fontFor, isOn, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, useStyleMatch, type EndKey, type StyleTab } from '../state/editor';
 import { TRAIT_SECTIONS, type TraitDef } from '../../shared/traits';
@@ -1015,7 +1015,8 @@ function FormControl({ k, parts }: { k: LetterFormKey; parts?: string[] }) {
 /** The named shapes of `k` as a row of pictured options. */
 function FormOptions({ k, label }: { k: FormKey; label: string }) {
   const value = useParam(k), font = useScopedFont(), { options } = FORM_OPTIONS[k];
-  const current = value !== 'auto' ? value : k === 'dots' ? (font.m.dotRound >= 0.5 ? 'round' : 'square') : font.eff.mono >= 0.5 && !font.eff.serif ? 'bars' : 'plain';
+  const current = value !== 'auto' ? value : k === 'dots' ? (font.m.dotRound >= 0.5 ? 'round' : 'square') : k === 'scriptForm' ? (scriptForms(font.eff) ? 'script' : 'print')
+    : font.eff.mono >= 0.5 && !font.eff.serif ? 'bars' : 'plain';
   return (
     <div className={options.length === 3 ? 'opts three' : 'opts two'} role="radiogroup" aria-label={label}>
       {options.map(([id, name]) => (

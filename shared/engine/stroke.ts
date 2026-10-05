@@ -172,6 +172,12 @@ export function autoThickness(tx: number, ty: number, ctx: PenCtx, thick: number
   return thin + (thick - thin) * v;
 }
 
+/** The weight of a pointed pen or brush running down at `-ty` (the way it runs, y up, before any slant):
+    a hairline going up or across, swelling as it presses down to the full weight straight down. */
+export function pressed(ty: number, thick: number, thin: number) {
+  return thin + (thick - thin) * smoothstep((-ty - 0.1) / 0.8);
+}
+
 /* Cut one side of a stroke end off along a line through p, level ('h') or plumb ('v'), turned
    counterclockwise by `tilt` radians. */
 function cutSide(side: Pt[], p: Dir, d: Dir, axis: 'h' | 'v', t: number, tilt = 0) {
@@ -312,6 +318,21 @@ function crossing(a: Dir, b: Dir, c: Dir, d: Dir): Dir | null {
 /** How many samples either side of a swallowtail to look for where the side crosses itself. */
 const LOOP_REACH = 24;
 
+/** The points of a side less those bunched up closer than a third of how far apart its points
+    usually are (the ends, and points that aren't smooth, always stay). */
+function unbunch(pts: Pt[]): Pt[] {
+  const gaps = pts.slice(1).map((p, i) => Math.hypot(p.x - pts[i].x, p.y - pts[i].y)).sort((a, b) => a - b);
+  const min = (gaps[gaps.length >> 1] ?? 0) / 3, out: Pt[] = [];
+  pts.forEach((p, i) => {
+    const q = out[out.length - 1], end = i === pts.length - 1;
+    if (q && p.smooth && !end && Math.hypot(p.x - q.x, p.y - q.y) < min) return;
+    // the last point stays where it is, so a smooth point just before it gives way instead
+    if (end && q?.smooth && out.length > 1 && Math.hypot(p.x - q.x, p.y - q.y) < min) out.pop();
+    out.push(p);
+  });
+  return out;
+}
+
 /** One side of a run of samples, cleaned up. Where the centerline bends one way, both sides of the
     stroke bend that way too, as a pen draws them: a side that bends back is bridged straight across,
     the way a convex hull would be. Offset from a heavy stroke, a side can otherwise dent where the
@@ -378,12 +399,16 @@ function evenSide(side: Pt[], run: Sample[], ease: boolean): Pt[] {
   // the smoothing to round its ends into the curve
   const cum = [0];
   for (let i = 1; i < m; i++) cum.push(cum[i - 1] + Math.hypot(side[i].x - side[i - 1].x, side[i].y - side[i - 1].y));
-  const full: Pt[] = [out[0]];
+  let full: Pt[] = [out[0]];
   for (let j = 1; j < out.length; j++) {
     const a = idx[j - 1], b = idx[j], span = cum[b] - cum[a];
     for (let k = a + 1; k < b; k++) full.push({ ...lerpP(out[j - 1], out[j], span > 0 ? (cum[k] - cum[a]) / span : 0), smooth: true });
     full.push(out[j]);
   }
+  // the smoothing works point by point, so where points bunch up (the inside of a turn about as
+  // tight as half the stroke, or a bridge's taken-back points, all at one end of it) it would barely
+  // touch the kink beside them: those go first
+  full = unbunch(full);
   // Taubin smoothing: a step in, then a slightly larger step back out, so curves don't shrink
   const N = full.length, X = new Float64Array(N), Y = new Float64Array(N), PX = new Float64Array(N), PY = new Float64Array(N);
   full.forEach((p, i) => { X[i] = p.x; Y[i] = p.y; });
@@ -437,7 +462,8 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     if (o.e === 'join') je = f;
   }
   // (thin joints also thin a stroke into its sharp turns, so it is sampled finely enough to show it)
-  const tapered = ws !== 1 || we !== 1 || js !== 1 || je !== 1 || !!ctx.joints;
+  // (and so is a stroke a wobbling pen draws, so its pressure runs on along straights as along curves)
+  const tapered = ws !== 1 || we !== 1 || js !== 1 || je !== 1 || !!ctx.joints || !!ctx.wobble;
   const { runs, closed } = flatten(cmds, ctx, tapered);
   if (!runs.length) return null;
 
@@ -466,7 +492,7 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   const rev = (w: number) => ctx.reverse ? lerp(w, 1 - w, ctx.reverse) : w;
   const pathW = o.w == null ? null : rev(wNum(o.w));
   for (const s of all) {
-    let t = autoThickness(s.tx, s.ty, ctx, thick, thin);
+    let t = o.pen === 'pointed' ? pressed(s.ty, thick, thin) : autoThickness(s.tx, s.ty, ctx, thick, thin);
     if (pathW != null) t = lerp(thin, thick, pathW);
     if (s.w != null) t = lerp(t, lerp(thin, thick, rev(s.w)), s.mask);
     let f = 1;
@@ -534,9 +560,10 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   const whole = runs.length === 1 && closed && Math.hypot(all[0].x - all[all.length - 1].x, all[0].y - all[all.length - 1].y) < 0.5;
   const turned = (r: Sample[]) => {
     if (!whole) return r;
-    let k = 0;
-    r.forEach((s, i) => { if (s.t > r[k].t) k = i; });
+    // (the last sample closes the ring on the first, so it isn't a place to start from)
     const body = r.slice(0, -1);
+    let k = 0;
+    body.forEach((s, i) => { if (s.t > body[k].t) k = i; });
     return [...body.slice(k), ...body.slice(0, k), body[k]].map((s, i, a) => ({ ...s, smooth: i > 0 && i < a.length - 1 }));
   };
   const sidesOf = (sg: number) => runs.map(r => { const q = turned(r); return evenSide(q.map(s => sideOf(s, sg)), q, !ctx.pinch) as (Pt | null)[]; });

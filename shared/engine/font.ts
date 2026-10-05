@@ -160,7 +160,10 @@ function metrics(e: Effective): Metrics {
 
   const stress = e.stressDeg * Math.PI / 180;
   const k = 0.5523 + 0.05 * e.curve + 0.36 * e.square;
-  const org = e.curve;
+  // organic bowls are fuller on the diagonal a slant leans into a sharp corner (top right, bottom left):
+  // the two together pinch a bowl into a lumpy parallelogram, so a slant, which leans a bowl that way
+  // itself, takes the place of as much of it
+  const org = e.curve * (1 - clamp(e.slant));
   const ctx: PenCtx = {
     thick: s, thin, stress, k, org, terminal: e.terminal, chamfer: e.chamfer, joints: e.joints, reverse: e.reverse,
     term: termSpec(e),
@@ -340,12 +343,54 @@ function wobbler(code: number, m: Metrics) {
   const dx = (x: number, y: number) => A * (0.5 * Math.sin(x * f * 0.7 + y * f * 0.5 + p[0]) + 0.3 * Math.sin(y * f * 1.3 + p[1]) + 0.2 * Math.sin(y * f * 3.1 + x * f * 0.9 + p[4]));
   const dy = (x: number, y: number) => A * 0.75 * (0.5 * Math.sin(x * f * 1.1 - y * f * 0.4 + p[2]) + 0.3 * Math.sin(x * f * 0.5 + p[3]) + 0.2 * Math.sin(x * f * 2.9 - y * f * 1.3 + p[5]));
   const pt = (x: number, y: number): [number, number] => [x + dx(x, y), y + dy(x, y)];
-  const cmds = (c: Cmd[]): Cmd[] => c.map(cmd => {
-    if (cmd[0] === 'Z') return cmd;
-    const o = cmd.slice() as Cmd;
-    for (let i = 1; i + 1 < cmd.length && typeof cmd[i] === 'number'; i += 2) [o[i], o[i + 1]] = pt(cmd[i], cmd[i + 1]);
-    return o;
-  });
+  // A handle goes the way the field carries the bit of curve beside its point, not to where the field
+  // would take the handle itself: then two curves that met smoothly still do, where moving each handle
+  // on its own put a small kink, and a notch in the outline, at every point between them.
+  const handle = (a: Pt, h: Pt): Pt => {
+    const e = 0.01, [ax, ay] = pt(a.x, a.y), [bx, by] = pt(a.x + (h.x - a.x) * e, a.y + (h.y - a.y) * e);
+    return { x: ax + (bx - ax) / e, y: ay + (by - ay) / e };
+  };
+  const cmds = (c: Cmd[]): Cmd[] => {
+    // a quarter turn holds its ends level and plumb, which a straight beside it tilted by the field
+    // would no longer meet smoothly: it goes through the field as the cubic it stands for
+    const at: Pt[] = [];
+    let cur: Pt = { x: 0, y: 0 };
+    const src = c.map(cmd => {
+      at.push(cur);
+      if (cmd[0] === 'Z') return cmd;
+      let out = cmd;
+      if (cmd[0] === 'hv' || cmd[0] === 'vh') {
+        const P = quarter(cur.x, cur.y, cmd[1], cmd[2], cmd[0], quarterK(cur, cmd, m));
+        out = ['C', P[1].x, P[1].y, P[2].x, P[2].y, P[3].x, P[3].y, ...cmd.slice(3)];
+      }
+      cur = out[0] === 'C' ? { x: out[5], y: out[6] } : { x: out[1], y: out[2] };
+      return out;
+    });
+    const end = (i: number) => (src[i][0] === 'C' ? { x: src[i][5], y: src[i][6] } : { x: src[i][1], y: src[i][2] });
+    const out = src.map((cmd, i): Cmd => {
+      if (cmd[0] === 'Z') return cmd;
+      if (cmd[0] !== 'C') return [cmd[0], ...pt(cmd[1], cmd[2]), ...cmd.slice(3)];
+      const a = at[i], b = end(i), h0 = handle(a, { x: cmd[1], y: cmd[2] }), h1 = handle(b, { x: cmd[3], y: cmd[4] });
+      return ['C', h0.x, h0.y, h1.x, h1.y, ...pt(b.x, b.y), ...cmd.slice(7)];
+    });
+    // and a curve running smoothly on from a straight (or into one) keeps on along it as it now runs
+    // (handle `hi` of curve `ci` points from its point the way from `from` to `to` runs)
+    const along = (ci: number, hi: number, from: Pt, to: Pt) => {
+      const C = src[ci], a = hi === 1 ? at[ci] : end(ci);
+      const ux = C[hi] - a.x, uy = C[hi + 1] - a.y, vx = to.x - from.x, vy = to.y - from.y, lu = Math.hypot(ux, uy), lv = Math.hypot(vx, vy);
+      if (lu < 1e-6 || lv < 1e-6 || (ux * vx + uy * vy) / (lu * lv) < 0.9995) return;
+      const [fx, fy] = pt(from.x, from.y), [tx, ty] = pt(to.x, to.y), [px, py] = pt(a.x, a.y), o = out[ci];
+      const l = Math.hypot(o[hi] - px, o[hi + 1] - py), d = Math.hypot(tx - fx, ty - fy) || 1;
+      o[hi] = px + (tx - fx) / d * l; o[hi + 1] = py + (ty - fy) / d * l;
+    };
+    src.forEach((cmd, i) => {
+      if (cmd[0] !== 'C') return;
+      // a straight before it runs on into its first handle; one after carries on from its last
+      if (i > 0 && src[i - 1][0] === 'L') along(i, 1, at[i - 1], at[i]);
+      if (i + 1 < src.length && src[i + 1][0] === 'L') along(i, 3, end(i + 1), end(i));
+    });
+    return out;
+  };
   return { pt, cmds };
 }
 
@@ -1565,7 +1610,10 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
       if (at) homes.set(id, at.from);
       // a swash end draws on and curls out, unless the letter sets it its own way
       const d = endReach(sw && m.p.terminalEnds?.[id] == null ? sw.len : endLength(m.p, id, plain || serif || own || !!tip)) * m.xh * (o.scale || 1);
-      const curl = sw && m.p.terminalCurls?.[id] == null ? sw.curl : endCurl(m.p, id);
+      // where letters join up (the start of an entry stroke, the tip of an exit), the stroke end curl
+      // would wind a knot into the join: only a curl set for that one end turns it
+      const join = o.part === 'entry' || (at && b.marks.some(k => k.type === 'exit' && Math.hypot(k.x - at.from.x, k.y - at.from.y) < 1));
+      const curl = sw && m.p.terminalCurls?.[id] == null ? sw.curl : join ? m.p.terminalCurls?.[id] ?? 0.5 : endCurl(m.p, id);
       if (Math.abs(d) < 0.01 && curl === 0.5) continue;
       const before = st.cmds, r = shapeEnd(st.cmds, which, d, curl, m, sw && curl === sw.curl ? sw.mid : (mid ??= middle()),
         () => b.strokes.flatMap((t, ti) => ti === si ? [] : t.cmds ? centerPoints(t.cmds, m, m.s * 0.5) : t.poly ? dotPoints(t.poly, m.s * 0.25) : []),
@@ -2020,6 +2068,7 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
     case 'yForm': return /[Yy]/.test(g.ch) ? g.d : '';
     case 'qForm': return g.ch === 'Q' ? g.d : '';
     case 'rForm': return g.ch === 'R' ? g.d : '';
+    case 'scriptForm': return /^[A-Za-z]$/.test(g.ch) ? g.d : '';
     case 'bowlForm': return strokes(s => s.curved);
     case 'bends': return /[AMNVWYZvwyz]/.test(g.ch) ? g.d : '';
     case 'bowlJoin': return /[abdgpq]/.test(g.ch) ? strokes(s => s.part === 'bowl') : /[hmnru]/.test(g.ch) ? strokes(s => s.part === 'shoulder') : '';
@@ -2029,6 +2078,9 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
     default: return '';
   }
 }
+
+/** Whether the letters are written as a joined-up script's (see SCRIPT_FORMS): on auto, in a design more than half cursive. */
+export const scriptForms = (e: Pick<Params, 'scriptForm' | 'cursive'>) => e.scriptForm === 'script' || (e.scriptForm === 'auto' && e.cursive >= 0.5);
 
 export function buildFont(params: Params): Font {
   const e = resolve(params), m = metrics(e);
@@ -2050,7 +2102,9 @@ export function buildFont(params: Params): Font {
         else if (lf !== font) g = lf.glyph(ch);
         else if (e.build === 'blocks' && (g = buildBlock(ch, m))) g.ch = ch;
         else {
-          const alt = ch === 'a' && e.singleStory ? 'a.alt' : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
+          // a script's own letters first: they are written whole, single-storey a and all
+          const alt = scriptForms(e) && hasGlyph(ch + '.scr') ? ch + '.scr' : ch === 'a' && e.singleStory ? 'a.alt'
+            : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
           g = buildGlyph(alt, m);
           if (g) g.ch = ch;
         }

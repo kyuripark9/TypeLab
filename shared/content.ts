@@ -1,7 +1,7 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
 import { resolve, type Effective } from './engine/font';
-import { DEFAULTS, type AForm, type BarEnds, type Mirror, type Bends, type Build, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifBase, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
+import { DEFAULTS, type AForm, type BarEnds, type Mirror, type Bends, type Build, type ScriptForm, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifBase, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
 
 /** A page of the editor: Style, or one set of controls. */
 export type CategoryId = 'style' | 'weight' | 'size' | 'heights' | 'insides' | 'curves' | 'corners' | 'ends' | 'serifs' | 'letters' | 'script'
@@ -10,7 +10,7 @@ export type CategoryId = 'style' | 'weight' | 'size' | 'heights' | 'insides' | '
 export type GroupId = 'proportion' | 'shape' | 'details';
 export type ControlKey =
   | 'weight' | 'width' | 'height' | 'slant' | 'rotation' | 'contrast' | 'pinch'
-  | 'build' | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'steps' | 'swash' | 'mirror' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'serifTip' | 'serifBase' | 'serifSides' | 'serifInner' | 'serifBalance' | 'serifTops' | 'serifArms' | 'apex' | 'bends' | 'joints' | 'cursive' | 'wobble'
+  | 'build' | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'steps' | 'swash' | 'mirror' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'scriptForm' | 'bowlForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'serifTip' | 'serifBase' | 'serifSides' | 'serifInner' | 'serifBalance' | 'serifTops' | 'serifArms' | 'apex' | 'bends' | 'joints' | 'cursive' | 'wobble'
   | 'xHeight' | 'extenders' | 'descender' | 'tail' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
   | 'fill' | 'stencil' | 'slice';
@@ -401,15 +401,15 @@ export const STYLES: StyleDef[] = [
   style('informal', 'hand', ['informal'], 'Retro Script', ['vintage', 'playful', 'artistic', 'excited'], 'Pacifico, Lobster, Yellowtail',
     'A bold, joined-up script with a retro sign-painter swing: every letter flows into the next.',
     { weight: 0.62, width: 0.45, slant: 0.45, contrast: 0.63, roundness: 0.8, terminal: 'round', wobble: 0.25, cursive: 1,
-      xHeight: 0.45, curve: 0.35, geoHuman: 0.45, letterSpacing: 0.02 }),
+      xHeight: 0.45, curve: 0.35, geoHuman: 0.45, letterSpacing: 0.2 }),
   style('chancery', 'hand', ['formal'], 'Formal Script', ['fancy', 'sophisticated'], 'Great Vibes, Tangerine, Pinyon Script',
     'Copperplate elegance: a steep slant, hairline upstrokes, swelling downstrokes and a tiny x-height.',
     { weight: 0.36, width: 0.32, height: 0.75, slant: 1, contrast: 0.89, terminal: 'tapered', cursive: 1,
-      xHeight: 0.22, curve: 1, geoHuman: 1, letterSpacing: 0.02 }),
+      xHeight: 0.22, curve: 1, geoHuman: 1, letterSpacing: 0.2 }),
   style('brush', 'hand', ['brush', 'informal'], 'Brush', ['artistic', 'loud', 'excited'], 'Kaushan Script, Oregano, Mr Dafoe',
     'Fast, heavy strokes from a loaded brush. A strong lean, tapering ends and a rough, lively rhythm.',
     { weight: 0.7, width: 0.4, slant: 0.55, contrast: 0.66, terminal: 'tapered', wobble: 0.3, cursive: 0.55,
-      xHeight: 0.5, curve: 0.4, geoHuman: 0.5, letterSpacing: 0.08 }),
+      xHeight: 0.5, curve: 0.4, geoHuman: 0.5, letterSpacing: 0.2 }),
   style('marker', 'hand', ['handwritten', 'upright', 'marker'], 'Marker', ['loud', 'playful', 'rugged', 'excited'], 'Permanent Marker, Rock Salt, Sedgwick Ave',
     'Thick, even lines from a felt marker: narrow, tall and a bit rough, leaning slightly, with round, blunt stroke ends.',
     { weight: 0.56, width: 0.36, height: 0.7, slant: 0.14, contrast: 0.5, roundness: 1, terminal: 'round', wobble: 0.8,
@@ -417,7 +417,7 @@ export const STYLES: StyleDef[] = [
   style('swash', 'hand', ['formal', 'swash', 'italic'], 'Swash Script', ['fancy', 'sophisticated', 'artistic'], 'Parisienne, Alex Brush, Italianno',
     'A wedding-invitation script: a steep lean, thick and thin strokes, and every stroke end wound into a curling flourish.',
     { weight: 0.4, width: 0.36, height: 0.7, slant: 0.7, contrast: 0.84, terminal: 'tapered', cursive: 1, terminalCurl: 0.61,
-      xHeight: 0.3, extenders: 0.8, curve: 1, geoHuman: 1, letterSpacing: 0.04 }),
+      xHeight: 0.3, extenders: 0.8, curve: 1, geoHuman: 1, letterSpacing: 0.2 }),
   style('italic', 'hand', ['italic', 'formal'], 'Chancery Italic', ['sophisticated', 'vintage', 'calm'], 'Cormorant Italic, Kalam, Satisfy',
     'Written with a broad-nib pen held at an angle: a narrow, springy italic with sharp thick-and-thin, angled cuts and ends that turn up in gentle hooks.',
     { weight: 0.44, width: 0.3, height: 0.65, slant: 0.3, contrast: 0.83, terminal: 'angled', cursive: 0.4, terminalCurl: 0.58,
@@ -425,7 +425,7 @@ export const STYLES: StyleDef[] = [
   style('monoline', 'hand', ['monoline', 'informal', 'swash'], 'Monoline Script', ['happy', 'calm', 'cute', 'playful'], 'Dancing Script, Sacramento, Cookie',
     'One even pen line looping from letter to letter, with round, curly ends and a relaxed, easy lean.',
     { weight: 0.26, width: 0.46, slant: 0.35, contrast: 0.5, roundness: 1, terminal: 'round', cursive: 1, terminalCurl: 0.63,
-      xHeight: 0.42, extenders: 0.7, curve: 0.9, geoHuman: 0.8, letterSpacing: 0.06 }),
+      xHeight: 0.42, extenders: 0.7, curve: 0.9, geoHuman: 0.8, letterSpacing: 0.2 }),
   style('curly', 'hand', ['handwritten', 'upright', 'swash'], 'Curly Hand', ['cute', 'happy', 'childlike', 'playful'], 'Sniglet, Grandstander, Chilanka',
     'Bouncy, upright printing that curls up at every end, like doodled notes in the margin of a sketchbook.',
     { weight: 0.42, width: 0.5, contrast: 0.5, roundness: 1, terminal: 'round', wobble: 0.45, terminalCurl: 0.61,
@@ -433,7 +433,7 @@ export const STYLES: StyleDef[] = [
   style('signature', 'hand', ['signature', 'informal', 'monoline'], 'Signature', ['sophisticated', 'artistic', 'excited'], 'Mrs Saint Delafield, Monsieur La Doulaise, Herr Von Muellerhoff',
     'Signed at speed: a fine, fast line, a very steep lean, a tiny lowercase under towering loops and long tails that whip out past the letters.',
     { weight: 0.14, width: 0.28, height: 0.8, slant: 0.9, contrast: 0.53, terminal: 'tapered', wobble: 0.5, cursive: 1, terminalCurl: 0.64,
-      terminalLength: 0.7, tail: 0.85, xHeight: 0.14, extenders: 1, curve: 1, geoHuman: 1, letterSpacing: 0, wordSpacing: 0.6 }),
+      terminalLength: 0.7, tail: 0.85, xHeight: 0.14, extenders: 1, curve: 1, geoHuman: 1, letterSpacing: 0.2, wordSpacing: 0.6 }),
   style('blackletter', 'hand', ['blackletter'], 'Blackletter', ['vintage', 'rugged', 'fancy'], 'UnifrakturMaguntia, Pirata One, Grenze Gotisch',
     'Gothic textura from a broad pen: tall, narrow and packed close, every curve broken into straight cuts, each stem standing on a diamond.',
     { weight: 0.62, width: 0.2, height: 0.72, contrast: 0.85, chamfer: 1, squareness: 1, curve: 1, serif: true, serifShape: 'diamond', serifSize: 0.18,
@@ -454,7 +454,7 @@ export const STYLES: StyleDef[] = [
   style('upscript', 'hand', ['informal', 'upright'], 'Upright Script', ['cute', 'happy', 'sincere', 'playful'], 'Sofia, Oleo Script, Damion',
     'Joined-up writing that stands straight: every letter flows into the next with no lean at all, soft and round.',
     { weight: 0.46, width: 0.5, contrast: 0.58, roundness: 0.8, terminal: 'round', cursive: 1, curve: 0.9, geoHuman: 0.8, xHeight: 0.5,
-      extenders: 0.6, letterSpacing: 0.04 }),
+      extenders: 0.6, letterSpacing: 0.2 }),
 
   /* ---- Display */
   style('woodtype', 'display', ['slab'], 'Wood Type', ['rugged', 'vintage', 'loud'], 'Alfa Slab One, Sancreek, Rye',
@@ -718,6 +718,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Strokes flick on toward the next letter, like script.' },
   wobble: { cat: 'script', off: 0, label: 'Hand-drawn', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
     explain: 'Strokes drift, swell and sit a little off the line.' },
+  scriptForm: { cat: 'script', type: 'form', label: 'Letterforms', friendly: 'Write the letters as a joined-up script, or build them as print', tech: 'Print or script letterforms', demo: 'Rain',
+    explain: 'Print letters are built like type. Script letters are written with a pen: every small letter joins the next on a fine hairline, downstrokes swell and the rest stays fine, and the capitals have lead-ins, loops and curled feet. Left alone, a design more than half cursive is written.' },
   swash: { cat: 'script', off: 0, label: 'Swash capitals', friendly: 'Curl the capitals into flourishes', tech: 'Swash capitals', lo: 'Small', hi: 'Big', demo: 'PRT',
     explain: 'The first stroke of each capital runs on at the top left (the stem of P, the bar of T, or else the foot of A) and curls out, finishing like the other stroke ends: pick Rounded, Ball ends for a ball.' },
 
@@ -848,7 +850,7 @@ export const SUBS: Record<SerifSubKey | SerifTipSubKey | SerifBaseSubKey | Serif
   { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...SERIF_ARM_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...PINCH_SUBS, ...CROSSBAR_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
-export type FormKey = 'build' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
+export type FormKey = 'build' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'scriptForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
 export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Params[K], 'auto'>, string][] } } = {
   build: { ch: 'E', options: [['strokes', 'Strokes'], ['blocks', 'Blocks']] as [Build, string][] },
   gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored']] as [GForm, string][] },
@@ -860,6 +862,7 @@ export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Par
   yForm: { ch: 'Y', options: [['forked', 'Forked'], ['cup', 'Cup']] as [YForm, string][] },
   qForm: { ch: 'Q', options: [['crossing', 'Crossing'], ['inside', 'Inside']] as [QForm, string][] },
   rForm: { ch: 'R', options: [['leg', 'Leg'], ['loop', 'Loop']] as [RForm, string][] },
+  scriptForm: { ch: 'R', options: [['print', 'Print'], ['script', 'Script']] as [Exclude<ScriptForm, 'auto'>, string][] },
   bowlForm: { ch: 'O', options: [['oval', 'Oval'], ['box', 'Box']] as [BowlForm, string][] },
   bends: { ch: 'N', options: [['sharp', 'Sharp'], ['round', 'Round']] as [Bends, string][] },
   terminalRun: { ch: 'c', options: [['curved', 'Curved'], ['straight', 'Straight']] as [TerminalRun, string][] },

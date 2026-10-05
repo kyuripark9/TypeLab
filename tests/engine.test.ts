@@ -70,10 +70,30 @@ describe('font engine', () => {
   });
 
   it('cursive switches to italic letterforms and adds exit strokes', () => {
-    const print = buildFont(DEFAULTS), script = buildFont({ ...DEFAULTS, cursive: 1 });
+    const print = buildFont(DEFAULTS), script = buildFont({ ...DEFAULTS, cursive: 1, scriptForm: 'print' });
     assert.ok(script.glyph('n')!.marks.some(k => k.type === 'exit'));
     assert.ok(!print.glyph('n')!.marks.some(k => k.type === 'exit'));
     assert.notEqual(print.glyph('y')!.d, script.glyph('y')!.d);
+  });
+
+  it('writes the letters as a joined-up script, every small letter joining the next on one line', () => {
+    const print = buildFont(DEFAULTS), script = buildFont({ ...DEFAULTS, scriptForm: 'script' }), auto = buildFont({ ...DEFAULTS, cursive: 1 });
+    const xh = script.m.xh;
+    for (const ch of 'abcdefghijklmnopqrstuvwxyzAQRZ') {
+      const g = script.glyph(ch)!;
+      assert.ok(g.d && g.d !== print.glyph(ch)!.d, ch);
+    }
+    // left alone, a design more than half cursive is written
+    assert.ok(auto.glyph('n')!.lsb + auto.glyph('n')!.rsb === 0 && print.glyph('n')!.lsb > 0);
+    assert.ok(buildFont({ ...DEFAULTS, cursive: 1, scriptForm: 'print' }).glyph('n')!.lsb > 0);
+    // each small letter's join crosses its left edge and its right edge at the same height, so they meet
+    const at = (pts: { x: number; y: number }[], x: number) => pts.some(p => Math.abs(p.x - x) < 1.5 && Math.abs(p.y - xh * 0.38) < 1.5);
+    for (const ch of 'abcdefghijklmnopqrstuvwxyz') {
+      const g = script.glyph(ch)!, pts = g.skeleton.flat();
+      // (b o v w finish at the top, and drop onto the join line on their way out)
+      assert.ok(at(pts, 0) && ('bovw'.includes(ch) || at(pts, g.bodyW)), ch);
+      assert.equal(g.lsb + g.rsb, 0, ch);
+    }
   });
 
   it('a picked storey overrides the one the other settings choose', () => {
@@ -83,8 +103,9 @@ describe('font engine', () => {
     assert.ok(single({ story: 'single' }) && !single({ story: 'double', cursive: 1 }) && !single({ story: 'double', geoHuman: 0 }));
     assert.equal(a({}), a({ story: 'double' }));
     assert.notEqual(a({}), a({ story: 'single' }));
-    assert.equal(a({ cursive: 1 }), a({ cursive: 1, story: 'single' }));
-    assert.notEqual(a({ cursive: 1 }), a({ cursive: 1, story: 'double' }));
+    // (the storeys of the print a: a script writes its own)
+    assert.equal(a({ cursive: 1, scriptForm: 'print' }), a({ cursive: 1, scriptForm: 'print', story: 'single' }));
+    assert.notEqual(a({ cursive: 1, scriptForm: 'print' }), a({ cursive: 1, scriptForm: 'print', story: 'double' }));
   });
 
   it('bowl overlap pulls the o of b d p q off the stem', () => {
@@ -419,7 +440,7 @@ describe('font engine', () => {
     assert.ok(tip(f(1), 'y').y < tip(f(0.5), 'y').y && tip(f(0.5), 'y').y < tip(f(0), 'y').y);
     for (const ch of 'nHOoe') assert.equal(f(0).glyph(ch)!.d, f(1).glyph(ch)!.d, ch);
     // cursive exit strokes flick further out
-    assert.ok(tip(f(1, { cursive: 1 }), 'n').x > tip(f(0, { cursive: 1 }), 'n').x);
+    assert.ok(tip(f(1, { cursive: 1, scriptForm: 'print' }), 'n').x > tip(f(0, { cursive: 1, scriptForm: 'print' }), 'n').x);
   });
 
   it('stroke end length stretches and trims the terminals, and leaves tails and hooks alone', () => {
@@ -568,7 +589,7 @@ describe('font engine', () => {
   });
 
   it('sets the tip of a hook or tail only by its own length', () => {
-    for (const [ch, p] of [['f', {}], ['y', {}], ['Q', {}], ['n', { cursive: 0.8 }]] as const) {
+    for (const [ch, p] of [['f', {}], ['y', {}], ['Q', {}], ['n', { cursive: 0.8, scriptForm: 'print' }]] as const) {
       const base = buildFont({ ...DEFAULTS, ...p }), tips = base.glyph(ch)!.marks.filter(k => k.type === 'terminal' && k.hook);
       assert.ok(tips.length, ch);
       // Length leaves it alone, so Tail (or Cursive) sets it (y and Q have no other ends to shift the letter)
