@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { after, before, describe, it } from 'node:test';
@@ -20,11 +24,20 @@ before(async () => {
 });
 after(() => { server.close(); store.close(); });
 
-const call = (method: string, path: string, body?: unknown) => fetch(base + path, {
-  method,
-  headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-  body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body)
-});
+/** A browser: it keeps the owner cookie the server hands it, as a real one would. */
+function browser() {
+  let cookie = '';
+  return async (method: string, path: string, body?: unknown) => {
+    const headers: Record<string, string> = {};
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (cookie) headers.Cookie = cookie;
+    const res = await fetch(base + path, { method, headers, body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
+    const set = res.headers.get('set-cookie');
+    if (set) cookie = set.split(';')[0];
+    return res;
+  };
+}
+const call = browser();
 
 const serif = STYLES.find(s => s.id === 'serif')!;
 
@@ -73,6 +86,27 @@ describe('designs API', () => {
     assert.ok(d.updatedAt >= created.updatedAt);
   });
 
+  it('renames it without touching its letters', async () => {
+    const res = await call('PATCH', `/designs/${created.id}`, { name: '  Renamed  ' });
+    assert.equal(res.status, 200);
+    const d: Design = await res.json();
+    assert.equal(d.name, 'Renamed');
+    assert.equal(d.params.weight, 0.8);
+    assert.equal((await call('PATCH', `/designs/${created.id}`, {})).status, 400);
+  });
+
+  it('keeps each browser\'s designs to itself', async () => {
+    const other = browser();
+    const first = await other('GET', '/designs');
+    assert.match(first.headers.get('set-cookie') ?? '', /typelab_owner=[\w-]+;.*HttpOnly/);
+    assert.deepEqual(await first.json(), []);
+    assert.equal((await other('GET', `/designs/${created.id}`)).status, 404);
+    assert.equal((await other('PATCH', `/designs/${created.id}`, { name: 'Mine now' })).status, 404);
+    assert.equal((await other('DELETE', `/designs/${created.id}`)).status, 404);
+    // the browser that made it still has it, unchanged
+    assert.equal(((await (await call('GET', `/designs/${created.id}`)).json()) as Design).name, 'Renamed');
+  });
+
   it('deletes it', async () => {
     assert.equal((await call('DELETE', `/designs/${created.id}`)).status, 204);
     assert.equal((await call('GET', `/designs/${created.id}`)).status, 404);
@@ -92,7 +126,7 @@ describe('export API', () => {
     const res = await call('POST', '/export/otf', { name: 'Test Font', params: serif.params });
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('content-type'), 'font/otf');
-    assert.match(res.headers.get('content-disposition') ?? '', /TestFont\.otf/);
+    assert.match(res.headers.get('content-disposition') ?? '', /Test-Font\.otf/);
     const buf = await res.arrayBuffer();
     assert.equal(new TextDecoder().decode(buf.slice(0, 4)), 'OTTO');
     const font = opentype.parse(buf);
@@ -111,5 +145,21 @@ describe('export API', () => {
 
   it('rejects invalid params', async () => {
     assert.equal((await call('POST', '/export/otf', { name: 'x', params: { weight: 1 } })).status, 400);
+  });
+});
+
+describe('design storage', () => {
+  it('gives designs saved before owners to the first browser that opens the library', () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'typelab-')), 'old.db');
+    const old = new DatabaseSync(file);
+    old.exec(`CREATE TABLE designs (id TEXT PRIMARY KEY, name TEXT NOT NULL, style_id TEXT NOT NULL, params TEXT NOT NULL,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+    old.prepare('INSERT INTO designs VALUES (?, ?, ?, ?, ?, ?)').run('old1', 'Old Serif', 'serif', JSON.stringify(serif.params), '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+    old.close();
+    const s = new DesignStore(file);
+    assert.deepEqual(s.list('first').map(d => d.name), ['Old Serif']);
+    assert.deepEqual(s.list('second'), []);
+    assert.equal(s.get('old1', 'second'), null);
+    s.close();
   });
 });

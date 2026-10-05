@@ -1,4 +1,5 @@
 /* The TypeLab API. Kept separate from index.ts so tests can mount it on an in-memory database. */
+import { randomBytes } from 'node:crypto';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { styleById } from '../shared/content';
 import { cleanName, slug, type DesignInput } from '../shared/design';
@@ -24,6 +25,23 @@ function readExport(body: unknown) {
   return { name: cleanName(b.name), params: b.params };
 }
 
+/** The browser's own id, from its cookie; a browser without one is given one. Designs are kept per
+    browser, so "My designs" holds only the fonts saved there. */
+const OWNER_COOKIE = 'typelab_owner';
+function ownerOf(req: Request, res: Response): string {
+  const m = new RegExp(`(?:^|;\\s*)${OWNER_COOKIE}=([A-Za-z0-9_-]{16,64})(?:;|$)`).exec(req.headers.cookie ?? '');
+  if (m) return m[1];
+  const id = randomBytes(18).toString('base64url');
+  res.append('Set-Cookie', `${OWNER_COOKIE}=${id}; Path=/; Max-Age=${10 * 365 * 24 * 3600}; HttpOnly; SameSite=Lax`);
+  return id;
+}
+
+function readName(body: unknown): string {
+  const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  if (typeof b.name !== 'string') throw new HttpError(400, 'name is missing');
+  return cleanName(b.name);
+}
+
 const attachment = (res: Response, file: string, type: string) => {
   res.type(type);
   res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
@@ -37,26 +55,34 @@ export function createApp(store: DesignStore) {
 
   api.get('/health', (_req, res) => { res.json({ ok: true }); });
 
-  api.get('/designs', (_req, res) => { res.json(store.list()); });
+  api.use('/designs', (req, res, next) => { res.locals.owner = ownerOf(req, res); next(); });
+
+  api.get('/designs', (_req, res) => { res.json(store.list(res.locals.owner)); });
 
   api.post('/designs', (req, res) => {
-    res.status(201).json(store.create(readDesign(req.body)));
+    res.status(201).json(store.create(readDesign(req.body), res.locals.owner));
   });
 
   api.get('/designs/:id', (req, res) => {
-    const d = store.get(req.params.id);
+    const d = store.get(req.params.id, res.locals.owner);
     if (!d) throw new HttpError(404, 'Design not found');
     res.json(d);
   });
 
   api.put('/designs/:id', (req, res) => {
-    const d = store.update(req.params.id, readDesign(req.body));
+    const d = store.update(req.params.id, readDesign(req.body), res.locals.owner);
+    if (!d) throw new HttpError(404, 'Design not found');
+    res.json(d);
+  });
+
+  api.patch('/designs/:id', (req, res) => {
+    const d = store.rename(req.params.id, readName(req.body), res.locals.owner);
     if (!d) throw new HttpError(404, 'Design not found');
     res.json(d);
   });
 
   api.delete('/designs/:id', (req, res) => {
-    if (!store.delete(req.params.id)) throw new HttpError(404, 'Design not found');
+    if (!store.delete(req.params.id, res.locals.owner)) throw new HttpError(404, 'Design not found');
     res.status(204).end();
   });
 

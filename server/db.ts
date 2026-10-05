@@ -46,33 +46,54 @@ export class DesignStore {
       );
       CREATE INDEX IF NOT EXISTS designs_updated ON designs (updated_at DESC);
     `);
+    // each design belongs to the browser that made it; databases from before owners get the column,
+    // and their designs are adopted by the first browser to open the library (see adopt)
+    const cols = this.db.prepare('PRAGMA table_info(designs)').all() as unknown as { name: string }[];
+    if (!cols.some(c => c.name === 'owner')) this.db.exec('ALTER TABLE designs ADD COLUMN owner TEXT');
+    this.db.exec('CREATE INDEX IF NOT EXISTS designs_owner ON designs (owner, updated_at DESC)');
   }
 
-  list(): Design[] {
-    const rows = this.db.prepare('SELECT * FROM designs ORDER BY updated_at DESC, rowid DESC').all() as unknown as Row[];
+  /** Designs saved before there were owners go to the first browser that asks for them. */
+  private adopt(owner: string) {
+    this.db.prepare('UPDATE designs SET owner = ? WHERE owner IS NULL').run(owner);
+  }
+
+  /** `owner`'s designs, newest first. */
+  list(owner: string): Design[] {
+    this.adopt(owner);
+    const rows = this.db.prepare('SELECT * FROM designs WHERE owner = ? ORDER BY updated_at DESC, rowid DESC').all(owner) as unknown as Row[];
     return rows.map(toDesign);
   }
 
-  get(id: string): Design | null {
-    const row = this.db.prepare('SELECT * FROM designs WHERE id = ?').get(id) as unknown as Row | undefined;
+  /** One of `owner`'s designs; another browser's design is as good as missing. */
+  get(id: string, owner: string): Design | null {
+    this.adopt(owner);
+    const row = this.db.prepare('SELECT * FROM designs WHERE id = ? AND owner = ?').get(id, owner) as unknown as Row | undefined;
     return row ? toDesign(row) : null;
   }
 
-  create(input: DesignInput): Design {
+  create(input: DesignInput, owner: string): Design {
     const now = new Date().toISOString(), id = newId();
-    this.db.prepare('INSERT INTO designs (id, name, style_id, params, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, input.name, input.styleId, JSON.stringify(input.params), now, now);
-    return this.get(id)!;
+    this.db.prepare('INSERT INTO designs (id, name, style_id, params, created_at, updated_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(id, input.name, input.styleId, JSON.stringify(input.params), now, now, owner);
+    return this.get(id, owner)!;
   }
 
-  update(id: string, input: DesignInput): Design | null {
-    const res = this.db.prepare('UPDATE designs SET name = ?, style_id = ?, params = ?, updated_at = ? WHERE id = ?')
-      .run(input.name, input.styleId, JSON.stringify(input.params), new Date().toISOString(), id);
-    return res.changes ? this.get(id) : null;
+  update(id: string, input: DesignInput, owner: string): Design | null {
+    const res = this.db.prepare('UPDATE designs SET name = ?, style_id = ?, params = ?, updated_at = ? WHERE id = ? AND owner = ?')
+      .run(input.name, input.styleId, JSON.stringify(input.params), new Date().toISOString(), id, owner);
+    return res.changes ? this.get(id, owner) : null;
   }
 
-  delete(id: string): boolean {
-    return this.db.prepare('DELETE FROM designs WHERE id = ?').run(id).changes > 0;
+  /** Change only the name, leaving the saved letters as they were. */
+  rename(id: string, name: string, owner: string): Design | null {
+    const res = this.db.prepare('UPDATE designs SET name = ?, updated_at = ? WHERE id = ? AND owner = ?')
+      .run(name, new Date().toISOString(), id, owner);
+    return res.changes ? this.get(id, owner) : null;
+  }
+
+  delete(id: string, owner: string): boolean {
+    return this.db.prepare('DELETE FROM designs WHERE id = ? AND owner = ?').run(id, owner).changes > 0;
   }
 
   close() { this.db.close(); }

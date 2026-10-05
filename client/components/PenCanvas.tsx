@@ -527,7 +527,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             <PointKind smooth={selRefs.every(r => cs[r.c][r.i].s)} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
           </>
         ) : (
-          <span className="pen-bar-label muted">{hint(tool, drawingOk !== null)}</span>
+          <span className="pen-bar-label muted pen-hint">{hint(tool, drawingOk !== null)}</span>
         )}
         {selRefs.length > 0 && (
           <>

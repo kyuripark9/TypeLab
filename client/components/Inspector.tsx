@@ -148,13 +148,13 @@ export function Inspector() {
         {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} />}
         {pen && sync && (
           <div className="scope-banner sync" role="status">
-            <ScopeIcon id="all" /><span>Moving a point moves it in the other letters with one in the same place · they turn into drawings too</span>
-            <button className="link" onClick={() => actions.setScope('letter')}>Customize {ch}</button>
+            <ScopeIcon id="all" /><span>A point you move here also moves in every letter with a point in the same place, and those letters stop following the sliders</span>
+            <button className="link" onClick={() => actions.setScope('letter')}>Change only {ch}</button>
           </div>
         )}
         {pen && !sync && !drawn && (
           <div className="scope-banner" role="status">
-            <ScopeIcon id="letter" /><span>Moving a point turns <b>{ch}</b> into a drawing · the settings stop shaping it, until you go back</span>
+            <ScopeIcon id="letter" /><span>Once you move a point, the sliders stop changing <b>{ch}</b>, until you put it back</span>
           </div>
         )}
         {!pen && drawn && (

@@ -25,5 +25,5 @@ export function cleanName(name: unknown): string {
   return s || DEFAULT_NAME;
 }
 
-/** File-name-safe version of a font name. */
-export const slug = (name: string) => name.replace(/[^A-Za-z0-9]+/g, '') || 'TypeLab';
+/** File-name-safe version of a font name, its words joined by hyphens: "My Didone" → "My-Didone". */
+export const slug = (name: string) => name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'TypeLab';

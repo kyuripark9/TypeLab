@@ -1,10 +1,10 @@
 /* My designs: every saved font, previewed in its own letterforms. */
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import type { Design } from '../../shared/design';
+import { NAME_MAX, cleanName, type Design } from '../../shared/design';
 import { api, errorMessage } from '../lib/api';
 import { n1 } from '../lib/hooks';
-import { actions, fontFor, useEditor } from '../state/editor';
+import { actions, fontFor, useEditor, type ToastAction } from '../state/editor';
 import { Toast } from '../components/Chrome';
 import { Brand } from '../components/Header';
 
@@ -40,14 +40,60 @@ export function LibraryPage() {
     } catch (e) { actions.toast(`Couldn’t duplicate — ${errorMessage(e)}`); }
   };
 
-  const remove = async (d: Design) => {
-    if (!window.confirm(`Delete “${d.name}”? This can’t be undone.`)) return;
+  // a delete waits a few seconds, while its toast offers Undo, before it reaches the server; leaving
+  // the page sends any that are still waiting
+  const pending = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; undo: ToastAction }>());
+  const byNewest = (list: Design[]) => [...list].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+  const reallyDelete = async (d: Design) => {
+    pending.current.delete(d.id);
     try {
       await api.deleteDesign(d.id);
-      setDesigns(list => list && list.filter(x => x.id !== d.id));
       if (useEditor.getState().designId === d.id) actions.newDesign();
-      actions.toast(`Deleted “${d.name}”`);
-    } catch (e) { actions.toast(`Couldn’t delete — ${errorMessage(e)}`); }
+    } catch (e) {
+      setDesigns(list => list && byNewest([...list, d]));
+      actions.toast(`Couldn’t delete — ${errorMessage(e)}`);
+    }
+  };
+  const remove = (d: Design) => {
+    setDesigns(list => list && list.filter(x => x.id !== d.id));
+    const undo: ToastAction = {
+      label: 'Undo',
+      run: () => {
+        const p = pending.current.get(d.id);
+        if (!p) return;
+        clearTimeout(p.timer);
+        pending.current.delete(d.id);
+        setDesigns(list => list && byNewest([...list, d]));
+      }
+    };
+    pending.current.set(d.id, { timer: setTimeout(() => void reallyDelete(d), 6000), undo });
+    actions.toast(`Deleted “${d.name}”`, undo);
+  };
+  useEffect(() => {
+    const flush = () => {
+      for (const [id, p] of pending.current) {
+        clearTimeout(p.timer);
+        void api.deleteDesign(id).catch(() => {});
+        if (useEditor.getState().designId === id) actions.newDesign();
+        // an Undo can't reach a page that's gone
+        if (useEditor.getState().toast?.action === p.undo) useEditor.setState({ toast: null });
+      }
+      pending.current.clear();
+    };
+    addEventListener('pagehide', flush);
+    return () => { removeEventListener('pagehide', flush); flush(); };
+  }, []);
+
+  const rename = async (d: Design, raw: string) => {
+    const name = cleanName(raw);
+    if (name === d.name) return;
+    try {
+      const r = await api.renameDesign(d.id, name);
+      setDesigns(list => list && list.map(x => (x.id === r.id ? r : x)));
+      // the same design open in the editor takes the new name too
+      if (useEditor.getState().designId === r.id) actions.markRenamed(r.name);
+      actions.toast(`Renamed to “${r.name}”`);
+    } catch (e) { actions.toast(`Couldn’t rename — ${errorMessage(e)}`); }
   };
 
   return (
@@ -77,7 +123,7 @@ export function LibraryPage() {
           </div>
         ) : (
           <div className="lib-grid">
-            {designs.map(d => <DesignCard key={d.id} d={d} recent={d.id === recentId} onDuplicate={() => duplicate(d)} onDelete={() => remove(d)} />)}
+            {designs.map(d => <DesignCard key={d.id} d={d} recent={d.id === recentId} onDuplicate={() => duplicate(d)} onDelete={() => remove(d)} onRename={n => rename(d, n)} />)}
             <button className="lib-new" onClick={startNew}>
               <span className="lib-new-icon"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M11 4v14M4 11h14" /></svg></span>
               <b>New design</b>
@@ -90,7 +136,8 @@ export function LibraryPage() {
   );
 }
 
-function DesignCard({ d, recent, onDuplicate, onDelete }: { d: Design; recent: boolean; onDuplicate: () => void; onDelete: () => void }) {
+function DesignCard({ d, recent, onDuplicate, onDelete, onRename }: { d: Design; recent: boolean; onDuplicate: () => void; onDelete: () => void; onRename: (name: string) => void }) {
+  const [editing, setEditing] = useState(false);
   const f = fontFor(d.params), ln = f.layout('Ag', Infinity)[0], sample = f.layout('Hamburgefonstiv', Infinity)[0];
   const pad = (1500 - ln.width) / 2, spad = Math.max(0, (9000 - sample.width) / 2);
   return (
@@ -105,16 +152,30 @@ function DesignCard({ d, recent, onDuplicate, onDelete }: { d: Design; recent: b
         </svg>
       </Link>
       <div className="lib-meta">
-        <h3 title={d.name}>{d.name}</h3>
-        <CardMenu name={d.name} onDuplicate={onDuplicate} onDelete={onDelete} />
+        {editing
+          ? <RenameField name={d.name} onDone={n => { setEditing(false); if (n !== null) onRename(n); }} />
+          : <h3 title={d.name}>{d.name}</h3>}
+        <CardMenu name={d.name} onRename={() => setEditing(true)} onDuplicate={onDuplicate} onDelete={onDelete} />
         <p title={new Date(d.updatedAt).toLocaleString()}>Edited {ago(d.updatedAt)}</p>
       </div>
     </article>
   );
 }
 
-/** The ⋯ button on a card, holding Duplicate and Delete. */
-function CardMenu({ name, onDuplicate, onDelete }: { name: string; onDuplicate: () => void; onDelete: () => void }) {
+/** A card's name, being edited: Enter or leaving the field keeps it, Escape puts the old one back. */
+function RenameField({ name, onDone }: { name: string; onDone: (name: string | null) => void }) {
+  const [value, setValue] = useState(name);
+  const done = useRef(false);
+  const finish = (n: string | null) => { if (!done.current) { done.current = true; onDone(n); } };
+  return (
+    <input className="lib-rename" value={value} maxLength={NAME_MAX} aria-label="Font name" spellCheck={false} autoFocus
+      onFocus={e => e.target.select()} onChange={e => setValue(e.target.value)} onBlur={() => finish(value)}
+      onKeyDown={e => { if (e.key === 'Enter') finish(value); else if (e.key === 'Escape') finish(null); }} />
+  );
+}
+
+/** The ⋯ button on a card, holding Rename, Duplicate and Delete. */
+function CardMenu({ name, onRename, onDuplicate, onDelete }: { name: string; onRename: () => void; onDuplicate: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 
@@ -135,6 +196,7 @@ function CardMenu({ name, onDuplicate, onDelete }: { name: string; onDuplicate: 
       </button>
       {open && (
         <div className="popover lib-menu" role="menu">
+          <button role="menuitem" onClick={pick(onRename)}>Rename</button>
           <button role="menuitem" onClick={pick(onDuplicate)}>Duplicate</button>
           <button role="menuitem" className="danger" onClick={pick(onDelete)}>Delete</button>
         </div>

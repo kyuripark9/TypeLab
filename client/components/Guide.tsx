@@ -108,6 +108,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
     markSeen();
     const s = start.current;
     if (useEditor.getState().inspect) actions.closeInspector();
+    actions.setNavOpen(false);
     actions.setCategory(s.category);
     actions.setStyleTab(s.styleTab);
     actions.setScope(s.scope);
@@ -126,6 +127,8 @@ export function Guide({ onClose }: { onClose: () => void }) {
     else if (step.inspector !== 'keep' && s.inspect) actions.closeInspector();
     if (step.category === 'style' || (step.category && s.category === 'style')) actions.setCategory(step.category);
     if (step.target === 'panel' && step.category === 'style') actions.setStyleTab('adjust');
+    // in a narrow window the page menu is a drawer: open it for the step about it
+    actions.setNavOpen(step.target === 'nav' && matchMedia('(max-width: 1180px)').matches);
     s = useEditor.getState();
     setCan(!step.can || step.can(s));
     const then = s;

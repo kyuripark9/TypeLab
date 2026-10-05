@@ -5,16 +5,16 @@ const HOLD_MS = 1900, FADE_MS = 450;
 
 function shouldPlay() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
-  try { return sessionStorage.getItem(SEEN_KEY) !== '1'; } catch { return true; }
+  try { return localStorage.getItem(SEEN_KEY) !== '1'; } catch { return true; }
 }
 
-/** Opening title card, played once per browser tab: the wordmark, then the tagline, then a fade to the app. */
+/** Opening title card, played on the first visit in a browser: the wordmark, then the tagline, then a fade to the app. */
 export function Intro() {
   const [phase, setPhase] = useState<'show' | 'leave' | 'done'>(() => (shouldPlay() ? 'show' : 'done'));
 
   useEffect(() => {
     if (phase === 'done') return;
-    try { sessionStorage.setItem(SEEN_KEY, '1'); } catch { /* private mode: play again next time */ }
+    try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* private mode: play again next time */ }
     const t = setTimeout(() => setPhase(phase === 'show' ? 'leave' : 'done'), phase === 'show' ? HOLD_MS : FADE_MS);
     const skip = () => setPhase(p => (p === 'show' ? 'leave' : p));
     window.addEventListener('keydown', skip);

@@ -2,11 +2,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
 import { CONTROLS, SUBS, controlFor, pageOf, type ActiveKey } from '../../shared/content';
-import { cleanName } from '../../shared/design';
+import { DEFAULT_NAME, cleanName } from '../../shared/design';
 import { ApiError, api, errorMessage } from '../lib/api';
 import { isTyping } from '../lib/hooks';
 import { actions, isDirty, useEditor } from '../state/editor';
 import { GlyphStrip, Nav, Toast } from '../components/Chrome';
+import { Dialog } from '../components/Dialog';
 import { GlyphDefs } from '../components/GlyphDefs';
 import { Guide, guideSeen } from '../components/Guide';
 import { Header } from '../components/Header';
@@ -42,11 +43,18 @@ export function EditorPage() {
   }, [id]);
 
   const save = useSave();
-  useShortcuts(save);
-  useLeaveGuard();
+  // a design's first save asks for its name, unless it already has one of its own
+  const [naming, setNaming] = useState(false);
+  const requestSave = useCallback(() => {
+    const s = useEditor.getState();
+    if (!s.designId && cleanName(s.name) === DEFAULT_NAME) setNaming(true);
+    else void save();
+  }, [save]);
+  useShortcuts(requestSave);
+  const leave = useLeaveGuard(save);
   useDeepLinks();
 
-  const name = useEditor(s => s.name), category = useEditor(s => s.category);
+  const name = useEditor(s => s.name), category = useEditor(s => s.category), navOpen = useEditor(s => s.navOpen);
   useEffect(() => { document.title = `${cleanName(name)} — TypeLab`; }, [name]);
 
   if (status === 'missing' || status === 'error') {
@@ -63,9 +71,11 @@ export function EditorPage() {
   }
 
   return (
-    <div className="editor">
-      <Header onSave={save} onGuide={() => { actions.setTips(true); setGuide(true); }} />
+    <div className={navOpen ? 'editor nav-open' : 'editor'}>
+      <Header onSave={requestSave} onGuide={() => { actions.setTips(true); setGuide(true); }}
+        naming={naming} onNamed={n => { setNaming(false); actions.setName(n); void save(); }} onCancelNaming={() => setNaming(false)} />
       <Nav />
+      {navOpen && <div className="nav-scrim" onClick={() => actions.setNavOpen(false)} />}
       <Stage />
       <Panel />
       <Resizer side="nav" />
@@ -75,16 +85,18 @@ export function EditorPage() {
       <Toast />
       {status === 'loading' && <div className="loading" role="status">Opening design…</div>}
       {guide && status === 'ready' && <Guide onClose={() => setGuide(false)} />}
+      {leave}
     </div>
   );
 }
 
-/** Save to the server: create on first save, update afterwards. */
+/** Save to the server: create on first save, update afterwards. Resolves to whether it saved;
+    `stay` keeps the address as it is, for a save on the way out to another page. */
 function useSave() {
   const navigate = useNavigate();
-  return useCallback(async () => {
+  return useCallback(async ({ stay = false } = {}): Promise<boolean> => {
     const s = useEditor.getState();
-    if (s.saving) return;
+    if (s.saving) return false;
     const input = { name: cleanName(s.name), styleId: s.styleId, params: s.params };
     actions.setSaving(true);
     try {
@@ -97,10 +109,12 @@ function useSave() {
         d = await api.createDesign(input);
       }
       actions.markSaved(d, input);
-      if (d.id !== s.designId) navigate(`/d/${d.id}`, { replace: true });
+      if (d.id !== s.designId && !stay) navigate(`/d/${d.id}`, { replace: true });
       actions.toast('Saved to your designs');
+      return true;
     } catch (e) {
       actions.toast(`Couldn’t save — ${errorMessage(e)}`);
+      return false;
     } finally {
       actions.setSaving(false);
     }
@@ -115,7 +129,7 @@ function useShortcuts(save: () => void) {
       else if (mod && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); actions.travel(1); }
       else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
       else if (e.key === '/' && !mod && !typing && s.category === 'style') { e.preventDefault(); focusSearch(); }
-      else if (e.key === 'Escape') { if (s.exportOpen) actions.setExportOpen(false); else actions.closeInspector(); }
+      else if (e.key === 'Escape') { if (s.navOpen) actions.setNavOpen(false); else if (s.exportOpen) actions.setExportOpen(false); else actions.closeInspector(); }
       else if (s.inspect && !typing && (e.target as HTMLInputElement).type !== 'range' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault();
         actions.stepInspector(e.key === 'ArrowLeft' ? -1 : 1);
@@ -126,8 +140,10 @@ function useShortcuts(save: () => void) {
   }, [save]);
 }
 
-/** Warn before losing unsaved changes, both on tab close and on in-app navigation. */
-function useLeaveGuard() {
+/** Warn before losing unsaved changes, both on tab close (the browser's own prompt, the only one
+    allowed there) and on in-app navigation, where a dialog offers to save on the way out. Returns
+    that dialog, while it's open. */
+function useLeaveGuard(save: (o?: { stay?: boolean }) => Promise<boolean>) {
   const dirty = useEditor(isDirty);
   useEffect(() => {
     if (!dirty) return;
@@ -140,13 +156,17 @@ function useLeaveGuard() {
     const s = useEditor.getState();
     return isDirty(s) && nextLocation.pathname !== `/d/${s.designId}`;
   });
-  useEffect(() => {
-    if (blocker.state !== 'blocked') return;
-    if (window.confirm('You have unsaved changes. Leave without saving?')) {
-      actions.newDesign(); // drop the edits so they don't reappear later
-      blocker.proceed();
-    } else blocker.reset();
-  }, [blocker]);
+  const stay = useCallback(() => blocker.reset?.(), [blocker]);
+  if (blocker.state !== 'blocked') return null;
+  return (
+    <Dialog title="Save your changes?" body="This design has changes you haven’t saved yet." onCancel={stay}
+      choices={[
+        { label: 'Save and leave', primary: true, run: async () => { if (await save({ stay: true })) blocker.proceed?.(); else blocker.reset?.(); } },
+        // drop the edits so they don't reappear later
+        { label: 'Leave without saving', run: () => { actions.newDesign(); blocker.proceed?.(); } },
+        { label: 'Stay', run: stay }
+      ]} />
+  );
 }
 
 /** ?style=serif&cat=serifs&active=serifTip&inspect=R&text=Hello&hot=1&pen=1 — handy for demos. `cat` names

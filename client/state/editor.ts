@@ -99,8 +99,13 @@ export interface EditorState extends Doc {
   /** the pen snaps dragged points and handles (when on) to the kinds of place listed */
   snap: { on: boolean; kinds: SnapKind[] };
   exportOpen: boolean;
-  toast: { id: number; msg: string } | null;
+  toast: { id: number; msg: string; action?: ToastAction } | null;
+  /** the page menu, opened from the header while the window is too narrow to show it alongside */
+  navOpen: boolean;
 }
+
+/** A button on a toast, like Undo after a delete. */
+export interface ToastAction { label: string; run: () => void }
 
 const histSnap = (p: Params, styleId: string) => JSON.stringify([styleId, p]);
 const docSnap = (d: Pick<Doc, 'name' | 'styleId' | 'params'>) => JSON.stringify([d.name, d.styleId, d.params]);
@@ -156,7 +161,8 @@ export const useEditor = create<EditorState>()(() => ({
   mirror: [],
   snap: savedSnap(),
   exportOpen: false,
-  toast: null
+  toast: null,
+  navOpen: false
 }));
 
 const set = useEditor.setState, get = useEditor.getState;
@@ -298,6 +304,11 @@ export const actions = {
     set({ designId: d.id, name, saved: docSnap({ name: d.name, styleId: sent.styleId, params: sent.params }) });
   },
   setName(name: string) { set({ name }); },
+  /** A saved design was renamed on the server: the name counts as saved, while other unsaved edits stay unsaved. */
+  markRenamed(name: string) {
+    const [, styleId, params] = JSON.parse(get().saved) as [string, string, Params];
+    set({ name, saved: docSnap({ name, styleId, params }) });
+  },
   setSaving(saving: boolean) { set({ saving }); },
 
   /** Live change while dragging: no history entry until commit(). While edits go to one letter,
@@ -334,7 +345,9 @@ export const actions = {
     const traits = get().traits, params = { ...applyTraits(st.params, traits) }, n = Object.keys(traits).length;
     set({ params, styleId: id, switchedOn: [], picked: JSON.stringify(params) });
     actions.commit();
-    actions.toast(`${st.name} loaded${n ? ` with ${n} ${n === 1 ? 'trait' : 'traits'}` : ''} — now make it yours`);
+    // the way on from here: the first page of controls, offered right on the toast
+    actions.toast(`${st.name} loaded${n ? ` with ${n} ${n === 1 ? 'trait' : 'traits'}` : ''} — now make it yours`,
+      { label: 'Customize', run: () => actions.setCategory('personality') });
   },
   /** Reset one slider to the starting style's value, or, while edits go to one letter, to the
       value the other letters share. */
@@ -490,7 +503,8 @@ export const actions = {
     actions.toast(`${ch} follows the settings again · ⌘Z brings the drawing back`);
   },
   setExportOpen(exportOpen: boolean) { set({ exportOpen }); },
-  toast(msg: string) { set({ toast: { id: ++toastId, msg } }); }
+  toast(msg: string, action?: ToastAction) { set({ toast: { id: ++toastId, msg, action } }); },
+  setNavOpen(navOpen: boolean) { set({ navOpen }); }
 };
 
 export const isSerifSub = (k: ActiveKey) => k in SERIF_SUBS;

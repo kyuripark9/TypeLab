@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useLocation } from 'react-router';
+import { styleById } from '../../shared/content';
 import { NAME_MAX, cleanName, slug } from '../../shared/design';
 import { sanitizeParams } from '../../shared/params';
 import { api, download, errorMessage } from '../lib/api';
@@ -14,17 +15,52 @@ export function Brand() {
   </Link>;
 }
 
-export function Header({ onSave, onGuide }: { onSave: () => void; onGuide: () => void }) {
+/** Rename: a design already in the library takes its new name at once, as a file would, so the
+    name can't be lost by leaving without pressing Save; a new design keeps it until its first save. */
+async function commitName(raw: string) {
+  const name = cleanName(raw), s = useEditor.getState();
+  actions.setName(name);
+  if (!s.designId) return;
+  const [savedName] = JSON.parse(s.saved) as [string];
+  if (savedName === name) return;
+  // counted as saved straight away, so leaving the page right after (the click that blurred the
+  // field) doesn't ask about it; put back if the server says no
+  const before = s.saved, id = s.designId;
+  actions.markRenamed(name);
+  try {
+    await api.renameDesign(id, name);
+    actions.toast(`Renamed to “${name}”`);
+  } catch (e) {
+    if (useEditor.getState().designId === id) useEditor.setState({ saved: before });
+    actions.toast(`Couldn’t rename — ${errorMessage(e)}`);
+  }
+}
+
+interface HeaderProps {
+  onSave: () => void; onGuide: () => void;
+  /** asking for the name on a design's first save */
+  naming: boolean; onNamed: (name: string) => void; onCancelNaming: () => void;
+}
+
+export function Header({ onSave, onGuide, naming, onNamed, onCancelNaming }: HeaderProps) {
   const name = useEditor(s => s.name), dirty = useEditor(isDirty), saving = useEditor(s => s.saving);
   const canUndo = useEditor(s => s.hi > 0), canRedo = useEditor(s => s.hi < s.history.length - 1);
+  const navOpen = useEditor(s => s.navOpen);
   return (
     <header className="top">
       <div className="top-left">
+        {/* shown only while the window is too narrow for the page menu to sit beside the preview */}
+        <button className="btn ghost icon nav-toggle" aria-label="Pages" title="Pages" aria-expanded={navOpen} onClick={() => actions.setNavOpen(!navOpen)}>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+        </button>
         <Brand />
-        <input className="doc-name" value={name} maxLength={NAME_MAX} aria-label="Font name" spellCheck={false}
-          onChange={e => actions.setName(e.target.value)}
-          onBlur={() => actions.setName(cleanName(name))}
-          onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }} />
+        <label className="doc-name-wrap" title="Rename">
+          <input className="doc-name" value={name} maxLength={NAME_MAX} aria-label="Font name" spellCheck={false}
+            onChange={e => actions.setName(e.target.value)}
+            onBlur={() => void commitName(name)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }} />
+          <svg className="doc-name-pen" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M10.5 3.5l2 2L6 12H4v-2z" /></svg>
+        </label>
       </div>
       <div className="top-actions" data-guide="actions">
         <button className="btn ghost icon" onClick={() => actions.travel(-1)} disabled={!canUndo} title="Undo (⌘Z)" aria-label="Undo">
@@ -34,14 +70,44 @@ export function Header({ onSave, onGuide }: { onSave: () => void; onGuide: () =>
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" strokeLinejoin="round" /></svg>
         </button>
         <span className="sep" />
-        <button className="btn ghost" onClick={onGuide}>Guide</button>
+        <button className="btn ghost guide-btn" onClick={onGuide}>Guide</button>
         <Link className="btn ghost" to="/designs">My designs</Link>
-        <button className="btn ghost" onClick={onSave} disabled={saving} title="Save (⌘S)">
-          {saving ? 'Saving…' : 'Save'}<i className={dirty ? 'dirty on' : 'dirty'} aria-label={dirty ? 'Unsaved changes' : undefined} />
-        </button>
+        <div className="save-wrap">
+          <button className="btn ghost" onClick={onSave} disabled={saving} title="Save (⌘S)">
+            {saving ? 'Saving…' : 'Save'}<i className={dirty ? 'dirty on' : 'dirty'} aria-label={dirty ? 'Unsaved changes' : undefined} />
+          </button>
+          {naming && <NamePrompt onDone={onNamed} onCancel={onCancelNaming} />}
+        </div>
         <ExportMenu />
       </div>
     </header>
+  );
+}
+
+/** "Name your font": asked on a design's first save, so the library doesn't fill with Untitled fonts.
+    It starts from the style the design is based on. */
+function NamePrompt({ onDone, onCancel }: { onDone: (name: string) => void; onCancel: () => void }) {
+  const style = useEditor(s => styleById(s.styleId));
+  const [value, setValue] = useState(() => `My ${style?.name ?? 'font'}`);
+  const wrap = useRef<HTMLFormElement>(null), input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    input.current?.select();
+    const close = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as Node)) onCancel(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel(); } };
+    document.addEventListener('pointerdown', close);
+    addEventListener('keydown', esc, true);
+    return () => { document.removeEventListener('pointerdown', close); removeEventListener('keydown', esc, true); };
+  }, [onCancel]);
+  return (
+    <form ref={wrap} className="popover name-prompt" aria-label="Name your font" onSubmit={e => { e.preventDefault(); onDone(cleanName(value)); }}>
+      <label htmlFor="name-prompt">Name your font</label>
+      <input id="name-prompt" ref={input} value={value} maxLength={NAME_MAX} spellCheck={false} onChange={e => setValue(e.target.value)} />
+      <p>It’s also the name the font installs under.</p>
+      <div className="name-prompt-actions">
+        <button type="button" className="btn ghost small" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="btn primary small">Save</button>
+      </div>
+    </form>
   );
 }
 

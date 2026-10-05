@@ -1,5 +1,5 @@
 import { useDeferredValue, useRef, useState } from 'react';
-import { KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, type StyleDef } from '../../shared/content';
+import { KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../../shared/content';
 import type { Params } from '../../shared/params';
 import { n1, useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
@@ -116,6 +116,7 @@ function StyleCards() {
   // redrawing every card takes a moment, so the panel answers first and the cards follow
   const traits = useDeferredValue(now);
   const shown = PAGE_STYLES.filter(s => matches(s, {}, traits));
+  const current = useEditor(s => styleById(s.styleId));
   return (
     <div className="style-cards">
       <div className="cards-head">
@@ -124,6 +125,13 @@ function StyleCards() {
         <button className="link small" onClick={() => actions.setFinder(!finder.on)}>{finder.on ? 'Browse all styles' : 'Help me choose'}</button>
         {/* the filters sit after every card in tab order; this jumps there, and shows only when focused */}
         <button className="skip" onClick={focusFilters}>Skip to filters</button>
+        {/* the way on, once there are cards to pick from: shape the style that's loaded */}
+        {!finder.question && current && (
+          <button className="btn primary small cards-next" onClick={() => actions.setCategory('personality')}>
+            Customize {current.name}
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" /></svg>
+          </button>
+        )}
       </div>
       {finder.on && <FinderTrail finder={finder} />}
       <ActiveBar onClear={() => head.current?.focus()} finder={finder.on} />

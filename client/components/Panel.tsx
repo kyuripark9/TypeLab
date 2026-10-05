@@ -140,6 +140,13 @@ function StyleTraits() {
 /** Height of the drawing on a trait step, in px. */
 const TRAIT_H = 24;
 
+/** Where the longer step names may break, with a hyphen, when a narrow panel leaves them no room:
+    a soft hyphen shows only at a break, so "Condensed" stays whole wherever it fits. */
+const SOFT: Record<string, string> = {
+  Condensed: 'Con\u00addensed', Extended: 'Ex\u00adtended', Bracketed: 'Brack\u00adeted',
+  Hairline: 'Hair\u00adline', Moderate: 'Mod\u00aderate', Squarish: 'Squar\u00adish'
+};
+
 function TraitRow({ def }: { def: TraitDef }) {
   const picked = useEditor(s => s.traits[def.id]), traits = useEditor(s => s.traits);
   const base = useEditor(s => styleById(s.styleId)) ?? PAGE_STYLES[0];
@@ -156,7 +163,7 @@ function TraitRow({ def }: { def: TraitDef }) {
           <button key={o.id} className={picked === o.id ? 'opt on' : 'opt'} aria-pressed={picked === o.id}
             onClick={() => actions.setTrait(def.id, o.id)}>
             <Specimen params={adjustedParams(base, { ...traits, [def.id]: o.id })} text={def.sample} h={TRAIT_H} />
-            <span>{o.label}</span>
+            <span>{SOFT[o.label] ?? o.label}</span>
           </button>
         ))}
       </div>
@@ -248,10 +255,20 @@ function ChipFacet<T extends Tag>({ id, label, tags, picked, count, toggle, leve
 /** Cap height of a tag label in px, so every face reads at about the size of the UI text. */
 const TAG_CAP = 9.5;
 
+/** A face drawn as small as a chip label keeps its character but not its hairlines: contrast is
+    eased toward even and the lightest weights are raised, so "Fancy" doesn't lose the arm of its F. */
+const legible = (p: Params): Params => ({
+  ...p,
+  weight: Math.max(p.weight, 0.36),
+  contrast: Math.min(Math.max(p.contrast, 0.35), 0.66),
+  vWeight: Math.max(p.vWeight, 0.45),
+  hWeight: Math.max(p.hWeight, 0.45)
+});
+
 /** A filter tag's name, drawn in a starting style that belongs to it. The chip carries the
     name for screen readers, so the drawing is hidden from them. */
 function TagText({ tag, label }: { tag: Tag; label: string }) {
-  const f = fontFor(styleById(TAG_FACE[tag])!.params);
+  const f = fontFor(legible(styleById(TAG_FACE[tag])!.params));
   const sc = TAG_CAP / f.m.cap, top = Math.max(f.m.asc, f.m.cap), line = f.layout(label, Infinity)[0];
   const W = n1(line.width * sc), H = n1((top - f.m.desc) * sc);
   return (
@@ -578,7 +595,8 @@ function EachJoin() {
       <div className="each-end locked">
         <JoinThumb g={g} joins={joins} />
         <div className="sub-label">Each join</div>
-        <button className="btn wide small" onClick={() => actions.setScope('letter')}>Customize {ch}</button>
+        {/* setting them one by one customizes the letter, so the button says what it's for */}
+        <button className="btn wide small" title={`Customizes ${ch}: only ${ch} changes`} onClick={() => actions.setScope('letter')}>Set each join of {ch}</button>
       </div>
     );
   }
@@ -711,7 +729,8 @@ function EachEnd() {
       <div className="each-end locked">
         <EndThumb g={g} ends={ends} />
         <div className="sub-label">Each end</div>
-        <button className="btn wide small" onClick={() => actions.setScope('letter')}>Customize {ch}</button>
+        {/* setting them one by one customizes the letter, so the button says what it's for */}
+        <button className="btn wide small" title={`Customizes ${ch}: only ${ch} changes`} onClick={() => actions.setScope('letter')}>Set each end of {ch}</button>
       </div>
     );
   }
@@ -736,7 +755,8 @@ function EachCorner() {
       <div className="each-end locked">
         <EndThumb g={g} ends={corners} />
         <div className="sub-label">Each corner</div>
-        <button className="btn wide small" onClick={() => actions.setScope('letter')}>Customize {ch}</button>
+        {/* setting them one by one customizes the letter, so the button says what it's for */}
+        <button className="btn wide small" title={`Customizes ${ch}: only ${ch} changes`} onClick={() => actions.setScope('letter')}>Set each corner of {ch}</button>
       </div>
     );
   }
@@ -760,7 +780,8 @@ function EachStroke() {
       <div className="each-end locked">
         <StrokeThumb g={g} />
         <div className="sub-label">Each stroke</div>
-        <button className="btn wide small" onClick={() => actions.setScope('letter')}>Customize {ch}</button>
+        {/* setting them one by one customizes the letter, so the button says what it's for */}
+        <button className="btn wide small" title={`Customizes ${ch}: only ${ch} changes`} onClick={() => actions.setScope('letter')}>Set each stroke of {ch}</button>
       </div>
     );
   }

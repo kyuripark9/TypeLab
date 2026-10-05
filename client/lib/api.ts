@@ -6,10 +6,11 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-async function send(method: string, url: string, body?: unknown): Promise<Response> {
+async function send(method: string, url: string, body?: unknown, init?: RequestInit): Promise<Response> {
   let res: Response;
   try {
     res = await fetch(url, {
+      ...init,
       method,
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body)
@@ -32,7 +33,10 @@ export const api = {
   getDesign: (id: string) => json<Design>('GET', `/api/designs/${encodeURIComponent(id)}`),
   createDesign: (d: DesignInput) => json<Design>('POST', '/api/designs', d),
   updateDesign: (id: string, d: DesignInput) => json<Design>('PUT', `/api/designs/${encodeURIComponent(id)}`, d),
-  deleteDesign: async (id: string) => { await send('DELETE', `/api/designs/${encodeURIComponent(id)}`); },
+  /** Change only the name, leaving the saved letters as they are. */
+  renameDesign: (id: string, name: string) => json<Design>('PATCH', `/api/designs/${encodeURIComponent(id)}`, { name }),
+  /** keepalive, so a delete still goes through when the page is left while it waits out its Undo */
+  deleteDesign: async (id: string) => { await send('DELETE', `/api/designs/${encodeURIComponent(id)}`, undefined, { keepalive: true }); },
   /** Build a font file or specimen on the server. */
   exportFile: async (kind: 'otf' | 'svg', body: { name: string; params: Params }) => (await send('POST', `/api/export/${kind}`, body)).blob()
 };
