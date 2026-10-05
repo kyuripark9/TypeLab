@@ -110,7 +110,7 @@ export function Nav() {
   );
 }
 
-const STRIP_GROUPS: [string, string][] = [['Uppercase', CHARSET.upper], ['Lowercase', CHARSET.lower], ['Figures', CHARSET.digits], ['Punctuation', CHARSET.punct]];
+const STRIP_GROUPS: [string, string][] = [['Uppercase', CHARSET.upper], ['Lowercase', CHARSET.lower], ['Figures', CHARSET.digits], ['Punctuation', CHARSET.punct], ['Symbols', CHARSET.symbols]];
 
 export function GlyphStrip() {
   // the strip is off-screen detail: let it lag a frame behind while sliders move

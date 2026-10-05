@@ -9,6 +9,7 @@ import { after, before, describe, it } from 'node:test';
 import * as opentypeNs from 'opentype.js';
 import type { Design } from '../shared/design';
 import { STYLES } from '../shared/content';
+import { ALL_CHARS } from '../shared/engine';
 import { createApp } from '../server/app';
 import { DesignStore } from '../server/db';
 
@@ -131,8 +132,10 @@ describe('export API', () => {
     assert.equal(new TextDecoder().decode(buf.slice(0, 4)), 'OTTO');
     const font = opentype.parse(buf);
     assert.equal((font as unknown as { getEnglishName(k: string): string }).getEnglishName('fontFamily'), 'Test Font');
-    assert.equal(font.glyphs.length, 2 + 80); // .notdef, space and every drawn character
+    assert.equal(font.glyphs.length, 3 + ALL_CHARS.length); // .notdef, space, no-break space and every drawn character
     assert.ok(font.charToGlyph('A').advanceWidth! > 0);
+    // the special characters text needs are in it, not left to a fallback font
+    for (const ch of '…‘’“”–—€£©®™°×÷±<>[]{}|\\_*\u00a0') assert.notEqual(font.charToGlyph(ch).index, 0, `${ch} has a glyph`);
   });
 
   it('builds an SVG specimen', async () => {

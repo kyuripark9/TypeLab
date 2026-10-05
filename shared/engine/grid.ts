@@ -19,12 +19,12 @@ export interface GridRound { cx: number; cy: number; rx: number; ry: number; len
     units across per unit up, about the level line y = `pivot`. */
 export interface GlyphGrid { lines: GridLine[]; rounds: GridRound[]; slant: number; pivot: number }
 
-export type GridSet = 'upper' | 'lower' | 'digits' | 'punct';
+export type GridSet = 'upper' | 'lower' | 'digits' | 'punct' | 'symbols';
 /** What a letter is built from: straight strokes only, diagonals, stems with curves, or curves alone. */
 export type GridKind = 'straight' | 'diagonal' | 'bowl' | 'round';
 export interface GridGroup { id: string; name: string; label: string; set: GridSet; kind: GridKind; chars: string[] }
 
-const SETS: [GridSet, string][] = [['upper', 'Capitals'], ['lower', 'Lowercase'], ['digits', 'Figures'], ['punct', 'Punctuation']];
+const SETS: [GridSet, string][] = [['upper', 'Capitals'], ['lower', 'Lowercase'], ['digits', 'Figures'], ['punct', 'Punctuation'], ['symbols', 'Symbols']];
 const KINDS: [GridKind, string][] = [['straight', 'straight strokes'], ['diagonal', 'diagonals'], ['bowl', 'stems and curves'], ['round', 'round']];
 
 const DEG = Math.PI / 180;
@@ -253,7 +253,7 @@ function markShared(grid: GlyphGrid, others: GlyphGrid[]) {
 
 /** The grids of one set of glyphs and the groups they fall into. Groups keep their names whatever
     the design: Grid A to D are the capitals (straight, diagonal, stems and curves, round), E to H
-    the lowercase, I to L the figures, M to P the punctuation. */
+    the lowercase, I to L the figures, M to P the punctuation, Q to T the symbols. */
 function setGrids(font: Font, si: number): SetGrids {
   let sets = cache.get(font);
   if (!sets) { sets = []; cache.set(font, sets); }
@@ -265,7 +265,7 @@ function setGrids(font: Font, si: number): SetGrids {
     const g = font.glyph(ch);
     if (!g) continue;
     const m = font.letter(ch).m, grid = glyphGrid(g, m);
-    const kind = kindOf(g, grid, set === 'upper' || set === 'digits' ? m.cap : m.xh), ki = KINDS.findIndex(k => k[0] === kind);
+    const kind = kindOf(g, grid, set === 'lower' || set === 'punct' ? m.xh : m.cap), ki = KINDS.findIndex(k => k[0] === kind);
     let group = byKind.get(kind);
     if (!group) {
       group = { id: `${set}-${kind}`, name: `Grid ${String.fromCharCode(65 + si * KINDS.length + ki)}`, label: `${setLabel} · ${KINDS[ki][1]}`, set, kind, chars: [] };

@@ -110,14 +110,19 @@ function rasterize(polys: Pt[][], cell: number): Grid {
   const i0 = Math.floor(x0 / cell), j0 = Math.floor(y0 / cell);
   const cols = Math.ceil(x1 / cell) - i0, rows = Math.ceil(y1 / cell) - j0;
   const on = new Uint8Array(cols * rows), S = [1 / 6, 1 / 2, 5 / 6];
+  let any = false, best = 0, bestAt = Math.floor(rows / 2) * cols + Math.floor(cols / 2);
   for (let j = 0; j < rows; j++) {
     const sub = S.map(f => spans(polys, (j0 + j + f) * cell));
     for (let i = 0; i < cols; i++) {
       let n = 0;
       for (const sp of sub) for (const f of S) if (inside(sp, (i0 + i + f) * cell)) n++;
-      if (n >= 4) on[j * cols + i] = 1;
+      if (n >= 4) { on[j * cols + i] = 1; any = true; }
+      if (n > best) { best = n; bestAt = j * cols + i; }
     }
   }
+  // a mark thinner than half a cell (a light quote, a hairline bar) keeps the cell it covers most,
+  // or the middle one, rather than vanishing
+  if (!any && cols * rows) on[bestAt] = 1;
   return { i0, j0, cols, rows, on };
 }
 

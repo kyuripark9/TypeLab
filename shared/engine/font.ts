@@ -13,9 +13,10 @@ import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, SerifSides, Stroke
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
-  digits: '0123456789', punct: '.,!?;:\'"()-/&@#$%+'
+  digits: '0123456789', punct: '.,:;…!¡?¿\'"‘’“”‚„‹›«»()[]{}-–—_/\\|·•',
+  symbols: '&@#$¢€£¥%+−×÷=<>±~^*°©®™§¶†‡`'
 } as const;
-export const ALL_CHARS = CHARSET.upper + CHARSET.lower + CHARSET.digits + CHARSET.punct;
+export const ALL_CHARS = CHARSET.upper + CHARSET.lower + CHARSET.digits + CHARSET.punct + CHARSET.symbols;
 
 /** Parameters after the personality macros have been applied, plus derived switches. */
 export interface Effective extends Params {

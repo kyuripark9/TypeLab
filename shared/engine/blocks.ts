@@ -300,8 +300,168 @@ export const BLOCKS: Record<string, BlockFn> = {
       holes: [box(tv, th, W - tv, H - th, 40 * k)] };
   },
   "'": d => { const D = d.tv + d.g; return { W: D, outer: [quote(D, d.Y(62))], holes: [] }; },
-  '"': d => { const D = d.tv + d.g, q = quote(D, d.Y(62)); return { W: D * 2 + d.g, outer: [q, q.map(([x, y, r, k]): V => [x + D + d.g, y, r, k])], holes: [] }; }
+  '"': d => { const D = d.tv + d.g, q = quote(D, d.Y(62)); return { W: D * 2 + d.g, outer: [q, q.map(([x, y, r, k]): V => [x + D + d.g, y, r, k])], holes: [] }; },
+
+  '…': d => { const D = d.tv + d.g, st = D + d.g * 0.8; return { W: D + 2 * st, outer: [0, 1, 2].map(i => box(i * st, d.H - D, i * st + D, d.H, D * 0.3)), holes: [] }; },
+  '¡': d => turn(BLOCKS['!'](d), d.H),
+  '¿': d => turn(BLOCKS['?'](d), d.H),
+  '‘': d => quotes(d, 1, 'open'),
+  '’': d => quotes(d, 1, 'close'),
+  '“': d => quotes(d, 2, 'open'),
+  '”': d => quotes(d, 2, 'close'),
+  '‚': d => quotes(d, 1, 'low'),
+  '„': d => quotes(d, 2, 'low'),
+  '‹': d => chevrons(d, 1, false),
+  '›': d => chevrons(d, 1, true),
+  '«': d => chevrons(d, 2, false),
+  '»': d => chevrons(d, 2, true),
+  '[': d => {
+    const { H, th, X, k } = d, W = X(90), t = d.tv * 1.2;
+    return { W, outer: [[v(0, 0, 12 * k), v(W, 0, th / 2, 'e'), v(W, th, th / 2, 'e'), v(t, th, 8 * k, 'i'), v(t, H - th, 8 * k, 'i'), v(W, H - th, th / 2, 'e'),
+      v(W, H, th / 2, 'e'), v(0, H, 12 * k)]], holes: [] };
+  },
+  ']': d => mirror(BLOCKS['['](d)),
+  '{': d => {
+    const { H, th, X, k } = d, W = X(110), x1 = X(30), t = d.tv * 1.1, n = th * 0.55, m = H / 2;
+    // a [ with its upright standing in from the left and a nub out to the left at the middle
+    return { W, outer: [[v(x1, 0, 30 * k), v(W, 0, th / 2, 'e'), v(W, th, th / 2, 'e'), v(x1 + t, th, 15 * k, 'i'), v(x1 + t, H - th, 15 * k, 'i'),
+      v(W, H - th, th / 2, 'e'), v(W, H, th / 2, 'e'), v(x1, H, 30 * k), v(x1, m + n, 8 * k, 'i'), v(0, m + n, n, 'e'), v(0, m - n, n, 'e'), v(x1, m - n, 8 * k, 'i')]], holes: [] };
+  },
+  '}': d => mirror(BLOCKS['{'](d)),
+  '–': d => dash(d, d.X(180)),
+  '—': d => dash(d, d.X(330)),
+  '_': d => { const t = d.th * 1.4, W = d.X(170), y = d.H + d.g * 0.4; return { W, outer: [pill(0, y, W, y + t)], holes: [] }; },
+  '\\': d => mirror(BLOCKS['/'](d)),
+  '|': d => { const W = d.tv * 1.15; return { W, outer: [pill(0, -d.Y(12), W, d.H + d.Y(25))], holes: [] }; },
+  '·': d => { const D = d.tv + d.g, c = d.H * 0.55; return { W: D, outer: [box(0, c - D / 2, D, c + D / 2, D * 0.3)], holes: [] }; },
+  '•': d => { const D = (d.tv + d.g) * 1.5, c = d.H * 0.55; return { W: D, outer: [box(0, c - D / 2, D, c + D / 2, D * 0.4)], holes: [] }; },
+
+  '`': d => { const D = d.tv + d.g; return { W: D * 1.7, outer: [[v(0, 0, D * 0.3), v(D, 0, D * 0.3), v(D * 1.7, D * 1.2, D * 0.4, 'e'), v(D * 0.7, D * 1.2, D * 0.4, 'e')]], holes: [] }; },
+  '¢': d => {
+    const s = BLOCKS.C(d), t = d.tv, c = d.W * 0.55, e = d.Y(22);
+    return { ...s, outer: [...s.outer, pill(c - t / 2, -e, c + t / 2, d.th), pill(c - t / 2, d.H - d.th, c + t / 2, d.H + e)] };
+  },
+  '€': d => {
+    const x = d.X(34), s = shift(BLOCKS.C(d), x, 0), t = d.th * 0.9;
+    return { ...s, outer: [...s.outer, ...[0.36, 0.62].map(f => pill(0, d.H * f - t / 2, x + d.X(60), d.H * f + t / 2))] };
+  },
+  '£': d => {
+    const { H, th, X, k, R } = d, W = X(175), x0 = X(36), t = d.tv * 1.3, xs = x0 + t, y = d.Y(80), b = th * 0.9;
+    // a stem with an arm out to the right at the top, a foot running both ways and a bar across
+    return { W, outer: [[v(x0, 0, R * 0.8), v(W, 0, th / 2, 'e'), v(W, th, th / 2, 'e'), v(xs, th, 10 * k, 'i'), v(xs, H - th, 10 * k, 'i'), v(W, H - th, th / 2, 'e'),
+      v(W, H, th / 2, 'e'), v(0, H, th / 2, 'e'), v(0, H - th, th / 2, 'e'), v(x0, H - th, 10 * k, 'i')], pill(0, y, xs + X(40), y + b)], holes: [] };
+  },
+  '¥': d => {
+    const { H, th, X, Y, k, R } = d, W = X(190), c = W / 2, f = d.tv * 0.9, xl = X(62), yv = Y(62), yf = Y(98), b = th * 0.85, y = Y(124);
+    // two arms round a notch, on a foot with a bar across it
+    return { W, outer: [[v(0, 0, xl * 0.3, 'e'), v(xl, 0, xl * 0.2, 'e'), v(c, yv, d.g / 2, 'i'), v(W - xl, 0, xl * 0.2, 'e'), v(W, 0, xl * 0.3, 'e'), v(W, yf, R),
+      v(c + f, yf, 10 * k, 'i'), v(c + f, H, f / 2, 'e'), v(c - f, H, f / 2, 'e'), v(c - f, yf, 10 * k, 'i'), v(0, yf, R)], pill(X(40), y, W - X(40), y + b)], holes: [] };
+  },
+  '−': d => { const W = d.X(150), t = d.th * 1.5, cy = d.H * 0.55; return { W, outer: [pill(0, cy - t / 2, W, cy + t / 2)], holes: [] }; },
+  '×': d => {
+    const W = d.X(130), t = d.th * 1.5, cy = d.H * 0.55, r = W / 2 - t / 2;
+    return { W, outer: [bar(W / 2 - r, cy - r, W / 2 + r, cy + r, t), bar(W / 2 - r, cy + r, W / 2 + r, cy - r, t)], holes: [] };
+  },
+  '÷': d => {
+    const W = d.X(150), t = d.th * 1.5, cy = d.H * 0.55, D = d.tv + d.g * 0.5, o = t / 2 + d.g * 0.45;
+    return { W, outer: [pill(0, cy - t / 2, W, cy + t / 2), box(W / 2 - D / 2, cy - o - D, W / 2 + D / 2, cy - o, D * 0.3), box(W / 2 - D / 2, cy + o, W / 2 + D / 2, cy + o + D, D * 0.3)], holes: [] };
+  },
+  '=': d => {
+    const W = d.X(150), t = d.th * 1.4, cy = d.H * 0.55, o = t / 2 + d.g * 0.3;
+    return { W, outer: [pill(0, cy - o - t / 2, W, cy - o + t / 2), pill(0, cy + o - t / 2, W, cy + o + t / 2)], holes: [] };
+  },
+  '<': d => { const W = d.X(130); return { W, outer: [chevron(d, 0, d.H * 0.55, W, W * 1.3, d.tv * 1.3)], holes: [] }; },
+  '>': d => mirror(BLOCKS['<'](d)),
+  '±': d => {
+    const W = d.X(150), t = d.th * 1.4, cy = d.H * 0.45, r = W * 0.42, yb = cy + r + t * 0.5 + d.g * 0.4;
+    return { W, outer: [pill(0, cy - t / 2, W, cy + t / 2), pill(W / 2 - t / 2, cy - r, W / 2 + t / 2, cy + r), pill(0, yb, W, yb + t)], holes: [] };
+  },
+  '~': d => {
+    const W = d.X(160), t = d.th * 1.5, cy = d.H * 0.55, a = d.Y(14), n = 24, top: V[] = [], bot: V[] = [];
+    // a band along a sine, end to end
+    for (let i = 0; i <= n; i++) {
+      const x = t / 2 + (W - t) * i / n, y = cy - a * Math.sin(Math.PI * 2 * i / n), sl = -a * Math.PI * 2 / (W - t) * Math.cos(Math.PI * 2 * i / n), l = Math.hypot(1, sl);
+      top.push(v(x + sl * t / 2 / l, y - t / 2 / l, 0, 's'));
+      bot.unshift(v(x - sl * t / 2 / l, y + t / 2 / l, 0, 's'));
+    }
+    top[0][2] = top[n][2] = bot[0][2] = bot[n][2] = t / 2;
+    top[0][3] = top[n][3] = bot[0][3] = bot[n][3] = 'e';
+    return { W, outer: [[...top, ...bot]], holes: [] };
+  },
+  '^': d => {
+    const W = d.X(130), h = W * 0.62, c = chevron(d, 0, W / 2, h, W, d.tv * 1.2);
+    return { W, outer: [c.map(([x, y, r, k]): V => [y, x, r, k])], holes: [] };
+  },
+  '*': d => {
+    const W = d.X(120), t = d.th * 1.3, cy = d.Y(52), r = W / 2 - t / 2;
+    return { W, outer: [90, 30, 150].map(a => { const dx = r * Math.cos(a * Math.PI / 180), dy = r * Math.sin(a * Math.PI / 180); return bar(W / 2 - dx, cy - dy, W / 2 + dx, cy + dy, t); }), holes: [] };
+  },
+  '°': d => { const D = d.H * 0.42, t = d.tv * 0.9; return { W: D, outer: [box(0, 0, D, D, D * 0.45)], holes: [box(t, t, D - t, D - t, (D - 2 * t) * 0.45)] }; },
+  '©': d => ringed(d, BLOCKS.C),
+  '®': d => ringed(d, BLOCKS.R),
+  '™': d => {
+    const s = scaled(d, 0.42), T = BLOCKS.T(s), M = shift(BLOCKS.M(s), T.W + d.g * 0.5, 0);
+    return { W: M.W, outer: [...T.outer, ...M.outer], holes: [...T.holes, ...M.holes] };
+  },
+  '§': d => {
+    // an S run on below the baseline, with a hole in the middle where its slots stop short of each other
+    const tall = { ...d, H: d.H * 1.25 }, s = S_(tall), { tv, th, g, k } = d, y0 = th + g + th, y1 = tall.H - y0;
+    return { ...s, holes: y1 - y0 > g * 0.5 ? [box(tv, y0, d.W - tv, y1, Math.min(30 * k, (y1 - y0) / 2))] : [] };
+  },
+  '¶': d => {
+    const { H, tv, th, g, X, Y, k, R } = d, W = X(150), xb = W - tv, xa = xb - g;
+    // a solid bowl on the left of two stems with a slot between them
+    return { W, outer: [[v(0, 0, R), v(W, 0, 15 * k), v(W, H, tv / 2, 'e'), v(xb, H, tv / 2, 'e'), v(xb, th, 8 * k, 'i'), v(xa, th, 8 * k, 'i'),
+      v(xa, H, tv / 2, 'e'), v(xa - tv, H, tv / 2, 'e'), v(xa - tv, Y(100), 10 * k, 'i'), v(0, Y(100), R * 0.8)]], holes: [] };
+  },
+  '†': d => {
+    const W = d.X(130), t = d.th * 1.4, c = W / 2, tv = d.tv * 1.1, y = d.Y(50);
+    return { W, outer: [pill(c - tv / 2, -d.Y(12), c + tv / 2, d.H + d.Y(25)), pill(0, y, W, y + t)], holes: [] };
+  },
+  '‡': d => {
+    const W = d.X(130), t = d.th * 1.3, c = W / 2, tv = d.tv * 1.1;
+    return { W, outer: [pill(c - tv / 2, -d.Y(12), c + tv / 2, d.H + d.Y(25)), pill(0, d.Y(42), W, d.Y(42) + t), pill(0, d.Y(140) - t, W, d.Y(140))], holes: [] };
+  }
 };
+
+/** A shape moved dx across and dy down, made wider by dx. */
+function shift(s: Shape, dx: number, dy: number): Shape {
+  const f = (ring: V[]) => ring.map(([x, y, r, k]): V => [x + dx, y + dy, r, k]);
+  return { W: s.W + dx, outer: s.outer.map(f), holes: s.holes.map(f) };
+}
+/** A bar t thick with fully round ends, from (x0, y0) to (x1, y1) at any angle. */
+function bar(x0: number, y0: number, x1: number, y1: number, t: number): V[] {
+  const l = Math.hypot(x1 - x0, y1 - y0), nx = -(y1 - y0) / l * t / 2, ny = (x1 - x0) / l * t / 2;
+  return [v(x0 + nx, y0 + ny, t / 2, 'e'), v(x1 + nx, y1 + ny, t / 2, 'e'), v(x1 - nx, y1 - ny, t / 2, 'e'), v(x0 - nx, y0 - ny, t / 2, 'e')];
+}
+/** The dims of a letter f times as high: its walls and slots thin less, so a small letter stays open and solid. */
+function scaled(d: BlockDims, f: number): BlockDims {
+  const H = d.H * f, W = d.W * f, w = f ** 0.6, k = d.k * f, X = (x: number) => x * W / 224;
+  return { W, H, tv: d.tv * w, th: d.th * w, g: d.g * w, k, X, Y: (y: number) => y * k, S: X(124), R: 50 * k };
+}
+/** A letter, a little under half the height, in a hole in a round-cornered block: © and ®. */
+function ringed(d: BlockDims, letter: BlockFn): Shape {
+  const s = scaled(d, 0.46), L = letter(s), W = Math.max(d.H * 1.2, s.W + 2 * (d.tv + d.g)), x = (W - s.W) / 2, y = (d.H - s.H) / 2;
+  const inner = shift(L, x, y);
+  return { W, outer: [box(0, 0, W, d.H, d.H * 0.45), ...inner.outer], holes: [box(d.tv, d.th, W - d.tv, d.H - d.th, (d.H - 2 * d.th) * 0.45), ...inner.holes] };
+}
+/** A chevron pointing left, its point at (x, cy), w across and h high, its arms t across. */
+function chevron(d: BlockDims, x: number, cy: number, w: number, h: number, t: number): V[] {
+  const y0 = cy - h / 2, y1 = cy + h / 2, k = d.k;
+  return [v(x, cy, 8 * k), v(x + w - t, y0, t * 0.3, 'e'), v(x + w, y0, t * 0.3, 'e'), v(x + t, cy, 6 * k, 'i'), v(x + w, y1, t * 0.3, 'e'), v(x + w - t, y1, t * 0.3, 'e')];
+}
+function chevrons(d: BlockDims, n: 1 | 2, right: boolean): Shape {
+  const h = d.H * 0.5, w = h * 0.62, t = d.tv * 1.1, st = w * 0.55 + d.g * 0.6, W = w + (n - 1) * st;
+  const s = { W, outer: Array.from({ length: n }, (_, i) => chevron(d, i * st, d.H * 0.6, w, h, t)), holes: [] };
+  return right ? mirror(s) : s;
+}
+/** Curly quotes as commas: raised to the top (’), turned half round there (‘), or on the baseline (‚). */
+function quotes(d: BlockDims, n: 1 | 2, at: 'open' | 'close' | 'low'): Shape {
+  const D = d.tv + d.g, H = d.H, c = comma(H, D), hgt = D * 1.6;
+  const one = at === 'low' ? c : at === 'close' ? c.map(([x, y, r, k]): V => [x, y - (H - D), r, k]) : c.map(([x, y, r, k]): V => [D - x, hgt - (y - (H - D)), r, k]);
+  return { W: D + (n - 1) * (D + d.g), outer: Array.from({ length: n }, (_, i) => one.map(([x, y, r, k]): V => [x + i * (D + d.g), y, r, k])), holes: [] };
+}
+function dash(d: BlockDims, W: number): Shape { const t = d.th * 1.6; return { W, outer: [pill(0, d.H * 0.55 - t / 2, W, d.H * 0.55 + t / 2)], holes: [] }; }
 
 function comma(H: number, D: number): V[] {
   return [v(0, H - D, D * 0.3), v(D, H - D, D * 0.3), v(D, H + D * 0.6, D * 0.2), v(D * 0.3, H + D * 0.6, D * 0.2), v(0, H, D * 0.2)];

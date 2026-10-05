@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { STYLES, TERMINAL_DETAILS } from '../shared/content';
-import { ALL_CHARS, buildFont, cmdsToD, type Glyph } from '../shared/engine';
+import { ALL_CHARS, CHARSET, buildFont, cmdsToD, type Glyph } from '../shared/engine';
 import { combine, shape } from '../shared/engine/boolean';
 import { toPolys } from '../shared/engine/effects';
 import { signedArea } from '../shared/engine/geom';
@@ -981,9 +981,9 @@ describe('block letters', () => {
     return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
   };
 
-  it('draws the capitals, figures and punctuation as blocks with slots and holes cut in', () => {
+  it('draws the capitals, figures, punctuation and symbols as blocks with slots and holes cut in', () => {
     const font = buildFont(blocks);
-    for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,!?;:\'"()-/&@#$%+') {
+    for (const ch of CHARSET.upper + CHARSET.digits + CHARSET.punct + CHARSET.symbols) {
       const g = font.glyph(ch)!;
       assert.equal(g.strokes.length, 1, `${ch} is one block`);
       assert.equal(g.marks.length, 0, `${ch} has no stroke ends or corners to edit`);

@@ -33,7 +33,9 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
   const font = buildFont(params), m = font.m;
   const glyphs = [
     new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }),
-    new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() })
+    new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() }),
+    // a no-break space, as wide as a space, so text that holds one doesn't fall back to another font
+    new opentype.Glyph({ name: 'uni00A0', unicode: 0xa0, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() })
   ];
   for (const ch of ALL_CHARS) {
     const g = font.glyph(ch); if (!g) continue;
@@ -111,7 +113,7 @@ const escapeXml = (s: string) => s.replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': 
 /** A vector specimen sheet: the name, every character and a pangram. */
 export function buildSpecimenSVG(params: Params, name: string): string {
   const font = buildFont(params), m = font.m;
-  const rows = [name, CHARSET.upper, CHARSET.lower, CHARSET.digits + ' ' + CHARSET.punct, TEXTS.sentence];
+  const rows = [name, CHARSET.upper, CHARSET.lower, CHARSET.digits + ' ' + CHARSET.punct, CHARSET.symbols, TEXTS.sentence];
   const lh = Math.max(m.asc, m.cap) - m.desc + 160;
   let body = '', maxW = 0;
   rows.forEach((t, r) => {
