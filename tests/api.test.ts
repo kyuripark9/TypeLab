@@ -143,6 +143,18 @@ describe('export API', () => {
     assert.match(svg, /Test &lt;Font&gt;/);
   });
 
+  it('builds a font family as a .zip', async () => {
+    const family = { anchor: 'regular', weights: ['regular', 'bold'], upright: true, italic: true };
+    const res = await call('POST', '/export/family', { name: 'Test Font', params: serif.params, family });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'application/zip');
+    assert.match(res.headers.get('content-disposition') ?? '', /Test-Font-family\.zip/);
+    assert.equal(new TextDecoder().decode((await res.arrayBuffer()).slice(0, 2)), 'PK');
+    for (const bad of [{ ...family, weights: [] }, { ...family, weights: ['heavy'] }, { ...family, anchor: 'x' }, { ...family, upright: false, italic: false }, undefined]) {
+      assert.equal((await call('POST', '/export/family', { name: 'x', params: serif.params, family: bad })).status, 400);
+    }
+  });
+
   it('rejects invalid params', async () => {
     assert.equal((await call('POST', '/export/otf', { name: 'x', params: { weight: 1 } })).status, 400);
   });

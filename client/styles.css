@@ -651,6 +651,34 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .dialog-actions .btn:not(.primary) { border: 1px solid var(--line-2); background: var(--surface); }
 .dialog-actions .btn:not(.primary):hover { border-color: var(--ink-3); }
 
+/* ---------- font family export */
+.dialog.family { width: min(760px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.family-opts { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 20px; margin-top: 16px; }
+.family-field { display: grid; gap: 5px; }
+.family-field > span { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.family-field select { height: 30px; padding: 0 8px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--surface); font: inherit; font-size: 13px; color: var(--ink); }
+.family-quick { display: flex; gap: 2px; margin-left: auto; }
+.family-list { list-style: none; margin: 14px 0 0; padding: 0; border-top: 1px solid var(--line); overflow: auto; min-height: 0; flex: 1; }
+.family-row { display: grid; grid-template-columns: 190px minmax(0, 1fr); align-items: center; gap: 12px; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+.family-pick { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+.family-pick input { margin: 0; align-self: center; accent-color: var(--sabi); }
+.family-pick b { font-size: 13px; font-weight: 500; }
+.family-pick span { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.family-samples { display: grid; gap: 12px; min-width: 0; }
+.family-samples.two { grid-template-columns: 1fr 1fr; }
+.family-sample { display: block; width: 100%; height: 34px; fill: var(--ink); }
+.family-row:not(.on) .family-sample { fill: var(--line-2); }
+.family-row:not(.on) .family-pick b { color: var(--ink-3); }
+.family-none { font-size: 12.5px; color: var(--ink-3); }
+.dialog p.family-note { font-size: 12.5px; color: var(--ink-3); margin-top: 10px; }
+.family-actions { align-items: center; margin-top: 14px; }
+.family-count { margin-right: auto; font-size: 12.5px; color: var(--ink-3); }
+@media (max-width: 600px) {
+  .family-row { grid-template-columns: 1fr; gap: 2px; }
+  .family-samples.two { grid-template-columns: 1fr; gap: 2px; }
+  .family-quick { margin-left: 0; }
+}
+
 /* ---------- guide */
 /* the spotlight lets clicks through to the editor; the blocks around it and the plain dim hold the rest still */
 .guide { position: fixed; inset: 0; z-index: 50; pointer-events: none; }

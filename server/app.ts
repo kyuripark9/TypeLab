@@ -5,7 +5,8 @@ import { styleById } from '../shared/content';
 import { cleanName, slug, type DesignInput } from '../shared/design';
 import { isValidParams } from '../shared/params';
 import type { DesignStore } from './db';
-import { buildOTF, buildSpecimenSVG } from './export';
+import { isWeightId, type FamilyRequest } from '../shared/family';
+import { buildFamilyZip, buildOTF, buildSpecimenSVG } from './export';
 
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -23,6 +24,17 @@ function readExport(body: unknown) {
   const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
   if (!isValidParams(b.params)) throw new HttpError(400, 'params is missing or has invalid values');
   return { name: cleanName(b.name), params: b.params };
+}
+
+/** Which members of a family to build: at least one weight, upright or italic or both. */
+function readFamily(body: unknown): FamilyRequest {
+  const b = ((body && typeof body === 'object' ? body : {}) as Record<string, unknown>).family as Record<string, unknown> | undefined;
+  if (!b || typeof b !== 'object') throw new HttpError(400, 'family is missing');
+  const weights = Array.isArray(b.weights) ? [...new Set(b.weights)] : [];
+  if (!isWeightId(b.anchor)) throw new HttpError(400, 'family.anchor is not a weight');
+  if (!weights.length || !weights.every(isWeightId)) throw new HttpError(400, 'family.weights must name at least one weight');
+  if (!b.upright && !b.italic) throw new HttpError(400, 'family needs upright or italic styles');
+  return { anchor: b.anchor, weights, upright: !!b.upright, italic: !!b.italic };
 }
 
 /** The browser's own id, from its cookie; a browser without one is given one. Designs are kept per
@@ -90,6 +102,12 @@ export function createApp(store: DesignStore) {
     const { name, params } = readExport(req.body);
     attachment(res, `${slug(name)}.otf`, 'font/otf');
     res.send(buildOTF(params, name));
+  });
+
+  api.post('/export/family', (req, res) => {
+    const { name, params } = readExport(req.body), family = readFamily(req.body);
+    attachment(res, `${slug(name)}-family.zip`, 'application/zip');
+    res.send(buildFamilyZip(params, name, family));
   });
 
   api.post('/export/svg', (req, res) => {

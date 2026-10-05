@@ -1,8 +1,11 @@
 /* Server-side export: the same engine that draws the live preview builds the font files. */
+import { crc32, deflateRawSync } from 'node:zlib';
 import * as opentypeNs from 'opentype.js';
 import { CHARSET, ALL_CHARS, buildFont } from '../shared/engine';
 import type { Cmd } from '../shared/engine';
 import { TEXTS } from '../shared/content';
+import { slug } from '../shared/design';
+import { familyMembers, type FamilyRequest } from '../shared/family';
 import type { Params } from '../shared/params';
 
 // opentype.js is CommonJS: under Node its API sits on the default export
@@ -21,8 +24,12 @@ function toPath(cmds: Cmd[]) {
   return p;
 }
 
+/** How a font installs within its family: its style name, weight class and italic angle. */
+export interface FontStyle { style: string; cls: number; angle: number }
+const REGULAR: FontStyle = { style: 'Regular', cls: 400, angle: 0 };
+
 /** An installable OpenType (CFF) font with every glyph TypeLab draws. */
-export function buildOTF(params: Params, name: string): Buffer {
+export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR): Buffer {
   const font = buildFont(params), m = font.m;
   const glyphs = [
     new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }),
@@ -37,11 +44,66 @@ export function buildOTF(params: Params, name: string): Buffer {
       path: toPath(g.cmds)
     }));
   }
+  // Apps that only know Regular, Italic, Bold and Bold Italic list each other weight as a family of
+  // its own ("Name Light"); the rest read the whole family from the typographic names.
+  const italic = as.angle > 0, weightName = as.style.replace(/ ?Italic$/, '') || 'Regular';
+  const ribbi = weightName === 'Regular' || weightName === 'Bold';
+  const fsSel = (italic ? 1 : 0) | (weightName === 'Bold' ? 32 : 0) | (!italic && weightName !== 'Bold' ? 64 : 0);
   const otf = new opentype.Font({
-    familyName: name, styleName: 'Regular', unitsPerEm: 1000,
+    familyName: ribbi ? name : `${name} ${weightName}`,
+    styleName: ribbi ? as.style : italic ? 'Italic' : 'Regular',
+    fullName: as.style === 'Regular' ? name : `${name} ${as.style}`,
+    postScriptName: `${name.replace(/[^A-Za-z0-9]/g, '') || 'TypeLab'}-${as.style.replace(/ /g, '')}`,
+    weightClass: as.cls, italicAngle: -as.angle, fsSelection: fsSel, unitsPerEm: 1000,
     ascender: R(Math.max(m.asc, m.cap) + 60), descender: R(m.desc - 40), glyphs
-  });
+  } as unknown as opentypeNs.FontConstructorOptions);
+  // opentype.js 2 keeps names per platform; its types still describe 1.x
+  const platforms = otf.names as unknown as Record<'unicode' | 'macintosh' | 'windows', Record<string, { en: string }>>;
+  for (const names of [platforms.unicode, platforms.macintosh, platforms.windows]) {
+    names.preferredFamily = { en: name };
+    names.preferredSubfamily = { en: as.style };
+  }
+  // opentype.js marks the head table bold from SemiBold up; only Bold is
+  (otf as unknown as { weightClass: number }).weightClass = weightName === 'Bold' ? 700 : 400;
   return Buffer.from(otf.toArrayBuffer());
+}
+
+/** Every member of a family as its own font, in one .zip with a folder named after the family. */
+export function buildFamilyZip(params: Params, name: string, req: FamilyRequest): Buffer {
+  const dir = slug(name);
+  return zip(familyMembers(params, req).map(f => ({
+    name: `${dir}/${dir}-${f.style.replace(/ /g, '')}.otf`,
+    data: buildOTF(f.params, name, f)
+  })));
+}
+
+/** A .zip archive of `files`, each compressed. */
+function zip(files: { name: string; data: Buffer }[]): Buffer {
+  const local: Buffer[] = [], central: Buffer[] = [];
+  let offset = 0;
+  // DOS time and date of now, as zip keeps them
+  const d = new Date();
+  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  for (const f of files) {
+    const nameBuf = Buffer.from(f.name, 'utf8'), packed = deflateRawSync(f.data), crc = crc32(f.data);
+    const head = Buffer.alloc(30);
+    head.writeUInt32LE(0x04034b50, 0); head.writeUInt16LE(20, 4); head.writeUInt16LE(0x0800, 6); head.writeUInt16LE(8, 8);
+    head.writeUInt16LE(time, 10); head.writeUInt16LE(date, 12); head.writeUInt32LE(crc, 14);
+    head.writeUInt32LE(packed.length, 18); head.writeUInt32LE(f.data.length, 22); head.writeUInt16LE(nameBuf.length, 26);
+    const entry = Buffer.alloc(46);
+    entry.writeUInt32LE(0x02014b50, 0); entry.writeUInt16LE(20, 4); entry.writeUInt16LE(20, 6); entry.writeUInt16LE(0x0800, 8); entry.writeUInt16LE(8, 10);
+    entry.writeUInt16LE(time, 12); entry.writeUInt16LE(date, 14); entry.writeUInt32LE(crc, 16);
+    entry.writeUInt32LE(packed.length, 20); entry.writeUInt32LE(f.data.length, 24); entry.writeUInt16LE(nameBuf.length, 28);
+    entry.writeUInt32LE(offset, 42);
+    local.push(head, nameBuf, packed);
+    central.push(entry, nameBuf);
+    offset += head.length + nameBuf.length + packed.length;
+  }
+  const size = central.reduce((n, b) => n + b.length, 0), end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(files.length, 8); end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(size, 12); end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...local, ...central, end]);
 }
 
 const escapeXml = (s: string) => s.replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]!));

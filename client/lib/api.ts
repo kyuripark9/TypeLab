@@ -1,5 +1,6 @@
 /* Typed client for the TypeLab API. */
 import type { Design, DesignInput } from '../../shared/design';
+import type { FamilyRequest } from '../../shared/family';
 import type { Params } from '../../shared/params';
 
 export class ApiError extends Error {
@@ -38,7 +39,9 @@ export const api = {
   /** keepalive, so a delete still goes through when the page is left while it waits out its Undo */
   deleteDesign: async (id: string) => { await send('DELETE', `/api/designs/${encodeURIComponent(id)}`, undefined, { keepalive: true }); },
   /** Build a font file or specimen on the server. */
-  exportFile: async (kind: 'otf' | 'svg', body: { name: string; params: Params }) => (await send('POST', `/api/export/${kind}`, body)).blob()
+  exportFile: async (kind: 'otf' | 'svg', body: { name: string; params: Params }) => (await send('POST', `/api/export/${kind}`, body)).blob(),
+  /** Build every member of a family on the server, as one .zip of fonts. */
+  exportFamily: async (body: { name: string; params: Params; family: FamilyRequest }) => (await send('POST', '/api/export/family', body)).blob()
 };
 
 export function download(fileName: string, data: Blob) {

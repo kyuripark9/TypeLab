@@ -5,6 +5,7 @@ import { NAME_MAX, cleanName, slug } from '../../shared/design';
 import { sanitizeParams } from '../../shared/params';
 import { api, download, errorMessage } from '../lib/api';
 import { actions, isDirty, useEditor } from '../state/editor';
+import { FamilyDialog } from './Family';
 
 /** Logo: back to the Style tab of the design in progress. */
 export function Brand() {
@@ -113,7 +114,7 @@ function NamePrompt({ onDone, onCancel }: { onDone: (name: string) => void; onCa
 
 function ExportMenu() {
   const open = useEditor(s => s.exportOpen);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null), [family, setFamily] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -170,6 +171,9 @@ function ExportMenu() {
           <button className="exp" role="menuitem" disabled={!!busy} onClick={() => serverExport('otf')}>
             <b>{busy === 'otf' ? 'Building font…' : 'Font file'}</b><span>.otf — install it and use it in any app</span>
           </button>
+          <button className="exp" role="menuitem" disabled={!!busy} onClick={() => { actions.setExportOpen(false); setFamily(true); }}>
+            <b>Font family…</b><span>.zip — more weights and an italic, installed as one family</span>
+          </button>
           <button className="exp" role="menuitem" disabled={!!busy} onClick={() => serverExport('svg')}>
             <b>{busy === 'svg' ? 'Building specimen…' : 'Specimen'}</b><span>.svg — vector sheet of every glyph</span>
           </button>
@@ -182,6 +186,7 @@ function ExportMenu() {
           </label>
         </div>
       )}
+      {family && <FamilyDialog onClose={() => setFamily(false)} />}
     </div>
   );
 }
