@@ -15,6 +15,7 @@ import { actions, adjustedLooks, adjustedParams, curlOf, endOf, fontFor, isOn, l
 import { TRAIT_SECTIONS, type TraitDef } from '../../shared/traits';
 import { BarEndsIcon, Diagram, FillIcon, FormIcon, SerifIcon, SerifSidesIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { ScopeIcon, letterControls } from './Inspector';
+import { SliderIcon } from './SliderIcons';
 
 export function Panel() {
   const category = useEditor(s => s.category), customizing = useEditor(s => !!letterOf(s));
@@ -376,14 +377,14 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
 }
 
 /** A control's short title. While a letter is inspected, the parts it shapes follow in grey and each one can be pointed at. */
-function CtlHead({ k, label, parts, advanced }: { k: keyof Params; label: string; parts?: string[]; advanced?: boolean }) {
+function CtlHead({ k, label, parts, advanced, icon }: { k: keyof Params; label: string; parts?: string[]; advanced?: boolean; icon?: string }) {
   const part = useEditor(s => s.part);
   const inspect = useEditor(s => s.inspect), letter = useEditor(letterOf);
   const own = useEditor(s => !!s.inspect && isGlyphKey(k) && s.params.glyphs[s.inspect]?.[k] !== undefined);
   const tag = scopeTag(inspect, letter, own, k);
   return (
     <div className="ctl-head">
-      <span className="ctl-label">{label}{advanced && <em>Advanced</em>}{tag && <em className={tag.own ? 'own' : undefined} title={tag.title}>{tag.text}</em>}</span>
+      <span className="ctl-label">{icon && <SliderIcon k={icon} />}{label}{advanced && <em>Advanced</em>}{tag && <em className={tag.own ? 'own' : undefined} title={tag.title}>{tag.text}</em>}</span>
       {!!parts?.length && (
         <span className="ctl-parts">
           {parts.map(p => (
@@ -494,8 +495,9 @@ interface SliderDef { label: string; friendly: string; tech: string; lo?: string
 
 /** A slider. An optional one (with an `off` value) has a switch; switched off, its slider folds away. */
 /** `children` follow the slider inside its control, like the corners under Roundness. `holdsOn`
-    marks the amount of a control switched on above it (a stencil's thickness): using it keeps that open. */
-function SliderControl({ k, def, parts, children, holdsOn }: { k: NumericParam; def: SliderDef; parts?: string[]; children?: ReactNode; holdsOn?: boolean }) {
+    marks the amount of a control switched on above it (a stencil's thickness): using it keeps that open.
+    `icon` names its drawing when that isn't `k`'s own (Stencil's Thickness shares the key `stencil`). */
+function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { k: NumericParam; def: SliderDef; parts?: string[]; children?: ReactNode; holdsOn?: boolean; icon?: string }) {
   const value = useParam(k), active = useEditor(s => s.active === k);
   const optional = def.off !== undefined, on = useEditor(s => !optional || isOn(s, k, def.off!));
   // using the slider keeps it open, even dragged all the way to its off value
@@ -504,7 +506,7 @@ function SliderControl({ k, def, parts, children, holdsOn }: { k: NumericParam; 
   return (
     <div className={cls} data-ctl={k} {...useControlFocus(k)}>
       <div className="ctl-top">
-        <CtlHead k={k} label={def.label} parts={parts} advanced={def.advanced} />
+        <CtlHead k={k} label={def.label} parts={parts} advanced={def.advanced} icon={icon} />
         <div className="ctl-tools">
           {on && <NumberField value={value} label={def.tech} degrees={def.degrees} onChange={v => { keep(); actions.focusControl(k); actions.setParam(k, v); actions.commit(); }} />}
           {optional && (
@@ -567,7 +569,7 @@ function CutControl({ k, parts }: { k: 'stencil' | 'slice'; parts?: string[] }) 
   return (
     <div className={cls} data-ctl={k} {...useControlFocus(k)}>
       <div className="ctl-top">
-        <CtlHead k={k} label={c.label} parts={parts} />
+        <CtlHead k={k} label={c.label} parts={parts} icon={k} />
         <div className="ctl-tools">
           <button className={on ? 'switch on' : 'switch'} role="switch" aria-checked={on} aria-label={c.label}
             onClick={() => { actions.focusControl(k); actions.switchControl(k, !on, c.off!); }}><i /></button>
@@ -575,7 +577,7 @@ function CutControl({ k, parts }: { k: 'stencil' | 'slice'; parts?: string[] }) 
       </div>
       <div className={on ? 'reveal open' : 'reveal'} inert={!on}>
         <div>
-          {(Object.keys(subs) as (keyof typeof subs)[]).map(s => <SliderControl key={s} k={s} def={subs[s]} holdsOn={s === k} />)}
+          {(Object.keys(subs) as (keyof typeof subs)[]).map(s => <SliderControl key={s} k={s} def={subs[s]} holdsOn={s === k} icon={s === k ? `${k}Gap` : s} />)}
         </div>
       </div>
       {k === 'stencil' && <EachJoin />}
