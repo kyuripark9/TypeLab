@@ -267,10 +267,34 @@ function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape): Pt[][] {
         } else { if (from) pts.pop(); else pts.shift(); cut -= l; }
       }
     };
+    // an end that runs into another stroke stops where it meets that stroke's line, as the stem of
+    // an I does at its slab's: its centerline goes on to the edge of the ink, and cut that far it
+    // would run past the slab's line and split the slab in two. The last of it, from where it
+    // comes alongside that line, is its tip, laid whatever else lies there: as the bowl of a u
+    // curls into the stem, the two lines merge rather than one cutting the other into dashes
+    const tips: [Pt[], Pt[]] = [[], []];
+    const meet = (from: number) => {
+      const end = from ? [...pts].reverse() : pts, d = (p: Pt) => Math.min(...lines.map((l, i) => i === li ? Infinity
+        : Math.min(...l.slice(1).map((q, k) => toSeg(p, l[k], q)))));
+      // (walked in from the end while it comes closer, in steps an eighth of the line's)
+      let best = end[0], bd = d(best), seg = 0;
+      walk: for (let k = 0; k + 1 < end.length; k++) for (let s = 1; s <= 8; s++) {
+        const q = { x: end[k].x + (end[k + 1].x - end[k].x) * s / 8, y: end[k].y + (end[k + 1].y - end[k].y) * s / 8 }, dq = d(q);
+        if (dq >= bd) break walk;
+        best = q; bd = dq; seg = k;
+      }
+      let j = best === end[0] ? 1 : seg + 1;
+      while (j < end.length && d(end[j]) < w * 0.6) j++;
+      if (j >= end.length - 1) return;
+      tips[from ? 1 : 0] = [...end.slice(best === end[0] ? 1 : seg + 1, j).reverse(), best].filter(p => dist(p, end[j]) > 1e-9);
+      const rest = end.slice(j);
+      pts = from ? rest.reverse() : rest;
+    };
     // (an end where the letter joins the next runs right out, so the line carries on into it)
     if (!closed) {
-      if (!near(pts[0], li) && !o.joins(pts[0])) trim(0);
-      if (pts.length > 1 && !near(pts[pts.length - 1], li) && !o.joins(pts[pts.length - 1])) trim(pts.length - 1);
+      if (o.joins(pts[0])) { /* runs on */ } else if (near(pts[0], li)) meet(0); else trim(0);
+      const e = pts.length - 1;
+      if (pts.length < 2 || o.joins(pts[e])) { /* runs on */ } else if (near(pts[e], li)) meet(e); else trim(e);
     }
     // how far along the line, and how much it has turned, up to each point
     const S = [0], T = [0];
@@ -301,7 +325,7 @@ function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape): Pt[][] {
       for (let i = k; i < e; i++) ok[i] = fill ? 2 : 0;
       k = e - 1;
     }
-    return { pts, S, T, room, ok, keep: ok.map(() => false) };
+    return { pts, S, T, room, ok, tips, keep: ok.map(() => false) };
   });
   // where the pen goes back over a line it has drawn (as a script does, up a stem and down again),
   // the line is laid down once: two bands on top of each other would cross at a hair's angle all
@@ -335,7 +359,7 @@ function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape): Pt[][] {
   // a step, so the two overlap rather than leave a sliver of ink between them (their points don't
   // line up)
   const out: Pt[][] = [];
-  for (const { pts, keep, ok } of ways) {
+  for (const { pts, keep, ok, tips } of ways) {
     let run: Pt[] = [];
     const on = (p: Pt, q: Pt): Pt => ({ x: p.x + (p.x - q.x) / (dist(p, q) || 1) * w, y: p.y + (p.y - q.y) / (dist(p, q) || 1) * w });
     const flush = (k: number) => {
@@ -343,6 +367,9 @@ function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape): Pt[][] {
         const k0 = k - run.length;
         if (k0 >= 0 && ok[k0] === 2) run.unshift(on(run[0], run[1]));
         if (k < ok.length && ok[k] === 2) run.push(on(run[run.length - 1], run[run.length - 2]));
+        // (and a run out to an end that meets another stroke carries on over its tip)
+        if (k0 === -1) run.unshift(...[...tips[0]].reverse());
+        if (k === ok.length) run.push(...tips[1]);
         out.push(band(run, w));
       }
       run = [];
