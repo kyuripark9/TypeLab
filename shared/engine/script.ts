@@ -14,6 +14,7 @@ const T = 'term', J = 'join';
 const LIFT = 0.4;
 
 type XY = [number, number];
+const unit = (x: number, y: number): XY => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
 /** A stroke: runs of points drawn smooth, a corner between each run and the next (the point of a V). */
 type Runs = number[][][];
 
@@ -27,7 +28,6 @@ type Node = number[];
 function smooth(pts: Node[]): Cmd[] {
   const n = pts.length, d: number[] = [], dir: XY[] = [];
   for (let i = 0; i + 1 < n; i++) d.push(Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) || 1e-6);
-  const unit = (x: number, y: number): XY => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
   for (let i = 1; i + 1 < n; i++) {
     const a = unit(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]), b = unit(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
     dir[i] = unit(a[0] + b[0], a[1] + b[1]);
@@ -56,41 +56,56 @@ function scaled(p: Node, sx: number, sy: number, dx = 0): Node {
   return out;
 }
 
-/** Draw one stroke, its runs of points (in font units) drawn smooth and a corner between each run and the next. */
-function drawRuns(g: Builder, m: Metrics, runs: Runs, o: StrokeOpts) {
+/** The way a run of curves leaves its start and arrives at its end, off the first and last curve's handles. */
+function ends(run: Cmd[]): [XY, XY] {
+  const c0 = run[1], cn = run[run.length - 1], q = run[run.length - 2];
+  const [x0, y0] = [run[0][1], run[0][2]], [xq, yq] = q[0] === 'M' ? [q[1], q[2]] : [q[5], q[6]];
+  const near = (x: number, y: number, x1: number, y1: number) => Math.hypot(x - x1, y - y1) < 1e-6;
+  const s = !near(c0[1], c0[2], x0, y0) ? unit(c0[1] - x0, c0[2] - y0) : unit(c0[5] - x0, c0[6] - y0);
+  const e = !near(cn[3], cn[4], cn[5], cn[6]) ? unit(cn[5] - cn[3], cn[6] - cn[4]) : unit(cn[5] - xq, cn[6] - yq);
+  return [s, e];
+}
+
+/** Draw one stroke, its runs of curves (in font units) each a stroke of its own, with a corner between each run and the next. */
+function drawRuns(g: Builder, m: Metrics, runs: Cmd[][], o: StrokeOpts) {
   // a free end lifts off as a pen does, cut square across the stroke (thinning into it, unless the
   // design's ends are round, which its roundness rounds): a roman terminal is cut level or plumb and
   // leaves a spur on an end that curls, and the stroke end curl would wind these ends, already
   // written with their flourish, into a knot
   const round = m.ctx.terminal === 'round';
   const lift = (t: EndType) => (t === T ? { end: 'flat' as EndType, w: round ? 1 : LIFT } : { end: t, w: 1 });
-  // where the pen turns sharply back (the apex of an A, the point of a V) a mitre would run out into
-  // a spike: each run is its own stroke, cut level across the point (or plumb, where it points
-  // sideways, the waist of a B), as the roman A and V are
-  const cut = (p: Node, q: Node, r: Node) => {
-    const ax = p[0] - q[0], ay = p[1] - q[1], bx = r[0] - q[0], by = r[1] - q[1], la = Math.hypot(ax, ay) || 1, lb = Math.hypot(bx, by) || 1;
-    return (Math.abs(ay / la + by / lb) >= Math.abs(ax / la + bx / lb) ? 'h' : 'v') as EndType;
+  // where the pen turns sharply (the apex of an A, the point of a V) a mitre would run out into a spike:
+  // each run is its own stroke, cut level across the point (or plumb, where it points sideways, the waist
+  // of a B), as the roman A and V are; where it turns right back on itself (the top of an i, the foot of
+  // an n) both run along the one line, and each is cut square across it, so the two ends lie together
+  const cut = (din: XY, dout: XY) => {
+    const ax = -din[0], ay = -din[1], [bx, by] = dout;
+    if (ax * bx + ay * by > 0.8) return 'flat' as EndType;
+    return (Math.abs(ay + by) >= Math.abs(ax + bx) ? 'h' : 'v') as EndType;
   };
-  runs.forEach((pts, k) => {
-    const prev = runs[k - 1], next = runs[k + 1];
-    const s = prev ? cut(prev.length > 1 ? prev[prev.length - 2] : pts[1], pts[0], pts[1]) : o.s ?? T;
-    const e = next ? cut(pts[pts.length - 2], pts[pts.length - 1], next[1] ?? next[0]) : o.e ?? T;
-    const ls = lift(s), le = lift(e);
-    g.path([['M', pts[0][0], pts[0][1]], ...smooth(pts)], { ...o, s: ls.end, e: le.end, ws: ls.w, we: le.w });
+  const dirs = runs.map(ends);
+  runs.forEach((run, k) => {
+    const s = k ? cut(dirs[k - 1][1], dirs[k][0]) : o.s ?? T;
+    const e = k + 1 < runs.length ? cut(dirs[k][1], dirs[k + 1][0]) : o.e ?? T;
+    const ls = lift(s), le = lift(e), last = run[run.length - 1];
+    g.path(run, { ...o, s: ls.end, e: le.end, ws: ls.w, we: le.w });
     // its free ends are written as they are, like the tips of cursive strokes: the stroke end length
     // and curl of the roman letters leave them be
-    if (s === T) g.mark('exit', pts[0][0], pts[0][1]);
-    if (e === T) g.mark('exit', pts[pts.length - 1][0], pts[pts.length - 1][1]);
+    if (s === T) g.mark('exit', run[0][1], run[0][2]);
+    if (e === T) g.mark('exit', last[5], last[6]);
     // and like them it gets room where it reaches past the body (the bow of a v)
-    for (const p of pts) { g.reachL = Math.min(g.reachL, p[0]); g.reachR = Math.max(g.reachR, p[0]); }
+    for (const c of run) for (let i = c[0] === 'M' ? 1 : 5; i < c.length; i += 2) { g.reachL = Math.min(g.reachL, c[i]); g.reachR = Math.max(g.reachR, c[i]); }
   });
 }
+
+/** Runs of points drawn smooth, as runs of curves. */
+const curves = (runs: Runs): Cmd[][] => runs.map(pts => [['M', pts[0][0], pts[0][1]], ...smooth(pts)]);
 
 /** Draw a letter Wn wide on a 700-high capital: each stroke's points scaled to the design's width and cap height. */
 function scriptCap(Wn: number, strokes: [Runs, StrokeOpts][]) {
   return (g: Builder, m: Metrics) => {
     const W = m.W(Wn, 'r'), sx = W / Wn, sy = m.cap / 700;
-    for (const [runs, o] of strokes) drawRuns(g, m, runs.map(run => run.map(p => scaled(p, sx, sy))), { pen: 'pointed', ...o });
+    for (const [runs, o] of strokes) drawRuns(g, m, curves(runs.map(run => run.map(p => scaled(p, sx, sy)))), { pen: 'pointed', ...o });
     return W;
   };
 }
@@ -197,8 +212,13 @@ capDef('Z', [0.4, 0.4], 580, [
    The small letters of a joined-up hand, written as one: each starts on a hairline rising out of the
    letter before, crossing its left edge at the join height, and finishes rising out of its right edge
    the same way, so with the usual tight spacing of a script they run on into each other. Downstrokes
-   swell under the pen, everything else is a hairline (see the pointed pen in stroke.ts). Points are
-   in x-heights (across, scaled by Width), the ascender and descender of the design given as A and D. */
+   swell under the pen, everything else is a hairline (see the pointed pen in stroke.ts). They are drawn
+   with a pen (below) in x-heights (across, scaled by Width), the ascender and descender of the design
+   given as A and D: bowls are true ellipses, and wherever the pen goes back over a line it has drawn
+   (up an a's stem and down again, over the top of its bowl) it follows exactly the same curve, so the
+   two never part into a lump. */
+
+const rad = (a: number) => a * Math.PI / 180, deg = (a: number) => a * 180 / Math.PI;
 
 /** where letters join: the hairline between two crosses their shared edge this high, rising this steeply */
 const JY = 0.38, JA = 58;
@@ -206,61 +226,164 @@ const JY = 0.38, JA = 58;
 const EX = 0.1;
 /** each join runs straight for this far (in x-heights across) either side of the letter's edge, and on
     under the neighbouring letter's own join, so the two overlap along one line and neither's cut end shows */
-const PAST = 0.07, RISE = PAST * Math.tan(JA * Math.PI / 180);
-const IN: Node[] = [[-PAST, JY - RISE, JA], [0, JY, JA], [PAST, JY + RISE, JA]];
-const out = (W: number): Node[] => [[W + EX - PAST, JY - RISE, JA], [W + EX, JY, JA], [W + EX + PAST, JY + RISE, JA]];
-/** a join out of the top of a letter (o, b, v, w): on from (x, y) over to the right and down onto the
-    join line, where the next letter's join rises from */
-const outHigh = (x: number, y: number, W: number): Node[] => [[x, y, -8], [W + EX - PAST * 0.5, JY + 0.08, -42], [W + EX + PAST * 0.6, JY - 0.02, -48]];
-/** a downstroke from (x, top) to the baseline, turning out along it into the join */
-const foot = (x: number, top: number, W: number): Node[] => [[x, top, -94], [x - 0.03, 0.22, -92], [x + 0.11, 0, 0], ...out(W)];
-/** a stem looped at the top: up from the join to the ascender, over and straight down */
-const loopUp = (x: number, A: number): Node[] => [...IN, [x - 0.02, 0.75, 72], [x + 0.13, A - 0.25, 84], [x + 0.03, A, 180], [x - 0.07, A - 0.3, -86], [x - 0.04, 0.6, -90]];
-/** an oval anticlockwise from its top right, round and back up its right side to (xr, 1) */
-const oval = (xl: number, xr: number): Node[] => [[xr - 0.05, 0.9, 140], [xl + (xr - xl) * 0.45, 1, 180, 1.15], [xl, 0.5, -90, 1.15], [xl + (xr - xl) * 0.42, 0, 0, 1.15], [xr - 0.02, 0.4, 80], [xr, 1, 86]];
-/** an arch up out of the foot of a stem at x, over to its right side at xr, and down into the join */
-const arch = (x: number, xr: number, W: number): Node[] => [[x - 0.01, 0.4, 84], [x + 0.03, 0.62, 74], [x + (xr - x) * 0.55, 0.98, 6], [xr, 0.72, -88], ...foot(xr, 0.5, W).slice(1)];
-/** a descender looped back up to the left: down from (x, 0) to D and round into the join */
-const loopDown = (x: number, D: number, W: number): Node[] => [[x, 0.2, -92], [x - 0.02, D * 0.6, -94], [x - 0.12, D, 180], [x - 0.24, D * 0.7, 95], [x - 0.08, -0.04, 45], ...out(W)];
+const PAST = 0.07, RISE = PAST * Math.tan(rad(JA));
+/** The letter being written: its stroke weight (in x-heights across), the round of a foot where a downstroke
+    turns out along the baseline into the join (across and up), opened up under a heavy stroke so its inside
+    never turns tighter than the stroke is wide, and how much wider that makes the letter. Set by lower(). */
+const hand = { t: 0.1, fx: 0.14, fy: 0.28, grow: 0 };
+const setHand = (t: number) => {
+  hand.t = t; hand.fx = Math.max(0.14, 0.02 + t * 1.1); hand.fy = Math.max(0.28, hand.fx * 1.25); hand.grow = hand.fx - 0.14;
+};
 
-type Lower = (A: number, D: number) => [Runs, StrokeOpts][];
+/** A pen writing a letter's strokes as cubic curves. Each run of curves is smooth; a turn (the top of an i)
+    starts the next. */
+class Pen {
+  runs: Cmd[][] = [];
+  x = 0; y = 0;
+  /** the way it is heading, in degrees (0 to the right, 90 up) */
+  a = 0;
+  /** start a run at (x, y), heading a */
+  at(x: number, y: number, a: number) { this.runs.push([['M', x, y]]); this.x = x; this.y = y; this.a = a; return this; }
+  /** turn sharply where it is to head a, starting a new run */
+  turn(a: number) { return this.at(this.x, this.y, a); }
+  /** on to (x, y), arriving heading a: the curve leaves along the way it was heading, its handles a third
+      of the way across times f0 and f1 (fuller over 1, flatter under) */
+  to(x: number, y: number, a: number, f0 = 1, f1 = f0) {
+    const h0 = Math.hypot(x - this.x, y - this.y) / 3 * f0, h1 = Math.hypot(x - this.x, y - this.y) / 3 * f1;
+    this.runs[this.runs.length - 1].push(['C', this.x + Math.cos(rad(this.a)) * h0, this.y + Math.sin(rad(this.a)) * h0,
+      x - Math.cos(rad(a)) * h1, y - Math.sin(rad(a)) * h1, x, y]);
+    this.x = x; this.y = y; this.a = a;
+    return this;
+  }
+  /** straight on to (x, y) */
+  line(x: number, y: number) { if (Math.hypot(x - this.x, y - this.y) < 1e-9) return this; this.a = deg(Math.atan2(y - this.y, x - this.x)); return this.to(x, y, this.a); }
+  /** round the ellipse e from its angle t0 (where the pen is) to t1, counterclockwise if t1 is the greater */
+  arc(e: Ellipse, t0: number, t1: number) {
+    const n = Math.max(1, Math.ceil(Math.abs(t1 - t0) / 90 - 1e-9)), dt = (t1 - t0) / n, k = 4 / 3 * Math.tan(rad(dt) / 4);
+    const [cx, cy, rx, ry] = e, at = (t: number) => [cx + rx * Math.cos(rad(t)), cy + ry * Math.sin(rad(t))], d = (t: number) => [-rx * Math.sin(rad(t)), ry * Math.cos(rad(t))];
+    for (let i = 0; i < n; i++) {
+      const ta = t0 + dt * i, tb = ta + dt, p0 = i ? at(ta) : [this.x, this.y], p1 = at(tb), d0 = d(ta), d1 = d(tb);
+      this.runs[this.runs.length - 1].push(['C', p0[0] + d0[0] * k, p0[1] + d0[1] * k, p1[0] - d1[0] * k, p1[1] - d1[1] * k, p1[0], p1[1]]);
+    }
+    const p = at(t1), d1 = d(t1);
+    this.x = p[0]; this.y = p[1]; this.a = deg(Math.atan2(d1[1] * Math.sign(dt), d1[0] * Math.sign(dt)));
+    return this;
+  }
+  /** on to the point at angle t on ellipse e, arriving along it, going round counterclockwise (ccw) or clockwise */
+  onto(e: Ellipse, t: number, ccw: boolean, f0 = 1, f1 = f0) { const [x, y] = onE(e, t); return this.to(x, y, headE(e, t, ccw), f0, f1); }
+  /** the join out of the right edge of a letter W wide, rising into it from where the pen is */
+  out(W: number, f0 = 1, f1 = f0) { const x = W + hand.grow + EX; return this.to(x - PAST, JY - RISE, JA, f0, f1).line(x + PAST, JY + RISE); }
+  /** down a stem at x, round the foot and out into the join */
+  foot(x: number, W: number) { const { fx, fy } = hand; return this.line(x, fy).arc([x + fx, fy, fx, fy], 180, 270).out(W); }
+}
+
+/** An ellipse: centre and radii across and up. */
+type Ellipse = [number, number, number, number];
+const onE = (e: Ellipse, t: number) => [e[0] + e[2] * Math.cos(rad(t)), e[1] + e[3] * Math.sin(rad(t))];
+/** the way round ellipse e at angle t, counterclockwise or not */
+const headE = (e: Ellipse, t: number, ccw: boolean) => deg(Math.atan2(e[3] * Math.cos(rad(t)) * (ccw ? 1 : -1), -e[2] * Math.sin(rad(t)) * (ccw ? 1 : -1)));
+
+/** a letter's start: the join rising in across its left edge */
+const enter = () => new Pen().at(-PAST, JY - RISE, JA).line(PAST, JY + RISE);
+
+/** The bowl of a, c, d, g, o and q, x-height tall: the join rises into it at its top left, running on over
+    the top (clockwise) to its top right, where the pen turns back to write it counterclockwise, over that
+    same curve again, down its left side and round, to angle t1. */
+function bowl(cx: number, rx: number, t1: number, top = 58) {
+  const e: Ellipse = [cx, 0.5, rx, 0.5];
+  return { e, pen: enter().onto(e, 148, false, 1.3, 1).arc(e, 148, top).turn(headE(e, top, true)).arc(e, top, t1) };
+}
+/** after a bowl ending at its right side: straight up to y, and back down the same line */
+const stemUp = (p: Pen, x: number, y: number) => p.line(x, y).turn(-90);
+
+/** A looped ascender: the join rises to the right of the stem at x and over the top of the loop at A,
+    turning down it into the stem, `w` wide. */
+const loopUp = (x: number, A: number, w: number) =>
+  enter().to(x + w * 0.9, A - 0.42, 84, 1.25, 1).to(x + w * 0.4, A, 180, 0.9).to(x, A - 0.4, -90, 0.9).line(x, 0.6);
+
+/** A looped descender down from the stem at x to D: round to the left `w` wide and back up across the
+    stem into the join. */
+const loopDown = (p: Pen, x: number, D: number, w: number, W: number) =>
+  p.line(x, D + 0.3).arc([x - w / 2, D + 0.3, w / 2, 0.3], 0, -180).out(W, 1.6, 1.1);
+
+/** A loop below the baseline on the right of the stem at x (f, q), closing on the stem at the baseline, then
+    out into the join. */
+const loopRight = (p: Pen, x: number, D: number, w: number, W: number) =>
+  p.line(x, D + 0.3).arc([x + w / 2, D + 0.3, w / 2, 0.3], 180, 360).to(x + 0.03, 0.08, 150, 1.2, 1.1).turn(-30).out(W, 1.1);
+
+/** From a high exit, the sweep along to the right and down into the join. */
+const swing = (p: Pen, W: number) => p.out(W, 0.9, 1.3);
+
+/** The tie of b, o, v and w: up at (x, y) the pen loops back over to the left and down, crosses itself and
+    leaves to the right, sweeping down into the join. */
+const tie = (p: Pen, x: number, y: number, r: number, W: number) =>
+  swing(p.to(x - r * 0.75, y + r * 0.6, 175, 1.1).to(x - r * 1.45, y - r * 0.25, -88, 1).to(x + r * 0.4, y - r * 0.85, -6, 1), W);
+
+/** The first arch of an n, m or x: the join rises on into it, over and down its right side at xr. */
+const arch0 = (p: Pen, xr: number) => p.to(0.1 + (xr - 0.1) * 0.3, 0.84, 76, 1.2, 1).to(0.1 + (xr - 0.1) * 0.65, 1, 0, 1.15).to(xr, 0.62, -90, 1.15);
+/** A middle arch of an m, up out of the stem at x and down to the baseline at xr, turning back up there. */
+const archMid = (p: Pen, x: number, xr: number) => p.line(x, 0.42).to(x + (xr - x) * 0.52, 1, 0, 1.05, 1.05).to(xr, 0.62, -90, 1).line(xr, 0).turn(90);
+
+/** An arch up out of the foot of the stem at x, over to its right side at xr, and down into a foot. */
+const arch = (p: Pen, x: number, xr: number, W: number) =>
+  p.line(x, 0.42).to(x + (xr - x) * 0.52, 1, 0, 1.05, 1.05).to(xr, 0.62, -90, 1).foot(xr, W);
+
+type Lower = (A: number, D: number, t: number) => [Pen, StrokeOpts][];
 const LOWER_PARAMS = ['scriptForm', 'contrast', 'slant', 'width'];
 
 function lower(ch: string, Wn: number, strokes: Lower, dot?: [number, number]) {
   def(ch + '.scr', [0, 0], (g, m) => {
     // across, an x-height a unit (as Width sets it), widened as the strokes get heavier so the counters stay open
     const sx = (m.xh * 1.05 + m.s * 1.1) * m.W(1000) / 1000, sy = m.xh, A = m.asc / m.xh, D = m.desc / m.xh;
-    for (const [runs, o] of strokes(A, D)) drawRuns(g, m, runs.map(r => r.map(p => scaled(p, sx, sy))), { pen: 'pointed', s: 'flat', e: 'flat', ...o });
+    setHand(m.s / sx);
+    const W = (Wn + hand.grow + EX) * sx;
+    const sc = (c: Cmd): Cmd => c[0] === 'M' ? ['M', c[1] * sx, c[2] * sy] : ['C', c[1] * sx, c[2] * sy, c[3] * sx, c[4] * sy, c[5] * sx, c[6] * sy];
+    for (const [p, o] of strokes(A, D, m.s / sx)) drawRuns(g, m, p.runs.map(r => r.map(sc)), { pen: 'pointed', s: 'flat', e: 'flat', ...o });
     if (dot) g.dot(dot[0] * sx, dot[1] * sy, m.s * 1.1);
     // the joins reaching past the edges are the neighbours' to share, not room to make
-    g.reachL = 0; g.reachR = (Wn + EX) * sx;
-    return (Wn + EX) * sx;
+    g.reachL = 0; g.reachR = W;
+    return W;
   }, { parts: ['stem', 'bowl'], params: LOWER_PARAMS });
 }
 
-lower('a', 0.92, () => [[[[...IN, [0.58, 0.88, 30]], oval(0.1, 0.64), foot(0.64, 1, 0.92)], { part: 'bowl' }]]);
-lower('b', 0.8, A => [[[[...loopUp(0.24, A), [0.21, 0.15, -88], [0.34, 0, 0, 1.1], [0.58, 0.42, 88, 1.1], [0.46, 0.8, 175], [0.38, 0.71, -75], [0.47, 0.66, 10], ...outHigh(0.54, 0.7, 0.8).slice(1)]], { part: 'stem' }]]);
-lower('c', 0.7, () => [[[[...IN, [0.14, 0.76, 66], [0.34, 1, 5], [0.52, 0.93, -45], [0.5, 0.82, -130]]], { part: 'bowl', e: 'term' }], [[[[0.36, 1, 180, 1.1], [0.08, 0.5, -90, 1.15], [0.3, 0, 0, 1.1], ...out(0.7)]], { part: 'bowl', s: 'join' }]]);
-lower('d', 0.92, A => [[[[...IN, [0.58, 0.88, 30]], [...oval(0.1, 0.64).slice(0, -1), [0.66, 1, 86], [0.7, A, 86]], foot(0.7, A, 0.92)], { part: 'bowl' }]]);
-lower('e', 0.7, () => [[[[...IN, [0.38, 0.62, 35], [0.5, 0.86, 95], [0.38, 1, 180], [0.13, 0.6, -105, 1.1], [0.2, 0.12, -60], [0.38, 0, 0], ...out(0.7)]], { part: 'bowl' }]]);
-lower('f', 0.62, (A, D) => [[[[...loopUp(0.28, A), [0.24, 0, -90], [0.22, D * 0.6, -92], [0.14, D, 180], [0.06, D * 0.65, 90], [0.3, 0.06, 40], ...out(0.62)]], { part: 'stem' }]]);
-lower('g', 0.92, (A, D) => [[[[...IN, [0.58, 0.88, 30]], oval(0.1, 0.64), [[0.64, 1, -94], ...loopDown(0.64, D, 0.92)]], { part: 'bowl' }]]);
-lower('h', 1.0, A => [[[[...loopUp(0.22, A), [0.2, 0, -90]], arch(0.2, 0.68, 1.0)], { part: 'stem' }]]);
-lower('i', 0.5, () => [[[[...IN, [0.26, 1, 74]], foot(0.26, 1, 0.5)], { part: 'stem' }]], [0.33, 1.42]);
-lower('j', 0.5, (A, D) => [[[[...IN, [0.28, 1, 74]], [[0.28, 1, -94], ...loopDown(0.28, D, 0.5)]], { part: 'stem' }]], [0.35, 1.42]);
-lower('k', 0.86, A => [[[[...loopUp(0.22, A), [0.2, 0, -90]], [[0.2, 0.02, 86], [0.24, 0.5, 76], [0.46, 0.96, 15], [0.62, 0.8, -95], [0.4, 0.5, 200, 0.8]], [[0.4, 0.5, -10], [0.56, 0.36, -70], ...foot(0.6, 0.3, 0.86).slice(1)]], { part: 'stem' }]]);
-lower('l', 0.5, A => [[[[...loopUp(0.22, A), ...foot(0.2, 0.4, 0.5).slice(1)]], { part: 'stem' }]]);
-lower('m', 1.36, () => [[[[...IN, [0.12, 0.72, 68], [0.28, 0.98, 8], [0.4, 0.78, -86], [0.4, 0, -90]], [[0.4, 0.02, 86], [0.43, 0.5, 78], [0.6, 0.98, 8], [0.74, 0.78, -86], [0.74, 0, -90]], arch(0.74, 1.08, 1.36)], { part: 'stem' }]]);
-lower('n', 1.0, () => [[[[...IN, [0.12, 0.72, 68], [0.28, 0.98, 8], [0.4, 0.78, -86], [0.4, 0, -90]], arch(0.4, 0.74, 1.0)], { part: 'stem' }]]);
-lower('o', 0.76, () => [[[[...IN, [0.5, 0.9, 40]], [[0.5, 0.9, 120], [0.34, 1, 180, 1.15], [0.08, 0.5, -90, 1.15], [0.3, 0, 0, 1.15], [0.56, 0.5, 90, 1.1], [0.42, 0.98, 175], [0.38, 0.88, -60], [0.48, 0.8, 5], ...outHigh(0.56, 0.8, 0.76).slice(1)]], { part: 'bowl' }]]);
-lower('p', 0.94, (A, D) => [[[[...IN, [0.24, 1, 74]], [[0.24, 1, -94], [0.2, D, -92]]], { part: 'stem' }], [[[[0.215, 0.45, 84], [0.27, 0.78, 66], [0.46, 0.99, 4], [0.66, 0.74, -86, 1.1], [0.6, 0.18, -112], [0.42, 0, 180], [0.25, 0.1, 140, 0.8]], [[0.25, 0.1, -25], [0.46, 0, 0], [0.72, 0.08, 25], ...out(0.94)]], { part: 'bowl', s: 'join' }]]);
-lower('q', 0.92, (A, D) => [[[[...IN, [0.58, 0.88, 30]], oval(0.1, 0.64), [[0.64, 1, -94], [0.62, 0.2, -92], [0.6, D * 0.75, -94], [0.67, D, 0], [0.75, D * 0.7, 100], [0.68, 0.02, 70], ...out(0.92).slice(0)]], { part: 'bowl' }]]);
-lower('r', 0.84, () => [[[[...IN, [0.26, 1, 72]], [[0.26, 1, -40], [0.4, 0.9, 0], [0.54, 0.98, 60]], foot(0.56, 1, 0.84)], { part: 'stem' }]]);
-lower('s', 0.62, () => [[[[...IN, [0.34, 1.02, 76]], [[0.34, 1.02, -60], [0.5, 0.42, -85, 1.1], [0.36, 0, 190], [0.14, 0.12, 120]], [[0.14, 0.12, -20], [0.3, 0.03, 0], ...out(0.62)]], { part: 'stem' }]]);
-lower('t', 0.6, () => [[[[...IN, [0.28, 1.45, 76]], foot(0.28, 1.45, 0.6)], { part: 'stem' }], [[[[0.06, 0.96, 5], [0.52, 1.0, 5]]], { part: 'crossbar' }]]);
-lower('u', 0.94, () => [[[[...IN, [0.24, 1, 74]], [[0.24, 1, -94], [0.21, 0.2, -92], [0.36, 0, 0, 1.1], [0.6, 0.36, 66], [0.66, 1, 86]], foot(0.66, 1, 0.94)], { part: 'stem' }]]);
-lower('v', 0.84, () => [[[[...IN, [0.24, 1, 74]], [[0.24, 1, -94], [0.22, 0.35, -92], [0.38, 0, 0, 1.15], [0.6, 0.45, 82], [0.62, 0.96, 95], [0.53, 0.86, -70], [0.62, 0.76, 0], ...outHigh(0.68, 0.77, 0.84).slice(1)]], { part: 'stem' }]]);
-lower('w', 1.16, () => [[[[...IN, [0.24, 1, 74]], [[0.24, 1, -94], [0.22, 0.3, -92], [0.38, 0, 0, 1.1], [0.56, 0.4, 80], [0.6, 0.98, 88]], [[0.6, 0.98, -94], [0.6, 0.3, -90], [0.74, 0, 0, 1.1], [0.92, 0.45, 82], [0.94, 0.96, 95], [0.85, 0.86, -70], [0.94, 0.76, 0], ...outHigh(1.0, 0.77, 1.16).slice(1)]], { part: 'stem' }]]);
-lower('x', 0.86, () => [[[[...IN, [0.15, 0.8, 70], [0.32, 0.98, 12], [0.44, 0.7, -72], [0.5, 0.22, -80], [0.62, 0, 0], ...out(0.86)]], { part: 'stem' }], [[[[0.18, 0.04, 48], [0.78, 0.96, 52]]], { part: 'arm' }]]);
-lower('y', 0.94, (A, D) => [[[[...IN, [0.24, 1, 74]], [[0.24, 1, -94], [0.21, 0.2, -92], [0.36, 0, 0, 1.1], [0.6, 0.36, 66], [0.66, 1, 86]], [[0.66, 1, -94], ...loopDown(0.66, D, 0.94)]], { part: 'stem' }]]);
-lower('z', 0.84, (A, D) => [[[[...IN, [0.2, 0.86, 60], [0.4, 1, 5], [0.56, 0.86, -70], [0.42, 0.56, -160, 0.8]], [[0.42, 0.56, -30], [0.6, 0.36, -80], [0.56, 0.04, -100], [0.5, D * 0.55, -100], [0.38, D, 180], [0.26, D * 0.75, 95], [0.42, -0.02, 45], ...out(0.84)]], { part: 'stem' }]]);
+/** how wide a loop is: open enough for its counter to show under a heavy stroke */
+const loopW = (t: number) => Math.max(0.2, 0.06 + t * 1.5);
+/** the size of a tie's loop */
+const tieR = (t: number) => Math.max(0.06, t * 0.75);
+
+const O_CX = 0.4, O_RX = 0.26, O_X = O_CX + O_RX;
+
+lower('a', 0.95, () => { const { pen } = bowl(O_CX, O_RX, 360); return [[stemUp(pen, O_X, 1).foot(O_X, 0.95), { part: 'bowl' }]]; });
+lower('b', 0.98, (A, D, t) => { const e: Ellipse = [0.4, 0.5, 0.18, 0.5];
+  return [[tie(loopUp(0.22, A, loopW(t)).line(0.22, 0.5).arc(e, 180, 360).line(0.58, 0.9), 0.58, 0.9, tieR(t), 0.98), { part: 'stem' }]]; });
+lower('c', 0.68, () => [[bowl(0.38, 0.24, 300, 50).pen.out(0.68, 1.2), { part: 'bowl' }]]);
+lower('d', 0.95, A => { const { pen } = bowl(O_CX, O_RX, 360); return [[stemUp(pen, O_X, A).foot(O_X, 0.95), { part: 'bowl' }]]; });
+lower('e', 0.66, () => [[enter().to(0.4, 0.66, 38, 1.2, 1).to(0.48, 0.88, 105).to(0.32, 1, 180, 1).to(0.1, 0.52, -90, 1.1).to(0.34, 0, 0, 1.1).out(0.66, 1.1), { part: 'bowl' }]]);
+lower('f', 0.62, (A, D, t) => [[loopRight(loopUp(0.22, A, loopW(t)), 0.22, D, 0.2, 0.62), { part: 'stem' }]]);
+lower('g', 0.95, (A, D, t) => { const { pen } = bowl(O_CX, O_RX, 360); return [[loopDown(stemUp(pen, O_X, 1), O_X, D, loopW(t), 0.95), { part: 'bowl' }]]; });
+lower('h', 0.92, (A, D, t) => [[arch(loopUp(0.22, A, loopW(t)).line(0.22, 0).turn(90), 0.22, 0.62, 0.92), { part: 'stem' }]]);
+lower('i', 0.53, () => [[enter().to(0.24, 1, 78, 1.2, 1).turn(-90).foot(0.24, 0.53), { part: 'stem' }]], [0.3, 1.42]);
+lower('j', 0.5, (A, D, t) => [[loopDown(enter().to(0.28, 1, 78, 1.2, 1).turn(-90), 0.28, D, loopW(t), 0.5), { part: 'stem' }]], [0.34, 1.42]);
+lower('k', 0.86, (A, D, t) => [[loopUp(0.22, A, loopW(t)).line(0.22, 0).turn(90).line(0.22, 0.42).to(0.42, 0.95, 10, 1.1).to(0.56, 0.78, -110, 1)
+  .to(0.36, 0.5, 200, 1.1).turn(-12).to(0.56, 0.3, -90, 1.25).foot(0.56, 0.86), { part: 'stem' }]]);
+lower('l', 0.51, (A, D, t) => [[loopUp(0.22, A, loopW(t)).foot(0.22, 0.51), { part: 'stem' }]]);
+lower('m', 1.22, () => [[arch(archMid(arch0(enter(), 0.32).line(0.32, 0).turn(90), 0.32, 0.62), 0.62, 0.92, 1.22), { part: 'stem' }]]);
+lower('n', 0.92, () => [[arch(arch0(enter(), 0.32).line(0.32, 0).turn(90), 0.32, 0.62, 0.92), { part: 'stem' }]]);
+lower('o', 0.98, (A, D, t) => { const { pen } = bowl(0.36, 0.26, 450), r = tieR(t);
+  return [[swing(pen.to(0.36 - r * 0.8, 1 - r * 0.9, -90, 1.1).to(0.36 + r * 0.3, 1 - r * 1.5, 0, 1).to(0.7, 1 - r * 1.3, -4, 1), 0.98), { part: 'bowl' }]]; });
+lower('p', 0.76, (A, D) => { const e: Ellipse = [0.43, 0.5, 0.21, 0.5];
+  return [[enter().to(0.22, 1.08, 78, 1.2, 1).turn(-90).line(0.22, D).turn(90).line(0.22, 0.5).arc(e, 180, -150).turn(headE(e, -150, true)).arc(e, -150, -40).out(0.76, 1.1), { part: 'stem' }]]; });
+lower('q', 0.95, (A, D) => { const { pen } = bowl(O_CX, O_RX, 360); return [[loopRight(stemUp(pen, O_X, 1), O_X, D, 0.2, 0.95), { part: 'bowl' }]]; });
+lower('r', 0.8, () => [[enter().to(0.24, 1.06, 78, 1.2, 1).turn(-75).to(0.35, 0.92, -5, 1).to(0.47, 1.0, 55, 1.1).turn(-92).foot(0.48, 0.8), { part: 'stem' }]]);
+lower('s', 0.64, () => [[enter().to(0.3, 1.05, 74, 1.2, 1).turn(-50).to(0.5, 0.42, -90, 1.1).to(0.32, 0, 180, 1.1).to(0.12, 0.2, 110, 1).turn(-70).to(0.32, 0, 0, 1, 1).out(0.64), { part: 'stem' }]]);
+lower('t', 0.56, () => [[enter().to(0.26, 1.45, 80, 1.2, 1).turn(-90).foot(0.26, 0.56), { part: 'stem' }], [new Pen().at(0.06, 0.95, 4).to(0.52, 0.98, 4), { part: 'crossbar', s: T, e: T }]]);
+lower('u', 0.92, () => { const e: Ellipse = [0.43, 0.5, 0.19, 0.5];
+  return [[enter().to(0.24, 1, 78, 1.2, 1).turn(-90).line(0.24, 0.5).arc(e, 180, 360).line(0.62, 1).turn(-90).foot(0.62, 0.92), { part: 'stem' }]]; });
+lower('v', 0.98, (A, D, t) => { const e: Ellipse = [0.41, 0.5, 0.17, 0.5];
+  return [[tie(enter().to(0.24, 1, 78, 1.2, 1).turn(-90).line(0.24, 0.5).arc(e, 180, 360).line(0.58, 0.9), 0.58, 0.9, tieR(t), 0.98), { part: 'stem' }]]; });
+lower('w', 1.36, (A, D, t) => { const e: Ellipse = [0.42, 0.5, 0.18, 0.5], e2: Ellipse = [0.78, 0.5, 0.18, 0.5];
+  return [[tie(enter().to(0.24, 1, 78, 1.2, 1).turn(-90).line(0.24, 0.5).arc(e, 180, 360).line(0.6, 1).turn(-90).line(0.6, 0.5).arc(e2, 180, 360).line(0.96, 0.9), 0.96, 0.9, tieR(t), 1.36), { part: 'stem' }]]; });
+lower('x', 0.84, () => [[arch0(enter(), 0.4).to(0.46, 0.24, -80, 1).to(0.6, 0, 0, 1).out(0.84), { part: 'stem' }], [new Pen().at(0.16, 0.04, 50).line(0.74, 0.96), { part: 'arm', s: T, e: T }]]);
+lower('y', 0.92, (A, D, t) => { const e: Ellipse = [0.43, 0.5, 0.19, 0.5];
+  return [[loopDown(enter().to(0.24, 1, 78, 1.2, 1).turn(-90).line(0.24, 0.5).arc(e, 180, 360).line(0.62, 1).turn(-90), 0.62, D, loopW(t), 0.92), { part: 'stem' }]]; });
+lower('z', 0.8, (A, D, t) => [[loopDown(enter().to(0.16, 0.84, 74, 1.2, 1).to(0.34, 1, 0, 1).to(0.52, 0.84, -70, 1).to(0.36, 0.54, 200, 1).turn(-25).to(0.54, 0.3, -88, 1.1).to(0.46, 0, -100, 1), 0.46, D, loopW(t), 0.8), { part: 'stem' }]]);
