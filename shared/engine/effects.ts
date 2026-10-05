@@ -126,6 +126,122 @@ function rasterize(polys: Pt[][], cell: number): Grid {
   return { i0, j0, cols, rows, on };
 }
 
+/** Which cells a dot fill lights. Every stroke gets the same whole number of dots across, centred
+    on it, wherever it falls on the grid (cells merely covered would make one stem one dot wide and
+    the next two): a row's span of ink is a stroke's width when the ink runs on further up and down
+    through its middle than across, and a column's when it runs on further across. Where ink runs on
+    both ways (a stem meeting a bar), a cell is lit in a column a stem lit and a row a bar lit, so
+    the join takes the dots of the strokes meeting in it, and a sliver at a tip takes none. */
+function dotGrid(polys: Pt[][], cell: number): Grid {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const p of polys) for (const q of p) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+  if (!(x1 > x0)) return { i0: 0, j0: 0, cols: 0, rows: 0, on: new Uint8Array(0) };
+  // (a cell to spare all round, as a stroke's dots are centred on it and may stand out of its ink)
+  const i0 = Math.floor(x0 / cell) - 1, j0 = Math.floor(y0 / cell) - 1;
+  const cols = Math.ceil(x1 / cell) - i0 + 1, rows = Math.ceil(y1 / cell) - j0 + 1, N = cols * rows;
+  // the outline turned on its side, so a column's spans are found as a row's
+  const T = polys.map(p => p.map(q => ({ x: q.y, y: q.x })));
+  const rowSp = Array.from({ length: rows }, (_, j) => spans(polys, (j0 + j + 0.5) * cell));
+  const at = (sp: [number, number][], v: number): [number, number] => sp.find(([a, b]) => v >= a && v <= b) ?? [v, v];
+  const median = (v: number[]) => { const s = [...v].sort((x, y) => x - y), h = s.length >> 1; return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2; };
+  /* One way across the grid (rows, or columns): which cells the strokes it crosses light, and which
+     lie in a span running along one (the number of that run, from 1), with the runs. */
+  const pass = (lo: number, lines: number, base: number, spansAt: (j: number) => [number, number][], crossAt: (mid: number, v: number) => [number, number],
+    idx: (line: number, k: number) => number, len: number) => {
+    const lit = new Uint8Array(N), along = new Int32Array(N), runs: [number, number, number][] = [];
+    const cells = (j: number, a: number, b: number, f: (k: number) => void) => {
+      for (let q = Math.ceil(a / cell - 0.5) - lo; (lo + q + 0.5) * cell <= b; q++) if (q >= 0 && q < len) f(idx(j, q));
+    };
+    type Across = { j: number; a: number; b: number; mid: number; cross: [number, number]; prev?: Across; next?: Across };
+    const across: Across[][] = [];
+    for (let j = 0; j < lines; j++) {
+      const v = (base + j + 0.5) * cell, here: Across[] = [];
+      for (const [a, b] of spansAt(j)) {
+        const mid = (a + b) / 2, cross = crossAt(mid, v), cl = cross[1] - cross[0];
+        if (b - a <= cl) {
+          // a tip shorter than half a cell both ways is too small for a dot of its own
+          if (cl >= cell * 0.5) here.push({ j, a, b, mid, cross });
+        } else {
+          runs.push([j, a, b]);
+          cells(j, a, b, k => { along[k] = runs.length; });
+        }
+      }
+      across.push(here);
+    }
+    // a stroke's spans from line to line are chained (where one leads on to just one), and each is
+    // centred on the line through its neighbours and given their width: where another stroke runs
+    // into it, its span takes in that one's ink too, and set on its own middle the dots would step
+    // out of line. How far the middle moves from line to line tells how the stroke slants, and so
+    // how wide it is square to its run (its span along a line is wider)
+    const over = (p: Across, q: Across) => p.a < q.b && q.a < p.b;
+    for (let j = 0; j + 1 < lines; j++) for (const p of across[j]) {
+      const to = across[j + 1].filter(q => over(p, q));
+      if (to.length === 1 && across[j].filter(q => over(q, to[0])).length === 1) { p.next = to[0]; to[0].prev = p; }
+    }
+    for (const line of across) for (const p of line) {
+      if (p.prev) continue;
+      const chain: Across[] = [];
+      for (let q: Across | undefined = p; q; q = q.next) chain.push(q);
+      chain.forEach((q, t) => {
+        const win = chain.slice(Math.max(0, t - 3), t + 4);
+        // (a step of a hair is an upright stroke's, not a slant to carry on with)
+        const drift = win.length > 1 ? median(win.slice(1).map((r, u) => r.mid - win[u].mid)) : 0, step = Math.abs(drift) < cell * 0.05 ? 0 : drift;
+        const mid = median(win.map(r => r.mid + step * (q.j - r.j)));
+        const k = Math.max(1, Math.round(median(win.map(r => r.b - r.a)) / Math.hypot(1, step / cell) / cell));
+        // a blob (the dot of an i), no longer than it is wide, keeps only its middle lines, as many as
+        // it has dots across, or crossed one way and the other its dots would make a cross
+        if (!step && chain.length <= k + 1) {
+          const [c0, c1] = q.cross, k2 = Math.max(1, Math.round((c1 - c0) / cell)), f = Math.floor((c0 + c1) / 2 / cell - k2 / 2 + 0.5 + 1e-3) - base;
+          if (q.j < f || q.j >= f + k2) return;
+        }
+        // (a stroke centred on a line between cells, as a stem often is, always takes the cell after)
+        const s = Math.floor(mid / cell - k / 2 + 0.5 + 1e-3) - lo;
+        // (but not out past its own span, as where the end of a slant is cut off square, or out of
+        // half a cell of its middle, for a hairline)
+        const lo2 = Math.min(q.a, q.mid - cell / 2) - 1e-6, hi2 = Math.max(q.b, q.mid + cell / 2) + 1e-6;
+        for (let u = s; u < s + k; u++) {
+          const c = (lo + u + 0.5) * cell;
+          if (u >= 0 && u < len && c >= lo2 && c <= hi2) lit[idx(q.j, u)] = 1;
+        }
+      });
+    }
+    return { lit, along, runs };
+  };
+  const R = pass(i0, rows, j0, j => rowSp[j], (mid, y) => at(spans(T, mid), y), (j, i) => j * cols + i, cols);
+  const C = pass(j0, cols, i0, i => spans(T, (i0 + i + 0.5) * cell), (mid, x) => at(spans(polys, mid), x), (i, j) => j * cols + i, rows);
+  // whether a run along a row (or column) has a cell the other way lit
+  const has = (run: [number, number, number], lit: Uint8Array, idx: (q: number) => number, lo: number, len: number) => {
+    for (let q = Math.ceil(run[1] / cell - 0.5) - lo; (lo + q + 0.5) * cell <= run[2]; q++) if (q >= 0 && q < len && lit[idx(q)]) return true;
+    return false;
+  };
+  const rowOk = R.runs.map(r => has(r, C.lit, i => r[0] * cols + i, i0, cols)), colOk = C.runs.map(r => has(r, R.lit, j => j * cols + r[0], j0, rows));
+  const on = new Uint8Array(N);
+  let any = false;
+  for (let k = 0; k < N; k++) {
+    on[k] = R.lit[k] || C.lit[k] || (R.along[k] && C.along[k] && rowOk[R.along[k] - 1] && colOk[C.along[k] - 1]) ? 1 : 0;
+    if (on[k]) any = true;
+  }
+  if (!any) return rasterize(polys, cell);
+  // a cell of ink is lit too where without it the dots either side would part (as where a slant
+  // shoulder comes down into a stem a row below the shoulder's last dot, or two arms of a k meet)
+  const lit = (i: number, j: number) => i >= 0 && j >= 0 && i < cols && j < rows && on[j * cols + i] === 1;
+  for (let k = 0; k < N; k++) {
+    const i = k % cols, j = (k - i) / cols;
+    if (on[k] || !inside(rowSp[j], (i0 + i + 0.5) * cell)) continue;
+    const ring: [number, number][] = [];
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) if ((di || dj) && lit(i + di, j + dj)) ring.push([di, dj]);
+    if (ring.length < 2) continue;
+    // (the dots round it fall in two or more groups not touching)
+    const seen = new Set([0]), todo = [0];
+    while (todo.length) {
+      const [a, b] = ring[todo.pop()!];
+      ring.forEach(([c, d], u) => { if (!seen.has(u) && Math.abs(a - c) <= 1 && Math.abs(b - d) <= 1) { seen.add(u); todo.push(u); } });
+    }
+    if (seen.size < ring.length) on[k] = 1;
+  }
+  return { i0, j0, cols, rows, on };
+}
+
 /* Outline of a set of grid cells: each on cell contributes the sides it shares with an off
    cell, anticlockwise, and the sides are chained into contours (outer ones anticlockwise,
    holes clockwise). Where two cells touch only at a corner the chain turns left, so they stay
@@ -415,7 +531,7 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
     }
     case 'pixels': return polysToCmds(traceCells(rasterize(polys, cell), cell), cell * 0.5 * o.roundness);
     case 'dots': {
-      const G = rasterize(polys, cell), out: Cmd[] = [];
+      const G = dotGrid(polys, cell), out: Cmd[] = [];
       for (let j = 0; j < G.rows; j++) for (let i = 0; i < G.cols; i++) {
         if (G.on[j * G.cols + i]) out.push(...circle((G.i0 + i + 0.5) * cell, (G.j0 + j + 0.5) * cell, cell * 0.43));
       }
