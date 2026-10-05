@@ -2128,13 +2128,26 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
 /** Whether the letters are written as a joined-up script's (see SCRIPT_FORMS): on auto, in a design more than half cursive. */
 export const scriptForms = (e: Pick<Params, 'scriptForm' | 'cursive'>) => e.scriptForm === 'script' || (e.scriptForm === 'auto' && e.cursive >= 0.5);
 
-export function buildFont(params: Params): Font {
+/** Each font's letters as its settings (or its free font) draw them, leaving out the drawn ones. A font
+    that differs from another only in its drawings shares the other's, so dragging a point in Points,
+    which builds the font again on every move, doesn't build every other letter again with it. */
+const settingsGlyphs = new WeakMap<Font, Map<string, Glyph | null>>();
+/** Whether two designs differ in nothing but their drawn letters. */
+function sameSettings(a: Params, b: Params): boolean {
+  for (const k in a) if (k !== 'outlines' && a[k as keyof Params] !== b[k as keyof Params]) return false;
+  for (const k in b) if (k !== 'outlines' && !(k in a)) return false;
+  return true;
+}
+
+/** The font `params` describe; `from`, an earlier build, lends its letters where only the drawings differ. */
+export function buildFont(params: Params, from?: Font): Font {
   const e = resolve(params), m0 = metrics(e);
   // a free font's letters stand as tall as the design's capitals, and its space is the font's own, wider or
   // narrower by Word spacing
   const free = e.freeFont ? freeFont(e.freeFont) : undefined, k = free ? m0.cap / free.cap : 1;
   const m = free ? { ...m0, space: Math.max(20, free.space * k + (e.wordSpacing - 0.35) * 520) } : m0;
   const cache = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
+  const built = (from && from.free === free && sameSettings(from.params, params) && settingsGlyphs.get(from)) || new Map<string, Glyph | null>();
   const font: Font = {
     params, eff: e, m, free, freePending: !!e.freeFont && !free,
     letter(ch) {
@@ -2147,19 +2160,24 @@ export function buildFont(params: Params): Font {
     glyph(ch) {
       let g = cache.get(ch);
       if (g === undefined) {
-        const lf = font.letter(ch), drawn = params.outlines?.[ch];
+        const drawn = params.outlines?.[ch];
         if (drawn) g = drawnGlyph(ch, drawn);
-        else if (free?.glyphs[ch]) g = drawnGlyph(ch, scaleDrawn(free.glyphs[ch], k));
-        else if (lf !== font) g = lf.glyph(ch);
-        else if (e.build === 'blocks' && (g = buildBlock(ch, m))) g.ch = ch;
+        else if ((g = built.get(ch)) !== undefined) { /* built before, with the same settings */ }
         else {
-          // a script's own letters first: they are written whole, single-storey a and all
-          // (flourished, where the letter has a swash and swashes are picked)
-          const script = scriptForms(e) && hasGlyph(ch + '.scr');
-          const alt = script && e.flourish === 'swash' && hasGlyph(ch + '.sw') ? ch + '.sw' : script ? ch + '.scr' : ch === 'a' && e.singleStory ? 'a.alt'
-            : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
-          g = buildGlyph(alt, m);
-          if (g) g.ch = ch;
+          const lf = font.letter(ch);
+          if (free?.glyphs[ch]) g = drawnGlyph(ch, scaleDrawn(free.glyphs[ch], k));
+          else if (lf !== font) g = lf.glyph(ch);
+          else if (e.build === 'blocks' && (g = buildBlock(ch, m))) g.ch = ch;
+          else {
+            // a script's own letters first: they are written whole, single-storey a and all
+            // (flourished, where the letter has a swash and swashes are picked)
+            const script = scriptForms(e) && hasGlyph(ch + '.scr');
+            const alt = script && e.flourish === 'swash' && hasGlyph(ch + '.sw') ? ch + '.sw' : script ? ch + '.scr' : ch === 'a' && e.singleStory ? 'a.alt'
+              : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
+            g = buildGlyph(alt, m);
+            if (g) g.ch = ch;
+          }
+          built.set(ch, g);
         }
         cache.set(ch, g);
       }
@@ -2209,5 +2227,6 @@ export function buildFont(params: Params): Font {
       return lines;
     }
   };
+  settingsGlyphs.set(font, built);
   return font;
 }

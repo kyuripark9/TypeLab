@@ -159,6 +159,17 @@ describe('Sync all with the pen', () => {
       assert.equal(moved[p.ch].contours.flat().filter((q, k) => q.x !== p.doc.contours.flat()[k].x).length, 1);
     }
   });
+
+  it('builds the other letters once while a drag moves only drawings', () => {
+    const n = outline('n'), m = font.glyph('m')!;
+    const drawn = buildFont({ ...font.params, outlines: { n } }, font);
+    // the letters the settings draw are the same ones, traced once, and a drawn letter is its drawing
+    assert.equal(drawn.glyph('m'), m);
+    assert.equal(drawn.glyph('n')!.drawn, n);
+    // back to settings, n is the settings' n again; a setting changed builds every letter afresh
+    assert.notEqual(buildFont({ ...drawn.params, outlines: {} }, drawn).glyph('n')!.drawn, n);
+    assert.notEqual(buildFont({ ...drawn.params, weight: drawn.params.weight + 0.1 }, drawn).glyph('m'), m);
+  });
 });
 
 describe('Mirror with the pen', () => {

@@ -416,8 +416,13 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const one = selRefs.length === 1 ? cs[selRefs[0].c][selRefs[0].i] : null;
   const count = cs.reduce((a, c) => a + c.length, 0);
   const cursor = space ? 'grab' : tool === 'pen' ? 'crosshair' : 'default';
-  // with Sync all, the letters the picked points would move in too
-  const reach = sync && selRefs.length ? peers(selRefs).map(p => p.ch) : [];
+  // with Sync all, the letters the picked points would move in too: found again only when the picked
+  // points or the drawings change, and not mid-drag (they're the letters the drag started with)
+  const reachKey = sync && selRefs.length ? ch + ' ' + selRefs.map(refKey).join(' ') : '';
+  const reachMemo = useRef<{ key: string; font: Font; chs: string[] }>({ key: '', font, chs: [] });
+  if (reachMemo.current.key !== reachKey || (reachKey && !gesture.current && reachMemo.current.font !== font))
+    reachMemo.current = { key: reachKey, font, chs: reachKey ? peers(selRefs).map(p => p.ch) : [] };
+  const reach = reachMemo.current.chs;
   // with Mirror, the letter's middle on each axis, and the partners of the picked points, which move the other way
   const lines = mirror.map(axis => ({ axis, at: mirrorLine(cs, axis) }));
   const twins = new Set<string>();

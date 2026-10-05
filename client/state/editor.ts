@@ -222,10 +222,12 @@ function withGlyph(p: Params, ch: string, key: keyof GlyphParams, v: unknown): P
 /* ---------------------------------------------------------------- fonts
    Params objects are replaced on every change, so a WeakMap gives each exactly one build. */
 const fonts = new WeakMap<Params, Font>();
+/** the font built last, whose letters the next build reuses where only the drawings changed */
+let lastFont: Font | undefined;
 export function fontFor(p: Params): Font {
   let f = fonts.get(p);
   // written in a free font that has arrived since: built again with its letters
-  if (!f || (f.freePending && freeFont(p.freeFont))) { f = buildFont(p); fonts.set(p, f); }
+  if (!f || (f.freePending && freeFont(p.freeFont))) { f = lastFont = buildFont(p, lastFont); fonts.set(p, f); }
   if (f.freePending) void loadFreeFont(p.freeFont);
   return f;
 }

@@ -220,17 +220,20 @@ function place(n: P, adv: number) {
 /** For each of `refs` in `from`, the point of `to` in the same place (within `tol` units), or null. */
 export function samePoints(from: Drawn, refs: Ref[], to: Drawn, tol = 2): (Ref | null)[] {
   const taken = new Set<string>();
+  const spots = to.contours.flatMap((con, c) => con.map((m, i) => ({ c, i, k: refKey({ c, i }), ...place(m, to.adv) })));
   return refs.map(r => {
     const n = from.contours[r.c]?.[r.i];
     if (!n) return null;
     const a = place(n, from.adv);
-    let best: Ref | null = null, bd = Infinity;
-    to.contours.forEach((con, c) => con.forEach((m, i) => {
-      const b = place(m, to.adv), d = Math.max(Math.abs(b.d - a.d), Math.abs(b.y - a.y));
-      if (b.side === a.side && d <= tol && d < bd && !taken.has(refKey({ c, i }))) { best = { c, i }; bd = d; }
-    }));
-    if (best) taken.add(refKey(best));
-    return best;
+    let best: (typeof spots)[number] | null = null, bd = Infinity;
+    for (const b of spots) {
+      if (b.side !== a.side || Math.abs(b.y - a.y) > tol) continue;
+      const d = Math.max(Math.abs(b.d - a.d), Math.abs(b.y - a.y));
+      if (d <= tol && d < bd && !taken.has(b.k)) { best = b; bd = d; }
+    }
+    if (!best) return null;
+    taken.add(best.k);
+    return { c: best.c, i: best.i };
   });
 }
 
