@@ -856,41 +856,76 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .library { min-height: 100vh; display: flex; flex-direction: column; background: var(--paper); }
 .library .top { position: sticky; top: 0; z-index: 5; height: var(--top-h); padding: 0 14px 0 16px; background: rgba(239, 240, 240, .85); backdrop-filter: blur(12px); }
 .library .top .btn.primary svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; margin-left: -2px; }
-.lib-main { width: 100%; max-width: 1240px; margin: 0 auto; padding: 28px 32px 64px; }
-.lib-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
-.lib-head h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.03em; }
-.lib-head p { margin: 0; color: var(--ink-3); font-size: 13px; }
-.lib-loading { color: var(--ink-3); }
-.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-/* each design is a white sheet: its letters in a soft well on top, its name and date under them */
-.lib-card { background: var(--surface); border: 0; border-radius: var(--radius-xl); box-shadow: var(--sheet); padding: 6px; display: flex; flex-direction: column; transition: box-shadow .15s; }
-.lib-card:hover { box-shadow: var(--shadow); }
-.lib-open { position: relative; display: block; border-radius: var(--radius-l); padding: 10px 18px 12px; background: var(--well); }
-.lib-card.recent { box-shadow: 0 0 0 1.5px var(--accent), var(--sheet); }
-.lib-badge { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 100px; background: var(--surface); box-shadow: var(--raise); color: var(--accent-ink); font-size: 11.5px; font-weight: 500; }
-.lib-open svg { display: block; width: 100%; height: auto; fill: var(--ink); transition: fill .15s; }
-.lib-open:hover svg { fill: var(--accent-ink); }
-.lib-sample { margin-top: 2px; opacity: .8; }
-.lib-meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding: 8px 4px 6px 10px; }
-.lib-meta h3 { margin: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lib-rename { min-width: 0; height: 28px; margin: -4px 0 -4px -7px; padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--radius-s); box-shadow: 0 0 0 3px var(--accent-soft); font: 600 14px var(--ui); color: var(--ink); background: var(--surface); outline: none; }
-.lib-meta p { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lib-actions { position: relative; display: flex; }
 .btn.icon.small { width: 28px; padding: 0; }
-.lib-actions .btn.icon svg { stroke-width: 2.4; }
+.btn.primary svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; margin-left: -3px; }
+.lib-main { width: 100%; max-width: 1240px; margin: 0 auto; padding: 24px 32px 88px; }
+/* the title and its count on the left, finding and ordering on the right */
+.lib-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; margin-bottom: 20px; }
+.lib-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.lib-head h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.03em; }
+.lib-head p { margin: 0; color: var(--ink-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.lib-tools { display: flex; align-items: center; gap: 8px; }
+/* the search: white and raised on the paper, like the editor's Find a setting */
+.lib-search { position: relative; display: flex; align-items: center; color: var(--ink-3); }
+.lib-search .page-icon { position: absolute; left: 10px; pointer-events: none; }
+.lib-search input { width: 220px; height: 32px; padding: 0 30px 0 32px; font: 400 13px var(--ui); letter-spacing: inherit; color: var(--ink); background: var(--surface);
+  border: 0; border-radius: var(--radius); outline: none; box-shadow: var(--raise); transition: box-shadow .15s; }
+.lib-search input::placeholder { color: var(--ink-3); }
+.lib-search input:focus { box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--accent-soft); }
+.lib-search input::-webkit-search-cancel-button { cursor: pointer; }
+.lib-search kbd { position: absolute; right: 7px; font: 500 10.5px/16px var(--ui); color: var(--ink-3); padding: 0 5px; background: var(--well); border: 1px solid var(--line); border-radius: 4px; pointer-events: none; }
+.lib-tools .view-toggle { background: var(--stone); }
+.lib-sort button { width: auto; padding: 0 10px; font-size: 12.5px; font-weight: 500; }
+
+/* cards: the name set in the font on a well, then the name, the style it started from and when it was
+   edited, with Download and the ⋯ menu beside them */
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+.lib-card { display: grid; grid-template: "open open" auto "meta actions" auto / minmax(0, 1fr) auto; min-width: 0; padding: 6px;
+  background: var(--surface); border-radius: var(--radius-xl); box-shadow: var(--sheet); transition: box-shadow .15s; }
+.lib-card:hover { box-shadow: var(--shadow); }
+.lib-open { grid-area: open; display: flex; height: 132px; padding: 22px 22px; border-radius: var(--radius-l); background: var(--well); transition: background .15s; }
+.lib-open:hover { background: var(--tint); }
+.lib-open svg { display: block; width: 100%; height: 100%; fill: var(--ink); overflow: visible; }
+.lib-meta { grid-area: meta; min-width: 0; padding: 10px 4px 8px 10px; }
+.lib-meta h3 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-meta p { display: flex; margin: 1px 0 0; font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; }
+.lib-meta p span { overflow: hidden; text-overflow: ellipsis; }
+.lib-meta p span + span::before { content: "·"; margin: 0 5px; color: var(--line-2); }
+.lib-meta p span:last-child { flex: none; }
+/* the latest save: its time in the accent */
+.lib-recent { color: var(--accent-ink); font-weight: 500; }
+.lib-rename { width: 100%; min-width: 0; height: 26px; margin: -3px 0 -2px -7px; padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--radius-s); box-shadow: 0 0 0 3px var(--accent-soft); font: 600 14px var(--ui); color: var(--ink); background: var(--surface); outline: none; }
+.lib-actions { grid-area: actions; position: relative; display: flex; align-items: center; gap: 0; padding: 0 2px 0 4px; }
+.lib-actions .btn.icon { color: var(--ink-3); }
+.lib-actions .btn.icon:hover, .lib-actions .btn.icon[aria-expanded=true] { color: var(--ink); background: var(--hover); }
+.lib-actions .btn.icon svg { stroke-width: 1.7; stroke-linejoin: round; }
+.lib-actions .btn.icon[aria-haspopup] svg { stroke-width: 2.4; }
+.lib-more { position: relative; display: flex; }
 .lib-menu { width: 160px; }
 .lib-menu button { text-align: left; height: 32px; padding: 0 10px; border-radius: var(--radius); font-size: 13px; font-weight: 500; transition: background .15s, color .15s; }
 .lib-menu button:hover { background: var(--well); }
-.lib-menu .danger:hover { background: var(--accent-soft); color: var(--accent-ink); }
-.btn.primary svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; margin-left: -3px; }
-.lib-new { min-height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px dashed var(--line-2); border-radius: var(--radius-xl); color: var(--ink-2); transition: border-color .15s, background .15s, color .15s; }
-.lib-new:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
-.lib-new b { font-size: 14px; font-weight: 600; }
-.lib-new-icon { width: 44px; height: 44px; margin-bottom: 10px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); box-shadow: var(--raise); transition: box-shadow .15s; }
-.lib-new:hover .lib-new-icon { box-shadow: 0 0 0 1px var(--accent); }
-.lib-new-icon svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.lib-menu .danger { color: #b3402e; }
+.lib-menu .danger:hover { background: #fbecea; color: #b3402e; }
+
+/* the list: one sheet of rows, the name and its details, then the name set in the font, then the actions */
+.lib-list { display: flex; flex-direction: column; gap: 2px; padding: 6px; background: var(--surface); border-radius: var(--radius-xl); box-shadow: var(--sheet); }
+.lib-list .lib-card { grid-template: "meta open actions" auto / minmax(160px, 240px) minmax(0, 1fr) auto; align-items: center; padding: 0 6px 0 4px; border-radius: var(--radius-l); box-shadow: none; transition: background .15s; }
+.lib-list .lib-card:hover { background: var(--well); box-shadow: none; }
+.lib-list .lib-open { height: 64px; padding: 14px 16px; background: none; }
+.lib-list .lib-open:hover { background: none; }
+.lib-list .lib-open:hover svg { fill: var(--accent-ink); }
+.lib-list .lib-meta { padding: 10px 8px 10px 10px; }
+
+/* loading: the cards' shapes, faintly */
+.lib-loading .lib-card { box-shadow: var(--sheet); }
+.lib-loading .lib-meta i { display: block; width: 46%; height: 10px; margin: 4px 0 8px; border-radius: 4px; background: var(--well); }
+.lib-loading .lib-meta i + i { width: 64%; margin-bottom: 2px; }
+.lib-loading .lib-open, .lib-loading .lib-meta i { animation: lib-pulse 1.4s ease-in-out infinite alternate; }
+.lib-list.lib-loading .lib-card { box-shadow: none; }
+@keyframes lib-pulse { to { opacity: .5; } }
+
 .lib-empty { background: var(--surface); border: 0; box-shadow: var(--sheet); border-radius: var(--radius-xl); padding: 56px 24px; text-align: center; display: grid; justify-items: center; gap: 6px; }
-.lib-empty h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.lib-empty h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; overflow-wrap: anywhere; }
 .lib-empty p { margin: 0 0 12px; color: var(--ink-2); }
 .lib-empty .btn.wide { width: auto; }
 .lib-empty h2 + .btn { margin-top: 12px; }
@@ -952,12 +987,11 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .account-menu a, .account-menu button { display: flex; align-items: center; height: 32px; padding: 0 10px; border-radius: var(--radius); font-size: 13px; font-weight: 500; text-align: left; text-decoration: none; color: var(--ink); transition: background .15s; }
 .account-menu a:hover, .account-menu button:hover { background: var(--hover); }
 .library .top-actions { gap: 8px; }
-.lib-menu { width: 190px; }
-.lib-signin { display: flex; align-items: center; gap: 8px; margin: -4px 0 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface); }
-.lib-signin div { flex: 1; min-width: 0; margin-right: 8px; }
-.lib-signin b { font-size: 14px; font-weight: 600; }
-.lib-signin p { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
-.library .lib-signin .btn.primary { height: 34px; padding: 0 14px; font-size: 13px; box-shadow: none; }
+/* signed out: one line saying where the fonts are kept, on a pale well rather than a boxed card */
+.lib-signin { display: flex; align-items: center; gap: 6px; margin: -6px 0 18px; padding: 6px 6px 6px 14px; border-radius: var(--radius-l); background: var(--tint); }
+.lib-signin-icon { flex: none; fill: none; stroke: var(--ink-3); stroke-width: 1.5; stroke-linejoin: round; }
+.lib-signin p { flex: 1; min-width: 0; margin: 0 8px 0 4px; font-size: 13px; color: var(--ink-2); }
+.lib-signin b { font-weight: 600; color: var(--ink); }
 .lib-empty .row { display: flex; gap: 8px; }
 .account-main { max-width: 760px; }
 .acct-section { display: grid; grid-template-columns: 200px 1fr; gap: 24px; padding: 24px 0; border-top: 1px solid var(--line); }
@@ -983,9 +1017,21 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .btn.danger-btn:not(.primary):hover { border-color: #b3402e; }
 .btn.primary.danger-btn { background: #b3402e; }
 .btn.primary.danger-btn:hover { background: #8f3324; }
+@media (max-width: 760px) {
+  .library .top-left .brand { display: flex; }
+  .lib-main { padding: 16px 16px 88px; }
+  .lib-tools { flex: 1 1 100%; }
+  .lib-search { flex: 1; min-width: 0; }
+  .lib-search input { width: 100%; }
+  .lib-search kbd { display: none; }
+}
 @media (max-width: 640px) {
-  .lib-signin { flex-wrap: wrap; }
-  .lib-signin div { flex-basis: 100%; margin: 0 0 6px; }
+  .lib-signin { flex-wrap: wrap; padding: 10px 10px 10px 14px; }
+  .lib-signin p { flex-basis: calc(100% - 40px); margin: 0 0 4px 4px; }
+  .lib-signin .btn.outline { margin-left: auto; }
+  .lib-grid { grid-template-columns: minmax(0, 1fr); }
+  .lib-list .lib-card { grid-template: "meta actions" auto "open open" auto / minmax(0, 1fr) auto; }
+  .lib-list .lib-open { height: 52px; padding: 0 10px 12px; }
   .acct-section { grid-template-columns: 1fr; gap: 12px; }
   .acct-password { padding-left: 0; }
 }
