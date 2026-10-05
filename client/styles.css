@@ -852,7 +852,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 /* ---------- library */
 .library { min-height: 100vh; display: flex; flex-direction: column; background: var(--paper); }
 .library .top { position: sticky; top: 0; z-index: 5; height: var(--top-h); padding: 0 14px 0 16px; background: rgba(239, 240, 240, .85); backdrop-filter: blur(12px); }
-.library .top .btn.primary svg { stroke-width: 2; }
+.library .top .btn.primary svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; margin-left: -2px; }
 .lib-main { width: 100%; max-width: 1240px; margin: 0 auto; padding: 28px 32px 64px; }
 .lib-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
 .lib-head h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.03em; }
