@@ -1,5 +1,5 @@
 import { useDeferredValue, useRef, useState } from 'react';
-import { KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../../shared/content';
+import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../../shared/content';
 import type { Params } from '../../shared/params';
 import { n1, useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
@@ -104,7 +104,7 @@ function SampleText() {
   );
 }
 
-/** Cards are grouped by Category, the panel's first filter, and narrowed by all the filters. Each
+/** Cards are grouped by Category, the finder's first question, and narrowed by all the filters. Each
     is drawn with the Adjust tab's traits laid over its style. The finder asks its questions first,
     and the cards come once they're answered. */
 function StyleCards() {
@@ -127,7 +127,7 @@ function StyleCards() {
         <button className="skip" onClick={focusFilters}>Skip to filters</button>
         {/* the way on, once there are cards to pick from: shape the style that's loaded */}
         {!finder.question && current && (
-          <button className="btn primary small cards-next" onClick={() => actions.setCategory('personality')}>
+          <button className="btn primary small cards-next" onClick={() => actions.setCategory('weight')}>
             Customize {current.name}
             <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" /></svg>
           </button>
@@ -164,7 +164,6 @@ function ActiveBar({ onClear, finder }: { onClear: () => void; finder: boolean }
     ...(f.query?.trim() ? [{ key: 'q', label: `“${f.query.trim()}”`, remove: () => actions.setQuery('') }] : []),
     ...(finder ? [] : f.groups.map(g => ({ key: `g-${g}`, label: tag(STYLE_GROUPS, g), remove: () => actions.toggleGroup(g) }))),
     ...(finder ? [] : f.kinds.map(k => ({ key: `k-${k}`, label: tag(kinds, k), remove: () => actions.toggleKind(k) }))),
-    ...f.looks.map(l => ({ key: `l-${l}`, label: tag(LOOKS, l), remove: () => actions.toggleLook(l) })),
     ...(finder ? [] : f.moods.map(m => ({ key: `m-${m}`, label: tag(MOODS, m), remove: () => actions.toggleMood(m) }))),
     ...traitLabels(traits).map(t => ({ key: `t-${t.id}`, label: t.label, trait: true, remove: () => actions.setTrait(t.id, null) }))
   ];

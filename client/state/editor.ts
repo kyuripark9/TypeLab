@@ -1,7 +1,7 @@
 /* Editor state. One store for the open design (with undo history) and the UI around it.
    Actions live outside the store so components can import them without subscribing. */
 import { create } from 'zustand';
-import { SERIF_SUBS, STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
+import { STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
 import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
 import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
@@ -63,7 +63,6 @@ export interface EditorState extends Doc {
   /** Style page filters; an empty list means no filter on that facet */
   groups: StyleGroup[];
   moods: Mood[];
-  looks: Look[];
   kinds: Kind[];
   /** Style page search words */
   query: string;
@@ -89,7 +88,6 @@ export interface EditorState extends Doc {
   part: string | null;
   /** the stroke end (by id) pointed at in the list of a customized letter's ends */
   hotEnd: string | null;
-  skeleton: boolean;
   /** the inspector draws the letter's construction grid: the lines and circles it is built on, and the letters that share them */
   construction: boolean;
   /** the inspector edits the letter's anchor points with the pen, instead of dragging its parts */
@@ -139,7 +137,6 @@ export const useEditor = create<EditorState>()(() => ({
   size: 48,
   groups: [],
   moods: [],
-  looks: [],
   kinds: [],
   query: '',
   finder: savedFinder(),
@@ -155,7 +152,6 @@ export const useEditor = create<EditorState>()(() => ({
   switchedOn: [],
   part: null,
   hotEnd: null,
-  skeleton: false,
   construction: savedConstruction(),
   penMode: false,
   mirror: [],
@@ -251,9 +247,9 @@ export function adjustedLooks(s: StyleDef, traits: Traits): Look[] {
 }
 /** The Style page's filters, and a test of whether a starting style (as the traits show it) passes them, or would with `pick` in place of its facet. */
 export function useStyleMatch() {
-  const groups = useEditor(s => s.groups), kinds = useEditor(s => s.kinds), looks = useEditor(s => s.looks), moods = useEditor(s => s.moods);
+  const groups = useEditor(s => s.groups), kinds = useEditor(s => s.kinds), moods = useEditor(s => s.moods);
   const query = useEditor(s => s.query), traits = useEditor(s => s.traits);
-  const f: StyleFilter = { groups, kinds, looks, moods, query };
+  const f: StyleFilter = { groups, kinds, moods, query };
   return { f, traits, matches: (s: StyleDef, pick: Partial<StyleFilter> = {}, t = traits) => styleMatches(s, { ...f, ...pick }, adjustedLooks(s, t)) };
 }
 /** The style finder's questions, in order, and the filter facet each one sets. */
@@ -347,7 +343,7 @@ export const actions = {
     actions.commit();
     // the way on from here: the first page of controls, offered right on the toast
     actions.toast(`${st.name} loaded${n ? ` with ${n} ${n === 1 ? 'trait' : 'traits'}` : ''} — now make it yours`,
-      { label: 'Customize', run: () => actions.setCategory('personality') });
+      { label: 'Customize', run: () => actions.setCategory('weight') });
   },
   /** Reset one slider to the starting style's value, or, while edits go to one letter, to the
       value the other letters share. */
@@ -419,9 +415,8 @@ export const actions = {
   setSize(size: number) { set({ size }); },
   toggleGroup(g: StyleGroup) { set(s => ({ groups: toggle(s.groups, g) })); },
   toggleMood(m: Mood) { set(s => ({ moods: toggle(s.moods, m) })); },
-  toggleLook(l: Look) { set(s => ({ looks: toggle(s.looks, l) })); },
   toggleKind(k: Kind) { set(s => ({ kinds: toggle(s.kinds, k) })); },
-  clearFilters() { set({ groups: [], moods: [], looks: [], kinds: [], query: '', passed: {} }); },
+  clearFilters() { set({ groups: [], moods: [], kinds: [], query: '', passed: {} }); },
   /** Answer a finder step with one tag: its facet becomes just that, and the steps after it are asked again. */
   answer(step: FinderStep, id: string) { set(s => ({ ...reopen(s, step), [FACET[step]]: [id] })); },
   /** Answer a finder step with "Any": it picks nothing and the next step comes up. */
@@ -481,7 +476,6 @@ export const actions = {
   },
   setPart(part: string | null) { if (get().part !== part) set({ part }); },
   setHotEnd(hotEnd: string | null) { if (get().hotEnd !== hotEnd) set({ hotEnd }); },
-  setSkeleton(skeleton: boolean) { set({ skeleton }); },
   setConstruction(construction: boolean) {
     set({ construction });
     try { if (construction) localStorage.setItem(CONSTRUCTION_KEY, '1'); else localStorage.removeItem(CONSTRUCTION_KEY); } catch { /* private mode: lasts this visit */ }
@@ -514,4 +508,3 @@ export const actions = {
   setNavOpen(navOpen: boolean) { set({ navOpen }); }
 };
 
-export const isSerifSub = (k: ActiveKey) => k in SERIF_SUBS;

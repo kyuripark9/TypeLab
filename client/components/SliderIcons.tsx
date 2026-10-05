@@ -4,16 +4,6 @@
 import type { ReactNode } from 'react';
 
 const SLIDER: Record<string, ReactNode> = {
-  // —— Personality
-  // a pen-drawn o, leaning, over a compass circle
-  geoHuman: <><circle className="faint" cx="10" cy="10" r="6.5" /><ellipse cx="10" cy="10" rx="4.4" ry="6.6" transform="rotate(-28 10 10)" /></>,
-  // a soft hump, then a sharp peak
-  softSharp: <path d="M2.5 15c2 0 2.2-7 4.2-7s2.3 7 4.3 7l3-8 3 8" />,
-  // a clock
-  classicFuture: <><circle cx="10" cy="10" r="7" /><path d="M10 6v4l2.8 1.8" /></>,
-  // letters bouncing
-  playfulFormal: <><rect x="2.5" y="9.5" width="4.2" height="4.2" rx=".6" transform="rotate(-14 4.6 11.6)" /><rect x="7.9" y="5" width="4.2" height="4.2" rx=".6" /><rect x="13.3" y="10.5" width="4.2" height="4.2" rx=".6" transform="rotate(16 15.4 12.6)" /></>,
-
   // —— Weight & contrast
   // a hairline stem beside a heavy one
   weight: <><path className="faint" d="M5 4v12" /><rect className="solid" x="9.5" y="4" width="6" height="12" rx=".8" /></>,

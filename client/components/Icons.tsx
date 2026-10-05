@@ -8,7 +8,6 @@ const PAGE: Record<CategoryId, ReactNode> = {
   // a set of styles to pick from
   style: <><rect x="3" y="3" width="6" height="6" rx="1.5" /><rect x="11" y="3" width="6" height="6" rx="1.5" /><rect x="3" y="11" width="6" height="6" rx="1.5" /><rect x="11" y="11" width="6" height="6" rx="1.5" /></>,
   // a face: the mood of the letters
-  personality: <><circle cx="10" cy="10" r="7" /><path d="M7.2 11.8a3.4 3.4 0 0 0 5.6 0" /><path d="M7.5 8v.3M12.5 8v.3" /></>,
   // a hairline stem beside a heavy one
   weight: <><path d="M5.5 4v12" /><rect x="10" y="4" width="5" height="12" rx=".8" className="solid" /></>,
   // a box leaning over: size and slant

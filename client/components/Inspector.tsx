@@ -128,16 +128,9 @@ export function Inspector() {
         <button className="btn ghost round" onClick={() => actions.stepInspector(1)} aria-label="Next glyph">→</button>
         <ModeToggle />
         {(pen || !drawn) && <ScopeToggle ch={ch} pen={pen} />}
-        {drawn && (
-          <span className="drawn-note">
-            Drawn by hand · the settings no longer shape {ch}
-            <button className="link" onClick={() => actions.undrawLetter(ch)} title={`Drop the drawing so the settings shape ${ch} again`}>Back to settings</button>
-          </span>
-        )}
-        {/* what the canvas shows: the switches keep together, and drop to a line of their own when the head runs out of room */}
+        {/* what the canvas shows; it drops to a line of its own when the head runs out of room */}
         <div className="insp-view">
           <ConstructionToggle />
-          {!pen && !drawn && <SkeletonToggle />}
         </div>
         <button className="btn ghost icon insp-close" onClick={actions.closeInspector} aria-label="Close inspector" title="Close (Esc)">
           <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
@@ -246,14 +239,6 @@ function ConstructionToggle() {
   );
 }
 
-function SkeletonToggle() {
-  const on = useEditor(s => s.skeleton);
-  return (
-    <label className="check">
-      <input type="checkbox" checked={on} onChange={e => actions.setSkeleton(e.target.checked)} /> Show skeleton
-    </label>
-  );
-}
 
 /** Parts that can be clicked but not dragged. */
 const FIXED_PARTS = new Set(['baseline']);
@@ -280,7 +265,7 @@ interface TipRow { axis: Axis; label: string; ends: [string, string] }
 function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Font; grid?: GlyphGrid }) {
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
-  const part = useEditor(s => s.part), active = useEditor(s => s.active), skeleton = useEditor(s => s.skeleton);
+  const part = useEditor(s => s.part), active = useEditor(s => s.active);
   // while only this letter changes, each stroke end is dragged on its own
   const oneEnd = useEditor(s => !!letterOf(s)), hotEnd = useEditor(s => s.hotEnd);
   const drag = useRef<Drag | null>(null);
@@ -425,7 +410,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
           <g transform={`translate(${n1(ox)},${n1(oy)}) scale(${sc.toFixed(5)})`} style={{ '--sw': n1(2 / sc) } as CSSProperties}>
             {/* on its construction grid the letter is an outline: a stroke, its inner half covered */}
             {grid && <path className="i-trace" d={g.d} style={{ strokeWidth: n1(4 / sc) }} />}
-            <path className={grid ? 'i-ink bare' : skeleton ? 'i-ink dim' : 'i-ink'} d={g.d} />
+            <path className={grid ? 'i-ink bare' : 'i-ink'} d={g.d} />
             <path className={hl.ring ? 'i-ring' : 'i-hl'} d={hl.d} />
             {grid && <GridLines grid={grid} />}
             <g aria-hidden="true">
@@ -434,12 +419,6 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
                   onPointerEnter={() => point(f)} onPointerMove={track(f)} onPointerLeave={leave} onPointerDown={press(f)} />
               ))}
             </g>
-            {skeleton && (
-              <g className="i-skel">
-                {g.skeleton.map((r, i) => <polyline key={i} points={r.map(p => `${n1(p.x)},${n1(-p.y)}`).join(' ')} />)}
-                {g.skeleton.flatMap((r, i) => [r[0], r[r.length - 1]].map((p, j) => <circle key={`${i}-${j}`} cx={n1(p.x)} cy={n1(-p.y)} r={n1(4 / sc)} />))}
-              </g>
-            )}
           </g>
           {/* the right edge of the advance box sets the width */}
           <g className={edge || (dragging && drag.current?.part === 'advance') ? 'i-edge hot' : 'i-edge'}>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { KIND_SECTIONS, MOODS, PAGE_LOOKS, PAGE_STYLES, STYLE_GROUPS, STYLES, TAG_FACE } from '../shared/content';
+import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, STYLES, TAG_FACE } from '../shared/content';
 import { buildFont } from '../shared/engine';
 
 /** The lowest point of a glyph's ink, in font units above the baseline (outlines are drawn y-down). */
@@ -26,18 +26,12 @@ describe('style page', () => {
     for (const m of MOODS) assert.ok(PAGE_STYLES.some(s => s.moods.includes(m.id)), m.id);
   });
 
-  it('draws each filter tag in a style on the page that carries it', () => {
-    const tags: [string, (id: string) => boolean][] = [
-      ...STYLE_GROUPS.map(g => [g.id, (id: string) => STYLES.find(s => s.id === id)!.group === g.id] as [string, (id: string) => boolean]),
-      ...KIND_SECTIONS.flatMap(sec => sec.tags).map(t => [t.id, (id: string) => STYLES.find(s => s.id === id)!.kinds.includes(t.id)] as [string, (id: string) => boolean]),
-      ...MOODS.map(m => [m.id, (id: string) => STYLES.find(s => s.id === id)!.moods.includes(m.id)] as [string, (id: string) => boolean]),
-      ...PAGE_LOOKS.map(l => [l.id, (id: string) => STYLES.find(s => s.id === id)!.looks.includes(l.id)] as [string, (id: string) => boolean])
-    ];
+  it('draws each Feeling chip in a style on the page that carries it', () => {
     const onPage = new Set(PAGE_STYLES.map(s => s.id));
-    for (const [tag, carries] of tags) {
-      const face = TAG_FACE[tag as keyof typeof TAG_FACE];
-      assert.ok(onPage.has(face), `${tag} is drawn in ${face}, which has no card`);
-      assert.ok(carries(face), `${tag} is drawn in ${face}, which does not carry it`);
+    for (const m of MOODS) {
+      const face = TAG_FACE[m.id];
+      assert.ok(onPage.has(face), `${m.id} is drawn in ${face}, which has no card`);
+      assert.ok(STYLES.find(s => s.id === face)!.moods.includes(m.id), `${m.id} is drawn in ${face}, which does not carry it`);
     }
   });
 });

@@ -21,7 +21,7 @@ export function Preview({ width }: { width: number }) {
         const sc = b.size / 1000, lines = font.layout(b.text, width / sc);
         const H = n1((lines.length * LH + 40) * sc);
         return (
-          <svg key={bi} className={b.sub ? 'pv sub' : 'pv'} width={width} height={H} viewBox={`0 0 ${width} ${H}`}
+          <svg key={bi} className="pv" width={width} height={H} viewBox={`0 0 ${width} ${H}`}
             style={{ '--sw': n1(1.6 / sc) } as CSSProperties}>
             <g transform={`scale(${sc})`}>
               {lines.map((ln, i) => <PreviewLine key={i} line={ln} y={n1(topU + i * LH)} font={font} hl={hl} topU={topU} LH={LH} widthU={width / sc} />)}

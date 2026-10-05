@@ -4,7 +4,7 @@ import { resolve, type Effective } from './engine/font';
 import { DEFAULTS, type AForm, type BarEnds, type Mirror, type Bends, type Build, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifBase, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
 
 /** A page of the editor: Style, or one set of controls. */
-export type CategoryId = 'style' | 'personality' | 'weight' | 'size' | 'heights' | 'insides' | 'curves' | 'corners' | 'ends' | 'serifs' | 'letters' | 'script'
+export type CategoryId = 'style' | 'weight' | 'size' | 'heights' | 'insides' | 'curves' | 'corners' | 'ends' | 'serifs' | 'letters' | 'script'
   | 'spacing' | 'effects';
 /** An area of the design with several pages, listed under it in the navigation. */
 export type GroupId = 'proportion' | 'shape' | 'details';
@@ -13,7 +13,6 @@ export type ControlKey =
   | 'build' | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'steps' | 'swash' | 'mirror' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'serifTip' | 'serifBase' | 'serifSides' | 'serifInner' | 'serifBalance' | 'serifTops' | 'serifArms' | 'apex' | 'bends' | 'joints' | 'cursive' | 'wobble'
   | 'xHeight' | 'extenders' | 'descender' | 'tail' | 'counter' | 'aperture' | 'crossbar'
   | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
-  | 'geoHuman' | 'softSharp' | 'classicFuture' | 'playfulFormal'
   | 'fill' | 'stencil' | 'slice';
 export type SerifSubKey = 'serifSize' | 'serifThickness' | 'serifAngle' | 'serifBracket';
 export type SerifTipSubKey = 'serifTipRound' | 'serifTipSlant';
@@ -59,10 +58,10 @@ export interface ControlDef {
 }
 export interface SubControlDef { label: string; friendly: string; tech: string; lo: string; hi: string; bipolar?: boolean }
 
-/* Starting styles are browsed like the tag filters on Google Fonts. The group is a style's
-   Category: it sorts the cards on the stage and is the first filter, so every heading over the
-   cards is also a filter. Then come the finer Classification tags (Sans Serif, Serif and
-   Calligraphy, in the order of the card groups), Appearance and Feeling. */
+/* Starting styles are tagged like the fonts on Google Fonts. The group is a style's Category: it
+   sorts the cards on the stage and is the style finder's first question. Then come the finer
+   Classification tags (Sans Serif, Serif and Calligraphy, in the order of the card groups), the
+   finder's second question, Appearance, which search reads, and Feeling, the panel's filter. */
 export type StyleGroup = 'sans' | 'serif' | 'slab' | 'mono' | 'hand' | 'display';
 export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string }[] = [
   { id: 'sans', label: 'Sans Serif', hint: 'Clean letters with no serifs' },
@@ -82,9 +81,9 @@ export const MOODS: { id: Mood; label: string }[] = ([
   ['rugged', 'Rugged'], ['sincere', 'Sincere'], ['sophisticated', 'Sophisticated'], ['stiff', 'Stiff'], ['vintage', 'Vintage']
 ] as [Mood, string][]).map(([id, label]) => ({ id, label }));
 
-/* Appearance, like Google's tags of that name: what the letters look like. Unlike the other
-   tags these are not hand-picked but read off each style's settings, so they stay true as
-   styles are tuned. */
+/* Appearance, like Google's tags of that name: what the letters look like, for search to find.
+   Unlike the other tags these are not hand-picked but read off each style's settings, so they
+   stay true as styles are tuned. */
 export type Look = 'mono' | 'pixel' | 'stencil' | 'outline' | 'inline' | 'shadow' | 'techno' | 'inktrap' | 'contrast' | 'wide' | 'narrow';
 export const LOOKS: { id: Look; label: string; hint: string; test: (e: Effective) => boolean }[] = [
   { id: 'mono', label: 'Monospace', hint: 'Every letter takes the same width', test: e => e.mono >= 0.5 },
@@ -602,20 +601,16 @@ const PAGE_ORDER = [
   'modular', 'pinched', 'stepped', 'hairbox', 'nouveau'
 ];
 export const PAGE_STYLES = PAGE_ORDER.map(id => STYLES.find(s => s.id === id)!);
-/** Appearance tags that some card on the style page carries. Monospace is left out: there it
-    picks the same cards as the Monospace Category. */
-export const PAGE_LOOKS = LOOKS.filter(l => l.id !== 'mono' && PAGE_STYLES.some(s => s.looks.includes(l.id)));
 
 export const GROUPS: Record<GroupId, string> = { proportion: 'Proportions', shape: 'Shapes', details: 'Details' };
 /* The pages, in the order of the navigation. The pages of a group sit together, under its name.
    They run in the order a design is made, each page fine-tuning what the ones above it set: the
-   starting style, then Personality, whose sliders move many settings at once, then the proportions
+   starting style, then the proportions
    (how heavy, how big, how tall, how open and how far apart the letters are), then the shapes of their
    curves, corners, ends and serifs, and last the details: single letters, the hand and the effects.
    `hint` says in a few words what the page holds; it is the page's tooltip, and search reads it too. */
 export const CATEGORIES: { id: CategoryId; label: string; hint: string; group?: GroupId }[] = [
   { id: 'style', label: 'Style', hint: 'Pick a typeface to start from' },
-  { id: 'personality', label: 'Personality', hint: 'Change the mood: many settings at once' },
   { id: 'weight', label: 'Weight & contrast', hint: 'Thick or thin strokes, and the difference between them', group: 'proportion' },
   { id: 'size', label: 'Size & slant', hint: 'Width, height, slant, rotation and mirroring', group: 'proportion' },
   { id: 'heights', label: 'Heights', hint: 'Lowercase height, ascenders, descenders, tails and crossbars', group: 'proportion' },
@@ -629,8 +624,8 @@ export const CATEGORIES: { id: CategoryId; label: string; hint: string; group?: 
   { id: 'script', label: 'Handwriting', hint: 'Cursive strokes, a wobbly hand and swash capitals', group: 'details' },
   { id: 'effects', label: 'Effects', hint: 'Outlines, pixels, dots, stencil and slice', group: 'details' }
 ];
-/** Links from before the pages were regrouped name these groups. */
-const OLD_GROUPS: Record<string, CategoryId> = { structure: 'weight', proportion: 'heights' };
+/** Links from before the pages were regrouped name these groups, or the Personality page, since removed. */
+const OLD_GROUPS: Record<string, CategoryId> = { structure: 'weight', proportion: 'heights', personality: 'weight' };
 /** The page `id` names: a page itself, or a group, which opens on its first page. */
 export const pageOf = (id: string | null | undefined): CategoryId | undefined =>
   (CATEGORIES.find(c => c.id === id) ?? (id ? CATEGORIES.find(c => c.id === OLD_GROUPS[id]) : undefined) ?? CATEGORIES.find(c => c.group === id))?.id;
@@ -750,15 +745,6 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   sideBearing: { cat: 'spacing', advanced: true, label: 'Side margins', friendly: 'Adjust the space around each letter', tech: 'Side bearing', lo: 'Narrow', hi: 'Wide', demo: 'HO',
     explain: 'The small margins built into each letter.' },
 
-  geoHuman: { cat: 'personality', bipolar: true, label: 'Construction', friendly: 'Constructed or hand-made?', tech: 'Geometric ↔ Humanist', lo: 'Geometric', hi: 'Humanist', demo: 'Rag',
-    explain: 'Pure circles, or open, warm, pen-like letters.' },
-  softSharp: { cat: 'personality', bipolar: true, label: 'Edges', friendly: 'Gentle or edgy?', tech: 'Soft ↔ Sharp', lo: 'Soft', hi: 'Sharp', demo: 'AMk',
-    explain: 'Rounded corners and flat peaks, or crisp corners and points.' },
-  classicFuture: { cat: 'personality', bipolar: true, label: 'Era', friendly: 'Timeless or tomorrow?', tech: 'Classic ↔ Futuristic', lo: 'Classic', hi: 'Futuristic', demo: 'Rose',
-    explain: 'Old-style contrast, or squared and even shapes.' },
-  playfulFormal: { cat: 'personality', bipolar: true, label: 'Tone', friendly: 'Fun or serious?', tech: 'Playful ↔ Formal', lo: 'Playful', hi: 'Formal', demo: 'jump',
-    explain: 'Bouncy and tilted, or upright and refined.' },
-
   fill: { cat: 'effects', type: 'fill', label: 'Fill', friendly: 'Build the letters from something else', tech: 'Fill', demo: 'Rg',
     explain: 'Solid ink, outlines, a grid of pixels, dots or lines, a line cut down the middle of each stroke, or a shadow cast down to the right. Size sets how coarse the grid is, how wide the line, or how far the shadow falls.' },
   stencil: { cat: 'effects', off: 0, label: 'Stencil', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
@@ -769,7 +755,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
 /** The controls that shape letters built from blocks (see blocks.ts): their size, weight and corners, the
     hand, spacing and the effects that run on any outline. The rest shape strokes, which blocks don't have. */
 export const BLOCK_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'build', 'roundness', 'mirror', 'wobble',
-  'xHeight', 'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'softSharp', 'classicFuture', 'playfulFormal', 'fill', 'slice'];
+  'xHeight', 'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice'];
 export const SERIF_SUBS: Record<SerifSubKey, SubControlDef> = {
   serifSize: { label: 'Length', friendly: 'Make the feet longer', tech: 'Serif size', lo: 'Short', hi: 'Long' },
   serifThickness: { label: 'Thickness', friendly: 'Make the feet heavier', tech: 'Serif thickness', lo: 'Hairline', hi: 'Heavy' },
@@ -928,19 +914,16 @@ export const PART_CONTROL: Partial<Record<string, ControlKey>> = {
 };
 
 export const TEXTS = {
-  sentence: 'If you can design one thing, you can design everything.',
-  alphabet: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n0123456789',
-  punct: '.,!?;:\'"()-/&@#$%+',
-  paragraph: 'Type is the voice of written words. Every letter is a small drawing, and a typeface is hundreds of drawings that agree with each other: the same stroke, the same curve, the same rhythm repeated until a texture appears. Change one decision (how heavy, how round, how open) and the whole voice changes with it.\n\nSphinx of black quartz, judge my vow! Pack my box with five dozen liquor jugs & 1,234 more @ $5.67 (+89%).'
+  sentence: 'If you can design one thing, you can design everything.'
 };
 
 export const styleById = (id: string | null | undefined) => STYLES.find(s => s.id === id);
 /** The picked tags of each facet; an empty list means no filter on that facet. `query` is typed search words. */
-export interface StyleFilter { groups: StyleGroup[]; kinds: Kind[]; looks: Look[]; moods: Mood[]; query?: string }
+export interface StyleFilter { groups: StyleGroup[]; kinds: Kind[]; moods: Mood[]; query?: string }
 /** Faceted like Google Fonts: any of the picked tags within a facet, every facet at once. `looks`
-    are the style's Appearance as shown, which traits laid over it may change. */
+    are the style's Appearance as shown, which traits laid over it may change, for search to find. */
 export const styleMatches = (s: StyleDef, f: StyleFilter, looks: Look[] = s.looks) =>
-  (!f.groups.length || f.groups.includes(s.group)) && (!f.moods.length || s.moods.some(m => f.moods.includes(m))) && (!f.looks.length || looks.some(l => f.looks.includes(l))) &&
+  (!f.groups.length || f.groups.includes(s.group)) && (!f.moods.length || s.moods.some(m => f.moods.includes(m))) &&
   (!f.kinds.length || s.kinds.some(k => f.kinds.includes(k))) && searchMatches(s, f.query ?? '', looks);
 
 /** Everything a search can find a style by: its name, genre, feelings, looks, description and the Google Fonts families like it. */
@@ -960,19 +943,11 @@ export const searchMatches = (s: StyleDef, query: string, looks: Look[] = s.look
 /** The Appearance tags a set of params shows. */
 export function looksOf(p: Params): Look[] { const e = resolve(p); return LOOKS.filter(l => l.test(e)).map(l => l.id); }
 
-/** The starting style each filter tag is set in: one that carries the tag. */
-export const TAG_FACE: Record<StyleGroup | Mood | Look | Kind, string> = {
-  sans: 'grotesque', serif: 'oldstyle', hand: 'casual', display: 'display',
+/** The starting style each Feeling chip is set in: one that carries the feeling. */
+export const TAG_FACE: Record<Mood, string> = {
   business: 'grotesque', calm: 'humanist', happy: 'soft', playful: 'display', cute: 'upright', childlike: 'casual',
   fancy: 'didone', sophisticated: 'chancery', artistic: 'brush', loud: 'fatface', rugged: 'marker', vintage: 'typewriter',
-  futuristic: 'techno', sincere: 'clarendon', excited: 'marker', innovative: 'squircle', stiff: 'code',
-  mono: 'code', pixel: 'pixel', stencil: 'stencil', outline: 'construction', inline: 'inline', shadow: 'shadow', techno: 'techno', inktrap: 'inktrap',
-  contrast: 'didone', wide: 'wide', narrow: 'condensed',
-  handwritten: 'casual', upright: 'upright', informal: 'informal', formal: 'chancery', brush: 'brush', marker: 'marker',
-  swash: 'swash', italic: 'swash', monoline: 'signature', signature: 'signature', blackletter: 'blackletter',
-  venetian: 'venetian', oldstyle: 'oldstyle', transitional: 'serif', didone: 'didone', fatface: 'fatface', wedge: 'wedge', slab: 'slab', clarendon: 'clarendon',
-  geometric: 'geometric', neogrotesque: 'grotesque', grotesque: 'condensed', humanist: 'humanist', rounded: 'soft',
-  superellipse: 'squircle', flared: 'flared'
+  futuristic: 'techno', sincere: 'clarendon', excited: 'marker', innovative: 'squircle', stiff: 'code'
 };
 
 /** First control of each category, opened when the category is picked. */

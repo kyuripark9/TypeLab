@@ -29,7 +29,7 @@ describe('editor pages', () => {
 
   it('runs from the broadest settings to the finest, on the navigation and on each page', () => {
     const at = (id: string) => CATEGORIES.findIndex(c => c.id === id || c.group === id);
-    const nav = ['style', 'personality', 'proportion', 'shape', 'details'];
+    const nav = ['style', 'proportion', 'shape', 'details'];
     assert.deepEqual([...nav].sort((a, b) => at(a) - at(b)), nav);
     const on = (cat: string) => controls.filter(k => CONTROLS[k].cat === cat);
     // a choice of shape leads the sliders that tune it

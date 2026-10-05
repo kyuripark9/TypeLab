@@ -35,7 +35,6 @@ client/   React 19 + TypeScript (Vite): the editor and the design library
 server/   Express 5 + TypeScript: REST API, SQLite storage, font export
 shared/   used by both sides: the font engine, parameter model, UI copy
 tests/    node:test suites for the engine and the API
-legacy/   the original single-page vanilla JS version, kept for reference
 ```
 
 One Node process serves everything. In development, Vite runs inside the Express server as
@@ -154,8 +153,8 @@ wherever the letter can be dragged to make the same change.
 
 To customize one letter, switch the inspector from **Sync all** to **Customize R**: sliders and
 drags then reshape just that letter, which keeps its own values when the rest of the design changes (a dot
-marks it in the glyph strip, and its own values are tagged *Custom*). Heights, spacing, fills and
-personality are tagged *Whole font*: every letter sits on the same lines, so they stay shared.
+marks it in the glyph strip, and its own values are tagged *Custom*). Heights, spacing and fills
+are tagged *Whole font*: every letter sits on the same lines, so they stay shared.
 **Re-sync R** puts the letter back in sync. Per-letter settings are saved with the design
 (`params.glyphs`) and exported with the font.
 

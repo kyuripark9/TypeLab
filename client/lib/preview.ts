@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { TEXTS } from '../../shared/content';
 import { useEditor } from '../state/editor';
 
-export interface Block { text: string; size: number; sub?: boolean }
+export interface Block { text: string; size: number }
 
 /** What to set: the typed text, or the default sentence while the field is empty. */
 export const sampleText = (custom: string) => custom.trim() ? custom : TEXTS.sentence;

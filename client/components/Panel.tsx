@@ -3,9 +3,9 @@
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  ANATOMY, BAR_END_OPTIONS, BLOCK_CONTROLS, BOWL_SUBS, PINCH_SUBS, CROSSBAR_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS, SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
+  ANATOMY, BAR_END_OPTIONS, BLOCK_CONTROLS, BOWL_SUBS, PINCH_SUBS, CROSSBAR_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, MOODS, PAGE_STYLES, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS, SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
   SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById,
-  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type SerifInnerSubKey, type Kind, type Look, type Mood, type StyleFilter, type StyleGroup
+  type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type SerifInnerSubKey, type Mood, type StyleFilter
 } from '../../shared/content';
 import { TERMINAL_FORMS, formOf, isGlyphKey, rotationDeg, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
@@ -13,7 +13,7 @@ import { sampleText } from '../lib/preview';
 import { reachOf, type Reach } from '../lib/reach';
 import { cmdsToD, type Glyph } from '../../shared/engine';
 import { letterCorners, letterJoins, letterStrokes, strokeEnds, type CornerInfo, type JoinInfo, type StrokeEndInfo, type StrokeInfo } from '../lib/drag';
-import { actions, adjustedLooks, adjustedParams, curlOf, endOf, fontFor, isOn, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, useStyleMatch, type EndKey, type StyleTab } from '../state/editor';
+import { actions, adjustedParams, curlOf, endOf, fontFor, isOn, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, useStyleMatch, type EndKey, type StyleTab } from '../state/editor';
 import { TRAIT_SECTIONS, type TraitDef } from '../../shared/traits';
 import { BarEndsIcon, Diagram, FillIcon, FormIcon, SerifIcon, SerifSidesIcon, StoryIcon, TerminalIcon } from './Diagram';
 import { ScopeIcon, letterControls } from './Inspector';
@@ -45,7 +45,7 @@ const STYLE_TABS: [StyleTab, string][] = [['filter', 'Filter'], ['adjust', 'Adju
     one of them, so each card shows its style with them and any mix can be started from. */
 function StylePanel() {
   const tab = useEditor(s => s.styleTab);
-  const nFilters = useEditor(s => s.groups.length + s.kinds.length + s.looks.length + s.moods.length + (s.query.trim() ? 1 : 0));
+  const nFilters = useEditor(s => s.groups.length + s.kinds.length + s.moods.length + (s.query.trim() ? 1 : 0));
   const nTraits = useEditor(s => Object.keys(s.traits).length);
   const counts = { filter: nFilters, adjust: nTraits };
   const move = (e: KeyboardEvent<HTMLButtonElement>) => {
@@ -71,20 +71,13 @@ function StylePanel() {
   );
 }
 
-/** Search, then the tag filters in the sections of the Google Fonts filters. Category comes first
-    and matches the headings over the cards; the Classification sections after it hold the finer
-    genres of each category and together make one facet. */
+/** Search, then the feelings. The kind of letters and their genre are what the style finder asks
+    on the stage, so they aren't asked again here. */
 function StyleFilters() {
-  const { f, traits, matches } = useStyleMatch();
-  const current = useEditor(s => styleById(s.styleId));
-  // each tag's count is what picking it would show, given the other facets
+  const { f, matches } = useStyleMatch();
+  // each tag's count is what picking it would show, given the other filters
   const count = (pick: Partial<StyleFilter>) => PAGE_STYLES.filter(s => matches(s, pick)).length;
-  const picked = f.groups.length + f.kinds.length + f.looks.length + f.moods.length > 0 || !!f.query?.trim();
-  // the Classification sections start folded, except one that holds a picked tag or Category, or else the current style
-  const relevant = (sec: (typeof KIND_SECTIONS)[number]) => sec.tags.some(t => f.kinds.includes(t.id)) ||
-    (f.groups.length ? sec.groups.some(g => f.groups.includes(g)) : sec.tags.some(t => !!current?.kinds.includes(t.id)));
-  // Appearance offers the looks some card shows as the traits draw it, and any already picked
-  const looks = LOOKS.filter(l => l.id !== 'mono' && (f.looks.includes(l.id) || PAGE_STYLES.some(s => adjustedLooks(s, traits).includes(l.id))));
+  const picked = f.groups.length + f.kinds.length + f.moods.length > 0 || !!f.query?.trim();
   return (
     <>
       <div className="search-row">
@@ -99,15 +92,6 @@ function StyleFilters() {
         {/* the button leaves once pressed, so focus goes back to the tab rather than the page */}
         {picked && <button className="btn ghost small" aria-label="Clear filters" onClick={() => { actions.clearFilters(); focusFilters(); }}>Clear</button>}
       </div>
-      <ChipFacet id="category" label="Category" tags={STYLE_GROUPS} picked={f.groups} count={g => count({ groups: [g] })} toggle={actions.toggleGroup} />
-      <div className="facet facet-set" role="group" aria-labelledby="f-classification">
-        <h3 className="facet-label" id="f-classification">Classification</h3>
-        {KIND_SECTIONS.map(sec => (
-          <ChipFacet key={sec.id} id={sec.id} label={sec.label} level={4} startClosed={!relevant(sec)}
-            tags={sec.tags} picked={f.kinds} count={k => count({ kinds: [k] })} toggle={actions.toggleKind} />
-        ))}
-      </div>
-      <ChipFacet id="appearance" label="Appearance" tags={looks} picked={f.looks} count={l => count({ looks: [l] })} toggle={actions.toggleLook} />
       <ChipFacet id="feeling" label="Feeling" tags={MOODS} picked={f.moods} count={m => count({ moods: [m] })} toggle={actions.toggleMood} />
     </>
   );
@@ -197,29 +181,24 @@ function Specimen({ params, text, h, maxW = 44 }: { params: Params; text: string
   );
 }
 
-type Tag = StyleGroup | Mood | Look | Kind;
-
 /** Chips a long facet shows before "Show more". Picked chips always stay visible. */
 const FACET_LIMIT = 8;
 
 /** One section of tag chips. Its heading opens and closes it; a long one also folds down to its first few until expanded. */
-function ChipFacet<T extends Tag>({ id, label, tags, picked, count, toggle, level = 3, startClosed = false }: {
+function ChipFacet<T extends Mood>({ id, label, tags, picked, count, toggle }: {
   id: string; label: string; tags: { id: T; label: string; hint?: string }[]; picked: T[];
-  count: (tag: T) => number; toggle: (tag: T) => void; level?: 3 | 4; startClosed?: boolean;
+  count: (tag: T) => number; toggle: (tag: T) => void;
 }) {
-  const [closed, setClosed] = useState(startClosed);
-  // a section that becomes relevant (its Category was picked) opens; one that stops being so stays as it is
-  useEffect(() => { if (!startClosed) setClosed(false); }, [startClosed]);
+  const [closed, setClosed] = useState(false);
   const [open, setOpen] = useState(false);
   // folding away just one or two chips saves no room, so only long sections fold
   const folds = tags.length > FACET_LIMIT + 2;
   const shown = open || !folds ? tags : tags.filter((t, i) => i < FACET_LIMIT || picked.includes(t.id));
   const more = tags.length - shown.length;
   const nPicked = tags.filter(x => picked.includes(x.id)).length;
-  const H = level === 3 ? 'h3' : 'h4';
   return (
-    <div className={level === 3 ? 'facet' : 'facet sub'} role="group" aria-labelledby={`f-${id}`}>
-      <H className="facet-h">
+    <div className="facet" role="group" aria-labelledby={`f-${id}`}>
+      <h3 className="facet-h">
         <button className="facet-head" aria-expanded={!closed} aria-controls={`c-${id}`} onClick={() => setClosed(!closed)}
           aria-label={closed && nPicked > 0 ? `${label}, ${nPicked} selected` : undefined}>
           <span className="facet-label" id={`f-${id}`}>{label}</span>
@@ -227,7 +206,7 @@ function ChipFacet<T extends Tag>({ id, label, tags, picked, count, toggle, leve
           {closed && nPicked > 0 && <span className="facet-picked">{nPicked}</span>}
           <svg className="facet-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5" /></svg>
         </button>
-      </H>
+      </h3>
       <div className={closed ? 'reveal' : 'reveal open'} id={`c-${id}`} inert={closed}>
         <div>
           <div className="facet-body">
@@ -270,7 +249,7 @@ const legible = (p: Params): Params => ({
 
 /** A filter tag's name, drawn in a starting style that belongs to it. The chip carries the
     name for screen readers, so the drawing is hidden from them. */
-function TagText({ tag, label }: { tag: Tag; label: string }) {
+function TagText({ tag, label }: { tag: Mood; label: string }) {
   const f = fontFor(legible(styleById(TAG_FACE[tag])!.params));
   const sc = TAG_CAP / f.m.cap, top = Math.max(f.m.asc, f.m.cap), line = f.layout(label, Infinity)[0];
   const W = n1(line.width * sc), H = n1((top - f.m.desc) * sc);
@@ -382,7 +361,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   if (c.type === 'serif') return <SerifControl parts={parts} />;
   if (c.type === 'serifForm') return <SerifFormControl k={k as SerifFormKey} />;
   if (c.type === 'fill') return <FillControl />;
-  return <SliderControl k={k as NumericParam} def={c} parts={parts} />;
+  return <SliderControl k={k as NumericParam & ControlKey} def={c} parts={parts} />;
 }
 
 /** A control's short title. While a letter is inspected, the parts it shapes follow in grey and each one can be pointed at. */
@@ -578,7 +557,7 @@ interface SliderDef { label: string; friendly: string; tech: string; lo?: string
 /** `children` follow the slider inside its control, like the corners under Roundness. `holdsOn`
     marks the amount of a control switched on above it (a stencil's thickness): using it keeps that open.
     `icon` names its drawing when that isn't `k`'s own (Stencil's Thickness shares the key `stencil`). */
-function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { k: NumericParam; def: SliderDef; parts?: string[]; children?: ReactNode; holdsOn?: boolean; icon?: string }) {
+function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { k: NumericParam & ActiveKey; def: SliderDef; parts?: string[]; children?: ReactNode; holdsOn?: boolean; icon?: string }) {
   const value = useParam(k), active = useEditor(s => s.active === k);
   const optional = def.off !== undefined, on = useEditor(s => !optional || isOn(s, k, def.off!));
   // using the slider keeps it open, even dragged all the way to its off value
