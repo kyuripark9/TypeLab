@@ -10,8 +10,10 @@ import * as opentypeNs from 'opentype.js';
 import type { Design } from '../shared/design';
 import { STYLES } from '../shared/content';
 import { ALL_CHARS } from '../shared/engine';
+import { createHash } from 'node:crypto';
 import { createApp } from '../server/app';
 import { DesignStore } from '../server/db';
+import type { GoogleAuth, GoogleProfile } from '../server/google';
 
 const opentype = ((opentypeNs as unknown as { default?: typeof opentypeNs }).default ?? opentypeNs) as typeof opentypeNs;
 
@@ -26,13 +28,13 @@ before(async () => {
 after(() => { server.close(); store.close(); });
 
 /** A browser: it keeps the cookies the server hands it (owner and session), as a real one would. */
-function browser() {
+function browser(at = () => base) {
   const jar = new Map<string, string>();
   return async (method: string, path: string, body?: unknown) => {
     const headers: Record<string, string> = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (jar.size) headers.Cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
-    const res = await fetch(base + path, { method, headers, body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
+    const res = await fetch(at() + path, { method, headers, redirect: 'manual', body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
     for (const set of res.headers.getSetCookie()) {
       const [k, v] = set.split(';')[0].split('=');
       if (/Max-Age=0/.test(set)) jar.delete(k); else jar.set(k, v);
@@ -131,7 +133,7 @@ describe('accounts API', () => {
   it('signs up, bringing along the fonts saved in that browser', async () => {
     const ana = browser();
     await make(ana, 'Before signing up');
-    assert.deepEqual(await (await ana('GET', '/auth/me')).json(), { user: null });
+    assert.deepEqual(await (await ana('GET', '/auth/me')).json(), { user: null, google: false });
     for (const bad of [{ email: 'nope', password }, { email, password: 'short' }, {}]) {
       assert.equal((await ana('POST', '/auth/signup', bad)).status, 400);
     }
@@ -160,7 +162,7 @@ describe('accounts API', () => {
     const names = ((await (await laptop('GET', '/designs')).json()) as Design[]).map(d => d.name).sort();
     assert.deepEqual(names, ['Before signing up', 'Made on the laptop']);
     assert.equal((await laptop('POST', '/auth/logout')).status, 204);
-    assert.deepEqual(await (await laptop('GET', '/auth/me')).json(), { user: null });
+    assert.deepEqual(await (await laptop('GET', '/auth/me')).json(), { user: null, google: false });
     assert.deepEqual(await (await laptop('GET', '/designs')).json(), []);
   });
 
@@ -171,9 +173,9 @@ describe('accounts API', () => {
     assert.equal((await (await a('PATCH', '/auth/me', { name: 'Ana P' })).json()).user.name, 'Ana P');
     assert.equal((await a('POST', '/auth/password', { current: 'wrong', next: 'a new password' })).status, 403);
     assert.equal((await a('POST', '/auth/password', { current: password, next: 'short' })).status, 400);
-    assert.equal((await a('POST', '/auth/password', { current: password, next: 'a new password' })).status, 204);
+    assert.equal((await a('POST', '/auth/password', { current: password, next: 'a new password' })).status, 200);
     assert.equal((await (await a('GET', '/auth/me')).json()).user.name, 'Ana P');
-    assert.deepEqual(await (await b('GET', '/auth/me')).json(), { user: null });
+    assert.deepEqual(await (await b('GET', '/auth/me')).json(), { user: null, google: false });
     assert.equal((await b('POST', '/auth/login', { email, password })).status, 401);
     assert.equal((await b('POST', '/auth/login', { email, password: 'a new password' })).status, 200);
     assert.equal((await browser()('PATCH', '/auth/me', { name: 'x' })).status, 401);
@@ -191,9 +193,178 @@ describe('accounts API', () => {
     await a('POST', '/auth/login', { email, password: 'a new password' });
     assert.equal((await a('DELETE', '/auth/me', { password: 'wrong' })).status, 403);
     assert.equal((await a('DELETE', '/auth/me', { password: 'a new password' })).status, 204);
-    assert.deepEqual(await (await a('GET', '/auth/me')).json(), { user: null });
+    assert.deepEqual(await (await a('GET', '/auth/me')).json(), { user: null, google: false });
     assert.equal((await a('POST', '/auth/login', { email, password: 'a new password' })).status, 401);
     assert.equal((store.db.prepare('SELECT COUNT(*) AS n FROM designs WHERE owner LIKE \'user:%\' AND name = ?').get('Before signing up') as { n: number }).n, 0);
+  });
+});
+
+describe('Google sign-in', () => {
+  // a stand-in for Google: each code names a person, and the PKCE verifier has to match its challenge
+  const people = new Map<string, GoogleProfile>(), challenges = new Map<string, string>();
+  const fake: GoogleAuth = {
+    authUrl: ({ redirectUri, state, challenge }) => {
+      challenges.set(state, challenge);
+      return `https://google.test/auth?${new URLSearchParams({ redirect_uri: redirectUri, state })}`;
+    },
+    exchange: async ({ code, verifier }) => {
+      const p = people.get(code.split('@')[0]);
+      if (!p || ![...challenges.values()].includes(createHash('sha256').update(verifier).digest('base64url'))) throw new Error('bad code');
+      return p;
+    }
+  };
+  let gServer: Server, gBase = '', gStore: DesignStore;
+  const at = () => gBase;
+  before(async () => {
+    gStore = new DesignStore(':memory:');
+    gServer = createApp(gStore, { google: fake }).listen(0);
+    await new Promise(r => gServer.once('listening', r));
+    gBase = `http://127.0.0.1:${(gServer.address() as AddressInfo).port}/api`;
+  });
+  after(() => { gServer.close(); gStore.close(); });
+
+  /** Go to Google and come back as `who`, the way a browser follows the redirects. */
+  async function viaGoogle(b: ReturnType<typeof browser>, who: string, query = 'back=/designs') {
+    const start = await b('GET', `/auth/google?${query}`);
+    assert.equal(start.status, 303);
+    const state = new URL(start.headers.get('location')!).searchParams.get('state')!;
+    const back = await b('GET', `/auth/google/callback?${new URLSearchParams({ code: `${who}@x`, state })}`);
+    if (back.status !== 303) return { page: await back.text(), result: null };
+    const to = new URL(back.headers.get('location')!, 'http://x');
+    return { to, result: JSON.parse(to.searchParams.get('google')!) };
+  }
+  const me = async (b: ReturnType<typeof browser>) => (await (await b('GET', '/auth/me')).json()).user;
+
+  it('says whether it offers Google, and what an email signs in with', async () => {
+    const b = browser(at);
+    assert.equal((await (await b('GET', '/auth/me')).json()).google, true);
+    assert.equal((await (await call('GET', '/auth/me')).json()).google, false);
+    assert.deepEqual(await (await b('POST', '/auth/check', { email: 'Nobody@example.com' })).json(), { exists: false, password: false, google: false });
+    assert.equal((await b('POST', '/auth/check', { email: 'nope' })).status, 400);
+    await b('POST', '/auth/signup', { email: 'pat@example.com', password: 'pat password' });
+    assert.deepEqual(await (await browser(at)('POST', '/auth/check', { email: 'PAT@example.com' })).json(), { exists: true, password: true, google: false });
+  });
+
+  it('makes a new account with Google, bringing along the browser\'s fonts', async () => {
+    people.set('gina', { sub: 'g-gina', email: 'Gina@Gmail.com', emailVerified: true, name: 'Gina G' });
+    const b = browser(at);
+    await b('POST', '/designs', { name: 'Gina’s first', styleId: 'serif', params: serif.params });
+    const { to, result } = await viaGoogle(b, 'gina');
+    assert.equal(to!.pathname, '/designs');
+    assert.deepEqual(result, { ok: true, intent: 'signin', isNew: true, passwordRemoved: false, moved: 1 });
+    const user = await me(b);
+    assert.equal(user.email, 'gina@gmail.com');
+    assert.equal(user.name, 'Gina G');
+    assert.equal(user.hasPassword, false);
+    assert.equal(user.google, 'gina@gmail.com');
+    assert.equal(((await (await b('GET', '/designs')).json()) as Design[]).length, 1);
+    // no password to sign in with, and the sign-in says to use Google
+    const login = await browser(at)('POST', '/auth/login', { email: 'gina@gmail.com', password: 'anything at all' });
+    assert.equal(login.status, 401);
+    assert.match((await login.json()).error, /Google/);
+    // signing in with Google again, on another browser, finds the same account
+    const other = browser(at);
+    assert.equal((await viaGoogle(other, 'gina')).result.isNew, false);
+    assert.equal((await me(other)).id, user.id);
+  });
+
+  it('sets a first password without a current one, then lets Google be disconnected', async () => {
+    const b = browser(at);
+    await viaGoogle(b, 'gina');
+    assert.equal((await b('DELETE', '/auth/google')).status, 400);
+    const res = await b('POST', '/auth/password', { next: 'gina password' });
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).user.hasPassword, true);
+    assert.equal((await browser(at)('POST', '/auth/login', { email: 'gina@gmail.com', password: 'gina password' })).status, 200);
+    // now a change does need the current one
+    assert.equal((await b('POST', '/auth/password', { next: 'another password' })).status, 403);
+    const off = await b('DELETE', '/auth/google');
+    assert.equal(off.status, 200);
+    assert.equal((await off.json()).user.google, null);
+  });
+
+  it('connects Google to the account signed in, but not one already connected elsewhere', async () => {
+    people.set('pat', { sub: 'g-pat', email: 'pat.work@gmail.com', emailVerified: true, name: 'Pat' });
+    const pat = browser(at);
+    await pat('POST', '/auth/login', { email: 'pat@example.com', password: 'pat password' });
+    const { result } = await viaGoogle(pat, 'pat', 'intent=link&back=/account');
+    assert.equal(result.ok, true);
+    assert.equal(result.intent, 'link');
+    assert.equal((await me(pat)).google, 'pat.work@gmail.com');
+    // Google now signs in to Pat's account, though its email is another
+    const elsewhere = browser(at);
+    await viaGoogle(elsewhere, 'pat');
+    assert.equal((await me(elsewhere)).email, 'pat@example.com');
+    // Gina can't take Pat's Google account
+    const gina = browser(at);
+    await gina('POST', '/auth/login', { email: 'gina@gmail.com', password: 'gina password' });
+    const taken = await viaGoogle(gina, 'pat', 'intent=link');
+    assert.equal(taken.result.ok, false);
+    assert.match(taken.result.error, /another TypeLab account/);
+    // and connecting needs someone signed in
+    const start = await browser(at)('GET', '/auth/google?intent=link&back=/account');
+    assert.equal(JSON.parse(new URL(start.headers.get('location')!, 'http://x').searchParams.get('google')!).ok, false);
+  });
+
+  it('moves into an account someone else set up with the same email, switching its password off', async () => {
+    const squatter = browser(at);
+    await squatter('POST', '/auth/signup', { email: 'sam@gmail.com', password: 'not sams password' });
+    people.set('sam', { sub: 'g-sam', email: 'sam@gmail.com', emailVerified: true, name: 'Sam' });
+    const sam = browser(at);
+    const { result } = await viaGoogle(sam, 'sam');
+    assert.equal(result.passwordRemoved, true);
+    assert.equal(result.isNew, false);
+    assert.equal((await me(sam)).hasPassword, false);
+    assert.equal(await me(squatter), null);
+    assert.equal((await browser(at)('POST', '/auth/login', { email: 'sam@gmail.com', password: 'not sams password' })).status, 401);
+    // an email Google hasn't confirmed doesn't sign in at all
+    people.set('una', { sub: 'g-una', email: 'una@example.com', emailVerified: false, name: 'Una' });
+    assert.equal((await viaGoogle(browser(at), 'una')).result.ok, false);
+  });
+
+  it('turns away a callback that doesn\'t match the sign-in it started, and an outside back address', async () => {
+    const b = browser(at);
+    const start = await b('GET', '/auth/google?back=//evil.example/x');
+    assert.equal(start.status, 303);
+    const res = await b('GET', '/auth/google/callback?code=gina@x&state=forged');
+    const to = new URL(res.headers.get('location')!, 'http://x');
+    assert.equal(to.host, 'x');
+    assert.equal(to.pathname, '/');
+    assert.equal(JSON.parse(to.searchParams.get('google')!).ok, false);
+    assert.equal(await me(b), null);
+    // Google's Cancel comes back as cancelled
+    const again = await b('GET', '/auth/google');
+    const state = new URL(again.headers.get('location')!).searchParams.get('state')!;
+    const cancelled = await b('GET', `/auth/google/callback?error=access_denied&state=${state}`);
+    assert.equal(JSON.parse(new URL(cancelled.headers.get('location')!, 'http://x').searchParams.get('google')!).cancelled, true);
+  });
+
+  it('reports to the other tabs from a popup', async () => {
+    const { page } = await viaGoogle(browser(at), 'gina', 'popup=1&back=/d/abc');
+    assert.match(page!, /BroadcastChannel\('typelab-auth'\)/);
+    assert.match(page!, /"intent":"signin"/);
+    assert.match(page!, /href="\/d\/abc"/);
+  });
+
+  it('counts the other browsers signed in and signs them out', async () => {
+    const a = browser(at), b = browser(at);
+    await a('POST', '/auth/login', { email: 'pat@example.com', password: 'pat password' });
+    await b('POST', '/auth/login', { email: 'pat@example.com', password: 'pat password' });
+    const others = (await (await a('GET', '/auth/sessions')).json()).others;
+    assert.ok(others >= 1);
+    assert.equal((await a('DELETE', '/auth/sessions')).status, 204);
+    assert.equal((await (await a('GET', '/auth/sessions')).json()).others, 0);
+    assert.equal(await me(b), null);
+    assert.ok(await me(a));
+  });
+
+  it('deletes an account without a password when its email is typed out', async () => {
+    const b = browser(at);
+    await viaGoogle(b, 'sam');
+    assert.equal((await b('DELETE', '/auth/me', { confirm: 'someone@else.com' })).status, 403);
+    assert.equal((await b('DELETE', '/auth/me', { confirm: ' SAM@gmail.com ' })).status, 204);
+    assert.equal(await me(b), null);
+    assert.equal((await viaGoogle(browser(at), 'sam')).result.isNew, true);
   });
 });
 

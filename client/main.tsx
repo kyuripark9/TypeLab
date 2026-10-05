@@ -19,6 +19,9 @@ function NotFound() {
   );
 }
 
+// before the router reads the address: a Google sign-in may have left its result there
+void auth.start();
+
 const router = createBrowserRouter([
   // one editor instance serves both a new design and a saved one, so saving (/ → /d/:id)
   // doesn't remount it
@@ -27,8 +30,6 @@ const router = createBrowserRouter([
   { path: 'account', element: <AccountPage /> },
   { path: '*', element: <NotFound /> }
 ]);
-
-void auth.load();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -6,14 +6,17 @@ import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 import express from 'express';
 import { createApp } from './app';
+import { googleFromEnv } from './google';
 import { DesignStore } from './db';
 
 const root = resolve(import.meta.dirname, '..');
+// settings kept out of the code, such as the Google sign-in keys, can sit in a .env file
+try { process.loadEnvFile(resolve(root, '.env')); } catch { /* none */ }
 const port = Number(process.env.PORT) || 5173;
 const prod = process.env.NODE_ENV === 'production';
 
 const store = new DesignStore(process.env.DB_PATH || resolve(root, 'data/typelab.db'));
-const app = createApp(store);
+const app = createApp(store, { google: googleFromEnv() });
 // behind a proxy that ends HTTPS (most hosts), so sign-in cookies are marked Secure and sign-in
 // attempts are counted per visitor rather than per proxy
 if (process.env.TRUST_PROXY) app.set('trust proxy', 1);

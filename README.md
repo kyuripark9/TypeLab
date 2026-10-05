@@ -26,6 +26,24 @@ Set `PORT` to change the port and `DB_PATH` to put the database somewhere other 
 On a host that ends HTTPS in a proxy in front of the app (most do), set `TRUST_PROXY=1` so sign-in
 cookies are marked Secure and wrong-password limits count each visitor rather than the proxy.
 
+### Sign in with Google (optional)
+
+The sign-in dialog offers **Continue with Google** once the server has Google OAuth keys:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/apis/credentials), create an
+   **OAuth client ID** of type *Web application* (set up the consent screen first if asked; the
+   scopes needed are `openid`, `email` and `profile`).
+2. Under *Authorized redirect URIs* add `http://localhost:5173/api/auth/google/callback`, and the
+   same path on your real address when you deploy (e.g. `https://typelab.example.com/api/auth/google/callback`).
+3. Put the keys in a `.env` file at the project root (it's git-ignored), then restart the server:
+
+   ```sh
+   GOOGLE_CLIENT_ID=1234-abc.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=GOCSPX-...
+   # optional: the site's public address, when it differs from the one requests arrive on
+   PUBLIC_URL=https://typelab.example.com
+   ```
+
 Other scripts: `npm test` (engine and API tests), `npm run typecheck`.
 
 ## Architecture
@@ -116,11 +134,15 @@ inside curves, and the lowercase become small capitals.
 
 | Method | Path | |
 | --- | --- | --- |
+| `POST` | `/api/auth/check` | `{ email }` → `{ exists, password, google }`, the sign-in dialog's first step |
 | `POST` | `/api/auth/signup` | `{ email, password, name? }` → signs in, `{ user, moved }` |
 | `POST` | `/api/auth/login` | `{ email, password }` → signs in, `{ user, moved }` |
 | `POST` | `/api/auth/logout` | signs this browser out |
 | `GET` / `PATCH` / `DELETE` | `/api/auth/me` | who's signed in · rename `{ name }` · close the account and its fonts `{ password }` |
-| `POST` | `/api/auth/password` | `{ current, next }`, signing other browsers out |
+| `POST` | `/api/auth/password` | `{ current, next }`, signing other browsers out; `{ next }` alone sets a first password on a Google account |
+| `GET` / `DELETE` | `/api/auth/sessions` | how many other browsers are signed in · sign them out |
+| `GET` | `/api/auth/google` | `?intent=signin\|link&popup=1&back=/path` → off to Google; it returns to `/api/auth/google/callback` |
+| `DELETE` | `/api/auth/google` | disconnect Google (needs a password set) |
 | `GET` | `/api/designs` | list saved designs, newest first |
 | `POST` | `/api/designs` | create `{ name, styleId, params }` |
 | `GET` / `PUT` / `DELETE` | `/api/designs/:id` | read, update, delete |
@@ -139,6 +161,14 @@ and from then on the account's designs open on any browser signed in to it. Pass
 as scrypt hashes (`server/accounts.ts`), a sign-in is a random token in an HttpOnly, SameSite=Lax
 `typelab_session` cookie (the database keeps only its SHA-256) lasting 90 days, and ten wrong passwords
 in 15 minutes for one email pause sign-in for it. There is no password reset by email yet.
+
+Google sign-in (`server/google.ts`) is the authorization-code flow with PKCE and a random state,
+both kept for the browser in a 10-minute HttpOnly cookie. It runs in a popup so the open design stays
+put, and the popup reports back on a `BroadcastChannel` (falling back to a full-page trip when popups
+are blocked). A Google account signs in to the account it's connected to, else to the account with its
+(Google-verified) email, connecting it, else to a new account with no password. Because nothing checks
+the email someone signs up with, joining such an account through Google switches its password off and
+signs its other browsers out, so an account set up in someone else's name can't keep watching it.
 
 ## Shortcuts
 

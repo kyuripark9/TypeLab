@@ -872,10 +872,17 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
    the account page */
 .field { display: grid; gap: 5px; margin-top: 14px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
 .field > span:first-child i { font-style: normal; font-weight: 400; color: var(--ink-3); margin-left: 4px; }
-.field input { width: 100%; height: 38px; padding: 0 11px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--surface); font: inherit; font-size: 14px; font-weight: 400; color: var(--ink); cursor: text; user-select: text; -webkit-user-select: text; transition: border-color .15s, box-shadow .15s; }
-.field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.field input:disabled { background: var(--tint); color: var(--ink-3); }
-.field small { font-size: 12px; font-weight: 400; color: var(--ink-3); }
+.field input { width: 100%; height: 38px; padding: 0 11px; border: 0; border-radius: var(--radius); background: var(--well); box-shadow: inset 0 0 0 1px var(--line); font: inherit; font-size: 14px; font-weight: 400; color: var(--ink); cursor: text; user-select: text; -webkit-user-select: text; transition: box-shadow .15s, background .15s; }
+.field input:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
+.field input:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
+.field input:disabled { background: var(--tint); color: var(--ink-3); box-shadow: none; }
+.field small { font-size: 12px; font-weight: 400; color: var(--ink-3); transition: color .15s; }
+.field small.field-ok { color: var(--accent-ink); }
+.field small.field-warn { color: var(--custom-ink); }
+.field-head { display: flex; align-items: baseline; justify-content: space-between; }
+.field-link { font-size: 12.5px; font-weight: 500; color: var(--accent-ink); }
+.field-link:hover { text-decoration: underline; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); border: 0; white-space: nowrap; }
 .field-row { position: relative; display: block; }
 .field-row input { padding-right: 58px; }
 .field-show { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); height: 26px; padding: 0 8px; border-radius: var(--radius-s); font-size: 12px; font-weight: 500; color: var(--ink-3); }
@@ -886,9 +893,21 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .auth-close { position: absolute; top: 12px; right: 12px; }
 .auth-close svg { stroke-width: 1.6; }
 .auth-submit { width: 100%; height: 40px; justify-content: center; margin-top: 20px; font-size: 14px; }
-.auth-switch { text-align: center; margin-top: 14px !important; font-size: 13px; }
-.auth-switch button { color: var(--accent-ink); font-weight: 500; }
-.auth-switch button:hover { text-decoration: underline; }
+.auth-switch { text-align: center; margin-top: 14px !important; font-size: 12.5px; color: var(--ink-3) !important; }
+/* Continue with Google: a white button with Google's own G, as Google's guidelines draw it */
+.btn.wide.auth-google { height: 40px; gap: 10px; margin-top: 18px; font-size: 14px; }
+.google-mark { flex: none; }
+.auth-or { display: flex; align-items: center; gap: 10px; margin: 16px 0 -2px; font-size: 12px; color: var(--ink-3); }
+.auth-or::before, .auth-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.auth-or + .btn.auth-google { margin-top: 14px; }
+.auth-submit + .auth-or { margin-top: 14px; }
+/* the email being signed in with, under the title once it's been checked */
+.auth-email { position: relative; display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 0 6px 0 12px; height: 38px; border-radius: var(--radius); background: var(--well); font-size: 13.5px; }
+.auth-email span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auth-email button { height: 26px; padding: 0 8px; border-radius: var(--radius-s); font-size: 12px; font-weight: 500; color: var(--accent-ink); }
+.auth-email button:hover { background: var(--hover); }
+.dialog p.auth-note { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); background: var(--well); font-size: 13px; }
+.dialog p.auth-wait { margin-top: 10px; text-align: center; font-size: 12.5px; color: var(--ink-3); }
 .account { position: relative; margin-left: 4px; }
 .avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-ink); color: #fff; font-size: 13px; font-weight: 600; transition: box-shadow .15s; }
 .avatar:hover, .avatar[aria-expanded=true] { box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -916,6 +935,16 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .acct-body .row { display: flex; gap: 8px; }
 .acct-body .btn.wide { width: auto; }
 .acct-section.danger .acct-label h2 { color: #b3402e; }
+.acct-methods { display: grid; }
+.acct-method { display: flex; align-items: center; gap: 12px; min-height: 56px; }
+.acct-methods .acct-method + .acct-method { border-top: 1px solid var(--line); }
+.acct-icon { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--well); }
+.acct-icon svg:not(.google-mark) { fill: none; stroke: var(--ink-2); stroke-width: 1.5; stroke-linecap: round; }
+.acct-what { flex: 1; min-width: 0; display: grid; }
+.acct-what b { font-size: 13.5px; font-weight: 600; }
+.acct-what span { font-size: 12.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-password { padding: 4px 0 8px 48px; }
+.acct-password .row .btn { height: 34px; }
 .btn.danger-btn:not(.primary) { color: #b3402e; }
 .btn.danger-btn:not(.primary):hover { border-color: #b3402e; }
 .btn.primary.danger-btn { background: #b3402e; }
@@ -924,4 +953,5 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
   .lib-signin { flex-wrap: wrap; }
   .lib-signin div { flex-basis: 100%; margin: 0 0 6px; }
   .acct-section { grid-template-columns: 1fr; gap: 12px; }
+  .acct-password { padding-left: 0; }
 }

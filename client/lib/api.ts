@@ -1,5 +1,5 @@
 /* Typed client for the TypeLab API. */
-import type { User } from '../../shared/account';
+import type { EmailCheck, User } from '../../shared/account';
 import type { Design, DesignInput } from '../../shared/design';
 import type { FamilyRequest } from '../../shared/family';
 import type { Params } from '../../shared/params';
@@ -34,13 +34,23 @@ const json = async <T>(method: string, url: string, body?: unknown): Promise<T> 
 export interface SignedIn { user: User; moved: number }
 
 export const api = {
-  me: async () => (await json<{ user: User | null }>('GET', '/api/auth/me')).user,
+  /** Who's signed in, and whether the server offers Google sign-in. */
+  me: () => json<{ user: User | null; google: boolean }>('GET', '/api/auth/me'),
+  checkEmail: (email: string) => json<EmailCheck>('POST', '/api/auth/check', { email }),
   signUp: (b: { email: string; password: string; name: string }) => json<SignedIn>('POST', '/api/auth/signup', b),
   signIn: (b: { email: string; password: string }) => json<SignedIn>('POST', '/api/auth/login', b),
   signOut: async () => { await send('POST', '/api/auth/logout'); },
   renameAccount: async (name: string) => (await json<{ user: User }>('PATCH', '/api/auth/me', { name })).user,
-  changePassword: async (current: string, next: string) => { await send('POST', '/api/auth/password', { current, next }); },
-  deleteAccount: async (password: string) => { await send('DELETE', '/api/auth/me', { password }); },
+  /** Change the password, or set a first one (no current password) on an account made with Google. */
+  setPassword: async (next: string, current?: string) => (await json<{ user: User }>('POST', '/api/auth/password', { current, next })).user,
+  otherSessions: async () => (await json<{ others: number }>('GET', '/api/auth/sessions')).others,
+  endOtherSessions: async () => { await send('DELETE', '/api/auth/sessions'); },
+  disconnectGoogle: async () => (await json<{ user: User }>('DELETE', '/api/auth/google')).user,
+  /** Confirmed with the password, or, on an account without one, the email typed out. */
+  deleteAccount: async (confirm: { password: string } | { confirm: string }) => { await send('DELETE', '/api/auth/me', confirm); },
+  /** Where to send the browser (or a popup) to sign in with Google or connect it. */
+  googleUrl: (intent: 'signin' | 'link', popup: boolean, back: string) =>
+    `/api/auth/google?${new URLSearchParams({ intent, popup: popup ? '1' : '0', back })}`,
   listDesigns: () => json<Design[]>('GET', '/api/designs'),
   getDesign: (id: string) => json<Design>('GET', `/api/designs/${encodeURIComponent(id)}`),
   createDesign: (d: DesignInput) => json<Design>('POST', '/api/designs', d),

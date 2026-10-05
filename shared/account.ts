@@ -5,7 +5,20 @@ export interface User {
   email: string;
   name: string;
   createdAt: string;
+  /** false for an account made with Google that hasn't set a password */
+  hasPassword: boolean;
+  /** the Google account it signs in with, by its email, or null */
+  google: string | null;
 }
+
+/** What signing in with an email will ask for: a password, Google, or a new account. */
+export interface EmailCheck { exists: boolean; password: boolean; google: boolean }
+
+/** How a Google sign-in or connect ended, as the popup (or the page it returns to) reports it. */
+export type GoogleResult =
+  | { ok: true; intent: 'signin'; user: User; isNew: boolean; moved: number; passwordRemoved: boolean }
+  | { ok: true; intent: 'link'; user: User }
+  | { ok: false; cancelled?: boolean; error: string };
 
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 200;

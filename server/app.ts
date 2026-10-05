@@ -1,12 +1,13 @@
 /* The TypeLab API. Kept separate from index.ts so tests can mount it on an in-memory database. */
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { styleById } from '../shared/content';
 import { cleanName, slug, type DesignInput } from '../shared/design';
 import { isValidParams } from '../shared/params';
 import type { DesignStore } from './db';
 import { AccountStore, SESSION_DAYS } from './accounts';
-import { cleanEmail, cleanUserName, isEmail, passwordProblem, type User } from '../shared/account';
+import { cleanEmail, cleanUserName, isEmail, passwordProblem, type GoogleResult, type User } from '../shared/account';
+import { pkce, type GoogleAuth } from './google';
 import { isWeightId, type FamilyRequest } from '../shared/family';
 import { buildFamilyZip, buildOTF, buildSpecimenSVG } from './export';
 
@@ -41,7 +42,7 @@ function readFamily(body: unknown): FamilyRequest {
 
 /** The browser's own id, from its cookie; a browser without one is given one. Designs saved while
     signed out are kept per browser, so "My designs" holds only the fonts saved there. */
-const OWNER_COOKIE = 'typelab_owner', SESSION_COOKIE = 'typelab_session';
+const OWNER_COOKIE = 'typelab_owner', SESSION_COOKIE = 'typelab_session', GOOGLE_COOKIE = 'typelab_google';
 const cookie = (req: Request, name: string, pattern = '[A-Za-z0-9_-]{16,64}') =>
   new RegExp(`(?:^|;\\s*)${name}=(${pattern})(?:;|$)`).exec(req.headers.cookie ?? '')?.[1];
 function browserOf(req: Request, res: Response): string {
@@ -61,7 +62,43 @@ function setSession(req: Request, res: Response, token: string | null) {
     : `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`);
 }
 
+/** Where Google sends the browser back to: PUBLIC_URL when set, else the address this was asked on. */
+const redirectUri = (req: Request) => `${(process.env.PUBLIC_URL?.replace(/\/+$/, '') || `${req.protocol}://${req.get('host')}`)}/api/auth/google/callback`;
+
+/** Back to a page with how Google sign-in went, for the page to show and take out of the address. */
+function withResult(back: string, result: GoogleResult) {
+  const url = new URL(back, 'http://x');
+  url.searchParams.set('google', JSON.stringify(result.ok ? { ...result, user: undefined } : result));
+  return url.pathname + url.search + url.hash;
+}
+
 const fields = (body: unknown) => (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+
+/** Where to come back to after Google: a path on this site, never another site. */
+const backPath = (v: unknown) => (typeof v === 'string' && /^\/(?![/\\])/.test(v) && v.length < 500 ? v : '/');
+
+/** A Google sign-in in progress, kept in a short-lived cookie for the browser that started it. */
+interface GoogleFlow { state: string; verifier: string; intent: 'signin' | 'link'; popup: boolean; back: string }
+
+function readFlow(req: Request): GoogleFlow | null {
+  try {
+    const f = JSON.parse(Buffer.from(cookie(req, GOOGLE_COOKIE, '[A-Za-z0-9_-]{1,2000}') ?? '', 'base64url').toString());
+    return typeof f.state === 'string' && typeof f.verifier === 'string' ? { ...f, back: backPath(f.back) } : null;
+  } catch { return null; }
+}
+
+const sameString = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+
+/** The page the Google popup lands on: it tells every TypeLab tab how it went, and closes. */
+function popupPage(result: GoogleResult, back: string) {
+  const data = JSON.stringify(result).replace(/</g, '\\u003c');
+  const said = result.ok ? (result.intent === 'link' ? 'Google is connected.' : 'You’re signed in.') : result.cancelled ? 'Sign-in cancelled.' : result.error;
+  const html = (t: string) => t.replace(/[<>&"]/g, c => `&#${c.charCodeAt(0)};`);
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TypeLab</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eff0f0;color:#2e3b3e;font:15px/1.5 Inter,system-ui,sans-serif}main{text-align:center;padding:24px}a{color:#3464c4}</style></head>
+<body><main><p>${html(said)}</p><p><a href="${html(back)}">Back to TypeLab</a></p></main>
+<script>try{new BroadcastChannel('typelab-auth').postMessage({type:'google',result:${data}})}catch(e){}window.close()</script></body></html>`;
+}
 
 /** Wrong passwords per address and email: after 10 in 15 minutes, sign-in waits out the rest. */
 class Throttle {
@@ -91,8 +128,8 @@ const attachment = (res: Response, file: string, type: string) => {
   res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
 };
 
-export function createApp(store: DesignStore) {
-  const accounts = new AccountStore(store.db), throttle = new Throttle();
+export function createApp(store: DesignStore, { google = null }: { google?: GoogleAuth | null } = {}) {
+  const accounts = new AccountStore(store.db), throttle = new Throttle(), lookups = new Throttle(60);
   const app = express();
   app.disable('x-powered-by');
   const api = express.Router();
@@ -124,7 +161,17 @@ export function createApp(store: DesignStore) {
     return { user, moved };
   };
 
-  api.get('/auth/me', (_req, res) => { res.json({ user: res.locals.user }); });
+  // who's signed in, and whether this server offers Google sign-in
+  api.get('/auth/me', (_req, res) => { res.json({ user: res.locals.user, google: !!google }); });
+
+  /** The sign-in dialog's first step: whether this email has an account, and how it signs in. */
+  api.post('/auth/check', (req, res) => {
+    const email = cleanEmail(fields(req.body).email);
+    if (!isEmail(email)) throw new HttpError(400, 'Enter a valid email address');
+    lookups.check(req.ip ?? '');
+    lookups.fail(req.ip ?? '');
+    res.json(accounts.check(email));
+  });
 
   api.post('/auth/signup', async (req, res) => {
     const b = fields(req.body), email = cleanEmail(b.email);
@@ -141,7 +188,12 @@ export function createApp(store: DesignStore) {
     if (!email || typeof b.password !== 'string' || !b.password) throw new HttpError(400, 'Enter your email and password');
     throttle.check(key);
     const user = await accounts.verify(email, b.password);
-    if (!user) { throttle.fail(key); throw new HttpError(401, 'That email and password don’t match an account'); }
+    if (!user) {
+      throttle.fail(key);
+      const has = accounts.check(email);
+      if (has.exists && !has.password) throw new HttpError(401, 'This account signs in with Google');
+      throw new HttpError(401, 'That email and password don’t match an account');
+    }
     throttle.clear(key);
     res.json(signIn(req, res, user));
   });
@@ -157,20 +209,94 @@ export function createApp(store: DesignStore) {
     res.json({ user: accounts.rename(user.id, cleanUserName(fields(req.body).name, user.email)) });
   });
 
+  /** Change the password, or set a first one on an account made with Google. A change signs the
+      other browsers out. */
   api.post('/auth/password', async (req, res) => {
     const user = me(res), b = fields(req.body);
-    if (typeof b.current !== 'string' || !(await accounts.checkPassword(user.id, b.current))) throw new HttpError(403, 'Your current password isn’t right');
+    if (user.hasPassword && (typeof b.current !== 'string' || !(await accounts.checkPassword(user.id, b.current)))) throw new HttpError(403, 'Your current password isn’t right');
     const problem = passwordProblem(b.next);
     if (problem) throw new HttpError(400, problem);
     await accounts.setPassword(user.id, b.next as string);
-    accounts.endOtherSessions(user.id, res.locals.token);
+    if (user.hasPassword) accounts.endOtherSessions(user.id, res.locals.token);
+    res.json({ user: accounts.get(user.id) });
+  });
+
+  /** How many other browsers are signed in, and signing them all out. */
+  api.get('/auth/sessions', (_req, res) => { res.json({ others: accounts.otherSessions(me(res).id, res.locals.token) }); });
+  api.delete('/auth/sessions', (_req, res) => {
+    accounts.endOtherSessions(me(res).id, res.locals.token);
     res.status(204).end();
   });
 
-  /** Close the account and delete every font saved in it. */
+  /** Disconnect Google, which needs a password to sign in with instead. */
+  api.delete('/auth/google', (_req, res) => {
+    const user = me(res);
+    if (!user.hasPassword) throw new HttpError(400, 'Set a password first, so you can still sign in');
+    res.json({ user: accounts.unlinkGoogle(user.id) });
+  });
+
+  /** Start signing in with (or connecting) Google: off to Google, with the way back in a cookie. */
+  api.get('/auth/google', (req, res) => {
+    const intent = req.query.intent === 'link' ? 'link' : 'signin', popup = req.query.popup === '1', back = backPath(req.query.back);
+    const fail = (error: string) => (popup ? res.type('html').send(popupPage({ ok: false, error }, back)) : res.redirect(303, withResult(back, { ok: false, error })));
+    if (!google) return void fail('Google sign-in isn’t set up on this server');
+    if (intent === 'link' && !res.locals.user) return void fail('Sign in first');
+    const { verifier, challenge } = pkce(), state = randomBytes(18).toString('base64url');
+    const flow: GoogleFlow = { state, verifier, intent, popup, back };
+    res.append('Set-Cookie', `${GOOGLE_COOKIE}=${Buffer.from(JSON.stringify(flow)).toString('base64url')}; Path=/api/auth/google; Max-Age=600; HttpOnly; SameSite=Lax${req.secure ? '; Secure' : ''}`);
+    res.redirect(303, google.authUrl({ redirectUri: redirectUri(req), state, challenge }));
+  });
+
+  /** Google sends the browser back here. Sign in to the account it's connected to, else to the
+      account with its email (connecting it), else to a new account. */
+  api.get('/auth/google/callback', async (req, res) => {
+    const flow = readFlow(req);
+    res.append('Set-Cookie', `${GOOGLE_COOKIE}=; Path=/api/auth/google; Max-Age=0; HttpOnly; SameSite=Lax`);
+    const finish = (result: GoogleResult) => {
+      if (flow?.popup) res.type('html').send(popupPage(result, flow.back));
+      else res.redirect(303, withResult(flow?.back ?? '/', result));
+    };
+    const q = req.query;
+    if (!google || !flow || typeof q.state !== 'string' || !sameString(q.state, flow.state)) return finish({ ok: false, error: 'That Google sign-in timed out. Try again' });
+    if (typeof q.code !== 'string') return finish({ ok: false, cancelled: q.error === 'access_denied', error: 'Google sign-in didn’t finish' });
+    let profile;
+    try { profile = await google.exchange({ code: q.code, verifier: flow.verifier, redirectUri: redirectUri(req) }); } catch (e) {
+      console.error(e);
+      return finish({ ok: false, error: 'Couldn’t reach Google. Try again' });
+    }
+    const email = cleanEmail(profile.email), linked = accounts.byGoogle(profile.sub);
+    if (!profile.emailVerified || !isEmail(email)) return finish({ ok: false, error: 'Google hasn’t confirmed that account’s email yet' });
+    const g = { sub: profile.sub, email };
+
+    if (flow.intent === 'link') {
+      const user: User | null = res.locals.user;
+      if (!user) return finish({ ok: false, error: 'Sign in first' });
+      if (linked && linked.id !== user.id) return finish({ ok: false, error: 'That Google account is already connected to another TypeLab account' });
+      return finish({ ok: true, intent: 'link', user: accounts.linkGoogle(user.id, g)! });
+    }
+
+    if (linked) return finish({ ok: true, intent: 'signin', isNew: false, passwordRemoved: false, ...signIn(req, res, accounts.linkGoogle(linked.id, g)!) });
+    const found = accounts.withEmail(email);
+    if (found) {
+      // Nothing proved that whoever signed up with this email and a password owns it; Google just
+      // did. Their password is switched off and any browser on it signed out, so an account
+      // someone set up in another person's name can't be read through after they move in.
+      const removed = !found.verified && found.user.hasPassword;
+      if (removed) { accounts.clearPassword(found.user.id); accounts.endAllSessions(found.user.id); }
+      return finish({ ok: true, intent: 'signin', isNew: false, passwordRemoved: removed, ...signIn(req, res, accounts.linkGoogle(found.user.id, g)!) });
+    }
+    const user = await accounts.create(email, cleanUserName(profile.name, email), null, g);
+    if (!user) return finish({ ok: false, error: 'Couldn’t make the account. Try again' });
+    finish({ ok: true, intent: 'signin', isNew: true, passwordRemoved: false, ...signIn(req, res, user) });
+  });
+
+  /** Close the account and delete every font saved in it: confirmed with the password, or with the
+      email typed out on an account that has none. */
   api.delete('/auth/me', async (req, res) => {
     const user = me(res), b = fields(req.body);
-    if (typeof b.password !== 'string' || !(await accounts.checkPassword(user.id, b.password))) throw new HttpError(403, 'Your password isn’t right');
+    if (!user.hasPassword) {
+      if (cleanEmail(b.confirm) !== user.email) throw new HttpError(403, 'Type your email exactly to confirm');
+    } else if (typeof b.password !== 'string' || !(await accounts.checkPassword(user.id, b.password))) throw new HttpError(403, 'Your password isn’t right');
     store.deleteAll(accountOwner(user));
     accounts.delete(user.id);
     setSession(req, res, null);

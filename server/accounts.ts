@@ -1,13 +1,20 @@
-/* Accounts: people sign up with an email and a password, and their designs follow them to any
-   browser they sign in on. Passwords are kept only as scrypt hashes; a signed-in browser holds a
-   random session token whose SHA-256 is all the database stores. */
+/* Accounts: people sign up with an email and a password, or with Google, and their designs follow
+   them to any browser they sign in on. Passwords are kept only as scrypt hashes (an account made
+   with Google has none until it sets one); a signed-in browser holds a random session token whose
+   SHA-256 is all the database stores. */
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
-import type { User } from '../shared/account';
+import type { EmailCheck, User } from '../shared/account';
 
-interface UserRow { id: string; email: string; name: string; password: string; created_at: string }
+interface UserRow {
+  id: string; email: string; name: string; password: string; created_at: string;
+  google_sub: string | null; google_email: string | null; email_verified: number;
+}
 
-const toUser = (r: UserRow): User => ({ id: r.id, email: r.email, name: r.name, createdAt: r.created_at });
+const toUser = (r: UserRow): User => ({
+  id: r.id, email: r.email, name: r.name, createdAt: r.created_at,
+  hasPassword: !!r.password, google: r.google_sub ? r.google_email ?? '' : null
+});
 
 /** How long a sign-in lasts before the browser has to sign in again. */
 export const SESSION_DAYS = 90;
@@ -50,16 +57,24 @@ export class AccountStore {
       );
       CREATE INDEX IF NOT EXISTS sessions_user ON sessions (user_id);
     `);
+    // added with Google sign-in: the Google account a user signs in with, and whether the email is
+    // known to be theirs (Google said so); an empty password means the account has none
+    const cols = new Set((db.prepare('PRAGMA table_info(users)').all() as { name: string }[]).map(c => c.name));
+    if (!cols.has('google_sub')) db.exec('ALTER TABLE users ADD COLUMN google_sub TEXT');
+    if (!cols.has('google_email')) db.exec('ALTER TABLE users ADD COLUMN google_email TEXT');
+    if (!cols.has('email_verified')) db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0');
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_google ON users (google_sub)');
     db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(new Date().toISOString());
   }
 
-  /** null when the email is already taken. */
-  async create(email: string, name: string, password: string): Promise<User | null> {
+  /** null when the email is already taken. Made with Google, it has no password and its email is
+      known to be the person's. */
+  async create(email: string, name: string, password: string | null, google?: { sub: string; email: string }): Promise<User | null> {
     if (this.byEmail(email)) return null;
-    const id = randomBytes(9).toString('base64url'), hash = await hashPassword(password);
+    const id = randomBytes(9).toString('base64url'), hash = password === null ? '' : await hashPassword(password);
     try {
-      this.db.prepare('INSERT INTO users (id, email, name, password, created_at) VALUES (?, ?, ?, ?, ?)')
-        .run(id, email, name, hash, new Date().toISOString());
+      this.db.prepare('INSERT INTO users (id, email, name, password, created_at, google_sub, google_email, email_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(id, email, name, hash, new Date().toISOString(), google?.sub ?? null, google?.email ?? null, google ? 1 : 0);
     } catch {
       return null; // the same email signed up in the meantime
     }
@@ -75,11 +90,47 @@ export class AccountStore {
     return this.db.prepare('SELECT * FROM users WHERE email = ?').get(email) as unknown as UserRow | undefined;
   }
 
+  /** What signing in with this email will take, for the sign-in dialog's first step. */
+  check(email: string): EmailCheck {
+    const r = this.byEmail(email);
+    return { exists: !!r, password: !!r?.password, google: !!r?.google_sub };
+  }
+
+  /** The account a Google account signs in to, if it's been connected to one. */
+  byGoogle(sub: string): User | null {
+    const r = this.db.prepare('SELECT * FROM users WHERE google_sub = ?').get(sub) as unknown as UserRow | undefined;
+    return r ? toUser(r) : null;
+  }
+
+  /** The account with this email, and whether Google (or anyone) has confirmed the email is theirs. */
+  withEmail(email: string): { user: User; verified: boolean } | null {
+    const r = this.byEmail(email);
+    return r ? { user: toUser(r), verified: !!r.email_verified } : null;
+  }
+
+  /** Connect a Google account; its email confirms the account's own when they're the same. */
+  linkGoogle(id: string, google: { sub: string; email: string }): User | null {
+    this.db.prepare('UPDATE users SET google_sub = ?, google_email = ?, email_verified = email_verified OR email = ? WHERE id = ?')
+      .run(google.sub, google.email, google.email, id);
+    return this.get(id);
+  }
+
+  unlinkGoogle(id: string): User | null {
+    this.db.prepare('UPDATE users SET google_sub = NULL, google_email = NULL WHERE id = ?').run(id);
+    return this.get(id);
+  }
+
+  /** Turn password sign-in off, as when Google proves the email belongs to someone other than
+      whoever may have typed it in at sign-up. */
+  clearPassword(id: string) {
+    this.db.prepare('UPDATE users SET password = \'\' WHERE id = ?').run(id);
+  }
+
   /** The account for this email and password, or null for either being wrong. */
   async verify(email: string, password: string): Promise<User | null> {
     const r = this.byEmail(email);
     // hash anyway when there's no such account, so the time taken doesn't tell which emails exist
-    if (!r) { await hashPassword(password); return null; }
+    if (!r?.password) { await hashPassword(password); return null; }
     return (await checkPassword(password, r.password)) ? toUser(r) : null;
   }
 
@@ -121,8 +172,18 @@ export class AccountStore {
     this.db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(sha256(token));
   }
 
+  /** How many other browsers are signed in to this account. */
+  otherSessions(userId: string, keep: string): number {
+    return (this.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id = ? AND token_hash != ? AND expires_at > ?')
+      .get(userId, sha256(keep), new Date().toISOString()) as { n: number }).n;
+  }
+
   /** Sign out every other browser, as after a password change. */
   endOtherSessions(userId: string, keep: string) {
     this.db.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?').run(userId, sha256(keep));
+  }
+
+  endAllSessions(userId: string) {
+    this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
   }
 }
