@@ -1,14 +1,16 @@
 /* Right-hand panel: the starting-style filters, or the controls of the open category with a
    live explainer. While a letter is inspected, the sliders are grouped by the parts of that
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
-import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import {
   ANATOMY, BAR_END_OPTIONS, BLOCK_CONTROLS, BOWL_SUBS, PINCH_SUBS, CROSSBAR_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, KIND_SECTIONS, LOOKS, MOODS, PAGE_STYLES, STYLE_GROUPS, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS, SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
   SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById,
   type ActiveKey, type CategoryId, type ControlKey, type FillSubKey, type FormKey, type SerifInnerSubKey, type Kind, type Look, type Mood, type StyleFilter, type StyleGroup
 } from '../../shared/content';
-import { TERMINAL_FORMS, formOf, isGlyphKey, rotationDeg, type NumericParam, type Params } from '../../shared/params';
+import { TERMINAL_FORMS, formOf, isGlyphKey, rotationDeg, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
 import { n1 } from '../lib/hooks';
+import { sampleText } from '../lib/preview';
+import { reachOf, type Reach } from '../lib/reach';
 import { cmdsToD, type Glyph } from '../../shared/engine';
 import { letterCorners, letterJoins, letterStrokes, strokeEnds, type CornerInfo, type JoinInfo, type StrokeEndInfo, type StrokeInfo } from '../lib/drag';
 import { actions, adjustedLooks, adjustedParams, curlOf, endOf, fontFor, isOn, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, useStyleMatch, type EndKey, type StyleTab } from '../state/editor';
@@ -310,12 +312,19 @@ function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> })
 /** The inspected letter's sliders, named by the parts they shape, then the rest of the category. */
 function LetterControls({ keys, category }: { keys: ControlKey[]; category: Exclude<CategoryId, 'style'> }) {
   const ch = useEditor(s => s.inspect)!, font = useFont(), customizing = useEditor(s => !!letterOf(s));
+  const drawn = useEditor(s => !!s.params.outlines[ch]);
   const g = font.glyph(ch);
   const rows = g ? letterControls(g, ch, font.letter(ch).params.serif) : [];
   const rest = keys.filter(k => !rows.some(r => r.key === k));
   return (
     <div className="ctl-list">
       {customizing && <div className="scope-note"><ScopeIcon id="letter" /><span>Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</span></div>}
+      {drawn && (
+        <div className="reach-banner">
+          <span>{ch} is drawn by hand, so these settings don’t change it.</span>
+          <button className="link small" onClick={() => actions.undrawLetter(ch)}>Back to settings</button>
+        </div>
+      )}
       <div className="list-head">Parts of {ch}</div>
       {rows.map(r => <Control key={r.key} k={r.key} parts={r.parts} />)}
       {rest.length > 0 && <div className="list-head">More {CATEGORIES.find(c => c.id === category)?.label.toLowerCase()}</div>}
@@ -430,12 +439,12 @@ function FoldHead({ k, label, parts, summary, tools, shut }: { k: FoldKey; label
   );
 }
 
-/** The body under a FoldHead, open unless folded or `shut`. */
-function Fold({ k, shut, children }: { k: FoldKey; shut?: boolean; children: ReactNode }) {
+/** The body under a FoldHead, open unless folded or `shut`; `quiet` while its control changes nothing in view. */
+function Fold({ k, shut, quiet = false, children }: { k: FoldKey; shut?: boolean; quiet?: boolean; children: ReactNode }) {
   const open = !useEditor(s => s.folded.includes(k)) && !shut;
   return (
     <div className={open ? 'reveal fold open' : 'reveal fold'} id={`fold-${k}`} inert={!open}>
-      <div><div className="fold-body">{children}</div></div>
+      <div><div className="fold-body"><Quiet.Provider value={quiet}>{children}</Quiet.Provider></div></div>
     </div>
   );
 }
@@ -491,6 +500,78 @@ function useControlFocus(key: ActiveKey) {
   };
 }
 
+/** Set inside a control that already says it changes nothing in view, so the settings nested in it don't say so again. */
+const Quiet = createContext(false);
+/** What a letter drawn by hand answers: no setting reaches it, and the panel says why once, at the top. */
+const DRAWN: Reach = { shows: false, elsewhere: [] };
+const reaches = new WeakMap<Params, Map<string, Reach>>();
+
+/** Whether `k` changes what is in view: the inspected letter, or else the letters of the preview. Worked out
+    a moment after the settings stop changing, so dragging stays smooth; null until then. */
+function useReach(k: keyof Params, skip: boolean): Reach | null {
+  const inspect = useEditor(s => s.inspect), letter = useEditor(letterOf);
+  const text = useEditor(s => (s.inspect ? '' : sampleText(s.custom)));
+  const view = `${k}|${inspect ?? ''}|${letter ?? ''}|${text}`;
+  const cached = (p: Params) => reaches.get(p)?.get(view);
+  const [r, setR] = useState<{ view: string; reach: Reach } | null>(null);
+  useEffect(() => {
+    if (skip) return;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const show = (reach: Reach) => setR(o => o?.view === view && o.reach.shows === reach.shows && o.reach.elsewhere.join() === reach.elsewhere.join() ? o : { view, reach });
+    const work = () => {
+      const p = useEditor.getState().params;
+      if (inspect && p.outlines[inspect]) return show(DRAWN);
+      let reach = cached(p);
+      if (!reach) {
+        const f = fontFor(p), chars = inspect ? [inspect] : [...new Set(text)].filter(c => f.glyph(c));
+        reach = reachOf(p, k, chars, letter);
+        if (!reaches.has(p)) reaches.set(p, new Map());
+        reaches.get(p)!.set(view, reach);
+      }
+      show(reach);
+    };
+    const later = () => { clearTimeout(t); t = setTimeout(work, 150); };
+    if (cached(useEditor.getState().params)) work(); else later();
+    const stop = useEditor.subscribe((s, o) => { if (s.params !== o.params) later(); });
+    return () => { clearTimeout(t); stop(); };
+    // `view` holds k, the letter and the text
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, skip]);
+  return skip || r?.view !== view ? null : r.reach;
+}
+
+/** A control's answer to "does this do anything here?": `idle` dims it, `note` says why and where it does show,
+    and `quiet` goes to the settings nested in it. */
+function useReachNote(k: keyof Params) {
+  const quiet = useContext(Quiet), reach = useReach(k, quiet), idle = !!reach && !reach.shows;
+  return { idle, quiet: quiet || idle, note: idle && <ReachNote k={k} reach={reach} /> };
+}
+
+/** Under a control that changes nothing in view: what it doesn't change, and up to three letters it does, each opening that letter. */
+function ReachNote({ k, reach }: { k: keyof Params; reach: Reach }) {
+  const ch = useEditor(s => s.inspect), letter = useEditor(letterOf);
+  const own = useEditor(s => !!s.inspect && !letterOf(s) && isGlyphKey(k) && s.params.glyphs[s.inspect]?.[k] !== undefined);
+  if (reach === DRAWN) return null;
+  if (own && ch) {
+    return (
+      <p className="reach-note">
+        <span>{ch} has its own value here, so this changes only the other letters.</span>
+        <button className="link small" onClick={() => actions.shareParam(ch, k as keyof GlyphParams)}>Match the others</button>
+      </p>
+    );
+  }
+  const what = !reach.elsewhere.length && !(letter && isGlyphKey(k)) ? 'Changes nothing in this design as it’s set now.'
+    : ch ? `Doesn’t change ${ch}.` : 'Doesn’t change the letters shown.';
+  return (
+    <p className="reach-note">
+      <span>{what}{reach.elsewhere.length > 0 && ' Try it on'}</span>
+      {reach.elsewhere.map(c => (
+        <button key={c} className="reach-ch" title={`Open ${c}`} aria-label={`Open ${c}`} onClick={() => actions.openInspector(c)}>{c}</button>
+      ))}
+    </p>
+  );
+}
+
 interface SliderDef { label: string; friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; degrees?: boolean; advanced?: boolean; off?: number }
 
 /** A slider. An optional one (with an `off` value) has a switch; switched off, its slider folds away. */
@@ -502,7 +583,9 @@ function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { k: Nume
   const optional = def.off !== undefined, on = useEditor(s => !optional || isOn(s, k, def.off!));
   // using the slider keeps it open, even dragged all the way to its off value
   const keep = () => { if (optional || holdsOn) actions.keepOn(k); };
-  const cls = ['ctl', def.bipolar && 'bipolar', active && 'active', !on && 'off'].filter(Boolean).join(' ');
+  const reach = useReachNote(k);
+  const cls = ['ctl', def.bipolar && 'bipolar', active && 'active', !on && 'off', reach.idle && 'idle'].filter(Boolean).join(' ');
+  const nested = children && <Quiet.Provider value={reach.quiet}>{children}</Quiet.Provider>;
   return (
     <div className={cls} data-ctl={k} {...useControlFocus(k)}>
       <div className="ctl-top">
@@ -515,6 +598,7 @@ function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { k: Nume
           )}
         </div>
       </div>
+      {reach.note}
       <div className={on ? 'reveal open' : 'reveal'} inert={!on}>
         <div>
           <Range
@@ -533,10 +617,10 @@ function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { k: Nume
             onReset={() => { keep(); actions.resetParam(k); }}
           />
           <div className="ctl-ends"><span>{def.lo}</span><span>{def.hi}</span></div>
-          {optional && children}
+          {optional && nested}
         </div>
       </div>
-      {!optional && children}
+      {!optional && nested}
     </div>
   );
 }
@@ -564,8 +648,8 @@ function BarEndsControl() {
 /** Stencil and Slice: a switch, then how thick the cut is, where it runs and how round its corners are. */
 function CutControl({ k, parts }: { k: 'stencil' | 'slice'; parts?: string[] }) {
   const c = CONTROLS[k], subs = k === 'stencil' ? STENCIL_SUBS : SLICE_SUBS;
-  const on = useEditor(s => isOn(s, k, c.off!)), active = useEditor(s => controlFor(s.active) === k);
-  const cls = ['ctl', active && 'active', !on && 'off'].filter(Boolean).join(' ');
+  const on = useEditor(s => isOn(s, k, c.off!)), active = useEditor(s => controlFor(s.active) === k), reach = useReachNote(k);
+  const cls = ['ctl', active && 'active', !on && 'off', reach.idle && 'idle'].filter(Boolean).join(' ');
   return (
     <div className={cls} data-ctl={k} {...useControlFocus(k)}>
       <div className="ctl-top">
@@ -575,9 +659,12 @@ function CutControl({ k, parts }: { k: 'stencil' | 'slice'; parts?: string[] }) 
             onClick={() => { actions.focusControl(k); actions.switchControl(k, !on, c.off!); }}><i /></button>
         </div>
       </div>
+      {reach.note}
       <div className={on ? 'reveal open' : 'reveal'} inert={!on}>
         <div>
-          {(Object.keys(subs) as (keyof typeof subs)[]).map(s => <SliderControl key={s} k={s} def={subs[s]} holdsOn={s === k} icon={s === k ? `${k}Gap` : s} />)}
+          <Quiet.Provider value={reach.quiet}>
+            {(Object.keys(subs) as (keyof typeof subs)[]).map(s => <SliderControl key={s} k={s} def={subs[s]} holdsOn={s === k} icon={s === k ? `${k}Gap` : s} />)}
+          </Quiet.Provider>
         </div>
       </div>
       {k === 'stencil' && <EachJoin />}
@@ -687,10 +774,12 @@ function Range({ value, label, onInput, onCommit, onReset, steps = 100 }: { valu
 function TerminalControl({ parts }: { parts?: string[] }) {
   const terminal = useParam('terminal'), form = formOf(terminal, useParam('terminalForm')), run = useParam('terminalRun'), active = useEditor(s => controlFor(s.active) === 'terminal');
   const c = CONTROLS.terminal, forms = TERMINAL_FORMS[terminal], kindLabel = TERMINAL_OPTIONS.find(([id]) => id === terminal)![1];
+  const reach = useReachNote('terminal');
   return (
-    <div className={active ? 'ctl active' : 'ctl'} data-ctl="terminal" {...useControlFocus('terminal')}>
+    <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="terminal" {...useControlFocus('terminal')}>
       <FoldHead k="terminal" label={c.label} parts={parts} summary={`${kindLabel} · ${TERMINAL_FORM_LABELS[form]}${run === 'straight' ? ' · Straight' : ''}`} />
-      <Fold k="terminal">
+      {reach.note}
+      <Fold k="terminal" quiet={reach.quiet}>
         <div className="opts six" role="radiogroup" aria-label={c.tech}>
           {TERMINAL_OPTIONS.map(([id, label]) => (
             <button key={id} role="radio" aria-checked={terminal === id} className={terminal === id ? 'opt on' : 'opt'}
@@ -906,10 +995,11 @@ function EndRow({ id, k, name, label, value, tip, reset }: { id: string; k: EndK
 /** Double or single storey. Left on auto, the form the other settings picked shows as chosen. */
 function StoryControl({ parts }: { parts?: string[] }) {
   const single = useScopedFont().eff.singleStory, active = useEditor(s => s.active === 'story');
-  const c = CONTROLS.story, current = single ? 'single' : 'double';
+  const c = CONTROLS.story, current = single ? 'single' : 'double', reach = useReachNote('story');
   return (
-    <div className={active ? 'ctl active' : 'ctl'} data-ctl="story" {...useControlFocus('story')}>
+    <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="story" {...useControlFocus('story')}>
       <CtlHead k="story" label={c.label} parts={parts} />
+      {reach.note}
       <div className="opts two" role="radiogroup" aria-label={c.tech}>
         {STORY_OPTIONS.map(([id, label]) => (
           <button key={id} role="radio" aria-checked={current === id} className={current === id ? 'opt on' : 'opt'}
@@ -929,13 +1019,16 @@ type LetterFormKey = Exclude<FormKey, 'terminalRun' | 'aForm'>;
 /** A pick between named shapes of a letter or part, each drawn by the engine. Left on auto, the
     shape the other settings give shows as chosen. */
 function FormControl({ k, parts }: { k: LetterFormKey; parts?: string[] }) {
-  const active = useEditor(s => controlFor(s.active) === k), c = CONTROLS[k], box = useParam('bowlForm') === 'box';
+  const active = useEditor(s => controlFor(s.active) === k), c = CONTROLS[k], box = useParam('bowlForm') === 'box', reach = useReachNote(k);
   return (
-    <div className={active ? 'ctl active' : 'ctl'} data-ctl={k} {...useControlFocus(k)}>
+    <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl={k} {...useControlFocus(k)}>
       <CtlHead k={k} label={c.label} parts={parts} />
+      {reach.note}
       <FormOptions k={k} label={c.tech} />
-      {k === 'dots' && <SliderControl k="dotSize" def={DOT_SUBS.dotSize} />}
-      {k === 'bowlForm' && box && <SliderControl k="boxRound" def={BOWL_SUBS.boxRound} />}
+      <Quiet.Provider value={reach.quiet}>
+        {k === 'dots' && <SliderControl k="dotSize" def={DOT_SUBS.dotSize} />}
+        {k === 'bowlForm' && box && <SliderControl k="boxRound" def={BOWL_SUBS.boxRound} />}
+      </Quiet.Provider>
     </div>
   );
 }
@@ -958,13 +1051,14 @@ function FormOptions({ k, label }: { k: FormKey; label: string }) {
 
 function SerifControl({ parts }: { parts?: string[] }) {
   const p = { serif: useParam('serif'), serifShape: useParam('serifShape') }, active = useEditor(s => controlFor(s.active) === 'serif');
-  const c = CONTROLS.serif;
+  const c = CONTROLS.serif, reach = useReachNote('serif');
   return (
-    <div className={active ? 'ctl active' : 'ctl'} data-ctl="serif" {...useControlFocus('serif')}>
+    <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="serif" {...useControlFocus('serif')}>
       <FoldHead k="serif" label={c.label} parts={parts} shut={!p.serif} summary={SERIF_SHAPE_OPTIONS.find(([id]) => id === p.serifShape)?.[1] ?? ''}
         tools={<button className={p.serif ? 'switch on' : 'switch'} role="switch" aria-checked={p.serif} aria-label="Serifs"
           onClick={() => actions.setOption('serif', !p.serif)}><i /></button>} />
-      <Fold k="serif" shut={!p.serif}>
+      {reach.note}
+      <Fold k="serif" shut={!p.serif} quiet={reach.quiet}>
         <div className="sub-label">Serif shape</div>
         <div className="opts four" role="radiogroup" aria-label="Serif shape">
           {SERIF_SHAPE_OPTIONS.map(([id, label]) => (
@@ -985,52 +1079,55 @@ type SerifFormKey = 'serifTip' | 'serifBase' | 'serifSides' | 'serifInner';
     inside the letter: each option drawn on a serif of the design's own shape, then the sliders of the picked one. */
 function SerifFormControl({ k }: { k: SerifFormKey }) {
   const shape = useParam('serifShape'), tip = useParam('serifTip'), base = useParam('serifBase'), sides = useParam('serifSides'), inner = useParam('serifInner');
-  const active = useEditor(s => controlFor(s.active) === k), c = CONTROLS[k];
+  const active = useEditor(s => controlFor(s.active) === k), c = CONTROLS[k], reach = useReachNote(k);
   return (
-    <div className={active ? 'ctl active' : 'ctl'} data-ctl={k} {...useControlFocus(k)}>
+    <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl={k} {...useControlFocus(k)}>
       <CtlHead k={k} label={c.label} />
-      {k === 'serifTip' ? (
-        <>
-          <div className="opts four" role="radiogroup" aria-label={c.tech}>
-            {SERIF_TIP_OPTIONS.map(([id, label]) => (
-              <button key={id} role="radio" aria-checked={tip === id} className={tip === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifTip', id)}>
-                <SerifIcon shape={shape} tip={id} view="tip" /><span>{label}</span>
+      {reach.note}
+      <Quiet.Provider value={reach.quiet}>
+        {k === 'serifTip' ? (
+          <>
+            <div className="opts four" role="radiogroup" aria-label={c.tech}>
+              {SERIF_TIP_OPTIONS.map(([id, label]) => (
+                <button key={id} role="radio" aria-checked={tip === id} className={tip === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifTip', id)}>
+                  <SerifIcon shape={shape} tip={id} view="tip" /><span>{label}</span>
+                </button>
+              ))}
+            </div>
+            {SERIF_TIP_DETAILS[tip].map(s => <SliderControl key={s} k={s} def={SERIF_TIP_SUBS[s]} />)}
+          </>
+        ) : k === 'serifSides' ? (
+          <div className="opts five" role="radiogroup" aria-label={c.tech}>
+            {SERIF_SIDE_OPTIONS.map(([id, label]) => (
+              <button key={id} role="radio" aria-checked={sides === id} className={sides === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifSides', id)}>
+                <SerifSidesIcon shape={shape} sides={id} /><span>{label}</span>
               </button>
             ))}
           </div>
-          {SERIF_TIP_DETAILS[tip].map(s => <SliderControl key={s} k={s} def={SERIF_TIP_SUBS[s]} />)}
-        </>
-      ) : k === 'serifSides' ? (
-        <div className="opts five" role="radiogroup" aria-label={c.tech}>
-          {SERIF_SIDE_OPTIONS.map(([id, label]) => (
-            <button key={id} role="radio" aria-checked={sides === id} className={sides === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifSides', id)}>
-              <SerifSidesIcon shape={shape} sides={id} /><span>{label}</span>
-            </button>
-          ))}
-        </div>
-      ) : k === 'serifInner' ? (
-        <>
-          <div className="opts three" role="radiogroup" aria-label={c.tech}>
-            {SERIF_INNER_OPTIONS.map(([id, label]) => (
-              <button key={id} role="radio" aria-checked={inner === id} className={inner === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifInner', id)}>
-                <SerifSidesIcon shape={shape} sides={sides === 'outside' ? 'both' : sides} inner={id} large /><span>{label}</span>
-              </button>
-            ))}
-          </div>
-          {(Object.keys(SERIF_INNER_SUBS) as SerifInnerSubKey[]).map(s => <SliderControl key={s} k={s} def={SERIF_INNER_SUBS[s]} />)}
-        </>
-      ) : (
-        <>
-          <div className="opts two" role="radiogroup" aria-label={c.tech}>
-            {SERIF_BASE_OPTIONS.map(([id, label]) => (
-              <button key={id} role="radio" aria-checked={base === id} className={base === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifBase', id)}>
-                <SerifIcon shape={shape} tip={tip} cupped={id === 'cupped'} view="base" /><span>{label}</span>
-              </button>
-            ))}
-          </div>
-          {base === 'cupped' && <SliderControl k="serifCup" def={SERIF_BASE_SUBS.serifCup} />}
-        </>
-      )}
+        ) : k === 'serifInner' ? (
+          <>
+            <div className="opts three" role="radiogroup" aria-label={c.tech}>
+              {SERIF_INNER_OPTIONS.map(([id, label]) => (
+                <button key={id} role="radio" aria-checked={inner === id} className={inner === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifInner', id)}>
+                  <SerifSidesIcon shape={shape} sides={sides === 'outside' ? 'both' : sides} inner={id} large /><span>{label}</span>
+                </button>
+              ))}
+            </div>
+            {(Object.keys(SERIF_INNER_SUBS) as SerifInnerSubKey[]).map(s => <SliderControl key={s} k={s} def={SERIF_INNER_SUBS[s]} />)}
+          </>
+        ) : (
+          <>
+            <div className="opts two" role="radiogroup" aria-label={c.tech}>
+              {SERIF_BASE_OPTIONS.map(([id, label]) => (
+                <button key={id} role="radio" aria-checked={base === id} className={base === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifBase', id)}>
+                  <SerifIcon shape={shape} tip={tip} cupped={id === 'cupped'} view="base" /><span>{label}</span>
+                </button>
+              ))}
+            </div>
+            {base === 'cupped' && <SliderControl k="serifCup" def={SERIF_BASE_SUBS.serifCup} />}
+          </>
+        )}
+      </Quiet.Provider>
     </div>
   );
 }

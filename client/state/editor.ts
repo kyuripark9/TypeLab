@@ -492,6 +492,13 @@ export const actions = {
     set({ snap });
     try { localStorage.setItem(SNAP_KEY, JSON.stringify(snap)); } catch { /* private mode: lasts this visit */ }
   },
+  /** Drop a letter's own value of one setting, so it follows the other letters again. */
+  shareParam(ch: string, key: keyof GlyphParams) {
+    const s = get();
+    if (s.params.glyphs[ch]?.[key] === undefined) return;
+    set({ params: withGlyph(s.params, ch, key, undefined) });
+    actions.commit();
+  },
   /** Give a letter drawn by hand back to the settings, which shape it again. */
   undrawLetter(ch: string) {
     const s = get();
