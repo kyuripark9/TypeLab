@@ -25,16 +25,18 @@ before(async () => {
 });
 after(() => { server.close(); store.close(); });
 
-/** A browser: it keeps the owner cookie the server hands it, as a real one would. */
+/** A browser: it keeps the cookies the server hands it (owner and session), as a real one would. */
 function browser() {
-  let cookie = '';
+  const jar = new Map<string, string>();
   return async (method: string, path: string, body?: unknown) => {
     const headers: Record<string, string> = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
-    if (cookie) headers.Cookie = cookie;
+    if (jar.size) headers.Cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
     const res = await fetch(base + path, { method, headers, body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
-    const set = res.headers.get('set-cookie');
-    if (set) cookie = set.split(';')[0];
+    for (const set of res.headers.getSetCookie()) {
+      const [k, v] = set.split(';')[0].split('=');
+      if (/Max-Age=0/.test(set)) jar.delete(k); else jar.set(k, v);
+    }
     return res;
   };
 }
@@ -119,6 +121,79 @@ describe('designs API', () => {
     const res = await call('GET', '/nope');
     assert.equal(res.status, 404);
     assert.ok((await res.json()).error);
+  });
+});
+
+describe('accounts API', () => {
+  const email = 'Ana@Example.com', password = 'correct horse';
+  const make = (b: ReturnType<typeof browser>, name: string) => b('POST', '/designs', { name, styleId: 'serif', params: serif.params });
+
+  it('signs up, bringing along the fonts saved in that browser', async () => {
+    const ana = browser();
+    await make(ana, 'Before signing up');
+    assert.deepEqual(await (await ana('GET', '/auth/me')).json(), { user: null });
+    for (const bad of [{ email: 'nope', password }, { email, password: 'short' }, {}]) {
+      assert.equal((await ana('POST', '/auth/signup', bad)).status, 400);
+    }
+    const res = await ana('POST', '/auth/signup', { email, password, name: '  Ana  ' });
+    assert.equal(res.status, 201);
+    const { user, moved } = await res.json();
+    assert.equal(user.email, 'ana@example.com');
+    assert.equal(user.name, 'Ana');
+    assert.equal(moved, 1);
+    assert.equal(user.password, undefined);
+    assert.match(res.headers.getSetCookie().join('\n'), /typelab_session=[\w-]+;.*HttpOnly/);
+    assert.deepEqual(((await (await ana('GET', '/designs')).json()) as Design[]).map(d => d.name), ['Before signing up']);
+    assert.equal((await (await ana('GET', '/auth/me')).json()).user.email, 'ana@example.com');
+    // the same email, however it's typed, is one account
+    assert.equal((await browser()('POST', '/auth/signup', { email: ' ANA@example.com ', password })).status, 409);
+  });
+
+  it('keeps an account\'s fonts out of the browser once signed out, and back on any browser signed in', async () => {
+    const laptop = browser();
+    assert.equal((await laptop('POST', '/auth/login', { email, password: 'wrong password' })).status, 401);
+    assert.equal((await laptop('POST', '/auth/login', { email: 'nobody@example.com', password })).status, 401);
+    await make(laptop, 'Made on the laptop');
+    const res = await laptop('POST', '/auth/login', { email: 'ana@EXAMPLE.com', password });
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).moved, 1);
+    const names = ((await (await laptop('GET', '/designs')).json()) as Design[]).map(d => d.name).sort();
+    assert.deepEqual(names, ['Before signing up', 'Made on the laptop']);
+    assert.equal((await laptop('POST', '/auth/logout')).status, 204);
+    assert.deepEqual(await (await laptop('GET', '/auth/me')).json(), { user: null });
+    assert.deepEqual(await (await laptop('GET', '/designs')).json(), []);
+  });
+
+  it('renames the account, changes its password and signs other browsers out', async () => {
+    const a = browser(), b = browser();
+    await a('POST', '/auth/login', { email, password });
+    await b('POST', '/auth/login', { email, password });
+    assert.equal((await (await a('PATCH', '/auth/me', { name: 'Ana P' })).json()).user.name, 'Ana P');
+    assert.equal((await a('POST', '/auth/password', { current: 'wrong', next: 'a new password' })).status, 403);
+    assert.equal((await a('POST', '/auth/password', { current: password, next: 'short' })).status, 400);
+    assert.equal((await a('POST', '/auth/password', { current: password, next: 'a new password' })).status, 204);
+    assert.equal((await (await a('GET', '/auth/me')).json()).user.name, 'Ana P');
+    assert.deepEqual(await (await b('GET', '/auth/me')).json(), { user: null });
+    assert.equal((await b('POST', '/auth/login', { email, password })).status, 401);
+    assert.equal((await b('POST', '/auth/login', { email, password: 'a new password' })).status, 200);
+    assert.equal((await browser()('PATCH', '/auth/me', { name: 'x' })).status, 401);
+  });
+
+  it('slows down guessing', async () => {
+    const guesser = browser(), victim = 'guess@example.com';
+    await guesser('POST', '/auth/signup', { email: victim, password });
+    for (let i = 0; i < 10; i++) assert.equal((await guesser('POST', '/auth/login', { email: victim, password: `guess ${i}` })).status, 401);
+    assert.equal((await guesser('POST', '/auth/login', { email: victim, password })).status, 429);
+  });
+
+  it('closes the account and deletes its fonts', async () => {
+    const a = browser();
+    await a('POST', '/auth/login', { email, password: 'a new password' });
+    assert.equal((await a('DELETE', '/auth/me', { password: 'wrong' })).status, 403);
+    assert.equal((await a('DELETE', '/auth/me', { password: 'a new password' })).status, 204);
+    assert.deepEqual(await (await a('GET', '/auth/me')).json(), { user: null });
+    assert.equal((await a('POST', '/auth/login', { email, password: 'a new password' })).status, 401);
+    assert.equal((store.db.prepare('SELECT COUNT(*) AS n FROM designs WHERE owner LIKE \'user:%\' AND name = ?').get('Before signing up') as { n: number }).n, 0);
   });
 });
 

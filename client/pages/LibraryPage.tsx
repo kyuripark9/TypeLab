@@ -1,10 +1,12 @@
 /* My designs: every saved font, previewed in its own letterforms. */
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { NAME_MAX, cleanName, type Design } from '../../shared/design';
-import { api, errorMessage } from '../lib/api';
+import { NAME_MAX, cleanName, slug, type Design } from '../../shared/design';
+import { api, download, errorMessage } from '../lib/api';
 import { n1 } from '../lib/hooks';
+import { auth, useAuth } from '../state/auth';
 import { actions, fontFor, useEditor, type ToastAction } from '../state/editor';
+import { AccountButton } from '../components/Account';
 import { Toast } from '../components/Chrome';
 import { Brand } from '../components/Header';
 
@@ -20,12 +22,15 @@ export function LibraryPage() {
   const [designs, setDesigns] = useState<Design[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const user = useAuth(s => s.user), userId = user === undefined ? undefined : user?.id ?? null;
 
   const load = () => {
     setError(null);
     api.listDesigns().then(setDesigns).catch(e => setError(errorMessage(e)));
   };
-  useEffect(() => { document.title = 'My designs — TypeLab'; load(); }, []);
+  useEffect(() => { document.title = 'My designs — TypeLab'; }, []);
+  // signing in or out changes whose fonts these are
+  useEffect(() => { if (userId !== undefined) load(); }, [userId]);
 
   // the latest save — a new design or the last one edited — gets a badge so it's easy to find again
   const recentId = designs?.reduce<Design | null>((a, d) => (!a || d.updatedAt > a.updatedAt ? d : a), null)?.id;
@@ -84,6 +89,13 @@ export function LibraryPage() {
     return () => { removeEventListener('pagehide', flush); flush(); };
   }, []);
 
+  const downloadFont = async (d: Design) => {
+    try {
+      download(`${slug(d.name)}.otf`, await api.exportFile('otf', { name: d.name, params: d.params }));
+      actions.toast(`Downloaded “${d.name}” — open the .otf to install it`);
+    } catch (e) { actions.toast(`Couldn’t download — ${errorMessage(e)}`); }
+  };
+
   const rename = async (d: Design, raw: string) => {
     const name = cleanName(raw);
     if (name === d.name) return;
@@ -101,14 +113,25 @@ export function LibraryPage() {
       <header className="top">
         <div className="top-left"><Brand /></div>
         <div className="top-actions">
+          <AccountButton />
           <button className="btn primary" onClick={startNew}><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>New design</button>
         </div>
       </header>
       <main className="lib-main">
         <div className="lib-head">
           <h1>My designs</h1>
-          {designs && designs.length > 0 && <p>{designs.length} saved {designs.length === 1 ? 'font' : 'fonts'}</p>}
+          {designs && designs.length > 0 && <p>{designs.length} saved {designs.length === 1 ? 'font' : 'fonts'}{user ? ' in your account' : ''}</p>}
         </div>
+        {user === null && (
+          <div className="lib-signin">
+            <div>
+              <b>{designs?.length ? 'These fonts are saved in this browser only' : 'Fonts you save are kept in this browser only'}</b>
+              <p>Create a free account to keep them safe and open, edit and download them on any computer. Fonts saved here come along.</p>
+            </div>
+            <button className="btn primary" onClick={() => auth.open('signup')}>Create account</button>
+            <button className="btn ghost" onClick={() => auth.open('signin')}>Sign in</button>
+          </div>
+        )}
         {error ? (
           <div className="lib-empty">
             <h2>Couldn’t load your designs</h2><p>{error}</p>
@@ -123,7 +146,7 @@ export function LibraryPage() {
           </div>
         ) : (
           <div className="lib-grid">
-            {designs.map(d => <DesignCard key={d.id} d={d} recent={d.id === recentId} onDuplicate={() => duplicate(d)} onDelete={() => remove(d)} onRename={n => rename(d, n)} />)}
+            {designs.map(d => <DesignCard key={d.id} d={d} recent={d.id === recentId} onDownload={() => downloadFont(d)} onDuplicate={() => duplicate(d)} onDelete={() => remove(d)} onRename={n => rename(d, n)} />)}
             <button className="lib-new" onClick={startNew}>
               <span className="lib-new-icon"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M11 4v14M4 11h14" /></svg></span>
               <b>New design</b>
@@ -136,7 +159,7 @@ export function LibraryPage() {
   );
 }
 
-function DesignCard({ d, recent, onDuplicate, onDelete, onRename }: { d: Design; recent: boolean; onDuplicate: () => void; onDelete: () => void; onRename: (name: string) => void }) {
+function DesignCard({ d, recent, onDownload, onDuplicate, onDelete, onRename }: { d: Design; recent: boolean; onDownload: () => void; onDuplicate: () => void; onDelete: () => void; onRename: (name: string) => void }) {
   const [editing, setEditing] = useState(false);
   const f = fontFor(d.params), ln = f.layout('Ag', Infinity)[0], sample = f.layout('Hamburgefonstiv', Infinity)[0];
   const pad = (1500 - ln.width) / 2, spad = Math.max(0, (9000 - sample.width) / 2);
@@ -155,7 +178,7 @@ function DesignCard({ d, recent, onDuplicate, onDelete, onRename }: { d: Design;
         {editing
           ? <RenameField name={d.name} onDone={n => { setEditing(false); if (n !== null) onRename(n); }} />
           : <h3 title={d.name}>{d.name}</h3>}
-        <CardMenu name={d.name} onRename={() => setEditing(true)} onDuplicate={onDuplicate} onDelete={onDelete} />
+        <CardMenu name={d.name} onDownload={onDownload} onRename={() => setEditing(true)} onDuplicate={onDuplicate} onDelete={onDelete} />
         <p title={new Date(d.updatedAt).toLocaleString()}>Edited {ago(d.updatedAt)}</p>
       </div>
     </article>
@@ -174,8 +197,8 @@ function RenameField({ name, onDone }: { name: string; onDone: (name: string | n
   );
 }
 
-/** The ⋯ button on a card, holding Rename, Duplicate and Delete. */
-function CardMenu({ name, onRename, onDuplicate, onDelete }: { name: string; onRename: () => void; onDuplicate: () => void; onDelete: () => void }) {
+/** The ⋯ button on a card, holding Download font, Rename, Duplicate and Delete. */
+function CardMenu({ name, onDownload, onRename, onDuplicate, onDelete }: { name: string; onDownload: () => void; onRename: () => void; onDuplicate: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 
@@ -196,6 +219,7 @@ function CardMenu({ name, onRename, onDuplicate, onDelete }: { name: string; onR
       </button>
       {open && (
         <div className="popover lib-menu" role="menu">
+          <button role="menuitem" onClick={pick(onDownload)}>Download font (.otf)</button>
           <button role="menuitem" onClick={pick(onRename)}>Rename</button>
           <button role="menuitem" onClick={pick(onDuplicate)}>Duplicate</button>
           <button role="menuitem" className="danger" onClick={pick(onDelete)}>Delete</button>

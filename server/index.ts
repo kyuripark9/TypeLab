@@ -14,6 +14,9 @@ const prod = process.env.NODE_ENV === 'production';
 
 const store = new DesignStore(process.env.DB_PATH || resolve(root, 'data/typelab.db'));
 const app = createApp(store);
+// behind a proxy that ends HTTPS (most hosts), so sign-in cookies are marked Secure and sign-in
+// attempts are counted per visitor rather than per proxy
+if (process.env.TRUST_PROXY) app.set('trust proxy', 1);
 const server = createServer(app);
 
 if (prod) {

@@ -5,6 +5,7 @@ import { CONTROLS, SUBS, controlFor, pageOf, type ActiveKey } from '../../shared
 import { DEFAULT_NAME, cleanName } from '../../shared/design';
 import { ApiError, api, errorMessage } from '../lib/api';
 import { isTyping } from '../lib/hooks';
+import { auth, useAuth } from '../state/auth';
 import { actions, isDirty, useEditor } from '../state/editor';
 import { GlyphStrip, Nav, Toast, focusSettingSearch } from '../components/Chrome';
 import { Dialog } from '../components/Dialog';
@@ -110,7 +111,9 @@ function useSave() {
       }
       actions.markSaved(d, input);
       if (d.id !== s.designId && !stay) navigate(`/d/${d.id}`, { replace: true });
-      actions.toast('Saved to your designs');
+      // saved while signed out, a design is kept only in this browser; its first save says so
+      if (!s.designId && useAuth.getState().user === null) actions.toast('Saved in this browser', { label: 'Keep it in an account', run: () => auth.open('signup') });
+      else actions.toast('Saved to your designs');
       return true;
     } catch (e) {
       actions.toast(`Couldn’t save — ${errorMessage(e)}`);

@@ -1,9 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Link, RouterProvider, createBrowserRouter } from 'react-router';
+import { AuthDialog } from './components/Account';
 import { Intro } from './components/Intro';
+import { AccountPage } from './pages/AccountPage';
 import { EditorPage } from './pages/EditorPage';
 import { LibraryPage } from './pages/LibraryPage';
+import { auth } from './state/auth';
 import './styles.css';
 
 function NotFound() {
@@ -21,12 +24,16 @@ const router = createBrowserRouter([
   // doesn't remount it
   { element: <EditorPage />, children: [{ index: true, element: null }, { path: 'd/:id', element: null }] },
   { path: 'designs', element: <LibraryPage /> },
+  { path: 'account', element: <AccountPage /> },
   { path: '*', element: <NotFound /> }
 ]);
+
+void auth.load();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <RouterProvider router={router} />
+    <AuthDialog />
     <Intro />
   </StrictMode>
 );

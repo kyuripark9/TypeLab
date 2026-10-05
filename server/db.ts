@@ -28,7 +28,8 @@ const toDesign = (r: Row): Design => ({
 const newId = () => randomBytes(8).toString('base64url');
 
 export class DesignStore {
-  private db: DatabaseSync;
+  /** shared with the accounts, which live in the same file */
+  readonly db: DatabaseSync;
 
   /** `file` is a path on disk, or ':memory:' for tests. */
   constructor(file: string) {
@@ -94,6 +95,15 @@ export class DesignStore {
 
   delete(id: string, owner: string): boolean {
     return this.db.prepare('DELETE FROM designs WHERE id = ? AND owner = ?').run(id, owner).changes > 0;
+  }
+
+  /** Hand every design of one owner to another: a browser's fonts go into the account signed in on it. */
+  moveAll(from: string, to: string): number {
+    return Number(this.db.prepare('UPDATE designs SET owner = ? WHERE owner = ?').run(to, from).changes);
+  }
+
+  deleteAll(owner: string): number {
+    return Number(this.db.prepare('DELETE FROM designs WHERE owner = ?').run(owner).changes);
   }
 
   close() { this.db.close(); }

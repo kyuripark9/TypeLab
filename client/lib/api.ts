@@ -1,4 +1,5 @@
 /* Typed client for the TypeLab API. */
+import type { User } from '../../shared/account';
 import type { Design, DesignInput } from '../../shared/design';
 import type { FamilyRequest } from '../../shared/family';
 import type { Params } from '../../shared/params';
@@ -29,7 +30,17 @@ async function send(method: string, url: string, body?: unknown, init?: RequestI
 
 const json = async <T>(method: string, url: string, body?: unknown): Promise<T> => (await send(method, url, body)).json();
 
+/** A sign-in, with how many fonts saved in this browser while signed out went into the account. */
+export interface SignedIn { user: User; moved: number }
+
 export const api = {
+  me: async () => (await json<{ user: User | null }>('GET', '/api/auth/me')).user,
+  signUp: (b: { email: string; password: string; name: string }) => json<SignedIn>('POST', '/api/auth/signup', b),
+  signIn: (b: { email: string; password: string }) => json<SignedIn>('POST', '/api/auth/login', b),
+  signOut: async () => { await send('POST', '/api/auth/logout'); },
+  renameAccount: async (name: string) => (await json<{ user: User }>('PATCH', '/api/auth/me', { name })).user,
+  changePassword: async (current: string, next: string) => { await send('POST', '/api/auth/password', { current, next }); },
+  deleteAccount: async (password: string) => { await send('DELETE', '/api/auth/me', { password }); },
   listDesigns: () => json<Design[]>('GET', '/api/designs'),
   getDesign: (id: string) => json<Design>('GET', `/api/designs/${encodeURIComponent(id)}`),
   createDesign: (d: DesignInput) => json<Design>('POST', '/api/designs', d),

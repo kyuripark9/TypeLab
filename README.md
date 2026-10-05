@@ -23,6 +23,8 @@ npm start          # serves the app and the API on http://localhost:5173
 ```
 
 Set `PORT` to change the port and `DB_PATH` to put the database somewhere other than `data/typelab.db`.
+On a host that ends HTTPS in a proxy in front of the app (most do), set `TRUST_PROXY=1` so sign-in
+cookies are marked Secure and wrong-password limits count each visitor rather than the proxy.
 
 Other scripts: `npm test` (engine and API tests), `npm run typecheck`.
 
@@ -103,7 +105,9 @@ inside curves, and the lowercase become small capitals.
 - `components/GlyphDefs.tsx`: each glyph is defined once as `<path id="g65">` and reused with
   `<use>` by the preview and the glyph strip. Glyphs on screen update immediately; the rest follow in
   a deferred render, so dragging stays at 60 fps.
-- `pages/EditorPage.tsx` (`/` and `/d/:id`) and `pages/LibraryPage.tsx` (`/designs`).
+- `pages/EditorPage.tsx` (`/` and `/d/:id`), `pages/LibraryPage.tsx` (`/designs`) and
+  `pages/AccountPage.tsx` (`/account`). `state/auth.ts` holds who's signed in and opens the sign-in
+  dialog (`components/Account.tsx`) from any page.
 - The editor's pages are listed in `shared/content.ts` (`CATEGORIES`), and each control names the page it
   is on. Structure, Proportion and Shape are groups: their pages (Weight & contrast, Heights, Corners,
   Stroke ends, Serifs, Letters…) sit under them in the navigation. Pages run from the broadest settings
@@ -113,10 +117,16 @@ inside curves, and the lowercase become small capitals.
 
 | Method | Path | |
 | --- | --- | --- |
+| `POST` | `/api/auth/signup` | `{ email, password, name? }` → signs in, `{ user, moved }` |
+| `POST` | `/api/auth/login` | `{ email, password }` → signs in, `{ user, moved }` |
+| `POST` | `/api/auth/logout` | signs this browser out |
+| `GET` / `PATCH` / `DELETE` | `/api/auth/me` | who's signed in · rename `{ name }` · close the account and its fonts `{ password }` |
+| `POST` | `/api/auth/password` | `{ current, next }`, signing other browsers out |
 | `GET` | `/api/designs` | list saved designs, newest first |
 | `POST` | `/api/designs` | create `{ name, styleId, params }` |
 | `GET` / `PUT` / `DELETE` | `/api/designs/:id` | read, update, delete |
 | `POST` | `/api/export/otf` | `{ name, params }` → OpenType font file |
+| `POST` | `/api/export/family` | `{ name, params, family }` → .zip of fonts |
 | `POST` | `/api/export/svg` | `{ name, params }` → SVG specimen |
 | `GET` | `/api/health` | liveness check |
 
@@ -124,7 +134,12 @@ Designs live in SQLite through Node's built-in `node:sqlite`, so there are no na
 compile. Every parameter is validated on the server (`shared/params.ts`): numbers must be 0–1 and
 options must be known values.
 
-There are no user accounts: the library belongs to whoever runs the server.
+Anyone can design and save without an account: designs saved signed out belong to the browser
+(an HttpOnly `typelab_owner` cookie). Signing up or in moves that browser's designs into the account,
+and from then on the account's designs open on any browser signed in to it. Passwords are stored only
+as scrypt hashes (`server/accounts.ts`), a sign-in is a random token in an HttpOnly, SameSite=Lax
+`typelab_session` cookie (the database keeps only its SHA-256) lasting 90 days, and ten wrong passwords
+in 15 minutes for one email pause sign-in for it. There is no password reset by email yet.
 
 ## Shortcuts
 
