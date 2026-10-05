@@ -75,7 +75,7 @@ export function Header({ onSave, onGuide, naming, onNamed, onCancelNaming }: Hea
         <button className="btn ghost guide-btn" onClick={onGuide}>Guide</button>
         <Link className="btn ghost" to="/designs">My designs</Link>
         <div className="save-wrap">
-          <button className="btn ghost" onClick={onSave} disabled={saving} title="Save (⌘S)">
+          <button className="btn outline" onClick={onSave} disabled={saving} title="Save (⌘S)">
             {saving ? 'Saving…' : 'Save'}<i className={dirty ? 'dirty on' : 'dirty'} aria-label={dirty ? 'Unsaved changes' : undefined} />
           </button>
           {naming && <NamePrompt onDone={onNamed} onCancel={onCancelNaming} />}
