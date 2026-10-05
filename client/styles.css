@@ -263,22 +263,26 @@ body.resizing.y { cursor: row-resize; }
 .search-field input::-webkit-search-cancel-button { display: none; }
 .search-field kbd { position: absolute; right: 7px; min-width: 18px; height: 18px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); font: 500 11px/16px var(--ui); color: var(--ink-3); text-align: center; pointer-events: none; }
 .search-field input:focus ~ kbd, .search-field input:not(:placeholder-shown) ~ kbd { display: none; }
-/* Adjust: a row of named steps per trait, each drawn in the current style */
-.traits-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 18px; }
-.traits-head p { flex: 1; margin: 0; font-size: 12.5px; color: var(--ink-2); }
-.traits-tools { display: flex; gap: 2px; flex: none; margin-top: -4px; }
+/* Adjust: a row of named steps per trait, each drawn in the current style, set as one segmented
+   track (grey well, the picked step a raised white tab) so the panel isn't a wall of boxes */
+.trait-set + .trait-set { margin-top: 26px; }
+.trait-set-head { display: flex; align-items: center; justify-content: space-between; min-height: 28px; margin-bottom: 6px; }
+.trait-set-head .facet-label { margin: 0; }
+.traits-tools { display: flex; gap: 2px; margin-right: -8px; }
 .traits-tools svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.trait-set > .facet-label { margin-bottom: 10px; }
 .trait + .trait { margin-top: 14px; }
-.trait-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; min-height: 18px; }
+.trait-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; min-height: 18px; }
 .trait-label { font-size: 13px; font-weight: 500; }
-.trait-hint { min-width: 0; font-size: 11.5px; line-height: 1.35; color: var(--ink-3); }
 .trait-any { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--accent-ink); }
 .trait-any:hover { text-decoration: underline; }
-.trait-opts { display: grid; gap: 4px; }
-.trait-opts .opt { gap: 3px; padding: 6px 0 5px; min-width: 0; }
+.trait-opts { display: grid; gap: 2px; padding: 2px; border-radius: var(--radius); background: var(--well); box-shadow: inset 0 0 0 1px var(--line); }
+.trait-opts .opt { gap: 3px; padding: 7px 0 5px; min-width: 0; border: 0; border-radius: var(--radius-s); background: none; color: var(--ink-3); transition: background .15s, color .15s, box-shadow .15s; }
+.trait-opts .opt svg { fill: var(--ink-2); }
+.trait-opts .opt:hover { background: var(--hover); color: var(--ink); }
+.trait-opts .opt.on { background: var(--surface); box-shadow: var(--raise); color: var(--ink); }
+.trait-opts .opt.on svg { fill: var(--accent); }
 /* labels wrap (and hyphenate) rather than being cut off in narrow tiles */
-.trait-opts .opt span { max-width: 100%; font-size: 11px; line-height: 1.2; text-align: center; -webkit-hyphens: auto; hyphens: auto; }
+.trait-opts .opt span { max-width: 100%; padding: 0 1px; font-size: 11px; line-height: 1.2; text-align: center; -webkit-hyphens: auto; hyphens: auto; }
 .specimen { display: block; overflow: visible; }
 .facet + .facet { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .facet-h { margin: 0; font: inherit; }

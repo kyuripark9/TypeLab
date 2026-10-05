@@ -61,7 +61,7 @@ function StylePanel() {
     <div className="panel-pad filters">
       <div className="style-tabs" role="tablist" aria-label="Style panel">
         {STYLE_TABS.map(([id, label]) => (
-          <button key={id} id={`tab-${id}`} role="tab" aria-selected={tab === id} aria-controls={`tp-${id}`} tabIndex={tab === id ? 0 : -1}
+          <button key={id} id={`tab-${id}`} role="tab" title={id === 'adjust' ? 'Every style takes on the traits you set here' : undefined} aria-selected={tab === id} aria-controls={`tp-${id}`} tabIndex={tab === id ? 0 : -1}
             className={tab === id ? 'on' : undefined} onClick={() => actions.setStyleTab(id)} onKeyDown={move}>
             {label}{counts[id] > 0 && <span className="facet-picked" aria-label={`, ${counts[id]} on`}>{counts[id]}</span>}
           </button>
@@ -102,24 +102,26 @@ function StyleFilters() {
 
 /** The Adjust tab: every trait as a row of named steps, each drawn as the current style would look
     with it. A step applies to every card at once; picking it again (or Any) hands the trait back
-    to each style. */
+    to each style. Shuffle and Clear sit on the first section's heading line. */
 function StyleTraits() {
   const n = useEditor(s => Object.keys(s.traits).length);
+  const tools = (
+    <div className="traits-tools">
+      <button className="btn ghost small" onClick={actions.shuffleTraits} title="Pick a random mix of traits">
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h2.5c3.5 0 3.5 7 7 7H14M2 11.5h2.5c1.4 0 2.2-1.1 2.9-2.4M9.6 6.9c.7-1.3 1.5-2.4 2.9-2.4H14M12 2.5l2 2-2 2M12 9.5l2 2-2 2" /></svg>
+        Shuffle
+      </button>
+      {n > 0 && <button className="btn ghost small" onClick={() => { actions.clearTraits(); focusFilters(); }}>Clear</button>}
+    </div>
+  );
   return (
     <>
-      <div className="traits-head">
-        <p>Every style takes on the traits you set here. Mix them to make any face.</p>
-        <div className="traits-tools">
-          <button className="btn ghost small" onClick={actions.shuffleTraits} title="Pick a random mix of traits">
-            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h2.5c3.5 0 3.5 7 7 7H14M2 11.5h2.5c1.4 0 2.2-1.1 2.9-2.4M9.6 6.9c.7-1.3 1.5-2.4 2.9-2.4H14M12 2.5l2 2-2 2M12 9.5l2 2-2 2" /></svg>
-            Shuffle
-          </button>
-          {n > 0 && <button className="btn ghost small" onClick={() => { actions.clearTraits(); focusFilters(); }}>Clear</button>}
-        </div>
-      </div>
-      {TRAIT_SECTIONS.map(sec => (
-        <div key={sec.id} className="facet trait-set" role="group" aria-labelledby={`t-${sec.id}`}>
-          <h3 className="facet-label" id={`t-${sec.id}`}>{sec.label}</h3>
+      {TRAIT_SECTIONS.map((sec, i) => (
+        <div key={sec.id} className="trait-set" role="group" aria-labelledby={`t-${sec.id}`}>
+          <div className="trait-set-head">
+            <h3 className="facet-label" id={`t-${sec.id}`}>{sec.label}</h3>
+            {i === 0 && tools}
+          </div>
           {sec.traits.map(t => <TraitRow key={t.id} def={t} />)}
         </div>
       ))}
@@ -144,9 +146,7 @@ function TraitRow({ def }: { def: TraitDef }) {
     <div className="trait" role="group" aria-labelledby={`tr-${def.id}`}>
       <div className="trait-head">
         <span className="trait-label" id={`tr-${def.id}`} title={def.hint}>{def.label}</span>
-        {picked
-          ? <button className="trait-any" onClick={() => actions.setTrait(def.id, null)} title="Let each style keep its own">Any</button>
-          : <span className="trait-hint">{def.hint}</span>}
+        {picked && <button className="trait-any" onClick={() => actions.setTrait(def.id, null)} title="Let each style keep its own">Any</button>}
       </div>
       <div className="trait-opts" style={{ gridTemplateColumns: `repeat(${def.options.length}, minmax(0, 1fr))` }}>
         {def.options.map(o => (
