@@ -6,7 +6,7 @@ import { api, download, errorMessage } from '../lib/api';
 import { n1 } from '../lib/hooks';
 import { auth, useAuth } from '../state/auth';
 import { actions, fontFor, useEditor, type ToastAction } from '../state/editor';
-import { AccountButton } from '../components/Account';
+import { AccountCorner } from '../components/Account';
 import { Toast } from '../components/Chrome';
 import { Brand } from '../components/Header';
 
@@ -113,10 +113,10 @@ export function LibraryPage() {
       <header className="top">
         <div className="top-left"><Brand /></div>
         <div className="top-actions">
-          <AccountButton />
           <button className="btn primary" onClick={startNew}><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>New design</button>
         </div>
       </header>
+      <AccountCorner />
       <main className="lib-main">
         <div className="lib-head">
           <h1>My designs</h1>

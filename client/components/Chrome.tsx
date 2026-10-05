@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { CHARSET } from '../../shared/engine';
 import { n1 } from '../lib/hooks';
 import { actions, useEditor, useFont } from '../state/editor';
+import { AccountButton } from './Account';
 import { PageIcon, SearchIcon } from './Icons';
 
 /** The navigation's rows: a page on its own, or a group's name with its pages under it. */
@@ -109,6 +110,7 @@ export function Nav() {
       {/* phones: the header has no room for it, so it sits at the foot of the drawer */}
       <Link className="nav-item nav-designs" to="/designs"><span className="nav-label">My designs</span></Link>
       <div className="nav-foot"><span>Based on</span><b>{style?.name}</b></div>
+      <div className="nav-account"><AccountButton /></div>
     </nav>
   );
 }

@@ -5,7 +5,6 @@ import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
 import { sanitizeParams } from '../../shared/params';
 import { api, download, errorMessage } from '../lib/api';
 import { actions, isDirty, useEditor } from '../state/editor';
-import { AccountButton } from './Account';
 import { FamilyDialog } from './Family';
 
 /** Logo: back to the Style tab of the design in progress. */
@@ -81,7 +80,6 @@ export function Header({ onSave, onGuide, naming, onNamed, onCancelNaming }: Hea
           {naming && <NamePrompt onDone={onNamed} onCancel={onCancelNaming} />}
         </div>
         <ExportMenu />
-        <AccountButton />
       </div>
     </header>
   );

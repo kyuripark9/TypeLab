@@ -1,6 +1,6 @@
 /* Accounts in the app: the sign-in dialog (create an account or sign in, with an email or with
-   Google), and the button at the right end of every header, Sign in while signed out and the
-   account's initial once signed in. */
+   Google), and the account button in the bottom-left corner of every page, Sign in while signed
+   out and the account's initial and name once signed in. */
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as KeyEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { PASSWORD_MIN, USER_NAME_MAX } from '../../shared/account';
@@ -176,7 +176,8 @@ function AuthForm({ mode }: { mode: AuthMode }) {
   );
 }
 
-/** The header's account button and its menu. */
+/** The account button and its menu, which opens upward: at the foot of the editor's page menu,
+    and on pages without one in the corner by itself (AccountCorner). */
 export function AccountButton() {
   const user = useAuth(s => s.user);
   const [open, setOpen] = useState(false), [confirm, setConfirm] = useState(false);
@@ -193,7 +194,12 @@ export function AccountButton() {
   }, [open]);
 
   if (user === undefined) return null;
-  if (!user) return <button className="btn ghost signin" onClick={() => auth.open('signin')}>Sign in</button>;
+  if (!user) return (
+    <button className="account-row signin" onClick={() => auth.open('signin')}>
+      <svg className="page-icon" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><circle cx="10" cy="7" r="3.25" /><path d="M3.75 16.5c.8-3 3.2-4.5 6.25-4.5s5.45 1.5 6.25 4.5" /></svg>
+      <span className="nav-label">Sign in</span>
+    </button>
+  );
 
   const signOut = async (saveFirst: boolean) => {
     setConfirm(false);
@@ -211,8 +217,9 @@ export function AccountButton() {
 
   return (
     <div className="account" ref={wrap}>
-      <button className="avatar" aria-label={`Account: ${user.name}`} title={user.email} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(o => !o)}>
-        {[...user.name.trim()][0]?.toUpperCase() ?? '?'}
+      <button className="account-row" title={user.email} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(o => !o)}>
+        <span className="avatar" aria-hidden="true">{[...user.name.trim()][0]?.toUpperCase() ?? '?'}</span>
+        <span className="nav-label">{user.name}</span>
       </button>
       {open && (
         <div className="popover account-menu" role="menu">
@@ -233,4 +240,9 @@ export function AccountButton() {
       )}
     </div>
   );
+}
+
+/** The account button on a page without the editor's page menu: alone in the bottom-left corner. */
+export function AccountCorner() {
+  return <div className="account-corner"><AccountButton /></div>;
 }

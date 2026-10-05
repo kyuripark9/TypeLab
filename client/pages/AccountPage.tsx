@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { PASSWORD_MIN, USER_NAME_MAX } from '../../shared/account';
 import { api, errorMessage } from '../lib/api';
-import { AccountButton, GoogleMark } from '../components/Account';
+import { AccountCorner, GoogleMark } from '../components/Account';
 import { Toast } from '../components/Chrome';
 import { Brand } from '../components/Header';
 import { auth, useAuth } from '../state/auth';
@@ -19,9 +19,9 @@ export function AccountPage() {
         <div className="top-left"><Brand /></div>
         <div className="top-actions">
           <Link className="btn ghost" to="/designs">My designs</Link>
-          <AccountButton />
         </div>
       </header>
+      <AccountCorner />
       <main className="lib-main account-main">
         <div className="lib-head"><h1>Account</h1></div>
         {user === undefined ? <p className="lib-loading" role="status">Loading…</p>
