@@ -28,17 +28,32 @@ function toPath(cmds: Cmd[]) {
 export interface FontStyle { style: string; cls: number; angle: number }
 const REGULAR: FontStyle = { style: 'Regular', cls: 400, angle: 0 };
 
-/** An installable OpenType (CFF) font with every glyph TypeLab draws. */
+/** A changed font's name with the free font's own taken out, wherever it stands (spaces or none, any
+    case): many reserve it, and the Open Font License keeps a reserved name off changed versions. */
+function withoutFamily(name: string, family: string) {
+  const words = family.split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const left = name.replace(new RegExp(words.join('\\s*'), 'gi'), ' ').replace(/\s+/g, ' ').trim();
+  return left || 'TypeLab Font';
+}
+
+/** An installable OpenType (CFF) font with every glyph TypeLab draws. A design written in a free font
+    (its letters registered first, see free-fonts.ts) passes on the font's copyright notice and licence,
+    as the licence asks, and doesn't take the font's own name: under the Open Font License a changed
+    font may not. */
 export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR): Buffer {
-  const font = buildFont(params), m = font.m;
+  const font = buildFont(params), m = font.m, free = font.free;
+  if (free) name = withoutFamily(name, free.family);
   const glyphs = [
     new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }),
     new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() }),
     // a no-break space, as wide as a space, so text that holds one doesn't fall back to another font
     new opentype.Glyph({ name: 'uni00A0', unicode: 0xa0, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() })
   ];
+  // a free font's flourishes can reach past the design's own lines: the font's lines reach as far
+  let top = Math.max(m.asc, m.cap) + 60, bottom = m.desc - 40;
   for (const ch of ALL_CHARS) {
     const g = font.glyph(ch); if (!g) continue;
+    if (free) for (const c of g.cmds) for (let i = 2; i < c.length; i += 2) { top = Math.max(top, c[i] as number); bottom = Math.min(bottom, c[i] as number); }
     glyphs.push(new opentype.Glyph({
       name: 'uni' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'),
       unicode: ch.charCodeAt(0),
@@ -57,13 +72,18 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
     fullName: as.style === 'Regular' ? name : `${name} ${as.style}`,
     postScriptName: `${name.replace(/[^A-Za-z0-9]/g, '') || 'TypeLab'}-${as.style.replace(/ /g, '')}`,
     weightClass: as.cls, italicAngle: -as.angle, fsSelection: fsSel, unitsPerEm: 1000,
-    ascender: R(Math.max(m.asc, m.cap) + 60), descender: R(m.desc - 40), glyphs
+    ascender: R(top), descender: R(bottom), glyphs
   } as unknown as opentypeNs.FontConstructorOptions);
   // opentype.js 2 keeps names per platform; its types still describe 1.x
   const platforms = otf.names as unknown as Record<'unicode' | 'macintosh' | 'windows', Record<string, { en: string }>>;
   for (const names of [platforms.unicode, platforms.macintosh, platforms.windows]) {
     names.preferredFamily = { en: name };
     names.preferredSubfamily = { en: as.style };
+    if (free) {
+      names.copyright = { en: `${free.copyright ? free.copyright + ' ' : ''}Changed with TypeLab.` };
+      names.license = { en: `Based on ${free.family} by ${free.designers.join(', ')}, under the ${free.license}. You may use, change and share this font under the same licence: ${free.licenseUrl}` };
+      names.licenseURL = { en: free.licenseUrl };
+    }
   }
   // opentype.js marks the head table bold from SemiBold up; only Bold is
   (otf as unknown as { weightClass: number }).weightClass = weightName === 'Bold' ? 700 : 400;

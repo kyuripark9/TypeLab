@@ -199,10 +199,11 @@ export function constrain(from: P, p: P): P {
 /* ---- Sync all: a point moved in one letter moves in the others that have it too */
 
 const traces = new WeakMap<Glyph, Drawn>();
-/** A letter as the settings draw it, traced into points (once per build of it). */
+/** A letter as the settings draw it, traced into points (once per build of it); a free font's letter
+    has its points already, as the font has them. */
 export function traceOf(g: Glyph): Drawn {
   let d = traces.get(g);
-  if (!d) { d = { adv: Math.round(g.adv), contours: fitOutline(g.cmds) }; traces.set(g, d); }
+  if (!d) { d = g.drawn ?? { adv: Math.round(g.adv), contours: fitOutline(g.cmds) }; traces.set(g, d); }
   return d;
 }
 

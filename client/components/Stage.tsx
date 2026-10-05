@@ -1,9 +1,11 @@
 import { useDeferredValue, useRef, useState } from 'react';
 import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../../shared/content';
 import type { Params } from '../../shared/params';
+import { STYLE_FONTS } from '../../shared/free-fonts';
+import { fontStyle, useWebFont } from '../lib/free';
 import { n1, useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
-import { actions, adjustedParams, fontFor, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
+import { actions, adjustedParams, fontFor, traitLabels, useEditor, useStyleMatch, type CardView, type Letters } from '../state/editor';
 import { FinderQuestion, FinderTrail, useFinder } from './Finder';
 import { Inspector } from './Inspector';
 import { focusFilters } from './Panel';
@@ -121,11 +123,12 @@ function StyleCards() {
   // redrawing every card takes a moment, so the panel answers first and the cards follow
   const traits = useDeferredValue(now);
   const shown = PAGE_STYLES.filter(s => matches(s, {}, traits));
-  const current = useEditor(s => styleById(s.styleId));
+  const current = useEditor(s => styleById(s.styleId)), letters = useEditor(s => s.letters);
   return (
     <div className="style-cards">
       <div className="cards-head">
         <h1 ref={head} tabIndex={-1}>Start with a style</h1>
+        <LettersToggle />
         {/* one spot for both ways in: the questions, or every card at once */}
         <button className="link small" onClick={() => actions.setFinder(!finder.on)}>{finder.on ? 'Browse all styles' : 'Help me choose'}</button>
         {/* the filters sit after every card in tab order; this jumps there, and shows only when focused */}
@@ -146,7 +149,9 @@ function StyleCards() {
             <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
               <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
               <div className={view === 'list' ? 'cards list' : 'cards'}>
-                {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} params={adjustedParams(s, traits)} text={text} size={CARD_SIZE} />)}
+                {shown.filter(s => s.group === g.id).map(s => letters === 'free' && STYLE_FONTS[s.id]
+                  ? <FreeCard key={s.id} style={s} text={text} size={CARD_SIZE} />
+                  : <StyleCard key={s.id} style={s} params={adjustedParams(s, traits)} text={text} size={CARD_SIZE} />)}
               </div>
             </section>
           ))}
@@ -186,9 +191,38 @@ function ActiveBar({ onClear, finder }: { onClear: () => void; finder: boolean }
   );
 }
 
+const LETTERS: [Letters, string, string][] = [
+  ['free', 'Ready-made', 'Each style in a free font, designed by hand and free to use, change and share'],
+  ['own', 'Make my own', 'Letters built from the settings, so every slider reshapes them']
+];
+
+/** Where the letters come from: each style's free font, ready to use, or letters to shape with the settings. */
+function LettersToggle() {
+  const letters = useEditor(s => s.letters);
+  return (
+    <div className="letters-toggle" role="radiogroup" aria-label="Letters">
+      {LETTERS.map(([id, label, tip]) => (
+        <button key={id} role="radio" aria-checked={letters === id} title={tip} className={letters === id ? 'on' : undefined} onClick={() => actions.setLetters(id)}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+/** A style's card in its free font: the sample text set in the font itself, as the browser draws it. */
+function FreeCard({ style: s, text, size }: { style: StyleDef; text: string; size: number }) {
+  const on = useEditor(st => st.styleId === s.id && !!st.params.freeFont);
+  const font = useWebFont(STYLE_FONTS[s.id]);
+  return (
+    <button className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
+      <span className="card-name">{s.name}<span className="card-like">{STYLE_FONTS[s.id].replace(/:.*/, '')} · free font</span></span>
+      <span className={font ? 'card-free' : 'card-free loading'} style={{ ...(font && fontStyle(font)), fontSize: size }}>{text}</span>
+    </button>
+  );
+}
+
 /** Each card shows the sample text set in that style, wrapped to the card's width. */
 function StyleCard({ style: s, params, text, size }: { style: StyleDef; params: Params; text: string; size: number }) {
-  const on = useEditor(st => st.styleId === s.id);
+  const on = useEditor(st => st.styleId === s.id && !st.params.freeFont);
   const [ref, box] = useSize<HTMLButtonElement>();
   const f = fontFor(params), sc = size / 1000, width = Math.max(1, box.width - 36);
   const top = Math.max(f.m.asc, f.m.cap) + 30, LH = top - f.m.desc + 40;

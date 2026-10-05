@@ -7,6 +7,7 @@ import { DEFAULTS, barCut, contrastOf, endCurl, endLength, endReach, formOf, joi
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, roundCuts, signedArea, smoothstep, splitPoly, subCubic, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, shadowShift, slice } from './effects';
+import { freeFont, type FreeFont } from './free';
 import { drawnCmds, type Drawn } from './outline';
 import { autoThickness, buildSerif, diamondCut, diamondEnd, expandStroke, innerFloor, organicK, serifCup, serifPlace, serifSides, type Expanded, type SerifPlace } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, SerifSides, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
@@ -68,6 +69,7 @@ export interface Glyph {
   meta: GlyphMeta;
   bodyW: number;
   lsb: number; rsb: number; adv: number;
+  /** the outline a letter drawn as it is was drawn from (with the pen, or a free font's) */ drawn?: Drawn;
   M: Mat;
   cmds: Cmd[];
   /** SVG path data (y flipped) */
@@ -81,6 +83,8 @@ export interface Font {
   params: Params;
   eff: Effective;
   m: Metrics;
+  /** the free font the letters are written in, once registered (see free.ts) */ free?: FreeFont;
+  /** written in a free font that isn't registered yet: the letters are built meanwhile */ freePending: boolean;
   glyph(ch: string): Glyph | null;
   /** The font `ch` is drawn from: one built with its own settings when it has any, else this one. */
   letter(ch: string): Font;
@@ -2071,9 +2075,16 @@ function drawnGlyph(ch: string, drawn: Drawn): Glyph {
   const cmds = drawnCmds(drawn.contours);
   return {
     ch, strokes: [{ part: 'drawn', cmds, curved: false }], serifs: [], serifAt: [], counters: [], marks: [], corners: [], skeleton: [], meta: {},
-    bodyW: drawn.adv, lsb: 0, rsb: 0, adv: drawn.adv, M: [1, 0, 0, 1, 0, 0], cmds, d: cmdsToD(cmds)
+    bodyW: drawn.adv, lsb: 0, rsb: 0, adv: drawn.adv, M: [1, 0, 0, 1, 0, 0], cmds, d: cmdsToD(cmds), drawn
   };
 }
+
+/** A drawn outline `k` times the size. */
+const scaleDrawn = (d: Drawn, k: number): Drawn => ({
+  adv: d.adv * k,
+  contours: d.contours.map(c => c.map(n => ({ ...n, x: n.x * k, y: n.y * k,
+    ...(n.ix !== undefined && { ix: n.ix * k, iy: n.iy! * k }), ...(n.ox !== undefined && { ox: n.ox * k, oy: n.oy! * k }) })))
+});
 
 /* ---- highlight layers: which part of a glyph does a parameter touch? */
 export const RING_KEYS: Record<string, true> = { terminal: true, aperture: true, apex: true, roundness: true, cursive: true, overlap: true, tail: true };
@@ -2118,10 +2129,14 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
 export const scriptForms = (e: Pick<Params, 'scriptForm' | 'cursive'>) => e.scriptForm === 'script' || (e.scriptForm === 'auto' && e.cursive >= 0.5);
 
 export function buildFont(params: Params): Font {
-  const e = resolve(params), m = metrics(e);
+  const e = resolve(params), m0 = metrics(e);
+  // a free font's letters stand as tall as the design's capitals, and its space is the font's own, wider or
+  // narrower by Word spacing
+  const free = e.freeFont ? freeFont(e.freeFont) : undefined, k = free ? m0.cap / free.cap : 1;
+  const m = free ? { ...m0, space: Math.max(20, free.space * k + (e.wordSpacing - 0.35) * 520) } : m0;
   const cache = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
   const font: Font = {
-    params, eff: e, m,
+    params, eff: e, m, free, freePending: !!e.freeFont && !free,
     letter(ch) {
       const own = params.glyphs?.[ch];
       if (!own) return font;
@@ -2134,6 +2149,7 @@ export function buildFont(params: Params): Font {
       if (g === undefined) {
         const lf = font.letter(ch), drawn = params.outlines?.[ch];
         if (drawn) g = drawnGlyph(ch, drawn);
+        else if (free?.glyphs[ch]) g = drawnGlyph(ch, scaleDrawn(free.glyphs[ch], k));
         else if (lf !== font) g = lf.glyph(ch);
         else if (e.build === 'blocks' && (g = buildBlock(ch, m))) g.ch = ch;
         else {

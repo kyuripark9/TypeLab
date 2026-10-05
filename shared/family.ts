@@ -1,6 +1,7 @@
 /* A font family: the design drawn again at other weights and upright or italic, each saved as its
    own font file under one family name, so font menus list them together (Thin to Black, each with
    its italic). The design itself is one of them, at the weight it is named as. */
+import { nearestFont, parseFontId } from './free-fonts';
 import { weightScale, type GlyphParams, type Params } from './params';
 
 /** The weights a family can have, lightest first, with the OpenType weight class each installs as. */
@@ -71,7 +72,10 @@ export const styleName = (weight: WeightId, italic: boolean) => {
 
 /** One member of the family: the design at the weight `id` and upright or italic. A letter with its
     own weight or slant keeps how it differs from the rest. Letters drawn by hand in Points mode
-    keep their outlines in every member, as they keep them whatever the settings. */
+    keep their outlines in every member, as they keep them whatever the settings. A design written in
+    a free font takes the font of its family as far from the design's as the member's weight is from
+    the anchor's (Bold of a design in Roboto 600 named Regular is Roboto 900), in the family's italic
+    where it has one. */
 export function familyMember(params: Params, anchor: WeightId, weight: WeightId, italic: boolean): FamilyMember {
   const ratio = weightRatio(params.weight, anchor, weight);
   const reweigh = (v: number) => clamp01(unscale(weightScale(v) * ratio));
@@ -82,11 +86,12 @@ export function familyMember(params: Params, anchor: WeightId, weight: WeightId,
   for (const [ch, g] of Object.entries(params.glyphs)) {
     glyphs[ch] = { ...g, ...(g.weight !== undefined && { weight: reweigh(g.weight) }), ...(g.slant !== undefined && { slant: reslant(g.slant) }) };
   }
+  const cls = WEIGHTS.find(w => w.id === weight)!.cls, free = parseFontId(params.freeFont);
+  const freeFont = free ? nearestFont(free.family, free.weight + cls - WEIGHTS.find(w => w.id === anchor)!.cls, italic) ?? params.freeFont : params.freeFont;
   return {
-    weight, italic, style: styleName(weight, italic),
-    cls: WEIGHTS.find(w => w.id === weight)!.cls,
+    weight, italic, style: styleName(weight, italic), cls,
     angle: slant * 20,
-    params: { ...params, weight: reweigh(params.weight), slant, glyphs }
+    params: { ...params, weight: reweigh(params.weight), slant, glyphs, freeFont }
   };
 }
 
