@@ -3,7 +3,7 @@
    -> expanded outlines. Pure math with no DOM, so the browser (live preview) and the
    server (font export) run exactly the same code. A full rebuild of every glyph takes a
    few milliseconds, so sliders can drive it directly. */
-import { DEFAULTS, barCut, contrastOf, endCurl, endLength, endReach, formOf, joinGap, rotationDeg, weighed, weightScale, type Params } from '../params';
+import { DEFAULTS, barCut, contrastOf, endCurl, endLength, endReach, formOf, joinGap, rotationDeg, weighed, weightScale, xHeightRatio, type Params } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, roundCuts, signedArea, splitPoly, subCubic, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, shadowShift, slice } from './effects';
@@ -97,6 +97,11 @@ export const defGlyph = (ch: string, sb: [number, number], fn: GlyphFn, meta?: G
   GLYPHS[ch] = { ch, sb, fn, meta: meta || {} };
 };
 export const hasGlyph = (ch: string) => ch in GLYPHS;
+/** The drawing of glyph `ch`, for a variant that draws it and adds to it (see swash.ts). */
+export const glyphDefOf = (ch: string): { sb: [number, number]; fn: GlyphFn; meta: GlyphMeta } | undefined => GLYPHS[ch];
+
+/** a step on the first Lowercase height scale, on today's (see xHeightFromOld) */
+const XH_OLD = 0.36 / 0.56;
 
 /* Personality sliders are macros: they push several low-level parameters at once. */
 export function resolve(p: Partial<Params>): Effective {
@@ -115,7 +120,8 @@ export function resolve(p: Partial<Params>): Effective {
   e.contrast = push(push(push(push(c.amount, 0.08, human), 0.25, classic), 0.1, formal), -0.05, future);
   e.roundness = push(push(e.roundness, -0.7, ss), 0.15, playful);
   e.apex = push(e.apex, -0.5, ss);
-  e.xHeight = push(push(e.xHeight, 0.18, cf), 0.12, playful);
+  // (as far up and down as they pushed it on the first Lowercase height scale, which started higher)
+  e.xHeight = push(push(e.xHeight, 0.18 * XH_OLD, cf), 0.12 * XH_OLD, playful);
   e.width = push(push(e.width, 0.1, future), -0.07, formal);
   e.letterSpacing = push(e.letterSpacing, 0.04, formal);
   e.square = clamp(0.85 * future + e.squareness);
@@ -151,7 +157,7 @@ function metrics(e: Effective): Metrics {
   // pen, so a heavier stem leaves the bars as they were
   const s0 = 18 + 200 * Math.pow(e.weight, 1.25), s = weighed(s0, e.vWeight, 0, Math.max(s0, 300));
   const cap = lerp(560, 840, e.height);
-  const xh = cap * lerp(0.5, 0.86, e.xHeight);
+  const xh = cap * xHeightRatio(e.xHeight);
   const ws = e.width < 0.5 ? lerp(0.6, 1, e.width * 2) : lerp(1, 1.5, (e.width - 0.5) * 2);
   // the bars thin with contrast, from no heavier than a fifth of the x-height to no lighter than 8; past
   // its gentle start, contrast runs the whole way between the two, so neither limit stops it part way
@@ -165,7 +171,7 @@ function metrics(e: Effective): Metrics {
   // itself, takes the place of as much of it
   const org = e.curve * (1 - clamp(e.slant));
   const ctx: PenCtx = {
-    thick: s, thin, stress, k, org, terminal: e.terminal, chamfer: e.chamfer, joints: e.joints, reverse: e.reverse,
+    thick: s, thin, stress, k, org, terminal: e.terminal, chamfer: e.chamfer, joints: e.joints, reverse: e.reverse, swell: e.swell,
     term: termSpec(e),
     pinch: e.pinch > 0 ? { y: pinchY(e.pinchPos, xh, cap), amount: e.pinch, reach: xh / 2 } : undefined,
     serif: e.serif ? {
@@ -2105,7 +2111,9 @@ export function buildFont(params: Params): Font {
         else if (e.build === 'blocks' && (g = buildBlock(ch, m))) g.ch = ch;
         else {
           // a script's own letters first: they are written whole, single-storey a and all
-          const alt = scriptForms(e) && hasGlyph(ch + '.scr') ? ch + '.scr' : ch === 'a' && e.singleStory ? 'a.alt'
+          // (flourished, where the letter has a swash and swashes are picked)
+          const script = scriptForms(e) && hasGlyph(ch + '.scr');
+          const alt = script && e.flourish === 'swash' && hasGlyph(ch + '.sw') ? ch + '.sw' : script ? ch + '.scr' : ch === 'a' && e.singleStory ? 'a.alt'
             : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
           g = buildGlyph(alt, m);
           if (g) g.ch = ch;

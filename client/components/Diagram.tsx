@@ -165,7 +165,7 @@ const fillPaths = new Map<Fill, { d: string; w: number }>();
 export function FillIcon({ fill }: { fill: Fill }) {
   let icon = fillPaths.get(fill);
   if (!icon) {
-    const g = buildFont({ ...DEFAULTS, weight: 0.72, xHeight: 0.8, counter: 0.6, fill, module: fill === 'wire' ? 0.4 : fill === 'shadow' ? 0.3 : 0.62 }).glyph('a');
+    const g = buildFont({ ...DEFAULTS, weight: 0.72, xHeight: 0.871, counter: 0.6, fill, module: fill === 'wire' ? 0.4 : fill === 'shadow' ? 0.3 : 0.62 }).glyph('a');
     icon = { d: g?.d ?? '', w: g?.adv ?? 500 };
     fillPaths.set(fill, icon);
   }
@@ -177,7 +177,7 @@ const storyPaths = new Map<Story, { d: string; w: number }>();
 export function StoryIcon({ story }: { story: Story }) {
   let icon = storyPaths.get(story);
   if (!icon) {
-    const g = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: 0.8, story }).glyph('a');
+    const g = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: 0.871, story }).glyph('a');
     icon = { d: g?.d ?? '', w: g?.adv ?? 500 };
     storyPaths.set(story, icon);
   }
@@ -199,12 +199,23 @@ export function BarEndsIcon({ ends }: { ends: BarEnds }) {
 /* Letter-shape icons: the letter each option shapes, drawn by the engine in that shape, bold
    enough to read small and framed from descender to ascender. */
 const formPaths = new Map<string, { d: string; box: string }>();
+/** A viewBox round path data `d` (its points and handles), padded and widened to the icon's shape. */
+function framed(d: string) {
+  const v = (d.match(/-?\d*\.?\d+(?:e-?\d+)?/g) ?? []).map(Number), xs = v.filter((_, i) => i % 2 === 0), ys = v.filter((_, i) => i % 2 === 1);
+  if (!xs.length) return '0 0 1 1';
+  let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const pad = (y1 - y0) * 0.06, w = Math.max(x1 - x0, (y1 - y0) * 46 / 40), h = Math.max(y1 - y0, w * 40 / 46);
+  x0 = (x0 + x1 - w) / 2; y0 = (y0 + y1 - h) / 2;
+  return `${n1(x0 - pad)} ${n1(y0 - pad)} ${n1(w + pad * 2)} ${n1(h + pad * 2)}`;
+}
 export function FormIcon({ k, id }: { k: FormKey; id: string }) {
   const key = `${k}:${id}`;
   let icon = formPaths.get(key);
   if (!icon) {
-    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: 0.8, [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
-    icon = { d: g?.d ?? '', box: `0 ${n1(-f.m.asc - 30)} ${n1(g?.adv ?? 500)} ${n1(f.m.asc - f.m.desc + 60)}` };
+    // (flourishes are written on the script letters, and reach well past the letter: framed whole)
+    const swash = k === 'flourish';
+    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: 0.871, ...(swash ? { scriptForm: 'script', weight: 0.5, xHeight: 0.4, swell: 0.5 } : {}), [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
+    icon = { d: g?.d ?? '', box: swash && g ? framed(g.d) : `0 ${n1(-f.m.asc - 30)} ${n1(g?.adv ?? 500)} ${n1(f.m.asc - f.m.desc + 60)}` };
     formPaths.set(key, icon);
   }
   return <svg viewBox={icon.box} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { styleById } from '../../shared/content';
 import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
-import { sanitizeParams } from '../../shared/params';
+import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../../shared/params';
 import { api, download, errorMessage } from '../lib/api';
 import { actions, isDirty, useEditor } from '../state/editor';
 import { FamilyDialog } from './Family';
@@ -154,7 +154,7 @@ function ExportMenu() {
   const exportJSON = () => {
     takeName();
     const s = useEditor.getState(), name = cleanName(s.name);
-    const data = { app: 'TypeLab', version: 1, name, styleId: s.styleId, params: s.params };
+    const data = { app: 'TypeLab', version: PARAMS_VERSION, name, styleId: s.styleId, params: s.params };
     download(`${slug(name)}.typelab.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     actions.toast('Settings exported');
     actions.setExportOpen(false);
@@ -167,7 +167,7 @@ function ExportMenu() {
     try {
       const o = JSON.parse(await file.text());
       if (!o || typeof o !== 'object' || !o.params || typeof o.params !== 'object') throw new Error();
-      actions.replaceParams(sanitizeParams(o.params), typeof o.styleId === 'string' ? o.styleId : undefined);
+      actions.replaceParams(sanitizeParams(upgradeParams(o.params, typeof o.version === 'number' ? o.version : 1)), typeof o.styleId === 'string' ? o.styleId : undefined);
       if (typeof o.name === 'string') actions.setName(cleanName(o.name));
       actions.toast('Settings imported');
       actions.setExportOpen(false);

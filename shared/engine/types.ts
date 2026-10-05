@@ -119,6 +119,9 @@ export interface PenCtx {
   /** strokes thin toward the level line at y, by `amount` there (1 to a point), back to their full
       weight `reach` above and below it */
   pinch?: { y: number; amount: number; reach: number };
+  /** how gradually a pointed pen presses into its downstrokes and lets up (0..1): 0 at once, as the way
+      it runs alone weighs it, 1 over four and a half stems of the stroke (see swell in stroke.ts) */
+  swell?: number;
   /** hand-drawn irregularity (0..1) and a per-glyph phase for it */
   wobble?: number;
   seed?: number;

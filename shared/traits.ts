@@ -37,7 +37,7 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
   ] },
   { id: 'proportion', label: 'Proportion', traits: [
     { id: 'xHeight', label: 'Lowercase', hint: 'How tall the lowercase is next to the capitals', sample: 'Hx', options: [
-      opt('small', 'Small', { xHeight: 0.24 }), opt('medium', 'Medium', { xHeight: 0.5 }), opt('large', 'Large', { xHeight: 0.72 }),
+      opt('small', 'Small', { xHeight: 0.511 }), opt('medium', 'Medium', { xHeight: 0.679 }), opt('large', 'Large', { xHeight: 0.82 }),
       opt('caps', 'Cap high', { xHeight: 1 })] },
     { id: 'spacing', label: 'Spacing', hint: 'The room between letters', sample: 'ill', options: [
       opt('tight', 'Tight', { letterSpacing: 0.04, mono: 0 }), opt('normal', 'Normal', { letterSpacing: 0.2, mono: 0 }),

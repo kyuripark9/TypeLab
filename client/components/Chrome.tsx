@@ -2,8 +2,9 @@
 import { useDeferredValue, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { CATEGORIES, GROUPS, controlFor, findSettings, styleById, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
 import { Link } from 'react-router';
-import { CHARSET } from '../../shared/engine';
+import { CHARSET, type Glyph } from '../../shared/engine';
 import { n1 } from '../lib/hooks';
+import { ink } from '../lib/preview';
 import { actions, useEditor, useFont } from '../state/editor';
 import { AccountButton } from './Account';
 import { PageIcon, SearchIcon } from './Icons';
@@ -115,6 +116,15 @@ export function Nav() {
   );
 }
 
+const CELL = '0 -880 1000 1180';
+/** A strip cell's view of glyph `g`, centred in it: the usual frame, or one drawn back far enough to take
+    in a flourish that reaches well out of it (a swash S), so it doesn't spill over its neighbours. */
+function cellBox(g: Glyph) {
+  const b = ink(g), dx = (1000 - g.adv) / 2, x0 = b.x0 + dx, x1 = b.x1 + dx, top = -b.y1, bottom = -b.y0;
+  if (x0 >= -150 && x1 <= 1150 && top >= -1000 && bottom <= 420) return CELL;
+  const cx = (x0 + x1) / 2, cy = (top + bottom) / 2, k = Math.max((x1 - x0) / 1000, (bottom - top) / 1180) * 1.06;
+  return `${n1(cx - 500 * k)} ${n1(cy - 590 * k)} ${n1(1000 * k)} ${n1(1180 * k)}`;
+}
 const STRIP_GROUPS: [string, string][] = [['Uppercase', CHARSET.upper], ['Lowercase', CHARSET.lower], ['Figures', CHARSET.digits], ['Punctuation', CHARSET.punct], ['Symbols', CHARSET.symbols]];
 
 export function GlyphStrip() {
@@ -179,7 +189,7 @@ export function GlyphStrip() {
                   title={drawn[ch] ? `Inspect ${ch} (drawn by hand)` : custom[ch] ? `Inspect ${ch} (customized)` : `Inspect ${ch}`}
                   ref={el => { if (el) cells.current.set(ch, el); else cells.current.delete(ch); }}
                   onClick={() => actions.openInspector(ch)}>
-                  <svg viewBox="0 -880 1000 1180" aria-hidden="true"><use href={`#g${c}`} x={g ? n1((1000 - g.adv) / 2) : 0} /></svg>
+                  <svg viewBox={g ? cellBox(g) : CELL} aria-hidden="true"><use href={`#g${c}`} x={g ? n1((1000 - g.adv) / 2) : 0} /></svg>
                 </button>
               );
             })}

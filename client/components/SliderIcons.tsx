@@ -151,6 +151,8 @@ const SLIDER: Record<string, ReactNode> = {
   wobble: <><path className="faint" d="M5 3.5v13" /><path d="M12 3.5c-1.4 2.1 1.7 3.6.4 6.3s1.3 4.1-.1 6.7" /></>,
   // a T whose bar curls out into a flourish
   swash: <path d="M17 4H6.5C4.3 4 3 5.3 3 6.8 3 8 3.9 8.8 5 8.8M11.5 4v12.5" />,
+  // a hairline rising into a downstroke that swells from a point and tapers off again, beside one pressed at once
+  swell: <><path className="faint" d="M4 16.5V5" /><path d="M7 16c2.5-3.5 5-8 7.5-12.5" /><path className="solid" d="M14.5 3.5c-.4 4.2-1.7 8.6-3.9 13 1.1-4 2.3-8.4 3.9-13z" /></>,
 
   // —— Effects
   // grid size: a grid of dots

@@ -1,6 +1,7 @@
 /* Public entry point of the font engine. Importing it registers every glyph. */
 import './glyphs';
 import './script';
+import './swash';
 
 export { ALL_CHARS, CHARSET, RING_KEYS, buildFont, hasGlyph, resolve, scriptForms, termSpec } from './font';
 export type { Effective, Font, Glyph, GlyphStroke, Line, LineItem, Metrics } from './font';

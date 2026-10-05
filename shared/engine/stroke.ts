@@ -178,6 +178,28 @@ export function pressed(ty: number, thick: number, thin: number) {
   return thin + (thick - thin) * smoothstep((-ty - 0.1) / 0.8);
 }
 
+/** A pointed pen pressed gradually (see PenCtx.swell): the weights `w` along samples `all` rise from the
+    hairline no faster than over `reach` of the stroke, either way along it, so a downstroke starts from a
+    point, swells full and gives up its weight before it turns, as a nib opens and closes under the hand.
+    The rise is steep at first and eases into the full weight, so a shade's sides bow out like a leaf. */
+function swell(all: Sample[], w: number[], reach: number, thin: number, thick: number) {
+  const span = thick - thin;
+  if (reach <= 0 || span <= 0) return;
+  // the pen sets down and lifts off on a hairline: a stroke starting straight into a downstroke (the top
+  // of an i, after the pen turns back) swells out of a point there too
+  const base = w.slice(), total = all[all.length - 1].len;
+  for (let i = 0; i < all.length; i++) {
+    const u = Math.min(all[i].len, total - all[i].len) / reach;
+    if (u < 1) w[i] = Math.min(w[i], thin + span * u ** 0.6);
+  }
+  for (let i = 0; i < all.length; i++) {
+    for (let j = 0; j < all.length; j++) {
+      const u = Math.abs(all[i].len - all[j].len) / reach;
+      if (u < 1 && base[j] + span * u ** 0.6 < w[i]) w[i] = base[j] + span * u ** 0.6;
+    }
+  }
+}
+
 /* Cut one side of a stroke end off along a line through p, level ('h') or plumb ('v'), turned
    counterclockwise by `tilt` radians. */
 function cutSide(side: Pt[], p: Dir, d: Dir, axis: 'h' | 'v', t: number, tilt = 0) {
@@ -463,7 +485,9 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   }
   // (thin joints also thin a stroke into its sharp turns, so it is sampled finely enough to show it)
   // (and so is a stroke a wobbling pen draws, so its pressure runs on along straights as along curves)
-  const tapered = ws !== 1 || we !== 1 || js !== 1 || je !== 1 || !!ctx.joints || !!ctx.wobble;
+  // (and so is a pointed pen that swells, so its weight rises evenly along a straight downstroke)
+  const swells = o.pen === 'pointed' && !!ctx.swell;
+  const tapered = ws !== 1 || we !== 1 || js !== 1 || je !== 1 || !!ctx.joints || !!ctx.wobble || swells;
   const { runs, closed } = flatten(cmds, ctx, tapered);
   if (!runs.length) return null;
 
@@ -491,8 +515,10 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   // explicit weights name the thick or thin stroke of a pair, so reverse contrast swaps them
   const rev = (w: number) => ctx.reverse ? lerp(w, 1 - w, ctx.reverse) : w;
   const pathW = o.w == null ? null : rev(wNum(o.w));
-  for (const s of all) {
-    let t = o.pen === 'pointed' ? pressed(s.ty, thick, thin) : autoThickness(s.tx, s.ty, ctx, thick, thin);
+  const pen = o.pen === 'pointed' ? all.map(s => pressed(s.ty, thick, thin)) : null;
+  if (pen && swells) swell(all, pen, ctx.swell! * 4.5 * thick, thin, thick);
+  for (const [i, s] of all.entries()) {
+    let t = pen ? pen[i] : autoThickness(s.tx, s.ty, ctx, thick, thin);
     if (pathW != null) t = lerp(thin, thick, pathW);
     if (s.w != null) t = lerp(t, lerp(thin, thick, rev(s.w)), s.mask);
     let f = 1;

@@ -331,8 +331,8 @@ const arch = (p: Pen, x: number, xr: number, W: number) =>
 type Lower = (A: number, D: number, t: number) => [Pen, StrokeOpts][];
 const LOWER_PARAMS = ['scriptForm', 'contrast', 'slant', 'width'];
 
-function lower(ch: string, Wn: number, strokes: Lower, dot?: [number, number]) {
-  def(ch + '.scr', [0, 0], (g, m) => {
+function lower(ch: string, Wn: number, strokes: Lower, dot?: [number, number], name = ch + '.scr') {
+  def(name, [0, 0], (g, m) => {
     // across, an x-height a unit (as Width sets it), widened as the strokes get heavier so the counters stay open
     const sx = (m.xh * 1.05 + m.s * 1.1) * m.W(1000) / 1000, sy = m.xh, A = m.asc / m.xh, D = m.desc / m.xh;
     setHand(m.s / sx);
@@ -358,6 +358,8 @@ lower('b', 0.98, (A, D, t) => { const e: Ellipse = [0.4, 0.5, 0.18, 0.5];
   return [[tie(loopUp(0.22, A, loopW(t)).line(0.22, 0.5).arc(e, 180, 360).line(0.58, 0.9), 0.58, 0.9, tieR(t), 0.98), { part: 'stem' }]]; });
 lower('c', 0.68, () => [[bowl(0.38, 0.24, 300, 50).pen.out(0.68, 1.2), { part: 'bowl' }]]);
 lower('d', 0.95, A => { const { pen } = bowl(O_CX, O_RX, 360); return [[stemUp(pen, O_X, A).foot(O_X, 0.95), { part: 'bowl' }]]; });
+// (the d a swash is written over: its stem stops short, under the flourish, see swash.ts)
+lower('d', 0.95, A => { const { pen } = bowl(O_CX, O_RX, 360); return [[stemUp(pen, O_X, Math.min(A, 1.85)).foot(O_X, 0.95), { part: 'bowl' }]]; }, undefined, 'd.short');
 lower('e', 0.66, () => [[enter().to(0.4, 0.66, 38, 1.2, 1).to(0.48, 0.88, 105).to(0.32, 1, 180, 1).to(0.1, 0.52, -90, 1.1).to(0.34, 0, 0, 1.1).out(0.66, 1.1), { part: 'bowl' }]]);
 lower('f', 0.62, (A, D, t) => [[loopRight(loopUp(0.22, A, loopW(t)), 0.22, D, 0.2, 0.62), { part: 'stem' }]]);
 lower('g', 0.95, (A, D, t) => { const { pen } = bowl(O_CX, O_RX, 360); return [[loopDown(stemUp(pen, O_X, 1), O_X, D, loopW(t), 0.95), { part: 'bowl' }]]; });
@@ -387,3 +389,5 @@ lower('x', 0.84, () => [[arch0(enter(), 0.4).to(0.46, 0.24, -80, 1).to(0.6, 0, 0
 lower('y', 0.92, (A, D, t) => { const e: Ellipse = [0.43, 0.5, 0.19, 0.5];
   return [[loopDown(enter().to(0.24, 1, 78, 1.2, 1).turn(-90).line(0.24, 0.5).arc(e, 180, 360).line(0.62, 1).turn(-90), 0.62, D, loopW(t), 0.92), { part: 'stem' }]]; });
 lower('z', 0.8, (A, D, t) => [[loopDown(enter().to(0.16, 0.84, 74, 1.2, 1).to(0.34, 1, 0, 1).to(0.52, 0.84, -70, 1).to(0.36, 0.54, 200, 1).turn(-25).to(0.54, 0.3, -88, 1.1).to(0.46, 0, -100, 1), 0.46, D, loopW(t), 0.8), { part: 'stem' }]]);
+// (the z a swash tail runs on from: its descender sweeps straight on down to the left, see swash.ts)
+lower('z', 0.8, () => [[enter().to(0.16, 0.84, 74, 1.2, 1).to(0.34, 1, 0, 1).to(0.52, 0.84, -70, 1).to(0.36, 0.54, 200, 1).turn(-25).to(0.54, 0.3, -88, 1.1).to(0.46, 0, -100, 1).to(0.3, -0.5, -125, 1), { part: 'stem', e: T }]], undefined, 'z.open');

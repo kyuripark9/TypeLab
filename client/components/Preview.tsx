@@ -1,7 +1,7 @@
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import { RING_KEYS, type Font, type Line } from '../../shared/engine';
 import { n1 } from '../lib/hooks';
-import { useBlocks } from '../lib/preview';
+import { overhang, useBlocks } from '../lib/preview';
 import { actions, hlKeyOf, useEditor, useFont } from '../state/editor';
 
 /** The large live preview. Glyph shapes come from <GlyphDefs>; this lays them out. */
@@ -18,12 +18,16 @@ export function Preview({ width }: { width: number }) {
   return (
     <div className="preview" onClick={pick}>
       {blocks.map((b, bi) => {
-        const sc = b.size / 1000, lines = font.layout(b.text, width / sc);
-        const H = n1((lines.length * LH + 40) * sc);
+        const sc = b.size / 1000;
+        // flourishes and tails can reach far out of the letters' boxes: the lines are set in from the
+        // edges and the block grows, as far as they reach, so none of the ink is cut off
+        let lines = font.layout(b.text, width / sc), o = overhang(font, lines, width / sc, topU - 40, LH - topU);
+        if (o.l + o.r > 0) { lines = font.layout(b.text, Math.max(width / sc / 2, width / sc - o.l - o.r)); o = overhang(font, lines, width / sc - o.l, topU - 40, LH - topU); }
+        const H = n1((lines.length * LH + 40 + o.t + o.b) * sc);
         return (
           <svg key={bi} className="pv" width={width} height={H} viewBox={`0 0 ${width} ${H}`}
             style={{ '--sw': n1(1.6 / sc) } as CSSProperties}>
-            <g transform={`scale(${sc})`}>
+            <g transform={`translate(${n1(o.l * sc)} ${n1(o.t * sc)}) scale(${sc})`}>
               {lines.map((ln, i) => <PreviewLine key={i} line={ln} y={n1(topU + i * LH)} font={font} hl={hl} topU={topU} LH={LH} widthU={width / sc} />)}
             </g>
           </svg>

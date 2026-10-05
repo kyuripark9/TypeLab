@@ -57,6 +57,9 @@ export const R_FORMS = ['leg', 'loop'] as const;
 /** The letters: built as print type, or written as a joined-up script's (see script.ts); auto writes them in a
     design that is more than half cursive. */
 export const SCRIPT_FORMS = ['auto', 'print', 'script'] as const;
+/** Flourishes on the script letters: none, or swashes (see script.ts): the capitals lead in from a wide loop, t's bar
+    runs out and loops back over, l and d rise into flourishes, and the tails of r and z sweep away under the letters. */
+export const FLOURISHES = ['plain', 'swash'] as const;
 /** The spine of s, S and $: a curve running corner to corner, or level between two tight turns, like two rounded boxes stacked. */
 export const S_FORMS = ['curved', 'flat'] as const;
 /** The foot of the a: a plain stem, or a spur running out to the right along the baseline. */
@@ -97,6 +100,7 @@ export type YForm = (typeof Y_FORMS)[number];
 export type QForm = (typeof Q_FORMS)[number];
 export type RForm = (typeof R_FORMS)[number];
 export type ScriptForm = (typeof SCRIPT_FORMS)[number];
+export type Flourish = (typeof FLOURISHES)[number];
 
 export interface Params {
   /** strokes or blocks (see BUILDS) */ build: Build;
@@ -172,6 +176,9 @@ export interface Params {
   /** the tail of the Q (see Q_FORMS) */ qForm: QForm;
   /** the leg of the R (see R_FORMS) */ rForm: RForm;
   /** print or joined-up script letters (see SCRIPT_FORMS) */ scriptForm: ScriptForm;
+  /** script letters plain or flourished (see FLOURISHES) */ flourish: Flourish;
+  /** how gradually the pointed pen of the script letters presses into a downstroke and lets up: 0 at once,
+      higher swelling from a point and easing off before the turn (see swell in stroke.ts) */ swell: number;
   /** length of tails and hooks (Q y j g t f, the comma, cursive exits): 0.5 is the usual length */ tail: number;
   fill: Fill;
   /** size of the pixels, dots or lines, or the wireframe's line weight */ module: number;
@@ -219,11 +226,11 @@ export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K :
 export const DEFAULTS: Readonly<Params> = Object.freeze({
   build: 'strokes',
   weight: 0.4, width: 0.5, height: 0.5, slant: 0, rotation: 0.5, contrast: 0.5, vWeight: 0.5, hWeight: 0.5, strokeWeights: Object.freeze({}),
-  xHeight: 0.5, counter: 0.5, aperture: 0.5, crossbar: 0.5, barGap: 0, barEnds: 'short',
+  xHeight: 0.679, counter: 0.5, aperture: 0.5, crossbar: 0.5, barGap: 0, barEnds: 'short',
   roundness: 0, curve: 0.2, apex: 0.4, terminal: 'flat', terminalLength: 0.5, terminalEnds: Object.freeze({}), terminalCurl: 0.5, terminalCurls: Object.freeze({}), corners: Object.freeze({}), innerCorners: Object.freeze({}), terminalRun: 'curved',
   terminalForm: 'plain', terminalFlare: 0.5, terminalDepth: 0.5, terminalSize: 0.5, terminalRound: 1, terminalPoint: 0.5, terminalClip: 0.5, terminalLean: 0.5, terminalSlope: 0.5, terminalTilt: 0.5, terminalTip: 0.5, terminalTaper: 0.5, wobble: 0, pinch: 0, pinchPos: 0.5, steps: 0, cornerSteps: Object.freeze({}), innerRound: 0, swash: 0, mirror: 'normal', cursive: 0,
   squareness: 0, chamfer: 0, joints: 0, extenders: 0.5, descender: 0.5, story: 'auto', overlap: 1, bowlJoin: 'curved', gForm: 'hook', kForm: 'arm', dots: 'auto', dotSize: 0.5, iForm: 'auto', sForm: 'curved', aForm: 'plain', joinRound: 0,
-  bowlForm: 'oval', boxRound: 0.5, diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', scriptForm: 'auto', tail: 0.5,
+  bowlForm: 'oval', boxRound: 0.5, diagonals: 'symmetric', bends: 'sharp', yForm: 'forked', qForm: 'crossing', rForm: 'leg', scriptForm: 'auto', flourish: 'plain', swell: 0, tail: 0.5,
   fill: 'solid', module: 0.4, stencil: 0, stencilPos: 0, stencilRound: 0, joinGaps: Object.freeze({}), slice: 0, slicePos: 0.5, sliceRound: 0,
   serif: false, serifSize: 0.45, serifThickness: 0.35, serifShape: 'bracketed', serifAngle: 0.2,
   serifBracket: 0.5, serifTip: 'square', serifTipRound: 1, serifTipSlant: 0.8, serifBase: 'flat', serifCup: 0.5,
@@ -305,6 +312,19 @@ export const endLength = (p: Pick<Params, 'terminalLength'> & { terminalEnds?: R
 export const endCurl = (p: { terminalCurl?: number; terminalCurls?: Record<string, number> }, id: string) =>
   p.terminalCurls?.[id] ?? (id.startsWith('p') ? 0.5 : p.terminalCurl ?? 0.5);
 
+/** The x-height as a share of the cap height, at `v` on the Lowercase height scale: from under a third
+    (a copperplate's) to nearly as tall as the capitals. */
+export const xHeightRatio = (v: number) => 0.3 + 0.56 * v;
+/** An x-height saved on the first scale, which started at half the cap height, on today's (see xHeightRatio). */
+export const xHeightFromOld = (v: number) => Math.round((0.2 + 0.36 * v) / 0.56 * 1000) / 1000;
+/** The version of the settings this build writes. 2 moved the Lowercase height onto a scale reaching lower. */
+export const PARAMS_VERSION = 2;
+/** Settings written by an older version (see PARAMS_VERSION), as this one reads them. */
+export function upgradeParams(src: Record<string, unknown>, version: number): Record<string, unknown> {
+  if (version < 2 && typeof src.xHeight === 'number' && Number.isFinite(src.xHeight)) src = { ...src, xHeight: xHeightFromOld(Math.min(1, Math.max(0, src.xHeight))) };
+  return src;
+}
+
 /** A valid value for setting `k`, or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {
   const d = DEFAULTS[k];
@@ -318,7 +338,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   if (typeof d === 'boolean') return typeof v === 'boolean' ? v : undefined;
   const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, serifTip: SERIF_TIPS, serifBase: SERIF_BASES, serifSides: SERIF_SIDES, serifInner: SERIF_INNERS, fill: FILLS, story: STORIES,
     bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, aForm: A_FORMS, terminalRun: TERMINAL_RUNS, barEnds: BAR_ENDS,
-    bowlForm: BOWL_FORMS, build: BUILDS, mirror: MIRRORS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS, scriptForm: SCRIPT_FORMS };
+    bowlForm: BOWL_FORMS, build: BUILDS, mirror: MIRRORS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS, scriptForm: SCRIPT_FORMS, flourish: FLOURISHES };
   return opts[k]?.includes(v) ? v : undefined;
 }
 

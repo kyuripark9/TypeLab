@@ -4,7 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { Design, DesignInput } from '../shared/design';
-import { sanitizeParams } from '../shared/params';
+import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../shared/params';
 
 interface Row {
   id: string;
@@ -52,6 +52,30 @@ export class DesignStore {
     const cols = this.db.prepare('PRAGMA table_info(designs)').all() as unknown as { name: string }[];
     if (!cols.some(c => c.name === 'owner')) this.db.exec('ALTER TABLE designs ADD COLUMN owner TEXT');
     this.db.exec('CREATE INDEX IF NOT EXISTS designs_owner ON designs (owner, updated_at DESC)');
+    this.upgrade();
+  }
+
+  /** Bring designs saved by an older version onto today's settings (see PARAMS_VERSION), once: the
+      file's user_version records the version its designs are written in. */
+  private upgrade() {
+    const at = Number((this.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version);
+    if (at >= PARAMS_VERSION) return;
+    // a database from before versions (0) holds designs of the first version
+    const from = Math.max(1, at), rows = this.db.prepare('SELECT id, params FROM designs').all() as unknown as { id: string; params: string }[];
+    const save = this.db.prepare('UPDATE designs SET params = ? WHERE id = ?');
+    this.db.exec('BEGIN');
+    try {
+      for (const r of rows) {
+        let p: unknown;
+        try { p = JSON.parse(r.params); } catch { continue; }
+        if (p && typeof p === 'object' && !Array.isArray(p)) save.run(JSON.stringify(upgradeParams(p as Record<string, unknown>, from)), r.id);
+      }
+      this.db.exec(`PRAGMA user_version = ${PARAMS_VERSION}`);
+      this.db.exec('COMMIT');
+    } catch (e) {
+      this.db.exec('ROLLBACK');
+      throw e;
+    }
   }
 
   /** Designs saved before there were owners go to the first browser that asks for them. */
