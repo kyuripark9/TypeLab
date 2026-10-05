@@ -193,7 +193,7 @@ export function AccountButton() {
   }, [open]);
 
   if (user === undefined) return null;
-  if (!user) return <button className="btn ghost" onClick={() => auth.open('signin')}>Sign in</button>;
+  if (!user) return <button className="btn ghost signin" onClick={() => auth.open('signin')}>Sign in</button>;
 
   const signOut = async (saveFirst: boolean) => {
     setConfirm(false);
