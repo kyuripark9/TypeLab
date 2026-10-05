@@ -6,7 +6,7 @@ import { DEFAULT_NAME, cleanName } from '../../shared/design';
 import { ApiError, api, errorMessage } from '../lib/api';
 import { isTyping } from '../lib/hooks';
 import { auth, useAuth } from '../state/auth';
-import { actions, isDirty, useEditor } from '../state/editor';
+import { actions, isDirty, onSaveRequest, useEditor } from '../state/editor';
 import { GlyphStrip, Nav, Toast, focusSettingSearch } from '../components/Chrome';
 import { Dialog } from '../components/Dialog';
 import { GlyphDefs } from '../components/GlyphDefs';
@@ -52,6 +52,7 @@ export function EditorPage() {
     else void save();
   }, [save]);
   useShortcuts(requestSave);
+  useEffect(() => onSaveRequest(requestSave), [requestSave]);
   const leave = useLeaveGuard(save);
   useDeepLinks();
 

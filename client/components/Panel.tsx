@@ -1,7 +1,7 @@
 /* Right-hand panel: the starting-style filters, or the controls of the open category with a
    live explainer. While a letter is inspected, the sliders are grouped by the parts of that
    letter they shape; pointing at a part name highlights it on the letter. Every control leads with plain language; the typographic term comes second. */
-import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import {
   ANATOMY, BAR_END_OPTIONS, BLOCK_CONTROLS, BOWL_SUBS, PINCH_SUBS, CROSSBAR_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, MOODS, PAGE_STYLES, PART_CONTROL, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS, SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS, STORY_OPTIONS,
   SLICE_SUBS, STENCIL_SUBS, SUBS, TAG_FACE, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, ROUND_SUBS, WEIGHT_SUBS, controlFor, styleById,
@@ -21,8 +21,11 @@ import { SliderIcon } from './SliderIcons';
 
 export function Panel() {
   const category = useEditor(s => s.category), customizing = useEditor(s => !!letterOf(s));
+  // a new page starts at its top (a setting found by name scrolls to itself after this)
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => { ref.current?.scrollTo(0, 0); }, [category]);
   return (
-    <aside className={customizing ? 'panel customizing' : 'panel'} aria-label={category === 'style' ? 'Find and adjust styles' : 'Controls'} data-guide="panel"
+    <aside ref={ref} className={customizing ? 'panel customizing' : 'panel'} aria-label={category === 'style' ? 'Find and adjust styles' : 'Controls'} data-guide="panel"
       onPointerLeave={() => { actions.setHot(false); actions.setPart(null); }}>
       {category === 'style' ? <StylePanel /> : <ControlsPanel category={category} />}
     </aside>
@@ -284,7 +287,28 @@ function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> })
     <>
       <Explainer />
       {inspecting ? <LetterControls keys={keys} category={category} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}{note}</div>}
+      <PageSteps category={category} />
     </>
+  );
+}
+
+/** The foot of every page of controls: the way back and on through the pages in order, so a design
+    can be made by walking them from Style to the end, where Save and Export take over. */
+function PageSteps({ category }: { category: Exclude<CategoryId, 'style'> }) {
+  const i = CATEGORIES.findIndex(c => c.id === category), prev = CATEGORIES[i - 1], next = CATEGORIES[i + 1];
+  const go = (id: CategoryId) => () => actions.setCategory(id);
+  const arrow = (d: string) => <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d={d} /></svg>;
+  return (
+    <nav className="page-steps" aria-label="Pages">
+      {prev && <button className="btn ghost small" onClick={go(prev.id)}>{arrow('M10 3 5 8l5 5')}{prev.label}</button>}
+      <span className="page-steps-grow" />
+      {next
+        ? <button className="btn outline small" onClick={go(next.id)}>Next: {next.label}{arrow('m6 3 5 5-5 5')}</button>
+        : <>
+            <button className="btn outline small" onClick={actions.requestSave}>Save</button>
+            <button className="btn primary small" onClick={() => actions.setExportOpen(true)}>Export font</button>
+          </>}
+    </nav>
   );
 }
 

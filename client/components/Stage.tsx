@@ -125,8 +125,8 @@ function StyleCards() {
         <button className="link small" onClick={() => actions.setFinder(!finder.on)}>{finder.on ? 'Browse all styles' : 'Help me choose'}</button>
         {/* the filters sit after every card in tab order; this jumps there, and shows only when focused */}
         <button className="skip" onClick={focusFilters}>Skip to filters</button>
-        {/* the way on, once there are cards to pick from: shape the style that's loaded */}
-        {!finder.question && current && (
+        {/* the way on, once the style that's loaded is among the cards: shape it */}
+        {!finder.question && current && shown.includes(current) && (
           <button className="btn primary small cards-next" onClick={() => actions.setCategory('weight')}>
             Customize {current.name}
             <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" /></svg>

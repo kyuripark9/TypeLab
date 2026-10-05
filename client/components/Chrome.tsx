@@ -190,15 +190,19 @@ export function GlyphStrip() {
 }
 
 export function Toast() {
-  const toast = useEditor(s => s.toast);
+  const now = useEditor(s => s.toast);
+  // a toast taken away keeps its words while it fades
+  const last = useRef(now);
+  if (now) last.current = now;
+  const toast = last.current;
   const [show, setShow] = useState(false);
   useEffect(() => {
-    if (!toast) return;
+    if (!now) { setShow(false); return; }
     setShow(true);
     // a toast with a button (Undo, Customize) stays long enough to reach it
-    const t = setTimeout(() => setShow(false), toast.action ? 6000 : 2400);
+    const t = setTimeout(() => setShow(false), now.action ? 6000 : 2400);
     return () => clearTimeout(t);
-  }, [toast]);
+  }, [now]);
   const action = toast?.action;
   return (
     <div className={['toast', show && 'show', action && 'has-action'].filter(Boolean).join(' ')} role="status" aria-live="polite">

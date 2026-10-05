@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { styleById } from '../../shared/content';
-import { NAME_MAX, cleanName, slug } from '../../shared/design';
+import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
 import { sanitizeParams } from '../../shared/params';
 import { api, download, errorMessage } from '../lib/api';
 import { actions, isDirty, useEditor } from '../state/editor';
@@ -119,6 +119,17 @@ function ExportMenu() {
   const [busy, setBusy] = useState<string | null>(null), [family, setFamily] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 
+  // the name the font installs under, on top of the menu: a design still Untitled is offered one
+  // from its style, as on its first save, and takes it once something is exported
+  const [draft, setDraft] = useState(''), touched = useRef(false);
+  useEffect(() => {
+    if (!open) return;
+    const s = useEditor.getState();
+    setDraft(cleanName(s.name) === DEFAULT_NAME ? `My ${styleById(s.styleId)?.name ?? 'font'}` : s.name);
+    touched.current = false;
+  }, [open]);
+  const takeName = () => { if (cleanName(draft) !== cleanName(useEditor.getState().name)) void commitName(draft); };
+
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => { if (!wrap.current?.contains(e.target as Node)) actions.setExportOpen(false); };
@@ -127,6 +138,7 @@ function ExportMenu() {
   }, [open]);
 
   const serverExport = async (kind: 'otf' | 'svg') => {
+    takeName();
     const s = useEditor.getState(), name = cleanName(s.name);
     setBusy(kind);
     try {
@@ -142,6 +154,7 @@ function ExportMenu() {
   };
 
   const exportJSON = () => {
+    takeName();
     const s = useEditor.getState(), name = cleanName(s.name);
     const data = { app: 'TypeLab', version: 1, name, styleId: s.styleId, params: s.params };
     download(`${slug(name)}.typelab.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
@@ -170,10 +183,17 @@ function ExportMenu() {
       <button className="btn primary" aria-expanded={open} aria-haspopup="menu" onClick={() => actions.setExportOpen(!open)}>Export</button>
       {open && (
         <div className="popover" role="menu">
+          <label className="exp-name">
+            <span>Font name</span>
+            <input value={draft} maxLength={NAME_MAX} spellCheck={false}
+              onChange={e => { touched.current = true; setDraft(e.target.value); }}
+              onBlur={() => { if (touched.current) takeName(); }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); takeName(); } }} />
+          </label>
           <button className="exp" role="menuitem" disabled={!!busy} onClick={() => serverExport('otf')}>
             <b>{busy === 'otf' ? 'Building font…' : 'Font file'}</b><span>.otf — install it and use it in any app</span>
           </button>
-          <button className="exp" role="menuitem" disabled={!!busy} onClick={() => { actions.setExportOpen(false); setFamily(true); }}>
+          <button className="exp" role="menuitem" disabled={!!busy} onClick={() => { takeName(); actions.setExportOpen(false); setFamily(true); }}>
             <b>Font family…</b><span>.zip — more weights and an italic, installed as one family</span>
           </button>
           <button className="exp" role="menuitem" disabled={!!busy} onClick={() => serverExport('svg')}>

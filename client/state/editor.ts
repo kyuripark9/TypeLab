@@ -223,7 +223,16 @@ export function useScopedFont() {
   return ch ? font.letter(ch) : font;
 }
 
+/** Save as the header's Save does (the editor page says how), for a Save button elsewhere. */
+let saveRequest = () => {};
+export function onSaveRequest(fn: () => void) {
+  saveRequest = fn;
+  return () => { if (saveRequest === fn) saveRequest = () => {}; };
+}
+
 let toastId = 0;
+/** the toast that offers Customize after a style is picked */
+let styleToast = -1;
 
 /** A starting style with the traits laid over it: one params object per style and set of traits, so fonts build once. */
 const adjustedCache = new Map<string, Params>();
@@ -338,12 +347,16 @@ export const actions = {
   /** Start from a style, with the Style page's traits laid over it. */
   loadStyle(id: string) {
     const st = styleById(id); if (!st) return;
-    const traits = get().traits, params = { ...applyTraits(st.params, traits) }, n = Object.keys(traits).length;
+    const s = get(), traits = s.traits, params = { ...applyTraits(st.params, traits) }, n = Object.keys(traits).length;
+    // a design shaped since its style was picked loses that work to the new style: say so, with a way back
+    const shaped = s.hi > 0 && s.picked !== JSON.stringify(s.params);
     set({ params, styleId: id, switchedOn: [], picked: JSON.stringify(params) });
     actions.commit();
+    if (shaped) { actions.toast(`${st.name} loaded in place of your changes`, { label: 'Undo', run: () => actions.travel(-1) }); return; }
     // the way on from here: the first page of controls, offered right on the toast
     actions.toast(`${st.name} loaded${n ? ` with ${n} ${n === 1 ? 'trait' : 'traits'}` : ''} — now make it yours`,
       { label: 'Customize', run: () => actions.setCategory('weight') });
+    styleToast = toastId;
   },
   /** Reset one slider to the starting style's value, or, while edits go to one letter, to the
       value the other letters share. */
@@ -405,7 +418,8 @@ export const actions = {
   /* ---- UI */
   setCategory(category: CategoryId, active?: ActiveKey) {
     if (category === 'style') { set({ category, inspect: null, part: null }); return; }
-    set({ category, active: active ?? firstControl(category) });
+    // the "Customize" offered on picking a style has done its job once a page of controls is open
+    set(s => ({ category, active: active ?? firstControl(category), ...(s.toast?.id === styleToast ? { toast: null } : {}) }));
   },
   setActive(active: ActiveKey) { if (get().active !== active) set({ active }); },
   setHot(hot: boolean) { if (get().hot !== hot) set({ hot }); },
@@ -504,6 +518,7 @@ export const actions = {
     actions.toast(`${ch} follows the settings again · ⌘Z brings the drawing back`);
   },
   setExportOpen(exportOpen: boolean) { set({ exportOpen }); },
+  requestSave() { saveRequest(); },
   toast(msg: string, action?: ToastAction) { set({ toast: { id: ++toastId, msg, action } }); },
   setNavOpen(navOpen: boolean) { set({ navOpen }); }
 };

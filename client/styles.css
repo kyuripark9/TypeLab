@@ -331,6 +331,13 @@ body.resizing.y { cursor: row-resize; }
 .ctl-list { padding: 8px 8px 24px; display: grid; gap: 2px; }
 .list-head { padding: 12px 12px 2px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
 .list-head:first-child { padding-top: 4px; }
+/* the foot of a page of controls, kept in sight as the explainer is at the top: back, and on to the
+   next page (or Save and Export on the last) */
+.page-steps { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 12px 12px; background: inherit; border-top: 1px solid var(--line); border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
+.page-steps-grow { flex: 1; }
+.page-steps .btn { gap: 5px; }
+.page-steps .btn svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; margin: 0; }
+.page-steps .btn.ghost { color: var(--ink-2); padding-left: 6px; }
 .page-note { margin: 0; padding: 6px 12px; font-size: 12.5px; color: var(--ink-3); }
 .ctl-parts { display: flex; flex-wrap: wrap; gap: 0 4px; font-size: 12px; color: var(--ink-3); }
 .ctl-parts .part { border-radius: var(--radius-s); padding: 0 4px; margin: 0 -4px; cursor: default; transition: background .15s, color .15s; }
@@ -478,6 +485,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 /* customizing one letter: the panel is edged and washed in orange like the inspector's frame, and the controls
    that reshape only that letter take its colour; Whole font ones keep theirs */
 .panel.customizing { background: var(--custom-wash); box-shadow: inset 0 0 0 2px var(--custom); }
+.panel.customizing .page-steps { box-shadow: inset 2px 0 0 var(--custom), inset -2px -2px 0 var(--custom); }
 .panel.customizing .explainer { box-shadow: inset 2px 2px 0 var(--custom), inset -2px 0 0 var(--custom); --accent-ink: var(--custom-ink); }
 .ctl[data-letter] { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --fill: var(--custom); }
 .ctl.active[data-letter] { background: var(--custom-tint); }
@@ -650,6 +658,12 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .exp:hover { background: var(--well); }
 .exp b { font-size: 13.5px; font-weight: 500; }
 .exp span { font-size: 12px; color: var(--ink-3); }
+/* the name the font installs under, on top of Export */
+.exp-name { display: grid; gap: 6px; padding: 8px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.exp-name span { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.exp-name input { height: 32px; padding: 0 10px; border: 0; border-radius: var(--radius); background: var(--well); box-shadow: inset 0 0 0 1px var(--line); font: 500 13.5px var(--ui); color: var(--ink); transition: box-shadow .15s, background .15s; }
+.exp-name input:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
+.exp-name input:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
 .exp.import { border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); margin-top: 4px; padding-top: 10px; }
 .toast { position: fixed; left: 50%; bottom: calc(var(--strip-h, 76px) + 24px); transform: translate(-50%, 8px); background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 100px; font-size: 13px; font-weight: 500; box-shadow: var(--shadow); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; z-index: 40; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
