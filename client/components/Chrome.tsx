@@ -1,6 +1,6 @@
 /* The frame around the stage: category navigation, glyph strip and toast. */
 import { useDeferredValue, useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { CATEGORIES, GROUPS, controlFor, findSettings, styleById, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
+import { CATEGORIES, GROUPS, controlFor, findSettings, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
 import { Link } from 'react-router';
 import { CHARSET, type Glyph } from '../../shared/engine';
 import { n1 } from '../lib/hooks';
@@ -54,7 +54,7 @@ function openSetting(h: SettingHit) {
 }
 
 export function Nav() {
-  const category = useEditor(s => s.category), style = useEditor(s => styleById(s.styleId));
+  const category = useEditor(s => s.category);
   const [query, setQuery] = useState(''), [pick, setPick] = useState(0);
   const hits = query.trim() ? findSettings(query) : null;
   const list = useRef<HTMLDivElement>(null);
@@ -110,7 +110,6 @@ export function Nav() {
       )}
       {/* phones: the header has no room for it, so it sits at the foot of the drawer */}
       <Link className="nav-item nav-designs" to="/designs"><span className="nav-label">My designs</span></Link>
-      <div className="nav-foot"><span>Based on</span><b>{style?.name}</b></div>
       <div className="nav-account"><AccountButton /></div>
     </nav>
   );

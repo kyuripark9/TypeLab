@@ -62,6 +62,7 @@ export function Header({ onSave, onGuide, naming, onNamed, onCancelNaming }: Hea
             onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }} />
           <svg className="doc-name-pen" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M10.5 3.5l2 2L6 12H4v-2z" /></svg>
         </label>
+        <BasedOn />
       </div>
       <div className="top-actions" data-guide="actions">
         <button className="btn ghost icon" onClick={() => actions.travel(-1)} disabled={!canUndo} title="Undo (⌘Z)" aria-label="Undo">
@@ -82,6 +83,17 @@ export function Header({ onSave, onGuide, naming, onNamed, onCancelNaming }: Hea
         <ExportMenu />
       </div>
     </header>
+  );
+}
+
+/** The style the design started from, after its name: a click goes back to the styles to pick another. */
+function BasedOn() {
+  const style = useEditor(s => styleById(s.styleId));
+  if (!style) return null;
+  return (
+    <button className="based-on" title={`Based on ${style.name}. Pick another style`} onClick={() => { actions.setCategory('style'); actions.setNavOpen(false); }}>
+      from <b>{style.name}</b>
+    </button>
   );
 }
 

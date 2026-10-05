@@ -110,10 +110,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 /* the setting Find a setting opened glows once */
 .ctl.found { animation: found 1.6s ease; }
 @keyframes found { 0%, 40% { background: var(--accent-soft); border-color: var(--accent); } }
-.nav-foot { margin-top: auto; padding: 10px 10px 4px; font-size: 11.5px; color: var(--ink-3); display: flex; flex-direction: column; gap: 1px; }
-.nav-foot b { color: var(--ink); font-size: 13px; font-weight: 600; }
 .nav-designs { display: none; margin-top: auto; text-decoration: none; }
-.nav-designs + .nav-foot { margin-top: 0; }
 /* the account, in the bottom-left corner: at the nav's foot under a hairline, or on pages without a nav alone in the corner */
 .nav-account { flex: none; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); }
 .nav-account:empty { display: none; }
@@ -778,6 +775,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
   .strip { margin-top: 0; }
   .top-left .brand, .top .sep, .top-actions [aria-label=Undo], .top-actions [aria-label=Redo], .top-actions .guide-btn, .top-actions a[href="/designs"] { display: none; }
   .nav-designs { display: flex; }
+  .nav-designs + .nav-account { margin-top: 0; }
   .top-actions .btn { padding: 0 8px; }
   .top-actions .btn.primary { padding: 0 12px; }
   .doc-name { width: 100%; min-width: 72px; }
@@ -835,6 +833,11 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .name-prompt p { margin: 6px 0 0; font-size: 12px; color: var(--ink-3); }
 .name-prompt-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
 .doc-name:focus { outline: none; border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft); }
+.based-on { flex: none; height: 24px; padding: 0 8px; margin-left: 2px; border-radius: 999px; font-size: 12px; color: var(--ink-3); background: var(--well); white-space: nowrap; transition: background .15s, color .15s; }
+.based-on b { font-weight: 500; color: var(--ink-2); }
+.based-on:hover { background: var(--active); color: var(--ink-2); }
+.based-on:hover b { color: var(--ink); }
+@media (max-width: 760px) { .based-on { display: none; } }
 .top .sep { margin: 0 10px; }
 .top-left .brand { margin-right: 12px; }
 
