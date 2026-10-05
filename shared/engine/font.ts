@@ -163,7 +163,6 @@ function metrics(e: Effective): Metrics {
   // its gentle start, contrast runs the whole way between the two, so neither limit stops it part way
   const thinAt = (c: number) => Math.max(8, Math.min(s0 * (1 - 0.08 - 0.84 * c), xh * 0.2));
   const thin = weighed(e.contrast <= 0.05 ? thinAt(e.contrast) : lerp(thinAt(0.05), thinAt(1), (e.contrast - 0.05) / 0.95), e.hWeight, 4, xh * 0.32);
-
   const stress = e.stressDeg * Math.PI / 180;
   const k = 0.5523 + 0.05 * e.curve + 0.36 * e.square;
   // organic bowls are fuller on the diagonal a slant leans into a sharp corner (top right, bottom left):
@@ -1361,7 +1360,6 @@ function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | nul
     // (one size for every stroke there, at 1 as deep as it can be: 0.85 of the thinner of the stroke and the bars, so
     // they stay joined, or the room there is)
     if (sv > 0) for (const p of g.pts) p.step = sv * Math.min(0.85 * Math.min(g.t, m.hT), room);
-
     const alone = shows.get(g.partner) === false && g.at ? lone(q, g.at, g.t) : null;
     if (alone) {
       const r = (own ?? 0) * alone.most;

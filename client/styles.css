@@ -506,14 +506,6 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .scope-note em { font-style: normal; font-weight: 600; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
 .check input { accent-color: var(--accent); }
-.insp-body { flex: 1; display: flex; min-height: 0; position: relative; }
-.insp-canvas { flex: 1; min-width: 0; min-height: 0; overflow: hidden; position: relative; user-select: none; touch-action: none; }
-.insp-canvas svg { display: block; }
-.i-ink { fill: var(--ink); transition: opacity .15s; }
-.i-ink.dim { opacity: .22; }
-.i-hl { fill: var(--accent); }
-.i-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: var(--sw); }
-.i-adv { fill: rgba(46, 59, 62, .025); stroke: var(--line-2); stroke-dasharray: 3 4; }
 /* the construction grid: a bar naming the grid and the letters on it, and in the canvas the letter as an
    outline with its lines and circles drawn through it (shared with the group in one colour, its own in the other) */
 .grid-bar { flex: none; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 4px 14px; border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
@@ -528,6 +520,14 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .i-trace { fill: none; stroke: var(--ink); stroke-linejoin: round; }
 .i-ink.bare { fill: var(--surface); }
 .insp-canvas.gridded .i-hl { opacity: .16; }
+.insp-body { flex: 1; display: flex; min-height: 0; position: relative; }
+.insp-canvas { flex: 1; min-width: 0; min-height: 0; overflow: hidden; position: relative; user-select: none; touch-action: none; }
+.insp-canvas svg { display: block; }
+.i-ink { fill: var(--ink); transition: opacity .15s; }
+.i-ink.dim { opacity: .22; }
+.i-hl { fill: var(--accent); }
+.i-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: var(--sw); }
+.i-adv { fill: rgba(46, 59, 62, .025); stroke: var(--line-2); stroke-dasharray: 3 4; }
 .i-guide { stroke: var(--line-2); }
 .i-guide.hot { stroke: var(--accent); stroke-width: 1.5; }
 .i-label { font: 500 10px var(--ui); fill: var(--ink-3); }
