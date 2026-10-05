@@ -9,8 +9,9 @@ import { Inspector } from './Inspector';
 import { focusFilters } from './Panel';
 import { Preview } from './Preview';
 
-/* Like Google Fonts: one "Type something" bar on top sets the sample text and size, both for the
-   style cards and for the live preview of the design. */
+/* Like Google Fonts: one "Type something" bar on top sets the sample text, both for the style cards
+   and for the live preview of the design. The size only shows with the preview: the cards are for
+   comparing styles, so they keep one size. */
 export function Stage() {
   const style = useEditor(s => s.category === 'style');
   return (
@@ -31,12 +32,13 @@ function PreviewBar() {
           value={custom} onChange={e => actions.setCustom(e.target.value)} />
         {custom && <button className="type-clear" aria-label="Clear preview text" onClick={() => actions.setCustom('')}>✕</button>}
       </div>
-      <div className="size">
-        <span>Size</span>
-        <input type="range" min={14} max={220} value={size} aria-label="Size" onChange={e => actions.setSize(Number(e.target.value))} />
-        <SizeValue size={size} />
-      </div>
-      {style && <ViewToggle />}
+      {style ? <ViewToggle /> : (
+        <div className="size">
+          <span>Size</span>
+          <input type="range" min={14} max={220} value={size} aria-label="Size" onChange={e => actions.setSize(Number(e.target.value))} />
+          <SizeValue size={size} />
+        </div>
+      )}
     </div>
   );
 }
@@ -104,11 +106,14 @@ function SampleText() {
   );
 }
 
+/** The size every style card is set at, in px. */
+const CARD_SIZE = 48;
+
 /** Cards are grouped by Category, the finder's first question, and narrowed by all the filters. Each
     is drawn with the Adjust tab's traits laid over its style. The finder asks its questions first,
     and the cards come once they're answered. */
 function StyleCards() {
-  const custom = useEditor(s => s.custom), text = sampleText(custom), size = useEditor(s => s.size);
+  const custom = useEditor(s => s.custom), text = sampleText(custom);
   const finder = useFinder();
   const view = useEditor(s => s.view);
   const head = useRef<HTMLHeadingElement>(null);
@@ -141,7 +146,7 @@ function StyleCards() {
             <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
               <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
               <div className={view === 'list' ? 'cards list' : 'cards'}>
-                {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} params={adjustedParams(s, traits)} text={text} size={size} />)}
+                {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} params={adjustedParams(s, traits)} text={text} size={CARD_SIZE} />)}
               </div>
             </section>
           ))}
