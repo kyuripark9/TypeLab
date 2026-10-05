@@ -4,7 +4,7 @@
    server (font export) run exactly the same code. A full rebuild of every glyph takes a
    few milliseconds, so sliders can drive it directly. */
 import { DEFAULTS, barCut, contrastOf, endCurl, endLength, endReach, formOf, joinGap, rotationDeg, weighed, weightScale, xHeightRatio, type Params } from '../params';
-import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, roundCuts, signedArea, splitPoly, subCubic, transformCmds } from './geom';
+import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, roundCuts, signedArea, smoothstep, splitPoly, subCubic, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, shadowShift, slice } from './effects';
 import { drawnCmds, type Drawn } from './outline';
@@ -310,6 +310,8 @@ export class Builder {
   reachL = 0; reachR = 0;
   /** side-bearing factors for a form of the letter with other sides than its usual one (an arched V's stems) */
   sb?: [number, number];
+  /** where a joined-up letter meets its neighbours (see script.ts): the hand's irregularity leaves these be */
+  joins?: [number, number][];
   constructor(public m: Metrics) {}
   path(cmds: Cmd[], o?: StrokeOpts) { this.strokes.push({ cmds, o: o || {} }); return this; }
   line(x0: number, y0: number, x1: number, y1: number, o?: StrokeOpts) { return this.path([['M', x0, y0], ['L', x1, y1]], o); }
@@ -342,11 +344,14 @@ const hash = (n: number, k: number) => { const v = Math.sin(n * 12.9898 + k * 78
 
 /* Hand-drawn irregularity: a smooth displacement field, different for every glyph. Every
    stroke of a glyph moves through the same field, so strokes that touch keep touching. */
-function wobbler(code: number, m: Metrics) {
-  const A = m.wob * m.xh * 0.085, f = 2 * Math.PI / (m.xh * 1.1);
+function wobbler(code: number, m: Metrics, pins: [number, number][] = []) {
+  const A0 = m.wob * m.xh * 0.085, f = 2 * Math.PI / (m.xh * 1.1);
   const p = [1, 2, 3, 4, 5, 6].map(k => hash(code, k + 10) * 2 * Math.PI);
-  const dx = (x: number, y: number) => A * (0.5 * Math.sin(x * f * 0.7 + y * f * 0.5 + p[0]) + 0.3 * Math.sin(y * f * 1.3 + p[1]) + 0.2 * Math.sin(y * f * 3.1 + x * f * 0.9 + p[4]));
-  const dy = (x: number, y: number) => A * 0.75 * (0.5 * Math.sin(x * f * 1.1 - y * f * 0.4 + p[2]) + 0.3 * Math.sin(x * f * 0.5 + p[3]) + 0.2 * Math.sin(x * f * 2.9 - y * f * 1.3 + p[5]));
+  // still at a pin, and coming in smoothly further off: two joined letters' wobbles differ, and
+  // their joins have to lie on the one line all the same
+  const A = (x: number, y: number) => A0 * pins.reduce((k, [px, py]) => k * smoothstep((Math.hypot(x - px, y - py) - m.xh * 0.2) / (m.xh * 0.4)), 1);
+  const dx = (x: number, y: number) => A(x, y) * (0.5 * Math.sin(x * f * 0.7 + y * f * 0.5 + p[0]) + 0.3 * Math.sin(y * f * 1.3 + p[1]) + 0.2 * Math.sin(y * f * 3.1 + x * f * 0.9 + p[4]));
+  const dy = (x: number, y: number) => A(x, y) * 0.75 * (0.5 * Math.sin(x * f * 1.1 - y * f * 0.4 + p[2]) + 0.3 * Math.sin(x * f * 0.5 + p[3]) + 0.2 * Math.sin(x * f * 2.9 - y * f * 1.3 + p[5]));
   const pt = (x: number, y: number): [number, number] => [x + dx(x, y), y + dy(x, y)];
   // A handle goes the way the field carries the bit of curve beside its point, not to where the field
   // would take the handle itself: then two curves that met smoothly still do, where moving each handle
@@ -1757,7 +1762,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   const code = ch.charCodeAt(0);
   let ctx = m.ctx;
   if (m.wob > 0) {
-    const wb = wobbler(code, m);
+    const wb = wobbler(code, m, b.joins);
     for (const st of b.strokes) {
       if (st.cmds) st.cmds = wb.cmds(st.cmds);
       if (st.poly) st.poly = st.poly.map(q => { const [x, y] = wb.pt(q.x, q.y); return { ...q, x, y }; });
@@ -1894,7 +1899,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
       for (const end of ex.ends) {
         if (!(end.which === 's' ? serifS : serifE) || !diamondEnd(end, ctx)) continue;
         const face = facing?.get(`${si}${end.which}`), sides = face ? face.sides : (end.which === 's' ? o.serifS : o.serifE) ?? null;
-        if (sides) { const cut = diamondCut(end, ctx); pieces = pieces.flatMap(q => cut.flatMap(pl => splitPoly([q], pl))); }
+        if (sides) { const cut = diamondCut(end, ctx, sides); pieces = pieces.flatMap(q => cut.flatMap(pl => splitPoly([q], pl))); }
       }
       for (const [y0, y1] of through?.bands.get(si) ?? []) {
         // a wide gap leaves no sliver of the stroke past it (the foot of an A's leg)
@@ -1936,7 +1941,30 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   // touch the neighbouring letter instead of running through it
   const padL = Math.max(0, -b.reachL - m.sb * 1.3), padR = Math.max(0, b.reachR - W - m.sb * 1.3);
   const sbf = b.sb ?? def.sb;
-  return placeGlyph(out, W, m.sb * sbf[0] + padL + grow.l + leanL, m.sb * sbf[1] + padR + leanR, code, m);
+  let lsb = m.sb * sbf[0] + padL + grow.l + leanL, rsb = m.sb * sbf[1] + padR + leanR;
+  if (ctx.serif?.shape === 'diamond') [lsb, rsb] = clearStems(out, W, lsb, rsb, m);
+  return placeGlyph(out, W, lsb, rsb, code, m, !!b.joins);
+}
+
+/** Side bearings that keep a letter's ink clear of the stems beside it. A blackletter is packed so close
+    (its tracking tight, a diamond under each stem reaching into the next letter's room) that an arm or
+    a leg reaching out past the body, the flag of an r, the leg of a k, ran into the next letter's stem:
+    each side leaves at least a fifth of a stroke between its ink and a neighbouring stem standing a
+    side bearing in. A stem's own diamonds clear it already, as the head reaches left at the top and
+    the foot right at the bottom, past the neighbour's. */
+function clearStems(out: Unplaced, W: number, lsb: number, rsb: number, m: Metrics): [number, number] {
+  let x0 = Infinity, x1 = -Infinity, at = { x: 0, y: 0 };
+  const see = (x: number) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); };
+  for (const c of [...out.strokes.flatMap(st => st.cmds), ...out.serifs.flat()]) {
+    if (c[0] === 'C') {
+      const P = [at, { x: c[1], y: c[2] }, { x: c[3], y: c[4] }, { x: c[5], y: c[6] }];
+      for (let i = 1; i <= 8; i++) see(cubicAt(P, i / 8).x);
+      at = P[3];
+    } else if (c[0] !== 'Z') { at = { x: c[c.length - 2] as number, y: c[c.length - 1] as number }; see(at.x); }
+  }
+  if (x0 > x1) return [lsb, rsb];
+  const room = m.sb - m.s * 0.2 + m.track;
+  return [Math.max(lsb, -x0 - room), Math.max(rsb, x1 - W - room)];
 }
 
 type Unplaced = Omit<Glyph, 'lsb' | 'rsb' | 'adv' | 'M' | 'cmds' | 'd'>;
@@ -1966,7 +1994,7 @@ function buildBlock(ch: string, m: Metrics): Glyph | null {
 
 /** Place a glyph drawn `W` wide between side bearings lsb and rsb: rotation, monospacing, the pixel grid,
     playful bounce and hand jitter, slant, then the slice and the fills, which run on its final outline. */
-function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: number, m: Metrics): Glyph {
+function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: number, m: Metrics, joined = false): Glyph {
   const turn = m.rot ? turnAbout(out, m.rot) : null;
   if (turn) { lsb += turn.grow; rsb += turn.grow; }
   // mirrored, the letter's margins change sides with it
@@ -1991,7 +2019,8 @@ function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: nu
   if (m.p.fill === 'shadow') { const sh = shadowShift(m.s, m.p.module).dx; rsb += sh; adv += sh; }
   let M: Mat = flip ? [-sx, 0, 0, 1, lsb + W * sx, 0] : [sx, 0, 0, 1, lsb, 0];
   if (turn) M = mulM(M, turn.M);
-  const bounce = m.p.bounce, wob = m.wob;
+  // (a joined-up letter isn't tipped or lifted: its joins would no longer meet its neighbours')
+  const bounce = joined ? 0 : m.p.bounce, wob = joined ? 0 : m.wob;
   if (bounce > 0 || wob > 0) {
     const a = (hash(code, 1) - 0.5) * 2 * (0.11 * bounce + 0.05 * wob);
     const dy = (hash(code, 2) - 0.5) * 2 * (38 * bounce + 18 * wob);

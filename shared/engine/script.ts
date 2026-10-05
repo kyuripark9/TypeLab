@@ -78,15 +78,18 @@ function drawRuns(g: Builder, m: Metrics, runs: Cmd[][], o: StrokeOpts) {
   // each run is its own stroke, cut level across the point (or plumb, where it points sideways, the waist
   // of a B), as the roman A and V are; where it turns right back on itself (the top of an i, the foot of
   // an n) both run along the one line, and each is cut square across it, so the two ends lie together
-  const cut = (din: XY, dout: XY) => {
+  // (a run that itself lies near the cut, as the flat top of an r runs away from its point, is cut square:
+  // cut along its own way it would run out into a spike)
+  const cut = (din: XY, dout: XY, run: XY) => {
     const ax = -din[0], ay = -din[1], [bx, by] = dout;
     if (ax * bx + ay * by > 0.8) return 'flat' as EndType;
-    return (Math.abs(ay + by) >= Math.abs(ax + bx) ? 'h' : 'v') as EndType;
+    const c = Math.abs(ay + by) >= Math.abs(ax + bx) ? 'h' : 'v';
+    return (Math.abs(c === 'h' ? run[1] : run[0]) < 0.5 ? 'flat' : c) as EndType;
   };
   const dirs = runs.map(ends);
   runs.forEach((run, k) => {
-    const s = k ? cut(dirs[k - 1][1], dirs[k][0]) : o.s ?? T;
-    const e = k + 1 < runs.length ? cut(dirs[k][1], dirs[k + 1][0]) : o.e ?? T;
+    const s = k ? cut(dirs[k - 1][1], dirs[k][0], dirs[k][0]) : o.s ?? T;
+    const e = k + 1 < runs.length ? cut(dirs[k][1], dirs[k + 1][0], dirs[k][1]) : o.e ?? T;
     const ls = lift(s), le = lift(e), last = run[run.length - 1];
     g.path(run, { ...o, s: ls.end, e: le.end, ws: ls.w, we: le.w });
     // its free ends are written as they are, like the tips of cursive strokes: the stroke end length
@@ -297,9 +300,16 @@ function bowl(cx: number, rx: number, t1: number, top = 58) {
 const stemUp = (p: Pen, x: number, y: number) => p.line(x, y).turn(-90);
 
 /** A looped ascender: the join rises to the right of the stem at x and over the top of the loop at A,
-    turning down it into the stem, `w` wide. */
-const loopUp = (x: number, A: number, w: number) =>
-  enter().to(x + w * 0.9, A - 0.42, 84, 1.25, 1).to(x + w * 0.4, A, 180, 0.9).to(x, A - 0.4, -90, 0.9).line(x, 0.6);
+    turning down it into the stem, `w` wide. The loop closes clear of an arch at the x-height (an h's),
+    shorter in a short ascender; where that leaves it too short to show a counter under the stroke
+    (a heavy brush), the pen rises to the top and turns straight back down the stem, as a t's does:
+    squeezed in, the loop sat on the h's arch and read as a k. */
+const loopUp = (x: number, A: number, w: number) => {
+  const foot = Math.max(A - 0.42, 1 + hand.t + 0.08), h = A - foot;
+  return h < 0.2 + hand.t
+    ? enter().to(x + 0.02, A, 82, 1.2, 1).turn(-90).line(x, 0.6)
+    : enter().to(x + w * 0.9, foot, 84, 1.25, 1).to(x + w * 0.4, A, 180, 0.9).to(x, A - h * 0.4 / 0.42, -90, 0.9).line(x, 0.6);
+};
 
 /** A looped descender down from the stem at x to D: round to the left `w` wide and back up across the
     stem into the join. */
@@ -342,6 +352,7 @@ function lower(ch: string, Wn: number, strokes: Lower, dot?: [number, number], n
     if (dot) g.dot(dot[0] * sx, dot[1] * sy, m.s * 1.1);
     // the joins reaching past the edges are the neighbours' to share, not room to make
     g.reachL = 0; g.reachR = W;
+    g.joins = [[0, JY * sy], [W, JY * sy]];
     return W;
   }, { parts: ['stem', 'bowl'], params: LOWER_PARAMS });
 }
@@ -376,8 +387,16 @@ lower('o', 0.98, (A, D, t) => { const { pen } = bowl(0.36, 0.26, 450), r = tieR(
 lower('p', 0.76, (A, D) => { const e: Ellipse = [0.43, 0.5, 0.21, 0.5];
   return [[enter().to(0.22, 1.08, 78, 1.2, 1).turn(-90).line(0.22, D).turn(90).line(0.22, 0.5).arc(e, 180, -150).turn(headE(e, -150, true)).arc(e, -150, -40).out(0.76, 1.1), { part: 'stem' }]]; });
 lower('q', 0.95, (A, D) => { const { pen } = bowl(O_CX, O_RX, 360); return [[loopRight(stemUp(pen, O_X, 1), O_X, D, 0.2, 0.95), { part: 'bowl' }]]; });
-lower('r', 0.8, () => [[enter().to(0.24, 1.06, 78, 1.2, 1).turn(-75).to(0.35, 0.92, -5, 1).to(0.47, 1.0, 55, 1.1).turn(-92).foot(0.48, 0.8), { part: 'stem' }]]);
-lower('s', 0.64, () => [[enter().to(0.3, 1.05, 74, 1.2, 1).turn(-50).to(0.5, 0.42, -90, 1.1).to(0.32, 0, 180, 1.1).to(0.12, 0.2, 110, 1).turn(-70).to(0.32, 0, 0, 1, 1).out(0.64), { part: 'stem' }]]);
+// (a stem written as an i's, and its shoulder a stroke of its own out of it, over to the right and
+// lifting off: the copperplate r's notch at the top read as a v, and a shoulder running down into
+// the join as an n)
+// (the school hand's r: up to a point a little over the x-height, along a short flat top and down the
+// stem; the copperplate r's notch at the top read as a v)
+lower('r', 0.8, () => [[enter().to(0.2, 1.1, 76, 1.2, 1).turn(-8).to(0.46, 1.02, -14, 1).turn(-90).foot(0.46, 0.8), { part: 'stem' }]]);
+// (its foot curls up on the left and lifts off, and the join runs out of the bottom of the curve on a
+// hairline of its own: turning straight back out of the curl left a spur at its tip)
+lower('s', 0.64, () => [[enter().to(0.3, 1.05, 74, 1.2, 1).turn(-50).to(0.5, 0.42, -90, 1.1).to(0.32, 0, 180, 1.1).to(0.12, 0.2, 110, 1), { part: 'stem', e: T }],
+  [new Pen().at(0.3, 0, 0).out(0.64), { part: 'stem' }]]);
 lower('t', 0.56, () => [[enter().to(0.26, 1.45, 80, 1.2, 1).turn(-90).foot(0.26, 0.56), { part: 'stem' }], [new Pen().at(0.06, 0.95, 4).to(0.52, 0.98, 4), { part: 'crossbar', s: T, e: T }]]);
 lower('u', 0.92, () => { const e: Ellipse = [0.43, 0.5, 0.19, 0.5];
   return [[enter().to(0.24, 1, 78, 1.2, 1).turn(-90).line(0.24, 0.5).arc(e, 180, 360).line(0.62, 1).turn(-90).foot(0.62, 0.92), { part: 'stem' }]]; });

@@ -340,6 +340,36 @@ function crossing(a: Dir, b: Dir, c: Dir, d: Dir): Dir | null {
 /** How many samples either side of a swallowtail to look for where the side crosses itself. */
 const LOOP_REACH = 24;
 
+/** A side with the little loops it ties where it crosses itself within `reach` along it cut out, the
+    crossing taking their place as a corner, and the spikes where it turns straight back on itself for
+    less than that. Inside a corner the run beside it is too short to mitre against (the cut corner of a
+    heavy blackletter bowl), the side runs on past the corner and back, leaving a barb in the counter.
+    Such a loop winds against the turn: one winding with it, round the side the stroke turns to (`sg`,
+    1 the left), is a counter, the inside of a tight bowl, and stays. */
+function untangle(side: Pt[], reach: number, sg: number): Pt[] {
+  const out = side.slice();
+  for (let i = 0; i + 3 < out.length; i++) {
+    let len = 0;
+    for (let j = i + 2; j + 1 < out.length; j++) {
+      len += Math.hypot(out[j].x - out[j - 1].x, out[j].y - out[j - 1].y);
+      if (len > reach) break;
+      const x = crossing(out[i], out[i + 1], out[j], out[j + 1]);
+      if (!x) continue;
+      let area = 0;
+      for (let k = i + 1; k <= j; k++) { const a = k === i + 1 ? x : out[k - 1], b = out[k]; area += a.x * b.y - b.x * a.y; }
+      area += out[j].x * x.y - x.x * out[j].y;
+      if (area * sg < 0) out.splice(i + 1, j - i, { ...x, sharp: true });
+      break;
+    }
+  }
+  for (let k = 1; k + 1 < out.length;) {
+    const ax = out[k].x - out[k - 1].x, ay = out[k].y - out[k - 1].y, bx = out[k + 1].x - out[k].x, by = out[k + 1].y - out[k].y;
+    const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+    if (la > 1e-9 && lb > 1e-9 && la < reach && lb < reach && (ax * bx + ay * by) / (la * lb) < -0.8) { out.splice(k, 1); k = Math.max(1, k - 1); } else k++;
+  }
+  return out;
+}
+
 /** The points of a side less those bunched up closer than a third of how far apart its points
     usually are (the ends, and points that aren't smooth, always stay). */
 function unbunch(pts: Pt[]): Pt[] {
@@ -667,7 +697,8 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     return { contours: [ring(Lr), ring(Rr)], loop: true, ends: [], endCorners: [], skeleton, curved, thickness: all.map(s => s.t) };
   }
 
-  const L = Lr.flat().filter((p): p is Pt => !!p), R = Rr.flat().filter((p): p is Pt => !!p);
+  const reach = Math.max(...all.map(s => s.t)) * 1.5;
+  const L = untangle(Lr.flat().filter((p): p is Pt => !!p), reach, 1), R = untangle(Rr.flat().filter((p): p is Pt => !!p), reach, -1);
 
   const lastRun = runs[runs.length - 1], firstRun = runs[0];
   // the stroke's own ends, and where its outline ends (short of them under a drop)
@@ -720,15 +751,18 @@ export function serifSides(given: SerifSides, keep: string | undefined, inward: 
    end was drawn for a cupped serif (see serifCup): the serif's tips reach on to the line, and between them
    its base arches up to the end. `inward` are the sides of a stem's end that face into the letter, which
    take the inner serifs' shape where the design gives them one. */
-/** Whether the serif on this end is a diamond: the serifs are diamonds, and the end is a heavy stroke's within 40° of
-    upright. An arm or a hairline keeps a wedge, as a broad pen leaves only a flick there. */
+/** Whether the serif on this end is a diamond: the serifs are diamonds, and the end is a heavy stroke's within 20° of
+    upright. An arm, a hairline or a slanting leg (a k's, an x's) keeps a wedge, as a broad pen leaves only a flick
+    there: a diamond stood on the corner of a slanting end left a notch in it. */
 export const diamondEnd = (end: SerifEnd, ctx: PenCtx) =>
-  ctx.serif?.shape === 'diamond' && !levelEnd(end) && Math.abs(end.dy) >= 0.76 * Math.hypot(end.dx, end.dy) && end.t >= ctx.thick * 0.5;
+  ctx.serif?.shape === 'diamond' && !levelEnd(end) && Math.abs(end.dy) >= 0.94 * Math.hypot(end.dx, end.dy) && end.t >= ctx.thick * 0.5;
 /* A diamond's frame: `o` straight out of the end, up or down, as the pen stands the same way on every stroke, `u` across
-   to the side the diamond reaches (right at a foot, left at a head), and the stroke's half width along the end. */
-const diamondFrame = (end: SerifEnd) => {
+   to the side the diamond reaches (right at a foot, left at a head, unless the letter gives the end its serif on the
+   other side only: the foot of a B's stem, its bowl running out of it to the right), and the stroke's half width along the end. */
+const diamondFrame = (end: SerifEnd, sides: SerifSides = 'both') => {
   const l = Math.hypot(end.dx, end.dy) || 1, o = { x: 0, y: Math.sign(end.dy) || -1 };
-  return { o, u: { x: -o.y, y: 0 }, hw: end.t / 2 / (Math.abs(end.dy) / l) };
+  const flip = (o.y < 0 && sides === 'a') || (o.y > 0 && sides === 'b') ? -1 : 1;
+  return { o, u: { x: -o.y * flip, y: 0 }, hw: end.t / 2 / (Math.abs(end.dy) / l) };
 };
 /** How tall a diamond stands for its width: Thickness, from half as tall (flat) through square at 0.5 to half as tall again. */
 const diamondK = (ctx: PenCtx) => lerp(0.5, 1.5, clamp(((ctx.serif?.th ?? 51.5) - 8) / 87));
@@ -736,8 +770,8 @@ const diamondK = (ctx: PenCtx) => lerp(0.5, 1.5, clamp(((ctx.serif?.th ?? 51.5) 
     back to its near edge one stroke width in. That corner is a small triangle, so the cut reaches no further along the
     stroke (the other arm of a v). Its stroke keeps the three pieces beyond each side of the triangle, which overlap, and
     as they are wound alike they fill as one (splitPoly keeps the side each normal points away from). */
-export function diamondCut(end: SerifEnd, ctx: PenCtx): HalfPlane[] {
-  const { o, u, hw } = diamondFrame(end), e = 1, k = diamondK(ctx);
+export function diamondCut(end: SerifEnd, ctx: PenCtx, sides?: SerifSides): HalfPlane[] {
+  const { o, u, hw } = diamondFrame(end, sides), e = 1, k = diamondK(ctx);
   return [
     { x: end.x + u.x * hw, y: end.y + u.y * hw, nx: o.x / k - u.x, ny: o.y / k - u.y },
     { x: end.x - u.x * (hw + e), y: end.y - u.y * (hw + e), nx: u.x, ny: u.y },
@@ -746,8 +780,8 @@ export function diamondCut(end: SerifEnd, ctx: PenCtx): HalfPlane[] {
 }
 /** The diamond: a square stood on its corner, that corner on the end under the stem's far edge, `D` from its middle to
     its side corners and `k` times that to its top, so it reaches D past the stem one way and fills the slanted cut the other. */
-function diamond(end: SerifEnd, D: number, k: number): Pt[] {
-  const { o, u, hw } = diamondFrame(end), at = (a: number, v: number): Pt => ({ x: end.x + u.x * a - o.x * v, y: end.y + u.y * a - o.y * v, sharp: true });
+function diamond(end: SerifEnd, D: number, k: number, sides: SerifSides): Pt[] {
+  const { o, u, hw } = diamondFrame(end, sides), at = (a: number, v: number): Pt => ({ x: end.x + u.x * a - o.x * v, y: end.y + u.y * a - o.y * v, sharp: true });
   return [at(hw, 0), at(hw + D, D * k), at(hw, 2 * D * k), at(hw - D, D * k)];
 }
 
@@ -755,7 +789,7 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
   const sf = ctx.serif; if (!sf) return null;
   const horiz = levelEnd(end);
   // a diamond reaches past the stem about half its length, and always at least half a stroke
-  if (diamondEnd(end, ctx)) return diamond(end, end.t / 2 + sf.len * (scale || 1) * (end.dy > 0 ? sf.tops ?? 1 : 1) * 0.5, diamondK(ctx));
+  if (diamondEnd(end, ctx)) return diamond(end, end.t / 2 + sf.len * (scale || 1) * (end.dy > 0 ? sf.tops ?? 1 : 1) * 0.5, diamondK(ctx), sides);
   const out = horiz ? { x: Math.sign(end.dx), y: 0 } : { x: 0, y: Math.sign(end.dy) || -1 };
   const u = horiz ? { x: 0, y: 1 } : { x: 1, y: 0 };
   const along = Math.abs(end.dx * out.x + end.dy * out.y);
