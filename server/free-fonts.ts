@@ -103,7 +103,13 @@ export class FreeFonts {
 
   private async fetchFont(id: string, ref: FreeFontRef): Promise<FreeFontData> {
     const file = this.file(id);
-    if (file) { try { return JSON.parse(readFileSync(file, 'utf8')) as FreeFontData; } catch { /* not kept yet */ } }
+    if (file) {
+      try {
+        const kept = JSON.parse(readFileSync(file, 'utf8')) as FreeFontData;
+        // (one kept before the licence's full text was, or without it, is fetched again)
+        if (kept.licenseText) return kept;
+      } catch { /* not kept yet */ }
+    }
     // the first version of the CSS API answers a browser it doesn't know with TrueType files, which
     // the parser reads (the second sends WOFF2)
     const css = await this.get(`https://fonts.googleapis.com/css?family=${encodeURIComponent(ref.family).replace(/%20/g, '+')}:${ref.weight}${ref.italic ? 'i' : ''}`);
@@ -112,9 +118,19 @@ export class FreeFonts {
     if (!url) throw new Error(`No font file for ${id}`);
     const res = await this.get(url);
     if (!res.ok) throw new Error(`Google Fonts answered ${res.status} for ${id}'s file`);
-    const data = convertFont(id, ref, await res.arrayBuffer());
+    const data = { ...convertFont(id, ref, await res.arrayBuffer()), licenseText: await this.licenseText(ref.family) };
     if (file) { try { writeFileSync(file, JSON.stringify(data)); } catch { /* kept in memory only */ } }
     return data;
+  }
+
+  /** A family's licence in full, from its folder in Google's font repository ('' when it can't be had:
+      the font then carries the licence's name and address only). */
+  private async licenseText(family: string) {
+    const fam = FREE_FAMILIES[family], dir = family.toLowerCase().replace(/[^a-z0-9]/g, '');
+    try {
+      const res = await this.get(`https://raw.githubusercontent.com/google/fonts/main/${fam.license}/${dir}/${fam.license === 'ofl' ? 'OFL.txt' : 'LICENSE.txt'}`);
+      return res.ok ? (await res.text()).trim() : '';
+    } catch { return ''; }
   }
 
   /** Register the free fonts `params` are written in with the engine, so it draws them (an export). */

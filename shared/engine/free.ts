@@ -11,7 +11,8 @@ export type PackedNode = [number, number] | [number, number, number | null, numb
 export interface FreeFontData {
   /** the font's id (see fontId) */ id: string;
   family: string; designers: string[];
-  /** the font's own copyright notice, and the licence it comes under, by name and address */ copyright: string; license: string; licenseUrl: string;
+  /** the font's own copyright notice, and the licence it comes under, by name and address, and in full
+      (its OFL.txt or LICENSE.txt, '' when that couldn't be had) */ copyright: string; license: string; licenseUrl: string; licenseText?: string;
   /** its cap height, x-height and space width */ cap: number; xh: number; space: number;
   /** each character it has: its advance width and outlines */ glyphs: Record<string, [number, PackedNode[][]]>;
 }

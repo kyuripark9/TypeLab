@@ -6,6 +6,7 @@ import type { Cmd } from '../shared/engine';
 import { TEXTS } from '../shared/content';
 import { slug } from '../shared/design';
 import { familyMembers, type FamilyRequest } from '../shared/family';
+import { withoutReserved } from '../shared/free-fonts';
 import type { Params } from '../shared/params';
 
 // opentype.js is CommonJS: under Node its API sits on the default export
@@ -28,12 +29,10 @@ function toPath(cmds: Cmd[]) {
 export interface FontStyle { style: string; cls: number; angle: number }
 const REGULAR: FontStyle = { style: 'Regular', cls: 400, angle: 0 };
 
-/** A changed font's name with the free font's own taken out, wherever it stands (spaces or none, any
-    case): many reserve it, and the Open Font License keeps a reserved name off changed versions. */
-function withoutFamily(name: string, family: string) {
-  const words = family.split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const left = name.replace(new RegExp(words.join('\\s*'), 'gi'), ' ').replace(/\s+/g, ' ').trim();
-  return left || 'TypeLab Font';
+/** The name a design exports under: its own, less any name the free font it's written in reserves. */
+export function exportName(params: Params, name: string) {
+  const free = buildFont(params).free;
+  return free ? withoutReserved(name, free.family) : name;
 }
 
 /** An installable OpenType (CFF) font with every glyph TypeLab draws. A design written in a free font
@@ -42,7 +41,7 @@ function withoutFamily(name: string, family: string) {
     font may not. */
 export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR): Buffer {
   const font = buildFont(params), m = font.m, free = font.free;
-  if (free) name = withoutFamily(name, free.family);
+  if (free) name = withoutReserved(name, free.family);
   const glyphs = [
     new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }),
     new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() }),
@@ -81,7 +80,8 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
     names.preferredSubfamily = { en: as.style };
     if (free) {
       names.copyright = { en: `${free.copyright ? free.copyright + ' ' : ''}Changed with TypeLab.` };
-      names.license = { en: `Based on ${free.family} by ${free.designers.join(', ')}, under the ${free.license}. You may use, change and share this font under the same licence: ${free.licenseUrl}` };
+      // the licence travels with the font in full, as it asks
+      names.license = { en: `Based on ${free.family} by ${free.designers.join(', ')}, changed with TypeLab, under the ${free.license}. You may use, change and share this font under the same licence: ${free.licenseUrl}${free.licenseText ? `\n\n${free.licenseText}` : ''}` };
       names.licenseURL = { en: free.licenseUrl };
     }
   }
@@ -90,13 +90,15 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
   return Buffer.from(otf.toArrayBuffer());
 }
 
-/** Every member of a family as its own font, in one .zip with a folder named after the family. */
+/** Every member of a family as its own font, in one .zip with a folder named after the family; written in a
+    free font, with the font's licence beside them. */
 export function buildFamilyZip(params: Params, name: string, req: FamilyRequest): Buffer {
-  const dir = slug(name);
-  return zip(familyMembers(params, req).map(f => ({
-    name: `${dir}/${dir}-${f.style.replace(/ /g, '')}.otf`,
-    data: buildOTF(f.params, name, f)
-  })));
+  name = exportName(params, name);
+  const dir = slug(name), free = buildFont(params).free;
+  return zip([
+    ...familyMembers(params, req).map(f => ({ name: `${dir}/${dir}-${f.style.replace(/ /g, '')}.otf`, data: buildOTF(f.params, name, f) })),
+    ...(free ? [{ name: `${dir}/LICENSE.txt`, data: Buffer.from(`${name} is based on ${free.family} by ${free.designers.join(', ')} (${free.copyright}), changed with TypeLab, and comes under the ${free.license}: ${free.licenseUrl}\n\n${free.licenseText || ''}\n`, 'utf8') }] : [])
+  ]);
 }
 
 /** A .zip archive of `files`, each compressed. */

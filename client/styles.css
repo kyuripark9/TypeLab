@@ -688,6 +688,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 /* the name the font installs under, on top of Export */
 .exp-name { display: grid; gap: 6px; padding: 8px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
 .exp-name span { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.exp-name:has(+ .exp-note) { border-bottom: 0; margin-bottom: 0; }
+.exp-note { margin: -2px 0 4px; padding: 0 10px 8px; border-bottom: 1px solid var(--line); font-size: 12px; line-height: 1.45; color: var(--ink-3); }
 .exp-name input { height: 32px; padding: 0 10px; border: 0; border-radius: var(--radius); background: var(--well); box-shadow: inset 0 0 0 1px var(--line); font: 500 13.5px var(--ui); color: var(--ink); transition: box-shadow .15s, background .15s; }
 .exp-name input:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
 .exp-name input:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }

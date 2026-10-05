@@ -10,7 +10,7 @@ import { AccountStore, SESSION_DAYS } from './accounts';
 import { cleanEmail, cleanUserName, isEmail, passwordProblem, type GoogleResult, type User } from '../shared/account';
 import { pkce, type GoogleAuth } from './google';
 import { familyMembers, isWeightId, type FamilyRequest } from '../shared/family';
-import { buildFamilyZip, buildOTF, buildSpecimenSVG } from './export';
+import { buildFamilyZip, buildOTF, buildSpecimenSVG, exportName } from './export';
 import { FreeFonts } from './free-fonts';
 
 class HttpError extends Error {
@@ -351,14 +351,14 @@ export function createApp(store: DesignStore, { google = null, fonts = new FreeF
   api.post('/export/otf', async (req, res) => {
     const { name, params } = readExport(req.body);
     await freeReady(params);
-    attachment(res, `${slug(name)}.otf`, 'font/otf');
+    attachment(res, `${slug(exportName(params, name))}.otf`, 'font/otf');
     res.send(buildOTF(params, name));
   });
 
   api.post('/export/family', async (req, res) => {
     const { name, params } = readExport(req.body), family = readFamily(req.body);
     await freeReady(...familyMembers(params, family).map(f => f.params));
-    attachment(res, `${slug(name)}-family.zip`, 'application/zip');
+    attachment(res, `${slug(exportName(params, name))}-family.zip`, 'application/zip');
     res.send(buildFamilyZip(params, name, family));
   });
 

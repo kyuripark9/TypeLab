@@ -41,8 +41,8 @@ function googleFonts(file = fontFile()) {
   const asked: string[] = [];
   const get = async (url: string) => {
     asked.push(url);
-    const css = url.startsWith('https://fonts.googleapis.com/css?');
-    return { ok: true, status: 200, text: async () => (css ? '@font-face { src: url(https://fonts.gstatic.com/s/test/v1/x.ttf) format(\'truetype\'); }' : ''), arrayBuffer: async () => file };
+    const css = url.startsWith('https://fonts.googleapis.com/css?'), license = url.startsWith('https://raw.githubusercontent.com/google/fonts/');
+    return { ok: true, status: 200, text: async () => (css ? '@font-face { src: url(https://fonts.gstatic.com/s/test/v1/x.ttf) format(\'truetype\'); }' : license ? 'SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\n' : ''), arrayBuffer: async () => file };
   };
   return { get, asked };
 }
@@ -82,9 +82,11 @@ describe('free fonts', () => {
     assert.equal(data.license, 'SIL Open Font License, Version 1.1');
     assert.match(data.copyright, /Test Project Authors/);
     assert.ok(!data.glyphs.x, 'a character the font lacks is left out');
+    assert.equal(g.asked[2], 'https://raw.githubusercontent.com/google/fonts/main/ofl/greatvibes/OFL.txt');
+    assert.match(data.licenseText!, /^SIL OPEN FONT LICENSE Version 1\.1/);
     // asked again, it comes from memory
     await fonts.load('Great Vibes:400');
-    assert.equal(g.asked.length, 2);
+    assert.equal(g.asked.length, 3);
     await assert.rejects(fonts.load('Comic Sans:400'));
   });
 
@@ -107,11 +109,16 @@ describe('free fonts', () => {
     const otf = opentype.parse(buildOTF(params, 'Great Vibes').buffer as ArrayBuffer);
     const names = ((otf.names as unknown as { windows?: Record<string, { en: string }> }).windows ?? otf.names) as Record<string, { en: string }>;
     assert.match(names.copyright.en, /Test Project Authors.*TypeLab/);
-    assert.match(names.license.en, /Open Font License/);
+    assert.match(names.license.en, /Open Font License.*\n\nSIL OPEN FONT LICENSE Version 1\.1/s);
     assert.equal(names.licenseURL.en, 'https://openfontlicense.org');
     assert.equal(names.fontFamily.en, 'TypeLab Font');
     const mine = opentype.parse(buildOTF(params, 'My greatvibes Wedding').buffer as ArrayBuffer);
     assert.equal(((mine.names as unknown as { windows: Record<string, { en: string }> }).windows).fontFamily.en, 'My Wedding');
+    // a name its licence reserves goes too, not only the family's
+    const mono = { ...DEFAULTS, freeFont: 'IBM Plex Mono:500' };
+    await new FreeFonts(null, googleFonts().get).ready(mono);
+    const plex = opentype.parse(buildOTF(mono, 'Plex Code').buffer as ArrayBuffer);
+    assert.equal(((plex.names as unknown as { windows: Record<string, { en: string }> }).windows).fontFamily.en, 'Code');
   });
 
   it('give a family member the font of its family at the member\'s weight', () => {
