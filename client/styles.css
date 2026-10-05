@@ -101,8 +101,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 /* the setting Find a setting opened glows once */
 .ctl.found { animation: found 1.6s ease; }
 @keyframes found { 0%, 40% { background: var(--accent-soft); border-color: var(--accent); } }
-.nav-foot { margin-top: auto; padding: 10px 12px; font-size: 11.5px; color: var(--ink-3); display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--line-2); border-radius: var(--radius); }
+.nav-foot { margin-top: auto; padding: 10px 10px 4px; font-size: 11.5px; color: var(--ink-3); display: flex; flex-direction: column; gap: 1px; }
 .nav-foot b { color: var(--ink); font-size: 13px; font-weight: 600; }
+.nav-designs { display: none; margin-top: auto; text-decoration: none; }
+.nav-designs + .nav-foot { margin-top: 0; }
 
 /* ---------- stage: the preview's white sheet */
 .stage { grid-area: stage; position: relative; display: flex; flex-direction: column; min-width: 0; background: var(--surface); border-radius: var(--radius-xl); box-shadow: var(--sheet); overflow: hidden; }
@@ -193,12 +195,11 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .finder-steps { display: flex; gap: 4px; }
 .finder-steps span { width: 18px; height: 4px; border-radius: 2px; background: var(--line-2); transition: background .2s; }
 .finder-steps span.on { background: var(--accent); }
-.finder-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; margin: 0 0 14px; }
+.finder-head { margin: 0 0 14px; }
 .finder-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.015em; outline: none; }
-.finder-head p { margin: 0; font-size: 13px; color: var(--ink-3); }
 .finder-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-/* tiles come in one after another; pointed at, a tile lifts a little, takes the accent and shows what it means */
-.finder-option { text-align: left; min-width: 0; display: flex; flex-direction: column; padding: 16px 18px 12px; border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface);
+/* tiles come in one after another, each its sample centred in it; pointed at, a tile takes the accent */
+.finder-option { text-align: left; min-width: 0; min-height: 96px; display: flex; flex-direction: column; justify-content: center; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface);
   transition: border-color .15s, box-shadow .15s, background .15s; animation: finder-in .3s ease-out both; }
 .finder-option:hover, .finder-option:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .finder-option:active { background: var(--well); }
@@ -208,15 +209,9 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .finder-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
 .finder-typed { margin-top: 10px; min-width: 0; }
 .finder-typed svg { display: block; fill: var(--ink); overflow: visible; }
-.finder-more { display: flex; align-items: baseline; gap: 8px; min-height: 16px; margin-top: 8px; font-size: 12px; line-height: 1.35; color: var(--ink-3); opacity: 0; transition: opacity .15s; }
-/* hints run to two lines, so their room is kept and showing them doesn't shift the row */
-.finder-options.hints .finder-more { min-height: 32px; }
-.finder-option:hover .finder-more, .finder-option:focus-visible .finder-more { opacity: 1; }
-@media (hover: none) { .finder-more { opacity: 1; } }
-.finder-hint { flex: 1; min-width: 0; }
-.finder-count { flex: none; margin-left: auto; font-weight: 500; color: var(--accent-ink); }
-.finder-option.any { min-height: 90px; justify-content: center; gap: 2px; padding-bottom: 16px; border-style: dashed; background: none; }
-.finder-option.any:hover, .finder-option.any:focus-visible { background: var(--well); border-color: var(--line-2); box-shadow: none; }
+/* No preference: a quiet well rather than another tile */
+.finder-option.any { gap: 2px; border-color: transparent; background: var(--well); }
+.finder-option.any:hover, .finder-option.any:focus-visible { background: var(--tint); border-color: transparent; box-shadow: none; }
 .finder-sub { font-size: 12px; color: var(--ink-3); }
 
 /* ---------- panel resize handles: the gap between two sheets is the grab strip, a short bar in its middle lit in
@@ -343,7 +338,7 @@ body.resizing.y { cursor: row-resize; }
 .ctl-parts .part:hover, .ctl-parts .part.on { background: var(--accent-soft); color: var(--accent-ink); }
 .ctl { padding: 10px 10px 8px; border-radius: var(--radius-l); border: 1px solid transparent; transition: background .15s, border-color .15s; }
 .ctl:hover { background: var(--well); }
-.ctl.active { background: var(--well); border-color: var(--line); }
+.ctl.active { background: var(--well); }
 .ctl .ctl { padding: 12px 0 0; border: 0; background: none; }
 .ctl-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ctl-head { display: flex; flex-direction: column; margin-bottom: 5px; }
@@ -485,7 +480,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .panel.customizing { background: var(--custom-wash); box-shadow: inset 0 0 0 2px var(--custom); }
 .panel.customizing .explainer { box-shadow: inset 2px 2px 0 var(--custom), inset -2px 0 0 var(--custom); --accent-ink: var(--custom-ink); }
 .ctl[data-letter] { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --fill: var(--custom); }
-.ctl.active[data-letter] { border-color: var(--custom-tint); }
+.ctl.active[data-letter] { background: var(--custom-tint); }
 .ctl[data-letter] input[type=range]::-webkit-slider-thumb { border-color: var(--custom); }
 .ctl[data-letter] input[type=range]::-moz-range-thumb { border-color: var(--custom); }
 .scope-note em { font-style: normal; font-weight: 600; }
@@ -626,12 +621,12 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 /* ---------- glyph strip: its cells grow with its height (--strip-h, set by dragging its top border) */
 .strip { grid-area: strip; position: relative; display: flex; min-width: 0; min-height: var(--strip-h, 76px); --cell-h: calc(var(--strip-h, 76px) - 28px); margin-top: var(--gap); border-radius: var(--radius-xl); box-shadow: var(--sheet); background: var(--surface); overflow: hidden; }
 .strip-scroll { position: relative; flex: 1; min-width: 0; display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; padding: 0 12px; scrollbar-width: thin; }
-/* more glyphs past an edge: an arrow, the forward one naming the group that comes next */
+/* more glyphs past an edge: an arrow the glyphs fade out under, the forward one naming the group that comes next */
 .strip-arrow { position: absolute; top: 0; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 0 12px; font-size: 12px; font-weight: 500; color: var(--ink-2); transition: color .15s; }
 .strip-arrow:hover { color: var(--accent-ink); }
 .strip-arrow svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.strip-arrow.back { left: 0; background: var(--surface); border-right: 1px solid var(--line); }
-.strip-arrow.next { right: 0; background: var(--surface); border-left: 1px solid var(--line); }
+.strip-arrow.back { left: 0; padding-right: 40px; background: linear-gradient(to left, transparent, var(--surface) 36px); }
+.strip-arrow.next { right: 0; padding-left: 40px; background: linear-gradient(to right, transparent, var(--surface) 36px); }
 .strip-arrow span { padding: 3px 9px; border-radius: 100px; background: var(--surface); box-shadow: var(--raise); }
 .strip-arrow:hover span { box-shadow: 0 0 0 1px var(--accent); }
 .strip-group { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 10px 4px 0; margin-right: 10px; border-right: 1px solid var(--line); }
@@ -752,7 +747,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
   .top { position: sticky; top: 0; z-index: 37; gap: 6px; }
   .editor .top { margin-bottom: calc(-1 * var(--gap)); }
   .strip { margin-top: 0; }
-  .top-left .brand, .top .sep, .top-actions [aria-label=Undo], .top-actions [aria-label=Redo], .top-actions .guide-btn { display: none; }
+  .top-left .brand, .top .sep, .top-actions [aria-label=Undo], .top-actions [aria-label=Redo], .top-actions .guide-btn, .top-actions a[href="/designs"] { display: none; }
+  .nav-designs { display: flex; }
   .top-actions .btn { padding: 0 8px; }
   .top-actions .btn.primary { padding: 0 12px; }
   .doc-name { width: 100%; min-width: 72px; }
@@ -798,6 +794,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
   .top-actions { gap: 2px; }
 }
 .doc-name-wrap .doc-name { padding-right: 26px; width: auto; field-sizing: content; min-width: 96px; max-width: min(280px, 24vw); }
+@media (max-width: 760px) { .doc-name-wrap .doc-name { max-width: 100%; } }
 .doc-name-pen { position: absolute; right: 9px; fill: none; stroke: var(--ink-3); stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; transition: opacity .15s; }
 .doc-name:focus + .doc-name-pen { opacity: 0; }
 /* the first save asks for a name, just under Save */
@@ -826,9 +823,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 /* ---------- library */
 .library { min-height: 100vh; display: flex; flex-direction: column; background: var(--paper); }
 .library .top { position: sticky; top: 0; z-index: 5; height: var(--top-h); padding: 0 14px 0 16px; background: rgba(239, 240, 240, .85); backdrop-filter: blur(12px); }
-.library .top .btn.primary { height: 34px; padding: 0 16px; font-size: 13.5px; font-weight: 600; background: var(--accent-ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15), 0 1px 2px rgba(52, 100, 196, .25), 0 2px 8px rgba(77, 128, 230, .25); }
-.library .top .btn.primary:hover { background: #2b53a6; }
-.library .top .btn.primary svg { stroke-width: 2.2; }
+.library .top .btn.primary svg { stroke-width: 2; }
 .lib-main { width: 100%; max-width: 1240px; margin: 0 auto; padding: 28px 32px 64px; }
 .lib-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
 .lib-head h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.03em; }

@@ -3,7 +3,7 @@
    that fit. Each answer is a filter in the panel, so the panel, the chips and the finder stay in
    step; a question that wouldn't narrow anything is left out. Each option is drawn in the most
    basic style it would keep (the first on the page), so the choice is made by eye; pointing at a
-   tile flips through the other styles it keeps and says what the answer means. Once something is
+   tile flips through the other styles it keeps, and its tooltip says what the answer means. Once something is
    typed in the bar on top, each tile draws that text instead, under the answer. */
 import { useEffect, useRef, useState } from 'react';
 import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, type StyleDef, type StyleFilter } from '../../shared/content';
@@ -101,8 +101,8 @@ const Chevron = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" /></svg>
 );
 
-/** The question asked now and a short tip, then one tile per answer, its name (or the typed
-    text) drawn in a style it would keep, and "No preference". */
+/** The question asked now, then one tile per answer, its name (or the typed text) drawn in a
+    style it would keep, and "No preference". */
 export function FinderQuestion({ question: q }: { question: Question }) {
   const traits = useEditor(s => s.traits), typed = useEditor(s => s.custom).trim();
   const head = useRef<HTMLHeadingElement>(null), first = useRef(true);
@@ -115,10 +115,9 @@ export function FinderQuestion({ question: q }: { question: Question }) {
     <section className="finder" aria-labelledby="finder-q">
       <div className="finder-head">
         <h2 id="finder-q" ref={head} tabIndex={-1}>{q.title}</h2>
-        <p>Hover a tile for more</p>
       </div>
       {/* keyed by the question, so each new one's tiles come in afresh */}
-      <div className={q.options.some(o => o.hint) ? 'finder-options hints' : 'finder-options'} key={`${q.step}:${q.title}`}>
+      <div className="finder-options" key={`${q.step}:${q.title}`}>
         {q.options.map((o, i) => <FinderOption key={o.id} step={q.step} option={o} index={i} traits={traits} typed={typed} />)}
         <button className="finder-option any" style={{ animationDelay: `${q.options.length * 30}ms` }} onClick={() => actions.pass(q.step)}>
           <span className="finder-label">No preference</span>
@@ -129,8 +128,8 @@ export function FinderQuestion({ question: q }: { question: Question }) {
   );
 }
 
-/** One answer's tile. Pointed at or focused, it flips through the styles the answer keeps, and
-    says what the answer means and how many styles it leaves. */
+/** One answer's tile. Pointed at or focused, it flips through the styles the answer keeps; what
+    the answer means and how many styles it leaves are in its tooltip and label, not on the tile. */
 function FinderOption({ step, option: o, index, traits, typed }: { step: FinderStep; option: Option; index: number; traits: Traits; typed: string }) {
   const [live, setLive] = useState(false), [n, setN] = useState(0);
   useEffect(() => {
@@ -142,16 +141,12 @@ function FinderOption({ step, option: o, index, traits, typed }: { step: FinderS
   const count = `${o.count} ${o.count === 1 ? 'style' : 'styles'}`;
   return (
     <button className="finder-option" style={{ animationDelay: `${index * 30}ms` }}
-      aria-label={`${o.label}${o.hint ? `: ${o.hint}` : ''}, ${count}`} onClick={() => actions.answer(step, o.id)}
+      aria-label={`${o.label}${o.hint ? `: ${o.hint}` : ''}, ${count}`} title={`${o.hint ? `${o.hint} · ` : ''}${count}`} onClick={() => actions.answer(step, o.id)}
       onPointerEnter={() => setLive(true)} onPointerLeave={() => setLive(false)} onFocus={() => setLive(true)} onBlur={() => setLive(false)}>
       {typed ? <>
         <span className="finder-label">{o.label}</span>
         <Typed style={style} traits={traits} text={typed} />
       </> : <Sample style={style} traits={traits} text={o.label} />}
-      <span className="finder-more" aria-hidden="true">
-        <span className="finder-hint">{o.hint}</span>
-        <span className="finder-count">{count}</span>
-      </span>
     </button>
   );
 }

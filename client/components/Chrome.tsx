@@ -1,6 +1,7 @@
 /* The frame around the stage: category navigation, glyph strip and toast. */
 import { useDeferredValue, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { CATEGORIES, GROUPS, controlFor, findSettings, styleById, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
+import { Link } from 'react-router';
 import { CHARSET } from '../../shared/engine';
 import { n1 } from '../lib/hooks';
 import { actions, useEditor, useFont } from '../state/editor';
@@ -105,6 +106,8 @@ export function Nav() {
           ) : page(row))}
         </div>
       )}
+      {/* phones: the header has no room for it, so it sits at the foot of the drawer */}
+      <Link className="nav-item nav-designs" to="/designs"><span className="nav-label">My designs</span></Link>
       <div className="nav-foot"><span>Based on</span><b>{style?.name}</b></div>
     </nav>
   );
