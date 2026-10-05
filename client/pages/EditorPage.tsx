@@ -6,7 +6,7 @@ import { DEFAULT_NAME, cleanName } from '../../shared/design';
 import { ApiError, api, errorMessage } from '../lib/api';
 import { isTyping } from '../lib/hooks';
 import { actions, isDirty, useEditor } from '../state/editor';
-import { GlyphStrip, Nav, Toast } from '../components/Chrome';
+import { GlyphStrip, Nav, Toast, focusSettingSearch } from '../components/Chrome';
 import { Dialog } from '../components/Dialog';
 import { GlyphDefs } from '../components/GlyphDefs';
 import { Guide, guideSeen } from '../components/Guide';
@@ -128,7 +128,9 @@ function useShortcuts(save: () => void) {
       if (mod && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); actions.travel(e.shiftKey ? 1 : -1); }
       else if (mod && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); actions.travel(1); }
       else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
-      else if (e.key === '/' && !mod && !typing && s.category === 'style') { e.preventDefault(); focusSearch(); }
+      else if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); focusSettingSearch(); }
+      // / finds a style on the Style page, and a setting on the others
+      else if (e.key === '/' && !mod && !typing) { e.preventDefault(); if (s.category === 'style') focusSearch(); else focusSettingSearch(); }
       else if (e.key === 'Escape') { if (s.navOpen) actions.setNavOpen(false); else if (s.exportOpen) actions.setExportOpen(false); else actions.closeInspector(); }
       else if (s.inspect && !typing && (e.target as HTMLInputElement).type !== 'range' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault();

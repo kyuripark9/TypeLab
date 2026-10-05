@@ -53,20 +53,44 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .dirty.on { opacity: 1; }
 
 /* ---------- left nav */
-.nav { grid-area: nav; padding: 20px 12px 14px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; overflow: auto; }
+.nav { grid-area: nav; padding: 14px 10px 14px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; overflow: auto; }
 .strip-label, .sub-label { font-size: 12px; font-weight: 500; color: var(--ink-3); }
-.nav-item { text-align: left; padding: 8px 10px; border-radius: var(--radius); display: flex; flex-direction: column; gap: 1px; transition: background .15s; }
-.nav-item:hover { background: var(--hover); }
-.nav-label { font-size: 14px; font-weight: 500; }
-.nav-item.on { background: var(--active); }
-.nav-item.on .nav-label, .nav-item.open .nav-label { font-weight: 600; }
-/* a group's pages sit under its name, on a hairline */
-.nav-group { display: flex; flex-direction: column; }
-.nav-sub { display: flex; flex-direction: column; gap: 1px; margin: 0 0 4px 14px; padding-left: 5px; border-left: 1px solid var(--line); }
-.nav-item.sub { padding: 4px 8px; }
-.nav-item.sub .nav-label { font-size: 13px; font-weight: 400; color: var(--ink-2); }
-.nav-item.sub:hover .nav-label { color: var(--ink); }
-.nav-item.sub.on .nav-label { font-weight: 600; color: var(--ink); }
+/* each page: its icon, then its name; the icons are line drawings in the text colour */
+.page-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.page-icon .solid { fill: currentColor; stroke: none; }
+.page-icon .faint { stroke-opacity: .4; }
+.nav-pages { display: flex; flex-direction: column; gap: 1px; }
+.nav-item { text-align: left; padding: 6px 10px; min-height: 34px; border-radius: var(--radius); display: flex; align-items: center; gap: 10px; color: var(--ink-2); transition: background .15s, color .15s; }
+.nav-item:hover { background: var(--hover); color: var(--ink); }
+.nav-label { font-size: 13.5px; font-weight: 500; min-width: 0; }
+.nav-item.on { background: var(--active); color: var(--ink); }
+.nav-item.on .nav-label { font-weight: 600; }
+.nav-item.on .page-icon { color: var(--accent-ink); }
+/* a group's pages sit under its name */
+.nav-group { display: flex; flex-direction: column; gap: 1px; margin-top: 10px; }
+.nav-group-name { padding: 4px 10px 3px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+/* Find a setting: a field at the top of the nav; while it holds words, the settings it finds take the pages' place */
+.nav-search { position: relative; display: flex; align-items: center; margin-bottom: 8px; color: var(--ink-3); }
+.nav-search .page-icon { position: absolute; left: 10px; pointer-events: none; }
+.nav-search input { width: 100%; height: 34px; padding: 0 40px 0 32px; font: 400 13.5px var(--ui); letter-spacing: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius); outline: none; transition: border-color .15s, box-shadow .15s; }
+.nav-search input::placeholder { color: var(--ink-3); }
+.nav-search input:hover { border-color: var(--line-2); }
+.nav-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.nav-search input::-webkit-search-cancel-button { cursor: pointer; }
+.nav-search kbd { position: absolute; right: 8px; font: 500 11px var(--ui); color: var(--ink-3); padding: 1px 5px; border: 1px solid var(--line); border-radius: var(--radius-s); pointer-events: none; }
+.nav-hits { display: flex; flex-direction: column; gap: 1px; }
+.nav-hit { text-align: left; padding: 7px 10px; border-radius: var(--radius); display: flex; align-items: flex-start; gap: 10px; color: var(--ink-2); }
+.nav-hit .page-icon { margin-top: 1px; }
+.nav-hit.on { background: var(--active); color: var(--ink); }
+.nav-hit-text { display: flex; flex-direction: column; min-width: 0; }
+.nav-hit .nav-label { color: var(--ink); }
+.nav-hit-parent { color: var(--ink-3); font-weight: 400; }
+.nav-hit-page { font-size: 12px; color: var(--ink-3); }
+.nav-empty { margin: 4px 10px; font-size: 13px; color: var(--ink-3); }
+/* the setting Find a setting opened glows once */
+.ctl.found { animation: found 1.6s ease; }
+@keyframes found { 0%, 40% { background: var(--accent-soft); border-color: var(--accent); } }
 .nav-foot { margin-top: auto; padding: 12px 10px 0; font-size: 12px; color: var(--ink-3); display: flex; flex-direction: column; gap: 1px; border-top: 1px solid var(--line); }
 .nav-foot b { color: var(--ink); font-size: 13px; font-weight: 600; }
 

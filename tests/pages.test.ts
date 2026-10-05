@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { CATEGORIES, CONTROLS, GROUPS, SUBS, controlFor, firstControl, pageOf, type ActiveKey, type ControlKey } from '../shared/content';
+import { CATEGORIES, CONTROLS, GROUPS, SUBS, controlFor, findSettings, firstControl, pageOf, type ActiveKey, type ControlKey } from '../shared/content';
 import { DEFAULTS } from '../shared/params';
 
 const controls = Object.keys(CONTROLS) as ControlKey[];
@@ -29,7 +29,7 @@ describe('editor pages', () => {
 
   it('runs from the broadest settings to the finest, on the navigation and on each page', () => {
     const at = (id: string) => CATEGORIES.findIndex(c => c.id === id || c.group === id);
-    const nav = ['style', 'personality', 'structure', 'proportion', 'shape', 'spacing', 'effects'];
+    const nav = ['style', 'personality', 'proportion', 'shape', 'details'];
     assert.deepEqual([...nav].sort((a, b) => at(a) - at(b)), nav);
     const on = (cat: string) => controls.filter(k => CONTROLS[k].cat === cat);
     // a choice of shape leads the sliders that tune it
@@ -47,9 +47,36 @@ describe('editor pages', () => {
     assert.equal(pageOf('structure'), 'weight');
     assert.equal(pageOf('shape'), 'curves');
     assert.equal(pageOf('proportion'), 'heights');
+    assert.equal(pageOf('details'), 'letters');
     assert.equal(pageOf('effects'), 'effects');
     assert.equal(pageOf('nope'), undefined);
     assert.equal(pageOf(null), undefined);
+  });
+
+  it('files each setting where its name says it belongs', () => {
+    // a crossbar's height is one of the heights; mirroring turns letters round, like rotation
+    assert.equal(CONTROLS.crossbar.cat, 'heights');
+    assert.equal(CONTROLS.mirror.cat, 'size');
+    for (const c of CATEGORIES) assert.ok(c.hint.length > 0, c.id);
+  });
+
+  it('finds a setting by its name, a word people use for it, or a shape it offers', () => {
+    const first = (q: string) => findSettings(q)[0];
+    assert.equal(first('weight').key, 'weight');
+    assert.equal(first('bold').key, 'weight');
+    assert.equal(first('italic').key, 'slant');
+    assert.equal(first('kerning').key, 'letterSpacing');
+    assert.equal(first('x-height').key, 'xHeight');
+    assert.equal(first('verticals').key, 'vWeight');
+    assert.equal(first('verticals').parent, 'Weight');
+    assert.deepEqual([first('slab').key, first('slab').option], ['serif', 'Slab']);
+    assert.deepEqual([first('droplet').key, first('droplet').option], ['terminal', 'Droplet']);
+    assert.equal(first('stencil position').key, 'stencilPos');
+    // every word must match, and nothing comes back for nothing
+    assert.equal(findSettings('zzz').length, 0);
+    assert.equal(findSettings('  ').length, 0);
+    // each hit opens the page its setting is on
+    for (const h of findSettings('round', 50)) assert.equal(h.page, CONTROLS[controlFor(h.key)].cat, h.key);
   });
 
   it('files every nested slider under a control, and every one sets a real setting', () => {

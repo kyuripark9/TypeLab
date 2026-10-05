@@ -1,12 +1,13 @@
 /* The frame around the stage: category navigation, glyph strip and toast. */
-import { useDeferredValue, useEffect, useRef, useState } from 'react';
-import { CATEGORIES, GROUPS, styleById, type CategoryId, type GroupId } from '../../shared/content';
+import { useDeferredValue, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { CATEGORIES, GROUPS, controlFor, findSettings, styleById, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
 import { CHARSET } from '../../shared/engine';
 import { n1 } from '../lib/hooks';
 import { actions, useEditor, useFont } from '../state/editor';
+import { PageIcon, SearchIcon } from './Icons';
 
-/** The navigation's rows: a page on its own, or a group with its pages under it. */
-type NavRow = { id: CategoryId; label: string } | { group: GroupId; pages: { id: CategoryId; label: string }[] };
+/** The navigation's rows: a page on its own, or a group's name with its pages under it. */
+type NavRow = { id: CategoryId; label: string; hint: string } | { group: GroupId; pages: { id: CategoryId; label: string; hint: string }[] };
 const NAV: NavRow[] = [];
 for (const c of CATEGORIES) {
   const last = NAV[NAV.length - 1];
@@ -15,26 +16,95 @@ for (const c of CATEGORIES) {
   else NAV.push({ group: c.group, pages: [c] });
 }
 
+const SEARCH_ID = 'setting-search';
+const FIND_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K';
+/** Put the cursor in Find a setting (⌘K), opening the page menu first where it is a drawer. */
+export function focusSettingSearch() {
+  const focus = () => {
+    const el = document.getElementById(SEARCH_ID) as HTMLInputElement | null;
+    el?.focus();
+    el?.select();
+  };
+  // a closed drawer can't take focus until it has opened
+  if (matchMedia('(max-width: 1180px)').matches && !useEditor.getState().navOpen) { actions.setNavOpen(true); requestAnimationFrame(focus); }
+  else focus();
+}
+
+/** Open the page a setting is on and bring the setting into view: unfold the control it sits in,
+    scroll to it, and flash it once so the eye finds it. A nested slider that its control's current
+    shape doesn't show (Flare while ends are Rounded), or that is switched off, brings up its control instead. */
+function openSetting(h: SettingHit) {
+  const parent = controlFor(h.key);
+  if (useEditor.getState().folded.includes(parent)) actions.toggleFold(parent, true);
+  actions.setCategory(h.page, h.key);
+  actions.setNavOpen(false);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    // a slider folded away (Stencil's Position while Stencil is off) gives way to the control it sits in
+    const el = [h.key, parent].map(k => document.querySelector<HTMLElement>(`.panel [data-ctl="${k}"]`)).find(x => x && !x.closest('[inert]'));
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    el.classList.remove('found');
+    void el.offsetWidth;
+    el.classList.add('found');
+    setTimeout(() => el.classList.remove('found'), 1600);
+  }));
+}
+
 export function Nav() {
   const category = useEditor(s => s.category), style = useEditor(s => styleById(s.styleId));
-  const page = ({ id, label }: { id: CategoryId; label: string }, sub = false) => (
-    <button key={id} className={['nav-item', sub && 'sub', id === category && 'on'].filter(Boolean).join(' ')} aria-current={id === category ? 'page' : undefined}
+  const [query, setQuery] = useState(''), [pick, setPick] = useState(0);
+  const hits = query.trim() ? findSettings(query) : null;
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => { list.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }, [pick]);
+  const choose = (h: SettingHit) => { setQuery(''); openSetting(h); (document.activeElement as HTMLElement | null)?.blur(); };
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') { e.stopPropagation(); if (query) setQuery(''); else e.currentTarget.blur(); }
+    if (!hits?.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setPick(p => (p + (e.key === 'ArrowDown' ? 1 : -1) + hits.length) % hits.length); }
+    else if (e.key === 'Enter') { e.preventDefault(); choose(hits[Math.min(pick, hits.length - 1)]); }
+  };
+  const page = ({ id, label, hint }: { id: CategoryId; label: string; hint: string }) => (
+    <button key={id} className={id === category ? 'nav-item on' : 'nav-item'} aria-current={id === category ? 'page' : undefined} title={hint}
       onClick={() => { actions.setCategory(id); actions.setNavOpen(false); }}>
+      <PageIcon id={id} />
       <span className="nav-label">{label}</span>
     </button>
   );
+  const pageName = (id: CategoryId) => CATEGORIES.find(c => c.id === id)!.label;
   return (
     <nav className="nav" aria-label="Design categories" data-guide="nav">
-      {NAV.map(row => 'group' in row ? (
-        <div key={row.group} className="nav-group" role="group" aria-label={GROUPS[row.group]}>
-          {/* a group's name opens its first page, unless one of its pages is open already */}
-          <button className={row.pages.some(p => p.id === category) ? 'nav-item open' : 'nav-item'}
-            onClick={() => { if (!row.pages.some(p => p.id === category)) { actions.setCategory(row.pages[0].id); actions.setNavOpen(false); } }}>
-            <span className="nav-label">{GROUPS[row.group]}</span>
-          </button>
-          <div className="nav-sub">{row.pages.map(p => page(p, true))}</div>
+      <label className="nav-search">
+        <SearchIcon />
+        <input id={SEARCH_ID} type="search" placeholder="Find a setting" value={query} autoComplete="off" spellCheck={false}
+          role="combobox" aria-expanded={!!hits} aria-controls="setting-hits" aria-autocomplete="list"
+          aria-activedescendant={hits?.length ? `hit-${Math.min(pick, hits.length - 1)}` : undefined}
+          onChange={e => { setQuery(e.target.value); setPick(0); }} onKeyDown={onKey} />
+        {!query && <kbd aria-hidden="true">{FIND_KEY}</kbd>}
+      </label>
+      {hits ? (
+        <div className="nav-hits" id="setting-hits" role="listbox" aria-label="Settings found" ref={list}>
+          {hits.length ? hits.map((h, i) => (
+            <button key={h.key} id={`hit-${i}`} role="option" aria-selected={i === pick} className={i === pick ? 'nav-hit on' : 'nav-hit'}
+              onPointerEnter={() => setPick(i)} onClick={() => choose(h)}>
+              <PageIcon id={h.page} />
+              <span className="nav-hit-text">
+                <span className="nav-label">{h.parent ? <><span className="nav-hit-parent">{h.parent}</span> › </> : null}{h.label}{h.option && <span className="nav-hit-parent"> · {h.option}</span>}</span>
+                {/* the page, unless the setting is named after it */}
+                {pageName(h.page) !== (h.parent ?? h.label) && <span className="nav-hit-page">{pageName(h.page)}</span>}
+              </span>
+            </button>
+          )) : <p className="nav-empty">No setting matches “{query.trim()}”. Try a word like bold, italic, serif or spacing.</p>}
         </div>
-      ) : page(row))}
+      ) : (
+        <div className="nav-pages">
+          {NAV.map(row => 'group' in row ? (
+            <div key={row.group} className="nav-group" role="group" aria-labelledby={`nav-${row.group}`}>
+              <div className="nav-group-name" id={`nav-${row.group}`}>{GROUPS[row.group]}</div>
+              {row.pages.map(page)}
+            </div>
+          ) : page(row))}
+        </div>
+      )}
       <div className="nav-foot"><span>Based on</span><b>{style?.name}</b></div>
     </nav>
   );

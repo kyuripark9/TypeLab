@@ -35,7 +35,7 @@ const STEPS: Step[] = [
   { target: 'panel', side: 'left', category: 'style', label: 'Traits',
     task: 'Pick a trait, like Bold', note: 'Every style takes it on.', done: (s, t) => s.traits !== t.traits },
   { target: 'nav', side: 'right', label: 'Pages',
-    task: 'Open another page', done: (s, t) => s.category !== t.category },
+    task: 'Open another page', note: 'Or type in Find a setting to go straight to one.', done: (s, t) => s.category !== t.category },
   { target: 'panel', side: 'left', category: 'weight', label: 'Controls',
     task: 'Drag a slider', done: (s, t) => s.params !== t.params },
   { target: 'stage', side: 'right', category: 'weight', label: 'Preview',

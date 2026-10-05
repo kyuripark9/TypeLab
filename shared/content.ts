@@ -7,7 +7,7 @@ import { DEFAULTS, type AForm, type BarEnds, type Mirror, type Bends, type Build
 export type CategoryId = 'style' | 'personality' | 'weight' | 'size' | 'heights' | 'insides' | 'curves' | 'corners' | 'ends' | 'serifs' | 'letters' | 'script'
   | 'spacing' | 'effects';
 /** An area of the design with several pages, listed under it in the navigation. */
-export type GroupId = 'structure' | 'proportion' | 'shape';
+export type GroupId = 'proportion' | 'shape' | 'details';
 export type ControlKey =
   | 'weight' | 'width' | 'height' | 'slant' | 'rotation' | 'contrast' | 'pinch'
   | 'build' | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'steps' | 'swash' | 'mirror' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'serifTip' | 'serifBase' | 'serifSides' | 'serifInner' | 'serifBalance' | 'serifTops' | 'serifArms' | 'apex' | 'bends' | 'joints' | 'cursive' | 'wobble'
@@ -596,31 +596,34 @@ export const PAGE_STYLES = PAGE_ORDER.map(id => STYLES.find(s => s.id === id)!);
     picks the same cards as the Monospace Category. */
 export const PAGE_LOOKS = LOOKS.filter(l => l.id !== 'mono' && PAGE_STYLES.some(s => s.looks.includes(l.id)));
 
-export const GROUPS: Record<GroupId, string> = { structure: 'Structure', proportion: 'Proportion', shape: 'Shape' };
+export const GROUPS: Record<GroupId, string> = { proportion: 'Proportions', shape: 'Shapes', details: 'Details' };
 /* The pages, in the order of the navigation. The pages of a group sit together, under its name.
    They run in the order a design is made, each page fine-tuning what the ones above it set: the
-   starting style, then Personality, whose sliders move many settings at once, then the strokes and
-   proportions every letter shares, then the finer shapes. Spacing waits until the letters are drawn,
-   and the effects are laid over the finished design. */
-export const CATEGORIES: { id: CategoryId; label: string; group?: GroupId }[] = [
-  { id: 'style', label: 'Style' },
-  { id: 'personality', label: 'Personality' },
-  { id: 'weight', label: 'Weight & contrast', group: 'structure' },
-  { id: 'size', label: 'Size & slant', group: 'structure' },
-  { id: 'heights', label: 'Heights', group: 'proportion' },
-  { id: 'insides', label: 'Inner space', group: 'proportion' },
-  { id: 'curves', label: 'Build & curves', group: 'shape' },
-  { id: 'corners', label: 'Corners', group: 'shape' },
-  { id: 'ends', label: 'Stroke ends', group: 'shape' },
-  { id: 'serifs', label: 'Serifs', group: 'shape' },
-  { id: 'letters', label: 'Letters', group: 'shape' },
-  { id: 'script', label: 'Handwriting', group: 'shape' },
-  { id: 'spacing', label: 'Spacing' },
-  { id: 'effects', label: 'Effects' }
+   starting style, then Personality, whose sliders move many settings at once, then the proportions
+   (how heavy, how big, how tall, how open and how far apart the letters are), then the shapes of their
+   curves, corners, ends and serifs, and last the details: single letters, the hand and the effects.
+   `hint` says in a few words what the page holds; it is the page's tooltip, and search reads it too. */
+export const CATEGORIES: { id: CategoryId; label: string; hint: string; group?: GroupId }[] = [
+  { id: 'style', label: 'Style', hint: 'Pick a typeface to start from' },
+  { id: 'personality', label: 'Personality', hint: 'Change the mood: many settings at once' },
+  { id: 'weight', label: 'Weight & contrast', hint: 'Thick or thin strokes, and the difference between them', group: 'proportion' },
+  { id: 'size', label: 'Size & slant', hint: 'Width, height, slant, rotation and mirroring', group: 'proportion' },
+  { id: 'heights', label: 'Heights', hint: 'Lowercase height, ascenders, descenders, tails and crossbars', group: 'proportion' },
+  { id: 'insides', label: 'Inner space', hint: 'The space inside letters and how open their mouths are', group: 'proportion' },
+  { id: 'spacing', label: 'Spacing', hint: 'Space between letters and words, monospace', group: 'proportion' },
+  { id: 'curves', label: 'Build & curves', hint: 'Strokes or blocks, round or square bowls, facets and joins', group: 'shape' },
+  { id: 'corners', label: 'Corners', hint: 'Round or sharp corners, peaks, steps and ink traps', group: 'shape' },
+  { id: 'ends', label: 'Stroke ends', hint: 'How the free ends of strokes finish', group: 'shape' },
+  { id: 'serifs', label: 'Serifs', hint: 'Feet on the strokes: shape, tips, base and sides', group: 'shape' },
+  { id: 'letters', label: 'Letters', hint: 'Other shapes for a, g, k, Q, R, s, Y and more', group: 'details' },
+  { id: 'script', label: 'Handwriting', hint: 'Cursive strokes, a wobbly hand and swash capitals', group: 'details' },
+  { id: 'effects', label: 'Effects', hint: 'Outlines, pixels, dots, stencil and slice', group: 'details' }
 ];
+/** Links from before the pages were regrouped name these groups. */
+const OLD_GROUPS: Record<string, CategoryId> = { structure: 'weight', proportion: 'heights' };
 /** The page `id` names: a page itself, or a group, which opens on its first page. */
 export const pageOf = (id: string | null | undefined): CategoryId | undefined =>
-  (CATEGORIES.find(c => c.id === id) ?? CATEGORIES.find(c => c.group === id))?.id;
+  (CATEGORIES.find(c => c.id === id) ?? (id ? CATEGORIES.find(c => c.id === OLD_GROUPS[id]) : undefined) ?? CATEGORIES.find(c => c.group === id))?.id;
 
 /* label = the control's short title; friendly = what it does in plain words; tech = the typographer's term.
    A page shows its controls in the order they are listed here: the one used most leads, a choice of
@@ -704,7 +707,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Two arms forking off a stem, or a cup whose right side runs on down into a diagonal, like a 4. Also y.' },
   dots: { cat: 'letters', type: 'form', label: 'Dots', friendly: 'Make the dots square or round', tech: 'Tittles & periods', demo: 'ij.!',
     explain: 'The dots on i and j and in the punctuation, whatever the corners do.' },
-  mirror: { cat: 'letters', type: 'form', label: 'Mirror', friendly: 'Flip letters left to right', tech: 'Mirrored letters', demo: 'eRs',
+  mirror: { cat: 'size', type: 'form', label: 'Mirror', friendly: 'Flip letters left to right', tech: 'Mirrored letters', demo: 'eRs',
     explain: 'Draws letters back to front. Customize one letter to mirror only that one, like the reversed e of a quirky display face.' },
   cursive: { cat: 'script', off: 0, label: 'Cursive', friendly: 'Add strokes that lead into the next letter', tech: 'Cursive · Entry & exit strokes', lo: 'Print', hi: 'Script', demo: 'nigu',
     explain: 'Strokes flick on toward the next letter, like script.' },
@@ -719,14 +722,14 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'The parts above (b, d, h) and below (g, p, y) the letters.' },
   tail: { cat: 'heights', label: 'Tails & hooks', friendly: 'Make tails and hooks longer or shorter', tech: 'Tail · Hook', lo: 'Short', hi: 'Long', demo: 'Qjty',
     explain: 'The trailing ends of Q, y, g, j, t, f and the comma.' },
+  crossbar: { cat: 'heights', label: 'Crossbar height', friendly: 'Move the horizontal bars up or down', tech: 'Crossbar', lo: 'Low', hi: 'High', demo: 'AHe',
+    explain: 'The bars in A, H and e, the waist of B, E, R, and the crossbars of f and t, and the top of the a\u2019s bowl.' },
   descender: { cat: 'heights', advanced: true, label: 'Descender length', friendly: 'Make only the descenders longer or shorter', tech: 'Descenders', lo: 'Short', hi: 'Long', demo: 'gpy',
     explain: 'The parts below the baseline, apart from the ascenders above the x-height.' },
   counter: { cat: 'insides', label: 'Inner space', friendly: 'Change the space inside letters', tech: 'Counter', lo: 'Small', hi: 'Large', demo: 'Bo',
     explain: 'The enclosed space inside O, B, a and e.' },
   aperture: { cat: 'insides', label: 'Openness', friendly: 'Open or close the mouths of letters', tech: 'Aperture', lo: 'Closed', hi: 'Open', demo: 'ces',
     explain: 'Open mouths on c, e and s stay readable when small.' },
-  crossbar: { cat: 'insides', label: 'Crossbar height', friendly: 'Move the horizontal bars up or down', tech: 'Crossbar', lo: 'Low', hi: 'High', demo: 'AHe',
-    explain: 'The bars in A, H and e, the waist of B, E, R, and the crossbars of f and t, and the top of the a\u2019s bowl.' },
 
   letterSpacing: { cat: 'spacing', label: 'Letter spacing', friendly: 'Add or remove space between letters', tech: 'Letter spacing · Tracking', lo: 'Tight', hi: 'Open', demo: 'type',
     explain: 'The same gap changes between every pair of letters.' },
@@ -971,3 +974,82 @@ export const firstControl = (cat: CategoryId) =>
 export const controlFor = (key: ActiveKey): ControlKey =>
   key in SERIF_SUBS ? 'serif' : key in SERIF_TIP_SUBS ? 'serifTip' : key in SERIF_BASE_SUBS ? 'serifBase' : key in SERIF_INNER_SUBS ? 'serifInner' : key in SERIF_ARM_SUBS ? 'serifArms' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in BOWL_SUBS ? 'bowlForm' : key in WEIGHT_SUBS ? 'weight' : key in ROUND_SUBS ? 'roundness'
     : key in PINCH_SUBS ? 'pinch' : key in CROSSBAR_SUBS ? 'crossbar' : key in STENCIL_SUBS ? 'stencil' : key in SLICE_SUBS ? 'slice' : key as ControlKey;
+
+/* ---------- finding a setting by name */
+
+/** Words people reach for that a control's own copy doesn't use. */
+const ALSO: Partial<Record<ActiveKey, string>> = {
+  weight: 'bold heavy light thick thin black', slant: 'italic oblique lean', width: 'condensed expanded narrow wide', height: 'cap height size tall',
+  rotation: 'rotate turn angle', mirror: 'flip reverse backwards', contrast: 'thick thin stress', letterSpacing: 'kerning tracking',
+  mono: 'typewriter code fixed width', wobble: 'rough sketchy organic jitter', cursive: 'script connected joined', fill: 'outline texture pattern halftone',
+  terminal: 'tip ending finish', serif: 'feet slab', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
+  aperture: 'opening mouth', extenders: 'ascender descender', build: 'blocks stroke construction', stencil: 'gap cut break', slice: 'cut line split',
+  squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', swash: 'flourish', dots: 'tittle period i j'
+};
+
+export interface SettingHit {
+  key: ActiveKey;
+  /** the page it is on */
+  page: Exclude<CategoryId, 'style'>;
+  label: string;
+  /** the control a nested slider sits under */
+  parent?: string;
+  /** the named shape the search found it by, as Slab under Serifs */
+  option?: string;
+}
+
+type Entry = SettingHit & { fields: [string, number][]; shapes: string[] };
+const terms = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+/** Whether every word of `q` starts a word of `text` (both already lowercase, split by spaces). */
+const covers = (text: string, q: string[]) => q.every(w => ` ${text}`.includes(` ${w}`));
+const opt = (list: readonly (readonly [string, string])[]) => list.map(o => o[1]);
+
+let INDEX: Entry[] | null = null;
+function settingIndex(): Entry[] {
+  if (INDEX) return INDEX;
+  // the named shapes each control lets you pick
+  const shapes: Partial<Record<ControlKey, string[]>> = {
+    terminal: [...opt(TERMINAL_OPTIONS), ...Object.values(TERMINAL_FORM_LABELS), ...opt(FORM_OPTIONS.terminalRun.options)],
+    serif: opt(SERIF_SHAPE_OPTIONS), serifTip: opt(SERIF_TIP_OPTIONS), serifBase: opt(SERIF_BASE_OPTIONS), serifSides: opt(SERIF_SIDE_OPTIONS),
+    serifInner: opt(SERIF_INNER_OPTIONS), story: [...opt(STORY_OPTIONS), ...opt(FORM_OPTIONS.aForm.options)], fill: opt(FILL_OPTIONS), crossbar: opt(BAR_END_OPTIONS)
+  };
+  for (const k of Object.keys(FORM_OPTIONS) as FormKey[]) if (k in CONTROLS) shapes[k as ControlKey] = opt(FORM_OPTIONS[k].options);
+  const pageName = (c: ControlKey) => CATEGORIES.find(x => x.id === CONTROLS[c].cat)!.label;
+  const entries: Entry[] = (Object.keys(CONTROLS) as ControlKey[]).map(k => {
+    const c = CONTROLS[k], named = [...new Set(shapes[k] ?? [])];
+    return { key: k, page: c.cat, label: c.label, shapes: named, fields: [[c.label, 100], [ALSO[k] ?? '', 85], [c.tech, 60], [c.friendly, 50],
+      [`${c.lo ?? ''} ${c.hi ?? ''}`, 40], [named.join(' '), 65], [pageName(k), 20], [c.explain, 10]] };
+  });
+  for (const k of Object.keys(SUBS) as (keyof typeof SUBS)[]) {
+    const d = SUBS[k], parent = controlFor(k), c = CONTROLS[parent];
+    // a stencil's and a slice's thickness is their own value: the control itself already stands for it
+    if (parent === k) continue;
+    entries.push({ key: k, page: c.cat, label: d.label, parent: c.label, shapes: [], fields: [[`${c.label} ${d.label}`, 80], [ALSO[k] ?? '', 85], [d.tech, 60],
+      [d.friendly, 50], [`${d.lo} ${d.hi}`, 30], [pageName(parent), 15]] });
+  }
+  return (INDEX = entries.map(e => ({ ...e, fields: e.fields.map(([t, w]) => [terms(t).join(' '), w] as [string, number]) })));
+}
+
+/** The settings whose words start with every word of `query`, best first: a match in a setting's
+    name beats one in its description, and an earlier page breaks ties. A named shape the setting
+    was found by, rather than its name, comes back as `option` (Slab, under Serifs). */
+export function findSettings(query: string, limit = 12): SettingHit[] {
+  const q = terms(query);
+  if (!q.length) return [];
+  const order = (h: SettingHit) => CATEGORIES.findIndex(c => c.id === h.page);
+  const hits: (SettingHit & { score: number })[] = [];
+  for (const e of settingIndex()) {
+    let score = 0;
+    for (const w of q) {
+      const best = Math.max(0, ...e.fields.filter(([text]) => covers(text, [w])).map(([, weight]) => weight));
+      if (!best) { score = 0; break; }
+      score += best;
+    }
+    if (!score) continue;
+    const label = e.fields[0][0];
+    if (label.startsWith(q.join(' '))) score += 30;
+    const option = covers(label, q) ? undefined : e.shapes.find(n => covers(terms(n).join(' '), q));
+    hits.push({ key: e.key, page: e.page, label: e.label, parent: e.parent, option, score });
+  }
+  return hits.sort((a, b) => b.score - a.score || order(a) - order(b)).slice(0, limit).map(({ score: _, ...h }) => h);
+}
