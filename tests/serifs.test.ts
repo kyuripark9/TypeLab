@@ -174,6 +174,9 @@ describe('serif details', () => {
     assert.ok(Math.abs(box(at(up, 'arm')).x0 - bar(up).x0) < 1 && Math.abs(box(at(up, 'arm')).x1 - bar(up).x1) < 1);
     assert.ok(box(at(out, 'arm')).x0 < bar(out).x0 - 30 && box(at(out, 'arm')).x1 > bar(out).x1 + 30);
     assert.ok(box(at(inn, 'arm')).x0 >= bar(inn).x0 - 1 && box(at(inn, 'arm')).x1 <= bar(inn).x1 + 1);
+    // leaning in, each runs in from the corner of the arm it hangs under, so the arm's end stands out past it in no step
+    const pts = at(inn, 'arm').flat().flatMap(c => c.slice(1).flatMap((v, i, a) => (i % 2 ? [] : typeof v === 'number' ? [[v, a[i + 1] as number]] : [])));
+    for (const x of [bar(inn).x0, bar(inn).x1]) assert.ok(pts.some(([px, py]) => Math.hypot(px - x, py - bar(inn).y0) < 1), `a corner at ${x}`);
     // and the letter takes the room they reach into, so they don't run into the next one
     assert.ok(out.lsb > up.lsb + 30 && out.rsb > up.rsb + 30);
     assert.equal(T({ serifArmLean: 0.5 }).d, up.d);

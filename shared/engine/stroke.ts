@@ -830,9 +830,11 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
   const half = (s: 'a' | 'b', L: number) => (inner && (inward === 'both' || inward === s) ? side(L * inner.len, inner.shape, inner.th) : side(L, sf.shape, th));
   const profB = half('b', Ln * (1 + bal)), profA = half('a', Ln * (1 - bal));
   if (tan) {
-    // leaning: each point moves out by how far it lies from the edge of the arm with no serif (from the middle
-    // when both have one), so the outer edge runs straight from that corner; where it meets the arm stays inside it
-    const from = wantA && wantB ? 0 : hw;
+    // leaning out: each point moves out by how far it lies from the edge of the arm with no serif (from the middle
+    // when both have one), so the outer edge runs straight from that corner; where it meets the arm stays inside it.
+    // Leaning in, it turns about the edge of the arm it hangs from instead: turning about the far edge drew the
+    // serif in from the arm's end, which stood out past it in a step
+    const from = tan < 0 ? -hw : wantA && wantB ? 0 : hw;
     for (const prof of [profA, profB]) {
       for (const q of prof) q[1] += (q[0] + from) * tan;
       const end = prof[prof.length - 1]; end[1] = Math.min(end[1], -th * 0.3);
@@ -850,8 +852,9 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
     else if (flag != null) p.r = flag;
     pts.push(p);
   };
-  if (wantB) profB.forEach(q => put(q[0], q[1], q[2])); else { put(hw, 0, 'sharp'); put(hw, -depth(profA), 'sharp'); }
-  if (wantA) profA.slice().reverse().forEach(q => put(-q[0], q[1], q[2])); else { put(-hw, -depth(profB), 'sharp'); put(-hw, 0, 'sharp'); }
+  // leaning in, a serif's outer edge runs from the corner of the arm it hangs from
+  if (wantB) { if (tan < 0) put(hw, 0, 'sharp'); profB.forEach(q => put(q[0], q[1], q[2])); } else { put(hw, 0, 'sharp'); put(hw, -depth(profA), 'sharp'); }
+  if (wantA) { profA.slice().reverse().forEach(q => put(-q[0], q[1], q[2])); if (tan < 0) put(-hw, 0, 'sharp'); } else { put(-hw, -depth(profB), 'sharp'); put(-hw, 0, 'sharp'); }
   if (cup > 0) {
     // the base arches from one foot to the other, never through more than most of the serif above it. A serif
     // to one side only arches under that side, so the stem stands square on the line with the arm running out
