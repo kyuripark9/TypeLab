@@ -261,7 +261,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 body.resizing.y { cursor: row-resize; }
 
 /* ---------- right panel */
-.panel { grid-area: panel; overflow: auto; background: var(--surface); border-radius: var(--radius-xl); box-shadow: var(--sheet); scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.panel { grid-area: panel; container: panel / size; overflow: auto; background: var(--surface); border-radius: var(--radius-xl); box-shadow: var(--sheet); scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 .panel-pad { padding: 16px 16px 24px; }
 .panel-title { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
 
@@ -337,10 +337,13 @@ body.resizing.y { cursor: row-resize; }
 .facet-more { margin-top: 10px; font-size: 12px; font-weight: 500; color: var(--ink-3); transition: color .15s; }
 .facet-more:hover { color: var(--ink); }
 
-/* the explainer stays on top of the panel as it scrolls: the diagram in a soft well, then what the control does */
+/* the explainer stays on top of the panel as it scrolls: the diagram in a soft well, then what the control does.
+   The diagram gives up height as the panel gets shorter, so the sliders under it keep most of the room, and on
+   a panel too short for both the explainer scrolls away with them */
 .explainer { position: sticky; top: 0; z-index: 2; background: var(--surface); border-bottom: 1px solid var(--line); border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
-.diagram-box { height: 168px; margin: 8px 8px 0; display: grid; place-items: center; border-radius: var(--radius-l); background: var(--well); overflow: hidden; }
-.diagram { display: block; max-width: 100%; }
+.diagram-box { height: clamp(80px, 36cqh - 160px, 168px); margin: 8px 8px 0; display: grid; place-items: center; border-radius: var(--radius-l); background: var(--well); overflow: hidden; }
+.diagram { display: block; width: 100%; height: 100%; }
+@container panel (max-height: 560px) { .explainer { position: static; } }
 .d-ink { fill: var(--ink); }
 .d-hl { fill: var(--accent); }
 .d-ring { fill: var(--accent-soft); stroke: var(--accent); }
@@ -812,7 +815,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
   .type-field { flex-basis: 100%; }
   .stage-scroll { padding: 16px 16px 40px; }
   .cards { grid-template-columns: minmax(0, 1fr); }
-  .panel { overflow: visible; }
+  .panel { overflow: visible; container-type: normal; }
+  .diagram-box { height: 168px; }
   .resizer { display: none; }
   .strip { position: sticky; bottom: 0; z-index: 4; }
   .popover { right: -8px; width: min(300px, calc(100vw - 24px)); }
