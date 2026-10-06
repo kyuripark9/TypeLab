@@ -73,6 +73,13 @@ describe('serif details', () => {
     assert.ok(Math.abs(box([cupA.cmds]).y0 - box([A.cmds]).y0) < 0.01);
     assert.notEqual(cupA.d, A.d);
     assert.deepEqual(at(glyph({ serifBase: 'cupped', serifCup: 1 }, 'E'), 'arm'), at(glyph({}, 'E'), 'arm'));
+    // a serif to one side arches only under that side: the E's stem stands square on the line with its arms
+    const E = glyph({ serifBase: 'cupped', serifCup: 1 }, 'E'), edge = box([E.strokes[0].cmds]).x0;
+    for (const place of ['foot', 'top'] as const) {
+      const line = place === 'foot' ? 0 : box(at(E, 'top')).y1;
+      const onLine = at(E, place).flat().filter(c => typeof c[2] === 'number' && Math.abs((c[c.length - 1] as number) - line) < 0.01);
+      assert.ok(onLine.some(c => Math.abs((c[c.length - 2] as number) - edge) < 0.01), place);
+    }
   });
 
   it('runs the bracket further up the stem', () => {

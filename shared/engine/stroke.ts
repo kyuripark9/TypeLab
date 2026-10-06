@@ -853,8 +853,10 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
   if (wantB) profB.forEach(q => put(q[0], q[1], q[2])); else { put(hw, 0, 'sharp'); put(hw, -depth(profA), 'sharp'); }
   if (wantA) profA.slice().reverse().forEach(q => put(-q[0], q[1], q[2])); else { put(-hw, -depth(profB), 'sharp'); put(-hw, 0, 'sharp'); }
   if (cup > 0) {
-    // the base arches from one foot to the other, never through more than most of the serif above it
-    const a0 = wantA ? -profA[0][0] : -hw, a1 = wantB ? profB[0][0] : hw;
+    // the base arches from one foot to the other, never through more than most of the serif above it. A serif
+    // to one side only arches under that side, so the stem stands square on the line with the arm running out
+    // of its other side (an E's, an L's), not on a step where the arch meets the arm
+    const a0 = wantA ? -profA[0][0] : hw, a1 = wantB ? profB[0][0] : -hw;
     const above = (prof: ProfilePt[], a: number) => {
       for (let i = 0; i + 1 < prof.length; i++) {
         const [xa, da] = prof[i], [xb, db] = prof[i + 1];
@@ -863,10 +865,12 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
       return Infinity;
     };
     const N = 14;
+    if (!wantA) put(a0, 0, 'sharp');
     for (let i = 1; i < N; i++) {
       const t = i / N, a = lerp(a0, a1, t), room = a > hw ? (wantB ? above(profB, a) : 0) : a < -hw ? (wantA ? above(profA, -a) : 0) : Infinity;
       put(a, -Math.min(cup * 4 * t * (1 - t), room * 0.7), 'smooth');
     }
+    if (!wantB) put(a1, 0, 'sharp');
   }
   return pts;
 }
