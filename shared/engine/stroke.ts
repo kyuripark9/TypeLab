@@ -3,7 +3,7 @@
    into an outline polygon whose thickness follows the pen model: thick where the
    stroke runs vertically, thin where it runs horizontally (scaled by Contrast),
    with styled terminals, mitered joins and optional serifs. */
-import { clamp, cubicAt, lerp, lerpP, quarter, smoothstep, subCubic } from './geom';
+import { clamp, clipPoly, cubicAt, lerp, lerpP, quarter, smoothstep, subCubic } from './geom';
 import type { Cmd, EndType, HalfPlane, PenCtx, Pt, SerifSides, SerifSpec, StrokeEnd, StrokeOpts, StrokeWeight, TermSpec, TurnR } from './types';
 
 const CURVE_N = 16;
@@ -758,31 +758,36 @@ export const diamondEnd = (end: SerifEnd, ctx: PenCtx) =>
   ctx.serif?.shape === 'diamond' && !levelEnd(end) && Math.abs(end.dy) >= 0.94 * Math.hypot(end.dx, end.dy) && end.t >= ctx.thick * 0.5;
 /* A diamond's frame: `o` straight out of the end, up or down, as the pen stands the same way on every stroke, `u` across
    to the side the diamond reaches (right at a foot, left at a head, unless the letter gives the end its serif on the
-   other side only: the foot of a B's stem, its bowl running out of it to the right), and the stroke's half width along the end. */
+   other side only: the foot of a B's stem, its bowl running out of it to the right), the stroke's half width along the
+   end, and `n` square across the stroke towards `u`. */
 const diamondFrame = (end: SerifEnd, sides: SerifSides = 'both') => {
   const l = Math.hypot(end.dx, end.dy) || 1, o = { x: 0, y: Math.sign(end.dy) || -1 };
-  const flip = (o.y < 0 && sides === 'a') || (o.y > 0 && sides === 'b') ? -1 : 1;
-  return { o, u: { x: -o.y * flip, y: 0 }, hw: end.t / 2 / (Math.abs(end.dy) / l) };
+  const flip = (o.y < 0 && sides === 'a') || (o.y > 0 && sides === 'b') ? -1 : 1, u = { x: -o.y * flip, y: 0 };
+  const side = Math.sign(-end.dy * u.x) || 1;
+  return { o, u, hw: end.t / 2 / (Math.abs(end.dy) / l), n: { x: (-end.dy / l) * side, y: (end.dx / l) * side } };
 };
 /** How tall a diamond stands for its width: Thickness, from half as tall (flat) through square at 0.5 to half as tall again. */
 const diamondK = (ctx: PenCtx) => lerp(0.5, 1.5, clamp(((ctx.serif?.th ?? 51.5) - 8) / 87));
 /** What a stroke keeps under a diamond: all but the corner of its end cut off on a slant, from its far edge at the end
     back to its near edge one stroke width in. That corner is a small triangle, so the cut reaches no further along the
-    stroke (the other arm of a v). Its stroke keeps the three pieces beyond each side of the triangle, which overlap, and
-    as they are wound alike they fill as one (splitPoly keeps the side each normal points away from). */
+    stroke (the other arm of a v). Its stroke keeps the three pieces beyond each side of the triangle (the one past the
+    near edge running along the stroke, as one standing upright left a spike of a slanting leg under the diamond), which
+    overlap, and as they are wound alike they fill as one (splitPoly keeps the side each normal points away from). */
 export function diamondCut(end: SerifEnd, ctx: PenCtx, sides?: SerifSides): HalfPlane[] {
-  const { o, u, hw } = diamondFrame(end, sides), e = 1, k = diamondK(ctx);
+  const { o, u, hw, n } = diamondFrame(end, sides), e = 1, k = diamondK(ctx);
   return [
     { x: end.x + u.x * hw, y: end.y + u.y * hw, nx: o.x / k - u.x, ny: o.y / k - u.y },
-    { x: end.x - u.x * (hw + e), y: end.y - u.y * (hw + e), nx: u.x, ny: u.y },
+    { x: end.x - u.x * (hw + e), y: end.y - u.y * (hw + e), nx: n.x, ny: n.y },
     { x: end.x + o.x * e, y: end.y + o.y * e, nx: -o.x, ny: -o.y }
   ];
 }
 /** The diamond: a square stood on its corner, that corner on the end under the stem's far edge, `D` from its middle to
-    its side corners and `k` times that to its top, so it reaches D past the stem one way and fills the slanted cut the other. */
+    its side corners and `k` times that to its top, so it reaches D past the stem one way and fills the slanted cut the
+    other. A diamond wider than the stem stops at its near edge, or its corner poked a nub out into the letter (inside
+    the corner of an E or an L). */
 function diamond(end: SerifEnd, D: number, k: number, sides: SerifSides): Pt[] {
-  const { o, u, hw } = diamondFrame(end, sides), at = (a: number, v: number): Pt => ({ x: end.x + u.x * a - o.x * v, y: end.y + u.y * a - o.y * v, sharp: true });
-  return [at(hw, 0), at(hw + D, D * k), at(hw, 2 * D * k), at(hw - D, D * k)];
+  const { o, u, hw, n } = diamondFrame(end, sides), at = (a: number, v: number): Pt => ({ x: end.x + u.x * a - o.x * v, y: end.y + u.y * a - o.y * v, sharp: true });
+  return clipPoly([at(hw, 0), at(hw + D, D * k), at(hw, 2 * D * k), at(hw - D, D * k)], { planes: [{ x: end.x - u.x * hw, y: end.y - u.y * hw, nx: -n.x, ny: -n.y }] });
 }
 
 export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?: number, cup = 0, inward: SerifSides = null): Pt[] | null {

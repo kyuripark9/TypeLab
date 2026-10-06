@@ -1855,6 +1855,10 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     return false;
   };
   let leanL = 0, leanR = 0;
+  // how far the diamonds reaching out the way a neighbour's reach in go: a foot's to the left, a head's to the right
+  const outward = { l: Infinity, r: -Infinity };
+  // the ends a stencil gap took away with the stroke past it
+  const lost = new Set<string>();
   b.strokes.forEach((st, si) => {
     const o = st.o; let cmds: Cmd[] = [];
     if (st.poly) {
@@ -1906,9 +1910,13 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
         if (sides) { const cut = diamondCut(end, ctx, sides); pieces = pieces.flatMap(q => cut.flatMap(pl => splitPoly([q], pl))); }
       }
       for (const [y0, y1] of through?.bands.get(si) ?? []) {
-        // a wide gap leaves no sliver of the stroke past it (the foot of an A's leg)
+        // a wide gap leaves no sliver of the stroke past it (the foot of an A's leg), nor the serif on its end
         const cut = pieces.flatMap(q => [...splitPoly([q], { x: 0, y: y1, nx: 0, ny: -1 }), ...splitPoly([q], { x: 0, y: y0, nx: 0, ny: 1 })]);
         pieces = cut.filter(q => Math.max(...q.map(p => p.y)) - Math.min(...q.map(p => p.y)) >= m.s * 0.35);
+        for (const end of ex.ends) {
+          const past = (p: Pt) => (end.y < y0 ? p.y < y0 : end.y > y1 && p.y > y1) && Math.abs(p.x - end.x) < end.t;
+          if (!pieces.some(q => q.some(past))) lost.add(`${si}${end.which}`);
+        }
       }
       for (const q of pieces) { const c = finish(q, 1, R, out.corners); if (c) cmds = cmds.concat(c); }
       if (o.counter) out.counters.push(finish(ex.skeleton.flat(), 1, 0) || []);
@@ -1917,11 +1925,13 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     ex.skeleton.forEach(r => out.skeleton.push(r));
     for (const end of ex.ends) {
       // an end pulled back from the stroke it lies in leaves its serif behind with it
-      const want = (end.which === 's' ? serifS : serifE) && !(stencilled[si]?.off != null && stencilled[si]!.cuts.some(c => c.own && Math.hypot(c.x - end.x, c.y - end.y) < 1));
+      const want = (end.which === 's' ? serifS : serifE) && !lost.has(`${si}${end.which}`) && !(stencilled[si]?.off != null && stencilled[si]!.cuts.some(c => c.own && Math.hypot(c.x - end.x, c.y - end.y) < 1));
       if (want) {
         const key = `${si}${end.which}`, face = facing?.get(key), sides = face ? face.sides : (end.which === 's' ? o.serifS : o.serifE) ?? null;
         const sp = sides && buildSerif(end, sides, ctx, o.serifScale, cups?.get(key), face?.inward);
         const c = sp && finish(sp, 1, m.R * 0.5); if (c) { out.serifs.push(c); out.serifAt.push(serifPlace(end)); }
+        const foot = serifPlace(end) === 'foot', xs = sp ? sp.map(q => q.x) : [];
+        if (sp && diamondEnd(end, ctx) && sides === (foot ? 'a' : 'b')) { if (foot) outward.l = Math.min(outward.l, ...xs); else outward.r = Math.max(outward.r, ...xs); }
         // a serif leaning out past the end of its arm takes the room it reaches into from the side bearing
         if (sp && ctx.serif!.armLean && serifPlace(end) === 'arm') {
           const dir = Math.sign(end.dx), past = Math.max(0, ...sp.map(q => (q.x - end.x) * dir));
@@ -1946,7 +1956,7 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
   const padL = Math.max(0, -b.reachL - m.sb * 1.3), padR = Math.max(0, b.reachR - W - m.sb * 1.3);
   const sbf = b.sb ?? def.sb;
   let lsb = m.sb * sbf[0] + padL + grow.l + leanL, rsb = m.sb * sbf[1] + padR + leanR;
-  if (ctx.serif?.shape === 'diamond') [lsb, rsb] = clearStems(out, W, lsb, rsb, m);
+  if (ctx.serif?.shape === 'diamond') [lsb, rsb] = clearStems(out, W, lsb, rsb, m, outward);
   return placeGlyph(out, W, lsb, rsb, code, m, !!b.joins);
 }
 
@@ -1955,8 +1965,10 @@ function buildGlyph(ch: string, m: Metrics): Glyph | null {
     a leg reaching out past the body, the flag of an r, the leg of a k, ran into the next letter's stem:
     each side leaves at least a fifth of a stroke between its ink and a neighbouring stem standing a
     side bearing in. A stem's own diamonds clear it already, as the head reaches left at the top and
-    the foot right at the bottom, past the neighbour's. */
-function clearStems(out: Unplaced, W: number, lsb: number, rsb: number, m: Metrics): [number, number] {
+    the foot right at the bottom, past the neighbour's. One reaching the other way (`outward`: the foot of a B's
+    stem, its bowl running out to the right) meets the neighbour's coming in, so it keeps a whole side bearing
+    clear of that letter's edge, where a diamond reaching into the room it leaves stops a fifth of a stroke short. */
+function clearStems(out: Unplaced, W: number, lsb: number, rsb: number, m: Metrics, outward: { l: number; r: number }): [number, number] {
   let x0 = Infinity, x1 = -Infinity, at = { x: 0, y: 0 };
   const see = (x: number) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); };
   for (const c of [...out.strokes.flatMap(st => st.cmds), ...out.serifs.flat()]) {
@@ -1968,7 +1980,7 @@ function clearStems(out: Unplaced, W: number, lsb: number, rsb: number, m: Metri
   }
   if (x0 > x1) return [lsb, rsb];
   const room = m.sb - m.s * 0.2 + m.track;
-  return [Math.max(lsb, -x0 - room), Math.max(rsb, x1 - W - room)];
+  return [Math.max(lsb, -x0 - room, -outward.l + m.sb + m.track), Math.max(rsb, x1 - W - room, outward.r - W + m.sb + m.track)];
 }
 
 type Unplaced = Omit<Glyph, 'lsb' | 'rsb' | 'adv' | 'M' | 'cmds' | 'd'>;
