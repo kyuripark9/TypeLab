@@ -1,4 +1,4 @@
-import { useDeferredValue, useRef, useState } from 'react';
+import { useDeferredValue, useRef, useState, type ReactNode } from 'react';
 import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../../shared/content';
 import type { Params } from '../../shared/params';
 import { STYLE_FONTS } from '../../shared/free-fonts';
@@ -141,6 +141,7 @@ function StyleCards() {
           </button>
         )}
       </div>
+      <LettersNote />
       {finder.on && <FinderTrail finder={finder} />}
       <ActiveBar onClear={() => head.current?.focus()} finder={finder.on} />
       {finder.question ? <FinderQuestion question={finder.question} /> : shown.length ? (
@@ -191,9 +192,13 @@ function ActiveBar({ onClear, finder }: { onClear: () => void; finder: boolean }
   );
 }
 
-const LETTERS: [Letters, string, string][] = [
-  ['free', 'Ready-made', 'Each style in a free font, designed by hand and free to use, change and share'],
-  ['own', 'Make my own', 'Letters built from the settings, so every slider reshapes them']
+/** Each way of getting letters: its name, a drawing of it (a finished A for a font made by hand,
+    sliders for letters the settings build) and what it means, said under the heading. */
+const LETTERS: { id: Letters; label: string; icon: ReactNode; note: string }[] = [
+  { id: 'free', label: 'Ready-made', icon: <><rect x="2.5" y="2.5" width="15" height="15" rx="3" /><path d="M6.5 14 10 5.5 13.5 14M7.8 11h4.4" /></>,
+    note: 'Free fonts drawn by type designers, ready to use. Only height and spacing change them.' },
+  { id: 'own', label: 'Make my own', icon: <><path d="M3 6.5h14M3 13.5h14" /><circle cx="7.5" cy="6.5" r="2" className="knob" /><circle cx="12.5" cy="13.5" r="2" className="knob" /></>,
+    note: 'Letters TypeLab builds for you. Every setting reshapes them.' }
 ];
 
 /** Where the letters come from: each style's free font, ready to use, or letters to shape with the settings. */
@@ -201,11 +206,20 @@ function LettersToggle() {
   const letters = useEditor(s => s.letters);
   return (
     <div className="letters-toggle" role="radiogroup" aria-label="Letters">
-      {LETTERS.map(([id, label, tip]) => (
-        <button key={id} role="radio" aria-checked={letters === id} title={tip} className={letters === id ? 'on' : undefined} onClick={() => actions.setLetters(id)}>{label}</button>
+      {LETTERS.map(l => (
+        <button key={l.id} role="radio" aria-checked={letters === l.id} aria-describedby={letters === l.id ? 'letters-note' : undefined} className={letters === l.id ? 'on' : undefined} onClick={() => actions.setLetters(l.id)}>
+          <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">{l.icon}</svg>
+          {l.label}
+        </button>
       ))}
     </div>
   );
+}
+
+/** What the picked way of getting letters means, so the two aren't told apart by the cards alone. */
+function LettersNote() {
+  const letters = useEditor(s => s.letters);
+  return <p className="letters-note" id="letters-note">{LETTERS.find(l => l.id === letters)!.note}</p>;
 }
 
 /** A style's card in its free font: the sample text set in the font itself, as the browser draws it. */
@@ -214,7 +228,7 @@ function FreeCard({ style: s, text, size }: { style: StyleDef; text: string; siz
   const font = useWebFont(STYLE_FONTS[s.id]);
   return (
     <button className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
-      <span className="card-name">{s.name}<span className="card-like">{STYLE_FONTS[s.id].replace(/:.*/, '')} · free font</span></span>
+      <span className="card-name">{s.name}<span className="card-like font">{STYLE_FONTS[s.id].replace(/:.*/, '')}</span></span>
       <span className={font ? 'card-free' : 'card-free loading'} style={{ ...(font && fontStyle(font)), fontSize: size }}>{text}</span>
     </button>
   );
