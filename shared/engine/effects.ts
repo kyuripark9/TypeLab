@@ -468,6 +468,76 @@ function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape, fit = { thi
       const rest = end.slice(j);
       pts = from ? rest.reverse() : rest;
     };
+    // a closed bowl whose stroke runs into another's (the bowl of a single-storey a, of d, g, p or
+    // b against its stem) opens where they run together, and each end carries on into the stem's
+    // line. Kept closed, the bowl's ring ran down beside the stem's line with a sliver of ink
+    // between, and the a read as ci, the d as cl
+    if (closed && lines.length > 1) {
+      const ring = pts.slice(0, -1), m = ring.length, at = (i: number) => ring[((i % m) + m) % m];
+      const foot = (p: Pt) => {
+        let best = { d: Infinity, q: p };
+        lines.forEach((l, i) => { if (i !== li) for (let k = 1; k < l.length; k++) {
+          const a = l[k - 1], b = l[k], dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+          const t = l2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0, q = { x: a.x + dx * t, y: a.y + dy * t };
+          if (dist(p, q) < best.d) best = { d: dist(p, q), q };
+        } });
+        return best;
+      };
+      // whether the ink runs unbroken from p across to the other line
+      const joined = (p: Pt) => {
+        const { d, q } = foot(p);
+        return d > 1e-9 && (across(ink, p, (q.x - p.x) / d, (q.y - p.y) / d, d + 1)?.[0] ?? 0) >= d - 1;
+      };
+      // where a line from p the way (ux, uy) meets the other line, if it gets there inside the ink
+      // with room for the line either side all the way
+      const reach = (p: Pt, ux: number, uy: number): Pt | null => {
+        let hit = Infinity;
+        lines.forEach((l, i) => { if (i !== li) for (let k = 1; k < l.length; k++) {
+          const a = l[k - 1], ex = l[k].x - a.x, ey = l[k].y - a.y, den = ux * ey - uy * ex;
+          if (Math.abs(den) < 1e-12) continue;
+          const qx = a.x - p.x, qy = a.y - p.y, s = (qx * ey - qy * ex) / den, u = (qx * uy - qy * ux) / den;
+          if (s > 0 && u >= 0 && u <= 1) hit = Math.min(hit, s);
+        } });
+        if (hit > o.stem * 1.5) return null;
+        for (let s = 0; s <= hit; s += w / 2) {
+          const r = across(ink, { x: p.x + ux * s, y: p.y + uy * s }, -uy, ux, o.stem * 4);
+          if (!r || Math.min(r[0], r[1]) < fit.edge) return null;
+        }
+        return { x: p.x + ux * hit, y: p.y + uy * hit };
+      };
+      let k0 = 0;
+      for (let k = 1; k < m; k++) if (foot(ring[k]).d < foot(ring[k0]).d) k0 = k;
+      const d0 = foot(ring[k0]).d;
+      // (not where the lines already touch or cross, as the bar of an e does its bowl)
+      if (d0 > w * 0.6 && d0 < o.stem * 1.5 && joined(ring[k0])) {
+        // each way from where they run closest, it opens as far round as the strokes stay joined
+        // (any less leaves a sliver of ink cut off between the lines), and from there runs on the
+        // way it was going, or where that runs alongside the stem's line and never meets it,
+        // turned toward it as little as gets it there
+        const end = (sg: number) => {
+          for (const turn of [0, 0.25, 0.5, 1, 2]) {
+            let found: { i: number; c: Pt } | null = null;
+            for (let i = 1; i < m / 2 && joined(at(k0 + sg * i)); i++) {
+              const p = at(k0 + sg * i), q = at(k0 + sg * (i - 1)), l = dist(p, q), f = foot(p);
+              if (l < 1e-9) continue;
+              const ux = (q.x - p.x) / l + (f.q.x - p.x) / f.d * turn, uy = (q.y - p.y) / l + (f.q.y - p.y) / f.d * turn, ul = Math.hypot(ux, uy);
+              const c = reach(p, ux / ul, uy / ul);
+              if (c) found = { i, c };
+            }
+            if (found) return found;
+          }
+          return null;
+        };
+        const a = end(1), b = end(-1);
+        if (a && b) {
+          const run: Pt[] = [];
+          for (let i = k0 + a.i; i <= k0 + m - b.i; i++) run.push(at(i));
+          // (cut square on the stem's line, an end lies inside that line, so it stops there)
+          tips[0] = [a.c]; tips[1] = [b.c];
+          pts = run;
+        }
+      }
+    }
     // (an end where the letter joins the next runs right out, so the line carries on into it)
     if (!closed) {
       if (o.joins(pts[0])) { /* runs on */ } else if (near(pts[0], li)) meet(0); else trim(0);
