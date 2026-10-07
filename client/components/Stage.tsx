@@ -196,7 +196,7 @@ function ActiveBar({ onClear, finder }: { onClear: () => void; finder: boolean }
     sliders for letters the settings build) and what it means, said under the heading. */
 const LETTERS: { id: Letters; label: string; icon: ReactNode; note: string }[] = [
   { id: 'free', label: 'Ready-made', icon: <><rect x="2.5" y="2.5" width="15" height="15" rx="3" /><path d="M6.5 14 10 5.5 13.5 14M7.8 11h4.4" /></>,
-    note: 'Free fonts by type designers, yours to change and use. Weight, width, slant, spacing and fills change them; Points reshapes any letter.' },
+    note: 'Free fonts by type designers, yours to change and use. Weight, contrast, width, heights, crossbar, serifs, slant, spacing and fills change them; Points reshapes any letter.' },
   { id: 'own', label: 'Make my own', icon: <><path d="M3 6.5h14M3 13.5h14" /><circle cx="7.5" cy="6.5" r="2" className="knob" /><circle cx="12.5" cy="13.5" r="2" className="knob" /></>,
     note: 'Letters TypeLab builds for you. Every setting reshapes them.' }
 ];

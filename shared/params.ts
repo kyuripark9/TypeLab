@@ -214,12 +214,12 @@ export interface Params {
   /** the free font the letters are written in (a font id, see free-fonts.ts), '' for letters built from the settings:
       drawn as the font has them, its letters no longer follow the shape settings, as drawn ones don't */ freeFont: string;
   /** the settings (of FREE_AT_KEYS) the free font's own letters stand for, as its style had them when it was picked:
-      moved away from these, the font's letters move with them (bolder, wider, slanted, filled) */ freeAt: FreeAt;
+      moved away from these, the font's letters move with them (bolder, wider, higher, slanted, filled) */ freeAt: FreeAt;
 }
 
 /** The settings a free font's letters follow, as far as they're moved from the ones it was picked at (Params.freeAt). */
 export const FREE_AT_KEYS = ['weight', 'width', 'slant', 'rotation', 'mirror', 'sideBearing', 'mono', 'wobble', 'fill', 'slice',
-  'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal'] as const;
+  'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal', 'contrast', 'vWeight', 'hWeight', 'xHeight', 'crossbar', 'serifSize'] as const;
 export type FreeAt = Partial<Pick<Params, (typeof FREE_AT_KEYS)[number]>>;
 
 /** Settings every letter shares. The heights are the lines all letters stand on, spacing and the

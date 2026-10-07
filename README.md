@@ -80,16 +80,20 @@ and builds exported fonts on the server. A full rebuild of every glyph takes abo
 | `outline.ts` | Letters drawn by hand with the pen: anchor points and bézier handles, and the curve fitting that traces a generated letter into them |
 | `grid.ts` | Construction grids: the lines and circles a letter is built on, and the groups of letters that share a grid |
 | `free.ts` | Free fonts' letters: a design written in one (*Ready-made* on the Style page) draws them as the font has them, once registered |
+| `skin.ts` | Free fonts' letters moved by the settings: each outline hung on its skeleton, which the settings move and thicken by the engine's own measures |
 
 Every starting style can also be written in a free font from Google Fonts (`shared/free-fonts.ts`
 names one per style; all are under the SIL Open Font License or Apache 2.0). The server fetches a font
 the first time it's asked for, converts it (`server/free-fonts.ts`) and keeps it in `data/free-fonts/`;
 an export made from it carries the font's copyright notice and licence, and never its name. A design
 remembers the settings its font was picked at (`freeAt`), and as the settings move from them the font's
-letters move too: heavier or lighter is the family's nearer weight with the outlines pushed out or in
-the rest of the way, slanting past half an italic's lean takes the italic, and width, slant, rotation,
-mirroring, spacing, slice and the fills (but Inline) apply on top. Points opens its letters with the
-font's own anchor points.
+letters move too: heavier or lighter is the family's nearer weight, slanting past half an italic's lean
+takes the italic, and slant, rotation, mirroring, spacing, slice and the fills (but Inline) apply on top.
+The rest of the way in weight, and contrast, width, x-height, crossbar height and the serifs' size, move
+the letters on their skeletons (`shared/engine/skin.ts`): each outline is sampled, every sample hung on
+the middle of its stroke, and the settings move those middles and thicken or thin the strokes round them
+by the same measures the engine builds its own letters with, keeping the font's heights; unmoved, the
+letters are the font's exactly. Points opens its letters with the font's own anchor points.
 
 Beyond weight, width and contrast, the pen model also does squircle bowls (*Squareness*),
 faceted octagonal curves (*Chamfer*), reverse contrast and ink-trap joints, and glyph assembly

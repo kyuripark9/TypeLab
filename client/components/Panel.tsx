@@ -304,7 +304,7 @@ function FreeLetters() {
     const by = FREE_FAMILIES[r.family].designers.join(', ');
     return (
       <div className="reach-banner free-banner">
-        <span>Written in <b>{r.family}</b>{by && ` by ${by}`}, a free font{font.free ? ` (${font.free.license})` : ''} you may change and use. Weight, width, slant, spacing and the fills change its letters; for the rest, reshape a letter in Points.</span>
+        <span>Written in <b>{r.family}</b>{by && ` by ${by}`}, a free font{font.free ? ` (${font.free.license})` : ''} you may change and use. Weight, contrast, width, x-height, crossbar, serif size, slant, spacing and the fills change its letters; for the rest, reshape a letter in Points.</span>
         <button className="link small" onClick={() => actions.setFreeLetters(false)}>Make my own letters</button>
       </div>
     );
@@ -349,7 +349,7 @@ function LetterControls({ keys, category }: { keys: ControlKey[]; category: Excl
       {customizing && <div className="scope-note"><ScopeIcon id="letter" /><span>Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</span></div>}
       {drawn && (
         <div className="reach-banner">
-          <span>{free ? `${ch} comes from ${free}: weight, width, slant and fills change it, and Points reshapes it.` : `${ch} is drawn by hand, so these settings don’t change it.`}</span>
+          <span>{free ? `${ch} comes from ${free}: weight, contrast, width, heights, crossbar, serifs, slant and fills change it, and Points reshapes it.` : `${ch} is drawn by hand, so these settings don’t change it.`}</span>
           <button className="link small" onClick={() => (free ? actions.setFreeLetters(false) : actions.undrawLetter(ch))}>{free ? 'Make my own letters' : 'Back to settings'}</button>
         </div>
       )}

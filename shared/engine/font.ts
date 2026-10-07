@@ -10,6 +10,7 @@ import { fillOutline, shadowShift, slice } from './effects';
 import { freeFont, type FreeFont } from './free';
 import { nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
+import { skinMeasures, skinMove, skinRig, type SkinMeasures } from './skin';
 import { autoThickness, buildSerif, diamondCut, diamondEnd, expandStroke, innerFloor, organicK, serifCup, serifPlace, serifSides, type Expanded, type SerifPlace } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, SerifSides, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
 
@@ -2095,21 +2096,18 @@ function drawnGlyph(ch: string, drawn: Drawn): Glyph {
 }
 
 /* ---- free fonts' letters (see free-fonts.ts), moved by the settings as far as they're moved from the
-   ones the font was picked at (Params.freeAt): heavier is a heavier font of the family where it has one,
-   and the rest of the way its outlines pushed out (or in); slanted past half an italic's lean, its italic;
-   wider is stretched; and the font's own lean, rotation, spacing and fill are kept until the settings move. */
+   ones the font was picked at (Params.freeAt): heavier is a heavier font of the family where it has one;
+   the rest of the way, and Contrast, Width, x-height, Crossbar and the serifs' size, move its letters on
+   their skeletons as the engine's own letters move (skin.ts); slanted past half an italic's lean, its
+   italic; and the font's own lean, rotation, spacing and fill are kept until the settings move. */
 
 /** How far an italic leans, taken as a typical one's. */
 const ITALIC_DEG = 12;
-/** A stem's thickness at Weight `w` (as metrics weighs it), in design units. */
-const stemOf = (w: number) => 18 + 200 * Math.pow(clamp(w, 0, 1), 1.25);
-/** Width as metrics stretches the letters by it. */
-const widthOf = (w: number) => (w < 0.5 ? lerp(0.6, 1, w * 2) : lerp(1, 1.5, (w - 0.5) * 2));
 
 interface FreeLetters {
   /** the font drawn from, and the one the settings ask for, which may not have arrived */ font?: FreeFont; want: string;
-  /** design units to the font's, and how much wider */ k: number; sx: number;
-  /** how much heavier (negative, lighter) to draw the stems than the font has them, in design units */ bold: number;
+  /** design units to the font's, and how much wider (the side bearings) */ k: number; sx: number;
+  /** the engine's measures of the settings the font's letters stand for, and of those asked for */ from: SkinMeasures; to: SkinMeasures;
   /** the side bearings' scale */ sb: number;
   /** placing the letters: only what the settings move past the font's own (lean, turn, fill, spacing) */ m: Metrics;
 }
@@ -2122,14 +2120,15 @@ function freeLetters(params: Params, e: Effective, m: Metrics): FreeLetters | nu
   const lean = (r.italic ? ITALIC_DEG : 0) + (e.slant - b.slant) * 20, weight = r.weight + (e.weight - b.weight) * 1000;
   const want = nearestFont(r.family, weight, lean >= ITALIC_DEG / 2) ?? e.freeFont;
   const font = freeFont(want) ?? freeFont(e.freeFont), ref: FreeFontRef = font && font.id === want ? parseFontId(want)! : r;
-  // Weight 0.4 is a 400: what the font's weight falls short of, its outlines make up
-  const rest = (weight - ref.weight) / 1000, bold = Math.max(stemOf(e.weight) - stemOf(e.weight - rest), -0.6 * stemOf(e.weight - rest));
+  // Weight 0.4 is a 400: the font drawn from stands for the weight it is, and what it falls short of its
+  // letters make up on their skeletons
+  const from = skinMeasures(metrics({ ...b, weight: Math.max(0, b.weight + (ref.weight - r.weight) / 1000) }));
   const p: Effective = {
     ...e, fill: e.fill === b.fill ? 'solid' : e.fill, mirror: e.mirror === b.mirror ? 'normal' : 'mirrored',
     mono: Math.max(0, e.mono - b.mono), bounce: Math.max(0, e.bounce - b.bounce)
   };
   return {
-    font, want, k: font ? m.cap / font.cap : 1, sx: widthOf(e.width) / widthOf(b.width), bold,
+    font, want, k: font ? m.cap / font.cap : 1, sx: m.ws / mb.ws, from, to: skinMeasures(m),
     sb: Math.pow(2, (e.sideBearing - b.sideBearing) * 3),
     m: { ...m, p, slant: Math.tan((lean - (ref.italic ? ITALIC_DEG : 0)) * Math.PI / 180), rot: m.rot - mb.rot,
       wob: Math.max(0, e.wobble - b.wobble), sliceH: e.slice === b.slice ? 0 : m.sliceH }
@@ -2156,32 +2155,6 @@ const mapDrawn = (d: Drawn, adv: number, f: (x: number, y: number) => [number, n
   }))
 });
 
-/** A drawn outline pushed out by `by` (in, negative) square to its edges, every point along the line
-    halfway between its two edges' (as a font is made bolder by its outline), its handles with it. */
-function embolden(d: Drawn, by: number): Drawn {
-  const area = (c: Node[]) => c.reduce((a, n, i) => { const q = c[(i + 1) % c.length]; return a + n.x * q.y - q.x * n.y; }, 0);
-  const outer = d.contours.reduce<Node[]>((a, c) => (Math.abs(area(c)) > Math.abs(area(a)) ? c : a), []);
-  // the ink is left of an outline running anticlockwise, so out is to its right (left, clockwise)
-  const side = area(outer) > 0 ? 1 : -1;
-  const unit = (x: number, y: number) => { const l = Math.hypot(x, y); return l > 1e-6 ? { x: x / l, y: y / l } : null; };
-  return {
-    adv: d.adv,
-    contours: d.contours.map(c => c.map((n, i) => {
-      const a = c[(i + c.length - 1) % c.length], z = c[(i + 1) % c.length];
-      const tin = (n.ix !== undefined ? unit(n.x - n.ix, n.y - n.iy!) : null) ?? (a.ox !== undefined ? unit(n.x - a.ox, n.y - a.oy!) : null) ?? unit(n.x - a.x, n.y - a.y);
-      const tout = (n.ox !== undefined ? unit(n.ox - n.x, n.oy! - n.y) : null) ?? (z.ix !== undefined ? unit(z.ix - n.x, z.iy! - n.y) : null) ?? unit(z.x - n.x, z.y - n.y);
-      const n1 = tin && { x: tin.y * side, y: -tin.x * side }, n2 = tout && { x: tout.y * side, y: -tout.x * side };
-      const nA = n1 ?? n2, nB = n2 ?? n1;
-      if (!nA || !nB) return n;
-      const bis = unit(nA.x + nB.x, nA.y + nB.y) ?? nA, k = by / Math.max(0.35, bis.x * nA.x + bis.y * nA.y);
-      const dx = bis.x * k, dy = bis.y * k, out: Node = { ...n, x: n.x + dx, y: n.y + dy };
-      if (n.ix !== undefined) { out.ix = n.ix + dx; out.iy = n.iy! + dy; }
-      if (n.ox !== undefined) { out.ox = n.ox + dx; out.oy = n.oy! + dy; }
-      return out;
-    }))
-  };
-}
-
 /** The ink's left and right edges, by its points and handles. */
 function inkX(d: Drawn): [number, number] {
   let x0 = Infinity, x1 = -Infinity;
@@ -2194,10 +2167,12 @@ function inkX(d: Drawn): [number, number] {
 /** A free font's letter at the design's size, moved by the settings and placed like any glyph. Its
     outline as placed is kept as its drawing, for Points to start from. */
 function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
-  const sx = fl.k * fl.sx, sized = mapDrawn(src, src.adv * sx, (x, y) => [x * sx, y * fl.k]);
-  const [a0, a1] = inkX(sized), lsb = a0 * fl.sb, rsb = (sized.adv - a1) * fl.sb;
-  const bold = Math.abs(fl.bold) >= 0.5 ? embolden(sized, fl.bold / 2) : sized, [x0, x1] = inkX(bold);
-  const body = mapDrawn(bold, x1 - x0, (x, y) => [x - x0, y]), cmds = drawnCmds(body.contours);
+  // the letter moved on its skeleton in the font's own units, then brought to the design's size; its side
+  // bearings as the font has them, wider or narrower with the letters and by Side bearings
+  const rig = fl.font && skinRig(fl.font, ch), moved: Drawn = rig ? { adv: src.adv, contours: skinMove(rig, fl.from, fl.to) } : src;
+  const [a0, a1] = inkX(src), lsb = a0 * fl.k * fl.sx * fl.sb, rsb = (src.adv - a1) * fl.k * fl.sx * fl.sb;
+  const sized = mapDrawn(moved, moved.adv * fl.k, (x, y) => [x * fl.k, y * fl.k]), [x0, x1] = inkX(sized);
+  const body = mapDrawn(sized, x1 - x0, (x, y) => [x - x0, y]), cmds = drawnCmds(body.contours);
   const out: Unplaced = {
     ch, strokes: [{ part: 'drawn', cmds, curved: false }], serifs: [], serifAt: [], counters: [], marks: [], corners: [], skeleton: [], meta: {}, bodyW: x1 - x0
   };

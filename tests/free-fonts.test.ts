@@ -153,6 +153,49 @@ describe('free fonts', () => {
     assert.equal(buildFont({ ...at, fill: 'solid' }).glyph('H')!.d, H.d);
   });
 
+  it('move a free font\'s letters on their skeletons: the bar by Crossbar and Contrast, the lowercase by x-height, keeping the heights', () => {
+    // an H of two stems and a bar, and an n of two stems under a bar, as the server sends them
+    const rect = ([x0, x1, y0, y1]: number[]): [number, number][] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    registerFreeFont({ id: 'Roboto:500', family: 'Roboto', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 500, space: 250,
+      glyphs: {
+        H: [800, [[100, 300, 0, 700], [500, 700, 0, 700], [300, 500, 300, 400]].map(rect)],
+        n: [600, [[[100, 0], [200, 0], [200, 420], [400, 420], [400, 0], [500, 0], [500, 500], [100, 500]]]]
+      } } as FreeFontData);
+    const at = { ...DEFAULTS, weight: 0.5, freeFont: 'Roboto:500', freeAt: { weight: 0.5, contrast: 0.5, crossbar: 0.5, xHeight: DEFAULTS.xHeight, width: 0.5, slant: 0, fill: 'solid' as const } };
+    // the ink down the column at x, as [bottom, top] runs, read off the letter's outline (nonzero)
+    const column = (g: Glyph, x: number) => {
+      const hits: { y: number; w: number }[] = [];
+      for (const c of g.drawn!.contours) c.forEach((a, i) => {
+        const b = c[(i + 1) % c.length];
+        if ((a.x <= x) !== (b.x <= x)) hits.push({ y: a.y + (x - a.x) / (b.x - a.x) * (b.y - a.y), w: b.x > a.x ? 1 : -1 });
+      });
+      hits.sort((p, q) => p.y - q.y);
+      const out: [number, number][] = [];
+      let w = 0, from = 0;
+      for (const h of hits) { const was = w; w += h.w; if (!was && w) from = h.y; if (was && !w) out.push([from, h.y]); }
+      return out;
+    };
+    const H = buildFont(at).glyph('H')!, mid = (H.drawn!.contours.flat().reduce((a, n) => Math.max(a, n.x), 0)) / 2;
+    const bar = (g: Glyph) => column(g, mid).find(([a, b]) => b - a < 300)!;
+    const [b0, b1] = bar(H);
+    // unmoved, the letters are the font's
+    assert.ok(Math.abs(b0 - 300) < 1 && Math.abs(b1 - 400) < 1, `the bar is where the font has it (${b0}, ${b1})`);
+    // Crossbar raises the bar and keeps it as thick; Contrast thins it
+    const [r0, r1] = bar(buildFont({ ...at, crossbar: 0.9 }).glyph('H')!);
+    assert.ok((r0 + r1) / 2 > (b0 + b1) / 2 + 40 && Math.abs((r1 - r0) - (b1 - b0)) < 6, `Crossbar raises the bar (${r0}, ${r1})`);
+    const [c0, c1] = bar(buildFont({ ...at, contrast: 1 }).glyph('H')!);
+    assert.ok(c1 - c0 < (b1 - b0) - 15, `Contrast thins the bar (${c0}, ${c1})`);
+    // heavier on its skeleton, the H keeps its height, standing on the baseline
+    const heavy = buildFont({ ...at, weight: 0.8 }), Hb = heavy.glyph('H')!, stem = column(Hb, 150 * heavy.m.cap / 700)[0];
+    assert.ok(heavy.freePending, 'the 800 the Weight asks for has not come, so the 500 is moved the rest of the way');
+    assert.ok(Math.abs(stem[0]) < 2 && Math.abs(stem[1] - heavy.m.cap) < 2, `a heavier H keeps its height (${stem})`);
+    // a lower x-height lowers the n; the H keeps its height (its bar thins a little, as the engine's own
+    // bars are kept under a share of the x-height)
+    const low = buildFont({ ...at, xHeight: 0.2 }), n0 = column(buildFont(at).glyph('n')!, 150)[0], n1 = column(low.glyph('n')!, 150)[0];
+    assert.ok(n1[1] < n0[1] - 60 && Math.abs(n1[0]) < 2, `the n is lower (${n0} to ${n1})`);
+    assert.deepEqual(column(low.glyph('H')!, 150), column(H, 150), 'the capitals keep their height');
+  });
+
   it('are served by the API, and only the ones the styles name', async () => {
     const store = new DesignStore(':memory:'), server = createApp(store, { fonts: new FreeFonts(null, googleFonts().get) }).listen(0);
     await new Promise(r => server.once('listening', r));

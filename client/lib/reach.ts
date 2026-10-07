@@ -2,10 +2,10 @@
    no K, Stencil on a letter with no joins: clicking them changed nothing, and read as broken. Each
    control is tried at its other values, and if the letters in view stay the same it says so and
    names letters it does change. */
-import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
+import { ALL_CHARS, buildFont, skinFollows, type Font } from '../../shared/engine';
 import { FORM_OPTIONS } from '../../shared/content';
 import {
-  BAR_ENDS, FILLS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, TERMINALS, TERMINAL_FORMS, TERMINAL_RUNS,
+  BAR_ENDS, FILLS, FREE_AT_KEYS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, TERMINALS, TERMINAL_FORMS, TERMINAL_RUNS,
   isGlyphKey, type Params
 } from '../../shared/params';
 
@@ -43,7 +43,20 @@ export function reachOf(p: Params, k: keyof Params, chars: string[], letter: str
   const set = (v: unknown): Params => letter && isGlyphKey(k)
     ? { ...p, glyphs: { ...p.glyphs, [letter]: { ...p.glyphs[letter], [k]: v } } }
     : { ...p, [k]: v };
-  const base = buildFont(p), alts = altsOf(p, k).map(v => buildFont(set(v)));
+  const base = buildFont(p);
+  // a free font's letters follow only some settings (see freeLetters and skin.ts), which can be told
+  // without drawing them again at the other values, as that is slow for them
+  // (of the settings every letter shares, the size and the fills' grid reach them too, so those are drawn)
+  const freeLetter = (ch: string) => { const f = base.letter(ch); return !!f.free?.glyphs[ch] && !p.outlines?.[ch]; };
+  const follow = (FREE_AT_KEYS as readonly string[]).includes(k);
+  if (base.free && (follow || isGlyphKey(k) || k === 'extenders' || k === 'descender') && chars.every(freeLetter)) {
+    // (the Serifs switch can't take a free font's serifs away, but Length under it moves them, so the
+    // group isn't idle where there are serifs to move)
+    const follows = (ch: string) => k === 'serif' ? skinFollows(base.letter(ch).free!, ch, 'serifSize') : follow && skinFollows(base.letter(ch).free!, ch, k);
+    if (chars.some(follows)) return { shows: true, elsewhere: [] };
+    return { shows: false, elsewhere: ALL_CHARS.split('').filter(ch => !chars.includes(ch) && base.free!.glyphs[ch] && follows(ch)).slice(0, 3) };
+  }
+  const alts = altsOf(p, k).map(v => buildFont(set(v)));
   const changes = (ch: string) => { const s = sig(base, ch); return alts.some(f => sig(f, ch) !== s); };
   if (chars.some(changes)) return { shows: true, elsewhere: [] };
   const elsewhere: string[] = [];
