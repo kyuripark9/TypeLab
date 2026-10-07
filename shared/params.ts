@@ -24,8 +24,8 @@ export const SERIF_SIDES = ['both', 'left', 'right', 'inside', 'outside'] as con
 /** The shape of the serifs that reach into the letter: the same as the rest, or one of their own. */
 export const SERIF_INNERS = ['same', ...SERIF_SHAPES] as const;
 /** What the letters are built from: solid ink, a wireframe of every stroke, a grid of pixels, dots or lines, ink with a
-    line cut down its strokes (inline), or ink casting a shadow down to the right. */
-export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines', 'inline', 'shadow'] as const;
+    line cut down its strokes (inline), a hollow outline with a line down its strokes (outline-inline), or ink casting a shadow down to the right. */
+export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines', 'inline', 'outline-inline', 'shadow'] as const;
 /** The lowercase a: two storeys (bowl under a hook) or one (just a bowl). 'auto' lets the personality and cursive settings pick. */
 export const STORIES = ['auto', 'double', 'single'] as const;
 /** How a bowl meets its stem (b d p q g, the single-storey a): curving out of it, or square, its flat top and bottom running straight into it. */

@@ -12,8 +12,10 @@ const EPS = 1e-3;
 export interface Shape { polys: Pt[][]; has: (x: number, y: number) => boolean }
 
 /** A shape, with a quick inside test: its edges are bucketed by height, so a test only looks at
-    the edges level with the point. */
-export function shape(polys: Pt[][]): Shape {
+    the edges level with the point. Inside is where the outlines wind round it at all (nonzero), or
+    with `positive` only where they wind round it anticlockwise on balance (an offset outline's
+    loops, where it doubles back on itself, wind the other way and are left out). */
+export function shape(polys: Pt[][], positive = false): Shape {
   const segs: Seg[] = [];
   let y0 = Infinity, y1 = -Infinity;
   for (const p of polys) for (let i = 0, n = p.length; i < n; i++) {
@@ -34,7 +36,7 @@ export function shape(polys: Pt[][]): Shape {
       for (const s of buckets[at(y)]) {
         if ((s.ay <= y) !== (s.by <= y) && x < s.ax + (y - s.ay) / (s.by - s.ay) * (s.bx - s.ax)) w += s.by > s.ay ? 1 : -1;
       }
-      return w !== 0;
+      return positive ? w > 0 : w !== 0;
     }
   };
 }

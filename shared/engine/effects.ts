@@ -314,6 +314,28 @@ function offset(p: Pt[], d: number): Pt[] {
   return out;
 }
 
+/** A closed polygon pushed d to its left (into the ink, as outlines run anticlockwise and holes
+    clockwise), each edge moved out whole and the edges joined round a disc where they part. Where
+    they cross instead, and where it is pushed past a curve tighter than d, the outline doubles back
+    in a loop that winds the wrong way: read it with shape(…, true). No corner reaches past d, so a
+    little notch in the outline doesn't throw a spike across the stroke as a mitre would. */
+function inset(p: Pt[], d: number): Pt[] {
+  const n = p.length, out: Pt[] = [];
+  const nrm = (a: Pt, b: Pt) => { const l = dist(a, b) || 1; return { x: -(b.y - a.y) / l, y: (b.x - a.x) / l }; };
+  for (let i = 0; i < n; i++) {
+    const a = p[(i + n - 1) % n], b = p[i], c = p[(i + 1) % n], n1 = nrm(a, b), n2 = nrm(b, c);
+    out.push({ x: b.x + n1.x * d, y: b.y + n1.y * d });
+    const turn = Math.atan2(n1.x * n2.y - n1.y * n2.x, n1.x * n2.x + n1.y * n2.y);
+    // (turning right, the edges part: round the corner clockwise)
+    if (turn < -0.2) for (let k = 1, m = Math.ceil(-turn / 0.35); k < m; k++) {
+      const t = Math.atan2(n1.y, n1.x) + turn * k / m;
+      out.push({ x: b.x + Math.cos(t) * d, y: b.y + Math.sin(t) * d });
+    }
+    out.push({ x: b.x + n2.x * d, y: b.y + n2.y * d });
+  }
+  return out;
+}
+
 export interface FillOpts {
   fill: string; cell: number; line: number; roundness: number;
   /** the size the fill is set at, 0 to 1 (Module) */ size: number;
@@ -555,24 +577,6 @@ function band(run: Pt[], w: number): Pt[] {
   return [...R, ...L.reverse()];
 }
 
-/** The ground within d of the outline, either side of it: a quad along each edge, and a disc at
-    each corner sharp enough to leave a notch between its two quads. Every piece is turned the same
-    way, so they add up under the nonzero rule (an outline pushed in by d would cross itself where
-    it curves tighter than d). */
-function rimBand(polys: Pt[][], d: number): Pt[][] {
-  const out: Pt[][] = [], up = (p: Pt[]) => (signedArea(p) < 0 ? p.reverse() : p);
-  for (const p of polys) for (let i = 0, n = p.length; i < n; i++) {
-    const a = p[i], b = p[(i + 1) % n], c = p[(i + 2) % n], l = dist(a, b);
-    if (l < 1e-9) continue;
-    const nx = -(b.y - a.y) / l * d, ny = (b.x - a.x) / l * d;
-    out.push(up([{ x: a.x + nx, y: a.y + ny }, { x: a.x - nx, y: a.y - ny }, { x: b.x - nx, y: b.y - ny }, { x: b.x + nx, y: b.y + ny }]));
-    const turn = Math.atan2((b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x), (b.x - a.x) * (c.x - b.x) + (b.y - a.y) * (c.y - b.y));
-    // (a 12-gon round the disc, so its flats reach d)
-    if (Math.abs(turn) > 0.3) out.push(up(Array.from({ length: 12 }, (_, k) => ({ x: b.x + Math.cos(k * Math.PI / 6) * d * 1.036, y: b.y + Math.sin(k * Math.PI / 6) * d * 1.036 }))));
-  }
-  return out;
-}
-
 /** Rebuild an outline with a fill other than solid ink. */
 export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
   const polys = toPolys(cmds);
@@ -622,18 +626,30 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
     }
     case 'outline-inline': {
       // the letter drawn hollow, a line round the inside of its edge, with a second line down the
-      // middle of its strokes. At the largest Size the three lines across a stem and the two gaps
-      // between them are all as wide; smaller, the lines thin and the gaps open
-      const lw = Math.max(4, o.stem * (0.06 + 0.14 * o.size)), g = Math.max(2, (o.stem - 3 * lw) / 2), ink = shape(polys);
-      const solid = combine([ink], ink.has);
-      // the middle line keeps to strokes with room for it and a gap most of the full width either
-      // side (a little less over a short stretch), and stops short of the rim by at least that
-      const fit = { thick: (lw * 1.5 + g * 0.7) * 2, room: lw * 1.5 + g * 0.7, edge: lw * 1.5 + g * 0.45 };
-      const line = shape(inlineBands(o.skeleton, lw, o, ink, fit));
-      const rim = shape(rimBand(solid, lw)), clear = shape(rimBand(solid, lw + g * 0.45));
-      const out = combine([ink, rim, clear, line], (x, y) => ink.has(x, y) && (rim.has(x, y) || (line.has(x, y) && !clear.has(x, y))));
-      // (less the specks where clearing the rim leaves a scrap of the line)
-      return polysToCmds(out.filter(p => Math.abs(signedArea(p)) >= lw * lw * 2), 0);
+      // middle of its strokes. The lines are sized between the stem and the thinner bars and bowls,
+      // so both have room for three: at the largest Size the lines are as wide as the gaps between
+      // them there, and smaller, the lines thin and the gaps open
+      const mean = (o.stem + Math.min(o.thick(1, 0), o.thick(0, 1))) / 2;
+      const lw = Math.max(4, mean * (0.06 + 0.14 * o.size)), ink = shape(polys);
+      // the rim: the joined letter, less its hollow turned round. The hollow is each contour pushed
+      // into the ink, kept to the ink (pushed in past the sharp corner at the slanting end of an s,
+      // it pokes out the far side). Where a stroke is too thin to hollow, the pushed outline turns
+      // inside out and the stroke stays solid. Specks of hollow, in a tight corner, are left as ink
+      const solid = combine([ink], ink.has), inner = shape(solid.map(p => inset(p, lw)), true);
+      const hollow = combine([ink, inner], (x, y) => ink.has(x, y) && inner.has(x, y)).filter(p => signedArea(p) < 0 || signedArea(p) > lw * lw);
+      const out: Cmd[] = [...polysToCmds(solid, 0), ...polysToCmds(hollow.map(p => [...p].reverse()), 0)];
+      // the middle line keeps to strokes with room for it and a gap of at least 0.6 of a line either
+      // side (a little less over a short stretch), measured across the ink; its ends stop short of
+      // the rim by a gap as well, as Inline's leave the ink beside them at a free end. Then, so it can
+      // never run into the rim (a tip laid across a meeting, a stroke that narrows), it is cut back to
+      // half a line clear of it, less any specks that leaves
+      const fit = { thick: lw * 3, room: lw * 2.1, edge: lw * 1.9 };
+      const bands = inlineBands(o.skeleton, lw, o, ink, fit);
+      if (bands.length) {
+        const line = shape(bands), clear = shape(solid.map(p => inset(p, lw * 1.5)), true);
+        out.push(...polysToCmds(combine([line, clear], (x, y) => line.has(x, y) && clear.has(x, y)).filter(p => signedArea(p) < 0 || signedArea(p) > lw * lw), 0));
+      }
+      return out;
     }
     case 'shadow': {
       // the letter casts a solid shadow down to the right, kept apart from it by a gap. The shadow is
