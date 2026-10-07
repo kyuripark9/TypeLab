@@ -653,7 +653,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
   build: { cat: 'curves', type: 'form', label: 'Built from', friendly: 'Draw letters as strokes or cut them from solid blocks', tech: 'Stroke or block construction', demo: 'EOS',
     explain: 'Blocks are solid shapes with their insides cut in as narrow slots. Weight closes the slots up, Roundness rounds the corners and slot ends, Joins the small inside curves. Lowercase become small capitals.' },
   bowlForm: { cat: 'curves', type: 'form', label: 'Bowls', friendly: 'Draw curves as ovals or as boxes', tech: 'Oval or box bowls', demo: 'OCS',
-    explain: 'Box bowls have straight sides and corners that round on the outside and stay square on the inside. Squareness shapes the ovals.' },
+    explain: 'Boxes have straight sides and corners round outside, square inside.' },
   curve: { cat: 'curves', label: 'Curves', friendly: 'Make curves more geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
     explain: 'Compass-drawn circles, or fuller pen-like curves.' },
   squareness: { cat: 'curves', off: 0, label: 'Squareness', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',

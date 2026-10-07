@@ -47,9 +47,10 @@ const LETTERS_KEY = 'typelab.letters';
 const savedLetters = (): Letters => {
   try { return localStorage.getItem(LETTERS_KEY) === 'own' ? 'own' : 'free'; } catch { return 'free'; }
 };
-const TIPS_KEY = 'typelab.tipsHidden';
+/** The explanation starts closed, at its title; opened, it stays open from visit to visit. */
+const TIPS_KEY = 'typelab.tipsShown';
 const savedTips = (): boolean => {
-  try { return localStorage.getItem(TIPS_KEY) !== '1'; } catch { return true; }
+  try { return localStorage.getItem(TIPS_KEY) === '1'; } catch { return false; }
 };
 
 interface Doc { designId: string | null; name: string; styleId: string; params: Params }
@@ -89,7 +90,7 @@ export interface EditorState extends Doc {
   letters: Letters;
   /** long panel sections folded down to their heading */
   folded: ControlKey[];
-  /** the explanation at the top of the panel; closed, it folds to a "Show explanation" row */
+  /** the explanation at the top of the panel opened past its title */
   tips: boolean;
   inspect: string | null;
   scope: Scope;
@@ -518,7 +519,7 @@ export const actions = {
   },
   setTips(tips: boolean) {
     set({ tips });
-    try { if (tips) localStorage.removeItem(TIPS_KEY); else localStorage.setItem(TIPS_KEY, '1'); } catch { /* private mode: lasts this visit */ }
+    try { if (tips) localStorage.setItem(TIPS_KEY, '1'); else localStorage.removeItem(TIPS_KEY); } catch { /* private mode: lasts this visit */ }
   },
   openInspector(ch: string) {
     if (!fontFor(get().params).glyph(ch)) return;

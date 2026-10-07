@@ -484,35 +484,23 @@ function Explainer() {
   const free = useEditor(s => !!s.params.freeFont);
   const c = CONTROLS[controlFor(active)], sub = SUBS[active as keyof typeof SUBS];
   const shapedBy = part && PART_CONTROL[part];
-  const close = (
-    <button className="btn ghost icon small ex-close" onClick={() => actions.setTips(false)} aria-label="Hide explanation" title="Hide explanation">
-      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-    </button>
-  );
+  const [tech, title, text] = part
+    ? [`Anatomy${shapedBy ? ` · shaped by ${CONTROLS[shapedBy].tech.split(' · ')[0]}` : ''}`, ANATOMY[part][0], ANATOMY[part][1]]
+    : [(sub ?? c).tech, (sub ?? c).friendly, c.explain];
   // while inspecting, the large letter on the stage already shows the part, so drop the diagram
   return (
     <div className={inspecting ? 'explainer compact' : 'explainer'}>
       {!inspecting && !free && <div className="diagram-box"><Diagram font={font} k={active} /></div>}
-      {!tips ? (
-        <button className="ex-open" onClick={() => actions.setTips(true)} aria-expanded={false}>
-          Show explanation
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" /></svg>
+      {/* closed, the explanation shows only its title; the title opens it */}
+      <div className={tips ? 'ex-text open' : 'ex-text'}>
+        <button className="ex-head" onClick={() => actions.setTips(!tips)} aria-expanded={tips} aria-controls="ex-body"
+          title={tips ? 'Hide explanation' : 'Show explanation'}>
+          <span className="ex-tech">{tech}</span>
+          <span className="ex-title">{title}</span>
+          <svg className="facet-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5" /></svg>
         </button>
-      ) : part ? (
-        <div className="ex-text">
-          {close}
-          <div className="ex-tech">Anatomy{shapedBy && ` · shaped by ${CONTROLS[shapedBy].tech.split(' · ')[0]}`}</div>
-          <h3>{ANATOMY[part][0]}</h3>
-          <p>{ANATOMY[part][1]}</p>
-        </div>
-      ) : (
-        <div className="ex-text">
-          {close}
-          <div className="ex-tech">{(sub ?? c).tech}</div>
-          <h3>{(sub ?? c).friendly}</h3>
-          <p>{c.explain}</p>
-        </div>
-      )}
+        {tips && <p id="ex-body">{text}</p>}
+      </div>
     </div>
   );
 }
