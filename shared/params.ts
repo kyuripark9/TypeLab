@@ -225,7 +225,10 @@ export const FREE_AT_KEYS = ['weight', 'width', 'slant', 'rotation', 'mirror', '
   'terminal', 'terminalForm', 'terminalFlare', 'terminalDepth', 'terminalSize', 'terminalRound', 'terminalPoint', 'terminalClip', 'terminalLean', 'terminalSlope', 'terminalTilt', 'terminalTip', 'terminalTaper',
   'serif', 'serifThickness', 'serifShape', 'serifAngle', 'serifBracket', 'serifTip', 'serifTipRound', 'serifTipSlant', 'serifBase', 'serifCup',
   'serifSides', 'serifInner', 'serifInnerSize', 'serifInnerThickness', 'serifBalance', 'serifTops', 'serifArms', 'serifArmThickness', 'serifArmLean',
-  'stencil', 'stencilPos', 'stencilRound', 'barGap', 'barEnds', 'terminalLength', 'terminalCurl', 'tail', 'aperture'] as const;
+  'stencil', 'stencilPos', 'stencilRound', 'barGap', 'barEnds', 'terminalLength', 'terminalCurl', 'tail', 'aperture',
+  'squareness', 'chamfer', 'curve', 'bowlForm', 'dots', 'apex',
+  'build', 'story', 'aForm', 'gForm', 'kForm', 'iForm', 'sForm', 'diagonals', 'yForm', 'qForm', 'rForm', 'bowlJoin', 'bends', 'terminalRun',
+  'scriptForm', 'flourish', 'cursive', 'swash'] as const;
 export type FreeAt = Partial<Pick<Params, (typeof FREE_AT_KEYS)[number]>>;
 
 /** Settings every letter shares. The heights are the lines all letters stand on, spacing and the

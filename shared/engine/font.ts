@@ -11,7 +11,7 @@ import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
 import { rigSkeleton, skinMeasures, skinMove, skinRig, type SkinMeasures, type SkinRig } from './skin';
-import { cornerLooks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
+import { bowlLook, cornerLooks, dotLook, restyleBowls, restyleDots, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { skeleton, type Skeleton } from './scan';
 import { autoThickness, buildSerif, diamondCut, diamondEnd, expandStroke, innerFloor, organicK, serifCup, serifPlace, serifSides, type Expanded, type SerifPlace } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, SerifSides, SerifSpec, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
@@ -2119,6 +2119,7 @@ interface FreeLetters {
   /** the settings the font's letters stand for, and those asked for, for the shapes that restyle them (restyle.ts) */ pick: Effective; now: Effective;
   /** the serifs asked for, in design units, and whether they're the engine's to set on the letters: where the font
       has none and they're asked for, or its own are another shape (they are taken off, see skin.ts) */ serif: SerifSpec | null; serifs: boolean;
+  /** the settings as given, and as the font was picked at (see twinGlyph) */ raw: Params; rawPick: Params;
 }
 
 function freeLetters(params: Params, e: Effective, m: Metrics): FreeLetters | null {
@@ -2142,7 +2143,7 @@ function freeLetters(params: Params, e: Effective, m: Metrics): FreeLetters | nu
   if (other) to.serif = 0;
   return {
     font, want, k: font ? m.cap / font.cap : 1, sx: m.ws / mb.ws, from, to, skin: !FREE_FAMILIES[r.family]?.grid, pick: b, now: e,
-    serif: asked ?? null, serifs: !!asked && (!had || other),
+    serif: asked ?? null, serifs: !!asked && (!had || other), raw: params, rawPick: { ...params, ...params.freeAt },
     sb: Math.pow(2, (e.sideBearing - b.sideBearing) * 3),
     m: { ...m, p, slant: Math.tan((lean - (ref.italic ? ITALIC_DEG : 0)) * Math.PI / 180), rot: m.rot - mb.rot,
       wob: Math.max(0, e.wobble - b.wobble), sliceH: e.slice === b.slice ? 0 : m.sliceH }
@@ -2178,6 +2179,61 @@ function inkX(d: Drawn): [number, number] {
   return x0 > x1 ? [0, 0] : [x0, x1];
 }
 
+/* ---- a free font's twin: the font read as the engine's own settings, for the letters asked for in a form the font
+   hasn't got (a single-storey a, a mirrored g, a k on a bar, Arches, a script's letters), which the engine draws */
+
+/** Whether letter `ch` is asked for in another form than the one the font's own stands for (its settings as picked). */
+function formChanged(ch: string, a: Effective, b: Effective): boolean {
+  const is = (set: string) => set.includes(ch);
+  if (a.build !== b.build) return true;
+  if (scriptForms(a) !== scriptForms(b) || (scriptForms(b) && a.flourish !== b.flourish)) return hasGlyph(ch + '.scr');
+  if ((a.cursive >= 0.35) !== (b.cursive >= 0.35) && hasGlyph(ch + '.cur')) return true;
+  if ((a.swash > 0) !== (b.swash > 0) && /^[A-Z]$/.test(ch)) return true;
+  return (ch === 'a' && (a.singleStory !== b.singleStory || a.aForm !== b.aForm)) || (ch === 'g' && a.gForm !== b.gForm)
+    || (is('kK') && a.kForm !== b.kForm) || (is('IiJl') && a.iForm !== b.iForm) || (is('sS$') && a.sForm !== b.sForm)
+    || (is('AVWvw') && a.diagonals !== b.diagonals) || (is('Yy') && a.yForm !== b.yForm) || (ch === 'Q' && a.qForm !== b.qForm)
+    || (ch === 'R' && a.rForm !== b.rForm) || (is('abdgpqhmnru') && a.bowlJoin !== b.bowlJoin) || (is('AMNVWYZvwyz') && a.bends !== b.bends)
+    || (is('acefjrstyCGJS235690?') && a.terminalRun !== b.terminalRun);
+}
+
+/** The engine's settings a free font's letters read as (once a font): its stems' weight, its bars' contrast against
+    them, its x-height, its width (its n against the engine's) and whether it has serifs. */
+const twinFits = new WeakMap<FreeFont, Partial<Params>>();
+function twinFit(font: FreeFont, pick: Params): Partial<Params> {
+  let fit = twinFits.get(font);
+  if (fit) return fit;
+  const n = skinRig(font, 'n') ?? skinRig(font, 'H'), H = skinRig(font, 'H') ?? n;
+  const m = metrics(resolve(pick)), s = (n?.stem ?? 0.12) * m.cap, thin = (H?.bar ?? n?.bar ?? 0.1) * m.cap;
+  const weight = clamp(Math.pow(Math.max(0, s - 18) / 200, 0.8));
+  const amount = clamp((0.92 - thin / Math.max(1, s)) / 0.84), contrast = 0.5 + Math.max(0, amount - 0.05) / 0.95 * 0.5;
+  const xHeight = clamp((font.xh / font.cap - 0.3) / 0.56);
+  // (as wide as the font's n, against the engine's at the middle of Width)
+  const g = font.glyphs.n, eng = buildFont({ ...pick, freeFont: '', freeAt: {}, glyphs: {}, outlines: {}, weight, contrast, xHeight, width: 0.5 }).glyph('n');
+  let width = 0.5;
+  if (g && eng) {
+    const [x0, x1] = inkX(g), ws = ((x1 - x0) * m.cap / font.cap) / Math.max(1, eng.bodyW);
+    width = clamp(ws < 1 ? (ws - 0.6) / 0.8 : 0.5 + (ws - 1));
+  }
+  fit = { weight, contrast, xHeight, width, serif: !!(n?.serifs || H?.serifs) };
+  twinFits.set(font, fit);
+  return fit;
+}
+
+/** Letter `ch` as the free font's twin draws it: the engine's, at the settings the font reads as (twinFit) moved as far
+    as the design moves them from those it was picked at. */
+const twinFonts = new Map<string, Font>();
+function twinGlyph(ch: string, fl: FreeLetters): Glyph | null {
+  if (!fl.font) return null;
+  const fit = twinFit(fl.font, fl.rawPick), now = fl.raw, pick = fl.rawPick;
+  const moved = (k: 'weight' | 'contrast' | 'xHeight' | 'width') => clamp((fit[k] as number) + (now[k] as number) - (pick[k] as number));
+  const p: Params = { ...now, freeFont: '', freeAt: {}, glyphs: {}, outlines: {}, weight: moved('weight'), contrast: moved('contrast'), xHeight: moved('xHeight'),
+    width: moved('width'), serif: now.serif !== pick.serif ? now.serif : !!fit.serif };
+  const key = JSON.stringify(p);
+  let f = twinFonts.get(key);
+  if (!f) { f = buildFont(p); if (twinFonts.size > 8) twinFonts.delete(twinFonts.keys().next().value!); twinFonts.set(key, f); }
+  return f.glyph(ch);
+}
+
 /** A rigged free font's letter, moved on its skeleton, given the shapes the settings ask for past the ones
     it stands for (restyle.ts); kept with the moved outline, by the settings, as dragging a slider asks again. */
 const restyles = new WeakMap<Node[][], Map<string, Node[][]>>();
@@ -2189,9 +2245,10 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   const sf = fl.serifs && fl.serif ? { ...fl.serif, len: fl.serif.len / fl.k, th: fl.serif.th / fl.k, inner: fl.serif.inner && { ...fl.serif.inner, th: fl.serif.inner.th / fl.k } } : null;
   const kd = fl.to.desc / fl.from.desc, xh1 = x.lower ? x.xh * fl.to.xr / fl.from.xr : x.xh;
   const lines = [0, x.cap, xh1, x.asc + (fl.to.asc - fl.from.asc) * x.cap, x.desc * (kd < 1 ? Math.sqrt(kd) : kd)];
-  const sa = stencilLook(fl.pick), sb = stencilLook(fl.now);
+  const sa = stencilLook(fl.pick), sb = stencilLook(fl.now), ba = bowlLook(fl.pick), bb = bowlLook(fl.now);
   const ends = (e: Effective) => [termSpec(e), e.terminal, e.terminalLength, e.terminalCurl, e.tail, e.aperture];
-  const key = JSON.stringify([a, b, ends(fl.pick), ends(fl.now), sf, sf && lines, sa, sb]);
+  const da = [fl.pick.dots, dotLook(fl.pick)], db = [fl.now.dots, dotLook(fl.now)];
+  const key = JSON.stringify([a, b, ends(fl.pick), ends(fl.now), sf, sf && lines, sa, sb, ba, bb, da, db, fl.pick.apex, fl.now.apex, fl.now.apex !== fl.pick.apex && lines]);
   let kept = restyles.get(cs);
   if (!kept) { kept = new Map(); restyles.set(cs, kept); }
   let out = kept.get(key);
@@ -2199,9 +2256,12 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
     // (each step's skeleton scanned off the outline as it stands then, and only when a step needs it)
     // (the letter as the font draws it has its skeleton scanned already, with its rig)
     const scan = (o: Node[][]) => { let sk: Skeleton | undefined; return () => (sk ??= o === rig.contours ? rigSkeleton(rig) : skeleton(o)); };
-    out = restyleEnds(cs, c, fl.pick, fl.now, scan(cs));
+    out = restyleDots(cs, c, fl.pick, fl.now);
+    out = restyleBowls(out, ba, bb, scan(out));
+    out = restyleEnds(out, c, fl.pick, fl.now, scan(out));
     if (sf) out = restyleSerifs(out, { ...c, lower: x.lower, lines }, sf, scan(out));
     out = restyleStencil(out, c, sa, sb, scan(out));
+    out = restylePeaks(out, { ...c, lines }, fl.pick.apex, fl.now.apex);
     out = restyleCorners(out, c, a, b, scan(out));
     if (kept.size >= 6) kept.delete(kept.keys().next().value!);
     kept.set(key, out);
@@ -2316,7 +2376,8 @@ export function buildFont(params: Params, from?: Font): Font {
         else {
           const lf = font.letter(ch);
           if (lf !== font) g = lf.glyph(ch);
-          else if (free?.glyphs[ch]) g = freeGlyph(ch, free.glyphs[ch], fl!);
+          // (in a form the font hasn't got, its twin's)
+          else if (free?.glyphs[ch]) g = (fl!.skin && formChanged(ch, fl!.pick, fl!.now) && twinGlyph(ch, fl!)) || freeGlyph(ch, free.glyphs[ch], fl!);
           else if (e.build === 'blocks' && (g = buildBlock(ch, m))) g.ch = ch;
           else {
             // a script's own letters first: they are written whole, single-storey a and all

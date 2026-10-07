@@ -304,7 +304,7 @@ function FreeLetters() {
     const by = FREE_FAMILIES[r.family].designers.join(', ');
     return (
       <div className="reach-banner free-banner">
-        <span>Written in <b>{r.family}</b>{by && ` by ${by}`}, a free font{font.free ? ` (${font.free.license})` : ''} you may change and use. Its letters follow the settings as the built ones do: weight, contrast, width, the heights, the insides, corners, stroke ends, serifs, joints, stencil, slant, spacing and the fills. The letters' own forms (the a, the g, the k) stay the font's; reshape one in Points.</span>
+        <span>Written in <b>{r.family}</b>{by && ` by ${by}`}, a free font{font.free ? ` (${font.free.license})` : ''} you may change and use. Its letters follow the settings as the built ones do: weight, contrast, width, the heights, the insides, curves, corners, peaks, stroke ends, serifs, dots, joints, stencil, slant, spacing and the fills. A letter picked in a form the font hasn't got (a single-storey a, a mirrored g) is built to its weight and width; reshape any letter in Points.</span>
         <button className="link small" onClick={() => actions.setFreeLetters(false)}>Make my own letters</button>
       </div>
     );

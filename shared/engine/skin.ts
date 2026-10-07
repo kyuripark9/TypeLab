@@ -323,13 +323,19 @@ export function skinRig(font: FreeFont, ch: string): SkinRig | null {
   return r;
 }
 
+/** The letters each letter-form setting draws in another form (by the font's twin, see twinGlyph in font.ts). */
+const FORM_LETTERS: Record<string, RegExp> = {
+  story: /a/, aForm: /a/, gForm: /g/, kForm: /[kK]/, iForm: /[IiJl]/, sForm: /[sS$]/, diagonals: /[AVWvw]/, yForm: /[Yy]/, qForm: /Q/, rForm: /R/,
+  bowlJoin: /[abdgpqhmnru]/, bends: /[AMNVWYZvwyz]/, build: /./, scriptForm: /[A-Za-z]/, flourish: /[A-Za-z]/, cursive: /[a-z]/, swash: /[A-Z]/
+};
+
 /** The settings only a letter moved on its skeleton follows (not a pixel font's). */
 const SKIN_KEYS = new Set(['contrast', 'vWeight', 'hWeight', 'xHeight', 'crossbar', 'serifSize', 'extenders', 'descender', 'counter', 'dotSize', 'pinch', 'pinchPos', 'joints',
   'roundness', 'steps', 'innerRound', 'joinRound', 'terminal', 'terminalForm', 'terminalFlare', 'terminalDepth', 'terminalSize', 'terminalRound', 'terminalPoint',
   'terminalClip', 'terminalLean', 'terminalSlope', 'terminalTilt', 'terminalTip', 'terminalTaper',
   'serif', 'serifThickness', 'serifShape', 'serifAngle', 'serifBracket', 'serifTip', 'serifTipRound', 'serifTipSlant', 'serifBase', 'serifCup',
   'serifSides', 'serifInner', 'serifInnerSize', 'serifInnerThickness', 'serifBalance', 'serifTops', 'serifArms', 'serifArmThickness', 'serifArmLean',
-  'stencil', 'stencilPos', 'stencilRound', 'barGap', 'barEnds', 'tail', 'aperture']);
+  'stencil', 'stencilPos', 'stencilRound', 'barGap', 'barEnds', 'tail', 'aperture', 'dots', 'squareness', 'chamfer', 'curve', 'bowlForm', 'apex', ...Object.keys(FORM_LETTERS)]);
 
 /** Whether setting `key` moves letter `ch` of a free font on its skeleton: Crossbar only a letter with a
     bar it moves, x-height only the lowercase, the serifs' size only a letter with serifs, Stem length a
@@ -340,6 +346,7 @@ export function skinFollows(font: FreeFont, ch: string, key: string) {
   if (FREE_FAMILIES[font.family]?.grid) return !SKIN_KEYS.has(key);
   if (key === 'crossbar') return ch in BARS;
   if (!SKIN_KEYS.has(key)) return true;
+  if (FORM_LETTERS[key]) return FORM_LETTERS[key].test(ch);
   const rig = skinRig(font, ch);
   if (!rig) return false;
   const ys = rig.contours.flat().map(n => n.y);
@@ -347,7 +354,10 @@ export function skinFollows(font: FreeFont, ch: string, key: string) {
     case 'xHeight': return rig.ctx.lower;
     case 'extenders': return rig.ctx.lower && Math.max(...ys) > rig.ctx.xh + rig.ctx.cap * 0.12;
     case 'descender': return rig.ctx.lower && Math.min(...ys) < -rig.ctx.cap * 0.1;
-    case 'dotSize': return rig.bones.some(bs => bs[0]?.dot);
+    case 'dotSize': case 'dots': return rig.bones.some(bs => bs[0]?.dot);
+    case 'apex': return /[AMNVWXYvwxyz47]/.test(ch);
+    // (a letter with a bowl or a curve, which these reshape)
+    case 'squareness': case 'chamfer': case 'curve': case 'bowlForm': return /[a-gj-mo-zA-DGJ-SU0-9&@$?]/.test(ch) && !/[lvwxzAKMNVWXZ17]/.test(ch);
     case 'joints': return joinsNear(rig).some(n => n.some(Boolean));
     default:
       if (key.startsWith('serif')) return rig.serifs || squareEnds(rig);
