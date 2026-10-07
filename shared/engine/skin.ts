@@ -124,6 +124,7 @@ interface Ctx { cap: number; xh: number; asc: number; desc: number; barY: number
 export interface SkinRig {
   contours: Node[][]; bones: Bone[][]; ctx: Ctx;
   /** whether it has serifs that Serif size moves */ serifs: boolean;
+  /** how thick its upright strokes are, as a share of the capitals' height */ stem: number;
   /** the last few ways it was moved, by the measures it was moved to (dragging a slider back and forth) */ moves: Map<string, Node[][]>;
 }
 
@@ -237,8 +238,11 @@ function rigContour(c: Node[], f: Field, ctx: Ctx): Bone[] {
   });
   // where strokes join (a bowl and its stem, a bar and an arm) an edge reads thicker than either for a
   // short stretch: its stroke's own thickness is what's left with that bump taken out
+  // (a bump is taken out over as long a stretch as the outline's heavier strokes are thick, as a join with
+  // one of them is about that long: a fat face's hairline meets its stems over their whole width)
   const typical = bones.map(b => b.best).sort((a, b) => a - b)[bones.length >> 1];
-  const w = opening(bones.map(b => b.w), Math.max(2, Math.round(typical * 2 / STEP)));
+  const heavy = bones.map(b => b.w).sort((a, b) => a - b)[Math.floor(bones.length * 0.75)];
+  const w = opening(bones.map(b => b.w), Math.min(30, Math.max(2, Math.round(Math.max(typical, heavy) * 2 / STEP))));
   bones.forEach((b, i) => { b.w = w[i]; });
   // a stroke's end: a straight edge between two corners, about as long as the stroke is thick, that the
   // skeleton runs into head on
@@ -266,7 +270,7 @@ const BARS: Record<string, { at: [number, number, number, number]; move: number 
   R: { at: [0.45, 0.3, 0.68, 0.48], move: 0.14 }, e: { at: [0.5, 0.3, 0.7, 0.5], move: 0.22 }, a: { at: [0.5, 0.35, 0.78, 0.57], move: 0.3 }
 };
 
-const rigs = new WeakMap<FreeFont, { lines: { asc: number; desc: number }; letters: Map<string, SkinRig | null> }>();
+const rigs = new WeakMap<FreeFont, { lines: { asc: number; desc: number }; unicase: boolean; letters: Map<string, SkinRig | null> }>();
 
 /** Letter `ch` of a free font, rigged (once, then kept with the font). */
 export function skinRig(font: FreeFont, ch: string): SkinRig | null {
@@ -277,14 +281,19 @@ export function skinRig(font: FreeFont, ch: string): SkinRig | null {
       let v = 0; for (const cn of g.contours) for (const n of cn) v = pick(v, n.y);
       return v || or;
     };
-    kept = { lines: { asc: Math.max(ext('h', Math.max, font.cap * 1.05), font.cap * 1.02), desc: ext('p', Math.min, -font.cap * 0.3) }, letters: new Map() };
+    // (a font whose lowercase stands as tall as its capitals, Bungee's or Ewert's, has capitals there too,
+    // which the x-height leaves be)
+    kept = {
+      lines: { asc: Math.max(ext('h', Math.max, font.cap * 1.05), font.cap * 1.02), desc: ext('p', Math.min, -font.cap * 0.3) },
+      unicase: ext('x', Math.max, 0) >= 0.95 * ext('H', Math.max, font.cap), letters: new Map()
+    };
     rigs.set(font, kept);
   }
   let r = kept.letters.get(ch);
   if (r !== undefined) return r;
   const g = font.glyphs[ch];
   if (!g || !g.contours.length) { kept.letters.set(ch, null); return null; }
-  const f = field(g.contours), lower = ch !== ch.toUpperCase();
+  const f = field(g.contours), lower = ch !== ch.toUpperCase() && !kept.unicase;
   let x0 = Infinity, x1 = -Infinity;
   for (const c of g.contours) for (const n of c) { x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x); }
   const top = lower ? font.xh : font.cap, bar = BARS[ch];
@@ -292,7 +301,8 @@ export function skinRig(font: FreeFont, ch: string): SkinRig | null {
     .filter(y => y > top * bar.at[1] && y < top * bar.at[2]).sort((a, b) => Math.abs(a - top * bar.at[3]) - Math.abs(b - top * bar.at[3]))[0] ?? null) : null;
   const ctx: Ctx = { cap: font.cap, xh: font.xh, ...kept.lines, barY, lower, ch };
   const bones = g.contours.map(c => rigContour(c, f, ctx));
-  r = { contours: g.contours, bones, ctx, serifs: bones.some(bs => bs.some(b => b.serifDx !== 0)), moves: new Map() };
+  const upright = bones.flat().filter(b => Math.abs(b.nx) > 0.9 && !b.cap).map(b => b.w * 2).sort((a, b) => a - b);
+  r = { contours: g.contours, bones, ctx, serifs: bones.some(bs => bs.some(b => b.serifDx !== 0)), stem: (upright[upright.length >> 1] ?? 0) / font.cap, moves: new Map() };
   kept.letters.set(ch, r);
   return r;
 }
@@ -303,7 +313,7 @@ export function skinFollows(font: FreeFont, ch: string, key: string) {
   // (a pixel font's letters only stretch, and change weight where the family has another)
   if (FREE_FAMILIES[font.family]?.grid) return key !== 'contrast' && key !== 'vWeight' && key !== 'hWeight' && key !== 'xHeight' && key !== 'crossbar' && key !== 'serifSize';
   if (key === 'crossbar') return ch in BARS;
-  if (key === 'xHeight') return ch !== ch.toUpperCase();
+  if (key === 'xHeight') return !!skinRig(font, ch)?.ctx.lower;
   if (key === 'serifSize') return !!skinRig(font, ch)?.serifs;
   return true;
 }
@@ -439,7 +449,11 @@ function moveRig(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
     let cx = 0, cy = 0;
     for (const b of bs) { cx += b.ax; cy += b.ay; }
     cx /= n; cy /= n;
-    const condense = Math.pow(Math.min(1, sx), 0.35);
+    // (the heavier the letter, the more, or its counters would close: a heavy display face's stems take up
+    // most of its width)
+    // (lower is the lowercase made lower by the x-height, not the bands a moved crossbar squeezes)
+    const thin = 0.35 + 0.5 * Math.min(1, Math.max(0, (rig.stem - 0.12) / 0.15)), condense = Math.pow(Math.min(1, sx), thin);
+    const lower = Math.pow(Math.min(1, top1 / top), thin);
     const geo = [0, 1].map(axis => bs.map(b => {
       if (b.dot) return axis ? gy(cy) - cy : gx(cx) - cx;
       if (b.cap) return axis ? gy(b.y) - b.y : gx(b.x) - b.x;
@@ -448,7 +462,7 @@ function moveRig(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
       const along = ox * b.tx + oy * b.ty, across = oy * b.tx - ox * b.ty;
       let ex = b.tx * sx, ey = b.ty * sy;
       const l = Math.hypot(ex, ey) || 1; ex /= l; ey /= l;
-      const thick = across * (1 + (condense - 1) * ey * ey + (Math.pow(Math.min(1, sy), 0.35) - 1) * ex * ex);
+      const thick = across * (1 + (condense - 1) * ey * ey + (lower - 1) * ex * ex);
       // (as far as the edge faces this way; along it, where the skeleton is read less surely, by its own point)
       const h = axis ? b.ny * b.ny : b.nx * b.nx;
       return axis ? h * (gy(b.ay) + along * b.ty * sy + ex * thick) + (1 - h) * gy(b.y) - b.y
