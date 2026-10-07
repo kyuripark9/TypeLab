@@ -358,8 +358,10 @@ function across(ink: Shape, p: Pt, nx: number, ny: number, max: number): [number
 
 /** A line `w` wide down each centerline, where the stroke is thick enough to leave ink either side
     of it: it fades out in hairlines and stops short of the free ends of strokes (not where a stroke
-    runs into another, so the lines of an H meet), and each run of it is a band polygon. */
-function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape): Pt[][] {
+    runs into another, so the lines of an H meet), and each run of it is a band polygon. `fit` says
+    where it goes: on strokes at least `thick` thick, with `room` of ink either side of its middle
+    (or `edge` for a short stretch between two that have it). */
+function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape, fit = { thick: w * 2.4, room: w * 0.85, edge: w * 0.6 }): Pt[][] {
   const lines = sk.filter(l => l.length > 1);
   const near = (p: Pt, self: number) => lines.some((l, i) => i !== self && l.some((q, k) => k + 1 < l.length && toSeg(p, q, l[k + 1]) < o.stem * 0.6));
   const ways = lines.map((line, li) => {
@@ -370,10 +372,32 @@ function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape): Pt[][] {
       const a = line[k - 1], b = line[k], n = Math.ceil(dist(a, b) / w);
       for (let i = 1; i <= n; i++) pts.push({ x: a.x + (b.x - a.x) * i / n, y: a.y + (b.y - a.y) * i / n });
     }
-    // a free end loses as much as the stroke is thick there, plus the line's width
+    // a free end stops as far short of the end of the ink as the ink beside it is thick, so the
+    // stroke is rimmed alike all round its end (a fixed share of the stroke left a solid block
+    // there, much darker than the sides once the line is wide). The rim is measured a stroke in
+    // from the end, and the ink ahead at both of the line's edges, so where the end is cut on a
+    // slant the nearer corner keeps its rim too. Where a serif or a ball widens the end, the line
+    // stops where the stroke begins to widen, as it runs into the serif
     const trim = (from: number) => {
-      const s0 = pts[from], s1 = pts[from ? from - 1 : 1];
-      let cut = o.thick(s1.x - s0.x, s1.y - s0.y) * 0.5 + w;
+      const s0 = pts[from], s1 = pts[from ? from - 1 : 1], th = o.thick(s1.x - s0.x, s1.y - s0.y);
+      let cut = th * 0.5 + w;
+      const l = dist(s0, s1);
+      if (l > 1e-9) {
+        const ux = (s0.x - s1.x) / l, uy = (s0.y - s1.y) / l, back = (t: number) => ({ x: s0.x - ux * t, y: s0.y - uy * t });
+        const wide = (t: number) => { const r = across(ink, back(t), -uy, ux, o.stem * 4); return r && Math.min(r[0], r[1]); };
+        const t = th * 0.25, p = back(t), side = Math.min(wide(th) ?? th / 2, th * 0.55);
+        const ahead = [1, -1].map(sg => across(ink, { x: p.x - uy * sg * w / 2, y: p.y + ux * sg * w / 2 }, ux, uy, o.stem * 4));
+        if (ahead[0] && ahead[1]) {
+          // (walked in past a pointed or rounded tip, narrower than the stroke, to the widening)
+          let flare = 0, seen = false;
+          for (let f = 1; f < th * 2; f += w / 2) {
+            const r = wide(f);
+            if (r === null) continue;
+            if (r > side * 1.2 + 1) { flare = f; seen = true; } else if (seen || r > side * 0.8) break;
+          }
+          cut = Math.max(0, side - w / 2 - (Math.min(ahead[0][0], ahead[1][0]) - t), flare);
+        }
+      }
       while (pts.length > 1 && cut > 0) {
         const a = from ? pts[pts.length - 1] : pts[0], b = from ? pts[pts.length - 2] : pts[1], l = dist(a, b);
         if (l > cut) {
@@ -402,7 +426,23 @@ function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape): Pt[][] {
       let j = best === end[0] ? 1 : seg + 1;
       while (j < end.length && d(end[j]) < w * 0.6) j++;
       if (j >= end.length - 1) return;
-      tips[from ? 1 : 0] = [...end.slice(best === end[0] ? 1 : seg + 1, j).reverse(), best].filter(p => dist(p, end[j]) > 1e-9);
+      const tip = [...end.slice(best === end[0] ? 1 : seg + 1, j).reverse(), best].filter(p => dist(p, end[j]) > 1e-9);
+      // and where it meets that line square and all that is left of the ink past it is its rim
+      // (the corner of an L, the stem and top of an R), it runs on half its width, so the two lines
+      // overlap at the corner rather than leave a square of ink between their ends. (Not where its
+      // stroke goes on past the meeting, as the stem of an n does above its arch, nor where it
+      // meets on a slant, as the leg of an R does: either would leave a stub poking out)
+      const prev = tip.length > 1 ? tip[tip.length - 2] : end[j], l = dist(prev, best);
+      if (tip.length && l > 1e-9) {
+        const ux = (best.x - prev.x) / l, uy = (best.y - prev.y) / l, r = across(ink, best, ux, uy, o.stem * 4);
+        let near = Infinity, cos = 1;
+        lines.forEach((ln, i) => { if (i !== li) for (let k = 1; k < ln.length; k++) {
+          const dd = toSeg(best, ln[k - 1], ln[k]), sl = dist(ln[k - 1], ln[k]);
+          if (dd < near && sl > 1e-9) { near = dd; cos = Math.abs((ln[k].x - ln[k - 1].x) * ux + (ln[k].y - ln[k - 1].y) * uy) / sl; }
+        } });
+        if (r && r[0] < o.thick(ux, uy) * 0.6 && cos < 0.2) tip.push({ x: best.x + ux * w / 2, y: best.y + uy * w / 2 });
+      }
+      tips[from ? 1 : 0] = tip;
       const rest = end.slice(j);
       pts = from ? rest.reverse() : rest;
     };
@@ -431,7 +471,7 @@ function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape): Pt[][] {
     // carries on through rather than breaking into dashes
     const ok = pts.slice(1).map((b, k) => {
       const a = pts[k], r = Math.min(room[k], room[k + 1]);
-      return o.thick(b.x - a.x, b.y - a.y) < w * 2.4 ? 0 : r >= w * 0.85 ? 2 : r >= w * 0.6 ? 1 : 0;
+      return o.thick(b.x - a.x, b.y - a.y) < fit.thick ? 0 : r >= fit.room ? 2 : r >= fit.edge ? 1 : 0;
     });
     for (let k = 0; k < ok.length; k++) {
       if (ok[k] !== 1) continue;
@@ -480,9 +520,13 @@ function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape): Pt[][] {
     const on = (p: Pt, q: Pt): Pt => ({ x: p.x + (p.x - q.x) / (dist(p, q) || 1) * w, y: p.y + (p.y - q.y) / (dist(p, q) || 1) * w });
     const flush = (k: number) => {
       if (run.length > 1) {
-        const k0 = k - run.length;
-        if (k0 >= 0 && ok[k0] === 2) run.unshift(on(run[0], run[1]));
-        if (k < ok.length && ok[k] === 2) run.push(on(run[run.length - 1], run[run.length - 2]));
+        const k0 = k - run.length, from = k0 >= 0 && ok[k0] === 2, to = k < ok.length && ok[k] === 2;
+        // (a scrap of line on its own, no longer than it is wide, is a speck, as where a thin neck
+        // leaves a little of it in a ball or a wedge at the end of a stroke)
+        const alone = !from && !to && !(k0 === -1 && tips[0].length) && !(k === ok.length && tips[1].length);
+        if (alone && run.slice(1).reduce((s, p, i) => s + dist(run[i], p), 0) < w * 1.5) { run = []; return; }
+        if (from) run.unshift(on(run[0], run[1]));
+        if (to) run.push(on(run[run.length - 1], run[run.length - 2]));
         // (and a run out to an end that meets another stroke carries on over its tip)
         if (k0 === -1) run.unshift(...[...tips[0]].reverse());
         if (k === ok.length) run.push(...tips[1]);
@@ -509,6 +553,24 @@ function band(run: Pt[], w: number): Pt[] {
     L.push({ x: b.x - ty * h, y: b.y + tx * h }); R.push({ x: b.x + ty * h, y: b.y - tx * h });
   }
   return [...R, ...L.reverse()];
+}
+
+/** The ground within d of the outline, either side of it: a quad along each edge, and a disc at
+    each corner sharp enough to leave a notch between its two quads. Every piece is turned the same
+    way, so they add up under the nonzero rule (an outline pushed in by d would cross itself where
+    it curves tighter than d). */
+function rimBand(polys: Pt[][], d: number): Pt[][] {
+  const out: Pt[][] = [], up = (p: Pt[]) => (signedArea(p) < 0 ? p.reverse() : p);
+  for (const p of polys) for (let i = 0, n = p.length; i < n; i++) {
+    const a = p[i], b = p[(i + 1) % n], c = p[(i + 2) % n], l = dist(a, b);
+    if (l < 1e-9) continue;
+    const nx = -(b.y - a.y) / l * d, ny = (b.x - a.x) / l * d;
+    out.push(up([{ x: a.x + nx, y: a.y + ny }, { x: a.x - nx, y: a.y - ny }, { x: b.x - nx, y: b.y - ny }, { x: b.x + nx, y: b.y + ny }]));
+    const turn = Math.atan2((b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x), (b.x - a.x) * (c.x - b.x) + (b.y - a.y) * (c.y - b.y));
+    // (a 12-gon round the disc, so its flats reach d)
+    if (Math.abs(turn) > 0.3) out.push(up(Array.from({ length: 12 }, (_, k) => ({ x: b.x + Math.cos(k * Math.PI / 6) * d * 1.036, y: b.y + Math.sin(k * Math.PI / 6) * d * 1.036 }))));
+  }
+  return out;
 }
 
 /** Rebuild an outline with a fill other than solid ink. */
@@ -558,13 +620,53 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
       const cut = shape(bands);
       return polysToCmds(combine([ink, cut], (x, y) => ink.has(x, y) && !cut.has(x, y)), 0);
     }
+    case 'outline-inline': {
+      // the letter drawn hollow, a line round the inside of its edge, with a second line down the
+      // middle of its strokes. At the largest Size the three lines across a stem and the two gaps
+      // between them are all as wide; smaller, the lines thin and the gaps open
+      const lw = Math.max(4, o.stem * (0.06 + 0.14 * o.size)), g = Math.max(2, (o.stem - 3 * lw) / 2), ink = shape(polys);
+      const solid = combine([ink], ink.has);
+      // the middle line keeps to strokes with room for it and a gap most of the full width either
+      // side (a little less over a short stretch), and stops short of the rim by at least that
+      const fit = { thick: (lw * 1.5 + g * 0.7) * 2, room: lw * 1.5 + g * 0.7, edge: lw * 1.5 + g * 0.45 };
+      const line = shape(inlineBands(o.skeleton, lw, o, ink, fit));
+      const rim = shape(rimBand(solid, lw)), clear = shape(rimBand(solid, lw + g * 0.45));
+      const out = combine([ink, rim, clear, line], (x, y) => ink.has(x, y) && (rim.has(x, y) || (line.has(x, y) && !clear.has(x, y))));
+      // (less the specks where clearing the rim leaves a scrap of the line)
+      return polysToCmds(out.filter(p => Math.abs(signedArea(p)) >= lw * lw * 2), 0);
+    }
     case 'shadow': {
-      // a copy of the letter falls behind it down to the right, kept apart from it by a gap
+      // the letter casts a solid shadow down to the right, kept apart from it by a gap. The shadow is
+      // the letter swept along the way it falls, not a copy of it set off: a copy fell clear of a
+      // light stroke and read as a second letter, and the gap round one stroke cut stripes across
+      // the copy of another
       const ink = shape(polys), { dx, dy } = shadowShift(o.stem, o.size), gap = Math.max(10, o.stem * 0.16);
+      const solid = combine([ink], ink.has);
       // the letter grown by the gap: its joined outline pushed out, to the right of each contour, as
       // outlines come out of combine anticlockwise and holes clockwise
-      const grown = shape(combine([ink], ink.has).map(p => offset(p, -gap))), back = shape(polys.map(p => p.map(q => ({ ...q, x: q.x + dx, y: q.y + dy }))));
-      return polysToCmds(combine([ink, grown, back], (x, y) => ink.has(x, y) || (back.has(x, y) && !grown.has(x, y))), 0);
+      const grown = shape(solid.map(p => offset(p, -gap)));
+      // the sweep: the letter where the shadow ends, and the band each run of edges facing the way it
+      // falls passes over on the way (the edges facing away pass only over ink or the shadow's end),
+      // every band turned anticlockwise so they add up under the nonzero rule
+      const move = (q: Pt) => ({ x: q.x + dx, y: q.y + dy }), sweep = solid.map(p => p.map(move));
+      for (const p of solid) {
+        const n = p.length, faces = (i: number) => { const a = p[i % n], b = p[(i + 1) % n]; return (b.x - a.x) * dy - (b.y - a.y) * dx < -1e-6; };
+        let i0 = 0;
+        while (i0 < n && faces(i0 + n - 1)) i0++;
+        for (let i = i0; i < i0 + n; i++) {
+          if (!faces(i)) continue;
+          const run = [p[i % n]];
+          while (i < i0 + n && faces(i)) run.push(p[++i % n]);
+          const band = [...run, ...[...run].reverse().map(move)];
+          sweep.push(signedArea(band) < 0 ? band.reverse() : band);
+        }
+      }
+      const back = shape(sweep), fleck = gap * gap * 2;
+      // what the gap leaves of the shadow, less the specks it nearly cuts away (under the end of a
+      // crossbar, beside the top of an arch), which read as dirt rather than as shadow
+      const fall = combine([grown, back], (x, y) => back.has(x, y) && !grown.has(x, y));
+      if ((globalThis as any).__fl) for (const p of fall) (globalThis as any).__fl.push(Math.abs(signedArea(p)) / (gap * gap));
+      return polysToCmds([...solid, ...fall.filter(p => Math.abs(signedArea(p)) >= fleck)], 0);
     }
     default: return cmds;
   }
