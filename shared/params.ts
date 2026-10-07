@@ -25,8 +25,8 @@ export const SERIF_SIDES = ['both', 'left', 'right', 'inside', 'outside'] as con
 /** The shape of the serifs that reach into the letter: the same as the rest, or one of their own. */
 export const SERIF_INNERS = ['same', ...SERIF_SHAPES] as const;
 /** What the letters are built from: solid ink, a wireframe of every stroke, a grid of pixels, dots or lines, ink with a
-    line cut down its strokes (inline), a hollow outline with a line down its strokes (outline-inline), or ink casting a shadow down to the right. */
-export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines', 'inline', 'outline-inline', 'shadow'] as const;
+    line cut down its strokes (inline), the letter's hollow outline (outline), or ink casting a shadow down to the right. */
+export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines', 'inline', 'outline', 'shadow'] as const;
 /** The lowercase a: two storeys (bowl under a hook) or one (just a bowl). 'auto' lets the personality and cursive settings pick. */
 export const STORIES = ['auto', 'double', 'single'] as const;
 /** How a bowl meets its stem (b d p q g, the single-storey a): curving out of it, or square, its flat top and bottom running straight into it. */
@@ -356,6 +356,8 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   const opts: Partial<Record<keyof Params, readonly unknown[]>> = { terminal: TERMINALS, terminalForm: FORM_IDS, serifShape: SERIF_SHAPES, serifTip: SERIF_TIPS, serifBase: SERIF_BASES, serifSides: SERIF_SIDES, serifInner: SERIF_INNERS, fill: FILLS, story: STORIES,
     bowlJoin: BOWL_JOINS, gForm: G_FORMS, kForm: K_FORMS, dots: DOTS, iForm: I_FORMS, sForm: S_FORMS, aForm: A_FORMS, terminalRun: TERMINAL_RUNS, barEnds: BAR_ENDS,
     bowlForm: BOWL_FORMS, build: BUILDS, mirror: MIRRORS, diagonals: DIAGONALS, bends: BENDS, yForm: Y_FORMS, qForm: Q_FORMS, rForm: R_FORMS, scriptForm: SCRIPT_FORMS, flourish: FLOURISHES };
+  // (the Outline fill was an Inline outline, with a line down its strokes too, until 2026-10-06)
+  if (k === 'fill' && v === 'outline-inline') return 'outline';
   return opts[k]?.includes(v) ? v : undefined;
 }
 

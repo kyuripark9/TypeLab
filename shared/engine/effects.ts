@@ -694,11 +694,9 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
       const cut = shape(bands);
       return polysToCmds(combine([ink, cut], (x, y) => ink.has(x, y) && !cut.has(x, y)), 0);
     }
-    case 'outline-inline': {
-      // the letter drawn hollow, a line round the inside of its edge, with a second line down the
-      // middle of its strokes. The lines are sized between the stem and the thinner bars and bowls,
-      // so both have room for three: at the largest Size the lines are as wide as the gaps between
-      // them there, and smaller, the lines thin and the gaps open
+    case 'outline': {
+      // the letter drawn hollow, a line round the inside of its edge. The line is sized between the
+      // stem and the thinner bars and bowls, so it reads alike round both
       const mean = (o.stem + Math.min(o.thick(1, 0), o.thick(0, 1))) / 2;
       const lw = Math.max(4, mean * (0.06 + 0.14 * o.size)), ink = shape(polys);
       // the rim: the joined letter, less its hollow turned round. The hollow is each contour pushed
@@ -707,19 +705,7 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
       // inside out and the stroke stays solid. Specks of hollow, in a tight corner, are left as ink
       const solid = combine([ink], ink.has), inner = shape(solid.map(p => inset(p, lw)), true);
       const hollow = combine([ink, inner], (x, y) => ink.has(x, y) && inner.has(x, y)).filter(p => signedArea(p) < 0 || signedArea(p) > lw * lw);
-      const out: Cmd[] = [...polysToCmds(solid, 0), ...polysToCmds(hollow.map(p => [...p].reverse()), 0)];
-      // the middle line keeps to strokes with room for it and a gap of at least 0.6 of a line either
-      // side (a little less over a short stretch), measured across the ink; its ends stop short of
-      // the rim by a gap as well, as Inline's leave the ink beside them at a free end. Then, so it can
-      // never run into the rim (a tip laid across a meeting, a stroke that narrows), it is cut back to
-      // half a line clear of it, less any specks that leaves
-      const fit = { thick: lw * 3, room: lw * 2.1, edge: lw * 1.9 };
-      const bands = inlineBands(o.skeleton, lw, o, ink, fit);
-      if (bands.length) {
-        const line = shape(bands), clear = shape(solid.map(p => inset(p, lw * 1.5)), true);
-        out.push(...polysToCmds(combine([line, clear], (x, y) => line.has(x, y) && clear.has(x, y)).filter(p => signedArea(p) < 0 || signedArea(p) > lw * lw), 0));
-      }
-      return out;
+      return [...polysToCmds(solid, 0), ...polysToCmds(hollow.map(p => [...p].reverse()), 0)];
     }
     case 'shadow': {
       // the letter casts a solid shadow down to the right, kept apart from it by a gap. The shadow is

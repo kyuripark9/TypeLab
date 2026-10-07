@@ -873,10 +873,21 @@ describe('font engine', () => {
   });
 
   it('every fill draws every glyph', () => {
-    for (const fill of ['wire', 'pixels', 'dots', 'lines', 'inline', 'shadow'] as const) {
+    for (const fill of ['wire', 'pixels', 'dots', 'lines', 'inline', 'outline', 'shadow'] as const) {
       const f = buildFont({ ...DEFAULTS, fill });
       for (const ch of 'HOag') assert.notEqual(f.glyph(ch)!.d, buildFont(DEFAULTS).glyph(ch)!.d);
     }
+  });
+
+  it('an outline draws the letter hollow, one line round its edge and nothing down its middle', () => {
+    for (const ch of 'IlO') {
+      const p = { ...DEFAULTS, weight: 0.7 }, solid = toPolys(buildFont(p).glyph(ch)!.cmds), f = toPolys(buildFont({ ...p, fill: 'outline' }).glyph(ch)!.cmds);
+      // each contour of the letter, and one hollow turned the other way inside it
+      assert.equal(f.length, solid.length * 2, ch);
+      assert.equal(f.filter(q => signedArea(q) < 0).length, solid.length, ch);
+    }
+    // (designs saved with the Inline outline it was before come back as an Outline)
+    assert.equal(sanitizeParams({ ...DEFAULTS, fill: 'outline-inline' }).fill, 'outline');
   });
 
   it('an inline cuts a line down the middle of the strokes and leaves ink either side of it', () => {

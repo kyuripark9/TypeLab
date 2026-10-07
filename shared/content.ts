@@ -89,8 +89,8 @@ export const LOOKS: { id: Look; label: string; hint: string; test: (e: Effective
   { id: 'mono', label: 'Monospace', hint: 'Every letter takes the same width', test: e => e.mono >= 0.5 },
   { id: 'pixel', label: 'Pixel', hint: 'Built from a grid of pixels or dots', test: e => e.fill === 'pixels' || e.fill === 'dots' },
   { id: 'stencil', label: 'Stencil', hint: 'Letters cut apart by gaps', test: e => e.stencil > 0 || e.slice > 0 },
-  { id: 'outline', label: 'Outline', hint: 'Drawn as lines, not filled in', test: e => e.fill === 'wire' || e.fill === 'outline-inline' },
-  { id: 'inline', label: 'Inline', hint: 'A line cut down the middle of the strokes', test: e => e.fill === 'inline' || e.fill === 'outline-inline' },
+  { id: 'outline', label: 'Outline', hint: 'Drawn as lines, not filled in', test: e => e.fill === 'wire' || e.fill === 'outline' },
+  { id: 'inline', label: 'Inline', hint: 'A line cut down the middle of the strokes', test: e => e.fill === 'inline' },
   { id: 'shadow', label: 'Shadow', hint: 'Letters cast a shadow behind them', test: e => e.fill === 'shadow' },
   { id: 'techno', label: 'Techno', hint: 'Squared-off bowls or cut corners instead of curves', test: e => e.fill === 'solid' && (e.square >= 0.5 || e.chamfer >= 0.2) },
   { id: 'inktrap', label: 'Ink Traps', hint: 'Strokes narrow where they meet', test: e => e.joints >= 0.4 },
@@ -752,7 +752,7 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'The small margins built into each letter.' },
 
   fill: { cat: 'effects', type: 'fill', label: 'Fill', friendly: 'Change what fills the letters', tech: 'Fill', demo: 'Rg',
-    explain: 'Solid ink, outlines, a grid of pixels, dots or lines, a line cut down the middle of each stroke, a hollow outline with a line down the middle, or a shadow cast down to the right. Size sets how coarse the grid is, how wide the line, or how far the shadow falls.' },
+    explain: 'Solid ink, outlines, a grid of pixels, dots or lines, a line cut down the middle of each stroke, a hollow outline, or a shadow cast down to the right. Size sets how coarse the grid is, how wide the line, or how far the shadow falls.' },
   stencil: { cat: 'effects', off: 0, label: 'Stencil', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
     explain: 'Strokes break where they join, as if cut from a sheet. Thickness sets how wide the gaps open; Position moves the gaps out along the strokes; Rounding softens their corners.' },
   slice: { cat: 'effects', off: 0, label: 'Slice', friendly: 'Cut one line through every letter', tech: 'Slice', lo: 'None', hi: 'Wide', demo: 'type',
@@ -875,7 +875,7 @@ export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Par
   dots: { ch: 'i', options: [['square', 'Square'], ['round', 'Round']] as [Exclude<Dots, 'auto'>, string][] },
   aForm: { ch: 'a', options: [['plain', 'Plain'], ['spur', 'Spur']] as [AForm, string][] }
 };
-export const FILL_OPTIONS: [Fill, string][] = [['solid', 'Solid'], ['wire', 'Wireframe'], ['pixels', 'Pixels'], ['dots', 'Dots'], ['lines', 'Lines'], ['inline', 'Inline'], ['outline-inline', 'Inline outline'], ['shadow', 'Shadow']];
+export const FILL_OPTIONS: [Fill, string][] = [['solid', 'Solid'], ['wire', 'Wireframe'], ['pixels', 'Pixels'], ['dots', 'Dots'], ['lines', 'Lines'], ['inline', 'Inline'], ['outline', 'Outline'], ['shadow', 'Shadow']];
 export const TERMINAL_OPTIONS: [Terminal, string][] = [['flat', 'Flat'], ['round', 'Rounded'], ['sharp', 'Sharp'], ['angled', 'Angled'], ['cut', 'Cut'], ['tapered', 'Tapered']];
 export const SERIF_SHAPE_OPTIONS: [SerifShape, string][] = [['bracketed', 'Bracketed'], ['unbracketed', 'Unbracketed'], ['slab', 'Slab'], ['wedge', 'Wedge'], ['diamond', 'Diamond']];
 export const SERIF_TIP_OPTIONS: [SerifTip, string][] = [['square', 'Square'], ['round', 'Round'], ['pointed', 'Pointed'], ['angled', 'Angled']];
