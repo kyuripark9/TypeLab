@@ -3,12 +3,16 @@
 import { create } from 'zustand';
 import { STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
 import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
-import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
+import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../shared/engine';
+import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
+import { loadFreeFont } from '../lib/free';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
 import { SNAP_KINDS, type SnapKind } from '../lib/pen';
-import { endCurl, endLength, isGlyphKey, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
+import { FREE_AT_KEYS, endCurl, endLength, isGlyphKey, type FreeAt, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
+/** Where a style's letters come from: its free font, ready-made, or built from the settings to shape (see free-fonts.ts). */
+export type Letters = 'free' | 'own';
 /** The Style page's panel: filters that narrow the cards, or traits laid over every card. */
 export type StyleTab = 'filter' | 'adjust';
 /** What the controls change while a letter is inspected: every letter in sync, or just that one. */
@@ -38,6 +42,10 @@ const savedSnap = (): { on: boolean; kinds: SnapKind[] } => {
     if (v && typeof v.on === 'boolean' && Array.isArray(v.kinds)) return { on: v.on, kinds: SNAP_KINDS.filter(k => v.kinds.includes(k)) };
   } catch { /* fall through */ }
   return { on: true, kinds: [...SNAP_KINDS] };
+};
+const LETTERS_KEY = 'typelab.letters';
+const savedLetters = (): Letters => {
+  try { return localStorage.getItem(LETTERS_KEY) === 'own' ? 'own' : 'free'; } catch { return 'free'; }
 };
 /** The explanation starts closed, at its title; opened, it stays open from visit to visit. */
 const TIPS_KEY = 'typelab.tipsShown';
@@ -78,6 +86,8 @@ export interface EditorState extends Doc {
   picked: string | null;
   /** Style page layout: cards in a grid, or one per row */
   view: CardView;
+  /** the Style page offers each style in its free font, ready-made, or as letters to shape with the settings */
+  letters: Letters;
   /** long panel sections folded down to their heading */
   folded: ControlKey[];
   /** the explanation at the top of the panel opened past its title */
@@ -146,6 +156,7 @@ export const useEditor = create<EditorState>()(() => ({
   styleTab: 'filter',
   picked: JSON.stringify(blankDoc().params),
   view: savedView(),
+  letters: savedLetters(),
   folded: savedFolded(),
   tips: savedTips(),
   inspect: null,
@@ -216,8 +227,22 @@ const fonts = new WeakMap<Params, Font>();
 let lastFont: Font | undefined;
 export function fontFor(p: Params): Font {
   let f = fonts.get(p);
-  if (!f) { f = lastFont = buildFont(p, lastFont); fonts.set(p, f); }
+  // written in a free font that has arrived since: built again with its letters
+  if (!f || f.freeMissing.some(id => freeFont(id))) { f = lastFont = buildFont(p, lastFont); fonts.set(p, f); }
+  for (const id of f.freeMissing) void loadFreeFont(id);
   return f;
+}
+// the open design draws again when the free font it's written in arrives (its settings unchanged)
+onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont) useEditor.setState({ params: { ...s.params } }); });
+
+/** The settings a style's free font stands for as it comes: moved from these, its letters move too. */
+const freeAtOf = (st: StyleDef): FreeAt => Object.fromEntries(FREE_AT_KEYS.map(k => [k, st.params[k]]));
+/** A style's settings to start from, written in its free font or not. Its free font's letters are spaced
+    as the font spaces them, so the spacing starts at its middle. Traits laid over the style move the
+    font's letters as they move the settings (Bold makes it heavier). */
+function startParams(st: StyleDef, traits: Traits, free: boolean): Params {
+  const p = { ...applyTraits(st.params, traits) }, id = STYLE_FONTS[st.id];
+  return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st), letterSpacing: 0.2, wordSpacing: 0.35 } : p;
 }
 export const useFont = () => fontFor(useEditor(s => s.params));
 /** The font the controls act on: the inspected letter's own while edits go to that letter. */
@@ -288,7 +313,7 @@ export const traitLabels = (traits: Traits) =>
 function setTraits(traits: Traits) {
   const s = get(), st = styleById(s.styleId);
   if (st && s.picked !== null && s.picked === JSON.stringify(s.params)) {
-    const params = { ...applyTraits(st.params, traits) };
+    const params = startParams(st, traits, !!s.params.freeFont);
     set({ traits, params, picked: JSON.stringify(params) });
     actions.commit();
   } else set({ traits });
@@ -350,16 +375,31 @@ export const actions = {
   /** Start from a style, with the Style page's traits laid over it. */
   loadStyle(id: string) {
     const st = styleById(id); if (!st) return;
-    const s = get(), traits = s.traits, params = { ...applyTraits(st.params, traits) }, n = Object.keys(traits).length;
+    const s = get(), traits = s.traits, params = startParams(st, traits, s.letters === 'free'), n = Object.keys(traits).length;
     // a design shaped since its style was picked loses that work to the new style: say so, with a way back
     const shaped = s.hi > 0 && s.picked !== JSON.stringify(s.params);
     set({ params, styleId: id, switchedOn: [], picked: JSON.stringify(params) });
     actions.commit();
     if (shaped) { actions.toast(`${st.name} loaded in place of your changes`, { label: 'Undo', run: () => actions.travel(-1) }); return; }
     // the way on from here: the first page of controls, offered right on the toast
+    const font = parseFontId(params.freeFont);
+    if (font) { actions.toast(`${st.name} loaded, written in ${font.family}, a free font`, { label: 'Make my own letters', run: () => actions.setFreeLetters(false) }); return; }
     actions.toast(`${st.name} loaded${n ? ` with ${n} ${n === 1 ? 'trait' : 'traits'}` : ''} — now make it yours`,
       { label: 'Customize', run: () => actions.setCategory('weight') });
     styleToast = toastId;
+  },
+  /** Write the open design in its style's free font, or go back to letters built from the settings. Spacing
+      left as the style had it moves to the free font's own, and back. */
+  setFreeLetters(on: boolean) {
+    const s = get(), st = styleById(s.styleId), id = st && STYLE_FONTS[st.id], p = s.params;
+    if (!st || (on ? !id || p.freeFont : !p.freeFont)) return;
+    const spacing = (k: 'letterSpacing' | 'wordSpacing', free: number) => on
+      ? (p[k] === st.params[k] ? free : p[k])
+      : (p[k] === free ? st.params[k] : p[k]);
+    const params = { ...p, freeFont: on ? id! : '', freeAt: on ? freeAtOf(st) : {}, letterSpacing: spacing('letterSpacing', 0.2), wordSpacing: spacing('wordSpacing', 0.35) };
+    set({ params, picked: s.picked === JSON.stringify(p) ? JSON.stringify(params) : s.picked });
+    actions.commit();
+    actions.toast(on ? `Written in ${parseFontId(id)!.family}, a free font` : 'Letters built from the settings, ready to shape', { label: 'Undo', run: () => actions.travel(-1) });
   },
   /** Reset one slider to the starting style's value, or, while edits go to one letter, to the
       value the other letters share. */
@@ -464,6 +504,10 @@ export const actions = {
       }
     }
     setTraits(traits);
+  },
+  setLetters(letters: Letters) {
+    set({ letters });
+    try { localStorage.setItem(LETTERS_KEY, letters); } catch { /* private mode: the choice lasts this visit */ }
   },
   setView(view: CardView) {
     set({ view });

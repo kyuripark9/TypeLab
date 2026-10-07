@@ -181,6 +181,22 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .card.on .card-name { color: var(--accent-ink); }
 .card-like { margin-left: 8px; font-weight: 400; color: var(--ink-3); opacity: 0; transition: opacity .15s; }
 .card:hover .card-like, .card:focus-visible .card-like { opacity: 1; }
+/* a style's card in its free font: the text set as the browser draws the font, hidden until it has loaded */
+.card-free { display: block; color: var(--ink); line-height: 1.3; overflow-wrap: anywhere; }
+.card-free.loading { visibility: hidden; }
+/* Ready-made or Make my own: where the cards' letters come from */
+.letters-toggle { display: flex; flex: none; align-self: center; gap: 2px; padding: 2px; border-radius: var(--radius); background: var(--tint); }
+.letters-toggle button { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 8px; border-radius: var(--radius-s); font-size: 13px; font-weight: 500; color: var(--ink-3); transition: background .15s, color .15s, box-shadow .15s; }
+.letters-toggle button:hover { color: var(--ink); }
+.letters-toggle button.on { background: var(--surface); color: var(--ink); box-shadow: var(--raise); }
+.letters-toggle svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.letters-toggle svg .knob { fill: var(--tint); }
+.letters-toggle button.on svg { color: var(--accent); }
+.letters-toggle button.on svg .knob { fill: var(--surface); }
+/* what the picked one means, one quiet line under the heading */
+.letters-note { margin: -10px 0 20px; font-size: 13px; color: var(--ink-3); }
+/* a ready-made card names its font at all times, not just on hover: it's what sets it apart */
+.card-like.font { opacity: 1; }
 /* while the cards catch up with a new trait, they dim a little */
 .style-groups { transition: opacity .15s; }
 .style-groups.stale { opacity: .55; }
@@ -218,6 +234,9 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .finder-option:focus-visible { outline-offset: 0; border-radius: var(--radius-l); }
 @keyframes finder-in { from { opacity: 0; transform: translateY(6px); } }
 .finder-sample { display: block; width: 100%; height: 56px; fill: var(--ink); overflow: visible; }
+.finder-free { display: block; width: 100%; height: 56px; overflow: visible; white-space: nowrap; color: var(--ink); line-height: 56px; }
+.finder-free.loading { visibility: hidden; }
+.finder-typed.free { font-size: 30px; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
 .finder-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
 .finder-typed { margin-top: 10px; min-width: 0; }
 .finder-typed svg { display: block; fill: var(--ink); overflow: visible; }
@@ -681,6 +700,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 /* the name the font installs under, on top of Export */
 .exp-name { display: grid; gap: 6px; padding: 8px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
 .exp-name span { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.exp-name:has(+ .exp-note) { border-bottom: 0; margin-bottom: 0; }
+.exp-note { margin: -2px 0 4px; padding: 0 10px 8px; border-bottom: 1px solid var(--line); font-size: 12px; line-height: 1.45; color: var(--ink-3); }
 .exp-name input { height: 32px; padding: 0 10px; border: 0; border-radius: var(--radius); background: var(--well); box-shadow: inset 0 0 0 1px var(--line); font: 500 13.5px var(--ui); color: var(--ink); transition: box-shadow .15s, background .15s; }
 .exp-name input:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
 .exp-name input:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }

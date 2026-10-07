@@ -1,5 +1,6 @@
 /* The design parameters a user edits. Every number is 0..1; the engine maps them to geometry. */
 import { cleanDrawn, type Drawn } from './engine/outline';
+import { parseFontId } from './free-fonts';
 
 export const TERMINALS = ['flat', 'round', 'sharp', 'angled', 'cut', 'tapered'] as const;
 /** The forms each kind of stroke end comes in; the first is the kind as it always looked. */
@@ -210,12 +211,21 @@ export interface Params {
   geoHuman: number; softSharp: number; classicFuture: number; playfulFormal: number;
   /** letters customized on their own: each overrides some of the settings above, by character */ glyphs: Record<string, GlyphParams>;
   /** letters drawn by hand with the pen, by character: drawn as they are, the settings above no longer shape them */ outlines: Record<string, Drawn>;
+  /** the free font the letters are written in (a font id, see free-fonts.ts), '' for letters built from the settings:
+      drawn as the font has them, its letters no longer follow the shape settings, as drawn ones don't */ freeFont: string;
+  /** the settings (of FREE_AT_KEYS) the free font's own letters stand for, as its style had them when it was picked:
+      moved away from these, the font's letters move with them (bolder, wider, slanted, filled) */ freeAt: FreeAt;
 }
+
+/** The settings a free font's letters follow, as far as they're moved from the ones it was picked at (Params.freeAt). */
+export const FREE_AT_KEYS = ['weight', 'width', 'slant', 'rotation', 'mirror', 'sideBearing', 'mono', 'wobble', 'fill', 'slice',
+  'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal'] as const;
+export type FreeAt = Partial<Pick<Params, (typeof FREE_AT_KEYS)[number]>>;
 
 /** Settings every letter shares. The heights are the lines all letters stand on, spacing and the
     fills run across a whole line, and the personality macros push the heights too. */
 export const GLOBAL_KEYS = ['height', 'xHeight', 'extenders', 'descender', 'letterSpacing', 'wordSpacing', 'mono', 'fill', 'module',
-  'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal', 'glyphs', 'outlines'] as const;
+  'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal', 'glyphs', 'outlines', 'freeFont', 'freeAt'] as const;
 /** A setting one letter can have its own value of. */
 export type GlyphKey = Exclude<keyof Params, (typeof GLOBAL_KEYS)[number]>;
 export type GlyphParams = Partial<Pick<Params, GlyphKey>>;
@@ -236,7 +246,7 @@ export const DEFAULTS: Readonly<Params> = Object.freeze({
   serifBracket: 0.5, serifTip: 'square', serifTipRound: 1, serifTipSlant: 0.8, serifBase: 'flat', serifCup: 0.5,
   serifSides: 'both', serifInner: 'same', serifInnerSize: 0.5, serifInnerThickness: 0.5, serifBalance: 0.5, serifTops: 0.5, serifArms: 0.5, serifArmThickness: 0.5, serifArmLean: 0.5,
   letterSpacing: 0.2, wordSpacing: 0.35, sideBearing: 0.5, mono: 0,
-  geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5, glyphs: Object.freeze({}), outlines: Object.freeze({})
+  geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5, glyphs: Object.freeze({}), outlines: Object.freeze({}), freeFont: '', freeAt: Object.freeze({})
 });
 
 const PARAM_KEYS = Object.keys(DEFAULTS) as (keyof Params)[];
@@ -328,6 +338,13 @@ export function upgradeParams(src: Record<string, unknown>, version: number): Re
 /** A valid value for setting `k`, or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {
   const d = DEFAULTS[k];
+  if (k === 'freeFont') return v === '' || parseFontId(v) ? v : undefined;
+  if (k === 'freeAt') {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+    const out: Record<string, unknown> = {};
+    for (const a of FREE_AT_KEYS) { const c = a in v ? cleanValue(a, (v as Record<string, unknown>)[a]) : undefined; if (c !== undefined) out[a] = c; }
+    return out;
+  }
   if (k === 'terminalEnds' || k === 'terminalCurls' || k === 'corners' || k === 'innerCorners' || k === 'cornerSteps' || k === 'strokeWeights' || k === 'joinGaps') {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
     const out: Record<string, number> = {}, ok = k === 'corners' || k === 'cornerSteps' ? isCornerId : k === 'innerCorners' ? isTurnId : k === 'strokeWeights' ? isStrokeId : k === 'joinGaps' ? isJoinId : isEndId;

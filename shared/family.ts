@@ -71,7 +71,9 @@ export const styleName = (weight: WeightId, italic: boolean) => {
 
 /** One member of the family: the design at the weight `id` and upright or italic. A letter with its
     own weight or slant keeps how it differs from the rest. Letters drawn by hand in Points mode
-    keep their outlines in every member, as they keep them whatever the settings. */
+    keep their outlines in every member, as they keep them whatever the settings. A design written in
+    a free font follows the weight and slant to the family's heavier or lighter fonts and its italic, as
+    the editor does (see freeLetters in the engine). */
 export function familyMember(params: Params, anchor: WeightId, weight: WeightId, italic: boolean): FamilyMember {
   const ratio = weightRatio(params.weight, anchor, weight);
   const reweigh = (v: number) => clamp01(unscale(weightScale(v) * ratio));

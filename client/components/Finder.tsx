@@ -8,6 +8,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, type StyleDef, type StyleFilter } from '../../shared/content';
 import type { Traits } from '../../shared/traits';
+import { STYLE_FONTS } from '../../shared/free-fonts';
+import { fontStyle, textWidth, useWebFont } from '../lib/free';
 import { n1, useSize } from '../lib/hooks';
 import { actions, adjustedParams, fontFor, FINDER_STEPS, passKey, useEditor, useStyleMatch, type FinderStep } from '../state/editor';
 
@@ -151,8 +153,21 @@ function FinderOption({ step, option: o, index, traits, typed }: { step: FinderS
   );
 }
 
-/** A word set in a style, as large as fits the tile's width and height. */
+/** A word set in a style, as large as fits the tile's width and height: in its free font, while the
+    Style page offers the free fonts. */
 function Sample({ style, traits, text }: { style: StyleDef; traits: Traits; text: string }) {
+  const free = useEditor(s => s.letters === 'free') && STYLE_FONTS[style.id];
+  return free ? <FreeSample id={free} text={text} /> : <BuiltSample style={style} traits={traits} text={text} />;
+}
+
+/** A word in a free font, as large as fits the tile (up to its height). */
+function FreeSample({ id, text }: { id: string; text: string }) {
+  const font = useWebFont(id), [ref, box] = useSize<HTMLSpanElement>();
+  const size = font && box.width ? Math.min(44, box.width / Math.max(0.01, textWidth(font, text)) * 0.97) : 44;
+  return <span ref={ref} className={font ? 'finder-free' : 'finder-free loading'} style={{ ...(font && fontStyle(font)), fontSize: size }} aria-hidden="true">{text}</span>;
+}
+
+function BuiltSample({ style, traits, text }: { style: StyleDef; traits: Traits; text: string }) {
   const f = fontFor(adjustedParams(style, traits));
   const [line] = f.layout(text, Infinity);
   const top = Math.max(f.m.asc, f.m.cap), H = top - f.m.desc, W = Math.max(1, line?.width ?? 1);
@@ -168,6 +183,16 @@ function Sample({ style, traits, text }: { style: StyleDef; traits: Traits; text
 
 /** Typed text set in a style at one size for every tile, wrapped to the tile's width. */
 function Typed({ style, traits, text }: { style: StyleDef; traits: Traits; text: string }) {
+  const free = useEditor(s => s.letters === 'free') && STYLE_FONTS[style.id];
+  return free ? <FreeTyped id={free} text={text} /> : <BuiltTyped style={style} traits={traits} text={text} />;
+}
+
+function FreeTyped({ id, text }: { id: string; text: string }) {
+  const font = useWebFont(id);
+  return <div className="finder-typed free" style={{ ...(font && fontStyle(font)), visibility: font ? undefined : 'hidden' }} aria-hidden="true">{text}</div>;
+}
+
+function BuiltTyped({ style, traits, text }: { style: StyleDef; traits: Traits; text: string }) {
   const f = fontFor(adjustedParams(style, traits));
   const [ref, box] = useSize<HTMLDivElement>();
   const top = Math.max(f.m.asc, f.m.cap), H = top - f.m.desc, LH = H * 1.2, sc = 34 / H;

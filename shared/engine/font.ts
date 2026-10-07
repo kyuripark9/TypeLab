@@ -7,7 +7,9 @@ import { DEFAULTS, barCut, contrastOf, endCurl, endLength, endReach, formOf, joi
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, roundCuts, signedArea, smoothstep, splitPoly, subCubic, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, shadowShift, slice } from './effects';
-import { drawnCmds, type Drawn } from './outline';
+import { freeFont, type FreeFont } from './free';
+import { nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
+import { drawnCmds, type Drawn, type Node } from './outline';
 import { autoThickness, buildSerif, diamondCut, diamondEnd, expandStroke, innerFloor, organicK, serifCup, serifPlace, serifSides, type Expanded, type SerifPlace } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, SerifSides, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
 
@@ -68,7 +70,7 @@ export interface Glyph {
   meta: GlyphMeta;
   bodyW: number;
   lsb: number; rsb: number; adv: number;
-  /** the outline a letter drawn with the pen was drawn from */ drawn?: Drawn;
+  /** the outline a letter drawn as it is was drawn from (with the pen, or a free font's) */ drawn?: Drawn;
   M: Mat;
   cmds: Cmd[];
   /** SVG path data (y flipped) */
@@ -82,6 +84,10 @@ export interface Font {
   params: Params;
   eff: Effective;
   m: Metrics;
+  /** the free font the letters are written in, once registered (see free.ts) */ free?: FreeFont;
+  /** written in a free font that isn't registered yet: the letters are built meanwhile, or drawn from the font
+      picked while the weight or italic the settings ask for is on its way */ freePending: boolean;
+  /** the free fonts it draws from that weren't registered when it was built (see freeFontsWanted) */ freeMissing: string[];
   glyph(ch: string): Glyph | null;
   /** The font `ch` is drawn from: one built with its own settings when it has any, else this one. */
   letter(ch: string): Font;
@@ -2088,6 +2094,116 @@ function drawnGlyph(ch: string, drawn: Drawn): Glyph {
   };
 }
 
+/* ---- free fonts' letters (see free-fonts.ts), moved by the settings as far as they're moved from the
+   ones the font was picked at (Params.freeAt): heavier is a heavier font of the family where it has one,
+   and the rest of the way its outlines pushed out (or in); slanted past half an italic's lean, its italic;
+   wider is stretched; and the font's own lean, rotation, spacing and fill are kept until the settings move. */
+
+/** How far an italic leans, taken as a typical one's. */
+const ITALIC_DEG = 12;
+/** A stem's thickness at Weight `w` (as metrics weighs it), in design units. */
+const stemOf = (w: number) => 18 + 200 * Math.pow(clamp(w, 0, 1), 1.25);
+/** Width as metrics stretches the letters by it. */
+const widthOf = (w: number) => (w < 0.5 ? lerp(0.6, 1, w * 2) : lerp(1, 1.5, (w - 0.5) * 2));
+
+interface FreeLetters {
+  /** the font drawn from, and the one the settings ask for, which may not have arrived */ font?: FreeFont; want: string;
+  /** design units to the font's, and how much wider */ k: number; sx: number;
+  /** how much heavier (negative, lighter) to draw the stems than the font has them, in design units */ bold: number;
+  /** the side bearings' scale */ sb: number;
+  /** placing the letters: only what the settings move past the font's own (lean, turn, fill, spacing) */ m: Metrics;
+}
+
+function freeLetters(params: Params, e: Effective, m: Metrics): FreeLetters | null {
+  const r = parseFontId(e.freeFont);
+  if (!r) return null;
+  const b = resolve({ ...params, ...params.freeAt }), mb = metrics(b);
+  // the lean asked for, counting the font's own, decides upright or italic
+  const lean = (r.italic ? ITALIC_DEG : 0) + (e.slant - b.slant) * 20, weight = r.weight + (e.weight - b.weight) * 1000;
+  const want = nearestFont(r.family, weight, lean >= ITALIC_DEG / 2) ?? e.freeFont;
+  const font = freeFont(want) ?? freeFont(e.freeFont), ref: FreeFontRef = font && font.id === want ? parseFontId(want)! : r;
+  // Weight 0.4 is a 400: what the font's weight falls short of, its outlines make up
+  const rest = (weight - ref.weight) / 1000, bold = Math.max(stemOf(e.weight) - stemOf(e.weight - rest), -0.6 * stemOf(e.weight - rest));
+  const p: Effective = {
+    ...e, fill: e.fill === b.fill ? 'solid' : e.fill, mirror: e.mirror === b.mirror ? 'normal' : 'mirrored',
+    mono: Math.max(0, e.mono - b.mono), bounce: Math.max(0, e.bounce - b.bounce)
+  };
+  return {
+    font, want, k: font ? m.cap / font.cap : 1, sx: widthOf(e.width) / widthOf(b.width), bold,
+    sb: Math.pow(2, (e.sideBearing - b.sideBearing) * 3),
+    m: { ...m, p, slant: Math.tan((lean - (ref.italic ? ITALIC_DEG : 0)) * Math.PI / 180), rot: m.rot - mb.rot,
+      wob: Math.max(0, e.wobble - b.wobble), sliceH: e.slice === b.slice ? 0 : m.sliceH }
+  };
+}
+
+/** The free fonts a design draws from: the one it's written in, and the heavier, lighter or italic ones
+    its settings and its letters' own ask for. */
+export function freeFontsWanted(params: Params): string[] {
+  if (!params.freeFont) return [];
+  const want = (p: Params) => { const e = resolve(p); return freeLetters(p, e, metrics(e))?.want; };
+  return [...new Set([params.freeFont, want(params), ...Object.values(params.glyphs ?? {}).map(g => want({ ...params, ...g, glyphs: {} }))])]
+    .filter((id): id is string => !!id);
+}
+
+/** A drawn outline with every point and handle moved by `f`. */
+const mapDrawn = (d: Drawn, adv: number, f: (x: number, y: number) => [number, number]): Drawn => ({
+  adv,
+  contours: d.contours.map(c => c.map(n => {
+    const [x, y] = f(n.x, n.y), out: Node = { ...n, x, y };
+    if (n.ix !== undefined) [out.ix, out.iy] = f(n.ix, n.iy!);
+    if (n.ox !== undefined) [out.ox, out.oy] = f(n.ox, n.oy!);
+    return out;
+  }))
+});
+
+/** A drawn outline pushed out by `by` (in, negative) square to its edges, every point along the line
+    halfway between its two edges' (as a font is made bolder by its outline), its handles with it. */
+function embolden(d: Drawn, by: number): Drawn {
+  const area = (c: Node[]) => c.reduce((a, n, i) => { const q = c[(i + 1) % c.length]; return a + n.x * q.y - q.x * n.y; }, 0);
+  const outer = d.contours.reduce<Node[]>((a, c) => (Math.abs(area(c)) > Math.abs(area(a)) ? c : a), []);
+  // the ink is left of an outline running anticlockwise, so out is to its right (left, clockwise)
+  const side = area(outer) > 0 ? 1 : -1;
+  const unit = (x: number, y: number) => { const l = Math.hypot(x, y); return l > 1e-6 ? { x: x / l, y: y / l } : null; };
+  return {
+    adv: d.adv,
+    contours: d.contours.map(c => c.map((n, i) => {
+      const a = c[(i + c.length - 1) % c.length], z = c[(i + 1) % c.length];
+      const tin = (n.ix !== undefined ? unit(n.x - n.ix, n.y - n.iy!) : null) ?? (a.ox !== undefined ? unit(n.x - a.ox, n.y - a.oy!) : null) ?? unit(n.x - a.x, n.y - a.y);
+      const tout = (n.ox !== undefined ? unit(n.ox - n.x, n.oy! - n.y) : null) ?? (z.ix !== undefined ? unit(z.ix - n.x, z.iy! - n.y) : null) ?? unit(z.x - n.x, z.y - n.y);
+      const n1 = tin && { x: tin.y * side, y: -tin.x * side }, n2 = tout && { x: tout.y * side, y: -tout.x * side };
+      const nA = n1 ?? n2, nB = n2 ?? n1;
+      if (!nA || !nB) return n;
+      const bis = unit(nA.x + nB.x, nA.y + nB.y) ?? nA, k = by / Math.max(0.35, bis.x * nA.x + bis.y * nA.y);
+      const dx = bis.x * k, dy = bis.y * k, out: Node = { ...n, x: n.x + dx, y: n.y + dy };
+      if (n.ix !== undefined) { out.ix = n.ix + dx; out.iy = n.iy! + dy; }
+      if (n.ox !== undefined) { out.ox = n.ox + dx; out.oy = n.oy! + dy; }
+      return out;
+    }))
+  };
+}
+
+/** The ink's left and right edges, by its points and handles. */
+function inkX(d: Drawn): [number, number] {
+  let x0 = Infinity, x1 = -Infinity;
+  for (const c of d.contours) for (const n of c) {
+    x0 = Math.min(x0, n.x, n.ix ?? n.x, n.ox ?? n.x); x1 = Math.max(x1, n.x, n.ix ?? n.x, n.ox ?? n.x);
+  }
+  return x0 > x1 ? [0, 0] : [x0, x1];
+}
+
+/** A free font's letter at the design's size, moved by the settings and placed like any glyph. Its
+    outline as placed is kept as its drawing, for Points to start from. */
+function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
+  const sx = fl.k * fl.sx, sized = mapDrawn(src, src.adv * sx, (x, y) => [x * sx, y * fl.k]);
+  const [a0, a1] = inkX(sized), lsb = a0 * fl.sb, rsb = (sized.adv - a1) * fl.sb;
+  const bold = Math.abs(fl.bold) >= 0.5 ? embolden(sized, fl.bold / 2) : sized, [x0, x1] = inkX(bold);
+  const body = mapDrawn(bold, x1 - x0, (x, y) => [x - x0, y]), cmds = drawnCmds(body.contours);
+  const out: Unplaced = {
+    ch, strokes: [{ part: 'drawn', cmds, curved: false }], serifs: [], serifAt: [], counters: [], marks: [], corners: [], skeleton: [], meta: {}, bodyW: x1 - x0
+  };
+  const g = placeGlyph(out, x1 - x0, lsb, rsb, ch.codePointAt(0)!, fl.m);
+  return { ...g, drawn: mapDrawn(body, g.adv, (x, y) => applyM(g.M, x, y) as [number, number]) };
+}
 
 /* ---- highlight layers: which part of a glyph does a parameter touch? */
 export const RING_KEYS: Record<string, true> = { terminal: true, aperture: true, apex: true, roundness: true, cursive: true, overlap: true, tail: true };
@@ -2131,7 +2247,7 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
 /** Whether the letters are written as a joined-up script's (see SCRIPT_FORMS): on auto, in a design more than half cursive. */
 export const scriptForms = (e: Pick<Params, 'scriptForm' | 'cursive'>) => e.scriptForm === 'script' || (e.scriptForm === 'auto' && e.cursive >= 0.5);
 
-/** Each font's letters as its settings draw them, leaving out the drawn ones. A font
+/** Each font's letters as its settings (or its free font) draw them, leaving out the drawn ones. A font
     that differs from another only in its drawings shares the other's, so dragging a point in Points,
     which builds the font again on every move, doesn't build every other letter again with it. */
 const settingsGlyphs = new WeakMap<Font, Map<string, Glyph | null>>();
@@ -2144,11 +2260,15 @@ function sameSettings(a: Params, b: Params): boolean {
 
 /** The font `params` describe; `from`, an earlier build, lends its letters where only the drawings differ. */
 export function buildFont(params: Params, from?: Font): Font {
-  const e = resolve(params), m = metrics(e);
+  const e = resolve(params), m0 = metrics(e);
+  // a free font's letters stand as tall as the design's capitals, and its space is the font's own, wider or
+  // narrower by Word spacing
+  const fl = e.freeFont ? freeLetters(params, e, m0) : null, free = fl?.font;
+  const m = free ? { ...m0, space: Math.max(20, free.space * fl.k * fl.sx + (e.wordSpacing - 0.35) * 520) } : m0;
   const cache = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
-  const built = (from && sameSettings(from.params, params) && settingsGlyphs.get(from)) || new Map<string, Glyph | null>();
+  const built = (from && from.free === free && sameSettings(from.params, params) && settingsGlyphs.get(from)) || new Map<string, Glyph | null>();
   const font: Font = {
-    params, eff: e, m,
+    params, eff: e, m, free, freePending: !!fl && free?.id !== fl.want, freeMissing: freeFontsWanted(params).filter(id => !freeFont(id)),
     letter(ch) {
       const own = params.glyphs?.[ch];
       if (!own) return font;
@@ -2165,6 +2285,7 @@ export function buildFont(params: Params, from?: Font): Font {
         else {
           const lf = font.letter(ch);
           if (lf !== font) g = lf.glyph(ch);
+          else if (free?.glyphs[ch]) g = freeGlyph(ch, free.glyphs[ch], fl!);
           else if (e.build === 'blocks' && (g = buildBlock(ch, m))) g.ch = ch;
           else {
             // a script's own letters first: they are written whole, single-storey a and all

@@ -6,6 +6,7 @@ import type { Cmd } from '../shared/engine';
 import { TEXTS } from '../shared/content';
 import { slug } from '../shared/design';
 import { familyMembers, type FamilyRequest } from '../shared/family';
+import { withoutReserved } from '../shared/free-fonts';
 import type { Params } from '../shared/params';
 
 // opentype.js is CommonJS: under Node its API sits on the default export
@@ -28,18 +29,30 @@ function toPath(cmds: Cmd[]) {
 export interface FontStyle { style: string; cls: number; angle: number }
 const REGULAR: FontStyle = { style: 'Regular', cls: 400, angle: 0 };
 
-/** An installable OpenType (CFF) font with every glyph TypeLab draws. */
+/** The name a design exports under: its own, less any name the free font it's written in reserves. */
+export function exportName(params: Params, name: string) {
+  const free = buildFont(params).free;
+  return free ? withoutReserved(name, free.family) : name;
+}
+
+/** An installable OpenType (CFF) font with every glyph TypeLab draws. A design written in a free font
+    (its letters registered first, see free-fonts.ts) passes on the font's copyright notice and licence,
+    as the licence asks, and doesn't take the font's own name: under the Open Font License a changed
+    font may not. */
 export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR): Buffer {
-  const font = buildFont(params), m = font.m;
+  const font = buildFont(params), m = font.m, free = font.free;
+  if (free) name = withoutReserved(name, free.family);
   const glyphs = [
     new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }),
     new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() }),
     // a no-break space, as wide as a space, so text that holds one doesn't fall back to another font
     new opentype.Glyph({ name: 'uni00A0', unicode: 0xa0, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() })
   ];
-  const top = Math.max(m.asc, m.cap) + 60, bottom = m.desc - 40;
+  // a free font's flourishes can reach past the design's own lines: the font's lines reach as far
+  let top = Math.max(m.asc, m.cap) + 60, bottom = m.desc - 40;
   for (const ch of ALL_CHARS) {
     const g = font.glyph(ch); if (!g) continue;
+    if (free) for (const c of g.cmds) for (let i = 2; i < c.length; i += 2) { top = Math.max(top, c[i] as number); bottom = Math.min(bottom, c[i] as number); }
     glyphs.push(new opentype.Glyph({
       name: 'uni' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'),
       unicode: ch.charCodeAt(0),
@@ -65,16 +78,27 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
   for (const names of [platforms.unicode, platforms.macintosh, platforms.windows]) {
     names.preferredFamily = { en: name };
     names.preferredSubfamily = { en: as.style };
+    if (free) {
+      names.copyright = { en: `${free.copyright ? free.copyright + ' ' : ''}Changed with TypeLab.` };
+      // the licence travels with the font in full, as it asks
+      names.license = { en: `Based on ${free.family} by ${free.designers.join(', ')}, changed with TypeLab, under the ${free.license}. You may use, change and share this font under the same licence: ${free.licenseUrl}${free.licenseText ? `\n\n${free.licenseText}` : ''}` };
+      names.licenseURL = { en: free.licenseUrl };
+    }
   }
   // opentype.js marks the head table bold from SemiBold up; only Bold is
   (otf as unknown as { weightClass: number }).weightClass = weightName === 'Bold' ? 700 : 400;
   return Buffer.from(otf.toArrayBuffer());
 }
 
-/** Every member of a family as its own font, in one .zip with a folder named after the family. */
+/** Every member of a family as its own font, in one .zip with a folder named after the family; written in a
+    free font, with the font's licence beside them. */
 export function buildFamilyZip(params: Params, name: string, req: FamilyRequest): Buffer {
-  const dir = slug(name);
-  return zip(familyMembers(params, req).map(f => ({ name: `${dir}/${dir}-${f.style.replace(/ /g, '')}.otf`, data: buildOTF(f.params, name, f) })));
+  name = exportName(params, name);
+  const dir = slug(name), free = buildFont(params).free;
+  return zip([
+    ...familyMembers(params, req).map(f => ({ name: `${dir}/${dir}-${f.style.replace(/ /g, '')}.otf`, data: buildOTF(f.params, name, f) })),
+    ...(free ? [{ name: `${dir}/LICENSE.txt`, data: Buffer.from(`${name} is based on ${free.family} by ${free.designers.join(', ')} (${free.copyright}), changed with TypeLab, and comes under the ${free.license}: ${free.licenseUrl}\n\n${free.licenseText || ''}\n`, 'utf8') }] : [])
+  ]);
 }
 
 /** A .zip archive of `files`, each compressed. */

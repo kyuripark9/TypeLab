@@ -3,11 +3,12 @@
    Production (`npm run build` then `npm start`): serves the built files from dist/. */
 import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import express from 'express';
 import { createApp } from './app';
 import { googleFromEnv } from './google';
 import { DesignStore } from './db';
+import { FreeFonts } from './free-fonts';
 
 const root = resolve(import.meta.dirname, '..');
 // settings kept out of the code, such as the Google sign-in keys, can sit in a .env file
@@ -17,7 +18,9 @@ const prod = process.env.NODE_ENV === 'production';
 
 const dbFile = process.env.DB_PATH || resolve(root, 'data/typelab.db');
 const store = new DesignStore(dbFile);
-const app = createApp(store, { google: googleFromEnv() });
+// free fonts are fetched once and kept beside the database
+const fonts = new FreeFonts(dbFile === ':memory:' ? null : resolve(dirname(dbFile), 'free-fonts'));
+const app = createApp(store, { google: googleFromEnv(), fonts });
 // behind a proxy that ends HTTPS (most hosts), so sign-in cookies are marked Secure and sign-in
 // attempts are counted per visitor rather than per proxy
 if (process.env.TRUST_PROXY) app.set('trust proxy', 1);

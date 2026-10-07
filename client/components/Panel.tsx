@@ -11,6 +11,7 @@ import { TERMINAL_FORMS, formOf, isGlyphKey, rotationDeg, type GlyphParams, type
 import { n1 } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
 import { reachOf, type Reach } from '../lib/reach';
+import { FREE_FAMILIES, STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { cmdsToD, scriptForms, type Glyph } from '../../shared/engine';
 import { letterCorners, letterJoins, letterStrokes, strokeEnds, type CornerInfo, type JoinInfo, type StrokeEndInfo, type StrokeInfo } from '../lib/drag';
 import { actions, adjustedParams, curlOf, endOf, fontFor, isOn, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, useStyleMatch, type EndKey, type StyleTab } from '../state/editor';
@@ -285,10 +286,34 @@ function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> })
     : category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
   return (
     <div className="controls-page">
+      <FreeLetters />
       <Explainer />
       {inspecting ? <LetterControls keys={keys} category={category} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}{note}</div>}
       <PageSteps category={category} />
     </div>
+  );
+}
+
+/** A design written in a free font says so on every page of controls, since its letters are drawn as the
+    font has them and only some settings reach them (see freeLetters in the engine), with the way back to
+    letters the settings build; a style that has a free font, not in use, offers it. */
+function FreeLetters() {
+  const id = useEditor(s => s.params.freeFont), offer = useEditor(s => STYLE_FONTS[s.styleId]), font = useFont();
+  const r = parseFontId(id);
+  if (r) {
+    const by = FREE_FAMILIES[r.family].designers.join(', ');
+    return (
+      <div className="reach-banner free-banner">
+        <span>Written in <b>{r.family}</b>{by && ` by ${by}`}, a free font{font.free ? ` (${font.free.license})` : ''} you may change and use. Weight, width, slant, spacing and the fills change its letters; for the rest, reshape a letter in Points.</span>
+        <button className="link small" onClick={() => actions.setFreeLetters(false)}>Make my own letters</button>
+      </div>
+    );
+  }
+  const o = parseFontId(offer);
+  return o && (
+    <p className="page-note free-offer">
+      Want it ready-made? <button className="link small" onClick={() => actions.setFreeLetters(true)}>Use {o.family}</button>, a free font in this style
+    </p>
   );
 }
 
@@ -316,16 +341,16 @@ function PageSteps({ category }: { category: Exclude<CategoryId, 'style'> }) {
 function LetterControls({ keys, category }: { keys: ControlKey[]; category: Exclude<CategoryId, 'style'> }) {
   const ch = useEditor(s => s.inspect)!, font = useFont(), customizing = useEditor(s => !!letterOf(s));
   const hand = useEditor(s => !!s.params.outlines[ch]);
-  const g = font.glyph(ch);
+  const g = font.glyph(ch), free = !hand && g?.drawn && font.free ? font.free.family : null, drawn = hand || !!free;
   const rows = g ? letterControls(g, ch, font.letter(ch).params.serif) : [];
   const rest = keys.filter(k => !rows.some(r => r.key === k));
   return (
     <div className="ctl-list">
       {customizing && <div className="scope-note"><ScopeIcon id="letter" /><span>Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</span></div>}
-      {hand && (
+      {drawn && (
         <div className="reach-banner">
-          <span>{ch} is drawn by hand, so these settings don’t change it.</span>
-          <button className="link small" onClick={() => actions.undrawLetter(ch)}>Back to settings</button>
+          <span>{free ? `${ch} comes from ${free}: weight, width, slant and fills change it, and Points reshapes it.` : `${ch} is drawn by hand, so these settings don’t change it.`}</span>
+          <button className="link small" onClick={() => (free ? actions.setFreeLetters(false) : actions.undrawLetter(ch))}>{free ? 'Make my own letters' : 'Back to settings'}</button>
         </div>
       )}
       <div className="list-head">Parts of {ch}</div>
@@ -455,6 +480,8 @@ function Fold({ k, shut, quiet = false, children }: { k: FoldKey; shut?: boolean
 function Explainer() {
   const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
   const part = useEditor(s => s.inspect ? s.part : null), tips = useEditor(s => s.tips);
+  // a free font's letters have no parts for a diagram to point at, so the diagram drawn with them goes
+  const free = useEditor(s => !!s.params.freeFont);
   const c = CONTROLS[controlFor(active)], sub = SUBS[active as keyof typeof SUBS];
   const shapedBy = part && PART_CONTROL[part];
   // two levels only, a title and its explanation; a part says which setting shapes it in the explanation
@@ -464,7 +491,7 @@ function Explainer() {
   // while inspecting, the large letter on the stage already shows the part, so drop the diagram
   return (
     <div className={inspecting ? 'explainer compact' : 'explainer'}>
-      {!inspecting && <div className="diagram-box"><Diagram font={font} k={active} /></div>}
+      {!inspecting && !free && <div className="diagram-box"><Diagram font={font} k={active} /></div>}
       {/* closed, the explanation shows only its title; the title opens it */}
       <div className={tips ? 'ex-text open' : 'ex-text'}>
         <button className="ex-head" onClick={() => actions.setTips(!tips)} aria-expanded={tips} aria-controls="ex-body"

@@ -115,7 +115,8 @@ export function Inspector() {
   const sync = useEditor(s => s.scope === 'all');
   const font = useFont();
   const g = ch ? font.glyph(ch) : null;
-  const drawn = hand;
+  // a free font's letter is drawn as it is, as one drawn by hand
+  const free = !hand && !!g?.drawn && font.free ? font.free.family : null, drawn = hand || !!free;
   const grid = useGrid(font, ch);
   if (!ch || !g) return null;
   // a drawing belongs to this letter alone, like its own settings, and so do the pen's points unless they move in sync
@@ -153,7 +154,7 @@ export function Inspector() {
         )}
         {!pen && drawn && (
           <div className="scope-banner" role="status">
-            <ScopeIcon id="letter" /><span><b>{ch}</b> is drawn by hand · edit its points with</span>
+            <ScopeIcon id="letter" /><span><b>{ch}</b> {free ? `comes from ${free}` : 'is drawn by hand'} · edit its points with</span>
             <button className="link" onClick={() => actions.setPenMode(true)}>Points</button>
           </div>
         )}

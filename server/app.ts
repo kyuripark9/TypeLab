@@ -3,13 +3,15 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { styleById } from '../shared/content';
 import { cleanName, slug, type DesignInput } from '../shared/design';
-import { isValidParams } from '../shared/params';
+import { isValidParams, type Params } from '../shared/params';
+import { parseFontId } from '../shared/free-fonts';
 import type { DesignStore } from './db';
 import { AccountStore, SESSION_DAYS } from './accounts';
 import { cleanEmail, cleanUserName, isEmail, passwordProblem, type GoogleResult, type User } from '../shared/account';
 import { pkce, type GoogleAuth } from './google';
-import { isWeightId, type FamilyRequest } from '../shared/family';
-import { buildFamilyZip, buildOTF, buildSpecimenSVG } from './export';
+import { familyMembers, isWeightId, type FamilyRequest } from '../shared/family';
+import { buildFamilyZip, buildOTF, buildSpecimenSVG, exportName } from './export';
+import { FreeFonts } from './free-fonts';
 
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -128,7 +130,7 @@ const attachment = (res: Response, file: string, type: string) => {
   res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
 };
 
-export function createApp(store: DesignStore, { google = null }: { google?: GoogleAuth | null } = {}) {
+export function createApp(store: DesignStore, { google = null, fonts = new FreeFonts(null) }: { google?: GoogleAuth | null; fonts?: FreeFonts } = {}) {
   const accounts = new AccountStore(store.db), throttle = new Throttle(), lookups = new Throttle(60);
   const app = express();
   app.disable('x-powered-by');
@@ -332,20 +334,37 @@ export function createApp(store: DesignStore, { google = null }: { google?: Goog
     res.status(204).end();
   });
 
-  api.post('/export/otf', (req, res) => {
+  /** Register the free fonts the design is written in, or answer that they couldn't be fetched. */
+  const freeReady = async (...params: Params[]) => {
+    try { await fonts.ready(...params); } catch (e) { console.error(e); throw new HttpError(502, "Couldn't fetch the free font this design is written in. Try again in a moment."); }
+  };
+
+  // a free font's letters, as the engine draws them (fetched from Google Fonts the first time)
+  api.get('/free-fonts/:id', async (req, res) => {
+    if (!parseFontId(req.params.id)) throw new HttpError(404, 'No such free font');
+    let data;
+    try { data = await fonts.load(req.params.id); } catch (e) { console.error(e); throw new HttpError(502, "Couldn't fetch the font from Google Fonts"); }
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.json(data);
+  });
+
+  api.post('/export/otf', async (req, res) => {
     const { name, params } = readExport(req.body);
-    attachment(res, `${slug(name)}.otf`, 'font/otf');
+    await freeReady(params);
+    attachment(res, `${slug(exportName(params, name))}.otf`, 'font/otf');
     res.send(buildOTF(params, name));
   });
 
-  api.post('/export/family', (req, res) => {
+  api.post('/export/family', async (req, res) => {
     const { name, params } = readExport(req.body), family = readFamily(req.body);
-    attachment(res, `${slug(name)}-family.zip`, 'application/zip');
+    await freeReady(...familyMembers(params, family).map(f => f.params));
+    attachment(res, `${slug(exportName(params, name))}-family.zip`, 'application/zip');
     res.send(buildFamilyZip(params, name, family));
   });
 
-  api.post('/export/svg', (req, res) => {
+  api.post('/export/svg', async (req, res) => {
     const { name, params } = readExport(req.body);
+    await freeReady(params);
     attachment(res, `${slug(name)}-specimen.svg`, 'image/svg+xml');
     res.send(buildSpecimenSVG(params, name));
   });
