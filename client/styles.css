@@ -411,6 +411,8 @@ body.resizing.y { cursor: row-resize; }
 .ctl.idle > :is(.ctl-top, .ctl-head) .ctl-label { color: var(--ink-3); }
 .ctl.idle > :not(.ctl-top, .ctl-head, .reach-note) { opacity: .5; transition: opacity .15s; }
 .ctl.idle:hover > :not(.ctl-top, .ctl-head, .reach-note) { opacity: .75; }
+.serif-shapes.idle > .opts { opacity: .5; transition: opacity .15s; }
+.serif-shapes.idle:hover > .opts { opacity: .75; }
 .reach-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0 0 8px; font-size: 12px; line-height: 1.4; color: var(--ink-3); }
 .reach-ch { min-width: 24px; height: 22px; padding: 0 6px; border: 1px solid var(--line-2); border-radius: var(--radius-s); background: var(--surface); font: 500 12px var(--ui); color: var(--ink); transition: border-color .15s, color .15s; }
 .reach-ch:hover { border-color: var(--accent); color: var(--accent-ink); }

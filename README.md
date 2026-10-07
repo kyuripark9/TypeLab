@@ -93,7 +93,8 @@ The rest of the way in weight, and contrast, width, x-height, crossbar height an
 the letters on their skeletons (`shared/engine/skin.ts`): each outline is sampled, every sample hung on
 the middle of its stroke, and the settings move those middles and thicken or thin the strokes round them
 by the same measures the engine builds its own letters with, keeping the font's heights; unmoved, the
-letters are the font's exactly. Points opens its letters with the font's own anchor points.
+letters are the font's exactly. A pixel font's letters (VT323, Silkscreen) would lose their grid that way,
+so they only stretch and take the family's own weights. Points opens its letters with the font's own anchor points.
 
 Beyond weight, width and contrast, the pen model also does squircle bowls (*Squareness*),
 faceted octagonal curves (*Chamfer*), reverse contrast and ink-trap joints, and glyph assembly

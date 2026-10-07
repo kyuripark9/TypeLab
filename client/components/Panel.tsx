@@ -1070,7 +1070,8 @@ function FormOptions({ k, label }: { k: FormKey; label: string }) {
 
 function SerifControl({ parts }: { parts?: string[] }) {
   const p = { serif: useParam('serif'), serifShape: useParam('serifShape') }, active = useEditor(s => controlFor(s.active) === 'serif');
-  const c = CONTROLS.serif, reach = useReachNote('serif');
+  // the shapes say when they change nothing in view, as for a free font's letters, whose serifs Length still moves
+  const c = CONTROLS.serif, reach = useReachNote('serif'), shapes = useReachNote('serifShape');
   return (
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="serif" {...useControlFocus('serif')}>
       <FoldHead k="serif" label={c.label} parts={parts} shut={!p.serif} summary={SERIF_SHAPE_OPTIONS.find(([id]) => id === p.serifShape)?.[1] ?? ''}
@@ -1078,14 +1079,17 @@ function SerifControl({ parts }: { parts?: string[] }) {
           onClick={() => actions.setOption('serif', !p.serif)}><i /></button>} />
       {reach.note}
       <Fold k="serif" shut={!p.serif} quiet={reach.quiet}>
-        <div className="sub-label">Serif shape</div>
-        <div className="opts four" role="radiogroup" aria-label="Serif shape">
-          {SERIF_SHAPE_OPTIONS.map(([id, label]) => (
-            <button key={id} role="radio" aria-checked={p.serifShape === id} className={p.serifShape === id ? 'opt on' : 'opt'}
-              onClick={() => actions.setOption('serifShape', id)}>
-              <SerifIcon shape={id} /><span>{label}</span>
-            </button>
-          ))}
+        <div className={shapes.idle ? 'serif-shapes idle' : 'serif-shapes'}>
+          <div className="sub-label">Serif shape</div>
+          {shapes.note}
+          <div className="opts four" role="radiogroup" aria-label="Serif shape">
+            {SERIF_SHAPE_OPTIONS.map(([id, label]) => (
+              <button key={id} role="radio" aria-checked={p.serifShape === id} className={p.serifShape === id ? 'opt on' : 'opt'}
+                onClick={() => actions.setOption('serifShape', id)}>
+                <SerifIcon shape={id} /><span>{label}</span>
+              </button>
+            ))}
+          </div>
         </div>
         {[...SERIF_SIZES, ...SERIF_DETAILS[p.serifShape]].map(k => <SliderControl key={k} k={k} def={SERIF_SUBS[k]} />)}
       </Fold>

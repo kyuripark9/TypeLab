@@ -8,7 +8,7 @@ import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, 
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, shadowShift, slice } from './effects';
 import { freeFont, type FreeFont } from './free';
-import { nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
+import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
 import { skinMeasures, skinMove, skinRig, type SkinMeasures } from './skin';
 import { autoThickness, buildSerif, diamondCut, diamondEnd, expandStroke, innerFloor, organicK, serifCup, serifPlace, serifSides, type Expanded, type SerifPlace } from './stroke';
@@ -2108,6 +2108,7 @@ interface FreeLetters {
   /** the font drawn from, and the one the settings ask for, which may not have arrived */ font?: FreeFont; want: string;
   /** design units to the font's, and how much wider (the side bearings) */ k: number; sx: number;
   /** the engine's measures of the settings the font's letters stand for, and of those asked for */ from: SkinMeasures; to: SkinMeasures;
+  /** whether its letters move on their skeletons (not a pixel font's, which are only stretched) */ skin: boolean;
   /** the side bearings' scale */ sb: number;
   /** placing the letters: only what the settings move past the font's own (lean, turn, fill, spacing) */ m: Metrics;
 }
@@ -2128,7 +2129,7 @@ function freeLetters(params: Params, e: Effective, m: Metrics): FreeLetters | nu
     mono: Math.max(0, e.mono - b.mono), bounce: Math.max(0, e.bounce - b.bounce)
   };
   return {
-    font, want, k: font ? m.cap / font.cap : 1, sx: m.ws / mb.ws, from, to: skinMeasures(m),
+    font, want, k: font ? m.cap / font.cap : 1, sx: m.ws / mb.ws, from, to: skinMeasures(m), skin: !FREE_FAMILIES[r.family]?.grid,
     sb: Math.pow(2, (e.sideBearing - b.sideBearing) * 3),
     m: { ...m, p, slant: Math.tan((lean - (ref.italic ? ITALIC_DEG : 0)) * Math.PI / 180), rot: m.rot - mb.rot,
       wob: Math.max(0, e.wobble - b.wobble), sliceH: e.slice === b.slice ? 0 : m.sliceH }
@@ -2169,7 +2170,8 @@ function inkX(d: Drawn): [number, number] {
 function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   // the letter moved on its skeleton in the font's own units, then brought to the design's size; its side
   // bearings as the font has them, wider or narrower with the letters and by Side bearings
-  const rig = fl.font && skinRig(fl.font, ch), moved: Drawn = rig ? { adv: src.adv, contours: skinMove(rig, fl.from, fl.to) } : src;
+  const rig = fl.skin && fl.font && skinRig(fl.font, ch);
+  const moved: Drawn = rig ? { adv: src.adv, contours: skinMove(rig, fl.from, fl.to) } : mapDrawn(src, src.adv * fl.sx, (x, y) => [x * fl.sx, y]);
   const [a0, a1] = inkX(src), lsb = a0 * fl.k * fl.sx * fl.sb, rsb = (src.adv - a1) * fl.k * fl.sx * fl.sb;
   const sized = mapDrawn(moved, moved.adv * fl.k, (x, y) => [x * fl.k, y * fl.k]), [x0, x1] = inkX(sized);
   const body = mapDrawn(sized, x1 - x0, (x, y) => [x - x0, y]), cmds = drawnCmds(body.contours);

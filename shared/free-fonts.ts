@@ -4,10 +4,15 @@
    as 400) and in italic where the style names one or leans and the family has one. The letters are
    fetched and converted by the server (server/free-fonts.ts) and drawn by the engine as they are. */
 
-/** A family: its designers, the weights it comes in upright and in italic, the licence it comes under
+/** A family: its designers, the weights it comes in upright and in italic (up to 900, the heaviest the font
+    files the server fetches come in, so Nunito's 1000 is left out), the licence it comes under
     (its folder in github.com/google/fonts) and the names its licence reserves, which a changed font may
     not take (see server/export.ts). */
-export interface FreeFamily { designers: string[]; weights: number[]; italics: number[]; license: 'ofl' | 'apache'; reserved: string[] }
+export interface FreeFamily {
+  designers: string[]; weights: number[]; italics: number[]; license: 'ofl' | 'apache'; reserved: string[];
+  /** drawn on a grid of pixels, which moving its letters on their skeletons would break: only its own
+      weights and a plain stretch reach it (see skin.ts) */ grid?: true;
+}
 
 export const FREE_FAMILIES: Record<string, FreeFamily> = {
   "Abril Fatface": { designers: ["TypeTogether"], weights: [400], italics: [], license: 'ofl', reserved: ["Abril", "Abril Fatface"] },
@@ -62,7 +67,7 @@ export const FREE_FAMILIES: Record<string, FreeFamily> = {
   "Mrs Saint Delafield": { designers: ["Sudtipos"], weights: [400], italics: [], license: 'ofl', reserved: ["Mrs Saint Delafield"] },
   "Neonderthaw": { designers: ["Robert Leuschke"], weights: [400], italics: [], license: 'ofl', reserved: [] },
   "Noto Sans": { designers: ["Google"], weights: [100, 200, 300, 400, 500, 600, 700, 800, 900], italics: [100, 200, 300, 400, 500, 600, 700, 800, 900], license: 'ofl', reserved: [] },
-  "Nunito": { designers: ["Vernon Adams", "Cyreal", "Jacques Le Bailly"], weights: [200, 300, 400, 500, 600, 700, 800, 900, 1000], italics: [200, 300, 400, 500, 600, 700, 800, 900, 1000], license: 'ofl', reserved: [] },
+  "Nunito": { designers: ["Vernon Adams", "Cyreal", "Jacques Le Bailly"], weights: [200, 300, 400, 500, 600, 700, 800, 900], italics: [200, 300, 400, 500, 600, 700, 800, 900], license: 'ofl', reserved: [] },
   "Open Sans": { designers: ["Steve Matteson"], weights: [300, 400, 500, 600, 700, 800], italics: [300, 400, 500, 600, 700, 800], license: 'ofl', reserved: [] },
   "Orbitron": { designers: ["Matt McInerney"], weights: [400, 500, 600, 700, 800, 900], italics: [], license: 'ofl', reserved: ["Orbitron"] },
   "Oswald": { designers: ["Vernon Adams", "Kalapi Gajjar", "Cyreal"], weights: [200, 300, 400, 500, 600, 700], italics: [], license: 'ofl', reserved: [] },
@@ -86,7 +91,7 @@ export const FREE_FAMILIES: Record<string, FreeFamily> = {
   "Saira Extra Condensed": { designers: ["Omnibus-Type"], weights: [100, 200, 300, 400, 500, 600, 700, 800, 900], italics: [], license: 'ofl', reserved: ["Saira"] },
   "Share Tech Mono": { designers: ["Carrois Apostrophe"], weights: [400], italics: [], license: 'ofl', reserved: ["Share"] },
   "Shrikhand": { designers: ["Jonny Pinhorn"], weights: [400], italics: [], license: 'ofl', reserved: [] },
-  "Silkscreen": { designers: ["Jason Kottke"], weights: [400, 700], italics: [], license: 'ofl', reserved: [] },
+  "Silkscreen": { designers: ["Jason Kottke"], weights: [400, 700], italics: [], license: 'ofl', reserved: [], grid: true },
   "Sniglet": { designers: ["Haley Fiege"], weights: [400, 800], italics: [], license: 'ofl', reserved: [] },
   "Sofia": { designers: ["LatinoType"], weights: [400], italics: [], license: 'ofl', reserved: ["Sofia"] },
   "Space Grotesk": { designers: ["Florian Karsten"], weights: [300, 400, 500, 600, 700], italics: [], license: 'ofl', reserved: [] },
@@ -98,7 +103,7 @@ export const FREE_FAMILIES: Record<string, FreeFamily> = {
   "Syne": { designers: ["Bonjour Monde", "Lucas Descroix", "George Triantafyllakos"], weights: [400, 500, 600, 700, 800], italics: [], license: 'ofl', reserved: [] },
   "Unbounded": { designers: ["NaN"], weights: [200, 300, 400, 500, 600, 700, 800, 900], italics: [], license: 'ofl', reserved: [] },
   "UnifrakturMaguntia": { designers: ["j. 'mach' wust"], weights: [400], italics: [], license: 'ofl', reserved: ["UnifrakturMaguntia"] },
-  "VT323": { designers: ["Peter Hull"], weights: [400], italics: [], license: 'ofl', reserved: [] },
+  "VT323": { designers: ["Peter Hull"], weights: [400], italics: [], license: 'ofl', reserved: [], grid: true },
   "Victor Mono": { designers: ["Rune Bj\u00f8rner\u00e5s"], weights: [100, 200, 300, 400, 500, 600, 700], italics: [100, 200, 300, 400, 500, 600, 700], license: 'ofl', reserved: [] },
   "Workbench": { designers: ["Jens Kut\u00edlek"], weights: [400], italics: [], license: 'ofl', reserved: [] },
   "Xanh Mono": { designers: ["Yellow Type", "L\u00e2m B\u1ea3o", "Duy Dao"], weights: [400], italics: [400], license: 'ofl', reserved: [] }

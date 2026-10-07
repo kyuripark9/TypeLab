@@ -15,6 +15,7 @@ import type { FreeFont } from './free';
 import { fitOutline, type Node } from './outline';
 import { signedArea } from './geom';
 import { combine, shape } from './boolean';
+import { FREE_FAMILIES } from '../free-fonts';
 
 type P = { x: number; y: number };
 
@@ -228,7 +229,7 @@ function rigContour(c: Node[], f: Field, ctx: Ctx): Bone[] {
     };
     const head = across(0);
     let chord = isFinite(head) ? head : 0;
-    for (const deg of [-30, -20, -10, 10, 20, 30]) chord = Math.min(chord, across(deg));
+    for (const deg of [-60, -45, -30, -20, -10, 10, 20, 30, 45, 60]) chord = Math.min(chord, across(deg));
     let serifDx = 0;
     for (const L of serifLines) if (Math.abs(p.y - L) <= ctx.cap * 0.09 && !serifDx) serifDx = serifReach(f, p.x, p.y, nx, ny, L, ctx.cap);
     const onLine = p.straight && Math.abs(ny) > 0.97 && lines.some(L => Math.abs(p.y - L) < 2.5);
@@ -299,6 +300,8 @@ export function skinRig(font: FreeFont, ch: string): SkinRig | null {
 /** Whether setting `key` moves letter `ch` of a free font on its skeleton: Crossbar only a letter with a
     bar it moves, x-height only the lowercase, the serifs' size only a letter with serifs. */
 export function skinFollows(font: FreeFont, ch: string, key: string) {
+  // (a pixel font's letters only stretch, and change weight where the family has another)
+  if (FREE_FAMILIES[font.family]?.grid) return key !== 'contrast' && key !== 'vWeight' && key !== 'hWeight' && key !== 'xHeight' && key !== 'crossbar' && key !== 'serifSize';
   if (key === 'crossbar') return ch in BARS;
   if (key === 'xHeight') return ch !== ch.toUpperCase();
   if (key === 'serifSize') return !!skinRig(font, ch)?.serifs;
@@ -427,12 +430,31 @@ function moveRig(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
     // Weight, a bar's by Contrast too; a stroke's end, which runs across it, stays
     const delta = bs.map(b => end(b) ? 0 : ((b.dot ? kv : b.ty * b.ty * kv + b.tx * b.tx * kh) - 1) * b.w);
     const moved = bs.map((b, i) => b.corner ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && end(bs[j]) === end(b)));
-    // where the heights and the width put it: the point mapped, then put back as far across its stroke from
-    // the skeleton as it was (an edge facing up or down keeps its bar's thickness as heights move, one facing
-    // sideways its stem's as the width does), evened out with its neighbours
-    const geo = [0, 1].map(axis => bs.map(b => axis
-      ? b.ny * b.ny * (gy(b.ay) + b.y - b.ay) + (1 - b.ny * b.ny) * gy(b.y) - b.y
-      : b.nx * b.nx * (gx(b.ax) + b.x - b.ax) + (1 - b.nx * b.nx) * gx(b.x) - b.x));
+    // where the heights and the width put it: the skeleton point moved, and the edge kept as far across the
+    // stroke from it as it was, the stroke turned as they turn it (a diagonal leans further as the letter
+    // widens), so every stroke keeps its thickness; narrower, upright strokes thin a little, as a condensed
+    // face's do, and lower, level ones, or a heavy letter's counters would close. A stroke's end follows its own point, as there is
+    // no thickness across it to keep, a dot is carried whole, keeping its round, and a corner goes as the
+    // edges either side of it go
+    let cx = 0, cy = 0;
+    for (const b of bs) { cx += b.ax; cy += b.ay; }
+    cx /= n; cy /= n;
+    const condense = Math.pow(Math.min(1, sx), 0.35);
+    const geo = [0, 1].map(axis => bs.map(b => {
+      if (b.dot) return axis ? gy(cy) - cy : gx(cx) - cx;
+      if (b.cap) return axis ? gy(b.y) - b.y : gx(b.x) - b.x;
+      // (the stroke runs as its edge does, read more surely there than off the skeleton)
+      const sy = gy(b.ay + 0.5) - gy(b.ay - 0.5), ox = b.x - b.ax, oy = b.y - b.ay;
+      const along = ox * b.tx + oy * b.ty, across = oy * b.tx - ox * b.ty;
+      let ex = b.tx * sx, ey = b.ty * sy;
+      const l = Math.hypot(ex, ey) || 1; ex /= l; ey /= l;
+      const thick = across * (1 + (condense - 1) * ey * ey + (Math.pow(Math.min(1, sy), 0.35) - 1) * ex * ex);
+      // (as far as the edge faces this way; along it, where the skeleton is read less surely, by its own point)
+      const h = axis ? b.ny * b.ny : b.nx * b.nx;
+      return axis ? h * (gy(b.ay) + along * b.ty * sy + ex * thick) + (1 - h) * gy(b.y) - b.y
+        : h * (gx(b.ax) + along * b.tx * sx - ey * thick) + (1 - h) * gx(b.x) - b.x;
+    }));
+    for (const g of geo) bs.forEach((b, i) => { if (b.corner) g[i] = (g[(i - 1 + n) % n] + g[(i + 1) % n]) / 2; });
     const shift = (axis: number, i: number) => bs[i].corner ? geo[axis][i] : ease(geo[axis], bs, i, j => !bs[j].corner);
     rings.push(bs.map((b, i) => {
       const x = b.x + shift(0, i) + b.serifDx * (ks - 1) * sx, y = b.y + shift(1, i);
@@ -468,6 +490,22 @@ function moveRig(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
     const to = knots2.length === 1 ? (y: number) => y + knots2[0][1] - knots2[0][0] : piecewise(knots2);
     rings.forEach((r, i) => { if (!rig.bones[i][0]?.dot) for (const p of r) p.y = to(p.y); });
   }
+  // and a flat edge on a line stays on it exactly (a serif's foot beside a heavier stroke's, which moved
+  // further and so set where the rest went), its neighbours eased onto it
+  const lines = [0, c.cap, ...(c.lower ? [c.xh, c.asc, c.desc] : [])];
+  rig.bones.forEach((bs, r) => {
+    const n = bs.length, fix = bs.map((b, i) => {
+      if (!b.onLine || b.dot) return 0;
+      const L = lines.find(L => Math.abs(b.y - L) < 2.5);
+      return L === undefined ? 0 : gy(L) + b.y - L - rings[r][i].y;
+    });
+    if (!fix.some(Boolean)) return;
+    rings[r].forEach((p, i) => {
+      if (fix[i]) { p.y += fix[i]; return; }
+      // (the nearest such edge within a few samples, less the further it is)
+      for (let k = 1; k <= 4; k++) for (const j of [(i - k + n) % n, (i + k) % n]) if (fix[j]) { p.y += fix[j] * (1 - k / 5); return; }
+    });
+  });
   // folds cut out; where moved edges still cross (strokes thickened into each other), the letter is its
   // ink read as the font reads it, without the folds (which wind the other way)
   let tidy = rings.map(r => untangle(r));
