@@ -353,8 +353,10 @@ body.resizing.y { cursor: row-resize; }
 .list-head { padding: 12px 12px 2px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
 .list-head:first-child { padding-top: 4px; }
 /* the foot of a page of controls, kept in sight as the explainer is at the top: back, and on to the
-   next page (or Save and Export on the last) */
-.page-steps { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 12px 12px; background: inherit; border-top: 1px solid var(--line); border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
+   next page (or Save and Export on the last); the page fills the panel, so on a short page the foot
+   sits at the panel's bottom edge rather than under the last control */
+.controls-page { display: flex; flex-direction: column; min-height: 100%; background: inherit; }
+.page-steps { position: sticky; bottom: 0; z-index: 2; margin-top: auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 12px 12px; background: inherit; border-top: 1px solid var(--line); border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
 .page-steps-grow { flex: 1; }
 .page-steps .btn { gap: 5px; }
 .page-steps .btn svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; margin: 0; }

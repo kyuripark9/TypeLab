@@ -284,11 +284,11 @@ function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> })
     ? <p className="page-note">{keys.length ? 'Letters built from blocks use only these settings here.' : 'Letters built from blocks have nothing to shape here.'} Switch Built from back to Strokes for the rest.</p>
     : category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
   return (
-    <>
+    <div className="controls-page">
       <Explainer />
       {inspecting ? <LetterControls keys={keys} category={category} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}{note}</div>}
       <PageSteps category={category} />
-    </>
+    </div>
   );
 }
 
