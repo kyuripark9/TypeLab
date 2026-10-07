@@ -647,30 +647,30 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Turns each letter about its own middle, and spaces the letters to fit. Synced, every letter turns the same way; customize a letter to give it its own angle.' },
   contrast: { cat: 'weight', label: 'Contrast', friendly: 'Vary thick and thin strokes', tech: 'Contrast · Reverse contrast', lo: 'Reversed', hi: 'High', demo: 'HOe', bipolar: true,
     explain: 'Above the middle the horizontals thin out while the stems stay heavy; below it the stems thin out under heavy horizontals.' },
-  pinch: { cat: 'weight', off: 0, label: 'Pinch', friendly: 'Thin every stroke to a point along one line', tech: 'Pinch · Waist', lo: 'Slight', hi: 'To a point', demo: 'aplo',
+  pinch: { cat: 'weight', off: 0, label: 'Pinch', friendly: 'Thin the strokes to a point', tech: 'Pinch · Waist', lo: 'Slight', hi: 'To a point', demo: 'aplo',
     explain: 'Strokes narrow in straight wedges toward a level line and swell back out above and below it: stems turn into hourglasses and round letters get almond-shaped counters. Position moves the line.' },
 
-  build: { cat: 'curves', type: 'form', label: 'Built from', friendly: 'Draw letters as strokes or cut them from solid blocks', tech: 'Stroke or block construction', demo: 'EOS',
+  build: { cat: 'curves', type: 'form', label: 'Built from', friendly: 'Draw with strokes or blocks', tech: 'Stroke or block construction', demo: 'EOS',
     explain: 'Blocks are solid shapes with their insides cut in as narrow slots. Weight closes the slots up, Roundness rounds the corners and slot ends, Joins the small inside curves. Lowercase become small capitals.' },
   bowlForm: { cat: 'curves', type: 'form', label: 'Bowls', friendly: 'Draw curves as ovals or as boxes', tech: 'Oval or box bowls', demo: 'OCS',
     explain: 'Boxes have straight sides and corners round outside, square inside.' },
-  curve: { cat: 'curves', label: 'Curves', friendly: 'Make curves more geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
+  curve: { cat: 'curves', label: 'Curves', friendly: 'Make curves geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
     explain: 'Compass-drawn circles, or fuller pen-like curves.' },
   squareness: { cat: 'curves', off: 0, label: 'Squareness', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',
     explain: 'Bowls square off while the corners stay smooth.' },
-  chamfer: { cat: 'curves', off: 0, label: 'Facets', friendly: 'Cut curves into straight lines and corners', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
+  chamfer: { cat: 'curves', off: 0, label: 'Facets', friendly: 'Cut curves into flat facets', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
     explain: 'Curves become straight lines with cut-off corners.' },
-  bowlJoin: { cat: 'curves', type: 'form', label: 'Joins', friendly: 'Curve bowls and arches out of their stems or run them in flat', tech: 'Bowl & shoulder joins', demo: 'dnu',
+  bowlJoin: { cat: 'curves', type: 'form', label: 'Joins', friendly: 'Curve bowls out of their stems', tech: 'Bowl & shoulder joins', demo: 'dnu',
     explain: 'Square joins meet the stem in a flat top or bottom, like a D. Applies to b d p q g, n m h r u and a.' },
   overlap: { cat: 'curves', off: 1, label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
     explain: 'Applies to b, d, p, q and the single-storey a.' },
   roundness: { cat: 'corners', label: 'Roundness', friendly: 'Make the letters softer or sharper', tech: 'Roundness', lo: 'Sharp', hi: 'Round', demo: 'Ek',
     explain: 'Corners and stroke ends round off; Joins rounds where strokes meet.' },
-  bends: { cat: 'corners', type: 'form', label: 'Bends', friendly: 'Turn the strokes in a sharp point or a round bend', tech: 'Sharp or round vertices', demo: 'MNZ',
+  bends: { cat: 'corners', type: 'form', label: 'Bends', friendly: 'Make bends sharp or round', tech: 'Sharp or round vertices', demo: 'MNZ',
     explain: 'Where a stroke changes direction, as in A, M, N, V, W and Z: a point, or a round bend like bent wire. Peaks sets how wide.' },
   apex: { cat: 'corners', label: 'Peaks', friendly: 'Make peaks pointed or flat', tech: 'Apex', lo: 'Pointed', hi: 'Flat', demo: 'AV',
     explain: 'Where diagonals meet — the top of A, the bottom of V. With round bends, how wide they turn.' },
-  steps: { cat: 'corners', off: 0, label: 'Steps', friendly: 'Cut a square step into the corners of the letters', tech: 'Stepped corners · Notches', lo: 'Small', hi: 'Stroke wide', demo: 'LOE',
+  steps: { cat: 'corners', off: 0, label: 'Steps', friendly: 'Cut steps into the corners', tech: 'Stepped corners · Notches', lo: 'Small', hi: 'Stroke wide', demo: 'LOE',
     explain: 'Each square corner a stroke turns (every corner of box bowls), and each corner where two strokes end together (the foot of an L), gets a square notch, like a letter built on a grid. Customize a letter to step each corner its own way.' },
   joints: { cat: 'corners', off: 0, label: 'Ink traps', friendly: 'Thin the strokes where they meet', tech: 'Ink traps · Joints', lo: 'Solid', hi: 'Trapped', demo: 'nab',
     explain: 'Corners are carved out where strokes join.' },
@@ -682,29 +682,29 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'The outer end of each serif: cut square, rounded off, drawn out to a point, or cut on a slant.' },
   serifBase: { cat: 'serifs', type: 'serifForm', zoom: true, label: 'Base', friendly: 'Keep the feet flat or arch them', tech: 'Flat or cupped serifs', demo: 'I',
     explain: 'A cupped serif arches up under its stem, so only its two tips touch the line, as in book faces cut by hand. The serifs across the ends of arms stay flat.' },
-  serifSides: { cat: 'serifs', type: 'serifForm', label: 'Sides', friendly: 'Choose which way the serifs reach', tech: 'Serif direction · Half serifs', demo: 'Hn',
+  serifSides: { cat: 'serifs', type: 'serifForm', label: 'Sides', friendly: 'Choose where serifs reach', tech: 'Serif direction · Half serifs', demo: 'Hn',
     explain: 'Serifs reach both ways from a stem, to the left or the right only, or only into the letter or out of it. A side faces into the letter where more of it stands beside the stem on the same line. The serifs across the ends of arms stay as they are.' },
-  serifInner: { cat: 'serifs', type: 'serifForm', zoom: true, label: 'Inside serifs', friendly: 'Shape the serifs that reach into the letter on their own', tech: 'Inner & outer serifs', demo: 'n',
+  serifInner: { cat: 'serifs', type: 'serifForm', zoom: true, label: 'Inside serifs', friendly: 'Shape the inside serifs', tech: 'Inner & outer serifs', demo: 'n',
     explain: 'The serifs that reach into the letter take a shape, length and thickness of their own. The ones that reach out keep the shape picked under Serifs.' },
   serifBalance: { cat: 'serifs', zoom: true, bipolar: true, label: 'Balance', friendly: 'Reach further to one side', tech: 'Serif balance', lo: 'Left', hi: 'Right', demo: 'I',
     explain: 'The serifs on stems grow longer on one side and shorter on the other. In the middle both sides match.' },
-  serifTops: { cat: 'serifs', bipolar: true, label: 'Top serifs', friendly: 'Make the serifs on top smaller or bigger', tech: 'Head serifs', lo: 'Small', hi: 'Large', demo: 'Hdn',
+  serifTops: { cat: 'serifs', bipolar: true, label: 'Top serifs', friendly: 'Size the serifs on top', tech: 'Head serifs', lo: 'Small', hi: 'Large', demo: 'Hdn',
     explain: 'The serifs on top of stems, set apart from the feet on the baseline.' },
-  serifArms: { cat: 'serifs', bipolar: true, label: 'Arm serifs', friendly: 'Make the serifs on arms smaller or bigger', tech: 'Arm serifs · Beaks', lo: 'Small', hi: 'Large', demo: 'ETZ',
+  serifArms: { cat: 'serifs', bipolar: true, label: 'Arm serifs', friendly: 'Size the serifs on arms', tech: 'Arm serifs · Beaks', lo: 'Small', hi: 'Large', demo: 'ETZ',
     explain: 'The serifs across the ends of arms, as on E, F, L, T and Z: their length, their thickness against the other serifs, and how they lean. Leaning out, they splay away from the letter like the arms of a T bent down at the ends, cut square across at their tips.' },
   story: { cat: 'letters', type: 'story', label: 'Letter a', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
     explain: 'Two-storey like book type, or one bowl like handwriting. Its foot can run out in a spur along the baseline.' },
-  diagonals: { cat: 'letters', type: 'form', label: 'Letters A, V and W', friendly: 'Stand one side of A, V and W upright, or bend them into arches', tech: 'Symmetric, upright or arched diagonals', demo: 'AVW',
+  diagonals: { cat: 'letters', type: 'form', label: 'Letters A, V and W', friendly: 'Straighten or arch A, V and W', tech: 'Symmetric, upright or arched diagonals', demo: 'AVW',
     explain: 'Two matching diagonals, or one diagonal leaning on an upright stem at the right (the upright A has no crossbar). Arches have no diagonals at all: A and N bend over like an upturned U, M with a stem down the middle, V is a U and W a U with a stem up the middle. Also v and w.' },
   gForm: { cat: 'letters', type: 'form', label: 'Letter g', friendly: 'Choose the shape of the g', tech: 'Single-storey g', demo: 'gag',
     explain: 'The tail hooks back under the bowl, or drops from its left side and hooks out to the right.' },
   iForm: { cat: 'letters', type: 'form', label: 'Letters I, J, i and l', friendly: 'Give I, J, i and l bars', tech: 'Barred I, J, i and l', demo: 'IJil',
     explain: 'A plain stem, or bars as in a typewriter face: i and l get a flag and a foot, I a bar at the top and foot, J a bar across the top.' },
-  kForm: { cat: 'letters', type: 'form', label: 'Letter k', friendly: 'Choose where the arm and leg of k meet', tech: 'k and K junction', demo: 'kK',
+  kForm: { cat: 'letters', type: 'form', label: 'Letter k', friendly: 'Choose the joint of k', tech: 'k and K junction', demo: 'kK',
     explain: 'The leg springs from the arm, both meet at the stem, or both meet at the end of a short bar.' },
   qForm: { cat: 'letters', type: 'form', label: 'Letter Q', friendly: 'Choose where the tail of Q goes', tech: 'Q tail', demo: 'QO',
     explain: 'The tail crosses the bowl at the bottom right, or runs from inside the bowl into its bottom right corner.' },
-  rForm: { cat: 'letters', type: 'form', label: 'Letter R', friendly: 'Choose how the leg of R leaves the bowl', tech: 'R leg', demo: 'RP',
+  rForm: { cat: 'letters', type: 'form', label: 'Letter R', friendly: 'Choose the leg of R', tech: 'R leg', demo: 'RP',
     explain: 'The leg runs down from the bowl, or the bowl\u2019s lower bar stops short of the stem and loops back round into the leg.' },
   sForm: { cat: 'letters', type: 'form', label: 'Letter s', friendly: 'Choose the shape of the s', tech: 'Spine of s', demo: 'sS$',
     explain: 'A spine curving from corner to corner, or running flat between two tight turns, like two rounded boxes stacked.' },
@@ -714,44 +714,44 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'The dots on i and j and in the punctuation, whatever the corners do.' },
   mirror: { cat: 'size', type: 'form', label: 'Mirror', friendly: 'Flip letters left to right', tech: 'Mirrored letters', demo: 'eRs',
     explain: 'Draws letters back to front. Customize one letter to mirror only that one, like the reversed e of a quirky display face.' },
-  cursive: { cat: 'script', off: 0, label: 'Cursive', friendly: 'Add strokes that lead into the next letter', tech: 'Cursive · Entry & exit strokes', lo: 'Print', hi: 'Script', demo: 'nigu',
+  cursive: { cat: 'script', off: 0, label: 'Cursive', friendly: 'Lead into the next letter', tech: 'Cursive · Entry & exit strokes', lo: 'Print', hi: 'Script', demo: 'nigu',
     explain: 'Strokes flick on toward the next letter, like script.' },
   wobble: { cat: 'script', off: 0, label: 'Hand-drawn', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
     explain: 'Strokes drift, swell and sit a little off the line.' },
-  scriptForm: { cat: 'script', type: 'form', label: 'Letterforms', friendly: 'Write the letters as a joined-up script, or build them as print', tech: 'Print or script letterforms', demo: 'Rain',
+  scriptForm: { cat: 'script', type: 'form', label: 'Letterforms', friendly: 'Write joined script or print', tech: 'Print or script letterforms', demo: 'Rain',
     explain: 'Print letters are built like type. Script letters are written with a pen: every small letter joins the next on a fine hairline, downstrokes swell and the rest stays fine, and the capitals have lead-ins, loops and curled feet. Left alone, a design more than half cursive is written.' },
-  flourish: { cat: 'script', type: 'form', label: 'Flourishes', friendly: 'Write swashes on the script letters', tech: 'Swash alternates', demo: 'Stzld',
+  flourish: { cat: 'script', type: 'form', label: 'Flourishes', friendly: 'Write swashes on script letters', tech: 'Swash alternates', demo: 'Stzld',
     explain: 'Swashes as a calligrapher adds them: S leads in from a wide loop, the bar of t runs in from far to the left and loops back over the letter, l and d rise into loops over the letters after them, r sweeps down into a shaded curl that ends in a heart, and the tail of z loops away under the word to a hook. They reach over the neighbouring letters without pushing them apart. Customize one letter to flourish only that one. Script letters only.' },
-  swell: { cat: 'script', off: 0, label: 'Swell', friendly: 'Press into the downstrokes gradually, like a pointed pen', tech: 'Pointed pen · Pressure', lo: 'At once', hi: 'Gradual', demo: 'nitu',
+  swell: { cat: 'script', off: 0, label: 'Swell', friendly: 'Press into the downstrokes', tech: 'Pointed pen · Pressure', lo: 'At once', hi: 'Gradual', demo: 'nitu',
     explain: 'A pointed pen opens as it is pressed: each downstroke starts from a fine point, swells to its full weight and lets up again before it turns, so the shades taper at both ends like a leaf. Script letters only.' },
   swash: { cat: 'script', off: 0, label: 'Swash capitals', friendly: 'Curl the capitals into flourishes', tech: 'Swash capitals', lo: 'Small', hi: 'Big', demo: 'PRT',
     explain: 'The first stroke of each capital runs on at the top left (the stem of P, the bar of T, or else the foot of A) and curls out, finishing like the other stroke ends: pick Rounded, Ball ends for a ball.' },
 
   xHeight: { cat: 'heights', label: 'Lowercase height', friendly: 'Make lowercase letters taller', tech: 'x-height', lo: 'Small', hi: 'Large', demo: 'Hxn',
     explain: 'Taller lowercase feels modern and reads well small.' },
-  extenders: { cat: 'heights', label: 'Stem length', friendly: 'Make ascenders and descenders longer', tech: 'Ascenders & descenders', lo: 'Short', hi: 'Long', demo: 'hpdy',
+  extenders: { cat: 'heights', label: 'Stem length', friendly: 'Lengthen stems up and down', tech: 'Ascenders & descenders', lo: 'Short', hi: 'Long', demo: 'hpdy',
     explain: 'The parts above (b, d, h) and below (g, p, y) the letters.' },
-  tail: { cat: 'heights', label: 'Tails & hooks', friendly: 'Make tails and hooks longer or shorter', tech: 'Tail · Hook', lo: 'Short', hi: 'Long', demo: 'Qjty',
+  tail: { cat: 'heights', label: 'Tails & hooks', friendly: 'Lengthen tails and hooks', tech: 'Tail · Hook', lo: 'Short', hi: 'Long', demo: 'Qjty',
     explain: 'The trailing ends of Q, y, g, j, t, f and the comma.' },
-  crossbar: { cat: 'heights', label: 'Crossbar height', friendly: 'Move the horizontal bars up or down', tech: 'Crossbar', lo: 'Low', hi: 'High', demo: 'AHe',
+  crossbar: { cat: 'heights', label: 'Crossbar height', friendly: 'Move the bars up or down', tech: 'Crossbar', lo: 'Low', hi: 'High', demo: 'AHe',
     explain: 'The bars in A, H and e, the waist of B, E, R, and the crossbars of f and t, and the top of the a\u2019s bowl.' },
-  descender: { cat: 'heights', advanced: true, label: 'Descender length', friendly: 'Make only the descenders longer or shorter', tech: 'Descenders', lo: 'Short', hi: 'Long', demo: 'gpy',
+  descender: { cat: 'heights', advanced: true, label: 'Descender length', friendly: 'Lengthen only the descenders', tech: 'Descenders', lo: 'Short', hi: 'Long', demo: 'gpy',
     explain: 'The parts below the baseline, apart from the ascenders above the x-height.' },
   counter: { cat: 'insides', label: 'Inner space', friendly: 'Change the space inside letters', tech: 'Counter', lo: 'Small', hi: 'Large', demo: 'Bo',
     explain: 'The enclosed space inside O, B, a and e.' },
-  aperture: { cat: 'insides', label: 'Openness', friendly: 'Open or close the mouths of letters', tech: 'Aperture', lo: 'Closed', hi: 'Open', demo: 'ces',
+  aperture: { cat: 'insides', label: 'Openness', friendly: 'Open or close the letters', tech: 'Aperture', lo: 'Closed', hi: 'Open', demo: 'ces',
     explain: 'Open mouths on c, e and s stay readable when small.' },
 
-  letterSpacing: { cat: 'spacing', label: 'Letter spacing', friendly: 'Add or remove space between letters', tech: 'Letter spacing · Tracking', lo: 'Tight', hi: 'Open', demo: 'type',
+  letterSpacing: { cat: 'spacing', label: 'Letter spacing', friendly: 'Loosen or tighten the letters', tech: 'Letter spacing · Tracking', lo: 'Tight', hi: 'Open', demo: 'type',
     explain: 'The same gap changes between every pair of letters.' },
   wordSpacing: { cat: 'spacing', label: 'Word spacing', friendly: 'Change the gap between words', tech: 'Word spacing', lo: 'Compact', hi: 'Spacious', demo: 'to be',
     explain: 'Too tight and words merge; too loose and lines fall apart.' },
   mono: { cat: 'spacing', off: 0, label: 'Monospace', friendly: 'Give every letter the same width', tech: 'Monospace', lo: 'Proportional', hi: 'Monospaced', demo: 'milk',
     explain: 'Every character takes the same width, like a typewriter.' },
-  sideBearing: { cat: 'spacing', advanced: true, label: 'Side margins', friendly: 'Adjust the space around each letter', tech: 'Side bearing', lo: 'Narrow', hi: 'Wide', demo: 'HO',
+  sideBearing: { cat: 'spacing', advanced: true, label: 'Side margins', friendly: 'Adjust the margins of letters', tech: 'Side bearing', lo: 'Narrow', hi: 'Wide', demo: 'HO',
     explain: 'The small margins built into each letter.' },
 
-  fill: { cat: 'effects', type: 'fill', label: 'Fill', friendly: 'Build the letters from something else', tech: 'Fill', demo: 'Rg',
+  fill: { cat: 'effects', type: 'fill', label: 'Fill', friendly: 'Change what fills the letters', tech: 'Fill', demo: 'Rg',
     explain: 'Solid ink, outlines, a grid of pixels, dots or lines, a line cut down the middle of each stroke, or a shadow cast down to the right. Size sets how coarse the grid is, how wide the line, or how far the shadow falls.' },
   stencil: { cat: 'effects', off: 0, label: 'Stencil', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
     explain: 'Strokes break where they join, as if cut from a sheet. Thickness sets how wide the gaps open; Position moves the gaps out along the strokes; Rounding softens their corners.' },
@@ -766,14 +766,14 @@ export const SERIF_SUBS: Record<SerifSubKey, SubControlDef> = {
   serifSize: { label: 'Length', friendly: 'Make the feet longer', tech: 'Serif size', lo: 'Short', hi: 'Long' },
   serifThickness: { label: 'Thickness', friendly: 'Make the feet heavier', tech: 'Serif thickness', lo: 'Hairline', hi: 'Heavy' },
   serifAngle: { label: 'Angle', friendly: 'Slope the top of the feet', tech: 'Serif angle', lo: 'Flat', hi: 'Sloped' },
-  serifBracket: { label: 'Bracket', friendly: 'Curve the feet into the stem tightly or a long way up', tech: 'Bracket', lo: 'Tight', hi: 'Long', bipolar: true }
+  serifBracket: { label: 'Bracket', friendly: 'Curve the feet into the stem', tech: 'Bracket', lo: 'Tight', hi: 'Long', bipolar: true }
 };
 /** The sliders every serif shape has, and the finer ones of each shape, shown while that shape is picked. */
 export const SERIF_SIZES: SerifSubKey[] = ['serifSize', 'serifThickness', 'serifAngle'];
 export const SERIF_DETAILS: Record<SerifShape, SerifSubKey[]> = { bracketed: ['serifBracket'], unbracketed: [], slab: [], wedge: [], diamond: [] };
 export const SERIF_TIP_SUBS: Record<SerifTipSubKey, SubControlDef> = {
-  serifTipRound: { label: 'Roundness', friendly: 'Round the tips from soft corners to a half circle', tech: 'Tip radius', lo: 'Soft corners', hi: 'Half circle' },
-  serifTipSlant: { label: 'Slant', friendly: 'Lean the cut under the tip or back over it', tech: 'Tip angle', lo: 'Undercut', hi: 'Sloped', bipolar: true }
+  serifTipRound: { label: 'Roundness', friendly: 'Round off the serif tips', tech: 'Tip radius', lo: 'Soft corners', hi: 'Half circle' },
+  serifTipSlant: { label: 'Slant', friendly: 'Slant the cut at the tip', tech: 'Tip angle', lo: 'Undercut', hi: 'Sloped', bipolar: true }
 };
 /** The finer shape sliders of each kind of serif tip, shown while that kind is picked. */
 export const SERIF_TIP_DETAILS: Record<SerifTip, SerifTipSubKey[]> = { square: [], round: ['serifTipRound'], pointed: [], angled: ['serifTipSlant'] };
@@ -781,30 +781,30 @@ export const SERIF_BASE_SUBS: Record<SerifBaseSubKey, SubControlDef> = {
   serifCup: { label: 'Depth', friendly: 'Arch the base a little or a lot', tech: 'Cup depth', lo: 'Shallow', hi: 'Deep' }
 };
 export const SERIF_INNER_SUBS: Record<SerifInnerSubKey, SubControlDef> = {
-  serifInnerSize: { label: 'Length', friendly: 'Make the inside serifs shorter or longer than the outside ones', tech: 'Inner serif size', lo: 'Shorter', hi: 'Longer', bipolar: true },
-  serifInnerThickness: { label: 'Thickness', friendly: 'Make the inside serifs lighter or heavier than the outside ones', tech: 'Inner serif thickness', lo: 'Lighter', hi: 'Heavier', bipolar: true }
+  serifInnerSize: { label: 'Length', friendly: 'Shorten or lengthen inside serifs', tech: 'Inner serif size', lo: 'Shorter', hi: 'Longer', bipolar: true },
+  serifInnerThickness: { label: 'Thickness', friendly: 'Thin or thicken inside serifs', tech: 'Inner serif thickness', lo: 'Lighter', hi: 'Heavier', bipolar: true }
 };
 export const SERIF_ARM_SUBS: Record<SerifArmSubKey, SubControlDef> = {
-  serifArmThickness: { label: 'Thickness', friendly: 'Make the serifs on arms lighter or heavier than the rest', tech: 'Arm serif thickness', lo: 'Lighter', hi: 'Heavier', bipolar: true },
-  serifArmLean: { label: 'Lean', friendly: 'Lean the serifs on arms in under the arm or splay them out', tech: 'Splayed arm serifs', lo: 'In', hi: 'Out', bipolar: true }
+  serifArmThickness: { label: 'Thickness', friendly: 'Thin or thicken the arm serifs', tech: 'Arm serif thickness', lo: 'Lighter', hi: 'Heavier', bipolar: true },
+  serifArmLean: { label: 'Lean', friendly: 'Lean the arm serifs in or out', tech: 'Splayed arm serifs', lo: 'In', hi: 'Out', bipolar: true }
 };
 export const FILL_SUBS: Record<FillSubKey, SubControlDef> = {
-  module: { label: 'Size', friendly: 'Change the size of the grid, the line or the shadow', tech: 'Module size', lo: 'Fine', hi: 'Coarse' }
+  module: { label: 'Size', friendly: 'Size the grid, line or shadow', tech: 'Module size', lo: 'Fine', hi: 'Coarse' }
 };
 export const TERMINAL_SUBS: Record<TerminalSubKey, SubControlDef> = {
-  terminalLength: { label: 'Length', friendly: 'Make the stroke ends longer or shorter', tech: 'Terminal length', lo: 'Short', hi: 'Long' },
-  terminalCurl: { label: 'Curl', friendly: 'Straighten the stroke ends or curl them round', tech: 'Terminal curl', lo: 'Flared out', hi: 'Curled in', bipolar: true },
+  terminalLength: { label: 'Length', friendly: 'Lengthen or shorten the ends', tech: 'Terminal length', lo: 'Short', hi: 'Long' },
+  terminalCurl: { label: 'Curl', friendly: 'Curl the stroke ends', tech: 'Terminal curl', lo: 'Flared out', hi: 'Curled in', bipolar: true },
   terminalFlare: { label: 'Flare', friendly: 'Widen the stroke as it ends', tech: 'Flared terminal', lo: 'Slight', hi: 'Wide' },
   terminalDepth: { label: 'Depth', friendly: 'Hollow the end out a little or a lot', tech: 'Terminal depth', lo: 'Shallow', hi: 'Deep' },
-  terminalSize: { label: 'Size', friendly: 'Make the drop on the end smaller or bigger', tech: 'Ball size', lo: 'Small', hi: 'Big' },
-  terminalRound: { label: 'Roundness', friendly: 'Round the end from soft corners to a half circle', tech: 'Terminal radius', lo: 'Soft corners', hi: 'Half circle' },
-  terminalPoint: { label: 'Sharpness', friendly: 'Make the point less sharp or sharper', tech: 'Point length', lo: 'Less sharp', hi: 'Sharper' },
-  terminalClip: { label: 'Cut off', friendly: 'Cut a little or a lot off the tip of the point', tech: 'Clipped point', lo: 'Little', hi: 'Lot' },
-  terminalLean: { label: 'Lean', friendly: 'Move the point toward the inside or outside edge', tech: 'Point offset', lo: 'Inside', hi: 'Outside', bipolar: true },
-  terminalSlope: { label: 'Slope', friendly: 'Cut the end at a gentle or steep angle', tech: 'Terminal angle', lo: 'Gentle', hi: 'Steep' },
-  terminalTilt: { label: 'Tilt', friendly: 'Turn the level cut one way or the other', tech: 'Cut angle', lo: 'Falling', hi: 'Rising', bipolar: true },
+  terminalSize: { label: 'Size', friendly: 'Resize the drop on the end', tech: 'Ball size', lo: 'Small', hi: 'Big' },
+  terminalRound: { label: 'Roundness', friendly: 'Round off the end', tech: 'Terminal radius', lo: 'Soft corners', hi: 'Half circle' },
+  terminalPoint: { label: 'Sharpness', friendly: 'Sharpen the point', tech: 'Point length', lo: 'Less sharp', hi: 'Sharper' },
+  terminalClip: { label: 'Cut off', friendly: 'Clip the tip of the point', tech: 'Clipped point', lo: 'Little', hi: 'Lot' },
+  terminalLean: { label: 'Lean', friendly: 'Move the point in or out', tech: 'Point offset', lo: 'Inside', hi: 'Outside', bipolar: true },
+  terminalSlope: { label: 'Slope', friendly: 'Cut the end gently or steeply', tech: 'Terminal angle', lo: 'Gentle', hi: 'Steep' },
+  terminalTilt: { label: 'Tilt', friendly: 'Tilt the level cut', tech: 'Cut angle', lo: 'Falling', hi: 'Rising', bipolar: true },
   terminalTip: { label: 'Tip', friendly: 'Make the tapered tip blunt or fine', tech: 'Taper tip width', lo: 'Blunt', hi: 'Fine' },
-  terminalTaper: { label: 'Taper length', friendly: 'Start the taper close to the tip or far back', tech: 'Taper length', lo: 'Short', hi: 'Long' }
+  terminalTaper: { label: 'Taper length', friendly: 'Start the taper near or far', tech: 'Taper length', lo: 'Short', hi: 'Long' }
 };
 /** The forms of each kind of stroke end, picked under its kind. */
 export const TERMINAL_FORM_LABELS: Record<TerminalForm, string> = {
@@ -824,30 +824,30 @@ export const DOT_SUBS: Record<DotSubKey, SubControlDef> = {
   dotSize: { label: 'Size', friendly: 'Make the dots smaller or bigger', tech: 'Dot size', lo: 'Small', hi: 'Big' }
 };
 export const BOWL_SUBS: Record<BowlSubKey, SubControlDef> = {
-  boxRound: { label: 'Corners', friendly: 'Round the outside corners of box bowls tighter or wider; the inside stays square', tech: 'Box corner radius', lo: 'Sharp', hi: 'Wide' }
+  boxRound: { label: 'Corners', friendly: 'Round the corners of box bowls', tech: 'Box corner radius', lo: 'Sharp', hi: 'Wide' }
 };
 export const WEIGHT_SUBS: Record<WeightSubKey, SubControlDef> = {
-  vWeight: { label: 'Verticals', friendly: 'Make the upright strokes lighter or heavier', tech: 'Stem weight', lo: 'Lighter', hi: 'Heavier', bipolar: true },
-  hWeight: { label: 'Horizontals', friendly: 'Make the level strokes lighter or heavier', tech: 'Bar weight', lo: 'Lighter', hi: 'Heavier', bipolar: true }
+  vWeight: { label: 'Verticals', friendly: 'Thin or thicken the uprights', tech: 'Stem weight', lo: 'Lighter', hi: 'Heavier', bipolar: true },
+  hWeight: { label: 'Horizontals', friendly: 'Thin or thicken the horizontals', tech: 'Bar weight', lo: 'Lighter', hi: 'Heavier', bipolar: true }
 };
 export const ROUND_SUBS: Record<RoundSubKey, SubControlDef> = {
-  joinRound: { label: 'Joins', friendly: 'Round the inside corners where one stroke meets another', tech: 'Fillets', lo: 'Sharp', hi: 'Round' },
-  innerRound: { label: 'Counters', friendly: 'Round the corners inside the letters by the same amount, however light the strokes', tech: 'Counter corner radius', lo: 'As drawn', hi: 'Round' }
+  joinRound: { label: 'Joins', friendly: 'Round where strokes meet', tech: 'Fillets', lo: 'Sharp', hi: 'Round' },
+  innerRound: { label: 'Counters', friendly: 'Round the corners of counters', tech: 'Counter corner radius', lo: 'As drawn', hi: 'Round' }
 };
 export const PINCH_SUBS: Record<PinchSubKey, SubControlDef> = {
-  pinchPos: { label: 'Position', friendly: 'Move the pinch up or down the letters', tech: 'Pinch height', lo: 'Baseline', hi: 'Cap height' }
+  pinchPos: { label: 'Position', friendly: 'Move the pinch up or down', tech: 'Pinch height', lo: 'Baseline', hi: 'Cap height' }
 };
 export const CROSSBAR_SUBS: Record<CrossbarSubKey, SubControlDef> = {
-  barGap: { label: 'Gap', friendly: 'Open a gap where the crossbars meet other strokes: at the ends of the bars, or above and below them', tech: 'Crossbar gap', lo: 'Touching', hi: 'Apart' }
+  barGap: { label: 'Gap', friendly: 'Open gaps around the crossbars', tech: 'Crossbar gap', lo: 'Touching', hi: 'Apart' }
 };
 export const STENCIL_SUBS: Record<StencilSubKey, SubControlDef> = {
   stencil: { label: 'Thickness', friendly: 'Open the gaps wider', tech: 'Gap width', lo: 'Thin', hi: 'Thick' },
-  stencilPos: { label: 'Position', friendly: 'Move the gaps out along the strokes, away from where they meet', tech: 'Gap position', lo: 'At the join', hi: 'Further out' },
+  stencilPos: { label: 'Position', friendly: 'Move the gaps along the strokes', tech: 'Gap position', lo: 'At the join', hi: 'Further out' },
   stencilRound: { label: 'Rounding', friendly: 'Round the corners the gaps cut', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
 };
 export const SLICE_SUBS: Record<SliceSubKey, SubControlDef> = {
   slice: { label: 'Thickness', friendly: 'Make the cut taller', tech: 'Cut height', lo: 'Thin', hi: 'Thick' },
-  slicePos: { label: 'Position', friendly: 'Move the cut up or down the letters', tech: 'Slice height', lo: 'Low', hi: 'High' },
+  slicePos: { label: 'Position', friendly: 'Move the cut up or down', tech: 'Slice height', lo: 'Low', hi: 'High' },
   sliceRound: { label: 'Rounding', friendly: 'Round the corners the cut leaves', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
 };
 export const SUBS: Record<SerifSubKey | SerifTipSubKey | SerifBaseSubKey | SerifInnerSubKey | SerifArmSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | CrossbarSubKey | StencilSubKey | SliceSubKey, SubControlDef> =

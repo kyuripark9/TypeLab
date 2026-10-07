@@ -457,9 +457,10 @@ function Explainer() {
   const part = useEditor(s => s.inspect ? s.part : null), tips = useEditor(s => s.tips);
   const c = CONTROLS[controlFor(active)], sub = SUBS[active as keyof typeof SUBS];
   const shapedBy = part && PART_CONTROL[part];
-  const [tech, title, text] = part
-    ? [`Anatomy${shapedBy ? ` · shaped by ${CONTROLS[shapedBy].tech.split(' · ')[0]}` : ''}`, ANATOMY[part][0], ANATOMY[part][1]]
-    : [(sub ?? c).tech, (sub ?? c).friendly, c.explain];
+  // two levels only, a title and its explanation; a part says which setting shapes it in the explanation
+  const [title, text] = part
+    ? [ANATOMY[part][0], `${ANATOMY[part][1]}${shapedBy ? ` Shaped by ${CONTROLS[shapedBy].label}.` : ''}`]
+    : [(sub ?? c).friendly, c.explain];
   // while inspecting, the large letter on the stage already shows the part, so drop the diagram
   return (
     <div className={inspecting ? 'explainer compact' : 'explainer'}>
@@ -468,7 +469,6 @@ function Explainer() {
       <div className={tips ? 'ex-text open' : 'ex-text'}>
         <button className="ex-head" onClick={() => actions.setTips(!tips)} aria-expanded={tips} aria-controls="ex-body"
           title={tips ? 'Hide explanation' : 'Show explanation'}>
-          <span className="ex-tech">{tech}</span>
           <span className="ex-title">{title}</span>
           <svg className="facet-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5" /></svg>
         </button>
