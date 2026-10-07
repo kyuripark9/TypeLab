@@ -322,6 +322,13 @@ function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: Pe
   }
 }
 
+/** A styled stroke end (a terminal) drawn on sides A (left of the way out, d) and B, ending at p, t thick, as the
+    stroke expander draws one: the points to insert between the two sides' ends, which it may move too (see
+    restyle.ts, which draws a free font's ends so). */
+export const termCap = (A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, ctx: PenCtx, outerIsA: boolean) => cap(A, B, p, d, t, 'term', ctx, outerIsA);
+/** How much shorter a stroke is drawn under a drop on its end (see drop), for an end t thick. */
+export const termDropBack = (T: TermSpec, t: number) => dropBack(T, t);
+
 /** Whether an end of this type is drawn square across, with two corners of its own to round. */
 function squareEnd(type: EndType, ctx: PenCtx) {
   if (type === 'flat' || type === 'h' || type === 'v') return true;

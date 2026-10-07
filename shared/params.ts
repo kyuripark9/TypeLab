@@ -212,14 +212,20 @@ export interface Params {
   /** letters customized on their own: each overrides some of the settings above, by character */ glyphs: Record<string, GlyphParams>;
   /** letters drawn by hand with the pen, by character: drawn as they are, the settings above no longer shape them */ outlines: Record<string, Drawn>;
   /** the free font the letters are written in (a font id, see free-fonts.ts), '' for letters built from the settings:
-      drawn as the font has them, its letters no longer follow the shape settings, as drawn ones don't */ freeFont: string;
+      drawn as the font has them, and moved by the settings as far as they're moved from those it was picked at (freeAt) */ freeFont: string;
   /** the settings (of FREE_AT_KEYS) the free font's own letters stand for, as its style had them when it was picked:
-      moved away from these, the font's letters move with them (bolder, wider, higher, slanted, filled) */ freeAt: FreeAt;
+      moved away from these, the font's letters move with them (bolder, wider, higher, slanted, filled, their ends, serifs,
+      corners and joins drawn as the engine draws them) */ freeAt: FreeAt;
 }
 
 /** The settings a free font's letters follow, as far as they're moved from the ones it was picked at (Params.freeAt). */
 export const FREE_AT_KEYS = ['weight', 'width', 'slant', 'rotation', 'mirror', 'sideBearing', 'mono', 'wobble', 'fill', 'slice',
-  'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal', 'contrast', 'vWeight', 'hWeight', 'xHeight', 'crossbar', 'serifSize'] as const;
+  'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal', 'contrast', 'vWeight', 'hWeight', 'xHeight', 'crossbar', 'serifSize',
+  'extenders', 'descender', 'counter', 'dotSize', 'pinch', 'pinchPos', 'joints', 'roundness', 'steps', 'innerRound', 'joinRound',
+  'terminal', 'terminalForm', 'terminalFlare', 'terminalDepth', 'terminalSize', 'terminalRound', 'terminalPoint', 'terminalClip', 'terminalLean', 'terminalSlope', 'terminalTilt', 'terminalTip', 'terminalTaper',
+  'serif', 'serifThickness', 'serifShape', 'serifAngle', 'serifBracket', 'serifTip', 'serifTipRound', 'serifTipSlant', 'serifBase', 'serifCup',
+  'serifSides', 'serifInner', 'serifInnerSize', 'serifInnerThickness', 'serifBalance', 'serifTops', 'serifArms', 'serifArmThickness', 'serifArmLean',
+  'stencil', 'stencilPos', 'stencilRound', 'barGap', 'barEnds', 'terminalLength', 'terminalCurl', 'tail', 'aperture'] as const;
 export type FreeAt = Partial<Pick<Params, (typeof FREE_AT_KEYS)[number]>>;
 
 /** Settings every letter shares. The heights are the lines all letters stand on, spacing and the
@@ -420,6 +426,13 @@ export function sanitizeParams(input: unknown): Params {
     const c = k === 'glyphs' ? cleanGlyphs(src[k]) : k === 'outlines' ? cleanOutlines(src[k]) : cleanValue(k, src[k]);
     if (c !== undefined) out[k] = c;
   }
+  // a free font's letters stand for the settings it was picked at; one those didn't name yet (a design saved
+  // before its letters followed that setting) they stand for as it is, as that is how they were drawn
+  if (out.freeFont) {
+    const at = { ...(out.freeAt as FreeAt) } as Record<string, unknown>;
+    for (const k of FREE_AT_KEYS) if (!(k in at)) at[k] = out[k];
+    out.freeAt = at;
+  }
   return out as unknown as Params;
 }
 
@@ -428,7 +441,10 @@ export function isValidParams(input: unknown): input is Params {
   if (!input || typeof input !== 'object') return false;
   const src = input as Record<string, unknown>;
   const clean = sanitizeParams(input) as unknown as Record<string, unknown>;
-  return PARAM_KEYS.every(k => typeof clean[k] === 'object' ? sorted(src[k]) === sorted(clean[k]) : src[k] === clean[k]);
+  // (a free font's settings it stands for may leave out ones it was picked before following: they're filled in)
+  const fill = (k: keyof Params, v: unknown) => k === 'freeAt' && src.freeAt && typeof src.freeAt === 'object'
+    ? Object.fromEntries(Object.entries(v as object).filter(([a]) => a in (src.freeAt as object))) : v;
+  return PARAM_KEYS.every(k => typeof clean[k] === 'object' ? sorted(src[k]) === sorted(fill(k, clean[k])) : src[k] === clean[k]);
 }
 
 /** JSON with every object's keys in order, so the same settings written in another order compare equal. */

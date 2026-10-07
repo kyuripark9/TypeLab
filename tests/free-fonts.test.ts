@@ -196,6 +196,49 @@ describe('free fonts', () => {
     assert.deepEqual(column(low.glyph('H')!, 150), column(H, 150), 'the capitals keep their height');
   });
 
+  it('give a free font\'s letters the engine\'s ends, serifs, corners, stencil and inline, as far as the settings move past the ones it was picked at', () => {
+    // an H of two stems and a bar, and a c: a thick arc open to the right, as the server sends them
+    const rect = ([x0, x1, y0, y1]: number[]): [number, number][] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    const arc: [number, number][] = [];
+    for (let k = 0; k <= 40; k++) { const a = (40 + 280 * k / 40) * Math.PI / 180; arc.push([Math.round(350 + 300 * Math.cos(a)), Math.round(350 + 300 * Math.sin(a))]); }
+    for (let k = 40; k >= 0; k--) { const a = (40 + 280 * k / 40) * Math.PI / 180; arc.push([Math.round(350 + 210 * Math.cos(a)), Math.round(350 + 210 * Math.sin(a))]); }
+    registerFreeFont({ id: 'Roboto:400', family: 'Roboto', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 500, space: 250,
+      glyphs: { H: [800, [[100, 190, 0, 700], [510, 600, 0, 700], [150, 550, 310, 390]].map(rect)], c: [700, [arc]] } } as FreeFontData);
+    const at = { ...DEFAULTS, weight: 0.4, freeFont: 'Roboto:400' }, p = sanitizeParams(at);
+    assert.equal(p.freeAt.terminal, DEFAULTS.terminal, 'a design written in a free font stands for every setting its letters follow');
+    const H = buildFont(p).glyph('H')!, c = buildFont(p).glyph('c')!;
+    // the ink along the row at height y, as [left, right] runs, read off the letter's outline (nonzero)
+    const row = (g: Glyph, y: number) => {
+      const hits: { x: number; w: number }[] = [];
+      for (const cn of g.drawn!.contours) {
+        const pts: { x: number; y: number }[] = [];
+        cn.forEach((a, i) => { const b = cn[(i + 1) % cn.length]; for (let k = 0; k < 8; k++) { const t = k / 8, u = 1 - t, p1 = { x: a.ox ?? a.x, y: a.oy ?? a.y }, p2 = { x: b.ix ?? b.x, y: b.iy ?? b.y };
+          pts.push({ x: u * u * u * a.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * b.y }); } });
+        pts.forEach((a, i) => { const b = pts[(i + 1) % pts.length]; if ((a.y <= y) !== (b.y <= y)) hits.push({ x: a.x + (y - a.y) / (b.y - a.y) * (b.x - a.x), w: b.y > a.y ? 1 : -1 }); });
+      }
+      hits.sort((a, b) => a.x - b.x);
+      const out: [number, number][] = [];
+      let w = 0, from = 0;
+      for (const h of hits) { const was = w; w += h.w; if (!was && w) from = h.x; if (was && !w) out.push([from, h.x]); }
+      return out;
+    };
+    const k = buildFont(p).m.cap / 700, foot = (g: Glyph) => row(g, 5 * k)[0];
+    // serifs set on the stems' feet: the foot of the left stem reaches out past it both ways
+    const [f0, f1] = foot(H), [s0, s1] = foot(buildFont({ ...p, serif: true }).glyph('H')!);
+    assert.ok(s1 - s0 > (f1 - f0) * 1.5, `serifs reach out from the foot (${f0}..${f1} to ${s0}..${s1})`);
+    // a stencil cuts the bar from a stem: across its middle, the ink runs in more pieces
+    assert.ok(row(buildFont({ ...p, stencil: 0.6 }).glyph('H')!, 350 * k).length > row(H, 350 * k).length, 'the stencil opens a join');
+    // round corners: the H's square corners come out curved
+    assert.ok(!H.drawn!.contours.flat().some(n => n.ox !== undefined), 'the H as drawn has no curves');
+    assert.ok(buildFont({ ...p, roundness: 1 }).glyph('H')!.drawn!.contours.flat().some(n => n.ox !== undefined), 'Roundness rounds its corners');
+    // a round end on the c, and a ball; the H, with no such end, is left as it is
+    assert.notEqual(buildFont({ ...p, terminal: 'round' }).glyph('c')!.d, c.d, 'the c takes round ends');
+    assert.notEqual(buildFont({ ...p, terminal: 'round', terminalForm: 'ball' }).glyph('c')!.d, c.d, 'and balls');
+    assert.equal(buildFont({ ...p, terminal: 'round' }).glyph('H')!.d, H.d, 'the H has no such ends');
+    // the inline runs down the strokes, cutting a line out of them
+    assert.notEqual(buildFont({ ...p, fill: 'inline' }).glyph('H')!.d, H.d, 'the inline reaches it');
+  });
+
   it('are served by the API, and only the ones the styles name', async () => {
     const store = new DesignStore(':memory:'), server = createApp(store, { fonts: new FreeFonts(null, googleFonts().get) }).listen(0);
     await new Promise(r => server.once('listening', r));

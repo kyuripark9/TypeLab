@@ -50,9 +50,7 @@ export function reachOf(p: Params, k: keyof Params, chars: string[], letter: str
   const freeLetter = (ch: string) => { const f = base.letter(ch); return !!f.free?.glyphs[ch] && !p.outlines?.[ch]; };
   const follow = (FREE_AT_KEYS as readonly string[]).includes(k);
   if (base.free && (follow || isGlyphKey(k) || k === 'extenders' || k === 'descender') && chars.every(freeLetter)) {
-    // (the Serifs switch can't take a free font's serifs away, but Length under it moves them, so the
-    // group isn't idle where there are serifs to move)
-    const follows = (ch: string) => k === 'serif' ? skinFollows(base.letter(ch).free!, ch, 'serifSize') : follow && skinFollows(base.letter(ch).free!, ch, k);
+    const follows = (ch: string) => follow && skinFollows(base.letter(ch).free!, ch, k);
     if (chars.some(follows)) return { shows: true, elsewhere: [] };
     return { shows: false, elsewhere: ALL_CHARS.split('').filter(ch => !chars.includes(ch) && base.free!.glyphs[ch] && follows(ch)).slice(0, 3) };
   }

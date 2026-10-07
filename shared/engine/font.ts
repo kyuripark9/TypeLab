@@ -10,9 +10,11 @@ import { fillOutline, shadowShift, slice } from './effects';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
-import { skinMeasures, skinMove, skinRig, type SkinMeasures } from './skin';
+import { rigSkeleton, skinMeasures, skinMove, skinRig, type SkinMeasures, type SkinRig } from './skin';
+import { cornerLooks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
+import { skeleton, type Skeleton } from './scan';
 import { autoThickness, buildSerif, diamondCut, diamondEnd, expandStroke, innerFloor, organicK, serifCup, serifPlace, serifSides, type Expanded, type SerifPlace } from './stroke';
-import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, SerifSides, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
+import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, SerifSides, SerifSpec, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
@@ -2097,9 +2099,12 @@ function drawnGlyph(ch: string, drawn: Drawn): Glyph {
 
 /* ---- free fonts' letters (see free-fonts.ts), moved by the settings as far as they're moved from the
    ones the font was picked at (Params.freeAt): heavier is a heavier font of the family where it has one;
-   the rest of the way, and Contrast, Width, x-height, Crossbar and the serifs' size, move its letters on
-   their skeletons as the engine's own letters move (skin.ts); slanted past half an italic's lean, its
-   italic; and the font's own lean, rotation, spacing and fill are kept until the settings move. */
+   the rest of the way, and Contrast, Width, the heights, Inner space, the dots, Pinch, Joints and the serifs'
+   size, move its letters on their skeletons as the engine's own letters move (skin.ts); then the shapes the
+   engine draws are set on them where the settings ask for others than the font's (restyle.ts): its stroke
+   ends (their kind, length, curl, openness, tails), serifs, stencil and crossbar gaps, and corners; slanted
+   past half an italic's lean, its italic; and the font's own lean, rotation, spacing and fill are kept until
+   the settings move. */
 
 /** How far an italic leans, taken as a typical one's. */
 const ITALIC_DEG = 12;
@@ -2111,6 +2116,9 @@ interface FreeLetters {
   /** whether its letters move on their skeletons (not a pixel font's, which are only stretched) */ skin: boolean;
   /** the side bearings' scale */ sb: number;
   /** placing the letters: only what the settings move past the font's own (lean, turn, fill, spacing) */ m: Metrics;
+  /** the settings the font's letters stand for, and those asked for, for the shapes that restyle them (restyle.ts) */ pick: Effective; now: Effective;
+  /** the serifs asked for, in design units, and whether they're the engine's to set on the letters: where the font
+      has none and they're asked for, or its own are another shape (they are taken off, see skin.ts) */ serif: SerifSpec | null; serifs: boolean;
 }
 
 function freeLetters(params: Params, e: Effective, m: Metrics): FreeLetters | null {
@@ -2128,8 +2136,13 @@ function freeLetters(params: Params, e: Effective, m: Metrics): FreeLetters | nu
     ...e, fill: e.fill === b.fill ? 'solid' : e.fill, mirror: e.mirror === b.mirror ? 'normal' : 'mirrored',
     mono: Math.max(0, e.mono - b.mono), bounce: Math.max(0, e.bounce - b.bounce)
   };
+  // serifs of another shape than the font's, or none, take its own off (to length 0 on their skeletons); the engine's
+  // are set on where any are asked for that the font's aren't
+  const to = skinMeasures(m), had = mb.ctx.serif, asked = m.ctx.serif, other = !!had && (!asked || serifLook(had) !== serifLook(asked));
+  if (other) to.serif = 0;
   return {
-    font, want, k: font ? m.cap / font.cap : 1, sx: m.ws / mb.ws, from, to: skinMeasures(m), skin: !FREE_FAMILIES[r.family]?.grid,
+    font, want, k: font ? m.cap / font.cap : 1, sx: m.ws / mb.ws, from, to, skin: !FREE_FAMILIES[r.family]?.grid, pick: b, now: e,
+    serif: asked ?? null, serifs: !!asked && (!had || other),
     sb: Math.pow(2, (e.sideBearing - b.sideBearing) * 3),
     m: { ...m, p, slant: Math.tan((lean - (ref.italic ? ITALIC_DEG : 0)) * Math.PI / 180), rot: m.rot - mb.rot,
       wob: Math.max(0, e.wobble - b.wobble), sliceH: e.slice === b.slice ? 0 : m.sliceH }
@@ -2165,18 +2178,59 @@ function inkX(d: Drawn): [number, number] {
   return x0 > x1 ? [0, 0] : [x0, x1];
 }
 
+/** A rigged free font's letter, moved on its skeleton, given the shapes the settings ask for past the ones
+    it stands for (restyle.ts); kept with the moved outline, by the settings, as dragging a slider asks again. */
+const restyles = new WeakMap<Node[][], Map<string, Node[][]>>();
+function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
+  const k = fl.to.s / fl.from.s, x = rig.ctx, c: RestyleCtx = { ch: x.ch, cap: x.cap, xh: x.xh, stem: rig.stem * x.cap * k, bar: rig.bar * x.cap * k };
+  const a = cornerLooks(fl.pick, c), b = cornerLooks(fl.now, c);
+  // the engine's serifs, set on the stems the letter's own were taken off (or on a sans's), in the font's units; the
+  // lines they stand on, where the settings moved them
+  const sf = fl.serifs && fl.serif ? { ...fl.serif, len: fl.serif.len / fl.k, th: fl.serif.th / fl.k, inner: fl.serif.inner && { ...fl.serif.inner, th: fl.serif.inner.th / fl.k } } : null;
+  const kd = fl.to.desc / fl.from.desc, xh1 = x.lower ? x.xh * fl.to.xr / fl.from.xr : x.xh;
+  const lines = [0, x.cap, xh1, x.asc + (fl.to.asc - fl.from.asc) * x.cap, x.desc * (kd < 1 ? Math.sqrt(kd) : kd)];
+  const sa = stencilLook(fl.pick), sb = stencilLook(fl.now);
+  const ends = (e: Effective) => [termSpec(e), e.terminal, e.terminalLength, e.terminalCurl, e.tail, e.aperture];
+  const key = JSON.stringify([a, b, ends(fl.pick), ends(fl.now), sf, sf && lines, sa, sb]);
+  let kept = restyles.get(cs);
+  if (!kept) { kept = new Map(); restyles.set(cs, kept); }
+  let out = kept.get(key);
+  if (!out) {
+    // (each step's skeleton scanned off the outline as it stands then, and only when a step needs it)
+    // (the letter as the font draws it has its skeleton scanned already, with its rig)
+    const scan = (o: Node[][]) => { let sk: Skeleton | undefined; return () => (sk ??= o === rig.contours ? rigSkeleton(rig) : skeleton(o)); };
+    out = restyleEnds(cs, c, fl.pick, fl.now, scan(cs));
+    if (sf) out = restyleSerifs(out, { ...c, lower: x.lower, lines }, sf, scan(out));
+    out = restyleStencil(out, c, sa, sb, scan(out));
+    out = restyleCorners(out, c, a, b, scan(out));
+    if (kept.size >= 6) kept.delete(kept.keys().next().value!);
+    kept.set(key, out);
+  }
+  return out;
+}
+
 /** A free font's letter at the design's size, moved by the settings and placed like any glyph. Its
     outline as placed is kept as its drawing, for Points to start from. */
 function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   // the letter moved on its skeleton in the font's own units, then brought to the design's size; its side
   // bearings as the font has them, wider or narrower with the letters and by Side bearings
-  const rig = fl.skin && fl.font && skinRig(fl.font, ch);
-  const moved: Drawn = rig ? { adv: src.adv, contours: skinMove(rig, fl.from, fl.to) } : mapDrawn(src, src.adv * fl.sx, (x, y) => [x * fl.sx, y]);
-  const [a0, a1] = inkX(src), lsb = a0 * fl.k * fl.sx * fl.sb, rsb = (src.adv - a1) * fl.k * fl.sx * fl.sb;
-  const sized = mapDrawn(moved, moved.adv * fl.k, (x, y) => [x * fl.k, y * fl.k]), [x0, x1] = inkX(sized);
+  // (the letter keeps the room it took before its ends, serifs and corners were drawn again, as an engine's letter's
+  // serifs reach out into its side bearings, which grow by a little of their length)
+  const rig = fl.skin && fl.font && skinRig(fl.font, ch), skinned = rig ? skinMove(rig, fl.from, fl.to) : null;
+  const moved: Drawn = rig ? { adv: src.adv, contours: restyled(rig, skinned!, fl) } : mapDrawn(src, src.adv * fl.sx, (x, y) => [x * fl.sx, y]);
+  const sized = mapDrawn(moved, moved.adv * fl.k, (x, y) => [x * fl.k, y * fl.k]);
+  const [x0, x1] = skinned ? inkX({ adv: 0, contours: skinned }).map(v => v * fl.k) : inkX(sized), [i0, i1] = inkX(sized);
+  // (and as far again as a serif reaches out past it, less a little, so two side by side don't run into one another: a
+  // font's own side bearings are drawn for letters with no serifs)
+  const sl = fl.serifs && fl.serif ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * 0.3, over + sl * 0.15) : v);
+  const [a0, a1] = inkX(src), lsb = room(a0 * fl.k * fl.sx * fl.sb, x0 - i0), rsb = room((src.adv - a1) * fl.k * fl.sx * fl.sb, i1 - x1);
   const body = mapDrawn(sized, x1 - x0, (x, y) => [x - x0, y]), cmds = drawnCmds(body.contours);
+  // (the inline runs down the middle of the strokes: their skeleton, scanned off the letter as drawn)
+  // (eased along, as a cell-by-cell skeleton steps)
+  const ease = (l: Pt[]) => { let c = l; for (let k = 0; k < 6; k++) c = c.map((q, i) => (i === 0 || i === c.length - 1 ? q : { x: (c[i - 1].x + 2 * q.x + c[i + 1].x) / 4, y: (c[i - 1].y + 2 * q.y + c[i + 1].y) / 4 })); return c; };
+  const skel = fl.m.p.fill === 'inline' ? skeleton(body.contours).edges.map(e => ease(e.pts.map(q => ({ x: q.x, y: q.y })))) : [];
   const out: Unplaced = {
-    ch, strokes: [{ part: 'drawn', cmds, curved: false }], serifs: [], serifAt: [], counters: [], marks: [], corners: [], skeleton: [], meta: {}, bodyW: x1 - x0
+    ch, strokes: [{ part: 'drawn', cmds, curved: false }], serifs: [], serifAt: [], counters: [], marks: [], corners: [], skeleton: skel, meta: {}, bodyW: x1 - x0
   };
   const g = placeGlyph(out, x1 - x0, lsb, rsb, ch.codePointAt(0)!, fl.m);
   return { ...g, drawn: mapDrawn(body, g.adv, (x, y) => applyM(g.M, x, y) as [number, number]) };

@@ -295,7 +295,7 @@ function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> })
 }
 
 /** A design written in a free font says so on every page of controls, since its letters are drawn as the
-    font has them and only some settings reach them (see freeLetters in the engine), with the way back to
+    font has them and the settings move them on their skeletons (see freeLetters in the engine), with the way back to
     letters the settings build; a style that has a free font, not in use, offers it. */
 function FreeLetters() {
   const id = useEditor(s => s.params.freeFont), offer = useEditor(s => STYLE_FONTS[s.styleId]), font = useFont();
@@ -304,7 +304,7 @@ function FreeLetters() {
     const by = FREE_FAMILIES[r.family].designers.join(', ');
     return (
       <div className="reach-banner free-banner">
-        <span>Written in <b>{r.family}</b>{by && ` by ${by}`}, a free font{font.free ? ` (${font.free.license})` : ''} you may change and use. Weight, contrast, width, x-height, crossbar, serif size, slant, spacing and the fills change its letters; for the rest, reshape a letter in Points.</span>
+        <span>Written in <b>{r.family}</b>{by && ` by ${by}`}, a free font{font.free ? ` (${font.free.license})` : ''} you may change and use. Its letters follow the settings as the built ones do: weight, contrast, width, the heights, the insides, corners, stroke ends, serifs, joints, stencil, slant, spacing and the fills. The letters' own forms (the a, the g, the k) stay the font's; reshape one in Points.</span>
         <button className="link small" onClick={() => actions.setFreeLetters(false)}>Make my own letters</button>
       </div>
     );
