@@ -79,12 +79,6 @@ and builds exported fonts on the server. A full rebuild of every glyph takes abo
 | `blocks.ts` | Block letters: solid rounded blocks with their counters cut in as slots (*Built from: Blocks*) |
 | `outline.ts` | Letters drawn by hand with the pen: anchor points and bézier handles, and the curve fitting that traces a generated letter into them |
 | `grid.ts` | Construction grids: the lines and circles a letter is built on, and the groups of letters that share a grid |
-| `free.ts` | Free fonts' letters: a design written in one (*Ready-made* on the Style page) draws them as the font has them, once registered |
-
-Every starting style can also be written in a free font from Google Fonts (`shared/free-fonts.ts`
-names one per style; all are under the SIL Open Font License or Apache 2.0). The server fetches a font
-the first time it's asked for, converts it (`server/free-fonts.ts`) and keeps it in `data/free-fonts/`;
-an export made from it carries the font's copyright notice and licence, and never its name.
 
 Beyond weight, width and contrast, the pen model also does squircle bowls (*Squareness*),
 faceted octagonal curves (*Chamfer*), reverse contrast and ink-trap joints, and glyph assembly

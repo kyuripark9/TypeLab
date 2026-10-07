@@ -7,7 +7,6 @@ import { DEFAULTS, barCut, contrastOf, endCurl, endLength, endReach, formOf, joi
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, lerpP, mulM, quarter, ringsD, roundContour, roundCuts, signedArea, smoothstep, splitPoly, subCubic, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, shadowShift, slice } from './effects';
-import { freeFont, type FreeFont } from './free';
 import { drawnCmds, type Drawn } from './outline';
 import { autoThickness, buildSerif, diamondCut, diamondEnd, expandStroke, innerFloor, organicK, serifCup, serifPlace, serifSides, type Expanded, type SerifPlace } from './stroke';
 import type { ClipBox, Cmd, HalfPlane, Mark, Mat, PenCtx, Pt, SerifSides, StrokeOpts, Tangent, TermSpec, TurnR } from './types';
@@ -69,7 +68,7 @@ export interface Glyph {
   meta: GlyphMeta;
   bodyW: number;
   lsb: number; rsb: number; adv: number;
-  /** the outline a letter drawn as it is was drawn from (with the pen, or a free font's) */ drawn?: Drawn;
+  /** the outline a letter drawn with the pen was drawn from */ drawn?: Drawn;
   M: Mat;
   cmds: Cmd[];
   /** SVG path data (y flipped) */
@@ -83,8 +82,6 @@ export interface Font {
   params: Params;
   eff: Effective;
   m: Metrics;
-  /** the free font the letters are written in, once registered (see free.ts) */ free?: FreeFont;
-  /** written in a free font that isn't registered yet: the letters are built meanwhile */ freePending: boolean;
   glyph(ch: string): Glyph | null;
   /** The font `ch` is drawn from: one built with its own settings when it has any, else this one. */
   letter(ch: string): Font;
@@ -2091,12 +2088,6 @@ function drawnGlyph(ch: string, drawn: Drawn): Glyph {
   };
 }
 
-/** A drawn outline `k` times the size. */
-const scaleDrawn = (d: Drawn, k: number): Drawn => ({
-  adv: d.adv * k,
-  contours: d.contours.map(c => c.map(n => ({ ...n, x: n.x * k, y: n.y * k,
-    ...(n.ix !== undefined && { ix: n.ix * k, iy: n.iy! * k }), ...(n.ox !== undefined && { ox: n.ox * k, oy: n.oy! * k }) })))
-});
 
 /* ---- highlight layers: which part of a glyph does a parameter touch? */
 export const RING_KEYS: Record<string, true> = { terminal: true, aperture: true, apex: true, roundness: true, cursive: true, overlap: true, tail: true };
@@ -2140,7 +2131,7 @@ function highlightD(g: Glyph, key: string, m: Metrics): string {
 /** Whether the letters are written as a joined-up script's (see SCRIPT_FORMS): on auto, in a design more than half cursive. */
 export const scriptForms = (e: Pick<Params, 'scriptForm' | 'cursive'>) => e.scriptForm === 'script' || (e.scriptForm === 'auto' && e.cursive >= 0.5);
 
-/** Each font's letters as its settings (or its free font) draw them, leaving out the drawn ones. A font
+/** Each font's letters as its settings draw them, leaving out the drawn ones. A font
     that differs from another only in its drawings shares the other's, so dragging a point in Points,
     which builds the font again on every move, doesn't build every other letter again with it. */
 const settingsGlyphs = new WeakMap<Font, Map<string, Glyph | null>>();
@@ -2153,15 +2144,11 @@ function sameSettings(a: Params, b: Params): boolean {
 
 /** The font `params` describe; `from`, an earlier build, lends its letters where only the drawings differ. */
 export function buildFont(params: Params, from?: Font): Font {
-  const e = resolve(params), m0 = metrics(e);
-  // a free font's letters stand as tall as the design's capitals, and its space is the font's own, wider or
-  // narrower by Word spacing
-  const free = e.freeFont ? freeFont(e.freeFont) : undefined, k = free ? m0.cap / free.cap : 1;
-  const m = free ? { ...m0, space: Math.max(20, free.space * k + (e.wordSpacing - 0.35) * 520) } : m0;
+  const e = resolve(params), m = metrics(e);
   const cache = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
-  const built = (from && from.free === free && sameSettings(from.params, params) && settingsGlyphs.get(from)) || new Map<string, Glyph | null>();
+  const built = (from && sameSettings(from.params, params) && settingsGlyphs.get(from)) || new Map<string, Glyph | null>();
   const font: Font = {
-    params, eff: e, m, free, freePending: !!e.freeFont && !free,
+    params, eff: e, m,
     letter(ch) {
       const own = params.glyphs?.[ch];
       if (!own) return font;
@@ -2177,8 +2164,7 @@ export function buildFont(params: Params, from?: Font): Font {
         else if ((g = built.get(ch)) !== undefined) { /* built before, with the same settings */ }
         else {
           const lf = font.letter(ch);
-          if (free?.glyphs[ch]) g = drawnGlyph(ch, scaleDrawn(free.glyphs[ch], k));
-          else if (lf !== font) g = lf.glyph(ch);
+          if (lf !== font) g = lf.glyph(ch);
           else if (e.build === 'blocks' && (g = buildBlock(ch, m))) g.ch = ch;
           else {
             // a script's own letters first: they are written whole, single-storey a and all

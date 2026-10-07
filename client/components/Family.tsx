@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { cleanName, slug } from '../../shared/design';
 import { familyMember, SLANTED, WEIGHTS, weightIdOf, type FamilyMember, type WeightId } from '../../shared/family';
 import { api, download, errorMessage } from '../lib/api';
-import { useFreeFonts } from '../lib/free';
 import { n1 } from '../lib/hooks';
 import { actions, fontFor, useEditor } from '../state/editor';
 
@@ -131,7 +130,6 @@ export function FamilyDialog({ onClose }: { onClose: () => void }) {
 
 /** One member's sample, drawn by the font it exports as. */
 function Sample({ member, label }: { member: FamilyMember; label: string }) {
-  useFreeFonts();
   const f = fontFor(member.params), ln = f.layout(SAMPLE, Infinity)[0];
   // room on the right for an italic's lean
   const w = Math.max(4000, ln.width + 300);

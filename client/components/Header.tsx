@@ -3,19 +3,9 @@ import { Link, useLocation } from 'react-router';
 import { styleById } from '../../shared/content';
 import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
 import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../../shared/params';
-import { parseFontId, withoutReserved } from '../../shared/free-fonts';
 import { api, download, errorMessage } from '../lib/api';
 import { actions, isDirty, useEditor } from '../state/editor';
 import { FamilyDialog } from './Family';
-
-/** Under the export's name, written in a free font: the name it exports under when the font's licence
-    reserves part of it (a changed font may not take a reserved name, see withoutReserved). */
-function ReservedNote({ name }: { name: string }) {
-  const font = parseFontId(useEditor(s => s.params.freeFont));
-  const clean = cleanName(name), out = font ? withoutReserved(clean, font.family) : clean;
-  return out === clean ? null
-    : <p className="exp-note">Exports as “{out}”: {font!.family}’s licence keeps its name for the original font.</p>;
-}
 
 /** Logo: back to the Style tab of the design in progress. */
 export function Brand() {
@@ -210,7 +200,6 @@ function ExportMenu() {
               onBlur={() => { if (touched.current) takeName(); }}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); takeName(); } }} />
           </label>
-          <ReservedNote name={draft} />
           <button className="exp" role="menuitem" disabled={!!busy} onClick={() => serverExport('otf')}>
             <b>{busy === 'otf' ? 'Building font…' : 'Font file'}</b><span>.otf — install it and use it in any app</span>
           </button>

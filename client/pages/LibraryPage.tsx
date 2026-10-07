@@ -6,7 +6,6 @@ import { styleById } from '../../shared/content';
 import { NAME_MAX, cleanName, slug, type Design } from '../../shared/design';
 import type { Font } from '../../shared/engine';
 import { api, download, errorMessage } from '../lib/api';
-import { useFreeFonts } from '../lib/free';
 import { isTyping, n1 } from '../lib/hooks';
 import { overhang } from '../lib/preview';
 import { auth, useAuth } from '../state/auth';
@@ -231,7 +230,6 @@ export function LibraryPage() {
 function DesignCard({ d, list, recent, onDownload, onDuplicate, onDelete, onRename }: { d: Design; list: boolean; recent: boolean; onDownload: () => void; onDuplicate: () => void; onDelete: () => void; onRename: (name: string) => void }) {
   const [editing, setEditing] = useState(false);
   const style = styleById(d.styleId)?.name;
-  useFreeFonts();
   return (
     <article className="lib-card">
       <Link to={`/d/${d.id}`} className="lib-open" aria-label={`Open ${d.name}`}>

@@ -8,8 +8,6 @@ export type { Effective, Font, Glyph, GlyphStroke, Line, LineItem, Metrics } fro
 export { buildSerif, expandStroke, serifCup, serifSides } from './stroke';
 export { applyM, clamp, cmdsToD, ringsD, roundContour, signedArea } from './geom';
 export type { Cmd, Mark, Pt } from './types';
-export { freeFont, onFreeFont, packNode, registerFreeFont } from './free';
-export type { FreeFont, FreeFontData, PackedNode } from './free';
 export { drawnCmds, fitOutline, hasIn, hasOut, segment, tidy } from './outline';
 export type { Drawn, Node } from './outline';
 export { glyphGrid, gridGroups, gridOf } from './grid';
