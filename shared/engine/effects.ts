@@ -665,7 +665,6 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
       // what the gap leaves of the shadow, less the specks it nearly cuts away (under the end of a
       // crossbar, beside the top of an arch), which read as dirt rather than as shadow
       const fall = combine([grown, back], (x, y) => back.has(x, y) && !grown.has(x, y));
-      if ((globalThis as any).__fl) for (const p of fall) (globalThis as any).__fl.push(Math.abs(signedArea(p)) / (gap * gap));
       return polysToCmds([...solid, ...fall.filter(p => Math.abs(signedArea(p)) >= fleck)], 0);
     }
     default: return cmds;
