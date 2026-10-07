@@ -337,8 +337,6 @@ body.resizing.y { cursor: row-resize; }
 .d-dim.light line { stroke: #fff; }
 .d-axis { stroke: var(--accent); stroke-width: 1.5; }
 .d-axis.ghost { stroke: var(--ink-3); stroke-dasharray: 3 3; stroke-width: 1; }
-.ex-text.open { min-height: 96px; }
-.explainer.compact .ex-text { min-height: 0; }
 /* the title is the button that opens the explanation and closes it again */
 .ex-head { position: relative; width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 44px 12px 18px; text-align: left; transition: background .15s; }
 .ex-head:hover { background: var(--hover); }
