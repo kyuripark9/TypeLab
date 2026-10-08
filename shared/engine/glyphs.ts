@@ -344,8 +344,9 @@ function uprightW(g: Builder, m: Metrics, W: number, top: number) {
 /** How long straight tails and flicks are: 1 at the usual length, 0.6 short, 1.5 long. */
 const tailK = (m: Metrics) => (m.p.tail < 0.5 ? lerp(0.6, 1, m.p.tail * 2) : lerp(1, 1.5, m.p.tail * 2 - 1));
 /** How far round a hook curls, as the drawn share `u` of its last quarter turn: the usual `u`
-    at the middle, a stub when short, the whole turn when long. */
-const hookU = (m: Metrics, u: number) => (m.p.tail < 0.5 ? lerp(u * 0.35, u, m.p.tail * 2) : lerp(u, 1, m.p.tail * 2 - 1));
+    at the middle, short but still a hook when short (an f or a j with less would read as a t or an i),
+    the whole turn when long. */
+const hookU = (m: Metrics, u: number) => (m.p.tail < 0.5 ? lerp(u * 0.6, u, m.p.tail * 2) : lerp(u, 1, m.p.tail * 2 - 1));
 /** Long hooks also swing further out, up to a third wider. */
 const hookK = (m: Metrics) => 1 + Math.max(0, m.p.tail * 2 - 1) / 3;
 
@@ -767,10 +768,13 @@ def('f', [0.35, 0.1], (g, m) => {
   let top = m.asc + m.os - hh, by = X - hh + fBar(m);
   const short = Math.max(0, 1.8 * m.s - (top - by));
   top += short / 2; by -= short / 2;
-  // the hook runs on until it reaches out past the stem by most of a stroke, where a closed aperture or a
-  // squared turn would stop it over the stem (a narrow blackletter f read as a t)
-  let u = hookU(m, 0.8);
-  while (u < 1 && m.qpt(xs, top - r * 0.9, xh, top, 'vh', u).x < xs + m.s * 1.15) u = Math.min(1, u + 0.04);
+  // the hook turns at least half way over, however short Tails & hooks has it, and runs on until it reaches out
+  // past the stem by a stroke and a half, where a closed aperture or a squared turn would stop it over the stem
+  // (a narrow blackletter f read as a t, and a stub of a hook under a ball as a t with a knob on)
+  // (further under a ball or a droplet, which the stroke is drawn shorter under)
+  const drop = m.p.terminal === 'round' && (m.p.terminalForm === 'ball' || m.p.terminalForm === 'droplet') ? m.s * 0.8 : 0;
+  let u = Math.max(0.5, hookU(m, 0.8));
+  while (u < 1 && m.qpt(xs, top - r * 0.9, xh, top, 'vh', u).x < xs + m.s * 1.5 + drop) u = Math.min(1, u + 0.04);
   g.path([['M', xs, 0], ['L', xs, top - r * 0.9], ['vh', xh, top, { u1: u }]], { e: T, part: 'stem', serifS: 'both' });
   const e = m.qpt(xs, top - r * 0.9, xh, top, 'vh', u);
   tailEnd(g, e.x, e.y, W);
@@ -847,6 +851,8 @@ function mirroredG(g: Builder, m: Metrics, W: number) {
    a link swinging down from its bottom left, and a wide loop hung under the baseline, which the link runs into
    along its top. Returns the width, ear included. */
 function doubleG(g: Builder, m: Metrics) {
+  // round on both sides, as an o is: only the loop and the ear's tip reach the right
+  g.sb = [0.55, 0.35];
   const { X, hs, hh } = lc(m), W = m.W(490, 'r'), xl = hs, xr = W - hs;
   // the loop, under the baseline, keeps an open counter however short the descender: it rises further over
   // the baseline, and the bowl gives way above it

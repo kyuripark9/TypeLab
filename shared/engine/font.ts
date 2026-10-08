@@ -1632,8 +1632,9 @@ function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>,
       // where letters join up (the start of an entry stroke, the tip of an exit), the stroke end curl
       // would wind a knot into the join: only a curl set for that one end turns it
       const join = o.part === 'entry' || (at && b.marks.some(k => k.type === 'exit' && Math.hypot(k.x - at.from.x, k.y - at.from.y) < 1));
-      // and an end with a serif keeps it, level or plumb: only a curl set for that one end bends it (and lets it go)
-      const curl = sw && m.p.terminalCurls?.[id] == null ? sw.curl : join || serif ? m.p.terminalCurls?.[id] ?? 0.5 : endCurl(m.p, id);
+      // and an end with a serif keeps it, level or plumb, as a crossbar's end runs level: only a curl set for that one
+      // end bends it (and lets a serif go)
+      const curl = sw && m.p.terminalCurls?.[id] == null ? sw.curl : join || serif || o.part === 'crossbar' ? m.p.terminalCurls?.[id] ?? 0.5 : endCurl(m.p, id);
       if (Math.abs(d) < 0.01 && curl === 0.5) continue;
       const before = st.cmds, r = shapeEnd(st.cmds, which, d, curl, m, sw && curl === sw.curl ? sw.mid : (mid ??= middle()),
         () => b.strokes.flatMap((t, ti) => ti === si ? [] : t.cmds ? centerPoints(t.cmds, m, m.s * 0.5) : t.poly ? dotPoints(t.poly, m.s * 0.25) : []),
