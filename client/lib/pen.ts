@@ -196,6 +196,32 @@ export function constrain(from: P, p: P): P {
   return { x: from.x + Math.cos(a) * l, y: from.y + Math.sin(a) * l };
 }
 
+/** Where on the segment from anchor i (at t) splitSegment puts its new point. */
+export function pointOn(cs: Node[][], c: number, i: number, t: number): P {
+  const con = cs[c], a = con[i], b = con[(i + 1) % con.length], q = bez(segment(a, b) ?? [a, a, b, b], t);
+  return { x: R(q.x), y: R(q.y) };
+}
+
+export type Shape = 'rect' | 'ellipse';
+/** A new contour: a rectangle (four corners) or an ellipse (four smooth points with handles the
+    usual 0.552 of the radius out) filling the box from (x0, y0) to (x1, y1), run anticlockwise (y up)
+    or, with `ccw` false, clockwise, so it fills in the letter as its other filled contours do. */
+export function shapeContour(kind: Shape, x0: number, y0: number, x1: number, y1: number, ccw = true): Node[] {
+  const l = R(Math.min(x0, x1)), r = R(Math.max(x0, x1)), b = R(Math.min(y0, y1)), t = R(Math.max(y0, y1));
+  let con: Node[];
+  if (kind === 'rect') con = [{ x: l, y: b }, { x: r, y: b }, { x: r, y: t }, { x: l, y: t }];
+  else {
+    const cx = (l + r) / 2, cy = (b + t) / 2, kx = (r - l) / 2 * 0.5523, ky = (t - b) / 2 * 0.5523;
+    con = [
+      { x: r, y: cy, ix: r, iy: cy - ky, ox: r, oy: cy + ky, s: 1 },
+      { x: cx, y: t, ix: cx + kx, iy: t, ox: cx - kx, oy: t, s: 1 },
+      { x: l, y: cy, ix: l, iy: cy + ky, ox: l, oy: cy - ky, s: 1 },
+      { x: cx, y: b, ix: cx - kx, iy: b, ox: cx + kx, oy: b, s: 1 }
+    ].map(n => ({ ...n, x: R(n.x), y: R(n.y), ix: R(n.ix), iy: R(n.iy), ox: R(n.ox), oy: R(n.oy) } as Node));
+  }
+  return ccw ? con : reverseContour([con], 0)[0];
+}
+
 /* ---- Sync all: a point moved in one letter moves in the others that have it too */
 
 const traces = new WeakMap<Glyph, Drawn>();

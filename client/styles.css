@@ -637,6 +637,15 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-h circle:not(.grab) { fill: var(--accent); }
 .pen-h { cursor: default; }
 .pen-box { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; pointer-events: none; }
+.pen-pt.del rect, .pen-pt.del circle:not(.grab) { stroke: #d64b4b; stroke-width: 2; }
+.pen-ghost circle { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
+.pen-ghost path { stroke: var(--accent); stroke-width: 1.3; stroke-linecap: round; }
+.pen-aim circle { fill: var(--accent); stroke: var(--surface); stroke-width: 1.5; }
+.pen-aim.delete circle { fill: #d64b4b; }
+.pen-aim .mark { fill: none; stroke: #fff; stroke-width: 1.5; stroke-linecap: round; }
+.pen-aim circle.mark { fill: none; stroke: #fff; stroke-width: 1.4; }
+.pen-aim-shape { fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.3; }
+.pen-size { font: 500 10.5px var(--ui); fill: var(--accent-ink); stroke: var(--surface); stroke-width: 3px; paint-order: stroke; font-variant-numeric: tabular-nums; pointer-events: none; }
 .pen-bar { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 7px 16px; border-top: 1px solid var(--line); font-size: 12.5px; }
 .inspector.customizing .pen-bar { background: var(--custom-wash); }
 .pen-reach { position: absolute; bottom: 12px; left: 50%; translate: -50% 0; max-width: calc(100% - 120px); padding: 6px 12px; border: 1px solid var(--line);
