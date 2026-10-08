@@ -7,15 +7,11 @@ endobj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1238] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1157] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 156939 >>
+<< /Length 156579 >>
 stream
-BT /F1 22 Tf 0 g 48 1168 Td (Barlow 500) Tj ET
-BT /F2 10 Tf 0.4 g 48 1150 Td (Designed by Jeremy Tribby  —  SIL Open Font License, Version 1.1 \(http://scripts.sil.org/OFL\)) Tj ET
-BT /F2 8 Tf 0.55 g 48 1137 Td (Copyright 2017 The Barlow Project Authors \(https://github.com/jpt/barlow\)) Tj ET
-BT /F2 8 Tf 0.55 g 48 1124 Td (TypeLab styles: industrial) Tj ET
 0 g
 69.08 1102 m
 69.36 1102 69.48 1101.88 69.48 1101.6 c
@@ -5114,11 +5110,11 @@ xref
 0000000064 00000 n 
 0000000121 00000 n 
 0000000259 00000 n 
-0000157252 00000 n 
-0000157354 00000 n 
-0000157451 00000 n 
+0000156892 00000 n 
+0000156994 00000 n 
+0000157091 00000 n 
 trailer
 << /Size 8 /Root 1 0 R /Info 7 0 R >>
 startxref
-157511
+157151
 %%EOF

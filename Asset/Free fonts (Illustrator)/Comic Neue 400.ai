@@ -7,15 +7,11 @@ endobj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1238] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1156] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 174335 >>
+<< /Length 173945 >>
 stream
-BT /F1 22 Tf 0 g 48 1168 Td (Comic Neue 400) Tj ET
-BT /F2 10 Tf 0.4 g 48 1150 Td (Designed by Craig Rozynski, Hrant Papazian  —  SIL Open Font License, Version 1.1 \(https://scripts.sil.org/OFL\)) Tj ET
-BT /F2 8 Tf 0.55 g 48 1137 Td (Copyright 2014 The Comic Neue Project Authors \(https://github.com/crozynski/comicneue\)) Tj ET
-BT /F2 8 Tf 0.55 g 48 1124 Td (TypeLab styles: comic) Tj ET
 0 g
 58.44 1073.76 m
 58.08 1073.76 57.8 1073.88 57.56 1074.16 c
@@ -5174,11 +5170,11 @@ xref
 0000000064 00000 n 
 0000000121 00000 n 
 0000000259 00000 n 
-0000174648 00000 n 
-0000174750 00000 n 
-0000174847 00000 n 
+0000174258 00000 n 
+0000174360 00000 n 
+0000174457 00000 n 
 trailer
 << /Size 8 /Root 1 0 R /Info 7 0 R >>
 startxref
-174911
+174521
 %%EOF

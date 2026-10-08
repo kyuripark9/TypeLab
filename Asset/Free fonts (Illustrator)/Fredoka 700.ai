@@ -7,15 +7,11 @@ endobj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1238] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1158] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 231890 >>
+<< /Length 231506 >>
 stream
-BT /F1 22 Tf 0 g 48 1168 Td (Fredoka 700) Tj ET
-BT /F2 10 Tf 0.4 g 48 1150 Td (Designed by Milena Brandão, Hafontia  —  SIL Open Font License, Version 1.1 \(http://scripts.sil.org/OFL\)) Tj ET
-BT /F2 8 Tf 0.55 g 48 1137 Td (Copyright 2016 The Fredoka Project Authors \(https://github.com/hafontia/Fredoka-One\)) Tj ET
-BT /F2 8 Tf 0.55 g 48 1124 Td (TypeLab styles: chunkyround) Tj ET
 0 g
 51.68 1101.68 m
 69.96 1101.68 l
@@ -6528,11 +6524,11 @@ xref
 0000000064 00000 n 
 0000000121 00000 n 
 0000000259 00000 n 
-0000232203 00000 n 
-0000232305 00000 n 
-0000232402 00000 n 
+0000231819 00000 n 
+0000231921 00000 n 
+0000232018 00000 n 
 trailer
 << /Size 8 /Root 1 0 R /Info 7 0 R >>
 startxref
-232463
+232079
 %%EOF

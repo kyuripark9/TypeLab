@@ -7,15 +7,11 @@ endobj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1238] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1153] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 207581 >>
+<< /Length 207183 >>
 stream
-BT /F1 22 Tf 0 g 48 1168 Td (Courier Prime 400) Tj ET
-BT /F2 10 Tf 0.4 g 48 1150 Td (Designed by Alan Dague-Greene  —  SIL Open Font License, Version 1.1 \(http://scripts.sil.org/OFL\)) Tj ET
-BT /F2 8 Tf 0.55 g 48 1137 Td (Copyright 2015 The Courier Prime Project Authors \(https://github.com/quoteunquoteapps/CourierPrime\).) Tj ET
-BT /F2 8 Tf 0.55 g 48 1124 Td (TypeLab styles: typewriter) Tj ET
 0 g
 66.47 1095.04 m
 66.87 1095.04 67.16 1094.93 67.34 1094.75 c
@@ -6249,11 +6245,11 @@ xref
 0000000064 00000 n 
 0000000121 00000 n 
 0000000259 00000 n 
-0000207894 00000 n 
-0000207996 00000 n 
-0000208093 00000 n 
+0000207496 00000 n 
+0000207598 00000 n 
+0000207695 00000 n 
 trailer
 << /Size 8 /Root 1 0 R /Info 7 0 R >>
 startxref
-208160
+207762
 %%EOF

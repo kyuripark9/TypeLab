@@ -7,15 +7,11 @@ endobj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1238] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1161] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 246631 >>
+<< /Length 246172 >>
 stream
-BT /F1 22 Tf 0 g 48 1168 Td (Playfair Display 400 Italic) Tj ET
-BT /F2 10 Tf 0.4 g 48 1150 Td (Designed by Claus Eggers Sørensen  —  SIL Open Font License, Version 1.1 \(http://scripts.sil.org/OFL\)) Tj ET
-BT /F2 8 Tf 0.55 g 48 1137 Td (Copyright 2017 The Playfair Display Project Authors \(https://github.com/clauseggers/Playfair-Display\), with Reserved Font Name "Playfair Display".) Tj ET
-BT /F2 8 Tf 0.55 g 48 1124 Td (TypeLab styles: serifitalic) Tj ET
 0 g
 78.72 1106.68 m
 79.32 1106.68 79.8 1106.48 80.08 1106.12 c
@@ -7111,11 +7107,11 @@ xref
 0000000064 00000 n 
 0000000121 00000 n 
 0000000259 00000 n 
-0000246944 00000 n 
-0000247046 00000 n 
-0000247143 00000 n 
+0000246485 00000 n 
+0000246587 00000 n 
+0000246684 00000 n 
 trailer
 << /Size 8 /Root 1 0 R /Info 7 0 R >>
 startxref
-247220
+246761
 %%EOF

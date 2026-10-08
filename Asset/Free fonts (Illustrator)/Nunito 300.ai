@@ -7,15 +7,11 @@ endobj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1238] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1032 1157] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 183383 >>
+<< /Length 182994 >>
 stream
-BT /F1 22 Tf 0 g 48 1168 Td (Nunito 300) Tj ET
-BT /F2 10 Tf 0.4 g 48 1150 Td (Designed by Vernon Adams, Cyreal, Jacques Le Bailly  —  SIL Open Font License, Version 1.1 \(https://scripts.sil.org/OFL\)) Tj ET
-BT /F2 8 Tf 0.55 g 48 1137 Td (Copyright 2014 The Nunito Project Authors \(https://github.com/googlefonts/nunito\)) Tj ET
-BT /F2 8 Tf 0.55 g 48 1124 Td (TypeLab styles: soft) Tj ET
 0 g
 59.88 1073.76 m
 59.48 1073.76 59.16 1073.88 58.96 1074.12 c
@@ -5545,11 +5541,11 @@ xref
 0000000064 00000 n 
 0000000121 00000 n 
 0000000259 00000 n 
-0000183696 00000 n 
-0000183798 00000 n 
-0000183895 00000 n 
+0000183307 00000 n 
+0000183409 00000 n 
+0000183506 00000 n 
 trailer
 << /Size 8 /Root 1 0 R /Info 7 0 R >>
 startxref
-183955
+183566
 %%EOF
