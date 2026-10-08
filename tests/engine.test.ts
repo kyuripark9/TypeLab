@@ -155,6 +155,12 @@ describe('font engine', () => {
     assert.equal(low(ball), low(plain));
   });
 
+  it('the swept Q tail runs out from under the bowl to the right, longer with Tails & hooks', () => {
+    const f = (tail: number) => buildFont({ ...DEFAULTS, qForm: 'sweep', tail }), tip = (t: number) => f(t).glyph('Q')!.marks.find(k => k.type === 'tail')!;
+    assert.ok(tip(0.5).y < 0 && tip(0.5).x > f(0.5).glyph('Q')!.bodyW * 0.8);
+    assert.ok(tip(1).x > tip(0).x);
+  });
+
   it('the arm and leg of k and K meet where the k form says', () => {
     const f = (kForm: Params['kForm']) => buildFont({ ...DEFAULTS, kForm });
     for (const ch of 'kK') {

@@ -586,6 +586,15 @@ def('Q', [0.55, 0.55], (g, m) => {
     tailEnd(g, ex, ey, W);
     return W;
   }
+  if (m.p.qForm === 'sweep') {
+    // the tail of book type: out of the bottom of the bowl, a little left of its middle, down under the baseline
+    // and on out to the right in a long shallow S, thickest where it runs down
+    oval(g, m, hs, W - hs, -m.os + hh, C + m.os - hh);
+    const k = tailK(m), x0 = W * 0.4, y0 = hh, ex = W * (0.6 + 0.5 * k), ey = -C * (0.06 + 0.05 * k);
+    g.path([['M', x0, y0], ['C', x0 - W * 0.05, -C * 0.15, lerp(x0, ex, 0.45), -C * 0.25, ex, ey, { w: 'thick' }]], { s: J, e: T, ws: 0.35, we: 0.25, part: 'tail' });
+    tailEnd(g, ex, ey, W);
+    return W;
+  }
   oval(g, m, hs, W - hs, -m.os + hh, C + m.os - hh);
   const k = tailK(m), x0 = W * 0.56, y0 = C * 0.2, ex = x0 + W * 0.41 * k, ey = y0 - C * 0.27 * k;
   g.line(x0, y0, ex, ey, { s: J, e: T, part: 'tail' });

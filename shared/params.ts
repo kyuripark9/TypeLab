@@ -51,8 +51,9 @@ export const DIAGONALS = ['symmetric', 'upright', 'arch'] as const;
 export const BENDS = ['sharp', 'round'] as const;
 /** The Y and y: two arms forking off a stem, or a cup whose right side runs on down into a diagonal. */
 export const Y_FORMS = ['forked', 'cup'] as const;
-/** The tail of Q: crossing the bowl at the bottom right, or running from inside the bowl into its bottom right corner. */
-export const Q_FORMS = ['crossing', 'inside'] as const;
+/** The tail of Q: crossing the bowl at the bottom right, running from inside the bowl into its bottom right corner, or
+    sweeping out from under the bowl to the right, as in book type. */
+export const Q_FORMS = ['crossing', 'inside', 'sweep'] as const;
 /** The R: a leg from the bowl, or a loop: the bowl's lower bar stops short of the stem and turns back into the leg. */
 export const R_FORMS = ['leg', 'loop'] as const;
 /** The letters: built as print type, or written as a joined-up script's (see script.ts); auto writes them in a
