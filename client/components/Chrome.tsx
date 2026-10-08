@@ -1,8 +1,8 @@
 /* The frame around the stage: category navigation, glyph strip and toast. */
-import { useDeferredValue, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { memo, useDeferredValue, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { CATEGORIES, GROUPS, controlFor, findSettings, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
 import { Link } from 'react-router';
-import { CHARSET, type Glyph } from '../../shared/engine';
+import { CHARSET, type Font, type Glyph } from '../../shared/engine';
 import { n1 } from '../lib/hooks';
 import { ink } from '../lib/preview';
 import { actions, useEditor, useFont } from '../state/editor';
@@ -124,6 +124,19 @@ function cellBox(g: Glyph) {
   const cx = (x0 + x1) / 2, cy = (top + bottom) / 2, k = Math.max((x1 - x0) / 1000, (bottom - top) / 1180) * 1.06;
   return `${n1(cx - 500 * k)} ${n1(cy - 590 * k)} ${n1(1000 * k)} ${n1(1180 * k)}`;
 }
+/** One letter of the strip, drawn on its own so that, while a slider moves, the strip's deferred redraw can stop between
+    letters for the next move (drawn all at once, every letter of it held up each one). */
+const StripCell = memo(function StripCell({ ch, font, on, mark, cells }: { ch: string; font: Font; on: boolean; mark: 'drawn' | 'custom' | null; cells: Map<string, HTMLButtonElement> }) {
+  const c = ch.charCodeAt(0), g = font.glyph(ch);
+  return (
+    <button className={['cell', on && 'on', mark && 'custom'].filter(Boolean).join(' ')}
+      title={mark === 'drawn' ? `Inspect ${ch} (drawn by hand)` : mark ? `Inspect ${ch} (customized)` : `Inspect ${ch}`}
+      ref={el => { if (el) cells.set(ch, el); else cells.delete(ch); }}
+      onClick={() => actions.openInspector(ch)}>
+      <svg viewBox={g ? cellBox(g) : CELL} aria-hidden="true"><use href={`#g${c}`} x={g ? n1((1000 - g.adv) / 2) : 0} /></svg>
+    </button>
+  );
+});
 const STRIP_GROUPS: [string, string][] = [['Uppercase', CHARSET.upper], ['Lowercase', CHARSET.lower], ['Figures', CHARSET.digits], ['Punctuation', CHARSET.punct], ['Symbols', CHARSET.symbols]];
 
 export function GlyphStrip() {
@@ -181,17 +194,9 @@ export function GlyphStrip() {
         <div key={label} className="strip-group" ref={el => { groups.current[gi] = el; }}>
           <span className="strip-label">{label}</span>
           <div className="strip-cells">
-            {[...chars].map(ch => {
-              const c = ch.charCodeAt(0), g = font.glyph(ch);
-              return (
-                <button key={c} className={['cell', ch === inspect && 'on', (custom[ch] || drawn[ch]) && 'custom'].filter(Boolean).join(' ')}
-                  title={drawn[ch] ? `Inspect ${ch} (drawn by hand)` : custom[ch] ? `Inspect ${ch} (customized)` : `Inspect ${ch}`}
-                  ref={el => { if (el) cells.current.set(ch, el); else cells.current.delete(ch); }}
-                  onClick={() => actions.openInspector(ch)}>
-                  <svg viewBox={g ? cellBox(g) : CELL} aria-hidden="true"><use href={`#g${c}`} x={g ? n1((1000 - g.adv) / 2) : 0} /></svg>
-                </button>
-              );
-            })}
+            {[...chars].map(ch => (
+              <StripCell key={ch.charCodeAt(0)} ch={ch} font={font} on={ch === inspect} mark={drawn[ch] ? 'drawn' : custom[ch] ? 'custom' : null} cells={cells.current} />
+            ))}
           </div>
         </div>
       ))}

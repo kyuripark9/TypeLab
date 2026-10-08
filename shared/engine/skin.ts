@@ -49,12 +49,18 @@ function field(cs: Node[][]): Field {
   x0 = Math.floor(x0) - 4; y0 = Math.floor(y0) - 4;
   const W = Math.ceil(x1 - x0) + 8, H = Math.ceil(y1 - y0) + 8, ink = new Uint8Array(W * H);
   // the ink, row by row (nonzero, as the font is read); row 0 is the top
-  for (let r = 0; r < H; r++) {
-    const fy = y0 + H - r - 0.5, xs: { x: number; w: number }[] = [];
-    for (const ring of rings) for (let i = 0; i < ring.length; i++) {
-      const a = ring[i], b = ring[(i + 1) % ring.length];
-      if ((a.y <= fy) !== (b.y <= fy)) xs.push({ x: a.x + (fy - a.y) / (b.y - a.y) * (b.x - a.x), w: b.y > a.y ? 1 : -1 });
+  // (each edge put in the rows it crosses, rather than every row trying every edge)
+  const rows: { x: number; w: number }[][] = Array.from({ length: H }, () => []);
+  for (const ring of rings) for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length];
+    const r0 = Math.max(0, Math.floor(y0 + H - 0.5 - Math.max(a.y, b.y)) - 1), r1 = Math.min(H - 1, Math.ceil(y0 + H - 0.5 - Math.min(a.y, b.y)) + 1);
+    for (let r = r0; r <= r1; r++) {
+      const fy = y0 + H - r - 0.5;
+      if ((a.y <= fy) !== (b.y <= fy)) rows[r].push({ x: a.x + (fy - a.y) / (b.y - a.y) * (b.x - a.x), w: b.y > a.y ? 1 : -1 });
     }
+  }
+  for (let r = 0; r < H; r++) {
+    const xs = rows[r];
     xs.sort((a, b) => a.x - b.x);
     let w = 0;
     for (let i = 0; i < xs.length - 1; i++) {
@@ -239,10 +245,12 @@ function rigContour(c: Node[], f: Field, ctx: Ctx, alone: boolean): Bone[] {
     // the stroke's thickness: the ink the normal runs through to the far side. Rays fanned round it count
     // too where they leave through the far side (an edge facing away from this one), as by the corner of
     // an L the straight one runs on down the other stroke; one leaving through the stroke's end doesn't
-    const across = (deg: number) => {
+    // (a fanned ray is given up once it has run as far across as the shortest so far, as it can only come out longer)
+    const across = (deg: number, lim = Infinity) => {
       const th = deg * Math.PI / 180, co = Math.cos(th), sn = Math.sin(th), rx = nx * co - ny * sn, ry = nx * sn + ny * co;
       let inInk = false;
       for (let t = 0.5; t < 900; t += 0.5) {
+        if (t * co >= lim) return Infinity;
         if (inked(f, p.x + rx * t, p.y + ry * t)) { inInk = true; continue; }
         if (!inInk) continue;
         if (deg === 0) return t;
@@ -254,7 +262,7 @@ function rigContour(c: Node[], f: Field, ctx: Ctx, alone: boolean): Bone[] {
     };
     const head = across(0);
     let chord = isFinite(head) ? head : 0;
-    for (const deg of [-60, -45, -30, -20, -10, 10, 20, 30, 45, 60]) chord = Math.min(chord, across(deg));
+    if (chord > 0) for (const deg of [-60, -45, -30, -20, -10, 10, 20, 30, 45, 60]) chord = Math.min(chord, across(deg, chord));
     let serifDx = 0;
     for (const L of serifLines) if (Math.abs(p.y - L) <= ctx.cap * 0.09 && !serifDx) serifDx = serifReach(f, p.x, p.y, nx, ny, L, ctx.cap);
     const onLine = p.straight && Math.abs(ny) > 0.97 && lines.some(L => Math.abs(p.y - L) < 2.5);

@@ -73,9 +73,17 @@ function annotate(pts: P[]): S[] {
     the ink is on their left: a font drawing a letter as strokes laid over each other (Roboto's H, its bar
     running into its stems) has the corners where they cross, not the ends hidden in the ink. */
 export function inkRings(cs: Node[][]): P[][] {
-  const sh = shape(cs.map(c => sampled(c)));
-  return combine([sh], sh.has).filter(r => r.length > 2);
+  // (kept with the contours, as each restyle of a letter, and each step of a slider dragged, reads the same ones again;
+  // the list is the caller's to change, the rings and their points aren't)
+  let rings = inkRingsOf.get(cs);
+  if (!rings) {
+    const sh = shape(cs.map(c => sampled(c)));
+    rings = combine([sh], sh.has).filter(r => r.length > 2);
+    inkRingsOf.set(cs, rings);
+  }
+  return rings.slice();
 }
+const inkRingsOf = new WeakMap<Node[][], P[][]>();
 
 /* ---- corners */
 
@@ -830,9 +838,36 @@ function reachAt(b: BowlLook, a: number) {
     bowl meets a stem, so the stems stay where they stand. */
 export function restyleBowls(cs: Node[][], from: BowlLook, to: BowlLook, sk: () => Skeleton): Node[][] {
   if (sameBowls(from, to)) return cs;
-  const s = sk();
-  // the runs that turn one way through more than 150°, each with the middle and the half widths of its oval
-  interface Arc { e: number; i0: number; i1: number; cx: number; cy: number; ax: number; ay: number; ease: number; bend: number[] }
+  // (what is read off the letter is kept with it, as dragging Squareness asks again of the same outline)
+  let b = bowlScans.get(cs);
+  if (!b) { b = scanBowls(cs, sk()); bowlScans.set(cs, b); }
+  const { s, arcs, rings, how } = b;
+  bowlDebug?.push(...arcs.map(a => ({ ...a, bend: a.bend.map((b, k) => b > 0.5 ? [Math.round(s.edges[a.e].pts[k].x), Math.round(s.edges[a.e].pts[k].y)] : null).filter((x, k) => x && k % 20 === 0) })));
+  if (!arcs.length) return cs;
+  // each point of the outline pushed out from its oval by as far as the new shape reaches past the old there
+  // (then eased along the outline, as the skeleton it is read off steps from cell to cell)
+  const moved = rings.map((r, ri) => {
+    const hs = how[ri], fs = hs.map(h => h && 1 + h.w * (reachAt(to, h.a) / reachAt(from, h.a) - 1));
+    const n = r.length, f = hs.map((_, i) => {
+      let t = 0, c = 0;
+      for (let j = -10; j <= 10; j++) { const k = (i + j + n) % n, h = hs[k]; if (h && hs[i] && h.arc === hs[i]!.arc) { t += fs[k]!; c++; } }
+      return c ? t / c : 1;
+    });
+    return r.map((p, i) => { const h = hs[i]; return h ? { x: h.arc.cx + (p.x - h.arc.cx) * f[i], y: h.arc.cy + (p.y - h.arc.cy) * f[i] } : p; });
+  });
+  const ink = shape(moved), out = combine([ink], ink.has), res: Node[][] = [];
+  for (const r of out) if (r.length > 2) res.push(...fitOutline([...r.map((q, i): Cmd => [i ? 'L' : 'M', q.x, q.y]), ['Z']], 1.2));
+  return res;
+}
+
+/** A run of the skeleton that turns one way through more than 150°, with the middle and the half widths of its oval. */
+interface Arc { e: number; i0: number; i1: number; cx: number; cy: number; ax: number; ay: number; ease: number; bend: number[] }
+/** A letter's bowls as read off it: its skeleton, the arcs on it, its outline, and for each point of the outline the
+    arc it is pushed out from, how much (from 0 where the bowl meets a stem to 1) and at what angle round the oval. */
+interface BowlScan { s: Skeleton; arcs: Arc[]; rings: P[][]; how: ({ arc: Arc; w: number; a: number } | null)[][] }
+const bowlScans = new WeakMap<Node[][], BowlScan>();
+
+function scanBowls(cs: Node[][], s: Skeleton): BowlScan {
   const arcs: Arc[] = [];
   s.edges.forEach((E, e) => {
     const pts = E.pts, n = pts.length;
@@ -871,21 +906,9 @@ export function restyleBowls(cs: Node[][], from: BowlLook, to: BowlLook, sk: () 
     }
     close(start, n - 1);
   });
-  bowlDebug?.push(...arcs.map(a => ({ ...a, bend: a.bend.map((b, k) => b > 0.5 ? [Math.round(s.edges[a.e].pts[k].x), Math.round(s.edges[a.e].pts[k].y)] : null).filter((x, k) => x && k % 20 === 0) })));
-  if (!arcs.length) return cs;
-  const rings = inkRings(cs);
-  // each point of the outline: the oval it is pushed out from, and how far (then eased along the outline, as the
-  // skeleton it is read off steps from cell to cell)
-  const moved = rings.map(r => {
-    const how = r.map(p => howFar(p));
-    const n = r.length, f = how.map((_, i) => {
-      let t = 0, c = 0;
-      for (let j = -10; j <= 10; j++) { const h = how[(i + j + n) % n]; if (h && how[i] && h.arc === how[i]!.arc) { t += h.f; c++; } }
-      return c ? t / c : 1;
-    });
-    return r.map((p, i) => { const h = how[i]; return h ? { x: h.arc.cx + (p.x - h.arc.cx) * f[i], y: h.arc.cy + (p.y - h.arc.cy) * f[i] } : p; });
-  });
-  function howFar(p: P): { arc: Arc; f: number } | null {
+  if (!arcs.length) return { s, arcs, rings: [], how: [] };
+  const rings = inkRings(cs), eased = new Map<Arc, Map<number, number>>();
+  const how = rings.map(r => r.map(p => {
     const q = nearestOn(s, p.x, p.y);
     if (!q) return null;
     const arc = arcs.find(a => a.e === q.e && q.i >= a.i0 && q.i <= a.i1);
@@ -894,18 +917,22 @@ export function restyleBowls(cs: Node[][], from: BowlLook, to: BowlLook, sk: () 
     const E = s.edges[arc.e], ring = E.a === E.b && arc.i0 === 0 && arc.i1 === E.pts.length - 1;
     let w = 1;
     if (!ring) {
-      let d0 = 0, d1 = 0;
-      for (let k = arc.i0 + 1; k <= q.i; k++) d0 += Math.hypot(E.pts[k].x - E.pts[k - 1].x, E.pts[k].y - E.pts[k - 1].y);
-      for (let k = q.i + 1; k <= arc.i1; k++) d1 += Math.hypot(E.pts[k].x - E.pts[k - 1].x, E.pts[k].y - E.pts[k - 1].y);
-      w = smooth01(Math.min(d0, d1) / arc.ease);
+      // (kept for each skeleton point, as many points of the outline come to the same one)
+      if (!eased.has(arc)) eased.set(arc, new Map());
+      let ew = eased.get(arc)!.get(q.i);
+      if (ew === undefined) {
+        let d0 = 0, d1 = 0;
+        for (let k = arc.i0 + 1; k <= q.i; k++) d0 += Math.hypot(E.pts[k].x - E.pts[k - 1].x, E.pts[k].y - E.pts[k - 1].y);
+        for (let k = q.i + 1; k <= arc.i1; k++) d1 += Math.hypot(E.pts[k].x - E.pts[k - 1].x, E.pts[k].y - E.pts[k - 1].y);
+        eased.get(arc)!.set(q.i, ew = smooth01(Math.min(d0, d1) / arc.ease));
+      }
+      w = ew;
     }
     w *= arc.bend[q.i];
-    const ux = (p.x - arc.cx) / arc.ax, uy = (p.y - arc.cy) / arc.ay, a = Math.atan2(uy, ux);
-    return { arc, f: 1 + w * (reachAt(to, a) / reachAt(from, a) - 1) };
-  }
-  const ink = shape(moved), out = combine([ink], ink.has), res: Node[][] = [];
-  for (const r of out) if (r.length > 2) res.push(...fitOutline([...r.map((q, i): Cmd => [i ? 'L' : 'M', q.x, q.y]), ['Z']], 1.2));
-  return res;
+    const ux = (p.x - arc.cx) / arc.ax, uy = (p.y - arc.cy) / arc.ay;
+    return { arc, w, a: Math.atan2(uy, ux) };
+  }));
+  return { s, arcs, rings, how };
 }
 
 /* ---- dots */
