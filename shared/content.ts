@@ -867,7 +867,7 @@ export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Par
   qForm: { ch: 'Q', options: [['crossing', 'Crossing'], ['inside', 'Inside']] as [QForm, string][] },
   rForm: { ch: 'R', options: [['leg', 'Leg'], ['loop', 'Loop']] as [RForm, string][] },
   scriptForm: { ch: 'R', options: [['print', 'Print'], ['script', 'Script']] as [Exclude<ScriptForm, 'auto'>, string][] },
-  flourish: { ch: 'l', options: [['plain', 'Plain'], ['swash', 'Swash']] as [Flourish, string][] },
+  flourish: { ch: 'd', options: [['plain', 'Plain'], ['swash', 'Swash']] as [Flourish, string][] },
   bowlForm: { ch: 'O', options: [['oval', 'Oval'], ['box', 'Box']] as [BowlForm, string][] },
   bends: { ch: 'N', options: [['sharp', 'Sharp'], ['round', 'Round']] as [Bends, string][] },
   terminalRun: { ch: 'c', options: [['curved', 'Curved'], ['straight', 'Straight']] as [TerminalRun, string][] },
