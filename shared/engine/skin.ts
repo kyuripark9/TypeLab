@@ -107,6 +107,16 @@ function columnRuns(f: Field, x: number): [number, number][] {
 
 /* ---- the rig */
 
+/** Whether point p is inside polygon o (even-odd). */
+function inPoly(o: P[], p: P) {
+  let k = false;
+  for (let i = 0, j = o.length - 1; i < o.length; j = i++) {
+    const a = o[i], b = o[j];
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x)) k = !k;
+  }
+  return k;
+}
+
 interface Bone {
   x: number; y: number;
   /** the inward normal, and the edge's direction */ nx: number; ny: number; tx: number; ty: number;
@@ -204,7 +214,7 @@ function serifReach(f: Field, x: number, y: number, nx: number, ny: number, L: n
   return 0;
 }
 
-function rigContour(c: Node[], f: Field, ctx: Ctx): Bone[] {
+function rigContour(c: Node[], f: Field, ctx: Ctx, alone: boolean): Bone[] {
   const lines = [0, ctx.xh, ctx.cap, ctx.asc, ctx.desc];
   const serifLines = ctx.lower ? [0, ctx.xh, ctx.asc, ctx.desc] : [0, ctx.cap];
   const bones: Bone[] = samples(c).map(p => {
@@ -267,11 +277,14 @@ function rigContour(c: Node[], f: Field, ctx: Ctx): Bone[] {
     const mid = sb[sb.length >> 1], len = Math.hypot(sb[sb.length - 1].x - sb[0].x, sb[sb.length - 1].y - sb[0].y) + STEP;
     if (Math.abs(mid.nx * mid.dx + mid.ny * mid.dy) > 0.75 && len < 3.6 * mid.w) for (const b of sb) if (!b.corner) { b.cap = true; b.lineCap = mid.onLine; }
   }
-  // a dot: a ring round one point, which grows evenly
-  let cx = 0, cy = 0;
-  for (const b of bones) { cx += b.ax; cy += b.ay; }
+  // a dot: a ring round one point, which grows evenly; or a square one (Oswald's), a small blob about as wide as it
+  // is tall that fills most of its box, its skeleton the cross of its diagonals
+  let cx = 0, cy = 0, x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const b of bones) { cx += b.ax; cy += b.ay; x0 = Math.min(x0, b.x); x1 = Math.max(x1, b.x); y0 = Math.min(y0, b.y); y1 = Math.max(y1, b.y); }
   cx /= bones.length; cy /= bones.length;
-  if (Math.max(...bones.map(b => Math.hypot(b.ax - cx, b.ay - cy))) < 0.35 * typical) for (const b of bones) { b.dot = true; b.corner = false; b.cap = false; }
+  const bw = x1 - x0, bh = y1 - y0, area = Math.abs(signedArea(bones));
+  const blob = alone && bw > 0 && bh > 0 && bw / bh < 1.6 && bh / bw < 1.6 && Math.max(bw, bh) < ctx.cap * 0.3 && area > bw * bh * 0.6;
+  if (blob || Math.max(...bones.map(b => Math.hypot(b.ax - cx, b.ay - cy))) < 0.35 * typical) for (const b of bones) { b.dot = true; b.corner = false; b.cap = false; }
   return bones;
 }
 
@@ -314,7 +327,9 @@ export function skinRig(font: FreeFont, ch: string): SkinRig | null {
   const barY = bar ? (columnRuns(f, x0 + (x1 - x0) * bar.at[0]).map(([a, b]) => (a + b) / 2)
     .filter(y => y > top * bar.at[1] && y < top * bar.at[2]).sort((a, b) => Math.abs(a - top * bar.at[3]) - Math.abs(b - top * bar.at[3]))[0] ?? null) : null;
   const ctx: Ctx = { cap: font.cap, xh: font.xh, ...kept.lines, barY, lower, ch };
-  const bones = g.contours.map(c => rigContour(c, f, ctx));
+  // (a dot is on its own: a counter as small, a bold e's eye, is inside the letter's outline, and so is no dot, nor an o round its counter)
+  const polys = g.contours.map(c => c.map(n => ({ x: n.x, y: n.y })));
+  const bones = g.contours.map((c, i) => rigContour(c, f, ctx, !polys.some((o, j) => j !== i && o.length > 2 && (inPoly(o, polys[i][0]) || inPoly(polys[i], o[0])))));
   const upright = bones.flat().filter(b => Math.abs(b.nx) > 0.9 && !b.cap).map(b => b.w * 2).sort((a, b) => a - b);
   const level = bones.flat().filter(b => Math.abs(b.ny) > 0.9 && !b.cap && !b.dot).map(b => b.w * 2).sort((a, b) => a - b);
   const stem = (upright[upright.length >> 1] ?? 0) / font.cap;

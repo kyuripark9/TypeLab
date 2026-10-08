@@ -11,8 +11,6 @@ import { SNAP_KINDS, type SnapKind } from '../lib/pen';
 import { FREE_AT_KEYS, endCurl, endLength, isGlyphKey, type FreeAt, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
-/** Where a style's letters come from: its free font, ready-made, or built from the settings to shape (see free-fonts.ts). */
-export type Letters = 'free' | 'own';
 /** The Style page's panel: filters that narrow the cards, or traits laid over every card. */
 export type StyleTab = 'filter' | 'adjust';
 /** What the controls change while a letter is inspected: every letter in sync, or just that one. */
@@ -42,10 +40,6 @@ const savedSnap = (): { on: boolean; kinds: SnapKind[] } => {
     if (v && typeof v.on === 'boolean' && Array.isArray(v.kinds)) return { on: v.on, kinds: SNAP_KINDS.filter(k => v.kinds.includes(k)) };
   } catch { /* fall through */ }
   return { on: true, kinds: [...SNAP_KINDS] };
-};
-const LETTERS_KEY = 'typelab.letters';
-const savedLetters = (): Letters => {
-  try { return localStorage.getItem(LETTERS_KEY) === 'own' ? 'own' : 'free'; } catch { return 'free'; }
 };
 /** The explanation starts closed, at its title; opened, it stays open from visit to visit. */
 const TIPS_KEY = 'typelab.tipsShown';
@@ -86,8 +80,6 @@ export interface EditorState extends Doc {
   picked: string | null;
   /** Style page layout: cards in a grid, or one per row */
   view: CardView;
-  /** the Style page offers each style in its free font, ready-made, or as letters to shape with the settings */
-  letters: Letters;
   /** long panel sections folded down to their heading */
   folded: ControlKey[];
   /** the explanation at the top of the panel opened past its title */
@@ -156,7 +148,6 @@ export const useEditor = create<EditorState>()(() => ({
   styleTab: 'filter',
   picked: JSON.stringify(blankDoc().params),
   view: savedView(),
-  letters: savedLetters(),
   folded: savedFolded(),
   tips: savedTips(),
   inspect: null,
@@ -237,10 +228,10 @@ onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont) useEdi
 
 /** The settings a style's free font stands for as it comes: moved from these, its letters move too. */
 const freeAtOf = (st: StyleDef): FreeAt => Object.fromEntries(FREE_AT_KEYS.map(k => [k, st.params[k]]));
-/** A style's settings to start from, written in its free font or not. Its free font's letters are spaced
-    as the font spaces them, so the spacing starts at its middle. Traits laid over the style move the
+/** A style's settings to start from, written in its free font (unless a design built from the settings asks
+    otherwise). Its free font's letters are spaced as the font spaces them, so the spacing starts at its middle. Traits laid over the style move the
     font's letters as they move the settings (Bold makes it heavier). */
-function startParams(st: StyleDef, traits: Traits, free: boolean): Params {
+function startParams(st: StyleDef, traits: Traits, free = true): Params {
   const p = { ...applyTraits(st.params, traits) }, id = STYLE_FONTS[st.id];
   return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st), letterSpacing: 0.2, wordSpacing: 0.35 } : p;
 }
@@ -375,7 +366,7 @@ export const actions = {
   /** Start from a style, with the Style page's traits laid over it. */
   loadStyle(id: string) {
     const st = styleById(id); if (!st) return;
-    const s = get(), traits = s.traits, params = startParams(st, traits, s.letters === 'free'), n = Object.keys(traits).length;
+    const s = get(), traits = s.traits, params = startParams(st, traits), n = Object.keys(traits).length;
     // a design shaped since its style was picked loses that work to the new style: say so, with a way back
     const shaped = s.hi > 0 && s.picked !== JSON.stringify(s.params);
     set({ params, styleId: id, switchedOn: [], picked: JSON.stringify(params) });
@@ -383,8 +374,7 @@ export const actions = {
     if (shaped) { actions.toast(`${st.name} loaded in place of your changes`, { label: 'Undo', run: () => actions.travel(-1) }); return; }
     // the way on from here: the first page of controls, offered right on the toast
     const font = parseFontId(params.freeFont);
-    if (font) { actions.toast(`${st.name} loaded, written in ${font.family}, a free font`, { label: 'Make my own letters', run: () => actions.setFreeLetters(false) }); return; }
-    actions.toast(`${st.name} loaded${n ? ` with ${n} ${n === 1 ? 'trait' : 'traits'}` : ''} — now make it yours`,
+    actions.toast(`${st.name} loaded${font ? ` in ${font.family}` : ''}${n ? ` with ${n} ${n === 1 ? 'trait' : 'traits'}` : ''} — now make it yours`,
       { label: 'Customize', run: () => actions.setCategory('weight') });
     styleToast = toastId;
   },
@@ -504,10 +494,6 @@ export const actions = {
       }
     }
     setTraits(traits);
-  },
-  setLetters(letters: Letters) {
-    set({ letters });
-    try { localStorage.setItem(LETTERS_KEY, letters); } catch { /* private mode: the choice lasts this visit */ }
   },
   setView(view: CardView) {
     set({ view });

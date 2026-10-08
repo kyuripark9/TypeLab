@@ -53,7 +53,9 @@ function within(poly: Pt[], p: Pt) {
     that is all the letter keeps (a hyphen the band runs through), and a letter the band would take
     whole (a hyphen inside a wide one) stays as it is. */
 export function slice(cmds: Cmd[], y0: number, y1: number, round: number, w: number, minH = 0): Cmd[] {
-  const polys = toPolys(cmds), area = polys.map(signedArea);
+  // (wound as the engine winds its outlines, anticlockwise: a free font's may run the other way round)
+  let polys = toPolys(cmds), area = polys.map(signedArea);
+  if (area.reduce((a, b) => a + b, 0) < 0) { polys = polys.map(p => p.slice().reverse()); area = polys.map(signedArea); }
   // a hole is wound against the outlines: it goes with the smallest outline around it
   const groups = new Map<number, Pt[][]>();
   polys.forEach((p, i) => {

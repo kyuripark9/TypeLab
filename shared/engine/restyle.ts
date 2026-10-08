@@ -694,6 +694,20 @@ export function restyleStencil(cs: Node[][], c: RestyleCtx, from: StencilLook, t
     const dn = nx * d.x + ny * d.y, E = s.edges[br.e], r = E.pts[E.pts.length >> 1].r, px = -d.y, py = d.x;
     return { d, r, at: dn < 0.2 ? half : Math.max(...[1, -1].map(o => (half - o * r * (px * nx + py * ny)) / dn)) };
   };
+  /** How far along branch br from join ji the stroke it meets ends, read off the ink just past the bar's edges either
+      side (the skeleton's join can sit off the middle of a heavy stem, nearer the bar). */
+  const inkAt = shape(cs.map(cn => sampled(cn)));
+  const edgeAt = (ji: number, br: Branch) => {
+    const { n } = hosts[ji], { d, r, at } = clear(ji, br), px = -d.y, py = d.x;
+    let far = 0;
+    for (const o of [1, -1]) {
+      const qx = n.x + px * o * (r + 3), qy = n.y + py * o * (r + 3);
+      let t = 0;
+      while (t < at * 3 && inkAt.has(qx + d.x * t, qy + d.y * t)) t += 1;
+      far = Math.max(far, t);
+    }
+    return far > 0 && far < at * 3 ? far : at;
+  };
   const square = (ji: number, br: Branch, d1: number, d2: number) => {
     const { n } = hosts[ji], { d, r } = clear(ji, br), w = r * 1.4 + 4, px = -d.y, py = d.x;
     const p1 = { x: n.x + d.x * d1, y: n.y + d.y * d1 }, p2 = { x: n.x + d.x * d2, y: n.y + d.y * d2 };
@@ -712,10 +726,14 @@ export function restyleStencil(cs: Node[][], c: RestyleCtx, from: StencilLook, t
             bands.push([{ x: h.n.x - w, y: y0 }, { x: h.n.x + w, y: y0 }, { x: h.n.x + w, y: y1 }, { x: h.n.x - w, y: y1 }]);
           return;
         }
-        // cut square across, where its edges clear the stroke it meets; narrowed to leave a solid piece between
-        const room = E.len - ends.reduce((a2, k) => a2 + clear(k, s.edges[br.e].a === joins[k].node ? { e: br.e, end: 'a' } : { e: br.e, end: 'b' }).at, 0);
-        const g = Math.min(gapOf(bv), Math.max(0, (room - c0.r * 3) / Math.max(1, ends.length)));
-        if (g > 1) bands.push(square(ji, br, c0.at, c0.at + g));
+        // cut square across, where its edges clear the stroke it meets; narrowed to leave a solid piece between, as
+        // long as the bar is thick or a third of the room in a narrow letter (Oswald's H), as the engine's
+        // (an arm's room runs on out to its free end)
+        const far = s.nodes[br.end === 'a' ? E.b : E.a], tip = ends.length === 1 && far.edges.length === 1 ? far.r : 0;
+        const room = E.len + tip - ends.reduce((a2, k) => a2 + edgeAt(k, s.edges[br.e].a === joins[k].node ? { e: br.e, end: 'a' } : { e: br.e, end: 'b' }), 0);
+        const piece = Math.min(c0.r * 1.2, room / (ends.length > 1 ? 3 : 2)), at = edgeAt(ji, br);
+        const g = Math.min(gapOf(bv), Math.max(0, (room - piece) / Math.max(1, ends.length)));
+        if (g > 1) bands.push(square(ji, br, at, at + g));
         return;
       }
       if (!(v > 0)) return;

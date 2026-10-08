@@ -153,10 +153,9 @@ function FinderOption({ step, option: o, index, traits, typed }: { step: FinderS
   );
 }
 
-/** A word set in a style, as large as fits the tile's width and height: in its free font, while the
-    Style page offers the free fonts. */
+/** A word set in a style, as large as fits the tile's width and height: in its free font. */
 function Sample({ style, traits, text }: { style: StyleDef; traits: Traits; text: string }) {
-  const free = useEditor(s => s.letters === 'free') && STYLE_FONTS[style.id];
+  const free = STYLE_FONTS[style.id];
   return free ? <FreeSample id={free} text={text} /> : <BuiltSample style={style} traits={traits} text={text} />;
 }
 
@@ -183,7 +182,7 @@ function BuiltSample({ style, traits, text }: { style: StyleDef; traits: Traits;
 
 /** Typed text set in a style at one size for every tile, wrapped to the tile's width. */
 function Typed({ style, traits, text }: { style: StyleDef; traits: Traits; text: string }) {
-  const free = useEditor(s => s.letters === 'free') && STYLE_FONTS[style.id];
+  const free = STYLE_FONTS[style.id];
   return free ? <FreeTyped id={free} text={text} /> : <BuiltTyped style={style} traits={traits} text={text} />;
 }
 
