@@ -137,6 +137,24 @@ describe('font engine', () => {
     assert.equal(f('hook').glyph('q')!.d, f('mirrored').glyph('q')!.d);
   });
 
+  it('the two-storey g has a bowl on the x-height and a loop under the baseline', () => {
+    const f = buildFont({ ...DEFAULTS, gForm: 'double' }), g = f.glyph('g')!, hook = buildFont(DEFAULTS).glyph('g')!;
+    assert.notEqual(g.d, hook.d);
+    const ys = g.skeleton.flat().map(q => q.y);
+    assert.ok(Math.max(...ys) > f.m.xh * 0.9 && Math.min(...ys) < f.m.desc * 0.8);
+    // its outline holds two counters (holes), the bowl's and the loop's
+    assert.ok((g.d.match(/M/g) ?? []).length >= 3);
+  });
+
+  it('a ball hangs in from the outer edge of its stroke, and a serif face ends its c low in a plain hairline', () => {
+    const p = { ...DEFAULTS, serif: true, terminal: 'round', terminalForm: 'ball' } as const;
+    const ball = buildFont(p).glyph('c')!, plain = buildFont({ ...p, terminal: 'flat', terminalForm: 'plain' }).glyph('c')!;
+    // the top end differs, the bottom one is the same plain end
+    assert.notEqual(ball.d, plain.d);
+    const low = (g: typeof ball) => g.skeleton.flat().filter(q => q.y < buildFont(p).m.xh * 0.3 && q.x > g.bodyW * 0.6).length;
+    assert.equal(low(ball), low(plain));
+  });
+
   it('the arm and leg of k and K meet where the k form says', () => {
     const f = (kForm: Params['kForm']) => buildFont({ ...DEFAULTS, kForm });
     for (const ch of 'kK') {

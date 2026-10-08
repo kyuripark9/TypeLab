@@ -181,7 +181,7 @@ function metrics(e: Effective): Metrics {
   const org = e.curve * (1 - clamp(e.slant));
   const ctx: PenCtx = {
     thick: s, thin, stress, k, org, terminal: e.terminal, chamfer: e.chamfer, joints: e.joints, reverse: e.reverse, swell: e.swell,
-    term: termSpec(e),
+    term: termSpec(e), dropLow: e.serif ? xh * 0.5 : undefined,
     pinch: e.pinch > 0 ? { y: pinchY(e.pinchPos, xh, cap), amount: e.pinch, reach: xh / 2 } : undefined,
     serif: e.serif ? {
       len: lerp(28, 175, e.serifSize) * (0.75 + 0.25 * ws),

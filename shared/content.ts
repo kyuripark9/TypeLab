@@ -696,8 +696,8 @@ export const CONTROLS: Record<ControlKey, ControlDef> = {
     explain: 'Two-storey like book type, or one bowl like handwriting. Its foot can run out in a spur along the baseline.' },
   diagonals: { cat: 'letters', type: 'form', label: 'Letters A, V and W', friendly: 'Straighten or arch A, V and W', tech: 'Symmetric, upright or arched diagonals', demo: 'AVW',
     explain: 'Two matching diagonals, or one diagonal leaning on an upright stem at the right (the upright A has no crossbar). Arches have no diagonals at all: A and N bend over like an upturned U, M with a stem down the middle, V is a U and W a U with a stem up the middle. Also v and w.' },
-  gForm: { cat: 'letters', type: 'form', label: 'Letter g', friendly: 'Choose the shape of the g', tech: 'Single-storey g', demo: 'gag',
-    explain: 'The tail hooks back under the bowl, or drops from its left side and hooks out to the right.' },
+  gForm: { cat: 'letters', type: 'form', label: 'Letter g', friendly: 'Choose the shape of the g', tech: 'Single- or double-storey g', demo: 'gag',
+    explain: 'The tail hooks back under the bowl, or drops from its left side and hooks out to the right; or two storeys, as in book type: a small bowl with an ear, linked to a loop under the baseline.' },
   iForm: { cat: 'letters', type: 'form', label: 'Letters I, J, i and l', friendly: 'Give I, J, i and l bars', tech: 'Barred I, J, i and l', demo: 'IJil',
     explain: 'A plain stem, or bars as in a typewriter face: i and l get a flag and a foot, I a bar at the top and foot, J a bar across the top.' },
   kForm: { cat: 'letters', type: 'form', label: 'Letter k', friendly: 'Choose the joint of k', tech: 'k and K junction', demo: 'kK',
@@ -857,7 +857,7 @@ export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Do
 export type FormKey = 'build' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'scriptForm' | 'flourish' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
 export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Params[K], 'auto'>, string][] } } = {
   build: { ch: 'E', options: [['strokes', 'Strokes'], ['blocks', 'Blocks']] as [Build, string][] },
-  gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored']] as [GForm, string][] },
+  gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored'], ['double', 'Two-storey']] as [GForm, string][] },
   kForm: { ch: 'k', options: [['arm', 'From arm'], ['stem', 'From stem'], ['bar', 'On a bar']] as [KForm, string][] },
   iForm: { ch: 'i', options: [['plain', 'Plain'], ['bars', 'Bars']] as [Exclude<IForm, 'auto'>, string][] },
   sForm: { ch: 's', options: [['curved', 'Curved'], ['flat', 'Flat spine']] as [SForm, string][] },

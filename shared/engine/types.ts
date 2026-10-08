@@ -110,6 +110,9 @@ export interface PenCtx {
   /** the finer shape of the picked terminal (see TermSpec); missing draws them as usual */
   term?: TermSpec;
   serif?: SerifSpec | null;
+  /** drops (a ball, a droplet) finish only the ends above this height or under the baseline: a serif face's
+      c, e and s end low in a plain hairline, as their tops and the a, f, r, j and y keep theirs */
+  dropLow?: number;
   /** curves become straight segments with cut corners (0..1) */
   chamfer?: number;
   /** strokes thin out where they join another (0..1) */

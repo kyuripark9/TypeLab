@@ -32,7 +32,7 @@ export const STORIES = ['auto', 'double', 'single'] as const;
 /** How a bowl meets its stem (b d p q g, the single-storey a): curving out of it, or square, its flat top and bottom running straight into it. */
 export const BOWL_JOINS = ['curved', 'square'] as const;
 /** The g: its descender hooks back under the bowl from a stem on the right, or drops from the left of the bowl and hooks out to the right. */
-export const G_FORMS = ['hook', 'mirrored'] as const;
+export const G_FORMS = ['hook', 'mirrored', 'double'] as const;
 /** Where the arm and leg of k and K meet: the leg springs from the arm, both meet at the stem, or both meet at the end of a short bar out from it. */
 export const K_FORMS = ['arm', 'stem', 'bar'] as const;
 /** The dots of i, j and the punctuation. 'auto' squares them unless Roundness or round stroke ends round them off. */

@@ -227,25 +227,55 @@ function cutAt(side: Pt[], p: Dir, d: Dir, out: Dir, t: number) {
   side[side.length - 1] = { x: q.x + dx * s, y: q.y + dy * s };
 }
 
-/* A round drop on a stroke end: a ball whose back meets the stroke's edges, or a droplet whose
-   sides run straight off the edges onto it. The stroke is drawn shorter by dropBack, so the drop
-   reaches only a little past where it would have ended. */
-const dropR = (T: TermSpec, t: number) => Math.max(T.size * t, t * 0.525);
-const dropK = (T: TermSpec, t: number) => { const R = dropR(T, t); return Math.sqrt(R * R - t * t / 4) + (T.form === 'ball' ? 0 : 0.5 * R); };
-const dropBack = (T: TermSpec, t: number) => dropK(T, t) + (T.form === 'ball' ? 0.15 : 0.3) * dropR(T, t);
-/* The drop's outline on an end at p heading d, from a (A's edge) round to b (B's). */
-function drop(a: Pt, b: Pt, p: Dir, d: Dir, t: number, T: TermSpec): Pt[] {
-  const R = dropR(T, t), k = dropK(T, t), ball = T.form === 'ball', c = { x: p.x + d.x * k, y: p.y + d.y * k };
-  // the angle round the drop (0 straight ahead, positive toward a) where each edge meets it
+/* A round drop on a stroke end: a ball, or a droplet that runs out longer along the stroke. Either hangs
+   in from the stroke's outer edge, which runs on into it without a step (as a c's or an a's ball sits
+   on its curve), and is as big as the letter's stems make it, not the hairline it ends: the inner edge
+   runs onto it. The stroke is drawn shorter by dropBack, so the drop reaches only a little past where
+   it would have ended. */
+const dropR = (T: TermSpec, t: number, stem = t) => Math.max(T.size * t, t * 0.525, T.size * 0.55 * stem);
+const dropK = (T: TermSpec, t: number, stem = t) => (T.form === 'ball' ? 0.35 : 0.9) * dropR(T, t, stem);
+const dropBack = (T: TermSpec, t: number, stem = t) => dropK(T, t, stem) + (T.form === 'ball' ? 0.6 : 0.5) * dropR(T, t, stem);
+/** Whether a stroke heading d runs level enough for a drop to leave its end plain, as a bar's. */
+const levelDir = (d: Dir) => Math.abs(d.y) < 0.35 * Math.hypot(d.x, d.y);
+/** Whether a stroke's samples run straight into its end (the last few, toward it). */
+const straightInto = (a: Sample, b: Sample) => Math.abs(a.tx * b.ty - a.ty * b.tx) < 1e-3;
+/** Whether an end at p is one a drop leaves plain (see dropLow). */
+const lowEnd = (p: Dir, ctx: PenCtx) => ctx.dropLow !== undefined && p.y > 0 && p.y < ctx.dropLow;
+/* The drop's outline on an end at p heading d, from a (A's edge) round to b (B's); A is the outer edge
+   when outerIsA. */
+function drop(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, T: TermSpec, outerIsA: boolean, stem = t): Pt[] {
+  const R = dropR(T, t, stem), k = dropK(T, t, stem), side = (outerIsA ? -1 : 1) * Math.max(0, R - t / 2);
+  // (A lies to the left of d: the centre moves away from the outer edge, toward the inside)
+  const c = { x: p.x + d.x * k - d.y * side, y: p.y + d.y * k + d.x * side };
+  const along = (e: Pt) => (e.x - c.x) * d.x + (e.y - c.y) * d.y, across = (e: Pt) => (e.x - c.x) * -d.y + (e.y - c.y) * d.x;
+  // the inner edge runs on as drawn till it meets the drop (what of it the drop covers goes), and turns
+  // into it round a small fillet
+  const inner = outerIsA ? B : A, inside = (e: Pt) => Math.hypot(e.x - c.x, e.y - c.y) < R;
+  if (inside(inner[inner.length - 1])) {
+    let gone = inner[inner.length - 1];
+    while (inner.length > 2 && inside(inner[inner.length - 2])) { inner.pop(); gone = inner[inner.length - 1]; }
+    inner.pop();
+    // where the edge from the last point outside to the first one in crosses the drop
+    const q = inner[inner.length - 1], vx = gone.x - q.x, vy = gone.y - q.y, fx = q.x - c.x, fy = q.y - c.y;
+    const A2 = vx * vx + vy * vy, B2 = 2 * (fx * vx + fy * vy), C2 = fx * fx + fy * fy - R * R;
+    const u = A2 > 1e-9 ? clamp((-B2 - Math.sqrt(Math.max(0, B2 * B2 - 4 * A2 * C2))) / (2 * A2)) : 0;
+    inner.push({ x: q.x + vx * u, y: q.y + vy * u, r: Math.min(R, t) * 0.6 });
+  }
+  const a = A[A.length - 1], b = B[B.length - 1];
+  // the angle round the drop (0 straight ahead, positive toward a) where each edge runs onto it: along
+  // its tangent from the edge's end, or straight on where the end lies on it
   const meet = (e: Pt, sg: number) => {
-    const al = (e.x - c.x) * d.x + (e.y - c.y) * d.y, lat = (e.x - c.x) * -d.y + (e.y - c.y) * d.x, D = Math.hypot(al, lat);
-    return ball || D <= R ? Math.atan2(lat, al) : Math.atan2(lat, al) - sg * Math.acos(R / D);
+    const al = along(e), la = across(e), D = Math.hypot(al, la);
+    return D <= R * 1.001 ? Math.atan2(la, al) : Math.atan2(la, al) - sg * Math.acos(R / D);
   };
-  const fa = meet(a, 1), fb = meet(b, -1), n = 20, out: Pt[] = [];
-  a.sharp = b.sharp = true;
-  for (let i = ball ? 1 : 0; i <= (ball ? n - 1 : n); i++) {
+  const fa = meet(a, 1), fb = meet(b, -1), n = 24, out: Pt[] = [];
+  if (!a.r) a.sharp = true;
+  if (!b.r) b.sharp = true;
+  // (an end that lies on the drop already is where its arc starts)
+  const on = (e: Pt) => Math.hypot(along(e), across(e)) <= R * 1.001;
+  for (let i = on(a) ? 1 : 0; i <= (on(b) ? n - 1 : n); i++) {
     const f = lerp(fa, fb, i / n), cs = Math.cos(f), sn = Math.sin(f);
-    out.push({ x: c.x + R * (cs * d.x - sn * d.y), y: c.y + R * (cs * d.y + sn * d.x), smooth: i > 0 && i < n });
+    out.push({ x: c.x + R * (cs * d.x - sn * d.y), y: c.y + R * (cs * d.y + sn * d.x), smooth: true });
   }
   return out;
 }
@@ -273,7 +303,7 @@ function trimRuns(runs: Sample[][], total: number, back: number, atStart: boolea
 
 /* A is the side to the left of the outward direction d, B to the right. Returns points
    inserted between the two tails. */
-function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: PenCtx, outerIsA: boolean): Pt[] {
+function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: PenCtx, outerIsA: boolean, straight = false): Pt[] {
   const a = A[A.length - 1], b = B[B.length - 1];
   if (type === 'join') { a.sharp = b.sharp = true; a.smooth = b.smooth = false; return []; }
   if (type === 'h' || type === 'v') { cutSide(A, p, d, type, t); cutSide(B, p, d, type, t); return []; }
@@ -293,7 +323,12 @@ function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: Pe
       return out;
     }
     case 'round':
-      if (T.form === 'droplet' || T.form === 'ball') return drop(a, b, p, d, t, T);
+      if (T.form === 'droplet' || T.form === 'ball') {
+        // a level bar (an f's or a t's) ends plain, as a low end does; on a straight tail (a y's) the drop hangs
+        // up off its lower edge, as on the hook a tail curls into
+        if (lowEnd(p, ctx) || (straight && levelDir(d))) return [];
+        return drop(A, B, p, d, t, T, straight ? A[A.length - 1].y < B[B.length - 1].y : outerIsA, ctx.thick);
+      }
       a.r = b.r = t * T.round + 0.5; return [];
     case 'sharp': {
       // leaning toward the outer edge: A lies to the left of d
@@ -609,8 +644,9 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   // a drop sits on the end it finishes: draw the stroke that much shorter under it
   if (ctx.terminal === 'round' && (T.form === 'droplet' || T.form === 'ball')) {
     const s0 = all[0], s1 = all[all.length - 1];
-    if (o.e === 'term') trimRuns(runs, total, Math.min(dropBack(T, s1.t), total * 0.4), false);
-    if (o.s === 'term' && runs.length) trimRuns(runs, total, Math.min(dropBack(T, s0.t), total * 0.4), true);
+    const plain = (s: Sample, near: Sample, d: Dir) => lowEnd(s, ctx) || (straightInto(near, s) && levelDir(d));
+    if (o.e === 'term' && !plain(s1, all[Math.max(0, all.length - 5)], { x: s1.tx, y: s1.ty })) trimRuns(runs, total, Math.min(dropBack(T, s1.t, ctx.thick), total * 0.4), false);
+    if (o.s === 'term' && !plain(s0, all[Math.min(all.length - 1, 4)], { x: s0.tx, y: s0.ty }) && runs.length) trimRuns(runs, total, Math.min(dropBack(T, s0.t, ctx.thick), total * 0.4), true);
     if (!runs.length) return null;
   }
 
@@ -719,10 +755,10 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     return a.y >= b.y;
   };
   const de = { x: last.tx, y: last.ty }, ds = { x: -first.tx, y: -first.ty }, endCorners: Expanded['endCorners'] = [];
-  const endX = cap(L, R, last, de, last.t, o.e || 'flat', ctx, pickA(endTurn, true, L, R));
+  const endX = cap(L, R, last, de, last.t, o.e || 'flat', ctx, pickA(endTurn, true, L, R), Math.abs(endTurn) < 1e-3);
   if (squareEnd(o.e || 'flat', ctx)) endCorners.push({ which: 'e', side: 'l', pt: L[L.length - 1] }, { which: 'e', side: 'r', pt: R[R.length - 1] });
   L.reverse(); R.reverse();
-  const startX = cap(R, L, first, ds, first.t, o.s || 'flat', ctx, pickA(startTurn, false, R, L));
+  const startX = cap(R, L, first, ds, first.t, o.s || 'flat', ctx, pickA(startTurn, false, R, L), Math.abs(startTurn) < 1e-3);
   if (squareEnd(o.s || 'flat', ctx)) endCorners.push({ which: 's', side: 'l', pt: R[R.length - 1] }, { which: 's', side: 'r', pt: L[L.length - 1] });
   L.reverse(); R.reverse();
   const contour = [...L, ...endX, ...R.slice().reverse(), ...startX]
