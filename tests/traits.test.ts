@@ -35,7 +35,7 @@ describe('style search', () => {
     assert.deepEqual(names('futura'), ['geometric']);
     assert.ok(names('Bodoni').includes('didone'));
     assert.ok(names('round mono').every(id => styleById(id)!.group === 'mono'));
-    assert.ok(names('futuristic').length > 3);
+    assert.ok(names('futuristic').length >= 3);
     assert.equal(names('').length, PAGE_STYLES.length);
     assert.equal(names('xyzzy').length, 0);
   });

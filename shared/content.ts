@@ -565,8 +565,8 @@ export const STYLES: StyleDef[] = [
       vWeight: 0.54, hWeight: 0.42, counter: 1, descender: 1, joinRound: 0.93, wordSpacing: 0.412, sideBearing: 0.1, classicFuture: 0.68,
       playfulFormal: 0.51 }),
 
-  /* ---- Display */
-  style('woodtype', 'display', ['slab'], 'Wood Type', ['rugged', 'vintage', 'loud'], 'Alfa Slab One, Sancreek, Rye',
+  /* ---- Display (Wood Type is shown with the slab serifs) */
+  style('woodtype', 'slab', ['slab'], 'Wood Type', ['rugged', 'vintage', 'loud'], 'Alfa Slab One, Sancreek, Rye',
     'Poster letters cut from wood for Wild West handbills: heavy, compact and squared, with chunky slabs.',
     { weight: 1, width: 0.52, height: 0.62, contrast: 0.53, serif: true, serifShape: 'slab', serifSize: 0.22, serifThickness: 1, serifAngle: 0,
       classicFuture: 0.88, xHeight: 0.651, aperture: 0, counter: 0.24, apex: 1, letterSpacing: 0.3, hWeight: 1, crossbar: 0.52, roundness: 0.45,
@@ -723,28 +723,22 @@ export const STYLES: StyleDef[] = [
       terminalLength: 1, squareness: 0.2, descender: 0.38, joinRound: 0.76, tail: 0, wordSpacing: 0.149, sideBearing: 0.2 })
 ];
 
-/* The style page's cards, in the order they are shown under each Category heading: the most useful
-   starting points first, plain faces of middling weight and width that the sliders reshape into almost
-   anything, then the ones set further out (very light or black, narrow or wide), and last those built
-   on a special shape (box bowls, bent diagonals, pinches, steps, curls, swashes) that change less
-   easily. Every card is solid letters, and no two are near-copies. Styles left out stay defined, so
-   designs saved from them still open: those built on an effect (a fill other than solid ink, stencil
-   gaps or a slice), and those too close to a card here or too rough to start from. */
+/* The style page's cards, in the order they are shown under each Category heading: one base font for
+   each build of letters the sliders can't reach from another, chosen for its many weights and italics,
+   since a setting moves the letters furthest and cleanest from a family's own nearest weight. Each was
+   kept because a near card rebuilt from it with its own settings broke up (heavy and wide, fat face,
+   heavy slab, slab mono, the italic); the rest are left out, as those rebuilt cleanly from a card here,
+   and the display looks (box bowls, octagons, pinches, steps, hairlines) are settings over these.
+   Every card is solid letters. Styles left out stay defined, so designs saved from them still open. */
 const PAGE_ORDER = [
-  // Sans Serif: the everyday text faces, then rounder, narrower and squarer, then the heavy and wide, then the odd one out
-  'grotesque', 'humanist', 'geometric', 'soft', 'industrial', 'condensed', 'chunkyround', 'squircle', 'softcond',
-  'extended', 'flared', 'inktrap', 'wide', 'mirrorsans',
-  // Serif: book and news text, then the headline cuts, then the hairline, black and carved ones, then swashes
-  'serif', 'news', 'oldstyle', 'venetian', 'headline', 'didone', 'serifitalic', 'condserif', 'hairserif', 'fatface',
-  'wedge', 'copperplate', 'swashitalic',
-  'softslab', 'slab', 'clarendon', 'humanslab', 'wideslab',
-  'code', 'roundmono', 'typewriter', 'boldmono', 'scoreboard', 'boxmono', 'cursivemono',
-  // Calligraphy: plain printing, then scripts from casual to formal, then the fast ones and blackletter
-  'comic', 'upright', 'casual', 'marker', 'architect', 'upscript', 'informal', 'brush', 'chancery', 'swash',
-  'signature', 'blackletter',
-  // Display: poster letters made from the ordinary sliders, then those built on box bowls, bends, pinches and curls
-  'woodtype', 'comicbook', 'display', 'bauhaus', 'octagon', 'techno', 'reverse', 'hairline', 'heavybox', 'boxcontrast',
-  'modular', 'pinched', 'stepped', 'hairbox', 'nouveau'
+  // Sans Serif: the everyday text faces, then rounded and squared, then the wide and the heavy rounded
+  'grotesque', 'humanist', 'geometric', 'soft', 'industrial', 'squircle', 'chunkyround',
+  // Serif: transitional and old style book type, then the didone, its italic and its fat face
+  'serif', 'oldstyle', 'didone', 'serifitalic', 'fatface',
+  'softslab', 'woodtype',
+  'code', 'typewriter',
+  // Calligraphy: printing, handwriting, a retro and a formal script, and blackletter
+  'comic', 'casual', 'informal', 'chancery', 'blackletter'
 ];
 export const PAGE_STYLES = PAGE_ORDER.map(id => STYLES.find(s => s.id === id)!);
 
@@ -1099,9 +1093,9 @@ export function looksOf(p: Params): Look[] { const e = resolve(p); return LOOKS.
 
 /** The starting style each Feeling chip is set in: one that carries the feeling. */
 export const TAG_FACE: Record<Mood, string> = {
-  business: 'grotesque', calm: 'humanist', happy: 'soft', playful: 'display', cute: 'upright', childlike: 'casual',
-  fancy: 'didone', sophisticated: 'chancery', artistic: 'brush', loud: 'fatface', rugged: 'marker', vintage: 'typewriter',
-  futuristic: 'techno', sincere: 'clarendon', excited: 'marker', innovative: 'squircle', stiff: 'code'
+  business: 'grotesque', calm: 'humanist', happy: 'soft', playful: 'comic', cute: 'chunkyround', childlike: 'casual',
+  fancy: 'didone', sophisticated: 'chancery', artistic: 'serifitalic', loud: 'fatface', rugged: 'woodtype', vintage: 'typewriter',
+  futuristic: 'industrial', sincere: 'softslab', excited: 'informal', innovative: 'squircle', stiff: 'code'
 };
 
 /** First control of each category, opened when the category is picked. */

@@ -20,10 +20,11 @@ describe('style page', () => {
     }
   });
 
-  it('keeps every filter tag live: each Category, genre and feeling has a card', () => {
-    for (const g of STYLE_GROUPS) assert.ok(PAGE_STYLES.some(s => s.group === g.id), g.id);
-    for (const t of KIND_SECTIONS.flatMap(sec => sec.tags)) assert.ok(PAGE_STYLES.some(s => s.kinds.includes(t.id)), t.id);
+  it('keeps every Feeling chip live, and the finder offers only Categories and genres with a card', () => {
+    // the panel shows every feeling, so each needs a card; the finder leaves out answers with none
     for (const m of MOODS) assert.ok(PAGE_STYLES.some(s => s.moods.includes(m.id)), m.id);
+    assert.ok(STYLE_GROUPS.filter(g => PAGE_STYLES.some(s => s.group === g.id)).length >= 2);
+    for (const s of PAGE_STYLES) for (const k of s.kinds) assert.ok(KIND_SECTIONS.some(sec => sec.tags.some(t => t.id === k)), `${s.id}: ${k}`);
   });
 
   it('draws each Feeling chip in a style on the page that carries it', () => {
