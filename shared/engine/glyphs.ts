@@ -848,17 +848,19 @@ function mirroredG(g: Builder, m: Metrics, W: number) {
    along its top. Returns the width, ear included. */
 function doubleG(g: Builder, m: Metrics) {
   const { X, hs, hh } = lc(m), W = m.W(490, 'r'), xl = hs, xr = W - hs;
-  // the bowl: three fifths of the width, from the x-height down to under a third of it, its counter kept
-  // open however heavy the strokes (wider, and the loop goes lower to make room)
-  const ut = X + m.os - hh, ub = Math.min(X * 0.3 + hh, ut - 2 * hh - X * 0.38), ul = xl + W * 0.06, ur = Math.min(xr, Math.max(lerp(ul, xr, 0.6), ul + m.s + X * 0.24));
+  // the loop, under the baseline, keeps an open counter however short the descender: it rises further over
+  // the baseline, and the bowl gives way above it
+  const lb = m.desc + hh, lt = Math.max(X * 0.04 + hh, lb + 2 * hh + X * 0.2);
+  // the bowl: three fifths of the width (wider with heavy strokes), from the x-height down to under a third of
+  // it, its counter kept open however heavy the strokes
+  const ut = X + m.os - hh, ub = Math.min(Math.max(Math.min(X * 0.3 + hh, ut - 2 * hh - X * 0.38), lt + 2 * hh + X * 0.08), ut - 2 * hh - X * 0.24);
+  const ul = xl + W * 0.06, ur = Math.min(xr, Math.max(lerp(ul, xr, 0.6), ul + m.s + X * 0.24));
   const ux = (ul + ur) / 2, uy = (ut + ub) / 2, rx = (ur - ul) / 2, ry = (ut - ub) / 2;
   oval(g, m, ul, ur, ub, ut, { counter: true });
   // the ear: a short flag up and out of the bowl's shoulder, to the letter's right side
   const ea = Math.PI * 0.2, ex = ux + rx * Math.cos(ea), ey = uy + ry * Math.sin(ea), ear = Math.max(0, W - m.s * 0.2 - ex);
   g.path([['M', ex - m.s * 0.15, ey - m.s * 0.1], ['C', ex + ear * 0.35, ut, ex + ear * 0.6, ut + m.os, ex + ear, ut + m.os]], { s: J, e: T, w: 'thin', part: 'ear' });
-  // the loop: as wide as the letter, from just over the baseline (under it when the strokes are heavy, so the
-  // link has room) to the descender
-  const lb = m.desc + hh, lt = Math.min(X * 0.04 + hh, ub - hh - X * 0.12 - hh);
+  // the loop: as wide as the letter, from just over the baseline to the descender
   oval(g, m, xl, xr, lb, lt, { counter: true });
   // the link leaves the bowl low on its left and runs down into the loop's top
   const a = Math.PI * 1.32, p0x = ux + rx * Math.cos(a), p0y = uy + ry * Math.sin(a);
