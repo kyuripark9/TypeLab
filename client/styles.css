@@ -595,6 +595,13 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-tools svg { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .pen-tools svg .fill { fill: currentColor; }
 .pen-sep { height: 1px; margin: 3px 4px; background: var(--line); }
+.pen-shape-tool { position: relative; }
+.pen-tools .corner { stroke: none; opacity: .55; }
+.pen-shape-menu { position: absolute; top: -5px; left: calc(100% + 10px); z-index: 3; width: 196px; display: flex; flex-direction: column; gap: 1px; padding: 4px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+.pen-tools .pen-shape-menu button { width: auto; height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 8px; font-size: 13px; text-align: left; }
+.pen-shape-menu span { flex: 1; }
+.pen-shape-menu kbd { font: 500 11px var(--ui); color: var(--ink-3); }
+.pen-tools .pen-shape-menu button.on { background: var(--accent-soft); color: var(--accent-ink); }
 .pen-bg { fill: transparent; }
 .pen-ink { fill: rgba(46, 59, 62, .16); pointer-events: none; }
 .pen-fill { fill: transparent; }
@@ -637,14 +644,12 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-h circle:not(.grab) { fill: var(--accent); }
 .pen-h { cursor: default; }
 .pen-box { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; pointer-events: none; }
-.pen-pt.del rect, .pen-pt.del circle:not(.grab) { stroke: #d64b4b; stroke-width: 2; }
 .pen-ghost circle { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
 .pen-ghost path { stroke: var(--accent); stroke-width: 1.3; stroke-linecap: round; }
 .pen-aim circle { fill: var(--accent); stroke: var(--surface); stroke-width: 1.5; }
-.pen-aim.delete circle { fill: #d64b4b; }
 .pen-aim .mark { fill: none; stroke: #fff; stroke-width: 1.5; stroke-linecap: round; }
 .pen-aim circle.mark { fill: none; stroke: #fff; stroke-width: 1.4; }
-.pen-aim-shape { fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.3; }
+.pen-aim-shape * { fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.5; stroke-linejoin: round; }
 .pen-size { font: 500 10.5px var(--ui); fill: var(--accent-ink); stroke: var(--surface); stroke-width: 3px; paint-order: stroke; font-variant-numeric: tabular-nums; pointer-events: none; }
 .pen-bar { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 7px 16px; border-top: 1px solid var(--line); font-size: 12.5px; }
 .inspector.customizing .pen-bar { background: var(--custom-wash); }

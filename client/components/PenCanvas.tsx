@@ -1,8 +1,9 @@
 /* The pen: the inspected letter as anchor points and bézier handles, edited like paths in a vector
    editor. The Direct selection tool moves points, handles and curves; the Pen adds points (or
    draws new contours) and removes them; Convert switches points between corner and smooth; the
-   Rectangle and Ellipse add those shapes as new contours. Hovering shows what a click will do: a
-   point the pen would add on the outline (where it goes), one it would delete, the start it would close on. A letter
+   Shape tool adds a rectangle, rounded rectangle, ellipse, triangle, hexagon or star, picked from its
+   menu, as a new contour. Hovering shows what a click will do: a
+   point the pen would add on the outline (where it goes), the start it would close on. A letter
    not yet drawn shows its outline traced into points (fitOutline), and becomes a drawing, which the
    settings no longer shape, with the first edit. Every change is one undo step. With Sync all, a
    point or handle moved here moves in the other letters with a point in the same place too; with
@@ -14,13 +15,13 @@ import { cmdsToD, drawnCmds, hasIn, hasOut, segment, type Drawn, type Font, type
 import { isTyping, n1, useSize } from '../lib/hooks';
 import {
   anchorsIn, constrain, contourArea, deleteAnchors, handlePeers, keyRef, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment,
-  peersOf, pointOn, pullHandles, refKey, reshapeSegment, reverseContour, setHandle, setSmooth, shapeContour, snapIn, snapScene, splitSegment,
-  toggleSmooth, traceOf, SNAP_KINDS, type Axis, type Peer, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
+  peersOf, pointOn, pullHandles, refKey, reshapeSegment, reverseContour, setHandle, setSmooth, shapeAspect, shapeContour, snapIn, snapScene, splitSegment,
+  toggleSmooth, traceOf, SHAPES, SNAP_KINDS, type Axis, type Peer, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
 } from '../lib/pen';
 import { actions, useEditor } from '../state/editor';
 import { GridLines } from './ConstructionGrid';
 
-type Tool = 'select' | 'pen' | 'convert' | Shape;
+type Tool = 'select' | 'pen' | 'convert' | 'shape';
 type P = { x: number; y: number };
 interface View { sc: number; ox: number; oy: number }
 /** a live pointer gesture; `end` finishes it */
@@ -29,13 +30,20 @@ interface Gesture { move: (p: P, e: PointerEvent) => void; up: (moved: boolean) 
 const TOOLS: { id: Tool; label: string; key: string; icon: ReactNode }[] = [
   { id: 'select', label: 'Direct selection', key: 'A', icon: <path d="M5 3l10 6.5-4.5 1L13 16l-2 1-2.5-5.5L5 15z" className="fill" /> },
   { id: 'pen', label: 'Pen', key: 'P', icon: <><path d="M10 2.5l5 8-2.5 6h-5l-2.5-6z" /><path d="M10 2.5v6.5" /><circle cx="10" cy="10" r="1.3" /></> },
-  { id: 'convert', label: 'Convert point', key: '⇧C', icon: <><path d="M3.5 15.5L10 4l6.5 11.5" /><path d="M5 9.5h10" strokeDasharray="1.5 2" /></> },
-  { id: 'rect', label: 'Rectangle', key: 'M', icon: <rect x="3.5" y="5" width="13" height="10" rx="0.5" /> },
-  { id: 'ellipse', label: 'Ellipse', key: 'L', icon: <ellipse cx="10" cy="10" rx="7" ry="5.5" /> }
+  { id: 'convert', label: 'Convert point', key: '⇧C', icon: <><path d="M3.5 15.5L10 4l6.5 11.5" /><path d="M5 9.5h10" strokeDasharray="1.5 2" /></> }
 ];
-const isShape = (t: Tool): t is Shape => t === 'rect' || t === 'ellipse';
+/** The shapes the Shape tool draws: name, shortcut, the hint's words, and a 20 × 20 icon. */
+const SHAPE_INFO: Record<Shape, { label: string; key?: string; hint: string; icon: ReactNode }> = {
+  rect: { label: 'Rectangle', key: 'M', hint: 'a rectangle · Shift for a square', icon: <rect x="3.5" y="5" width="13" height="10" rx="0.5" /> },
+  round: { label: 'Rounded rectangle', hint: 'a rounded rectangle · Shift for a square', icon: <rect x="3.5" y="5" width="13" height="10" rx="3" /> },
+  ellipse: { label: 'Ellipse', key: 'L', hint: 'an ellipse · Shift for a circle', icon: <ellipse cx="10" cy="10" rx="7" ry="5.5" /> },
+  triangle: { label: 'Triangle', hint: 'a triangle · Shift keeps its sides even', icon: <path d="M10 3.5l7 12.5H3z" /> },
+  polygon: { label: 'Hexagon', hint: 'a hexagon · Shift keeps its sides even', icon: <path d="M10 2.8l6.5 3.6v7.2L10 17.2l-6.5-3.6V6.4z" /> },
+  star: { label: 'Star', hint: 'a star · Shift keeps its points even', icon: <path d="M10 2.5l2.1 4.6 5 .5-3.7 3.4 1 4.9L10 13.4l-4.4 2.5 1-4.9-3.7-3.4 5-.5z" /> }
+};
+const SHAPE_KEY = 'typelab.pen.shape';
 /** What a click would do where the pointer is, shown while it hovers. */
-type Aim = { kind: 'add'; at: P } | { kind: 'delete'; r: Ref } | { kind: 'close' } | { kind: 'shape'; shape: Shape };
+type Aim = { kind: 'add'; at: P } | { kind: 'close' } | { kind: 'shape'; shape: Shape };
 
 const HIT = 7; // px around an anchor or handle that grabs it
 
@@ -51,6 +59,11 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const doc = stored ?? traced;
   const cs = doc.contours;
   const [tool, setTool] = useState<Tool>('select');
+  // the shape the Shape tool draws, the one last picked
+  const [shape, setShapeNow] = useState<Shape>(() => {
+    try { const v = localStorage.getItem(SHAPE_KEY) as Shape | null; return v && SHAPES.includes(v) ? v : 'rect'; } catch { return 'rect'; }
+  });
+  const pickShape = (k: Shape) => { setShapeNow(k); setTool('shape'); try { localStorage.setItem(SHAPE_KEY, k); } catch { /* not kept */ } };
   const [sel, setSel] = useState<string[]>([]);
   const [drawing, setDrawing] = useState<number | null>(null);
   const [view, setView] = useState<View | null>(null);
@@ -200,7 +213,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     if (e.button !== 0 || space) return;
     const k = refKey(r);
     // a shape can start on a point
-    if (isShape(tool)) { onBackground(e); return; }
+    if (tool === 'shape') { onBackground(e); return; }
     if (tool === 'pen') {
       // on the first point of the contour being drawn: close it (a drag pulls its handles)
       if (drawingOk === r.c && r.i === 0 && cs[r.c].length > 1) {
@@ -254,7 +267,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   /** Pressing on the outline between points: the pen adds a point there, the other tools bend the curve. */
   const onSegment = (e: ReactPointerEvent) => {
     if (e.button !== 0 || space) return;
-    if (isShape(tool)) { onBackground(e); return; }
+    if (tool === 'shape') { onBackground(e); return; }
     const p = toFont(e), hit = nearestSegment(current().contours, p);
     if (!hit || hit.d * sc > HIT + 2 || (tool === 'pen' && drawingOk !== null)) { onBackground(e); return; }
     const base = current().contours;
@@ -288,7 +301,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   };
 
   /** Pressing on empty canvas: the pen adds a point (a drag pulls smooth handles), the Rectangle and Ellipse
-      draw their shape (Shift keeps it square or round, Alt draws it from the center), Direct selection
+      Shape tool draws its shape (Shift keeps it even, Alt draws it from the center), Direct selection
       draws a selection box; with Space held, or the middle button, it pans. */
   const onBackground = (e: ReactPointerEvent) => {
     if (e.button === 1 || (e.button === 0 && space)) {
@@ -320,8 +333,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       });
       return;
     }
-    if (isShape(tool)) {
-      const kind = tool, was = useEditor.getState().params.outlines, base = current().contours;
+    if (tool === 'shape') {
+      const kind = shape, ar = shapeAspect(kind), was = useEditor.getState().params.outlines, base = current().contours;
       free.current = e.metaKey || e.ctrlKey;
       const a = snapTo(p);
       // the new shape runs the way the letter's biggest contour does, so it fills as that one does
@@ -330,8 +343,9 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       let size = { w: 0, h: 0 };
       start(e, {
         move: (pp, ev) => {
-          const q = snapTo(pp), dx = q.x - a.x, dy = q.y - a.y, s = Math.max(Math.abs(dx), Math.abs(dy));
-          const b = ev.shiftKey ? { x: a.x + (dx < 0 ? -s : s), y: a.y + (dy < 0 ? -s : s) } : q;
+          // Shift: as wide for its height as the shape at its most even, reaching the pointer
+          const q = snapTo(pp), dx = q.x - a.x, dy = q.y - a.y, h = Math.max(Math.abs(dx) / ar, Math.abs(dy));
+          const b = ev.shiftKey ? { x: a.x + (dx < 0 ? -h * ar : h * ar), y: a.y + (dy < 0 ? -h : h) } : q;
           const o = ev.altKey ? { x: 2 * a.x - b.x, y: 2 * a.y - b.y } : a;
           size = { w: Math.round(Math.abs(b.x - o.x)), h: Math.round(Math.abs(b.y - o.y)) };
           write([...base, shapeContour(kind, o.x, o.y, b.x, b.y, ccw)]);
@@ -415,8 +429,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     if (k === 'a' || k === 'v') { stop(); setTool('select'); finish(); return; }
     if (k === 'p') { stop(); setTool('pen'); return; }
     if (k === 'c' && e.shiftKey) { stop(); setTool('convert'); finish(); return; }
-    if (k === 'm') { stop(); setTool('rect'); finish(); return; }
-    if (k === 'l') { stop(); setTool('ellipse'); finish(); return; }
+    if (k === 'm') { stop(); pickShape('rect'); finish(); return; }
+    if (k === 'l') { stop(); pickShape('ellipse'); finish(); return; }
     if ((e.key === 'Delete' || e.key === 'Backspace') && selRefs.length) { stop(); commit(deleteAnchors(current().contours, selRefs)); setSel([]); setDrawing(null); return; }
     const arrow = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
     if (arrow && selRefs.length) {
@@ -458,12 +472,12 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   }
   const one = selRefs.length === 1 ? cs[selRefs[0].c][selRefs[0].i] : null;
   const count = cs.reduce((a, c) => a + c.length, 0);
-  const cursor = space ? 'grab' : tool === 'pen' || isShape(tool) ? 'crosshair' : 'default';
-  // what a click would do under the pointer: the pen adds a point on the outline, deletes the point
-  // it's over, or closes the contour being drawn on its first point; a shape tool adds its shape
+  const cursor = space ? 'grab' : tool === 'pen' || tool === 'shape' ? 'crosshair' : 'default';
+  // what a click would do under the pointer: the pen adds a point on the outline, or closes the
+  // contour being drawn on its first point; a shape tool adds its shape. (Over another point, nothing shows.)
   let aim: Aim | null = null;
   if (ptr && !space && !gesture.current && !box) {
-    if (isShape(tool)) aim = { kind: 'shape', shape: tool };
+    if (tool === 'shape') aim = { kind: 'shape', shape };
     else if (tool === 'pen') {
       let near: Ref | null = null, nd = HIT;
       for (let c = 0; c < cs.length; c++) for (let i = 0; i < cs[c].length; i++) {
@@ -472,14 +486,12 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       }
       if (near) {
         if (drawingOk === near.c && near.i === 0 && cs[near.c].length > 1) aim = { kind: 'close' };
-        else if (drawingOk === null) aim = { kind: 'delete', r: near };
       } else if (drawingOk === null) {
         const hit = nearestSegment(cs, ptr);
         if (hit && hit.d * sc <= HIT) aim = { kind: 'add', at: pointOn(cs, hit.c, hit.i, hit.t) };
       }
     }
   }
-  const aimDel = aim?.kind === 'delete' ? refKey(aim.r) : null;
   // with Sync all, the letters the picked points would move in too: found again only when the picked
   // points or the drawings change, and not mid-drag (they're the letters the drag started with)
   const reachKey = sync && selRefs.length ? ch + ' ' + selRefs.map(refKey).join(' ') : '';
@@ -508,6 +520,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">{t.icon}</svg>
           </button>
         ))}
+        <ShapeTool shape={shape} on={tool === 'shape'} onPick={k => { pickShape(k); finish(); }} />
         <span className="pen-sep" />
         <button title="Zoom in (⌘+)" aria-label="Zoom in" onClick={() => zoomBy(1.25)}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 5v10M5 10h10" /></svg></button>
         <button title="Zoom out (⌘−)" aria-label="Zoom out" onClick={() => zoomBy(0.8)}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M5 10h10" /></svg></button>
@@ -562,7 +575,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
               const k = `${c}:${i}`, on = selSet.has(k), first = drawingOk === c && i === 0 && con.length > 1;
               const x = n1(X(n.x)), y = n1(Y(n.y));
               return (
-                <g key={k} className={['pen-pt', on && 'on', twins.has(k) && 'twin', first && 'first', aimDel === k && 'del'].filter(Boolean).join(' ')}
+                <g key={k} className={['pen-pt', on && 'on', twins.has(k) && 'twin', first && 'first'].filter(Boolean).join(' ')}
                   onPointerDown={onAnchor({ c, i })} onDoubleClick={() => { if (tool === 'select') edit(o => toggleSmooth(o, { c, i })); }}>
                   <circle className="grab" cx={x} cy={y} r={HIT} />
                   {n.s ? <circle cx={x} cy={y} r={4} /> : <rect x={x - 3.5} y={y - 3.5} width={7} height={7} />}
@@ -602,7 +615,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             <PointKind smooth={selRefs.every(r => cs[r.c][r.i].s)} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
           </>
         ) : (
-          <span className="pen-bar-label muted pen-hint">{hint(tool, drawingOk !== null)}</span>
+          <span className="pen-bar-label muted pen-hint">{hint(tool, drawingOk !== null, shape)}</span>
         )}
         {selRefs.length > 0 && (
           <>
@@ -623,27 +636,64 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   );
 }
 
-function hint(tool: Tool, drawing: boolean) {
+function hint(tool: Tool, drawing: boolean, shape: Shape) {
   if (tool === 'pen') return drawing ? 'Click to add points · drag to pull a curve · click the first point to close · Esc to finish'
     : 'Click the outline to add a point · click a point to delete it · click empty space to start a new shape';
   if (tool === 'convert') return 'Click a point to switch corner ↔ smooth · drag from a point to pull out handles';
-  if (isShape(tool)) return `Drag to add ${tool === 'rect' ? 'a rectangle · Shift for a square' : 'an ellipse · Shift for a circle'} · ⌥ draws from the center · hold ⌘ not to snap`;
+  if (tool === 'shape') return `Drag to add ${SHAPE_INFO[shape].hint} · ⌥ draws from the center · hold ⌘ not to snap`;
   return 'Drag points, handles or curves (hold ⌘ not to snap) · Shift-click or drag a box to pick several · arrows nudge (Shift ×10) · Space-drag to pan, ⌘-scroll to zoom';
 }
 
-/** By the pointer, a small badge for what a click will do: by a little shape, + adds that shape; −
-    deletes the point under it; ○ closes the contour. (A point added on the outline shows as its ghost instead.) */
+/** By the pointer, a small badge for what a click will do: by a little shape, + adds that shape; ○
+    closes the contour. (A point added on the outline shows as its ghost instead.) */
 function AimBadge({ aim, x, y }: { aim: Exclude<Aim, { kind: 'add' }>; x: number; y: number }) {
   const shape = aim.kind === 'shape' ? aim.shape : null;
   const cx = x + (shape ? 25 : 13), cy = y + (shape ? 22 : 13);
   return (
     <g className={`pen-aim ${aim.kind}`} pointerEvents="none">
-      {shape === 'rect' && <rect className="pen-aim-shape" x={n1(x + 10)} y={n1(y + 10)} width={14} height={11} />}
-      {shape === 'ellipse' && <ellipse className="pen-aim-shape" cx={n1(x + 17)} cy={n1(y + 15.5)} rx={7.5} ry={5.5} />}
+      {shape && <svg className="pen-aim-shape" x={n1(x + 7)} y={n1(y + 6)} width={19} height={19} viewBox="0 0 20 20" overflow="visible">{SHAPE_INFO[shape].icon}</svg>}
       <circle cx={n1(cx)} cy={n1(cy)} r={6} />
       {aim.kind === 'close' ? <circle className="mark" cx={n1(cx)} cy={n1(cy)} r={2.4} />
-        : <path className="mark" d={`M${n1(cx - 3)} ${n1(cy)}h6` + (aim.kind === 'delete' ? '' : `M${n1(cx)} ${n1(cy - 3)}v6`)} />}
+        : <path className="mark" d={`M${n1(cx - 3)} ${n1(cy)}h6` + `M${n1(cx)} ${n1(cy - 3)}v6`} />}
     </g>
+  );
+}
+
+/** The Shape tool's button, showing the shape it draws; it opens a menu of the shapes to pick from. */
+function ShapeTool({ shape, on, onPick }: { shape: Shape; on: boolean; onPick: (k: Shape) => void }) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as globalThis.Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); setOpen(false); } };
+    document.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', esc, true);
+    return () => { document.removeEventListener('pointerdown', close); window.removeEventListener('keydown', esc, true); };
+  }, [open]);
+  const cur = SHAPE_INFO[shape];
+  return (
+    <div className="pen-shape-tool" ref={wrap}>
+      <button className={on ? 'on' : undefined} aria-pressed={on} aria-haspopup="true" aria-expanded={open} title={`Shape: ${cur.label} (M, L) · click to pick another`}
+        onClick={() => { if (!on) onPick(shape); setOpen(o => !o); }}>
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">{cur.icon}<path className="fill corner" d="M19 15.5V19h-3.5z" /></svg>
+      </button>
+      {open && (
+        <div className="pen-shape-menu" role="menu" aria-label="Shapes">
+          {SHAPES.map(k => {
+            const o = SHAPE_INFO[k];
+            return (
+              <button key={k} role="menuitemradio" aria-checked={k === shape} className={k === shape ? 'on' : undefined}
+                onClick={() => { onPick(k); setOpen(false); }}>
+                <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">{o.icon}</svg>
+                <span>{o.label}</span>
+                {o.key && <kbd>{o.key}</kbd>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
