@@ -102,7 +102,8 @@ export function setSmooth(cs: Node[][], refs: Ref[], smooth: boolean): Node[][] 
 export function splitSegment(cs: Node[][], c: number, i: number, t: number): Node[][] {
   const out = copy(cs), con = out[c], j = (i + 1) % con.length, a = con[i], b = con[j], s = segment(a, b);
   let m: Node;
-  if (!s) m = { x: R(a.x + (b.x - a.x) * t), y: R(a.y + (b.y - a.y) * t) };
+  // a straight segment is measured as the cubic [a, a, b, b] (nearestSegment), so t is along that, not linear
+  if (!s) { const q = bez([a, a, b, b], t); m = { x: R(q.x), y: R(q.y) }; }
   else {
     const L = (p: P, q: P): P => ({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
     const p01 = L(s[0], s[1]), p12 = L(s[1], s[2]), p23 = L(s[2], s[3]), p012 = L(p01, p12), p123 = L(p12, p23), mid = L(p012, p123);

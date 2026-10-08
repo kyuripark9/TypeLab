@@ -2,7 +2,7 @@
    editor. The Direct selection tool moves points, handles and curves; the Pen adds points (or
    draws new contours) and removes them; Convert switches points between corner and smooth; the
    Rectangle and Ellipse add those shapes as new contours. Hovering shows what a click will do: a
-   point the pen would add on the outline, one it would delete, the start it would close on. A letter
+   point the pen would add on the outline (where it goes), one it would delete, the start it would close on. A letter
    not yet drawn shows its outline traced into points (fitOutline), and becomes a drawing, which the
    settings no longer shape, with the first edit. Every change is one undo step. With Sync all, a
    point or handle moved here moves in the other letters with a point in the same place too; with
@@ -575,7 +575,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
                 <path d={`M${n1(X(aim.at.x) - 2.5)} ${n1(Y(aim.at.y))}h5M${n1(X(aim.at.x))} ${n1(Y(aim.at.y) - 2.5)}v5`} />
               </g>
             )}
-            {aim && ptr && <AimBadge aim={aim} x={X(ptr.x)} y={Y(ptr.y)} />}
+            {aim && aim.kind !== 'add' && ptr && <AimBadge aim={aim} x={X(ptr.x)} y={Y(ptr.y)} />}
             {sizeTag && <text className="pen-size" x={n1(X(sizeTag.x) + 10)} y={n1(Y(sizeTag.y) + 20)}>{sizeTag.w} × {sizeTag.h}</text>}
             {box && <rect className="pen-box" x={box.x0} y={box.y0} width={box.x1 - box.x0} height={box.y1 - box.y0} />}
             {caught && <SnapMark hit={caught} x={X(caught.x)} y={Y(caught.y)} />}
@@ -631,9 +631,9 @@ function hint(tool: Tool, drawing: boolean) {
   return 'Drag points, handles or curves (hold ⌘ not to snap) · Shift-click or drag a box to pick several · arrows nudge (Shift ×10) · Space-drag to pan, ⌘-scroll to zoom';
 }
 
-/** By the pointer, a small badge for what a click will do: + adds a point (or, by a little shape, adds
-    that shape), − deletes the point under it, ○ closes the contour. */
-function AimBadge({ aim, x, y }: { aim: Aim; x: number; y: number }) {
+/** By the pointer, a small badge for what a click will do: by a little shape, + adds that shape; −
+    deletes the point under it; ○ closes the contour. (A point added on the outline shows as its ghost instead.) */
+function AimBadge({ aim, x, y }: { aim: Exclude<Aim, { kind: 'add' }>; x: number; y: number }) {
   const shape = aim.kind === 'shape' ? aim.shape : null;
   const cx = x + (shape ? 25 : 13), cy = y + (shape ? 22 : 13);
   return (
