@@ -67,6 +67,12 @@ export function convertFont(id: string, ref: FreeFontRef, buf: ArrayBuffer): Fre
   }
   const top = (ch: string) => { const g = has(ch); return g ? g.getBoundingBox().y2 * k : 0; };
   const os2 = (f.tables as { os2?: { sCapHeight?: number; sxHeight?: number } }).os2 ?? {};
+  // the height the font says, unless it is far off what its H (or x) measures: some say a fraction of it (Macondo
+  // a cap height of 53), which would draw its letters many times too big
+  const height = (said: number | undefined, ch: string, none: number) => {
+    const v = (said ?? 0) * k, measured = top(ch);
+    return (v && (!measured || (v > measured * 0.5 && v < measured * 1.5)) ? v : measured) || none;
+  };
   // opentype.js 2 keeps names per platform
   const names = ((f.names as unknown as { windows?: Record<string, { en?: string }> }).windows ?? f.names) as Record<string, { en?: string } | undefined>;
   // (a name left blank can be a lone space)
@@ -75,7 +81,7 @@ export function convertFont(id: string, ref: FreeFontRef, buf: ArrayBuffer): Fre
   return {
     id, family: ref.family, designers: FREE_FAMILIES[ref.family].designers,
     copyright: name('copyright'), license: name('license') || licenseName(licenseUrl), licenseUrl,
-    cap: (os2.sCapHeight ? os2.sCapHeight * k : top('H')) || 700, xh: (os2.sxHeight ? os2.sxHeight * k : top('x')) || 500,
+    cap: height(os2.sCapHeight, 'H', 700), xh: height(os2.sxHeight, 'x', 500),
     space: Math.round((has(' ')?.advanceWidth ?? f.unitsPerEm / 4) * k), glyphs
   };
 }
@@ -106,8 +112,9 @@ export class FreeFonts {
     if (file) {
       try {
         const kept = JSON.parse(readFileSync(file, 'utf8')) as FreeFontData;
-        // (one kept before the licence's full text was, or without it, is fetched again)
-        if (kept.licenseText) return kept;
+        // (one kept before the licence's full text was, or without it, is fetched again, as is one kept with
+        // heights read wrong off the font, far too small for its letters: see convertFont)
+        if (kept.licenseText && kept.cap > 300 && kept.xh > 150) return kept;
       } catch { /* not kept yet */ }
     }
     // the first version of the CSS API answers a browser it doesn't know with TrueType files, which
