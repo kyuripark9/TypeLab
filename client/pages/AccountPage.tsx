@@ -1,4 +1,4 @@
-/* Account settings: the name shown in the header, the ways to sign in (Google and a password), the
+/* Account settings: the name shown on the account button, the ways to sign in (Google and a password), the
    other browsers signed in, and closing the account. */
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -14,7 +14,7 @@ export function AccountPage() {
   const user = useAuth(s => s.user);
   useEffect(() => { document.title = 'Account — TypeLab'; }, []);
   return (
-    <div className="library account-page">
+    <div className="library">
       <header className="top">
         <div className="top-left"><Brand /></div>
         <div className="top-actions">
@@ -24,7 +24,7 @@ export function AccountPage() {
       <AccountCorner />
       <main className="lib-main account-main">
         <div className="lib-head"><h1>Account</h1></div>
-        {user === undefined ? <p className="lib-loading" role="status">Loading…</p>
+        {user === undefined ? <p role="status">Loading…</p>
           : !user ? (
             <div className="lib-empty">
               <h2>You’re not signed in</h2>

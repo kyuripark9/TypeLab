@@ -79,7 +79,7 @@ export function LibraryPage() {
 
   const duplicate = async (d: Design) => {
     try {
-      const copy = await api.createDesign({ name: `${d.name} copy`.slice(0, 60), styleId: d.styleId, params: d.params });
+      const copy = await api.createDesign({ name: cleanName(`${d.name} copy`), styleId: d.styleId, params: d.params });
       setDesigns(list => list && [copy, ...list]);
       actions.toast(`Duplicated “${d.name}”`);
     } catch (e) { actions.toast(`Couldn’t duplicate — ${errorMessage(e)}`); }
@@ -256,24 +256,31 @@ function DesignCard({ d, list, recent, onDownload, onDuplicate, onDelete, onRena
   );
 }
 
+/** A name on two lines: the second line sits this many letter heights (tallest top to descender) under the first. */
+const LINE_GAP = 1.04;
+/** A card's well, width over height: .lib-open in a .lib-grid column (styles.css), in a full-width window. */
+const WELL_ASPECT = 2.6;
+/** A break onto two lines is taken only if it sets the name at least this much larger. */
+const BREAK_GAIN = 1.12;
+
 /** A font's name set in itself, as large as fits the box: on a card a long name of several words breaks
     onto a second line where that sets it larger, in the list it stays on one. Flourishes reaching out of the
     letters' boxes are kept in. */
 function NameSample({ f, text, wrap }: { f: Font; text: string; wrap: boolean }) {
-  const top = Math.max(f.m.asc, f.m.cap), bottom = -f.m.desc, LH = (top + bottom) * 1.04;
+  const top = Math.max(f.m.asc, f.m.cap), bottom = -f.m.desc, LH = (top + bottom) * LINE_GAP;
   const one = (t: string) => f.layout(t, Infinity)[0];
   let lines = [one(text)];
   if (wrap) {
     // the break between words that leaves the two lines most even, taken if the name comes out larger
-    // on a card's well (about 2.6 times as wide as it is tall)
-    const fit = (ls: typeof lines) => Math.min(2.6 / Math.max(...ls.map(l => l.width)), 1 / (top + bottom + (ls.length - 1) * LH));
+    // on a card's well
+    const fit = (ls: typeof lines) => Math.min(WELL_ASPECT / Math.max(...ls.map(l => l.width)), 1 / (top + bottom + (ls.length - 1) * LH));
     const words = text.split(' ');
     let best: typeof lines | null = null;
     for (let i = 1; i < words.length; i++) {
       const two = [one(words.slice(0, i).join(' ')), one(words.slice(i).join(' '))];
       if (!best || fit(two) > fit(best)) best = two;
     }
-    if (best && fit(best) > fit(lines) * 1.12) lines = best;
+    if (best && fit(best) > fit(lines) * BREAK_GAIN) lines = best;
   }
   const W = Math.max(1, ...lines.map(l => l.width)), o = overhang(f, lines, W, top, bottom);
   const y0 = -top - o.t, h = top + o.t + (lines.length - 1) * LH + bottom + o.b;

@@ -1,4 +1,6 @@
-/* The editor, for a new design (/) or a saved one (/d/:id). */
+/* The editor, for a new design (/) or a saved one (/d/:id): opens the design named in the address, saves it (the
+   first save of an unnamed design asks for its name), the keyboard shortcuts, the warning before leaving with
+   unsaved changes, and demo deep links (?style, cat, active, inspect, text, hot, pen). */
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
 import { CONTROLS, SUBS, controlFor, pageOf, type ActiveKey } from '../../shared/content';

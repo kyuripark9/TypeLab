@@ -1,3 +1,7 @@
+/* The app's entry: asks who's signed in (first taking a Google sign-in's result off the address, before the router
+   reads it), then routes / and /d/:id to one editor, /designs to My designs, /account to the account settings and
+   anything else to Page not found. The sign-in dialog and the opening title card sit over every page, outside
+   the router. */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Link, RouterProvider, createBrowserRouter } from 'react-router';
