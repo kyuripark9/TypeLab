@@ -1,15 +1,16 @@
-/* Building one letter: its glyph function draws a skeleton on a Builder (font.ts), which is wobbled by
-   the hand, its ends shaped (ends.ts), its strokes expanded by the pen (stroke.ts), cut by the stencil
-   (stencil.ts), its corners and joins rounded (corners.ts, joins.ts), and then placed: spaced, slanted,
-   turned, mirrored, sliced and filled (placeGlyph). Also letters built from blocks, and drawn ones. */
+/* Building one letter: its glyph function draws a skeleton on a Builder (font.ts); its turns are marked and
+   its ends shaped (corners.ts, ends.ts) and its serifs faced (serif-sides.ts); the hand wobbles it; the pen
+   expands its strokes (stroke.ts); fillets go into the corners where strokes join (joins.ts); the stencil
+   cuts it (stencil.ts); its corners are rounded and its serifs set on; and then it is placed: spaced,
+   slanted, turned, mirrored, sliced and filled (placeGlyph). Also letters built from blocks, and drawn ones. */
 import { joinGap } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, mulM, quarter, roundContour, roundCuts, signedArea, smoothstep, splitPoly, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, shadowShift, slice } from './effects';
 import { drawnCmds, type Drawn } from './outline';
-import { buildSerif, diamondCut, diamondEnd, expandStroke, serifPlace, type SerifPlace } from './stroke';
-import type { Cmd, Mat, Pt } from './types';
-import { Builder, filletPts, type Glyph, GLYPHS, type GlyphStroke, type Metrics, quarterK, strokeWt } from './font';
+import { buildSerif, diamondCut, diamondEnd, expandStroke, type Expanded, serifPlace, type SerifPlace } from './stroke';
+import type { Cmd, Mark, Mat, PenCtx, Pt } from './types';
+import { Builder, filletPts, type Glyph, glyphDefOf, type GlyphStroke, type Metrics, quarterK, strokeWt } from './font';
 import { barsThrough, gapOf, isBar, isHorizontal, stencilCut, stencilCuts, stencilOpens, stencilPieces, strokeJoins, turnKeep, turnPieces } from './stencil';
 import { stretchTerminals } from './ends';
 import { boxQuarters, endCorners, markTurns, turnsOf } from './corners';
@@ -82,7 +83,7 @@ function wobbler(code: number, m: Metrics, pins: [number, number][] = []) {
   const pt = (x: number, y: number): [number, number] => [x + dx(x, y), y + dy(x, y)];
   // A handle goes the way the field carries the bit of curve beside its point, not to where the field
   // would take the handle itself: then two curves that met smoothly still do, where moving each handle
-  // on its own put a small kink, and a notch in the outline, at every point between them.
+  // on its own would put a small kink, and a notch in the outline, at every point between them.
   const handle = (a: Pt, h: Pt): Pt => {
     const e = 0.01, [ax, ay] = pt(a.x, a.y), [bx, by] = pt(a.x + (h.x - a.x) * e, a.y + (h.y - a.y) * e);
     return { x: ax + (bx - ax) / e, y: ay + (by - ay) / e };
@@ -131,41 +132,106 @@ function wobbler(code: number, m: Metrics, pins: [number, number][] = []) {
   return { pt, cmds };
 }
 
-export function buildGlyph(ch: string, m: Metrics): Glyph | null {
-  const def = GLYPHS[ch];
+/** The hand's irregularity run through a letter's skeleton before the pen draws it: its strokes, counters
+    and marks, and where its ends sat (`homes`). Returns the pen to draw it with, which then also varies
+    each stroke's thickness along it, in the letter's own phase. */
+function wobbleSkeleton(b: Builder, m: Metrics, code: number, homes: Map<string, Pt>): PenCtx {
+  if (!(m.wob > 0)) return m.ctx;
+  const wb = wobbler(code, m, b.joins);
+  for (const st of b.strokes) {
+    if (st.cmds) st.cmds = wb.cmds(st.cmds);
+    if (st.poly) st.poly = st.poly.map(q => { const [x, y] = wb.pt(q.x, q.y); return { ...q, x, y }; });
+  }
+  b.counters = b.counters.map(pts => pts.map(q => { const [x, y] = wb.pt(q.x, q.y); return { x, y }; }));
+  b.marks.forEach(k => { [k.x, k.y] = wb.pt(k.x, k.y); });
+  homes.forEach((q, id) => { const [x, y] = wb.pt(q.x, q.y); homes.set(id, { x, y }); });
+  return { ...m.ctx, wobble: m.wob, seed: hash(code, 5) * 2 * Math.PI };
+}
+
+/** A contour wound so its area has the sign of `sign` (the ink's +, a hole's -). */
+const wind = (pts: Pt[], sign: number) => ((signedArea(pts) < 0) !== (sign < 0) ? pts.slice().reverse() : pts);
+/** A contour as path commands, wound by `sign`, its corners rounded by `R` (see roundContour); null when it has
+    fewer than three points. */
+const finish = (pts: Pt[], sign: number, R: number, cornersOut?: Pt[]) => {
+  if (pts.length < 3) return null;
+  return roundContour(wind(pts, sign), R, cornersOut);
+};
+/** The corners a stencil cuts rounded: they are the points that weren't on the stroke as drawn. */
+const cutRound = (m: Metrics, pts: Pt[], drawn: Set<Pt>, w: number) => roundCuts(pts, q => !!q.sharp && !drawn.has(q), m.gapRound, w);
+
+/** Every join of a stroke into another marked (type 'join'), so the letter can open each on its own, with
+    the gap it has as drawn (on its own Gap scale) and the way the gap opens; and so is every turn, which
+    Stencil leaves whole. Returns each stroke's turns, with their ids. */
+function markJoins(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | null)[], expanded: (Expanded | null)[], marks: Mark[]) {
+  const turns = b.strokes.map((st, si) => (st.cmds && exps[si]?.ex && !exps[si]!.ex!.loop ? turnsOf(st.cmds, m).map((tn, k) => ({ ...tn, id: `${si}t${k}` })) : []));
+  b.strokes.forEach((st, si) => {
+    const ex = exps[si]?.ex;
+    if (!ex || ex.loop || st.poly) return;
+    // (clipped again, as buildGlyph's outlines are: see there)
+    const joins = strokeJoins(si, expanded), opens = stencilOpens(joins), contour = st.o.clip ? clipPoly(ex.contours[0], st.o.clip) : ex.contours[0];
+    for (const jn of joins) {
+      // a join only where enough of its stroke reaches out of the one it meets to pull back (not the
+      // short arm of a heavy z, all but buried in the diagonal)
+      if (stencilPieces(contour, [stencilCut(ex, jn, m.s * 0.1, true, isBar(st.o.part))], 0, m.s, Math.min(...ex.thickness), []).off === null) continue;
+      const { v } = gapOf(m, jn.id, isBar(st.o.part), opens.has(jn.id));
+      marks.push({ type: 'join', x: jn.x, y: jn.y, id: jn.id, v, dx: jn.nx, dy: jn.ny });
+    }
+    for (const tn of turns[si]) {
+      const { nx, ny } = turnKeep(tn);
+      marks.push({ type: 'join', x: tn.x, y: tn.y, id: tn.id, v: m.p.joinGaps?.[tn.id] ?? 0, dx: nx, dy: ny });
+    }
+  });
+  return turns;
+}
+
+/** A ring's outline (a stroke whose centerline closes round, as an O's can) and its hole, for the counters.
+    `w` is the stroke's weight, which the corners a stencil cuts round by. */
+function ringOutline(ex: Expanded, m: Metrics, w: number): { cmds: Cmd[]; hole: Cmd[] | null } {
+  let cmds: Cmd[] = [];
+  const [a, c] = ex.contours;
+  const outerIsA = Math.abs(signedArea(a)) >= Math.abs(signedArea(c));
+  const outer = outerIsA ? a : c, inner = outerIsA ? c : a;
+  // a stencilled ring is split down the middle into two halves
+  let xl = Infinity, xr = -Infinity;
+  for (const q of outer) { xl = Math.min(xl, q.x); xr = Math.max(xr, q.x); }
+  // as wide as the gaps at its joins, but at most leaving each half half its side's width, so a heavy ring isn't cut away
+  let il = Infinity, ir = -Infinity;
+  for (const q of inner) { il = Math.min(il, q.x); ir = Math.max(ir, q.x); }
+  const cx = (xl + xr) / 2, g = m.gap && m.gap / joinGap(1, m.s) * Math.min(joinGap(1, m.s), (xr - xl + ir - il) / 2);
+  if (g) {
+    // each half is cut as one piece of ink, the hole with the ring, so its cut corners round the ink
+    const ring = [wind(outer, 1), wind(inner, -1)], drawn = new Set(ring.flat());
+    for (const pl of [{ x: cx - g / 2, y: 0, nx: 1, ny: 0 }, { x: cx + g / 2, y: 0, nx: -1, ny: 0 }]) {
+      for (const q of splitPoly(ring, pl)) { const c = finish(cutRound(m, q, drawn, w), signedArea(q) < 0 ? -1 : 1, 0); if (c) cmds = cmds.concat(c); }
+    }
+  } else {
+    const o1 = finish(outer, 1, 0), i1 = finish(inner, -1, 0);
+    if (o1) cmds = cmds.concat(o1);
+    if (i1) cmds = cmds.concat(i1);
+  }
+  return { cmds, hole: finish(inner, -1, 0) };
+}
+
+/** Build glyph `id` from the glyph table, for the character `ch` it is drawn for. The id is the character, or
+    the character and the form it draws ('a.alt', 't.sw', 'S.scr'): only a plain capital's id ('S', not
+    'S.scr') takes the swash end Swash capitals curls out. */
+export function buildGlyph(id: string, m: Metrics, ch = id): Glyph | null {
+  const def = glyphDefOf(id);
   if (!def) return null;
   const b = new Builder(m);
   const hooks = new Set<string>(), plains = new Set<string>(), homes = new Map<string, Pt>(), W0 = def.fn(b, m);
   if (m.p.bowlForm === 'box') boxQuarters(b, m);
   weighFillets(b, m);
   markTurns(b, m);
-  const grow = stretchTerminals(b, m, W0, hooks, plains, homes, /^[A-Z]$/.test(ch)), W = W0 + grow.r;
+  const grow = stretchTerminals(b, m, W0, hooks, plains, homes, /^[A-Z]$/.test(id)), W = W0 + grow.r;
   const facing = m.ctx.serif ? faceSerifs(b, m) : null;
   const cups = m.ctx.serif?.cup ? cupSerifs(b, m, facing) : null;
-  const code = ch.charCodeAt(0);
-  let ctx = m.ctx;
-  if (m.wob > 0) {
-    const wb = wobbler(code, m, b.joins);
-    for (const st of b.strokes) {
-      if (st.cmds) st.cmds = wb.cmds(st.cmds);
-      if (st.poly) st.poly = st.poly.map(q => { const [x, y] = wb.pt(q.x, q.y); return { ...q, x, y }; });
-    }
-    b.counters = b.counters.map(pts => pts.map(q => { const [x, y] = wb.pt(q.x, q.y); return { x, y }; }));
-    b.marks.forEach(k => { [k.x, k.y] = wb.pt(k.x, k.y); });
-    homes.forEach((q, id) => { const [x, y] = wb.pt(q.x, q.y); homes.set(id, { x, y }); });
-    ctx = { ...ctx, wobble: m.wob, seed: hash(code, 5) * 2 * Math.PI };
-  }
+  const code = id.charCodeAt(0);
+  const ctx = wobbleSkeleton(b, m, code, homes);
   const out = {
     ch, strokes: [] as GlyphStroke[], serifs: [] as Cmd[][], serifAt: [] as SerifPlace[], counters: [] as Cmd[][], marks: b.marks.slice(),
     corners: [] as Pt[], skeleton: [] as Pt[][], meta: def.meta, bodyW: W
   };
-  const wind = (pts: Pt[], sign: number) => ((signedArea(pts) < 0) !== (sign < 0) ? pts.slice().reverse() : pts);
-  const finish = (pts: Pt[], sign: number, R: number, cornersOut?: Pt[]) => {
-    if (pts.length < 3) return null;
-    return roundContour(wind(pts, sign), R, cornersOut);
-  };
-  // the corners a stencil cuts are the points that weren't on the stroke as drawn
-  const cutRound = (pts: Pt[], drawn: Set<Pt>, w: number) => roundCuts(pts, q => !!q.sharp && !drawn.has(q), m.gapRound, w);
   // expand every stroke first: a stencil cut needs to know which stroke each join runs into
   const exps = b.strokes.map((st, si) => {
     if (st.poly) return null;
@@ -178,8 +244,8 @@ export function buildGlyph(ch: string, m: Metrics): Glyph | null {
     return { ex: expandStroke(st.cmds!, so, pen), serifS, serifE, so, pen };
   });
   const expanded = exps.map(x => x?.ex ?? null);
-  // each stroke clipped once, here, so the corners its clip leaves (the top left of an N, where the
-  // diagonal is cut off at the stem) are the ones rounded, and drawn so (clipping again is a no-op)
+  // each stroke clipped here, before its corners are found, so the corners its clip leaves (the top left
+  // of an N, where the diagonal is cut off at the stem) are the ones rounded, and drawn so
   const clipMade = new Set<Pt>();
   b.strokes.forEach((st, si) => {
     const ex = exps[si]?.ex;
@@ -193,31 +259,14 @@ export function buildGlyph(ch: string, m: Metrics): Glyph | null {
   // stencil every stroke first, so a fillet rounding a join (a square-joined bowl into its stem)
   // goes when the stencil cuts that join, like the fillets Roundness adds: there is no join left to round
   const outlines = b.strokes.map((st, si) => st.poly ?? exps[si]?.ex?.contours[0] ?? null);
-  // every join is marked, so the letter can open each on its own, with the gap it has as drawn
-  // (on its own Gap scale) and the way the gap opens
-  // (on its own Gap scale) and the way the gap opens; and so is every turn, which Stencil leaves whole
+  // a crossbar's own gap, or one a letter gives a join or turn, opens it with Stencil off
   const opened = (m.p.barGap > 0 && m.p.barEnds !== 'through') || Object.values(m.p.joinGaps ?? {}).some(v => v > 0);
-  const turns = b.strokes.map((st, si) => (st.cmds && exps[si]?.ex && !exps[si]!.ex!.loop ? turnsOf(st.cmds, m).map((tn, k) => ({ ...tn, id: `${si}t${k}` })) : []));
-  b.strokes.forEach((st, si) => {
-    const ex = exps[si]?.ex;
-    if (!ex || ex.loop || st.poly) return;
-    const joins = strokeJoins(si, expanded), opens = stencilOpens(joins), contour = st.o.clip ? clipPoly(ex.contours[0], st.o.clip) : ex.contours[0];
-    for (const jn of joins) {
-      // a join only where enough of its stroke reaches out of the one it meets to pull back (not the
-      // short arm of a heavy z, all but buried in the diagonal)
-      if (stencilPieces(contour, [stencilCut(ex, jn, m.s * 0.1, true, isBar(st.o.part))], 0, m.s, Math.min(...ex.thickness), []).off === null) continue;
-      const { v } = gapOf(m, jn.id, isBar(st.o.part), opens.has(jn.id));
-      out.marks.push({ type: 'join', x: jn.x, y: jn.y, id: jn.id, v, dx: jn.nx, dy: jn.ny });
-    }
-    for (const tn of turns[si]) {
-      const { nx, ny } = turnKeep(tn);
-      out.marks.push({ type: 'join', x: tn.x, y: tn.y, id: tn.id, v: m.p.joinGaps?.[tn.id] ?? 0, dx: nx, dy: ny });
-    }
-  });
+  const turns = markJoins(b, m, exps, expanded, out.marks);
   const through = barsThrough(b, expanded, m);
   const stencilled = b.strokes.map((st, si) => {
     const ex = exps[si]?.ex;
     if (!(m.gap || opened) || !ex || ex.loop || through?.bars.has(si)) return null;
+    // (clipped again, as the outlines are below: the stencilled pieces are drawn in their place)
     const contour = st.o.clip ? clipPoly(ex.contours[0], st.o.clip) : ex.contours[0], t = Math.min(...ex.thickness);
     const cuts = stencilCuts(si, expanded, m, isBar(st.o.part)), others = outlines.map((q, j) => (j === si || b.strokes[j].o.part === 'fillet' ? null : q));
     const open = turns[si].flatMap(tn => { const v = m.p.joinGaps?.[tn.id] ?? 0; return v > 0 ? [{ ...tn, gap: joinGap(v, m.s) }] : []; });
@@ -242,43 +291,27 @@ export function buildGlyph(ch: string, m: Metrics): Glyph | null {
     const o = st.o; let cmds: Cmd[] = [];
     if (st.poly) {
       if (!(o.part === 'fillet' && filletCut(st.poly))) { const c = finish(st.poly, 1, 0); if (c) cmds = c; }
-      out.strokes.push({ part: o.part || 'dot', cmds, curved: false, dot: (o.part || 'dot') === 'dot' });
+      // (every poly stroke is named: a dot, a fillet or a blob)
+      out.strokes.push({ part: o.part!, cmds, curved: false, dot: o.part === 'dot' });
       return;
     }
     const { ex, serifS, serifE } = exps[si]!;
     if (!ex) return;
     const R = m.R * (o.scale || 1) * strokeWt(m, si);
     if (ex.loop) {
-      const [a, c] = ex.contours;
-      const outerIsA = Math.abs(signedArea(a)) >= Math.abs(signedArea(c));
-      const outer = outerIsA ? a : c, inner = outerIsA ? c : a;
-      // a stencilled ring is split down the middle into two halves
-      let xl = Infinity, xr = -Infinity;
-      for (const q of outer) { xl = Math.min(xl, q.x); xr = Math.max(xr, q.x); }
-      // as wide as the gaps at its joins, but at most leaving each half half its side's width, so a heavy ring isn't cut away
-      let il = Infinity, ir = -Infinity;
-      for (const q of inner) { il = Math.min(il, q.x); ir = Math.max(ir, q.x); }
-      const cx = (xl + xr) / 2, g = m.gap && m.gap / joinGap(1, m.s) * Math.min(joinGap(1, m.s), (xr - xl + ir - il) / 2);
-      if (g) {
-        // each half is cut as one piece of ink, the hole with the ring, so its cut corners round the ink
-        const ring = [wind(outer, 1), wind(inner, -1)], drawn = new Set(ring.flat()), w = m.s * (o.scale || 1) * strokeWt(m, si);
-        for (const pl of [{ x: cx - g / 2, y: 0, nx: 1, ny: 0 }, { x: cx + g / 2, y: 0, nx: -1, ny: 0 }]) {
-          for (const q of splitPoly(ring, pl)) { const c = finish(cutRound(q, drawn, w), signedArea(q) < 0 ? -1 : 1, 0); if (c) cmds = cmds.concat(c); }
-        }
-      } else {
-        const o1 = finish(outer, 1, 0), i1 = finish(inner, -1, 0);
-        if (o1) cmds = cmds.concat(o1);
-        if (i1) cmds = cmds.concat(i1);
-      }
-      const hole = finish(inner, -1, 0);
-      if (o.counter !== false && hole) out.counters.push(hole);
+      const ring = ringOutline(ex, m, m.s * (o.scale || 1) * strokeWt(m, si));
+      cmds = ring.cmds;
+      if (ring.hole) out.counters.push(ring.hole);
     } else {
       let pieces = [ex.contours[0]];
+      // clipped again, as the outlines are drawn: on a slanted half-plane (the legs of K, k and y), float
+      // noise leaves the cut edge's points either side of the line, so this adds a point on that edge, and
+      // leaving it out would change those letters' outlines
       if (o.clip) pieces = [clipPoly(pieces[0], o.clip)];
       const sc = stencilled[si];
       if (sc) {
         const drawn = sc.drawn;
-        pieces = sc.pieces.map(q => cutRound(q, drawn, m.s * (o.scale || 1) * strokeWt(m, si)));
+        pieces = sc.pieces.map(q => cutRound(m, q, drawn, m.s * (o.scale || 1) * strokeWt(m, si)));
       }
       const bar = through?.bars.get(si);
       if (bar) pieces = [bar];
@@ -341,7 +374,7 @@ export function buildGlyph(ch: string, m: Metrics): Glyph | null {
 
 /** Side bearings that keep a letter's ink clear of the stems beside it. A blackletter is packed so close
     (its tracking tight, a diamond under each stem reaching into the next letter's room) that an arm or
-    a leg reaching out past the body, the flag of an r, the leg of a k, ran into the next letter's stem:
+    a leg reaching out past the body, the flag of an r, the leg of a k, would run into the next letter's stem:
     each side leaves at least a fifth of a stroke between its ink and a neighbouring stem standing a
     side bearing in. A stem's own diamonds clear it already, as the head reaches left at the top and
     the foot right at the bottom, past the neighbour's. One reaching the other way (`outward`: the foot of a B's

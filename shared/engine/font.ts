@@ -1,12 +1,13 @@
 /* Font engine.
-   params (what the user edits, all 0..1) -> resolve() -> metrics -> glyph skeletons
-   -> expanded outlines. Pure math with no DOM, so the browser (live preview) and the
-   server (font export) run exactly the same code. A full rebuild of every glyph takes a
-   few milliseconds, so sliders can drive it directly.
+   params (what the user edits: sliders 0..1, picked options, a letter's own values) -> resolve()
+   -> metrics -> glyph skeletons -> expanded outlines. Pure math with no DOM, so the browser (live
+   preview) and the server (font export) run exactly the same code. A full rebuild of every glyph
+   takes a few milliseconds, so sliders can drive it directly.
 
-   This file is the hub: the engine's types, the glyph table the letter files fill (defGlyph),
-   resolve() and metrics(), the Builder each letter draws with, and buildFont(), which puts a
-   font together. The stages of building one letter live beside it:
+   This file is the hub: the font-level types (Effective, Metrics, Glyph, Font; points, paths and the
+   pen are in types.ts), the glyph table the letter files fill (defGlyph), resolve() and metrics(), the
+   Builder each letter draws with, and buildFont(), which puts a font together. The stages of building
+   one letter live beside it:
      glyph.ts         a letter's skeleton to its placed outline (and blocks, drawn letters)
      stencil.ts       gaps cut where strokes join and at turns (Stencil, crossbar Gap)
      ends.ts          stroke ends drawn on, trimmed, curled and run straight
@@ -14,20 +15,21 @@
      joins.ts         the inside corners where strokes meet, filled with fillets
      serif-sides.ts   which way each stem's serifs reach, and cupped serif feet
      free-letters.ts  a free font's letters, moved by the settings
-     highlight.ts     the part of a letter a setting shapes, for the explainer */
+     highlight.ts     the part of a letter a setting shapes, for the explainer
+   Modules this file loads, directly or not, call back into it (glyph.ts and its stages, free-letters.ts,
+   restyle.ts): any of them may use what it exports only inside functions, never at module load. The
+   letter files (glyphs.ts, script.ts, swash.ts) fill the glyph table as they load, so index.ts imports
+   them and this file never does. */
 import { DEFAULTS, contrastOf, formOf, joinGap, rotationDeg, weighed, weightScale, xHeightRatio, type Params } from '../params';
-import { clamp, cubicAt, lerp, quarter } from './geom';
+import { CIRCLE_K, clamp, cubicAt, lerp, quarter } from './geom';
 import { freeFont, type FreeFont } from './free';
 import type { Drawn } from './outline';
 import { autoThickness, organicK, type SerifPlace } from './stroke';
-import type { Cmd, Mark, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
+import type { Cmd, Mark, MarkType, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
 import { buildBlock, buildGlyph, drawnGlyph } from './glyph';
 import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
 import { highlightD } from './highlight';
-export { turnR, turnV, ownTurn } from './corners';
-export { joinR } from './joins';
-export { freeFontsWanted } from './free-letters';
-export { RING_KEYS } from './highlight';
+export { ownTurn } from './corners';
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
@@ -36,42 +38,55 @@ export const CHARSET = {
 } as const;
 export const ALL_CHARS = CHARSET.upper + CHARSET.lower + CHARSET.digits + CHARSET.punct + CHARSET.symbols;
 
-/** Parameters after the personality macros have been applied, plus derived switches. */
+/** Parameters after the personality macros have been applied, plus derived switches. The macros push
+    curve, aperture, contrast, roundness, apex, xHeight, width and letterSpacing, so those differ from the
+    Params they came from; and contrast holds the pen's amount of thick against thin (see contrastOf), not
+    the place on the Contrast scale, whose lower half turns it round (`reverse`). */
 export interface Effective extends Params {
-  /** from here on contrast is the pen's amount of thick against thin (see contrastOf), and reverse how
-      far it is turned round */ reverse: number;
+  /** how far the contrast is turned round (see contrastOf) */ reverse: number;
   square: number; classic: number; bounce: number; singleStory: boolean; stressDeg: number;
 }
 
 export interface Metrics {
-  p: Effective;
+  /** the settings it is measured from, after the macros */ p: Effective;
   /** stem thickness */ s: number;
-  cap: number; xh: number; asc: number; desc: number;
+  /** cap height and x-height */ cap: number; xh: number;
+  /** ascender height and descender depth (desc is negative) */ asc: number; desc: number;
   /** overshoot of round letters */ os: number;
   /** width scale */ ws: number;
-  thin: number; stress: number; k: number; org: number; sq: number;
+  /** thickness of the thin strokes (the bars), after Contrast and Horizontals */ thin: number;
+  /** the tension of a quarter turn's handles (CIRCLE_K a circle, fuller with Curves and Squareness), and
+      how organic the bowls are (see organicK) */ k: number; org: number;
+  /** how square the bowls are (Effective.square) */ sq: number;
   /** cursive amount and hand-drawn irregularity */ cur: number; wob: number;
   /** the shared advance width that monospacing pulls every glyph toward */ monoAdv: number;
   /** grid size of the pixel, dot and line fills (0 = none); advances snap to it for pixels and dots */ cell: number;
   /** stencil gap, and the band the slice removes (both 0 when off) */ gap: number; sliceY: number; sliceH: number;
   /** how far out from a join its stencil gap opens, and how far the stencil and slice round the corners they cut, 1 a half round across the stroke cut */ gapOff: number; gapRound: number; sliceRound: number;
   /** the radius Inside corners rounds the counters' corners by, whatever the weight (0 when off) */ innerR: number;
-  bar: number; apex: number; ap: number; cnt: number;
-  serif: boolean;
-  ctx: PenCtx;
+  /** Crossbar height, Peaks and Openness, 0..1 (Peaks and Openness after the macros) */ bar: number; apex: number; ap: number;
+  /** Inner space, -1..1 with 0 at the middle */ cnt: number;
+  /** serifs on (their shape is ctx.serif) */ serif: boolean;
+  /** the pen, for the stroke expander */ ctx: PenCtx;
   /** thickness of a stroke running in direction (dx, dy) */ tDir: (dx: number, dy: number) => number;
   /** thickness of a horizontal stroke */ hT: number;
   /** body width for a base design width. cls: 'r' round, 'c' classically narrow */ W: (base: number, cls?: 'r' | 'c') => number;
-  sb: number; track: number; space: number; slant: number; R: number; dotRound: number;
+  /** the side bearing a straight stem gets; each glyph's side-bearing factors scale it */ sb: number;
+  /** letter spacing added after every advance (in whole cells for pixels and dots), and the word space */ track: number; space: number;
+  /** the shear Slant gives: the tangent of up to 20° */ slant: number;
+  /** the corner radius Roundness gives */ R: number;
+  /** how round the dots are, 0 square to 1 round */ dotRound: number;
   /** how far each letter is turned, in radians clockwise */ rot: number;
+  /** the point (and tangent) `u` along a quarter turn ('hv' or 'vh') drawn with the pen's tension */
   qpt: (x0: number, y0: number, x1: number, y1: number, mode: string, u: number) => Tangent;
 }
 
-export interface GlyphMeta { parts?: string[]; params?: string[] }
-export type GlyphFn = (g: Builder, m: Metrics) => number;
-interface GlyphDef { ch: string; sb: [number, number]; fn: GlyphFn; meta: GlyphMeta }
+interface GlyphMeta { parts?: string[]; params?: string[] }
+type GlyphFn = (g: Builder, m: Metrics) => number;
+interface GlyphDef { sb: [number, number]; fn: GlyphFn; meta: GlyphMeta }
 
-/** `id` is the stroke's own (see isStrokeId), for the strokes a letter can weight one by one. */
+/** `id` is the stroke's own (see isStrokeId, and Builder.strokes for where it comes from), for the strokes a
+    letter can weight one by one. */
 export interface GlyphStroke { part: string; cmds: Cmd[]; curved: boolean; horizontal?: boolean; dot?: boolean; id?: string }
 
 export interface Glyph {
@@ -114,16 +129,17 @@ export interface Font {
   layout(text: string, maxWidth: number): Line[];
 }
 
-export const GLYPHS: Record<string, GlyphDef> = {};
+/** The glyph table, by glyph id: a character, or a character and the form it draws ('a.alt', 't.sw', 'S.scr'). */
+const GLYPHS: Record<string, GlyphDef> = {};
 /* sb: [left, right] side-bearing factors (1 = straight stem, ~.55 round, ~.25 diagonal) */
 export const defGlyph = (ch: string, sb: [number, number], fn: GlyphFn, meta?: GlyphMeta) => {
-  GLYPHS[ch] = { ch, sb, fn, meta: meta || {} };
+  GLYPHS[ch] = { sb, fn, meta: meta || {} };
 };
 export const hasGlyph = (ch: string) => ch in GLYPHS;
-/** The drawing of glyph `ch`, for a variant that draws it and adds to it (see swash.ts). */
-export const glyphDefOf = (ch: string): { sb: [number, number]; fn: GlyphFn; meta: GlyphMeta } | undefined => GLYPHS[ch];
+/** The drawing of glyph `ch`, for building it (glyph.ts) and for a variant that draws it and adds to it (see swash.ts). */
+export const glyphDefOf = (ch: string): GlyphDef | undefined => GLYPHS[ch];
 
-/** a step on the first Lowercase height scale, on today's (see xHeightFromOld) */
+/** The macros push the x-height by steps measured on the older Lowercase height scale (see xHeightFromOld in shared/params/scales.ts): one such step on the current scale. */
 const XH_OLD = 0.36 / 0.56;
 
 /* Personality sliders are macros: they push several low-level parameters at once. */
@@ -143,7 +159,7 @@ export function resolve(p: Partial<Params>): Effective {
   e.contrast = push(push(push(push(c.amount, 0.08, human), 0.25, classic), 0.1, formal), -0.05, future);
   e.roundness = push(push(e.roundness, -0.7, ss), 0.15, playful);
   e.apex = push(e.apex, -0.5, ss);
-  // (as far up and down as they pushed it on the first Lowercase height scale, which started higher)
+  // (by steps on the older Lowercase height scale, see XH_OLD)
   e.xHeight = push(push(e.xHeight, 0.18 * XH_OLD, cf), 0.12 * XH_OLD, playful);
   e.width = push(push(e.width, 0.1, future), -0.07, formal);
   e.letterSpacing = push(e.letterSpacing, 0.04, formal);
@@ -174,6 +190,9 @@ const serifScale = (v: number, lo: number, hi: number) => (v < 0.5 ? lerp(lo, 1,
 const serifTh = (v: number, shape: string) => lerp(8, 95, v) * ({ unbracketed: 0.6, slab: 1.5 }[shape] ?? 1);
 /** How far the serifs on arms lean from upright at either end of the Lean scale, in radians (35°). */
 const ARM_LEAN = 0.61;
+/** The stem the glyphs' base widths and the side bearing are drawn for: a heavier one widens the letters and
+    narrows the side bearings. */
+const REGULAR_STEM = 80;
 
 export function metrics(e: Effective): Metrics {
   // Verticals weigh the stems on their own, and Horizontals the bars: each scales its side of the
@@ -187,7 +206,7 @@ export function metrics(e: Effective): Metrics {
   const thinAt = (c: number) => Math.max(8, Math.min(s0 * (1 - 0.08 - 0.84 * c), xh * 0.2));
   const thin = weighed(e.contrast <= 0.05 ? thinAt(e.contrast) : lerp(thinAt(0.05), thinAt(1), (e.contrast - 0.05) / 0.95), e.hWeight, 4, xh * 0.32);
   const stress = e.stressDeg * Math.PI / 180;
-  const k = 0.5523 + 0.05 * e.curve + 0.36 * e.square;
+  const k = CIRCLE_K + 0.05 * e.curve + 0.36 * e.square;
   // organic bowls are fuller on the diagonal a slant leans into a sharp corner (top right, bottom left):
   // the two together pinch a bowl into a lumpy parallelogram, so a slant, which leans a bowl that way
   // itself, takes the place of as much of it
@@ -213,16 +232,17 @@ export function metrics(e: Effective): Metrics {
   };
   const tDir = (dx: number, dy: number) => { const l = Math.hypot(dx, dy) || 1; return autoThickness(dx / l, dy / l, ctx, s, thin); };
   const cnt = (e.counter - 0.5) * 2;
-  const sb = Math.max(14, 64 * (0.65 + 0.35 * ws) - (s - 80) * 0.12 + (e.sideBearing - 0.5) * 130 + (ctx.serif ? ctx.serif.len * 0.3 : 0));
+  const sb = Math.max(14, 64 * (0.65 + 0.35 * ws) - (s - REGULAR_STEM) * 0.12 + (e.sideBearing - 0.5) * 130 + (ctx.serif ? ctx.serif.len * 0.3 : 0));
   /* body width: base is drawn for a regular weight at normal width.
-     cls: 'r' letters built around a counter, 'c' classically narrow caps, 'n' normal */
+     cls: 'r' letters built around a counter, 'c' classically narrow caps, left out for the rest */
   const W = (base: number, cls?: 'r' | 'c') => {
     let w = base * ws;
     w *= 1 + (cls === 'r' ? 0.22 : 0.06) * cnt;
     if (cls === 'c') w *= 1 - 0.13 * e.classic;
     if (cls === 'r') w *= 1 + 0.05 * e.classic;
-    return w + (s - 80) * 0.62;
+    return w + (s - REGULAR_STEM) * 0.62;
   };
+  const monoAdv = W(500) + sb * 1.5;
   // pixels and dots sit on one grid across the line, so spacing moves in whole cells
   const cell = e.fill === 'pixels' || e.fill === 'dots' || e.fill === 'lines' ? cap / lerp(30, 7, e.module) : 0;
   const snap = (v: number) => (cell && e.fill !== 'lines' ? Math.round(v / cell) * cell : v);
@@ -233,7 +253,7 @@ export function metrics(e: Effective): Metrics {
     asc: Math.max(xh * 1.12, Math.max(cap * 1.05, xh * 1.18) + (e.extenders - 0.5) * cap * 0.5),
     desc: -cap * 0.3 * lerp(0.55, 1.45, e.extenders) * (e.descender < 0.5 ? lerp(0.45, 1, e.descender * 2) : lerp(1, 1.6, e.descender * 2 - 1)),
     os: cap * 0.014,
-    ws, thin, stress, k, org, sq: e.square, cur: e.cursive, wob: e.wobble, monoAdv: W(500) + sb * 1.5,
+    ws, thin, k, org, sq: e.square, cur: e.cursive, wob: e.wobble, monoAdv,
     // a gap moved out starts a stub's width out, so it never leaves a hairline on the stroke it joins
     cell, gap: e.stencil > 0 ? joinGap(e.stencil, s) : 0, gapOff: e.stencilPos > 0 ? lerp(s * 0.55, xh * 0.4, e.stencilPos) : 0, gapRound: e.stencilRound,
     // the slice keeps a stroke's width of ink below it and above it, so at either end it still cuts through the letters
@@ -247,7 +267,7 @@ export function metrics(e: Effective): Metrics {
     // joined-up letters leave no gap of their own, and their entry and exit strokes swing out into
     // the space, so a cursive design gets a wider one (about its hooks' size) to keep words apart
     space: Math.max(snap(lerp(W(210) + (e.wordSpacing - 0.35) * 520 + (e.cursive < 0.04 ? 0 : lerp(s * 0.55, xh * 0.26 + s * 0.35, e.cursive) * 0.8),
-      W(500) + sb * 1.5, e.mono)), cell),
+      monoAdv, e.mono)), cell),
     slant: Math.tan(e.slant * 20 * Math.PI / 180),
     rot: rotationDeg(e.rotation) * Math.PI / 180,
     R: e.roundness * s * 0.5,
@@ -275,6 +295,12 @@ export function filletPts({ x, y, sx, sy, r }: Fillet): Pt[] {
 
 /** Glyph builder handed to each glyph function. */
 export class Builder {
+  /** The strokes in the order the glyph function draws them. A stroke's index here is its id, and its ends
+      ('0s', 'p0e'), turns ('0t1'), corners ('0sl', '0j0') and joins are named from it; saved designs keep a
+      letter's own values under those ids (Params.glyphs[ch].strokeWeights, terminalEnds, terminalCurls,
+      corners, cornerSteps, joinGaps), so a changed glyph function keeps its strokes in their order and adds
+      a new one after them: one drawn before or between them moves every saved value after it onto another
+      stroke. Dots, fillets and blobs take an index too. */
   strokes: RawStroke[] = [];
   counters: Pt[][] = [];
   marks: Mark[] = [];
@@ -288,9 +314,9 @@ export class Builder {
   path(cmds: Cmd[], o?: StrokeOpts) { this.strokes.push({ cmds, o: o || {} }); return this; }
   line(x0: number, y0: number, x1: number, y1: number, o?: StrokeOpts) { return this.path([['M', x0, y0], ['L', x1, y1]], o); }
   stem(x: number, y0: number, y1: number, o?: StrokeOpts) { return this.line(x, y0, x, y1, { part: 'stem', ...o }); }
-  dot(cx: number, cy: number, size: number, part?: string) {
+  dot(cx: number, cy: number, size: number) {
     const h = size / 2, r = h * this.m.dotRound;
-    this.strokes.push({ poly: [[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h]].map(p => ({ x: p[0], y: p[1], r })), o: { part: part || 'dot' } });
+    this.strokes.push({ poly: [[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h]].map(p => ({ x: p[0], y: p[1], r })), o: { part: 'dot' } });
     return this;
   }
   /** A round in the inside corner at (x, y) where two strokes meet square, `r` across, filling the
@@ -309,7 +335,7 @@ export class Builder {
     for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; pts.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); }
     return this.counter(pts);
   }
-  mark(type: string, x: number, y: number) { this.marks.push({ type, x, y }); return this; }
+  mark(type: MarkType, x: number, y: number) { this.marks.push({ type, x, y }); return this; }
 }
 
 /** The tension of a quarter-turn command drawn from `cur`, as stroke.ts draws it. */
@@ -364,15 +390,14 @@ export function buildFont(params: Params, from?: Font): Font {
           if (lf !== font) g = lf.glyph(ch);
           // (in a form the font hasn't got, its twin's)
           else if (free?.glyphs[ch]) g = (fl!.skin && formChanged(ch, fl!.pick, fl!.now) && twinGlyph(ch, fl!)) || freeGlyph(ch, free.glyphs[ch], fl!);
-          else if (e.build === 'blocks' && (g = buildBlock(ch, m))) g.ch = ch;
+          else if (e.build === 'blocks' && (g = buildBlock(ch, m))) { /* a block letter */ }
           else {
             // a script's own letters first: they are written whole, single-storey a and all
             // (flourished, where the letter has a swash and swashes are picked)
             const script = scriptForms(e) && hasGlyph(ch + '.scr');
             const alt = script && e.flourish === 'swash' && hasGlyph(ch + '.sw') ? ch + '.sw' : script ? ch + '.scr' : ch === 'a' && e.singleStory ? 'a.alt'
               : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
-            g = buildGlyph(alt, m);
-            if (g) g.ch = ch;
+            g = buildGlyph(alt, m, ch);
           }
           built.set(ch, g);
         }
@@ -391,7 +416,7 @@ export function buildFont(params: Params, from?: Font): Font {
       return d;
     },
     advance(ch) {
-      if (ch === ' ' || ch === ' ') return m.space;
+      if (ch === ' ' || ch === '\u00a0') return m.space;
       const g = font.glyph(ch); return g ? g.adv : m.space * 1.4;
     },
     layout(text, maxWidth) {

@@ -8,6 +8,8 @@ export const clamp = (v: number, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 export const smoothstep = (t: number) => { t = clamp(t); return t * t * (3 - 2 * t); };
 export const lerpP = (p: P, q: P, t: number): Pt => ({ x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t) });
 export const dist = (p: P, q: P) => Math.hypot(p.x - q.x, p.y - q.y);
+/** A quarter circle's handle length as a share of its radius, as a cubic draws it. */
+export const CIRCLE_K = 0.5523;
 
 /* Blossom of a cubic: lets us cut out the [u0,u1] portion of a curve exactly. */
 function blossom(P: P[], a: number, b: number, c: number) {
@@ -30,7 +32,7 @@ export function cubicAt(P: P[], u: number): Tangent {
 }
 
 /* Quarter of a (super)ellipse as a cubic. mode 'hv' leaves horizontally and arrives
-   vertically; 'vh' the opposite. k is the handle length (0.5523 = true circle). */
+   vertically; 'vh' the opposite. k is the handle length (CIRCLE_K = true circle). */
 export function quarter(x0: number, y0: number, x1: number, y1: number, mode: string, k: number): P[] {
   const p0 = { x: x0, y: y0 }, p1 = { x: x1, y: y1 };
   return mode === 'hv'
@@ -47,7 +49,8 @@ export function signedArea(pts: P[]) {
   return a / 2;
 }
 
-/* Sutherland–Hodgman against an axis-aligned box; any of x0,x1,y0,y1 may be omitted. */
+/* Sutherland–Hodgman against any half-planes (box.planes, keeping (p - P)·n <= 0) and then an
+   axis-aligned box; any of x0,x1,y0,y1 may be omitted. */
 export function clipPoly(pts: Pt[], box: ClipBox): Pt[] {
   const planes: ['x' | 'y', number, number][] = [];
   if (box.x0 != null) planes.push(['x', box.x0, 1]);
@@ -193,7 +196,8 @@ interface Corner { i: number; th: number; r: number; d: number; f: boolean }
 
 /* Turn a polygon into path commands, replacing corners with circular-ish fillets.
    Point flags: smooth (sampled curve, never a corner), sharp (never rounded),
-   r (forced radius, e.g. round terminals). R is the default corner radius. */
+   r (forced radius, e.g. round terminals), step (a square notch cut out of the corner
+   instead, see stepCorners). R is the default corner radius. */
 export function roundContour(src: Pt[], R: number, cornersOut?: Pt[]): Cmd[] {
   const pts: Pt[] = [];
   for (const p of src) {
