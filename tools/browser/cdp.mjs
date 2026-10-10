@@ -34,7 +34,16 @@ export async function openTab({ width = 1440, height = 900, mobile = false, skip
     send, events, ws, t,
     async go(url, wait = 2500) { await send('Page.navigate', { url }); await sleep(wait); },
     async ev(expr) { const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }); if (r.result?.exceptionDetails) return { error: r.result.exceptionDetails.exception?.description }; return r.result?.result?.value; },
-    async shot(name, clip) { const r = await send('Page.captureScreenshot', { format: 'png', ...(clip ? { clip: { ...clip, scale: 1 } } : {}) }); mkdirSync(SHOTS, { recursive: true }); writeFileSync(`${SHOTS}/${name}.png`, Buffer.from(r.result.data, 'base64')); return `${SHOTS}/${name}.png`; },
+    // (a headless tab that isn't in front can hang on a capture: bring it forward, and give up and try once more after 20 s)
+    async shot(name, clip) {
+      let r;
+      for (let i = 0; i < 2 && !r?.result?.data; i++) {
+        await send('Page.bringToFront');
+        r = await Promise.race([send('Page.captureScreenshot', { format: 'png', ...(clip ? { clip: { ...clip, scale: 1 } } : {}) }), sleep(20000)]);
+      }
+      if (!r?.result?.data) throw new Error(`screenshot ${name} timed out`);
+      mkdirSync(SHOTS, { recursive: true }); writeFileSync(`${SHOTS}/${name}.png`, Buffer.from(r.result.data, 'base64')); return `${SHOTS}/${name}.png`;
+    },
     async box(sel) { return p.ev(`(()=>{const e=document.querySelector(${JSON.stringify(sel)}); if(!e) return null; const r=e.getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height}})()`); },
     async click(x, y) { for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 }); await sleep(300); },
     async clickSel(sel) { const b = await p.box(sel); if (!b) throw new Error('no ' + sel); await p.click(b.x + b.w / 2, b.y + b.h / 2); return b; },
