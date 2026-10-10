@@ -1,7 +1,11 @@
 /* Free fonts' letters (see shared/free-fonts.ts): a design written in one draws its letters as the font
    has them instead of building them, much as a letter drawn with the pen. The server fetches a font from
    Google Fonts and sends its outlines in this form (server/free-fonts.ts); whoever draws with it
-   registers them here first, the browser once they arrive and the server before it exports. */
+   registers them here first, the browser once they arrive (client/lib/free.ts) and the server before it
+   exports. The server also keeps each font it has converted in this form, in free-fonts/ beside its database
+   (data/free-fonts/*.json), and reads it back from there without converting again: a change to PackedNode or
+   FreeFontData needs those files thrown away, or fetchFont's check of a kept file changed so it fetches them
+   again. */
 import type { Drawn, Node } from './outline';
 
 /** An anchor point packed small: x and y, then the handle coming in and the one going out, each pair
@@ -9,7 +13,7 @@ import type { Drawn, Node } from './outline';
 export type PackedNode = [number, number] | [number, number, number | null, number | null] | [number, number, number | null, number | null, number, number];
 /** A free font's letters as they travel, at 1000 units to the em, y up. */
 export interface FreeFontData {
-  /** the font's id (see fontId) */ id: string;
+  /** the font's id, 'Family:weight' with an i after an italic's, e.g. 'Roboto:600i' (see fontId in shared/free-fonts.ts) */ id: string;
   family: string; designers: string[];
   /** the font's own copyright notice, and the licence it comes under, by name and address, and in full
       (its OFL.txt or LICENSE.txt, '' when that couldn't be had) */ copyright: string; license: string; licenseUrl: string; licenseText?: string;

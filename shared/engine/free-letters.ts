@@ -1,4 +1,4 @@
-/* A free font's letters in a design (see free-fonts.ts and free.ts): the family's nearest weight or
+/* A free font's letters in a design (see shared/free-fonts.ts and free.ts): the family's nearest weight or
    italic, moved on their skeletons by the settings (skin.ts) and restyled where the settings ask for the
    engine's shapes (restyle.ts); letters in a form the font hasn't got come from its twin, the font read
    as the engine's own settings. Called by buildFont (font.ts) for a design with a freeFont. */
@@ -14,14 +14,14 @@ import type { Pt, SerifSpec } from './types';
 import { buildFont, type Effective, type Font, type Glyph, hasGlyph, type Metrics, metrics, resolve, scriptForms, termSpec } from './font';
 import { placeGlyph, type Unplaced } from './glyph';
 
-/* ---- free fonts' letters (see free-fonts.ts), moved by the settings as far as they're moved from the
+/* ---- free fonts' letters (see shared/free-fonts.ts), moved by the settings as far as they're moved from the
    ones the font was picked at (Params.freeAt): heavier is a heavier font of the family where it has one;
-   the rest of the way, and Contrast, Width, the heights, Inner space, the dots, Pinch, Joints and the serifs'
-   size, move its letters on their skeletons as the engine's own letters move (skin.ts); then the shapes the
-   engine draws are set on them where the settings ask for others than the font's (restyle.ts): its stroke
-   ends (their kind, length, curl, openness, tails), serifs, stencil and crossbar gaps, and corners; slanted
-   past half an italic's lean, its italic; and the font's own lean, rotation, spacing and fill are kept until
-   the settings move. */
+   the rest of the way, and Contrast, Width, the heights, Inner space, the dots' size, Pinch, Ink traps and the
+   serifs' size, move its letters on their skeletons as the engine's own letters move (skin.ts); then the shapes
+   the engine draws are set on them where the settings ask for others than the font's (restyle.ts): its dots,
+   bowls, stroke ends (their kind, length, curl, openness, tails), serifs, stencil and crossbar gaps, peaks and
+   corners; slanted past half an italic's lean, its italic; and the font's own lean, rotation, spacing and fill
+   are kept until the settings move. */
 
 /** How far an italic leans, taken as a typical one's. */
 const ITALIC_DEG = 12;
@@ -113,9 +113,9 @@ export function formChanged(ch: string, a: Effective, b: Effective): boolean {
     || (is('acefjrstyCGJS235690?') && a.terminalRun !== b.terminalRun);
 }
 
+const twinFits = new WeakMap<FreeFont, Partial<Params>>();
 /** The engine's settings a free font's letters read as (once a font): its stems' weight, its bars' contrast against
     them, its x-height, its width (its n against the engine's) and whether it has serifs. */
-const twinFits = new WeakMap<FreeFont, Partial<Params>>();
 function twinFit(font: FreeFont, pick: Params): Partial<Params> {
   let fit = twinFits.get(font);
   if (fit) return fit;
@@ -136,9 +136,9 @@ function twinFit(font: FreeFont, pick: Params): Partial<Params> {
   return fit;
 }
 
+const twinFonts = new Map<string, Font>();
 /** Letter `ch` as the free font's twin draws it: the engine's, at the settings the font reads as (twinFit) moved as far
     as the design moves them from those it was picked at. */
-const twinFonts = new Map<string, Font>();
 export function twinGlyph(ch: string, fl: FreeLetters): Glyph | null {
   if (!fl.font) return null;
   const fit = twinFit(fl.font, fl.rawPick), now = fl.raw, pick = fl.rawPick;
@@ -151,9 +151,9 @@ export function twinGlyph(ch: string, fl: FreeLetters): Glyph | null {
   return f.glyph(ch);
 }
 
+const restyles = new WeakMap<Node[][], Map<string, Node[][]>>();
 /** A rigged free font's letter, moved on its skeleton, given the shapes the settings ask for past the ones
     it stands for (restyle.ts); kept with the moved outline, by the settings, as dragging a slider asks again. */
-const restyles = new WeakMap<Node[][], Map<string, Node[][]>>();
 function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   const k = fl.to.s / fl.from.s, x = rig.ctx, c: RestyleCtx = { ch: x.ch, cap: x.cap, xh: x.xh, stem: rig.stem * x.cap * k, bar: rig.bar * x.cap * k };
   const a = cornerLooks(fl.pick, c), b = cornerLooks(fl.now, c);
@@ -165,6 +165,8 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   const sa = stencilLook(fl.pick), sb = stencilLook(fl.now), ba = bowlLook(fl.pick), bb = bowlLook(fl.now);
   const ends = (e: Effective) => [termSpec(e), e.terminal, e.terminalLength, e.terminalCurl, e.tail, e.aperture];
   const da = [fl.pick.dots, dotLook(fl.pick)], db = [fl.now.dots, dotLook(fl.now)];
+  // (every setting a restyle step below reads goes in this key, as picked and as now: one left out leaves its
+  // slider showing the letter kept from before)
   const key = JSON.stringify([a, b, ends(fl.pick), ends(fl.now), sf, sf && lines, sa, sb, ba, bb, da, db, fl.pick.apex, fl.now.apex, fl.now.apex !== fl.pick.apex && lines]);
   let kept = restyles.get(cs);
   if (!kept) { kept = new Map(); restyles.set(cs, kept); }
@@ -190,7 +192,7 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
     outline as placed is kept as its drawing, for Points to start from. */
 export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   // the letter moved on its skeleton in the font's own units, then brought to the design's size; its side
-  // bearings as the font has them, wider or narrower with the letters and by Side bearings
+  // bearings as the font has them, wider or narrower with the letters and by Side margins
   // (the letter keeps the room it took before its ends, serifs and corners were drawn again, as an engine's letter's
   // serifs reach out into its side bearings, which grow by a little of their length)
   const rig = fl.skin && fl.font && skinRig(fl.font, ch), skinned = rig ? skinMove(rig, fl.from, fl.to) : null;

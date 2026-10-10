@@ -1,8 +1,10 @@
 /* Effects on finished outlines: a horizontal slice through every letter, and fills that rebuild
-   a letter as a wireframe or from a grid of pixels, dots or lines, cut an inline down its strokes
-   or cast a shadow behind it. They run on the glyph's final
-   outline (after slant and spacing), so a grid lines up from one letter to the next. The outline
-   is read with the nonzero rule, like the font itself: overlapping strokes count once. */
+   a letter as a wireframe or from a grid of pixels, dots or lines, cut an inline down its strokes,
+   draw it hollow (a line round the inside of its edge) or cast a shadow behind it. They run on the
+   glyph's final outline, after slant and spacing (placeGlyph in glyph.ts calls them), so a grid lines
+   up from one letter to the next. The outline is read with the nonzero rule, like the font itself:
+   overlapping strokes count once. */
+import type { Fill } from '../params';
 import { combine, shape, type Shape } from './boolean';
 import { cubicAt, dist, roundContour, roundCuts, signedArea, splitPoly } from './geom';
 import type { Cmd, Pt } from './types';
@@ -52,7 +54,7 @@ function within(poly: Pt[], p: Pt) {
     the ink's. Ink the band leaves thinner than `minH` (where it grazes a bar) goes with it, unless
     that is all the letter keeps (a hyphen the band runs through), and a letter the band would take
     whole (a hyphen inside a wide one) stays as it is. */
-export function slice(cmds: Cmd[], y0: number, y1: number, round: number, w: number, minH = 0): Cmd[] {
+export function slice(cmds: Cmd[], y0: number, y1: number, round: number, w: number, minH: number): Cmd[] {
   // (wound as the engine winds its outlines, anticlockwise: a free font's may run the other way round)
   let polys = toPolys(cmds), area = polys.map(signedArea);
   if (area.reduce((a, b) => a + b, 0) < 0) { polys = polys.map(p => p.slice().reverse()); area = polys.map(signedArea); }
@@ -338,9 +340,12 @@ function inset(p: Pt[], d: number): Pt[] {
   return out;
 }
 
-export interface FillOpts {
-  fill: string; cell: number; line: number; roundness: number;
-  /** the size the fill is set at, 0 to 1 (Module) */ size: number;
+interface FillOpts {
+  /** the fill, one of FILLS (options.ts) */ fill: Fill;
+  /** the grid's size for pixels, dots and lines (Metrics.cell; 0 for the other fills) */ cell: number;
+  /** how wide the wire fill's ring is (glyph.ts sets it by the fill's Size) */ line: number;
+  /** how round pixels' corners and the ends of the lines' bars are, 0 to 1 (Roundness) */ roundness: number;
+  /** the size the fill is set at, 0 to 1 (the Fill's Size slider, params.module) */ size: number;
   /** stem thickness, and the thickness of a stroke running in direction (dx, dy) */ stem: number; thick: (dx: number, dy: number) => number;
   /** the letter's centerlines, placed like its outline (the inline runs down them) */ skeleton: Pt[][];
   /** whether a stroke ending at p runs on into the next letter (the entry and exit of a joined-up hand) */ joins: (p: Pt) => boolean;
@@ -380,172 +385,184 @@ function across(ink: Shape, p: Pt, nx: number, ny: number, max: number): [number
   return [reach(1), reach(-1)];
 }
 
+/** One of the inline's centerlines (line `li` of `lines`), in steps no longer than the line is wide, with
+    its ends settled against the ink and the other lines: a free end stops short of the end of its stroke
+    (trim), an end that runs into another stroke stops on that stroke's line (meet), and a closed bowl
+    against a stem opens there. `tips` are the last of the line at each end, laid whatever else lies
+    there; `edge` is the least ink either side the line needs where it runs on into a stem's line. */
+function inlineCenterline(line: Pt[], li: number, lines: Pt[][], w: number, o: FillOpts, ink: Shape, edge: number): { pts: Pt[]; tips: [Pt[], Pt[]] } {
+  // (whether p lies near another stroke's line, so an end there runs into that stroke)
+  const near = (p: Pt, self: number) => lines.some((l, i) => i !== self && l.some((q, k) => k + 1 < l.length && toSeg(p, q, l[k + 1]) < o.stem * 0.6));
+  const closed = dist(line[0], line[line.length - 1]) < 1;
+  // in steps no longer than the line is wide, so a straight stroke is looked at all along
+  let pts: Pt[] = [line[0]];
+  for (let k = 1; k < line.length; k++) {
+    const a = line[k - 1], b = line[k], n = Math.ceil(dist(a, b) / w);
+    for (let i = 1; i <= n; i++) pts.push({ x: a.x + (b.x - a.x) * i / n, y: a.y + (b.y - a.y) * i / n });
+  }
+  // a free end stops as far short of the end of the ink as the ink beside it is thick, so the
+  // stroke is rimmed alike all round its end (a fixed share of the stroke would leave a solid block
+  // there, much darker than the sides once the line is wide). The rim is measured a stroke in
+  // from the end, and the ink ahead at both of the line's edges, so where the end is cut on a
+  // slant the nearer corner keeps its rim too. Where a serif or a ball widens the end, the line
+  // stops where the stroke begins to widen, as it runs into the serif
+  const trim = (from: number) => {
+    const s0 = pts[from], s1 = pts[from ? from - 1 : 1], th = o.thick(s1.x - s0.x, s1.y - s0.y);
+    let cut = th * 0.5 + w;
+    const l = dist(s0, s1);
+    if (l > 1e-9) {
+      const ux = (s0.x - s1.x) / l, uy = (s0.y - s1.y) / l, back = (t: number) => ({ x: s0.x - ux * t, y: s0.y - uy * t });
+      const wide = (t: number) => { const r = across(ink, back(t), -uy, ux, o.stem * 4); return r && Math.min(r[0], r[1]); };
+      const t = th * 0.25, p = back(t), side = Math.min(wide(th) ?? th / 2, th * 0.55);
+      const ahead = [1, -1].map(sg => across(ink, { x: p.x - uy * sg * w / 2, y: p.y + ux * sg * w / 2 }, ux, uy, o.stem * 4));
+      if (ahead[0] && ahead[1]) {
+        // (walked in past a pointed or rounded tip, narrower than the stroke, to the widening)
+        let flare = 0, seen = false;
+        for (let f = 1; f < th * 2; f += w / 2) {
+          const r = wide(f);
+          if (r === null) continue;
+          if (r > side * 1.2 + 1) { flare = f; seen = true; } else if (seen || r > side * 0.8) break;
+        }
+        cut = Math.max(0, side - w / 2 - (Math.min(ahead[0][0], ahead[1][0]) - t), flare);
+      }
+    }
+    while (pts.length > 1 && cut > 0) {
+      const a = from ? pts[pts.length - 1] : pts[0], b = from ? pts[pts.length - 2] : pts[1], l = dist(a, b);
+      if (l > cut) {
+        const q = { x: a.x + (b.x - a.x) * cut / l, y: a.y + (b.y - a.y) * cut / l };
+        if (from) pts[pts.length - 1] = q; else pts[0] = q;
+        cut = 0;
+      } else { if (from) pts.pop(); else pts.shift(); cut -= l; }
+    }
+  };
+  // an end that runs into another stroke stops where it meets that stroke's line, as the stem of
+  // an I does at its slab's: its centerline goes on to the edge of the ink, and cut that far it
+  // would run past the slab's line and split the slab in two. The last of it, from where it
+  // comes alongside that line, is its tip, laid whatever else lies there: as the bowl of a u
+  // curls into the stem, the two lines merge rather than one cutting the other into dashes
+  const tips: [Pt[], Pt[]] = [[], []];
+  const meet = (from: number) => {
+    const end = from ? [...pts].reverse() : pts, d = (p: Pt) => Math.min(...lines.map((l, i) => i === li ? Infinity
+      : Math.min(...l.slice(1).map((q, k) => toSeg(p, l[k], q)))));
+    // (walked in from the end while it comes closer, in steps an eighth of the line's)
+    let best = end[0], bd = d(best), seg = 0;
+    walk: for (let k = 0; k + 1 < end.length; k++) for (let s = 1; s <= 8; s++) {
+      const q = { x: end[k].x + (end[k + 1].x - end[k].x) * s / 8, y: end[k].y + (end[k + 1].y - end[k].y) * s / 8 }, dq = d(q);
+      if (dq >= bd) break walk;
+      best = q; bd = dq; seg = k;
+    }
+    let j = best === end[0] ? 1 : seg + 1;
+    while (j < end.length && d(end[j]) < w * 0.6) j++;
+    if (j >= end.length - 1) return;
+    const tip = [...end.slice(best === end[0] ? 1 : seg + 1, j).reverse(), best].filter(p => dist(p, end[j]) > 1e-9);
+    // and where it meets that line square and all that is left of the ink past it is its rim
+    // (the corner of an L, the stem and top of an R), it runs on half its width, so the two lines
+    // overlap at the corner rather than leave a square of ink between their ends. (Not where its
+    // stroke goes on past the meeting, as the stem of an n does above its arch, nor where it
+    // meets on a slant, as the leg of an R does: either would leave a stub poking out)
+    const prev = tip.length > 1 ? tip[tip.length - 2] : end[j], l = dist(prev, best);
+    if (tip.length && l > 1e-9) {
+      const ux = (best.x - prev.x) / l, uy = (best.y - prev.y) / l, r = across(ink, best, ux, uy, o.stem * 4);
+      let closest = Infinity, cos = 1;
+      lines.forEach((ln, i) => { if (i !== li) for (let k = 1; k < ln.length; k++) {
+        const dd = toSeg(best, ln[k - 1], ln[k]), sl = dist(ln[k - 1], ln[k]);
+        if (dd < closest && sl > 1e-9) { closest = dd; cos = Math.abs((ln[k].x - ln[k - 1].x) * ux + (ln[k].y - ln[k - 1].y) * uy) / sl; }
+      } });
+      if (r && r[0] < o.thick(ux, uy) * 0.6 && cos < 0.2) tip.push({ x: best.x + ux * w / 2, y: best.y + uy * w / 2 });
+    }
+    tips[from ? 1 : 0] = tip;
+    const rest = end.slice(j);
+    pts = from ? rest.reverse() : rest;
+  };
+  // a closed bowl whose stroke runs into another's (the bowl of a single-storey a, of d, g, p or
+  // b against its stem) opens where they run together, and each end carries on into the stem's
+  // line. Kept closed, the bowl's ring would run down beside the stem's line with a sliver of ink
+  // between, and the a would read as ci, the d as cl
+  if (closed && lines.length > 1) {
+    const ring = pts.slice(0, -1), m = ring.length, at = (i: number) => ring[((i % m) + m) % m];
+    const foot = (p: Pt) => {
+      let best = { d: Infinity, q: p };
+      lines.forEach((l, i) => { if (i !== li) for (let k = 1; k < l.length; k++) {
+        const a = l[k - 1], b = l[k], dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+        const t = l2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0, q = { x: a.x + dx * t, y: a.y + dy * t };
+        if (dist(p, q) < best.d) best = { d: dist(p, q), q };
+      } });
+      return best;
+    };
+    // whether the ink runs unbroken from p across to the other line
+    const joined = (p: Pt) => {
+      const { d, q } = foot(p);
+      return d > 1e-9 && (across(ink, p, (q.x - p.x) / d, (q.y - p.y) / d, d + 1)?.[0] ?? 0) >= d - 1;
+    };
+    // where a line from p the way (ux, uy) meets the other line, if it gets there inside the ink
+    // with room for the line either side all the way
+    const reach = (p: Pt, ux: number, uy: number): Pt | null => {
+      let hit = Infinity;
+      lines.forEach((l, i) => { if (i !== li) for (let k = 1; k < l.length; k++) {
+        const a = l[k - 1], ex = l[k].x - a.x, ey = l[k].y - a.y, den = ux * ey - uy * ex;
+        if (Math.abs(den) < 1e-12) continue;
+        const qx = a.x - p.x, qy = a.y - p.y, s = (qx * ey - qy * ex) / den, u = (qx * uy - qy * ux) / den;
+        if (s > 0 && u >= 0 && u <= 1) hit = Math.min(hit, s);
+      } });
+      if (hit > o.stem * 1.5) return null;
+      for (let s = 0; s <= hit; s += w / 2) {
+        const r = across(ink, { x: p.x + ux * s, y: p.y + uy * s }, -uy, ux, o.stem * 4);
+        if (!r || Math.min(r[0], r[1]) < edge) return null;
+      }
+      return { x: p.x + ux * hit, y: p.y + uy * hit };
+    };
+    let k0 = 0;
+    for (let k = 1; k < m; k++) if (foot(ring[k]).d < foot(ring[k0]).d) k0 = k;
+    const d0 = foot(ring[k0]).d;
+    // (not where the lines already touch or cross, as the bar of an e does its bowl)
+    if (d0 > w * 0.6 && d0 < o.stem * 1.5 && joined(ring[k0])) {
+      // each way from where they run closest, it opens as far round as the strokes stay joined
+      // (any less leaves a sliver of ink cut off between the lines), and from there runs on the
+      // way it was going, or where that runs alongside the stem's line and never meets it,
+      // turned toward it as little as gets it there
+      const end = (sg: number) => {
+        for (const turn of [0, 0.25, 0.5, 1, 2]) {
+          let found: { i: number; c: Pt } | null = null;
+          for (let i = 1; i < m / 2 && joined(at(k0 + sg * i)); i++) {
+            const p = at(k0 + sg * i), q = at(k0 + sg * (i - 1)), l = dist(p, q), f = foot(p);
+            if (l < 1e-9) continue;
+            const ux = (q.x - p.x) / l + (f.q.x - p.x) / f.d * turn, uy = (q.y - p.y) / l + (f.q.y - p.y) / f.d * turn, ul = Math.hypot(ux, uy);
+            const c = reach(p, ux / ul, uy / ul);
+            if (c) found = { i, c };
+          }
+          if (found) return found;
+        }
+        return null;
+      };
+      const a = end(1), b = end(-1);
+      if (a && b) {
+        const run: Pt[] = [];
+        for (let i = k0 + a.i; i <= k0 + m - b.i; i++) run.push(at(i));
+        // (cut square on the stem's line, an end lies inside that line, so it stops there)
+        tips[0] = [a.c]; tips[1] = [b.c];
+        pts = run;
+      }
+    }
+  }
+  // (an end where the letter joins the next runs right out, so the line carries on into it)
+  if (!closed) {
+    if (o.joins(pts[0])) { /* runs on */ } else if (near(pts[0], li)) meet(0); else trim(0);
+    const e = pts.length - 1;
+    if (pts.length < 2 || o.joins(pts[e])) { /* runs on */ } else if (near(pts[e], li)) meet(e); else trim(e);
+  }
+  return { pts, tips };
+}
+
 /** A line `w` wide down each centerline, where the stroke is thick enough to leave ink either side
     of it: it fades out in hairlines and stops short of the free ends of strokes (not where a stroke
-    runs into another, so the lines of an H meet), and each run of it is a band polygon. `fit` says
-    where it goes: on strokes at least `thick` thick, with `room` of ink either side of its middle
-    (or `edge` for a short stretch between two that have it). */
-function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape, fit = { thick: w * 2.4, room: w * 0.85, edge: w * 0.6 }): Pt[][] {
+    runs into another, so the lines of an H meet), and each run of it is a band polygon. It goes on
+    strokes at least 2.4 lines thick, with 0.85 of a line of ink either side of its middle (or 0.6 for
+    a short stretch between two that have it). */
+function inlineBands(sk: Pt[][], w: number, o: FillOpts, ink: Shape): Pt[][] {
+  const fit = { thick: w * 2.4, room: w * 0.85, edge: w * 0.6 };
   const lines = sk.filter(l => l.length > 1);
-  const near = (p: Pt, self: number) => lines.some((l, i) => i !== self && l.some((q, k) => k + 1 < l.length && toSeg(p, q, l[k + 1]) < o.stem * 0.6));
   const ways = lines.map((line, li) => {
-    const closed = dist(line[0], line[line.length - 1]) < 1;
-    // in steps no longer than the line is wide, so a straight stroke is looked at all along
-    let pts: Pt[] = [line[0]];
-    for (let k = 1; k < line.length; k++) {
-      const a = line[k - 1], b = line[k], n = Math.ceil(dist(a, b) / w);
-      for (let i = 1; i <= n; i++) pts.push({ x: a.x + (b.x - a.x) * i / n, y: a.y + (b.y - a.y) * i / n });
-    }
-    // a free end stops as far short of the end of the ink as the ink beside it is thick, so the
-    // stroke is rimmed alike all round its end (a fixed share of the stroke left a solid block
-    // there, much darker than the sides once the line is wide). The rim is measured a stroke in
-    // from the end, and the ink ahead at both of the line's edges, so where the end is cut on a
-    // slant the nearer corner keeps its rim too. Where a serif or a ball widens the end, the line
-    // stops where the stroke begins to widen, as it runs into the serif
-    const trim = (from: number) => {
-      const s0 = pts[from], s1 = pts[from ? from - 1 : 1], th = o.thick(s1.x - s0.x, s1.y - s0.y);
-      let cut = th * 0.5 + w;
-      const l = dist(s0, s1);
-      if (l > 1e-9) {
-        const ux = (s0.x - s1.x) / l, uy = (s0.y - s1.y) / l, back = (t: number) => ({ x: s0.x - ux * t, y: s0.y - uy * t });
-        const wide = (t: number) => { const r = across(ink, back(t), -uy, ux, o.stem * 4); return r && Math.min(r[0], r[1]); };
-        const t = th * 0.25, p = back(t), side = Math.min(wide(th) ?? th / 2, th * 0.55);
-        const ahead = [1, -1].map(sg => across(ink, { x: p.x - uy * sg * w / 2, y: p.y + ux * sg * w / 2 }, ux, uy, o.stem * 4));
-        if (ahead[0] && ahead[1]) {
-          // (walked in past a pointed or rounded tip, narrower than the stroke, to the widening)
-          let flare = 0, seen = false;
-          for (let f = 1; f < th * 2; f += w / 2) {
-            const r = wide(f);
-            if (r === null) continue;
-            if (r > side * 1.2 + 1) { flare = f; seen = true; } else if (seen || r > side * 0.8) break;
-          }
-          cut = Math.max(0, side - w / 2 - (Math.min(ahead[0][0], ahead[1][0]) - t), flare);
-        }
-      }
-      while (pts.length > 1 && cut > 0) {
-        const a = from ? pts[pts.length - 1] : pts[0], b = from ? pts[pts.length - 2] : pts[1], l = dist(a, b);
-        if (l > cut) {
-          const q = { x: a.x + (b.x - a.x) * cut / l, y: a.y + (b.y - a.y) * cut / l };
-          if (from) pts[pts.length - 1] = q; else pts[0] = q;
-          cut = 0;
-        } else { if (from) pts.pop(); else pts.shift(); cut -= l; }
-      }
-    };
-    // an end that runs into another stroke stops where it meets that stroke's line, as the stem of
-    // an I does at its slab's: its centerline goes on to the edge of the ink, and cut that far it
-    // would run past the slab's line and split the slab in two. The last of it, from where it
-    // comes alongside that line, is its tip, laid whatever else lies there: as the bowl of a u
-    // curls into the stem, the two lines merge rather than one cutting the other into dashes
-    const tips: [Pt[], Pt[]] = [[], []];
-    const meet = (from: number) => {
-      const end = from ? [...pts].reverse() : pts, d = (p: Pt) => Math.min(...lines.map((l, i) => i === li ? Infinity
-        : Math.min(...l.slice(1).map((q, k) => toSeg(p, l[k], q)))));
-      // (walked in from the end while it comes closer, in steps an eighth of the line's)
-      let best = end[0], bd = d(best), seg = 0;
-      walk: for (let k = 0; k + 1 < end.length; k++) for (let s = 1; s <= 8; s++) {
-        const q = { x: end[k].x + (end[k + 1].x - end[k].x) * s / 8, y: end[k].y + (end[k + 1].y - end[k].y) * s / 8 }, dq = d(q);
-        if (dq >= bd) break walk;
-        best = q; bd = dq; seg = k;
-      }
-      let j = best === end[0] ? 1 : seg + 1;
-      while (j < end.length && d(end[j]) < w * 0.6) j++;
-      if (j >= end.length - 1) return;
-      const tip = [...end.slice(best === end[0] ? 1 : seg + 1, j).reverse(), best].filter(p => dist(p, end[j]) > 1e-9);
-      // and where it meets that line square and all that is left of the ink past it is its rim
-      // (the corner of an L, the stem and top of an R), it runs on half its width, so the two lines
-      // overlap at the corner rather than leave a square of ink between their ends. (Not where its
-      // stroke goes on past the meeting, as the stem of an n does above its arch, nor where it
-      // meets on a slant, as the leg of an R does: either would leave a stub poking out)
-      const prev = tip.length > 1 ? tip[tip.length - 2] : end[j], l = dist(prev, best);
-      if (tip.length && l > 1e-9) {
-        const ux = (best.x - prev.x) / l, uy = (best.y - prev.y) / l, r = across(ink, best, ux, uy, o.stem * 4);
-        let near = Infinity, cos = 1;
-        lines.forEach((ln, i) => { if (i !== li) for (let k = 1; k < ln.length; k++) {
-          const dd = toSeg(best, ln[k - 1], ln[k]), sl = dist(ln[k - 1], ln[k]);
-          if (dd < near && sl > 1e-9) { near = dd; cos = Math.abs((ln[k].x - ln[k - 1].x) * ux + (ln[k].y - ln[k - 1].y) * uy) / sl; }
-        } });
-        if (r && r[0] < o.thick(ux, uy) * 0.6 && cos < 0.2) tip.push({ x: best.x + ux * w / 2, y: best.y + uy * w / 2 });
-      }
-      tips[from ? 1 : 0] = tip;
-      const rest = end.slice(j);
-      pts = from ? rest.reverse() : rest;
-    };
-    // a closed bowl whose stroke runs into another's (the bowl of a single-storey a, of d, g, p or
-    // b against its stem) opens where they run together, and each end carries on into the stem's
-    // line. Kept closed, the bowl's ring ran down beside the stem's line with a sliver of ink
-    // between, and the a read as ci, the d as cl
-    if (closed && lines.length > 1) {
-      const ring = pts.slice(0, -1), m = ring.length, at = (i: number) => ring[((i % m) + m) % m];
-      const foot = (p: Pt) => {
-        let best = { d: Infinity, q: p };
-        lines.forEach((l, i) => { if (i !== li) for (let k = 1; k < l.length; k++) {
-          const a = l[k - 1], b = l[k], dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
-          const t = l2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0, q = { x: a.x + dx * t, y: a.y + dy * t };
-          if (dist(p, q) < best.d) best = { d: dist(p, q), q };
-        } });
-        return best;
-      };
-      // whether the ink runs unbroken from p across to the other line
-      const joined = (p: Pt) => {
-        const { d, q } = foot(p);
-        return d > 1e-9 && (across(ink, p, (q.x - p.x) / d, (q.y - p.y) / d, d + 1)?.[0] ?? 0) >= d - 1;
-      };
-      // where a line from p the way (ux, uy) meets the other line, if it gets there inside the ink
-      // with room for the line either side all the way
-      const reach = (p: Pt, ux: number, uy: number): Pt | null => {
-        let hit = Infinity;
-        lines.forEach((l, i) => { if (i !== li) for (let k = 1; k < l.length; k++) {
-          const a = l[k - 1], ex = l[k].x - a.x, ey = l[k].y - a.y, den = ux * ey - uy * ex;
-          if (Math.abs(den) < 1e-12) continue;
-          const qx = a.x - p.x, qy = a.y - p.y, s = (qx * ey - qy * ex) / den, u = (qx * uy - qy * ux) / den;
-          if (s > 0 && u >= 0 && u <= 1) hit = Math.min(hit, s);
-        } });
-        if (hit > o.stem * 1.5) return null;
-        for (let s = 0; s <= hit; s += w / 2) {
-          const r = across(ink, { x: p.x + ux * s, y: p.y + uy * s }, -uy, ux, o.stem * 4);
-          if (!r || Math.min(r[0], r[1]) < fit.edge) return null;
-        }
-        return { x: p.x + ux * hit, y: p.y + uy * hit };
-      };
-      let k0 = 0;
-      for (let k = 1; k < m; k++) if (foot(ring[k]).d < foot(ring[k0]).d) k0 = k;
-      const d0 = foot(ring[k0]).d;
-      // (not where the lines already touch or cross, as the bar of an e does its bowl)
-      if (d0 > w * 0.6 && d0 < o.stem * 1.5 && joined(ring[k0])) {
-        // each way from where they run closest, it opens as far round as the strokes stay joined
-        // (any less leaves a sliver of ink cut off between the lines), and from there runs on the
-        // way it was going, or where that runs alongside the stem's line and never meets it,
-        // turned toward it as little as gets it there
-        const end = (sg: number) => {
-          for (const turn of [0, 0.25, 0.5, 1, 2]) {
-            let found: { i: number; c: Pt } | null = null;
-            for (let i = 1; i < m / 2 && joined(at(k0 + sg * i)); i++) {
-              const p = at(k0 + sg * i), q = at(k0 + sg * (i - 1)), l = dist(p, q), f = foot(p);
-              if (l < 1e-9) continue;
-              const ux = (q.x - p.x) / l + (f.q.x - p.x) / f.d * turn, uy = (q.y - p.y) / l + (f.q.y - p.y) / f.d * turn, ul = Math.hypot(ux, uy);
-              const c = reach(p, ux / ul, uy / ul);
-              if (c) found = { i, c };
-            }
-            if (found) return found;
-          }
-          return null;
-        };
-        const a = end(1), b = end(-1);
-        if (a && b) {
-          const run: Pt[] = [];
-          for (let i = k0 + a.i; i <= k0 + m - b.i; i++) run.push(at(i));
-          // (cut square on the stem's line, an end lies inside that line, so it stops there)
-          tips[0] = [a.c]; tips[1] = [b.c];
-          pts = run;
-        }
-      }
-    }
-    // (an end where the letter joins the next runs right out, so the line carries on into it)
-    if (!closed) {
-      if (o.joins(pts[0])) { /* runs on */ } else if (near(pts[0], li)) meet(0); else trim(0);
-      const e = pts.length - 1;
-      if (pts.length < 2 || o.joins(pts[e])) { /* runs on */ } else if (near(pts[e], li)) meet(e); else trim(e);
-    }
+    const { pts, tips } = inlineCenterline(line, li, lines, w, o, ink, fit.edge);
     // how far along the line, and how much it has turned, up to each point
     const S = [0], T = [0];
     for (let k = 1; k < pts.length; k++) {
@@ -711,8 +728,8 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
     }
     case 'shadow': {
       // the letter casts a solid shadow down to the right, kept apart from it by a gap. The shadow is
-      // the letter swept along the way it falls, not a copy of it set off: a copy fell clear of a
-      // light stroke and read as a second letter, and the gap round one stroke cut stripes across
+      // the letter swept along the way it falls, not a copy of it set off: a copy would fall clear of a
+      // light stroke and read as a second letter, and the gap round one stroke would cut stripes across
       // the copy of another
       const ink = shape(polys), { dx, dy } = shadowShift(o.stem, o.size), gap = Math.max(10, o.stem * 0.16);
       const solid = combine([ink], ink.has);
@@ -731,8 +748,8 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
           if (!faces(i)) continue;
           const run = [p[i % n]];
           while (i < i0 + n && faces(i)) run.push(p[++i % n]);
-          const band = [...run, ...[...run].reverse().map(move)];
-          sweep.push(signedArea(band) < 0 ? band.reverse() : band);
+          const swath = [...run, ...[...run].reverse().map(move)];
+          sweep.push(signedArea(swath) < 0 ? swath.reverse() : swath);
         }
       }
       const back = shape(sweep), fleck = gap * gap * 2;
@@ -741,6 +758,10 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
       const fall = combine([grown, back], (x, y) => back.has(x, y) && !grown.has(x, y));
       return polysToCmds([...solid, ...fall.filter(p => Math.abs(signedArea(p)) >= fleck)], 0);
     }
-    default: return cmds;
+    case 'solid': return cmds;
+    default:
+      // (every fill has its case: one added to FILLS without one fails to compile here)
+      o.fill satisfies never;
+      return cmds;
   }
 }
