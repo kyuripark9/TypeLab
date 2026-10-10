@@ -7,7 +7,14 @@
    where that leaves the ink in as many pieces round as many holes (distance-ordered homotopic thinning),
    and a cell at the tip of a line kept where it is the middle of a round of ink no other round holds.
    Where a stroke ends square, the middle line forks out into its two corners: such short branches, no
-   longer than the round of ink they leave from, are pruned. */
+   longer than the round of ink they leave from, are pruned.
+
+   Read by skin.ts (a rigged letter's ink, its skeleton, its joins and its square ends), restyle.ts (the
+   ends, serifs, stencil, bowls and corners it redraws) and free-letters.ts (the Inline down the strokes).
+   Positions are in the font's units, y up, while a Grid's rows run down from the top (row 0 is the top),
+   `cell` units a cell. A node with one edge is a stroke's free end, one with three or more a join, and a
+   ring's lone node lists its edge twice (branches() reads it once each way). An edge's first and last
+   points are its nodes. */
 import type { Node } from './outline';
 
 type P = { x: number; y: number };
@@ -28,7 +35,8 @@ export interface Grid {
   /** each cell's distance from the paper, in units */ dt: Float64Array;
 }
 
-const bez = (a: Node, b: Node, t: number): P => {
+/** The point t of the way along the outline's segment from node a to node b. */
+export const bez = (a: Node, b: Node, t: number): P => {
   const p1x = a.ox ?? a.x, p1y = a.oy ?? a.y, p2x = b.ix ?? b.x, p2y = b.iy ?? b.y, u = 1 - t;
   return { x: u * u * u * a.x + 3 * u * u * t * p1x + 3 * u * t * t * p2x + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * p1y + 3 * u * t * t * p2y + t * t * t * b.y };
 };
@@ -53,12 +61,19 @@ export function inkGrid(cs: Node[][], cell = 1): Grid {
   if (!(x0 < x1)) { x0 = x1 = y0 = y1 = 0; }
   x0 = Math.floor(x0) - 4 * cell; y0 = Math.floor(y0) - 4 * cell;
   const W = Math.ceil((x1 - x0) / cell) + 8, H = Math.ceil((y1 - y0) / cell) + 8, ink = new Uint8Array(W * H);
-  for (let r = 0; r < H; r++) {
-    const fy = y0 + (H - r - 0.5) * cell, xs: { x: number; w: number }[] = [];
-    for (const ring of rings) for (let i = 0; i < ring.length; i++) {
-      const a = ring[i], b = ring[(i + 1) % ring.length];
-      if ((a.y <= fy) !== (b.y <= fy)) xs.push({ x: a.x + (fy - a.y) / (b.y - a.y) * (b.x - a.x), w: b.y > a.y ? 1 : -1 });
+  // the ink, row by row through each row's middle; row 0 is the top
+  // (each edge put in the rows it crosses, give or take one, rather than every row trying every edge)
+  const rows: { x: number; w: number }[][] = Array.from({ length: H }, () => []);
+  for (const ring of rings) for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length];
+    const r0 = Math.max(0, Math.floor(H - 0.5 - (Math.max(a.y, b.y) - y0) / cell) - 1), r1 = Math.min(H - 1, Math.ceil(H - 0.5 - (Math.min(a.y, b.y) - y0) / cell) + 1);
+    for (let r = r0; r <= r1; r++) {
+      const fy = y0 + (H - r - 0.5) * cell;
+      if ((a.y <= fy) !== (b.y <= fy)) rows[r].push({ x: a.x + (fy - a.y) / (b.y - a.y) * (b.x - a.x), w: b.y > a.y ? 1 : -1 });
     }
+  }
+  for (let r = 0; r < H; r++) {
+    const xs = rows[r];
     xs.sort((a, b) => a.x - b.x);
     let w = 0;
     for (let i = 0; i < xs.length - 1; i++) {
@@ -76,13 +91,7 @@ export function inkGrid(cs: Node[][], cell = 1): Grid {
 /** A cell's middle, in units. */
 const at = (g: Grid, i: number): P => ({ x: g.x0 + ((i % g.W) + 0.5) * g.cell, y: g.y0 + (g.H - Math.floor(i / g.W) - 0.5) * g.cell });
 
-/** The distance to the paper at a point, read between the cells. */
-export function distAt(g: Grid, x: number, y: number) {
-  const c = (x - g.x0) / g.cell - 0.5, r = (g.y0 - y) / g.cell + g.H - 0.5, c0 = Math.floor(c), r0 = Math.floor(r);
-  if (c0 < 0 || r0 < 0 || c0 + 1 >= g.W || r0 + 1 >= g.H) return 0;
-  const a = c - c0, b = r - r0, d = g.dt, W = g.W;
-  return (d[r0 * W + c0] * (1 - a) + d[r0 * W + c0 + 1] * a) * (1 - b) + (d[(r0 + 1) * W + c0] * (1 - a) + d[(r0 + 1) * W + c0 + 1] * a) * b;
-}
+/** Whether the cell under a point is inked. */
 export const inkAt = (g: Grid, x: number, y: number) => {
   const c = Math.floor((x - g.x0) / g.cell), r = Math.floor((g.y0 - y) / g.cell + g.H);
   return c >= 0 && r >= 0 && c < g.W && r < g.H && g.ink[r * g.W + c] > 0;
@@ -160,7 +169,7 @@ function thin(g: Grid): Uint8Array {
 
 /** The skeleton of a letter's outline: its ends, joins and strokes. `cell` is the grid's in units (2 reads a
     letter 1000 units to the em finely enough for its hairlines, and quickly). */
-export function skeleton(cs: Node[][], cell = 2): Skeleton & { grid: Grid } {
+export function skeleton(cs: Node[][], cell = 2): Skeleton {
   const g = inkGrid(cs, cell), s = thin(g), { W } = g;
   const deg = new Int8Array(W * g.H);
   const on: number[] = [];
@@ -250,10 +259,11 @@ export function skeleton(cs: Node[][], cell = 2): Skeleton & { grid: Grid } {
     E.pts = fromA ? kept : kept.slice().reverse();
     Object.assign(n, { x: tip.x, y: tip.y, r: tip.r });
   });
-  for (const e of sk.edges) { let l = 0; for (let k = 1; k < e.pts.length; k++) l += Math.hypot(e.pts[k].x - e.pts[k - 1].x, e.pts[k].y - e.pts[k - 1].y); e.len = l; }
-  return { ...sk, grid: g };
+  for (const e of sk.edges) e.len = lenOf(e.pts);
+  return sk;
 }
 
+/** How long a run of skeleton points is. */
 const lenOf = (pts: SkPt[]) => { let l = 0; for (let k = 1; k < pts.length; k++) l += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y); return l; };
 
 /** Branches that are only a stroke's square end forking into its corners, or a bump on its edge, pruned:
@@ -385,7 +395,7 @@ export function alongFrom(sk: Skeleton, e: number, i: number, end: 'a' | 'b') {
 }
 
 /** The ink's run through (x, y) along its row (or, `column`, down its column): its two ends, or null off the ink. */
-export function runThrough(g: Grid, x: number, y: number, column = false): [number, number] | null {
+function runThrough(g: Grid, x: number, y: number, column = false): [number, number] | null {
   if (!inkAt(g, x, y)) return null;
   const step = g.cell;
   let a = 0, b = 0;
