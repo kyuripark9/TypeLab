@@ -15,5 +15,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["client", "server", "shared", "tests", "vite.config.ts"]
+  "include": ["client", "server", "shared", "tests", "tools", "vite.config.ts"]
 }

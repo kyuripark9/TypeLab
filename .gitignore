@@ -5,3 +5,4 @@ data/*.db-*
 .DS_Store
 .env
 data/free-fonts/
+.tools/

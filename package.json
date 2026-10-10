@@ -12,7 +12,11 @@
     "build": "vite build",
     "start": "NODE_ENV=production tsx server/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test \"tests/**/*.test.ts\""
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "golden": "node --import tsx tools/golden.ts",
+    "golden:update": "node --import tsx tools/golden.ts --update",
+    "render": "node --import tsx tools/render.ts",
+    "sweep": "node --import tsx tools/sweep.ts"
   },
   "dependencies": {
     "express": "^5.2.1",
