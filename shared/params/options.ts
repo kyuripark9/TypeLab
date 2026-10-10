@@ -1,6 +1,10 @@
-/* The named choices a setting can take (stroke ends, serif shapes, fills, letter forms...), and their types. */
+/* The named choices a setting can take (stroke ends, serif shapes, fills, letter forms...), and their types.
+   The values are stored in saved designs: renaming or dropping one needs a mapping in cleanValue (clean.ts, as for
+   'outline-inline'), or those designs fall back to the default. Order matters where a list is read by position:
+   the first of each TERMINAL_FORMS kind is its fallback (formOf) and the form the Stroke ends trait picks
+   (traits.ts). */
 export const TERMINALS = ['flat', 'round', 'sharp', 'angled', 'cut', 'tapered'] as const;
-/** The forms each kind of stroke end comes in; the first is the kind as it always looked. */
+/** The forms each kind of stroke end comes in; the first is the kind's plain form, which a form of another kind falls back to (see formOf). */
 export const TERMINAL_FORMS = {
   flat: ['plain', 'flared', 'scooped'], round: ['round', 'droplet', 'ball'], sharp: ['pointed', 'clipped'],
   angled: ['outer', 'inner'], cut: ['level', 'notched'], tapered: ['taper', 'brush']
@@ -29,7 +33,8 @@ export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines', 'inline', 'out
 export const STORIES = ['auto', 'double', 'single'] as const;
 /** How a bowl meets its stem (b d p q g, the single-storey a): curving out of it, or square, its flat top and bottom running straight into it. */
 export const BOWL_JOINS = ['curved', 'square'] as const;
-/** The g: its descender hooks back under the bowl from a stem on the right, or drops from the left of the bowl and hooks out to the right. */
+/** The g: its descender hooks back under the bowl from a stem on the right (hook), drops from the left of the bowl and hooks out to the
+    right (mirrored), or two storeys: a small bowl with an ear, linked to a loop under the baseline (double). */
 export const G_FORMS = ['hook', 'mirrored', 'double'] as const;
 /** Where the arm and leg of k and K meet: the leg springs from the arm, both meet at the stem, or both meet at the end of a short bar out from it. */
 export const K_FORMS = ['arm', 'stem', 'bar'] as const;
@@ -57,8 +62,8 @@ export const R_FORMS = ['leg', 'loop'] as const;
 /** The letters: built as print type, or written as a joined-up script's (see script.ts); auto writes them in a
     design that is more than half cursive. */
 export const SCRIPT_FORMS = ['auto', 'print', 'script'] as const;
-/** Flourishes on the script letters: none, or swashes (see script.ts): the capitals lead in from a wide loop, t's bar
-    runs out and loops back over, l and d rise into flourishes, and the tails of r and z sweep away under the letters. */
+/** Flourishes on the script letters: none, or swashes (see swash.ts): S leads in from a wide loop, t's bar runs in
+    and loops back over, l and d rise into loops, r sweeps down into a curl and the tail of z loops away under the word. */
 export const FLOURISHES = ['plain', 'swash'] as const;
 /** The spine of s, S and $: a curve running corner to corner, or level between two tight turns, like two rounded boxes stacked. */
 export const S_FORMS = ['curved', 'flat'] as const;

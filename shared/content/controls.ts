@@ -3,25 +3,14 @@
 import { PARAM_KEYS, SPECS, type CategoryId, type ControlDef, type ControlKey, type SubControlDef, type SubKey, type SubKeyOf } from '../params';
 import type { AForm, BarEnds, Bends, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, Flourish, GForm, IForm, KForm, Mirror, Params, QForm, RForm, ScriptForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from '../params';
 
-export type { CategoryId, ControlDef, ControlKey, SubControlDef } from '../params';
+export type { CategoryId, ControlKey } from '../params';
 
 /* The sliders nested under each control (see `sub` in shared/params/spec.ts). */
 export type SerifSubKey = SubKeyOf<'serif'>;
 export type SerifTipSubKey = SubKeyOf<'serifTip'>;
-export type SerifBaseSubKey = SubKeyOf<'serifBase'>;
 export type SerifInnerSubKey = SubKeyOf<'serifInner'>;
-export type SerifArmSubKey = SubKeyOf<'serifArms'>;
 export type FillSubKey = SubKeyOf<'fill'>;
 export type TerminalSubKey = SubKeyOf<'terminal'>;
-export type DotSubKey = SubKeyOf<'dots'>;
-export type BowlSubKey = SubKeyOf<'bowlForm'>;
-export type WeightSubKey = SubKeyOf<'weight'>;
-export type RoundSubKey = SubKeyOf<'roundness'>;
-export type PinchSubKey = SubKeyOf<'pinch'>;
-export type CrossbarSubKey = SubKeyOf<'crossbar'>;
-/** A stencil's and a slice's own value is their thickness, so it sits among their sub-sliders. */
-export type StencilSubKey = SubKeyOf<'stencil'>;
-export type SliceSubKey = SubKeyOf<'slice'>;
 /** Anything the control panel can focus: a control or one of its nested sub-sliders. */
 export type ActiveKey = ControlKey | SubKey;
 
@@ -75,14 +64,21 @@ export const WEIGHT_SUBS = subsOf('weight');
 export const ROUND_SUBS = subsOf('roundness');
 export const PINCH_SUBS = subsOf('pinch');
 export const CROSSBAR_SUBS = subsOf('crossbar');
+/** A stencil's and a slice's own value is their thickness, so it sits among their sub-sliders. */
 export const STENCIL_SUBS = subsOf('stencil');
 export const SLICE_SUBS = subsOf('slice');
+const ALL_SUBS = { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...SERIF_ARM_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS,
+  ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...PINCH_SUBS, ...CROSSBAR_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
+// (a slider nested under a control with no *_SUBS above would be missing from SUBS, so from search and the explainer)
+({}) as { [K in Exclude<SubKey, keyof typeof ALL_SUBS>]: K } satisfies Record<string, never>;
 /** Every nested slider, whichever control it sits under. */
-export const SUBS = { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...SERIF_ARM_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS,
-  ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...PINCH_SUBS, ...CROSSBAR_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS } as Record<SubKey, SubControlDef>;
+export const SUBS = ALL_SUBS as Record<SubKey, SubControlDef>;
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
 export type FormKey = 'build' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'scriptForm' | 'flourish' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
+// (a control of type 'form' draws its shapes from FORM_OPTIONS, so each needs its entry)
+type FormControl = { [K in ControlKey]: (typeof SPECS)[K] extends { control: { type: 'form' } } ? K : never }[ControlKey];
+({}) as { [K in Exclude<FormControl, FormKey>]: K } satisfies Record<string, never>;
 export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Params[K], 'auto'>, string][] } } = {
   build: { ch: 'E', options: [['strokes', 'Strokes'], ['blocks', 'Blocks']] as [Build, string][] },
   gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored'], ['double', 'Two-storey']] as [GForm, string][] },
@@ -113,7 +109,8 @@ export const BAR_END_OPTIONS: [BarEnds, string][] = [['short', 'Short'], ['throu
 export const SERIF_SIDE_OPTIONS: [SerifSide, string][] = [['both', 'Both'], ['left', 'Left'], ['right', 'Right'], ['inside', 'Inside'], ['outside', 'Outside']];
 export const SERIF_INNER_OPTIONS: [SerifInner, string][] = [['same', 'Same'], ...SERIF_SHAPE_OPTIONS];
 
-/** The control that shapes each anatomy part. Parts missing here (the baseline) have none. */
+/** The control that shapes each anatomy part, by ANATOMY id (copy.ts), and the parts drag handles grab that have no
+    ANATOMY entry (join, see dragSpec in client/lib/drag.ts). Parts missing here (the baseline) have none. */
 export const PART_CONTROL: Partial<Record<string, ControlKey>> = {
   stem: 'weight', diagonal: 'weight', bowl: 'weight', arm: 'weight', leg: 'weight', tail: 'tail',
   shoulder: 'weight', spine: 'weight', hook: 'weight', dot: 'weight',

@@ -21,8 +21,8 @@ export type GoogleResult =
   | { ok: false; cancelled?: boolean; error: string };
 
 export const PASSWORD_MIN = 8;
-export const PASSWORD_MAX = 200;
-export const EMAIL_MAX = 254;
+const PASSWORD_MAX = 200;
+const EMAIL_MAX = 254;
 export const USER_NAME_MAX = 60;
 
 /** Trimmed and lower-cased, so Ana@Example.com and ana@example.com are one account. */

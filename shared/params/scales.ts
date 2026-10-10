@@ -43,7 +43,7 @@ export function contrastOf(v: number) {
   const t = (0.5 - v) * 2;
   return { amount: 0.05 + 0.95 * Math.max(0, (t - 0.1) / 0.9), reverse: Math.min(1, t / 0.2) };
 }
-/** A contrast saved before it ran both ways, as an amount with a separate reverse, on today's scale. */
+/** An older saved contrast, an amount with a separate reverse (see fromOldContrast in clean.ts), as a value on the two-way Contrast scale. */
 export function contrastFromOld(amount: number, reverse: number) {
   const u = Math.min(1, Math.max(0, (amount - 0.05) / 0.95));
   return reverse >= 0.5 ? 0.5 - (0.1 + 0.9 * u) / 2 : 0.5 + u / 2;
@@ -64,8 +64,10 @@ export function onEndScale(len: number) {
   return (lo + hi) / 2;
 }
 /** How far one stroke end reaches, on its own scale (see endReach): its own length, else the
-    stroke end length, except that the tip of a hook, tail or cursive stroke follows its own
-    control instead and sits at the usual length (0.5). */
+    stroke end length; or, for an end the stroke end length doesn't reach (`hook`), the usual length
+    (0.5). Those are a plain end (see isEndId), an end with a serif, and the tip of a hook, tail or
+    cursive stroke, which follows its own control. Unlike endCurl it doesn't read the 'p' of a plain
+    end's id: callers pass `hook` for it (see stretchTerminals in shared/engine/ends.ts). */
 export const endLength = (p: Pick<Params, 'terminalLength'> & { terminalEnds?: Record<string, number> }, id: string, hook = false) =>
   p.terminalEnds?.[id] ?? (hook ? 0.5 : onEndScale(p.terminalLength));
 /** How one stroke end bends (see terminalCurl): its own curl, else the stroke end curl, except
@@ -76,5 +78,5 @@ export const endCurl = (p: { terminalCurl?: number; terminalCurls?: Record<strin
 /** The x-height as a share of the cap height, at `v` on the Lowercase height scale: from under a third
     (a copperplate's) to nearly as tall as the capitals. */
 export const xHeightRatio = (v: number) => 0.3 + 0.56 * v;
-/** An x-height saved on the first scale, which started at half the cap height, on today's (see xHeightRatio). */
+/** An x-height saved on the version 1 scale, which starts at half the cap height, as a value on the scale xHeightRatio reads. */
 export const xHeightFromOld = (v: number) => Math.round((0.2 + 0.36 * v) / 0.56 * 1000) / 1000;

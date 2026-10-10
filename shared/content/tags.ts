@@ -2,6 +2,7 @@
    Appearance and Feeling), and finding styles by them or by words typed in search. */
 import { resolve, type Effective } from '../engine/font';
 import type { Params } from '../params';
+import { searchTerms, startsWords } from './search';
 import type { StyleDef } from './styles';
 
 /* Starting styles are tagged like the fonts on Google Fonts. The group is a style's Category: it
@@ -31,18 +32,18 @@ export const MOODS: { id: Mood; label: string }[] = ([
    Unlike the other tags these are not hand-picked but read off each style's settings, so they
    stay true as styles are tuned. */
 export type Look = 'mono' | 'pixel' | 'stencil' | 'outline' | 'inline' | 'shadow' | 'techno' | 'inktrap' | 'contrast' | 'wide' | 'narrow';
-export const LOOKS: { id: Look; label: string; hint: string; test: (e: Effective) => boolean }[] = [
-  { id: 'mono', label: 'Monospace', hint: 'Every letter takes the same width', test: e => e.mono >= 0.5 },
-  { id: 'pixel', label: 'Pixel', hint: 'Built from a grid of pixels or dots', test: e => e.fill === 'pixels' || e.fill === 'dots' },
-  { id: 'stencil', label: 'Stencil', hint: 'Letters cut apart by gaps', test: e => e.stencil > 0 || e.slice > 0 },
-  { id: 'outline', label: 'Outline', hint: 'Drawn as lines, not filled in', test: e => e.fill === 'wire' || e.fill === 'outline' },
-  { id: 'inline', label: 'Inline', hint: 'A line cut down the middle of the strokes', test: e => e.fill === 'inline' },
-  { id: 'shadow', label: 'Shadow', hint: 'Letters cast a shadow behind them', test: e => e.fill === 'shadow' },
-  { id: 'techno', label: 'Techno', hint: 'Squared-off bowls or cut corners instead of curves', test: e => e.fill === 'solid' && (e.square >= 0.5 || e.chamfer >= 0.2) },
-  { id: 'inktrap', label: 'Ink Traps', hint: 'Strokes narrow where they meet', test: e => e.joints >= 0.4 },
-  { id: 'contrast', label: 'High Contrast', hint: 'Strong difference between thick and thin', test: e => e.contrast >= 0.5 },
-  { id: 'wide', label: 'Wide', hint: 'Stretched out sideways', test: e => e.width >= 0.68 },
-  { id: 'narrow', label: 'Narrow', hint: 'Squeezed tall and thin', test: e => e.width <= 0.35 }
+const LOOKS: { id: Look; label: string; test: (e: Effective) => boolean }[] = [
+  { id: 'mono', label: 'Monospace', test: e => e.mono >= 0.5 },
+  { id: 'pixel', label: 'Pixel', test: e => e.fill === 'pixels' || e.fill === 'dots' },
+  { id: 'stencil', label: 'Stencil', test: e => e.stencil > 0 || e.slice > 0 },
+  { id: 'outline', label: 'Outline', test: e => e.fill === 'wire' || e.fill === 'outline' },
+  { id: 'inline', label: 'Inline', test: e => e.fill === 'inline' },
+  { id: 'shadow', label: 'Shadow', test: e => e.fill === 'shadow' },
+  { id: 'techno', label: 'Techno', test: e => e.fill === 'solid' && (e.square >= 0.5 || e.chamfer >= 0.2) },
+  { id: 'inktrap', label: 'Ink Traps', test: e => e.joints >= 0.4 },
+  { id: 'contrast', label: 'High Contrast', test: e => e.contrast >= 0.5 },
+  { id: 'wide', label: 'Wide', test: e => e.width >= 0.68 },
+  { id: 'narrow', label: 'Narrow', test: e => e.width <= 0.35 }
 ];
 
 /* Classification, like Google's Sans Serif, Serif and Calligraphy tags: the genre a style is
@@ -53,8 +54,8 @@ export type Kind = 'handwritten' | 'upright' | 'informal' | 'formal' | 'brush' |
   | 'geometric' | 'neogrotesque' | 'grotesque' | 'humanist' | 'rounded' | 'superellipse' | 'flared';
 type TagDef<T> = { id: T; label: string; hint: string };
 /** Each section also names the Categories whose finer genres it holds. */
-export const KIND_SECTIONS: { id: string; label: string; groups: StyleGroup[]; tags: TagDef<Kind>[] }[] = [
-  { id: 'sans', label: 'Sans Serif', groups: ['sans'], tags: [
+export const KIND_SECTIONS: { groups: StyleGroup[]; tags: TagDef<Kind>[] }[] = [
+  { groups: ['sans'], tags: [
     { id: 'geometric', label: 'Geometric', hint: 'Built from circles and straight lines' },
     { id: 'neogrotesque', label: 'Neo Grotesque', hint: 'Neutral and even, like Helvetica' },
     { id: 'grotesque', label: 'Grotesque', hint: 'Early sans serifs, dense and gritty' },
@@ -63,7 +64,7 @@ export const KIND_SECTIONS: { id: string; label: string; groups: StyleGroup[]; t
     { id: 'superellipse', label: 'Superellipse', hint: 'Bowls halfway between a circle and a square' },
     { id: 'flared', label: 'Flared', hint: 'Strokes swell toward their ends (Google: Glyphic)' }
   ] },
-  { id: 'serif', label: 'Serif', groups: ['serif', 'slab'], tags: [
+  { groups: ['serif', 'slab'], tags: [
     { id: 'venetian', label: 'Venetian', hint: 'The first roman type: dark, low contrast, sloped serifs' },
     { id: 'oldstyle', label: 'Old Style', hint: 'Renaissance book type with angled stress' },
     { id: 'transitional', label: 'Transitional', hint: 'Crisp serifs and upright stress' },
@@ -73,7 +74,7 @@ export const KIND_SECTIONS: { id: string; label: string; groups: StyleGroup[]; t
     { id: 'slab', label: 'Slab', hint: 'Heavy, block-shaped serifs' },
     { id: 'clarendon', label: 'Clarendon', hint: 'A slab with soft, bracketed serifs' }
   ] },
-  { id: 'calligraphy', label: 'Calligraphy', groups: ['hand'], tags: [
+  { groups: ['hand'], tags: [
     { id: 'handwritten', label: 'Handwritten', hint: 'Everyday writing with a pen' },
     { id: 'upright', label: 'Upright', hint: 'Handwriting that stands up straight' },
     { id: 'informal', label: 'Informal', hint: 'Loose, lively and slanted' },
@@ -102,13 +103,10 @@ const words = (s: StyleDef, looks: Look[]) => [
   ...s.kinds.map(k => KIND_SECTIONS.flatMap(x => x.tags).find(t => t.id === k)!.label),
   ...s.moods.map(m => MOODS.find(x => x.id === m)!.label), ...looks.map(l => LOOKS.find(x => x.id === l)!.label)
 ].join(' ');
-const normal = (text: string) => ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, ' ')}`;
 /** Every word typed starts a word somewhere in the style (so "futura", "round mono" and "heavy slab" all work). */
 export const searchMatches = (s: StyleDef, query: string, looks: Look[] = s.looks) => {
-  const q = normal(query).split(' ').filter(Boolean);
-  if (!q.length) return true;
-  const w = normal(words(s, looks));
-  return q.every(t => w.includes(` ${t}`));
+  const q = searchTerms(query);
+  return !q.length || startsWords(searchTerms(words(s, looks)).join(' '), q);
 };
 /** The Appearance tags a set of params shows. */
 export function looksOf(p: Params): Look[] { const e = resolve(p); return LOOKS.filter(l => l.test(e)).map(l => l.id); }

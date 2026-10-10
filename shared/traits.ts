@@ -77,7 +77,7 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
 ];
 
 export const TRAITS: TraitDef[] = TRAIT_SECTIONS.flatMap(s => s.traits);
-export const traitById = (id: TraitId) => TRAITS.find(t => t.id === id)!;
+const traitById = (id: TraitId) => TRAITS.find(t => t.id === id)!;
 export const traitOption = (id: TraitId, option: string | undefined) => traitById(id).options.find(o => o.id === option);
 
 /** `p` with every picked trait laid over it, in the order the traits are listed. */

@@ -26,7 +26,9 @@ export const CATEGORIES: { id: CategoryId; label: string; hint: string; group?: 
   { id: 'script', label: 'Handwriting', hint: 'Cursive strokes, a wobbly hand and swash capitals', group: 'details' },
   { id: 'effects', label: 'Effects', hint: 'Outlines, pixels, dots, stencil and slice', group: 'details' }
 ];
-/** Links from before the pages were regrouped name these groups, or the Personality page, since removed. */
+/** Names older links use for a page or group the navigation doesn't have (structure, personality), or that now names a
+    group (proportion), with the page each opens. pageOf reads these before the groups, so 'proportion' opens Heights
+    rather than the Proportions group's first page. */
 const OLD_GROUPS: Record<string, CategoryId> = { structure: 'weight', proportion: 'heights', personality: 'weight' };
 /** The page `id` names: a page itself, or a group, which opens on its first page. */
 export const pageOf = (id: string | null | undefined): CategoryId | undefined =>

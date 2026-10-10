@@ -1,8 +1,9 @@
 /* Free fonts: each starting style can be written in a ready-made font from Google Fonts, all of
-   them free to use, change and share (SIL Open Font License or Apache 2.0). The pick for each style is
-   the first of its "like" families on Google Fonts, at the weight nearest the style's own (Weight 0.4
-   as 400) and in italic where the style names one or leans and the family has one. The letters are
-   fetched and converted by the server (server/free-fonts.ts) and drawn by the engine as they are. */
+   them free to use, change and share (SIL Open Font License or Apache 2.0). Each style's pick (STYLE_FONTS) is a
+   family like it, in the weight and italic closest to its look, and the style's settings are fitted to that font
+   (tools/fit). A design written in it keeps those settings as the ones its letters stand for (Params.freeAt).
+   The letters are fetched and converted by the server (server/free-fonts.ts) and drawn as the font has them
+   until a setting moves from there (see freeLetters in shared/engine/free-letters.ts). */
 
 /** A family: its designers, the weights it comes in upright and in italic (up to 900, the heaviest the font
     files the server fetches come in, so Nunito's 1000 is left out), the licence it comes under
@@ -223,8 +224,8 @@ export function parseFontId(id: unknown): FreeFontRef | null {
   const weight = Number(m[2]), italic = m[3] === 'i';
   return (italic ? fam.italics : fam.weights).includes(weight) ? { family: m[1], weight, italic } : null;
 }
-/** The font of `family` nearest `weight`, upright or italic as asked where the family has that (a
-    family member's weight, see family.ts). */
+/** The font of `family` nearest `weight` (an OpenType weight, 400 regular), upright or italic as asked where the family has an
+    italic: the font a free-font design draws from as its Weight and Slant move (see freeLetters in shared/engine/free-letters.ts). */
 export function nearestFont(family: string, weight: number, italic: boolean): string | null {
   const fam = FREE_FAMILIES[family]; if (!fam) return null;
   const it = italic && fam.italics.length > 0, list = it ? fam.italics : fam.weights;

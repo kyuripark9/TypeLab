@@ -1,11 +1,16 @@
-/* Reading settings from outside (a saved design, an imported file, a request body): old versions upgraded,
-   unknown keys dropped, every value checked against its spec (spec.ts) and clamped. */
+/* Reading settings from outside (a saved design, an imported file, a request body). upgradeParams brings settings an
+   older PARAMS_VERSION wrote up to this one; callers run it first (server/db.ts on opening the database, the file
+   import in client/components/Header.tsx). sanitizeParams then reads the older shapes it recognises on its own (a
+   separate `reverse`, the 'outline-inline' fill), drops unknown keys and checks every value against its spec
+   (spec.ts), numbers clamped to 0..1; isValidParams says whether input was already valid. */
 import { cleanDrawn, type Drawn } from '../engine/outline';
 import { parseFontId } from '../free-fonts';
 import type { Params } from './model';
 import { contrastFromOld, xHeightFromOld } from './scales';
 import { DEFAULTS, FREE_AT_KEYS, ID_KEYS, PARAM_KEYS, SPECS, isGlyphKey, type FreeAt, type GlyphParams, type Spec } from './spec';
-/** The version of the settings this build writes. 2 moved the Lowercase height onto a scale reaching lower. */
+/** The version of the settings this build writes; settings files and the database record it. Version 1 settings have
+    the Lowercase height on its first scale (see xHeightFromOld). Bump it, and add the step to upgradeParams, when
+    saved settings need reading differently. */
 export const PARAMS_VERSION = 2;
 /** Settings written by an older version (see PARAMS_VERSION), as this one reads them. */
 export function upgradeParams(src: Record<string, unknown>, version: number): Record<string, unknown> {
@@ -21,7 +26,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
     case 'boolean': return typeof v === 'boolean' ? v : undefined;
     case 'font': return v === '' || parseFontId(v) ? v : undefined;
     case 'option':
-      // (the Outline fill was an Inline outline, with a line down its strokes too, until 2026-10-06)
+      // older designs may carry 'outline-inline' (the Outline fill with an inline cut down its strokes too), read as Outline
       if (k === 'fill' && v === 'outline-inline') return 'outline';
       return spec.options!.includes(v) ? v : undefined;
     case 'ids': {
@@ -67,7 +72,7 @@ function cleanOutlines(v: unknown): Record<string, Drawn> {
   return out;
 }
 
-/** Settings saved while Reverse contrast was its own slider (they carry a `reverse`), with their
+/** Older settings that carry a separate `reverse` (from a Reverse contrast slider of its own), with their
     contrasts, the font's and each letter's own, moved onto the two-way Contrast scale. */
 function fromOldContrast(src: Record<string, unknown>): Record<string, unknown> {
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
@@ -98,8 +103,8 @@ export function sanitizeParams(input: unknown): Params {
     const c = k === 'glyphs' ? cleanGlyphs(src[k]) : k === 'outlines' ? cleanOutlines(src[k]) : cleanValue(k, src[k]);
     if (c !== undefined) out[k] = c;
   }
-  // a free font's letters stand for the settings it was picked at; one those didn't name yet (a design saved
-  // before its letters followed that setting) they stand for as it is, as that is how they were drawn
+  // a free font's letters stand for the settings it was picked at (freeAt). A free setting freeAt leaves out (an older
+  // design's font didn't follow it) is taken at the design's own value, so it doesn't move the font's letters
   if (out.freeFont) {
     const at = { ...(out.freeAt as FreeAt) } as Record<string, unknown>;
     for (const k of FREE_AT_KEYS) if (!(k in at)) at[k] = out[k];
@@ -113,7 +118,7 @@ export function isValidParams(input: unknown): input is Params {
   if (!input || typeof input !== 'object') return false;
   const src = input as Record<string, unknown>;
   const clean = sanitizeParams(input) as unknown as Record<string, unknown>;
-  // (a free font's settings it stands for may leave out ones it was picked before following: they're filled in)
+  // (an older design's freeAt may leave out free settings: sanitizeParams fills them in, so compare only the ones the input names)
   const fill = (k: keyof Params, v: unknown) => k === 'freeAt' && src.freeAt && typeof src.freeAt === 'object'
     ? Object.fromEntries(Object.entries(v as object).filter(([a]) => a in (src.freeAt as object))) : v;
   return PARAM_KEYS.every(k => typeof clean[k] === 'object' ? sorted(src[k]) === sorted(fill(k, clean[k])) : src[k] === clean[k]);

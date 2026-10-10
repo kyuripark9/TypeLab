@@ -1,13 +1,16 @@
 /* Every setting in one place: what it defaults to, what values it takes, whether every letter shares it
    (global) or a letter can have its own, whether a free font's letters follow it (free), and where it sits
    in the editor: as a control on a page (control) or a slider nested under one (sub). DEFAULTS, the checks in
-   clean.ts, GLOBAL_KEYS, FREE_AT_KEYS and the editor's CONTROLS and SUBS (shared/content) are all read off it.
+   clean.ts, isGlyphKey, FREE_AT_KEYS, ID_KEYS and the editor's CONTROLS and SUBS (shared/content/controls.ts)
+   are all read off it.
 
    Adding a setting: its field in model.ts (the compiler then asks for its entry here), its entry here, and
    the engine code that draws it. A slider also needs its icon (client/components/SliderIcons.tsx; a test
    checks). Entries run in the editor's order: a page shows its controls in the order they are listed, a choice
    of shape before the sliders that tune it, the optional ones after and the advanced ones last; a nested
-   slider follows the control it sits under. */
+   slider follows the control it sits under. A page's entries may sit in several runs (Weight & contrast and
+   Size & slant each have two): in the editor only the order among one page's own entries, and among one
+   control's nested sliders, matters. */
 import type { Params } from './model';
 import { isCornerId, isEndId, isJoinId, isStrokeId, isTurnId } from './scales';
 import { A_FORMS, BAR_ENDS, BENDS, BOWL_FORMS, BOWL_JOINS, BUILDS, DIAGONALS, DOTS, FILLS, FLOURISHES, G_FORMS, I_FORMS, K_FORMS, MIRRORS, Q_FORMS,
@@ -27,28 +30,42 @@ export interface ControlDef {
   friendly: string;
   /** the typographer's term */
   tech: string;
+  /** the words at the slider's two ends */
   lo?: string;
   hi?: string;
   /** letters drawn in the explainer diagram */
   demo: string;
+  /** the explainer's text under the title; settings search reads it too */
   explain: string;
+  /** how the panel draws the control (client/components/panel/ControlsPanel.tsx): 'options' the Stroke ends
+      picker, 'story' the Letter a picker, 'form' a letter-shape picker (its shapes in FORM_OPTIONS,
+      shared/content/controls.ts), 'serif' the Serifs switch with its shapes, 'serifForm' the serifs' Tips,
+      Base, Sides or Inside serifs picker, 'fill' the Fill picker; none, a slider */
   type?: 'options' | 'story' | 'form' | 'serif' | 'serifForm' | 'fill';
   /** the diagram closes in on the foot of the letters, where a serif's finer shape shows */
   zoom?: boolean;
+  /** 0.5 is the neutral middle, and the slider's track marks it */
   bipolar?: boolean;
   /** a turn: shown in degrees, -180 to 180, rather than 0 to 100 */
   degrees?: boolean;
+  /** tagged Advanced on the control; its entry goes last on its page (a test checks) */
   advanced?: boolean;
   /** An optional slider: its value where it changes nothing. It gets an on/off switch, and off hides the slider. */
   off?: number;
 }
-/** A slider nested under a control. */
+/** A slider nested under a control: its words, and bipolar, as on ControlDef. */
 export interface SubControlDef { label: string; friendly: string; tech: string; lo: string; hi: string; bipolar?: boolean }
 
 interface Extra {
-  /** every letter shares it: the heights all letters stand on, spacing and fills that run across a line */
+  /** every letter shares it: the heights all letters stand on, spacing and fills that run across a line.
+      A letter can't own it: cleanGlyphs (clean.ts) drops a letter's value for a global setting on reading,
+      so making a setting global loses the values letters were saved with. */
   global?: boolean;
-  /** a free font's letters follow it, as far as it is moved from where the font was picked (Params.freeAt) */
+  /** a free font's letters follow it, as far as it is moved from where the font was picked (Params.freeAt).
+      It joins FREE_AT_KEYS, and sanitizeParams takes an older design's value of it as the one the font's
+      letters stand for. The free-font code has to move the letters for it (freeLetters in
+      shared/engine/free-letters.ts, skin.ts, restyle.ts), or the setting does nothing on a free font: check
+      with npm run golden. */
   free?: boolean;
   /** shown as a control on a page */
   control?: ControlDef;
@@ -65,13 +82,19 @@ export interface Spec<T> extends Extra {
   ids?: (id: string) => boolean;
 }
 
+/** A number from 0 to 1, defaulting to `d`. */
 const num = <const O extends Extra = {}>(d: number, o?: O) => ({ kind: 'number' as const, default: d, ...(o as O) });
+/** On or off, defaulting to `d`. */
 const bool = <const O extends Extra = {}>(d: boolean, o?: O) => ({ kind: 'boolean' as const, default: d, ...(o as O) });
+/** One of `options` (see options.ts), defaulting to `d`. */
 const option = <const T extends string, const O extends Extra = {}>(options: readonly T[], d: NoInfer<T>, o?: O) =>
   ({ kind: 'option' as const, default: d, options, ...(o as O) });
+/** A letter's own values by id, each id passing `test` (see scales.ts), none by default. */
 const ids = <const O extends Extra = {}>(test: (id: string) => boolean, o?: O) =>
   ({ kind: 'ids' as const, default: {} as Record<string, number>, ids: test, ...(o as O) });
-const fontId = <const O extends Extra = {}>(o?: O) => ({ kind: 'font' as const, default: '', ...(o as O) });
+/** A free font's id (see fontId in shared/free-fonts.ts), '' for none. */
+const fontSpec = <const O extends Extra = {}>(o?: O) => ({ kind: 'font' as const, default: '', ...(o as O) });
+/** A value of type T that clean.ts checks itself, defaulting to `d`. */
 const value = <T, const O extends Extra = {}>(d: T, o?: O) => ({ kind: 'value' as const, default: d, ...(o as O) });
 
 export const SPECS = {
@@ -294,7 +317,10 @@ export const SPECS = {
   slicePos: num(0.5, { sub: { parent: 'slice', label: 'Position', friendly: 'Move the cut up or down', tech: 'Slice height', lo: 'Low', hi: 'High' } }),
   sliceRound: num(0, { sub: { parent: 'slice', label: 'Rounding', friendly: 'Round the corners the cut leaves', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' } }),
 
-  /* ---- not on a page of their own: per-id values a letter sets one by one, and what the design carries */
+  /* ---- not a control of their own: pickers inside another control (barEnds under Crossbar height,
+     terminalRun and terminalForm under Stroke ends, aForm under Letter a, serifShape under Serifs), the
+     per-id values a letter sets one by one, the personality macros (see Params.geoHuman), and what the design
+     carries (its customized and drawn letters, its free font and the settings that font was picked at) */
   strokeWeights: ids(isStrokeId),
   barEnds: option(BAR_ENDS, 'short', { free: true }),
   terminalEnds: ids(isEndId),
@@ -313,7 +339,7 @@ export const SPECS = {
   playfulFormal: num(0.5, { global: true, free: true }),
   glyphs: value({}, { global: true }),
   outlines: value({}, { global: true }),
-  freeFont: fontId({ global: true }),
+  freeFont: fontSpec({ global: true }),
   freeAt: value({}, { global: true }),
 };
 
@@ -334,7 +360,6 @@ export const DEFAULTS: Readonly<Params> = Object.freeze(Object.fromEntries(PARAM
 /** Settings every letter shares. The heights are the lines all letters stand on, spacing and the
     fills run across a whole line, and the personality macros push the heights too. */
 export type GlobalKey = KeysWhere<{ global: true }>;
-export const GLOBAL_KEYS = PARAM_KEYS.filter(k => (SPECS[k] as Extra).global) as GlobalKey[];
 /** A setting one letter can have its own value of. */
 export type GlyphKey = Exclude<keyof Params, GlobalKey>;
 export type GlyphParams = Partial<Pick<Params, GlyphKey>>;

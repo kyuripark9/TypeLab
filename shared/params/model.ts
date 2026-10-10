@@ -29,8 +29,8 @@ export interface Params {
   /** one letter's turns rounded on the inside one by one, by turn id (see isTurnId), from 0 sharp to 1 round */ innerCorners: Record<string, number>;
   /** whether curved stroke ends follow the curve or run straight out (see TERMINAL_RUNS) */ terminalRun: TerminalRun;
   /** the form of the picked kind of stroke end (see TERMINAL_FORMS); one of another kind means its first */ terminalForm: TerminalForm;
-  /* The finer shape of each form of stroke end. Each applies only while its form is picked, and
-     its default draws the end as before. */
+  /* The finer shape of each form of stroke end. Each applies only while its form is picked; at its
+     default the end takes the form's usual shape. */
   /** flared: how much the end widens as it finishes */ terminalFlare: number;
   /** rounded: soft corners (0) to a full half circle (1) */ terminalRound: number;
   /** scooped and notched: how deep the end is hollowed */ terminalDepth: number;
@@ -85,7 +85,7 @@ export interface Params {
       higher swelling from a point and easing off before the turn (see swell in stroke.ts) */ swell: number;
   /** length of tails and hooks (Q y j g t f, the comma, cursive exits): 0.5 is the usual length */ tail: number;
   fill: Fill;
-  /** size of the pixels, dots or lines, or the wireframe's line weight */ module: number;
+  /** the fill's size: how coarse the pixels, dots or lines are, how wide the wireframe's, inline's or outline's line, or how far the shadow falls */ module: number;
   /** gaps where strokes meet, like a stencil */ stencil: number;
   /** how far out along a stroke from the join its stencil gap is cut, from 0 right at the join */ stencilPos: number;
   /** how round the corners a stencil gap cuts are, from 0 sharp */ stencilRound: number;
@@ -111,10 +111,14 @@ export interface Params {
       0.5 upright, higher splayed out away from the letter, lower in under the arm */ serifArmThickness: number; serifArmLean: number;
   letterSpacing: number; wordSpacing: number; sideBearing: number;
   /** blend toward one fixed advance width for every glyph */ mono: number;
+  /** the personality macros: no control shows them; starting styles set them, and resolve (shared/engine/font.ts)
+      spreads each over several settings (curve, aperture, contrast, roundness, apex, x-height, width, letter spacing,
+      squareness, the pen's stress, classical letter widths, a bounce on the line) and lets geoHuman pick the
+      auto a. 0.5 changes nothing. */
   geoHuman: number; softSharp: number; classicFuture: number; playfulFormal: number;
   /** letters customized on their own: each overrides some of the settings above, by character */ glyphs: Record<string, GlyphParams>;
   /** letters drawn by hand with the pen, by character: drawn as they are, the settings above no longer shape them */ outlines: Record<string, Drawn>;
-  /** the free font the letters are written in (a font id, see free-fonts.ts), '' for letters built from the settings:
+  /** the free font the letters are written in (a font id, see fontId in shared/free-fonts.ts), '' for letters built from the settings:
       drawn as the font has them, and moved by the settings as far as they're moved from those it was picked at (freeAt) */ freeFont: string;
   /** the settings (of FREE_AT_KEYS) the free font's own letters stand for, as its style had them when it was picked:
       moved away from these, the font's letters move with them (bolder, wider, higher, slanted, filled, their ends, serifs,

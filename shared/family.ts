@@ -52,7 +52,7 @@ export function weightRatio(designWeight: number, anchor: WeightId, id: WeightId
 }
 
 /** The slant a family's italics take when the design is upright: about 11°. */
-export const ITALIC_SLANT = 0.55;
+const ITALIC_SLANT = 0.55;
 /** A design slanted at least this much is an italic already, and its uprights stand it up. */
 export const SLANTED = 0.05;
 
@@ -64,7 +64,7 @@ export interface FamilyMember {
   params: Params;
 }
 
-export const styleName = (weight: WeightId, italic: boolean) => {
+const styleName = (weight: WeightId, italic: boolean) => {
   const w = WEIGHTS.find(x => x.id === weight)!.name;
   return italic ? (w === 'Regular' ? 'Italic' : `${w} Italic`) : w;
 };
@@ -104,6 +104,3 @@ export function familyMembers(params: Params, req: FamilyRequest): FamilyMember[
   }
   return out;
 }
-
-/** The most members a family may have: every weight, upright and italic. */
-export const FAMILY_MAX = WEIGHTS.length * 2;

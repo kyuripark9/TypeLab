@@ -29,9 +29,11 @@ export interface SettingHit {
 }
 
 type Entry = SettingHit & { fields: [string, number][]; shapes: string[] };
-const terms = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-/** Whether every word of `q` starts a word of `text` (both already lowercase, split by spaces). */
-const covers = (text: string, q: string[]) => q.every(w => ` ${text}`.includes(` ${w}`));
+/** The words of `s`, lowercase: its runs of letters and digits. */
+export const searchTerms = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+/** Whether every word of `q` starts a word of `text` (both already lowercase, split by spaces): how settings search
+    and style search (searchMatches in tags.ts) both match what is typed. */
+export const startsWords = (text: string, q: string[]) => q.every(w => ` ${text}`.includes(` ${w}`));
 const opt = (list: readonly (readonly [string, string])[]) => list.map(o => o[1]);
 
 let INDEX: Entry[] | null = null;
@@ -57,28 +59,28 @@ function settingIndex(): Entry[] {
     entries.push({ key: k, page: c.cat, label: d.label, parent: c.label, shapes: [], fields: [[`${c.label} ${d.label}`, 80], [ALSO[k] ?? '', 85], [d.tech, 60],
       [d.friendly, 50], [`${d.lo} ${d.hi}`, 30], [pageName(parent), 15]] });
   }
-  return (INDEX = entries.map(e => ({ ...e, fields: e.fields.map(([t, w]) => [terms(t).join(' '), w] as [string, number]) })));
+  return (INDEX = entries.map(e => ({ ...e, fields: e.fields.map(([t, w]) => [searchTerms(t).join(' '), w] as [string, number]) })));
 }
 
 /** The settings whose words start with every word of `query`, best first: a match in a setting's
     name beats one in its description, and an earlier page breaks ties. A named shape the setting
     was found by, rather than its name, comes back as `option` (Slab, under Serifs). */
 export function findSettings(query: string, limit = 12): SettingHit[] {
-  const q = terms(query);
+  const q = searchTerms(query);
   if (!q.length) return [];
   const order = (h: SettingHit) => CATEGORIES.findIndex(c => c.id === h.page);
   const hits: (SettingHit & { score: number })[] = [];
   for (const e of settingIndex()) {
     let score = 0;
     for (const w of q) {
-      const best = Math.max(0, ...e.fields.filter(([text]) => covers(text, [w])).map(([, weight]) => weight));
+      const best = Math.max(0, ...e.fields.filter(([text]) => startsWords(text, [w])).map(([, weight]) => weight));
       if (!best) { score = 0; break; }
       score += best;
     }
     if (!score) continue;
     const label = e.fields[0][0];
     if (label.startsWith(q.join(' '))) score += 30;
-    const option = covers(label, q) ? undefined : e.shapes.find(n => covers(terms(n).join(' '), q));
+    const option = startsWords(label, q) ? undefined : e.shapes.find(n => startsWords(searchTerms(n).join(' '), q));
     hits.push({ key: e.key, page: e.page, label: e.label, parent: e.parent, option, score });
   }
   return hits.sort((a, b) => b.score - a.score || order(a) - order(b)).slice(0, limit).map(({ score: _, ...h }) => h);
