@@ -16,67 +16,67 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ALL_CHARS, buildFont, registerFreeFont, type Cmd } from '../shared/engine';
 import { STYLE_FONTS } from '../shared/free-fonts';
-import { STYLES } from '../shared/content';
-import * as P from '../shared/params';
-import { DEFAULTS, FREE_AT_KEYS, type Params } from '../shared/params';
-import { ROOT } from './lib';
+import { STYLES, type StyleDef } from '../shared/content';
+import { DEFAULTS, FREE_AT_KEYS, SPECS, TERMINAL_FORMS, type Params } from '../shared/params';
+import { keptFile } from '../server/free-fonts';
+import { ROOT, showContext } from './lib';
 
 export type GoldenSet = 'engine' | 'free';
 
 export const GOLDEN_FILE: Record<GoldenSet, string> = { engine: resolve(ROOT, 'tests/golden/outlines.txt'), free: resolve(ROOT, 'tests/golden/free-outlines.txt') };
 const FONTS_DIR = process.env.FONTS_DIR ?? resolve(ROOT, 'data/free-fonts');
 
-/** The designs the outlines are kept for, by name. Settings that only show with serifs on are tried with them on. */
+/** The designs the outlines are kept for, by name: every starting style, and every setting at its ends (Rotation
+    at its quarters too, as both its ends are a half turn) and in each of its options, each tried where it shows
+    (see showContext). */
 export function engineProbes(): [string, Params][] {
   const out: [string, Params][] = STYLES.map(s => [`style:${s.id}`, s.params]);
   out.push(['defaults', { ...DEFAULTS }]);
   for (const k of Object.keys(DEFAULTS) as (keyof Params)[]) {
-    const on: Partial<Params> = k.startsWith('serif') && k !== 'serif' ? { serif: true } : k.startsWith('terminal') ? { terminal: 'round' } : {};
-    const d = DEFAULTS[k], values = typeof d === 'number' ? [0, 1] : typeof d === 'boolean' ? [!d] : (OPTIONS[k] ?? []).filter(v => v !== d);
-    for (const v of values) out.push([`${k}=${v}`, { ...DEFAULTS, ...on, [k]: v }]);
+    const spec = SPECS[k] as { kind: string; options?: readonly unknown[] }, d = DEFAULTS[k];
+    const values = spec.kind === 'number' ? (k === 'rotation' ? [0, 0.25, 0.75, 1] : [0, 1]) : spec.kind === 'boolean' ? [!d]
+      : spec.kind === 'option' && k !== 'terminalForm' ? spec.options!.filter(v => v !== d) : [];
+    for (const v of values) out.push([`${k}=${v}`, { ...DEFAULTS, ...showContext(k), [k]: v }]);
   }
   // the stroke end forms under their own kinds, a letter of its own, and blocks
-  for (const [t, forms] of [['flat', ['flared', 'scooped']], ['round', ['droplet', 'ball']], ['sharp', ['clipped']], ['angled', ['inner']], ['cut', ['notched']], ['tapered', ['brush']]] as const)
-    for (const f of forms) out.push([`terminal=${t},terminalForm=${f}`, { ...DEFAULTS, terminal: t, terminalForm: f }]);
+  for (const [t, forms] of Object.entries(TERMINAL_FORMS))
+    for (const f of forms.slice(1)) out.push([`terminal=${t},terminalForm=${f}`, { ...DEFAULTS, terminal: t, terminalForm: f } as Params]);
   out.push(['glyphs', { ...DEFAULTS, glyphs: { a: { weight: 1, story: 'single' }, R: { rForm: 'loop', corners: { '0t0': 1 } }, e: { mirror: 'mirrored' } } }]);
   out.push(['blocks,weight=1,roundness=1', { ...DEFAULTS, build: 'blocks', weight: 1, roundness: 1 }]);
   return out;
 }
 
 /** The settings a free font's letters are moved by in the free set: each through a different part of the
-    machinery (nearer weight, skin, restyled ends, serifs, bowls, corners and stencil, the twin's forms). */
-const FREE_MOVES: [string, Partial<Params>][] = [
-  ['', {}], ['weight=0.75', { weight: 0.75 }], ['contrast=0.8', { contrast: 0.8 }], ['width=0.3', { width: 0.3 }], ['xHeight=0.9', { xHeight: 0.9 }],
-  ['terminal=round', { terminal: 'round', terminalForm: 'ball' }], ['serif=flip', {}], ['squareness=1', { squareness: 1 }],
-  ['roundness=1', { roundness: 1 }], ['stencil=0.5', { stencil: 0.5 }], ['gForm=double', { gForm: 'double' }], ['slant=1', { slant: 1 }]
+    machinery (nearer weight, skin, the restyles of ends, serifs, bowls, dots, peaks, corners, joins and stencil,
+    the twin's forms). */
+const FREE_MOVES: [string, (st: StyleDef) => Partial<Params>][] = [
+  ['', () => ({})], ['weight=0.75', () => ({ weight: 0.75 })], ['contrast=0.8', () => ({ contrast: 0.8 })], ['width=0.3', () => ({ width: 0.3 })],
+  ['xHeight=0.9', () => ({ xHeight: 0.9 })], ['terminal=round', () => ({ terminal: 'round', terminalForm: 'ball' })],
+  ['serif=flip', st => ({ serif: !st.params.serif })], ['squareness=1', () => ({ squareness: 1 })], ['roundness=1', () => ({ roundness: 1 })],
+  ['stencil=0.5', () => ({ stencil: 0.5 })], ['gForm=double', () => ({ gForm: 'double' })], ['slant=1', () => ({ slant: 1 })],
+  ['dots=square', () => ({ dots: 'square' })], ['apex=1', () => ({ apex: 1 })], ['steps=1', () => ({ steps: 1 })], ['joinRound=1', () => ({ joinRound: 1 })],
+  ['innerRound=1', () => ({ innerRound: 1 })], ['barGap=0.6', () => ({ barGap: 0.6 })], ['barEnds=through', () => ({ barGap: 0.6, barEnds: 'through' })],
+  ['terminalLength=1', () => ({ terminalLength: 1 })], ['terminalCurl=1', () => ({ terminalCurl: 1 })], ['tail=1', () => ({ tail: 1 })],
+  ['aperture=1', () => ({ aperture: 1 })], ['chamfer=1', () => ({ chamfer: 1 })], ['bowlForm=box', () => ({ bowlForm: 'box' })]
 ];
 const FREE_CHARS = 'ABCDEGHKMNOQRSWaegkmnorsty0258&?';
 /** Each free font kept in FONTS_DIR, its style's free-set designs, named with a hash of the font's file. */
 export function freeProbes(): [string, Params][] {
   const out: [string, Params][] = [];
   for (const st of STYLES) {
-    const fid = STYLE_FONTS[st.id], file = fid && resolve(FONTS_DIR, fid.replace(/[^A-Za-z0-9]+/g, '-') + '.json');
+    const fid = STYLE_FONTS[st.id], file = fid && keptFile(FONTS_DIR, fid);
     if (!file || !existsSync(file)) continue;
     const text = readFileSync(file, 'utf8');
     registerFreeFont(JSON.parse(text));
     const tag = createHash('sha1').update(text).digest('base64url').slice(0, 6);
     const freeAt = Object.fromEntries(FREE_AT_KEYS.map(k => [k, st.params[k]]));
     for (const [name, move] of FREE_MOVES) {
-      const p = { ...st.params, freeFont: fid, freeAt, ...move, ...(name === 'serif=flip' ? { serif: !st.params.serif } : {}) } as Params;
+      const p = { ...st.params, freeFont: fid, freeAt, ...move(st) } as Params;
       out.push([`${st.id}@${tag}${name ? ':' + name : ''}`, p]);
     }
   }
   return out;
 }
-
-/** The options of each setting picked by name. */
-const OPTIONS: Partial<Record<keyof Params, readonly unknown[]>> = {
-  build: P.BUILDS, barEnds: P.BAR_ENDS, terminal: P.TERMINALS, terminalRun: P.TERMINAL_RUNS, mirror: P.MIRRORS, story: P.STORIES,
-  bowlJoin: P.BOWL_JOINS, gForm: P.G_FORMS, kForm: P.K_FORMS, dots: P.DOTS, iForm: P.I_FORMS, sForm: P.S_FORMS, aForm: P.A_FORMS,
-  bowlForm: P.BOWL_FORMS, diagonals: P.DIAGONALS, bends: P.BENDS, yForm: P.Y_FORMS, qForm: P.Q_FORMS, rForm: P.R_FORMS,
-  scriptForm: P.SCRIPT_FORMS, flourish: P.FLOURISHES, fill: P.FILLS, serifShape: P.SERIF_SHAPES, serifTip: P.SERIF_TIPS,
-  serifBase: P.SERIF_BASES, serifSides: P.SERIF_SIDES, serifInner: P.SERIF_INNERS
-};
 
 const r = (v: number) => Math.round(v * 100) / 100;
 /** Three base64url characters (18 bits) for one glyph: its outline to a hundredth of a unit, and its spacing. */

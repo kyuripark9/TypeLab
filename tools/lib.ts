@@ -4,9 +4,9 @@ import { deflateSync } from 'node:zlib';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildFont, registerFreeFont, type Cmd, type Font } from '../shared/engine';
-import { STYLES } from '../shared/content';
+import { STYLES, TERMINAL_DETAILS } from '../shared/content';
 import { STYLE_FONTS } from '../shared/free-fonts';
-import { DEFAULTS, FREE_AT_KEYS, sanitizeParams, type Params } from '../shared/params';
+import { DEFAULTS, FREE_AT_KEYS, TERMINAL_FORMS, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
 import { FreeFonts } from '../server/free-fonts';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -32,6 +32,30 @@ export async function styleParams(id: string, free = false): Promise<Params> {
   registerFreeFont(await freeFonts().load(fid));
   const freeAt = Object.fromEntries(FREE_AT_KEYS.map(k => [k, st.params[k]]));
   return { ...st.params, freeFont: fid, freeAt } as Params;
+}
+
+/** The settings that make setting `k` show at all: serifs on for the serif sliders (and the tip, base or inside
+    shape a finer one belongs to), its form for a stroke end's finer shape, the stencil or slice for their position
+    and rounding, and so on. The sweep and the golden probes try each setting in this context. */
+export function showContext(k: string): Partial<Params> {
+  if (k.startsWith('serif') && k !== 'serif') {
+    const on: Partial<Params> = { serif: true };
+    if (k === 'serifCup') on.serifBase = 'cupped';
+    if (k === 'serifTipRound') on.serifTip = 'round';
+    if (k === 'serifTipSlant') on.serifTip = 'angled';
+    if (k === 'serifInnerSize' || k === 'serifInnerThickness') on.serifInner = 'wedge';
+    return on;
+  }
+  const form = (Object.keys(TERMINAL_DETAILS) as TerminalForm[]).find(f => (TERMINAL_DETAILS[f] as string[]).includes(k));
+  if (form) {
+    const terminal = (Object.keys(TERMINAL_FORMS) as (keyof typeof TERMINAL_FORMS)[]).find(t => (TERMINAL_FORMS[t] as readonly string[]).includes(form))!;
+    return { terminal, terminalForm: form };
+  }
+  return ({
+    stencilPos: { stencil: 0.5 }, stencilRound: { stencil: 0.5 }, slicePos: { slice: 0.5 }, sliceRound: { slice: 0.5 },
+    pinchPos: { pinch: 0.7 }, boxRound: { bowlForm: 'box' }, module: { fill: 'pixels' }, swell: { scriptForm: 'script' },
+    dotSize: { dots: 'round' }, flourish: { scriptForm: 'script' }
+  } as Record<string, Partial<Params>>)[k] ?? {};
 }
 
 /** `k=v` pairs laid over `p`: numbers, true/false, or option names. */

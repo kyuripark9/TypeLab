@@ -86,12 +86,15 @@ export function convertFont(id: string, ref: FreeFontRef, buf: ArrayBuffer): Fre
   };
 }
 
+/** Where font `id` is kept in `dir` (tools/golden.ts reads the same files). */
+export const keptFile = (dir: string, id: string) => join(dir, id.replace(/[^A-Za-z0-9]+/g, '-') + '.json');
+
 export class FreeFonts {
   private loading = new Map<string, Promise<FreeFontData>>();
   constructor(private dir: string | null, private get: Fetch = fetch) {
     if (dir) mkdirSync(dir, { recursive: true });
   }
-  private file(id: string) { return this.dir && join(this.dir, id.replace(/[^A-Za-z0-9]+/g, '-') + '.json'); }
+  private file(id: string) { return this.dir && keptFile(this.dir, id); }
 
   /** Font `id`'s letters, from what's kept or else from Google Fonts. Throws for an id that isn't a free font. */
   load(id: string): Promise<FreeFontData> {
