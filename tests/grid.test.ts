@@ -4,6 +4,9 @@ import { ALL_CHARS, buildFont, fitOutline, glyphGrid, gridGroups, gridOf, type G
 import { STYLES } from '../shared/content';
 import { DEFAULTS } from '../shared/params';
 
+/* Construction grids (shared/engine/grid.ts): a letter's lines and rounds, the groups that share them (Grid A to T,
+   named by set and kind), what each letter shares, slanted and pen-drawn letters. */
+
 const near = (a: number, b: number, tol = 2) => Math.abs(a - b) <= tol;
 const level = (g: GlyphGrid) => g.lines.filter(l => l.kind === 'h').map(l => l.y);
 const upright = (g: GlyphGrid) => g.lines.filter(l => l.kind === 'v').map(l => l.x);
@@ -56,7 +59,7 @@ describe('construction grids', () => {
     for (const st of STYLES.filter((_, i) => i % 9 === 0)) {
       const f = buildFont(st.params), seen = new Set<string>();
       for (const g of gridGroups(f)) for (const ch of g.chars) { assert.ok(!seen.has(ch), `${st.id}: ${ch} in one group`); seen.add(ch); }
-      for (const ch of ALL_CHARS) if (f.glyph(ch)) assert.ok(seen.has(ch), `${st.id}: ${ch} is in a group`);
+      for (const ch of ALL_CHARS) assert.ok(seen.has(ch), `${st.id}: ${ch} is in a group`);
       assert.equal(gridOf(f, 'K')!.group.set, 'upper');
       assert.equal(gridOf(f, 'o')!.group.set, 'lower');
     }
@@ -112,8 +115,7 @@ describe('construction grids', () => {
     for (const st of STYLES) {
       const f = buildFont(st.params);
       for (const ch of ALL_CHARS) {
-        const g = f.glyph(ch);
-        if (!g) continue;
+        const g = f.glyph(ch)!;
         const grid = glyphGrid(g, f.letter(ch).m);
         assert.ok(grid.lines.length <= 40 && grid.rounds.length <= 28, `${st.id} ${ch}`);
         for (const l of grid.lines) assert.ok([l.x, l.y, l.a, l.len].every(Number.isFinite) && l.a >= 0 && l.a < Math.PI, `${st.id} ${ch}: line`);

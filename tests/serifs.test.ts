@@ -5,6 +5,9 @@ import { shape } from '../shared/engine/boolean';
 import { toPolys } from '../shared/engine/effects';
 import { DEFAULTS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, isValidParams, sanitizeParams, type Params } from '../shared/params';
 
+/* Serif details: where each serif sits (serifAt: foot, top, arm), tips, bases and cups, bracket, balance, sides and
+   inner shapes, top and arm serifs, the blackletter diamond, and how saved serif settings are cleaned. */
+
 const serif: Params = { ...DEFAULTS, serif: true, serifThickness: 0.5 };
 const glyph = (p: Partial<Params>, ch: string) => buildFont({ ...serif, ...p }).glyph(ch)!;
 
