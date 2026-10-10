@@ -67,7 +67,9 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `lib/pen.ts` | The pen's pure operations on contours (copies, whole units), tracing (`traceOf`), Sync all, Mirror, snapping; tests/pen.test.ts |
 | `lib/reach.ts` | Whether a setting changes the letters in view (`reachOf`); tests/reach.test.ts |
 | `lib/preview.ts` | The sample text, the characters on screen (`useVisibleChars`), ink boxes |
-| `lib/prefs.ts`, `lib/routes.ts`, `lib/hooks.ts`, `lib/guide-labels.ts` | Below; the guide lines and their labels, shared by the inspector and the pen |
+| `lib/prefs.ts`, `lib/routes.ts` | Below |
+| `lib/hooks.ts` | `n1`, `useSize`, `isTyping` (every keyboard shortcut's text-field check), `useEscape`, `useDismiss`, `DRAWER_QUERY` |
+| `lib/guide-labels.ts` | The guide lines and their labels (`guideLines`, `stackLabels`), shared by the inspector and the pen |
 
 The panel (`components/Panel.tsx`, then `panel/`): `StylePanel.tsx` (the Style page's Filter and Adjust tabs),
 `ControlsPanel.tsx` (a page of controls; `Control` picks the component for each key), `ShapeControls.tsx` (stroke
@@ -106,7 +108,8 @@ Code and tools find elements by these; renaming one means updating every reader.
   `[data-ctl]` inside `.panel` and measures `.explainer` to scroll under it; Find a setting (Chrome.tsx) skips any
   inside `[inert]` and flashes `.found` for 1600 ms, as long as the CSS animation. `data-letter` marks a control that
   reshapes only the customized letter.
-- A slider's range has `aria-label` = its spec's `tech`; `drag-bench.mjs` finds sliders by it.
+- A slider's range has `aria-label` = its spec's `tech`, not its visible label (Contrast's is `Contrast · Reverse
+  contrast`); `drag-bench.mjs` matches it exactly.
 - The tour's targets are `data-guide` attributes: `stage` and `type` (Stage), `panel` (Panel), `nav` and `strip`
   (Chrome), `inspector` and `scope` (Inspector), `actions` (Header). Nothing tests that each target exists.
 - Glyph paths are `#g<charCode>`, highlights `#h<charCode>` (only for characters on screen); the preview's glyphs
@@ -127,14 +130,17 @@ typeface (Inter), light borders, white sheets floating on grey paper, no decorat
 to one letter alone is coloured through `var(--accent…)`: the `.customizing` wrappers and `.ctl[data-letter]` swap
 the accent to the orange `--custom`. Class prefixes: `.pv-` preview, `.i-` inspector canvas, `.pen-`, `.d-` diagrams,
 `.ex-` explainer text, `.ctl-`, `.lib-`, `.acct-`. Some class names are built at runtime (`lib-${view}`,
-`resize-${side}`, `pen-aim ${kind}`, Diagram's arguments), so search for the bare word before deleting a rule.
+`resize-${side}`, Diagram's arguments, and the `x`/`y` class Resizer puts on `body` while dragging), so search for the
+bare word before deleting a rule.
 Widths: 1280px, 1180px (the drawer), 760px (phones), 640px, 600px. `prefers-reduced-motion` turns every transition
 and animation off, so time UI with JS timers, never `transitionend`.
 
 ## Checking in a browser
 
 1. Run a server of your own, never the owner's 5173:
-   `PORT=5199 DB_PATH=.tools/test.db tools/node.sh node --import tsx server/index.ts &`, noting its PID.
+   `PORT=5199 DB_PATH=.tools/test.db tools/node.sh node --import tsx server/index.ts &`, noting its PID. Other sessions
+   may hold 5199 and 9333: pick your own port and `CDP_PORT`, and pass the same `CDP_PORT` (and `APP` for
+   drag-bench) to the scripts.
 2. `tools/browser/chrome.sh` starts a headless Chrome on `CDP_PORT` (9333) with its own profile; set `CHROME` off
    macOS.
 3. From a script: `const p = await openTab()` (from `tools/browser/cdp.mjs`; it marks the tour and the title card as
@@ -142,7 +148,10 @@ and animation off, so time UI with JS timers, never `transitionend`.
    `.tools/out/shots/`), `p.close()`. Open a fresh tab per URL: a second `go()` can hang on the unsaved-changes guard.
    Phones: `openTab({ width: 390, height: 844, mobile: true })`. Drive state through the UI; an `import()` from `ev()`
    gets a separate copy of the app's modules.
-4. Read the screenshots. Stop the server with `kill <pid>` and Chrome with `tools/browser/chrome.sh stop`.
+4. Read the screenshots. Console errors: `p.events` holds every CDP event since the tab opened; look for
+   `Runtime.exceptionThrown`, `Runtime.consoleAPICalled` with `params.type === 'error'`, and `Log.entryAdded` with
+   `params.entry.level === 'error'`.
+5. Stop the server with `kill <pid>` and Chrome with `tools/browser/chrome.sh stop` (same `CDP_PORT`).
 
 Deep links set up a view directly: `?style`, `text`, `cat` (a page, a group, or an older name), `active` (a control
 or nested slider; it opens its page), `inspect`, `hot`, `pen` (`useDeepLinks` in EditorPage). A first visit without

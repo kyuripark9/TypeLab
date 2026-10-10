@@ -7,12 +7,16 @@ the rest (`npm run typecheck`, strict, `noUnusedLocals`), so an unused local in 
 
 ```sh
 tools/node.sh node --import tsx --test tests/cuts.test.ts                                   # one file
-tools/node.sh node --import tsx --test --test-name-pattern "slice" tests/cuts.test.ts        # tests by name
-tools/node.sh node --import tsx --test --test-name-pattern "stencil" "tests/**/*.test.ts"   # by name, everywhere
+tools/node.sh node --import tsx --test --test-name-pattern "the slice" tests/cuts.test.ts    # tests by name
+tools/node.sh node --import tsx --test --test-name-pattern "sets each stroke end on its own" "tests/**/*.test.ts"   # by name, everywhere
 ```
 
 `--test-name-pattern` must come before the files: placed after them it is ignored and the whole file runs. It
-matches `describe` and `it` names (a regular expression). Drop `tools/node.sh` where `node` is 22.13 or newer.
+matches `describe` and `it` names (a regular expression), and a match on a `describe` runs every test in it. Most
+files' outer `describe` lists their setting keys (cuts.test.ts's names `slice` and `stencil`), so take words from an
+`it` title. The `it`s in api.test.ts build on the ones before them: select its `describe` (`"designs API"`,
+`"accounts API"`, `"Google sign-in"`), not one `it`. Run tests from the repo root (boundaries.test.ts reads `shared/`
+relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 
 ## The files
 
@@ -50,8 +54,9 @@ choices, the inspector's string couplings, and deep-link parsing.
 
 ## Helpers and fixtures
 
-- `outlines.ts` reads outlines: `contours`, `curves`, `xsOf`, `ysOf`, `pathPts` work on a glyph's `d` (SVG path data,
-  y down); `coords` on `cmds` (font units, y up). Every other glyph field (strokes, serifs, counters, skeleton, marks)
+- `outlines.ts` reads outlines: `contours`, `curves`, `xsOf`, `ysOf` read a glyph's `d` (SVG path data,
+  y down) as it is; `pathPts` reads `d` but returns each command's end point back in font units (y up); `coords` reads
+  `cmds` (font units, y up). Every other glyph field (strokes, serifs, counters, skeleton, marks)
   is y up. Don't mix the two.
 - `api.test.ts` mounts `createApp` on `DesignStore(':memory:')` at a random port; `browser()` is a client with its own
   cookie jar; a stand-in `GoogleAuth` names a person per code and checks the PKCE verifier. The `it`s of each

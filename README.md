@@ -49,7 +49,7 @@ Other scripts: `npm test` (engine and API tests, and the golden outlines), `npm 
 `npm run render` (text in a design to a PNG, no browser needed), `npm run golden` / `golden:update`,
 `npm run sweep` (sliders that stop changing part way). One test file runs with
 `node --import tsx --test tests/cuts.test.ts`, and tests by name with
-`node --import tsx --test --test-name-pattern "slice" tests/cuts.test.ts` (the pattern before the file).
+`node --import tsx --test --test-name-pattern "the slice" tests/cuts.test.ts` (the pattern before the file).
 No Node on the machine? `tools/node.sh npm test` fetches one into `.tools/`. See `tools/README.md`.
 
 Working on the code with an AI agent: `CLAUDE.md` and the `CLAUDE.md` in each folder are written for it.
@@ -227,9 +227,10 @@ signs its other browsers out, so an account set up in someone else's name can't 
 
 ## Shortcuts
 
-`⌘/Ctrl+Z` undo · `⇧⌘/Ctrl+Z` redo · `⌘/Ctrl+S` save · `⌘/Ctrl+K` find a setting · `/` search styles on the
-Style page, settings elsewhere · `Esc` close inspector or menu · `←/→` previous/next glyph · double-click a
-slider to reset it to the starting style's value.
+`⌘/Ctrl+Z` undo · `⇧⌘/Ctrl+Z` or `⌘/Ctrl+Y` redo · `⌘/Ctrl+S` save · `⌘/Ctrl+K` find a setting · `/` search
+styles on the Style page, designs on My designs, settings elsewhere · `Esc` close inspector or menu · `←/→`
+previous/next glyph in the inspector · double-click a slider to reset it to the starting style's value (while
+customizing a letter, to the value the other letters share).
 
 In the glyph inspector, drag the letter itself: a stroke to change the weight, a crossbar, counter or
 serif to reshape it, a guide line to move the x-height, cap height or extenders, and the advance box's
@@ -270,5 +271,5 @@ it); lines and circles the letter has in common with its group are drawn in one 
 another. The grid follows the letter as it is dragged, and shows in Points mode too.
 
 Deep links for demos: `/?style=serif&cat=serifs&active=serifTip&inspect=R&text=Hello&hot=1` (add `&pen=1` for Points).
-`cat` names a page, or a group to open its first page; an `active` control opens the page it is on; `text` sets
+`cat` names a page, or a group to open its first page (`proportion`, which older links used for Heights, still opens Heights); an `active` control opens the page it is on; `text` sets
 the sample text. A visit that arrives on a link with a query skips the first-run tour.

@@ -11,9 +11,9 @@ The owner's Mac has no system Node: `tools/node.sh <cmd>` runs any command with 
 
 | What | Command |
 | --- | --- |
-| All tests, with the engine's golden outlines (under a minute) | `npm test` |
+| All tests, with the engine's golden outlines (about a minute idle, most of it the golden test; longer while other sessions run) | `npm test` |
 | One test file | `node --import tsx --test tests/cuts.test.ts` |
-| Tests by name (the flag goes before the file; after it, it is ignored) | `node --import tsx --test --test-name-pattern "slice" tests/cuts.test.ts` |
+| Tests by name (the flag goes before the file; after it, it is ignored) | `node --import tsx --test --test-name-pattern "the slice" tests/cuts.test.ts` |
 | Type check (client, server, shared, tests, tools) | `npm run typecheck` |
 | Look at letters without the app (read the PNG) | `npm run render -- --style serif --text "Rag" --out .tools/out/x.png` |
 | Golden outlines, engine and free fonts (needs `data/free-fonts`; about a minute) | `npm run golden` |
@@ -23,7 +23,11 @@ The owner's Mac has no system Node: `tools/node.sh <cmd>` runs any command with 
 | A dev server of your own | `PORT=5199 DB_PATH=.tools/test.db npm run dev` |
 
 The owner keeps `npm run dev` running on port 5173 with the real database (`data/typelab.db`). Run your own servers
-on another port with their own database, and stop them by PID; never `pkill` by pattern. For one PID that stops
+on another port with their own database, and stop them by PID; never `pkill` by pattern. Other sessions may already
+hold 5199 and Chrome's 9333: pick your own (`PORT=52xx DB_PATH=.tools/test-52xx.db`, `CDP_PORT=93xx`); `lsof -i :<port>`
+shows whether one is taken. A new `git worktree` has no `node_modules` or `data/free-fonts` (both ignored): symlink
+`node_modules` from the main checkout and run golden with `FONTS_DIR=<main checkout>/data/free-fonts`, or the free set
+is skipped without failing. For one PID that stops
 cleanly, start it as `PORT=5199 DB_PATH=.tools/test.db tools/node.sh node --import tsx server/index.ts &`
 (server/CLAUDE.md). Browser checks: `tools/browser/` (client/CLAUDE.md, tools/README.md).
 
@@ -35,9 +39,9 @@ cleanly, start it as `PORT=5199 DB_PATH=.tools/test.db tools/node.sh node --impo
 | Free-font code (`free*.ts`, `skin.ts`, `scan.ts`, `restyle.ts`) or a formula they share from `font.ts` | the above, plus `npm run golden` | The free set matches too |
 | How a slider maps to geometry | the above, plus `npm run sweep -- <key>` | No new dead eighths |
 | A setting's spec, a style preset, pages, copy | `npm test`, `npm run typecheck` | Pages, icons and styles tests pass; changed `style:<id>` golden lines looked at and accepted |
-| Client UI | `npm run typecheck`; `npm test` if `client/lib/` changed; a browser check | Screenshots at 1440×900 and 390×844 look right, no console errors |
+| Client UI | `npm run typecheck`; `npm test` if `client/lib/` or `client/components/SliderIcons.tsx` changed; a browser check | Screenshots at 1440×900 and 390×844 look right, no console errors |
 | Server | `npm test` (api, free-fonts, family, params), `npm run typecheck` | Tests pass; old databases still open (server/CLAUDE.md) |
-| Tools | run the tool once, `npm run typecheck` | It does what its header says |
+| Tools | run the tool once, `npm run typecheck` (it covers the .ts tools only; the browser `.mjs` and `.sh` tools are checked only by running them) | It does what its header says |
 
 A visible change is done only once you have looked at it rendered (`npm run render`, or a screenshot).
 
