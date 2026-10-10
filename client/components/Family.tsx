@@ -1,12 +1,12 @@
 /* Export a font family: the design drawn again at the weights picked, upright, italic or both, each
    its own font file under the design's name, downloaded together as a .zip. Every weight shows a
    sample in the font it will be, so the steps between them can be judged before downloading. */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { cleanName, slug } from '../../shared/design';
 import { familyMember, SLANTED, WEIGHTS, weightIdOf, type FamilyMember, type WeightId } from '../../shared/family';
 import { api, download, errorMessage } from '../lib/api';
 import { useFreeFonts } from '../lib/free';
-import { n1 } from '../lib/hooks';
+import { n1, useEscape } from '../lib/hooks';
 import { actions, fontFor, useEditor } from '../state/editor';
 
 const SAMPLE = 'Hamburgefonstiv';
@@ -30,19 +30,7 @@ export function FamilyDialog({ onClose }: { onClose: () => void }) {
   const [upright, setUpright] = useState(true), [italic, setItalic] = useState(true);
   const [busy, setBusy] = useState(false);
   const first = useRef<HTMLSelectElement>(null);
-
-  useEffect(() => {
-    const was = document.activeElement as HTMLElement | null;
-    first.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.preventDefault();
-      e.stopPropagation();
-      onClose();
-    };
-    addEventListener('keydown', onKey, true);
-    return () => { removeEventListener('keydown', onKey, true); was?.focus?.(); };
-  }, [onClose]);
+  useEscape(onClose, first);
 
   // every weight upright and italic, built once per design and naming, for the samples
   const rows = useMemo(() => WEIGHTS.map(w => ({

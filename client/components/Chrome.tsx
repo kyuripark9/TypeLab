@@ -3,8 +3,9 @@ import { memo, useDeferredValue, useEffect, useRef, useState, type KeyboardEvent
 import { CATEGORIES, GROUPS, controlFor, findSettings, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
 import { Link } from 'react-router';
 import { CHARSET, type Font, type Glyph } from '../../shared/engine';
-import { n1 } from '../lib/hooks';
+import { DRAWER_QUERY, n1 } from '../lib/hooks';
 import { ink } from '../lib/preview';
+import { DESIGNS } from '../lib/routes';
 import { actions, useEditor, useFont } from '../state/editor';
 import { AccountButton } from './Account';
 import { PageIcon, SearchIcon } from './Icons';
@@ -29,7 +30,7 @@ export function focusSettingSearch() {
     el?.select();
   };
   // a closed drawer can't take focus until it has opened
-  if (matchMedia('(max-width: 1180px)').matches && !useEditor.getState().navOpen) { actions.setNavOpen(true); requestAnimationFrame(focus); }
+  if (matchMedia(DRAWER_QUERY).matches && !useEditor.getState().navOpen) { actions.setNavOpen(true); requestAnimationFrame(focus); }
   else focus();
 }
 
@@ -109,7 +110,7 @@ export function Nav() {
         </div>
       )}
       {/* phones: the header has no room for it, so it sits at the foot of the drawer */}
-      <Link className="nav-item nav-designs" to="/designs"><span className="nav-label">My designs</span></Link>
+      <Link className="nav-item nav-designs" to={DESIGNS}><span className="nav-label">My designs</span></Link>
       <div className="nav-account"><AccountButton /></div>
     </nav>
   );
@@ -121,7 +122,7 @@ const CELL = '0 -880 1000 1180';
 /** A strip cell's view of glyph `g`, centred in it: the usual frame, or one drawn back far enough to take
     in a flourish that reaches well out of it (a swash S), so it doesn't spill over its neighbours. Ink may
     reach 150 units past either side and 120 above or below the frame before the cell draws back, and then
-    the view is the ink's box with 6% to spare. */
+    the view is the usual frame scaled up, centred on the ink, until the ink fits with 6% to spare. */
 function cellBox(g: Glyph) {
   const b = ink(g), dx = (1000 - g.adv) / 2, x0 = b.x0 + dx, x1 = b.x1 + dx, top = -b.y1, bottom = -b.y0;
   if (x0 >= -150 && x1 <= 1150 && top >= -1000 && bottom <= 420) return CELL;
@@ -209,6 +210,10 @@ export function GlyphStrip() {
   );
 }
 
+/** How long a toast with a button (Undo, Customize) stays, in ms: long enough to reach the button. My designs
+    sends a delete to the server only after this, once its Undo is gone. */
+export const ACTION_TOAST_MS = 6000;
+
 export function Toast() {
   const now = useEditor(s => s.toast);
   // a toast taken away keeps its words while it fades
@@ -219,8 +224,7 @@ export function Toast() {
   useEffect(() => {
     if (!now) { setShow(false); return; }
     setShow(true);
-    // a toast with a button (Undo, Customize) stays long enough to reach it
-    const t = setTimeout(() => setShow(false), now.action ? 6000 : 2400);
+    const t = setTimeout(() => setShow(false), now.action ? ACTION_TOAST_MS : 2400);
     return () => clearTimeout(t);
   }, [now]);
   const action = toast?.action;

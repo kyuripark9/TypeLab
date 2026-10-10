@@ -10,7 +10,9 @@ import { n1 } from '../lib/hooks';
 const W = 340, H = 178;
 
 export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
-  const hlKey = controlFor(k), ctl = CONTROLS[hlKey];
+  // the control the active key belongs to, whose demo and parts the figure shows (for Horizontals, Weight's, where
+  // the preview lights the horizontals Contrast thins: see hlKey in state/editor.ts)
+  const ctlKey = controlFor(k), ctl = CONTROLS[ctlKey];
   const m = font.m, text = ctl.demo, line = font.layout(text, Infinity)[0];
   const hasDesc = /[gjpqy]/.test(text);
   const guides = k === 'xHeight' || k === 'height';
@@ -86,14 +88,14 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
     }
   }
 
-  const ring = RING_KEYS[hlKey];
+  const ring = RING_KEYS[ctlKey];
   return (
     <svg className="diagram" viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={`${ctl.tech} diagram`}>
       {under}
       <g transform={`translate(${n1(ox)},${n1(oy)}) scale(${sc.toFixed(5)})`}>
         <g className="d-ink">{items.map((it, i) => <path key={i} d={font.glyph(it.ch)!.d} transform={`translate(${n1(it.x)},0)`} />)}</g>
         <g className={ring ? 'd-ring' : 'd-hl'} strokeWidth={ring ? n1(1.6 / sc) : undefined}>
-          {items.map((it, i) => <path key={i} d={font.hl(it.ch, hlKey)} transform={`translate(${n1(it.x)},0)`} />)}
+          {items.map((it, i) => <path key={i} d={font.hl(it.ch, ctlKey)} transform={`translate(${n1(it.x)},0)`} />)}
         </g>
       </g>
       {over}

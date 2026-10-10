@@ -6,7 +6,8 @@
    actions in Header.tsx. */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CategoryId } from '../../shared/content';
-import { isTyping } from '../lib/hooks';
+import { DRAWER_QUERY, isTyping } from '../lib/hooks';
+import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
 import { actions, useEditor, type EditorState, type StyleTab } from '../state/editor';
 
 type Side = 'top' | 'right' | 'bottom' | 'left';
@@ -59,13 +60,8 @@ const STEPS: Step[] = [
     task: 'Undo your last change', note: 'Save and Export are up here too.', done: (s, t) => s.hi < t.hi, can: s => s.hi > 0, idle: 'Save and export up here' }
 ];
 
-const SEEN_KEY = 'typelab.guide.seen';
-export function guideSeen() {
-  try { return localStorage.getItem(SEEN_KEY) === '1'; } catch { return false; }
-}
-function markSeen() {
-  try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* private mode: the guide just shows again */ }
-}
+/** Whether this browser has seen the guide; where it keeps nothing, the guide shows again next visit. */
+export const guideSeen = () => prefFlag(PREFS.guideSeen);
 
 interface Rect { x: number; y: number; w: number; h: number }
 const PAD = 6, GAP = 14, EDGE = 16;
@@ -111,7 +107,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
     return { category: s.category, styleTab: s.styleTab, scope: s.scope, focus: document.activeElement as HTMLElement | null };
   })());
   const close = () => {
-    markSeen();
+    setPrefFlag(PREFS.guideSeen, true);
     const s = start.current;
     if (useEditor.getState().inspect) actions.closeInspector();
     actions.setNavOpen(false);
@@ -134,7 +130,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
     if (step.category === 'style' || (step.category && s.category === 'style')) actions.setCategory(step.category);
     if (step.styleTab) actions.setStyleTab(step.styleTab);
     // in a narrow window the page menu is a drawer: open it for the step about it
-    actions.setNavOpen(step.target === 'nav' && matchMedia('(max-width: 1180px)').matches);
+    actions.setNavOpen(step.target === 'nav' && matchMedia(DRAWER_QUERY).matches);
     s = useEditor.getState();
     setCan(!step.can || step.can(s));
     const then = s;

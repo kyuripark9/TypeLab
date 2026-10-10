@@ -7,12 +7,14 @@ import { NAME_MAX, cleanName, slug, type Design } from '../../shared/design';
 import type { Font } from '../../shared/engine';
 import { api, download, errorMessage } from '../lib/api';
 import { useFreeFonts } from '../lib/free';
-import { isTyping, n1 } from '../lib/hooks';
+import { isTyping, n1, useDismiss } from '../lib/hooks';
+import { PREFS, prefOneOf, writePref } from '../lib/prefs';
 import { overhang } from '../lib/preview';
+import { NEW_DESIGN, designPath } from '../lib/routes';
 import { auth, useAuth } from '../state/auth';
 import { actions, fontFor, useEditor, type ToastAction } from '../state/editor';
 import { AccountCorner } from '../components/Account';
-import { Toast } from '../components/Chrome';
+import { ACTION_TOAST_MS, Toast } from '../components/Chrome';
 import { Brand } from '../components/Header';
 import { SearchIcon } from '../components/Icons';
 
@@ -26,11 +28,6 @@ function ago(iso: string) {
 
 type View = 'grid' | 'list';
 type Sort = 'recent' | 'name';
-// the layout and order picked last are kept per browser, as a convenience
-const remembered = <T extends string>(key: string, values: readonly T[], fallback: T): T => {
-  try { const v = localStorage.getItem(key); return values.includes(v as T) ? v as T : fallback; } catch { return fallback; }
-};
-const remember = (key: string, v: string) => { try { localStorage.setItem(key, v); } catch { /* private window */ } };
 const VIEWS: [View, string, string][] = [
   ['grid', 'Cards', 'M3.5 3.5h5v5h-5zM11.5 3.5h5v5h-5zM3.5 11.5h5v5h-5zM11.5 11.5h5v5h-5z'],
   ['list', 'List', 'M3 5h14M3 10h14M3 15h14']
@@ -41,8 +38,9 @@ export function LibraryPage() {
   const [designs, setDesigns] = useState<Design[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [view, setView] = useState<View>(() => remembered('typelab.designs.view', ['grid', 'list'], 'grid'));
-  const [sort, setSort] = useState<Sort>(() => remembered('typelab.designs.sort', ['recent', 'name'], 'recent'));
+  // the layout and order picked last are kept per browser, as a convenience
+  const [view, setView] = useState<View>(() => prefOneOf(PREFS.designsView, ['grid', 'list'], 'grid'));
+  const [sort, setSort] = useState<Sort>(() => prefOneOf(PREFS.designsSort, ['recent', 'name'], 'recent'));
   const search = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const user = useAuth(s => s.user), userId = user === undefined ? undefined : user?.id ?? null;
@@ -63,8 +61,8 @@ export function LibraryPage() {
     return () => removeEventListener('keydown', key);
   }, []);
 
-  const pickView = (v: View) => { setView(v); remember('typelab.designs.view', v); };
-  const pickSort = (v: Sort) => { setSort(v); remember('typelab.designs.sort', v); };
+  const pickView = (v: View) => { setView(v); writePref(PREFS.designsView, v); };
+  const pickSort = (v: Sort) => { setSort(v); writePref(PREFS.designsSort, v); };
 
   // the latest save — a new design or the last one edited — is marked so it's easy to find again
   const recentId = designs?.reduce<Design | null>((a, d) => (!a || d.updatedAt > a.updatedAt ? d : a), null)?.id;
@@ -75,7 +73,7 @@ export function LibraryPage() {
       ? (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
       : (a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
 
-  const startNew = () => { actions.newDesign(); navigate('/'); };
+  const startNew = () => { actions.newDesign(); navigate(NEW_DESIGN); };
 
   const duplicate = async (d: Design) => {
     try {
@@ -85,8 +83,8 @@ export function LibraryPage() {
     } catch (e) { actions.toast(`Couldn’t duplicate — ${errorMessage(e)}`); }
   };
 
-  // a delete waits a few seconds, while its toast offers Undo, before it reaches the server; leaving
-  // the page sends any that are still waiting
+  // a delete waits while its toast offers Undo, and reaches the server only once that Undo is gone (the toast
+  // stays ACTION_TOAST_MS); leaving the page sends any that are still waiting
   const pending = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; undo: ToastAction }>());
   const reallyDelete = async (d: Design) => {
     pending.current.delete(d.id);
@@ -110,7 +108,7 @@ export function LibraryPage() {
         setDesigns(list => list && [...list, d]);
       }
     };
-    pending.current.set(d.id, { timer: setTimeout(() => void reallyDelete(d), 6000), undo });
+    pending.current.set(d.id, { timer: setTimeout(() => void reallyDelete(d), ACTION_TOAST_MS), undo });
     actions.toast(`Deleted “${d.name}”`, undo);
   };
   useEffect(() => {
@@ -234,7 +232,7 @@ function DesignCard({ d, list, recent, onDownload, onDuplicate, onDelete, onRena
   useFreeFonts();
   return (
     <article className="lib-card">
-      <Link to={`/d/${d.id}`} className="lib-open" aria-label={`Open ${d.name}`}>
+      <Link to={designPath(d.id)} className="lib-open" aria-label={`Open ${d.name}`}>
         <NameSample f={fontFor(d.params)} text={d.name} wrap={!list} />
       </Link>
       <div className="lib-meta">
@@ -257,17 +255,17 @@ function DesignCard({ d, list, recent, onDownload, onDuplicate, onDelete, onRena
 }
 
 /** A name on two lines: the second line sits this many letter heights (tallest top to descender) under the first. */
-const LINE_GAP = 1.04;
+const LINE_PITCH = 1.04;
 /** A card's well, width over height: .lib-open in a .lib-grid column (styles.css), in a full-width window. */
 const WELL_ASPECT = 2.6;
-/** A break onto two lines is taken only if it sets the name at least this much larger. */
+/** A break onto two lines is taken only if it sets the name more than this much larger. */
 const BREAK_GAIN = 1.12;
 
 /** A font's name set in itself, as large as fits the box: on a card a long name of several words breaks
     onto a second line where that sets it larger, in the list it stays on one. Flourishes reaching out of the
     letters' boxes are kept in. */
 function NameSample({ f, text, wrap }: { f: Font; text: string; wrap: boolean }) {
-  const top = Math.max(f.m.asc, f.m.cap), bottom = -f.m.desc, LH = (top + bottom) * LINE_GAP;
+  const top = Math.max(f.m.asc, f.m.cap), bottom = -f.m.desc, LH = (top + bottom) * LINE_PITCH;
   const one = (t: string) => f.layout(t, Infinity)[0];
   let lines = [one(text)];
   if (wrap) {
@@ -314,15 +312,7 @@ function RenameField({ name, onDone }: { name: string; onDone: (name: string | n
 function CardMenu({ name, onRename, onDuplicate, onDelete }: { name: string; onRename: () => void; onDuplicate: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('pointerdown', close);
-    document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', esc); };
-  }, [open]);
+  useDismiss(open, setOpen, wrap);
 
   const pick = (fn: () => void) => () => { setOpen(false); fn(); };
   return (

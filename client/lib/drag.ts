@@ -108,7 +108,8 @@ function byPlace(g: Glyph, ks: Mark[], noun: string): { k: Mark; label: string }
 
 interface Box { x0: number; y0: number; x1: number; y1: number }
 
-function bbox(cmds: Cmd[]): Box | null {
+/** The box round an outline's points (font units, y up), or null when it has none. */
+export function bbox(cmds: Cmd[]): Box | null {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const c of cmds) {
     for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
@@ -143,9 +144,9 @@ const nearestMark = (marks: Mark[], p: { x: number; y: number }) => nearest(mark
 
 const side = (v: number, mid: number): 1 | -1 => (v < mid ? -1 : 1);
 
-/* Font units of pointer travel that take a parameter through its whole 0..1 where no measure follows
-   the pointer (see Drive.span): an apex or vertex sliding sideways, a cursive entry pulled out, a corner
-   pulled in or out, and any other drive that names no span of its own. */
+/** Font units of pointer travel that take a parameter through its whole 0..1 where no measure follows
+    the pointer (see Drive.span): an apex or vertex sliding sideways, a cursive entry pulled out, a corner
+    pulled in or out, and any other drive that names no span of its own. */
 const APEX_SPAN = 500, ENTRY_SPAN = 600, CORNER_SPAN = 260, DEFAULT_SPAN = 400;
 /** A stroke is tall when its width is at most this share of its height, flat when its height is at most
     this share of its width, and round in between. */

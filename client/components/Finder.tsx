@@ -2,10 +2,10 @@
    which genre of them and how they should feel, one question at a time, and then shows the cards
    that fit. Each answer is one of the Style page's filters in the editor (groups, kinds, moods),
    so the finder, the panel's Feeling chips and the chips over the cards stay in step; a question
-   that wouldn't narrow anything is left out. Each option is drawn in the most
-   basic style it would keep (the first on the page), so the choice is made by eye; pointing at a
-   tile flips through the other styles it keeps, and its tooltip says what the answer means. Once something is
-   typed in the bar on top, each tile draws that text instead, under the answer.
+   that wouldn't narrow anything is left out. Each option is drawn in the most basic style it would
+   keep (the first on the page), so the choice is made by eye; pointing at a tile flips through the
+   other styles it keeps, and its tooltip says what the answer means. Once something is typed in the
+   bar on top, each tile draws that text instead, under the answer.
    Each step has three names: group, kind and mood in the code; Category (STYLE_GROUPS),
    Classification (KIND_SECTIONS) and Feeling (MOODS) in the design's terms; kind, genre and
    feeling on screen (STEP_WORDS). */

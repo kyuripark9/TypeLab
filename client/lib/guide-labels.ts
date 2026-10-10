@@ -1,5 +1,10 @@
-/* Where the names of the guide lines (baseline, x-height, cap height...) sit on the inspector's and the
-   pen's canvases, so two lines close together never have their names overlap. */
+/* The guide lines (baseline, x-height, cap height...) the inspector's and the pen's canvases draw, and where their
+   names sit, so two lines close together never have their names overlap. */
+
+/** The guide lines, each as [id, height in font units, name], from the baseline up and then the descender. */
+export const guideLines = (m: { xh: number; cap: number; asc: number; desc: number }): [string, number, string][] => [
+  ['baseline', 0, 'Baseline'], ['xHeight', m.xh, 'x-height'], ['capHeight', m.cap, 'Cap height'], ['ascender', m.asc, 'Ascender'], ['descender', m.desc, 'Descender']
+];
 
 /** Each label sits just above its line; when lines are too close for that (cap height and ascender often
     are), the lower one's label drops below its line so the two never overlap. `lines` are [key, height]

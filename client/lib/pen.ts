@@ -460,6 +460,9 @@ export const SNAP_KINDS: SnapKind[] = ['points', 'guides', 'centers', 'midpoints
 export interface Spot { x: number; y: number; label: string }
 /** A line a point lines up with, across one axis. */
 export interface Level { v: number; label: string }
+/** The label of a line through an anchor point. It is also what snapIn and the pen's catch mark go by: a guide or
+    center wins over such a line at the same place, and the mark leaves it unnamed. */
+export const POINT_LINE = 'point';
 /** Everything near which a point snaps, gathered once per drag. */
 export interface SnapScene { spots: Spot[]; xs: Level[]; ys: Level[]; pieces: [P, P][] }
 
@@ -491,7 +494,7 @@ export function snapScene(cs: Node[][], adv: number, h: Heights, kinds: SnapKind
   const anchors: P[] = [];
   cs.forEach((con, c) => con.forEach((n, i) => { if (!skip.has(refKey({ c, i }))) anchors.push(n); }));
 
-  if (on.has('points')) for (const n of anchors) { spots.push({ x: n.x, y: n.y, label: 'anchor' }); xs.push({ v: n.x, label: 'point' }); ys.push({ v: n.y, label: 'point' }); }
+  if (on.has('points')) for (const n of anchors) { spots.push({ x: n.x, y: n.y, label: 'anchor' }); xs.push({ v: n.x, label: POINT_LINE }); ys.push({ v: n.y, label: POINT_LINE }); }
   if (on.has('guides')) {
     ys.push({ v: 0, label: 'baseline' }, { v: h.xh, label: 'x-height' }, { v: h.cap, label: 'cap height' }, { v: h.asc, label: 'ascender' }, { v: h.desc, label: 'descender' });
     xs.push({ v: 0, label: 'left side' }, { v: adv, label: 'right side' });
@@ -577,7 +580,7 @@ export function snapIn(scene: SnapScene, p: P, tol: number): Snapped {
   }
   if (on) { const q = { x: R(on.x), y: R(on.y) }; return { ...q, at: { ...q, label: 'on outline' } }; }
   // the nearest line each way; a guide or center wins over a point at the same place, as it names more
-  const near = (v: number, ls: Level[]) => ls.reduce<Level | undefined>((b, l) => (Math.abs(l.v - v) <= tol && (!b || Math.abs(l.v - v) < Math.abs(b.v - v) - 0.01 || (Math.abs(l.v - b.v) < 0.5 && b.label === 'point')) ? l : b), undefined);
+  const near = (v: number, ls: Level[]) => ls.reduce<Level | undefined>((b, l) => (Math.abs(l.v - v) <= tol && (!b || Math.abs(l.v - v) < Math.abs(b.v - v) - 0.01 || (Math.abs(l.v - b.v) < 0.5 && b.label === POINT_LINE)) ? l : b), undefined);
   const sx = near(p.x, scene.xs), sy = near(p.y, scene.ys);
   return { x: sx?.v ?? R(p.x), y: sy?.v ?? R(p.y), gx: sx, gy: sy };
 }

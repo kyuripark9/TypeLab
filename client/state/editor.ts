@@ -9,8 +9,9 @@ import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type
 import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../shared/engine';
 import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
-import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
+import { DEFAULT_NAME, cleanName, type Design, type DesignInput } from '../../shared/design';
 import { SNAP_KINDS, type SnapKind } from '../lib/pen';
+import { PREFS, prefFlag, prefJson, prefOneOf, setPrefFlag, writePref } from '../lib/prefs';
 import { DEFAULTS, FREE_AT_KEYS, endCurl, endLength, isGlyphKey, type FreeAt, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
@@ -19,35 +20,16 @@ export type StyleTab = 'filter' | 'adjust';
 /** What the controls change while a letter is inspected: every letter in sync, or just that one. */
 export type Scope = 'all' | 'letter';
 
-const VIEW_KEY = 'typelab.cardView';
-const savedView = (): CardView => {
-  try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid'; } catch { return 'grid'; }
-};
-const FINDER_KEY = 'typelab.browseAll';
-const savedFinder = (): boolean => {
-  try { return localStorage.getItem(FINDER_KEY) !== '1'; } catch { return true; }
-};
-const CONSTRUCTION_KEY = 'typelab.construction';
-const savedConstruction = (): boolean => {
-  try { return localStorage.getItem(CONSTRUCTION_KEY) === '1'; } catch { return false; }
-};
-const FOLD_KEY = 'typelab.folded';
+/** The panel sections left folded last visit. */
 const savedFolded = (): ControlKey[] => {
-  try { const v = JSON.parse(localStorage.getItem(FOLD_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+  const v = prefJson(PREFS.folded);
+  return Array.isArray(v) ? v : [];
 };
-const SNAP_KEY = 'typelab.pen.snap';
 /** The pen's snapping: on or off, and what it snaps to (everything, until changed). */
 const savedSnap = (): { on: boolean; kinds: SnapKind[] } => {
-  try {
-    const v = JSON.parse(localStorage.getItem(SNAP_KEY) ?? 'null');
-    if (v && typeof v.on === 'boolean' && Array.isArray(v.kinds)) return { on: v.on, kinds: SNAP_KINDS.filter(k => v.kinds.includes(k)) };
-  } catch { /* fall through */ }
+  const v = prefJson(PREFS.penSnap) as { on?: unknown; kinds?: unknown } | null;
+  if (v && typeof v.on === 'boolean' && Array.isArray(v.kinds)) return { on: v.on, kinds: SNAP_KINDS.filter(k => (v.kinds as unknown[]).includes(k)) };
   return { on: true, kinds: [...SNAP_KINDS] };
-};
-/** The explanation starts closed, at its title; opened, it stays open from visit to visit. */
-const TIPS_KEY = 'typelab.tipsShown';
-const savedTips = (): boolean => {
-  try { return localStorage.getItem(TIPS_KEY) === '1'; } catch { return false; }
 };
 
 interface Doc { designId: string | null; name: string; styleId: string; params: Params }
@@ -101,7 +83,7 @@ export interface EditorState extends Doc {
   switchedOn: NumericParam[];
   /** the anatomy part pointed at, in the inspected letter or among a control's parts: it is highlighted in both */
   part: string | null;
-  /** the stroke end (by id) pointed at in the list of a customized letter's ends */
+  /** the stroke end, corner, join or stroke (by id) pointed at in a customized letter's list of its own values (see OwnKey) */
   hotEnd: string | null;
   /** the inspector draws the letter's construction grid: the lines and circles it is built on, and the letters that share them */
   construction: boolean;
@@ -128,13 +110,17 @@ const readHist = (snap: string): Pick<Doc, 'styleId' | 'params'> => {
   const [styleId, params] = JSON.parse(snap) as [string, Params];
   return { styleId, params };
 };
-/** The document as `saved` holds it, as JSON so the dirty check compares strings (readDoc reads it back, and
-    commitName in components/Header.tsx reads the name first: both must agree on the order). */
+/** The document as `saved` holds it, as JSON so the dirty check compares strings (readDoc reads it back and
+    must agree on the order). */
 const docSnap = (d: Pick<Doc, 'name' | 'styleId' | 'params'>) => JSON.stringify([d.name, d.styleId, d.params]);
 const readDoc = (snap: string): Pick<Doc, 'name' | 'styleId' | 'params'> => {
   const [name, styleId, params] = JSON.parse(snap) as [string, string, Params];
   return { name, styleId, params };
 };
+/** The name as last loaded or saved. */
+export const savedName = (s: EditorState) => readDoc(s.saved).name;
+/** What a save sends: the design's name (cleaned), its style and its settings. */
+export const designInput = (s: EditorState): DesignInput => ({ name: cleanName(s.name), styleId: s.styleId, params: s.params });
 
 const blankDoc = (): Doc => ({ designId: null, name: DEFAULT_NAME, styleId: STYLES[0].id, params: { ...STYLES[0].params } });
 
@@ -164,15 +150,17 @@ export const useEditor = create<EditorState>()(() => ({
   moods: [],
   kinds: [],
   query: '',
-  finder: savedFinder(),
+  // on unless this browser was left browsing every card
+  finder: !prefFlag(PREFS.browseAll),
   passed: {},
   traits: {},
   styleTab: 'filter',
-  view: savedView(),
+  view: prefOneOf(PREFS.cardView, ['grid', 'list'], 'grid'),
   folded: savedFolded(),
-  tips: savedTips(),
+  // the explanation starts closed, at its title; opened, it stays open from visit to visit
+  tips: prefFlag(PREFS.tipsShown),
   scope: 'all',
-  construction: savedConstruction(),
+  construction: prefFlag(PREFS.construction),
   penMode: false,
   mirror: [],
   snap: savedSnap(),
@@ -211,7 +199,13 @@ export const curlOf = (s: EditorState, id: string) => endCurl({ terminalCurls: p
 /** What can be set one by one on a customized letter (the settings of ID_KEYS in shared/params/spec.ts): each stroke end's
     length or curl, each corner's roundness (a turn's outside) and step, each turn's inside roundness, each stroke's
     weight, or each join's gap. */
-export type EndKey = 'terminalEnds' | 'terminalCurls' | 'corners' | 'innerCorners' | 'cornerSteps' | 'strokeWeights' | 'joinGaps';
+export type OwnKey = 'terminalEnds' | 'terminalCurls' | 'corners' | 'innerCorners' | 'cornerSteps' | 'strokeWeights' | 'joinGaps';
+/** The control each of a customized letter's own values belongs to: setting one points at that control, so its
+    explainer shows. */
+export const OWN_CONTROL: Record<OwnKey, ActiveKey> = {
+  terminalEnds: 'terminalLength', terminalCurls: 'terminalCurl', corners: 'roundness', innerCorners: 'roundness',
+  cornerSteps: 'steps', strokeWeights: 'weight', joinGaps: 'stencil'
+};
 
 /** Whether an optional slider is switched on: away from its off value, or switched on by hand. */
 export const isOn = (s: EditorState, key: NumericParam, off: number) => paramOf(s, key) !== off || s.switchedOn.includes(key);
@@ -245,9 +239,11 @@ onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont) useEdi
 
 /** The settings a style's free font stands for as it comes: moved from these, its letters move too. */
 const freeAtOf = (st: StyleDef): FreeAt => Object.fromEntries(FREE_AT_KEYS.map(k => [k, st.params[k]]));
-/** Letter and word spacing where the engine adds nothing to a free font's own spacing: their defaults, which
-    `track` and `space` in shared/engine/font.ts take as their zero. Turning free letters on and off again
-    gives the style's spacing back only while these match. */
+/** Letter and word spacing where the engine adds nothing to a free font's own spacing: the settings' defaults,
+    which `track` and `space` in shared/engine/font.ts take as their zero (written there as 0.2 and 0.35, so a new
+    default has to reach both; Formal nudges letter spacing before `track` reads it). setFreeLetters treats
+    spacing still at these values as untouched, and gives the style's own spacing back when free letters are
+    turned off. */
 const FREE_SPACING = { letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAULTS.wordSpacing };
 /** A style's settings to start from, written in its free font (unless a design built from the settings asks
     otherwise). Its free font's letters are spaced as the font spaces them, so letter and word spacing start at FREE_SPACING. Traits laid over the style move the
@@ -349,11 +345,15 @@ export const actions = {
     set({ designId: d.id, name, saved: docSnap({ name: d.name, styleId: sent.styleId, params: sent.params }) });
   },
   setName(name: string) { set({ name }); },
-  /** A saved design was renamed on the server: the name counts as saved, while other unsaved edits stay unsaved. */
+  /** A saved design was renamed on the server: the name counts as saved, while other unsaved edits stay unsaved.
+      Returns the saved snapshot it replaced, for unrename. */
   markRenamed(name: string) {
-    const { styleId, params } = readDoc(get().saved);
+    const before = get().saved, { styleId, params } = readDoc(before);
     set({ name, saved: docSnap({ name, styleId, params }) });
+    return before;
   },
+  /** The server refused a rename markRenamed counted as saved: `before` (what markRenamed returned) is the saved state again. */
+  unrename(before: string) { set({ saved: before }); },
   setSaving(saving: boolean) { set({ saving }); },
 
   /** Live change while dragging: no history entry until commit(). While edits go to one letter,
@@ -441,17 +441,17 @@ export const actions = {
   keepOn(key: NumericParam) {
     if (!get().switchedOn.includes(key)) set(s => ({ switchedOn: [...s.switchedOn, key] }));
   },
-  /** Live change of one of a customized letter's own values by id (see EndKey): a stroke end's length or curl, a corner's
+  /** Live change of one of a customized letter's own values by id (see OwnKey): a stroke end's length or curl, a corner's
       roundness or step, a turn's inside, a stroke's weight or a join's gap. Without `key` it sets the end's length; only a
       letter being customized has values of its own. */
-  setEnd(id: string, v: number, key: EndKey = 'terminalEnds') {
+  setEnd(id: string, v: number, key: OwnKey = 'terminalEnds') {
     set(s => {
       const ch = letterOf(s);
       return ch ? { params: withGlyph(s.params, ch, key, { ...paramOf(s, key), [id]: v }) } : {};
     });
   },
-  /** Drop one of a customized letter's own values by id (see EndKey), so that stroke end, corner, turn, stroke or join follows the letter's setting again. */
-  resetEnd(id: string, key: EndKey = 'terminalEnds') {
+  /** Drop one of a customized letter's own values by id (see OwnKey), so that stroke end, corner, turn, stroke or join follows the letter's setting again. */
+  resetEnd(id: string, key: OwnKey = 'terminalEnds') {
     const s = get(), ch = letterOf(s), own = ch ? s.params.glyphs[ch]?.[key] : undefined;
     if (!ch || !own || own[id] === undefined) return;
     const rest = { ...own };
@@ -496,7 +496,7 @@ export const actions = {
   setFinder(finder: boolean) {
     if (finder) actions.clearFilters();
     set({ finder });
-    try { if (finder) localStorage.removeItem(FINDER_KEY); else localStorage.setItem(FINDER_KEY, '1'); } catch { /* private mode: lasts this visit */ }
+    setPrefFlag(PREFS.browseAll, !finder);
   },
   setQuery(query: string) { set({ query }); },
   setStyleTab(styleTab: StyleTab) { set({ styleTab }); },
@@ -519,18 +519,18 @@ export const actions = {
   },
   setView(view: CardView) {
     set({ view });
-    try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode: the choice lasts this visit */ }
+    writePref(PREFS.cardView, view);
   },
   /** Fold a long panel section down to its heading, or open it again; `open` forces one way. */
   toggleFold(k: ControlKey, open = get().folded.includes(k)) {
     if (open !== get().folded.includes(k)) return;
     const folded = open ? get().folded.filter(x => x !== k) : [...get().folded, k];
     set({ folded });
-    try { localStorage.setItem(FOLD_KEY, JSON.stringify(folded)); } catch { /* private mode: the fold lasts this visit */ }
+    writePref(PREFS.folded, JSON.stringify(folded));
   },
   setTips(tips: boolean) {
     set({ tips });
-    try { if (tips) localStorage.setItem(TIPS_KEY, '1'); else localStorage.removeItem(TIPS_KEY); } catch { /* private mode: lasts this visit */ }
+    setPrefFlag(PREFS.tipsShown, tips);
   },
   openInspector(ch: string) {
     if (!fontFor(get().params).glyph(ch)) return;
@@ -547,13 +547,13 @@ export const actions = {
   setHotEnd(hotEnd: string | null) { if (get().hotEnd !== hotEnd) set({ hotEnd }); },
   setConstruction(construction: boolean) {
     set({ construction });
-    try { if (construction) localStorage.setItem(CONSTRUCTION_KEY, '1'); else localStorage.removeItem(CONSTRUCTION_KEY); } catch { /* private mode: lasts this visit */ }
+    setPrefFlag(PREFS.construction, construction);
   },
   setPenMode(penMode: boolean) { set({ penMode }); },
   setMirror(mirror: ('x' | 'y')[]) { set({ mirror }); },
   setSnap(snap: { on: boolean; kinds: SnapKind[] }) {
     set({ snap });
-    try { localStorage.setItem(SNAP_KEY, JSON.stringify(snap)); } catch { /* private mode: lasts this visit */ }
+    writePref(PREFS.penSnap, JSON.stringify(snap));
   },
   /** Drop a letter's own value of one setting, so it follows the other letters again. */
   shareParam(ch: string, key: keyof GlyphParams) {

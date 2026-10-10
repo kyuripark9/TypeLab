@@ -162,9 +162,8 @@ const SLIDER: Record<string, ReactNode> = {
   module: <><circle className="solid" cx="5" cy="5" r="1.6" /><circle className="solid" cx="10" cy="5" r="1.6" /><circle className="solid" cx="15" cy="5" r="1.6" /><circle className="solid" cx="5" cy="10" r="1.6" /><circle className="solid" cx="10" cy="10" r="1.6" /><circle className="solid" cx="15" cy="10" r="1.6" /><circle className="solid" cx="5" cy="15" r="1.6" /><circle className="solid" cx="10" cy="15" r="1.6" /><circle className="solid" cx="15" cy="15" r="1.6" /></>,
   // an O cut into two halves
   stencil: <path d="M12 3.82a6.5 6.5 0 0 1 0 12.36M8 16.18a6.5 6.5 0 0 1 0-12.36" />,
-  // Stencil's and Slice's Thickness slider shares the key of its control, so CutControl (panel/SliderControl.tsx)
-  // asks for `${k}Gap`; tests/icons.test.ts lists both
-  // the gap between two strokes widening
+  // Stencil's Thickness, the gap between two strokes widening. Stencil's and Slice's Thickness slider shares the key
+  // of its control, so CutControl (panel/SliderControl.tsx) asks for `${k}Gap`; tests/icons.test.ts lists both
   stencilGap: <><rect className="solid" x="1.5" y="7" width="3.5" height="6" rx=".6" /><rect className="solid" x="15" y="7" width="3.5" height="6" rx=".6" /><path d="M7 10h6M8.6 8.4 7 10l1.6 1.6M11.4 8.4 13 10l-1.6 1.6" /></>,
   // a corner's gap moved out along the stroke
   stencilPos: <><path d="M4 3.5v6M4 12.5v4h12.5" /><path className="faint" d="M7 12V7M5.6 8.4 7 7l1.4 1.4" /></>,

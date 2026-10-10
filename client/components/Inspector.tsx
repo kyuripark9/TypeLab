@@ -9,11 +9,12 @@ import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type
 import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph, type GlyphGrid } from '../../shared/engine';
 import { isStrokeId, type NumericParam, type Params } from '../../shared/params';
 import { dragSpec, handlesFor, letterCorners, letterJoins, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
-import { stackLabels } from '../lib/guide-labels';
+import { guideLines, stackLabels } from '../lib/guide-labels';
 import { n1, useSize } from '../lib/hooks';
+import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
 import { GridBar, GridLines, useGrid } from './ConstructionGrid';
 import { PenCanvas } from './PenCanvas';
-import { actions, endOf, hlKey, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type EndKey, type Scope } from '../state/editor';
+import { actions, endOf, hlKey, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type OwnKey, type Scope } from '../state/editor';
 
 /** Anatomy terms that apply to this glyph, in a sensible reading order. */
 function features(g: Glyph, ch: string): string[] {
@@ -181,7 +182,7 @@ function ModeToggle() {
     [true, 'Points', 'Edit the outline point by point with the pen, like a vector editor']
   ];
   return (
-    <div className="scope mode" role="radiogroup" aria-label="Edit with">
+    <div className="scope" role="radiogroup" aria-label="Edit with">
       {opts.map(([on, label, title]) => (
         <button key={label} role="radio" aria-checked={pen === on} data-mode={on ? 'points' : 'shape'} className={pen === on ? 'on' : undefined} title={title} onClick={() => actions.setPenMode(on)}>
           <svg className="scope-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
@@ -262,14 +263,12 @@ const END_NOUNS: Record<NonNullable<Drive['endKey']> | 'length', [noun: string, 
 const endNoun = (endKey?: Drive['endKey']) => END_NOUNS[endKey ?? 'length'];
 
 /* The drag tip shows once per browser: grab handles on the letter's stems when it first opens,
-   until the first drag. */
-const TIP_KEY = 'typelab.dragTip.seen';
-const tipSeen = () => { try { return localStorage.getItem(TIP_KEY) === '1'; } catch { return true; } };
-const markTipSeen = () => { try { localStorage.setItem(TIP_KEY, '1'); } catch { /* the tip returns next visit */ } };
+   until the first drag. Where the browser keeps nothing, it doesn't show. */
+const tipSeen = () => prefFlag(PREFS.dragTipSeen, true);
 
 interface View { sc: number; ox: number; oy: number }
 /** A press on a part, until the pointer lets go; `finish` stops it */
-interface Drag { part: string; axis?: Axis; key?: NumericParam; strokeEnd?: string; endKey?: EndKey; finish: () => void }
+interface Drag { part: string; axis?: Axis; key?: NumericParam; strokeEnd?: string; endKey?: OwnKey; finish: () => void }
 /** `end` names the one stroke end (or corner, stroke or join) being dragged, while a letter is customized, with
     `kind` the setting the drag writes (none for a stroke end's length) */
 interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string; hook?: boolean; kind?: Drive['endKey']; v?: number } }
@@ -308,8 +307,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
   // the joins can be grabbed while Stencil is the control in hand, so they don't get in the way of the strokes
   if (controlFor(active) === 'stencil' && g.marks.some(k => k.type === 'join')) parts.push('join');
   parts.sort((a, b) => hitOrder(a) - hitOrder(b));
-  const guides = ([['baseline', 0, 'Baseline'], ['xHeight', m.xh, 'x-height'], ['capHeight', m.cap, 'Cap height'], ['ascender', m.asc, 'Ascender'], ['descender', m.desc, 'Descender']] as [string, number, string][])
-    .filter(([id]) => !(Math.abs(m.asc - m.cap) < 45 && id === 'ascender' && !lower));
+  const guides = guideLines(m).filter(([id]) => !(Math.abs(m.asc - m.cap) < 45 && id === 'ascender' && !lower));
   const labelY = stackLabels(guides.map(([id, y]) => [id, y] as const), Y);
   const dragging = held !== null;
 
@@ -381,7 +379,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
         actions.setActive(drive.key as ActiveKey);
         if (drive.end) actions.setHotEnd(drive.end);
         setHeld(view);
-        if (intro) { setIntro(false); markTipSeen(); }
+        if (intro) { setIntro(false); setPrefFlag(PREFS.dragTipSeen, true); }
       }
       const v = solve!(d.axis === 'x' ? dx / view.sc : -dy / view.sc);
       if (d.strokeEnd) actions.setEnd(d.strokeEnd, v, d.endKey); else actions.setParam(d.key!, v);

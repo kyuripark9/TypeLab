@@ -3,6 +3,7 @@
    visits. While dragging, the size is written straight to a CSS variable on the editor, so only the layout
    reflows, not React. */
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { PREFS, readPref, writePref, type PrefKey } from '../lib/prefs';
 
 type Side = 'nav' | 'panel' | 'strip';
 
@@ -16,6 +17,8 @@ interface SideSpec {
   axis: 'x' | 'y';
   /** +1 when moving the border toward +axis grows the panel (the nav), -1 when it shrinks it */
   dir: 1 | -1;
+  /** where the browser keeps the size set here */
+  pref: PrefKey;
 }
 /* Each side is also the class of the .editor grid child it sizes (.nav and .strip in Chrome.tsx, .panel in
    Panel.tsx), measured as `.editor > .{side}`, and .top is the header; a renamed class or a wrapper
@@ -23,21 +26,19 @@ interface SideSpec {
    .editor grid-template for the columns, .strip's min-height), and strip's min matches its fallback
    there, var(--strip-h, 76px). */
 const SIDES: Record<Side, SideSpec> = {
-  nav: { min: 160, max: 320, label: 'Resize the category list', prop: '--nav-w', axis: 'x', dir: 1 },
-  panel: { min: 300, max: 560, label: 'Resize the settings panel', prop: '--panel-w', axis: 'x', dir: -1 },
-  strip: { min: 76, max: 220, label: 'Resize the glyph strip', prop: '--strip-h', axis: 'y', dir: -1 },
+  nav: { min: 160, max: 320, label: 'Resize the category list', prop: '--nav-w', axis: 'x', dir: 1, pref: PREFS.sizeNav },
+  panel: { min: 300, max: 560, label: 'Resize the settings panel', prop: '--panel-w', axis: 'x', dir: -1, pref: PREFS.sizePanel },
+  strip: { min: 76, max: 220, label: 'Resize the glyph strip', prop: '--strip-h', axis: 'y', dir: -1, pref: PREFS.sizeStrip },
 };
 /** the stage keeps at least this much room between the panels */
 const STAGE_MIN = { x: 480, y: 300 };
 const STEP = 16;
-const key = (side: Side) => `typelab.size.${side}`;
 
 function stored(side: Side): number | null {
-  try { const v = Number(localStorage.getItem(key(side))); return v > 0 ? v : null; } catch { return null; }
+  const v = Number(readPref(SIDES[side].pref));
+  return v > 0 ? v : null;
 }
-function store(side: Side, v: number | null) {
-  try { if (v == null) localStorage.removeItem(key(side)); else localStorage.setItem(key(side), String(v)); } catch { /* private mode: the size lasts this visit */ }
-}
+const store = (side: Side, v: number | null) => writePref(SIDES[side].pref, v == null ? null : String(v));
 
 export function Resizer({ side }: { side: Side }) {
   const ref = useRef<HTMLDivElement>(null);

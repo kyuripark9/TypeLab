@@ -204,7 +204,7 @@ function FreeCard({ style: s, text, size }: { style: StyleDef; text: string; siz
   const font = useWebFont(STYLE_FONTS[s.id]);
   return (
     <button className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
-      <span className="card-name">{s.name}<span className="card-like font">{parseFontId(STYLE_FONTS[s.id])?.family}</span></span>
+      <span className="card-name">{s.name}<span className="card-like">{parseFontId(STYLE_FONTS[s.id])?.family}</span></span>
       <span className={font ? 'card-free' : 'card-free loading'} style={{ ...(font && fontStyle(font)), fontSize: size }}>{text}</span>
     </button>
   );

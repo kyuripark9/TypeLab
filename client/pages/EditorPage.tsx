@@ -7,14 +7,15 @@ import { CONTROLS, SUBS, controlFor, pageOf, type ActiveKey } from '../../shared
 import { DEFAULT_NAME, cleanName } from '../../shared/design';
 import { ApiError, api, errorMessage } from '../lib/api';
 import { isTyping } from '../lib/hooks';
+import { DESIGNS, NEW_DESIGN, designPath } from '../lib/routes';
 import { auth, useAuth } from '../state/auth';
-import { actions, isDirty, onSaveRequest, useEditor } from '../state/editor';
+import { actions, designInput, isDirty, onSaveRequest, useEditor } from '../state/editor';
 import { GlyphStrip, Nav, Toast, focusSettingSearch } from '../components/Chrome';
 import { Dialog } from '../components/Dialog';
 import { GlyphDefs } from '../components/GlyphDefs';
 import { Guide, guideSeen } from '../components/Guide';
 import { Header } from '../components/Header';
-import { Panel, focusSearch } from '../components/Panel';
+import { Panel, focusStyleSearch } from '../components/Panel';
 import { Resizer } from '../components/Resizer';
 import { Stage } from '../components/Stage';
 
@@ -67,8 +68,8 @@ export function EditorPage() {
         <h1>{status === 'missing' ? 'This design doesn’t exist' : 'Couldn’t open this design'}</h1>
         <p>{status === 'missing' ? 'It may have been deleted.' : loadError}</p>
         <div className="row">
-          <Link className="btn primary" to="/designs">My designs</Link>
-          <button className="btn wide" onClick={() => { actions.newDesign(); navigate('/'); }}>Start a new design</button>
+          <Link className="btn primary" to={DESIGNS}>My designs</Link>
+          <button className="btn wide" onClick={() => { actions.newDesign(); navigate(NEW_DESIGN); }}>Start a new design</button>
         </div>
       </div>
     );
@@ -101,7 +102,7 @@ function useSave() {
   return useCallback(async ({ stay = false } = {}): Promise<boolean> => {
     const s = useEditor.getState();
     if (s.saving) return false;
-    const input = { name: cleanName(s.name), styleId: s.styleId, params: s.params };
+    const input = designInput(s);
     actions.setSaving(true);
     try {
       let d;
@@ -113,7 +114,7 @@ function useSave() {
         d = await api.createDesign(input);
       }
       actions.markSaved(d, input);
-      if (d.id !== s.designId && !stay) navigate(`/d/${d.id}`, { replace: true });
+      if (d.id !== s.designId && !stay) navigate(designPath(d.id), { replace: true });
       // saved while signed out, a design is kept only in this browser; its first save says so
       if (!s.designId && useAuth.getState().user === null) actions.toast('Saved in this browser', { label: 'Keep it in an account', run: () => auth.open('signup') });
       else actions.toast('Saved to your designs');
@@ -136,7 +137,7 @@ function useShortcuts(save: () => void) {
       else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
       else if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); focusSettingSearch(); }
       // / finds a style on the Style page, and a setting on the others
-      else if (e.key === '/' && !mod && !typing) { e.preventDefault(); if (s.category === 'style') focusSearch(); else focusSettingSearch(); }
+      else if (e.key === '/' && !mod && !typing) { e.preventDefault(); if (s.category === 'style') focusStyleSearch(); else focusSettingSearch(); }
       else if (e.key === 'Escape') { if (s.navOpen) actions.setNavOpen(false); else if (s.exportOpen) actions.setExportOpen(false); else actions.closeInspector(); }
       else if (s.inspect && !typing && (e.target as HTMLInputElement).type !== 'range' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault();
@@ -160,9 +161,11 @@ function useLeaveGuard(save: (o?: { stay?: boolean }) => Promise<boolean>) {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
+  // the move a first save makes to the design's own address (useSave) isn't leaving, even with edits made
+  // while the save was on its way
   const blocker = useBlocker(({ nextLocation }) => {
     const s = useEditor.getState();
-    return isDirty(s) && nextLocation.pathname !== `/d/${s.designId}`;
+    return isDirty(s) && !(s.designId && nextLocation.pathname === designPath(s.designId));
   });
   const stay = useCallback(() => blocker.reset?.(), [blocker]);
   if (blocker.state !== 'blocked') return null;

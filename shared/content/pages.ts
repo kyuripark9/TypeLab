@@ -10,7 +10,7 @@ export const GROUPS: Record<GroupId, string> = { proportion: 'Proportions', shap
    starting style, then the proportions
    (how heavy, how big, how tall, how open and how far apart the letters are), then the shapes of their
    curves, corners, ends and serifs, and last the details: single letters, the hand and the effects.
-   `hint` says in a few words what the page holds; it is the page's tooltip, and search reads it too. */
+   `hint` says in a few words what the page holds; it is the page's tooltip in the navigation (client/components/Chrome.tsx). */
 export const CATEGORIES: { id: CategoryId; label: string; hint: string; group?: GroupId }[] = [
   { id: 'style', label: 'Style', hint: 'Pick a typeface to start from' },
   { id: 'weight', label: 'Weight & contrast', hint: 'Thick or thin strokes, and the difference between them', group: 'proportion' },

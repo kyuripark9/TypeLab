@@ -13,13 +13,14 @@
    while dragging places it freely. */
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { cmdsToD, drawnCmds, hasIn, hasOut, segment, type Drawn, type Font, type Glyph, type GlyphGrid, type Node } from '../../shared/engine';
-import { stackLabels } from '../lib/guide-labels';
-import { isTyping, n1, useSize } from '../lib/hooks';
+import { guideLines, stackLabels } from '../lib/guide-labels';
+import { isTyping, n1, useDismiss, useSize } from '../lib/hooks';
 import {
   anchorsIn, constrain, contourArea, deleteAnchors, handlePeers, keyRef, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment,
   peersOf, pointOn, pullHandles, refKey, reshapeSegment, reverseContour, setHandle, setSmooth, shapeAspect, shapeContour, snapIn, snapScene, splitSegment,
-  toggleSmooth, traceOf, SHAPES, SNAP_KINDS, type Axis, type Peer, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
+  toggleSmooth, traceOf, POINT_LINE, SHAPES, SNAP_KINDS, type Axis, type Peer, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
 } from '../lib/pen';
+import { PREFS, prefOneOf, writePref } from '../lib/prefs';
 import { actions, useEditor } from '../state/editor';
 import { GridLines } from './ConstructionGrid';
 
@@ -48,7 +49,6 @@ const toolForKey = (k: string, shift: boolean): Tool | undefined =>
   k === 'v' ? 'select' : TOOLS.find(t => t.key.replace('⇧', '').toLowerCase() === k && (shift || !t.key.startsWith('⇧')))?.id;
 /** The shape a key picks for the Shape tool, by the letter its menu shows. */
 const shapeForKey = (k: string): Shape | undefined => SHAPES.find(s => SHAPE_INFO[s].key?.toLowerCase() === k);
-const SHAPE_KEY = 'typelab.pen.shape';
 /** What a click would do where the pointer is, shown while it hovers. */
 type Aim = { kind: 'add'; at: P } | { kind: 'close' } | { kind: 'shape'; shape: Shape };
 
@@ -67,10 +67,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const cs = doc.contours;
   const [tool, setTool] = useState<Tool>('select');
   // the shape the Shape tool draws, the one last picked
-  const [shape, setShapeNow] = useState<Shape>(() => {
-    try { const v = localStorage.getItem(SHAPE_KEY) as Shape | null; return v && SHAPES.includes(v) ? v : 'rect'; } catch { return 'rect'; }
-  });
-  const pickShape = (k: Shape) => { setShapeNow(k); setTool('shape'); try { localStorage.setItem(SHAPE_KEY, k); } catch { /* not kept */ } };
+  const [shape, setShapeNow] = useState<Shape>(() => prefOneOf(PREFS.penShape, SHAPES, 'rect'));
+  const pickShape = (k: Shape) => { setShapeNow(k); setTool('shape'); writePref(PREFS.penShape, k); };
   const [sel, setSel] = useState<string[]>([]);
   const [drawing, setDrawing] = useState<number | null>(null);
   const [view, setView] = useState<View | null>(null);
@@ -463,8 +461,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     showH.add(`${c}:${(i + n - 1) % n}:o`); showH.add(`${c}:${(i + 1) % n}:i`);
   });
   const last = drawingOk !== null ? cs[drawingOk][cs[drawingOk].length - 1] : null;
-  const guideLines: [number, string][] = [[0, 'Baseline'], [m.xh, 'x-height'], [m.cap, 'Cap height'], [m.asc, 'Ascender'], [m.desc, 'Descender']];
-  const labelY = stackLabels(guideLines.map(([y, label]) => [label, y] as const), Y);
+  const guides = guideLines(m);
+  const labelY = stackLabels(guides.map(([id, y]) => [id, y] as const), Y);
   const one = selRefs.length === 1 ? cs[selRefs[0].c][selRefs[0].i] : null;
   const count = cs.reduce((a, c) => a + c.length, 0);
   const cursor = space ? 'grab' : tool === 'pen' || tool === 'shape' ? 'crosshair' : 'default';
@@ -520,10 +518,10 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             <rect className="pen-bg" width={W} height={H} onPointerDown={onBackground} />
             <g pointerEvents="none">
               <rect className="i-adv" x={n1(X(0))} y={n1(Y(top - 40))} width={n1(doc.adv * sc)} height={n1((top - 40 - bot - 20) * sc)} />
-              {guideLines.map(([y, label]) => (
-                <g key={label}>
+              {guides.map(([id, y, label]) => (
+                <g key={id}>
                   <line className="i-guide" x1={0} x2={W} y1={n1(Y(y))} y2={n1(Y(y))} />
-                  <text className="i-label" x={64} y={n1(labelY.get(label)!)}>{label} <tspan className="pen-num">{Math.round(y)}</tspan></text>
+                  <text className="i-label" x={64} y={n1(labelY.get(id)!)}>{label} <tspan className="pen-num">{Math.round(y)}</tspan></text>
                 </g>
               ))}
               {caught?.gx && <line className="pen-snap" x1={n1(X(caught.gx.v))} x2={n1(X(caught.gx.v))} y1={0} y2={H} />}
@@ -650,14 +648,7 @@ function AimBadge({ aim, x, y }: { aim: Exclude<Aim, { kind: 'add' }>; x: number
 function ShapeTool({ shape, on, onPick }: { shape: Shape; on: boolean; onPick: (k: Shape) => void }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as globalThis.Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); setOpen(false); } };
-    document.addEventListener('pointerdown', close);
-    window.addEventListener('keydown', esc, true);
-    return () => { document.removeEventListener('pointerdown', close); window.removeEventListener('keydown', esc, true); };
-  }, [open]);
+  useDismiss(open, setOpen, wrap, true);
   const cur = SHAPE_INFO[shape];
   return (
     <div className="pen-shape-tool" ref={wrap}>
@@ -686,7 +677,7 @@ function ShapeTool({ shape, on, onPick }: { shape: Shape; on: boolean; onPick: (
 
 /** Where a drag caught: a mark on the place it snapped to and what that is, or the names of the lines it lines up with. */
 function SnapMark({ hit, x, y }: { hit: Snapped; x: number; y: number }) {
-  const lines = [hit.gx, hit.gy].filter(l => l && l.label !== 'point').map(l => l!.label);
+  const lines = [hit.gx, hit.gy].filter(l => l && l.label !== POINT_LINE).map(l => l!.label);
   const label = hit.at ? hit.at.label : lines.join(' · ');
   return (
     <g className="pen-catch" pointerEvents="none">
@@ -696,35 +687,29 @@ function SnapMark({ hit, x, y }: { hit: Snapped; x: number; y: number }) {
   );
 }
 
-const SNAPS: { id: SnapKind; label: string; note: string; icon: ReactNode }[] = [
-  { id: 'points', label: 'Points', note: 'Anchor points, and lining up with them',
+/** The Snap menu's entries, by kind: name, what it catches on, and a 16 × 16 icon. The menu lists them in SNAP_KINDS' order. */
+const SNAPS: Record<SnapKind, { label: string; note: string; icon: ReactNode }> = {
+  points: { label: 'Points', note: 'Anchor points, and lining up with them',
     icon: <><rect x="5.5" y="5.5" width="5" height="5" /><path d="M1 8h3M12 8h3" strokeDasharray="1.5 1.5" /></> },
-  { id: 'guides', label: 'Guides', note: 'Baseline, x-height, cap height, the sides',
+  guides: { label: 'Guides', note: 'Baseline, x-height, cap height, the sides',
     icon: <><path d="M1.5 4.5h13M1.5 11.5h13" /><circle className="fill" cx="8" cy="11.5" r="1.6" /></> },
-  { id: 'centers', label: 'Centers', note: 'Middle of the width, the heights, each shape',
+  centers: { label: 'Centers', note: 'Middle of the width, the heights, each shape',
     icon: <><circle cx="8" cy="8" r="5.5" /><path d="M8 5.5v5M5.5 8h5" /></> },
-  { id: 'midpoints', label: 'Midpoints', note: 'Halfway along each curve or line',
+  midpoints: { label: 'Midpoints', note: 'Halfway along each curve or line',
     icon: <><path d="M2 13L14 3" /><path className="fill" d="M8 5.6l2.4 2.4L8 10.4 5.6 8z" /></> },
-  { id: 'outline', label: 'Point of contact', note: 'Anywhere along the outline',
+  outline: { label: 'Point of contact', note: 'Anywhere along the outline',
     icon: <><path d="M2 13.5C3 5 13 5 14 13.5" /><circle className="fill" cx="8" cy="7.2" r="1.7" /></> },
-  { id: 'crossings', label: 'Intersections', note: 'Where outlines and guide lines cross',
+  crossings: { label: 'Intersections', note: 'Where outlines and guide lines cross',
     icon: <><path d="M2.5 13.5l11-11M2.5 2.5l11 11" /><circle cx="8" cy="8" r="2.2" /></> },
-  { id: 'tangents', label: 'Tangents', note: 'Where a line from the next point grazes a curve',
+  tangents: { label: 'Tangents', note: 'Where a line from the next point grazes a curve',
     icon: <><circle cx="9" cy="9.5" r="4.5" /><path d="M1.5 5h13" /><circle className="fill" cx="9" cy="5" r="1.5" /></> }
-];
+};
 
 /** Snap: on or off, and a menu of what it catches on. */
 function SnapMenu({ snap, onSet }: { snap: { on: boolean; kinds: SnapKind[] }; onSet: (s: { on: boolean; kinds: SnapKind[] }) => void }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as globalThis.Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); setOpen(false); } };
-    document.addEventListener('pointerdown', close);
-    window.addEventListener('keydown', esc, true);
-    return () => { document.removeEventListener('pointerdown', close); window.removeEventListener('keydown', esc, true); };
-  }, [open]);
+  useDismiss(open, setOpen, wrap, true);
   const on = snap.on && snap.kinds.length > 0;
   // picking a kind while snapping is off turns it back on
   const toggle = (k: SnapKind) => {
@@ -746,10 +731,10 @@ function SnapMenu({ snap, onSet }: { snap: { on: boolean; kinds: SnapKind[] }; o
       {open && (
         <div className="popover pen-snap-menu" role="group" aria-label="Snap to">
           <div className="pen-snap-head">Snap to</div>
-          {SNAPS.map(o => {
-            const picked = snap.on && snap.kinds.includes(o.id);
+          {SNAP_KINDS.map(k => {
+            const o = SNAPS[k], picked = snap.on && snap.kinds.includes(k);
             return (
-              <button key={o.id} role="menuitemcheckbox" aria-checked={picked} className={picked ? 'on' : undefined} onClick={() => toggle(o.id)}>
+              <button key={k} role="menuitemcheckbox" aria-checked={picked} className={picked ? 'on' : undefined} onClick={() => toggle(k)}>
                 <svg className="pen-snap-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">{o.icon}</svg>
                 <span><b>{o.label}</b><small>{o.note}</small></span>
                 <svg className="pen-snap-tick" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.5l2.3 2.3 4.7-5" /></svg>

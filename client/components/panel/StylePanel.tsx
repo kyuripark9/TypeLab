@@ -2,6 +2,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import { MOODS, PAGE_STYLES, TAG_FACE, styleById, type Mood, type StyleFilter } from '../../../shared/content';
 import type { Params } from '../../../shared/params';
+import { bbox } from '../../lib/drag';
 import { n1 } from '../../lib/hooks';
 import { actions, adjustedParams, fontFor, useEditor, useStyleMatch, type StyleTab } from '../../state/editor';
 import { TRAIT_SECTIONS, type TraitDef } from '../../../shared/traits';
@@ -11,7 +12,7 @@ const STYLE_SEARCH_ID = 'style-search';
 /** Focus the open Filter or Adjust tab: the stage's "Skip to filters" and both Clear buttons send focus here. */
 export const focusFilters = () => document.querySelector<HTMLElement>('.style-tabs [aria-selected=true]')?.focus();
 /** Open the Filter tab and put the cursor in its search box (the / key). */
-export const focusSearch = () => {
+export const focusStyleSearch = () => {
   actions.setStyleTab('filter');
   requestAnimationFrame(() => document.getElementById(STYLE_SEARCH_ID)?.focus());
 };
@@ -143,13 +144,11 @@ function TraitRow({ def }: { def: TraitDef }) {
     each step of a trait fills its button. Hidden from screen readers. */
 function Specimen({ params, text }: { params: Params; text: string }) {
   const f = fontFor(params), items = f.layout(text, Infinity)[0].items.filter(it => f.glyph(it.ch));
+  // the ink's box across the line, y down
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const it of items) {
-    for (const c of f.glyph(it.ch)!.cmds) {
-      for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
-        x0 = Math.min(x0, it.x + c[i]); x1 = Math.max(x1, it.x + c[i]); y0 = Math.min(y0, -c[i + 1]); y1 = Math.max(y1, -c[i + 1]);
-      }
-    }
+    const b = bbox(f.glyph(it.ch)!.cmds);
+    if (b) { x0 = Math.min(x0, it.x + b.x0); x1 = Math.max(x1, it.x + b.x1); y0 = Math.min(y0, -b.y1); y1 = Math.max(y1, -b.y0); }
   }
   if (!(x0 < x1)) return null;
   const sc = Math.min(TRAIT_H / (y1 - y0), TRAIT_W / (x1 - x0)), W = n1((x1 - x0) * sc);

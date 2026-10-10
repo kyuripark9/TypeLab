@@ -26,9 +26,9 @@
    cards, panel resize handles, right panel, inspector, the pen, glyph strip, popover & toast, confirm dialog, font
    family export, guide, narrower windows, opening title card, document name, loading & message pages, library
    (My designs), accounts.
-   Widths: 1280px narrows the columns; 1180px turns the page menu into a drawer (Chrome.tsx and Guide.tsx test the
-   same width with matchMedia); 760px is phones, one column; 640px sets My designs and the account page in one
-   column; 600px stacks the family dialog's rows.
+   Widths: 1280px narrows the columns; 1180px turns the page menu into a drawer (DRAWER_QUERY in client/lib/hooks.ts
+   is the same width, for Chrome.tsx and Guide.tsx); 760px is phones, one column; 640px sets My designs and the
+   account page in one column; 600px stacks the family dialog's rows.
    Class prefixes: .pv- the preview, .i- the inspector's canvas (the pen's canvas uses .i-adv, .i-guide and .i-label
    too), .pen- the pen, .d- the explainer's diagrams, .ex- the explainer's text, .ctl- a control, .lib- My designs,
    .acct- the account page.
@@ -577,7 +577,6 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 
 /* ---------- the pen: a letter's anchor points and handles. Customizing, points belong to the one letter, so the pen
    is dressed as customizing: its points, handles and picked tool take the orange, its bar the wash, inside the frame */
-.scope.mode { margin-left: 8px; }
 .pen-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; padding: 2px; }
 .pen-canvas { flex: 1; min-height: 0; overflow: hidden; position: relative; touch-action: none; }
 .pen-canvas svg { display: block; }
@@ -774,7 +773,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 
 @media (max-width: 1280px) { .editor { grid-template-columns: var(--nav-w, 196px) minmax(0, 1fr) var(--panel-w, 332px); } }
 
-/* ---------- narrower windows: the page menu becomes a drawer, opened from the header */
+/* ---------- narrower windows: the page menu becomes a drawer, opened from the header (at DRAWER_QUERY's width in
+   client/lib/hooks.ts, which Find a setting and the guide test before opening it) */
 .nav-toggle { display: none; }
 .nav-scrim { display: none; }
 @media (max-width: 1180px) {
@@ -899,9 +899,9 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .lib-sort button { width: auto; padding: 0 10px; font-size: 12.5px; font-weight: 500; }
 
 /* cards: the name set in the font on a well, then the name, the style it started from and when it was
-   edited, with Download and the ⋯ menu beside them. The well's shape, .lib-open's 132px height less its 22px
-   padding across a .lib-grid column (about 2.6 times as wide as tall in a full-width window), is what
-   WELL_ASPECT in LibraryPage.tsx assumes when it decides whether a name breaks onto two lines */
+   edited, with Download and the ⋯ menu beside them. The well's inside (.lib-open, 132px tall with 22px padding
+   all round, as wide as a .lib-grid column) is about 2.6 times as wide as tall in a full-width window;
+   WELL_ASPECT in LibraryPage.tsx assumes that shape when it decides whether a name breaks onto two lines */
 .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
 .lib-card { display: grid; grid-template: "open open" auto "meta actions" auto / minmax(0, 1fr) auto; min-width: 0; padding: 6px;
   background: var(--surface); border-radius: var(--radius-xl); box-shadow: var(--sheet); transition: box-shadow .15s; }

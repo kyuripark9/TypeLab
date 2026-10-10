@@ -1,28 +1,15 @@
 /* Accounts in the app: the sign-in dialog (create an account or sign in, with an email or with
    Google), and the account button in the bottom-left corner of every page, Sign in while signed
    out and the account's initial and name once signed in. */
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as KeyEvent } from 'react';
+import { useRef, useState, type FormEvent, type KeyboardEvent as KeyEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { PASSWORD_MIN, USER_NAME_MAX } from '../../shared/account';
 import { api, errorMessage } from '../lib/api';
+import { useDismiss, useEscape } from '../lib/hooks';
+import { ACCOUNT, DESIGNS, NEW_DESIGN, isDesignPath } from '../lib/routes';
 import { auth, lastEmail, useAuth, type AuthMode } from '../state/auth';
 import { actions, isDirty, useEditor } from '../state/editor';
 import { Dialog } from './Dialog';
-
-/** Escape closes, and the focus goes back where it was. */
-function useEscape(onClose: () => void) {
-  useEffect(() => {
-    const was = document.activeElement as HTMLElement | null;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.preventDefault();
-      e.stopPropagation();
-      onClose();
-    };
-    addEventListener('keydown', onKey, true);
-    return () => { removeEventListener('keydown', onKey, true); was?.focus?.(); };
-  }, [onClose]);
-}
 
 /** Google's "G", as its sign-in buttons carry it. */
 export function GoogleMark() {
@@ -192,14 +179,7 @@ export function AccountButton() {
   const wrap = useRef<HTMLDivElement>(null);
   const navigate = useNavigate(), path = useLocation().pathname;
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('pointerdown', close);
-    document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', esc); };
-  }, [open]);
+  useDismiss(open, setOpen, wrap);
 
   if (user === undefined) return null;
   if (!user) return (
@@ -214,7 +194,7 @@ export function AccountButton() {
     try {
       await auth.signOut(saveFirst);
       // the design that was open is in the account, out of reach now
-      if (path.startsWith('/d/')) navigate('/', { replace: true });
+      if (isDesignPath(path)) navigate(NEW_DESIGN, { replace: true });
     } catch (e) { actions.toast(`Couldn’t sign out — ${errorMessage(e)}`); }
   };
   const askSignOut = () => {
@@ -232,8 +212,8 @@ export function AccountButton() {
       {open && (
         <div className="popover account-menu" role="menu">
           <div className="account-who"><b>{user.name}</b><span>{user.email}</span></div>
-          <Link role="menuitem" to="/designs" onClick={() => setOpen(false)}>My designs</Link>
-          <Link role="menuitem" to="/account" onClick={() => setOpen(false)}>Account settings</Link>
+          <Link role="menuitem" to={DESIGNS} onClick={() => setOpen(false)}>My designs</Link>
+          <Link role="menuitem" to={ACCOUNT} onClick={() => setOpen(false)}>Account settings</Link>
           <button role="menuitem" onClick={askSignOut}>Sign out</button>
         </div>
       )}

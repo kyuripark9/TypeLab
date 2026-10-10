@@ -6,12 +6,12 @@ import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import type { ControlKey } from '../../shared/content';
 import { RING_KEYS, type Font, type Line } from '../../shared/engine';
 import { n1 } from '../lib/hooks';
-import { overhang, useBlocks } from '../lib/preview';
+import { overhang, sampleText } from '../lib/preview';
 import { actions, hlKeyOf, useEditor, useFont } from '../state/editor';
 
-/** The preview's text blocks, each at its own size, laid out to `width` px. */
+/** The preview's text at the preview's size, laid out to `width` px. */
 export function Preview({ width }: { width: number }) {
-  const font = useFont(), blocks = useBlocks(), hl = useEditor(hlKeyOf);
+  const font = useFont(), text = useEditor(s => sampleText(s.custom)), size = useEditor(s => s.size), hl = useEditor(hlKeyOf);
   if (width <= 0) return <div className="preview" />;
   const m = font.m, topU = Math.max(m.asc, m.cap) + 70, LH = topU - m.desc + 150;
 
@@ -20,24 +20,19 @@ export function Preview({ width }: { width: number }) {
     if (g) actions.openInspector(String.fromCharCode(Number(g.getAttribute('data-c'))));
   };
 
+  const sc = size / 1000;
+  // flourishes and tails can reach far out of the letters' boxes: the lines are set in from the
+  // edges and the svg grows, as far as they reach, so none of the ink is cut off
+  let lines = font.layout(text, width / sc), o = overhang(font, lines, width / sc, topU - 40, LH - topU);
+  if (o.l + o.r > 0) { lines = font.layout(text, Math.max(width / sc / 2, width / sc - o.l - o.r)); o = overhang(font, lines, width / sc - o.l, topU - 40, LH - topU); }
+  const H = n1((lines.length * LH + 40 + o.t + o.b) * sc);
   return (
     <div className="preview" onClick={pick}>
-      {blocks.map((b, bi) => {
-        const sc = b.size / 1000;
-        // flourishes and tails can reach far out of the letters' boxes: the lines are set in from the
-        // edges and the block grows, as far as they reach, so none of the ink is cut off
-        let lines = font.layout(b.text, width / sc), o = overhang(font, lines, width / sc, topU - 40, LH - topU);
-        if (o.l + o.r > 0) { lines = font.layout(b.text, Math.max(width / sc / 2, width / sc - o.l - o.r)); o = overhang(font, lines, width / sc - o.l, topU - 40, LH - topU); }
-        const H = n1((lines.length * LH + 40 + o.t + o.b) * sc);
-        return (
-          <svg key={bi} className="pv" width={width} height={H} viewBox={`0 0 ${width} ${H}`}
-            style={{ '--sw': n1(1.6 / sc) } as CSSProperties}>
-            <g transform={`translate(${n1(o.l * sc)} ${n1(o.t * sc)}) scale(${sc})`}>
-              {lines.map((ln, i) => <PreviewLine key={i} line={ln} y={n1(topU + i * LH)} font={font} hl={hl} topU={topU} LH={LH} widthU={width / sc} />)}
-            </g>
-          </svg>
-        );
-      })}
+      <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} style={{ '--sw': n1(1.6 / sc) } as CSSProperties}>
+        <g transform={`translate(${n1(o.l * sc)} ${n1(o.t * sc)}) scale(${sc})`}>
+          {lines.map((ln, i) => <PreviewLine key={i} line={ln} y={n1(topU + i * LH)} font={font} hl={hl} topU={topU} LH={LH} widthU={width / sc} />)}
+        </g>
+      </svg>
     </div>
   );
 }

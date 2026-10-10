@@ -4,9 +4,9 @@
    someone signs in or out, so every tab shows the same account. */
 import { create } from 'zustand';
 import type { GoogleResult, User } from '../../shared/account';
-import { cleanName } from '../../shared/design';
 import { api, type SignedIn } from '../lib/api';
-import { actions, useEditor } from './editor';
+import { PREFS, readPref, writePref } from '../lib/prefs';
+import { actions, designInput, useEditor } from './editor';
 
 export type AuthMode = 'signin' | 'signup';
 type GoogleIntent = 'signin' | 'link';
@@ -32,13 +32,8 @@ const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastCh
 const notify = () => channel?.postMessage({ type: 'changed' });
 
 /** The email last signed in with here, to fill in next time. */
-const EMAIL_KEY = 'typelab.email';
-export function lastEmail() {
-  try { return localStorage.getItem(EMAIL_KEY) ?? ''; } catch { return ''; }
-}
-function rememberEmail(email: string | null) {
-  try { if (email) localStorage.setItem(EMAIL_KEY, email); else localStorage.removeItem(EMAIL_KEY); } catch { /* storage off */ }
-}
+export const lastEmail = () => readPref(PREFS.email) ?? '';
+const rememberEmail = (email: string | null) => writePref(PREFS.email, email || null);
 
 export const auth = {
   /** Once, at start-up: take a Google result off the address (after a sign-in that couldn't use a
@@ -119,7 +114,7 @@ export const auth = {
   async signOut(saveFirst: boolean) {
     const s = useEditor.getState();
     if (saveFirst && s.designId) {
-      const input = { name: cleanName(s.name), styleId: s.styleId, params: s.params };
+      const input = designInput(s);
       actions.markSaved(await api.updateDesign(s.designId, input), input);
     }
     await api.signOut();

@@ -1,16 +1,16 @@
 /* The opening title card, played on the first visit in a browser (not with reduced motion): the
    wordmark, then the tagline, then a fade to the app; a key or a click skips ahead to the fade.
-   Once seen it's marked in localStorage under SEEN_KEY, which the browser tools in tools/browser
-   set beforehand to keep it out of the way. */
+   Once seen it's marked in localStorage under PREFS.introSeen (lib/prefs.ts), which the browser tools in
+   tools/browser set beforehand to keep it out of the way. */
 import { useEffect, useState } from 'react';
+import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
 
-const SEEN_KEY = 'typelab.intro.seen';
 /** how long the card shows, then how long it fades; FADE_MS matches .intro's opacity transition in styles.css */
 const HOLD_MS = 1900, FADE_MS = 450;
 
 function shouldPlay() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
-  try { return localStorage.getItem(SEEN_KEY) !== '1'; } catch { return true; }
+  return !prefFlag(PREFS.introSeen);
 }
 
 export function Intro() {
@@ -18,7 +18,7 @@ export function Intro() {
 
   useEffect(() => {
     if (phase === 'done') return;
-    try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* private mode: play again next time */ }
+    setPrefFlag(PREFS.introSeen, true);
     const t = setTimeout(() => setPhase(phase === 'show' ? 'leave' : 'done'), phase === 'show' ? HOLD_MS : FADE_MS);
     const skip = () => setPhase(p => (p === 'show' ? 'leave' : p));
     window.addEventListener('keydown', skip);

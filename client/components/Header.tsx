@@ -9,7 +9,8 @@ import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
 import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../../shared/params';
 import { parseFontId, withoutReserved } from '../../shared/free-fonts';
 import { api, download, errorMessage } from '../lib/api';
-import { actions, isDirty, useEditor } from '../state/editor';
+import { DESIGNS, NEW_DESIGN, designPath } from '../lib/routes';
+import { actions, isDirty, savedName, useEditor } from '../state/editor';
 import { FamilyDialog } from './Family';
 
 /** Under the export's name, written in a free font: the name it exports under when the font's licence
@@ -23,7 +24,7 @@ function ReservedNote({ name }: { name: string }) {
 
 /** Logo: back to the Style page of the design in progress. */
 export function Brand() {
-  const id = useEditor(s => s.designId), to = id ? `/d/${id}` : '/';
+  const id = useEditor(s => s.designId), to = id ? designPath(id) : NEW_DESIGN;
   const here = useLocation().pathname === to; // already in the editor: just switch pages, don't navigate
   return <Link to={to} className="brand" title="Back to Style" onClick={e => { if (here) e.preventDefault(); actions.setCategory('style'); }}>
     <span className="brand-name">TypeLab</span>
@@ -35,18 +36,15 @@ export function Brand() {
 async function commitName(raw: string) {
   const name = cleanName(raw), s = useEditor.getState();
   actions.setName(name);
-  if (!s.designId) return;
-  const [savedName] = JSON.parse(s.saved) as [string];
-  if (savedName === name) return;
+  if (!s.designId || savedName(s) === name) return;
   // counted as saved straight away, so leaving the page right after (the click that blurred the
   // field) doesn't ask about it; put back if the server says no
-  const before = s.saved, id = s.designId;
-  actions.markRenamed(name);
+  const id = s.designId, before = actions.markRenamed(name);
   try {
     await api.renameDesign(id, name);
     actions.toast(`Renamed to “${name}”`);
   } catch (e) {
-    if (useEditor.getState().designId === id) useEditor.setState({ saved: before });
+    if (useEditor.getState().designId === id) actions.unrename(before);
     actions.toast(`Couldn’t rename — ${errorMessage(e)}`);
   }
 }
@@ -87,7 +85,7 @@ export function Header({ onSave, onGuide, naming, onNamed, onCancelNaming }: Hea
         </button>
         <span className="sep" />
         <button className="btn ghost guide-btn" onClick={onGuide}>Guide</button>
-        <Link className="btn ghost" to="/designs">My designs</Link>
+        <Link className="btn ghost" to={DESIGNS}>My designs</Link>
         <div className="save-wrap">
           <button className="btn outline" onClick={onSave} disabled={saving} title="Save (⌘S)">
             {saving ? 'Saving…' : 'Save'}<i className={dirty ? 'dirty on' : 'dirty'} aria-label={dirty ? 'Unsaved changes' : undefined} />

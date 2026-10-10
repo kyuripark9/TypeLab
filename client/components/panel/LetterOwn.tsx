@@ -1,15 +1,15 @@
 /* A customized letter's own values, each set beside a small picture of the letter: its joins, stroke ends, corners and strokes. */
 import type { ReactNode } from 'react';
 import { cmdsToD, type Glyph } from '../../../shared/engine';
-import { letterCorners, letterJoins, letterStrokes, strokeEnds, type CornerInfo, type JoinInfo, type StrokeEndInfo, type StrokeInfo } from '../../lib/drag';
-import { actions, curlOf, endOf, letterOf, paramOf, useEditor, useScopedFont, type EndKey } from '../../state/editor';
+import { bbox, letterCorners, letterJoins, letterStrokes, strokeEnds, type CornerInfo, type JoinInfo, type StrokeEndInfo, type StrokeInfo } from '../../lib/drag';
+import { OWN_CONTROL, actions, curlOf, endOf, letterOf, paramOf, useEditor, useScopedFont, type OwnKey } from '../../state/editor';
 import { NumberField, Range } from './inputs';
 
 /** While a letter is customized, a gap for each of its joins (where a stroke ends in another, or
     turns), each beside a picture of the letter with that join marked: the stroke pulled back from
     the one it meets, on or off the Stencil; while every letter is in sync, a way into customizing. */
 export function EachJoin() {
-  return <EachList noun="join" items={letterJoins} thumb={(g, joins) => <JoinThumb g={g} joins={joins} />}
+  return <EachList noun="join" items={letterJoins} thumb={(g, joins) => <EndThumb g={g} ends={joins} />}
     row={(g, joins, j) => <JoinSlider key={j.id} g={g} joins={joins} join={j} />} />;
 }
 
@@ -41,28 +41,14 @@ function EachList<T extends { id: string }>({ noun, items, thumb, row }: {
   );
 }
 
-/** The letter in miniature with its joins dotted, or only the join `on` and the stroke it pulls back picked out,
+/** One join's gap beside a picture of the letter with that join marked, and the stroke it pulls back picked out,
     so two joins in one place (an F's arm off its stem, or the stem off the arm) tell apart. */
-function JoinThumb({ g, joins, on }: { g: Glyph; joins: JoinInfo[]; on?: string }) {
-  const box = thumbBox(g), j = on ? joins.find(k => k.id === on) : undefined;
-  if (!box) return null;
-  const r = Math.max(box[2], box[3]) / 1.32 * 0.16 * (on ? 0.95 : 0.7);
-  return (
-    <svg className="end-thumb" viewBox={box.join(' ')} aria-hidden="true">
-      <path d={g.d} />
-      {j && <path className="on" d={g.strokes.filter(s => s.id === j.stroke).map(s => cmdsToD(s.cmds)).join('')} />}
-      {joins.filter(k => !on || k.id === on).map(k => <circle key={k.id} cx={k.x} cy={-k.y} r={r} />)}
-    </svg>
-  );
-}
-
-/** One join's gap beside a picture of the letter with that join marked. */
-function JoinSlider({ g, joins, join: { id, label, v: drawn } }: { g: Glyph; joins: JoinInfo[]; join: JoinInfo }) {
+function JoinSlider({ g, joins, join: { id, label, v: drawn, stroke } }: { g: Glyph; joins: JoinInfo[]; join: JoinInfo }) {
   const hot = useEditor(s => s.hotEnd === id), v = useEditor(s => paramOf(s, 'joinGaps')[id]) ?? drawn;
   return (
     <div className={hot ? 'ctl end hot' : 'ctl end'} title={label}
       onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
-      <JoinThumb g={g} joins={joins} on={id} />
+      <EndThumb g={g} ends={joins} on={id} stroke={stroke} />
       <EndRow id={id} k="joinGaps" name="Gap" label={label} value={v}
         tip="Left keeps the strokes joined; right pulls this stroke back from the one it meets, opening a gap up to two stems wide" reset="Follow Stencil again" />
     </div>
@@ -109,27 +95,27 @@ function StrokeSlider({ g, stroke: { id, label } }: { g: Glyph; stroke: StrokeIn
 
 /** The letter in miniature with every stroke picked out, or only the stroke `on`. */
 function StrokeThumb({ g, on }: { g: Glyph; on?: string }) {
-  const box = thumbBox(g);
-  if (!box) return null;
+  const t = thumbBox(g);
+  if (!t) return null;
   return (
-    <svg className="end-thumb" viewBox={box.join(' ')} aria-hidden="true">
+    <svg className="end-thumb" viewBox={t.box.join(' ')} aria-hidden="true">
       <path d={g.d} />
       <path className="on" d={g.strokes.filter(s => s.id && !s.dot && (!on || s.id === on)).map(s => cmdsToD(s.cmds)).join('')} />
     </svg>
   );
 }
 
-/** A letter's miniature view box, [x, y, width, height] (y down), with room round it for dots on its ends. */
+/** The margin round a letter's miniature, as a share of its larger side, so the dots on its ends fit. */
+const THUMB_PAD = 0.16;
+/** A dot on an end, corner or join, as a share of that margin: all of them dotted, or the one picked. */
+const DOT = { all: 0.7, one: 0.95 };
+
+/** A letter's miniature view box, [x, y, width, height] (y down), with the margin `pad` round it. */
 function thumbBox(g: Glyph) {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const c of g.cmds) {
-    for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
-      x0 = Math.min(x0, c[i]); x1 = Math.max(x1, c[i]); y0 = Math.min(y0, -c[i + 1]); y1 = Math.max(y1, -c[i + 1]);
-    }
-  }
-  if (!(x0 <= x1)) return null;
-  const pad = Math.max(x1 - x0, y1 - y0) * 0.16;
-  return [x0 - pad, y0 - pad, x1 - x0 + pad * 2, y1 - y0 + pad * 2];
+  const b = bbox(g.cmds);
+  if (!b) return null;
+  const pad = Math.max(b.x1 - b.x0, b.y1 - b.y0) * THUMB_PAD;
+  return { box: [b.x0 - pad, -b.y1 - pad, b.x1 - b.x0 + pad * 2, b.y1 - b.y0 + pad * 2], pad };
 }
 
 /** One corner's roundness beside a picture of the letter with that corner marked: where a stroke
@@ -158,14 +144,16 @@ function CornerSlider({ g, corners, corner: { id, label, v, vi: drawn, st } }: {
   );
 }
 
-/** The letter in miniature with its stroke ends (or corners) dotted, or only the one `on`. */
-function EndThumb({ g, ends, on }: { g: Glyph; ends: { id: string; x: number; y: number }[]; on?: string }) {
-  const box = thumbBox(g);
-  if (!box) return null;
-  const r = Math.max(box[2], box[3]) / 1.32 * 0.16 * (on ? 0.95 : 0.7);
+/** The letter in miniature with its stroke ends (or corners, or joins) dotted, or only the one `on`; `stroke`, the id
+    of a stroke to pick out too (the one a join pulls back). */
+function EndThumb({ g, ends, on, stroke }: { g: Glyph; ends: { id: string; x: number; y: number }[]; on?: string; stroke?: string }) {
+  const t = thumbBox(g);
+  if (!t) return null;
+  const r = t.pad * (on ? DOT.one : DOT.all);
   return (
-    <svg className="end-thumb" viewBox={box.join(' ')} aria-hidden="true">
+    <svg className="end-thumb" viewBox={t.box.join(' ')} aria-hidden="true">
       <path d={g.d} />
+      {stroke && <path className="on" d={g.strokes.filter(s => s.id === stroke).map(s => cmdsToD(s.cmds)).join('')} />}
       {ends.filter(e => !on || e.id === on).map(e => <circle key={e.id} cx={e.x} cy={-e.y} r={r} />)}
     </svg>
   );
@@ -187,9 +175,11 @@ function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: Stro
   );
 }
 
-function EndRow({ id, k, name, label, value, tip, reset }: { id: string; k: EndKey; name: string; label: string; value: number; tip: string; reset: string }) {
+/** One row for any of a customized letter's own values (OwnKey): a stroke end's length or curl, a corner's outside,
+    inside or step, a join's gap or a stroke's weight. Setting it points at the control it belongs to (OWN_CONTROL). */
+function EndRow({ id, k, name, label, value, tip, reset }: { id: string; k: OwnKey; name: string; label: string; value: number; tip: string; reset: string }) {
   const own = useEditor(s => { const ch = letterOf(s); return !!ch && s.params.glyphs[ch]?.[k]?.[id] !== undefined; });
-  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(k === 'corners' || k === 'innerCorners' ? 'roundness' : k === 'cornerSteps' ? 'steps' : k === 'strokeWeights' ? 'weight' : k === 'joinGaps' ? 'stencil' : k === 'terminalCurls' ? 'terminalCurl' : 'terminalLength'); actions.setEnd(id, v, k); };
+  const aria = `${label} ${name.toLowerCase()}`, set = (v: number) => { actions.focusControl(OWN_CONTROL[k]); actions.setEnd(id, v, k); };
   return (
     <>
       <span className="end-name" title={tip}>{name}</span>
