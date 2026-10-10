@@ -1,7 +1,7 @@
 /* Free fonts' letters (see shared/free-fonts.ts), fetched from Google Fonts the first time a font is
    asked for, converted to the outlines the engine draws (shared/engine/free.ts) and kept: in memory,
-   and as a file in `dir` when there is one, so a font is fetched once. Only the fonts the styles name
-   are fetched. */
+   and as a file in `dir` when there is one, so a font is fetched once. Only the families in FREE_FAMILIES,
+   in the weights and italics they come in, are fetched (see parseFontId). */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as opentypeNs from 'opentype.js';
@@ -17,7 +17,6 @@ type Fetch = (url: string) => Promise<{ ok: boolean; status: number; text(): Pro
 /** The licence a font comes under, by the address its name table gives for it. */
 function licenseName(url: string) {
   if (/apache/i.test(url)) return 'Apache License, Version 2.0';
-  if (/ubuntu/i.test(url)) return 'Ubuntu Font Licence, Version 1.0';
   return 'SIL Open Font License, Version 1.1';
 }
 
@@ -57,7 +56,7 @@ function contoursOf(cmds: PathCmd[], k: number): PackedNode[][] {
 }
 
 /** A font file's letters, as the engine draws them. */
-export function convertFont(id: string, ref: FreeFontRef, buf: ArrayBuffer): FreeFontData {
+function convertFont(id: string, ref: FreeFontRef, buf: ArrayBuffer): FreeFontData {
   const f = opentype.parse(buf), k = 1000 / f.unitsPerEm;
   const has = (ch: string) => { const g = f.charToGlyph(ch); return g && g.index !== 0 ? g : null; };
   const glyphs: FreeFontData['glyphs'] = {};
@@ -76,7 +75,7 @@ export function convertFont(id: string, ref: FreeFontRef, buf: ArrayBuffer): Fre
   // opentype.js 2 keeps names per platform
   const names = ((f.names as unknown as { windows?: Record<string, { en?: string }> }).windows ?? f.names) as Record<string, { en?: string } | undefined>;
   // (a name left blank can be a lone space)
-  const name = (k: string) => names[k]?.en?.trim() ?? '';
+  const name = (key: string) => names[key]?.en?.trim() ?? '';
   const licenseUrl = name('licenseURL') || 'https://openfontlicense.org';
   return {
     id, family: ref.family, designers: FREE_FAMILIES[ref.family].designers,
@@ -115,8 +114,8 @@ export class FreeFonts {
     if (file) {
       try {
         const kept = JSON.parse(readFileSync(file, 'utf8')) as FreeFontData;
-        // (one kept before the licence's full text was, or without it, is fetched again, as is one kept with
-        // heights read wrong off the font, far too small for its letters: see convertFont)
+        // a kept file is used only when it holds the licence's full text and its heights aren't far too small
+        // for its letters (convertFont checks them against the letters); any other is fetched again
         if (kept.licenseText && kept.cap > 300 && kept.xh > 150) return kept;
       } catch { /* not kept yet */ }
     }

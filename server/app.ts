@@ -1,6 +1,6 @@
 /* The TypeLab API. Kept separate from index.ts so tests can mount it on an in-memory database. */
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import express, { type NextFunction, type Request, type Response } from 'express';
+import express, { type NextFunction, type Request, type Response, type Router } from 'express';
 import { styleById } from '../shared/content';
 import { cleanName, slug, type DesignInput } from '../shared/design';
 import { isValidParams, type Params } from '../shared/params';
@@ -17,23 +17,25 @@ class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
+const fields = (body: unknown) => (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+
 /** Validate a design body. Params must already be valid: the client never sends partial ones. */
 function readDesign(body: unknown): DesignInput {
-  const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  const b = fields(body);
   if (!isValidParams(b.params)) throw new HttpError(400, 'params is missing or has invalid values');
   if (typeof b.styleId !== 'string' || !styleById(b.styleId)) throw new HttpError(400, 'styleId is not a known starting style');
   return { name: cleanName(b.name), styleId: b.styleId, params: b.params };
 }
 
 function readExport(body: unknown) {
-  const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  const b = fields(body);
   if (!isValidParams(b.params)) throw new HttpError(400, 'params is missing or has invalid values');
   return { name: cleanName(b.name), params: b.params };
 }
 
 /** Which members of a family to build: at least one weight, upright or italic or both. */
 function readFamily(body: unknown): FamilyRequest {
-  const b = ((body && typeof body === 'object' ? body : {}) as Record<string, unknown>).family as Record<string, unknown> | undefined;
+  const b = fields(body).family as Record<string, unknown> | undefined;
   if (!b || typeof b !== 'object') throw new HttpError(400, 'family is missing');
   const weights = Array.isArray(b.weights) ? [...new Set(b.weights)] : [];
   if (!isWeightId(b.anchor)) throw new HttpError(400, 'family.anchor is not a weight');
@@ -42,13 +44,20 @@ function readFamily(body: unknown): FamilyRequest {
   return { anchor: b.anchor, weights, upright: !!b.upright, italic: !!b.italic };
 }
 
+// the cookies: this browser's id, its sign-in token, and a Google sign-in in progress
+const OWNER_COOKIE = 'typelab_owner', SESSION_COOKIE = 'typelab_session', GOOGLE_COOKIE = 'typelab_google';
+/* What a browser id and a session token must look like to be read from their cookies. A browser id is 18
+   random bytes, 24 base64url characters (browserOf); a session token is 32, 43 characters
+   (AccountStore.startSession). Made longer or shorter than its pattern admits, a browser id would orphan
+   every browser's designs and a token would sign everyone out. base64url has no ':', so a browser's id
+   never reads as an account's `user:<id>` owner. */
+const BROWSER_ID = '[A-Za-z0-9_-]{16,64}', SESSION_TOKEN = '[A-Za-z0-9_-]{40,64}';
+const cookie = (req: Request, name: string, pattern: string) =>
+  new RegExp(`(?:^|;\\s*)${name}=(${pattern})(?:;|$)`).exec(req.headers.cookie ?? '')?.[1];
 /** The browser's own id, from its cookie; a browser without one is given one. Designs saved while
     signed out are kept per browser, so "My designs" holds only the fonts saved there. */
-const OWNER_COOKIE = 'typelab_owner', SESSION_COOKIE = 'typelab_session', GOOGLE_COOKIE = 'typelab_google';
-const cookie = (req: Request, name: string, pattern = '[A-Za-z0-9_-]{16,64}') =>
-  new RegExp(`(?:^|;\\s*)${name}=(${pattern})(?:;|$)`).exec(req.headers.cookie ?? '')?.[1];
 function browserOf(req: Request, res: Response): string {
-  const id = cookie(req, OWNER_COOKIE);
+  const id = cookie(req, OWNER_COOKIE, BROWSER_ID);
   if (id) return id;
   const fresh = randomBytes(18).toString('base64url');
   res.append('Set-Cookie', `${OWNER_COOKIE}=${fresh}; Path=/; Max-Age=${10 * 365 * 24 * 3600}; HttpOnly; SameSite=Lax`);
@@ -56,6 +65,11 @@ function browserOf(req: Request, res: Response): string {
 }
 /** Whose designs a request sees: the account signed in, else the browser. */
 const accountOwner = (u: User) => `user:${u.id}`;
+
+/** Who's asking, as createApp's middleware puts it on res.locals for /designs and /auth: the browser, the
+    account signed in on it and that sign-in's token (both or neither), and whose designs it sees. */
+interface Who { browser: string; owner: string; user: User | null; token?: string }
+const who = (res: Response) => res.locals as Who;
 
 function setSession(req: Request, res: Response, token: string | null) {
   const secure = req.secure ? '; Secure' : '';
@@ -73,8 +87,6 @@ function withResult(back: string, result: GoogleResult) {
   url.searchParams.set('google', JSON.stringify(result.ok ? { ...result, user: undefined } : result));
   return url.pathname + url.search + url.hash;
 }
-
-const fields = (body: unknown) => (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
 
 /** Where to come back to after Google: a path on this site, never another site. */
 const backPath = (v: unknown) => (typeof v === 'string' && /^\/(?![/\\])/.test(v) && v.length < 500 ? v : '/');
@@ -102,7 +114,8 @@ function popupPage(result: GoogleResult, back: string) {
 <script>try{new BroadcastChannel('typelab-auth').postMessage({type:'google',result:${data}})}catch(e){}window.close()</script></body></html>`;
 }
 
-/** Wrong passwords per address and email: after 10 in 15 minutes, sign-in waits out the rest. */
+/** Tries per key within a window: after `max` in `windowMs` (15 minutes) the key waits out the rest of it.
+    `throttle` counts wrong passwords per address and email (10); `lookups` counts every email check per address (60). */
 class Throttle {
   private fails = new Map<string, { n: number; since: number }>();
   constructor(private max = 10, private windowMs = 15 * 60e3) {}
@@ -120,7 +133,7 @@ class Throttle {
 }
 
 function readName(body: unknown): string {
-  const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  const b = fields(body);
   if (typeof b.name !== 'string') throw new HttpError(400, 'name is missing');
   return cleanName(b.name);
 }
@@ -130,41 +143,47 @@ const attachment = (res: Response, file: string, type: string) => {
   res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
 };
 
-export function createApp(store: DesignStore, { google = null, fonts = new FreeFonts(null) }: { google?: GoogleAuth | null; fonts?: FreeFonts } = {}) {
-  const accounts = new AccountStore(store.db), throttle = new Throttle(), lookups = new Throttle(60);
-  const app = express();
-  app.disable('x-powered-by');
-  const api = express.Router();
-  api.use(express.json({ limit: '4mb' }));
+/** What the route groups share: where designs and accounts are kept, Google sign-in when this server
+    offers it, and the free fonts. */
+interface Ctx { store: DesignStore; accounts: AccountStore; google: GoogleAuth | null; fonts: FreeFonts }
 
-  api.get('/health', (_req, res) => { res.json({ ok: true }); });
+/** The signed-in account, or 401. */
+function me(res: Response): User {
+  const { user } = who(res);
+  if (!user) throw new HttpError(401, 'Sign in first');
+  return user;
+}
 
-  // who's asking: the browser always, and the account when one is signed in on it
-  api.use(['/designs', '/auth'], (req, res, next) => {
-    res.locals.browser = browserOf(req, res);
-    const token = cookie(req, SESSION_COOKIE, '[A-Za-z0-9_-]{40,64}'), user = token ? accounts.userFor(token) : null;
-    if (token && !user) setSession(req, res, null); // expired or signed out elsewhere
-    res.locals.token = user ? token : undefined;
-    res.locals.user = user;
-    res.locals.owner = user ? accountOwner(user) : res.locals.browser;
-    next();
-  });
+/** Sign this browser in, bringing along the fonts it saved while signed out. */
+function signIn({ store, accounts }: Ctx, req: Request, res: Response, user: User) {
+  const { token, browser } = who(res);
+  if (token) accounts.endSession(token);
+  setSession(req, res, accounts.startSession(user.id));
+  const moved = store.moveAll(browser, accountOwner(user));
+  return { user, moved };
+}
 
-  /** The signed-in account, or 401. */
-  const me = (res: Response): User => {
-    if (!res.locals.user) throw new HttpError(401, 'Sign in first');
-    return res.locals.user;
-  };
-  /** Sign this browser in, bringing along the fonts it saved while signed out. */
-  const signIn = (req: Request, res: Response, user: User) => {
-    if (res.locals.token) accounts.endSession(res.locals.token);
-    setSession(req, res, accounts.startSession(user.id));
-    const moved = store.moveAll(res.locals.browser, accountOwner(user));
-    return { user, moved };
-  };
+/** The existing account a Google sign-in goes to, connecting Google to it: the one that Google account is
+    connected to, else the one with its email. null when there's neither, and a new account is made. */
+function joinGoogle(accounts: AccountStore, linked: User | null, g: { sub: string; email: string }): { user: User; passwordRemoved: boolean } | null {
+  if (linked) return { user: accounts.linkGoogle(linked.id, g)!, passwordRemoved: false };
+  const found = accounts.withEmail(g.email);
+  if (!found) return null;
+  // Nothing proved that whoever signed up with this email and a password owns it; Google just
+  // did. Their password is switched off and any browser on it signed out, so an account
+  // someone set up in another person's name can't be read through after they move in.
+  const removed = !found.verified && found.user.hasPassword;
+  if (removed) { accounts.clearPassword(found.user.id); accounts.endAllSessions(found.user.id); }
+  return { user: accounts.linkGoogle(found.user.id, g)!, passwordRemoved: removed };
+}
+
+/** Signing up and in with an email and password, and the account itself: its name, its password, the
+    other browsers signed in to it, and closing it. */
+function accountRoutes(api: Router, ctx: Ctx) {
+  const { store, accounts, google } = ctx, throttle = new Throttle(), lookups = new Throttle(60);
 
   // who's signed in, and whether this server offers Google sign-in
-  api.get('/auth/me', (_req, res) => { res.json({ user: res.locals.user, google: !!google }); });
+  api.get('/auth/me', (_req, res) => { res.json({ user: who(res).user, google: !!google }); });
 
   /** The sign-in dialog's first step: whether this email has an account, and how it signs in. */
   api.post('/auth/check', (req, res) => {
@@ -182,7 +201,7 @@ export function createApp(store: DesignStore, { google = null, fonts = new FreeF
     if (problem) throw new HttpError(400, problem);
     const user = await accounts.create(email, cleanUserName(b.name, email), b.password as string);
     if (!user) throw new HttpError(409, 'There’s already an account with this email. Sign in instead');
-    res.status(201).json(signIn(req, res, user));
+    res.status(201).json(signIn(ctx, req, res, user));
   });
 
   api.post('/auth/login', async (req, res) => {
@@ -197,11 +216,12 @@ export function createApp(store: DesignStore, { google = null, fonts = new FreeF
       throw new HttpError(401, 'That email and password don’t match an account');
     }
     throttle.clear(key);
-    res.json(signIn(req, res, user));
+    res.json(signIn(ctx, req, res, user));
   });
 
   api.post('/auth/logout', (req, res) => {
-    if (res.locals.token) accounts.endSession(res.locals.token);
+    const { token } = who(res);
+    if (token) accounts.endSession(token);
     setSession(req, res, null);
     res.status(204).end();
   });
@@ -219,16 +239,34 @@ export function createApp(store: DesignStore, { google = null, fonts = new FreeF
     const problem = passwordProblem(b.next);
     if (problem) throw new HttpError(400, problem);
     await accounts.setPassword(user.id, b.next as string);
-    if (user.hasPassword) accounts.endOtherSessions(user.id, res.locals.token);
+    if (user.hasPassword) accounts.endOtherSessions(user.id, who(res).token!);
     res.json({ user: accounts.get(user.id) });
   });
 
   /** How many other browsers are signed in, and signing them all out. */
-  api.get('/auth/sessions', (_req, res) => { res.json({ others: accounts.otherSessions(me(res).id, res.locals.token) }); });
+  api.get('/auth/sessions', (_req, res) => { res.json({ others: accounts.otherSessions(me(res).id, who(res).token!) }); });
   api.delete('/auth/sessions', (_req, res) => {
-    accounts.endOtherSessions(me(res).id, res.locals.token);
+    accounts.endOtherSessions(me(res).id, who(res).token!);
     res.status(204).end();
   });
+
+  /** Close the account and delete every font saved in it: confirmed with the password, or with the
+      email typed out on an account that has none. */
+  api.delete('/auth/me', async (req, res) => {
+    const user = me(res), b = fields(req.body);
+    if (!user.hasPassword) {
+      if (cleanEmail(b.confirm) !== user.email) throw new HttpError(403, 'Type your email exactly to confirm');
+    } else if (typeof b.password !== 'string' || !(await accounts.checkPassword(user.id, b.password))) throw new HttpError(403, 'Your password isn’t right');
+    store.deleteAll(accountOwner(user));
+    accounts.delete(user.id);
+    setSession(req, res, null);
+    res.status(204).end();
+  });
+}
+
+/** Signing in with Google, and connecting it to an account or disconnecting it. */
+function googleRoutes(api: Router, ctx: Ctx) {
+  const { accounts, google } = ctx;
 
   /** Disconnect Google, which needs a password to sign in with instead. */
   api.delete('/auth/google', (_req, res) => {
@@ -242,7 +280,7 @@ export function createApp(store: DesignStore, { google = null, fonts = new FreeF
     const intent = req.query.intent === 'link' ? 'link' : 'signin', popup = req.query.popup === '1', back = backPath(req.query.back);
     const fail = (error: string) => (popup ? res.type('html').send(popupPage({ ok: false, error }, back)) : res.redirect(303, withResult(back, { ok: false, error })));
     if (!google) return void fail('Google sign-in isn’t set up on this server');
-    if (intent === 'link' && !res.locals.user) return void fail('Sign in first');
+    if (intent === 'link' && !who(res).user) return void fail('Sign in first');
     const { verifier, challenge } = pkce(), state = randomBytes(18).toString('base64url');
     const flow: GoogleFlow = { state, verifier, intent, popup, back };
     res.append('Set-Cookie', `${GOOGLE_COOKIE}=${Buffer.from(JSON.stringify(flow)).toString('base64url')}; Path=/api/auth/google; Max-Age=600; HttpOnly; SameSite=Lax${req.secure ? '; Secure' : ''}`);
@@ -271,69 +309,54 @@ export function createApp(store: DesignStore, { google = null, fonts = new FreeF
     const g = { sub: profile.sub, email };
 
     if (flow.intent === 'link') {
-      const user: User | null = res.locals.user;
+      const { user } = who(res);
       if (!user) return finish({ ok: false, error: 'Sign in first' });
       if (linked && linked.id !== user.id) return finish({ ok: false, error: 'That Google account is already connected to another TypeLab account' });
       return finish({ ok: true, intent: 'link', user: accounts.linkGoogle(user.id, g)! });
     }
 
-    if (linked) return finish({ ok: true, intent: 'signin', isNew: false, passwordRemoved: false, ...signIn(req, res, accounts.linkGoogle(linked.id, g)!) });
-    const found = accounts.withEmail(email);
-    if (found) {
-      // Nothing proved that whoever signed up with this email and a password owns it; Google just
-      // did. Their password is switched off and any browser on it signed out, so an account
-      // someone set up in another person's name can't be read through after they move in.
-      const removed = !found.verified && found.user.hasPassword;
-      if (removed) { accounts.clearPassword(found.user.id); accounts.endAllSessions(found.user.id); }
-      return finish({ ok: true, intent: 'signin', isNew: false, passwordRemoved: removed, ...signIn(req, res, accounts.linkGoogle(found.user.id, g)!) });
-    }
+    const joined = joinGoogle(accounts, linked, g);
+    if (joined) return finish({ ok: true, intent: 'signin', isNew: false, passwordRemoved: joined.passwordRemoved, ...signIn(ctx, req, res, joined.user) });
     const user = await accounts.create(email, cleanUserName(profile.name, email), null, g);
     if (!user) return finish({ ok: false, error: 'Couldn’t make the account. Try again' });
-    finish({ ok: true, intent: 'signin', isNew: true, passwordRemoved: false, ...signIn(req, res, user) });
+    finish({ ok: true, intent: 'signin', isNew: true, passwordRemoved: false, ...signIn(ctx, req, res, user) });
   });
+}
 
-  /** Close the account and delete every font saved in it: confirmed with the password, or with the
-      email typed out on an account that has none. */
-  api.delete('/auth/me', async (req, res) => {
-    const user = me(res), b = fields(req.body);
-    if (!user.hasPassword) {
-      if (cleanEmail(b.confirm) !== user.email) throw new HttpError(403, 'Type your email exactly to confirm');
-    } else if (typeof b.password !== 'string' || !(await accounts.checkPassword(user.id, b.password))) throw new HttpError(403, 'Your password isn’t right');
-    store.deleteAll(accountOwner(user));
-    accounts.delete(user.id);
-    setSession(req, res, null);
-    res.status(204).end();
-  });
-
-  api.get('/designs', (_req, res) => { res.json(store.list(res.locals.owner)); });
+/** The designs whoever's asking has saved: listed, opened, saved, renamed and deleted. */
+function designRoutes(api: Router, { store }: Ctx) {
+  api.get('/designs', (_req, res) => { res.json(store.list(who(res).owner)); });
 
   api.post('/designs', (req, res) => {
-    res.status(201).json(store.create(readDesign(req.body), res.locals.owner));
+    res.status(201).json(store.create(readDesign(req.body), who(res).owner));
   });
 
   api.get('/designs/:id', (req, res) => {
-    const d = store.get(req.params.id, res.locals.owner);
+    const d = store.get(req.params.id, who(res).owner);
     if (!d) throw new HttpError(404, 'Design not found');
     res.json(d);
   });
 
   api.put('/designs/:id', (req, res) => {
-    const d = store.update(req.params.id, readDesign(req.body), res.locals.owner);
+    const d = store.update(req.params.id, readDesign(req.body), who(res).owner);
     if (!d) throw new HttpError(404, 'Design not found');
     res.json(d);
   });
 
   api.patch('/designs/:id', (req, res) => {
-    const d = store.rename(req.params.id, readName(req.body), res.locals.owner);
+    const d = store.rename(req.params.id, readName(req.body), who(res).owner);
     if (!d) throw new HttpError(404, 'Design not found');
     res.json(d);
   });
 
   api.delete('/designs/:id', (req, res) => {
-    if (!store.delete(req.params.id, res.locals.owner)) throw new HttpError(404, 'Design not found');
+    if (!store.delete(req.params.id, who(res).owner)) throw new HttpError(404, 'Design not found');
     res.status(204).end();
   });
+}
 
+/** Free fonts' letters, and the exports: a font, a family and a specimen sheet. */
+function fontRoutes(api: Router, { fonts }: Ctx) {
   /** Register the free fonts the design is written in, or answer that they couldn't be fetched. */
   const freeReady = async (...params: Params[]) => {
     try { await fonts.ready(...params); } catch (e) { console.error(e); throw new HttpError(502, "Couldn't fetch the free font this design is written in. Try again in a moment."); }
@@ -368,6 +391,34 @@ export function createApp(store: DesignStore, { google = null, fonts = new FreeF
     attachment(res, `${slug(name)}-specimen.svg`, 'image/svg+xml');
     res.send(buildSpecimenSVG(params, name));
   });
+}
+
+export function createApp(store: DesignStore, { google = null, fonts = new FreeFonts(null) }: { google?: GoogleAuth | null; fonts?: FreeFonts } = {}) {
+  const ctx: Ctx = { store, accounts: new AccountStore(store.db), google, fonts };
+  const app = express();
+  app.disable('x-powered-by');
+  const api = express.Router();
+  api.use(express.json({ limit: '4mb' }));
+
+  api.get('/health', (_req, res) => { res.json({ ok: true }); });
+
+  // who's asking: the browser always, and the account when one is signed in on it. Only /designs and
+  // /auth get these; a route elsewhere that needs the owner or the user must be added to the list
+  api.use(['/designs', '/auth'], (req, res, next) => {
+    const w = who(res);
+    w.browser = browserOf(req, res);
+    const token = cookie(req, SESSION_COOKIE, SESSION_TOKEN), user = token ? ctx.accounts.userFor(token) : null;
+    if (token && !user) setSession(req, res, null); // expired or signed out elsewhere
+    w.token = user ? token : undefined;
+    w.user = user;
+    w.owner = user ? accountOwner(user) : w.browser;
+    next();
+  });
+
+  accountRoutes(api, ctx);
+  googleRoutes(api, ctx);
+  designRoutes(api, ctx);
+  fontRoutes(api, ctx);
 
   api.use((_req, _res) => { throw new HttpError(404, 'No such API route'); });
 

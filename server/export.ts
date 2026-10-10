@@ -26,7 +26,7 @@ function toPath(cmds: Cmd[]) {
 }
 
 /** How a font installs within its family: its style name, weight class and italic angle. */
-export interface FontStyle { style: string; cls: number; angle: number }
+interface FontStyle { style: string; cls: number; angle: number }
 const REGULAR: FontStyle = { style: 'Regular', cls: 400, angle: 0 };
 
 /** The name a design exports under: its own, less any name the free font it's written in reserves. */
@@ -42,13 +42,18 @@ export function exportName(params: Params, name: string) {
 export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR): Buffer {
   const font = buildFont(params), m = font.m, free = font.free;
   if (free) name = withoutReserved(name, free.family);
+  // an advance width can't go below zero in a font file, and tight tracking takes it down: a space keeps at
+  // least 40 units, so words stay apart, and a letter 20. .notdef, the blank shown for a character the font
+  // lacks, is half an em
   const glyphs = [
     new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }),
     new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() }),
     // a no-break space, as wide as a space, so text that holds one doesn't fall back to another font
     new opentype.Glyph({ name: 'uni00A0', unicode: 0xa0, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() })
   ];
-  // a free font's flourishes can reach past the design's own lines: the font's lines reach as far
+  // the font's ascender and descender set its line spacing (with no line gap added): 60 units over the
+  // taller of ascender and cap height and 40 under the descender, for air between lines. A free font's
+  // flourishes can reach past the design's own lines: the font's lines reach as far
   let top = Math.max(m.asc, m.cap) + 60, bottom = m.desc - 40;
   for (const ch of ALL_CHARS) {
     const g = font.glyph(ch); if (!g) continue;
@@ -101,6 +106,12 @@ export function buildFamilyZip(params: Params, name: string, req: FamilyRequest)
   ]);
 }
 
+/* A zip file's records and fields (PKWARE's APPNOTE.TXT): each file's local header, then its entry in the
+   central directory, then the directory's end. Every file is made by and needs version 2.0 (the first with
+   deflate), has flag bit 11 set (its name is UTF-8) and is stored with method 8 (deflate). */
+const ZIP_LOCAL = 0x04034b50, ZIP_CENTRAL = 0x02014b50, ZIP_END = 0x06054b50;
+const ZIP_VERSION = 20, ZIP_UTF8_NAMES = 0x0800, ZIP_DEFLATE = 8;
+
 /** A .zip archive of `files`, each compressed. */
 function zip(files: { name: string; data: Buffer }[]): Buffer {
   const local: Buffer[] = [], central: Buffer[] = [];
@@ -112,11 +123,11 @@ function zip(files: { name: string; data: Buffer }[]): Buffer {
   for (const f of files) {
     const nameBuf = Buffer.from(f.name, 'utf8'), packed = deflateRawSync(f.data), crc = crc32(f.data);
     const head = Buffer.alloc(30);
-    head.writeUInt32LE(0x04034b50, 0); head.writeUInt16LE(20, 4); head.writeUInt16LE(0x0800, 6); head.writeUInt16LE(8, 8);
+    head.writeUInt32LE(ZIP_LOCAL, 0); head.writeUInt16LE(ZIP_VERSION, 4); head.writeUInt16LE(ZIP_UTF8_NAMES, 6); head.writeUInt16LE(ZIP_DEFLATE, 8);
     head.writeUInt16LE(time, 10); head.writeUInt16LE(date, 12); head.writeUInt32LE(crc, 14);
     head.writeUInt32LE(packed.length, 18); head.writeUInt32LE(f.data.length, 22); head.writeUInt16LE(nameBuf.length, 26);
     const entry = Buffer.alloc(46);
-    entry.writeUInt32LE(0x02014b50, 0); entry.writeUInt16LE(20, 4); entry.writeUInt16LE(20, 6); entry.writeUInt16LE(0x0800, 8); entry.writeUInt16LE(8, 10);
+    entry.writeUInt32LE(ZIP_CENTRAL, 0); entry.writeUInt16LE(ZIP_VERSION, 4); entry.writeUInt16LE(ZIP_VERSION, 6); entry.writeUInt16LE(ZIP_UTF8_NAMES, 8); entry.writeUInt16LE(ZIP_DEFLATE, 10);
     entry.writeUInt16LE(time, 12); entry.writeUInt16LE(date, 14); entry.writeUInt32LE(crc, 16);
     entry.writeUInt32LE(packed.length, 20); entry.writeUInt32LE(f.data.length, 24); entry.writeUInt16LE(nameBuf.length, 28);
     entry.writeUInt32LE(offset, 42);
@@ -125,7 +136,7 @@ function zip(files: { name: string; data: Buffer }[]): Buffer {
     offset += head.length + nameBuf.length + packed.length;
   }
   const size = central.reduce((n, b) => n + b.length, 0), end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(files.length, 8); end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(ZIP_END, 0); end.writeUInt16LE(files.length, 8); end.writeUInt16LE(files.length, 10);
   end.writeUInt32LE(size, 12); end.writeUInt32LE(offset, 16);
   return Buffer.concat([...local, ...central, end]);
 }
@@ -136,6 +147,9 @@ const escapeXml = (s: string) => s.replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': 
 export function buildSpecimenSVG(params: Params, name: string): string {
   const font = buildFont(params), m = font.m;
   const rows = [name, CHARSET.upper, CHARSET.lower, CHARSET.digits + ' ' + CHARSET.punct, CHARSET.symbols, TEXTS.sentence];
+  // in font units: rows as far apart as the letters reach plus 160, the first row's tallest letters 80 from the
+  // top, 100 of margin each side and the sheet 120 taller than its rows; shown at a quarter size (a 1000-unit em
+  // is 250 pixels)
   const lh = Math.max(m.asc, m.cap) - m.desc + 160;
   let body = '', maxW = 0;
   rows.forEach((t, r) => {

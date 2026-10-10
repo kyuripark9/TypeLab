@@ -45,10 +45,10 @@ export class DesignStore {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS designs_updated ON designs (updated_at DESC);
     `);
-    // each design belongs to the browser that made it; databases from before owners get the column,
-    // and their designs are adopted by the first browser to open the library (see adopt)
+    // each design belongs to an owner: the browser that saved it, or the account signed in on it (`user:<id>`,
+    // see server/app.ts). Databases older than owners get the column here, and their designs go to whoever
+    // asks first (see adopt)
     const cols = this.db.prepare('PRAGMA table_info(designs)').all() as unknown as { name: string }[];
     if (!cols.some(c => c.name === 'owner')) this.db.exec('ALTER TABLE designs ADD COLUMN owner TEXT');
     this.db.exec('CREATE INDEX IF NOT EXISTS designs_owner ON designs (owner, updated_at DESC)');
@@ -78,7 +78,7 @@ export class DesignStore {
     }
   }
 
-  /** Designs saved before there were owners go to the first browser that asks for them. */
+  /** Designs with no owner (from a database older than owners) go to whoever asks first: a browser, or an account signed in on it. */
   private adopt(owner: string) {
     this.db.prepare('UPDATE designs SET owner = ? WHERE owner IS NULL').run(owner);
   }
@@ -90,7 +90,7 @@ export class DesignStore {
     return rows.map(toDesign);
   }
 
-  /** One of `owner`'s designs; another browser's design is as good as missing. */
+  /** One of `owner`'s designs; another owner's design is as good as missing. */
   get(id: string, owner: string): Design | null {
     this.adopt(owner);
     const row = this.db.prepare('SELECT * FROM designs WHERE id = ? AND owner = ?').get(id, owner) as unknown as Row | undefined;

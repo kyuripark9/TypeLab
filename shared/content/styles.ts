@@ -16,7 +16,9 @@ const style = (id: string, group: StyleGroup, kinds: Kind[], name: string, moods
   return { id, name, group, kinds, moods, desc, like, params, looks: looksOf(params) };
 };
 
-/* Ids are stored with saved designs, so they never change even when a style is renamed. */
+/* Ids are stored with saved designs and deep links (?style=), so they never change, even when a style is
+   renamed, and never leave STYLES: the API refuses a design whose styleId isn't here (server/app.ts
+   readDesign). Each id also keys STYLE_FONTS (shared/free-fonts.ts) and may be a TAG_FACE (tags.ts). */
 export const STYLES: StyleDef[] = [
   /* ---- Sans Serif */
   style('geometric', 'sans', ['geometric'], 'Geometric', ['calm', 'business'], 'Poppins, Montserrat, Jost',
@@ -338,7 +340,7 @@ export const STYLES: StyleDef[] = [
       iForm: 'bars', xHeight: 0.777, letterSpacing: 0.14, vWeight: 0.34, counter: 0.34, aperture: 0.18, crossbar: 0.54, extenders: 0.39,
       descender: 0.48, joinRound: 0.12, wordSpacing: 0, sideBearing: 0.819, softSharp: 0.34, classicFuture: 0.33 }),
 
-  /* ---- Handwriting */
+  /* ---- Calligraphy */
   style('casual', 'hand', ['handwritten', 'informal', 'monoline'], 'Casual Handwriting', ['happy', 'playful', 'childlike'], 'Caveat, Indie Flower, Shadows Into Light',
     'Quick everyday handwriting with a felt pen: narrow, a little slanted, with small flicks at the stroke ends and letters that never sit quite still.',
     { weight: 0.44, width: 0.18, height: 0.62, slant: 0.25, roundness: 0.98, terminal: 'round', wobble: 0.5, cursive: 0.3, xHeight: 0.39,
@@ -584,12 +586,13 @@ export const STYLES: StyleDef[] = [
 ];
 
 /* The style page's cards, in the order they are shown under each Category heading: one base font for
-   each build of letters the sliders can't reach from another, chosen for its many weights and italics,
-   since a setting moves the letters furthest and cleanest from a family's own nearest weight. Each was
-   kept because a near card rebuilt from it with its own settings broke up (heavy and wide, fat face,
-   heavy slab, slab mono, the italic); the rest are left out, as those rebuilt cleanly from a card here,
-   and the display looks (box bowls, octagons, pinches, steps, hairlines) are settings over these.
-   Every card is solid letters. Styles left out stay defined, so designs saved from them still open. */
+   each build of letters the sliders can't reach from another card, chosen for its many weights and italics,
+   since a setting moves the letters furthest and cleanest from a family's own nearest weight. The heavy
+   and wide, the fat face, the heavy slab, the slab mono and the italic have cards of their own because
+   rebuilding them from a nearer card with their own settings breaks their letters up; every other style
+   rebuilds cleanly from a card here, and the display looks (box bowls, octagons, pinches, steps,
+   hairlines) are settings over these. Every card is solid letters (tests/styles.test.ts checks). Styles
+   off the page stay in STYLES, so designs saved from them still open. */
 const PAGE_ORDER = [
   // Sans Serif: the everyday text faces, then rounded and squared, then the wide and the heavy rounded
   'grotesque', 'humanist', 'geometric', 'soft', 'industrial', 'squircle', 'chunkyround',

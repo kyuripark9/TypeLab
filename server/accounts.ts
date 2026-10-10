@@ -25,12 +25,13 @@ function derive(password: string, salt: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => scrypt(password.normalize('NFKC'), salt, KEY_LEN, SCRYPT, (err, key) => (err ? reject(err) : resolve(key))));
 }
 
-export async function hashPassword(password: string): Promise<string> {
+async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
   return `scrypt$${salt.toString('base64')}$${(await derive(password, salt)).toString('base64')}`;
 }
 
-export async function checkPassword(password: string, stored: string): Promise<boolean> {
+/** Whether `password` is the one `stored` (a hashPassword result) was made from. */
+async function matchesHash(password: string, stored: string): Promise<boolean> {
   const [kind, salt, hash] = stored.split('$');
   if (kind !== 'scrypt' || !salt || !hash) return false;
   const want = Buffer.from(hash, 'base64'), got = await derive(password, Buffer.from(salt, 'base64'));
@@ -57,8 +58,8 @@ export class AccountStore {
       );
       CREATE INDEX IF NOT EXISTS sessions_user ON sessions (user_id);
     `);
-    // added with Google sign-in: the Google account a user signs in with, and whether the email is
-    // known to be theirs (Google said so); an empty password means the account has none
+    // databases older than Google sign-in lack these columns: the Google account a user signs in with,
+    // and whether the email is known to be theirs (Google said so). An empty password means the account has none
     const cols = new Set((db.prepare('PRAGMA table_info(users)').all() as { name: string }[]).map(c => c.name));
     if (!cols.has('google_sub')) db.exec('ALTER TABLE users ADD COLUMN google_sub TEXT');
     if (!cols.has('google_email')) db.exec('ALTER TABLE users ADD COLUMN google_email TEXT');
@@ -131,12 +132,12 @@ export class AccountStore {
     const r = this.byEmail(email);
     // hash anyway when there's no such account, so the time taken doesn't tell which emails exist
     if (!r?.password) { await hashPassword(password); return null; }
-    return (await checkPassword(password, r.password)) ? toUser(r) : null;
+    return (await matchesHash(password, r.password)) ? toUser(r) : null;
   }
 
   async checkPassword(id: string, password: string): Promise<boolean> {
     const r = this.db.prepare('SELECT password FROM users WHERE id = ?').get(id) as unknown as { password: string } | undefined;
-    return !!r && checkPassword(password, r.password);
+    return !!r && matchesHash(password, r.password);
   }
 
   async setPassword(id: string, password: string) {
@@ -149,11 +150,12 @@ export class AccountStore {
   }
 
   delete(id: string) {
-    this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+    this.endAllSessions(id);
     this.db.prepare('DELETE FROM users WHERE id = ?').run(id);
   }
 
-  /** A new sign-in; the token goes to the browser and is never stored as is. */
+  /** A new sign-in; the token goes to the browser and is never stored as is. It is 43 base64url
+      characters, which the session cookie's pattern in app.ts (SESSION_TOKEN) must admit. */
   startSession(userId: string): string {
     const token = randomBytes(32).toString('base64url'), now = Date.now();
     this.db.prepare('INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)')

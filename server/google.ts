@@ -23,7 +23,7 @@ export function pkce() {
 const AUTH = 'https://accounts.google.com/o/oauth2/v2/auth', TOKEN = 'https://oauth2.googleapis.com/token';
 const ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
 
-export function googleAuth(clientId: string, clientSecret: string): GoogleAuth {
+function googleAuth(clientId: string, clientSecret: string): GoogleAuth {
   return {
     authUrl({ redirectUri, state, challenge }) {
       const q = new URLSearchParams({

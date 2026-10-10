@@ -1,6 +1,9 @@
 /* Starts TypeLab on one port: the API plus the React app.
    Development: Vite runs inside this server as middleware (with hot reload).
-   Production (`npm run build` then `npm start`): serves the built files from dist/. */
+   Production (`npm run build` then `npm start`): serves the built files from dist/.
+   It reads from the environment, or from a .env file at the root: PORT (5173), NODE_ENV (`production`
+   serves dist/), DB_PATH (data/typelab.db; the free fonts are kept beside it, in free-fonts/) and
+   TRUST_PROXY here, PUBLIC_URL in app.ts, and GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in google.ts. */
 import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, resolve } from 'node:path';
@@ -33,7 +36,8 @@ if (prod) {
     process.exit(1);
   }
   app.use(express.static(dist, { index: false, maxAge: '1h' }));
-  // client-side routes (/, /designs, /d/:id) all load the app shell
+  // client-side routes (/, /d/:id, /designs, /account) and any other GET load the app shell, which shows its
+  // own Page not found for an address it doesn't know
   app.use((req, res, next) => (req.method === 'GET' ? res.sendFile(resolve(dist, 'index.html')) : next()));
 } else {
   const { createServer: createVite } = await import('vite');
