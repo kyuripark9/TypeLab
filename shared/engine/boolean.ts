@@ -1,8 +1,11 @@
-/* Boolean operations on outlines, for the effects that cut one shape out of another or join them
-   (the inline, the shadow). Every input is a set of polygons read with the nonzero rule, like the
-   font itself. The edges of all of them are split where they cross, and an edge piece is kept when
-   the region asked for lies on one side of it and not the other, turned so the region is on its
-   left (anticlockwise outlines, clockwise holes). The kept pieces are then chained into contours. */
+/* Boolean operations on outlines: the Inline, Outline and Shadow fills (effects.ts) cut one shape out of
+   another or join them, and a free font's letters are read as one ink and cut or added to (restyle.ts;
+   skin.ts, where moved strokes thickened into each other are read back as one ink), so the free fonts'
+   outlines depend on it too. Every input is a set of polygons read with the nonzero rule, like the font itself (or, with
+   shape's `positive`, only where they wind anticlockwise on balance). The edges of all of them are split
+   where they cross, and an edge piece is kept when the region asked for lies on one side of it and not
+   the other, turned so the region is on its left (anticlockwise outlines, clockwise holes). The kept
+   pieces are then chained into contours. */
 import type { Pt } from './types';
 
 interface Seg { ax: number; ay: number; bx: number; by: number }
@@ -84,7 +87,6 @@ export function combine(shapes: Shape[], keep: (x: number, y: number) => boolean
       e.cuts.push({ t, p }); f.cuts.push({ t: u, p });
     }
   }
-  // the pieces that bound the region, turned to keep it on their left
   // points closer than a hundredth of a unit are one (three edges crossing at a point give it
   // three slightly different ways), found through a grid of cells that size. A point keeps the
   // one it was first given, as a point found later nearby could otherwise win it the next time
@@ -103,6 +105,7 @@ export function combine(shapes: Shape[], keep: (x: number, y: number) => boolean
     had.set(at, c.id);
     return c.id;
   };
+  // the pieces that bound the region, turned to keep it on their left;
   // an edge two shapes share (a stroke's side running along another's) is kept once, and one
   // going back the way another came cancels it (a spike no wider than a hair, which would otherwise
   // leave a chain with no way on): each pair of points keeps one edge, the way more of them go

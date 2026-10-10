@@ -1,7 +1,12 @@
 /* Stencil gaps: where a stroke ends in another (its host) it is cut back so a gap opens between the
-   two, parallel to the host; crossbars with Gap 'through' run on through the strokes they cross, which
-   are cut free above and below them; and a turn can come apart like two strokes joined. Used by
-   buildGlyph (glyph.ts) after the strokes are expanded. */
+   two, parallel to the host; crossbars whose Ends are Through (barEnds 'through') run on through the
+   strokes they cross, which are cut free above and below them; and a turn can come apart like two
+   strokes joined. Used by buildGlyph (glyph.ts) after the strokes are expanded.
+
+   The pieces keep the outline's points as the same objects (splitPoly and clipPoly only add the points
+   a cut makes): glyph.ts tells the corners a cut made from the stroke's own by whether a point is among
+   those drawn (the stroke's outline, or the `drawn` turnPieces returns), so a piece copied point by
+   point would have its sharp corners rounded as cut. */
 import { barCut, joinGap } from '../params';
 import { clamp, clipPoly, lerpP, signedArea, splitPoly } from './geom';
 import { expandStroke, type Expanded } from './stroke';
@@ -10,6 +15,8 @@ import type { Builder, Metrics } from './font';
 import { turnsOf } from './corners';
 import { inPoly } from './joins';
 
+/** Whether a stroke is one straight line lying nearly level, rising less than a fifth of its run: a crossbar
+    that can run through (barsThrough), and a level stroke for the Contrast highlight (GlyphStroke.horizontal). */
 export function isHorizontal(cmds: Cmd[]) {
   if (cmds.length !== 2 || cmds[1][0] !== 'L') return false;
   return Math.abs(cmds[1][2] - cmds[0][2]) < Math.abs(cmds[1][1] - cmds[0][1]) * 0.2;
@@ -33,18 +40,18 @@ interface Join { id: string; x: number; y: number; nx: number; ny: number; bj: H
     through it and would poke out the other side. `across(off)`: the stroke still crosses the gap
     moved `off` out steeply enough for it to cut across the stroke. */
 interface StencilCut {
-  x: number; y: number; host: number; nx: number; ny: number; back: HalfPlane; own: boolean;
+  x: number; y: number; host: number; back: HalfPlane; own: boolean;
   /** how far up its Gap scale an `own` gap is set */ v: number;
-  at: (off: number, k?: number) => { far: HalfPlane; near: HalfPlane | null }; across: (off: number) => boolean;
+  at: (off: number, k: number) => { far: HalfPlane; near: HalfPlane | null }; across: (off: number) => boolean;
 }
-export function strokeJoins(i: number, exps: (Expanded | null)[]): Join[] {
-  const ex = exps[i]!, own = ex.skeleton.flat(), out: Join[] = [];
+export function strokeJoins(i: number, expanded: (Expanded | null)[]): Join[] {
+  const ex = expanded[i]!, own = ex.skeleton.flat(), out: Join[] = [];
   const cx = own.reduce((a, q) => a + q.x, 0) / own.length, cy = own.reduce((a, q) => a + q.y, 0) / own.length;
   for (const end of ex.ends) {
     const lies = end.type !== 'join';
     let best: Host | null = null;
-    for (let j = 0; j < exps.length; j++) {
-      const h = exps[j];
+    for (let j = 0; j < expanded.length; j++) {
+      const h = expanded[j];
       if (!h || j === i || (lies && h.loop)) continue;
       const pts = h.skeleton.flat();
       for (let k = 0; k + 1 < pts.length; k++) {
@@ -60,7 +67,7 @@ export function strokeJoins(i: number, exps: (Expanded | null)[]): Join[] {
     }
     if (!best) continue;
     const bj = best;
-    if (bj.atEnd && bj.j > i && exps[bj.j]!.ends.some(e => (lies || e.type === 'join') && Math.hypot(e.x - end.x, e.y - end.y) < 1)) continue;
+    if (bj.atEnd && bj.j > i && expanded[bj.j]!.ends.some(e => (lies || e.type === 'join') && Math.hypot(e.x - end.x, e.y - end.y) < 1)) continue;
     let nx = -bj.ty, ny = bj.tx;
     const side = (cx - bj.px) * nx + (cy - bj.py) * ny;
     if (Math.abs(side) < 1) continue;
@@ -76,7 +83,8 @@ export function stencilOpens(joins: Join[]): Set<string> {
   const lead = (c: Join) => c.nx - c.ny * 0.5, drawn = joins.filter(c => !c.lies);
   return new Set(drawn.filter(c => !drawn.some(k => k !== c && k.nx * c.nx + k.ny * c.ny < -0.3 && lead(k) > lead(c))).map(c => c.id));
 }
-/** `square`: cut straight across the stroke instead (a crossbar made shorter), where both its edges are clear of the host. */
+/** One join's cut (see StencilCut): at join `jn` of stroke `ex`, its gap `gap` wide; `own` and `v` as gapOf gives them.
+    `square`: cut straight across the stroke instead (a crossbar made shorter), where both its edges are clear of the host. */
 export function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean, square = false, v = 1): StencilCut {
   const { bj, nx, ny } = jn, end = jn;
   if (square) {
@@ -88,8 +96,8 @@ export function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean, sq
         return (bj.half - ((qx - bj.px) * nx + (qy - bj.py) * ny)) / dn;
       }));
       const at = (d: number) => ({ x: end.x + dx * d, y: end.y + dy * d });
-      return { x: end.x, y: end.y, host: bj.j, nx, ny, own, v, back: { ...at(0), nx: -dx, ny: -dy }, across: () => true,
-        at: (o, k = 1) => ({ far: { ...at(clear + o + gap * (own ? k : 1)), nx: -dx, ny: -dy }, near: o > 0 ? { ...at(clear + o), nx: dx, ny: dy } : null }) };
+      return { x: end.x, y: end.y, host: bj.j, own, v, back: { ...at(0), nx: -dx, ny: -dy }, across: () => true,
+        at: (o, k) => ({ far: { ...at(clear + o + gap * (own ? k : 1)), nx: -dx, ny: -dy }, near: o > 0 ? { ...at(clear + o), nx: dx, ny: dy } : null }) };
     }
   }
   const at = (d: number) => ({ x: bj.px + nx * d, y: bj.py + ny * d });
@@ -108,8 +116,8 @@ export function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean, sq
     }
     return steep;
   };
-  return { x: end.x, y: end.y, host: bj.j, nx, ny, own, v, back: { ...at(-bj.half), nx: -nx, ny: -ny }, across,
-    at: (o, k = 1) => ({ far: { ...at(bj.half + o + gap * (own ? k : 1)), nx: -nx, ny: -ny }, near: o > 0 ? { ...at(bj.half + o), nx, ny } : null }) };
+  return { x: end.x, y: end.y, host: bj.j, own, v, back: { ...at(-bj.half), nx: -nx, ny: -ny }, across,
+    at: (o, k) => ({ far: { ...at(bj.half + o + gap * (own ? k : 1)), nx: -nx, ny: -ny }, near: o > 0 ? { ...at(bj.half + o), nx, ny } : null }) };
 }
 /** The gap at one join of a stroke that is a crossbar (`bar`, cut square when its gap is set) or not, on the join's own Gap scale: the
     letter's own gap there, else the crossbars' Gap, else Stencil's where it opens one (`opens`). `own`:
@@ -120,6 +128,8 @@ export function gapOf(m: Metrics, id: string, bar: boolean, opens: boolean) {
   if (bar && m.p.barGap > 0 && m.p.barEnds !== 'through') return { v: m.p.barGap, own: true };
   return { v: opens ? m.gap / joinGap(1, m.s) : 0, own: false };
 }
+/** Whether a stroke's part is a crossbar (A E H e f t 4) or a bar (an I's top and foot, G's, dashes, the strokes
+    of signs like + = # €): the strokes the crossbars' Gap and Ends act on. */
 export const isBar = (part?: string) => part === 'crossbar' || part === 'bar';
 
 /* Crossbars run through (Ends: Through): a level crossbar runs on past each stroke its ends meet, out
@@ -127,21 +137,21 @@ export const isBar = (part?: string) => part === 'crossbar' || part === 'bar';
    and below it, the Gap from it, so the bar stands free between their pieces (a stencil A). `bars`: the
    bars' new outlines, by stroke; `bands`: the levels cut out of the strokes they meet; `at`: the joins. */
 interface Through { bars: Map<number, Pt[]>; bands: Map<number, [number, number][]>; at: Pt[] }
-export function barsThrough(b: Builder, exps: (Expanded | null)[], m: Metrics): Through | null {
+export function barsThrough(b: Builder, expanded: (Expanded | null)[], m: Metrics): Through | null {
   const cut = barCut(m.p.barGap, m.s);
   if (m.p.barEnds !== 'through' || !(cut > 0)) return null;
   const out: Through = { bars: new Map(), bands: new Map(), at: [] };
   b.strokes.forEach((st, si) => {
-    const ex = exps[si];
+    const ex = expanded[si];
     if (!ex || ex.loop || st.poly || !isBar(st.o.part) || !isHorizontal(st.cmds!)) return;
     // only where the bar ends in a stroke (A H e E F), not where it crosses one or ends free (t f)
-    const joins = strokeJoins(si, exps).filter(jn => !jn.lies && !exps[jn.bj.j]!.loop);
+    const joins = strokeJoins(si, expanded).filter(jn => !jn.lies && !expanded[jn.bj.j]!.loop);
     if (!joins.length) return;
     const ys = ex.contours[0].map(q => q.y), y0 = Math.min(...ys), y1 = Math.max(...ys), ym = (y0 + y1) / 2;
     let bar = ex.contours[0];
     for (const jn of joins) {
       // the host's outside edge, at the middle of the bar: the first edge past the join, going out
-      const dir = jn.ix < 0 ? 1 : -1, host = exps[jn.bj.j]!.contours[0];
+      const dir = jn.ix < 0 ? 1 : -1, host = expanded[jn.bj.j]!.contours[0];
       let edge = jn.x;
       for (let k = 0; k < host.length; k++) {
         const a = host[k], c = host[(k + 1) % host.length];
@@ -160,17 +170,28 @@ export function barsThrough(b: Builder, exps: (Expanded | null)[], m: Metrics): 
   return out.bars.size ? out : null;
 }
 /** The cuts on stroke i: at each join, the letter's own gap there (none at 0), else the crossbars' or Stencil's (see gapOf). */
-export function stencilCuts(i: number, exps: (Expanded | null)[], m: Metrics, bar: boolean): StencilCut[] {
-  const joins = strokeJoins(i, exps), opens = stencilOpens(joins), cuts: StencilCut[] = [];
+export function stencilCuts(i: number, expanded: (Expanded | null)[], m: Metrics, bar: boolean): StencilCut[] {
+  const joins = strokeJoins(i, expanded), opens = stencilOpens(joins), cuts: StencilCut[] = [];
   for (const jn of joins) {
     const { v, own } = gapOf(m, jn.id, bar, opens.has(jn.id)), gap = joinGap(v, m.s);
-    if (gap > 0) cuts.push(stencilCut(exps[i]!, jn, gap, own, bar && own, v));
+    if (gap > 0) cuts.push(stencilCut(expanded[i]!, jn, gap, own, bar && own, v));
   }
   return cuts;
 }
 
+/** Whether a piece of a cut stroke is a solid bit of ink, no sliver: its narrowest width is about its area
+    over its length (at least `least`), and it has to be a good part of a stem's width `s`, or of the
+    stroke's own `t` where that is thinner (a hairline bar). */
+const solidFor = (s: number, t: number, least = -Infinity) => {
+  const min = Math.min(s * 0.5, t * 0.9);
+  return (q: Pt[]) => {
+    const xs = q.map(p => p.x), ys = q.map(p => p.y);
+    return Math.abs(signedArea(q)) / Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), least) >= min;
+  };
+};
+
 /** A stroke cut by one join's cut, its gap `off` out: the far side, and the near side when the gap is moved out. */
-const cutBy = (q: Pt[], cut: StencilCut, off: number, k = 1) => {
+const cutBy = (q: Pt[], cut: StencilCut, off: number, k: number) => {
   const { far, near } = cut.at(off, k);
   return [...splitPoly([q], far), ...(near ? splitPoly(splitPoly([q], near), cut.back) : [])];
 };
@@ -183,13 +204,7 @@ const cutBy = (q: Pt[], cut: StencilCut, off: number, k = 1) => {
    opens a join of its own there: then its gaps narrow to the widest that leaves solid ink. Returns
    the pieces and how far out the gaps went (null: not cut). */
 export function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s: number, t: number, others: (Pt[] | null)[]): { pieces: Pt[][]; off: number | null } {
-  // a piece's narrowest width is about its area over its length; it has to be a good part of a
-  // stem's width, or of the stroke's own where that is thinner (a hairline bar)
-  const min = Math.min(s * 0.5, t * 0.9);
-  const solid = (q: Pt[]) => {
-    const xs = q.map(p => p.x), ys = q.map(p => p.y);
-    return Math.abs(signedArea(q)) / Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) >= min;
-  };
+  const solid = solidFor(s, t);
   // the other strokes' outlines as points no further apart than a quarter stem, and those inside this stroke
   const dense = others.map(q => {
     if (!q) return [];
@@ -238,12 +253,14 @@ export function stencilPieces(contour: Pt[], cuts: StencilCut[], off: number, s:
   // joins close to the join (the leg of a K on its arm) the gaps can't sit on it, but can past it
   const lo = s * 0.55;
   if (off < lo) return { pieces: atJoin, off: 0 };
-  if (cutAt(off)) return { pieces: cutAt(off)!, off };
-  let a = -1, b = off;
-  for (let k = 1; k <= 12 && a < 0; k++) { const c = off - (off - lo) * k / 12; if (cutAt(c)) a = c; else b = c; }
+  const atOff = cutAt(off);
+  if (atOff) return { pieces: atOff, off };
+  // (the pieces at `a`, the furthest out found that cuts)
+  let a = -1, b = off, best: Pt[][] | null = null;
+  for (let n = 1; n <= 12 && a < 0; n++) { const c = off - (off - lo) * n / 12, ps = cutAt(c); if (ps) { a = c; best = ps; } else b = c; }
   if (a < 0) return { pieces: atJoin, off: 0 };
-  for (let k = 0; k < 8; k++) { const c = (a + b) / 2; if (cutAt(c)) a = c; else b = c; }
-  return { pieces: cutAt(a)!, off: a };
+  for (let n = 0; n < 8; n++) { const c = (a + b) / 2, ps = cutAt(c); if (ps) { a = c; best = ps; } else b = c; }
+  return { pieces: best!, off: a };
 }
 
 /* A stroke opened at its own turns (the top left of an F, the tops of an M's stems): at each, the
@@ -301,11 +318,7 @@ export function turnPieces(cmds: Cmd[], so: StrokeOpts, pen: PenCtx, open: (Turn
     c.forEach(q => drawn.add(q));
     return [c];
   });
-  const min = Math.min(m.s * 0.5, t * 0.9);
-  const solid = (q: Pt[]) => {
-    const xs = q.map(p => p.x), ys = q.map(p => p.y);
-    return Math.abs(signedArea(q)) / Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1) >= min;
-  };
+  const solid = solidFor(m.s, t, 1);
   open.forEach((tn, i) => {
     const { keepIn, nx, ny } = keeps[i], j = keepIn ? i + 1 : i, h = halfAt(exs[keepIn ? i : i + 1]!, tn);
     const cutAt = (gap: number) => parts[j].flatMap(q => splitPoly([q], { x: tn.x + nx * (h + gap), y: tn.y + ny * (h + gap), nx: -nx, ny: -ny }));

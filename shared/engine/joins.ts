@@ -1,19 +1,20 @@
-/* Joins: the inside corners left where one stroke's outline crosses another's (under the arm of an r,
-   beside the crossbar of a t), rounded by Joins with fillets that follow both strokes' edges, and by
-   Inside corners in the counters. Run by buildGlyph (glyph.ts) on the expanded strokes. */
+/* Joins: where one stroke meets another their outlines cross, and each crossing that leaves a corner
+   inside the letter (under the arm of an r, beside the crossbar of a t, in the crotch of a y) is a
+   corner too, id `${si}j${k}`: 'j' and its number among the joins of the earlier of the two strokes.
+   A join rounds by Joins (joinRound, under Roundness), or by a roundness its letter gives it, and at
+   least as far as Counters (innerRound) rounds every inside corner, filled in with a fillet that runs
+   along both strokes' edges and curves across between them.
+
+   Run by buildGlyph (glyph.ts) on the expanded strokes, after endCorners (corners.ts): the rounds it
+   leaves on the outlines' corners (Pt.r, Pt.sharp) are what a fillet stops short of (cornerR). The
+   fillets go into the letter as strokes of part 'fillet': a stencil gap may land on one (it isn't a
+   stroke joining there), and one is dropped where a gap cuts the join it rounds (filletCut in glyph.ts). */
 import { clamp, clipPoly, cubicAt } from './geom';
 import type { Expanded } from './stroke';
 import type { Mark, Pt } from './types';
 import { type Builder, type Metrics, strokeWt } from './font';
 
-/* ---- joins
-   Where one stroke meets another their outlines cross, and each crossing that leaves a corner
-   inside the letter (under the arm of an r, beside the crossbar of a t, in the crotch of a y) is a
-   corner too: 'j' and its number among the joins of the earlier of the two strokes. A join rounds
-   by Joins, or by a roundness its letter gives it, filled in with a fillet that runs along both
-   strokes' edges and curves across between them. */
-
-/** How far Inside corners rounds a corner whose inside is `angle` across: all the way at a right angle
+/** How far Counters (innerRound, m.innerR) rounds a corner whose inside is `angle` across: all the way at a right angle
     or wider, less and less as it narrows, so a sharp crotch (the arms of a K, an X) doesn't fill in black. */
 export const innerFor = (m: Metrics, angle: number) => m.innerR * Math.min(1, angle / (Math.PI / 2)) ** 2;
 
@@ -28,6 +29,46 @@ export function inPoly(poly: Pt[], q: Pt) {
     if ((a.y > q.y) !== (p.y > q.y) && q.x < (p.x - a.x) * (q.y - a.y) / (p.y - a.y) + a.x) c = !c;
   }
   return c;
+}
+
+/** One way out of a join's crossing, along an edge of a stroke's outline: its direction (x, y), and the
+    edge, as walk follows it (edge k of ring `ring` of stroke si, followed one way, dir). */
+interface Ray { x: number; y: number; si: number; ring: Pt[]; k: number; dir: 1 | -1 }
+
+/** Of the four wedges round crossing p between the ways out of it (`rays`, in order round it), the one
+    left empty, with its width `span`, its sides r1 and r2, and `bis`, the way that halves it: null unless
+    exactly one is, and narrower than a straight line. A wedge is empty where the point along `bis` two
+    units clear of both its sides is out of the ink. */
+function emptyWedge(p: Pt, rays: Ray[], inked: (q: Pt) => boolean) {
+  const free = rays.map((r1, n) => {
+    const r2 = rays[(n + 1) % 4];
+    let span = Math.atan2(r2.y, r2.x) - Math.atan2(r1.y, r1.x);
+    if (span <= 0) span += 2 * Math.PI;
+    const bx = r1.x + r2.x, by = r1.y + r2.y, bl = Math.hypot(bx, by) || 1, e = 2 / Math.max(0.1, Math.sin(span / 2));
+    return { r1, r2, span, bis: { x: bx / bl, y: by / bl }, empty: !inked({ x: p.x + bx / bl * e, y: p.y + by / bl * e }) };
+  }).filter(w => w.empty);
+  return free.length !== 1 || free[0].span > Math.PI - 0.05 ? null : free[0];
+}
+
+/** The fillet rounding a join at crossing p, whose empty wedge is `span` across and halved by `bis`:
+    s1 and s2 are its two edges followed out from p, `dd` along each, to where the round leaves them.
+    Returns the fillet's outline, and the middle of its round, where the join is marked. */
+function filletAt(p: Pt, s1: Pt[], s2: Pt[], dd: number, span: number, bis: Pt) {
+  const T1 = s1[s1.length - 1], T2 = s2[s2.length - 1];
+  const u1 = s1.length > 1 ? s1[s1.length - 2] : p, u2 = s2.length > 1 ? s2[s2.length - 2] : p;
+  const t1 = { x: T1.x - u1.x, y: T1.y - u1.y }, t2 = { x: T2.x - u2.x, y: T2.y - u2.y }, l1 = Math.hypot(t1.x, t1.y) || 1, l2 = Math.hypot(t2.x, t2.y) || 1;
+  // the round across, a quarter-circle-like curve from where it leaves one edge to where it meets the other
+  // (where a curve followed round has swung its edge away from the corner, turning only as far as
+  // the edges' own ways at its ends, or it would overshoot them and leave a lip)
+  const phi = Math.abs(Math.atan2(t1.y * t2.x - t1.x * t2.y, -(t1.x * t2.x + t1.y * t2.y))), chord = Math.hypot(T2.x - T1.x, T2.y - T1.y);
+  const h = phi > Math.PI - span + 1e-3 ? (4 / 3) * Math.tan(phi / 4) * chord / (2 * Math.sin(phi / 2))
+    : (4 / 3) * Math.tan((Math.PI - span) / 4) * dd * Math.tan(span / 2);
+  const C = [T1, { x: T1.x - t1.x / l1 * h, y: T1.y - t1.y / l1 * h }, { x: T2.x - t2.x / l2 * h, y: T2.y - t2.y / l2 * h }, T2];
+  const arc = Array.from({ length: 11 }, (_, n) => { const q = cubicAt(C, n / 10); return { x: q.x, y: q.y, smooth: n > 0 && n < 10 }; });
+  // it reaches a little into the strokes at the crossing, so no hairline shows between them
+  const poly: Pt[] = [{ x: p.x - bis.x * 2, y: p.y - bis.y * 2, sharp: true }, ...s1.slice(1, -1).map(q => ({ ...q, smooth: true })),
+    ...arc, ...s2.slice(1, -1).reverse().map(q => ({ ...q, smooth: true }))];
+  return { poly, mid: arc[5] };
 }
 
 /** Mark every join of a glyph's expanded strokes and return the fillets that round them. A crossing
@@ -51,6 +92,9 @@ export function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null
     return q.x >= bx.x0 && q.x <= bx.x1 && q.y >= bx.y0 && q.y <= bx.y1 && inPoly(poly, q);
   }).length % 2 === 1;
   const inked = (q: Pt, but = -1) => rings.some((_, si) => si !== but && inStroke(si, q));
+  // the radius corner q of stroke si's outline is rounded by later: none when sharp, its own (Pt.r, as
+  // endCorners leaves it), else Roundness's (a loop's corners aren't rounded)
+  const cornerR = (si: number, q: Pt) => (q.sharp ? 0 : q.r ?? (exps[si]?.ex?.loop ? 0 : m.R * (b.strokes[si].o.scale || 1) * strokeWt(m, si)));
   /* From the crossing p, on edge k of ring `ring` (stroke si), along the outline one way (dir ±1)
      for up to `want`: the points passed, stopping where it turns off by more than 50 degrees or
      runs into another stroke. Ink is looked for a hair off the edge, toward the empty wedge `bis`
@@ -59,7 +103,6 @@ export function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null
      At a corner of the outline that turns away from the wedge it stops sooner, short of as much of
      it as Roundness or a round terminal rounds off later (the top of a t's stem, the ends of its
      crossbar), so no round is left standing out past a corner that isn't there any more. */
-  const cornerR = (si: number, q: Pt) => (q.sharp ? 0 : q.r ?? (exps[si]?.ex?.loop ? 0 : m.R * (b.strokes[si].o.scale || 1) * strokeWt(m, si)));
   const walk = (si: number, ring: Pt[], k: number, dir: 1 | -1, p: Pt, want: number, bis: Pt) => {
     const n = ring.length, pts: Pt[] = [p];
     let len = 0, at = p, i = dir > 0 ? (k + 1) % n : k, d0: Pt | null = null, wing = 0, trim = 0;
@@ -127,45 +170,27 @@ export function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null
               { x: rx / la, y: ry / la, si: i, ring: A, k: ka, dir: 1 as const }, { x: -rx / la, y: -ry / la, si: i, ring: A, k: ka, dir: -1 as const },
               { x: sx / lb, y: sy / lb, si: j, ring: B, k: kb, dir: 1 as const }, { x: -sx / lb, y: -sy / lb, si: j, ring: B, k: kb, dir: -1 as const }
             ].sort((P, Q) => Math.atan2(P.y, P.x) - Math.atan2(Q.y, Q.x));
-            const free = rays.map((r1, n) => {
-              const r2 = rays[(n + 1) % 4];
-              let span = Math.atan2(r2.y, r2.x) - Math.atan2(r1.y, r1.x);
-              if (span <= 0) span += 2 * Math.PI;
-              const bx = r1.x + r2.x, by = r1.y + r2.y, bl = Math.hypot(bx, by) || 1, e = 2 / Math.max(0.1, Math.sin(span / 2));
-              return { r1, r2, span, bis: { x: bx / bl, y: by / bl }, empty: !inked({ x: p.x + bx / bl * e, y: p.y + by / bl * e }) };
-            }).filter(w => w.empty);
-            if (free.length !== 1 || free[0].span > Math.PI - 0.05) continue;
+            const wedge = emptyWedge(p, rays, inked);
+            if (!wedge) continue;
             found.push(p);
             const id = `${i}j${count.get(i) ?? 0}`;
             count.set(i, (count.get(i) ?? 0) + 1);
             const own = m.p.corners?.[id], v = own ?? m.p.joinRound, mark: Mark = { type: 'corner', id, x: p.x, y: p.y, v };
             marks.push(mark);
-            // Inside corners rounds every join at least as far, unless its letter rounds it its own way
-            const R = own != null ? joinR(own, m.s) : Math.max(joinR(v, m.s), innerFor(m, free[0].span));
+            // Counters (innerRound) rounds every join at least as far, unless its letter rounds it its own way
+            const R = own != null ? joinR(own, m.s) : Math.max(joinR(v, m.s), innerFor(m, wedge.span));
             if (R < 0.6) continue;
             // how far along each edge the round starts: R's share of as far as the round of Joins at 1 would
             // start, or as far as both edges let it if that is nearer, so Joins rounds on all the way to 1
             // even where the edges run out first (in heavy letters)
-            const { r1, r2, span, bis } = free[0], most = Math.max(R, joinR(1, m.s)), d = most / Math.tan(span / 2);
+            const { r1, r2, span, bis } = wedge, most = Math.max(R, joinR(1, m.s)), d = most / Math.tan(span / 2);
             const w1 = walk(r1.si, r1.ring, r1.k, r1.dir, p, d, bis), w2 = walk(r2.si, r2.ring, r2.k, r2.dir, p, d, bis);
             const dd = Math.min(d, w1.len * 0.95, w2.len * 0.95) * R / most;
             if (dd < 0.6) continue;
-            const s1 = cut(w1, dd), s2 = cut(w2, dd), T1 = s1[s1.length - 1], T2 = s2[s2.length - 1];
-            const u1 = s1.length > 1 ? s1[s1.length - 2] : p, u2 = s2.length > 1 ? s2[s2.length - 2] : p;
-            const t1 = { x: T1.x - u1.x, y: T1.y - u1.y }, t2 = { x: T2.x - u2.x, y: T2.y - u2.y }, l1 = Math.hypot(t1.x, t1.y) || 1, l2 = Math.hypot(t2.x, t2.y) || 1;
-            // the round across, a quarter-circle-like curve from where it leaves one edge to where it meets the other
-            // (where a curve followed round has swung its edge away from the corner, turning only as far as
-            // the edges' own ways at its ends, or it would overshoot them and leave a lip)
-            const phi = Math.abs(Math.atan2(t1.y * t2.x - t1.x * t2.y, -(t1.x * t2.x + t1.y * t2.y))), chord = Math.hypot(T2.x - T1.x, T2.y - T1.y);
-            const h = phi > Math.PI - span + 1e-3 ? (4 / 3) * Math.tan(phi / 4) * chord / (2 * Math.sin(phi / 2))
-              : (4 / 3) * Math.tan((Math.PI - span) / 4) * dd * Math.tan(span / 2);
-            const C = [T1, { x: T1.x - t1.x / l1 * h, y: T1.y - t1.y / l1 * h }, { x: T2.x - t2.x / l2 * h, y: T2.y - t2.y / l2 * h }, T2];
-            const arc = Array.from({ length: 11 }, (_, n) => { const q = cubicAt(C, n / 10); return { x: q.x, y: q.y, smooth: n > 0 && n < 10 }; });
+            const fillet = filletAt(p, cut(w1, dd), cut(w2, dd), dd, span, bis);
             // marked on the round, where the corner now is
-            Object.assign(mark, { x: arc[5].x, y: arc[5].y, home: p });
-            // it reaches a little into the strokes at the crossing, so no hairline shows between them
-            fillets.push([{ x: p.x - bis.x * 2, y: p.y - bis.y * 2, sharp: true }, ...s1.slice(1, -1).map(q => ({ ...q, smooth: true })),
-              ...arc, ...s2.slice(1, -1).reverse().map(q => ({ ...q, smooth: true }))]);
+            Object.assign(mark, { x: fillet.mid.x, y: fillet.mid.y, home: p });
+            fillets.push(fillet.poly);
           }
         }
       }));
