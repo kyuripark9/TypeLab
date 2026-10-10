@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { CHARSET, buildFont, hasGlyph } from '../shared/engine';
-import { GLYPHS } from '../shared/engine/font';
+import { CHARSET, buildFont } from '../shared/engine';
+import { glyphIds, hasGlyph } from '../shared/engine/font';
 import { DEFAULTS, type Params } from '../shared/params';
 import { pathPts, xsOf } from './outlines';
 
@@ -87,7 +87,7 @@ describe('flourishes', () => {
   });
 
   it('has swash forms of S t z r l d alone', () => {
-    assert.deepEqual(Object.keys(GLYPHS).filter(k => k.endsWith('.sw')).map(k => k[0]).sort(), [...'Sdlrtz']);
+    assert.deepEqual(glyphIds().filter(k => k.endsWith('.sw')).map(k => k[0]).sort(), [...'Sdlrtz']);
   });
 });
 

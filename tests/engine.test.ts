@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { CONTROLS, STYLES } from '../shared/content';
 import { ALL_CHARS, CHARSET, buildFont, cmdsToD, expandStroke, type Cmd, type Glyph } from '../shared/engine';
 import { BLOCKS } from '../shared/engine/blocks';
-import { GLYPHS } from '../shared/engine/font';
+import { glyphDefOf, glyphIds } from '../shared/engine/font';
 import type { StrokeOpts } from '../shared/engine/types';
 import { DEFAULTS, isValidParams, type Params } from '../shared/params';
 import { contours, coords, curves, xsOf, ysOf } from './outlines';
@@ -89,7 +89,7 @@ describe('font engine', () => {
 describe('glyph registry', () => {
   it('names in each drawing only settings the letter inspector can show', () => {
     // the inspector lists a letter's settings from its drawing's params, as controls
-    for (const [id, def] of Object.entries(GLYPHS)) for (const k of def.meta.params ?? []) assert.ok(k in CONTROLS, `${id}: ${k}`);
+    for (const id of glyphIds()) for (const k of glyphDefOf(id)!.meta.params ?? []) assert.ok(k in CONTROLS, `${id}: ${k}`);
   });
 });
 

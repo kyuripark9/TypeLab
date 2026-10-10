@@ -138,6 +138,8 @@ export const defGlyph = (ch: string, sb: [number, number], fn: GlyphFn, meta?: G
 export const hasGlyph = (ch: string) => ch in GLYPHS;
 /** The drawing of glyph `ch`, for building it (glyph.ts) and for a variant that draws it and adds to it (see swash.ts). */
 export const glyphDefOf = (ch: string): GlyphDef | undefined => GLYPHS[ch];
+/** Every id in the glyph table, as registered (tests walk it to check what each glyph declares). */
+export const glyphIds = () => Object.keys(GLYPHS);
 
 /** The macros push the x-height by steps measured on the older Lowercase height scale (see xHeightFromOld in shared/params/scales.ts): one such step on the current scale. */
 const XH_OLD = 0.36 / 0.56;
