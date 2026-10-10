@@ -47,10 +47,15 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `boundaries.test.ts` | Nothing under `shared/` imports `client/` or `server/` or touches the DOM (a regex: a comment saying `window.` trips it) |
 | `golden.test.ts` | The engine's golden outlines; the free fonts' too with `GOLDEN_FREE=1` |
 
-Planned (being added in parallel; names not fixed yet): invariant tests for stroke order, the id builders against the
-saved-id tests in `shared/params/scales.ts`, the twin round trip, restyles leaving unmoved letters alone,
-`skinFollows`' letter lists, `SUBS` and `FORM_OPTIONS` coverage in the panel, the accounts table upgrade, reach's
-choices, the inspector's string couplings, and deep-link parsing.
+| `stroke-order.test.ts` | Every glyph draws its strokes in the order `tests/stroke-order.txt` keeps (the defaults, each letter form, and the settings that draw strokes of their own), so saved per-letter values stay on their strokes. An order changed on purpose: `UPDATE_STROKE_ORDER=1 node --import tsx --test tests/stroke-order.test.ts` rewrites the file |
+| `editor.test.ts` | `client/state/editor.ts` without a browser: a design written in its style's free font and back, a customized letter's own values, loading a style over changes, renaming, the 200-step undo limit |
+
+Invariants other files also pin: every handle's id is one a saved design keeps (handles.test.ts); deep links parse,
+every nested slider has a place in the panel, and every part a control shapes names a real control (pages.test.ts);
+every option setting is tried at its other choices (reach.test.ts); `weightUnscale` undoes `weightScale`
+(family.test.ts); `skinFollows` weighs only settings free letters follow, every restyle hands an unmoved letter back
+as it is, and the twin's fit undoes `metrics()` (free-fonts.test.ts); an accounts table from before Google sign-in is
+upgraded, and `joinGoogle`'s three outcomes (api.test.ts).
 
 ## Helpers and fixtures
 
@@ -79,7 +84,7 @@ characters per glyph: a SHA-1 of its placed outline to a hundredth of a unit, wi
   few settings. They need the fonts in `data/free-fonts` (`FONTS_DIR`); `npm run golden` checks them, or `npm test`
   with `GOLDEN_FREE=1`. A font that isn't kept, or whose file changed, drops out of the check silently.
 - What golden misses: letter and word spacing (layout only), marks, counters, skeletons, highlights, metrics, and
-  per-letter values beyond its probes. `npm run compare` (planned) covers those.
+  per-letter values beyond its probes. `npm run compare` covers those.
 
 Update them (`npm run golden:update`) only for a change you meant, after looking at it rendered, and commit them with
 that change. Renaming a setting key, an option or a style id shows as `new probe` and `probe gone`. A failure names

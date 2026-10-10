@@ -18,7 +18,7 @@ The owner's Mac has no system Node: `tools/node.sh <cmd>` runs any command with 
 | Look at letters without the app (read the PNG) | `npm run render -- --style serif --text "Rag" --out .tools/out/x.png` |
 | Golden outlines, engine and free fonts (needs `data/free-fonts`; about a minute) | `npm run golden` |
 | Accept outlines you meant to change | `npm run golden:update` |
-| Full engine output against a git ref (planned, see tools/README.md) | `npm run compare -- [ref] [--free] [--only <style-regex>]` |
+| Full engine output against a git ref (about five minutes; see tools/README.md) | `npm run compare -- [ref] [--free] [--only <style-regex>]` |
 | Sliders that stop changing part way | `npm run sweep [-- keys...]` |
 | A dev server of your own | `PORT=5199 DB_PATH=.tools/test.db npm run dev` |
 
@@ -35,7 +35,7 @@ cleanly, start it as `PORT=5199 DB_PATH=.tools/test.db tools/node.sh node --impo
 
 | You changed | Run | Done means |
 | --- | --- | --- |
-| Engine code (`shared/engine/`, the scales in `shared/params/scales.ts`) | `npm test`; `npm run compare` (planned) for a refactor | Tests pass and the golden outlines are unchanged, or changed only where you meant and updated in the same commit |
+| Engine code (`shared/engine/`, the scales in `shared/params/scales.ts`) | `npm test`; `npm run compare` for a refactor | Tests pass and the golden outlines are unchanged, or changed only where you meant and updated in the same commit |
 | Free-font code (`free*.ts`, `skin.ts`, `scan.ts`, `restyle.ts`) or a formula they share from `font.ts` | the above, plus `npm run golden` | The free set matches too |
 | How a slider maps to geometry | the above, plus `npm run sweep -- <key>` | No new dead eighths |
 | A setting's spec, a style preset, pages, copy | `npm test`, `npm run typecheck` | Pages, icons and styles tests pass; changed `style:<id>` golden lines looked at and accepted |

@@ -205,7 +205,7 @@ tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, wh
 
 ## Floating-point order is behaviour
 
-Golden compares outlines to a hundredth of a unit, and compare (planned) compares the full output. Reordering arithmetic
+Golden compares outlines to a hundredth of a unit, and compare compares the full output. Reordering arithmetic
 (`a + b + c` against `a + (b + c)`), swapping a local copy for a shared helper with its sums in another order, or
 `Math.hypot` for a square root moves points by tiny amounts, and tiny amounts flip decisions made near a threshold:
 an inside test on an edge, a turn at 0.2 rad, a clip on a slanted half-plane (`buildGlyph` clips a stroke a second
@@ -220,9 +220,13 @@ change and verify it.
 - `npm run golden`: also the free-font set (needs `data/free-fonts`), for anything the free-font path reads. If it
   prints `free: no free fonts kept in … (skipped)`, the free set wasn't checked; `npm run render -- --style <id>
   --free` fetches a style's font into `data/free-fonts`.
-- `npm run compare` (planned): every glyph of every style under about 50 setting combinations, built at a git ref and
-  in the working tree, compared in full (outline, marks, counters, strokes, skeleton, serifs, spacing, highlights,
-  layout, metrics). It catches what golden's probes don't reach. Use it for any refactor.
+- `npm run compare -- [ref]`: every glyph of every style under about 50 setting combinations, built at a git ref
+  (HEAD by default) and in the working tree, compared in full (outline, marks, counters, strokes, skeleton, serifs,
+  spacing, highlights, layout, metrics); `--free` adds the free fonts, `--only <regex>` a few styles. It catches what
+  golden's probes don't reach. Use it for any refactor. Designs are drawn in a fixed order on both sides: the twin's
+  fit of a free font is cached by the font alone, so a design can draw otherwise after another style used that font.
+- `UPDATE_STROKE_ORDER=1 node --import tsx --test tests/stroke-order.test.ts`: only when a glyph's stroke order
+  changes on purpose (it moves saved per-letter values; see the invariants).
 - `npm run render -- --style <id> --set k=v --text "..."`: look at what changed; `--free` for the free font,
   `--sweep <key>` for a row per eighth.
 - `npm run sweep -- <key>`: dead zones in a slider.
