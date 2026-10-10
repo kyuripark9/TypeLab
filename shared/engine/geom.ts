@@ -1,5 +1,5 @@
-/* Geometry helpers: béziers, polygons (clipping, inside or out), corner rounding and the sizes the corner stages
-   share (MIN_ROUND, SAME_PT), path output. */
+/* Geometry helpers: béziers, polygons (outlines sampled into them, clipping, inside or out), corner rounding and the
+   sizes the corner stages share (MIN_ROUND, SAME_PT), the box round an outline's points, path output. */
 import type { ClipBox, Cmd, HalfPlane, Mat, Pt, Tangent } from './types';
 
 type P = { x: number; y: number };
@@ -17,6 +17,19 @@ export const MIN_ROUND = 0.6;
 /** How near two points lie to count as one (the same corner on two strokes' outlines, a mark and the tip it marks), or a
     corner lies to an edge to be on it, in font units. */
 export const SAME_PT = 1.5;
+
+/** The box round outline commands' points, their ends and handles (font units, y up), not the curves' tighter box;
+    null when they have none. */
+export function cmdsBox(cmds: Cmd[]): { x0: number; y0: number; x1: number; y1: number } | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of cmds) {
+    for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
+      x0 = Math.min(x0, c[i]); x1 = Math.max(x1, c[i]);
+      y0 = Math.min(y0, c[i + 1]); y1 = Math.max(y1, c[i + 1]);
+    }
+  }
+  return x0 <= x1 ? { x0, y0, x1, y1 } : null;
+}
 
 /** Whether q lies inside the closed polygon `poly` (even-odd). */
 export function inPoly(poly: Pt[], q: Pt) {
@@ -55,6 +68,33 @@ export function quarter(x0: number, y0: number, x1: number, y1: number, mode: st
   return mode === 'hv'
     ? [p0, { x: x0 + k * (x1 - x0), y: y0 }, { x: x1, y: y1 - k * (y1 - y0) }, p1]
     : [p0, { x: x0, y: y0 + k * (y1 - y0) }, { x: x1 - k * (x1 - x0), y: y1 }, p1];
+}
+
+/** Outline commands to polygons, curves sampled. Every point is `smooth`, so re-rounding
+    only touches the new corners an effect cuts. */
+export function toPolys(cmds: Cmd[]): Pt[][] {
+  const out: Pt[][] = [];
+  let cur: Pt[] = [], x = 0, y = 0;
+  const add = (px: number, py: number) => {
+    const q = cur[cur.length - 1];
+    if (!q || Math.hypot(q.x - px, q.y - py) > 0.05) cur.push({ x: px, y: py, smooth: true });
+    x = px; y = py;
+  };
+  const close = () => {
+    while (cur.length > 1 && dist(cur[0], cur[cur.length - 1]) <= 0.05) cur.pop();
+    if (cur.length > 2) out.push(cur);
+    cur = [];
+  };
+  for (const c of cmds) {
+    if (c[0] === 'M') { close(); add(c[1], c[2]); }
+    else if (c[0] === 'L') add(c[1], c[2]);
+    else if (c[0] === 'C') {
+      const P = [{ x, y }, { x: c[1], y: c[2] }, { x: c[3], y: c[4] }, { x: c[5], y: c[6] }];
+      for (let i = 1; i <= 6; i++) { const p = cubicAt(P, i / 6); add(p.x, p.y); }
+    } else close();
+  }
+  close();
+  return out;
 }
 
 export function signedArea(pts: P[]) {

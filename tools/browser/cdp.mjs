@@ -7,6 +7,10 @@
      await p.shot('serif');                      // .tools/out/shots/serif.png
      await p.close();
 
+   The tab also has: p.ev(expr), the expression's value, or { error } when it threw; p.events, every CDP event the tab
+   has sent (Runtime.consoleAPICalled for the console, ...); and p.dialogs, the messages of the alerts and confirms it
+   has answered, each accepted unless p.acceptDialogs is false.
+
    Gotchas: a second go() in the same tab can hang on the unsaved-changes guard (open a new tab per URL);
    a dynamic import() of app modules from ev() gets a separate copy of them, so drive state through the UI. */
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -26,6 +30,7 @@ export async function openTab({ width = 1440, height = 900, mobile = false, skip
   await send('Page.enable'); await send('Runtime.enable'); await send('Log.enable');
   await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile });
   if (mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true });
+  // (the keys are PREFS.guideSeen and PREFS.introSeen in client/lib/prefs.ts)
   let pre = '';
   if (skipGuide) pre += "try{localStorage.setItem('typelab.guide.seen','1')}catch{};";
   if (skipIntro) pre += "try{localStorage.setItem('typelab.intro.seen','1')}catch{};";

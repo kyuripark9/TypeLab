@@ -6,35 +6,8 @@
    overlapping strokes count once. */
 import type { Fill } from '../params';
 import { combine, shape, type Shape } from './boolean';
-import { CIRCLE_K, cubicAt, dist, roundContour, roundCuts, signedArea, splitPoly } from './geom';
+import { CIRCLE_K, dist, roundContour, roundCuts, signedArea, splitPoly, toPolys } from './geom';
 import type { Cmd, Pt } from './types';
-
-/** Outline commands to polygons, curves sampled. Every point is `smooth`, so re-rounding
-    only touches the new corners an effect cuts. */
-export function toPolys(cmds: Cmd[]): Pt[][] {
-  const out: Pt[][] = [];
-  let cur: Pt[] = [], x = 0, y = 0;
-  const add = (px: number, py: number) => {
-    const q = cur[cur.length - 1];
-    if (!q || Math.hypot(q.x - px, q.y - py) > 0.05) cur.push({ x: px, y: py, smooth: true });
-    x = px; y = py;
-  };
-  const close = () => {
-    while (cur.length > 1 && dist(cur[0], cur[cur.length - 1]) <= 0.05) cur.pop();
-    if (cur.length > 2) out.push(cur);
-    cur = [];
-  };
-  for (const c of cmds) {
-    if (c[0] === 'M') { close(); add(c[1], c[2]); }
-    else if (c[0] === 'L') add(c[1], c[2]);
-    else if (c[0] === 'C') {
-      const P = [{ x, y }, { x: c[1], y: c[2] }, { x: c[3], y: c[4] }, { x: c[5], y: c[6] }];
-      for (let i = 1; i <= 6; i++) { const p = cubicAt(P, i / 6); add(p.x, p.y); }
-    } else close();
-  }
-  close();
-  return out;
-}
 
 const polysToCmds = (polys: Pt[][], R: number) => polys.flatMap(p => roundContour(p, R));
 

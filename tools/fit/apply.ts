@@ -37,13 +37,14 @@ for (const st of STYLES) {
   // the params object is the last argument: the first '{' after the description string, to its match
   let depth = 0, quote = '', start = -1, end = -1;
   // (the arguments before it are strings and arrays of strings, so the first '{' outside quotes opens it)
-  for (let k = at + 6; k < src.length; k++) {
+  for (let k = at + 'style('.length; k < src.length; k++) {
     const c = src[k];
     if (quote) { if (c === '\\') { k++; continue; } if (c === quote) quote = ''; continue; }
     if (c === "'" || c === '"' || c === '`') { quote = c; continue; }
     if (c === '{') { if (depth === 0 && start < 0) start = k; depth++; }
     else if (c === '}') { depth--; if (depth === 0 && start >= 0) { end = k; break; } }
   }
+  if (start < 0 || end < 0) { console.log('no params object for', st.id); continue; }
   const old = src.slice(start, end + 1);
   // keys in the order the style had them, then the rest, as the fit left them where they differ from the defaults
   const oldKeys = [...old.matchAll(/(\w+):/g)].map(m => m[1]).filter(k => k in DEFAULTS);

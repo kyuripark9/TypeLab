@@ -12,7 +12,7 @@ import { loadFreeFont } from '../lib/free';
 import { DEFAULT_NAME, cleanName, type Design, type DesignInput } from '../../shared/design';
 import { SNAP_KINDS, type SnapKind } from '../lib/pen';
 import { PREFS, prefFlag, prefJson, prefOneOf, setPrefFlag, writePref } from '../lib/prefs';
-import { DEFAULTS, FREE_AT_KEYS, endCurl, endLength, isGlyphKey, type FreeAt, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
+import { DEFAULTS, endCurl, endLength, freeAtOf, isGlyphKey, type GlyphParams, type IdKey, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
 /** The Style page's panel: filters that narrow the cards, or traits laid over every card. */
@@ -199,7 +199,7 @@ export const curlOf = (s: EditorState, id: string) => endCurl({ terminalCurls: p
 /** What can be set one by one on a customized letter (the settings of ID_KEYS in shared/params/spec.ts): each stroke end's
     length or curl, each corner's roundness (a turn's outside) and step, each turn's inside roundness, each stroke's
     weight, or each join's gap. */
-export type OwnKey = 'terminalEnds' | 'terminalCurls' | 'corners' | 'innerCorners' | 'cornerSteps' | 'strokeWeights' | 'joinGaps';
+export type OwnKey = IdKey;
 /** The control each of a customized letter's own values belongs to: setting one points at that control, so its
     explainer shows. */
 export const OWN_CONTROL: Record<OwnKey, ActiveKey> = {
@@ -238,7 +238,6 @@ export function fontFor(p: Params): Font {
 onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont) useEditor.setState({ params: { ...s.params } }); });
 
 /** The settings a style's free font stands for as it comes: moved from these, its letters move too. */
-const freeAtOf = (st: StyleDef): FreeAt => Object.fromEntries(FREE_AT_KEYS.map(k => [k, st.params[k]]));
 /** Letter and word spacing where the engine adds nothing to a free font's own spacing: the settings' defaults,
     which `track` and `space` in shared/engine/font.ts take as their zero (written there as 0.2 and 0.35, so a new
     default has to reach both; Formal nudges letter spacing before `track` reads it). setFreeLetters treats
@@ -250,7 +249,7 @@ const FREE_SPACING = { letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAU
     font's letters as they move the settings (Bold makes it heavier). */
 function startParams(st: StyleDef, traits: Traits, free = true): Params {
   const p = { ...applyTraits(st.params, traits) }, id = STYLE_FONTS[st.id];
-  return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st), ...FREE_SPACING } : p;
+  return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING } : p;
 }
 export const useFont = () => fontFor(useEditor(s => s.params));
 /** The font the controls act on: the inspected letter's own while edits go to that letter. */
@@ -407,7 +406,7 @@ export const actions = {
     const spacing = (k: 'letterSpacing' | 'wordSpacing', free: number) => on
       ? (p[k] === st.params[k] ? free : p[k])
       : (p[k] === free ? st.params[k] : p[k]);
-    const params = { ...p, freeFont: on ? id! : '', freeAt: on ? freeAtOf(st) : {}, letterSpacing: spacing('letterSpacing', FREE_SPACING.letterSpacing), wordSpacing: spacing('wordSpacing', FREE_SPACING.wordSpacing) };
+    const params = { ...p, freeFont: on ? id! : '', freeAt: on ? freeAtOf(st.params) : {}, letterSpacing: spacing('letterSpacing', FREE_SPACING.letterSpacing), wordSpacing: spacing('wordSpacing', FREE_SPACING.wordSpacing) };
     set({ params, picked: s.picked === JSON.stringify(p) ? JSON.stringify(params) : s.picked });
     actions.commit();
     actions.toast(on ? `Written in ${parseFontId(id)!.family}, a free font` : 'Letters built from the settings, ready to shape', { label: 'Undo', run: () => actions.travel(-1) });

@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
 import { buildFont } from '../shared/engine';
 import { combine, shape } from '../shared/engine/boolean';
-import { toPolys } from '../shared/engine/effects';
+import { toPolys } from '../shared/engine/geom';
 import { signedArea } from '../shared/engine/geom';
 import { DEFAULTS, FILLS, sanitizeParams } from '../shared/params';
 import { coords } from './outlines';

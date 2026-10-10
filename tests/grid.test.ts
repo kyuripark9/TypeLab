@@ -47,6 +47,7 @@ describe('construction grids', () => {
   });
 
   it('groups the letters built the same way, under names that stay put', () => {
+    // (a grid's name is its place in grid.ts's SETS × KINDS: Grid A to T = set × 4 + kind)
     const groups = gridGroups(font), by = (name: string) => groups.find(g => g.name === name)!.chars.join('');
     assert.equal(by('Grid A'), 'EFHILT');
     assert.equal(by('Grid B'), 'AKMNVWXYZ');
@@ -74,6 +75,7 @@ describe('construction grids', () => {
     // an O's bowl is Q's bowl
     assert.ok(gridOf(font, 'O')!.grid.rounds.every(r => r.shared));
     // across every group: a line is shared when another letter of the group has one at the same height, place or angle
+    // (within 1.5 units or 0.6°, grid.ts's SAME and SAME_ANGLE)
     const gap = (a: number, b: number) => { const d = Math.abs(a - b) % Math.PI; return Math.min(d, Math.PI - d); };
     let shared = 0, own = 0;
     for (const group of gridGroups(font)) {
@@ -117,6 +119,7 @@ describe('construction grids', () => {
       for (const ch of ALL_CHARS) {
         const g = f.glyph(ch)!;
         const grid = glyphGrid(g, f.letter(ch).m);
+        // (40 and 28: grid.ts's MOST_LINES and MOST_ROUNDS)
         assert.ok(grid.lines.length <= 40 && grid.rounds.length <= 28, `${st.id} ${ch}`);
         for (const l of grid.lines) assert.ok([l.x, l.y, l.a, l.len].every(Number.isFinite) && l.a >= 0 && l.a < Math.PI, `${st.id} ${ch}: line`);
         for (const r of grid.rounds) assert.ok([r.cx, r.cy, r.rx, r.ry].every(Number.isFinite) && r.rx >= 2 && r.ry >= 2, `${st.id} ${ch}: round`);

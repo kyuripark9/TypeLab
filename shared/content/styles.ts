@@ -1,4 +1,6 @@
-/* The starting styles: each one's settings, tags and description, and the cards the Style page shows. */
+/* The starting styles: each one's settings, tags and description, and the cards the Style page shows.
+   tools/fit/apply.ts rewrites the settings objects in place: keep each style a `style('<id>', ...)` call whose
+   settings object is the first `{` after it, with no braces in names, families or descriptions. */
 import { DEFAULTS, type Params } from '../params';
 import { looksOf, type Kind, type Look, type Mood, type StyleGroup } from './tags';
 
@@ -11,6 +13,9 @@ export interface StyleDef {
   looks: Look[];
 }
 
+/** A starting style, from its id, Category (group), Classification tags (kinds), name, Feeling tags (moods), Google
+    Fonts families like it, description, and its settings over DEFAULTS. The settings stay the last argument, an
+    object literal, as tools/fit/apply.ts finds and rewrites them there. */
 const style = (id: string, group: StyleGroup, kinds: Kind[], name: string, moods: Mood[], like: string, desc: string, p: Partial<Params>): StyleDef => {
   const params = { ...DEFAULTS, ...p };
   return { id, name, group, kinds, moods, desc, like, params, looks: looksOf(params) };

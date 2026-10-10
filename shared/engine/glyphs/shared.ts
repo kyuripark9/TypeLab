@@ -1,6 +1,7 @@
 /* The constructions the glyph files share (see index.ts): bowls, the s, shoulders, K's arms, the upright
    and arched forms of the diagonal letters, tails and hooks, cursive entry and exit strokes, and the forms
    a capital shares with its lowercase. */
+import type { Params } from '../../params';
 import { CURSIVE_FORMS, cursiveHookR, type Builder, type Metrics } from '../font';
 import { clamp, lerp } from '../geom';
 import type { ClipBox, Cmd, StrokeOpts } from '../types';
@@ -315,8 +316,10 @@ export const mapCmds = (cmds: Cmd[], f: (x: number, y: number) => [number, numbe
 
 /* ---------- forms a capital shares with its lowercase (I J i l, Y y, Z z) ---------- */
 
-/* in a monospaced sans the narrow letters get bars, so they fill their cell like the others */
-const monoBars = (m: Metrics) => m.p.mono >= 0.5 && !m.serif;
+/** Whether I, J, i and l left on 'auto' get their bars in design `e`: in a monospaced sans the narrow letters do, so
+    they fill their cell like the others. The Letters page's picker shows which 'auto' stands for by it. */
+export const autoIBars = (e: Pick<Params, 'mono' | 'serif'>) => e.mono >= 0.5 && !e.serif;
+const monoBars = (m: Metrics) => autoIBars(m.p);
 /** Whether I, J, i and l get their bars (on i and l a flag and a foot): picked, or left to monospacing. */
 export const iBars = (m: Metrics) => m.p.iForm === 'bars' || (m.p.iForm === 'auto' && monoBars(m));
 

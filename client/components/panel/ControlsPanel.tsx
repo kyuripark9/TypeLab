@@ -1,6 +1,7 @@
 /* A page of controls: the free-font note, the explainer, the page's controls (grouped by the parts of an inspected letter), and the steps to the pages beside it. */
-import { BLOCK_CONTROLS, PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, type CategoryId, type ControlKey } from '../../../shared/content';
-import type { NumericParam } from '../../../shared/params';
+import type { ReactNode } from 'react';
+import { BLOCK_CONTROLS, PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
+import type { NumericParam, SubControlDef } from '../../../shared/params';
 import { FREE_FAMILIES, STYLE_FONTS, parseFontId } from '../../../shared/free-fonts';
 import { actions, letterOf, useEditor, useFont, useParam } from '../../state/editor';
 import { ScopeIcon, letterControls } from '../Inspector';
@@ -99,53 +100,33 @@ function LetterControls({ keys, category }: { keys: ControlKey[]; category: Excl
   );
 }
 
+/** The sliders nested under a few sliders (their *_SUBS in shared/content/controls.ts, in spec order), and what follows
+    them there: a customized letter's own values, or where the crossbars' Gap opens. The other nested sliders are
+    placed by their control's own component (ShapeControls.tsx, and CutControl and BarEndsControl in
+    SliderControl.tsx): a nested slider shows only where the panel places it (tests/pages.test.ts checks each is). */
+const NESTED: Partial<Record<ControlKey, { subs?: Record<string, SubControlDef>; more?: ReactNode }>> = {
+  roundness: { subs: ROUND_SUBS, more: <EachCorner /> },
+  weight: { subs: WEIGHT_SUBS, more: <EachStroke /> },
+  pinch: { subs: PINCH_SUBS },
+  serifArms: { subs: SERIF_ARM_SUBS },
+  crossbar: { more: <BarEndsControl /> }
+};
+
 /** The component that draws control `k`. A `type` names one component: 'options' is the stroke ends
     (TerminalControl), 'story' the a, 'serif' the serif switch and shapes, 'fill' the fill, and each of
     those draws its one key whatever `k` is; 'form' is any letter-shape picker (it needs a FORM_OPTIONS
     entry), 'serifForm' the four finer serif choices. A control with no type is a slider; a few keys nest
     sliders or a letter's own values below theirs, and Stencil and Slice are cuts with a switch. */
 function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
-  const c = CONTROLS[k];
+  const c = CONTROLS[k], n = NESTED[k];
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'story') return <StoryControl parts={parts} />;
   if (c.type === 'form') return <FormControl k={k as LetterFormKey} parts={parts} />;
-  if (k === 'roundness') {
+  if (n) {
     return (
-      <SliderControl k={k} def={c} parts={parts}>
-        <SliderControl k="joinRound" def={ROUND_SUBS.joinRound} />
-        <SliderControl k="innerRound" def={ROUND_SUBS.innerRound} />
-        <EachCorner />
-      </SliderControl>
-    );
-  }
-  if (k === 'weight') {
-    return (
-      <SliderControl k={k} def={c} parts={parts}>
-        <SliderControl k="vWeight" def={WEIGHT_SUBS.vWeight} />
-        <SliderControl k="hWeight" def={WEIGHT_SUBS.hWeight} />
-        <EachStroke />
-      </SliderControl>
-    );
-  }
-  if (k === 'pinch') {
-    return (
-      <SliderControl k={k} def={c} parts={parts}>
-        <SliderControl k="pinchPos" def={PINCH_SUBS.pinchPos} />
-      </SliderControl>
-    );
-  }
-  if (k === 'serifArms') {
-    return (
-      <SliderControl k={k} def={c} parts={parts}>
-        <SliderControl k="serifArmThickness" def={SERIF_ARM_SUBS.serifArmThickness} />
-        <SliderControl k="serifArmLean" def={SERIF_ARM_SUBS.serifArmLean} />
-      </SliderControl>
-    );
-  }
-  if (k === 'crossbar') {
-    return (
-      <SliderControl k={k} def={c} parts={parts}>
-        <BarEndsControl />
+      <SliderControl k={k as NumericParam & ControlKey} def={c} parts={parts}>
+        {Object.entries(n.subs ?? {}).map(([s, d]) => <SliderControl key={s} k={s as NumericParam & ActiveKey} def={d} />)}
+        {n.more}
       </SliderControl>
     );
   }

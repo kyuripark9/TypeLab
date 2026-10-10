@@ -1,8 +1,8 @@
 /* The Style page's panel: Filter narrows the starting styles by search and tags, Adjust lays traits over every one of them. */
 import { useState, type KeyboardEvent } from 'react';
 import { MOODS, PAGE_STYLES, TAG_FACE, styleById, type Mood, type StyleFilter } from '../../../shared/content';
+import { cmdsBox } from '../../../shared/engine';
 import type { Params } from '../../../shared/params';
-import { bbox } from '../../lib/drag';
 import { n1 } from '../../lib/hooks';
 import { actions, adjustedParams, fontFor, useEditor, useStyleMatch, type StyleTab } from '../../state/editor';
 import { TRAIT_SECTIONS, type TraitDef } from '../../../shared/traits';
@@ -147,7 +147,7 @@ function Specimen({ params, text }: { params: Params; text: string }) {
   // the ink's box across the line, y down
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const it of items) {
-    const b = bbox(f.glyph(it.ch)!.cmds);
+    const b = cmdsBox(f.glyph(it.ch)!.cmds);
     if (b) { x0 = Math.min(x0, it.x + b.x0); x1 = Math.max(x1, it.x + b.x1); y0 = Math.min(y0, -b.y1); y1 = Math.max(y1, -b.y0); }
   }
   if (!(x0 < x1)) return null;

@@ -8,7 +8,7 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { registerFreeFont, buildFont, freeFont, type Glyph } from '../../shared/engine';
 import { STYLES } from '../../shared/content';
 import { STYLE_FONTS } from '../../shared/free-fonts';
-import { FREE_AT_KEYS, type Params } from '../../shared/params';
+import { freeAtOf, type Params } from '../../shared/params';
 import { freeFonts, OUT, polys, type P } from '../lib';
 mkdirSync(OUT, { recursive: true });
 const OUT_FILE = process.env.OUT_FILE ?? `${OUT}/scan.jsonl`;
@@ -25,7 +25,7 @@ for (const fid of fonts) {
   try { registerFreeFont(await freeFonts().load(fid)); } catch { /* reported as missing below */ }
   const st = STYLES.find(s => STYLE_FONTS[s.id] === fid)!;
   if (!freeFont(fid)) { appendFileSync(OUT_FILE, JSON.stringify({ font: fid, error: 'missing' }) + '\n'); continue; }
-  const p0 = { ...st.params, freeFont: fid, freeAt: Object.fromEntries(FREE_AT_KEYS.map(k => [k, (st.params as any)[k]])) } as Params;
+  const p0 = { ...st.params, freeFont: fid, freeAt: freeAtOf(st.params) } as Params;
   const t = performance.now(), base = buildFont(p0), rows: any[] = [];
   for (const v of VARIANTS) {
     const p = { ...p0 } as any;

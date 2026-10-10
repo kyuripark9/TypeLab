@@ -4,13 +4,10 @@
    in the weights and italics they come in, are fetched (see parseFontId). */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import * as opentypeNs from 'opentype.js';
 import { ALL_CHARS, freeFont, freeFontsWanted, packNode, registerFreeFont, type FreeFontData, type Node, type PackedNode } from '../shared/engine';
 import { FREE_FAMILIES, parseFontId, type FreeFontRef } from '../shared/free-fonts';
 import type { Params } from '../shared/params';
-
-// opentype.js is CommonJS: under Node its API sits on the default export
-const opentype = ((opentypeNs as unknown as { default?: typeof opentypeNs }).default ?? opentypeNs) as typeof opentypeNs;
+import { opentype } from './opentype';
 
 type Fetch = (url: string) => Promise<{ ok: boolean; status: number; text(): Promise<string>; arrayBuffer(): Promise<ArrayBuffer> }>;
 

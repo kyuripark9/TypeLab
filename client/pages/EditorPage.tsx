@@ -3,11 +3,10 @@
    unsaved changes, and demo deep links (?style, cat, active, inspect, text, hot, pen). */
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
-import { CONTROLS, SUBS, controlFor, pageOf, type ActiveKey } from '../../shared/content';
 import { DEFAULT_NAME, cleanName } from '../../shared/design';
 import { ApiError, api, errorMessage } from '../lib/api';
 import { isTyping } from '../lib/hooks';
-import { DESIGNS, NEW_DESIGN, designPath } from '../lib/routes';
+import { DESIGNS, NEW_DESIGN, designPath, readDeepLink } from '../lib/routes';
 import { auth, useAuth } from '../state/auth';
 import { actions, designInput, isDirty, onSaveRequest, useEditor } from '../state/editor';
 import { GlyphStrip, Nav, Toast, focusSettingSearch } from '../components/Chrome';
@@ -180,21 +179,17 @@ function useLeaveGuard(save: (o?: { stay?: boolean }) => Promise<boolean>) {
   );
 }
 
-/** ?style=serif&cat=serifs&active=serifTip&inspect=R&text=Hello&hot=1&pen=1 — handy for demos. `cat` names
-    a page or a group of them (shape); an `active` control opens the page it is on. */
+/** What the address's query asks for (see readDeepLink), done once on arrival. */
 function useDeepLinks() {
   const [q] = useSearchParams();
   useEffect(() => {
-    const style = q.get('style'), text = q.get('text'), cat = q.get('cat'), active = q.get('active'), inspect = q.get('inspect');
-    if (style) actions.loadStyle(style);
-    if (text) actions.setCustom(text);
-    const a = active && (active in CONTROLS || active in SUBS) ? active as ActiveKey : undefined;
-    const page = cat === 'style' ? 'style' : a ? CONTROLS[controlFor(a)].cat : pageOf(cat);
-    if (page) actions.setCategory(page, a);
-    if (q.get('hot')) actions.setHot(true);
-    if (inspect) actions.openInspector(inspect);
-    if (q.get('pen')) actions.setPenMode(true);
+    const link = readDeepLink(q);
+    if (link.style) actions.loadStyle(link.style);
+    if (link.text) actions.setCustom(link.text);
+    if (link.page) actions.setCategory(link.page, link.active);
+    if (link.hot) actions.setHot(true);
+    if (link.inspect) actions.openInspector(link.inspect);
+    if (link.pen) actions.setPenMode(true);
     // run once on arrival
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }

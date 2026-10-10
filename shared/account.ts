@@ -14,11 +14,21 @@ export interface User {
 /** What signing in with an email will ask for: a password, Google, or a new account. */
 export interface EmailCheck { exists: boolean; password: boolean; google: boolean }
 
+/** What a Google sign-in is for: signing in (or up), or connecting Google to the account signed in. */
+export type GoogleIntent = 'signin' | 'link';
+
 /** How a Google sign-in or connect ended, as the popup (or the page it returns to) reports it. */
 export type GoogleResult =
   | { ok: true; intent: 'signin'; user: User; isNew: boolean; moved: number; passwordRemoved: boolean }
   | { ok: true; intent: 'link'; user: User }
   | { ok: false; cancelled?: boolean; error: string };
+
+/** The BroadcastChannel the Google popup reports its GoogleResult on, as `{ type: 'google', result }` (popupPage in
+    server/app.ts), and the tabs tell each other the account changed on (client/state/auth.ts). */
+export const AUTH_CHANNEL = 'typelab-auth';
+/** The query parameter a GoogleResult comes back to the page in, when sign-in went the whole page there and back
+    rather than in a popup (withResult in server/app.ts, auth.start in client/state/auth.ts). */
+export const GOOGLE_RESULT_PARAM = 'google';
 
 export const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 200;

@@ -1,5 +1,6 @@
 /* Scoring an engine design against its style's free font: each sample letter rasterized ink-centred on a
-   112 px grid, compared by IoU, blurred IoU, edge chamfer distance and darkness. Used by every script in fit/. */
+   112 px grid, compared by IoU, blurred IoU, edge chamfer distance and darkness. The scoring is used by fit.ts and
+   forms.ts; SCRATCH, where the fits are written, by every script in fit/. */
 import { buildFont, type Font } from '../../shared/engine';
 import type { Params } from '../../shared/params';
 import { mkdirSync } from 'node:fs';

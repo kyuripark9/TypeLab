@@ -1,16 +1,14 @@
 /* Every per-letter handle (the maps in ID_KEYS: corners, stroke ends, strokes, joins) changes its letter
-   between the ends of its range. */
+   between the ends of its range, and is named by an id a saved design keeps. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { ALL_CHARS, buildFont } from '../shared/engine';
-import { DEFAULTS, ID_KEYS, isTurnId, type Params } from '../shared/params';
-
-/** The per-letter maps (ID_KEYS in shared/params/spec.ts); a test below checks the two lists agree. */
-type HandleKey = 'corners' | 'innerCorners' | 'cornerSteps' | 'terminalEnds' | 'terminalCurls' | 'strokeWeights' | 'joinGaps';
+import { STYLES } from '../shared/content';
+import { DEFAULTS, ID_KEYS, SPECS, isTurnId, type IdKey, type Params } from '../shared/params';
 
 /** Every handle a letter offers while it is customized, as [letter, setting, id], in a font with settings `p`. */
 function handles(p: Params) {
-  const f = buildFont(p), out: [string, HandleKey, string][] = [];
+  const f = buildFont(p), out: [string, IdKey, string][] = [];
   for (const ch of ALL_CHARS) {
     const g = f.glyph(ch);
     if (!g) continue;
@@ -40,6 +38,16 @@ function dead(p: Params) {
 describe('letter handles', () => {
   it('cover every per-letter map', () => {
     assert.deepEqual(new Set(handles(DEFAULTS).map(h => h[1])), new Set(ID_KEYS));
+  });
+
+  it('names every handle by an id a saved design keeps', () => {
+    // a letter's own values are saved under these ids, and sanitizeParams keeps only those its setting's spec
+    // accepts (isCornerId, isJoinId, isEndId and isStrokeId in shared/params/scales.ts): a handle the engine names
+    // any other way, or a letter with 100 strokes or turns, would lose its values on the next save
+    const styled = (id: string) => STYLES.find(s => s.id === id)!.params;
+    const designs: Params[] = [DEFAULTS, styled('blackletter'), styled('modular'), { ...DEFAULTS, scriptForm: 'script', flourish: 'swash' }, { ...DEFAULTS, cursive: 1, stencil: 0.5, serif: true },
+      { ...DEFAULTS, story: 'single', gForm: 'double', qForm: 'sweep', rForm: 'loop', yForm: 'cup', kForm: 'bar', iForm: 'bars', bowlJoin: 'square', bends: 'round', diagonals: 'arch' }];
+    for (const p of designs) for (const [ch, k, id] of handles(p)) assert.ok((SPECS[k] as { ids: (id: string) => boolean }).ids(id), `${ch} ${k} ${id}`);
   });
 
   // each corner, end, stroke and join a letter offers a control for changes the letter: joins in narrow

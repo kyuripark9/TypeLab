@@ -7,7 +7,7 @@ import { isValidParams, type Params } from '../shared/params';
 import { parseFontId } from '../shared/free-fonts';
 import type { DesignStore } from './db';
 import { AccountStore, SESSION_DAYS } from './accounts';
-import { cleanEmail, cleanUserName, isEmail, passwordProblem, type GoogleResult, type User } from '../shared/account';
+import { AUTH_CHANNEL, GOOGLE_RESULT_PARAM, cleanEmail, cleanUserName, isEmail, passwordProblem, type GoogleIntent, type GoogleResult, type User } from '../shared/account';
 import { pkce, type GoogleAuth } from './google';
 import { familyMembers, isWeightId, type FamilyRequest } from '../shared/family';
 import { buildFamilyZip, buildOTF, buildSpecimenSVG, exportName } from './export';
@@ -47,7 +47,7 @@ function readFamily(body: unknown): FamilyRequest {
 // the cookies: this browser's id, its sign-in token, and a Google sign-in in progress
 const OWNER_COOKIE = 'typelab_owner', SESSION_COOKIE = 'typelab_session', GOOGLE_COOKIE = 'typelab_google';
 /* What a browser id and a session token must look like to be read from their cookies. A browser id is 18
-   random bytes, 24 base64url characters (browserOf); a session token is 32, 43 characters
+   random bytes, 24 base64url characters (browserOf); a session token is 32 random bytes, 43 characters
    (AccountStore.startSession). Made longer or shorter than its pattern admits, a browser id would orphan
    every browser's designs and a token would sign everyone out. base64url has no ':', so a browser's id
    never reads as an account's `user:<id>` owner. */
@@ -84,7 +84,7 @@ const redirectUri = (req: Request) => `${(process.env.PUBLIC_URL?.replace(/\/+$/
 /** Back to a page with how Google sign-in went, for the page to show and take out of the address. */
 function withResult(back: string, result: GoogleResult) {
   const url = new URL(back, 'http://x');
-  url.searchParams.set('google', JSON.stringify(result.ok ? { ...result, user: undefined } : result));
+  url.searchParams.set(GOOGLE_RESULT_PARAM, JSON.stringify(result.ok ? { ...result, user: undefined } : result));
   return url.pathname + url.search + url.hash;
 }
 
@@ -92,7 +92,7 @@ function withResult(back: string, result: GoogleResult) {
 const backPath = (v: unknown) => (typeof v === 'string' && /^\/(?![/\\])/.test(v) && v.length < 500 ? v : '/');
 
 /** A Google sign-in in progress, kept in a short-lived cookie for the browser that started it. */
-interface GoogleFlow { state: string; verifier: string; intent: 'signin' | 'link'; popup: boolean; back: string }
+interface GoogleFlow { state: string; verifier: string; intent: GoogleIntent; popup: boolean; back: string }
 
 function readFlow(req: Request): GoogleFlow | null {
   try {
@@ -103,7 +103,8 @@ function readFlow(req: Request): GoogleFlow | null {
 
 const sameString = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
-/** The page the Google popup lands on: it tells every TypeLab tab how it went, and closes. */
+/** The page the Google popup lands on: it tells every TypeLab tab how it went (the message client/state/auth.ts
+    listens for), and closes. */
 function popupPage(result: GoogleResult, back: string) {
   const data = JSON.stringify(result).replace(/</g, '\\u003c');
   const said = result.ok ? (result.intent === 'link' ? 'Google is connected.' : 'You’re signed in.') : result.cancelled ? 'Sign-in cancelled.' : result.error;
@@ -111,7 +112,7 @@ function popupPage(result: GoogleResult, back: string) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TypeLab</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eff0f0;color:#2e3b3e;font:15px/1.5 Inter,system-ui,sans-serif}main{text-align:center;padding:24px}a{color:#3464c4}</style></head>
 <body><main><p>${html(said)}</p><p><a href="${html(back)}">Back to TypeLab</a></p></main>
-<script>try{new BroadcastChannel('typelab-auth').postMessage({type:'google',result:${data}})}catch(e){}window.close()</script></body></html>`;
+<script>try{new BroadcastChannel('${AUTH_CHANNEL}').postMessage({type:'google',result:${data}})}catch(e){}window.close()</script></body></html>`;
 }
 
 /** Tries per key within a window: after `max` in `windowMs` (15 minutes) the key waits out the rest of it.
@@ -165,7 +166,7 @@ function signIn({ store, accounts }: Ctx, req: Request, res: Response, user: Use
 
 /** The existing account a Google sign-in goes to, connecting Google to it: the one that Google account is
     connected to, else the one with its email. null when there's neither, and a new account is made. */
-function joinGoogle(accounts: AccountStore, linked: User | null, g: { sub: string; email: string }): { user: User; passwordRemoved: boolean } | null {
+export function joinGoogle(accounts: AccountStore, linked: User | null, g: { sub: string; email: string }): { user: User; passwordRemoved: boolean } | null {
   if (linked) return { user: accounts.linkGoogle(linked.id, g)!, passwordRemoved: false };
   const found = accounts.withEmail(g.email);
   if (!found) return null;

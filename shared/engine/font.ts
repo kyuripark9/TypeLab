@@ -25,7 +25,7 @@
    counterScale, roundnessR, innerRoundR, stencilOff, bowlK, bowlOrg, dotRoundOf and cursiveHookR, and the
    constants SERIF_SB, SLANT_PIVOT and CURSIVE_FORMS, read by the glyph files and by the free fonts' letters
    (skin.ts, restyle.ts, free-letters.ts), which move as far as the engine's own. */
-import { DEFAULTS, contrastOf, formOf, joinGap, rotationDeg, slantDeg, weighed, weightScale, xHeightRatio, type Params } from '../params';
+import { DEFAULTS, contrastOf, formOf, joinGap, rotationDeg, slantDeg, weighed, weightScale, xHeightRatio, type ControlKey, type Params } from '../params';
 import { CIRCLE_K, clamp, cubicAt, lerp, quarter } from './geom';
 import { freeFont, type FreeFont } from './free';
 import type { Drawn } from './outline';
@@ -85,7 +85,8 @@ export interface Metrics {
   qpt: (x0: number, y0: number, x1: number, y1: number, mode: string, u: number) => Tangent;
 }
 
-interface GlyphMeta { params?: string[] }
+/** The controls that shape a letter, which the letter inspector lists for it. */
+interface GlyphMeta { params?: ControlKey[] }
 type GlyphFn = (g: Builder, m: Metrics) => number;
 interface GlyphDef { sb: [number, number]; fn: GlyphFn; meta: GlyphMeta }
 
@@ -126,7 +127,7 @@ export interface Font {
   /** The font `ch` is drawn from: one built with its own settings when it has any, else this one. */
   letter(ch: string): Font;
   /** SVG path data of the part of `ch` that parameter `key` affects ('' if none). */
-  hl(ch: string, key: string): string;
+  hl(ch: string, key: ControlKey): string;
   advance(ch: string): number;
   /** Lay out text into lines. maxWidth in font units (Infinity = no wrap). */
   layout(text: string, maxWidth: number): Line[];

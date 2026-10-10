@@ -53,6 +53,10 @@ const shapeForKey = (k: string): Shape | undefined => SHAPES.find(s => SHAPE_INF
 type Aim = { kind: 'add'; at: P } | { kind: 'close' } | { kind: 'shape'; shape: Shape };
 
 const HIT = 7; // px around an anchor or handle that grabs it
+const SNAP_REACH = 6; // px from a snap target within which a point catches on it
+const DRAG_START = 3; // px the pointer travels before a press becomes a drag (less is a click)
+/** How far the view zooms out and in, as shares of the scale that fits the letter in it. */
+const ZOOM_MIN = 0.3, ZOOM_MAX = 40;
 
 export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Font; grid?: GlyphGrid }) {
   const [ref, size] = useSize<HTMLDivElement>();
@@ -164,7 +168,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     if (scene.current?.cs !== cs || scene.current.key !== key)
       scene.current = { cs, key, s: snapScene(cs, doc.adv, m, kinds, skip, live, o.from) };
     const s = o.level ? { ...scene.current.s, spots: [], pieces: [] } : scene.current.s;
-    const r = snapIn(s, p, 6 / sc);
+    const r = snapIn(s, p, SNAP_REACH / sc);
     setCaught(r.at || r.gx || r.gy ? r : null);
     return { x: r.x, y: r.y };
   };
@@ -182,7 +186,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     const gs: Gesture = { ...g0, x0: e.clientX, y0: e.clientY, moved: false };
     gesture.current = gs;
     const move = (ev: PointerEvent) => {
-      if (!gs.moved && Math.hypot(ev.clientX - gs.x0, ev.clientY - gs.y0) < 3) return;
+      if (!gs.moved && Math.hypot(ev.clientX - gs.x0, ev.clientY - gs.y0) < DRAG_START) return;
       gs.moved = true;
       free.current = ev.metaKey || ev.ctrlKey;
       gs.move(toFont(ev), ev);
@@ -399,7 +403,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       const v = view ?? fit;
       if (e.ctrlKey || e.metaKey) {
         const r = el.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-        const k = Math.exp(-e.deltaY * 0.003), s2 = Math.min(fitSc * 40, Math.max(fitSc * 0.3, v.sc * k)), f = s2 / v.sc;
+        const k = Math.exp(-e.deltaY * 0.003), s2 = Math.min(fitSc * ZOOM_MAX, Math.max(fitSc * ZOOM_MIN, v.sc * k)), f = s2 / v.sc;
         setView({ sc: s2, ox: px - (px - v.ox) * f, oy: py - (py - v.oy) * f });
       } else setView({ ...v, ox: v.ox - e.deltaX, oy: v.oy - e.deltaY });
     };
@@ -407,7 +411,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     return () => el.removeEventListener('wheel', wheel);
   });
   const zoomBy = (k: number) => {
-    const v = view ?? fit, s2 = Math.min(fitSc * 40, Math.max(fitSc * 0.3, v.sc * k)), f = s2 / v.sc, px = W / 2, py = H / 2;
+    const v = view ?? fit, s2 = Math.min(fitSc * ZOOM_MAX, Math.max(fitSc * ZOOM_MIN, v.sc * k)), f = s2 / v.sc, px = W / 2, py = H / 2;
     setView({ sc: s2, ox: px - (px - v.ox) * f, oy: py - (py - v.oy) * f });
   };
 

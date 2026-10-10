@@ -369,9 +369,12 @@ export const isGlyphKey = (k: string): k is GlyphKey => k in SPECS && !(SPECS[k 
 export type FreeKey = KeysWhere<{ free: true }>;
 export const FREE_AT_KEYS = PARAM_KEYS.filter(k => (SPECS[k] as Extra).free) as FreeKey[];
 export type FreeAt = Partial<Pick<Params, FreeKey>>;
+/** The settings `p` has that a free font's letters follow: what a style's free font stands for, written in it. */
+export const freeAtOf = (p: Params): FreeAt => Object.fromEntries(FREE_AT_KEYS.map(k => [k, p[k]]));
 
 /** The settings kept as a letter's own values by id (its stroke ends, corners, joins, strokes). */
-export const ID_KEYS = PARAM_KEYS.filter(k => SPECS[k].kind === 'ids');
+export type IdKey = KeysWhere<{ kind: 'ids' }>;
+export const ID_KEYS = PARAM_KEYS.filter(k => SPECS[k].kind === 'ids') as IdKey[];
 
 export type NumericParam = { [K in keyof Params]: Params[K] extends number ? K : never }[keyof Params];
 

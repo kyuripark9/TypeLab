@@ -3,13 +3,12 @@
 import assert from 'node:assert/strict';
 import { inflateRawSync } from 'node:zlib';
 import { describe, it } from 'node:test';
-import * as opentypeNs from 'opentype.js';
 import { STYLES } from '../shared/content';
 import { familyMember, familyMembers, WEIGHTS, weightIdOf, weightRatio } from '../shared/family';
-import { DEFAULTS, isValidParams, sanitizeParams } from '../shared/params';
+import { DEFAULTS, isValidParams, sanitizeParams, weightScale, weightUnscale } from '../shared/params';
 import { buildFamilyZip } from '../server/export';
+import { opentype } from '../server/opentype';
 
-const opentype = ((opentypeNs as unknown as { default?: typeof opentypeNs }).default ?? opentypeNs) as typeof opentypeNs;
 const serif = STYLES.find(s => s.id === 'serif')!;
 
 /** The files in a .zip, by name. */
@@ -32,6 +31,10 @@ describe('font family', () => {
     assert.equal(weightIdOf(DEFAULTS.weight), 'regular');
     assert.equal(weightIdOf(0), 'thin');
     assert.equal(weightIdOf(1), 'black');
+  });
+
+  it('reads a weight back off the weight scale (weightUnscale undoes weightScale)', () => {
+    for (let i = 0; i <= 16; i++) assert.ok(Math.abs(weightUnscale(weightScale(i / 16)) - i / 16) < 1e-12, String(i / 16));
   });
 
   it('keeps the design as the weight it is named as, and gets heavier step by step', () => {

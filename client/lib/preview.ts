@@ -23,6 +23,7 @@ const inks = new WeakMap<Glyph, { x0: number; x1: number; y0: number; y1: number
 export function ink(g: Glyph) {
   let b = inks.get(g);
   if (!b) {
+    // (cmdsBox's loop, in shared/engine/geom.ts, from the advance on the baseline)
     b = { x0: 0, x1: g.adv, y0: 0, y1: 0 };
     for (const c of g.cmds) for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
       b.x0 = Math.min(b.x0, c[i]); b.x1 = Math.max(b.x1, c[i]); b.y0 = Math.min(b.y0, c[i + 1]); b.y1 = Math.max(b.y1, c[i + 1]);

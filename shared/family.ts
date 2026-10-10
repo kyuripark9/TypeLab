@@ -1,39 +1,36 @@
 /* A font family: the design drawn again at other weights and upright or italic, each saved as its
    own font file under one family name, so font menus list them together (Thin to Black, each with
    its italic). The design itself is one of them, at the weight it is named as. */
-import { slantDeg, weightScale, type GlyphParams, type Params } from './params';
+import { slantDeg, weightScale, weightUnscale, type GlyphParams, type Params } from './params';
 
-/** The weights a family can have, lightest first, with the OpenType weight class each installs as. */
+/** The weights a family can have, lightest first, with the OpenType weight class each installs as, and where each
+    sits on the Weight slider when it isn't the design's own (`at`): the design's default weight (DEFAULTS.weight,
+    0.4) is Regular, and the step to the next is about as noticeable all the way along. */
 export const WEIGHTS = [
-  { id: 'thin', name: 'Thin', cls: 100 },
-  { id: 'extralight', name: 'ExtraLight', cls: 200 },
-  { id: 'light', name: 'Light', cls: 300 },
-  { id: 'regular', name: 'Regular', cls: 400 },
-  { id: 'medium', name: 'Medium', cls: 500 },
-  { id: 'semibold', name: 'SemiBold', cls: 600 },
-  { id: 'bold', name: 'Bold', cls: 700 },
-  { id: 'extrabold', name: 'ExtraBold', cls: 800 },
-  { id: 'black', name: 'Black', cls: 900 }
+  { id: 'thin', name: 'Thin', cls: 100, at: 0.03 },
+  { id: 'extralight', name: 'ExtraLight', cls: 200, at: 0.12 },
+  { id: 'light', name: 'Light', cls: 300, at: 0.25 },
+  { id: 'regular', name: 'Regular', cls: 400, at: 0.4 },
+  { id: 'medium', name: 'Medium', cls: 500, at: 0.5 },
+  { id: 'semibold', name: 'SemiBold', cls: 600, at: 0.6 },
+  { id: 'bold', name: 'Bold', cls: 700, at: 0.72 },
+  { id: 'extrabold', name: 'ExtraBold', cls: 800, at: 0.84 },
+  { id: 'black', name: 'Black', cls: 900, at: 0.95 }
 ] as const;
 export type WeightId = (typeof WEIGHTS)[number]['id'];
 export const isWeightId = (v: unknown): v is WeightId => WEIGHTS.some(w => w.id === v);
 
-/** Where each weight sits on the Weight slider when it isn't the design's own: the design's default
-    weight is Regular, and the step to the next is about as noticeable all the way along. */
-const TYPICAL = [0.03, 0.12, 0.25, 0.4, 0.5, 0.6, 0.72, 0.84, 0.95];
 /** The lightest and heaviest a family reaches: light enough to read as hairlines, heavy enough to
     fill in, short of the very ends of the slider where counters close. */
-const LIGHTEST = TYPICAL[0], HEAVIEST = TYPICAL[TYPICAL.length - 1];
+const LIGHTEST = WEIGHTS[0].at, HEAVIEST = WEIGHTS[WEIGHTS.length - 1].at;
 
-/** The weight a design reads as, by its Weight setting: the nearest of the typical ones. */
+/** The weight a design reads as, by its Weight setting: the nearest of the weights' places (`at`). */
 export function weightIdOf(weight: number): WeightId {
   let best = 0;
-  TYPICAL.forEach((t, i) => { if (Math.abs(t - weight) < Math.abs(TYPICAL[best] - weight)) best = i; });
+  WEIGHTS.forEach((w, i) => { if (Math.abs(w.at - weight) < Math.abs(WEIGHTS[best].at - weight)) best = i; });
   return WEIGHTS[best].id;
 }
 
-/** The Weight setting that draws strokes `s` times as heavy as at 0.5 (weightScale undone). */
-const unscale = (s: number) => (s < 1 ? (s - 0.25) / 1.5 : 0.5 + (s - 1) / 3);
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /** How many times heavier than the design the weight `id` draws its strokes, when the design is
@@ -64,6 +61,8 @@ export interface FamilyMember {
   params: Params;
 }
 
+/** A member's style name: '<Weight>', '<Weight> Italic', or 'Italic' for the Regular italic. buildOTF
+    (server/export.ts) reads the weight and italic back out of it for the font's names. */
 const styleName = (weight: WeightId, italic: boolean) => {
   const w = WEIGHTS.find(x => x.id === weight)!.name;
   return italic ? (w === 'Regular' ? 'Italic' : `${w} Italic`) : w;
@@ -76,7 +75,7 @@ const styleName = (weight: WeightId, italic: boolean) => {
     the editor does (see freeLetters in the engine). */
 export function familyMember(params: Params, anchor: WeightId, weight: WeightId, italic: boolean): FamilyMember {
   const ratio = weightRatio(params.weight, anchor, weight);
-  const reweigh = (v: number) => clamp01(unscale(weightScale(v) * ratio));
+  const reweigh = (v: number) => clamp01(weightUnscale(weightScale(v) * ratio));
   const ownSlant = params.slant >= SLANTED;
   const slant = italic ? (ownSlant ? params.slant : ITALIC_SLANT) : 0;
   const reslant = (v: number) => clamp01(v + slant - params.slant);

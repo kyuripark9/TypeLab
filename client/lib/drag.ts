@@ -4,9 +4,9 @@
    every letter at once, since the design is the parameters. While a letter is customized (`oneEnd`) it
    reshapes that letter alone, apart from the guide heights every letter shares, and a stroke end,
    corner, join or stroke grabbed moves on its own. */
-import { buildFont, clamp, type Cmd, type Font, type Glyph, type Mark } from '../../shared/engine';
+import { buildFont, clamp, cmdsBox, type Cmd, type Font, type Glyph, type Mark } from '../../shared/engine';
 import { ANATOMY } from '../../shared/content';
-import { endLength, joinGap, type NumericParam, type Params } from '../../shared/params';
+import { endLength, joinGap, type IdKey, type NumericParam, type Params } from '../../shared/params';
 
 export type Axis = 'x' | 'y';
 
@@ -25,9 +25,11 @@ export interface Drive {
   at: { x: number; y: number };
   /** set only this one stroke end's length (key 'terminalLength'), not every end's, or with
       `endKey` 'corners' only this one corner's roundness (key 'roundness'), or with 'strokeWeights'
-      only this one stroke's weight (key 'weight'), or with 'joinGaps' only this one join's gap (key 'stencil') */
+      only this one stroke's weight (key 'weight'), or with 'joinGaps' only this one join's gap (key 'stencil');
+      an `end` without an `endKey` is a stroke end's own length (terminalEnds), as setEnd (client/state/editor.ts)
+      takes it when the Inspector passes no key */
   end?: string;
-  endKey?: 'corners' | 'strokeWeights' | 'joinGaps';
+  endKey?: Extract<IdKey, 'corners' | 'strokeWeights' | 'joinGaps'>;
   /** that corner's roundness (or stroke's weight, or join's gap) as drawn before it has one of its own */
   base?: number;
   /** that end is the tip of a hook, tail or cursive stroke (see endLength) */
@@ -74,7 +76,7 @@ export interface StrokeInfo { id: string; label: string }
     has more than one of that part: "Stem", "Left stem", "Top arm". */
 export function letterStrokes(g: Glyph): StrokeInfo[] {
   const out = g.strokes.flatMap(s => {
-    const b = s.id && !s.dot ? bbox(s.cmds) : null;
+    const b = s.id && !s.dot ? cmdsBox(s.cmds) : null;
     return b ? [{ id: s.id!, noun: ANATOMY[s.part]?.[0] ?? 'Stroke', x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }] : [];
   });
   return out.map(s => {
@@ -93,7 +95,7 @@ export function letterStrokes(g: Glyph): StrokeInfo[] {
     third of the letter's height, then its side when two share a height, then a number. */
 function byPlace(g: Glyph, ks: Mark[], noun: string): { k: Mark; label: string }[] {
   if (!ks.length) return [];
-  const b = bbox(g.cmds) ?? { x0: 0, x1: g.adv, y0: 0, y1: 1 }, w = b.x1 - b.x0 || 1, h = b.y1 - b.y0 || 1;
+  const b = cmdsBox(g.cmds) ?? { x0: 0, x1: g.adv, y0: 0, y1: 1 }, w = b.x1 - b.x0 || 1, h = b.y1 - b.y0 || 1;
   const v = (y: number) => ((y - b.y0) / h > 0.62 ? 'Top' : (y - b.y0) / h < 0.38 ? 'Bottom' : 'Middle');
   const hz = (x: number) => ((x - b.x0) / w < 0.5 ? 'left' : 'right');
   const home = (k: Mark) => k.home ?? k;
@@ -106,19 +108,7 @@ function byPlace(g: Glyph, ks: Mark[], noun: string): { k: Mark; label: string }
   return out.map(e => { seen[e.label] = (seen[e.label] ?? 0) + 1; return { k: e.k, label: `${e.label} ${noun}${n[e.label] > 1 ? ` ${seen[e.label]}` : ''}` }; });
 }
 
-interface Box { x0: number; y0: number; x1: number; y1: number }
-
-/** The box round an outline's points (font units, y up), or null when it has none. */
-export function bbox(cmds: Cmd[]): Box | null {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const c of cmds) {
-    for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
-      x0 = Math.min(x0, c[i]); x1 = Math.max(x1, c[i]);
-      y0 = Math.min(y0, c[i + 1]); y1 = Math.max(y1, c[i + 1]);
-    }
-  }
-  return x0 <= x1 ? { x0, y0, x1, y1 } : null;
-}
+type Box = NonNullable<ReturnType<typeof cmdsBox>>;
 
 /** The separate shapes of a part: each stroke, counter or serif. */
 function pieces(g: Glyph, part: string): Cmd[][] {
@@ -173,7 +163,7 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
       // customizing a letter each corner goes its own way, else Roundness rounds them all, or Joins
       // the inside corners where strokes meet
       const marks = g.marks.filter(k => k.type === 'corner'), k = marks[nearestMark(marks, grab)];
-      const b = bbox(g.cmds);
+      const b = cmdsBox(g.cmds);
       if (!k || !b) return null;
       const d: Omit<Drive, 'sign'> = oneEnd ? { key: 'roundness', end: k.id, endKey: 'corners', base: k.v, span: CORNER_SPAN, at: { x: k.x, y: k.y } }
         : { key: k.id?.includes('j') ? 'joinRound' : 'roundness', span: CORNER_SPAN, at: { x: k.x, y: k.y } };
@@ -206,9 +196,9 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
     case 'baseline': return null;
   }
 
-  const boxes = pieces(g, part).map(bbox), i = nearest(boxes, grab), b = boxes[i];
+  const boxes = pieces(g, part).map(cmdsBox), i = nearest(boxes, grab), b = boxes[i];
   if (!b) return null;
-  const piece = (f: Font) => { const pg = f.glyph(ch); return pg ? bbox(pieces(pg, part)[i] ?? []) : null; };
+  const piece = (f: Font) => { const pg = f.glyph(ch); return pg ? cmdsBox(pieces(pg, part)[i] ?? []) : null; };
   const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, w = b.x1 - b.x0, h = b.y1 - b.y0;
   const sx = side(grab.x, cx), sy = side(grab.y, cy), ex = sx > 0 ? b.x1 : b.x0, ey = sy > 0 ? b.y1 : b.y0;
 
@@ -228,7 +218,7 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
   }
   if (part === 'serif') {
     // a serif's free edge faces away from the letter: up for a foot serif, down for one on top
-    const gb = bbox(g.cmds), foot = !gb || cy < (gb.y0 + gb.y1) / 2;
+    const gb = cmdsBox(g.cmds), foot = !gb || cy < (gb.y0 + gb.y1) / 2;
     return {
       x: { key: 'serifSize', sign: sx, gain: 2, measure: f => { const p = piece(f); return p && p.x1 - p.x0; }, at: { x: ex, y: cy } },
       y: { key: 'serifThickness', sign: foot ? 1 : -1, measure: f => { const p = piece(f); return p && p.y1 - p.y0; }, at: { x: cx, y: foot ? b.y1 : b.y0 } }
@@ -239,7 +229,7 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
   // While customizing a letter, only the stroke grabbed gets heavier
   const spec: DragSpec = {}, byX = Math.abs(grab.x - cx) / (w || 1) >= Math.abs(grab.y - cy) / (h || 1);
   const id = oneEnd ? g.strokes.filter(s => s.part === part)[i]?.id : undefined;
-  const own = (f: Font) => { const s = f.glyph(ch)?.strokes.find(t => t.id === id); return s ? bbox(s.cmds) : null; };
+  const own = (f: Font) => { const s = f.glyph(ch)?.strokes.find(t => t.id === id); return s ? cmdsBox(s.cmds) : null; };
   const one = id ? { end: id, endKey: 'strokeWeights' as const, base: 0.5 } : {};
   if (h > w * TALL && (w <= h * TALL || byX)) {
     spec.x = { key: 'weight', ...one, sign: sx, gain: 2, measure: id ? f => { const p = own(f); return p && p.x1 - p.x0; } : f => f.m.s, at: { x: ex, y: clamp(grab.y, b.y0, b.y1) } };
@@ -282,8 +272,8 @@ export function handlesFor(key: NumericParam, font: Font, ch: string, parts: str
     if (LINES.includes(part)) add(part, { x: -70, y: font.m.cap / 2 });
     else if (part === 'apex' || part === 'vertex') g.marks.filter(k => k.type === part).forEach(k => add(part, { x: k.x + 1, y: k.y }));
     else if (part === 'tail' || part === 'terminal' || part === 'corner' || part === 'join') g.marks.filter(k => k.type === part).forEach(k => add(part, k));
-    else if (part === 'entry') g.strokes.filter(s => s.part === part).forEach(s => { const b = bbox(s.cmds); if (b) add(part, { x: b.x0, y: (b.y0 + b.y1) / 2 }); });
-    else pieces(g, part).forEach(c => { const b = bbox(c); if (b) add(part, { x: b.x1, y: (b.y0 + b.y1) / 2 + (b.y1 - b.y0) * 0.1 }); });
+    else if (part === 'entry') g.strokes.filter(s => s.part === part).forEach(s => { const b = cmdsBox(s.cmds); if (b) add(part, { x: b.x0, y: (b.y0 + b.y1) / 2 }); });
+    else pieces(g, part).forEach(c => { const b = cmdsBox(c); if (b) add(part, { x: b.x1, y: (b.y0 + b.y1) / 2 + (b.y1 - b.y0) * 0.1 }); });
   }
   return out.slice(0, MAX_HANDLES);
 }

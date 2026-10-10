@@ -1,7 +1,7 @@
 /* Editing a drawn letter's outline (see shared/engine/outline): the pure operations behind the pen
    tools. Each takes contours and returns new ones, leaving the old untouched for undo. Positions are
    font units, y up, rounded to whole units. */
-import { ALL_CHARS, fitOutline, hasIn, hasOut, segment, signedArea, type Drawn, type Glyph, type Node } from '../../shared/engine';
+import { ALL_CHARS, CIRCLE_K, fitOutline, hasIn, hasOut, segment, signedArea, type Drawn, type Glyph, type Node } from '../../shared/engine';
 
 type P = { x: number; y: number };
 /** An anchor point by contour and index. */
@@ -205,7 +205,6 @@ export function pointOn(cs: Node[][], c: number, i: number, t: number): P {
 
 export type Shape = 'rect' | 'round' | 'ellipse' | 'triangle' | 'polygon' | 'star';
 export const SHAPES: Shape[] = ['rect', 'round', 'ellipse', 'triangle', 'polygon', 'star'];
-const KAPPA = 0.5523;
 
 /** Corners of a regular shape around the unit circle, one at the top, anticlockwise: `n` of them, or
     with `inner` a star of n points whose inner corners sit at that share of the radius. */
@@ -238,7 +237,7 @@ export function shapeContour(kind: Shape, x0: number, y0: number, x1: number, y1
   let con: Node[];
   if (kind === 'rect') con = [{ x: l, y: b }, { x: r, y: b }, { x: r, y: t }, { x: l, y: t }];
   else if (kind === 'round') {
-    const q = Math.min(r - l, t - b) / 5, h = q * KAPPA;
+    const q = Math.min(r - l, t - b) / 5, h = q * CIRCLE_K;
     con = [
       { x: l + q, y: b, ix: l + q - h, iy: b, s: 1 }, { x: r - q, y: b, ox: r - q + h, oy: b, s: 1 },
       { x: r, y: b + q, ix: r, iy: b + q - h, s: 1 }, { x: r, y: t - q, ox: r, oy: t - q + h, s: 1 },
@@ -246,7 +245,7 @@ export function shapeContour(kind: Shape, x0: number, y0: number, x1: number, y1
       { x: l, y: t - q, ix: l, iy: t - q + h, s: 1 }, { x: l, y: b + q, ox: l, oy: b + q - h, s: 1 }
     ];
   } else if (kind === 'ellipse') {
-    const cx = (l + r) / 2, cy = (b + t) / 2, kx = (r - l) / 2 * KAPPA, ky = (t - b) / 2 * KAPPA;
+    const cx = (l + r) / 2, cy = (b + t) / 2, kx = (r - l) / 2 * CIRCLE_K, ky = (t - b) / 2 * CIRCLE_K;
     con = [
       { x: r, y: cy, ix: r, iy: cy - ky, ox: r, oy: cy + ky, s: 1 },
       { x: cx, y: t, ix: cx + kx, iy: t, ox: cx - kx, oy: t, s: 1 },

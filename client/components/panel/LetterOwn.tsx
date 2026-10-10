@@ -1,7 +1,8 @@
 /* A customized letter's own values, each set beside a small picture of the letter: its joins, stroke ends, corners and strokes. */
 import type { ReactNode } from 'react';
-import { cmdsToD, type Glyph } from '../../../shared/engine';
-import { bbox, letterCorners, letterJoins, letterStrokes, strokeEnds, type CornerInfo, type JoinInfo, type StrokeEndInfo, type StrokeInfo } from '../../lib/drag';
+import { cmdsBox, cmdsToD, type Glyph } from '../../../shared/engine';
+import { isPlainEnd } from '../../../shared/params';
+import { letterCorners, letterJoins, letterStrokes, strokeEnds, type CornerInfo, type JoinInfo, type StrokeEndInfo, type StrokeInfo } from '../../lib/drag';
 import { OWN_CONTROL, actions, curlOf, endOf, letterOf, paramOf, useEditor, useScopedFont, type OwnKey } from '../../state/editor';
 import { NumberField, Range } from './inputs';
 
@@ -112,7 +113,7 @@ const DOT = { all: 0.7, one: 0.95 };
 
 /** A letter's miniature view box, [x, y, width, height] (y down), with the margin `pad` round it. */
 function thumbBox(g: Glyph) {
-  const b = bbox(g.cmds);
+  const b = cmdsBox(g.cmds);
   if (!b) return null;
   const pad = Math.max(b.x1 - b.x0, b.y1 - b.y0) * THUMB_PAD;
   return { box: [b.x0 - pad, -b.y1 - pad, b.x1 - b.x0 + pad * 2, b.y1 - b.y0 + pad * 2], pad };
@@ -162,7 +163,7 @@ function EndThumb({ g, ends, on, stroke }: { g: Glyph; ends: { id: string; x: nu
 /** One end's length and curl beside a picture of the letter with that end marked. */
 function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: StrokeEndInfo[]; end: StrokeEndInfo }) {
   const length = useEditor(s => endOf(s, id, hook)), curl = useEditor(s => curlOf(s, id)), hot = useEditor(s => s.hotEnd === id);
-  const plain = id.startsWith('p');
+  const plain = isPlainEnd(id);
   return (
     <div className={hot ? 'ctl end hot' : 'ctl end'} title={label}
       onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>

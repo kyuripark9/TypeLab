@@ -30,7 +30,6 @@ export interface TurnR { o: number; i: number;
  * ['hv'|'vh',x,y,opts?] ['Z']; outlines use only M, L, C and Z. A command's weight `w` eases in from
  * its ends, unless it is `even` (the pieces of a curl, each carrying on the weight of the one before).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Cmd = [string, ...any[]];
 
 /** Affine transform [a,b,c,d,e,f]: x' = a x + c y + e, y' = b x + d y + f */

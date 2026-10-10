@@ -3,13 +3,12 @@
    is; the popup reports back on a BroadcastChannel, which also tells the other TypeLab tabs when
    someone signs in or out, so every tab shows the same account. */
 import { create } from 'zustand';
-import type { GoogleResult, User } from '../../shared/account';
+import { AUTH_CHANNEL, GOOGLE_RESULT_PARAM, type GoogleIntent, type GoogleResult, type User } from '../../shared/account';
 import { api, type SignedIn } from '../lib/api';
 import { PREFS, readPref, writePref } from '../lib/prefs';
 import { actions, designInput, useEditor } from './editor';
 
 export type AuthMode = 'signin' | 'signup';
-type GoogleIntent = 'signin' | 'link';
 
 interface AuthState {
   user: User | null | undefined;
@@ -27,7 +26,7 @@ export const useAuth = create<AuthState>(() => ({ user: undefined, google: false
 
 const fonts = (n: number) => `${n} ${n === 1 ? 'font' : 'fonts'}`;
 
-const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('typelab-auth');
+const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(AUTH_CHANNEL);
 /** Tell the other tabs the account changed. */
 const notify = () => channel?.postMessage({ type: 'changed' });
 
@@ -39,14 +38,15 @@ export const auth = {
   /** Once, at start-up: take a Google result off the address (after a sign-in that couldn't use a
       popup), listen to the other tabs, and ask who's signed in. */
   async start() {
-    const q = new URLSearchParams(location.search), raw = q.get('google');
+    const q = new URLSearchParams(location.search), raw = q.get(GOOGLE_RESULT_PARAM);
     let result: GoogleResult | null = null;
     if (raw !== null) {
-      q.delete('google');
+      q.delete(GOOGLE_RESULT_PARAM);
       history.replaceState(history.state, '', location.pathname + (q.size ? `?${q}` : '') + location.hash);
       try { result = JSON.parse(raw); } catch { /* not ours */ }
     }
     channel?.addEventListener('message', e => {
+      // the popup's report (popupPage in server/app.ts), or another tab's 'changed' (notify)
       const m = e.data as { type: string; result?: GoogleResult };
       if (m.type === 'google' && m.result && useAuth.getState().googleWaiting) void auth.googleDone(m.result);
       // another tab signed in or out: show the same here, closing a sign-in dialog left open

@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { ALL_CHARS, buildFont, registerFreeFont, type Cmd } from '../shared/engine';
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { STYLES, type StyleDef } from '../shared/content';
-import { DEFAULTS, FREE_AT_KEYS, SPECS, TERMINAL_FORMS, type Params } from '../shared/params';
+import { DEFAULTS, SPECS, TERMINAL_FORMS, freeAtOf, type Params } from '../shared/params';
 import { keptFile } from '../server/free-fonts';
 import { FONTS_DIR, ROOT, showContext } from './lib';
 
@@ -77,7 +77,7 @@ function freeProbes(): [string, Params][] {
     const text = readFileSync(file, 'utf8');
     registerFreeFont(JSON.parse(text));
     const tag = createHash('sha1').update(text).digest('base64url').slice(0, 6);
-    const freeAt = Object.fromEntries(FREE_AT_KEYS.map(k => [k, st.params[k]]));
+    const freeAt = freeAtOf(st.params);
     for (const [name, move] of FREE_MOVES) {
       const p = { ...st.params, freeFont: fid, freeAt, ...move(st) } as Params;
       out.push([`${st.id}@${tag}${name ? ':' + name : ''}`, p]);

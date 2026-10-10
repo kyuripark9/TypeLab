@@ -1,6 +1,7 @@
 /* Joins: where one stroke meets another their outlines cross, and each crossing that leaves a corner
    inside the letter (under the arm of an r, beside the crossbar of a t, in the crotch of a y) is a
-   corner too, id `${si}j${k}`: 'j' and its number among the joins of the earlier of the two strokes.
+   corner too, id `${si}j${k}`: 'j' and its number among the joins of the earlier of the two strokes (a form
+   isCornerId in shared/params/scales.ts accepts, as a saved value's id must be).
    A join rounds by Joins (joinRound, under Roundness), and at least as far as Counters (innerRound) rounds
    every inside corner, unless its letter gives it a roundness of its own; it is filled in with a fillet that
    runs along both strokes' edges and curves across between them.

@@ -9,7 +9,8 @@ import { pathPts, xsOf } from './outlines';
    Swell, Flourishes (swash.ts) and Swash capitals (`swash`). The Lowercase height scale, down to a copperplate's
    x-height, and moving older designs onto it are in params.test.ts. */
 
-const script: Params = { ...DEFAULTS, scriptForm: 'script', weight: 0.36, contrast: 1, slant: 1, xHeight: 0.1 };
+/** A light, slanted script of high contrast and a small x-height, as a copperplate is written. */
+const copperplate: Params = { ...DEFAULTS, scriptForm: 'script', weight: 0.36, contrast: 1, slant: 1, xHeight: 0.1 };
 const area = (d: string) => {
   // the ink of an outline, near enough: the shoelace sum over its points and handles, contour by contour
   let a = 0;
@@ -19,7 +20,6 @@ const area = (d: string) => {
   }
   return Math.abs(a / 2);
 };
-const xs = (d: string) => (d.match(/-?\d*\.?\d+(?:e-?\d+)?/g) ?? []).map(Number).filter((_, i) => i % 2 === 0);
 
 describe('cursive and scriptForm', () => {
   it('cursive switches to italic letterforms and adds exit strokes', () => {
@@ -58,7 +58,7 @@ describe('cursive and scriptForm', () => {
 describe('swell', () => {
   it('starts the script downstrokes from a point, so they carry less ink, and leaves other letters be', () => {
     for (const ch of 'intu') {
-      const at = area(buildFont(script).glyph(ch)!.d), sw = area(buildFont({ ...script, swell: 1 }).glyph(ch)!.d);
+      const at = area(buildFont(copperplate).glyph(ch)!.d), sw = area(buildFont({ ...copperplate, swell: 1 }).glyph(ch)!.d);
       assert.ok(sw < at * 0.97, `${ch}: ${sw} vs ${at}`);
     }
     assert.equal(buildFont({ ...DEFAULTS, swell: 1 }).glyph('n')!.d, buildFont(DEFAULTS).glyph('n')!.d);
@@ -67,12 +67,12 @@ describe('swell', () => {
 
 describe('flourishes', () => {
   it('write swashes on S t z r l d of a script, reaching past the letter without widening it', () => {
-    const plain = buildFont(script), swash = buildFont({ ...script, flourish: 'swash' });
+    const plain = buildFont(copperplate), swash = buildFont({ ...copperplate, flourish: 'swash' });
     for (const ch of 'Stzrld') {
       const a = plain.glyph(ch)!, b = swash.glyph(ch)!;
       assert.notEqual(a.d, b.d, ch);
       if (ch !== 'S') assert.equal(b.adv, a.adv, ch);
-      const reach = Math.max(...xs(b.d)) - Math.min(...xs(b.d));
+      const reach = Math.max(...xsOf(b.d)) - Math.min(...xsOf(b.d));
       assert.ok(reach > b.adv * 1.3, `${ch} reaches ${reach} over ${b.adv}`);
     }
     // letters without a swash, and print letters, stay as they are
@@ -81,7 +81,7 @@ describe('flourishes', () => {
   });
 
   it('can be picked for one letter alone', () => {
-    const f = buildFont({ ...script, glyphs: { d: { flourish: 'swash' } } }), plain = buildFont(script), all = buildFont({ ...script, flourish: 'swash' });
+    const f = buildFont({ ...copperplate, glyphs: { d: { flourish: 'swash' } } }), plain = buildFont(copperplate), all = buildFont({ ...copperplate, flourish: 'swash' });
     assert.equal(f.glyph('d')!.d, all.glyph('d')!.d);
     assert.equal(f.glyph('t')!.d, plain.glyph('t')!.d);
   });

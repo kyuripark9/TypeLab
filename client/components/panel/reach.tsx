@@ -39,7 +39,6 @@ function useReach(k: keyof Params, skip: boolean): Reach | null {
     const stop = useEditor.subscribe((s, o) => { if (s.params !== o.params) later(); });
     return () => { clearTimeout(t); stop(); };
     // `view` holds k, the letter and the text
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, skip]);
   return skip || r?.view !== view ? null : r.reach;
 }

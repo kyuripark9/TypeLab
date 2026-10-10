@@ -63,7 +63,7 @@ export function Resizer({ side }: { side: Side }) {
   };
   const commit = (v: number | null) => { apply(v); setSize(v); store(side, v); };
 
-  useEffect(() => { apply(size); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- the stored size, once
+  useEffect(() => { apply(size); }, []); // the stored size, once
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;

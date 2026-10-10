@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { buildFont, registerFreeFont, type Cmd, type Font } from '../shared/engine';
 import { STYLES, TERMINAL_DETAILS } from '../shared/content';
 import { STYLE_FONTS } from '../shared/free-fonts';
-import { DEFAULTS, FREE_AT_KEYS, TERMINAL_FORMS, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
+import { DEFAULTS, TERMINAL_FORMS, freeAtOf, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
 import { FreeFonts } from '../server/free-fonts';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -25,15 +25,16 @@ let fonts: FreeFonts | null = null;
 /** The free fonts, as the server keeps them in FONTS_DIR (fetched from Google Fonts when missing). */
 export const freeFonts = () => (fonts ??= new FreeFonts(FONTS_DIR));
 
-/** Style `id`'s settings, written in its free font when `free` (the font is loaded and registered first). */
+/** Style `id`'s settings, written in its free font when `free` (the font is loaded and registered first). Its spacing
+    stays the style's: the editor's startParams (client/state/editor.ts) also sets letter and word spacing to their
+    defaults (FREE_SPACING) for a free font, so `render --free` spaces letters differently from the app. */
 export async function styleParams(id: string, free = false): Promise<Params> {
   const st = styleOf(id);
   if (!free) return st.params;
   const fid = STYLE_FONTS[id];
   if (!fid) throw new Error(`style '${id}' has no free font`);
   registerFreeFont(await freeFonts().load(fid));
-  const freeAt = Object.fromEntries(FREE_AT_KEYS.map(k => [k, st.params[k]]));
-  return { ...st.params, freeFont: fid, freeAt } as Params;
+  return { ...st.params, freeFont: fid, freeAt: freeAtOf(st.params) } as Params;
 }
 
 /** The settings that make setting `k` show at all: serifs on for the serif sliders (and the tip, base or inside

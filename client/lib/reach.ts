@@ -3,28 +3,18 @@
    reachOf tries the setting at its other values, and when the letters in view stay the same the
    control's note (client/components/panel/reach.tsx) says so and names up to three letters it does change. */
 import { ALL_CHARS, buildFont, skinFollows, type Font } from '../../shared/engine';
-import { FORM_OPTIONS, STORY_OPTIONS } from '../../shared/content';
-import {
-  BAR_ENDS, FILLS, FREE_AT_KEYS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, TERMINALS, TERMINAL_FORMS,
-  isGlyphKey, type Params
-} from '../../shared/params';
-
-/** The choices of each setting that is picked rather than slid. */
-const CHOICES: Partial<Record<keyof Params, readonly unknown[]>> = {
-  terminal: TERMINALS, serifShape: SERIF_SHAPES, serifTip: SERIF_TIPS, serifBase: SERIF_BASES,
-  serifSides: SERIF_SIDES, serifInner: SERIF_INNERS, fill: FILLS, barEnds: BAR_ENDS, story: STORY_OPTIONS.map(([id]) => id),
-  ...Object.fromEntries(Object.entries(FORM_OPTIONS).map(([k, o]) => [k, o.options.map(([id]) => id)]))
-};
+import { FREE_AT_KEYS, SPECS, TERMINAL_FORMS, isGlyphKey, type Params } from '../../shared/params';
 /** Spacing acts on how letters are set side by side, not on the letters, so it always shows. */
 const SPACING = new Set<keyof Params>(['letterSpacing', 'wordSpacing']);
 
-/** The other values worth trying for `k`: both ends and the middle of a slider, every other choice, the other side of a switch. */
-function altsOf(p: Params, k: keyof Params): unknown[] {
-  const v = p[k];
+/** The other values worth trying for `k`: both ends and the middle of a slider, every other choice its spec lists
+    (but 'auto', which stands for one of them; a stroke end's forms only those of its kind), the other side of a switch. */
+export function altsOf(p: Params, k: keyof Params): unknown[] {
+  const v = p[k], spec = SPECS[k] as { kind: string; options?: readonly unknown[] };
   if (k === 'terminalForm') return TERMINAL_FORMS[p.terminal].filter(f => f !== v);
   if (typeof v === 'number') return [0, 0.5, 1].filter(x => x !== v);
   if (typeof v === 'boolean') return [!v];
-  return (CHOICES[k] ?? []).filter(x => x !== v);
+  return spec.kind === 'option' ? spec.options!.filter(x => x !== 'auto' && x !== v) : [];
 }
 
 const sig = (f: Font, ch: string) => { const g = f.glyph(ch); return g ? `${g.d}|${g.adv}|${g.lsb}` : ''; };

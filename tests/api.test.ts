@@ -1,7 +1,7 @@
 /* The HTTP API (server/app.ts) on an in-memory store, called through a stand-in browser that keeps its cookies:
-   designs, accounts, Google sign-in (against a stand-in Google), export, and reading a database saved before
-   designs had owners (server/db.ts). The tests in each describe run in order and build on the designs and
-   accounts the earlier ones made. */
+   designs, accounts, Google sign-in (against a stand-in Google) and which account it joins (joinGoogle), export,
+   and reading a database saved before designs had owners (server/db.ts) or accounts had Google (server/accounts.ts).
+   The tests in each describe run in order and build on the designs and accounts the earlier ones made. */
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,16 +10,15 @@ import { DatabaseSync } from 'node:sqlite';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { after, before, describe, it } from 'node:test';
-import * as opentypeNs from 'opentype.js';
 import type { Design } from '../shared/design';
 import { STYLES } from '../shared/content';
 import { ALL_CHARS } from '../shared/engine';
 import { createHash } from 'node:crypto';
-import { createApp } from '../server/app';
+import { AccountStore } from '../server/accounts';
+import { createApp, joinGoogle } from '../server/app';
 import { DesignStore } from '../server/db';
 import type { GoogleAuth, GoogleProfile } from '../server/google';
-
-const opentype = ((opentypeNs as unknown as { default?: typeof opentypeNs }).default ?? opentypeNs) as typeof opentypeNs;
+import { opentype } from '../server/opentype';
 
 let server: Server, base = '', store: DesignStore;
 
@@ -188,6 +187,7 @@ describe('accounts API', () => {
   it('slows down guessing', async () => {
     const guesser = browser(), victim = 'guess@example.com';
     await guesser('POST', '/auth/signup', { email: victim, password });
+    // 10 wrong passwords is the most server/app.ts's Throttle allows before it makes an address wait
     for (let i = 0; i < 10; i++) assert.equal((await guesser('POST', '/auth/login', { email: victim, password: `guess ${i}` })).status, 401);
     assert.equal((await guesser('POST', '/auth/login', { email: victim, password })).status, 429);
   });
@@ -426,5 +426,59 @@ describe('design storage', () => {
     assert.deepEqual(s.list('second'), []);
     assert.equal(s.get('old1', 'second'), null);
     s.close();
+  });
+
+  it('adds the Google columns to an accounts table made before Google sign-in, keeping its accounts', async () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'typelab-')), 'old.db');
+    const old = new DatabaseSync(file);
+    old.exec(`CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL, password TEXT NOT NULL,
+      created_at TEXT NOT NULL)`);
+    old.prepare('INSERT INTO users VALUES (?, ?, ?, ?, ?)').run('old1', 'old@example.com', 'Old', 'scrypt$c2FsdA$aGFzaA', '2026-01-01T00:00:00Z');
+    old.close();
+    const s = new DesignStore(file), accounts = new AccountStore(s.db);
+    assert.deepEqual(accounts.check('old@example.com'), { exists: true, password: true, google: false });
+    assert.deepEqual(accounts.withEmail('old@example.com'), { user: { id: 'old1', email: 'old@example.com', name: 'Old', createdAt: '2026-01-01T00:00:00Z', hasPassword: true, google: null }, verified: false });
+    const made = await accounts.create('new@example.com', 'New', null, { sub: 'g-new', email: 'new@example.com' });
+    assert.equal(accounts.byGoogle('g-new')?.id, made!.id);
+    assert.deepEqual(accounts.check('new@example.com'), { exists: true, password: false, google: true });
+    assert.equal(accounts.linkGoogle('old1', { sub: 'g-old', email: 'old@example.com' })!.google, 'old@example.com');
+    assert.equal(accounts.withEmail('old@example.com')!.verified, true);
+    s.close();
+    // opened again, the columns are there already
+    const again = new DesignStore(file);
+    assert.equal(new AccountStore(again.db).byGoogle('g-old')?.id, 'old1');
+    again.close();
+  });
+});
+
+describe('joining a Google sign-in to an account (joinGoogle)', () => {
+  const accounts = new AccountStore(new DatabaseSync(':memory:'));
+
+  it('goes to the account that Google account is connected to', async () => {
+    const user = (await accounts.create('linked@example.com', 'Linked', 'a password!', { sub: 'g1', email: 'linked@example.com' }))!;
+    assert.deepEqual(joinGoogle(accounts, accounts.byGoogle('g1'), { sub: 'g1', email: 'linked@example.com' }), { user: accounts.get(user.id), passwordRemoved: false });
+  });
+
+  it('else to the account with its email, switching off a password nothing proved was theirs and signing its browsers out', async () => {
+    const user = (await accounts.create('typed@example.com', 'Typed', 'a password!'))!, token = accounts.startSession(user.id);
+    const joined = joinGoogle(accounts, null, { sub: 'g2', email: 'typed@example.com' })!;
+    assert.equal(joined.passwordRemoved, true);
+    assert.equal(joined.user.id, user.id);
+    assert.equal(joined.user.hasPassword, false);
+    assert.equal(joined.user.google, 'typed@example.com');
+    assert.equal(accounts.userFor(token), null);
+  });
+
+  it('keeps the password of an account whose email Google has confirmed already', async () => {
+    const user = (await accounts.create('known@example.com', 'Known', 'a password!'))!;
+    accounts.linkGoogle(user.id, { sub: 'g3', email: 'known@example.com' });
+    accounts.unlinkGoogle(user.id);
+    const joined = joinGoogle(accounts, null, { sub: 'g4', email: 'known@example.com' })!;
+    assert.equal(joined.passwordRemoved, false);
+    assert.equal(joined.user.hasPassword, true);
+  });
+
+  it('finds none for an email with no account, so a new one is made', () => {
+    assert.equal(joinGoogle(accounts, null, { sub: 'g5', email: 'nobody@example.com' }), null);
   });
 });

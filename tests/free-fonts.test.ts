@@ -5,20 +5,22 @@
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import { describe, it } from 'node:test';
-import * as opentypeNs from 'opentype.js';
+import type { FontConstructorOptions } from 'opentype.js';
 import { STYLES } from '../shared/content';
-import { ALL_CHARS, buildFont, freeFont, freeFontsWanted, registerFreeFont, type FreeFontData, type Glyph } from '../shared/engine';
-import { resolve } from '../shared/engine/font';
-import { formChanged } from '../shared/engine/free-letters';
+import { ALL_CHARS, buildFont, fitOutline, freeFont, freeFontsWanted, registerFreeFont, type FreeFontData, type Glyph } from '../shared/engine';
+import { metrics, resolve } from '../shared/engine/font';
+import { contrastOfBars, formChanged, weightOfStem, widthOfScale } from '../shared/engine/free-letters';
+import { bowlLook, cornerLooks, restyleBowls, restyleCorners, restyleDots, restyleEnds, restylePeaks, restyleStencil, stencilLook } from '../shared/engine/restyle';
+import { skeleton } from '../shared/engine/scan';
+import { SKIN_KEYS } from '../shared/engine/skin';
 import { familyMember } from '../shared/family';
 import { STYLE_FONTS, nearestFont, parseFontId } from '../shared/free-fonts';
-import { DEFAULTS, sanitizeParams } from '../shared/params';
+import { DEFAULTS, FREE_AT_KEYS, sanitizeParams, xHeightOfRatio, xHeightRatio, type Params } from '../shared/params';
 import { createApp } from '../server/app';
 import { DesignStore } from '../server/db';
 import { buildOTF } from '../server/export';
 import { FreeFonts } from '../server/free-fonts';
-
-const opentype = ((opentypeNs as unknown as { default?: typeof opentypeNs }).default ?? opentypeNs) as typeof opentypeNs;
+import { opentype } from '../server/opentype';
 
 /** A small font file: an H of two stems and a bar, an o of two rings drawn with quadratic curves, and a space. */
 function fontFile(upm = 2048): ArrayBuffer {
@@ -38,7 +40,7 @@ function fontFile(upm = 2048): ArrayBuffer {
       new opentype.Glyph({ name: 'H', unicode: 72, advanceWidth: 1200, path: H }),
       new opentype.Glyph({ name: 'o', unicode: 111, advanceWidth: 1200, path: o })
     ]
-  } as unknown as opentypeNs.FontConstructorOptions);
+  } as unknown as FontConstructorOptions);
   return font.toArrayBuffer();
 }
 
@@ -261,6 +263,37 @@ describe('free fonts', () => {
     assert.ok(!single.glyph('a')!.drawn, 'the single-storey a is the engine\'s');
     assert.equal(single.glyph('H')!.d, f.glyph('H')!.d, 'the H is still the font\'s');
     assert.ok(single.glyph('H')!.drawn);
+  });
+
+  it('weigh only settings their letters follow when asked whether one moves a letter (skinFollows)', () => {
+    // reach.ts asks skinFollows about FREE_AT_KEYS settings only: one it weighs that isn't among them is never asked
+    for (const k of SKIN_KEYS) assert.ok((FREE_AT_KEYS as readonly string[]).includes(k), k);
+  });
+
+  it('hand a letter back as it is, the very same outline, from every restyle the settings leave where it was picked', () => {
+    // free-letters.ts finds what it keeps of a letter (its skeleton, its ink, its restyled outlines) by the outline
+    // itself, so a step that changes nothing must give back the same array, or slider drags redo it all. (Serifs
+    // are set on only where asked for, so restyleSerifs has no such case.)
+    const cs = fitOutline(buildFont(DEFAULTS).glyph('a')!.cmds), sk = () => skeleton(cs);
+    const c = { ch: 'a', cap: 700, xh: 500, stem: 80, bar: 60 }, lines = [0, 700, 500, 760, -210];
+    for (const p of [DEFAULTS, { ...DEFAULTS, serif: true, stencil: 0.5, barGap: 0.4, roundness: 1, steps: 1, innerRound: 0.5, joinRound: 0.5, dots: 'round', apex: 1, bowlForm: 'box', terminal: 'round' }] as Params[]) {
+      const e = resolve(p);
+      assert.equal(restyleDots(cs, c, e, e), cs, 'dots');
+      assert.equal(restyleBowls(cs, bowlLook(e), bowlLook(e), sk), cs, 'bowls');
+      assert.equal(restyleEnds(cs, c, e, e, sk), cs, 'ends');
+      assert.equal(restyleStencil(cs, c, stencilLook(e), stencilLook(e), sk), cs, 'stencil');
+      assert.equal(restylePeaks(cs, { ...c, lines }, e.apex, e.apex), cs, 'peaks');
+      assert.equal(restyleCorners(cs, c, cornerLooks(e, c), cornerLooks(e, c), sk), cs, 'corners');
+    }
+  });
+
+  it('read a font\'s stems, bars, width and x-height back as the settings that draw them (the twin\'s fit undoes metrics())', () => {
+    const near = (a: number, b: number, what: string) => assert.ok(Math.abs(a - b) < 1e-9, `${what}: ${a} for ${b}`);
+    for (const w of [0, 0.1, 0.3, 0.5, 0.8, 1]) near(weightOfStem(metrics(resolve({ ...DEFAULTS, weight: w })).s), w, 'weight');
+    // (at the middle weight, where the bars stay between the limits metrics keeps them in all the way along Contrast)
+    for (const c of [0.5, 0.6, 0.75, 0.9, 1]) { const m = metrics(resolve({ ...DEFAULTS, weight: 0.5, contrast: c })); near(contrastOfBars(m.thin, m.s), c, 'contrast'); }
+    for (const w of [0, 0.25, 0.5, 0.75, 1]) near(widthOfScale(metrics(resolve({ ...DEFAULTS, width: w })).ws), w, 'width');
+    for (const v of [0, 0.4, 1]) near(xHeightOfRatio(xHeightRatio(v)), v, 'x-height');
   });
 
   it('are served by the API, and only the ones the styles name', async () => {

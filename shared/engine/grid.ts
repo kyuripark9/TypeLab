@@ -3,9 +3,8 @@
    the circles and ellipses its corners and bowls are arcs of. Letters built the same way (the same
    set, the same kind of strokes) form a group that shares a grid; what a letter's grid has in common
    with another letter of its group is marked `shared`. */
-import { toPolys } from './effects';
 import { CHARSET, SLANT_PIVOT, type Font, type Glyph, type Metrics } from './font';
-import { dist, transformCmds } from './geom';
+import { dist, toPolys, transformCmds } from './geom';
 import { fitOutline, hasIn, hasOut, segment, type Node } from './outline';
 
 type P = { x: number; y: number };
@@ -31,7 +30,8 @@ const SETS: [GridSet, string][] = [['upper', 'Capitals'], ['lower', 'Lowercase']
 const KINDS: [GridKind, string][] = [['straight', 'straight strokes'], ['diagonal', 'diagonals'], ['bowl', 'stems and curves'], ['round', 'round']];
 
 const DEG = Math.PI / 180;
-/** Lines this close (font units), diagonals this close in angle, and rounds this close in size (see sameSize) are one. */
+/** Lines this close (font units), diagonals this close in angle, and rounds this close in size (see sameSize) are one
+    (tests/grid.test.ts checks sharing with the first two, and the grid's size with MOST_LINES and MOST_ROUNDS). */
 const SAME = 1.5, SAME_ANGLE = 0.6 * DEG, SAME_R = 2.5;
 /** The most lines and rounds a grid keeps: those the outline lies on longest. */
 const MOST_LINES = 40, MOST_ROUNDS = 28;

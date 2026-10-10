@@ -6,12 +6,13 @@ import './glyphs';
 import './script';
 import './swash';
 
-export { ALL_CHARS, CHARSET, buildFont, scriptForms, termSpec } from './font';
+export { ALL_CHARS, CHARSET, SLANT_PIVOT, buildFont, scriptForms, termSpec } from './font';
 export type { Font, Glyph, Line, LineItem } from './font';
+export { autoIBars } from './glyphs/shared';
 export { RING_KEYS } from './highlight';
 export { freeFontsWanted } from './free-letters';
 export { buildSerif, expandStroke, serifCup, serifSides } from './stroke';
-export { applyM, clamp, cmdsToD, ringsD, roundContour, signedArea } from './geom';
+export { CIRCLE_K, applyM, clamp, cmdsBox, cmdsToD, ringsD, roundContour, signedArea } from './geom';
 export type { Cmd, Mark, Pt } from './types';
 export { freeFont, onFreeFont, packNode, registerFreeFont } from './free';
 export { skinFollows } from './skin';

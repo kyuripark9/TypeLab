@@ -2,9 +2,9 @@
    when it doesn't. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { reachOf } from '../client/lib/reach';
+import { altsOf, reachOf } from '../client/lib/reach';
 import { TEXTS } from '../shared/content';
-import { DEFAULTS, type Params } from '../shared/params';
+import { DEFAULTS, PARAM_KEYS, SPECS, type Params } from '../shared/params';
 
 const base: Params = { ...DEFAULTS };
 const sentence = [...new Set(TEXTS.sentence)];
@@ -24,6 +24,10 @@ describe('whether a setting changes what is in view', () => {
     const r = reachOf(base, 'kForm', sentence);
     assert.equal(r.shows, false);
     assert.ok(r.elsewhere.some(c => c === 'k' || c === 'K'), r.elsewhere.join());
+  });
+  it('tries every setting picked from a list at its other choices', () => {
+    // with none to try, a picked setting would read as changing nothing, and its control would be dimmed
+    for (const k of PARAM_KEYS.filter(k => SPECS[k].kind === 'option')) assert.ok(altsOf(DEFAULTS, k).length > 0, k);
   });
   it('spacing always shows', () => {
     assert.equal(reachOf(base, 'letterSpacing', ['o']).shows, true);

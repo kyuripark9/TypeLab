@@ -62,8 +62,7 @@ export function useWebFont(id: string | undefined): FreeFontRef | null {
     let live = true;
     loadWebFont(r).then(() => { if (live) setReady(key); });
     return () => { live = false; };
-    // the font is named by `key`
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // keyed by `key`, the font's name: `r` is parsed anew each render
   }, [key]);
   return r && ready === key ? r : null;
 }

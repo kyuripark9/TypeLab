@@ -4,6 +4,8 @@
 
    A corner is where a centerline turns (a turn, id `${si}t${k}`: stroke si's k-th turn), or one of the
    two corners of an end drawn square across (id `${si}${which}${side}`: end 's' or 'e', side 'l' or 'r').
+   A letter's own values are saved under these ids, and kept only in the forms isCornerId (shared/params/scales.ts)
+   accepts (tests/handles.test.ts checks every id the engine makes).
    Each has a roundness from 0 (sharp) to 1 (round), which a letter can set one by one; a turn has two,
    one for its outside and one for its inside.
 
@@ -21,9 +23,9 @@ import { innerFor } from './joins';
 /** The outline radius of one side of a turn at roundness v, in a font whose letters stand `full`
     high (the cap height): all the way, as wide as the letter is high, round enough to take up a
     whole side (it then rounds as far as its sides let it). */
-export const turnR = (v: number, full: number) => full * clamp(v) ** 1.5;
+const turnR = (v: number, full: number) => full * clamp(v) ** 1.5;
 /** The roundness of one side of a turn with outline radius r. */
-export const turnV = (r: number, full: number) => clamp(r / full) ** (2 / 3);
+const turnV = (r: number, full: number) => clamp(r / full) ** (2 / 3);
 /** A turn's outline radii as its letter sets them, over those it is drawn with (`drawn`, or a sharp
     corner): the outside by the corner's own roundness, the inside by its own inside roundness, or
     else a stroke tighter than the outside, so the stroke keeps its thickness round the turn. Null

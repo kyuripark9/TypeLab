@@ -36,7 +36,7 @@ function features(g: Glyph, ch: string): string[] {
 /** The four or five properties that matter most for this letter (serif takes a slot when on). */
 function glyphParams(g: Glyph, ch: string, serif: boolean): ControlKey[] {
   let p: ControlKey[];
-  if (g.meta.params) p = g.meta.params.slice() as ControlKey[];
+  if (g.meta.params) p = g.meta.params.slice();
   else {
     p = [];
     // the letter's own shape pickers lead
@@ -96,6 +96,12 @@ function pickPart(id: string) {
 
 /** Parts drawn as guide lines rather than shapes. */
 const GUIDE_PARTS = new Set(['baseline', 'xHeight', 'capHeight', 'ascender', 'descender']);
+/** The radius of the ring round a part that sits at a point (an end, a peak, a hook's tip), in letters with stems
+    `m.s` thick: wide enough to grab. */
+const markRing = (m: { s: number }) => Math.max(34, m.s * 0.75);
+/** How far, in px, the pointer travels before a press on a part becomes a drag (less is a click, which scrolls to its
+    slider). */
+const DRAG_START = 4;
 /** Hit-test stacking: counters under strokes, point marks on top. */
 const hitOrder = (id: string) => id === 'counter' ? 0 : id === 'corner' || id === 'join' ? 3 : id === 'apex' || id === 'vertex' || id === 'terminal' || id === 'tail' ? 2 : 1;
 
@@ -104,13 +110,13 @@ function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } 
   if (id === 'counter') return { d: g.counters.map(cmdsToD).join('') };
   if (id === 'serif') return { d: g.serifs.map(cmdsToD).join('') };
   if (id === 'terminal' || id === 'apex' || id === 'vertex') {
-    return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(34, font.m.s * 0.75)) };
+    return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), markRing(font.m)) };
   }
   // corners sit close together, at the ends of strokes: small rings, so the ends stay grabbable between them
   if (id === 'corner' || id === 'join') return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(20, font.m.s * 0.32)) };
   const d = g.strokes.filter(s => s.part === id).map(s => cmdsToD(s.cmds)).join('');
   // a hook is the end of a longer stroke (j, t, f): ring its tip
-  if (!d && id === 'tail') return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), Math.max(34, font.m.s * 0.75)) };
+  if (!d && id === 'tail') return { ring: true, d: ringsD(g.marks.filter(k => k.type === id), markRing(font.m)) };
   return { d };
 }
 
@@ -345,7 +351,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
 
   let hl: { d: string; ring?: boolean };
   if (hotEnd && isStrokeId(hotEnd)) hl = { d: g.strokes.filter(s => s.id === hotEnd).map(s => cmdsToD(s.cmds)).join('') };
-  else if (hotEnd) hl = { ring: true, d: ringsD(g.marks.filter(k => k.id === hotEnd), Math.max(34, m.s * 0.75)) };
+  else if (hotEnd) hl = { ring: true, d: ringsD(g.marks.filter(k => k.id === hotEnd), markRing(m)) };
   else if (part) hl = partD(g, part, font);
   else { const k = hlKey(active); hl = { d: font.hl(ch, k), ring: !!RING_KEYS[k] }; }
 
@@ -370,7 +376,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
     const move = (ev: PointerEvent) => {
       const d = drag.current!, dx = ev.clientX - x0, dy = ev.clientY - y0;
       if (!d.axis) {
-        if (Math.hypot(dx, dy) < 4) return;
+        if (Math.hypot(dx, dy) < DRAG_START) return;
         const axis = pickAxis(spec, dx, dy);
         if (!axis) return;
         const drive = spec[axis]!;

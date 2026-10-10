@@ -1,0 +1,291 @@
+# Each glyph's strokes in the order it draws them, as id:part (see tests/stroke-order.test.ts)
+defaults A	0:stem 1:crossbar
+defaults B	0:stem 1:bowl 2:bowl
+defaults C	0:bowl
+defaults D	0:stem 1:bowl
+defaults E	0:stem 1:arm 2:crossbar 3:arm
+defaults F	0:stem 1:arm 2:crossbar
+defaults G	0:bowl 1:bar
+defaults H	0:stem 1:stem 2:crossbar
+defaults I	0:stem
+defaults J	0:stem
+defaults K	0:stem 1:arm 2:leg
+defaults L	0:stem 1:arm
+defaults M	0:stem 1:stem 2:diagonal
+defaults N	0:stem 1:stem 2:diagonal
+defaults O	0:bowl
+defaults P	0:stem 1:bowl
+defaults Q	0:bowl 1:tail
+defaults R	0:stem 1:bowl 2:leg
+defaults S	0:spine
+defaults T	0:stem 1:arm
+defaults U	0:stem
+defaults V	0:diagonal
+defaults W	0:diagonal
+defaults X	0:diagonal 1:diagonal
+defaults Y	0:stem 1:diagonal 2:diagonal
+defaults Z	0:arm 1:diagonal 2:arm
+defaults a	0:stem 1:bowl
+defaults b	0:stem 1:bowl
+defaults c	0:bowl
+defaults d	0:stem 1:bowl
+defaults e	0:bowl 1:crossbar
+defaults f	0:stem 1:crossbar
+defaults g	0:stem 1:bowl
+defaults h	0:stem 1:shoulder
+defaults i	0:stem
+defaults j	0:stem
+defaults k	0:stem 1:arm 2:leg
+defaults l	0:stem
+defaults m	0:stem 1:shoulder 2:shoulder
+defaults n	0:stem 1:shoulder
+defaults o	0:bowl
+defaults p	0:stem 1:bowl
+defaults q	0:stem 1:bowl
+defaults r	0:stem 1:shoulder
+defaults s	0:spine
+defaults t	0:stem 1:crossbar
+defaults u	0:shoulder 1:stem
+defaults v	0:diagonal
+defaults w	0:diagonal
+defaults x	0:diagonal 1:diagonal
+defaults y	0:tail 1:diagonal
+defaults z	0:arm 1:diagonal 2:arm
+defaults 0	0:bowl
+defaults 1	0:stem 1:arm
+defaults 2	0:spine 1:arm
+defaults 3	0:bowl 1:bowl
+defaults 4	0:stem 1:diagonal 2:crossbar
+defaults 5	0:arm 1:stem 2:bowl
+defaults 6	0:bowl
+defaults 7	0:arm 1:diagonal
+defaults 8	0:bowl 1:bowl
+defaults 9	0:bowl
+defaults .	
+defaults ,	1:tail
+defaults :	
+defaults ;	1:tail
+defaults …	
+defaults !	0:stem
+defaults ¡	0:stem
+defaults ?	0:hook
+defaults ¿	0:hook
+defaults '	0:stem
+defaults "	0:stem 1:stem
+defaults ‘	1:tail
+defaults ’	1:tail
+defaults “	1:tail 3:tail
+defaults ”	1:tail 3:tail
+defaults ‚	1:tail
+defaults „	1:tail 3:tail
+defaults ‹	0:diagonal
+defaults ›	0:diagonal
+defaults «	0:diagonal 1:diagonal
+defaults »	0:diagonal 1:diagonal
+defaults (	0:bowl
+defaults )	0:bowl
+defaults [	0:stem
+defaults ]	0:stem
+defaults {	0:stem 1:stem
+defaults }	0:stem 1:stem
+defaults -	0:bar
+defaults –	0:bar
+defaults —	0:bar
+defaults _	0:bar
+defaults /	0:diagonal
+defaults \	0:diagonal
+defaults |	0:stem
+defaults ·	
+defaults •	
+defaults &	0:bowl
+defaults @	0:bowl 1:bowl
+defaults #	0:stem 1:stem 2:bar 3:bar
+defaults $	0:spine 1:stem
+defaults ¢	0:bowl 1:stem
+defaults €	0:bowl 1:bar 2:bar
+defaults £	0:stem 1:bar 2:bar
+defaults ¥	0:stem 1:diagonal 2:diagonal 3:bar 4:bar
+defaults %	0:bowl 1:bowl 2:diagonal
+defaults +	0:bar 1:bar
+defaults −	0:bar
+defaults ×	0:diagonal 1:diagonal
+defaults ÷	0:bar
+defaults =	0:bar 1:bar
+defaults <	0:diagonal
+defaults >	0:diagonal
+defaults ±	0:bar 1:bar 2:bar
+defaults ~	0:bowl
+defaults ^	0:diagonal
+defaults *	0:bar 1:bar 2:bar
+defaults °	0:bowl
+defaults ©	0:bowl 1:bowl
+defaults ®	0:bowl 1:stem 2:bowl 3:leg
+defaults ™	0:arm 1:stem 2:stem 3:stem 4:diagonal
+defaults §	0:bowl 1:spine 2:spine
+defaults ¶	0:stem 1:stem 2:bar
+defaults †	0:stem 1:bar
+defaults ‡	0:stem 1:bar 2:bar
+defaults `	0:stem
+aForm=spur a	0:stem 1:bowl 2:spur
+gForm=double g	0:bowl 1:ear 2:bowl 3:link
+iForm=bars I	0:stem 1:bar 2:bar
+iForm=bars i	0:stem 1:bar 2:bar
+iForm=bars l	0:stem 1:bar 2:bar
+sForm=flat $	0:spine 3:stem
+qForm=inside Q	0:bowl
+rForm=loop R	0:stem 1:bowl
+yForm=cup Y	0:stem 1:diagonal
+yForm=cup y	0:stem 1:diagonal
+diagonals=upright A	0:diagonal
+diagonals=arch M	0:stem 1:stem
+diagonals=arch N	0:stem
+diagonals=arch V	0:stem
+diagonals=arch W	0:stem 1:stem
+diagonals=arch v	0:stem
+diagonals=arch w	0:stem 1:stem
+bends=round M	0:stem
+bends=round N	0:stem
+bends=round Z	0:arm
+bends=round z	0:arm
+bowlJoin=square h	0:stem 2:shoulder
+bowlJoin=square m	0:stem 3:shoulder 5:shoulder
+bowlJoin=square n	0:stem 2:shoulder
+bowlJoin=square u	0:shoulder 2:stem
+cursive=0.3 a	0:stem 1:stem 2:bowl
+cursive=0.3 i	0:entry 1:stem
+cursive=0.3 j	0:entry 1:stem
+cursive=0.3 m	0:entry 1:stem 2:shoulder 3:shoulder
+cursive=0.3 n	0:entry 1:stem 2:shoulder
+cursive=0.3 p	0:entry 1:stem 2:bowl
+cursive=0.3 r	0:entry 1:stem 2:shoulder
+cursive=0.3 u	0:entry 1:shoulder 2:stem
+cursive=1 A	0:stem 1:stem 2:crossbar
+cursive=1 D	0:bowl
+cursive=1 E	0:bowl 1:bowl
+cursive=1 F	0:arm 1:stem 2:crossbar
+cursive=1 G	0:bowl 1:bowl
+cursive=1 K	0:stem 1:arm 2:arm
+cursive=1 L	0:stem
+cursive=1 M	0:stem 1:stem 2:stem 3:stem
+cursive=1 N	0:stem 1:stem 2:stem
+cursive=1 R	0:stem 1:bowl 2:bowl
+cursive=1 T	0:arm 1:stem
+cursive=1 U	0:stem 1:stem
+cursive=1 V	0:stem 1:stem
+cursive=1 W	0:stem 1:stem 2:stem 3:stem
+cursive=1 X	0:stem 1:arm
+cursive=1 Y	0:stem 1:stem
+cursive=1 Z	0:stem
+cursive=1 a	0:bowl 1:bowl 2:bowl
+cursive=1 b	0:stem 1:stem
+cursive=1 c	0:bowl 1:bowl
+cursive=1 d	0:bowl 1:bowl 2:bowl
+cursive=1 e	0:bowl
+cursive=1 f	0:stem 1:stem 2:stem
+cursive=1 g	0:bowl 1:bowl 2:bowl
+cursive=1 h	0:stem 1:stem 2:stem
+cursive=1 i	0:stem 1:stem
+cursive=1 j	0:stem 1:stem
+cursive=1 k	0:stem 1:stem 2:stem 3:stem
+cursive=1 l	0:stem 1:stem
+cursive=1 m	0:stem 1:stem 2:stem
+cursive=1 n	0:stem 1:stem
+cursive=1 o	0:bowl 1:bowl
+cursive=1 p	0:stem 1:stem 2:stem 3:stem
+cursive=1 q	0:bowl 1:bowl 2:bowl 3:bowl
+cursive=1 r	0:stem 1:stem 2:stem
+cursive=1 s	0:stem 1:stem 2:stem
+cursive=1 t	0:stem 1:stem 2:crossbar
+cursive=1 u	0:stem 1:stem 2:stem
+cursive=1 v	0:stem 1:stem
+cursive=1 w	0:stem 1:stem 2:stem
+cursive=1 x	0:stem 1:arm
+cursive=1 y	0:stem 1:stem 2:stem
+cursive=1 z	0:stem 1:stem
+scriptForm=script A	0:stem 1:stem 2:crossbar
+scriptForm=script D	0:bowl
+scriptForm=script E	0:bowl 1:bowl
+scriptForm=script F	0:arm 1:stem 2:crossbar
+scriptForm=script G	0:bowl 1:bowl
+scriptForm=script K	0:stem 1:arm 2:arm
+scriptForm=script L	0:stem
+scriptForm=script M	0:stem 1:stem 2:stem 3:stem
+scriptForm=script N	0:stem 1:stem 2:stem
+scriptForm=script R	0:stem 1:bowl 2:bowl
+scriptForm=script T	0:arm 1:stem
+scriptForm=script U	0:stem 1:stem
+scriptForm=script V	0:stem 1:stem
+scriptForm=script W	0:stem 1:stem 2:stem 3:stem
+scriptForm=script X	0:stem 1:arm
+scriptForm=script Y	0:stem 1:stem
+scriptForm=script Z	0:stem
+scriptForm=script a	0:bowl 1:bowl 2:bowl
+scriptForm=script b	0:stem 1:stem
+scriptForm=script c	0:bowl 1:bowl
+scriptForm=script d	0:bowl 1:bowl 2:bowl
+scriptForm=script e	0:bowl
+scriptForm=script f	0:stem 1:stem 2:stem
+scriptForm=script g	0:bowl 1:bowl 2:bowl
+scriptForm=script h	0:stem 1:stem 2:stem
+scriptForm=script i	0:stem 1:stem
+scriptForm=script j	0:stem 1:stem
+scriptForm=script k	0:stem 1:stem 2:stem 3:stem
+scriptForm=script l	0:stem 1:stem
+scriptForm=script m	0:stem 1:stem 2:stem
+scriptForm=script n	0:stem 1:stem
+scriptForm=script o	0:bowl 1:bowl
+scriptForm=script p	0:stem 1:stem 2:stem 3:stem
+scriptForm=script q	0:bowl 1:bowl 2:bowl 3:bowl
+scriptForm=script r	0:stem 1:stem 2:stem
+scriptForm=script s	0:stem 1:stem 2:stem
+scriptForm=script t	0:stem 1:stem 2:crossbar
+scriptForm=script u	0:stem 1:stem 2:stem
+scriptForm=script v	0:stem 1:stem
+scriptForm=script w	0:stem 1:stem 2:stem
+scriptForm=script x	0:stem 1:arm
+scriptForm=script y	0:stem 1:stem 2:stem
+scriptForm=script z	0:stem 1:stem
+flourish=swash A	0:stem 1:stem 2:crossbar
+flourish=swash D	0:bowl
+flourish=swash E	0:bowl 1:bowl
+flourish=swash F	0:arm 1:stem 2:crossbar
+flourish=swash G	0:bowl 1:bowl
+flourish=swash K	0:stem 1:arm 2:arm
+flourish=swash L	0:stem
+flourish=swash M	0:stem 1:stem 2:stem 3:stem
+flourish=swash N	0:stem 1:stem 2:stem
+flourish=swash R	0:stem 1:bowl 2:bowl
+flourish=swash S	0:swash 1:swash 2:swash
+flourish=swash T	0:arm 1:stem
+flourish=swash U	0:stem 1:stem
+flourish=swash V	0:stem 1:stem
+flourish=swash W	0:stem 1:stem 2:stem 3:stem
+flourish=swash X	0:stem 1:arm
+flourish=swash Y	0:stem 1:stem
+flourish=swash Z	0:stem
+flourish=swash a	0:bowl 1:bowl 2:bowl
+flourish=swash b	0:stem 1:stem
+flourish=swash c	0:bowl 1:bowl
+flourish=swash d	0:bowl 1:bowl 2:bowl 3:swash 4:swash
+flourish=swash e	0:bowl
+flourish=swash f	0:stem 1:stem 2:stem
+flourish=swash g	0:bowl 1:bowl 2:bowl
+flourish=swash h	0:stem 1:stem 2:stem
+flourish=swash i	0:stem 1:stem
+flourish=swash j	0:stem 1:stem
+flourish=swash k	0:stem 1:stem 2:stem 3:stem
+flourish=swash l	0:stem 1:stem 2:swash
+flourish=swash m	0:stem 1:stem 2:stem
+flourish=swash n	0:stem 1:stem
+flourish=swash o	0:bowl 1:bowl
+flourish=swash p	0:stem 1:stem 2:stem 3:stem
+flourish=swash q	0:bowl 1:bowl 2:bowl 3:bowl
+flourish=swash r	0:stem 1:stem 2:stem 3:swash 4:swash 5:swash 6:swash 7:swash
+flourish=swash s	0:stem 1:stem 2:stem
+flourish=swash t	0:stem 1:stem 2:swash
+flourish=swash u	0:stem 1:stem 2:stem
+flourish=swash v	0:stem 1:stem
+flourish=swash w	0:stem 1:stem 2:stem
+flourish=swash x	0:stem 1:arm
+flourish=swash y	0:stem 1:stem 2:stem
+flourish=swash z	0:stem 1:stem 2:swash 3:swash

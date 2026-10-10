@@ -163,6 +163,8 @@ const cutRound = (m: Metrics, pts: Pt[], drawn: Set<Pt>, w: number) => roundCuts
     the gap it has as drawn (on its own Gap scale) and the way the gap opens; and so is every turn, which
     Stencil leaves whole. Returns each stroke's turns, with their ids. */
 function markJoins(b: Builder, m: Metrics, exps: ({ ex: Expanded | null } | null)[], expanded: (Expanded | null)[], marks: Mark[]) {
+  // each turn under its corner id, which a turn's own join gap is kept under too (see isTurnId and isJoinId in
+  // shared/params/scales.ts)
   const turns = b.strokes.map((st, si) => (st.cmds && exps[si]?.ex && !exps[si]!.ex!.loop ? turnsOf(st.cmds, m).map((tn, k) => ({ ...tn, id: `${si}t${k}` })) : []));
   b.strokes.forEach((st, si) => {
     const ex = exps[si]?.ex;

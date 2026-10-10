@@ -2,7 +2,7 @@
    italic, moved on their skeletons by the settings (skin.ts) and restyled where the settings ask for the
    engine's shapes (restyle.ts); letters in a form the font hasn't got come from its twin, the font read
    as the engine's own settings. Called by buildFont (font.ts) for a design with a freeFont. */
-import { slantDeg, type Params } from '../params';
+import { slantDeg, xHeightOfRatio, type Params } from '../params';
 import { applyM, clamp } from './geom';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
@@ -114,6 +114,21 @@ export function formChanged(ch: string, a: Effective, b: Effective): boolean {
     || (Object.keys(FORM_LETTERS) as (keyof typeof FORM_LETTERS)[]).some(k => FORM_LETTERS[k].includes(ch) && a[k] !== b[k]);
 }
 
+/* What a free font's measures read as, metrics() (font.ts) undone: twinFit reads the font's stems, bars and width back
+   through these, and tests/free-fonts.test.ts runs each the other way, so a change to metrics() that leaves them behind
+   fails there. */
+/** The Weight that draws stems `s` thick: metrics' s0 = 18 + 200·weight^1.25 undone. */
+export const weightOfStem = (s: number) => clamp(Math.pow(Math.max(0, s - 18) / 200, 0.8));
+/** The Contrast that draws bars `thin` thick against stems `s` thick: metrics' thinAt, the bars at s·(0.92 − 0.84·c) for
+    the pen's amount c, undone, then contrastOf's amount = 0.05 + 0.95·(v − 0.5)·2 on its upper half, for v. */
+export function contrastOfBars(thin: number, s: number) {
+  const amount = clamp((0.92 - thin / Math.max(1, s)) / 0.84);
+  return 0.5 + Math.max(0, amount - 0.05) / 0.95 * 0.5;
+}
+/** The Width that draws letters `ws` times as wide as at its middle: metrics' ws = lerp(0.6, 1) below the middle
+    and lerp(1, 1.5) above it undone. */
+export const widthOfScale = (ws: number) => clamp(ws < 1 ? (ws - 0.6) / 0.8 : 0.5 + (ws - 1));
+
 const twinFits = new WeakMap<FreeFont, Partial<Params>>();
 /** The engine's settings a free font's letters read as (once a font): its stems' weight, its bars' contrast against
     them, its x-height, its width (its n against the engine's) and whether it has serifs. */
@@ -122,15 +137,13 @@ function twinFit(font: FreeFont, pick: Params): Partial<Params> {
   if (fit) return fit;
   const n = skinRig(font, 'n') ?? skinRig(font, 'H'), H = skinRig(font, 'H') ?? n;
   const m = metrics(resolve(pick)), s = (n?.stem ?? 0.12) * m.cap, thin = (H?.bar ?? n?.bar ?? 0.1) * m.cap;
-  const weight = clamp(Math.pow(Math.max(0, s - 18) / 200, 0.8));
-  const amount = clamp((0.92 - thin / Math.max(1, s)) / 0.84), contrast = 0.5 + Math.max(0, amount - 0.05) / 0.95 * 0.5;
-  const xHeight = clamp((font.xh / font.cap - 0.3) / 0.56);
+  const weight = weightOfStem(s), contrast = contrastOfBars(thin, s), xHeight = clamp(xHeightOfRatio(font.xh / font.cap));
   // (as wide as the font's n, against the engine's at the middle of Width)
   const g = font.glyphs.n, eng = buildFont({ ...pick, freeFont: '', freeAt: {}, glyphs: {}, outlines: {}, weight, contrast, xHeight, width: 0.5 }).glyph('n');
   let width = 0.5;
   if (g && eng) {
     const [x0, x1] = inkX(g), ws = ((x1 - x0) * m.cap / font.cap) / Math.max(1, eng.bodyW);
-    width = clamp(ws < 1 ? (ws - 0.6) / 0.8 : 0.5 + (ws - 1));
+    width = widthOfScale(ws);
   }
   fit = { weight, contrast, xHeight, width, serif: !!(n?.serifs || H?.serifs) };
   twinFits.set(font, fit);

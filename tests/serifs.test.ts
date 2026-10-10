@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ALL_CHARS, buildFont, type Cmd, type Glyph } from '../shared/engine';
+import { ALL_CHARS, buildFont, cmdsBox, type Cmd, type Glyph } from '../shared/engine';
 import { shape } from '../shared/engine/boolean';
-import { toPolys } from '../shared/engine/effects';
+import { toPolys } from '../shared/engine/geom';
 import { DEFAULTS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, isValidParams, sanitizeParams, type Params } from '../shared/params';
 
 /* Serif details: where each serif sits (serifAt: foot, top, arm), tips, bases and cups, bracket, balance, sides and
@@ -11,14 +11,9 @@ import { DEFAULTS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_T
 const serif: Params = { ...DEFAULTS, serif: true, serifThickness: 0.5 };
 const glyph = (p: Partial<Params>, ch: string) => buildFont({ ...serif, ...p }).glyph(ch)!;
 
-/** The box round some outlines, in font units (y up). */
+/** The box round some outlines' points, in font units (y up). */
 function box(cmds: Cmd[][]) {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const c of cmds.flat()) {
-    for (let i = 1; i + 1 < c.length && typeof c[i] === 'number'; i += 2) {
-      x0 = Math.min(x0, c[i]); x1 = Math.max(x1, c[i]); y0 = Math.min(y0, c[i + 1]); y1 = Math.max(y1, c[i + 1]);
-    }
-  }
+  const { x0, y0, x1, y1 } = cmdsBox(cmds.flat()) ?? { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
   return { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
 }
 /** A glyph's serifs at one place: at the foot of its strokes, on top of them, or across the ends of its arms. */

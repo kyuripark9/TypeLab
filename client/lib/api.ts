@@ -1,6 +1,6 @@
 /* Typed client for the TypeLab API: every /api request the browser makes goes through here. The routes
    are served by server/app.ts. */
-import type { EmailCheck, User } from '../../shared/account';
+import type { EmailCheck, GoogleIntent, User } from '../../shared/account';
 import type { Design, DesignInput } from '../../shared/design';
 import type { FreeFontData } from '../../shared/engine';
 import type { FamilyRequest } from '../../shared/family';
@@ -51,7 +51,7 @@ export const api = {
   /** Confirmed with the password, or, on an account without one, the email typed out. */
   deleteAccount: async (confirm: { password: string } | { confirm: string }) => { await send('DELETE', '/api/auth/me', confirm); },
   /** Where to send the browser (or a popup) to sign in with Google or connect it. */
-  googleUrl: (intent: 'signin' | 'link', popup: boolean, back: string) =>
+  googleUrl: (intent: GoogleIntent, popup: boolean, back: string) =>
     `/api/auth/google?${new URLSearchParams({ intent, popup: popup ? '1' : '0', back })}`,
   listDesigns: () => json<Design[]>('GET', '/api/designs'),
   getDesign: (id: string) => json<Design>('GET', `/api/designs/${encodeURIComponent(id)}`),

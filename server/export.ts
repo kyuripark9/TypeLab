@@ -1,16 +1,14 @@
 /* Server-side export: the same engine that draws the live preview builds the font files. */
 import { crc32, deflateRawSync } from 'node:zlib';
-import * as opentypeNs from 'opentype.js';
+import type { FontConstructorOptions } from 'opentype.js';
 import { CHARSET, ALL_CHARS, buildFont } from '../shared/engine';
-import type { Cmd } from '../shared/engine';
+import type { Cmd, Font } from '../shared/engine';
 import { TEXTS } from '../shared/content';
 import { slug } from '../shared/design';
 import { familyMembers, type FamilyRequest } from '../shared/family';
 import { withoutReserved } from '../shared/free-fonts';
 import type { Params } from '../shared/params';
-
-// opentype.js is CommonJS: under Node its API sits on the default export
-const opentype = ((opentypeNs as unknown as { default?: typeof opentypeNs }).default ?? opentypeNs) as typeof opentypeNs;
+import { opentype } from './opentype';
 
 const R = Math.round;
 
@@ -29,9 +27,10 @@ function toPath(cmds: Cmd[]) {
 interface FontStyle { style: string; cls: number; angle: number }
 const REGULAR: FontStyle = { style: 'Regular', cls: 400, angle: 0 };
 
-/** The name a design exports under: its own, less any name the free font it's written in reserves. */
-export function exportName(params: Params, name: string) {
-  const free = buildFont(params).free;
+/** The name a design exports under: its own, less any name the free font it's written in reserves (`font`, when
+    the caller has built it already). */
+export function exportName(params: Params, name: string, font: Font = buildFont(params)) {
+  const free = font.free;
   return free ? withoutReserved(name, free.family) : name;
 }
 
@@ -41,7 +40,7 @@ export function exportName(params: Params, name: string) {
     font may not. */
 export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR): Buffer {
   const font = buildFont(params), m = font.m, free = font.free;
-  if (free) name = withoutReserved(name, free.family);
+  name = exportName(params, name, font);
   // an advance width can't go below zero in a font file, and tight tracking takes it down: a space keeps at
   // least 40 units, so words stay apart, and a letter 20. .notdef, the blank shown for a character the font
   // lacks, is half an em
@@ -51,9 +50,9 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
     // a no-break space, as wide as a space, so text that holds one doesn't fall back to another font
     new opentype.Glyph({ name: 'uni00A0', unicode: 0xa0, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() })
   ];
-  // the font's ascender and descender set its line spacing (with no line gap added): 60 units over the
-  // taller of ascender and cap height and 40 under the descender, for air between lines. A free font's
-  // flourishes can reach past the design's own lines: the font's lines reach as far
+  // the font's ascender and descender (the hhea and typo metrics, with no line gap) set its line spacing on
+  // most platforms: 60 units over the taller of ascender and cap height and 40 under the descender, for air
+  // between lines. A free font's flourishes can reach past the design's own lines: the font's lines reach as far
   let top = Math.max(m.asc, m.cap) + 60, bottom = m.desc - 40;
   for (const ch of ALL_CHARS) {
     const g = font.glyph(ch); if (!g) continue;
@@ -66,9 +65,11 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
     }));
   }
   // Apps that only know Regular, Italic, Bold and Bold Italic list each other weight as a family of
-  // its own ("Name Light"); the rest read the whole family from the typographic names.
+  // its own ("Name Light"); the rest read the whole family from the typographic names. The style is read
+  // as styleName (shared/family.ts) writes it: '<Weight>', '<Weight> Italic' or 'Italic'.
   const italic = as.angle > 0, weightName = as.style.replace(/ ?Italic$/, '') || 'Regular';
   const ribbi = weightName === 'Regular' || weightName === 'Bold';
+  // fsSelection's bits: 1 ITALIC, 32 BOLD, 64 REGULAR
   const fsSel = (italic ? 1 : 0) | (weightName === 'Bold' ? 32 : 0) | (!italic && weightName !== 'Bold' ? 64 : 0);
   const otf = new opentype.Font({
     familyName: ribbi ? name : `${name} ${weightName}`,
@@ -77,7 +78,7 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
     postScriptName: `${name.replace(/[^A-Za-z0-9]/g, '') || 'TypeLab'}-${as.style.replace(/ /g, '')}`,
     weightClass: as.cls, italicAngle: -as.angle, fsSelection: fsSel, unitsPerEm: 1000,
     ascender: R(top), descender: R(bottom), glyphs
-  } as unknown as opentypeNs.FontConstructorOptions);
+  } as unknown as FontConstructorOptions);
   // opentype.js 2 keeps names per platform; its types still describe 1.x
   const platforms = otf.names as unknown as Record<'unicode' | 'macintosh' | 'windows', Record<string, { en: string }>>;
   for (const names of [platforms.unicode, platforms.macintosh, platforms.windows]) {
@@ -90,7 +91,8 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
       names.licenseURL = { en: free.licenseUrl };
     }
   }
-  // opentype.js marks the head table bold from SemiBold up; only Bold is
+  // opentype.js reads font.weightClass only for the head table's macStyle bold bit (bold from 600 up); OS/2 keeps
+  // as.cls. Only Bold sets the bit
   (otf as unknown as { weightClass: number }).weightClass = weightName === 'Bold' ? 700 : 400;
   return Buffer.from(otf.toArrayBuffer());
 }
@@ -98,8 +100,9 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
 /** Every member of a family as its own font, in one .zip with a folder named after the family; written in a
     free font, with the font's licence beside them. */
 export function buildFamilyZip(params: Params, name: string, req: FamilyRequest): Buffer {
-  name = exportName(params, name);
-  const dir = slug(name), free = buildFont(params).free;
+  const font = buildFont(params), free = font.free;
+  name = exportName(params, name, font);
+  const dir = slug(name);
   return zip([
     ...familyMembers(params, req).map(f => ({ name: `${dir}/${dir}-${f.style.replace(/ /g, '')}.otf`, data: buildOTF(f.params, name, f) })),
     ...(free ? [{ name: `${dir}/LICENSE.txt`, data: Buffer.from(`${name} is based on ${free.family} by ${free.designers.join(', ')} (${free.copyright}), changed with TypeLab, and comes under the ${free.license}: ${free.licenseUrl}\n\n${free.licenseText || ''}\n`, 'utf8') }] : [])

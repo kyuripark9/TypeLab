@@ -1,6 +1,6 @@
 /* The two inputs every slider row uses: the 0..1 range and the number box typed over it. */
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { rotationDeg } from '../../../shared/params';
+import { rotationDeg, rotationOf } from '../../../shared/params';
 
 /** The slider's value as a whole number from 0 to 100 (or a turn, in degrees from -180 to 180), typed over
     directly. Enter or leaving the box applies it (clamped to that range); Escape puts the old value back; the
@@ -12,7 +12,7 @@ export function NumberField({ value, label, onChange, degrees }: { value: number
   const apply = (text: string) => {
     setDraft(null);
     const n = Math.min(hi, Math.max(lo, Math.round(Number(text))));
-    if (text.trim() !== '' && Number.isFinite(n) && String(n) !== shown) onChange(degrees ? n / 360 + 0.5 : n / 100);
+    if (text.trim() !== '' && Number.isFinite(n) && String(n) !== shown) onChange(degrees ? rotationOf(n) : n / 100);
   };
   return (
     <input className="ctl-num" type="text" inputMode="numeric" aria-label={`${label} value`} value={draft ?? shown}

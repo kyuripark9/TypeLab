@@ -9,6 +9,8 @@ import type { Params } from './model';
 export const isEndId = (id: string) => /^p?\d{1,2}[se]$/.test(id);
 /** The id of the end `which` ('s' start, 'e' end) of stroke `si` (see isEndId), with the 'p' of a plain end. */
 export const endId = (si: number, which: 's' | 'e', plain: boolean) => `${plain ? 'p' : ''}${si}${which}`;
+/** Whether end id `id` (see isEndId) is a plain end's. */
+export const isPlainEnd = (id: string) => id.startsWith('p');
 /** A join's id: the index of the stroke that ends in another one, then 's' or 'e' for the end that
     joins; or a turn's (see isCornerId), where a stroke can come apart like two strokes joined. */
 export const isJoinId = (id: string) => /^\d{1,2}([se]|t\d{1,2})$/.test(id);
@@ -28,10 +30,14 @@ export const isTurnId = (id: string) => /^\d{1,2}t\d{1,2}$/.test(id);
 export const isStrokeId = (id: string) => /^\d{1,2}$/.test(id);
 /** The turn, in degrees clockwise, at `v` on the Rotation scale. */
 export const rotationDeg = (v: number) => (v - 0.5) * 360;
+/** The value on the Rotation scale that turns `deg` degrees clockwise (rotationDeg undone). */
+export const rotationOf = (deg: number) => deg / 360 + 0.5;
 /** The lean, in degrees to the right, at `v` on the Slant scale: 20° at 1. */
 export const slantDeg = (v: number) => v * 20;
 /** How much heavier a stroke is drawn at `v` on a weight scale centred on 0.5: a quarter as heavy at 0, two and a half times at 1. */
 export const weightScale = (v: number) => (v < 0.5 ? 0.25 + 1.5 * v : 1 + 3 * (v - 0.5));
+/** The value on that scale that draws strokes `s` times as heavy as at 0.5 (weightScale undone). */
+export const weightUnscale = (s: number) => (s < 1 ? (s - 0.25) / 1.5 : 0.5 + (s - 1) / 3);
 /** `base` weighed by `v` on that scale but kept between `lo` and `hi`, reaching either only at the end of
     the scale, so the scale eases toward the limit all the way along rather than stopping at it part way. */
 export function weighed(base: number, v: number, lo: number, hi: number) {
@@ -77,10 +83,12 @@ export const endLength = (p: Pick<Params, 'terminalLength'> & { terminalEnds?: R
 /** How one stroke end bends (see terminalCurl): its own curl, else the stroke end curl, except
     that a plain end (see isEndId) stays as drawn (0.5). */
 export const endCurl = (p: { terminalCurl?: number; terminalCurls?: Record<string, number> }, id: string) =>
-  p.terminalCurls?.[id] ?? (id.startsWith('p') ? 0.5 : p.terminalCurl ?? 0.5);
+  p.terminalCurls?.[id] ?? (isPlainEnd(id) ? 0.5 : p.terminalCurl ?? 0.5);
 
 /** The x-height as a share of the cap height, at `v` on the Lowercase height scale: from under a third
     (a copperplate's) to nearly as tall as the capitals. */
 export const xHeightRatio = (v: number) => 0.3 + 0.56 * v;
+/** The value on the Lowercase height scale that draws an x-height `r` of the cap height (xHeightRatio undone). */
+export const xHeightOfRatio = (r: number) => (r - 0.3) / 0.56;
 /** An x-height saved on the version 1 scale, which starts at half the cap height, as a value on the scale xHeightRatio reads. */
 export const xHeightFromOld = (v: number) => Math.round((0.2 + 0.36 * v) / 0.56 * 1000) / 1000;

@@ -1,9 +1,15 @@
 /* The editor's pages and controls (shared/content/pages.ts, controls.ts, search.ts): every control on one
-   page, the order of pages and of the controls on each, links naming a page or group, and finding a setting. */
+   page, the order of pages and of the controls on each, links naming a page or group (and reading a link into the
+   editor, client/lib/routes.ts), finding a setting, every nested slider placed in the panel, and the parts the
+   letter inspector names. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { CATEGORIES, CONTROLS, GROUPS, SUBS, controlFor, findSettings, firstControl, pageOf, type ActiveKey, type ControlKey } from '../shared/content';
+import {
+  ANATOMY, CATEGORIES, CONTROLS, FILL_SUBS, GROUPS, PART_CONTROL, PINCH_SUBS, ROUND_SUBS, SERIF_ARM_SUBS, SERIF_DETAILS, SERIF_INNER_SUBS, SERIF_SIZES,
+  SERIF_TIP_DETAILS, SLICE_SUBS, STENCIL_SUBS, SUBS, TERMINAL_DETAILS, WEIGHT_SUBS, controlFor, findSettings, firstControl, pageOf, type ActiveKey, type ControlKey
+} from '../shared/content';
 import { DEFAULTS } from '../shared/params';
+import { readDeepLink } from '../client/lib/routes';
 
 const controls = Object.keys(CONTROLS) as ControlKey[];
 
@@ -55,6 +61,21 @@ describe('editor pages', () => {
     assert.equal(pageOf(null), undefined);
   });
 
+  it('reads a link into the editor: the style, text, page, control, letter and modes it asks for', () => {
+    const read = (q: string) => readDeepLink(new URLSearchParams(q));
+    assert.deepEqual(read('style=serif&cat=serifs&active=serifTip&inspect=R&text=Hello&hot=1&pen=1'),
+      { style: 'serif', text: 'Hello', page: 'serifs', active: 'serifTip', hot: true, inspect: 'R', pen: true });
+    // a control opens the page it is on whatever `cat` says, a nested slider its control's
+    assert.deepEqual([read('cat=effects&active=serifCup').page, read('cat=effects&active=serifCup').active], ['serifs', 'serifCup']);
+    // a group opens on its first page, an older group name where it maps to, and the Style page by its name
+    assert.equal(read('cat=shape').page, 'curves');
+    assert.equal(read('cat=structure').page, 'weight');
+    assert.equal(read('cat=style').page, 'style');
+    // what it doesn't know, or is left empty, it leaves out
+    assert.deepEqual(read('cat=nope&active=nope&style=&hot=&mode=paragraph'),
+      { style: undefined, text: undefined, page: undefined, active: undefined, hot: false, inspect: undefined, pen: false });
+  });
+
   it('files each setting where its name says it belongs', () => {
     // a crossbar's height is one of the heights; mirroring turns letters round, like rotation
     assert.equal(CONTROLS.crossbar.cat, 'heights');
@@ -90,5 +111,25 @@ describe('editor pages', () => {
     assert.equal(controlFor('serifTipSlant'), 'serifTip');
     assert.equal(controlFor('serifCup'), 'serifBase');
     assert.equal(controlFor('serifInnerSize'), 'serifInner');
+  });
+
+  it('places every nested slider in the control panel', () => {
+    // a nested slider shows only where the panel places it: under its control as a whole map (NESTED in
+    // panel/ControlsPanel.tsx; the fill, serif inside, stencil and slice controls), as the finer shape of a form
+    // or kind picked (stroke ends, serifs, serif tips), or by name (panel/ShapeControls.tsx, SliderControl.tsx)
+    const placed = new Set<string>([
+      ...[FILL_SUBS, SERIF_INNER_SUBS, STENCIL_SUBS, SLICE_SUBS, WEIGHT_SUBS, ROUND_SUBS, PINCH_SUBS, SERIF_ARM_SUBS].flatMap(m => Object.keys(m)),
+      ...[TERMINAL_DETAILS, SERIF_DETAILS, SERIF_TIP_DETAILS].flatMap(m => Object.values(m).flat()),
+      ...SERIF_SIZES, 'terminalLength', 'terminalCurl', 'serifCup', 'dotSize', 'boxRound', 'barGap'
+    ]);
+    for (const k of Object.keys(SUBS)) assert.ok(placed.has(k), `${k} is placed nowhere in the panel`);
+  });
+
+  it('names each part of a letter a control shapes, and the control is a real one', () => {
+    // the explainer titles a part pointed at by its ANATOMY entry; a join, grabbed by its handle, has none (see PART_CONTROL)
+    for (const [part, k] of Object.entries(PART_CONTROL)) {
+      assert.ok(k! in CONTROLS, `${part}: ${k}`);
+      if (part !== 'join') assert.ok(ANATOMY[part], part);
+    }
   });
 });

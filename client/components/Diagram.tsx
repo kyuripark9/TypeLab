@@ -2,12 +2,14 @@
    the demo letters, the affected part highlighted, and a measurement or guide. */
 import type { ReactNode } from 'react';
 import { CONTROLS, FORM_OPTIONS, controlFor, type ActiveKey, type FormKey } from '../../shared/content';
-import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, serifCup, serifSides, signedArea, termSpec, type Font, type LineItem, type Pt } from '../../shared/engine';
+import { CIRCLE_K, RING_KEYS, SLANT_PIVOT, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, serifCup, serifSides, signedArea, termSpec, type Font, type LineItem, type Pt } from '../../shared/engine';
 import { DEFAULTS, TERMINAL_FORMS, type BarEnds, type Fill, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 
 /** The explainer figure's size, in px. */
 const W = 340, H = 178;
+/** The x-height of the letters drawn as option icons: a tall lowercase, so the a fills the icon. */
+const ICON_XH = 0.871;
 
 export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
   // the control the active key belongs to, whose demo and parts the figure shows (for Horizontals, Weight's, where
@@ -84,7 +86,7 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
     if (k === 'slant') {
       const cx = it0.x + g0.adv / 2, y0 = -70, y1 = m.cap + 90;
       over.push(<line key="a0" className="d-axis ghost" x1={X(cx)} x2={X(cx)} y1={Y(y0)} y2={Y(y1)} />);
-      over.push(<line key="a1" className="d-axis" x1={X(cx + m.slant * (y0 - m.xh * 0.4))} x2={X(cx + m.slant * (y1 - m.xh * 0.4))} y1={Y(y0)} y2={Y(y1)} />);
+      over.push(<line key="a1" className="d-axis" x1={X(cx + m.slant * (y0 - m.xh * SLANT_PIVOT))} x2={X(cx + m.slant * (y1 - m.xh * SLANT_PIVOT))} y1={Y(y0)} y2={Y(y1)} />);
     }
   }
 
@@ -119,7 +121,7 @@ const terminalPaths = new Map<string, { d: string; box: string }>();
 /** A stroke end of `kind`, in its `form` when given (else the kind's first), drawn by the stroke expander. */
 export function TerminalIcon({ kind, form }: { kind: Terminal; form?: TerminalForm }) {
   const icon = cached(terminalPaths, `${kind}:${form ?? ''}`, () => {
-    const ctx = { thick: 64, thin: 58, stress: 0, k: 0.5523, org: 0, terminal: kind, term: termSpec({ ...DEFAULTS, terminal: kind, terminalForm: form ?? TERMINAL_FORMS[kind][0] }) };
+    const ctx = { thick: 64, thin: 58, stress: 0, k: CIRCLE_K, org: 0, terminal: kind, term: termSpec({ ...DEFAULTS, terminal: kind, terminalForm: form ?? TERMINAL_FORMS[kind][0] }) };
     const ex = expandStroke([['M', -40, -46], ['C', 60, -46, 130, -10, 172, 46]], { s: 'join', e: 'term' }, ctx);
     // the usual frame, grown to take in a drop that reaches past it
     let x1 = 226, y0 = -100, y1 = 90;
@@ -137,7 +139,7 @@ export function SerifIcon({ shape, tip = 'square', cupped = false, view = 'foot'
     // the closer views draw a heavier serif, so its finish reads at this size
     const th = serifTh(shape, view === 'foot' ? 22 : 30);
     const serif = { len: 62, th, shape, angle: 0.15, tip, tipRound: 0.5, tipSlant: 0.6, cup: cupped ? 1 : 0 }, cup = serifCup(serif);
-    const ctx = { thick: 56, thin: 40, stress: 0, k: 0.5523, org: 0, terminal: 'flat', serif };
+    const ctx = { thick: 56, thin: 40, stress: 0, k: CIRCLE_K, org: 0, terminal: 'flat', serif };
     const stem = [{ x: 72, y: 150 }, { x: 72, y: cup }, { x: 128, y: cup }, { x: 128, y: 150 }];
     const sf = buildSerif({ x: 100, y: cup, dx: 0, dy: -1, t: 56, type: 'flat' }, 'both', ctx, undefined, cup);
     return outlineD(stem) + (sf ? outlineD(sf) : '');
@@ -153,7 +155,7 @@ const serifSidePaths = new Map<string, string>();
 export function SerifSidesIcon({ shape, sides = 'both', inner = 'same', large = false }: { shape: SerifShape; sides?: SerifSide; inner?: SerifInner; large?: boolean }) {
   const d = cached(serifSidePaths, `${shape}:${sides}:${inner}`, () => {
     const serif = { len: 27, th: serifTh(shape, 15), shape, angle: 0.15, inner: inner === 'same' ? null : { shape: inner, th: serifTh(inner, 15), len: 1 } };
-    const ctx = { thick: 30, thin: 22, stress: 0, k: 0.5523, org: 0, terminal: 'flat', serif };
+    const ctx = { thick: 30, thin: 22, stress: 0, k: CIRCLE_K, org: 0, terminal: 'flat', serif };
     // the two stems hang from a bar, so they read as one letter with an inside
     let out = outlineD([{ x: 35, y: 150 }, { x: 35, y: 124 }, { x: 165, y: 124 }, { x: 165, y: 150 }]);
     for (const [x, inward] of [[50, 'b'], [150, 'a']] as const) {
@@ -170,7 +172,7 @@ export function SerifSidesIcon({ shape, sides = 'both', inner = 'same', large = 
 const fillPaths = new Map<Fill, { d: string; w: number }>();
 export function FillIcon({ fill }: { fill: Fill }) {
   const icon = cached(fillPaths, fill, () => {
-    const g = buildFont({ ...DEFAULTS, weight: 0.72, xHeight: 0.871, counter: 0.6, fill, module: fill === 'wire' ? 0.4 : fill === 'shadow' ? 0.3 : 0.62 }).glyph('a');
+    const g = buildFont({ ...DEFAULTS, weight: 0.72, xHeight: ICON_XH, counter: 0.6, fill, module: fill === 'wire' ? 0.4 : fill === 'shadow' ? 0.3 : 0.62 }).glyph('a');
     return { d: g?.d ?? '', w: g?.adv ?? 500 };
   });
   return <svg viewBox={`0 -620 ${n1(icon.w)} 680`} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
@@ -180,7 +182,7 @@ export function FillIcon({ fill }: { fill: Fill }) {
 const storyPaths = new Map<Story, { d: string; w: number }>();
 export function StoryIcon({ story }: { story: Story }) {
   const icon = cached(storyPaths, story, () => {
-    const g = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: 0.871, story }).glyph('a');
+    const g = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, story }).glyph('a');
     return { d: g?.d ?? '', w: g?.adv ?? 500 };
   });
   return <svg viewBox={`0 -620 ${n1(icon.w)} 680`} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
@@ -212,7 +214,7 @@ export function FormIcon({ k, id }: { k: FormKey; id: string }) {
   const icon = cached(formPaths, `${k}:${id}`, () => {
     // (flourishes are written on the script letters, and reach well past the letter: framed whole)
     const swash = k === 'flourish';
-    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: 0.871, ...(swash ? { scriptForm: 'script', weight: 0.5, xHeight: 0.4, swell: 0.5 } : {}), [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
+    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, ...(swash ? { scriptForm: 'script', weight: 0.5, xHeight: 0.4, swell: 0.5 } : {}), [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
     return { d: g?.d ?? '', box: swash && g ? framed(g.d) : `0 ${n1(-f.m.asc - 30)} ${n1(g?.adv ?? 500)} ${n1(f.m.asc - f.m.desc + 60)}` };
   });
   return <svg viewBox={icon.box} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;

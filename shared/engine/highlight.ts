@@ -1,12 +1,13 @@
 /* Highlight layers: the part of a glyph a setting shapes (its stems, crossbars, ends, serifs...), as
    SVG path data, for the explainer and the inspector to light up. */
+import type { ControlKey } from '../params';
 import { cmdsToD, ringsD } from './geom';
 import type { Glyph, GlyphStroke, Metrics } from './font';
 import type { MarkType } from './types';
 
 /** The settings that shape a few points of a letter (its stroke ends, peaks, corners...), lit as rings round
     the marks of these types, `min` in radius, or `stem` stems if that is more. */
-const RINGS = new Map<string, { types: MarkType[]; min: number; stem: number }>([
+const RINGS = new Map<ControlKey, { types: MarkType[]; min: number; stem: number }>([
   ['terminal', { types: ['terminal'], min: 26, stem: 0.62 }],
   ['aperture', { types: ['terminal'], min: 26, stem: 0.62 }],
   ['apex', { types: ['apex', 'vertex'], min: 30, stem: 0.7 }],
@@ -17,9 +18,9 @@ const RINGS = new Map<string, { types: MarkType[]; min: number; stem: number }>(
 ]);
 /** The settings highlighted as rings (see RINGS), which the preview, the inspector and the explainer outline
     rather than fill. */
-export const RING_KEYS: Record<string, true> = Object.fromEntries([...RINGS.keys()].map(k => [k, true as const]));
+export const RING_KEYS: Partial<Record<ControlKey, true>> = Object.fromEntries([...RINGS.keys()].map(k => [k, true as const]));
 
-export function highlightD(g: Glyph, key: string, m: Metrics): string {
+export function highlightD(g: Glyph, key: ControlKey, m: Metrics): string {
   const strokes = (f: (s: GlyphStroke) => boolean | undefined) => g.strokes.filter(f).map(s => cmdsToD(s.cmds)).join('');
   const ring = RINGS.get(key);
   if (ring) return ringsD(g.marks.filter(k => ring.types.includes(k.type)), Math.max(ring.min, m.s * ring.stem));
