@@ -13,6 +13,7 @@ preview (`shared/engine`).
 | `google.ts` | Google sign-in (authorization code with PKCE, no library); `googleFromEnv` |
 | `free-fonts.ts` | `FreeFonts`: fetching, converting and keeping free fonts; `keptFile` |
 | `export.ts` | `buildOTF`, `buildFamilyZip`, `buildSpecimenSVG`, `exportName` |
+| `opentype.ts` | opentype.js as one module: it is CommonJS, so under Node its API sits on the default export. Import it from here (the server and the tests do), not from `'opentype.js'` |
 
 ## API
 
@@ -64,8 +65,9 @@ add it here. `HttpError`s under 500 send their message; anything else is logged 
   asked on, and must be the same at both ends. Signing in goes to the account Google is connected to, else the one
   with its email, connecting it (a password account nobody has verified loses its password and its other sessions
   first), else a new account without a password. The popup posts `{ type: 'google', result }` on the
-  BroadcastChannel `'typelab-auth'`; the full-page fallback carries the result in `?google=`. The client reads both
-  names literally.
+  BroadcastChannel `AUTH_CHANNEL` (`'typelab-auth'`); the full-page fallback carries the result in
+  `?GOOGLE_RESULT_PARAM=` (`?google=`). Both names live in `shared/account.ts`, which the server and the client
+  (`client/state/auth.ts`, `client/lib/api.ts`) import, with `GoogleIntent`.
 
 ## Database compatibility
 

@@ -80,8 +80,9 @@ A formula or constant two files need lives once and both import it. `metrics()`'
 `font.ts`: `serifLen`, `counterScale`, `roundnessR`, `innerRoundR`, `stencilOff`, `bowlK`, `bowlOrg`, `dotRoundOf`,
 `cursiveHookR`, the constants `SERIF_SB`, `SLANT_PIVOT`, `CURSIVE_FORMS`, and the helpers `hasSerif`, `variantOf`,
 `scriptId`, `swashId`, `scriptForms`, `termSpec`, `quarterK`, `strokeWt`. Elsewhere: `geom.ts` (`inPoly`, `CIRCLE_K`,
-`MIN_ROUND`, `SAME_PT`), `shared/params/scales.ts` (`endId`, the id tests, `slantDeg`, `joinGap`, `barCut`,
-`endReach`), `stroke.ts` (`STEP_DEPTH`), `joins.ts` (`innerShare`), `glyphs/turns.ts` (`POINTED`, `peakPast`,
+`MIN_ROUND`, `SAME_PT`, `cmdsBox`, `toPolys`), `shared/params/scales.ts` (`endId`, `isPlainEnd`, the id tests,
+`slantDeg`, `rotationOf`, `weightUnscale` beside `weightScale`, `xHeightOfRatio` beside `xHeightRatio`, `joinGap`,
+`barCut`, `endReach`), `stroke.ts` (`STEP_DEPTH`), `joins.ts` (`innerShare`), `glyphs/turns.ts` (`POINTED`, `peakPast`,
 `peakCut`), `skin.ts` (`FORM_LETTERS`, `descK`), `restyle.ts` (`HOOK_LETTERS`, `OPEN_LETTERS`, `added`).
 
 Some code repeats or mirrors another's, because sharing would change results (a shared helper takes its sums in

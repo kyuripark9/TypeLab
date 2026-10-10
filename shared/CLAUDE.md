@@ -42,7 +42,9 @@ checks it), a `default`, and:
 - `sub`: a slider nested under control `parent`. `stencil` and `slice` are each a control and a sub of themselves:
   their Thickness slider shares the key.
 
-Read off it: `PARAM_KEYS`, `DEFAULTS` (frozen), `isGlyphKey`, `FREE_AT_KEYS`, `ID_KEYS`, and the types `ControlKey`,
+Read off it: `PARAM_KEYS`, `DEFAULTS` (frozen), `isGlyphKey`, `FREE_AT_KEYS`, `freeAtOf(p)` (the one way to record
+the settings a free font is picked at: the editor, tools/lib.ts, golden and the scan use it), `ID_KEYS` (`IdKey`),
+and the types `ControlKey`,
 `SubKey`, `SubKeyOf<P>`, `GlobalKey`, `FreeKey`, `NumericParam`; `content/controls.ts` reads `CONTROLS` and the subs.
 Order matters: a page shows its controls in `SPECS` order (a shape picker before the sliders that tune it, the
 optional ones after, advanced last). Nested sliders follow `SPECS` order only where the panel maps a whole `*_SUBS`
