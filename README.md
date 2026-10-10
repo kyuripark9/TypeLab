@@ -44,15 +44,21 @@ The sign-in dialog offers **Continue with Google** once the server has Google OA
    PUBLIC_URL=https://typelab.example.com
    ```
 
-Other scripts: `npm test` (engine and API tests), `npm run typecheck`.
+Other scripts: `npm test` (engine and API tests, and the golden outlines), `npm run typecheck`,
+`npm run render` (text in a design to a PNG, no browser needed), `npm run golden` / `golden:update`,
+`npm run sweep` (sliders that stop changing part way). No Node on the machine? `tools/node.sh npm test`
+fetches one into `.tools/`. See `tools/README.md`.
 
 ## Architecture
 
 ```
 client/   React 19 + TypeScript (Vite): the editor and the design library
 server/   Express 5 + TypeScript: REST API, SQLite storage, font export
-shared/   used by both sides: the font engine, parameter model, UI copy
-tests/    node:test suites for the engine and the API
+shared/   used by both sides: the font engine (engine/), the settings and their specs (params/),
+          starting styles, pages and UI copy (content/)
+tests/    node:test suites for the engine, the settings and the API, and the golden outlines
+tools/    command-line tools: render text to PNG, golden outlines, slider sweep, preset fitting,
+          free-font scan, browser checks, a Node bootstrap (see tools/README.md)
 ```
 
 One Node process serves everything. In development, Vite runs inside the Express server as
@@ -71,16 +77,19 @@ and builds exported fonts on the server. A full rebuild of every glyph takes abo
 
 | File | Role |
 | --- | --- |
-| `geom.ts` | Béziers, polygon clipping, corner rounding, SVG path output |
-| `stroke.ts` | Centerline → outline: pen-model contrast, terminals, joins, serifs |
-| `font.ts` | Params → metrics → glyphs; personality macros; text layout; highlight layers |
-| `glyphs.ts` | Parametric skeletons for A–Z, a–z, 0–9 and `.,!?;:'"()-/&@#$%+` |
-| `effects.ts` | Whole-outline effects: the slice cut, and the wireframe, pixel, dot and line fills |
+| `font.ts` | The hub: params → `resolve()` → metrics; the glyph table, the `Builder` glyphs draw on, and `buildFont` (letters on demand, layout) |
+| `glyphs.ts`, `script.ts`, `swash.ts` | Parametric skeletons for A–Z, a–z, 0–9 and the punctuation; script capitals and letters; swash letters |
+| `glyph.ts` | Building one letter: skeleton → wobble → ends → pen → stencil → corners and joins → serifs → placed with its spacing |
+| `stroke.ts` | Centerline → outline: pen-model contrast, terminals, serifs |
+| `ends.ts`, `corners.ts`, `joins.ts`, `stencil.ts`, `serif-sides.ts` | Stroke ends (length, curl, straight runs), corners and steps, inside-corner fillets, stencil gaps, which way serifs reach and cupped serifs |
+| `effects.ts`, `boolean.ts` | Whole-outline effects (the slice; the wireframe, pixel, dot, line, inline, outline and shadow fills), and the unions and cuts they need |
 | `blocks.ts` | Block letters: solid rounded blocks with their counters cut in as slots (*Built from: Blocks*) |
 | `outline.ts` | Letters drawn by hand with the pen: anchor points and bézier handles, and the curve fitting that traces a generated letter into them |
 | `grid.ts` | Construction grids: the lines and circles a letter is built on, and the groups of letters that share a grid |
-| `free.ts` | Free fonts' letters: a design written in one (*Ready-made* on the Style page) draws them as the font has them, once registered |
-| `skin.ts` | Free fonts' letters moved by the settings: each outline hung on its skeleton, which the settings move and thicken by the engine's own measures |
+| `free.ts`, `free-letters.ts` | Free fonts' letters: registered fonts, and a design's letters drawn from its free font (nearest weight, the twin for other forms) |
+| `skin.ts`, `scan.ts`, `restyle.ts` | Free fonts' letters moved by the settings: hung on their scanned skeletons and moved by the engine's own measures, then restyled where a setting asks for the engine's shapes |
+| `highlight.ts` | The part of a glyph a setting shapes, for the explainer and the inspector |
+| `geom.ts`, `types.ts` | Béziers, polygon clipping, corner rounding, SVG path output; shared types |
 
 Every starting style can also be written in a free font from Google Fonts (`shared/free-fonts.ts`
 names one per style; all are under the SIL Open Font License or Apache 2.0). The server fetches a font
@@ -141,8 +150,8 @@ inside curves, and the lowercase become small capitals.
 - `pages/EditorPage.tsx` (`/` and `/d/:id`), `pages/LibraryPage.tsx` (`/designs`) and
   `pages/AccountPage.tsx` (`/account`). `state/auth.ts` holds who's signed in and opens the sign-in
   dialog (`components/Account.tsx`) from any page.
-- The editor's pages are listed in `shared/content.ts` (`CATEGORIES`), and each control names the page it
-  is on. Structure, Proportion and Shape are groups: their pages (Weight & contrast, Heights, Corners,
+- The editor's pages are listed in `shared/content/pages.ts` (`CATEGORIES`), and each control names the page it
+  is on (its `control` in `shared/params/spec.ts`). Structure, Proportion and Shape are groups: their pages (Weight & contrast, Heights, Corners,
   Stroke ends, Serifs, Letters…) sit under them in the navigation. Pages run from the broadest settings
   to the finest, and a page shows its controls in the order they are listed in `CONTROLS`.
 
@@ -168,7 +177,7 @@ inside curves, and the lowercase become small capitals.
 | `GET` | `/api/health` | liveness check |
 
 Designs live in SQLite through Node's built-in `node:sqlite`, so there are no native modules to
-compile. Every parameter is validated on the server (`shared/params.ts`): numbers must be 0–1 and
+compile. Every parameter is validated on the server (`shared/params/`, each one against its spec): numbers must be 0–1 and
 options must be known values.
 
 Anyone can design and save without an account: designs saved signed out belong to the browser
