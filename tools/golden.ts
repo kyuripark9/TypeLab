@@ -42,6 +42,15 @@ function engineProbes(): [string, Params][] {
     for (const f of forms.slice(1)) out.push([`terminal=${t},terminalForm=${f}`, { ...DEFAULTS, terminal: t, terminalForm: f } as Params]);
   out.push(['glyphs', { ...DEFAULTS, glyphs: { a: { weight: 1, story: 'single' }, R: { rForm: 'loop', corners: { '0t0': 1 } }, e: { mirror: 'mirrored' } } }]);
   out.push(['blocks,weight=1,roundness=1', { ...DEFAULTS, build: 'blocks', weight: 1, roundness: 1 }]);
+  // the cuts on styles of other builds: stencil gaps, crossbar gaps and a letter's own join gaps clip strokes
+  // on slants (K k y), on serifs and on blackletter's diamonds, which the defaults alone don't reach
+  const joinGaps = { K: { joinGaps: { '1s': 1 } }, k: { joinGaps: { '1s': 1, '2s': 1 } }, y: { joinGaps: { '1s': 1 } }, A: { joinGaps: { '0t0': 1, '1s': 0.5 } } };
+  for (const id of ['modular', 'stadium', 'serif', 'didone', 'grotesque', 'slab', 'woodtype', 'industrial', 'typewriter', 'blackletter']) {
+    const st = STYLES.find(s => s.id === id)!.params;
+    out.push([`style:${id},stencil=0.4`, { ...st, stencil: 0.4 }]);
+    out.push([`style:${id},barGap=0.6,through`, { ...st, barGap: 0.6, barEnds: 'through' }]);
+    out.push([`style:${id},stencil=0.8,joinGaps`, { ...st, stencil: 0.8, stencilPos: 1, stencilRound: 1, glyphs: { ...st.glyphs, ...joinGaps } }]);
+  }
   return out;
 }
 
