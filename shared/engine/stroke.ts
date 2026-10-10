@@ -1,12 +1,30 @@
 /* Stroke expander.
-   A glyph is a set of skeleton strokes (centerlines). This module turns a centerline
-   into an outline polygon whose thickness follows the pen model: thick where the
-   stroke runs vertically, thin where it runs horizontally (scaled by Contrast),
-   with styled terminals, mitered joins and optional serifs. */
+   A glyph is a set of skeleton strokes (centerlines of M, L, C and hv/vh commands). This module turns a
+   centerline into an outline polygon whose thickness follows the pen model: thick where the stroke runs
+   vertically, thin where it runs horizontally (scaled by Contrast), with styled terminals, mitered joins
+   and optional serifs. In order:
+   1. flatten: the commands sampled into runs, each with a continuous tangent (Facets cut curves into
+      straight sides).
+   2. pen model: each sample's thickness by direction (stress, Contrast, reverse contrast) or as a pointed
+      pen presses (pressed, swell). Then terminals: the end cuts and drops cap() draws. Then sides: a
+      side's loops and backward spikes cut out (untangle) and its dents evened (evenSide).
+   3. expandStroke: the samples weighed (weighSamples: tapers, Ink traps, Pinch, Hand-drawn), both sides
+      offset and evened, mitred and rounded where runs meet (joinRuns, TurnR), and closed by the end caps
+      (capEnds).
+   4. serifs: buildSerif's profiles, cupped bases and blackletter diamonds.
+   Pure, importing only geom and types: buildGlyph (glyph.ts), restyle.ts and the client's diagrams
+   (Diagram.tsx) call it with a PenCtx of their own. */
 import { clamp, clipPoly, cubicAt, lerp, lerpP, quarter, smoothstep, subCubic } from './geom';
 import type { Cmd, EndType, HalfPlane, PenCtx, Pt, SerifSides, SerifSpec, StrokeEnd, StrokeOpts, StrokeWeight, TermSpec, TurnR } from './types';
 
 const CURVE_N = 16;
+/** A curve's own weight `w` takes over gradually, from none at either end to all of it 1/W_EASE of the way in
+    (a line takes it at once, and so does a curve marked `even` unless Facets cuts it). */
+const W_EASE = 3.2;
+/** Runs whose tangents meet at a cosine above this (under about 2°) carry on as one. */
+const SAME_TANGENT = 0.9994;
+/** The share of its weight a stroke keeps at full Ink traps, both where it runs into another and into a sharp turn. */
+const JOINT_THIN = 0.45;
 
 interface Sample {
   x: number; y: number; tx: number; ty: number;
@@ -86,7 +104,7 @@ function chamferSamples(P: Dir[], u0: number, u1: number, chamfer: number, w: nu
     for (let i = 0; i <= n; i++) {
       const u = lerp(a, b, i / n), p = at(u), p0 = at(Math.max(a, u - eps)), p1 = at(Math.min(b, u + eps));
       const dx = p1.x - p0.x, dy = p1.y - p0.y, l = Math.hypot(dx, dy) || 1, lu = (u - u0) / span;
-      seg.push({ x: p.x, y: p.y, tx: dx / l, ty: dy / l, w, mask: smoothstep(Math.min(lu, 1 - lu) * 3.2),
+      seg.push({ x: p.x, y: p.y, tx: dx / l, ty: dy / l, w, mask: smoothstep(Math.min(lu, 1 - lu) * W_EASE),
         smooth: i > 0 && i < n, len: 0, t: 0 });
     }
     out.push(seg);
@@ -103,7 +121,7 @@ function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
     const first = samples[0];
     if (run && run.length) {
       const last = run[run.length - 1];
-      if (last.tx * first.tx + last.ty * first.ty > 0.9994) { samples = samples.slice(1); last.smooth = true; }
+      if (last.tx * first.tx + last.ty * first.ty > SAME_TANGENT) { samples = samples.slice(1); last.smooth = true; }
       else { run = Object.assign([], { turn }); runs.push(run); }
     } else { run = []; runs.push(run); }
     for (const s of samples) run.push(s);
@@ -145,7 +163,7 @@ function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
     for (let i = 0; i <= n; i++) {
       const u = i / n, p = cubicAt(P, u);
       out.push({ x: p.x, y: p.y, tx: p.tx, ty: p.ty, w: o.w != null ? wNum(o.w) : null,
-        mask: o.even ? 1 : smoothstep(Math.min(u, 1 - u) * 3.2), smooth: i > 0 && i < n, len: 0, t: 0 });
+        mask: o.even ? 1 : smoothstep(Math.min(u, 1 - u) * W_EASE), smooth: i > 0 && i < n, len: 0, t: 0 });
     }
     push(out, o.turn); cur = P[3];
   }
@@ -154,7 +172,7 @@ function flatten(cmds: Cmd[], ctx: PenCtx, subdivLines: boolean) {
 
 /** How much of its weight a stroke keeps at height y under a pinch (see PenCtx). A hairline at the
     line itself, so the two sides never cross. */
-export const pinchAt = (pc: NonNullable<PenCtx['pinch']>, y: number) =>
+const pinchAt = (pc: NonNullable<PenCtx['pinch']>, y: number) =>
   Math.max(0.012, 1 - pc.amount * (1 - Math.min(1, Math.abs(y - pc.y) / pc.reach)));
 
 /* ---- 2. pen model */
@@ -163,10 +181,10 @@ export function autoThickness(tx: number, ty: number, ctx: PenCtx, thick: number
   const th = Math.atan2(ty, tx);
   // |sin| comes to a sharp V where the stroke is thinnest, which dents the outline there (the top
   // and bottom of a bowl) and draws its counter to a point: its bottom is eased round instead,
-  // keeping the weight elsewhere much as |sin|^1.15 had it
+  // keeping the weight elsewhere close to |sin|^1.15
   const a = clamp(Math.abs(Math.sin(th - ctx.stress)) / Math.cos(ctx.stress));
   let v = (Math.hypot(a, SOFT) - SOFT) / (Math.hypot(1, SOFT) - SOFT);
-  // reversed, the weight follows cos²: flat at the heavy horizontals and, unlike a plain cosine,
+  // reversed, the weight follows |cos|^2.3: flat at the heavy horizontals and, unlike a plain cosine,
   // without a sharp dip where tight curves turn vertical
   if (ctx.reverse) v = lerp(v, Math.abs(Math.cos(th - ctx.stress)) ** 2.3, ctx.reverse);
   return thin + (thick - thin) * v;
@@ -174,7 +192,7 @@ export function autoThickness(tx: number, ty: number, ctx: PenCtx, thick: number
 
 /** The weight of a pointed pen or brush running down at `-ty` (the way it runs, y up, before any slant):
     a hairline going up or across, swelling as it presses down to the full weight straight down. */
-export function pressed(ty: number, thick: number, thin: number) {
+function pressed(ty: number, thick: number, thin: number) {
   return thin + (thick - thin) * smoothstep((-ty - 0.1) / 0.8);
 }
 
@@ -182,7 +200,7 @@ export function pressed(ty: number, thick: number, thin: number) {
     hairline no faster than over `reach` of the stroke, either way along it, so a downstroke starts from a
     point, swells full and gives up its weight before it turns, as a nib opens and closes under the hand.
     The rise is steep at first and eases into the full weight, so a shade's sides bow out like a leaf. */
-function swell(all: Sample[], w: number[], reach: number, thin: number, thick: number) {
+function swell(all: Sample[], w: number[], reach: number, thick: number, thin: number) {
   const span = thick - thin;
   if (reach <= 0 || span <= 0) return;
   // the pen sets down and lifts off on a hairline: a stroke starting straight into a downstroke (the top
@@ -200,6 +218,7 @@ function swell(all: Sample[], w: number[], reach: number, thin: number, thick: n
   }
 }
 
+/* ---- terminals: the cuts, drops and points cap() draws on a stroke's ends */
 /* Cut one side of a stroke end off along a line through p, level ('h') or plumb ('v'), turned
    counterclockwise by `tilt` radians. */
 function cutSide(side: Pt[], p: Dir, d: Dir, axis: 'h' | 'v', t: number, tilt = 0) {
@@ -232,8 +251,8 @@ function cutAt(side: Pt[], p: Dir, d: Dir, out: Dir, t: number) {
    on its curve), and is as big as the letter's stems make it, not the hairline it ends: the inner edge
    runs onto it. The stroke is drawn shorter by dropBack, so the drop reaches only a little past where
    it would have ended. */
-const dropR = (T: TermSpec, t: number, stem = t) => Math.max(T.size * t, t * 0.525, T.size * 0.55 * stem);
-const dropK = (T: TermSpec, t: number, stem = t) => (T.form === 'ball' ? 0.35 : 0.9) * dropR(T, t, stem);
+const dropR = (T: TermSpec, t: number, stem: number) => Math.max(T.size * t, t * 0.525, T.size * 0.55 * stem);
+const dropK = (T: TermSpec, t: number, stem: number) => (T.form === 'ball' ? 0.35 : 0.9) * dropR(T, t, stem);
 const dropBack = (T: TermSpec, t: number, stem = t) => dropK(T, t, stem) + (T.form === 'ball' ? 0.6 : 0.5) * dropR(T, t, stem);
 /** Whether a stroke heading d runs level enough for a drop to leave its end plain, as a bar's. */
 const levelDir = (d: Dir) => Math.abs(d.y) < 0.35 * Math.hypot(d.x, d.y);
@@ -243,7 +262,7 @@ const straightInto = (a: Sample, b: Sample) => Math.abs(a.tx * b.ty - a.ty * b.t
 const lowEnd = (p: Dir, ctx: PenCtx) => ctx.dropLow !== undefined && p.y > 0 && p.y < ctx.dropLow;
 /* The drop's outline on an end at p heading d, from a (A's edge) round to b (B's); A is the outer edge
    when outerIsA. */
-function drop(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, T: TermSpec, outerIsA: boolean, stem = t): Pt[] {
+function drop(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, T: TermSpec, outerIsA: boolean, stem: number): Pt[] {
   const R = dropR(T, t, stem), k = dropK(T, t, stem), side = (outerIsA ? -1 : 1) * Math.max(0, R - t / 2);
   // (A lies to the left of d: the centre moves away from the outer edge, toward the inside)
   const c = { x: p.x + d.x * k - d.y * side, y: p.y + d.y * k + d.x * side };
@@ -302,13 +321,14 @@ function trimRuns(runs: Sample[][], total: number, back: number, atStart: boolea
 }
 
 /* A is the side to the left of the outward direction d, B to the right. Returns points
-   inserted between the two tails. */
+   inserted between the two tails, and may move, replace or drop the points at each side's end. squareEnd lists the
+   cases here that end square across: keep the two in step. */
 function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: PenCtx, outerIsA: boolean, straight = false): Pt[] {
   const a = A[A.length - 1], b = B[B.length - 1];
   if (type === 'join') { a.sharp = b.sharp = true; a.smooth = b.smooth = false; return []; }
   if (type === 'h' || type === 'v') { cutSide(A, p, d, type, t); cutSide(B, p, d, type, t); return []; }
-  if (type !== 'term') { a.smooth = b.smooth = false; return []; }
   a.smooth = b.smooth = false;
+  if (type !== 'term') return [];
   const T = ctx.term ?? TERM;
   switch (ctx.terminal) {
     case 'flat': {
@@ -364,7 +384,8 @@ export const termCap = (A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, ctx: PenCtx
 /** How much shorter a stroke is drawn under a drop on its end (see drop), for an end t thick. */
 export const termDropBack = (T: TermSpec, t: number) => dropBack(T, t);
 
-/** Whether an end of this type is drawn square across, with two corners of its own to round. */
+/** Whether an end of this type is drawn square across, with two corners of its own to round (corners.ts
+    rounds them). Keep in step with cap(): a terminal form added there that ends square belongs here too. */
 function squareEnd(type: EndType, ctx: PenCtx) {
   if (type === 'flat' || type === 'h' || type === 'v') return true;
   if (type !== 'term') return false;
@@ -372,6 +393,7 @@ function squareEnd(type: EndType, ctx: PenCtx) {
   return (ctx.terminal === 'flat' && form !== 'scooped') || ctx.terminal === 'angled' || (ctx.terminal === 'cut' && form !== 'notched');
 }
 
+/* ---- sides: an offset side's loops, spikes and dents cleaned out */
 /** Where segments ab and cd cross, if they do. */
 function crossing(a: Dir, b: Dir, c: Dir, d: Dir): Dir | null {
   const rx = b.x - a.x, ry = b.y - a.y, sx = d.x - c.x, sy = d.y - c.y, den = rx * sy - ry * sx;
@@ -522,54 +544,37 @@ function evenSide(side: Pt[], run: Sample[], ease: boolean): Pt[] {
 }
 
 export interface Expanded {
+  /** the outline: one closed contour, or for a ring (`loop`) its two sides as two rings */
   contours: Pt[][];
+  /** whether the stroke is a closed ring (an o), with no ends */
   loop: boolean;
+  /** the stroke's own start and end: where each is, the way out of the stroke there, how thick it is and how it ends */
   ends: StrokeEnd[];
   /** the two corners of each end drawn square across (flat or cut, not rounded, pointed or tapered):
-      the outline's own points, 'l' left of the way out of the stroke and 'r' right of it */
+      the outline's own points, 'l' left of the way out of the stroke and 'r' right of it. They are the very
+      Pt objects in contours[0] (corners.ts finds them with poly.includes), so they are taken only after
+      cap() has drawn the end, which can replace a side's last point, and never copied */
   endCorners: { which: 's' | 'e'; side: 'l' | 'r'; pt: Pt }[];
+  /** the centerline's samples, run by run, the whole stroke even where a drop covers its end */
   skeleton: Pt[][];
+  /** whether any of the stroke's commands is a curve */
   curved: boolean;
+  /** the stroke's thickness at each point of skeleton.flat(), index for index (stencil.ts relies on it) */
   thickness: number[];
 }
 
 /* ---- 3. expand one stroke */
-export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded | null {
-  const sc = o.scale || 1;
-  // Horizontals can outweigh Verticals, so the thin stroke may be the heavier one
-  const thick = ctx.thick * sc, thin = ctx.thin * sc;
-  let ws = o.ws == null ? 1 : o.ws, we = o.we == null ? 1 : o.we;
-  const T = ctx.term ?? TERM, tapers = ctx.terminal === 'tapered';
-  if (tapers) {
-    if (o.s === 'term') ws = Math.min(ws, T.tip);
-    if (o.e === 'term') we = Math.min(we, T.tip);
-  } else if (ctx.terminal === 'flat' && T.form === 'flared') {
-    if (o.s === 'term') ws *= T.flare;
-    if (o.e === 'term') we *= T.flare;
-  }
-  // thin joints: a stroke narrows where it runs into another, opening up the crotch
-  let js = 1, je = 1;
-  if (ctx.joints) {
-    // never past half: where two strokes overlap (the waist of B) each keeps its shared half
-    const f = lerp(1, 0.45, ctx.joints);
-    if (o.s === 'join') js = f;
-    if (o.e === 'join') je = f;
-  }
-  // (thin joints also thin a stroke into its sharp turns, so it is sampled finely enough to show it)
-  // (and so is a stroke a wobbling pen draws, so its pressure runs on along straights as along curves)
-  // (and so is a pointed pen that swells, so its weight rises evenly along a straight downstroke)
-  const swells = o.pen === 'pointed' && !!ctx.swell;
-  const tapered = ws !== 1 || we !== 1 || js !== 1 || je !== 1 || !!ctx.joints || !!ctx.wobble || swells;
-  const { runs, closed } = flatten(cmds, ctx, tapered);
-  if (!runs.length) return null;
+/** The length of a run along the centerline. */
+const runLen = (r: Sample[]) => r[r.length - 1].len - r[0].len;
 
-  // arclength for tapers
-  let total = 0; const all: Sample[] = [];
-  runs.forEach(r => r.forEach(s => {
-    const prev = all[all.length - 1];
-    if (prev) total += Math.hypot(s.x - prev.x, s.y - prev.y);
-    s.len = total; all.push(s);
-  }));
+/** Each sample's thickness `t` along a stroke `thick` at its heaviest and `thin` at its lightest, with `off`, its
+    outline's sideways shift, and `shaped` where it is thinned or thickened on purpose: by the pen model, then
+    toward its ends (`ws`/`we`, thinned by tapers or thickened by flares; `js`/`je`, thinned by Ink traps where it
+    runs into another stroke), lifted off by a brush, drawn in by a Pinch, varied by a wobbling pen, and under Ink
+    traps thinned into its own sharp turns. `all` is every sample of `runs` in order, `len` measured along the
+    stroke, `total` long in all. */
+function weighSamples(runs: Run[], all: Sample[], total: number, o: StrokeOpts, ctx: PenCtx, thick: number, thin: number, { ws, we, js, je }: { ws: number; we: number; js: number; je: number }) {
+  const T = ctx.term ?? TERM, tapers = ctx.terminal === 'tapered';
   const taperLen = Math.max(1, Math.min(total * 0.45, thick * 3));
   // a tapered terminal thins over its own length, and a long one may run most of the way along
   const termLen = tapers ? Math.max(1, Math.min(total * Math.min(0.85, 0.15 * T.taper), thick * T.taper)) : taperLen;
@@ -587,10 +592,10 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   // explicit weights name the thick or thin stroke of a pair, so reverse contrast swaps them
   const rev = (w: number) => ctx.reverse ? lerp(w, 1 - w, ctx.reverse) : w;
   const pathW = o.w == null ? null : rev(wNum(o.w));
-  const pen = o.pen === 'pointed' ? all.map(s => pressed(s.ty, thick, thin)) : null;
-  if (pen && swells) swell(all, pen, ctx.swell! * 4.5 * thick, thin, thick);
+  const pressedW = o.pen === 'pointed' ? all.map(s => pressed(s.ty, thick, thin)) : null;
+  if (pressedW && ctx.swell) swell(all, pressedW, ctx.swell * 4.5 * thick, thick, thin);
   for (const [i, s] of all.entries()) {
-    let t = pen ? pen[i] : autoThickness(s.tx, s.ty, ctx, thick, thin);
+    let t = pressedW ? pressedW[i] : autoThickness(s.tx, s.ty, ctx, thick, thin);
     if (pathW != null) t = lerp(thin, thick, pathW);
     if (s.w != null) t = lerp(t, lerp(thin, thick, rev(s.w)), s.mask);
     let f = 1;
@@ -622,7 +627,7 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
   // a sharp turn is a join too (the point of a V, the vertices of a W or an M): the stroke thins into
   // it from both sides, keeping its outer edge, so the crotch inside opens up like an ink trap
   if (ctx.joints) {
-    const f = lerp(1, 0.45, ctx.joints);
+    const f = lerp(1, JOINT_THIN, ctx.joints);
     for (let i = 0; i + 1 < runs.length; i++) {
       const ra = runs[i], rb = runs[i + 1], sa = ra[ra.length - 1], sb = rb[0];
       if (sa.tx * sb.tx + sa.ty * sb.ty > -0.2) continue;
@@ -638,46 +643,19 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
       }
     }
   }
+}
 
-  // the skeleton is the whole stroke, even where a drop covers its end
-  const skeleton = runs.map(r => r.map(s => ({ x: s.x, y: s.y })));
-  // a drop sits on the end it finishes: draw the stroke that much shorter under it
-  if (ctx.terminal === 'round' && (T.form === 'droplet' || T.form === 'ball')) {
-    const s0 = all[0], s1 = all[all.length - 1];
-    const plain = (s: Sample, near: Sample, d: Dir) => lowEnd(s, ctx) || (straightInto(near, s) && levelDir(d));
-    if (o.e === 'term' && !plain(s1, all[Math.max(0, all.length - 5)], { x: s1.tx, y: s1.ty })) trimRuns(runs, total, Math.min(dropBack(T, s1.t, ctx.thick), total * 0.4), false);
-    if (o.s === 'term' && !plain(s0, all[Math.min(all.length - 1, 4)], { x: s0.tx, y: s0.ty }) && runs.length) trimRuns(runs, total, Math.min(dropBack(T, s0.t, ctx.thick), total * 0.4), true);
-    if (!runs.length) return null;
-  }
-
-  const sideOf = (s: Sample, sg: number): Pt => {
-    const d = sg * s.t / 2 + (s.off || 0);
-    return { x: s.x - s.ty * d, y: s.y + s.tx * d, smooth: s.smooth };
-  };
-  // a ring in one piece (an o) starts at the top, where it is thinnest and its outline most
-  // likely to dent: its sides are evened out starting from its thickest point instead
-  const whole = runs.length === 1 && closed && Math.hypot(all[0].x - all[all.length - 1].x, all[0].y - all[all.length - 1].y) < 0.5;
-  const turned = (r: Sample[]) => {
-    if (!whole) return r;
-    // (the last sample closes the ring on the first, so it isn't a place to start from)
-    const body = r.slice(0, -1);
-    let k = 0;
-    body.forEach((s, i) => { if (s.t > body[k].t) k = i; });
-    return [...body.slice(k), ...body.slice(0, k), body[k]].map((s, i, a) => ({ ...s, smooth: i > 0 && i < a.length - 1 }));
-  };
-  const sidesOf = (sg: number) => runs.map(r => { const q = turned(r); return evenSide(q.map(s => sideOf(s, sg)), q, !ctx.pinch) as (Pt | null)[]; });
-  const Lr = sidesOf(1), Rr = sidesOf(-1);
-  const curved = cmds.some(c => c[0] === 'C' || c[0] === 'hv' || c[0] === 'vh');
-
-  // joins between runs. A turn given radii always mitres, and rounds its outside and inside by them
+/** Join the sides of each run (`Lr` left, `Rr` right) to the next run's, and round a ring (`isLoop`) the last
+    run's to the first's: where two runs meet, the earlier side's last point moves to where the two sides cross
+    (rounded by the turn's radii, stepped, or left sharp) and the later side's first point goes (set to null),
+    unless that crossing lies past the miter limit outside or back past most of either run inside. */
+function joinRuns(runs: Run[], Lr: (Pt | null)[][], Rr: (Pt | null)[][], isLoop: boolean, o: StrokeOpts) {
+  // the miter limit: a turn given radii always mitres, and rounds its outside and inside by them
   const limit = o.miter || 5;
-  // a closed path is a ring: two contours, no ends
-  const isLoop = closed && Math.hypot(all[0].x - all[all.length - 1].x, all[0].y - all[all.length - 1].y) < 0.5;
-  const runLen = (r: Sample[]) => r[r.length - 1].len - r[0].len;
   /** The length of run k and the runs carrying straight on from it, back (-1) or forward (+1),
       round a ring, and how much of it the turn at its far end takes up on its centerline: where the
       side ends the stroke, a stroke's width, so the round doesn't reach into the stroke it starts from. */
-  const straight = (k: number, dir: -1 | 1) => {
+  const straightRun = (k: number, dir: -1 | 1) => {
     const N = runs.length;
     let n = runLen(runs[k]), a = k;
     for (let step = 1; step < N; step++) {
@@ -698,14 +676,14 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     const ra = runs[i], rb = runs[j], sa = ra[ra.length - 1], sb = rb[0], turn = (rb as Run).turn;
     const cross = sa.tx * sb.ty - sa.ty * sb.tx;
     if (Math.abs(cross) < 1e-3) return;
-    const lenA = ra[ra.length - 1].len - ra[0].len, lenB = rb[rb.length - 1].len - rb[0].len;
+    const lenA = runLen(ra), lenB = runLen(rb);
     // a turn rounds on its centerline as far along its sides as the turns at their other ends leave
     // it: rounded further, its outside and inside ease off together, keeping the stroke across the
     // corner as thick
     let ro = 0, ri = 0;
     if (turn) {
       const cos = sa.tx * sb.tx + sa.ty * sb.ty, t = (sa.t + sb.t) / 2, tanH = Math.sqrt(Math.max(0, (1 - cos) / (1 + cos)));
-      ro = Math.min(turn.o, Math.min(room(straight(i, -1)), room(straight(j, 1))) / Math.max(tanH, 1e-3) + t / 2);
+      ro = Math.min(turn.o, Math.min(room(straightRun(i, -1)), room(straightRun(j, 1))) / Math.max(tanH, 1e-3) + t / 2);
       ri = Math.max(turn.i - (turn.o - ro), innerFloor(ro, t, cos));
     }
     for (const sides of [Lr, Rr]) {
@@ -726,29 +704,24 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     }
   };
   for (let i = 0; i + 1 < runs.length; i++) join(i, i + 1);
-
   // a ring's cut corners split it into several runs, so the last run is mitered into the first
   // like any other join
-  if (isLoop) {
-    if (runs.length > 1) join(runs.length - 1, 0);
-    const ring = (sides: (Pt | null)[][]) => {
-      const pts = sides.flat().filter((p): p is Pt => !!p), a = pts[0], b = pts[pts.length - 1];
-      if (pts.length > 1 && Math.hypot(a.x - b.x, a.y - b.y) < 0.5) pts.pop();
-      if (runs.length === 1) pts.forEach(p => p.smooth = true);
-      return pts;
-    };
-    return { contours: [ring(Lr), ring(Rr)], loop: true, ends: [], endCorners: [], skeleton, curved, thickness: all.map(s => s.t) };
-  }
+  if (isLoop && runs.length > 1) join(runs.length - 1, 0);
+}
 
+/** An open stroke's outline: its joined sides (`Lr`, `Rr`) untangled and closed by the caps on its ends, with
+    the stroke's own ends (`all` is every sample, before a drop trims `runs`) and the corners of the ends drawn
+    square across. */
+function capEnds(runs: Run[], all: Sample[], Lr: (Pt | null)[][], Rr: (Pt | null)[][], o: StrokeOpts, ctx: PenCtx) {
   const reach = Math.max(...all.map(s => s.t)) * 1.5;
   const L = untangle(Lr.flat().filter((p): p is Pt => !!p), reach, 1), R = untangle(Rr.flat().filter((p): p is Pt => !!p), reach, -1);
 
   const lastRun = runs[runs.length - 1], firstRun = runs[0];
   // the stroke's own ends, and where its outline ends (short of them under a drop)
   const s0 = all[0], s1 = all[all.length - 1], first = firstRun[0], last = lastRun[lastRun.length - 1];
-  const turn = (a: Sample, b: Sample) => a.tx * b.ty - a.ty * b.tx;
-  const endTurn = turn(lastRun[Math.max(0, lastRun.length - 5)], last);
-  const startTurn = turn(first, firstRun[Math.min(firstRun.length - 1, 4)]);
+  const bendAt = (a: Sample, b: Sample) => a.tx * b.ty - a.ty * b.tx;
+  const endTurn = bendAt(lastRun[Math.max(0, lastRun.length - 5)], last);
+  const startTurn = bendAt(first, firstRun[Math.min(firstRun.length - 1, 4)]);
   const pickA = (tn: number, aIsLeft: boolean, A: Pt[], B: Pt[]) => {
     if (Math.abs(tn) > 1e-3) return (tn > 0) !== aIsLeft; // turning left => outer is right side
     const a = A[A.length - 1], b = B[B.length - 1];
@@ -767,9 +740,96 @@ export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded 
     { x: s0.x, y: s0.y, dx: -s0.tx, dy: -s0.ty, t: s0.t, type: o.s || 'flat', which: 's' },
     { x: s1.x, y: s1.y, dx: s1.tx, dy: s1.ty, t: s1.t, type: o.e || 'flat', which: 'e' }
   ];
+  return { contour, ends, endCorners };
+}
+
+export function expandStroke(cmds: Cmd[], o: StrokeOpts, ctx: PenCtx): Expanded | null {
+  const sc = o.scale || 1;
+  // Horizontals can outweigh Verticals, so the thin stroke may be the heavier one
+  const thick = ctx.thick * sc, thin = ctx.thin * sc;
+  let ws = o.ws == null ? 1 : o.ws, we = o.we == null ? 1 : o.we;
+  const T = ctx.term ?? TERM, tapers = ctx.terminal === 'tapered';
+  if (tapers) {
+    if (o.s === 'term') ws = Math.min(ws, T.tip);
+    if (o.e === 'term') we = Math.min(we, T.tip);
+  } else if (ctx.terminal === 'flat' && T.form === 'flared') {
+    if (o.s === 'term') ws *= T.flare;
+    if (o.e === 'term') we *= T.flare;
+  }
+  // thin joints: a stroke narrows where it runs into another, opening up the crotch
+  let js = 1, je = 1;
+  if (ctx.joints) {
+    // never past half: where two strokes overlap (the waist of B) each keeps its shared half
+    const f = lerp(1, JOINT_THIN, ctx.joints);
+    if (o.s === 'join') js = f;
+    if (o.e === 'join') je = f;
+  }
+  // straight lines are sampled finely wherever the weight changes along them: tapers and flares, thin
+  // joints (which also thin a stroke into its sharp turns, so it is sampled finely enough to show it), a
+  // wobbling pen (so its pressure runs on along straights as along curves), and a pointed pen that swells
+  // (so its weight rises evenly along a straight downstroke)
+  const swells = o.pen === 'pointed' && !!ctx.swell;
+  const fineLines = ws !== 1 || we !== 1 || js !== 1 || je !== 1 || !!ctx.joints || !!ctx.wobble || swells;
+  const { runs, closed } = flatten(cmds, ctx, fineLines);
+  if (!runs.length) return null;
+
+  // arclength for tapers
+  let total = 0; const all: Sample[] = [];
+  runs.forEach(r => r.forEach(s => {
+    const prev = all[all.length - 1];
+    if (prev) total += Math.hypot(s.x - prev.x, s.y - prev.y);
+    s.len = total; all.push(s);
+  }));
+  weighSamples(runs, all, total, o, ctx, thick, thin, { ws, we, js, je });
+
+  // the skeleton is the whole stroke, even where a drop covers its end
+  const skeleton = runs.map(r => r.map(s => ({ x: s.x, y: s.y })));
+  // a drop sits on the end it finishes: draw the stroke that much shorter under it
+  if (ctx.terminal === 'round' && (T.form === 'droplet' || T.form === 'ball')) {
+    const s0 = all[0], s1 = all[all.length - 1];
+    const plain = (s: Sample, near: Sample, d: Dir) => lowEnd(s, ctx) || (straightInto(near, s) && levelDir(d));
+    if (o.e === 'term' && !plain(s1, all[Math.max(0, all.length - 5)], { x: s1.tx, y: s1.ty })) trimRuns(runs, total, Math.min(dropBack(T, s1.t, ctx.thick), total * 0.4), false);
+    if (o.s === 'term' && !plain(s0, all[Math.min(all.length - 1, 4)], { x: s0.tx, y: s0.ty }) && runs.length) trimRuns(runs, total, Math.min(dropBack(T, s0.t, ctx.thick), total * 0.4), true);
+    if (!runs.length) return null;
+  }
+
+  const sideOf = (s: Sample, sg: number): Pt => {
+    const d = sg * s.t / 2 + (s.off || 0);
+    return { x: s.x - s.ty * d, y: s.y + s.tx * d, smooth: s.smooth };
+  };
+  // a closed path is a ring: two contours, no ends
+  const isLoop = closed && Math.hypot(all[0].x - all[all.length - 1].x, all[0].y - all[all.length - 1].y) < 0.5;
+  // a ring in one piece (an o) starts at the top, where it is thinnest and its outline most
+  // likely to dent: its sides are evened out starting from its thickest point instead
+  const whole = isLoop && runs.length === 1;
+  const turned = (r: Sample[]) => {
+    if (!whole) return r;
+    // (the last sample closes the ring on the first, so it isn't a place to start from)
+    const body = r.slice(0, -1);
+    let k = 0;
+    body.forEach((s, i) => { if (s.t > body[k].t) k = i; });
+    return [...body.slice(k), ...body.slice(0, k), body[k]].map((s, i, a) => ({ ...s, smooth: i > 0 && i < a.length - 1 }));
+  };
+  const sidesOf = (sg: number) => runs.map(r => { const q = turned(r); return evenSide(q.map(s => sideOf(s, sg)), q, !ctx.pinch) as (Pt | null)[]; });
+  const Lr = sidesOf(1), Rr = sidesOf(-1);
+  const curved = cmds.some(c => c[0] === 'C' || c[0] === 'hv' || c[0] === 'vh');
+
+  joinRuns(runs, Lr, Rr, isLoop, o);
+  if (isLoop) {
+    const ring = (sides: (Pt | null)[][]) => {
+      const pts = sides.flat().filter((p): p is Pt => !!p), a = pts[0], b = pts[pts.length - 1];
+      if (pts.length > 1 && Math.hypot(a.x - b.x, a.y - b.y) < 0.5) pts.pop();
+      if (runs.length === 1) pts.forEach(p => p.smooth = true);
+      return pts;
+    };
+    return { contours: [ring(Lr), ring(Rr)], loop: true, ends: [], endCorners: [], skeleton, curved, thickness: all.map(s => s.t) };
+  }
+
+  const { contour, ends, endCorners } = capEnds(runs, all, Lr, Rr, o, ctx);
   return { contours: [contour], loop: false, ends, endCorners, skeleton, curved, thickness: all.map(s => s.t) };
 }
 
+/* ---- 4. serifs */
 type ProfilePt = [number, number, ('smooth' | 'sharp' | number)?];
 type SerifEnd = Pick<StrokeEnd, 'x' | 'y' | 'dx' | 'dy' | 't' | 'type'>;
 
@@ -782,7 +842,7 @@ export const serifPlace = (end: Pick<StrokeEnd, 'dx' | 'dy' | 'type'>): SerifPla
 export const serifCup = (sf: SerifSpec) => (sf.cup ?? 0) * Math.min(sf.th * 0.75, sf.len * 0.3);
 
 /** The sides of a stem's end its serif is drawn on: the ones the letter gives it, less those the design leaves
-    off (`keep`, see SERIF_SIDES in params). `inward` are the sides that face into the letter. */
+    off (`keep`, see SERIF_SIDES in shared/params/options.ts). `inward` are the sides that face into the letter. */
 export function serifSides(given: SerifSides, keep: string | undefined, inward: SerifSides): SerifSides {
   const on = (s: 'a' | 'b') => (given === 'both' || given === s) && (keep === 'left' ? s === 'a' : keep === 'right' ? s === 'b'
     : keep === 'inside' || keep === 'outside' ? (keep === 'inside') === (inward === 'both' || inward === s) : true);
@@ -790,34 +850,31 @@ export function serifSides(given: SerifSides, keep: string | undefined, inward: 
   return a && b ? 'both' : a ? 'a' : b ? 'b' : null;
 }
 
-/* ---- 4. serifs. sides: 'both' | 'a' | 'b' (a = toward -x or -y). `cup` is how far short of its line the
-   end was drawn for a cupped serif (see serifCup): the serif's tips reach on to the line, and between them
-   its base arches up to the end. `inward` are the sides of a stem's end that face into the letter, which
-   take the inner serifs' shape where the design gives them one. */
 /** Whether the serif on this end is a diamond: the serifs are diamonds, and the end is a heavy stroke's within 20° of
     upright. An arm, a hairline or a slanting leg (a k's, an x's) keeps a wedge, as a broad pen leaves only a flick
-    there: a diamond stood on the corner of a slanting end left a notch in it. */
+    there: a diamond stood on the corner of a slanting end would leave a notch in it. */
 export const diamondEnd = (end: SerifEnd, ctx: PenCtx) =>
   ctx.serif?.shape === 'diamond' && !levelEnd(end) && Math.abs(end.dy) >= 0.94 * Math.hypot(end.dx, end.dy) && end.t >= ctx.thick * 0.5;
 /* A diamond's frame: `o` straight out of the end, up or down, as the pen stands the same way on every stroke, `u` across
    to the side the diamond reaches (right at a foot, left at a head, unless the letter gives the end its serif on the
    other side only: the foot of a B's stem, its bowl running out of it to the right), the stroke's half width along the
    end, and `n` square across the stroke towards `u`. */
-const diamondFrame = (end: SerifEnd, sides: SerifSides = 'both') => {
+const diamondFrame = (end: SerifEnd, sides: SerifSides) => {
   const l = Math.hypot(end.dx, end.dy) || 1, o = { x: 0, y: Math.sign(end.dy) || -1 };
   const flip = (o.y < 0 && sides === 'a') || (o.y > 0 && sides === 'b') ? -1 : 1, u = { x: -o.y * flip, y: 0 };
   const side = Math.sign(-end.dy * u.x) || 1;
   return { o, u, hw: end.t / 2 / (Math.abs(end.dy) / l), n: { x: (-end.dy / l) * side, y: (end.dx / l) * side } };
 };
 /** How tall a diamond stands for its width: Thickness, from half as tall (flat) through square at 0.5 to half as tall again. */
-const diamondK = (ctx: PenCtx) => lerp(0.5, 1.5, clamp(((ctx.serif?.th ?? 51.5) - 8) / 87));
+const diamondK = (sf: SerifSpec) => lerp(0.5, 1.5, clamp((sf.th - 8) / 87));
 /** What a stroke keeps under a diamond: all but the corner of its end cut off on a slant, from its far edge at the end
     back to its near edge one stroke width in. That corner is a small triangle, so the cut reaches no further along the
     stroke (the other arm of a v). Its stroke keeps the three pieces beyond each side of the triangle (the one past the
-    near edge running along the stroke, as one standing upright left a spike of a slanting leg under the diamond), which
-    overlap, and as they are wound alike they fill as one (splitPoly keeps the side each normal points away from). */
-export function diamondCut(end: SerifEnd, ctx: PenCtx, sides?: SerifSides): HalfPlane[] {
-  const { o, u, hw, n } = diamondFrame(end, sides), e = 1, k = diamondK(ctx);
+    near edge runs along the stroke: one standing upright would leave a spike of a slanting leg under the diamond), which
+    overlap, and as they are wound alike they fill as one (splitPoly keeps the side each normal points away from).
+    Only for an end diamondEnd picks, so the serifs are set. */
+export function diamondCut(end: SerifEnd, ctx: PenCtx, sides: SerifSides): HalfPlane[] {
+  const { o, u, hw, n } = diamondFrame(end, sides), e = 1, k = diamondK(ctx.serif!);
   return [
     { x: end.x + u.x * hw, y: end.y + u.y * hw, nx: o.x / k - u.x, ny: o.y / k - u.y },
     { x: end.x - u.x * (hw + e), y: end.y - u.y * (hw + e), nx: n.x, ny: n.y },
@@ -826,18 +883,23 @@ export function diamondCut(end: SerifEnd, ctx: PenCtx, sides?: SerifSides): Half
 }
 /** The diamond: a square stood on its corner, that corner on the end under the stem's far edge, `D` from its middle to
     its side corners and `k` times that to its top, so it reaches D past the stem one way and fills the slanted cut the
-    other. A diamond wider than the stem stops at its near edge, or its corner poked a nub out into the letter (inside
+    other. A diamond wider than the stem stops at its near edge, so its corner pokes no nub out into the letter (inside
     the corner of an E or an L). */
 function diamond(end: SerifEnd, D: number, k: number, sides: SerifSides): Pt[] {
   const { o, u, hw, n } = diamondFrame(end, sides), at = (a: number, v: number): Pt => ({ x: end.x + u.x * a - o.x * v, y: end.y + u.y * a - o.y * v, sharp: true });
   return clipPoly([at(hw, 0), at(hw + D, D * k), at(hw, 2 * D * k), at(hw - D, D * k)], { planes: [{ x: end.x - u.x * hw, y: end.y - u.y * hw, nx: -n.x, ny: -n.y }] });
 }
 
+/** The serif on a stroke end, as an outline, or null when the design has none. `sides`: 'both' | 'a' | 'b' (a = toward
+    -x or -y). `scale` is this end's serif length factor (StrokeOpts.serifScale). `cup` is how far short of its line the
+    end was drawn for a cupped serif (see serifCup): the serif's tips reach on to the line, and between them its base
+    arches up to the end. `inward` are the sides of a stem's end that face into the letter, which take the inner
+    serifs' shape where the design gives them one. */
 export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?: number, cup = 0, inward: SerifSides = null): Pt[] | null {
   const sf = ctx.serif; if (!sf) return null;
   const horiz = levelEnd(end);
   // a diamond reaches past the stem about half its length, and always at least half a stroke
-  if (diamondEnd(end, ctx)) return diamond(end, end.t / 2 + sf.len * (scale || 1) * (end.dy > 0 ? sf.tops ?? 1 : 1) * 0.5, diamondK(ctx), sides);
+  if (diamondEnd(end, ctx)) return diamond(end, end.t / 2 + sf.len * (scale || 1) * (end.dy > 0 ? sf.tops ?? 1 : 1) * 0.5, diamondK(sf), sides);
   const out = horiz ? { x: Math.sign(end.dx), y: 0 } : { x: 0, y: Math.sign(end.dy) || -1 };
   const u = horiz ? { x: 0, y: 1 } : { x: 1, y: 0 };
   const along = Math.abs(end.dx * out.x + end.dy * out.y);
@@ -880,8 +942,8 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
   if (tan) {
     // leaning out: each point moves out by how far it lies from the edge of the arm with no serif (from the middle
     // when both have one), so the outer edge runs straight from that corner; where it meets the arm stays inside it.
-    // Leaning in, it turns about the edge of the arm it hangs from instead: turning about the far edge drew the
-    // serif in from the arm's end, which stood out past it in a step
+    // Leaning in, it turns about the edge of the arm it hangs from instead: turning about the far edge would draw
+    // the serif in from the arm's end, leaving the end standing out past it in a step
     const from = tan < 0 ? -hw : wantA && wantB ? 0 : hw;
     for (const prof of [profA, profB]) {
       for (const q of prof) q[1] += (q[0] + from) * tan;
