@@ -1,17 +1,18 @@
 /* Sliders: a setting's slider with its number box, the crossbars' Gap and where it opens, and the Stencil and Slice cuts. */
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { BAR_END_OPTIONS, CROSSBAR_SUBS, CONTROLS, SLICE_SUBS, STENCIL_SUBS, controlFor, type ActiveKey } from '../../../shared/content';
-import { rotationDeg, type NumericParam } from '../../../shared/params';
+import type { NumericParam } from '../../../shared/params';
 import { actions, isOn, useEditor, useParam } from '../../state/editor';
 import { BarEndsIcon } from '../Diagram';
 import { CtlHead, Quiet, useControlFocus } from './heads';
 import { useReachNote } from './reach';
 import { EachJoin } from './LetterOwn';
+import { NumberField, Range } from './inputs';
 
-interface SliderDef { label: string; friendly: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; degrees?: boolean; advanced?: boolean; off?: number }
+interface SliderDef { label: string; tech: string; lo?: string; hi?: string; bipolar?: boolean; degrees?: boolean; advanced?: boolean; off?: number }
 
-/** A slider. An optional one (with an `off` value) has a switch; switched off, its slider folds away. */
-/** `children` follow the slider inside its control, like the corners under Roundness. `holdsOn`
+/** A slider. An optional one (with an `off` value) has a switch; switched off, its slider folds away.
+    `children` follow the slider inside its control, like the corners under Roundness. `holdsOn`
     marks the amount of a control switched on above it (a stencil's thickness): using it keeps that open.
     `icon` names its drawing when that isn't `k`'s own (Stencil's Thickness shares the key `stencil`). */
 export function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { k: NumericParam & ActiveKey; def: SliderDef; parts?: string[]; children?: ReactNode; holdsOn?: boolean; icon?: string }) {
@@ -37,6 +38,7 @@ export function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { 
       {reach.note}
       <div className={on ? 'reveal open' : 'reveal'} inert={!on}>
         <div>
+          {/* its label is the setting's `tech`, which tools/browser/drag-bench.mjs finds the slider by */}
           <Range
             value={value}
             label={def.tech}
@@ -105,51 +107,5 @@ export function CutControl({ k, parts }: { k: 'stencil' | 'slice'; parts?: strin
       </div>
       {k === 'stencil' && <EachJoin />}
     </div>
-  );
-}
-
-/** The slider's value as a whole number from 0 to 100 (or a turn, in degrees from -180 to 180), typed over
-    directly. Enter or leaving the box applies it (clamped to that range); Escape puts the old value back; the
-    arrow keys step by 1, or 10 with Shift. */
-export function NumberField({ value, label, onChange, degrees }: { value: number; label: string; onChange: (v: number) => void; degrees?: boolean }) {
-  const [lo, hi] = degrees ? [-180, 180] : [0, 100];
-  const shown = String(Math.round(degrees ? rotationDeg(value) : value * 100));
-  const [draft, setDraft] = useState<string | null>(null);
-  const apply = (text: string) => {
-    setDraft(null);
-    const n = Math.min(hi, Math.max(lo, Math.round(Number(text))));
-    if (text.trim() !== '' && Number.isFinite(n) && String(n) !== shown) onChange(degrees ? n / 360 + 0.5 : n / 100);
-  };
-  return (
-    <input className="ctl-num" type="text" inputMode="numeric" aria-label={`${label} value`} value={draft ?? shown}
-      onFocus={e => e.target.select()}
-      onChange={e => setDraft(e.target.value.replace(/[^0-9-]/g, '').slice(0, 4))}
-      onBlur={e => apply(e.target.value)}
-      onKeyDown={e => {
-        if (e.key === 'Enter') e.currentTarget.blur();
-        else if (e.key === 'Escape') { setDraft(null); requestAnimationFrame(() => (e.target as HTMLInputElement).blur()); }
-        else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-          e.preventDefault();
-          const step = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1);
-          apply(String(Number(draft ?? shown) + step));
-        }
-      }} />
-  );
-}
-
-/** A 0..1 range input shown as whole steps from 0 to 100 (or `steps`). `onInput` fires while dragging; `onCommit` once on release (one undo step). */
-export function Range({ value, label, onInput, onCommit, onReset, steps = 100 }: { value: number; label: string; onInput: (v: number) => void; onCommit: () => void; onReset: () => void; steps?: number }) {
-  const ref = useRef<HTMLInputElement>(null);
-  const commit = useRef(onCommit);
-  commit.current = onCommit;
-  useEffect(() => {
-    const el = ref.current!, h = () => commit.current();
-    el.addEventListener('change', h);
-    return () => el.removeEventListener('change', h);
-  }, []);
-  return (
-    <input ref={ref} type="range" min={0} max={steps} step={1} value={Math.round(value * steps)} aria-label={label}
-      title="Double-click to reset" style={{ '--v': value } as CSSProperties}
-      onChange={e => onInput(Number(e.target.value) / steps)} onDoubleClick={onReset} />
   );
 }

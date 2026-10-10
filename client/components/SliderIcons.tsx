@@ -1,6 +1,7 @@
 /* The sliders' icons: one small line drawing beside each slider's name, showing what it changes
-   (a wide box for Width, a filled stroke widening at its end for Flare). Drawn on a 20-unit grid in
-   the current text colour; `faint` lines are the letter around it or the shape before, `solid` is filled. */
+   (a box with an arrow stretching it sideways for Width, a stroke widening at its end for Flare).
+   Drawn on a 20-unit grid in the current text colour; `faint` lines are the letter around it or the
+   shape before, `solid` is filled. */
 import type { ReactNode } from 'react';
 
 const SLIDER: Record<string, ReactNode> = {
@@ -37,6 +38,8 @@ const SLIDER: Record<string, ReactNode> = {
   tail: <><circle className="solid" cx="12" cy="3.6" r="1.2" /><path d="M12 7v7c0 2.2-1.4 3.5-3.6 3.5-1 0-2-.3-2.9-.9" /></>,
   // an H's bar between its stems
   crossbar: <><path className="faint" d="M5 3.5v13M15 3.5v13" /><path d="M5 9h10M8.8 5.7 10 4.5l1.2 1.2M8.8 12.3l1.2 1.2 1.2-1.2" /></>,
+  // an H's bar stopped short of its stems
+  barGap: <><path d="M4.5 3.5v13M15.5 3.5v13M7.5 10h5" /></>,
   // a p below the baseline
   descender: <><path className="faint" d="M2.5 12.5h15" /><path d="M6 6v12" /><ellipse cx="9.7" cy="9.25" rx="3.7" ry="3.25" /></>,
 
@@ -157,10 +160,10 @@ const SLIDER: Record<string, ReactNode> = {
   // —— Effects
   // grid size: a grid of dots
   module: <><circle className="solid" cx="5" cy="5" r="1.6" /><circle className="solid" cx="10" cy="5" r="1.6" /><circle className="solid" cx="15" cy="5" r="1.6" /><circle className="solid" cx="5" cy="10" r="1.6" /><circle className="solid" cx="10" cy="10" r="1.6" /><circle className="solid" cx="15" cy="10" r="1.6" /><circle className="solid" cx="5" cy="15" r="1.6" /><circle className="solid" cx="10" cy="15" r="1.6" /><circle className="solid" cx="15" cy="15" r="1.6" /></>,
-  // an H's bar stopped short of its stems
-  barGap: <><path d="M4.5 3.5v13M15.5 3.5v13M7.5 10h5" /></>,
   // an O cut into two halves
   stencil: <path d="M12 3.82a6.5 6.5 0 0 1 0 12.36M8 16.18a6.5 6.5 0 0 1 0-12.36" />,
+  // Stencil's and Slice's Thickness slider shares the key of its control, so CutControl (panel/SliderControl.tsx)
+  // asks for `${k}Gap`; tests/icons.test.ts lists both
   // the gap between two strokes widening
   stencilGap: <><rect className="solid" x="1.5" y="7" width="3.5" height="6" rx=".6" /><rect className="solid" x="15" y="7" width="3.5" height="6" rx=".6" /><path d="M7 10h6M8.6 8.4 7 10l1.6 1.6M11.4 8.4 13 10l-1.6 1.6" /></>,
   // a corner's gap moved out along the stroke

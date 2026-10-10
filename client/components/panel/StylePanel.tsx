@@ -6,14 +6,14 @@ import { n1 } from '../../lib/hooks';
 import { actions, adjustedParams, fontFor, useEditor, useStyleMatch, type StyleTab } from '../../state/editor';
 import { TRAIT_SECTIONS, type TraitDef } from '../../../shared/traits';
 
-/** The Style page's panel opens on its Filter or Adjust tab; the stage's "Skip to filters" and
-    clearing the filters move focus to the open tab. */
-export const SEARCH_ID = 'style-search';
+/** The Filter tab's search box. */
+const STYLE_SEARCH_ID = 'style-search';
+/** Focus the open Filter or Adjust tab: the stage's "Skip to filters" and both Clear buttons send focus here. */
 export const focusFilters = () => document.querySelector<HTMLElement>('.style-tabs [aria-selected=true]')?.focus();
 /** Open the Filter tab and put the cursor in its search box (the / key). */
 export const focusSearch = () => {
   actions.setStyleTab('filter');
-  requestAnimationFrame(() => document.getElementById(SEARCH_ID)?.focus());
+  requestAnimationFrame(() => document.getElementById(STYLE_SEARCH_ID)?.focus());
 };
 
 const STYLE_TABS: [StyleTab, string][] = [['filter', 'Filter'], ['adjust', 'Adjust']];
@@ -27,12 +27,13 @@ export function StylePanel() {
   const counts = { filter: nFilters, adjust: nTraits };
   const move = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    // STYLE_TABS has two tabs, so either arrow switches to the other
     const next = tab === 'filter' ? 'adjust' : 'filter';
     actions.setStyleTab(next);
     requestAnimationFrame(() => document.getElementById(`tab-${next}`)?.focus());
   };
   return (
-    <div className="panel-pad filters">
+    <div className="panel-pad">
       <div className="style-tabs" role="tablist" aria-label="Style panel">
         {STYLE_TABS.map(([id, label]) => (
           <button key={id} id={`tab-${id}`} role="tab" title={id === 'adjust' ? 'Every style takes on the traits you set here' : undefined} aria-selected={tab === id} aria-controls={`tp-${id}`} tabIndex={tab === id ? 0 : -1}
@@ -60,7 +61,7 @@ function StyleFilters() {
       <div className="search-row">
         <div className="search-field">
           <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.6" /><path d="m10.4 10.4 3.6 3.6" /></svg>
-          <input id={SEARCH_ID} type="search" spellCheck={false} autoComplete="off" placeholder="Search styles, fonts, feelings"
+          <input id={STYLE_SEARCH_ID} type="search" spellCheck={false} autoComplete="off" placeholder="Search styles, fonts, feelings"
             aria-label="Search styles" aria-keyshortcuts="/" value={f.query}
             onChange={e => actions.setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Escape' && f.query) { e.stopPropagation(); actions.setQuery(''); } }} />
@@ -105,9 +106,12 @@ function StyleTraits() {
 
 /** Height of the drawing on a trait step, in px. */
 const TRAIT_H = 24;
+/** Widest a trait step's drawing gets, in px. */
+const TRAIT_W = 44;
 
 /** Where the longer step names may break, with a hyphen, when a narrow panel leaves them no room:
-    a soft hyphen shows only at a break, so "Condensed" stays whole wherever it fits. */
+    a soft hyphen shows only at a break, so "Condensed" stays whole wherever it fits. The keys are option
+    labels in shared/traits.ts, so a renamed label loses its break without any error. */
 const SOFT: Record<string, string> = {
   Condensed: 'Con\u00addensed', Extended: 'Ex\u00adtended', Bracketed: 'Brack\u00adeted',
   Hairline: 'Hair\u00adline', Moderate: 'Mod\u00aderate', Squarish: 'Squar\u00adish'
@@ -126,7 +130,7 @@ function TraitRow({ def }: { def: TraitDef }) {
         {def.options.map(o => (
           <button key={o.id} className={picked === o.id ? 'opt on' : 'opt'} aria-pressed={picked === o.id}
             onClick={() => actions.setTrait(def.id, o.id)}>
-            <Specimen params={adjustedParams(base, { ...traits, [def.id]: o.id })} text={def.sample} h={TRAIT_H} />
+            <Specimen params={adjustedParams(base, { ...traits, [def.id]: o.id })} text={def.sample} />
             <span>{SOFT[o.label] ?? o.label}</span>
           </button>
         ))}
@@ -135,9 +139,9 @@ function TraitRow({ def }: { def: TraitDef }) {
   );
 }
 
-/** `text` drawn in a font made from `params`, its ink fitted into `h` px high and `maxW` px wide, so
+/** `text` drawn in a font made from `params`, its ink fitted into TRAIT_H px high and TRAIT_W px wide, so
     each step of a trait fills its button. Hidden from screen readers. */
-function Specimen({ params, text, h, maxW = 44 }: { params: Params; text: string; h: number; maxW?: number }) {
+function Specimen({ params, text }: { params: Params; text: string }) {
   const f = fontFor(params), items = f.layout(text, Infinity)[0].items.filter(it => f.glyph(it.ch));
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const it of items) {
@@ -148,10 +152,10 @@ function Specimen({ params, text, h, maxW = 44 }: { params: Params; text: string
     }
   }
   if (!(x0 < x1)) return null;
-  const sc = Math.min(h / (y1 - y0), maxW / (x1 - x0)), W = n1((x1 - x0) * sc);
+  const sc = Math.min(TRAIT_H / (y1 - y0), TRAIT_W / (x1 - x0)), W = n1((x1 - x0) * sc);
   return (
-    <svg className="specimen" width={W} height={h} viewBox={`0 0 ${W} ${h}`} aria-hidden="true">
-      <g transform={`translate(0 ${n1((h - (y1 - y0) * sc) / 2)}) scale(${sc}) translate(${n1(-x0)} ${n1(-y0)})`}>
+    <svg className="specimen" width={W} height={TRAIT_H} viewBox={`0 0 ${W} ${TRAIT_H}`} aria-hidden="true">
+      <g transform={`translate(0 ${n1((TRAIT_H - (y1 - y0) * sc) / 2)}) scale(${sc}) translate(${n1(-x0)} ${n1(-y0)})`}>
         {items.map((it, j) => <path key={j} d={f.glyph(it.ch)!.d} transform={`translate(${n1(it.x)},0)`} />)}
       </g>
     </svg>
@@ -162,9 +166,9 @@ function Specimen({ params, text, h, maxW = 44 }: { params: Params; text: string
 const FACET_LIMIT = 8;
 
 /** One section of tag chips. Its heading opens and closes it; a long one also folds down to its first few until expanded. */
-function ChipFacet<T extends Mood>({ id, label, tags, picked, count, toggle }: {
-  id: string; label: string; tags: { id: T; label: string; hint?: string }[]; picked: T[];
-  count: (tag: T) => number; toggle: (tag: T) => void;
+function ChipFacet({ id, label, tags, picked, count, toggle }: {
+  id: string; label: string; tags: { id: Mood; label: string }[]; picked: Mood[];
+  count: (tag: Mood) => number; toggle: (tag: Mood) => void;
 }) {
   const [closed, setClosed] = useState(false);
   const [open, setOpen] = useState(false);
@@ -188,11 +192,11 @@ function ChipFacet<T extends Mood>({ id, label, tags, picked, count, toggle }: {
         <div>
           <div className="facet-body">
             <div className="chips" id={`chips-${id}`}>
-              {shown.map(({ id: tag, label, hint }) => {
+              {shown.map(({ id: tag, label }) => {
                 const on = picked.includes(tag), n = count(tag), none = !n && !on;
                 // a tag with no matches stays focusable, so it can still be found, but does nothing
                 return (
-                  <button key={tag} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} aria-disabled={none || undefined}
+                  <button key={tag} className={on ? 'chip on' : 'chip'} aria-pressed={on} aria-disabled={none || undefined}
                     aria-label={`${label}, ${n} ${n === 1 ? 'style' : 'styles'}`} onClick={() => { if (!none) toggle(tag); }}>
                     <TagText tag={tag} label={label} /><span className="count" aria-hidden="true">{n}</span>
                   </button>
@@ -223,11 +227,18 @@ const legible = (p: Params): Params => ({
   vWeight: Math.max(p.vWeight, 0.45),
   hWeight: Math.max(p.hWeight, 0.45)
 });
+/** Each tag's legible params, made once so fontFor (which builds once per params object) builds each tag's font once. */
+const LEGIBLE = new Map<Mood, Params>();
+const legibleOf = (tag: Mood) => {
+  let p = LEGIBLE.get(tag);
+  if (!p) LEGIBLE.set(tag, p = legible(styleById(TAG_FACE[tag])!.params));
+  return p;
+};
 
 /** A filter tag's name, drawn in a starting style that belongs to it. The chip carries the
     name for screen readers, so the drawing is hidden from them. */
 function TagText({ tag, label }: { tag: Mood; label: string }) {
-  const f = fontFor(legible(styleById(TAG_FACE[tag])!.params));
+  const f = fontFor(legibleOf(tag));
   const sc = TAG_CAP / f.m.cap, top = Math.max(f.m.asc, f.m.cap), line = f.layout(label, Infinity)[0];
   const W = n1(line.width * sc), H = n1((top - f.m.desc) * sc);
   return (

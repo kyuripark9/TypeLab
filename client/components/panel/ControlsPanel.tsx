@@ -10,14 +10,14 @@ import { EachCorner, EachStroke } from './LetterOwn';
 import { TerminalControl, StoryControl, type LetterFormKey, FormControl, SerifControl, type SerifFormKey, SerifFormControl, FillControl } from './ShapeControls';
 
 export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
-  const serifs = useParam('serif'), shape = useParam('serifShape'), wedge = shape === 'wedge' || shape === 'diamond', outside = useParam('serifSides') === 'outside';
+  const serifs = useParam('serif'), shape = useParam('serifShape'), pointed = shape === 'wedge' || shape === 'diamond', outside = useParam('serifSides') === 'outside';
   const blocks = useParam('build') === 'blocks';
   // the Serifs page has nothing to shape while serifs are off, a wedge or a diamond, already a point, has no tip to finish,
   // and serifs that only reach out of the letter leave none inside it; letters built from blocks have no
   // strokes, so only the controls that shape blocks show
   const all = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category);
   const keys = all.filter(k => (!blocks || BLOCK_CONTROLS.includes(k)) &&
-    (category !== 'serifs' || k === 'serif' || (serifs && !(wedge && k === 'serifTip') && !(outside && k === 'serifInner'))));
+    (category !== 'serifs' || k === 'serif' || (serifs && !(pointed && k === 'serifTip') && !(outside && k === 'serifInner'))));
   const inspecting = useEditor(s => !!s.inspect);
   const note = blocks && keys.length < all.length
     ? <p className="page-note">{keys.length ? 'Letters built from blocks use only these settings here.' : 'Letters built from blocks have nothing to shape here.'} Switch Built from back to Strokes for the rest.</p>
@@ -33,7 +33,7 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
 }
 
 /** A design written in a free font says so on every page of controls, since its letters are drawn as the
-    font has them and the settings move them on their skeletons (see freeLetters in the engine), with the way back to
+    font has them and the settings move them on their skeletons (see freeLetters in shared/engine/free-letters.ts), with the way back to
     letters the settings build; a style that has a free font, not in use, offers it. */
 function FreeLetters() {
   const id = useEditor(s => s.params.freeFont), offer = useEditor(s => STYLE_FONTS[s.styleId]), font = useFont();
@@ -41,7 +41,7 @@ function FreeLetters() {
   if (r) {
     const by = FREE_FAMILIES[r.family].designers.join(', ');
     return (
-      <div className="reach-banner free-banner">
+      <div className="reach-banner">
         <span>Written in <b>{r.family}</b>{by && ` by ${by}`}, a free font{font.free ? ` (${font.free.license})` : ''} you may change and use. Its letters follow the settings as the built ones do: weight, contrast, width, the heights, the insides, curves, corners, peaks, stroke ends, serifs, dots, joints, stencil, slant, spacing and the fills. A letter picked in a form the font hasn't got (a single-storey a, a mirrored g) is built to its weight and width; reshape any letter in Points.</span>
         <button className="link small" onClick={() => actions.setFreeLetters(false)}>Make my own letters</button>
       </div>
@@ -49,7 +49,7 @@ function FreeLetters() {
   }
   const o = parseFontId(offer);
   return o && (
-    <p className="page-note free-offer">
+    <p className="page-note">
       Want it ready-made? <button className="link small" onClick={() => actions.setFreeLetters(true)}>Use {o.family}</button>, a free font in this style
     </p>
   );
@@ -99,6 +99,11 @@ function LetterControls({ keys, category }: { keys: ControlKey[]; category: Excl
   );
 }
 
+/** The component that draws control `k`. A `type` names one component: 'options' is the stroke ends
+    (TerminalControl), 'story' the a, 'serif' the serif switch and shapes, 'fill' the fill, and each of
+    those draws its one key whatever `k` is; 'form' is any letter-shape picker (it needs a FORM_OPTIONS
+    entry), 'serifForm' the four finer serif choices. A control with no type is a slider; a few keys nest
+    sliders or a letter's own values below theirs, and Stencil and Slice are cuts with a switch. */
 function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   const c = CONTROLS[k];
   if (c.type === 'options') return <TerminalControl parts={parts} />;

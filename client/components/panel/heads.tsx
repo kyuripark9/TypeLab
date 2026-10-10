@@ -1,4 +1,11 @@
-/* What frames every control: its title and scope tag, the folds that open its finer settings, the explainer, and focus on a control found by name. */
+/* What frames every control: its title and scope tag, the folds that open its finer settings, the explainer at the top of
+   the page, which control is active (the one pointed at or focused), and the Quiet context that stops nested settings
+   repeating their parent's reach note.
+   Every control's root is a `.ctl` with `data-ctl={key}`, sub-sliders included (a row of a letter's own values in
+   LetterOwn.tsx is a `.ctl` without one). useControlFocus compares `closest('.ctl')`, so a nested slider wins over its
+   parent; Inspector.tsx (pickPart) and Chrome.tsx (settings search) find a control by `[data-ctl]`, the search passing
+   over one inside an `[inert]` fold. The explainer's root keeps the class `explainer`, which Inspector.tsx measures to
+   scroll a control in just under it. */
 import { createContext, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey } from '../../../shared/content';
 import { isGlyphKey, type Params } from '../../../shared/params';
@@ -83,10 +90,10 @@ export function Explainer() {
     : [(sub ?? c).friendly, c.explain];
   // while inspecting, the large letter on the stage already shows the part, so drop the diagram
   return (
-    <div className={inspecting ? 'explainer compact' : 'explainer'}>
+    <div className="explainer">
       {!inspecting && !free && <div className="diagram-box"><Diagram font={font} k={active} /></div>}
       {/* closed, the explanation shows only its title; the title opens it */}
-      <div className={tips ? 'ex-text open' : 'ex-text'}>
+      <div className="ex-text">
         <button className="ex-head" onClick={() => actions.setTips(!tips)} aria-expanded={tips} aria-controls="ex-body"
           title={tips ? 'Hide explanation' : 'Show explanation'}>
           <span className="ex-title">{title}</span>
@@ -98,9 +105,8 @@ export function Explainer() {
   );
 }
 
-/** Pointing at or focusing a control makes it the active one. Nested controls (serif
-    sub-sliders) win over their parent. */
-/** Also marks a control that, while a letter is customized, reshapes only that letter. */
+/** Pointing at or focusing a control makes it the active one; a control nested in another wins over its
+    parent. While a letter is customized, `data-letter` marks a control that reshapes only that letter. */
 export function useControlFocus(key: ActiveKey) {
   const own = (e: PointerEvent | FocusEvent) => (e.target as Element).closest('.ctl') === e.currentTarget;
   const letterOnly = useEditor(s => !!letterOf(s) && isGlyphKey(key));

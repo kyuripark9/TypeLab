@@ -1,13 +1,13 @@
 /* The navigation's icons: one small line drawing per page, each showing what that page changes
-   (a thin and a thick stem for Weight, a rounded corner for Corners, a serifed I for Serifs).
-   Drawn on a 20-unit grid in the current text colour; `faint` lines are guides, not the subject. */
+   (a thin and a thick stem for Weight, a rounded corner for Corners, a serifed I for Serifs), and the
+   magnifier of the navigation's and the library's search boxes. Drawn on a 20-unit grid in the current
+   text colour; `faint` lines are guides, not the subject, and `solid` shapes are filled. */
 import type { ReactNode } from 'react';
 import type { CategoryId } from '../../shared/content';
 
 const PAGE: Record<CategoryId, ReactNode> = {
   // a set of styles to pick from
   style: <><rect x="3" y="3" width="6" height="6" rx="1.5" /><rect x="11" y="3" width="6" height="6" rx="1.5" /><rect x="3" y="11" width="6" height="6" rx="1.5" /><rect x="11" y="11" width="6" height="6" rx="1.5" /></>,
-  // a face: the mood of the letters
   // a hairline stem beside a heavy one
   weight: <><path d="M5.5 4v12" /><rect x="10" y="4" width="5" height="12" rx=".8" className="solid" /></>,
   // a box leaning over: size and slant

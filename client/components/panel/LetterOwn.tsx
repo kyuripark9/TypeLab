@@ -1,30 +1,42 @@
 /* A customized letter's own values, each set beside a small picture of the letter: its joins, stroke ends, corners and strokes. */
+import type { ReactNode } from 'react';
 import { cmdsToD, type Glyph } from '../../../shared/engine';
 import { letterCorners, letterJoins, letterStrokes, strokeEnds, type CornerInfo, type JoinInfo, type StrokeEndInfo, type StrokeInfo } from '../../lib/drag';
 import { actions, curlOf, endOf, letterOf, paramOf, useEditor, useScopedFont, type EndKey } from '../../state/editor';
-import { NumberField, Range } from './SliderControl';
+import { NumberField, Range } from './inputs';
 
 /** While a letter is customized, a gap for each of its joins (where a stroke ends in another, or
     turns), each beside a picture of the letter with that join marked: the stroke pulled back from
     the one it meets, on or off the Stencil; while every letter is in sync, a way into customizing. */
 export function EachJoin() {
+  return <EachList noun="join" items={letterJoins} thumb={(g, joins) => <JoinThumb g={g} joins={joins} />}
+    row={(g, joins, j) => <JoinSlider key={j.id} g={g} joins={joins} join={j} />} />;
+}
+
+/** A letter's own values of one kind, one row per item of `items` (its joins, ends, corners or strokes),
+    shown while that letter is customized; while every letter is in sync, the letter in miniature
+    (`thumb`) and a way into customizing, since they are set one by one only on a single letter.
+    Nothing while no letter is inspected or it has none. */
+function EachList<T extends { id: string }>({ noun, items, thumb, row }: {
+  noun: string; items: (g: Glyph) => T[]; thumb: (g: Glyph, items: T[]) => ReactNode; row: (g: Glyph, items: T[], item: T) => ReactNode;
+}) {
   const ch = useEditor(s => s.inspect), letter = useEditor(letterOf), font = useScopedFont();
-  const g = ch ? font.glyph(ch) : null, joins = g ? letterJoins(g) : [];
-  if (!ch || !g || !joins.length) return null;
+  const g = ch ? font.glyph(ch) : null, list = g ? items(g) : [];
+  if (!ch || !g || !list.length) return null;
   if (!letter) {
     return (
       <div className="each-end locked">
-        <JoinThumb g={g} joins={joins} />
-        <div className="sub-label">Each join</div>
+        {thumb(g, list)}
+        <div className="sub-label">{`Each ${noun}`}</div>
         {/* setting them one by one customizes the letter, so the button says what it's for */}
-        <button className="btn wide small" title={`Customizes ${ch}: only ${ch} changes`} onClick={() => actions.setScope('letter')}>Set each join of {ch}</button>
+        <button className="btn wide small" title={`Customizes ${ch}: only ${ch} changes`} onClick={() => actions.setScope('letter')}>{`Set each ${noun} of `}{ch}</button>
       </div>
     );
   }
   return (
     <div className="each-end">
-      <div className="sub-label">Each join</div>
-      {joins.map(j => <JoinSlider key={j.id} g={g} joins={joins} join={j} />)}
+      <div className="sub-label">{`Each ${noun}`}</div>
+      {list.map(item => row(g, list, item))}
     </div>
   );
 }
@@ -48,7 +60,7 @@ function JoinThumb({ g, joins, on }: { g: Glyph; joins: JoinInfo[]; on?: string 
 function JoinSlider({ g, joins, join: { id, label, v: drawn } }: { g: Glyph; joins: JoinInfo[]; join: JoinInfo }) {
   const hot = useEditor(s => s.hotEnd === id), v = useEditor(s => paramOf(s, 'joinGaps')[id]) ?? drawn;
   return (
-    <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id} title={label}
+    <div className={hot ? 'ctl end hot' : 'ctl end'} title={label}
       onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
       <JoinThumb g={g} joins={joins} on={id} />
       <EndRow id={id} k="joinGaps" name="Gap" label={label} value={v}
@@ -61,25 +73,8 @@ function JoinSlider({ g, joins, join: { id, label, v: drawn } }: { g: Glyph; joi
     picture of the letter with that end marked; while every letter is in sync, a way into customizing,
     since ends are set one by one only on a single letter. */
 export function EachEnd() {
-  const ch = useEditor(s => s.inspect), letter = useEditor(letterOf), font = useScopedFont();
-  const g = ch ? font.glyph(ch) : null, ends = g ? strokeEnds(g) : [];
-  if (!ch || !g || !ends.length) return null;
-  if (!letter) {
-    return (
-      <div className="each-end locked">
-        <EndThumb g={g} ends={ends} />
-        <div className="sub-label">Each end</div>
-        {/* setting them one by one customizes the letter, so the button says what it's for */}
-        <button className="btn wide small" title={`Customizes ${ch}: only ${ch} changes`} onClick={() => actions.setScope('letter')}>Set each end of {ch}</button>
-      </div>
-    );
-  }
-  return (
-    <div className="each-end">
-      <div className="sub-label">Each end</div>
-      {ends.map(e => <EndSlider key={e.id} g={g} ends={ends} end={e} />)}
-    </div>
-  );
+  return <EachList noun="end" items={strokeEnds} thumb={(g, ends) => <EndThumb g={g} ends={ends} />}
+    row={(g, ends, e) => <EndSlider key={e.id} g={g} ends={ends} end={e} />} />;
 }
 
 /** While a letter is customized, a roundness for each of its corners (where a stroke turns, and the
@@ -87,57 +82,23 @@ export function EachEnd() {
     every letter is in sync, a way into customizing, since corners are rounded one by one only on a
     single letter. */
 export function EachCorner() {
-  const ch = useEditor(s => s.inspect), letter = useEditor(letterOf), font = useScopedFont();
-  const g = ch ? font.glyph(ch) : null, corners = g ? letterCorners(g) : [];
-  if (!ch || !g || !corners.length) return null;
-  if (!letter) {
-    return (
-      <div className="each-end locked">
-        <EndThumb g={g} ends={corners} />
-        <div className="sub-label">Each corner</div>
-        {/* setting them one by one customizes the letter, so the button says what it's for */}
-        <button className="btn wide small" title={`Customizes ${ch}: only ${ch} changes`} onClick={() => actions.setScope('letter')}>Set each corner of {ch}</button>
-      </div>
-    );
-  }
-  return (
-    <div className="each-end">
-      <div className="sub-label">Each corner</div>
-      {corners.map(c => <CornerSlider key={c.id} g={g} corners={corners} corner={c} />)}
-    </div>
-  );
+  return <EachList noun="corner" items={letterCorners} thumb={(g, corners) => <EndThumb g={g} ends={corners} />}
+    row={(g, corners, c) => <CornerSlider key={c.id} g={g} corners={corners} corner={c} />} />;
 }
 
 /** While a letter is customized, a weight for each of its strokes, each beside a picture of the letter
     with that stroke picked out; while every letter is in sync, a way into customizing, since strokes
     are weighted one by one only on a single letter. */
 export function EachStroke() {
-  const ch = useEditor(s => s.inspect), letter = useEditor(letterOf), font = useScopedFont();
-  const g = ch ? font.glyph(ch) : null, strokes = g ? letterStrokes(g) : [];
-  if (!ch || !g || !strokes.length) return null;
-  if (!letter) {
-    return (
-      <div className="each-end locked">
-        <StrokeThumb g={g} />
-        <div className="sub-label">Each stroke</div>
-        {/* setting them one by one customizes the letter, so the button says what it's for */}
-        <button className="btn wide small" title={`Customizes ${ch}: only ${ch} changes`} onClick={() => actions.setScope('letter')}>Set each stroke of {ch}</button>
-      </div>
-    );
-  }
-  return (
-    <div className="each-end">
-      <div className="sub-label">Each stroke</div>
-      {strokes.map(t => <StrokeSlider key={t.id} g={g} stroke={t} />)}
-    </div>
-  );
+  return <EachList noun="stroke" items={letterStrokes} thumb={g => <StrokeThumb g={g} />}
+    row={(g, _, t) => <StrokeSlider key={t.id} g={g} stroke={t} />} />;
 }
 
 /** One stroke's weight beside a picture of the letter with that stroke picked out. */
 function StrokeSlider({ g, stroke: { id, label } }: { g: Glyph; stroke: StrokeInfo }) {
   const hot = useEditor(s => s.hotEnd === id), v = useEditor(s => paramOf(s, 'strokeWeights')[id] ?? 0.5);
   return (
-    <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id} title={label}
+    <div className={hot ? 'ctl end hot' : 'ctl end'} title={label}
       onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
       <StrokeThumb g={g} on={id} />
       <EndRow id={id} k="strokeWeights" name="Weight" label={label} value={v}
@@ -151,7 +112,7 @@ function StrokeThumb({ g, on }: { g: Glyph; on?: string }) {
   const box = thumbBox(g);
   if (!box) return null;
   return (
-    <svg className="end-thumb stroke-thumb" viewBox={box.join(' ')} aria-hidden="true">
+    <svg className="end-thumb" viewBox={box.join(' ')} aria-hidden="true">
       <path d={g.d} />
       <path className="on" d={g.strokes.filter(s => s.id && !s.dot && (!on || s.id === on)).map(s => cmdsToD(s.cmds)).join('')} />
     </svg>
@@ -174,12 +135,12 @@ function thumbBox(g: Glyph) {
 /** One corner's roundness beside a picture of the letter with that corner marked: where a stroke
     turns, its outside and inside one by one. */
 function CornerSlider({ g, corners, corner: { id, label, v, vi: drawn, st } }: { g: Glyph; corners: CornerInfo[]; corner: CornerInfo }) {
-  // an inside set sharper than a wide outside lets it is drawn rounder, but the slider stays where it was put
+  // the slider shows the inside's own value where it has one: set sharper than a wide outside allows, the inside is drawn rounder, but the slider stays where it was put
   const hot = useEditor(s => s.hotEnd === id), own = useEditor(s => paramOf(s, 'innerCorners')[id]), vi = drawn == null ? drawn : own ?? drawn;
   // a corner can be stepped while Steps is on, or once it has a step of its own
   const stepped = useEditor(s => st != null && (paramOf(s, 'steps') > 0 || paramOf(s, 'cornerSteps')[id] != null));
   return (
-    <div className={['ctl end', hot && 'hot', stepped && vi != null && 'rows3'].filter(Boolean).join(' ')} data-end={id} title={label}
+    <div className={['ctl end', hot && 'hot', stepped && vi != null && 'rows3'].filter(Boolean).join(' ')} title={label}
       onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
       <EndThumb g={g} ends={corners} on={id} />
       {vi == null
@@ -215,7 +176,7 @@ function EndSlider({ g, ends, end: { id, label, hook } }: { g: Glyph; ends: Stro
   const length = useEditor(s => endOf(s, id, hook)), curl = useEditor(s => curlOf(s, id)), hot = useEditor(s => s.hotEnd === id);
   const plain = id.startsWith('p');
   return (
-    <div className={hot ? 'ctl end hot' : 'ctl end'} data-end={id} title={label}
+    <div className={hot ? 'ctl end hot' : 'ctl end'} title={label}
       onPointerEnter={() => actions.setHotEnd(id)} onPointerLeave={() => actions.setHotEnd(null)}>
       <EndThumb g={g} ends={ends} on={id} />
       <EndRow id={id} k="terminalEnds" name="Length" label={label} value={length}
