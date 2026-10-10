@@ -33,8 +33,8 @@
    too), .pen- the pen, .d- the explainer's diagrams, .ex- the explainer's text, .ctl- a control, .lib- My designs,
    .acct- the account page.
    Components name classes as plain strings, and some build them (`lib-${view}`, `resize-${side}`,
-   `pen-aim ${kind}`, Diagram.tsx's cls arguments, the 'x' or 'y' Resizer.tsx puts on the body), so search for the
-   bare word before deleting a rule. */
+   Diagram.tsx's cls arguments, the 'x' or 'y' Resizer.tsx puts on the body), so search for the bare word before
+   deleting a rule. */
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { background: var(--paper); color: var(--ink); font: 400 14px/1.45 var(--ui); letter-spacing: -.006em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;

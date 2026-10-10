@@ -11,7 +11,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { buildFont, OUT, rowsPNG, rowsSVG, styleParams, withSets, type Row } from './lib';
-import { DEFAULTS, sanitizeParams, type Params } from '../shared/params';
+import { DEFAULTS, sanitizeParams, upgradeParams, type Params } from '../shared/params';
 
 const { values: a } = parseArgs({
   options: {
@@ -25,7 +25,9 @@ const { values: a } = parseArgs({
 let base: Params;
 if (a.params) {
   const j = JSON.parse(readFileSync(a.params, 'utf8'));
-  base = sanitizeParams(j.params ?? j);
+  // a saved design carries the version its settings were written in (none means the first, as the editor's import
+  // reads it); bare settings are read as current
+  base = j.params ? sanitizeParams(upgradeParams(j.params, typeof j.version === 'number' ? j.version : 1)) : sanitizeParams(j);
 } else base = a.style ? await styleParams(a.style, a.free) : { ...DEFAULTS };
 base = withSets(base, a.set!);
 
