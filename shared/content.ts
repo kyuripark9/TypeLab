@@ -1,62 +1,30 @@
 /* Starting styles, navigation, and the plain-language description of every control.
    Shared by the client (UI copy) and the server (validating style ids). */
 import { resolve, type Effective } from './engine/font';
-import { DEFAULTS, type AForm, type BarEnds, type Mirror, type Bends, type Build, type Flourish, type ScriptForm, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifBase, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
+import { DEFAULTS, PARAM_KEYS, SPECS, type CategoryId, type ControlDef, type ControlKey, type SubControlDef, type SubKey, type SubKeyOf, type AForm, type BarEnds, type Mirror, type Bends, type Build, type Flourish, type ScriptForm, type BowlForm, type BowlJoin, type Diagonals, type Dots, type Fill, type GForm, type IForm, type KForm, type SForm, type Params, type QForm, type RForm, type SerifBase, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm, type TerminalRun, type YForm } from './params';
 
-/** A page of the editor: Style, or one set of controls. */
-export type CategoryId = 'style' | 'weight' | 'size' | 'heights' | 'insides' | 'curves' | 'corners' | 'ends' | 'serifs' | 'letters' | 'script'
-  | 'spacing' | 'effects';
+export type { CategoryId, ControlDef, ControlKey, SubControlDef } from './params';
 /** An area of the design with several pages, listed under it in the navigation. */
 export type GroupId = 'proportion' | 'shape' | 'details';
-export type ControlKey =
-  | 'weight' | 'width' | 'height' | 'slant' | 'rotation' | 'contrast' | 'pinch'
-  | 'build' | 'roundness' | 'curve' | 'squareness' | 'chamfer' | 'steps' | 'swash' | 'mirror' | 'terminal' | 'story' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'scriptForm' | 'flourish' | 'swell' | 'bowlForm' | 'bowlJoin' | 'overlap' | 'dots' | 'serif' | 'serifTip' | 'serifBase' | 'serifSides' | 'serifInner' | 'serifBalance' | 'serifTops' | 'serifArms' | 'apex' | 'bends' | 'joints' | 'cursive' | 'wobble'
-  | 'xHeight' | 'extenders' | 'descender' | 'tail' | 'counter' | 'aperture' | 'crossbar'
-  | 'letterSpacing' | 'wordSpacing' | 'mono' | 'sideBearing'
-  | 'fill' | 'stencil' | 'slice';
-export type SerifSubKey = 'serifSize' | 'serifThickness' | 'serifAngle' | 'serifBracket';
-export type SerifTipSubKey = 'serifTipRound' | 'serifTipSlant';
-export type SerifBaseSubKey = 'serifCup';
-export type SerifInnerSubKey = 'serifInnerSize' | 'serifInnerThickness';
-export type SerifArmSubKey = 'serifArmThickness' | 'serifArmLean';
-export type FillSubKey = 'module';
-export type TerminalSubKey = 'terminalLength' | 'terminalCurl' | 'terminalFlare' | 'terminalDepth' | 'terminalSize' | 'terminalRound' | 'terminalPoint' | 'terminalClip' | 'terminalLean' | 'terminalSlope' | 'terminalTilt' | 'terminalTip' | 'terminalTaper';
-/** Anything the control panel can focus: a control or one of its nested sub-sliders. */
-export type DotSubKey = 'dotSize';
-export type BowlSubKey = 'boxRound';
-export type WeightSubKey = 'vWeight' | 'hWeight';
-export type RoundSubKey = 'joinRound' | 'innerRound';
-export type PinchSubKey = 'pinchPos';
-export type CrossbarSubKey = 'barGap';
+/* The sliders nested under each control (see `sub` in shared/params/spec.ts). */
+export type SerifSubKey = SubKeyOf<'serif'>;
+export type SerifTipSubKey = SubKeyOf<'serifTip'>;
+export type SerifBaseSubKey = SubKeyOf<'serifBase'>;
+export type SerifInnerSubKey = SubKeyOf<'serifInner'>;
+export type SerifArmSubKey = SubKeyOf<'serifArms'>;
+export type FillSubKey = SubKeyOf<'fill'>;
+export type TerminalSubKey = SubKeyOf<'terminal'>;
+export type DotSubKey = SubKeyOf<'dots'>;
+export type BowlSubKey = SubKeyOf<'bowlForm'>;
+export type WeightSubKey = SubKeyOf<'weight'>;
+export type RoundSubKey = SubKeyOf<'roundness'>;
+export type PinchSubKey = SubKeyOf<'pinch'>;
+export type CrossbarSubKey = SubKeyOf<'crossbar'>;
 /** A stencil's and a slice's own value is their thickness, so it sits among their sub-sliders. */
-export type StencilSubKey = 'stencil' | 'stencilPos' | 'stencilRound';
-export type SliceSubKey = 'slice' | 'slicePos' | 'sliceRound';
-export type ActiveKey = ControlKey | SerifSubKey | SerifTipSubKey | SerifBaseSubKey | SerifInnerSubKey | SerifArmSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | CrossbarSubKey | StencilSubKey | SliceSubKey;
-
-export interface ControlDef {
-  cat: Exclude<CategoryId, 'style'>;
-  /** short title shown on the control */
-  label: string;
-  /** what it does in plain words, shown in the explainer */
-  friendly: string;
-  /** the typographer's term */
-  tech: string;
-  lo?: string;
-  hi?: string;
-  /** letters drawn in the explainer diagram */
-  demo: string;
-  explain: string;
-  type?: 'options' | 'story' | 'form' | 'serif' | 'serifForm' | 'fill';
-  /** the diagram closes in on the foot of the letters, where a serif's finer shape shows */
-  zoom?: boolean;
-  bipolar?: boolean;
-  /** a turn: shown in degrees, -180 to 180, rather than 0 to 100 */
-  degrees?: boolean;
-  advanced?: boolean;
-  /** An optional slider: its value where it changes nothing. It gets an on/off switch, and off hides the slider. */
-  off?: number;
-}
-export interface SubControlDef { label: string; friendly: string; tech: string; lo: string; hi: string; bipolar?: boolean }
+export type StencilSubKey = SubKeyOf<'stencil'>;
+export type SliceSubKey = SubKeyOf<'slice'>;
+/** Anything the control panel can focus: a control or one of its nested sub-sliders. */
+export type ActiveKey = ControlKey | SubKey;
 
 /* Starting styles are tagged like the fonts on Google Fonts. The group is a style's Category: it
    sorts the cards on the stage and is the style finder's first question. Then come the finer
@@ -770,182 +738,37 @@ const OLD_GROUPS: Record<string, CategoryId> = { structure: 'weight', proportion
 export const pageOf = (id: string | null | undefined): CategoryId | undefined =>
   (CATEGORIES.find(c => c.id === id) ?? (id ? CATEGORIES.find(c => c.id === OLD_GROUPS[id]) : undefined) ?? CATEGORIES.find(c => c.group === id))?.id;
 
-/* label = the control's short title; friendly = what it does in plain words; tech = the typographer's term.
-   A page shows its controls in the order they are listed here: the one used most leads, a choice of
-   shape comes before the sliders that tune it (Bowls before Squareness, Bends before Peaks), the
-   optional ones follow, and the advanced ones come last. The Letters page runs from a to Y. */
-export const CONTROLS: Record<ControlKey, ControlDef> = {
-  weight: { cat: 'weight', label: 'Weight', friendly: 'Make strokes thicker', tech: 'Weight', lo: 'Thin', hi: 'Bold', demo: 'n',
-    explain: 'Letters widen a little so their insides stay open.' },
-  width: { cat: 'size', label: 'Width', friendly: 'Make letters narrower or wider', tech: 'Width', lo: 'Condensed', hi: 'Expanded', demo: 'H',
-    explain: 'Stretches letters sideways; strokes keep their thickness.' },
-  height: { cat: 'size', label: 'Height', friendly: 'Make letters taller or shorter', tech: 'Height', lo: 'Short', hi: 'Tall', demo: 'Hx',
-    explain: 'Moves the top of the capitals; lowercase follows.' },
-  slant: { cat: 'size', label: 'Slant', friendly: 'Tilt the letters', tech: 'Slant', lo: 'Upright', hi: 'Italic', demo: 'Hn',
-    explain: 'Leans each letter to the right, like an oblique italic.' },
-  rotation: { cat: 'size', label: 'Rotation', friendly: 'Turn the letters round', tech: 'Rotation', lo: 'Anticlockwise', hi: 'Clockwise', demo: 'Hag', bipolar: true, degrees: true,
-    explain: 'Turns each letter about its own middle, and spaces the letters to fit. Synced, every letter turns the same way; customize a letter to give it its own angle.' },
-  contrast: { cat: 'weight', label: 'Contrast', friendly: 'Vary thick and thin strokes', tech: 'Contrast · Reverse contrast', lo: 'Reversed', hi: 'High', demo: 'HOe', bipolar: true,
-    explain: 'Above the middle the horizontals thin out while the stems stay heavy; below it the stems thin out under heavy horizontals.' },
-  pinch: { cat: 'weight', off: 0, label: 'Pinch', friendly: 'Thin the strokes to a point', tech: 'Pinch · Waist', lo: 'Slight', hi: 'To a point', demo: 'aplo',
-    explain: 'Strokes narrow in straight wedges toward a level line and swell back out above and below it: stems turn into hourglasses and round letters get almond-shaped counters. Position moves the line.' },
-
-  build: { cat: 'curves', type: 'form', label: 'Built from', friendly: 'Draw with strokes or blocks', tech: 'Stroke or block construction', demo: 'EOS',
-    explain: 'Blocks are solid shapes with their insides cut in as narrow slots. Weight closes the slots up, Roundness rounds the corners and slot ends, Joins the small inside curves. Lowercase become small capitals.' },
-  bowlForm: { cat: 'curves', type: 'form', label: 'Bowls', friendly: 'Draw curves as ovals or as boxes', tech: 'Oval or box bowls', demo: 'OCS',
-    explain: 'Boxes have straight sides and corners round outside, square inside.' },
-  curve: { cat: 'curves', label: 'Curves', friendly: 'Make curves geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
-    explain: 'Compass-drawn circles, or fuller pen-like curves.' },
-  squareness: { cat: 'curves', off: 0, label: 'Squareness', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',
-    explain: 'Bowls square off while the corners stay smooth.' },
-  chamfer: { cat: 'curves', off: 0, label: 'Facets', friendly: 'Cut curves into flat facets', tech: 'Chamfer · Faceted', lo: 'Curved', hi: 'Cut', demo: 'Oes',
-    explain: 'Curves become straight lines with cut-off corners.' },
-  bowlJoin: { cat: 'curves', type: 'form', label: 'Joins', friendly: 'Curve bowls out of their stems', tech: 'Bowl & shoulder joins', demo: 'dnu',
-    explain: 'Square joins meet the stem in a flat top or bottom, like a D. Applies to b d p q g, n m h r u and a.' },
-  overlap: { cat: 'curves', off: 1, label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
-    explain: 'Applies to b, d, p, q and the single-storey a.' },
-  roundness: { cat: 'corners', label: 'Roundness', friendly: 'Make the letters softer or sharper', tech: 'Roundness', lo: 'Sharp', hi: 'Round', demo: 'Ek',
-    explain: 'Corners and stroke ends round off; Joins rounds where strokes meet.' },
-  bends: { cat: 'corners', type: 'form', label: 'Bends', friendly: 'Make bends sharp or round', tech: 'Sharp or round vertices', demo: 'MNZ',
-    explain: 'Where a stroke changes direction, as in A, M, N, V, W and Z: a point, or a round bend like bent wire. Peaks sets how wide.' },
-  apex: { cat: 'corners', label: 'Peaks', friendly: 'Make peaks pointed or flat', tech: 'Apex', lo: 'Pointed', hi: 'Flat', demo: 'AV',
-    explain: 'Where diagonals meet — the top of A, the bottom of V. With round bends, how wide they turn.' },
-  steps: { cat: 'corners', off: 0, label: 'Steps', friendly: 'Cut steps into the corners', tech: 'Stepped corners · Notches', lo: 'Small', hi: 'Stroke wide', demo: 'LOE',
-    explain: 'Each square corner a stroke turns (every corner of box bowls), and each corner where two strokes end together (the foot of an L), gets a square notch, like a letter built on a grid. Customize a letter to step each corner its own way.' },
-  joints: { cat: 'corners', off: 0, label: 'Ink traps', friendly: 'Thin the strokes where they meet', tech: 'Ink traps · Joints', lo: 'Solid', hi: 'Trapped', demo: 'nab',
-    explain: 'Corners are carved out where strokes join.' },
-  terminal: { cat: 'ends', type: 'options', label: 'Stroke ends', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
-    explain: 'The free tips of strokes, as on C, a, s and r: their shape, which way they run and how far they reach.' },
-  serif: { cat: 'serifs', type: 'serif', label: 'Serifs', friendly: 'Add small feet to the strokes', tech: 'Serifs', demo: 'In',
-    explain: 'Small finishing strokes at the ends of stems. Pick their shape, then set how long, how heavy and how sloped they are.' },
-  serifTip: { cat: 'serifs', type: 'serifForm', zoom: true, label: 'Tips', friendly: 'Choose how the serifs finish', tech: 'Serif tips', demo: 'I',
-    explain: 'The outer end of each serif: cut square, rounded off, drawn out to a point, or cut on a slant.' },
-  serifBase: { cat: 'serifs', type: 'serifForm', zoom: true, label: 'Base', friendly: 'Keep the feet flat or arch them', tech: 'Flat or cupped serifs', demo: 'I',
-    explain: 'A cupped serif arches up under its stem, so only its two tips touch the line, as in book faces cut by hand. The serifs across the ends of arms stay flat.' },
-  serifSides: { cat: 'serifs', type: 'serifForm', label: 'Sides', friendly: 'Choose where serifs reach', tech: 'Serif direction · Half serifs', demo: 'Hn',
-    explain: 'Serifs reach both ways from a stem, to the left or the right only, or only into the letter or out of it. A side faces into the letter where more of it stands beside the stem on the same line. The serifs across the ends of arms stay as they are.' },
-  serifInner: { cat: 'serifs', type: 'serifForm', zoom: true, label: 'Inside serifs', friendly: 'Shape the inside serifs', tech: 'Inner & outer serifs', demo: 'n',
-    explain: 'The serifs that reach into the letter take a shape, length and thickness of their own. The ones that reach out keep the shape picked under Serifs.' },
-  serifBalance: { cat: 'serifs', zoom: true, bipolar: true, label: 'Balance', friendly: 'Reach further to one side', tech: 'Serif balance', lo: 'Left', hi: 'Right', demo: 'I',
-    explain: 'The serifs on stems grow longer on one side and shorter on the other. In the middle both sides match.' },
-  serifTops: { cat: 'serifs', bipolar: true, label: 'Top serifs', friendly: 'Size the serifs on top', tech: 'Head serifs', lo: 'Small', hi: 'Large', demo: 'Hdn',
-    explain: 'The serifs on top of stems, set apart from the feet on the baseline.' },
-  serifArms: { cat: 'serifs', bipolar: true, label: 'Arm serifs', friendly: 'Size the serifs on arms', tech: 'Arm serifs · Beaks', lo: 'Small', hi: 'Large', demo: 'ETZ',
-    explain: 'The serifs across the ends of arms, as on E, F, L, T and Z: their length, their thickness against the other serifs, and how they lean. Leaning out, they splay away from the letter like the arms of a T bent down at the ends, cut square across at their tips.' },
-  story: { cat: 'letters', type: 'story', label: 'Letter a', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
-    explain: 'Two-storey like book type, or one bowl like handwriting. Its foot can run out in a spur along the baseline.' },
-  diagonals: { cat: 'letters', type: 'form', label: 'Letters A, V and W', friendly: 'Straighten or arch A, V and W', tech: 'Symmetric, upright or arched diagonals', demo: 'AVW',
-    explain: 'Two matching diagonals, or one diagonal leaning on an upright stem at the right (the upright A has no crossbar). Arches have no diagonals at all: A and N bend over like an upturned U, M with a stem down the middle, V is a U and W a U with a stem up the middle. Also v and w.' },
-  gForm: { cat: 'letters', type: 'form', label: 'Letter g', friendly: 'Choose the shape of the g', tech: 'Single- or double-storey g', demo: 'gag',
-    explain: 'The tail hooks back under the bowl, or drops from its left side and hooks out to the right; or two storeys, as in book type: a small bowl with an ear, linked to a loop under the baseline.' },
-  iForm: { cat: 'letters', type: 'form', label: 'Letters I, J, i and l', friendly: 'Give I, J, i and l bars', tech: 'Barred I, J, i and l', demo: 'IJil',
-    explain: 'A plain stem, or bars as in a typewriter face: i and l get a flag and a foot, I a bar at the top and foot, J a bar across the top.' },
-  kForm: { cat: 'letters', type: 'form', label: 'Letter k', friendly: 'Choose the joint of k', tech: 'k and K junction', demo: 'kK',
-    explain: 'The leg springs from the arm, both meet at the stem, or both meet at the end of a short bar.' },
-  qForm: { cat: 'letters', type: 'form', label: 'Letter Q', friendly: 'Choose where the tail of Q goes', tech: 'Q tail', demo: 'QO',
-    explain: 'The tail crosses the bowl at the bottom right, runs from inside the bowl into its bottom right corner, or sweeps out from under the bowl to the right in a long curve, as in book type.' },
-  rForm: { cat: 'letters', type: 'form', label: 'Letter R', friendly: 'Choose the leg of R', tech: 'R leg', demo: 'RP',
-    explain: 'The leg runs down from the bowl, or the bowl\u2019s lower bar stops short of the stem and loops back round into the leg.' },
-  sForm: { cat: 'letters', type: 'form', label: 'Letter s', friendly: 'Choose the shape of the s', tech: 'Spine of s', demo: 'sS$',
-    explain: 'A spine curving from corner to corner, or running flat between two tight turns, like two rounded boxes stacked.' },
-  yForm: { cat: 'letters', type: 'form', label: 'Letter Y', friendly: 'Choose the shape of the Y', tech: 'Forked or cup Y', demo: 'Yy',
-    explain: 'Two arms forking off a stem, or a cup whose right side runs on down into a diagonal, like a 4. Also y.' },
-  dots: { cat: 'letters', type: 'form', label: 'Dots', friendly: 'Make the dots square or round', tech: 'Tittles & periods', demo: 'ij.!',
-    explain: 'The dots on i and j and in the punctuation, whatever the corners do.' },
-  mirror: { cat: 'size', type: 'form', label: 'Mirror', friendly: 'Flip letters left to right', tech: 'Mirrored letters', demo: 'eRs',
-    explain: 'Draws letters back to front. Customize one letter to mirror only that one, like the reversed e of a quirky display face.' },
-  cursive: { cat: 'script', off: 0, label: 'Cursive', friendly: 'Lead into the next letter', tech: 'Cursive · Entry & exit strokes', lo: 'Print', hi: 'Script', demo: 'nigu',
-    explain: 'Strokes flick on toward the next letter, like script.' },
-  wobble: { cat: 'script', off: 0, label: 'Hand-drawn', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
-    explain: 'Strokes drift, swell and sit a little off the line.' },
-  scriptForm: { cat: 'script', type: 'form', label: 'Letterforms', friendly: 'Write joined script or print', tech: 'Print or script letterforms', demo: 'Rain',
-    explain: 'Print letters are built like type. Script letters are written with a pen: every small letter joins the next on a fine hairline, downstrokes swell and the rest stays fine, and the capitals have lead-ins, loops and curled feet. Left alone, a design more than half cursive is written.' },
-  flourish: { cat: 'script', type: 'form', label: 'Flourishes', friendly: 'Write swashes on script letters', tech: 'Swash alternates', demo: 'Stzld',
-    explain: 'Swashes as a calligrapher adds them: S leads in from a wide loop, the bar of t runs in from far to the left and loops back over the letter, l and d rise into loops over the letters after them, r sweeps down into a shaded curl that ends in a heart, and the tail of z loops away under the word to a hook. They reach over the neighbouring letters without pushing them apart. Customize one letter to flourish only that one. Script letters only.' },
-  swell: { cat: 'script', off: 0, label: 'Swell', friendly: 'Press into the downstrokes', tech: 'Pointed pen · Pressure', lo: 'At once', hi: 'Gradual', demo: 'nitu',
-    explain: 'A pointed pen opens as it is pressed: each downstroke starts from a fine point, swells to its full weight and lets up again before it turns, so the shades taper at both ends like a leaf. Script letters only.' },
-  swash: { cat: 'script', off: 0, label: 'Swash capitals', friendly: 'Curl the capitals into flourishes', tech: 'Swash capitals', lo: 'Small', hi: 'Big', demo: 'PRT',
-    explain: 'The first stroke of each capital runs on at the top left (the stem of P, the bar of T, or else the foot of A) and curls out, finishing like the other stroke ends: pick Rounded, Ball ends for a ball.' },
-
-  xHeight: { cat: 'heights', label: 'Lowercase height', friendly: 'Make lowercase letters taller', tech: 'x-height', lo: 'Small', hi: 'Large', demo: 'Hxn',
-    explain: 'Taller lowercase feels modern and reads well small.' },
-  extenders: { cat: 'heights', label: 'Stem length', friendly: 'Lengthen stems up and down', tech: 'Ascenders & descenders', lo: 'Short', hi: 'Long', demo: 'hpdy',
-    explain: 'The parts above (b, d, h) and below (g, p, y) the letters.' },
-  tail: { cat: 'heights', label: 'Tails & hooks', friendly: 'Lengthen tails and hooks', tech: 'Tail · Hook', lo: 'Short', hi: 'Long', demo: 'Qjty',
-    explain: 'The trailing ends of Q, y, g, j, t, f and the comma.' },
-  crossbar: { cat: 'heights', label: 'Crossbar height', friendly: 'Move the bars up or down', tech: 'Crossbar', lo: 'Low', hi: 'High', demo: 'AHe',
-    explain: 'The bars in A, H and e, the waist of B, E, R, and the crossbars of f and t, and the top of the a\u2019s bowl.' },
-  descender: { cat: 'heights', advanced: true, label: 'Descender length', friendly: 'Lengthen only the descenders', tech: 'Descenders', lo: 'Short', hi: 'Long', demo: 'gpy',
-    explain: 'The parts below the baseline, apart from the ascenders above the x-height.' },
-  counter: { cat: 'insides', label: 'Inner space', friendly: 'Change the space inside letters', tech: 'Counter', lo: 'Small', hi: 'Large', demo: 'Bo',
-    explain: 'The enclosed space inside O, B, a and e.' },
-  aperture: { cat: 'insides', label: 'Openness', friendly: 'Open or close the letters', tech: 'Aperture', lo: 'Closed', hi: 'Open', demo: 'ces',
-    explain: 'Open mouths on c, e and s stay readable when small.' },
-
-  letterSpacing: { cat: 'spacing', label: 'Letter spacing', friendly: 'Loosen or tighten the letters', tech: 'Letter spacing · Tracking', lo: 'Tight', hi: 'Open', demo: 'type',
-    explain: 'The same gap changes between every pair of letters.' },
-  wordSpacing: { cat: 'spacing', label: 'Word spacing', friendly: 'Change the gap between words', tech: 'Word spacing', lo: 'Compact', hi: 'Spacious', demo: 'to be',
-    explain: 'Too tight and words merge; too loose and lines fall apart.' },
-  mono: { cat: 'spacing', off: 0, label: 'Monospace', friendly: 'Give every letter the same width', tech: 'Monospace', lo: 'Proportional', hi: 'Monospaced', demo: 'milk',
-    explain: 'Every character takes the same width, like a typewriter.' },
-  sideBearing: { cat: 'spacing', advanced: true, label: 'Side margins', friendly: 'Adjust the margins of letters', tech: 'Side bearing', lo: 'Narrow', hi: 'Wide', demo: 'HO',
-    explain: 'The small margins built into each letter.' },
-
-  fill: { cat: 'effects', type: 'fill', label: 'Fill', friendly: 'Change what fills the letters', tech: 'Fill', demo: 'Rg',
-    explain: 'Solid ink, outlines, a grid of pixels, dots or lines, a line cut down the middle of each stroke, a hollow outline, or a shadow cast down to the right. Size sets how coarse the grid is, how wide the line, or how far the shadow falls.' },
-  stencil: { cat: 'effects', off: 0, label: 'Stencil', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
-    explain: 'Strokes break where they join, as if cut from a sheet. Thickness sets how wide the gaps open; Position moves the gaps out along the strokes; Rounding softens their corners.' },
-  slice: { cat: 'effects', off: 0, label: 'Slice', friendly: 'Cut one line through every letter', tech: 'Slice', lo: 'None', hi: 'Wide', demo: 'type',
-    explain: 'One horizontal cut runs across the whole line. Thickness sets how tall the cut is; Position moves it up or down; Rounding softens its corners.' }
-};
+/* The controls, in the order each page shows them, and the sliders nested under them: read off each setting's
+   spec (shared/params/spec.ts), where their words are. label = the control's short title; friendly = what it
+   does in plain words; tech = the typographer's term. */
+export const CONTROLS = Object.fromEntries(PARAM_KEYS.flatMap(k => {
+  const c = (SPECS[k] as { control?: ControlDef }).control;
+  return c ? [[k, c]] : [];
+})) as Record<ControlKey, ControlDef>;
+const subSpec = (k: string) => (SPECS[k as keyof typeof SPECS] as { sub?: SubControlDef & { parent: string } }).sub;
+/** The sliders nested under control `parent`, in their order. */
+const subsOf = <P extends ControlKey>(parent: P) => Object.fromEntries(PARAM_KEYS.flatMap(k => {
+  const s = subSpec(k);
+  if (!s || s.parent !== parent) return [];
+  const { parent: _, ...def } = s;
+  return [[k, def]];
+})) as Record<SubKeyOf<P>, SubControlDef>;
 /** The controls that shape letters built from blocks (see blocks.ts): their size, weight and corners, the
     hand, spacing and the effects that run on any outline. The rest shape strokes, which blocks don't have. */
 export const BLOCK_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'build', 'roundness', 'mirror', 'wobble',
   'xHeight', 'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice'];
-export const SERIF_SUBS: Record<SerifSubKey, SubControlDef> = {
-  serifSize: { label: 'Length', friendly: 'Make the feet longer', tech: 'Serif size', lo: 'Short', hi: 'Long' },
-  serifThickness: { label: 'Thickness', friendly: 'Make the feet heavier', tech: 'Serif thickness', lo: 'Hairline', hi: 'Heavy' },
-  serifAngle: { label: 'Angle', friendly: 'Slope the top of the feet', tech: 'Serif angle', lo: 'Flat', hi: 'Sloped' },
-  serifBracket: { label: 'Bracket', friendly: 'Curve the feet into the stem', tech: 'Bracket', lo: 'Tight', hi: 'Long', bipolar: true }
-};
+export const SERIF_SUBS = subsOf('serif');
 /** The sliders every serif shape has, and the finer ones of each shape, shown while that shape is picked. */
 export const SERIF_SIZES: SerifSubKey[] = ['serifSize', 'serifThickness', 'serifAngle'];
 export const SERIF_DETAILS: Record<SerifShape, SerifSubKey[]> = { bracketed: ['serifBracket'], unbracketed: [], slab: [], wedge: [], diamond: [] };
-export const SERIF_TIP_SUBS: Record<SerifTipSubKey, SubControlDef> = {
-  serifTipRound: { label: 'Roundness', friendly: 'Round off the serif tips', tech: 'Tip radius', lo: 'Soft corners', hi: 'Half circle' },
-  serifTipSlant: { label: 'Slant', friendly: 'Slant the cut at the tip', tech: 'Tip angle', lo: 'Undercut', hi: 'Sloped', bipolar: true }
-};
+export const SERIF_TIP_SUBS = subsOf('serifTip');
 /** The finer shape sliders of each kind of serif tip, shown while that kind is picked. */
 export const SERIF_TIP_DETAILS: Record<SerifTip, SerifTipSubKey[]> = { square: [], round: ['serifTipRound'], pointed: [], angled: ['serifTipSlant'] };
-export const SERIF_BASE_SUBS: Record<SerifBaseSubKey, SubControlDef> = {
-  serifCup: { label: 'Depth', friendly: 'Arch the base a little or a lot', tech: 'Cup depth', lo: 'Shallow', hi: 'Deep' }
-};
-export const SERIF_INNER_SUBS: Record<SerifInnerSubKey, SubControlDef> = {
-  serifInnerSize: { label: 'Length', friendly: 'Shorten or lengthen inside serifs', tech: 'Inner serif size', lo: 'Shorter', hi: 'Longer', bipolar: true },
-  serifInnerThickness: { label: 'Thickness', friendly: 'Thin or thicken inside serifs', tech: 'Inner serif thickness', lo: 'Lighter', hi: 'Heavier', bipolar: true }
-};
-export const SERIF_ARM_SUBS: Record<SerifArmSubKey, SubControlDef> = {
-  serifArmThickness: { label: 'Thickness', friendly: 'Thin or thicken the arm serifs', tech: 'Arm serif thickness', lo: 'Lighter', hi: 'Heavier', bipolar: true },
-  serifArmLean: { label: 'Lean', friendly: 'Lean the arm serifs in or out', tech: 'Splayed arm serifs', lo: 'In', hi: 'Out', bipolar: true }
-};
-export const FILL_SUBS: Record<FillSubKey, SubControlDef> = {
-  module: { label: 'Size', friendly: 'Size the grid, line or shadow', tech: 'Module size', lo: 'Fine', hi: 'Coarse' }
-};
-export const TERMINAL_SUBS: Record<TerminalSubKey, SubControlDef> = {
-  terminalLength: { label: 'Length', friendly: 'Lengthen or shorten the ends', tech: 'Terminal length', lo: 'Short', hi: 'Long' },
-  terminalCurl: { label: 'Curl', friendly: 'Curl the stroke ends', tech: 'Terminal curl', lo: 'Flared out', hi: 'Curled in', bipolar: true },
-  terminalFlare: { label: 'Flare', friendly: 'Widen the stroke as it ends', tech: 'Flared terminal', lo: 'Slight', hi: 'Wide' },
-  terminalDepth: { label: 'Depth', friendly: 'Hollow the end out a little or a lot', tech: 'Terminal depth', lo: 'Shallow', hi: 'Deep' },
-  terminalSize: { label: 'Size', friendly: 'Resize the drop on the end', tech: 'Ball size', lo: 'Small', hi: 'Big' },
-  terminalRound: { label: 'Roundness', friendly: 'Round off the end', tech: 'Terminal radius', lo: 'Soft corners', hi: 'Half circle' },
-  terminalPoint: { label: 'Sharpness', friendly: 'Sharpen the point', tech: 'Point length', lo: 'Less sharp', hi: 'Sharper' },
-  terminalClip: { label: 'Cut off', friendly: 'Clip the tip of the point', tech: 'Clipped point', lo: 'Little', hi: 'Lot' },
-  terminalLean: { label: 'Lean', friendly: 'Move the point in or out', tech: 'Point offset', lo: 'Inside', hi: 'Outside', bipolar: true },
-  terminalSlope: { label: 'Slope', friendly: 'Cut the end gently or steeply', tech: 'Terminal angle', lo: 'Gentle', hi: 'Steep' },
-  terminalTilt: { label: 'Tilt', friendly: 'Tilt the level cut', tech: 'Cut angle', lo: 'Falling', hi: 'Rising', bipolar: true },
-  terminalTip: { label: 'Tip', friendly: 'Make the tapered tip blunt or fine', tech: 'Taper tip width', lo: 'Blunt', hi: 'Fine' },
-  terminalTaper: { label: 'Taper length', friendly: 'Start the taper near or far', tech: 'Taper length', lo: 'Short', hi: 'Long' }
-};
+export const SERIF_BASE_SUBS = subsOf('serifBase');
+export const SERIF_INNER_SUBS = subsOf('serifInner');
+export const SERIF_ARM_SUBS = subsOf('serifArms');
+export const FILL_SUBS = subsOf('fill');
+export const TERMINAL_SUBS = subsOf('terminal');
 /** The forms of each kind of stroke end, picked under its kind. */
 export const TERMINAL_FORM_LABELS: Record<TerminalForm, string> = {
   plain: 'Plain', flared: 'Flared', scooped: 'Scooped', round: 'Round', droplet: 'Droplet', ball: 'Ball', pointed: 'Pointed', clipped: 'Clipped',
@@ -959,39 +782,17 @@ export const TERMINAL_DETAILS: Record<TerminalForm, TerminalSubKey[]> = {
   outer: ['terminalSlope'], inner: ['terminalSlope'], level: ['terminalTilt'], notched: ['terminalDepth', 'terminalTilt'],
   taper: ['terminalTip', 'terminalTaper'], brush: ['terminalTip', 'terminalTaper']
 };
-/** Every nested sub-slider, whichever control it belongs to. */
-export const DOT_SUBS: Record<DotSubKey, SubControlDef> = {
-  dotSize: { label: 'Size', friendly: 'Make the dots smaller or bigger', tech: 'Dot size', lo: 'Small', hi: 'Big' }
-};
-export const BOWL_SUBS: Record<BowlSubKey, SubControlDef> = {
-  boxRound: { label: 'Corners', friendly: 'Round the corners of box bowls', tech: 'Box corner radius', lo: 'Sharp', hi: 'Wide' }
-};
-export const WEIGHT_SUBS: Record<WeightSubKey, SubControlDef> = {
-  vWeight: { label: 'Verticals', friendly: 'Thin or thicken the uprights', tech: 'Stem weight', lo: 'Lighter', hi: 'Heavier', bipolar: true },
-  hWeight: { label: 'Horizontals', friendly: 'Thin or thicken the horizontals', tech: 'Bar weight', lo: 'Lighter', hi: 'Heavier', bipolar: true }
-};
-export const ROUND_SUBS: Record<RoundSubKey, SubControlDef> = {
-  joinRound: { label: 'Joins', friendly: 'Round where strokes meet', tech: 'Fillets', lo: 'Sharp', hi: 'Round' },
-  innerRound: { label: 'Counters', friendly: 'Round the corners of counters', tech: 'Counter corner radius', lo: 'As drawn', hi: 'Round' }
-};
-export const PINCH_SUBS: Record<PinchSubKey, SubControlDef> = {
-  pinchPos: { label: 'Position', friendly: 'Move the pinch up or down', tech: 'Pinch height', lo: 'Baseline', hi: 'Cap height' }
-};
-export const CROSSBAR_SUBS: Record<CrossbarSubKey, SubControlDef> = {
-  barGap: { label: 'Gap', friendly: 'Open gaps around the crossbars', tech: 'Crossbar gap', lo: 'Touching', hi: 'Apart' }
-};
-export const STENCIL_SUBS: Record<StencilSubKey, SubControlDef> = {
-  stencil: { label: 'Thickness', friendly: 'Open the gaps wider', tech: 'Gap width', lo: 'Thin', hi: 'Thick' },
-  stencilPos: { label: 'Position', friendly: 'Move the gaps along the strokes', tech: 'Gap position', lo: 'At the join', hi: 'Further out' },
-  stencilRound: { label: 'Rounding', friendly: 'Round the corners the gaps cut', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
-};
-export const SLICE_SUBS: Record<SliceSubKey, SubControlDef> = {
-  slice: { label: 'Thickness', friendly: 'Make the cut taller', tech: 'Cut height', lo: 'Thin', hi: 'Thick' },
-  slicePos: { label: 'Position', friendly: 'Move the cut up or down', tech: 'Slice height', lo: 'Low', hi: 'High' },
-  sliceRound: { label: 'Rounding', friendly: 'Round the corners the cut leaves', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' }
-};
-export const SUBS: Record<SerifSubKey | SerifTipSubKey | SerifBaseSubKey | SerifInnerSubKey | SerifArmSubKey | FillSubKey | TerminalSubKey | DotSubKey | BowlSubKey | WeightSubKey | RoundSubKey | PinchSubKey | CrossbarSubKey | StencilSubKey | SliceSubKey, SubControlDef> =
-  { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...SERIF_ARM_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS, ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...PINCH_SUBS, ...CROSSBAR_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
+export const DOT_SUBS = subsOf('dots');
+export const BOWL_SUBS = subsOf('bowlForm');
+export const WEIGHT_SUBS = subsOf('weight');
+export const ROUND_SUBS = subsOf('roundness');
+export const PINCH_SUBS = subsOf('pinch');
+export const CROSSBAR_SUBS = subsOf('crossbar');
+export const STENCIL_SUBS = subsOf('stencil');
+export const SLICE_SUBS = subsOf('slice');
+/** Every nested slider, whichever control it sits under. */
+export const SUBS = { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...SERIF_ARM_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS,
+  ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...PINCH_SUBS, ...CROSSBAR_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS } as Record<SubKey, SubControlDef>;
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
 export type FormKey = 'build' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'scriptForm' | 'flourish' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
@@ -1102,11 +903,9 @@ export const TAG_FACE: Record<Mood, string> = {
 export const firstControl = (cat: CategoryId) =>
   (Object.keys(CONTROLS) as ControlKey[]).find(k => CONTROLS[k].cat === cat) ?? 'weight';
 
-/** The control a key belongs to: serif sub-sliders fold into 'serif', the module size into 'fill',
-    the stroke end length into 'terminal'. */
-export const controlFor = (key: ActiveKey): ControlKey =>
-  key in SERIF_SUBS ? 'serif' : key in SERIF_TIP_SUBS ? 'serifTip' : key in SERIF_BASE_SUBS ? 'serifBase' : key in SERIF_INNER_SUBS ? 'serifInner' : key in SERIF_ARM_SUBS ? 'serifArms' : key in FILL_SUBS ? 'fill' : key in TERMINAL_SUBS ? 'terminal' : key in DOT_SUBS ? 'dots' : key in BOWL_SUBS ? 'bowlForm' : key in WEIGHT_SUBS ? 'weight' : key in ROUND_SUBS ? 'roundness'
-    : key in PINCH_SUBS ? 'pinch' : key in CROSSBAR_SUBS ? 'crossbar' : key in STENCIL_SUBS ? 'stencil' : key in SLICE_SUBS ? 'slice' : key as ControlKey;
+/** The control a key belongs to: a nested slider's parent (serif sub-sliders fold into 'serif', the module
+    size into 'fill', the stroke end length into 'terminal'), else the key itself. */
+export const controlFor = (key: ActiveKey): ControlKey => (subSpec(key)?.parent as ControlKey | undefined) ?? (key as ControlKey);
 
 /* ---------- finding a setting by name */
 
