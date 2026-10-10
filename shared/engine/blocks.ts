@@ -100,7 +100,8 @@ const SIX: BlockFn = d => {
     box(tv, Math.max(top + th, Y(97)), S, H - th, 36 * k));
 };
 
-const BLOCKS: Record<string, BlockFn> = {
+/** Each block letter by character: every capital, figure and punctuation mark (tests/engine.test.ts checks the set). */
+export const BLOCKS: Record<string, BlockFn> = {
   A: d => {
     const { W, H, tv, th, X, k, R } = d, { y0, y1 } = topSlot(d, -1, 1.07), ct = y1 + th, xa = X(99), xf = xa + X(0.27 * (H - ct) / k);
     return one(d, [v(0, 0, R), v(W, 0, R), v(W, H, 45 * k), v(xf, H, 40 * k), v(xa, ct, 40 * k), v(tv, ct, 40 * k), v(tv, H, tv / 2, 'e'), v(0, H, tv / 2, 'e')],
