@@ -32,7 +32,8 @@ checks it), a `default`, and:
   drops a letter's saved value of it on reading, so making a setting global loses what letters were saved with.
 - `free`: a free font's letters follow it, as far as it moves from where the font was picked. It joins
   `FREE_AT_KEYS`; `sanitizeParams` fills an older design's `freeAt` with the design's own value; and the free-font code
-  has to move the letters for it (engine/CLAUDE.md), checked with `npm run golden`.
+  has to move the letters for it (engine/CLAUDE.md), checked with `npm run golden` once `FREE_MOVES` in tools/golden.ts
+  moves it.
 - `control`: a `ControlDef` on a page (`cat`): `label` (short title), `friendly` (plain words, the explainer's title),
   `tech` (the typographer's term: screen readers, search, and the slider's `aria-label`, which
   `tools/browser/drag-bench.mjs` finds it by), `lo`/`hi`, `demo`, `explain`, `type` (which picker; none is a slider),
@@ -44,26 +45,46 @@ checks it), a `default`, and:
 Read off it: `PARAM_KEYS`, `DEFAULTS` (frozen), `isGlyphKey`, `FREE_AT_KEYS`, `ID_KEYS`, and the types `ControlKey`,
 `SubKey`, `SubKeyOf<P>`, `GlobalKey`, `FreeKey`, `NumericParam`; `content/controls.ts` reads `CONTROLS` and the subs.
 Order matters: a page shows its controls in `SPECS` order (a shape picker before the sliders that tune it, the
-optional ones after, advanced last), and a control's nested sliders in theirs. tests/pages.test.ts checks it.
+optional ones after, advanced last). Nested sliders follow `SPECS` order only where the panel maps a whole `*_SUBS`
+(`FILL_SUBS`, `SERIF_INNER_SUBS`, `STENCIL_SUBS`, `SLICE_SUBS`); elsewhere they follow the lists or hand placement in
+step 5 below. tests/pages.test.ts checks only that advanced controls close each page, and bowlForm before squareness,
+bends before apex.
 
 ## Adding a setting
 
 1. Its field in `params/model.ts`; the compiler then asks for its spec.
-2. Its entry in `params/spec.ts`, in editor order.
+2. Its entry in `params/spec.ts`, in editor order. Its default must draw today's letters: saved designs and every
+   style lacking the key read the default (`sanitizeParams` fills `DEFAULTS`; `style()` lays params over `DEFAULTS`),
+   so golden's `defaults` and `style:` lines must not move when it is added; only `new probe` lines may appear.
 3. The engine code that draws it, mapping the value as a share of its range so it changes the letters up to 1.
-4. A slider (a control without `type`, or a sub) needs an icon in `client/components/SliderIcons.tsx`
-   (`SLIDER_ICON_KEYS`; tests/icons.test.ts).
+4. A slider (a control without `type`, or a sub) needs an icon: an entry keyed by the setting in `SLIDER` in
+   `client/components/SliderIcons.tsx` (`SLIDER_ICON_KEYS` is read off it; tests/icons.test.ts fails on a slider
+   without one, or an entry that isn't a slider).
 5. A sub shows only where the panel places it: through `FILL_SUBS`, `SERIF_INNER_SUBS`, `STENCIL_SUBS`, `SLICE_SUBS`,
    `TERMINAL_DETAILS`, `SERIF_SIZES`/`SERIF_DETAILS` or `SERIF_TIP_DETAILS`, or by hand in `Control`
-   (`client/components/panel/ControlsPanel.tsx`) or `client/components/panel/ShapeControls.tsx`. Nothing tests this.
+   (`client/components/panel/ControlsPanel.tsx`), `client/components/panel/ShapeControls.tsx`, or `BarEndsControl`
+   (`client/components/panel/SliderControl.tsx`). Nothing tests this.
    A sub under a control with no `*_SUBS` yet needs one in `content/controls.ts`, spread into `SUBS` (compile check).
 6. An option setting needs its values in `params/options.ts`. A letter-shape picker is `type: 'form'` with a
    `FORM_OPTIONS` entry (compile check); any other picked setting needs its choices in `CHOICES`
-   (`client/lib/reach.ts`), or its control is dimmed as changing nothing.
-7. `global` and `free` as above; `free: true` brings the free-font work with it.
+   (`client/lib/reach.ts`), or its control is dimmed as changing nothing. Only `type: 'form'` is a generic picker; the
+   other types ('options', 'story', 'serif', 'serifForm', 'fill') are bespoke components in ShapeControls.tsx that draw
+   fixed keys. A new non-shape picker needs its own component and a branch in `Control`, its labels in a `*_OPTIONS`
+   list (content/controls.ts), and those labels in `shapes` in `settingIndex` (content/search.ts), so search finds
+   them.
+7. `global` and `free` as above. `free: true` also needs the free-font work in engine/CLAUDE.md (`SKIN_KEYS`,
+   `restyled`'s cache key, `FORM_LETTERS` for a letter-form setting) and a `FREE_MOVES` entry in tools/golden.ts; then
+   `npm run golden`.
+   If it shapes letters built from blocks, add it to `BLOCK_CONTROLS` (content/controls.ts): every other control is
+   hidden while Built from is Blocks. If it shapes a definite part, give it a case in `highlightD` or a `RINGS` entry
+   (engine/highlight.ts), or the explainer, inspector and preview light nothing up for it.
 8. Words people use for it that its copy lacks go in `ALSO` (`content/search.ts`).
-9. `npm test` then fails on golden's `new probe` lines for its ends and options (`<key>=0`, `<key>=1`,
-   `<key>=<option>`): render them, then `npm run golden:update`. Then `npm run sweep -- <key>`.
+9. `npm run typecheck` (the compile checks above are types only; `npm test` runs through tsx and doesn't check them).
+   Then `npm test` fails on golden's `new probe` lines for its values (`<key>=0`/`<key>=1` for a number,
+   `<key>=true|false` for a switch, `<key>=<option>` for each other option): render them, then `npm run golden:update`.
+   Then `npm run sweep -- <key>`. A setting that changes nothing until another is set (a form's finer slider, a cut's
+   Position, a script-only setting) needs that context in `showContext` (tools/lib.ts); without it golden probes it
+   where it does nothing and the sweep reports it dead.
 10. If saved designs need reading differently, bump `PARAMS_VERSION` and add the step to `upgradeParams`.
 
 ## Ids and saved formats

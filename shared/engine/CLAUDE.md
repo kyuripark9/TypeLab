@@ -20,8 +20,9 @@ helper such as `resolve` may be imported from its own file.
      the same settings (an earlier font `from`, whose params differ only in `outlines`, lends its letters, so dragging
      a point rebuilds one letter); else `fromSettings`.
    - `fromSettings`: a letter with its own settings (`params.glyphs[ch]`) comes from `font.letter(ch)`, a font built
-     with them; a design written in a free font draws the font's letter (`freeGlyph`), or its twin's when the letter is
-     asked for in a form the font hasn't got; `build: 'blocks'` draws `buildBlock`; anything else is
+     with them; a design written in a free font that has the letter draws it (`freeGlyph`), or, unless it is a pixel
+     font, its twin's (`twinGlyph`) when `formChanged` says it is asked for in another form than the font's;
+     otherwise `build: 'blocks'` draws `buildBlock`, and anything else (a letter the free font lacks too) is
      `buildGlyph(variantOf(ch, e), m, ch)`.
    - `variantOf` picks the glyph id: in a script (`scriptForms`) `<ch>.sw` with Flourishes on Swash, else `<ch>.scr`;
      `a.alt` for a single-storey a; `<ch>.cur` from Cursive 0.35 (`CURSIVE_FORMS`); else `ch`.
@@ -31,11 +32,14 @@ helper such as `resolve` may be imported from its own file.
    3. `stretchTerminals` (`ends.ts`): Length, Curl, straight runs, a capital's swash end; the body grows by their reach;
    4. `faceSerifs`, then `cupSerifs` (`serif-sides.ts`), while serifs are on;
    5. `wobbleSkeleton`: Hand-drawn moves the strokes, counters, marks and end homes through one field;
-   6. `expandStroke` (`stroke.ts`) on every stroke, weighed by its own stroke weight; then each stroke's clip, once;
+   6. `expandStroke` (`stroke.ts`) on every stroke drawn with a path (not dots, fillets or blobs), weighed by its own
+      stroke weight; then each stroke clipped to its `clip` (`clipMade` keeps the points the clip adds);
    7. `endCorners` (`corners.ts`), then `joinCorners` (`joins.ts`), whose fillets join the strokes as part `fillet`;
    8. `markJoins`, `barsThrough` and the stencil pieces (`stencil.ts`);
-   9. each outline finished: rounded by Roundness, diamond cuts, through-bar bands, serifs (`buildSerif`), and the
-      terminal and end marks;
+   9. each stroke's outline finished, in this order: a ring split by `ringOutline`; otherwise clipped a second time,
+      cut into its stencil pieces (their cut corners rounded by Rounding), replaced by its bar where one runs through,
+      cut under diamond serifs, cut by the through-bar bands, and only then rounded by Roundness (`m.R`); then its
+      serifs (`buildSerif`) and its terminal and end marks;
    10. side bearings: the glyph's sb factors times `m.sb`, room for what reaches past the body, `clearStems` under
        diamond serifs;
    11. `placeGlyph`: rotation, mirroring, monospacing, whole fill cells, the shadow's room, bounce and jitter, slant
@@ -80,12 +84,14 @@ A formula or constant two files need lives once and both import it. `metrics()`'
 `endReach`), `stroke.ts` (`STEP_DEPTH`), `joins.ts` (`innerShare`), `glyphs/turns.ts` (`POINTED`, `peakPast`,
 `peakCut`), `skin.ts` (`FORM_LETTERS`, `descK`), `restyle.ts` (`HOOK_LETTERS`, `OPEN_LETTERS`, `added`).
 
-When sharing would change results (the copy takes its sums in another order), the copy stays and both ends carry a
-comment naming the other ("keep the two in step"). Such pairs: `effects.ts` `within` and `skin.ts` `inPoly` against
-`geom.ts` `inPoly`; `dotK` (`glyphs/shared.ts`) and `skinMeasures`' `dot`; `metrics()`' `asc` and `skinMeasures`'
-`asc`; `joinGap`/`barCut` and `restyleStencil`; the heights in `moveMap` (`skin.ts`) and `restyled`
-(`free-letters.ts`); `serifTh` and `diamondK`; `cap()` and `squareEnd` (`stroke.ts`). If you change one end, change
-the other, then run golden (and compare).
+Some code repeats or mirrors another's, because sharing would change results (a shared helper takes its sums in
+another order) or because it works in other units. Copies with their sums in another order: `effects.ts` `within`
+and `skin.ts` `inPoly` (of `geom.ts` `inPoly`); `dotK` (`glyphs/shared.ts`) and `skinMeasures`' `dot`. Mirrors:
+`metrics()`' `asc` and `skinMeasures`' `asc`; `joinGap`/`barCut` (`shared/params/scales.ts`) and `restyleStencil`,
+which rescales them to a free font's cap height; the heights in `moveMap` (`skin.ts`) and `restyled`
+(`free-letters.ts`); `serifTh` and `diamondK`, which undoes it; `cap()` and `squareEnd` (`stroke.ts`). Each end names
+the other in a comment, except `geom.ts` `inPoly` and `joinGap`/`barCut`, which don't name their copies: grep for the
+name before changing them. If you change one end, change the other, then run golden and compare.
 
 ## The free-font path
 
@@ -117,7 +123,8 @@ A design with `freeFont` set draws its letters from a Google font instead of bui
 
 A setting the free-font code compares between `pick` and `now` must be `free: true` in `shared/params/spec.ts` (or
 `freeAt` never records it), in `skin.ts` `SKIN_KEYS` where it applies (so `skinFollows`, which `client/lib/reach.ts`
-asks, answers right), and in `restyled`'s cache key if a restyle reads it. Never mutate `rig.contours`, what
+asks, answers right), and in `restyled`'s cache key if a restyle reads it; give it a `FREE_MOVES` entry in
+tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, what
 `skinMove` returns, or the rings `inkRings` returns: results are cached by array identity.
 
 ## Glossary
@@ -125,9 +132,9 @@ asks, answers right), and in `restyled`'s cache key if a restyle reads it. Never
 | Term | Meaning |
 | --- | --- |
 | Params | The user's settings (`shared/params/model.ts`): numbers 0..1, options, `glyphs[ch]` (a letter's own), `outlines[ch]` (drawn letters), `freeFont`, `freeAt` |
-| Effective (`e`, `m.p`, `font.eff`) | Params after `resolve`. `e.contrast` is the pen's amount (0.05..1), not the slider; read raw Params where the slider value is meant |
+| Effective (`e`, `m.p`, `font.eff`) | Params after `resolve`. `e.contrast` is the pen's amount (`contrastOf` gives 0.05..1; the classicFuture macro can push it down to 0), not the slider; read raw Params where the slider value is meant |
 | Metrics (`m`) | Measures from `metrics(e)`: `s` stem, `thin` hairline and bars, `hT` a horizontal stroke's thickness, `tDir(dx, dy)` thickness by direction, `cap`, `xh`, `asc`, `desc` (negative), `os` overshoot, `ws` width scale, `W(base, cls)` body width ('r' round, 'c' classically narrow) |
-| more Metrics | `k`, `org` quarter-turn tension and organic share; `sb` a stem's side bearing; `track`, `space`; `slant` (a tangent), `rot` (radians clockwise); `R` Roundness radius; `innerR` Counters radius; `dotRound`; `bar`, `apex`, `ap`, `cnt` (-1..1), `sq`, `cur`, `wob`; `cell`, `gap`, `gapOff`, `gapRound`, `sliceY`, `sliceH`, `sliceRound`; `serif` (on or off) |
+| more Metrics | `k`, `org` quarter-turn tension and organic share; `sb` a stem's side bearing; `track`, `space`; `slant` (a tangent), `rot` (radians clockwise); `R` Roundness radius; `innerR` Counters radius; `dotRound`; `bar`, `apex`, `ap`, `cnt` (-1..1), `sq`, `cur`, `wob`; `cell`, `gap`, `gapOff`, `gapRound`, `sliceY`, `sliceH`, `sliceRound`; `serif` (on or off); `monoAdv` the advance monospacing pulls toward; `qpt(x0, y0, x1, y1, mode, u)` the point and tangent at `u` along a quarter turn, drawn with the pen's tension |
 | PenCtx (`m.ctx`, `pen`) | What the stroke expander knows: thick, thin, stress, k, org, terminal and its `term` (TermSpec), serif spec, chamfer, joints, reverse, pinch, swell, wobble, dropLow |
 | Builder (`g`, `b`) | What a glyph function draws on: `path`, `line`, `stem`, `dot`, `fillet`, `blob`, `counter`, `mark`; `strokes`, `reachL`/`reachR`, `sb`, `joins` |
 | glyph table, `def` | `defGlyph(id, sb, fn, meta)` registers a glyph: `sb` side-bearing factors (1 a stem, about .55 round, .25 diagonal), `fn(g, m)` returns the body width, `meta.params` the controls the inspector shows first |
@@ -137,15 +144,15 @@ asks, answers right), and in `restyled`'s cache key if a restyle reads it. Never
 | command options | `w` a weight ('thin', 'thick', 0..1), `even` (no easing in), `turn` (TurnR at its start), `u0`/`u1` |
 | StrokeOpts | `s`/`e` EndType, `part`, `w`, `ws`/`we` tapers, `scale` (a lighter pen, no serifs), `clip`, `counter`, `serifS`/`serifE`, `serifScale`, `pen: 'pointed'`, `miter`, `endRoom` |
 | EndType | `'term'` styled terminal, `'flat'`, `'h'` cut level, `'v'` cut plumb, `'join'` buried in another stroke (`T`, `H`, `J` in glyphs/shared.ts) |
-| part | A stroke's anatomy name (stem, bowl, crossbar, arm, tail, entry, fillet, drawn...). It drives behaviour: crossbar Gap and drag, arm serifs, tail and entry ends, fillets |
+| part | A stroke's anatomy name (stem, bowl, crossbar, arm, tail, entry, fillet, drawn...). It drives behaviour: the crossbar's Gap, stencil and run-through (`isBar`: crossbar, bar), tail and entry ends (ends.ts), fillets (glyph.ts), what a control highlights (highlight.ts), and the inspector's names and drags (`ANATOMY`, `PART_CONTROL`, client/lib/drag.ts). Arm serifs go by an end's direction (`serifPlace`), not by part |
 | stroke id | A stroke's index in the order its glyph function drew it (`String(si)`); dots, fillets and blobs count too |
 | end id | `${si}s` or `${si}e`, with `p` in front for a plain end (a stem's foot): `0s`, `p1e` |
 | turn id | `${si}t${k}`: turn k along stroke si's centerline, numbered by `turnsOf` (a change of direction over 0.2 rad) |
 | corner id | A turn id, an end's corner (`0sl`, `0er`: the stroke, its start or end, the left or right side looking out of it), or `${si}j${k}`, the k-th inside corner where stroke si meets a later stroke |
 | join id | `${si}s`/`${si}e` for an end that runs into another stroke, or a turn id; keys `joinGaps` |
 | ID_KEYS | The per-letter maps keyed by these ids: strokeWeights, terminalEnds, terminalCurls, corners, innerCorners (turns only), cornerSteps, joinGaps |
-| Mark | A point on a placed glyph: `terminal`, `end`, `join`, `corner`, `apex`, `vertex`, `overlap`, `tail`, `exit`, `entry`; with `id`, `hook`, `home` (where an end sat before its own length and curl), `v`/`vi`/`st` (a corner's roundness outside and in, its step), `dx`/`dy` (the way a join's gap opens) |
-| TurnR | `{ o, i, step? }`: a turn's outline radii outside and inside, or a step as a share of Steps |
+| Mark | A point on a placed glyph: `terminal`, `end`, `join`, `corner`, `apex`, `vertex`, `overlap`, `tail`, `exit`, `entry`; with `id`, `r` (an end's radius), `hook`, `home` (where an end sat before its own length and curl, or a corner's turn point), `v` (a corner's outside roundness, or a join's gap, each on its own control's scale), `vi`/`st` (a turn's inside roundness, a corner's step), `dx`/`dy` (the way a join's gap opens) |
+| TurnR | `{ o, i, step? }`: a turn's outline radii outside and inside, and optionally a square step cut out of the outside instead, as a value on the Steps scale (a share of the deepest step; `STEP_DEPTH` makes it a depth), unlike `Pt.step` |
 | Pt flags | `smooth` (a sampled curve point, never a corner), `sharp` (never rounded), `r` (a forced radius), `step` (a depth in font units) |
 | fillet | A filled quarter round in an inside corner where strokes meet (part `fillet`); dropped where a stencil or a through bar cuts that join, and never drawn in the wireframe fill |
 | Expanded | `expandStroke`'s result: contours, `loop` (a ring, two contours, no ends), ends, `endCorners` (the outline's own Pt objects), skeleton, thickness |
@@ -183,9 +190,10 @@ asks, answers right), and in `restyled`'s cache key if a restyle reads it. Never
 - Every character of `CHARSET` has a glyph; every non-lowercase one has a `BLOCKS` entry (the lowercase fall back to
   their capitals).
 - Most modules `font.ts` loads import values back from it (`glyph.ts` and its stages, `free-letters.ts`, `skin.ts`,
-  `restyle.ts`): they may use those values only inside functions, never at module load. `stroke.ts` imports only
-  `geom.ts`, so restyle.ts and the client's diagrams can call it with a PenCtx of their own; every such PenCtx sets
-  `term`.
+  `restyle.ts`): they may use those values only inside functions, never at module load. `stroke.ts` imports values
+  only from `geom.ts` (types aside), so restyle.ts and the client's diagrams (`client/components/Diagram.tsx`) can
+  call it with a PenCtx of their own. `term` is optional: left out, terminals are drawn with the expander's default
+  `TERM`, so a PenCtx that draws styled terminals sets it with `termSpec`.
 - Outline points are tracked by identity from `expandStroke` to placement (`endCorners`, `clipMade`, the stencil's
   `drawn` sets): clipping and splitting keep the original Pt objects; never copy them in between.
 - Outlines wind anticlockwise with clockwise holes; `combine` returns them so, and the fills rely on it.
@@ -207,7 +215,11 @@ change and verify it.
 ## How to verify
 
 - `npm test`: unit tests and the engine's golden outlines (every style, every setting at its ends and options).
-- `npm run golden`: also the free-font set (needs `data/free-fonts`), for anything the free-font path reads.
+- `npm run typecheck`: `npm test` runs through tsx, which doesn't check types; the compile checks (spec against
+  model, `SUBS`, `FORM_OPTIONS`, `SAME_WITHIN` covering `SkinMeasures`) fail only here.
+- `npm run golden`: also the free-font set (needs `data/free-fonts`), for anything the free-font path reads. If it
+  prints `free: no free fonts kept in … (skipped)`, the free set wasn't checked; `npm run render -- --style <id>
+  --free` fetches a style's font into `data/free-fonts`.
 - `npm run compare` (planned): every glyph of every style under about 50 setting combinations, built at a git ref and
   in the working tree, compared in full (outline, marks, counters, strokes, skeleton, serifs, spacing, highlights,
   layout, metrics). It catches what golden's probes don't reach. Use it for any refactor.
@@ -223,6 +235,7 @@ Fixing these changes saved designs' letters or the free fonts' output; leave the
 
 - `skin.ts` `BARS.A.move` is 0.26, the arched A's; the symmetric A moves its bar 0.36.
 - `skin.ts` `ROUND` has 5 and lacks 6, ¢, €, © and ®, which the engine draws round.
-- Some glyphs draw a conditional stroke before others: `entry()` in the cursive i j m n p r u and `y.cur`, and the
-  square-join fillets in `arch()` and in u. Their later strokes' ids shift with Cursive, Bowl joins and the wireframe
+- Some glyphs draw a conditional stroke before others: `entry()` in the cursive i j m n p r u and `y.cur`; the a's
+  exit stem (`if (r) footStem`, under Cursive) before its bowl; and the square-join fillets in `arch()`, in u, and in
+  `branchBowl()` ahead of the a's spur. Their later strokes' ids shift with Cursive, Bowl joins and the wireframe
   fill. Don't add more.
