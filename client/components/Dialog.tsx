@@ -3,7 +3,7 @@
    pick the cancel choice; the first choice takes the focus. */
 import { useEffect, useRef } from 'react';
 
-export interface DialogChoice { label: string; primary?: boolean; run: () => void }
+interface DialogChoice { label: string; primary?: boolean; run: () => void }
 
 export function Dialog({ title, body, choices, onCancel }: { title: string; body?: string; choices: DialogChoice[]; onCancel: () => void }) {
   const first = useRef<HTMLButtonElement>(null);

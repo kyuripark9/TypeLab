@@ -1,18 +1,24 @@
 /* First-run guide: a hands-on tour over the editor's main areas. Each step spotlights one area and
    gives a small task to try there; the spotlight stays live while the rest of the editor is held
    still, and the task ticks off once the editor sees it done. Opens once per browser and can be
-   replayed from the header. Targets are elements marked with data-guide="…". */
+   replayed from the header. Targets are elements marked with data-guide="…": stage and type in
+   Stage.tsx, panel in Panel.tsx, nav and strip in Chrome.tsx, inspector and scope in Inspector.tsx,
+   actions in Header.tsx. */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CategoryId } from '../../shared/content';
 import { isTyping } from '../lib/hooks';
-import { actions, useEditor, type EditorState } from '../state/editor';
+import { actions, useEditor, type EditorState, type StyleTab } from '../state/editor';
 
 type Side = 'top' | 'right' | 'bottom' | 'left';
+/** the data-guide names the steps spotlight (see the list above) */
+type Target = 'stage' | 'type' | 'panel' | 'nav' | 'inspector' | 'scope' | 'strip' | 'actions';
 interface Step {
-  target?: string; side?: Side;
+  target?: Target; side?: Side;
   /** the page to show: Style always, another page only if the Style page is open (a page picked earlier stays) */
   category?: CategoryId;
-  /** 'open' shows a letter in the inspector, 'keep' leaves it as it is; otherwise it closes */
+  /** the Style panel's tab to show (Filter or Adjust); left as it is when not given */
+  styleTab?: StyleTab;
+  /** 'open' shows a letter in the inspector (R, unless one is open already), 'keep' leaves it as it is; otherwise it closes */
   inspector?: 'open' | 'keep';
   /** the area, named small above the task */
   label?: string;
@@ -32,7 +38,7 @@ const STEPS: Step[] = [
     task: 'Click a style to start from', note: 'Answer a question or two to narrow them down.', done: (s, t) => s.styleId !== t.styleId },
   { target: 'type', side: 'bottom', category: 'style', label: 'Sample text',
     task: 'Type a word', done: (s, t) => !!s.custom.trim() && s.custom !== t.custom },
-  { target: 'panel', side: 'left', category: 'style', label: 'Traits',
+  { target: 'panel', side: 'left', category: 'style', styleTab: 'adjust', label: 'Traits',
     task: 'Pick a trait, like Bold', note: 'Every style takes it on.', done: (s, t) => s.traits !== t.traits },
   { target: 'nav', side: 'right', label: 'Pages',
     task: 'Open another page', note: 'Or type in Find a setting to go straight to one.', done: (s, t) => s.category !== t.category },
@@ -45,7 +51,7 @@ const STEPS: Step[] = [
   { target: 'scope', side: 'bottom', category: 'weight', inspector: 'open', label: 'Customize',
     task: 'Switch to Customize', note: 'Changes then reshape this letter alone.', done: s => s.scope === 'letter' },
   { target: 'inspector', side: 'right', category: 'weight', inspector: 'open', label: 'Customize',
-    task: 'Drag a part again', note: 'Only this letter changes; Sync all puts it back in step.',
+    task: 'Drag a part again', note: 'Only this letter changes; Re-sync puts it back in step.',
     done: (s, t) => s.scope === 'letter' && s.params.glyphs !== t.params.glyphs },
   { target: 'strip', side: 'top', category: 'weight', inspector: 'keep', label: 'Glyphs',
     task: 'Click another glyph', done: (s, t) => !!s.inspect && s.inspect !== t.inspect },
@@ -65,7 +71,7 @@ interface Rect { x: number; y: number; w: number; h: number }
 const PAD = 6, GAP = 14, EDGE = 16;
 
 /** The target's box, trimmed to the viewport so long scrollers don't spill off-screen. */
-function measure(target: string): Rect | null {
+function measure(target: Target): Rect | null {
   const el = document.querySelector(`[data-guide="${target}"]`);
   if (!el) return null;
   const r = el.getBoundingClientRect();
@@ -126,7 +132,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
     if (step.inspector === 'open') { if (!s.inspect) actions.openInspector('R'); }
     else if (step.inspector !== 'keep' && s.inspect) actions.closeInspector();
     if (step.category === 'style' || (step.category && s.category === 'style')) actions.setCategory(step.category);
-    if (step.target === 'panel' && step.category === 'style') actions.setStyleTab('adjust');
+    if (step.styleTab) actions.setStyleTab(step.styleTab);
     // in a narrow window the page menu is a drawer: open it for the step about it
     actions.setNavOpen(step.target === 'nav' && matchMedia('(max-width: 1180px)').matches);
     s = useEditor.getState();

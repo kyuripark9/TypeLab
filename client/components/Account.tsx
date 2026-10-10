@@ -55,6 +55,15 @@ export function AuthDialog() {
     beforehand whether they have an account, and switching between the two loses nothing typed. */
 type Step = 'email' | 'password' | 'create' | 'google';
 
+/** Each step's words: its heading (the email step's by how the dialog was opened) and its submit
+    button, idle and while busy. The Google step has no submit button, only Google's. */
+const STEP_TEXT: Record<Step, { title: string | Record<AuthMode, string>; submit?: string; busy?: string }> = {
+  email: { title: { signin: 'Sign in to TypeLab', signup: 'Create your account' }, submit: 'Continue', busy: 'Checking…' },
+  password: { title: 'Welcome back', submit: 'Sign in', busy: 'Signing in…' },
+  create: { title: 'Create your account', submit: 'Create account', busy: 'Creating account…' },
+  google: { title: 'Welcome back' }
+};
+
 function AuthForm({ mode }: { mode: AuthMode }) {
   const google = useAuth(s => s.google), waiting = useAuth(s => s.googleWaiting === 'signin'), googleError = useAuth(s => s.googleError);
   const [step, setStep] = useState<Step>('email'), [hasGoogle, setHasGoogle] = useState(false);
@@ -91,7 +100,7 @@ function AuthForm({ mode }: { mode: AuthMode }) {
   };
 
   const capsKey = (e: KeyEvent<HTMLInputElement>) => setCaps(e.getModifierState('CapsLock'));
-  const title = step === 'create' ? 'Create your account' : step !== 'email' ? 'Welcome back' : mode === 'signup' ? 'Create your account' : 'Sign in to TypeLab';
+  const text = STEP_TEXT[step], title = typeof text.title === 'string' ? text.title : text.title[mode];
   const message = error || googleError;
   const or = <div className="auth-or" role="separator"><span>or</span></div>;
 
@@ -161,8 +170,7 @@ function AuthForm({ mode }: { mode: AuthMode }) {
         {step !== 'google' && (
           <button type="submit" className="btn primary auth-submit"
             disabled={busy || (step === 'email' ? !email.trim() : step === 'create' ? password.length < PASSWORD_MIN : !password)}>
-            {busy ? (step === 'create' ? 'Creating account…' : step === 'password' ? 'Signing in…' : 'Checking…')
-              : step === 'create' ? 'Create account' : step === 'password' ? 'Sign in' : 'Continue'}
+            {busy ? text.busy : text.submit}
           </button>
         )}
         {google && (step === 'google' || (step === 'password' && (hasGoogle || forgot))) && <>{step !== 'google' && or}<GoogleButton /></>}

@@ -49,7 +49,7 @@ function openSetting(h: SettingHit) {
     el.classList.remove('found');
     void el.offsetWidth;
     el.classList.add('found');
-    setTimeout(() => el.classList.remove('found'), 1600);
+    setTimeout(() => el.classList.remove('found'), 1600); // as long as .ctl.found's animation in styles.css
   }));
 }
 
@@ -115,9 +115,13 @@ export function Nav() {
   );
 }
 
+/** A strip cell's usual frame, in font units with y down: 1000 wide around the glyph centred on its advance,
+    from 880 above the baseline to 300 below. */
 const CELL = '0 -880 1000 1180';
 /** A strip cell's view of glyph `g`, centred in it: the usual frame, or one drawn back far enough to take
-    in a flourish that reaches well out of it (a swash S), so it doesn't spill over its neighbours. */
+    in a flourish that reaches well out of it (a swash S), so it doesn't spill over its neighbours. Ink may
+    reach 150 units past either side and 120 above or below the frame before the cell draws back, and then
+    the view is the ink's box with 6% to spare. */
 function cellBox(g: Glyph) {
   const b = ink(g), dx = (1000 - g.adv) / 2, x0 = b.x0 + dx, x1 = b.x1 + dx, top = -b.y1, bottom = -b.y0;
   if (x0 >= -150 && x1 <= 1150 && top >= -1000 && bottom <= 420) return CELL;
@@ -125,7 +129,7 @@ function cellBox(g: Glyph) {
   return `${n1(cx - 500 * k)} ${n1(cy - 590 * k)} ${n1(1000 * k)} ${n1(1180 * k)}`;
 }
 /** One letter of the strip, drawn on its own so that, while a slider moves, the strip's deferred redraw can stop between
-    letters for the next move (drawn all at once, every letter of it held up each one). */
+    letters for the next move (drawn all at once, the whole strip would hold up every move). */
 const StripCell = memo(function StripCell({ ch, font, on, mark, cells }: { ch: string; font: Font; on: boolean; mark: 'drawn' | 'custom' | null; cells: Map<string, HTMLButtonElement> }) {
   const c = ch.charCodeAt(0), g = font.glyph(ch);
   return (

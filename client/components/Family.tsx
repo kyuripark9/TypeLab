@@ -11,10 +11,15 @@ import { actions, fontFor, useEditor } from '../state/editor';
 
 const SAMPLE = 'Hamburgefonstiv';
 
-/** The weights picked at first: the design's own and the one a reader would reach for beside it. */
-const startWeights = (anchor: WeightId): WeightId[] =>
-  anchor === 'bold' ? ['regular', 'bold'] : WEIGHTS.findIndex(w => w.id === anchor) > 6 ? ['regular', anchor] : [anchor, 'bold'];
+/** A weight's place in WEIGHTS, lightest first. */
+const rank = (id: WeightId) => WEIGHTS.findIndex(w => w.id === id);
 
+/** The weights picked at first: the design's own and the one a reader would reach for beside it
+    (Bold, or Regular for a design that is Bold or heavier). */
+const startWeights = (anchor: WeightId): WeightId[] =>
+  anchor === 'bold' ? ['regular', 'bold'] : rank(anchor) > rank('bold') ? ['regular', anchor] : [anchor, 'bold'];
+
+/** The weights picked, with the design's own always among them. */
 const withAnchor = (ids: WeightId[], anchor: WeightId) => ids.includes(anchor) ? ids : [...ids, anchor];
 
 export function FamilyDialog({ onClose }: { onClose: () => void }) {
@@ -73,7 +78,7 @@ export function FamilyDialog({ onClose }: { onClose: () => void }) {
             <select ref={first} value={anchor} onChange={e => {
               const a = e.target.value as WeightId;
               setAnchor(a);
-              setWeights(ws => ws.includes(a) ? ws : [...ws, a]);
+              setWeights(ws => withAnchor(ws, a));
             }}>
               {WEIGHTS.map(w => <option key={w.id} value={w.id}>{w.name} · {w.cls}</option>)}
             </select>
@@ -88,6 +93,7 @@ export function FamilyDialog({ onClose }: { onClose: () => void }) {
           <div className="family-quick">
             <button type="button" className="btn ghost small" onClick={() => setWeights(startWeights(anchor))}>Two weights</button>
             <button type="button" className="btn ghost small" onClick={() => setWeights(withAnchor(['light', 'regular', 'medium', 'bold'], anchor))}>Light to Bold</button>
+            {/* nine: the count of WEIGHTS in shared/family.ts */}
             <button type="button" className="btn ghost small" onClick={() => setWeights(WEIGHTS.map(w => w.id))}>All nine</button>
           </div>
         </div>

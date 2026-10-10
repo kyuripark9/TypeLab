@@ -1,19 +1,21 @@
+/* The stage: the Type something bar, then on the Style page the finder and the style cards (each
+   in its style's free font, under a row of chips for what's picked), or on the other pages the live
+   preview with its size slider and box, and the inspector over it while a letter is open. Like
+   Google Fonts, the one bar on top sets the sample text, both for the style cards and for the live
+   preview of the design. The size only shows with the preview: the cards are for comparing styles,
+   so they keep one size. */
 import { useDeferredValue, useRef, useState } from 'react';
 import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../../shared/content';
-import type { Params } from '../../shared/params';
-import { STYLE_FONTS } from '../../shared/free-fonts';
+import { parseFontId, STYLE_FONTS } from '../../shared/free-fonts';
 import { fontStyle, useWebFont } from '../lib/free';
-import { n1, useSize } from '../lib/hooks';
+import { useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
-import { actions, adjustedParams, fontFor, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
+import { actions, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
 import { FinderQuestion, FinderTrail, useFinder } from './Finder';
 import { Inspector } from './Inspector';
 import { focusFilters } from './Panel';
 import { Preview } from './Preview';
 
-/* Like Google Fonts: one "Type something" bar on top sets the sample text, both for the style cards
-   and for the live preview of the design. The size only shows with the preview: the cards are for
-   comparing styles, so they keep one size. */
 export function Stage() {
   const style = useEditor(s => s.category === 'style');
   return (
@@ -45,14 +47,17 @@ function PreviewBar() {
   );
 }
 
+/** The preview sizes the size box takes, in px; the slider beside it covers only 14..220. */
+const SIZE_MIN = 8, SIZE_MAX = 400;
+
 /** The size as an always-visible box you type into, with "px" inside it. Enter or leaving the box applies it
-    (clamped to 8..400); Escape puts the old value back; the arrow keys step by 1, or 10 with Shift. */
+    (clamped to SIZE_MIN..SIZE_MAX); Escape puts the old value back; the arrow keys step by 1, or 10 with Shift. */
 function SizeValue({ size }: { size: number }) {
   const [draft, setDraft] = useState<string | null>(null);
   const cancelled = useRef(false);
   const apply = (text: string) => {
     const n = Math.round(Number(text));
-    if (text.trim() !== '' && Number.isFinite(n)) actions.setSize(Math.min(400, Math.max(8, n)));
+    if (text.trim() !== '' && Number.isFinite(n)) actions.setSize(Math.min(SIZE_MAX, Math.max(SIZE_MIN, n)));
   };
   return (
     <label className="size-field" title="Type a size">
@@ -65,7 +70,7 @@ function SizeValue({ size }: { size: number }) {
           else if (e.key === 'Escape') { e.stopPropagation(); cancelled.current = true; e.currentTarget.blur(); }
           else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             e.preventDefault();
-            const n = Math.min(400, Math.max(8, Number(draft ?? size) + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)));
+            const n = Math.min(SIZE_MAX, Math.max(SIZE_MIN, Number(draft ?? size) + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)));
             setDraft(String(n));
             actions.setSize(n);
           }
@@ -98,7 +103,8 @@ function ViewToggle() {
   );
 }
 
-/** The live preview, laid out to the scroll box's width minus its side padding. */
+/** The live preview, laid out to the scroll box's width less 96px: room for its side padding (.stage-scroll in
+    styles.css, 40px a side, less in narrow windows) and a little to spare. */
 function SampleText() {
   const [scrollRef, size] = useSize<HTMLDivElement>();
   return (
@@ -111,16 +117,16 @@ function SampleText() {
 /** The size every style card is set at, in px. */
 const CARD_SIZE = 48;
 
-/** Cards are grouped by Category, the finder's first question, and narrowed by all the filters. Each
-    is drawn with the Adjust tab's traits laid over its style. The finder asks its questions first,
-    and the cards come once they're answered. */
+/** Cards are grouped by Category, the finder's first question, and narrowed by all the filters,
+    which see each style as the Adjust tab's traits make it. Each card sets the text in its style's
+    free font. The finder asks its questions first, and the cards come once they're answered. */
 function StyleCards() {
   const custom = useEditor(s => s.custom), text = sampleText(custom);
   const finder = useFinder();
   const view = useEditor(s => s.view);
   const head = useRef<HTMLHeadingElement>(null);
   const { traits: now, matches } = useStyleMatch();
-  // redrawing every card takes a moment, so the panel answers first and the cards follow
+  // new traits re-filter the cards a moment after the panel answers; the cards dim until they catch up
   const traits = useDeferredValue(now);
   const shown = PAGE_STYLES.filter(s => matches(s, {}, traits));
   const current = useEditor(s => styleById(s.styleId));
@@ -149,9 +155,7 @@ function StyleCards() {
             <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
               <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
               <div className={view === 'list' ? 'cards list' : 'cards'}>
-                {shown.filter(s => s.group === g.id).map(s => STYLE_FONTS[s.id]
-                  ? <FreeCard key={s.id} style={s} text={text} size={CARD_SIZE} />
-                  : <StyleCard key={s.id} style={s} params={adjustedParams(s, traits)} text={text} size={CARD_SIZE} />)}
+                {shown.filter(s => s.group === g.id).map(s => <FreeCard key={s.id} style={s} text={text} size={CARD_SIZE} />)}
               </div>
             </section>
           ))}
@@ -164,8 +168,8 @@ function StyleCards() {
 }
 
 /** Everything picked in the panel, search, filters and traits, as one row of chips, each removed
-    with a click; the traits say they change every card. While the finder is on, its trail shows
-    the Category, Classification and Feeling instead. */
+    with a click; the trait chips are tinted apart from the filters. While the finder is on, its trail
+    shows the Category, Classification and Feeling instead. */
 function ActiveBar({ onClear, finder }: { onClear: () => void; finder: boolean }) {
   const { f, traits } = useStyleMatch();
   const tag = <T extends string>(list: { id: T; label: string }[], id: T) => list.find(x => x.id === id)!.label;
@@ -200,31 +204,8 @@ function FreeCard({ style: s, text, size }: { style: StyleDef; text: string; siz
   const font = useWebFont(STYLE_FONTS[s.id]);
   return (
     <button className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
-      <span className="card-name">{s.name}<span className="card-like font">{STYLE_FONTS[s.id].replace(/:.*/, '')}</span></span>
+      <span className="card-name">{s.name}<span className="card-like font">{parseFontId(STYLE_FONTS[s.id])?.family}</span></span>
       <span className={font ? 'card-free' : 'card-free loading'} style={{ ...(font && fontStyle(font)), fontSize: size }}>{text}</span>
-    </button>
-  );
-}
-
-/** Each card shows the sample text set in that style, wrapped to the card's width. */
-function StyleCard({ style: s, params, text, size }: { style: StyleDef; params: Params; text: string; size: number }) {
-  const on = useEditor(st => st.styleId === s.id && !st.params.freeFont);
-  const [ref, box] = useSize<HTMLButtonElement>();
-  const f = fontFor(params), sc = size / 1000, width = Math.max(1, box.width - 36);
-  const top = Math.max(f.m.asc, f.m.cap) + 30, LH = top - f.m.desc + 40;
-  const lines = box.width ? f.layout(text, width / sc) : [];
-  const H = n1(lines.length * LH * sc);
-  return (
-    <button ref={ref} className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
-      <span className="card-name">{s.name}<span className="card-like">{s.like}</span></span>
-      <svg width={n1(width)} height={H} viewBox={`0 0 ${n1(width)} ${H}`} aria-hidden="true">
-        <g transform={`scale(${sc})`}>
-          {lines.map((ln, i) => ln.items.map((it, j) => {
-            const g = f.glyph(it.ch);
-            return g && <path key={`${i}-${j}`} d={g.d} transform={`translate(${n1(it.x)},${n1(top + i * LH)})`} />;
-          }))}
-        </g>
-      </svg>
     </button>
   );
 }

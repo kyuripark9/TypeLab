@@ -1,3 +1,7 @@
+/* The editor's top bar: the logo (Brand, also on the library and account pages), the design's name
+   renamed in place, the style it started from, undo and redo, Guide, My designs, Save (asking for a
+   name on a first save) and the Export menu: font file, family, specimen, and settings as
+   .typelab.json out and in. */
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { styleById } from '../../shared/content';
@@ -17,10 +21,10 @@ function ReservedNote({ name }: { name: string }) {
     : <p className="exp-note">Exports as “{out}”: {font!.family}’s licence keeps its name for the original font.</p>;
 }
 
-/** Logo: back to the Style tab of the design in progress. */
+/** Logo: back to the Style page of the design in progress. */
 export function Brand() {
   const id = useEditor(s => s.designId), to = id ? `/d/${id}` : '/';
-  const here = useLocation().pathname === to; // already in the editor: just switch tabs, don't navigate
+  const here = useLocation().pathname === to; // already in the editor: just switch pages, don't navigate
   return <Link to={to} className="brand" title="Back to Style" onClick={e => { if (here) e.preventDefault(); actions.setCategory('style'); }}>
     <span className="brand-name">TypeLab</span>
   </Link>;
@@ -107,11 +111,13 @@ function BasedOn() {
   );
 }
 
+/** The name offered to a design still Untitled: from its style. */
+const suggestedName = (styleId: string) => `My ${styleById(styleId)?.name ?? 'font'}`;
+
 /** "Name your font": asked on a design's first save, so the library doesn't fill with Untitled fonts.
     It starts from the style the design is based on. */
 function NamePrompt({ onDone, onCancel }: { onDone: (name: string) => void; onCancel: () => void }) {
-  const style = useEditor(s => styleById(s.styleId));
-  const [value, setValue] = useState(() => `My ${style?.name ?? 'font'}`);
+  const [value, setValue] = useState(() => suggestedName(useEditor.getState().styleId));
   const wrap = useRef<HTMLFormElement>(null), input = useRef<HTMLInputElement>(null);
   useEffect(() => {
     input.current?.select();
@@ -145,7 +151,7 @@ function ExportMenu() {
   useEffect(() => {
     if (!open) return;
     const s = useEditor.getState();
-    setDraft(cleanName(s.name) === DEFAULT_NAME ? `My ${styleById(s.styleId)?.name ?? 'font'}` : s.name);
+    setDraft(cleanName(s.name) === DEFAULT_NAME ? suggestedName(s.styleId) : s.name);
     touched.current = false;
   }, [open]);
   const takeName = () => { if (cleanName(draft) !== cleanName(useEditor.getState().name)) void commitName(draft); };

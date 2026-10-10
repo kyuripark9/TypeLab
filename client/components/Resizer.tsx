@@ -17,6 +17,11 @@ interface SideSpec {
   /** +1 when moving the border toward +axis grows the panel (the nav), -1 when it shrinks it */
   dir: 1 | -1;
 }
+/* Each side is also the class of the .editor grid child it sizes (.nav and .strip in Chrome.tsx, .panel in
+   Panel.tsx), measured as `.editor > .{side}`, and .top is the header; a renamed class or a wrapper
+   around a column leaves the measure at 0 with no error. `prop` is the variable styles.css reads (the
+   .editor grid-template for the columns, .strip's min-height), and strip's min matches its fallback
+   there, var(--strip-h, 76px). */
 const SIDES: Record<Side, SideSpec> = {
   nav: { min: 160, max: 320, label: 'Resize the category list', prop: '--nav-w', axis: 'x', dir: 1 },
   panel: { min: 300, max: 560, label: 'Resize the settings panel', prop: '--panel-w', axis: 'x', dir: -1 },
