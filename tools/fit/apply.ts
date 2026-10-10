@@ -7,7 +7,7 @@ import { DEFAULTS } from '../../shared/params';
 import { STYLES } from '../../shared/content';
 import { freeParams, SCRATCH } from './lib';
 import { ROOT } from '../lib';
-const FILE = `${ROOT}/shared/content.ts`;
+const FILE = `${ROOT}/shared/content/styles.ts`;
 let src = readFileSync(FILE, 'utf8');
 const only = process.argv.slice(2);
 const r3 = (v: unknown) => typeof v === 'number' ? Math.round(v * 1000) / 1000 : v;
