@@ -6,7 +6,8 @@
 import { writeFileSync } from 'node:fs';
 import { buildFont } from '../../shared/engine';
 import { TERMINALS, TERMINAL_FORMS, SERIF_SHAPES, SERIF_TIPS, STORIES, type Params } from '../../shared/params';
-import { freeParams, refImages, score, iou, styleOf, SCRATCH } from './lib';
+import { styleOf, styleParams } from '../lib';
+import { refImages, score, iou, SCRATCH } from './lib';
 
 const NUM = ['weight', 'width', 'contrast', 'vWeight', 'hWeight', 'xHeight', 'extenders', 'descender', 'counter', 'aperture', 'crossbar',
   'roundness', 'curve', 'apex', 'terminalLength', 'terminalCurl', 'squareness', 'overlap', 'joinRound', 'tail', 'dotSize',
@@ -18,7 +19,7 @@ const ENUM: Record<string, readonly unknown[]> = {
 };
 
 const id = process.argv[2];
-const free = buildFont(await freeParams(id)), ref = refImages(free);
+const free = buildFont(await styleParams(id, true)), ref = refImages(free);
 const start = { ...styleOf(id).params } as Params;
 let p = { ...start } as any, best = score(ref, p);
 const log: string[] = [`${id} start score ${best.toFixed(4)} iou ${iou(ref, p).toFixed(3)}`];

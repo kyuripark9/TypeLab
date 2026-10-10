@@ -5,8 +5,8 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { buildFont } from '../../shared/engine';
 import { DEFAULTS } from '../../shared/params';
 import { STYLES } from '../../shared/content';
-import { freeParams, SCRATCH } from './lib';
-import { ROOT } from '../lib';
+import { SCRATCH } from './lib';
+import { ROOT, styleParams } from '../lib';
 const FILE = `${ROOT}/shared/content/styles.ts`;
 let src = readFileSync(FILE, 'utf8');
 const only = process.argv.slice(2);
@@ -19,7 +19,7 @@ for (const st of STYLES) {
   if (!existsSync(fj)) continue;
   const fit = JSON.parse(readFileSync(fj, 'utf8')).global;
   // word spacing: the engine's space as wide (in cap heights) as the free font's, written in it
-  const free = buildFont(await freeParams(st.id)), want = free.m.space / free.m.cap;
+  const free = buildFont(await styleParams(st.id, true)), want = free.m.space / free.m.cap;
   let lo = 0, hi = 1;
   for (let i = 0; i < 18; i++) { const mid = (lo + hi) / 2, f = buildFont({ ...fit, wordSpacing: mid }); if (f.m.space / f.m.cap < want) lo = mid; else hi = mid; }
   fit.wordSpacing = (lo + hi) / 2;
@@ -36,7 +36,7 @@ for (const st of STYLES) {
   if (at < 0) { console.log('no style', st.id); continue; }
   // the params object is the last argument: the first '{' after the description string, to its match
   let depth = 0, quote = '', start = -1, end = -1;
-  // skip to after the 7 leading args: find the '{' that follows a "',\n" at depth 0 of parens
+  // (the arguments before it are strings and arrays of strings, so the first '{' outside quotes opens it)
   for (let k = at + 6; k < src.length; k++) {
     const c = src[k];
     if (quote) { if (c === '\\') { k++; continue; } if (c === quote) quote = ''; continue; }

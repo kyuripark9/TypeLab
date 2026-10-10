@@ -1,3 +1,5 @@
+/* The pen (client/lib/pen.ts, and tracing in shared/engine/outline.ts): letters traced into points, drawn
+   letters in params.outlines, editing points, Sync all, Mirror and Snapping. */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { ALL_CHARS, buildFont, drawnCmds, fitOutline, type Cmd, type Node } from '../shared/engine';
@@ -232,7 +234,8 @@ describe('Snapping with the pen', () => {
 
   it('finds the middle of the width and of each shape, and halfway along each line and curve', () => {
     const s = scene(['centers', 'midpoints']);
-    assert.ok(has(s, 'center', 150, 350) && has(s, 'center', 150, 350) && has(s, 'center', 525, 250));
+    // (the stem and the bar both centre at 150, 350)
+    assert.ok(has(s, 'center', 150, 350) && has(s, 'center', 525, 250));
     assert.ok(s.xs.some(l => l.v === 400 && l.label === 'center') && s.ys.some(l => l.v === 250) && s.ys.some(l => l.v === 350));
     assert.ok(has(s, 'midpoint', 150, 0) && has(s, 'midpoint', 200, 350));
     // halfway along a curve is on the curve, not between its ends

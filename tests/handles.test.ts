@@ -1,8 +1,11 @@
+/* Every per-letter handle (the maps in ID_KEYS: corners, stroke ends, strokes, joins) changes its letter
+   between the ends of its range. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { ALL_CHARS, buildFont } from '../shared/engine';
-import { DEFAULTS, isTurnId, type Params } from '../shared/params';
+import { DEFAULTS, ID_KEYS, isTurnId, type Params } from '../shared/params';
 
+/** The per-letter maps (ID_KEYS in shared/params/spec.ts); a test below checks the two lists agree. */
 type HandleKey = 'corners' | 'innerCorners' | 'cornerSteps' | 'terminalEnds' | 'terminalCurls' | 'strokeWeights' | 'joinGaps';
 
 /** Every handle a letter offers while it is customized, as [letter, setting, id], in a font with settings `p`. */
@@ -35,6 +38,10 @@ function dead(p: Params) {
 }
 
 describe('letter handles', () => {
+  it('cover every per-letter map', () => {
+    assert.deepEqual(new Set(handles(DEFAULTS).map(h => h[1])), new Set(ID_KEYS));
+  });
+
   // each corner, end, stroke and join a letter offers a control for changes the letter: joins in narrow
   // crotches (K, the waist of B), corners a clip cuts (the top left of N), the ends beside the dot of an i
   for (const [name, p] of Object.entries<Partial<Params>>({ 'as drawn': {}, light: { weight: 0.1 }, heavy: { weight: 0.9 }, 'high contrast': { contrast: 1 }, serif: { serif: true } })) {

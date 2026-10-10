@@ -1,3 +1,5 @@
+/* Dragging the inspected letter (client/lib/drag.ts): which setting a drag on a guide, stem, bar, tail or stroke
+   end moves, the value that brings the part to the pointer, and the handles each control shows on the letter. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { dragSpec, handlesFor, pickAxis, solver, strokeEnds, towardMore } from '../client/lib/drag';

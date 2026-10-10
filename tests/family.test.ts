@@ -1,3 +1,5 @@
+/* Font families (shared/family.ts) and their export as a .zip of OpenType fonts (server/export.ts): the
+   weights' names, each member's settings, and the names and style bits each font file carries. */
 import assert from 'node:assert/strict';
 import { inflateRawSync } from 'node:zlib';
 import { describe, it } from 'node:test';

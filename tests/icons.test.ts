@@ -1,3 +1,4 @@
+/* Every slider has an icon in client/components/SliderIcons.tsx, and every icon there belongs to a slider. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { CONTROLS, SUBS, type ControlKey } from '../shared/content';

@@ -1,7 +1,11 @@
+/* The starting styles (shared/content/styles.ts, tags.ts): valid presets, the Style page's cards and Feeling
+   chips, word spaces in joined-up scripts, and letters that must sit right (v w V W on the baseline, no gap
+   after a curled Q). */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, STYLES, TAG_FACE } from '../shared/content';
 import { buildFont } from '../shared/engine';
+import { isValidParams } from '../shared/params';
 
 /** The lowest point of a glyph's ink, in font units above the baseline (outlines are drawn y-down). */
 const inkBottom = (d: string) => {
@@ -11,13 +15,17 @@ const inkBottom = (d: string) => {
   return -y;
 };
 
+describe('starting styles', () => {
+  it('keep every preset to valid settings, so a design saved from any of them is accepted', () => {
+    for (const s of STYLES) assert.ok(isValidParams(s.params), s.id);
+  });
+});
+
 describe('style page', () => {
   it('shows each style once, and only solid letters', () => {
+    for (const s of PAGE_STYLES) assert.ok(s, 'every card names a defined style');
     assert.equal(new Set(PAGE_STYLES.map(s => s.id)).size, PAGE_STYLES.length);
-    for (const s of PAGE_STYLES) {
-      assert.ok(s, 'every card names a defined style');
-      assert.ok(s.params.fill === 'solid' && !s.params.stencil && !s.params.slice, s.id);
-    }
+    for (const s of PAGE_STYLES) assert.ok(s.params.fill === 'solid' && !s.params.stencil && !s.params.slice, s.id);
   });
 
   it('keeps every Feeling chip live, and the finder offers only Categories and genres with a card', () => {

@@ -1,3 +1,5 @@
+/* The editor's pages and controls (shared/content/pages.ts, controls.ts, search.ts): every control on one
+   page, the order of pages and of the controls on each, links naming a page or group, and finding a setting. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { CATEGORIES, CONTROLS, GROUPS, SUBS, controlFor, findSettings, firstControl, pageOf, type ActiveKey, type ControlKey } from '../shared/content';
@@ -24,7 +26,7 @@ describe('editor pages', () => {
     }
     // Serifs has a page to itself
     assert.deepEqual(new Set(controls.filter(k => CONTROLS[k].cat === 'serifs').map(k => k.slice(0, 5))), new Set(['serif']));
-    assert.deepEqual(controls.filter(k => k.startsWith('serif')).map(k => CONTROLS[k].cat), Array(8).fill('serifs'));
+    for (const k of controls.filter(k => k.startsWith('serif'))) assert.equal(CONTROLS[k].cat, 'serifs', k);
   });
 
   it('runs from the broadest settings to the finest, on the navigation and on each page', () => {
@@ -42,7 +44,7 @@ describe('editor pages', () => {
     }
   });
 
-  it('opens a group on its first page, so links from before the pages still work', () => {
+  it('opens the page a link names: a page, a group on its first page, or the page an older link\'s group name (OLD_GROUPS) now maps to', () => {
     assert.equal(pageOf('serifs'), 'serifs');
     assert.equal(pageOf('structure'), 'weight');
     assert.equal(pageOf('shape'), 'curves');

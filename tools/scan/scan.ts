@@ -9,13 +9,12 @@ import { registerFreeFont, buildFont, freeFont, type Glyph } from '../../shared/
 import { STYLES } from '../../shared/content';
 import { STYLE_FONTS } from '../../shared/free-fonts';
 import { FREE_AT_KEYS, type Params } from '../../shared/params';
-import { freeFonts, OUT, polys } from '../lib';
+import { freeFonts, OUT, polys, type P } from '../lib';
 mkdirSync(OUT, { recursive: true });
 const OUT_FILE = process.env.OUT_FILE ?? `${OUT}/scan.jsonl`;
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-export const VARIANTS: string[] = (process.env.VARS || 'extenders=0 extenders=1 descender=0 descender=1 counter=0 counter=1 dotSize=0 dotSize=1 pinch=1 joints=1 roundness=0 roundness=1 steps=1 innerRound=1 joinRound=1 terminal=flat terminal=round terminal=round,terminalForm=ball terminal=sharp terminal=angled terminal=cut terminal=tapered terminal=flat,terminalForm=flared').split(' ');
+const VARIANTS: string[] = (process.env.VARS || 'extenders=0 extenders=1 descender=0 descender=1 counter=0 counter=1 dotSize=0 dotSize=1 pinch=1 joints=1 roundness=0 roundness=1 steps=1 innerRound=1 joinRound=1 terminal=flat terminal=round terminal=round,terminalForm=ball terminal=sharp terminal=angled terminal=cut terminal=tapered terminal=flat,terminalForm=flared').split(' ');
 const [si, sn] = (process.env.SLICE || '0/1').split('/').map(Number);
-type P = { x: number; y: number };
 const area = (r: P[]) => { let a = 0; for (let i = 0; i < r.length; i++) { const p = r[i], q = r[(i + 1) % r.length]; a += p.x * q.y - q.x * p.y; } return a / 2; };
 const box = (rs: P[][]) => { let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const r of rs) for (const p of r) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); } return { w: x1 - x0, h: y1 - y0 }; };
 const spikes = (rs: P[][]) => { let n = 0; for (const r of rs) { const m = r.length; for (let i = 0; i < m; i++) { const a = r[(i - 1 + m) % m], b = r[i], c = r[(i + 1) % m];

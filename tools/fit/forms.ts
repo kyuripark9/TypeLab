@@ -1,15 +1,16 @@
-/* Settle each fit's letter forms on the letters they shape: g (gForm), Q (qForm), a (story, aForm). A form is
+/* Settle each fit's letter forms on the letters they shape: g (gForm), Q (qForm), a (story). A form is
    switched where its letter matches the free font clearly better.
      node --import tsx tools/fit/forms.ts [ids...] */
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { buildFont } from '../../shared/engine';
-import { freeParams, refImages, glyphScore, SCRATCH } from './lib';
+import { styleParams } from '../lib';
+import { refImages, glyphScore, SCRATCH } from './lib';
 const FORMS: [string, string, unknown[]][] = [['gForm', 'g', ['hook', 'double']], ['qForm', 'Q', ['crossing', 'sweep', 'inside']], ['story', 'a', ['double', 'single']]];
 const GAIN = 0.03;
 const ids = process.argv.slice(2).length ? process.argv.slice(2) : readdirSync(SCRATCH).filter(f => f.endsWith('.fit.json')).map(f => f.replace('.fit.json', ''));
 for (const id of ids) {
   const file = `${SCRATCH}/${id}.fit.json`, d = JSON.parse(readFileSync(file, 'utf8'));
-  const ref = refImages(buildFont(await freeParams(id)), 'gQa');
+  const ref = refImages(buildFont(await styleParams(id, true)), 'gQa');
   const moved: string[] = [];
   for (const [k, ch, opts] of FORMS) {
     if (!ref[ch]) continue;

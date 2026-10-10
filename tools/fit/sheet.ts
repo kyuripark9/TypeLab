@@ -5,14 +5,14 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { buildFont } from '../../shared/engine';
 import { STYLES } from '../../shared/content';
 import { STYLE_FONTS } from '../../shared/free-fonts';
-import { rowsPNG, type Row } from '../lib';
-import { freeParams, SCRATCH } from './lib';
+import { rowsPNG, styleParams, type Row } from '../lib';
+import { SCRATCH } from './lib';
 
 const only = process.argv.slice(2), text = 'Hamburgefonstiv RAGE Qy';
 const rows: Row[] = [];
 for (const st of STYLES.filter(s => STYLE_FONTS[s.id] && (!only.length || only.includes(s.id)))) {
   const fj = `${SCRATCH}/${st.id}.fit.json`, before = existsSync(fj) ? JSON.parse(readFileSync(fj, 'utf8')).start : st.params;
-  rows.push({ font: buildFont(await freeParams(st.id)), text }, { font: buildFont(before), text }, { font: buildFont(st.params), text });
+  rows.push({ font: buildFont(await styleParams(st.id, true)), text }, { font: buildFont(before), text }, { font: buildFont(st.params), text });
 }
 writeFileSync(`${SCRATCH}/sheet.png`, rowsPNG(rows, 28, 10));
 console.log(`${SCRATCH}/sheet.png`);

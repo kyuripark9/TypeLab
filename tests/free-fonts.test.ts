@@ -1,11 +1,16 @@
+/* Free fonts: every style's font (shared/free-fonts.ts), turning a font file into outlines as the server
+   does (server/free-fonts.ts), drawing a design written in one and moving its letters by the settings
+   (shared/engine/free-letters.ts, skin.ts, restyle.ts), its notice in an export, and the API that serves
+   them. The fonts here are small ones made in the test, so nothing is fetched. */
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import { describe, it } from 'node:test';
 import * as opentypeNs from 'opentype.js';
-import { PAGE_STYLES, STYLES } from '../shared/content';
-import { buildFont, freeFont, freeFontsWanted, registerFreeFont, type FreeFontData, type Glyph } from '../shared/engine';
+import { STYLES } from '../shared/content';
+import { ALL_CHARS, buildFont, freeFont, freeFontsWanted, registerFreeFont, resolve, type FreeFontData, type Glyph } from '../shared/engine';
+import { formChanged } from '../shared/engine/free-letters';
 import { familyMember } from '../shared/family';
-import { FREE_FAMILIES, STYLE_FONTS, nearestFont, parseFontId } from '../shared/free-fonts';
+import { STYLE_FONTS, nearestFont, parseFontId } from '../shared/free-fonts';
 import { DEFAULTS, sanitizeParams } from '../shared/params';
 import { createApp } from '../server/app';
 import { DesignStore } from '../server/db';
@@ -48,13 +53,13 @@ function googleFonts(file = fontFile()) {
 }
 
 describe('free fonts', () => {
-  it('give every style on the page a font that is one of the families, in a weight it comes in', () => {
-    for (const s of PAGE_STYLES) {
+  it('give every style a font that is one of the families, in a weight it comes in', () => {
+    // styles off the page too: a design saved from one can still be written in its free font
+    for (const s of STYLES) {
       const id = STYLE_FONTS[s.id];
       assert.ok(id, `${s.id} has a free font`);
       assert.ok(parseFontId(id), `${s.id}'s ${id} is a font the families have`);
     }
-    for (const id of Object.values(STYLE_FONTS)) assert.ok(FREE_FAMILIES[parseFontId(id)!.family].designers.length >= 0);
   });
 
   it('keep a free font in the settings only when it is one of them', () => {
@@ -237,6 +242,24 @@ describe('free fonts', () => {
     assert.equal(buildFont({ ...p, terminal: 'round' }).glyph('H')!.d, H.d, 'the H has no such ends');
     // the inline runs down the strokes, cutting a line out of them
     assert.notEqual(buildFont({ ...p, fill: 'inline' }).glyph('H')!.d, H.d, 'the inline reaches it');
+  });
+
+  it('draw a letter asked for in a form the font hasn\'t got as the engine\'s (the twin\'s), and leave the rest the font\'s', () => {
+    // an H of two stems and a bar, and an a: a box with a hole, as the server sends them
+    const rect = ([x0, x1, y0, y1]: number[]): [number, number][] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    registerFreeFont({ id: 'Roboto:300', family: 'Roboto', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 500, space: 250,
+      glyphs: { H: [800, [[100, 190, 0, 700], [510, 600, 0, 700], [150, 550, 310, 390]].map(rect)], a: [600, [[100, 500, 0, 500], [200, 400, 100, 400]].map(rect)] } } as FreeFontData);
+    const at = sanitizeParams({ ...DEFAULTS, weight: 0.3, freeFont: 'Roboto:300' }), pick = resolve({ ...at, ...at.freeAt });
+    // as picked, no letter is in another form
+    for (const ch of ALL_CHARS) assert.equal(formChanged(ch, resolve(at), pick), false, ch);
+    const f = buildFont(at), single = buildFont({ ...at, story: 'single' });
+    assert.ok(f.glyph('a')!.drawn, 'the a is the font\'s');
+    // a single-storey a, which the font hasn't got: the engine draws it
+    assert.deepEqual([...ALL_CHARS].filter(ch => formChanged(ch, resolve(single.params), pick)), ['a']);
+    assert.notEqual(single.glyph('a')!.d, f.glyph('a')!.d);
+    assert.ok(!single.glyph('a')!.drawn, 'the single-storey a is the engine\'s');
+    assert.equal(single.glyph('H')!.d, f.glyph('H')!.d, 'the H is still the font\'s');
+    assert.ok(single.glyph('H')!.drawn);
   });
 
   it('are served by the API, and only the ones the styles name', async () => {

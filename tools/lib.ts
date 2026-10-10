@@ -19,9 +19,11 @@ export const styleOf = (id: string) => {
   return s;
 };
 
+/** Where the server keeps the free fonts it has fetched, unless FONTS_DIR points elsewhere. */
+export const FONTS_DIR = process.env.FONTS_DIR ?? resolve(ROOT, 'data/free-fonts');
 let fonts: FreeFonts | null = null;
-/** The free fonts, as the server keeps them in data/free-fonts (fetched from Google Fonts when missing). */
-export const freeFonts = () => (fonts ??= new FreeFonts(process.env.FONTS_DIR ?? resolve(ROOT, 'data/free-fonts')));
+/** The free fonts, as the server keeps them in FONTS_DIR (fetched from Google Fonts when missing). */
+export const freeFonts = () => (fonts ??= new FreeFonts(FONTS_DIR));
 
 /** Style `id`'s settings, written in its free font when `free` (the font is loaded and registered first). */
 export async function styleParams(id: string, free = false): Promise<Params> {
@@ -91,7 +93,7 @@ export function polys(cmds: Cmd[], n = 12): P[][] {
 }
 
 /** A line of `text` set in `font`: its glyphs' outlines moved into place, and how wide it runs. */
-export function setLine(font: Font, text: string) {
+function setLine(font: Font, text: string) {
   const [line] = font.layout(text, Infinity);
   const shapes: { x: number; cmds: Cmd[]; d: string }[] = [];
   for (const it of line?.items ?? []) {

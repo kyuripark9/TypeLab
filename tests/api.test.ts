@@ -1,3 +1,7 @@
+/* The HTTP API (server/app.ts) on an in-memory store, called through a stand-in browser that keeps its cookies:
+   designs, accounts, Google sign-in (against a stand-in Google), export, and reading a database saved before
+   designs had owners (server/db.ts). The tests in each describe run in order and build on the designs and
+   accounts the earlier ones made. */
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -1,3 +1,5 @@
+/* Whether a setting changes the letters in view (client/lib/reach.ts), and which letters it would change
+   when it doesn't. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { reachOf } from '../client/lib/reach';

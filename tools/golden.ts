@@ -19,17 +19,16 @@ import { STYLE_FONTS } from '../shared/free-fonts';
 import { STYLES, type StyleDef } from '../shared/content';
 import { DEFAULTS, FREE_AT_KEYS, SPECS, TERMINAL_FORMS, type Params } from '../shared/params';
 import { keptFile } from '../server/free-fonts';
-import { ROOT, showContext } from './lib';
+import { FONTS_DIR, ROOT, showContext } from './lib';
 
 export type GoldenSet = 'engine' | 'free';
 
 export const GOLDEN_FILE: Record<GoldenSet, string> = { engine: resolve(ROOT, 'tests/golden/outlines.txt'), free: resolve(ROOT, 'tests/golden/free-outlines.txt') };
-const FONTS_DIR = process.env.FONTS_DIR ?? resolve(ROOT, 'data/free-fonts');
 
 /** The designs the outlines are kept for, by name: every starting style, and every setting at its ends (Rotation
     at its quarters too, as both its ends are a half turn) and in each of its options, each tried where it shows
     (see showContext). */
-export function engineProbes(): [string, Params][] {
+function engineProbes(): [string, Params][] {
   const out: [string, Params][] = STYLES.map(s => [`style:${s.id}`, s.params]);
   out.push(['defaults', { ...DEFAULTS }]);
   for (const k of Object.keys(DEFAULTS) as (keyof Params)[]) {
@@ -61,7 +60,7 @@ const FREE_MOVES: [string, (st: StyleDef) => Partial<Params>][] = [
 ];
 const FREE_CHARS = 'ABCDEGHKMNOQRSWaegkmnorsty0258&?';
 /** Each free font kept in FONTS_DIR, its style's free-set designs, named with a hash of the font's file. */
-export function freeProbes(): [string, Params][] {
+function freeProbes(): [string, Params][] {
   const out: [string, Params][] = [];
   for (const st of STYLES) {
     const fid = STYLE_FONTS[st.id], file = fid && keptFile(FONTS_DIR, fid);
@@ -87,7 +86,7 @@ function glyphHash(cmds: Cmd[], lsb: number, adv: number): string {
 
 const charsOf = (set: GoldenSet) => (set === 'engine' ? ALL_CHARS : FREE_CHARS);
 /** Every probe's glyph hashes, in the set's character order ('...' where the font has no glyph). */
-export function compute(set: GoldenSet = 'engine'): Map<string, string> {
+export function compute(set: GoldenSet): Map<string, string> {
   const out = new Map<string, string>();
   for (const [name, p] of set === 'engine' ? engineProbes() : freeProbes()) {
     const f = buildFont(p);
@@ -101,13 +100,15 @@ export function compute(set: GoldenSet = 'engine'): Map<string, string> {
   return out;
 }
 
-export function write(hashes: Map<string, string>, set: GoldenSet = 'engine') {
+/** Writes these hashes as the golden file of `set`, under its character order. */
+function write(hashes: Map<string, string>, set: GoldenSet) {
   const lines = [`# golden outlines: npm run golden:update rewrites this file; see tools/golden.ts`, `chars ${JSON.stringify(charsOf(set))}`];
   for (const [k, v] of hashes) lines.push(`${k} ${v}`);
   writeFileSync(GOLDEN_FILE[set], lines.join('\n') + '\n');
 }
 
-export function read(set: GoldenSet = 'engine'): { chars: string; hashes: Map<string, string> } {
+/** The golden file of `set` as kept: its character order and each probe's hashes. */
+function read(set: GoldenSet): { chars: string; hashes: Map<string, string> } {
   const lines = readFileSync(GOLDEN_FILE[set], 'utf8').split('\n').filter(l => l && !l.startsWith('#'));
   const chars = JSON.parse(lines[0].slice('chars '.length)) as string;
   const hashes = new Map<string, string>();
@@ -116,7 +117,7 @@ export function read(set: GoldenSet = 'engine'): { chars: string; hashes: Map<st
 }
 
 /** What differs between the kept outlines and these: each probe that changed with the letters that did. */
-export function diff(now: Map<string, string>, set: GoldenSet = 'engine'): string[] {
+export function diff(now: Map<string, string>, set: GoldenSet): string[] {
   const { chars, hashes: was } = read(set), report: string[] = [];
   const cs = [...chars];
   for (const [k, v] of now) {

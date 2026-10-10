@@ -1,3 +1,4 @@
+/* The Style page's trait steps (shared/traits.ts) and its style search (searchMatches, shared/content/tags.ts). */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { PAGE_STYLES, searchMatches, styleById } from '../shared/content';
