@@ -10,13 +10,14 @@
    edge moves out (or in) by its stroke's change of thickness, corners sit where their two edges meet
    again, the letter is put back to its heights (bolder letters keep their x-height and capitals, as
    the engine's do), and the samples are traced back into curves. */
-import type { Metrics } from './font';
+import type { Params } from '../params';
+import { counterScale, serifLen, type Metrics } from './font';
 import type { FreeFont } from './free';
 import { fitOutline, type Node } from './outline';
 import { signedArea } from './geom';
 import { combine, shape } from './boolean';
 import { FREE_FAMILIES } from '../free-fonts';
-import { hasTerminals } from './restyle';
+import { HOOK_LETTERS, OPEN_LETTERS, added, hasTerminals } from './restyle';
 import { alongFrom, bez, branchNode, branches, endFace, inkGrid, joinsOf, leaving, nearestOn, skeleton, type Branch, type Grid, type Skeleton } from './scan';
 
 type P = { x: number; y: number };
@@ -64,7 +65,8 @@ function columnRuns(f: Grid, x: number): [number, number][] {
 
 /* ---- the rig */
 
-/** Whether point p is inside polygon o (even-odd). */
+/** Whether point p is inside polygon o (even-odd): geom.ts's inPoly with its sums taken in another order, so the two
+    can disagree about a point right on an edge. */
 function inPoly(o: P[], p: P) {
   let k = false;
   for (let i = 0, j = o.length - 1; i < o.length; j = i++) {
@@ -99,7 +101,8 @@ export interface SkinRig {
   contours: Node[][]; bones: Bone[][]; ctx: Ctx;
   /** whether it has serifs that Serif size moves */ serifs: boolean;
   /** how thick its upright strokes are, and its level ones, as a share of the capitals' height */ stem: number; bar: number;
-  /** the last six ways it was moved, by the measures it was moved from and to (dragging a slider back and forth) */ moves: Map<string, Node[][]>;
+  /** the last ways it was moved (MOVES_KEPT of them), by the measures it was moved from and to (dragging a slider back
+      and forth) */ moves: Map<string, Node[][]>;
   /** its skeleton, scanned when a setting first needs it (see scan.ts) */ sk?: Skeleton;
   /** whether a stroke of it ends square across, where the engine's serifs could stand (see restyleSerifs) */ squareEnds?: boolean;
   /** how near each edge's stroke is to where it runs into another, from 1 there to 0 a little way off (see joinsNear) */ near?: number[][];
@@ -107,6 +110,8 @@ export interface SkinRig {
 
 /** how far apart the outline is sampled, in the font's units (1000 to the em) */
 const STEP = 5;
+/** how many of the latest ways a rig was moved it keeps (SkinRig.moves) */
+const MOVES_KEPT = 6;
 /** an anchor whose way in and way out part by more than 30° is a corner */
 const CORNER = Math.cos(30 * Math.PI / 180);
 
@@ -183,7 +188,7 @@ function serifReach(f: Grid, x: number, y: number, nx: number, ny: number, L: nu
 
 /** One contour of the letter rigged: each sample read across its stroke, the strokes' thickness without their
     joins', and their ends and dots marked. `alone`: the contour lies inside no other and holds none (read by their
-    first points), so it can be a dot. */
+    first points), so it can be a square dot (a blob; a ring round one point is a dot alone or not). */
 function rigContour(c: Node[], f: Grid, ctx: Ctx, alone: boolean): Bone[] {
   const lines = [0, ctx.xh, ctx.cap, ctx.asc, ctx.desc];
   const serifLines = ctx.lower ? [0, ctx.xh, ctx.asc, ctx.desc] : [0, ctx.cap];
@@ -279,7 +284,8 @@ function markDot(bones: Bone[], ctx: Ctx, alone: boolean, typical: number) {
 
 /** Where to look for each letter's bar that Crossbar moves: the column (a share of the ink's width), the
     band (shares of its height) and the height it's likeliest at; and how far the engine's letters move it
-    from Crossbar 0 to 1, as a share of the capitals' or the x-height (glyphs.ts). */
+    from Crossbar 0 to 1, as a share of the capitals' or the x-height (the m.bar terms of glyphs/upper.ts and
+    glyphs/lower.ts, which note it: the A's is the arched A's, as the symmetric A moves its bar 0.36). */
 const BARS: Record<string, { at: [number, number, number, number]; move: number }> = {
   A: { at: [0.5, 0.12, 0.55, 0.33], move: 0.26 }, H: { at: [0.5, 0.25, 0.75, 0.5], move: 0.26 }, B: { at: [0.45, 0.3, 0.7, 0.5], move: 0.14 },
   E: { at: [0.4, 0.3, 0.7, 0.5], move: 0.14 }, F: { at: [0.4, 0.3, 0.7, 0.5], move: 0.14 }, P: { at: [0.45, 0.25, 0.68, 0.45], move: 0.16 },
@@ -327,11 +333,19 @@ export function skinRig(font: FreeFont, ch: string): SkinRig | null {
   return r;
 }
 
-/** The letters each letter-form setting draws in another form (by the font's twin: see formChanged and twinGlyph in
-    free-letters.ts, whose letter lists these follow). */
-const FORM_LETTERS: Record<string, RegExp> = {
-  story: /a/, aForm: /a/, gForm: /g/, kForm: /[kK]/, iForm: /[IiJl]/, sForm: /[sS$]/, diagonals: /[AVWvw]/, yForm: /[Yy]/, qForm: /Q/, rForm: /R/,
-  bowlJoin: /[abdgpqhmnru]/, bends: /[AMNVWYZvwyz]/, build: /./, scriptForm: /[A-Za-z]/, flourish: /[A-Za-z]/, cursive: /[a-z]/, swash: /[A-Z]/
+/** The letters each letter-form setting draws in another form. A free font's letter asked for in a form other than
+    its own comes from the font's twin (formChanged and twinGlyph in free-letters.ts), and skinFollows says the setting
+    reaches it (see FORM_FOLLOWS). */
+export const FORM_LETTERS = {
+  aForm: 'a', gForm: 'g', kForm: 'kK', iForm: 'IiJl', sForm: 'sS$', diagonals: 'AVWvw', yForm: 'Yy', qForm: 'Q', rForm: 'R',
+  bowlJoin: 'abdgpqhmnru', bends: 'AMNVWYZvwyz', terminalRun: 'acefjrstyCGJS235690?'
+} satisfies Partial<Record<keyof Params, string>>;
+/** The letters each setting that draws letters in another form reaches, for skinFollows: FORM_LETTERS's, the a's
+    storeys, and the settings that draw whole sets of letters anew. Curved or straight stroke ends (terminalRun) are
+    left out: not a SKIN_KEYS setting, it reaches every letter as skinFollows answers it. */
+const FORM_FOLLOWS: Record<string, RegExp> = {
+  story: /a/, ...Object.fromEntries(Object.entries(FORM_LETTERS).filter(([k]) => k !== 'terminalRun').map(([k, set]) => [k, new RegExp(`[${set}]`)])),
+  build: /./, scriptForm: /[A-Za-z]/, flourish: /[A-Za-z]/, cursive: /[a-z]/, swash: /[A-Z]/
 };
 
 /** The settings a free font's letter follows only when it is rigged (moved on its skeleton by skinMove, or redrawn
@@ -342,7 +356,7 @@ const SKIN_KEYS = new Set(['contrast', 'vWeight', 'hWeight', 'xHeight', 'crossba
   'terminalClip', 'terminalLean', 'terminalSlope', 'terminalTilt', 'terminalTip', 'terminalTaper',
   'serif', 'serifThickness', 'serifShape', 'serifAngle', 'serifBracket', 'serifTip', 'serifTipRound', 'serifTipSlant', 'serifBase', 'serifCup',
   'serifSides', 'serifInner', 'serifInnerSize', 'serifInnerThickness', 'serifBalance', 'serifTops', 'serifArms', 'serifArmThickness', 'serifArmLean',
-  'stencil', 'stencilPos', 'stencilRound', 'barGap', 'barEnds', 'tail', 'aperture', 'dots', 'squareness', 'chamfer', 'curve', 'bowlForm', 'apex', ...Object.keys(FORM_LETTERS)]);
+  'stencil', 'stencilPos', 'stencilRound', 'barGap', 'barEnds', 'tail', 'aperture', 'dots', 'squareness', 'chamfer', 'curve', 'bowlForm', 'apex', ...Object.keys(FORM_FOLLOWS)]);
 
 /** Whether setting `key` moves letter `ch` of a free font on its skeleton: Crossbar only a letter with a
     bar it moves, x-height only the lowercase, the serifs' size only a letter with serifs, Stem length a
@@ -353,7 +367,7 @@ export function skinFollows(font: FreeFont, ch: string, key: string) {
   if (FREE_FAMILIES[font.family]?.grid) return !SKIN_KEYS.has(key);
   if (key === 'crossbar') return ch in BARS;
   if (!SKIN_KEYS.has(key)) return true;
-  if (FORM_LETTERS[key]) return FORM_LETTERS[key].test(ch);
+  if (FORM_FOLLOWS[key]) return FORM_FOLLOWS[key].test(ch);
   const rig = skinRig(font, ch);
   if (!rig) return false;
   const ys = rig.contours.flat().map(n => n.y);
@@ -374,9 +388,9 @@ export function skinFollows(font: FreeFont, ch: string, key: string) {
         return sk.nodes.some(n => n.edges.length >= 3) || (key.startsWith('stencil') && sk.edges.some(e => e.a === e.b));
       }
       // (Tails & hooks the Q y j g t f with a styled end, Openness the open bowls' c e s a C G S and figures)
-      if (key === 'tail' && !'Qjygtf'.includes(ch)) return false;
-      if (key === 'aperture' && !'aceCGsS2356'.includes(ch)) return false;
-      return (!key.startsWith('terminal') && key !== 'tail' && key !== 'aperture') || hasTerminals(rig.contours, rigSkeleton(rig));
+      if (key === 'tail' && !HOOK_LETTERS.includes(ch)) return false;
+      if (key === 'aperture' && !OPEN_LETTERS.includes(ch)) return false;
+      return (!key.startsWith('terminal') && key !== 'tail' && key !== 'aperture') || hasTerminals(rigSkeleton(rig));
   }
 }
 
@@ -387,7 +401,7 @@ function squareEnds(rig: SkinRig) {
     rig.squareEnds = sk.nodes.some((n, i) => {
       if (n.edges.length !== 1) return false;
       const lv = leaving(sk, branches(sk, i)[0], n.r * 2), d = { x: -lv.x, y: -lv.y }, f = endFace(g, n.x, n.y, n.r, d);
-      return (f.face === 'level' && Math.abs(d.y) >= 0.5) || (f.face === 'plumb' && Math.abs(d.x) >= 0.7);
+      return f.face !== 'other';
     });
   }
   return rig.squareEnds;
@@ -434,16 +448,17 @@ export interface SkinMeasures {
   /** the x-height as a share of the capitals' */ xr: number;
   /** Crossbar */ bar: number;
   /** a serif's length */ serif: number;
-  /** how far Stem length draws the ascenders up past where they are, as a share of the capitals' height,
-      and how deep the descenders go, as a share of it */ asc: number; desc: number;
+  /** how far Stem length draws the ascenders up past where they are, as a share of the capitals' height (the
+      Stem length term of metrics().asc in font.ts, over the cap height), and how deep the descenders go, as a share
+      of it */ asc: number; desc: number;
   /** Inner space: how much wider a letter built round a counter is drawn (o, b, C), and any other */ cntR: number; cntN: number;
-  /** the dots' size */ dot: number;
+  /** the dots' size (dotK in glyphs/shared.ts, the same line with its sums in another order) */ dot: number;
   /** Pinch: how much, and the place of its line on its scale */ pinch: number; pinchPos: number;
   /** Joints: how much strokes thin where they run into another */ joints: number;
 }
 export const skinMeasures = (m: Metrics): SkinMeasures => ({
-  s: m.s, hT: m.hT, ws: m.ws, xr: m.xh / m.cap, bar: m.bar, serif: (28 + 147 * m.p.serifSize) * (0.75 + 0.25 * m.ws),
-  asc: (m.p.extenders - 0.5) * 0.5, desc: m.desc / m.cap, cntR: 1 + 0.22 * m.cnt, cntN: 1 + 0.06 * m.cnt,
+  s: m.s, hT: m.hT, ws: m.ws, xr: m.xh / m.cap, bar: m.bar, serif: serifLen(m.p.serifSize, m.ws),
+  asc: (m.p.extenders - 0.5) * 0.5, desc: m.desc / m.cap, cntR: counterScale('r', m.cnt), cntN: counterScale(undefined, m.cnt),
   dot: m.p.dotSize < 0.5 ? 0.7 + 0.6 * m.p.dotSize : 1 + (m.p.dotSize - 0.5), pinch: m.p.pinch, pinchPos: m.p.pinchPos, joints: m.p.joints
 });
 /** How near two of each measure count as the same (a stem's, a bar's and a serif's length in the engine's units, the
@@ -455,13 +470,15 @@ const SAME_WITHIN: Record<keyof SkinMeasures, number> = {
 const MEASURES = Object.keys(SAME_WITHIN) as (keyof SkinMeasures)[];
 const sameMeasures = (a: SkinMeasures, b: SkinMeasures) => MEASURES.every(k => Math.abs(a[k] - b[k]) < SAME_WITHIN[k]);
 
-/** The letters built round a counter, which Inner space widens by cntR rather than cntN (the engine's W in metrics(),
-    font.ts, widens glyphs.ts's m.W(…, 'r') letters 0.22 a unit against 0.06). */
+/** The letters built round a counter, which Inner space widens by cntR rather than cntN (see counterScale in font.ts:
+    the engine widens the glyph files' m.W(…, 'r') letters so). The two lists differ a little: the engine also draws
+    6, ¢, €, © and ® round, and not 5. */
 const ROUND = new Set('CDGOQabcdegopq0589@');
 
-/** How much of a setting a font that hasn't any of it (a pinch, thinned joints) takes on: none until the
-    setting is moved past where the font was picked at, then all of it by the end of the scale. */
-const added = (from: number, to: number) => (to > from ? (to - from) / (1 - from || 1) : 0);
+/** How much of its depth a descender keeps, drawn `k` times as deep: a shorter one keeps more than the engine's, which
+    are drawn for it (a tail or a bowl squeezed into a quarter of its depth comes apart). The lines a free font's
+    serifs and peaks stand on move by it too (restyled in free-letters.ts). */
+export const descK = (k: number) => (k < 1 ? Math.sqrt(k) : k);
 
 /** A piecewise-linear map with knots [from, to], carried on beyond them unscaled. */
 const piecewise = (knots: [number, number][]) => (y: number) => {
@@ -549,7 +566,7 @@ export function skinMove(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures): Node
   const kept = rig.moves.get(key);
   if (kept) return kept;
   const out = moveRig(rig, m0, m1);
-  if (rig.moves.size >= 6) rig.moves.delete(rig.moves.keys().next().value!);
+  if (rig.moves.size >= MOVES_KEPT) rig.moves.delete(rig.moves.keys().next().value!);
   rig.moves.set(key, out);
   return out;
 }
@@ -580,7 +597,8 @@ function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
   for (const cn of rig.contours) for (const n of cn) { x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x); }
   const cnt = ROUND.has(c.ch) ? m1.cntR / m0.cntR : m1.cntN / m0.cntN;
   const mid = (x0 + x1) / 2, sx = m1.ws / m0.ws * cnt, kv = m1.s / m0.s, kh = m1.hT / m0.hT, ks = m0.serif > 0 ? m1.serif / m0.serif : 1, kd = m1.dot / m0.dot;
-  // heights: the x-height moves the lowercase between the baseline and the ascenders, Crossbar the bar
+  // heights: the x-height moves the lowercase between the baseline and the ascenders, Crossbar the bar (restyled, in
+  // free-letters.ts, moves the lines it sets a free font's serifs and peaks on alike: keep the two in step)
   const xh1 = c.xh * m1.xr / m0.xr, top = c.lower ? c.xh : c.cap, top1 = c.lower ? xh1 : c.cap;
   const knots: [number, number][] = [[0, 0]], bar = BARS[c.ch];
   if (c.barY != null && bar) {
@@ -592,9 +610,7 @@ function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
   // baseline (so an overshoot there stays as it is)
   const pad = c.cap * 0.04;
   if (c.lower) knots.push([c.asc, Math.max(top1 + pad * 2, c.asc + (m1.asc - m0.asc) * c.cap)]);
-  // (shorter, a descender keeps more of its depth than the engine's, which are drawn for it: a tail or a
-  // bowl squeezed into a quarter of its depth comes apart)
-  const kDesc = m1.desc / m0.desc < 1 ? Math.sqrt(m1.desc / m0.desc) : m1.desc / m0.desc;
+  const kDesc = descK(m1.desc / m0.desc);
   if (c.lower && Math.abs(m1.desc - m0.desc) > 1e-4 && c.desc < -pad * 2) knots.unshift([c.desc, Math.min(-pad * 2, c.desc * kDesc)]);
   const gy = piecewise(knots), gx = (x: number) => mid + (x - mid) * sx;
   // a dot sits over the x-height, where the x-height puts it, whatever the ascenders do

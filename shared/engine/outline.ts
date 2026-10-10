@@ -4,10 +4,7 @@
    reshaped by skin.ts and restyle.ts are fitted the same way, a little closer (within 1.2 units).
 
    shared/params (clean.ts, model.ts) reads cleanDrawn and Drawn from here, so this file imports only
-   types: a value import reaching font.ts, which reads the params, would load the two in a cycle.
-   cleanDrawn is what a stored drawing passes as it loads: with a width or an anchor point past ±5000
-   units, more than 200 contours or more than 4000 points in all, the drawing is left out (a handle past
-   ±5000 is dropped alone). */
+   types: a value import reaching font.ts, which reads the params, would load the two in a cycle. */
 import type { Cmd } from './types';
 
 type P = { x: number; y: number };
@@ -235,7 +232,7 @@ const r1 = (v: number) => Math.round(v);
 
 /** Whole font units; handles that sit on their anchor or on a straight segment dropped; smooth
     points marked where the curve runs straight through. */
-export function tidy(c: Node[]): Node[] {
+function tidy(c: Node[]): Node[] {
   const out = c.map(n => {
     const m: Node = { x: r1(n.x), y: r1(n.y) };
     if (hasIn(n) && Math.hypot(n.ix! - n.x, n.iy! - n.y) >= 0.5) { m.ix = r1(n.ix!); m.iy = r1(n.iy!); }
@@ -268,7 +265,9 @@ export function fitOutline(cmds: Cmd[], tol = 1.6): Node[][] {
 const LIMIT = 5000;
 const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= LIMIT;
 
-/** A drawn letter as stored, or undefined when it isn't a valid one. */
+/** A drawn letter as stored, or undefined when it isn't a valid one: what a stored drawing passes as it loads. With a
+    width or an anchor point past ±LIMIT units, more than 200 contours or more than 4000 points in all, the drawing is
+    left out (a handle past ±LIMIT is dropped alone). */
 export function cleanDrawn(v: unknown): Drawn | undefined {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
   const d = v as Record<string, unknown>;

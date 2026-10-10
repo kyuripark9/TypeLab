@@ -70,7 +70,7 @@ export interface Params {
   /** plain I i J l, or with bars (see I_FORMS) */ iForm: IForm;
   /** the spine of s (see S_FORMS) */ sForm: SForm;
   /** the foot of the a (see A_FORMS) */ aForm: AForm;
-  /** how round the inside corners are where one stroke meets another (see joinR), from 0 sharp;
+  /** how round the inside corners are where one stroke meets another (see joinR in engine/joins.ts), from 0 sharp;
       a letter can round each of them on its own (see isCornerId) */ joinRound: number;
   /** oval or box bowls (see BOWL_FORMS) */ bowlForm: BowlForm;
   /** box bowls: how far their corners round on the outside, from 0 sharp through one stroke wide (0.5) to two */ boxRound: number;

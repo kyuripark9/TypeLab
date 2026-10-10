@@ -8,12 +8,17 @@
 
    Each flourish is a run of points in x-heights from a point on the plain letter (the top of its
    ascender, the middle of its bar, the foot of its stem), laid out as they lie on a script leaning
-   20°: they are leaned back upright here, and the design's slant leans them again with the letter. */
-import { defGlyph as def, glyphDefOf, type Builder, type Metrics } from './font';
+   20°: they are leaned back upright here, and the design's slant leans them again with the letter.
+
+   A swash is defined from its plain letter's side bearings and meta as this file loads (swash()), so the
+   script letters are registered first: it imports script.ts itself, whatever order engine/index.ts loads them in. */
+import { slantDeg } from '../params';
+import { defGlyph as def, glyphDefOf, scriptId, swashId, type Builder, type Metrics } from './font';
+import './script';
 import type { Cmd, StrokeOpts } from './types';
 
 /** the lean the flourishes are laid out on: Slant at 100 */
-const LEAN = Math.tan(20 * Math.PI / 180);
+const LEAN = Math.tan(slantDeg(1) * Math.PI / 180);
 /** how thin a flourish's free ends run out, as a share of the hairline */
 const LIFT = 0.4;
 
@@ -68,16 +73,16 @@ function points(g: Builder) {
 }
 
 /** A swash form of script letter `ch`: the plain letter, then `add` writing its flourish on. */
-function swash(ch: string, add: (g: Builder, m: Metrics, W: number) => void, from = ch + '.scr') {
+function swash(ch: string, add: (g: Builder, m: Metrics, W: number) => void, from = scriptId(ch)) {
   const base = () => glyphDefOf(from)!;
-  def(ch + '.sw', glyphDefOf(from)?.sb ?? [0, 0], (g, m) => {
+  def(swashId(ch), glyphDefOf(from)?.sb ?? [0, 0], (g, m) => {
     const W = base().fn(g, m);
     // the flourish reaches over the neighbours: the room the letter keeps is the plain letter's
     const l = g.reachL, r = g.reachR;
     add(g, m, W);
     g.reachL = l; g.reachR = r;
     return W;
-  }, { parts: [...(glyphDefOf(from)?.meta.parts ?? []), 'swash'], params: [...(glyphDefOf(from)?.meta.params ?? []), 'flourish'] });
+  }, { params: [...(glyphDefOf(from)?.meta.params ?? []), 'flourish'] });
 }
 
 const top = (g: Builder) => points(g).reduce((a, b) => (b.y > a.y ? b : a));
@@ -134,10 +139,10 @@ swash('z', (g, m) => {
 /* S: written whole. A wide hairline loop leads in from the left, sweeps up to the head of the letter,
    and the spine comes down in one shade, under the line, round the foot and up into a curl. In
    x-heights from where the curl reaches out on the left of the foot. */
-def('S.sw', [0.2, 0.3], (g, m) => {
+def(swashId('S'), [0.2, 0.3], (g, m) => {
   flourish(g, m, 0, 0, [[1.25, -1.9], [0.4, -1.95], [-0.55, -1.2], [-0.81, -0.19], [-0.3, 1.2], [0.83, 1.77], [1.65, 1.35], [1.75, 0.6], [1.0, -0.5], [-0.25, -1.08]]);
   flourish(g, m, 0, 0, [[-0.25, -1.08], [1.4, 0.6], [3.0, 2.3], [3.92, 3.2]], { e: 'h', we: 1 });
   // the spine: pressed as the pen comes down, as a pointed pen does
   flourish(g, m, 0, 0, [[3.92, 3.2], [3.75, 2.95], [3.43, 2.64], [2.5, 1.3], [1.62, -0.77], [1.1, -1.2], [0.49, -1.26], [0.02, -0.75], [0, 0.34], [0.3, 0.1], [0.38, -0.4]], { w: undefined, s: 'h', ws: 1, e: 'term' });
   return m.xh * 2.4;
-}, { parts: ['spine', 'swash'], params: ['scriptForm', 'flourish', 'contrast', 'slant'] });
+}, { params: ['scriptForm', 'flourish', 'contrast', 'slant'] });

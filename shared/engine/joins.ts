@@ -1,35 +1,29 @@
 /* Joins: where one stroke meets another their outlines cross, and each crossing that leaves a corner
    inside the letter (under the arm of an r, beside the crossbar of a t, in the crotch of a y) is a
    corner too, id `${si}j${k}`: 'j' and its number among the joins of the earlier of the two strokes.
-   A join rounds by Joins (joinRound, under Roundness), or by a roundness its letter gives it, and at
-   least as far as Counters (innerRound) rounds every inside corner, filled in with a fillet that runs
-   along both strokes' edges and curves across between them.
+   A join rounds by Joins (joinRound, under Roundness), and at least as far as Counters (innerRound) rounds
+   every inside corner, unless its letter gives it a roundness of its own; it is filled in with a fillet that
+   runs along both strokes' edges and curves across between them.
 
    Run by buildGlyph (glyph.ts) on the expanded strokes, after endCorners (corners.ts): the rounds it
    leaves on the outlines' corners (Pt.r, Pt.sharp) are what a fillet stops short of (cornerR). The
    fillets go into the letter as strokes of part 'fillet': a stencil gap may land on one (it isn't a
    stroke joining there), and one is dropped where a gap cuts the join it rounds (filletCut in glyph.ts). */
-import { clamp, clipPoly, cubicAt } from './geom';
+import { MIN_ROUND, SAME_PT, clamp, clipPoly, cubicAt, inPoly } from './geom';
 import type { Expanded } from './stroke';
 import type { Mark, Pt } from './types';
 import { type Builder, type Metrics, strokeWt } from './font';
 
-/** How far Counters (innerRound, m.innerR) rounds a corner whose inside is `angle` across: all the way at a right angle
-    or wider, less and less as it narrows, so a sharp crotch (the arms of a K, an X) doesn't fill in black. */
-export const innerFor = (m: Metrics, angle: number) => m.innerR * Math.min(1, angle / (Math.PI / 2)) ** 2;
+/** The share of Counters' radius (innerRound) a corner whose inside is `angle` across rounds by: all of it at a
+    right angle or wider, less and less as it narrows, so a sharp crotch (the arms of a K, an X) doesn't fill in black.
+    A free font's inside corners round by the same share (restyleCorners in restyle.ts). */
+export const innerShare = (angle: number) => Math.min(1, angle / (Math.PI / 2)) ** 2;
+/** How far Counters (innerRound, m.innerR) rounds a corner whose inside is `angle` across (see innerShare). */
+export const innerFor = (m: Metrics, angle: number) => m.innerR * innerShare(angle);
 
-/** The radius of a join's round at roundness v, in a font with stems `s` thick: two stems at 1. */
+/** The radius of a join's round at roundness v, in a font with stems `s` thick: two stems at 1. A free font's
+    crotches round by it too (cornerLooks in restyle.ts). */
 export const joinR = (v: number, s: number) => 2 * s * clamp(v);
-
-/** Whether q lies inside the closed polygon `poly` (even-odd). */
-export function inPoly(poly: Pt[], q: Pt) {
-  let c = false;
-  for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) {
-    const a = poly[i], p = poly[k];
-    if ((a.y > q.y) !== (p.y > q.y) && q.x < (p.x - a.x) * (q.y - a.y) / (p.y - a.y) + a.x) c = !c;
-  }
-  return c;
-}
 
 /** One way out of a join's crossing, along an edge of a stroke's outline: its direction (x, y), and the
     edge, as walk follows it (edge k of ring `ring` of stroke si, followed one way, dir). */
@@ -163,7 +157,7 @@ export function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null
             const t = ((b0.x - a0.x) * sy - (b0.y - a0.y) * sx) / den, u = ((b0.x - a0.x) * ry - (b0.y - a0.y) * rx) / den;
             if (t <= 1e-6 || t >= 1 - 1e-6 || u <= 1e-6 || u >= 1 - 1e-6) continue;
             const p = { x: a0.x + rx * t, y: a0.y + ry * t };
-            if (found.some(q => Math.hypot(q.x - p.x, q.y - p.y) < 1.5)) continue;
+            if (found.some(q => Math.hypot(q.x - p.x, q.y - p.y) < SAME_PT)) continue;
             // the four ways out of the crossing along the two edges, in order round it
             const la = Math.hypot(rx, ry), lb = Math.hypot(sx, sy);
             const rays = [
@@ -179,14 +173,14 @@ export function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null
             marks.push(mark);
             // Counters (innerRound) rounds every join at least as far, unless its letter rounds it its own way
             const R = own != null ? joinR(own, m.s) : Math.max(joinR(v, m.s), innerFor(m, wedge.span));
-            if (R < 0.6) continue;
+            if (R < MIN_ROUND) continue;
             // how far along each edge the round starts: R's share of as far as the round of Joins at 1 would
             // start, or as far as both edges let it if that is nearer, so Joins rounds on all the way to 1
             // even where the edges run out first (in heavy letters)
             const { r1, r2, span, bis } = wedge, most = Math.max(R, joinR(1, m.s)), d = most / Math.tan(span / 2);
             const w1 = walk(r1.si, r1.ring, r1.k, r1.dir, p, d, bis), w2 = walk(r2.si, r2.ring, r2.k, r2.dir, p, d, bis);
             const dd = Math.min(d, w1.len * 0.95, w2.len * 0.95) * R / most;
-            if (dd < 0.6) continue;
+            if (dd < MIN_ROUND) continue;
             const fillet = filletAt(p, cut(w1, dd), cut(w2, dd), dd, span, bis);
             // marked on the round, where the corner now is
             Object.assign(mark, { x: fillet.mid.x, y: fillet.mid.y, home: p });

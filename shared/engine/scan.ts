@@ -10,7 +10,8 @@
    longer than the round of ink they leave from, are pruned.
 
    Read by skin.ts (a rigged letter's ink, its skeleton, its joins and its square ends), restyle.ts (the
-   ends, serifs, stencil, bowls and corners it redraws) and free-letters.ts (the Inline down the strokes).
+   ends, serifs, stencil, bowls and corners it redraws) and free-letters.ts (the skeleton of each restyled
+   outline, and the Inline down the strokes).
    Positions are in the font's units, y up, while a Grid's rows run down from the top (row 0 is the top),
    `cell` units a cell. A node with one edge is a stroke's free end, one with three or more a join, and a
    ring's lone node lists its edge twice (branches() reads it once each way). An edge's first and last
@@ -35,7 +36,7 @@ export interface Grid {
   /** each cell's distance from the paper, in units */ dt: Float64Array;
 }
 
-/** The point t of the way along the outline's segment from node a to node b. */
+/** The point t of the way along the outline's segment from node a to node b (skin.ts and restyle.ts sample by it too). */
 export const bez = (a: Node, b: Node, t: number): P => {
   const p1x = a.ox ?? a.x, p1y = a.oy ?? a.y, p2x = b.ix ?? b.x, p2y = b.iy ?? b.y, u = 1 - t;
   return { x: u * u * u * a.x + 3 * u * u * t * p1x + 3 * u * t * t * p2x + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * p1y + 3 * u * t * t * p2y + t * t * t * b.y };

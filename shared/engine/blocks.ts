@@ -7,8 +7,7 @@
    25 and slots 28 across, outer corners 50 round), then fitted to the design: X() and Y() stretch
    positions to the letter's width and height, `tv` and `th` are the thin walls (upright and level),
    `g` the slots, and `k` scales the radii. Positions are measured down from the top. The grid's size
-   is GRID_W and GRID_H; its walls and slots are the design's at Weight 60 (blockDims makes the walls
-   0.07 + 0.12 × weight of the height, the slots 0.28 − 0.2 × weight).
+   is GRID_W and GRID_H; its walls and slots are the design's at Weight 60 (see blockDims).
 
    Each corner's radius is of one of four kinds, so the design's controls reach them all:
    'o' outer corners and the rounds of counters (Roundness), 'e' the ends of arms and slots, round

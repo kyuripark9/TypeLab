@@ -1,4 +1,5 @@
 /* Shared types for the TypeLab font engine. Coordinates are font units, y-up, baseline at y = 0. */
+import type { SerifShape, SerifSide, SerifTip, TerminalForm } from '../params';
 
 /** A point on an outline. Flags steer corner rounding in roundContour(). */
 export interface Pt {
@@ -10,7 +11,8 @@ export interface Pt {
   sharp?: boolean;
   /** forced corner radius (round terminals) */
   r?: number;
-  /** a square step this wide cut out of the corner instead of rounding it (see roundContour) */
+  /** a square step this deep cut out of the corner instead of rounding it, in font units (see roundContour); unlike
+      TurnR.step, which is a share */
   step?: number;
 }
 
@@ -20,7 +22,8 @@ export interface Tangent extends Pt { tx: number; ty: number }
 /** The outline's corner radii where a centerline turns: outside and inside the turn (0 = sharp). A
     path command carries it as its `turn` option, for the turn at its start. */
 export interface TurnR { o: number; i: number;
-  /** a square step cut out of the outside instead, this share of as deep as it can be */ step?: number }
+  /** a square step cut out of the outside instead, this share of as deep as it can be: a share, 0..1, which the
+      stroke expander makes a depth (STEP_DEPTH in stroke.ts), unlike Pt.step */ step?: number }
 
 /**
  * Path command. Skeletons use ['M',x,y] ['L',x,y,opts?] ['C',x1,y1,x2,y2,x,y,opts?]
@@ -64,10 +67,9 @@ export interface StrokeOpts {
   endRoom?: number;
   /** the box (and half-planes) its outline is cut to */
   clip?: ClipBox;
-  /** for zig() in glyphs.ts only: added to the clip it makes; the stroke expander ignores it */
-  clipX?: ClipBox;
   /** its centerline, closed, marks a counter (a B's or a P's bowl against the stem), which the glyph's
-      counters take */
+      counters take. A ring (a centerline closed on itself, an O's) gives its hole to the counters whatever
+      this says. */
   counter?: boolean;
   serifS?: SerifSides;
   serifE?: SerifSides;
@@ -81,16 +83,16 @@ export interface StrokeOpts {
 /** A serif's finer shape is optional: left out, it is bracketed as usual, square at its tips, flat underneath,
     the same both ways and the same length everywhere. */
 export interface SerifSpec {
-  len: number; th: number; shape: string; angle: number;
+  len: number; th: number; shape: SerifShape; angle: number;
   /** bracketed: how far up the stroke the curve runs, in serif lengths */ bracket?: number;
-  /** how the tips finish (see SERIF_TIPS in shared/params/options.ts) */ tip?: string;
+  /** how the tips finish (see SERIF_TIPS in shared/params/options.ts) */ tip?: SerifTip;
   /** round tips: the corner radius, as a share of the tip's thickness (0.5 a half circle) */ tipRound?: number;
   /** angled tips: how far the cut leans, in tip thicknesses: + runs the foot of the tip further out, - its top */ tipSlant?: number;
   /** cupped: how high the base arches, as a share of the most it can (see serifCup) */ cup?: number;
   /** serifs on stems: -1 to 1, longer toward -x or toward +x */ balance?: number;
-  /** serifs on stems: the sides they reach to (see SERIF_SIDES in shared/params/options.ts) */ sides?: string;
+  /** serifs on stems: the sides they reach to (see SERIF_SIDES in shared/params/options.ts) */ sides?: SerifSide;
   /** serifs on stems, where the ones that reach into the letter differ from the rest: their shape and thickness,
-      and their length against the others */ inner?: { shape: string; th: number; len: number } | null;
+      and their length against the others */ inner?: { shape: SerifShape; th: number; len: number } | null;
   /** the length of serifs on top of stems, and on the ends of arms, against the ones at the foot */ tops?: number; arms?: number;
   /** serifs on the ends of arms: their thickness against the others, and how far they lean out from upright, in
       radians (- in under the arm); a leaning one is cut square across at its tip */ armTh?: number; armLean?: number;
@@ -98,7 +100,7 @@ export interface SerifSpec {
 
 /** The finer shape of each kind of terminal, in stroke widths unless noted. */
 export interface TermSpec {
-  /** which form of the picked kind (see TERMINAL_FORMS in shared/params/options.ts) */ form: string;
+  /** which form of the picked kind (see TERMINAL_FORMS in shared/params/options.ts; '' in the stroke expander's default, TERM) */ form: TerminalForm | '';
   /** flared: thickness at the very end, 1 = none */ flare: number;
   /** scooped and notched: how far the end is hollowed back */ depth: number;
   /** droplet and ball: radius of the drop */ size: number;

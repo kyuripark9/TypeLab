@@ -1,11 +1,11 @@
 /* Boolean operations on outlines: the Inline, Outline and Shadow fills (effects.ts) cut one shape out of
    another or join them, and a free font's letters are read as one ink and cut or added to (restyle.ts;
    skin.ts, where moved strokes thickened into each other are read back as one ink), so the free fonts'
-   outlines depend on it too. Every input is a set of polygons read with the nonzero rule, like the font itself (or, with
-   shape's `positive`, only where they wind anticlockwise on balance). The edges of all of them are split
-   where they cross, and an edge piece is kept when the region asked for lies on one side of it and not
-   the other, turned so the region is on its left (anticlockwise outlines, clockwise holes). The kept
-   pieces are then chained into contours. */
+   outlines depend on it too. Every input is a set of polygons read with the nonzero rule, like the font
+   itself (or, with shape's `positive`, only where they wind anticlockwise on balance). The edges of all of
+   them are split where they cross, and an edge piece is kept when the region asked for lies on one side of
+   it and not the other, turned so the region is on its left (anticlockwise outlines, clockwise holes). The
+   kept pieces are then chained into contours. */
 import type { Pt } from './types';
 
 interface Seg { ax: number; ay: number; bx: number; by: number }

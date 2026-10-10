@@ -1,4 +1,5 @@
-/* Geometry helpers: béziers, polygon clipping, corner rounding, path output. */
+/* Geometry helpers: béziers, polygons (clipping, inside or out), corner rounding and the sizes the corner stages
+   share (MIN_ROUND, SAME_PT), path output. */
 import type { ClipBox, Cmd, HalfPlane, Mat, Pt, Tangent } from './types';
 
 type P = { x: number; y: number };
@@ -10,6 +11,22 @@ export const lerpP = (p: P, q: P, t: number): Pt => ({ x: lerp(p.x, q.x, t), y: 
 export const dist = (p: P, q: P) => Math.hypot(p.x - q.x, p.y - q.y);
 /** A quarter circle's handle length as a share of its radius, as a cubic draws it. */
 export const CIRCLE_K = 0.5523;
+/** A round that would reach less than this along its corner's sides, or have a smaller radius, isn't drawn: the
+    corner stays sharp. In font units. */
+export const MIN_ROUND = 0.6;
+/** How near two points lie to count as one (the same corner on two strokes' outlines, a mark and the tip it marks), or a
+    corner lies to an edge to be on it, in font units. */
+export const SAME_PT = 1.5;
+
+/** Whether q lies inside the closed polygon `poly` (even-odd). */
+export function inPoly(poly: Pt[], q: Pt) {
+  let c = false;
+  for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) {
+    const a = poly[i], p = poly[k];
+    if ((a.y > q.y) !== (p.y > q.y) && q.x < (p.x - a.x) * (q.y - a.y) / (p.y - a.y) + a.x) c = !c;
+  }
+  return c;
+}
 
 /* Blossom of a cubic: lets us cut out the [u0,u1] portion of a curve exactly. */
 function blossom(P: P[], a: number, b: number, c: number) {
@@ -198,7 +215,7 @@ interface Corner { i: number; th: number; r: number; d: number; f: boolean }
    Point flags: smooth (sampled curve, never a corner), sharp (never rounded),
    r (forced radius, e.g. round terminals), step (a square notch cut out of the corner
    instead, see stepCorners). R is the default corner radius. */
-export function roundContour(src: Pt[], R: number, cornersOut?: Pt[]): Cmd[] {
+export function roundContour(src: Pt[], R: number): Cmd[] {
   const pts: Pt[] = [];
   for (const p of src) {
     const q = pts[pts.length - 1];
@@ -248,8 +265,7 @@ export function roundContour(src: Pt[], R: number, cornersOut?: Pt[]): Cmd[] {
     // corner of a box rounded right round)
     const room = (o: Corner, len: number) => c.f ? Math.max(len / 2, len * 0.95 - want(o)) : len / 2;
     c.d = Math.min(want(c), room(prev, lenPrev), room(next, lenNext));
-    if (c.d < 0.6) c.d = 0;
-    if (cornersOut && !pts[c.i].sharp) cornersOut.push({ x: pts[c.i].x, y: pts[c.i].y });
+    if (c.d < MIN_ROUND) c.d = 0;
   }
   const first = corners[0];
   const start = first.d ? at(S[first.i] + first.d) : pts[first.i];

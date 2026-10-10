@@ -5,7 +5,7 @@
    takes faceSerifs' answer, so it runs after. */
 import { serifCup, serifPlace, serifSides } from './stroke';
 import type { SerifSides } from './types';
-import type { Builder, Metrics } from './font';
+import { type Builder, hasSerif, type Metrics } from './font';
 import { centerPoints, stretchEnd } from './ends';
 
 /** A stem's end and the rest of the letter: the sides of the end that face into the letter, and the sides
@@ -13,18 +13,17 @@ import { centerPoints, stretchEnd } from './ends';
 interface SerifFacing { inward: SerifSides; sides: SerifSides }
 
 /** Every stroke end that carries a serif at its foot or on top, in order: its stroke `st` (index si), the
-    end (`which`), the serif the letter gives it, and `step`, a small step back along it (stretchEnd). A
-    join's end carries none, nor does a stroke drawn at a scale of its own (buildGlyph leaves their serifs
-    off too); an end whose serif runs across the end of an arm is left out, its serif kept as the letter
-    gives it, and flat. Each end is read off the stroke as it then stands (cupSerifs draws a stroke's start
-    short before its end is read). */
+    end (`which`), the serif the letter gives it, and `step`, a small step back along it (stretchEnd). The
+    ends hasSerif (font.ts) gives a serif, as buildGlyph does, less a join's end; an end whose serif runs
+    across the end of an arm is left out, its serif kept as the letter gives it, and flat. Each end is read
+    off the stroke as it then stands (cupSerifs draws a stroke's start short before its end is read). */
 function* serifedEnds(b: Builder, m: Metrics) {
   for (let si = 0; si < b.strokes.length; si++) {
     const st = b.strokes[si];
-    if (!st.cmds || st.o.scale) continue;
+    if (!st.cmds) continue;
     for (const which of ['s', 'e'] as const) {
       const given = (which === 's' ? st.o.serifS : st.o.serifE) ?? null, type = (which === 's' ? st.o.s : st.o.e) || 'flat';
-      if (!given || type === 'join') continue;
+      if (!hasSerif(m, st.o, which) || type === 'join') continue;
       const step = stretchEnd(st.cmds, which, -1, m);
       if (!step || serifPlace({ dx: step.from.x - step.to.x, dy: step.from.y - step.to.y, type }) === 'arm') continue;
       yield { st, si, which, given, step };
@@ -60,6 +59,7 @@ export function faceSerifs(b: Builder, m: Metrics): Map<string, SerifFacing> | n
 export function cupSerifs(b: Builder, m: Metrics, facing: Map<string, SerifFacing> | null): Map<string, number> {
   const cups = new Map<string, number>(), cup = serifCup(m.ctx.serif!);
   // the serifs at the foot and on top of strokes are cupped; one across the end of an arm stays flat
+  // (serifedEnds stays a generator, read an end at a time: a stroke's end is read after its start is cupped here)
   for (const { st, si, which, step } of serifedEnds(b, m)) {
     if (facing?.get(`${si}${which}`)?.sides === null) continue;
     // which way the end runs, from the small step back along it

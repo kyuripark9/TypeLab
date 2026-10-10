@@ -1,7 +1,7 @@
 /* A font family: the design drawn again at other weights and upright or italic, each saved as its
    own font file under one family name, so font menus list them together (Thin to Black, each with
    its italic). The design itself is one of them, at the weight it is named as. */
-import { weightScale, type GlyphParams, type Params } from './params';
+import { slantDeg, weightScale, type GlyphParams, type Params } from './params';
 
 /** The weights a family can have, lightest first, with the OpenType weight class each installs as. */
 export const WEIGHTS = [
@@ -51,9 +51,9 @@ export function weightRatio(designWeight: number, anchor: WeightId, id: WeightId
   return i < a ? Math.min(1, s / s0) : Math.max(1, s / s0);
 }
 
-/** The slant a family's italics take when the design is upright: about 11°. */
+/** The slant a family's italics take when the design is upright: about 11° (see slantDeg). */
 const ITALIC_SLANT = 0.55;
-/** A design slanted at least this much is an italic already, and its uprights stand it up. */
+/** A design slanted at least this much (1°) is an italic already, and its uprights stand it up. */
 export const SLANTED = 0.05;
 
 export interface FamilyMember {
@@ -87,7 +87,7 @@ export function familyMember(params: Params, anchor: WeightId, weight: WeightId,
   const cls = WEIGHTS.find(w => w.id === weight)!.cls;
   return {
     weight, italic, style: styleName(weight, italic), cls,
-    angle: slant * 20,
+    angle: slantDeg(slant),
     params: { ...params, weight: reweigh(params.weight), slant, glyphs }
   };
 }

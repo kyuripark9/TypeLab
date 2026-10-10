@@ -3,10 +3,10 @@
    or turned to run straight out level or plumb; then every styled terminal of a glyph stretched at
    once (stretchTerminals), a capital's swash end, and a stroke's clip widened to follow a moved end.
    Runs on skeletons, before buildGlyph (glyph.ts) expands them. */
-import { endCurl, endLength, endReach } from '../params';
+import { endCurl, endId, endLength, endReach } from '../params';
 import { clamp, cubicAt, lerp, lerpP, quarter, subCubic } from './geom';
 import type { ClipBox, Cmd, Pt } from './types';
-import { type Builder, type Metrics, quarterK, strokeWt } from './font';
+import { type Builder, hasSerif, type Metrics, quarterK, strokeWt } from './font';
 
 /** A cubic's arc-length table: arc(u) the length up to u, uAt(s) the u at length s, `total` its whole length. */
 function arcTable(P: Pt[], n = 48) {
@@ -39,7 +39,7 @@ export function centerPoints(cmds: Cmd[], m: Metrics, step: number): Pt[] {
     if (c[0] === 'M') { cur = { x: c[1], y: c[2] }; out.push(cur); continue; }
     const P = cmdCubic(cur, c, m);
     if (!P) continue;
-    // (a line is sampled whole, whatever part of it its options name)
+    // (a line has no u0/u1: it is always sampled whole)
     const o = c[0] === 'L' ? {} : (c[c[0] === 'C' ? 7 : 3] || {});
     const u0 = o.u0 || 0, u1 = o.u1 ?? 1, hull = Math.hypot(P[1].x - P[0].x, P[1].y - P[0].y) + Math.hypot(P[2].x - P[1].x, P[2].y - P[1].y) + Math.hypot(P[3].x - P[2].x, P[3].y - P[2].y);
     const n = Math.max(1, Math.ceil(hull * (u1 - u0) / step));
@@ -420,7 +420,7 @@ export function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<s
     if (!st.cmds) return;
     const o = st.o, own = o.part === 'tail' || o.part === 'entry';
     for (const which of ['s', 'e'] as const) {
-      const serif = m.serif && !o.scale && !!(which === 's' ? o.serifS : o.serifE), type = (which === 's' ? o.s : o.e) || 'flat';
+      const serif = hasSerif(m, o, which), type = (which === 's' ? o.s : o.e) || 'flat';
       if (type === 'join') continue;
       if (type === 'term' && m.p.terminalRun === 'straight') {
         const at0 = endAt(st.cmds, which, m), tip = at0 && tipAt(at0), r = runStraight(st.cmds, which, !!tip, m);
@@ -435,8 +435,9 @@ export function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<s
       const plain = type !== 'term', at = endAt(st.cmds, which, m), sw = swash?.si === si && swash.which === which ? swash : null;
       // (a swash runs on out of the stroke it is buried in, as a P's stem out of the top of its bowl)
       if (plain && (!at || (!sw && buried(si, at)))) continue;
-      const id = `${plain ? 'p' : ''}${si}${which}`, tip = !plain && at && tipAt(at);
-      // an end with a serif is drawn plain, whatever its kind
+      const id = endId(si, which, plain), tip = !plain && at && tipAt(at);
+      // an end with a serif is drawn plain, whatever its kind: `plains` holds both kinds of id, a plain end's ('p' and
+      // all) and a terminal's drawn plain under a serif (a bare one)
       if (plain || serif) plains.add(id);
       if (!plain && (own || tip || serif)) hooks.add(id);
       if (at) homes.set(id, at);

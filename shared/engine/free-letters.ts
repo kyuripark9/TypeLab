@@ -2,17 +2,17 @@
    italic, moved on their skeletons by the settings (skin.ts) and restyled where the settings ask for the
    engine's shapes (restyle.ts); letters in a form the font hasn't got come from its twin, the font read
    as the engine's own settings. Called by buildFont (font.ts) for a design with a freeFont. */
-import type { Params } from '../params';
+import { slantDeg, type Params } from '../params';
 import { applyM, clamp } from './geom';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
-import { rigSkeleton, skinMeasures, skinMove, skinRig, type SkinMeasures, type SkinRig } from './skin';
+import { FORM_LETTERS, descK, rigSkeleton, skinMeasures, skinMove, skinRig, type SkinMeasures, type SkinRig } from './skin';
 import { bowlLook, cornerLooks, dotLook, restyleBowls, restyleDots, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
-import { buildFont, type Effective, type Font, type Glyph, hasGlyph, type Metrics, metrics, resolve, scriptForms, termSpec } from './font';
-import { placeGlyph, type Unplaced } from './glyph';
+import { CURSIVE_FORMS, SERIF_SB, buildFont, type Effective, type Font, type Glyph, hasGlyph, type Metrics, metrics, resolve, scriptForms, scriptId, termSpec } from './font';
+import { blankParts, placeGlyph, type Unplaced } from './glyph';
 
 /* ---- free fonts' letters (see shared/free-fonts.ts), moved by the settings as far as they're moved from the
    ones the font was picked at (Params.freeAt): heavier is a heavier font of the family where it has one;
@@ -44,12 +44,15 @@ export function freeLetters(params: Params, e: Effective, m: Metrics): FreeLette
   if (!r) return null;
   const b = resolve({ ...params, ...params.freeAt }), mb = metrics(b);
   // the lean asked for, counting the font's own, decides upright or italic
-  const lean = (r.italic ? ITALIC_DEG : 0) + (e.slant - b.slant) * 20, weight = r.weight + (e.weight - b.weight) * 1000;
+  const lean = (r.italic ? ITALIC_DEG : 0) + slantDeg(e.slant - b.slant), weight = r.weight + (e.weight - b.weight) * 1000;
   const want = nearestFont(r.family, weight, lean >= ITALIC_DEG / 2) ?? e.freeFont;
   const font = freeFont(want) ?? freeFont(e.freeFont), ref: FreeFontRef = font && font.id === want ? parseFontId(want)! : r;
   // Weight 0.4 is a 400: the font drawn from stands for the weight it is, and what it falls short of its
   // letters make up on their skeletons
   const from = skinMeasures(metrics({ ...b, weight: Math.max(0, b.weight + (ref.weight - r.weight) / 1000) }));
+  // placing the letters (placeGlyph in glyph.ts) counts each of its effects only as far as the settings move it from
+  // where the font was picked: the fill, mirror, monospacing and bounce here, the slant, rotation, wobble and slice in
+  // `m` below. An effect placeGlyph gains needs the same here, or a free font's letters change as soon as it is picked
   const p: Effective = {
     ...e, fill: e.fill === b.fill ? 'solid' : e.fill, mirror: e.mirror === b.mirror ? 'normal' : 'mirrored',
     mono: Math.max(0, e.mono - b.mono), bounce: Math.max(0, e.bounce - b.bounce)
@@ -99,18 +102,16 @@ function inkX(d: Drawn): [number, number] {
 /* ---- a free font's twin: the font read as the engine's own settings, for the letters asked for in a form the font
    hasn't got (a single-storey a, a mirrored g, a k on a bar, Arches, a script's letters), which the engine draws */
 
-/** Whether letter `ch` is asked for in another form than the one the font's own stands for (its settings as picked). */
+/** Whether letter `ch` is asked for in another form than the one the font's own stands for (its settings as picked):
+    built otherwise, written as a script's or not, cursive or not (as variantOf in font.ts picks), a swash capital or
+    not, the a's storeys, or a letter-form setting moved on the letters it reaches (FORM_LETTERS in skin.ts). */
 export function formChanged(ch: string, a: Effective, b: Effective): boolean {
-  const is = (set: string) => set.includes(ch);
   if (a.build !== b.build) return true;
-  if (scriptForms(a) !== scriptForms(b) || (scriptForms(b) && a.flourish !== b.flourish)) return hasGlyph(ch + '.scr');
-  if ((a.cursive >= 0.35) !== (b.cursive >= 0.35) && hasGlyph(ch + '.cur')) return true;
+  if (scriptForms(a) !== scriptForms(b) || (scriptForms(b) && a.flourish !== b.flourish)) return hasGlyph(scriptId(ch));
+  if ((a.cursive >= CURSIVE_FORMS) !== (b.cursive >= CURSIVE_FORMS) && hasGlyph(ch + '.cur')) return true;
   if ((a.swash > 0) !== (b.swash > 0) && /^[A-Z]$/.test(ch)) return true;
-  return (ch === 'a' && (a.singleStory !== b.singleStory || a.aForm !== b.aForm)) || (ch === 'g' && a.gForm !== b.gForm)
-    || (is('kK') && a.kForm !== b.kForm) || (is('IiJl') && a.iForm !== b.iForm) || (is('sS$') && a.sForm !== b.sForm)
-    || (is('AVWvw') && a.diagonals !== b.diagonals) || (is('Yy') && a.yForm !== b.yForm) || (ch === 'Q' && a.qForm !== b.qForm)
-    || (ch === 'R' && a.rForm !== b.rForm) || (is('abdgpqhmnru') && a.bowlJoin !== b.bowlJoin) || (is('AMNVWYZvwyz') && a.bends !== b.bends)
-    || (is('acefjrstyCGJS235690?') && a.terminalRun !== b.terminalRun);
+  return (ch === 'a' && a.singleStory !== b.singleStory)
+    || (Object.keys(FORM_LETTERS) as (keyof typeof FORM_LETTERS)[]).some(k => FORM_LETTERS[k].includes(ch) && a[k] !== b[k]);
 }
 
 const twinFits = new WeakMap<FreeFont, Partial<Params>>();
@@ -160,13 +161,15 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   // the engine's serifs, set on the stems the letter's own were taken off (or on a sans's), in the font's units; the
   // lines they stand on, where the settings moved them
   const sf = fl.serifs && fl.serif ? { ...fl.serif, len: fl.serif.len / fl.k, th: fl.serif.th / fl.k, inner: fl.serif.inner && { ...fl.serif.inner, th: fl.serif.inner.th / fl.k } } : null;
+  // (as moveMap in skin.ts moves the letter's own heights, there clamped, and the ascenders and descenders only a
+  // lowercase letter's: keep the two in step)
   const kd = fl.to.desc / fl.from.desc, xh1 = x.lower ? x.xh * fl.to.xr / fl.from.xr : x.xh;
-  const lines = [0, x.cap, xh1, x.asc + (fl.to.asc - fl.from.asc) * x.cap, x.desc * (kd < 1 ? Math.sqrt(kd) : kd)];
+  const lines = [0, x.cap, xh1, x.asc + (fl.to.asc - fl.from.asc) * x.cap, x.desc * descK(kd)];
   const sa = stencilLook(fl.pick), sb = stencilLook(fl.now), ba = bowlLook(fl.pick), bb = bowlLook(fl.now);
   const ends = (e: Effective) => [termSpec(e), e.terminal, e.terminalLength, e.terminalCurl, e.tail, e.aperture];
   const da = [fl.pick.dots, dotLook(fl.pick)], db = [fl.now.dots, dotLook(fl.now)];
-  // (every setting a restyle step below reads goes in this key, as picked and as now: one left out leaves its
-  // slider showing the letter kept from before)
+  // (every setting a restyle step below reads goes in this key: one left out leaves its slider showing the letter
+  // kept from before)
   const key = JSON.stringify([a, b, ends(fl.pick), ends(fl.now), sf, sf && lines, sa, sb, ba, bb, da, db, fl.pick.apex, fl.now.apex, fl.now.apex !== fl.pick.apex && lines]);
   let kept = restyles.get(cs);
   if (!kept) { kept = new Map(); restyles.set(cs, kept); }
@@ -201,7 +204,7 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   const [x0, x1] = skinned ? inkX({ adv: 0, contours: skinned }).map(v => v * fl.k) : inkX(sized), [i0, i1] = inkX(sized);
   // (and as far again as a serif reaches out past it, less a little, so two side by side don't run into one another: a
   // font's own side bearings are drawn for letters with no serifs)
-  const sl = fl.serifs && fl.serif ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * 0.3, over + sl * 0.15) : v);
+  const sl = fl.serifs && fl.serif ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * SERIF_SB, over + sl * 0.15) : v);
   const [a0, a1] = inkX(src), lsb = room(a0 * fl.k * fl.sx * fl.sb, x0 - i0), rsb = room((src.adv - a1) * fl.k * fl.sx * fl.sb, i1 - x1);
   const body = mapDrawn(sized, x1 - x0, (x, y) => [x - x0, y]), cmds = drawnCmds(body.contours);
   // (the inline runs down the middle of the strokes: their skeleton, scanned off the letter as drawn)
@@ -209,7 +212,7 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   const ease = (l: Pt[]) => { let c = l; for (let k = 0; k < 6; k++) c = c.map((q, i) => (i === 0 || i === c.length - 1 ? q : { x: (c[i - 1].x + 2 * q.x + c[i + 1].x) / 4, y: (c[i - 1].y + 2 * q.y + c[i + 1].y) / 4 })); return c; };
   const skel = fl.m.p.fill === 'inline' ? skeleton(body.contours).edges.map(e => ease(e.pts.map(q => ({ x: q.x, y: q.y })))) : [];
   const out: Unplaced = {
-    ch, strokes: [{ part: 'drawn', cmds, curved: false }], serifs: [], serifAt: [], counters: [], marks: [], corners: [], skeleton: skel, meta: {}, bodyW: x1 - x0
+    ch, strokes: [{ part: 'drawn', cmds, curved: false }], ...blankParts(), skeleton: skel, bodyW: x1 - x0
   };
   const g = placeGlyph(out, x1 - x0, lsb, rsb, ch.codePointAt(0)!, fl.m);
   return { ...g, drawn: mapDrawn(body, g.adv, (x, y) => applyM(g.M, x, y) as [number, number]) };

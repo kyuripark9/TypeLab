@@ -8,12 +8,11 @@
    those drawn (the stroke's outline, or the `drawn` turnPieces returns), so a piece copied point by
    point would have its sharp corners rounded as cut. */
 import { barCut, joinGap } from '../params';
-import { clamp, clipPoly, lerpP, signedArea, splitPoly } from './geom';
+import { clamp, clipPoly, inPoly, lerpP, signedArea, splitPoly } from './geom';
 import { expandStroke, type Expanded } from './stroke';
 import type { Cmd, HalfPlane, PenCtx, Pt, StrokeOpts } from './types';
 import type { Builder, Metrics } from './font';
 import { turnsOf } from './corners';
-import { inPoly } from './joins';
 
 /** Whether a stroke is one straight line lying nearly level, rising less than a fifth of its run: a crossbar
     that can run through (barsThrough), and a level stroke for the Contrast highlight (GlyphStroke.horizontal). */
@@ -83,9 +82,10 @@ export function stencilOpens(joins: Join[]): Set<string> {
   const lead = (c: Join) => c.nx - c.ny * 0.5, drawn = joins.filter(c => !c.lies);
   return new Set(drawn.filter(c => !drawn.some(k => k !== c && k.nx * c.nx + k.ny * c.ny < -0.3 && lead(k) > lead(c))).map(c => c.id));
 }
-/** One join's cut (see StencilCut): at join `jn` of stroke `ex`, its gap `gap` wide; `own` and `v` as gapOf gives them.
+/** One join's cut (see StencilCut): at join `jn` of stroke `ex`, its gap `gap` wide; `own`, whether the gap is set for
+    this join or this kind of stroke, and `v`, how far up its Gap scale (as gapOf gives them for a real cut).
     `square`: cut straight across the stroke instead (a crossbar made shorter), where both its edges are clear of the host. */
-export function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean, square = false, v = 1): StencilCut {
+export function stencilCut(ex: Expanded, jn: Join, gap: number, own: boolean, square: boolean, v = 1): StencilCut {
   const { bj, nx, ny } = jn, end = jn;
   if (square) {
     const l = Math.hypot(jn.ix, jn.iy) || 1, dx = jn.ix / l, dy = jn.iy / l, dn = dx * nx + dy * ny;

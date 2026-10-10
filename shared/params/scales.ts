@@ -7,6 +7,8 @@ import type { Params } from './model';
     of a leg): it keeps the length and curl it is drawn with unless given its own, so the stroke end
     length and curl leave it alone. */
 export const isEndId = (id: string) => /^p?\d{1,2}[se]$/.test(id);
+/** The id of the end `which` ('s' start, 'e' end) of stroke `si` (see isEndId), with the 'p' of a plain end. */
+export const endId = (si: number, which: 's' | 'e', plain: boolean) => `${plain ? 'p' : ''}${si}${which}`;
 /** A join's id: the index of the stroke that ends in another one, then 's' or 'e' for the end that
     joins; or a turn's (see isCornerId), where a stroke can come apart like two strokes joined. */
 export const isJoinId = (id: string) => /^\d{1,2}([se]|t\d{1,2})$/.test(id);
@@ -26,6 +28,8 @@ export const isTurnId = (id: string) => /^\d{1,2}t\d{1,2}$/.test(id);
 export const isStrokeId = (id: string) => /^\d{1,2}$/.test(id);
 /** The turn, in degrees clockwise, at `v` on the Rotation scale. */
 export const rotationDeg = (v: number) => (v - 0.5) * 360;
+/** The lean, in degrees to the right, at `v` on the Slant scale: 20° at 1. */
+export const slantDeg = (v: number) => v * 20;
 /** How much heavier a stroke is drawn at `v` on a weight scale centred on 0.5: a quarter as heavy at 0, two and a half times at 1. */
 export const weightScale = (v: number) => (v < 0.5 ? 0.25 + 1.5 * v : 1 + 3 * (v - 0.5));
 /** `base` weighed by `v` on that scale but kept between `lo` and `hi`, reaching either only at the end of

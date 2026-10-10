@@ -12,11 +12,11 @@
    the r and sharp it leaves on the outline's points. endCorners finds an end's corners on the outline by
    identity (the points of Expanded.endCorners, and clipMade), so the outlines it is given must hold the
    very points expandStroke and the clip made, not copies. */
-import { clamp, cubicAt, lerp, lerpP, quarter, subCubic } from './geom';
-import { innerFloor, type Expanded } from './stroke';
+import { MIN_ROUND, SAME_PT, clamp, cubicAt, inPoly, lerp, lerpP, quarter, subCubic } from './geom';
+import { STEP_DEPTH, innerFloor, type Expanded } from './stroke';
 import type { Cmd, Mark, Pt, Tangent, TurnR } from './types';
 import { type Builder, type Metrics, quarterK, strokeWt } from './font';
-import { inPoly, innerFor } from './joins';
+import { innerFor } from './joins';
 
 /** The outline radius of one side of a turn at roundness v, in a font whose letters stand `full`
     high (the cap height): all the way, as wide as the letter is high, round enough to take up a
@@ -36,6 +36,9 @@ export function ownTurn(m: Metrics, id: string, t: number, drawn: TurnR | null |
 }
 /** The radius of an end's corner at roundness v: at 1 half the stroke, so the end rounds right off. */
 const endCornerR = (v: number, t: number) => v * t / 2;
+/** Under this |cosine| of the angle between its two ways, a corner counts as square: Steps steps it (a turn's
+    ways in and out, the two sides of an end's corner). */
+const SQUARE_COS = 0.35;
 
 /** Every turn of a centerline, in order: where a command leaves in another direction than the last
     one arrived, with the index of that command, the point, and the directions in and out. */
@@ -71,7 +74,7 @@ export function markTurns(b: Builder, m: Metrics) {
       // outside of every square one; a letter can step each of its corners its own way
       const cos = tn.din.tx * tn.dout.tx + tn.din.ty * tn.dout.ty;
       if (m.innerR > 0 && m.p.innerCorners?.[id] == null) turn = { ...turn, o: turn?.o ?? 0, i: Math.max(turn?.i ?? 0, innerFor(m, Math.acos(clamp(-cos, -1, 1)))) };
-      const square = Math.abs(cos) < 0.35, sv = m.p.cornerSteps?.[id] ?? (square ? m.p.steps : 0);
+      const square = Math.abs(cos) < SQUARE_COS, sv = m.p.cornerSteps?.[id] ?? (square ? m.p.steps : 0);
       // a point the stroke's clip cuts off (the foot of a V, squared off on the baseline) has no corner left to step
       const ox = tn.din.tx - tn.dout.tx, oy = tn.din.ty - tn.dout.ty, l = Math.hypot(ox, oy) || 1;
       const h = Math.sqrt(Math.max(1e-3, 1 - l * l / 4)), cl = st.o.clip, px = tn.x + ox / l * t / 2 / h, py = tn.y + oy / l * t / 2 / h;
@@ -120,7 +123,7 @@ export function boxQuarters(b: Builder, m: Metrics) {
       // where the drawn part of the quarter starts and ends along its two sides
       const P = quarter(cur.x, cur.y, to.x, to.y, c[0], quarterK(cur, c, m));
       const place = (u: number, drawnAfter: boolean) => {
-        const tip = cubicAt(P, u), mark = b.marks.find(k => (k.type === 'tail' || k.type === 'exit') && Math.hypot(k.x - tip.x, k.y - tip.y) < 1.5);
+        const tip = cubicAt(P, u), mark = b.marks.find(k => (k.type === 'tail' || k.type === 'exit') && Math.hypot(k.x - tip.x, k.y - tip.y) < SAME_PT);
         if (mark && (drawnAfter ? u < 0.5 : u > 0.5)) return { s: drawnAfter ? 0 : total, mark };
         const s = drawnAfter ? clamp(la + (tip.x - corner.x) * db.x + (tip.y - corner.y) * db.y, la + r, total)
           : clamp((tip.x - cur.x) * da.x + (tip.y - cur.y) * da.y, 0, la - r);
@@ -242,11 +245,11 @@ function widestRound(q: Pt, at: Pt, t: number, polys: Pt[][][], cap: number) {
   return { a, b: bdir, most: lo };
 }
 
-/** How deep a step an end's corner has room for, standing at `pts` (the same corner on each stroke there,
-    the strokes t thick): 0 unless every stroke's outline turns square
-    there (not where a diagonal meets a bar in a point), and none where a stroke's clip cut the corner
-    (N's diagonal, cut off at its stem), whose sides can't step back with the rest; otherwise no deeper
-    than the shortest side any of them runs along from it, so each stroke steps back alike. */
+/** How deep a step an end's corner has room for, standing at `pts` (the same corner on each stroke there, the
+    strokes t thick): 0 unless every stroke's outline turns square there (not where a diagonal meets a bar in a
+    point), and none where a stroke's clip cut the corner (N's diagonal, cut off at its stem), whose sides can't
+    step back with the rest; otherwise no deeper than the shortest side any of them runs along from it, so each
+    stroke steps back alike. */
 function stepRoom(pts: Pt[], t: number, polys: Pt[][][], clipMade: Set<Pt>) {
   let room = Infinity;
   for (const p of pts) {
@@ -264,7 +267,7 @@ function stepRoom(pts: Pt[], t: number, polys: Pt[][][], clipMade: Set<Pt>) {
       return { len, d: d0 };
     };
     const a = way(1), c = way(-1);
-    if (!a.d || !c.d || Math.abs(a.d.x * c.d.x + a.d.y * c.d.y) > 0.35) return 0;
+    if (!a.d || !c.d || Math.abs(a.d.x * c.d.x + a.d.y * c.d.y) > SQUARE_COS) return 0;
     room = Math.min(room, 0.95 * a.len, 0.95 * c.len);
   }
   return room >= t * 0.25 ? room : 0;
@@ -288,7 +291,7 @@ export function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null 
     for (const c of x?.ex?.endCorners ?? []) {
       // a corner the stroke's clip cut off isn't drawn
       if (!polys[si].some(poly => poly.includes(c.pt))) continue;
-      const q = c.pt, near = groups.find(g => Math.hypot(g.pts[0].x - q.x, g.pts[0].y - q.y) < 1.5), side = c.side === 'l' ? 'r' : 'l';
+      const q = c.pt, near = groups.find(g => Math.hypot(g.pts[0].x - q.x, g.pts[0].y - q.y) < SAME_PT), side = c.side === 'l' ? 'r' : 'l';
       shows.set(`${si}${c.which}${c.side}`, true);
       if (near) { near.pts.push(q); continue; }
       let hidden = false;
@@ -298,8 +301,8 @@ export function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null 
         // a loop's outer ring holds its inner one: inside the stroke is inside an odd number of them
         const inStroke = ps.filter(poly => inPoly(poly, q)).length % 2 === 1;
         for (const poly of ps) {
-          if (edgeDist(poly, q) > 1.5) continue;
-          const v = poly.find(p => !p.smooth && Math.hypot(p.x - q.x, p.y - q.y) < 1.5);
+          if (edgeDist(poly, q) > SAME_PT) continue;
+          const v = poly.find(p => !p.smooth && Math.hypot(p.x - q.x, p.y - q.y) < SAME_PT);
           if (v) also.push(v); else hidden = true;
         }
         if (!also.length && inStroke) hidden = true;
@@ -314,21 +317,21 @@ export function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null 
   const runsOn = (g: (typeof groups)[number]) => {
     if (shows.get(g.partner) !== false || !g.at) return false;
     const q = g.pts[0], p = { x: q.x + (g.at.x - q.x) * 1.5, y: q.y + (g.at.y - q.y) * 1.5 };
-    return polys.some((ps, j) => j !== g.si && ps.some(poly => edgeDist(poly, p) < 1.5));
+    return polys.some((ps, j) => j !== g.si && ps.some(poly => edgeDist(poly, p) < SAME_PT));
   };
   for (const g of groups) {
     const own = m.p.corners?.[g.id], q = g.pts[0], x = q.x, y = q.y;
     // Steps cuts a step out of a square corner of the letter, where two strokes end together (the foot of
     // an L) or where another stroke runs on flush out of the end (the top of D's stem, its bowl running on to the right)
     const room = stepRoom(g.pts, g.t, polys, clipMade), steppable = room > 0, sv = !steppable ? 0 : m.p.cornerSteps?.[g.id] ?? (g.pts.length > 1 || runsOn(g) ? m.p.steps : 0);
-    // (one size for every stroke there, at 1 as deep as it can be: 0.85 of the thinner of the stroke and the bars, so
-    // they stay joined, or the room there is)
-    if (sv > 0) for (const p of g.pts) p.step = sv * Math.min(0.85 * Math.min(g.t, m.hT), room);
+    // (one size for every stroke there, at 1 as deep as it can be: STEP_DEPTH of the thinner of the stroke and the bars,
+    // so they stay joined, or the room there is; Pt.step is a depth in font units, which roundContour cuts as it is)
+    if (sv > 0) for (const p of g.pts) p.step = sv * Math.min(STEP_DEPTH * Math.min(g.t, m.hT), room);
     const alone = shows.get(g.partner) === false && g.at ? widestRound(q, g.at, g.t, polys, m.cap) : null;
     if (alone) {
       const r = (own ?? 0) * alone.most;
       if (own != null) {
-        if (r >= 0.6) {
+        if (r >= MIN_ROUND) {
           // (from where the corner stood: carving moves its point onto the round)
           const at = { x, y }, rd = cornerRound(at, alone.a, alone.b, r);
           for (const ps of polys) for (const poly of ps) carveRound(poly, at, rd, r);
@@ -339,7 +342,7 @@ export function endCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null 
     }
     if (own != null) {
       const r = endCornerR(own, g.t);
-      for (const p of g.pts) { if (r >= 0.6) { p.r = r; p.sharp = false; } else { delete p.r; p.sharp = true; } }
+      for (const p of g.pts) { if (r >= MIN_ROUND) { p.r = r; p.sharp = false; } else { delete p.r; p.sharp = true; } }
     }
     marks.push({ type: 'corner', id: g.id, x, y, v: own ?? clamp(m.R / (g.t / 2)), st: steppable ? sv : undefined });
   }

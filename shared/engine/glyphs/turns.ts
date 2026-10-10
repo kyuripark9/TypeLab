@@ -2,7 +2,8 @@
    A turn rounds as Bends and the letter's own corners say, and a turn that has to reach a line (the apex of
    an A at the cap height, the foot of a V on the baseline) moves until the outer edge of its outline, drawn
    and rounded as the glyph will be, meets that line. */
-import { ownTurn, type Builder, type Metrics } from '../font';
+import type { Builder, Metrics } from '../font';
+import { ownTurn } from '../corners';
 import { clamp, cubicAt, lerp, roundContour } from '../geom';
 import { expandStroke } from '../stroke';
 import type { ClipBox, Cmd, Pt, StrokeOpts, TurnR } from '../types';
@@ -14,6 +15,16 @@ export type XY = [number, number];
     An `inner` turn (the middle peak of a W) reaches its line with its centerline instead, and
     isn't cut off or marked there. */
 export interface Reach { i: number; ax: 0 | 1; at: number; dir: 1 | -1; inner?: boolean }
+
+/** The miter limit (as SVG reckons it, see StrokeOpts.miter) of strokes that turn in a point, the diagonal letters':
+    high enough that every sharp turn keeps its point, where the stroke expander's own, 5, would bevel the acute
+    ones off. */
+export const POINTED = 18;
+/** How far past its line a sharp peak's point reaches, to be cut off there (the apex of an A, the foot of a V): with
+    Peaks flat (past 0.03) 1.5 stems a unit, pointed only an overshoot, as a bowl's. */
+export const peakPast = (m: Metrics) => (m.apex > 0.03 ? m.apex * 1.5 * m.s : m.os);
+/** Where a sharp peak is cut, past its line: on the line with Peaks flat, an overshoot past it when pointed. */
+export const peakCut = (m: Metrics) => (m.apex > 0.03 ? 0 : m.os);
 
 /** Whether Bends rounds the turns. */
 export const roundBends = (m: Metrics) => m.p.bends === 'round';
@@ -46,7 +57,7 @@ const FIT_ROOM = 0.5;
     part of the outline nearer that turn than any other point of the stroke. */
 function outlineExtent(m: Metrics, pts: XY[], turns: (TurnR | null)[], i: number, ax: 0 | 1, dir: number) {
   const cmds: Cmd[] = [['M', ...pts[0]], ...pts.slice(1).map((q, k): Cmd => ['L', q[0], q[1], k && turns[k - 1] ? { turn: turns[k - 1] } : {}])];
-  const ex = expandStroke(cmds, { miter: 18, endRoom: FIT_ROOM }, m.ctx), V = { x: pts[i][0], y: pts[i][1] };
+  const ex = expandStroke(cmds, { miter: POINTED, endRoom: FIT_ROOM }, m.ctx), V = { x: pts[i][0], y: pts[i][1] };
   const mine = (q: Pt) => pts.every((o, j) => j === i || Math.hypot(q.x - o[0], q.y - o[1]) >= Math.hypot(q.x - V.x, q.y - V.y));
   let most = -Infinity, cur = V;
   for (const c of ex ? roundContour(ex.contours[0], 0) : []) {
@@ -74,7 +85,7 @@ function turnExtent(m: Metrics, pts: XY[], i: number, ax: 0 | 1) {
 /** The turning points of `pts`, each one in `reach` moved along its axis until the outer edge of
     its turn meets its line (see turnStroke). `turns` are the turns' radii (see turnsFor); `ext` is
     how far past the line a sharp turn's point reaches, to be cut off there, by default as Peaks says. */
-export function placeTurns(m: Metrics, pts: XY[], reach: Reach[], turns: (TurnR | null)[], ext = m.apex > 0.03 ? m.apex * 1.5 * m.s : m.os): XY[] {
+export function placeTurns(m: Metrics, pts: XY[], reach: Reach[], turns: (TurnR | null)[], ext = peakPast(m)): XY[] {
   const p = pts.map(q => [q[0], q[1]] as XY), ro = (q: Reach) => turns[q.i - 1]?.o ?? 0;
   const at = (q: Reach) => q.inner ? p[q.i][q.ax] : ro(q) > 0 ? outlineExtent(m, p, turns, q.i, q.ax, q.dir) : turnExtent(m, p, q.i, q.ax);
   // a wide bend short of room on its legs moves less than its point does, so each step goes by how
@@ -109,7 +120,7 @@ export function turnStroke(g: Builder, m: Metrics, pts: XY[], reach: Reach[], o:
     const pos: XY = [p[q.i][0], p[q.i][1]];
     pos[q.ax] = q.at;
     if (q.ax === 1) g.mark(q.dir > 0 ? 'apex' : 'vertex', pos[0], pos[1]);
-    if (!turns[q.i - 1]) clip[`${q.ax ? 'y' : 'x'}${q.dir > 0 ? 1 : 0}` as 'x0'] = q.at + q.dir * (m.apex > 0.03 ? 0 : m.os);
+    if (!turns[q.i - 1]) clip[`${q.ax ? 'y' : 'x'}${q.dir > 0 ? 1 : 0}` as 'x0'] = q.at + q.dir * peakCut(m);
   }
   // each leg carries the radii of the turn it leaves; sharp, the strokes rising to the right are
   // the thin ones of the pair, as in a V
@@ -117,6 +128,6 @@ export function turnStroke(g: Builder, m: Metrics, pts: XY[], reach: Reach[], o:
   g.path([['M', p[0][0], p[0][1]], ...p.slice(1).map((q, i): Cmd => {
     const turn = i ? turns[i - 1] : null, thin = !round && q[1] > p[i][1] && Math.abs(q[0] - p[i][0]) > 1;
     return ['L', q[0], q[1], { ...(thin && { w: 'thin' }), ...(turn && { turn }) }];
-  })], { miter: 18, endRoom: FIT_ROOM, ...o, clip });
+  })], { miter: POINTED, endRoom: FIT_ROOM, ...o, clip });
   return p;
 }

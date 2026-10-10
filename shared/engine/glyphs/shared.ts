@@ -1,32 +1,32 @@
 /* The constructions the glyph files share (see index.ts): bowls, the s, shoulders, K's arms, the upright
    and arched forms of the diagonal letters, tails and hooks, cursive entry and exit strokes, and the forms
    a capital shares with its lowercase. */
-import type { Builder, Metrics } from '../font';
+import { CURSIVE_FORMS, cursiveHookR, type Builder, type Metrics } from '../font';
 import { clamp, lerp } from '../geom';
-import type { Cmd, StrokeOpts } from '../types';
-import { bendTurn, ownTurns, roundBends, turnStroke, type Reach, type XY } from './turns';
+import type { ClipBox, Cmd, StrokeOpts } from '../types';
+import { POINTED, bendTurn, ownTurns, peakCut, peakPast, roundBends, turnStroke, type Reach, type XY } from './turns';
 
 /* the stroke ends the letters use most: joined to another stroke, a styled terminal, cut level */
 export const J = 'join', T = 'term', H = 'h';
 
 /* ---------- shared constructions ---------- */
 
-/* zig-zag of diagonals (A M V W v w ^): apex sharpness comes from m.apex */
-export function zig(g: Builder, m: Metrics, xs: number[], yT: number, yB: number, startTop: boolean, o?: StrokeOpts) {
-  const a = m.apex, n = xs.length, Hh = yT - yB, ys: number[] = [];
+/* zig-zag of diagonals (A M V W v w ^): Peaks sets how sharp its points are (peakPast, peakCut). `clipX` is added
+   to the clip it makes (M's middle V, kept between its stems). */
+export function zig(g: Builder, m: Metrics, xs: number[], yT: number, yB: number, startTop: boolean, o?: StrokeOpts, clipX?: ClipBox) {
+  const n = xs.length, Hh = yT - yB, ys: number[] = [];
   const top = (i: number) => startTop ? i % 2 === 0 : i % 2 === 1;
   if (roundBends(m) || ownTurns(m, n, g.strokes.length)) {
     const reach = xs.slice(1, -1).map((_, k): Reach => ({ i: k + 1, ax: 1, at: top(k + 1) ? yT : yB, dir: top(k + 1) ? 1 : -1 }));
-    const { clipX, ...rest } = o ?? {};
     return turnStroke(g, m, xs.map((x, i): XY => [x, top(i) ? yT : yB]), reach,
-      { s: H, e: H, part: 'diagonal', serifS: 'both', serifE: 'both', clip: { ...clipX }, ...rest }).map(q => q[1]);
+      { s: H, e: H, part: 'diagonal', serifS: 'both', serifE: 'both', clip: { ...clipX }, ...o }).map(q => q[1]);
   }
   for (let i = 0; i < n; i++) {
     let y = top(i) ? yT : yB;
     if (i > 0 && i < n - 1) {
       const dx = (xs[i] - xs[i - 1] + xs[i + 1] - xs[i]) / 2;
       const half = Math.atan2(dx, Hh), t = (m.tDir(dx, Hh) + m.thin) / 2;
-      const tip = (t / 2) / Math.sin(half), ext = a > 0.03 ? a * 1.5 * m.s : m.os;
+      const tip = (t / 2) / Math.sin(half), ext = peakPast(m);
       // steep, heavy strokes would pull the vertex so far in that a w's middle flattens out: it stops
       // a little way in, and the clip squares off the point it leaves beyond the line
       const lift = Math.min(tip - ext, Hh * 0.3 * (1 - 0.6 * m.p.roundness));
@@ -37,9 +37,9 @@ export function zig(g: Builder, m: Metrics, xs: number[], yT: number, yB: number
   }
   const cmds: Cmd[] = [['M', xs[0], ys[0]]];
   for (let i = 1; i < n; i++) cmds.push(['L', xs[i], ys[i], ys[i] > ys[i - 1] ? { w: 'thin' } : {}]);
-  const e = a > 0.03 ? 0 : m.os;
-  g.path(cmds, { s: H, e: H, part: 'diagonal', miter: 18, serifS: 'both', serifE: 'both',
-    clip: { y0: yB - e, y1: yT + e, ...o?.clipX }, ...o });
+  const e = peakCut(m);
+  g.path(cmds, { s: H, e: H, part: 'diagonal', miter: POINTED, serifS: 'both', serifE: 'both',
+    clip: { y0: yB - e, y1: yT + e, ...clipX }, ...o });
   return ys;
 }
 
@@ -104,8 +104,8 @@ export function openBowl(g: Builder, xl: number, xr: number, yb: number, yt: num
 }
 
 /** How open Aperture makes the mouth of a C (and G € ©): `u`, the share of each terminal's quarter turn left
-    undrawn, and `w`, the share of its bowl's width the letter is set at, as the more open the mouth, the
-    further the terminals sit from the right edge. */
+    undrawn, and `w`, the share of its bowl's width the letter is set at (the C's and the €'s; G and © take only `u`),
+    as the more open the mouth, the further the terminals sit from the right edge. */
 export const capAperture = (m: Metrics) => ({ u: lerp(0.25, 0.6, m.ap), w: 0.97 - 0.12 * m.ap });
 /** The same for a c (and ¢). */
 export const lcAperture = (m: Metrics) => ({ u: lerp(0.22, 0.58, m.ap), w: 0.96 - 0.12 * m.ap });
@@ -198,8 +198,8 @@ export function kArms(g: Builder, m: Metrics, x0: number, top: number, r: number
   // both leave the stem, or the bar, at one point halfway up: the bar runs about a stroke clear of
   // the stem, then the arm and leg share it, so they meet it in mitred corners
   const yj = top * 0.5, head: Cmd[] = m.p.kForm === 'bar' ? [['M', x0, yj], ['L', x0 + m.s * 1.85, yj]] : [['M', x0, yj]];
-  g.path([...head, ['L', r, top, { w: 'thin' }]], { s: J, e: H, part: 'arm', miter: 18, clip: { x0, ...clip }, serifE: 'both' });
-  g.path([...head, ['L', ex, 0]], { s: J, e: H, part: 'leg', miter: 18, clip: { x0, y0: 0 }, serifE: 'both' });
+  g.path([...head, ['L', r, top, { w: 'thin' }]], { s: J, e: H, part: 'arm', miter: POINTED, clip: { x0, ...clip }, serifE: 'both' });
+  g.path([...head, ['L', ex, 0]], { s: J, e: H, part: 'leg', miter: POINTED, clip: { x0, y0: 0 }, serifE: 'both' });
 }
 
 /* ---------- the upright and arched forms of the diagonal letters (Letters A, V and W) ---------- */
@@ -259,8 +259,9 @@ export function tailEnd(g: Builder, x: number, y: number, W: number) {
 
 /* ---------- cursive: entry and exit strokes ---------- */
 
-/** Radius of the cursive hooks; 0 when the design has no cursive at all. */
-export const hookR = (m: Metrics) => (m.cur < 0.04 ? 0 : lerp(m.s * 0.55, m.xh * 0.26 + m.s * 0.35, m.cur));
+/** Radius of the cursive hooks; 0 when the design has no cursive at all (see cursiveHookR, which the word space
+    widens by too). */
+export const hookR = (m: Metrics) => cursiveHookR(m.s, m.xh, m.cur);
 
 /** Where an exit stroke leaving a stem at `x` ends. */
 export const exitEnd = (m: Metrics, x: number, r: number) => ({ x: x + r * (1 + 1.3 * tailK(m)), y: -m.os + m.hT / 2 + r * 1.2 * tailK(m) });
@@ -296,7 +297,7 @@ export function entry(g: Builder, m: Metrics, x: number, top: number) {
   // a short flick into the top in a hand that is only a little cursive; in a joined-up hand it starts
   // low, near the baseline where the letter before lets go, so it rises under that letter's bowl
   // (an o, b or p, fullest halfway up) instead of running into it
-  const k = clamp((m.cur - 0.35) / 0.65), xs = x - r * lerp(1.25, 1.4, k), ys = lerp(y - r * 0.95, Math.min(y - r * 0.95, m.xh * 0.22), k);
+  const k = clamp((m.cur - CURSIVE_FORMS) / (1 - CURSIVE_FORMS)), xs = x - r * lerp(1.25, 1.4, k), ys = lerp(y - r * 0.95, Math.min(y - r * 0.95, m.xh * 0.22), k);
   g.path([['M', xs, ys], ['C', lerp(x - r * 0.75, xs + (x - xs) * 0.45, k), lerp(y - r * 0.3, ys + (y - ys) * 0.7, k), x - r * 0.3, y, x + m.s * 0.2, y]],
     { s: T, e: 'flat', ws: 0.7, part: 'entry' });
   g.mark('entry', xs, ys);
@@ -353,5 +354,6 @@ export function zed(g: Builder, m: Metrics, W: number, top: number) {
 /** The lowercase's measures: the x-height X, half a stem hs and half a bar hh, and the centerlines of a round
     letter's top yt and bottom yb, which overshoot the x-height and the baseline. */
 export const lc = (m: Metrics) => ({ X: m.xh, hs: m.s / 2, hh: m.hT / 2, yt: m.xh + m.os - m.hT / 2, yb: -m.os + m.hT / 2 });
-/** How much bigger or smaller than usual Dot size makes the dots. */
+/** How much bigger or smaller than usual Dot size makes the dots. A free font's dots grow alike (dot in skinMeasures,
+    skin.ts, the same line with its sums in another order): keep the two in step. */
 export const dotK = (m: Metrics) => (m.p.dotSize < 0.5 ? lerp(0.7, 1, m.p.dotSize * 2) : lerp(1, 1.5, m.p.dotSize * 2 - 1));

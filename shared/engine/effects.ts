@@ -6,7 +6,7 @@
    overlapping strokes count once. */
 import type { Fill } from '../params';
 import { combine, shape, type Shape } from './boolean';
-import { cubicAt, dist, roundContour, roundCuts, signedArea, splitPoly } from './geom';
+import { CIRCLE_K, cubicAt, dist, roundContour, roundCuts, signedArea, splitPoly } from './geom';
 import type { Cmd, Pt } from './types';
 
 /** Outline commands to polygons, curves sampled. Every point is `smooth`, so re-rounding
@@ -38,7 +38,8 @@ export function toPolys(cmds: Cmd[]): Pt[][] {
 
 const polysToCmds = (polys: Pt[][], R: number) => polys.flatMap(p => roundContour(p, R));
 
-/** Whether p is inside the polygon (even-odd). */
+/** Whether p is inside the polygon (even-odd): geom.ts's inPoly with its sums taken in another order, so the two can
+    disagree about a point right on an edge. */
 function within(poly: Pt[], p: Pt) {
   let on = false;
   for (let i = 0, n = poly.length, j = n - 1; i < n; j = i++) {
@@ -297,7 +298,7 @@ function traceCells(G: Grid, cell: number): Pt[][] {
 }
 
 const circle = (cx: number, cy: number, r: number): Cmd[] => {
-  const k = r * 0.5523;
+  const k = r * CIRCLE_K;
   return [['M', cx + r, cy], ['C', cx + r, cy + k, cx + k, cy + r, cx, cy + r], ['C', cx - k, cy + r, cx - r, cy + k, cx - r, cy],
     ['C', cx - r, cy - k, cx - k, cy - r, cx, cy - r], ['C', cx + k, cy - r, cx + r, cy - k, cx + r, cy], ['Z']];
 };

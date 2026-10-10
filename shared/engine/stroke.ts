@@ -12,9 +12,12 @@
       offset and evened, mitred and rounded where runs meet (joinRuns, TurnR), and closed by the end caps
       (capEnds).
    4. serifs: buildSerif's profiles, cupped bases and blackletter diamonds.
-   Pure, importing only geom and types: buildGlyph (glyph.ts), restyle.ts and the client's diagrams
-   (Diagram.tsx) call it with a PenCtx of their own. */
+   Pure, loading only geom.ts (all else it imports is types). Among its callers: buildGlyph (glyph.ts), the
+   glyph files' turns (glyphs/turns.ts), the stencil's turn pieces (stencil.ts), restyle.ts and the client's
+   diagrams (Diagram.tsx), each with a PenCtx of its own; font.ts, corners.ts and serif-sides.ts take helpers
+   from it. */
 import { clamp, clipPoly, cubicAt, lerp, lerpP, quarter, smoothstep, subCubic } from './geom';
+import type { SerifShape, SerifSide } from '../params';
 import type { Cmd, EndType, HalfPlane, PenCtx, Pt, SerifSides, SerifSpec, StrokeEnd, StrokeOpts, StrokeWeight, TermSpec, TurnR } from './types';
 
 const CURVE_N = 16;
@@ -25,6 +28,10 @@ const W_EASE = 3.2;
 const SAME_TANGENT = 0.9994;
 /** The share of its weight a stroke keeps at full Ink traps, both where it runs into another and into a sharp turn. */
 const JOINT_THIN = 0.45;
+/** How deep a square step at 1 on Steps cuts, as a share of the thinner of the strokes it cuts into, so they stay
+    joined across it: a turn's here (TurnR.step), an end's corner's (corners.ts) and a free font's corner's
+    (restyleCorners in restyle.ts). */
+export const STEP_DEPTH = 0.85;
 
 interface Sample {
   x: number; y: number; tx: number; ty: number;
@@ -696,8 +703,8 @@ function joinRuns(runs: Run[], Lr: (Pt | null)[][], Rr: (Pt | null)[][], isLoop:
         if (!turn && Math.hypot(P.x - sa.x, P.y - sa.y) > limit * Math.max(sa.t, sb.t) / 2) continue;
       } else if (-s > lenA * 0.95 || u > lenB * 0.95) continue;
       // a stepped turn has a square step cut out of its outside, and its notch rounds like any corner
-      // (at its deepest 0.85 of the thinner side, so the two sides stay joined across the step)
-      if (turn && outer && turn.step) P.step = turn.step * 0.85 * Math.min(sa.t, sb.t);
+      // (TurnR.step, a share, made a depth: at its deepest STEP_DEPTH of the thinner side)
+      if (turn && outer && turn.step) P.step = turn.step * STEP_DEPTH * Math.min(sa.t, sb.t);
       else if (turn) { const r = outer ? ro : ri; if (r > 0) P.r = r; else P.sharp = true; }
       sides[i][sides[i].length - 1] = P;
       sides[j][0] = null;
@@ -843,7 +850,7 @@ export const serifCup = (sf: SerifSpec) => (sf.cup ?? 0) * Math.min(sf.th * 0.75
 
 /** The sides of a stem's end its serif is drawn on: the ones the letter gives it, less those the design leaves
     off (`keep`, see SERIF_SIDES in shared/params/options.ts). `inward` are the sides that face into the letter. */
-export function serifSides(given: SerifSides, keep: string | undefined, inward: SerifSides): SerifSides {
+export function serifSides(given: SerifSides, keep: SerifSide | undefined, inward: SerifSides): SerifSides {
   const on = (s: 'a' | 'b') => (given === 'both' || given === s) && (keep === 'left' ? s === 'a' : keep === 'right' ? s === 'b'
     : keep === 'inside' || keep === 'outside' ? (keep === 'inside') === (inward === 'both' || inward === s) : true);
   const a = on('a'), b = on('b');
@@ -865,7 +872,8 @@ const diamondFrame = (end: SerifEnd, sides: SerifSides) => {
   const side = Math.sign(-end.dy * u.x) || 1;
   return { o, u, hw: end.t / 2 / (Math.abs(end.dy) / l), n: { x: (-end.dy / l) * side, y: (end.dx / l) * side } };
 };
-/** How tall a diamond stands for its width: Thickness, from half as tall (flat) through square at 0.5 to half as tall again. */
+/** How tall a diamond stands for its width: Thickness, from half as tall (flat) through square at 0.5 to half as tall again.
+    It reads the Thickness setting back out of sf.th, undoing serifTh in font.ts (8 to 95 units): keep the two in step. */
 const diamondK = (sf: SerifSpec) => lerp(0.5, 1.5, clamp((sf.th - 8) / 87));
 /** What a stroke keeps under a diamond: all but the corner of its end cut off on a slant, from its far edge at the end
     back to its near edge one stroke width in. That corner is a small triangle, so the cut reaches no further along the
@@ -910,7 +918,7 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
   // a serif on an arm can lean out from upright (or in under the arm), its tip cut square across it
   const armLean = horiz ? sf.armLean ?? 0 : 0, tan = Math.tan(armLean);
   // one side, L long, as [across, depth] from the tip inwards to the stem
-  const side = (L: number, shape: string, th: number): ProfilePt[] => {
+  const side = (L: number, shape: SerifShape, th: number): ProfilePt[] => {
     const wedge = shape === 'wedge' || shape === 'diamond';
     // the tip: its foot on the line, then its top. A pointed one has no top, and stays sharp
     const tt = wedge ? Math.max(4, th * 0.2) : th * (1 - 0.65 * ang);

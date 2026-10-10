@@ -4,7 +4,7 @@
    set, the same kind of strokes) form a group that shares a grid; what a letter's grid has in common
    with another letter of its group is marked `shared`. */
 import { toPolys } from './effects';
-import { CHARSET, type Font, type Glyph, type Metrics } from './font';
+import { CHARSET, SLANT_PIVOT, type Font, type Glyph, type Metrics } from './font';
 import { dist, transformCmds } from './geom';
 import { fitOutline, hasIn, hasOut, segment, type Node } from './outline';
 
@@ -21,7 +21,7 @@ export interface GlyphGrid { lines: GridLine[]; rounds: GridRound[]; slant: numb
 
 export type GridSet = 'upper' | 'lower' | 'digits' | 'punct' | 'symbols';
 /** What a letter is built from: straight strokes only, diagonals, stems with curves, or curves alone. */
-export type GridKind = 'straight' | 'diagonal' | 'bowl' | 'round';
+type GridKind = 'straight' | 'diagonal' | 'bowl' | 'round';
 /** Letters that share a grid: its name (Grid A to T), what it holds, the set and the letters. */
 export interface GridGroup { name: string; label: string; set: GridSet; chars: string[] }
 
@@ -93,7 +93,7 @@ function inkTest(polys: P[][]) {
 export function glyphGrid(g: Glyph, m: Metrics): GlyphGrid {
   // a letter drawn as it is (by hand, or a free font's: both carry the one part 'drawn') is read as it
   // stands; the others are set upright first
-  const slant = g.strokes[0]?.part === 'drawn' ? 0 : m.slant, pivot = m.xh * 0.4;
+  const slant = g.strokes[0]?.part === 'drawn' ? 0 : m.slant, pivot = m.xh * SLANT_PIVOT;
   let cmds = [...g.strokes.flatMap(s => s.cmds), ...g.serifs.flat()];
   if (slant) cmds = transformCmds(cmds, [1, 0, -slant, 1, slant * pivot, 0]);
   const lines: GridLine[] = [], rounds: GridRound[] = [];

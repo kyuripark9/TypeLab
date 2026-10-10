@@ -17,8 +17,8 @@
            and gets room for it.
      meta  params: the controls the inspector shows for the letter, in order, the first five of them (four
            with serifs on, which take a slot); without it the inspector picks them from the strokes.
-   Other forms of a letter are glyphs of their own that buildFont (font.ts) picks by name: 'a.alt' the
-   single-storey a, 'f.cur' and 'y.cur' the cursive f and y.
+   Other forms of a letter are glyphs of their own that buildFont picks by name (variantOf in font.ts): 'a.alt'
+   the single-storey a, 'f.cur' and 'y.cur' the cursive f and y.
 
    The order a glyph draws its strokes in numbers them, and a letter's own values are saved under those
    numbers (a stroke's weight under '0', its turns' corners under '0t1', its ends under '0s' and '0e', and so

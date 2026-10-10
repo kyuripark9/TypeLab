@@ -3,14 +3,14 @@
    expands its strokes (stroke.ts); fillets go into the corners where strokes join (joins.ts); the stencil
    cuts it (stencil.ts); its corners are rounded and its serifs set on; and then it is placed: spaced,
    slanted, turned, mirrored, sliced and filled (placeGlyph). Also letters built from blocks, and drawn ones. */
-import { joinGap } from '../params';
+import { endId, joinGap } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, mulM, quarter, roundContour, roundCuts, signedArea, smoothstep, splitPoly, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { fillOutline, shadowShift, slice } from './effects';
 import { drawnCmds, type Drawn } from './outline';
 import { buildSerif, diamondCut, diamondEnd, expandStroke, type Expanded, serifPlace, type SerifPlace } from './stroke';
 import type { Cmd, Mark, Mat, PenCtx, Pt } from './types';
-import { Builder, filletPts, type Glyph, glyphDefOf, type GlyphStroke, type Metrics, quarterK, strokeWt } from './font';
+import { Builder, SLANT_PIVOT, filletPts, type Glyph, glyphDefOf, type GlyphStroke, hasSerif, type Metrics, quarterK, strokeWt } from './font';
 import { barsThrough, gapOf, isBar, isHorizontal, stencilCut, stencilCuts, stencilOpens, stencilPieces, strokeJoins, turnKeep, turnPieces } from './stencil';
 import { stretchTerminals } from './ends';
 import { boxQuarters, endCorners, markTurns, turnsOf } from './corners';
@@ -152,9 +152,9 @@ function wobbleSkeleton(b: Builder, m: Metrics, code: number, homes: Map<string,
 const wind = (pts: Pt[], sign: number) => ((signedArea(pts) < 0) !== (sign < 0) ? pts.slice().reverse() : pts);
 /** A contour as path commands, wound by `sign`, its corners rounded by `R` (see roundContour); null when it has
     fewer than three points. */
-const finish = (pts: Pt[], sign: number, R: number, cornersOut?: Pt[]) => {
+const finish = (pts: Pt[], sign: number, R: number) => {
   if (pts.length < 3) return null;
-  return roundContour(wind(pts, sign), R, cornersOut);
+  return roundContour(wind(pts, sign), R);
 };
 /** The corners a stencil cuts rounded: they are the points that weren't on the stroke as drawn. */
 const cutRound = (m: Metrics, pts: Pt[], drawn: Set<Pt>, w: number) => roundCuts(pts, q => !!q.sharp && !drawn.has(q), m.gapRound, w);
@@ -230,13 +230,13 @@ export function buildGlyph(id: string, m: Metrics, ch = id): Glyph | null {
   const ctx = wobbleSkeleton(b, m, code, homes);
   const out = {
     ch, strokes: [] as GlyphStroke[], serifs: [] as Cmd[][], serifAt: [] as SerifPlace[], counters: [] as Cmd[][], marks: b.marks.slice(),
-    corners: [] as Pt[], skeleton: [] as Pt[][], meta: def.meta, bodyW: W
+    skeleton: [] as Pt[][], meta: def.meta, bodyW: W
   };
   // expand every stroke first: a stencil cut needs to know which stroke each join runs into
   const exps = b.strokes.map((st, si) => {
     if (st.poly) return null;
     const o = st.o;
-    const serifS = m.serif && !!o.serifS && !o.scale, serifE = m.serif && !!o.serifE && !o.scale;
+    const serifS = hasSerif(m, o, 's'), serifE = hasSerif(m, o, 'e');
     const so = { ...o };
     if (serifS && so.s === 'term') so.s = 'flat';
     if (serifE && so.e === 'term') so.e = 'flat';
@@ -330,7 +330,7 @@ export function buildGlyph(id: string, m: Metrics, ch = id): Glyph | null {
           if (!pieces.some(q => q.some(past))) lost.add(`${si}${end.which}`);
         }
       }
-      for (const q of pieces) { const c = finish(q, 1, R, out.corners); if (c) cmds = cmds.concat(c); }
+      for (const q of pieces) { const c = finish(q, 1, R); if (c) cmds = cmds.concat(c); }
       if (o.counter) out.counters.push(finish(ex.skeleton.flat(), 1, 0) || []);
     }
     out.strokes.push({ part: o.part || 'stroke', cmds, curved: ex.curved, horizontal: isHorizontal(st.cmds!), id: String(si) });
@@ -350,7 +350,9 @@ export function buildGlyph(id: string, m: Metrics, ch = id): Glyph | null {
           if (dir < 0) leanL = Math.max(leanL, past - end.x); else leanR = Math.max(leanR, end.x + past - W);
         }
       }
-      const term = `${si}${end.which}`, id = plains.has(term) ? term : `p${term}`;
+      // (`plains` holds a plain end's id with its 'p', and a terminal's drawn plain under a serif without: see
+      // stretchTerminals)
+      const term = endId(si, end.which, false), id = plains.has(term) ? term : endId(si, end.which, true);
       if (!want && end.type === 'term') {
         const home = homes.get(term);
         out.marks.push({ type: 'terminal', x: end.x, y: end.y, r: end.t * 0.5, id: term, ...(hooks.has(term) && { hook: true }), ...(home && { home }) });
@@ -397,6 +399,11 @@ function clearStems(out: Unplaced, W: number, lsb: number, rsb: number, m: Metri
 
 export type Unplaced = Omit<Glyph, 'lsb' | 'rsb' | 'adv' | 'M' | 'cmds' | 'd'>;
 
+/** The Glyph fields a letter not built from strokes (a block letter, a drawn one, a free font's) has nothing in,
+    empty: no serifs, counters, marks, skeleton or meta. A new field such letters leave empty goes here. */
+export const blankParts = (): Pick<Glyph, 'serifs' | 'serifAt' | 'counters' | 'marks' | 'skeleton' | 'meta'> =>
+  ({ serifs: [], serifAt: [], counters: [], marks: [], skeleton: [], meta: {} });
+
 /** A block letter (see blocks.ts): its outlines rounded corner by corner, Roundness rounding the outer
     corners and the ends of arms and slots, Joins the small rounds inside, then placed like any glyph.
     A lowercase letter is its capital, drawn as a small capital at the x-height. Null when the
@@ -414,14 +421,17 @@ export function buildBlock(ch: string, m: Metrics): Glyph | null {
   // blocks sit close: at the middle of Side margins a thirtieth of the cap height each side
   const sb = m.cap * (0.004 + 0.06 * e.sideBearing);
   const out: Unplaced = {
-    ch, strokes: [{ part: 'stem', cmds: rings.flatMap(r => roundContour(r, 0)), curved: true, id: '0' }], serifs: [], serifAt: [],
-    counters: rings.slice(rings.length - b.holes).map(r => roundContour(r, 0)), marks: [], corners: [], skeleton: [], meta: {}, bodyW: b.W
+    ch, strokes: [{ part: 'stem', cmds: rings.flatMap(r => roundContour(r, 0)), curved: true, id: '0' }], ...blankParts(),
+    counters: rings.slice(rings.length - b.holes).map(r => roundContour(r, 0)), bodyW: b.W
   };
   return placeGlyph(out, b.W, sb, sb, code, m);
 }
 
 /** Place a glyph drawn `W` wide between side bearings lsb and rsb: rotation, monospacing, the pixel grid,
-    playful bounce and hand jitter, slant, then the slice and the fills, which run on its final outline. */
+    playful bounce and hand jitter, slant, then the slice and the fills, which run on its final outline.
+    A free font's letters are placed here too, each of these effects counted only as far as the settings move it from
+    where the font was picked (freeLetters, in free-letters.ts, hands them Metrics that do so): a new effect needs the
+    same there. */
 export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: number, m: Metrics, joined = false): Glyph {
   const turn = m.rot ? turnAbout(out, m.rot) : null;
   if (turn) { lsb += turn.grow; rsb += turn.grow; }
@@ -456,7 +466,7 @@ export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, c
     const cx = adv / 2, cy = m.xh / 2, c = Math.cos(a) * k, s = Math.sin(a) * k;
     M = mulM([c, s, -s, c, cx - c * cx + s * cy, cy - s * cx - c * cy + dy], M);
   }
-  if (m.slant) M = mulM([1, 0, m.slant, 1, -m.slant * m.xh * 0.4, 0], M);
+  if (m.slant) M = mulM([1, 0, m.slant, 1, -m.slant * m.xh * SLANT_PIVOT, 0], M);
   const tf = (c: Cmd[]) => transformCmds(c, M);
   const tp = <T extends Pt>(p: T): T => { const q = applyM(M, p.x, p.y); return { ...p, x: q[0], y: q[1] }; };
   out.strokes.forEach(s => s.cmds = tf(s.cmds));
@@ -472,7 +482,7 @@ export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, c
   }
   return {
     ...out, serifs, counters: out.counters.map(tf),
-    marks: out.marks.map(k => k.home ? { ...tp(k), home: tp(k.home) } : tp(k)), corners: out.corners.map(tp), skeleton,
+    marks: out.marks.map(k => k.home ? { ...tp(k), home: tp(k.home) } : tp(k)), skeleton,
     lsb, rsb, adv, M, cmds, d: cmdsToD(cmds)
   };
 }
@@ -498,7 +508,7 @@ function turnAbout(out: Unplaced, a: number): { M: Mat; grow: number } | null {
 export function drawnGlyph(ch: string, drawn: Drawn): Glyph {
   const cmds = drawnCmds(drawn.contours);
   return {
-    ch, strokes: [{ part: 'drawn', cmds, curved: false }], serifs: [], serifAt: [], counters: [], marks: [], corners: [], skeleton: [], meta: {},
+    ch, strokes: [{ part: 'drawn', cmds, curved: false }], ...blankParts(),
     bodyW: drawn.adv, lsb: 0, rsb: 0, adv: drawn.adv, M: [1, 0, 0, 1, 0, 0], cmds, d: cmdsToD(cmds), drawn
   };
 }

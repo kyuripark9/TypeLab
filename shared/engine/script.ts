@@ -6,7 +6,7 @@
    The stroke expander gives them their thick and thin, the terminals their ends and the slant its
    lean, as for every other letter. The script styles use them, and the small letters below, in place
    of the print ones (Letterforms: Script, the scriptForm setting; scriptForms() in font.ts picks these). */
-import { defGlyph as def, type Builder, type Metrics } from './font';
+import { defGlyph as def, scriptId, type Builder, type Metrics } from './font';
 import type { Cmd, EndType, StrokeOpts } from './types';
 
 const T = 'term', J = 'join';
@@ -121,7 +121,7 @@ const SCRIPT_PARAMS = ['scriptForm', 'contrast', 'slant', 'width'];
 /** A script capital with side bearing `sbL` on the left (as a share of the design's). */
 const capDef = (ch: string, sbL: number, Wn: number, strokes: [Runs, StrokeOpts][]) =>
   // (on the right, room for the join the next small letter rises from)
-  def(ch + '.scr', [sbL, 1.3], scriptCap(Wn, strokes), { parts: ['stem', 'bowl', 'swash'], params: SCRIPT_PARAMS });
+  def(scriptId(ch), [sbL, 1.3], scriptCap(Wn, strokes), { params: SCRIPT_PARAMS });
 
 /* the stem most capitals stand on: in from the left at the top, down, and curled back at the foot */
 const leadStem = (x: number): XY[] => [[x - 170, 560], [x - 100, 670], [x, 700], [x + 20, 600], [x - 5, 350], [x - 35, 110], [x - 90, 15], [x - 170, 25], [x - 190, 95]];
@@ -347,7 +347,7 @@ const arch = (p: Pen, x: number, xr: number, W: number) =>
 
 type Lower = (A: number, D: number, t: number) => [Pen, StrokeOpts][];
 
-function lower(ch: string, Wn: number, strokes: Lower, dot?: [number, number], name = ch + '.scr') {
+function lower(ch: string, Wn: number, strokes: Lower, dot?: [number, number], name = scriptId(ch)) {
   def(name, [0, 0], (g, m) => {
     // across, an x-height a unit (as Width sets it), widened as the strokes get heavier so the counters stay open
     const sx = (m.xh * 1.05 + m.s * 1.1) * m.W(1000) / 1000, sy = m.xh, A = m.asc / m.xh, D = m.desc / m.xh;
@@ -360,7 +360,7 @@ function lower(ch: string, Wn: number, strokes: Lower, dot?: [number, number], n
     g.reachL = 0; g.reachR = W;
     g.joins = [[0, JY * sy], [W, JY * sy]];
     return W;
-  }, { parts: ['stem', 'bowl'], params: SCRIPT_PARAMS });
+  }, { params: SCRIPT_PARAMS });
 }
 
 /** how wide a loop is: open enough for its counter to show under a heavy stroke */

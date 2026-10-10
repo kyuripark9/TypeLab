@@ -16,11 +16,16 @@
      serif-sides.ts   which way each stem's serifs reach, and cupped serif feet
      free-letters.ts  a free font's letters, moved by the settings
      highlight.ts     the part of a letter a setting shapes, for the explainer
-   Modules this file loads, directly or not, call back into it (glyph.ts and its stages, free-letters.ts,
-   restyle.ts): any of them may use what it exports only inside functions, never at module load. The
-   letter files (glyphs.ts, script.ts, swash.ts) fill the glyph table as they load, so index.ts imports
-   them and this file never does. */
-import { DEFAULTS, contrastOf, formOf, joinGap, rotationDeg, weighed, weightScale, xHeightRatio, type Params } from '../params';
+   Most modules this file loads, directly or not, call back into it (glyph.ts and its stages, free-letters.ts,
+   skin.ts, restyle.ts): any of them may use what it exports only inside functions, never at module load. The
+   letter files (glyphs/, script.ts, swash.ts) fill the glyph table as they load, so index.ts imports them and
+   this file never does.
+
+   Beside metrics() stand the pieces of it other files share, so they stay in step with it: serifLen,
+   counterScale, roundnessR, innerRoundR, stencilOff, bowlK, bowlOrg, dotRoundOf and cursiveHookR, and the
+   constants SERIF_SB, SLANT_PIVOT and CURSIVE_FORMS, read by the glyph files and by the free fonts' letters
+   (skin.ts, restyle.ts, free-letters.ts), which move as far as the engine's own. */
+import { DEFAULTS, contrastOf, formOf, joinGap, rotationDeg, slantDeg, weighed, weightScale, xHeightRatio, type Params } from '../params';
 import { CIRCLE_K, clamp, cubicAt, lerp, quarter } from './geom';
 import { freeFont, type FreeFont } from './free';
 import type { Drawn } from './outline';
@@ -29,7 +34,6 @@ import type { Cmd, Mark, MarkType, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpe
 import { buildBlock, buildGlyph, drawnGlyph } from './glyph';
 import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
 import { highlightD } from './highlight';
-export { ownTurn } from './corners';
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
@@ -73,7 +77,7 @@ export interface Metrics {
   /** body width for a base design width. cls: 'r' round, 'c' classically narrow */ W: (base: number, cls?: 'r' | 'c') => number;
   /** the side bearing a straight stem gets; each glyph's side-bearing factors scale it */ sb: number;
   /** letter spacing added after every advance (in whole cells for pixels and dots), and the word space */ track: number; space: number;
-  /** the shear Slant gives: the tangent of up to 20° */ slant: number;
+  /** the shear Slant gives: the tangent of up to 20° (see slantDeg), leaning about SLANT_PIVOT of the x-height */ slant: number;
   /** the corner radius Roundness gives */ R: number;
   /** how round the dots are, 0 square to 1 round */ dotRound: number;
   /** how far each letter is turned, in radians clockwise */ rot: number;
@@ -81,7 +85,7 @@ export interface Metrics {
   qpt: (x0: number, y0: number, x1: number, y1: number, mode: string, u: number) => Tangent;
 }
 
-interface GlyphMeta { parts?: string[]; params?: string[] }
+interface GlyphMeta { params?: string[] }
 type GlyphFn = (g: Builder, m: Metrics) => number;
 interface GlyphDef { sb: [number, number]; fn: GlyphFn; meta: GlyphMeta }
 
@@ -96,7 +100,6 @@ export interface Glyph {
   /** where each of the serifs sits, in their order */ serifAt: SerifPlace[];
   counters: Cmd[][];
   marks: Mark[];
-  corners: Pt[];
   skeleton: Pt[][];
   meta: GlyphMeta;
   bodyW: number;
@@ -144,6 +147,10 @@ export const glyphIds = () => Object.keys(GLYPHS);
 /** The macros push the x-height by steps measured on the older Lowercase height scale (see xHeightFromOld in shared/params/scales.ts): one such step on the current scale. */
 const XH_OLD = 0.36 / 0.56;
 
+/** From this far along Cursive the letters take their cursive forms: the single-storey a (on auto), the cursive f and y
+    ('f.cur', 'y.cur'), the looped descender of the g, and entry strokes that start low (glyphs/). */
+export const CURSIVE_FORMS = 0.35;
+
 /* Personality sliders are macros: they push several low-level parameters at once. */
 export function resolve(p: Partial<Params>): Effective {
   const e = { ...DEFAULTS, ...p } as Effective;
@@ -169,7 +176,7 @@ export function resolve(p: Partial<Params>): Effective {
   e.classic = classic;
   e.bounce = playful;
   // italic and script hands use the single-storey a (unless one is picked) and hold the pen at a steeper angle
-  e.singleStory = e.story === 'auto' ? gh < -0.3 || e.cursive >= 0.35 : e.story === 'single';
+  e.singleStory = e.story === 'auto' ? gh < -0.3 || e.cursive >= CURSIVE_FORMS : e.story === 'single';
   e.stressDeg = e.curve * 10 + human * 9 + classic * 7 + e.cursive * 14;
   return e;
 }
@@ -188,13 +195,50 @@ const pinchY = (pos: number, xh: number, cap: number) => (pos < 0.5 ? lerp(0, xh
 
 /** A serif measure at `v` on a scale centred on 0.5, where it is as drawn: `lo` times that at 0, `hi` times at 1. */
 const serifScale = (v: number, lo: number, hi: number) => (v < 0.5 ? lerp(lo, 1, v * 2) : lerp(1, hi, v * 2 - 1));
-/** How thick a serif of each shape is at `v` on the Thickness scale. */
+/** A serif's length at `v` on Serif size, in letters `ws` times as wide as usual (Metrics.ws). A free font's serifs
+    move by it too (skinMeasures in skin.ts). */
+export const serifLen = (v: number, ws: number) => lerp(28, 175, v) * (0.75 + 0.25 * ws);
+/** How thick a serif of each shape is at `v` on the Thickness scale. A diamond reads the Thickness back out of it
+    (diamondK in stroke.ts undoes the 8 to 95): keep the two in step. */
 const serifTh = (v: number, shape: string) => lerp(8, 95, v) * ({ unbracketed: 0.6, slab: 1.5 }[shape] ?? 1);
+/** How much of a serif's length the side bearings grow by, so serifed letters keep apart. A free font's letters
+    given the engine's serifs grow theirs as much (freeGlyph in free-letters.ts). */
+export const SERIF_SB = 0.3;
 /** How far the serifs on arms lean from upright at either end of the Lean scale, in radians (35°). */
 const ARM_LEAN = 0.61;
 /** The stem the glyphs' base widths and the side bearing are drawn for: a heavier one widens the letters and
     narrows the side bearings. */
 const REGULAR_STEM = 80;
+/** How much wider Inner space (`cnt`, -1..1) draws a letter: one built round a counter (`cls` 'r') 0.22 a unit, any
+    other 0.06 (see Metrics.W). A free font's letters widen by it too (skinMeasures in skin.ts). */
+export const counterScale = (cls: 'r' | 'c' | undefined, cnt: number) => 1 + (cls === 'r' ? 0.22 : 0.06) * cnt;
+/** The tension of a quarter turn's handles (Metrics.k): CIRCLE_K a circle, fuller with Curves and Squareness. A free
+    font's bowls are drawn again by it (bowlLook in restyle.ts). */
+export const bowlK = (e: Effective) => CIRCLE_K + 0.05 * e.curve + 0.36 * e.square;
+/** How organic the bowls are (Metrics.org, see organicK). Organic bowls are fuller on the diagonal a slant leans into a
+    sharp corner (top right, bottom left): the two together pinch a bowl into a lumpy parallelogram, so a slant, which
+    leans a bowl that way itself, takes the place of as much of it. A free font's bowls follow it too (bowlLook). */
+export const bowlOrg = (e: Effective) => e.curve * (1 - clamp(e.slant));
+/** The corner radius Roundness gives at `v`, for stems `s` thick (Metrics.R): half a stem at 1. A free font's corners
+    round by it too (cornerLooks in restyle.ts). */
+export const roundnessR = (v: number, s: number) => v * s * 0.5;
+/** The radius Counters (innerRound) rounds the counters' corners by at `v`, in letters `cap` high, whatever the weight
+    (Metrics.innerR). A free font's inside corners round by it too (cornerLooks in restyle.ts). */
+export const innerRoundR = (v: number, cap: number) => v * cap * 0.4;
+/** How far out from a join its stencil gap opens at `pos` on Stencil's Position, for stems `s` thick in letters with
+    x-height `xh` (Metrics.gapOff): a gap moved out starts a stub's width out, so it never leaves a hairline on the
+    stroke it joins. A free font's gaps move out as far (restyleStencil in restyle.ts). */
+export const stencilOff = (pos: number, s: number, xh: number) => (pos > 0 ? lerp(s * 0.55, xh * 0.4, pos) : 0);
+/** How round the dots are, 0 square to 1 round (Metrics.dotRound): as Dots picks them, or on auto as round as
+    Roundness or as round ends' own Roundness. A free font's dots are drawn again by it (dotLook in restyle.ts). */
+export const dotRoundOf = (e: Params) => (e.dots === 'round' ? 1 : e.dots === 'square' ? 0 : Math.max(e.roundness, e.terminal === 'round' ? e.terminalRound : 0));
+/** The radius of the cursive hooks, for stems `s` thick and an x-height `xh`, at `cur` on Cursive; 0 in a design with
+    no cursive at all. The letters' hooks are drawn by it (hookR in glyphs/shared.ts), and the word space widens by
+    most of it. */
+export const cursiveHookR = (s: number, xh: number, cur: number) => (cur < 0.04 ? 0 : lerp(s * 0.55, xh * 0.26 + s * 0.35, cur));
+/** The height the letters lean about, as a share of the x-height: placeGlyph (glyph.ts) shears them about it, and the
+    construction grid (grid.ts) stands them up again about it. */
+export const SLANT_PIVOT = 0.4;
 
 export function metrics(e: Effective): Metrics {
   // Verticals weigh the stems on their own, and Horizontals the bars: each scales its side of the
@@ -208,17 +252,13 @@ export function metrics(e: Effective): Metrics {
   const thinAt = (c: number) => Math.max(8, Math.min(s0 * (1 - 0.08 - 0.84 * c), xh * 0.2));
   const thin = weighed(e.contrast <= 0.05 ? thinAt(e.contrast) : lerp(thinAt(0.05), thinAt(1), (e.contrast - 0.05) / 0.95), e.hWeight, 4, xh * 0.32);
   const stress = e.stressDeg * Math.PI / 180;
-  const k = CIRCLE_K + 0.05 * e.curve + 0.36 * e.square;
-  // organic bowls are fuller on the diagonal a slant leans into a sharp corner (top right, bottom left):
-  // the two together pinch a bowl into a lumpy parallelogram, so a slant, which leans a bowl that way
-  // itself, takes the place of as much of it
-  const org = e.curve * (1 - clamp(e.slant));
+  const k = bowlK(e), org = bowlOrg(e);
   const ctx: PenCtx = {
     thick: s, thin, stress, k, org, terminal: e.terminal, chamfer: e.chamfer, joints: e.joints, reverse: e.reverse, swell: e.swell,
     term: termSpec(e), dropLow: e.serif ? xh * 0.5 : undefined,
     pinch: e.pinch > 0 ? { y: pinchY(e.pinchPos, xh, cap), amount: e.pinch, reach: xh / 2 } : undefined,
     serif: e.serif ? {
-      len: lerp(28, 175, e.serifSize) * (0.75 + 0.25 * ws),
+      len: serifLen(e.serifSize, ws),
       th: serifTh(e.serifThickness, e.serifShape),
       shape: e.serifShape, angle: e.serifAngle,
       bracket: 0.85 * serifScale(e.serifBracket, 0.25, 1.8), tip: e.serifTip, tipRound: lerp(0.1, 0.5, e.serifTipRound), tipSlant: (e.serifTipSlant - 0.5) * 2,
@@ -234,12 +274,12 @@ export function metrics(e: Effective): Metrics {
   };
   const tDir = (dx: number, dy: number) => { const l = Math.hypot(dx, dy) || 1; return autoThickness(dx / l, dy / l, ctx, s, thin); };
   const cnt = (e.counter - 0.5) * 2;
-  const sb = Math.max(14, 64 * (0.65 + 0.35 * ws) - (s - REGULAR_STEM) * 0.12 + (e.sideBearing - 0.5) * 130 + (ctx.serif ? ctx.serif.len * 0.3 : 0));
+  const sb = Math.max(14, 64 * (0.65 + 0.35 * ws) - (s - REGULAR_STEM) * 0.12 + (e.sideBearing - 0.5) * 130 + (ctx.serif ? ctx.serif.len * SERIF_SB : 0));
   /* body width: base is drawn for a regular weight at normal width.
      cls: 'r' letters built around a counter, 'c' classically narrow caps, left out for the rest */
   const W = (base: number, cls?: 'r' | 'c') => {
     let w = base * ws;
-    w *= 1 + (cls === 'r' ? 0.22 : 0.06) * cnt;
+    w *= counterScale(cls, cnt);
     if (cls === 'c') w *= 1 - 0.13 * e.classic;
     if (cls === 'r') w *= 1 + 0.05 * e.classic;
     return w + (s - REGULAR_STEM) * 0.62;
@@ -252,15 +292,15 @@ export function metrics(e: Effective): Metrics {
   const sliceH = e.slice > 0 ? lerp(4, Math.max(xh * 0.14, Math.min(xh * 0.5, xh - 2 * thin)), e.slice) : 0;
   return {
     p: e, s, cap, xh,
+    // (skinMeasures, skin.ts, moves a free font's ascenders by the Stem length term, as a share of the cap height)
     asc: Math.max(xh * 1.12, Math.max(cap * 1.05, xh * 1.18) + (e.extenders - 0.5) * cap * 0.5),
     desc: -cap * 0.3 * lerp(0.55, 1.45, e.extenders) * (e.descender < 0.5 ? lerp(0.45, 1, e.descender * 2) : lerp(1, 1.6, e.descender * 2 - 1)),
     os: cap * 0.014,
     ws, thin, k, org, sq: e.square, cur: e.cursive, wob: e.wobble, monoAdv,
-    // a gap moved out starts a stub's width out, so it never leaves a hairline on the stroke it joins
-    cell, gap: e.stencil > 0 ? joinGap(e.stencil, s) : 0, gapOff: e.stencilPos > 0 ? lerp(s * 0.55, xh * 0.4, e.stencilPos) : 0, gapRound: e.stencilRound,
+    cell, gap: e.stencil > 0 ? joinGap(e.stencil, s) : 0, gapOff: stencilOff(e.stencilPos, s, xh), gapRound: e.stencilRound,
     // the slice keeps a stroke's width of ink below it and above it, so at either end it still cuts through the letters
     sliceY: e.slicePos < 0.5 ? lerp(Math.min(xh * 0.5, s + sliceH / 2), xh * 0.5, e.slicePos * 2) : lerp(xh * 0.5, Math.max(xh * 0.5, cap - s - sliceH / 2), e.slicePos * 2 - 1),
-    sliceH, sliceRound: e.sliceRound, innerR: e.innerRound * cap * 0.4,
+    sliceH, sliceRound: e.sliceRound, innerR: innerRoundR(e.innerRound, cap),
     bar: e.crossbar, apex: e.apex, ap: e.aperture, cnt,
     serif: !!e.serif,
     ctx, tDir, hT: tDir(1, 0), W,
@@ -268,12 +308,12 @@ export function metrics(e: Effective): Metrics {
     track: snap((e.letterSpacing - 0.2) * 260),
     // joined-up letters leave no gap of their own, and their entry and exit strokes swing out into
     // the space, so a cursive design gets a wider one (about its hooks' size) to keep words apart
-    space: Math.max(snap(lerp(W(210) + (e.wordSpacing - 0.35) * 520 + (e.cursive < 0.04 ? 0 : lerp(s * 0.55, xh * 0.26 + s * 0.35, e.cursive) * 0.8),
+    space: Math.max(snap(lerp(W(210) + (e.wordSpacing - 0.35) * 520 + cursiveHookR(s, xh, e.cursive) * 0.8,
       monoAdv, e.mono)), cell),
-    slant: Math.tan(e.slant * 20 * Math.PI / 180),
+    slant: Math.tan(slantDeg(e.slant) * Math.PI / 180),
     rot: rotationDeg(e.rotation) * Math.PI / 180,
-    R: e.roundness * s * 0.5,
-    dotRound: e.dots === 'round' ? 1 : e.dots === 'square' ? 0 : Math.max(e.roundness, e.terminal === 'round' ? e.terminalRound : 0),
+    R: roundnessR(e.roundness, s),
+    dotRound: dotRoundOf(e),
     qpt: (x0, y0, x1, y1, mode, u) => {
       return cubicAt(quarter(x0, y0, x1, y1, mode, organicK(k, org, x1 - x0, y1 - y0)), u);
     }
@@ -349,8 +389,30 @@ export function strokeWt(m: Metrics, si: number) {
   return v == null ? 1 : weightScale(v);
 }
 
+/** Whether end `which` ('s' or 'e') of a stroke drawn with options `o` carries a serif: serifs are on, the end asks for
+    one, and the stroke isn't drawn at a scale of its own. buildGlyph (glyph.ts), stretchTerminals (ends.ts) and the
+    serif sides and cups (serif-sides.ts) all go by it. */
+export const hasSerif = (m: Metrics, o: StrokeOpts, which: 's' | 'e') => m.serif && !o.scale && !!(which === 's' ? o.serifS : o.serifE);
+
 /** Whether the letters are written as a joined-up script's (see SCRIPT_FORMS): on auto, in a design more than half cursive. */
 export const scriptForms = (e: Pick<Params, 'scriptForm' | 'cursive'>) => e.scriptForm === 'script' || (e.scriptForm === 'auto' && e.cursive >= 0.5);
+
+/** The glyph ids letter `ch`'s script form ('S.scr', see script.ts) and its swash form ('S.sw', see swash.ts) are
+    registered and picked under. ('d.short' and 'z.open' are swash.ts's own bases for the d's and z's swashes, never
+    picked by buildFont.) */
+export const scriptId = (ch: string) => ch + '.scr';
+export const swashId = (ch: string) => ch + '.sw';
+
+/** The glyph id letter `ch` is drawn from in design `e`: a script's own letter first, as it is written whole,
+    single-storey a and all (flourished, where the letter has a swash and swashes are picked); else the single-storey
+    a, the cursive form, or the letter itself. */
+export function variantOf(ch: string, e: Effective): string {
+  const script = scriptForms(e) && hasGlyph(scriptId(ch));
+  if (script && e.flourish === 'swash' && hasGlyph(swashId(ch))) return swashId(ch);
+  if (script) return scriptId(ch);
+  if (ch === 'a' && e.singleStory) return 'a.alt';
+  return e.cursive >= CURSIVE_FORMS && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
+}
 
 /** Each font's letters as its settings (or its free font) draw them, leaving out the drawn ones. A font
     that differs from another only in its drawings shares the other's, so dragging a point in Points,
@@ -372,6 +434,25 @@ export function buildFont(params: Params, from?: Font): Font {
   const m = free ? { ...m0, space: Math.max(20, free.space * fl.k * fl.sx + (e.wordSpacing - 0.35) * 520) } : m0;
   const cache = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
   const built = (from && from.free === free && sameSettings(from.params, params) && settingsGlyphs.get(from)) || new Map<string, Glyph | null>();
+  /** Letter `ch` as the settings draw it: its own letter's font's, a free font's (in a form the font hasn't got, its
+      twin's), a block letter, or the glyph table's form of it (variantOf). */
+  const fromSettings = (ch: string): Glyph | null => {
+    const lf = font.letter(ch);
+    if (lf !== font) return lf.glyph(ch);
+    if (free?.glyphs[ch]) return (fl!.skin && formChanged(ch, fl!.pick, fl!.now) && twinGlyph(ch, fl!)) || freeGlyph(ch, free.glyphs[ch], fl!);
+    if (e.build === 'blocks') { const b = buildBlock(ch, m); if (b) return b; }
+    return buildGlyph(variantOf(ch, e), m, ch);
+  };
+  /** Letter `ch`: as drawn, if it is; else as built before with the same settings, or built now and kept. */
+  const pickGlyph = (ch: string): Glyph | null => {
+    const drawn = params.outlines?.[ch];
+    if (drawn) return drawnGlyph(ch, drawn);
+    const before = built.get(ch);
+    if (before !== undefined) return before;
+    const g = fromSettings(ch);
+    built.set(ch, g);
+    return g;
+  };
   const font: Font = {
     params, eff: e, m, free, freePending: !!fl && free?.id !== fl.want, freeMissing: freeFontsWanted(params).filter(id => !freeFont(id)),
     letter(ch) {
@@ -383,28 +464,7 @@ export function buildFont(params: Params, from?: Font): Font {
     },
     glyph(ch) {
       let g = cache.get(ch);
-      if (g === undefined) {
-        const drawn = params.outlines?.[ch];
-        if (drawn) g = drawnGlyph(ch, drawn);
-        else if ((g = built.get(ch)) !== undefined) { /* built before, with the same settings */ }
-        else {
-          const lf = font.letter(ch);
-          if (lf !== font) g = lf.glyph(ch);
-          // (in a form the font hasn't got, its twin's)
-          else if (free?.glyphs[ch]) g = (fl!.skin && formChanged(ch, fl!.pick, fl!.now) && twinGlyph(ch, fl!)) || freeGlyph(ch, free.glyphs[ch], fl!);
-          else if (e.build === 'blocks' && (g = buildBlock(ch, m))) { /* a block letter */ }
-          else {
-            // a script's own letters first: they are written whole, single-storey a and all
-            // (flourished, where the letter has a swash and swashes are picked)
-            const script = scriptForms(e) && hasGlyph(ch + '.scr');
-            const alt = script && e.flourish === 'swash' && hasGlyph(ch + '.sw') ? ch + '.sw' : script ? ch + '.scr' : ch === 'a' && e.singleStory ? 'a.alt'
-              : e.cursive >= 0.35 && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;
-            g = buildGlyph(alt, m, ch);
-          }
-          built.set(ch, g);
-        }
-        cache.set(ch, g);
-      }
+      if (g === undefined) { g = pickGlyph(ch); cache.set(ch, g); }
       return g;
     },
     hl(ch, key) {

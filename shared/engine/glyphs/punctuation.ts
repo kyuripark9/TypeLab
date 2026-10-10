@@ -3,7 +3,7 @@ import { defGlyph as def, type Builder, type Metrics } from '../font';
 import { lerp } from '../geom';
 import type { Cmd, Pt } from '../types';
 import { H, J, T, capAperture, dotK, lc, lcAperture, mapCmds, openBowl, oval, sShape, tailEnd, tailK, zig } from './shared';
-import type { XY } from './turns';
+import { POINTED, type XY } from './turns';
 
 /* ---------- punctuation (and the symbols + & @ # $ % among it) ---------- */
 
@@ -129,7 +129,7 @@ function chevrons(g: Builder, m: Metrics, n: 1 | 2, right: boolean) {
   const h = m.xh * 0.52, w = h * 0.6, cy = m.xh * 0.5, x0 = m.s * 0.6, step = w * 0.55 + m.s * 1.1, W = x0 + w + (n - 1) * step + m.s * 0.45;
   for (let i = 0; i < n; i++) {
     const x = x0 + i * step, f = (px: number, py: number): XY => [right ? W - px : px, py];
-    g.path(mapCmds([['M', x + w, cy + h / 2], ['L', x, cy], ['L', x + w, cy - h / 2, { w: 'thin' }]], f), { s: H, e: H, part: 'diagonal', miter: 18 });
+    g.path(mapCmds([['M', x + w, cy + h / 2], ['L', x, cy], ['L', x + w, cy - h / 2, { w: 'thin' }]], f), { s: H, e: H, part: 'diagonal', miter: POINTED });
   }
   return W;
 }
@@ -220,7 +220,7 @@ def('=', [0.6, 0.6], (g, m) => {
 function angle(g: Builder, m: Metrics, right: boolean) {
   const W = m.W(440), cy = mathY(m), r = W * 0.46, x0 = m.s * 0.6;
   const f = (x: number, y: number): XY => [right ? W - x : x, y];
-  g.path(mapCmds([['M', W, cy + r], ['L', x0, cy], ['L', W, cy - r, { w: 'thin' }]], f), { s: T, e: T, part: 'diagonal', miter: 18 });
+  g.path(mapCmds([['M', W, cy + r], ['L', x0, cy], ['L', W, cy - r, { w: 'thin' }]], f), { s: T, e: T, part: 'diagonal', miter: POINTED });
   return W;
 }
 def('<', [0.3, 0.6], (g, m) => angle(g, m, false));
