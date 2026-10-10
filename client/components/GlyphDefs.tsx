@@ -1,8 +1,10 @@
-/* Every glyph is defined once here as <path id="g65">, and the preview and glyph strip
-   reuse it with <use href="#g65">. A parameter change then only rewrites these paths.
+/* Every glyph is defined once here as <path id="g65"> (its char code), with the active control's highlight as
+   <path id="h65"> for the characters on screen while the pointer is on the controls, and the preview, the glyph
+   strip and the construction grid's bar reuse them with <use href="#g65">. A parameter change then only rewrites these paths.
    Glyphs on screen update immediately; the rest follow in a deferred render, one glyph at a time so a new slider
    move can interrupt it, and dragging a slider stays smooth. */
 import { memo, useDeferredValue } from 'react';
+import type { ControlKey } from '../../shared/content';
 import { ALL_CHARS, type Font } from '../../shared/engine';
 import { hlKeyOf, useEditor, useFont } from '../state/editor';
 import { useVisibleChars } from '../lib/preview';
@@ -11,7 +13,7 @@ const CHARS = [...ALL_CHARS];
 
 /** One glyph's paths, on its own so the deferred render of those off screen can stop between glyphs for the next
     slider move. */
-const GlyphDef = memo(function GlyphDef({ ch, font, hl }: { ch: string; font: Font; hl: string | null }) {
+const GlyphDef = memo(function GlyphDef({ ch, font, hl }: { ch: string; font: Font; hl: ControlKey | null }) {
   const c = ch.charCodeAt(0), g = font.glyph(ch);
   return (
     <g>

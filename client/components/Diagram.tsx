@@ -6,7 +6,10 @@ import { RING_KEYS, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundC
 import { DEFAULTS, TERMINAL_FORMS, type BarEnds, type Fill, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm } from '../../shared/params';
 import { n1 } from '../lib/hooks';
 
-export function Diagram({ font, k, W = 340, H = 178 }: { font: Font; k: ActiveKey; W?: number; H?: number }) {
+/** The explainer figure's size, in px. */
+const W = 340, H = 178;
+
+export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
   const hlKey = controlFor(k), ctl = CONTROLS[hlKey];
   const m = font.m, text = ctl.demo, line = font.layout(text, Infinity)[0];
   const hasDesc = /[gjpqy]/.test(text);
@@ -98,23 +101,29 @@ export function Diagram({ font, k, W = 340, H = 178 }: { font: Font; k: ActiveKe
   );
 }
 
-/* ---- small static previews for option buttons */
+/* ---- small static previews for option buttons, each drawn once per option and kept */
 const outlineD = (pts: Pt[]) => cmdsToD(roundContour(signedArea(pts) < 0 ? pts.slice().reverse() : pts, 0));
+/** The icon kept under `key` in `map`, drawn by `build` the first time it is asked for. */
+function cached<K, T>(map: Map<K, T>, key: K, build: () => T): T {
+  let v = map.get(key);
+  if (v === undefined) { v = build(); map.set(key, v); }
+  return v;
+}
+/** The serif icons draw an unbracketed serif thinner and a slab thicker than the rest, by these shares of the icon's usual thickness. */
+const SERIF_TH: Partial<Record<SerifShape, number>> = { unbracketed: 0.6, slab: 1.6 };
+const serifTh = (shape: SerifShape, base: number) => base * (SERIF_TH[shape] ?? 1);
 
 const terminalPaths = new Map<string, { d: string; box: string }>();
 /** A stroke end of `kind`, in its `form` when given (else the kind's first), drawn by the stroke expander. */
 export function TerminalIcon({ kind, form }: { kind: Terminal; form?: TerminalForm }) {
-  const key = `${kind}:${form ?? ''}`;
-  let icon = terminalPaths.get(key);
-  if (icon === undefined) {
+  const icon = cached(terminalPaths, `${kind}:${form ?? ''}`, () => {
     const ctx = { thick: 64, thin: 58, stress: 0, k: 0.5523, org: 0, terminal: kind, term: termSpec({ ...DEFAULTS, terminal: kind, terminalForm: form ?? TERMINAL_FORMS[kind][0] }) };
     const ex = expandStroke([['M', -40, -46], ['C', 60, -46, 130, -10, 172, 46]], { s: 'join', e: 'term' }, ctx);
     // the usual frame, grown to take in a drop that reaches past it
     let x1 = 226, y0 = -100, y1 = 90;
     for (const q of ex?.contours[0] ?? []) { x1 = Math.max(x1, q.x + 14); y0 = Math.min(y0, q.y - 14); y1 = Math.max(y1, q.y + 14); }
-    icon = { d: ex ? outlineD(ex.contours[0]) : '', box: `-14 ${n1(y0)} ${n1(x1 + 14)} ${n1(y1 - y0)}` };
-    terminalPaths.set(key, icon);
-  }
+    return { d: ex ? outlineD(ex.contours[0]) : '', box: `-14 ${n1(y0)} ${n1(x1 + 14)} ${n1(y1 - y0)}` };
+  });
   return <svg viewBox={icon.box} width="60" height="46" aria-hidden="true"><path d={icon.d} /></svg>;
 }
 
@@ -122,77 +131,66 @@ const serifPaths = new Map<string, string>();
 /** A stem's foot and its serif, drawn by the serif builder: the whole foot for the shapes, a closer view of
     one tip for the ways a serif can finish, or of the underside for a flat or cupped base. */
 export function SerifIcon({ shape, tip = 'square', cupped = false, view = 'foot' }: { shape: SerifShape; tip?: SerifTip; cupped?: boolean; view?: 'foot' | 'tip' | 'base' }) {
-  const key = `${shape}:${tip}:${cupped}:${view}`;
-  let d = serifPaths.get(key);
-  if (d === undefined) {
+  const d = cached(serifPaths, `${shape}:${tip}:${cupped}:${view}`, () => {
     // the closer views draw a heavier serif, so its finish reads at this size
-    const th = (view === 'foot' ? 22 : 30) * (({ unbracketed: 0.6, slab: 1.6 } as Record<string, number>)[shape] ?? 1);
+    const th = serifTh(shape, view === 'foot' ? 22 : 30);
     const serif = { len: 62, th, shape, angle: 0.15, tip, tipRound: 0.5, tipSlant: 0.6, cup: cupped ? 1 : 0 }, cup = serifCup(serif);
     const ctx = { thick: 56, thin: 40, stress: 0, k: 0.5523, org: 0, terminal: 'flat', serif };
     const stem = [{ x: 72, y: 150 }, { x: 72, y: cup }, { x: 128, y: cup }, { x: 128, y: 150 }];
     const sf = buildSerif({ x: 100, y: cup, dx: 0, dy: -1, t: 56, type: 'flat' }, 'both', ctx, undefined, cup);
-    d = outlineD(stem) + (sf ? outlineD(sf) : '');
-    serifPaths.set(key, d);
-  }
+    return outlineD(stem) + (sf ? outlineD(sf) : '');
+  });
   if (view === 'tip') return <svg viewBox="92 -78 112 90" width="52" height="42" aria-hidden="true"><path d={d} /></svg>;
   if (view === 'base') return <svg viewBox="0 -76 200 88" width="96" height="42" aria-hidden="true"><path d={d} /></svg>;
   return <svg viewBox="0 -160 200 170" width="52" height="44" aria-hidden="true"><path d={d} /></svg>;
 }
 
+const serifSidePaths = new Map<string, string>();
 /** The foot of a letter with two stems, as of an n, drawn by the serif builder: its serifs on the sides `sides`
     keeps, and the ones that reach in between the stems in the shape `inner`, when that is one of their own. */
 export function SerifSidesIcon({ shape, sides = 'both', inner = 'same', large = false }: { shape: SerifShape; sides?: SerifSide; inner?: SerifInner; large?: boolean }) {
-  const key = `${shape}:${sides}:${inner}:sides`;
-  let d = serifPaths.get(key);
-  if (d === undefined) {
-    const th = (sh: string) => 15 * (({ unbracketed: 0.6, slab: 1.6 } as Record<string, number>)[sh] ?? 1);
-    const serif = { len: 27, th: th(shape), shape, angle: 0.15, inner: inner === 'same' ? null : { shape: inner, th: th(inner), len: 1 } };
+  const d = cached(serifSidePaths, `${shape}:${sides}:${inner}`, () => {
+    const serif = { len: 27, th: serifTh(shape, 15), shape, angle: 0.15, inner: inner === 'same' ? null : { shape: inner, th: serifTh(inner, 15), len: 1 } };
     const ctx = { thick: 30, thin: 22, stress: 0, k: 0.5523, org: 0, terminal: 'flat', serif };
     // the two stems hang from a bar, so they read as one letter with an inside
-    d = outlineD([{ x: 35, y: 150 }, { x: 35, y: 124 }, { x: 165, y: 124 }, { x: 165, y: 150 }]);
+    let out = outlineD([{ x: 35, y: 150 }, { x: 35, y: 124 }, { x: 165, y: 124 }, { x: 165, y: 150 }]);
     for (const [x, inward] of [[50, 'b'], [150, 'a']] as const) {
       const keep = serifSides('both', sides, inward);
       const sf = keep && buildSerif({ x, y: 0, dx: 0, dy: -1, t: 30, type: 'flat' }, keep, ctx, undefined, 0, inward);
-      d += outlineD([{ x: x - 15, y: 150 }, { x: x - 15, y: 0 }, { x: x + 15, y: 0 }, { x: x + 15, y: 150 }]) + (sf ? outlineD(sf) : '');
+      out += outlineD([{ x: x - 15, y: 150 }, { x: x - 15, y: 0 }, { x: x + 15, y: 0 }, { x: x + 15, y: 150 }]) + (sf ? outlineD(sf) : '');
     }
-    serifPaths.set(key, d);
-  }
+    return out;
+  });
   return <svg viewBox="0 -150 200 160" width={large ? 65 : 50} height={large ? 52 : 40} aria-hidden="true"><path d={d} /></svg>;
 }
 
 /* Fill icons are a real 'a' from the engine, bold and on a coarse grid so the fill reads small. */
 const fillPaths = new Map<Fill, { d: string; w: number }>();
 export function FillIcon({ fill }: { fill: Fill }) {
-  let icon = fillPaths.get(fill);
-  if (!icon) {
+  const icon = cached(fillPaths, fill, () => {
     const g = buildFont({ ...DEFAULTS, weight: 0.72, xHeight: 0.871, counter: 0.6, fill, module: fill === 'wire' ? 0.4 : fill === 'shadow' ? 0.3 : 0.62 }).glyph('a');
-    icon = { d: g?.d ?? '', w: g?.adv ?? 500 };
-    fillPaths.set(fill, icon);
-  }
+    return { d: g?.d ?? '', w: g?.adv ?? 500 };
+  });
   return <svg viewBox={`0 -620 ${n1(icon.w)} 680`} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
 }
 
 /* Storey icons are the engine's two a's, bold enough to read small. */
 const storyPaths = new Map<Story, { d: string; w: number }>();
 export function StoryIcon({ story }: { story: Story }) {
-  let icon = storyPaths.get(story);
-  if (!icon) {
+  const icon = cached(storyPaths, story, () => {
     const g = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: 0.871, story }).glyph('a');
-    icon = { d: g?.d ?? '', w: g?.adv ?? 500 };
-    storyPaths.set(story, icon);
-  }
+    return { d: g?.d ?? '', w: g?.adv ?? 500 };
+  });
   return <svg viewBox={`0 -620 ${n1(icon.w)} 680`} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
 }
 
 /* Crossbar gap icons: the engine's A with its bar's gap open each way, bold enough to read small. */
 const barPaths = new Map<BarEnds, { d: string; box: string }>();
 export function BarEndsIcon({ ends }: { ends: BarEnds }) {
-  let icon = barPaths.get(ends);
-  if (!icon) {
+  const icon = cached(barPaths, ends, () => {
     const f = buildFont({ ...DEFAULTS, weight: 0.6, crossbar: 0.4, barGap: ends === 'through' ? 0.5 : 0.3, barEnds: ends }), g = f.glyph('A');
-    icon = { d: g?.d ?? '', box: `0 ${n1(-f.m.cap - 60)} ${n1(g?.adv ?? 600)} ${n1(f.m.cap + 120)}` };
-    barPaths.set(ends, icon);
-  }
+    return { d: g?.d ?? '', box: `0 ${n1(-f.m.cap - 60)} ${n1(g?.adv ?? 600)} ${n1(f.m.cap + 120)}` };
+  });
   return <svg viewBox={icon.box} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
 }
 
@@ -209,14 +207,11 @@ function framed(d: string) {
   return `${n1(x0 - pad)} ${n1(y0 - pad)} ${n1(w + pad * 2)} ${n1(h + pad * 2)}`;
 }
 export function FormIcon({ k, id }: { k: FormKey; id: string }) {
-  const key = `${k}:${id}`;
-  let icon = formPaths.get(key);
-  if (!icon) {
+  const icon = cached(formPaths, `${k}:${id}`, () => {
     // (flourishes are written on the script letters, and reach well past the letter: framed whole)
     const swash = k === 'flourish';
     const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: 0.871, ...(swash ? { scriptForm: 'script', weight: 0.5, xHeight: 0.4, swell: 0.5 } : {}), [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
-    icon = { d: g?.d ?? '', box: swash && g ? framed(g.d) : `0 ${n1(-f.m.asc - 30)} ${n1(g?.adv ?? 500)} ${n1(f.m.asc - f.m.desc + 60)}` };
-    formPaths.set(key, icon);
-  }
+    return { d: g?.d ?? '', box: swash && g ? framed(g.d) : `0 ${n1(-f.m.asc - 30)} ${n1(g?.adv ?? 500)} ${n1(f.m.asc - f.m.desc + 60)}` };
+  });
   return <svg viewBox={icon.box} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
 }

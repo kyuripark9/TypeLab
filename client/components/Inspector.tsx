@@ -1,11 +1,15 @@
 /* Glyph inspector: one letter, large, on the stage. Its parts are live: pointing at one
    highlights it and the slider that shapes it, dragging it reshapes the design (lib/drag), and
-   the side panel groups its sliders by part (letterControls). */
+   the side panel groups its sliders by part (letterControls). Its head holds the Shape / Points
+   switch (Points hands the canvas to PenCanvas), the Sync all / Customize switch for whether edits
+   reach every letter or this one, and the Construction grid toggle. letterControls and ScopeIcon
+   are also used by the side panel (panel/ControlsPanel). */
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
 import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph, type GlyphGrid } from '../../shared/engine';
 import { isStrokeId, type NumericParam, type Params } from '../../shared/params';
 import { dragSpec, handlesFor, letterCorners, letterJoins, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
+import { stackLabels } from '../lib/guide-labels';
 import { n1, useSize } from '../lib/hooks';
 import { GridBar, GridLines, useGrid } from './ConstructionGrid';
 import { PenCanvas } from './PenCanvas';
@@ -249,6 +253,13 @@ const defOf = (k: NumericParam): { label: string; lo?: string; hi?: string } | u
   k in CONTROLS ? CONTROLS[k as ControlKey] : SUBS[k as keyof typeof SUBS];
 const labelOf = (k: NumericParam) => defOf(k)?.label ?? k;
 const AXES = ['x', 'y'] as const;
+/** What dragging one part on its own changes, by the setting the drag writes (a Drive's `endKey`, none for a
+    stroke end's length), and what to call a part that has no name of its own. The drag tip and the readout both
+    name a drag with it, and DragReadout reads the value from that same setting. */
+const END_NOUNS: Record<NonNullable<Drive['endKey']> | 'length', [noun: string, unnamed: string]> = {
+  joinGaps: ['gap', 'Join'], strokeWeights: ['weight', 'Stroke'], corners: ['roundness', 'Corner'], length: ['length', 'End']
+};
+const endNoun = (endKey?: Drive['endKey']) => END_NOUNS[endKey ?? 'length'];
 
 /* The drag tip shows once per browser: grab handles on the letter's stems when it first opens,
    until the first drag. */
@@ -257,9 +268,11 @@ const tipSeen = () => { try { return localStorage.getItem(TIP_KEY) === '1'; } ca
 const markTipSeen = () => { try { localStorage.setItem(TIP_KEY, '1'); } catch { /* the tip returns next visit */ } };
 
 interface View { sc: number; ox: number; oy: number }
-interface Drag { part: string; axis?: Axis; key?: NumericParam; strokeEnd?: string; endKey?: EndKey; end: () => void }
-/** `end` names the one stroke end (or corner, stroke or join) being dragged, while a letter is customized */
-interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string; hook?: boolean; corner?: boolean; stroke?: boolean; join?: boolean; v?: number } }
+/** A press on a part, until the pointer lets go; `finish` stops it */
+interface Drag { part: string; axis?: Axis; key?: NumericParam; strokeEnd?: string; endKey?: EndKey; finish: () => void }
+/** `end` names the one stroke end (or corner, stroke or join) being dragged, while a letter is customized, with
+    `kind` the setting the drag writes (none for a stroke end's length) */
+interface Readout { x: number; y: number; param: NumericParam; end?: { id: string; label: string; hook?: boolean; kind?: Drive['endKey']; v?: number } }
 /** The pointer over a draggable part, in canvas px */
 interface Hover { id: string; x: number; y: number }
 interface TipRow { axis: Axis; label: string; ends: [string, string] }
@@ -279,10 +292,11 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
   const [intro, setIntro] = useState(() => !tipSeen());
   // the control the pointer is on in the side panel: its handles show on the letter
   const hotKey = useEditor(s => (s.hot ? s.active : null));
+  // which way along each axis grows each part's value, worked out once per params
   const more = useRef<{ p: Params | null; m: Map<string, 1 | -1> }>({ p: null, m: new Map() });
   // drags measure and change the font the controls act on: this letter's own while only it changes
   const lf = useScopedFont();
-  useEffect(() => () => drag.current?.end(), []);
+  useEffect(() => () => drag.current?.finish(), []);
 
   const W = Math.max(320, size.width), H = Math.max(300, size.height), m = font.m;
   const top = Math.max(m.asc, m.cap) + 90, bot = m.desc - 60, padL = 96;
@@ -296,15 +310,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
   parts.sort((a, b) => hitOrder(a) - hitOrder(b));
   const guides = ([['baseline', 0, 'Baseline'], ['xHeight', m.xh, 'x-height'], ['capHeight', m.cap, 'Cap height'], ['ascender', m.asc, 'Ascender'], ['descender', m.desc, 'Descender']] as [string, number, string][])
     .filter(([id]) => !(Math.abs(m.asc - m.cap) < 45 && id === 'ascender' && !lower));
-  // each label sits just above its line; when lines are too close for that (cap height and
-  // ascender often are), the lower one's label drops below its line so the two never overlap
-  const labelY = new Map<string, number>();
-  let prevY = -Infinity;
-  for (const [id, y] of [...guides].sort((a, b) => b[1] - a[1])) {
-    const above = Y(y) - 5, ly = above >= prevY + 11 ? above : Math.max(Y(y) + 13, prevY + 11);
-    labelY.set(id, ly);
-    prevY = ly;
-  }
+  const labelY = stackLabels(guides.map(([id, y]) => [id, y] as const), Y);
   const dragging = held !== null;
 
   /* Guidance. Pointing at a part shows grab handles where it moves and a tip naming what each
@@ -319,15 +325,21 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
     return v;
   };
   const ends = strokeEnds(g), corners = letterCorners(g);
-  const endInfo = (id?: string, key?: string) => (!id ? undefined : key === 'joinGaps' ? letterJoins(g).map(({ id, label, v }) => ({ id, label, v, join: true })).find(j => j.id === id)
+  const endInfo = (id?: string, key?: string) => (!id ? undefined : key === 'joinGaps' ? letterJoins(g).map(({ id, label, v }) => ({ id, label, v, kind: 'joinGaps' as const })).find(j => j.id === id)
     : ends.find(e => e.id === id) ?? (isStrokeId(id)
-      ? letterStrokes(g).map(t => ({ ...t, stroke: true })).find(t => t.id === id) : corners.map(c => ({ ...c, corner: true })).find(c => c.id === id)));
+      ? letterStrokes(g).map(t => ({ ...t, kind: 'strokeWeights' as const })).find(t => t.id === id) : corners.map(c => ({ ...c, kind: 'corners' as const })).find(c => c.id === id)));
+  /** What the tip says a drag changes: one part's own gap, weight, roundness or length, else the setting's name. */
+  const tipLabel = (d: Drive) => {
+    if (!d.endKey && !d.end) return labelOf(d.key);
+    const [noun, unnamed] = endNoun(d.endKey);
+    return `${endInfo(d.end, d.endKey)?.label ?? unnamed} ${noun}`;
+  };
   const hoverSpec = hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, lf, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }, oneEnd) : null;
   const hoverAxes = AXES.filter(a => hoverSpec?.[a]);
   const tip: TipRow[] = hoverAxes.map(a => {
     const d = hoverSpec![a]!, def = defOf(d.key), up = towardMoreOf(hover!.id, a, d) > 0;
     const hi = def?.hi ?? 'More', lo = def?.lo ?? 'Less', plus = up ? hi : lo, minus = up ? lo : hi;
-    return { axis: a, label: d.endKey === 'joinGaps' ? `${endInfo(d.end, d.endKey)?.label ?? 'Join'} gap` : d.endKey === 'strokeWeights' ? `${endInfo(d.end)?.label ?? 'Stroke'} weight` : d.endKey ? `${endInfo(d.end)?.label ?? 'Corner'} roundness` : d.end ? `${endInfo(d.end)?.label ?? 'End'} length` : labelOf(d.key), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
+    return { axis: a, label: tipLabel(d), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
   });
   const guideKey = hotKey === 'serif' ? 'serifSize' : hotKey === 'terminal' ? 'terminalLength' : hotKey;
   const showKey = hover || dragging ? null : guideKey && typeof font.params[guideKey as keyof Params] === 'number' ? guideKey as NumericParam : intro ? 'weight' : null;
@@ -375,23 +387,24 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
       if (d.strokeEnd) actions.setEnd(d.strokeEnd, v, d.endKey); else actions.setParam(d.key!, v);
       setReadout({ x: ev.clientX - r.left, y: ev.clientY - r.top, param: d.key!, end: endInfo(d.strokeEnd, d.endKey) });
     };
-    const end = () => {
+    const finish = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', end);
+      window.removeEventListener('pointercancel', finish);
       const d = drag.current;
       drag.current = null;
       if (d?.axis) { actions.commit(); setHeld(null); setReadout(null); }
       if (d?.strokeEnd) actions.setHotEnd(null);
       return d;
     };
-    const up = () => { const d = end(); if (d && !d.axis) pickPart(id); };
-    drag.current = { part: id, end };
+    const up = () => { const d = finish(); if (d && !d.axis) pickPart(id); };
+    drag.current = { part: id, finish };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', end);
+    window.addEventListener('pointercancel', finish);
   };
-  const cursor = (id: string) => (FIXED_PARTS.has(id) ? ' fixed' : '');
+  /** The class a part's hit area adds when it can be clicked but not dragged. */
+  const fixedClass = (id: string) => (FIXED_PARTS.has(id) ? ' fixed' : '');
 
   return (
     <div className={['insp-canvas', dragging && 'dragging', grid && 'gridded'].filter(Boolean).join(' ')} ref={ref}>
@@ -404,7 +417,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
               <g key={id}>
                 <line className={hot ? 'i-guide hot' : 'i-guide'} x1={12} x2={W - 12} y1={Y(y)} y2={Y(y)} />
                 <text className={hot ? 'i-label hot' : 'i-label'} x={14} y={labelY.get(id)}>{label}</text>
-                <line className={'i-hit line' + cursor(id)} x1={12} x2={W - 12} y1={Y(y)} y2={Y(y)}
+                <line className={'i-hit line' + fixedClass(id)} x1={12} x2={W - 12} y1={Y(y)} y2={Y(y)}
                   onPointerEnter={() => point(id)} onPointerMove={track(id)} onPointerLeave={leave} onPointerDown={press(id)} />
               </g>
             );
@@ -417,7 +430,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
             {grid && <GridLines grid={grid} />}
             <g aria-hidden="true">
               {parts.map(f => (
-                <path key={f} className={'i-hit' + cursor(f)} d={partD(g, f, font).d}
+                <path key={f} className={'i-hit' + fixedClass(f)} d={partD(g, f, font).d}
                   onPointerEnter={() => point(f)} onPointerMove={track(f)} onPointerLeave={leave} onPointerDown={press(f)} />
               ))}
             </g>
@@ -474,8 +487,8 @@ function DragTip({ x, y, W, H, rows }: { x: number; y: number; W: number; H: num
 
 /** The value being dragged, beside the pointer. */
 function DragReadout({ x, y, param, end }: Readout) {
-  const v = useParam(param), ev = useEditor(s => (!end ? 0 : end.stroke ? paramOf(s, 'strokeWeights')[end.id] ?? 0.5
-    : end.join ? paramOf(s, 'joinGaps')[end.id] ?? end.v ?? 0 : end.corner ? paramOf(s, 'corners')[end.id] ?? 0 : endOf(s, end.id, end.hook)));
-  const label = !end ? labelOf(param) : `${end.label} ${end.stroke ? 'weight' : end.join ? 'gap' : end.corner ? 'roundness' : 'length'}`;
+  const v = useParam(param), ev = useEditor(s => (!end ? 0 : end.kind === 'strokeWeights' ? paramOf(s, 'strokeWeights')[end.id] ?? 0.5
+    : end.kind === 'joinGaps' ? paramOf(s, 'joinGaps')[end.id] ?? end.v ?? 0 : end.kind === 'corners' ? paramOf(s, 'corners')[end.id] ?? 0 : endOf(s, end.id, end.hook)));
+  const label = !end ? labelOf(param) : `${end.label} ${endNoun(end.kind)[0]}`;
   return <div className="i-readout" style={{ left: x + 14, top: y + 16 }}>{label} <b>{Math.round((end ? ev : v) * 100)}</b></div>;
 }

@@ -1,10 +1,15 @@
+/* The large live preview: the text set in the design, line by line, each letter a <use> of its path in
+   GlyphDefs (#g65, by char code; GlyphDefs must be mounted for anything to show) and, while the pointer is on
+   the controls, of the active control's highlight (#h65), with the guides or spacing bands that control is
+   about. Clicking a letter opens it in the inspector. */
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
+import type { ControlKey } from '../../shared/content';
 import { RING_KEYS, type Font, type Line } from '../../shared/engine';
 import { n1 } from '../lib/hooks';
 import { overhang, useBlocks } from '../lib/preview';
 import { actions, hlKeyOf, useEditor, useFont } from '../state/editor';
 
-/** The large live preview. Glyph shapes come from <GlyphDefs>; this lays them out. */
+/** The preview's text blocks, each at its own size, laid out to `width` px. */
 export function Preview({ width }: { width: number }) {
   const font = useFont(), blocks = useBlocks(), hl = useEditor(hlKeyOf);
   if (width <= 0) return <div className="preview" />;
@@ -37,7 +42,7 @@ export function Preview({ width }: { width: number }) {
   );
 }
 
-function PreviewLine({ line, y, font, hl, topU, LH, widthU }: { line: Line; y: number; font: Font; hl: string | null; topU: number; LH: number; widthU: number }) {
+function PreviewLine({ line, y, font, hl, topU, LH, widthU }: { line: Line; y: number; font: Font; hl: ControlKey | null; topU: number; LH: number; widthU: number }) {
   const m = font.m, out: ReactNode[] = [];
   const band = (key: string, x: number, w: number) => out.push(<rect key={key} className="pv-band" x={n1(x)} y={n1(y - m.cap)} width={n1(Math.max(0, w))} height={n1(m.cap)} />);
   if (hl === 'xHeight' || hl === 'height') {
