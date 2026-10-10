@@ -5,7 +5,7 @@
    with another letter of its group is marked `shared`. */
 import { toPolys } from './effects';
 import { CHARSET, type Font, type Glyph, type Metrics } from './font';
-import { transformCmds } from './geom';
+import { dist, transformCmds } from './geom';
 import { fitOutline, hasIn, hasOut, segment, type Node } from './outline';
 
 type P = { x: number; y: number };
@@ -22,8 +22,11 @@ export interface GlyphGrid { lines: GridLine[]; rounds: GridRound[]; slant: numb
 export type GridSet = 'upper' | 'lower' | 'digits' | 'punct' | 'symbols';
 /** What a letter is built from: straight strokes only, diagonals, stems with curves, or curves alone. */
 export type GridKind = 'straight' | 'diagonal' | 'bowl' | 'round';
-export interface GridGroup { id: string; name: string; label: string; set: GridSet; kind: GridKind; chars: string[] }
+/** Letters that share a grid: its name (Grid A to T), what it holds, the set and the letters. */
+export interface GridGroup { name: string; label: string; set: GridSet; chars: string[] }
 
+/* Their order names the grids (Grid A to T = set index × 4 + kind index, see setGrids); the inspector
+   shows these names and tests pin them. */
 const SETS: [GridSet, string][] = [['upper', 'Capitals'], ['lower', 'Lowercase'], ['digits', 'Figures'], ['punct', 'Punctuation'], ['symbols', 'Symbols']];
 const KINDS: [GridKind, string][] = [['straight', 'straight strokes'], ['diagonal', 'diagonals'], ['bowl', 'stems and curves'], ['round', 'round']];
 
@@ -35,7 +38,6 @@ const MOST_LINES = 40, MOST_ROUNDS = 28;
 /** A curve takes a circle when it turns at least this far. */
 const MIN_TURN = 25 * DEG;
 
-const dist = (a: P, b: P) => Math.hypot(a.x - b.x, a.y - b.y);
 const rho = (l: { x: number; y: number; a: number }) => l.y * Math.cos(l.a) - l.x * Math.sin(l.a);
 const angleGap = (a: number, b: number) => { const d = Math.abs(a - b) % Math.PI; return Math.min(d, Math.PI - d); };
 
@@ -51,11 +53,13 @@ function sameSize(a: GridRound, b: GridRound) {
   return Math.abs(a.rx - b.rx) <= tol && Math.abs(a.ry - b.ry) <= tol;
 }
 
-/** A point of a cubic, and a third of its first derivative there. */
+/** A point of a cubic. */
 function bez(B: P[], t: number): P {
   const u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
   return { x: a * B[0].x + b * B[1].x + c * B[2].x + d * B[3].x, y: a * B[0].y + b * B[1].y + c * B[2].y + d * B[3].y };
 }
+/** A third of a cubic's first derivative (outline.ts's bez1 is the whole of it): the curvature in run()
+    is worked out on this third, with a sixth of the second derivative to go with it. */
 function bez1(B: P[], t: number): P {
   const u = 1 - t, a = u * u, b = 2 * u * t, c = t * t;
   return { x: a * (B[1].x - B[0].x) + b * (B[2].x - B[1].x) + c * (B[3].x - B[2].x), y: a * (B[1].y - B[0].y) + b * (B[2].y - B[1].y) + c * (B[3].y - B[2].y) };
@@ -87,7 +91,8 @@ function inkTest(polys: P[][]) {
 
 /** The glyph's grid. */
 export function glyphGrid(g: Glyph, m: Metrics): GlyphGrid {
-  // a letter drawn by hand is stored as it stands; the others are set upright first
+  // a letter drawn as it is (by hand, or a free font's: both carry the one part 'drawn') is read as it
+  // stands; the others are set upright first
   const slant = g.strokes[0]?.part === 'drawn' ? 0 : m.slant, pivot = m.xh * 0.4;
   let cmds = [...g.strokes.flatMap(s => s.cmds), ...g.serifs.flat()];
   if (slant) cmds = transformCmds(cmds, [1, 0, -slant, 1, slant * pivot, 0]);
@@ -268,7 +273,7 @@ function setGrids(font: Font, si: number): SetGrids {
     const kind = kindOf(g, grid, set === 'lower' || set === 'punct' ? m.xh : m.cap), ki = KINDS.findIndex(k => k[0] === kind);
     let group = byKind.get(kind);
     if (!group) {
-      group = { id: `${set}-${kind}`, name: `Grid ${String.fromCharCode(65 + si * KINDS.length + ki)}`, label: `${setLabel} · ${KINDS[ki][1]}`, set, kind, chars: [] };
+      group = { name: `Grid ${String.fromCharCode(65 + si * KINDS.length + ki)}`, label: `${setLabel} · ${KINDS[ki][1]}`, set, chars: [] };
       byKind.set(kind, group);
     }
     group.chars.push(ch);

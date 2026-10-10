@@ -1,6 +1,13 @@
 /* Letters drawn by hand with the pen: outlines of anchor points and bézier handles, like a vector
    editor's paths, instead of strokes the parameters build. A generated letter becomes one by fitting
-   curves to its outline (fitOutline), which the engine draws as dense polylines. */
+   curves to its outline (fitOutline), which the engine draws as dense polylines. A free font's letters
+   reshaped by skin.ts and restyle.ts are fitted the same way, a little closer (within 1.2 units).
+
+   shared/params (clean.ts, model.ts) reads cleanDrawn and Drawn from here, so this file imports only
+   types: a value import reaching font.ts, which reads the params, would load the two in a cycle.
+   cleanDrawn is what a stored drawing passes as it loads: with a width or an anchor point past ±5000
+   units, more than 200 contours or more than 4000 points in all, the drawing is left out (a handle past
+   ±5000 is dropped alone). */
 import type { Cmd } from './types';
 
 type P = { x: number; y: number };
@@ -99,7 +106,7 @@ function clean(pts: P[]): P[] {
 
 type Bez = [P, P, P, P];
 
-/** Least-squares cubic through pts[i0..i1] at parameters u, leaving along t1 and arriving along t2. */
+/** Least-squares cubic through `pts` at parameters `u`, leaving along t1 and arriving along t2 (both handles a third of the chord when the fit runs wild). */
 function generate(pts: P[], u: number[], t1: P, t2: P): Bez {
   const p0 = pts[0], p3 = pts[pts.length - 1];
   let c00 = 0, c01 = 0, c11 = 0, x0 = 0, x1 = 0;

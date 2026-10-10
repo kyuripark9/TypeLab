@@ -1,4 +1,4 @@
-/* Block letters (Build: Blocks).
+/* Block letters (Built from: Blocks).
    Each letter is a solid block, its corners rounded, with its counters cut in as slots: E is a block
    with two slots running in from the right, O a block with a tall round hole. There is no skeleton;
    every letter is one or more outlines of corners, each with its own radius.
@@ -6,7 +6,9 @@
    Shapes are drawn on the design grid they were measured on (a letter 224 wide and 175 high, walls
    25 and slots 28 across, outer corners 50 round), then fitted to the design: X() and Y() stretch
    positions to the letter's width and height, `tv` and `th` are the thin walls (upright and level),
-   `g` the slots, and `k` scales the radii. Positions are measured down from the top.
+   `g` the slots, and `k` scales the radii. Positions are measured down from the top. The grid's size
+   is GRID_W and GRID_H; its walls and slots are the design's at Weight 60 (blockDims makes the walls
+   0.07 + 0.12 × weight of the height, the slots 0.28 − 0.2 × weight).
 
    Each corner's radius is of one of four kinds, so the design's controls reach them all:
    'o' outer corners and the rounds of counters (Roundness), 'e' the ends of arms and slots, round
@@ -21,7 +23,7 @@ type Kind = 'o' | 'e' | 'i' | 's';
 type V = [number, number, number, Kind];
 interface Shape { outer: V[][]; holes: V[][]; W: number }
 
-export interface BlockDims {
+interface BlockDims {
   /** the letter's width and height */ W: number; H: number;
   /** thin walls, upright and level, and the width of the slots */ tv: number; th: number; g: number;
   /** radii scale: one grid unit */ k: number;
@@ -30,18 +32,28 @@ export interface BlockDims {
   /** outer corner radius */ R: number;
 }
 
-/** The measurements of a block letter `H` high, from the design's weight and width. */
-export function blockDims(H: number, p: { weight: number; width: number; vWeight: number; hWeight: number }): BlockDims {
-  const ws = p.width < 0.5 ? lerp(0.6, 1, p.width * 2) : lerp(1, 1.5, (p.width - 0.5) * 2);
-  const W = H * (224 / 175) * ws, k = H / 175;
-  // heavier, the walls thicken and the slots close up
-  const t = H * (0.07 + 0.12 * p.weight), g = H * (0.28 - 0.2 * p.weight);
-  const tv = t * weighed(1, p.vWeight, 0.4, 1.6), th = t * weighed(1, p.hWeight, 0.4, 1.6);
-  const X = (v: number) => v * W / 224, Y = (v: number) => v * k;
+/** The design grid the shapes are drawn on: a letter this wide and high. */
+const GRID_W = 224, GRID_H = 175;
+
+/** The dims of a letter W wide and H high, `k` font units to a grid unit, with these walls and slots: grid
+    positions fitted to it, its heavy part starting 124 across, its outer corners 50 round. blockDims and
+    scaled() both build theirs here, so the small letters of © ® ™ get every field the full-size ones do. */
+function fit(W: number, H: number, k: number, tv: number, th: number, g: number): BlockDims {
+  const X = (v: number) => v * W / GRID_W, Y = (v: number) => v * k;
   return { W, H, tv, th, g, k, X, Y, S: X(124), R: 50 * k };
 }
 
-const v = (x: number, y: number, r = 0, kind: Kind = 'o'): V => [x, y, r, kind];
+/** The measurements of a block letter `H` high, from the design's weight and width. */
+export function blockDims(H: number, p: { weight: number; width: number; vWeight: number; hWeight: number }): BlockDims {
+  const ws = p.width < 0.5 ? lerp(0.6, 1, p.width * 2) : lerp(1, 1.5, (p.width - 0.5) * 2);
+  const W = H * (GRID_W / GRID_H) * ws, k = H / GRID_H;
+  // heavier, the walls thicken and the slots close up
+  const t = H * (0.07 + 0.12 * p.weight), g = H * (0.28 - 0.2 * p.weight);
+  const tv = t * weighed(1, p.vWeight, 0.4, 1.6), th = t * weighed(1, p.hWeight, 0.4, 1.6);
+  return fit(W, H, k, tv, th, g);
+}
+
+const v = (x: number, y: number, r: number, kind: Kind = 'o'): V => [x, y, r, kind];
 /** A slot or bar with fully round ends, x0..x1 across and y0..y1 down. */
 const pill = (x0: number, y0: number, x1: number, y1: number): V[] => {
   const r = Math.min(x1 - x0, y1 - y0) / 2;
@@ -88,7 +100,7 @@ const SIX: BlockFn = d => {
     box(tv, Math.max(top + th, Y(97)), S, H - th, 36 * k));
 };
 
-export const BLOCKS: Record<string, BlockFn> = {
+const BLOCKS: Record<string, BlockFn> = {
   A: d => {
     const { W, H, tv, th, X, k, R } = d, { y0, y1 } = topSlot(d, -1, 1.07), ct = y1 + th, xa = X(99), xf = xa + X(0.27 * (H - ct) / k);
     return one(d, [v(0, 0, R), v(W, 0, R), v(W, H, 45 * k), v(xf, H, 40 * k), v(xa, ct, 40 * k), v(tv, ct, 40 * k), v(tv, H, tv / 2, 'e'), v(0, H, tv / 2, 'e')],
@@ -212,7 +224,7 @@ export const BLOCKS: Record<string, BlockFn> = {
       v(W, yn, 22 * k), v(xr, yn, 10 * k, 'i'), v(xr, H, 30 * k), v(xl, H, 30 * k), v(xl, yn, 20 * k, 'i'), v(0, yn, 40 * k)]);
   },
   Z: d => {
-    const { W, H, th, g, S, X, k, R } = d, slope = 0.294 * (H / 175) / (W / 224), yl = H - th - g, xl = X(99), yr = yl - slope * (W - xl);
+    const { W, H, th, g, S, X, k, R } = d, slope = 0.294 * (H / GRID_H) / (W / GRID_W), yl = H - th - g, xl = X(99), yr = yl - slope * (W - xl);
     // a slot in from the left under the top, one in from the right over the foot, and a band slanting down between them
     return one(d, [v(0, 0, th / 2, 'e'), v(W, 0, R * 1.1), v(W, yr, 30 * k), v(xl, yl, 14 * k, 'e'), v(xl, H - th, 14 * k, 'e'), v(W, H - th, th / 2, 'e'), v(W, H, th / 2, 'e'),
       v(0, H, R), v(0, th + g + slope * S, 40 * k), v(S, th + g, 14 * k, 'e'), v(S, th, 14 * k, 'e'), v(0, th, th / 2, 'e')]);
@@ -257,7 +269,7 @@ export const BLOCKS: Record<string, BlockFn> = {
     const D = d.tv + d.g;
     return { W: D, outer: [[v(0, 0, D * 0.3), v(D, 0, D * 0.3), v(D, d.H - D - d.g, D / 2, 'e'), v(0, d.H - D - d.g, D / 2, 'e')], box(0, d.H - D, D, d.H, D * 0.3)], holes: [] };
   },
-  '-': d => { const t = d.th * 1.6, W = d.X(120); return { W, outer: [pill(0, d.H * 0.55 - t / 2, W, d.H * 0.55 + t / 2)], holes: [] }; },
+  '-': d => dash(d, d.X(120)),
   '?': d => {
     const { th, g, X, Y, H, k } = d, W = X(170), D = d.tv + g, xs = W * 0.4, yh = Y(96);
     // a head with a slot in from the left, a short stem under its middle and a dot
@@ -436,8 +448,8 @@ function bar(x0: number, y0: number, x1: number, y1: number, t: number): V[] {
 }
 /** The dims of a letter f times as high: its walls and slots thin less, so a small letter stays open and solid. */
 function scaled(d: BlockDims, f: number): BlockDims {
-  const H = d.H * f, W = d.W * f, w = f ** 0.6, k = d.k * f, X = (x: number) => x * W / 224;
-  return { W, H, tv: d.tv * w, th: d.th * w, g: d.g * w, k, X, Y: (y: number) => y * k, S: X(124), R: 50 * k };
+  const w = f ** 0.6;
+  return fit(d.W * f, d.H * f, d.k * f, d.tv * w, d.th * w, d.g * w);
 }
 /** A letter, a little under half the height, in a hole in a round-cornered block: © and ®. */
 function ringed(d: BlockDims, letter: BlockFn): Shape {
@@ -476,7 +488,7 @@ function quote(D: number, h: number): V[] {
 }
 
 /** How much each kind of corner rounds, as a share of its radius as drawn. */
-export interface BlockRound { o: number; e: number; i: number }
+interface BlockRound { o: number; e: number; i: number }
 
 /** The block letter `ch` as outlines, y-up with the baseline at 0: every ring as corner points
     carrying their radii (for roundContour), outlines wound positive and holes negative (the holes

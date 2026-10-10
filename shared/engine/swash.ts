@@ -1,4 +1,4 @@
-/* Swash letters (Flourish: Swash, see FLOURISHES in params).
+/* Swash letters (Flourishes: Swash; the option list is FLOURISHES in shared/params/options.ts).
    A flourished script letter is the plain one (script.ts) with a flourish written on: the t's bar runs
    in from far to the left and loops back over the letter, the l and d rise into loops over the
    following letters, the r's foot sweeps down into a shaded curl and ends in a heart, the z's tail
@@ -56,12 +56,14 @@ function flourish(g: Builder, m: Metrics, ax: number, ay: number, pts: Pt[], o: 
   }
 }
 
-/** The ends of the plain letter's strokes. */
-function ends(g: Builder) {
-  const out: { x: number; y: number; part?: string; k: number }[] = [];
-  g.strokes.forEach((st, k) => {
-    for (const c of st.cmds ?? []) if (c[0] !== 'Z') out.push({ x: c[c.length - (typeof c[c.length - 1] === 'object' ? 3 : 2)], y: c[c.length - (typeof c[c.length - 1] === 'object' ? 2 : 1)], part: st.o.part, k });
-  });
+/** Every on-curve point of the plain letter's strokes (where each of their commands ends), with the part
+    it belongs to. A script letter's strokes are plain moves and cubics (see drawRuns in script.ts), each
+    ending on its point. */
+function points(g: Builder) {
+  const out: { x: number; y: number; part?: string }[] = [];
+  for (const st of g.strokes) {
+    for (const c of st.cmds ?? []) if (c[0] !== 'Z') out.push({ x: c[c.length - 2], y: c[c.length - 1], part: st.o.part });
+  }
   return out;
 }
 
@@ -78,13 +80,13 @@ function swash(ch: string, add: (g: Builder, m: Metrics, W: number) => void, fro
   }, { parts: [...(glyphDefOf(from)?.meta.parts ?? []), 'swash'], params: [...(glyphDefOf(from)?.meta.params ?? []), 'flourish'] });
 }
 
-const top = (g: Builder) => ends(g).reduce((a, b) => (b.y > a.y ? b : a));
-const bottom = (g: Builder) => ends(g).reduce((a, b) => (b.y < a.y ? b : a));
+const top = (g: Builder) => points(g).reduce((a, b) => (b.y > a.y ? b : a));
+const bottom = (g: Builder) => points(g).reduce((a, b) => (b.y < a.y ? b : a));
 
 // t: the bar comes in from far to the left, crosses the stem and loops back up over the letter (it
 // takes the place of the plain bar)
 swash('t', (g, m) => {
-  const bars = ends(g).filter(e => e.part === 'crossbar');
+  const bars = points(g).filter(e => e.part === 'crossbar');
   const ax = bars.length ? bars.reduce((s, e) => s + e.x, 0) / bars.length : 0, ay = bars.length ? bars[0].y : m.xh * 1.3;
   g.strokes = g.strokes.filter(st => st.o.part !== 'crossbar');
   flourish(g, m, ax, ay, [[-4.62, -0.15], [-2.74, -0.11], [-1.04, -0.02], [0, 0], [0.47, 0.02], [1.08, 0.3], [1.26, 0.75], [0.79, 1.28], [0.28, 1.34], [-0.09, 1.19], [-0.32, 0.75]]);
@@ -102,13 +104,14 @@ swash('d', (g, m) => {
   const t = top(g);
   const pts: Pt[] = [[-1.51, 0.17, 0.6], [-0.72, 0.28, 1], [0.42, 0.25, 0.8], [1.17, 0.11, 0.55], [1.57, -0.34, 0.5], [1.45, -1.11, 0.3], [1.09, -1.57], [0.6, -1.53], [0.26, -1.21],
     [0.38, -0.74], [0.81, 0.02], [0.75, 0.77], [0.23, 1.19], [-0.34, 1.3], [-1.09, 1.15], [-1.58, 0.83], [-1.79, 0.34]];
-  // (drawn in round the right a little tighter than it was measured, past the middle of the bar)
+  // (the points as measured, pulled in round the right: a point more than 0.2 x-heights right of the
+  // stem's top moves left by 0.3 of the distance past that, at most 0.3, closing the loop a little tighter)
   flourish(g, m, t.x, t.y, pts.map(([x, y, w]): Pt => [x - 0.3 * Math.min(1, Math.max(0, x - 0.2)), y, w]));
 }, 'd.short');
 
 // r: the foot runs on down under the line in a shaded curl, and out along the bottom into a heart
 swash('r', (g, m, W) => {
-  const feet = ends(g).filter(e => e.x > W * 0.4 && e.y < m.xh * 0.3), f = feet.length ? feet.reduce((a, b) => (b.y < a.y ? b : a)) : { x: W * 0.6, y: 0 };
+  const feet = points(g).filter(e => e.x > W * 0.4 && e.y < m.xh * 0.3), f = feet.length ? feet.reduce((a, b) => (b.y < a.y ? b : a)) : { x: W * 0.6, y: 0 };
   flourish(g, m, f.x, f.y, [[0, 0, 0.3], [-0.28, -0.19, 0.6], [-0.62, -0.49, 0.75], [-1.04, -1.04, 0.75], [-1.13, -1.66, 0.4], [-0.85, -2.28, 0], [-0.09, -2.55], [0.3, -2.6], [0.52, -2.47]], { e: 'h', we: 1 });
   // the heart: up its left side and over the left lobe into the cleft, then over the right lobe, pressed
   // as it comes down, to the point
@@ -122,6 +125,9 @@ swash('z', (g, m) => {
   const b = bottom(g), DROP = -1.4;
   const tail: Pt[] = [[-0.57, -0.6], [-1.51, -0.98], [-2.64, -0.75], [-2.98, -0.09], [-2.64, 0.75], [-1.7, 1.17], [-0.75, 1.09], [0.38, 0.81], [1.13, 0.53], [2.08, 0.32], [3.02, 0.25], [3.77, 0.47],
     [4.21, 0.94], [4.21, 1.38], [3.64, 1.66], [2.7, 1.74], [2.21, 1.57], [2.32, 1.25], [3.02, 1.21], [4.28, 1.42], [5.53, 1.6], [6.17, 1.57, 0.4], [6.55, 1.26, 0.8], [6.6, 0.81, 0.8], [6.42, 0.43, 0.3], [6.08, 0.25]];
+  // (the tail as measured, lowered by DROP, 1.4 x-heights; past 1 x-height right of the z's foot it is
+  // also drawn in, by up to 0.4, and down, by up to 0.35, growing to the full amounts at 4, so the run out
+  // to the right and the loop and hook at its end sit a little lower and come in a little)
   flourish(g, m, b.x, 0, [[0, b.y / m.xh], ...tail.map(([x, y, w]): Pt => [x - 0.4 * Math.min(1, Math.max(0, (x - 1) / 3)), y + DROP - 0.35 * Math.min(1, Math.max(0, (x - 1) / 3)), w])]);
 }, 'z.open');
 
