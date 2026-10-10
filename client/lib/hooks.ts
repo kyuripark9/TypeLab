@@ -1,3 +1,5 @@
+/* Small browser helpers: n1 rounds a coordinate to one decimal, which keeps SVG attributes short,
+   useSize tracks an element's size, and isTyping tells keyboard shortcuts to stand aside in text fields. */
 import { useCallback, useRef, useState } from 'react';
 
 export const n1 = (v: number) => Math.round(v * 10) / 10;

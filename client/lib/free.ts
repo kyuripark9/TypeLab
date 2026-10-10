@@ -1,10 +1,12 @@
-/* Free fonts in the browser (see shared/free-fonts.ts). A design written in one needs the font's letters
-   before the engine can draw them: they come from the server, which fetches them from Google Fonts,
-   and are registered with the engine. Until then the design's own letters stand in. The style cards
-   and the finder show a style's free font as a web font instead, which is quicker to fetch. */
+/* Free fonts in the browser (which font each style names: shared/free-fonts.ts). A design written in one
+   needs the font's letters before the engine can draw them: they come from the server (server/free-fonts.ts),
+   which fetches them from Google Fonts, and are registered with the engine (registerFreeFont in
+   shared/engine/free.ts, which tells onFreeFont's listeners). Until then the design's own letters stand in.
+   The style cards and the finder show a style's free font as a web font instead, which is quicker to fetch. */
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { freeFont, onFreeFont, registerFreeFont, type FreeFontData } from '../../shared/engine';
+import { freeFont, onFreeFont, registerFreeFont } from '../../shared/engine';
 import { fontCss, parseFontId, type FreeFontRef } from '../../shared/free-fonts';
+import { api } from './api';
 
 const loading = new Map<string, Promise<boolean>>();
 
@@ -14,8 +16,7 @@ export function loadFreeFont(id: string): Promise<boolean> {
   if (freeFont(id)) return Promise.resolve(true);
   let p = loading.get(id);
   if (!p) {
-    p = fetch(`/api/free-fonts/${encodeURIComponent(id)}`)
-      .then(r => (r.ok ? r.json() as Promise<FreeFontData> : Promise.reject(new Error(String(r.status)))))
+    p = api.freeFont(id)
       .then(data => { registerFreeFont(data); return true; })
       .catch(() => { setTimeout(() => loading.delete(id), 60_000); return false; });
     loading.set(id, p);
@@ -32,12 +33,12 @@ export const useFreeFonts = () => useSyncExternalStore(onFreeFont, () => version
 
 const linked = new Map<string, Promise<void>>();
 /** The CSS font shorthand for a font at `px`. */
-export const fontSpec = (r: FreeFontRef, px: number) => `${r.italic ? 'italic ' : ''}${r.weight} ${px}px '${r.family}'`;
+const fontSpec = (r: FreeFontRef, px: number) => `${r.italic ? 'italic ' : ''}${r.weight} ${px}px '${r.family}'`;
 /** The inline style that sets text in a font. */
 export const fontStyle = (r: FreeFontRef) => ({ fontFamily: `'${r.family}', Inter, sans-serif`, fontWeight: r.weight, fontStyle: r.italic ? 'italic' : 'normal' });
 
 /** Load a font's web font (its stylesheet from Google Fonts, then the font itself). */
-export function loadWebFont(r: FreeFontRef): Promise<void> {
+function loadWebFont(r: FreeFontRef): Promise<void> {
   const css = fontCss(r);
   let p = linked.get(css);
   if (!p) {

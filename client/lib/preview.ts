@@ -1,3 +1,5 @@
+/* What the live preview sets (the typed text, or the default sentence), the characters on screen that are
+   rebuilt first, and the ink boxes that keep swashes and long tails from being cut off. */
 import { useMemo } from 'react';
 import { TEXTS } from '../../shared/content';
 import type { Font, Glyph, Line } from '../../shared/engine';

@@ -1,18 +1,18 @@
 /* Whether a setting can change what is on screen. Crossbar on an o, the K's shape while the text has
-   no K, Stencil on a letter with no joins: clicking them changed nothing, and read as broken. Each
-   control is tried at its other values, and if the letters in view stay the same it says so and
-   names letters it does change. */
+   no K, Stencil on a letter with no joins: clicked, they change nothing in view, which reads as broken.
+   reachOf tries the setting at its other values, and when the letters in view stay the same the
+   control's note (client/components/panel/reach.tsx) says so and names up to three letters it does change. */
 import { ALL_CHARS, buildFont, skinFollows, type Font } from '../../shared/engine';
-import { FORM_OPTIONS } from '../../shared/content';
+import { FORM_OPTIONS, STORY_OPTIONS } from '../../shared/content';
 import {
-  BAR_ENDS, FILLS, FREE_AT_KEYS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, TERMINALS, TERMINAL_FORMS, TERMINAL_RUNS,
+  BAR_ENDS, FILLS, FREE_AT_KEYS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, TERMINALS, TERMINAL_FORMS,
   isGlyphKey, type Params
 } from '../../shared/params';
 
 /** The choices of each setting that is picked rather than slid. */
 const CHOICES: Partial<Record<keyof Params, readonly unknown[]>> = {
-  terminal: TERMINALS, terminalRun: TERMINAL_RUNS, serifShape: SERIF_SHAPES, serifTip: SERIF_TIPS, serifBase: SERIF_BASES,
-  serifSides: SERIF_SIDES, serifInner: SERIF_INNERS, fill: FILLS, barEnds: BAR_ENDS, story: ['double', 'single'],
+  terminal: TERMINALS, serifShape: SERIF_SHAPES, serifTip: SERIF_TIPS, serifBase: SERIF_BASES,
+  serifSides: SERIF_SIDES, serifInner: SERIF_INNERS, fill: FILLS, barEnds: BAR_ENDS, story: STORY_OPTIONS.map(([id]) => id),
   ...Object.fromEntries(Object.entries(FORM_OPTIONS).map(([k, o]) => [k, o.options.map(([id]) => id)]))
 };
 /** Spacing acts on how letters are set side by side, not on the letters, so it always shows. */
@@ -44,8 +44,9 @@ export function reachOf(p: Params, k: keyof Params, chars: string[], letter: str
     ? { ...p, glyphs: { ...p.glyphs, [letter]: { ...p.glyphs[letter], [k]: v } } }
     : { ...p, [k]: v };
   const base = buildFont(p);
-  // a free font's letters follow only some settings (see freeLetters and skin.ts), which can be told
-  // without drawing them again at the other values, as that is slow for them
+  // a free font's letters follow only some settings (see freeLetters in shared/engine/free-letters.ts
+  // and skinFollows in shared/engine/skin.ts), which can be told without drawing them again at the
+  // other values, as that is slow for them
   // (of the settings every letter shares, the size and the fills' grid reach them too, so those are drawn)
   const freeLetter = (ch: string) => { const f = base.letter(ch); return !!f.free?.glyphs[ch] && !p.outlines?.[ch]; };
   const follow = (FREE_AT_KEYS as readonly string[]).includes(k);

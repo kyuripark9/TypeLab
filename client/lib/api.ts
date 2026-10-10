@@ -1,6 +1,8 @@
-/* Typed client for the TypeLab API. */
+/* Typed client for the TypeLab API: every /api request the browser makes goes through here. The routes
+   are served by server/app.ts. */
 import type { EmailCheck, User } from '../../shared/account';
 import type { Design, DesignInput } from '../../shared/design';
+import type { FreeFontData } from '../../shared/engine';
 import type { FamilyRequest } from '../../shared/family';
 import type { Params } from '../../shared/params';
 
@@ -59,6 +61,8 @@ export const api = {
   renameDesign: (id: string, name: string) => json<Design>('PATCH', `/api/designs/${encodeURIComponent(id)}`, { name }),
   /** keepalive, so a delete still goes through when the page is left while it waits out its Undo */
   deleteDesign: async (id: string) => { await send('DELETE', `/api/designs/${encodeURIComponent(id)}`, undefined, { keepalive: true }); },
+  /** A free font's letters, as the engine draws them (see lib/free.ts). */
+  freeFont: (id: string) => json<FreeFontData>('GET', `/api/free-fonts/${encodeURIComponent(id)}`),
   /** Build a font file or specimen on the server. */
   exportFile: async (kind: 'otf' | 'svg', body: { name: string; params: Params }) => (await send('POST', `/api/export/${kind}`, body)).blob(),
   /** Build every member of a family on the server, as one .zip of fonts. */

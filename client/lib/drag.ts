@@ -1,7 +1,9 @@
 /* Dragging the parts of the inspected letter. Every part is driven by one parameter, and dragging
    it finds the value that puts the grabbed thing under the pointer: a guide line or crossbar moves
    to the pointer, a stroke, counter or serif grows toward it. Like the sliders, a drag reshapes
-   every letter at once, since the design is the parameters. */
+   every letter at once, since the design is the parameters. While a letter is customized (`oneEnd`) it
+   reshapes that letter alone, apart from the guide heights every letter shares, and a stroke end,
+   corner, join or stroke grabbed moves on its own. */
 import { buildFont, clamp, type Cmd, type Font, type Glyph, type Mark } from '../../shared/engine';
 import { ANATOMY } from '../../shared/content';
 import { endLength, joinGap, type NumericParam, type Params } from '../../shared/params';
@@ -34,29 +36,29 @@ export interface Drive {
 export type DragSpec = Partial<Record<Axis, Drive>>;
 
 /** The value a drive moves, and the params with it set. */
-export const driveValue = (d: Drive, p: Params) =>
+const driveValue = (d: Drive, p: Params) =>
   d.endKey ? p[d.endKey][d.end!] ?? d.base ?? 0 : d.end ? endLength(p, d.end, d.hook) : p[d.key];
-export const withDrive = (d: Drive, p: Params, v: number): Params =>
+const withDrive = (d: Drive, p: Params, v: number): Params =>
   d.endKey ? { ...p, [d.endKey]: { ...p[d.endKey], [d.end!]: v } } : d.end ? { ...p, terminalEnds: { ...p.terminalEnds, [d.end]: v } } : { ...p, [d.key]: v };
 
-/** A letter's stroke ends, top to bottom, each named by where it sits: "Top end", "Bottom left end". */
 export interface StrokeEndInfo { id: string; x: number; y: number; label: string; hook: boolean }
+/** A letter's stroke ends, top to bottom, each named by where it sits: "Top end", "Bottom left end". */
 export function strokeEnds(g: Glyph): StrokeEndInfo[] {
   // named and ordered by where each end sits before its own length and curl, so dragging one
   // doesn't reshuffle them
   return byPlace(g, g.marks.filter(k => (k.type === 'terminal' || k.type === 'end') && k.id), 'end').map(({ k, label }) => ({ id: k.id!, x: k.x, y: k.y, label, hook: !!k.hook }));
 }
 
+export interface CornerInfo { id: string; x: number; y: number; label: string; v: number; vi?: number; st?: number }
 /** A letter's corners, top to bottom, each named by where it sits: "Top left corner", with its
     roundness as drawn: a turn's outside, and its inside in `vi` (the corners of an end have none). */
-export interface CornerInfo { id: string; x: number; y: number; label: string; v: number; vi?: number; st?: number }
 export function letterCorners(g: Glyph): CornerInfo[] {
   return byPlace(g, g.marks.filter(k => k.type === 'corner' && k.id), 'corner').map(({ k, label }) => ({ id: k.id!, x: k.x, y: k.y, label, v: k.v ?? 0, ...(k.vi != null ? { vi: k.vi } : {}), ...(k.st != null ? { st: k.st } : {}) }));
 }
 
+export interface JoinInfo { id: string; x: number; y: number; label: string; v: number; stroke: string }
 /** A letter's joins, where a stroke ends in another or turns, top to bottom, each named by the
     stroke it pulls back and where: "Arm, top left", with that stroke's id and its gap as drawn (see joinGap). */
-export interface JoinInfo { id: string; x: number; y: number; label: string; v: number; stroke: string }
 export function letterJoins(g: Glyph): JoinInfo[] {
   const names = new Map(letterStrokes(g).map(t => [t.id, t.label]));
   const out = byPlace(g, g.marks.filter(k => k.type === 'join' && k.id), 'join').map(({ k, label }) => {
@@ -67,9 +69,9 @@ export function letterJoins(g: Glyph): JoinInfo[] {
   return out.map(j => { const same = out.filter(o => o.label === j.label); return same.length > 1 ? { ...j, label: `${j.label} ${same.indexOf(j) + 1}` } : j; });
 }
 
+export interface StrokeInfo { id: string; label: string }
 /** A letter's strokes (not its dots), each named by its part, and by where it sits when the letter
     has more than one of that part: "Stem", "Left stem", "Top arm". */
-export interface StrokeInfo { id: string; label: string }
 export function letterStrokes(g: Glyph): StrokeInfo[] {
   const out = g.strokes.flatMap(s => {
     const b = s.id && !s.dot ? bbox(s.cmds) : null;
@@ -136,7 +138,18 @@ function nearest(boxes: (Box | null)[], p: { x: number; y: number }): number {
   return best;
 }
 
+/** Index of the mark (apex, corner, join, tip...) nearest the grab point. */
+const nearestMark = (marks: Mark[], p: { x: number; y: number }) => nearest(marks.map(k => ({ x0: k.x, x1: k.x, y0: k.y, y1: k.y })), p);
+
 const side = (v: number, mid: number): 1 | -1 => (v < mid ? -1 : 1);
+
+/* Font units of pointer travel that take a parameter through its whole 0..1 where no measure follows
+   the pointer (see Drive.span): an apex or vertex sliding sideways, a cursive entry pulled out, a corner
+   pulled in or out, and any other drive that names no span of its own. */
+const APEX_SPAN = 500, ENTRY_SPAN = 600, CORNER_SPAN = 260, DEFAULT_SPAN = 400;
+/** A stroke is tall when its width is at most this share of its height, flat when its height is at most
+    this share of its width, and round in between. */
+const TALL = 0.6;
 
 /** What dragging `part` of `ch` does, grabbed at `grab` (font units, y up). Null if it can't be dragged. */
 export function dragSpec(part: string, font: Font, ch: string, grab: { x: number; y: number }, oneEnd = false): DragSpec | null {
@@ -150,25 +163,25 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
     case 'advance': return { x: { key: 'width', sign: 1, measure: f => f.glyph(ch)?.adv ?? null, at: { x: g.adv, y: grab.y } } };
     case 'apex': case 'vertex': {
       const marks = g.marks.filter(k => k.type === part);
-      const k = marks[nearest(marks.map(k => ({ x0: k.x, x1: k.x, y0: k.y, y1: k.y })), grab)];
-      return k ? { x: { key: 'apex', sign: side(grab.x, k.x), span: 500, at: { x: k.x, y: k.y } } } : null;
+      const k = marks[nearestMark(marks, grab)];
+      return k ? { x: { key: 'apex', sign: side(grab.x, k.x), span: APEX_SPAN, at: { x: k.x, y: k.y } } } : null;
     }
-    case 'entry': return { x: { key: 'cursive', sign: -1, span: 600, at: grab } };
+    case 'entry': return { x: { key: 'cursive', sign: -1, span: ENTRY_SPAN, at: grab } };
     case 'corner': {
       // pulled in toward the middle of the letter a corner rounds off, pushed out it sharpens; while
       // customizing a letter each corner goes its own way, else Roundness rounds them all, or Joins
       // the inside corners where strokes meet
-      const marks = g.marks.filter(k => k.type === 'corner'), k = marks[nearest(marks.map(k => ({ x0: k.x, x1: k.x, y0: k.y, y1: k.y })), grab)];
+      const marks = g.marks.filter(k => k.type === 'corner'), k = marks[nearestMark(marks, grab)];
       const b = bbox(g.cmds);
       if (!k || !b) return null;
-      const d: Omit<Drive, 'sign'> = oneEnd ? { key: 'roundness', end: k.id, endKey: 'corners', base: k.v, span: 260, at: { x: k.x, y: k.y } }
-        : { key: k.id?.includes('j') ? 'joinRound' : 'roundness', span: 260, at: { x: k.x, y: k.y } };
+      const d: Omit<Drive, 'sign'> = oneEnd ? { key: 'roundness', end: k.id, endKey: 'corners', base: k.v, span: CORNER_SPAN, at: { x: k.x, y: k.y } }
+        : { key: k.id?.includes('j') ? 'joinRound' : 'roundness', span: CORNER_SPAN, at: { x: k.x, y: k.y } };
       return { x: { ...d, sign: k.x < (b.x0 + b.x1) / 2 ? 1 : -1 }, y: { ...d, sign: k.y < (b.y0 + b.y1) / 2 ? 1 : -1 } };
     }
     case 'join': {
       // pulled out the way its gap opens, a join opens up: on its own while customizing a letter,
       // else Stencil opens every join it cuts
-      const marks = g.marks.filter(k => k.type === 'join'), k = marks[nearest(marks.map(k => ({ x0: k.x, x1: k.x, y0: k.y, y1: k.y })), grab)];
+      const marks = g.marks.filter(k => k.type === 'join'), k = marks[nearestMark(marks, grab)];
       if (!k || k.dx == null || k.dy == null) return null;
       const axis: Axis = Math.abs(k.dx) >= Math.abs(k.dy) ? 'x' : 'y', along = axis === 'x' ? k.dx : k.dy, sign: 1 | -1 = along < 0 ? -1 : 1;
       const at = { x: k.x, y: k.y }, s = font.m.s;
@@ -180,7 +193,7 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
       // while customizing a letter, a stroke end moves on its own
       const key = part === 'tail' ? 'tail' : 'terminalLength';
       const tips = (f: Font) => f.glyph(ch)?.marks.filter(k => k.type === part) ?? [];
-      const marks = tips(font), i = nearest(marks.map(k => ({ x0: k.x, x1: k.x, y0: k.y, y1: k.y })), grab), k = marks[i];
+      const marks = tips(font), i = nearestMark(marks, grab), k = marks[i];
       if (!k) return null;
       const end = oneEnd && part === 'terminal' ? k.id : undefined;
       const tip = (f: Font) => (end ? tips(f).find(t => t.id === end) : tips(f)[i]);
@@ -227,10 +240,10 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
   const id = oneEnd ? g.strokes.filter(s => s.part === part)[i]?.id : undefined;
   const own = (f: Font) => { const s = f.glyph(ch)?.strokes.find(t => t.id === id); return s ? bbox(s.cmds) : null; };
   const one = id ? { end: id, endKey: 'strokeWeights' as const, base: 0.5 } : {};
-  if (h > w * 0.6 && (w <= h * 0.6 || byX)) {
+  if (h > w * TALL && (w <= h * TALL || byX)) {
     spec.x = { key: 'weight', ...one, sign: sx, gain: 2, measure: id ? f => { const p = own(f); return p && p.x1 - p.x0; } : f => f.m.s, at: { x: ex, y: clamp(grab.y, b.y0, b.y1) } };
   }
-  if (w > h * 0.6 && (h <= w * 0.6 || !byX)) {
+  if (w > h * TALL && (h <= w * TALL || !byX)) {
     spec.y = { key: 'weight', ...one, sign: sy, gain: 2, measure: id ? f => { const p = own(f); return p && p.y1 - p.y0; } : f => f.m.hT, at: { x: clamp(grab.x, b.x0, b.x1), y: ey } };
   }
   return spec;
@@ -247,12 +260,14 @@ export function towardMore(d: Drive, base: Params): 1 | -1 {
 
 /** Guide lines whose handles sit just left of the letter, and the drag that sets the width. */
 const LINES = ['xHeight', 'capHeight', 'ascender', 'descender', 'advance'];
+/** The most handles pointing at a slider shows on the letter. */
+const MAX_HANDLES = 6;
 
+export interface Handle { part: string; axis: Axis; x: number; y: number }
 /**
  * Grab handles for every place on the letter that drives `key`, so pointing at a slider can show
  * where the same change can be dragged. `parts` are the letter's anatomy parts and visible guides.
  */
-export interface Handle { part: string; axis: Axis; x: number; y: number }
 export function handlesFor(key: NumericParam, font: Font, ch: string, parts: string[]): Handle[] {
   const g = font.glyph(ch);
   if (!g) return [];
@@ -269,7 +284,7 @@ export function handlesFor(key: NumericParam, font: Font, ch: string, parts: str
     else if (part === 'entry') g.strokes.filter(s => s.part === part).forEach(s => { const b = bbox(s.cmds); if (b) add(part, { x: b.x0, y: (b.y0 + b.y1) / 2 }); });
     else pieces(g, part).forEach(c => { const b = bbox(c); if (b) add(part, { x: b.x1, y: (b.y0 + b.y1) / 2 + (b.y1 - b.y0) * 0.1 }); });
   }
-  return out.slice(0, 6);
+  return out.slice(0, MAX_HANDLES);
 }
 
 /** The axis a drag follows once it has moved: the one it moves along most, if the part allows it. */
@@ -288,7 +303,7 @@ const step = (v: number) => Math.round(v * 100) / 100;
  */
 export function solver(d: Drive, base: Params): (travel: number) => number {
   const v0 = driveValue(d, base);
-  const linear = (t: number) => step(clamp(v0 + d.sign * t / (d.span ?? 400)));
+  const linear = (t: number) => step(clamp(v0 + d.sign * t / (d.span ?? DEFAULT_SPAN)));
   if (!d.measure) return linear;
 
   const vs: number[] = [], ms: number[] = [];

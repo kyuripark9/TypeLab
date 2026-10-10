@@ -1,5 +1,8 @@
 /* Editor state. One store for the open design (with undo history) and the UI around it.
-   Actions live outside the store so components can import them without subscribing. */
+   Actions live outside the store so components can import them without subscribing. The module also
+   builds the open design's font (fontFor, one build per params object), matches starting styles against
+   the Style page's filters and traits, and runs the style finder's steps. Importing it subscribes to
+   free fonts arriving, so a design written in one draws again once its letters come. */
 import { create } from 'zustand';
 import { STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
 import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
@@ -8,7 +11,7 @@ import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
 import { DEFAULT_NAME, type Design, type DesignInput } from '../../shared/design';
 import { SNAP_KINDS, type SnapKind } from '../lib/pen';
-import { FREE_AT_KEYS, endCurl, endLength, isGlyphKey, type FreeAt, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
+import { DEFAULTS, FREE_AT_KEYS, endCurl, endLength, isGlyphKey, type FreeAt, type GlyphParams, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
 /** The Style page's panel: filters that narrow the cards, or traits laid over every card. */
@@ -52,16 +55,22 @@ interface Doc { designId: string | null; name: string; styleId: string; params: 
 export interface EditorState extends Doc {
   /** document snapshot at the last load/save; differs from the current one when dirty */
   saved: string;
+  /** undo entries (see histSnap): the style and settings as loaded and after each committed change, oldest first, the last 200 kept */
   history: string[];
+  /** the entry in `history` the design is at; undo and redo move it */
   hi: number;
+  /** a save is on its way to the server */
   saving: boolean;
 
+  /** the page open: the Style page ('style') or a page of controls */
   category: CategoryId;
+  /** the control (or nested slider) pointed at or dragged last; while `hot`, the parts it shapes are highlighted */
   active: ActiveKey;
   /** true while the pointer is over the controls: highlight affected glyph parts */
   hot: boolean;
   /** the preview text; empty shows the default sentence */
   custom: string;
+  /** the preview's text size, in px per em */
   size: number;
   /** Style page filters; an empty list means no filter on that facet */
   groups: StyleGroup[];
@@ -84,10 +93,13 @@ export interface EditorState extends Doc {
   folded: ControlKey[];
   /** the explanation at the top of the panel opened past its title */
   tips: boolean;
+  /** the letter open in the inspector */
   inspect: string | null;
+  /** whether the controls change every letter or only the inspected one (see letterOf) */
   scope: Scope;
   /** optional sliders switched on while still at their off value, so they stay open */
   switchedOn: NumericParam[];
+  /** the anatomy part pointed at, in the inspected letter or among a control's parts: it is highlighted in both */
   part: string | null;
   /** the stroke end (by id) pointed at in the list of a customized letter's ends */
   hotEnd: string | null;
@@ -99,7 +111,9 @@ export interface EditorState extends Doc {
   mirror: ('x' | 'y')[];
   /** the pen snaps dragged points and handles (when on) to the kinds of place listed */
   snap: { on: boolean; kinds: SnapKind[] };
+  /** the header's export menu is open */
   exportOpen: boolean;
+  /** the toast showing, with its button if any; `id` tells a new one from the one before */
   toast: { id: number; msg: string; action?: ToastAction } | null;
   /** the page menu, opened from the header while the window is too narrow to show it alongside */
   navOpen: boolean;
@@ -108,12 +122,23 @@ export interface EditorState extends Doc {
 /** A button on a toast, like Undo after a delete. */
 export interface ToastAction { label: string; run: () => void }
 
+/** An undo entry: the style and settings, as JSON (readHist reads it back and must agree on the order). */
 const histSnap = (p: Params, styleId: string) => JSON.stringify([styleId, p]);
+const readHist = (snap: string): Pick<Doc, 'styleId' | 'params'> => {
+  const [styleId, params] = JSON.parse(snap) as [string, Params];
+  return { styleId, params };
+};
+/** The document as `saved` holds it, as JSON so the dirty check compares strings (readDoc reads it back, and
+    commitName in components/Header.tsx reads the name first: both must agree on the order). */
 const docSnap = (d: Pick<Doc, 'name' | 'styleId' | 'params'>) => JSON.stringify([d.name, d.styleId, d.params]);
+const readDoc = (snap: string): Pick<Doc, 'name' | 'styleId' | 'params'> => {
+  const [name, styleId, params] = JSON.parse(snap) as [string, string, Params];
+  return { name, styleId, params };
+};
 
 const blankDoc = (): Doc => ({ designId: null, name: DEFAULT_NAME, styleId: STYLES[0].id, params: { ...STYLES[0].params } });
 
-function freshDocState(doc: Doc): Partial<EditorState> {
+function freshDocState(doc: Doc): Pick<EditorState, keyof Doc | 'picked' | 'saved' | 'history' | 'hi' | 'inspect' | 'switchedOn' | 'part' | 'hotEnd'> {
   return {
     ...doc,
     picked: JSON.stringify(doc.params),
@@ -128,10 +153,7 @@ function freshDocState(doc: Doc): Partial<EditorState> {
 }
 
 export const useEditor = create<EditorState>()(() => ({
-  ...blankDoc(),
-  saved: docSnap(blankDoc()),
-  history: [histSnap(blankDoc().params, blankDoc().styleId)],
-  hi: 0,
+  ...freshDocState(blankDoc()),
   saving: false,
   category: 'style',
   active: 'weight',
@@ -146,15 +168,10 @@ export const useEditor = create<EditorState>()(() => ({
   passed: {},
   traits: {},
   styleTab: 'filter',
-  picked: JSON.stringify(blankDoc().params),
   view: savedView(),
   folded: savedFolded(),
   tips: savedTips(),
-  inspect: null,
   scope: 'all',
-  switchedOn: [],
-  part: null,
-  hotEnd: null,
   construction: savedConstruction(),
   penMode: false,
   mirror: [],
@@ -191,9 +208,9 @@ export const endOf = (s: EditorState, id: string, hook = false) =>
   endLength({ terminalEnds: paramOf(s, 'terminalEnds'), terminalLength: paramOf(s, 'terminalLength') }, id, hook);
 /** How one stroke end of the letter being customized bends: its own curl, else the letter's Curl. */
 export const curlOf = (s: EditorState, id: string) => endCurl({ terminalCurls: paramOf(s, 'terminalCurls'), terminalCurl: paramOf(s, 'terminalCurl') }, id);
-/** What can be set one by one on a customized letter: each stroke end's length or curl, each
-    corner's roundness (a turn's outside) and each turn's inside roundness, each stroke's weight, or
-    each join's gap. */
+/** What can be set one by one on a customized letter (the settings of ID_KEYS in shared/params/spec.ts): each stroke end's
+    length or curl, each corner's roundness (a turn's outside) and step, each turn's inside roundness, each stroke's
+    weight, or each join's gap. */
 export type EndKey = 'terminalEnds' | 'terminalCurls' | 'corners' | 'innerCorners' | 'cornerSteps' | 'strokeWeights' | 'joinGaps';
 
 /** Whether an optional slider is switched on: away from its off value, or switched on by hand. */
@@ -228,12 +245,16 @@ onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont) useEdi
 
 /** The settings a style's free font stands for as it comes: moved from these, its letters move too. */
 const freeAtOf = (st: StyleDef): FreeAt => Object.fromEntries(FREE_AT_KEYS.map(k => [k, st.params[k]]));
+/** Letter and word spacing where the engine adds nothing to a free font's own spacing: their defaults, which
+    `track` and `space` in shared/engine/font.ts take as their zero. Turning free letters on and off again
+    gives the style's spacing back only while these match. */
+const FREE_SPACING = { letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAULTS.wordSpacing };
 /** A style's settings to start from, written in its free font (unless a design built from the settings asks
-    otherwise). Its free font's letters are spaced as the font spaces them, so the spacing starts at its middle. Traits laid over the style move the
+    otherwise). Its free font's letters are spaced as the font spaces them, so letter and word spacing start at FREE_SPACING. Traits laid over the style move the
     font's letters as they move the settings (Bold makes it heavier). */
 function startParams(st: StyleDef, traits: Traits, free = true): Params {
   const p = { ...applyTraits(st.params, traits) }, id = STYLE_FONTS[st.id];
-  return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st), letterSpacing: 0.2, wordSpacing: 0.35 } : p;
+  return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st), ...FREE_SPACING } : p;
 }
 export const useFont = () => fontFor(useEditor(s => s.params));
 /** The font the controls act on: the inspected letter's own while edits go to that letter. */
@@ -267,7 +288,7 @@ export function adjustedParams(s: StyleDef, traits: Traits): Params {
 }
 const looksCache = new WeakMap<Params, Look[]>();
 /** The Appearance a starting style shows with the traits laid over it. */
-export function adjustedLooks(s: StyleDef, traits: Traits): Look[] {
+function adjustedLooks(s: StyleDef, traits: Traits): Look[] {
   const p = adjustedParams(s, traits);
   let l = looksCache.get(p);
   if (!l) { l = p === s.params ? s.looks : looksOf(p); looksCache.set(p, l); }
@@ -330,7 +351,7 @@ export const actions = {
   setName(name: string) { set({ name }); },
   /** A saved design was renamed on the server: the name counts as saved, while other unsaved edits stay unsaved. */
   markRenamed(name: string) {
-    const [, styleId, params] = JSON.parse(get().saved) as [string, string, Params];
+    const { styleId, params } = readDoc(get().saved);
     set({ name, saved: docSnap({ name, styleId, params }) });
   },
   setSaving(saving: boolean) { set({ saving }); },
@@ -360,7 +381,7 @@ export const actions = {
   travel(d: number) {
     const s = get(), j = s.hi + d;
     if (j < 0 || j >= s.history.length) return;
-    const [styleId, params] = JSON.parse(s.history[j]) as [string, Params];
+    const { styleId, params } = readHist(s.history[j]);
     set({ hi: j, styleId, params });
   },
   /** Start from a style, with the Style page's traits laid over it. */
@@ -386,7 +407,7 @@ export const actions = {
     const spacing = (k: 'letterSpacing' | 'wordSpacing', free: number) => on
       ? (p[k] === st.params[k] ? free : p[k])
       : (p[k] === free ? st.params[k] : p[k]);
-    const params = { ...p, freeFont: on ? id! : '', freeAt: on ? freeAtOf(st) : {}, letterSpacing: spacing('letterSpacing', 0.2), wordSpacing: spacing('wordSpacing', 0.35) };
+    const params = { ...p, freeFont: on ? id! : '', freeAt: on ? freeAtOf(st) : {}, letterSpacing: spacing('letterSpacing', FREE_SPACING.letterSpacing), wordSpacing: spacing('wordSpacing', FREE_SPACING.wordSpacing) };
     set({ params, picked: s.picked === JSON.stringify(p) ? JSON.stringify(params) : s.picked });
     actions.commit();
     actions.toast(on ? `Written in ${parseFontId(id)!.family}, a free font` : 'Letters built from the settings, ready to shape', { label: 'Undo', run: () => actions.travel(-1) });
@@ -420,15 +441,16 @@ export const actions = {
   keepOn(key: NumericParam) {
     if (!get().switchedOn.includes(key)) set(s => ({ switchedOn: [...s.switchedOn, key] }));
   },
-  /** Live change of one stroke end's length (or curl), or one corner's roundness. Only a letter
-      being customized has ends and corners of its own. */
+  /** Live change of one of a customized letter's own values by id (see EndKey): a stroke end's length or curl, a corner's
+      roundness or step, a turn's inside, a stroke's weight or a join's gap. Without `key` it sets the end's length; only a
+      letter being customized has values of its own. */
   setEnd(id: string, v: number, key: EndKey = 'terminalEnds') {
     set(s => {
       const ch = letterOf(s);
       return ch ? { params: withGlyph(s.params, ch, key, { ...paramOf(s, key), [id]: v }) } : {};
     });
   },
-  /** Let one stroke end follow the letter's Length (or Curl) again, or a corner be drawn as the design draws it. */
+  /** Drop one of a customized letter's own values by id (see EndKey), so that stroke end, corner, turn, stroke or join follows the letter's setting again. */
   resetEnd(id: string, key: EndKey = 'terminalEnds') {
     const s = get(), ch = letterOf(s), own = ch ? s.params.glyphs[ch]?.[key] : undefined;
     if (!ch || !own || own[id] === undefined) return;
