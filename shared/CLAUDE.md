@@ -1,0 +1,122 @@
+# shared: settings, content, and what client and server share
+
+Everything here runs in the browser and on the server alike, so nothing touches the DOM or imports from `client/` or
+`server/` (tests/boundaries.test.ts). The font engine has its own notes in `engine/CLAUDE.md`.
+
+| Path | Holds |
+| --- | --- |
+| `params/model.ts` | `Params`, the settings a design is: every number 0..1, options, per-letter maps |
+| `params/spec.ts` | `SPECS`, one entry per setting, and everything read off it |
+| `params/options.ts` | The named choices (`TERMINALS`, `TERMINAL_FORMS`, `SERIF_SHAPES`, `FILLS`, the letter forms...) and `formOf` |
+| `params/scales.ts` | The id formats a letter's own values are kept under, and the scales that turn 0..1 into lengths and angles |
+| `params/clean.ts` | Reading settings from outside: `PARAMS_VERSION`, `upgradeParams`, `sanitizeParams`, `isValidParams` |
+| `content/styles.ts` | The starting styles (`STYLES`), the Style page's cards (`PAGE_STYLES`), `styleById` |
+| `content/tags.ts` | Style tags: Category (`StyleGroup`), Classification (`Kind`, `KIND_SECTIONS`), Appearance (`Look`, read off the settings), Feeling (`Mood`, `MOODS`, `TAG_FACE`); `styleMatches`, `searchMatches` |
+| `content/pages.ts` | The editor's pages (`CATEGORIES`), their groups (`GROUPS`), older page names (`OLD_GROUPS`), `pageOf` |
+| `content/controls.ts` | `CONTROLS`, `SUBS` and each control's `*_SUBS`, the pickers' options and finer sliders, `PART_CONTROL`, `controlFor`, `firstControl` |
+| `content/copy.ts` | `ANATOMY` (part id to name and definition), `TEXTS` (sample text) |
+| `content/search.ts` | Find a setting: `findSettings`, `ALSO` (words people use that the copy doesn't) |
+| `free-fonts.ts` | The Google families (`FREE_FAMILIES`), each style's font (`STYLE_FONTS`), font ids, `nearestFont`, `withoutReserved` |
+| `family.ts` | A font family: `WEIGHTS`, `familyMember(s)`, the anchor weight, `SLANTED` |
+| `traits.ts` | The Style page's Adjust tab: `TRAIT_SECTIONS`, `applyTraits`, `traitsKey` |
+| `design.ts`, `account.ts` | What client and server exchange: `Design`, `DesignInput`, `cleanName`, `slug`; `User`, `EmailCheck`, `GoogleResult`, the sign-up rules |
+
+## The settings spec
+
+`SPECS` in `params/spec.ts` has exactly one entry per `Params` key, of that key's type; the compiler checks both ways,
+so `model.ts` and `spec.ts` change together. An entry is written inline with `num`, `bool`, `option`, `ids`,
+`fontSpec` or `value`, which keep `parent`, `global` and `free` as literal types. Each has a `kind` (how `cleanValue`
+checks it), a `default`, and:
+
+- `global`: every letter shares it (heights, spacing, fills, the macros). A letter can't own it, and `cleanGlyphs`
+  drops a letter's saved value of it on reading, so making a setting global loses what letters were saved with.
+- `free`: a free font's letters follow it, as far as it moves from where the font was picked. It joins
+  `FREE_AT_KEYS`; `sanitizeParams` fills an older design's `freeAt` with the design's own value; and the free-font code
+  has to move the letters for it (engine/CLAUDE.md), checked with `npm run golden`.
+- `control`: a `ControlDef` on a page (`cat`): `label` (short title), `friendly` (plain words, the explainer's title),
+  `tech` (the typographer's term: screen readers, search, and the slider's `aria-label`, which
+  `tools/browser/drag-bench.mjs` finds it by), `lo`/`hi`, `demo`, `explain`, `type` (which picker; none is a slider),
+  `zoom`, `bipolar`, `degrees`, `advanced`, and `off` (an optional slider's value where it does nothing, which gives it
+  a switch).
+- `sub`: a slider nested under control `parent`. `stencil` and `slice` are each a control and a sub of themselves:
+  their Thickness slider shares the key.
+
+Read off it: `PARAM_KEYS`, `DEFAULTS` (frozen), `isGlyphKey`, `FREE_AT_KEYS`, `ID_KEYS`, and the types `ControlKey`,
+`SubKey`, `SubKeyOf<P>`, `GlobalKey`, `FreeKey`, `NumericParam`; `content/controls.ts` reads `CONTROLS` and the subs.
+Order matters: a page shows its controls in `SPECS` order (a shape picker before the sliders that tune it, the
+optional ones after, advanced last), and a control's nested sliders in theirs. tests/pages.test.ts checks it.
+
+## Adding a setting
+
+1. Its field in `params/model.ts`; the compiler then asks for its spec.
+2. Its entry in `params/spec.ts`, in editor order.
+3. The engine code that draws it, mapping the value as a share of its range so it changes the letters up to 1.
+4. A slider (a control without `type`, or a sub) needs an icon in `client/components/SliderIcons.tsx`
+   (`SLIDER_ICON_KEYS`; tests/icons.test.ts).
+5. A sub shows only where the panel places it: through `FILL_SUBS`, `SERIF_INNER_SUBS`, `STENCIL_SUBS`, `SLICE_SUBS`,
+   `TERMINAL_DETAILS`, `SERIF_SIZES`/`SERIF_DETAILS` or `SERIF_TIP_DETAILS`, or by hand in `Control`
+   (`client/components/panel/ControlsPanel.tsx`) or `client/components/panel/ShapeControls.tsx`. Nothing tests this.
+   A sub under a control with no `*_SUBS` yet needs one in `content/controls.ts`, spread into `SUBS` (compile check).
+6. An option setting needs its values in `params/options.ts`. A letter-shape picker is `type: 'form'` with a
+   `FORM_OPTIONS` entry (compile check); any other picked setting needs its choices in `CHOICES`
+   (`client/lib/reach.ts`), or its control is dimmed as changing nothing.
+7. `global` and `free` as above; `free: true` brings the free-font work with it.
+8. Words people use for it that its copy lacks go in `ALSO` (`content/search.ts`).
+9. `npm test` then fails on golden's `new probe` lines for its ends and options (`<key>=0`, `<key>=1`,
+   `<key>=<option>`): render them, then `npm run golden:update`. Then `npm run sweep -- <key>`.
+10. If saved designs need reading differently, bump `PARAMS_VERSION` and add the step to `upgradeParams`.
+
+## Ids and saved formats
+
+These live in saved designs, settings files, links and caches, so they never change: setting keys; option values
+(dropping one without a mapping in `cleanValue` resets those designs to the default); style ids; free-font ids
+(`'Family:weight'` plus `i` for an italic, `'Roboto:600i'`); and the per-letter ids in `params/scales.ts`: stroke
+`'3'`, end `'0s'`/`'p1e'` (`p` a plain end), corner `'0t1'`/`'0sl'`/`'1j0'`, turn `'0t1'`, join `'2e'` or a turn id,
+each number one or two digits. `sanitizeParams` silently drops a value whose id doesn't match its test. The first form
+of each `TERMINAL_FORMS` kind is its fallback (`formOf`) and the form the Stroke ends trait picks.
+
+## PARAMS_VERSION and the compatibility code that stays
+
+`PARAMS_VERSION` is 2. `sanitizeParams` doesn't upgrade: every reader of stored or imported settings calls
+`upgradeParams(src, version)` first (server/db.ts once per database, recorded in `PRAGMA user_version`; the
+`.typelab.json` import in `client/components/Header.tsx`, a file without a version being version 1). Version 1
+kept the Lowercase height on its first scale (`xHeightFromOld`).
+
+`isValidParams` accepts only input `sanitizeParams` would leave unchanged (a `freeAt` may lack keys), so the client
+always sends complete, current settings or the API answers 400.
+
+Keep, as compatibility: `fromOldContrast` and `contrastFromOld` (a separate `reverse`), the `'outline-inline'` fill
+read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` filled in for older designs, and
+`OLD_GROUPS` in `content/pages.ts` (older links' `?cat=structure`, `proportion`, `personality`).
+
+## Content
+
+- **Styles** (`content/styles.ts`): `style(id, group, kinds, name, moods, like, desc, params)`, its params laid over
+  `DEFAULTS`. Ids never change and never leave `STYLES`: saved designs and `?style=` links name them, and the API
+  refuses a design whose `styleId` isn't known. `PAGE_ORDER` picks the 21 cards (`PAGE_STYLES`), all solid letters;
+  every style keys `STYLE_FONTS` and may be a `TAG_FACE`. `tools/fit/apply.ts` rewrites a style's params object in
+  place, finding `style('<id>',` by text and its params as the first `{` outside quotes: keep that layout, with the
+  style's own letters under `glyphs:` inside it. tests/styles.test.ts and tests/free-fonts.test.ts check the cards,
+  Feelings and fonts.
+- **Pages** (`content/pages.ts`): `CATEGORIES` in navigation order, each with a `hint` (its tooltip) and, all but
+  Style, a group; `GROUPS` names the groups Proportions, Shapes and Details. `pageOf` reads a page id, then `OLD_GROUPS`, then a group
+  (which opens its first page).
+- **Controls** (`content/controls.ts`): `CONTROLS` and `SUBS` come from the specs; `FORM_OPTIONS` (each shape drawn as
+  a letter `ch`), the option label lists, `TERMINAL_DETAILS`, `SERIF_SIZES`, `SERIF_DETAILS`, `SERIF_TIP_DETAILS`;
+  `BLOCK_CONTROLS` (all that shows while Built from is Blocks); `PART_CONTROL` (anatomy part to the control that shapes
+  it); `controlFor` (a sub to its parent).
+- **Copy and search**: `ANATOMY` in `content/copy.ts` names every part the inspector can point at; `findSettings`
+  searches the controls' words, `ALSO`, and the shapes they offer.
+
+## Families, free fonts, traits
+
+- `free-fonts.ts`: `FREE_FAMILIES` lists each family's weights and italics up to 900, its licence folder (`ofl` or
+  `apache`), its reserved names, and `grid` for a pixel font (VT323, Silkscreen) that only stretches. `parseFontId`
+  accepts only a listed family at a weight it comes in; `nearestFont` is the font a design draws from as Weight and
+  Slant move; `withoutReserved` takes the family's own and reserved names out of an exported font's name (OFL).
+- `family.ts`: the nine `WEIGHTS` (Regular at index 3, Bold at 6), `TYPICAL` places on the Weight slider (0.4 is
+  Regular, as Weight 0.4 is the default and a free font's 400), the anchor (the weight the design is named as), and
+  `familyMember`, which reweighs and reslants the design and each letter's own weight or slant. Italics lean 0.55
+  (about 11°) unless the design is slanted past `SLANTED` (0.05) already.
+- `traits.ts`: each trait's steps set a few settings; `applyTraits` lays them in `TRAITS` order and `traitsKey`
+  depends on that order. The Cuts steps set joints, stencil and slice together so they stay exclusive.

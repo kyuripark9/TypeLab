@@ -25,6 +25,7 @@ npm start          # serves the app and the API on http://localhost:5173
 Set `PORT` to change the port and `DB_PATH` to put the database somewhere other than `data/typelab.db`.
 On a host that ends HTTPS in a proxy in front of the app (most do), set `TRUST_PROXY=1` so sign-in
 cookies are marked Secure and wrong-password limits count each visitor rather than the proxy.
+Every environment variable the server and the tools read is listed in `tools/README.md`.
 
 ### Sign in with Google (optional)
 
@@ -46,17 +47,22 @@ The sign-in dialog offers **Continue with Google** once the server has Google OA
 
 Other scripts: `npm test` (engine and API tests, and the golden outlines), `npm run typecheck`,
 `npm run render` (text in a design to a PNG, no browser needed), `npm run golden` / `golden:update`,
-`npm run sweep` (sliders that stop changing part way). No Node on the machine? `tools/node.sh npm test`
-fetches one into `.tools/`. See `tools/README.md`.
+`npm run sweep` (sliders that stop changing part way). One test file runs with
+`node --import tsx --test tests/cuts.test.ts`, and tests by name with
+`node --import tsx --test --test-name-pattern "slice" tests/cuts.test.ts` (the pattern before the file).
+No Node on the machine? `tools/node.sh npm test` fetches one into `.tools/`. See `tools/README.md`.
+
+Working on the code with an AI agent: `CLAUDE.md` and the `CLAUDE.md` in each folder are written for it.
 
 ## Architecture
 
 ```
-client/   React 19 + TypeScript (Vite): the editor and the design library
-server/   Express 5 + TypeScript: REST API, SQLite storage, font export
+client/   React 19 + TypeScript (Vite): the editor, the design library and the account page
+server/   Express 5 + TypeScript: REST API, SQLite storage, free-font cache, font export
 shared/   used by both sides: the font engine (engine/), the settings and their specs (params/),
-          starting styles, pages and UI copy (content/)
-tests/    node:test suites for the engine, the settings and the API, and the golden outlines
+          starting styles, pages and UI copy (content/), free fonts, font families, traits
+tests/    node:test suites for the engine, the settings, the client's pure logic and the API,
+          and the golden outlines
 tools/    command-line tools: render text to PNG, golden outlines, slider sweep, preset fitting,
           free-font scan, browser checks, a Node bootstrap (see tools/README.md)
 ```
@@ -73,13 +79,15 @@ strokes, *Contrast* thins horizontals and *Width* stretches the skeleton without
 One slider reshapes the whole alphabet coherently.
 
 The engine is pure math with no DOM, so **the same code** draws the live preview in the browser
-and builds exported fonts on the server. A full rebuild of every glyph takes about 4 ms.
+and builds exported fonts on the server. A full rebuild of every glyph takes a few milliseconds.
 
 | File | Role |
 | --- | --- |
-| `font.ts` | The hub: params → `resolve()` → metrics; the glyph table, the `Builder` glyphs draw on, and `buildFont` (letters on demand, layout) |
-| `glyphs.ts`, `script.ts`, `swash.ts` | Parametric skeletons for A–Z, a–z, 0–9 and the punctuation; script capitals and letters; swash letters |
-| `glyph.ts` | Building one letter: skeleton → wobble → ends → pen → stencil → corners and joins → serifs → placed with its spacing |
+| `index.ts` | The entry point: importing it registers every glyph |
+| `font.ts` | The hub: params → `resolve()` → metrics; the glyph table, the `Builder` glyphs draw on, the formulas the metrics share with other files, and `buildFont` (letters on demand, layout) |
+| `glyph.ts` | Building one letter: skeleton → turns and ends → serif sides → wobble → pen → corners and joins → stencil → serifs, then placed with its spacing, slant, slice and fill; block letters and drawn ones |
+| `glyphs/` | Parametric skeletons: `upper.ts`, `lower.ts`, `figures.ts`, `punctuation.ts` (punctuation and symbols), the constructions they share (`shared.ts`), and strokes that turn at a point (`turns.ts`) |
+| `script.ts`, `swash.ts` | Script capitals and joined small letters; swash letters written over them |
 | `stroke.ts` | Centerline → outline: pen-model contrast, terminals, serifs |
 | `ends.ts`, `corners.ts`, `joins.ts`, `stencil.ts`, `serif-sides.ts` | Stroke ends (length, curl, straight runs), corners and steps, inside-corner fillets, stencil gaps, which way serifs reach and cupped serifs |
 | `effects.ts`, `boolean.ts` | Whole-outline effects (the slice; the wireframe, pixel, dot, line, inline, outline and shadow fills), and the unions and cuts they need |
@@ -97,16 +105,21 @@ the first time it's asked for, converts it (`server/free-fonts.ts`) and keeps it
 an export made from it carries the font's copyright notice and licence, and never its name. A design
 remembers the settings its font was picked at (`freeAt`), and as the settings move from them the font's
 letters move too: heavier or lighter is the family's nearer weight, slanting past half an italic's lean
-takes the italic, and slant, rotation, mirroring, spacing, slice and the fills (but Inline) apply on top.
-The rest of the way in weight, and contrast, width, x-height, crossbar height and the serifs' size, move
-the letters on their skeletons (`shared/engine/skin.ts`): each outline is sampled, every sample hung on
-the middle of its stroke, and the settings move those middles and thicken or thin the strokes round them
-by the same measures the engine builds its own letters with, keeping the font's heights; unmoved, the
-letters are the font's exactly. A pixel font's letters (VT323, Silkscreen) would lose their grid that way,
-so they only stretch and take the family's own weights. Points opens its letters with the font's own anchor points.
+takes the italic, and slant, rotation, mirroring, monospacing, spacing, the slice and the fills apply on top.
+The rest of the way in weight, and contrast, width, x-height, crossbar height, stem length, inner space,
+dot size, pinch, ink traps and the serifs' size, move the letters on their skeletons
+(`shared/engine/skin.ts`): each outline is sampled, every sample hung on the middle of its stroke, and the
+settings move those middles and thicken or thin the strokes round them by the same measures the engine
+builds its own letters with, keeping the font's heights. Where a setting asks for one of the engine's own
+shapes (its dots, bowls, stroke ends, serifs, stencil gaps, peaks or corners), that shape is drawn onto the
+font's letter (`shared/engine/restyle.ts`), and a letter asked for in a form the font hasn't got (a
+single-storey a, a script's letters) is the engine's own, drawn at the settings the font reads as. Unmoved,
+the letters are the font's exactly. A pixel font's letters (VT323, Silkscreen) would lose their grid on their
+skeletons, so they only stretch and take the family's own weights. Points opens its letters with the font's
+own anchor points.
 
 Beyond weight, width and contrast, the pen model also does squircle bowls (*Squareness*),
-faceted octagonal curves (*Chamfer*), reverse contrast and ink-trap joints, and glyph assembly
+faceted octagonal curves (*Facets*), reverse contrast and ink traps, and glyph assembly
 can cut stencil gaps where one stroke joins another. The fills run last, on the glyph's final
 outline, so a pixel or dot grid stays aligned across a whole line: advances and tracking snap
 to the grid.
@@ -124,8 +137,8 @@ crossbar of a t, in the crotch of a y) is a corner too, rounded by *Joins* with 
 both strokes' edges. A customized letter can set each corner one by one.
 Curved stroke ends can follow the curve or turn and run straight out, level or plumb.
 
-Serifs have a page of their own. A shape (bracketed, unbracketed, slab or wedge) sets their length,
-thickness and angle, and a bracketed one how far its curve runs up the stem. Their tips are cut square,
+Serifs have a page of their own. A shape (bracketed, unbracketed, slab, wedge, or the blackletter diamond)
+sets their length, thickness and angle, and a bracketed one how far its curve runs up the stem. Their tips are cut square,
 rounded, drawn out to a point or cut on a slant, and their base is flat or cupped: the stroke is drawn
 short by the height of the cup and the serif arches up to it, so its tips stay on the line. *Sides*
 keeps the serifs on stems to the left or the right only, or to the sides that face into the letter or
@@ -142,18 +155,32 @@ inside curves, and the lowercase become small capitals.
 
 ### Client (`client/`)
 
+- `main.tsx` routes `/` and `/d/:id` to one editor (`pages/EditorPage.tsx`), `/designs` to My designs
+  (`pages/LibraryPage.tsx`) and `/account` to the account page (`pages/AccountPage.tsx`); the addresses are in
+  `lib/routes.ts`. `state/auth.ts` holds who's signed in and opens the sign-in dialog (`components/Account.tsx`)
+  from any page.
 - `state/editor.ts`: a zustand store holding the open design, undo history, dirty tracking and UI state.
   Fonts are memoized per params object, so each change is built exactly once.
 - `components/GlyphDefs.tsx`: each glyph is defined once as `<path id="g65">` and reused with
   `<use>` by the preview and the glyph strip. Glyphs on screen update immediately; the rest follow in
   a deferred render, so dragging stays at 60 fps.
-- `pages/EditorPage.tsx` (`/` and `/d/:id`), `pages/LibraryPage.tsx` (`/designs`) and
-  `pages/AccountPage.tsx` (`/account`). `state/auth.ts` holds who's signed in and opens the sign-in
-  dialog (`components/Account.tsx`) from any page.
+- `components/Panel.tsx` and `components/panel/`: the right-hand panel. Controls are read off `CONTROLS` and
+  `SUBS` (`shared/content/controls.ts`); `ControlsPanel.tsx`'s `Control` picks the component for each, and
+  nested sliders are placed there or in `ShapeControls.tsx`. A control that changes nothing in view says so
+  (`panel/reach.tsx`, `lib/reach.ts`).
+- `components/Stage.tsx`, `Finder.tsx`, `Inspector.tsx`, `PenCanvas.tsx`, `Header.tsx`, `Chrome.tsx`,
+  `Guide.tsx`: the stage with the style cards and the preview, the style finder, the glyph inspector, the pen,
+  the top bar and export menu, the page navigation and glyph strip, and the first-run tour.
+- `lib/`: the API client (`api.ts`), free fonts in the browser (`free.ts`), dragging a letter's parts
+  (`drag.ts`), the pen's operations (`pen.ts`), whether a setting reaches the letters in view (`reach.ts`), the
+  preview's text (`preview.ts`), everything the browser remembers (`prefs.ts`), the addresses (`routes.ts`),
+  small hooks (`hooks.ts`) and the guide lines' labels (`guide-labels.ts`).
+- `styles.css`: the one stylesheet, its colours and sizes as tokens on `:root`.
 - The editor's pages are listed in `shared/content/pages.ts` (`CATEGORIES`), and each control names the page it
-  is on (its `control` in `shared/params/spec.ts`). Structure, Proportion and Shape are groups: their pages (Weight & contrast, Heights, Corners,
-  Stroke ends, Serifs, Letters…) sit under them in the navigation. Pages run from the broadest settings
-  to the finest, and a page shows its controls in the order they are listed in `CONTROLS`.
+  is on (its `control` in `shared/params/spec.ts`). Proportions, Shapes and Details are groups (`GROUPS`): their
+  pages (Weight & contrast, Heights, Corners, Stroke ends, Serifs, Letters…) sit under them in the navigation.
+  Pages run from the broadest settings to the finest, and a page shows its controls in the order they are listed
+  in `CONTROLS`.
 
 ### API (`server/`)
 
@@ -163,14 +190,17 @@ inside curves, and the lowercase become small capitals.
 | `POST` | `/api/auth/signup` | `{ email, password, name? }` → signs in, `{ user, moved }` |
 | `POST` | `/api/auth/login` | `{ email, password }` → signs in, `{ user, moved }` |
 | `POST` | `/api/auth/logout` | signs this browser out |
-| `GET` / `PATCH` / `DELETE` | `/api/auth/me` | who's signed in · rename `{ name }` · close the account and its fonts `{ password }` |
+| `GET` | `/api/auth/me` | `{ user, google }`: who's signed in (null for nobody), and whether Google sign-in is offered |
+| `PATCH` | `/api/auth/me` | rename the account, `{ name }` |
+| `DELETE` | `/api/auth/me` | close the account and its fonts: `{ password }`, or `{ confirm: email }` on an account with no password |
 | `POST` | `/api/auth/password` | `{ current, next }`, signing other browsers out; `{ next }` alone sets a first password on a Google account |
 | `GET` / `DELETE` | `/api/auth/sessions` | how many other browsers are signed in · sign them out |
-| `GET` | `/api/auth/google` | `?intent=signin\|link&popup=1&back=/path` → off to Google; it returns to `/api/auth/google/callback` |
+| `GET` | `/api/auth/google` | `?intent=signin` or `link`, `&popup=1&back=/path` → off to Google; it returns to `/api/auth/google/callback` |
 | `DELETE` | `/api/auth/google` | disconnect Google (needs a password set) |
 | `GET` | `/api/designs` | list saved designs, newest first |
 | `POST` | `/api/designs` | create `{ name, styleId, params }` |
-| `GET` / `PUT` / `DELETE` | `/api/designs/:id` | read, update, delete |
+| `GET` / `PUT` / `PATCH` / `DELETE` | `/api/designs/:id` | read · update `{ name, styleId, params }` · rename `{ name }` · delete |
+| `GET` | `/api/free-fonts/:id` | a free font's letters, as the engine draws them (fetched from Google Fonts the first time) |
 | `POST` | `/api/export/otf` | `{ name, params }` → OpenType font file |
 | `POST` | `/api/export/family` | `{ name, params, family }` → .zip of fonts |
 | `POST` | `/api/export/svg` | `{ name, params }` → SVG specimen |
@@ -185,7 +215,7 @@ Anyone can design and save without an account: designs saved signed out belong t
 and from then on the account's designs open on any browser signed in to it. Passwords are stored only
 as scrypt hashes (`server/accounts.ts`), a sign-in is a random token in an HttpOnly, SameSite=Lax
 `typelab_session` cookie (the database keeps only its SHA-256) lasting 90 days, and ten wrong passwords
-in 15 minutes for one email pause sign-in for it. There is no password reset by email yet.
+in 15 minutes from one address for one email pause sign-in for that pair. There is no password reset by email.
 
 Google sign-in (`server/google.ts`) is the authorization-code flow with PKCE and a random state,
 both kept for the browser in a 10-minute HttpOnly cookie. It runs in a popup so the open design stays
@@ -197,8 +227,9 @@ signs its other browsers out, so an account set up in someone else's name can't 
 
 ## Shortcuts
 
-`⌘/Ctrl+Z` undo · `⇧⌘/Ctrl+Z` redo · `⌘/Ctrl+S` save · `Esc` close inspector or menu ·
-`←/→` previous/next glyph · double-click a slider to reset it to the starting style's value.
+`⌘/Ctrl+Z` undo · `⇧⌘/Ctrl+Z` redo · `⌘/Ctrl+S` save · `⌘/Ctrl+K` find a setting · `/` search styles on the
+Style page, settings elsewhere · `Esc` close inspector or menu · `←/→` previous/next glyph · double-click a
+slider to reset it to the starting style's value.
 
 In the glyph inspector, drag the letter itself: a stroke to change the weight, a crossbar, counter or
 serif to reshape it, a guide line to move the x-height, cap height or extenders, and the advance box's
@@ -219,11 +250,14 @@ the tools work like a vector editor's: **Direct selection** (`A`) drags points, 
 drag a box to pick several, arrows nudge by one unit, Shift by ten, Alt-drag a handle to break a smooth
 point, double-click a point to switch corner ↔ smooth); the **Pen** (`P`) adds a point where it clicks the
 outline, deletes a point it clicks, and draws new shapes (click for corners, drag for curves, click the
-first point to close); **Convert point** (`⇧C`) switches corner ↔ smooth or pulls out new handles. The bar
+first point to close); **Convert point** (`⇧C`) switches corner ↔ smooth or pulls out new handles; the
+**Shape** tool adds a rectangle (`M`), ellipse (`L`), rounded rectangle, triangle, hexagon or star. The bar
 below types exact coordinates and the width; points snap to whole units, and with *Snap* to the guide
-lines and other points. `⌘`-scroll zooms, Space-drag pans, `⌘0` fits the letter. **Reverse direction**
-turns a contour inside another into a hole (or back). The first edit makes the letter a drawing, saved
-with the design (`params.outlines`) and exported as it is: the settings no longer shape it until
+lines, other points, centers, midpoints, the outline, crossings and tangents. With **Sync all** a point
+moved in one letter moves in the other letters with a point in the same place, and **Mirror** moves its
+partner across the letter's middle the other way. `⌘`-scroll zooms, Space-drag pans, `⌘0` fits the letter.
+**Reverse direction** turns a contour inside another into a hole (or back). The first edit makes the letter a
+drawing, saved with the design (`params.outlines`) and exported as it is: the settings no longer shape it until
 **Back to settings**.
 
 **Construction grid**, in the inspector's header, draws the letter as an outline on the grid it is
@@ -231,9 +265,10 @@ built on, like the grid pages of a type specimen: its straight edges carried on 
 the level and upright lines its curves turn on, and the circles and ellipses its corners and bowls
 are arcs of. Letters built the same way share a grid, named in the bar under the header: Grid A to D
 are the capitals (straight strokes, diagonals, stems and curves, round), E to H the lowercase, I to L
-the figures, M to P the punctuation. The bar lists the letters on the same grid (click one to inspect
+the figures, M to P the punctuation, Q to T the symbols. The bar lists the letters on the same grid (click one to inspect
 it); lines and circles the letter has in common with its group are drawn in one colour, its own in
 another. The grid follows the letter as it is dragged, and shows in Points mode too.
 
-Deep links for demos: `/?style=serif&cat=serifs&active=serifTip&inspect=R&mode=paragraph&hot=1` (add `&pen=1` for Points).
-`cat` names a page, or a group to open its first page; an `active` control opens the page it is on.
+Deep links for demos: `/?style=serif&cat=serifs&active=serifTip&inspect=R&text=Hello&hot=1` (add `&pen=1` for Points).
+`cat` names a page, or a group to open its first page; an `active` control opens the page it is on; `text` sets
+the sample text. A visit that arrives on a link with a query skips the first-run tour.

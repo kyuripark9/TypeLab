@@ -1,0 +1,81 @@
+# tests: node:test suites and the golden outlines
+
+Every `*.test.ts` here runs under `node --import tsx --test` (`npm test` runs them all). Tests are type-checked with
+the rest (`npm run typecheck`, strict, `noUnusedLocals`), so an unused local in a test fails the type check.
+
+## Running some of them
+
+```sh
+tools/node.sh node --import tsx --test tests/cuts.test.ts                                   # one file
+tools/node.sh node --import tsx --test --test-name-pattern "slice" tests/cuts.test.ts        # tests by name
+tools/node.sh node --import tsx --test --test-name-pattern "stencil" "tests/**/*.test.ts"   # by name, everywhere
+```
+
+`--test-name-pattern` must come before the files: placed after them it is ignored and the whole file runs. It
+matches `describe` and `it` names (a regular expression). Drop `tools/node.sh` where `node` is 22.13 or newer.
+
+## The files
+
+| File | Covers |
+| --- | --- |
+| `engine.test.ts` | The engine as a whole: every style and the `extremes` (settings at their ends and in odd combinations) draw every glyph with finite outlines; spacing, customized letters, layout; the glyph registry (`glyphIds()`, `meta.params`); `expandStroke`'s outputs; block letters; rotation; sliders that keep changing to 100 |
+| `letterforms.test.ts` | The a's storey and spur, bowl joins and overlap, the forms of g k Q R s Y i/l/I/J, dots, diagonals, bends, box bowls, mirroring, crossbar height; descenders, Stem length, tails |
+| `ends.test.ts` | Stroke ends: each kind and form and its finer sliders, straight runs, Length and Curl for all ends and each one (terminals, hooks, tails, plain ends such as T's `p0s`) |
+| `corners.test.ts` | Each corner's roundness inside and out (O's `0t0` to `0t3`), end corners, Joins (t's `0j0` to `0j3`), Steps, Counters, Squareness, Facets |
+| `cuts.test.ts` | Stencil (gaps, Position, Rounding), each join opened on its own (F's, A's and M's join ids), the crossbar Gap and Through, the Slice |
+| `fills.test.ts` | Pixels and dots on one grid, every fill on every glyph, Outline, Inline, Shadow, and `boolean.ts`'s unions and cuts |
+| `weights.test.ts` | Weight, Contrast both ways, Verticals and Horizontals, one stroke's own weight, Pinch |
+| `serifs.test.ts` | Where serifs sit (`serifAt`), tips, bases and cups, bracket, balance, sides, inside serifs, tops and arms, the diamond, cleaning saved serif settings |
+| `script.test.ts` | Cursive and the script letterforms (`.scr`), Swell, Flourishes (`.sw`, reaching past a letter without widening it), Swash capitals |
+| `grid.test.ts` | Construction grids: lines and rounds, the groups and their names (Grid A to T), what is shared, slanted and drawn letters, the 40-line and 28-round limits |
+| `params.test.ts` | `sanitizeParams` and `isValidParams`; older settings (a separate reverse contrast, the first Lowercase height scale); a database written before `PARAMS_VERSION` 2 upgraded once |
+| `handles.test.ts` | Every per-letter map in `ID_KEYS` changes its letter across its range (`HandleKey` must list them all) |
+| `drag.test.ts` | `client/lib/drag.ts`: which setting a drag moves, the solved value, ends kept in order, handles per control |
+| `pen.test.ts` | `client/lib/pen.ts` and `fitOutline`: tracing, drawn letters in `params.outlines`, point edits, Sync all, Mirror, Snap |
+| `reach.test.ts` | `client/lib/reach.ts`: whether a setting changes the letters in view, and which letters it would change |
+| `pages.test.ts` | Pages and controls: each control on one page, page and control order, links naming a page or group (`pageOf`), Find a setting |
+| `icons.test.ts` | Every slider has an icon in `SliderIcons.tsx`, and every icon belongs to a slider |
+| `styles.test.ts` | Valid presets; the Style page's cards (solid letters, every Feeling carried, `TAG_FACE` on the page); word spaces in joined-up scripts; v w V W on the baseline, no gap after a curled Q |
+| `traits.test.ts` | The Adjust tab's trait steps and the style search |
+| `family.test.ts` | `shared/family.ts` and the family `.zip` (`server/export.ts`): weights, members, names and style bits |
+| `free-fonts.test.ts` | Every style's free font id; converting a font file as the server does; drawing a design in a free font and moving its letters (skin, restyle, the twin, `formChanged`); the export's notice; the API route |
+| `api.test.ts` | The HTTP API on an in-memory store: designs, accounts, Google sign-in, export, a database from before owners |
+| `boundaries.test.ts` | Nothing under `shared/` imports `client/` or `server/` or touches the DOM (a regex: a comment saying `window.` trips it) |
+| `golden.test.ts` | The engine's golden outlines; the free fonts' too with `GOLDEN_FREE=1` |
+
+Planned (being added in parallel; names not fixed yet): invariant tests for stroke order, the id builders against the
+saved-id tests in `shared/params/scales.ts`, the twin round trip, restyles leaving unmoved letters alone,
+`skinFollows`' letter lists, `SUBS` and `FORM_OPTIONS` coverage in the panel, the accounts table upgrade, reach's
+choices, the inspector's string couplings, and deep-link parsing.
+
+## Helpers and fixtures
+
+- `outlines.ts` reads outlines: `contours`, `curves`, `xsOf`, `ysOf`, `pathPts` work on a glyph's `d` (SVG path data,
+  y down); `coords` on `cmds` (font units, y up). Every other glyph field (strokes, serifs, counters, skeleton, marks)
+  is y up. Don't mix the two.
+- `api.test.ts` mounts `createApp` on `DesignStore(':memory:')` at a random port; `browser()` is a client with its own
+  cookie jar; a stand-in `GoogleAuth` names a person per code and checks the PKCE verifier. The `it`s of each
+  `describe` run in order and build on the designs and accounts the earlier ones made.
+- `free-fonts.test.ts` builds a small font with opentype.js (`fontFile()`: an H, an o of quadratic curves, a space)
+  and stands in for Google Fonts (`googleFonts()`), so nothing is fetched.
+- `params.test.ts` and api.test.ts's `design storage` write a database in an older shape into a temporary directory
+  and open it with `DesignStore`; keep those shapes as they are when the schema grows.
+
+## The golden files
+
+`tests/golden/outlines.txt` (the engine set) and `tests/golden/free-outlines.txt` (the free set) hold three base64url
+characters per glyph: a SHA-1 of its placed outline to a hundredth of a unit, with its left side bearing and advance.
+`tools/golden.ts` computes them.
+
+- Engine probes: `style:<id>` for every style, `defaults`, `<key>=<value>` for every setting at its ends and in each
+  option (tried where it shows), the stroke-end forms, a `glyphs` probe with letters of their own, a blocks probe,
+  and stencil, crossbar-gap and join-gap probes on ten styles. `npm test` checks them.
+- Free probes: `<style>@<hash of the kept font file>[:<move>]`, each style in its free font as picked and moved by a
+  few settings. They need the fonts in `data/free-fonts` (`FONTS_DIR`); `npm run golden` checks them, or `npm test`
+  with `GOLDEN_FREE=1`. A font that isn't kept, or whose file changed, drops out of the check silently.
+- What golden misses: letter and word spacing (layout only), marks, counters, skeletons, highlights, metrics, and
+  per-letter values beyond its probes. `npm run compare` (planned) covers those.
+
+Update them (`npm run golden:update`) only for a change you meant, after looking at it rendered, and commit them with
+that change. Renaming a setting key, an option or a style id shows as `new probe` and `probe gone`. A failure names
+each probe and the letters that moved.
