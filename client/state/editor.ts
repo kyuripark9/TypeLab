@@ -1,10 +1,10 @@
 /* Editor state. One store for the open design (with undo history) and the UI around it.
    Actions live outside the store so components can import them without subscribing. The module also
    builds the open design's font (fontFor, one build per params object), matches starting styles against
-   the Style page's filters and traits, and runs the style finder's steps. Importing it subscribes to
-   free fonts arriving, so a design written in one draws again once its letters come. */
+   the Style page's filters and traits. Importing it subscribes to free fonts arriving, so a design written
+   in one draws again once its letters come. */
 import { create } from 'zustand';
-import { STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
+import { STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
 import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
 import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../shared/engine';
 import { STYLE_FONTS, isOwnFont, parseFontId } from '../../shared/free-fonts';
@@ -57,13 +57,10 @@ export interface EditorState extends Doc {
   /** Style page filters; an empty list means no filter on that facet */
   groups: StyleGroup[];
   moods: Mood[];
-  kinds: Kind[];
   /** Style page search words */
   query: string;
-  /** the Style page asks a few questions (Category, Classification, Feeling) before it shows the cards */
+  /** the Style page asks what kind of letters (the Category) before it shows the cards */
   finder: boolean;
-  /** finder steps answered with "Any", each with what the steps before it had picked then (see passKey) */
-  passed: Partial<Record<FinderStep, string>>;
   /** Style page traits, laid over every starting style */
   traits: Traits;
   styleTab: StyleTab;
@@ -148,11 +145,9 @@ export const useEditor = create<EditorState>()(() => ({
   size: 48,
   groups: [],
   moods: [],
-  kinds: [],
   query: '',
   // on unless this browser was left browsing every card
   finder: !prefFlag(PREFS.browseAll),
-  passed: {},
   traits: {},
   styleTab: 'filter',
   view: prefOneOf(PREFS.cardView, ['grid', 'list'], 'grid'),
@@ -291,27 +286,11 @@ function adjustedLooks(s: StyleDef, traits: Traits): Look[] {
 }
 /** The Style page's filters, and a test of whether a starting style (as the traits show it) passes them, or would with `pick` in place of its facet. */
 export function useStyleMatch() {
-  const groups = useEditor(s => s.groups), kinds = useEditor(s => s.kinds), moods = useEditor(s => s.moods);
+  const groups = useEditor(s => s.groups), moods = useEditor(s => s.moods);
   const query = useEditor(s => s.query), traits = useEditor(s => s.traits);
-  const f: StyleFilter = { groups, kinds, moods, query };
+  const f: StyleFilter = { groups, moods, query };
   return { f, traits, matches: (s: StyleDef, pick: Partial<StyleFilter> = {}, t = traits) => styleMatches(s, { ...f, ...pick }, adjustedLooks(s, t)) };
 }
-/** The style finder's questions, in order, and the filter facet each one sets. */
-export type FinderStep = 'group' | 'kind' | 'mood';
-export const FINDER_STEPS: FinderStep[] = ['group', 'kind', 'mood'];
-const FACET = { group: 'groups', kind: 'kinds', mood: 'moods' } as const;
-/** What the steps before `step` had picked. A step answered "Any" stays passed only while they
-    still hold, so going back and picking something else asks it again. */
-export const passKey = (s: Pick<EditorState, 'groups' | 'kinds'>, step: FinderStep) =>
-  JSON.stringify(step === 'group' ? [] : step === 'kind' ? [s.groups] : [s.groups, s.kinds]);
-/** `step` and the steps after it, emptied and asked again. */
-function reopen(s: EditorState, step: FinderStep): Partial<EditorState> {
-  const later = FINDER_STEPS.slice(FINDER_STEPS.indexOf(step));
-  const passed = { ...s.passed };
-  for (const k of later) delete passed[k];
-  return { passed, ...Object.fromEntries(later.map(k => [FACET[k], []])) };
-}
-
 /** The picked steps as "Weight: Bold", in the order of the Adjust tab. */
 export const traitLabels = (traits: Traits) =>
   TRAIT_SECTIONS.flatMap(sec => sec.traits).filter(t => traits[t.id]).map(t => ({ id: t.id, label: `${t.label}: ${traitOption(t.id, traits[t.id])!.label}` }));
@@ -484,17 +463,10 @@ export const actions = {
   setSize(size: number) { set({ size }); },
   toggleGroup(g: StyleGroup) { set(s => ({ groups: toggle(s.groups, g) })); },
   toggleMood(m: Mood) { set(s => ({ moods: toggle(s.moods, m) })); },
-  toggleKind(k: Kind) { set(s => ({ kinds: toggle(s.kinds, k) })); },
-  clearFilters() { set({ groups: [], moods: [], kinds: [], query: '', passed: {} }); },
-  /** Answer a finder step with one tag: its facet becomes just that, and the steps after it are asked again. */
-  answer(step: FinderStep, id: string) { set(s => ({ ...reopen(s, step), [FACET[step]]: [id] })); },
-  /** Answer a finder step with "Any": it picks nothing and the next step comes up. */
-  pass(step: FinderStep) { set(s => ({ passed: { ...s.passed, [step]: passKey(s, step) } })); },
-  /** Go back to a finder step, dropping its answer and the ones after it. */
-  backTo(step: FinderStep) { set(s => reopen(s, step)); },
-  /** Ask the finder's questions again from the start, or leave them and browse every card. */
+  clearFilters() { set({ groups: [], moods: [], query: '' }); },
+  /** Ask the finder's question again, or leave it and browse every card; either way no filter is left on. */
   setFinder(finder: boolean) {
-    if (finder) actions.clearFilters();
+    actions.clearFilters();
     set({ finder });
     setPrefFlag(PREFS.browseAll, !finder);
   },

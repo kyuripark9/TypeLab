@@ -23,7 +23,7 @@ const STYLE_TABS: [StyleTab, string][] = [['filter', 'Filter'], ['adjust', 'Adju
     one of them, so each card shows its style with them and any mix can be started from. */
 export function StylePanel() {
   const tab = useEditor(s => s.styleTab);
-  const nFilters = useEditor(s => s.groups.length + s.kinds.length + s.moods.length + (s.query.trim() ? 1 : 0));
+  const nFilters = useEditor(s => s.groups.length + s.moods.length + (s.query.trim() ? 1 : 0));
   const nTraits = useEditor(s => Object.keys(s.traits).length);
   const counts = { filter: nFilters, adjust: nTraits };
   const move = (e: KeyboardEvent<HTMLButtonElement>) => {
@@ -50,13 +50,13 @@ export function StylePanel() {
   );
 }
 
-/** Search, then the feelings. The kind of letters and their genre are what the style finder asks
-    on the stage, so they aren't asked again here. */
+/** Search, then the feelings. The kind of letters is what the style finder asks on the stage (and
+    how the cards are grouped), so it isn't asked again here; a genre is found by searching its name. */
 function StyleFilters() {
   const { f, matches } = useStyleMatch();
   // each tag's count is what picking it would show, given the other filters
   const count = (pick: Partial<StyleFilter>) => PAGE_STYLES.filter(s => matches(s, pick)).length;
-  const picked = f.groups.length + f.kinds.length + f.moods.length > 0 || !!f.query?.trim();
+  const picked = f.groups.length + f.moods.length > 0 || !!f.query?.trim();
   return (
     <>
       <div className="search-row">

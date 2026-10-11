@@ -27,7 +27,7 @@ without subscribing.
   defaults, where the engine adds nothing to the font's own spacing); `setFreeLetters` switches between the free font
   and built letters, swapping the spacing back and forth. When a free font arrives, the open design gets a fresh
   params object so it draws again.
-- The Style page: filters (`groups`, `kinds`, `moods`, `query`), the finder (`FINDER_STEPS`, `passed`, `passKey`),
+- The Style page: filters (`groups`, `moods`, `query`), the finder (`finder`: ask what kind of letters first),
   traits (`traits`, `adjustedParams`, cached per style and trait set), and `picked`: while the design's params still
   equal the JSON picked on the Style page, trait changes re-apply to it.
 - Saving: `designInput(s)` is what a save sends; EditorPage registers its save flow with `onSaveRequest`, and
@@ -52,7 +52,7 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `components/Header.tsx` | Logo, the design's name, undo and redo, Guide, My designs, Save, the Export menu (font, family, specimen, `.typelab.json` out and in) |
 | `components/Chrome.tsx` | `Nav` (pages, Find a setting on ⌘K), `GlyphStrip` (one memo `StripCell` per glyph), `Toast` |
 | `components/Stage.tsx` | The Type something bar; on the Style page the finder and the style cards (each in its free font as a web font), elsewhere the preview and the inspector |
-| `components/Finder.tsx` | The style finder's questions (group, kind, mood: Category, Classification, Feeling) |
+| `components/Finder.tsx` | The style finder's one question, what kind of letters (the Category); its answer is the `groups` filter |
 | `components/Preview.tsx`, `GlyphDefs.tsx` | The live preview, every letter a `<use>` of `#g<code>` defined once in GlyphDefs, with highlights `#h<code>` |
 | `components/Inspector.tsx` | One letter, large: its parts live, drags through `lib/drag.ts`, Shape/Points, Sync all/Customize, the construction grid toggle; `letterControls` |
 | `components/PenCanvas.tsx` | Points mode: Direct selection, Pen, Convert point, the Shape tool, Sync all, Mirror, Snap (`SNAPS`) |

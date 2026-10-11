@@ -5,13 +5,13 @@
    preview of the design. The size only shows with the preview: the cards are for comparing styles,
    so they keep one size. */
 import { useDeferredValue, useRef, useState } from 'react';
-import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../../shared/content';
+import { MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../../shared/content';
 import { parseFontId, STYLE_FONTS } from '../../shared/free-fonts';
 import { fontStyle, useWebFont } from '../lib/free';
 import { useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
 import { actions, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
-import { FinderQuestion, FinderTrail, useFinder } from './Finder';
+import { FinderQuestion, useFinder } from './Finder';
 import { Inspector } from './Inspector';
 import { focusFilters } from './Panel';
 import { Preview } from './Preview';
@@ -117,9 +117,9 @@ function SampleText() {
 /** The size every style card is set at, in px. */
 const CARD_SIZE = 48;
 
-/** Cards are grouped by Category, the finder's first question, and narrowed by all the filters,
-    which see each style as the Adjust tab's traits make it. Each card sets the text in its style's
-    free font. The finder asks its questions first, and the cards come once they're answered. */
+/** Cards are grouped by Category, the finder's question, and narrowed by all the filters, which
+    see each style as the Adjust tab's traits make it. Each card sets the text in its style's free
+    font. The finder asks its question first, and the cards come once it's answered. */
 function StyleCards() {
   const custom = useEditor(s => s.custom), text = sampleText(custom);
   const finder = useFinder();
@@ -134,7 +134,7 @@ function StyleCards() {
     <div className="style-cards">
       <div className="cards-head">
         <h1 ref={head} tabIndex={-1}>Start with a style</h1>
-        {/* one spot for both ways in: the questions, or every card at once */}
+        {/* one spot for both ways in: the question, or every card at once */}
         <button className="link small" onClick={() => actions.setFinder(!finder.on)}>{finder.on ? 'Browse all styles' : 'Help me choose'}</button>
         {/* the filters sit after every card in tab order; this jumps there, and shows only when focused */}
         <button className="skip" onClick={focusFilters}>Skip to filters</button>
@@ -147,9 +147,8 @@ function StyleCards() {
         )}
       </div>
       <p className="letters-note">{LETTERS_NOTE}</p>
-      {finder.on && <FinderTrail finder={finder} />}
-      <ActiveBar onClear={() => head.current?.focus()} finder={finder.on} />
-      {finder.question ? <FinderQuestion question={finder.question} /> : shown.length ? (
+      <ActiveBar onClear={() => head.current?.focus()} />
+      {finder.question ? <FinderQuestion options={finder.question} onAnswer={() => head.current?.focus()} /> : shown.length ? (
         <div className={traits === now ? 'style-groups' : 'style-groups stale'}>
           {STYLE_GROUPS.filter(g => shown.some(s => s.group === g.id)).map(g => (
             <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
@@ -167,18 +166,16 @@ function StyleCards() {
   );
 }
 
-/** Everything picked in the panel, search, filters and traits, as one row of chips, each removed
-    with a click; the trait chips are tinted apart from the filters. While the finder is on, its trail
-    shows the Category, Classification and Feeling instead. */
-function ActiveBar({ onClear, finder }: { onClear: () => void; finder: boolean }) {
+/** Everything picked, the finder's answer, search, feelings and traits, as one row of chips, each
+    removed with a click (taking the answer off asks the finder's question again); the trait chips are
+    tinted apart from the filters. */
+function ActiveBar({ onClear }: { onClear: () => void }) {
   const { f, traits } = useStyleMatch();
   const tag = <T extends string>(list: { id: T; label: string }[], id: T) => list.find(x => x.id === id)!.label;
-  const kinds = KIND_SECTIONS.flatMap(sec => sec.tags);
   const items: { key: string; label: string; trait?: boolean; remove: () => void }[] = [
     ...(f.query?.trim() ? [{ key: 'q', label: `“${f.query.trim()}”`, remove: () => actions.setQuery('') }] : []),
-    ...(finder ? [] : f.groups.map(g => ({ key: `g-${g}`, label: tag(STYLE_GROUPS, g), remove: () => actions.toggleGroup(g) }))),
-    ...(finder ? [] : f.kinds.map(k => ({ key: `k-${k}`, label: tag(kinds, k), remove: () => actions.toggleKind(k) }))),
-    ...(finder ? [] : f.moods.map(m => ({ key: `m-${m}`, label: tag(MOODS, m), remove: () => actions.toggleMood(m) }))),
+    ...f.groups.map(g => ({ key: `g-${g}`, label: tag(STYLE_GROUPS, g), remove: () => actions.toggleGroup(g) })),
+    ...f.moods.map(m => ({ key: `m-${m}`, label: tag(MOODS, m), remove: () => actions.toggleMood(m) })),
     ...traitLabels(traits).map(t => ({ key: `t-${t.id}`, label: t.label, trait: true, remove: () => actions.setTrait(t.id, null) }))
   ];
   if (!items.length) return null;

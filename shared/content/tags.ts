@@ -7,9 +7,9 @@ import { searchTerms, startsWords } from './search';
 import type { StyleDef } from './styles';
 
 /* Starting styles are tagged like the fonts on Google Fonts. The group is a style's Category: it
-   sorts the cards on the stage and is the style finder's first question. Then come the finer
-   Classification tags (Sans Serif, Serif and Calligraphy, in the order of the card groups), the
-   finder's second question, Appearance, which search reads, and Feeling, the panel's filter. */
+   sorts the cards on the stage and is the style finder's question. Then come the finer
+   Classification tags (Sans Serif, Serif and Calligraphy, in the order of the card groups) and
+   Appearance, both of which search reads, and Feeling, the panel's filter. */
 export type StyleGroup = 'sans' | 'serif' | 'slab' | 'mono' | 'hand' | 'display';
 export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string }[] = [
   { id: 'sans', label: 'Sans Serif', hint: 'Clean letters with no serifs' },
@@ -49,7 +49,7 @@ const LOOKS: { id: Look; label: string; test: (e: Effective) => boolean }[] = [
 
 /* Classification, like Google's Sans Serif, Serif and Calligraphy tags: the genre a style is
    drawn in, finer than its Category. Hand-picked, and a style may carry more than one (a
-   Clarendon is also a Slab). Together they are one facet, so picking Didone and Geometric shows both. */
+   Clarendon is also a Slab); search finds a style by any of them ("didone", "humanist"). */
 export type Kind = 'handwritten' | 'upright' | 'informal' | 'formal' | 'brush' | 'marker' | 'swash' | 'italic' | 'monoline' | 'signature' | 'blackletter'
   | 'venetian' | 'oldstyle' | 'transitional' | 'didone' | 'fatface' | 'wedge' | 'slab' | 'clarendon'
   | 'geometric' | 'neogrotesque' | 'grotesque' | 'humanist' | 'rounded' | 'superellipse' | 'flared';
@@ -91,12 +91,12 @@ export const KIND_SECTIONS: { groups: StyleGroup[]; tags: TagDef<Kind>[] }[] = [
 ];
 
 /** The picked tags of each facet; an empty list means no filter on that facet. `query` is typed search words. */
-export interface StyleFilter { groups: StyleGroup[]; kinds: Kind[]; moods: Mood[]; query?: string }
+export interface StyleFilter { groups: StyleGroup[]; moods: Mood[]; query?: string }
 /** Faceted like Google Fonts: any of the picked tags within a facet, every facet at once. `looks`
     are the style's Appearance as shown, which traits laid over it may change, for search to find. */
 export const styleMatches = (s: StyleDef, f: StyleFilter, looks: Look[] = s.looks) =>
   (!f.groups.length || f.groups.includes(s.group)) && (!f.moods.length || s.moods.some(m => f.moods.includes(m))) &&
-  (!f.kinds.length || s.kinds.some(k => f.kinds.includes(k))) && searchMatches(s, f.query ?? '', looks);
+  searchMatches(s, f.query ?? '', looks);
 
 /** Everything a search can find a style by: its name, genre, feelings, looks, description, the font it's written in
     and the Google Fonts families like it. */

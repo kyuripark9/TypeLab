@@ -212,23 +212,9 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .active-chip.trait:hover { background: rgba(77, 128, 230, .2); }
 .active-chip svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; opacity: .75; }
 .link.small { font-size: 12px; margin-left: 4px; }
-/* the style finder: the answers so far as a trail, then the question asked now as a grid of tiles */
-.finder-trail { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin: -10px 0 12px; }
-.finder-trail ol > li:first-child .crumb { margin-left: -8px; }
-.finder-trail ol { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.finder-trail li { display: flex; align-items: center; gap: 2px; }
-.finder-trail svg { fill: none; stroke: var(--ink-3); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
-.crumb { height: 26px; padding: 0 8px; border-radius: var(--radius-s); font-size: 13px; font-weight: 500; color: var(--ink); transition: background .15s; }
-.crumb:hover { background: var(--active); }
-.crumb:disabled { color: var(--ink-3); background: none; }
-.crumb-count { margin-left: 6px; color: var(--ink-3); font-weight: 400; }
-.crumb.now { display: inline-flex; align-items: center; color: var(--ink-3); font-weight: 400; }
-.finder-step { display: flex; align-items: center; gap: 8px; margin-left: auto; font-size: 12px; font-weight: 500; color: var(--ink-3); }
-.finder-steps { display: flex; gap: 4px; }
-.finder-steps span { width: 18px; height: 4px; border-radius: 2px; background: var(--line-2); transition: background .2s; }
-.finder-steps span.on { background: var(--accent); }
+/* the style finder: its one question as a grid of tiles */
 .finder-head { margin: 0 0 14px; }
-.finder-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.015em; outline: none; }
+.finder-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.015em; }
 .finder-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 /* tiles come in one after another, each its sample centred in it; pointed at, a tile takes the accent */
 .finder-option { text-align: left; min-width: 0; min-height: 96px; display: flex; flex-direction: column; justify-content: center; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface);
