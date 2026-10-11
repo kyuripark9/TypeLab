@@ -2,20 +2,21 @@
    free-letters.ts): each letter's outline is hung on its skeleton, the middle line of its strokes, and the
    settings move the skeleton and thicken or thin the strokes round it by the engine's own measures
    (Metrics), so Weight 70 is as much heavier on a free font as on a built one. Unmoved, a letter is
-   the font's exactly.
+   the font's exactly (its overlapping pieces made one, the same ink).
 
-   The rig: the outline is sampled every few units; each sample's inward normal is followed to the
-   ridge of the distance to the paper (the skeleton), and the stroke's thickness there is read across
-   it. Moving: the skeleton points go where the heights, the width and the crossbar put them, each
-   edge moves out (or in) by its stroke's change of thickness, corners sit where their two edges meet
-   again, the letter is put back to its heights (bolder letters keep their x-height and capitals, as
-   the engine's do), and the samples are traced back into curves. */
+   The rig: the outline, its overlapping pieces united, is sampled every few units; each sample's inward
+   normal is followed to the ridge of the distance to the paper (the skeleton), and the stroke's thickness
+   there is read across it; where the outline turns back across a stroke, that is the stroke's end. Moving:
+   the strokes' middles go where the heights, the width and the crossbar put them, each edge moves out (or
+   in) by its stroke's change of thickness, corners sit where their two edges meet again, each end goes
+   with the two sides it joins, the letter is put back to its heights (bolder letters keep their x-height
+   and capitals, as the engine's do), and the samples are traced back into curves. */
 import type { Params } from '../params';
 import { counterScale, serifLen, type Metrics } from './font';
 import type { FreeFont } from './free';
 import { fitOutline, type Node } from './outline';
 import { signedArea } from './geom';
-import { combine, shape } from './boolean';
+import { combine, shape, unite } from './boolean';
 import { FREE_FAMILIES } from '../free-fonts';
 import { HOOK_LETTERS, OPEN_LETTERS, added, hasTerminals } from './restyle';
 import { alongFrom, bez, branchNode, branches, endFace, inkGrid, joinsOf, leaving, nearestOn, skeleton, type Branch, type Grid, type Skeleton } from './scan';
@@ -92,13 +93,16 @@ interface Bone {
 
 /** The letter's heights, its bar's height if it has one that Crossbar moves, and its case. */
 interface Ctx { cap: number; xh: number; asc: number; desc: number; barY: number | null; lower: boolean; ch: string }
-/** A free font's letter rigged (skinRig). Its contours are the font's own outline and never change: skinMove hands
+/** A free font's letter rigged (skinRig). Its contours are the font's own outline, its overlapping pieces made one
+    (unite in boolean.ts: the same ink and curves, without the edges inside it), and never change: skinMove hands
     back that same array when no setting moves the letter, and free-letters.ts reads the sameness (reusing the rig's
     skeleton for it, and keeping its restyled outlines by the array). sk, squareEnds and near are filled in when first
     asked for and describe those contours only; the outlines kept in moves are handed out too, so nothing changes them
     in place either. */
 export interface SkinRig {
-  contours: Node[][]; bones: Bone[][]; ctx: Ctx;
+  contours: Node[][];
+  /** each sample of the outline read across its stroke, contour by contour */ bones: Bone[][]; ctx: Ctx;
+  /** each contour's stroke ends (strokeEnds) */ ends: EndRun[][];
   /** whether it has serifs that Serif size moves */ serifs: boolean;
   /** how thick its upright strokes are, and its level ones, as a share of the capitals' height */ stem: number; bar: number;
   /** the last ways it was moved (MOVES_KEPT of them), by the measures it was moved from and to (dragging a slider back
@@ -282,6 +286,65 @@ function markDot(bones: Bone[], ctx: Ctx, alone: boolean, typical: number) {
   if (blob || Math.max(...bones.map(b => Math.hypot(b.ax - cx, b.ay - cy))) < 0.35 * typical) for (const b of bones) { b.dot = true; b.corner = false; b.cap = false; }
 }
 
+/** A stroke's end on a contour: samples a+1 to b-1 (counted on past the contour's last sample), between the last of
+    one side of the stroke (a) and the first of the other (b). */
+interface EndRun { a: number; b: number }
+
+/** how far the outline turns back toward its ink at a stroke's end (a little short of a half turn, so a stroke that
+    narrows to its end counts too) */
+const END_TURN = 150 * Math.PI / 180;
+
+/** A contour's stroke ends: where the outline turns back on itself across a stroke, toward its ink all the way, in a
+    stretch about as long as the stroke is thick and with its two sides about that far apart (a cap cut across it, a
+    round end, a terminal's cut, a serif's end), with the whole of the turn taken in. */
+function strokeEnds(bones: Bone[]): EndRun[] {
+  const n = bones.length;
+  if (n < 8) return [];
+  const at = (i: number) => bones[((i % n) + n) % n];
+  // each sample's turn on to the next: toward the ink (+), away from it (-); and how far on the next is
+  const turn = bones.map((b, i) => {
+    const c = at(i + 1), a = Math.abs(Math.atan2(b.tx * c.ty - b.ty * c.tx, b.tx * c.tx + b.ty * c.ty));
+    return (c.tx - b.tx) * b.nx + (c.ty - b.ty) * b.ny >= 0 ? a : -a;
+  });
+  const T = (i: number) => turn[((i % n) + n) % n];
+  const S = (i: number) => { const p = at(i), q = at(i + 1); return Math.hypot(q.x - p.x, q.y - p.y); };
+  // the shortest stretch from each sample that turns back far enough
+  const tight = new Map<number, EndRun>();
+  for (let i = 0; i < n; i++) {
+    const A = bones[i];
+    if (A.dot) continue;
+    let sum = 0, arc = 0;
+    for (let k = i; k < i + n - 1; k++) {
+      if (T(k) < -0.06) break;
+      sum += T(k); arc += S(k);
+      if (arc > 4.5 * A.w + 2 * STEP) break;
+      if (sum < END_TURN) continue;
+      const B = at(k + 1), w = Math.max(A.w, B.w);
+      // (the shortest to each far side wins)
+      if (!B.dot && Math.hypot(B.x - A.x, B.y - A.y) <= 3 * w + STEP && A.tx * B.tx + A.ty * B.ty < -0.8) tight.set((k + 1) % n, { a: i, b: k + 1 });
+      break;
+    }
+  }
+  // the whole of each turn: on out either way while the outline still turns toward the ink (a round end's last
+  // stretch), then those that overlap taken together
+  const runs = [...tight.values()].map(({ a, b }) => {
+    const w = Math.max(at(a).w, at(b).w);
+    for (let ext = 0; T(a - 1) > 0.02 && ext <= w; ext += S(a - 1)) a--;
+    for (let ext = 0; T(b) > 0.02 && ext <= w; ext += S(b)) b++;
+    if (a < 0) { a += n; b += n; }
+    return { a, b };
+  }).sort((p, q) => p.a - q.a);
+  const out: EndRun[] = [];
+  for (const r of runs) {
+    const last = out[out.length - 1];
+    if (last && r.a < last.b) last.b = Math.max(last.b, r.b);
+    else out.push({ ...r });
+  }
+  // (one running on round past the first's start into it)
+  if (out.length > 1 && out[out.length - 1].b > out[0].a + n) { const l = out.pop()!; out[0] = { a: l.a - n, b: Math.max(out[0].b, l.b - n) }; }
+  return out.filter(r => r.b - r.a >= 2 && r.b - r.a < n - 2);
+}
+
 /** Where to look for each letter's bar that Crossbar moves: the column (a share of the ink's width), the
     band (shares of its height) and the height it's likeliest at; and how far the engine's letters move it
     from Crossbar 0 to 1, as a share of the capitals' or the x-height (the m.bar terms of glyphs/upper.ts and
@@ -322,13 +385,17 @@ export function skinRig(font: FreeFont, ch: string): SkinRig | null {
   const barY = bar ? (columnRuns(f, x0 + (x1 - x0) * bar.at[0]).map(([a, b]) => (a + b) / 2)
     .filter(y => y > top * bar.at[1] && y < top * bar.at[2]).sort((a, b) => Math.abs(a - top * bar.at[3]) - Math.abs(b - top * bar.at[3]))[0] ?? null) : null;
   const ctx: Ctx = { cap: font.cap, xh: font.xh, ...kept.lines, barY, lower, ch };
+  // the outline rigged is the ink's own: a letter drawn in overlapping pieces (a stem whole and a bowl run into it, as a
+  // variable font's are and pieces drawn on a sheet and never united) has edges inside its ink, which, moved as the
+  // sides of strokes, come out of the strokes round them as notches and spurs
+  const cs = unite(g.contours);
   // (a dot is on its own: a counter as small, a bold e's eye, is inside the letter's outline, and so is no dot, nor an o round its counter)
-  const polys = g.contours.map(c => c.map(n => ({ x: n.x, y: n.y })));
-  const bones = g.contours.map((c, i) => rigContour(c, f, ctx, !polys.some((o, j) => j !== i && o.length > 2 && (inPoly(o, polys[i][0]) || inPoly(polys[i], o[0])))));
+  const polys = cs.map(c => c.map(n => ({ x: n.x, y: n.y })));
+  const bones = cs.map((c, i) => rigContour(c, f, ctx, !polys.some((o, j) => j !== i && o.length > 2 && (inPoly(o, polys[i][0]) || inPoly(polys[i], o[0])))));
   const upright = bones.flat().filter(b => Math.abs(b.nx) > 0.9 && !b.cap).map(b => b.w * 2).sort((a, b) => a - b);
   const level = bones.flat().filter(b => Math.abs(b.ny) > 0.9 && !b.cap && !b.dot).map(b => b.w * 2).sort((a, b) => a - b);
   const stem = (upright[upright.length >> 1] ?? 0) / font.cap;
-  r = { contours: g.contours, bones, ctx, serifs: bones.some(bs => bs.some(b => b.serifDx !== 0)), stem, bar: level.length ? level[level.length >> 1] / font.cap : stem, moves: new Map() };
+  r = { contours: cs, bones, ends: bones.map(strokeEnds), ctx, serifs: bones.some(bs => bs.some(b => b.serifDx !== 0)), stem, bar: level.length ? level[level.length >> 1] / font.cap : stem, moves: new Map() };
   kept.letters.set(ch, r);
   return r;
 }
@@ -489,10 +556,11 @@ const piecewise = (knots: [number, number][]) => (y: number) => {
 };
 
 /** An outline's small loops cut out, where an edge moved out overruns its neighbour (inside a corner the
-    strokes thicken into): where it crosses itself within a short stretch, the stretch goes. */
+    strokes thicken into): where it crosses itself within a short stretch, the stretch goes, one loop a pass (a letter
+    moved far can fold in a dozen places, and each fold left winds the other way, a slit in the ink). */
 function untangle(p: P[], reach = 60) {
   let pts = p.slice();
-  for (let pass = 0; pass < 4; pass++) {
+  for (let pass = 0; pass < 32; pass++) {
     let cut = false; const n = pts.length;
     for (let i = 0; i < n && !cut; i++) {
       const a = pts[i], b = pts[(i + 1) % n];
@@ -540,7 +608,7 @@ function crosses(rings: P[][]) {
 const ease = (v: number[], bs: Bone[], i: number, keep: (j: number) => boolean) => {
   let s = 0, ws = 0;
   for (const dir of [-1, 1]) for (let k = dir < 0 ? 0 : 1; k <= 3; k++) {
-    const j = (i + dir * k + bs.length) % bs.length;
+    const j = ((i + dir * k) % bs.length + bs.length) % bs.length;
     if (!keep(j)) break;
     const w = Math.exp(-(k * k) / 6); s += v[j] * w; ws += w;
   }
@@ -624,7 +692,8 @@ function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
 }
 
 /** One contour of the rig moved (contour r, its samples bs): each edge out or in by its stroke's change of thickness,
-    carried where the heights and the width put it, and each corner where its two edges meet again. */
+    carried where the heights and the width put it, each corner where its two edges meet again, and each stroke's end
+    with the sides it joins. */
 function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   const { gy, gyDot, gx, top, top1, sx, kv, kh, ks, kd, keeps } = mv;
   const n = bs.length, end = (b: Bone) => b.cap && !b.lineCap;
@@ -635,9 +704,9 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   // where the heights and the width put it: the skeleton point moved, and the edge kept as far across the
   // stroke from it as it was, the stroke turned as they turn it (a diagonal leans further as the letter
   // widens), so every stroke keeps its thickness; narrower, upright strokes thin a little, as a condensed
-  // face's do, and lower, level ones, or a heavy letter's counters would close. A stroke's end follows its own point, as there is
-  // no thickness across it to keep, a dot is carried whole, keeping its round, and a corner goes as the
-  // edges either side of it go
+  // face's do, and lower, level ones, or a heavy letter's counters would close. A stroke's end goes with the sides it
+  // joins (below; a cap the stroke ends found none for follows its own point, as there is no thickness across it to
+  // keep), a dot is carried whole, keeping its round, and a corner goes as the edges either side of it go
   let cx = 0, cy = 0;
   for (const b of bs) { cx += b.ax; cy += b.ay; }
   cx /= n; cy /= n;
@@ -649,20 +718,25 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   const geo = [0, 1].map(axis => bs.map(b => {
     if (b.dot) return axis ? gyDot(cy) - cy + (b.y - cy) * (kd - 1) : gx(cx) - cx + (b.x - cx) * (kd - 1);
     if (b.cap) return axis ? gy(b.y) - b.y : gx(b.x) - b.x;
-    // (the stroke runs as its edge does, read more surely there than off the skeleton)
-    const sy = gy(b.ay + 0.5) - gy(b.ay - 0.5), ox = b.x - b.ax, oy = b.y - b.ay;
+    // (the stroke runs as its edge does, read more surely there than off the skeleton; and its middle is half its
+    // thickness in from the edge: the skeleton forks out to a square end's corners, and runs on into a join)
+    const ax = b.x + b.nx * b.w, ay = b.y + b.ny * b.w;
+    const sy = gy(ay + 0.5) - gy(ay - 0.5), ox = b.x - ax, oy = b.y - ay;
     const along = ox * b.tx + oy * b.ty, across = oy * b.tx - ox * b.ty;
     let ex = b.tx * sx, ey = b.ty * sy;
     const l = Math.hypot(ex, ey) || 1; ex /= l; ey /= l;
     const thick = across * (1 + (condense - 1) * ey * ey + (lower - 1) * ex * ex);
     // (as far as the edge faces this way; along it, where the skeleton is read less surely, by its own point)
     const h = axis ? b.ny * b.ny : b.nx * b.nx;
-    return axis ? h * (gy(b.ay) + along * b.ty * sy + ex * thick) + (1 - h) * gy(b.y) - b.y
-      : h * (gx(b.ax) + along * b.tx * sx - ey * thick) + (1 - h) * gx(b.x) - b.x;
+    return axis ? h * (gy(ay) + along * b.ty * sy + ex * thick) + (1 - h) * gy(b.y) - b.y
+      : h * (gx(ax) + along * b.tx * sx - ey * thick) + (1 - h) * gx(b.x) - b.x;
   }));
   for (const g of geo) bs.forEach((b, i) => { if (b.corner) g[i] = (g[(i - 1 + n) % n] + g[(i + 1) % n]) / 2; });
-  const shift = (axis: number, i: number) => bs[i].corner ? geo[axis][i] : ease(geo[axis], bs, i, j => !bs[j].corner);
-  return bs.map((b, i) => {
+  // (a side keeps clear of the end it runs into, which is carried with the sides below)
+  const ends = rig.ends[r], inEnd = new Uint8Array(n), md = (i: number) => ((i % n) + n) % n;
+  for (const { a, b } of ends) for (let i = a + 1; i < b; i++) inEnd[md(i)] = 1;
+  const shift = (axis: number, i: number) => bs[i].corner ? geo[axis][i] : ease(geo[axis], bs, i, j => !bs[j].corner && !inEnd[j]);
+  const out = bs.map((b, i) => {
     const x = b.x + shift(0, i) + b.serifDx * (ks - 1) * sx, y = b.y + shift(1, i);
     if (!b.corner) return { x: x - b.nx * moved[i], y: y - b.ny * moved[i] };
     // a corner sits where its two edges, each moved its own way, meet again (not much further out than they moved)
@@ -675,6 +749,19 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     if (l > lim) { mx *= lim / l; my *= lim / l; }
     return { x: x + mx, y: y + my };
   });
+  // a stroke's end goes with the two sides it joins, as they now stand: turned, moved and made as much larger or
+  // smaller as the stroke is now thicker or thinner across them, so a cap stays as wide as its stroke and a round
+  // end round (the end's own points, read off the skeleton where it forks out to its corners, would part)
+  for (const { a, b } of ends) {
+    const A = bs[md(a)], B = bs[md(b)], A1 = out[md(a)], B1 = out[md(b)];
+    const ux = B.x - A.x, uy = B.y - A.y, vx = B1.x - A1.x, vy = B1.y - A1.y, l2 = ux * ux + uy * uy;
+    if (l2 < 1e-6 || vx * vx + vy * vy < 1e-6) continue;
+    for (let i = a + 1; i < b; i++) {
+      const p = bs[md(i)], dx = p.x - A.x, dy = p.y - A.y, s = (dx * ux + dy * uy) / l2, t = (dy * ux - dx * uy) / l2;
+      out[md(i)] = { x: A1.x + s * vx - t * vy, y: A1.y + s * vy + t * vx };
+    }
+  }
+  return out;
 }
 
 /** The letter keeps its heights, as the engine's do when they get bolder or lighter: whatever faces up at

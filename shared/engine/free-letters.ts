@@ -214,7 +214,10 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   const rig = fl.skin && fl.font && skinRig(fl.font, ch), skinned = rig ? skinMove(rig, fl.from, fl.to) : null;
   const moved: Drawn = rig ? { adv: src.adv, contours: restyled(rig, skinned!, fl) } : mapDrawn(src, src.adv * fl.sx, (x, y) => [x * fl.sx, y]);
   const sized = mapDrawn(moved, moved.adv * fl.k, (x, y) => [x * fl.k, y * fl.k]);
-  const [x0, x1] = skinned ? inkX({ adv: 0, contours: skinned }).map(v => v * fl.k) : inkX(sized), [i0, i1] = inkX(sized);
+  // (unmoved, by the font's own outline: the rig's has its pieces united, and a speck a corner's curl leaves outside it
+  // dropped, which would move the letter's room a little as it is picked)
+  const own = rig && skinned === rig.contours ? src.contours : skinned;
+  const [x0, x1] = own ? inkX({ adv: 0, contours: own }).map(v => v * fl.k) : inkX(sized), [i0, i1] = inkX(sized);
   // (and as far again as a serif reaches out past it, less a little, so two side by side don't run into one another: a
   // font's own side bearings are drawn for letters with no serifs)
   const sl = fl.serifs && fl.serif ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * SERIF_SB, over + sl * 0.15) : v);

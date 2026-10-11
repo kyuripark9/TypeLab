@@ -8,7 +8,9 @@ import type { AddressInfo } from 'node:net';
 import { describe, it } from 'node:test';
 import type { FontConstructorOptions } from 'opentype.js';
 import { PAGE_STYLES, STYLES } from '../shared/content';
-import { ALL_CHARS, CHARSET, buildFont, fitOutline, freeFont, freeFontsWanted, registerFreeFont, type FreeFontData, type Glyph } from '../shared/engine';
+import { ALL_CHARS, CHARSET, buildFont, fitOutline, freeFont, freeFontsWanted, packNode, registerFreeFont, type FreeFontData, type Glyph } from '../shared/engine';
+import { shape, unite } from '../shared/engine/boolean';
+import { toPolys } from '../shared/engine/geom';
 import { metrics, resolve } from '../shared/engine/font';
 import { contrastOfBars, formChanged, weightOfStem, widthOfScale } from '../shared/engine/free-letters';
 import { bowlLook, cornerLooks, restyleBowls, restyleCorners, restyleDots, restyleEnds, restylePeaks, restyleStencil, stencilLook } from '../shared/engine/restyle';
@@ -16,7 +18,7 @@ import { skeleton } from '../shared/engine/scan';
 import { SKIN_KEYS } from '../shared/engine/skin';
 import { familyMember } from '../shared/family';
 import { OLD_FONTS, OWN_FAMILIES, STYLE_FONTS, isOwnFont, nearestFont, parseFontId } from '../shared/free-fonts';
-import { DEFAULTS, FREE_AT_KEYS, sanitizeParams, xHeightOfRatio, xHeightRatio, type Params } from '../shared/params';
+import { DEFAULTS, FREE_AT_KEYS, freeAtOf, sanitizeParams, xHeightOfRatio, xHeightRatio, type Params } from '../shared/params';
 import { createApp } from '../server/app';
 import { DesignStore } from '../server/db';
 import { buildOTF } from '../server/export';
@@ -342,6 +344,48 @@ describe("TypeLab's own fonts", () => {
   it('give a family in one weight, or only in italic, that font whatever is asked', () => {
     assert.equal(nearestFont('Mainline', 900, true), 'Mainline:600');
     assert.equal(nearestFont('Sonnet', 700, false), 'Sonnet:400i');
+  });
+
+  it('move their letters whole: a letter drawn in overlapping pieces as the same letter drawn as one outline, a stroke\'s end as wide as its stroke', async () => {
+    const fonts = new FreeFonts(null, noFetch);
+    const design = async (style: string, moves: Partial<Params>) => {
+      const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
+      if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+      return buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params), ...moves } as Params);
+    };
+    // the runs of ink along a level line (y) or an upright one (x), read every half unit
+    const runs = (g: Glyph, axis: 'x' | 'y', v: number) => {
+      const ink = shape(toPolys(g.cmds)), out: [number, number][] = [];
+      for (let u = -200, on = false; u < 1400; u += 0.5) {
+        const has = axis === 'y' ? ink.has(u, v) : ink.has(v, u);
+        if (has && !on) out.push([u, u]);
+        if (has) out[out.length - 1][1] = u;
+        on = has;
+      }
+      return out;
+    };
+    // Mainline's u is a stem drawn whole and a bowl run into it: lighter, it is the u drawn as one outline, lighter
+    // (the bowl's edges inside the stem came out of it as notches at the join)
+    const data = await fonts.load('Mainline:600'), u = freeFont('Mainline:600') ?? (registerFreeFont(data), freeFont('Mainline:600')!);
+    assert.ok(u.glyphs.u.contours.length > 1, 'drawn in pieces');
+    const light = (await design('grotesque', { weight: 0.3 })).glyph('u')!;
+    registerFreeFont({ ...data, glyphs: { ...data.glyphs, u: [data.glyphs.u[0], unite(u.glyphs.u.contours).map(c => c.map(packNode))] } });
+    assert.equal((await design('grotesque', { weight: 0.3 })).glyph('u')!.d, light.d);
+    registerFreeFont(data);
+    // wider, an l's foot is as wide as its stem (the foot widened with the letter, and the stem's sides flared out to it)
+    const f = await design('grotesque', { width: 0.95 }), l = f.glyph('l')!;
+    const [stem] = runs(l, 'y', f.m.cap / 2), [foot] = runs(l, 'y', 3);
+    assert.ok(Math.abs((foot[1] - foot[0]) - (stem[1] - stem[0])) < 4, `the foot (${foot}) as wide as the stem (${stem})`);
+    // and Gumdrop's E's arms keep their round ends (each parted in two at its middle)
+    const E = (await design('chunkyround', { width: 0.95 })).glyph('E')!, xs = E.cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 0) as number[]);
+    const arms = runs(E, 'x', Math.min(...xs) + (Math.max(...xs) - Math.min(...xs)) * 0.6);
+    assert.equal(arms.length, 3, 'three arms');
+    // (read just inside the furthest the middle arm reaches)
+    const [y0, y1] = arms[1];
+    let tip = -Infinity;
+    for (let y = y0; y <= y1; y++) tip = Math.max(tip, runs(E, 'y', y).slice(-1)[0]?.[1] ?? -Infinity);
+    const near = runs(E, 'x', tip - (y1 - y0) * 0.15).filter(([a, b]) => b > y0 - 20 && a < y1 + 20);
+    assert.equal(near.length, 1, `one end to the middle arm, not two (${JSON.stringify(near)})`);
   });
 
   it('export under any name, with no licence to pass on', async () => {

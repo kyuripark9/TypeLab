@@ -5,7 +5,9 @@
    itself (or, with shape's `positive`, only where they wind anticlockwise on balance). The edges of all of
    them are split where they cross, and an edge piece is kept when the region asked for lies on one side of
    it and not the other, turned so the region is on its left (anticlockwise outlines, clockwise holes). The
-   kept pieces are then chained into contours. */
+   kept pieces are then chained into contours. `unite` does the same for a letter's own curves without
+   flattening them: a free font drawn in overlapping pieces, made one outline before skin.ts rigs it. */
+import type { Node } from './outline';
 import type { Pt } from './types';
 
 interface Seg { ax: number; ay: number; bx: number; by: number }
@@ -147,6 +149,241 @@ export function combine(shapes: Shape[], keep: (x: number, y: number) => boolean
       e = next.reduce((m, f) => (turn(f) > turn(m) ? f : m));
     }
     if (poly.length > 2) out.push(poly);
+  }
+  return out;
+}
+
+/* ---- a letter's contours made one ink, their curves kept: a font drawn in overlapping pieces (a stem drawn whole and
+   a bowl run into it, as a variable font's are, and as pieces drawn on a sheet and never united come) has edges inside
+   its ink, which anything reading the outline's edges as the ink's own takes for the sides of strokes (skin.ts) */
+
+/** A cubic by its four control points; a line's handles sit on its ends, and it is read evenly along. */
+interface Curve { p0: Pt; p1: Pt; p2: Pt; p3: Pt; line: boolean }
+/** Part of segment `s` of the outline, from t0 to t1 along it, run backwards when `rev`; `c` is that part's curve. */
+interface Part { s: number; t0: number; t1: number; rev: boolean; c: Curve }
+
+/** The point t of the way along a curve, and the way it runs there. */
+const curveAt = (c: Curve, t: number): Pt => {
+  if (c.line) return { x: c.p0.x + (c.p3.x - c.p0.x) * t, y: c.p0.y + (c.p3.y - c.p0.y) * t };
+  const u = 1 - t, a = u * u * u, b = 3 * u * u * t, d = 3 * u * t * t, e = t * t * t;
+  return { x: a * c.p0.x + b * c.p1.x + d * c.p2.x + e * c.p3.x, y: a * c.p0.y + b * c.p1.y + d * c.p2.y + e * c.p3.y };
+};
+const curveD = (c: Curve, t: number): Pt => {
+  if (c.line) return { x: c.p3.x - c.p0.x, y: c.p3.y - c.p0.y };
+  const u = 1 - t, a = 3 * u * u, b = 6 * u * t, d = 3 * t * t;
+  return { x: a * (c.p1.x - c.p0.x) + b * (c.p2.x - c.p1.x) + d * (c.p3.x - c.p2.x), y: a * (c.p1.y - c.p0.y) + b * (c.p2.y - c.p1.y) + d * (c.p3.y - c.p2.y) };
+};
+/** The curve from t0 to t1 along it, the very same curve (de Casteljau). */
+function subCurve(c: Curve, t0: number, t1: number): Curve {
+  if (t0 === 0 && t1 === 1) return c;
+  if (c.line) { const a = curveAt(c, t0), b = curveAt(c, t1); return { p0: a, p1: a, p2: b, p3: b, line: true }; }
+  const split = (q: Curve, t: number): [Curve, Curve] => {
+    const l = (a: Pt, b: Pt) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    const a = l(q.p0, q.p1), b = l(q.p1, q.p2), d = l(q.p2, q.p3), ab = l(a, b), bd = l(b, d), m = l(ab, bd);
+    return [{ p0: q.p0, p1: a, p2: ab, p3: m, line: false }, { p0: m, p1: bd, p2: d, p3: q.p3, line: false }];
+  };
+  let q = t1 < 1 ? split(c, t1)[0] : c;
+  if (t0 > 0) q = split(q, t0 / t1)[1];
+  return q;
+}
+/** Where a curve turns back across or up and down (its tangent level or upright): between them it runs one way in x
+    and one way in y, so a part of it never crosses itself, and its ends are its corners. */
+function turnsOf(c: Curve): number[] {
+  if (c.line) return [];
+  const out: number[] = [];
+  for (const k of ['x', 'y'] as const) {
+    const d0 = c.p1[k] - c.p0[k], d1 = c.p2[k] - c.p1[k], d2 = c.p3[k] - c.p2[k], A = d0 - 2 * d1 + d2, B = 2 * (d1 - d0), C = d0;
+    const roots = Math.abs(A) < 1e-12 ? (Math.abs(B) < 1e-12 ? [] : [-C / B]) : (() => {
+      const disc = B * B - 4 * A * C;
+      if (disc < 0) return [];
+      const r = Math.sqrt(disc);
+      return [(-B - r) / (2 * A), (-B + r) / (2 * A)];
+    })();
+    for (const t of roots) if (t > 1e-7 && t < 1 - 1e-7) out.push(t);
+  }
+  return [...new Set(out)].sort((a, b) => a - b);
+}
+/** Where along a part running one way (turnsOf) it reaches level y, or upright line x (`k`), found by halving. */
+function reach(c: Curve, k: 'x' | 'y', v: number): number {
+  let lo = 0, hi = 1;
+  const up = c.p3[k] > c.p0[k];
+  for (let i = 0; i < 52; i++) { const m = (lo + hi) / 2; if ((curveAt(c, m)[k] < v) === up) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+
+/** How many times parts running one way wind round point q (each crosses the level line through it once at most;
+    half open, so parts meeting on the line count once). */
+function windsRound(parts: Part[], q: Pt): number {
+  let w = 0;
+  for (const { c } of parts) {
+    if ((c.p0.y <= q.y) === (c.p3.y <= q.y) || Math.max(c.p0.x, c.p3.x) < q.x) continue;
+    if (Math.min(c.p0.x, c.p3.x) > q.x || curveAt(c, reach(c, 'y', q.y)).x > q.x) w += c.p3.y > c.p0.y ? 1 : -1;
+  }
+  return w;
+}
+
+/** Where two parts running one way cross, as places along each: their boxes (their ends') halved until they meet in a
+    point, then settled on the curves themselves. Parts along the same line meet everywhere: past a few thousand boxes
+    they are left to their ends, which lie on each other (unite cuts there). */
+function partsCross(a: Curve, b: Curve): [number, number][] {
+  const found: [number, number][] = [];
+  let budget = 3000;
+  const go = (a0: number, a1: number, b0: number, b1: number) => {
+    if (--budget < 0) return;
+    const A0 = curveAt(a, a0), A1 = curveAt(a, a1), B0 = curveAt(b, b0), B1 = curveAt(b, b1), e = 1e-7;
+    if (Math.max(A0.x, A1.x) < Math.min(B0.x, B1.x) - e || Math.max(B0.x, B1.x) < Math.min(A0.x, A1.x) - e
+      || Math.max(A0.y, A1.y) < Math.min(B0.y, B1.y) - e || Math.max(B0.y, B1.y) < Math.min(A0.y, A1.y) - e) return;
+    const sa = Math.max(Math.abs(A1.x - A0.x), Math.abs(A1.y - A0.y)), sb = Math.max(Math.abs(B1.x - B0.x), Math.abs(B1.y - B0.y));
+    if (sa > 1e-3 || sb > 1e-3) {
+      if (sa >= sb) { const m = (a0 + a1) / 2; go(a0, m, b0, b1); go(m, a1, b0, b1); } else { const m = (b0 + b1) / 2; go(a0, a1, b0, m); go(a0, a1, m, b1); }
+      return;
+    }
+    let t = (a0 + a1) / 2, u = (b0 + b1) / 2;
+    for (let k = 0; k < 8; k++) {
+      const P = curveAt(a, t), Q = curveAt(b, u), da = curveD(a, t), db = curveD(b, u), ex = P.x - Q.x, ey = P.y - Q.y, det = db.x * da.y - da.x * db.y;
+      if (Math.abs(det) < 1e-12) break;
+      const nt = t - (-db.y * ex + db.x * ey) / det, nu = u - (-da.y * ex + da.x * ey) / det;
+      if (!(nt >= a0 - 0.01 && nt <= a1 + 0.01 && nu >= b0 - 0.01 && nu <= b1 + 0.01)) break;
+      t = nt; u = nu;
+    }
+    t = Math.min(1, Math.max(0, t)); u = Math.min(1, Math.max(0, u));
+    const P = curveAt(a, t), Q = curveAt(b, u);
+    if (Math.hypot(P.x - Q.x, P.y - Q.y) < 1e-3 && !found.some(([t0, u0]) => Math.hypot(curveAt(a, t0).x - P.x, curveAt(a, t0).y - P.y) < 1e-4 && Math.abs(u0 - u) < 1e-3)) found.push([t, u]);
+  };
+  go(0, 1, 0, 1);
+  return budget < 0 ? [] : found;
+}
+
+/** A letter's contours (read nonzero, as the font is) as one ink: where they overlap, or one runs over itself, the
+    edges inside the ink go and the rest are cut where they cross and joined up again, every curve kept as it was
+    drawn (a part of one is the same curve), cut points being corners. Contours that neither cross nor lie in one
+    another's ink come back as the very same array, and so does a letter this can't make out (its edges don't join up
+    again). The outline winds as the font's largest contour does: the ink on the right where that runs clockwise
+    (TrueType's way). */
+export function unite(cs: Node[][]): Node[][] {
+  const segs: Curve[] = [];
+  for (const c of cs) for (let i = 0; i < c.length; i++) {
+    const a = c[i], b = c[(i + 1) % c.length], line = a.ox === undefined && b.ix === undefined;
+    const p0 = { x: a.x, y: a.y }, p3 = { x: b.x, y: b.y };
+    segs.push(line ? { p0, p1: p0, p2: p3, p3, line } : { p0, p1: { x: a.ox ?? a.x, y: a.oy ?? a.y }, p2: { x: b.ix ?? b.x, y: b.iy ?? b.y }, p3, line });
+  }
+  // each segment in parts running one way, then cut too where another's end lies on it or another crosses it
+  const partsAt = (cuts: number[][]) => segs.flatMap((c, s) => {
+    const ts = [0, ...cuts[s], 1], out: Part[] = [];
+    for (let k = 0; k + 1 < ts.length; k++) if (ts[k + 1] > ts[k]) out.push({ s, t0: ts[k], t1: ts[k + 1], rev: false, c: subCurve(c, ts[k], ts[k + 1]) });
+    return out;
+  });
+  const turns = segs.map(turnsOf), mono = partsAt(turns), cuts: number[][] = segs.map(() => []);
+  const on = (p: Part, t: number) => p.t0 + (p.t1 - p.t0) * t;
+  const box = mono.map(({ c }) => ({ x0: Math.min(c.p0.x, c.p3.x) - 1e-3, x1: Math.max(c.p0.x, c.p3.x) + 1e-3, y0: Math.min(c.p0.y, c.p3.y) - 1e-3, y1: Math.max(c.p0.y, c.p3.y) + 1e-3 }));
+  // (a cut within a few thousandths of a unit of a part's end is that end)
+  const inside = (t: number, p: Part) => {
+    const q = curveAt(p.c, t);
+    return t > 0 && t < 1 && Math.hypot(q.x - p.c.p0.x, q.y - p.c.p0.y) > 3e-3 && Math.hypot(q.x - p.c.p3.x, q.y - p.c.p3.y) > 3e-3;
+  };
+  for (let i = 0; i < mono.length; i++) for (let j = i + 1; j < mono.length; j++) {
+    const a = mono[i], b = mono[j], A = box[i], B = box[j];
+    if (A.x0 > B.x1 || B.x0 > A.x1 || A.y0 > B.y1 || B.y0 > A.y1) continue;
+    // one's end on the other (touching, or two running along the same line)
+    for (const [x, y] of [[a, b], [b, a]]) for (const q of [x.c.p0, x.c.p3]) {
+      const k = Math.abs(y.c.p3.y - y.c.p0.y) >= Math.abs(y.c.p3.x - y.c.p0.x) ? 'y' : 'x', lo = Math.min(y.c.p0[k], y.c.p3[k]), hi = Math.max(y.c.p0[k], y.c.p3[k]);
+      if (q[k] <= lo || q[k] >= hi) continue;
+      const t = y.c.line ? (q[k] - y.c.p0[k]) / (y.c.p3[k] - y.c.p0[k]) : reach(y.c, k, q[k]), r = curveAt(y.c, t);
+      if (Math.hypot(r.x - q.x, r.y - q.y) < 1e-3 && inside(t, y)) cuts[y.s].push(on(y, t));
+    }
+    // (parts that meet end to end, running on smoothly, touch along a stretch there that is no crossing)
+    const ends = [a.c.p0, a.c.p3].filter(p => [b.c.p0, b.c.p3].some(q => Math.hypot(p.x - q.x, p.y - q.y) < 1e-3));
+    for (const [t, u] of partsCross(a.c, b.c)) {
+      const at = curveAt(a.c, t);
+      if (ends.some(p => Math.hypot(p.x - at.x, p.y - at.y) < 1e-2)) continue;
+      if (inside(t, a)) cuts[a.s].push(on(a, t));
+      if (inside(u, b)) cuts[b.s].push(on(b, u));
+    }
+  }
+  const hard = cuts.some(l => l.length);
+  const parts = hard ? partsAt(segs.map((_, s) => [...new Set([...turns[s], ...cuts[s]])].sort((a, b) => a - b))) : mono;
+  // each part kept where the ink lies on one side of it and not the other, turned to have it on the font's side
+  const area = (c: Node[]) => c.reduce((a, p, i) => { const q = c[(i + 1) % c.length]; return a + p.x * q.y - q.x * p.y; }, 0);
+  const left = area(cs.reduce((a, c) => (Math.abs(area(c)) > Math.abs(area(a)) ? c : a), cs[0] ?? [])) > 0;
+  const kept: Part[] = [];
+  for (const p of parts) {
+    const m = curveAt(p.c, 0.5);
+    let d = curveD(p.c, 0.5);
+    if (Math.hypot(d.x, d.y) < 1e-9) d = { x: p.c.p3.x - p.c.p0.x, y: p.c.p3.y - p.c.p0.y };
+    const l = Math.hypot(d.x, d.y);
+    if (l < 1e-9) continue;
+    const e = 0.004 / l, L = windsRound(parts, { x: m.x - d.y * e, y: m.y + d.x * e }) !== 0, R = windsRound(parts, { x: m.x + d.y * e, y: m.y - d.x * e }) !== 0;
+    if (L !== R) kept.push(L === left ? p : { ...p, rev: true, c: { p0: p.c.p3, p1: p.c.p2, p2: p.c.p1, p3: p.c.p0, line: p.c.line } });
+  }
+  if (!hard && kept.length === parts.length && kept.every(p => !p.rev)) return cs;
+  // chained into contours. Points a thousandth of a unit apart are one, the font's own anchors standing for theirs; a
+  // part the same as one kept already (two contours' edges along the same line) is kept once; where several go on
+  // from a point, the one turning most toward the ink, so shapes that only touch stay apart
+  const ids: Pt[] = [];
+  const key = (q: Pt) => { let k = ids.findIndex(o => Math.abs(o.x - q.x) < 1e-3 && Math.abs(o.y - q.y) < 1e-3); if (k < 0) { k = ids.length; ids.push(q); } return k; };
+  for (const c of segs) key(c.p0);
+  const from = new Map<number, { p: Part; to: number; used: boolean }[]>();
+  for (const p of kept) {
+    const a = key(p.c.p0), b = key(p.c.p3), list = from.get(a) ?? [], m = curveAt(p.c, 0.5);
+    if (a === b && p.c.line) continue;
+    if (list.some(o => o.to === b && Math.hypot(curveAt(o.p.c, 0.5).x - m.x, curveAt(o.p.c, 0.5).y - m.y) < 1e-3)) continue;
+    list.push({ p, to: b, used: false }); from.set(a, list);
+  }
+  const way = (q: Pt, r: Pt, s: Pt) => (Math.hypot(r.x - q.x, r.y - q.y) > 1e-9 ? { x: r.x - q.x, y: r.y - q.y } : { x: s.x - q.x, y: s.y - q.y });
+  const chains: Part[][] = [];
+  for (const [k0, list] of from) for (const start of list) {
+    if (start.used) continue;
+    const chain: Part[] = [];
+    let e = start;
+    for (let guard = 0; guard < 100000; guard++) {
+      e.used = true; chain.push(e.p);
+      const next = (from.get(e.to) ?? []).filter(f => !f.used);
+      if (!next.length) break;
+      const din = way(e.p.c.p3, e.p.c.p2, e.p.c.p0);
+      const turn = (f: { p: Part }) => { const d = way(f.p.c.p0, f.p.c.p1, f.p.c.p3); return Math.atan2(-din.x * d.y + din.y * d.x, -din.x * d.x - din.y * d.y); };
+      e = next.reduce((m, f) => ((left ? turn(f) > turn(m) : turn(f) < turn(m)) ? f : m));
+    }
+    // (a chain that doesn't come back round: the letter is left as the font has it)
+    if (e.to !== k0) return cs;
+    chains.push(chain);
+  }
+  // the parts of one segment that follow on along it are that segment's curve again, and lines running on in one line
+  // one line; then back into anchors and handles (a handle on its own anchor is none)
+  const out: Node[][] = [];
+  for (const chain of chains) {
+    const joins = (a: Part, b: Part) => a.s === b.s && a.rev === b.rev && (a.rev ? a.t0 === b.t1 : a.t1 === b.t0);
+    const k = chain.findIndex((p, i) => !joins(chain[(i - 1 + chain.length) % chain.length], p));
+    const run = k > 0 ? [...chain.slice(k), ...chain.slice(0, k)] : chain, merged: Curve[] = [];
+    for (let i = 0; i < run.length;) {
+      let j = i;
+      while (j + 1 < run.length && joins(run[j], run[j + 1])) j++;
+      const t0 = Math.min(run[i].t0, run[j].t0), t1 = Math.max(run[i].t1, run[j].t1), c = subCurve(segs[run[i].s], t0, t1);
+      merged.push(run[i].rev ? { p0: c.p3, p1: c.p2, p2: c.p1, p3: c.p0, line: c.line } : c);
+      i = j + 1;
+    }
+    const curves: Curve[] = [];
+    for (const c of merged) {
+      const p = curves[curves.length - 1];
+      if (p?.line && c.line) {
+        const ax = p.p3.x - p.p0.x, ay = p.p3.y - p.p0.y, bx = c.p3.x - c.p0.x, by = c.p3.y - c.p0.y;
+        if (Math.abs(ax * by - ay * bx) <= 1e-9 * Math.hypot(ax, ay) * Math.hypot(bx, by) && ax * bx + ay * by > 0) { curves[curves.length - 1] = { ...p, p2: c.p3, p3: c.p3 }; continue; }
+      }
+      curves.push(c);
+    }
+    const nodes = curves.map((c, i): Node => {
+      const prev = curves[(i - 1 + curves.length) % curves.length], q = ids[key(c.p0)], n: Node = { x: q.x, y: q.y };
+      if (!prev.line && Math.hypot(prev.p2.x - c.p0.x, prev.p2.y - c.p0.y) > 1e-9) { n.ix = prev.p2.x; n.iy = prev.p2.y; }
+      if (!c.line && Math.hypot(c.p1.x - c.p0.x, c.p1.y - c.p0.y) > 1e-9) { n.ox = c.p1.x; n.oy = c.p1.y; }
+      if (n.ix !== undefined && n.ox !== undefined) {
+        const ax = n.x - n.ix, ay = n.y - n.iy!, bx = n.ox - n.x, by = n.oy! - n.y;
+        if ((ax * bx + ay * by) / (Math.hypot(ax, ay) * Math.hypot(bx, by)) > 0.995) n.s = 1;
+      }
+      return n;
+    });
+    // (a speck smaller than a unit square, as a corner's curl drawn round past itself leaves, is no ink anyone sees)
+    let a = 0;
+    for (const c of curves) for (let k = 0; k < 8; k++) { const p = curveAt(c, k / 8), q = curveAt(c, (k + 1) / 8); a += p.x * q.y - q.x * p.y; }
+    if (Math.abs(a) / 2 >= 1) out.push(nodes);
   }
   return out;
 }

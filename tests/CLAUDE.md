@@ -27,7 +27,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `ends.test.ts` | Stroke ends: each kind and form and its finer sliders, straight runs, Length and Curl for all ends and each one (terminals, hooks, tails, plain ends such as T's `p0s`) |
 | `corners.test.ts` | Each corner's roundness inside and out (O's `0t0` to `0t3`), end corners, Joins (t's `0j0` to `0j3`), Steps, Counters, Squareness, Facets |
 | `cuts.test.ts` | Stencil (gaps, Position, Rounding), each join opened on its own (F's, A's and M's join ids), the crossbar Gap and Through, the Slice |
-| `fills.test.ts` | Pixels and dots on one grid, every fill on every glyph, Outline, Inline, Shadow, and `boolean.ts`'s unions and cuts |
+| `fills.test.ts` | Pixels and dots on one grid, every fill on every glyph, Outline, Inline, Shadow, and `boolean.ts`'s unions and cuts, and `unite` |
 | `weights.test.ts` | Weight, Contrast both ways, Verticals and Horizontals, one stroke's own weight, Pinch |
 | `serifs.test.ts` | Where serifs sit (`serifAt`), tips, bases and cups, bracket, balance, sides, inside serifs, tops and arms, the diamond, cleaning saved serif settings |
 | `script.test.ts` | Cursive and the script letterforms (`.scr`), Swell, Flourishes (`.sw`, reaching past a letter without widening it), Swash capitals |
@@ -42,7 +42,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `styles.test.ts` | Valid presets; the Style page's cards (solid letters, every Feeling carried, `TAG_FACE` on the page); word spaces in joined-up scripts; v w V W on the baseline, no gap after a curled Q |
 | `traits.test.ts` | The Adjust tab's trait steps and the style search |
 | `family.test.ts` | `shared/family.ts` and the family `.zip` (`server/export.ts`): weights, members, names and style bits |
-| `free-fonts.test.ts` | Every style's free font id; converting a font file as the server does; drawing a design in a free font and moving its letters (skin, restyle, the twin, `formChanged`); the export's notice; the API route |
+| `free-fonts.test.ts` | Every style's free font id; converting a font file as the server does; drawing a design in a free font and moving its letters (skin, restyle, the twin, `formChanged`); the export's notice; the API route; TypeLab's own fonts, and their letters moved whole (Mainline's u drawn in pieces, an l's foot, Gumdrop's round ends) |
 | `api.test.ts` | The HTTP API on an in-memory store: designs, accounts, Google sign-in, export, a database from before owners |
 | `boundaries.test.ts` | Nothing under `shared/` imports `client/` or `server/` or touches the DOM (a regex: a comment saying `window.` trips it) |
 | `golden.test.ts` | The engine's golden outlines; the free fonts' too with `GOLDEN_FREE=1` |

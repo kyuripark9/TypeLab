@@ -64,7 +64,7 @@ helper such as `resolve` may be imported from its own file.
 | `joins.ts` | Inside corners where strokes cross, filled with fillets (`joinCorners`, `joinR`, `innerFor`, `innerShare`) |
 | `stencil.ts` | Stencil gaps at joins and turns, the crossbar Gap, bars run Through |
 | `serif-sides.ts` | Which way each stem's serifs reach (Sides, inside serifs), and cupped feet |
-| `effects.ts`, `boolean.ts` | The slice and the fills (wire, pixels, dots, lines, inline, outline, shadow); unions and cuts of outlines (`shape`, `combine`) |
+| `effects.ts`, `boolean.ts` | The slice and the fills (wire, pixels, dots, lines, inline, outline, shadow); unions and cuts of outlines (`shape`, `combine`), and a letter's overlapping contours made one with its curves kept (`unite`) |
 | `outline.ts` | Drawn letters (`Node`, `Drawn`), curve fitting (`fitOutline`), `cleanDrawn`; imports only types, as shared/params reads it |
 | `grid.ts` | Construction grids and their groups, Grid A to T (`glyphGrid`, `gridGroups`, `gridOf`) |
 | `free.ts` | The free-font registry and its packed format |
@@ -109,10 +109,16 @@ A design with `freeFont` set draws its letters from a free font instead of build
    (`nearestFont`); until it is registered the font is `freePending`, and `freeMissing` / `freeFontsWanted` say what
    to fetch. Placement effects (fill, mirror, monospacing, bounce, slant, rotation, wobble, slice) count only as far as
    they move from the pick.
-3. `skin.ts` with `scan.ts`: `skinRig` hangs every outline sample (a `Bone`) on the letter's scanned skeleton;
-   `skinMove` moves it by the change in `skinMeasures` from `pick` to `now` (stem, bar, width, x-height, crossbar, serif
-   length, Stem length, Inner space, dots, Pinch, Ink traps) and returns `rig.contours` itself when nothing moved. A
-   pixel font (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
+3. `skin.ts` with `scan.ts`: `skinRig` first makes the letter's overlapping pieces one outline (`unite` in
+   `boolean.ts`: the same ink and curves; many fonts, TypeLab's own among them, draw a stem whole and run a bowl into
+   it, and the edges inside the ink, moved as stroke sides, came out as notches and spurs at the joins), keeps that as
+   `rig.contours`, and hangs every outline sample (a `Bone`) on the letter's scanned skeleton; `strokeEnds` finds where
+   the outline turns back across a stroke (a cap, a round end, a serif's end). `skinMove` moves it by the change in
+   `skinMeasures` from `pick` to `now` (stem, bar, width, x-height, crossbar, serif length, Stem length, Inner space,
+   dots, Pinch, Ink traps): each side by its stroke's middle (half its thickness in from the edge, not the skeleton
+   point, which forks out to a square end's corners), each end carried with the two sides it joins, so a cap stays as
+   wide as its stroke and a round end round; and returns `rig.contours` itself when nothing moved. A pixel font
+   (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
 4. `restyle.ts`: `restyled` (in `free-letters.ts`) redraws the engine's shapes on the moved outline in a fixed order,
    Dots, Bowls, Ends, Serifs, Stencil, Peaks, Corners, each only where its settings differ from the pick, each handing
    back the very same array when nothing it follows moved. Results are cached by the contours and a key of every
@@ -122,7 +128,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    the settings the font reads as (`twinFit`: weight, contrast, x-height, width, serifs), moved as far as the design
    moves from the pick.
 6. `freeGlyph` sizes the letter to the design, gives it side bearings, places it with `placeGlyph`, and keeps the
-   placed outline as `Glyph.drawn`, so Points opens with the font's own points.
+   placed outline as `Glyph.drawn`, so Points opens with the font's own points (its overlapping pieces made one). An
+   unmoved letter is spaced by the font's own outline, the united one leaving out a speck under a unit square.
 
 A setting the free-font code compares between `pick` and `now` must be `free: true` in `shared/params/spec.ts` (or
 `freeAt` never records it), in `skin.ts` `SKIN_KEYS` where it applies (so `skinFollows`, which `client/lib/reach.ts`
@@ -168,7 +175,7 @@ tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, wh
 | cell | The fill grid's size (`m.cell`); advances and tracking snap to it for pixels and dots. Not the client's strip `.cell`, nor `scan.ts`'s ink Grid |
 | wobble | Hand-drawn: one smooth displacement field per glyph, seeded by its char code; `Builder.joins` pins it where script letters meet |
 | freeAt, pick, now | The settings a free font was picked at; `fl.pick` and `fl.now` are those and the asked-for ones, resolved |
-| skin, rig | A free font's letter moved on its skeleton; the rig is the letter prepared for that (`SkinRig`: contours, bones, ctx, stem, bar) |
+| skin, rig | A free font's letter moved on its skeleton; the rig is the letter prepared for that (`SkinRig`: contours, its overlapping pieces united; bones; ends, each stroke end's run of samples; ctx, stem, bar) |
 | restyle | Redrawing one of the engine's shapes on a free font's letter where the settings ask for another than the font's |
 | twin | The engine's own letter at the settings a free font reads as, for forms the font hasn't got. (The pen's mirror partner in PenCanvas is also called twin; unrelated) |
 | skeleton (scan) | A scanned letter's middle lines as a graph: a node with one edge is a free end, three or more a join |

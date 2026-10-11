@@ -2,14 +2,16 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
 import { buildFont } from '../shared/engine';
-import { combine, shape } from '../shared/engine/boolean';
+import { combine, shape, unite } from '../shared/engine/boolean';
+import type { Node } from '../shared/engine/outline';
 import { toPolys } from '../shared/engine/geom';
 import { signedArea } from '../shared/engine/geom';
 import { DEFAULTS, FILLS, sanitizeParams } from '../shared/params';
 import { coords } from './outlines';
 
 /* Fills: pixels and dots on one grid, every fill drawing every glyph, the Outline, Inline and Shadow, and the
-   nonzero joins and cuts (boolean.ts) they are made with. `cmds` are font units, y up. */
+   nonzero joins and cuts (boolean.ts) they are made with, and a free font's letter drawn in pieces made one (unite).
+   `cmds` are font units, y up. */
 
 describe('fills: fill, module', () => {
   it('pixel and dot fills sit on one grid across the line', () => {
@@ -80,6 +82,34 @@ describe('fills: fill, module', () => {
     assert.ok(!ink.has(x1 + 2, y), 'a gap beside it');
     assert.ok(ink.has(x1 + f.m.s * 0.4, y - f.m.s * 0.5), 'the shadow beyond the gap');
     assert.ok(g.adv > l.adv, 'the shadow widens the letter');
+  });
+
+  it('makes a letter drawn in overlapping pieces one outline, keeping its curves and its winding', () => {
+    const rect = (x0: number, y0: number, x1: number, y1: number): Node[] => [{ x: x0, y: y0 }, { x: x0, y: y1 }, { x: x1, y: y1 }, { x: x1, y: y0 }];
+    const area = (c: Node[]) => c.reduce((a, p, i) => { const q = c[(i + 1) % c.length]; return a + p.x * q.y - q.x * p.y; }, 0) / 2;
+    // a stem and a bar run into it, clockwise as a font's: one outline, the ink of both, clockwise still
+    const T = unite([rect(250, 0, 350, 700), rect(0, 600, 600, 700)]);
+    assert.equal(T.length, 1);
+    assert.equal(T[0].length, 8);
+    assert.ok(Math.abs(area(T[0]) + (100 * 600 + 600 * 100)) < 1e-6, `${area(T[0])}`);
+    // a bowl, the lower left quarter of a ring round (400, 300), run into a stem: the bowl's curve outside the stem is
+    // the very same curve
+    const k = 0.5523, R = 300, r = 200;
+    const bowl: Node[] = [{ x: 400, y: 0, ox: 400 - k * R, oy: 0 }, { x: 100, y: 300, ix: 100, iy: 300 - k * R }, { x: 200, y: 300, ox: 200, oy: 300 - k * r }, { x: 400, y: 100, ix: 400 - k * r, iy: 100 }];
+    const one = unite([rect(350, 0, 450, 700), bowl]);
+    assert.equal(one.length, 1);
+    const at = (p: number[], t: number) => (1 - t) ** 3 * p[0] + 3 * (1 - t) ** 2 * t * p[1] + 3 * (1 - t) * t * t * p[2] + t ** 3 * p[3];
+    const i = one[0].findIndex(n => n.x === 100 && n.y === 300), a = one[0][i - 1], b = one[0][i];
+    assert.ok(a && a.ox !== undefined && b.ix !== undefined, 'the bowl\'s outer curve, cut where it meets the stem');
+    // (halfway along what is left of it lies on the bowl's own curve)
+    const mid = { x: at([a.x, a.ox!, b.ix!, b.x], 0.5), y: at([a.y, a.oy!, b.iy!, b.y], 0.5) };
+    let near = Infinity;
+    for (let t = 0; t <= 1; t += 1e-5) near = Math.min(near, Math.hypot(at([400, 400 - k * R, 100, 100], t) - mid.x, at([0, 0, 300 - k * R, 300], t) - mid.y));
+    assert.ok(near < 0.01, `on the bowl's curve (${near})`);
+    assert.ok(area(one[0]) < 0, 'clockwise, as the pieces were');
+    // pieces apart are handed back as they are
+    const apart = [rect(0, 0, 100, 100), rect(200, 0, 300, 100)];
+    assert.equal(unite(apart), apart);
   });
 
   it('joins and cuts outlines with the nonzero rule', () => {
