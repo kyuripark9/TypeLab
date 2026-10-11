@@ -1,11 +1,11 @@
-/* Free fonts: each starting style can be written in a ready-made font, free to use, change and share. The 21
-   styles on the Style page are written in TypeLab's own fonts (OWN_FAMILIES), drawn for it on specimen sheets and
-   kept in fonts/ as the engine draws them; the styles off the page keep a font from Google Fonts (SIL Open Font
-   License or Apache 2.0), fetched and converted by the server (server/free-fonts.ts). Each style's pick
-   (STYLE_FONTS) is a family like it, in the weight and italic closest to its look, and the style's settings are
-   fitted to that font (tools/fit). A design written in it keeps those settings as the ones its letters stand for
-   (Params.freeAt), and its letters are drawn as the font has them until a setting moves from there (see freeLetters
-   in shared/engine/free-letters.ts). */
+/* Free fonts: each starting style can be written in a ready-made font, free to use, change and share, all but the
+   ones built from blocks, which no font draws. The other 21 styles on the Style page are written in TypeLab's own
+   fonts (OWN_FAMILIES), drawn for it on specimen sheets and kept in fonts/ as the engine draws them; the styles off
+   the page keep a font from Google Fonts (SIL Open Font License or Apache 2.0), fetched and converted by the server
+   (server/free-fonts.ts). Each style's pick (STYLE_FONTS) is a family like it, in the weight and italic closest to
+   its look, and the style's settings are fitted to that font (tools/fit). A design written in it keeps those
+   settings as the ones its letters stand for (Params.freeAt), and its letters are drawn as the font has them until a
+   setting moves from there (see freeLetters in shared/engine/free-letters.ts). */
 
 /** A family: its designers, the weights it comes in upright and in italic (up to 900, the heaviest the font
     files the server fetches come in), the licence it comes under (its folder in github.com/google/fonts; null for
@@ -123,7 +123,8 @@ export const FREE_FAMILIES: Record<string, FreeFamily> = {
     [family, { designers: ['TypeLab'], weights: o.italic ? [] : [o.weight], italics: o.italic ? [o.weight] : [], license: null, reserved: [], own: true }]))
 };
 
-/** The free font each starting style is written in, by style id, as a font id (see fontId). */
+/** The free font each starting style is written in, by style id, as a font id (see fontId); none for a style built
+    from blocks. */
 export const STYLE_FONTS: Record<string, string> = {
   geometric: 'Compass:300',
   grotesque: 'Mainline:600',

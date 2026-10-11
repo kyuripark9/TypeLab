@@ -13,6 +13,7 @@ import { STYLE_FONTS } from '../../shared/free-fonts';
 import { fontStyle, textWidth, useWebFont } from '../lib/free';
 import { useSize } from '../lib/hooks';
 import { actions, useEditor, useStyleMatch } from '../state/editor';
+import { BuiltText } from './BuiltText';
 
 /** An answer: what it means, how many styles it keeps and a few of them to draw it in, plainest first. */
 interface Option { id: StyleGroup; label: string; hint: string; count: number; samples: StyleDef[] }
@@ -63,7 +64,8 @@ function FinderOption({ option: o, index, typed, onAnswer }: { option: Option; i
     const t = setInterval(() => setN(i => (i + 1) % o.samples.length), 700);
     return () => clearInterval(t);
   }, [live, o.samples.length]);
-  const style = o.samples[n] ?? o.samples[0];
+  // (a style built from blocks has no font: its letters are the engine's)
+  const style = o.samples[n] ?? o.samples[0], font = STYLE_FONTS[style.id];
   const count = `${o.count} ${o.count === 1 ? 'style' : 'styles'}`;
   return (
     <button className="finder-option" style={{ animationDelay: `${index * 30}ms` }}
@@ -71,16 +73,23 @@ function FinderOption({ option: o, index, typed, onAnswer }: { option: Option; i
       onPointerEnter={() => setLive(true)} onPointerLeave={() => setLive(false)} onFocus={() => setLive(true)} onBlur={() => setLive(false)}>
       {typed ? <>
         <span className="finder-label">{o.label}</span>
-        <FreeTyped id={STYLE_FONTS[style.id]} text={typed} />
-      </> : <FreeSample id={STYLE_FONTS[style.id]} text={o.label} />}
+        {font
+          ? <FreeTyped id={font} text={typed} />
+          : <BuiltText className="finder-typed" params={style.params} text={typed} size={TYPED_SIZE} />}
+      </> : font
+        ? <FreeSample id={font} text={o.label} />
+        : <BuiltText className="finder-free" params={style.params} text={o.label} size={SAMPLE_SIZE} fit />}
     </button>
   );
 }
 
+/** The largest a tile's word is set, and the size of typed text in every tile, in px (.finder-typed.free's, styles.css). */
+const SAMPLE_SIZE = 44, TYPED_SIZE = 30;
+
 /** A word in a free font, as large as fits the tile (up to its height). */
 function FreeSample({ id, text }: { id: string; text: string }) {
   const font = useWebFont(id), [ref, box] = useSize<HTMLSpanElement>();
-  const size = font && box.width ? Math.min(44, box.width / Math.max(0.01, textWidth(font, text)) * 0.97) : 44;
+  const size = font && box.width ? Math.min(SAMPLE_SIZE, box.width / Math.max(0.01, textWidth(font, text)) * 0.97) : SAMPLE_SIZE;
   return <span ref={ref} className={font ? 'finder-free' : 'finder-free loading'} style={{ ...(font && fontStyle(font)), fontSize: size }} aria-hidden="true">{text}</span>;
 }
 

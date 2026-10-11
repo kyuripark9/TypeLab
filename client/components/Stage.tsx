@@ -1,9 +1,9 @@
 /* The stage: the Type something bar, then on the Style page the finder and the style cards (each
-   in its style's free font, under a row of chips for what's picked), or on the other pages the live
-   preview with its size slider and box, and the inspector over it while a letter is open. Like
-   Google Fonts, the one bar on top sets the sample text, both for the style cards and for the live
-   preview of the design. The size only shows with the preview: the cards are for comparing styles,
-   so they keep one size. */
+   in its style's free font, or in the engine's letters for one built from blocks, under a row of chips for
+   what's picked), or on the other pages the live preview with its size slider and box, and the inspector over it
+   while a letter is open. Like Google Fonts, the one bar on top sets the sample text, both for the style cards
+   and for the live preview of the design. The size only shows with the preview: the cards are for comparing
+   styles, so they keep one size. */
 import { useDeferredValue, useRef, useState } from 'react';
 import { MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../../shared/content';
 import { parseFontId, STYLE_FONTS } from '../../shared/free-fonts';
@@ -11,6 +11,7 @@ import { fontStyle, useWebFont } from '../lib/free';
 import { useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
 import { actions, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
+import { BuiltText } from './BuiltText';
 import { FinderQuestion, useFinder } from './Finder';
 import { Inspector } from './Inspector';
 import { focusFilters } from './Panel';
@@ -119,7 +120,8 @@ const CARD_SIZE = 48;
 
 /** Cards are grouped by Category, the finder's question, and narrowed by all the filters, which
     see each style as the Adjust tab's traits make it. Each card sets the text in its style's free
-    font. The finder asks its question first, and the cards come once it's answered. */
+    font, or in the engine's letters where no font stands behind the style. The finder asks its
+    question first, and the cards come once it's answered. */
 function StyleCards() {
   const custom = useEditor(s => s.custom), text = sampleText(custom);
   const finder = useFinder();
@@ -154,7 +156,7 @@ function StyleCards() {
             <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
               <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
               <div className={view === 'list' ? 'cards list' : 'cards'}>
-                {shown.filter(s => s.group === g.id).map(s => <FreeCard key={s.id} style={s} text={text} size={CARD_SIZE} />)}
+                {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} text={text} size={CARD_SIZE} />)}
               </div>
             </section>
           ))}
@@ -195,14 +197,18 @@ function ActiveBar({ onClear }: { onClear: () => void }) {
 /** What the cards are: each style in one of TypeLab's own fonts, which every setting reshapes. */
 const LETTERS_NOTE = 'TypeLab’s own fonts, yours to change and use as you like. Every setting reshapes their letters, and Points redraws any of them.';
 
-/** A style's card in its free font: the sample text set in the font itself, as the browser draws it. */
-function FreeCard({ style: s, text, size }: { style: StyleDef; text: string; size: number }) {
-  const on = useEditor(st => st.styleId === s.id && !!st.params.freeFont);
-  const font = useWebFont(STYLE_FONTS[s.id]);
+/** A style's card: the sample text set in its free font, as the browser draws the font, or, for a style no font
+    stands behind (built from blocks), in the engine's letters. */
+function StyleCard({ style: s, text, size }: { style: StyleDef; text: string; size: number }) {
+  const id = STYLE_FONTS[s.id];
+  const on = useEditor(st => st.styleId === s.id && (!id || !!st.params.freeFont));
+  const font = useWebFont(id);
   return (
     <button className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
-      <span className="card-name">{s.name}<span className="card-like">{parseFontId(STYLE_FONTS[s.id])?.family}</span></span>
-      <span className={font ? 'card-free' : 'card-free loading'} style={{ ...(font && fontStyle(font)), fontSize: size }}>{text}</span>
+      <span className="card-name">{s.name}<span className="card-like">{id ? parseFontId(id)?.family : 'Built from blocks'}</span></span>
+      {id
+        ? <span className={font ? 'card-free' : 'card-free loading'} style={{ ...(font && fontStyle(font)), fontSize: size }}>{text}</span>
+        : <BuiltText className="card-free" params={s.params} text={text} size={size} />}
     </button>
   );
 }

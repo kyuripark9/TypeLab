@@ -23,7 +23,8 @@ const style = (id: string, group: StyleGroup, kinds: Kind[], name: string, moods
 
 /* Ids are stored with saved designs and deep links (?style=), so they never change, even when a style is
    renamed, and never leave STYLES: the API refuses a design whose styleId isn't here (server/app.ts
-   readDesign). Each id also keys STYLE_FONTS (shared/free-fonts.ts) and may be a TAG_FACE (tags.ts). */
+   readDesign). Each id may be a TAG_FACE (tags.ts), and keys STYLE_FONTS (shared/free-fonts.ts) unless the style
+   is built from blocks, which no font draws. */
 export const STYLES: StyleDef[] = [
   /* ---- Sans Serif */
   style('geometric', 'sans', ['geometric'], 'Geometric', ['calm', 'business'], 'Poppins, Montserrat, Jost',
@@ -432,6 +433,11 @@ export const STYLES: StyleDef[] = [
       vWeight: 0.54, hWeight: 0.42, counter: 1, descender: 1, joinRound: 0.93, wordSpacing: 0.412, sideBearing: 0.1, classicFuture: 0.68,
       playfulFormal: 0.51 }),
 
+  /* ---- Blocks: built from blocks, not strokes (shared/engine/blocks.ts), so no font file stands behind them */
+  style('slotblocks', 'blocks', [], 'Slot Blocks', ['loud', 'playful', 'futuristic'], 'Bungee, Dela Gothic One, Rammetto One',
+    'Solid round-cornered blocks with their counters cut in as narrow slots, after a heavy 70s poster face, the small letters as small capitals. Weight closes the slots up and Roundness softens every corner.',
+    { build: 'blocks', weight: 0.6, roundness: 1, joinRound: 0.5, sideBearing: 0.31 }),
+
   /* ---- Display (Wood Type is shown with the slab serifs) */
   style('woodtype', 'slab', ['slab'], 'Wood Type', ['rugged', 'vintage', 'loud'], 'Alfa Slab One, Sancreek, Rye',
     'Poster letters cut from wood for Wild West handbills: heavy, compact and squared, with chunky slabs.',
@@ -596,8 +602,9 @@ export const STYLES: StyleDef[] = [
    and wide, the fat face, the heavy slab, the slab mono and the italic have cards of their own because
    rebuilding them from a nearer card with their own settings breaks their letters up; every other style
    rebuilds cleanly from a card here, and the display looks (box bowls, octagons, pinches, steps,
-   hairlines) are settings over these. Every card is solid letters (tests/styles.test.ts checks). Styles
-   off the page stay in STYLES, so designs saved from them still open. */
+   hairlines) are settings over these. Letters built from blocks are a build of their own, with one card under
+   Blocks; there is no font behind it, so its card draws the engine's letters. Every card is solid letters
+   (tests/styles.test.ts checks). Styles off the page stay in STYLES, so designs saved from them still open. */
 const PAGE_ORDER = [
   // Sans Serif: the everyday text faces, then rounded and squared, then the wide and the heavy rounded
   'grotesque', 'humanist', 'geometric', 'soft', 'industrial', 'squircle', 'chunkyround',
@@ -606,7 +613,9 @@ const PAGE_ORDER = [
   'softslab', 'woodtype',
   'code', 'typewriter',
   // Calligraphy: printing, handwriting, a retro and a formal script, and blackletter
-  'comic', 'casual', 'informal', 'chancery', 'blackletter'
+  'comic', 'casual', 'informal', 'chancery', 'blackletter',
+  // Blocks: solid shapes with slot counters
+  'slotblocks'
 ];
 export const PAGE_STYLES = PAGE_ORDER.map(id => STYLES.find(s => s.id === id)!);
 

@@ -34,6 +34,17 @@ describe('the editor', () => {
     assert.deepEqual(state().params.freeAt, freeAtOf(serif.params));
   });
 
+  it('starts a style built from blocks in its own letters, as no font draws them', () => {
+    actions.loadStyle('slotblocks');
+    assert.equal(state().styleId, 'slotblocks');
+    assert.equal(state().params.build, 'blocks');
+    assert.equal(state().params.freeFont, '');
+    assert.deepEqual(state().params.freeAt, {});
+    // there is no font to write it in
+    actions.setFreeLetters(true);
+    assert.equal(state().params.freeFont, '');
+  });
+
   it('gives a letter being customized its own values, and drops what follows the rest again', () => {
     useEditor.setState({ scope: 'letter', inspect: 'a' });
     actions.setOption('weight', 0.8);

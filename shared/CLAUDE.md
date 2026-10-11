@@ -116,11 +116,13 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
 
 - **Styles** (`content/styles.ts`): `style(id, group, kinds, name, moods, like, desc, params)`, its params laid over
   `DEFAULTS`. Ids never change and never leave `STYLES`: saved designs and `?style=` links name them, and the API
-  refuses a design whose `styleId` isn't known. `PAGE_ORDER` picks the 21 cards (`PAGE_STYLES`), all solid letters;
-  every style keys `STYLE_FONTS` and may be a `TAG_FACE`. `tools/fit/apply.ts` rewrites a style's params object in
-  place, finding `style('<id>',` by text and its params as the first `{` outside quotes: keep that layout, with the
-  style's own letters under `glyphs:` inside it. tests/styles.test.ts and tests/free-fonts.test.ts check the cards,
-  Feelings and fonts.
+  refuses a design whose `styleId` isn't known. `PAGE_ORDER` picks the 22 cards (`PAGE_STYLES`), all solid letters: 21
+  written in TypeLab's own fonts, and Slot Blocks (`slotblocks`, Category Blocks), built from blocks. Every style keys
+  `STYLE_FONTS` but those built from blocks, which no font draws (their card and finder tile draw the engine's
+  letters, `client/components/BuiltText.tsx`), and may be a `TAG_FACE`. `tools/fit/apply.ts` rewrites a style's params
+  object in place, finding `style('<id>',` by text and its params as the first `{` outside quotes: keep that layout,
+  with the style's own letters under `glyphs:` inside it. tests/styles.test.ts and tests/free-fonts.test.ts check the
+  cards, Feelings and fonts.
 - **Pages** (`content/pages.ts`): `CATEGORIES` in navigation order, each with a `hint` (its tooltip) and, all but
   Style, a group; `GROUPS` names the groups Proportions, Shapes and Details. `pageOf` reads a page id, then `OLD_GROUPS`, then a group
   (which opens its first page).
@@ -133,17 +135,18 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
 
 ## Families, free fonts, traits
 
-- `free-fonts.ts`: `OWN_FAMILIES` are TypeLab's own fonts, one per Style page card (Mainline, Parlance, Compass,
-  Cotton, Turnpike, Orbital, Gumdrop, Almanac, Vellum, Couture, Sonnet, Ballyhoo, Hearth, Timber, Kernel, Dispatch,
-  Funnies, Jotter, Boardwalk, Serenade, Cathedral): drawn for TypeLab on the sheets in `Asset/After/` (`sheet`), each in
-  one weight, upright or (Sonnet) italic, under no licence; `tools/fonts/import.ts` makes them into `fonts/`, which the
-  server reads instead of fetching. They replaced the Google families in `OLD_FONTS`: `sanitizeParams` reads a saved
-  id of one as its own font (`ownFontOf`). `FREE_FAMILIES` lists them (`own`, `license: null`) with the Google
-  families, each with its weights and italics up to 900, its licence folder (`ofl` or `apache`), its reserved names,
-  and `grid` for a pixel font (VT323, Silkscreen) that only stretches. `parseFontId` accepts only a listed family at a
-  weight it comes in; `nearestFont` is the font a design draws from as Weight and Slant move (a family in one weight
-  or only an italic gives that font); `withoutReserved` takes the family's own and reserved names out of an exported
-  font's name (OFL; an own font reserves nothing). Own fonts' names are font ids in saved designs: never rename one.
+- `free-fonts.ts`: `OWN_FAMILIES` are TypeLab's own fonts, one per Style page card but Blocks' (Mainline, Parlance,
+  Compass, Cotton, Turnpike, Orbital, Gumdrop, Almanac, Vellum, Couture, Sonnet, Ballyhoo, Hearth, Timber, Kernel,
+  Dispatch, Funnies, Jotter, Boardwalk, Serenade, Cathedral): drawn for TypeLab on the sheets in `Asset/After/`
+  (`sheet`), each in one weight, upright or (Sonnet) italic, under no licence; `tools/fonts/import.ts` makes them into
+  `fonts/`, which the server reads instead of fetching. They replaced the Google families in `OLD_FONTS`:
+  `sanitizeParams` reads a saved id of one as its own font (`ownFontOf`). `FREE_FAMILIES` lists them (`own`,
+  `license: null`) with the Google families, each with its weights and italics up to 900, its licence folder (`ofl` or
+  `apache`), its reserved names, and `grid` for a pixel font (VT323, Silkscreen) that only stretches. `parseFontId`
+  accepts only a listed family at a weight it comes in; `nearestFont` is the font a design draws from as Weight and
+  Slant move (a family in one weight or only an italic gives that font); `withoutReserved` takes the family's own and
+  reserved names out of an exported font's name (OFL; an own font reserves nothing). Own fonts' names are font ids in
+  saved designs: never rename one.
 - `family.ts`: the nine `WEIGHTS` (Regular at index 3, Bold at 6), `TYPICAL` places on the Weight slider (0.4 is
   Regular, as Weight 0.4 is the default and a free font's 400), the anchor (the weight the design is named as), and
   `familyMember`, which reweighs and reslants the design and each letter's own weight or slant. Italics lean 0.55

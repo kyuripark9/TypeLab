@@ -75,7 +75,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 | How a setting draws | `shared/engine/` (`font.ts` metrics, `glyph.ts` stages) | shared/engine/CLAUDE.md |
 | A letter's skeleton | `shared/engine/glyphs/` (`upper.ts`, `lower.ts`, `figures.ts`, `punctuation.ts`; `shared.ts`, `turns.ts`) | shared/engine/CLAUDE.md |
 | Script letters, swashes | `shared/engine/script.ts` (`<ch>.scr`), `swash.ts` (`<ch>.sw`) | shared/engine/CLAUDE.md |
-| Block letters (*Built from: Blocks*) | `shared/engine/blocks.ts`: corner outlines, y down, no skeleton | shared/engine/CLAUDE.md |
+| Block letters (*Built from: Blocks*) | `shared/engine/blocks.ts`: corner outlines, y down, no skeleton; their Style page card is `slotblocks` (Blocks) | shared/engine/CLAUDE.md |
 | Fills and the slice | `shared/engine/effects.ts`, `boolean.ts` | shared/engine/CLAUDE.md |
 | The construction grid | `shared/engine/grid.ts`, `client/components/ConstructionGrid.tsx` | shared/engine/CLAUDE.md |
 | Points mode: tracing, drawn letters, pen tools | `shared/engine/outline.ts`, `client/lib/pen.ts`, `client/components/PenCanvas.tsx` | client/CLAUDE.md |
@@ -90,7 +90,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 | Editor state, undo, saving, demo deep links | `client/state/editor.ts`, `client/pages/EditorPage.tsx` (`useDeepLinks`) | client/CLAUDE.md |
 | The look of anything | `client/styles.css` (one sheet; tokens on `:root`) | client/CLAUDE.md |
 | The control panel | `client/components/Panel.tsx`, `client/components/panel/` | client/CLAUDE.md |
-| The Style page: cards, finder, filters, traits | `client/components/Stage.tsx`, `Finder.tsx`, `panel/StylePanel.tsx` | client/CLAUDE.md |
+| The Style page: cards, finder, filters, traits | `client/components/Stage.tsx`, `Finder.tsx`, `BuiltText.tsx`, `panel/StylePanel.tsx` | client/CLAUDE.md |
 | The inspector and dragging a letter's parts | `client/components/Inspector.tsx`, `client/lib/drag.ts` | client/CLAUDE.md |
 | Header and export menu; nav, glyph strip, toast; the tour; sign-in | `Header.tsx`; `Chrome.tsx`; `Guide.tsx`; `Account.tsx` and `client/state/auth.ts` | client/CLAUDE.md |
 | The "changes nothing here" note | `client/lib/reach.ts`, `client/components/panel/reach.tsx` | client/CLAUDE.md |

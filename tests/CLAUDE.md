@@ -42,13 +42,13 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `styles.test.ts` | Valid presets; the Style page's cards (solid letters, every Feeling carried, `TAG_FACE` on the page); word spaces in joined-up scripts; v w V W on the baseline, no gap after a curled Q |
 | `traits.test.ts` | The Adjust tab's trait steps and the style search |
 | `family.test.ts` | `shared/family.ts` and the family `.zip` (`server/export.ts`): weights, members, names and style bits |
-| `free-fonts.test.ts` | Every style's free font id; converting a font file as the server does; drawing a design in a free font and moving its letters (skin, restyle, the twin, `formChanged`); the export's notice; the API route; TypeLab's own fonts, and their letters moved whole (Mainline's u drawn in pieces, an l's foot, Gumdrop's round ends) |
+| `free-fonts.test.ts` | Every style's free font id (none for one built from blocks); converting a font file as the server does; drawing a design in a free font and moving its letters (skin, restyle, the twin, `formChanged`); the export's notice; the API route; TypeLab's own fonts, and their letters moved whole (Mainline's u drawn in pieces, an l's foot, Gumdrop's round ends) |
 | `api.test.ts` | The HTTP API on an in-memory store: designs, accounts, Google sign-in, export, a database from before owners |
 | `boundaries.test.ts` | Nothing under `shared/` imports `client/` or `server/` or touches the DOM (a regex: a comment saying `window.` trips it) |
 | `golden.test.ts` | The engine's golden outlines; the free fonts' too with `GOLDEN_FREE=1` |
 
 | `stroke-order.test.ts` | Every glyph draws its strokes in the order `tests/stroke-order.txt` keeps (the defaults, each letter form, and the settings that draw strokes of their own), so saved per-letter values stay on their strokes. An order changed on purpose: `UPDATE_STROKE_ORDER=1 node --import tsx --test tests/stroke-order.test.ts` rewrites the file |
-| `editor.test.ts` | `client/state/editor.ts` without a browser: a design written in its style's free font and back, a customized letter's own values, loading a style over changes, renaming, the 200-step undo limit |
+| `editor.test.ts` | `client/state/editor.ts` without a browser: a design written in its style's free font and back, a style built from blocks started without one, a customized letter's own values, loading a style over changes, renaming, the 200-step undo limit |
 
 Invariants other files also pin: every handle's id is one a saved design keeps (handles.test.ts); deep links parse,
 every nested slider has a place in the panel, and every part a control shapes names a real control (pages.test.ts);

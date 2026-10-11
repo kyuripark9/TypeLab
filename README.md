@@ -100,8 +100,9 @@ and builds exported fonts on the server. A full rebuild of every glyph takes a f
 | `highlight.ts` | The part of a glyph a setting shapes, for the explainer and the inspector |
 | `geom.ts`, `types.ts` | Béziers, polygon clipping, corner rounding, SVG path output; shared types |
 
-Every starting style can also be written in a ready-made font (`shared/free-fonts.ts` names one per style).
-The 21 on the Style page are TypeLab's own fonts, drawn for it and free to use, change and share with no
+Every starting style can also be written in a ready-made font (`shared/free-fonts.ts` names one per style),
+except those built from blocks, which no font draws (the Style page's Blocks card draws the engine's letters).
+The other 21 on the Style page are TypeLab's own fonts, drawn for it and free to use, change and share with no
 licence: each was drawn on a specimen sheet (`Asset/After/<n>.ai`), which `npm run fonts:import`
 (`tools/fonts/`) turns into the outlines the engine draws, kept in `fonts/`. The other styles use a free
 font from Google Fonts (SIL Open Font License or Apache 2.0): the server fetches it the first time it's

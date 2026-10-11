@@ -51,7 +51,7 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `pages/AccountPage.tsx` | Name, Google and password, other browsers, closing the account |
 | `components/Header.tsx` | Logo, the design's name, undo and redo, Guide, My designs, Save, the Export menu (font, family, specimen, `.typelab.json` out and in) |
 | `components/Chrome.tsx` | `Nav` (pages, Find a setting on ⌘K), `GlyphStrip` (one memo `StripCell` per glyph), `Toast` |
-| `components/Stage.tsx` | The Type something bar; on the Style page the finder and the style cards (each in its free font as a web font), elsewhere the preview and the inspector |
+| `components/Stage.tsx` | The Type something bar; on the Style page the finder and the style cards (each in its free font as a web font, or, for a style built from blocks, which has none, in the engine's letters: `BuiltText.tsx`), elsewhere the preview and the inspector |
 | `components/Finder.tsx` | The style finder's one question, what kind of letters (the Category); its answer is the `groups` filter |
 | `components/Preview.tsx`, `GlyphDefs.tsx` | The live preview, every letter a `<use>` of `#g<code>` defined once in GlyphDefs, with highlights `#h<code>` |
 | `components/Inspector.tsx` | One letter, large: its parts live, drags through `lib/drag.ts`, Shape/Points, Sync all/Customize, the construction grid toggle; `letterControls` |

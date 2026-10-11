@@ -199,6 +199,9 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 /* a style's card in its free font: the text set as the browser draws the font, hidden until it has loaded */
 .card-free { display: block; color: var(--ink); line-height: 1.3; overflow-wrap: anywhere; }
 .card-free.loading { visibility: hidden; }
+/* a style no font stands behind (built from blocks), its card and finder tile in the engine's letters (BuiltText) */
+.built svg { display: block; fill: currentColor; overflow: visible; }
+.finder-typed.built { color: var(--ink); }
 /* what the cards are, one quiet line under the heading */
 .letters-note { margin: -10px 0 20px; font-size: 13px; color: var(--ink-3); }
 /* while the cards catch up with a new trait, they dim a little */

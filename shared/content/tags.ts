@@ -9,14 +9,16 @@ import type { StyleDef } from './styles';
 /* Starting styles are tagged like the fonts on Google Fonts. The group is a style's Category: it
    sorts the cards on the stage and is the style finder's question. Then come the finer
    Classification tags (Sans Serif, Serif and Calligraphy, in the order of the card groups) and
-   Appearance, both of which search reads, and Feeling, the panel's filter. */
-export type StyleGroup = 'sans' | 'serif' | 'slab' | 'mono' | 'hand' | 'display';
+   Appearance, both of which search reads, and Feeling, the panel's filter. Blocks are the letters built from
+   blocks (Built from, see shared/engine/blocks.ts) rather than strokes. */
+export type StyleGroup = 'sans' | 'serif' | 'slab' | 'mono' | 'hand' | 'blocks' | 'display';
 export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string }[] = [
   { id: 'sans', label: 'Sans Serif', hint: 'Clean letters with no serifs' },
   { id: 'serif', label: 'Serif', hint: 'Small finishing strokes on each letter' },
   { id: 'slab', label: 'Slab Serif', hint: 'Heavy, block-shaped serifs' },
   { id: 'mono', label: 'Monospace', hint: 'Every letter takes the same width' },
   { id: 'hand', label: 'Calligraphy', hint: 'Drawn by hand with a pen or brush' },
+  { id: 'blocks', label: 'Blocks', hint: 'Solid shapes with their counters cut in as slots' },
   { id: 'display', label: 'Display', hint: 'Decorative, made for headlines' }
 ];
 export type Mood = 'business' | 'calm' | 'sincere' | 'happy' | 'excited' | 'playful' | 'cute' | 'childlike' | 'fancy' | 'sophisticated'
