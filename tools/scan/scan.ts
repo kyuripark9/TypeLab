@@ -3,7 +3,7 @@
    gained or lost). Writes one JSON line per font to OUT_FILE (default .tools/out/scan.jsonl).
      node --import tsx tools/scan/scan.ts
      VARS='weight=1 contrast=1' SLICE=0/4 node --import tsx tools/scan/scan.ts
-   Fonts not kept in data/free-fonts are fetched from Google Fonts first. */
+   TypeLab's own fonts are read from fonts/; any other not kept in data/free-fonts is fetched from Google Fonts first. */
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { registerFreeFont, buildFont, freeFont, type Glyph } from '../../shared/engine';
 import { STYLES } from '../../shared/content';

@@ -1,6 +1,7 @@
 /* The tags starting styles are filed under, like the fonts on Google Fonts (Category, Classification,
    Appearance and Feeling), and finding styles by them or by words typed in search. */
 import { resolve, type Effective } from '../engine/font';
+import { STYLE_FONTS, parseFontId } from '../free-fonts';
 import type { Params } from '../params';
 import { searchTerms, startsWords } from './search';
 import type { StyleDef } from './styles';
@@ -97,9 +98,10 @@ export const styleMatches = (s: StyleDef, f: StyleFilter, looks: Look[] = s.look
   (!f.groups.length || f.groups.includes(s.group)) && (!f.moods.length || s.moods.some(m => f.moods.includes(m))) &&
   (!f.kinds.length || s.kinds.some(k => f.kinds.includes(k))) && searchMatches(s, f.query ?? '', looks);
 
-/** Everything a search can find a style by: its name, genre, feelings, looks, description and the Google Fonts families like it. */
+/** Everything a search can find a style by: its name, genre, feelings, looks, description, the font it's written in
+    and the Google Fonts families like it. */
 const words = (s: StyleDef, looks: Look[]) => [
-  s.name, STYLE_GROUPS.find(g => g.id === s.group)!.label, s.like, s.desc,
+  s.name, STYLE_GROUPS.find(g => g.id === s.group)!.label, s.like, s.desc, parseFontId(STYLE_FONTS[s.id])?.family ?? '',
   ...s.kinds.map(k => KIND_SECTIONS.flatMap(x => x.tags).find(t => t.id === k)!.label),
   ...s.moods.map(m => MOODS.find(x => x.id === m)!.label), ...looks.map(l => LOOKS.find(x => x.id === l)!.label)
 ].join(' ');

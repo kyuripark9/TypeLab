@@ -7,7 +7,7 @@ import { create } from 'zustand';
 import { STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Kind, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
 import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
 import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../shared/engine';
-import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
+import { STYLE_FONTS, isOwnFont, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
 import { DEFAULT_NAME, cleanName, type Design, type DesignInput } from '../../shared/design';
 import { SNAP_KINDS, type SnapKind } from '../lib/pen';
@@ -409,7 +409,8 @@ export const actions = {
     const params = { ...p, freeFont: on ? id! : '', freeAt: on ? freeAtOf(st.params) : {}, letterSpacing: spacing('letterSpacing', FREE_SPACING.letterSpacing), wordSpacing: spacing('wordSpacing', FREE_SPACING.wordSpacing) };
     set({ params, picked: s.picked === JSON.stringify(p) ? JSON.stringify(params) : s.picked });
     actions.commit();
-    actions.toast(on ? `Written in ${parseFontId(id)!.family}, a free font` : 'Letters built from the settings, ready to shape', { label: 'Undo', run: () => actions.travel(-1) });
+    const family = on ? parseFontId(id)!.family : '';
+    actions.toast(on ? `Written in ${family}, ${isOwnFont(family) ? 'a TypeLab font' : 'a free font'}` : 'Letters built from the settings, ready to shape', { label: 'Undo', run: () => actions.travel(-1) });
   },
   /** Reset one slider to the starting style's value, or, while edits go to one letter, to the
       value the other letters share. */

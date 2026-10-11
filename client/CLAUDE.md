@@ -62,7 +62,7 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `components/Family.tsx`, `Account.tsx`, `Guide.tsx`, `Intro.tsx`, `Dialog.tsx` | Family export; the sign-in dialog and account button; the first-run tour; the opening title card; the confirm dialog |
 | `components/SliderIcons.tsx`, `Icons.tsx`, `Resizer.tsx` | One icon per slider (`SLIDER_ICON_KEYS`, tested); the pages' icons; the draggable borders between panels |
 | `lib/api.ts` | Every `/api` request (routes in server/app.ts) |
-| `lib/free.ts` | Fetching and registering free fonts (`loadFreeFont`), `useFreeFonts`, the cards' web fonts (`useWebFont`, `fontStyle`) |
+| `lib/free.ts` | Fetching and registering free fonts (`loadFreeFont`), `useFreeFonts`, the cards' web fonts (`useWebFont`, `fontStyle`: an own font from the server's file as a `FontFace` named `TypeLab <Family>`, a Google one by its stylesheet) |
 | `lib/drag.ts` | Which setting a drag on a part moves and the value that brings the part to the pointer (`dragSpec`, `solver`, `towardMore`); pure, tests/drag.test.ts |
 | `lib/pen.ts` | The pen's pure operations on contours (copies, whole units), tracing (`traceOf`), Sync all, Mirror, snapping; tests/pen.test.ts |
 | `lib/reach.ts` | Whether a setting changes the letters in view (`reachOf`); tests/reach.test.ts |

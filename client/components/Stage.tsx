@@ -195,8 +195,8 @@ function ActiveBar({ onClear, finder }: { onClear: () => void; finder: boolean }
   );
 }
 
-/** What the cards are: each style in a free font, which every setting reshapes. */
-const LETTERS_NOTE = 'Free fonts by type designers, yours to change and use. Every setting reshapes their letters, and Points redraws any of them.';
+/** What the cards are: each style in one of TypeLab's own fonts, which every setting reshapes. */
+const LETTERS_NOTE = 'TypeLab’s own fonts, yours to change and use as you like. Every setting reshapes their letters, and Points redraws any of them.';
 
 /** A style's card in its free font: the sample text set in the font itself, as the browser draws it. */
 function FreeCard({ style: s, text, size }: { style: StyleDef; text: string; size: number }) {

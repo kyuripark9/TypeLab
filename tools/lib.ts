@@ -22,7 +22,7 @@ export const styleOf = (id: string) => {
 /** Where the server keeps the free fonts it has fetched, unless FONTS_DIR points elsewhere. */
 export const FONTS_DIR = process.env.FONTS_DIR ?? resolve(ROOT, 'data/free-fonts');
 let fonts: FreeFonts | null = null;
-/** The free fonts, as the server keeps them in FONTS_DIR (fetched from Google Fonts when missing). */
+/** The free fonts as the server has them: TypeLab's own from fonts/, the rest kept in FONTS_DIR (fetched from Google Fonts when missing). */
 export const freeFonts = () => (fonts ??= new FreeFonts(FONTS_DIR));
 
 /** Style `id`'s settings, written in its free font when `free` (the font is loaded and registered first). Its spacing

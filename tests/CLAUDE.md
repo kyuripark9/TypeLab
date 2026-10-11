@@ -80,9 +80,10 @@ characters per glyph: a SHA-1 of its placed outline to a hundredth of a unit, wi
 - Engine probes: `style:<id>` for every style, `defaults`, `<key>=<value>` for every setting at its ends and in each
   option (tried where it shows), the stroke-end forms, a `glyphs` probe with letters of their own, a blocks probe,
   and stencil, crossbar-gap and join-gap probes on ten styles. `npm test` checks them.
-- Free probes: `<style>@<hash of the kept font file>[:<move>]`, each style in its free font as picked and moved by a
-  few settings. They need the fonts in `data/free-fonts` (`FONTS_DIR`); `npm run golden` checks them, or `npm test`
-  with `GOLDEN_FREE=1`. A font that isn't kept, or whose file changed, drops out of the check silently.
+- Free probes: `<style>@<hash of the font file>[:<move>]`, each style in its free font as picked and moved by a
+  few settings. TypeLab's own fonts are always there (`fonts/`); the Google ones need to be in `data/free-fonts`
+  (`FONTS_DIR`). `npm run golden` checks them, or `npm test` with `GOLDEN_FREE=1`. A font that isn't kept, or whose
+  file changed (an own font imported again), drops out of the check silently: after an import, `golden:update`.
 - What golden misses: letter and word spacing (layout only), marks, counters, skeletons, highlights, metrics, and
   per-letter values beyond its probes. `npm run compare` covers those.
 

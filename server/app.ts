@@ -4,7 +4,7 @@ import express, { type NextFunction, type Request, type Response, type Router } 
 import { styleById } from '../shared/content';
 import { cleanName, slug, type DesignInput } from '../shared/design';
 import { isValidParams, type Params } from '../shared/params';
-import { parseFontId } from '../shared/free-fonts';
+import { FREE_FAMILIES, parseFontId } from '../shared/free-fonts';
 import type { DesignStore } from './db';
 import { AccountStore, SESSION_DAYS } from './accounts';
 import { AUTH_CHANNEL, GOOGLE_RESULT_PARAM, cleanEmail, cleanUserName, isEmail, passwordProblem, type GoogleIntent, type GoogleResult, type User } from '../shared/account';
@@ -363,13 +363,24 @@ function fontRoutes(api: Router, { fonts }: Ctx) {
     try { await fonts.ready(...params); } catch (e) { console.error(e); throw new HttpError(502, "Couldn't fetch the free font this design is written in. Try again in a moment."); }
   };
 
-  // a free font's letters, as the engine draws them (fetched from Google Fonts the first time)
+  // a free font's letters, as the engine draws them (TypeLab's own from fonts/, any other fetched from Google Fonts
+  // the first time). An own font is asked after each time (its ETag answers), as an import can change it
   api.get('/free-fonts/:id', async (req, res) => {
-    if (!parseFontId(req.params.id)) throw new HttpError(404, 'No such free font');
+    const ref = parseFontId(req.params.id);
+    if (!ref) throw new HttpError(404, 'No such free font');
     let data;
     try { data = await fonts.load(req.params.id); } catch (e) { console.error(e); throw new HttpError(502, "Couldn't fetch the font from Google Fonts"); }
-    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Cache-Control', FREE_FAMILIES[ref.family].own ? 'no-cache' : 'public, max-age=86400');
     res.json(data);
+  });
+
+  // one of TypeLab's own fonts as an OpenType file, for the browser to set a style's name in (fontFileUrl)
+  api.get('/free-fonts/:id/font.otf', async (req, res) => {
+    const ref = parseFontId(req.params.id);
+    if (!ref || !FREE_FAMILIES[ref.family].own) throw new HttpError(404, 'No such font');
+    const file = await fonts.file(req.params.id);
+    res.setHeader('Cache-Control', 'no-cache');
+    res.type('font/otf').send(file);
   });
 
   api.post('/export/otf', async (req, res) => {

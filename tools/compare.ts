@@ -85,17 +85,23 @@ async function designsOf(root: string, free: boolean, only: RegExp | null): Prom
   if (!only || only.test('defaults')) for (const [mn, mv] of MOVES) out.push([named('defaults', mn), { ...DEFAULTS, ...mv }]);
   if (free) for (const st of styles) {
     const fid = STYLE_FONTS[st.id] as string | undefined;
-    if (!fid || !existsSync(keptFile(fid))) continue;
+    if (!fid || !(existsSync(keptFile(fid)) || existsSync(ownFile(root, fid)))) continue;
     const freeAt = Object.fromEntries((FREE_AT_KEYS as string[]).map(k => [k, st.params[k]]));
     for (const [mn, mv] of MOVES) out.push([named(`free:${st.id}`, mn), { ...st.params, freeFont: fid, freeAt, ...mv }]);
   }
   return out;
 }
 
-/** The file a free font is kept in (named as server/free-fonts.ts's keptFile names it). */
-const keptFile = (id: string) => join(FONTS_DIR, id.replace(/[^A-Za-z0-9]+/g, '-') + '.json');
-/** Every free font kept in FONTS_DIR, in name order. */
-const keptFonts = () => (existsSync(FONTS_DIR) ? readdirSync(FONTS_DIR).filter(f => f.endsWith('.json')).sort().map(f => join(FONTS_DIR, f)) : []);
+/** A free font's file's name (as server/free-fonts.ts's keptFile names it). */
+const fileName = (id: string) => id.replace(/[^A-Za-z0-9]+/g, '-') + '.json';
+/** The file a free font is kept in. */
+const keptFile = (id: string) => join(FONTS_DIR, fileName(id));
+/** Where a checkout keeps TypeLab's own fonts (part of the commit, so its dump's key needn't name them). */
+const ownFile = (root: string, id: string) => join(root, 'fonts', fileName(id));
+/** Every .json file in a folder, in name order. */
+const jsonIn = (dir: string) => (existsSync(dir) ? readdirSync(dir).filter(f => f.endsWith('.json')).sort().map(f => join(dir, f)) : []);
+/** Every free font kept in FONTS_DIR. */
+const keptFonts = () => jsonIn(FONTS_DIR);
 
 /** Writes to `out` a line for each design's layout and metrics ('#layout'; '#font' with the error if the design
     can't be built) and for each of its glyphs: the design, the character and a hash of all of it. Slice `i/n` takes every n-th design from the i-th. On stdout it says how
@@ -104,7 +110,7 @@ async function dump(root: string, out: string, free: boolean, only: RegExp | nul
   const E = await import(pathToFileURL(join(root, 'shared/engine/index.ts')).href);
   // every kept font, registered before anything is drawn, so a design draws the same whichever slice it is in
   // (a setting can reach for another weight or the italic of a style's font)
-  if (free) for (const f of keptFonts()) E.registerFreeFont(JSON.parse(readFileSync(f, 'utf8')));
+  if (free) for (const f of [...keptFonts(), ...jsonIn(join(root, 'fonts'))]) E.registerFreeFont(JSON.parse(readFileSync(f, 'utf8')));
   const lines: string[] = [];
   const mine = (await designsOf(root, free, only)).filter((_, k) => k % slice[1] === slice[0]);
   process.stdout.write(`of ${mine.length}\n`);

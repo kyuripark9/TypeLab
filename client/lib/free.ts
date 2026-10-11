@@ -1,11 +1,12 @@
 /* Free fonts in the browser (which font each style names: shared/free-fonts.ts). A design written in one
    needs the font's letters before the engine can draw them: they come from the server (server/free-fonts.ts),
-   which fetches them from Google Fonts, and are registered with the engine (registerFreeFont in
-   shared/engine/free.ts, which tells onFreeFont's listeners). Until then the design's own letters stand in.
-   The style cards and the finder show a style's free font as a web font instead, which is quicker to fetch. */
+   which keeps TypeLab's own and fetches the rest from Google Fonts, and are registered with the engine
+   (registerFreeFont in shared/engine/free.ts, which tells onFreeFont's listeners). Until then the design's own
+   letters stand in. The style cards and the finder show a style's free font as a web font instead, which is
+   quicker to fetch: an own font as the OpenType file the server builds from it, any other from Google Fonts. */
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { freeFont, onFreeFont, registerFreeFont } from '../../shared/engine';
-import { fontCss, parseFontId, type FreeFontRef } from '../../shared/free-fonts';
+import { fontCss, fontFileUrl, fontId, isOwnFont, parseFontId, type FreeFontRef } from '../../shared/free-fonts';
 import { api } from './api';
 
 const loading = new Map<string, Promise<boolean>>();
@@ -32,30 +33,38 @@ export const useFreeFonts = () => useSyncExternalStore(onFreeFont, () => version
 /* ---- web fonts, for showing a style's free font on its card */
 
 const linked = new Map<string, Promise<void>>();
+/** The name a font is set in as a web font: an own font's is kept apart from any font of that name on the computer. */
+const webFamily = (r: FreeFontRef) => (isOwnFont(r.family) ? `TypeLab ${r.family}` : r.family);
 /** The CSS font shorthand for a font at `px`. */
-const fontSpec = (r: FreeFontRef, px: number) => `${r.italic ? 'italic ' : ''}${r.weight} ${px}px '${r.family}'`;
+const fontSpec = (r: FreeFontRef, px: number) => `${r.italic ? 'italic ' : ''}${r.weight} ${px}px '${webFamily(r)}'`;
 /** The inline style that sets text in a font. */
-export const fontStyle = (r: FreeFontRef) => ({ fontFamily: `'${r.family}', Inter, sans-serif`, fontWeight: r.weight, fontStyle: r.italic ? 'italic' : 'normal' });
+export const fontStyle = (r: FreeFontRef) => ({ fontFamily: `'${webFamily(r)}', Inter, sans-serif`, fontWeight: r.weight, fontStyle: r.italic ? 'italic' : 'normal' });
+/** Where a font's web font comes from: the server's file of an own font, else its stylesheet on Google Fonts. */
+const webSource = (r: FreeFontRef) => (isOwnFont(r.family) ? fontFileUrl(fontId(r)) : fontCss(r));
 
-/** Load a font's web font (its stylesheet from Google Fonts, then the font itself). */
+/** Load a font's web font: an own font straight from its file, any other by its stylesheet from Google Fonts and then
+    the font itself. */
 function loadWebFont(r: FreeFontRef): Promise<void> {
-  const css = fontCss(r);
-  let p = linked.get(css);
+  const src = webSource(r);
+  let p = linked.get(src);
   if (!p) {
-    p = new Promise<void>(resolve => {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet'; link.href = css;
-      link.onload = link.onerror = () => resolve();
-      document.head.appendChild(link);
-    }).then(() => document.fonts.load(fontSpec(r, 40)).then(() => undefined, () => undefined));
-    linked.set(css, p);
+    p = isOwnFont(r.family)
+      ? new FontFace(webFamily(r), `url(${src})`, { weight: String(r.weight), style: r.italic ? 'italic' : 'normal' }).load()
+        .then(face => { document.fonts.add(face); }, () => undefined)
+      : new Promise<void>(resolve => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet'; link.href = src;
+        link.onload = link.onerror = () => resolve();
+        document.head.appendChild(link);
+      }).then(() => document.fonts.load(fontSpec(r, 40)).then(() => undefined, () => undefined));
+    linked.set(src, p);
   }
   return p;
 }
 
 /** Whether a free font's web font has loaded, loading it. */
 export function useWebFont(id: string | undefined): FreeFontRef | null {
-  const r = id ? parseFontId(id) : null, key = r ? fontCss(r) : '';
+  const r = id ? parseFontId(id) : null, key = r ? webSource(r) : '';
   const [ready, setReady] = useState<string | null>(null);
   useEffect(() => {
     if (!r) return;

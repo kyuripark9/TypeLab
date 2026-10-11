@@ -16,7 +16,7 @@ Everything here runs in the browser and on the server alike, so nothing touches 
 | `content/controls.ts` | `CONTROLS`, `SUBS` and each control's `*_SUBS`, the pickers' options and finer sliders, `PART_CONTROL`, `controlFor`, `firstControl` |
 | `content/copy.ts` | `ANATOMY` (part id to name and definition), `TEXTS` (sample text) |
 | `content/search.ts` | Find a setting: `findSettings`, `ALSO` (words people use that the copy doesn't) |
-| `free-fonts.ts` | The Google families (`FREE_FAMILIES`), each style's font (`STYLE_FONTS`), font ids, `nearestFont`, `withoutReserved` |
+| `free-fonts.ts` | TypeLab's own fonts (`OWN_FAMILIES`) and the Google families (`FREE_FAMILIES`), each style's font (`STYLE_FONTS`), the fonts the own ones replaced (`OLD_FONTS`, `ownFontOf`), font ids, `nearestFont`, `withoutReserved` |
 | `family.ts` | A font family: `WEIGHTS`, `familyMember(s)`, the anchor weight, `SLANTED` |
 | `traits.ts` | The Style page's Adjust tab: `TRAIT_SECTIONS`, `applyTraits`, `traitsKey` |
 | `design.ts`, `account.ts` | What client and server exchange: `Design`, `DesignInput`, `cleanName`, `slug`; `User`, `EmailCheck`, `GoogleResult`, the sign-up rules |
@@ -133,10 +133,17 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
 
 ## Families, free fonts, traits
 
-- `free-fonts.ts`: `FREE_FAMILIES` lists each family's weights and italics up to 900, its licence folder (`ofl` or
-  `apache`), its reserved names, and `grid` for a pixel font (VT323, Silkscreen) that only stretches. `parseFontId`
-  accepts only a listed family at a weight it comes in; `nearestFont` is the font a design draws from as Weight and
-  Slant move; `withoutReserved` takes the family's own and reserved names out of an exported font's name (OFL).
+- `free-fonts.ts`: `OWN_FAMILIES` are TypeLab's own fonts, one per Style page card (Mainline, Parlance, Compass,
+  Cotton, Turnpike, Orbital, Gumdrop, Almanac, Vellum, Couture, Sonnet, Ballyhoo, Hearth, Timber, Kernel, Dispatch,
+  Funnies, Jotter, Boardwalk, Serenade, Cathedral): drawn for TypeLab on the sheets in `Asset/After/` (`sheet`), each in
+  one weight, upright or (Sonnet) italic, under no licence; `tools/fonts/import.ts` makes them into `fonts/`, which the
+  server reads instead of fetching. They replaced the Google families in `OLD_FONTS`: `sanitizeParams` reads a saved
+  id of one as its own font (`ownFontOf`). `FREE_FAMILIES` lists them (`own`, `license: null`) with the Google
+  families, each with its weights and italics up to 900, its licence folder (`ofl` or `apache`), its reserved names,
+  and `grid` for a pixel font (VT323, Silkscreen) that only stretches. `parseFontId` accepts only a listed family at a
+  weight it comes in; `nearestFont` is the font a design draws from as Weight and Slant move (a family in one weight
+  or only an italic gives that font); `withoutReserved` takes the family's own and reserved names out of an exported
+  font's name (OFL; an own font reserves nothing). Own fonts' names are font ids in saved designs: never rename one.
 - `family.ts`: the nine `WEIGHTS` (Regular at index 3, Bold at 6), `TYPICAL` places on the Weight slider (0.4 is
   Regular, as Weight 0.4 is the default and a free font's 400), the anchor (the weight the design is named as), and
   `familyMember`, which reweighs and reslants the design and each letter's own weight or slant. Italics lean 0.55

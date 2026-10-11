@@ -7,9 +7,10 @@
      npm run golden:update   accept the current outlines as the new golden ones (after looking at them)
 
    A second set, tests/golden/free-outlines.txt, covers the free fonts' letters (skin.ts, restyle.ts, the twin):
-   each style written in its free font, as picked and moved by a few settings. It needs the fonts in
-   data/free-fonts (the server keeps them there once asked for; FONTS_DIR points elsewhere), and a font that
-   isn't kept, or isn't the same file it was, is left out of the check rather than failed. */
+   each style written in its free font, as picked and moved by a few settings. TypeLab's own fonts are in fonts/;
+   the others need to be in data/free-fonts (the server keeps them there once asked for; FONTS_DIR points
+   elsewhere), and a font that isn't kept, or isn't the same file it was, is left out of the check rather than
+   failed. */
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -18,7 +19,7 @@ import { ALL_CHARS, buildFont, registerFreeFont, type Cmd } from '../shared/engi
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { STYLES, type StyleDef } from '../shared/content';
 import { DEFAULTS, SPECS, TERMINAL_FORMS, freeAtOf, type Params } from '../shared/params';
-import { keptFile } from '../server/free-fonts';
+import { fontFile } from '../server/free-fonts';
 import { FONTS_DIR, ROOT, showContext } from './lib';
 
 export type GoldenSet = 'engine' | 'free';
@@ -68,11 +69,12 @@ const FREE_MOVES: [string, (st: StyleDef) => Partial<Params>][] = [
   ['aperture=1', () => ({ aperture: 1 })], ['chamfer=1', () => ({ chamfer: 1 })], ['bowlForm=box', () => ({ bowlForm: 'box' })]
 ];
 const FREE_CHARS = 'ABCDEGHKMNOQRSWaegkmnorsty0258&?';
-/** Each free font kept in FONTS_DIR, its style's free-set designs, named with a hash of the font's file. */
+/** Each free font kept (TypeLab's own in fonts/, the others in FONTS_DIR), its style's free-set designs, named with a
+    hash of the font's file. */
 function freeProbes(): [string, Params][] {
   const out: [string, Params][] = [];
   for (const st of STYLES) {
-    const fid = STYLE_FONTS[st.id], file = fid && keptFile(FONTS_DIR, fid);
+    const fid = STYLE_FONTS[st.id], file = fid && fontFile(FONTS_DIR, fid);
     if (!file || !existsSync(file)) continue;
     const text = readFileSync(file, 'utf8');
     registerFreeFont(JSON.parse(text));

@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 import { BLOCK_CONTROLS, PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
 import type { NumericParam, SubControlDef } from '../../../shared/params';
-import { FREE_FAMILIES, STYLE_FONTS, parseFontId } from '../../../shared/free-fonts';
+import { FREE_FAMILIES, STYLE_FONTS, isOwnFont, parseFontId } from '../../../shared/free-fonts';
 import { actions, letterOf, useEditor, useFont, useParam } from '../../state/editor';
 import { ScopeIcon, letterControls } from '../Inspector';
 import { Explainer } from './heads';
@@ -40,10 +40,10 @@ function FreeLetters() {
   const id = useEditor(s => s.params.freeFont), offer = useEditor(s => STYLE_FONTS[s.styleId]), font = useFont();
   const r = parseFontId(id);
   if (r) {
-    const by = FREE_FAMILIES[r.family].designers.join(', ');
+    const own = isOwnFont(r.family), by = own ? '' : FREE_FAMILIES[r.family].designers.join(', ');
     return (
       <div className="reach-banner">
-        <span>Written in <b>{r.family}</b>{by && ` by ${by}`}, a free font{font.free ? ` (${font.free.license})` : ''} you may change and use. Its letters follow the settings as the built ones do: weight, contrast, width, the heights, the insides, curves, corners, peaks, stroke ends, serifs, dots, joints, stencil, slant, spacing and the fills. A letter picked in a form the font hasn't got (a single-storey a, a mirrored g) is built to its weight and width; reshape any letter in Points.</span>
+        <span>Written in <b>{r.family}</b>{by && ` by ${by}`}, {own ? 'a TypeLab font, yours to change and use as you like' : `a free font${font.free?.license ? ` (${font.free.license})` : ''} you may change and use`}. Its letters follow the settings as the built ones do: weight, contrast, width, the heights, the insides, curves, corners, peaks, stroke ends, serifs, dots, joints, stencil, slant, spacing and the fills. A letter picked in a form the font hasn't got (a single-storey a, a mirrored g) is built to its weight and width; reshape any letter in Points.</span>
         <button className="link small" onClick={() => actions.setFreeLetters(false)}>Make my own letters</button>
       </div>
     );
@@ -51,7 +51,7 @@ function FreeLetters() {
   const o = parseFontId(offer);
   return o && (
     <p className="page-note">
-      Want it ready-made? <button className="link small" onClick={() => actions.setFreeLetters(true)}>Use {o.family}</button>, a free font in this style
+      Want it ready-made? <button className="link small" onClick={() => actions.setFreeLetters(true)}>Use {o.family}</button>, {isOwnFont(o.family) ? 'a TypeLab font' : 'a free font'} in this style
     </p>
   );
 }

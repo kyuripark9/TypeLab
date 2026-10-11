@@ -11,7 +11,7 @@ preview (`shared/engine`).
 | `db.ts` | `DesignStore`: designs by owner, the schema upgrades, `PARAMS_VERSION` upgrades |
 | `accounts.ts` | `AccountStore`: users, scrypt password hashes, sessions |
 | `google.ts` | Google sign-in (authorization code with PKCE, no library); `googleFromEnv` |
-| `free-fonts.ts` | `FreeFonts`: fetching, converting and keeping free fonts; `keptFile` |
+| `free-fonts.ts` | `FreeFonts`: TypeLab's own fonts read from `fonts/`, the others fetched, converted and kept; each as a web font (`webFont`); `keptFile`, `ownFontFile`, `fontFile` |
 | `export.ts` | `buildOTF`, `buildFamilyZip`, `buildSpecimenSVG`, `exportName` |
 | `opentype.ts` | opentype.js as one module: it is CommonJS, so under Node its API sits on the default export. Import it from here (the server and the tests do), not from `'opentype.js'` |
 
@@ -37,7 +37,8 @@ Bodies are JSON (up to 4 MB). Errors answer `{ error }`.
 | GET | `/api/designs` | The owner's designs, newest first |
 | POST | `/api/designs` | `{ name, styleId, params }` → 201, the design |
 | GET, PUT, PATCH, DELETE | `/api/designs/:id` | Read; replace (`{ name, styleId, params }`); rename (`{ name }`); delete (204) |
-| GET | `/api/free-fonts/:id` | A free font's letters (`FreeFontData`), fetched from Google Fonts the first time; 502 when that fails |
+| GET | `/api/free-fonts/:id` | A free font's letters (`FreeFontData`): an own font's from `fonts/` (`no-cache`, its ETag answers), any other fetched from Google Fonts the first time; 502 when that fails |
+| GET | `/api/free-fonts/:id/font.otf` | One of TypeLab's own fonts as an OpenType file, for the style cards' web fonts (`fontFileUrl`); 404 for any other |
 | POST | `/api/export/otf` | `{ name, params }` → an `.otf` |
 | POST | `/api/export/family` | `{ name, params, family: { anchor, weights, upright, italic } }` → a `.zip` |
 | POST | `/api/export/svg` | `{ name, params }` → an SVG specimen |
@@ -85,9 +86,11 @@ tests/api.test.ts build one).
 
 ## The free-font cache
 
-`FreeFonts(dir)` keeps fonts in memory and, when `dir` is set, as JSON files there: `dirname(DB_PATH)/free-fonts`
-(`data/free-fonts` by default; none for `DB_PATH=:memory:`). `load(id)` takes only ids `parseFontId` accepts, runs
-one fetch per id at a time and forgets a failed one so the next call retries. A kept file is reused only when it has
+TypeLab's own fonts are part of the repository, in `fonts/<Family>-<weight>.json` (`ownFontFile`): `load(id)` reads
+one from there, never fetching. The rest: `FreeFonts(dir)` keeps fonts in memory and, when `dir` is set, as JSON
+files there: `dirname(DB_PATH)/free-fonts` (`data/free-fonts` by default; none for `DB_PATH=:memory:`). `load(id)`
+takes only ids `parseFontId` accepts, runs one fetch per id at a time and forgets a failed one so the next call
+retries. A kept file is reused only when it has
 `licenseText` and its heights look right (`cap > 300`, `xh > 150`); otherwise the font is fetched again from the
 Google Fonts CSS API (which answers with TrueType), converted (`convertFont`: 1000 to the em, quadratics made
 cubic) and its licence fetched from github.com/google/fonts. `keptFile` names the files, and `tools/golden.ts` reads
@@ -99,9 +102,9 @@ throwing the kept files away. `ready(...params)` registers every free font the s
 `buildOTF`: a CFF font at 1000 units per em with `.notdef`, space, no-break space and every character of
 `ALL_CHARS` (named `uniXXXX`, one UTF-16 code unit each), advances never below 20 (a space 40). Regular, Italic,
 Bold and Bold Italic share one family name; other weights get a family of their own plus the typographic names.
-Written in a free font, it carries the font's copyright notice and full licence, and its name loses the font's own
-and reserved names (`withoutReserved`). `buildFamilyZip` builds every `familyMember` into `<slug>/<slug>-<Style>.otf`
-(and `LICENSE.txt` for a free font). `buildSpecimenSVG` sets the name, every character and a pangram. Every export
+Written in a free font from Google Fonts, it carries the font's copyright notice and full licence, and its name loses
+the font's own and reserved names (`withoutReserved`); TypeLab's own fonts come under no licence, so neither applies. `buildFamilyZip` builds every `familyMember` into `<slug>/<slug>-<Style>.otf`
+(and `LICENSE.txt` for a Google font). `buildSpecimenSVG` sets the name, every character and a pangram. Every export
 route first awaits the free fonts the design and its members need (`freeReady`), or answers 502.
 
 ## Environment

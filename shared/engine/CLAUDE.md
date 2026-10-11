@@ -96,12 +96,14 @@ name before changing them. If you change one end, change the other, then run gol
 
 ## The free-font path
 
-A design with `freeFont` set draws its letters from a Google font instead of building them.
+A design with `freeFont` set draws its letters from a free font instead of building them: one of TypeLab's own
+(`fonts/`) or a Google font.
 
-1. `free.ts`: the server converts a font into `FreeFontData` (1000 to the em, y up, glyphs as packed anchor points);
-   the browser (`client/lib/free.ts`) and the server register it with `registerFreeFont` before drawing, and
-   `onFreeFont` tells listeners. The same format is the server's cache in `data/free-fonts/*.json`: changing
-   `PackedNode` or `FreeFontData` means throwing those files away.
+1. `free.ts`: a font as `FreeFontData` (1000 to the em, y up, glyphs as packed anchor points): TypeLab's own as
+   `tools/fonts/import.ts` wrote it into `fonts/`, a Google font as the server converts it; the browser
+   (`client/lib/free.ts`) and the server register it with `registerFreeFont` before drawing, and `onFreeFont` tells
+   listeners. The same format is the server's cache in `data/free-fonts/*.json`: changing `PackedNode` or
+   `FreeFontData` means throwing those files away and importing the own fonts again.
 2. `free-letters.ts`: `freeLetters` compares where the font was picked (`pick`, from `{ ...params, ...params.freeAt }`)
    with what is asked (`now`). `want` is the family's nearest weight, and its italic past half of a 12° lean
    (`nearestFont`); until it is registered the font is `freePending`, and `freeMissing` / `freeFontsWanted` say what

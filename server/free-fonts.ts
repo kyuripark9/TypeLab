@@ -1,9 +1,12 @@
-/* Free fonts' letters (see shared/free-fonts.ts), fetched from Google Fonts the first time a font is
-   asked for, converted to the outlines the engine draws (shared/engine/free.ts) and kept: in memory,
-   and as a file in `dir` when there is one, so a font is fetched once. Only the families in FREE_FAMILIES,
-   in the weights and italics they come in, are fetched (see parseFontId). */
+/* Free fonts' letters (see shared/free-fonts.ts). TypeLab's own fonts are read from fonts/ in the repository,
+   where tools/fonts/import.ts writes them already in the outlines the engine draws (shared/engine/free.ts); the
+   others are fetched from Google Fonts the first time a font is asked for, converted, and kept: in memory, and as
+   a file in `dir` when there is one, so a font is fetched once. Only the families in FREE_FAMILIES, in the weights
+   and italics they come in, are loaded (see parseFontId). Each font is also served as an OpenType file, for the
+   browser to show a style's name in its own font (webFont). */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ALL_CHARS, freeFont, freeFontsWanted, packNode, registerFreeFont, type FreeFontData, type Node, type PackedNode } from '../shared/engine';
 import { FREE_FAMILIES, parseFontId, type FreeFontRef } from '../shared/free-fonts';
 import type { Params } from '../shared/params';
@@ -84,21 +87,65 @@ function convertFont(id: string, ref: FreeFontRef, buf: ArrayBuffer): FreeFontDa
 
 /** Where font `id` is kept in `dir` (tools/golden.ts reads the same files). */
 export const keptFile = (dir: string, id: string) => join(dir, id.replace(/[^A-Za-z0-9]+/g, '-') + '.json');
+/** Where TypeLab's own fonts are kept: fonts/ at the repository's root. */
+export const OWN_FONTS_DIR = fileURLToPath(new URL('../fonts/', import.meta.url));
+/** Where one of TypeLab's own fonts is kept (tools/fonts/import.ts writes it). */
+export const ownFontFile = (id: string) => keptFile(OWN_FONTS_DIR, id);
+/** Where font `id` is read from: its own file for one of TypeLab's own fonts, else where it's kept in `dir`. */
+export const fontFile = (dir: string, id: string) => (FREE_FAMILIES[parseFontId(id)?.family ?? '']?.own ? ownFontFile(id) : keptFile(dir, id));
+
+type OtfPath = InstanceType<typeof opentype.Path>;
+/** One of a font's letters as an OpenType path. */
+function otfPath(contours: PackedNode[][]): OtfPath {
+  const p = new opentype.Path();
+  for (const c of contours) {
+    const n = c.length;
+    p.moveTo(c[0][0], c[0][1]);
+    for (let i = 1; i <= n; i++) {
+      const a = c[i - 1], b = c[i % n];
+      const ox = a.length > 4 ? a[4] as number : null, oy = a.length > 4 ? a[5] as number : null;
+      const ix = b.length > 2 ? b[2] : null, iy = b.length > 2 ? b[3] : null;
+      if (ox === null && ix === null) { if (i < n) p.lineTo(b[0], b[1]); }
+      else p.curveTo(ox ?? a[0], oy ?? a[1], ix ?? b[0], iy ?? b[1], b[0], b[1]);
+    }
+    p.close();
+  }
+  return p;
+}
+
+/** A font's letters as an installable OpenType file, for the browser to set a style's name in (a web font). */
+export function webFont(data: FreeFontData): Buffer {
+  const glyphs = [
+    new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }),
+    new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: data.space, path: new opentype.Path() }),
+    ...Object.entries(data.glyphs).map(([ch, [adv, contours]]) => new opentype.Glyph({
+      name: 'uni' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'), unicode: ch.charCodeAt(0), advanceWidth: adv, path: otfPath(contours)
+    }))
+  ];
+  const ys = Object.values(data.glyphs).flatMap(([, cs]) => cs.flatMap(c => c.map(n => n[1])));
+  const font = new opentype.Font({
+    familyName: data.family, styleName: 'Regular', unitsPerEm: 1000,
+    ascender: Math.round(Math.max(data.cap, ...ys)), descender: Math.round(Math.min(-200, ...ys)), glyphs
+  } as unknown as ConstructorParameters<typeof opentype.Font>[0]);
+  return Buffer.from(font.toArrayBuffer());
+}
 
 export class FreeFonts {
   private loading = new Map<string, Promise<FreeFontData>>();
+  private files = new Map<string, Promise<Buffer>>();
   constructor(private dir: string | null, private get: Fetch = fetch) {
     if (dir) mkdirSync(dir, { recursive: true });
   }
-  private file(id: string) { return this.dir && keptFile(this.dir, id); }
+  private kept(id: string) { return this.dir && keptFile(this.dir, id); }
 
-  /** Font `id`'s letters, from what's kept or else from Google Fonts. Throws for an id that isn't a free font. */
+  /** Font `id`'s letters: TypeLab's own from fonts/, any other from what's kept or else from Google Fonts. Throws for
+      an id that isn't a free font. */
   load(id: string): Promise<FreeFontData> {
     const ref = parseFontId(id);
     if (!ref) return Promise.reject(new Error(`${id} isn't one of the free fonts`));
     let p = this.loading.get(id);
     if (!p) {
-      p = this.fetchFont(id, ref);
+      p = FREE_FAMILIES[ref.family].own ? this.readOwn(id) : this.fetchFont(id, ref);
       this.loading.set(id, p);
       // a failed fetch is tried again next time
       p.catch(() => this.loading.delete(id));
@@ -106,8 +153,23 @@ export class FreeFonts {
     return p;
   }
 
+  private async readOwn(id: string): Promise<FreeFontData> {
+    return JSON.parse(readFileSync(ownFontFile(id), 'utf8')) as FreeFontData;
+  }
+
+  /** Font `id` as an OpenType file (see webFont), built once. */
+  file(id: string): Promise<Buffer> {
+    let p = this.files.get(id);
+    if (!p) {
+      p = this.load(id).then(webFont);
+      this.files.set(id, p);
+      p.catch(() => this.files.delete(id));
+    }
+    return p;
+  }
+
   private async fetchFont(id: string, ref: FreeFontRef): Promise<FreeFontData> {
-    const file = this.file(id);
+    const file = this.kept(id);
     if (file) {
       try {
         const kept = JSON.parse(readFileSync(file, 'utf8')) as FreeFontData;
@@ -133,6 +195,7 @@ export class FreeFonts {
       the font then carries the licence's name and address only). */
   private async licenseText(family: string) {
     const fam = FREE_FAMILIES[family], dir = family.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!fam.license) return '';
     try {
       const res = await this.get(`https://raw.githubusercontent.com/google/fonts/main/${fam.license}/${dir}/${fam.license === 'ofl' ? 'OFL.txt' : 'LICENSE.txt'}`);
       return res.ok ? (await res.text()).trim() : '';

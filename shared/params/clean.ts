@@ -1,10 +1,10 @@
 /* Reading settings from outside (a saved design, an imported file, a request body). upgradeParams brings settings an
    older PARAMS_VERSION wrote up to this one; callers run it first (server/db.ts on opening the database, the file
    import in client/components/Header.tsx). sanitizeParams then reads the older shapes it recognises on its own (a
-   separate `reverse`, the 'outline-inline' fill), drops unknown keys and checks every value against its spec
+   separate `reverse`, the 'outline-inline' fill, a free font TypeLab's own fonts replaced), drops unknown keys and checks every value against its spec
    (spec.ts), numbers clamped to 0..1; isValidParams says whether input was already valid. */
 import { cleanDrawn, type Drawn } from '../engine/outline';
-import { parseFontId } from '../free-fonts';
+import { ownFontOf, parseFontId } from '../free-fonts';
 import type { Params } from './model';
 import { contrastFromOld, xHeightFromOld } from './scales';
 import { DEFAULTS, FREE_AT_KEYS, ID_KEYS, PARAM_KEYS, SPECS, isGlyphKey, type FreeAt, type GlyphParams, type Spec } from './spec';
@@ -24,7 +24,8 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
   switch (spec.kind) {
     case 'number': return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
     case 'boolean': return typeof v === 'boolean' ? v : undefined;
-    case 'font': return v === '' || parseFontId(v) ? v : undefined;
+    // a design written in one of the Google fonts TypeLab's own took the place of is read as written in its own
+    case 'font': return v === '' || parseFontId(v) ? v : typeof v === 'string' ? ownFontOf(v) ?? undefined : undefined;
     case 'option':
       // older designs may carry 'outline-inline' (the Outline fill with an inline cut down its strokes too), read as Outline
       if (k === 'fill' && v === 'outline-inline') return 'outline';

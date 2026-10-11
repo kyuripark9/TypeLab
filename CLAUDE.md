@@ -20,6 +20,7 @@ The owner's Mac has no system Node: `tools/node.sh <cmd>` runs any command with 
 | Accept outlines you meant to change | `npm run golden:update` |
 | Full engine output against a git ref (about five minutes; see tools/README.md) | `npm run compare -- [ref] [--free] [--only <style-regex>]` |
 | Sliders that stop changing part way | `npm run sweep [-- keys...]` |
+| TypeLab's own fonts from their sheets (`Asset/After/<n>.ai` into `fonts/`; `--check` writes nothing) | `npm run fonts:import [-- names...]` |
 | A dev server of your own | `PORT=5199 DB_PATH=.tools/test.db npm run dev` |
 
 The owner keeps `npm run dev` running on port 5173 with the real database (`data/typelab.db`). Run your own servers
@@ -37,6 +38,7 @@ cleanly, start it as `PORT=5199 DB_PATH=.tools/test.db tools/node.sh node --impo
 | --- | --- | --- |
 | Engine code (`shared/engine/`, the scales in `shared/params/scales.ts`) | `npm test`; `npm run compare` for a refactor | Tests pass and the golden outlines are unchanged, or changed only where you meant and updated in the same commit |
 | Free-font code (`free*.ts`, `skin.ts`, `scan.ts`, `restyle.ts`) or a formula they share from `font.ts` | the above, plus `npm run golden` | The free set matches too |
+| An own font (a sheet in `Asset/After/`, `tools/fonts/`) | `npm run fonts:import`, look at it (`npm run render -- --style <id> --free`), `npm test`, `npm run golden:update` | Only the letters you meant changed (the import lists them); its golden lines looked at and accepted |
 | How a slider maps to geometry | the above, plus `npm run sweep -- <key>` | No new dead eighths |
 | A setting's spec, a style preset, pages, copy | `npm test`, `npm run typecheck` | Pages, icons and styles tests pass; changed `style:<id>` golden lines looked at and accepted |
 | Client UI | `npm run typecheck`; `npm test` if `client/lib/` or `client/components/SliderIcons.tsx` changed; a browser check | Screenshots at 1440×900 and 390×844 look right, no console errors |
@@ -52,7 +54,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
   share of the most it can be, never `value × base` into a clamp (`npm run sweep` finds dead zones).
 - A refactor changes no outlines. Floating-point order is behaviour: summing in another order, or swapping a local
   copy for a shared helper, can move points (shared/engine/CLAUDE.md).
-- What users have saved never changes shape: setting keys, option values, style ids, free-font ids, the stroke, end,
+- What users have saved never changes shape: setting keys, option values, style ids, free-font ids (own fonts' names included), the stroke, end,
   corner, join and turn ids, `localStorage` keys, and the addresses `/`, `/d/:id`, `/designs`, `/account`. When saved
   settings must be read differently, bump `PARAMS_VERSION` and add the step to `upgradeParams`
   (`shared/params/clean.ts`). Compatibility code (old columns, old option names, older contrast) stays.
@@ -79,6 +81,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 | Points mode: tracing, drawn letters, pen tools | `shared/engine/outline.ts`, `client/lib/pen.ts`, `client/components/PenCanvas.tsx` | client/CLAUDE.md |
 | A free font's letters under the settings | `shared/engine/free-letters.ts`, `skin.ts`, `scan.ts`, `restyle.ts` | shared/engine/CLAUDE.md |
 | Which free font a style is written in; families, licences | `shared/free-fonts.ts` | shared/CLAUDE.md |
+| TypeLab's own fonts (the Style page's 21): their names, sheets and letters | `OWN_FAMILIES` in `shared/free-fonts.ts`; `Asset/After/<n>.ai`; `tools/fonts/`; `fonts/` (generated) | shared/CLAUDE.md, tools/README.md |
 | A starting style's preset | `shared/content/styles.ts` (ids never change; `tools/fit/apply.ts` rewrites presets) | shared/CLAUDE.md |
 | Pages, groups, pickers, anatomy copy, settings search | `shared/content/` (`pages.ts`, `controls.ts`, `copy.ts`, `search.ts`) | shared/CLAUDE.md |
 | Style tags and Feelings; the Adjust tab's traits | `shared/content/tags.ts`; `shared/traits.ts` | shared/CLAUDE.md |
@@ -110,7 +113,8 @@ no PRs). Before committing, `git diff` each file you touched and stage only your
 sit in a file you changed, commit from the index rather than `git commit -- <path>` (which takes the whole working
 file). For a big change, work in a scratch `git worktree` and land it at the end.
 
-`Asset/` holds design source files (Illustrator specimen sheets, logos); they aren't code.
+`Asset/` holds design source files (Illustrator specimen sheets, logos); they aren't code. `Asset/After/<n>.ai` are the
+sheets TypeLab's own fonts are imported from (tools/fonts/import.ts).
 
 ## The nested docs
 

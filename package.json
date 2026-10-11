@@ -17,7 +17,8 @@
     "golden:update": "node --import tsx tools/golden.ts --update",
     "compare": "node --import tsx tools/compare.ts",
     "render": "node --import tsx tools/render.ts",
-    "sweep": "node --import tsx tools/sweep.ts"
+    "sweep": "node --import tsx tools/sweep.ts",
+    "fonts:import": "node --import tsx tools/fonts/import.ts"
   },
   "dependencies": {
     "express": "^5.2.1",

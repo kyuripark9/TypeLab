@@ -1,20 +1,21 @@
 /* Free fonts: every style's font (shared/free-fonts.ts), turning a font file into outlines as the server
    does (server/free-fonts.ts), drawing a design written in one and moving its letters by the settings
    (shared/engine/free-letters.ts, skin.ts, restyle.ts), its notice in an export, and the API that serves
-   them. The fonts here are small ones made in the test, so nothing is fetched. */
+   them; and TypeLab's own fonts (fonts/), which the Style page's cards are written in. The Google fonts here are
+   small ones made in the test, so nothing is fetched. */
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import { describe, it } from 'node:test';
 import type { FontConstructorOptions } from 'opentype.js';
-import { STYLES } from '../shared/content';
-import { ALL_CHARS, buildFont, fitOutline, freeFont, freeFontsWanted, registerFreeFont, type FreeFontData, type Glyph } from '../shared/engine';
+import { PAGE_STYLES, STYLES } from '../shared/content';
+import { ALL_CHARS, CHARSET, buildFont, fitOutline, freeFont, freeFontsWanted, registerFreeFont, type FreeFontData, type Glyph } from '../shared/engine';
 import { metrics, resolve } from '../shared/engine/font';
 import { contrastOfBars, formChanged, weightOfStem, widthOfScale } from '../shared/engine/free-letters';
 import { bowlLook, cornerLooks, restyleBowls, restyleCorners, restyleDots, restyleEnds, restylePeaks, restyleStencil, stencilLook } from '../shared/engine/restyle';
 import { skeleton } from '../shared/engine/scan';
 import { SKIN_KEYS } from '../shared/engine/skin';
 import { familyMember } from '../shared/family';
-import { STYLE_FONTS, nearestFont, parseFontId } from '../shared/free-fonts';
+import { OLD_FONTS, OWN_FAMILIES, STYLE_FONTS, isOwnFont, nearestFont, parseFontId } from '../shared/free-fonts';
 import { DEFAULTS, FREE_AT_KEYS, sanitizeParams, xHeightOfRatio, xHeightRatio, type Params } from '../shared/params';
 import { createApp } from '../server/app';
 import { DesignStore } from '../server/db';
@@ -32,7 +33,7 @@ function fontFile(upm = 2048): ArrayBuffer {
   o.moveTo(600, 0); o.quadraticCurveTo(1100, 0, 1100, 500); o.quadraticCurveTo(1100, 1000, 600, 1000);
   o.quadraticCurveTo(100, 1000, 100, 500); o.quadraticCurveTo(100, 0, 600, 0); o.close();
   const font = new opentype.Font({
-    familyName: 'Great Vibes', styleName: 'Regular', unitsPerEm: upm, ascender: 1800, descender: -500,
+    familyName: 'Parisienne', styleName: 'Regular', unitsPerEm: upm, ascender: 1800, descender: -500,
     copyright: 'Copyright 2010 The Test Project Authors', licenseURL: 'https://openfontlicense.org',
     glyphs: [
       new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 600, path: new opentype.Path() }),
@@ -66,23 +67,23 @@ describe('free fonts', () => {
   });
 
   it('keep a free font in the settings only when it is one of them', () => {
-    assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Great Vibes:400' }).freeFont, 'Great Vibes:400');
-    assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Great Vibes:700' }).freeFont, '');
+    assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Parisienne:400' }).freeFont, 'Parisienne:400');
+    assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Parisienne:700' }).freeFont, '');
     assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Comic Sans:400' }).freeFont, '');
     assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'constructor:400' }).freeFont, '');
     assert.equal(sanitizeParams({ ...DEFAULTS }).freeFont, '');
   });
 
   it('find the nearest weight of a family, and its italic where it has one', () => {
-    assert.equal(nearestFont('Roboto', 950, false), 'Roboto:900');
-    assert.equal(nearestFont('Roboto', 640, true), 'Roboto:600i');
-    assert.equal(nearestFont('Great Vibes', 700, true), 'Great Vibes:400');
+    assert.equal(nearestFont('Noto Sans', 950, false), 'Noto Sans:900');
+    assert.equal(nearestFont('Noto Sans', 640, true), 'Noto Sans:600i');
+    assert.equal(nearestFont('Parisienne', 700, true), 'Parisienne:400');
   });
 
   it('convert a font file into outlines at 1000 units to the em, curves as cubics, with its notice and licence', async () => {
     const g = googleFonts(), fonts = new FreeFonts(null, g.get);
-    const data = await fonts.load('Great Vibes:400');
-    assert.match(g.asked[0], /family=Great\+Vibes:400$/);
+    const data = await fonts.load('Parisienne:400');
+    assert.match(g.asked[0], /family=Parisienne:400$/);
     assert.equal(data.glyphs.H[0], Math.round(1200 * 1000 / 2048));
     assert.equal(data.glyphs.H[1].length, 3);
     assert.ok(data.glyphs.o[1][0].every(n => n.length === 6), 'every point of the o has both handles');
@@ -90,18 +91,18 @@ describe('free fonts', () => {
     assert.equal(data.license, 'SIL Open Font License, Version 1.1');
     assert.match(data.copyright, /Test Project Authors/);
     assert.ok(!data.glyphs.x, 'a character the font lacks is left out');
-    assert.equal(g.asked[2], 'https://raw.githubusercontent.com/google/fonts/main/ofl/greatvibes/OFL.txt');
+    assert.equal(g.asked[2], 'https://raw.githubusercontent.com/google/fonts/main/ofl/parisienne/OFL.txt');
     assert.match(data.licenseText!, /^SIL OPEN FONT LICENSE Version 1\.1/);
     // asked again, it comes from memory
-    await fonts.load('Great Vibes:400');
+    await fonts.load('Parisienne:400');
     assert.equal(g.asked.length, 3);
     await assert.rejects(fonts.load('Comic Sans:400'));
   });
 
   it('draw a design written in a free font with its letters, as tall as the design\'s capitals, and the rest built', async () => {
     const fonts = new FreeFonts(null, googleFonts().get), st = STYLES.find(s => s.id === 'chancery')!;
-    const params = { ...st.params, freeFont: 'Great Vibes:400' };
-    assert.equal(buildFont(params).freePending, !freeFont('Great Vibes:400'));
+    const params = { ...st.params, freeFont: 'Parisienne:400' };
+    assert.equal(buildFont(params).freePending, !freeFont('Parisienne:400'));
     await fonts.ready(params);
     const f = buildFont(params), H = f.glyph('H')!, x = f.glyph('x')!;
     assert.equal(f.freePending, false);
@@ -112,45 +113,45 @@ describe('free fonts', () => {
   });
 
   it('pass the font\'s notice and licence on to an export, under another name than the font\'s', async () => {
-    const fonts = new FreeFonts(null, googleFonts().get), params = { ...DEFAULTS, freeFont: 'Great Vibes:400' };
+    const fonts = new FreeFonts(null, googleFonts().get), params = { ...DEFAULTS, freeFont: 'Parisienne:400' };
     await fonts.ready(params);
-    const otf = opentype.parse(buildOTF(params, 'Great Vibes').buffer as ArrayBuffer);
+    const otf = opentype.parse(buildOTF(params, 'Parisienne').buffer as ArrayBuffer);
     const names = ((otf.names as unknown as { windows?: Record<string, { en: string }> }).windows ?? otf.names) as Record<string, { en: string }>;
     assert.match(names.copyright.en, /Test Project Authors.*TypeLab/);
     assert.match(names.license.en, /Open Font License.*\n\nSIL OPEN FONT LICENSE Version 1\.1/s);
     assert.equal(names.licenseURL.en, 'https://openfontlicense.org');
     assert.equal(names.fontFamily.en, 'TypeLab Font');
-    const mine = opentype.parse(buildOTF(params, 'My greatvibes Wedding').buffer as ArrayBuffer);
+    const mine = opentype.parse(buildOTF(params, 'My parisienne Wedding').buffer as ArrayBuffer);
     assert.equal(((mine.names as unknown as { windows: Record<string, { en: string }> }).windows).fontFamily.en, 'My Wedding');
     // a name its licence reserves goes too, not only the family's
-    const mono = { ...DEFAULTS, freeFont: 'IBM Plex Mono:500' };
-    await new FreeFonts(null, googleFonts().get).ready(mono);
-    const plex = opentype.parse(buildOTF(mono, 'Plex Code').buffer as ArrayBuffer);
-    assert.equal(((plex.names as unknown as { windows: Record<string, { en: string }> }).windows).fontFamily.en, 'Code');
+    const slab = { ...DEFAULTS, freeFont: 'Josefin Slab:300' };
+    await new FreeFonts(null, googleFonts().get).ready(slab);
+    const josefin = opentype.parse(buildOTF(slab, 'Josefin Code').buffer as ArrayBuffer);
+    assert.equal(((josefin.names as unknown as { windows: Record<string, { en: string }> }).windows).fontFamily.en, 'Code');
   });
 
   it('give a family member the font of its family at the member\'s weight', () => {
-    const p = { ...DEFAULTS, weight: 0.6, freeFont: 'Roboto:600', freeAt: { weight: 0.6, slant: 0 } };
-    assert.ok(freeFontsWanted(familyMember(p, 'semibold', 'black', false).params).includes('Roboto:900'));
-    assert.ok(freeFontsWanted(familyMember(p, 'semibold', 'semibold', true).params).includes('Roboto:600i'));
-    assert.deepEqual(freeFontsWanted(familyMember(p, 'semibold', 'semibold', false).params), ['Roboto:600']);
+    const p = { ...DEFAULTS, weight: 0.6, freeFont: 'Noto Sans:600', freeAt: { weight: 0.6, slant: 0 } };
+    assert.ok(freeFontsWanted(familyMember(p, 'semibold', 'black', false).params).includes('Noto Sans:900'));
+    assert.ok(freeFontsWanted(familyMember(p, 'semibold', 'semibold', true).params).includes('Noto Sans:600i'));
+    assert.deepEqual(freeFontsWanted(familyMember(p, 'semibold', 'semibold', false).params), ['Noto Sans:600']);
   });
 
   it('move a free font\'s letters with the settings, as far as they are moved from the ones it was picked at', () => {
     // an H of two stems and a bar, as the server sends it
     const rects = [[100, 300, 0, 700], [500, 700, 0, 700], [300, 500, 300, 400]];
-    registerFreeFont({ id: 'Roboto:600', family: 'Roboto', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 500, space: 250,
+    registerFreeFont({ id: 'Noto Sans:600', family: 'Noto Sans', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 500, space: 250,
       glyphs: { H: [800, rects.map(([x0, x1, y0, y1]) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]])] } } as FreeFontData);
-    const at = { ...DEFAULTS, weight: 0.6, freeFont: 'Roboto:600', freeAt: { weight: 0.6, width: 0.5, slant: 0, fill: 'solid' as const } };
+    const at = { ...DEFAULTS, weight: 0.6, freeFont: 'Noto Sans:600', freeAt: { weight: 0.6, width: 0.5, slant: 0, fill: 'solid' as const } };
     const box = (g: Glyph) => {
       const xs = g.cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 0) as number[]), ys = g.cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 1) as number[]);
       return { w: Math.max(...xs) - Math.min(...xs), topX: Math.min(...g.cmds.filter(c => c[2] === Math.max(...ys)).map(c => c[1] as number)) };
     };
     const H = buildFont(at).glyph('H')!, base = box(H);
     assert.ok(H.drawn, 'H is the font\'s');
-    // heavier: Roboto 900 is asked for, and until it comes the 600's stems are pushed out
+    // heavier: Noto Sans 900 is asked for, and until it comes the 600's stems are pushed out
     const heavy = buildFont({ ...at, weight: 0.9 });
-    assert.ok(heavy.freeMissing.includes('Roboto:900') && heavy.freePending);
+    assert.ok(heavy.freeMissing.includes('Noto Sans:900') && heavy.freePending);
     assert.ok(box(heavy.glyph('H')!).w > base.w + 20, 'the H is bolder');
     assert.ok(box(buildFont({ ...at, width: 1 }).glyph('H')!).w > base.w * 1.3, 'the H is wider');
     assert.ok(box(buildFont({ ...at, slant: 0.4 }).glyph('H')!).topX > box(H).topX + 50, 'the H leans');
@@ -164,12 +165,12 @@ describe('free fonts', () => {
   it('move a free font\'s letters on their skeletons: the bar by Crossbar and Contrast, the lowercase by x-height, keeping the heights', () => {
     // an H of two stems and a bar, and an n of two stems under a bar, as the server sends them
     const rect = ([x0, x1, y0, y1]: number[]): [number, number][] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
-    registerFreeFont({ id: 'Roboto:500', family: 'Roboto', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 500, space: 250,
+    registerFreeFont({ id: 'Noto Sans:500', family: 'Noto Sans', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 500, space: 250,
       glyphs: {
         H: [800, [[100, 300, 0, 700], [500, 700, 0, 700], [300, 500, 300, 400]].map(rect)],
         n: [600, [[[100, 0], [200, 0], [200, 420], [400, 420], [400, 0], [500, 0], [500, 500], [100, 500]]]]
       } } as FreeFontData);
-    const at = { ...DEFAULTS, weight: 0.5, freeFont: 'Roboto:500', freeAt: { weight: 0.5, contrast: 0.5, crossbar: 0.5, xHeight: DEFAULTS.xHeight, width: 0.5, slant: 0, fill: 'solid' as const } };
+    const at = { ...DEFAULTS, weight: 0.5, freeFont: 'Noto Sans:500', freeAt: { weight: 0.5, contrast: 0.5, crossbar: 0.5, xHeight: DEFAULTS.xHeight, width: 0.5, slant: 0, fill: 'solid' as const } };
     // the ink down the column at x, as [bottom, top] runs, read off the letter's outline (nonzero)
     const column = (g: Glyph, x: number) => {
       const hits: { y: number; w: number }[] = [];
@@ -210,9 +211,9 @@ describe('free fonts', () => {
     const arc: [number, number][] = [];
     for (let k = 0; k <= 40; k++) { const a = (40 + 280 * k / 40) * Math.PI / 180; arc.push([Math.round(350 + 300 * Math.cos(a)), Math.round(350 + 300 * Math.sin(a))]); }
     for (let k = 40; k >= 0; k--) { const a = (40 + 280 * k / 40) * Math.PI / 180; arc.push([Math.round(350 + 210 * Math.cos(a)), Math.round(350 + 210 * Math.sin(a))]); }
-    registerFreeFont({ id: 'Roboto:400', family: 'Roboto', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 500, space: 250,
+    registerFreeFont({ id: 'Noto Sans:400', family: 'Noto Sans', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 500, space: 250,
       glyphs: { H: [800, [[100, 190, 0, 700], [510, 600, 0, 700], [150, 550, 310, 390]].map(rect)], c: [700, [arc]] } } as FreeFontData);
-    const at = { ...DEFAULTS, weight: 0.4, freeFont: 'Roboto:400' }, p = sanitizeParams(at);
+    const at = { ...DEFAULTS, weight: 0.4, freeFont: 'Noto Sans:400' }, p = sanitizeParams(at);
     assert.equal(p.freeAt.terminal, DEFAULTS.terminal, 'a design written in a free font stands for every setting its letters follow');
     const H = buildFont(p).glyph('H')!, c = buildFont(p).glyph('c')!;
     // the ink along the row at height y, as [left, right] runs, read off the letter's outline (nonzero)
@@ -250,9 +251,9 @@ describe('free fonts', () => {
   it('draw a letter asked for in a form the font hasn\'t got as the engine\'s (the twin\'s), and leave the rest the font\'s', () => {
     // an H of two stems and a bar, and an a: a box with a hole, as the server sends them
     const rect = ([x0, x1, y0, y1]: number[]): [number, number][] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
-    registerFreeFont({ id: 'Roboto:300', family: 'Roboto', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 500, space: 250,
+    registerFreeFont({ id: 'Noto Sans:300', family: 'Noto Sans', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 500, space: 250,
       glyphs: { H: [800, [[100, 190, 0, 700], [510, 600, 0, 700], [150, 550, 310, 390]].map(rect)], a: [600, [[100, 500, 0, 500], [200, 400, 100, 400]].map(rect)] } } as FreeFontData);
-    const at = sanitizeParams({ ...DEFAULTS, weight: 0.3, freeFont: 'Roboto:300' }), pick = resolve({ ...at, ...at.freeAt });
+    const at = sanitizeParams({ ...DEFAULTS, weight: 0.3, freeFont: 'Noto Sans:300' }), pick = resolve({ ...at, ...at.freeAt });
     // as picked, no letter is in another form
     for (const ch of ALL_CHARS) assert.equal(formChanged(ch, resolve(at), pick), false, ch);
     const f = buildFont(at), single = buildFont({ ...at, story: 'single' });
@@ -301,10 +302,72 @@ describe('free fonts', () => {
     await new Promise(r => server.once('listening', r));
     const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api`;
     try {
-      const ok = await fetch(`${base}/free-fonts/${encodeURIComponent('Great Vibes:400')}`);
+      const ok = await fetch(`${base}/free-fonts/${encodeURIComponent('Parisienne:400')}`);
       assert.equal(ok.status, 200);
-      assert.equal((await ok.json()).family, 'Great Vibes');
+      assert.equal((await ok.json()).family, 'Parisienne');
       assert.equal((await fetch(`${base}/free-fonts/${encodeURIComponent('Comic Sans:400')}`)).status, 404);
+    } finally { server.close(); store.close(); }
+  });
+});
+
+describe("TypeLab's own fonts", () => {
+  /** A fetch that fails: an own font is never fetched. */
+  const noFetch = async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); };
+
+  it('write every card of the Style page in one, each kept in fonts/ with every letter and no licence', async () => {
+    const fonts = new FreeFonts(null, noFetch), used = new Set<string>();
+    for (const st of PAGE_STYLES) {
+      const id = STYLE_FONTS[st.id], r = parseFontId(id);
+      assert.ok(r && isOwnFont(r.family), `${st.id} is written in one of TypeLab's own fonts`);
+      used.add(r.family);
+      const data = await fonts.load(id);
+      assert.equal(data.id, id);
+      for (const ch of CHARSET.upper + CHARSET.lower + CHARSET.digits) assert.ok(data.glyphs[ch]?.[1].length, `${r.family} has ${ch}`);
+      assert.ok(data.cap > 500 && data.cap < 900 && data.xh > 250 && data.xh < data.cap, `${r.family}'s heights ${data.cap}, ${data.xh}`);
+      assert.equal(data.license, '');
+      assert.ok(!data.licenseText);
+    }
+    assert.deepEqual([...used].sort(), Object.keys(OWN_FAMILIES).sort(), 'one card each');
+    assert.equal(new Set(Object.values(OWN_FAMILIES).map(o => o.sheet)).size, used.size, 'each from its own sheet');
+  });
+
+  it('read a design saved in a font they took the place of as written in its own', () => {
+    assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Roboto:600' }).freeFont, 'Mainline:600');
+    assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Roboto:900i' }).freeFont, 'Mainline:600');
+    assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Playfair Display:400i' }).freeFont, 'Sonnet:400i');
+    assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Playfair Display:600' }).freeFont, 'Couture:600');
+    for (const old of Object.keys(OLD_FONTS)) assert.ok(!parseFontId(`${old}:400`), `${old} is no longer offered`);
+  });
+
+  it('give a family in one weight, or only in italic, that font whatever is asked', () => {
+    assert.equal(nearestFont('Mainline', 900, true), 'Mainline:600');
+    assert.equal(nearestFont('Sonnet', 700, false), 'Sonnet:400i');
+  });
+
+  it('export under any name, with no licence to pass on', async () => {
+    const params = { ...STYLES.find(s => s.id === 'grotesque')!.params, freeFont: 'Mainline:600' };
+    await new FreeFonts(null, noFetch).ready(params);
+    const otf = opentype.parse(buildOTF(params, 'Mainline Bold').buffer as ArrayBuffer);
+    const names = (otf.names as unknown as { windows: Record<string, { en: string } | undefined> }).windows;
+    assert.equal(names.fontFamily?.en, 'Mainline Bold');
+    // (opentype.js writes a name left out as a space)
+    assert.ok(!names.license?.en.trim(), 'no licence');
+  });
+
+  it('are served as letters and as a web font', async () => {
+    const store = new DesignStore(':memory:'), server = createApp(store, { fonts: new FreeFonts(null, noFetch) }).listen(0);
+    await new Promise(r => server.once('listening', r));
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api`;
+    try {
+      const data = await fetch(`${base}/free-fonts/${encodeURIComponent('Serenade:400')}`);
+      assert.equal(data.status, 200);
+      assert.equal((await data.json()).family, 'Serenade');
+      const file = await fetch(`${base}/free-fonts/${encodeURIComponent('Serenade:400')}/font.otf`);
+      assert.equal(file.status, 200);
+      const f = opentype.parse(await file.arrayBuffer()), names = (f.names as unknown as { windows: Record<string, { en: string }> }).windows;
+      assert.equal(names.fontFamily.en, 'Serenade');
+      assert.ok(f.charToGlyph('a').path.commands.length > 0, 'its letters are in it');
+      assert.equal((await fetch(`${base}/free-fonts/${encodeURIComponent('Parisienne:400')}/font.otf`)).status, 404, 'only own fonts are served as files');
     } finally { server.close(); store.close(); }
   });
 });

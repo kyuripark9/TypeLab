@@ -64,7 +64,8 @@ shared/   used by both sides: the font engine (engine/), the settings and their 
 tests/    node:test suites for the engine, the settings, the client's pure logic and the API,
           and the golden outlines
 tools/    command-line tools: render text to PNG, golden outlines, slider sweep, preset fitting,
-          free-font scan, browser checks, a Node bootstrap (see tools/README.md)
+          free-font scan, own fonts from their sheets, browser checks, a Node bootstrap (see tools/README.md)
+fonts/    TypeLab's own fonts, imported from their sheets in Asset/After/ (generated: npm run fonts:import)
 ```
 
 One Node process serves everything. In development, Vite runs inside the Express server as
@@ -99,10 +100,13 @@ and builds exported fonts on the server. A full rebuild of every glyph takes a f
 | `highlight.ts` | The part of a glyph a setting shapes, for the explainer and the inspector |
 | `geom.ts`, `types.ts` | Béziers, polygon clipping, corner rounding, SVG path output; shared types |
 
-Every starting style can also be written in a free font from Google Fonts (`shared/free-fonts.ts`
-names one per style; all are under the SIL Open Font License or Apache 2.0). The server fetches a font
-the first time it's asked for, converts it (`server/free-fonts.ts`) and keeps it in `data/free-fonts/`;
-an export made from it carries the font's copyright notice and licence, and never its name. A design
+Every starting style can also be written in a ready-made font (`shared/free-fonts.ts` names one per style).
+The 21 on the Style page are TypeLab's own fonts, drawn for it and free to use, change and share with no
+licence: each was drawn on a specimen sheet (`Asset/After/<n>.ai`), which `npm run fonts:import`
+(`tools/fonts/`) turns into the outlines the engine draws, kept in `fonts/`. The other styles use a free
+font from Google Fonts (SIL Open Font License or Apache 2.0): the server fetches it the first time it's
+asked for, converts it (`server/free-fonts.ts`) and keeps it in `data/free-fonts/`; an export made from
+one carries the font's copyright notice and licence, and never its name. A design
 remembers the settings its font was picked at (`freeAt`), and as the settings move from them the font's
 letters move too: heavier or lighter is the family's nearer weight, slanting past half an italic's lean
 takes the italic, and slant, rotation, mirroring, monospacing, spacing, the slice and the fills apply on top.
@@ -200,7 +204,8 @@ inside curves, and the lowercase become small capitals.
 | `GET` | `/api/designs` | list saved designs, newest first |
 | `POST` | `/api/designs` | create `{ name, styleId, params }` |
 | `GET` / `PUT` / `PATCH` / `DELETE` | `/api/designs/:id` | read · update `{ name, styleId, params }` · rename `{ name }` · delete |
-| `GET` | `/api/free-fonts/:id` | a free font's letters, as the engine draws them (fetched from Google Fonts the first time) |
+| `GET` | `/api/free-fonts/:id` | a free font's letters, as the engine draws them (TypeLab's own from `fonts/`, others fetched from Google Fonts the first time) |
+| `GET` | `/api/free-fonts/:id/font.otf` | one of TypeLab's own fonts as an OpenType file, for the style cards |
 | `POST` | `/api/export/otf` | `{ name, params }` → OpenType font file |
 | `POST` | `/api/export/family` | `{ name, params, family }` → .zip of fonts |
 | `POST` | `/api/export/svg` | `{ name, params }` → SVG specimen |

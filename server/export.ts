@@ -37,9 +37,9 @@ export function exportName(params: Params, name: string, font: Font = buildFont(
 /** An installable OpenType (CFF) font with every glyph TypeLab draws. A design written in a free font
     (its letters registered first, see free-fonts.ts) passes on the font's copyright notice and licence,
     as the licence asks, and doesn't take the font's own name: under the Open Font License a changed
-    font may not. */
+    font may not. TypeLab's own fonts come under no licence, so there is none to pass on. */
 export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR): Buffer {
-  const font = buildFont(params), m = font.m, free = font.free;
+  const font = buildFont(params), m = font.m, free = font.free, licensed = free?.license ? free : null;
   name = exportName(params, name, font);
   // an advance width can't go below zero in a font file, and tight tracking takes it down: a space keeps at
   // least 40 units, so words stay apart, and a letter 20. .notdef, the blank shown for a character the font
@@ -84,11 +84,11 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
   for (const names of [platforms.unicode, platforms.macintosh, platforms.windows]) {
     names.preferredFamily = { en: name };
     names.preferredSubfamily = { en: as.style };
-    if (free) {
-      names.copyright = { en: `${free.copyright ? free.copyright + ' ' : ''}Changed with TypeLab.` };
+    if (licensed) {
+      names.copyright = { en: `${licensed.copyright ? licensed.copyright + ' ' : ''}Changed with TypeLab.` };
       // the licence travels with the font in full, as it asks
-      names.license = { en: `Based on ${free.family} by ${free.designers.join(', ')}, changed with TypeLab, under the ${free.license}. You may use, change and share this font under the same licence: ${free.licenseUrl}${free.licenseText ? `\n\n${free.licenseText}` : ''}` };
-      names.licenseURL = { en: free.licenseUrl };
+      names.license = { en: `Based on ${licensed.family} by ${licensed.designers.join(', ')}, changed with TypeLab, under the ${licensed.license}. You may use, change and share this font under the same licence: ${licensed.licenseUrl}${licensed.licenseText ? `\n\n${licensed.licenseText}` : ''}` };
+      names.licenseURL = { en: licensed.licenseUrl };
     }
   }
   // opentype.js reads font.weightClass only for the head table's macStyle bold bit (bold from 600 up); OS/2 keeps
@@ -98,9 +98,9 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
 }
 
 /** Every member of a family as its own font, in one .zip with a folder named after the family; written in a
-    free font, with the font's licence beside them. */
+    free font that comes under a licence, with the licence beside them. */
 export function buildFamilyZip(params: Params, name: string, req: FamilyRequest): Buffer {
-  const font = buildFont(params), free = font.free;
+  const font = buildFont(params), free = font.free?.license ? font.free : null;
   name = exportName(params, name, font);
   const dir = slug(name);
   return zip([
