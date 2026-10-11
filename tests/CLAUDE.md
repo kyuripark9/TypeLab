@@ -25,7 +25,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `engine.test.ts` | The engine as a whole: every style and the `extremes` (settings at their ends and in odd combinations) draw every glyph with finite outlines; spacing, customized letters, layout; the glyph registry (`glyphIds()`, `meta.params`); `expandStroke`'s outputs; block letters; rotation; sliders that keep changing to 100 |
 | `letterforms.test.ts` | The a's storey and spur, bowl joins and overlap, the forms of g k Q R s Y i/l/I/J, dots, diagonals, bends, box bowls, mirroring, crossbar height; descenders, Stem length, tails |
 | `ends.test.ts` | Stroke ends: each kind and form and its finer sliders, straight runs, Length and Curl for all ends and each one (terminals, hooks, tails, plain ends such as T's `p0s`) |
-| `corners.test.ts` | Each corner's roundness inside and out (O's `0t0` to `0t3`), end corners, Joins (t's `0j0` to `0j3`), Steps, Counters, Squareness, Facets |
+| `corners.test.ts` | Each corner's roundness inside and out (O's `0t0` to `0t3`), end corners, the inside corners where strokes meet (t's `0j0` to `0j3`), Joins' crotches against Counters' square corners, Steps, Squareness, Facets |
 | `cuts.test.ts` | Stencil (gaps, Position, Rounding), each join opened on its own (F's, A's and M's join ids), the crossbar Gap and Through, the Slice |
 | `fills.test.ts` | Pixels and dots on one grid, every fill on every glyph, Outline, Inline, Shadow, and `boolean.ts`'s unions and cuts, and `unite` |
 | `weights.test.ts` | Weight, Contrast both ways, Verticals and Horizontals, one stroke's own weight, Pinch |

@@ -87,7 +87,7 @@ export function Explainer() {
   // two levels only, a title and its explanation; a part says which setting shapes it in the explanation
   const [title, text] = part
     ? [ANATOMY[part][0], `${ANATOMY[part][1]}${shapedBy ? ` Shaped by ${CONTROLS[shapedBy].label}.` : ''}`]
-    : [(sub ?? c).friendly, c.explain];
+    : [(sub ?? c).friendly, sub?.explain ?? c.explain];
   // while inspecting, the large letter on the stage already shows the part, so drop the diagram
   return (
     <div className="explainer">

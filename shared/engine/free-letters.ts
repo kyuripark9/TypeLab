@@ -276,7 +276,7 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
     const serifed = out !== bare;
     out = restyleStencil(out, c, sa, sb, scan(out));
     out = restylePeaks(out, { ...c, lines }, fl.pick.apex, fl.now.apex);
-    out = restyleCorners(out, c, a, b, scan(out));
+    out = restyleCorners(out, c, a, b);
     if (serifed) withSerifs.add(out);
     if (kept.size >= 6) kept.delete(kept.keys().next().value!);
     kept.set(key, out);

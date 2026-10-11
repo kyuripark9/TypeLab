@@ -18,7 +18,7 @@ import { MIN_ROUND, SAME_PT, clamp, cubicAt, inPoly, lerp, lerpP, quarter, subCu
 import { STEP_DEPTH, innerFloor, type Expanded } from './stroke';
 import type { Cmd, Mark, Pt, Tangent, TurnR } from './types';
 import { type Builder, type Metrics, quarterK, strokeWt } from './font';
-import { innerFor } from './joins';
+import { crotchFor, innerFor } from './joins';
 
 /** The outline radius of one side of a turn at roundness v, in a font whose letters stand `full`
     high (the cap height): all the way, as wide as the letter is high, round enough to take up a
@@ -72,10 +72,12 @@ export function markTurns(b: Builder, m: Metrics) {
       const id = `${si}t${k}`, c = st.cmds![tn.ci], oi = c[0] === 'C' ? 7 : 3;
       let o = c[oi] || {};
       let turn: TurnR | null = ownTurn(m, id, t, o.turn) ?? o.turn ?? null;
-      // Counters (innerRound) rounds the inside of every turn at least as far, and Steps cuts a step out of the
-      // outside of every square one; a letter can step each of its corners its own way
-      const cos = tn.din.tx * tn.dout.tx + tn.din.ty * tn.dout.ty;
-      if (m.innerR > 0 && m.p.innerCorners?.[id] == null) turn = { ...turn, o: turn?.o ?? 0, i: Math.max(turn?.i ?? 0, innerFor(m, Math.acos(clamp(-cos, -1, 1)))) };
+      // Counters (innerRound) rounds the inside of every square or open turn at least as far, and Joins (joinRound)
+      // fills a narrow one (the crotch of a V) as it does where strokes meet; Steps cuts a step out of the outside
+      // of every square one; a letter can step each of its corners its own way
+      const cos = tn.din.tx * tn.dout.tx + tn.din.ty * tn.dout.ty, ang = Math.acos(clamp(-cos, -1, 1));
+      const inside = Math.max(innerFor(m, ang), crotchFor(m, ang));
+      if (inside > 0 && m.p.innerCorners?.[id] == null) turn = { ...turn, o: turn?.o ?? 0, i: Math.max(turn?.i ?? 0, inside) };
       const square = Math.abs(cos) < SQUARE_COS, sv = m.p.cornerSteps?.[id] ?? (square ? m.p.steps : 0);
       // a point the stroke's clip cuts off (the foot of a V, squared off on the baseline) has no corner left to step
       const ox = tn.din.tx - tn.dout.tx, oy = tn.din.ty - tn.dout.ty, l = Math.hypot(ox, oy) || 1;

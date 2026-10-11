@@ -77,26 +77,35 @@ describe('corners: corners, innerCorners, joinRound, steps, cornerSteps, innerRo
     assert.ok(inset(0.5) > 0.2 && inset(0.5) < inset(1));
   });
 
-  it('rounds the inside corners where strokes meet, all by Joins or each on its own', () => {
+  it('rounds the inside corners where strokes meet, the crotches by Joins and the square ones by Counters, or each on its own', () => {
     const f = (ch: string, p: Partial<Params> = {}) => buildFont({ ...DEFAULTS, ...p }).glyph(ch)!;
     const joins = (g: ReturnType<typeof f>) => g.marks.filter(k => k.type === 'corner' && k.id!.includes('j'));
-    // the crossbar of a t makes four inside corners with the stem; the bar of a T two, its top running flush
+    // the crossbar of a t makes four square inside corners with the stem; the bar of a T two, its top running flush
     const t = f('t');
     assert.deepEqual(joins(t).map(k => k.id).sort(), ['0j0', '0j1', '0j2', '0j3']);
     assert.equal(joins(f('T')).length, 2);
-    assert.ok(joins(t).every(k => k.v === 0), 'sharp unless rounded');
-    // Joins rounds them all, filling ink into the corners
-    const all = f('t', { joinRound: 0.4 });
+    assert.ok(joins(t).every(k => k.v === 0 && k.square), 'square, and sharp unless rounded');
+    // Counters rounds them all, filling ink into the corners; Joins leaves them square
+    const all = f('t', { innerRound: 0.4 });
     assert.notEqual(all.d, t.d);
-    assert.ok(joins(all).every(k => k.v === 0.4));
+    assert.ok(joins(all).every(k => k.v! > 0), 'marked as drawn');
     assert.ok(all.strokes.filter(s => s.part === 'fillet').length === 4);
+    assert.equal(f('t', { joinRound: 1 }).d, t.d);
+    // the crotch of a y is narrow: Joins fills it, Counters leaves it, and the other way round at its wide corner
+    const crotch = (g: ReturnType<typeof f>) => joins(g).filter(k => !k.square), wide = (g: ReturnType<typeof f>) => joins(g).filter(k => k.square);
+    assert.ok(crotch(f('y')).length > 0 && wide(f('y')).length > 0);
+    assert.ok(crotch(f('y', { joinRound: 0.5 })).every(k => k.v! > 0) && wide(f('y', { joinRound: 0.5 })).every(k => k.v === 0));
+    assert.ok(crotch(f('y', { innerRound: 1 })).every(k => k.v === 0) && wide(f('y', { innerRound: 1 })).every(k => k.v! > 0));
+    // and so is the point inside a V, where its one stroke turns back: Joins fills it as well, Counters leaves it
+    assert.notEqual(f('V', { joinRound: 0.5 }).d, f('V').d);
+    assert.equal(f('V', { innerRound: 1 }).d, f('V').d);
     // a letter rounds one on its own, leaving the rest sharp
     const below = joins(t).reduce((a, k) => (k.y < a.y || (k.y === a.y && k.x > a.x) ? k : a)).id!;
     const one = f('t', { glyphs: { t: { corners: { [below]: 0.5 } } } });
     assert.equal(one.strokes.filter(s => s.part === 'fillet').length, 1);
     assert.ok(joins(one).every(k => k.v === (k.id === below ? 0.5 : 0)));
     // a stencil keeps its gaps and a wireframe its strokes as drawn
-    assert.equal(f('t', { joinRound: 0.5, stencil: 0.5 }).strokes.filter(s => s.part === 'fillet').length, 0);
+    assert.equal(f('t', { innerRound: 0.5, stencil: 0.5 }).strokes.filter(s => s.part === 'fillet').length, 0);
     assert.equal(sanitizeParams({ glyphs: { t: { corners: { '0j2': 0.3 } } } }).glyphs.t?.corners?.['0j2'], 0.3);
   });
 
@@ -129,7 +138,7 @@ describe('corners: corners, innerCorners, joinRound, steps, cornerSteps, innerRo
     // the same size at any weight
     const heavy = fillets({ weight: 0.6, innerRound: 0.5 }, 'H');
     assert.ok(Math.abs(size(cmdsToD(heavy[0].cmds)) - size(cmdsToD(H[0].cmds))) < cap * 0.03);
-    // a narrow crotch rounds less, so it doesn't fill in black
+    // a narrow crotch rounds less, so it doesn't fill in black: it is Joins'
     const K = fillets({ weight: 0, innerRound: 0.5, kForm: 'stem' }, 'K');
     assert.ok(K.every(s => size(cmdsToD(s.cmds)) < size(cmdsToD(H[0].cmds))));
     // and the turns of box bowls round inside

@@ -138,8 +138,10 @@ Every corner has a roundness of its own, from sharp through round outside and sq
 both ways: where a stroke turns, the centerline keeps a sharp corner and the outline rounds its outside
 and inside by their own radii, and the square ends of strokes round their two corners. Where one
 stroke meets another, each inside corner their outlines leave (under the arm of an r, beside the
-crossbar of a t, in the crotch of a y) is a corner too, rounded by *Joins* with a fillet that follows
-both strokes' edges. A customized letter can set each corner one by one.
+crossbar of a t, in the crotch of a y) is a corner too, filled with a fillet that follows both strokes'
+edges. The two sliders under Roundness split the inside corners by how wide they are: *Joins* fills the
+narrow crotches (an n's, a K's, a y's, the point inside a V), *Counters* rounds the square and open corners
+(an H's, a t's, an L's). A customized letter can set each corner one by one.
 Curved stroke ends can follow the curve or turn and run straight out, level or plumb.
 
 Serifs have a page of their own. A shape (bracketed, unbracketed, slab, wedge, or the blackletter diamond)

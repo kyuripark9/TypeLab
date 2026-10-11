@@ -2,25 +2,34 @@
    inside the letter (under the arm of an r, beside the crossbar of a t, in the crotch of a y) is a
    corner too, id `${si}j${k}`: 'j' and its number among the joins of the earlier of the two strokes (a form
    isCornerId in shared/params/scales.ts accepts, as a saved value's id must be).
-   A join rounds by Joins (joinRound, under Roundness), and at least as far as Counters (innerRound) rounds
-   every inside corner, unless its letter gives it a roundness of its own; it is filled in with a fillet that
-   runs along both strokes' edges and curves across between them.
+   The two sliders under Roundness split the inside corners between them by how wide they are: Joins (joinRound)
+   fills the narrow crotches (an n's, a K's, a y's), Counters (innerRound) rounds the square and open corners
+   (an H's, a t's, an L's), handing over between two thirds of a right angle and a right angle. A join rounds by
+   whichever reaches further, unless its letter gives it a roundness of its own; it is filled in with a fillet
+   that runs along both strokes' edges and curves across between them.
 
    Run by buildGlyph (glyph.ts) on the expanded strokes, after endCorners (corners.ts): the rounds it
    leaves on the outlines' corners (Pt.r, Pt.sharp) are what a fillet stops short of (cornerR). The
    fillets go into the letter as strokes of part 'fillet': a stencil gap may land on one (it isn't a
    stroke joining there), and one is dropped where a gap cuts the join it rounds (filletCut in glyph.ts). */
-import { MIN_ROUND, SAME_PT, clamp, clipPoly, cubicAt, inPoly } from './geom';
+import { MIN_ROUND, SAME_PT, clamp, clipPoly, cubicAt, inPoly, smoothstep } from './geom';
 import type { Expanded } from './stroke';
 import type { Mark, Pt } from './types';
 import { type Builder, type Metrics, strokeWt } from './font';
 
+/** Where Counters starts taking over from Joins: an inside corner two thirds of a right angle across. */
+const CROTCH = Math.PI / 3;
 /** The share of Counters' radius (innerRound) a corner whose inside is `angle` across rounds by: all of it at a
-    right angle or wider, less and less as it narrows, so a sharp crotch (the arms of a K, an X) doesn't fill in black.
-    A free font's inside corners round by the same share (restyleCorners in restyle.ts). */
-export const innerShare = (angle: number) => Math.min(1, angle / (Math.PI / 2)) ** 2;
+    right angle or wider, easing off as it narrows to none at CROTCH, leaving the crotches (the arms of a K, the
+    shoulder of an n) to Joins. A free font's inside corners split the same way (restyleCorners in restyle.ts). */
+export const innerShare = (angle: number) => smoothstep((angle - CROTCH) / (Math.PI / 2 - CROTCH));
+/** The share of Joins' radius (joinRound) a corner whose inside is `angle` across rounds by: what Counters
+    leaves (innerShare), all of it in a crotch narrower than CROTCH, none at a right angle or wider. */
+export const crotchShare = (angle: number) => 1 - innerShare(angle);
 /** How far Counters (innerRound, m.innerR) rounds a corner whose inside is `angle` across (see innerShare). */
 export const innerFor = (m: Metrics, angle: number) => m.innerR * innerShare(angle);
+/** How far Joins (joinRound) rounds a corner whose inside is `angle` across (see crotchShare). */
+export const crotchFor = (m: Metrics, angle: number) => joinR(m.p.joinRound, m.s) * crotchShare(angle);
 
 /** The radius of a join's round at roundness v, in a font with stems `s` thick: two stems at 1. A free font's
     crotches round by it too (cornerLooks in restyle.ts). */
@@ -170,10 +179,13 @@ export function joinCorners(b: Builder, m: Metrics, exps: ({ ex: Expanded | null
             found.push(p);
             const id = `${i}j${count.get(i) ?? 0}`;
             count.set(i, (count.get(i) ?? 0) + 1);
-            const own = m.p.corners?.[id], v = own ?? m.p.joinRound, mark: Mark = { type: 'corner', id, x: p.x, y: p.y, v };
+            // Joins fills a crotch, Counters (innerRound) rounds a square or open corner, unless its letter rounds
+            // it its own way
+            const own = m.p.corners?.[id], R = own != null ? joinR(own, m.s) : Math.max(crotchFor(m, wedge.span), innerFor(m, wedge.span));
+            // marked with its roundness as drawn, on the Joins scale, and which slider rounds it
+            const mark: Mark = { type: 'corner', id, x: p.x, y: p.y, v: own ?? clamp(R / joinR(1, m.s)) };
+            if (innerShare(wedge.span) > 0.5) mark.square = true;
             marks.push(mark);
-            // Counters (innerRound) rounds every join at least as far, unless its letter rounds it its own way
-            const R = own != null ? joinR(own, m.s) : Math.max(joinR(v, m.s), innerFor(m, wedge.span));
             if (R < MIN_ROUND) continue;
             // how far along each edge the round starts: R's share of as far as the round of Joins at 1 would
             // start, or as far as both edges let it if that is nearer, so Joins rounds on all the way to 1

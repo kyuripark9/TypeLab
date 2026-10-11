@@ -61,7 +61,7 @@ helper such as `resolve` may be imported from its own file.
 | `stroke.ts` | The stroke expander: sampling, the pen model, terminals (`termCap`), sides, serifs (`buildSerif`, cups, diamonds) |
 | `ends.ts` | Stroke ends drawn on, trimmed, curled, run straight (`stretchTerminals`) |
 | `corners.ts` | Turns and square end corners rounded, stepped, or squared in box bowls (`turnsOf`, `markTurns`, `endCorners`) |
-| `joins.ts` | Inside corners where strokes cross, filled with fillets (`joinCorners`, `joinR`, `innerFor`, `innerShare`) |
+| `joins.ts` | Inside corners where strokes cross, filled with fillets (`joinCorners`, `joinR`); how Joins and Counters split the inside corners by how wide they are, Joins the crotches and Counters the square ones (`innerShare`, `crotchShare`, `innerFor`, `crotchFor`), turns' insides too (`markTurns`) |
 | `stencil.ts` | Stencil gaps at joins and turns, the crossbar Gap, bars run Through |
 | `serif-sides.ts` | Which way each stem's serifs reach (Sides, inside serifs), and cupped feet |
 | `effects.ts`, `boolean.ts` | The slice and the fills (wire, pixels, dots, lines, inline, outline, shadow); unions and cuts of outlines (`shape`, `combine`), and a letter's overlapping contours made one with its curves kept (`unite`) |
@@ -82,7 +82,7 @@ A formula or constant two files need lives once and both import it. `metrics()`'
 `scriptId`, `swashId`, `scriptForms`, `termSpec`, `quarterK`, `strokeWt`. Elsewhere: `geom.ts` (`inPoly`, `CIRCLE_K`,
 `MIN_ROUND`, `SAME_PT`, `cmdsBox`, `toPolys`), `shared/params/scales.ts` (`endId`, `isPlainEnd`, the id tests,
 `slantDeg`, `rotationOf`, `weightUnscale` beside `weightScale`, `xHeightOfRatio` beside `xHeightRatio`, `joinGap`,
-`barCut`, `endReach`), `stroke.ts` (`STEP_DEPTH`), `joins.ts` (`innerShare`), `glyphs/turns.ts` (`POINTED`, `peakPast`,
+`barCut`, `endReach`), `stroke.ts` (`STEP_DEPTH`), `joins.ts` (`innerShare`, `crotchShare`), `glyphs/turns.ts` (`POINTED`, `peakPast`,
 `peakCut`), `skin.ts` (`FORM_LETTERS`, `descK`), `restyle.ts` (`HOOK_LETTERS`, `OPEN_LETTERS`, `added`).
 
 Some code repeats or mirrors another's, because sharing would change results (a shared helper takes its sums in

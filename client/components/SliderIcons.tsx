@@ -74,9 +74,9 @@ const SLIDER: Record<string, ReactNode> = {
   // —— Corners
   // a corner rounding off its square
   roundness: <><path className="faint" d="M4 9V4h5" /><path d="M4 16.5V11a7 7 0 0 1 7-7h5.5" /></>,
-  // a T whose bar curves into its stem underneath
-  joinRound: <><path d="M3 4.5h14M3 8h3a3 3 0 0 1 3 3v5.5M17 8h-3a3 3 0 0 0-3 3v5.5" /></>,
-  // a square letter with round corners inside
+  // a Y whose crotch fills in round, its sharp point faint below
+  joinRound: <><path className="faint" d="M8.72 6.36 10 8.1l1.28-1.74" /><path d="M3 3.5h3.6l2.12 2.86a1.6 1.6 0 0 0 2.56 0L13.4 3.5H17l-5.2 7v6H8.2v-6z" /></>,
+  // a square letter with its square corners inside rounded
   innerRound: <><rect x="3" y="3" width="14" height="14" rx="1" /><rect x="7" y="7" width="6" height="6" rx="2.6" /></>,
   // an A cut flat across the top
   apex: <><path className="faint" d="M8.2 4 10 1.6 11.8 4" /><path d="M3.5 16.5 8.2 4h3.6l4.7 12.5" /></>,

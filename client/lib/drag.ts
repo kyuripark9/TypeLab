@@ -160,13 +160,13 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
     case 'entry': return { x: { key: 'cursive', sign: -1, span: ENTRY_SPAN, at: grab } };
     case 'corner': {
       // pulled in toward the middle of the letter a corner rounds off, pushed out it sharpens; while
-      // customizing a letter each corner goes its own way, else Roundness rounds them all, or Joins
-      // the inside corners where strokes meet
+      // customizing a letter each corner goes its own way, else Roundness rounds them all, or, inside where
+      // strokes meet, Joins a narrow crotch and Counters a square or open corner
       const marks = g.marks.filter(k => k.type === 'corner'), k = marks[nearestMark(marks, grab)];
       const b = cmdsBox(g.cmds);
       if (!k || !b) return null;
       const d: Omit<Drive, 'sign'> = oneEnd ? { key: 'roundness', end: k.id, endKey: 'corners', base: k.v, span: CORNER_SPAN, at: { x: k.x, y: k.y } }
-        : { key: k.id?.includes('j') ? 'joinRound' : 'roundness', span: CORNER_SPAN, at: { x: k.x, y: k.y } };
+        : { key: !k.id?.includes('j') ? 'roundness' : k.square ? 'innerRound' : 'joinRound', span: CORNER_SPAN, at: { x: k.x, y: k.y } };
       return { x: { ...d, sign: k.x < (b.x0 + b.x1) / 2 ? 1 : -1 }, y: { ...d, sign: k.y < (b.y0 + b.y1) / 2 ? 1 : -1 } };
     }
     case 'join': {

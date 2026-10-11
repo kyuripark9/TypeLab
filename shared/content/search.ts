@@ -14,7 +14,7 @@ const ALSO: Partial<Record<ActiveKey, string>> = {
   mono: 'typewriter code fixed width', wobble: 'rough sketchy organic jitter', cursive: 'script connected joined', flourish: 'swash flourish stylistic alternate ornament heart loop', swell: 'pressure shade pointed pen nib copperplate taper', fill: 'outline texture pattern halftone',
   terminal: 'tip ending finish', serif: 'feet slab', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
   aperture: 'opening mouth', extenders: 'ascender descender', build: 'blocks stroke construction', stencil: 'gap cut break', slice: 'cut line split',
-  squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', swash: 'flourish', dots: 'tittle period i j'
+  squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', joinRound: 'crotch fillet', innerRound: 'inside corners', swash: 'flourish', dots: 'tittle period i j'
 };
 
 export interface SettingHit {
@@ -57,7 +57,7 @@ function settingIndex(): Entry[] {
     // a stencil's and a slice's thickness is their own value: the control itself already stands for it
     if (parent === k) continue;
     entries.push({ key: k, page: c.cat, label: d.label, parent: c.label, shapes: [], fields: [[`${c.label} ${d.label}`, 80], [ALSO[k] ?? '', 85], [d.tech, 60],
-      [d.friendly, 50], [`${d.lo} ${d.hi}`, 30], [pageName(parent), 15]] });
+      [d.friendly, 50], [`${d.lo} ${d.hi}`, 30], [pageName(parent), 15], [d.explain ?? '', 10]] });
   }
   return (INDEX = entries.map(e => ({ ...e, fields: e.fields.map(([t, w]) => [searchTerms(t).join(' '), w] as [string, number]) })));
 }

@@ -287,7 +287,7 @@ describe('free fonts', () => {
       assert.equal(restyleEnds(cs, c, e, e, sk), cs, 'ends');
       assert.equal(restyleStencil(cs, c, stencilLook(e), stencilLook(e), sk), cs, 'stencil');
       assert.equal(restylePeaks(cs, { ...c, lines }, e.apex, e.apex), cs, 'peaks');
-      assert.equal(restyleCorners(cs, c, cornerLooks(e, c), cornerLooks(e, c), sk), cs, 'corners');
+      assert.equal(restyleCorners(cs, c, cornerLooks(e, c), cornerLooks(e, c)), cs, 'corners');
     }
   });
 
@@ -437,6 +437,10 @@ describe("TypeLab's own fonts", () => {
     assert.ok(!twin.drawn && twin.M[2] > 0.15, `the twin's g leans (${twin.M[2]})`);
     // Hand-drawn moves the font's own letters, not only where they sit
     assert.ok(!same((await design('grotesque', { wobble: 1 })).glyph('H')!, sans.glyph('H')!), 'a hand-drawn H');
+    // Joins fills the narrow crotches and Counters rounds the square corners, each leaving the other's be
+    const joins = await design('grotesque', { joinRound: 1 }), counters = await design('grotesque', { innerRound: 1 });
+    for (const ch of 'VvMN') assert.ok(!same(joins.glyph(ch)!, sans.glyph(ch)!) && same(counters.glyph(ch)!, sans.glyph(ch)!), `Mainline's ${ch}: crotches`);
+    for (const ch of 'HLE') assert.ok(same(joins.glyph(ch)!, sans.glyph(ch)!) && !same(counters.glyph(ch)!, sans.glyph(ch)!), `Mainline's ${ch}: square corners`);
   });
 
   it('export under any name, with no licence to pass on', async () => {

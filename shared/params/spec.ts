@@ -53,8 +53,9 @@ export interface ControlDef {
   /** An optional slider: its value where it changes nothing. It gets an on/off switch, and off hides the slider. */
   off?: number;
 }
-/** A slider nested under a control: its words, and bipolar, as on ControlDef. */
-export interface SubControlDef { label: string; friendly: string; tech: string; lo: string; hi: string; bipolar?: boolean }
+/** A slider nested under a control: its words, and bipolar, as on ControlDef; `explain` where it needs its own, else
+    the explainer shows its control's. */
+export interface SubControlDef { label: string; friendly: string; tech: string; lo: string; hi: string; bipolar?: boolean; explain?: string }
 
 interface Extra {
   /** every letter shares it: the heights all letters stand on, spacing and fills that run across a line.
@@ -143,11 +144,13 @@ export const SPECS = {
 
   /* ---- Corners */
   roundness: num(0, { free: true, control: { cat: 'corners', label: 'Roundness', friendly: 'Make the letters softer or sharper', tech: 'Roundness', lo: 'Sharp', hi: 'Round', demo: 'Ek',
-    explain: 'Corners and stroke ends round off; Joins rounds where strokes meet.' } }),
+    explain: 'Corners and stroke ends round off. Inside the letters, Joins fills the narrow crotches where strokes meet at a slant, and Counters rounds the square corners.' } }),
   joinRound: num(0, { free: true,
-    sub: { parent: 'roundness', label: 'Joins', friendly: 'Round where strokes meet', tech: 'Fillets', lo: 'Sharp', hi: 'Round' } }),
+    sub: { parent: 'roundness', label: 'Joins', friendly: 'Fill the narrow crotches where strokes meet', tech: 'Fillets · Crotches', lo: 'Sharp', hi: 'Round',
+      explain: 'Fills in the narrow notches where strokes meet at a slant: the crotches of n, m and h, of b, d, p and q, of K, k, v, x and y. Square corners are Counters\'.' } }),
   innerRound: num(0, { free: true,
-    sub: { parent: 'roundness', label: 'Counters', friendly: 'Round the corners of counters', tech: 'Counter corner radius', lo: 'As drawn', hi: 'Round' } }),
+    sub: { parent: 'roundness', label: 'Counters', friendly: 'Round the square corners inside letters', tech: 'Counter corner radius', lo: 'As drawn', hi: 'Round',
+      explain: 'Rounds the square and open corners inside letters: those of H, E, F, L and T, of B, D and P, and of box bowls. Narrow crotches are Joins\'.' } }),
   bends: option(BENDS, 'sharp', { free: true, control: { cat: 'corners', type: 'form', label: 'Bends', friendly: 'Make bends sharp or round', tech: 'Sharp or round vertices', demo: 'MNZ',
     explain: 'Where a stroke changes direction, as in A, M, N, V, W and Z: a point, or a round bend like bent wire. Peaks sets how wide.' } }),
   apex: num(0.4, { free: true, control: { cat: 'corners', label: 'Peaks', friendly: 'Make peaks pointed or flat', tech: 'Apex', lo: 'Pointed', hi: 'Flat', demo: 'AV',

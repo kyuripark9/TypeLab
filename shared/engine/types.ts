@@ -158,4 +158,5 @@ export interface Mark { type: MarkType; x: number; y: number; r?: number; id?: s
   /** a corner's roundness as drawn, on the scale of its own control (a turn's by turnV, a square end's corner by endCornerR, both in corners.ts; a join corner's on the Joins scale, see joinR in joins.ts): a turn's outside */ v?: number;
   /** a turn's inside roundness as drawn */ vi?: number;
   /** a corner's step as drawn, on the scale of Steps (0 when none; missing where a corner can't have one, a join) */ st?: number;
+  /** a join corner square or open enough that Counters (innerRound) rounds it rather than Joins (innerShare in joins.ts) */ square?: boolean;
   /** a join (type 'join'): the way its gap opens, away from the stroke it meets; `v` is its gap as drawn, on its own Gap scale */ dx?: number; dy?: number }
