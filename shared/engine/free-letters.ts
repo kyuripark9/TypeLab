@@ -8,20 +8,20 @@ import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
 import { FORM_LETTERS, descK, rigSkeleton, skinMeasures, skinMove, skinRig, type SkinMeasures, type SkinRig } from './skin';
-import { bowlLook, cornerLooks, dotLook, restyleBowls, restyleDots, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
-import { skeleton, type Skeleton } from './scan';
+import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restyleSwash, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
+import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
-import { CURSIVE_FORMS, SERIF_SB, buildFont, type Effective, type Font, type Glyph, hasGlyph, type Metrics, metrics, resolve, scriptForms, scriptId, termSpec } from './font';
-import { blankParts, placeGlyph, type Unplaced } from './glyph';
+import { SERIF_SB, buildFont, type Effective, type Font, type Glyph, glyphDefOf, hasGlyph, type Metrics, metrics, resolve, scriptForms, scriptId, swashId, termSpec } from './font';
+import { blankParts, placeGlyph, wobbler, type Unplaced } from './glyph';
 
 /* ---- free fonts' letters (see shared/free-fonts.ts), moved by the settings as far as they're moved from the
    ones the font was picked at (Params.freeAt): heavier is a heavier font of the family where it has one;
    the rest of the way, and Contrast, Width, the heights, Inner space, the dots' size, Pinch, Ink traps and the
    serifs' size, move its letters on their skeletons as the engine's own letters move (skin.ts); then the shapes
    the engine draws are set on them where the settings ask for others than the font's (restyle.ts): its dots,
-   bowls, stroke ends (their kind, length, curl, openness, tails), serifs, stencil and crossbar gaps, peaks and
-   corners; slanted past half an italic's lean, its italic; and the font's own lean, rotation, spacing and fill
-   are kept until the settings move. */
+   bowls (and a bowl parted from its stem), stroke ends (their kind, length, curl, openness, tails), Cursive's flicks
+   and swash capitals' curls, serifs, stencil and crossbar gaps, peaks and corners; slanted past half an italic's lean,
+   its italic; and the font's own lean, rotation, spacing and fill are kept until the settings move. */
 
 /** How far an italic leans, taken as a typical one's. */
 const ITALIC_DEG = 12;
@@ -32,6 +32,8 @@ interface FreeLetters {
   /** the engine's measures of the settings the font's letters stand for, and of those asked for */ from: SkinMeasures; to: SkinMeasures;
   /** whether its letters move on their skeletons (not a pixel font's, which are only stretched) */ skin: boolean;
   /** the side bearings' scale */ sb: number;
+  /** how far a monospaced font is drawn back toward proportional spacing, Monospace moved below where it was picked (0
+      none, 1 all the way) */ unmono: number;
   /** placing the letters: only what the settings move past the font's own (lean, turn, fill, spacing) */ m: Metrics;
   /** the settings the font's letters stand for, and those asked for, for the shapes that restyle them (restyle.ts) */ pick: Effective; now: Effective;
   /** the serifs asked for, in design units, and whether they're the engine's to set on the letters: where the font
@@ -64,7 +66,7 @@ export function freeLetters(params: Params, e: Effective, m: Metrics): FreeLette
   return {
     font, want, k: font ? m.cap / font.cap : 1, sx: m.ws / mb.ws, from, to, skin: !FREE_FAMILIES[r.family]?.grid, pick: b, now: e,
     serif: asked ?? null, serifs: !!asked && (!had || other), raw: params, rawPick: { ...params, ...params.freeAt },
-    sb: Math.pow(2, (e.sideBearing - b.sideBearing) * 3),
+    sb: Math.pow(2, (e.sideBearing - b.sideBearing) * 3), unmono: b.mono > 0 && e.mono < b.mono ? (b.mono - e.mono) / b.mono : 0,
     m: { ...m, p, slant: Math.tan((lean - (ref.italic ? ITALIC_DEG : 0)) * Math.PI / 180), rot: m.rot - mb.rot,
       wob: Math.max(0, e.wobble - b.wobble), sliceH: e.slice === b.slice ? 0 : m.sliceH }
   };
@@ -102,51 +104,117 @@ function inkX(d: Drawn): [number, number] {
 /* ---- a free font's twin: the font read as the engine's own settings, for the letters asked for in a form the font
    hasn't got (a single-storey a, a mirrored g, a k on a bar, Arches, a script's letters), which the engine draws */
 
-/** Whether letter `ch` is asked for in another form than the one the font's own stands for (its settings as picked):
-    built otherwise, written as a script's or not, cursive or not (as variantOf in font.ts picks), a swash capital or
-    not, the a's storeys, or a letter-form setting moved on the letters it reaches (FORM_LETTERS in skin.ts). */
+/** Whether letter `ch` is asked for (settings `a`) in another form than the one the font's own stands for (its settings
+    as picked, `b`): built otherwise, written as a script's or not (Letterforms; left on auto, the font's own), the
+    a's storeys (left on auto, the font's), or a letter-form setting moved on the letters it reaches (FORM_LETTERS in
+    skin.ts). (Swash capitals and Cursive curl and flick the font's own letters: restyleSwash and restyleCursive.) */
 export function formChanged(ch: string, a: Effective, b: Effective): boolean {
   if (a.build !== b.build) return true;
-  if (scriptForms(a) !== scriptForms(b) || (scriptForms(b) && a.flourish !== b.flourish)) return hasGlyph(scriptId(ch));
-  if ((a.cursive >= CURSIVE_FORMS) !== (b.cursive >= CURSIVE_FORMS) && hasGlyph(ch + '.cur')) return true;
-  if ((a.swash > 0) !== (b.swash > 0) && /^[A-Z]$/.test(ch)) return true;
-  return (ch === 'a' && a.singleStory !== b.singleStory)
+  // (Letterforms and the Letter a left on auto keep the font's own forms, which its letters are drawn in, whatever
+  // Cursive asks: it gives the font's letters the engine's flicks instead, see restyleCursive in restyle.ts)
+  if (fontScript(a, b) !== scriptForms(b)) return hasGlyph(scriptId(ch));
+  // (Flourishes on a script font: only the letters that have a swash, S t l d r z)
+  if (scriptForms(b) && a.flourish !== b.flourish) return hasGlyph(swashId(ch));
+  return (ch === 'a' && a.story !== 'auto' && a.singleStory !== b.singleStory)
     || (Object.keys(FORM_LETTERS) as (keyof typeof FORM_LETTERS)[]).some(k => FORM_LETTERS[k].includes(ch) && a[k] !== b[k]);
 }
 
-/* What a free font's measures read as, metrics() (font.ts) undone: twinFit reads the font's stems, bars and width back
-   through these, and tests/free-fonts.test.ts runs each the other way, so a change to metrics() that leaves them behind
-   fails there. */
-/** The Weight that draws stems `s` thick: metrics' s0 = 18 + 200·weight^1.25 undone. */
-export const weightOfStem = (s: number) => clamp(Math.pow(Math.max(0, s - 18) / 200, 0.8));
-/** The Contrast that draws bars `thin` thick against stems `s` thick: metrics' thinAt, the bars at s·(0.92 − 0.84·c) for
-    the pen's amount c, undone, then contrastOf's amount = 0.05 + 0.95·(v − 0.5)·2 on its upper half, for v. */
-export function contrastOfBars(thin: number, s: number) {
-  const amount = clamp((0.92 - thin / Math.max(1, s)) / 0.84);
-  return 0.5 + Math.max(0, amount - 0.05) / 0.95 * 0.5;
-}
+/** Whether design `a` written in a free font picked at `b` draws its letters as a script's: as the font does, unless
+    Letterforms says otherwise. */
+export const fontScript = (a: Effective, b: Effective) => (a.scriptForm === 'auto' ? scriptForms(b) : a.scriptForm === 'script');
+
+/* What a free font's width reads as, metrics() (font.ts) undone: twinFit reads the font's n back through it, and
+   tests/free-fonts.test.ts runs it the other way, so a change to metrics() that leaves it behind fails there. (Its
+   weight and contrast are found by asking metrics() itself, the design's Verticals and Horizontals counted.) */
 /** The Width that draws letters `ws` times as wide as at its middle: metrics' ws = lerp(0.6, 1) below the middle
     and lerp(1, 1.5) above it undone. */
 export const widthOfScale = (ws: number) => clamp(ws < 1 ? (ws - 0.6) / 0.8 : 0.5 + (ws - 1));
 
-const twinFits = new WeakMap<FreeFont, Partial<Params>>();
-/** The engine's settings a free font's letters read as (once a font): its stems' weight, its bars' contrast against
-    them, its x-height, its width (its n against the engine's) and whether it has serifs. */
+/** The ink's runs along a row at height y (across) or down a column at x (down), as [start, end] pairs. */
+function inkRuns(cs: Node[][], at: number, down = false): [number, number][] {
+  const xs: number[] = [];
+  for (const c of cs) for (let i = 0; i < c.length; i++) {
+    const a = c[i], b = c[(i + 1) % c.length];
+    // (each segment as its chord: the runs are read across stems and bars, not along curves)
+    const [pa, pb, qa, qb] = down ? [a.x, b.x, a.y, b.y] : [a.y, b.y, a.x, b.x];
+    if ((pa <= at) !== (pb <= at)) xs.push(qa + (at - pa) / (pb - pa) * (qb - qa));
+  }
+  xs.sort((p, q) => p - q);
+  const out: [number, number][] = [];
+  for (let i = 0; i + 1 < xs.length; i += 2) out.push([xs[i], xs[i + 1]]);
+  return out;
+}
+
+/** A free font's own measures, read straight off its letters' ink: how thick its stems are (the n's, across the middle
+    of the x-height, squared to the way they lean), how thick its bar (the H's, down the middle of its width), and how
+    far its stems lean from upright, in degrees (the l's and the I's, from low to high on them). */
+interface FontLook { stem: number; bar: number; lean: number }
+const fontLooks = new WeakMap<FreeFont, FontLook>();
+function fontLook(font: FreeFont): FontLook {
+  let look = fontLooks.get(font);
+  if (look) return look;
+  const leans: number[] = [];
+  for (const [ch, top] of [['l', font.xh], ['I', font.cap], ['h', font.xh]] as const) {
+    const g = font.glyphs[ch];
+    if (!g) continue;
+    const lo = inkRuns(g.contours, top * 0.2)[0], hi = inkRuns(g.contours, top * 0.8)[0];
+    if (lo && hi) leans.push(Math.atan2((hi[0] + hi[1]) / 2 - (lo[0] + lo[1]) / 2, top * 0.6) * 180 / Math.PI);
+  }
+  const lean = leans.length ? leans.sort((a, b) => a - b)[leans.length >> 1] : 0;
+  // (at each of a few heights, the narrowest of the runs as wide as a stem, not a hairline crossing nor a join that runs
+  // into the shoulder; then the middle of those)
+  const n = font.glyphs.n, stems: number[] = [];
+  if (n) for (const h of [0.25, 0.35, 0.45, 0.55, 0.65]) {
+    const runs = inkRuns(n.contours, font.xh * h).map(r => r[1] - r[0]), most = Math.max(0, ...runs), wide = runs.filter(w => w >= most * 0.35);
+    if (wide.length) stems.push(Math.min(...wide));
+  }
+  stems.sort((a, b) => a - b);
+  const stem = (stems.length ? stems[stems.length >> 1] : font.cap * 0.12) * Math.cos(lean * Math.PI / 180);
+  let bar = 0;
+  const H = font.glyphs.H;
+  if (H) {
+    let x0 = Infinity, x1 = -Infinity;
+    for (const c of H.contours) for (const q of c) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); }
+    const mid = inkRuns(H.contours, (x0 + x1) / 2, true).find(r => r[0] < font.cap * 0.75 && r[1] > font.cap * 0.25);
+    if (mid) bar = mid[1] - mid[0];
+  }
+  look = { stem, bar: bar > 0 ? Math.min(bar, stem) : stem * 0.85, lean };
+  fontLooks.set(font, look);
+  return look;
+}
+
+/** The value between lo and hi at which f (rising, or falling with `falls`) reaches `want`. */
+function solve(f: (v: number) => number, want: number, lo = 0, hi = 1, falls = false) {
+  for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if ((f(mid) < want) !== falls) lo = mid; else hi = mid; }
+  return (lo + hi) / 2;
+}
+
+const twinFits = new WeakMap<FreeFont, Map<string, Partial<Params>>>();
+/** The engine's settings a free font's letters read as (once a font and a design): the weight whose stems are as thick
+    as its stems (with the design's own Verticals), the contrast whose bars are as thin as its bar (with its
+    Horizontals), its x-height, its width (its n against the engine's), whether it has serifs, and its slant (as far as
+    its stems lean). */
 function twinFit(font: FreeFont, pick: Params): Partial<Params> {
-  let fit = twinFits.get(font);
+  let kept = twinFits.get(font);
+  if (!kept) { kept = new Map(); twinFits.set(font, kept); }
+  const id = JSON.stringify(pick);
+  let fit = kept.get(id);
   if (fit) return fit;
-  const n = skinRig(font, 'n') ?? skinRig(font, 'H'), H = skinRig(font, 'H') ?? n;
-  const m = metrics(resolve(pick)), s = (n?.stem ?? 0.12) * m.cap, thin = (H?.bar ?? n?.bar ?? 0.1) * m.cap;
-  const weight = weightOfStem(s), contrast = contrastOfBars(thin, s), xHeight = clamp(xHeightOfRatio(font.xh / font.cap));
+  const n = skinRig(font, 'n') ?? skinRig(font, 'H'), H = skinRig(font, 'H') ?? n, look = fontLook(font);
+  const m = metrics(resolve(pick)), k = m.cap / font.cap, s = look.stem * k, thin = look.bar * k;
+  const at = (q: Partial<Params>) => metrics(resolve({ ...pick, ...q }));
+  const weight = solve(w => at({ weight: w }).s, s), contrast = solve(c => at({ weight, contrast: c }).hT, thin, 0.5, 1, true);
+  const xHeight = clamp(xHeightOfRatio(font.xh / font.cap));
   // (as wide as the font's n, against the engine's at the middle of Width)
-  const g = font.glyphs.n, eng = buildFont({ ...pick, freeFont: '', freeAt: {}, glyphs: {}, outlines: {}, weight, contrast, xHeight, width: 0.5 }).glyph('n');
+  const g = font.glyphs.n, eng = buildFont({ ...pick, freeFont: '', freeAt: {}, glyphs: {}, outlines: {}, weight, contrast, xHeight, width: 0.5, slant: 0 }).glyph('n');
   let width = 0.5;
   if (g && eng) {
     const [x0, x1] = inkX(g), ws = ((x1 - x0) * m.cap / font.cap) / Math.max(1, eng.bodyW);
     width = widthOfScale(ws);
   }
-  fit = { weight, contrast, xHeight, width, serif: !!(n?.serifs || H?.serifs) };
-  twinFits.set(font, fit);
+  fit = { weight, contrast, xHeight, width, serif: !!(n?.serifs || H?.serifs), slant: clamp(look.lean / slantDeg(1)) };
+  if (kept.size > 8) kept.delete(kept.keys().next().value!);
+  kept.set(id, fit);
   return fit;
 }
 
@@ -156,9 +224,9 @@ const twinFonts = new Map<string, Font>();
 export function twinGlyph(ch: string, fl: FreeLetters): Glyph | null {
   if (!fl.font) return null;
   const fit = twinFit(fl.font, fl.rawPick), now = fl.raw, pick = fl.rawPick;
-  const moved = (k: 'weight' | 'contrast' | 'xHeight' | 'width') => clamp((fit[k] as number) + (now[k] as number) - (pick[k] as number));
+  const moved = (k: 'weight' | 'contrast' | 'xHeight' | 'width' | 'slant') => clamp((fit[k] as number) + (now[k] as number) - (pick[k] as number));
   const p: Params = { ...now, freeFont: '', freeAt: {}, glyphs: {}, outlines: {}, weight: moved('weight'), contrast: moved('contrast'), xHeight: moved('xHeight'),
-    width: moved('width'), serif: now.serif !== pick.serif ? now.serif : !!fit.serif };
+    width: moved('width'), slant: moved('slant'), serif: now.serif !== pick.serif ? now.serif : !!fit.serif };
   const key = JSON.stringify(p);
   let f = twinFonts.get(key);
   if (!f) { f = buildFont(p); if (twinFonts.size > 8) twinFonts.delete(twinFonts.keys().next().value!); twinFonts.set(key, f); }
@@ -166,6 +234,9 @@ export function twinGlyph(ch: string, fl: FreeLetters): Glyph | null {
 }
 
 const restyles = new WeakMap<Node[][], Map<string, Node[][]>>();
+/** The restyled letters the engine's serifs were set on (a letter with no stem end they stand on, a script's, gets none,
+    and no room for them either). */
+const withSerifs = new WeakSet<Node[][]>();
 /** A rigged free font's letter, moved on its skeleton, given the shapes the settings ask for past the ones
     it stands for (restyle.ts); kept with the moved outline, by the settings, as dragging a slider asks again. */
 function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
@@ -183,7 +254,8 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   const da = [fl.pick.dots, dotLook(fl.pick)], db = [fl.now.dots, dotLook(fl.now)];
   // (every setting a restyle step below reads goes in this key: one left out leaves its slider showing the letter
   // kept from before)
-  const key = JSON.stringify([a, b, ends(fl.pick), ends(fl.now), sf, sf && lines, sa, sb, ba, bb, da, db, fl.pick.apex, fl.now.apex, fl.now.apex !== fl.pick.apex && lines]);
+  const key = JSON.stringify([a, b, ends(fl.pick), ends(fl.now), sf, sf && lines, sa, sb, ba, bb, da, db, fl.pick.apex, fl.now.apex, fl.now.apex !== fl.pick.apex && lines,
+    fl.pick.overlap, fl.now.overlap, fl.pick.cursive, fl.now.cursive, fl.pick.swash, fl.now.swash]);
   let kept = restyles.get(cs);
   if (!kept) { kept = new Map(); restyles.set(cs, kept); }
   let out = kept.get(key);
@@ -191,13 +263,21 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
     // (each step's skeleton scanned off the outline as it stands then, and only when a step needs it)
     // (the letter as the font draws it has its skeleton scanned already, with its rig)
     const scan = (o: Node[][]) => { let sk: Skeleton | undefined; return () => (sk ??= o === rig.contours ? rigSkeleton(rig) : skeleton(o)); };
-    out = restyleDots(cs, c, fl.pick, fl.now);
+    // (a bowl parted from its stem is the font's o, moved as the letter is)
+    const oRig = fl.now.overlap < fl.pick.overlap && OVERLAP_LETTERS.includes(x.ch) && fl.font ? skinRig(fl.font, 'o') : null;
+    out = restyleOverlap(cs, c, fl.pick.overlap, fl.now.overlap, oRig && skinMove(oRig, fl.from, fl.to));
+    out = restyleDots(out, c, fl.pick, fl.now);
     out = restyleBowls(out, ba, bb, scan(out));
     out = restyleEnds(out, c, fl.pick, fl.now, scan(out));
+    out = restyleCursive(out, c, fl.pick.cursive, fl.now.cursive);
+    out = restyleSwash(out, c, fl.pick.swash, fl.now.swash);
+    const bare = out;
     if (sf) out = restyleSerifs(out, { ...c, lower: x.lower, lines }, sf, scan(out));
+    const serifed = out !== bare;
     out = restyleStencil(out, c, sa, sb, scan(out));
     out = restylePeaks(out, { ...c, lines }, fl.pick.apex, fl.now.apex);
     out = restyleCorners(out, c, a, b, scan(out));
+    if (serifed) withSerifs.add(out);
     if (kept.size >= 6) kept.delete(kept.keys().next().value!);
     kept.set(key, out);
   }
@@ -217,12 +297,46 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   // (unmoved, by the font's own outline: the rig's has its pieces united, and a speck a corner's curl leaves outside it
   // dropped, which would move the letter's room a little as it is picked)
   const own = rig && skinned === rig.contours ? src.contours : skinned;
-  const [x0, x1] = own ? inkX({ adv: 0, contours: own }).map(v => v * fl.k) : inkX(sized), [i0, i1] = inkX(sized);
+  const [i0, i1] = inkX(sized);
+  let [x0, x1] = own ? inkX({ adv: 0, contours: own }).map(v => v * fl.k) : [i0, i1];
+  // (a bowl parted from its stem takes its room with it)
+  if (rig && fl.now.overlap < fl.pick.overlap && OVERLAP_LETTERS.includes(ch)) { x0 = Math.min(x0, i0); x1 = Math.max(x1, i1); }
   // (and as far again as a serif reaches out past it, less a little, so two side by side don't run into one another: a
   // font's own side bearings are drawn for letters with no serifs)
-  const sl = fl.serifs && fl.serif ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * SERIF_SB, over + sl * 0.15) : v);
-  const [a0, a1] = inkX(src), lsb = room(a0 * fl.k * fl.sx * fl.sb, x0 - i0), rsb = room((src.adv - a1) * fl.k * fl.sx * fl.sb, i1 - x1);
-  const body = mapDrawn(sized, x1 - x0, (x, y) => [x - x0, y]), cmds = drawnCmds(body.contours);
+  const sl = fl.serifs && fl.serif && withSerifs.has(moved.contours) ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * SERIF_SB, over + sl * 0.15) : v);
+  const [a0, a1] = inkX(src);
+  let lsb = room(a0 * fl.k * fl.sx * fl.sb, x0 - i0), rsb = room((src.adv - a1) * fl.k * fl.sx * fl.sb, i1 - x1);
+  // (Cursive's flicks and a swash capital's curl get most of the room they reach out into, so they touch the letter
+  // beside instead of running through it, as the engine's do: see padL and padR in buildGlyph, glyph.ts)
+  if (rig && ((fl.now.cursive > fl.pick.cursive && (EXIT_LETTERS.includes(ch) || ENTRY_LETTERS.includes(ch))) || (fl.now.swash > fl.pick.swash && /^[A-Z]$/.test(ch)))) {
+    lsb += Math.max(0, x0 - i0 - fl.m.sb * 1.3); rsb += Math.max(0, i1 - x1 - fl.m.sb * 1.3);
+  }
+  // a monospaced font made proportional: the room a narrow letter is padded out with in its cell goes, its side bearings
+  // drawn in toward the engine's for the letter (a stem's whole, a round side's about half, a diagonal's a quarter: the
+  // glyph table's factors), so an i no longer stands in an m's width; a letter that fills its cell (a typewriter's i on
+  // its long foot) keeps its own
+  if (fl.unmono > 0) {
+    const f = glyphDefOf(ch)?.sb ?? [0.6, 0.6], l1 = Math.min(lsb, room(fl.m.sb * f[0], x0 - i0)), r1 = Math.min(rsb, room(fl.m.sb * f[1], i1 - x1));
+    lsb += (l1 - lsb) * fl.unmono; rsb += (r1 - rsb) * fl.unmono;
+  }
+  // (Hand-drawn moves the letter through the engine's field, as its strokes drift in the engine's letters)
+  const flat = mapDrawn(sized, x1 - x0, (x, y) => [x - x0, y]), wb = fl.m.wob > 0 ? wobbler(ch.codePointAt(0)!, fl.m) : null;
+  // (a long straight side split first, so it bends along its length as the engine's strokes do, not only at its ends)
+  const step = fl.m.xh / 8, split = (c: Node[]) => c.flatMap((n, i) => {
+    const b = c[(i + 1) % c.length], parts = n.ox === undefined && b.ix === undefined ? Math.floor(Math.hypot(b.x - n.x, b.y - n.y) / step) : 0;
+    return [n, ...Array.from({ length: parts }, (_, k): Node => ({ x: n.x + (b.x - n.x) * (k + 1) / (parts + 1), y: n.y + (b.y - n.y) * (k + 1) / (parts + 1) }))];
+  });
+  // (each point goes as the middle of its stroke goes, the nearest point of the letter's skeleton, so a stroke drifts whole
+  // and keeps its thickness, as the engine's do, the field moving their skeletons; a handle with its point)
+  const sk = wb ? skeleton(flat.contours) : null;
+  const body: Drawn = wb && sk ? { adv: flat.adv, contours: flat.contours.map(c => split(c).map(n => {
+    const q = nearestOn(sk, n.x, n.y), m = q ? sk.edges[q.e].pts[q.i] : n, [mx, my] = wb.pt(m.x, m.y), dx = mx - m.x, dy = my - m.y;
+    const out: Node = { ...n, x: n.x + dx, y: n.y + dy };
+    if (n.ix !== undefined) { out.ix = n.ix + dx; out.iy = n.iy! + dy; }
+    if (n.ox !== undefined) { out.ox = n.ox + dx; out.oy = n.oy! + dy; }
+    return out;
+  })) } : flat;
+  const cmds = drawnCmds(body.contours);
   // (the inline runs down the middle of the strokes: their skeleton, scanned off the letter as drawn)
   // (eased along, as a cell-by-cell skeleton steps)
   const ease = (l: Pt[]) => { let c = l; for (let k = 0; k < 6; k++) c = c.map((q, i) => (i === 0 || i === c.length - 1 ? q : { x: (c[i - 1].x + 2 * q.x + c[i + 1].x) / 4, y: (c[i - 1].y + 2 * q.y + c[i + 1].y) / 4 })); return c; };

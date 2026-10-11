@@ -11,12 +11,12 @@
    its Position and Rounding; the crossbars' Gap); Peaks; Corners (Roundness, Steps, Counters, Joins), last, so
    it rounds the corners the others leave too. Whatever a restyle reads of the settings must also be in the key
    restyled() keeps its results under, or a dragged slider shows letters drawn for an earlier value. */
-import { bowlK, bowlOrg, dotRoundOf, innerRoundR, roundnessR, stencilOff, termSpec, type Effective } from './font';
+import { bowlK, bowlOrg, cursiveHookR, dotRoundOf, innerRoundR, roundnessR, stencilOff, termSpec, type Effective } from './font';
 import { endReach, onEndScale } from '../params';
 import { fitOutline, type Node } from './outline';
 import { CIRCLE_K, roundContour, signedArea, smoothstep } from './geom';
-import { bez, branches, endFace, inkAt, inkGrid, joinsOf, leaving, nearestOn, type Branch, type Grid, type Join, type SkPt, type Skeleton } from './scan';
-import { STEP_DEPTH, buildSerif, serifCup, serifSides, termCap, termDropBack } from './stroke';
+import { bez, branches, endFace, inkAt, inkGrid, joinsOf, leaving, nearestOn, roundTip, type Branch, type Grid, type Join, type SkPt, type Skeleton } from './scan';
+import { STEP_DEPTH, buildSerif, expandStroke, serifCup, serifSides, termCap, termDropBack } from './stroke';
 import { innerShare, joinR } from './joins';
 import { combine, shape } from './boolean';
 import type { Cmd, PenCtx, Pt, SerifSides, SerifSpec, TermSpec } from './types';
@@ -306,6 +306,12 @@ function terminalEnds(sk: Skeleton, g?: Grid): End[] {
     // the sharper corner of an end cut on a slant, an italic stem's)
     if (d0.x * d1.x + d0.y * d1.y > Math.cos(15 * Math.PI / 180) || d0.x * dm.x + d0.y * dm.y > Math.cos(4 * Math.PI / 180)
       || dm.x * d1.x + dm.y * d1.y > Math.cos(4 * Math.PI / 180)) return;
+    // (and curves from its tip on: a heavy stem's foot or top, drawn round, runs dead straight for its first two
+    // thicknesses before the look further on reaches the arch it rises into; and a bar or a spur that runs straight
+    // for a thickness and then turns a corner, a G's, is no curving end either)
+    const way = Array.from({ length: 6 }, (_, k) => dirAlong(pts, at(body * k / 2), at(body * (k + 1) / 2)));
+    const turn = (a: P, b: P) => Math.acos(Math.max(-1, Math.min(1, a.x * b.x + a.y * b.y))) * 180 / Math.PI;
+    if (turn(way[0], way[1]) <= 5 && (turn(way[0], way[3]) < 8 || way.slice(1, 5).some((w, k) => turn(w, way[k + 2]) > 25))) return;
     const dir = { x: -d0.x, y: -d0.y };
     let reach = 0;
     if (g) while (reach < body * 4 && inkAt(g, n.x + dir.x * (reach + 1), n.y + dir.y * (reach + 1))) reach += 1;
@@ -647,7 +653,23 @@ export function restyleSerifs(cs: Node[][], c: RestyleCtx & { lower: boolean; li
     if (n.edges.length !== 1 || s.edges[n.edges[0]].a === s.edges[n.edges[0]].b) return;
     const br = branches(s, ni)[0], lv = leaving(s, br, n.r * 2), d = { x: -lv.x, y: -lv.y };
     if (s.edges[br.e].len < n.r * 1.5) return;
-    const f = endFace(g, n.x, n.y, n.r, d);
+    let f = endFace(g, n.x, n.y, n.r, d);
+    // (an upright stroke drawn round at its end, a soft sans's stem, standing on a line or reaching up to one: squared
+    // off up to where its round begins, and given the serif as a square end is)
+    // (a letter's or a figure's: punctuation's round ends stay round)
+    if (f.face === 'other' && /[A-Za-z0-9]/.test(c.ch)) {
+      const tip = roundTip(g, n.x, n.y, n.r, d), L = tip ? c.lines.find(L => Math.abs(tip.y - L) < tol) : undefined;
+      // (a plain round end: nothing of the letter runs on just past the line beside it, as a blackletter's hairline tail
+      // runs on under its foot)
+      const past = tip && L !== undefined && [-0.9, 0, 0.9].some(u => [0.6, 1.2, 2].some(k => inkAt(g, tip.x + u * n.r, L + Math.sign(d.y) * n.r * k)));
+      if (tip && L !== undefined && !past) {
+        f = { face: 'level', at: L, mid: tip.x, width: n.r * 2 };
+        serifs.push([{ x: tip.x - n.r, y: L }, { x: tip.x + n.r, y: L }, { x: n.x + n.r, y: n.y }, { x: n.x - n.r, y: n.y }]);
+        // (and its round's overshoot past the line taken off, under the serif)
+        const out = Math.sign(d.y) * n.r * 2;
+        cuts.push([{ x: tip.x - n.r - 2, y: L }, { x: tip.x + n.r + 2, y: L }, { x: tip.x + n.r + 2, y: L + out }, { x: tip.x - n.r - 2, y: L + out }]);
+      }
+    }
     let end: { x: number; y: number; dx: number; dy: number; t: number; type: 'flat' } | null = null, given: SerifSides = 'both', inward: SerifSides = null;
     if (f.face === 'level' && c.lines.some(L => Math.abs(f.at - L) < tol)) {
       end = { x: f.mid, y: f.at, dx: d.x, dy: d.y, t: n.r * 2, type: 'flat' };
@@ -845,10 +867,11 @@ export function restyleStencil(cs: Node[][], c: RestyleCtx, from: StencilLook, t
 
 /** How round the bowls are: the tension of a quarter turn's handles the engine draws them with (bowlK in font.ts),
     the share of each cut off straight (Facets), how much fuller the organic diagonal is (bowlOrg), and whether Bowls
-    draws them as boxes. */
-export interface BowlLook { k: number; chamfer: number; org: number; box: boolean }
-export const bowlLook = (e: Effective): BowlLook => ({ k: bowlK(e), chamfer: e.chamfer, org: bowlOrg(e), box: e.bowlForm === 'box' });
-const sameBowls = (a: BowlLook, b: BowlLook) => Math.abs(a.k - b.k) < 1e-4 && Math.abs(a.chamfer - b.chamfer) < 1e-4 && Math.abs(a.org - b.org) < 1e-4 && a.box === b.box;
+    draws them as boxes, with how round their corners are (the Bowls' Corners slider, boxRound; 0.5 where they're not). */
+export interface BowlLook { k: number; chamfer: number; org: number; box: boolean; round: number }
+export const bowlLook = (e: Effective): BowlLook => ({ k: bowlK(e), chamfer: e.chamfer, org: bowlOrg(e), box: e.bowlForm === 'box', round: e.bowlForm === 'box' ? e.boxRound : 0.5 });
+const sameBowls = (a: BowlLook, b: BowlLook) => Math.abs(a.k - b.k) < 1e-4 && Math.abs(a.chamfer - b.chamfer) < 1e-4 && Math.abs(a.org - b.org) < 1e-4 && a.box === b.box
+  && Math.abs(a.round - b.round) < 1e-4;
 
 /** The upright oval through weighted points, fitted by least squares (A x² + C y² + D x + E y = 1): its middle and half
     widths, or null where they don't make one. */
@@ -877,13 +900,18 @@ function ovalFit(pts: P[], w: number[]) {
   return { cx: mx + cx / sc, cy: my + cy / sc, ax: Math.sqrt(F / A) / sc, ay: Math.sqrt(F / C) / sc };
 }
 
+/** How far the Bowls' Corners slider moves a box bowl's superellipse exponent either way from its middle's 12: to 32,
+    all but square, at 0 and to 4.5, a squircle, at 1. */
+const BOX_SPREAD = 2.67;
 /** The superellipse exponent whose quarter a cubic with handles `k` of the way along draws (they meet at 45°). */
 const exponentOf = (k: number) => -Math.LN2 / Math.log((3 * Math.min(0.97, Math.max(0.3, k)) + 4) / 8);
 /** How far out a bowl reaches at angle a round it, against a circle's 1: a superellipse (round to square), cut toward
     an octagon by Facets, fuller on one diagonal and pinched on the other, as an organic quarter turn is. */
 function reachAt(b: BowlLook, a: number) {
   const c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a)), full = Math.sin(2 * a) > 0;
-  const k = b.box ? 0.97 : b.k * (1 + (full ? 0.4 : -0.22) * b.org), n = b.box ? 12 : exponentOf(k);
+  // (a box's corners from all but square at Corners 0, through the engine's stroke-wide round at its middle, to as round
+  // as a squircle's at 1)
+  const k = b.box ? 0.97 : b.k * (1 + (full ? 0.4 : -0.22) * b.org), n = b.box ? 12 * Math.pow(BOX_SPREAD, 1 - 2 * b.round) : exponentOf(k);
   const se = Math.pow(Math.pow(c, n) + Math.pow(s, n), -1 / n), oct = Math.min(1 / Math.max(c, 1e-6), 1 / Math.max(s, 1e-6), Math.SQRT2 / (c + s));
   return se + (oct - se) * Math.min(1, b.chamfer);
 }
@@ -1008,9 +1036,11 @@ export function restyleDots(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
     for (const p of r) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
     const w = x1 - x0, h = y1 - y0, a = Math.abs(signedArea(r));
-    // (on its own: no other outline round it or in it; small, and filling much of its box, as a dot does, unlike a comma)
+    // (on its own: no other outline round it or in it; small, and filling much of its box, as a dot does, unlike a comma;
+    // and well under the x-height, as a fat face's i's stem, as heavy as it is tall, is not)
     const alone = !rings.some(o => o !== r && o.some(p => p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1));
-    if (!alone || signedArea(r) < 0 || w > Math.max(c.stem, c.bar) * DOT_MAX || h > Math.max(c.stem, c.bar) * DOT_MAX || w / h > 1.6 || h / w > 1.6 || a < w * h * 0.6) return r;
+    if (!alone || signedArea(r) < 0 || w > Math.max(c.stem, c.bar) * DOT_MAX || h > Math.max(c.stem, c.bar) * DOT_MAX || Math.max(w, h) > c.xh * 0.5
+      || w / h > 1.6 || h / w > 1.6 || a < w * h * 0.6) return r;
     changed = true;
     const side = (w + h) / 2, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, hs = side / 2, rr = hs * round;
     return toPolygon(roundContour([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => ({ x: cx + u * hs, y: cy + v * hs, r: rr })), 0));
@@ -1019,7 +1049,189 @@ export function restyleDots(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
   return refit(out);
 }
 
+/* ---- cursive flicks */
+
+/** The lowercase Cursive draws a stroke out of, from the foot of the last stem (the engine's footStem in
+    glyphs/shared.ts), and those it draws one into, at the top of the first (its entry). */
+export const EXIT_LETTERS = 'adhilmnu', ENTRY_LETTERS = 'ijmnpru';
+
+/** The contours with the flicks Cursive draws on the engine's lowercase, as far as `to` asks past `from` (the font's own
+    Cursive, nothing for a print face), the engine's own shapes on the font's strokes (glyphs/shared.ts): out of the foot
+    of the last stem, an exit stroke that turns along the baseline and flicks up to the right toward the next letter (the
+    foot's right half, and its serif there, taken off first), and into the top of the first, an entry stroke rising from
+    lower left. They are drawn with the font's stem and hairline, the way the engine's pen draws them. */
+export function restyleCursive(cs: Node[][], c: RestyleCtx, from: number, to: number): Node[][] {
+  const exit = EXIT_LETTERS.includes(c.ch), into = ENTRY_LETTERS.includes(c.ch);
+  if (to <= from + 1e-4 || !(exit || into)) return cs;
+  // (the hook's radius as the engine's, from where the font stands; and how joined-up the hand is, past the cursive forms)
+  const r = cursiveHookR(c.stem, c.xh, to) - cursiveHookR(c.stem, c.xh, from), k = Math.min(1, Math.max(0, (to - 0.35) / 0.65));
+  if (r < 1) return cs;
+  const rings = inkRings(cs), ink = shape(rings);
+  // the stems: the last run of ink across the x-height a little up from the baseline, the first a little down from its top
+  const run = (y: number, last: boolean) => {
+    const xs: number[] = [];
+    for (const q of rings) for (let i = 0; i < q.length; i++) {
+      const a = q[i], b = q[(i + 1) % q.length];
+      if ((a.y <= y) !== (b.y <= y)) xs.push(a.x + (y - a.y) / (b.y - a.y) * (b.x - a.x));
+    }
+    xs.sort((a, b) => a - b);
+    return xs.length < 2 ? null : last ? [xs[xs.length - 2], xs[xs.length - 1]] : [xs[0], xs[1]];
+  };
+  const os = c.cap * 0.014, thin = Math.min(c.bar, c.stem), adds: Pt[][] = [], cuts: Pt[][] = [];
+  const pen = (w: number): PenCtx => ({ thick: w, thin: Math.min(w, thin), stress: 0, k: CIRCLE_K, org: 0, terminal: 'flat' });
+  const stroke = (cmds: Cmd[], w: number, o: { ws?: number; we?: number }) => {
+    const ex = expandStroke(cmds, { s: 'flat', e: 'flat', ...o }, pen(w));
+    if (ex) adds.push(...ex.contours);
+  };
+  if (exit) {
+    const st = run(c.xh * 0.3, true), foot = st && run(4, true);
+    // (a stem standing on the baseline, its foot under it)
+    if (st && foot && foot[0] < (st[0] + st[1]) / 2 && foot[1] > (st[0] + st[1]) / 2) {
+      const x = (st[0] + st[1]) / 2, w = st[1] - st[0], yb = -os + thin / 2, e = { x: x + r * 2.3, y: yb + r * 1.2 };
+      cuts.push([{ x, y: -c.cap }, { x: x + w / 2 + c.xh * 0.3, y: -c.cap }, { x: x + w / 2 + c.xh * 0.3, y: r + w / 2 }, { x, y: r + w / 2 }]);
+      stroke([['M', x, r + w], ['L', x, yb + r], ['vh', x + r, yb], ['C', x + r * 1.55, yb, x + r * 2, yb + r * 0.45, e.x, e.y]], w, { we: 0.75 });
+    }
+  }
+  if (into) {
+    const st = run(c.xh * 0.7, false), top = st && run(c.xh - 4, false);
+    if (st && top && top[0] < (st[0] + st[1]) / 2 && top[1] > (st[0] + st[1]) / 2) {
+      const x = (st[0] + st[1]) / 2, w = st[1] - st[0], re = r * 0.85, y = c.xh - thin / 2;
+      const xs = x - re * (1.25 + 0.15 * k), ys = y - re * 0.95 + (Math.min(y - re * 0.95, c.xh * 0.22) - (y - re * 0.95)) * k;
+      stroke([['M', xs, ys], ['C', x - re * 0.75 + (xs + (x - xs) * 0.45 - (x - re * 0.75)) * k, y - re * 0.3 + (ys + (y - ys) * 0.7 - (y - re * 0.3)) * k,
+        x - re * 0.3, y, x + w * 0.2, y]], w, { ws: 0.7 });
+    }
+  }
+  if (!adds.length) return cs;
+  const cut = shape(cuts), add = shape(adds);
+  return refit(combine([ink, cut, add], (x, y) => (ink.has(x, y) && !cut.has(x, y)) || add.has(x, y)));
+}
+
+/* ---- swash capitals */
+
+/** The capitals Swash capitals curls out of the top of their first stroke (a stem, or a V's or a Y's first arm), out
+    of the left end of their top bar, and out of their left foot (an A, whose first stroke tops out in its peak); the
+    rest (C G J O Q S) have no free end at the left, as the engine's haven't. */
+export const SWASH_STEM = 'BDEFHIKLMNPRUVWXY', SWASH_BAR = 'TZ', SWASH_FOOT = 'A';
+
+/** The contours with the swash Swash capitals curls out of a capital (see swashEnd in ends.ts), as far as `to` asks
+    past `from`: out of its first stroke's end at the top left, run on and curled round, counterclockwise, out and down
+    (the top of a stem, a P's or an H's, or the left end of a bar, a T's or a Z's, hanging free); or, where it has none
+    there, out of the foot at the bottom left (an A's), clockwise, out and up. It is drawn with the letter's stem
+    tapering off; a serif in its way, on the end's outer side, goes. A round letter with no such end (C O S) takes
+    none. */
+export function restyleSwash(cs: Node[][], c: RestyleCtx, from: number, to: number): Node[][] {
+  const kind = SWASH_STEM.includes(c.ch) ? 'stem' : SWASH_BAR.includes(c.ch) ? 'bar' : SWASH_FOOT.includes(c.ch) ? 'foot' : null;
+  if (to <= from + 1e-4 || !kind) return cs;
+  const rings = inkRings(cs), ink = shape(rings), cap = c.cap;
+  // (the ink's first run, from the left, across a height)
+  const first = (y: number) => {
+    const xs: number[] = [];
+    for (const q of rings) for (let i = 0; i < q.length; i++) {
+      const a = q[i], b = q[(i + 1) % q.length];
+      if ((a.y <= y) !== (b.y <= y)) xs.push(a.x + (y - a.y) / (b.y - a.y) * (b.x - a.x));
+    }
+    xs.sort((a, b) => a - b);
+    return xs.length >= 2 ? [xs[0], xs[1]] as const : null;
+  };
+  const k = to - from, R = (0.07 + 0.11 * k) * cap, mid = (r: readonly [number, number]) => (r[0] + r[1]) / 2;
+  // the end: where it stands, the way out of it, which way it curls, how thick its stroke is, and the serif in its way
+  let end: { x: number; y: number; ox: number; oy: number; turn: 1 | -1; w: number; cut: Pt[] } | null = null;
+  if (kind === 'stem' || kind === 'foot') {
+    // the first stroke up to the capitals' line (or down to the baseline), read across it at two heights clear of
+    // its serif, run on to the line the way it runs
+    const [ya, yb, yl] = kind === 'stem' ? [cap * 0.62, cap * 0.8, cap] : [cap * 0.38, cap * 0.2, 0];
+    const a = first(ya), b = first(yb);
+    if (a && b) {
+      const lx = (mid(b) - mid(a)) / (yb - ya), l = Math.hypot(lx, 1), x = mid(b) + lx * (yl - yb), w = Math.min((b[1] - b[0]) / l, c.stem * 1.3);
+      const up = kind === 'stem' ? 1 : -1, band = kind === 'stem' ? [cap * 0.86, cap * 2] : [-cap, cap * 0.14];
+      // (the serif on its outer side: the ink to the left of the stroke's own edge, near the line)
+      const edge = b[0] + lx * (band[0] - yb);
+      end = { x, y: yl, ox: lx / l * up, oy: up / l, turn: up as 1 | -1, w, cut: [{ x: edge - cap, y: band[0] }, { x: edge, y: band[0] }, { x: edge + lx * (band[1] - band[0]), y: band[1] }, { x: edge - cap, y: band[1] }] };
+    }
+  } else {
+    // a bar's left end, out to the left, at the middle of the bar
+    const t = first(cap - Math.max(4, Math.min(c.bar, c.stem) * 0.5));
+    if (t) end = { x: t[0], y: cap - Math.min(c.bar, c.stem) * 0.5, ox: -1, oy: 0, turn: 1, w: Math.min(c.bar || c.stem, c.stem), cut: [] };
+  }
+  if (!end) return cs;
+  // run on a little, then round about two thirds of a turn, the stroke thinning to its tip
+  const pts: Cmd[] = [['M', end.x - end.ox * end.w, end.y - end.oy * end.w], ['L', end.x, end.y]];
+  let px = end.x + end.ox * R * 0.35, py = end.y + end.oy * R * 0.35, a = Math.atan2(end.oy, end.ox);
+  pts.push(['L', px, py]);
+  const N = 24, sweep = 4 * Math.PI / 3;
+  for (let i = 1; i <= N; i++) { a += end.turn * sweep / N; px += Math.cos(a) * R * sweep / N; py += Math.sin(a) * R * sweep / N; pts.push(['L', px, py]); }
+  const pen: PenCtx = { thick: end.w, thin: Math.min(end.w, c.bar || end.w), stress: 0, k: CIRCLE_K, org: 0, terminal: 'flat' };
+  const ex = expandStroke(pts, { s: 'flat', e: 'flat', we: 0.4 }, pen);
+  if (!ex) return cs;
+  const cut = shape(end.cut.length ? [end.cut] : []), add = shape(ex.contours);
+  return refit(combine([ink, cut, add], (x, y) => (ink.has(x, y) && !cut.has(x, y)) || add.has(x, y)));
+}
+
+/* ---- bowls off their stems */
+
+/** The letters whose bowl Bowl overlap parts from its stem (the engine's b d p q; its single-storey a too, which a free
+    font's a can't be told to be). */
+export const OVERLAP_LETTERS = 'bdpq';
+
+/** The stem a b d p or q's bowl stands on, where it can be parted from it: its edges (s0, s1) across the middle of the
+    x-height, on the left (b p) or the right (d q), and how far its inner edge leans (x along per unit up); null where the
+    letter has no straight stem running on past the x-height (a blackletter's round-backed d) or one leaning far over (a
+    script's). */
+export function bowlStem(cs: Node[][], c: RestyleCtx) {
+  if (!OVERLAP_LETTERS.includes(c.ch)) return null;
+  const rings = inkRings(cs), left = c.ch === 'b' || c.ch === 'p';
+  // (the ink's first run (b p) or last (d q) across a height)
+  const run = (y: number, min = 4) => {
+    const xs: number[] = [];
+    for (const r of rings) for (let i = 0; i < r.length; i++) {
+      const a = r[i], b = r[(i + 1) % r.length];
+      if ((a.y <= y) !== (b.y <= y)) xs.push(a.x + (y - a.y) / (b.y - a.y) * (b.x - a.x));
+    }
+    xs.sort((a, b) => a - b);
+    return xs.length < min ? null : left ? [xs[0], xs[1]] : [xs[xs.length - 2], xs[xs.length - 1]];
+  };
+  const m = run(c.xh * 0.5), a = run(c.xh * 0.4), b = run(c.xh * 0.6), w = m ? m[1] - m[0] : 0;
+  if (!m || !a || !b || !(w > 0) || w > c.cap * 0.4) return null;
+  // (as wide a little way up and down, and leaning no more than an italic's)
+  const inner = left ? 1 : 0, lean = (b[inner] - a[inner]) / (c.xh * 0.2);
+  if (Math.abs(a[1] - a[0] - w) > w * 0.3 || Math.abs(b[1] - b[0] - w) > w * 0.3 || Math.abs(lean) > 0.3) return null;
+  // (running on up past the x-height (b d) or down past the baseline (p q), as straight)
+  const yo = c.ch === 'b' || c.ch === 'd' ? c.xh + c.cap * 0.1 : -c.cap * 0.1, o = run(yo, 2);
+  if (!o || Math.abs(o[inner] - (m[inner] + lean * (yo - c.xh * 0.5))) > w * 0.35) return null;
+  return { left, s0: m[0], s1: m[1], lean };
+}
+
+/** The contours with their bowl drawn apart from its stem as Bowl overlap (`to`) asks, below where the font was picked
+    (`from`), as the engine draws it (see bowlGap in glyphs/shared.ts): the stem as the font draws it, cut off at its
+    inner edge across the x-height (its ascender or descender and their serifs kept whole), and beside it the font's own
+    o (`o`, moved as the letter is), its outer side on the stem's own just below where the font was picked, a whole o
+    standing on the stem, and moved off it as the slider goes down, to clear of it by most of a stem at 0. */
+export function restyleOverlap(cs: Node[][], c: RestyleCtx, from: number, to: number, o: Node[][] | null): Node[][] {
+  if (!o || to >= from - 1e-4) return cs;
+  const st = bowlStem(cs, c);
+  if (!st) return cs;
+  const rings = inkRings(cs), ink = shape(rings), { left, s0, s1, lean } = st, w = s1 - s0, ym = c.xh * 0.5;
+  // the bowl's band, from under the baseline's overshoot to over the x-height's, cut away on the bowl's side of the stem
+  const lo = -c.cap * 0.05, hi = c.xh + c.cap * 0.05, far = c.cap * 3;
+  // (along the stem's inner edge, as it leans)
+  const at = (x: number, y: number) => x + lean * (y - ym);
+  const band = shape([left ? [{ x: at(s1, lo), y: lo }, { x: far, y: lo }, { x: far, y: hi }, { x: at(s1, hi), y: hi }]
+    : [{ x: -far, y: lo }, { x: at(s0, lo), y: lo }, { x: at(s0, hi), y: hi }, { x: -far, y: hi }]]);
+  // the o: its outer side from the stem's outer side (standing on it) to most of a stem clear of its inner side
+  const oRings = inkRings(o);
+  let o0 = Infinity, o1 = -Infinity;
+  for (const r of oRings) for (const p of r) { o0 = Math.min(o0, p.x); o1 = Math.max(o1, p.x); }
+  const u = Math.max(0, to / Math.max(1e-4, from)), dx = left ? s0 + (s1 + 0.9 * w - s0) * (1 - u) - o0 : s1 - (s1 - (s0 - 0.9 * w)) * (1 - u) - o1;
+  const oShape = shape(oRings.map(r => r.map(p => ({ x: p.x + dx, y: p.y }))));
+  return refit(combine([ink, band, oShape], (x, y) => (ink.has(x, y) && !band.has(x, y)) || oShape.has(x, y)));
+}
+
 /* ---- peaks */
+
+/** The letters whose diagonals can meet in a peak on a line (the top of an A, the foot of a V), which Peaks reshapes:
+    skinFollows (skin.ts) shows Peaks reaching only these, and restylePeaks leaves any other letter be (a b's slanted
+    ascender, a y's looped tail or a Q's tail stand on a line between slanting sides too). */
+export const PEAK_LETTERS = 'AMNVWXYvwxyz47';
 
 /** The contours with the peaks of their diagonals (the top of an A, the foot of a V, a W's and an M's points) as
     pointed or flat as `to` (Peaks, 0 pointed to 1 flat) asks, where they stand as the font draws them for `from`, as the
@@ -1028,10 +1240,10 @@ export function restyleDots(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
     and it is cut off at the line where the font's own stood. The move eases off along the strokes, evenly, so they
     stay straight. */
 export function restylePeaks(cs: Node[][], c: RestyleCtx & { lines: number[] }, from: number, to: number): Node[][] {
-  if (Math.abs(from - to) < 1e-4) return cs;
+  if (Math.abs(from - to) < 1e-4 || !PEAK_LETTERS.includes(c.ch)) return cs;
   const rings = inkRings(cs), band = c.cap * ON_LINE, reach = c.stem * 2.2, inkShape = shape(rings);
-  let y0 = Infinity, y1 = -Infinity, x0 = Infinity, x1 = -Infinity;
-  for (const r of rings) for (const p of r) { y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); }
+  let y0 = Infinity, y1 = -Infinity;
+  for (const r of rings) for (const p of r) { y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
   const peaks: { x: number; out: number; top: number; s: number; tip: P[]; w0: number; tanHalf: number }[] = [];
   for (const r of rings) {
     const n = r.length;
@@ -1047,6 +1259,16 @@ export function restylePeaks(cs: Node[][], c: RestyleCtx & { lines: number[] }, 
         const pa = away(i, -1), pb = away(j % n, 1);
         const da = { x: pa.x - a.x, y: pa.y - a.y }, db = { x: pb.x - b.x, y: pb.y - b.y };
         if (da.y * out >= 0 || db.y * out >= 0) continue;
+        // (each side a straight stroke's edge all that way: not a curve, as a script v's round foot is)
+        const straight = (k: number, dir: number, to: P) => {
+          const l = Math.hypot(to.x - r[k].x, to.y - r[k].y) || 1;
+          for (let q = k; r[q] !== to; q = (q + dir + n) % n) {
+            if (Math.abs((r[q].x - r[k].x) * (to.y - r[k].y) - (r[q].y - r[k].y) * (to.x - r[k].x)) / l > Math.max(2, l * 0.04)) return false;
+            if (q === (k - dir + n) % n) break;
+          }
+          return true;
+        };
+        if (!straight(i, -1, pa) || !straight(j % n, 1, pb)) continue;
         const sa = Math.abs(da.x / da.y), sb = Math.abs(db.x / db.y);
         if (sa < 0.12 || sb < 0.12 || sa > 3 || sb > 3 || Math.sign(da.x) === Math.sign(db.x)) continue;
         const w0 = Math.abs(b.x - a.x);
@@ -1072,19 +1294,22 @@ export function restylePeaks(cs: Node[][], c: RestyleCtx & { lines: number[] }, 
   if (!peaks.length) return cs;
   // the tips filled in, then everything moved out by as much as it stands near the peak, less further down the letter
   const tipped = shape([...rings, ...peaks.map(p => p.tip)]), filled = combine([tipped], tipped.has);
-  const Rx = Math.max(c.stem * 3, (x1 - x0) * 0.6);
   const moved = filled.map(r => r.map(p => {
     let dy = 0;
     for (const k of peaks) {
-      // (only the two strokes that make the peak: inside the wedge their outer edges make, widening away from it)
-      const span = k.out > 0 ? k.top - y0 : y1 - k.top, back = Math.abs(p.y - k.top), fy = Math.max(0, 1 - back / Math.max(1, span));
-      const half = k.w0 / 2 + back * k.tanHalf + c.stem * 0.4, fx = 1 - smoothstep((Math.abs(p.x - k.x) - half) / (c.stem * 0.4));
+      // (only the two strokes that make the peak: inside the wedge their outer edges make, widening away from it;
+      // the tip filled in past the line moves on as they do, further, so its edges carry on theirs straight)
+      const span = k.out > 0 ? k.top - y0 : y1 - k.top, back = (k.top - p.y) * k.out, fy = Math.max(0, 1 - back / Math.max(1, span));
+      const half = k.w0 / 2 + Math.max(0, back) * k.tanHalf + c.stem * 0.4, fx = 1 - smoothstep((Math.abs(p.x - k.x) - half) / (c.stem * 0.4));
       dy += k.out * k.s * fy * fx;
     }
     return { x: p.x, y: p.y + dy };
   }));
-  // and cut off where the font's own peak stood
-  const cuts = peaks.map(k => { const a2 = k.top, b2 = k.top + k.out * c.cap; return [{ x: k.x - Rx, y: a2 }, { x: k.x + Rx, y: a2 }, { x: k.x + Rx, y: b2 }, { x: k.x - Rx, y: b2 }]; });
+  // and cut off where the font's own peak stood, across the peak alone (as wide as the moved wedge reaches past the line)
+  const cuts = peaks.map(k => {
+    const a2 = k.top, b2 = k.top + k.out * c.cap, Rx = k.w0 / 2 + Math.abs(k.s) * k.tanHalf + c.stem * 1.2;
+    return [{ x: k.x - Rx, y: a2 }, { x: k.x + Rx, y: a2 }, { x: k.x + Rx, y: b2 }, { x: k.x - Rx, y: b2 }];
+  });
   const ink = shape(moved), cut = shape(cuts);
   return refit(combine([ink, cut], (x, y) => ink.has(x, y) && !cut.has(x, y)));
 }

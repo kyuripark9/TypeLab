@@ -37,12 +37,9 @@ stop it by its PID, and open a fresh tab per URL (the editor's unsaved-changes g
 | `FONTS_DIR` | `lib.ts` (golden, render, scan, fit) | `data/free-fonts` | Where the free fonts from Google Fonts are kept (the server's cache); TypeLab's own are always read from `fonts/` |
 | `SHEETS` | `fonts/import.ts` | `Asset/After` | Where the own fonts' specimen sheets are |
 | `GOLDEN_FREE` | `tests/golden.test.ts` | | Set: `npm test` checks the free set too (`npm run golden` always does) |
-| `VARS` | `fonts/` | TypeLab's own fonts from their specimen sheets: `import.ts` (`npm run fonts:import [-- names...]`, `--check` to only report) reads each sheet in `Asset/After/` (`sheet.ts`: the page's outlines and the U+ labels under them) and writes `fonts/<Family>-<weight>.json`; letters keep the side bearings they had, and only letters drawn anew change. `--from <dir>` takes the spacing from `<dir>/<sheet>.json` instead (how they were first made, from the Google fonts the sheets began as). |
-| `scan/scan.ts` | a list of extremes | Space-separated settings to move each font by, `key=value[,key=value]` |
-| `SLICE` | `fonts/` | TypeLab's own fonts from their specimen sheets: `import.ts` (`npm run fonts:import [-- names...]`, `--check` to only report) reads each sheet in `Asset/After/` (`sheet.ts`: the page's outlines and the U+ labels under them) and writes `fonts/<Family>-<weight>.json`; letters keep the side bearings they had, and only letters drawn anew change. `--from <dir>` takes the spacing from `<dir>/<sheet>.json` instead (how they were first made, from the Google fonts the sheets began as). |
-| `scan/scan.ts` | `0/1` | `i/n`: scan the i-th of n shares of the fonts, to run several at once |
-| `OUT_FILE` | `fonts/` | TypeLab's own fonts from their specimen sheets: `import.ts` (`npm run fonts:import [-- names...]`, `--check` to only report) reads each sheet in `Asset/After/` (`sheet.ts`: the page's outlines and the U+ labels under them) and writes `fonts/<Family>-<weight>.json`; letters keep the side bearings they had, and only letters drawn anew change. `--from <dir>` takes the spacing from `<dir>/<sheet>.json` instead (how they were first made, from the Google fonts the sheets began as). |
-| `scan/scan.ts` | `.tools/out/scan.jsonl` | Where the scan writes |
+| `VARS` | `scan/scan.ts` | a list of extremes | Space-separated settings to move each font by, `key=value[,key=value]` |
+| `SLICE` | `scan/scan.ts` | `0/1` | `i/n`: scan the i-th of n shares of the fonts, to run several at once |
+| `OUT_FILE` | `scan/scan.ts` | `.tools/out/scan.jsonl` | Where the scan writes |
 | `CDP_PORT` | `browser/chrome.sh`, `browser/cdp.mjs` | 9333 | Chrome's DevTools port |
 | `CHROME` | `browser/chrome.sh` | the macOS Google Chrome app | The Chrome binary; set it on Linux |
 | `SHOTS` | `browser/cdp.mjs` | `.tools/out/shots` | Where screenshots go |

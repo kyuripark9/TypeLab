@@ -9,10 +9,10 @@ import { describe, it } from 'node:test';
 import type { FontConstructorOptions } from 'opentype.js';
 import { PAGE_STYLES, STYLES } from '../shared/content';
 import { ALL_CHARS, CHARSET, buildFont, fitOutline, freeFont, freeFontsWanted, packNode, registerFreeFont, type FreeFontData, type Glyph } from '../shared/engine';
-import { shape, unite } from '../shared/engine/boolean';
+import { combine, shape, unite } from '../shared/engine/boolean';
 import { toPolys } from '../shared/engine/geom';
 import { metrics, resolve } from '../shared/engine/font';
-import { contrastOfBars, formChanged, weightOfStem, widthOfScale } from '../shared/engine/free-letters';
+import { formChanged, widthOfScale } from '../shared/engine/free-letters';
 import { bowlLook, cornerLooks, restyleBowls, restyleCorners, restyleDots, restyleEnds, restylePeaks, restyleStencil, stencilLook } from '../shared/engine/restyle';
 import { skeleton } from '../shared/engine/scan';
 import { SKIN_KEYS } from '../shared/engine/skin';
@@ -290,11 +290,8 @@ describe('free fonts', () => {
     }
   });
 
-  it('read a font\'s stems, bars, width and x-height back as the settings that draw them (the twin\'s fit undoes metrics())', () => {
+  it('read a font\'s width and x-height back as the settings that draw them (the twin\'s fit undoes metrics())', () => {
     const near = (a: number, b: number, what: string) => assert.ok(Math.abs(a - b) < 1e-9, `${what}: ${a} for ${b}`);
-    for (const w of [0, 0.1, 0.3, 0.5, 0.8, 1]) near(weightOfStem(metrics(resolve({ ...DEFAULTS, weight: w })).s), w, 'weight');
-    // (at the middle weight, where the bars stay between the limits metrics keeps them in all the way along Contrast)
-    for (const c of [0.5, 0.6, 0.75, 0.9, 1]) { const m = metrics(resolve({ ...DEFAULTS, weight: 0.5, contrast: c })); near(contrastOfBars(m.thin, m.s), c, 'contrast'); }
     for (const w of [0, 0.25, 0.5, 0.75, 1]) near(widthOfScale(metrics(resolve({ ...DEFAULTS, width: w })).ws), w, 'width');
     for (const v of [0, 0.4, 1]) near(xHeightOfRatio(xHeightRatio(v)), v, 'x-height');
   });
@@ -386,6 +383,58 @@ describe("TypeLab's own fonts", () => {
     for (let y = y0; y <= y1; y++) tip = Math.max(tip, runs(E, 'y', y).slice(-1)[0]?.[1] ?? -Infinity);
     const near = runs(E, 'x', tip - (y1 - y0) * 0.15).filter(([a, b]) => b > y0 - 20 && a < y1 + 20);
     assert.equal(near.length, 1, `one end to the middle arm, not two (${JSON.stringify(near)})`);
+  });
+
+  it('answer every setting on their letters without breaking them, and each setting changes what it says', async () => {
+    const fonts = new FreeFonts(null, noFetch);
+    const design = async (style: string, moves: Partial<Params> = {}) => {
+      const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
+      if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+      return buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params), ...moves } as Params);
+    };
+    // a letter's ink as one outline: how many pieces it is in, and how many holes
+    const parts = (g: Glyph) => {
+      const sh = shape(toPolys(g.cmds)), rings = combine([sh], sh.has), area = (r: { x: number; y: number }[]) => r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p.x * q.y - q.x * p.y; }, 0) / 2;
+      return { pieces: rings.filter(r => area(r) > 0).length, holes: rings.filter(r => area(r) < 0).length };
+    };
+    const same = (a: Glyph, b: Glyph) => a.d === b.d;
+    // Contrast lowered on a Didone: its hairlines thicken toward its stems, and its letters stay whole with their counters
+    const didone = await design('didone'), low = await design('didone', { contrast: 0.6 });
+    for (const ch of 'aegnors') assert.deepEqual(parts(low.glyph(ch)!), parts(didone.glyph(ch)!), `Couture's ${ch} at Contrast 60`);
+    // a light book face made black keeps its counters open
+    const book = await design('oldstyle'), black = await design('oldstyle', { weight: 1 });
+    for (const ch of 'aenob') assert.equal(parts(black.glyph(ch)!).holes, parts(book.glyph(ch)!).holes, `Vellum's ${ch} at Weight 100`);
+    // Peaks reshapes the peaks of A V W and leaves the letters with none be
+    const sq = await design('squircle'), pointed = await design('squircle', { apex: 0 });
+    for (const ch of 'bgyQ') assert.ok(same(pointed.glyph(ch)!, sq.glyph(ch)!), `Orbital's ${ch} has no peak`);
+    for (const ch of 'AVW') assert.ok(!same(pointed.glyph(ch)!, sq.glyph(ch)!), `Orbital's ${ch} comes to a point`);
+    // a heavy round face's stems end round without being stroke ends: a drop goes on the c, not on the h, b or n
+    const gum = await design('chunkyround'), drop = await design('chunkyround', { terminal: 'round', terminalForm: 'droplet' });
+    for (const ch of 'hbn') assert.ok(same(drop.glyph(ch)!, gum.glyph(ch)!), `Gumdrop's ${ch}`);
+    assert.ok(!same(drop.glyph('c')!, gum.glyph('c')!), 'its c takes a drop');
+    // Bowls' Corners rounds a box bowl's corners
+    const box = (v: number) => design('geometric', { bowlForm: 'box', boxRound: v });
+    assert.ok(!same((await box(0)).glyph('O')!, (await box(1)).glyph('O')!), 'box corners');
+    // Bowl overlap parts a b's bowl from its stem
+    assert.equal(parts((await design('grotesque')).glyph('b')!).pieces, 1);
+    assert.equal(parts((await design('grotesque', { overlap: 0 })).glyph('b')!).pieces, 2, 'the bowl apart from the stem');
+    // a wood type's slab serifs follow Serifs and their length
+    const wood = await design('woodtype');
+    assert.ok(!same((await design('woodtype', { serif: false })).glyph('n')!, wood.glyph('n')!), 'Timber without serifs');
+    assert.ok(!same((await design('woodtype', { serifSize: 0.9 })).glyph('n')!, wood.glyph('n')!), 'Timber with longer serifs');
+    // a soft sans takes serifs on its round-ended stems
+    assert.ok(!same((await design('chunkyround', { serif: true })).glyph('n')!, gum.glyph('n')!), 'Gumdrop with serifs');
+    // a monospaced font made proportional draws its narrow letters in less room
+    assert.ok((await design('code', { mono: 0 })).glyph('i')!.adv < (await design('code')).glyph('i')!.adv, 'Kernel proportional');
+    // Cursive flicks the font's own letters toward the next one, and they stay the font's (no letter changes form)
+    const sans = await design('grotesque'), cursive = await design('grotesque', { cursive: 0.8 });
+    assert.ok(!same(cursive.glyph('n')!, sans.glyph('n')!) && cursive.glyph('n')!.drawn, 'a flick on the font\'s n');
+    for (const ch of ALL_CHARS) assert.equal(formChanged(ch, cursive.eff, resolve({ ...cursive.params, ...cursive.params.freeAt })), false, ch);
+    // a letter in a form an italic hasn't got is drawn leaning as it does
+    const twin = (await design('serifitalic', { gForm: 'double' })).glyph('g')!;
+    assert.ok(!twin.drawn && twin.M[2] > 0.15, `the twin's g leans (${twin.M[2]})`);
+    // Hand-drawn moves the font's own letters, not only where they sit
+    assert.ok(!same((await design('grotesque', { wobble: 1 })).glyph('H')!, sans.glyph('H')!), 'a hand-drawn H');
   });
 
   it('export under any name, with no licence to pass on', async () => {

@@ -408,6 +408,20 @@ function runThrough(g: Grid, x: number, y: number, column = false): [number, num
 /** How a stroke ends that runs out of (x, y), r thick each side, heading d: cut level across (a stem's foot or top,
     square or slanting), cut plumb (an arm's end), or otherwise (round, pointed, cut on a slant, a ball): where its
     ink stops, read along the way it heads, and whether the ink across it keeps its width right up to there. */
+/** Where an upright stroke's round end (a soft sans's stem, drawn with a round pen) stops: the tip of its round, read
+    out along the stroke from the skeleton's end at (x, y), radius r, heading d; null for a stroke that isn't upright,
+    or whose end comes to a point (a blackletter's lozenge foot), narrower a little way back from its tip than a round
+    is. */
+export function roundTip(g: Grid, x: number, y: number, r: number, d: { x: number; y: number }) {
+  if (Math.abs(d.y) < 0.85) return null;
+  let q = 0;
+  while (q < r * 4 && inkAt(g, x + d.x * (q + 1), y + d.y * (q + 1))) q += 1;
+  const tip = { x: x + d.x * q, y: y + d.y * q }, yb = tip.y - d.y * r * 0.3;
+  // (a round is 1.4 radii across, a third of a radius back from its tip; a right-angled point 0.6)
+  const across = (s: number) => { let k = 0; while (k < r * 2 && inkAt(g, tip.x + s * (k + 1), yb)) k += 1; return k; };
+  return across(1) + across(-1) < r * 1.1 ? null : tip;
+}
+
 export function endFace(g: Grid, x: number, y: number, r: number, d: { x: number; y: number }): { face: 'level' | 'plumb' | 'other'; at: number; mid: number; width: number } {
   for (const column of [false, true]) {
     // (level: read row by row up or down to where the ink stops; plumb: column by column across)

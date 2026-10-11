@@ -71,8 +71,9 @@ function weighFillets(b: Builder, m: Metrics) {
 const hash = (n: number, k: number) => { const v = Math.sin(n * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
 
 /* Hand-drawn irregularity: a smooth displacement field, different for every glyph. Every
-   stroke of a glyph moves through the same field, so strokes that touch keep touching. */
-function wobbler(code: number, m: Metrics, pins: [number, number][] = []) {
+   stroke of a glyph moves through the same field, so strokes that touch keep touching. (A free font's letters are
+   moved through it too, as drawn: see freeGlyph in free-letters.ts.) */
+export function wobbler(code: number, m: Metrics, pins: [number, number][] = []) {
   const A0 = m.wob * m.xh * 0.085, f = 2 * Math.PI / (m.xh * 1.1);
   const p = [1, 2, 3, 4, 5, 6].map(k => hash(code, k + 10) * 2 * Math.PI);
   // still at a pin, and coming in smoothly further off: two joined letters' wobbles differ, and

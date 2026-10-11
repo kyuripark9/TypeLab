@@ -129,7 +129,7 @@ export const SPECS = {
     explain: 'Blocks are solid shapes with their insides cut in as narrow slots. Weight closes the slots up, Roundness rounds the corners and slot ends, Joins the small inside curves. Lowercase become small capitals.' } }),
   bowlForm: option(BOWL_FORMS, 'oval', { free: true, control: { cat: 'curves', type: 'form', label: 'Bowls', friendly: 'Draw curves as ovals or as boxes', tech: 'Oval or box bowls', demo: 'OCS',
     explain: 'Boxes have straight sides and corners round outside, square inside.' } }),
-  boxRound: num(0.5, { sub: { parent: 'bowlForm', label: 'Corners', friendly: 'Round the corners of box bowls', tech: 'Box corner radius', lo: 'Sharp', hi: 'Wide' } }),
+  boxRound: num(0.5, { free: true, sub: { parent: 'bowlForm', label: 'Corners', friendly: 'Round the corners of box bowls', tech: 'Box corner radius', lo: 'Sharp', hi: 'Wide' } }),
   curve: num(0.2, { free: true, control: { cat: 'curves', label: 'Curves', friendly: 'Make curves geometric or organic', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
     explain: 'Compass-drawn circles, or fuller pen-like curves.' } }),
   squareness: num(0, { free: true, control: { cat: 'curves', off: 0, label: 'Squareness', friendly: 'Turn circles into rounded squares', tech: 'Squareness · Superellipse', lo: 'Circle', hi: 'Square', demo: 'Oo',
@@ -138,7 +138,7 @@ export const SPECS = {
     explain: 'Curves become straight lines with cut-off corners.' } }),
   bowlJoin: option(BOWL_JOINS, 'curved', { free: true, control: { cat: 'curves', type: 'form', label: 'Joins', friendly: 'Curve bowls out of their stems', tech: 'Bowl & shoulder joins', demo: 'dnu',
     explain: 'Square joins meet the stem in a flat top or bottom, like a D. Applies to b d p q g, n m h r u and a.' } }),
-  overlap: num(1, { control: { cat: 'curves', off: 1, label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
+  overlap: num(1, { free: true, control: { cat: 'curves', off: 1, label: 'Bowl overlap', friendly: 'Join or separate bowl and stem', tech: 'Bowl overlap', lo: 'Apart', hi: 'Merged', demo: 'bdpq',
     explain: 'Applies to b, d, p, q and the single-storey a.' } }),
 
   /* ---- Corners */
@@ -261,7 +261,7 @@ export const SPECS = {
   wobble: num(0, { free: true, control: { cat: 'script', off: 0, label: 'Hand-drawn', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
     explain: 'Strokes drift, swell and sit a little off the line.' } }),
   scriptForm: option(SCRIPT_FORMS, 'auto', { free: true, control: { cat: 'script', type: 'form', label: 'Letterforms', friendly: 'Write joined script or print', tech: 'Print or script letterforms', demo: 'Rain',
-    explain: 'Print letters are built like type. Script letters are written with a pen: every small letter joins the next on a fine hairline, downstrokes swell and the rest stays fine, and the capitals have lead-ins, loops and curled feet. Left alone, a design more than half cursive is written.' } }),
+    explain: 'Print letters are built like type. Script letters are written with a pen: every small letter joins the next on a fine hairline, downstrokes swell and the rest stays fine, and the capitals have lead-ins, loops and curled feet. Left alone, a design more than half cursive is written, and one written in a font keeps the font’s own letters.' } }),
   flourish: option(FLOURISHES, 'plain', { free: true, control: { cat: 'script', type: 'form', label: 'Flourishes', friendly: 'Write swashes on script letters', tech: 'Swash alternates', demo: 'Stzld',
     explain: 'Swashes as a calligrapher adds them: S leads in from a wide loop, the bar of t runs in from far to the left and loops back over the letter, l and d rise into loops over the letters after them, r sweeps down into a shaded curl that ends in a heart, and the tail of z loops away under the word to a hook. They reach over the neighbouring letters without pushing them apart. Customize one letter to flourish only that one. Script letters only.' } }),
   swell: num(0, { control: { cat: 'script', off: 0, label: 'Swell', friendly: 'Press into the downstrokes', tech: 'Pointed pen · Pressure', lo: 'At once', hi: 'Gradual', demo: 'nitu',

@@ -117,19 +117,38 @@ A design with `freeFont` set draws its letters from a free font instead of build
    `skinMeasures` from `pick` to `now` (stem, bar, width, x-height, crossbar, serif length, Stem length, Inner space,
    dots, Pinch, Ink traps): each side by its stroke's middle (half its thickness in from the edge, not the skeleton
    point, which forks out to a square end's corners), each end carried with the two sides it joins, so a cap stays as
-   wide as its stroke and a round end round; and returns `rig.contours` itself when nothing moved. A pixel font
-   (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
+   wide as its stroke and a round end round; and returns `rig.contours` itself when nothing moved. How much each
+   edge's stroke thickens is `weighsOf`: by the way it runs (upright by the upright pen's weight, `SkinMeasures.v`,
+   which reversed contrast thins; level by the bars'), and in a font with much contrast (its hairline, `rig.ref()`, a
+   small share of its stem) by how thick the stroke is, between hairline and stem, so a Didone's balls and swells
+   thicken as its stems do while its hairlines follow the bars. An edge grows into a counter (or toward another
+   stroke, `Bone.gap`) by at most `OPEN` of the room, so heavier letters keep their counters; a heavier letter's serif
+   goes out with its stem's edge and thickens away from its line, and a longer one stops short of the serif it faces.
+   Serifs are found on stems ending at a line (`serifReach`): thin ones, gone a little way in, and slabs as tall as a
+   fifth of the capitals' height with a square top (a wood type's, a typewriter's). Specks a move pinches off are
+   dropped (`SPECK`). A pixel font (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
 4. `restyle.ts`: `restyled` (in `free-letters.ts`) redraws the engine's shapes on the moved outline in a fixed order,
-   Dots, Bowls, Ends, Serifs, Stencil, Peaks, Corners, each only where its settings differ from the pick, each handing
-   back the very same array when nothing it follows moved. Results are cached by the contours and a key of every
-   setting the steps read.
-5. The twin: `formChanged` says a letter is asked for in a form the font hasn't got (another build, script or not,
-   cursive, swash capitals, the a's storeys, a `FORM_LETTERS` setting); `twinGlyph` draws the engine's own letter at
-   the settings the font reads as (`twinFit`: weight, contrast, x-height, width, serifs), moved as far as the design
-   moves from the pick.
+   Overlap, Dots, Bowls, Ends, Cursive, Serifs, Stencil, Peaks, Corners, each only where its settings differ from the
+   pick, each handing back the very same array when nothing it follows moved. Results are cached by the contours and a
+   key of every setting the steps read. Overlap parts a b d p q's bowl from an upright stem as the font's own o
+   (`bowlStem`, `OVERLAP_LETTERS`); Cursive adds the engine's exit and entry flicks to the lowercase
+   (`EXIT_LETTERS`, `ENTRY_LETTERS`); Peaks reshapes only `PEAK_LETTERS` with straight sides; Ends restyles only ends
+   that curve from their tip (a heavy stem's round top or foot, a G's bar, run straight first); Serifs also squares
+   off an upright stroke's round end on a line (`roundTip` in `scan.ts`) to stand a serif on it; Bowls draws box bowls
+   as round as the Bowls' Corners slider (`boxRound`) asks.
+5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,
+   script or not, swash capitals, the a's storeys, a `FORM_LETTERS` setting; Letterforms and the Letter a left on
+   auto keep the font's own forms, whatever Cursive asks); `twinGlyph` draws the engine's own letter at the settings
+   the font reads as (`twinFit`: the weight and contrast whose stems and bars match the font's own, read off its n and
+   H by `fontLook` with the design's Verticals and Horizontals counted, its x-height, width, serifs, and its stems'
+   lean as slant), moved as far as the design moves from the pick.
 6. `freeGlyph` sizes the letter to the design, gives it side bearings, places it with `placeGlyph`, and keeps the
    placed outline as `Glyph.drawn`, so Points opens with the font's own points (its overlapping pieces made one). An
-   unmoved letter is spaced by the font's own outline, the united one leaving out a speck under a unit square.
+   unmoved letter is spaced by the font's own outline, the united one leaving out a speck under a unit square. A
+   parted bowl and Cursive's flicks get the room they reach out into; the engine's serifs get room only on a letter
+   they were set on; a monospaced font with Monospace lowered loses the padding its narrow letters stand in; and
+   Hand-drawn moves the letter through the engine's field (`wobbler` in `glyph.ts`), its long straight sides split so
+   they bend.
 
 A setting the free-font code compares between `pick` and `now` must be `free: true` in `shared/params/spec.ts` (or
 `freeAt` never records it), in `skin.ts` `SKIN_KEYS` where it applies (so `skinFollows`, which `client/lib/reach.ts`

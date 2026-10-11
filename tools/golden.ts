@@ -66,9 +66,12 @@ const FREE_MOVES: [string, (st: StyleDef) => Partial<Params>][] = [
   ['dots=square', () => ({ dots: 'square' })], ['apex=1', () => ({ apex: 1 })], ['steps=1', () => ({ steps: 1 })], ['joinRound=1', () => ({ joinRound: 1 })],
   ['innerRound=1', () => ({ innerRound: 1 })], ['barGap=0.6', () => ({ barGap: 0.6 })], ['barEnds=through', () => ({ barGap: 0.6, barEnds: 'through' })],
   ['terminalLength=1', () => ({ terminalLength: 1 })], ['terminalCurl=1', () => ({ terminalCurl: 1 })], ['tail=1', () => ({ tail: 1 })],
-  ['aperture=1', () => ({ aperture: 1 })], ['chamfer=1', () => ({ chamfer: 1 })], ['bowlForm=box', () => ({ bowlForm: 'box' })]
+  ['aperture=1', () => ({ aperture: 1 })], ['chamfer=1', () => ({ chamfer: 1 })], ['bowlForm=box', () => ({ bowlForm: 'box' })],
+  ['boxRound=0', () => ({ bowlForm: 'box', boxRound: 0 })], ['boxRound=1', () => ({ bowlForm: 'box', boxRound: 1 })],
+  ['overlap=0', () => ({ overlap: 0 })], ['cursive=0.7', () => ({ cursive: 0.7 })], ['swash=1', () => ({ swash: 1 })],
+  ['wobble=1', () => ({ wobble: 1 })], ['mono=0', () => ({ mono: 0 })]
 ];
-const FREE_CHARS = 'ABCDEGHKMNOQRSWaegkmnorsty0258&?';
+const FREE_CHARS = 'ABCDEGHKMNOQRSWabegikmnoprsty0258&?';
 /** Each free font kept (TypeLab's own in fonts/, the others in FONTS_DIR), its style's free-set designs, named with a
     hash of the font's file. */
 function freeProbes(): [string, Params][] {
