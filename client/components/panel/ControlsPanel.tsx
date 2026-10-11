@@ -1,8 +1,8 @@
-/* A page of controls: the free-font note, the explainer, the page's controls (grouped by the parts of an inspected letter), and the steps to the pages beside it. */
+/* A page of controls: the offer of a style's font, the explainer, the page's controls (grouped by the parts of an inspected letter), and the steps to the pages beside it. */
 import type { ReactNode } from 'react';
 import { BLOCK_CONTROLS, PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
 import type { NumericParam, SubControlDef } from '../../../shared/params';
-import { FREE_FAMILIES, STYLE_FONTS, isOwnFont, parseFontId } from '../../../shared/free-fonts';
+import { STYLE_FONTS, isOwnFont, parseFontId } from '../../../shared/free-fonts';
 import { actions, letterOf, useEditor, useFont, useParam } from '../../state/editor';
 import { ScopeIcon, letterControls } from '../Inspector';
 import { Explainer } from './heads';
@@ -33,22 +33,11 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
   );
 }
 
-/** A design written in a free font says so on every page of controls, since its letters are drawn as the
-    font has them and the settings move them on their skeletons (see freeLetters in shared/engine/free-letters.ts), with the way back to
-    letters the settings build; a style that has a free font, not in use, offers it. */
+/** A style that has a TypeLab or free font, while its letters are built from the settings instead, offers the font
+    back on every page of controls (a design written in it needs no note: its letters follow the settings). */
 function FreeLetters() {
-  const id = useEditor(s => s.params.freeFont), offer = useEditor(s => STYLE_FONTS[s.styleId]), font = useFont();
-  const r = parseFontId(id);
-  if (r) {
-    const own = isOwnFont(r.family), by = own ? '' : FREE_FAMILIES[r.family].designers.join(', ');
-    return (
-      <div className="reach-banner">
-        <span>Written in <b>{r.family}</b>{by && ` by ${by}`}, {own ? 'a TypeLab font, yours to change and use as you like' : `a free font${font.free?.license ? ` (${font.free.license})` : ''} you may change and use`}. Its letters follow the settings as the built ones do: weight, contrast, width, the heights, the insides, curves, corners, peaks, stroke ends, serifs, dots, joints, stencil, slant, spacing and the fills. A letter picked in a form the font hasn't got (a single-storey a, a mirrored g) is built to its weight and width; reshape any letter in Points.</span>
-        <button className="link small" onClick={() => actions.setFreeLetters(false)}>Make my own letters</button>
-      </div>
-    );
-  }
-  const o = parseFontId(offer);
+  const id = useEditor(s => s.params.freeFont), offer = useEditor(s => STYLE_FONTS[s.styleId]);
+  const o = id ? null : parseFontId(offer);
   return o && (
     <p className="page-note">
       Want it ready-made? <button className="link small" onClick={() => actions.setFreeLetters(true)}>Use {o.family}</button>, {isOwnFont(o.family) ? 'a TypeLab font' : 'a free font'} in this style
