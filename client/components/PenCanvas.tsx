@@ -12,7 +12,8 @@
    point the pen would add on the outline (where it goes), the start it would close on. A letter
    not yet drawn shows its outline traced into points (traceOf in lib/pen: a free font's own
    points, else fitOutline), and becomes a drawing, which the settings no longer shape, with the
-   first edit. Every change is one undo step. With Sync all, a point or handle moved here moves in
+   first edit. Every change is one undo step, after which CarryOffer offers to make the same change in
+   the other letters shaped the same way there. With Sync all, a point or handle moved here moves in
    the other letters with a point in the same place too; with Mirror, it moves the other way in its
    partner across the letter's middle. Snapping catches a dragged point or handle on points, guide
    lines, centers, midpoints, the outline, crossings and tangents (each can be turned off); ⌘ held
@@ -30,6 +31,7 @@ import {
 } from '../lib/pen';
 import { PREFS, prefOneOf, writePref } from '../lib/prefs';
 import { actions, useEditor } from '../state/editor';
+import { CarryOffer } from './CarryOffer';
 import { GridLines } from './ConstructionGrid';
 
 type Tool = 'object' | 'select' | 'pen' | 'convert' | 'shape';
@@ -866,6 +868,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             Also moves in <b>{reach.join(' ')}</b>
           </div>
         )}
+        <CarryOffer ch={ch} g={g} font={font} />
       </div>
 
       <div className="pen-bar">

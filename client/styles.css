@@ -675,6 +675,25 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-reach { position: absolute; bottom: 12px; left: 50%; translate: -50% 0; max-width: calc(100% - 120px); padding: 6px 12px; border: 1px solid var(--line);
   border-radius: var(--radius); background: var(--surface); color: var(--ink-3); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .pen-reach b { color: var(--accent-ink); font-weight: 500; letter-spacing: .06em; }
+/* the offer to make a change in other letters too: a card at the canvas's foot, the letters as toggles drawn with
+   the change in, the one pointed at shown large above it (as it was dashed); the note on synced points moves up */
+.pen-carry { position: absolute; bottom: 12px; left: 50%; translate: -50% 0; z-index: 2; width: max-content; max-width: calc(100% - 24px); display: flex; flex-direction: column; gap: 8px;
+  padding: 8px 10px 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+.pen-carry-head { display: flex; align-items: center; gap: 6px; }
+.pen-carry-q { flex: 1; margin-right: 10px; font-size: 13px; font-weight: 500; }
+.pen-carry-letters { display: flex; flex-wrap: wrap; gap: 4px; max-width: 600px; }
+.pen-carry-chip { display: grid; place-items: center; min-width: 30px; height: 36px; padding: 0 4px; border: 1px solid var(--line-2); border-radius: var(--radius-s); background: var(--surface); transition: border-color .15s, background .15s; }
+.pen-carry-chip svg { display: block; fill: var(--ink-3); opacity: .5; }
+.pen-carry-chip:hover { border-color: var(--ink-3); }
+.pen-carry-chip.on { border-color: var(--accent); background: var(--accent-soft); }
+.pen-carry-chip.on svg { fill: var(--ink); opacity: 1; }
+.pen-carry-more { min-width: 30px; height: 36px; padding: 0 8px; border: 1px dashed var(--line-2); border-radius: var(--radius-s); font-size: 12.5px; color: var(--ink-3); }
+.pen-carry-more:hover { border-color: var(--ink-3); color: var(--ink); }
+.pen-carry-peek { position: absolute; bottom: calc(100% + 8px); left: 50%; translate: -50% 0; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); pointer-events: none; }
+.pen-carry-peek svg { display: block; }
+.pen-carry-peek .after { fill: var(--ink); opacity: .85; }
+.pen-carry-peek .before { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.pen-canvas:has(.pen-carry) .pen-reach { bottom: auto; top: 12px; }
 .pen-count { flex: none; }
 .pen-icon-btn { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-2); }
 .pen-icon-btn:hover { background: var(--hover); color: var(--ink); }
