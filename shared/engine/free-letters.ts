@@ -306,10 +306,13 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   const sl = fl.serifs && fl.serif && withSerifs.has(moved.contours) ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * SERIF_SB, over + sl * 0.15) : v);
   const [a0, a1] = inkX(src);
   let lsb = room(a0 * fl.k * fl.sx * fl.sb, x0 - i0), rsb = room((src.adv - a1) * fl.k * fl.sx * fl.sb, i1 - x1);
-  // (Cursive's flicks and a swash capital's curl get most of the room they reach out into, so they touch the letter
-  // beside instead of running through it, as the engine's do: see padL and padR in buildGlyph, glyph.ts)
-  if (rig && ((fl.now.cursive > fl.pick.cursive && (EXIT_LETTERS.includes(ch) || ENTRY_LETTERS.includes(ch))) || (fl.now.swash > fl.pick.swash && /^[A-Z]$/.test(ch)))) {
-    lsb += Math.max(0, x0 - i0 - fl.m.sb * 1.3); rsb += Math.max(0, i1 - x1 - fl.m.sb * 1.3);
+  // (Cursive's flicks get most of the room they reach out into, so they touch the letter beside instead of running
+  // through it, as the engine's do: see padL and padR in buildGlyph, glyph.ts; a swash capital's curl all but half a
+  // side bearing of it, so it stands clear of the letter before, as the engine's swash ends take all of theirs)
+  const swash = fl.now.swash > fl.pick.swash && /^[A-Z]$/.test(ch);
+  if (rig && (swash || (fl.now.cursive > fl.pick.cursive && (EXIT_LETTERS.includes(ch) || ENTRY_LETTERS.includes(ch))))) {
+    const give = fl.m.sb * (swash ? 0.5 : 1.3);
+    lsb += Math.max(0, x0 - i0 - give); rsb += Math.max(0, i1 - x1 - give);
   }
   // a monospaced font made proportional: the room a narrow letter is padded out with in its cell goes, its side bearings
   // drawn in toward the engine's for the letter (a stem's whole, a round side's about half, a diagonal's a quarter: the
