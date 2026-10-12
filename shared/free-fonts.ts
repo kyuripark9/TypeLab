@@ -16,13 +16,16 @@ export interface FreeFamily {
   /** drawn on a grid of pixels, which moving its letters on their skeletons would break: only its own
       weights and a plain stretch reach it (see skin.ts) */ grid?: true;
   /** one of TypeLab's own fonts (OWN_FAMILIES): kept in fonts/, not fetched */ own?: true;
+  /** a script whose letters stand apart, joined to none: each small letter's exit stroke ends free, and Length and
+      Curl draw it on and curl it as they do a stroke end (see terminalEnds in restyle.ts) */ freeExits?: true;
 }
 
 /** TypeLab's own fonts, one for each card of the Style page: drawn for TypeLab, free to use, change and share with
     no licence to pass on. Each comes in one weight, upright or italic, and is drawn on its specimen sheet
     (Asset/After/<sheet>.ai), which tools/fonts/import.ts makes into fonts/<Family>-<weight>.json. Their names are
-    kept in saved designs (as font ids), so they never change. */
-export const OWN_FAMILIES: Record<string, { weight: number; italic: boolean; sheet: number }> = {
+    kept in saved designs (as font ids), so they never change. A script whose letters don't join is `freeExits` (see
+    FreeFamily). */
+export const OWN_FAMILIES: Record<string, { weight: number; italic: boolean; sheet: number; freeExits?: true }> = {
   Ballyhoo: { weight: 400, italic: false, sheet: 1 },
   Timber: { weight: 400, italic: false, sheet: 2 },
   Turnpike: { weight: 500, italic: false, sheet: 3 },
@@ -31,7 +34,7 @@ export const OWN_FAMILIES: Record<string, { weight: number; italic: boolean; she
   Dispatch: { weight: 400, italic: false, sheet: 6 },
   Vellum: { weight: 400, italic: false, sheet: 7 },
   Gumdrop: { weight: 700, italic: false, sheet: 8 },
-  Serenade: { weight: 400, italic: false, sheet: 9 },
+  Serenade: { weight: 400, italic: false, sheet: 9, freeExits: true },
   Kernel: { weight: 500, italic: false, sheet: 10 },
   Almanac: { weight: 500, italic: false, sheet: 11 },
   Cotton: { weight: 300, italic: false, sheet: 12 },
@@ -120,7 +123,7 @@ export const FREE_FAMILIES: Record<string, FreeFamily> = {
   "Workbench": { designers: ["Jens Kut\u00edlek"], weights: [400], italics: [], license: 'ofl', reserved: [] },
   "Xanh Mono": { designers: ["Yellow Type", "L\u00e2m B\u1ea3o", "Duy Dao"], weights: [400], italics: [400], license: 'ofl', reserved: [] },
   ...Object.fromEntries(Object.entries(OWN_FAMILIES).map(([family, o]): [string, FreeFamily] =>
-    [family, { designers: ['TypeLab'], weights: o.italic ? [] : [o.weight], italics: o.italic ? [o.weight] : [], license: null, reserved: [], own: true }]))
+    [family, { designers: ['TypeLab'], weights: o.italic ? [] : [o.weight], italics: o.italic ? [o.weight] : [], license: null, reserved: [], own: true, ...(o.freeExits ? { freeExits: true } : {}) }]))
 };
 
 /** The free font each starting style is written in, by style id, as a font id (see fontId); none for a style built

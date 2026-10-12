@@ -152,7 +152,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    (a stem's foot, a crossbar's end and a Didone's s's beak keep theirs), drawn again from no further back than the
    stroke runs alone (`widthAcross`, `ALONE_TURN`) and stepped further back where the line across it runs into a ball;
    an end cut on a slant is told from one another stroke meets by which way the outline turns where its short side
-   stops. A ball or drop of the font's own (`BALL_NECK`, round all the way: `straightRun`) is no stroke's two sides:
+   stops. In a script whose letters stand apart (`freeExits`, Serenade), a small letter's exit stroke is an end too
+   (`exit`: the hairline, thinner than `EXIT_THIN` of the font's stems, rising out of the right of the letter): Length
+   draws it shorter or longer by a share of its run (`EXIT_LEN`), Curl turns most of it (`EXIT_BACK`) back over the
+   letter or out flat, and no kind of end reshapes it, as the engine's own exits end plain. A ball or drop of the font's own (`BALL_NECK`, round all the way: `straightRun`) is no stroke's two sides:
    the stroke runs on into it at its neck's width along its skeleton (`runOn`), and a new drop is as big as the font's
    ball (`DROP_OF_BALL`). Each end is as big as the letter has room for (`fittedEnd`, `roomFor`, `roomAround`): a drop,
    point, flare or slant reaches no nearer the rest of the letter than the font's own end did (`ROOM_KEEP`), nor

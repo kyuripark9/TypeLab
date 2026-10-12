@@ -28,6 +28,9 @@ type P = { x: number; y: number };
 export interface RestyleCtx {
   ch: string; cap: number; xh: number;
   /** its upright strokes' thickness, and its level ones' */ stem: number; bar: number;
+  /** in a script whose letters stand apart, the font's stems' thickness (its n's), against which a small letter's exit
+      stroke is told as a hairline: a free end, which Length and Curl move (see terminalEnds; FreeFamily.freeExits) */
+  exits?: { stem: number };
 }
 
 /** The skeleton of the very contours passed with it, scanned only when first asked for (see restyled in
@@ -330,8 +333,10 @@ export function restyleCorners(cs: Node[][], c: RestyleCtx, from: CornerLooks, t
 const endLook = (e: Effective) => JSON.stringify({ t: e.terminal, ...termSpec(e) });
 
 /** A stroke's free end, read off the skeleton: the skeleton's points from the tip in, the stroke's
-    usual half-thickness back from its end, and how far the ink reaches on past the skeleton's tip. */
-interface End { pts: SkPt[]; body: number; reach: number }
+    usual half-thickness back from its end, and how far the ink reaches on past the skeleton's tip; `exit` for a
+    script's exit stroke, which Length and Curl move but no kind of stroke end reshapes (as the engine's own exits end
+    plain), `run` long from its tip to where it leaves the letter. */
+interface End { pts: SkPt[]; body: number; reach: number; exit?: true; run?: number }
 
 /** Where the engine's own letters end their strokes in styled ends (their marks of type 'terminal', not a plain end's),
     each as shares across and up the letter's ink box: as the engine writes them upright, with either storey of an a and a
@@ -385,12 +390,16 @@ const END_TURN = 12, END_TURN_AT = 0.35;
     `c.ch` has its styled ends (endSpots; on a cursive design's letters, `italic`, its italic ones as well), each the end
     of a stroke that curves (c, e, s, the hook of an a, f, j, r, t, the tail of a J, a y): never a stem's, an arm's or a
     serif's (a stem's foot, the beak of an s, each the prong of a fork in the skeleton), a crossbar's, which runs
-    straight, nor a dot. `g`, the letter's ink, is read for how far the ink reaches on past each end; without it each
-    end's `reach` is 0 (enough to tell whether there are any). */
-function terminalEnds(sk: Skeleton, c: { ch: string; xh: number }, italic: boolean, box: Box, g?: Grid): End[] {
-  const spots = endSpots(c.ch, italic);
-  if (!spots.length) return [];
-  const cands: (End & { q: P })[] = [];
+    straight, nor a dot. In a script whose letters stand apart (`c.exits`), a small letter's exit stroke too, marked
+    `exit`: of the free ends left, the one furthest right of those of a hairline (no thicker than EXIT_THIN of the
+    font's stems: not an ascender's top, which leans as far right) standing in the right of the letter (EXIT_X) and
+    rising on out of it (EXIT_RISE, leaning back left no more than a little; not a crossbar's end), straight or not.
+    `g`, the letter's ink, is read for how far the ink reaches on past each end; without it each end's `reach` is 0
+    (enough to tell whether there are any). */
+function terminalEnds(sk: Skeleton, c: { ch: string; xh: number; exits?: { stem: number } }, italic: boolean, box: Box, g?: Grid): End[] {
+  const spots = endSpots(c.ch, italic), exits = !!c.exits && /[a-z]/.test(c.ch);
+  if (!spots.length && !exits) return [];
+  const cands: (End & { q: P; tip: P; out: P; curves: boolean; len: number })[] = [];
   sk.nodes.forEach((n, ni) => {
     if (n.edges.length !== 1) return;
     const E = sk.edges[n.edges[0]];
@@ -415,23 +424,41 @@ function terminalEnds(sk: Skeleton, c: { ch: string; xh: number }, italic: boole
     const at = (a: number) => indexAt(arc, a), u = Math.max(body, c.xh * 0.04), D = Math.max(body * 5, c.xh * END_TURN_AT);
     const d0 = dirAlong(pts, at(Math.min(body * 0.5, u)), at(u * 1.5)), d1 = dirAlong(pts, at(Math.min(D, E.len) - u), at(Math.min(D, E.len)));
     const turned = Math.acos(Math.max(-1, Math.min(1, d0.x * d1.x + d0.y * d1.y))) * 180 / Math.PI;
-    if (turned < END_TURN) return;
+    const curves = turned >= END_TURN;
+    if (!curves && !exits) return;
     const dir = { x: -d0.x, y: -d0.y };
     let reach = 0;
     if (g) while (reach < body * 4 && inkAt(g, n.x + dir.x * (reach + 1), n.y + dir.y * (reach + 1))) reach += 1;
-    cands.push({ pts, body, reach, q: inBox(box, n) });
+    cands.push({ pts, body, reach, q: inBox(box, n), tip: { x: n.x, y: n.y }, out: dir, curves, len: E.len });
   });
-  // each of the engine's styled ends claims the nearest free end, nearest first
-  const pairs = spots.flatMap((s, si) => cands.map((e, ei) => ({ si, ei, d: Math.hypot(e.q.x - s.x, e.q.y - s.y) }))).filter(p => p.d < SPOT_NEAR).sort((a, b) => a.d - b.d);
+  // each of the engine's styled ends claims the nearest free end (of a stroke that curves), nearest first
+  const pairs = spots.flatMap((s, si) => cands.map((e, ei) => ({ si, ei, d: Math.hypot(e.q.x - s.x, e.q.y - s.y) })))
+    .filter(p => p.d < SPOT_NEAR && cands[p.ei].curves).sort((a, b) => a.d - b.d);
   const tookS = new Set<number>(), tookE = new Set<number>(), out: End[] = [];
+  const end = (i: number): End => { const { pts, body, reach } = cands[i]; return { pts, body, reach }; };
   for (const p of pairs) {
     if (tookS.has(p.si) || tookE.has(p.ei)) continue;
     tookS.add(p.si); tookE.add(p.ei);
-    const { q: _, ...e } = cands[p.ei];
-    out.push(e);
+    out.push(end(p.ei));
+  }
+  if (exits) {
+    let best = -1;
+    cands.forEach((e, i) => {
+      if (tookE.has(i) || e.q.x < EXIT_X || e.out.y < EXIT_RISE || e.out.x < -0.15 || e.body * 2 > c.exits!.stem * EXIT_THIN) return;
+      if (best < 0 || e.tip.x > cands[best].tip.x) best = i;
+    });
+    if (best >= 0) out.push({ ...end(best), exit: true, run: cands[best].len });
   }
   return out;
 }
+/** How far right (a share of the letter's ink box) a script's exit stroke ends, at the least; how steeply it rises
+    there (the way out from its tip, its y), at the least; and how thick it is, as a share of the font's stems, at the
+    most. */
+const EXIT_X = 0.55, EXIT_RISE = 0.3, EXIT_THIN = 0.5;
+/** How much of its run an exit stroke is drawn longer or shorter at the ends of Length's slider, from the font's own
+    (half the slider each way), and how much of it, from its tip, Curl turns: a hairline runs far longer than a
+    terminal, and moved by as much as one it would hardly change. */
+const EXIT_LEN = 0.6, EXIT_BACK = 0.6;
 /** Whether a letter of a free font (its rig's contours `cs`, skeleton `sk`) has a stroke end that takes a styled end (see
     terminalEnds), written upright or as an italic. */
 export const hasTerminals = (cs: Node[][], sk: Skeleton, c: { ch: string; xh: number }) => terminalEnds(sk, c, true, inkBox(cs)).length > 0;
@@ -479,12 +506,15 @@ function atShares(line: P[], us: number[]): P[] {
     engine's end is drawn across them (stroke.ts): rounded, pointed, cut on a slant, a drop or a ball; a taper or
     a flare narrows or widens the sides over as long a stretch as the engine's do, and a drop shortens them. */
 export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Effective, sk: SkeletonOf): Node[][] {
-  const restyle = endLook(from) !== endLook(to), moves = endMoves(c, from, to);
+  const reshape = endLook(from) !== endLook(to), moves = endMoves(c, from, to);
   // (and moved as far as Length and Curl go the way they are turned, which an end has room for a share of: see carriedEnd)
   const most = (k: 'terminalLength' | 'terminalCurl') => (to[k] === from[k] ? to[k] : to[k] > from[k] ? 1 : 0);
   const movesMost = endMoves(c, from, { ...to, terminalLength: most('terminalLength'), terminalCurl: most('terminalCurl') });
-  if (!restyle && !moves) return cs;
-  const g = inkGrid(cs, 2), ends = terminalEnds(sk(), c, to.cursive >= CURSIVE_FORMS || from.cursive >= CURSIVE_FORMS, inkBox(cs), g);
+  if (!reshape && !moves) return cs;
+  // (an exit stroke, which only Length and Curl move, is left out where they don't: the letter's outline is drawn again
+  // only where an end is)
+  const g = inkGrid(cs, 2), ends = terminalEnds(sk(), c, to.cursive >= CURSIVE_FORMS || from.cursive >= CURSIVE_FORMS, inkBox(cs), g)
+    .filter(e => { const m = e.exit && (moves ? moves(e, 0) : { len: 0, bend: 0 }); return !m || Math.abs(m.len) >= 0.5 || Math.abs(m.bend) >= 0.005; });
   if (!ends.length) return cs;
   const T = termSpec(to), top = termSpec({ ...to, terminalSize: 1, terminalFlare: 1, terminalPoint: 1, terminalSlope: 1 });
   const rings = inkRings(cs);
@@ -492,6 +522,8 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
   const xs = rings.flat().map(q => q.x), ys = rings.flat().map(q => q.y);
   const mid = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
   for (const end of ends) {
+    // (an exit stroke keeps the font's own end, whatever kind is picked: only Length and Curl move it)
+    const restyle = reshape && !end.exit;
     const { pts, body } = end, arc = arcOf(pts);
     // how much longer (or shorter) the end is drawn, and how much further round it bends, by the radius it curves at
     const kEnd = endCurvature(pts, arc, body), mv = moves ? moves(end, kEnd) : { len: 0, bend: 0 };
@@ -604,7 +636,11 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
       const plan = measureEnd(end, arc, kEnd, mv, to, T, alone ? (p, d) => widthAcross(rings, p, left(d), body * 4) : null, cap, back);
       const got = redraw(plan);
       if (got === 'done') break;
-      if (got === 'none') {
+      // (an exit stroke drawn again from far back along it, where it runs beside a stem, from nearer its tip)
+      if (got === 'none' && end.exit) {
+        if (plan.atS < body * 2) break;
+        cap = plan.atS * 0.7; back = 0;
+      } else if (got === 'none') {
         const on = plan.atS + Math.max(body, c.xh * 0.03);
         if (on <= Math.min(cap, arc[arc.length - 1] * 0.6) && plan.atS >= back - 0.5) back = on;
         else if (alone) { alone = false; back = 0; }
@@ -685,7 +721,9 @@ function measureEnd(end: End, arc: number[], kEnd: number, mv: { len: number; be
   // (no further than TAPER_MOST of the stroke, so a short heavy stroke's two ends, a c's, don't taper all of it)
   const room = Math.max(1, Math.min(alone, total * TAPER_MOST) - body * 0.3), taperAt = (k: number) => Math.min(total * Math.min(0.85, 0.15 * k), t0 * k, room);
   const runBack = tapers ? Math.max(1, T.taper <= 3 ? taperAt(T.taper) : lerp(taperAt(3), room, (T.taper - 3) / 3)) : flares ? Math.max(1, Math.min(total * 0.45, t0 * 3)) : 0;
-  const sAt = Math.min(Math.max(alone, back), Math.max(zone + body * 0.6, runBack + body * 0.3, -mv.len + body * 1.2, back));
+  // (an exit stroke is drawn again from EXIT_BACK of its run, as far as it runs alone, so Curl turns most of it)
+  const prefer = end.exit ? Math.min(alone, (end.run ?? 0) * EXIT_BACK) : 0;
+  const sAt = Math.min(Math.max(alone, back), Math.max(zone + body * 0.6, runBack + body * 0.3, -mv.len + body * 1.2, back, prefer));
   // (a shorter end is cut back no further than the stretch drawn again)
   const len = Math.max(mv.len, -(sAt - body * 0.8));
   const kS = indexAt(arc, sAt), kE = indexAt(arc, Math.min(zone, sAt - 2));
@@ -1073,6 +1111,10 @@ function endMoves(c: RestyleCtx, from: Effective, to: Effective) {
   const dAp = to.aperture - from.aperture, dCurl = to.terminalCurl - from.terminalCurl;
   if (Math.abs(dLen) < 0.5 && Math.abs(dTail) < 0.5 && Math.abs(dAp) < 1e-4 && Math.abs(dCurl) < 1e-4) return null;
   return (end: End, k: number) => {
+    // (a script's exit stroke is no hook's tail, nor a bowl's end that opens: Length and Curl move it, Curl turning it
+    // to the left, rising as it does out of the right of the letter: back over the letter, as it swings up out of it,
+    // or, turned down, out flat to the right)
+    if (end.exit) return { len: (to.terminalLength - from.terminalLength) * (end.run ?? 0) * EXIT_LEN, bend: dCurl * 2 * (Math.PI / 3) };
     // (opened, a bowl's end goes back round it by as much of a quarter turn as the engine's do, see capAperture and
     // lcAperture in glyphs/shared.ts)
     const R = Math.min(Math.abs(k) > 1e-6 ? 1 / Math.abs(k) : Infinity, end.body * 8);

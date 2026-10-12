@@ -147,7 +147,8 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   `fonts/`, which the server reads instead of fetching. They replaced the Google families in `OLD_FONTS`:
   `sanitizeParams` reads a saved id of one as its own font (`ownFontOf`). `FREE_FAMILIES` lists them (`own`,
   `license: null`) with the Google families, each with its weights and italics up to 900, its licence folder (`ofl` or
-  `apache`), its reserved names, and `grid` for a pixel font (VT323, Silkscreen) that only stretches. `parseFontId`
+  `apache`), its reserved names, `grid` for a pixel font (VT323, Silkscreen) that only stretches, and `freeExits` for a
+  script whose letters stand apart (Serenade, unlike Boardwalk), whose exit strokes Length and Curl move. `parseFontId`
   accepts only a listed family at a weight it comes in; `nearestFont` is the font a design draws from as Weight and
   Slant move (a family in one weight or only an italic gives that font); `withoutReserved` takes the family's own and
   reserved names out of an exported font's name (OFL; an own font reserves nothing). Own fonts' names are font ids in

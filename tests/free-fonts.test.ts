@@ -15,7 +15,7 @@ import { metrics, resolve } from '../shared/engine/font';
 import { formChanged, widthOfScale } from '../shared/engine/free-letters';
 import { bowlLook, cornerLooks, restyleBowls, restyleCorners, restyleDots, restyleEnds, restylePeaks, restyleStencil, stencilLook } from '../shared/engine/restyle';
 import { skeleton } from '../shared/engine/scan';
-import { SKIN_KEYS } from '../shared/engine/skin';
+import { SKIN_KEYS, skinFollows } from '../shared/engine/skin';
 import { familyMember } from '../shared/family';
 import { OLD_FONTS, OWN_FAMILIES, STYLE_FONTS, isOwnFont, nearestFont, parseFontId } from '../shared/free-fonts';
 import { DEFAULTS, FREE_AT_KEYS, freeAtOf, sanitizeParams, xHeightOfRatio, xHeightRatio, type Params } from '../shared/params';
@@ -447,6 +447,23 @@ describe("TypeLab's own fonts", () => {
       const short = await design(style, { terminalLength: len });
       for (const ch of 'csCS') assert.equal(crossings(short.glyph(ch)!), 0, `${style}'s ${ch} at Length ${len * 100}`);
     }
+    // a script whose letters stand apart (Serenade): each small letter's exit stroke, a hairline running up out of it,
+    // is drawn shorter and longer by Length and turned by Curl, back over the letter or out flat, and keeps the font's
+    // own end whatever kind is picked; a joined script's exits (Boardwalk's), which meet the next letter, are no free ends
+    const serenade = await design('chancery');
+    for (const set of [{ terminalLength: 0 }, { terminalLength: 1 }, { terminalCurl: 0 }, { terminalCurl: 1 }] as Partial<Params>[]) {
+      const moved = await design('chancery', set);
+      for (const ch of 'aeinuw') {
+        assert.ok(!same(moved.glyph(ch)!, serenade.glyph(ch)!), `Serenade's ${ch} at ${JSON.stringify(set)}`);
+        assert.deepEqual(parts(moved.glyph(ch)!), parts(serenade.glyph(ch)!), `and stays whole (${ch} at ${JSON.stringify(set)})`);
+        assert.equal(crossings(moved.glyph(ch)!), 0, `without crossing itself (${ch} at ${JSON.stringify(set)})`);
+      }
+    }
+    const balls = await design('chancery', { terminal: 'round', terminalForm: 'ball' });
+    for (const ch of 'aenuw') assert.ok(same(balls.glyph(ch)!, serenade.glyph(ch)!), `Serenade's ${ch} keeps its exit's own end`);
+    assert.ok(!skinFollows(freeFont(STYLE_FONTS.chancery)!, 'n', 'terminalSize'), "Serenade's n has no end a ball's Size reaches");
+    const boardwalk = await design('informal'), longer = await design('informal', { terminalLength: 1, terminalCurl: 1 });
+    for (const ch of 'kopvw') assert.ok(same(longer.glyph(ch)!, boardwalk.glyph(ch)!), `Boardwalk's ${ch} joins as it did`);
     // Bowls' Corners rounds a box bowl's corners
     const box = (v: number) => design('geometric', { bowlForm: 'box', boxRound: v });
     assert.ok(!same((await box(0)).glyph('O')!, (await box(1)).glyph('O')!), 'box corners');

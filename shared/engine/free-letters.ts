@@ -238,7 +238,8 @@ const withSerifs = new WeakSet<Node[][]>();
 /** A rigged free font's letter, moved on its skeleton, given the shapes the settings ask for past the ones
     it stands for (restyle.ts); kept with the moved outline, by the settings, as dragging a slider asks again. */
 function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
-  const k = fl.to.s / fl.from.s, x = rig.ctx, c: RestyleCtx = { ch: x.ch, cap: x.cap, xh: x.xh, stem: rig.stem * x.cap * k, bar: rig.bar * x.cap * k };
+  const k = fl.to.s / fl.from.s, x = rig.ctx, exits = fl.font && FREE_FAMILIES[fl.font.family]?.freeExits;
+  const c: RestyleCtx = { ch: x.ch, cap: x.cap, xh: x.xh, stem: rig.stem * x.cap * k, bar: rig.bar * x.cap * k, ...(exits ? { exits: { stem: rig.ref().stem * k } } : {}) };
   const a = cornerLooks(fl.pick, c), b = cornerLooks(fl.now, c);
   // the engine's serifs, set on the stems the letter's own were taken off (or on a sans's), in the font's units; the
   // lines they stand on, where the settings moved them
