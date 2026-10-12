@@ -149,13 +149,25 @@ function ExportButton() {
   </>;
 }
 
-/** The Export window, in the middle of the screen: the name the fonts install under, the styles of the design's
-    family to save (one as an .otf, several as the family's fonts in one .zip), and the other files: a specimen, and
-    the settings out and in. */
+/** The file a font download saves as: one style's .otf, or the family's .zip. */
+const fontFile = (name: string, styles: readonly { style: string }[]) =>
+  styles.length === 1 ? `${slug(name)}-${styles[0].style.replace(/ /g, '')}.otf` : `${slug(name)}-family.zip`;
+
+/** The styles a download holds, named for the summary over its button: each up to six, then the first five and how
+    many more. */
+function stylesNamed(styles: readonly { style: string }[]) {
+  const n = styles.length, names = styles.map(f => f.style);
+  if (n === FAMILY_STYLES.length) return `All ${n} styles, Thin to Black, upright and italic`;
+  return n > 6 ? `${names.slice(0, 5).join(', ')} and ${n - 5} more` : names.join(', ');
+}
+
+/** The Export window, in the middle of the screen: the styles of the design's family to save fill it (one as an .otf,
+    several as the family's fonts in one .zip); beside them, the name the fonts install under, the other files (a
+    specimen, and the settings out and in), and at the foot what the download holds and its button. */
 function ExportDialog({ onClose }: { onClose: () => void }) {
   const params = useEditor(s => s.params);
   const [busy, setBusy] = useState<'fonts' | 'svg' | null>(null);
-  const go = useRef<HTMLButtonElement>(null);
+  const go = useRef<HTMLButtonElement>(null), file = useRef<HTMLInputElement>(null);
   useEscape(onClose, go);
 
   // the name the fonts install under: a design still Untitled is offered one from its style, as on its first
@@ -180,10 +192,10 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     try {
       if (styles.length === 1) {
         const [f] = styles;
-        download(`${slug(name)}-${f.style.replace(/ /g, '')}.otf`, await api.exportFile('otf', { name, params: s.params, member: { anchor, weight: f.weight, italic: f.italic } }));
+        download(fontFile(name, styles), await api.exportFile('otf', { name, params: s.params, member: { anchor, weight: f.weight, italic: f.italic } }));
         actions.toast(`${name} ${f.style} exported — open the .otf to install it`);
       } else {
-        download(`${slug(name)}-family.zip`, await api.exportFamily({ name, params: s.params, family: { anchor, styles: styles.map(f => ({ weight: f.weight, italic: f.italic })) } }));
+        download(fontFile(name, styles), await api.exportFamily({ name, params: s.params, family: { anchor, styles: styles.map(f => ({ weight: f.weight, italic: f.italic })) } }));
         actions.toast(`${styles.length} fonts exported — unzip them and open each to install`);
       }
       onClose();
@@ -242,34 +254,44 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
-        <div className="export-body">
-          <label className="export-name">
-            <span>Font name</span>
-            <input value={draft} maxLength={NAME_MAX} spellCheck={false}
-              onChange={e => { touched.current = true; setDraft(e.target.value); }}
-              onBlur={() => { if (touched.current) takeName(); }}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); takeName(); } }} />
-          </label>
-          <ReservedNote name={draft} />
-          <section className="export-fonts" aria-labelledby="export-fonts">
-            <h3 id="export-fonts">Font files <span>Pick one style or several: each is its own font, and they install together as one family</span></h3>
-            <FamilyPicker params={params} anchor={anchor} picked={picked} onPick={setPicked} />
-          </section>
-        </div>
-        <div className="export-foot">
-          <div className="export-more">
-            <button type="button" className="btn ghost small" disabled={!!busy} title="A vector sheet of every glyph" onClick={saveSpecimen}>
-              {busy === 'svg' ? 'Building specimen…' : 'Specimen .svg'}
-            </button>
-            <button type="button" className="btn ghost small" disabled={!!busy} title="Reopen this design anywhere" onClick={exportJSON}>Settings .json</button>
-            <label className="btn ghost small" title="Load a .typelab.json file">
-              Import settings…
-              <input type="file" accept=".json,application/json" hidden onChange={importJSON} />
+        <section className="export-styles" aria-labelledby="export-styles">
+          <h3 id="export-styles">Styles <span>Pick one or several: each is its own font, and they install together as one family</span></h3>
+          <FamilyPicker params={params} anchor={anchor} picked={picked} onPick={setPicked} />
+        </section>
+        {/* on phones this side lets its parts into the window's one column: the name over the styles, the rest under */}
+        <div className="export-side">
+          <div className="export-named">
+            <label className="export-name">
+              <span>Font name</span>
+              <input value={draft} maxLength={NAME_MAX} spellCheck={false}
+                onChange={e => { touched.current = true; setDraft(e.target.value); }}
+                onBlur={() => { if (touched.current) takeName(); }}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); takeName(); } }} />
             </label>
+            <ReservedNote name={draft} />
           </div>
-          <button ref={go} type="button" className="btn primary" disabled={!!busy || !n} onClick={saveFonts}>
-            {busy === 'fonts' ? (n === 1 ? 'Building font…' : 'Building fonts…') : !n ? 'Pick a style' : n === 1 ? 'Download font · .otf' : `Download ${n} fonts · .zip`}
-          </button>
+          <div className="export-files" role="group" aria-labelledby="export-files">
+            <h3 id="export-files">Other files</h3>
+            <button type="button" className="export-file" disabled={!!busy} onClick={saveSpecimen}>
+              <b>{busy === 'svg' ? 'Building specimen…' : 'Specimen .svg'}</b><span>A vector sheet of every glyph</span>
+            </button>
+            <button type="button" className="export-file" disabled={!!busy} onClick={exportJSON}>
+              <b>Settings .json</b><span>Reopen this design anywhere</span>
+            </button>
+            <button type="button" className="export-file" disabled={!!busy} onClick={() => file.current?.click()}>
+              <b>Import settings…</b><span>Load a .typelab.json file</span>
+            </button>
+            <input ref={file} type="file" accept=".json,application/json" hidden onChange={importJSON} />
+          </div>
+          <div className="export-send">
+            <div className={n ? 'export-sum' : 'export-sum none'}>
+              <b>{n ? stylesNamed(styles) : 'No style picked'}</b>
+              {n > 0 && <span>{fontFile(cleanName(draft), styles)}</span>}
+            </div>
+            <button ref={go} type="button" className="btn primary" disabled={!!busy || !n} onClick={saveFonts}>
+              {busy === 'fonts' ? (n === 1 ? 'Building font…' : 'Building fonts…') : !n ? 'Pick a style' : n === 1 ? 'Download font · .otf' : `Download ${n} fonts · .zip`}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -704,37 +704,51 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .dialog-actions .btn:not(.primary):hover { background: var(--well); }
 
 /* ---------- export window and the family's styles */
-.dialog.export { width: min(720px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; padding: 0; }
-.export-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 14px 0 20px; }
-.export-body { display: grid; align-content: start; gap: 16px; padding: 10px 20px 16px; overflow: auto; min-height: 0; flex: 1; }
+/* the styles to save fill the window, scrolling when it is short; the side beside them holds the font's name, the
+   other files, and at its foot what the download holds and its button, in the corner a dialog's main button takes */
+.dialog.export { width: min(960px, 100%); max-height: calc(100vh - 32px); display: grid; grid-template-columns: minmax(0, 1fr) 264px; grid-template-rows: auto minmax(0, 1fr); padding: 0; overflow: hidden; }
+.export-head { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 20px; border-bottom: 1px solid var(--line); }
+.export-styles { display: grid; align-content: start; gap: 14px; min-height: 0; overflow: auto; padding: 16px 20px 20px; }
+.export-styles h3 { margin: 0; font-size: 13.5px; font-weight: 600; }
+.export-styles h3 span { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 400; color: var(--ink-3); }
+.export-side { display: flex; flex-direction: column; gap: 18px; min-height: 0; overflow: auto; padding: 16px; border-left: 1px solid var(--line); background: var(--well); }
+.export-named { display: grid; gap: 6px; }
 .export-name { display: grid; gap: 6px; }
 .export-name span { font-size: 12px; font-weight: 500; color: var(--ink-3); }
-.export-name input { height: 34px; padding: 0 10px; border: 0; border-radius: var(--radius); background: var(--well); box-shadow: inset 0 0 0 1px var(--line); font: 500 14px var(--ui); color: var(--ink); transition: box-shadow .15s, background .15s; }
-.export-name input:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
+.export-name input { height: 34px; padding: 0 10px; border: 0; border-radius: var(--radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); font: 500 14px var(--ui); color: var(--ink); transition: box-shadow .15s, background .15s; }
+.export-name input:hover { box-shadow: inset 0 0 0 1px var(--ink-3); }
 .export-name input:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
-.dialog p.export-note { margin: -10px 0 0; font-size: 12px; line-height: 1.45; color: var(--ink-3); }
-.export-fonts { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
-.export-fonts h3 { margin: 0; font-size: 13.5px; font-weight: 600; }
-.export-fonts h3 span { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 400; color: var(--ink-3); }
-.export-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px 14px 14px; border-top: 1px solid var(--line); }
-.export-more { display: flex; flex-wrap: wrap; gap: 2px; margin-right: auto; }
-.export-more label { cursor: pointer; }
+.dialog p.export-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ink-3); }
+/* what the download holds, over its button: the styles by name and the file they save as */
+.export-send { display: grid; gap: 8px; margin-top: auto; }
+.export-sum { display: grid; gap: 3px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.export-sum b { font-size: 13px; font-weight: 500; line-height: 1.4; }
+.export-sum span { font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
+.export-sum.none b { font-weight: 400; color: var(--ink-3); }
+.export-send .btn.primary { height: 36px; justify-content: center; }
+.export-files { display: grid; gap: 2px; padding-top: 14px; border-top: 1px solid var(--line); }
+.export-files h3 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.export-file { display: grid; gap: 1px; margin: 0 -8px; padding: 6px 8px; border-radius: var(--radius); text-align: left; transition: background .15s, opacity .15s; }
+.export-file:hover { background: var(--active); }
+.export-file:disabled { opacity: .35; pointer-events: none; }
+.export-file b { font-size: 13px; font-weight: 500; }
+.export-file span { font-size: 12px; color: var(--ink-3); }
 .family { display: grid; gap: 10px; }
 .family-grid { display: grid; gap: 6px; }
-.family-row { display: grid; grid-template-columns: 148px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px; }
+.family-row { display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px; }
 .family-head > span { padding-left: 10px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
-.family-weight { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 6px; }
-.family-weight b { flex-basis: 100%; font-size: 13px; font-weight: 400; color: var(--ink-2); }
-.family-weight span { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.family-weight { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.family-weight b { font-size: 13px; font-weight: 400; color: var(--ink-2); }
+.family-weight span { font-size: 11.5px; color: var(--ink-3); }
 /* the weight the design is: its name in full ink and bold */
 .family-weight.own b { font-weight: 600; color: var(--ink); }
 .family-weight.own span { color: var(--ink-2); }
 /* one style, a toggle drawn in its sample; picked ones look as a picked option (.opt.on) does: ringed in the accent,
    tinted, the sample drawn in the accent */
-.family-cell { display: flex; align-items: center; min-width: 0; height: 44px; padding: 0 10px; border-radius: var(--radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; transition: box-shadow .15s, background .15s; }
+.family-cell { display: flex; align-items: center; min-width: 0; height: 40px; padding: 0 10px; border-radius: var(--radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; transition: box-shadow .15s, background .15s; }
 .family-cell:hover { box-shadow: inset 0 0 0 1px var(--line-2); background: var(--well); }
 .family-cell[aria-pressed=true] { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
-.family-sample { display: block; flex: 1; min-width: 0; height: 30px; fill: var(--ink); transition: fill .15s; }
+.family-sample { display: block; flex: 1; min-width: 0; height: 28px; fill: var(--ink); transition: fill .15s; }
 .family-cell[aria-pressed=true] .family-sample { fill: var(--accent); }
 /* the design's own style, the one picked to start with: filled in the accent with its sample drawn white while
    picked, and outlined darker than the rest while it isn't */
@@ -743,15 +757,27 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .family-cell.own[aria-pressed=true]:hover { background: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--accent-ink), 0 0 0 1px var(--accent-ink); }
 .family-cell.own[aria-pressed=true] .family-sample { fill: #fff; }
 .dialog p.family-note { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+/* phones: one column, the name over the styles and the other files and the download pinned under them */
+@media (max-width: 760px) {
+  .dialog.export { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
+  .export-side { display: contents; }
+  .export-named { grid-row: 2; padding: 12px 16px 2px; }
+  .export-name input { background: var(--well); box-shadow: inset 0 0 0 1px var(--line); }
+  .export-name input:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
+  .export-styles { grid-row: 3; padding: 12px 16px 14px; }
+  .export-files { grid-row: 4; display: flex; flex-wrap: wrap; gap: 2px; margin: 0; padding: 8px 10px 0; }
+  .export-files h3, .export-file span { display: none; }
+  .export-file { margin: 0; padding: 0 10px; height: 28px; align-content: center; }
+  .export-file b { font-size: 12px; }
+  .export-send { grid-row: 5; margin: 0; padding: 6px 16px 14px; }
+  .export-sum { display: none; }
+}
 @media (max-width: 600px) {
-  .export-body { padding: 8px 16px 14px; }
   .family-row { grid-template-columns: 1fr 1fr; gap: 4px 6px; }
   .family-head > div { grid-column: 1 / -1; margin-bottom: 4px; }
   .family-head > span { padding-left: 8px; }
-  .family-weight { grid-column: 1 / -1; flex-wrap: nowrap; margin-top: 4px; }
-  .family-weight b { flex-basis: auto; }
-  .family-cell { height: 40px; padding: 0 8px; }
-  .export-foot > .btn.primary { flex: 1 1 100%; justify-content: center; }
+  .family-weight { grid-column: 1 / -1; margin-top: 4px; }
+  .family-cell { padding: 0 8px; }
 }
 
 /* ---------- guide */
