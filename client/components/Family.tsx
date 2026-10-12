@@ -1,6 +1,6 @@
 /* The styles of a design's family to export, picked in the Export window, one or several: every weight from Thin
    to Black, upright and italic, each drawn in a sample as the font it will be, so the steps between them can be
-   judged before downloading. The design itself is one of them, at the weight it is named as. */
+   judged before downloading. The design itself is one of them, at the weight it is named as, and labelled so. */
 import { useMemo } from 'react';
 import { FAMILY_STYLES, familyMember, ownStyle, SLANTED, WEIGHTS, type FamilyMember, type WeightId } from '../../shared/family';
 import type { Params } from '../../shared/params';
@@ -10,20 +10,6 @@ import { fontFor } from '../state/editor';
 
 const SAMPLE = 'Hamburgefonstiv';
 
-/** A weight's place in WEIGHTS, lightest first. */
-const rank = (id: WeightId) => WEIGHTS.findIndex(w => w.id === id);
-
-/** The design's weight and the one a reader would reach for beside it: Bold, or Regular for a design that is Bold
-    or heavier. */
-const pairOf = (anchor: WeightId): WeightId[] =>
-  anchor === 'bold' ? ['regular', 'bold'] : rank(anchor) > rank('bold') ? ['regular', anchor] : [anchor, 'bold'];
-
-/** Quick picks, by the styles' names: the design alone; it and a bold, each upright and italic; every style. */
-const QUICK: { label: string; title: string; styles: (params: Params, anchor: WeightId) => string[] }[] = [
-  { label: 'This design', title: 'Only the design as it is', styles: (p, a) => [ownStyle(p, a).style] },
-  { label: '+ Bold & Italic', title: 'The design and a bold, each upright and italic: four fonts', styles: (_, a) => FAMILY_STYLES.filter(f => pairOf(a).includes(f.weight)).map(f => f.style) },
-  { label: `All ${FAMILY_STYLES.length}`, title: 'Every weight from Thin to Black, upright and italic', styles: () => FAMILY_STYLES.map(f => f.style) }
-];
 
 interface PickerProps {
   params: Params;
@@ -39,7 +25,8 @@ export function FamilyPicker({ params, anchor, onAnchor, picked, onPick }: Picke
     ...w, upright: familyMember(params, anchor, w.id, false), italic: familyMember(params, anchor, w.id, true)
   })), [params, anchor]);
   const toggle = (style: string) => onPick(picked.includes(style) ? picked.filter(s => s !== style) : [...picked, style]);
-  const same = (styles: string[]) => styles.length === picked.length && styles.every(s => picked.includes(s));
+  // All picks every style; pressed again, it goes back to the design alone, as the window opened
+  const all = FAMILY_STYLES.every(f => picked.includes(f.style));
 
   return (
     <div className="family">
@@ -50,12 +37,9 @@ export function FamilyPicker({ params, anchor, onAnchor, picked, onPick }: Picke
             {WEIGHTS.map(w => <option key={w.id} value={w.id}>{w.name} · {w.cls}</option>)}
           </select>
         </label>
-        <div className="family-quick">
-          {QUICK.map(q => {
-            const styles = q.styles(params, anchor);
-            return <button key={q.label} type="button" className={same(styles) ? 'chip on' : 'chip'} aria-pressed={same(styles)} title={q.title} onClick={() => onPick(styles)}>{q.label}</button>;
-          })}
-        </div>
+        <button type="button" className={all ? 'chip family-all on' : 'chip family-all'} aria-pressed={all}
+          title={all ? 'Back to this design alone' : 'Every weight from Thin to Black, upright and italic'}
+          onClick={() => onPick(all ? [own] : FAMILY_STYLES.map(f => f.style))}>All {FAMILY_STYLES.length}</button>
       </div>
 
       <div className="family-grid" role="group" aria-label="Styles">
@@ -64,13 +48,14 @@ export function FamilyPicker({ params, anchor, onAnchor, picked, onPick }: Picke
           <div key={r.id} className="family-row">
             <div className="family-weight">
               <b>{r.name}</b>
-              <span>{r.cls}{r.id === anchor && ' · this design'}</span>
+              <span>{r.cls}</span>
             </div>
             {[r.upright, r.italic].map(m => (
               <button key={m.style} type="button" className={m.style === own ? 'family-cell own' : 'family-cell'}
                 aria-pressed={picked.includes(m.style)} title={m.style === own ? `${m.style}: this design` : m.style} onClick={() => toggle(m.style)}>
                 <i className="family-check" aria-hidden="true" />
                 <MemberSample member={m} label={m.style} />
+                {m.style === own && <span className="family-own" aria-hidden="true">This design</span>}
               </button>
             ))}
           </div>
