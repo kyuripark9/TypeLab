@@ -101,7 +101,8 @@ interface Bone {
   /** a corner, and its edges' directions in and out */ corner: boolean; inx?: number; iny?: number; outx?: number; outy?: number;
   /** the skeleton point the normal reaches, and its distance to the paper there (about half the stroke's thickness) */ ax: number; ay: number; best: number;
   /** the way the stroke runs at the skeleton point */ dx: number; dy: number;
-  /** half the thickness of the stroke this edge belongs to */ w: number;
+  /** half the thickness of the stroke this edge belongs to, and as read across from it, joins and all (see
+      thicknessWithoutJoins) */ w: number; w0: number;
   /** how far past its stem's edge a serif's point reaches (0 off a serif); and on a serif, how thick its stem is and
       how far the paper reaches out from the stem's edge on that side (Infinity outside the letter), and how far the serif
       reaches past the stem along this point's row */ serifDx: number; serifStem: number; serifRoom: number; serifReach: number;
@@ -317,7 +318,7 @@ function readSample(p: Sample, f: Grid, ctx: Ctx, lines: number[], serifLines: n
   const onLine = p.straight && Math.abs(ny) > 0.97 && lines.some(L => Math.abs(p.y - L) < 2.5);
   // (out from the edge, the paper's width to the next ink: a counter's, or the room between two strokes)
   const gap = march(f, p.x, p.y, -nx, -ny, ctx.cap);
-  return { ...p, nx, ny, ax, ay, best, dx, dy, w: chord / 2, serifDx: sr.dx, serifStem: sr.stem, serifRoom: sr.room, serifReach: sr.reach, gap, onLine, cap: false, lineCap: false, dot: false };
+  return { ...p, nx, ny, ax, ay, best, dx, dy, w: chord / 2, w0: chord / 2, serifDx: sr.dx, serifStem: sr.stem, serifRoom: sr.room, serifReach: sr.reach, gap, onLine, cap: false, lineCap: false, dot: false };
 }
 
 /** Where strokes join (a bowl and its stem, a bar and an arm) an edge reads thicker than either for a
@@ -354,12 +355,16 @@ function markDot(bones: Bone[], ctx: Ctx, alone: boolean, typical: number) {
 }
 
 /** A stroke's end on a contour: samples a+1 to b-1 (counted on past the contour's last sample), between the last of
-    one side of the stroke (a) and the first of the other (b). */
-interface EndRun { a: number; b: number }
+    one side of the stroke (a) and the first of the other (b); how much of a ball it is, 0 to 1, and where along from a to
+    b it is made smaller or larger round, 0 to 1 (ballEnd). */
+interface EndRun { a: number; b: number; ball: number; pin: number }
 
 /** how far the outline turns back toward its ink at a stroke's end (a little short of a half turn, so a stroke that
     narrows to its end counts too) */
 const END_TURN = 150 * Math.PI / 180;
+/** How much thicker than its neck an end is where it starts being a ball, and where it is one wholly. A round end
+    reads at most a little thicker than its stroke (a monoline's are 0.8 to 1.1 of it). */
+const BALL_FROM = 1.15, BALL_AT = 1.6;
 
 /** A contour's stroke ends: where the outline turns back on itself across a stroke, toward its ink all the way, in a
     stretch about as long as the stroke is thick and with its two sides about that far apart (a cap cut across it, a
@@ -376,7 +381,7 @@ function strokeEnds(bones: Bone[]): EndRun[] {
   const T = (i: number) => turn[((i % n) + n) % n];
   const S = (i: number) => { const p = at(i), q = at(i + 1); return Math.hypot(q.x - p.x, q.y - p.y); };
   // the shortest stretch from each sample that turns back far enough
-  const tight = new Map<number, EndRun>();
+  const tight = new Map<number, { a: number; b: number }>();
   for (let i = 0; i < n; i++) {
     const A = bones[i];
     if (A.dot) continue;
@@ -401,7 +406,7 @@ function strokeEnds(bones: Bone[]): EndRun[] {
     if (a < 0) { a += n; b += n; }
     return { a, b };
   }).sort((p, q) => p.a - q.a);
-  const out: EndRun[] = [];
+  const out: { a: number; b: number }[] = [];
   for (const r of runs) {
     const last = out[out.length - 1];
     if (last && r.a < last.b) last.b = Math.max(last.b, r.b);
@@ -409,7 +414,41 @@ function strokeEnds(bones: Bone[]): EndRun[] {
   }
   // (one running on round past the first's start into it)
   if (out.length > 1 && out[out.length - 1].b > out[0].a + n) { const l = out.pop()!; out[0] = { a: l.a - n, b: Math.max(out[0].b, l.b - n) }; }
-  return out.filter(r => r.b - r.a >= 2 && r.b - r.a < n - 2);
+  return out.filter(r => r.b - r.a >= 2 && r.b - r.a < n - 2).map(r => ballEnd(bones, r));
+}
+
+/** A stroke's end, with how much of a ball it is, 0 to 1: a ball (a Didone's a, c, r and y, its comma's and its
+    quotes') is thicker than the neck it hangs from and wraps round, where a cap or a round end is as wide as its stroke
+    and turns back across it in about as long. A ball thins and thickens as heavy a stroke does, not as its neck
+    (moveRing). */
+function ballEnd(bones: Bone[], { a, b }: { a: number; b: number }): EndRun {
+  const n = bones.length, at = (i: number) => bones[((i % n) + n) % n];
+  const ws: number[] = [];
+  let arc = 0;
+  for (let i = a + 1; i < b; i++) { ws.push(at(i).w); arc += Math.hypot(at(i + 1).x - at(i).x, at(i + 1).y - at(i).y); }
+  ws.sort((p, q) => p - q);
+  const span = Math.hypot(at(b).x - at(a).x, at(b).y - at(a).y), w = ws[ws.length >> 1];
+  // (a pointed end, its sides meeting, has no neck to measure by)
+  if (span < 2 * STEP || arc < 3 * span) return { a, b, ball: 0, pin: 0.5 };
+  // (a teardrop, a serif face's quotes, is some of a ball; a Didone's, twice as thick as its neck, all one)
+  const ball = Math.min(1, Math.max(0, (2 * w / span - BALL_FROM) / (BALL_AT - BALL_FROM)));
+  if (ball) {
+    // (and runs from its neck's last sample to the neck's first again: on past a corner where the round meets the
+    // neck, which reads as thick as the ball and is no side of the neck, or back from the neck's sides the end ran on
+    // along)
+    const thin = (i: number) => at(i).w < 0.5 * w;
+    for (let k = 0; k < 4 && !thin(a); k++) a--;
+    while (b - a > 8 && thin(a + 1)) a++;
+    for (let k = 0; k < 4 && !thin(b); k++) b++;
+    while (b - a > 8 && thin(b - 1)) b--;
+    // (it's made smaller or larger round where it runs on smoothly from its neck, on the side where the other meets
+    // the neck at a corner, so the curve it runs on with keeps its way into it: a Didone's a, c, r, y and comma; round
+    // its neck's middle where both sides do the same)
+    const cornered = (i: number, dir: number) => [0, 1, 2].some(k => at(i + dir * k).corner);
+    const ca = cornered(a, 1), cb = cornered(b, -1);
+    return { a, b, ball, pin: ca === cb ? 0.5 : ca ? 1 : 0 };
+  }
+  return { a, b, ball, pin: 0.5 };
 }
 
 /** Where to look for each letter's bar that Crossbar moves: the column (a share of the ink's width), the
@@ -883,19 +922,57 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     if (l > lim) { mx *= lim / l; my *= lim / l; }
     return { x: x + mx, y: y + my };
   });
+  // (how far this outline's heavy strokes thicken or thin as asked, each side by its own reading of its stroke: a
+  // heavy face's sides, read with their joins taken out, often read thinner than they are and move less)
+  const heavy = ends.some(e => e.ball) ? heavyShare() : 1;
   // a stroke's end goes with the two sides it joins, as they now stand: turned, moved and made as much larger or
   // smaller as the stroke is now thicker or thinner across them, so a cap stays as wide as its stroke and a round
-  // end round (the end's own points, read off the skeleton where it forks out to its corners, would part)
-  for (const { a, b } of ends) {
+  // end round (the end's own points, read off the skeleton where it forks out to its corners, would part). A ball,
+  // thicker than the neck it hangs from, goes as far as it is one with the point it hangs from (`pin` of the way from
+  // one side to the other) and is made as much smaller or larger round it as a stroke as thick as it (ballK), so it
+  // stays round and the curve it runs on with keeps its way into it; not turned, as two sides close together, much
+  // nearer than the ball is wide, give no sure turn
+  for (const { a, b, ball, pin } of ends) {
     const A = bs[md(a)], B = bs[md(b)], A1 = out[md(a)], B1 = out[md(b)];
     const ux = B.x - A.x, uy = B.y - A.y, vx = B1.x - A1.x, vy = B1.y - A1.y, l2 = ux * ux + uy * uy;
     if (l2 < 1e-6 || vx * vx + vy * vy < 1e-6) continue;
+    const hx = A.x + ux * pin, hy = A.y + uy * pin, hx1 = A1.x + vx * pin, hy1 = A1.y + vy * pin, k = ball ? ballK(a, b, hx, hy) : 1;
     for (let i = a + 1; i < b; i++) {
       const p = bs[md(i)], dx = p.x - A.x, dy = p.y - A.y, s = (dx * ux + dy * uy) / l2, t = (dy * ux - dx * uy) / l2;
-      out[md(i)] = { x: A1.x + s * vx - t * vy, y: A1.y + s * vy + t * vx };
+      const qx = A1.x + s * vx - t * vy, qy = A1.y + s * vy + t * vx;
+      out[md(i)] = ball ? { x: qx + (hx1 + (p.x - hx) * k - qx) * ball, y: qy + (hy1 + (p.y - hy) * k - qy) * ball } : { x: qx, y: qy };
     }
   }
   return out;
+
+  /** How much of the change asked of its strokes this outline's heavy sides make (0 to 1): those as thick as a stem,
+      off its ends, its corners and its serifs, each by its move across the thickness it reads, joins and all; 1 for an
+      outline with none, or when hardly any change is asked. */
+  function heavyShare() {
+    const stem = rig.ref().stem;
+    let got = 0, asked = 0;
+    bs.forEach((p, i) => {
+      if (p.corner || p.cap || p.dot || p.serifDx || inEnd[i] || 2 * p.w0 < 0.8 * stem) return;
+      got += moved[i] / p.w0; asked += k0[i] - 1;
+    });
+    return Math.abs(asked) < 1e-3 * bs.length ? 1 : Math.min(1, Math.max(0, got / asked));
+  }
+
+  /** How much a ball (samples a+1 to b-1, hanging from hx, hy) thickens or thins: as its own edges' strokes are asked
+      to (k0, where they read about as thick as it), as far as this outline's heavy strokes do (`heavy`), thinner as the
+      letter is drawn narrower or lower, as its strokes are (condense, lower), so it keeps to the room it had, and growing
+      no further than OPEN of the room round it (but the room in its own crotch, beside its neck, which the neck fills). */
+  function ballK(a: number, b: number, hx: number, hy: number) {
+    const js: number[] = [];
+    for (let i = a + 1; i < b; i++) js.push(md(i));
+    const w = js.map(j => bs[j].w).sort((p, q) => p - q)[js.length >> 1], body = js.filter(j => bs[j].w >= 0.8 * w);
+    let k = (1 + (body.reduce((sum, j) => sum + k0[j], 0) / Math.max(1, body.length) - 1) * heavy) * Math.min(condense, lower);
+    if (k > 1) for (const j of body) {
+      const p = bs[j], away = -(p.x - hx) * p.nx - (p.y - hy) * p.ny;
+      if (p.gap >= w && away > 1) k = Math.min(k, 1 + p.gap * OPEN / away);
+    }
+    return k;
+  }
 }
 
 /** The letter keeps its heights, as the engine's do when they get bolder or lighter: whatever faces up at

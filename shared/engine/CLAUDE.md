@@ -117,7 +117,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    `skinMeasures` from `pick` to `now` (stem, bar, width, x-height, crossbar, serif length, Stem length, Inner space,
    dots, Pinch, Ink traps): each side by its stroke's middle (half its thickness in from the edge, not the skeleton
    point, which forks out to a square end's corners), each end carried with the two sides it joins, so a cap stays as
-   wide as its stroke and a round end round; and returns `rig.contours` itself when nothing moved. How much each
+   wide as its stroke and a round end round, but a ball (`ballEnd`: an end much thicker than the neck it hangs from, a
+   Didone's a c r y g, its comma) carried with the point it hangs from and made smaller or larger round it, unturned,
+   as far as the outline's heavy strokes thin or thicken (`ballK`); and returns `rig.contours` itself when nothing
+   moved. How much each
    edge's stroke thickens is `weighsOf`: by the way it runs (upright by the upright pen's weight, `SkinMeasures.v`,
    which reversed contrast thins; level by the bars'), and in a font with much contrast (its hairline, `rig.ref()`, a
    small share of its stem) by how thick the stroke is, between hairline and stem, so a Didone's balls and swells
