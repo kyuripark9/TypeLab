@@ -271,8 +271,6 @@ export const SPECS = {
     explain: 'Swashes as a calligrapher adds them: S leads in from a wide loop, the bar of t runs in from far to the left and loops back over the letter, l and d rise into loops over the letters after them, r sweeps down into a shaded curl that ends in a heart, and the tail of z loops away under the word to a hook. They reach over the neighbouring letters without pushing them apart. Customize one letter to flourish only that one. Script letters only.' } }),
   swell: num(0, { control: { cat: 'script', off: 0, label: 'Swell', friendly: 'Press into the downstrokes', tech: 'Pointed pen · Pressure', lo: 'At once', hi: 'Gradual', demo: 'nitu',
     explain: 'A pointed pen opens as it is pressed: each downstroke starts from a fine point, swells to its full weight and lets up again before it turns, so the shades taper at both ends like a leaf. Script letters only.' } }),
-  swash: num(0, { free: true, control: { cat: 'script', off: 0, label: 'Swash capitals', friendly: 'Curl the capitals into flourishes', tech: 'Swash capitals', lo: 'Small', hi: 'Big', demo: 'PRT',
-    explain: 'The first stroke of each capital runs on at the top left (the stem of P, the bar of T, or else the foot of A) and curls out, finishing like the other stroke ends: pick Rounded, Ball ends for a ball.' } }),
 
   /* ---- Heights */
   xHeight: num(0.679, { global: true, free: true, control: { cat: 'heights', label: 'Lowercase height', friendly: 'Make lowercase letters taller', tech: 'x-height', lo: 'Small', hi: 'Large', demo: 'Hxn',

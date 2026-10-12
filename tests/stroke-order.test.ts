@@ -29,7 +29,7 @@ const DESIGNS: [string, Partial<Params>][] = [
   ['bends=round', { bends: 'round' }], ['bowlJoin=square', { bowlJoin: 'square' }], ['bowlJoin=square,weight=1,width=0', { bowlJoin: 'square', weight: 1, width: 0 }],
   ['bowlJoin=square,fill=wire', { bowlJoin: 'square', fill: 'wire' }],
   ['cursive=0.3', { cursive: 0.3 }], ['cursive=1', { cursive: 1 }], ['scriptForm=script', { scriptForm: 'script' }],
-  ['flourish=swash', { scriptForm: 'script', flourish: 'swash' }], ['swash=1', { swash: 1 }]
+  ['flourish=swash', { scriptForm: 'script', flourish: 'swash' }]
 ];
 
 /** Each design's glyphs' strokes as `id:part` in order, by `<design> <character>`: every glyph of the defaults, and

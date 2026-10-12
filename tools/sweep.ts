@@ -7,7 +7,7 @@
      npm run sweep                    every setting
      npm run sweep -- weight serifCup only these
 
-   Known and kept on purpose: terminalCurl and swash (the curl grows faster toward the ends), contrast turning
+   Known and kept on purpose: terminalCurl (the curl grows faster toward the ends), contrast turning
    to reverse around 40-50, geoHuman's switch to the single-storey a, and the pixel and dot fills stepping in
    whole cells (module). */
 import { buildFont, coverage, showContext, type Row } from './lib';
@@ -15,7 +15,7 @@ import { BLOCK_CONTROLS, controlFor, type ActiveKey } from '../shared/content';
 import { DEFAULTS, type NumericParam, type Params } from '../shared/params';
 
 const TEXT = 'Hamburg AVEFT bdpq ij! Qye 4&';
-const KNOWN = new Set(['terminalCurl', 'swash', 'contrast', 'geoHuman', 'module']);
+const KNOWN = new Set(['terminalCurl', 'contrast', 'geoHuman', 'module']);
 
 const BASES: [string, Partial<Params>][] = [['light', { weight: 0.25 }], ['heavy', { weight: 0.8 }]];
 /** The settings basic block letters follow: their controls and the sliders nested under those. */

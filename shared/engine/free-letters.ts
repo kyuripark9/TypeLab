@@ -8,7 +8,7 @@ import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
 import { FORM_LETTERS, descK, rigSkeleton, skinMeasures, skinMove, skinRig, type SkinMeasures, type SkinRig } from './skin';
-import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restyleSwash, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
+import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
 import { SERIF_SB, buildFont, type Effective, type Font, type Glyph, glyphDefOf, hasGlyph, type Metrics, metrics, resolve, scriptForms, scriptId, swashId, termSpec } from './font';
@@ -19,8 +19,8 @@ import { blankParts, placeGlyph, wobbler, type Unplaced } from './glyph';
    the rest of the way, and Contrast, Width, the heights, Inner space, the dots' size, Pinch, Ink traps and the
    serifs' size, move its letters on their skeletons as the engine's own letters move (skin.ts); then the shapes
    the engine draws are set on them where the settings ask for others than the font's (restyle.ts): its dots,
-   bowls (and a bowl parted from its stem), stroke ends (their kind, length, curl, openness, tails), Cursive's flicks
-   and swash capitals' curls, serifs, stencil and crossbar gaps, peaks and corners; slanted past half an italic's lean,
+   bowls (and a bowl parted from its stem), stroke ends (their kind, length, curl, openness, tails), Cursive's flicks,
+   serifs, stencil and crossbar gaps, peaks and corners; slanted past half an italic's lean,
    its italic; and the font's own lean, rotation, spacing and fill are kept until the settings move. */
 
 /** How far an italic leans, taken as a typical one's. */
@@ -107,7 +107,7 @@ function inkX(d: Drawn): [number, number] {
 /** Whether letter `ch` is asked for (settings `a`) in another form than the one the font's own stands for (its settings
     as picked, `b`): built otherwise, written as a script's or not (Letterforms; left on auto, the font's own), the
     a's storeys (left on auto, the font's), or a letter-form setting moved on the letters it reaches (FORM_LETTERS in
-    skin.ts). (Swash capitals and Cursive curl and flick the font's own letters: restyleSwash and restyleCursive.) */
+    skin.ts). (Cursive flicks the font's own letters: restyleCursive.) */
 export function formChanged(ch: string, a: Effective, b: Effective): boolean {
   if (a.build !== b.build) return true;
   // (Letterforms and the Letter a left on auto keep the font's own forms, which its letters are drawn in, whatever
@@ -255,7 +255,7 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   // (every setting a restyle step below reads goes in this key: one left out leaves its slider showing the letter
   // kept from before)
   const key = JSON.stringify([a, b, ends(fl.pick), ends(fl.now), sf, sf && lines, sa, sb, ba, bb, da, db, fl.pick.apex, fl.now.apex, fl.now.apex !== fl.pick.apex && lines,
-    fl.pick.overlap, fl.now.overlap, fl.pick.cursive, fl.now.cursive, fl.pick.swash, fl.now.swash]);
+    fl.pick.overlap, fl.now.overlap, fl.pick.cursive, fl.now.cursive]);
   let kept = restyles.get(cs);
   if (!kept) { kept = new Map(); restyles.set(cs, kept); }
   let out = kept.get(key);
@@ -270,7 +270,6 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
     out = restyleBowls(out, ba, bb, scan(out));
     out = restyleEnds(out, c, fl.pick, fl.now, scan(out));
     out = restyleCursive(out, c, fl.pick.cursive, fl.now.cursive);
-    out = restyleSwash(out, c, fl.pick.swash, fl.now.swash);
     const bare = out;
     if (sf) out = restyleSerifs(out, { ...c, lower: x.lower, lines }, sf, scan(out));
     const serifed = out !== bare;
@@ -307,11 +306,9 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   const [a0, a1] = inkX(src);
   let lsb = room(a0 * fl.k * fl.sx * fl.sb, x0 - i0), rsb = room((src.adv - a1) * fl.k * fl.sx * fl.sb, i1 - x1);
   // (Cursive's flicks get most of the room they reach out into, so they touch the letter beside instead of running
-  // through it, as the engine's do: see padL and padR in buildGlyph, glyph.ts; a swash capital's curl all but half a
-  // side bearing of it, so it stands clear of the letter before, as the engine's swash ends take all of theirs)
-  const swash = fl.now.swash > fl.pick.swash && /^[A-Z]$/.test(ch);
-  if (rig && (swash || (fl.now.cursive > fl.pick.cursive && (EXIT_LETTERS.includes(ch) || ENTRY_LETTERS.includes(ch))))) {
-    const give = fl.m.sb * (swash ? 0.5 : 1.3);
+  // through it, as the engine's do: see padL and padR in buildGlyph, glyph.ts)
+  if (rig && fl.now.cursive > fl.pick.cursive && (EXIT_LETTERS.includes(ch) || ENTRY_LETTERS.includes(ch))) {
+    const give = fl.m.sb * 1.3;
     lsb += Math.max(0, x0 - i0 - give); rsb += Math.max(0, i1 - x1 - give);
   }
   // a monospaced font made proportional: the room a narrow letter is padded out with in its cell goes, its side bearings

@@ -30,7 +30,7 @@ helper such as `resolve` may be imported from its own file.
 4. `buildGlyph` (`glyph.ts`) runs its stages in this order:
    1. the glyph function draws centerline strokes on a `Builder` and returns the body width;
    2. `boxQuarters` (`corners.ts`) when Bowls are Box; `weighFillets`; `markTurns` gives each turn its id and radii;
-   3. `stretchTerminals` (`ends.ts`): Length, Curl, straight runs, a capital's swash end; the body grows by their reach;
+   3. `stretchTerminals` (`ends.ts`): Length, Curl, straight runs; the body grows by their reach;
    4. `faceSerifs`, then `cupSerifs` (`serif-sides.ts`), while serifs are on;
    5. `wobbleSkeleton`: Hand-drawn moves the strokes, counters, marks and end homes through one field;
    6. `expandStroke` (`stroke.ts`) on every stroke drawn with a path (not dots, fillets or blobs), weighed by its own
@@ -133,13 +133,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    fifth of the capitals' height with a square top (a wood type's, a typewriter's). Specks a move pinches off are
    dropped (`SPECK`). A pixel font (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
 4. `restyle.ts`: `restyled` (in `free-letters.ts`) redraws the engine's shapes on the moved outline in a fixed order,
-   Overlap, Dots, Bowls, Ends, Cursive, Swash, Serifs, Stencil, Peaks, Corners, each only where its settings differ from
+   Overlap, Dots, Bowls, Ends, Cursive, Serifs, Stencil, Peaks, Corners, each only where its settings differ from
    the pick, each handing back the very same array when nothing it follows moved. Results are cached by the contours and
    a key of every setting the steps read. Overlap parts a b d p q's bowl from an upright stem as the font's own o
    (`bowlStem`, `OVERLAP_LETTERS`); Cursive adds the engine's exit and entry flicks to the lowercase (`EXIT_LETTERS`,
-   `ENTRY_LETTERS`); Swash curls a capital's first free end at the left (`SWASH_STEM`, `SWASH_BAR`, `SWASH_FOOT`) out
-   into a curl that thins to a hairline and ends in a ball, as big as the letter has room for; Peaks reshapes only
-   `PEAK_LETTERS` with straight sides; Ends restyles only ends that curve from their tip (a heavy stem's round top or
+   `ENTRY_LETTERS`); Peaks reshapes only `PEAK_LETTERS` with straight sides; Ends restyles only ends that curve from
+   their tip (a heavy stem's round top or
    foot, a G's bar, run straight first), drawn again from no further back than the stroke runs alone (`widthAcross`,
    `ALONE_TURN`), and each as big as the letter has room for (`fittedEnd`, `roomAround`): a drop, point, flare or slant
    reaches no nearer the rest of the letter than the font's own end did (`ROOM_KEEP`), nor further past its stroke than
@@ -155,8 +154,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
 6. `freeGlyph` sizes the letter to the design, gives it side bearings, places it with `placeGlyph`, and keeps the placed
    outline as `Glyph.drawn`, so Points opens with the font's own points (its overlapping pieces made one). An unmoved
    letter is spaced by the font's own outline, the united one leaving out a speck under a unit square. A parted bowl and
-   Cursive's flicks get the room they reach out into, a swash capital's curl all of it but half a side bearing; the
-   engine's serifs get room only on a letter they were set on; a monospaced font with Monospace lowered loses the
+   Cursive's flicks get the room they reach out into; the engine's serifs get room only on a letter they were set on;
+   a monospaced font with Monospace lowered loses the
    padding its narrow letters stand in; and Hand-drawn moves the letter through the engine's field (`wobbler` in
    `glyph.ts`), its long straight sides split so they bend.
 

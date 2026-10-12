@@ -14,7 +14,7 @@ const ALSO: Partial<Record<ActiveKey, string>> = {
   mono: 'typewriter code fixed width', wobble: 'rough sketchy organic jitter', cursive: 'script connected joined', flourish: 'swash flourish stylistic alternate ornament heart loop', swell: 'pressure shade pointed pen nib copperplate taper', fill: 'outline texture pattern halftone',
   terminal: 'tip ending finish sharp angled slanted cut tapered rounded teardrop wedge', serif: 'feet slab', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
   aperture: 'opening mouth', extenders: 'ascender descender', build: 'blocks stroke construction', blockForm: 'block slot plain square eurostile', stencil: 'gap cut break', slice: 'cut line split',
-  squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', joinRound: 'crotch fillet', innerRound: 'inside corners', swash: 'flourish', dots: 'tittle period i j'
+  squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', joinRound: 'crotch fillet', innerRound: 'inside corners', dots: 'tittle period i j'
 };
 
 export interface SettingHit {

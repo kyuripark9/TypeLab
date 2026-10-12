@@ -1,7 +1,7 @@
 /* Stroke ends: the centerline sampled and measured along its arcs, an end drawn on or trimmed back
    (Length), curled on round its turn or flared out (Curl) without running into the rest of the letter,
    or turned to run straight out level or plumb; then every styled terminal of a glyph stretched at
-   once (stretchTerminals), a capital's swash end, and a stroke's clip widened to follow a moved end.
+   once (stretchTerminals), and a stroke's clip widened to follow a moved end.
    Runs on skeletons, before buildGlyph (glyph.ts) expands them. */
 import { endCurl, endId, endLength, endReach } from '../params';
 import { clamp, cubicAt, lerp, lerpP, quarter, subCubic } from './geom';
@@ -389,7 +389,7 @@ function runStraight(cmds: Cmd[], which: 's' | 'e', hook: boolean, m: Metrics): 
     Notes the ids of those tips in `hooks` and of plain ends in `plains`, where each end sat before
     its own length and curl in `homes`, and returns how far the ends now reach past the body on the
     left and right, to widen it by. */
-export function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>, plains: Set<string>, homes: Map<string, Pt>, capital: boolean) {
+export function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<string>, plains: Set<string>, homes: Map<string, Pt>) {
   const grow = { l: 0, r: 0 };
   // every stroke's centerline as drawn, to tell a free end from one buried in another stroke
   const drawn = b.strokes.map(t => t.cmds ? centerPoints(t.cmds, m, m.s * 0.25) : null);
@@ -415,7 +415,6 @@ export function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<s
     return x0 <= x1 ? { x: (x0 + x1) / 2, y: (y0 + y1) / 2 } : { x: W / 2, y: m.xh / 2 };
   };
   const tipAt = (p: Pt) => b.marks.find(k => (k.type === 'tail' || k.type === 'exit') && Math.hypot(k.x - p.x, k.y - p.y) < 1);
-  const swash = capital && m.p.swash > 0 ? swashEnd(b, m, W) : null;
   b.strokes.forEach((st, si) => {
     if (!st.cmds) return;
     const o = st.o, own = o.part === 'tail' || o.part === 'entry';
@@ -432,32 +431,28 @@ export function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<s
           grow.r = Math.max(grow.r, r.to.x - Math.max(W, r.from.x));
         }
       }
-      const plain = type !== 'term', at = endAt(st.cmds, which, m), sw = swash?.si === si && swash.which === which ? swash : null;
-      // (a swash runs on out of the stroke it is buried in, as a P's stem out of the top of its bowl)
-      if (plain && (!at || (!sw && buried(si, at)))) continue;
+      const plain = type !== 'term', at = endAt(st.cmds, which, m);
+      if (plain && (!at || buried(si, at))) continue;
       const id = endId(si, which, plain), tip = !plain && at && tipAt(at);
       // an end with a serif is drawn plain, whatever its kind: `plains` holds both kinds of id, a plain end's ('p' and
       // all) and a terminal's drawn plain under a serif (a bare one)
       if (plain || serif) plains.add(id);
       if (!plain && (own || tip || serif)) hooks.add(id);
       if (at) homes.set(id, at);
-      // a swash end draws on and curls out, unless the letter sets it its own way
-      const d = endReach(sw && m.p.terminalEnds?.[id] == null ? sw.len : endLength(m.p, id, plain || serif || own || !!tip)) * m.xh * (o.scale || 1);
+      const d = endReach(endLength(m.p, id, plain || serif || own || !!tip)) * m.xh * (o.scale || 1);
       // where letters join up (the start of an entry stroke, the tip of an exit), the stroke end curl
       // would wind a knot into the join: only a curl set for that one end turns it
       const join = o.part === 'entry' || (at && b.marks.some(k => k.type === 'exit' && Math.hypot(k.x - at.x, k.y - at.y) < 1));
       // and an end with a serif keeps it, level or plumb, as a crossbar's end runs level: only a curl set for that one
       // end bends it (and lets a serif go)
-      const curl = sw && m.p.terminalCurls?.[id] == null ? sw.curl : join || serif || o.part === 'crossbar' ? m.p.terminalCurls?.[id] ?? 0.5 : endCurl(m.p, id);
+      const curl = join || serif || o.part === 'crossbar' ? m.p.terminalCurls?.[id] ?? 0.5 : endCurl(m.p, id);
       if (Math.abs(d) < 0.01 && curl === 0.5) continue;
-      const before = st.cmds, r = shapeEnd(st.cmds, which, d, curl, m, sw && curl === sw.curl ? sw.mid : (mid ??= middle()),
+      const before = st.cmds, r = shapeEnd(st.cmds, which, d, curl, m, mid ??= middle(),
         () => b.strokes.flatMap((t, ti) => ti === si ? [] : t.cmds ? centerPoints(t.cmds, m, m.s * 0.5) : t.poly ? dotPoints(t.poly, m.s * 0.25) : []),
         m.p.terminalCurls?.[id] != null);
       if (!r) continue;
       st.cmds = r.cmds;
       if (plain && type !== 'flat' && curl !== 0.5) st.o = { ...st.o, [which]: 'flat' };
-      // and finishes as a stroke end does, in a ball where they have one
-      if (sw) st.o = { ...st.o, [which]: 'term' };
       // a serif sits level or plumb, which a curled end no longer runs, so it lets it go
       if (serif && curl !== 0.5) st.o = { ...st.o, [which === 's' ? 'serifS' : 'serifE']: null };
       if (plain && st.o.clip) st.o = { ...st.o, clip: widenClip(st.o.clip, r.from, before, r.cmds, m) };
@@ -469,31 +464,6 @@ export function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<s
     }
   });
   return grow;
-}
-
-/** The end a swash capital curls out (see Params.swash): its first free end at the top left, as the
-    top of a P's stem or the left end of a T's bar, or else at the bottom left, as the foot of an A;
-    none on the right half (a C, an S). With how far it draws on, how far it curls, and the point it
-    curls toward. */
-function swashEnd(b: Builder, m: Metrics, W: number) {
-  const ends: { si: number; which: 's' | 'e'; x: number; y: number; ox: number; oy: number; level: boolean }[] = [];
-  b.strokes.forEach((st, si) => {
-    if (!st.cmds || st.o.part === 'entry') return;
-    for (const which of ['s', 'e'] as const) {
-      if ((which === 's' ? st.o.s : st.o.e) === 'join') continue;
-      const e = endCmd(st.cmds, which, m);
-      if (!e) continue;
-      const q = cubicAt(e.P, which === 's' ? e.u0 : e.u1), sg = which === 's' ? -1 : 1;
-      if (q.x <= W * 0.5 + 1) ends.push({ si, which, x: q.x, y: q.y, ox: q.tx * sg, oy: q.ty * sg, level: Math.abs(q.ty) < 0.5 });
-    }
-  });
-  const pick = (f: (e: typeof ends[number]) => boolean) => ends.filter(f).sort((a, c) => a.x - c.x)[0];
-  const end = pick(e => e.y >= m.cap * 0.85) ?? pick(e => e.y <= m.cap * 0.15);
-  if (!end) return null;
-  // it curls round toward a point beside it, so it always winds the same way: counterclockwise from
-  // the top or a level end (out and down), clockwise from the foot (out and up)
-  const k = m.p.swash, ccw = end.level || end.y > m.cap / 2 ? 1 : -1, far = m.cap * 10;
-  return { ...end, len: 0.5 + 0.25 * k, curl: 0.5 + 0.3 * k, mid: { x: end.x - end.oy * ccw * far, y: end.y + end.ox * ccw * far } };
 }
 
 /** A stroke's clip, given way where the end that sat at `from` now reaches past it: each side of

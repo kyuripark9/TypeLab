@@ -217,8 +217,7 @@ function ringOutline(ex: Expanded, m: Metrics, w: number): { cmds: Cmd[]; hole: 
 }
 
 /** Build glyph `id` from the glyph table, for the character `ch` it is drawn for. The id is the character, or
-    the character and the form it draws ('a.alt', 't.sw', 'S.scr'): only a plain capital's id ('S', not
-    'S.scr') takes the swash end Swash capitals curls out. */
+    the character and the form it draws ('a.alt', 't.sw', 'S.scr'). */
 export function buildGlyph(id: string, m: Metrics, ch = id): Glyph | null {
   const def = glyphDefOf(id);
   if (!def) return null;
@@ -227,7 +226,7 @@ export function buildGlyph(id: string, m: Metrics, ch = id): Glyph | null {
   if (m.p.bowlForm === 'box') boxQuarters(b, m);
   weighFillets(b, m);
   markTurns(b, m);
-  const grow = stretchTerminals(b, m, W0, hooks, plains, homes, /^[A-Z]$/.test(id)), W = W0 + grow.r;
+  const grow = stretchTerminals(b, m, W0, hooks, plains, homes), W = W0 + grow.r;
   const facing = m.ctx.serif ? faceSerifs(b, m) : null;
   const cups = m.ctx.serif?.cup ? cupSerifs(b, m, facing) : null;
   const code = id.charCodeAt(0);

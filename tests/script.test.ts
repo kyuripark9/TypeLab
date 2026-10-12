@@ -3,11 +3,11 @@ import { describe, it } from 'node:test';
 import { CHARSET, buildFont } from '../shared/engine';
 import { glyphIds, hasGlyph } from '../shared/engine/font';
 import { DEFAULTS, type Params } from '../shared/params';
-import { pathPts, xsOf } from './outlines';
+import { xsOf } from './outlines';
 
 /* The script settings, the panel's Handwriting page: Cursive and the joined-up script letterforms (script.ts),
-   Swell, Flourishes (swash.ts) and Swash capitals (`swash`). The Lowercase height scale, down to a copperplate's
-   x-height, and moving older designs onto it are in params.test.ts. */
+   Swell and Flourishes (swash.ts). The Lowercase height scale, down to a copperplate's x-height, and moving older
+   designs onto it are in params.test.ts. */
 
 /** A light, slanted script of high contrast and a small x-height, as a copperplate is written. */
 const copperplate: Params = { ...DEFAULTS, scriptForm: 'script', weight: 0.36, contrast: 1, slant: 1, xHeight: 0.1 };
@@ -88,23 +88,5 @@ describe('flourishes', () => {
 
   it('has swash forms of S t z r l d alone', () => {
     assert.deepEqual(glyphIds().filter(k => k.endsWith('.sw')).map(k => k[0]).sort(), [...'Sdlrtz']);
-  });
-});
-
-describe('swash capitals (swash)', () => {
-  it('swash capitals curl the first stroke out and leave the rest alone', () => {
-    const base = { ...DEFAULTS, terminal: 'round' as const, terminalForm: 'ball' as const }, off = buildFont(base), on = buildFont({ ...base, swash: 1 });
-    for (const ch of 'PRTBIAHM') {
-      assert.notEqual(on.glyph(ch)!.d, off.glyph(ch)!.d, ch);
-      assert.ok(on.glyph(ch)!.lsb > off.glyph(ch)!.lsb, `${ch} makes room for its curl on the left`);
-    }
-    for (const ch of 'COGnhe1') assert.equal(on.glyph(ch)!.d, off.glyph(ch)!.d, ch);
-    // it runs on up out of the top of the P's stem and curls out to the left of it
-    const P = on.glyph('P')!, left = (g: typeof P) => Math.min(...xsOf(g.d)) - g.lsb;
-    assert.ok(Math.max(...pathPts(P.d).map(q => q.y)) > on.m.cap + 5);
-    assert.ok(left(P) < left(off.glyph('P')!) - on.m.s);
-    // a letter can set the end its own way
-    const own = buildFont({ ...base, swash: 1, glyphs: { P: { terminalCurls: { p0e: 0.5 }, terminalEnds: { p0e: 0.5 } } } });
-    assert.equal(own.glyph('P')!.d, off.glyph('P')!.d);
   });
 });

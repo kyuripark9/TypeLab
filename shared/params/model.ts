@@ -52,8 +52,6 @@ export interface Params {
   /** how round the inside corners of counters are, where strokes meet or turn, from 0 as the strokes
       draw them to 1, most of a cap height across, whatever the weight: light strokes fill in solid
       where the round leaves a square corner outside */ innerRound: number;
-  /** capitals start with a curl: the top of the first stroke (the foot of an A, the left end of a T's
-      bar) runs on and curls out into a flourish */ swash: number;
   /** the letter as drawn, or mirrored (see MIRRORS) */ mirror: Mirror;
   /** entry/exit strokes, looped descenders and italic letterforms */ cursive: number;
   /** round curves drawn as squircles */ squareness: number;

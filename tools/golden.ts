@@ -72,7 +72,7 @@ const FREE_MOVES: [string, (st: StyleDef) => Partial<Params>][] = [
   ['terminalLength=1', () => ({ terminalLength: 1 })], ['terminalCurl=1', () => ({ terminalCurl: 1 })], ['tail=1', () => ({ tail: 1 })],
   ['aperture=1', () => ({ aperture: 1 })], ['chamfer=1', () => ({ chamfer: 1 })], ['bowlForm=box', () => ({ bowlForm: 'box' })],
   ['boxRound=0', () => ({ bowlForm: 'box', boxRound: 0 })], ['boxRound=1', () => ({ bowlForm: 'box', boxRound: 1 })],
-  ['overlap=0', () => ({ overlap: 0 })], ['cursive=0.7', () => ({ cursive: 0.7 })], ['swash=1', () => ({ swash: 1 })],
+  ['overlap=0', () => ({ overlap: 0 })], ['cursive=0.7', () => ({ cursive: 0.7 })],
   ['wobble=1', () => ({ wobble: 1 })], ['mono=0', () => ({ mono: 0 })]
 ];
 const FREE_CHARS = 'ABCDEGHKMNOQRSWabegikmnoprsty0258&?';

@@ -23,7 +23,7 @@ export const CATEGORIES: { id: CategoryId; label: string; hint: string; group?: 
   { id: 'ends', label: 'Stroke ends', hint: 'How the free ends of strokes finish', group: 'shape' },
   { id: 'serifs', label: 'Serifs', hint: 'Feet on the strokes: shape, tips, base and sides', group: 'shape' },
   { id: 'letters', label: 'Letters', hint: 'Other shapes for a, g, k, Q, R, s, Y and more', group: 'details' },
-  { id: 'script', label: 'Handwriting', hint: 'Cursive strokes, a wobbly hand and swash capitals', group: 'details' },
+  { id: 'script', label: 'Handwriting', hint: 'Cursive strokes, a wobbly hand and flourishes', group: 'details' },
   { id: 'effects', label: 'Effects', hint: 'Outlines, pixels, dots, stencil and slice', group: 'details' }
 ];
 /** Names older links use for a page or group the navigation doesn't have (structure, personality), or that now names a
