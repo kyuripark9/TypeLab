@@ -1,8 +1,9 @@
 /* Editing a drawn letter's outline (see shared/engine/outline): the pure operations behind the pen
    tools. Each takes contours and returns new ones, leaving the old untouched for undo. Positions are
    font units, y up, rounded to whole units. Besides points: corners rounded where they are (live
-   corners), told apart as pointing out of the ink or into it, and overlapping shapes merged, cut out of
-   each other, or broken apart with a gap where one runs over another. */
+   corners), told apart as pointing out of the ink or into it; overlapping shapes merged, cut out of
+   each other, or broken apart with a gap where one runs over another; and picked points scaled, turned
+   or flipped as one, and shapes made thicker or thinner, their points kept. */
 import {
   ALL_CHARS, CIRCLE_K, combine, cornerRoom, cornerTurn, cutOut, drawnCmds, fitOutline, hasIn, hasOut, segment, shape as inkShape, signedArea, unite,
   type Cmd, type CornerKind, type Drawn, type Glyph, type Node
@@ -534,6 +535,190 @@ export function breakShapes(cs: Node[][], picked: number[], gap: number): { cs: 
   }
   for (let k = 1; k < shapes.length; k++) shapes = [...cutBy(shapes[k], shapes.slice(0, k)), ...shapes.slice(k)];
   return changed ? { cs: shapes.flat(), front: [] } : null;
+}
+
+/* ---- Picked points as one: scaled, turned or flipped together; shapes made thicker or thinner */
+
+/** The contours of the shapes holding any of `contours` (each shape with the holes in it), in order. */
+export function wholeShapes(cs: Node[][], contours: number[]): number[] {
+  return shapesHolding(shapesOf(cs), contours).flat().sort((a, b) => a - b);
+}
+
+/** An affine map, x' = a x + c y + e and y' = b x + d y + f, as [a, b, c, d, e, f]. */
+export type Affine = [number, number, number, number, number, number];
+/** Turning by `deg` degrees anticlockwise about `o`. */
+export function turnAbout(o: P, deg: number): Affine {
+  const t = (deg * Math.PI) / 180, cos = Math.cos(t), sin = Math.sin(t);
+  return [cos, sin, -sin, cos, o.x - cos * o.x + sin * o.y, o.y - sin * o.x - cos * o.y];
+}
+/** Scaling by `sx` across and `sy` up about `o`, which stays put; a negative scale flips. */
+export const scaleAbout = (o: P, sx: number, sy: number): Affine => [sx, 0, 0, sy, o.x - sx * o.x, o.y - sy * o.y];
+
+/** Picked points, their handles with them, taken through the map `m`. A map that flips would run a whole contour the
+    other way round, turning ink into a hole, so each contour picked whole is run back again. */
+export function transformAnchors(cs: Node[][], refs: Ref[], m: Affine): Node[][] {
+  let out = copy(cs);
+  const at = (x: number, y: number) => ({ x: R(m[0] * x + m[2] * y + m[4]), y: R(m[1] * x + m[3] * y + m[5]) });
+  const keys = new Set(refs.map(refKey));
+  for (const k of keys) {
+    const { c, i } = keyRef(k), n = out[c]?.[i];
+    if (!n) continue;
+    const p = at(n.x, n.y);
+    if (hasIn(n)) { const h = at(n.ix!, n.iy!); n.ix = h.x; n.iy = h.y; }
+    if (hasOut(n)) { const h = at(n.ox!, n.oy!); n.ox = h.x; n.oy = h.y; }
+    n.x = p.x; n.y = p.y;
+  }
+  if (m[0] * m[3] - m[1] * m[2] < 0)
+    for (let c = 0; c < cs.length; c++) if (cs[c].length && cs[c].every((_, i) => keys.has(refKey({ c, i })))) out = reverseContour(out, c);
+  return out;
+}
+
+/** The box round picked points: their anchors, and the curves running from one of them to the next. */
+export function pickedBox(cs: Node[][], refs: Ref[]): { x0: number; y0: number; x1: number; y1: number } | null {
+  const keys = new Set(refs.map(refKey));
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const take = (p: P) => { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); };
+  for (const k of keys) {
+    const { c, i } = keyRef(k), con = cs[c], n = con?.[i];
+    if (!n) continue;
+    take(n);
+    const j = (i + 1) % con.length, s = j !== i ? segment(n, con[j]) : null;
+    if (s && keys.has(refKey({ c, i: j }))) for (let t = 1; t < 16; t++) take(bez(s, t / 16));
+  }
+  return x0 <= x1 ? { x0, y0, x1, y1 } : null;
+}
+
+/** How thick the ink of contours is: from all along their outline, straight across the ink to its other side, the
+    middle of those widths, each counting for the length of outline it starts from. A bar's width rather than its
+    length, a ring's or a letter's strokes. 0 when there is no ink. */
+export function thicknessOf(cs: Node[][]): number {
+  const polys = polysOf(cs), ink = inkShape(polys);
+  const edges = polys.flatMap(p => p.map((a, k) => [a, p[(k + 1) % p.length]] as [P, P]));
+  const total = edges.reduce((s, [a, b]) => s + Math.hypot(b.x - a.x, b.y - a.y), 0);
+  const step = Math.max(2, total / 400), ws: { w: number; k: number }[] = [];
+  edges.forEach(([a, b], e) => {
+    const l = Math.hypot(b.x - a.x, b.y - a.y);
+    if (l < 1e-6) return;
+    const tx = (b.x - a.x) / l, ty = (b.y - a.y) / l, n = Math.max(1, Math.round(l / step));
+    for (let k = 0; k < n; k++) {
+      const f = (k + 0.5) / n, q = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+      // into the ink, on whichever side of the outline it is
+      let ux = -ty, uy = tx;
+      if (!ink.has(q.x + ux * 0.5, q.y + uy * 0.5)) { ux = -ux; uy = -uy; if (!ink.has(q.x + ux * 0.5, q.y + uy * 0.5)) continue; }
+      let best = Infinity;
+      edges.forEach(([c, d], o) => {
+        if (o === e) return;
+        const sx = d.x - c.x, sy = d.y - c.y, den = ux * sy - uy * sx;
+        if (Math.abs(den) < 1e-9) return;
+        const t = ((c.x - q.x) * sy - (c.y - q.y) * sx) / den, s = ((c.x - q.x) * uy - (c.y - q.y) * ux) / den;
+        if (t > 0.01 && s >= 0 && s <= 1 && t < best) best = t;
+      });
+      if (best < Infinity) ws.push({ w: best, k: l / n });
+    }
+  });
+  if (!ws.length) return 0;
+  ws.sort((a, b) => a.w - b.w);
+  let left = ws.reduce((s, v) => s + v.k, 0) / 2;
+  for (const v of ws) if ((left -= v.k) <= 0) return R(v.w);
+  return R(ws[ws.length - 1].w);
+}
+
+/** Whether a contour's ink (by `ink`, its shape's) lies to the left of the way it runs: the side most of its outline
+    has ink on. */
+function inkLeftOf(con: Node[], ink: (x: number, y: number) => boolean): boolean {
+  let vote = 0;
+  for (const p of polysOf([con])) for (let k = 0; k < p.length; k++) {
+    const a = p[k], b = p[(k + 1) % p.length], l = Math.hypot(b.x - a.x, b.y - a.y);
+    if (l < 2) continue;
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, nx = -(b.y - a.y) / l, ny = (b.x - a.x) / l;
+    const lft = ink(mx + nx * 0.75, my + ny * 0.75), rgt = ink(mx - nx * 0.75, my - ny * 0.75);
+    if (lft !== rgt) vote += lft ? l : -l;
+  }
+  return vote !== 0 ? vote > 0 : contourArea(con) >= 0;
+}
+
+/** Four straight sides, two and two in line, whose long sides are nearer each other than its ends are: a bar (a
+    stroke, a box longer than it is wide). Its long sides (0 and 2, or 1 and 3) and how far apart they are, or null. */
+function barOf(con: Node[]): { sides: number; w: number } | null {
+  if (con.length !== 4 || con.some(n => hasIn(n) || hasOut(n))) return null;
+  const side = (i: number) => { const a = con[i % 4], b = con[(i + 1) % 4], l = Math.hypot(b.x - a.x, b.y - a.y) || 1; return { x: (b.x - a.x) / l, y: (b.y - a.y) / l }; };
+  const level = (i: number) => { const a = side(i), b = side(i + 2); return Math.abs(a.x * b.y - a.y * b.x) < 0.02; };
+  if (!level(0) || !level(1)) return null;
+  const apart = (i: number) => { const u = side(i), a = con[i], q = con[(i + 2) % 4]; return Math.abs(u.x * (q.y - a.y) - u.y * (q.x - a.x)); };
+  const h0 = apart(0), h1 = apart(1);
+  return Math.abs(h0 - h1) > 1 ? { sides: h0 < h1 ? 0 : 1, w: Math.min(h0, h1) } : null;
+}
+
+/** A contour moved `d` out of its ink (into it when negative), its ink to the left of the way it runs or not. Each
+    side moves its own distance (`dist`, by side), each point to where its two sides now meet (a sharp point at most
+    four times the distance out), curves keep their handles' ways, longer or shorter as their curve grows or shrinks,
+    and a corner's radius grows by as much outside and shrinks inside (`bar`: a bar's round ends stay half its width). */
+function offsetContour(con: Node[], inkLeft: boolean, dist: number[], bar: { w: number; d: number } | null): Node[] {
+  const n = con.length, unitv = (v: P) => { const l = Math.hypot(v.x, v.y); return l > 1e-9 ? { x: v.x / l, y: v.y / l } : { x: 0, y: 0 }; };
+  const off = (t: P): P => (inkLeft ? { x: t.y, y: -t.x } : { x: -t.y, y: t.x });
+  const curves = con.map((a, i) => { const b = con[(i + 1) % n]; return segment(a, b) ?? [a, a, b, b]; });
+  const far = (p: P, q: P) => Math.hypot(q.x - p.x, q.y - p.y) > 1e-6;
+  const tail = (B: P[]) => unitv(far(B[2], B[3]) ? { x: B[3].x - B[2].x, y: B[3].y - B[2].y } : far(B[1], B[3]) ? { x: B[3].x - B[1].x, y: B[3].y - B[1].y } : { x: B[3].x - B[0].x, y: B[3].y - B[0].y });
+  const head = (B: P[]) => unitv(far(B[0], B[1]) ? { x: B[1].x - B[0].x, y: B[1].y - B[0].y } : far(B[0], B[2]) ? { x: B[2].x - B[0].x, y: B[2].y - B[0].y } : { x: B[3].x - B[0].x, y: B[3].y - B[0].y });
+  const moved = con.map((p, i) => {
+    const ip = (i + n - 1) % n, tin = tail(curves[ip]), tout = head(curves[i]), n1 = off(tin), n2 = off(tout), d1 = dist[ip], d2 = dist[i];
+    const det = n1.x * n2.y - n1.y * n2.x;
+    let v: P;
+    if (Math.abs(det) > 0.02) v = { x: (d1 * n2.y - n1.y * d2) / det, y: (n1.x * d2 - d1 * n2.x) / det };
+    else if (n1.x * n2.x + n1.y * n2.y > 0) { const m = unitv({ x: n1.x + n2.x, y: n1.y + n2.y }); v = { x: m.x * (d1 + d2) / 2, y: m.y * (d1 + d2) / 2 }; }
+    else v = { x: tin.x * 2 * (d1 + d2), y: tin.y * 2 * (d1 + d2) };
+    const lim = 4 * Math.max(Math.abs(d1), Math.abs(d2)), vl = Math.hypot(v.x, v.y);
+    if (vl > lim) v = { x: v.x * lim / vl, y: v.y * lim / vl };
+    return { x: p.x + v.x, y: p.y + v.y, outside: (tin.x * tout.y - tin.y * tout.x) * (inkLeft ? 1 : -1) > 0, d: (d1 + d2) / 2 };
+  });
+  // a curve as much longer or shorter as the line between its ends
+  const grows = (j: number) => {
+    const a = con[j], b = con[(j + 1) % n], l = Math.hypot(b.x - a.x, b.y - a.y), ma = moved[j], mb = moved[(j + 1) % n];
+    return l > 1e-6 ? Math.hypot(mb.x - ma.x, mb.y - ma.y) / l : 1;
+  };
+  return con.map((p, i) => {
+    const m = moved[i], q: Node = { ...p, x: R(m.x), y: R(m.y) };
+    if (hasIn(p)) { const k = grows((i + n - 1) % n); q.ix = R(m.x + (p.ix! - p.x) * k); q.iy = R(m.y + (p.iy! - p.y) * k); }
+    if (hasOut(p)) { const k = grows(i); q.ox = R(m.x + (p.ox! - p.x) * k); q.oy = R(m.y + (p.oy! - p.y) * k); }
+    if (p.r) {
+      const r = bar ? (p.r >= bar.w / 2 - 1 ? bar.w / 2 + bar.d : p.r) : p.r + (m.outside ? m.d : -m.d);
+      if (r >= 0.5) q.r = R(r); else { delete q.r; delete q.corner; }
+    }
+    return q;
+  });
+}
+
+/** The shapes holding contours `picked` made `d` units thicker on every side (thinner when `d` is negative), keeping
+    their points: each contour moves out of its ink, holes into theirs. A bar standing alone grows only across: its
+    long sides move, and its ends stay where they are. */
+export function thicken(cs: Node[][], picked: number[], d: number): Node[][] {
+  const out = copy(cs);
+  if (!d) return out;
+  for (const g of shapesHolding(shapesOf(cs), picked)) {
+    const ink = inkOf(g.map(c => cs[c]));
+    for (const c of g) {
+      const con = cs[c], bar = g.length === 1 ? barOf(con) : null;
+      const dist = con.map((_, i) => (bar ? ((i - bar.sides) % 2 === 0 ? d : 0) : d));
+      out[c] = offsetContour(con, inkLeftOf(con, ink), dist, bar && { w: bar.w, d });
+    }
+  }
+  return out;
+}
+
+/** The shapes holding contours `picked` made `w` thick (as thicknessOf reads them), their sides moving about half the
+    difference each: a curved letter's widths don't all grow by as much as its sides move, so it is tried again from
+    the start, a few times, by as much more or less as it fell short or went past. */
+export function setWeight(cs: Node[][], picked: number[], w: number): Node[][] {
+  const g = wholeShapes(cs, picked), of = (o: Node[][]) => thicknessOf(g.map(c => o[c])), now = of(cs);
+  if (!(now > 0)) return copy(cs);
+  let d = (w - now) / 2, out = thicken(cs, g, d), got = of(out), best = { out, off: Math.abs(got - w) };
+  for (let k = 0; k < 3 && best.off > 1; k++) {
+    const by = (w - now) / (got - now);
+    if (!(by > 0) || !Number.isFinite(by)) break;
+    d *= by; out = thicken(cs, g, d); got = of(out);
+    if (Math.abs(got - w) < best.off) best = { out, off: Math.abs(got - w) };
+  }
+  return best.out;
 }
 
 /* ---- Sync all: a point moved in one letter moves in the others that have it too */

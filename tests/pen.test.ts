@@ -1,16 +1,17 @@
 /* The pen (client/lib/pen.ts, and tracing in shared/engine/outline.ts): letters traced into points, drawn
    letters in params.outlines, editing points, Sync all, Mirror and Snapping; live corners (a radius kept on a
    corner point, drawn round, cut or scooped), corners told outside or inside, overlapping shapes merged, cut out
-   and broken apart, and strokes drawn with the Shape tool. */
+   and broken apart, and strokes drawn with the Shape tool; picked shapes scaled, turned and flipped, and made thicker
+   or thinner with their points kept. */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { ALL_CHARS, buildFont, drawnCmds, fitOutline, type Cmd, type Node } from '../shared/engine';
-import { STYLES } from '../shared/content';
+import { STYLES, styleById } from '../shared/content';
 import { DEFAULTS, isValidParams, sanitizeParams, type Params } from '../shared/params';
 import {
   breakShapes, contourArea, cornersAt, cutShapes, deleteAnchors, inkOf, mergeShapes, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment,
-  overlapping, peersOf, reshapeSegment, reverseContour, samePoints, setCorners, setHandle, shapesOf, snapIn, snapScene, splitSegment, strokeContour, strokeWidth,
-  tangentsFrom, toggleSmooth, traceOf, SNAP_KINDS
+  overlapping, peersOf, pickedBox, reshapeSegment, reverseContour, samePoints, scaleAbout, setCorners, setHandle, setWeight, shapesOf, snapIn, snapScene, splitSegment,
+  strokeContour, strokeWidth, tangentsFrom, thicken, thicknessOf, toggleSmooth, traceOf, transformAnchors, turnAbout, wholeShapes, SNAP_KINDS
 } from '../client/lib/pen';
 
 type P = { x: number; y: number };
@@ -420,6 +421,71 @@ describe('Strokes with the pen', () => {
     const f = buildFont(STYLES[0].params);
     assert.ok(Math.abs(strokeWidth(n.contours, 0) - f.m.s) < f.m.s * 0.2, `${strokeWidth(n.contours, 0)} against ${f.m.s}`);
     assert.equal(strokeWidth([], 77), 77);
+  });
+});
+
+describe('Picked shapes as one with the pen', () => {
+  const rect = (x0: number, y0: number, x1: number, y1: number): Node[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+  const every = (cs: Node[][]) => cs.flatMap((con, c) => con.map((_, i) => ({ c, i })));
+  const k = 0.5523, circle = (r: number): Node[] => [
+    { x: r, y: 0, ix: r, iy: -r * k, ox: r, oy: r * k, s: 1 }, { x: 0, y: r, ix: r * k, iy: r, ox: -r * k, oy: r, s: 1 },
+    { x: -r, y: 0, ix: -r, iy: r * k, ox: -r, oy: -r * k, s: 1 }, { x: 0, y: -r, ix: -r * k, iy: -r, ox: r * k, oy: -r, s: 1 }
+  ];
+
+  it('turns, scales and flips picked points about a place, a flipped contour still running the same way', () => {
+    const r = [rect(0, 0, 300, 100)];
+    assert.deepEqual(transformAnchors(r, every(r), turnAbout({ x: 150, y: 50 }, 90))[0], [{ x: 200, y: -100 }, { x: 200, y: 200 }, { x: 100, y: 200 }, { x: 100, y: -100 }]);
+    assert.deepEqual(transformAnchors(r, every(r), scaleAbout({ x: 0, y: 0 }, 2, 1))[0], rect(0, 0, 600, 100));
+    const flipped = transformAnchors(r, every(r), scaleAbout({ x: 150, y: 50 }, -1, 1));
+    assert.ok(contourArea(flipped[0]) > 0, 'still filled, not a hole');
+    assert.deepEqual(pickedBox(flipped, every(flipped)), { x0: 0, y0: 0, x1: 300, y1: 100 });
+    // only the picked points move; a contour picked in part isn't run back
+    const half = transformAnchors(r, [{ c: 0, i: 1 }, { c: 0, i: 2 }], scaleAbout({ x: 0, y: 0 }, -1, 1));
+    assert.deepEqual(half[0], [{ x: 0, y: 0 }, { x: -300, y: 0 }, { x: -300, y: 100 }, { x: 0, y: 100 }]);
+    // the box takes in a curve's bulge between two picked points
+    assert.deepEqual(pickedBox([circle(100)], every([circle(100)])), { x0: -100, y0: -100, x1: 100, y1: 100 });
+  });
+
+  it('reads how thick a shape is: a bar\'s width, a ring\'s stroke, a letter\'s stems', () => {
+    assert.equal(thicknessOf([rect(0, 0, 300, 100)]), 100);
+    assert.equal(thicknessOf([rect(0, 0, 100, 120)]), 100);
+    assert.equal(thicknessOf([rect(0, 0, 400, 400), reverseContour([rect(100, 100, 300, 300)], 0)[0]]), 100);
+    assert.ok(Math.abs(thicknessOf([strokeContour({ x: 0, y: 0 }, { x: 300, y: 300 }, 80, false)]) - 80) <= 1);
+    const f = buildFont(STYLES[0].params), o = traceOf(f.glyph('o')!);
+    assert.ok(Math.abs(thicknessOf(o.contours) - f.m.s) < f.m.s * 0.2, `${thicknessOf(o.contours)} against ${f.m.s}`);
+    assert.equal(thicknessOf([]), 0);
+  });
+
+  it('makes shapes thicker or thinner, their points kept: a box grows all round, a bar only across, a ring into its counter', () => {
+    assert.deepEqual(thicken([rect(0, 0, 100, 100)], [0], 10)[0], rect(-10, -10, 110, 110));
+    assert.deepEqual(thicken([rect(0, 0, 300, 100)], [0], 10)[0], rect(0, -10, 300, 110));
+    const ring = thicken([rect(0, 0, 400, 400), reverseContour([rect(100, 100, 300, 300)], 0)[0]], [1], 10);
+    assert.deepEqual(ring[0], rect(-10, -10, 410, 410), 'a hole picked thickens its whole shape');
+    assert.deepEqual(pickedBox([ring[1]], every([ring[1]])), { x0: 110, y0: 110, x1: 290, y1: 290 });
+    // a circle stays a circle, its handles as long as a circle's
+    const c = thicken([circle(100)], [0], 20)[0];
+    assert.deepEqual(c[0], { x: 120, y: 0, ix: 120, iy: -66, ox: 120, oy: 66, s: 1 });
+    // a round-ended stroke keeps its ends round; corners of a box grow outside and shrink inside
+    const pill = setWeight([strokeContour({ x: 0, y: 0 }, { x: 400, y: 0 }, 100, true)], [0], 60)[0];
+    assert.deepEqual(pill.map(n => [n.x, n.y, n.r]), [[0, -30, 30], [400, -30, 30], [400, 30, 30], [0, 30, 30]]);
+    const L: Node[] = [{ x: 0, y: 0 }, { x: 300, y: 0 }, { x: 300, y: 100 }, { x: 100, y: 100, r: 30 }, { x: 100, y: 400 }, { x: 0, y: 400, r: 20 }];
+    const Lt = thicken([L], [0], 10)[0];
+    assert.equal(Lt[3].r, 20, 'the inside corner rounds less');
+    assert.equal(Lt[5].r, 30, 'the outside corner rounds more');
+    assert.deepEqual(Lt.map(n => [n.x, n.y]), [[-10, -10], [310, -10], [310, 110], [110, 110], [110, 410], [-10, 410]]);
+    // thinner, and back
+    assert.deepEqual(setWeight([rect(0, 0, 300, 100)], [0], 40)[0], rect(0, 30, 300, 70));
+    assert.deepEqual(wholeShapes([rect(0, 0, 400, 400), reverseContour([rect(100, 100, 300, 300)], 0)[0], rect(500, 0, 600, 100)], [1]), [0, 1]);
+  });
+
+  it('thickens a letter evenly, so its stems read as much thicker as asked', () => {
+    const f = buildFont(STYLES[0].params), o = traceOf(f.glyph('o')!), w = thicknessOf(o.contours);
+    const bold = setWeight(o.contours, [0], w + 40);
+    assert.ok(Math.abs(thicknessOf(bold) - (w + 40)) <= 1, `${thicknessOf(bold)} against ${w + 40}`);
+    const s = traceOf(buildFont(styleById('serif')!.params).glyph('S')!), ws = thicknessOf(s.contours);
+    for (const to of [ws + 30, ws - 12]) assert.ok(Math.abs(thicknessOf(setWeight(s.contours, [0], to)) - to) <= 1, `S at ${to}`);
+    assert.equal(bold.length, o.contours.length);
+    assert.deepEqual(bold.map(c => c.length), o.contours.map(c => c.length), 'the same points');
   });
 });
 

@@ -1,5 +1,8 @@
 /* The pen: the inspected letter as anchor points and bézier handles, edited like paths in a vector
-   editor. The Direct selection tool moves points, handles and curves; the Pen adds points (or
+   editor. The Selection tool picks whole shapes and moves them (⌥ moves a copy), and a box round them
+   scales them by its handles or turns them from just outside a corner; the pen bar sizes, turns, flips
+   and thickens them by number, and ⌘C, ⌘X and ⌘V carry them to another letter, in place. The Direct
+   selection tool moves points, handles and curves; the Pen adds points (or
    draws new contours) and removes them; Convert switches points between corner and smooth; the
    Shape tool adds a stroke as thick as the letter's own (square or round ended), a rectangle, rounded
    rectangle, ellipse, triangle, hexagon or star, picked from its menu, as a new contour. Corners rounds,
@@ -20,22 +23,26 @@ import { guideLines, stackLabels } from '../lib/guide-labels';
 import { isTyping, n1, useDismiss, useSize } from '../lib/hooks';
 import {
   anchorsIn, breakShapes, constrain, contourArea, cornerHandle, cornersAt, cutShapes, deleteAnchors, handlePeers, isStroke, keyRef, mergeShapes, mirrorEdit,
-  mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment, overlapping, peersOf, pointOn, pullHandles, refKey, reshapeSegment, reverseContour,
-  setCorners, setHandle, setSmooth, shapeAspect, shapeContour, snapIn, snapScene, splitSegment, strokeContour, strokeWidth, toggleSmooth, traceOf,
-  POINT_LINE, SHAPES, SNAP_KINDS, type Axis, type CornerAt, type Peer, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
+  mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment, overlapping, peersOf, pickedBox, pointOn, pullHandles, refKey, reshapeSegment, reverseContour,
+  scaleAbout, setCorners, setHandle, setSmooth, setWeight, shapeAspect, shapeContour, shapesOf, snapIn, snapScene, splitSegment, strokeContour, strokeWidth,
+  thicknessOf, toggleSmooth, traceOf, transformAnchors, turnAbout, wholeShapes,
+  POINT_LINE, SHAPES, SNAP_KINDS, type Affine, type Axis, type CornerAt, type Peer, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
 } from '../lib/pen';
 import { PREFS, prefOneOf, writePref } from '../lib/prefs';
 import { actions, useEditor } from '../state/editor';
 import { GridLines } from './ConstructionGrid';
 
-type Tool = 'select' | 'pen' | 'convert' | 'shape';
+type Tool = 'object' | 'select' | 'pen' | 'convert' | 'shape';
 type P = { x: number; y: number };
 interface View { sc: number; ox: number; oy: number }
+/** The box round the picked points, in font units. */
+type Box = { x0: number; y0: number; x1: number; y1: number };
 /** a live pointer gesture: `move` drives it and `up` finishes it, told whether the pointer moved past a click */
 interface Gesture { move: (p: P, e: PointerEvent) => void; up: (moved: boolean) => void; x0: number; y0: number; moved: boolean }
 
 const TOOLS: { id: Tool; label: string; key: string; icon: ReactNode }[] = [
-  { id: 'select', label: 'Direct selection', key: 'A', icon: <path d="M5 3l10 6.5-4.5 1L13 16l-2 1-2.5-5.5L5 15z" className="fill" /> },
+  { id: 'object', label: 'Selection', key: 'V', icon: <path d="M5 3l10 6.5-4.5 1L13 16l-2 1-2.5-5.5L5 15z" className="fill" /> },
+  { id: 'select', label: 'Direct selection', key: 'A', icon: <path d="M5 3l10 6.5-4.5 1L13 16l-2 1-2.5-5.5L5 15z" /> },
   { id: 'pen', label: 'Pen', key: 'P', icon: <><path d="M10 2.5l5 8-2.5 6h-5l-2.5-6z" /><path d="M10 2.5v6.5" /><circle cx="10" cy="10" r="1.3" /></> },
   { id: 'convert', label: 'Convert point', key: '⇧C', icon: <><path d="M3.5 15.5L10 4l6.5 11.5" /><path d="M5 9.5h10" strokeDasharray="1.5 2" /></> }
 ];
@@ -50,9 +57,9 @@ const SHAPE_INFO: Record<Shape, { label: string; key?: string; hint: string; ico
   polygon: { label: 'Hexagon', hint: 'a hexagon · Shift keeps its sides even', icon: <path d="M10 2.8l6.5 3.6v7.2L10 17.2l-6.5-3.6V6.4z" /> },
   star: { label: 'Star', hint: 'a star · Shift keeps its points even', icon: <path d="M10 2.5l2.1 4.6 5 .5-3.7 3.4 1 4.9L10 13.4l-4.4 2.5 1-4.9-3.7-3.4 5-.5z" /> }
 };
-/** The tool a key picks, by the letter its button shows (⇧ when it goes with Shift); V picks Direct selection too. */
+/** The tool a key picks, by the letter its button shows (⇧ when it goes with Shift). */
 const toolForKey = (k: string, shift: boolean): Tool | undefined =>
-  k === 'v' ? 'select' : TOOLS.find(t => t.key.replace('⇧', '').toLowerCase() === k && (shift || !t.key.startsWith('⇧')))?.id;
+  TOOLS.find(t => t.key.replace('⇧', '').toLowerCase() === k && (shift || !t.key.startsWith('⇧')))?.id;
 /** The shape a key picks for the Shape tool, by the letter its menu shows. */
 const shapeForKey = (k: string): Shape | undefined => SHAPES.find(s => SHAPE_INFO[s].key?.toLowerCase() === k);
 /** What a click would do where the pointer is, shown while it hovers. */
@@ -61,6 +68,16 @@ type Aim = { kind: 'add'; at: P } | { kind: 'close' } | { kind: 'shape'; shape: 
 const HIT = 7; // px around an anchor or handle that grabs it
 const SNAP_REACH = 6; // px from a snap target within which a point catches on it
 const DRAG_START = 3; // px the pointer travels before a press becomes a drag (less is a click)
+const TURN_REACH = 22; // px outside a corner of the Selection tool's box where a drag turns the picked shapes
+/** The tool last picked: the next letter opens with it. */
+let lastTool: Tool = 'select';
+/** Shapes cut or copied (⌘X, ⌘C), to paste into this letter or another, and which way the letter they came from runs. */
+let clipboard: { contours: Node[][]; way: number } | null = null;
+/** Which way a letter's outline runs: its biggest contour's, anticlockwise 1, clockwise -1 (and 1 for no outline). */
+const wayOf = (cs: Node[][]) => {
+  const big = cs.reduce<Node[] | null>((m, k) => !m || Math.abs(contourArea(k)) > Math.abs(contourArea(m)) ? k : m, null);
+  return !big || contourArea(big) >= 0 ? 1 : -1;
+};
 /** How far the view zooms out and in, as shares of the scale that fits the letter in it. */
 const ZOOM_MIN = 0.3, ZOOM_MAX = 40;
 
@@ -75,7 +92,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const traced = traceOf(g);
   const doc = stored ?? traced;
   const cs = doc.contours;
-  const [tool, setTool] = useState<Tool>('select');
+  const [tool, setToolNow] = useState<Tool>(() => lastTool);
+  const setTool = (t: Tool) => { lastTool = t; setToolNow(t); };
   // the shape the Shape tool draws, the one last picked
   const [shape, setShapeNow] = useState<Shape>(() => prefOneOf(PREFS.penShape, SHAPES, 'rect'));
   const pickShape = (k: Shape) => { setShapeNow(k); setTool('shape'); writePref(PREFS.penShape, k); };
@@ -85,8 +103,11 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const [ptr, setPtr] = useState<P | null>(null);
   const [box, setBox] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [caught, setCaught] = useState<Snapped | null>(null);
-  // the size of the shape being drawn, shown by the pointer
-  const [sizeTag, setSizeTag] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  // the size of the shape being drawn (a radius, an angle), shown by the pointer
+  const [sizeTag, setSizeTag] = useState<{ x: number; y: number; text: string } | null>(null);
+  // how far the picked shapes have been turned since they were picked (the bar's angle), and a turn being dragged
+  const [turned, setTurned] = useState<{ key: string; deg: number }>({ key: '', deg: 0 });
+  const [spin, setSpin] = useState<{ c: P; deg: number; box: Box } | null>(null);
   const [space, setSpace] = useState(false);
   // a stroke's thickness, typed in; left alone it is the letter's own
   const [strokeW, setStrokeW] = useState<number | null>(null);
@@ -223,16 +244,52 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   };
 
   /** Drag anchor points from where they are when the drag starts: the grabbed one follows the
-      pointer (snapped), the rest keep their places relative to it; Shift keeps to 45° steps. */
-  const dragAnchors = (e: ReactPointerEvent, refs: Ref[], grab: Ref) => {
-    const base = current().contours, a = base[grab.c][grab.i], skip = refs.map(refKey), along = peers(refs), from = beside(grab, skip);
+      pointer (snapped), the rest keep their places relative to it; Shift keeps to 45° steps. Pressed
+      away from the grabbed point (at `from`, on a shape's fill), they move as far as the pointer does.
+      With `dup`, the contours holding them are copied first and the copies move, the originals staying. */
+  const dragAnchors = (e: ReactPointerEvent, refs0: Ref[], grab0: Ref, from?: P, dup = false) => {
+    let base = current().contours, refs = refs0, grab = grab0;
+    if (dup) {
+      const cc = [...new Set(refs0.map(r => r.c))], to = new Map(cc.map((c, k) => [c, base.length + k]));
+      base = [...base, ...cc.map(c => base[c].map(n => ({ ...n })))];
+      refs = refs0.map(r => ({ c: to.get(r.c)!, i: r.i }));
+      grab = { c: to.get(grab0.c)!, i: grab0.i };
+    }
+    const a = base[grab.c][grab.i], skip = refs.map(refKey), along = dup ? [] : peers(refs), near = dup ? [] : beside(grab, skip);
+    let copied = false;
     start(e, {
       move: (p, ev) => {
-        const q = snapTo(ev.shiftKey ? constrain(a, p) : p, { skip, from });
-        write(sym(base, moveAnchors(base, refs, q.x - a.x, q.y - a.y)), undefined, symPeers(along, movePeers(along, q.x - a.x, q.y - a.y)));
+        const t = from ? { x: a.x + p.x - from.x, y: a.y + p.y - from.y } : p, q = snapTo(ev.shiftKey ? constrain(a, t) : t, { skip, from: near });
+        const out = moveAnchors(base, refs, q.x - a.x, q.y - a.y);
+        // (a copy isn't mirrored: its points sit on the originals', which Mirror would take for partners)
+        write(dup ? out : sym(base, out), undefined, symPeers(along, movePeers(along, q.x - a.x, q.y - a.y)));
+        if (dup && !copied) { copied = true; setSel(skip); }
       },
       up: moved => { if (moved) actions.commit(); }
     });
+  };
+  /** Of `refs`, the point nearest `p`. */
+  const nearestOf = (refs: Ref[], p: P) => refs.reduce((b, r) => {
+    const n = cs[r.c][r.i], m = cs[b.c][b.i];
+    return Math.hypot(n.x - p.x, n.y - p.y) < Math.hypot(m.x - p.x, m.y - p.y) ? r : b;
+  }, refs[0]);
+  /** The outline's shapes (each contour with the holes in it), found once per outline. */
+  const shapesMemo = useRef<{ cs: Node[][]; g: number[][] } | null>(null);
+  const shapeGroups = () => {
+    if (shapesMemo.current?.cs !== cs) shapesMemo.current = { cs, g: shapesOf(cs) };
+    return shapesMemo.current.g;
+  };
+  /** Every point of the shape holding contour c. */
+  const shapeKeys = (c: number) => (shapeGroups().find(g => g.includes(c)) ?? [c]).flatMap(k => cs[k].map((_, i) => refKey({ c: k, i })));
+  /** The Selection tool pressed on contour c: its shape is picked (Shift adds it, or takes it away), and every picked
+      point dragged by the one nearest the pointer; with ⌥, a copy of them. */
+  const grabShape = (e: ReactPointerEvent, c: number) => {
+    const keys = shapeKeys(c), had = keys.every(k => sel.includes(k));
+    if (e.shiftKey) { setSel(had ? sel.filter(k => !keys.includes(k)) : [...new Set([...sel, ...keys])]); if (had) return; }
+    const all = (had || e.shiftKey ? [...new Set([...sel, ...keys])] : keys).filter(valid).map(keyRef);
+    if (!had && !e.shiftKey) setSel(keys);
+    const p = toFont(e);
+    dragAnchors(e, all, nearestOf(all, p), p, e.altKey);
   };
 
   const onAnchor = (r: Ref) => (e: ReactPointerEvent) => {
@@ -240,6 +297,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     const k = refKey(r);
     // a shape can start on a point
     if (tool === 'shape') { onBackground(e); return; }
+    if (tool === 'object') { grabShape(e, r.c); return; }
     if (tool === 'pen') {
       // on the first point of the contour being drawn: close it (a drag pulls its handles)
       if (drawingOk === r.c && r.i === 0 && cs[r.c].length > 1) {
@@ -293,6 +351,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     if (e.button !== 0 || space) return;
     if (tool === 'shape') { onBackground(e); return; }
     const p = toFont(e), hit = nearestSegment(current().contours, p);
+    if (tool === 'object') { if (hit && hit.d * sc <= HIT + 2) grabShape(e, hit.c); else onBackground(e); return; }
     if (!hit || hit.d * sc > HIT + 2 || (tool === 'pen' && drawingOk !== null)) { onBackground(e); return; }
     const base = current().contours;
     if (tool === 'pen') {
@@ -314,14 +373,16 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     });
   };
 
-  /** Pressing on a filled contour with Direct selection picks all its points and drags them. */
+  /** Pressing on a filled contour: Direct selection picks all its points and drags them, the Selection tool its shape. */
   const onContour = (c: number) => (e: ReactPointerEvent) => {
-    if (e.button !== 0 || space || tool !== 'select') return;
-    const refs = cs[c].map((_, i) => ({ c, i }));
-    const keys = refs.map(refKey);
+    if (e.button !== 0 || space) return;
+    if (tool === 'object') { grabShape(e, c); return; }
+    if (tool !== 'select') return;
+    const keys = cs[c].map((_, i) => refKey({ c, i }));
     const all = e.shiftKey ? [...new Set([...sel, ...keys])] : keys;
     setSel(all);
-    dragAnchors(e, all.filter(valid).map(keyRef), { c, i: 0 });
+    const refs = all.filter(valid).map(keyRef), p = toFont(e);
+    dragAnchors(e, refs, nearestOf(refs, p), p);
   };
 
   /** Pressing on empty canvas: the pen adds a point (a drag pulls smooth handles), the Shape tool draws
@@ -373,7 +434,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             const b = snapTo(ev.shiftKey ? constrain(a, pp) : pp), o = ev.altKey ? { x: 2 * a.x - b.x, y: 2 * a.y - b.y } : a;
             size = { w: Math.round(Math.hypot(b.x - o.x, b.y - o.y)), h: w };
             write([...base, strokeContour(o, b, w, kind === 'roundstroke', ccw)]);
-            setSizeTag({ x: b.x, y: b.y, ...size });
+            setSizeTag({ x: b.x, y: b.y, text: `${size.w} × ${size.h}` });
           },
           up: moved => {
             setSizeTag(null);
@@ -393,7 +454,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
           const o = ev.altKey ? { x: 2 * a.x - b.x, y: 2 * a.y - b.y } : a;
           size = { w: Math.round(Math.abs(b.x - o.x)), h: Math.round(Math.abs(b.y - o.y)) };
           write([...base, shapeContour(kind, o.x, o.y, b.x, b.y, ccw)]);
-          setSizeTag({ x: b.x, y: b.y, ...size });
+          setSizeTag({ x: b.x, y: b.y, text: `${size.w} × ${size.h}` });
         },
         up: moved => {
           setSizeTag(null);
@@ -415,7 +476,9 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
         setBox({ x0: Math.min(sx, ex), y0: Math.min(sy, ey), x1: Math.max(sx, ex), y1: Math.max(sy, ey) });
         const a = toFont({ clientX: Math.min(sx, ex) + r.left, clientY: Math.max(sy, ey) + r.top });
         const b = toFont({ clientX: Math.max(sx, ex) + r.left, clientY: Math.min(sy, ey) + r.top });
-        setSel([...new Set([...keep, ...anchorsIn(current().contours, a.x, a.y, b.x, b.y).map(refKey)])]);
+        const inBox = anchorsIn(current().contours, a.x, a.y, b.x, b.y);
+        // the Selection tool picks the whole shape of any point in the box
+        setSel([...new Set([...keep, ...(tool === 'object' ? [...new Set(inBox.map(k => k.c))].flatMap(shapeKeys) : inBox.map(refKey))])]);
       },
       up: () => setBox(null)
     });
@@ -442,11 +505,96 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       move: p => {
         const along = (p.x - p0.x) * h.ux + (p.y - p0.y) * h.uy, v = Math.round(Math.max(0, Math.min(most, r0 + along / h.perR)));
         write(sym(base, setCorners(base, refs, v)));
-        setSizeTag({ x: n.x, y: n.y, w: v, h: -1 });
+        setSizeTag({ x: n.x, y: n.y, text: `Radius ${v}` });
       },
       up: moved => { setSizeTag(null); if (moved) actions.commit(); }
     });
   };
+  /* ---- the picked points as one: the Selection tool's box scales them by its handles and turns them from just outside
+     its corners; the bar sizes, turns, flips and thickens them by number */
+  const xbox: Box | null = selRefs.length > 1 ? pickedBox(cs, selRefs) : null;
+  const middle = (b: Box): P => ({ x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 });
+  const selKey = selRefs.map(refKey).sort().join(' ');
+  const shownTurn = turned.key === selKey ? turned.deg : 0;
+  /** An angle in degrees as -180 to 180. */
+  const spun = (deg: number) => ((((deg + 180) % 360) + 360) % 360) - 180;
+  /** The picked points through `m`, mirrored unless it flips them (which runs contours the other way). */
+  const mapped = (base: Node[][], m: Affine) => { const out = transformAnchors(base, selRefs, m); return m[0] * m[3] - m[1] * m[2] < 0 ? out : sym(base, out); };
+  /** Drag a handle of the box (`hx`, `hy`: -1 its left or bottom, 1 its right or top, 0 its middle): the picked points
+      scale from the side across, or with ⌥ from the middle; Shift keeps their proportions. The handle lines up with
+      points and guides. */
+  const onScale = (hx: number, hy: number) => (e: ReactPointerEvent) => {
+    if (e.button !== 0 || space || !xbox) return;
+    const base = current().contours, b = xbox, mid = middle(b), skip = selRefs.map(refKey);
+    const side = (h: number, lo: number, hi: number, m: number) => (h < 0 ? lo : h > 0 ? hi : m);
+    const grip = { x: side(hx, b.x0, b.x1, mid.x), y: side(hy, b.y0, b.y1, mid.y) }, across = { x: side(hx, b.x1, b.x0, mid.x), y: side(hy, b.y1, b.y0, mid.y) };
+    const by = (h: number, v: number, g: number, f: number) => (h && Math.abs(g - f) > 0.5 ? (v - f) / (g - f) : 1);
+    start(e, {
+      move: (p, ev) => {
+        const o = ev.altKey ? mid : across, q = snapTo(p, { skip, level: true });
+        let sx = by(hx, q.x, grip.x, o.x), sy = by(hy, q.y, grip.y, o.y);
+        if (ev.shiftKey) {
+          if (hx && hy) { const k = Math.max(Math.abs(sx), Math.abs(sy)); sx = Math.sign(sx || 1) * k; sy = Math.sign(sy || 1) * k; }
+          else if (hx) sy = Math.abs(sx); else sx = Math.abs(sy);
+        }
+        write(mapped(base, scaleAbout(o, sx, sy)));
+        setSizeTag({ x: q.x, y: q.y, text: `${Math.round(Math.abs((b.x1 - b.x0) * sx))} × ${Math.round(Math.abs((b.y1 - b.y0) * sy))}` });
+      },
+      up: moved => { setSizeTag(null); if (moved) actions.commit(); }
+    });
+  };
+  /** Drag from just outside a corner of the box: the picked points turn about its middle, Shift by 15° at a time. */
+  const onTurn = (e: ReactPointerEvent) => {
+    if (e.button !== 0 || space || !xbox) return;
+    const base = current().contours, b = xbox, c = middle(b), p0 = toFont(e), a0 = Math.atan2(p0.y - c.y, p0.x - c.x), was = shownTurn, key = selKey;
+    let deg = 0;
+    start(e, {
+      move: (p, ev) => {
+        deg = spun(((Math.atan2(p.y - c.y, p.x - c.x) - a0) * 180) / Math.PI);
+        if (ev.shiftKey) deg = Math.round(deg / 15) * 15;
+        write(mapped(base, turnAbout(c, deg)));
+        setSpin({ c, deg, box: b });
+        setSizeTag({ x: p.x, y: p.y, text: `${Math.round(deg)}°` });
+      },
+      up: moved => { setSpin(null); setSizeTag(null); if (moved) { actions.commit(); setTurned({ key, deg: spun(was + deg) }); } }
+    });
+  };
+  /** Size the picked points to a width or height, their box's left and bottom staying put. */
+  const resizeTo = (w: number | null, h: number | null) => {
+    if (!xbox) return;
+    const bw = xbox.x1 - xbox.x0, bh = xbox.y1 - xbox.y0;
+    const sx = w !== null && bw > 0.5 ? Math.max(1, w) / bw : 1, sy = h !== null && bh > 0.5 ? Math.max(1, h) / bh : 1;
+    edit(o => mapped(o, scaleAbout({ x: xbox.x0, y: xbox.y0 }, sx, sy)));
+  };
+  /** Turn the picked points about their box's middle, by degrees anticlockwise. */
+  const turnBy = (deg: number) => {
+    if (!xbox || !deg) return;
+    const c = middle(xbox);
+    edit(o => mapped(o, turnAbout(c, deg)));
+    setTurned({ key: selKey, deg: spun(shownTurn + deg) });
+  };
+  /** Flip the picked points left ↔ right ('x') or top ↕ bottom ('y') across their box's middle. */
+  const flip = (axis: Axis) => {
+    if (!xbox) return;
+    commit(transformAnchors(current().contours, selRefs, scaleAbout(middle(xbox), axis === 'x' ? -1 : 1, axis === 'y' ? -1 : 1)));
+    if (shownTurn) setTurned({ key: selKey, deg: -shownTurn });
+  };
+  /** How thick the picked shapes are (thicknessOf), read again as the outline or the picked points change, but not
+      mid-drag. */
+  const weightMemo = useRef<{ cs: Node[][]; key: string; w: number } | null>(null);
+  const weightNow = () => {
+    const w = weightMemo.current;
+    if (w && w.key === selKey && (w.cs === cs || gesture.current)) return w.w;
+    const g = wholeShapes(cs, pickedContours());
+    return (weightMemo.current = { cs, key: selKey, w: thicknessOf(g.map(c => cs[c])) }).w;
+  };
+  /** The picked points' shapes, by name when they are whole shapes: "2 shapes", or else "12 points". */
+  const pickName = () => {
+    const keys = new Set(selRefs.map(refKey)), groups = shapeGroups().filter(g => g.some(c => cs[c].some((_, i) => keys.has(refKey({ c, i })))));
+    const whole = groups.every(g => g.every(c => cs[c].every((_, i) => keys.has(refKey({ c, i })))));
+    return whole ? `${groups.length} shape${groups.length > 1 ? 's' : ''}` : `${selRefs.length} points`;
+  };
+
   /** Corners: the radius of the picked corners (or every corner) pointing out of the ink, or into it, live as a
       slider moves; inside corners of shapes that overlap are found once they are merged, which the first move
       does. One undo step per move of a slider. */
@@ -515,6 +663,24 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     if (mod && k === '-') { stop(); zoomBy(0.8); return; }
     if (mod && k === '0') { stop(); setView(null); return; }
     if (mod && k === 'a') { stop(); setSel(cs.flatMap((con, c) => con.map((_, i) => refKey({ c, i })))); return; }
+    // ⌘C and ⌘X take the picked points' shapes whole; ⌘V puts them back where they were, in this letter or another
+    if (mod && (k === 'c' || k === 'x') && selRefs.length) {
+      stop();
+      const now = current().contours, cc = wholeShapes(now, pickedContours());
+      clipboard = { contours: cc.map(c => now[c].map(n => ({ ...n }))), way: wayOf(now) };
+      if (k === 'x') { commit(now.filter((_, c) => !cc.includes(c))); setSel([]); setDrawing(null); }
+      return;
+    }
+    if (mod && k === 'v' && clipboard) {
+      stop();
+      finish();
+      // run the way this letter's outline runs, so they fill as its shapes do
+      const now = current().contours, turn = now.length > 0 && wayOf(now) !== clipboard.way;
+      const add = clipboard.contours.map(con => (turn ? reverseContour([con], 0)[0] : con.map(n => ({ ...n }))));
+      commit([...now, ...add]);
+      setSel(add.flatMap((con, j) => con.map((_, i) => refKey({ c: now.length + j, i }))));
+      return;
+    }
     if (mod) return;
     if (e.key === 'Escape' || e.key === 'Enter') {
       if (drawingOk !== null) { stop(); finish(); return; }
@@ -547,7 +713,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const selSet = new Set(selRefs.map(refKey));
   // handles show on picked points and on the ends of their segments that face them
   const showH = new Set<string>();
-  selRefs.forEach(({ c, i }) => {
+  // (the Selection tool takes shapes whole, so it shows no handles)
+  if (tool !== 'object') selRefs.forEach(({ c, i }) => {
     const n = cs[c].length;
     showH.add(`${c}:${i}:i`); showH.add(`${c}:${i}:o`);
     showH.add(`${c}:${(i + n - 1) % n}:o`); showH.add(`${c}:${(i + 1) % n}:i`);
@@ -633,8 +800,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
               <path className="pen-ink" d={d} />
               {grid && <GridLines grid={grid} />}
               {order.map(c => (
-                <path key={c} className={tool === 'select' ? 'pen-fill hit' : 'pen-fill'} d={cmdsToD(drawnCmds([cs[c]]))}
-                  onPointerDown={tool === 'select' ? onContour(c) : onBackground} />
+                <path key={c} className={tool === 'select' || tool === 'object' ? 'pen-fill hit' : 'pen-fill'} d={cmdsToD(drawnCmds([cs[c]]))}
+                  onPointerDown={tool === 'select' || tool === 'object' ? onContour(c) : onBackground} />
               ))}
               {rounded && <path className="pen-sharp" d={cmdsToD(drawnCmds(cs, true))} />}
               <path className="pen-line" d={d} style={{ strokeWidth: 1.25 / sc }} />
@@ -678,6 +845,10 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
                 </g>
               );
             })}
+            {tool === 'object' && drawingOk === null && (spin ? (
+              <rect className="pen-xf-box" x={n1(X(spin.box.x0))} y={n1(Y(spin.box.y1))} width={n1((spin.box.x1 - spin.box.x0) * sc)} height={n1((spin.box.y1 - spin.box.y0) * sc)}
+                transform={`rotate(${n1(-spin.deg)} ${n1(X(spin.c.x))} ${n1(Y(spin.c.y))})`} />
+            ) : xbox && <XfBox l={X(xbox.x0)} r={X(xbox.x1)} t={Y(xbox.y1)} b={Y(xbox.y0)} onScale={onScale} onTurn={onTurn} />)}
             {aim?.kind === 'add' && (
               <g className="pen-ghost" pointerEvents="none">
                 <circle cx={n1(X(aim.at.x))} cy={n1(Y(aim.at.y))} r={4.5} />
@@ -685,7 +856,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
               </g>
             )}
             {aim && aim.kind !== 'add' && ptr && <AimBadge aim={aim} x={X(ptr.x)} y={Y(ptr.y)} />}
-            {sizeTag && <text className="pen-size" x={n1(X(sizeTag.x) + 10)} y={n1(Y(sizeTag.y) + 20)}>{sizeTag.h < 0 ? `Radius ${sizeTag.w}` : `${sizeTag.w} × ${sizeTag.h}`}</text>}
+            {sizeTag && <text className="pen-size" x={n1(X(sizeTag.x) + 10)} y={n1(Y(sizeTag.y) + 20)}>{sizeTag.text}</text>}
             {box && <rect className="pen-box" x={box.x0} y={box.y0} width={box.x1 - box.x0} height={box.y1 - box.y0} />}
             {caught && <SnapMark hit={caught} x={X(caught.x)} y={Y(caught.y)} />}
           </svg>
@@ -705,6 +876,22 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             <NumField label="Y" value={one.y} onSet={v => nudge(selRefs, 0, v - one.y)} />
             <PointKind smooth={!!one.s} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
             {pickedCorners.length > 0 && <NumField label="Radius" value={cornerR} onSet={v => edit(o => setCorners(o, pickedCorners.map(k => k.r), Math.max(0, v)))} />}
+          </>
+        ) : xbox && (tool === 'object' || tool === 'shape') ? (
+          <>
+            <span className="pen-bar-label">{pickName()}</span>
+            <NumField label="W" name="Width of the picked shapes" value={xbox.x1 - xbox.x0} onSet={v => resizeTo(v, null)} />
+            <NumField label="H" name="Height of the picked shapes" value={xbox.y1 - xbox.y0} onSet={v => resizeTo(null, v)} />
+            <NumField label={<svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 12h10M2 12l7-8.5" /><path d="M6.6 12a4.6 4.6 0 00-1.4-3.3" /></svg>}
+              name="Turn" title="Turn: degrees anticlockwise about their middle (or drag just outside a corner of the box)" value={shownTurn} onSet={v => turnBy(v - shownTurn)} />
+            <NumField label="Weight" title="Weight: how thick the picked shapes are. Their sides move out or in, keeping their points; a bar grows across, not along"
+              value={weightNow()} onSet={v => edit(o => setWeight(o, pickedContours(), Math.max(1, v)))} />
+            <button className="pen-icon-btn" aria-label="Flip left and right" title="Flip left ↔ right" onClick={() => flip('x')}>
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.3 4L2 12h4.3zM9.7 4L14 12H9.7z" /><path d="M8 1.5v13" strokeDasharray="1.5 1.5" /></svg>
+            </button>
+            <button className="pen-icon-btn" aria-label="Flip top and bottom" title="Flip top ↕ bottom" onClick={() => flip('y')}>
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6.3L12 2v4.3zM4 9.7l8 4.3V9.7z" /><path d="M1.5 8h13" strokeDasharray="1.5 1.5" /></svg>
+            </button>
           </>
         ) : selRefs.length > 1 ? (
           <>
@@ -740,6 +927,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
 }
 
 function hint(tool: Tool, drawing: boolean, shape: Shape) {
+  if (tool === 'object') return 'Click a shape to pick it, drag to move it (⌥ copies it) · the box’s handles resize it; just outside a corner, turn it · ⌘C ⌘V to another letter';
   if (tool === 'pen') return drawing ? 'Click to add points · drag to pull a curve · click the first point to close · Esc to finish'
     : 'Click the outline to add a point · click a point to delete it · click empty space to start a new shape';
   if (tool === 'convert') return 'Click a point to switch corner ↔ smooth · drag from a point to pull out handles';
@@ -758,6 +946,38 @@ function AimBadge({ aim, x, y }: { aim: Exclude<Aim, { kind: 'add' }>; x: number
       <circle cx={n1(cx)} cy={n1(cy)} r={6} />
       {aim.kind === 'close' ? <circle className="mark" cx={n1(cx)} cy={n1(cy)} r={2.4} />
         : <path className="mark" d={`M${n1(cx - 3)} ${n1(cy)}h6` + `M${n1(cx)} ${n1(cy - 3)}v6`} />}
+    </g>
+  );
+}
+
+/** The Selection tool's box round the picked points, in screen px: a handle at each corner and, where there is room, in
+    the middle of each side, which scales them, and just outside each corner a place to drag that turns them. */
+function XfBox({ l, r, t, b, onScale, onTurn }: {
+  l: number; r: number; t: number; b: number; onScale: (hx: number, hy: number) => (e: ReactPointerEvent) => void; onTurn: (e: ReactPointerEvent) => void;
+}) {
+  const at = (h: number, lo: number, hi: number) => (h < 0 ? lo : h > 0 ? hi : (lo + hi) / 2);
+  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+  const handles = [...corners, ...(r - l >= 40 ? [[0, -1], [0, 1]] : []), ...(b - t >= 40 ? [[-1, 0], [1, 0]] : [])];
+  return (
+    <g className="pen-xf">
+      <rect className="pen-xf-box" x={n1(l)} y={n1(t)} width={n1(r - l)} height={n1(b - t)} />
+      {corners.map(([hx, hy]) => {
+        // a quarter round outside the corner (y runs down on screen, so the top is hy 1)
+        const x = at(hx, l, r), y = at(hy, b, t), pts = Array.from({ length: 7 }, (_, k) => {
+          const a = (k / 6) * (Math.PI / 2);
+          return `${n1(x + hx * TURN_REACH * Math.cos(a))} ${n1(y - hy * TURN_REACH * Math.sin(a))}`;
+        });
+        return <path key={`t${hx}${hy}`} className="pen-xf-turn" d={`M${n1(x)} ${n1(y)}L${pts.join('L')}Z`} onPointerDown={onTurn}><title>Drag to turn</title></path>;
+      })}
+      {handles.map(([hx, hy]) => {
+        const x = at(hx, l, r), y = at(hy, b, t), cursor = hx && hy ? (hx * hy > 0 ? 'nesw-resize' : 'nwse-resize') : hx ? 'ew-resize' : 'ns-resize';
+        return (
+          <g key={`h${hx}${hy}`} className="pen-xf-h" style={{ cursor }} onPointerDown={onScale(hx, hy)}>
+            <rect className="grab" x={n1(x - HIT)} y={n1(y - HIT)} width={HIT * 2} height={HIT * 2} />
+            <rect x={n1(x - 3.5)} y={n1(y - 3.5)} width={7} height={7} />
+          </g>
+        );
+      })}
     </g>
   );
 }
@@ -1066,15 +1286,18 @@ function Mirror({ axes, onSet }: { axes: Axis[]; onSet: (axes: Axis[]) => void }
   );
 }
 
-/** A number in font units you type into: Enter or leaving applies it, Escape puts it back, arrows step by 1 (Shift 10). */
-function NumField({ label, value, onSet }: { label: string; value: number; onSet: (v: number) => void }) {
+/** A number in font units you type into: Enter or leaving applies it, Escape puts it back, arrows step by 1 (Shift 10).
+    `name` is what it is called aloud, where its label is short. */
+function NumField({ label, name = typeof label === 'string' ? label : '', title, value, onSet }: {
+  label: ReactNode; name?: string; title?: string; value: number; onSet: (v: number) => void;
+}) {
   const [draft, setDraft] = useState<string | null>(null);
   const cancelled = useRef(false);
   const apply = (t: string) => { const v = Math.round(Number(t)); if (t.trim() !== '' && Number.isFinite(v) && v !== value) onSet(v); };
   return (
-    <label className="pen-num-field">
+    <label className="pen-num-field" title={title ?? (name !== label ? name : undefined)}>
       <span>{label}</span>
-      <input type="text" inputMode="numeric" aria-label={label} value={draft ?? String(Math.round(value))}
+      <input type="text" inputMode="numeric" aria-label={name} value={draft ?? String(Math.round(value))}
         onFocus={e => { cancelled.current = false; e.target.select(); }}
         onChange={e => setDraft(e.target.value.replace(/[^0-9-]/g, '').slice(0, 5))}
         onBlur={e => { if (!cancelled.current && draft !== null) apply(e.target.value); setDraft(null); }}
