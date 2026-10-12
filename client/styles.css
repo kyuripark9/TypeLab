@@ -671,15 +671,27 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 @container (max-width: 900px) { .pen-mirror > span { display: none; } .pen-bar .pen-num-field input { width: 50px; } }
 @container (max-width: 760px) { .pen-point-kind span { display: none; } .pen-point-kind button { padding: 0 6px; } }
 .inspector.customizing .pen-bar { background: var(--custom-wash); }
-/* the offer to make a change in other letters too: a card at the canvas's foot; under its question the letters by
-   kind, each kind's box in a column on the left under All (which stays put while they scroll) and its letters as
-   toggles in even cells (picked ones dark on a tint, the rest faint), scrolling past five rows, and Not now and Apply
-   at the foot; the one pointed at shown large above (as it was dashed); once applied, folded to one line with Review */
-.pen-carry { position: absolute; bottom: 12px; left: 50%; translate: -50% 0; z-index: 2; width: max-content; max-width: min(640px, calc(100% - 24px)); display: flex; flex-direction: column; gap: 6px;
+/* carrying an edit to other letters, kept out of the letter's way in the canvas's bottom right corner (the top holds
+   the inspector's banner): a pill (the question with Apply and ×, ringed in the accent; or the last change applied,
+   to review), and over it, opened, a card of the letters by kind, each kind's box in a column on the left under All
+   (which stays put while they scroll) and its letters as toggles in even cells (picked ones dark on a tint, the rest
+   faint), scrolling past six rows, Not now and Apply at its foot; the one pointed at shown large beside it (as it
+   was dashed) */
+.pen-carry-dock { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 6px; max-width: calc(100% - 84px); pointer-events: none; }
+.pen-carry-dock > * { pointer-events: auto; }
+.pen-carry-pill { display: flex; align-items: center; gap: 2px; max-width: 100%; padding: 3px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--raise); }
+.pen-carry-pill.ask { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pen-carry-pill .btn { margin-left: 2px; }
+.pen-carry-sum { display: flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 6px 0 9px; border-radius: var(--radius-s); font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+.pen-carry-sum span { overflow: hidden; text-overflow: ellipsis; }
+.pen-carry-sum:hover, .pen-carry-sum[aria-expanded=true] { background: var(--hover); color: var(--ink); }
+.pen-carry-sum b { font-weight: 500; color: var(--accent-ink); letter-spacing: .06em; }
+.pen-carry-chev { flex: none; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; transition: rotate .15s; }
+.pen-carry-chev { rotate: 180deg; }
+.pen-carry-sum[aria-expanded=true] .pen-carry-chev { rotate: 0deg; }
+.pen-carry { position: relative; width: max-content; max-width: min(640px, 100%); display: flex; flex-direction: column; gap: 6px;
   padding: 8px 10px 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
 .pen-carry-head { display: flex; align-items: center; gap: 6px; }
-.pen-carry.done { flex-direction: row; align-items: center; gap: 4px; padding: 5px 5px 5px 14px; }
-.pen-carry.done b { font-weight: 500; color: var(--accent-ink); letter-spacing: .06em; }
 .pen-carry-q { flex: 1; margin-right: 10px; font-size: 13px; font-weight: 500; }
 .pen-carry-kinds { display: grid; grid-template-columns: max-content auto; column-gap: 14px; row-gap: 2px; max-height: 212px; overflow-y: auto; padding-top: 4px; border-top: 1px solid var(--line); }
 .pen-carry-kind { display: contents; }
@@ -693,7 +705,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-carry-chip:hover svg { opacity: .6; }
 .pen-carry-chip.on { background: var(--accent-soft); }
 .pen-carry-chip.on svg { fill: var(--ink); opacity: 1; }
-.pen-carry-peek { position: absolute; bottom: calc(100% + 8px); left: 50%; translate: -50% 0; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); pointer-events: none; }
+.pen-carry-peek { position: absolute; bottom: 0; right: calc(100% + 8px); padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); pointer-events: none; }
 .pen-carry-peek svg { display: block; }
 .pen-carry-peek .after { fill: var(--ink); opacity: .85; }
 .pen-carry-peek .before { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }

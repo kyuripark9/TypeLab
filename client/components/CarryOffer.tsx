@@ -1,14 +1,20 @@
 /* After a letter's points are changed in Points, the offer to make the same change in the other letters shaped the
-   same way there (lib/carry). The letters are set out by kind, the edited letter's own first, then as the glyph strip
-   has them (capitals, small letters, figures, punctuation, symbols), each kind on a row with a box that picks all of
-   it, and above them All, for every one; Not now and Apply wait at the foot, under the letters they act on. Each letter is a toggle drawn with the change in it; hovering one shows it large, as it
-   was (dashed) and as it would be. Close matches (the outline round the change the same too) of the edited letter's
-   kind come picked, the rest unpicked. Apply puts the change in the picked letters in one undo step; Not now lets it
-   be. Applied, the card folds to a bar naming the letters changed, and Review opens it again: there each click puts
-   a letter back as it was or gives it the change at once (an undo step each). What is offered is everything done to
-   the letter since it was opened in Points, or since the last offer was taken up or turned down. The search runs after each finished edit, in slices between frames, so it never holds up
-   a drag. */
+   same way there (lib/carry), kept out of the letter's way: a pill in the canvas's bottom right corner asks "Apply to
+   b h k l?" with Apply and ×, and opens, when clicked, a card over it with every such letter. There the letters are
+   set out by kind, the edited letter's own first, then as the glyph strip has them (capitals, small letters,
+   figures, punctuation, symbols), each kind on a row with a box that picks all of it, and above them All, for every
+   one; Not now and Apply wait at the foot, under the letters they act on. Each letter is a toggle drawn with the
+   change in it; hovering one shows it large beside the card, as it was (dashed) and as it would be. Close matches
+   (the outline round the change the same too) of the edited letter's kind come picked, the rest unpicked. Apply
+   puts the change in the picked letters in one undo step; Not now lets it be. The last change applied stays in the
+   corner on every letter, for as long as the page is open ("d's change: b h k l"), until another is applied:
+   clicked, the card opens to review it, where each click puts a letter back as it was or gives it the change at
+   once (an undo step each). What is offered is everything done to the letter since it was first opened in Points,
+   or since its last offer was taken up or turned down, also when it is opened again later. The search runs after
+   each finished edit, in slices between frames, so it never holds up a drag. A click elsewhere, or Escape, folds
+   the card back to its pill. */
 import { memo, useEffect, useRef, useState } from 'react';
+import { create } from 'zustand';
 import { ALL_CHARS, CHARSET, cmdsToD, drawnCmds, type Drawn, type Font, type Glyph, type Node } from '../../shared/engine';
 import { carryLetter, changesOf, kindOf, sameDrawing, type Carried } from '../lib/carry';
 import { traceOf } from '../lib/pen';
@@ -18,31 +24,67 @@ import { actions, useEditor } from '../state/editor';
 const SLICE = 10;
 /** The kinds of letter, named and ordered as the glyph strip has them. */
 const KINDS: [string, string][] = [['Uppercase', CHARSET.upper], ['Lowercase', CHARSET.lower], ['Figures', CHARSET.digits], ['Punctuation', CHARSET.punct], ['Symbols', CHARSET.symbols]];
+/** How many letters the pill names before it counts the rest. */
+const NAMED = 8;
+
+/** The design open now, told apart from another one, or another style started (a first save keeps it the same). */
+interface Of { style: string; design: string | null }
+const ofNow = (): Of => { const s = useEditor.getState(); return { style: s.styleId, design: s.designId }; };
+const sameDesign = (a: Of, b: Of) => a.style === b.style && (a.design === null || a.design === b.design);
+
+/** The last change applied to other letters: the letter it was made in, the letters offered (each as it was before,
+    none for one the settings drew), and the design, kept while the page is open so it can be looked at again from
+    any letter. */
+interface Applied { from: string; found: Carried[]; prev: Record<string, Drawn | undefined>; of: Of }
+const useApplied = create<{ last: Applied | null }>(() => ({ last: null }));
+
+/** Each letter as it was before the edits not yet offered or answered, by letter, for the design open now (another
+    design, or another style started, begins afresh). */
+const bases = new Map<string, Node[][]>();
+let basesOf: Of = { style: '', design: null };
+function forDesign() {
+  const now = ofNow();
+  if (!sameDesign(basesOf, now)) bases.clear();
+  basesOf = now;
+}
+
+/** Letters by name, the first few, then how many more. */
+const names = (cs: Carried[]) => cs.slice(0, NAMED).map(c => c.ch).join(' ') + (cs.length > NAMED ? ` +${cs.length - NAMED}` : '');
 
 export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }) {
   // a new undo step: an edit finished, or one undone or redone
   const hi = useEditor(s => s.hi);
   const stored = useEditor(s => s.params.outlines[ch]);
-  // the letter as it was before it was edited here (as the font draws it, until the first edit; a letter drawn
-  // already, as it was when opened), or when the last offer was answered
-  const base = useRef<Node[][] | null>(null);
-  if (!stored) base.current = traceOf(g).contours;
-  else base.current ??= stored.contours;
+  const outlines = useEditor(s => s.params.outlines);
+  const applied = useApplied(s => s.last), last = applied && sameDesign(applied.of, ofNow()) ? applied : null;
+  // the letter as it was before it was edited (as the font draws it, until the first edit; a letter drawn already,
+  // as it was when first opened here), or when its last offer was answered
+  forDesign();
+  if (!stored) bases.set(ch, traceOf(g).contours);
+  else if (!bases.has(ch)) bases.set(ch, stored.contours);
   const fontNow = useRef(font);
   fontNow.current = font;
-  // what is offered; once applied, each offered letter's outline as it was before (none for one the settings drew)
-  const [offer, setOffer] = useState<{ now: Drawn; found: Carried[]; prev?: Record<string, Drawn | undefined> } | null>(null);
+  const [offer, setOffer] = useState<{ now: Drawn; found: Carried[] } | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [peek, setPeek] = useState<Carried | null>(null);
-  // applied: the card open to review, or folded to a bar
+  // the card open under the pill
   const [open, setOpen] = useState(false);
-  const outlines = useEditor(s => s.params.outlines);
+  const wrap = useRef<HTMLDivElement>(null);
+  // a press anywhere else, or Escape, folds the card (caught on the way down: the canvas keeps its presses to itself)
+  useEffect(() => {
+    if (!open) return;
+    const fold = () => { setOpen(false); setPeek(null); };
+    const press = (e: PointerEvent) => { if (!(e.target instanceof window.Node && wrap.current?.contains(e.target))) fold(); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') fold(); };
+    document.addEventListener('pointerdown', press, true);
+    window.addEventListener('keydown', key, true);
+    return () => { document.removeEventListener('pointerdown', press, true); window.removeEventListener('keydown', key, true); };
+  }, [open]);
 
   useEffect(() => {
-    const s = useEditor.getState(), now = s.params.outlines[ch], outs = s.params.outlines, f = fontNow.current;
-    const changes = now && base.current ? changesOf(base.current, now.contours) : [];
-    // nothing more done to the letter: an offer taken up stays, to be reviewed
-    if (!now || !changes.length) { setOffer(o => (o?.prev && sameDrawing(o.now, now) ? o : null)); return; }
+    const s = useEditor.getState(), now = s.params.outlines[ch], outs = s.params.outlines, f = fontNow.current, base = bases.get(ch);
+    const changes = now && base ? changesOf(base, now.contours) : [];
+    if (!now || !changes.length) { setOffer(null); return; }
     const found: Carried[] = [];
     let k = 0, timer = 0;
     const step = () => {
@@ -67,84 +109,97 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
     return () => clearTimeout(timer);
   }, [hi, ch]);
 
-  // mid-drag, or once the letter has changed again, the offer waits for the search to catch up
-  if (!offer || !sameDrawing(offer.now, stored)) return null;
-  const answered = () => { base.current = offer.now.contours; setOffer(null); };
-  const take = offer.found.filter(c => picked.has(c.ch));
+  // mid-drag, or once the letter has changed again, an offer waits for the search to catch up
+  if (offer && !sameDrawing(offer.now, stored)) return null;
+  // the letters the last change applied is in now (none once it is undone everywhere)
+  const has = last ? last.found.filter(c => sameDrawing(outlines[c.ch], c.doc)) : [];
+  const review = !offer && last && (has.length || open) ? last : null;
+  if (!offer && !review) return null;
+  const found = offer ? offer.found : review!.found;
+
+  const take = offer ? found.filter(c => picked.has(c.ch)) : [];
+  const answered = () => { if (offer) bases.set(ch, offer.now.contours); setOffer(null); setOpen(false); setPeek(null); };
   const apply = () => {
-    if (!take.length) return;
-    const s = useEditor.getState(), prev = Object.fromEntries(offer.found.map(c => [c.ch, s.params.outlines[c.ch]]));
+    if (!offer || !take.length) return;
+    const s = useEditor.getState(), prev = Object.fromEntries(found.map(c => [c.ch, s.params.outlines[c.ch]]));
     actions.setParam('outlines', { ...s.params.outlines, ...Object.fromEntries(take.map(c => [c.ch, c.doc])) });
     actions.commit();
-    base.current = offer.now.contours;
-    setOffer({ ...offer, prev });
-    setOpen(false);
+    useApplied.setState({ last: { from: ch, found, prev, of: ofNow() } });
+    answered();
   };
   const toggle = (o: string) => setPicked(p => { const n = new Set(p); if (!n.delete(o)) n.add(o); return n; });
   const pickMany = (chs: string[], on: boolean) => setPicked(p => { const n = new Set(p); for (const c of chs) if (on) n.add(c); else n.delete(c); return n; });
-  // once applied: the letters that have the change now, and each click gives it or puts the letter back, at once
-  const prev = offer.prev, has = prev ? offer.found.filter(c => sameDrawing(outlines[c.ch], c.doc)) : [];
+  // reviewing, each click gives a letter the change or puts it back as it was, at once
   const putMany = (chs: string[], on: boolean) => {
-    if (!prev) return;
+    if (!review) return;
     const outs = { ...useEditor.getState().params.outlines };
     for (const o of chs) {
-      const c = offer.found.find(f => f.ch === o), was = prev[o];
+      const c = found.find(f => f.ch === o), was = review.prev[o];
       if (!c) continue;
       if (on) outs[o] = c.doc; else if (was) outs[o] = was; else delete outs[o];
     }
     actions.setParam('outlines', outs);
     actions.commit();
   };
-  if (prev && !open) {
-    // folded: the letters changed, and the way back in (gone once the change is undone everywhere)
-    if (!has.length) return null;
-    const names = has.map(c => c.ch).join(' ');
-    return (
-      <div className="pen-carry done" role="status">
-        <span className="pen-carry-q">Changed {has.length <= 10 ? <b>{names}</b> : `${has.length} letters`} too</span>
-        <button className="btn ghost small" onClick={() => setOpen(true)} title={`Look at ${names} again, and put any back as it was`}>Review</button>
-        <button className="pen-icon-btn" aria-label="Close" title="Close" onClick={() => setOffer(null)}>
-          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" /></svg>
-        </button>
-      </div>
-    );
-  }
-  const on = prev ? new Set(has.map(c => c.ch)) : picked, flip = prev ? (o: string) => putMany([o], !on.has(o)) : toggle, setMany = prev ? putMany : pickMany;
+  const on = review ? new Set(has.map(c => c.ch)) : picked, flip = review ? (o: string) => putMany([o], !on.has(o)) : toggle, setMany = review ? putMany : pickMany;
   // the letters by kind, the edited letter's own kind first, each kind in the strip's order
-  const own = KINDS.findIndex(([, cs]) => cs.includes(ch));
+  const from = review ? review.from : ch, own = KINDS.findIndex(([, cs]) => cs.includes(from));
   const kinds = [...KINDS.slice(own, own + 1), ...KINDS.filter((_, k) => k !== own)]
-    .map(([name, cs]) => ({ name, letters: offer.found.filter(c => cs.includes(c.ch)).sort((a, b) => cs.indexOf(a.ch) - cs.indexOf(b.ch)) }))
+    .map(([name, cs]) => ({ name, letters: found.filter(c => cs.includes(c.ch)).sort((a, b) => cs.indexOf(a.ch) - cs.indexOf(b.ch)) }))
     .filter(k => k.letters.length);
+  const chevron = <svg className="pen-carry-chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" /></svg>;
 
   return (
-    <div className="pen-carry" role="group" aria-label={`Apply the change to ${ch} to other letters`} onPointerLeave={() => setPeek(null)}>
-      {peek && <CarryPeek c={peek} font={font} />}
-      <div className="pen-carry-head">
-        <span className="pen-carry-q">{prev ? `Changed in ${has.length} ${has.length === 1 ? 'letter' : 'letters'}` : 'Apply this change to other letters too?'}</span>
-      </div>
-      <div className="pen-carry-kinds">
-        {/* All heads the column of boxes, and stays in view while the kinds scroll */}
-        {kinds.length > 1 && <PickBox label="All" letters={offer.found} picked={on} onSet={setMany} className="pen-carry-all" />}
-        {kinds.map(k => (
-          <div key={k.name} className="pen-carry-kind">
-            <PickBox label={k.name} letters={k.letters} picked={on} onSet={setMany} />
-            <div className="pen-carry-letters">
-              {k.letters.map(c => <CarryChip key={c.ch} c={c} font={font} on={on.has(c.ch)} applied={!!prev} onToggle={flip} onPeek={setPeek} />)}
-            </div>
+    <div className="pen-carry-dock" ref={wrap}>
+      {offer ? (
+        <div className="pen-carry-pill ask" role="status">
+          <button className="pen-carry-sum" aria-expanded={open} onClick={() => setOpen(o => !o)} title="Pick the letters to change">
+            <span>{take.length ? <>Apply to <b>{names(take)}</b>?</> : 'Apply this change to other letters?'}</span>{chevron}
+          </button>
+          <button className="btn primary small" disabled={!take.length} onClick={apply}
+            title={take.length ? `Change ${take.map(c => c.ch).join(' ')} the same way; they become drawn letters, which the sliders no longer change` : 'Pick the letters to change'}>Apply</button>
+          <button className="pen-icon-btn" aria-label="Not now" title="Not now" onClick={answered}>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" /></svg>
+          </button>
+        </div>
+      ) : (
+        <div className="pen-carry-pill" role="status">
+          <button className="pen-carry-sum" aria-expanded={open} onClick={() => setOpen(o => !o)} title={`Look at the letters ${review!.from}'s change went to, and put any back as it was`}>
+            <span><b>{review!.from}</b>’s change: {has.length ? <b>{names(has)}</b> : 'no letters'}</span>{chevron}
+          </button>
+        </div>
+      )}
+      {open && (
+        <div className="pen-carry" role="group" aria-label={offer ? `Apply the change to ${ch} to other letters` : `The letters ${from}'s change went to`} onPointerLeave={() => setPeek(null)}>
+          {peek && <CarryPeek c={peek} font={font} />}
+          <div className="pen-carry-head">
+            <span className="pen-carry-q">{review ? `${from}’s change, in ${has.length} ${has.length === 1 ? 'letter' : 'letters'}` : 'Apply this change to other letters too?'}</span>
           </div>
-        ))}
-      </div>
-      <div className="pen-carry-foot">
-        {prev ? <button className="btn ghost small" onClick={() => setOpen(false)}>Done</button> : (
-          <>
-            <button className="btn ghost small" onClick={answered}>Not now</button>
-            <button className="btn primary small" disabled={!take.length} onClick={apply}
-              title={take.length ? `Change ${take.map(c => c.ch).join(' ')} the same way; they become drawn letters, which the sliders no longer change` : 'Pick the letters to change'}>
-              {take.length ? `Apply to ${take.length}` : 'Apply'}
-            </button>
-          </>
-        )}
-      </div>
+          <div className="pen-carry-kinds">
+            {/* All heads the column of boxes, and stays in view while the kinds scroll */}
+            {kinds.length > 1 && <PickBox label="All" letters={found} picked={on} onSet={setMany} className="pen-carry-all" />}
+            {kinds.map(k => (
+              <div key={k.name} className="pen-carry-kind">
+                <PickBox label={k.name} letters={k.letters} picked={on} onSet={setMany} />
+                <div className="pen-carry-letters">
+                  {k.letters.map(c => <CarryChip key={c.ch} c={c} font={font} on={on.has(c.ch)} applied={!!review} onToggle={flip} onPeek={setPeek} />)}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="pen-carry-foot">
+            {review ? <button className="btn ghost small" onClick={() => { setOpen(false); setPeek(null); }}>Done</button> : (
+              <>
+                <button className="btn ghost small" onClick={answered}>Not now</button>
+                <button className="btn primary small" disabled={!take.length} onClick={apply}
+                  title={take.length ? `Change ${take.map(c => c.ch).join(' ')} the same way; they become drawn letters, which the sliders no longer change` : 'Pick the letters to change'}>
+                  {take.length ? `Apply to ${take.length}` : 'Apply'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
