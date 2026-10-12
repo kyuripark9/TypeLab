@@ -24,8 +24,8 @@ import { guideLines, stackLabels } from '../lib/guide-labels';
 import { isTyping, n1, useDismiss, useSize } from '../lib/hooks';
 import {
   anchorsIn, breakShapes, constrain, contourArea, cornerHandle, cornersAt, cutShapes, deleteAnchors, isStroke, keyRef, mergeShapes, mirrorEdit,
-  mirrorLine, mirrorPairs, moveAnchors, nearestSegment, overlapping, pickedBox, pointOn, pullHandles, refKey, reshapeSegment, reverseContour,
-  scaleAbout, setCorners, setHandle, setSmooth, setWeight, shapeAspect, shapeContour, shapesOf, snapIn, snapScene, splitSegment, strokeContour, strokeWidth,
+  boxAlong, mirrorLine, mirrorPairs, moveAnchors, nearestSegment, overlapping, pickedPoints, pointOn, pullHandles, refKey, reshapeSegment, reverseContour,
+  scaleAlong, turnOf, setCorners, setHandle, setSmooth, setWeight, shapeAspect, shapeContour, shapesOf, snapIn, snapScene, splitSegment, strokeContour, strokeWidth,
   thicknessOf, toggleSmooth, traceOf, transformAnchors, turnAbout, wholeShapes,
   POINT_LINE, SHAPES, SNAP_KINDS, type Affine, type Axis, type CornerAt, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
 } from '../lib/pen';
@@ -37,8 +37,26 @@ import { GridLines } from './ConstructionGrid';
 type Tool = 'object' | 'select' | 'pen' | 'convert' | 'shape';
 type P = { x: number; y: number };
 interface View { sc: number; ox: number; oy: number }
-/** The box round the picked points, in font units. */
-type Box = { x0: number; y0: number; x1: number; y1: number };
+/** The box round the picked points, standing turned `deg` anticlockwise: x0 to x1 along its turned x axis (u) and y0 to
+    y1 along its y axis (v), with the ways from those to font units (`at`) and back (`of`). */
+interface Frame { deg: number; x0: number; y0: number; x1: number; y1: number; at: (u: number, v: number) => P; of: (p: P) => { u: number; v: number } }
+function frameOf(pts: P[], deg: number): Frame | null {
+  const b = boxAlong(pts, deg);
+  if (!b) return null;
+  const t = (deg * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
+  return {
+    deg, ...b,
+    at: (u, v) => (deg ? { x: u * c - v * s, y: u * s + v * c } : { x: u, y: v }),
+    of: p => (deg ? { u: p.x * c + p.y * s, v: -p.x * s + p.y * c } : { u: p.x, v: p.y })
+  };
+}
+const middleOf = (f: Frame) => ({ u: (f.x0 + f.x1) / 2, v: (f.y0 + f.y1) / 2 });
+/** A way in font units turned `deg` anticlockwise. */
+const turned2 = (p: P, deg: number): P => {
+  if (!deg) return p;
+  const t = (deg * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
+  return { x: p.x * c - p.y * s, y: p.x * s + p.y * c };
+};
 /** a live pointer gesture: `move` drives it and `up` finishes it, told whether the pointer moved past a click */
 interface Gesture { move: (p: P, e: PointerEvent) => void; up: (moved: boolean) => void; x0: number; y0: number; moved: boolean }
 
@@ -137,7 +155,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const [sizeTag, setSizeTag] = useState<{ x: number; y: number; text: string } | null>(null);
   // how far the picked shapes have been turned since they were picked (the bar's angle), and a turn being dragged
   const [turned, setTurned] = useState<{ key: string; deg: number }>({ key: '', deg: 0 });
-  const [spin, setSpin] = useState<{ c: P; deg: number; box: Box } | null>(null);
+  const [spin, setSpin] = useState<{ deg: number; f: Frame } | null>(null);
   const [space, setSpace] = useState(false);
   // a stroke's thickness, typed in; left alone it is the letter's own
   const [strokeW, setStrokeW] = useState<number | null>(null);
@@ -269,6 +287,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       grab = { c: to.get(grab0.c)!, i: grab0.i };
     }
     const a = base[grab.c][grab.i], skip = refs.map(refKey), near = dup ? [] : beside(grab, skip);
+    // a copy's box stands as the original's does
+    const was = refs0.map(refKey).sort().join(' '), deg = dup ? (turned.key === was ? turned.deg : turnOf(base, refs0)) : 0;
     let copied = false;
     start(e, {
       move: (p, ev) => {
@@ -276,7 +296,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
         const out = moveAnchors(base, refs, q.x - a.x, q.y - a.y);
         // (a copy isn't mirrored: its points sit on the originals', which Mirror would take for partners)
         write(dup ? out : sym(base, out));
-        if (dup && !copied) { copied = true; setSel(skip); }
+        if (dup && !copied) { copied = true; setSel(skip); setTurned({ key: [...skip].sort().join(' '), deg }); }
       },
       up: moved => { if (moved) actions.commit(); }
     });
@@ -528,73 +548,82 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     });
   };
   /* ---- the picked points as one: the Selection tool's box scales them by its handles and turns them from just outside
-     its corners; the bar sizes, turns, flips and thickens them by number */
-  const xbox: Box | null = selRefs.length > 1 ? pickedBox(cs, selRefs) : null;
-  const middle = (b: Box): P => ({ x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 });
+     its corners; the bar sizes, turns, flips and thickens them by number. The box stands as turned as they are: as far
+     as they were turned while picked, or as their straight sides run (turnOf), and it scales them along its sides. */
   const selKey = selRefs.map(refKey).sort().join(' ');
-  const shownTurn = turned.key === selKey ? turned.deg : 0;
+  const boxDeg = selRefs.length > 1 ? (turned.key === selKey ? turned.deg : turnOf(cs, selRefs)) : 0;
+  const frame = selRefs.length > 1 ? frameOf(pickedPoints(cs, selRefs), boxDeg) : null;
   /** An angle in degrees as -180 to 180. */
   const spun = (deg: number) => ((((deg + 180) % 360) + 360) % 360) - 180;
   /** The picked points through `m`, mirrored unless it flips them (which runs contours the other way). */
   const mapped = (base: Node[][], m: Affine) => { const out = transformAnchors(base, selRefs, m); return m[0] * m[3] - m[1] * m[2] < 0 ? out : sym(base, out); };
-  /** Drag a handle of the box (`hx`, `hy`: -1 its left or bottom, 1 its right or top, 0 its middle): the picked points
-      scale from the side across, or with ⌥ from the middle; Shift keeps their proportions. The handle lines up with
-      points and guides. */
+  /** Drag a handle of the box (`hx`, `hy`: -1 its left or bottom, 1 its right or top, 0 its middle, along its own sides):
+      the picked points scale from the side across, or with ⌥ from the middle; Shift keeps their proportions. A box
+      standing upright lines the handle up with points and guides. */
   const onScale = (hx: number, hy: number) => (e: ReactPointerEvent) => {
-    if (e.button !== 0 || space || !xbox) return;
-    const base = current().contours, b = xbox, mid = middle(b), skip = selRefs.map(refKey);
+    if (e.button !== 0 || space || !frame) return;
+    const base = current().contours, f = frame, mid = middleOf(f), skip = selRefs.map(refKey);
     const side = (h: number, lo: number, hi: number, m: number) => (h < 0 ? lo : h > 0 ? hi : m);
-    const grip = { x: side(hx, b.x0, b.x1, mid.x), y: side(hy, b.y0, b.y1, mid.y) }, across = { x: side(hx, b.x1, b.x0, mid.x), y: side(hy, b.y1, b.y0, mid.y) };
-    const by = (h: number, v: number, g: number, f: number) => (h && Math.abs(g - f) > 0.5 ? (v - f) / (g - f) : 1);
+    const grip = { u: side(hx, f.x0, f.x1, mid.u), v: side(hy, f.y0, f.y1, mid.v) }, across = { u: side(hx, f.x1, f.x0, mid.u), v: side(hy, f.y1, f.y0, mid.v) };
+    const by = (h: number, v: number, g: number, o: number) => (h && Math.abs(g - o) > 0.5 ? (v - o) / (g - o) : 1);
     start(e, {
       move: (p, ev) => {
-        const o = ev.altKey ? mid : across, q = snapTo(p, { skip, level: true });
-        let sx = by(hx, q.x, grip.x, o.x), sy = by(hy, q.y, grip.y, o.y);
+        const o = ev.altKey ? mid : across, q = f.deg ? p : snapTo(p, { skip, level: true }), w = f.of(q);
+        let sx = by(hx, w.u, grip.u, o.u), sy = by(hy, w.v, grip.v, o.v);
         if (ev.shiftKey) {
           if (hx && hy) { const k = Math.max(Math.abs(sx), Math.abs(sy)); sx = Math.sign(sx || 1) * k; sy = Math.sign(sy || 1) * k; }
           else if (hx) sy = Math.abs(sx); else sx = Math.abs(sy);
         }
-        write(mapped(base, scaleAbout(o, sx, sy)));
-        setSizeTag({ x: q.x, y: q.y, text: `${Math.round(Math.abs((b.x1 - b.x0) * sx))} × ${Math.round(Math.abs((b.y1 - b.y0) * sy))}` });
+        write(mapped(base, scaleAlong(f.at(o.u, o.v), f.deg, sx, sy)));
+        setSizeTag({ x: q.x, y: q.y, text: `${Math.round(Math.abs((f.x1 - f.x0) * sx))} × ${Math.round(Math.abs((f.y1 - f.y0) * sy))}` });
       },
       up: moved => { setSizeTag(null); if (moved) actions.commit(); }
     });
   };
-  /** Drag from just outside a corner of the box: the picked points turn about its middle, Shift by 15° at a time. */
+  /** Drag from just outside a corner of the box: the picked points turn about its middle, Shift by 15° at a time, and the
+      box turns with them. */
   const onTurn = (e: ReactPointerEvent) => {
-    if (e.button !== 0 || space || !xbox) return;
-    const base = current().contours, b = xbox, c = middle(b), p0 = toFont(e), a0 = Math.atan2(p0.y - c.y, p0.x - c.x), was = shownTurn, key = selKey;
+    if (e.button !== 0 || space || !frame) return;
+    const base = current().contours, f = frame, m = middleOf(f), c = f.at(m.u, m.v), p0 = toFont(e), a0 = Math.atan2(p0.y - c.y, p0.x - c.x), was = boxDeg, key = selKey;
     let deg = 0;
     start(e, {
       move: (p, ev) => {
         deg = spun(((Math.atan2(p.y - c.y, p.x - c.x) - a0) * 180) / Math.PI);
         if (ev.shiftKey) deg = Math.round(deg / 15) * 15;
         write(mapped(base, turnAbout(c, deg)));
-        setSpin({ c, deg, box: b });
+        setSpin({ deg, f });
         setSizeTag({ x: p.x, y: p.y, text: `${Math.round(deg)}°` });
       },
       up: moved => { setSpin(null); setSizeTag(null); if (moved) { actions.commit(); setTurned({ key, deg: spun(was + deg) }); } }
     });
   };
-  /** Size the picked points to a width or height, their box's left and bottom staying put. */
+  /** Size the picked points to a width or height along the box's sides, its left and bottom corner staying put. */
   const resizeTo = (w: number | null, h: number | null) => {
-    if (!xbox) return;
-    const bw = xbox.x1 - xbox.x0, bh = xbox.y1 - xbox.y0;
+    if (!frame) return;
+    const f = frame, bw = f.x1 - f.x0, bh = f.y1 - f.y0;
     const sx = w !== null && bw > 0.5 ? Math.max(1, w) / bw : 1, sy = h !== null && bh > 0.5 ? Math.max(1, h) / bh : 1;
-    edit(o => mapped(o, scaleAbout({ x: xbox.x0, y: xbox.y0 }, sx, sy)));
+    edit(o => mapped(o, scaleAlong(f.at(f.x0, f.y0), f.deg, sx, sy)));
   };
   /** Turn the picked points about their box's middle, by degrees anticlockwise. */
   const turnBy = (deg: number) => {
-    if (!xbox || !deg) return;
-    const c = middle(xbox);
+    if (!frame || !deg) return;
+    const m = middleOf(frame), c = frame.at(m.u, m.v);
     edit(o => mapped(o, turnAbout(c, deg)));
-    setTurned({ key: selKey, deg: spun(shownTurn + deg) });
+    setTurned({ key: selKey, deg: spun(boxDeg + deg) });
   };
-  /** Flip the picked points left ↔ right ('x') or top ↕ bottom ('y') across their box's middle. */
+  /** Flip the picked points across their box's middle, along its sides: left ↔ right ('x') or top ↕ bottom ('y'). The
+      box stays as it stands. */
   const flip = (axis: Axis) => {
-    if (!xbox) return;
-    commit(transformAnchors(current().contours, selRefs, scaleAbout(middle(xbox), axis === 'x' ? -1 : 1, axis === 'y' ? -1 : 1)));
-    if (shownTurn) setTurned({ key: selKey, deg: -shownTurn });
+    if (!frame) return;
+    const m = middleOf(frame);
+    commit(transformAnchors(current().contours, selRefs, scaleAlong(frame.at(m.u, m.v), frame.deg, axis === 'x' ? -1 : 1, axis === 'y' ? -1 : 1)));
+    setTurned({ key: selKey, deg: boxDeg });
+  };
+  /** The box as the screen shows it, turned `turn` more about its middle: its middle and the ways to its right side and
+      its top, in px. */
+  const boxView = (f: Frame, turn = 0) => {
+    const m = middleOf(f), c = f.at(m.u, m.v), u = turned2(f.at((f.x1 - f.x0) / 2, 0), turn), v = turned2(f.at(0, (f.y1 - f.y0) / 2), turn);
+    return { C: { x: X(c.x), y: Y(c.y) }, U: { x: u.x * sc, y: -u.y * sc }, V: { x: v.x * sc, y: -v.y * sc } };
   };
   /** How thick the picked shapes are (thicknessOf), read again as the outline or the picked points change, but not
       mid-drag. */
@@ -747,7 +776,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   // the rounding knobs: on Direct selection's picked corners, and on every corner of the Selection tool's picked shapes
   // while their box is big enough on screen (each where its sides leave a little room to round)
   const knobs = tool === 'select' ? pickedCorners
-    : tool === 'object' && xbox && !spin && drawingOk === null && (xbox.x1 - xbox.x0) * sc >= ROUND_ROOM && (xbox.y1 - xbox.y0) * sc >= ROUND_ROOM
+    : tool === 'object' && frame && !spin && drawingOk === null && (frame.x1 - frame.x0) * sc >= ROUND_ROOM && (frame.y1 - frame.y0) * sc >= ROUND_ROOM
       ? pickedCorners.filter(k => cornerRoom(cs[k.r.c], k.r.i).most * sc >= 6) : [];
   const count = cs.reduce((a, c) => a + c.length, 0);
   const cursor = space ? 'grab' : tool === 'pen' || tool === 'shape' ? 'crosshair' : 'default';
@@ -849,10 +878,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
                 </g>
               );
             }))}
-            {tool === 'object' && drawingOk === null && (spin ? (
-              <rect className="pen-xf-box" x={n1(X(spin.box.x0))} y={n1(Y(spin.box.y1))} width={n1((spin.box.x1 - spin.box.x0) * sc)} height={n1((spin.box.y1 - spin.box.y0) * sc)}
-                transform={`rotate(${n1(-spin.deg)} ${n1(X(spin.c.x))} ${n1(Y(spin.c.y))})`} />
-            ) : xbox && <XfBox l={X(xbox.x0)} r={X(xbox.x1)} t={Y(xbox.y1)} b={Y(xbox.y0)} onScale={onScale} onTurn={onTurn} />)}
+            {tool === 'object' && drawingOk === null && (spin ? <XfBox {...boxView(spin.f, spin.deg)} />
+              : frame && <XfBox {...boxView(frame)} onScale={onScale} onTurn={onTurn} />)}
             {knobs.map(({ r, h }) => {
               const n = cs[r.c][r.i], at = Math.max(h.at, 16 / sc), x = n1(X(n.x + h.ux * at)), y = n1(Y(n.y + h.uy * at));
               return (
@@ -888,19 +915,19 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             <PointKind smooth={!!one.s} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
             {pickedCorners.length > 0 && <NumField label="Radius" value={cornerR} onSet={v => edit(o => setCorners(o, pickedCorners.map(k => k.r), Math.max(0, v)))} />}
           </>
-        ) : xbox && (tool === 'object' || tool === 'shape') ? (
+        ) : frame && (tool === 'object' || tool === 'shape') ? (
           <>
             <span className="pen-bar-label">{pickName()}</span>
-            <NumField label="W" name="Width of the picked shapes" value={xbox.x1 - xbox.x0} onSet={v => resizeTo(v, null)} />
-            <NumField label="H" name="Height of the picked shapes" value={xbox.y1 - xbox.y0} onSet={v => resizeTo(null, v)} />
+            <NumField label="W" name="Width of the picked shapes" title="Width, along the box’s sides" value={frame.x1 - frame.x0} onSet={v => resizeTo(v, null)} />
+            <NumField label="H" name="Height of the picked shapes" title="Height, along the box’s sides" value={frame.y1 - frame.y0} onSet={v => resizeTo(null, v)} />
             <NumField label={<svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 12h10M2 12l7-8.5" /><path d="M6.6 12a4.6 4.6 0 00-1.4-3.3" /></svg>}
-              name="Turn" title="Turn: degrees anticlockwise about their middle (or drag just outside a corner of the box)" value={shownTurn} onSet={v => turnBy(v - shownTurn)} />
+              name="Turn" title="Turn: degrees anticlockwise about their middle (or drag just outside a corner of the box)" value={boxDeg} onSet={v => turnBy(v - boxDeg)} />
             <NumField label="Weight" title="Weight: how thick the picked shapes are. Their sides move out or in, keeping their points; a bar grows across, not along"
               value={weightNow()} onSet={v => edit(o => setWeight(o, pickedContours(), Math.max(1, v)))} />
-            <button className="pen-icon-btn" aria-label="Flip left and right" title="Flip left ↔ right" onClick={() => flip('x')}>
+            <button className="pen-icon-btn" aria-label="Flip left and right" title="Flip left ↔ right, across the box" onClick={() => flip('x')}>
               <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.3 4L2 12h4.3zM9.7 4L14 12H9.7z" /><path d="M8 1.5v13" strokeDasharray="1.5 1.5" /></svg>
             </button>
-            <button className="pen-icon-btn" aria-label="Flip top and bottom" title="Flip top ↕ bottom" onClick={() => flip('y')}>
+            <button className="pen-icon-btn" aria-label="Flip top and bottom" title="Flip top ↕ bottom, across the box" onClick={() => flip('y')}>
               <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6.3L12 2v4.3zM4 9.7l8 4.3V9.7z" /><path d="M1.5 8h13" strokeDasharray="1.5 1.5" /></svg>
             </button>
           </>
@@ -961,37 +988,48 @@ function AimBadge({ aim, x, y }: { aim: Exclude<Aim, { kind: 'add' }>; x: number
   );
 }
 
-/** The Selection tool's box round the picked points, in screen px: a handle at each corner and, where there is room, in
-    the middle of each side, which scales them, and just outside each corner a place to drag that turns them. */
-function XfBox({ l, r, t, b, onScale, onTurn }: {
-  l: number; r: number; t: number; b: number; onScale: (hx: number, hy: number) => (e: ReactPointerEvent) => void; onTurn: (e: ReactPointerEvent) => void;
+/** The Selection tool's box round the picked points, in screen px: its middle `C` and the ways from it to its right side
+    `U` and its top `V`, which turn with it. A handle at each corner and, where there is room, in the middle of each side
+    scales them, and round each corner outside the box is a place to drag that turns them. Without `onScale`, the box
+    alone, as it turns. */
+function XfBox({ C, U, V, onScale, onTurn }: {
+  C: P; U: P; V: P; onScale?: (hx: number, hy: number) => (e: ReactPointerEvent) => void; onTurn?: (e: ReactPointerEvent) => void;
 }) {
-  const at = (h: number, lo: number, hi: number) => (h < 0 ? lo : h > 0 ? hi : (lo + hi) / 2);
+  const at = (hx: number, hy: number) => ({ x: C.x + hx * U.x + hy * V.x, y: C.y + hx * U.y + hy * V.y });
   const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
-  const handles = [...corners, ...(r - l >= 40 ? [[0, -1], [0, 1]] : []), ...(b - t >= 40 ? [[-1, 0], [1, 0]] : [])];
+  const outline = <path className="pen-xf-box" d={'M' + corners.map(([hx, hy]) => { const p = at(hx, hy); return `${n1(p.x)} ${n1(p.y)}`; }).join('L') + 'Z'} />;
+  if (!onScale || !onTurn) return outline;
+  const wide = 2 * Math.hypot(U.x, U.y), tall = 2 * Math.hypot(V.x, V.y);
+  const handles = [...corners, ...(wide >= 40 ? [[0, -1], [0, 1]] : []), ...(tall >= 40 ? [[-1, 0], [1, 0]] : [])];
+  const unit = (p: P, or: P) => { const l = Math.hypot(p.x, p.y); return l > 0.5 ? { x: p.x / l, y: p.y / l } : or; };
+  // a handle's resize cursor, by the way it lies from the middle
+  const resize = (hx: number, hy: number) => {
+    const p = at(hx, hy), k = ((Math.round(Math.atan2(p.y - C.y, p.x - C.x) / (Math.PI / 4)) % 4) + 4) % 4;
+    return ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'][k];
+  };
   return (
     <g className="pen-xf">
-      <rect className="pen-xf-box" x={n1(l)} y={n1(t)} width={n1(r - l)} height={n1(b - t)} />
+      {outline}
       {corners.map(([hx, hy]) => {
-        // round the corner outside the box: three quarters of a round, from along one side to along the other (y runs
-        // down on screen, so the top is hy 1 and out of it is up)
-        const x = at(hx, l, r), y = at(hy, b, t), sx = hx, sy = -hy, a0 = Math.atan2(0, -sx), inside = Math.atan2(-sy, -sx);
-        const way = Math.sin(inside - a0) > 0 ? -1 : 1;
+        // three quarters of a round about the corner, outside the box: from along one side, round, to along the other
+        const p = at(hx, hy), e1 = unit({ x: -hx * U.x, y: -hx * U.y }, { x: -hx, y: 0 }), e2 = unit({ x: -hy * V.x, y: -hy * V.y }, { x: 0, y: hy });
+        const a0 = Math.atan2(e1.y, e1.x), inside = Math.atan2(e1.y + e2.y, e1.x + e2.x), way = Math.sin(inside - a0) > 0 ? -1 : 1;
         const pts = Array.from({ length: 13 }, (_, k) => {
           const a = a0 + (way * k * 1.5 * Math.PI) / 12;
-          return `${n1(x + TURN_REACH * Math.cos(a))} ${n1(y + TURN_REACH * Math.sin(a))}`;
+          return `${n1(p.x + TURN_REACH * Math.cos(a))} ${n1(p.y + TURN_REACH * Math.sin(a))}`;
         });
+        const facing = Math.round(((Math.atan2(-(e1.y + e2.y), -(e1.x + e2.x)) * 180) / Math.PI) / 5) * 5;
         return (
-          <path key={`t${hx}${hy}`} className="pen-xf-turn" style={{ cursor: turnCursor(Math.round((Math.atan2(sy, sx) * 180) / Math.PI)) }}
-            d={`M${n1(x)} ${n1(y)}L${pts.join('L')}Z`} onPointerDown={onTurn}><title>Drag to turn</title></path>
+          <path key={`t${hx}${hy}`} className="pen-xf-turn" style={{ cursor: turnCursor(facing) }}
+            d={`M${n1(p.x)} ${n1(p.y)}L${pts.join('L')}Z`} onPointerDown={onTurn}><title>Drag to turn</title></path>
         );
       })}
       {handles.map(([hx, hy]) => {
-        const x = at(hx, l, r), y = at(hy, b, t), cursor = hx && hy ? (hx * hy > 0 ? 'nesw-resize' : 'nwse-resize') : hx ? 'ew-resize' : 'ns-resize';
+        const p = at(hx, hy);
         return (
-          <g key={`h${hx}${hy}`} className="pen-xf-h" style={{ cursor }} onPointerDown={onScale(hx, hy)}>
-            <rect className="grab" x={n1(x - HIT)} y={n1(y - HIT)} width={HIT * 2} height={HIT * 2} />
-            <rect x={n1(x - 3.5)} y={n1(y - 3.5)} width={7} height={7} />
+          <g key={`h${hx}${hy}`} className="pen-xf-h" style={{ cursor: resize(hx, hy) }} onPointerDown={onScale(hx, hy)}>
+            <rect className="grab" x={n1(p.x - HIT)} y={n1(p.y - HIT)} width={HIT * 2} height={HIT * 2} />
+            <rect x={n1(p.x - 3.5)} y={n1(p.y - 3.5)} width={7} height={7} transform={`rotate(${n1((Math.atan2(U.y, U.x) * 180) / Math.PI)} ${n1(p.x)} ${n1(p.y)})`} />
           </g>
         );
       })}

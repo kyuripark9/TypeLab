@@ -573,19 +573,58 @@ export function transformAnchors(cs: Node[][], refs: Ref[], m: Affine): Node[][]
   return out;
 }
 
-/** The box round picked points: their anchors, and the curves running from one of them to the next. */
-export function pickedBox(cs: Node[][], refs: Ref[]): { x0: number; y0: number; x1: number; y1: number } | null {
-  const keys = new Set(refs.map(refKey));
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  const take = (p: P) => { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); };
+/** Scaling by `sx` and `sy` along axes turned `deg` anticlockwise, about `o`; with `deg` 0, scaleAbout. */
+export function scaleAlong(o: P, deg: number, sx: number, sy: number): Affine {
+  if (!deg) return scaleAbout(o, sx, sy);
+  const t = (deg * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
+  const a = sx * c * c + sy * s * s, b = (sx - sy) * s * c, d = sx * s * s + sy * c * c;
+  return [a, b, b, d, o.x - a * o.x - b * o.y, o.y - b * o.x - d * o.y];
+}
+
+/** Where picked points reach: their anchors, and points along the curves running from one of them to the next. */
+export function pickedPoints(cs: Node[][], refs: Ref[]): P[] {
+  const keys = new Set(refs.map(refKey)), out: P[] = [];
   for (const k of keys) {
     const { c, i } = keyRef(k), con = cs[c], n = con?.[i];
     if (!n) continue;
-    take(n);
+    out.push(n);
     const j = (i + 1) % con.length, s = j !== i ? segment(n, con[j]) : null;
-    if (s && keys.has(refKey({ c, i: j }))) for (let t = 1; t < 16; t++) take(bez(s, t / 16));
+    if (s && keys.has(refKey({ c, i: j }))) for (let t = 1; t < 16; t++) out.push(bez(s, t / 16));
+  }
+  return out;
+}
+/** A box round points, along axes turned `deg` anticlockwise: x0 to x1 along the turned x axis and y0 to y1 along its y
+    axis (with `deg` 0, the plain box). Null with no points. */
+export function boxAlong(pts: P[], deg = 0): { x0: number; y0: number; x1: number; y1: number } | null {
+  const t = (deg * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of pts) {
+    const u = deg ? p.x * c + p.y * s : p.x, v = deg ? -p.x * s + p.y * c : p.y;
+    x0 = Math.min(x0, u); y0 = Math.min(y0, v); x1 = Math.max(x1, u); y1 = Math.max(y1, v);
   }
   return x0 <= x1 ? { x0, y0, x1, y1 } : null;
+}
+/** The box round picked points. */
+export const pickedBox = (cs: Node[][], refs: Ref[]) => boxAlong(pickedPoints(cs, refs));
+
+/** How far picked shapes stand turned, in degrees (-45 to 45): the way their longest straight side runs, when every other
+    straight side of a fair length runs that way too or square to it (a box, a stroke, a block letter turned); else 0,
+    as for a letter whose sides run several ways, or shapes of curves alone. */
+export function turnOf(cs: Node[][], refs: Ref[]): number {
+  const keys = new Set(refs.map(refKey)), sides: { a: number; l: number }[] = [];
+  for (const k of keys) {
+    const { c, i } = keyRef(k), con = cs[c], n = con?.[i];
+    if (!n || con.length < 2) continue;
+    const j = (i + 1) % con.length, m = con[j], l = Math.hypot(m.x - n.x, m.y - n.y);
+    if (keys.has(refKey({ c, i: j })) && !segment(n, m) && l > 0) sides.push({ a: Math.atan2(m.y - n.y, m.x - n.x), l });
+  }
+  if (!sides.length) return 0;
+  const long = sides.reduce((b, k) => (k.l > b.l ? k : b)), quarter = Math.PI / 2;
+  // how far a way is from the longest side's, or from square to it
+  const off = (a: number) => { const d = (((a - long.a) % quarter) + quarter) % quarter; return Math.min(d, quarter - d); };
+  if (long.l < 10 || sides.some(k => k.l >= long.l * 0.2 && off(k.a) > (1 * Math.PI) / 180)) return 0;
+  const deg = ((((long.a * 180) / Math.PI + 45) % 90) + 90) % 90 - 45;
+  return Math.abs(deg) < 0.5 ? 0 : Math.round(deg * 100) / 100;
 }
 
 /** How thick the ink of contours is: from all along their outline, straight across the ink to its other side, the

@@ -10,8 +10,8 @@ import { STYLES, styleById } from '../shared/content';
 import { DEFAULTS, isValidParams, sanitizeParams, type Params } from '../shared/params';
 import {
   breakShapes, contourArea, cornersAt, cutShapes, deleteAnchors, inkOf, mergeShapes, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, nearestSegment,
-  overlapping, pickedBox, reshapeSegment, reverseContour, scaleAbout, setCorners, setHandle, setWeight, shapesOf, snapIn, snapScene, splitSegment,
-  strokeContour, strokeWidth, tangentsFrom, thicken, thicknessOf, toggleSmooth, traceOf, transformAnchors, turnAbout, wholeShapes, SNAP_KINDS
+  boxAlong, overlapping, pickedBox, pickedPoints, reshapeSegment, reverseContour, scaleAbout, scaleAlong, setCorners, setHandle, setWeight, shapesOf, snapIn, snapScene, splitSegment,
+  strokeContour, strokeWidth, tangentsFrom, thicken, thicknessOf, toggleSmooth, traceOf, transformAnchors, turnAbout, turnOf, wholeShapes, SNAP_KINDS
 } from '../client/lib/pen';
 
 type P = { x: number; y: number };
@@ -420,6 +420,25 @@ describe('Picked shapes as one with the pen', () => {
     assert.deepEqual(half[0], [{ x: 0, y: 0 }, { x: -300, y: 0 }, { x: -300, y: 100 }, { x: 0, y: 100 }]);
     // the box takes in a curve's bulge between two picked points
     assert.deepEqual(pickedBox([circle(100)], every([circle(100)])), { x0: -100, y0: -100, x1: 100, y1: 100 });
+  });
+
+  it('keeps a turned shape\'s box turned with it, and scales it along the box\'s sides', () => {
+    const r = [rect(0, 0, 300, 100)], turned = transformAnchors(r, every(r), turnAbout({ x: 150, y: 50 }, 30));
+    assert.ok(Math.abs(turnOf(turned, every(turned)) - 30) < 0.3, `${turnOf(turned, every(turned))}`);
+    const b = boxAlong(pickedPoints(turned, every(turned)), 30)!;
+    assert.ok(Math.abs(b.x1 - b.x0 - 300) <= 1 && Math.abs(b.y1 - b.y0 - 100) <= 1, 'the box hugs it');
+    // twice as long along its own length: still a rectangle, as wide across as before
+    const long = transformAnchors(turned, every(turned), scaleAlong({ x: 150, y: 50 }, 30, 2, 1));
+    const lb = boxAlong(pickedPoints(long, every(long)), 30)!;
+    assert.ok(Math.abs(lb.x1 - lb.x0 - 600) <= 2 && Math.abs(lb.y1 - lb.y0 - 100) <= 2, JSON.stringify(lb));
+    assert.deepEqual(scaleAlong({ x: 5, y: 5 }, 0, 2, 3), scaleAbout({ x: 5, y: 5 }, 2, 3));
+    // a stroke stands as it was drawn; upright shapes, curves alone, and letters with sides running several ways stand upright
+    const st = [strokeContour({ x: 0, y: 0 }, { x: 300, y: 100 }, 60, false)];
+    assert.ok(Math.abs(turnOf(st, every(st)) - 18.43) < 0.3);
+    assert.equal(turnOf(r, every(r)), 0);
+    assert.equal(turnOf([circle(100)], every([circle(100)])), 0);
+    const A = traceOf(buildFont(STYLES[0].params).glyph('A')!).contours;
+    assert.equal(turnOf(A, every(A)), 0);
   });
 
   it('reads how thick a shape is: a bar\'s width, a ring\'s stroke, a letter\'s stems', () => {
