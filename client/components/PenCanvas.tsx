@@ -1377,10 +1377,12 @@ const ACTS: { id: ActId; label: string; title: string; icon: ReactNode }[] = [
     icon: <path d="M3 4.5h10M6.3 4.5V3h3.4v1.5M4.5 4.5l.7 9h5.6l.7-9" /> }
 ];
 const ACT_IDS = ACTS.map(a => a.id);
-/** The actions the bar shows, as this browser keeps them. */
+/** The actions the bar shows, as this browser keeps them. Until they are picked, the flips; and on a touch screen
+    (a tablet, with no keys for Delete), every one. */
 const savedActs = (): ActId[] => {
   const v = prefJson(PREFS.penActions);
-  return Array.isArray(v) ? ACT_IDS.filter(id => v.includes(id)) : ['flipX', 'flipY'];
+  if (Array.isArray(v)) return ACT_IDS.filter(id => v.includes(id));
+  return matchMedia('(hover: none) and (pointer: coarse)').matches ? ACT_IDS : ['flipX', 'flipY'];
 };
 
 /** ⋯ at the end of the bar's actions: a menu of every one, to run it (dimmed where it doesn't apply to what is picked)
