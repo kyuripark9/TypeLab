@@ -24,9 +24,9 @@ without subscribing.
   only the drawings differ, and fetches the free fonts a build is missing. `useFont()` is the design's font;
   `useScopedFont()` is the font controls act on (the inspected letter's own while customizing).
 - Free fonts: `loadStyle` starts a style in its free font (`freeFont`, `freeAt`, and letter and word spacing at their
-  defaults, where the engine adds nothing to the font's own spacing); `setFreeLetters` switches between the free font
-  and built letters, swapping the spacing back and forth. When a free font arrives, the open design gets a fresh
-  params object so it draws again.
+  defaults, where the engine adds nothing to the font's own spacing), and the font's letters are the design's to
+  shape: there is no switch to letters built from the settings (only Blocks styles and designs saved before free fonts
+  have those). When a free font arrives, the open design gets a fresh params object so it draws again.
 - The Style page: filters (`groups`, `moods`, `query`), the finder (`finder`: ask what kind of letters first),
   traits (`traits`, `adjustedParams`, cached per style and trait set), and `picked`: while the design's params still
   equal the JSON picked on the Style page, trait changes re-apply to it.

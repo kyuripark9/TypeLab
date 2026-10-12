@@ -7,7 +7,7 @@ import { create } from 'zustand';
 import { STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
 import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
 import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../shared/engine';
-import { STYLE_FONTS, isOwnFont, parseFontId } from '../../shared/free-fonts';
+import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
 import { DEFAULT_NAME, cleanName, type Design, type DesignInput } from '../../shared/design';
 import { SNAP_KINDS, type SnapKind } from '../lib/pen';
@@ -235,9 +235,7 @@ onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont) useEdi
 /** The settings a style's free font stands for as it comes: moved from these, its letters move too. */
 /** Letter and word spacing where the engine adds nothing to a free font's own spacing: the settings' defaults,
     which `track` and `space` in shared/engine/font.ts take as their zero (written there as 0.2 and 0.35, so a new
-    default has to reach both; Formal nudges letter spacing before `track` reads it). setFreeLetters treats
-    spacing still at these values as untouched, and gives the style's own spacing back when free letters are
-    turned off. */
+    default has to reach both; Formal nudges letter spacing before `track` reads it). */
 const FREE_SPACING = { letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAULTS.wordSpacing };
 /** A style's settings to start from, written in its free font (unless a design built from the settings asks
     otherwise). Its free font's letters are spaced as the font spaces them, so letter and word spacing start at FREE_SPACING. Traits laid over the style move the
@@ -375,20 +373,6 @@ export const actions = {
     const font = parseFontId(params.freeFont);
     actions.toast(`${st.name} loaded${font ? ` in ${font.family}` : ''}${n ? ` with ${n} ${n === 1 ? 'trait' : 'traits'}` : ''}`);
     styleToast = toastId;
-  },
-  /** Write the open design in its style's free font, or go back to letters built from the settings. Spacing
-      left as the style had it moves to the free font's own, and back. */
-  setFreeLetters(on: boolean) {
-    const s = get(), st = styleById(s.styleId), id = st && STYLE_FONTS[st.id], p = s.params;
-    if (!st || (on ? !id || p.freeFont : !p.freeFont)) return;
-    const spacing = (k: 'letterSpacing' | 'wordSpacing', free: number) => on
-      ? (p[k] === st.params[k] ? free : p[k])
-      : (p[k] === free ? st.params[k] : p[k]);
-    const params = { ...p, freeFont: on ? id! : '', freeAt: on ? freeAtOf(st.params) : {}, letterSpacing: spacing('letterSpacing', FREE_SPACING.letterSpacing), wordSpacing: spacing('wordSpacing', FREE_SPACING.wordSpacing) };
-    set({ params, picked: s.picked === JSON.stringify(p) ? JSON.stringify(params) : s.picked });
-    actions.commit();
-    const family = on ? parseFontId(id)!.family : '';
-    actions.toast(on ? `Written in ${family}, ${isOwnFont(family) ? 'a TypeLab font' : 'a free font'}` : 'Letters built from the settings, ready to shape', { label: 'Undo', run: () => actions.travel(-1) });
   },
   /** Reset one slider to the starting style's value, or, while edits go to one letter, to the
       value the other letters share. */

@@ -1,8 +1,7 @@
-/* A page of controls: the offer of a style's font, the explainer, the page's controls (grouped by the parts of an inspected letter), and the steps to the pages beside it. */
+/* A page of controls: the explainer, the page's controls (grouped by the parts of an inspected letter), and the steps to the pages beside it. */
 import type { ReactNode } from 'react';
 import { BLOCK_CONTROLS, PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
 import type { NumericParam, SubControlDef } from '../../../shared/params';
-import { STYLE_FONTS, isOwnFont, parseFontId } from '../../../shared/free-fonts';
 import { actions, letterOf, useEditor, useFont, useParam } from '../../state/editor';
 import { ScopeIcon, letterControls } from '../Inspector';
 import { Explainer } from './heads';
@@ -25,23 +24,10 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
     : category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
   return (
     <div className="controls-page">
-      <FreeLetters />
       <Explainer />
       {inspecting ? <LetterControls keys={keys} category={category} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}{note}</div>}
       <PageSteps category={category} />
     </div>
-  );
-}
-
-/** A style that has a TypeLab or free font, while its letters are built from the settings instead, offers the font
-    back on every page of controls (a design written in it needs no note: its letters follow the settings). */
-function FreeLetters() {
-  const id = useEditor(s => s.params.freeFont), offer = useEditor(s => STYLE_FONTS[s.styleId]);
-  const o = id ? null : parseFontId(offer);
-  return o && (
-    <p className="page-note">
-      Want it ready-made? <button className="link small" onClick={() => actions.setFreeLetters(true)}>Use {o.family}</button>, {isOwnFont(o.family) ? 'a TypeLab font' : 'a free font'} in this style
-    </p>
   );
 }
 
@@ -69,16 +55,16 @@ function PageSteps({ category }: { category: Exclude<CategoryId, 'style'> }) {
 function LetterControls({ keys, category }: { keys: ControlKey[]; category: Exclude<CategoryId, 'style'> }) {
   const ch = useEditor(s => s.inspect)!, font = useFont(), customizing = useEditor(s => !!letterOf(s));
   const hand = useEditor(s => !!s.params.outlines[ch]);
-  const g = font.glyph(ch), free = !hand && g?.drawn && font.free ? font.free.family : null, drawn = hand || !!free;
+  const g = font.glyph(ch);
   const rows = g ? letterControls(g, ch, font.letter(ch).params.serif) : [];
   const rest = keys.filter(k => !rows.some(r => r.key === k));
   return (
     <div className="ctl-list">
       {customizing && !hand && <div className="scope-note"><ScopeIcon id="letter" /><span>Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</span></div>}
-      {drawn && (
+      {hand && (
         <div className="reach-banner">
-          <span>{free ? `${ch} comes from ${free}: weight, contrast, width, heights, crossbar, serifs, slant and fills change it, and Points reshapes it.` : `${ch} was edited in Points, so these settings don’t change it.`}</span>
-          <button className="link small" onClick={() => (free ? actions.setFreeLetters(false) : actions.undrawLetter(ch))}>{free ? 'Make my own letters' : 'Back to settings'}</button>
+          <span>{`${ch} was edited in Points, so these settings don’t change it.`}</span>
+          <button className="link small" onClick={() => actions.undrawLetter(ch)}>Back to settings</button>
         </div>
       )}
       <div className="list-head">Parts of {ch}</div>

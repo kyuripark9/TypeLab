@@ -1,4 +1,4 @@
-/* The editor's store (client/state/editor.ts), run without a browser: writing a design in its free font and back,
+/* The editor's store (client/state/editor.ts), run without a browser: starting a design in its free font,
    a customized letter's own values, loading a style over changes, renaming, and how far undo reaches. Nothing here
    draws a design written in a free font, which would fetch the font from the server. */
 import assert from 'node:assert/strict';
@@ -17,21 +17,11 @@ describe('the editor', () => {
     useEditor.setState({ scope: 'all', inspect: null, toast: null });
   });
 
-  it('writes a design in its style\'s free font and back, each with its own spacing', () => {
+  it('starts a style in its free font, spaced as the font spaces its letters', () => {
     actions.loadStyle('serif');
-    // a style starts in its free font, spaced as the font spaces its letters
     assert.equal(state().params.freeFont, STYLE_FONTS.serif);
     assert.deepEqual(state().params.freeAt, freeAtOf(serif.params));
-    assert.equal(state().params.letterSpacing, DEFAULTS.letterSpacing);
-    actions.setFreeLetters(false);
-    assert.equal(state().params.freeFont, '');
-    assert.deepEqual(state().params.freeAt, {});
-    assert.deepEqual([state().params.letterSpacing, state().params.wordSpacing], [serif.params.letterSpacing, serif.params.wordSpacing]);
-    // spacing moved by hand stays where it was put
-    actions.setOption('letterSpacing', 0.7);
-    actions.setFreeLetters(true);
-    assert.deepEqual([state().params.letterSpacing, state().params.wordSpacing], [0.7, DEFAULTS.wordSpacing]);
-    assert.deepEqual(state().params.freeAt, freeAtOf(serif.params));
+    assert.deepEqual([state().params.letterSpacing, state().params.wordSpacing], [DEFAULTS.letterSpacing, DEFAULTS.wordSpacing]);
   });
 
   it('starts a style built from blocks in its own letters, as no font draws them', () => {
@@ -40,9 +30,6 @@ describe('the editor', () => {
     assert.equal(state().params.build, 'blocks');
     assert.equal(state().params.freeFont, '');
     assert.deepEqual(state().params.freeAt, {});
-    // there is no font to write it in
-    actions.setFreeLetters(true);
-    assert.equal(state().params.freeFont, '');
   });
 
   it('gives a letter being customized its own values, and drops what follows the rest again', () => {
