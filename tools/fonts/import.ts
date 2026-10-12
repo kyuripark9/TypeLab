@@ -175,14 +175,20 @@ function srcBox(contours: FreeFontData['glyphs'][string][1]) {
 }
 
 /** Whether two letters are the same but for where they stand, by a unit or two either way (rounding, when a letter
-    comes through an import again unchanged): kept as they were, an import changes only the letters drawn anew. */
+    comes through an import again unchanged): kept as they were, an import changes only the letters drawn anew. Each
+    point may also be a unit or two off on its own: Illustrator writes a sheet's points again, a hair apart, each time
+    the sheet is saved, so a point lying half a unit between two rounds the other way, and a short handle along a
+    straight piece can go (the piece then written as a line, its handles read as on their anchors). */
 function sameLetter(a: FreeFontData['glyphs'][string], b: FreeFontData['glyphs'][string]) {
   if (Math.abs(a[0] - b[0]) > 2 || a[1].length !== b[1].length || !a[1].length) return false;
   const dx = b[1][0][0][0] - a[1][0][0][0], dy = b[1][0][0][1] - a[1][0][0][1];
   if (Math.abs(dx) > 2 || Math.abs(dy) > 2) return false;
+  // (an anchor and its handles, a missing handle on its anchor)
+  const full = (n: FreeFontData['glyphs'][string][1][number][number]) =>
+    [n[0], n[1], n[2] ?? n[0], n[3] ?? n[1], n.length > 4 ? n[4] as number : n[0], n.length > 4 ? n[5] as number : n[1]];
   return a[1].every((c, i) => c.length === b[1][i].length && c.every((n, j) => {
-    const m = b[1][i][j];
-    return n.length === m.length && n.every((v, k) => v === null ? m[k] === null : m[k] === (v as number) + (k % 2 ? dy : dx));
+    const p = full(n), q = full(b[1][i][j]);
+    return p.every((v, k) => Math.abs(q[k] - (v + (k % 2 ? dy : dx))) <= 2);
   }));
 }
 
