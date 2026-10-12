@@ -152,26 +152,27 @@ export function Inspector() {
       {grid && <GridBar ch={ch} font={font} group={grid.group} />}
       <div className="insp-body">
         {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} />}
+        {/* one short line over the canvas; the whole story is in its tooltip */}
         {pen && sync && (
-          <div className="scope-banner sync" role="status">
-            <ScopeIcon id="all" /><span>A point you move here also moves in every letter with a point in the same place, and those letters stop following the sliders</span>
-            <button className="link" onClick={() => actions.setScope('letter')}>Change only {ch}</button>
+          <div className="scope-banner sync" role="status" title="A point you move also moves in every letter with a point in the same place, and those letters stop following the sliders">
+            <ScopeIcon id="all" /><span>Matching points move in every letter</span>
+            <button className="link" onClick={() => actions.setScope('letter')}>Only {ch}</button>
           </div>
         )}
         {pen && !sync && !drawn && (
-          <div className="scope-banner" role="status">
-            <ScopeIcon id="letter" /><span>Once you move a point, the sliders stop changing <b>{ch}</b>, until you put it back</span>
+          <div className="scope-banner" role="status" title={`Once you move a point, the sliders stop changing ${ch}, until you put it back`}>
+            <ScopeIcon id="letter" /><span>Moving a point unlinks <b>{ch}</b> from the sliders</span>
           </div>
         )}
         {!pen && drawn && (
           <div className="scope-banner" role="status">
-            <ScopeIcon id="letter" /><span><b>{ch}</b> {free ? `comes from ${free}` : 'is drawn by hand'} · edit its points with</span>
-            <button className="link" onClick={() => actions.setPenMode(true)}>Points</button>
+            <ScopeIcon id="letter" /><span><b>{ch}</b> {free ? `comes from ${free}` : 'is drawn by hand'}</span>
+            <button className="link" onClick={() => actions.setPenMode(true)}>Edit points</button>
           </div>
         )}
         {letter && !drawn && (
-          <div className="scope-banner" role="status">
-            <ScopeIcon id="letter" /><span>Customizing <b>{ch}</b> · the other letters won't change</span>
+          <div className="scope-banner" role="status" title="The other letters won't change">
+            <ScopeIcon id="letter" /><span>Only <b>{ch}</b> changes</span>
             <button className="link" onClick={() => actions.setScope('all')}>Sync all</button>
           </div>
         )}
