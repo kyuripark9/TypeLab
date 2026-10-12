@@ -97,8 +97,8 @@ export function FamilyDialog({ onClose }: { onClose: () => void }) {
                   <span>{r.cls}{r.id === anchor && ' · this design'}</span>
                 </label>
                 <div className={upright && italic ? 'family-samples two' : 'family-samples'}>
-                  {upright && <Sample member={r.upright} label={r.upright.style} />}
-                  {italic && <Sample member={r.italic} label={r.italic.style} />}
+                  {upright && <MemberSample member={r.upright} label={r.upright.style} />}
+                  {italic && <MemberSample member={r.italic} label={r.italic.style} />}
                   {!upright && !italic && <span className="family-none">Pick Upright, Italic or both</span>}
                 </div>
               </li>
@@ -124,7 +124,7 @@ export function FamilyDialog({ onClose }: { onClose: () => void }) {
 }
 
 /** One member's sample, drawn by the font it exports as. */
-function Sample({ member, label }: { member: FamilyMember; label: string }) {
+export function MemberSample({ member, label }: { member: FamilyMember; label: string }) {
   useFreeFonts();
   const f = fontFor(member.params), ln = f.layout(SAMPLE, Infinity)[0];
   // room on the right for an italic's lean

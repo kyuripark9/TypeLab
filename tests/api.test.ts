@@ -388,6 +388,23 @@ describe('export API', () => {
     for (const ch of '…‘’“”–—€£©®™°×÷±<>[]{}|\\_*\u00a0') assert.notEqual(font.charToGlyph(ch).index, 0, `${ch} has a glyph`);
   });
 
+  it('builds one font of the family, named and installed as that style', async () => {
+    const member = { anchor: 'regular', weight: 'bold', italic: true };
+    const res = await call('POST', '/export/otf', { name: 'Test Font', params: serif.params, member });
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-disposition') ?? '', /Test-Font-BoldItalic\.otf/);
+    const font = opentype.parse(await res.arrayBuffer()) as unknown as {
+      getEnglishName(k: string): string; tables: { os2: { usWeightClass: number }; post: { italicAngle: number } };
+    };
+    assert.equal(font.getEnglishName('fontFamily'), 'Test Font');
+    assert.equal(font.getEnglishName('fontSubfamily'), 'Bold Italic');
+    assert.equal(font.tables.os2.usWeightClass, 700);
+    assert.ok(font.tables.post.italicAngle < 0);
+    for (const bad of [{ ...member, weight: 'heavy' }, { ...member, anchor: undefined }, { ...member, italic: 'yes' }, null, 'bold']) {
+      assert.equal((await call('POST', '/export/otf', { name: 'x', params: serif.params, member: bad })).status, 400);
+    }
+  });
+
   it('builds an SVG specimen', async () => {
     const res = await call('POST', '/export/svg', { name: 'Test <Font>', params: serif.params });
     assert.equal(res.status, 200);

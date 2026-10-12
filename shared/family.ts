@@ -68,6 +68,13 @@ const styleName = (weight: WeightId, italic: boolean) => {
   return italic ? (w === 'Regular' ? 'Italic' : `${w} Italic`) : w;
 };
 
+/** Every style a family can hold, by the name it installs under: the uprights lightest first, then the italics. */
+export const FAMILY_STYLES = [false, true].flatMap(italic => WEIGHTS.map(w => ({ weight: w.id, italic, style: styleName(w.id, italic) })));
+
+/** The style a design is by itself: its weight, italic when it leans already. */
+export const ownStyle = (params: Params, anchor: WeightId = weightIdOf(params.weight)) =>
+  FAMILY_STYLES.find(f => f.weight === anchor && f.italic === params.slant >= SLANTED)!;
+
 /** One member of the family: the design at the weight `id` and upright or italic. A letter with its
     own weight or slant keeps how it differs from the rest. Letters drawn by hand in Points mode
     keep their outlines in every member, as they keep them whatever the settings. A design written in
@@ -92,6 +99,8 @@ export function familyMember(params: Params, anchor: WeightId, weight: WeightId,
 }
 
 export interface FamilyRequest { anchor: WeightId; weights: WeightId[]; upright: boolean; italic: boolean }
+/** One member on its own, as a single font file of the family: the same font it is in the family's .zip. */
+export interface MemberRequest { anchor: WeightId; weight: WeightId; italic: boolean }
 
 /** Every member asked for, lightest first, each upright before its italic. */
 export function familyMembers(params: Params, req: FamilyRequest): FamilyMember[] {

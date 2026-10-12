@@ -693,6 +693,13 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .exp-name input { height: 32px; padding: 0 10px; border: 0; border-radius: var(--radius); background: var(--well); box-shadow: inset 0 0 0 1px var(--line); font: 500 13.5px var(--ui); color: var(--ink); transition: box-shadow .15s, background .15s; }
 .exp-name input:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
 .exp-name input:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
+/* the font file, and under it the style of the design's family it installs as, drawn when it isn't the design's own */
+.exp-file { display: grid; }
+.exp-style { display: flex; align-items: center; gap: 8px; padding: 0 10px 8px; }
+.exp-style span { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.exp-style select { flex: 1; min-width: 0; height: 28px; padding: 0 6px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--surface); font: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer; }
+.exp-sample { padding: 0 10px 8px; }
+.exp-sample .family-sample { height: 28px; }
 .exp.import { border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); margin-top: 4px; padding-top: 10px; }
 .toast { position: fixed; left: 50%; bottom: calc(var(--strip-h, 76px) + 24px); transform: translate(-50%, 8px); background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 100px; font-size: 13px; font-weight: 500; box-shadow: var(--shadow); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; z-index: 40; display: flex; align-items: center; gap: 14px; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }

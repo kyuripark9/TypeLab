@@ -49,7 +49,7 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `pages/EditorPage.tsx` | Loading the design in the address, `useSave` (a first save of an Untitled font asks for a name; a 404 on update saves it as new), `useShortcuts`, `useLeaveGuard`, `useDeepLinks` |
 | `pages/LibraryPage.tsx` | My designs: cards or list, search, sort, rename, duplicate, download; a delete waits `ACTION_TOAST_MS` for Undo and is sent on `pagehide` |
 | `pages/AccountPage.tsx` | Name, Google and password, other browsers, closing the account |
-| `components/Header.tsx` | Logo, the design's name, undo and redo, Guide, My designs, Save, the Export menu (font, family, specimen, `.typelab.json` out and in) |
+| `components/Header.tsx` | Logo, the design's name, undo and redo, Guide, My designs, Save, the Export menu (a font file in any style of the design's family, its own picked each time the menu opens; family, specimen, `.typelab.json` out and in) |
 | `components/Chrome.tsx` | `Nav` (pages, Find a setting on ⌘K), `GlyphStrip` (one memo `StripCell` per glyph), `Toast` |
 | `components/Stage.tsx` | The Type something bar; on the Style page the finder and the style cards (each in its free font as a web font, or, for a style built from blocks, which has none, in the engine's letters: `BuiltText.tsx`), elsewhere the preview and the inspector |
 | `components/Finder.tsx` | The style finder's one question, what kind of letters (the Category); its answer is the `groups` filter |

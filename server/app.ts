@@ -9,7 +9,7 @@ import type { DesignStore } from './db';
 import { AccountStore, SESSION_DAYS } from './accounts';
 import { AUTH_CHANNEL, GOOGLE_RESULT_PARAM, cleanEmail, cleanUserName, isEmail, passwordProblem, type GoogleIntent, type GoogleResult, type User } from '../shared/account';
 import { pkce, type GoogleAuth } from './google';
-import { familyMembers, isWeightId, type FamilyRequest } from '../shared/family';
+import { familyMember, familyMembers, isWeightId, type FamilyRequest, type MemberRequest } from '../shared/family';
 import { buildFamilyZip, buildOTF, buildSpecimenSVG, exportName } from './export';
 import { FreeFonts } from './free-fonts';
 
@@ -42,6 +42,15 @@ function readFamily(body: unknown): FamilyRequest {
   if (!weights.length || !weights.every(isWeightId)) throw new HttpError(400, 'family.weights must name at least one weight');
   if (!b.upright && !b.italic) throw new HttpError(400, 'family needs upright or italic styles');
   return { anchor: b.anchor, weights, upright: !!b.upright, italic: !!b.italic };
+}
+
+/** Which member of its family a single font file is, if one is named; without one it is the design as it is. */
+function readMember(body: unknown): MemberRequest | null {
+  const all = fields(body);
+  if (all.member === undefined) return null;
+  const b = fields(all.member);
+  if (!isWeightId(b.anchor) || !isWeightId(b.weight) || typeof b.italic !== 'boolean') throw new HttpError(400, 'member needs an anchor, a weight and italic true or false');
+  return { anchor: b.anchor, weight: b.weight, italic: b.italic };
 }
 
 // the cookies: this browser's id, its sign-in token, and a Google sign-in in progress
@@ -383,11 +392,14 @@ function fontRoutes(api: Router, { fonts }: Ctx) {
     res.type('font/otf').send(file);
   });
 
+  // one font file: the design as it is, or one member of its family (the weight and italic picked), named for it
   api.post('/export/otf', async (req, res) => {
-    const { name, params } = readExport(req.body);
-    await freeReady(params);
-    attachment(res, `${slug(exportName(params, name))}.otf`, 'font/otf');
-    res.send(buildOTF(params, name));
+    const { name, params } = readExport(req.body), pick = readMember(req.body);
+    const member = pick && familyMember(params, pick.anchor, pick.weight, pick.italic);
+    await freeReady(params, ...(member ? [member.params] : []));
+    const file = slug(exportName(params, name));
+    attachment(res, member ? `${file}-${member.style.replace(/ /g, '')}.otf` : `${file}.otf`, 'font/otf');
+    res.send(member ? buildOTF(member.params, name, member) : buildOTF(params, name));
   });
 
   api.post('/export/family', async (req, res) => {

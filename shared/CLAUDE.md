@@ -17,7 +17,7 @@ Everything here runs in the browser and on the server alike, so nothing touches 
 | `content/copy.ts` | `ANATOMY` (part id to name and definition), `TEXTS` (sample text) |
 | `content/search.ts` | Find a setting: `findSettings`, `ALSO` (words people use that the copy doesn't) |
 | `free-fonts.ts` | TypeLab's own fonts (`OWN_FAMILIES`) and the Google families (`FREE_FAMILIES`), each style's font (`STYLE_FONTS`), the fonts the own ones replaced (`OLD_FONTS`, `ownFontOf`), font ids, `nearestFont`, `withoutReserved` |
-| `family.ts` | A font family: `WEIGHTS`, `familyMember(s)`, the anchor weight, `SLANTED` |
+| `family.ts` | A font family: `WEIGHTS`, `FAMILY_STYLES`, `familyMember(s)`, the anchor weight, `ownStyle`, `SLANTED` |
 | `traits.ts` | The Style page's Adjust tab: `TRAIT_SECTIONS`, `applyTraits`, `traitsKey` |
 | `design.ts`, `account.ts` | What client and server exchange: `Design`, `DesignInput`, `cleanName`, `slug`; `User`, `EmailCheck`, `GoogleResult`, the sign-up rules |
 
@@ -153,6 +153,7 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
 - `family.ts`: the nine `WEIGHTS` (Regular at index 3, Bold at 6), `TYPICAL` places on the Weight slider (0.4 is
   Regular, as Weight 0.4 is the default and a free font's 400), the anchor (the weight the design is named as), and
   `familyMember`, which reweighs and reslants the design and each letter's own weight or slant. Italics lean 0.55
-  (about 11°) unless the design is slanted past `SLANTED` (0.05) already.
+  (about 11°) unless the design is slanted past `SLANTED` (0.05) already. `FAMILY_STYLES` names the eighteen styles
+  (uprights, then italics) and `ownStyle` the one the design is by itself: the Export menu's font file is any of them.
 - `traits.ts`: each trait's steps set a few settings; `applyTraits` lays them in `TRAITS` order and `traitsKey`
   depends on that order. The Cuts steps set joints, stencil and slice together so they stay exclusive.

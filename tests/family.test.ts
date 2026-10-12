@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { inflateRawSync } from 'node:zlib';
 import { describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
-import { familyMember, familyMembers, WEIGHTS, weightIdOf, weightRatio } from '../shared/family';
+import { FAMILY_STYLES, familyMember, familyMembers, ownStyle, WEIGHTS, weightIdOf, weightRatio } from '../shared/family';
 import { DEFAULTS, isValidParams, sanitizeParams, weightScale, weightUnscale } from '../shared/params';
 import { buildFamilyZip } from '../server/export';
 import { opentype } from '../server/opentype';
@@ -65,6 +65,15 @@ describe('font family', () => {
     const slanted = { ...serif.params, slant: 0.3 };
     assert.equal(familyMember(slanted, 'regular', 'regular', true).params.slant, 0.3);
     assert.equal(familyMember(slanted, 'regular', 'regular', false).params.slant, 0);
+  });
+
+  it('lists every style once, and names the design by its weight and lean', () => {
+    assert.equal(new Set(FAMILY_STYLES.map(f => f.style)).size, WEIGHTS.length * 2);
+    const p = { ...serif.params, weight: DEFAULTS.weight, slant: 0 };
+    assert.equal(ownStyle(p).style, 'Regular');
+    assert.equal(ownStyle({ ...p, weight: 0.72 }).style, 'Bold');
+    assert.equal(ownStyle({ ...p, slant: 0.3 }).style, 'Italic');
+    assert.equal(ownStyle({ ...p, weight: 0.03, slant: 0.3 }).style, 'Thin Italic');
   });
 
   it('exports every member as a font of one family', () => {

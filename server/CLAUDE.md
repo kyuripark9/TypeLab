@@ -39,7 +39,7 @@ Bodies are JSON (up to 4 MB). Errors answer `{ error }`.
 | GET, PUT, PATCH, DELETE | `/api/designs/:id` | Read; replace (`{ name, styleId, params }`); rename (`{ name }`); delete (204) |
 | GET | `/api/free-fonts/:id` | A free font's letters (`FreeFontData`): an own font's from `fonts/` (`no-cache`, its ETag answers), any other fetched from Google Fonts the first time; 502 when that fails |
 | GET | `/api/free-fonts/:id/font.otf` | One of TypeLab's own fonts as an OpenType file, for the style cards' web fonts (`fontFileUrl`); 404 for any other |
-| POST | `/api/export/otf` | `{ name, params }` → an `.otf` |
+| POST | `/api/export/otf` | `{ name, params, member? }` → an `.otf`: the design as it is, installed as Regular, or with `member: { anchor, weight, italic }` that member of its family, as the family's `.zip` has it (`<slug>-<Style>.otf`) |
 | POST | `/api/export/family` | `{ name, params, family: { anchor, weights, upright, italic } }` → a `.zip` |
 | POST | `/api/export/svg` | `{ name, params }` → an SVG specimen |
 
