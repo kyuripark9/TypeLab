@@ -41,7 +41,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `icons.test.ts` | Every slider has an icon in `SliderIcons.tsx`, and every icon belongs to a slider |
 | `styles.test.ts` | Valid presets; the Style page's cards (solid letters, every Feeling carried, `TAG_FACE` on the page); word spaces in joined-up scripts; v w V W on the baseline, no gap after a curled Q |
 | `traits.test.ts` | The Adjust tab's trait steps and the style search |
-| `family.test.ts` | `shared/family.ts` and the family `.zip` (`server/export.ts`): weights, members, names and style bits |
+| `family.test.ts` | `shared/family.ts` and the family `.zip` (`server/export.ts`): weights, members, names and style bits; letters drawn in Points thinner, heavier and leaning in the other members, exact in the design's own |
 | `free-fonts.test.ts` | Every style's free font id (none for one built from blocks); converting a font file as the server does; drawing a design in a free font and moving its letters (skin, restyle, the twin, `formChanged`); the export's notice; the API route; TypeLab's own fonts, and their letters moved whole (Mainline's u drawn in pieces, an l's foot, Gumdrop's round ends); their stroke ends (Couture's balls, Almanac's e and serifs, Mainline's slanted cuts under balls, Curl and Length) |
 | `api.test.ts` | The HTTP API on an in-memory store: designs, accounts, Google sign-in, development's stand-in for Google, export, a database from before owners |
 | `boundaries.test.ts` | Nothing under `shared/` imports `client/` or `server/` or touches the DOM (a regex: a comment saying `window.` trips it) |

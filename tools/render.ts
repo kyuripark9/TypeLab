@@ -5,6 +5,7 @@
      npm run render -- --style didone --free --text Rag             (in the style's free font)
      npm run render -- --params design.typelab.json --text Rag      (a saved design's params)
      npm run render -- --style geometric --sweep weight --text Rag  (one row per eighth, 0 to 1)
+     npm run render -- --params design.typelab.json --family        (one row per weight of its family; --italic its italics)
 
    --out defaults to .tools/out/render.png; a .svg name writes SVG. --size is the cap height in pixels. */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -12,11 +13,12 @@ import { dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { buildFont, OUT, rowsPNG, rowsSVG, styleParams, withSets, type Row } from './lib';
 import { DEFAULTS, sanitizeParams, upgradeParams, type Params } from '../shared/params';
+import { familyMember, WEIGHTS, weightIdOf } from '../shared/family';
 
 const { values: a } = parseArgs({
   options: {
     style: { type: 'string' }, params: { type: 'string' }, free: { type: 'boolean', default: false },
-    set: { type: 'string', multiple: true, default: [] }, sweep: { type: 'string' },
+    set: { type: 'string', multiple: true, default: [] }, sweep: { type: 'string' }, family: { type: 'boolean', default: false }, italic: { type: 'boolean', default: false },
     text: { type: 'string', default: 'Hamburgefonstiv RAGE Qy' }, size: { type: 'string', default: '96' },
     out: { type: 'string' }
   }
@@ -34,6 +36,12 @@ base = withSets(base, a.set!);
 const rows: Row[] = [];
 if (a.sweep) {
   for (let i = 0; i <= 8; i++) rows.push({ font: buildFont(withSets(base, [`${a.sweep}=${i / 8}`])), text: a.text!, label: `${a.sweep} ${(i / 8).toFixed(3)}` });
+} else if (a.family || a.italic) {
+  const anchor = weightIdOf(base.weight);
+  for (const w of WEIGHTS) {
+    const f = familyMember(base, anchor, w.id, a.italic!);
+    rows.push({ font: buildFont(f.params), text: a.text!, label: f.style + (w.id === anchor ? ' (the design)' : '') });
+  }
 } else rows.push({ font: buildFont(base), text: a.text! });
 
 const out = resolve(a.out ?? `${OUT}/render.png`);

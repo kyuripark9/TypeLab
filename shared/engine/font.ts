@@ -33,6 +33,7 @@ import { autoThickness, organicK, type SerifPlace } from './stroke';
 import type { Cmd, Mark, MarkType, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
 import { buildBlock, buildGlyph, drawnGlyph } from './glyph';
 import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
+import { drawnDesign, drawnFrom, movedDrawn } from './family-drawn';
 import { highlightD } from './highlight';
 
 export const CHARSET = {
@@ -428,6 +429,8 @@ export function buildFont(params: Params, from?: Font): Font {
   // narrower by Word spacing
   const fl = e.freeFont ? freeLetters(params, e, m0) : null, free = fl?.font;
   const m = free ? { ...m0, space: Math.max(20, free.space * fl.k * fl.sx + (e.wordSpacing - 0.35) * 520) } : m0;
+  // a family member's drawn letters are moved from the design they were drawn in (family-drawn.ts)
+  const at = drawnDesign(params);
   const cache = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
   const built = (from && from.free === free && sameSettings(from.params, params) && settingsGlyphs.get(from)) || new Map<string, Glyph | null>();
   /** Letter `ch` as the settings draw it: its own letter's font's, a free font's (in a form the font hasn't got, its
@@ -439,10 +442,11 @@ export function buildFont(params: Params, from?: Font): Font {
     if (e.build === 'blocks') { const b = buildBlock(ch, m); if (b) return b; }
     return buildGlyph(variantOf(ch, e), m, ch);
   };
-  /** Letter `ch`: as drawn, if it is; else as built before with the same settings, or built now and kept. */
+  /** Letter `ch`: as drawn, if it is (moved, in a family member); else as built before with the same settings, or built
+      now and kept. */
   const pickGlyph = (ch: string): Glyph | null => {
     const drawn = params.outlines?.[ch];
-    if (drawn) return drawnGlyph(ch, drawn);
+    if (drawn) return at ? movedDrawn(ch, drawn, font, at) : drawnGlyph(ch, drawn);
     const before = built.get(ch);
     if (before !== undefined) return before;
     const g = fromSettings(ch);
@@ -455,7 +459,7 @@ export function buildFont(params: Params, from?: Font): Font {
       const own = params.glyphs?.[ch];
       if (!own) return font;
       let f = letters.get(ch);
-      if (!f) { f = buildFont({ ...params, ...own, glyphs: {} }); letters.set(ch, f); }
+      if (!f) { const lp: Params = { ...params, ...own, glyphs: {} }; f = buildFont(at ? drawnFrom(lp, at) : lp); letters.set(ch, f); }
       return f;
     },
     glyph(ch) {

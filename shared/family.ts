@@ -1,6 +1,7 @@
 /* A font family: the design drawn again at other weights and upright or italic, each saved as its
    own font file under one family name, so font menus list them together (Thin to Black, each with
    its italic). The design itself is one of them, at the weight it is named as. */
+import { drawnFrom } from './engine';
 import { slantDeg, weightScale, weightUnscale, type GlyphParams, type Params } from './params';
 
 /** The weights a family can have, lightest first, with the OpenType weight class each installs as, and where each
@@ -76,10 +77,11 @@ export const ownStyle = (params: Params, anchor: WeightId = weightIdOf(params.we
   FAMILY_STYLES.find(f => f.weight === anchor && f.italic === params.slant >= SLANTED)!;
 
 /** One member of the family: the design at the weight `id` and upright or italic. A letter with its
-    own weight or slant keeps how it differs from the rest. Letters drawn by hand in Points mode
-    keep their outlines in every member, as they keep them whatever the settings. A design written in
-    a free font follows the weight and slant to the family's heavier or lighter fonts and its italic, as
-    the editor does (see freeLetters in the engine). */
+    own weight or slant keeps how it differs from the rest. Letters drawn by hand in Points mode, which
+    no setting shapes, are moved from the design instead: their strokes thickened or thinned and the
+    letters leaned as the member's are (family-drawn.ts in the engine, which finds the design by the
+    member's params object). A design written in a free font follows the weight and slant to the
+    family's heavier or lighter fonts and its italic, as the editor does (see freeLetters in the engine). */
 export function familyMember(params: Params, anchor: WeightId, weight: WeightId, italic: boolean): FamilyMember {
   const ratio = weightRatio(params.weight, anchor, weight);
   const reweigh = (v: number) => clamp01(weightUnscale(weightScale(v) * ratio));
@@ -94,7 +96,7 @@ export function familyMember(params: Params, anchor: WeightId, weight: WeightId,
   return {
     weight, italic, style: styleName(weight, italic), cls,
     angle: slantDeg(slant),
-    params: { ...params, weight: reweigh(params.weight), slant, glyphs }
+    params: drawnFrom({ ...params, weight: reweigh(params.weight), slant, glyphs }, params)
   };
 }
 

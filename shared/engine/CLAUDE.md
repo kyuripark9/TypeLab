@@ -16,7 +16,8 @@ file.
    singleStory, stressDeg derived.
 2. `metrics(e)` (`font.ts`) gives `Metrics` (`m`): every measure the glyph functions draw with, and the pen `m.ctx`.
 3. `buildFont(params, from?)` gives a `Font`. `font.glyph(ch)` builds a letter on first ask and keeps it:
-   - `pickGlyph`: a letter drawn in Points (`params.outlines[ch]`) is `drawnGlyph`; else a letter already built with
+   - `pickGlyph`: a letter drawn in Points (`params.outlines[ch]`) is `drawnGlyph`, or, in a family member
+     (`drawnFrom`, set by `familyMember` in shared/family.ts), `movedDrawn` (`family-drawn.ts`); else a letter already built with
      the same settings (an earlier font `from`, whose params differ only in `outlines`, lends its letters, so dragging
      a point rebuilds one letter); else `fromSettings`.
    - `fromSettings`: a letter with its own settings (`params.glyphs[ch]`) comes from `font.letter(ch)`, a font built
@@ -73,7 +74,8 @@ file.
 | `grid.ts` | Construction grids and their groups, Grid A to T (`glyphGrid`, `gridGroups`, `gridOf`) |
 | `free.ts` | The free-font registry and its packed format |
 | `free-letters.ts` | A design's letters drawn from its free font: `freeLetters`, `freeGlyph`, `restyled`, the twin |
-| `skin.ts`, `scan.ts` | A free font's letter rigged on its scanned skeleton and moved by the engine's measures; the scan |
+| `skin.ts`, `scan.ts` | A free font's letter rigged on its scanned skeleton and moved by the engine's measures (`skinMove`), or, a letter drawn in Points, with its straight edges kept straight and its rounds round (`skinEdges`); the scan |
+| `family-drawn.ts` | Letters drawn in Points in a family's other members: found by the member's params object (`drawnFrom`, `drawnDesign`), rigged from the design they were drawn in (`RigLetters`: its drawn letters and its h p x n H), moved by `skinEdges` as far toward the member's weight as their edges don't cross (else `skinMove`), spaced and leaned (`movedDrawn`) |
 | `restyle.ts` | The engine's shapes redrawn on a free font's letter: dots, bowls, ends, serifs, stencil, peaks, corners |
 | `highlight.ts` | `highlightD` and `RING_KEYS` |
 | `geom.ts`, `types.ts` | Béziers, polygons, corner rounding, path output (`cmdsToD`); points, commands, the pen, marks |
@@ -87,7 +89,7 @@ A formula or constant two files need lives once and both import it. `metrics()`'
 `MIN_ROUND`, `SAME_PT`, `cmdsBox`, `toPolys`), `shared/params/scales.ts` (`endId`, `isPlainEnd`, the id tests,
 `slantDeg`, `rotationOf`, `weightUnscale` beside `weightScale`, `xHeightOfRatio` beside `xHeightRatio`, `joinGap`,
 `barCut`, `endReach`), `stroke.ts` (`STEP_DEPTH`), `joins.ts` (`innerShare`, `crotchShare`), `glyphs/turns.ts` (`POINTED`, `peakPast`,
-`peakCut`), `skin.ts` (`FORM_LETTERS`, `descK`), `restyle.ts` (`HOOK_LETTERS`, `OPEN_LETTERS`, `added`).
+`peakCut`), `skin.ts` (`FORM_LETTERS`, `descK`, `sameMeasures`), `free-letters.ts` (`mapDrawn`, `inkX`), `restyle.ts` (`HOOK_LETTERS`, `OPEN_LETTERS`, `added`).
 
 Some code repeats or mirrors another's, because sharing would change results (a shared helper takes its sums in
 another order) or because it works in other units. Copies with their sums in another order: `effects.ts` `within`
@@ -219,7 +221,7 @@ tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, wh
 | restyle | Redrawing one of the engine's shapes on a free font's letter where the settings ask for another than the font's |
 | twin | The engine's own letter at the settings a free font reads as, for forms the font hasn't got. (The pen's mirror partner in PenCanvas is also called twin; unrelated) |
 | skeleton (scan) | A scanned letter's middle lines as a graph: a node with one edge is a free end, three or more a join |
-| drawn | A letter drawn in Points (`params.outlines`), or a free font's as placed (`Glyph.drawn`); the settings don't shape it |
+| drawn | A letter drawn in Points (`params.outlines`), or a free font's as placed (`Glyph.drawn`); the settings don't shape it, but a family's other weights and italics move it (`family-drawn.ts`) |
 | live corner | A drawn point with a radius (`Node.r`, and `Node.corner` unless a round): it stays at the corner and `drawnCmds` rounds, cuts or scoops the outline there, at most half of each side |
 | construction grid | A letter's level, upright and diagonal lines and its circles; groups Grid A to T, named set × kind (capitals A–D, lowercase E–H, figures I–L, punctuation M–P, symbols Q–T) |
 

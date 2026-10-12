@@ -154,7 +154,9 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   saved designs: never rename one.
 - `family.ts`: the nine `WEIGHTS` (Regular at index 3, Bold at 6), `TYPICAL` places on the Weight slider (0.4 is
   Regular, as Weight 0.4 is the default and a free font's 400), the anchor (the weight the design is named as), and
-  `familyMember`, which reweighs and reslants the design and each letter's own weight or slant. Italics lean 0.55
+  `familyMember`, which reweighs and reslants the design and each letter's own weight or slant, and marks the member's
+  params (`drawnFrom`) so the engine moves letters drawn in Points from the design to its weight and lean
+  (engine/family-drawn.ts): a copy of a member's params draws them unmoved. Italics lean 0.55
   (about 11°) unless the design is slanted past `SLANTED` (0.05) already. `FAMILY_STYLES` names the eighteen styles
   (uprights, then italics) and `ownStyle` the one the design is by itself: the Export window saves any of them, one or several.
 - `traits.ts`: each trait's steps set a few settings; `applyTraits` lays them in `TRAITS` order and `traitsKey`

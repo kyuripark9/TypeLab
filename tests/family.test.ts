@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
 import { FAMILY_STYLES, familyMember, familyMembers, ownStyle, WEIGHTS, weightIdOf, weightRatio } from '../shared/family';
 import { DEFAULTS, isValidParams, sanitizeParams, weightScale, weightUnscale } from '../shared/params';
+import { buildFont, type Glyph } from '../shared/engine';
 import { buildFamilyZip } from '../server/export';
 import { opentype } from '../server/opentype';
 
@@ -65,6 +66,27 @@ describe('font family', () => {
     const slanted = { ...serif.params, slant: 0.3 };
     assert.equal(familyMember(slanted, 'regular', 'regular', true).params.slant, 0.3);
     assert.equal(familyMember(slanted, 'regular', 'regular', false).params.slant, 0);
+  });
+
+  it('thickens and thins letters drawn in Points with the family, keeps them as drawn in the design, and leans them in its italics', () => {
+    // an l drawn as a plain stem, standing on the baseline and reaching the capitals' height
+    const l = { adv: 320, contours: [[{ x: 60, y: 0 }, { x: 260, y: 0 }, { x: 260, y: 700 }, { x: 60, y: 700 }]] };
+    const p = sanitizeParams({ ...DEFAULTS, outlines: { l } }), anchor = weightIdOf(p.weight);
+    const glyph = (weight: (typeof WEIGHTS)[number]['id'], italic = false) => buildFont(familyMember(p, anchor, weight, italic).params).glyph('l')!;
+    const box = (g: Glyph) => {
+      const xs = g.cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 0) as number[]), ys = g.cmds.flatMap(c => c.slice(2).filter((_, i) => i % 2 === 0) as number[]);
+      return { w: Math.max(...xs) - Math.min(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    };
+    // the design's own style draws it exactly as drawn
+    assert.equal(glyph(anchor).d, buildFont(p).glyph('l')!.d);
+    // lighter and heavier, as tall as drawn and its edges still straight (four corners)
+    const thin = box(glyph('thin')), black = box(glyph('black'));
+    assert.ok(thin.w < 200 * 0.6 && black.w > 200 * 1.3, `thin ${thin.w}, black ${black.w}`);
+    for (const b of [thin, black]) { assert.ok(Math.abs(b.y0) < 0.5 && Math.abs(b.y1 - 700) < 0.5); }
+    assert.equal(glyph('thin').cmds.filter(c => c[0] !== 'Z').length, 4);
+    // leaning in the italic: its top stands further right than its foot
+    const it = glyph(anchor, true).cmds, top = it.filter(c => c[2] === 700).map(c => c[1] as number), foot = it.filter(c => c[2] === 0).map(c => c[1] as number);
+    assert.ok(Math.min(...top) > Math.min(...foot) + 50);
   });
 
   it('lists every style once, and names the design by its weight and lean', () => {

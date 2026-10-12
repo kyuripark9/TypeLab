@@ -59,7 +59,7 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `components/ConstructionGrid.tsx` | The grid drawn through the inspected letter and the bar naming its group |
 | `components/Panel.tsx`, `panel/` | The right-hand panel (below) |
 | `components/Diagram.tsx` | The explainer's live diagrams; its icon caches last the session and depend only on their props |
-| `components/Family.tsx`, `Account.tsx`, `Guide.tsx`, `Intro.tsx`, `Dialog.tsx` | The Export window's styles of the family, each a toggle with its sample, rows named by weight alone (`FamilyPicker`); the sign-in dialog and account button; the first-run tour; the opening title card; the confirm dialog |
+| `components/Family.tsx`, `Account.tsx`, `Guide.tsx`, `Intro.tsx`, `Dialog.tsx` | The Export window's styles of the family, each a toggle with its sample, rows named by weight alone (`FamilyPicker`; a design with letters drawn in Points draws its samples in a deferred render, as moving them to every weight takes a moment the first time); the sign-in dialog and account button; the first-run tour; the opening title card; the confirm dialog |
 | `components/SliderIcons.tsx`, `Icons.tsx`, `Resizer.tsx` | One icon per slider (`SLIDER_ICON_KEYS`, tested); the pages' icons; the draggable borders between panels |
 | `lib/api.ts` | Every `/api` request (routes in server/app.ts) |
 | `lib/free.ts` | Fetching and registering free fonts (`loadFreeFont`), `useFreeFonts`, the cards' web fonts (`useWebFont`, `fontStyle`: an own font from the server's file as a `FontFace` named `TypeLab <Family>`, a Google one by its stylesheet) |

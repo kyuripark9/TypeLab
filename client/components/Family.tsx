@@ -4,7 +4,7 @@
    nearest of the family's), whose name stands out in the list. Picked styles look as a picked option does in the
    panel, ringed and drawn in the accent; the design's own, picked to start with, is filled. Only the weights'
    names show: the samples say the rest. */
-import { useMemo } from 'react';
+import { useDeferredValue, useMemo } from 'react';
 import { FAMILY_STYLES, familyMember, ownStyle, WEIGHTS, type FamilyMember, type WeightId } from '../../shared/family';
 import type { Params } from '../../shared/params';
 import { useFreeFonts } from '../lib/free';
@@ -26,6 +26,9 @@ export function FamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
   const rows = useMemo(() => WEIGHTS.map(w => ({
     ...w, upright: familyMember(params, anchor, w.id, false), italic: familyMember(params, anchor, w.id, true)
   })), [params, anchor]);
+  // (a design with letters drawn in Points draws its samples once the window is open: moving those letters to the other
+  // weights takes a moment the first time, see family-drawn.ts in the engine)
+  const shown = useDeferredValue(rows, Object.keys(params.outlines).length ? null : rows);
   const toggle = (style: string) => onPick(picked.includes(style) ? picked.filter(s => s !== style) : [...picked, style]);
   // All picks every style; pressed again, it goes back to the design alone, as the window opened
   const all = FAMILY_STYLES.every(f => picked.includes(f.style));
@@ -41,15 +44,15 @@ export function FamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
           </div>
           <span aria-hidden="true">Upright</span><span aria-hidden="true">Italic</span>
         </div>
-        {rows.map(r => (
+        {rows.map((r, i) => (
           <div key={r.id} className="family-row">
             <div className={r.id === ownOf.weight ? 'family-weight own' : 'family-weight'} title={r.id === ownOf.weight ? 'The weight this design is' : undefined}>
               <b>{r.name}</b>
             </div>
-            {[r.upright, r.italic].map(m => (
+            {[r.upright, r.italic].map((m, k) => (
               <button key={m.style} type="button" className={m.style === own ? 'family-cell own' : 'family-cell'} aria-pressed={picked.includes(m.style)}
                 title={m.style === own ? `${m.style}: this design` : m.style} onClick={() => toggle(m.style)}>
-                <MemberSample member={m} label={m.style} />
+                {shown && <MemberSample member={k ? shown[i].italic : shown[i].upright} label={m.style} />}
               </button>
             ))}
           </div>

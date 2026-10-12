@@ -82,7 +82,7 @@ export function freeFontsWanted(params: Params): string[] {
 }
 
 /** A drawn outline with every point and handle moved by `f`. */
-const mapDrawn = (d: Drawn, adv: number, f: (x: number, y: number) => [number, number]): Drawn => ({
+export const mapDrawn = (d: Drawn, adv: number, f: (x: number, y: number) => [number, number]): Drawn => ({
   adv,
   contours: d.contours.map(c => c.map(n => {
     const [x, y] = f(n.x, n.y), out: Node = { ...n, x, y };
@@ -93,7 +93,7 @@ const mapDrawn = (d: Drawn, adv: number, f: (x: number, y: number) => [number, n
 });
 
 /** The ink's left and right edges, by its points and handles. */
-function inkX(d: Drawn): [number, number] {
+export function inkX(d: Drawn): [number, number] {
   let x0 = Infinity, x1 = -Infinity;
   for (const c of d.contours) for (const n of c) {
     x0 = Math.min(x0, n.x, n.ix ?? n.x, n.ox ?? n.x); x1 = Math.max(x1, n.x, n.ix ?? n.x, n.ox ?? n.x);
