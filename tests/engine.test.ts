@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { CONTROLS, STYLES } from '../shared/content';
 import { ALL_CHARS, CHARSET, buildFont, cmdsToD, expandStroke, type Cmd, type Glyph } from '../shared/engine';
 import { BLOCKS } from '../shared/engine/blocks';
+import { BASIC } from '../shared/engine/basic-blocks';
 import { glyphDefOf, glyphIds } from '../shared/engine/font';
 import type { StrokeOpts } from '../shared/engine/types';
 import { DEFAULTS, isValidParams, type Params } from '../shared/params';
@@ -36,6 +37,11 @@ const extremes: Params[] = [
   { ...DEFAULTS, build: 'blocks', weight: 0, width: 1, height: 0, xHeight: 0, roundness: 0, vWeight: 0, hWeight: 0, slice: 1, fill: 'pixels' },
   { ...DEFAULTS, build: 'blocks', weight: 0.6, roundness: 1, joinRound: 0.5, fill: 'wire', playfulFormal: 0, softSharp: 0 },
   { ...DEFAULTS, build: 'blocks', roundness: 0.5, glyphs: { E: { build: 'strokes' }, n: { weight: 1 } } },
+  { ...DEFAULTS, build: 'blocks', blockForm: 'slots', weight: 1, width: 0, roundness: 1, joinRound: 1, vWeight: 1, hWeight: 1, slant: 1, wobble: 1, mono: 1 },
+  { ...DEFAULTS, build: 'blocks', blockForm: 'slots', weight: 0, width: 1, height: 0, xHeight: 0, roundness: 0, vWeight: 0, hWeight: 0, slice: 1, fill: 'pixels' },
+  { ...DEFAULTS, build: 'blocks', weight: 1, width: 1, contrast: 1, xHeight: 1, extenders: 0, descender: 0, apex: 1, steps: 1, bowlForm: 'box', boxRound: 0, innerRound: 1, fill: 'outline' },
+  { ...DEFAULTS, build: 'blocks', weight: 0, width: 0, contrast: 0, xHeight: 0, extenders: 1, descender: 1, apex: 0, steps: 1, roundness: 1, joinRound: 1, rotation: 0.3, fill: 'shadow' },
+  { ...DEFAULTS, build: 'blocks', weight: 1, vWeight: 0, hWeight: 1, bowlForm: 'box', boxRound: 1, height: 1, mirror: 'mirrored', fill: 'inline', glyphs: { a: { blockForm: 'slots' } } },
   { ...DEFAULTS, weight: 1, pinch: 1, pinchPos: 0, steps: 1, bowlForm: 'box', innerRound: 1, swash: 1, serif: true, diagonals: 'arch', mirror: 'mirrored', slant: 1 },
   { ...DEFAULTS, weight: 0, pinch: 1, pinchPos: 1, steps: 1, innerRound: 1, swash: 1, cursive: 1, terminal: 'round', terminalForm: 'ball', chamfer: 1, stencil: 1, fill: 'wire', diagonals: 'arch', bends: 'round' },
   { ...DEFAULTS, weight: 0.6, steps: 0.5, roundness: 1, innerRound: 0.5, swash: 0.5, wobble: 1, mono: 1, glyphs: { O: { cornerSteps: { '0t0': 0 } }, e: { mirror: 'mirrored' } } },
@@ -115,8 +121,69 @@ describe('stroke expander (expandStroke)', () => {
   });
 });
 
-describe('block letters (build: blocks)', () => {
-  const blocks = { ...DEFAULTS, build: 'blocks' as const, weight: 0.6, roundness: 1, joinRound: 0.5 };
+describe('basic block letters (Built from: Blocks, Block letters: Basic)', () => {
+  const blocks = { ...DEFAULTS, build: 'blocks' as const, weight: 0.6 };
+  const box = (d: string) => {
+    const ys = ysOf(d).map(y => -y), xs = xsOf(d);
+    return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+  };
+
+  it('has a block for every character, the lowercase among them', () => {
+    assert.deepEqual(Object.keys(BASIC).sort(), [...ALL_CHARS].sort());
+  });
+
+  it('draws each character as solid blocks with their counters cut out, and a real lowercase', () => {
+    const font = buildFont(blocks);
+    for (const ch of ALL_CHARS) {
+      const g = font.glyph(ch)!;
+      assert.equal(g.strokes.length, 1, `${ch} is one block`);
+      assert.equal(g.marks.length, 0, `${ch} has no stroke ends or corners to edit`);
+    }
+    const O = font.glyph('O')!, E = font.glyph('E')!, x = box(font.glyph('x')!.d), h = box(font.glyph('h')!.d), p = box(font.glyph('p')!.d);
+    assert.equal(contours(O.d), 2);
+    assert.equal(O.counters.length, 1, 'the hole of O is its counter');
+    assert.equal(contours(E.d), 1);
+    // the x stands at the x-height, the h's stem rises to the ascenders and the p's hangs to the descenders
+    assert.ok(Math.abs(x.y1 - font.m.xh) < 2 && Math.abs(h.y1 - font.m.asc) < 2 && Math.abs(p.y0 - font.m.desc) < 2);
+  });
+
+  it('thickens every stroke with Weight and widens the letters, so their counters stay open', () => {
+    const at = (w: number) => { const f = buildFont({ ...blocks, weight: w }), O = f.glyph('O')!; return { W: O.bodyW, hole: box(cmdsToD(O.counters[0])) }; };
+    const light = at(0), heavy = at(1);
+    assert.ok(heavy.W > light.W);
+    assert.ok(heavy.hole.x1 - heavy.hole.x0 > (light.hole.x1 - light.hole.x0) * 0.9, 'the counter keeps its width');
+    assert.ok(heavy.hole.y1 - heavy.hole.y0 < light.hole.y1 - light.hole.y0);
+  });
+
+  it('thins the level strokes with Contrast, and turned round, the upright ones', () => {
+    const O = (c: number) => { const g = buildFont({ ...blocks, contrast: c }).glyph('O')!, h = box(cmdsToD(g.counters[0])); return { W: g.bodyW, w: h.x1 - h.x0, h: h.y1 - h.y0 }; };
+    const even = O(0.5), high = O(1), reversed = O(0);
+    // the counter grows taller between thinner level strokes; thinner stems narrow the letter round the same counter
+    assert.ok(high.h > even.h + 20 && Math.abs(high.w - even.w) < 1 && Math.abs(high.W - even.W) < 1);
+    assert.ok(reversed.W < even.W - 20 && Math.abs(reversed.w - even.w) < 1 && Math.abs(reversed.h - even.h) < 1);
+  });
+
+  it('rounds bowls by Bowls and the rest by Roundness', () => {
+    const curved = (p: Partial<Params>, ch: string) => curves(buildFont({ ...blocks, ...p }).glyph(ch)!.d);
+    assert.equal(curved({ bowlForm: 'box', boxRound: 0 }, 'O'), 0, 'square boxes');
+    // box bowls round outside, square inside; oval ones round both
+    assert.equal(curved({ bowlForm: 'box' }, 'O'), 4);
+    assert.equal(curved({}, 'O'), 8);
+    assert.equal(curved({ bowlForm: 'box' }, 'H'), 0, 'square letters keep square corners');
+    assert.ok(curved({ roundness: 1 }, 'H') >= 8);
+  });
+
+  it('cuts Steps into square corners only, never past the letter', () => {
+    for (const ch of 'KAVWxyz4') {
+      const a = box(buildFont(blocks).glyph(ch)!.d), b = box(buildFont({ ...blocks, steps: 1 }).glyph(ch)!.d);
+      assert.ok(b.x0 >= a.x0 - 0.5 && b.x1 <= a.x1 + 0.5 && b.y0 >= a.y0 - 0.5 && b.y1 <= a.y1 + 0.5, ch);
+    }
+    assert.notEqual(buildFont({ ...blocks, steps: 1 }).glyph('E')!.d, buildFont(blocks).glyph('E')!.d);
+  });
+});
+
+describe('slot blocks (Built from: Blocks, Block letters: Slots)', () => {
+  const blocks = { ...DEFAULTS, build: 'blocks' as const, blockForm: 'slots' as const, weight: 0.6, roundness: 1, joinRound: 0.5 };
   /** The height and width of the ink of path data. */
   const size = (d: string) => {
     const ys = ysOf(d), xs = xsOf(d);
@@ -227,7 +294,13 @@ describe('slider ranges', () => {
     ['crossbar Gap run through, heavy', { weight: 1, barEnds: 'through' }, 'barGap', 'AH'],
     ['Horizontals, heavy', { weight: 0.85 }, 'hWeight', 'He'],
     ['Verticals, heavy', { weight: 1 }, 'vWeight', 'Hn'],
-    ['Horizontals, blocks', { build: 'blocks' }, 'hWeight', 'He']
+    ['Horizontals, blocks', { build: 'blocks' }, 'hWeight', 'He'],
+    ['Horizontals, slot blocks', { build: 'blocks', blockForm: 'slots' }, 'hWeight', 'He'],
+    ['Contrast, blocks', { build: 'blocks' }, 'contrast', 'He'],
+    ['Peaks, blocks', { build: 'blocks' }, 'apex', 'AVW'],
+    ['Steps, blocks', { build: 'blocks', weight: 0.7 }, 'steps', 'LE'],
+    ['Box corners, blocks', { build: 'blocks', bowlForm: 'box' }, 'boxRound', 'Oo'],
+    ['Weight, heavy blocks', { build: 'blocks' }, 'weight', 'Heo']
   ];
   for (const [name, ctx, k, chars] of cases) {
     it(`${name} still changes the letters near the top of its scale`, () => {

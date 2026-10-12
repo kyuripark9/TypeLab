@@ -75,7 +75,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 | How a setting draws | `shared/engine/` (`font.ts` metrics, `glyph.ts` stages) | shared/engine/CLAUDE.md |
 | A letter's skeleton | `shared/engine/glyphs/` (`upper.ts`, `lower.ts`, `figures.ts`, `punctuation.ts`; `shared.ts`, `turns.ts`) | shared/engine/CLAUDE.md |
 | Script letters, swashes | `shared/engine/script.ts` (`<ch>.scr`), `swash.ts` (`<ch>.sw`) | shared/engine/CLAUDE.md |
-| Block letters (*Built from: Blocks*) | `shared/engine/blocks.ts`: corner outlines, y down, no skeleton; their Style page card is `slotblocks` (Blocks) | shared/engine/CLAUDE.md |
+| Block letters (*Built from: Blocks*) | *Block letters*: Basic (`shared/engine/basic-blocks.ts`, plain block letters with a real lowercase, y up) or Slots (`shared/engine/blocks.ts`, y down); corner outlines, no skeleton. Their Style page card is `block` (Blocks); `slotblocks` stays in STYLES | shared/engine/CLAUDE.md |
 | Fills and the slice | `shared/engine/effects.ts`, `boolean.ts` | shared/engine/CLAUDE.md |
 | The construction grid | `shared/engine/grid.ts`, `client/components/ConstructionGrid.tsx` | shared/engine/CLAUDE.md |
 | Points mode: tracing, drawn letters, pen tools | `shared/engine/outline.ts`, `client/lib/pen.ts`, `client/components/PenCanvas.tsx` | client/CLAUDE.md |

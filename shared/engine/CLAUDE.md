@@ -22,7 +22,8 @@ helper such as `resolve` may be imported from its own file.
    - `fromSettings`: a letter with its own settings (`params.glyphs[ch]`) comes from `font.letter(ch)`, a font built
      with them; a design written in a free font that has the letter draws it (`freeGlyph`), or, unless it is a pixel
      font, its twin's (`twinGlyph`) when `formChanged` says it is asked for in another form than the font's;
-     otherwise `build: 'blocks'` draws `buildBlock`, and anything else (a letter the free font lacks too) is
+     otherwise `build: 'blocks'` draws `buildBlock` (basic block letters or slot blocks, by `blockForm`), and anything
+     else (a letter the free font lacks too) is
      `buildGlyph(variantOf(ch, e), m, ch)`.
    - `variantOf` picks the glyph id: in a script (`scriptForms`) `<ch>.sw` with Flourishes on Swash, else `<ch>.scr`;
      `a.alt` for a single-storey a; `<ch>.cur` from Cursive 0.35 (`CURSIVE_FORMS`); else `ch`.
@@ -57,7 +58,8 @@ helper such as `resolve` may be imported from its own file.
 | `glyphs/shared.ts` | Constructions the letter files share: bowls, the s, shoulders (`arch`), K's arms, upright and arched diagonals, tails and hooks, cursive `entry`/`exitEnd`, dots (`dotK`), `lc` |
 | `glyphs/turns.ts` | Strokes that turn at a point (`turnStroke`, `placeTurns`): A M N V W Y Z, v w y z ^, the turns of Q and R; `POINTED`, `peakPast`, `peakCut` |
 | `script.ts`, `swash.ts` | Script capitals and joined small letters (`<ch>.scr`); swash letters drawn over them (`<ch>.sw`, bases `d.short`, `z.open`) |
-| `blocks.ts` | Block letters: rings of corners on a 224 × 175 grid, y down from the top, each corner of a kind ('o', 'e', 'i', 's'); `BLOCKS`, `blockDims`, `blockRings` |
+| `basic-blocks.ts` | Basic block letters (Block letters: Basic, the default): plain block letters, every character a lowercase included, rings of corners y up from the baseline measured from the design (`V` upright, `B` level, `D` slanted strokes; counters a share of the cap height times Width), each corner of a kind ('o' Roundness, 'b'/'k' a bowl's outside and inside by Bowls, 'c' Counters, 'i' Joins, 's' sharp); Contrast, Peaks and Steps reach them too; `BASIC`, `basicDims`, `basicRound`, `basicRings` |
+| `blocks.ts` | Slot blocks (Block letters: Slots): rings of corners on a 224 × 175 grid, y down from the top, each corner of a kind ('o', 'e', 'i', 's'); the lowercase are small capitals; `BLOCKS`, `blockDims`, `blockRings` |
 | `stroke.ts` | The stroke expander: sampling, the pen model, terminals (`termCap`), sides, serifs (`buildSerif`, cups, diamonds) |
 | `ends.ts` | Stroke ends drawn on, trimmed, curled, run straight (`stretchTerminals`) |
 | `corners.ts` | Turns and square end corners rounded, stepped, or squared in box bowls (`turnsOf`, `markTurns`, `endCorners`) |
@@ -220,8 +222,8 @@ tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, wh
 - A glyph function returns its body width; anything reaching past it goes through `tailEnd`, `exitMark` or `entry`.
 - `meta.params` entries are control keys (the inspector casts them unchecked). A new `part` needs `ANATOMY`
   (`shared/content/copy.ts`) and `PART_CONTROL` (`shared/content/controls.ts`) entries to show in the inspector.
-- Every character of `CHARSET` has a glyph; every non-lowercase one has a `BLOCKS` entry (the lowercase fall back to
-  their capitals).
+- Every character of `CHARSET` has a glyph and a `BASIC` block; every non-lowercase one has a `BLOCKS` entry (the
+  slot blocks' lowercase fall back to their capitals).
 - Most modules `font.ts` loads import values back from it (`glyph.ts` and its stages, `free-letters.ts`, `skin.ts`,
   `restyle.ts`): they may use those values only inside functions, never at module load. `stroke.ts` imports values
   only from `geom.ts` (types aside), so restyle.ts and the client's diagrams (`client/components/Diagram.tsx`) can

@@ -433,10 +433,13 @@ export const STYLES: StyleDef[] = [
       vWeight: 0.54, hWeight: 0.42, counter: 1, descender: 1, joinRound: 0.93, wordSpacing: 0.412, sideBearing: 0.1, classicFuture: 0.68,
       playfulFormal: 0.51 }),
 
-  /* ---- Blocks: built from blocks, not strokes (shared/engine/blocks.ts), so no font file stands behind them */
+  /* ---- Blocks: built from blocks, not strokes (shared/engine/basic-blocks.ts, blocks.ts), so no font file stands behind them */
+  style('block', 'blocks', [], 'Block', ['loud', 'futuristic', 'business'], 'Eurostile, Russo One, Michroma',
+    'Plain, solid block letters: even strokes, square bowls with softly rounded corners, open counters and a real lowercase. Weight, Width and Contrast reshape every stroke, Bowls and Roundness every corner; Block letters switches to slot blocks.',
+    { build: 'blocks', blockForm: 'basic', weight: 0.7, width: 0.6, bowlForm: 'box', boxRound: 0.55, xHeight: 0.76 }),
   style('slotblocks', 'blocks', [], 'Slot Blocks', ['loud', 'playful', 'futuristic'], 'Bungee, Dela Gothic One, Rammetto One',
     'Solid round-cornered blocks with their counters cut in as narrow slots, after a heavy 70s poster face, the small letters as small capitals. Weight closes the slots up and Roundness softens every corner.',
-    { build: 'blocks', weight: 0.6, roundness: 1, joinRound: 0.5, sideBearing: 0.31 }),
+    { build: 'blocks', blockForm: 'slots', weight: 0.6, roundness: 1, joinRound: 0.5, sideBearing: 0.31 }),
 
   /* ---- Display (Wood Type is shown with the slab serifs) */
   style('woodtype', 'slab', ['slab'], 'Wood Type', ['rugged', 'vintage', 'loud'], 'Alfa Slab One, Sancreek, Rye',
@@ -603,7 +606,8 @@ export const STYLES: StyleDef[] = [
    rebuilding them from a nearer card with their own settings breaks their letters up; every other style
    rebuilds cleanly from a card here, and the display looks (box bowls, octagons, pinches, steps,
    hairlines) are settings over these. Letters built from blocks are a build of their own, with one card under
-   Blocks; there is no font behind it, so its card draws the engine's letters. Every card is solid letters
+   Blocks, the basic block letters (the slot blocks are a pick away, Block letters); there is no font behind it, so
+   its card draws the engine's letters. Every card is solid letters
    (tests/styles.test.ts checks). Styles off the page stay in STYLES, so designs saved from them still open. */
 const PAGE_ORDER = [
   // Sans Serif: the everyday text faces, then rounded and squared, then the wide and the heavy rounded
@@ -614,8 +618,8 @@ const PAGE_ORDER = [
   'code', 'typewriter',
   // Calligraphy: printing, handwriting, a retro and a formal script, and blackletter
   'comic', 'casual', 'informal', 'chancery', 'blackletter',
-  // Blocks: solid shapes with slot counters
-  'slotblocks'
+  // Blocks: solid block letters
+  'block'
 ];
 export const PAGE_STYLES = PAGE_ORDER.map(id => STYLES.find(s => s.id === id)!);
 

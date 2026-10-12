@@ -1,6 +1,7 @@
 /* Dead zones: every slider must keep changing the letters all the way to 100. Each numeric setting is swept
    0 to 1 in eighths, in a context where it shows (serifs on for the serif sliders, its form for a stroke end's
-   finer shape, ...) on a light and a heavy design, and the letters are drawn; an eighth that moves less than
+   finer shape, ...) on a light and a heavy design, and those that shape basic block letters on a block design too
+   (BLOCK_CONTROLS, with the sliders nested under them), and the letters are drawn; an eighth that moves less than
    1% of the sweep's whole change is reported.
 
      npm run sweep                    every setting
@@ -10,18 +11,21 @@
    to reverse around 40-50, geoHuman's switch to the single-storey a, and the pixel and dot fills stepping in
    whole cells (module). */
 import { buildFont, coverage, showContext, type Row } from './lib';
+import { BLOCK_CONTROLS, controlFor, type ActiveKey } from '../shared/content';
 import { DEFAULTS, type NumericParam, type Params } from '../shared/params';
 
 const TEXT = 'Hamburg AVEFT bdpq ij! Qye 4&';
 const KNOWN = new Set(['terminalCurl', 'swash', 'contrast', 'geoHuman', 'module']);
 
 const BASES: [string, Partial<Params>][] = [['light', { weight: 0.25 }], ['heavy', { weight: 0.8 }]];
+/** The settings basic block letters follow: their controls and the sliders nested under those. */
+const blockKey = (k: string) => BLOCK_CONTROLS.basic.includes(controlFor(k as ActiveKey));
 const only = process.argv.slice(2);
 const keys = (Object.keys(DEFAULTS) as (keyof Params)[]).filter(k => typeof DEFAULTS[k] === 'number' && (!only.length || only.includes(k))) as NumericParam[];
 
 let flagged = 0;
 for (const k of keys) {
-  for (const [bname, base] of BASES) {
+  for (const [bname, base] of [...BASES, ...(blockKey(k) ? [['blocks', { build: 'blocks', weight: 0.6 }] as [string, Partial<Params>]] : [])]) {
     const imgs = Array.from({ length: 9 }, (_, i) => {
       const rows: Row[] = [{ font: buildFont({ ...DEFAULTS, ...base, ...showContext(k), [k]: i / 8 }), text: TEXT }];
       return coverage(rows, 40, 8);

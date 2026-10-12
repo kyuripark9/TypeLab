@@ -13,7 +13,7 @@
    control's nested sliders, matters. */
 import type { Params } from './model';
 import { isCornerId, isEndId, isJoinId, isStrokeId, isTurnId } from './scales';
-import { A_FORMS, BAR_ENDS, BENDS, BOWL_FORMS, BOWL_JOINS, BUILDS, DIAGONALS, DOTS, FILLS, FLOURISHES, G_FORMS, I_FORMS, K_FORMS, MIRRORS, Q_FORMS,
+import { A_FORMS, BAR_ENDS, BENDS, BLOCK_FORMS, BOWL_FORMS, BOWL_JOINS, BUILDS, DIAGONALS, DOTS, FILLS, FLOURISHES, G_FORMS, I_FORMS, K_FORMS, MIRRORS, Q_FORMS,
   R_FORMS, S_FORMS, SCRIPT_FORMS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, STORIES, TERMINAL_FORM_IDS, TERMINAL_RUNS,
   TERMINALS, Y_FORMS } from './options';
 
@@ -127,7 +127,9 @@ export const SPECS = {
 
   /* ---- Build & curves */
   build: option(BUILDS, 'strokes', { free: true, control: { cat: 'curves', type: 'form', label: 'Built from', friendly: 'Draw with strokes or blocks', tech: 'Stroke or block construction', demo: 'EOS',
-    explain: 'Blocks are solid shapes with their insides cut in as narrow slots. Weight closes the slots up, Roundness rounds the corners and slot ends, Joins the small inside curves. Lowercase become small capitals.' } }),
+    explain: 'Blocks are solid shapes cut to the design\'s measures instead of strokes drawn along a skeleton: plain block letters, or blocks with their insides cut in as slots (Block letters).' } }),
+  blockForm: option(BLOCK_FORMS, 'basic', { control: { cat: 'curves', type: 'form', label: 'Block letters', friendly: 'Plain block letters or slot blocks', tech: 'Block letterforms', demo: 'Rag',
+    explain: 'Basic are plain block letters with a real lowercase: Weight and Contrast set their strokes, Bowls and Roundness their corners, Counters and Joins the corners inside. Slots are solid blocks with their insides cut in as narrow slots and small capitals for lowercase: Weight closes the slots up.' } }),
   bowlForm: option(BOWL_FORMS, 'oval', { free: true, control: { cat: 'curves', type: 'form', label: 'Bowls', friendly: 'Draw curves as ovals or as boxes', tech: 'Oval or box bowls', demo: 'OCS',
     explain: 'Boxes have straight sides and corners round outside, square inside.' } }),
   boxRound: num(0.5, { free: true, sub: { parent: 'bowlForm', label: 'Corners', friendly: 'Round the corners of box bowls', tech: 'Box corner radius', lo: 'Sharp', hi: 'Wide' } }),

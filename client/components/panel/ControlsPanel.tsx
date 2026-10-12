@@ -12,12 +12,12 @@ import { TerminalControl, StoryControl, type LetterFormKey, FormControl, SerifCo
 
 export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
   const serifs = useParam('serif'), shape = useParam('serifShape'), pointed = shape === 'wedge' || shape === 'diamond', outside = useParam('serifSides') === 'outside';
-  const blocks = useParam('build') === 'blocks';
+  const blocks = useParam('build') === 'blocks', form = useParam('blockForm');
   // the Serifs page has nothing to shape while serifs are off, a wedge or a diamond, already a point, has no tip to finish,
   // and serifs that only reach out of the letter leave none inside it; letters built from blocks have no
-  // strokes, so only the controls that shape blocks show
-  const all = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category);
-  const keys = all.filter(k => (!blocks || BLOCK_CONTROLS.includes(k)) &&
+  // strokes, so only the controls that shape their kind of blocks show, and which blocks shows only while built from them
+  const all = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category && (blocks || k !== 'blockForm'));
+  const keys = all.filter(k => (!blocks || BLOCK_CONTROLS[form].includes(k)) &&
     (category !== 'serifs' || k === 'serif' || (serifs && !(pointed && k === 'serifTip') && !(outside && k === 'serifInner'))));
   const inspecting = useEditor(s => !!s.inspect);
   const note = blocks && keys.length < all.length

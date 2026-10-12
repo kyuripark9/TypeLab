@@ -69,9 +69,11 @@ export const FLOURISHES = ['plain', 'swash'] as const;
 export const S_FORMS = ['curved', 'flat'] as const;
 /** The foot of the a: a plain stem, or a spur running out to the right along the baseline. */
 export const A_FORMS = ['plain', 'spur'] as const;
-/** What the letters are built from: strokes drawn along a skeleton, or solid blocks with their counters cut in as slots
-    (see blocks.ts). Blocks draw the capitals, figures and punctuation; the lowercase are small capitals. */
+/** What the letters are built from: strokes drawn along a skeleton, or solid blocks (see BLOCK_FORMS). */
 export const BUILDS = ['strokes', 'blocks'] as const;
+/** Which block letters Blocks builds: plain block letters with a real lowercase (basic-blocks.ts), or solid blocks with
+    their counters cut in as slots, after a 70s poster face, the lowercase as small capitals (blocks.ts). */
+export const BLOCK_FORMS = ['basic', 'slots'] as const;
 /** A letter as drawn, or mirrored left to right (a reversed e). */
 export const MIRRORS = ['normal', 'mirrored'] as const;
 /** Curved stroke ends: stop part way round the curve, or turn onto the nearest level or plumb line and run straight out. */
@@ -97,6 +99,7 @@ export type AForm = (typeof A_FORMS)[number];
 export type TerminalRun = (typeof TERMINAL_RUNS)[number];
 export type BarEnds = (typeof BAR_ENDS)[number];
 export type Build = (typeof BUILDS)[number];
+export type BlockForm = (typeof BLOCK_FORMS)[number];
 export type Mirror = (typeof MIRRORS)[number];
 export type BowlForm = (typeof BOWL_FORMS)[number];
 export type Diagonals = (typeof DIAGONALS)[number];

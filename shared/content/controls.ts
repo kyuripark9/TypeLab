@@ -1,7 +1,7 @@
 /* The editor's controls and the sliders nested under them (read off each setting's spec in
    shared/params/spec.ts), which shapes each picker offers, and which control a key belongs to. */
 import { PARAM_KEYS, SPECS, type CategoryId, type ControlDef, type ControlKey, type SubControlDef, type SubKey, type SubKeyOf } from '../params';
-import type { AForm, BarEnds, Bends, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, Flourish, GForm, IForm, KForm, Mirror, Params, QForm, RForm, ScriptForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from '../params';
+import type { AForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, Flourish, GForm, IForm, KForm, Mirror, Params, QForm, RForm, ScriptForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from '../params';
 
 export type { CategoryId, ControlKey } from '../params';
 
@@ -29,10 +29,16 @@ const subsOf = <P extends ControlKey>(parent: P) => Object.fromEntries(PARAM_KEY
   const { parent: _, ...def } = s;
   return [[k, def]];
 })) as Record<SubKeyOf<P>, SubControlDef>;
-/** The controls that shape letters built from blocks (see blocks.ts): their size, weight and corners, the
-    hand, spacing and the effects that run on any outline. The rest shape strokes, which blocks don't have. */
-export const BLOCK_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'build', 'roundness', 'mirror', 'wobble',
+/** The controls that shape letters built from blocks, by Block letters: the slot blocks' (blocks.ts) size, weight and
+    corners, the hand, spacing and the effects that run on any outline; the basic block letters' (basic-blocks.ts)
+    also their contrast, bowls, peaks and steps and the lowercase's ascenders and descenders. The rest shape strokes,
+    which blocks don't have. */
+const SLOT_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'build', 'blockForm', 'roundness', 'mirror', 'wobble',
   'xHeight', 'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice'];
+export const BLOCK_CONTROLS: Record<BlockForm, readonly ControlKey[]> = {
+  basic: [...SLOT_CONTROLS, 'contrast', 'bowlForm', 'apex', 'steps', 'extenders', 'descender'],
+  slots: SLOT_CONTROLS
+};
 export const SERIF_SUBS = subsOf('serif');
 /** The sliders every serif shape has, and the finer ones of each shape, shown while that shape is picked. */
 export const SERIF_SIZES: SerifSubKey[] = ['serifSize', 'serifThickness', 'serifAngle'];
@@ -75,12 +81,13 @@ const ALL_SUBS = { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERI
 export const SUBS = ALL_SUBS as Record<SubKey, SubControlDef>;
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
-export type FormKey = 'build' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'scriptForm' | 'flourish' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
+export type FormKey = 'build' | 'blockForm' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'scriptForm' | 'flourish' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
 // (a control of type 'form' draws its shapes from FORM_OPTIONS, so each needs its entry)
 type FormControl = { [K in ControlKey]: (typeof SPECS)[K] extends { control: { type: 'form' } } ? K : never }[ControlKey];
 ({}) as { [K in Exclude<FormControl, FormKey>]: K } satisfies Record<string, never>;
 export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Params[K], 'auto'>, string][] } } = {
   build: { ch: 'E', options: [['strokes', 'Strokes'], ['blocks', 'Blocks']] as [Build, string][] },
+  blockForm: { ch: 'R', options: [['basic', 'Basic'], ['slots', 'Slots']] as [BlockForm, string][] },
   gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored'], ['double', 'Two-storey']] as [GForm, string][] },
   kForm: { ch: 'k', options: [['arm', 'From arm'], ['stem', 'From stem'], ['bar', 'On a bar']] as [KForm, string][] },
   iForm: { ch: 'i', options: [['plain', 'Plain'], ['bars', 'Bars']] as [Exclude<IForm, 'auto'>, string][] },

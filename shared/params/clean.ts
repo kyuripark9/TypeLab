@@ -9,14 +9,19 @@ import type { Params } from './model';
 import { contrastFromOld, xHeightFromOld } from './scales';
 import { DEFAULTS, FREE_AT_KEYS, ID_KEYS, PARAM_KEYS, SPECS, isGlyphKey, type FreeAt, type GlyphParams, type Spec } from './spec';
 /** The version of the settings this build writes; settings files and the database record it. Version 1 settings have
-    the Lowercase height on its first scale (see xHeightFromOld). Bump it, and add the step to upgradeParams, when
-    saved settings need reading differently. */
-export const PARAMS_VERSION = 2;
+    the Lowercase height on its first scale (see xHeightFromOld); version 2 settings built from blocks were built from
+    slot blocks, the only ones there were. Bump it, and add the step to upgradeParams, when saved settings need reading
+    differently. */
+export const PARAMS_VERSION = 3;
 /** Settings written by an older version (see PARAMS_VERSION), as this one reads them. */
 export function upgradeParams(src: Record<string, unknown>, version: number): Record<string, unknown> {
   if (version < 2 && typeof src.xHeight === 'number' && Number.isFinite(src.xHeight)) src = { ...src, xHeight: xHeightFromOld(Math.min(1, Math.max(0, src.xHeight))) };
+  // a design (or one of its letters) built from blocks before there were basic ones keeps its slot blocks
+  if (version < 3 && src.blockForm === undefined && usesBlocks(src)) src = { ...src, blockForm: 'slots' };
   return src;
 }
+const usesBlocks = (src: Record<string, unknown>) => src.build === 'blocks' || (!!src.glyphs && typeof src.glyphs === 'object'
+  && Object.values(src.glyphs as Record<string, unknown>).some(g => !!g && typeof g === 'object' && (g as { build?: unknown }).build === 'blocks'));
 
 /** A valid value for setting `k` (as its spec in spec.ts says), or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {

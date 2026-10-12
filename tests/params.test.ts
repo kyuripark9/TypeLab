@@ -104,3 +104,28 @@ describe('lowercase height', () => {
     assert.equal(read(), xHeightFromOld(0.5));
   });
 });
+
+describe('block letters', () => {
+  it('keeps the slot blocks of a design built from blocks before there were basic ones', () => {
+    assert.deepEqual(upgradeParams({ build: 'blocks', weight: 0.6 }, 2), { build: 'blocks', weight: 0.6, blockForm: 'slots' });
+    assert.deepEqual(upgradeParams({ glyphs: { E: { build: 'blocks' } } }, 2), { glyphs: { E: { build: 'blocks' } }, blockForm: 'slots' });
+    assert.deepEqual(upgradeParams({ build: 'strokes' }, 2), { build: 'strokes' });
+    // written since, a design built from blocks without a Block letters of its own has the basic ones
+    assert.deepEqual(upgradeParams({ build: 'blocks' }, PARAMS_VERSION), { build: 'blocks' });
+    assert.equal(sanitizeParams({ build: 'blocks' }).blockForm, 'basic');
+  });
+
+  it('moves a database written at PARAMS_VERSION 2 onto the slot blocks, once', () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'typelab-')), 'v2.db');
+    const old = new DatabaseSync(file);
+    old.exec(`CREATE TABLE designs (id TEXT PRIMARY KEY, name TEXT NOT NULL, style_id TEXT NOT NULL, params TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, owner TEXT);
+      INSERT INTO designs VALUES ('a', 'Slots', 'slotblocks', '{"build":"blocks","weight":0.6}', '2026-01-01', '2026-01-01', 'me');
+      INSERT INTO designs VALUES ('b', 'Strokes', 'grotesk', '{"weight":0.6}', '2026-01-01', '2026-01-01', 'me');
+      PRAGMA user_version = 2`);
+    old.close();
+    const s = new DesignStore(file), a = s.get('a', 'me')!, b = s.get('b', 'me')!;
+    s.close();
+    assert.equal(a.params.blockForm, 'slots');
+    assert.equal(b.params.blockForm, 'basic');
+  });
+});

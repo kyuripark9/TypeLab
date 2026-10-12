@@ -6,6 +6,7 @@
 import { endId, joinGap } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, mulM, quarter, roundContour, roundCuts, signedArea, smoothstep, splitPoly, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
+import { basicDims, basicRings, basicRound } from './basic-blocks';
 import { fillOutline, shadowShift, slice } from './effects';
 import { drawnCmds, type Drawn } from './outline';
 import { buildSerif, diamondCut, diamondEnd, expandStroke, type Expanded, serifPlace, type SerifPlace } from './stroke';
@@ -407,27 +408,38 @@ export type Unplaced = Omit<Glyph, 'lsb' | 'rsb' | 'adv' | 'M' | 'cmds' | 'd'>;
 export const blankParts = (): Pick<Glyph, 'serifs' | 'serifAt' | 'counters' | 'marks' | 'skeleton' | 'meta'> =>
   ({ serifs: [], serifAt: [], counters: [], marks: [], skeleton: [], meta: {} });
 
-/** A block letter (see blocks.ts): its outlines rounded corner by corner, Roundness rounding the outer
-    corners and the ends of arms and slots, Joins the small rounds inside, then placed like any glyph.
-    A lowercase letter is its capital, drawn as a small capital at the x-height. Null when the
-    character has no block shape. */
+/** A block letter, its outlines rounded corner by corner and placed like any glyph. Basic block letters
+    (basic-blocks.ts) round each corner by its kind and stand off by Side margins, less on a round or slanted side. Slot blocks (blocks.ts) have Roundness round the outer corners and the ends of arms and slots, Joins
+    the small rounds inside, and sit close; a lowercase letter is its capital, drawn as a small capital at the
+    x-height. Null when the character has no block shape. */
 export function buildBlock(ch: string, m: Metrics): Glyph | null {
-  const e = m.p, small = ch !== ch.toUpperCase();
-  const b = blockRings(ch, blockDims(small ? m.xh : m.cap, e), { o: e.roundness, e: Math.min(1, e.roundness), i: Math.min(2, e.joinRound * 2) });
-  if (!b) return null;
+  const e = m.p;
+  let b: { rings: Pt[][]; holes: number; W: number } | null, lsb: number, rsb: number;
+  if (e.blockForm === 'basic') {
+    const d = basicDims(m), r = basicRings(ch, d, basicRound(m, d));
+    if (!r) return null;
+    // a straight side stands about a stroke letter's stem margin off at the middle of Side margins, all the way from
+    // touching to wide; a round or slanted side less
+    const sb = m.cap * (0.006 + 0.15 * e.sideBearing);
+    b = r; lsb = sb * r.sb[0]; rsb = sb * r.sb[1];
+  } else {
+    const small = ch !== ch.toUpperCase();
+    b = blockRings(ch, blockDims(small ? m.xh : m.cap, e), { o: e.roundness, e: Math.min(1, e.roundness), i: Math.min(2, e.joinRound * 2) });
+    if (!b) return null;
+    // slot blocks sit close: at the middle of Side margins a thirtieth of the cap height each side
+    lsb = rsb = m.cap * (0.004 + 0.06 * e.sideBearing);
+  }
   const code = ch.charCodeAt(0);
   let rings = b.rings;
   if (m.wob > 0) {
     const wb = wobbler(code, m);
     rings = rings.map(r => r.map(q => { const [x, y] = wb.pt(q.x, q.y); return { ...q, x, y }; }));
   }
-  // blocks sit close: at the middle of Side margins a thirtieth of the cap height each side
-  const sb = m.cap * (0.004 + 0.06 * e.sideBearing);
   const out: Unplaced = {
     ch, strokes: [{ part: 'stem', cmds: rings.flatMap(r => roundContour(r, 0)), curved: true, id: '0' }], ...blankParts(),
     counters: rings.slice(rings.length - b.holes).map(r => roundContour(r, 0)), bodyW: b.W
   };
-  return placeGlyph(out, b.W, sb, sb, code, m);
+  return placeGlyph(out, b.W, lsb, rsb, code, m);
 }
 
 /** Place a glyph drawn `W` wide between side bearings lsb and rsb: rotation, monospacing, the pixel grid,

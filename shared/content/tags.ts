@@ -18,7 +18,7 @@ export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string }[] = [
   { id: 'slab', label: 'Slab Serif', hint: 'Heavy, block-shaped serifs' },
   { id: 'mono', label: 'Monospace', hint: 'Every letter takes the same width' },
   { id: 'hand', label: 'Calligraphy', hint: 'Drawn by hand with a pen or brush' },
-  { id: 'blocks', label: 'Blocks', hint: 'Solid shapes with their counters cut in as slots' },
+  { id: 'blocks', label: 'Blocks', hint: 'Solid block letters, plain or with slot counters' },
   { id: 'display', label: 'Display', hint: 'Decorative, made for headlines' }
 ];
 export type Mood = 'business' | 'calm' | 'sincere' | 'happy' | 'excited' | 'playful' | 'cute' | 'childlike' | 'fancy' | 'sophisticated'

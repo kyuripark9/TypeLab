@@ -77,8 +77,8 @@ bends before apex.
 7. `global` and `free` as above. `free: true` also needs the free-font work in engine/CLAUDE.md (`SKIN_KEYS`,
    `restyled`'s cache key, `FORM_LETTERS` for a letter-form setting) and a `FREE_MOVES` entry in tools/golden.ts; then
    `npm run golden`.
-   If it shapes letters built from blocks, add it to `BLOCK_CONTROLS` (content/controls.ts): every other control is
-   hidden while Built from is Blocks. If it shapes a definite part, give it a case in `highlightD` or a `RINGS` entry
+   If it shapes letters built from blocks, add it to `BLOCK_CONTROLS` (content/controls.ts), under the Block letters
+   it reaches (basic, slots): every other control is hidden while Built from is Blocks. If it shapes a definite part, give it a case in `highlightD` or a `RINGS` entry
    (engine/highlight.ts), or the explainer, inspector and preview light nothing up for it.
 8. Words people use for it that its copy lacks go in `ALSO` (`content/search.ts`).
 9. `npm run typecheck` (the compile checks above are types only; `npm test` runs through tsx and doesn't check them).
@@ -100,10 +100,11 @@ of each `TERMINAL_FORMS` kind is its fallback (`formOf`) and the form the Stroke
 
 ## PARAMS_VERSION and the compatibility code that stays
 
-`PARAMS_VERSION` is 2. `sanitizeParams` doesn't upgrade: every reader of stored or imported settings calls
+`PARAMS_VERSION` is 3. `sanitizeParams` doesn't upgrade: every reader of stored or imported settings calls
 `upgradeParams(src, version)` first (server/db.ts once per database, recorded in `PRAGMA user_version`; the
 `.typelab.json` import in `client/components/Header.tsx`, a file without a version being version 1). Version 1
-kept the Lowercase height on its first scale (`xHeightFromOld`).
+kept the Lowercase height on its first scale (`xHeightFromOld`); version 2 had only slot blocks, so a design (or a
+letter) built from blocks then reads `blockForm: 'slots'`.
 
 `isValidParams` accepts only input `sanitizeParams` would leave unchanged (a `freeAt` may lack keys), so the client
 always sends complete, current settings or the API answers 400.
@@ -117,7 +118,8 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
 - **Styles** (`content/styles.ts`): `style(id, group, kinds, name, moods, like, desc, params)`, its params laid over
   `DEFAULTS`. Ids never change and never leave `STYLES`: saved designs and `?style=` links name them, and the API
   refuses a design whose `styleId` isn't known. `PAGE_ORDER` picks the 22 cards (`PAGE_STYLES`), all solid letters: 21
-  written in TypeLab's own fonts, and Slot Blocks (`slotblocks`, Category Blocks), built from blocks. Every style keys
+  written in TypeLab's own fonts, and Block (`block`, Category Blocks), built from basic blocks (Slot Blocks,
+  `slotblocks`, stays in STYLES off the page: its slot blocks are a pick away, Block letters). Every style keys
   `STYLE_FONTS` but those built from blocks, which no font draws (their card and finder tile draw the engine's
   letters, `client/components/BuiltText.tsx`), and may be a `TAG_FACE`. `tools/fit/apply.ts` rewrites a style's params
   object in place, finding `style('<id>',` by text and its params as the first `{` outside quotes: keep that layout,
@@ -128,7 +130,7 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   (which opens its first page).
 - **Controls** (`content/controls.ts`): `CONTROLS` and `SUBS` come from the specs; `FORM_OPTIONS` (each shape drawn as
   a letter `ch`), the option label lists, `TERMINAL_DETAILS`, `SERIF_SIZES`, `SERIF_DETAILS`, `SERIF_TIP_DETAILS`;
-  `BLOCK_CONTROLS` (all that shows while Built from is Blocks); `PART_CONTROL` (anatomy part to the control that shapes
+  `BLOCK_CONTROLS` (all that shows while Built from is Blocks, by Block letters); `PART_CONTROL` (anatomy part to the control that shapes
   it); `controlFor` (a sub to its parent).
 - **Copy and search**: `ANATOMY` in `content/copy.ts` names every part the inspector can point at; `findSettings`
   searches the controls' words, `ALSO`, and the shapes they offer.

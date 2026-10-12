@@ -22,7 +22,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 
 | File | Covers |
 | --- | --- |
-| `engine.test.ts` | The engine as a whole: every style and the `extremes` (settings at their ends and in odd combinations) draw every glyph with finite outlines; spacing, customized letters, layout; the glyph registry (`glyphIds()`, `meta.params`); `expandStroke`'s outputs; block letters; rotation; sliders that keep changing to 100 |
+| `engine.test.ts` | The engine as a whole: every style and the `extremes` (settings at their ends and in odd combinations) draw every glyph with finite outlines; spacing, customized letters, layout; the glyph registry (`glyphIds()`, `meta.params`); `expandStroke`'s outputs; basic block letters (every character, a real lowercase, Weight, Contrast, Bowls, Steps) and slot blocks; rotation; sliders that keep changing to 100 |
 | `letterforms.test.ts` | The a's storey and spur, bowl joins and overlap, the forms of g k Q R s Y i/l/I/J, dots, diagonals, bends, box bowls, mirroring, crossbar height; descenders, Stem length, tails |
 | `ends.test.ts` | Stroke ends: each kind and form and its finer sliders, straight runs, Length and Curl for all ends and each one (terminals, hooks, tails, plain ends such as T's `p0s`) |
 | `corners.test.ts` | Each corner's roundness inside and out (O's `0t0` to `0t3`), end corners, the inside corners where strokes meet (t's `0j0` to `0j3`), Joins' crotches against Counters' square corners, Steps, Squareness, Facets |
@@ -32,7 +32,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `serifs.test.ts` | Where serifs sit (`serifAt`), tips, bases and cups, bracket, balance, sides, inside serifs, tops and arms, the diamond, cleaning saved serif settings |
 | `script.test.ts` | Cursive and the script letterforms (`.scr`), Swell, Flourishes (`.sw`, reaching past a letter without widening it), Swash capitals |
 | `grid.test.ts` | Construction grids: lines and rounds, the groups and their names (Grid A to T), what is shared, slanted and drawn letters, the 40-line and 28-round limits |
-| `params.test.ts` | `sanitizeParams` and `isValidParams`; older settings (a separate reverse contrast, the first Lowercase height scale); a database written before `PARAMS_VERSION` 2 upgraded once |
+| `params.test.ts` | `sanitizeParams` and `isValidParams`; older settings (a separate reverse contrast, the first Lowercase height scale, blocks before there were basic ones); databases written before `PARAMS_VERSION` 2 and at 2 upgraded once |
 | `handles.test.ts` | Every per-letter map in `ID_KEYS` changes its letter across its range (`HandleKey` must list them all) |
 | `drag.test.ts` | `client/lib/drag.ts`: which setting a drag moves, the solved value, ends kept in order, handles per control |
 | `pen.test.ts` | `client/lib/pen.ts` and `fitOutline`: tracing, drawn letters in `params.outlines`, point edits, Sync all, Mirror, Snap |
@@ -78,7 +78,7 @@ characters per glyph: a SHA-1 of its placed outline to a hundredth of a unit, wi
 `tools/golden.ts` computes them.
 
 - Engine probes: `style:<id>` for every style, `defaults`, `<key>=<value>` for every setting at its ends and in each
-  option (tried where it shows), the stroke-end forms, a `glyphs` probe with letters of their own, a blocks probe,
+  option (tried where it shows), the stroke-end forms, a `glyphs` probe with letters of their own, block probes (basic and slots),
   and stencil, crossbar-gap and join-gap probes on ten styles. `npm test` checks them.
 - Free probes: `<style>@<hash of the font file>[:<move>]`, each style in its free font as picked and moved by a
   few settings. TypeLab's own fonts are always there (`fonts/`); the Google ones need to be in `data/free-fonts`

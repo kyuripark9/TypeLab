@@ -214,7 +214,9 @@ export function FormIcon({ k, id }: { k: FormKey; id: string }) {
   const icon = cached(formPaths, `${k}:${id}`, () => {
     // (flourishes are written on the script letters, and reach well past the letter: framed whole)
     const swash = k === 'flourish';
-    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, ...(swash ? { scriptForm: 'script', weight: 0.5, xHeight: 0.4, swell: 0.5 } : {}), [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
+    // (block letters are drawn built from blocks)
+    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, ...(swash ? { scriptForm: 'script', weight: 0.5, xHeight: 0.4, swell: 0.5 } : {}),
+      ...(k === 'blockForm' ? { build: 'blocks' } : {}), [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
     return { d: g?.d ?? '', box: swash && g ? framed(g.d) : `0 ${n1(-f.m.asc - 30)} ${n1(g?.adv ?? 500)} ${n1(f.m.asc - f.m.desc + 60)}` };
   });
   return <svg viewBox={icon.box} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
