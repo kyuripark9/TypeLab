@@ -1,21 +1,22 @@
 /* After a letter's points are changed in Points, the offer to make the same change in the other letters shaped the
-   same way there (lib/carry). Each such letter shows as a toggle drawn with the change in it; hovering one shows it
-   large, as it was (dashed) and as it would be. Close matches (the outline round the change the same too) of the
-   edited letter's kind come picked, other close ones and looser ones follow unpicked, and past a dozen the rest wait
-   behind "+N"; All picks every one (and shows them all) or none. Apply puts the change in the picked letters in one
-   undo step; Not now lets it be. What is offered is
-   everything done to the letter since it was opened in Points, or since the last offer was taken up or turned down.
-   The search runs after each finished edit, in slices between frames, so it never holds up a drag. */
+   same way there (lib/carry). The letters are set out by kind, the edited letter's own first, then as the glyph strip
+   has them (capitals, small letters, figures, punctuation, symbols), each kind on a row with a box that picks all of
+   it, and All by the buttons for every one. Each letter is a toggle drawn with the change in it; hovering one shows it large, as it
+   was (dashed) and as it would be. Close matches (the outline round the change the same too) of the edited letter's
+   kind come picked, the rest unpicked. Apply puts the change in the picked letters in one undo step; Not now lets it
+   be. What is offered is everything done to the letter since it was opened in Points, or since the last offer was
+   taken up or turned down. The search runs after each finished edit, in slices between frames, so it never holds up
+   a drag. */
 import { memo, useEffect, useRef, useState } from 'react';
-import { ALL_CHARS, cmdsToD, drawnCmds, type Drawn, type Font, type Glyph, type Node } from '../../shared/engine';
+import { ALL_CHARS, CHARSET, cmdsToD, drawnCmds, type Drawn, type Font, type Glyph, type Node } from '../../shared/engine';
 import { carryLetter, changesOf, kindOf, type Carried } from '../lib/carry';
 import { traceOf } from '../lib/pen';
 import { actions, useEditor } from '../state/editor';
 
 /** How long the search runs before letting a frame through, in ms. */
 const SLICE = 10;
-/** How many letters show before the rest wait behind "+N". */
-const MOST = 12;
+/** The kinds of letter, named and ordered as the glyph strip has them. */
+const KINDS: [string, string][] = [['Uppercase', CHARSET.upper], ['Lowercase', CHARSET.lower], ['Figures', CHARSET.digits], ['Punctuation', CHARSET.punct], ['Symbols', CHARSET.symbols]];
 
 export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }) {
   // a new undo step: an edit finished, or one undone or redone
@@ -30,7 +31,6 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
   fontNow.current = font;
   const [offer, setOffer] = useState<{ now: Drawn; found: Carried[] } | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
-  const [all, setAll] = useState(false);
   const [peek, setPeek] = useState<Carried | null>(null);
 
   useEffect(() => {
@@ -52,7 +52,6 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
       found.sort((a, b) => rank(a) - rank(b));
       const mine = found.filter(c => rank(c) === 0);
       setPicked(new Set((mine.length ? mine : found.filter(c => c.close)).map(c => c.ch)));
-      setAll(false);
       setPeek(null);
       // looser matches alone aren't worth asking about
       setOffer(found.some(c => c.close) ? { now, found } : null);
@@ -74,32 +73,47 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
     actions.toast(`Changed ${take.map(c => c.ch).join(' ')} too`, { label: 'Undo', run: () => actions.travel(-1) });
   };
   const toggle = (o: string) => setPicked(p => { const n = new Set(p); if (!n.delete(o)) n.add(o); return n; });
-  const every = take.length === offer.found.length;
-  const pickAll = (on: boolean) => { setPicked(new Set(on ? offer.found.map(c => c.ch) : [])); if (on) setAll(true); };
-  const shown = all ? offer.found : offer.found.slice(0, MOST), hidden = offer.found.length - shown.length;
+  const pickMany = (chs: string[], on: boolean) => setPicked(p => { const n = new Set(p); for (const c of chs) if (on) n.add(c); else n.delete(c); return n; });
+  // the letters by kind, the edited letter's own kind first, each kind in the strip's order
+  const own = KINDS.findIndex(([, cs]) => cs.includes(ch));
+  const kinds = [...KINDS.slice(own, own + 1), ...KINDS.filter((_, k) => k !== own)]
+    .map(([name, cs]) => ({ name, letters: offer.found.filter(c => cs.includes(c.ch)).sort((a, b) => cs.indexOf(a.ch) - cs.indexOf(b.ch)) }))
+    .filter(k => k.letters.length);
 
   return (
     <div className="pen-carry" role="group" aria-label={`Apply the change to ${ch} to other letters`} onPointerLeave={() => setPeek(null)}>
       {peek && <CarryPeek c={peek} font={font} />}
       <div className="pen-carry-head">
         <span className="pen-carry-q">Apply this change to other letters too?</span>
-        <label className="check pen-carry-all" title={every ? 'Pick none of the letters' : `Pick all ${offer.found.length} letters`}>
-          <input type="checkbox" checked={every} ref={el => { if (el) el.indeterminate = take.length > 0 && !every; }} onChange={e => pickAll(e.target.checked)} />
-          All
-        </label>
+        {kinds.length > 1 && <PickBox label="All" letters={offer.found} picked={picked} onSet={pickMany} />}
         <button className="btn ghost small" onClick={answered}>Not now</button>
         <button className="btn primary small" disabled={!take.length} onClick={apply}
           title={take.length ? `Change ${take.map(c => c.ch).join(' ')} the same way; they become drawn letters, which the sliders no longer change` : 'Pick the letters to change'}>
           {take.length ? `Apply to ${take.length}` : 'Apply'}
         </button>
       </div>
-      <div className="pen-carry-letters">
-        {shown.map(c => (
-          <CarryChip key={c.ch} c={c} font={font} on={picked.has(c.ch)} onToggle={toggle} onPeek={setPeek} />
+      <div className="pen-carry-kinds">
+        {kinds.map(k => (
+          <div key={k.name} className="pen-carry-kind">
+            <PickBox label={k.name} letters={k.letters} picked={picked} onSet={pickMany} />
+            <div className="pen-carry-letters">
+              {k.letters.map(c => <CarryChip key={c.ch} c={c} font={font} on={picked.has(c.ch)} onToggle={toggle} onPeek={setPeek} />)}
+            </div>
+          </div>
         ))}
-        {hidden > 0 && <button className="pen-carry-more" title="Show every letter with this shape" onClick={() => setAll(true)}>+{hidden}</button>}
       </div>
     </div>
+  );
+}
+
+/** A box that picks every one of `letters` or none, half checked while only some are picked. */
+function PickBox({ label, letters, picked, onSet }: { label: string; letters: Carried[]; picked: ReadonlySet<string>; onSet: (chs: string[], on: boolean) => void }) {
+  const n = letters.filter(c => picked.has(c.ch)).length, every = n === letters.length;
+  return (
+    <label className="check pen-carry-pick" title={every ? `Pick none of these ${letters.length}` : `Pick all ${letters.length}`}>
+      <input type="checkbox" checked={every} ref={el => { if (el) el.indeterminate = n > 0 && !every; }} onChange={e => onSet(letters.map(c => c.ch), e.target.checked)} />
+      {label}
+    </label>
   );
 }
 
@@ -112,15 +126,15 @@ function boxOf(docs: Drawn[], font: Font) {
   return { x: x0 - pad, y: -top, w: x1 - x0 + 2 * pad, h: top - bot };
 }
 
-/** One letter the change can go to, drawn with it, picked or not. */
+/** One letter the change can go to, drawn with it (fitted to its cell, wide letters a little smaller), picked or not. */
 const CarryChip = memo(function CarryChip({ c, font, on, onToggle, onPeek }: { c: Carried; font: Font; on: boolean; onToggle: (ch: string) => void; onPeek: (c: Carried) => void }) {
-  const b = boxOf([c.doc], font), h = 30;
+  const b = boxOf([c.doc], font);
   const where = c.places > 1 ? ` (in ${c.places} places)` : '';
   return (
     <button className={on ? 'pen-carry-chip on' : 'pen-carry-chip'} aria-pressed={on} aria-label={c.ch} onClick={() => onToggle(c.ch)}
       onPointerEnter={() => onPeek(c)} onFocus={() => onPeek(c)}
       title={`${c.ch}${where}${c.close ? '' : ': the same shape, in other surroundings'} · click to ${on ? 'leave it as it is' : 'change it too'}`}>
-      <svg width={Math.max(16, Math.round((b.w / b.h) * h))} height={h} viewBox={`${b.x} ${b.y} ${b.w} ${b.h}`} aria-hidden="true">
+      <svg width={24} height={28} viewBox={`${b.x} ${b.y} ${b.w} ${b.h}`} aria-hidden="true">
         <path d={cmdsToD(drawnCmds(c.doc.contours))} />
       </svg>
     </button>
