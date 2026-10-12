@@ -1,8 +1,8 @@
 /* Glyph inspector: one letter, large, on the stage. Its parts are live: pointing at one
    highlights it and the slider that shapes it, dragging it reshapes the design (lib/drag), and
-   the side panel groups its sliders by part (letterControls). Its head holds the Shape / Points
-   switch (Points hands the canvas to PenCanvas), the Sync all / Customize switch for whether edits
-   reach every letter or this one, and the Construction grid toggle. letterControls and ScopeIcon
+   the side panel groups its sliders by part (letterControls). Its head holds the Parts / Points
+   switch (Points hands the canvas to PenCanvas), the All letters / Only <letter> switch for whether
+   edits reach every letter or this one, and the Construction grid toggle. letterControls and ScopeIcon
    are also used by the side panel (panel/ControlsPanel). */
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
@@ -152,27 +152,21 @@ export function Inspector() {
       {grid && <GridBar ch={ch} font={font} group={grid.group} />}
       <div className="insp-body">
         {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} />}
-        {/* one short line over the canvas; the whole story is in its tooltip */}
+        {/* one short line over the canvas for what the switches above don't say: what an edit here does
+            beyond this letter, or why the settings don't reach it; the whole story is in its tooltip */}
         {pen && sync && (
-          <div className="scope-banner sync" role="status" title="A point you move also moves in every letter with a point in the same place, and those letters stop following the sliders">
+          <div className="scope-banner sync" role="status" title="A point you move also moves in every letter with a point in the same place, and the settings stop changing those letters">
             <ScopeIcon id="all" /><span>Matching points move in every letter</span>
-            <button className="link" onClick={() => actions.setScope('letter')}>Only {ch}</button>
           </div>
         )}
-        {pen && !sync && !drawn && (
-          <div className="scope-banner" role="status" title={`Once you move a point, the sliders stop changing ${ch}, until you put it back`}>
-            <ScopeIcon id="letter" /><span>Moving a point unlinks <b>{ch}</b> from the sliders</span>
+        {pen && !sync && !hand && (
+          <div className="scope-banner" role="status" title={`Once you move a point, ${ch} becomes a drawing of its own; Back to settings, in the panel, undoes that`}>
+            <ScopeIcon id="letter" /><span>Once you move a point, settings stop changing <b>{ch}</b></span>
           </div>
         )}
         {!pen && drawn && (
           <div className="scope-banner" role="status">
             <ScopeIcon id="letter" /><span>{free ? <><b>{ch}</b> is {free}'s letter · reshape it in Points</> : <><b>{ch}</b> was edited in Points · settings don't change it</>}</span>
-          </div>
-        )}
-        {letter && !drawn && (
-          <div className="scope-banner" role="status" title="The other letters won't change">
-            <ScopeIcon id="letter" /><span>Only <b>{ch}</b> changes</span>
-            <button className="link" onClick={() => actions.setScope('all')}>Sync all</button>
           </div>
         )}
       </div>
@@ -184,8 +178,8 @@ export function Inspector() {
 function ModeToggle() {
   const pen = useEditor(s => s.penMode);
   const opts: [boolean, string, string][] = [
-    [false, 'Shape', 'Drag the letter\'s parts: its stems, bowls and ends grow and move through the settings'],
-    [true, 'Points', 'Edit the outline point by point with the pen, like a vector editor']
+    [false, 'Parts', 'Drag the letter\'s stems, bowls and ends; the settings move with them'],
+    [true, 'Points', 'Edit the outline point by point, like a vector editor']
   ];
   return (
     <div className="scope" role="radiogroup" aria-label="Edit with">
@@ -202,21 +196,21 @@ function ModeToggle() {
   );
 }
 
-/** Whether the controls reshape every letter in sync or only this one. A letter with settings of
-    its own can be put back in sync with the rest. With the pen, Sync all moves a point in every
-    letter that has one in the same place. */
+/** Whether an edit reshapes every letter or only this one. A letter with settings of its own can be
+    reset to follow the rest. With the pen, All letters moves a point in every letter that has one in
+    the same place. */
 function ScopeToggle({ ch, pen }: { ch: string; pen: boolean }) {
   const scope = useEditor(s => s.scope), custom = useEditor(s => !pen && !!s.params.glyphs[ch]);
   const opts: [Scope, string, string][] = pen ? [
-    ['all', 'Sync all', `Moving a point of ${ch} moves it in the other letters with a point in the same place: the same height, and as far from the side (or the middle)`],
-    ['letter', `Customize ${ch}`, `Moving a point changes only ${ch}; the other letters stay as they are`]
+    ['all', 'All letters', `Moving a point of ${ch} moves it in the other letters with a point in the same place: the same height, and as far from the side (or the middle)`],
+    ['letter', `Only ${ch}`, `Moving a point changes ${ch} alone; the other letters stay as they are`]
   ] : [
-    ['all', 'Sync all', 'Changes reshape every letter at once'],
-    ['letter', `Customize ${ch}`, `Changes reshape only ${ch}; the other letters stay as they are`]
+    ['all', 'All letters', 'A change reshapes every letter'],
+    ['letter', `Only ${ch}`, `A change reshapes ${ch} alone; the other letters stay as they are`]
   ];
   return (
     <>
-      <div className="scope" role="radiogroup" aria-label="Editing mode" data-guide="scope">
+      <div className="scope" role="radiogroup" aria-label="Letters an edit changes" data-guide="scope">
         {opts.map(([id, label, title]) => (
           <button key={id} role="radio" aria-checked={scope === id} data-scope={id} className={scope === id ? 'on' : undefined} title={title}
             onClick={() => actions.setScope(id)}><ScopeIcon id={id} />{label}</button>
@@ -224,7 +218,7 @@ function ScopeToggle({ ch, pen }: { ch: string; pen: boolean }) {
       </div>
       {custom && (
         <button className="btn ghost small" onClick={() => actions.syncLetter(ch)} title={`Drop ${ch}'s own settings so it follows the other letters again`}>
-          Re-sync {ch}
+          Reset {ch}
         </button>
       )}
     </>

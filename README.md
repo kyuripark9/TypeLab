@@ -246,14 +246,14 @@ right edge to change the width. Like the sliders, a drag reshapes every letter, 
 Pointing at a part shows its grab handle and which way does what; pointing at a slider shows handles
 wherever the letter can be dragged to make the same change.
 
-To customize one letter, switch the inspector from **Sync all** to **Customize R**: sliders and
+To customize one letter, switch the inspector from **All letters** to **Only R**: sliders and
 drags then reshape just that letter, which keeps its own values when the rest of the design changes (a dot
 marks it in the glyph strip, and its own values are tagged *Custom*). Heights, spacing and fills
 are tagged *Whole font*: every letter sits on the same lines, so they stay shared.
-**Re-sync R** puts the letter back in sync. Per-letter settings are saved with the design
+**Reset R** puts the letter back in step with the rest. Per-letter settings are saved with the design
 (`params.glyphs`) and exported with the font.
 
-To draw a letter point by point, switch the inspector from **Shape** to **Points**. The letter shows
+To draw a letter point by point, switch the inspector from **Parts** to **Points**. The letter shows
 as anchor points and bézier handles, traced from its outline with points on the curves' extremes, and
 the tools work like a vector editor's: **Direct selection** (`A`) drags points, handles and curves (Shift-click or
 drag a box to pick several, arrows nudge by one unit, Shift by ten, Alt-drag a handle to break a smooth
@@ -262,7 +262,7 @@ outline, deletes a point it clicks, and draws new shapes (click for corners, dra
 first point to close); **Convert point** (`⇧C`) switches corner ↔ smooth or pulls out new handles; the
 **Shape** tool adds a rectangle (`M`), ellipse (`L`), rounded rectangle, triangle, hexagon or star. The bar
 below types exact coordinates and the width; points snap to whole units, and with *Snap* to the guide
-lines, other points, centers, midpoints, the outline, crossings and tangents. With **Sync all** a point
+lines, other points, centers, midpoints, the outline, crossings and tangents. With **All letters** a point
 moved in one letter moves in the other letters with a point in the same place, and **Mirror** moves its
 partner across the letter's middle the other way. `⌘`-scroll zooms, Space-drag pans, `⌘0` fits the letter.
 **Reverse direction** turns a contour inside another into a hole (or back). The first edit makes the letter a
