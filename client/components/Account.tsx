@@ -104,7 +104,6 @@ function AuthForm({ mode }: { mode: AuthMode }) {
             <p>{mode === 'signup'
               ? 'Keep your fonts in an account, to open, edit and download them on any computer.'
               : 'Your saved fonts open on any computer you sign in on.'}</p>
-            {google && <><GoogleButton />{or}</>}
             <label className="field">
               <span>Email</span>
               <input type="email" name="email" required value={email} autoComplete="username email" autoFocus spellCheck={false}
@@ -160,7 +159,7 @@ function AuthForm({ mode }: { mode: AuthMode }) {
             {busy ? text.busy : text.submit}
           </button>
         )}
-        {google && (step === 'google' || (step === 'password' && (hasGoogle || forgot))) && <>{step !== 'google' && or}<GoogleButton /></>}
+        {google && (step === 'email' || step === 'google' || (step === 'password' && (hasGoogle || forgot))) && <>{step !== 'google' && or}<GoogleButton /></>}
         {waiting && <p className="auth-wait" role="status">Finish signing in in the Google window.</p>}
 
         {step === 'email' && (
