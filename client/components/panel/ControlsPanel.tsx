@@ -60,11 +60,11 @@ function LetterControls({ keys, category }: { keys: ControlKey[]; category: Excl
   const rest = keys.filter(k => !rows.some(r => r.key === k));
   return (
     <div className="ctl-list">
-      {customizing && !hand && <div className="scope-note"><ScopeIcon id="letter" /><span>Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</span></div>}
+      {customizing && <div className="scope-note"><ScopeIcon id="letter" /><span>Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</span></div>}
       {hand && (
         <div className="reach-banner">
-          <span>{`${ch} was edited in Points, so these settings don’t change it.`}</span>
-          <button className="link small" onClick={() => actions.undrawLetter(ch)}>Back to settings</button>
+          <span>{`${ch} was edited in Points: weight, contrast, width, heights, crossbar and slant move it, and its shape stays as you drew it.`}</span>
+          <button className="link small" onClick={() => actions.syncLetter(ch)}>{`Reset ${ch}`}</button>
         </div>
       )}
       <div className="list-head">Parts of {ch}</div>

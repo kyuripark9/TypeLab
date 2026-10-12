@@ -7,21 +7,34 @@ import { cleanDrawn, type Drawn } from '../engine/outline';
 import { ownFontOf, parseFontId } from '../free-fonts';
 import type { Params } from './model';
 import { contrastFromOld, xHeightFromOld } from './scales';
-import { DEFAULTS, FREE_AT_KEYS, ID_KEYS, PARAM_KEYS, SPECS, isGlyphKey, type FreeAt, type GlyphParams, type Spec } from './spec';
+import { DEFAULTS, DRAWN_AT_KEYS, FREE_AT_KEYS, ID_KEYS, PARAM_KEYS, SPECS, drawnAtOf, isGlyphKey, type DrawnAt, type FreeAt, type GlyphParams, type Spec } from './spec';
 /** The version of the settings this build writes; settings files and the database record it. Version 1 settings have
     the Lowercase height on its first scale (see xHeightFromOld); version 2 settings built from blocks were built from
-    slot blocks, the only ones there were. Bump it, and add the step to upgradeParams, when saved settings need reading
-    differently. */
-export const PARAMS_VERSION = 3;
+    slot blocks, the only ones there were; version 3 letters drawn in Points stood as drawn whatever the settings, and
+    keep no settings they were drawn at (Drawn.at). Bump it, and add the step to upgradeParams, when saved settings
+    need reading differently. */
+export const PARAMS_VERSION = 4;
 /** Settings written by an older version (see PARAMS_VERSION), as this one reads them. */
 export function upgradeParams(src: Record<string, unknown>, version: number): Record<string, unknown> {
   if (version < 2 && typeof src.xHeight === 'number' && Number.isFinite(src.xHeight)) src = { ...src, xHeight: xHeightFromOld(Math.min(1, Math.max(0, src.xHeight))) };
   // a design (or one of its letters) built from blocks before there were basic ones keeps its slot blocks
   if (version < 3 && src.blockForm === undefined && usesBlocks(src)) src = { ...src, blockForm: 'slots' };
+  // a letter drawn in Points is taken as drawn at the settings its design has, at which it stands as it did, and moves
+  // from there as they move
+  if (version < 4) src = drawnAtDesign(src);
   return src;
 }
 const usesBlocks = (src: Record<string, unknown>) => src.build === 'blocks' || (!!src.glyphs && typeof src.glyphs === 'object'
   && Object.values(src.glyphs as Record<string, unknown>).some(g => !!g && typeof g === 'object' && (g as { build?: unknown }).build === 'blocks'));
+/** Each drawn letter that keeps no settings it was drawn at, with the settings its design draws it at (read as
+    sanitizeParams reads them, an older contrast and all). */
+function drawnAtDesign(src: Record<string, unknown>): Record<string, unknown> {
+  const o = src.outlines;
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return src;
+  const p = sanitizeParams(src), plain = (d: unknown) => !!d && typeof d === 'object' && !Array.isArray(d);
+  const outlines = Object.fromEntries(Object.entries(o).map(([ch, d]) => [ch, plain(d) && !('at' in (d as object)) ? { ...(d as object), at: drawnAtOf(p, ch) } : d]));
+  return { ...src, outlines };
+}
 
 /** A valid value for setting `k` (as its spec in spec.ts says), or undefined. Numbers are clamped to 0..1. */
 function cleanValue(k: keyof Params, v: unknown): unknown {
@@ -67,15 +80,28 @@ function cleanGlyphs(v: unknown): Record<string, GlyphParams> {
   return out;
 }
 
-/** Drawn letters: one character per key, each a valid outline. */
+/** Drawn letters: one character per key, each a valid outline, with the settings it was drawn at where it keeps them. */
 function cleanOutlines(v: unknown): Record<string, Drawn> {
   const out: Record<string, Drawn> = {};
   if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
   for (const [ch, d] of Object.entries(v)) {
     const c = [...ch].length === 1 ? cleanDrawn(d) : undefined;
-    if (c) out[ch] = c;
+    if (!c) continue;
+    const at = cleanAt((d as { at?: unknown }).at);
+    out[ch] = at ? { ...c, at } : c;
   }
   return out;
+}
+
+/** The settings a drawing was drawn at: each a valid value of its setting; one left out stands at its default. */
+function cleanAt(v: unknown): DrawnAt | undefined {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+  const out: Record<string, unknown> = {};
+  for (const k of DRAWN_AT_KEYS) {
+    const c = k in v ? cleanValue(k, (v as Record<string, unknown>)[k]) : undefined;
+    if (c !== undefined) out[k] = c;
+  }
+  return out as DrawnAt;
 }
 
 /** Older settings that carry a separate `reverse` (from a Reverse contrast slider of its own), with their

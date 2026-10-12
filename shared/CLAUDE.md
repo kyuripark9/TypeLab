@@ -98,15 +98,19 @@ These live in saved designs, settings files, links and caches, so they never cha
 each number one or two digits. `sanitizeParams` silently drops a value whose id doesn't match its test. The first form
 of each `TERMINAL_FORMS` kind is its fallback (`formOf`) and the form the Stroke ends trait picks. A drawn letter's
 points (`params.outlines`, `Node` in engine/outline.ts) keep their keys too: `x y ix iy ox oy s`, and a live corner's
-`r` and `corner` (`'cut'` or `'scoop'`; a round has none), which `cleanDrawn` reads.
+`r` and `corner` (`'cut'` or `'scoop'`; a round has none), which `cleanDrawn` reads; and a drawing keeps the
+settings it was drawn at (`Drawn.at`, every setting but `glyphs` and `outlines`, the letter's own laid in:
+`DRAWN_AT_KEYS`, `drawnAtOf`), which `cleanOutlines` reads (one left out stands at its default). The editor's
+`setParam('outlines', …)` gives each new drawing its `at`.
 
 ## PARAMS_VERSION and the compatibility code that stays
 
-`PARAMS_VERSION` is 3. `sanitizeParams` doesn't upgrade: every reader of stored or imported settings calls
+`PARAMS_VERSION` is 4. `sanitizeParams` doesn't upgrade: every reader of stored or imported settings calls
 `upgradeParams(src, version)` first (server/db.ts once per database, recorded in `PRAGMA user_version`; the
 `.typelab.json` import in `client/components/Header.tsx`, a file without a version being version 1). Version 1
 kept the Lowercase height on its first scale (`xHeightFromOld`); version 2 had only slot blocks, so a design (or a
-letter) built from blocks then reads `blockForm: 'slots'`.
+letter) built from blocks then reads `blockForm: 'slots'`; version 3 drawings stood as drawn whatever the settings,
+so each reads as drawn at its design's settings (`drawnAtDesign`), where it stands as it did.
 
 `isValidParams` accepts only input `sanitizeParams` would leave unchanged (a `freeAt` may lack keys), so the client
 always sends complete, current settings or the API answers 400.

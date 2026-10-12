@@ -12,7 +12,7 @@ import { loadFreeFont } from '../lib/free';
 import { DEFAULT_NAME, cleanName, type Design, type DesignInput } from '../../shared/design';
 import { SNAP_KINDS, type SnapKind } from '../lib/pen';
 import { PREFS, prefFlag, prefJson, prefOneOf, setPrefFlag, writePref } from '../lib/prefs';
-import { DEFAULTS, endCurl, endLength, freeAtOf, isGlyphKey, type GlyphParams, type IdKey, type NumericParam, type Params } from '../../shared/params';
+import { DEFAULTS, drawnAtOf, endCurl, endLength, freeAtOf, isGlyphKey, type GlyphParams, type IdKey, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
 /** The Style page's panel: filters that narrow the cards, or traits laid over every card. */
@@ -217,6 +217,14 @@ function withGlyph(p: Params, ch: string, key: keyof GlyphParams, v: unknown): P
   return { ...p, glyphs };
 }
 
+/** Drawn letters `outlines` written into `p`, each drawn just now (one that keeps no settings it was drawn at) keeping
+    the settings it is drawn at, so it moves as they move from there. One put back as it was keeps its own. */
+function withDrawings(p: Params, outlines: Params['outlines']): Params {
+  const out: Params['outlines'] = {};
+  for (const [ch, d] of Object.entries(outlines)) out[ch] = d.at ? d : { ...d, at: drawnAtOf(p, ch) };
+  return { ...p, outlines: out };
+}
+
 /* ---------------------------------------------------------------- fonts
    Params objects are replaced on every change, so a WeakMap gives each exactly one build. */
 const fonts = new WeakMap<Params, Font>();
@@ -337,6 +345,7 @@ export const actions = {
   setParam<K extends keyof Params>(key: K, v: Params[K]) {
     set(s => {
       const ch = letterOf(s);
+      if (key === 'outlines') return { params: withDrawings(s.params, v as Params['outlines']) };
       return { params: ch && isGlyphKey(key) ? withGlyph(s.params, ch, key, v) : { ...s.params, [key]: v } };
     });
   },
@@ -421,15 +430,16 @@ export const actions = {
     set({ params: withGlyph(s.params, ch, key, Object.keys(rest).length ? rest : undefined) });
     actions.commit();
   },
-  /** Put a customized letter back in sync with the rest of the alphabet. */
+  /** Put a letter back in step with the rest of the alphabet: its own settings dropped, and its edits in Points. */
   syncLetter(ch: string) {
-    const s = get();
-    if (!s.params.glyphs[ch]) return;
-    const glyphs = { ...s.params.glyphs };
+    const s = get(), own = !!s.params.glyphs[ch], drawn = !!s.params.outlines[ch];
+    if (!own && !drawn) return;
+    const glyphs = { ...s.params.glyphs }, outlines = { ...s.params.outlines };
     delete glyphs[ch];
-    set({ params: { ...s.params, glyphs } });
+    delete outlines[ch];
+    set({ params: { ...s.params, glyphs, outlines } });
     actions.commit();
-    actions.toast(`${ch} is synced with the other letters again`);
+    actions.toast(drawn ? `${ch} is the font's again · ⌘Z brings your edits back` : `${ch} is synced with the other letters again`);
   },
 
   /* ---- UI */
@@ -516,16 +526,6 @@ export const actions = {
     if (s.params.glyphs[ch]?.[key] === undefined) return;
     set({ params: withGlyph(s.params, ch, key, undefined) });
     actions.commit();
-  },
-  /** Give a letter drawn by hand back to the settings, which shape it again. */
-  undrawLetter(ch: string) {
-    const s = get();
-    if (!s.params.outlines[ch]) return;
-    const outlines = { ...s.params.outlines };
-    delete outlines[ch];
-    set({ params: { ...s.params, outlines } });
-    actions.commit();
-    actions.toast(`${ch} follows the settings again · ⌘Z brings the drawing back`);
   },
   setExportOpen(exportOpen: boolean) { set({ exportOpen }); },
   requestSave() { saveRequest(); },

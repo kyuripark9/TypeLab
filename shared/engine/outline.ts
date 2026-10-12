@@ -7,6 +7,7 @@
 
    shared/params (clean.ts, model.ts) reads cleanDrawn and Drawn from here, so this file imports only
    types: a value import reaching font.ts, which reads the params, would load the two in a cycle. */
+import type { DrawnAt } from '../params/spec';
 import type { Cmd } from './types';
 
 type P = { x: number; y: number };
@@ -22,8 +23,10 @@ export interface Node { x: number; y: number; ix?: number; iy?: number; ox?: num
 export type CornerKind = 'round' | 'cut' | 'scoop';
 export const CORNER_KINDS: CornerKind[] = ['round', 'cut', 'scoop'];
 /** A drawn letter: its advance width and closed contours. Nonzero fill, so a contour running the
-    other way round from the one around it cuts a hole. */
-export interface Drawn { adv: number; contours: Node[][] }
+    other way round from the one around it cuts a hole. `at`: the settings it was drawn at, which it is drawn as it
+    stands at (moved from them as they move: family-drawn.ts); a drawing from before drawings kept them has none
+    until upgradeParams (shared/params/clean.ts) gives it its design's. */
+export interface Drawn { adv: number; contours: Node[][]; at?: DrawnAt }
 
 export const hasIn = (n: Node) => n.ix !== undefined && n.iy !== undefined;
 export const hasOut = (n: Node) => n.ox !== undefined && n.oy !== undefined;

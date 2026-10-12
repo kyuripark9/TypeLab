@@ -15,7 +15,8 @@
    the card back to its pill. */
 import { memo, useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
-import { ALL_CHARS, CHARSET, cmdsToD, drawnCmds, type Drawn, type Font, type Glyph, type Node } from '../../shared/engine';
+import { ALL_CHARS, CHARSET, cmdsToD, drawnCmds, drawnLetter, type Drawn, type Font, type Glyph } from '../../shared/engine';
+import { drawnAtOf } from '../../shared/params';
 import { carryLetter, changesOf, kindOf, sameDrawing, type Carried } from '../lib/carry';
 import { traceOf } from '../lib/pen';
 import { actions, useEditor } from '../state/editor';
@@ -38,9 +39,10 @@ const sameDesign = (a: Of, b: Of) => a.style === b.style && (a.design === null |
 interface Applied { from: string; found: Carried[]; prev: Record<string, Drawn | undefined>; of: Of }
 const useApplied = create<{ last: Applied | null }>(() => ({ last: null }));
 
-/** Each letter as it was before the edits not yet offered or answered, by letter, for the design open now (another
-    design, or another style started, begins afresh). */
-const bases = new Map<string, Node[][]>();
+/** Each letter as it was before the edits not yet offered or answered, with the settings it stood at then (so it can
+    be drawn at the settings the edit was made at, should they have moved), by letter, for the design open now
+    (another design, or another style started, begins afresh). */
+const bases = new Map<string, Drawn>();
 let basesOf: Of = { style: '', design: null };
 function forDesign() {
   const now = ofNow();
@@ -60,8 +62,8 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
   // the letter as it was before it was edited (as the font draws it, until the first edit; a letter drawn already,
   // as it was when first opened here), or when its last offer was answered
   forDesign();
-  if (!stored) bases.set(ch, traceOf(g).contours);
-  else if (!bases.has(ch)) bases.set(ch, stored.contours);
+  if (!stored) bases.set(ch, { ...traceOf(g), at: drawnAtOf(useEditor.getState().params, ch) });
+  else if (!bases.has(ch)) bases.set(ch, stored);
   const fontNow = useRef(font);
   fontNow.current = font;
   const [offer, setOffer] = useState<{ now: Drawn; found: Carried[] } | null>(null);
@@ -82,16 +84,19 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
   }, [open]);
 
   useEffect(() => {
-    const s = useEditor.getState(), now = s.params.outlines[ch], outs = s.params.outlines, f = fontNow.current, base = bases.get(ch);
-    const changes = now && base ? changesOf(base, now.contours) : [];
+    // the letter as the settings draw it now, and as it was before, drawn at the same settings (each letter, drawn or
+    // not, read as it stands)
+    const f = fontNow.current, base = bases.get(ch), now = useEditor.getState().params.outlines[ch] && f.glyph(ch)?.drawn;
+    const was = now && base ? drawnLetter(ch, base, f).drawn : undefined;
+    const changes = now && was ? changesOf(was.contours, now.contours) : [];
     if (!now || !changes.length) { setOffer(null); return; }
     const found: Carried[] = [];
     let k = 0, timer = 0;
     const step = () => {
       const t0 = performance.now();
       while (k < ALL_CHARS.length && performance.now() - t0 < SLICE) {
-        const o = ALL_CHARS[k++], og = o === ch || outs[o] ? null : f.glyph(o);
-        const doc = o === ch ? null : outs[o] ?? (og ? traceOf(og) : null), got = doc?.contours.length ? carryLetter(changes, o, doc) : null;
+        const o = ALL_CHARS[k++], og = o === ch ? null : f.glyph(o);
+        const doc = og ? traceOf(og) : null, got = doc?.contours.length ? carryLetter(changes, o, doc) : null;
         if (got) found.push(got);
       }
       if (k < ALL_CHARS.length) { timer = window.setTimeout(step, 0); return; }
@@ -110,7 +115,7 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
   }, [hi, ch]);
 
   // mid-drag, or once the letter has changed again, an offer waits for the search to catch up
-  if (offer && !sameDrawing(offer.now, stored)) return null;
+  if (offer && !sameDrawing(offer.now, stored && traceOf(g))) return null;
   // the letters the last change applied is in now (none once it is undone everywhere)
   const has = last ? last.found.filter(c => sameDrawing(outlines[c.ch], c.doc)) : [];
   const review = !offer && last && (has.length || open) ? last : null;
@@ -118,7 +123,7 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
   const found = offer ? offer.found : review!.found;
 
   const take = offer ? found.filter(c => picked.has(c.ch)) : [];
-  const answered = () => { if (offer) bases.set(ch, offer.now.contours); setOffer(null); setOpen(false); setPeek(null); };
+  const answered = () => { const st = useEditor.getState().params.outlines[ch]; if (offer && st) bases.set(ch, st); setOffer(null); setOpen(false); setPeek(null); };
   const apply = () => {
     if (!offer || !take.length) return;
     const s = useEditor.getState(), prev = Object.fromEntries(found.map(c => [c.ch, s.params.outlines[c.ch]]));

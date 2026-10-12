@@ -2,9 +2,10 @@
    highlights it and the slider that shapes it, dragging it reshapes the design (lib/drag), and
    the side panel groups its sliders by part (letterControls). Its head holds the Parts / Points
    switch (Points hands the canvas to PenCanvas, whose edits change this letter alone), the All letters /
-   Only <letter> switch for whether a change in Parts reaches every letter or this one (on a letter edited in
-   Points, which no setting reaches, Reset <letter> in its place), and the Construction grid toggle.
-   letterControls and ScopeIcon are also used by the side panel (panel/ControlsPanel). */
+   Only <letter> switch for whether a change in Parts reaches every letter or this one (a letter edited in Points
+   too: the settings it was drawn at move it as they move), Reset <letter> beside it for a letter with settings or
+   edits of its own, and the Construction grid toggle. letterControls and ScopeIcon are also used by the side panel
+   (panel/ControlsPanel). */
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
 import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph, type GlyphGrid } from '../../shared/engine';
@@ -130,9 +131,9 @@ export function Inspector() {
   const free = !hand && !!g?.drawn && font.free ? font.free.family : null, drawn = hand || !!free;
   const grid = useGrid(font, ch);
   if (!ch || !g) return null;
-  // a drawing belongs to this letter alone, like its own settings, and so do the pen's points (a free font's
-  // letter is shaped by the settings like the rest, so it is this letter's alone only while customizing)
-  const own = pen || !!letter || hand;
+  // the pen's points belong to this letter alone, like its own settings (a letter drawn in Points, or a free font's,
+  // moves with the settings like the rest, so it is this letter's alone only while customizing)
+  const own = pen || !!letter;
 
   return (
     <section className={own ? 'inspector customizing' : 'inspector'} aria-label={`Glyph inspector: ${ch}`} data-guide="inspector">
@@ -141,7 +142,7 @@ export function Inspector() {
         <div className="insp-title"><h2>{ch}</h2></div>
         <button className="btn ghost round" onClick={() => actions.stepInspector(1)} aria-label="Next glyph">→</button>
         <ModeToggle />
-        {!pen && (hand ? <ResetDrawing ch={ch} /> : <ScopeToggle ch={ch} />)}
+        {!pen && <ScopeToggle ch={ch} />}
         {/* what the canvas shows; it drops to a line of its own when the head runs out of room */}
         <div className="insp-view">
           <ConstructionToggle />
@@ -153,16 +154,16 @@ export function Inspector() {
       {grid && <GridBar ch={ch} font={font} group={grid.group} />}
       <div className="insp-body">
         {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} />}
-        {/* one short line over the canvas for what the switches above don't say: what an edit here does
-            beyond this letter, or why the settings don't reach it; the whole story is in its tooltip */}
-        {pen && !hand && (
-          <div className="scope-banner" role="status" title={`Once you move a point, ${ch} becomes a drawing of its own; Back to settings, in the panel, undoes that`}>
-            <ScopeIcon id="letter" /><span>Once you move a point, settings stop changing <b>{ch}</b></span>
+        {/* one short line over the canvas for what the switches above don't say: what an edit here does, and what
+            still moves a letter drawn as it is; the whole story is in its tooltip */}
+        {pen && (
+          <div className="scope-banner" role="status" title={`Points edits ${ch} alone, and ${ch} keeps the shape you give it. Weight, contrast, width, the heights and slant still move it, as they move the other letters; Reset ${ch}, in Parts, gives it back to the font`}>
+            <ScopeIcon id="letter" /><span>Only <b>{ch}</b> changes here · weight, width and heights still move it</span>
           </div>
         )}
         {!pen && drawn && (
           <div className="scope-banner" role="status">
-            {!free && <ScopeIcon id="letter" />}<span>{free ? <><b>{ch}</b> is {free}'s letter · reshape it in Points</> : <><b>{ch}</b> was edited in Points · settings don't change it</>}</span>
+            {own && <ScopeIcon id="letter" />}<span>{free ? <><b>{ch}</b> is {free}'s letter · reshape it in Points</> : <><b>{ch}</b> was edited in Points · weight, width and heights still move it</>}</span>
           </div>
         )}
       </div>
@@ -192,11 +193,11 @@ function ModeToggle() {
   );
 }
 
-/** Whether a change in Parts reshapes every letter or only this one. A letter with settings of its own
-    can be reset to follow the rest. (Points always edits this letter alone, and offers the change to the
+/** Whether a change in Parts reshapes every letter or only this one. A letter with settings of its own, or edits in
+    Points, can be reset to follow the rest. (Points always edits this letter alone, and offers the change to the
     others after.) */
 function ScopeToggle({ ch }: { ch: string }) {
-  const scope = useEditor(s => s.scope), custom = useEditor(s => !!s.params.glyphs[ch]);
+  const scope = useEditor(s => s.scope), custom = useEditor(s => !!s.params.glyphs[ch]), drawn = useEditor(s => !!s.params.outlines[ch]);
   const opts: [Scope, string, string][] = [
     ['all', 'All letters', 'A change reshapes every letter'],
     ['letter', `Only ${ch}`, `A change reshapes ${ch} alone; the other letters stay as they are`]
@@ -209,22 +210,13 @@ function ScopeToggle({ ch }: { ch: string }) {
             onClick={() => actions.setScope(id)}><ScopeIcon id={id} />{label}</button>
         ))}
       </div>
-      {custom && (
-        <button className="btn ghost small" onClick={() => actions.syncLetter(ch)} title={`Drop ${ch}'s own settings so it follows the other letters again`}>
+      {(custom || drawn) && (
+        <button className="btn ghost small" onClick={() => actions.syncLetter(ch)}
+          title={`Drop ${ch}'s ${custom && drawn ? 'own settings and its edits in Points' : custom ? 'own settings' : 'edits in Points'}, so it follows the other letters again`}>
           Reset {ch}
         </button>
       )}
     </>
-  );
-}
-
-/** In place of the switch on a letter edited in Points: neither choice would reach it, as no setting does, so
-    the one thing to offer is giving it back to the settings, to change with the other letters again. */
-function ResetDrawing({ ch }: { ch: string }) {
-  return (
-    <button className="btn ghost small" onClick={() => actions.undrawLetter(ch)} title={`Drop ${ch}'s edits in Points, so the settings shape it again along with the other letters`}>
-      Reset {ch}
-    </button>
   );
 }
 

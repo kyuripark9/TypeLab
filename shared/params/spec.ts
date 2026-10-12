@@ -373,6 +373,17 @@ export type FreeAt = Partial<Pick<Params, FreeKey>>;
 /** The settings `p` has that a free font's letters follow: what a style's free font stands for, written in it. */
 export const freeAtOf = (p: Params): FreeAt => Object.fromEntries(FREE_AT_KEYS.map(k => [k, p[k]]));
 
+/** The settings a letter drawn in Points was drawn at (Drawn.at, in shared/engine/outline.ts): every one but the
+    letters' own maps, its own values laid in. Moved away from these, the drawing moves with them (family-drawn.ts). */
+export type DrawnKey = Exclude<keyof Params, 'glyphs' | 'outlines'>;
+export const DRAWN_AT_KEYS = PARAM_KEYS.filter(k => k !== 'glyphs' && k !== 'outlines') as DrawnKey[];
+export type DrawnAt = Partial<Pick<Params, DrawnKey>>;
+/** The settings letter `ch` of `p` is drawn at now: what a drawing of it made now records. */
+export function drawnAtOf(p: Params, ch: string): DrawnAt {
+  const lp: Params = p.glyphs?.[ch] ? { ...p, ...p.glyphs[ch] } : p;
+  return Object.fromEntries(DRAWN_AT_KEYS.map(k => [k, lp[k]]));
+}
+
 /** The settings kept as a letter's own values by id (its stroke ends, corners, joins, strokes). */
 export type IdKey = KeysWhere<{ kind: 'ids' }>;
 export const ID_KEYS = PARAM_KEYS.filter(k => SPECS[k].kind === 'ids') as IdKey[];

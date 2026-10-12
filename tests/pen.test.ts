@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { ALL_CHARS, buildFont, drawnCmds, fitOutline, type Cmd, type Node } from '../shared/engine';
 import { STYLES, styleById } from '../shared/content';
-import { DEFAULTS, isValidParams, sanitizeParams, type Params } from '../shared/params';
+import { DEFAULTS, drawnAtOf, isValidParams, sanitizeParams, type Params } from '../shared/params';
 import {
   breakShapes, contourArea, cornersAt, cutShapes, deleteAnchors, inkOf, mergeShapes, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, nearestSegment,
   boxAlong, overlapping, pickedBox, pickedPoints, reshapeSegment, reverseContour, scaleAbout, scaleAlong, setCorners, setHandle, setWeight, shapesOf, snapIn, snapScene, splitSegment,
@@ -79,7 +79,7 @@ describe('pen: drawn letters', () => {
   const square: Node[] = [{ x: 50, y: 0 }, { x: 450, y: 0 }, { x: 450, y: 400 }, { x: 50, y: 400 }];
   const p: Params = { ...DEFAULTS, outlines: { B: { adv: 500, contours: [square] } } };
 
-  it('draws a drawn letter as it is, whatever the settings', () => {
+  it('draws a drawing that keeps no settings it was drawn at as it is, whatever the settings', () => {
     for (const q of [p, { ...p, weight: 1, slant: 1, glyphs: { B: { weight: 0 } } }]) {
       const g = buildFont(q).glyph('B')!;
       assert.equal(g.adv, 500);
@@ -96,6 +96,29 @@ describe('pen: drawn letters', () => {
     assert.ok(!isValidParams({ ...p, outlines: { B: { adv: 500, contours: [[{ x: 'a', y: 0 }]] } } }));
     assert.ok(!isValidParams({ ...p, outlines: { BB: { adv: 500, contours: [square] } } }));
     assert.deepEqual(sanitizeParams({ ...p, outlines: { B: { adv: NaN, contours: [] }, C: p.outlines.B } }).outlines, { C: p.outlines.B });
+  });
+
+  it('moves a drawing as the settings move from those it was drawn at, and keeps its shape', () => {
+    // an l drawn as a plain stem at the defaults
+    const l = { adv: 320, contours: [[{ x: 60, y: 0 }, { x: 260, y: 0 }, { x: 260, y: 700 }, { x: 60, y: 700 }]], at: drawnAtOf(DEFAULTS, 'l') };
+    const q: Params = { ...DEFAULTS, outlines: { l } }, glyph = (o: Partial<Params>) => buildFont({ ...q, ...o }).glyph('l')!;
+    const box = (o: Partial<Params>) => { const cs = polys(glyph(o).cmds).flat(), xs = cs.map(c => c.x), ys = cs.map(c => c.y); return { w: Math.max(...xs) - Math.min(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; };
+    // at the settings it was drawn at, exactly as drawn
+    assert.equal(glyph({}).drawn, l);
+    assert.equal(glyph({}).d, 'M60 0L260 0L260 -700L60 -700Z');
+    // heavier and lighter: wider and narrower, as tall, its four corners kept
+    const heavy = box({ weight: 0.9 }), light = box({ weight: 0 });
+    assert.ok(heavy.w > 240 && light.w < 160, `heavy ${heavy.w}, light ${light.w}`);
+    for (const b of [heavy, light]) assert.ok(Math.abs(b.y0) < 0.5 && Math.abs(b.y1 - 700) < 0.5);
+    assert.equal(glyph({ weight: 0.9 }).cmds.filter(c => c[0] !== 'Z').length, 4);
+    // slanted, it leans: its top stands further right than its foot
+    const it = polys(glyph({ slant: 0.5 }).cmds).flat(), top = it.filter(c => c.y > 699).map(c => c.x), foot = it.filter(c => c.y < 1).map(c => c.x);
+    assert.ok(Math.min(...top) > Math.min(...foot) + 30);
+    // its own weight moves it as the font's does; the font's doesn't once it has its own
+    assert.ok(box({ glyphs: { l: { weight: 0.9 } } }).w > 240);
+    assert.equal(box({ weight: 0.9, glyphs: { l: { weight: DEFAULTS.weight } } }).w, 200);
+    // a setting that reshapes letters leaves it as drawn
+    assert.equal(glyph({ roundness: 1, terminal: 'round', curve: 1 }).d, glyph({}).d);
   });
 });
 

@@ -1,5 +1,6 @@
 /* The editor's store (client/state/editor.ts), run without a browser: starting a design in its free font,
-   a customized letter's own values, loading a style over changes, renaming, and how far undo reaches. Nothing here
+   a customized letter's own values, a letter drawn in Points keeping the settings it was drawn at, loading a style
+   over changes, renaming, and how far undo reaches. Nothing here
    draws a design written in a free font, which would fetch the font from the server. */
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
@@ -45,6 +46,29 @@ describe('the editor', () => {
     assert.ok(!('terminalEnds' in state().params.glyphs.a!));
     actions.shareParam('a', 'weight');
     assert.ok(!('a' in state().params.glyphs));
+  });
+
+  it('keeps with a letter drawn in Points the settings it was drawn at, and resets it with its own settings', () => {
+    useEditor.setState({ scope: 'letter', inspect: 'l' });
+    actions.setOption('weight', 0.8);
+    const l = { adv: 320, contours: [[{ x: 60, y: 0 }, { x: 260, y: 0 }, { x: 260, y: 700 }, { x: 60, y: 700 }]] };
+    actions.setParam('outlines', { l });
+    actions.commit();
+    // drawn at the letter's own weight, and at the design's other settings
+    const drawn = state().params.outlines.l;
+    assert.equal(drawn.at?.weight, 0.8);
+    assert.equal(drawn.at?.width, state().params.width);
+    assert.deepEqual(drawn.contours, l.contours);
+    // a drawing written again as it was keeps its own
+    actions.setOption('weight', 0.2);
+    actions.setParam('outlines', { ...state().params.outlines });
+    assert.equal(state().params.outlines.l, drawn);
+    // Reset gives the letter back to the font: its own settings and its drawing go together, in one undo step
+    actions.syncLetter('l');
+    assert.ok(!('l' in state().params.glyphs) && !('l' in state().params.outlines));
+    actions.travel(-1);
+    assert.equal(state().params.outlines.l.at?.weight, 0.8);
+    assert.equal(state().params.glyphs.l?.weight, 0.2);
   });
 
   it('loads a style in place of changes, with a way back to them', () => {

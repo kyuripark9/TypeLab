@@ -12,8 +12,9 @@
    out of the rest, or breaks them apart with a gap. Hovering shows what a click will do: a
    point the pen would add on the outline (where it goes), the start it would close on. A letter
    not yet drawn shows its outline traced into points (traceOf in lib/pen: a free font's own
-   points, else fitOutline), and becomes a drawing, which the settings no longer shape, with the
-   first edit. An edit changes this letter alone: every change is one undo step, after which CarryOffer
+   points, else fitOutline), and becomes a drawing with the first edit: its shape its own, kept with the settings it
+   was drawn at, which move it (weight, width, heights, slant) as they move from there. An edit changes this
+   letter alone: every change is one undo step, after which CarryOffer
    offers to make the same change in the other letters shaped the same way there. With Mirror, a point
    moved here moves the other way in its partner across the letter's middle. Snapping catches a dragged point or handle on points, guide
    lines, centers, midpoints, the outline, crossings and tangents (each can be turned off); ⌘ held
@@ -30,7 +31,7 @@ import {
   POINT_LINE, SHAPES, SNAP_KINDS, type Affine, type Axis, type CornerAt, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
 } from '../lib/pen';
 import { PREFS, prefOneOf, writePref } from '../lib/prefs';
-import { actions, useEditor } from '../state/editor';
+import { actions, fontFor, useEditor } from '../state/editor';
 import { CarryOffer } from './CarryOffer';
 import { GridLines } from './ConstructionGrid';
 
@@ -133,12 +134,11 @@ const ZOOM_MIN = 0.3, ZOOM_MAX = 40;
 export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Font; grid?: GlyphGrid }) {
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
-  const stored = useEditor(s => s.params.outlines[ch]);
   const mirror = useEditor(s => s.mirror);
   const snap = useEditor(s => s.snap);
-  // before the first edit, the letter as the settings draw it, traced into points
-  const traced = traceOf(g);
-  const doc = stored ?? traced;
+  // the letter as it stands: before the first edit, as the settings draw it, traced into points; after, the drawing,
+  // as far as the settings have moved it since it was drawn
+  const doc = traceOf(g);
   const cs = doc.contours;
   const [tool, setToolNow] = useState<Tool>(() => lastTool);
   const setTool = (t: Tool) => { lastTool = t; setToolNow(t); };
@@ -178,7 +178,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   useEffect(() => { if (drawing !== null && drawingOk === null) setDrawing(null); }, [drawing, drawingOk]);
 
   /** the outline right now, read at the time of the gesture */
-  const current = (): Drawn => useEditor.getState().params.outlines[ch] ?? traced;
+  const current = (): Drawn => { const now = fontFor(useEditor.getState().params).glyph(ch); return now ? traceOf(now) : doc; };
   /** Write the letter's outline. */
   const write = (contours: Node[][], adv = current().adv) => {
     const s = useEditor.getState();
@@ -200,7 +200,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       letter as it was, not the drawing, where shapes added or merged and corners rounded would read as strokes.) */
   const stemMemo = useRef<{ g: Glyph; w: number } | null>(null);
   const stem = () => {
-    if (stemMemo.current?.g !== g) stemMemo.current = { g, w: strokeWidth(traced.contours, Math.round(font.m.s)) };
+    if (stemMemo.current?.g !== g) stemMemo.current = { g, w: strokeWidth(doc.contours, Math.round(font.m.s)) };
     return stemMemo.current.w;
   };
   /** Stop drawing; a contour left with a single point goes. */

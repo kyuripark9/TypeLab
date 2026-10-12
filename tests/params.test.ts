@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { describe, it } from 'node:test';
 import { buildFont } from '../shared/engine';
-import { DEFAULTS, PARAMS_VERSION, isValidParams, sanitizeParams, upgradeParams, xHeightFromOld, xHeightRatio } from '../shared/params';
+import { DEFAULTS, PARAMS_VERSION, drawnAtOf, isValidParams, sanitizeParams, upgradeParams, xHeightFromOld, xHeightRatio } from '../shared/params';
 import { DesignStore } from '../server/db';
 
 /* Reading settings from outside (shared/params/clean.ts): sanitizeParams and isValidParams clamp, drop and fall
@@ -127,5 +127,51 @@ describe('block letters', () => {
     s.close();
     assert.equal(a.params.blockForm, 'slots');
     assert.equal(b.params.blockForm, 'basic');
+  });
+});
+
+describe('letters drawn in Points', () => {
+  // an l drawn as a plain stem, in a design of weight 0.7 whose l has its own width
+  const l = { adv: 320, contours: [[{ x: 60, y: 0 }, { x: 260, y: 0 }, { x: 260, y: 700 }, { x: 60, y: 700 }]] };
+  const v3 = { weight: 0.7, glyphs: { l: { width: 0.3 } }, outlines: { l } };
+
+  it('takes a drawing from before drawings kept their settings as drawn at its design\'s, where it stands as it did', () => {
+    const up = upgradeParams(structuredClone(v3), 3) as typeof v3 & { outlines: { l: { at: Record<string, unknown> } } };
+    assert.equal(up.outlines.l.at.weight, 0.7);
+    assert.equal(up.outlines.l.at.width, 0.3);
+    assert.equal(up.outlines.l.at.slant, DEFAULTS.slant);
+    assert.deepEqual(up.outlines.l.contours, l.contours);
+    // read since, it is drawn just as it was, and moves once the settings do
+    const before = buildFont(sanitizeParams(v3)).glyph('l')!, now = sanitizeParams(up);
+    assert.equal(buildFont(now).glyph('l')!.d, before.d);
+    assert.notEqual(buildFont({ ...now, weight: 0.2 }).glyph('l')!.d, before.d);
+    // a drawing that keeps its settings, and settings written since, are left as they are
+    const kept = { ...v3, outlines: { l: { ...l, at: { weight: 0.1 } } } };
+    assert.deepEqual(upgradeParams(structuredClone(kept), 3), kept);
+    assert.deepEqual(upgradeParams(structuredClone(v3), PARAMS_VERSION), v3);
+  });
+
+  it('keeps the settings a drawing was drawn at, each a valid value, and refuses others', () => {
+    const p = sanitizeParams({ ...DEFAULTS, outlines: { l: { ...l, at: drawnAtOf({ ...DEFAULTS, weight: 0.9 }, 'l') } } });
+    assert.equal(p.outlines.l.at!.weight, 0.9);
+    assert.ok(isValidParams(p));
+    assert.ok(isValidParams(JSON.parse(JSON.stringify(p))));
+    // one left out stands at its default; one out of range or unknown is not valid
+    assert.ok(isValidParams({ ...DEFAULTS, outlines: { l: { ...l, at: { weight: 0.9 } } } }));
+    assert.ok(!isValidParams({ ...DEFAULTS, outlines: { l: { ...l, at: { weight: 2 } } } }));
+    assert.ok(!isValidParams({ ...DEFAULTS, outlines: { l: { ...l, at: { weight: 0.9, nonsense: 1 } } } }));
+    assert.deepEqual(sanitizeParams({ ...DEFAULTS, outlines: { l: { ...l, at: { weight: 'x', fill: 'pixels' } } } }).outlines.l.at, { fill: 'pixels' });
+  });
+
+  it('moves a database written at PARAMS_VERSION 3 onto drawings that keep their settings, once', () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'typelab-')), 'v3.db');
+    const old = new DatabaseSync(file);
+    old.exec(`CREATE TABLE designs (id TEXT PRIMARY KEY, name TEXT NOT NULL, style_id TEXT NOT NULL, params TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, owner TEXT);
+      INSERT INTO designs VALUES ('a', 'Drawn', 'grotesk', '${JSON.stringify(v3)}', '2026-01-01', '2026-01-01', 'me');
+      PRAGMA user_version = 3`);
+    old.close();
+    const read = () => { const s = new DesignStore(file), d = s.get('a', 'me')!; s.close(); return d.params.outlines.l.at; };
+    assert.equal(read()?.weight, 0.7);
+    assert.equal(read()?.width, 0.3);
   });
 });

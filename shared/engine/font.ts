@@ -31,9 +31,9 @@ import { freeFont, type FreeFont } from './free';
 import type { Drawn } from './outline';
 import { autoThickness, organicK, type SerifPlace } from './stroke';
 import type { Cmd, Mark, MarkType, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
-import { buildBlock, buildGlyph, drawnGlyph } from './glyph';
+import { buildBlock, buildGlyph } from './glyph';
 import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
-import { drawnDesign, drawnFrom, movedDrawn } from './family-drawn';
+import { drawnDesign, drawnFrom, drawnLetter } from './family-drawn';
 import { highlightD } from './highlight';
 
 export const CHARSET = {
@@ -442,11 +442,11 @@ export function buildFont(params: Params, from?: Font): Font {
     if (e.build === 'blocks') { const b = buildBlock(ch, m); if (b) return b; }
     return buildGlyph(variantOf(ch, e), m, ch);
   };
-  /** Letter `ch`: as drawn, if it is (moved, in a family member); else as built before with the same settings, or built
-      now and kept. */
+  /** Letter `ch`: as drawn, if it is (moved as far as the settings move from those it was drawn at, or, in a family
+      member, from its design); else as built before with the same settings, or built now and kept. */
   const pickGlyph = (ch: string): Glyph | null => {
     const drawn = params.outlines?.[ch];
-    if (drawn) return at ? movedDrawn(ch, drawn, font, at) : drawnGlyph(ch, drawn);
+    if (drawn) return drawnLetter(ch, drawn, font, at);
     const before = built.get(ch);
     if (before !== undefined) return before;
     const g = fromSettings(ch);

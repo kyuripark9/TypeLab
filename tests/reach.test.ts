@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { altsOf, reachOf } from '../client/lib/reach';
 import { TEXTS } from '../shared/content';
-import { DEFAULTS, PARAM_KEYS, SPECS, type Params } from '../shared/params';
+import { DEFAULTS, PARAM_KEYS, SPECS, drawnAtOf, type Params } from '../shared/params';
 
 const base: Params = { ...DEFAULTS };
 const sentence = [...new Set(TEXTS.sentence)];
@@ -40,5 +40,15 @@ describe('whether a setting changes what is in view', () => {
   });
   it('while customizing, a letter-only setting that misses the letter reaches nothing else', () => {
     assert.deepEqual(reachOf(base, 'crossbar', ['o'], 'o'), { shows: false, elsewhere: [] });
+  });
+  it('a letter edited in Points is moved by its weight and slant, not reshaped by its corners', () => {
+    const l = { adv: 320, contours: [[{ x: 60, y: 0 }, { x: 260, y: 0 }, { x: 260, y: 700 }, { x: 60, y: 700 }]], at: drawnAtOf(base, 'l') };
+    const p = { ...base, outlines: { l } };
+    assert.equal(reachOf(p, 'weight', ['l']).shows, true);
+    assert.equal(reachOf(p, 'slant', ['l']).shows, true);
+    assert.equal(reachOf(p, 'weight', ['l'], 'l').shows, true);
+    const r = reachOf(p, 'roundness', ['l']);
+    assert.equal(r.shows, false);
+    assert.ok(r.elsewhere.length > 0, r.elsewhere.join());
   });
 });

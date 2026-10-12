@@ -32,12 +32,12 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `serifs.test.ts` | Where serifs sit (`serifAt`), tips, bases and cups, bracket, balance, sides, inside serifs, tops and arms, the diamond, cleaning saved serif settings |
 | `script.test.ts` | Cursive and the script letterforms (`.scr`), Swell |
 | `grid.test.ts` | Construction grids: lines and rounds, the groups and their names (Grid A to T), what is shared, slanted and drawn letters, the 40-line and 28-round limits |
-| `params.test.ts` | `sanitizeParams` and `isValidParams`; older settings (a separate reverse contrast, the first Lowercase height scale, blocks before there were basic ones); databases written before `PARAMS_VERSION` 2 and at 2 upgraded once |
+| `params.test.ts` | `sanitizeParams` and `isValidParams`; older settings (a separate reverse contrast, the first Lowercase height scale, blocks before there were basic ones, drawings that kept no settings they were drawn at); databases written before `PARAMS_VERSION` 2, at 2 and at 3 upgraded once; a drawing's own settings (`Drawn.at`) cleaned |
 | `handles.test.ts` | Every per-letter map in `ID_KEYS` changes its letter across its range (`HandleKey` must list them all) |
 | `drag.test.ts` | `client/lib/drag.ts`: which setting a drag moves, the solved value, ends kept in order, handles per control |
-| `pen.test.ts` | `client/lib/pen.ts` and `fitOutline`: tracing, drawn letters in `params.outlines`, point edits, Mirror, Snap, live corners (drawn, saved, outside or inside), merging, cutting out and breaking apart shapes, strokes |
+| `pen.test.ts` | `client/lib/pen.ts` and `fitOutline`: tracing, drawn letters in `params.outlines` (as drawn at the settings they keep, moved by weight, slant and their own values from there, not reshaped), point edits, Mirror, Snap, live corners (drawn, saved, outside or inside), merging, cutting out and breaking apart shapes, strokes |
 | `carry.test.ts` | `client/lib/carry.ts`: reading what changed in a letter (moved, added and deleted points, round the first point, merged and separate changes), and carrying it in an own font (Transitional's d serif to b h k l, close and looser matches, the same points moved by as much, a new point put in, nothing for a letter already so) |
-| `reach.test.ts` | `client/lib/reach.ts`: whether a setting changes the letters in view, and which letters it would change |
+| `reach.test.ts` | `client/lib/reach.ts`: whether a setting changes the letters in view (a letter edited in Points too), and which letters it would change |
 | `pages.test.ts` | Pages and controls: each control on one page, page and control order, links naming a page or group (`pageOf`), Find a setting |
 | `icons.test.ts` | Every slider has an icon in `SliderIcons.tsx`, and every icon belongs to a slider |
 | `styles.test.ts` | Valid presets; the Style page's cards (solid letters, every Feeling carried, `TAG_FACE` on the page); word spaces in joined-up scripts; v w V W on the baseline, no gap after a curled Q |
@@ -49,7 +49,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `golden.test.ts` | The engine's golden outlines; the free fonts' too with `GOLDEN_FREE=1` |
 
 | `stroke-order.test.ts` | Every glyph draws its strokes in the order `tests/stroke-order.txt` keeps (the defaults, each letter form, and the settings that draw strokes of their own), so saved per-letter values stay on their strokes. An order changed on purpose: `UPDATE_STROKE_ORDER=1 node --import tsx --test tests/stroke-order.test.ts` rewrites the file |
-| `editor.test.ts` | `client/state/editor.ts` without a browser: a design written in its style's free font and back, a style built from blocks started without one, a customized letter's own values, loading a style over changes, renaming, the 200-step undo limit |
+| `editor.test.ts` | `client/state/editor.ts` without a browser: a design written in its style's free font and back, a style built from blocks started without one, a customized letter's own values, a drawing keeping the settings it was drawn at and Reset dropping it with the letter's own values, loading a style over changes, renaming, the 200-step undo limit |
 
 Invariants other files also pin: every handle's id is one a saved design keeps (handles.test.ts); deep links parse,
 every nested slider has a place in the panel, and every part a control shapes names a real control (pages.test.ts);

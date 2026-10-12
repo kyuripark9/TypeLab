@@ -9,7 +9,7 @@ export type { Font, Glyph, Line, LineItem } from './font';
 export { autoIBars } from './glyphs/shared';
 export { RING_KEYS } from './highlight';
 export { freeFontsWanted } from './free-letters';
-export { drawnFrom } from './family-drawn';
+export { drawnFrom, drawnLetter } from './family-drawn';
 export { buildSerif, expandStroke, serifCup, serifSides } from './stroke';
 export { CIRCLE_K, applyM, clamp, cmdsBox, cmdsToD, ringsD, roundContour, signedArea } from './geom';
 export type { Cmd, Mark, Pt } from './types';
