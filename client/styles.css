@@ -507,7 +507,6 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .scope-banner > span { text-wrap: balance; }
 .scope-banner b { font-weight: 600; }
 .scope-banner .scope-icon { stroke: #fff; }
-.scope-banner.sync { background: var(--accent); }
 .scope-note { display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 6px; padding: 10px 12px; border-radius: var(--radius); background: var(--custom-tint); color: var(--ink); font-size: 12.5px; line-height: 1.45; }
 .scope-note .scope-icon { margin-top: 1px; color: var(--custom); }
 /* customizing one letter: the panel is edged and washed in orange like the inspector's frame, and the controls
@@ -672,13 +671,10 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 @container (max-width: 900px) { .pen-mirror > span { display: none; } .pen-bar .pen-num-field input { width: 50px; } }
 @container (max-width: 760px) { .pen-point-kind span { display: none; } .pen-point-kind button { padding: 0 6px; } }
 .inspector.customizing .pen-bar { background: var(--custom-wash); }
-.pen-reach { position: absolute; bottom: 12px; left: 50%; translate: -50% 0; max-width: calc(100% - 120px); padding: 6px 12px; border: 1px solid var(--line);
-  border-radius: var(--radius); background: var(--surface); color: var(--ink-3); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
-.pen-reach b { color: var(--accent-ink); font-weight: 500; letter-spacing: .06em; }
 /* the offer to make a change in other letters too: a card at the canvas's foot; under its question and buttons the
    letters by kind, each kind's box in a column on the left and its letters as toggles in even cells (picked ones
    dark on a tint, the rest faint), scrolling past five rows; the one pointed at shown large above (as it was dashed);
-   once applied, folded to one line with Review; the note on synced points moves up */
+   once applied, folded to one line with Review */
 .pen-carry { position: absolute; bottom: 12px; left: 50%; translate: -50% 0; z-index: 2; width: max-content; max-width: min(640px, calc(100% - 24px)); display: flex; flex-direction: column; gap: 6px;
   padding: 8px 10px 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
 .pen-carry-head { display: flex; align-items: center; gap: 6px; }
@@ -700,7 +696,6 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-carry-peek svg { display: block; }
 .pen-carry-peek .after { fill: var(--ink); opacity: .85; }
 .pen-carry-peek .before { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
-.pen-canvas:has(.pen-carry) .pen-reach { bottom: auto; top: 12px; }
 .pen-count { flex: none; }
 .pen-icon-btn { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-2); }
 .pen-icon-btn:hover { background: var(--hover); color: var(--ink); }

@@ -35,7 +35,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `params.test.ts` | `sanitizeParams` and `isValidParams`; older settings (a separate reverse contrast, the first Lowercase height scale, blocks before there were basic ones); databases written before `PARAMS_VERSION` 2 and at 2 upgraded once |
 | `handles.test.ts` | Every per-letter map in `ID_KEYS` changes its letter across its range (`HandleKey` must list them all) |
 | `drag.test.ts` | `client/lib/drag.ts`: which setting a drag moves, the solved value, ends kept in order, handles per control |
-| `pen.test.ts` | `client/lib/pen.ts` and `fitOutline`: tracing, drawn letters in `params.outlines`, point edits, Sync all, Mirror, Snap, live corners (drawn, saved, outside or inside), merging, cutting out and breaking apart shapes, strokes |
+| `pen.test.ts` | `client/lib/pen.ts` and `fitOutline`: tracing, drawn letters in `params.outlines`, point edits, Mirror, Snap, live corners (drawn, saved, outside or inside), merging, cutting out and breaking apart shapes, strokes |
 | `carry.test.ts` | `client/lib/carry.ts`: reading what changed in a letter (moved, added and deleted points, round the first point, merged and separate changes), and carrying it in an own font (Transitional's d serif to b h k l, close and looser matches, the same points moved by as much, a new point put in, nothing for a letter already so) |
 | `reach.test.ts` | `client/lib/reach.ts`: whether a setting changes the letters in view, and which letters it would change |
 | `pages.test.ts` | Pages and controls: each control on one page, page and control order, links naming a page or group (`pageOf`), Find a setting |

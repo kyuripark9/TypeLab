@@ -13,10 +13,9 @@
    point the pen would add on the outline (where it goes), the start it would close on. A letter
    not yet drawn shows its outline traced into points (traceOf in lib/pen: a free font's own
    points, else fitOutline), and becomes a drawing, which the settings no longer shape, with the
-   first edit. Every change is one undo step, after which CarryOffer offers to make the same change in
-   the other letters shaped the same way there. With Sync all, a point or handle moved here moves in
-   the other letters with a point in the same place too; with Mirror, it moves the other way in its
-   partner across the letter's middle. Snapping catches a dragged point or handle on points, guide
+   first edit. An edit changes this letter alone: every change is one undo step, after which CarryOffer
+   offers to make the same change in the other letters shaped the same way there. With Mirror, a point
+   moved here moves the other way in its partner across the letter's middle. Snapping catches a dragged point or handle on points, guide
    lines, centers, midpoints, the outline, crossings and tangents (each can be turned off); ⌘ held
    while dragging places it freely. */
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
@@ -24,11 +23,11 @@ import { CORNER_KINDS, cmdsToD, cornerRoom, drawnCmds, hasIn, hasOut, segment, t
 import { guideLines, stackLabels } from '../lib/guide-labels';
 import { isTyping, n1, useDismiss, useSize } from '../lib/hooks';
 import {
-  anchorsIn, breakShapes, constrain, contourArea, cornerHandle, cornersAt, cutShapes, deleteAnchors, handlePeers, isStroke, keyRef, mergeShapes, mirrorEdit,
-  mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment, overlapping, peersOf, pickedBox, pointOn, pullHandles, refKey, reshapeSegment, reverseContour,
+  anchorsIn, breakShapes, constrain, contourArea, cornerHandle, cornersAt, cutShapes, deleteAnchors, isStroke, keyRef, mergeShapes, mirrorEdit,
+  mirrorLine, mirrorPairs, moveAnchors, nearestSegment, overlapping, pickedBox, pointOn, pullHandles, refKey, reshapeSegment, reverseContour,
   scaleAbout, setCorners, setHandle, setSmooth, setWeight, shapeAspect, shapeContour, shapesOf, snapIn, snapScene, splitSegment, strokeContour, strokeWidth,
   thicknessOf, toggleSmooth, traceOf, transformAnchors, turnAbout, wholeShapes,
-  POINT_LINE, SHAPES, SNAP_KINDS, type Affine, type Axis, type CornerAt, type Peer, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
+  POINT_LINE, SHAPES, SNAP_KINDS, type Affine, type Axis, type CornerAt, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
 } from '../lib/pen';
 import { PREFS, prefOneOf, writePref } from '../lib/prefs';
 import { actions, useEditor } from '../state/editor';
@@ -117,7 +116,6 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
   const stored = useEditor(s => s.params.outlines[ch]);
-  const sync = useEditor(s => s.scope === 'all');
   const mirror = useEditor(s => s.mirror);
   const snap = useEditor(s => s.snap);
   // before the first edit, the letter as the settings draw it, traced into points
@@ -163,35 +161,18 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
 
   /** the outline right now, read at the time of the gesture */
   const current = (): Drawn => useEditor.getState().params.outlines[ch] ?? traced;
-  /** Write the letter's outline, and with `also` the other letters' a synced edit reached. */
-  const write = (contours: Node[][], adv = current().adv, also: Record<string, Drawn> = {}) => {
+  /** Write the letter's outline. */
+  const write = (contours: Node[][], adv = current().adv) => {
     const s = useEditor.getState();
-    actions.setParam('outlines', { ...s.params.outlines, ...also, [ch]: { adv, contours } });
+    actions.setParam('outlines', { ...s.params.outlines, [ch]: { adv, contours } });
   };
-  const commit = (contours: Node[][], adv?: number, also?: Record<string, Drawn>) => { write(contours, adv, also); actions.commit(); };
-  /** With Sync all, the other letters with points in the same places as `refs`, which move along;
-      each as it is now (drawn, or as the settings draw it). */
-  const peers = (refs: Ref[]): Peer[] => {
-    if (!sync) return [];
-    const outs = useEditor.getState().params.outlines;
-    return peersOf(ch, current(), refs, o => { const og = outs[o] ? null : font.glyph(o); return outs[o] ?? (og ? traceOf(og) : null); });
-  };
+  const commit = (contours: Node[][], adv?: number) => { write(contours, adv); actions.commit(); };
   /** With Mirror, `edited` (an edit of `base`) made on the other side of the letter too; `held` is the handle dragged. */
   const sym = (base: Node[][], edited: Node[][], held?: { r: Ref; side: 'i' | 'o' }) => mirrorEdit(base, edited, mirror, held);
-  /** The same for the letters a synced edit reached, each across its own middle. */
-  const symPeers = (along: Peer[], also: Record<string, Drawn>, side?: 'i' | 'o') => {
-    if (!mirror.length) return also;
-    const out: Record<string, Drawn> = {};
-    for (const p of along) {
-      const e = also[p.ch], r = p.refs[0];
-      if (e) out[p.ch] = { adv: e.adv, contours: sym(p.doc.contours, e.contours, side && r ? { r, side } : undefined) };
-    }
-    return out;
-  };
-  /** Move points by (dx, dy), and the same points in the letters in sync with this one. */
+  /** Move points by (dx, dy). */
   const nudge = (refs: Ref[], dx: number, dy: number) => {
-    const base = current().contours, along = peers(refs);
-    commit(sym(base, moveAnchors(base, refs, dx, dy)), undefined, symPeers(along, movePeers(along, dx, dy)));
+    const base = current().contours;
+    commit(sym(base, moveAnchors(base, refs, dx, dy)));
   };
   /** Commit an edit of the outline as it is now, mirrored. */
   const edit = (f: (cs: Node[][]) => Node[][]) => { const base = current().contours; commit(sym(base, f(base))); };
@@ -287,14 +268,14 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       refs = refs0.map(r => ({ c: to.get(r.c)!, i: r.i }));
       grab = { c: to.get(grab0.c)!, i: grab0.i };
     }
-    const a = base[grab.c][grab.i], skip = refs.map(refKey), along = dup ? [] : peers(refs), near = dup ? [] : beside(grab, skip);
+    const a = base[grab.c][grab.i], skip = refs.map(refKey), near = dup ? [] : beside(grab, skip);
     let copied = false;
     start(e, {
       move: (p, ev) => {
         const t = from ? { x: a.x + p.x - from.x, y: a.y + p.y - from.y } : p, q = snapTo(ev.shiftKey ? constrain(a, t) : t, { skip, from: near });
         const out = moveAnchors(base, refs, q.x - a.x, q.y - a.y);
         // (a copy isn't mirrored: its points sit on the originals', which Mirror would take for partners)
-        write(dup ? out : sym(base, out), undefined, symPeers(along, movePeers(along, q.x - a.x, q.y - a.y)));
+        write(dup ? out : sym(base, out));
         if (dup && !copied) { copied = true; setSel(skip); }
       },
       up: moved => { if (moved) actions.commit(); }
@@ -365,14 +346,13 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
 
   const onHandle = (r: Ref, side: 'i' | 'o') => (e: ReactPointerEvent) => {
     if (e.button !== 0 || space) return;
-    const base = current().contours, n = base[r.c][r.i], along = peers([r]);
-    const h0 = side === 'i' ? { x: n.ix!, y: n.iy! } : { x: n.ox!, y: n.oy! };
+    const base = current().contours, n = base[r.c][r.i];
     // Alt, or the Convert tool, moves one handle on its own and makes the point a corner
     const alone = e.altKey || tool === 'convert';
     start(e, {
       move: (p, ev) => {
         const q = snapTo(ev.shiftKey ? constrain(n, p) : p, { live: [refKey(r)], from: [n] }), f = alone || ev.altKey;
-        write(sym(base, setHandle(base, r, side, q, f), { r, side }), undefined, symPeers(along, handlePeers(along, side, q.x - h0.x, q.y - h0.y, f), side));
+        write(sym(base, setHandle(base, r, side, q, f), { r, side }));
       },
       up: moved => { if (moved) actions.commit(); }
     });
@@ -790,13 +770,6 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       }
     }
   }
-  // with Sync all, the letters the picked points would move in too: found again only when the picked
-  // points or the drawings change, and not mid-drag (they're the letters the drag started with)
-  const reachKey = sync && selRefs.length ? ch + ' ' + selRefs.map(refKey).join(' ') : '';
-  const reachMemo = useRef<{ key: string; font: Font; chs: string[] }>({ key: '', font, chs: [] });
-  if (reachMemo.current.key !== reachKey || (reachKey && !gesture.current && reachMemo.current.font !== font))
-    reachMemo.current = { key: reachKey, font, chs: reachKey ? peers(selRefs).map(p => p.ch) : [] };
-  const reach = reachMemo.current.chs;
   // with Mirror, the letter's middle on each axis, and the partners of the picked points, which move the other way
   const lines = mirror.map(axis => ({ axis, at: mirrorLine(cs, axis) }));
   const twins = new Set([...withTwins(selRefs.map(refKey))].filter(k => !selSet.has(k)));
@@ -902,11 +875,6 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             {box && <rect className="pen-box" x={box.x0} y={box.y0} width={box.x1 - box.x0} height={box.y1 - box.y0} />}
             {caught && <SnapMark hit={caught} x={X(caught.x)} y={Y(caught.y)} />}
           </svg>
-        )}
-        {reach.length > 0 && (
-          <div className="pen-reach" role="status" title={`Moving the picked points moves them in ${reach.join(' ')} too, which become drawings`}>
-            Also moves in <b>{reach.join(' ')}</b>
-          </div>
         )}
         <CarryOffer ch={ch} g={g} font={font} />
       </div>

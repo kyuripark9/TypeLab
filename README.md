@@ -262,9 +262,9 @@ outline, deletes a point it clicks, and draws new shapes (click for corners, dra
 first point to close); **Convert point** (`⇧C`) switches corner ↔ smooth or pulls out new handles; the
 **Shape** tool adds a rectangle (`M`), ellipse (`L`), rounded rectangle, triangle, hexagon or star. The bar
 below types exact coordinates and the width; points snap to whole units, and with *Snap* to the guide
-lines, other points, centers, midpoints, the outline, crossings and tangents. With **All letters** a point
-moved in one letter moves in the other letters with a point in the same place, and **Mirror** moves its
-partner across the letter's middle the other way. `⌘`-scroll zooms, Space-drag pans, `⌘0` fits the letter.
+lines, other points, centers, midpoints, the outline, crossings and tangents. **Mirror** moves a point's
+partner across the letter's middle the other way. An edit changes only the letter in view; after it, the
+letters shaped the same way there are offered, each drawn with the change in, to make it in them too. `⌘`-scroll zooms, Space-drag pans, `⌘0` fits the letter.
 **Reverse direction** turns a contour inside another into a hole (or back). The first edit makes the letter a
 drawing, saved with the design (`params.outlines`) and exported as it is: the settings no longer shape it until
 **Back to settings**.

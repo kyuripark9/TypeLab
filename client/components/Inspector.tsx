@@ -1,8 +1,9 @@
 /* Glyph inspector: one letter, large, on the stage. Its parts are live: pointing at one
    highlights it and the slider that shapes it, dragging it reshapes the design (lib/drag), and
    the side panel groups its sliders by part (letterControls). Its head holds the Parts / Points
-   switch (Points hands the canvas to PenCanvas), the All letters / Only <letter> switch for whether
-   edits reach every letter or this one, and the Construction grid toggle. letterControls and ScopeIcon
+   switch (Points hands the canvas to PenCanvas, whose edits change this letter alone), the All letters /
+   Only <letter> switch for whether a change in Parts reaches every letter or this one, and the
+   Construction grid toggle. letterControls and ScopeIcon
    are also used by the side panel (panel/ControlsPanel). */
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
@@ -123,15 +124,14 @@ function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } 
 export function Inspector() {
   const ch = useEditor(s => s.inspect), pen = useEditor(s => s.penMode), letter = useEditor(s => (s.penMode ? null : letterOf(s)));
   const hand = useEditor(s => !!s.inspect && !!s.params.outlines[s.inspect]);
-  const sync = useEditor(s => s.scope === 'all');
   const font = useFont();
   const g = ch ? font.glyph(ch) : null;
   // a free font's letter is drawn as it is, as one drawn by hand
   const free = !hand && !!g?.drawn && font.free ? font.free.family : null, drawn = hand || !!free;
   const grid = useGrid(font, ch);
   if (!ch || !g) return null;
-  // a drawing belongs to this letter alone, like its own settings, and so do the pen's points unless they move in sync
-  const own = pen ? !sync : !!letter || drawn;
+  // a drawing belongs to this letter alone, like its own settings, and so do the pen's points
+  const own = pen || !!letter || drawn;
 
   return (
     <section className={own ? 'inspector customizing' : 'inspector'} aria-label={`Glyph inspector: ${ch}`} data-guide="inspector">
@@ -140,7 +140,7 @@ export function Inspector() {
         <div className="insp-title"><h2>{ch}</h2></div>
         <button className="btn ghost round" onClick={() => actions.stepInspector(1)} aria-label="Next glyph">→</button>
         <ModeToggle />
-        {(pen || !drawn) && <ScopeToggle ch={ch} pen={pen} />}
+        {!pen && !drawn && <ScopeToggle ch={ch} />}
         {/* what the canvas shows; it drops to a line of its own when the head runs out of room */}
         <div className="insp-view">
           <ConstructionToggle />
@@ -154,12 +154,7 @@ export function Inspector() {
         {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} />}
         {/* one short line over the canvas for what the switches above don't say: what an edit here does
             beyond this letter, or why the settings don't reach it; the whole story is in its tooltip */}
-        {pen && sync && (
-          <div className="scope-banner sync" role="status" title="A point you move also moves in every letter with a point in the same place, and the settings stop changing those letters">
-            <ScopeIcon id="all" /><span>Matching points move in every letter</span>
-          </div>
-        )}
-        {pen && !sync && !hand && (
+        {pen && !hand && (
           <div className="scope-banner" role="status" title={`Once you move a point, ${ch} becomes a drawing of its own; Back to settings, in the panel, undoes that`}>
             <ScopeIcon id="letter" /><span>Once you move a point, settings stop changing <b>{ch}</b></span>
           </div>
@@ -196,15 +191,12 @@ function ModeToggle() {
   );
 }
 
-/** Whether an edit reshapes every letter or only this one. A letter with settings of its own can be
-    reset to follow the rest. With the pen, All letters moves a point in every letter that has one in
-    the same place. */
-function ScopeToggle({ ch, pen }: { ch: string; pen: boolean }) {
-  const scope = useEditor(s => s.scope), custom = useEditor(s => !pen && !!s.params.glyphs[ch]);
-  const opts: [Scope, string, string][] = pen ? [
-    ['all', 'All letters', `Moving a point of ${ch} moves it in the other letters with a point in the same place: the same height, and as far from the side (or the middle)`],
-    ['letter', `Only ${ch}`, `Moving a point changes ${ch} alone; the other letters stay as they are`]
-  ] : [
+/** Whether a change in Parts reshapes every letter or only this one. A letter with settings of its own
+    can be reset to follow the rest. (Points always edits this letter alone, and offers the change to the
+    others after.) */
+function ScopeToggle({ ch }: { ch: string }) {
+  const scope = useEditor(s => s.scope), custom = useEditor(s => !!s.params.glyphs[ch]);
+  const opts: [Scope, string, string][] = [
     ['all', 'All letters', 'A change reshapes every letter'],
     ['letter', `Only ${ch}`, `A change reshapes ${ch} alone; the other letters stay as they are`]
   ];

@@ -1,5 +1,5 @@
 /* The pen (client/lib/pen.ts, and tracing in shared/engine/outline.ts): letters traced into points, drawn
-   letters in params.outlines, editing points, Sync all, Mirror and Snapping; live corners (a radius kept on a
+   letters in params.outlines, editing points, Mirror and Snapping; live corners (a radius kept on a
    corner point, drawn round, cut or scooped), corners told outside or inside, overlapping shapes merged, cut out
    and broken apart, and strokes drawn with the Shape tool; picked shapes scaled, turned and flipped, and made thicker
    or thinner with their points kept. */
@@ -9,8 +9,8 @@ import { ALL_CHARS, buildFont, drawnCmds, fitOutline, type Cmd, type Node } from
 import { STYLES, styleById } from '../shared/content';
 import { DEFAULTS, isValidParams, sanitizeParams, type Params } from '../shared/params';
 import {
-  breakShapes, contourArea, cornersAt, cutShapes, deleteAnchors, inkOf, mergeShapes, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment,
-  overlapping, peersOf, pickedBox, reshapeSegment, reverseContour, samePoints, scaleAbout, setCorners, setHandle, setWeight, shapesOf, snapIn, snapScene, splitSegment,
+  breakShapes, contourArea, cornersAt, cutShapes, deleteAnchors, inkOf, mergeShapes, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, nearestSegment,
+  overlapping, pickedBox, reshapeSegment, reverseContour, scaleAbout, setCorners, setHandle, setWeight, shapesOf, snapIn, snapScene, splitSegment,
   strokeContour, strokeWidth, tangentsFrom, thicken, thicknessOf, toggleSmooth, traceOf, transformAnchors, turnAbout, wholeShapes, SNAP_KINDS
 } from '../client/lib/pen';
 
@@ -141,33 +141,9 @@ describe('pen: editing points', () => {
   });
 });
 
-describe('Sync all with the pen', () => {
+describe('Drawn letters in the font', () => {
   const font = buildFont(STYLES[0].params);
   const outline = (ch: string) => traceOf(font.glyph(ch)!);
-
-  it('finds the same point in letters of other widths: as high, and as far from the nearer side or the middle', () => {
-    const a = { adv: 500, contours: [[{ x: 60, y: 0 }, { x: 440, y: 0 }, { x: 250, y: 500 }]] };
-    const b = { adv: 700, contours: [[{ x: 640, y: 0 }, { x: 61, y: 1 }, { x: 350, y: 500 }, { x: 350, y: 400 }]] };
-    assert.deepEqual(samePoints(a, [{ c: 0, i: 0 }, { c: 0, i: 1 }, { c: 0, i: 2 }], b), [{ c: 0, i: 1 }, { c: 0, i: 0 }, { c: 0, i: 2 }]);
-    // nothing in the same place, and a point taken once isn't taken again
-    assert.deepEqual(samePoints(a, [{ c: 0, i: 0 }, { c: 0, i: 0 }], { adv: 500, contours: [[{ x: 60, y: 0 }, { x: 60, y: 300 }]] }), [{ c: 0, i: 0 }, null]);
-  });
-
-  it('reaches only the letters of its own kind that share the point', () => {
-    const n = outline('n');
-    // the foot of n's stem, at the baseline on the left
-    const foot = n.contours.flatMap((con, c) => con.map((p, i) => ({ c, i, p }))).find(o => o.p.y === 0 && o.p.x < n.adv / 3)!;
-    const peers = peersOf('n', n, [foot], outline);
-    const chs = peers.map(p => p.ch);
-    assert.ok(chs.includes('m') && chs.includes('r'), chs.join(''));
-    assert.ok(chs.every(ch => /[a-z]/.test(ch)) && !chs.includes('n') && !chs.includes('o'));
-    const moved = movePeers(peers, 10, 0);
-    for (const p of peers) {
-      const r = p.refs[0]!, was = p.doc.contours[r.c][r.i], now = moved[p.ch].contours[r.c][r.i];
-      assert.deepEqual([now.x - was.x, now.y - was.y], [10, 0]);
-      assert.equal(moved[p.ch].contours.flat().filter((q, k) => q.x !== p.doc.contours.flat()[k].x).length, 1);
-    }
-  });
 
   it('builds the other letters once while a drag moves only drawings', () => {
     const n = outline('n'), m = font.glyph('m')!;

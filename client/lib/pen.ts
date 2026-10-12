@@ -5,7 +5,7 @@
    each other, or broken apart with a gap where one runs over another; and picked points scaled, turned
    or flipped as one, and shapes made thicker or thinner, their points kept. */
 import {
-  ALL_CHARS, CIRCLE_K, combine, cornerRoom, cornerTurn, cutOut, drawnCmds, fitOutline, hasIn, hasOut, segment, shape as inkShape, signedArea, unite,
+  CIRCLE_K, combine, cornerRoom, cornerTurn, cutOut, drawnCmds, fitOutline, hasIn, hasOut, segment, shape as inkShape, signedArea, unite,
   type Cmd, type CornerKind, type Drawn, type Glyph, type Node
 } from '../../shared/engine';
 
@@ -721,7 +721,7 @@ export function setWeight(cs: Node[][], picked: number[], w: number): Node[][] {
   return best.out;
 }
 
-/* ---- Sync all: a point moved in one letter moves in the others that have it too */
+/* ---- Tracing: a letter the settings draw, as points to edit */
 
 const traces = new WeakMap<Glyph, Drawn>();
 /** A letter as the settings draw it, traced into points (once per build of it); a free font's letter
@@ -730,70 +730,6 @@ export function traceOf(g: Glyph): Drawn {
   let d = traces.get(g);
   if (!d) { d = g.drawn ?? { adv: Math.round(g.adv), contours: fitOutline(g.cmds) }; traces.set(g, d); }
   return d;
-}
-
-/** Small letters, capitals, figures, or the rest: the letters a synced point edit reaches. */
-const kindOf = (ch: string) => (/[a-z]/.test(ch) ? 'a' : /[A-Z]/.test(ch) ? 'A' : /[0-9]/.test(ch) ? '0' : '.');
-
-/** Where a point sits in its letter, to find the same point in another: its height, and how far it is
-    from the letter's nearer side, or from its middle. */
-function place(n: P, adv: number) {
-  const f = adv > 0 ? n.x / adv : 0.5, side = f < 1 / 3 ? -1 : f > 2 / 3 ? 1 : 0;
-  return { side, d: side < 0 ? n.x : side > 0 ? adv - n.x : n.x - adv / 2, y: n.y };
-}
-
-/** For each of `refs` in `from`, the point of `to` in the same place (within `tol` units), or null. */
-export function samePoints(from: Drawn, refs: Ref[], to: Drawn, tol = 2): (Ref | null)[] {
-  const taken = new Set<string>();
-  const spots = to.contours.flatMap((con, c) => con.map((m, i) => ({ c, i, k: refKey({ c, i }), ...place(m, to.adv) })));
-  return refs.map(r => {
-    const n = from.contours[r.c]?.[r.i];
-    if (!n) return null;
-    const a = place(n, from.adv);
-    let best: (typeof spots)[number] | null = null, bd = Infinity;
-    for (const b of spots) {
-      if (b.side !== a.side || Math.abs(b.y - a.y) > tol) continue;
-      const d = Math.max(Math.abs(b.d - a.d), Math.abs(b.y - a.y));
-      if (d <= tol && d < bd && !taken.has(b.k)) { best = b; bd = d; }
-    }
-    if (!best) return null;
-    taken.add(best.k);
-    return { c: best.c, i: best.i };
-  });
-}
-
-/** Another letter a synced edit reaches: its outline, and its point for each of the edited ones (null where it has none). */
-export interface Peer { ch: string; doc: Drawn; refs: (Ref | null)[] }
-
-/** The other letters of `ch`'s kind with any of `refs` in the same place, each outline read by `outlineOf`. */
-export function peersOf(ch: string, from: Drawn, refs: Ref[], outlineOf: (ch: string) => Drawn | null): Peer[] {
-  if (!refs.length) return [];
-  const kind = kindOf(ch), out: Peer[] = [];
-  for (const o of ALL_CHARS) {
-    if (o === ch || kindOf(o) !== kind) continue;
-    const doc = outlineOf(o);
-    if (!doc) continue;
-    const pr = samePoints(from, refs, doc);
-    if (pr.some(Boolean)) out.push({ ch: o, doc, refs: pr });
-  }
-  return out;
-}
-
-/** The peers' outlines with their points moved by (dx, dy), keyed by letter. */
-export function movePeers(peers: Peer[], dx: number, dy: number): Record<string, Drawn> {
-  return Object.fromEntries(peers.map(p => [p.ch, { adv: p.doc.adv, contours: moveAnchors(p.doc.contours, p.refs.filter((r): r is Ref => !!r), dx, dy) }]));
-}
-
-/** The peers' outlines with the `side` handle of their point for `refs[0]` moved by (dx, dy), where they have that handle. */
-export function handlePeers(peers: Peer[], side: 'i' | 'o', dx: number, dy: number, free: boolean): Record<string, Drawn> {
-  const out: Record<string, Drawn> = {};
-  for (const p of peers) {
-    const r = p.refs[0], n = r && p.doc.contours[r.c][r.i];
-    if (!r || !n || !(side === 'i' ? hasIn(n) : hasOut(n))) continue;
-    const h = side === 'i' ? { x: n.ix! + dx, y: n.iy! + dy } : { x: n.ox! + dx, y: n.oy! + dy };
-    out[p.ch] = { adv: p.doc.adv, contours: setHandle(p.doc.contours, r, side, h, free) };
-  }
-  return out;
 }
 
 /* ---- Mirror: a point moved on one side of a letter moves the same way, flipped, on the other */
