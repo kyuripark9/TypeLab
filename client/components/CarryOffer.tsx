@@ -2,7 +2,8 @@
    same way there (lib/carry). Each such letter shows as a toggle drawn with the change in it; hovering one shows it
    large, as it was (dashed) and as it would be. Close matches (the outline round the change the same too) of the
    edited letter's kind come picked, other close ones and looser ones follow unpicked, and past a dozen the rest wait
-   behind "+N". Apply puts the change in the picked letters in one undo step; Not now lets it be. What is offered is
+   behind "+N"; All picks every one (and shows them all) or none. Apply puts the change in the picked letters in one
+   undo step; Not now lets it be. What is offered is
    everything done to the letter since it was opened in Points, or since the last offer was taken up or turned down.
    The search runs after each finished edit, in slices between frames, so it never holds up a drag. */
 import { memo, useEffect, useRef, useState } from 'react';
@@ -73,6 +74,8 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
     actions.toast(`Changed ${take.map(c => c.ch).join(' ')} too`, { label: 'Undo', run: () => actions.travel(-1) });
   };
   const toggle = (o: string) => setPicked(p => { const n = new Set(p); if (!n.delete(o)) n.add(o); return n; });
+  const every = take.length === offer.found.length;
+  const pickAll = (on: boolean) => { setPicked(new Set(on ? offer.found.map(c => c.ch) : [])); if (on) setAll(true); };
   const shown = all ? offer.found : offer.found.slice(0, MOST), hidden = offer.found.length - shown.length;
 
   return (
@@ -80,6 +83,10 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
       {peek && <CarryPeek c={peek} font={font} />}
       <div className="pen-carry-head">
         <span className="pen-carry-q">Apply this change to other letters too?</span>
+        <label className="check pen-carry-all" title={every ? 'Pick none of the letters' : `Pick all ${offer.found.length} letters`}>
+          <input type="checkbox" checked={every} ref={el => { if (el) el.indeterminate = take.length > 0 && !every; }} onChange={e => pickAll(e.target.checked)} />
+          All
+        </label>
         <button className="btn ghost small" onClick={answered}>Not now</button>
         <button className="btn primary small" disabled={!take.length} onClick={apply}
           title={take.length ? `Change ${take.map(c => c.ch).join(' ')} the same way; they become drawn letters, which the sliders no longer change` : 'Pick the letters to change'}>
