@@ -177,7 +177,7 @@ inside curves, and the lowercase become small capitals.
   (`panel/reach.tsx`, `lib/reach.ts`).
 - `components/Stage.tsx`, `Finder.tsx`, `Inspector.tsx`, `PenCanvas.tsx`, `Header.tsx`, `Chrome.tsx`,
   `Guide.tsx`: the stage with the style cards and the preview, the style finder, the glyph inspector, the pen,
-  the top bar and export menu, the page navigation and glyph strip, and the first-run tour.
+  the top bar and the Export window, the page navigation and glyph strip, and the first-run tour.
 - `lib/`: the API client (`api.ts`), free fonts in the browser (`free.ts`), dragging a letter's parts
   (`drag.ts`), the pen's operations (`pen.ts`), whether a setting reaches the letters in view (`reach.ts`), the
   preview's text (`preview.ts`), everything the browser remembers (`prefs.ts`), the addresses (`routes.ts`),

@@ -40,7 +40,7 @@ Bodies are JSON (up to 4 MB). Errors answer `{ error }`.
 | GET | `/api/free-fonts/:id` | A free font's letters (`FreeFontData`): an own font's from `fonts/` (`no-cache`, its ETag answers), any other fetched from Google Fonts the first time; 502 when that fails |
 | GET | `/api/free-fonts/:id/font.otf` | One of TypeLab's own fonts as an OpenType file, for the style cards' web fonts (`fontFileUrl`); 404 for any other |
 | POST | `/api/export/otf` | `{ name, params, member? }` → an `.otf`: the design as it is, installed as Regular, or with `member: { anchor, weight, italic }` that member of its family, as the family's `.zip` has it (`<slug>-<Style>.otf`) |
-| POST | `/api/export/family` | `{ name, params, family: { anchor, weights, upright, italic } }` → a `.zip` |
+| POST | `/api/export/family` | `{ name, params, family: { anchor, styles: [{ weight, italic }] } }` → a `.zip` of those members (the older `{ anchor, weights, upright, italic }` still reads) |
 | POST | `/api/export/svg` | `{ name, params }` → an SVG specimen |
 
 Designs and exports take `params` only when `isValidParams` holds (complete, current-version settings, every value

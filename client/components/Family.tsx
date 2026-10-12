@@ -1,130 +1,94 @@
-/* Export a font family: the design drawn again at the weights picked, upright, italic or both, each
-   its own font file under the design's name, downloaded together as a .zip. Every weight shows a
-   sample in the font it will be, so the steps between them can be judged before downloading. */
-import { useMemo, useRef, useState } from 'react';
-import { cleanName, slug } from '../../shared/design';
-import { familyMember, SLANTED, WEIGHTS, weightIdOf, type FamilyMember, type WeightId } from '../../shared/family';
-import { api, download, errorMessage } from '../lib/api';
+/* The styles of a design's family to export, picked in the Export window, one or several: every weight from Thin
+   to Black, upright and italic, each drawn in a sample as the font it will be, so the steps between them can be
+   judged before downloading. The design itself is one of them, at the weight it is named as. */
+import { useMemo } from 'react';
+import { FAMILY_STYLES, familyMember, ownStyle, SLANTED, WEIGHTS, type FamilyMember, type WeightId } from '../../shared/family';
+import type { Params } from '../../shared/params';
 import { useFreeFonts } from '../lib/free';
-import { n1, useEscape } from '../lib/hooks';
-import { actions, fontFor, useEditor } from '../state/editor';
+import { n1 } from '../lib/hooks';
+import { fontFor } from '../state/editor';
 
 const SAMPLE = 'Hamburgefonstiv';
 
 /** A weight's place in WEIGHTS, lightest first. */
 const rank = (id: WeightId) => WEIGHTS.findIndex(w => w.id === id);
 
-/** The weights picked at first: the design's own and the one a reader would reach for beside it
-    (Bold, or Regular for a design that is Bold or heavier). */
-const startWeights = (anchor: WeightId): WeightId[] =>
+/** The design's weight and the one a reader would reach for beside it: Bold, or Regular for a design that is Bold
+    or heavier. */
+const pairOf = (anchor: WeightId): WeightId[] =>
   anchor === 'bold' ? ['regular', 'bold'] : rank(anchor) > rank('bold') ? ['regular', anchor] : [anchor, 'bold'];
 
-/** The weights picked, with the design's own always among them. */
-const withAnchor = (ids: WeightId[], anchor: WeightId) => ids.includes(anchor) ? ids : [...ids, anchor];
+/** Quick picks, by the styles' names: the design alone; it and a bold, each upright and italic; every style. */
+const QUICK: { label: string; title: string; styles: (params: Params, anchor: WeightId) => string[] }[] = [
+  { label: 'This design', title: 'Only the design as it is', styles: (p, a) => [ownStyle(p, a).style] },
+  { label: '+ Bold & Italic', title: 'The design and a bold, each upright and italic: four fonts', styles: (_, a) => FAMILY_STYLES.filter(f => pairOf(a).includes(f.weight)).map(f => f.style) },
+  { label: `All ${FAMILY_STYLES.length}`, title: 'Every weight from Thin to Black, upright and italic', styles: () => FAMILY_STYLES.map(f => f.style) }
+];
 
-export function FamilyDialog({ onClose }: { onClose: () => void }) {
-  const params = useEditor(s => s.params), name = cleanName(useEditor(s => s.name));
-  const designItalic = params.slant >= SLANTED;
-  const [anchor, setAnchor] = useState<WeightId>(() => weightIdOf(params.weight));
-  const [weights, setWeights] = useState<WeightId[]>(() => startWeights(weightIdOf(params.weight)));
-  const [upright, setUpright] = useState(true), [italic, setItalic] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const first = useRef<HTMLSelectElement>(null);
-  useEscape(onClose, first);
+interface PickerProps {
+  params: Params;
+  /** the weight the design is named as */ anchor: WeightId; onAnchor: (anchor: WeightId) => void;
+  /** the styles picked, by the names they install under */ picked: string[]; onPick: (picked: string[]) => void;
+}
 
+export function FamilyPicker({ params, anchor, onAnchor, picked, onPick }: PickerProps) {
+  const own = ownStyle(params, anchor).style;
+  const drawn = Object.keys(params.outlines), slanted = params.slant >= SLANTED;
   // every weight upright and italic, built once per design and naming, for the samples
   const rows = useMemo(() => WEIGHTS.map(w => ({
     ...w, upright: familyMember(params, anchor, w.id, false), italic: familyMember(params, anchor, w.id, true)
   })), [params, anchor]);
-
-  const toggle = (id: WeightId) => setWeights(ws => ws.includes(id) ? ws.filter(w => w !== id) : [...ws, id]);
-  const count = weights.length * ((upright ? 1 : 0) + (italic ? 1 : 0));
-  const drawn = Object.keys(params.outlines);
-
-  const build = async () => {
-    setBusy(true);
-    try {
-      const blob = await api.exportFamily({ name, params, family: { anchor, weights, upright, italic } });
-      download(`${slug(name)}-family.zip`, blob);
-      actions.toast(`Family exported — ${count} fonts; unzip and open them to install`);
-      onClose();
-    } catch (e) {
-      actions.toast(`Export failed: ${errorMessage(e)}`);
-      setBusy(false);
-    }
-  };
+  const toggle = (style: string) => onPick(picked.includes(style) ? picked.filter(s => s !== style) : [...picked, style]);
+  const same = (styles: string[]) => styles.length === picked.length && styles.every(s => picked.includes(s));
 
   return (
-    <div className="dialog-scrim" onPointerDown={e => { if (e.target === e.currentTarget && !busy) onClose(); }}>
-      <div className="dialog family" role="dialog" aria-modal="true" aria-labelledby="family-title">
-        <h2 id="family-title">Font family</h2>
-        <p>Draw “{name}” in more weights and an italic. Each is its own font file, and they install together as one family.</p>
-
-        <div className="family-opts">
-          <label className="family-field">
-            <span>This design is</span>
-            <select ref={first} value={anchor} onChange={e => {
-              const a = e.target.value as WeightId;
-              setAnchor(a);
-              setWeights(ws => withAnchor(ws, a));
-            }}>
-              {WEIGHTS.map(w => <option key={w.id} value={w.id}>{w.name} · {w.cls}</option>)}
-            </select>
-          </label>
-          <div className="family-field">
-            <span>Styles</span>
-            <div className="chips">
-              <button type="button" className={upright ? 'chip on' : 'chip'} aria-pressed={upright} onClick={() => setUpright(!upright)}>Upright</button>
-              <button type="button" className={italic ? 'chip on' : 'chip'} aria-pressed={italic} onClick={() => setItalic(!italic)}>Italic</button>
-            </div>
-          </div>
-          <div className="family-quick">
-            <button type="button" className="btn ghost small" onClick={() => setWeights(startWeights(anchor))}>Two weights</button>
-            <button type="button" className="btn ghost small" onClick={() => setWeights(withAnchor(['light', 'regular', 'medium', 'bold'], anchor))}>Light to Bold</button>
-            {/* nine: the count of WEIGHTS in shared/family.ts */}
-            <button type="button" className="btn ghost small" onClick={() => setWeights(WEIGHTS.map(w => w.id))}>All nine</button>
-          </div>
-        </div>
-
-        <ul className="family-list" aria-label="Weights">
-          {rows.map(r => {
-            const on = weights.includes(r.id);
-            return (
-              <li key={r.id} className={on ? 'family-row on' : 'family-row'}>
-                <label className="family-pick">
-                  <input type="checkbox" checked={on} onChange={() => toggle(r.id)} />
-                  <b>{r.name}</b>
-                  <span>{r.cls}{r.id === anchor && ' · this design'}</span>
-                </label>
-                <div className={upright && italic ? 'family-samples two' : 'family-samples'}>
-                  {upright && <MemberSample member={r.upright} label={r.upright.style} />}
-                  {italic && <MemberSample member={r.italic} label={r.italic.style} />}
-                  {!upright && !italic && <span className="family-none">Pick Upright, Italic or both</span>}
-                </div>
-              </li>
-            );
+    <div className="family">
+      <div className="family-bar">
+        <label className="family-field">
+          <span>This design is</span>
+          <select value={anchor} onChange={e => onAnchor(e.target.value as WeightId)}>
+            {WEIGHTS.map(w => <option key={w.id} value={w.id}>{w.name} · {w.cls}</option>)}
+          </select>
+        </label>
+        <div className="family-quick">
+          {QUICK.map(q => {
+            const styles = q.styles(params, anchor);
+            return <button key={q.label} type="button" className={same(styles) ? 'chip on' : 'chip'} aria-pressed={same(styles)} title={q.title} onClick={() => onPick(styles)}>{q.label}</button>;
           })}
-        </ul>
-
-        {(drawn.length > 0 || designItalic) && (
-          <p className="family-note">
-            {designItalic && <>The design is slanted, so its italics keep that slant and the uprights stand it up. </>}
-            {drawn.length > 0 && <>{drawn.slice(0, 6).join(' ')}{drawn.length > 6 && ' …'} {drawn.length === 1 ? 'is' : 'are'} drawn by hand in Points mode, so {drawn.length === 1 ? 'it looks' : 'they look'} the same in every weight.</>}
-          </p>
-        )}
-
-        <div className="dialog-actions family-actions">
-          <span className="family-count">{count ? `${count} font${count === 1 ? '' : 's'} · .otf in a .zip` : 'Nothing picked yet'}</span>
-          <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
-          <button className="btn primary" onClick={build} disabled={busy || !count}>{busy ? 'Building family…' : 'Download family'}</button>
         </div>
       </div>
+
+      <div className="family-grid" role="group" aria-label="Styles">
+        <div className="family-row family-head" aria-hidden="true"><span /><span>Upright</span><span>Italic</span></div>
+        {rows.map(r => (
+          <div key={r.id} className="family-row">
+            <div className="family-weight">
+              <b>{r.name}</b>
+              <span>{r.cls}{r.id === anchor && ' · this design'}</span>
+            </div>
+            {[r.upright, r.italic].map(m => (
+              <button key={m.style} type="button" className={m.style === own ? 'family-cell own' : 'family-cell'}
+                aria-pressed={picked.includes(m.style)} title={m.style === own ? `${m.style}: this design` : m.style} onClick={() => toggle(m.style)}>
+                <i className="family-check" aria-hidden="true" />
+                <MemberSample member={m} label={m.style} />
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {(drawn.length > 0 || slanted) && (
+        <p className="family-note">
+          {slanted && <>The design is slanted, so its italics keep that slant and the uprights stand it up. </>}
+          {drawn.length > 0 && <>{drawn.slice(0, 6).join(' ')}{drawn.length > 6 && ' …'} {drawn.length === 1 ? 'is' : 'are'} drawn by hand in Points mode, so {drawn.length === 1 ? 'it looks' : 'they look'} the same in every weight.</>}
+        </p>
+      )}
     </div>
   );
 }
 
 /** One member's sample, drawn by the font it exports as. */
-export function MemberSample({ member, label }: { member: FamilyMember; label: string }) {
+function MemberSample({ member, label }: { member: FamilyMember; label: string }) {
   useFreeFonts();
   const f = fontFor(member.params), ln = f.layout(SAMPLE, Infinity)[0];
   // room on the right for an italic's lean

@@ -154,6 +154,6 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   Regular, as Weight 0.4 is the default and a free font's 400), the anchor (the weight the design is named as), and
   `familyMember`, which reweighs and reslants the design and each letter's own weight or slant. Italics lean 0.55
   (about 11°) unless the design is slanted past `SLANTED` (0.05) already. `FAMILY_STYLES` names the eighteen styles
-  (uprights, then italics) and `ownStyle` the one the design is by itself: the Export menu's font file is any of them.
+  (uprights, then italics) and `ownStyle` the one the design is by itself: the Export window saves any of them, one or several.
 - `traits.ts`: each trait's steps set a few settings; `applyTraits` lays them in `TRAITS` order and `traitsKey`
   depends on that order. The Cuts steps set joints, stencil and slice together so they stay exclusive.

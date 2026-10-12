@@ -92,7 +92,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 | The control panel | `client/components/Panel.tsx`, `client/components/panel/` | client/CLAUDE.md |
 | The Style page: cards, finder, filters, traits | `client/components/Stage.tsx`, `Finder.tsx`, `BuiltText.tsx`, `panel/StylePanel.tsx` | client/CLAUDE.md |
 | The inspector and dragging a letter's parts | `client/components/Inspector.tsx`, `client/lib/drag.ts` | client/CLAUDE.md |
-| Header and export menu; nav, glyph strip, toast; the tour; sign-in | `Header.tsx`; `Chrome.tsx`; `Guide.tsx`; `Account.tsx` and `client/state/auth.ts` | client/CLAUDE.md |
+| Header and the Export window; nav, glyph strip, toast; the tour; sign-in | `Header.tsx`; `Chrome.tsx`; `Guide.tsx`; `Account.tsx` and `client/state/auth.ts` | client/CLAUDE.md |
 | The "changes nothing here" note | `client/lib/reach.ts`, `client/components/panel/reach.tsx` | client/CLAUDE.md |
 | What a browser remembers | `client/lib/prefs.ts` (every `localStorage` key) | client/CLAUDE.md |
 | API calls from the browser | `client/lib/api.ts` (routes in `server/app.ts`) | server/CLAUDE.md |

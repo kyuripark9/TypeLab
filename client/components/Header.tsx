@@ -1,18 +1,19 @@
 /* The editor's top bar: the logo (Brand, also on the library and account pages), the design's name
    renamed in place, the style it started from, undo and redo, Guide, My designs, Save (asking for a
-   name on a first save) and the Export menu: font file (in any style of the design's family), family,
-   specimen, and settings as .typelab.json out and in. */
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+   name on a first save) and Export, a window in the middle of the screen: the font in any styles of the
+   design's family, one or several, a specimen, and settings as .typelab.json out and in. */
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { styleById } from '../../shared/content';
 import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
 import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../../shared/params';
-import { FAMILY_STYLES, familyMember, ownStyle, type WeightId } from '../../shared/family';
+import { FAMILY_STYLES, ownStyle, weightIdOf, type WeightId } from '../../shared/family';
 import { parseFontId, withoutReserved } from '../../shared/free-fonts';
 import { api, download, errorMessage } from '../lib/api';
+import { useEscape } from '../lib/hooks';
 import { DESIGNS, NEW_DESIGN, designPath } from '../lib/routes';
 import { actions, isDirty, savedName, useEditor } from '../state/editor';
-import { FamilyDialog, MemberSample } from './Family';
+import { FamilyPicker } from './Family';
 
 /** Under the export's name, written in a free font: the name it exports under when the font's licence
     reserves part of it (a changed font may not take a reserved name, see withoutReserved). */
@@ -20,7 +21,7 @@ function ReservedNote({ name }: { name: string }) {
   const font = parseFontId(useEditor(s => s.params.freeFont));
   const clean = cleanName(name), out = font ? withoutReserved(clean, font.family) : clean;
   return out === clean ? null
-    : <p className="exp-note">Exports as “{out}”: {font!.family}’s licence keeps its name for the original font.</p>;
+    : <p className="export-note">Exports as “{out}”: {font!.family}’s licence keeps its name for the original font.</p>;
 }
 
 /** Logo: back to the Style page of the design in progress. */
@@ -93,7 +94,7 @@ export function Header({ onSave, onGuide, naming, onNamed, onCancelNaming }: Hea
           </button>
           {naming && <NamePrompt onDone={onNamed} onCancel={onCancelNaming} />}
         </div>
-        <ExportMenu />
+        <ExportButton />
       </div>
     </header>
   );
@@ -139,61 +140,74 @@ function NamePrompt({ onDone, onCancel }: { onDone: (name: string) => void; onCa
   );
 }
 
-/** The font file's style, when another of the family's than the design's own is picked: a line drawn in it, as it
-    exports, so Thin and Black can be told apart before downloading. Mounted only then, so the design's drags never
-    build a second font. */
-function PickedSample({ anchor, style }: { anchor: WeightId; style: string }) {
-  const params = useEditor(s => s.params);
-  const member = useMemo(() => {
-    const f = FAMILY_STYLES.find(x => x.style === style)!;
-    return familyMember(params, anchor, f.weight, f.italic);
-  }, [params, anchor, style]);
-  return <div className="exp-sample"><MemberSample member={member} label={member.style} /></div>;
+/** Export, in the header: opens the Export window (so does the last page of controls, through exportOpen). */
+function ExportButton() {
+  const open = useEditor(s => s.exportOpen);
+  return <>
+    <button className="btn primary" aria-haspopup="dialog" aria-expanded={open} onClick={() => actions.setExportOpen(true)}>Export</button>
+    {open && <ExportDialog onClose={() => actions.setExportOpen(false)} />}
+  </>;
 }
 
-function ExportMenu() {
-  const open = useEditor(s => s.exportOpen);
-  const [busy, setBusy] = useState<string | null>(null), [family, setFamily] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
+/** The Export window, in the middle of the screen: the name the fonts install under, the styles of the design's
+    family to save (one as an .otf, several as the family's fonts in one .zip), and the other files: a specimen, and
+    the settings out and in. */
+function ExportDialog({ onClose }: { onClose: () => void }) {
+  const params = useEditor(s => s.params);
+  const [busy, setBusy] = useState<'fonts' | 'svg' | null>(null);
+  const go = useRef<HTMLButtonElement>(null);
+  useEscape(onClose, go);
 
-  // the style the font file installs as, one of the design's family: its own (the weight it reads as, italic when
-  // it leans) each time the menu opens, or a lighter, heavier or italic one drawn as the family export draws it
-  const [own, setOwn] = useState(() => ownStyle(useEditor.getState().params)), [pick, setPick] = useState(own.style);
-
-  // the name the font installs under, on top of the menu: a design still Untitled is offered one
-  // from its style, as on its first save, and takes it once something is exported
-  const [draft, setDraft] = useState(''), touched = useRef(false);
-  useEffect(() => {
-    if (!open) return;
+  // the name the fonts install under: a design still Untitled is offered one from its style, as on its first
+  // save, and takes it once something is exported
+  const [draft, setDraft] = useState(() => {
     const s = useEditor.getState();
-    setDraft(cleanName(s.name) === DEFAULT_NAME ? suggestedName(s.styleId) : s.name);
-    touched.current = false;
-    const o = ownStyle(s.params);
-    setOwn(o);
-    setPick(o.style);
-  }, [open]);
+    return cleanName(s.name) === DEFAULT_NAME ? suggestedName(s.styleId) : s.name;
+  });
+  const touched = useRef(false);
   const takeName = () => { if (cleanName(draft) !== cleanName(useEditor.getState().name)) void commitName(draft); };
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => { if (!wrap.current?.contains(e.target as Node)) actions.setExportOpen(false); };
-    document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
-  }, [open]);
+  // the styles to save, by the names they install under: at first the design's own (the weight it reads as,
+  // italic when it leans). Naming the design another weight moves its own style along with it
+  const [anchor, setAnchor] = useState<WeightId>(() => weightIdOf(params.weight));
+  const [picked, setPicked] = useState(() => [ownStyle(params, anchor).style]);
+  const reanchor = (a: WeightId) => {
+    const was = ownStyle(params, anchor).style, now = ownStyle(params, a).style;
+    setAnchor(a);
+    setPicked(ps => ps.includes(was) ? [...new Set(ps.map(p => p === was ? now : p))] : ps);
+  };
+  const styles = FAMILY_STYLES.filter(f => picked.includes(f.style));
 
-  const serverExport = async (kind: 'otf' | 'svg') => {
+  const saveFonts = async () => {
     takeName();
     const s = useEditor.getState(), name = cleanName(s.name);
-    const f = FAMILY_STYLES.find(x => x.style === pick)!, member = { anchor: own.weight, weight: f.weight, italic: f.italic };
-    setBusy(kind);
+    setBusy('fonts');
     try {
-      const blob = await api.exportFile(kind, kind === 'otf' ? { name, params: s.params, member } : { name, params: s.params });
-      download(kind === 'otf' ? `${slug(name)}-${pick.replace(/ /g, '')}.otf` : `${slug(name)}-specimen.svg`, blob);
-      actions.toast(kind === 'otf' ? `${name} ${pick} exported — open the .otf to install it` : 'Specimen exported');
-      actions.setExportOpen(false);
+      if (styles.length === 1) {
+        const [f] = styles;
+        download(`${slug(name)}-${f.style.replace(/ /g, '')}.otf`, await api.exportFile('otf', { name, params: s.params, member: { anchor, weight: f.weight, italic: f.italic } }));
+        actions.toast(`${name} ${f.style} exported — open the .otf to install it`);
+      } else {
+        download(`${slug(name)}-family.zip`, await api.exportFamily({ name, params: s.params, family: { anchor, styles: styles.map(f => ({ weight: f.weight, italic: f.italic })) } }));
+        actions.toast(`${styles.length} fonts exported — unzip them and open each to install`);
+      }
+      onClose();
     } catch (e) {
       actions.toast(`Export failed: ${errorMessage(e)}`);
-    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveSpecimen = async () => {
+    takeName();
+    const s = useEditor.getState(), name = cleanName(s.name);
+    setBusy('svg');
+    try {
+      download(`${slug(name)}-specimen.svg`, await api.exportFile('svg', { name, params: s.params }));
+      actions.toast('Specimen exported');
+      onClose();
+    } catch (e) {
+      actions.toast(`Export failed: ${errorMessage(e)}`);
       setBusy(null);
     }
   };
@@ -204,7 +218,7 @@ function ExportMenu() {
     const data = { app: 'TypeLab', version: PARAMS_VERSION, name, styleId: s.styleId, params: s.params };
     download(`${slug(name)}.typelab.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     actions.toast('Settings exported');
-    actions.setExportOpen(false);
+    onClose();
   };
 
   const importJSON = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -217,18 +231,24 @@ function ExportMenu() {
       actions.replaceParams(sanitizeParams(upgradeParams(o.params, typeof o.version === 'number' ? o.version : 1)), typeof o.styleId === 'string' ? o.styleId : undefined);
       if (typeof o.name === 'string') actions.setName(cleanName(o.name));
       actions.toast('Settings imported');
-      actions.setExportOpen(false);
+      onClose();
     } catch {
       actions.toast('That file isn’t a TypeLab settings file');
     }
   };
 
+  const n = styles.length;
   return (
-    <div className="export" ref={wrap}>
-      <button className="btn primary" aria-expanded={open} aria-haspopup="menu" onClick={() => actions.setExportOpen(!open)}>Export</button>
-      {open && (
-        <div className="popover" role="menu">
-          <label className="exp-name">
+    <div className="dialog-scrim" onPointerDown={e => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+      <div className="dialog export" role="dialog" aria-modal="true" aria-labelledby="export-title">
+        <div className="export-head">
+          <h2 id="export-title">Export</h2>
+          <button type="button" className="btn ghost icon" aria-label="Close" title="Close (Esc)" onClick={onClose}>
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+        <div className="export-body">
+          <label className="export-name">
             <span>Font name</span>
             <input value={draft} maxLength={NAME_MAX} spellCheck={false}
               onChange={e => { touched.current = true; setDraft(e.target.value); }}
@@ -236,39 +256,27 @@ function ExportMenu() {
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); takeName(); } }} />
           </label>
           <ReservedNote name={draft} />
-          <div className="exp-file">
-            <button className="exp" role="menuitem" disabled={!!busy} onClick={() => serverExport('otf')}>
-              <b>{busy === 'otf' ? 'Building font…' : 'Font file'}</b><span>.otf — install it and use it in any app</span>
-            </button>
-            <label className="exp-style">
-              <span>Style</span>
-              <select value={pick} disabled={!!busy} onChange={e => setPick(e.target.value)}>
-                {[false, true].map(italic => (
-                  <optgroup key={String(italic)} label={italic ? 'Italic' : 'Upright'}>
-                    {FAMILY_STYLES.filter(f => f.italic === italic).map(f =>
-                      <option key={f.style} value={f.style}>{f.style}{f.style === own.style && ' · this design'}</option>)}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
-            {pick !== own.style && <PickedSample anchor={own.weight} style={pick} />}
-          </div>
-          <button className="exp" role="menuitem" disabled={!!busy} onClick={() => { takeName(); actions.setExportOpen(false); setFamily(true); }}>
-            <b>Font family…</b><span>.zip — more weights and an italic, installed as one family</span>
-          </button>
-          <button className="exp" role="menuitem" disabled={!!busy} onClick={() => serverExport('svg')}>
-            <b>{busy === 'svg' ? 'Building specimen…' : 'Specimen'}</b><span>.svg — vector sheet of every glyph</span>
-          </button>
-          <button className="exp" role="menuitem" onClick={exportJSON}>
-            <b>Settings</b><span>.json — reopen this design anywhere</span>
-          </button>
-          <label className="exp import" role="menuitem">
-            <b>Import settings…</b><span>Load a .typelab.json file</span>
-            <input type="file" accept=".json,application/json" hidden onChange={importJSON} />
-          </label>
+          <section className="export-fonts" aria-labelledby="export-fonts">
+            <h3 id="export-fonts">Font files <span>Pick one style or several: each is its own font, and they install together as one family</span></h3>
+            <FamilyPicker params={params} anchor={anchor} onAnchor={reanchor} picked={picked} onPick={setPicked} />
+          </section>
         </div>
-      )}
-      {family && <FamilyDialog onClose={() => setFamily(false)} />}
+        <div className="export-foot">
+          <div className="export-more">
+            <button type="button" className="btn ghost small" disabled={!!busy} title="A vector sheet of every glyph" onClick={saveSpecimen}>
+              {busy === 'svg' ? 'Building specimen…' : 'Specimen .svg'}
+            </button>
+            <button type="button" className="btn ghost small" disabled={!!busy} title="Reopen this design anywhere" onClick={exportJSON}>Settings .json</button>
+            <label className="btn ghost small" title="Load a .typelab.json file">
+              Import settings…
+              <input type="file" accept=".json,application/json" hidden onChange={importJSON} />
+            </label>
+          </div>
+          <button ref={go} type="button" className="btn primary" disabled={!!busy || !n} onClick={saveFonts}>
+            {busy === 'fonts' ? (n === 1 ? 'Building font…' : 'Building fonts…') : !n ? 'Pick a style' : n === 1 ? 'Download font · .otf' : `Download ${n} fonts · .zip`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

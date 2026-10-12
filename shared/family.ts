@@ -98,17 +98,20 @@ export function familyMember(params: Params, anchor: WeightId, weight: WeightId,
   };
 }
 
-export interface FamilyRequest { anchor: WeightId; weights: WeightId[]; upright: boolean; italic: boolean }
+/** A style of the family: a weight, upright or italic. */
+export interface FamilyStyle { weight: WeightId; italic: boolean }
+/** The members of a family to build, any styles picked, with the design named `anchor`. */
+export interface FamilyRequest { anchor: WeightId; styles: FamilyStyle[] }
 /** One member on its own, as a single font file of the family: the same font it is in the family's .zip. */
-export interface MemberRequest { anchor: WeightId; weight: WeightId; italic: boolean }
+export interface MemberRequest extends FamilyStyle { anchor: WeightId }
 
-/** Every member asked for, lightest first, each upright before its italic. */
+/** Every member asked for, once each, lightest first, each upright before its italic. */
 export function familyMembers(params: Params, req: FamilyRequest): FamilyMember[] {
   const out: FamilyMember[] = [];
   for (const w of WEIGHTS) {
-    if (!req.weights.includes(w.id)) continue;
-    if (req.upright) out.push(familyMember(params, req.anchor, w.id, false));
-    if (req.italic) out.push(familyMember(params, req.anchor, w.id, true));
+    for (const italic of [false, true]) {
+      if (req.styles.some(s => s.weight === w.id && s.italic === italic)) out.push(familyMember(params, req.anchor, w.id, italic));
+    }
   }
   return out;
 }

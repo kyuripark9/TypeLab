@@ -49,7 +49,7 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `pages/EditorPage.tsx` | Loading the design in the address, `useSave` (a first save of an Untitled font asks for a name; a 404 on update saves it as new), `useShortcuts`, `useLeaveGuard`, `useDeepLinks` |
 | `pages/LibraryPage.tsx` | My designs: cards or list, search, sort, rename, duplicate, download; a delete waits `ACTION_TOAST_MS` for Undo and is sent on `pagehide` |
 | `pages/AccountPage.tsx` | Name, Google and password, other browsers, closing the account |
-| `components/Header.tsx` | Logo, the design's name, undo and redo, Guide, My designs, Save, the Export menu (a font file in any style of the design's family, its own picked each time the menu opens; family, specimen, `.typelab.json` out and in) |
+| `components/Header.tsx` | Logo, the design's name, undo and redo, Guide, My designs, Save, and Export, a window in the middle of the screen (`exportOpen`): the font name, the styles of the design's family to save (one as an `.otf`, several as one `.zip`; the design's own picked each time it opens), a specimen, `.typelab.json` out and in |
 | `components/Chrome.tsx` | `Nav` (pages, Find a setting on ⌘K), `GlyphStrip` (one memo `StripCell` per glyph), `Toast` |
 | `components/Stage.tsx` | The Type something bar; on the Style page the finder and the style cards (each in its free font as a web font, or, for a style built from blocks, which has none, in the engine's letters: `BuiltText.tsx`), elsewhere the preview and the inspector |
 | `components/Finder.tsx` | The style finder's one question, what kind of letters (the Category); its answer is the `groups` filter |
@@ -59,7 +59,7 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `components/ConstructionGrid.tsx` | The grid drawn through the inspected letter and the bar naming its group |
 | `components/Panel.tsx`, `panel/` | The right-hand panel (below) |
 | `components/Diagram.tsx` | The explainer's live diagrams; its icon caches last the session and depend only on their props |
-| `components/Family.tsx`, `Account.tsx`, `Guide.tsx`, `Intro.tsx`, `Dialog.tsx` | Family export; the sign-in dialog and account button; the first-run tour; the opening title card; the confirm dialog |
+| `components/Family.tsx`, `Account.tsx`, `Guide.tsx`, `Intro.tsx`, `Dialog.tsx` | The Export window's styles of the family, each a toggle with its sample (`FamilyPicker`); the sign-in dialog and account button; the first-run tour; the opening title card; the confirm dialog |
 | `components/SliderIcons.tsx`, `Icons.tsx`, `Resizer.tsx` | One icon per slider (`SLIDER_ICON_KEYS`, tested); the pages' icons; the draggable borders between panels |
 | `lib/api.ts` | Every `/api` request (routes in server/app.ts) |
 | `lib/free.ts` | Fetching and registering free fonts (`loadFreeFont`), `useFreeFonts`, the cards' web fonts (`useWebFont`, `fontStyle`: an own font from the server's file as a `FontFace` named `TypeLab <Family>`, a Google one by its stylesheet) |

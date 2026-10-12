@@ -9,7 +9,7 @@ import type { DesignStore } from './db';
 import { AccountStore, SESSION_DAYS } from './accounts';
 import { AUTH_CHANNEL, GOOGLE_RESULT_PARAM, cleanEmail, cleanUserName, isEmail, passwordProblem, type GoogleIntent, type GoogleResult, type User } from '../shared/account';
 import { pkce, type GoogleAuth } from './google';
-import { familyMember, familyMembers, isWeightId, type FamilyRequest, type MemberRequest } from '../shared/family';
+import { familyMember, familyMembers, isWeightId, type FamilyRequest, type MemberRequest, type WeightId } from '../shared/family';
 import { buildFamilyZip, buildOTF, buildSpecimenSVG, exportName } from './export';
 import { FreeFonts } from './free-fonts';
 
@@ -33,15 +33,17 @@ function readExport(body: unknown) {
   return { name: cleanName(b.name), params: b.params };
 }
 
-/** Which members of a family to build: at least one weight, upright or italic or both. */
+/** Which members of a family to build: at least one style, each a weight upright or italic. A request in the
+    older shape, weights each upright, italic or both (`{ weights, upright, italic }`), names the same styles. */
 function readFamily(body: unknown): FamilyRequest {
   const b = fields(body).family as Record<string, unknown> | undefined;
   if (!b || typeof b !== 'object') throw new HttpError(400, 'family is missing');
-  const weights = Array.isArray(b.weights) ? [...new Set(b.weights)] : [];
   if (!isWeightId(b.anchor)) throw new HttpError(400, 'family.anchor is not a weight');
-  if (!weights.length || !weights.every(isWeightId)) throw new HttpError(400, 'family.weights must name at least one weight');
-  if (!b.upright && !b.italic) throw new HttpError(400, 'family needs upright or italic styles');
-  return { anchor: b.anchor, weights, upright: !!b.upright, italic: !!b.italic };
+  const styles = Array.isArray(b.styles) ? b.styles.map(fields)
+    : Array.isArray(b.weights) ? b.weights.flatMap(weight => [...(b.upright ? [{ weight, italic: false }] : []), ...(b.italic ? [{ weight, italic: true }] : [])])
+    : [];
+  if (!styles.length || !styles.every(s => isWeightId(s.weight) && typeof s.italic === 'boolean')) throw new HttpError(400, 'family.styles must name at least one style, each a weight and italic true or false');
+  return { anchor: b.anchor, styles: styles.map(s => ({ weight: s.weight as WeightId, italic: s.italic as boolean })) };
 }
 
 /** Which member of its family a single font file is, if one is named; without one it is the design as it is. */

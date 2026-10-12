@@ -77,9 +77,12 @@ describe('font family', () => {
   });
 
   it('exports every member as a font of one family', () => {
-    const req = { anchor: 'regular' as const, weights: ['light', 'regular', 'bold'] as const, upright: true, italic: true };
-    assert.equal(familyMembers(serif.params, { ...req, weights: [...req.weights] }).length, 6);
-    const files = unzip(buildFamilyZip(serif.params, 'My Serif', { ...req, weights: [...req.weights] }));
+    // picked in any order, and twice: each built once, lightest first, upright before italic
+    const req = { anchor: 'regular' as const, styles: (['bold', 'light', 'regular'] as const).flatMap(weight => [{ weight, italic: true }, { weight, italic: false }]) };
+    assert.equal(familyMembers(serif.params, { ...req, styles: [...req.styles, ...req.styles] }).length, 6);
+    // any styles, not whole weights: Regular and Bold Italic alone
+    assert.deepEqual(familyMembers(serif.params, { anchor: 'regular', styles: [{ weight: 'bold', italic: true }, { weight: 'regular', italic: false }] }).map(m => m.style), ['Regular', 'Bold Italic']);
+    const files = unzip(buildFamilyZip(serif.params, 'My Serif', req));
     assert.deepEqual([...files.keys()], ['Light', 'LightItalic', 'Regular', 'Italic', 'Bold', 'BoldItalic'].map(s => `My-Serif/My-Serif-${s}.otf`));
     const info = (name: string) => {
       const buf = files.get(`My-Serif/My-Serif-${name}.otf`)!;

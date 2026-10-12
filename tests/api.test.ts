@@ -464,7 +464,17 @@ describe('export API', () => {
     assert.match(svg, /Test &lt;Font&gt;/);
   });
 
-  it('builds a font family as a .zip', async () => {
+  it('builds a font family of any styles picked as a .zip', async () => {
+    const styles = [{ weight: 'regular', italic: false }, { weight: 'bold', italic: true }];
+    const res = await call('POST', '/export/family', { name: 'Test Font', params: serif.params, family: { anchor: 'regular', styles } });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'application/zip');
+    for (const bad of [[], [{ weight: 'heavy', italic: false }], [{ weight: 'bold' }], ['bold']]) {
+      assert.equal((await call('POST', '/export/family', { name: 'x', params: serif.params, family: { anchor: 'regular', styles: bad } })).status, 400);
+    }
+  });
+
+  it('builds a font family asked for in the older shape, whole weights upright and italic', async () => {
     const family = { anchor: 'regular', weights: ['regular', 'bold'], upright: true, italic: true };
     const res = await call('POST', '/export/family', { name: 'Test Font', params: serif.params, family });
     assert.equal(res.status, 200);
