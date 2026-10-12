@@ -121,7 +121,9 @@ const terminalPaths = new Map<string, { d: string; box: string }>();
 /** A stroke end of `kind`, in its `form` when given (else the kind's first), drawn by the stroke expander. */
 export function TerminalIcon({ kind, form }: { kind: Terminal; form?: TerminalForm }) {
   const icon = cached(terminalPaths, `${kind}:${form ?? ''}`, () => {
-    const ctx = { thick: 64, thin: 58, stress: 0, k: CIRCLE_K, org: 0, terminal: kind, term: termSpec({ ...DEFAULTS, terminal: kind, terminalForm: form ?? TERMINAL_FORMS[kind][0] }) };
+    // (a flare drawn wider than it starts out, or at this size it reads as a plain flat end)
+    const term = termSpec({ ...DEFAULTS, terminalFlare: 0.9, terminal: kind, terminalForm: form ?? TERMINAL_FORMS[kind][0] });
+    const ctx = { thick: 64, thin: 58, stress: 0, k: CIRCLE_K, org: 0, terminal: kind, term };
     const ex = expandStroke([['M', -40, -46], ['C', 60, -46, 130, -10, 172, 46]], { s: 'join', e: 'term' }, ctx);
     // the usual frame, grown to take in a drop that reaches past it
     let x1 = 226, y0 = -100, y1 = 90;

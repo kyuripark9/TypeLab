@@ -129,9 +129,10 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   Style, a group; `GROUPS` names the groups Proportions, Shapes and Details. `pageOf` reads a page id, then `OLD_GROUPS`, then a group
   (which opens its first page).
 - **Controls** (`content/controls.ts`): `CONTROLS` and `SUBS` come from the specs; `FORM_OPTIONS` (each shape drawn as
-  a letter `ch`), the option label lists, `TERMINAL_DETAILS`, `SERIF_SIZES`, `SERIF_DETAILS`, `SERIF_TIP_DETAILS`;
-  `BLOCK_CONTROLS` (all that shows while Built from is Blocks, by Block letters); `PART_CONTROL` (anatomy part to the control that shapes
-  it); `controlFor` (a sub to its parent).
+  a letter `ch`), the option label lists, `TERMINAL_SHAPES` (every kind and form of stroke end as one list, in
+  families; tests/pages.test.ts checks each is there once), `TERMINAL_DETAILS`, `SERIF_SIZES`, `SERIF_DETAILS`,
+  `SERIF_TIP_DETAILS`; `BLOCK_CONTROLS` (all that shows while Built from is Blocks, by Block letters); `PART_CONTROL`
+  (anatomy part to the control that shapes it); `controlFor` (a sub to its parent).
 - **Copy and search**: `ANATOMY` in `content/copy.ts` names every part the inspector can point at; `findSettings`
   searches the controls' words, `ALSO`, and the shapes they offer.
 

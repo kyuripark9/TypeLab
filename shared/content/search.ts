@@ -1,7 +1,7 @@
 /* Finding a setting by name: a control or nested slider, by its own words, words people use for it, or a
    shape it offers. */
 import { FORM_OPTIONS, CONTROLS, SUBS, BAR_END_OPTIONS, FILL_OPTIONS, SERIF_BASE_OPTIONS, SERIF_INNER_OPTIONS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS,
-  SERIF_TIP_OPTIONS, STORY_OPTIONS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, controlFor, type ActiveKey, type ControlKey, type FormKey } from './controls';
+  SERIF_TIP_OPTIONS, STORY_OPTIONS, TERMINAL_SHAPES, controlFor, type ActiveKey, type ControlKey, type FormKey } from './controls';
 import { CATEGORIES } from './pages';
 import type { CategoryId } from '../params';
 
@@ -12,7 +12,7 @@ const ALSO: Partial<Record<ActiveKey, string>> = {
   weight: 'bold heavy light thick thin black', slant: 'italic oblique lean', width: 'condensed expanded narrow wide', height: 'cap height size tall',
   rotation: 'rotate turn angle', mirror: 'flip reverse backwards', contrast: 'thick thin stress', letterSpacing: 'kerning tracking',
   mono: 'typewriter code fixed width', wobble: 'rough sketchy organic jitter', cursive: 'script connected joined', flourish: 'swash flourish stylistic alternate ornament heart loop', swell: 'pressure shade pointed pen nib copperplate taper', fill: 'outline texture pattern halftone',
-  terminal: 'tip ending finish', serif: 'feet slab', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
+  terminal: 'tip ending finish sharp angled slanted cut tapered rounded teardrop wedge', serif: 'feet slab', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
   aperture: 'opening mouth', extenders: 'ascender descender', build: 'blocks stroke construction', blockForm: 'block slot plain square eurostile', stencil: 'gap cut break', slice: 'cut line split',
   squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', joinRound: 'crotch fillet', innerRound: 'inside corners', swash: 'flourish', dots: 'tittle period i j'
 };
@@ -41,7 +41,7 @@ function settingIndex(): Entry[] {
   if (INDEX) return INDEX;
   // the named shapes each control lets you pick
   const shapes: Partial<Record<ControlKey, string[]>> = {
-    terminal: [...opt(TERMINAL_OPTIONS), ...Object.values(TERMINAL_FORM_LABELS), ...opt(FORM_OPTIONS.terminalRun.options)],
+    terminal: [...TERMINAL_SHAPES.flatMap(g => [g.label, ...g.shapes.map(s => s.label)]), ...opt(FORM_OPTIONS.terminalRun.options)],
     serif: opt(SERIF_SHAPE_OPTIONS), serifTip: opt(SERIF_TIP_OPTIONS), serifBase: opt(SERIF_BASE_OPTIONS), serifSides: opt(SERIF_SIDE_OPTIONS),
     serifInner: opt(SERIF_INNER_OPTIONS), story: [...opt(STORY_OPTIONS), ...opt(FORM_OPTIONS.aForm.options)], fill: opt(FILL_OPTIONS), crossbar: opt(BAR_END_OPTIONS)
   };

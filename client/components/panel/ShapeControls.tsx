@@ -2,10 +2,10 @@
 import {
   BOWL_SUBS, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS,
   SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS,
-  STORY_OPTIONS, TERMINAL_DETAILS, TERMINAL_FORM_LABELS, TERMINAL_OPTIONS, TERMINAL_SUBS, controlFor, type FillSubKey, type FormKey,
+  STORY_OPTIONS, TERMINAL_DETAILS, TERMINAL_SHAPES, TERMINAL_SUBS, controlFor, terminalLabel, type FillSubKey, type FormKey,
   type SerifInnerSubKey
 } from '../../../shared/content';
-import { TERMINAL_FORMS, formOf } from '../../../shared/params';
+import { formOf, type Terminal, type TerminalForm } from '../../../shared/params';
 import { autoIBars, scriptForms } from '../../../shared/engine';
 import { actions, useEditor, useParam, useScopedFont } from '../../state/editor';
 import { FillIcon, FormIcon, SerifIcon, SerifSidesIcon, StoryIcon, TerminalIcon } from '../Diagram';
@@ -14,30 +14,34 @@ import { useReachNote } from './reach';
 import { SliderControl } from './SliderControl';
 import { EachEnd } from './LetterOwn';
 
+/** Picks a stroke end's kind and its form together, as one change to undo. */
+const pickEnd = (t: Terminal, form: TerminalForm) => { actions.setParam('terminal', t); actions.setParam('terminalForm', form); actions.commit(); };
+
+/** Stroke ends: every shape in one list, in its families, then the sliders that fine-tune the shape picked. */
 export function TerminalControl({ parts }: { parts?: string[] }) {
   const terminal = useParam('terminal'), form = formOf(terminal, useParam('terminalForm')), run = useParam('terminalRun'), active = useEditor(s => controlFor(s.active) === 'terminal');
-  const c = CONTROLS.terminal, forms = TERMINAL_FORMS[terminal], kindLabel = TERMINAL_OPTIONS.find(([id]) => id === terminal)![1];
+  const c = CONTROLS.terminal;
   const reach = useReachNote('terminal');
   return (
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="terminal" {...useControlFocus('terminal')}>
-      <FoldHead k="terminal" label={c.label} parts={parts} summary={`${kindLabel} · ${TERMINAL_FORM_LABELS[form]}${run === 'straight' ? ' · Straight' : ''}`} />
+      <FoldHead k="terminal" label={c.label} parts={parts} summary={`${terminalLabel(terminal, form)}${run === 'straight' ? ' · Runs straight' : ''}`} />
       {reach.note}
       <Fold k="terminal" quiet={reach.quiet}>
-        <div className="opts six" role="radiogroup" aria-label={c.tech}>
-          {TERMINAL_OPTIONS.map(([id, label]) => (
-            <button key={id} role="radio" aria-checked={terminal === id} className={terminal === id ? 'opt on' : 'opt'}
-              onClick={() => actions.setOption('terminal', id)}>
-              <TerminalIcon kind={id} /><span>{label}</span>
-            </button>
-          ))}
-        </div>
-        <div className="sub-label">{kindLabel} shape</div>
-        <div className={forms.length === 3 ? 'opts three' : 'opts two'} role="radiogroup" aria-label={`${kindLabel} shape`}>
-          {forms.map(id => (
-            <button key={id} role="radio" aria-checked={form === id} className={form === id ? 'opt on' : 'opt'}
-              onClick={() => actions.setOption('terminalForm', id)}>
-              <TerminalIcon kind={terminal} form={id} /><span>{TERMINAL_FORM_LABELS[id]}</span>
-            </button>
+        <div role="radiogroup" aria-label={c.tech}>
+          {TERMINAL_SHAPES.map(g => (
+            <div key={g.label} role="group" aria-label={g.label}>
+              <div className="sub-label">{g.label}</div>
+              <div className="opts three">
+                {g.shapes.map(sh => {
+                  const on = terminal === sh.terminal && form === sh.form;
+                  return (
+                    <button key={sh.form} role="radio" aria-checked={on} className={on ? 'opt on' : 'opt'} onClick={() => pickEnd(sh.terminal, sh.form)}>
+                      <TerminalIcon kind={sh.terminal} form={sh.form} /><span>{sh.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </div>
         {TERMINAL_DETAILS[form].map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}

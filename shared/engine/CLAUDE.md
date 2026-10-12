@@ -140,7 +140,11 @@ A design with `freeFont` set draws its letters from a free font instead of build
    `ENTRY_LETTERS`); Swash curls a capital's first free end at the left (`SWASH_STEM`, `SWASH_BAR`, `SWASH_FOOT`) out
    into a curl that thins to a hairline and ends in a ball, as big as the letter has room for; Peaks reshapes only
    `PEAK_LETTERS` with straight sides; Ends restyles only ends that curve from their tip (a heavy stem's round top or
-   foot, a G's bar, run straight first); Serifs also squares off an upright stroke's round end on a line (`roundTip` in
+   foot, a G's bar, run straight first), drawn again from no further back than the stroke runs alone (`widthAcross`,
+   `ALONE_TURN`), and each as big as the letter has room for (`fittedEnd`, `roomAround`): a drop, point, flare or slant
+   reaches no nearer the rest of the letter than the font's own end did (`ROOM_KEEP`), nor further past its stroke than
+   `REACH_X` of the x-height, its slider a share of that (`reachT`); an end with no room even for the least of it is
+   left as the font draws it, so a heavy C never closes into an O; Serifs also squares off an upright stroke's round end on a line (`roundTip` in
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
 5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,
    script or not, Flourishes' swash letters on a script font, the a's storeys, a `FORM_LETTERS` setting; Letterforms and

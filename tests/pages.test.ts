@@ -6,9 +6,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   ANATOMY, CATEGORIES, CONTROLS, FILL_SUBS, GROUPS, PART_CONTROL, PINCH_SUBS, ROUND_SUBS, SERIF_ARM_SUBS, SERIF_DETAILS, SERIF_INNER_SUBS, SERIF_SIZES,
-  SERIF_TIP_DETAILS, SLICE_SUBS, STENCIL_SUBS, SUBS, TERMINAL_DETAILS, WEIGHT_SUBS, controlFor, findSettings, firstControl, pageOf, type ActiveKey, type ControlKey
+  SERIF_TIP_DETAILS, SLICE_SUBS, STENCIL_SUBS, SUBS, TERMINAL_DETAILS, TERMINAL_SHAPES, WEIGHT_SUBS, controlFor, findSettings, firstControl, pageOf, type ActiveKey, type ControlKey
 } from '../shared/content';
-import { DEFAULTS } from '../shared/params';
+import { DEFAULTS, TERMINAL_FORMS } from '../shared/params';
 import { readDeepLink } from '../client/lib/routes';
 
 const controls = Object.keys(CONTROLS) as ControlKey[];
@@ -111,6 +111,13 @@ describe('editor pages', () => {
     assert.equal(controlFor('serifTipSlant'), 'serifTip');
     assert.equal(controlFor('serifCup'), 'serifBase');
     assert.equal(controlFor('serifInnerSize'), 'serifInner');
+  });
+
+  it('offers every shape of stroke end once in the Stroke ends list, each a form of its own kind', () => {
+    const listed = TERMINAL_SHAPES.flatMap(g => g.shapes.map(s => `${s.terminal}:${s.form}`));
+    const all = Object.entries(TERMINAL_FORMS).flatMap(([t, fs]) => fs.map(f => `${t}:${f}`));
+    assert.deepEqual([...listed].sort(), [...all].sort());
+    assert.equal(new Set(TERMINAL_SHAPES.flatMap(g => g.shapes.map(s => s.label))).size, listed.length);
   });
 
   it('places every nested slider in the control panel', () => {

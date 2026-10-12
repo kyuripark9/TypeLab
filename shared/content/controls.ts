@@ -1,6 +1,6 @@
 /* The editor's controls and the sliders nested under them (read off each setting's spec in
    shared/params/spec.ts), which shapes each picker offers, and which control a key belongs to. */
-import { PARAM_KEYS, SPECS, type CategoryId, type ControlDef, type ControlKey, type SubControlDef, type SubKey, type SubKeyOf } from '../params';
+import { PARAM_KEYS, SPECS, formOf, type CategoryId, type ControlDef, type ControlKey, type SubControlDef, type SubKey, type SubKeyOf } from '../params';
 import type { AForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, Flourish, GForm, IForm, KForm, Mirror, Params, QForm, RForm, ScriptForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from '../params';
 
 export type { CategoryId, ControlKey } from '../params';
@@ -51,10 +51,24 @@ export const SERIF_INNER_SUBS = subsOf('serifInner');
 export const SERIF_ARM_SUBS = subsOf('serifArms');
 export const FILL_SUBS = subsOf('fill');
 export const TERMINAL_SUBS = subsOf('terminal');
-/** The forms of each kind of stroke end, picked under its kind. */
-export const TERMINAL_FORM_LABELS: Record<TerminalForm, string> = {
-  plain: 'Plain', flared: 'Flared', scooped: 'Scooped', round: 'Round', droplet: 'Droplet', ball: 'Ball', pointed: 'Pointed', clipped: 'Clipped',
-  outer: 'Outward', inner: 'Inward', level: 'Straight', notched: 'Notched', taper: 'Even', brush: 'Brush'
+/** The Stroke ends picker: every shape a stroke end takes, each a kind (`terminal`) and its form (`terminalForm`)
+    picked together, in three families: ends cut across the stroke (square, widened, hollowed, on a slant either way,
+    level, notched), rounded ones, and ends drawn to a point. Every form of TERMINAL_FORMS is here once. */
+export const TERMINAL_SHAPES: { label: string; shapes: { terminal: Terminal; form: TerminalForm; label: string }[] }[] = [
+  { label: 'Straight', shapes: [
+    { terminal: 'flat', form: 'plain', label: 'Flat' }, { terminal: 'flat', form: 'flared', label: 'Flared' }, { terminal: 'flat', form: 'scooped', label: 'Scooped' },
+    { terminal: 'angled', form: 'outer', label: 'Slant out' }, { terminal: 'angled', form: 'inner', label: 'Slant in' },
+    { terminal: 'cut', form: 'level', label: 'Level' }, { terminal: 'cut', form: 'notched', label: 'Notched' }] },
+  { label: 'Round', shapes: [
+    { terminal: 'round', form: 'round', label: 'Round' }, { terminal: 'round', form: 'droplet', label: 'Droplet' }, { terminal: 'round', form: 'ball', label: 'Ball' }] },
+  { label: 'Pointed', shapes: [
+    { terminal: 'sharp', form: 'pointed', label: 'Pointed' }, { terminal: 'sharp', form: 'clipped', label: 'Clipped' },
+    { terminal: 'tapered', form: 'taper', label: 'Taper' }, { terminal: 'tapered', form: 'brush', label: 'Brush' }] }
+];
+/** The picker's name for stroke ends of kind `t` in form `form` (one of another kind reads as the kind's first, formOf). */
+export const terminalLabel = (t: Terminal, form: string) => {
+  const f = formOf(t, form);
+  return TERMINAL_SHAPES.flatMap(g => g.shapes).find(s => s.terminal === t && s.form === f)!.label;
 };
 /** The finer shape sliders of each form of stroke end, shown while that form is picked. */
 export const TERMINAL_DETAILS: Record<TerminalForm, TerminalSubKey[]> = {
@@ -107,7 +121,6 @@ export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Par
   aForm: { ch: 'a', options: [['plain', 'Plain'], ['spur', 'Spur']] as [AForm, string][] }
 };
 export const FILL_OPTIONS: [Fill, string][] = [['solid', 'Solid'], ['wire', 'Wireframe'], ['pixels', 'Pixels'], ['dots', 'Dots'], ['lines', 'Lines'], ['inline', 'Inline'], ['outline', 'Outline'], ['shadow', 'Shadow']];
-export const TERMINAL_OPTIONS: [Terminal, string][] = [['flat', 'Flat'], ['round', 'Rounded'], ['sharp', 'Sharp'], ['angled', 'Angled'], ['cut', 'Cut'], ['tapered', 'Tapered']];
 export const SERIF_SHAPE_OPTIONS: [SerifShape, string][] = [['bracketed', 'Bracketed'], ['unbracketed', 'Unbracketed'], ['slab', 'Slab'], ['wedge', 'Wedge'], ['diamond', 'Diamond']];
 export const SERIF_TIP_OPTIONS: [SerifTip, string][] = [['square', 'Square'], ['round', 'Round'], ['pointed', 'Pointed'], ['angled', 'Angled']];
 export const SERIF_BASE_OPTIONS: [SerifBase, string][] = [['flat', 'Flat'], ['cupped', 'Cupped']];
