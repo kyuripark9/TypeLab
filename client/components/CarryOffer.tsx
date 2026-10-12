@@ -1,7 +1,7 @@
 /* After a letter's points are changed in Points, the offer to make the same change in the other letters shaped the
    same way there (lib/carry). The letters are set out by kind, the edited letter's own first, then as the glyph strip
    has them (capitals, small letters, figures, punctuation, symbols), each kind on a row with a box that picks all of
-   it, and All by the buttons for every one. Each letter is a toggle drawn with the change in it; hovering one shows it large, as it
+   it, and above them All, for every one; Not now and Apply wait at the foot, under the letters they act on. Each letter is a toggle drawn with the change in it; hovering one shows it large, as it
    was (dashed) and as it would be. Close matches (the outline round the change the same too) of the edited letter's
    kind come picked, the rest unpicked. Apply puts the change in the picked letters in one undo step; Not now lets it
    be. Applied, the card folds to a bar naming the letters changed, and Review opens it again: there each click puts
@@ -119,24 +119,12 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
   return (
     <div className="pen-carry" role="group" aria-label={`Apply the change to ${ch} to other letters`} onPointerLeave={() => setPeek(null)}>
       {peek && <CarryPeek c={peek} font={font} />}
-      {prev ? (
-        <div className="pen-carry-head">
-          <span className="pen-carry-q">Changed in {has.length} {has.length === 1 ? 'letter' : 'letters'}</span>
-          {kinds.length > 1 && <PickBox label="All" letters={offer.found} picked={on} onSet={setMany} />}
-          <button className="btn ghost small" onClick={() => setOpen(false)}>Done</button>
-        </div>
-      ) : (
-        <div className="pen-carry-head">
-          <span className="pen-carry-q">Apply this change to other letters too?</span>
-          {kinds.length > 1 && <PickBox label="All" letters={offer.found} picked={picked} onSet={pickMany} />}
-          <button className="btn ghost small" onClick={answered}>Not now</button>
-          <button className="btn primary small" disabled={!take.length} onClick={apply}
-            title={take.length ? `Change ${take.map(c => c.ch).join(' ')} the same way; they become drawn letters, which the sliders no longer change` : 'Pick the letters to change'}>
-            {take.length ? `Apply to ${take.length}` : 'Apply'}
-          </button>
-        </div>
-      )}
+      <div className="pen-carry-head">
+        <span className="pen-carry-q">{prev ? `Changed in ${has.length} ${has.length === 1 ? 'letter' : 'letters'}` : 'Apply this change to other letters too?'}</span>
+      </div>
       <div className="pen-carry-kinds">
+        {/* All heads the column of boxes, and stays in view while the kinds scroll */}
+        {kinds.length > 1 && <PickBox label="All" letters={offer.found} picked={on} onSet={setMany} className="pen-carry-all" />}
         {kinds.map(k => (
           <div key={k.name} className="pen-carry-kind">
             <PickBox label={k.name} letters={k.letters} picked={on} onSet={setMany} />
@@ -146,15 +134,28 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
           </div>
         ))}
       </div>
+      <div className="pen-carry-foot">
+        {prev ? <button className="btn ghost small" onClick={() => setOpen(false)}>Done</button> : (
+          <>
+            <button className="btn ghost small" onClick={answered}>Not now</button>
+            <button className="btn primary small" disabled={!take.length} onClick={apply}
+              title={take.length ? `Change ${take.map(c => c.ch).join(' ')} the same way; they become drawn letters, which the sliders no longer change` : 'Pick the letters to change'}>
+              {take.length ? `Apply to ${take.length}` : 'Apply'}
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
 /** A box that picks every one of `letters` or none, half checked while only some are picked. */
-function PickBox({ label, letters, picked, onSet }: { label: string; letters: Carried[]; picked: ReadonlySet<string>; onSet: (chs: string[], on: boolean) => void }) {
+function PickBox({ label, letters, picked, onSet, className }: {
+  label: string; letters: Carried[]; picked: ReadonlySet<string>; onSet: (chs: string[], on: boolean) => void; className?: string
+}) {
   const n = letters.filter(c => picked.has(c.ch)).length, every = n === letters.length;
   return (
-    <label className="check pen-carry-pick" title={every ? `Pick none of these ${letters.length}` : `Pick all ${letters.length}`}>
+    <label className={className ? `check pen-carry-pick ${className}` : 'check pen-carry-pick'} title={every ? `Pick none of these ${letters.length}` : `Pick all ${letters.length}`}>
       <input type="checkbox" checked={every} ref={el => { if (el) el.indeterminate = n > 0 && !every; }} onChange={e => onSet(letters.map(c => c.ch), e.target.checked)} />
       {label}
     </label>
