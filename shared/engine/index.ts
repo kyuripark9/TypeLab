@@ -1,10 +1,8 @@
 /* Public entry point of the font engine. Importing it registers every glyph: the letter files fill the glyph
-   table (font.ts) as they load, the glyphs/ folder's first, then the script letters, then the swashes, which
-   swash.ts builds from the script letters as it loads (it imports script.ts itself). buildFont finds no letters
+   table (font.ts) as they load, the glyphs/ folder's first, then the script letters. buildFont finds no letters
    unless this file was imported, so code outside the engine imports shared/engine, not font.ts. */
 import './glyphs';
 import './script';
-import './swash';
 
 export { ALL_CHARS, CHARSET, SLANT_PIVOT, buildFont, scriptForms, termSpec } from './font';
 export type { Font, Glyph, Line, LineItem } from './font';

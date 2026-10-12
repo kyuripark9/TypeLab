@@ -5,8 +5,8 @@ builds exported fonts with it. Coordinates are font units, 1000 to the em, y up,
 themselves (spec, ids, scales) are described in shared/CLAUDE.md.
 
 Code that builds fonts imports `shared/engine` (`index.ts`): importing it registers every glyph (`glyphs/`, then
-`script.ts`, then `swash.ts`, which imports `script.ts` itself), and `buildFont` finds no letters without it. A pure
-helper such as `resolve` may be imported from its own file.
+`script.ts`), and `buildFont` finds no letters without it. A pure helper such as `resolve` may be imported from its own
+file.
 
 ## From params to an outline
 
@@ -25,7 +25,7 @@ helper such as `resolve` may be imported from its own file.
      otherwise `build: 'blocks'` draws `buildBlock` (basic block letters or slot blocks, by `blockForm`), and anything
      else (a letter the free font lacks too) is
      `buildGlyph(variantOf(ch, e), m, ch)`.
-   - `variantOf` picks the glyph id: in a script (`scriptForms`) `<ch>.sw` with Flourishes on Swash, else `<ch>.scr`;
+   - `variantOf` picks the glyph id: in a script (`scriptForms`) `<ch>.scr`;
      `a.alt` for a single-storey a; `<ch>.cur` from Cursive 0.35 (`CURSIVE_FORMS`); else `ch`.
 4. `buildGlyph` (`glyph.ts`) runs its stages in this order:
    1. the glyph function draws centerline strokes on a `Builder` and returns the body width;
@@ -57,7 +57,7 @@ helper such as `resolve` may be imported from its own file.
 | `glyphs/index.ts` | Registers the letter files in order: `upper.ts`, `lower.ts`, `figures.ts`, `punctuation.ts` (punctuation and symbols) |
 | `glyphs/shared.ts` | Constructions the letter files share: bowls, the s, shoulders (`arch`), K's arms, upright and arched diagonals, tails and hooks, cursive `entry`/`exitEnd`, dots (`dotK`), `lc` |
 | `glyphs/turns.ts` | Strokes that turn at a point (`turnStroke`, `placeTurns`): A M N V W Y Z, v w y z ^, the turns of Q and R; `POINTED`, `peakPast`, `peakCut` |
-| `script.ts`, `swash.ts` | Script capitals and joined small letters (`<ch>.scr`); swash letters drawn over them (`<ch>.sw`, bases `d.short`, `z.open`) |
+| `script.ts` | Script capitals and joined small letters (`<ch>.scr`) |
 | `basic-blocks.ts` | Basic block letters (Block letters: Basic, the default): plain block letters, every character a lowercase included, rings of corners y up from the baseline measured from the design (`V` upright, `B` level, `D` slanted strokes; counters a share of the cap height times Width), each corner of a kind ('o' Roundness, 'b'/'k' a bowl's outside and inside by Bowls, 'c' Counters, 'i' Joins, 's' sharp); Contrast, Peaks and Steps reach them too; `BASIC`, `basicDims`, `basicRound`, `basicRings` |
 | `blocks.ts` | Slot blocks (Block letters: Slots): rings of corners on a 224 × 175 grid, y down from the top, each corner of a kind ('o', 'e', 'i', 's'); the lowercase are small capitals; `BLOCKS`, `blockDims`, `blockRings` |
 | `stroke.ts` | The stroke expander: sampling, the pen model, terminals (`termCap`), sides, serifs (`buildSerif`, cups, diamonds) |
@@ -81,7 +81,7 @@ helper such as `resolve` may be imported from its own file.
 A formula or constant two files need lives once and both import it. `metrics()`'s shared pieces sit beside it in
 `font.ts`: `serifLen`, `counterScale`, `roundnessR`, `innerRoundR`, `stencilOff`, `bowlK`, `bowlOrg`, `dotRoundOf`,
 `cursiveHookR`, the constants `SERIF_SB`, `SLANT_PIVOT`, `CURSIVE_FORMS`, and the helpers `hasSerif`, `variantOf`,
-`scriptId`, `swashId`, `scriptForms`, `termSpec`, `quarterK`, `strokeWt`. Elsewhere: `geom.ts` (`inPoly`, `CIRCLE_K`,
+`scriptId`, `scriptForms`, `termSpec`, `quarterK`, `strokeWt`. Elsewhere: `geom.ts` (`inPoly`, `CIRCLE_K`,
 `MIN_ROUND`, `SAME_PT`, `cmdsBox`, `toPolys`), `shared/params/scales.ts` (`endId`, `isPlainEnd`, the id tests,
 `slantDeg`, `rotationOf`, `weightUnscale` beside `weightScale`, `xHeightOfRatio` beside `xHeightRatio`, `joinGap`,
 `barCut`, `endReach`), `stroke.ts` (`STEP_DEPTH`), `joins.ts` (`innerShare`, `crotchShare`), `glyphs/turns.ts` (`POINTED`, `peakPast`,
@@ -146,7 +146,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    left as the font draws it, so a heavy C never closes into an O; Serifs also squares off an upright stroke's round end on a line (`roundTip` in
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
 5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,
-   script or not, Flourishes' swash letters on a script font, the a's storeys, a `FORM_LETTERS` setting; Letterforms and
+   script or not, the a's storeys, a `FORM_LETTERS` setting; Letterforms and
    the Letter a left on auto keep the font's own forms, whatever Cursive asks); `twinGlyph` draws the engine's own
    letter at the settings the font reads as (`twinFit`: the weight and contrast whose stems and bars match the font's
    own, read off its n and H by `fontLook` with the design's Verticals and Horizontals counted, its x-height, width,
@@ -176,7 +176,7 @@ tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, wh
 | PenCtx (`m.ctx`, `pen`) | What the stroke expander knows: thick, thin, stress, k, org, terminal and its `term` (TermSpec), serif spec, chamfer, joints, reverse, pinch, swell, wobble, dropLow |
 | Builder (`g`, `b`) | What a glyph function draws on: `path`, `line`, `stem`, `dot`, `fillet`, `blob`, `counter`, `mark`; `strokes`, `reachL`/`reachR`, `sb`, `joins` |
 | glyph table, `def` | `defGlyph(id, sb, fn, meta)` registers a glyph: `sb` side-bearing factors (1 a stem, about .55 round, .25 diagonal), `fn(g, m)` returns the body width, `meta.params` the controls the inspector shows first |
-| glyph id | The character, or a form of it: `a.alt`, `f.cur`, `y.cur`, `<ch>.scr`, `<ch>.sw`; `d.short` and `z.open` are swash bases never picked. `buildGlyph` takes the id; `g.ch` is the character |
+| glyph id | The character, or a form of it: `a.alt`, `f.cur`, `y.cur`, `<ch>.scr`. `buildGlyph` takes the id; `g.ch` is the character |
 | Cmd | A path command: `['M',x,y]`, `['L',x,y,opts?]`, `['C',...,opts?]`, `['hv',x,y,opts?]` (or `'vh'`), `['Z']`. Outlines use only M, L, C, Z |
 | `hv`, `vh` | A quarter (super)ellipse leaving level and arriving plumb, or the reverse; `u0`/`u1` draw part of it |
 | command options | `w` a weight ('thin', 'thick', 0..1), `even` (no easing in), `turn` (TurnR at its start), `u0`/`u1` |

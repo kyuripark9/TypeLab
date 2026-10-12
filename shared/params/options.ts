@@ -62,9 +62,6 @@ export const R_FORMS = ['leg', 'loop'] as const;
 /** The letters: built as print type, or written as a joined-up script's (see script.ts); auto writes them in a
     design that is more than half cursive. */
 export const SCRIPT_FORMS = ['auto', 'print', 'script'] as const;
-/** Flourishes on the script letters: none, or swashes (see swash.ts): S leads in from a wide loop, t's bar runs in
-    and loops back over, l and d rise into loops, r sweeps down into a curl and the tail of z loops away under the word. */
-export const FLOURISHES = ['plain', 'swash'] as const;
 /** The spine of s, S and $: a curve running corner to corner, or level between two tight turns, like two rounded boxes stacked. */
 export const S_FORMS = ['curved', 'flat'] as const;
 /** The foot of the a: a plain stem, or a spur running out to the right along the baseline. */
@@ -108,4 +105,3 @@ export type YForm = (typeof Y_FORMS)[number];
 export type QForm = (typeof Q_FORMS)[number];
 export type RForm = (typeof R_FORMS)[number];
 export type ScriptForm = (typeof SCRIPT_FORMS)[number];
-export type Flourish = (typeof FLOURISHES)[number];

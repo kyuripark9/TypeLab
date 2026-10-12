@@ -203,23 +203,11 @@ export function BarEndsIcon({ ends }: { ends: BarEnds }) {
 /* Letter-shape icons: the letter each option shapes, drawn by the engine in that shape, bold
    enough to read small and framed from descender to ascender. */
 const formPaths = new Map<string, { d: string; box: string }>();
-/** A viewBox round path data `d` (its points and handles), padded and widened to the icon's shape. */
-function framed(d: string) {
-  const v = (d.match(/-?\d*\.?\d+(?:e-?\d+)?/g) ?? []).map(Number), xs = v.filter((_, i) => i % 2 === 0), ys = v.filter((_, i) => i % 2 === 1);
-  if (!xs.length) return '0 0 1 1';
-  let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-  const pad = (y1 - y0) * 0.06, w = Math.max(x1 - x0, (y1 - y0) * 46 / 40), h = Math.max(y1 - y0, w * 40 / 46);
-  x0 = (x0 + x1 - w) / 2; y0 = (y0 + y1 - h) / 2;
-  return `${n1(x0 - pad)} ${n1(y0 - pad)} ${n1(w + pad * 2)} ${n1(h + pad * 2)}`;
-}
 export function FormIcon({ k, id }: { k: FormKey; id: string }) {
   const icon = cached(formPaths, `${k}:${id}`, () => {
-    // (flourishes are written on the script letters, and reach well past the letter: framed whole)
-    const swash = k === 'flourish';
     // (block letters are drawn built from blocks)
-    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, ...(swash ? { scriptForm: 'script', weight: 0.5, xHeight: 0.4, swell: 0.5 } : {}),
-      ...(k === 'blockForm' ? { build: 'blocks' } : {}), [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
-    return { d: g?.d ?? '', box: swash && g ? framed(g.d) : `0 ${n1(-f.m.asc - 30)} ${n1(g?.adv ?? 500)} ${n1(f.m.asc - f.m.desc + 60)}` };
+    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, ...(k === 'blockForm' ? { build: 'blocks' } : {}), [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
+    return { d: g?.d ?? '', box: `0 ${n1(-f.m.asc - 30)} ${n1(g?.adv ?? 500)} ${n1(f.m.asc - f.m.desc + 60)}` };
   });
   return <svg viewBox={icon.box} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
 }

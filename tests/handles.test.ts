@@ -45,7 +45,7 @@ describe('letter handles', () => {
     // accepts (isCornerId, isJoinId, isEndId and isStrokeId in shared/params/scales.ts): a handle the engine names
     // any other way, or a letter with 100 strokes or turns, would lose its values on the next save
     const styled = (id: string) => STYLES.find(s => s.id === id)!.params;
-    const designs: Params[] = [DEFAULTS, styled('blackletter'), styled('modular'), { ...DEFAULTS, scriptForm: 'script', flourish: 'swash' }, { ...DEFAULTS, cursive: 1, stencil: 0.5, serif: true },
+    const designs: Params[] = [DEFAULTS, styled('blackletter'), styled('modular'), { ...DEFAULTS, scriptForm: 'script' }, { ...DEFAULTS, cursive: 1, stencil: 0.5, serif: true },
       { ...DEFAULTS, story: 'single', gForm: 'double', qForm: 'sweep', rForm: 'loop', yForm: 'cup', kForm: 'bar', iForm: 'bars', bowlJoin: 'square', bends: 'round', diagonals: 'arch' }];
     for (const p of designs) for (const [ch, k, id] of handles(p)) assert.ok((SPECS[k] as { ids: (id: string) => boolean }).ids(id), `${ch} ${k} ${id}`);
   });

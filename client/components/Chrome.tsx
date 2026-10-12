@@ -120,7 +120,7 @@ export function Nav() {
     from 880 above the baseline to 300 below. */
 const CELL = '0 -880 1000 1180';
 /** A strip cell's view of glyph `g`, centred in it: the usual frame, or one drawn back far enough to take
-    in a flourish that reaches well out of it (a swash S), so it doesn't spill over its neighbours. Ink may
+    in ink that reaches well out of it (a long tail or loop), so it doesn't spill over its neighbours. Ink may
     reach 150 units past either side and 120 above or below the frame before the cell draws back, and then
     the view is the usual frame scaled up, centred on the ink, until the ink fits with 6% to spare. */
 function cellBox(g: Glyph) {

@@ -1,8 +1,8 @@
 /* Glyph skeletons: every character the engine draws itself, registered with def() in the glyph table (GLYPHS in
    font.ts) as this folder is imported (engine/index.ts does). The letter files register in this order:
    upper.ts, lower.ts, figures.ts, punctuation.ts (punctuation and symbols). What they share is in shared.ts,
-   and the fitting of strokes that turn at a point in turns.ts. Script letters are script.ts's, swashes
-   swash.ts's, block letters blocks.ts's.
+   and the fitting of strokes that turn at a point in turns.ts. Script letters are script.ts's, block
+   letters blocks.ts's.
 
    Every glyph is a function of the shared metrics `m` (cap height, x-height, stem,
    curve tension, aperture, crossbar height, apex…). It draws centerline strokes with the

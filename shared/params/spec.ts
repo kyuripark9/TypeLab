@@ -13,7 +13,7 @@
    control's nested sliders, matters. */
 import type { Params } from './model';
 import { isCornerId, isEndId, isJoinId, isStrokeId, isTurnId } from './scales';
-import { A_FORMS, BAR_ENDS, BENDS, BLOCK_FORMS, BOWL_FORMS, BOWL_JOINS, BUILDS, DIAGONALS, DOTS, FILLS, FLOURISHES, G_FORMS, I_FORMS, K_FORMS, MIRRORS, Q_FORMS,
+import { A_FORMS, BAR_ENDS, BENDS, BLOCK_FORMS, BOWL_FORMS, BOWL_JOINS, BUILDS, DIAGONALS, DOTS, FILLS, G_FORMS, I_FORMS, K_FORMS, MIRRORS, Q_FORMS,
   R_FORMS, S_FORMS, SCRIPT_FORMS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, STORIES, TERMINAL_FORM_IDS, TERMINAL_RUNS,
   TERMINALS, Y_FORMS } from './options';
 
@@ -267,8 +267,6 @@ export const SPECS = {
     explain: 'Strokes drift, swell and sit a little off the line.' } }),
   scriptForm: option(SCRIPT_FORMS, 'auto', { free: true, control: { cat: 'script', type: 'form', label: 'Letterforms', friendly: 'Write joined script or print', tech: 'Print or script letterforms', demo: 'Rain',
     explain: 'Print letters are built like type. Script letters are written with a pen: every small letter joins the next on a fine hairline, downstrokes swell and the rest stays fine, and the capitals have lead-ins, loops and curled feet. Left alone, a design more than half cursive is written, and one written in a font keeps the font’s own letters.' } }),
-  flourish: option(FLOURISHES, 'plain', { free: true, control: { cat: 'script', type: 'form', label: 'Flourishes', friendly: 'Write swashes on script letters', tech: 'Swash alternates', demo: 'Stzld',
-    explain: 'Swashes as a calligrapher adds them: S leads in from a wide loop, the bar of t runs in from far to the left and loops back over the letter, l and d rise into loops over the letters after them, r sweeps down into a shaded curl that ends in a heart, and the tail of z loops away under the word to a hook. They reach over the neighbouring letters without pushing them apart. Customize one letter to flourish only that one. Script letters only.' } }),
   swell: num(0, { control: { cat: 'script', off: 0, label: 'Swell', friendly: 'Press into the downstrokes', tech: 'Pointed pen · Pressure', lo: 'At once', hi: 'Gradual', demo: 'nitu',
     explain: 'A pointed pen opens as it is pressed: each downstroke starts from a fine point, swells to its full weight and lets up again before it turns, so the shades taper at both ends like a leaf. Script letters only.' } }),
 

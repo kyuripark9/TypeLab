@@ -217,7 +217,7 @@ function ringOutline(ex: Expanded, m: Metrics, w: number): { cmds: Cmd[]; hole: 
 }
 
 /** Build glyph `id` from the glyph table, for the character `ch` it is drawn for. The id is the character, or
-    the character and the form it draws ('a.alt', 't.sw', 'S.scr'). */
+    the character and the form it draws ('a.alt', 'f.cur', 'S.scr'). */
 export function buildGlyph(id: string, m: Metrics, ch = id): Glyph | null {
   const def = glyphDefOf(id);
   if (!def) return null;

@@ -18,7 +18,7 @@
      highlight.ts     the part of a letter a setting shapes, for the explainer
    Most modules this file loads, directly or not, call back into it (glyph.ts and its stages, free-letters.ts,
    skin.ts, restyle.ts): any of them may use what it exports only inside functions, never at module load. The
-   letter files (glyphs/, script.ts, swash.ts) fill the glyph table as they load, so index.ts imports them and
+   letter files (glyphs/, script.ts) fill the glyph table as they load, so index.ts imports them and
    this file never does.
 
    Beside metrics() stand the pieces of it other files share, so they stay in step with it: serifLen,
@@ -133,14 +133,14 @@ export interface Font {
   layout(text: string, maxWidth: number): Line[];
 }
 
-/** The glyph table, by glyph id: a character, or a character and the form it draws ('a.alt', 't.sw', 'S.scr'). */
+/** The glyph table, by glyph id: a character, or a character and the form it draws ('a.alt', 'f.cur', 'S.scr'). */
 const GLYPHS: Record<string, GlyphDef> = {};
 /* sb: [left, right] side-bearing factors (1 = straight stem, ~.55 round, ~.25 diagonal) */
 export const defGlyph = (ch: string, sb: [number, number], fn: GlyphFn, meta?: GlyphMeta) => {
   GLYPHS[ch] = { sb, fn, meta: meta || {} };
 };
 export const hasGlyph = (ch: string) => ch in GLYPHS;
-/** The drawing of glyph `ch`, for building it (glyph.ts) and for a variant that draws it and adds to it (see swash.ts). */
+/** The drawing of glyph `ch`, for building it (glyph.ts) and for a variant that draws it and adds to it. */
 export const glyphDefOf = (ch: string): GlyphDef | undefined => GLYPHS[ch];
 /** Every id in the glyph table, as registered (tests walk it to check what each glyph declares). */
 export const glyphIds = () => Object.keys(GLYPHS);
@@ -398,18 +398,13 @@ export const hasSerif = (m: Metrics, o: StrokeOpts, which: 's' | 'e') => m.serif
 /** Whether the letters are written as a joined-up script's (see SCRIPT_FORMS): on auto, in a design more than half cursive. */
 export const scriptForms = (e: Pick<Params, 'scriptForm' | 'cursive'>) => e.scriptForm === 'script' || (e.scriptForm === 'auto' && e.cursive >= 0.5);
 
-/** The glyph ids letter `ch`'s script form ('S.scr', see script.ts) and its swash form ('S.sw', see swash.ts) are
-    registered and picked under. ('d.short' and 'z.open' are swash.ts's own bases for the d's and z's swashes, never
-    picked by buildFont.) */
+/** The glyph id letter `ch`'s script form ('S.scr', see script.ts) is registered and picked under. */
 export const scriptId = (ch: string) => ch + '.scr';
-export const swashId = (ch: string) => ch + '.sw';
 
 /** The glyph id letter `ch` is drawn from in design `e`: a script's own letter first, as it is written whole,
-    single-storey a and all (flourished, where the letter has a swash and swashes are picked); else the single-storey
-    a, the cursive form, or the letter itself. */
+    single-storey a and all; else the single-storey a, the cursive form, or the letter itself. */
 export function variantOf(ch: string, e: Effective): string {
   const script = scriptForms(e) && hasGlyph(scriptId(ch));
-  if (script && e.flourish === 'swash' && hasGlyph(swashId(ch))) return swashId(ch);
   if (script) return scriptId(ch);
   if (ch === 'a' && e.singleStory) return 'a.alt';
   return e.cursive >= CURSIVE_FORMS && hasGlyph(ch + '.cur') ? ch + '.cur' : ch;

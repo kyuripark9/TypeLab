@@ -1,13 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { CHARSET, buildFont } from '../shared/engine';
-import { glyphIds, hasGlyph } from '../shared/engine/font';
+import { hasGlyph } from '../shared/engine/font';
 import { DEFAULTS, type Params } from '../shared/params';
-import { xsOf } from './outlines';
 
 /* The script settings, the panel's Handwriting page: Cursive and the joined-up script letterforms (script.ts),
-   Swell and Flourishes (swash.ts). The Lowercase height scale, down to a copperplate's x-height, and moving older
-   designs onto it are in params.test.ts. */
+   and Swell. The Lowercase height scale, down to a copperplate's x-height, and moving older designs onto it are in
+   params.test.ts. */
 
 /** A light, slanted script of high contrast and a small x-height, as a copperplate is written. */
 const copperplate: Params = { ...DEFAULTS, scriptForm: 'script', weight: 0.36, contrast: 1, slant: 1, xHeight: 0.1 };
@@ -62,31 +61,5 @@ describe('swell', () => {
       assert.ok(sw < at * 0.97, `${ch}: ${sw} vs ${at}`);
     }
     assert.equal(buildFont({ ...DEFAULTS, swell: 1 }).glyph('n')!.d, buildFont(DEFAULTS).glyph('n')!.d);
-  });
-});
-
-describe('flourishes', () => {
-  it('write swashes on S t z r l d of a script, reaching past the letter without widening it', () => {
-    const plain = buildFont(copperplate), swash = buildFont({ ...copperplate, flourish: 'swash' });
-    for (const ch of 'Stzrld') {
-      const a = plain.glyph(ch)!, b = swash.glyph(ch)!;
-      assert.notEqual(a.d, b.d, ch);
-      if (ch !== 'S') assert.equal(b.adv, a.adv, ch);
-      const reach = Math.max(...xsOf(b.d)) - Math.min(...xsOf(b.d));
-      assert.ok(reach > b.adv * 1.3, `${ch} reaches ${reach} over ${b.adv}`);
-    }
-    // letters without a swash, and print letters, stay as they are
-    assert.equal(swash.glyph('n')!.d, plain.glyph('n')!.d);
-    assert.equal(buildFont({ ...DEFAULTS, flourish: 'swash' }).glyph('t')!.d, buildFont(DEFAULTS).glyph('t')!.d);
-  });
-
-  it('can be picked for one letter alone', () => {
-    const f = buildFont({ ...copperplate, glyphs: { d: { flourish: 'swash' } } }), plain = buildFont(copperplate), all = buildFont({ ...copperplate, flourish: 'swash' });
-    assert.equal(f.glyph('d')!.d, all.glyph('d')!.d);
-    assert.equal(f.glyph('t')!.d, plain.glyph('t')!.d);
-  });
-
-  it('has swash forms of S t z r l d alone', () => {
-    assert.deepEqual(glyphIds().filter(k => k.endsWith('.sw')).map(k => k[0]).sort(), [...'Sdlrtz']);
   });
 });

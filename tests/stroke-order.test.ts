@@ -28,8 +28,7 @@ const DESIGNS: [string, Partial<Params>][] = [
   ['rForm=loop', { rForm: 'loop' }], ['yForm=cup', { yForm: 'cup' }], ['diagonals=upright', { diagonals: 'upright' }], ['diagonals=arch', { diagonals: 'arch' }],
   ['bends=round', { bends: 'round' }], ['bowlJoin=square', { bowlJoin: 'square' }], ['bowlJoin=square,weight=1,width=0', { bowlJoin: 'square', weight: 1, width: 0 }],
   ['bowlJoin=square,fill=wire', { bowlJoin: 'square', fill: 'wire' }],
-  ['cursive=0.3', { cursive: 0.3 }], ['cursive=1', { cursive: 1 }], ['scriptForm=script', { scriptForm: 'script' }],
-  ['flourish=swash', { scriptForm: 'script', flourish: 'swash' }]
+  ['cursive=0.3', { cursive: 0.3 }], ['cursive=1', { cursive: 1 }], ['scriptForm=script', { scriptForm: 'script' }]
 ];
 
 /** Each design's glyphs' strokes as `id:part` in order, by `<design> <character>`: every glyph of the defaults, and

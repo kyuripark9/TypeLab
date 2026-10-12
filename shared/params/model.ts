@@ -3,7 +3,7 @@
    entry there (the compiler asks for it). */
 import type { Drawn } from '../engine/outline';
 import type { FreeAt, GlyphParams } from './spec';
-import type { AForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, Flourish, GForm, IForm, KForm, Mirror, QForm, RForm,
+import type { AForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, GForm, IForm, KForm, Mirror, QForm, RForm,
   ScriptForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from './options';
 
 export interface Params {
@@ -79,7 +79,6 @@ export interface Params {
   /** the tail of the Q (see Q_FORMS) */ qForm: QForm;
   /** the leg of the R (see R_FORMS) */ rForm: RForm;
   /** print or joined-up script letters (see SCRIPT_FORMS) */ scriptForm: ScriptForm;
-  /** script letters plain or flourished (see FLOURISHES) */ flourish: Flourish;
   /** how gradually the pointed pen of the script letters presses into a downstroke and lets up: 0 at once,
       higher swelling from a point and easing off before the turn (see swell in stroke.ts) */ swell: number;
   /** length of tails and hooks (Q y j g t f, the comma, cursive exits): 0.5 is the usual length */ tail: number;

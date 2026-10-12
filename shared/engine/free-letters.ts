@@ -11,7 +11,7 @@ import { FORM_LETTERS, descK, rigSkeleton, skinMeasures, skinMove, skinRig, type
 import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
-import { SERIF_SB, buildFont, type Effective, type Font, type Glyph, glyphDefOf, hasGlyph, type Metrics, metrics, resolve, scriptForms, scriptId, swashId, termSpec } from './font';
+import { SERIF_SB, buildFont, type Effective, type Font, type Glyph, glyphDefOf, hasGlyph, type Metrics, metrics, resolve, scriptForms, scriptId, termSpec } from './font';
 import { blankParts, placeGlyph, wobbler, type Unplaced } from './glyph';
 
 /* ---- free fonts' letters (see shared/free-fonts.ts), moved by the settings as far as they're moved from the
@@ -113,8 +113,6 @@ export function formChanged(ch: string, a: Effective, b: Effective): boolean {
   // (Letterforms and the Letter a left on auto keep the font's own forms, which its letters are drawn in, whatever
   // Cursive asks: it gives the font's letters the engine's flicks instead, see restyleCursive in restyle.ts)
   if (fontScript(a, b) !== scriptForms(b)) return hasGlyph(scriptId(ch));
-  // (Flourishes on a script font: only the letters that have a swash, S t l d r z)
-  if (scriptForms(b) && a.flourish !== b.flourish) return hasGlyph(swashId(ch));
   return (ch === 'a' && a.story !== 'auto' && a.singleStory !== b.singleStory)
     || (Object.keys(FORM_LETTERS) as (keyof typeof FORM_LETTERS)[]).some(k => FORM_LETTERS[k].includes(ch) && a[k] !== b[k]);
 }

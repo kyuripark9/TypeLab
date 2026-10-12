@@ -1,5 +1,5 @@
 /* What the live preview sets (the typed text, or the default sentence), the characters on screen that are
-   rebuilt first, and the ink boxes that keep swashes and long tails from being cut off. */
+   rebuilt first, and the ink boxes that keep long tails and loops from being cut off. */
 import { useMemo } from 'react';
 import { TEXTS } from '../../shared/content';
 import type { Font, Glyph, Line } from '../../shared/engine';
@@ -18,7 +18,7 @@ export function useVisibleChars() {
   }, [text, inspect]);
 }
 
-/** The box a glyph's ink fills, in font units (y up), which a swash or a long tail takes well past its advance. */
+/** The box a glyph's ink fills, in font units (y up), which a long tail or loop takes well past its advance. */
 const inks = new WeakMap<Glyph, { x0: number; x1: number; y0: number; y1: number }>();
 export function ink(g: Glyph) {
   let b = inks.get(g);
