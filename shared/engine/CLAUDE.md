@@ -68,8 +68,8 @@ file.
 | `joins.ts` | Inside corners where strokes cross, filled with fillets (`joinCorners`, `joinR`); how Joins and Counters split the inside corners by how wide they are, Joins the crotches and Counters the square ones (`innerShare`, `crotchShare`, `innerFor`, `crotchFor`), turns' insides too (`markTurns`) |
 | `stencil.ts` | Stencil gaps at joins and turns, the crossbar Gap, bars run Through |
 | `serif-sides.ts` | Which way each stem's serifs reach (Sides, inside serifs), and cupped feet |
-| `effects.ts`, `boolean.ts` | The slice and the fills (wire, pixels, dots, lines, inline, outline, shadow); unions and cuts of outlines (`shape`, `combine`), and a letter's overlapping contours made one with its curves kept (`unite`) |
-| `outline.ts` | Drawn letters (`Node`, `Drawn`), curve fitting (`fitOutline`), `cleanDrawn`; imports only types, as shared/params reads it |
+| `effects.ts`, `boolean.ts` | The slice and the fills (wire, pixels, dots, lines, inline, outline, shadow); unions and cuts of outlines (`shape`, `combine`), and a letter's overlapping contours made one with its curves kept (`unite`), or one outline's ink cut out of another's the same way (`cutOut`, the pen's Cut out and Break apart; the two share `inkOf`, and `unite`'s results are the free fonts', so check `npm run golden` after touching it) |
+| `outline.ts` | Drawn letters (`Node`, `Drawn`), curve fitting (`fitOutline`), `cleanDrawn`; live corners: a corner point's radius `r` and kind (`corner`: round, cut or scoop), drawn by `drawnCmds` (which draws a contour with none exactly as before) with the point left where the corner is (`cornerTurn`, `cornerRoom`); imports only types, as shared/params reads it |
 | `grid.ts` | Construction grids and their groups, Grid A to T (`glyphGrid`, `gridGroups`, `gridOf`) |
 | `free.ts` | The free-font registry and its packed format |
 | `free-letters.ts` | A design's letters drawn from its free font: `freeLetters`, `freeGlyph`, `restyled`, the twin |
@@ -220,6 +220,7 @@ tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, wh
 | twin | The engine's own letter at the settings a free font reads as, for forms the font hasn't got. (The pen's mirror partner in PenCanvas is also called twin; unrelated) |
 | skeleton (scan) | A scanned letter's middle lines as a graph: a node with one edge is a free end, three or more a join |
 | drawn | A letter drawn in Points (`params.outlines`), or a free font's as placed (`Glyph.drawn`); the settings don't shape it |
+| live corner | A drawn point with a radius (`Node.r`, and `Node.corner` unless a round): it stays at the corner and `drawnCmds` rounds, cuts or scoops the outline there, at most half of each side |
 | construction grid | A letter's level, upright and diagonal lines and its circles; groups Grid A to T, named set × kind (capitals A–D, lowercase E–H, figures I–L, punctuation M–P, symbols Q–T) |
 
 ## Invariants

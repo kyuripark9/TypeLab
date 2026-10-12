@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
 import { buildFont } from '../shared/engine';
-import { combine, shape, unite } from '../shared/engine/boolean';
+import { combine, cutOut, shape, unite } from '../shared/engine/boolean';
 import type { Node } from '../shared/engine/outline';
 import { toPolys } from '../shared/engine/geom';
 import { signedArea } from '../shared/engine/geom';
@@ -110,6 +110,28 @@ describe('fills: fill, module', () => {
     // pieces apart are handed back as they are
     const apart = [rect(0, 0, 100, 100), rect(200, 0, 300, 100)];
     assert.equal(unite(apart), apart);
+  });
+
+  it('cuts one outline out of another, keeping the curves and the winding', () => {
+    const rect = (x0: number, y0: number, x1: number, y1: number): Node[] => [{ x: x0, y: y0 }, { x: x0, y: y1 }, { x: x1, y: y1 }, { x: x1, y: y0 }];
+    const area = (c: Node[]) => c.reduce((a, p, i) => { const q = c[(i + 1) % c.length]; return a + p.x * q.y - q.x * p.y; }, 0) / 2;
+    // a bar across a stem cuts it in two, clockwise as the stem was
+    const two = cutOut([rect(0, 0, 100, 700)], [rect(-50, 300, 200, 400)]);
+    assert.equal(two.length, 2);
+    assert.ok(two.every(c => area(c) < 0));
+    assert.ok(Math.abs(two.reduce((a, c) => a + area(c), 0) + 100 * 600) < 1e-6);
+    // a cutter inside the ink leaves a hole running the other way; one clear of it hands the outline back as it is
+    const holed = cutOut([rect(0, 0, 100, 700)], [rect(30, 300, 60, 400)]);
+    assert.equal(holed.length, 2);
+    assert.ok(Math.sign(area(holed[0])) === -Math.sign(area(holed[1])));
+    const stem = [rect(0, 0, 100, 700)];
+    assert.equal(cutOut(stem, [rect(200, 0, 300, 100)]), stem);
+    assert.equal(cutOut(stem, []), stem);
+    // a round cutter's curve is the cut's edge
+    const k = 0.5523, disc: Node[] = [{ x: 150, y: 350, ix: 150, iy: 350 - 100 * k, ox: 150, oy: 350 + 100 * k }, { x: 50, y: 450, ix: 50 + 100 * k, iy: 450, ox: 50 - 100 * k, oy: 450 }, { x: -50, y: 350, ix: -50, iy: 450 - 100 * k, ox: -50, oy: 250 + 100 * k }, { x: 50, y: 250, ix: 50 - 100 * k, iy: 250, ox: 50 + 100 * k, oy: 250 }];
+    const bitten = cutOut(stem, [disc]);
+    assert.equal(bitten.length, 2);
+    assert.ok(bitten.every(c => c.some(n => n.ix !== undefined || n.ox !== undefined)));
   });
 
   it('joins and cuts outlines with the nonzero rule', () => {

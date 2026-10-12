@@ -1,7 +1,12 @@
 /* Editing a drawn letter's outline (see shared/engine/outline): the pure operations behind the pen
    tools. Each takes contours and returns new ones, leaving the old untouched for undo. Positions are
-   font units, y up, rounded to whole units. */
-import { ALL_CHARS, CIRCLE_K, fitOutline, hasIn, hasOut, segment, signedArea, type Drawn, type Glyph, type Node } from '../../shared/engine';
+   font units, y up, rounded to whole units. Besides points: corners rounded where they are (live
+   corners), told apart as pointing out of the ink or into it, and overlapping shapes merged, cut out of
+   each other, or broken apart with a gap where one runs over another. */
+import {
+  ALL_CHARS, CIRCLE_K, combine, cornerRoom, cornerTurn, cutOut, drawnCmds, fitOutline, hasIn, hasOut, segment, shape as inkShape, signedArea, unite,
+  type Cmd, type CornerKind, type Drawn, type Glyph, type Node
+} from '../../shared/engine';
 
 type P = { x: number; y: number };
 /** An anchor point by contour and index. */
@@ -167,6 +172,7 @@ export function reverseContour(cs: Node[][], c: number): Node[][] {
     if (hasOut(n)) { m.ix = n.ox; m.iy = n.oy; }
     if (hasIn(n)) { m.ox = n.ix; m.oy = n.iy; }
     if (n.s) m.s = 1;
+    if (n.r) { m.r = n.r; if (n.corner) m.corner = n.corner; }
     return m;
   });
   return out;
@@ -203,8 +209,10 @@ export function pointOn(cs: Node[][], c: number, i: number, t: number): P {
   return { x: R(q.x), y: R(q.y) };
 }
 
-export type Shape = 'rect' | 'round' | 'ellipse' | 'triangle' | 'polygon' | 'star';
-export const SHAPES: Shape[] = ['rect', 'round', 'ellipse', 'triangle', 'polygon', 'star'];
+export type Shape = 'stroke' | 'roundstroke' | 'rect' | 'round' | 'ellipse' | 'triangle' | 'polygon' | 'star';
+export const SHAPES: Shape[] = ['stroke', 'roundstroke', 'rect', 'round', 'ellipse', 'triangle', 'polygon', 'star'];
+/** The shapes drawn along a line from where the drag starts to where it ends, rather than in a box. */
+export const isStroke = (kind: Shape) => kind === 'stroke' || kind === 'roundstroke';
 
 /** Corners of a regular shape around the unit circle, one at the top, anticlockwise: `n` of them, or
     with `inner` a star of n points whose inner corners sit at that share of the radius. */
@@ -264,6 +272,268 @@ export function shapeContour(kind: Shape, x0: number, y0: number, x1: number, y1
     return m;
   });
   return ccw ? con : reverseContour([con], 0)[0];
+}
+
+/** A straight stroke `w` thick from a to b, its middle line running from one to the other: four corners, or with
+    `round` ends four corners rounded half its thickness, so each end is a half circle (live corners, which can be
+    made otherwise later). It runs anticlockwise, or clockwise with `ccw` false. */
+export function strokeContour(a: P, b: P, w: number, round: boolean, ccw = true): Node[] {
+  const l = Math.hypot(b.x - a.x, b.y - a.y) || 1, nx = -(b.y - a.y) / l * w / 2, ny = (b.x - a.x) / l * w / 2;
+  const con: Node[] = [{ x: R(a.x - nx), y: R(a.y - ny) }, { x: R(b.x - nx), y: R(b.y - ny) }, { x: R(b.x + nx), y: R(b.y + ny) }, { x: R(a.x + nx), y: R(a.y + ny) }];
+  if (round) for (const n of con) n.r = R(w / 2);
+  return ccw ? con : reverseContour([con], 0)[0];
+}
+
+/** How thick the letter's strokes are: the middle run of ink across it, along level lines at a few heights. */
+export function strokeWidth(cs: Node[][], fallback: number): number {
+  const ink = inkOf(cs), ys = cs.flatMap(c => c.map(n => n.y)), xs = cs.flatMap(c => c.map(n => n.x));
+  if (!ys.length) return fallback;
+  const y0 = Math.min(...ys), y1 = Math.max(...ys), x0 = Math.min(...xs) - 2, x1 = Math.max(...xs) + 2, runs: number[] = [];
+  for (const f of [0.3, 0.42, 0.58, 0.7]) {
+    const y = y0 + (y1 - y0) * f;
+    let from: number | null = null;
+    for (let x = x0; x <= x1; x += 1) {
+      const on = ink(x, y);
+      if (on && from === null) from = x;
+      else if (!on && from !== null) { if (x - from > 3) runs.push(x - from); from = null; }
+    }
+  }
+  if (!runs.length) return fallback;
+  runs.sort((a, b) => a - b);
+  return R(runs[Math.floor(runs.length / 2)]);
+}
+
+/* ---- Live corners: a corner point keeps its place and carries a radius (outline.ts draws it rounded) */
+
+/** Contours as their outline's polygons, curves sampled and corners drawn as they are. */
+function polysOf(cs: Node[][], sharp = false): P[][] {
+  const out: P[][] = [];
+  let cur: P[] = [], at: P = { x: 0, y: 0 };
+  for (const c of drawnCmds(cs, sharp) as Cmd[]) {
+    if (c[0] === 'M') { if (cur.length > 2) out.push(cur); cur = [at = { x: c[1], y: c[2] }]; }
+    else if (c[0] === 'L') cur.push(at = { x: c[1], y: c[2] });
+    else if (c[0] === 'C') { const B = [at, { x: c[1], y: c[2] }, { x: c[3], y: c[4] }, { x: c[5], y: c[6] }]; for (let k = 1; k <= 16; k++) cur.push(bez(B, k / 16)); at = B[3]; }
+  }
+  if (cur.length > 2) out.push(cur);
+  return out;
+}
+/** The ink of contours, as the font fills them (nonzero): whether a point is in it. With `sharp`, corners are taken
+    as their points are, before any radius rounds them. */
+export function inkOf(cs: Node[][], sharp = false): (x: number, y: number) => boolean {
+  const s = inkShape(polysOf(cs, sharp));
+  return (x, y) => s.has(x, y);
+}
+
+/** The least turn a point needs for the corner tools to take it as a corner (a gentle kink isn't one). */
+const CORNER_TURN = 0.17;
+/** A corner of the outline the corner tools reach: an outside one points out of the ink (a stroke's end, a letter's
+    outer corner), an inside one into it (where strokes meet, a counter's corner). `most` is the most radius it has
+    room for, `turn` how far it turns. */
+export interface CornerAt { ref: Ref; inside: boolean; most: number; turn: number }
+
+/** The corners of `cs` (of `refs` alone, when given), each told outside or inside by the ink within its turn. A corner
+    with ink on both sides, buried in another shape, is left out: rounding it would show nothing. */
+export function cornersAt(cs: Node[][], refs?: Ref[]): CornerAt[] {
+  const ink = inkOf(cs, true), out: CornerAt[] = [];
+  const take = refs ?? cs.flatMap((con, c) => con.map((_, i) => ({ c, i })));
+  for (const ref of take) {
+    const con = cs[ref.c];
+    if (!con || con.length < 3 || !con[ref.i] || con[ref.i].s) continue;
+    const t = cornerTurn(con, ref.i);
+    if (t.turn < CORNER_TURN) continue;
+    // a little way into the turn (between the two sides) and out of it
+    const n = con[ref.i], wx = t.dout.x - t.din.x, wy = t.dout.y - t.din.y, wl = Math.hypot(wx, wy) || 1, e = 1.5;
+    const into = ink(n.x + wx / wl * e, n.y + wy / wl * e), out_ = ink(n.x - wx / wl * e, n.y - wy / wl * e);
+    if (into === out_) continue;
+    out.push({ ref, inside: !into, most: cornerRoom(con, ref.i).most, turn: t.turn });
+  }
+  return out;
+}
+
+/** Give corners a radius (0 takes it off), and with `kind` draw them as that (a round, a cut or a scoop). */
+export function setCorners(cs: Node[][], refs: Ref[], r: number | null, kind?: CornerKind): Node[][] {
+  const out = copy(cs);
+  for (const { c, i } of refs) {
+    const n = out[c]?.[i];
+    if (!n) continue;
+    if (r !== null) { if (r > 0) n.r = R(r); else { delete n.r; delete n.corner; } }
+    if (kind && n.r) { if (kind === 'round') delete n.corner; else n.corner = kind; }
+  }
+  return out;
+}
+
+/** Where a corner's handle sits, as the pen shows it: from the corner point into its turn, by `at` units
+    (and how far it is per unit of radius, so a drag along it sets the radius). */
+export function cornerHandle(cs: Node[][], { c, i }: Ref): { ux: number; uy: number; perR: number; at: number } | null {
+  const con = cs[c], n = con?.[i];
+  if (!n || con.length < 3) return null;
+  const t = cornerTurn(con, i), room = cornerRoom(con, i);
+  if (t.turn < CORNER_TURN) return null;
+  const wx = t.dout.x - t.din.x, wy = t.dout.y - t.din.y, wl = Math.hypot(wx, wy) || 1, th = Math.min(t.turn, 2.6);
+  // the middle of a round is tan(turn / 4) of its setback from the corner point
+  const perR = Math.max(0.2, Math.tan(th / 2) * Math.tan(th / 4));
+  return { ux: wx / wl, uy: wy / wl, perR, at: room.setback(n.r ?? 0) * Math.tan(th / 4) };
+}
+
+/* ---- Overlapping shapes: merged, cut out, broken apart */
+
+/** The contours as shapes: each contour filled the letter's way with the holes inside it (the contours running
+    the other way whose ink it holds), in the order of the shapes' outer contours. */
+export function shapesOf(cs: Node[][]): number[][] {
+  const areas = cs.map(contourArea), big = areas.reduce((m, a, c) => (Math.abs(a) > Math.abs(areas[m] ?? 0) ? c : m), 0), way = Math.sign(areas[big] || 1);
+  const outer = cs.map((_, c) => Math.sign(areas[c]) === way || areas[c] === 0);
+  const inks = cs.map((con, c) => (outer[c] ? inkOf([con]) : null));
+  const groups = new Map<number, number[]>();
+  cs.forEach((_, c) => { if (outer[c]) groups.set(c, [c]); });
+  cs.forEach((con, c) => {
+    if (outer[c] || !con.length) return;
+    // the smallest outer contour round its first point
+    let home = -1;
+    for (const [o] of groups) if (inks[o]!(con[0].x, con[0].y) && (home < 0 || Math.abs(areas[o]) < Math.abs(areas[home]))) home = o;
+    if (home >= 0) groups.get(home)!.push(c); else groups.set(c, [c]);
+  });
+  return [...groups.keys()].sort((a, b) => a - b).map(k => groups.get(k)!);
+}
+
+/** A contour's box: [x0, y0, x1, y1], its anchor points and handles. */
+const boxOf = (cs: Node[][]) => {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const con of cs) for (const n of con) for (const [x, y] of [[n.x, n.y], [n.ix, n.iy], [n.ox, n.oy]]) {
+    if (x === undefined || y === undefined) continue;
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+  }
+  return [x0, y0, x1, y1];
+};
+const boxesMeet = (a: number[], b: number[], d = 0) => a[0] <= b[2] + d && b[0] <= a[2] + d && a[1] <= b[3] + d && b[1] <= a[3] + d;
+
+/** Whether two shapes overlap: made one, their outline would change (shapes apart, or one in another's counter,
+    come back from unite as they were). */
+function meets(a: Node[][], b: Node[][]): boolean {
+  if (!boxesMeet(boxOf(a), boxOf(b))) return false;
+  const both = [...a, ...b];
+  return unite(both) !== both;
+}
+/** Whether any two shapes overlap. */
+export function overlapping(cs: Node[][]): boolean {
+  const groups = shapesOf(cs).map(g => g.map(c => cs[c]));
+  for (let a = 0; a < groups.length; a++) for (let b = a + 1; b < groups.length; b++) if (meets(groups[a], groups[b])) return true;
+  return false;
+}
+/** The little shapes that only join others: a fillet filling the inside corner where two strokes meet, much smaller
+    than the letter's biggest shape and running into two or more. Broken apart, they would bridge the gap. */
+function fillers(shapes: Node[][][]): boolean[] {
+  const areas = shapes.map(g => Math.abs(g.reduce((a, c) => a + contourArea(c), 0))), big = Math.max(...areas);
+  return shapes.map((g, k) => areas[k] < big * 0.05 && shapes.filter((h, j) => j !== k && meets(g, h)).length >= 2);
+}
+
+/** Corner radii and kinds carried over to an outline made from `from`, onto its points that sit where one of
+    `from`'s did. */
+function keepCorners(from: Node[][], to: Node[][]): Node[][] {
+  const had = new Map<string, Node>();
+  for (const con of from) for (const n of con) if (n.r) had.set(`${n.x},${n.y}`, n);
+  if (!had.size) return to;
+  return to.map(con => con.map(n => {
+    const o = had.get(`${n.x},${n.y}`);
+    return o && !n.s ? { ...n, r: o.r, ...(o.corner ? { corner: o.corner } : {}) } : n;
+  }));
+}
+/** Whole font units, as the pen keeps points (the cuts fall between them). */
+const whole = (cs: Node[][]): Node[][] => cs.map(con => con.map(n => {
+  const m: Node = { ...n, x: R(n.x), y: R(n.y) };
+  if (hasIn(n)) { m.ix = R(n.ix!); m.iy = R(n.iy!); }
+  if (hasOut(n)) { m.ox = R(n.ox!); m.oy = R(n.oy!); }
+  return m;
+})).filter(con => con.length > 1);
+
+/** The shapes holding any of the contours `picked`, as contour numbers. */
+const shapesHolding = (groups: number[][], picked: number[]) => groups.filter(g => g.some(c => picked.includes(c)));
+
+/** Overlapping shapes made one outline: the picked contours' shapes, or every shape. Comes back with the contours
+    the merged outline is (to pick them), or null when nothing overlapped. */
+export function mergeShapes(cs: Node[][], picked: number[] = []): { cs: Node[][]; made: number[] } | null {
+  const use = picked.length ? shapesHolding(shapesOf(cs), picked).flat() : cs.map((_, c) => c);
+  const these = use.map(c => cs[c]), merged = unite(these);
+  if (merged === these) return null;
+  const rest = cs.filter((_, c) => !use.includes(c)), made = whole(keepCorners(these, merged));
+  return { cs: [...rest, ...made], made: made.map((_, k) => rest.length + k) };
+}
+
+/** The picked contours' shapes cut out of the shapes they overlap, and gone themselves. Null when they overlap nothing. */
+export function cutShapes(cs: Node[][], picked: number[]): Node[][] | null {
+  const groups = shapesOf(cs), front = shapesHolding(groups, picked);
+  if (!front.length) return null;
+  const cutter = front.flat().map(c => cs[c]);
+  let changed = false;
+  const out: Node[][] = [];
+  for (const g of groups) {
+    if (front.includes(g)) continue;
+    const these = g.map(c => cs[c]), cut = cutOut(these, cutter);
+    if (cut !== these) changed = true;
+    out.push(...(cut === these ? these : whole(keepCorners(these, cut))));
+  }
+  return changed ? out : null;
+}
+
+/** The outline of contours grown by `d` all round (a gap's width), fitted with points and handles: each edge
+    moved out whole, the edges joined round where they part. */
+export function grown(cs: Node[][], d: number): Node[][] {
+  const ink = inkOf(cs), polys: P[][] = [];
+  for (let p of polysOf(cs)) {
+    // the ink to the left of the way the polygon runs, so the right is out of it
+    const k = p.findIndex((q, i) => Math.hypot(p[(i + 1) % p.length].x - q.x, p[(i + 1) % p.length].y - q.y) > 0.5);
+    if (k < 0) continue;
+    const a = p[k], b = p[(k + 1) % p.length], l = Math.hypot(b.x - a.x, b.y - a.y);
+    if (!ink((a.x + b.x) / 2 - (b.y - a.y) / l * 0.5, (a.y + b.y) / 2 + (b.x - a.x) / l * 0.5)) p = p.slice().reverse();
+    if (d <= 0) { polys.push(p); continue; }
+    const n = p.length, o: P[] = [];
+    const right = (a: P, b: P) => { const l = Math.hypot(b.x - a.x, b.y - a.y) || 1; return { x: (b.y - a.y) / l, y: -(b.x - a.x) / l }; };
+    for (let i = 0; i < n; i++) {
+      const a = p[(i + n - 1) % n], b = p[i], c = p[(i + 1) % n], n1 = right(a, b), n2 = right(b, c);
+      o.push({ x: b.x + n1.x * d, y: b.y + n1.y * d });
+      const turn = Math.atan2(n1.x * n2.y - n1.y * n2.x, n1.x * n2.x + n1.y * n2.y);
+      // (turning left, the grown edges part: round the corner)
+      if (turn > 0.15) for (let j = 1, m = Math.ceil(turn / 0.2); j < m; j++) {
+        const t = Math.atan2(n1.y, n1.x) + turn * j / m;
+        o.push({ x: b.x + Math.cos(t) * d, y: b.y + Math.sin(t) * d });
+      }
+      o.push({ x: b.x + n2.x * d, y: b.y + n2.y * d });
+    }
+    polys.push(o);
+  }
+  // where the grown edges cross (inside a turn tighter than d) they loop back the wrong way: those loops are left out
+  const s = inkShape(polys, true), clean = combine([s], (x, y) => s.has(x, y));
+  const cmds: Cmd[] = clean.flatMap(q => [['M', q[0].x, q[0].y] as Cmd, ...q.slice(1).map(v => ['L', v.x, v.y] as Cmd), ['Z'] as Cmd]);
+  return fitOutline(cmds, 0.6);
+}
+
+/** Break overlaps: where a shape runs over another, the one under it is cut `gap` short of it on every side, so the
+    two no longer touch. The picked contours' shapes are in front of the rest; with none picked, each shape is in front
+    of the ones drawn before it. Fillets joining strokes go (fillers). Comes back with the contours the front shapes are
+    now (to pick them), or null when nothing overlapped. */
+export function breakShapes(cs: Node[][], picked: number[], gap: number): { cs: Node[][]; front: number[] } | null {
+  const all = shapesOf(cs);
+  if (all.length < 2) return null;
+  const fill = fillers(all.map(g => g.map(c => cs[c]))), groups = all.filter((_, k) => !fill[k]);
+  let shapes = groups.map(g => g.map(c => cs[c])), changed = false;
+  const cutBy = (front: Node[][], under: Node[][][]) => {
+    const cutter = grown(front, gap), fb = boxOf(front);
+    return under.map(u => {
+      if (!u.length || !boxesMeet(fb, boxOf(u), gap)) return u;
+      const cut = cutOut(u, cutter);
+      if (cut === u) return u;
+      changed = true;
+      return whole(keepCorners(u, cut));
+    });
+  };
+  if (picked.length) {
+    const front = shapesHolding(groups, picked), fs = front.map(g => g.map(c => cs[c])).flat();
+    const under = cutBy(fs, groups.filter(g => !front.includes(g)).map(g => g.map(c => cs[c])));
+    if (!changed) return null;
+    const rest = under.flat();
+    return { cs: [...rest, ...fs], front: fs.map((_, k) => rest.length + k) };
+  }
+  for (let k = 1; k < shapes.length; k++) shapes = [...cutBy(shapes[k], shapes.slice(0, k)), ...shapes.slice(k)];
+  return changed ? { cs: shapes.flat(), front: [] } : null;
 }
 
 /* ---- Sync all: a point moved in one letter moves in the others that have it too */
@@ -376,7 +646,7 @@ export function mirrorPairs(cs: Node[][], axis: Axis, line: number, tol = 4): Ma
   return out;
 }
 
-const sameNode = (a: Node, b: Node) => a.x === b.x && a.y === b.y && a.ix === b.ix && a.iy === b.iy && a.ox === b.ox && a.oy === b.oy && !a.s === !b.s;
+const sameNode = (a: Node, b: Node) => a.x === b.x && a.y === b.y && a.ix === b.ix && a.iy === b.iy && a.ox === b.ox && a.oy === b.oy && !a.s === !b.s && a.r === b.r && a.corner === b.corner;
 const prevRef = (cs: Node[][], { c, i }: Ref): Ref => ({ c, i: (i + cs[c].length - 1) % cs[c].length });
 
 /** Make an edit symmetric: `edited` is `base` with some points or handles changed, and each changed point
@@ -444,6 +714,9 @@ export function mirrorEdit(base: Node[][], edited: Node[][], axes: Axis[], held?
         else { q.ox = hx; q.oy = hy; if (hx === undefined) { delete q.ox; delete q.oy; } }
       }
       if (e.s) q.s = 1; else delete q.s;
+      // a corner's radius and kind, as they are
+      if (e.r) q.r = e.r; else delete q.r;
+      if (e.corner) q.corner = e.corner; else delete q.corner;
     }
   });
   return out;

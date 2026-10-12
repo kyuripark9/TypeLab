@@ -1,7 +1,9 @@
 /* Letters drawn by hand with the pen: outlines of anchor points and bézier handles, like a vector
    editor's paths, instead of strokes the parameters build. A generated letter becomes one by fitting
    curves to its outline (fitOutline), which the engine draws as dense polylines. A free font's letters
-   reshaped by skin.ts and restyle.ts are fitted the same way, a little closer (within 1.2 units).
+   reshaped by skin.ts and restyle.ts are fitted the same way, a little closer (within 1.2 units). A corner
+   point can carry a radius, a live corner: the point stays where the corner is, and the outline is drawn
+   rounded, cut or scooped there (drawnCmds), so the radius can be changed again at any time.
 
    shared/params (clean.ts, model.ts) reads cleanDrawn and Drawn from here, so this file imports only
    types: a value import reaching font.ts, which reads the params, would load the two in a cycle. */
@@ -13,8 +15,12 @@ type P = { x: number; y: number };
  * One anchor point of a drawn outline, in font units, y up. `ix,iy` is the handle pulling the curve
  * that comes in, `ox,oy` the one pulling the curve that goes out (absolute positions; a side
  * without one is straight at this end). `s` marks a smooth point: its two handles stay in line.
+ * `r` is a corner point's radius, drawn as `corner` says (a round when it is left out).
  */
-export interface Node { x: number; y: number; ix?: number; iy?: number; ox?: number; oy?: number; s?: 1 }
+export interface Node { x: number; y: number; ix?: number; iy?: number; ox?: number; oy?: number; s?: 1; r?: number; corner?: CornerKind }
+/** How a corner with a radius is drawn: a round, a straight cut across it, or a round scooped out of it. */
+export type CornerKind = 'round' | 'cut' | 'scoop';
+export const CORNER_KINDS: CornerKind[] = ['round', 'cut', 'scoop'];
 /** A drawn letter: its advance width and closed contours. Nonzero fill, so a contour running the
     other way round from the one around it cuts a hole. */
 export interface Drawn { adv: number; contours: Node[][] }
@@ -28,11 +34,13 @@ export function segment(a: Node, b: Node): [P, P, P, P] | null {
   return [a, hasOut(a) ? { x: a.ox!, y: a.oy! } : a, hasIn(b) ? { x: b.ix!, y: b.iy! } : b, b];
 }
 
-/** Path commands for drawn contours; every contour is closed. */
-export function drawnCmds(contours: Node[][]): Cmd[] {
+/** Path commands for drawn contours; every contour is closed. Corners with a radius are drawn rounded
+    (cornered), unless `sharp`, which draws every point where it is. */
+export function drawnCmds(contours: Node[][], sharp = false): Cmd[] {
   const out: Cmd[] = [];
   for (const c of contours) {
     if (!c.length) continue;
+    if (!sharp && c.length > 2 && c.some(n => n.r)) { out.push(...cornered(c)); continue; }
     out.push(['M', c[0].x, c[0].y]);
     if (c.length > 1) {
       for (let i = 0; i < c.length; i++) {
@@ -260,6 +268,115 @@ export function fitOutline(cmds: Cmd[], tol = 1.6): Node[][] {
   return polygons(cmds).map(p => fitContour(p, tol)).filter(c => c.length > 1);
 }
 
+/* ---------------------------------------------------------------- live corners */
+
+/** The curve from anchor a to b as four points, and whether it is a line (its handles a third of the way
+    along it, so it runs evenly and a length along it is a share of it). */
+const curveOf = (a: Node, b: Node): { B: P[]; line: boolean } => {
+  const s = segment(a, b), d = sub(b, a);
+  return s ? { B: s, line: false } : { B: [a, add(a, mul(d, 1 / 3)), add(a, mul(d, 2 / 3)), b], line: true };
+};
+/** The way a curve runs at t (not normalized); at an end whose handle sits on it, toward the other handle. */
+function heading(B: P[], t: number): P {
+  const d = bez1(B, t);
+  if (len(d) > 1e-9) return d;
+  return t < 0.5 ? sub(B[2], B[0]) : sub(B[3], B[1]);
+}
+/** Lengths along a curve, sampled: L[k] is the length up to k / N of the way. */
+const N_LEN = 24;
+function lengths(B: P[]): number[] {
+  const L = [0];
+  let q = B[0];
+  for (let k = 1; k <= N_LEN; k++) { const p = bez(B, k / N_LEN); L.push(L[k - 1] + dist(p, q)); q = p; }
+  return L;
+}
+/** Where along a curve (t) its length from the start reaches `l`. */
+function atLength(L: number[], l: number): number {
+  if (l <= 0) return 0;
+  if (l >= L[N_LEN]) return 1;
+  let k = 1;
+  while (L[k] < l) k++;
+  return (k - 1 + (l - L[k - 1]) / (L[k] - L[k - 1] || 1)) / N_LEN;
+}
+/** The part of a curve from t0 to t1 along it, the very same curve (de Casteljau). */
+function part(B: P[], t0: number, t1: number): P[] {
+  const split = (Q: P[], t: number): [P[], P[]] => {
+    const l = (a: P, b: P) => add(a, mul(sub(b, a), t));
+    const a = l(Q[0], Q[1]), b = l(Q[1], Q[2]), c = l(Q[2], Q[3]), ab = l(a, b), bc = l(b, c), m = l(ab, bc);
+    return [[Q[0], a, ab, m], [m, bc, c, Q[3]]];
+  };
+  let Q = t1 < 1 ? split(B, t1)[0] : B;
+  if (t0 > 0) Q = split(Q, t0 / t1)[1];
+  return Q;
+}
+
+/** A corner of a drawn contour: how far it turns (radians, 0 running straight on to π doubling back), which
+    way (1 left, -1 right), and the ways the outline comes in and goes out there, as unit vectors. */
+export interface CornerTurn { turn: number; side: number; din: P; dout: P }
+export function cornerTurn(c: Node[], i: number): CornerTurn {
+  const n = c.length, a = curveOf(c[(i + n - 1) % n], c[i]), b = curveOf(c[i], c[(i + 1) % n]);
+  const din = unit(heading(a.B, 1)), dout = unit(heading(b.B, 0)), x = din.x * dout.y - din.y * dout.x;
+  return { turn: Math.abs(Math.atan2(x, dot(din, dout))), side: x >= 0 ? 1 : -1, din, dout };
+}
+/** The least turn a point needs to be drawn as a corner. */
+export const CORNER_MIN = 0.03;
+/** A corner's setback for radius r: how far back along each side its round starts, at most half of each side
+    (so two corners on one side meet in the middle at most), and the most radius it can take. */
+export function cornerRoom(c: Node[], i: number): { turn: number; most: number; setback: (r: number) => number } {
+  const n = c.length, { turn } = cornerTurn(c, i), th = Math.min(turn, 2.6);
+  const la = lengths(curveOf(c[(i + n - 1) % n], c[i]).B)[N_LEN], lb = lengths(curveOf(c[i], c[(i + 1) % n]).B)[N_LEN];
+  const room = Math.min(la, lb) / 2, k = Math.tan(th / 2);
+  return { turn, most: k > 1e-6 ? room / k : 0, setback: r => Math.min(r * k, room) };
+}
+
+/** A contour with corner radii as path commands: each side cut back where the corners at its ends start,
+    and each corner drawn across from one cut to the other, a round as a circle's arc (one cubic), a cut
+    as a line, a scoop as an arc round the corner point itself. */
+function cornered(c: Node[]): Cmd[] {
+  const n = c.length, curves = c.map((a, i) => curveOf(a, c[(i + 1) % n])), lens = curves.map(q => lengths(q.B));
+  // for each point: where its corner starts on the side coming in (t on the curve before) and ends on the side going out
+  const cut = c.map((p, i) => {
+    if (!p.r || p.r <= 0 || p.s) return null;
+    const room = cornerRoom(c, i);
+    if (room.turn < CORNER_MIN) return null;
+    const d = room.setback(p.r);
+    if (d < 0.05) return null;
+    const Lin = lens[(i + n - 1) % n], Lout = lens[i];
+    return { tin: atLength(Lin, Lin[N_LEN] - d), tout: atLength(Lout, d) };
+  });
+  const pieces = curves.map((q, i) => ({ B: part(q.B, cut[i]?.tout ?? 0, cut[(i + 1) % n]?.tin ?? 1), line: q.line }));
+  const out: Cmd[] = [['M', pieces[0].B[0].x, pieces[0].B[0].y]];
+  const to = (B: P[], line: boolean) => out.push(line ? ['L', B[3].x, B[3].y] : ['C', B[1].x, B[1].y, B[2].x, B[2].y, B[3].x, B[3].y]);
+  for (let i = 0; i < n; i++) {
+    // (a side two corners take the whole of is no side)
+    if (dist(pieces[i].B[0], pieces[i].B[3]) > 1e-9 || !pieces[i].line) to(pieces[i].B, pieces[i].line);
+    const j = (i + 1) % n;
+    if (!cut[j]) continue;
+    const A = pieces[i].B[3], Bp = pieces[j].B[0], C = c[j], kind = C.corner ?? 'round';
+    if (kind === 'cut') { out.push(['L', Bp.x, Bp.y]); continue; }
+    if (kind === 'scoop') {
+      // round the corner point: each end's handle square to the line from the corner point to it, toward the other end
+      const ra = dist(A, C), rb = dist(Bp, C), sweep = Math.acos(Math.max(-1, Math.min(1, dot(sub(A, C), sub(Bp, C)) / ((ra * rb) || 1))));
+      const h = (4 / 3) * Math.tan(sweep / 4) * (ra + rb) / 2;
+      const perp = (p: P, toward: P): P => { const u = unit(sub(p, C)), v = { x: -u.y, y: u.x }; return dot(v, sub(toward, p)) >= 0 ? v : mul(v, -1); };
+      out.push(['C', ...xy(add(A, mul(perp(A, Bp), h))), ...xy(add(Bp, mul(perp(Bp, A), h))), Bp.x, Bp.y]);
+      continue;
+    }
+    // a round: a circle's arc meeting both sides along them (the way each runs where it is cut, read off the whole side, as
+    // what is left of one may be nothing), its radius from the chord and the turn between them
+    const ta = unit(heading(curves[i].B, cut[j]!.tin)), tb = unit(heading(curves[j].B, cut[j]!.tout));
+    const turn = Math.abs(Math.atan2(ta.x * tb.y - ta.y * tb.x, dot(ta, tb)));
+    const R = turn > 1e-6 ? dist(A, Bp) / (2 * Math.sin(turn / 2)) : 0, h = (4 / 3) * Math.tan(turn / 4) * R;
+    out.push(['C', ...xy(add(A, mul(ta, h))), ...xy(sub(Bp, mul(tb, h))), Bp.x, Bp.y]);
+  }
+  // (the last side ends where the contour started: the close says so)
+  const last = out[out.length - 1];
+  if (last[0] === 'L' && Math.abs(last[1] - pieces[0].B[0].x) < 1e-9 && Math.abs(last[2] - pieces[0].B[0].y) < 1e-9) out.pop();
+  out.push(['Z']);
+  return out;
+}
+const xy = (p: P): [number, number] => [p.x, p.y];
+
 /* ---------------------------------------------------------------- stored form */
 
 const LIMIT = 5000;
@@ -267,7 +384,7 @@ const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && Math.
 
 /** A drawn letter as stored, or undefined when it isn't a valid one: what a stored drawing passes as it loads. With a
     width or an anchor point past ±LIMIT units, more than 200 contours or more than 4000 points in all, the drawing is
-    left out (a handle past ±LIMIT is dropped alone). */
+    left out (a handle past ±LIMIT is dropped alone, and so is a corner radius, or a corner kind without a radius). */
 export function cleanDrawn(v: unknown): Drawn | undefined {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
   const d = v as Record<string, unknown>;
@@ -287,6 +404,8 @@ export function cleanDrawn(v: unknown): Drawn | undefined {
       if (num(q.ix) && num(q.iy)) { m.ix = q.ix as number; m.iy = q.iy as number; }
       if (num(q.ox) && num(q.oy)) { m.ox = q.ox as number; m.oy = q.oy as number; }
       if (q.s === 1) m.s = 1;
+      if (num(q.r) && (q.r as number) > 0) m.r = q.r as number;
+      if (m.r && (q.corner === 'cut' || q.corner === 'scoop')) m.corner = q.corner;
       nodes.push(m);
     }
     contours.push(nodes);

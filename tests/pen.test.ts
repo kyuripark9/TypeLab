@@ -1,11 +1,17 @@
 /* The pen (client/lib/pen.ts, and tracing in shared/engine/outline.ts): letters traced into points, drawn
-   letters in params.outlines, editing points, Sync all, Mirror and Snapping. */
+   letters in params.outlines, editing points, Sync all, Mirror and Snapping; live corners (a radius kept on a
+   corner point, drawn round, cut or scooped), corners told outside or inside, overlapping shapes merged, cut out
+   and broken apart, and strokes drawn with the Shape tool. */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { ALL_CHARS, buildFont, drawnCmds, fitOutline, type Cmd, type Node } from '../shared/engine';
 import { STYLES } from '../shared/content';
 import { DEFAULTS, isValidParams, sanitizeParams, type Params } from '../shared/params';
-import { contourArea, deleteAnchors, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment, peersOf, reshapeSegment, reverseContour, samePoints, setHandle, snapIn, snapScene, splitSegment, tangentsFrom, toggleSmooth, traceOf, SNAP_KINDS } from '../client/lib/pen';
+import {
+  breakShapes, contourArea, cornersAt, cutShapes, deleteAnchors, inkOf, mergeShapes, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment,
+  overlapping, peersOf, reshapeSegment, reverseContour, samePoints, setCorners, setHandle, shapesOf, snapIn, snapScene, splitSegment, strokeContour, strokeWidth,
+  tangentsFrom, toggleSmooth, traceOf, SNAP_KINDS
+} from '../client/lib/pen';
 
 type P = { x: number; y: number };
 
@@ -281,3 +287,140 @@ describe('Snapping with the pen', () => {
     assert.equal(snapIn(s, { x: 203, y: 550 }, 6).at, undefined);
   });
 });
+
+describe('Live corners with the pen', () => {
+  // a 400 × 300 box, anticlockwise
+  const box = (r?: number, corner?: Node['corner']): Node[] => [{ x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 300 }, { x: 0, y: 300 }].map(n => (r ? { ...n, r, ...(corner ? { corner } : {}) } : n));
+  const far = (p: P, c: P) => Math.hypot(p.x - c.x, p.y - c.y);
+
+  it('draws a corner with a radius as a round, the point staying where the corner is', () => {
+    const cmds = drawnCmds([box(50)]), pts = polys(cmds)[0];
+    // every point of the outline lies inside the box and outside the corners' rounds' reach, and the rounds are circles
+    for (const p of pts) assert.ok(p.x >= -1e-6 && p.x <= 400 + 1e-6 && p.y >= -1e-6 && p.y <= 300 + 1e-6);
+    for (const p of pts.filter(q => q.x < 50 && q.y < 50)) assert.ok(Math.abs(far(p, { x: 50, y: 50 }) - 50) < 0.2, `${p.x},${p.y} on the round`);
+    assert.ok(!pts.some(p => far(p, { x: 0, y: 0 }) < 20), 'the corner itself is cut away');
+    // a radius with no room for it rounds as far as half of the shorter side
+    const most = drawnCmds([box(1000)]).map(c => c.map(v => (typeof v === 'number' ? Math.round(v * 100) / 100 : v)));
+    assert.deepEqual(most.slice(0, 2), [['M', 150, 0], ['L', 250, 0]]);
+    // a cut is a straight line across; a scoop is a round about the corner point
+    const cut = drawnCmds([box(50, 'cut')]).map(c => c.map(v => (typeof v === 'number' ? Math.round(v * 100) / 100 : v)));
+    assert.ok(cut.some(c => c[0] === 'L' && c[1] === 0 && c[2] === 50) && !cut.some(c => c[0] === 'C'));
+    for (const p of polys(drawnCmds([box(50, 'scoop')]))[0].filter(q => q.x < 50 && q.y < 50)) assert.ok(Math.abs(far(p, { x: 0, y: 0 }) - 50) < 0.3);
+    // and no radius draws the box exactly as before
+    assert.deepEqual(drawnCmds([box()]), [['M', 0, 0], ['L', 400, 0], ['L', 400, 300], ['L', 0, 300], ['Z']]);
+    assert.deepEqual(drawnCmds([box(50)], true), drawnCmds([box()]));
+  });
+
+  it('keeps a corner\'s radius and kind in a saved drawing, and drops a kind without a radius', () => {
+    const q: Params = { ...DEFAULTS, outlines: { B: { adv: 500, contours: [[{ x: 0, y: 0, r: 40, corner: 'scoop' }, { x: 400, y: 0, r: 12 }, { x: 400, y: 300 }]] } } };
+    assert.ok(isValidParams(q));
+    const loose = sanitizeParams({ ...q, outlines: { B: { adv: 500, contours: [[{ x: 0, y: 0, corner: 'cut' }, { x: 4, y: 0, r: -3 }, { x: 4, y: 4, r: 9, corner: 'wavy' }]] } } });
+    assert.deepEqual(loose.outlines.B.contours[0], [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4, r: 9 }]);
+    assert.notEqual(buildFont(q).glyph('B')!.d, buildFont({ ...q, outlines: { B: { adv: 500, contours: [[{ x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 300 }]] } } }).glyph('B')!.d);
+  });
+
+  it('tells corners pointing out of the ink from the ones pointing in, and rounds each kind on its own', () => {
+    // an L: five corners out, one in (where the foot meets the stem)
+    const L: Node[][] = [[{ x: 0, y: 0 }, { x: 300, y: 0 }, { x: 300, y: 100 }, { x: 100, y: 100 }, { x: 100, y: 500 }, { x: 0, y: 500 }]];
+    const at = cornersAt(L);
+    assert.equal(at.length, 6);
+    assert.deepEqual(at.filter(k => k.inside).map(k => k.ref.i), [3]);
+    // the same, wound the other way round, and with a radius on it already
+    assert.deepEqual(cornersAt(reverseContour(L, 0)).filter(k => k.inside).map(k => L[0].length - 1 - k.ref.i), [3]);
+    assert.deepEqual(cornersAt(setCorners(L, [{ c: 0, i: 3 }, { c: 0, i: 1 }], 40)).filter(k => k.inside).map(k => k.ref.i), [3]);
+    const out = setCorners(L, at.filter(k => !k.inside).map(k => k.ref), 30, 'cut');
+    assert.equal(out[0][3].r, undefined);
+    assert.equal(out[0][0].r, 30);
+    assert.equal(out[0][0].corner, 'cut');
+    assert.equal(setCorners(out, [{ c: 0, i: 0 }], 0)[0][0].corner, undefined);
+    assert.ok(inkOf(out)(50, 250) && !inkOf(out)(200, 300));
+  });
+
+  it('keeps radii through a reverse and a mirror', () => {
+    const c = setCorners([[{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 100 }, { x: 0, y: 100 }]], [{ c: 0, i: 0 }], 20, 'scoop');
+    const rev = reverseContour(c, 0)[0];
+    assert.ok(rev.some(n => n.r === 20 && n.corner === 'scoop'));
+    const both = mirrorEdit(c, setCorners(c, [{ c: 0, i: 1 }], 35), ['x']);
+    assert.equal(both[0][0].r, 35, 'the partner across the middle takes the radius');
+  });
+});
+
+describe('Overlapping shapes with the pen', () => {
+  const rect = (x0: number, y0: number, x1: number, y1: number): Node[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+  const stem = rect(0, 0, 100, 700), bar = rect(-100, 300, 300, 400);
+
+  it('groups contours into shapes with their holes, and finds where shapes overlap', () => {
+    const o = [rect(0, 0, 400, 400), reverseContour([rect(100, 100, 300, 300)], 0)[0], rect(600, 0, 700, 100)];
+    assert.deepEqual(shapesOf(o), [[0, 1], [2]]);
+    assert.ok(!overlapping(o));
+    assert.ok(overlapping([stem, bar]));
+    assert.ok(!overlapping([stem, rect(200, 0, 300, 100)]));
+  });
+
+  it('merges overlapping shapes into one outline, keeping the corners\' radii', () => {
+    const m = mergeShapes([setCorners([stem], [{ c: 0, i: 0 }], 30)[0], bar])!;
+    assert.equal(m.cs.length, 1);
+    assert.equal(m.cs[0].length, 12);
+    assert.ok(m.cs[0].some(n => n.x === 0 && n.y === 0 && n.r === 30));
+    assert.equal(mergeShapes([stem, rect(200, 0, 300, 100)]), null);
+    // the corners where they meet are inside corners now
+    assert.equal(cornersAt(m.cs).filter(k => k.inside).length, 4);
+  });
+
+  it('cuts a picked shape out of the shapes it overlaps, curves kept', () => {
+    const k = 0.5523;
+    const disc: Node[] = [{ x: 100, y: 350, ix: 100, iy: 350 - 50 * k, ox: 100, oy: 350 + 50 * k, s: 1 }, { x: 50, y: 400, ix: 50 + 50 * k, iy: 400, ox: 50 - 50 * k, oy: 400, s: 1 }, { x: 0, y: 350, ix: 0, iy: 400 - 50 * k, ox: 0, oy: 300 + 50 * k, s: 1 }, { x: 50, y: 300, ix: 50 - 50 * k, iy: 300, ox: 50 + 50 * k, oy: 300, s: 1 }];
+    const out = cutShapes([stem, disc], [1])!;
+    const ink = inkOf(out);
+    assert.ok(!ink(50, 350) && ink(50, 200) && ink(50, 500), 'a round hole through the stem');
+    assert.equal(out.length, 2);
+    assert.ok(out[1].some(n => hasCurve(n)), 'the hole keeps the disc\'s curves');
+    assert.equal(cutShapes([stem, rect(200, 0, 300, 100)], [1]), null);
+  });
+
+  it('breaks shapes apart, the one in front cutting a gap in the one under it', () => {
+    const b = breakShapes([stem, bar], [1], 20)!;
+    const ink = inkOf(b.cs);
+    assert.deepEqual(b.front, [2], 'the bar, last');
+    assert.ok(ink(50, 350), 'the bar runs across');
+    assert.ok(!ink(50, 290) && !ink(50, 410), 'a gap above and below it');
+    assert.ok(ink(50, 270) && ink(50, 430) && ink(50, 100) && ink(50, 650), 'the stem either side of the gap');
+    // with nothing picked, the shape drawn last is in front
+    const all = breakShapes([stem, bar], [], 20)!;
+    assert.ok(inkOf(all.cs)(50, 350) && !inkOf(all.cs)(50, 290));
+    // drawn the other way round, the stem is in front and the bar is broken
+    const rev = inkOf(breakShapes([bar, stem], [], 20)!.cs);
+    assert.ok(rev(50, 350) && !rev(110, 350) && !rev(-10, 350) && rev(-50, 350) && rev(200, 350));
+    assert.equal(breakShapes([stem, rect(200, 0, 300, 100)], [], 20), null);
+  });
+
+  it('drops the little fillets joining strokes when it breaks them, and breaks engine letters cleanly', () => {
+    const fillet: Node[] = [{ x: 100, y: 400 }, { x: 120, y: 400 }, { x: 100, y: 420 }];
+    const b = breakShapes([stem, bar, fillet], [], 20)!;
+    assert.equal(b.cs.length, 3, 'the stem in two and the bar, the fillet gone');
+    const t = traceOf(buildFont(STYLES[0].params).glyph('t')!);
+    const broken = breakShapes(t.contours, [], 16);
+    assert.ok(broken && broken.cs.length > t.contours.length - 1);
+  });
+});
+
+describe('Strokes with the pen', () => {
+  it('draws a stroke as thick as asked along the line dragged, round ends half circles', () => {
+    const s = strokeContour({ x: 0, y: 0 }, { x: 400, y: 0 }, 100, false);
+    assert.deepEqual(s, [{ x: 0, y: -50 }, { x: 400, y: -50 }, { x: 400, y: 50 }, { x: 0, y: 50 }]);
+    assert.ok(contourArea(s) > 0);
+    assert.ok(contourArea(strokeContour({ x: 0, y: 0 }, { x: 400, y: 0 }, 100, false, false)) < 0);
+    const pill = polys(drawnCmds([strokeContour({ x: 0, y: 0 }, { x: 400, y: 0 }, 100, true)]))[0];
+    for (const p of pill.filter(q => q.x > 350)) assert.ok(Math.abs(Math.hypot(p.x - 350, p.y) - 50) < 0.3);
+    assert.ok(Math.abs(Math.max(...pill.map(p => p.x)) - 400) < 0.5);
+  });
+
+  it('reads how thick a letter\'s strokes are', () => {
+    const n = traceOf(buildFont(STYLES[0].params).glyph('n')!);
+    const f = buildFont(STYLES[0].params);
+    assert.ok(Math.abs(strokeWidth(n.contours, 0) - f.m.s) < f.m.s * 0.2, `${strokeWidth(n.contours, 0)} against ${f.m.s}`);
+    assert.equal(strokeWidth([], 77), 77);
+  });
+});
+
+const hasCurve = (n: Node) => n.ix !== undefined || n.ox !== undefined;

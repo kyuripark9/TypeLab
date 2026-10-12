@@ -592,11 +592,30 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-shape-menu span { flex: 1; }
 .pen-shape-menu kbd { font: 500 11px var(--ui); color: var(--ink-3); }
 .pen-tools .pen-shape-menu button.on { background: var(--accent-soft); color: var(--accent-ink); }
+/* the Corners and Overlaps menus: a head, the corner shapes as a segmented track, sliders with their numbers, actions */
+.pen-shape-menu.pen-tool-menu { width: 268px; gap: 4px; padding: 6px; }
+.pen-menu-head { padding: 4px 6px 2px; font-size: 11.5px; font-weight: 500; color: var(--ink-3); }
+.pen-menu-note { padding: 0 6px 2px; font-size: 11.5px; line-height: 1.35; color: var(--ink-3); }
+.pen-tools .pen-tool-menu > button:disabled { color: var(--ink-3); opacity: .5; cursor: default; background: none; }
+.pen-tool-menu svg { flex: none; }
+.pen-corner-kinds { margin: 2px 2px 4px; }
+.pen-tools .pen-corner-kinds button { flex: 1; width: auto; height: 26px; display: inline-flex; justify-content: center; gap: 6px; padding: 0 6px; font-size: 12.5px; color: var(--ink-2); }
+.pen-tools .pen-corner-kinds button.on { background: var(--surface); color: var(--ink); box-shadow: var(--raise); }
+.pen-tools .pen-corner-kinds svg { stroke-width: 1.3; }
+.pen-range { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 8px; padding: 2px 6px; font-size: 12.5px; color: var(--ink-2); }
+.pen-range .pen-num-field span { display: none; }
+.pen-range .pen-num-field input { width: 50px; height: 26px; }
 .pen-bg { fill: transparent; }
 .pen-ink { fill: rgba(46, 59, 62, .16); pointer-events: none; }
 .pen-fill { fill: transparent; }
 .pen-fill.hit { cursor: move; }
 .pen-line { fill: none; stroke: var(--ink); pointer-events: none; }
+.pen-sharp { fill: none; stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; opacity: .6; pointer-events: none; }
+.pen-corner { cursor: move; }
+.pen-corner .grab { fill: transparent; }
+.pen-corner circle:not(.grab) { fill: var(--surface); stroke: var(--accent); stroke-width: 1.3; }
+.pen-corner circle.dot { fill: var(--accent); stroke: none; }
+.pen-corner:hover circle:not(.grab):not(.dot) { stroke-width: 2; }
 .pen-seg { fill: none; stroke: transparent; pointer-events: stroke; }
 .pen-band { fill: none; stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
 .pen-edge { stroke: var(--line-2); stroke-width: 1; cursor: col-resize; }
@@ -641,12 +660,18 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-aim circle.mark { fill: none; stroke: #fff; stroke-width: 1.4; }
 .pen-aim-shape * { fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.5; stroke-linejoin: round; }
 .pen-size { font: 500 10.5px var(--ui); fill: var(--accent-ink); stroke: var(--surface); stroke-width: 3px; paint-order: stroke; font-variant-numeric: tabular-nums; pointer-events: none; }
-.pen-bar { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 7px 16px; border-top: 1px solid var(--line); font-size: 12.5px; }
+.pen-bar { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 7px 16px; border-top: 1px solid var(--line); font-size: 12.5px; container-type: inline-size; }
+/* a narrow bar keeps its icons and drops the words beside them (their tooltips still say them) */
+@container (max-width: 900px) { .pen-mirror > span { display: none; } .pen-bar .pen-num-field input { width: 50px; } }
+@container (max-width: 760px) { .pen-point-kind span { display: none; } .pen-point-kind button { padding: 0 6px; } }
 .inspector.customizing .pen-bar { background: var(--custom-wash); }
 .pen-reach { position: absolute; bottom: 12px; left: 50%; translate: -50% 0; max-width: calc(100% - 120px); padding: 6px 12px; border: 1px solid var(--line);
   border-radius: var(--radius); background: var(--surface); color: var(--ink-3); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .pen-reach b { color: var(--accent-ink); font-weight: 500; letter-spacing: .06em; }
 .pen-count { flex: none; }
+.pen-icon-btn { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-2); }
+.pen-icon-btn:hover { background: var(--hover); color: var(--ink); }
+.pen-icon-btn svg { fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
 .pen-bar-label { color: var(--ink); font-weight: 500; white-space: nowrap; }
 .pen-bar-label.muted { color: var(--ink-3); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
 /* the how-to line wraps onto a second line rather than losing its last tips */

@@ -1,8 +1,11 @@
 /* The pen: the inspected letter as anchor points and bézier handles, edited like paths in a vector
    editor. The Direct selection tool moves points, handles and curves; the Pen adds points (or
    draws new contours) and removes them; Convert switches points between corner and smooth; the
-   Shape tool adds a rectangle, rounded rectangle, ellipse, triangle, hexagon or star, picked from its
-   menu, as a new contour. Hovering shows what a click will do: a
+   Shape tool adds a stroke as thick as the letter's own (square or round ended), a rectangle, rounded
+   rectangle, ellipse, triangle, hexagon or star, picked from its menu, as a new contour. Corners rounds,
+   cuts or scoops corners (the picked ones, or every one, told apart as outside and inside), and a picked
+   corner shows a handle to drag its radius by; Overlaps merges overlapping shapes, cuts the picked ones
+   out of the rest, or breaks them apart with a gap. Hovering shows what a click will do: a
    point the pen would add on the outline (where it goes), the start it would close on. A letter
    not yet drawn shows its outline traced into points (traceOf in lib/pen: a free font's own
    points, else fitOutline), and becomes a drawing, which the settings no longer shape, with the
@@ -11,14 +14,15 @@
    partner across the letter's middle. Snapping catches a dragged point or handle on points, guide
    lines, centers, midpoints, the outline, crossings and tangents (each can be turned off); ⌘ held
    while dragging places it freely. */
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { cmdsToD, drawnCmds, hasIn, hasOut, segment, type Drawn, type Font, type Glyph, type GlyphGrid, type Node } from '../../shared/engine';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { CORNER_KINDS, cmdsToD, cornerRoom, drawnCmds, hasIn, hasOut, segment, type CornerKind, type Drawn, type Font, type Glyph, type GlyphGrid, type Node } from '../../shared/engine';
 import { guideLines, stackLabels } from '../lib/guide-labels';
 import { isTyping, n1, useDismiss, useSize } from '../lib/hooks';
 import {
-  anchorsIn, constrain, contourArea, deleteAnchors, handlePeers, keyRef, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment,
-  peersOf, pointOn, pullHandles, refKey, reshapeSegment, reverseContour, setHandle, setSmooth, shapeAspect, shapeContour, snapIn, snapScene, splitSegment,
-  toggleSmooth, traceOf, POINT_LINE, SHAPES, SNAP_KINDS, type Axis, type Peer, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
+  anchorsIn, breakShapes, constrain, contourArea, cornerHandle, cornersAt, cutShapes, deleteAnchors, handlePeers, isStroke, keyRef, mergeShapes, mirrorEdit,
+  mirrorLine, mirrorPairs, moveAnchors, movePeers, nearestSegment, overlapping, peersOf, pointOn, pullHandles, refKey, reshapeSegment, reverseContour,
+  setCorners, setHandle, setSmooth, shapeAspect, shapeContour, snapIn, snapScene, splitSegment, strokeContour, strokeWidth, toggleSmooth, traceOf,
+  POINT_LINE, SHAPES, SNAP_KINDS, type Axis, type CornerAt, type Peer, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
 } from '../lib/pen';
 import { PREFS, prefOneOf, writePref } from '../lib/prefs';
 import { actions, useEditor } from '../state/editor';
@@ -37,6 +41,8 @@ const TOOLS: { id: Tool; label: string; key: string; icon: ReactNode }[] = [
 ];
 /** The shapes the Shape tool draws: name, shortcut, the hint's words, and a 20 × 20 icon. */
 const SHAPE_INFO: Record<Shape, { label: string; key?: string; hint: string; icon: ReactNode }> = {
+  stroke: { label: 'Stroke', key: 'K', hint: 'a stroke as thick as the letter’s · Shift keeps it to 45°', icon: <path d="M4 14.5l9.5-9.5 2.5 2.5-9.5 9.5z" /> },
+  roundstroke: { label: 'Round stroke', hint: 'a round-ended stroke · Shift keeps it to 45°', icon: <path d="M5.2 15.8a1.77 1.77 0 010-2.5l8.1-8.1a1.77 1.77 0 012.5 2.5l-8.1 8.1a1.77 1.77 0 01-2.5 0z" /> },
   rect: { label: 'Rectangle', key: 'M', hint: 'a rectangle · Shift for a square', icon: <rect x="3.5" y="5" width="13" height="10" rx="0.5" /> },
   round: { label: 'Rounded rectangle', hint: 'a rounded rectangle · Shift for a square', icon: <rect x="3.5" y="5" width="13" height="10" rx="3" /> },
   ellipse: { label: 'Ellipse', key: 'L', hint: 'an ellipse · Shift for a circle', icon: <ellipse cx="10" cy="10" rx="7" ry="5.5" /> },
@@ -82,6 +88,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   // the size of the shape being drawn, shown by the pointer
   const [sizeTag, setSizeTag] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [space, setSpace] = useState(false);
+  // a stroke's thickness, typed in; left alone it is the letter's own
+  const [strokeW, setStrokeW] = useState<number | null>(null);
   const gesture = useRef<Gesture | null>(null);
   // ⌘ (or Ctrl) held during a drag: no snapping
   const free = useRef(false);
@@ -134,6 +142,15 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   };
   /** Commit an edit of the outline as it is now, mirrored. */
   const edit = (f: (cs: Node[][]) => Node[][]) => { const base = current().contours; commit(sym(base, f(base))); };
+  /** The contours holding any picked point. */
+  const pickedContours = () => [...new Set(selRefs.map(r => r.c))];
+  /** How thick the letter's strokes are, as the settings (or its font) draw it: a new stroke's thickness. (Read off the
+      letter as it was, not the drawing, where shapes added or merged and corners rounded would read as strokes.) */
+  const stemMemo = useRef<{ g: Glyph; w: number } | null>(null);
+  const stem = () => {
+    if (stemMemo.current?.g !== g) stemMemo.current = { g, w: strokeWidth(traced.contours, Math.round(font.m.s)) };
+    return stemMemo.current.w;
+  };
   /** Stop drawing; a contour left with a single point goes. */
   const finish = () => {
     const c = drawingOk;
@@ -348,6 +365,26 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
       const big = base.reduce<Node[] | null>((m, k) => !m || Math.abs(contourArea(k)) > Math.abs(contourArea(m)) ? k : m, null);
       const ccw = !big || contourArea(big) >= 0;
       let size = { w: 0, h: 0 };
+      if (isStroke(kind)) {
+        // a stroke runs from where the drag starts to the pointer (from its middle with ⌥), as thick as the letter's
+        const w = strokeW ?? stem();
+        start(e, {
+          move: (pp, ev) => {
+            const b = snapTo(ev.shiftKey ? constrain(a, pp) : pp), o = ev.altKey ? { x: 2 * a.x - b.x, y: 2 * a.y - b.y } : a;
+            size = { w: Math.round(Math.hypot(b.x - o.x, b.y - o.y)), h: w };
+            write([...base, strokeContour(o, b, w, kind === 'roundstroke', ccw)]);
+            setSizeTag({ x: b.x, y: b.y, ...size });
+          },
+          up: moved => {
+            setSizeTag(null);
+            if (!moved) return;
+            if (size.w < 2) { actions.setParam('outlines', was); return; }
+            actions.commit();
+            setSel(current().contours[base.length].map((_, i) => refKey({ c: base.length, i })));
+          }
+        });
+        return;
+      }
       start(e, {
         move: (pp, ev) => {
           // Shift: as wide for its height as the shape at its most even, reaching the pointer
@@ -394,6 +431,57 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     });
   };
 
+  /** Drag a picked corner's handle into its turn: the picked corners round (cut or scoop) by as much. */
+  const onCornerHandle = (r: Ref) => (e: ReactPointerEvent) => {
+    if (e.button !== 0 || space) return;
+    const base = current().contours, h = cornerHandle(base, r), n = base[r.c][r.i];
+    if (!h) return;
+    const refs = (selRefs.some(s => refKey(s) === refKey(r)) ? selRefs : [r]).filter(k => cornerHandle(base, k));
+    const most = Math.ceil(Math.max(1, ...refs.map(k => cornerRoom(base[k.c], k.i).most))), r0 = Math.min(n.r ?? 0, most), p0 = toFont(e);
+    start(e, {
+      move: p => {
+        const along = (p.x - p0.x) * h.ux + (p.y - p0.y) * h.uy, v = Math.round(Math.max(0, Math.min(most, r0 + along / h.perR)));
+        write(sym(base, setCorners(base, refs, v)));
+        setSizeTag({ x: n.x, y: n.y, w: v, h: -1 });
+      },
+      up: moved => { setSizeTag(null); if (moved) actions.commit(); }
+    });
+  };
+  /** Corners: the radius of the picked corners (or every corner) pointing out of the ink, or into it, live as a
+      slider moves; inside corners of shapes that overlap are found once they are merged, which the first move
+      does. One undo step per move of a slider. */
+  const cornerTargets = (inside: boolean | null): CornerSet => {
+    let base = current().contours;
+    if (inside && overlapping(base)) base = mergeShapes(base)?.cs ?? base;
+    const at = selRefs.length ? cornersAt(base, selRefs) : cornersAt(base);
+    return { cs: base, at: at.filter(k => inside === null || k.inside === inside) };
+  };
+  const live = useRef<CornerSet | null>(null);
+  const cornerSlide = (inside: boolean, kind: CornerKind) => ({
+    start: () => { live.current = cornerTargets(inside); if (live.current.cs !== current().contours) setSel([]); },
+    set: (v: number) => { const t = live.current ?? cornerTargets(inside); write(setCorners(t.cs, t.at.map(k => k.ref), v, kind)); },
+    end: () => { live.current = null; actions.commit(); }
+  });
+  const cornerKind = (kind: CornerKind) => {
+    const t = cornerTargets(null);
+    commit(setCorners(t.cs, t.at.map(k => k.ref).filter(r => (t.cs[r.c][r.i].r ?? 0) > 0), null, kind));
+  };
+  /** Overlaps: the last break, so moving the gap breaks the shapes again from where they were. */
+  const lastBreak = useRef<{ from: Node[][]; to: Node[][]; picked: number[] } | null>(null);
+  const merge = () => { const m = mergeShapes(current().contours, pickedContours()); if (m) { commit(m.cs); setSel([]); } };
+  const cutOutPicked = () => { const out = cutShapes(current().contours, pickedContours()); if (out) { commit(out); setSel([]); } };
+  const breakApart = (gap: number, again = false) => {
+    const now = current().contours, lb = lastBreak.current;
+    const from = again && lb && lb.to === now ? lb.from : now, picked = again && lb && lb.to === now ? lb.picked : pickedContours();
+    const b = breakShapes(from, picked, gap);
+    if (!b) return false;
+    if (again) write(b.cs); else commit(b.cs);
+    lastBreak.current = { from, to: current().contours, picked };
+    setSel(b.front.flatMap(c => b.cs[c].map((_, i) => refKey({ c, i }))));
+    return true;
+  };
+  const canGapAgain = () => !!lastBreak.current && lastBreak.current.to === current().contours;
+
   /* ---- zoom: ⌘/Ctrl + wheel (or a pinch) about the pointer; the wheel alone pans */
   useEffect(() => {
     const el = svgRef.current;
@@ -419,7 +507,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
      turning to the next letter while points are picked, and Escape lets go of them first. */
   const keys = useRef<(e: KeyboardEvent) => void>(() => {});
   keys.current = (e: KeyboardEvent) => {
-    if (isTyping(e.target)) return;
+    if (isTyping(e.target) || (e.target instanceof HTMLInputElement && e.target.type === 'range')) return;
     const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
     const stop = () => { e.preventDefault(); e.stopImmediatePropagation(); };
     if (e.key === ' ' ) { if (!space) setSpace(true); stop(); return; }
@@ -468,6 +556,10 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const guides = guideLines(m);
   const labelY = stackLabels(guides.map(([id, y]) => [id, y] as const), Y);
   const one = selRefs.length === 1 ? cs[selRefs[0].c][selRefs[0].i] : null;
+  // the picked corners, each with a handle to drag its radius by; and where corners are rounded, the outline as the points draw it
+  const pickedCorners = selRefs.map(r => ({ r, h: cornerHandle(cs, r) })).filter((k): k is { r: Ref; h: NonNullable<ReturnType<typeof cornerHandle>> } => !!k.h);
+  const rounded = cs.some(con => con.some(n => n.r));
+  const cornerR = pickedCorners.length ? Math.max(...pickedCorners.map(k => cs[k.r.c][k.r.i].r ?? 0)) : 0;
   const count = cs.reduce((a, c) => a + c.length, 0);
   const cursor = space ? 'grab' : tool === 'pen' || tool === 'shape' ? 'crosshair' : 'default';
   // what a click would do under the pointer: the pen adds a point on the outline, or closes the
@@ -511,6 +603,9 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
         ))}
         <ShapeTool shape={shape} on={tool === 'shape'} onPick={k => { pickShape(k); finish(); }} />
         <span className="pen-sep" />
+        <CornerMenu cs={cs} picked={selRefs} targets={cornerTargets} slide={cornerSlide} onKind={cornerKind} />
+        <OverlapMenu cs={cs} picked={pickedContours().length} stem={font.m.s} onMerge={merge} onCut={cutOutPicked} onBreak={breakApart} canAgain={canGapAgain} />
+        <span className="pen-sep" />
         <button title="Zoom in (⌘+)" aria-label="Zoom in" onClick={() => zoomBy(1.25)}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 5v10M5 10h10" /></svg></button>
         <button title="Zoom out (⌘−)" aria-label="Zoom out" onClick={() => zoomBy(0.8)}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M5 10h10" /></svg></button>
         <button title="Fit the letter (⌘0)" aria-label="Fit the letter" onClick={() => setView(null)}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 8V4h4M12 4h4v4M16 12v4h-4M8 16H4v-4" /></svg></button>
@@ -541,6 +636,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
                 <path key={c} className={tool === 'select' ? 'pen-fill hit' : 'pen-fill'} d={cmdsToD(drawnCmds([cs[c]]))}
                   onPointerDown={tool === 'select' ? onContour(c) : onBackground} />
               ))}
+              {rounded && <path className="pen-sharp" d={cmdsToD(drawnCmds(cs, true))} />}
               <path className="pen-line" d={d} style={{ strokeWidth: 1.25 / sc }} />
               <path className="pen-seg" d={d} style={{ strokeWidth: (HIT * 2) / sc }} onPointerDown={onSegment} />
             </g>
@@ -571,6 +667,17 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
                 </g>
               );
             }))}
+            {tool === 'select' && pickedCorners.map(({ r, h }) => {
+              const n = cs[r.c][r.i], at = Math.max(h.at, 16 / sc), x = n1(X(n.x + h.ux * at)), y = n1(Y(n.y + h.uy * at));
+              return (
+                <g key={refKey(r)} className="pen-corner" onPointerDown={onCornerHandle(r)}>
+                  <title>Drag into the corner to round it</title>
+                  <circle className="grab" cx={x} cy={y} r={HIT} />
+                  <circle cx={x} cy={y} r={4.5} />
+                  <circle className="dot" cx={x} cy={y} r={1.5} />
+                </g>
+              );
+            })}
             {aim?.kind === 'add' && (
               <g className="pen-ghost" pointerEvents="none">
                 <circle cx={n1(X(aim.at.x))} cy={n1(Y(aim.at.y))} r={4.5} />
@@ -578,7 +685,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
               </g>
             )}
             {aim && aim.kind !== 'add' && ptr && <AimBadge aim={aim} x={X(ptr.x)} y={Y(ptr.y)} />}
-            {sizeTag && <text className="pen-size" x={n1(X(sizeTag.x) + 10)} y={n1(Y(sizeTag.y) + 20)}>{sizeTag.w} × {sizeTag.h}</text>}
+            {sizeTag && <text className="pen-size" x={n1(X(sizeTag.x) + 10)} y={n1(Y(sizeTag.y) + 20)}>{sizeTag.h < 0 ? `Radius ${sizeTag.w}` : `${sizeTag.w} × ${sizeTag.h}`}</text>}
             {box && <rect className="pen-box" x={box.x0} y={box.y0} width={box.x1 - box.x0} height={box.y1 - box.y0} />}
             {caught && <SnapMark hit={caught} x={X(caught.x)} y={Y(caught.y)} />}
           </svg>
@@ -597,29 +704,36 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             <NumField label="X" value={one.x} onSet={v => nudge(selRefs, v - one.x, 0)} />
             <NumField label="Y" value={one.y} onSet={v => nudge(selRefs, 0, v - one.y)} />
             <PointKind smooth={!!one.s} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
+            {pickedCorners.length > 0 && <NumField label="Radius" value={cornerR} onSet={v => edit(o => setCorners(o, pickedCorners.map(k => k.r), Math.max(0, v)))} />}
           </>
         ) : selRefs.length > 1 ? (
           <>
             <span className="pen-bar-label">{selRefs.length} points</span>
             <PointKind smooth={selRefs.every(r => cs[r.c][r.i].s)} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
+            {pickedCorners.length > 0 && <NumField label="Radius" value={cornerR} onSet={v => edit(o => setCorners(o, pickedCorners.map(k => k.r), Math.max(0, v)))} />}
           </>
         ) : (
-          <span className="pen-bar-label muted pen-hint">{hint(tool, drawingOk !== null, shape)}</span>
+          <>
+            <span className="pen-bar-label muted pen-hint">{hint(tool, drawingOk !== null, shape)}</span>
+            {tool === 'shape' && isStroke(shape) && <NumField label="Thickness" value={strokeW ?? stem()} onSet={v => setStrokeW(Math.max(1, v))} />}
+          </>
         )}
         {selRefs.length > 0 && (
           <>
-            <button className="btn ghost small" title="Run the picked contour the other way: inside another it cuts a hole, or fills one"
+            <button className="pen-icon-btn" aria-label="Reverse direction" title="Reverse direction: run the picked contour the other way, so inside another it cuts a hole, or fills one"
               onClick={() => { let out = current().contours; for (const c of new Set(selRefs.map(r => r.c))) out = reverseContour(out, c); commit(out); }}>
-              Reverse direction
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.8 7.5a5.2 5.2 0 019.3-2.7M12.6 2v3h-3M13.2 8.5a5.2 5.2 0 01-9.3 2.7M3.4 14v-3h3" /></svg>
             </button>
-            <button className="btn ghost small" title="Delete the picked points (Delete)" onClick={() => { commit(deleteAnchors(current().contours, selRefs)); setSel([]); }}>Delete</button>
+            <button className="pen-icon-btn" aria-label="Delete" title="Delete the picked points (Delete)" onClick={() => { commit(deleteAnchors(current().contours, selRefs)); setSel([]); }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.3 4.5V3h3.4v1.5M4.5 4.5l.7 9h5.6l.7-9" /></svg>
+            </button>
           </>
         )}
         <span className="grow" />
         <Mirror axes={mirror} onSet={actions.setMirror} />
         <SnapMenu snap={snap} onSet={actions.setSnap} />
         <NumField label="Width" value={doc.adv} onSet={v => commit(current().contours, Math.max(0, v))} />
-        <span className="pen-bar-label muted pen-count" title="Anchor points">{count} pts · {Math.round(sc / fitSc * 100)}%</span>
+        {!selRefs.length && <span className="pen-bar-label muted pen-count" title="Anchor points">{count} pts · {Math.round(sc / fitSc * 100)}%</span>}
       </div>
     </div>
   );
@@ -673,6 +787,156 @@ function ShapeTool({ shape, on, onPick }: { shape: Shape; on: boolean; onPick: (
               </button>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A corner kind's 16 × 16 icon: a round, a straight cut across, a round scooped out. */
+const CORNER_INFO: Record<CornerKind, { label: string; icon: ReactNode }> = {
+  round: { label: 'Round', icon: <path d="M3 13.5V8.5a5 5 0 015-5h5.5" /> },
+  cut: { label: 'Cut', icon: <path d="M3 13.5V8.5l5-5h5.5" /> },
+  scoop: { label: 'Scoop', icon: <path d="M3 13.5V8.5A5 5 0 008 3.5h5.5" /> }
+};
+
+/** The most common of some values (the first of those tied), or `none` when there are none. */
+function most<T>(vs: T[], none: T): T {
+  const n = new Map<T, number>();
+  for (const v of vs) n.set(v, (n.get(v) ?? 0) + 1);
+  let best = none, bn = 0;
+  for (const [v, k] of n) if (k > bn) { best = v; bn = k; }
+  return best;
+}
+
+/** A slider moved live, with its number beside it: `onStart` as a move begins, `onSet` with each value, `onEnd`
+    once it ends (pointer up, a key let go, or the number typed). */
+function LiveRange({ label, title, value, max, onStart, onSet, onEnd }: {
+  label: string; title: string; value: number; max: number; onStart?: () => void; onSet: (v: number) => void; onEnd?: () => void;
+}) {
+  const going = useRef(false);
+  // (while it moves, it shows its own value: what it reaches may be read again only once it stops)
+  const [held, setHeld] = useState<number | null>(null);
+  const begin = () => { if (!going.current) { going.current = true; onStart?.(); } };
+  const end = () => { if (going.current) { going.current = false; setHeld(null); onEnd?.(); } };
+  const v = Math.min(held ?? value, max);
+  return (
+    <div className="pen-range" title={title}>
+      <span>{label}</span>
+      <input type="range" aria-label={label} min={0} max={max} step={1} value={v} style={{ '--v': max ? v / max : 0 } as CSSProperties}
+        onPointerDown={begin} onKeyDown={begin} onChange={e => { begin(); setHeld(Number(e.target.value)); onSet(Number(e.target.value)); }} onPointerUp={end} onKeyUp={end} onBlur={end} />
+      <NumField label={label} value={held ?? value} onSet={x => { begin(); onSet(Math.max(0, x)); end(); }} />
+    </div>
+  );
+}
+
+/** What one of the Corners sliders reaches: how many corners, the radius most of them have, the most any has room for,
+    and whether overlapping shapes merge first; and the corner kind most rounded corners are. */
+interface CornerRead { n: number; r: number; max: number; merges: boolean }
+interface CornerInfo { out: CornerRead; in: CornerRead; kind: CornerKind }
+/** The corners a Corners slider reaches, and the outline they are in (the letter's, or its overlapping shapes merged). */
+interface CornerSet { cs: Node[][]; at: CornerAt[] }
+
+/** Corners: round, cut or scoop the picked corners, or every corner of the letter, by a radius for the ones pointing
+    out of the ink and another for the ones pointing in (where strokes meet). */
+function CornerMenu({ cs, picked, targets, slide, onKind }: {
+  cs: Node[][]; picked: Ref[]; targets: (inside: boolean | null) => CornerSet;
+  slide: (inside: boolean, kind: CornerKind) => { start: () => void; set: (v: number) => void; end: () => void }; onKind: (k: CornerKind) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useDismiss(open, setOpen, wrap, true);
+  const pickKey = picked.map(refKey).join(' ');
+  // what each slider reaches, and the radius most of those corners have now: found again as the outline changes, but
+  // not while a slider moves (the corners it reaches stay the ones it started with), and once more when it stops
+  const sliding = useRef(false), [after, setAfter] = useState(0);
+  const lastInfo = useRef<CornerInfo | null>(null);
+  const info = useMemo((): CornerInfo | null => {
+    if (!open) return null;
+    if (sliding.current && lastInfo.current) return lastInfo.current;
+    const sets = [targets(false), targets(true)];
+    const read = ({ cs: c, at }: CornerSet): CornerRead =>
+      ({ n: at.length, r: most(at.map(k => c[k.ref.c][k.ref.i].r ?? 0), 0), max: Math.max(1, Math.ceil(Math.max(0, ...at.map(k => k.most)))), merges: c !== cs });
+    const kinds = sets.flatMap(t => t.at.map(k => t.cs[k.ref.c][k.ref.i])).filter(n => n.r).map(n => n.corner ?? 'round');
+    return (lastInfo.current = { out: read(sets[0]), in: read(sets[1]), kind: most<CornerKind>(kinds, 'round') });
+  }, [open, cs, pickKey, after]); // (targets reads the picked points and the outline, which pickKey and cs stand for)
+  const [kind, setKind] = useState<CornerKind | null>(null);
+  const k = kind ?? info?.kind ?? 'round';
+  const row = (inside: boolean) => {
+    const r = inside ? info!.in : info!.out, s = slide(inside, k);
+    return (
+      <>
+        <LiveRange label={inside ? 'Inside' : 'Outside'} value={r.r} max={r.max} onSet={s.set}
+          onStart={() => { sliding.current = true; s.start(); }} onEnd={() => { sliding.current = false; s.end(); setAfter(a => a + 1); }}
+          title={inside ? 'Corners pointing into the ink: where strokes meet, and the corners of counters' : 'Corners pointing out of the ink: the ends of strokes, and a letter’s outer corners'} />
+        {inside && r.merges && <small className="pen-menu-note">Overlapping shapes merge first, so the corners where they meet round too</small>}
+      </>
+    );
+  };
+  return (
+    <div className="pen-shape-tool" ref={wrap}>
+      <button className={open ? 'on' : undefined} aria-haspopup="true" aria-expanded={open} title="Corners: round the corners, out and in"
+        onClick={() => { setKind(null); setOpen(o => !o); }}>
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 16.5V10a6 6 0 016-6h6.5" /><path className="fill corner" d="M19 15.5V19h-3.5z" /></svg>
+      </button>
+      {open && info && (
+        <div className="pen-shape-menu pen-tool-menu" role="group" aria-label="Corners">
+          <div className="pen-menu-head">{picked.length ? 'Picked corners' : 'Every corner'}</div>
+          <div className="pen-kind pen-corner-kinds" role="radiogroup" aria-label="Corner shape">
+            {CORNER_KINDS.map(c => (
+              <button key={c} role="radio" aria-checked={c === k} className={c === k ? 'on' : undefined} title={CORNER_INFO[c].label}
+                onClick={() => { setKind(c); onKind(c); }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">{CORNER_INFO[c].icon}</svg>{CORNER_INFO[c].label}
+              </button>
+            ))}
+          </div>
+          {info.out.n > 0 ? row(false) : <small className="pen-menu-note">No outside corners here</small>}
+          {info.in.n > 0 ? row(true) : <small className="pen-menu-note">No inside corners here</small>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Overlaps: shapes that run into each other merged into one outline, the picked ones cut out of the rest, or broken
+    apart, the shapes underneath cut a gap short of the ones in front. */
+function OverlapMenu({ cs, picked, stem, onMerge, onCut, onBreak, canAgain }: {
+  cs: Node[][]; picked: number; stem: number; onMerge: () => void; onCut: () => void; onBreak: (gap: number, again?: boolean) => boolean; canAgain: () => boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useDismiss(open, setOpen, wrap, true);
+  // whether shapes overlap, found again as the outline changes (not while the gap moves: that only breaks them again)
+  const sliding = useRef(false), lastOver = useRef(false), [after, setAfter] = useState(0);
+  const over = useMemo(() => (lastOver.current = !open ? false : sliding.current ? lastOver.current : overlapping(cs)), [open, cs, after]);
+  const [gap, setGap] = useState<number | null>(null);
+  const g = gap ?? Math.max(4, Math.round(stem * 0.25)), max = Math.max(40, Math.round(stem));
+  const acts: { id: string; label: string; title: string; off: boolean; run: () => void; icon: ReactNode }[] = [
+    { id: 'merge', label: 'Merge', title: picked ? 'Join the picked shapes and the ones they overlap into one outline' : 'Join the shapes that overlap into one outline', off: !over, run: onMerge,
+      icon: <path d="M2.5 2.5h7v4h4v7h-7v-4h-4z" /> },
+    { id: 'cut', label: 'Cut out', title: picked ? 'Cut the picked shape out of the shapes it overlaps' : 'Pick a shape to cut it out of the ones under it', off: !over || !picked, run: onCut,
+      icon: <><path d="M2.5 2.5h7v4h-3v3h-4z" /><path d="M6.5 6.5h7v7h-7z" strokeDasharray="1.6 1.6" /></> },
+    { id: 'break', label: 'Break apart', title: picked ? 'Cut a gap in the shapes under the picked one, so they no longer touch' : 'Cut a gap in each shape where one drawn after it runs over it', off: !over, run: () => onBreak(g),
+      icon: <><path d="M6.5 2.5v4.2M6.5 9.3v4.2M9.5 2.5v4.2M9.5 9.3v4.2" /><path d="M2.5 6.5h11v3h-11z" /></> }
+  ];
+  return (
+    <div className="pen-shape-tool" ref={wrap}>
+      <button className={open ? 'on' : undefined} aria-haspopup="true" aria-expanded={open} title="Overlaps: merge, cut out or break apart shapes that overlap"
+        onClick={() => setOpen(o => !o)}>
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="3.5" y="3.5" width="8.5" height="8.5" rx="1" /><rect x="8" y="8" width="8.5" height="8.5" rx="1" /><path className="fill corner" d="M19 15.5V19h-3.5z" /></svg>
+      </button>
+      {open && (
+        <div className="pen-shape-menu pen-tool-menu" role="group" aria-label="Overlaps">
+          <div className="pen-menu-head">{picked ? 'Picked shapes' : 'Overlapping shapes'}</div>
+          {acts.map(a => (
+            <button key={a.id} disabled={a.off} title={a.title} onClick={a.run}>
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">{a.icon}</svg><span>{a.label}</span>
+            </button>
+          ))}
+          <LiveRange label="Gap" value={g} max={max} title="How wide a gap Break apart leaves; moved after a break, it breaks them again"
+            onStart={() => { sliding.current = true; }} onSet={v => { setGap(v); if (canAgain()) onBreak(v, true); }}
+            onEnd={() => { sliding.current = false; if (canAgain()) actions.commit(); setAfter(a => a + 1); }} />
+          {!over && !canAgain() && <small className="pen-menu-note">No shapes overlap here. Draw one over the letter with the Shape tool first.</small>}
         </div>
       )}
     </div>
@@ -765,12 +1029,12 @@ function Handle({ ax, ay, x, y, onDown }: { ax: number; ay: number; x: number; y
 
 function PointKind({ smooth, onSet }: { smooth: boolean; onSet: (smooth: boolean) => void }) {
   return (
-    <div className="pen-kind" role="radiogroup" aria-label="Point type">
-      <button role="radio" aria-checked={!smooth} className={!smooth ? 'on' : undefined} onClick={() => onSet(false)} title="Corner: the handles move on their own">
-        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="3" y="3" width="6" height="6" /></svg>Corner
+    <div className="pen-kind pen-point-kind" role="radiogroup" aria-label="Point type">
+      <button role="radio" aria-checked={!smooth} aria-label="Corner" className={!smooth ? 'on' : undefined} onClick={() => onSet(false)} title="Corner: the handles move on their own">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="3" y="3" width="6" height="6" /></svg><span>Corner</span>
       </button>
-      <button role="radio" aria-checked={smooth} className={smooth ? 'on' : undefined} onClick={() => onSet(true)} title="Smooth: the handles stay in line">
-        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" /></svg>Smooth
+      <button role="radio" aria-checked={smooth} aria-label="Smooth" className={smooth ? 'on' : undefined} onClick={() => onSet(true)} title="Smooth: the handles stay in line">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" /></svg><span>Smooth</span>
       </button>
     </div>
   );

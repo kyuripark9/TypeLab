@@ -6,7 +6,8 @@
    them are split where they cross, and an edge piece is kept when the region asked for lies on one side of
    it and not the other, turned so the region is on its left (anticlockwise outlines, clockwise holes). The
    kept pieces are then chained into contours. `unite` does the same for a letter's own curves without
-   flattening them: a free font drawn in overlapping pieces, made one outline before skin.ts rigs it. */
+   flattening them: a free font drawn in overlapping pieces, made one outline before skin.ts rigs it; and
+   `cutOut` takes one outline's ink out of another's that way (the pen's Cut out and Break). */
 import type { Node } from './outline';
 import type { Pt } from './types';
 
@@ -261,8 +262,20 @@ function partsCross(a: Curve, b: Curve): [number, number][] {
     again). The outline winds as the font's largest contour does: the ink on the right where that runs clockwise
     (TrueType's way). */
 export function unite(cs: Node[][]): Node[][] {
+  return inkOf(cs, []);
+}
+
+/** `cs` with the ink of `cutter` taken out of it, the same way: the curves of both kept as they were drawn where
+    they bound what is left, cut points being corners, winding as `cs`'s largest contour does. A cutter clear of
+    the ink hands `cs` back as the very same array, and so does a cut this can't make out. */
+export function cutOut(cs: Node[][], cutter: Node[][]): Node[][] {
+  return cutter.length ? inkOf(cs, cutter) : cs;
+}
+
+/** The ink of `cs` (less the ink of `cutter`, when there is one) as one outline: unite and cutOut. */
+function inkOf(cs: Node[][], cutter: Node[][]): Node[][] {
   const segs: Curve[] = [];
-  for (const c of cs) for (let i = 0; i < c.length; i++) {
+  for (const c of cutter.length ? [...cs, ...cutter] : cs) for (let i = 0; i < c.length; i++) {
     const a = c[i], b = c[(i + 1) % c.length], line = a.ox === undefined && b.ix === undefined;
     const p0 = { x: a.x, y: a.y }, p3 = { x: b.x, y: b.y };
     segs.push(line ? { p0, p1: p0, p2: p3, p3, line } : { p0, p1: { x: a.ox ?? a.x, y: a.oy ?? a.y }, p2: { x: b.ix ?? b.x, y: b.iy ?? b.y }, p3, line });
@@ -302,6 +315,9 @@ export function unite(cs: Node[][]): Node[][] {
   }
   const hard = cuts.some(l => l.length);
   const parts = hard ? partsAt(segs.map((_, s) => [...new Set([...turns[s], ...cuts[s]])].sort((a, b) => a - b))) : mono;
+  // (the cutter's segments come after the letter's: the ink is where the letter's parts wind round and the cutter's don't)
+  const own = cs.reduce((a, c) => a + c.length, 0), mine = cutter.length ? parts.filter(p => p.s < own) : parts, theirs = parts.filter(p => p.s >= own);
+  const inked = (q: Pt) => windsRound(mine, q) !== 0 && !(theirs.length && windsRound(theirs, q) !== 0);
   // each part kept where the ink lies on one side of it and not the other, turned to have it on the font's side
   const area = (c: Node[]) => c.reduce((a, p, i) => { const q = c[(i + 1) % c.length]; return a + p.x * q.y - q.x * p.y; }, 0);
   const left = area(cs.reduce((a, c) => (Math.abs(area(c)) > Math.abs(area(a)) ? c : a), cs[0] ?? [])) > 0;
@@ -312,10 +328,10 @@ export function unite(cs: Node[][]): Node[][] {
     if (Math.hypot(d.x, d.y) < 1e-9) d = { x: p.c.p3.x - p.c.p0.x, y: p.c.p3.y - p.c.p0.y };
     const l = Math.hypot(d.x, d.y);
     if (l < 1e-9) continue;
-    const e = 0.004 / l, L = windsRound(parts, { x: m.x - d.y * e, y: m.y + d.x * e }) !== 0, R = windsRound(parts, { x: m.x + d.y * e, y: m.y - d.x * e }) !== 0;
+    const e = 0.004 / l, L = inked({ x: m.x - d.y * e, y: m.y + d.x * e }), R = inked({ x: m.x + d.y * e, y: m.y - d.x * e });
     if (L !== R) kept.push(L === left ? p : { ...p, rev: true, c: { p0: p.c.p3, p1: p.c.p2, p2: p.c.p1, p3: p.c.p0, line: p.c.line } });
   }
-  if (!hard && kept.length === parts.length && kept.every(p => !p.rev)) return cs;
+  if (!hard && kept.length === mine.length && kept.every(p => !p.rev && p.s < own)) return cs;
   // chained into contours. Points a thousandth of a unit apart are one, the font's own anchors standing for theirs; a
   // part the same as one kept already (two contours' edges along the same line) is kept once; where several go on
   // from a point, the one turning most toward the ink, so shapes that only touch stay apart

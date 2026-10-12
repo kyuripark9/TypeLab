@@ -96,7 +96,9 @@ These live in saved designs, settings files, links and caches, so they never cha
 (`'Family:weight'` plus `i` for an italic, `'Roboto:600i'`); and the per-letter ids in `params/scales.ts`: stroke
 `'3'`, end `'0s'`/`'p1e'` (`p` a plain end), corner `'0t1'`/`'0sl'`/`'1j0'`, turn `'0t1'`, join `'2e'` or a turn id,
 each number one or two digits. `sanitizeParams` silently drops a value whose id doesn't match its test. The first form
-of each `TERMINAL_FORMS` kind is its fallback (`formOf`) and the form the Stroke ends trait picks.
+of each `TERMINAL_FORMS` kind is its fallback (`formOf`) and the form the Stroke ends trait picks. A drawn letter's
+points (`params.outlines`, `Node` in engine/outline.ts) keep their keys too: `x y ix iy ox oy s`, and a live corner's
+`r` and `corner` (`'cut'` or `'scoop'`; a round has none), which `cleanDrawn` reads.
 
 ## PARAMS_VERSION and the compatibility code that stays
 

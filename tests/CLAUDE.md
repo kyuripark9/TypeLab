@@ -27,7 +27,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `ends.test.ts` | Stroke ends: each kind and form and its finer sliders, straight runs, Length and Curl for all ends and each one (terminals, hooks, tails, plain ends such as T's `p0s`); a level bar's end cut across, a heavy c's points kept apart (`fitEnds`), a drop wider than its hairline |
 | `corners.test.ts` | Each corner's roundness inside and out (O's `0t0` to `0t3`), end corners, the inside corners where strokes meet (t's `0j0` to `0j3`), Joins' crotches against Counters' square corners, Steps, Squareness, Facets |
 | `cuts.test.ts` | Stencil (gaps, Position, Rounding), each join opened on its own (F's, A's and M's join ids), the crossbar Gap and Through, the Slice |
-| `fills.test.ts` | Pixels and dots on one grid, every fill on every glyph, Outline, Inline, Shadow, and `boolean.ts`'s unions and cuts, and `unite` |
+| `fills.test.ts` | Pixels and dots on one grid, every fill on every glyph, Outline, Inline, Shadow, and `boolean.ts`'s unions and cuts, `unite` and `cutOut` |
 | `weights.test.ts` | Weight, Contrast both ways, Verticals and Horizontals, one stroke's own weight, Pinch |
 | `serifs.test.ts` | Where serifs sit (`serifAt`), tips, bases and cups, bracket, balance, sides, inside serifs, tops and arms, the diamond, cleaning saved serif settings |
 | `script.test.ts` | Cursive and the script letterforms (`.scr`), Swell |
@@ -35,7 +35,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `params.test.ts` | `sanitizeParams` and `isValidParams`; older settings (a separate reverse contrast, the first Lowercase height scale, blocks before there were basic ones); databases written before `PARAMS_VERSION` 2 and at 2 upgraded once |
 | `handles.test.ts` | Every per-letter map in `ID_KEYS` changes its letter across its range (`HandleKey` must list them all) |
 | `drag.test.ts` | `client/lib/drag.ts`: which setting a drag moves, the solved value, ends kept in order, handles per control |
-| `pen.test.ts` | `client/lib/pen.ts` and `fitOutline`: tracing, drawn letters in `params.outlines`, point edits, Sync all, Mirror, Snap |
+| `pen.test.ts` | `client/lib/pen.ts` and `fitOutline`: tracing, drawn letters in `params.outlines`, point edits, Sync all, Mirror, Snap, live corners (drawn, saved, outside or inside), merging, cutting out and breaking apart shapes, strokes |
 | `reach.test.ts` | `client/lib/reach.ts`: whether a setting changes the letters in view, and which letters it would change |
 | `pages.test.ts` | Pages and controls: each control on one page, page and control order, links naming a page or group (`pageOf`), Find a setting |
 | `icons.test.ts` | Every slider has an icon in `SliderIcons.tsx`, and every icon belongs to a slider |
