@@ -720,33 +720,31 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .export-more { display: flex; flex-wrap: wrap; gap: 2px; margin-right: auto; }
 .export-more label { cursor: pointer; }
 .family { display: grid; gap: 10px; }
-.family-field select { height: 30px; padding: 0 8px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--surface); font: inherit; font-size: 13px; color: var(--ink); }
 .family-grid { display: grid; gap: 6px; }
 .family-row { display: grid; grid-template-columns: 148px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px; }
-.family-head > span { font-size: 12px; font-weight: 500; color: var(--ink-3); }
-.family-head span:not(:first-child) { padding-left: 34px; }
+.family-head > span { padding-left: 10px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
 .family-weight { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 6px; }
-.family-weight b { flex-basis: 100%; font-size: 13px; font-weight: 500; }
+.family-weight b { flex-basis: 100%; font-size: 13px; font-weight: 400; color: var(--ink-2); }
 .family-weight span { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
-/* one style: a toggle with its sample, picked ones outlined in the accent with their box ticked */
-.family-cell { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; height: 44px; padding: 0 10px; border-radius: var(--radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; transition: box-shadow .15s, background .15s; }
+/* the weight the design is: its name in full ink and bold */
+.family-weight.own b { font-weight: 600; color: var(--ink); }
+.family-weight.own span { color: var(--ink-2); }
+/* one style, a toggle drawn in its sample; picked ones look as a picked option (.opt.on) does: ringed in the accent,
+   tinted, the sample drawn in the accent */
+.family-cell { display: flex; align-items: center; min-width: 0; height: 44px; padding: 0 10px; border-radius: var(--radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; transition: box-shadow .15s, background .15s; }
 .family-cell:hover { box-shadow: inset 0 0 0 1px var(--line-2); background: var(--well); }
-.family-cell[aria-pressed=true] { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent); }
-.family-check { flex: none; width: 14px; height: 14px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px var(--line-2); background: var(--surface); }
-.family-cell[aria-pressed=true] .family-check { background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3.5 7.2 6 9.6l4.6-5' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat; box-shadow: none; }
-.family-sample { display: block; flex: 1; min-width: 0; height: 30px; fill: var(--ink-3); }
-.family-cell[aria-pressed=true] .family-sample { fill: var(--ink); }
-/* the design's own weight, tagged beside its number */
-.family-own { padding: 0 6px; border-radius: 100px; background: var(--well); box-shadow: inset 0 0 0 1px var(--line); font-size: 11px; font-style: normal; font-weight: 500; line-height: 17px; color: var(--ink-2); white-space: nowrap; }
+.family-cell[aria-pressed=true] { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.family-sample { display: block; flex: 1; min-width: 0; height: 30px; fill: var(--ink); transition: fill .15s; }
+.family-cell[aria-pressed=true] .family-sample { fill: var(--accent); }
 .dialog p.family-note { margin: 0; font-size: 12.5px; color: var(--ink-3); }
 @media (max-width: 600px) {
   .export-body { padding: 8px 16px 14px; }
   .family-row { grid-template-columns: 1fr 1fr; gap: 4px 6px; }
   .family-head > div { grid-column: 1 / -1; margin-bottom: 4px; }
-  .family-head span:not(:first-child) { padding-left: 0; }
+  .family-head > span { padding-left: 8px; }
   .family-weight { grid-column: 1 / -1; flex-wrap: nowrap; margin-top: 4px; }
   .family-weight b { flex-basis: auto; }
-  .family-cell { height: 40px; padding: 0 8px; gap: 8px; }
+  .family-cell { height: 40px; padding: 0 8px; }
   .export-foot > .btn.primary { flex: 1 1 100%; justify-content: center; }
 }
 

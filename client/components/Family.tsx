@@ -1,7 +1,8 @@
 /* The styles of a design's family to export, picked in the Export window, one or several: every weight from Thin
    to Black, upright and italic, each drawn in a sample as the font it will be, so the steps between them can be
    judged before downloading. The design itself is one of them, at the weight its Weight setting reads as (the
-   nearest of the family's), and its row says so. */
+   nearest of the family's), whose name stands out in the list. Picked styles look as a picked option does in the
+   panel: ringed, and drawn in the accent. */
 import { useMemo } from 'react';
 import { FAMILY_STYLES, familyMember, ownStyle, SLANTED, WEIGHTS, type FamilyMember, type WeightId } from '../../shared/family';
 import type { Params } from '../../shared/params';
@@ -42,15 +43,12 @@ export function FamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
         </div>
         {rows.map(r => (
           <div key={r.id} className="family-row">
-            <div className="family-weight">
+            <div className={r.id === ownOf.weight ? 'family-weight own' : 'family-weight'} title={r.id === ownOf.weight ? 'The weight this design is' : undefined}>
               <b>{r.name}</b>
               <span>{r.cls}</span>
-              {r.id === ownOf.weight && <em className="family-own">This design{ownOf.italic && ' · Italic'}</em>}
             </div>
             {[r.upright, r.italic].map(m => (
-              <button key={m.style} type="button" className={m.style === own ? 'family-cell own' : 'family-cell'}
-                aria-pressed={picked.includes(m.style)} title={m.style === own ? `${m.style}: this design` : m.style} onClick={() => toggle(m.style)}>
-                <i className="family-check" aria-hidden="true" />
+              <button key={m.style} type="button" className="family-cell" aria-pressed={picked.includes(m.style)} title={m.style} onClick={() => toggle(m.style)}>
                 <MemberSample member={m} label={m.style} />
               </button>
             ))}
