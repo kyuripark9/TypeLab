@@ -11,10 +11,11 @@ import { fontFor } from '../state/editor';
 const LINE = 1.3;
 
 /** `text` in the letters `params` build: wrapped to the box's width (smaller than `size`, to half of it, only where a
-    word is wider than the box), or with `fit` kept on one line, as large as fits the box's width up to `size`, and
-    centred in the box's height (the finder's tile). Hidden from screen readers, as a sample. */
-export const BuiltText = memo(function BuiltText({ params, text, size, fit = false, className }: {
-  params: Params; text: string; size: number; fit?: boolean; className: string;
+    word is wider than the box) and cut after `lines` lines if given (the grid's cards), or with `fit` kept on one
+    line, as large as fits the box's width up to `size`, and centred in the box's height (the finder's tile). Hidden
+    from screen readers, as a sample. */
+export const BuiltText = memo(function BuiltText({ params, text, size, fit = false, lines: most, className }: {
+  params: Params; text: string; size: number; fit?: boolean; lines?: number; className: string;
 }) {
   const [ref, box] = useSize<HTMLSpanElement>(), f = fontFor(params);
   const top = Math.max(f.m.asc, f.m.cap), bottom = -f.m.desc;
@@ -27,6 +28,7 @@ export const BuiltText = memo(function BuiltText({ params, text, size, fit = fal
   // each line's box, and the baseline in it (font units)
   const LH = fit ? box.height / sc : LINE * 1000, base = (LH - top - bottom) / 2 + top;
   if (!(LH > 0)) lines = [];
+  else if (most) lines = lines.slice(0, most);
   const W = box.width, H = fit ? box.height : n1(lines.length * LH * sc);
   return (
     <span ref={ref} className={`${className} built`} aria-hidden="true">

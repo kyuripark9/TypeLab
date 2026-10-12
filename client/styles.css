@@ -153,8 +153,8 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .size .size-field input { width: 34px; height: 100%; padding: 0 2px 0 7px; border: 0; background: none; outline: none;
   font: 500 13px var(--ui); font-variant-numeric: tabular-nums; text-align: right; color: var(--ink); }
 /* segmented switches share one look, a grey track with the pick a white tab on it, drawn by four rules kept alike:
-   .view-toggle (the style cards' List/Grid, My designs' Sort and Layout), .style-tabs (Filter/Adjust), .scope
-   (Sync all/Customize, Shape/Points) and .pen-kind (the pen's point type, Snap and Mirror) */
+   .view-toggle (the style cards' List/Grid and Help me choose/Browse all, My designs' Sort and Layout), .style-tabs
+   (Filter/Adjust), .scope (Sync all/Customize, Shape/Points) and .pen-kind (the pen's point type, Snap and Mirror) */
 .view-toggle { display: flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--radius); background: var(--tint); }
 .view-toggle button { width: 30px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-3); transition: background .15s, color .15s, box-shadow .15s; }
 .view-toggle button:hover { color: var(--ink); }
@@ -171,39 +171,42 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .pv-guide.base { stroke: var(--ink-3); opacity: .5; }
 
 /* ---------- style cards */
-.cards-head { padding: 4px 0 18px; display: flex; align-items: baseline; gap: 12px; }
-.cards-head span { font-size: 13px; color: var(--ink-3); }
-.cards-head .skip { margin-left: auto; }
-.cards-head .cards-next { margin-left: auto; align-self: center; flex: none; }
-.cards-head .skip:focus + .cards-next { margin-left: 0; }
-.btn.primary.cards-next svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin: 0 -2px 0 0; }
-@media (max-width: 760px) { .cards-head { flex-wrap: wrap; } }
+/* the heading: the title and what the cards are on the left, the two ways in (Help me choose, Browse all) on the right */
+.cards-head { display: flex; align-items: center; gap: 12px 24px; margin: 4px 0 20px; }
+.cards-title { flex: 1; min-width: 0; }
+.cards-head h1 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.25; letter-spacing: -.02em; }
+/* what the cards are, one quiet line under the title */
+.letters-note { margin: 4px 0 0; max-width: 64ch; font-size: 13px; color: var(--ink-3); text-wrap: pretty; }
+/* the switch is the shared segmented look (.view-toggle) with words on its tabs, as My designs' Sort */
+.find-mode button { width: auto; padding: 0 12px; font-size: 13px; font-weight: 500; }
+.find-mode button:not(.on) { color: var(--ink-2); }
 .skip:not(:focus) { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.skip { font-size: 13px; font-weight: 500; color: var(--accent-ink); }
+.skip { flex: none; font-size: 13px; font-weight: 500; color: var(--accent-ink); }
 .cards-empty { color: var(--ink-2); }
 .link { color: var(--accent-ink); font-weight: 500; }
 .link:hover { text-decoration: underline; }
-.cards-head h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
-.style-group + .style-group { margin-top: 24px; }
+.style-group + .style-group { margin-top: 28px; }
 .group-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 10px; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
 .group-head span { font-size: 12.5px; font-weight: 400; letter-spacing: 0; color: var(--ink-3); }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 .cards.list { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .card { text-align: left; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-l); padding: 14px 18px 18px; background: var(--surface); display: flex; flex-direction: column; gap: 10px; transition: border-color .15s, box-shadow .15s, background .15s; }
+.cards:not(.list) .card { padding: 12px 16px 14px; gap: 6px; }
 .card-name { font-size: 13px; font-weight: 500; color: var(--ink-2); }
 .card:hover { border-color: var(--line-2); background: var(--well); }
 .card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .card.on .card-name { color: var(--accent-ink); }
 /* beside the style's name, the free font its card is set in */
 .card-like { margin-left: 8px; font-weight: 400; color: var(--ink-3); }
-/* a style's card in its free font: the text set as the browser draws the font, hidden until it has loaded */
+/* a style's card in its free font: the text set as the browser draws the font, hidden until it has loaded; a word
+   too long for the card is set smaller to fit (wordFit in Stage.tsx), and breaks only past half the size */
 .card-free { display: block; color: var(--ink); line-height: 1.3; overflow-wrap: anywhere; }
+/* in the grid, each card keeps to two lines (GRID_LINES in Stage.tsx), so the cards line up in rows */
+.cards:not(.list) .card-free:not(.built) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .card-free.loading { visibility: hidden; }
 /* a style no font stands behind (built from blocks), its card and finder tile in the engine's letters (BuiltText) */
 .built svg { display: block; fill: currentColor; overflow: visible; }
 .finder-typed.built { color: var(--ink); }
-/* what the cards are, one quiet line under the heading */
-.letters-note { margin: -10px 0 20px; font-size: 13px; color: var(--ink-3); }
 /* while the cards catch up with a new trait, they dim a little */
 .style-groups { transition: opacity .15s; }
 .style-groups.stale { opacity: .55; }
@@ -215,9 +218,18 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .active-chip.trait:hover { background: rgba(77, 128, 230, .2); }
 .active-chip svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; opacity: .75; }
 .link.small { font-size: 12px; margin-left: 4px; }
-/* the style finder: its one question as a grid of tiles */
-.finder-head { margin: 0 0 14px; }
-.finder-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.015em; }
+/* the foot: the style the design starts from and Customize, in sight under the cards as .page-steps is under a page
+   of controls (on phones, where the page scrolls rather than the cards, it sticks to the window's bottom) */
+.cards-foot { flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 18px; border-top: 1px solid var(--line); background: var(--surface); }
+.cards-foot-pick { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cards-foot-label { font-weight: 400; color: var(--ink-3); }
+.cards-foot .btn { flex: none; gap: 5px; }
+.cards-foot .btn svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-right: -2px; }
+/* the style finder: its one question as a grid of tiles, and once answered the way back to it, in the same place */
+.finder-head { margin: 0 0 14px; font-size: 18px; font-weight: 600; letter-spacing: -.015em; }
+.finder-back-row { margin: -4px 0 12px -8px; }
+.finder-back { color: var(--ink-2); gap: 4px; padding-left: 6px; }
+.finder-back svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .finder-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 /* tiles come in one after another, each its sample centred in it; pointed at, a tile takes the accent */
 .finder-option { text-align: left; min-width: 0; min-height: 96px; display: flex; flex-direction: column; justify-content: center; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-l); background: var(--surface);
@@ -228,13 +240,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 @keyframes finder-in { from { opacity: 0; transform: translateY(6px); } }
 .finder-free { display: block; width: 100%; height: 56px; overflow: visible; white-space: nowrap; color: var(--ink); line-height: 56px; }
 .finder-free.loading { visibility: hidden; }
-.finder-typed.free { font-size: 30px; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
-.finder-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
-.finder-typed { margin-top: 10px; min-width: 0; }
-/* No preference: a quiet well rather than another tile */
-.finder-option.any { gap: 2px; border-color: transparent; background: var(--well); }
-.finder-option.any:hover, .finder-option.any:focus-visible { background: var(--tint); border-color: transparent; box-shadow: none; }
-.finder-sub { font-size: 12px; color: var(--ink-3); }
+.finder-label { font-size: 14px; font-weight: 600; color: var(--ink); }
+/* typed text, under the answer: one line, sized to fit (Finder.tsx), an ellipsis past the smallest size */
+.finder-typed { display: block; height: 42px; margin-top: 8px; min-width: 0; }
+.finder-typed.free { line-height: 42px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 
 /* ---------- panel resize handles: the gap between two sheets is the grab strip, a short bar in its middle lit in
    the accent while used */
@@ -806,6 +815,17 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
   .type-field { flex-basis: 100%; }
   .stage-scroll { padding: 16px 16px 40px; }
   .cards { grid-template-columns: minmax(0, 1fr); }
+  /* the Style page: List/Grid beside the text field, the two ways in a full-width switch under the title, the
+     finder's tiles two to a row, and the foot kept at the window's bottom (overflow: clip, unlike hidden, leaves
+     the page the scroller it sticks in) */
+  .cards-bar .type-field { flex-basis: 0; }
+  .cards-head { flex-direction: column; align-items: stretch; gap: 14px; }
+  .find-mode button { flex: 1; }
+  .finder-options { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .finder-option { min-height: 80px; padding: 14px; }
+  .finder-free { height: 44px; line-height: 44px; }
+  .stage:has(.cards-foot) { overflow: clip; }
+  .cards-foot { position: sticky; bottom: 0; z-index: 3; padding-left: 16px; }
   .panel { overflow: visible; container-type: normal; }
   .diagram-box { height: 168px; }
   .resizer { display: none; }

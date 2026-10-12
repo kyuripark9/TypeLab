@@ -261,7 +261,7 @@ export function onSaveRequest(fn: () => void) {
 }
 
 let toastId = 0;
-/** the toast that offers Customize after a style is picked */
+/** the toast after a style is picked, which goes once a page of controls opens */
 let styleToast = -1;
 
 /** A starting style with the traits laid over it: one params object per style and set of traits, so fonts build once. */
@@ -371,10 +371,9 @@ export const actions = {
     set({ params, styleId: id, switchedOn: [], picked: JSON.stringify(params) });
     actions.commit();
     if (shaped) { actions.toast(`${st.name} loaded in place of your changes`, { label: 'Undo', run: () => actions.travel(-1) }); return; }
-    // the way on from here: the first page of controls, offered right on the toast
+    // the way on from here, Customize, stays in sight at the Style page's foot (Stage.tsx), so the toast just says what came in
     const font = parseFontId(params.freeFont);
-    actions.toast(`${st.name} loaded${font ? ` in ${font.family}` : ''}${n ? ` with ${n} ${n === 1 ? 'trait' : 'traits'}` : ''} — now make it yours`,
-      { label: 'Customize', run: () => actions.setCategory('weight') });
+    actions.toast(`${st.name} loaded${font ? ` in ${font.family}` : ''}${n ? ` with ${n} ${n === 1 ? 'trait' : 'traits'}` : ''}`);
     styleToast = toastId;
   },
   /** Write the open design in its style's free font, or go back to letters built from the settings. Spacing

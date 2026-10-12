@@ -1,12 +1,12 @@
 /* The style finder: rather than every card at once, the Style page first asks what kind of letters
    (the Category the cards are grouped by) and then shows the cards of that kind, few enough to look
-   over side by side. The answer is the Style page's Category filter, so it shows as a chip over the
-   cards and taking the chip off asks again; while every card left is one kind, the question is left
-   out. Genres are mostly the cards' own names and feelings are the panel's filter, so neither is
-   asked. Each option is drawn in the most basic style it would keep (the first on the page), so the
-   choice is made by eye; pointing at a tile flips through the other styles it keeps, and its tooltip
-   says what the answer means. Once something is typed in the bar on top, each tile draws that text
-   instead, under the answer. */
+   over side by side. The answer is the Style page's Category filter, and over the cards it leaves sits
+   the way back to the question; while every card left is one kind, the question is left out. Every card
+   at once is the other side of the Style page's Help me choose / Browse all switch (Stage.tsx). Genres
+   are mostly the cards' own names and feelings are the panel's filter, so neither is asked. Each option
+   is drawn in the most basic style it would keep (the first on the page), so the choice is made by eye;
+   pointing at a tile flips through the other styles it keeps, and its tooltip says what the answer
+   means. Once something is typed in the bar on top, each tile draws that text instead, under the answer. */
 import { useEffect, useState } from 'react';
 import { PAGE_STYLES, STYLE_GROUPS, type StyleDef, type StyleGroup } from '../../shared/content';
 import { STYLE_FONTS } from '../../shared/free-fonts';
@@ -36,22 +36,29 @@ export function useFinder(): Finder {
 }
 
 /** The question, one tile per kind of letters, its name (or the typed text) drawn in a style it would
-    keep, and No preference, which shows every card. `onAnswer` runs once the cards replace the tiles. */
+    keep. `onAnswer` runs once the cards replace the tiles. */
 export function FinderQuestion({ options, onAnswer }: { options: Option[]; onAnswer: () => void }) {
   const typed = useEditor(s => s.custom).trim();
   return (
     <section className="finder" aria-labelledby="finder-q">
-      <div className="finder-head">
-        <h2 id="finder-q">What kind of letters?</h2>
-      </div>
+      <h2 className="finder-head" id="finder-q">What kind of letters?</h2>
       <div className="finder-options">
         {options.map((o, i) => <FinderOption key={o.id} option={o} index={i} typed={typed} onAnswer={onAnswer} />)}
-        <button className="finder-option any" style={{ animationDelay: `${options.length * 30}ms` }} onClick={() => { actions.setFinder(false); onAnswer(); }}>
-          <span className="finder-label">No preference</span>
-          <span className="finder-sub">Show every style</span>
-        </button>
       </div>
     </section>
+  );
+}
+
+/** Over the cards an answer leaves, in the question's place: the way back to it, taking the answer off. The
+    button goes with the cards, so `onBack` takes the focus somewhere that stays. */
+export function FinderBack({ groups, onBack }: { groups: StyleGroup[]; onBack: () => void }) {
+  return (
+    <div className="finder-back-row">
+      <button className="btn ghost small finder-back" onClick={() => { groups.forEach(actions.toggleGroup); onBack(); }}>
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg>
+        Other kinds of letters
+      </button>
+    </div>
   );
 }
 
@@ -75,7 +82,7 @@ function FinderOption({ option: o, index, typed, onAnswer }: { option: Option; i
         <span className="finder-label">{o.label}</span>
         {font
           ? <FreeTyped id={font} text={typed} />
-          : <BuiltText className="finder-typed" params={style.params} text={typed} size={TYPED_SIZE} />}
+          : <BuiltText className="finder-typed" params={style.params} text={typed} size={TYPED_SIZE} fit />}
       </> : font
         ? <FreeSample id={font} text={o.label} />
         : <BuiltText className="finder-free" params={style.params} text={o.label} size={SAMPLE_SIZE} fit />}
@@ -83,8 +90,8 @@ function FinderOption({ option: o, index, typed, onAnswer }: { option: Option; i
   );
 }
 
-/** The largest a tile's word is set, and the size of typed text in every tile, in px (.finder-typed.free's, styles.css). */
-const SAMPLE_SIZE = 44, TYPED_SIZE = 30;
+/** The largest a tile's word is set, and the largest and smallest typed text in a tile is set, in px. */
+const SAMPLE_SIZE = 44, TYPED_SIZE = 30, TYPED_MIN = 18;
 
 /** A word in a free font, as large as fits the tile (up to its height). */
 function FreeSample({ id, text }: { id: string; text: string }) {
@@ -93,8 +100,10 @@ function FreeSample({ id, text }: { id: string; text: string }) {
   return <span ref={ref} className={font ? 'finder-free' : 'finder-free loading'} style={{ ...(font && fontStyle(font)), fontSize: size }} aria-hidden="true">{text}</span>;
 }
 
-/** Typed text set in a style at one size for every tile, wrapped to the tile's width. */
+/** Typed text in a style on one line, as large as fits the tile (TYPED_SIZE at most), so a word is never broken;
+    below TYPED_MIN it stops shrinking and runs out under an ellipsis. */
 function FreeTyped({ id, text }: { id: string; text: string }) {
-  const font = useWebFont(id);
-  return <div className="finder-typed free" style={{ ...(font && fontStyle(font)), visibility: font ? undefined : 'hidden' }} aria-hidden="true">{text}</div>;
+  const font = useWebFont(id), [ref, box] = useSize<HTMLDivElement>();
+  const size = font && box.width ? Math.max(TYPED_MIN, Math.min(TYPED_SIZE, box.width / Math.max(0.01, textWidth(font, text)) * 0.97)) : TYPED_SIZE;
+  return <div ref={ref} className="finder-typed free" style={{ ...(font && fontStyle(font)), fontSize: size, visibility: font ? undefined : 'hidden' }} aria-hidden="true">{text}</div>;
 }

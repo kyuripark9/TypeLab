@@ -1,18 +1,18 @@
 /* The stage: the Type something bar, then on the Style page the finder and the style cards (each
    in its style's free font, or in the engine's letters for one built from blocks, under a row of chips for
-   what's picked), or on the other pages the live preview with its size slider and box, and the inspector over it
-   while a letter is open. Like Google Fonts, the one bar on top sets the sample text, both for the style cards
-   and for the live preview of the design. The size only shows with the preview: the cards are for comparing
-   styles, so they keep one size. */
+   what's picked) with the way on to Customize at the foot, or on the other pages the live preview with its size
+   slider and box, and the inspector over it while a letter is open. Like Google Fonts, the one bar on top sets the
+   sample text, both for the style cards and for the live preview of the design. The size only shows with the
+   preview: the cards are for comparing styles, so every card in a layout keeps one size. */
 import { useDeferredValue, useRef, useState } from 'react';
 import { MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../../shared/content';
-import { parseFontId, STYLE_FONTS } from '../../shared/free-fonts';
-import { fontStyle, useWebFont } from '../lib/free';
+import { parseFontId, STYLE_FONTS, type FreeFontRef } from '../../shared/free-fonts';
+import { fontStyle, textWidth, useWebFont } from '../lib/free';
 import { useSize } from '../lib/hooks';
 import { sampleText } from '../lib/preview';
 import { actions, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
 import { BuiltText } from './BuiltText';
-import { FinderQuestion, useFinder } from './Finder';
+import { FinderBack, FinderQuestion, useFinder } from './Finder';
 import { Inspector } from './Inspector';
 import { focusFilters } from './Panel';
 import { Preview } from './Preview';
@@ -22,7 +22,7 @@ export function Stage() {
   return (
     <main className="stage">
       <PreviewBar />
-      {style ? <div className="stage-scroll" data-guide="stage"><StyleCards /></div> : <SampleText />}
+      {style ? <StyleCards /> : <SampleText />}
       <Inspector />
     </main>
   );
@@ -31,7 +31,7 @@ export function Stage() {
 function PreviewBar() {
   const custom = useEditor(s => s.custom), size = useEditor(s => s.size), style = useEditor(s => s.category === 'style');
   return (
-    <div className="stage-bar">
+    <div className={style ? 'stage-bar cards-bar' : 'stage-bar'}>
       <div className="type-field" data-guide="type">
         <input type="text" spellCheck={false} placeholder="Type something" aria-label="Preview text"
           value={custom} onChange={e => actions.setCustom(e.target.value)} />
@@ -115,68 +115,109 @@ function SampleText() {
   );
 }
 
-/** The size every style card is set at, in px. */
-const CARD_SIZE = 48;
+/** The size the style cards are set at in each layout, in px: one size for every card, large in the list and
+    smaller in the grid, where each card keeps to GRID_LINES lines so the cards line up in rows. */
+const CARD_SIZE: Record<CardView, number> = { list: 48, grid: 32 };
+const GRID_LINES = 2;
 
 /** Cards are grouped by Category, the finder's question, and narrowed by all the filters, which
     see each style as the Adjust tab's traits make it. Each card sets the text in its style's free
     font, or in the engine's letters where no font stands behind the style. The finder asks its
-    question first, and the cards come once it's answered. */
+    question first, and the cards come once it's answered, under a way back to the question. */
 function StyleCards() {
   const custom = useEditor(s => s.custom), text = sampleText(custom);
   const finder = useFinder();
   const view = useEditor(s => s.view);
   const head = useRef<HTMLHeadingElement>(null);
-  const { traits: now, matches } = useStyleMatch();
+  const { f, traits: now, matches } = useStyleMatch();
   // new traits re-filter the cards a moment after the panel answers; the cards dim until they catch up
   const traits = useDeferredValue(now);
   const shown = PAGE_STYLES.filter(s => matches(s, {}, traits));
   const current = useEditor(s => styleById(s.styleId));
+  const refocus = () => head.current?.focus();
+  // the finder's answer is on: the cards are the ones it leaves
+  const answered = finder.on && !finder.question && f.groups.length > 0;
   return (
-    <div className="style-cards">
-      <div className="cards-head">
-        <h1 ref={head} tabIndex={-1}>Start with a style</h1>
-        {/* one spot for both ways in: the question, or every card at once */}
-        <button className="link small" onClick={() => actions.setFinder(!finder.on)}>{finder.on ? 'Browse all styles' : 'Help me choose'}</button>
-        {/* the filters sit after every card in tab order; this jumps there, and shows only when focused */}
-        <button className="skip" onClick={focusFilters}>Skip to filters</button>
-        {/* the way on, once the style that's loaded is among the cards: shape it */}
-        {!finder.question && current && shown.includes(current) && (
-          <button className="btn primary small cards-next" onClick={() => actions.setCategory('weight')}>
-            Customize {current.name}
-            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" /></svg>
-          </button>
-        )}
-      </div>
-      <p className="letters-note">{LETTERS_NOTE}</p>
-      <ActiveBar onClear={() => head.current?.focus()} />
-      {finder.question ? <FinderQuestion options={finder.question} onAnswer={() => head.current?.focus()} /> : shown.length ? (
-        <div className={traits === now ? 'style-groups' : 'style-groups stale'}>
-          {STYLE_GROUPS.filter(g => shown.some(s => s.group === g.id)).map(g => (
-            <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
-              <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
-              <div className={view === 'list' ? 'cards list' : 'cards'}>
-                {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} text={text} size={CARD_SIZE} />)}
+    <>
+      <div className="stage-scroll" data-guide="stage">
+        <div className="style-cards">
+          <div className="cards-head">
+            <div className="cards-title">
+              <h1 ref={head} tabIndex={-1}>Start with a style</h1>
+              <p className="letters-note">{LETTERS_NOTE}</p>
+            </div>
+            <FindMode />
+            {/* the filters sit after every card in tab order; this jumps there, and shows only when focused */}
+            <button className="skip" onClick={focusFilters}>Skip to filters</button>
+          </div>
+          <ActiveBar answered={answered} onClear={refocus} />
+          {finder.question ? <FinderQuestion options={finder.question} onAnswer={refocus} /> : <>
+            {answered && <FinderBack groups={f.groups} onBack={refocus} />}
+            {shown.length ? (
+              <div className={traits === now ? 'style-groups' : 'style-groups stale'}>
+                {STYLE_GROUPS.filter(g => shown.some(s => s.group === g.id)).map(g => (
+                  <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
+                    <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
+                    <div className={view === 'list' ? 'cards list' : 'cards'}>
+                      {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} text={text} view={view} />)}
+                    </div>
+                  </section>
+                ))}
               </div>
-            </section>
-          ))}
+            ) : (
+              <p className="cards-empty">No styles match these filters. <button className="link" onClick={() => { actions.clearFilters(); refocus(); }}>Clear filters</button></p>
+            )}
+          </>}
         </div>
-      ) : (
-        <p className="cards-empty">No styles match these filters. <button className="link" onClick={() => { actions.clearFilters(); head.current?.focus(); }}>Clear filters</button></p>
-      )}
+      </div>
+      {/* the way on, once the style that's loaded is among the cards: shape it */}
+      {!finder.question && current && shown.includes(current) && <CardsFoot style={current} />}
+    </>
+  );
+}
+
+/** The two ways into the cards, as one switch: the finder's question first, or every card at once. Either way
+    starts with no filter on (setFinder). */
+const FIND_MODES: [boolean, string][] = [[true, 'Help me choose'], [false, 'Browse all']];
+
+function FindMode() {
+  const finder = useEditor(s => s.finder);
+  return (
+    <div className="view-toggle find-mode" role="radiogroup" aria-label="How to find a style">
+      {FIND_MODES.map(([on, label]) => (
+        <button key={label} role="radio" aria-checked={finder === on} className={finder === on ? 'on' : undefined}
+          onClick={() => { if (finder !== on) actions.setFinder(on); }}>{label}</button>
+      ))}
     </div>
   );
 }
 
-/** Everything picked, the finder's answer, search, feelings and traits, as one row of chips, each
-    removed with a click (taking the answer off asks the finder's question again); the trait chips are
-    tinted apart from the filters. */
-function ActiveBar({ onClear }: { onClear: () => void }) {
+/** The foot of the Style page, kept in sight under the cards as the page steps are under a page of controls: the
+    style the design starts from, in its font, and Customize, on to the first page of controls. */
+function CardsFoot({ style: s }: { style: StyleDef }) {
+  const family = parseFontId(useEditor(st => st.params.freeFont))?.family;
+  return (
+    <div className="cards-foot">
+      <span className="cards-foot-pick">
+        <span className="cards-foot-label">Starting from</span> {s.name}{family && <span className="card-like">{family}</span>}
+      </span>
+      <button className="btn primary small" onClick={() => actions.setCategory('weight')}>
+        Customize
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" /></svg>
+      </button>
+    </div>
+  );
+}
+
+/** Everything picked, search, the finder's answer, feelings and traits, as one row of chips, each removed with a
+    click; the trait chips are tinted apart from the filters. While the finder's answer is on, the way back to its
+    question stands for it (FinderBack), so it has no chip of its own. */
+function ActiveBar({ answered, onClear }: { answered: boolean; onClear: () => void }) {
   const { f, traits } = useStyleMatch();
   const tag = <T extends string>(list: { id: T; label: string }[], id: T) => list.find(x => x.id === id)!.label;
   const items: { key: string; label: string; trait?: boolean; remove: () => void }[] = [
     ...(f.query?.trim() ? [{ key: 'q', label: `“${f.query.trim()}”`, remove: () => actions.setQuery('') }] : []),
-    ...f.groups.map(g => ({ key: `g-${g}`, label: tag(STYLE_GROUPS, g), remove: () => actions.toggleGroup(g) })),
+    ...(answered ? [] : f.groups.map(g => ({ key: `g-${g}`, label: tag(STYLE_GROUPS, g), remove: () => actions.toggleGroup(g) }))),
     ...f.moods.map(m => ({ key: `m-${m}`, label: tag(MOODS, m), remove: () => actions.toggleMood(m) })),
     ...traitLabels(traits).map(t => ({ key: `t-${t.id}`, label: t.label, trait: true, remove: () => actions.setTrait(t.id, null) }))
   ];
@@ -197,18 +238,26 @@ function ActiveBar({ onClear }: { onClear: () => void }) {
 /** What the cards are: each style in one of TypeLab's own fonts, which every setting reshapes. */
 const LETTERS_NOTE = 'TypeLab’s own fonts, yours to change and use as you like. Every setting reshapes their letters, and Points redraws any of them.';
 
+/** The size text is set at in a free font in a box `width` px wide: `size`, or, where its longest word would overrun
+    the box, smaller, down to half of it, past which the word breaks (as BuiltText sizes the engine's letters). */
+function wordFit(font: FreeFontRef | null, text: string, width: number, size: number) {
+  if (!font || !width) return size;
+  const longest = Math.max(0.01, ...text.split(/\s+/).map(w => textWidth(font, w)));
+  return Math.max(size / 2, Math.min(size, width * 0.99 / longest));
+}
+
 /** A style's card: the sample text set in its free font, as the browser draws the font, or, for a style no font
-    stands behind (built from blocks), in the engine's letters. */
-function StyleCard({ style: s, text, size }: { style: StyleDef; text: string; size: number }) {
+    stands behind (built from blocks), in the engine's letters; in the grid, cut to GRID_LINES lines. */
+function StyleCard({ style: s, text, view }: { style: StyleDef; text: string; view: CardView }) {
   const id = STYLE_FONTS[s.id];
   const on = useEditor(st => st.styleId === s.id && (!id || !!st.params.freeFont));
-  const font = useWebFont(id);
+  const font = useWebFont(id), [ref, box] = useSize<HTMLSpanElement>();
   return (
     <button className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
       <span className="card-name">{s.name}<span className="card-like">{id ? parseFontId(id)?.family : 'Built from blocks'}</span></span>
       {id
-        ? <span className={font ? 'card-free' : 'card-free loading'} style={{ ...(font && fontStyle(font)), fontSize: size }}>{text}</span>
-        : <BuiltText className="card-free" params={s.params} text={text} size={size} />}
+        ? <span ref={ref} className={font ? 'card-free' : 'card-free loading'} style={{ ...(font && fontStyle(font)), fontSize: wordFit(font, text, box.width, CARD_SIZE[view]) }}>{text}</span>
+        : <BuiltText className="card-free" params={s.params} text={text} size={CARD_SIZE[view]} lines={view === 'grid' ? GRID_LINES : undefined} />}
     </button>
   );
 }

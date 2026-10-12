@@ -51,8 +51,8 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `pages/AccountPage.tsx` | Name, Google and password, other browsers, closing the account |
 | `components/Header.tsx` | Logo, the design's name, undo and redo, Guide, My designs, Save, and Export, a window in the middle of the screen (`exportOpen`): the font name, the styles of the design's family to save (one as an `.otf`, several as one `.zip`; the design's own picked each time it opens), a specimen, `.typelab.json` out and in |
 | `components/Chrome.tsx` | `Nav` (pages, Find a setting on ⌘K), `GlyphStrip` (one memo `StripCell` per glyph), `Toast` |
-| `components/Stage.tsx` | The Type something bar; on the Style page the finder and the style cards (each in its free font as a web font, or, for a style built from blocks, which has none, in the engine's letters: `BuiltText.tsx`), elsewhere the preview and the inspector |
-| `components/Finder.tsx` | The style finder's one question, what kind of letters (the Category); its answer is the `groups` filter |
+| `components/Stage.tsx` | The Type something bar; on the Style page the Help me choose / Browse all switch, the finder and the style cards (each in its free font as a web font, or, for a style built from blocks, which has none, in the engine's letters: `BuiltText.tsx`; 48 px in the list, 32 px and two lines in the grid), and the foot with Customize; elsewhere the preview and the inspector |
+| `components/Finder.tsx` | The style finder's one question, what kind of letters (the Category); its answer is the `groups` filter, and the way back to the question sits over the cards it leaves (`FinderBack`) |
 | `components/Preview.tsx`, `GlyphDefs.tsx` | The live preview, every letter a `<use>` of `#g<code>` defined once in GlyphDefs, with highlights `#h<code>` |
 | `components/Inspector.tsx` | One letter, large: its parts live, drags through `lib/drag.ts`, Shape/Points, Sync all/Customize, the construction grid toggle; `letterControls` |
 | `components/PenCanvas.tsx` | Points mode: Direct selection, Pen, Convert point, the Shape tool, Sync all, Mirror, Snap (`SNAPS`) |

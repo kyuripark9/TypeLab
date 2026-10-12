@@ -23,7 +23,8 @@ const STYLE_TABS: [StyleTab, string][] = [['filter', 'Filter'], ['adjust', 'Adju
     one of them, so each card shows its style with them and any mix can be started from. */
 export function StylePanel() {
   const tab = useEditor(s => s.styleTab);
-  const nFilters = useEditor(s => s.groups.length + s.moods.length + (s.query.trim() ? 1 : 0));
+  // the Filter tab counts what it holds: the finder's answer (groups) is on the stage, with its own way back
+  const nFilters = useEditor(s => s.moods.length + (s.query.trim() ? 1 : 0));
   const nTraits = useEditor(s => Object.keys(s.traits).length);
   const counts = { filter: nFilters, adjust: nTraits };
   const move = (e: KeyboardEvent<HTMLButtonElement>) => {
@@ -56,7 +57,7 @@ function StyleFilters() {
   const { f, matches } = useStyleMatch();
   // each tag's count is what picking it would show, given the other filters
   const count = (pick: Partial<StyleFilter>) => PAGE_STYLES.filter(s => matches(s, pick)).length;
-  const picked = f.groups.length + f.moods.length > 0 || !!f.query?.trim();
+  const picked = f.moods.length > 0 || !!f.query?.trim();
   return (
     <>
       <div className="search-row">
@@ -69,7 +70,7 @@ function StyleFilters() {
           <kbd aria-hidden="true">/</kbd>
         </div>
         {/* the button leaves once pressed, so focus goes back to the tab rather than the page */}
-        {picked && <button className="btn ghost small" aria-label="Clear filters" onClick={() => { actions.clearFilters(); focusFilters(); }}>Clear</button>}
+        {picked && <button className="btn ghost small" aria-label="Clear filters" onClick={() => { actions.setQuery(''); f.moods.forEach(actions.toggleMood); focusFilters(); }}>Clear</button>}
       </div>
       <ChipFacet id="feeling" label="Feeling" tags={MOODS} picked={f.moods} count={m => count({ moods: [m] })} toggle={actions.toggleMood} />
     </>
