@@ -8,7 +8,7 @@ import type { AForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diago
 
 export interface Params {
   /** strokes or blocks (see BUILDS) */ build: Build;
-  /** the block letters Blocks builds, basic or slots (see BLOCK_FORMS) */ blockForm: BlockForm;
+  /** the block letters Blocks builds, basic, slots or grid (see BLOCK_FORMS) */ blockForm: BlockForm;
   weight: number; width: number; height: number; slant: number;
   /** each letter turned about its own middle: 0.5 upright, lower anticlockwise and higher clockwise, half a turn at either end (see rotationDeg) */ rotation: number;
   /** thick and thin (see contrastOf): 0.5 as drawn, higher thins the horizontals against the stems,

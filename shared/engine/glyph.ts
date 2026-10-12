@@ -7,6 +7,7 @@ import { endId, joinGap } from '../params';
 import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, mulM, quarter, roundContour, roundCuts, signedArea, smoothstep, splitPoly, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { basicDims, basicRings, basicRound } from './basic-blocks';
+import { gridDims, gridRings } from './grid-blocks';
 import { fillOutline, shadowShift, slice } from './effects';
 import { drawnCmds, type Drawn } from './outline';
 import { buildSerif, diamondCut, diamondEnd, expandStroke, type Expanded, serifPlace, type SerifPlace } from './stroke';
@@ -412,7 +413,8 @@ export const blankParts = (): Pick<Glyph, 'serifs' | 'serifAt' | 'counters' | 'm
 /** A block letter, its outlines rounded corner by corner and placed like any glyph. Basic block letters
     (basic-blocks.ts) round each corner by its kind and stand off by Side margins, less on a round or slanted side. Slot blocks (blocks.ts) have Roundness round the outer corners and the ends of arms and slots, Joins
     the small rounds inside, and sit close; a lowercase letter is its capital, drawn as a small capital at the
-    x-height. Null when the character has no block shape. */
+    x-height. Grid letters (grid-blocks.ts) are cells five to the cap height, each letter case as tall, set a cell
+    apart. Null when the character has no block shape. */
 export function buildBlock(ch: string, m: Metrics): Glyph | null {
   const e = m.p;
   let b: { rings: Pt[][]; holes: number; W: number } | null, lsb: number, rsb: number;
@@ -423,6 +425,12 @@ export function buildBlock(ch: string, m: Metrics): Glyph | null {
     // touching to wide; a round or slanted side less
     const sb = m.cap * (0.006 + 0.15 * e.sideBearing);
     b = r; lsb = sb * r.sb[0]; rsb = sb * r.sb[1];
+  } else if (e.blockForm === 'grid') {
+    const d = gridDims(m);
+    b = gridRings(ch, d);
+    if (!b) return null;
+    // from touching cells to a cell and a half apart, a cell apart at the middle of Side margins
+    lsb = rsb = d.cw * (0.05 + 0.9 * e.sideBearing);
   } else {
     const small = ch !== ch.toUpperCase();
     b = blockRings(ch, blockDims(small ? m.xh : m.cap, e), { o: e.roundness, e: Math.min(1, e.roundness), i: Math.min(2, e.joinRound * 2) });

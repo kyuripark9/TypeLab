@@ -127,9 +127,9 @@ export const SPECS = {
 
   /* ---- Build & curves */
   build: option(BUILDS, 'strokes', { free: true, control: { cat: 'curves', type: 'form', label: 'Built from', friendly: 'Draw with strokes or blocks', tech: 'Stroke or block construction', demo: 'EOS',
-    explain: 'Blocks are solid shapes cut to the design\'s measures instead of strokes drawn along a skeleton: plain block letters, or blocks with their insides cut in as slots (Block letters).' } }),
-  blockForm: option(BLOCK_FORMS, 'basic', { control: { cat: 'curves', type: 'form', label: 'Block letters', friendly: 'Plain block letters or slot blocks', tech: 'Block letterforms', demo: 'Rag',
-    explain: 'Basic are plain block letters with a real lowercase: Weight and Contrast set their strokes, Bowls and Roundness their corners, Counters and Joins the corners inside. Slots are solid blocks with their insides cut in as narrow slots and small capitals for lowercase: Weight closes the slots up.' } }),
+    explain: 'Blocks are solid shapes cut to the design\'s measures instead of strokes drawn along a skeleton: plain block letters, blocks with their insides cut in as slots, or letters of cells on a grid (Block letters).' } }),
+  blockForm: option(BLOCK_FORMS, 'basic', { control: { cat: 'curves', type: 'form', label: 'Block letters', friendly: 'Plain block letters, slot blocks or grid letters', tech: 'Block letterforms', demo: 'Rag',
+    explain: 'Basic are plain block letters with a real lowercase: Weight and Contrast set their strokes, Bowls and Roundness their corners, Counters and Joins the corners inside. Slots are solid blocks with their insides cut in as narrow slots and small capitals for lowercase: Weight closes the slots up. Grid letters are cells on a grid five high, both cases as tall: Roundness rounds every corner, and strokes meeting at a corner join through a neck between round empty cells.' } }),
   bowlForm: option(BOWL_FORMS, 'oval', { free: true, control: { cat: 'curves', type: 'form', label: 'Bowls', friendly: 'Draw curves as ovals or as boxes', tech: 'Oval or box bowls', demo: 'OCS',
     explain: 'Boxes have straight sides and corners round outside, square inside.' } }),
   boxRound: num(0.5, { free: true, sub: { parent: 'bowlForm', label: 'Corners', friendly: 'Round the corners of box bowls', tech: 'Box corner radius', lo: 'Sharp', hi: 'Wide' } }),

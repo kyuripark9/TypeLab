@@ -32,12 +32,15 @@ const subsOf = <P extends ControlKey>(parent: P) => Object.fromEntries(PARAM_KEY
 /** The controls that shape letters built from blocks, by Block letters: the slot blocks' (blocks.ts) size, weight and
     corners, the hand, spacing and the effects that run on any outline; the basic block letters' (basic-blocks.ts)
     also their contrast, bowls, peaks and steps, the crossbars' height and how open C S G are, and the lowercase's
-    ascenders and descenders. The rest shape strokes, which blocks don't have. */
+    ascenders and descenders; the grid letters' (grid-blocks.ts) the slot blocks' but the x-height. The rest shape
+    strokes, which blocks don't have. */
 const SLOT_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'build', 'blockForm', 'roundness', 'mirror', 'wobble',
   'xHeight', 'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice'];
 export const BLOCK_CONTROLS: Record<BlockForm, readonly ControlKey[]> = {
   basic: [...SLOT_CONTROLS, 'contrast', 'bowlForm', 'apex', 'steps', 'crossbar', 'aperture', 'extenders', 'descender'],
-  slots: SLOT_CONTROLS
+  slots: SLOT_CONTROLS,
+  // grid letters stand on the same five cells in either case, so the x-height doesn't reach them
+  grid: SLOT_CONTROLS.filter(k => k !== 'xHeight')
 };
 export const SERIF_SUBS = subsOf('serif');
 /** The sliders every serif shape has, and the finer ones of each shape, shown while that shape is picked. */
@@ -101,7 +104,7 @@ type FormControl = { [K in ControlKey]: (typeof SPECS)[K] extends { control: { t
 ({}) as { [K in Exclude<FormControl, FormKey>]: K } satisfies Record<string, never>;
 export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Params[K], 'auto'>, string][] } } = {
   build: { ch: 'E', options: [['strokes', 'Strokes'], ['blocks', 'Blocks']] as [Build, string][] },
-  blockForm: { ch: 'R', options: [['basic', 'Basic'], ['slots', 'Slots']] as [BlockForm, string][] },
+  blockForm: { ch: 'R', options: [['basic', 'Basic'], ['slots', 'Slots'], ['grid', 'Grid']] as [BlockForm, string][] },
   gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored'], ['double', 'Two-storey']] as [GForm, string][] },
   kForm: { ch: 'k', options: [['arm', 'From arm'], ['stem', 'From stem'], ['bar', 'On a bar']] as [KForm, string][] },
   iForm: { ch: 'i', options: [['plain', 'Plain'], ['bars', 'Bars']] as [Exclude<IForm, 'auto'>, string][] },

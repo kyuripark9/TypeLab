@@ -4,6 +4,7 @@ import { CONTROLS, STYLES } from '../shared/content';
 import { ALL_CHARS, CHARSET, buildFont, cmdsToD, expandStroke, type Cmd, type Glyph } from '../shared/engine';
 import { BLOCKS } from '../shared/engine/blocks';
 import { BASIC } from '../shared/engine/basic-blocks';
+import { GRID, gridCells } from '../shared/engine/grid-blocks';
 import { glyphDefOf, glyphIds } from '../shared/engine/font';
 import type { StrokeOpts } from '../shared/engine/types';
 import { DEFAULTS, isValidParams, type Params } from '../shared/params';
@@ -252,6 +253,58 @@ describe('slot blocks (Built from: Blocks, Block letters: Slots)', () => {
     const font = buildFont({ ...blocks, glyphs: { E: { build: 'strokes' } } });
     assert.ok(font.glyph('E')!.strokes.length > 1);
     assert.equal(font.glyph('F')!.strokes.length, 1);
+  });
+});
+
+describe('grid blocks (Built from: Blocks, Block letters: Grid)', () => {
+  const grid = { ...DEFAULTS, build: 'blocks' as const, blockForm: 'grid' as const, roundness: 1 };
+  const size = (d: string) => {
+    const ys = ysOf(d), xs = xsOf(d);
+    return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+  };
+
+  it('has cells for every character, rows of one length, and cuts only where filled cells meet at a corner', () => {
+    assert.deepEqual(Object.keys(GRID).sort(), [...ALL_CHARS].sort());
+    for (const ch of ALL_CHARS) {
+      const c = gridCells(ch)!, rows = (typeof GRID[ch] === 'string' ? GRID[ch] : GRID[ch][0]) as string;
+      assert.ok(rows.split(' ').every(r => r.length === c.cols && /^[#.]+$/.test(r)), ch);
+      assert.ok(c.rows - c.drop >= 5, `${ch} stands on the five rows`);
+      for (const k of c.cut) {
+        const [x, y] = k.split(',').map(Number), tl = c.ink(x - 1, y - 1), tr = c.ink(x, y - 1), bl = c.ink(x - 1, y), br = c.ink(x, y);
+        assert.ok(tl === br && tr === bl && tl !== tr, `${ch} cuts ${k}, where cells meet only at a corner`);
+      }
+    }
+  });
+
+  it('draws every character on cells a fifth of the cap height, upper and lower case alike, at any weight and width', () => {
+    for (const p of [grid, { ...grid, weight: 0, width: 0, roundness: 0 }, { ...grid, weight: 1, width: 1 }]) {
+      const font = buildFont(p);
+      for (const ch of ALL_CHARS) {
+        const g = font.glyph(ch)!;
+        assert.equal(g.strokes.length, 1, ch);
+        assert.ok(g.d.length > 0 && !g.d.includes('NaN'), ch);
+      }
+    }
+    const font = buildFont(grid), n = size(font.glyph('n')!.d), N = size(font.glyph('N')!.d);
+    assert.ok(Math.abs(n.h - font.m.cap) < 1 && Math.abs(N.h - font.m.cap) < 1, 'a lowercase n as tall as a capital');
+    assert.ok(Math.abs(n.w - n.h) < 1, 'five cells square');
+  });
+
+  it('joins strokes meeting at a corner through a neck, unless the letter cuts it', () => {
+    const font = buildFont(grid);
+    assert.equal(contours(font.glyph('o')!.d), 2, 'a ring round its counter');
+    assert.equal(contours(font.glyph('d')!.d), 1, 'the o cut open at its foot');
+    assert.equal(contours(font.glyph('.')!.d), 1);
+    // a single cell rounded right round is a circle: as wide as high, its outline all curves
+    assert.equal(curves(font.glyph('.')!.d), 4);
+    assert.equal(curves(buildFont({ ...grid, roundness: 0 }).glyph('E')!.d), 0, 'square cells at no roundness');
+  });
+
+  it('moves every edge with Weight, and makes the cells wider with Width', () => {
+    const stem = (p: Partial<Params>) => size(buildFont({ ...grid, ...p }).glyph('l')!.d).w;
+    assert.ok(stem({ weight: 0 }) < stem({ weight: 0.4 }) && stem({ weight: 0.4 }) < stem({ weight: 1 }));
+    const w = (width: number) => size(buildFont({ ...grid, width }).glyph('o')!.d).w;
+    assert.ok(w(0) < w(0.5) && w(0.5) < w(1));
   });
 });
 

@@ -44,6 +44,8 @@ function engineProbes(): [string, Params][] {
   out.push(['glyphs', { ...DEFAULTS, glyphs: { a: { weight: 1, story: 'single' }, R: { rForm: 'loop', corners: { '0t0': 1 } }, e: { mirror: 'mirrored' } } }]);
   out.push(['blocks,weight=1,roundness=1', { ...DEFAULTS, build: 'blocks', weight: 1, roundness: 1 }]);
   out.push(['blocks=slots,weight=1,roundness=1', { ...DEFAULTS, build: 'blocks', blockForm: 'slots', weight: 1, roundness: 1 }]);
+  out.push(['blocks=grid,weight=1,roundness=1', { ...DEFAULTS, build: 'blocks', blockForm: 'grid', weight: 1, roundness: 1 }]);
+  out.push(['blocks=grid,weight=0,width=0', { ...DEFAULTS, build: 'blocks', blockForm: 'grid', weight: 0, width: 0, roundness: 0.5 }]);
   // the settings only basic blocks follow, at their ends
   out.push(['blocks,contrast=1,steps=1,box', { ...DEFAULTS, build: 'blocks', contrast: 1, steps: 1, bowlForm: 'box', apex: 1, innerRound: 1, joinRound: 1 }]);
   out.push(['blocks,weight=0,contrast=0', { ...DEFAULTS, build: 'blocks', weight: 0, contrast: 0, apex: 0, xHeight: 1, extenders: 1, descender: 1 }]);

@@ -78,7 +78,7 @@ bends before apex.
    `restyled`'s cache key, `FORM_LETTERS` for a letter-form setting) and a `FREE_MOVES` entry in tools/golden.ts; then
    `npm run golden`.
    If it shapes letters built from blocks, add it to `BLOCK_CONTROLS` (content/controls.ts), under the Block letters
-   it reaches (basic, slots): every other control is hidden while Built from is Blocks. If it shapes a definite part, give it a case in `highlightD` or a `RINGS` entry
+   it reaches (basic, slots, grid): every other control is hidden while Built from is Blocks. If it shapes a definite part, give it a case in `highlightD` or a `RINGS` entry
    (engine/highlight.ts), or the explainer, inspector and preview light nothing up for it.
 8. Words people use for it that its copy lacks go in `ALSO` (`content/search.ts`).
 9. `npm run typecheck` (the compile checks above are types only; `npm test` runs through tsx and doesn't check them).

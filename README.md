@@ -93,6 +93,7 @@ and builds exported fonts on the server. A full rebuild of every glyph takes a f
 | `ends.ts`, `corners.ts`, `joins.ts`, `stencil.ts`, `serif-sides.ts` | Stroke ends (length, curl, straight runs), corners and steps, inside-corner fillets, stencil gaps, which way serifs reach and cupped serifs |
 | `effects.ts`, `boolean.ts` | Whole-outline effects (the slice; the wireframe, pixel, dot, line, inline, outline and shadow fills), and the unions and cuts they need |
 | `blocks.ts` | Block letters: solid rounded blocks with their counters cut in as slots (*Built from: Blocks*) |
+| `grid-blocks.ts` | Grid letters: every character cells on a grid five high, all corners round, strokes meeting at a corner joined through a neck (*Block letters: Grid*) |
 | `outline.ts` | Letters drawn by hand with the pen: anchor points and bézier handles, and the curve fitting that traces a generated letter into them |
 | `grid.ts` | Construction grids: the lines and circles a letter is built on, and the groups of letters that share a grid |
 | `free.ts`, `free-letters.ts` | Free fonts' letters: registered fonts, and a design's letters drawn from its free font (nearest weight, the twin for other forms) |
@@ -158,7 +159,9 @@ sized apart from the feet.
 Letters can also be *built from blocks* instead of strokes: each capital, figure and punctuation mark is a
 solid block with its counters cut in as narrow slots, drawn as outlines of corners that each carry their
 own radius. Weight closes the slots up, Roundness rounds the corners and slot ends, Joins the small
-inside curves, and the lowercase become small capitals.
+inside curves, and the lowercase become small capitals. Or they are *grid letters*: cells on a grid five high,
+both cases as tall, every corner rounded and strokes that meet at a corner joined through a narrow neck, so the
+empty cells read as round nodes.
 
 ### Client (`client/`)
 

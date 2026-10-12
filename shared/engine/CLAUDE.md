@@ -25,7 +25,7 @@ file.
    - `fromSettings`: a letter with its own settings (`params.glyphs[ch]`) comes from `font.letter(ch)`, a font built
      with them; a design written in a free font that has the letter draws it (`freeGlyph`), or, unless it is a pixel
      font, its twin's (`twinGlyph`) when `formChanged` says it is asked for in another form than the font's;
-     otherwise `build: 'blocks'` draws `buildBlock` (basic block letters or slot blocks, by `blockForm`), and anything
+     otherwise `build: 'blocks'` draws `buildBlock` (basic block letters, slot blocks or grid letters, by `blockForm`), and anything
      else (a letter the free font lacks too) is
      `buildGlyph(variantOf(ch, e), m, ch)`.
    - `variantOf` picks the glyph id: in a script (`scriptForms`) `<ch>.scr`;
@@ -70,6 +70,7 @@ file.
 | `script.ts` | Script capitals and joined small letters (`<ch>.scr`) |
 | `basic-blocks.ts` | Basic block letters (Block letters: Basic, the default): plain block letters, every character a lowercase included, rings of corners y up from the baseline measured from the design (`V` upright, `B` level, `D` slanted strokes; counters a share of the cap height times Width), each corner of a kind ('o' Roundness, 'b'/'k' a bowl's outside and inside by Bowls, 'c' Counters, 'i' Joins, 's' sharp); Contrast, Peaks, Steps, Crossbar height (`barY`) and Openness (`open`) reach them too, and lone bars (dashes, + = #, frames) keep `LONE` of the stems at any contrast (`L`); `BASIC`, `basicDims`, `basicRound`, `basicRings` |
 | `blocks.ts` | Slot blocks (Block letters: Slots): rings of corners on a 224 × 175 grid, y down from the top, each corner of a kind ('o', 'e', 'i', 's'); the lowercase are small capitals; `BLOCKS`, `blockDims`, `blockRings` |
+| `grid-blocks.ts` | Grid letters (Block letters: Grid): each character filled and empty cells of a grid five high (`GRID`, rows from the top as `'#'`/`'.'` strings), upper and lower case alike tall; the cells' edges followed into rings, every corner rounded by Roundness, and filled cells meeting only at a corner joined through a neck between empty cells round right round (a letter's `cut` necks part instead: d is o cut at its foot); Weight moves every edge out or in (`GROW`), Width the cells' width; `gridCells`, `gridDims`, `gridRings` |
 | `stroke.ts` | The stroke expander: sampling, the pen model, terminals (`termCap`), sides, serifs (`buildSerif`, cups, diamonds) |
 | `ends.ts` | Stroke ends drawn on, trimmed, curled, run straight (`stretchTerminals`); drops, points, flares and slants no bigger than the letter has room for (`fitEnds`, `ROOM_KEEP`, shared with restyle.ts) |
 | `corners.ts` | Turns and square end corners rounded, stepped, or squared in box bowls (`turnsOf`, `markTurns`, `endCorners`) |
@@ -252,8 +253,8 @@ tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, wh
 - A glyph function returns its body width; anything reaching past it goes through `tailEnd`, `exitMark` or `entry`.
 - `meta.params` entries are control keys (the inspector casts them unchecked). A new `part` needs `ANATOMY`
   (`shared/content/copy.ts`) and `PART_CONTROL` (`shared/content/controls.ts`) entries to show in the inspector.
-- Every character of `CHARSET` has a glyph and a `BASIC` block; every non-lowercase one has a `BLOCKS` entry (the
-  slot blocks' lowercase fall back to their capitals).
+- Every character of `CHARSET` has a glyph, a `BASIC` block and `GRID` cells; every non-lowercase one has a `BLOCKS`
+  entry (the slot blocks' lowercase fall back to their capitals).
 - Most modules `font.ts` loads import values back from it (`glyph.ts` and its stages, `free-letters.ts`, `skin.ts`,
   `restyle.ts`): they may use those values only inside functions, never at module load. `stroke.ts` imports values
   only from `geom.ts` (types aside), so restyle.ts and the client's diagrams (`client/components/Diagram.tsx`) can

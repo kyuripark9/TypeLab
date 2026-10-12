@@ -13,7 +13,7 @@ const ALSO: Partial<Record<ActiveKey, string>> = {
   rotation: 'rotate turn angle', mirror: 'flip reverse backwards', contrast: 'thick thin stress', letterSpacing: 'kerning tracking',
   mono: 'typewriter code fixed width', wobble: 'rough sketchy organic jitter', cursive: 'script connected joined', swell: 'pressure shade pointed pen nib copperplate taper', fill: 'outline texture pattern halftone',
   terminal: 'tip ending finish sharp angled slanted cut tapered rounded teardrop wedge', serif: 'feet slab', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
-  aperture: 'opening mouth', extenders: 'ascender descender', build: 'blocks stroke construction', blockForm: 'block slot plain square eurostile', stencil: 'gap cut break', slice: 'cut line split',
+  aperture: 'opening mouth', extenders: 'ascender descender', build: 'blocks stroke construction', blockForm: 'block slot plain square eurostile grid cell pixel modular node dot matrix', stencil: 'gap cut break', slice: 'cut line split',
   squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', joinRound: 'crotch fillet', innerRound: 'inside corners', dots: 'tittle period i j'
 };
 

@@ -68,9 +68,10 @@ export const S_FORMS = ['curved', 'flat'] as const;
 export const A_FORMS = ['plain', 'spur'] as const;
 /** What the letters are built from: strokes drawn along a skeleton, or solid blocks (see BLOCK_FORMS). */
 export const BUILDS = ['strokes', 'blocks'] as const;
-/** Which block letters Blocks builds: plain block letters with a real lowercase (basic-blocks.ts), or solid blocks with
-    their counters cut in as slots, after a 70s poster face, the lowercase as small capitals (blocks.ts). */
-export const BLOCK_FORMS = ['basic', 'slots'] as const;
+/** Which block letters Blocks builds: plain block letters with a real lowercase (basic-blocks.ts), solid blocks with
+    their counters cut in as slots, after a 70s poster face, the lowercase as small capitals (blocks.ts), or letters of
+    cells on a grid five high, every corner round and the empty cells round nodes (grid-blocks.ts). */
+export const BLOCK_FORMS = ['basic', 'slots', 'grid'] as const;
 /** A letter as drawn, or mirrored left to right (a reversed e). */
 export const MIRRORS = ['normal', 'mirrored'] as const;
 /** Curved stroke ends: stop part way round the curve, or turn onto the nearest level or plumb line and run straight out. */
