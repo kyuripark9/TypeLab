@@ -13,7 +13,7 @@ import { buildSerif, diamondCut, diamondEnd, expandStroke, type Expanded, serifP
 import type { Cmd, Mark, Mat, PenCtx, Pt } from './types';
 import { Builder, SLANT_PIVOT, filletPts, type Glyph, glyphDefOf, type GlyphStroke, hasSerif, type Metrics, quarterK, strokeWt } from './font';
 import { barsThrough, gapOf, isBar, isHorizontal, stencilCut, stencilCuts, stencilOpens, stencilPieces, strokeJoins, turnKeep, turnPieces } from './stencil';
-import { stretchTerminals } from './ends';
+import { fitEnds, stretchTerminals } from './ends';
 import { boxQuarters, endCorners, markTurns, turnsOf } from './corners';
 import { joinCorners } from './joins';
 import { cupSerifs, faceSerifs } from './serif-sides';
@@ -246,6 +246,8 @@ export function buildGlyph(id: string, m: Metrics, ch = id): Glyph | null {
     const f = strokeWt(m, si), pen = f === 1 ? ctx : { ...ctx, thick: ctx.thick * f, thin: ctx.thin * f };
     return { ex: expandStroke(st.cmds!, so, pen), serifS, serifE, so, pen };
   });
+  // (drops, points, flares and slants no bigger than the letter has room for)
+  fitEnds(b, m, exps);
   const expanded = exps.map(x => x?.ex ?? null);
   // each stroke clipped here, before its corners are found, so the corners its clip leaves (the top left
   // of an N, where the diagonal is cut off at the stem) are the ones rounded, and drawn so

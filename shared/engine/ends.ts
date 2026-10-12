@@ -1,11 +1,13 @@
 /* Stroke ends: the centerline sampled and measured along its arcs, an end drawn on or trimmed back
    (Length), curled on round its turn or flared out (Curl) without running into the rest of the letter,
    or turned to run straight out level or plumb; then every styled terminal of a glyph stretched at
-   once (stretchTerminals), and a stroke's clip widened to follow a moved end.
-   Runs on skeletons, before buildGlyph (glyph.ts) expands them. */
-import { endCurl, endId, endLength, endReach } from '../params';
+   once (stretchTerminals), and a stroke's clip widened to follow a moved end. Runs on skeletons, before buildGlyph
+   (glyph.ts) expands them; then, on the strokes as expanded, the ends that reach out past them (drops, points,
+   flares, slants) made as small as the room the letter has for them (fitEnds). */
+import { endCurl, endId, endLength, endReach, type Terminal } from '../params';
 import { clamp, cubicAt, lerp, lerpP, quarter, subCubic } from './geom';
-import type { ClipBox, Cmd, Pt } from './types';
+import { expandStroke, type Expanded } from './stroke';
+import type { ClipBox, Cmd, PenCtx, Pt, StrokeOpts, TermSpec } from './types';
 import { type Builder, hasSerif, type Metrics, quarterK, strokeWt } from './font';
 
 /** A cubic's arc-length table: arc(u) the length up to u, uAt(s) the u at length s, `total` its whole length. */
@@ -478,3 +480,90 @@ function widenClip(clip: ClipBox, from: Pt, before: Cmd[], after: Cmd[], m: Metr
   side('x0', 'x', -1); side('x1', 'x', 1); side('y0', 'y', -1); side('y1', 'y', 1);
   return out;
 }
+
+/* ---- room for the ends that reach out past their strokes */
+
+/** How near a styled end that reaches out past its stroke (a drop, a point, a flare, a slant) may come to the rest of
+    the letter: ROOM_KEEP of as near as the stroke's end cut plain across comes, though never kept further off than
+    ROOM_MAX of the stroke's width. One that came nearer would close a heavy letter's opening (a C into an O, an s into
+    an 8) or run into its bowl. A free font's ends are fitted by the same (fittedEnd in restyle.ts). */
+export const ROOM_KEEP = 0.75, ROOM_MAX = 0.6;
+/** The smallest drop the engine draws, in the stroke's thickness (dropR in stroke.ts). */
+export const DROP_MIN = 0.525;
+/** The kinds of end that reach out past their stroke, and the part of TermSpec that sets how far. */
+export const reachingOf = (terminal: Terminal, T: TermSpec): 'size' | 'flare' | 'point' | 'slope' | null =>
+  terminal === 'round' ? (T.form === 'droplet' || T.form === 'ball' ? 'size' : null) : terminal === 'flat' ? (T.form === 'flared' ? 'flare' : null)
+    : terminal === 'sharp' ? 'point' : terminal === 'angled' ? 'slope' : null;
+/** Where a TermSpec's reach (see reachingOf) is least: a drop as wide as its stroke, no flare, point or slant. */
+export const reachLeast = (k: 'size' | 'flare' | 'point' | 'slope') => (k === 'size' ? DROP_MIN : k === 'flare' ? 1 : 0);
+
+/** A stroke as buildGlyph expands it: its outline, the options and pen it was drawn with. */
+export type ExpandedStroke = { ex: Expanded | null; so: StrokeOpts; pen: PenCtx } | null;
+
+/** Every stroke's styled ends that reach out past it (see reachingOf) drawn again smaller where they come nearer the
+    rest of the letter than ROOM_KEEP of how near the end cut plain across comes: by as little as keeps them clear, the
+    slider's share of their reach kept in step at both ends of a stroke. A heavy C's drops, points or slants no longer
+    close it into an O. */
+export function fitEnds(b: Builder, m: Metrics, exps: ExpandedStroke[]) {
+  const T = m.ctx.term, k = T ? reachingOf(m.p.terminal, T) : null;
+  if (!T || !k) return;
+  const lo = reachLeast(k);
+  if (T[k] <= lo) return;
+  b.strokes.forEach((st, si) => {
+    const x = exps[si];
+    if (!x?.ex || x.ex.loop || !st.cmds || (x.so.s !== 'term' && x.so.e !== 'term')) return;
+    const ends = x.ex.ends.filter(e => e.type === 'term');
+    if (!ends.length) return;
+    // the rest of the letter: every other stroke, as drawn by now
+    const others: Pt[][] = [];
+    b.strokes.forEach((t, sj) => { if (sj === si) return; if (t.poly) others.push(t.poly); else for (const c of exps[sj]?.ex?.contours ?? []) others.push(c); });
+    const flat = expandStroke(st.cmds, { ...x.so, s: x.so.s === 'term' ? 'flat' : x.so.s, e: x.so.e === 'term' ? 'flat' : x.so.e }, x.pen);
+    if (!flat || flat.loop) return;
+    // (read no further than matters: past ROOM_MAX / ROOM_KEEP of the stroke's width the need is ROOM_MAX of it)
+    const need = ends.map(e => Math.min(endGap(flat.contours[0], others, e, e.t * ROOM_MAX / ROOM_KEEP) * ROOM_KEEP, e.t * ROOM_MAX));
+    const fits = (ex: Expanded) => ends.every((e, i) => need[i] < 1 || endGap(ex.contours[0], others, e, need[i]) >= need[i]);
+    if (fits(x.ex)) return;
+    // (the most of its reach that fits, found by halves)
+    const at = (f: number) => { const pen = { ...x.pen, term: { ...T, [k]: lerp(lo, T[k], f) } }, ex = expandStroke(st.cmds!, x.so, pen); return ex && !ex.loop ? { ex, pen } : null; };
+    let best = at(0), a = 0, z = 1;
+    for (let i = 0; i < 6; i++) { const f = (a + z) / 2, d = at(f); if (d && fits(d.ex)) { a = f; best = d; } else z = f; }
+    if (best) exps[si] = { ...x, ex: best.ex, pen: best.pen };
+  });
+}
+
+/** How near the rest of a letter (`others`, every other stroke's outline, and the stretch of this stroke's own outline
+    `own` that lies more than ROOM_OWN of its thickness along the outline from end `e`) comes to the stretch of `own`
+    within ROOM_END of it (each no more than a share of the outline): read no further than `max`. */
+function endGap(own: Pt[], others: Pt[][], e: { x: number; y: number; t: number }, max: number) {
+  const n = own.length, cum = [0];
+  for (let i = 1; i <= n; i++) cum.push(cum[i - 1] + Math.hypot(own[i % n].x - own[i - 1].x, own[i % n].y - own[i - 1].y));
+  const L = cum[n];
+  let i0 = 0, d0 = Infinity;
+  own.forEach((q, i) => { const d = Math.hypot(q.x - e.x, q.y - e.y); if (d < d0) { d0 = d; i0 = i; } });
+  const along = (i: number) => { const d = Math.abs(cum[i] - cum[i0]); return Math.min(d, L - d); };
+  const step = Math.max(2, e.t / 6), mine: Pt[] = [], rest: Pt[] = [];
+  const lay = (a: Pt, b: Pt, to: Pt[]) => { const k = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / step)); for (let j = 0; j < k; j++) to.push({ x: a.x + (b.x - a.x) * j / k, y: a.y + (b.y - a.y) * j / k }); };
+  // (on a heavy stroke no more than a share of its whole outline: a heavy c's two ends lie fewer thicknesses apart)
+  const near = Math.min(e.t * ROOM_END, L * 0.15), far = Math.min(e.t * ROOM_OWN, L * 0.3);
+  for (let i = 0; i < n; i++) {
+    const s = along(i);
+    if (s <= near) lay(own[i], own[(i + 1) % n], mine);
+    else if (s > far) lay(own[i], own[(i + 1) % n], rest);
+  }
+  for (const r of others) for (let i = 0; i < r.length; i++) lay(r[i], r[(i + 1) % r.length], rest);
+  // (the rest laid out in square cells `max` a side, so a point looks only in the cells round it)
+  const cell = Math.max(step, max), cells = new Map<number, Pt[]>(), key = (i: number, j: number) => (i + 4096) * 8192 + j + 4096;
+  for (const q of rest) { const k = key(Math.floor(q.x / cell), Math.floor(q.y / cell)); const c = cells.get(k); if (c) c.push(q); else cells.set(k, [q]); }
+  let best = max;
+  for (const p of mine) {
+    const ci = Math.floor(p.x / cell), cj = Math.floor(p.y / cell);
+    for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) for (const q of cells.get(key(i, j)) ?? []) {
+      const d = Math.hypot(p.x - q.x, p.y - q.y);
+      if (d < best) { best = d; if (best <= 0) return 0; }
+    }
+  }
+  return best;
+}
+/** The stretch of a stroke's outline round its end that is the end (ROOM_END of its thickness along the outline either
+    way), and how far along it the rest of the stroke begins (ROOM_OWN): a drop runs round about six thicknesses of it. */
+const ROOM_END = 4, ROOM_OWN = 6;

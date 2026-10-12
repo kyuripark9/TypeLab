@@ -1,8 +1,17 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { STYLES, TERMINAL_DETAILS } from '../shared/content';
-import { buildFont } from '../shared/engine';
+import { buildFont, termSpec, type Glyph } from '../shared/engine';
+import { combine, shape } from '../shared/engine/boolean';
+import { toPolys } from '../shared/engine/geom';
+import { termCap } from '../shared/engine/stroke';
 import { DEFAULTS, TERMINAL_FORMS, onEndScale, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
+
+/** How many counters a letter's ink rings round. */
+const holes = (g: Glyph) => {
+  const sh = shape(toPolys(g.cmds)), area = (r: { x: number; y: number }[]) => r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p.x * q.y - q.x * p.y; }, 0);
+  return combine([sh], sh.has).filter(r => area(r) < 0).length;
+};
 
 /* Stroke ends: each kind of terminal and its forms and finer sliders, straight ends, the Length and Curl of every
    end and of each end on its own (terminals, hooks, tails and plain stem ends). Marks and skeletons are font
@@ -16,6 +25,24 @@ describe('stroke ends: terminal, terminalForm, terminalRun, terminalLength, term
     assert.notEqual(ball.d, plain.d);
     const low = (g: typeof ball) => g.skeleton.flat().filter(q => q.y < buildFont(p).m.xh * 0.3 && q.x > g.bodyW * 0.6).length;
     assert.equal(low(ball), low(plain));
+  });
+
+  it('cuts a level bar\'s end across, and draws no drop or point bigger than the letter has room for', () => {
+    const font = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p } as Params), flat = font({});
+    // a hyphen's or an equals sign's bars end as they are cut under a point, a hollow or a notch, as under a drop
+    for (const t of [{ terminal: 'sharp', terminalForm: 'pointed' }, { terminal: 'sharp', terminalForm: 'clipped' }, { terminal: 'flat', terminalForm: 'scooped' }, { terminal: 'cut', terminalForm: 'notched' }] as const)
+      for (const ch of '-=') assert.equal(font(t).glyph(ch)!.d, flat.glyph(ch)!.d, `${t.terminalForm} ${ch}`);
+    // a black c's and C's points stop short of one another
+    const points = font({ weight: 1, terminal: 'sharp', terminalForm: 'pointed', terminalPoint: 1 });
+    for (const ch of 'cC') assert.equal(holes(points.glyph(ch)!), 0, ch);
+    assert.notEqual(points.glyph('c')!.d, font({ weight: 1 }).glyph('c')!.d, 'and are points still');
+  });
+
+  it('draws a drop much wider than its stroke on round through its front', () => {
+    // (a ball as big as a stem on a hairline: its inner edge meets it near its back)
+    const T = termSpec({ ...DEFAULTS, terminal: 'round', terminalForm: 'ball' }), side = (y: number) => Array.from({ length: 11 }, (_, i) => ({ x: i * 5, y, smooth: true }));
+    const cap = termCap(side(13.5), side(-13.5), { x: 50, y: 0 }, { x: 1, y: 0 }, 27, { thick: 143, thin: 27, stress: 0, k: 0.55, org: 0, terminal: 'round', term: T }, true);
+    assert.ok(Math.min(...cap.map(p => p.y)) < -80, 'it hangs well below its stroke');
   });
 
   it('straight stroke ends run level or plumb without closing a mouth or losing a hook', () => {

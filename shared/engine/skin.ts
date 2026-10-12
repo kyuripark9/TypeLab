@@ -577,7 +577,7 @@ export function skinFollows(font: FreeFont, ch: string, key: string) {
       // (Tails & hooks the Q y j g t f with a styled end, Openness the open bowls' c e s a C G S and figures)
       if (key === 'tail' && !HOOK_LETTERS.includes(ch)) return false;
       if (key === 'aperture' && !OPEN_LETTERS.includes(ch)) return false;
-      return (!key.startsWith('terminal') && key !== 'tail' && key !== 'aperture') || hasTerminals(rigSkeleton(rig));
+      return (!key.startsWith('terminal') && key !== 'tail' && key !== 'aperture') || hasTerminals(rig.contours, rigSkeleton(rig), rig.ctx);
   }
 }
 

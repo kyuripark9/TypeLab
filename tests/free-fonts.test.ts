@@ -414,6 +414,24 @@ describe("TypeLab's own fonts", () => {
     const gum = await design('chunkyround'), drop = await design('chunkyround', { terminal: 'round', terminalForm: 'droplet' });
     for (const ch of 'hbn') assert.ok(same(drop.glyph(ch)!, gum.glyph(ch)!), `Gumdrop's ${ch}`);
     assert.ok(!same(drop.glyph('c')!, gum.glyph('c')!), 'its c takes a drop');
+    // a stroke end goes where the engine's letter of the same character has one: a Didone's balls give way to any other
+    // end and grow with Size, a serif face's e flares, and no stem's or serif's end takes one
+    const plainEnds = await design('didone', { terminal: 'flat', terminalForm: 'plain' });
+    for (const ch of 'acfr') assert.ok(!same(plainEnds.glyph(ch)!, didone.glyph(ch)!), `Couture's ${ch} without its ball`);
+    for (const ch of 'nhlH') assert.ok(same(plainEnds.glyph(ch)!, didone.glyph(ch)!), `Couture's ${ch} has no stroke end`);
+    assert.ok(!same((await design('didone', { terminalSize: 0 })).glyph('c')!, (await design('didone', { terminalSize: 1 })).glyph('c')!), 'Ball size on Couture');
+    const almanac = await design('serif'), flared = await design('serif', { terminal: 'flat', terminalForm: 'flared' });
+    assert.ok(!same(flared.glyph('e')!, almanac.glyph('e')!), "Almanac's e flares");
+    for (const ch of 'nmH') assert.ok(same(flared.glyph(ch)!, almanac.glyph(ch)!), `Almanac's ${ch} keeps its serifs`);
+    // a heavy sans's ends cut on a slant take balls, and Curl and Length turn them all the way without closing a letter
+    const mainline = await design('grotesque');
+    for (const set of [{ terminal: 'round', terminalForm: 'ball' }, { terminalCurl: 1 }, { terminalLength: 1 }] as Partial<Params>[]) {
+      const moved = await design('grotesque', set);
+      for (const ch of 'csCS') {
+        assert.ok(!same(moved.glyph(ch)!, mainline.glyph(ch)!), `Mainline's ${ch} at ${JSON.stringify(set)}`);
+        assert.equal(parts(moved.glyph(ch)!).holes, 0, `and stays open (${ch} at ${JSON.stringify(set)})`);
+      }
+    }
     // Bowls' Corners rounds a box bowl's corners
     const box = (v: number) => design('geometric', { bowlForm: 'box', boxRound: v });
     assert.ok(!same((await box(0)).glyph('O')!, (await box(1)).glyph('O')!), 'box corners');

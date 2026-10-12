@@ -34,7 +34,9 @@ file.
    4. `faceSerifs`, then `cupSerifs` (`serif-sides.ts`), while serifs are on;
    5. `wobbleSkeleton`: Hand-drawn moves the strokes, counters, marks and end homes through one field;
    6. `expandStroke` (`stroke.ts`) on every stroke drawn with a path (not dots, fillets or blobs), weighed by its own
-      stroke weight; then each stroke clipped to its `clip` (`clipMade` keeps the points the clip adds);
+      stroke weight; `fitEnds` (`ends.ts`) draws again smaller any drop, point, flare or slant that comes nearer the
+      rest of the letter than its end cut plain would (`ROOM_KEEP`), and `cap` leaves a level bar's end cut across under
+      a point, hollow, notch or drop; then each stroke clipped to its `clip` (`clipMade` keeps the points the clip adds);
    7. `endCorners` (`corners.ts`), then `joinCorners` (`joins.ts`), whose fillets join the strokes as part `fillet`;
    8. `markJoins`, `barsThrough` and the stencil pieces (`stencil.ts`);
    9. each stroke's outline finished, in this order: a ring split by `ringOutline`; otherwise clipped a second time,
@@ -61,7 +63,7 @@ file.
 | `basic-blocks.ts` | Basic block letters (Block letters: Basic, the default): plain block letters, every character a lowercase included, rings of corners y up from the baseline measured from the design (`V` upright, `B` level, `D` slanted strokes; counters a share of the cap height times Width), each corner of a kind ('o' Roundness, 'b'/'k' a bowl's outside and inside by Bowls, 'c' Counters, 'i' Joins, 's' sharp); Contrast, Peaks, Steps, Crossbar height (`barY`) and Openness (`open`) reach them too, and lone bars (dashes, + = #, frames) keep `LONE` of the stems at any contrast (`L`); `BASIC`, `basicDims`, `basicRound`, `basicRings` |
 | `blocks.ts` | Slot blocks (Block letters: Slots): rings of corners on a 224 × 175 grid, y down from the top, each corner of a kind ('o', 'e', 'i', 's'); the lowercase are small capitals; `BLOCKS`, `blockDims`, `blockRings` |
 | `stroke.ts` | The stroke expander: sampling, the pen model, terminals (`termCap`), sides, serifs (`buildSerif`, cups, diamonds) |
-| `ends.ts` | Stroke ends drawn on, trimmed, curled, run straight (`stretchTerminals`) |
+| `ends.ts` | Stroke ends drawn on, trimmed, curled, run straight (`stretchTerminals`); drops, points, flares and slants no bigger than the letter has room for (`fitEnds`, `ROOM_KEEP`, shared with restyle.ts) |
 | `corners.ts` | Turns and square end corners rounded, stepped, or squared in box bowls (`turnsOf`, `markTurns`, `endCorners`) |
 | `joins.ts` | Inside corners where strokes cross, filled with fillets (`joinCorners`, `joinR`); how Joins and Counters split the inside corners by how wide they are, Joins the crotches and Counters the square ones (`innerShare`, `crotchShare`, `innerFor`, `crotchFor`), turns' insides too (`markTurns`) |
 | `stencil.ts` | Stencil gaps at joins and turns, the crossbar Gap, bars run Through |
@@ -137,13 +139,23 @@ A design with `freeFont` set draws its letters from a free font instead of build
    the pick, each handing back the very same array when nothing it follows moved. Results are cached by the contours and
    a key of every setting the steps read. Overlap parts a b d p q's bowl from an upright stem as the font's own o
    (`bowlStem`, `OVERLAP_LETTERS`); Cursive adds the engine's exit and entry flicks to the lowercase (`EXIT_LETTERS`,
-   `ENTRY_LETTERS`); Peaks reshapes only `PEAK_LETTERS` with straight sides; Ends restyles only ends that curve from
-   their tip (a heavy stem's round top or
-   foot, a G's bar, run straight first), drawn again from no further back than the stroke runs alone (`widthAcross`,
-   `ALONE_TURN`), and each as big as the letter has room for (`fittedEnd`, `roomAround`): a drop, point, flare or slant
-   reaches no nearer the rest of the letter than the font's own end did (`ROOM_KEEP`), nor further past its stroke than
-   `REACH_X` of the x-height, its slider a share of that (`reachT`); an end with no room even for the least of it is
-   left as the font draws it, so a heavy C never closes into an O; Serifs also squares off an upright stroke's round end on a line (`roundTip` in
+   `ENTRY_LETTERS`); Peaks reshapes only `PEAK_LETTERS` with straight sides; Ends restyles only the free ends standing
+   where the engine's letter of the same character has a styled end on a curving stroke (`endSpots`, `SPOT_NEAR`; on a
+   cursive design its italic letters' too), each of a stroke that curves (`END_TURN`) and no serif's or beak's prong
+   (a stem's foot, a crossbar's end and a Didone's s's beak keep theirs), drawn again from no further back than the
+   stroke runs alone (`widthAcross`, `ALONE_TURN`) and stepped further back where the line across it runs into a ball;
+   an end cut on a slant is told from one another stroke meets by which way the outline turns where its short side
+   stops. A ball or drop of the font's own (`BALL_NECK`, round all the way: `straightRun`) is no stroke's two sides:
+   the stroke runs on into it at its neck's width along its skeleton (`runOn`), and a new drop is as big as the font's
+   ball (`DROP_OF_BALL`). Each end is as big as the letter has room for (`fittedEnd`, `roomFor`, `roomAround`): a drop,
+   point, flare or slant reaches no nearer the rest of the letter than the font's own end did (`ROOM_KEEP`), nor
+   further past its stroke than `REACH_X` of the x-height, its slider a share of that (`reachT`), drawn back along its
+   stroke (`END_CUTS`) and curled less where even the least of it would come too near; an end with no room still is
+   left as the font draws it, so a heavy C never closes into an O. Length and Curl alone carry the font's own end
+   (`carryEnd`: every outline point moved by its place beside the skeleton, run on straight past its tip, the end past
+   its shorter side carried whole) by their share of as far as it has room for at the ends of their sliders
+   (`carriedEnd`). A taper runs back its share of all the way the stroke runs alone past Taper length's middle.
+   Serifs also squares off an upright stroke's round end on a line (`roundTip` in
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
 5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,
    script or not, the a's storeys, a `FORM_LETTERS` setting; Letterforms and

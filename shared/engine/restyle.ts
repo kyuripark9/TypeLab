@@ -11,12 +11,13 @@
    its Position and Rounding; the crossbars' Gap); Peaks; Corners (Roundness, Steps, Counters, Joins), last, so
    it rounds the corners the others leave too. Whatever a restyle reads of the settings must also be in the key
    restyled() keeps its results under, or a dragged slider shows letters drawn for an earlier value. */
-import { bowlK, bowlOrg, cursiveHookR, dotRoundOf, innerRoundR, roundnessR, stencilOff, termSpec, type Effective } from './font';
-import { endReach, onEndScale } from '../params';
+import { CURSIVE_FORMS, bowlK, bowlOrg, buildFont, cursiveHookR, dotRoundOf, innerRoundR, roundnessR, stencilOff, termSpec, type Effective, type Font } from './font';
+import { DEFAULTS, endReach, onEndScale, type Params } from '../params';
 import { fitOutline, type Node } from './outline';
 import { CIRCLE_K, lerp, roundContour, signedArea, smoothstep } from './geom';
 import { bez, branches, endFace, inkAt, inkGrid, joinsOf, leaving, nearestOn, roundTip, type Branch, type Grid, type Join, type SkPt, type Skeleton } from './scan';
 import { STEP_DEPTH, buildSerif, expandStroke, serifCup, serifSides, termCap, termDropBack } from './stroke';
+import { DROP_MIN, ROOM_KEEP, ROOM_MAX, reachingOf } from './ends';
 import { crotchShare, innerShare, joinR } from './joins';
 import { combine, shape } from './boolean';
 import type { Cmd, PenCtx, Pt, SerifSides, SerifSpec, TermSpec } from './types';
@@ -332,12 +333,64 @@ const endLook = (e: Effective) => JSON.stringify({ t: e.terminal, ...termSpec(e)
     usual half-thickness back from its end, and how far the ink reaches on past the skeleton's tip. */
 interface End { pts: SkPt[]; body: number; reach: number }
 
-/** The free ends of a letter's strokes that the engine's letters give a styled end (a terminal): the ends
-    of strokes that curve (c, e, s, the hook of an a, f, j, r, t, the tail of a J), not a stem's, an arm's,
-    a diagonal's or a serif's straight end, nor a dot. `g`, the letter's ink, is read for how far the ink reaches
-    on past each end; without it each end's `reach` is 0 (enough to tell whether there are any). */
-function terminalEnds(sk: Skeleton, g?: Grid): End[] {
-  const out: End[] = [];
+/** Where the engine's own letters end their strokes in styled ends (their marks of type 'terminal', not a plain end's),
+    each as shares across and up the letter's ink box: as the engine writes them upright, with either storey of an a and a
+    g, and (`italic`) with the entry and exit strokes an italic hand gives the n, the i, the l, the a and the rest. A free
+    font's letter has its styled ends where the engine's letter of the same character has them (see terminalEnds), on its
+    curving strokes: a crossbar's ends (an f's, a 2's foot) run straight, and keep the font's own. */
+const SPOT_LOOKS: Record<'upright' | 'italic', Partial<Params>[]> = {
+  upright: [{}, { story: 'single' }, { gForm: 'double' }],
+  italic: [{}, { story: 'single' }, { gForm: 'double' }, { cursive: 0.45, scriptForm: 'print' }]
+};
+const spotFonts: Font[] = [], spotsOf = new Map<string, P[]>();
+function endSpots(ch: string, italic: boolean): P[] {
+  const key = (italic ? 'i' : 'u') + ch;
+  let spots = spotsOf.get(key);
+  if (spots) return spots;
+  spots = [];
+  SPOT_LOOKS[italic ? 'italic' : 'upright'].forEach((look, i) => {
+    const f = (spotFonts[i] ??= buildFont({ ...DEFAULTS, ...look } as Params)), g = f.glyph(ch);
+    if (!g) return;
+    const xs: number[] = [], ys: number[] = [];
+    for (const c of g.cmds) for (let k = 1; k + 1 < c.length; k += 2) { xs.push(c[k] as number); ys.push(c[k + 1] as number); }
+    const box = boxOf(xs, ys);
+    for (const mk of g.marks) {
+      if (mk.type !== 'terminal' || !mk.id || mk.id.startsWith('p')) continue;
+      // (a straight stroke's, a crossbar's, keeps its own end on a free font's letter, but for a tail's, which a font may
+      // curl where the engine runs it straight, as a y's: see terminalEnds)
+      const st = g.strokes.find(t => t.id === String(parseInt(mk.id!)));
+      if (st && !st.curved && st.part !== 'tail') continue;
+      const q = inBox(box, mk);
+      if (!spots!.some(o => Math.hypot(o.x - q.x, o.y - q.y) < 0.05)) spots!.push(q);
+    }
+  });
+  spotsOf.set(key, spots);
+  return spots;
+}
+type Box = { x0: number; y0: number; w: number; h: number };
+const boxOf = (xs: number[], ys: number[]): Box => {
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  return { x0, y0, w: Math.max(1, Math.max(...xs) - x0), h: Math.max(1, Math.max(...ys) - y0) };
+};
+const inBox = (b: Box, q: P): P => ({ x: (q.x - b.x0) / b.w, y: (q.y - b.y0) / b.h });
+/** How far apart (in shares of the letter's box) a free end of a font's letter and a styled end of the engine's may lie
+    and still be the same end. */
+const SPOT_NEAR = 0.3;
+/** How far round (degrees) a styled end's stroke turns from the way it heads at its tip within END_TURN_AT of the
+    x-height (or a few of its thicknesses, if more), at the least: a crossbar's end (an f's, a t's, a 2's foot) runs
+    straight, and keeps its own end. */
+const END_TURN = 12, END_TURN_AT = 0.35;
+
+/** The free ends of a letter's strokes that take a styled end (a terminal): those standing where the engine's letter
+    `c.ch` has its styled ends (endSpots; on a cursive design's letters, `italic`, its italic ones as well), each the end
+    of a stroke that curves (c, e, s, the hook of an a, f, j, r, t, the tail of a J, a y): never a stem's, an arm's or a
+    serif's (a stem's foot, the beak of an s, each the prong of a fork in the skeleton), a crossbar's, which runs
+    straight, nor a dot. `g`, the letter's ink, is read for how far the ink reaches on past each end; without it each
+    end's `reach` is 0 (enough to tell whether there are any). */
+function terminalEnds(sk: Skeleton, c: { ch: string; xh: number }, italic: boolean, box: Box, g?: Grid): End[] {
+  const spots = endSpots(c.ch, italic);
+  if (!spots.length) return [];
+  const cands: (End & { q: P })[] = [];
   sk.nodes.forEach((n, ni) => {
     if (n.edges.length !== 1) return;
     const E = sk.edges[n.edges[0]];
@@ -345,33 +398,45 @@ function terminalEnds(sk: Skeleton, g?: Grid): End[] {
     const pts = E.a === ni ? E.pts : E.pts.slice().reverse();
     // its usual half-thickness: the middle of the skeleton's, past the end itself
     const arc = arcOf(pts);
-    // (read near the end: a high-contrast stroke is much heavier round its middle than out at its ends)
+    // (read near the end: a high-contrast stroke is much heavier round its middle than out at its ends; but past the
+    // round of its tip, where that is a ball, a Didone's r's, far heavier than the stroke it ends)
     const med = (lo: number, hi: number) => { const rs = pts.filter((_, k) => arc[k] >= lo && arc[k] <= hi).map(p => p.r).sort((a, b) => a - b); return rs.length ? rs[rs.length >> 1] : 0; };
-    const b0 = med(n.r * 2, Infinity) || n.r, body = med(b0 * 1.5, b0 * 4) || b0;
+    const b0 = med(n.r * 2, Infinity) || n.r, lo = Math.max(b0 * 1.5, n.r * 1.2), body = med(lo, Math.max(b0 * 4, lo + b0 * 2.5)) || b0;
     if (E.len < body * 2.5) return;
-    // it curves, right on out to its end: the way it heads at its tip, a little way back and further back all
-    // differ (not a straight bar turning a corner into another stroke, as G's)
-    const at = (a: number) => indexAt(arc, a);
-    const d0 = dirAlong(pts, 0, at(body * 1.5)), dm = dirAlong(pts, at(body * 1.5), at(body * 3)), d1 = dirAlong(pts, at(body * 3), at(body * 5));
-    // (and further back too: a straight stem or arm only seems to curve at its end, where its skeleton runs off into
-    // the sharper corner of an end cut on a slant, an italic stem's)
-    if (d0.x * d1.x + d0.y * d1.y > Math.cos(15 * Math.PI / 180) || d0.x * dm.x + d0.y * dm.y > Math.cos(4 * Math.PI / 180)
-      || dm.x * d1.x + dm.y * d1.y > Math.cos(4 * Math.PI / 180)) return;
-    // (and curves from its tip on: a heavy stem's foot or top, drawn round, runs dead straight for its first two
-    // thicknesses before the look further on reaches the arch it rises into; and a bar or a spur that runs straight
-    // for a thickness and then turns a corner, a G's, is no curving end either)
-    const way = Array.from({ length: 6 }, (_, k) => dirAlong(pts, at(body * k / 2), at(body * (k + 1) / 2)));
-    const turn = (a: P, b: P) => Math.acos(Math.max(-1, Math.min(1, a.x * b.x + a.y * b.y))) * 180 / Math.PI;
-    if (turn(way[0], way[1]) <= 5 && (turn(way[0], way[3]) < 8 || way.slice(1, 5).some((w, k) => turn(w, way[k + 2]) > 25))) return;
+    // (a serif's two tips, or a beak's, are the prongs of a fork the stroke runs into: short, and the node they run into
+    // holds another short free end)
+    const nb = E.a === ni ? E.b : E.a, other = sk.nodes[nb], PRONG = c.xh * 0.4;
+    if (E.len < PRONG && other.edges.length >= 3 && other.edges.some(ei => {
+      const F = sk.edges[ei], far = F.a === nb ? F.b : F.a;
+      return ei !== n.edges[0] && F.a !== F.b && sk.nodes[far].edges.length === 1 && F.len < PRONG;
+    })) return;
+    // it curves: how far round it has turned within a stretch of its tip (read past the very tip, which a square end's
+    // corners pull aside)
+    const at = (a: number) => indexAt(arc, a), u = Math.max(body, c.xh * 0.04), D = Math.max(body * 5, c.xh * END_TURN_AT);
+    const d0 = dirAlong(pts, at(Math.min(body * 0.5, u)), at(u * 1.5)), d1 = dirAlong(pts, at(Math.min(D, E.len) - u), at(Math.min(D, E.len)));
+    const turned = Math.acos(Math.max(-1, Math.min(1, d0.x * d1.x + d0.y * d1.y))) * 180 / Math.PI;
+    if (turned < END_TURN) return;
     const dir = { x: -d0.x, y: -d0.y };
     let reach = 0;
     if (g) while (reach < body * 4 && inkAt(g, n.x + dir.x * (reach + 1), n.y + dir.y * (reach + 1))) reach += 1;
-    out.push({ pts, body, reach });
+    cands.push({ pts, body, reach, q: inBox(box, n) });
   });
+  // each of the engine's styled ends claims the nearest free end, nearest first
+  const pairs = spots.flatMap((s, si) => cands.map((e, ei) => ({ si, ei, d: Math.hypot(e.q.x - s.x, e.q.y - s.y) }))).filter(p => p.d < SPOT_NEAR).sort((a, b) => a.d - b.d);
+  const tookS = new Set<number>(), tookE = new Set<number>(), out: End[] = [];
+  for (const p of pairs) {
+    if (tookS.has(p.si) || tookE.has(p.ei)) continue;
+    tookS.add(p.si); tookE.add(p.ei);
+    const { q: _, ...e } = cands[p.ei];
+    out.push(e);
+  }
   return out;
 }
-/** Whether a letter has a stroke end the engine's letters give a styled end (see terminalEnds). */
-export const hasTerminals = (sk: Skeleton) => terminalEnds(sk).length > 0;
+/** Whether a letter of a free font (its rig's contours `cs`, skeleton `sk`) has a stroke end that takes a styled end (see
+    terminalEnds), written upright or as an italic. */
+export const hasTerminals = (cs: Node[][], sk: Skeleton, c: { ch: string; xh: number }) => terminalEnds(sk, c, true, inkBox(cs)).length > 0;
+/** The box round a letter's ink. */
+const inkBox = (cs: Node[][]): Box => { const r = inkRings(cs).flat(); return boxOf(r.map(q => q.x), r.map(q => q.y)); };
 
 const dirAlong = (pts: SkPt[], i: number, j: number): P => {
   const a = pts[i], b = pts[Math.max(i + 1, j)] ?? pts[pts.length - 1], l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
@@ -415,8 +480,11 @@ function atShares(line: P[], us: number[]): P[] {
     a flare narrows or widens the sides over as long a stretch as the engine's do, and a drop shortens them. */
 export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Effective, sk: SkeletonOf): Node[][] {
   const restyle = endLook(from) !== endLook(to), moves = endMoves(c, from, to);
+  // (and moved as far as Length and Curl go the way they are turned, which an end has room for a share of: see carriedEnd)
+  const most = (k: 'terminalLength' | 'terminalCurl') => (to[k] === from[k] ? to[k] : to[k] > from[k] ? 1 : 0);
+  const movesMost = endMoves(c, from, { ...to, terminalLength: most('terminalLength'), terminalCurl: most('terminalCurl') });
   if (!restyle && !moves) return cs;
-  const g = inkGrid(cs, 2), ends = terminalEnds(sk(), g);
+  const g = inkGrid(cs, 2), ends = terminalEnds(sk(), c, to.cursive >= CURSIVE_FORMS || from.cursive >= CURSIVE_FORMS, inkBox(cs), g);
   if (!ends.length) return cs;
   const T = termSpec(to), top = termSpec({ ...to, terminalSize: 1, terminalFlare: 1, terminalPoint: 1, terminalSlope: 1 });
   const rings = inkRings(cs);
@@ -427,6 +495,7 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
     const { pts, body } = end, arc = arcOf(pts);
     // how much longer (or shorter) the end is drawn, and how much further round it bends, by the radius it curves at
     const kEnd = endCurvature(pts, arc, body), mv = moves ? moves(end, kEnd) : { len: 0, bend: 0 };
+    const mvMost = movesMost ? movesMost(end, kEnd) : mv;
     if (!restyle && Math.abs(mv.len) < 0.5 && Math.abs(mv.bend) < 0.005) continue;
     const left = (d: P) => ({ x: -d.y, y: d.x });
     /** the end drawn again as `plan` has it, on whichever ring holds the stroke's two sides there ('done', or left as
@@ -448,7 +517,9 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
         // the font's end: the ring from A's crossing on round the tip to B's
         const endPath: P[] = [];
         for (let k = (ca.i + 1) % n, step = 0; step < n; k = (k + 1) % n, step++) { endPath.push(ring[k]); if (k === cb.i) break; }
-        if (endPath[endPath.length - 1] !== ring[cb.i] || arcLen(endPath) > 2 * (plan.atS + end.reach) + 6 * body) continue;
+        // (no longer than the stroke's two sides out to its end and round it, a ball's whole round included: not the
+        // letter's whole outline the other way round)
+        if (endPath[endPath.length - 1] !== ring[cb.i] || arcLen(endPath) > 2 * (plan.atS + end.reach) + 6 * body + (plan.shaped ? Math.PI * plan.atE * 1.2 : 0)) continue;
         // each side as the font draws it, from S on to where it stops running along the stroke: a corner of its end,
         // or its turning off round it (a round end); short of a ball or a flare, only to where that begins
         // (up to E the side is the stroke's own, wherever it heads; past E it counts only while it runs on out)
@@ -462,7 +533,8 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
             if (out.length > 1) {
               const pr = out[out.length - 2], ux = o.x - pr.x, uy = o.y - pr.y, lu = Math.hypot(ux, uy) || 1, vx = (q.x - o.x) / l, vy = (q.y - o.y) / l;
               if (Math.abs(Math.atan2(ux / lu * vy - uy / lu * vx, ux / lu * vx + uy / lu * vy)) > 0.4) break;
-              if (pastE(q) && vx * way.x + vy * way.y < 0.5) break;
+              // (past E only while it runs on out with the stroke: not on round the font's own round end)
+              if (pastE(q) && vx * way.x + vy * way.y < SIDE_ON) break;
             }
             out.push(q);
           }
@@ -470,25 +542,53 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
         };
         const A0 = walk(endPath, ca), B0 = walk(endPath.slice().reverse(), cb);
         if (A0.length < 2 || B0.length < 2) continue;
-        // (one side stopping far short of the other: S is back past where another stroke meets this one)
+        // (one side stopping far short of the other where the outline turns off away from the stroke: S is back past where
+        // another stroke meets this one. An end cut on a slant stops one side short too, but its outline turns there on
+        // across the stroke's end, toward the other side; and a ball's neck stops short where the ball hangs over it)
         const la = arcLen(A0), lb = arcLen(B0);
-        if (Math.min(la, lb) < Math.max(la, lb) * 0.35 && Math.abs(la - lb) > body * 3) return 'nearer';
+        const offAway = (side: P[], path: P[], other: P) => {
+          const q = side[side.length - 1], k = path.indexOf(q as P);
+          let next: P | undefined;
+          for (let j = k + 1; j >= 1 && j < path.length && !next; j++) if (Math.hypot(path[j].x - q.x, path[j].y - q.y) > body * 0.5) next = path[j];
+          return !!next && (next.x - q.x) * (other.x - side[0].x) + (next.y - q.y) * (other.y - side[0].y) < 0;
+        };
+        const shortA = la < lb, rev = endPath.slice().reverse();
+        if (Math.min(la, lb) < Math.max(la, lb) * 0.35 && Math.abs(la - lb) > body * 3 && !shaped
+          && (shortA ? offAway(A0, endPath, cb) : offAway(B0, rev, ca))) return 'nearer';
+        // (a ball or a drop: the end's round about as wide as the neck it hangs from, or wider, a Didone's or a Baskerville's,
+        // and round all the way: not a squared arm's end, an r's, widening out to its cut)
+        const w = Math.hypot(ca.x - cb.x, ca.y - cb.y), tipR = end.pts[0].r;
+        const past = endPath.map(pastE), k0 = past.indexOf(true), k1 = past.lastIndexOf(true);
+        const ball = shaped && tipR > w * BALL_NECK && (k0 < 0 || straightRun(endPath.slice(k0, k1 + 1)) < tipR);
+        // (a stroke widening out all the way to its end from a notch where it leaves another stroke, as a squared r's arm
+        // does from its stem, has no stretch of its own sides to draw a new end across: both stop short at once, so near
+        // that other stroke, and it keeps the font's own end)
+        if (shaped && !ball && tipR > w * 0.6 && Math.max(la, lb) < plan.atS * 0.3 && plan.atS > arc[arc.length - 1] * 0.45) return 'done';
         // the rest of the ring, from B's crossing on round to A's
         const rest: P[] = [];
         for (let k = (cb.i + 1) % n, step = 0; step < n; k = (k + 1) % n, step++) { rest.push(ring[k]); if (k === ca.i) break; }
         // the engine's end drawn across the font's sides, as big as the room the font's own end left it, or (only Length,
-        // Curl, Tails & hooks or Openness moved) the font's own carried on
-        const drawn = restyle ? fittedEnd(plan, end, A0, B0, to, T, top, c.xh, mid, endPath, roomAround(rings, ri, rest, body * 1.6)) : carryEnd(plan, endPath, A0, B0);
+        // Curl, Tails & hooks or Openness moved) the font's own carried on. A ball of the font's own is no stroke's two
+        // sides to draw it across: the stroke runs on into it as thick as at S, along its skeleton, toward its middle
+        const [As0, Bs0, at] = restyle && ball ? [...runOn(end.pts, plan.S, ca, cb), { ...plan, shaped: false }] : [A0, B0, plan];
+        const near = roomAround(rings, ri, rest, body * 1.6);
+        const drawn = restyle ? fittedEnd(at, end, As0, Bs0, to, T, top, c.xh, ball ? end.pts[0].r : 0, mid, endPath, near)
+          : carriedEnd(plan, end, endPath, A0, B0, ca, cb, near, mvMost);
         // (an end with no room for even the least of the engine's, as a heavy letter's in a narrow opening, is left as the
         // font draws it)
         if (!drawn) return 'done';
         // the font's end out, the new one in, between the two crossings
         const spliced = [...drawn.slice(1, -1), { x: cb.x, y: cb.y }, ...rest, { x: ca.x, y: ca.y }];
-        // (a new end of the engine's that takes away or adds far more ink than an end has was drawn on the wrong
-        // stretch: left be)
+        // (a new end of the engine's that takes away or adds far more ink than an end has, or runs out far past where the
+        // font's own end reached and Length draws it on, was drawn on the wrong stretch, as across an end cut on a slant
+        // from its very cut: left be)
+        const out = (l: P[]) => Math.max(...l.map(q => Math.hypot(q.x - plan.S.x, q.y - plan.S.y)));
+        if (restyle && out(drawn) > out(endPath) + Math.max(0, plan.len) + c.xh * REACH_X + body * 0.5) return 'done';
         if (restyle) {
           const was = Math.abs(signedArea(ring)), now = Math.abs(signedArea(spliced));
-          if (Math.abs(now - was) > Math.min(4 * body * (plan.atS + body * 3), was * 0.35)) return 'done';
+          // (a ball of the font's own, taken off, is as much ink again as its round, the end's skeleton running in from its
+          // middle to its edge)
+          if (Math.abs(now - was) > Math.min(4 * body * (plan.atS + body * 3) + (shaped ? Math.PI * plan.atE ** 2 : 0), was * 0.35)) return 'done';
         }
         rings[ri] = fwd ? spliced : spliced.reverse();
         return 'done';
@@ -498,13 +598,19 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
     // (drawn again from as far back as the end reaches while the stroke runs alone; where no stroke sides are found
     // there, as by a teardrop hanging beside its neck, which reads as another stroke, from as far back as it reaches;
     // and where its sides from there don't both run on out to its end, from nearer its tip)
-    for (let tries = 0, cap = Infinity, alone = true; tries < 4; tries++) {
-      const plan = measureEnd(end, arc, kEnd, mv, to, T, alone ? (p, d) => widthAcross(rings, p, left(d), body * 4) : null, cap);
+    // (and where the line across the stroke there runs into the end itself, as across a ball's neck into the ball hanging
+    // over it, from a little further back each time)
+    for (let tries = 0, cap = Infinity, alone = true, back = 0; tries < 7; tries++) {
+      const plan = measureEnd(end, arc, kEnd, mv, to, T, alone ? (p, d) => widthAcross(rings, p, left(d), body * 4) : null, cap, back);
       const got = redraw(plan);
-      if (got === 'done' || (got === 'none' && !alone)) break;
-      if (got === 'none') alone = false;
-      else if (plan.atS < body * 2) break;
-      else cap = plan.atS * 0.7;
+      if (got === 'done') break;
+      if (got === 'none') {
+        const on = plan.atS + Math.max(body, c.xh * 0.03);
+        if (on <= Math.min(cap, arc[arc.length - 1] * 0.6) && plan.atS >= back - 0.5) back = on;
+        else if (alone) { alone = false; back = 0; }
+        else break;
+      } else if (plan.atS < body * 2) break;
+      else { cap = plan.atS * 0.7; back = 0; }
     }
   }
   // (a new end may run over another stroke, or a drop over its own: the ink is read again as one)
@@ -546,20 +652,20 @@ function widthAcross(rings: P[][], p: P, n: P, max: number) {
 /** Where a stroke's end (its skeleton's points `arc` along from the tip) is drawn again from, for the end `to`
     picks (T its spec), moved by `mv` (see endMoves) at curvature kEnd (see endCurvature): no further back than `cap`,
     nor, given `across` (how wide the letter's ink is across a point along a way, widthAcross), than the stroke runs
-    alone. */
-function measureEnd(end: End, arc: number[], kEnd: number, mv: { len: number; bend: number }, to: Effective, T: TermSpec, across: ((p: P, d: P) => number) | null, cap = Infinity): EndPlan {
+    alone; and no nearer its tip than `back`, where it is drawn from further back. */
+function measureEnd(end: End, arc: number[], kEnd: number, mv: { len: number; bend: number }, to: Effective, T: TermSpec, across: ((p: P, d: P) => number) | null, cap = Infinity, back = 0): EndPlan {
   const { pts, body } = end, total = arc[arc.length - 1], t0 = body * 2;
   // the font's own end: as far back as its thickness strays from the stroke's (a ball, a flare, a taper)
   // (only the stretch from its tip on in, while it stays so)
+  // (as far as a ball reaches, its tip's round, if that is further)
   let zone = body * 1.1;
-  for (let k = 0; k < pts.length && arc[k] < Math.min(total * 0.4, body * 5); k++) {
+  for (let k = 0; k < pts.length && arc[k] < Math.min(total * 0.4, Math.max(body * 5, pts[0].r * 2.2)); k++) {
     if (Math.abs(pts[k].r / body - 1) > 0.25) zone = Math.max(zone, arc[k] + body * 0.3);
     else if (arc[k] > zone) break;
   }
   const shaped = zone > body * 1.4;
-  // how far back the engine's end reaches: a taper and a flare run back along the stroke
+  // how far back the engine's end reaches: a taper and a flare run back along the stroke (below)
   const tapers = to.terminal === 'tapered', flares = to.terminal === 'flat' && T.form === 'flared';
-  const runBack = tapers ? Math.max(1, Math.min(total * Math.min(0.85, 0.15 * T.taper), t0 * T.taper)) : flares ? Math.max(1, Math.min(total * 0.45, t0 * 3)) : 0;
   // (never more than most of the way to where the stroke meets another: a G's top running round to its bar; nor back
   // past where it stops running alone, growing much wider across than it is thick where another stroke runs into it or
   // through it (its skeleton may run straight on through, as a heavy f's down its stem past a short bar), or has turned
@@ -574,7 +680,12 @@ function measureEnd(end: End, arc: number[], kEnd: number, mv: { len: number; be
     if (arc[k] < from) continue;
     if (Math.abs(turned) > ALONE_TURN || across(pts[k], d) > 2 * Math.max(pts[k].r, body * 0.5) * ALONE_WIDE) { alone = Math.max(from, arc[k] - body * 0.4); break; }
   }
-  const sAt = Math.min(alone, Math.max(zone + body * 0.6, runBack + body * 0.3, -mv.len + body * 1.2));
+  // (a taper runs back as many thicknesses as Taper length asks up to its middle, as the engine's do, and from there on
+  // its share of all the way the stroke runs alone, so the slider moves it to its end)
+  // (no further than TAPER_MOST of the stroke, so a short heavy stroke's two ends, a c's, don't taper all of it)
+  const room = Math.max(1, Math.min(alone, total * TAPER_MOST) - body * 0.3), taperAt = (k: number) => Math.min(total * Math.min(0.85, 0.15 * k), t0 * k, room);
+  const runBack = tapers ? Math.max(1, T.taper <= 3 ? taperAt(T.taper) : lerp(taperAt(3), room, (T.taper - 3) / 3)) : flares ? Math.max(1, Math.min(total * 0.45, t0 * 3)) : 0;
+  const sAt = Math.min(Math.max(alone, back), Math.max(zone + body * 0.6, runBack + body * 0.3, -mv.len + body * 1.2, back));
   // (a shorter end is cut back no further than the stretch drawn again)
   const len = Math.max(mv.len, -(sAt - body * 0.8));
   const kS = indexAt(arc, sAt), kE = indexAt(arc, Math.min(zone, sAt - 2));
@@ -584,24 +695,117 @@ function measureEnd(end: End, arc: number[], kEnd: number, mv: { len: number; be
   return { S, atS: arc[kS], dS0, outS, E, atE: arc[kE], dE0, way: { x: -dE0.x, y: -dE0.y }, shaped, tapers, flares, runBack, len, bend: mv.bend, kEnd };
 }
 
+/** How much of a stroke (from its tip) a taper at the end of Taper length's slider runs back over at the most. */
+const TAPER_MOST = 0.35;
 /** The shares along a stroke end's two sides at which they are paired, to be drawn again. */
 const END_SHARES = Array.from({ length: 41 }, (_, i) => i / 40);
 
-/** The font's own end, carried on out (or back) along the stroke and bent round as asked: its sides as drawn (A0
-    and B0, walked out from S), drawn on, and the cap across them (round, cut, a ball) as the font draws it, moved
-    with them; one polygon from A's start round to B's. */
-function carryEnd(plan: EndPlan, endPath: P[], A0: P[], B0: P[]): P[] {
-  const ia = A0.length - 1, ib = B0.length - 1;
-  const capPath = endPath.slice(Math.max(0, ia - 1), endPath.length - Math.max(0, ib - 1));
-  const As0 = atShares(A0, END_SHARES), Bs0 = atShares(B0, END_SHARES), [As, Bs, frame] = reshapeEnd(As0, Bs0, plan.len, plan.bend, plan.kEnd);
-  const cap = capPath.filter(q => !(onSegs(q, A0) || onSegs(q, B0))).map(frame);
-  return [...As, ...cap, ...Bs.slice().reverse()];
+/** How far round (its cosine) a stroke's skeleton may turn from the way it heads at S, run on into a ball (runOn). */
+const RUN_ON_TURN = Math.cos(50 * Math.PI / 180);
+/** A stroke's two sides run on from where they cross the line across it at S (`a` on the left, looking out, and `b`),
+    as far apart as there, along its skeleton (`pts`, from the tip in) toward the skeleton's tip, a ball's middle. */
+function runOn(pts: SkPt[], S: SkPt, a: P, b: P): [P[], P[]] {
+  const k0 = pts.indexOf(S), h = Math.hypot(a.x - b.x, a.y - b.y) / 2, dx = (a.x + b.x) / 2 - S.x, dy = (a.y + b.y) / 2 - S.y;
+  const A: P[] = [a], B: P[] = [b];
+  // (and only while it heads on out much as it does at S: inside a ball the skeleton curls round into its middle)
+  const at = (k: number) => { const p = pts[Math.min(k0, k + 1)], q = pts[Math.max(0, k - 1)], l = Math.hypot(q.x - p.x, q.y - p.y) || 1; return { x: (q.x - p.x) / l, y: (q.y - p.y) / l }; };
+  const o0 = at(k0 - 1);
+  for (let k = k0 - 1; k >= 0; k--) {
+    const o = at(k);
+    if (o.x * o0.x + o.y * o0.y < RUN_ON_TURN) break;
+    A.push({ x: pts[k].x + dx - o.y * h, y: pts[k].y + dy + o.x * h }); B.push({ x: pts[k].x + dx + o.y * h, y: pts[k].y + dy - o.x * h });
+  }
+  return [A, B];
+}
+
+/** A polyline at even steps `h` along it, smoothed, its two ends kept where they are. */
+function smoothLine(line: P[], h: number): P[] {
+  const arc = arcOf(line), L = arc[arc.length - 1], n = Math.max(2, Math.round(L / h));
+  let pts = atShares(line, Array.from({ length: n + 1 }, (_, i) => i / n));
+  for (let pass = 0; pass < 4; pass++) pts = pts.map((p, i) => (i && i < n ? { x: (pts[i - 1].x + 2 * p.x + pts[i + 1].x) / 4, y: (pts[i - 1].y + 2 * p.y + pts[i + 1].y) / 4 } : p));
+  return pts;
+}
+
+/** The font's own end, carried on out (or back) along the stroke and bent round as asked (`plan.len`, `plan.bend`):
+    its outline from the crossing at S on the left (`a`) round its tip to the one on the right (`b`), `path` between
+    them, each point moved with the skeleton (`end.pts`) from S out, run on straight past its tip (an end cut on a slant
+    reaches well past it): the stroke up to where the shorter of its two sides (A0, B0) stops drawn longer or shorter,
+    the end past that carried along, and all of it turned further round the further out it lies. */
+function carryEnd(plan: EndPlan, end: End, path: P[], A0: P[], B0: P[], a: P, b: P): P[] {
+  const poly = [a, ...path, b], k0 = end.pts.indexOf(plan.S);
+  if (k0 < 2) return poly;
+  // the skeleton from S out to its tip, smoothed (a scanned skeleton steps from cell to cell, which would jog the sides
+  // moved with it), its length along it and the way it heads there (unwound)
+  const sk = smoothLine(end.pts.slice(0, k0 + 1).reverse(), Math.max(2, end.body / 3)), arc = arcOf(sk), L = arc[arc.length - 1];
+  const ang: number[] = [];
+  for (let i = 0; i + 1 < sk.length; i++) {
+    const v = Math.atan2(sk[i + 1].y - sk[i].y, sk[i + 1].x - sk[i].x);
+    ang.push(i ? v + Math.round((ang[i - 1] - v) / (2 * Math.PI)) * 2 * Math.PI : v);
+  }
+  const segAt = (s: number) => { let i = 0; while (i < ang.length - 1 && arc[i + 1] < s) i++; return i; };
+  const theta = (s: number) => ang[segAt(Math.max(0, Math.min(L, s)))];
+  // where a point stands: how far along the skeleton (past its tip, on the way it heads there) and how far off it to
+  // the left
+  const where = (q: P) => {
+    let best = { s: 0, n: 0, d: Infinity };
+    for (let i = 0; i + 1 < sk.length; i++) {
+      const p0 = sk[i], dx = sk[i + 1].x - p0.x, dy = sk[i + 1].y - p0.y, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l;
+      let t = (q.x - p0.x) * ux + (q.y - p0.y) * uy;
+      if (i + 2 < sk.length) t = Math.min(t, l);
+      if (i) t = Math.max(0, t);
+      const fx = p0.x + ux * t, fy = p0.y + uy * t, d = Math.hypot(q.x - fx, q.y - fy);
+      if (d < best.d) best = { s: arc[i] + t, n: (q.x - fx) * -uy + (q.y - fy) * ux, d };
+    }
+    return best;
+  };
+  const at = poly.map(where), s1 = Math.max(1, Math.min(where(A0[A0.length - 1]).s, where(B0[B0.length - 1]).s));
+  const far = Math.max(s1, ...at.map(w => w.s));
+  // up to s1 the stroke drawn as long as asked, its end past that carried on as it is, all of it turning `bend` further
+  // round by its far end; each point moved as far as its place beside that skeleton moves from where the same reckoning
+  // puts it with nothing moved, so the outline stays the font's where nothing moves, out from S
+  const frames = (len: number, bend: number) => {
+    const s2 = Math.max(s1 * 0.15, s1 + len), moved = (s: number) => (s <= s1 ? s * s2 / s1 : s - s1 + s2), farN = moved(far);
+    const M = 96, Q: P[] = [{ x: sk[0].x, y: sk[0].y }], T: number[] = [ang[0]];
+    const headAt = (sn: number) => theta(sn <= s2 ? sn * s1 / s2 : sn - s2 + s1) + bend * (sn / farN) ** 2;
+    for (let j = 1; j <= M; j++) {
+      const th = headAt(farN * (j - 0.5) / M), q = Q[j - 1];
+      Q.push({ x: q.x + Math.cos(th) * farN / M, y: q.y + Math.sin(th) * farN / M });
+      T.push(headAt(farN * j / M));
+    }
+    return (s: number, n: number): P => {
+      const f = Math.min(M, Math.max(0, moved(Math.max(0, s))) / farN * M), j = Math.min(M - 1, Math.floor(f)), u = f - j;
+      const th = T[j] + (T[j + 1] - T[j]) * u;
+      return { x: Q[j].x + (Q[j + 1].x - Q[j].x) * u - Math.sin(th) * n, y: Q[j].y + (Q[j + 1].y - Q[j].y) * u + Math.cos(th) * n };
+    };
+  };
+  const was = frames(0, 0), now = frames(plan.len, plan.bend);
+  return poly.map((q, i) => {
+    if (!i || i === poly.length - 1) return q;
+    const p0 = was(at[i].s, at[i].n), p1 = now(at[i].s, at[i].n);
+    return { x: q.x + p1.x - p0.x, y: q.y + p1.y - p0.y };
+  });
 }
 
 /** The engine's end of the kind `to` picks (T its spec), drawn across a stroke's sides as the font draws them (A0
     and B0, walked out from S); one polygon from A's start round to B's. */
-function engineEnd(plan: EndPlan, end: End, A0: P[], B0: P[], to: Effective, T: TermSpec, mid: P): Pt[] {
-  const { body } = end, { E, way, shaped, tapers, flares, runBack, len, bend, kEnd, dS0, dE0 } = plan;
+function engineEnd(plan: EndPlan, end: End, A0: P[], B0: P[], to: Effective, T: TermSpec, mid: P, ball: number): Pt[] {
+  const { body } = end, { E, shaped, tapers, flares, runBack, len, bend, kEnd, dS0, dE0 } = plan;
+  // (the way a side runs out at its end, over its last thickness or so)
+  const tangent = (side: P[]): P => {
+    const q = side[side.length - 1];
+    let k = side.length - 2;
+    while (k > 0 && Math.hypot(side[k].x - q.x, side[k].y - q.y) < body) k--;
+    const p = side[Math.max(0, k)], l = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+    return { x: (q.x - p.x) / l, y: (q.y - p.y) / l };
+  };
+  // the way the stroke runs out at its end, read off its two sides as the font draws them, but past a ball's neck: its
+  // skeleton bends off toward the far corner of an end cut on a slant (a grotesque's c's), which would cut the new end
+  // askew
+  const way = (() => {
+    if (shaped) return plan.way;
+    const ta = tangent(A0), tb = tangent(B0), x = ta.x + tb.x, y = ta.y + tb.y, l = Math.hypot(x, y);
+    return l > 1e-6 && (x * plan.way.x + y * plan.way.y) / l > 0.5 ? { x: x / l, y: y / l } : plan.way;
+  })();
   // the end, square across the stroke where its two sides reach on average (out to its tip, past a ball)
   const proj = (q: P) => (q.x - E.x) * way.x + (q.y - E.y) * way.y;
   const reach = shaped ? Math.min(end.reach, body * 1.05) + plan.atE : Math.max(0, (proj(A0[A0.length - 1]) + proj(B0[B0.length - 1])) / 2);
@@ -611,8 +815,9 @@ function engineEnd(plan: EndPlan, end: End, A0: P[], B0: P[], to: Effective, T: 
       if (proj(side[k]) >= reach && proj(side[k - 1]) < reach) { const a = proj(side[k - 1]), b = proj(side[k]), f = (reach - a) / (b - a || 1); out.push({ x: side[k - 1].x + (side[k].x - side[k - 1].x) * f, y: side[k - 1].y + (side[k].y - side[k - 1].y) * f }); return out; }
       out.push(side[k]);
     }
-    const last = out[out.length - 1], more = reach - proj(last);
-    if (more > 0.5) out.push({ x: last.x + way.x * more, y: last.y + way.y * more });
+    // (a side stopping short runs on the way it heads, not bent off toward the stroke's way)
+    const last = out[out.length - 1], more = reach - proj(last), d = shaped || side.length < 2 ? way : tangent(side), dw = d.x * way.x + d.y * way.y;
+    if (more > 0.5) { const go = dw > 0.5 ? more / dw : more, dd = dw > 0.5 ? d : way; out.push({ x: last.x + dd.x * go, y: last.y + dd.y * go }); }
     return out;
   };
   const A = toPlane(A0), B = toPlane(B0);
@@ -647,27 +852,45 @@ function engineEnd(plan: EndPlan, end: End, A0: P[], B0: P[], to: Effective, T: 
   // (the outer side of a curve: turning left, the right one; of a stroke running straight, the side away from the
   // letter's middle, so a drop hangs into the letter, as up off a 2's foot)
   const outerIsA = Math.abs(turn) > 0.02 ? turn < 0 : (mid.x - p.x) * -out2.y + (mid.y - p.y) * out2.x < 0;
-  const pen: PenCtx = { thick: tt, thin: tt, stress: 0, k: CIRCLE_K, org: 0, terminal: to.terminal, term: T };
+  // (a drop in place of a ball of the font's own as big as that one, not the hairline it ends: see drop in stroke.ts)
+  const pen: PenCtx = { thick: Math.max(tt, ball * DROP_OF_BALL), thin: tt, stress: 0, k: CIRCLE_K, org: 0, terminal: to.terminal, term: T };
   const Ap: Pt[] = As.map(q => ({ ...q, smooth: true })), Bp: Pt[] = Bs.map(q => ({ ...q, smooth: true }));
   Ap[0].smooth = Bp[0].smooth = false;
   const capPts = termCap(Ap, Bp, p, out2, tt, pen, outerIsA);
   return toPolygon(roundContour([...Ap, ...capPts, ...Bp.slice().reverse()], 0));
 }
 
-/** How near the engine's end may come to the rest of the letter: ROOM_KEEP of as near as the font's own end came,
-    though never kept further off than ROOM_MAX of a stroke's width (two of `body`); a drop or a point that came nearer
-    would close a heavy letter's opening (a C into an O, an s into an 8) or run into its bowl. */
-const ROOM_KEEP = 0.75, ROOM_MAX = 0.6;
-/** The smallest drop the engine draws, in the stroke's thickness (dropR in stroke.ts). */
-const DROP_MIN = 0.525;
+/** How far (its cosine) a side of a stroke may turn from the way the stroke runs past where the font's own end begins
+    and still be the stroke's side, not its end rounding off. */
+const SIDE_ON = Math.cos(25 * Math.PI / 180);
+/** How wide (its radius, against the width of the neck it hangs from) a font's own end is, at the least, for a ball or a
+    drop. */
+const BALL_NECK = 0.75;
+/** The longest stretch of a polyline that runs straight (within a unit and a half of the line across it): a cut's, on a
+    font's own end, as long as the ball's radius at the least, where a ball's round has none. */
+function straightRun(line: P[]): number {
+  let best = 0;
+  for (let i = 0; i < line.length - 1; i++) {
+    for (let j = i + 2; j <= line.length; j++) {
+      const a = line[i], b = line[j - 1], l = Math.hypot(b.x - a.x, b.y - a.y);
+      if (l < 1e-6) continue;
+      let ok = true;
+      for (let k = i + 1; k < j - 1 && ok; k++) ok = Math.abs((line[k].x - a.x) * (b.y - a.y) - (line[k].y - a.y) * (b.x - a.x)) / l < 1.5;
+      if (!ok) break;
+      best = Math.max(best, l);
+    }
+  }
+  return best;
+}
+/** How thick a stroke a drop as big as a ball of `r` (its radius) ends, at Size's middle (dropR in stroke.ts: 0.55 of
+    the stroke at a size of 0.815). */
+const DROP_OF_BALL = 1 / (0.55 * 0.815);
 /** How far past its stroke an end may reach (a drop's bulge, a point, a flare's two sides together, a slant), as a
     share of the x-height: a heavy stroke's end reaches out about as far as a light one's does, not as far again for
     its thickness, so a drop on a bold c stays a drop, not a blob. */
 const REACH_X = 0.12;
-/** The kinds of end that reach out past their stroke, and the part of TermSpec that sets how far. */
-const REACHING = (to: Effective, T: TermSpec): 'size' | 'flare' | 'point' | 'slope' | null =>
-  to.terminal === 'round' ? (T.form === 'droplet' || T.form === 'ball' ? 'size' : null) : to.terminal === 'flat' ? (T.form === 'flared' ? 'flare' : null)
-    : to.terminal === 'sharp' ? 'point' : to.terminal === 'angled' ? 'slope' : null;
+/** The kinds of end that reach out past their stroke, and the part of TermSpec that sets how far (see reachingOf). */
+const REACHING = (to: Effective, T: TermSpec) => reachingOf(to.terminal, T);
 
 /** The end T on a stroke t thick, its reach (see REACHING) taken as the share of its slider's range it is at (`top` the
     end at the top of its slider), of the most this letter gives it: no further than REACH_X of the x-height `xh`, and
@@ -683,10 +906,35 @@ function reachT(T: TermSpec, top: TermSpec, k: 'size' | 'flare' | 'point' | 'slo
 
 /** The engine's end (engineEnd) as big as the letter has room for: an end that reaches out past its stroke (see
     REACHING) reaches its share of as far as the end at the top of its slider (`top`) can without coming nearer the
-    rest of the letter (`near`, see roomAround) than the font's own end (`own`) allows; null where even the least of it
-    comes too near. */
-function fittedEnd(plan: EndPlan, end: End, A0: P[], B0: P[], to: Effective, T: TermSpec, top: TermSpec, xh: number, mid: P, own: P[], near: (q: P, max: number) => number): Pt[] | null {
-  const step = Math.max(1.5, end.body * 0.1);
+    rest of the letter (`near`, see roomAround) than the font's own end (`own`) allows, drawn back along its stroke
+    (END_CUTS) where even the least of it would come too near; null where it still would. */
+function fittedEnd(plan: EndPlan, end: End, A0: P[], B0: P[], to: Effective, T: TermSpec, top: TermSpec, xh: number, ball: number, mid: P, own: P[], near: (q: P, max: number) => number): Pt[] | null {
+  const fits = roomFor(own, near, end.body), k = REACHING(to, T), t = end.body * 2;
+  // (drawn `cut` shorter than asked: where even the least of it has no room, the end is drawn back along its stroke till
+  // it has, as a heavy c's drop sits further back round its curve than a light one's; and curled round less, where it
+  // curls in toward the rest of the letter)
+  for (const [cut, curl] of END_CUTS.flatMap(cut => [1, 0.5, 0].map(f => [cut, f])).filter(([, f]) => plan.bend || f === 1)) {
+    const at = { ...plan, len: plan.len - cut * t, bend: plan.bend * curl };
+    if (!k) { const d = engineEnd(at, end, A0, B0, to, T, mid, ball); if (fits(d)) return d; continue; }
+    // how much of its most the end at the top of its slider has room for
+    const atTop = (f: number) => engineEnd(at, end, A0, B0, to, reachT({ ...T, [k]: top[k] }, top, k, t, xh, f), mid, ball);
+    let room = 1;
+    if (!fits(atTop(1))) {
+      if (!fits(atTop(0))) continue;
+      let lo = 0, hi = 1;
+      for (let i = 0; i < 5; i++) { const f = (lo + hi) / 2; if (fits(atTop(f))) lo = f; else hi = f; }
+      room = lo;
+    }
+    const d = engineEnd(at, end, A0, B0, to, reachT(T, top, k, t, xh, room), mid, ball);
+    if (fits(d)) return d;
+  }
+  return null;
+}
+/** Whether an end drawn again (a polyline) comes no nearer the rest of the letter (`near`, see roomAround) than
+    ROOM_KEEP of as near as the font's own end (`own`) comes, though never kept further off than ROOM_MAX of the
+    stroke's width (two of `body`). */
+function roomFor(own: P[], near: (q: P, max: number) => number, body: number): (line: P[]) => boolean {
+  const step = Math.max(1.5, body * 0.1);
   /** the nearest the rest of the letter comes to a polyline, read no further than `max` */
   const gap = (line: P[], max: number) => {
     let best = max;
@@ -696,21 +944,29 @@ function fittedEnd(plan: EndPlan, end: End, A0: P[], B0: P[], to: Effective, T: 
     }
     return best;
   };
-  const need = Math.min(gap(own, end.body * 4) * ROOM_KEEP, end.body * 2 * ROOM_MAX), fits = (l: P[]) => need < 1 || gap(l, need) >= need;
-  const k = REACHING(to, T);
-  if (!k) { const d = engineEnd(plan, end, A0, B0, to, T, mid); return fits(d) ? d : null; }
-  // how much of its most the end at the top of its slider has room for
-  const t = end.body * 2, atTop = (f: number) => engineEnd(plan, end, A0, B0, to, reachT({ ...T, [k]: top[k] }, top, k, t, xh, f), mid);
-  let room = 1;
-  if (!fits(atTop(1))) {
-    if (!fits(atTop(0))) return null;
-    let lo = 0, hi = 1;
-    for (let i = 0; i < 5; i++) { const f = (lo + hi) / 2; if (fits(atTop(f))) lo = f; else hi = f; }
-    room = lo;
-  }
-  const d = engineEnd(plan, end, A0, B0, to, reachT(T, top, k, t, xh, room), mid);
-  return fits(d) ? d : null;
+  const need = Math.min(gap(own, body * 4) * ROOM_KEEP, body * 2 * ROOM_MAX);
+  return (line: P[]) => need < 1 || gap(line, need) >= need;
 }
+
+/** The font's own end carried on as asked (carryEnd), drawn on and curled round no nearer the rest of the letter than it
+    has room for (roomFor): by Length's and Curl's share of as far as the end at the ends of their sliders, moved `most`,
+    has room to go, so each slider moves it all the way along without closing a c into an o or an s into an 8. (A move
+    that draws an end back or curls it away from the letter has room enough.) */
+function carriedEnd(plan: EndPlan, end: End, path: P[], A0: P[], B0: P[], a: P, b: P, near: (q: P, max: number) => number, most: { len: number; bend: number }): P[] {
+  const fits = roomFor(path, near, end.body), at = (len: number, bend: number) => carryEnd({ ...plan, len, bend }, end, path, A0, B0, a, b);
+  // (as far as the stretch drawn again lets it be drawn back, as measureEnd does)
+  const lenMost = Math.max(most.len, -(plan.atS - end.body * 0.8));
+  let f = 1;
+  if (!fits(at(lenMost, most.bend))) {
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 6; i++) { const m = (lo + hi) / 2; if (fits(at(lenMost * m, most.bend * m))) lo = m; else hi = m; }
+    f = lo;
+  }
+  return at(plan.len * f, plan.bend * f);
+}
+
+/** How much shorter (in the stroke's thickness) an end is drawn, in turn, till it has room (see fittedEnd). */
+const END_CUTS = [0, 0.25, 0.5, 0.75, 1, 1.5];
 
 /** How near the rest of a letter's ink comes to a point, read no further than `max`: every ring but the one a stroke's
     end is drawn again on (`ri`), and the `rest` of that one, from one of the end's crossings round to the other, but
@@ -784,8 +1040,8 @@ function endCurvature(pts: SkPt[], arc: number[], body: number) {
 
 /** The end of a stroke between paired sides As and Bs (from where it starts being drawn again out to its end) drawn
     `len` longer (shorter, negative), on round at curvature k past its end, and bent `bend` further round over its
-    length; and the move that carries what stood at its end (its cap) to where its end now is. */
-function reshapeEnd(As: P[], Bs: P[], len: number, bend: number, k: number): [P[], P[], (q: P) => P] {
+    length. */
+function reshapeEnd(As: P[], Bs: P[], len: number, bend: number, k: number): [P[], P[]] {
   const N = As.length - 1, c = As.map((a, i) => ({ x: (a.x + Bs[i].x) / 2, y: (a.y + Bs[i].y) / 2 })), h = As.map((a, i) => ({ x: a.x - c[i].x, y: a.y - c[i].y }));
   const s = [0];
   for (let i = 1; i <= N; i++) s.push(s[i - 1] + Math.hypot(c[i].x - c[i - 1].x, c[i].y - c[i - 1].y));
@@ -803,27 +1059,19 @@ function reshapeEnd(As: P[], Bs: P[], len: number, bend: number, k: number): [P[
     return { a: aEnd + k * (t - L), hw: rot(h[N], k * (t - L)) };
   };
   const As2: P[] = [], Bs2: P[] = [];
-  let pos = { ...c[0] }, endA = aEnd;
+  let pos = { ...c[0] };
   for (let j = 0; j <= M; j++) {
     const t = L2 * j / M, add = bend * (t / L2) ** 2;
     if (j > 0) {
       const tm = L2 * (j - 0.5) / M, { a } = at(tm), am = a + bend * (tm / L2) ** 2, st = L2 / M;
       pos = { x: pos.x + Math.cos(am) * st, y: pos.y + Math.sin(am) * st };
     }
-    const { a, hw } = at(t), w = rot(hw, add);
+    const { hw } = at(t), w = rot(hw, add);
     As2.push({ x: pos.x + w.x, y: pos.y + w.y }); Bs2.push({ x: pos.x - w.x, y: pos.y - w.y });
-    if (j === M) endA = a + add;
   }
-  const end = pos, turn = endA - aEnd, from = c[N];
-  return [As2, Bs2, (q: P) => { const v = rot({ x: q.x - from.x, y: q.y - from.y }, turn); return { x: end.x + v.x, y: end.y + v.y }; }];
+  return [As2, Bs2];
 }
 
-/** Whether q lies on the polyline (within half a unit). */
-const onSegs = (q: P, line: P[]) => line.some((a, i) => {
-  const b = line[i + 1]; if (!b) return Math.hypot(q.x - a.x, q.y - a.y) < 0.5;
-  const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, ((q.x - a.x) * dx + (q.y - a.y) * dy) / l2)) : 0;
-  return Math.hypot(q.x - a.x - dx * t, q.y - a.y - dy * t) < 0.5;
-});
 
 const arcLen = (l: P[]) => { let a = 0; for (let k = 1; k < l.length; k++) a += Math.hypot(l[k].x - l[k - 1].x, l[k].y - l[k - 1].y); return a; };
 /** Path commands as one polygon (curves sampled). */

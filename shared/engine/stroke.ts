@@ -228,12 +228,14 @@ function swell(all: Sample[], w: number[], reach: number, thick: number, thin: n
 /* ---- terminals: the cuts, drops and points cap() draws on a stroke's ends */
 /* Cut one side of a stroke end off along a line through p, level ('h') or plumb ('v'), turned
    counterclockwise by `tilt` radians. */
-function cutSide(side: Pt[], p: Dir, d: Dir, axis: 'h' | 'v', t: number, tilt = 0) {
+function cutSide(side: Pt[], p: Dir, d: Dir, axis: 'h' | 'v', t: number, tilt = 0, styled = false) {
   if (side.length < 2) return;
   const o = axis === 'h' ? { x: 0, y: Math.sign(d.y) || 1 } : { x: Math.sign(d.x) || 1, y: 0 };
-  // a cut turned nearly along the stroke would draw it out into a spike: keep within 55° of square to it
-  if (tilt) {
-    const lim = 55 * Math.PI / 180, toD = Math.atan2(o.x * d.y - o.y * d.x, o.x * d.x + o.y * d.y);
+  // a cut turned nearly along the stroke would draw it out into a spike: keep within 55° of square to it, and a styled
+  // end (`styled`) within 40° even untilted, as a level cut across a stroke heading off on a slant would be (a plain end
+  // stands level on its line, whatever)
+  if (tilt || styled) {
+    const lim = (styled ? 40 : 55) * Math.PI / 180, toD = Math.atan2(o.x * d.y - o.y * d.x, o.x * d.x + o.y * d.y);
     tilt = clamp(tilt, toD - lim, toD + lim);
   }
   const cs = Math.cos(tilt), sn = Math.sin(tilt);
@@ -294,7 +296,11 @@ function drop(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, T: TermSpec, outerIsA
     const al = along(e), la = across(e), D = Math.hypot(al, la);
     return D <= R * 1.001 ? Math.atan2(la, al) : Math.atan2(la, al) - sg * Math.acos(R / D);
   };
-  const fa = meet(a, 1), fb = meet(b, -1), n = 24, out: Pt[] = [];
+  // (it runs round from a to b the way through its front, whichever its inner edge meets it at: a drop much wider than
+  // its stroke, on a hairline, takes its inner edge in near its back)
+  let fa = meet(a, 1), fb = meet(b, -1);
+  if (fa < fb) { if (outerIsA) fb -= 2 * Math.PI; else fa += 2 * Math.PI; }
+  const n = 24, out: Pt[] = [];
   if (!a.r) a.sharp = true;
   if (!b.r) b.sharp = true;
   // (an end that lies on the drop already is where its arc starts)
@@ -337,9 +343,12 @@ function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: Pe
   a.smooth = b.smooth = false;
   if (type !== 'term') return [];
   const T = ctx.term ?? TERM;
+  // a level bar's end (an f's or a t's crossbar, a 2's foot) is cut across, whatever the letters' other ends: a point, a
+  // hollow or a notch would make an arrowhead of it (as a drop leaves it plain, below)
+  const bar = straight && levelDir(d);
   switch (ctx.terminal) {
     case 'flat': {
-      if (T.form !== 'scooped') return [];
+      if (T.form !== 'scooped' || bar) return [];
       // hollowed: the end curves back into the stroke between its two corners
       const out: Pt[] = [], n = 10;
       for (let i = 1; i < n; i++) {
@@ -353,11 +362,12 @@ function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: Pe
       if (T.form === 'droplet' || T.form === 'ball') {
         // a level bar (an f's or a t's) ends plain, as a low end does; on a straight tail (a y's) the drop hangs
         // up off its lower edge, as on the hook a tail curls into
-        if (lowEnd(p, ctx) || (straight && levelDir(d))) return [];
+        if (lowEnd(p, ctx) || bar) return [];
         return drop(A, B, p, d, t, T, straight ? A[A.length - 1].y < B[B.length - 1].y : outerIsA, ctx.thick);
       }
       a.r = b.r = t * T.round + 0.5; return [];
     case 'sharp': {
+      if (bar) return [];
       // leaning toward the outer edge: A lies to the left of d
       const lean = T.lean * t * (outerIsA ? 1 : -1);
       const tip = { x: p.x + d.x * t * T.point - d.y * lean, y: p.y + d.y * t * T.point + d.x * lean };
@@ -373,8 +383,8 @@ function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: Pe
     }
     case 'cut': {
       const axis = Math.abs(d.x) > Math.abs(d.y) ? 'v' : 'h';
-      cutSide(A, p, d, axis, t, T.tilt); cutSide(B, p, d, axis, t, T.tilt);
-      if (T.form !== 'notched') return [];
+      cutSide(A, p, d, axis, t, T.tilt, true); cutSide(B, p, d, axis, t, T.tilt, true);
+      if (T.form !== 'notched' || bar) return [];
       // a V cut back into the middle of the end, like a swallowtail
       const ea = A[A.length - 1], eb = B[B.length - 1], m = lerpP(ea, eb, 0.5), k = T.depth * t * 1.3;
       ea.sharp = eb.sharp = true;
@@ -393,10 +403,12 @@ export const termDropBack = (T: TermSpec, t: number) => dropBack(T, t);
 
 /** Whether an end of this type is drawn square across, with two corners of its own to round (corners.ts
     rounds them). Keep in step with cap(): a terminal form added there that ends square belongs here too. */
-function squareEnd(type: EndType, ctx: PenCtx) {
+function squareEnd(type: EndType, ctx: PenCtx, bar: boolean) {
   if (type === 'flat' || type === 'h' || type === 'v') return true;
   if (type !== 'term') return false;
   const form = (ctx.term ?? TERM).form;
+  // (a level bar's end is cut across under a point, a hollow, a notch or a drop: see cap)
+  if (bar && (ctx.terminal === 'sharp' || ctx.terminal === 'flat' || ctx.terminal === 'cut' || (ctx.terminal === 'round' && (form === 'droplet' || form === 'ball')))) return true;
   return (ctx.terminal === 'flat' && form !== 'scooped') || ctx.terminal === 'angled' || (ctx.terminal === 'cut' && form !== 'notched');
 }
 
@@ -736,10 +748,10 @@ function capEnds(runs: Run[], all: Sample[], Lr: (Pt | null)[][], Rr: (Pt | null
   };
   const de = { x: last.tx, y: last.ty }, ds = { x: -first.tx, y: -first.ty }, endCorners: Expanded['endCorners'] = [];
   const endX = cap(L, R, last, de, last.t, o.e || 'flat', ctx, pickA(endTurn, true, L, R), Math.abs(endTurn) < 1e-3);
-  if (squareEnd(o.e || 'flat', ctx)) endCorners.push({ which: 'e', side: 'l', pt: L[L.length - 1] }, { which: 'e', side: 'r', pt: R[R.length - 1] });
+  if (squareEnd(o.e || 'flat', ctx, Math.abs(endTurn) < 1e-3 && levelDir(de))) endCorners.push({ which: 'e', side: 'l', pt: L[L.length - 1] }, { which: 'e', side: 'r', pt: R[R.length - 1] });
   L.reverse(); R.reverse();
   const startX = cap(R, L, first, ds, first.t, o.s || 'flat', ctx, pickA(startTurn, false, R, L), Math.abs(startTurn) < 1e-3);
-  if (squareEnd(o.s || 'flat', ctx)) endCorners.push({ which: 's', side: 'l', pt: R[R.length - 1] }, { which: 's', side: 'r', pt: L[L.length - 1] });
+  if (squareEnd(o.s || 'flat', ctx, Math.abs(startTurn) < 1e-3 && levelDir(ds))) endCorners.push({ which: 's', side: 'l', pt: R[R.length - 1] }, { which: 's', side: 'r', pt: L[L.length - 1] });
   L.reverse(); R.reverse();
   const contour = [...L, ...endX, ...R.slice().reverse(), ...startX]
 
