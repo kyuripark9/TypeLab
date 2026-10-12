@@ -192,8 +192,8 @@ export function AccountButton() {
     setConfirm(false);
     try {
       await auth.signOut(saveFirst);
-      // the design that was open is in the account, out of reach now
-      if (isDesignPath(path)) navigate(NEW_DESIGN, { replace: true });
+      // the design that was open is in the account, out of reach now; account settings have nothing left to show
+      if (isDesignPath(path) || path === ACCOUNT) navigate(NEW_DESIGN, { replace: true });
     } catch (e) { actions.toast(`Couldn’t sign out — ${errorMessage(e)}`); }
   };
   const askSignOut = () => {
