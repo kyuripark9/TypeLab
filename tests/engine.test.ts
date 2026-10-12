@@ -7,7 +7,7 @@ import { BASIC } from '../shared/engine/basic-blocks';
 import { glyphDefOf, glyphIds } from '../shared/engine/font';
 import type { StrokeOpts } from '../shared/engine/types';
 import { DEFAULTS, isValidParams, type Params } from '../shared/params';
-import { contours, coords, curves, xsOf, ysOf } from './outlines';
+import { contours, coords, curves, pathPts, xsOf, ysOf } from './outlines';
 
 /* The font engine as a whole: every style and a set of extreme settings draw every glyph with finite outlines;
    spacing, letters customized on their own, and layout; the glyph registry and the stroke expander's outputs;
@@ -171,6 +171,30 @@ describe('basic block letters (Built from: Blocks, Block letters: Basic)', () =>
     assert.equal(curved({}, 'O'), 8);
     assert.equal(curved({ bowlForm: 'box' }, 'H'), 0, 'square letters keep square corners');
     assert.ok(curved({ roundness: 1 }, 'H') >= 8);
+  });
+
+  it('moves the bars with Crossbar height and the open ends with Openness, leaving both be at the middle', () => {
+    const at = (p: Partial<Params>, ch: string) => buildFont({ ...blocks, ...p }).glyph(ch)!.d;
+    // H's corners stand at four heights: the baseline, the bar's foot and top, the cap height
+    const barFoot = (c: number) => [...new Set(pathPts(buildFont({ ...blocks, crossbar: c }).glyph('H')!.d).map(q => Math.round(q.y)))].sort((x, y) => x - y)[1];
+    assert.ok(barFoot(0) < barFoot(0.5) - 40 && barFoot(1) > barFoot(0.5) + 40, 'the bar moves both ways');
+    for (const ch of 'ABEFGHPR4') assert.notEqual(at({ crossbar: 0.9 }, ch), at({}, ch), `${ch}'s bar moves`);
+    for (const ch of 'CGJS2569ces') assert.notEqual(at({ aperture: 0.1 }, ch), at({}, ch), `${ch} closes`);
+    assert.equal(at({ crossbar: 0.5, aperture: 0.5 }, 'G'), at({}, 'G'));
+    // C's lower end stands taller up its right side as it closes
+    const end = (a: number) => {
+      const f = buildFont({ ...blocks, aperture: a }), pts = pathPts(f.glyph('C')!.d), right = Math.max(...pts.map(q => q.x));
+      return Math.min(...pts.filter(q => q.x > right - 1 && q.y > 5 && q.y < f.m.cap - 5).map(q => q.y));
+    };
+    assert.ok(end(0) > end(0.5) + 30 && end(1) < end(0.5) - 30);
+  });
+
+  it('keeps a lone bar seen at any contrast: dashes and the bars of + and = no thinner than a share of the stems', () => {
+    const f = buildFont({ ...blocks, contrast: 1, hWeight: 0 }), dash = box(f.glyph('-')!.d), H = box(f.glyph('I')!.d);
+    assert.ok(dash.y1 - dash.y0 >= (H.x1 - H.x0) * 0.44, 'the hyphen keeps its weight');
+    // at the middle of Contrast the level strokes are heavier than that, and the hyphen is as thick as they are
+    const g = buildFont(blocks), e = box(g.glyph('-')!.d), I = box(g.glyph('I')!.d);
+    assert.ok(e.y1 - e.y0 > (I.x1 - I.x0) * 0.45);
   });
 
   it('cuts Steps into square corners only, never past the letter', () => {

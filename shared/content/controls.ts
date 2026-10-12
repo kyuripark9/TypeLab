@@ -31,12 +31,12 @@ const subsOf = <P extends ControlKey>(parent: P) => Object.fromEntries(PARAM_KEY
 })) as Record<SubKeyOf<P>, SubControlDef>;
 /** The controls that shape letters built from blocks, by Block letters: the slot blocks' (blocks.ts) size, weight and
     corners, the hand, spacing and the effects that run on any outline; the basic block letters' (basic-blocks.ts)
-    also their contrast, bowls, peaks and steps and the lowercase's ascenders and descenders. The rest shape strokes,
-    which blocks don't have. */
+    also their contrast, bowls, peaks and steps, the crossbars' height and how open C S G are, and the lowercase's
+    ascenders and descenders. The rest shape strokes, which blocks don't have. */
 const SLOT_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'build', 'blockForm', 'roundness', 'mirror', 'wobble',
   'xHeight', 'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice'];
 export const BLOCK_CONTROLS: Record<BlockForm, readonly ControlKey[]> = {
-  basic: [...SLOT_CONTROLS, 'contrast', 'bowlForm', 'apex', 'steps', 'extenders', 'descender'],
+  basic: [...SLOT_CONTROLS, 'contrast', 'bowlForm', 'apex', 'steps', 'crossbar', 'aperture', 'extenders', 'descender'],
   slots: SLOT_CONTROLS
 };
 export const SERIF_SUBS = subsOf('serif');

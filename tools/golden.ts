@@ -47,6 +47,8 @@ function engineProbes(): [string, Params][] {
   // the settings only basic blocks follow, at their ends
   out.push(['blocks,contrast=1,steps=1,box', { ...DEFAULTS, build: 'blocks', contrast: 1, steps: 1, bowlForm: 'box', apex: 1, innerRound: 1, joinRound: 1 }]);
   out.push(['blocks,weight=0,contrast=0', { ...DEFAULTS, build: 'blocks', weight: 0, contrast: 0, apex: 0, xHeight: 1, extenders: 1, descender: 1 }]);
+  out.push(['blocks,crossbar=0,aperture=0', { ...DEFAULTS, build: 'blocks', crossbar: 0, aperture: 0, weight: 1 }]);
+  out.push(['blocks,crossbar=1,aperture=1', { ...DEFAULTS, build: 'blocks', crossbar: 1, aperture: 1, contrast: 1 }]);
   // the cuts on styles of other builds: stencil gaps, crossbar gaps and a letter's own join gaps clip strokes
   // on slants (K k y), on serifs and on blackletter's diamonds, which the defaults alone don't reach
   const joinGaps = { K: { joinGaps: { '1s': 1 } }, k: { joinGaps: { '1s': 1, '2s': 1 } }, y: { joinGaps: { '1s': 1 } }, A: { joinGaps: { '0t0': 1, '1s': 0.5 } } };

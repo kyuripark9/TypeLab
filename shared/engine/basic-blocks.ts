@@ -9,7 +9,8 @@
    'o' an outer corner or a stroke's end (Roundness), 'b' the outside of a bowl (Bowls: oval right round, box as round
    as its Corners), 'k' the inside of a bowl (as round as its outside, less the stroke), 'c' a square corner inside
    a letter (Counters), 'i' a narrow crotch where strokes meet at a slant (Joins), 's' always sharp. Steps notch the
-   square outer corners and the bowls'. */
+   square outer corners and the bowls'. Crossbar height moves the bars of A B E F G H P R 4, and Openness how far the
+   ends of C G J S c e s 2 5 6 9 come in, each from where the letter draws it at the middle of its slider. */
 import { clamp, lerp, signedArea } from './geom';
 import { weighed } from '../params';
 import type { Metrics } from './font';
@@ -26,9 +27,22 @@ export interface BasicDims {
   /** the heights: capitals, x-height, ascenders, descenders (negative) */ cap: number; xh: number; asc: number; desc: number;
   /** upright, level and diagonal strokes, the level strokes of the lowercase (thinner where three would crowd it),
       and the mean stroke */ V: number; B: number; D: number; b: number; T: number;
+  /** a level stroke standing alone (a dash, the bars of + = #): as thick as the level strokes, but never under `LONE`
+      of the upright ones, so a hyphen stays seen however far Contrast or Horizontals thin the bars inside letters */ L: number;
   /** a counter `f` of the cap height wide, at this Width */ cw: (f: number) => number;
   /** the flat the peaks keep (the top of A, the foot of V), before it is fitted to the strokes */ flat: number;
+  /** Crossbar height: the middle of a bar drawn `y` up at the middle of the slider, moved down toward `lo` or up
+      toward `hi` (the lowest and highest its middle may go for the counters to stay open), and never more than
+      `BAR_SPAN` of the cap height either way, as a share of the way */ barY: (y: number, lo: number, hi: number) => number;
+  /** Openness: the share of the room inside that the ends of an open letter come in by, `share` at the middle of the
+      slider, closing to `most` (three quarters; less for a figure, so a 6 stays a 6, not an 8) and opening to none */
+  open: (share: number, most?: number) => number;
 }
+
+/** The least room a crossbar leaves the counter it moves toward, as a share of the letter's height, and the furthest
+    it moves from where the letter draws it, as a share of the cap height (an H's bar from about a third to near three
+    quarters of the way up). */
+const ROOM = 0.06, BAR_SPAN = 0.22, LONE = 0.45;
 
 /** The measurements of the basic block letters for the design. */
 export function basicDims(m: Metrics): BasicDims {
@@ -40,7 +54,13 @@ export function basicDims(m: Metrics): BasicDims {
   // three level strokes and two counters share a letter's height, so the counters never close
   const B = Math.min(B0, cap * 0.29), b = Math.min(B0, m.xh * 0.29);
   const ws = e.width < 0.5 ? lerp(0.55, 1, e.width * 2) : lerp(1, 1.7, e.width * 2 - 1);
-  return { cap, xh: m.xh, asc: m.asc, desc: m.desc, V, B, b, D: V * 0.85 + B * 0.15, T: (V + B) / 2, cw: f => f * cap * ws, flat: V * (0.2 + 1.6 * e.apex) };
+  // both moved as a share of the way to their ends, so each slider keeps moving them to 100 and leaves them be at 0.5
+  const c = e.crossbar, a = e.aperture;
+  const barY = (y: number, lo: number, hi: number) => (c <= 0.5 ? y + (Math.min(Math.max(lo, y - cap * BAR_SPAN), y) - y) * (1 - 2 * c)
+    : y + (Math.max(Math.min(hi, y + cap * BAR_SPAN), y) - y) * (2 * c - 1));
+  const open = (share: number, most = 0.75) => (a <= 0.5 ? share + (most - share) * (1 - 2 * a) : share - share * (2 * a - 1));
+  return { cap, xh: m.xh, asc: m.asc, desc: m.desc, V, B, b, D: V * 0.85 + B * 0.15, T: (V + B) / 2, L: Math.max(B, V * LONE), cw: f => f * cap * ws,
+    flat: V * (0.2 + 1.6 * e.apex), barY, open };
 }
 
 const p = (x: number, y: number, k: Kind = 'o'): P => [x, y, k];
@@ -95,9 +115,10 @@ const O = (W: number, H: number, V: number, B: number) => one(W, [0.75, 0.75], b
 /** A C: an O open on the right, its ends cut level `ya` in from the top and bottom. */
 const C = (W: number, H: number, V: number, B: number, ya: number) => one(W, [0.75, 0.45], [p(0, 0, 'b'), p(W, 0, 'b'), p(W, ya), p(W - V, ya), p(W - V, B, 'k'), p(V, B, 'k'),
   p(V, H - B, 'k'), p(W - V, H - B, 'k'), p(W - V, H - ya), p(W, H - ya), p(W, H, 'b'), p(0, H, 'b')]);
-/** An S: a box bowl open on the right above one open on the left, their ends cut level. */
-function S(W: number, H: number, V: number, B: number) {
-  const m = H / 2, ya = B + ((H - 3 * B) / 2) * 0.5;
+/** An S: a box bowl open on the right above one open on the left, their ends cut level, coming in by `share` of the
+    room inside each bowl. */
+function S(W: number, H: number, V: number, B: number, share: number) {
+  const m = H / 2, ya = B + ((H - 3 * B) / 2) * share;
   return one(W, [0.65, 0.65], [p(0, 0, 'b'), p(W, 0, 'b'), p(W, m + B / 2, 'b'), p(V, m + B / 2, 'k'), p(V, H - B, 'k'), p(W - V, H - B, 'k'), p(W - V, H - ya),
     p(W, H - ya), p(W, H, 'b'), p(0, H, 'b'), p(0, m - B / 2, 'b'), p(W - V, m - B / 2, 'k'), p(W - V, B, 'k'), p(V, B, 'k'), p(V, ya), p(0, ya)]);
 }
@@ -162,45 +183,47 @@ const reach = (H: number, B: number, share: number) => B + (H / 2 - B) * share;
 
 const CAPS: Record<string, Fn> = {
   A: d => {
-    const { cap: H, B, D } = d, W = d.cw(0.62) + 2 * D, c = W / 2, f = d.flat, yb = H * 0.24;
+    const { cap: H, B, D } = d, W = d.cw(0.62) + 2 * D, c = W / 2, f = d.flat;
     const h = across(D, c - f / 2, H), ff = Math.min(f, h * 1.6), Li = slide(ln(0, 0, c - ff / 2, H), h), Ri = slide(ln(W, 0, c + ff / 2, H), -h);
-    const top = meet(Li, Ri, 'i');
+    const top = meet(Li, Ri, 'i'), yb = d.barY(H * 0.24 + B / 2, B / 2 + H * ROOM, top[1] - B / 2 - H * ROOM) - B / 2;
     return one(W, [0.25, 0.25], [p(0, 0), p(xAt(Li, 0), 0), p(xAt(Li, yb), yb, 'c'), p(xAt(Ri, yb), yb, 'c'), p(xAt(Ri, 0), 0), p(W, 0), p(c + ff / 2, H), p(c - ff / 2, H)],
       ...(top[1] > yb + B + 4 ? [[p(xAt(Li, yb + B), yb + B, 'c'), p(xAt(Ri, yb + B), yb + B, 'c'), top]] : []));
   },
   B: d => {
     // two bowls stacked on the stem, the upper a little narrower, sharing the bar between them
-    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.42), m = H * 0.53, Wu = W - d.cw(0.05);
+    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.42), m = d.barY(H * 0.53, 1.5 * B + H * ROOM, H - 1.5 * B - H * ROOM), Wu = W - d.cw(0.05);
     return { W, sb: [1, 0.75], outer: [[p(0, 0), p(W, 0, 'b'), p(W, m + B / 2, 'b'), p(0, m + B / 2)], [p(0, m - B / 2), p(Wu, m - B / 2, 'b'), p(Wu, H, 'b'), p(0, H)]],
       holes: [[p(V, B, 'c'), p(W - V, B, 'k'), p(W - V, m - B / 2, 'k'), p(V, m - B / 2, 'c')], [p(V, m + B / 2, 'c'), p(Wu - V, m + B / 2, 'k'), p(Wu - V, H - B, 'k'), p(V, H - B, 'c')]] };
   },
-  C: d => C(2 * d.V + d.cw(0.42), d.cap, d.V, d.B, reach(d.cap, d.B, 0.42)),
+  C: d => C(2 * d.V + d.cw(0.42), d.cap, d.V, d.B, reach(d.cap, d.B, d.open(0.42))),
   D: d => {
     const { cap: H, V, B } = d, W = 2 * V + d.cw(0.44);
     return one(W, [1, 0.75], [p(0, 0), p(W, 0, 'b'), p(W, H, 'b'), p(0, H)], [p(V, B, 'c'), p(W - V, B, 'k'), p(W - V, H - B, 'k'), p(V, H - B, 'c')]);
   },
   E: d => {
-    const { cap: H, V, B } = d, W = V + d.cw(0.4), m = H * 0.51, Wm = W - d.cw(0.04);
+    const { cap: H, V, B } = d, W = V + d.cw(0.4), m = d.barY(H * 0.51, 1.5 * B + H * ROOM, H - 1.5 * B - H * ROOM), Wm = W - d.cw(0.04);
     return one(W, [1, 0.45], [p(0, 0), p(W, 0), p(W, B), p(V, B, 'c'), p(V, m - B / 2, 'c'), p(Wm, m - B / 2), p(Wm, m + B / 2), p(V, m + B / 2, 'c'), p(V, H - B, 'c'),
       p(W, H - B), p(W, H), p(0, H)]);
   },
   F: d => {
-    const { cap: H, V, B } = d, W = V + d.cw(0.38), m = H * 0.49, Wm = W - d.cw(0.04);
+    const { cap: H, V, B } = d, W = V + d.cw(0.38), m = d.barY(H * 0.49, B / 2 + H * ROOM, H - 1.5 * B - H * ROOM), Wm = W - d.cw(0.04);
     return one(W, [1, 0.45], [p(0, 0), p(V, 0), p(V, m - B / 2, 'c'), p(Wm, m - B / 2), p(Wm, m + B / 2), p(V, m + B / 2, 'c'), p(V, H - B, 'c'), p(W, H - B), p(W, H), p(0, H)]);
   },
   G: d => {
-    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.44), ya = reach(H, B, 0.42), yg = Math.max(H * 0.5, 2 * B + 4), xg = W * 0.52;
+    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.44), ya = reach(H, B, d.open(0.42, 0.65)), xg = W * 0.52;
+    // the bar's top: its middle moves between the foot and the upper end
+    const yg = d.barY(Math.max(H * 0.5, 2 * B + 4) - B / 2, 1.5 * B + H * ROOM, H - ya - B / 2 - H * ROOM) + B / 2;
     return one(W, [0.75, 0.75], [p(0, 0, 'b'), p(W, 0, 'b'), p(W, yg), p(xg, yg), p(xg, yg - B), p(W - V, yg - B, 'c'), p(W - V, B, 'k'), p(V, B, 'k'), p(V, H - B, 'k'),
       p(W - V, H - B, 'k'), p(W - V, H - ya), p(W, H - ya), p(W, H, 'b'), p(0, H, 'b')]);
   },
   H: d => {
-    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.44), m = H * 0.51;
+    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.44), m = d.barY(H * 0.51, B / 2 + H * ROOM, H - B / 2 - H * ROOM);
     return one(W, [1, 1], [p(0, 0), p(V, 0), p(V, m - B / 2, 'c'), p(W - V, m - B / 2, 'c'), p(W - V, 0), p(W, 0), p(W, H), p(W - V, H), p(W - V, m + B / 2, 'c'),
       p(V, m + B / 2, 'c'), p(V, H), p(0, H)]);
   },
   I: d => one(d.V, [1, 1], box(0, 0, d.V, d.cap)),
   J: d => {
-    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.34), yj = reach(H, B, 0.5);
+    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.34), yj = reach(H, B, d.open(0.5));
     return one(W, [0.6, 1], [p(0, 0, 'b'), p(W, 0, 'b'), p(W, H), p(W - V, H), p(W - V, B, 'k'), p(V, B, 'k'), p(V, yj), p(0, yj)]);
   },
   K: d => K_(d.V + d.cw(0.5), d.cap, d.cap, d.V, d.D),
@@ -221,7 +244,7 @@ const CAPS: Record<string, Fn> = {
   },
   O: d => O(2 * d.V + d.cw(0.46), d.cap, d.V, d.B),
   P: d => {
-    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.4), yp = H * 0.4;
+    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.4), yp = d.barY(H * 0.4 + B / 2, B / 2 + H * ROOM, H - 1.5 * B - H * ROOM) - B / 2;
     return one(W, [1, 0.75], [p(0, 0), p(V, 0), p(V, yp, 'c'), p(W, yp, 'b'), p(W, H, 'b'), p(0, H)], [p(V, yp + B, 'c'), p(W - V, yp + B, 'k'), p(W - V, H - B, 'k'), p(V, H - B, 'c')]);
   },
   Q: d => {
@@ -230,12 +253,13 @@ const CAPS: Record<string, Fn> = {
     return one(W, [0.75, 0.4], [p(0, 0, 'b'), p(W + tq, 0), p(W + tq, B), p(W, B, 'c'), p(W, H, 'b'), p(0, H, 'b')], box(V, B, W - V, H - B, 'k'));
   },
   R: d => {
-    const { cap: H, V, B, D } = d, W = 2 * V + d.cw(0.42), yp = H * 0.42, xj = V + d.cw(0.12);
+    // the bowl's foot moves down less than other bars, so the leg under it keeps a slope at any weight
+    const { cap: H, V, B, D } = d, W = 2 * V + d.cw(0.42), yp = d.barY(H * 0.42 + B / 2, H * 0.33 + B / 2, H - 1.5 * B - H * ROOM) - B / 2, xj = V + d.cw(0.12);
     const leg = beside(ln(xj, yp, W - across(D, W - xj, yp) * 0.98, 0), D, 1), xr = xAt(leg.R, yp);
     return one(W, [1, 0.4], [p(0, 0), p(V, 0), p(V, yp, 'c'), p(xj, yp, 'c'), p(xAt(leg.L, 0), 0), p(xAt(leg.R, 0), 0), ...(xr < W - 2 ? [p(xr, yp, 'i'), p(W, yp, 'b')] : []),
       p(W, H, 'b'), p(0, H)], [p(V, yp + B, 'c'), p(W - V, yp + B, 'k'), p(W - V, H - B, 'k'), p(V, H - B, 'c')]);
   },
-  S: d => S(2 * d.V + d.cw(0.4), d.cap, d.V, d.B),
+  S: d => S(2 * d.V + d.cw(0.4), d.cap, d.V, d.B, d.open(0.5)),
   T: d => {
     const { cap: H, V, B } = d, W = V + d.cw(0.52), c = W / 2;
     return one(W, [0.4, 0.4], [p(0, H), p(0, H - B), p(c - V / 2, H - B, 'c'), p(c - V / 2, 0), p(c + V / 2, 0), p(c + V / 2, H - B, 'c'), p(W, H - B), p(W, H)]);
@@ -265,10 +289,10 @@ const LOWER: Record<string, Fn> = {
       [p(V, b, 'k'), p(W - V, b, 'c'), p(W - V, hb - b, 'c'), p(V, hb - b, 'k')]);
   },
   b: d => stemBowl(2 * d.V + d.cw(0.34), d.xh, d.asc, d.V, d.b),
-  c: d => C(2 * d.V + d.cw(0.32), d.xh, d.V, d.b, reach(d.xh, d.b, 0.42)),
+  c: d => C(2 * d.V + d.cw(0.32), d.xh, d.V, d.b, reach(d.xh, d.b, d.open(0.42))),
   d: d => mirror(stemBowl(2 * d.V + d.cw(0.34), d.xh, d.asc, d.V, d.b)),
   e: d => {
-    const { xh: H, V, b } = d, W = 2 * V + d.cw(0.34), lo = (H - 3 * b) * 0.48, ye = b + lo, ya = b + lo * 0.42;
+    const { xh: H, V, b } = d, W = 2 * V + d.cw(0.34), lo = (H - 3 * b) * 0.48, ye = b + lo, ya = b + lo * d.open(0.42);
     return one(W, [0.75, 0.6], [p(0, 0, 'b'), p(W, 0, 'b'), p(W, ya), p(W - V, ya), p(W - V, b, 'k'), p(V, b, 'k'), p(V, ye, 'c'), p(W, ye), p(W, H, 'b'), p(0, H, 'b')],
       [p(V, ye + b, 'c'), p(W - V, ye + b, 'c'), p(W - V, H - b, 'k'), p(V, H - b, 'k')]);
   },
@@ -302,7 +326,7 @@ const LOWER: Record<string, Fn> = {
     const { xh: H, V, b } = d, W = V + d.cw(0.22);
     return one(W, [1, 0.3], [p(0, 0), p(V, 0), p(V, H - b, 'c'), p(W, H - b), p(W, H, 'b'), p(0, H)]);
   },
-  s: d => S(2 * d.V + d.cw(0.3), d.xh, d.V, d.b),
+  s: d => S(2 * d.V + d.cw(0.3), d.xh, d.V, d.b, d.open(0.5)),
   t: d => {
     const { xh: H, asc: A, V, b } = d, xt = V * 0.6, W = xt + V + d.cw(0.16), top = H + (A - H) * 0.5;
     return one(W, [0.5, 0.4], [p(xt, top), p(xt + V, top), p(xt + V, H, 'c'), p(W, H), p(W, H - b), p(xt + V, H - b, 'c'), p(xt + V, b, 'k'), p(W, b), p(W, 0),
@@ -345,7 +369,7 @@ const FIGURES: Record<string, Fn> = {
     return one(W, [0.5, 1], [p(x0, 0), p(W, 0), p(W, H), p(0, H), p(0, H - B), p(x0, H - B, 'c')]);
   },
   '2': d => {
-    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.34), m = H * 0.5, ya = reach(H, B, 0.45);
+    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.34), m = H * 0.5, ya = reach(H, B, d.open(0.45, 0.6));
     return one(W, [0.75, 0.75], [p(0, 0), p(W, 0), p(W, B), p(V, B, 'c'), p(V, m - B / 2, 'k'), p(W, m - B / 2, 'b'), p(W, H, 'b'), p(0, H, 'b'), p(0, H - ya), p(V, H - ya),
       p(V, H - B, 'k'), p(W - V, H - B, 'k'), p(W - V, m + B / 2, 'k'), p(0, m + B / 2, 'b')]);
   },
@@ -355,13 +379,13 @@ const FIGURES: Record<string, Fn> = {
       p(W - V, m - B / 2, 'c'), p(W - V, B, 'k'), p(0, B)]);
   },
   '4': d => {
-    const { cap: H, V, B, D } = d, W = V + d.cw(0.48), xs = W - V, yb = H * 0.28;
+    const { cap: H, V, B, D } = d, W = V + d.cw(0.48), xs = W - V, yb = d.barY(H * 0.28 + B / 2, B / 2 + H * ROOM, H * 0.45) - B / 2;
     const s = beside(ln(0, yb + B, xs, H), D, 1), y = yAt(s.R, xs);
     return one(W, [0.3, 1], [p(xs, H), p(W, H), p(W, 0), p(xs, 0), p(xs, yb, 'c'), p(0, yb), p(0, yb + B)],
       ...(y > yb + B + 4 ? [[p(xAt(s.R, yb + B), yb + B, 'i'), p(xs, yb + B, 'c'), p(xs, y, 'i')]] : []));
   },
   '5': d => {
-    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.34), m = H * 0.52, ya = reach(H, B, 0.45);
+    const { cap: H, V, B } = d, W = 2 * V + d.cw(0.34), m = H * 0.52, ya = reach(H, B, d.open(0.45, 0.6));
     return one(W, [0.75, 0.75], [p(0, 0, 'b'), p(W, 0, 'b'), p(W, m + B / 2, 'b'), p(V, m + B / 2, 'c'), p(V, H - B, 'c'), p(W, H - B), p(W, H), p(0, H), p(0, m - B / 2),
       p(W - V, m - B / 2, 'k'), p(W - V, B, 'k'), p(V, B, 'k'), p(V, ya), p(0, ya)]);
   },
@@ -379,7 +403,7 @@ const FIGURES: Record<string, Fn> = {
   '9': d => turn(six(d), d.cap)
 };
 function six(d: BasicDims): Shape {
-  const { cap: H, V, B } = d, W = 2 * V + d.cw(0.34), m = H * 0.52, ya = reach(H, B, 0.45);
+  const { cap: H, V, B } = d, W = 2 * V + d.cw(0.34), m = H * 0.52, ya = reach(H, B, d.open(0.45, 0.6));
   return one(W, [0.75, 0.75], [p(0, 0, 'b'), p(W, 0, 'b'), p(W, m + B / 2, 'b'), p(V, m + B / 2, 'c'), p(V, H - B, 'k'), p(W - V, H - B, 'k'), p(W - V, H - ya), p(W, H - ya),
     p(W, H, 'b'), p(0, H, 'b')], [p(V, B, 'k'), p(W - V, B, 'k'), p(W - V, m - B / 2, 'k'), p(V, m - B / 2, 'c')]);
 }
@@ -410,16 +434,17 @@ const quotes = (d: BasicDims, n: 1 | 2, at: 'open' | 'close' | 'low') => {
   return solid(S + (n - 1) * (S + d.V * 0.6), [0.6, 0.6], ...Array.from({ length: n }, (_, i) => c.map(([x, y, k]): P => [x + i * (S + d.V * 0.6), y, k])));
 };
 /** A bar across the middle of the x-height, `W` long. */
-const dash = (d: BasicDims, W: number) => solid(W, [0.6, 0.6], box(0, d.xh * 0.5 - d.B / 2, W, d.xh * 0.5 + d.B / 2));
+const dash = (d: BasicDims, W: number) => solid(W, [0.6, 0.6], box(0, d.xh * 0.5 - d.L / 2, W, d.xh * 0.5 + d.L / 2));
 /** The letters inside © ® ™: the design at `f` of its size, its strokes thinning less, so the letter stays open. */
 function scaled(d: BasicDims, f: number): BasicDims {
   const w = f ** 0.6, cap = d.cap * f;
-  return { ...d, cap, xh: d.xh * f, asc: d.asc * f, desc: d.desc * f, V: d.V * w, B: Math.min(d.B * w, cap * 0.29), b: Math.min(d.b * w, cap * 0.29), D: d.D * w, T: d.T * w,
+  return { ...d, cap, xh: d.xh * f, asc: d.asc * f, desc: d.desc * f, V: d.V * w, B: Math.min(d.B * w, cap * 0.29), b: Math.min(d.b * w, cap * 0.29), D: d.D * w, T: d.T * w, L: d.L * w,
     cw: g => d.cw(g) * f, flat: d.flat * w };
 }
 /** A letter in a round-cornered frame: © and ®. */
 function framed(d: BasicDims, ch: string): Shape {
-  const s = scaled(d, 0.5), L = CAPS[ch](s), H = d.cap, t = Math.min(d.V, d.B) * 0.8, W = Math.max(H, L.W + 2 * t + d.cw(0.16));
+  // the frame stands alone round the letter, so it thins with the level strokes only as far as a lone one does
+  const s = scaled(d, 0.5), L = CAPS[ch](s), H = d.cap, t = Math.min(d.V, d.L) * 0.8, W = Math.max(H, L.W + 2 * t + d.cw(0.16));
   const inner = shift(L, (W - L.W) / 2, (H - s.cap) / 2, W);
   return { W, sb: [0.75, 0.75], bowl: W / 2, outer: [box(0, 0, W, H, 'b'), ...inner.outer], holes: [box(t, t, W - t, H - t, 'k'), ...inner.holes] };
 }
@@ -483,7 +508,7 @@ const MARKS: Record<string, Fn> = {
   '-': d => dash(d, d.V + d.cw(0.26)),
   '–': d => dash(d, d.cw(0.6)),
   '—': d => dash(d, d.cw(1.05)),
-  '_': d => solid(d.cw(0.62), [0.2, 0.2], box(0, -d.cap * 0.16 - d.B, d.cw(0.62), -d.cap * 0.16)),
+  '_': d => solid(d.cw(0.62), [0.2, 0.2], box(0, -d.cap * 0.16 - d.L, d.cw(0.62), -d.cap * 0.16)),
   '/': d => {
     const lo = -d.cap * 0.1, hi = d.cap * 1.04, W = d.cw(0.36) + d.D, s = stroke(0, lo, W, hi, d.D);
     return solid(W, [0.2, 0.2], [p(0, lo), p(s.h, lo), p(W, hi), p(W - s.h, hi)]);
@@ -506,12 +531,12 @@ const MARKS: Record<string, Fn> = {
     // a squared spiral: a frame running round from its foot, in at the right to a small bowl in its middle, the gaps
     // between them about a stroke (none left at the heaviest)
     const { cap: H, V, B } = d, lo = -d.cap * 0.18, ic = d.cw(0.2), gx = Math.max(V * 0.8, d.cw(0.08)), W = 3 * V + gx + ic, xi = V + gx;
-    const room = H - lo - 2 * B, gy = Math.max(0, Math.min(B * 0.8, (room - 2 * B - H * 0.1) / 2)), y0 = lo + B + gy, y1 = H - B - gy, xe = W - V - gx * 0.5;
+    const room = H - lo - 2 * B, gy = Math.max(0, Math.min(d.L * 0.8, (room - 2 * B - H * 0.1) / 2)), y0 = lo + B + gy, y1 = H - B - gy, xe = W - V - gx * 0.5;
     return { W, sb: [0.75, 0.75], outer: [[p(0, lo, 'b'), p(xe, lo), p(xe, lo + B), p(V, lo + B, 'k'), p(V, H - B, 'k'), p(W - V, H - B, 'k'), p(W - V, y1, 'c'), p(xi, y1, 'b'),
       p(xi, y0, 'b'), p(W, y0, 'b'), p(W, H, 'b'), p(0, H, 'b')]], holes: [[p(xi + V, y0 + B, 'k'), p(W - V, y0 + B, 'c'), p(W - V, y1 - B, 'c'), p(xi + V, y1 - B, 'k')]] };
   },
   '#': d => {
-    const { V, B } = d, H = d.cap * 0.9, W = 2 * V + d.cw(0.52), a = d.cw(0.12), y1 = H * 0.3, y2 = H * 0.7;
+    const { V, L: B } = d, H = d.cap * 0.9, W = 2 * V + d.cw(0.52), a = d.cw(0.12), y1 = H * 0.3, y2 = H * 0.7;
     return solid(W, [0.4, 0.4], box(a, 0, a + V, H), box(W - a - V, 0, W - a, H), box(0, y1 - B / 2, W, y1 + B / 2), box(0, y2 - B / 2, W, y2 + B / 2));
   },
   '$': d => struck(CAPS.S(d), d, d.cap),
@@ -536,26 +561,26 @@ const MARKS: Record<string, Fn> = {
   },
   '+': d => {
     const a = d.cw(0.2) + d.V / 2, cy = d.xh * 0.5, W = 2 * a;
-    return solid(W, [0.6, 0.6], box(0, cy - d.B / 2, W, cy + d.B / 2), box(a - d.V / 2, cy - a, a + d.V / 2, cy + a));
+    return solid(W, [0.6, 0.6], box(0, cy - d.L / 2, W, cy + d.L / 2), box(a - d.V / 2, cy - a, a + d.V / 2, cy + a));
   },
-  '−': d => { const W = 2 * (d.cw(0.2) + d.V / 2); return solid(W, [0.6, 0.6], box(0, d.xh * 0.5 - d.B / 2, W, d.xh * 0.5 + d.B / 2)); },
+  '−': d => { const W = 2 * (d.cw(0.2) + d.V / 2); return solid(W, [0.6, 0.6], box(0, d.xh * 0.5 - d.L / 2, W, d.xh * 0.5 + d.L / 2)); },
   '×': d => { const w = 2 * (d.cw(0.15) + d.V / 2); return shift(X_(w, w, d.D), 0, d.xh * 0.5 - w / 2); },
   '÷': d => {
-    const W = 2 * (d.cw(0.2) + d.V / 2), cy = d.xh * 0.5, S = dotSize(d) * 0.9, o = d.B / 2 + S * 0.45;
-    return solid(W, [0.6, 0.6], box(0, cy - d.B / 2, W, cy + d.B / 2), box(W / 2 - S / 2, cy + o, W / 2 + S / 2, cy + o + S), box(W / 2 - S / 2, cy - o - S, W / 2 + S / 2, cy - o));
+    const W = 2 * (d.cw(0.2) + d.V / 2), cy = d.xh * 0.5, S = dotSize(d) * 0.9, o = d.L / 2 + S * 0.45;
+    return solid(W, [0.6, 0.6], box(0, cy - d.L / 2, W, cy + d.L / 2), box(W / 2 - S / 2, cy + o, W / 2 + S / 2, cy + o + S), box(W / 2 - S / 2, cy - o - S, W / 2 + S / 2, cy - o));
   },
   '=': d => {
-    const W = 2 * (d.cw(0.2) + d.V / 2), cy = d.xh * 0.5, o = d.B / 2 + Math.max(d.B * 0.35, d.cap * 0.045);
-    return solid(W, [0.6, 0.6], box(0, cy + o - d.B / 2, W, cy + o + d.B / 2), box(0, cy - o - d.B / 2, W, cy - o + d.B / 2));
+    const W = 2 * (d.cw(0.2) + d.V / 2), cy = d.xh * 0.5, o = d.L / 2 + Math.max(d.L * 0.35, d.cap * 0.045);
+    return solid(W, [0.6, 0.6], box(0, cy + o - d.L / 2, W, cy + o + d.L / 2), box(0, cy - o - d.L / 2, W, cy - o + d.L / 2));
   },
   '<': d => { const w = d.xh * 0.62; return { ...chevron(d, w, w * 1.3, d.xh * 0.5), sb: [0.6, 0.6] }; },
   '>': d => mirror(MARKS['<'](d)),
   '±': d => {
-    const a = d.cw(0.2) + d.V / 2, cy = d.xh * 0.62, W = 2 * a, yb = cy - a - d.B * 0.6 - d.B;
-    return solid(W, [0.6, 0.6], box(0, cy - d.B / 2, W, cy + d.B / 2), box(a - d.V / 2, cy - a, a + d.V / 2, cy + a), box(0, yb, W, yb + d.B));
+    const a = d.cw(0.2) + d.V / 2, cy = d.xh * 0.62, W = 2 * a, yb = cy - a - d.L * 0.6 - d.L;
+    return solid(W, [0.6, 0.6], box(0, cy - d.L / 2, W, cy + d.L / 2), box(a - d.V / 2, cy - a, a + d.V / 2, cy + a), box(0, yb, W, yb + d.L));
   },
   '~': d => {
-    const W = d.cw(0.5) + d.V, t = d.B, cy = d.xh * 0.5, a = d.cap * 0.07, n = 24, top: P[] = [], bot: P[] = [];
+    const W = d.cw(0.5) + d.V, t = d.L, cy = d.xh * 0.5, a = d.cap * 0.07, n = 24, top: P[] = [], bot: P[] = [];
     // a band along a sine, end to end, its points left sharp so the curve is the band's own
     for (let i = 0; i <= n; i++) {
       const x = W * i / n, y = cy + a * Math.sin(Math.PI * 2 * i / n), sl = a * Math.PI * 2 / W * Math.cos(Math.PI * 2 * i / n), l = Math.hypot(1, sl);
@@ -566,11 +591,11 @@ const MARKS: Record<string, Fn> = {
   },
   '^': d => { const w = d.cw(0.36) + d.D, h = d.cap * 0.42; return shift(turn(V_(w, h, d.D * 0.9, d.flat), h), 0, d.cap - h); },
   '*': d => {
-    const W = d.cw(0.44) + d.V, t = Math.min(d.B, W * 0.2), r = W / 2 - t / 2, cy = d.cap - W / 2;
+    const W = d.cw(0.44) + d.V, t = Math.min(d.L, W * 0.2), r = W / 2 - t / 2, cy = d.cap - W / 2;
     return solid(W, [0.5, 0.5], ...[90, 30, 150].map(a => { const dx = r * Math.cos(a * Math.PI / 180), dy = r * Math.sin(a * Math.PI / 180); return bar(W / 2 - dx, cy - dy, W / 2 + dx, cy + dy, t); }));
   },
   '°': d => {
-    const t = Math.min(d.V, d.B) * 0.8, S = Math.max(d.cap * 0.36, 2 * t + d.cap * 0.14);
+    const t = Math.min(d.V, d.L) * 0.8, S = Math.max(d.cap * 0.36, 2 * t + d.cap * 0.14);
     return { W: S, sb: [0.6, 0.6], bowl: S / 2, outer: [box(0, d.cap - S, S, d.cap, 'b')], holes: [box(t, d.cap - S + t, S - t, d.cap - t, 'k')] };
   },
   '©': d => framed(d, 'C'),
@@ -581,7 +606,7 @@ const MARKS: Record<string, Fn> = {
   },
   '§': d => {
     // two short S's, one over the other, sharing a level stroke
-    const H = d.cap * 0.62, W = 2 * d.V + d.cw(0.3), up = shift(S(W, H, d.V, d.B), 0, d.cap - H), dn = shift(S(W, H, d.V, d.B), 0, d.cap - 2 * H + d.B);
+    const H = d.cap * 0.62, W = 2 * d.V + d.cw(0.3), up = shift(S(W, H, d.V, d.B, d.open(0.5)), 0, d.cap - H), dn = shift(S(W, H, d.V, d.B, d.open(0.5)), 0, d.cap - 2 * H + d.B);
     return join(W, [0.65, 0.65], up, dn);
   },
   '¶': d => {
@@ -592,11 +617,11 @@ const MARKS: Record<string, Fn> = {
   },
   '†': d => {
     const W = d.cw(0.26) + d.V, c = W / 2, y = d.cap * 0.62;
-    return solid(W, [0.5, 0.5], box(c - d.V / 2, -d.cap * 0.12, c + d.V / 2, d.cap), box(0, y, W, y + d.B));
+    return solid(W, [0.5, 0.5], box(c - d.V / 2, -d.cap * 0.12, c + d.V / 2, d.cap), box(0, y, W, y + d.L));
   },
   '‡': d => {
     const W = d.cw(0.26) + d.V, c = W / 2;
-    return solid(W, [0.5, 0.5], box(c - d.V / 2, -d.cap * 0.12, c + d.V / 2, d.cap), box(0, d.cap * 0.66, W, d.cap * 0.66 + d.B), box(0, d.cap * 0.18, W, d.cap * 0.18 + d.B));
+    return solid(W, [0.5, 0.5], box(c - d.V / 2, -d.cap * 0.12, c + d.V / 2, d.cap), box(0, d.cap * 0.66, W, d.cap * 0.66 + d.L), box(0, d.cap * 0.18, W, d.cap * 0.18 + d.L));
   },
   '`': d => { const S = dotSize(d) * 0.9, W = S * 1.6; return solid(W, [0.6, 0.6], bar(S * 0.45, d.cap - S * 0.45, W - S * 0.45, d.xh + S * 0.2, S * 0.9)); }
 };
