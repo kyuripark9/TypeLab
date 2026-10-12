@@ -77,7 +77,7 @@ function LetterControls({ keys, category }: { keys: ControlKey[]; category: Excl
       {customizing && <div className="scope-note"><ScopeIcon id="letter" /><span>Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</span></div>}
       {drawn && (
         <div className="reach-banner">
-          <span>{free ? `${ch} comes from ${free}: weight, contrast, width, heights, crossbar, serifs, slant and fills change it, and Points reshapes it.` : `${ch} is drawn by hand, so these settings don’t change it.`}</span>
+          <span>{free ? `${ch} comes from ${free}: weight, contrast, width, heights, crossbar, serifs, slant and fills change it, and Points reshapes it.` : `${ch} was edited in Points, so these settings don’t change it.`}</span>
           <button className="link small" onClick={() => (free ? actions.setFreeLetters(false) : actions.undrawLetter(ch))}>{free ? 'Make my own letters' : 'Back to settings'}</button>
         </div>
       )}

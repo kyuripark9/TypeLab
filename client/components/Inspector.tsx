@@ -166,8 +166,7 @@ export function Inspector() {
         )}
         {!pen && drawn && (
           <div className="scope-banner" role="status">
-            <ScopeIcon id="letter" /><span><b>{ch}</b> {free ? `comes from ${free}` : 'is drawn by hand'}</span>
-            <button className="link" onClick={() => actions.setPenMode(true)}>Edit points</button>
+            <ScopeIcon id="letter" /><span>{free ? <><b>{ch}</b> is {free}'s letter · reshape it in Points</> : <><b>{ch}</b> was edited in Points · settings don't change it</>}</span>
           </div>
         )}
         {letter && !drawn && (

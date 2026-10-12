@@ -135,7 +135,7 @@ const StripCell = memo(function StripCell({ ch, font, on, mark, cells }: { ch: s
   const c = ch.charCodeAt(0), g = font.glyph(ch);
   return (
     <button className={['cell', on && 'on', mark && 'custom'].filter(Boolean).join(' ')}
-      title={mark === 'drawn' ? `Inspect ${ch} (drawn by hand)` : mark ? `Inspect ${ch} (customized)` : `Inspect ${ch}`}
+      title={mark === 'drawn' ? `Inspect ${ch} (edited in Points)` : mark ? `Inspect ${ch} (customized)` : `Inspect ${ch}`}
       ref={el => { if (el) cells.set(ch, el); else cells.delete(ch); }}
       onClick={() => actions.openInspector(ch)}>
       <svg viewBox={g ? cellBox(g) : CELL} aria-hidden="true"><use href={`#g${c}`} x={g ? n1((1000 - g.adv) / 2) : 0} /></svg>
