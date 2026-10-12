@@ -153,20 +153,41 @@ function ExportButton() {
 const fontFile = (name: string, styles: readonly { style: string }[]) =>
   styles.length === 1 ? `${slug(name)}-${styles[0].style.replace(/ /g, '')}.otf` : `${slug(name)}-family.zip`;
 
-/** The styles a download holds, named for the summary over its button: each up to six, then the first five and how
+/** The styles a download holds, named for the line under its file: each up to six, then the first five and how
     many more. */
 function stylesNamed(styles: readonly { style: string }[]) {
   const n = styles.length, names = styles.map(f => f.style);
-  if (n === FAMILY_STYLES.length) return `All ${n} styles, Thin to Black, upright and italic`;
+  if (n === FAMILY_STYLES.length) return 'Thin to Black, upright and italic';
   return n > 6 ? `${names.slice(0, 5).join(', ')} and ${n - 5} more` : names.join(', ');
 }
 
+/** The Export window's small icons: a download, an upload, a file, and the tick a finished download shows. */
+const ICONS = {
+  down: 'M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10',
+  up: 'M8 10.5v-8M4.5 6 8 2.5 11.5 6M3 13.5h10',
+  file: 'M4 1.75h5L12.25 5v9.25H4zM9 1.75V5h3.25',
+  done: 'M3.5 8.5 6.5 11.5 12.5 4.5'
+};
+const Glyph = ({ d }: { d: keyof typeof ICONS }) =>
+  <svg className="export-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d={ICONS[d]} /></svg>;
+
 /** The Export window, in the middle of the screen: the styles of the design's family to save fill it (one as an .otf,
-    several as the family's fonts in one .zip); beside them, the name the fonts install under, the other files (a
-    specimen, and the settings out and in), and at the foot what the download holds and its button. */
+    several as the family's fonts in one .zip); beside them, the font as one block (its name, the file it saves as
+    and Download), then the other files to download (a specimen, the design's settings), and at the foot, apart from
+    them, opening a settings file in place of the design. */
 function ExportDialog({ onClose }: { onClose: () => void }) {
   const params = useEditor(s => s.params);
   const [busy, setBusy] = useState<'fonts' | 'svg' | null>(null);
+  // the other file just downloaded, ticked for a moment: the window stays open for the font after it
+  const [done, setDone] = useState<'svg' | 'json' | null>(null);
+  // what went wrong, said in the window beside the button that tried it: a toast would sit under the window
+  const [error, setError] = useState<{ at: 'fonts' | 'svg' | 'open'; text: string } | null>(null);
+  const failed = (at: 'fonts' | 'svg' | 'open') => error?.at === at && <p className="export-error" role="alert">{error.text}</p>;
+  useEffect(() => {
+    if (!done) return;
+    const t = setTimeout(() => setDone(null), 2400);
+    return () => clearTimeout(t);
+  }, [done]);
   const go = useRef<HTMLButtonElement>(null), file = useRef<HTMLInputElement>(null);
   useEscape(onClose, go);
 
@@ -188,7 +209,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   const saveFonts = async () => {
     takeName();
     const s = useEditor.getState(), name = cleanName(s.name);
-    setBusy('fonts');
+    setBusy('fonts'); setError(null);
     try {
       if (styles.length === 1) {
         const [f] = styles;
@@ -200,7 +221,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
       }
       onClose();
     } catch (e) {
-      actions.toast(`Export failed: ${errorMessage(e)}`);
+      setError({ at: 'fonts', text: `Export failed: ${errorMessage(e)}` });
       setBusy(null);
     }
   };
@@ -208,15 +229,14 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   const saveSpecimen = async () => {
     takeName();
     const s = useEditor.getState(), name = cleanName(s.name);
-    setBusy('svg');
+    setBusy('svg'); setError(null);
     try {
       download(`${slug(name)}-specimen.svg`, await api.exportFile('svg', { name, params: s.params }));
-      actions.toast('Specimen exported');
-      onClose();
+      setDone('svg');
     } catch (e) {
-      actions.toast(`Export failed: ${errorMessage(e)}`);
-      setBusy(null);
+      setError({ at: 'svg', text: `Export failed: ${errorMessage(e)}` });
     }
+    setBusy(null);
   };
 
   const exportJSON = () => {
@@ -224,8 +244,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     const s = useEditor.getState(), name = cleanName(s.name);
     const data = { app: 'TypeLab', version: PARAMS_VERSION, name, styleId: s.styleId, params: s.params };
     download(`${slug(name)}.typelab.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-    actions.toast('Settings exported');
-    onClose();
+    setDone('json'); setError(null);
   };
 
   const importJSON = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -237,10 +256,10 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
       if (!o || typeof o !== 'object' || !o.params || typeof o.params !== 'object') throw new Error();
       actions.replaceParams(sanitizeParams(upgradeParams(o.params, typeof o.version === 'number' ? o.version : 1)), typeof o.styleId === 'string' ? o.styleId : undefined);
       if (typeof o.name === 'string') actions.setName(cleanName(o.name));
-      actions.toast('Settings imported');
+      actions.toast('Design file opened');
       onClose();
     } catch {
-      actions.toast('That file isn’t a TypeLab settings file');
+      setError({ at: 'open', text: 'That file isn’t a TypeLab design file (.typelab.json)' });
     }
   };
 
@@ -270,27 +289,44 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
             </label>
             <ReservedNote name={draft} />
           </div>
-          <div className="export-files" role="group" aria-labelledby="export-files">
-            <h3 id="export-files">Other files</h3>
-            <button type="button" className="export-file" disabled={!!busy} onClick={saveSpecimen}>
-              <b>{busy === 'svg' ? 'Building specimen…' : 'Specimen .svg'}</b><span>A vector sheet of every glyph</span>
-            </button>
-            <button type="button" className="export-file" disabled={!!busy} onClick={exportJSON}>
-              <b>Settings .json</b><span>Reopen this design anywhere</span>
-            </button>
-            <button type="button" className="export-file" disabled={!!busy} onClick={() => file.current?.click()}>
-              <b>Import settings…</b><span>Load a .typelab.json file</span>
-            </button>
-            <input ref={file} type="file" accept=".json,application/json" hidden onChange={importJSON} />
-          </div>
+          {/* the font, under its name: the file it saves as and what that holds, over Download */}
           <div className="export-send">
             <div className={n ? 'export-sum' : 'export-sum none'}>
-              <b>{n ? stylesNamed(styles) : 'No style picked'}</b>
-              {n > 0 && <span>{fontFile(cleanName(draft), styles)}</span>}
+              <Glyph d="file" />
+              {n ? <><b>{fontFile(cleanName(draft), styles)}</b><span>{n === 1 ? '1 font' : `${n} fonts`}: {stylesNamed(styles)}</span></>
+                : <span>Pick a style to download</span>}
             </div>
             <button ref={go} type="button" className="btn primary" disabled={!!busy || !n} onClick={saveFonts}>
-              {busy === 'fonts' ? (n === 1 ? 'Building font…' : 'Building fonts…') : !n ? 'Pick a style' : n === 1 ? 'Download font · .otf' : `Download ${n} fonts · .zip`}
+              <Glyph d="down" />
+              {busy === 'fonts' ? (n === 1 ? 'Building font…' : 'Building fonts…') : n > 1 ? `Download ${n} fonts` : 'Download font'}
             </button>
+            {failed('fonts')}
+          </div>
+          {/* the other files, each downloaded with the window left open for the font; then, apart at the foot, the
+              one thing here that loads rather than saves */}
+          <div className="export-more">
+            <div className="export-files" role="group" aria-labelledby="export-files">
+              <h3 id="export-files">Also download</h3>
+              <button type="button" className="export-file" disabled={!!busy} onClick={saveSpecimen}>
+                <Glyph d={done === 'svg' ? 'done' : 'down'} />
+                <b>{busy === 'svg' ? 'Building specimen…' : done === 'svg' ? 'Specimen downloaded' : 'Specimen'}</b>
+                <span>Every glyph on one sheet · .svg</span>
+              </button>
+              <button type="button" className="export-file" disabled={!!busy} onClick={exportJSON}>
+                <Glyph d={done === 'json' ? 'done' : 'down'} />
+                <b>{done === 'json' ? 'Design file downloaded' : 'Design file'}</b>
+                <span>Reopen it to keep editing · .json</span>
+              </button>
+              {failed('svg')}
+            </div>
+            <div className="export-open">
+              <button type="button" className="btn ghost small" disabled={!!busy} onClick={() => file.current?.click()}>
+                <Glyph d="up" /><span>Open<span className="export-long"> a design</span> file…</span>
+              </button>
+              <span className="export-hint">Replaces the design open now</span>
+              {failed('open')}
+              <input ref={file} type="file" accept=".json,application/json" hidden onChange={importJSON} />
+            </div>
           </div>
         </div>
       </div>

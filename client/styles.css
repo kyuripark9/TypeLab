@@ -704,14 +704,16 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .dialog-actions .btn:not(.primary):hover { background: var(--well); }
 
 /* ---------- export window and the family's styles */
-/* the styles to save fill the window, scrolling when it is short; the side beside them holds the font's name, the
-   other files, and at its foot what the download holds and its button, in the corner a dialog's main button takes */
-.dialog.export { width: min(960px, 100%); max-height: calc(100vh - 32px); display: grid; grid-template-columns: minmax(0, 1fr) 264px; grid-template-rows: auto minmax(0, 1fr); padding: 0; overflow: hidden; }
+/* the styles to save fill the window, scrolling when it is short; the side beside them holds the font as one block
+   (its name, the file it saves as, Download), the other files to download as raised buttons under it, and at its
+   foot, apart, opening a design file */
+.dialog.export { width: min(960px, 100%); max-height: calc(100vh - 32px); display: grid; grid-template-columns: minmax(0, 1fr) 272px; grid-template-rows: auto minmax(0, 1fr); padding: 0; overflow: hidden; }
 .export-head { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 20px; border-bottom: 1px solid var(--line); }
 .export-styles { display: grid; align-content: start; gap: 14px; min-height: 0; overflow: auto; padding: 16px 20px 20px; }
 .export-styles h3 { margin: 0; font-size: 13.5px; font-weight: 600; }
 .export-styles h3 span { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 400; color: var(--ink-3); }
-.export-side { display: flex; flex-direction: column; gap: 18px; min-height: 0; overflow: auto; padding: 16px; border-left: 1px solid var(--line); background: var(--well); }
+.export-side { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow: auto; padding: 16px; border-left: 1px solid var(--line); background: var(--well); }
+.export-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .export-named { display: grid; gap: 6px; }
 .export-name { display: grid; gap: 6px; }
 .export-name span { font-size: 12px; font-weight: 500; color: var(--ink-3); }
@@ -719,20 +721,30 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .export-name input:hover { box-shadow: inset 0 0 0 1px var(--ink-3); }
 .export-name input:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
 .dialog p.export-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ink-3); }
-/* what the download holds, over its button: the styles by name and the file they save as */
-.export-send { display: grid; gap: 8px; margin-top: auto; }
-.export-sum { display: grid; gap: 3px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
-.export-sum b { font-size: 13px; font-weight: 500; line-height: 1.4; }
-.export-sum span { font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
-.export-sum.none b { font-weight: 400; color: var(--ink-3); }
+/* the font: the file it saves as and what that holds, plain text with a file's icon (no box: nothing here is typed
+   into), and Download right under it */
+.export-send { display: grid; gap: 10px; }
+.export-sum { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 2px 8px; align-items: center; color: var(--ink-2); }
+.export-sum b { font-size: 13px; font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+.export-sum span { grid-column: 2; font-size: 12px; line-height: 1.4; color: var(--ink-3); }
+.export-sum.none span { grid-column: auto; }
+.export-sum.none { color: var(--ink-3); }
 .export-send .btn.primary { height: 36px; justify-content: center; }
-.export-files { display: grid; gap: 2px; padding-top: 14px; border-top: 1px solid var(--line); }
-.export-files h3 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
-.export-file { display: grid; gap: 1px; margin: 0 -8px; padding: 6px 8px; border-radius: var(--radius); text-align: left; transition: background .15s, opacity .15s; }
-.export-file:hover { background: var(--active); }
+.dialog p.export-error { margin: 0; font-size: 12px; line-height: 1.45; color: var(--danger); }
+/* the other files under the font, and opening one at the side's foot */
+.export-more { display: flex; flex-direction: column; gap: 16px; flex: 1; padding-top: 16px; border-top: 1px solid var(--line); }
+.export-files { display: grid; gap: 6px; }
+.export-files h3 { margin: 0 0 2px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.export-file { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 1px 10px; align-items: center; padding: 8px 10px; border-radius: var(--radius); background: var(--surface); box-shadow: var(--raise); text-align: left; transition: box-shadow .15s, opacity .15s; }
+.export-file:hover { box-shadow: var(--raise), inset 0 0 0 1px var(--line-2); }
 .export-file:disabled { opacity: .35; pointer-events: none; }
+.export-file .export-icon { grid-row: span 2; color: var(--ink-2); }
 .export-file b { font-size: 13px; font-weight: 500; }
 .export-file span { font-size: 12px; color: var(--ink-3); }
+.export-open { display: grid; justify-items: start; gap: 2px; margin-top: auto; }
+.export-open .btn { margin-left: -10px; color: var(--ink-2); }
+.export-open .btn:hover { color: var(--ink); }
+.export-hint { font-size: 12px; color: var(--ink-3); }
 .family { display: grid; gap: 10px; }
 .family-grid { display: grid; gap: 6px; }
 .family-row { display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px; }
@@ -757,7 +769,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .family-cell.own[aria-pressed=true]:hover { background: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--accent-ink), 0 0 0 1px var(--accent-ink); }
 .family-cell.own[aria-pressed=true] .family-sample { fill: #fff; }
 .dialog p.family-note { margin: 0; font-size: 12.5px; color: var(--ink-3); }
-/* phones: one column, the name over the styles and the other files and the download pinned under them */
+/* phones: one column, the name over the styles, and the other files, opening one and the download pinned under
+   them, the files as small buttons in a row */
 @media (max-width: 760px) {
   .dialog.export { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
   .export-side { display: contents; }
@@ -765,11 +778,15 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
   .export-name input { background: var(--well); box-shadow: inset 0 0 0 1px var(--line); }
   .export-name input:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
   .export-styles { grid-row: 3; padding: 12px 16px 14px; }
-  .export-files { grid-row: 4; display: flex; flex-wrap: wrap; gap: 2px; margin: 0; padding: 8px 10px 0; }
-  .export-files h3, .export-file span { display: none; }
-  .export-file { margin: 0; padding: 0 10px; height: 28px; align-content: center; }
+  .export-more { grid-row: 4; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; padding: 8px 12px 0; }
+  .export-files { display: contents; }
+  .export-files h3, .export-file span, .export-hint, .export-long { display: none; }
+  .export-file { display: inline-flex; gap: 6px; height: 28px; padding: 0 10px; }
   .export-file b { font-size: 12px; }
-  .export-send { grid-row: 5; margin: 0; padding: 6px 16px 14px; }
+  .export-files .export-error { flex-basis: 100%; }
+  .export-open { margin: 0 0 0 auto; }
+  .export-open .btn { margin: 0; }
+  .export-send { grid-row: 5; margin: 0; padding: 8px 16px 14px; }
   .export-sum { display: none; }
 }
 @media (max-width: 600px) {
