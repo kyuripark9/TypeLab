@@ -9,7 +9,7 @@ import { buildFont, freeFont, registerFreeFont, type Drawn, type Font, type Node
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { freeAtOf, type Params } from '../shared/params';
 import { FreeFonts } from '../server/free-fonts';
-import { carryChange, carryLetter, changesOf } from '../client/lib/carry';
+import { carryChange, carryLetter, changesOf, sameDrawing } from '../client/lib/carry';
 import { moveAnchors, splitSegment, deleteAnchors, traceOf, type Ref } from '../client/lib/pen';
 
 describe('carry: reading what changed', () => {
@@ -42,6 +42,13 @@ describe('carry: reading what changed', () => {
   it('keeps changes far apart as two, and ones a point or two apart as one', () => {
     assert.deepEqual(changesOf([sq], moveAnchors([sq], [{ c: 0, i: 1 }, { c: 0, i: 5 }], 0, 10)).map(c => [c.a, c.b]), [[0, 2], [4, 6]]);
     assert.deepEqual(changesOf([sq], moveAnchors([sq], [{ c: 0, i: 1 }, { c: 0, i: 3 }], 0, 10)).map(c => [c.a, c.b, c.fresh.length]), [[0, 4, 3]]);
+  });
+
+  it('tells a drawing read back from an undo step (a copy) as the same one, and a moved point as different', () => {
+    const d = { adv: 300, contours: [sq] };
+    assert.ok(sameDrawing(d, JSON.parse(JSON.stringify(d))));
+    assert.ok(!sameDrawing(d, { adv: 300, contours: moveAnchors([sq], [{ c: 0, i: 2 }], 1, 0) }));
+    assert.ok(!sameDrawing(d, undefined));
   });
 
   it('carries nothing from a contour changed all over', () => {

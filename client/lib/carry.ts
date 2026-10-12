@@ -19,6 +19,10 @@ export interface Change { c: number; was: Node[]; a: number; b: number; fresh: N
 const same = (p: Node, q: Node) => p.x === q.x && p.y === q.y && p.ix === q.ix && p.iy === q.iy && p.ox === q.ox && p.oy === q.oy
   && !p.s === !q.s && p.r === q.r && p.corner === q.corner;
 
+/** Whether two drawings are the same, point for point (one read back from an undo step is a copy). */
+export const sameDrawing = (p: Drawn | undefined, q: Drawn | undefined): boolean => p === q || (!!p && !!q && p.adv === q.adv
+  && p.contours.length === q.contours.length && p.contours.every((con, c) => con.length === q.contours[c].length && con.every((n, i) => same(n, q.contours[c][i]))));
+
 /** The points two contours keep in common, as index pairs in order (the longest such run). */
 function kept(O: Node[], E: Node[]): [number, number][] {
   const n = O.length, m = E.length, L = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));

@@ -678,10 +678,12 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 /* the offer to make a change in other letters too: a card at the canvas's foot; under its question and buttons the
    letters by kind, each kind's box in a column on the left and its letters as toggles in even cells (picked ones
    dark on a tint, the rest faint), scrolling past five rows; the one pointed at shown large above (as it was dashed);
-   the note on synced points moves up */
+   once applied, folded to one line with Review; the note on synced points moves up */
 .pen-carry { position: absolute; bottom: 12px; left: 50%; translate: -50% 0; z-index: 2; width: max-content; max-width: min(640px, calc(100% - 24px)); display: flex; flex-direction: column; gap: 6px;
   padding: 8px 10px 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
 .pen-carry-head { display: flex; align-items: center; gap: 6px; }
+.pen-carry.done { flex-direction: row; align-items: center; gap: 4px; padding: 5px 5px 5px 14px; }
+.pen-carry.done b { font-weight: 500; color: var(--accent-ink); letter-spacing: .06em; }
 .pen-carry-q { flex: 1; margin-right: 10px; font-size: 13px; font-weight: 500; }
 .pen-carry-kinds { display: grid; grid-template-columns: max-content auto; column-gap: 14px; row-gap: 2px; max-height: 178px; overflow-y: auto; padding-top: 6px; border-top: 1px solid var(--line); }
 .pen-carry-kind { display: contents; }
