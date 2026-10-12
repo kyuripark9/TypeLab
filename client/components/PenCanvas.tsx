@@ -19,7 +19,7 @@
    moved here moves the other way in its partner across the letter's middle. Snapping catches a dragged point or handle on points, guide
    lines, centers, midpoints, the outline, crossings and tangents (each can be turned off); ⌘ held
    while dragging places it freely. */
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from 'react';
 import { CORNER_KINDS, cmdsToD, cornerRoom, drawnCmds, hasIn, hasOut, segment, type CornerKind, type Drawn, type Font, type Glyph, type GlyphGrid, type Node } from '../../shared/engine';
 import { guideLines, stackLabels } from '../lib/guide-labels';
 import { isTyping, n1, useDismiss, useSize } from '../lib/hooks';
@@ -30,7 +30,7 @@ import {
   thicknessOf, toggleSmooth, traceOf, transformAnchors, turnAbout, wholeShapes,
   POINT_LINE, SHAPES, SNAP_KINDS, type Affine, type Axis, type CornerAt, type Ref, type Shape, type SnapKind, type SnapScene, type Snapped
 } from '../lib/pen';
-import { PREFS, prefOneOf, writePref } from '../lib/prefs';
+import { PREFS, prefJson, prefOneOf, writePref } from '../lib/prefs';
 import { actions, fontFor, useEditor } from '../state/editor';
 import { CarryOffer } from './CarryOffer';
 import { GridLines } from './ConstructionGrid';
@@ -67,16 +67,17 @@ const TOOLS: { id: Tool; label: string; key: string; icon: ReactNode }[] = [
   { id: 'pen', label: 'Pen', key: 'P', icon: <><path d="M10 2.5l5 8-2.5 6h-5l-2.5-6z" /><path d="M10 2.5v6.5" /><circle cx="10" cy="10" r="1.3" /></> },
   { id: 'convert', label: 'Convert point', key: '⇧C', icon: <><path d="M3.5 15.5L10 4l6.5 11.5" /><path d="M5 9.5h10" strokeDasharray="1.5 2" /></> }
 ];
-/** The shapes the Shape tool draws: name, shortcut, the hint's words, and a 20 × 20 icon. */
-const SHAPE_INFO: Record<Shape, { label: string; key?: string; hint: string; icon: ReactNode }> = {
-  stroke: { label: 'Stroke', key: 'K', hint: 'a stroke as thick as the letter’s · Shift keeps it to 45°', icon: <path d="M4 14.5l9.5-9.5 2.5 2.5-9.5 9.5z" /> },
-  roundstroke: { label: 'Round stroke', hint: 'a round-ended stroke · Shift keeps it to 45°', icon: <path d="M5.2 15.8a1.77 1.77 0 010-2.5l8.1-8.1a1.77 1.77 0 012.5 2.5l-8.1 8.1a1.77 1.77 0 01-2.5 0z" /> },
-  rect: { label: 'Rectangle', key: 'M', hint: 'a rectangle · Shift for a square', icon: <rect x="3.5" y="5" width="13" height="10" rx="0.5" /> },
-  round: { label: 'Rounded rectangle', hint: 'a rounded rectangle · Shift for a square', icon: <rect x="3.5" y="5" width="13" height="10" rx="3" /> },
-  ellipse: { label: 'Ellipse', key: 'L', hint: 'an ellipse · Shift for a circle', icon: <ellipse cx="10" cy="10" rx="7" ry="5.5" /> },
-  triangle: { label: 'Triangle', hint: 'a triangle · Shift keeps its sides even', icon: <path d="M10 3.5l7 12.5H3z" /> },
-  polygon: { label: 'Hexagon', hint: 'a hexagon · Shift keeps its sides even', icon: <path d="M10 2.8l6.5 3.6v7.2L10 17.2l-6.5-3.6V6.4z" /> },
-  star: { label: 'Star', hint: 'a star · Shift keeps its points even', icon: <path d="M10 2.5l2.1 4.6 5 .5-3.7 3.4 1 4.9L10 13.4l-4.4 2.5 1-4.9-3.7-3.4 5-.5z" /> }
+/** The shapes the Shape tool draws: name, shortcut, the bar's tips (what a drag adds, and what Shift keeps it to), and a
+    20 × 20 icon. */
+const SHAPE_INFO: Record<Shape, { label: string; key?: string; hint: string; shift: string; icon: ReactNode }> = {
+  stroke: { label: 'Stroke', key: 'K', hint: 'a stroke as thick as the letter’s', shift: 'keep it to 45°', icon: <path d="M4 14.5l9.5-9.5 2.5 2.5-9.5 9.5z" /> },
+  roundstroke: { label: 'Round stroke', hint: 'a round-ended stroke', shift: 'keep it to 45°', icon: <path d="M5.2 15.8a1.77 1.77 0 010-2.5l8.1-8.1a1.77 1.77 0 012.5 2.5l-8.1 8.1a1.77 1.77 0 01-2.5 0z" /> },
+  rect: { label: 'Rectangle', key: 'M', hint: 'a rectangle', shift: 'a square', icon: <rect x="3.5" y="5" width="13" height="10" rx="0.5" /> },
+  round: { label: 'Rounded rectangle', hint: 'a rounded rectangle', shift: 'a square', icon: <rect x="3.5" y="5" width="13" height="10" rx="3" /> },
+  ellipse: { label: 'Ellipse', key: 'L', hint: 'an ellipse', shift: 'a circle', icon: <ellipse cx="10" cy="10" rx="7" ry="5.5" /> },
+  triangle: { label: 'Triangle', hint: 'a triangle', shift: 'even sides', icon: <path d="M10 3.5l7 12.5H3z" /> },
+  polygon: { label: 'Hexagon', hint: 'a hexagon', shift: 'even sides', icon: <path d="M10 2.8l6.5 3.6v7.2L10 17.2l-6.5-3.6V6.4z" /> },
+  star: { label: 'Star', hint: 'a star', shift: 'even points', icon: <path d="M10 2.5l2.1 4.6 5 .5-3.7 3.4 1 4.9L10 13.4l-4.4 2.5 1-4.9-3.7-3.4 5-.5z" /> }
 };
 /** The tool a key picks, by the letter its button shows (⇧ when it goes with Shift). */
 const toolForKey = (k: string, shift: boolean): Tool | undefined =>
@@ -619,6 +620,16 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     commit(transformAnchors(current().contours, selRefs, scaleAlong(frame.at(m.u, m.v), frame.deg, axis === 'x' ? -1 : 1, axis === 'y' ? -1 : 1)));
     setTurned({ key: selKey, deg: boxDeg });
   };
+  /** Run the picked shapes the other way round. Their points are numbered the other way now, so the picked ones are
+      picked again where they went. */
+  const reversePicked = () => {
+    const base = current().contours, turned = new Set(pickedContours());
+    let out = base;
+    for (const c of turned) out = reverseContour(out, c);
+    commit(out);
+    setSel(selRefs.map(r => refKey(turned.has(r.c) ? { c: r.c, i: base[r.c].length - 1 - r.i } : r)));
+  };
+  const deletePicked = () => { commit(deleteAnchors(current().contours, selRefs)); setSel([]); setDrawing(null); };
   /** The box as the screen shows it, turned `turn` more about its middle: its middle and the ways to its right side and
       its top, in px. */
   const boxView = (f: Frame, turn = 0) => {
@@ -729,6 +740,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     }
     if (mod) return;
     if (e.key === 'Escape' || e.key === 'Enter') {
+      // a menu open on the bar (Snap's, the actions') takes Escape to close, and what is picked stays picked
+      if (e.key === 'Escape' && bar.current?.querySelector('.popover')) return;
       if (drawingOk !== null) { stop(); finish(); return; }
       if (e.key === 'Escape' && selRefs.length) { stop(); setSel([]); return; }
       return;
@@ -736,7 +749,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     const keyTool = toolForKey(k, e.shiftKey), keyShape = shapeForKey(k);
     if (keyTool) { stop(); setTool(keyTool); if (keyTool !== 'pen') finish(); return; }
     if (keyShape) { stop(); pickShape(keyShape); finish(); return; }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && selRefs.length) { stop(); commit(deleteAnchors(current().contours, selRefs)); setSel([]); setDrawing(null); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selRefs.length) { stop(); deletePicked(); return; }
     const arrow = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
     if (arrow && selRefs.length) {
       stop();
@@ -769,6 +782,16 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const guides = guideLines(m);
   const labelY = stackLabels(guides.map(([id, y]) => [id, y] as const), Y);
   const one = selRefs.length === 1 ? cs[selRefs[0].c][selRefs[0].i] : null;
+  // whole shapes picked, with their box: the bar gives their size, turn and weight, and the flips
+  const boxed = frame !== null && (tool === 'object' || tool === 'shape');
+  // the bar's actions on what is picked, each null where it doesn't apply, and those the bar shows as buttons
+  const [pinned, setPinnedNow] = useState<ActId[]>(savedActs);
+  const bar = useRef<HTMLDivElement>(null);
+  const setPinned = (ids: ActId[]) => { setPinnedNow(ids); writePref(PREFS.penActions, JSON.stringify(ids)); };
+  const acts: Record<ActId, (() => void) | null> = {
+    flipX: boxed ? () => flip('x') : null, flipY: boxed ? () => flip('y') : null,
+    reverse: selRefs.length ? reversePicked : null, delete: selRefs.length ? deletePicked : null
+  };
   // the picked corners, each with a handle to drag its radius by; and where corners are rounded, the outline as the points draw it
   const pickedCorners = selRefs.map(r => ({ r, h: cornerHandle(cs, r) })).filter((k): k is { r: Ref; h: NonNullable<ReturnType<typeof cornerHandle>> } => !!k.h);
   const rounded = cs.some(con => con.some(n => n.r));
@@ -903,74 +926,89 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             {caught && <SnapMark hit={caught} x={X(caught.x)} y={Y(caught.y)} />}
           </svg>
         )}
+        <span className="pen-stats">{count} points · {Math.round(sc / fitSc * 100)}%</span>
         <CarryOffer ch={ch} g={g} font={font} />
       </div>
 
-      <div className="pen-bar">
-        {one ? (
-          <>
-            <span className="pen-bar-label">Point</span>
-            <NumField label="X" value={one.x} onSet={v => nudge(selRefs, v - one.x, 0)} />
-            <NumField label="Y" value={one.y} onSet={v => nudge(selRefs, 0, v - one.y)} />
-            <PointKind smooth={!!one.s} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
-            {pickedCorners.length > 0 && <NumField label="Radius" value={cornerR} onSet={v => edit(o => setCorners(o, pickedCorners.map(k => k.r), Math.max(0, v)))} />}
-          </>
-        ) : frame && (tool === 'object' || tool === 'shape') ? (
-          <>
-            <span className="pen-bar-label">{pickName()}</span>
-            <NumField label="W" name="Width of the picked shapes" title="Width, along the box’s sides" value={frame.x1 - frame.x0} onSet={v => resizeTo(v, null)} />
-            <NumField label="H" name="Height of the picked shapes" title="Height, along the box’s sides" value={frame.y1 - frame.y0} onSet={v => resizeTo(null, v)} />
-            <NumField label={<svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 12h10M2 12l7-8.5" /><path d="M6.6 12a4.6 4.6 0 00-1.4-3.3" /></svg>}
-              name="Turn" title="Turn: degrees anticlockwise about their middle (or drag just outside a corner of the box)" value={boxDeg} onSet={v => turnBy(v - boxDeg)} />
-            <NumField label="Weight" title="Weight: how thick the picked shapes are. Their sides move out or in, keeping their points; a bar grows across, not along"
-              value={weightNow()} onSet={v => edit(o => setWeight(o, pickedContours(), Math.max(1, v)))} />
-            <button className="pen-icon-btn" aria-label="Flip left and right" title="Flip left ↔ right, across the box" onClick={() => flip('x')}>
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.3 4L2 12h4.3zM9.7 4L14 12H9.7z" /><path d="M8 1.5v13" strokeDasharray="1.5 1.5" /></svg>
-            </button>
-            <button className="pen-icon-btn" aria-label="Flip top and bottom" title="Flip top ↕ bottom, across the box" onClick={() => flip('y')}>
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6.3L12 2v4.3zM4 9.7l8 4.3V9.7z" /><path d="M1.5 8h13" strokeDasharray="1.5 1.5" /></svg>
-            </button>
-          </>
-        ) : selRefs.length > 1 ? (
-          <>
-            <span className="pen-bar-label">{selRefs.length} points</span>
-            <PointKind smooth={selRefs.every(r => cs[r.c][r.i].s)} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
-            {pickedCorners.length > 0 && <NumField label="Radius" value={cornerR} onSet={v => edit(o => setCorners(o, pickedCorners.map(k => k.r), Math.max(0, v)))} />}
-          </>
-        ) : (
-          <>
-            <span className="pen-bar-label muted pen-hint">{hint(tool, drawingOk !== null, shape)}</span>
-            {tool === 'shape' && isStroke(shape) && <NumField label="Thickness" value={strokeW ?? stem()} onSet={v => setStrokeW(Math.max(1, v))} />}
-          </>
-        )}
-        {selRefs.length > 0 && (
-          <>
-            <button className="pen-icon-btn" aria-label="Reverse direction" title="Reverse direction: run the picked contour the other way, so inside another it cuts a hole, or fills one"
-              onClick={() => { let out = current().contours; for (const c of new Set(selRefs.map(r => r.c))) out = reverseContour(out, c); commit(out); }}>
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.8 7.5a5.2 5.2 0 019.3-2.7M12.6 2v3h-3M13.2 8.5a5.2 5.2 0 01-9.3 2.7M3.4 14v-3h3" /></svg>
-            </button>
-            <button className="pen-icon-btn" aria-label="Delete" title="Delete the picked points (Delete)" onClick={() => { commit(deleteAnchors(current().contours, selRefs)); setSel([]); }}>
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.3 4.5V3h3.4v1.5M4.5 4.5l.7 9h5.6l.7-9" /></svg>
-            </button>
-          </>
-        )}
-        <span className="grow" />
-        <Mirror axes={mirror} onSet={actions.setMirror} />
-        <SnapMenu snap={snap} onSet={actions.setSnap} />
-        <NumField label="Width" value={doc.adv} onSet={v => commit(current().contours, Math.max(0, v))} />
-        {!selRefs.length && <span className="pen-bar-label muted pen-count" title="Anchor points">{count} pts · {Math.round(sc / fitSc * 100)}%</span>}
+      {/* the bar: on the left what is picked and its numbers, or with nothing picked the tool and how it works, and at
+          its end the actions pinned to the bar, always there and dimmed where they don't apply to what is picked (⋯ has
+          them all); on the right the aids every edit goes through, Mirror and Snap, and then the letter's own width.
+          (How many points and how far in sit in the canvas's corner, so the right side stays put as things are
+          picked) */}
+      <div className="pen-bar" ref={bar}>
+        <div className="pen-bar-main">
+          {one ? (
+            <>
+              <span className="pen-bar-label">Point</span>
+              <NumField label="X" value={one.x} onSet={v => nudge(selRefs, v - one.x, 0)} />
+              <NumField label="Y" value={one.y} onSet={v => nudge(selRefs, 0, v - one.y)} />
+              <PointKind smooth={!!one.s} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
+              {pickedCorners.length > 0 && <NumField label="Radius" value={cornerR} onSet={v => edit(o => setCorners(o, pickedCorners.map(k => k.r), Math.max(0, v)))} />}
+            </>
+          ) : boxed ? (
+            <>
+              <span className="pen-bar-label">{pickName()}</span>
+              <NumField label="W" name="Width of the picked shapes" title="Width, along the box’s sides" value={frame.x1 - frame.x0} onSet={v => resizeTo(v, null)} />
+              <NumField label="H" name="Height of the picked shapes" title="Height, along the box’s sides" value={frame.y1 - frame.y0} onSet={v => resizeTo(null, v)} />
+              <NumField label={<svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 12h10M2 12l7-8.5" /><path d="M6.6 12a4.6 4.6 0 00-1.4-3.3" /></svg>}
+                name="Turn" title="Turn: degrees anticlockwise about their middle (or drag just outside a corner of the box)" value={boxDeg} onSet={v => turnBy(v - boxDeg)} />
+              <NumField label="Weight" title="Weight: how thick the picked shapes are. Their sides move out or in, keeping their points; a bar grows across, not along"
+                value={weightNow()} onSet={v => edit(o => setWeight(o, pickedContours(), Math.max(1, v)))} />
+            </>
+          ) : selRefs.length > 1 ? (
+            <>
+              <span className="pen-bar-label">{selRefs.length} points</span>
+              <PointKind smooth={selRefs.every(r => cs[r.c][r.i].s)} onSet={s => edit(o => setSmooth(o, selRefs, s))} />
+              {pickedCorners.length > 0 && <NumField label="Radius" value={cornerR} onSet={v => edit(o => setCorners(o, pickedCorners.map(k => k.r), Math.max(0, v)))} />}
+            </>
+          ) : (
+            <>
+              <span className="pen-bar-label">{tool === 'shape' ? SHAPE_INFO[shape].label : TOOLS.find(t => t.id === tool)!.label}</span>
+              {tool === 'shape' && isStroke(shape) && <NumField label="Thickness" value={strokeW ?? stem()} onSet={v => setStrokeW(Math.max(1, v))} />}
+              <Tips tips={tipsFor(tool, drawingOk !== null, shape)} />
+            </>
+          )}
+          <span className="pen-acts">
+            {ACTS.filter(a => pinned.includes(a.id)).map(a => (
+              <button key={a.id} className="pen-icon-btn" aria-label={a.label} title={a.title} disabled={!acts[a.id]} onClick={() => acts[a.id]?.()}>
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">{a.icon}</svg>
+              </button>
+            ))}
+            <ActMenu acts={acts} pinned={pinned} onPin={setPinned} />
+          </span>
+        </div>
+        <div className="pen-bar-side">
+          <Mirror axes={mirror} onSet={actions.setMirror} />
+          <SnapMenu snap={snap} onSet={actions.setSnap} />
+          <span className="pen-bar-letter">
+            <NumField label="Width" title="The letter’s width: where the next letter starts" value={doc.adv} onSet={v => commit(current().contours, Math.max(0, v))} />
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
-function hint(tool: Tool, drawing: boolean, shape: Shape) {
-  if (tool === 'object') return 'Click a shape to pick it, drag to move it (⌥ copies it) · at a corner, drag its handle to resize, just outside it to turn, the knob inside to round · ⌘C ⌘V to another letter';
-  if (tool === 'pen') return drawing ? 'Click to add points · drag to pull a curve · click the first point to close · Esc to finish'
-    : 'Click the outline to add a point · click a point to delete it · click empty space to start a new shape';
-  if (tool === 'convert') return 'Click a point to switch corner ↔ smooth · drag from a point to pull out handles';
-  if (tool === 'shape') return `Drag to add ${SHAPE_INFO[shape].hint} · ⌥ draws from the center · hold ⌘ not to snap`;
-  return 'Drag points, handles or curves (hold ⌘ not to snap) · Shift-click or drag a box to pick several · arrows nudge (Shift ×10) · Space-drag to pan, ⌘-scroll to zoom';
+/** How each tool works, as gestures and what they do, the most needed first: the bar shows as many as fit. */
+function tipsFor(tool: Tool, drawing: boolean, shape: Shape): [string, string][] {
+  if (tool === 'object') return [['Click', 'pick a shape'], ['Drag', 'move it'], ['⌥-drag', 'copy it'], ['⌘C ⌘V', 'to another letter'],
+    ['Drag a handle', 'resize'], ['Drag just outside a corner', 'turn'], ['Drag the knob inside', 'round']];
+  if (tool === 'pen') return drawing ? [['Click', 'add a point'], ['Drag', 'pull a curve'], ['Click the first point', 'close'], ['Esc', 'finish']]
+    : [['Click the outline', 'add a point'], ['Click a point', 'delete it'], ['Click empty space', 'start a new shape']];
+  if (tool === 'convert') return [['Click a point', 'corner ↔ smooth'], ['Drag from a point', 'pull out handles']];
+  if (tool === 'shape') return [['Drag', `add ${SHAPE_INFO[shape].hint}`], ['Shift-drag', SHAPE_INFO[shape].shift], ['⌥-drag', 'from the center'], ['⌘-drag', 'don’t snap']];
+  return [['Drag', 'points, handles, curves'], ['Shift-click', 'pick more'], ['Drag a box', 'pick several'], ['Arrows', 'nudge (Shift ×10)'],
+    ['⌘-drag', 'don’t snap'], ['Space-drag', 'pan'], ['⌘-scroll', 'zoom']];
+}
+
+/** The tips in one line, each a gesture and what it does: those that don't fit drop off the end, and the line's tooltip
+    lists them all. */
+function Tips({ tips }: { tips: [string, string][] }) {
+  return (
+    <span className="pen-tips" title={tips.map(([k, v]) => `${k}: ${v}`).join('\n')}>
+      {tips.map(([k, v]) => <span key={k + v} className="pen-tip"><b>{k}</b> {v}</span>)}
+    </span>
+  );
 }
 
 /** By the pointer, a small badge for what a click will do: by a little shape, + adds that shape; ○
@@ -1248,11 +1286,21 @@ const SNAPS: Record<SnapKind, { label: string; note: string; icon: ReactNode }> 
     icon: <><circle cx="9" cy="9.5" r="4.5" /><path d="M1.5 5h13" /><circle className="fill" cx="9" cy="5" r="1.5" /></> }
 };
 
+/** A menu opened above the bar, from the right side of its button, kept inside the window: where its left side would
+    run out (on phones, where the button sits mid-row), it moves right. */
+function useInWindow(menu: RefObject<HTMLElement | null>, open: boolean) {
+  useLayoutEffect(() => {
+    const el = menu.current, out = el ? 8 - el.getBoundingClientRect().left : 0;
+    if (el && out > 0) el.style.right = `${parseFloat(getComputedStyle(el).right) - out}px`;
+  }, [menu, open]);
+}
+
 /** Snap: on or off, and a menu of what it catches on. */
 function SnapMenu({ snap, onSet }: { snap: { on: boolean; kinds: SnapKind[] }; onSet: (s: { on: boolean; kinds: SnapKind[] }) => void }) {
   const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
+  const wrap = useRef<HTMLDivElement>(null), menu = useRef<HTMLDivElement>(null);
   useDismiss(open, setOpen, wrap, true);
+  useInWindow(menu, open);
   const on = snap.on && snap.kinds.length > 0;
   // picking a kind while snapping is off turns it back on
   const toggle = (k: SnapKind) => {
@@ -1272,7 +1320,7 @@ function SnapMenu({ snap, onSet }: { snap: { on: boolean; kinds: SnapKind[] }; o
         </button>
       </div>
       {open && (
-        <div className="popover pen-snap-menu" role="group" aria-label="Snap to">
+        <div className="popover pen-snap-menu" ref={menu} role="group" aria-label="Snap to">
           <div className="pen-snap-head">Snap to</div>
           {SNAP_KINDS.map(k => {
             const o = SNAPS[k], picked = snap.on && snap.kinds.includes(k);
@@ -1311,6 +1359,63 @@ function PointKind({ smooth, onSet }: { smooth: boolean; onSet: (smooth: boolean
       <button role="radio" aria-checked={smooth} aria-label="Smooth" className={smooth ? 'on' : undefined} onClick={() => onSet(true)} title="Smooth: the handles stay in line">
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" /></svg><span>Smooth</span>
       </button>
+    </div>
+  );
+}
+
+/** The actions on what is picked, by id: name, tooltip and a 16 × 16 icon, in the order the bar and its menu give them.
+    Which the bar shows as buttons is kept per browser (PREFS.penActions); until changed, the flips. */
+type ActId = 'flipX' | 'flipY' | 'reverse' | 'delete';
+const ACTS: { id: ActId; label: string; title: string; icon: ReactNode }[] = [
+  { id: 'flipX', label: 'Flip left and right', title: 'Flip left ↔ right, across the box',
+    icon: <><path d="M6.3 4L2 12h4.3zM9.7 4L14 12H9.7z" /><path d="M8 1.5v13" strokeDasharray="1.5 1.5" /></> },
+  { id: 'flipY', label: 'Flip top and bottom', title: 'Flip top ↕ bottom, across the box',
+    icon: <><path d="M4 6.3L12 2v4.3zM4 9.7l8 4.3V9.7z" /><path d="M1.5 8h13" strokeDasharray="1.5 1.5" /></> },
+  { id: 'reverse', label: 'Reverse direction', title: 'Reverse direction: run the picked contour the other way, so inside another it cuts a hole, or fills one',
+    icon: <path d="M2.8 7.5a5.2 5.2 0 019.3-2.7M12.6 2v3h-3M13.2 8.5a5.2 5.2 0 01-9.3 2.7M3.4 14v-3h3" /> },
+  { id: 'delete', label: 'Delete', title: 'Delete the picked points (Delete)',
+    icon: <path d="M3 4.5h10M6.3 4.5V3h3.4v1.5M4.5 4.5l.7 9h5.6l.7-9" /> }
+];
+const ACT_IDS = ACTS.map(a => a.id);
+/** The actions the bar shows, as this browser keeps them. */
+const savedActs = (): ActId[] => {
+  const v = prefJson(PREFS.penActions);
+  return Array.isArray(v) ? ACT_IDS.filter(id => v.includes(id)) : ['flipX', 'flipY'];
+};
+
+/** ⋯ at the end of the bar's actions: a menu of every one, to run it (dimmed where it doesn't apply to what is picked)
+    or, by its pin, to show it on the bar or take it off. */
+function ActMenu({ acts, pinned, onPin }: { acts: Record<ActId, (() => void) | null>; pinned: ActId[]; onPin: (ids: ActId[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null), menu = useRef<HTMLDivElement>(null);
+  useDismiss(open, setOpen, wrap, true);
+  useInWindow(menu, open);
+  return (
+    <div className="pen-act-more" ref={wrap}>
+      <button className="pen-icon-btn" aria-label="More actions" title="More actions, and which show on the bar" aria-haspopup="true" aria-expanded={open}
+        onClick={() => setOpen(o => !o)}>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path className="fill" d="M3.5 6.8a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4zM8 6.8a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4zM12.5 6.8a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" /></svg>
+      </button>
+      {open && (
+        <div className="popover pen-act-menu" ref={menu} role="group" aria-label="Actions">
+          {ACTS.map(a => {
+            const run = acts[a.id], on = pinned.includes(a.id);
+            return (
+              <div key={a.id} className="pen-act-row">
+                <button className="pen-act-run" disabled={!run} title={a.title} onClick={() => { run?.(); setOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">{a.icon}</svg>{a.label}
+                </button>
+                <button className={on ? 'pen-act-pin on' : 'pen-act-pin'} aria-pressed={on} aria-label={`${a.label} on the bar`}
+                  title={on ? 'On the bar: click to take it off' : 'Show on the bar'}
+                  onClick={() => onPin(on ? pinned.filter(p => p !== a.id) : ACT_IDS.filter(p => p === a.id || pinned.includes(p)))}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M5 1.5h4M5.8 1.5v4L3.5 8h7L8.2 5.5v-4M7 8v4.5" /></svg>
+                </button>
+              </div>
+            );
+          })}
+          <div className="pen-act-foot">Pinned ones show on the bar</div>
+        </div>
+      )}
     </div>
   );
 }

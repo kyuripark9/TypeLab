@@ -265,10 +265,10 @@ below types exact coordinates and the width; points snap to whole units, and wit
 lines, other points, centers, midpoints, the outline, crossings and tangents. **Mirror** moves a point's
 partner across the letter's middle the other way. An edit changes only the letter in view; after it, the
 letters shaped the same way there are offered, each drawn with the change in, to make it in them too. `⌘`-scroll zooms, Space-drag pans, `⌘0` fits the letter.
-**Reverse direction** turns a contour inside another into a hole (or back). The first edit makes the letter a
-drawing, saved with the design (`params.outlines`) with the settings it was drawn at: it keeps the shape you give
-it, and weight, contrast, width, the heights, crossbar, inner space and slant still move it as they move from
-those, for all letters or only this one. **Reset** gives it back to the font.
+The first edit makes the letter a drawing, saved with the design (`params.outlines`) with the settings it
+was drawn at: it keeps the shape you give it, and weight, contrast, width, the heights, crossbar, inner space
+and slant still move it as they move from those, for all letters or only this one. **Reset** gives it back to
+the font.
 
 **Construction grid**, in the inspector's header, draws the letter as an outline on the grid it is
 built on, like the grid pages of a type specimen: its straight edges carried on across the canvas,

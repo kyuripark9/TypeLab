@@ -388,9 +388,10 @@ export function shapesOf(cs: Node[][]): number[][] {
   cs.forEach((_, c) => { if (outer[c]) groups.set(c, [c]); });
   cs.forEach((con, c) => {
     if (outer[c] || !con.length) return;
-    // the smallest outer contour round its first point
+    // the smallest outer contour round its first point (one running the other way inside none is a shape of its own,
+    // but no home for another)
     let home = -1;
-    for (const [o] of groups) if (inks[o]!(con[0].x, con[0].y) && (home < 0 || Math.abs(areas[o]) < Math.abs(areas[home]))) home = o;
+    for (const [o] of groups) if (inks[o]?.(con[0].x, con[0].y) && (home < 0 || Math.abs(areas[o]) < Math.abs(areas[home]))) home = o;
     if (home >= 0) groups.get(home)!.push(c); else groups.set(c, [c]);
   });
   return [...groups.keys()].sort((a, b) => a - b).map(k => groups.get(k)!);

@@ -26,6 +26,8 @@ export const PREFS = {
   penSnap: 'typelab.pen.snap',
   /** the shape the pen's Shape tool draws: a Shape id */
   penShape: 'typelab.pen.shape',
+  /** the actions the pen's bar shows as buttons: a JSON list of their ids ('flipX', 'flipY', 'reverse', 'delete') */
+  penActions: 'typelab.pen.actions',
   /** My designs' layout: 'grid' or 'list' */
   designsView: 'typelab.designs.view',
   /** My designs' order: 'recent' or 'name' */

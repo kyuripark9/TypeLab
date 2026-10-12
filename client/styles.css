@@ -580,6 +580,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; padding: 2px; }
 .pen-canvas { flex: 1; min-height: 0; overflow: hidden; position: relative; touch-action: none; }
 .pen-canvas svg { display: block; }
+/* how many points and how far in, quiet in the canvas's bottom left corner */
+.pen-stats { position: absolute; left: 14px; bottom: 10px; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 .pen-tools { position: absolute; top: 12px; left: 12px; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
 .pen-tools button { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-2); }
 .pen-tools button:hover { background: var(--hover); color: var(--ink); }
@@ -587,6 +589,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-tools svg { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .pen-tools svg .fill { fill: currentColor; }
 .pen-sep { height: 1px; margin: 3px 4px; background: var(--line); }
+/* phones: the canvas is short, so the tools stand in two columns rather than running down over the bar */
+@media (max-width: 760px) { .pen-tools { display: grid; grid-template-columns: repeat(2, 32px); } .pen-sep { grid-column: 1 / -1; } }
 .pen-shape-tool { position: relative; }
 .pen-tools .corner { stroke: none; opacity: .55; }
 .pen-shape-menu { position: absolute; top: -5px; left: calc(100% + 10px); z-index: 3; width: 196px; display: flex; flex-direction: column; gap: 1px; padding: 4px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
@@ -668,7 +672,33 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-aim circle.mark { fill: none; stroke: #fff; stroke-width: 1.4; }
 .pen-aim-shape * { fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.5; stroke-linejoin: round; }
 .pen-size { font: 500 10.5px var(--ui); fill: var(--accent-ink); stroke: var(--surface); stroke-width: 3px; paint-order: stroke; font-variant-numeric: tabular-nums; pointer-events: none; }
-.pen-bar { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 7px 16px; border-top: 1px solid var(--line); font-size: 12.5px; container-type: inline-size; }
+/* the bar under the canvas, in two sides: on the left what is picked (its name and numbers) or, with nothing picked,
+   the tool's name and its tips, and at its end, after a rule, the pinned actions and ⋯, which stay put whatever is
+   picked; on the right Mirror and Snap, then after a rule the letter's width. Too narrow for both, the right side moves
+   under the left */
+.pen-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; min-height: 48px; padding: 9px 16px; border-top: 1px solid var(--line); font-size: 12.5px; container-type: inline-size; }
+.pen-bar-main { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.pen-bar-side { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.pen-bar-letter { display: flex; align-items: center; gap: 10px; padding-left: 10px; border-left: 1px solid var(--line); }
+.pen-acts { display: flex; align-items: center; gap: 2px; margin-left: auto; padding-left: 6px; border-left: 1px solid var(--line); }
+/* ⋯ ends the actions, and opens a menu of them all upward: each runs from its row, and its pin keeps it on the bar */
+.pen-act-more { position: relative; flex: none; }
+.pen-act-more .pen-icon-btn .fill { fill: currentColor; stroke: none; }
+.pen-act-more .pen-icon-btn[aria-expanded=true] { background: var(--hover); color: var(--ink); }
+.popover.pen-act-menu { top: auto; bottom: calc(100% + 8px); width: 236px; transform-origin: bottom right; }
+.pen-act-row { display: flex; align-items: center; gap: 2px; }
+.pen-act-run { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: var(--radius); font-size: 13px; text-align: left; color: var(--ink); transition: background .15s; }
+.pen-act-run:hover:not(:disabled) { background: var(--hover); }
+.pen-act-run:disabled { color: var(--ink-3); opacity: .5; cursor: default; }
+.pen-act-run svg, .pen-act-pin svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.pen-act-pin { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-3); opacity: .6; transition: background .15s, color .15s, opacity .15s; }
+.pen-act-pin:hover { background: var(--hover); opacity: 1; }
+.pen-act-pin.on { color: var(--accent); opacity: 1; }
+.pen-act-foot { margin-top: 4px; padding: 8px 8px 4px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--ink-3); }
+/* the tips: one line of gestures and what they do; those that wrap are cut off, so the line keeps the first that fit */
+.pen-tips { flex: 1 1 0; width: 0; min-width: 0; display: flex; flex-wrap: wrap; column-gap: 16px; height: 18px; line-height: 18px; overflow: hidden; color: var(--ink-3); }
+.pen-tip { white-space: nowrap; }
+.pen-tip b { font-weight: 500; color: var(--ink-2); }
 /* a narrow bar keeps its icons and drops the words beside them (their tooltips still say them) */
 @container (max-width: 900px) { .pen-mirror > span { display: none; } .pen-bar .pen-num-field input { width: 50px; } }
 @container (max-width: 760px) { .pen-point-kind span { display: none; } .pen-point-kind button { padding: 0 6px; } }
@@ -711,14 +741,11 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-carry-peek svg { display: block; }
 .pen-carry-peek .after { fill: var(--ink); opacity: .85; }
 .pen-carry-peek .before { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
-.pen-count { flex: none; }
 .pen-icon-btn { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-2); }
-.pen-icon-btn:hover { background: var(--hover); color: var(--ink); }
+.pen-icon-btn:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+.pen-icon-btn:disabled { color: var(--ink-3); opacity: .5; cursor: default; }
 .pen-icon-btn svg { fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
 .pen-bar-label { color: var(--ink); font-weight: 500; white-space: nowrap; }
-.pen-bar-label.muted { color: var(--ink-3); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
-/* the how-to line wraps onto a second line rather than losing its last tips */
-.pen-bar-label.pen-hint { flex: 1 1 auto; min-width: 0; white-space: normal; line-height: 1.35; }
 .pen-num-field { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); }
 .pen-num-field input { width: 58px; height: 28px; padding: 0 8px; border: 1px solid var(--line-2); border-radius: var(--radius-s); background: var(--surface); font: inherit; color: var(--ink); font-variant-numeric: tabular-nums; }
 .pen-num-field input:focus { outline: none; border-color: var(--accent); }

@@ -352,6 +352,9 @@ describe('Overlapping shapes with the pen', () => {
   it('groups contours into shapes with their holes, and finds where shapes overlap', () => {
     const o = [rect(0, 0, 400, 400), reverseContour([rect(100, 100, 300, 300)], 0)[0], rect(600, 0, 700, 100)];
     assert.deepEqual(shapesOf(o), [[0, 1], [2]]);
+    // shapes run the other way (turned round by Reverse direction) inside no other are shapes of their own
+    const turned = reverseContour(reverseContour([rect(0, 0, 400, 400), rect(600, 0, 700, 100), rect(800, 0, 900, 100)], 1), 2);
+    assert.deepEqual(shapesOf(turned), [[0], [1], [2]]);
     assert.ok(!overlapping(o));
     assert.ok(overlapping([stem, bar]));
     assert.ok(!overlapping([stem, rect(200, 0, 300, 100)]));
