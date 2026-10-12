@@ -43,7 +43,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `traits.test.ts` | The Adjust tab's trait steps and the style search |
 | `family.test.ts` | `shared/family.ts` and the family `.zip` (`server/export.ts`): weights, members, names and style bits |
 | `free-fonts.test.ts` | Every style's free font id (none for one built from blocks); converting a font file as the server does; drawing a design in a free font and moving its letters (skin, restyle, the twin, `formChanged`); the export's notice; the API route; TypeLab's own fonts, and their letters moved whole (Mainline's u drawn in pieces, an l's foot, Gumdrop's round ends) |
-| `api.test.ts` | The HTTP API on an in-memory store: designs, accounts, Google sign-in, export, a database from before owners |
+| `api.test.ts` | The HTTP API on an in-memory store: designs, accounts, Google sign-in, development's stand-in for Google, export, a database from before owners |
 | `boundaries.test.ts` | Nothing under `shared/` imports `client/` or `server/` or touches the DOM (a regex: a comment saying `window.` trips it) |
 | `golden.test.ts` | The engine's golden outlines; the free fonts' too with `GOLDEN_FREE=1` |
 

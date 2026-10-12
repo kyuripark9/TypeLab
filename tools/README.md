@@ -32,7 +32,7 @@ stop it by its PID, and open a fresh tab per URL (the editor's unsaved-changes g
 | `DB_PATH` | `server/index.ts` | `data/typelab.db` | The database; free fonts are kept in `free-fonts/` beside it; `:memory:` keeps nothing on disk |
 | `TRUST_PROXY` | `server/index.ts` | | Set behind an HTTPS proxy: sign-in cookies get Secure, throttles count each visitor |
 | `PUBLIC_URL` | `server/app.ts` | the address asked on | The site's address for Google's redirect |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | `server/google.ts` | | Both set: Google sign-in is offered |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | `server/google.ts` | | Both set: Google sign-in is offered. Without them, development signs in with a stand-in for Google (`/dev/google`, two made-up accounts) and production offers none |
 | `TOOLS_OUT` | `lib.ts` | `.tools/out` | Where tools write |
 | `FONTS_DIR` | `lib.ts` (golden, render, scan, fit) | `data/free-fonts` | Where the free fonts from Google Fonts are kept (the server's cache); TypeLab's own are always read from `fonts/` |
 | `SHEETS` | `fonts/import.ts` | `Asset/After` | Where the own fonts' specimen sheets are |

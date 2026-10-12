@@ -3,13 +3,14 @@
    Production (`npm run build` then `npm start`): serves the built files from dist/.
    It reads from the environment, or from a .env file at the root: PORT (5173), NODE_ENV (`production`
    serves dist/), DB_PATH (data/typelab.db; the free fonts are kept beside it, in free-fonts/) and
-   TRUST_PROXY here, PUBLIC_URL in app.ts, and GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in google.ts. */
+   TRUST_PROXY here, PUBLIC_URL in app.ts, and GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in google.ts (without
+   them, development signs in with a stand-in for Google and production offers no Google). */
 import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, resolve } from 'node:path';
 import express from 'express';
 import { createApp } from './app';
-import { googleFromEnv } from './google';
+import { STAND_IN_PATH, googleFromEnv, googleStandIn } from './google';
 import { DesignStore } from './db';
 import { FreeFonts } from './free-fonts';
 
@@ -23,7 +24,10 @@ const dbFile = process.env.DB_PATH || resolve(root, 'data/typelab.db');
 const store = new DesignStore(dbFile);
 // free fonts are fetched once and kept beside the database
 const fonts = new FreeFonts(dbFile === ':memory:' ? null : resolve(dirname(dbFile), 'free-fonts'));
-const app = createApp(store, { google: googleFromEnv(), fonts });
+// Google itself when its keys are set; else, in development only, a stand-in to try the sign-in with
+const google = googleFromEnv(), standIn = google || prod ? null : googleStandIn();
+const app = createApp(store, { google: google ?? standIn, fonts });
+if (standIn) app.get(STAND_IN_PATH, (req, res) => { res.type('html').send(standIn.chooser(req.query.state)); });
 // behind a proxy that ends HTTPS (most hosts), so sign-in cookies are marked Secure and sign-in
 // attempts are counted per visitor rather than per proxy
 if (process.env.TRUST_PROXY) app.set('trust proxy', 1);
@@ -47,6 +51,7 @@ if (prod) {
 
 server.listen(port, () => {
   console.log(`TypeLab ${prod ? '' : '(dev) '}running at http://localhost:${port}`);
+  if (standIn) console.log('Google sign-in: a stand-in (set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET for Google itself)');
 });
 
 const shutdown = () => { server.close(); store.close(); process.exit(0); };

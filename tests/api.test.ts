@@ -1,5 +1,6 @@
 /* The HTTP API (server/app.ts) on an in-memory store, called through a stand-in browser that keeps its cookies:
-   designs, accounts, Google sign-in (against a stand-in Google) and which account it joins (joinGoogle), export,
+   designs, accounts, Google sign-in (against a stand-in Google) and which account it joins (joinGoogle), the
+   development stand-in for Google (googleStandIn) and its account picker, export,
    and reading a database saved before designs had owners (server/db.ts) or accounts had Google (server/accounts.ts).
    The tests in each describe run in order and build on the designs and accounts the earlier ones made. */
 import assert from 'node:assert/strict';
@@ -17,7 +18,7 @@ import { createHash } from 'node:crypto';
 import { AccountStore } from '../server/accounts';
 import { createApp, joinGoogle } from '../server/app';
 import { DesignStore } from '../server/db';
-import type { GoogleAuth, GoogleProfile } from '../server/google';
+import { STAND_IN_PATH, googleStandIn, type GoogleAuth, type GoogleProfile } from '../server/google';
 import { opentype } from '../server/opentype';
 
 let server: Server, base = '', store: DesignStore;
@@ -369,6 +370,56 @@ describe('Google sign-in', () => {
     assert.equal((await b('DELETE', '/auth/me', { confirm: ' SAM@gmail.com ' })).status, 204);
     assert.equal(await me(b), null);
     assert.equal((await viaGoogle(browser(at), 'sam')).result.isNew, true);
+  });
+});
+
+describe('the stand-in for Google', () => {
+  // mounted as server/index.ts mounts it in development without Google's keys
+  const standIn = googleStandIn(), sStore = new DesignStore(':memory:');
+  let sServer: Server, root = '';
+  before(async () => {
+    const app = createApp(sStore, { google: standIn });
+    app.get(STAND_IN_PATH, (req, res) => { res.type('html').send(standIn.chooser(req.query.state)); });
+    sServer = app.listen(0);
+    await new Promise(r => sServer.once('listening', r));
+    root = `http://127.0.0.1:${(sServer.address() as AddressInfo).port}`;
+  });
+  after(() => { sServer.close(); sStore.close(); });
+
+  /** The picker's links, as paths on this server: one per made-up account, then Cancel. */
+  const links = (page: string) => [...page.matchAll(/href="([^"]+)"/g)].map(m => { const u = new URL(m[1].replace(/&amp;/g, '&')); return u.pathname + u.search; });
+
+  it('signs in with a made-up account picked on its page, and cancels', async () => {
+    const b = browser(() => root);
+    const start = await b('GET', '/api/auth/google?back=/designs');
+    assert.equal(start.status, 303);
+    const picker = await (await b('GET', start.headers.get('location')!)).text();
+    const [mina, jun, cancel] = links(picker);
+    assert.match(mina, /^\/api\/auth\/google\/callback\?code=mina\./);
+    assert.match(jun, /code=jun\./);
+    assert.match(cancel, /error=access_denied/);
+    const back = await b('GET', mina);
+    const result = JSON.parse(new URL(back.headers.get('location')!, root).searchParams.get('google')!);
+    assert.deepEqual(result, { ok: true, intent: 'signin', isNew: true, passwordRemoved: false, moved: 0 });
+    const user = (await (await b('GET', '/api/auth/me')).json()).user;
+    assert.equal(user.email, 'mina@stand-in.test');
+    assert.equal(user.google, 'mina@stand-in.test');
+    // Cancel comes back as cancelled
+    const again = await b('GET', '/api/auth/google');
+    const cancelled = await b('GET', links(await (await b('GET', again.headers.get('location')!)).text()).at(-1)!);
+    assert.equal(JSON.parse(new URL(cancelled.headers.get('location')!, root).searchParams.get('google')!).cancelled, true);
+  });
+
+  it('turns away a code made up outside its page, and a sign-in it never started', async () => {
+    const b = browser(() => root);
+    const start = await b('GET', '/api/auth/google');
+    const state = new URL(start.headers.get('location')!, root).searchParams.get('state')!;
+    const forged = await b('GET', `/api/auth/google/callback?${new URLSearchParams({ code: `nobody.${state}`, state })}`);
+    assert.equal(JSON.parse(new URL(forged.headers.get('location')!, root).searchParams.get('google')!).ok, false);
+    assert.equal((await (await b('GET', '/api/auth/me')).json()).user, null);
+    const unknown = await (await b('GET', `${STAND_IN_PATH}?state=forged`)).text();
+    assert.match(unknown, /expired/);
+    assert.deepEqual(links(unknown), []);
   });
 });
 

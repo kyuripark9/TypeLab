@@ -10,7 +10,7 @@ preview (`shared/engine`).
 | `app.ts` | `createApp(store, { google, fonts })`: every route, the who's-asking middleware, cookies, throttles, errors. Kept apart from index.ts so tests mount it on an in-memory store |
 | `db.ts` | `DesignStore`: designs by owner, the schema upgrades, `PARAMS_VERSION` upgrades |
 | `accounts.ts` | `AccountStore`: users, scrypt password hashes, sessions |
-| `google.ts` | Google sign-in (authorization code with PKCE, no library); `googleFromEnv` |
+| `google.ts` | Google sign-in (authorization code with PKCE, no library); `googleFromEnv`; `googleStandIn`, development's stand-in for Google |
 | `free-fonts.ts` | `FreeFonts`: TypeLab's own fonts read from `fonts/`, the others fetched, converted and kept; each as a web font (`webFont`); `keptFile`, `ownFontFile`, `fontFile` |
 | `export.ts` | `buildOTF`, `buildFamilyZip`, `buildSpecimenSVG`, `exportName` |
 | `opentype.ts` | opentype.js as one module: it is CommonJS, so under Node its API sits on the default export. Import it from here (the server and the tests do), not from `'opentype.js'` |
@@ -69,6 +69,10 @@ add it here. `HttpError`s under 500 send their message; anything else is logged 
   BroadcastChannel `AUTH_CHANNEL` (`'typelab-auth'`); the full-page fallback carries the result in
   `?GOOGLE_RESULT_PARAM=` (`?google=`). Both names live in `shared/account.ts`, which the server and the client
   (`client/state/auth.ts`, `client/lib/api.ts`) import, with `GoogleIntent`.
+- Without Google's keys, development (any `NODE_ENV` but `production`) signs in with `googleStandIn`: index.ts
+  mounts its account picker at `STAND_IN_PATH` (`/dev/google`), whose two made-up accounts (`mina@stand-in.test`,
+  `jun@stand-in.test`) come back through the real callback, PKCE and all. Their `.test` emails can't match a real
+  account, so picking one never takes a real account's password off. Production without keys offers no Google.
 
 ## Database compatibility
 
@@ -118,7 +122,7 @@ route first awaits the free fonts the design and its members need (`freeReady`),
 | `DB_PATH` | `data/typelab.db` | The database; free fonts are kept in `free-fonts/` beside it; `:memory:` keeps nothing |
 | `TRUST_PROXY` | | Set behind an HTTPS proxy: cookies get Secure and throttles count each visitor |
 | `PUBLIC_URL` | | The site's address for Google's redirect, when it differs from the one requests arrive on |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Both set: Google sign-in is offered |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Both set: Google sign-in is offered. Without them, development signs in with a stand-in for Google and production offers none |
 
 tools/README.md lists the tools' variables too.
 
