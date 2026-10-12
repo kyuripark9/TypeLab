@@ -7,7 +7,7 @@ import { Link, useLocation } from 'react-router';
 import { styleById } from '../../shared/content';
 import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
 import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../../shared/params';
-import { FAMILY_STYLES, ownStyle, weightIdOf, type WeightId } from '../../shared/family';
+import { FAMILY_STYLES, ownStyle, weightIdOf } from '../../shared/family';
 import { parseFontId, withoutReserved } from '../../shared/free-fonts';
 import { api, download, errorMessage } from '../lib/api';
 import { useEscape } from '../lib/hooks';
@@ -167,15 +167,10 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   const touched = useRef(false);
   const takeName = () => { if (cleanName(draft) !== cleanName(useEditor.getState().name)) void commitName(draft); };
 
-  // the styles to save, by the names they install under: at first the design's own (the weight it reads as,
-  // italic when it leans). Naming the design another weight moves its own style along with it
-  const [anchor, setAnchor] = useState<WeightId>(() => weightIdOf(params.weight));
+  // the styles to save, by the names they install under: at first the design's own, the weight its Weight
+  // setting reads as, italic when it leans; the family's other weights spread from it
+  const anchor = weightIdOf(params.weight);
   const [picked, setPicked] = useState(() => [ownStyle(params, anchor).style]);
-  const reanchor = (a: WeightId) => {
-    const was = ownStyle(params, anchor).style, now = ownStyle(params, a).style;
-    setAnchor(a);
-    setPicked(ps => ps.includes(was) ? [...new Set(ps.map(p => p === was ? now : p))] : ps);
-  };
   const styles = FAMILY_STYLES.filter(f => picked.includes(f.style));
 
   const saveFonts = async () => {
@@ -258,7 +253,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
           <ReservedNote name={draft} />
           <section className="export-fonts" aria-labelledby="export-fonts">
             <h3 id="export-fonts">Font files <span>Pick one style or several: each is its own font, and they install together as one family</span></h3>
-            <FamilyPicker params={params} anchor={anchor} onAnchor={reanchor} picked={picked} onPick={setPicked} />
+            <FamilyPicker params={params} anchor={anchor} picked={picked} onPick={setPicked} />
           </section>
         </div>
         <div className="export-foot">
