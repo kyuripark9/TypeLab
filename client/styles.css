@@ -507,6 +507,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .scope-banner > span { text-wrap: balance; }
 .scope-banner b { font-weight: 600; }
 .scope-banner .scope-icon { stroke: #fff; }
+/* (a free font's letter in step with the rest: the banner is a plain note, as nothing here is this letter's alone) */
+.inspector:not(.customizing) .scope-banner { background: var(--surface); color: var(--ink-2); box-shadow: var(--raise); }
 .scope-note { display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 6px; padding: 10px 12px; border-radius: var(--radius); background: var(--custom-tint); color: var(--ink); font-size: 12.5px; line-height: 1.45; }
 .scope-note .scope-icon { margin-top: 1px; color: var(--custom); }
 /* customizing one letter: the panel is edged and washed in orange like the inspector's frame, and the controls
