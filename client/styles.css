@@ -736,6 +736,12 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .family-cell[aria-pressed=true] { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
 .family-sample { display: block; flex: 1; min-width: 0; height: 30px; fill: var(--ink); transition: fill .15s; }
 .family-cell[aria-pressed=true] .family-sample { fill: var(--accent); }
+/* the design's own style, the one picked to start with: filled in the accent with its sample drawn white while
+   picked, and outlined darker than the rest while it isn't */
+.family-cell.own:not([aria-pressed=true]) { box-shadow: inset 0 0 0 1px var(--ink-3); }
+.family-cell.own[aria-pressed=true] { background: var(--accent); }
+.family-cell.own[aria-pressed=true]:hover { background: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--accent-ink), 0 0 0 1px var(--accent-ink); }
+.family-cell.own[aria-pressed=true] .family-sample { fill: #fff; }
 .dialog p.family-note { margin: 0; font-size: 12.5px; color: var(--ink-3); }
 @media (max-width: 600px) {
   .export-body { padding: 8px 16px 14px; }

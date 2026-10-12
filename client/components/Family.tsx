@@ -2,7 +2,7 @@
    to Black, upright and italic, each drawn in a sample as the font it will be, so the steps between them can be
    judged before downloading. The design itself is one of them, at the weight its Weight setting reads as (the
    nearest of the family's), whose name stands out in the list. Picked styles look as a picked option does in the
-   panel: ringed, and drawn in the accent. */
+   panel, ringed and drawn in the accent; the design's own, picked to start with, is filled. */
 import { useMemo } from 'react';
 import { FAMILY_STYLES, familyMember, ownStyle, SLANTED, WEIGHTS, type FamilyMember, type WeightId } from '../../shared/family';
 import type { Params } from '../../shared/params';
@@ -48,7 +48,8 @@ export function FamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
               <span>{r.cls}</span>
             </div>
             {[r.upright, r.italic].map(m => (
-              <button key={m.style} type="button" className="family-cell" aria-pressed={picked.includes(m.style)} title={m.style} onClick={() => toggle(m.style)}>
+              <button key={m.style} type="button" className={m.style === own ? 'family-cell own' : 'family-cell'} aria-pressed={picked.includes(m.style)}
+                title={m.style === own ? `${m.style}: this design` : m.style} onClick={() => toggle(m.style)}>
                 <MemberSample member={m} label={m.style} />
               </button>
             ))}
