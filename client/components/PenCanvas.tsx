@@ -1,6 +1,7 @@
 /* The pen: the inspected letter as anchor points and bézier handles, edited like paths in a vector
-   editor. The Selection tool picks whole shapes and moves them (⌥ moves a copy), and a box round them
-   scales them by its handles or turns them from just outside a corner; the pen bar sizes, turns, flips
+   editor. The Selection tool (the one a letter opens with) picks whole shapes and moves them (⌥ moves a
+   copy), and a box round them scales them by its handles or turns them from just outside a corner, while a
+   knob inside each of their corners rounds them all; the pen bar sizes, turns, flips
    and thickens them by number, and ⌘C, ⌘X and ⌘V carry them to another letter, in place. The Direct
    selection tool moves points, handles and curves; the Pen adds points (or
    draws new contours) and removes them; Convert switches points between corner and smooth; the
@@ -71,8 +72,37 @@ const HIT = 7; // px around an anchor or handle that grabs it
 const SNAP_REACH = 6; // px from a snap target within which a point catches on it
 const DRAG_START = 3; // px the pointer travels before a press becomes a drag (less is a click)
 const TURN_REACH = 22; // px outside a corner of the Selection tool's box where a drag turns the picked shapes
-/** The tool last picked: the next letter opens with it. */
-let lastTool: Tool = 'select';
+const ROUND_ROOM = 48; // px the Selection tool's box must be across and up for its shapes' corners to show their rounding knobs
+/** A cursor drawn as SVG, 24 px, pointing at (x, y). */
+const svgCursor = (body: string, x: number, y: number, or: string) =>
+  `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>${body}</svg>`)}") ${x} ${y}, ${or}`;
+/** The cursor over a corner's rounding knob: an arrow with a round corner by it. */
+const ROUND_CURSOR = svgCursor(
+  `<path d='M4 2.5V16.7l3.4-3.3 2.4 5.6 2.4-1-2.4-5.6h4.8z' fill='#fff' stroke='#000' stroke-width='1.1' stroke-linejoin='round'/>` +
+  [['#fff', 3.4], ['#000', 1.4]].map(([c, w]) => `<path d='M14.5 22.5v-3a4.5 4.5 0 0 1 4.5-4.5h3' fill='none' stroke='${c}' stroke-width='${w}' stroke-linecap='round'/>`).join(''),
+  4, 3, 'pointer');
+/** The cursor just outside a corner of the box, where a drag turns the shapes: a curved arrow pointed at both ends,
+    bowed out of the corner, which faces `deg` on screen (0 to the right, clockwise). */
+const turnCursors = new Map<number, string>();
+function turnCursor(deg: number): string {
+  let c = turnCursors.get(deg);
+  if (c) return c;
+  const a = (deg * Math.PI) / 180, R = 6.5, f = (v: number) => Math.round(v * 10) / 10;
+  const at = (t: number, out = 0) => [12 + (R + out) * Math.cos(t), 12 + (R + out) * Math.sin(t)];
+  // a head at angle t, pointing on round the arc (dir 1 clockwise on screen)
+  const head = (t: number, dir: number) => {
+    const tip = at(t + dir * 0.42), l = at(t, 2.9), r = at(t, -2.9);
+    return `M${f(tip[0])} ${f(tip[1])}L${f(l[0])} ${f(l[1])}L${f(r[0])} ${f(r[1])}Z`;
+  };
+  const t1 = a - 0.95, t2 = a + 0.95, p = at(t1), q = at(t2);
+  const arc = `M${f(p[0])} ${f(p[1])}A${R} ${R} 0 0 1 ${f(q[0])} ${f(q[1])}`, heads = head(t2, 1) + head(t1, -1);
+  c = svgCursor(`<path d='${arc}' fill='none' stroke='#fff' stroke-width='3.6'/><path d='${heads}' fill='#fff' stroke='#fff' stroke-width='2.2' stroke-linejoin='round'/>` +
+    `<path d='${arc}' fill='none' stroke='#000' stroke-width='1.5'/><path d='${heads}' fill='#000'/>`, 12, 12, 'alias');
+  turnCursors.set(deg, c);
+  return c;
+}
+/** The tool last picked: the next letter opens with it (the Selection tool at first, as in a vector editor). */
+let lastTool: Tool = 'object';
 /** Shapes cut or copied (⌘X, ⌘C), to paste into this letter or another, and which way the letter they came from runs. */
 let clipboard: { contours: Node[][]; way: number } | null = null;
 /** Which way a letter's outline runs: its biggest contour's, anticlockwise 1, clockwise -1 (and 1 for no outline). */
@@ -496,10 +526,11 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
     });
   };
 
-  /** Drag a picked corner's handle into its turn: the picked corners round (cut or scoop) by as much. */
+  /** Drag a picked corner's knob into its turn: the picked corners (with the Selection tool, every corner of the picked
+      shapes) round by as much, cut or scooped as they are. ⌥-click turns them from round to cut to scooped. */
   const onCornerHandle = (r: Ref) => (e: ReactPointerEvent) => {
     if (e.button !== 0 || space) return;
-    const base = current().contours, h = cornerHandle(base, r), n = base[r.c][r.i];
+    const base = current().contours, h = cornerHandle(base, r), n = base[r.c][r.i], alt = e.altKey;
     if (!h) return;
     const refs = (selRefs.some(s => refKey(s) === refKey(r)) ? selRefs : [r]).filter(k => cornerHandle(base, k));
     const most = Math.ceil(Math.max(1, ...refs.map(k => cornerRoom(base[k.c], k.i).most))), r0 = Math.min(n.r ?? 0, most), p0 = toFont(e);
@@ -509,7 +540,11 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
         write(sym(base, setCorners(base, refs, v)));
         setSizeTag({ x: n.x, y: n.y, text: `Radius ${v}` });
       },
-      up: moved => { setSizeTag(null); if (moved) actions.commit(); }
+      up: moved => {
+        setSizeTag(null);
+        if (moved) { actions.commit(); return; }
+        if (alt) commit(sym(base, setCorners(base, refs, null, CORNER_KINDS[(CORNER_KINDS.indexOf(n.corner ?? 'round') + 1) % CORNER_KINDS.length])));
+      }
     });
   };
   /* ---- the picked points as one: the Selection tool's box scales them by its handles and turns them from just outside
@@ -729,6 +764,11 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const pickedCorners = selRefs.map(r => ({ r, h: cornerHandle(cs, r) })).filter((k): k is { r: Ref; h: NonNullable<ReturnType<typeof cornerHandle>> } => !!k.h);
   const rounded = cs.some(con => con.some(n => n.r));
   const cornerR = pickedCorners.length ? Math.max(...pickedCorners.map(k => cs[k.r.c][k.r.i].r ?? 0)) : 0;
+  // the rounding knobs: on Direct selection's picked corners, and on every corner of the Selection tool's picked shapes
+  // while their box is big enough on screen (each where its sides leave a little room to round)
+  const knobs = tool === 'select' ? pickedCorners
+    : tool === 'object' && xbox && !spin && drawingOk === null && (xbox.x1 - xbox.x0) * sc >= ROUND_ROOM && (xbox.y1 - xbox.y0) * sc >= ROUND_ROOM
+      ? pickedCorners.filter(k => cornerRoom(cs[k.r.c], k.r.i).most * sc >= 6) : [];
   const count = cs.reduce((a, c) => a + c.length, 0);
   const cursor = space ? 'grab' : tool === 'pen' || tool === 'shape' ? 'crosshair' : 'default';
   // what a click would do under the pointer: the pen adds a point on the outline, or closes the
@@ -836,21 +876,21 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
                 </g>
               );
             }))}
-            {tool === 'select' && pickedCorners.map(({ r, h }) => {
+            {tool === 'object' && drawingOk === null && (spin ? (
+              <rect className="pen-xf-box" x={n1(X(spin.box.x0))} y={n1(Y(spin.box.y1))} width={n1((spin.box.x1 - spin.box.x0) * sc)} height={n1((spin.box.y1 - spin.box.y0) * sc)}
+                transform={`rotate(${n1(-spin.deg)} ${n1(X(spin.c.x))} ${n1(Y(spin.c.y))})`} />
+            ) : xbox && <XfBox l={X(xbox.x0)} r={X(xbox.x1)} t={Y(xbox.y1)} b={Y(xbox.y0)} onScale={onScale} onTurn={onTurn} />)}
+            {knobs.map(({ r, h }) => {
               const n = cs[r.c][r.i], at = Math.max(h.at, 16 / sc), x = n1(X(n.x + h.ux * at)), y = n1(Y(n.y + h.uy * at));
               return (
-                <g key={refKey(r)} className="pen-corner" onPointerDown={onCornerHandle(r)}>
-                  <title>Drag into the corner to round it</title>
+                <g key={refKey(r)} className="pen-corner" style={{ cursor: ROUND_CURSOR }} onPointerDown={onCornerHandle(r)}>
+                  <title>{tool === 'object' ? 'Drag into the corner to round the shapes’ corners · ⌥-click: round, cut or scooped' : 'Drag into the corner to round it · ⌥-click: round, cut or scooped'}</title>
                   <circle className="grab" cx={x} cy={y} r={HIT} />
                   <circle cx={x} cy={y} r={4.5} />
                   <circle className="dot" cx={x} cy={y} r={1.5} />
                 </g>
               );
             })}
-            {tool === 'object' && drawingOk === null && (spin ? (
-              <rect className="pen-xf-box" x={n1(X(spin.box.x0))} y={n1(Y(spin.box.y1))} width={n1((spin.box.x1 - spin.box.x0) * sc)} height={n1((spin.box.y1 - spin.box.y0) * sc)}
-                transform={`rotate(${n1(-spin.deg)} ${n1(X(spin.c.x))} ${n1(Y(spin.c.y))})`} />
-            ) : xbox && <XfBox l={X(xbox.x0)} r={X(xbox.x1)} t={Y(xbox.y1)} b={Y(xbox.y0)} onScale={onScale} onTurn={onTurn} />)}
             {aim?.kind === 'add' && (
               <g className="pen-ghost" pointerEvents="none">
                 <circle cx={n1(X(aim.at.x))} cy={n1(Y(aim.at.y))} r={4.5} />
@@ -930,7 +970,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
 }
 
 function hint(tool: Tool, drawing: boolean, shape: Shape) {
-  if (tool === 'object') return 'Click a shape to pick it, drag to move it (⌥ copies it) · the box’s handles resize it; just outside a corner, turn it · ⌘C ⌘V to another letter';
+  if (tool === 'object') return 'Click a shape to pick it, drag to move it (⌥ copies it) · at a corner, drag its handle to resize, just outside it to turn, the knob inside to round · ⌘C ⌘V to another letter';
   if (tool === 'pen') return drawing ? 'Click to add points · drag to pull a curve · click the first point to close · Esc to finish'
     : 'Click the outline to add a point · click a point to delete it · click empty space to start a new shape';
   if (tool === 'convert') return 'Click a point to switch corner ↔ smooth · drag from a point to pull out handles';
@@ -965,12 +1005,18 @@ function XfBox({ l, r, t, b, onScale, onTurn }: {
     <g className="pen-xf">
       <rect className="pen-xf-box" x={n1(l)} y={n1(t)} width={n1(r - l)} height={n1(b - t)} />
       {corners.map(([hx, hy]) => {
-        // a quarter round outside the corner (y runs down on screen, so the top is hy 1)
-        const x = at(hx, l, r), y = at(hy, b, t), pts = Array.from({ length: 7 }, (_, k) => {
-          const a = (k / 6) * (Math.PI / 2);
-          return `${n1(x + hx * TURN_REACH * Math.cos(a))} ${n1(y - hy * TURN_REACH * Math.sin(a))}`;
+        // round the corner outside the box: three quarters of a round, from along one side to along the other (y runs
+        // down on screen, so the top is hy 1 and out of it is up)
+        const x = at(hx, l, r), y = at(hy, b, t), sx = hx, sy = -hy, a0 = Math.atan2(0, -sx), inside = Math.atan2(-sy, -sx);
+        const way = Math.sin(inside - a0) > 0 ? -1 : 1;
+        const pts = Array.from({ length: 13 }, (_, k) => {
+          const a = a0 + (way * k * 1.5 * Math.PI) / 12;
+          return `${n1(x + TURN_REACH * Math.cos(a))} ${n1(y + TURN_REACH * Math.sin(a))}`;
         });
-        return <path key={`t${hx}${hy}`} className="pen-xf-turn" d={`M${n1(x)} ${n1(y)}L${pts.join('L')}Z`} onPointerDown={onTurn}><title>Drag to turn</title></path>;
+        return (
+          <path key={`t${hx}${hy}`} className="pen-xf-turn" style={{ cursor: turnCursor(Math.round((Math.atan2(sy, sx) * 180) / Math.PI)) }}
+            d={`M${n1(x)} ${n1(y)}L${pts.join('L')}Z`} onPointerDown={onTurn}><title>Drag to turn</title></path>
+        );
       })}
       {handles.map(([hx, hy]) => {
         const x = at(hx, l, r), y = at(hy, b, t), cursor = hx && hy ? (hx * hy > 0 ? 'nesw-resize' : 'nwse-resize') : hx ? 'ew-resize' : 'ns-resize';
