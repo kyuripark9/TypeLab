@@ -432,6 +432,21 @@ describe("TypeLab's own fonts", () => {
         assert.equal(parts(moved.glyph(ch)!).holes, 0, `and stays open (${ch} at ${JSON.stringify(set)})`);
       }
     }
+    // drawn shorter, an end is cut back, not squeezed: squeezed, the inside of a curve folds over into a flag, an
+    // outline crossing itself (Mainline's ends cut on a slant, Couture's balls)
+    const crossings = (g: Glyph) => toPolys(g.cmds).reduce((n, r) => {
+      const side = (p: { x: number; y: number }, q: { x: number; y: number }, s: { x: number; y: number }) => Math.sign((q.x - p.x) * (s.y - p.y) - (q.y - p.y) * (s.x - p.x));
+      for (let i = 0; i < r.length; i++) for (let j = i + 2; j < r.length; j++) {
+        if (!i && j === r.length - 1) continue;
+        const a = r[i], b = r[(i + 1) % r.length], c = r[j], d = r[(j + 1) % r.length];
+        if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) n++;
+      }
+      return n;
+    }, 0);
+    for (const [style, len] of [['grotesque', 0], ['grotesque', 0.25], ['didone', 0.25]] as const) {
+      const short = await design(style, { terminalLength: len });
+      for (const ch of 'csCS') assert.equal(crossings(short.glyph(ch)!), 0, `${style}'s ${ch} at Length ${len * 100}`);
+    }
     // Bowls' Corners rounds a box bowl's corners
     const box = (v: number) => design('geometric', { bowlForm: 'box', boxRound: v });
     assert.ok(!same((await box(0)).glyph('O')!, (await box(1)).glyph('O')!), 'box corners');

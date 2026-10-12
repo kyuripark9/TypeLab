@@ -718,12 +718,24 @@ function runOn(pts: SkPt[], S: SkPt, a: P, b: P): [P[], P[]] {
   return [A, B];
 }
 
-/** A polyline at even steps `h` along it, smoothed, its two ends kept where they are. */
+/** A polyline at even steps `h` along it, smoothed, its two ends kept where they are, and drawn again through those
+    points as a smooth curve in steps a fifth as long (points beside a polyline's corners would all stand at the corner:
+    see carryEnd). */
 function smoothLine(line: P[], h: number): P[] {
   const arc = arcOf(line), L = arc[arc.length - 1], n = Math.max(2, Math.round(L / h));
   let pts = atShares(line, Array.from({ length: n + 1 }, (_, i) => i / n));
   for (let pass = 0; pass < 4; pass++) pts = pts.map((p, i) => (i && i < n ? { x: (pts[i - 1].x + 2 * p.x + pts[i + 1].x) / 4, y: (pts[i - 1].y + 2 * p.y + pts[i + 1].y) / 4 } : p));
-  return pts;
+  const out: P[] = [], K = 5;
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(n, i + 2)];
+    for (let k = 0; k < K; k++) {
+      const t = k / K, t2 = t * t, t3 = t2 * t;
+      const f = (a: number, b: number, c: number, d: number) => 0.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (3 * b - a - 3 * c + d) * t3);
+      out.push({ x: f(p0.x, p1.x, p2.x, p3.x), y: f(p0.y, p1.y, p2.y, p3.y) });
+    }
+  }
+  out.push(pts[n]);
+  return out;
 }
 
 /** The font's own end, carried on out (or back) along the stroke and bent round as asked (`plan.len`, `plan.bend`):
@@ -763,27 +775,69 @@ function carryEnd(plan: EndPlan, end: End, path: P[], A0: P[], B0: P[], a: P, b:
   // up to s1 the stroke drawn as long as asked, its end past that carried on as it is, all of it turning `bend` further
   // round by its far end; each point moved as far as its place beside that skeleton moves from where the same reckoning
   // puts it with nothing moved, so the outline stays the font's where nothing moves, out from S
+  // (drawn shorter, the stroke is cut back, not squeezed: squeezed, a curve turns tighter, and its inside, tighter than
+  // the stroke is wide, folds over into a flag; the end is carried back along it, turned as the stroke turns there)
+  // (drawn longer, the stroke stretches from nothing at S to most halfway to s1 and back to nothing there, so its sides
+  // bend on smoothly into the stretch and out of it into the end)
   const frames = (len: number, bend: number) => {
-    const s2 = Math.max(s1 * 0.15, s1 + len), moved = (s: number) => (s <= s1 ? s * s2 / s1 : s - s1 + s2), farN = moved(far);
+    const s2 = Math.max(s1 * 0.15, s1 + len), back = s2 < s1, ramp = (u: number) => u * u * (3 - 2 * u);
+    const moved = (s: number) => (s > s1 ? s - s1 + s2 : back ? Math.min(s, s2) : s + (s2 - s1) * ramp(s / s1)), farN = moved(far);
+    // (where along the stroke as drawn a place on it drawn longer was, found by halves)
+    const drawnAt = (sn: number) => { let lo = 0, hi = s1; for (let k = 0; k < 24; k++) { const m = (lo + hi) / 2; if (moved(m) < sn) lo = m; else hi = m; } return (lo + hi) / 2; };
     const M = 96, Q: P[] = [{ x: sk[0].x, y: sk[0].y }], T: number[] = [ang[0]];
-    const headAt = (sn: number) => theta(sn <= s2 ? sn * s1 / s2 : sn - s2 + s1) + bend * (sn / farN) ** 2;
+    const headAt = (sn: number) => (back ? (sn <= s2 ? theta(sn) : theta(s2) + theta(sn - s2 + s1) - theta(s1)) : theta(sn <= s2 ? drawnAt(sn) : sn - s2 + s1)) + bend * (sn / farN) ** 2;
     for (let j = 1; j <= M; j++) {
       const th = headAt(farN * (j - 0.5) / M), q = Q[j - 1];
       Q.push({ x: q.x + Math.cos(th) * farN / M, y: q.y + Math.sin(th) * farN / M });
       T.push(headAt(farN * j / M));
     }
-    return (s: number, n: number): P => {
-      const f = Math.min(M, Math.max(0, moved(Math.max(0, s))) / farN * M), j = Math.min(M - 1, Math.floor(f)), u = f - j;
+    // where a point `n` off the skeleton `sn` along it as now drawn stands (before its start, on the way it starts)
+    const pos = (sn: number, n: number): P => {
+      if (sn < 0) return { x: Q[0].x + Math.cos(T[0]) * sn - Math.sin(T[0]) * n, y: Q[0].y + Math.sin(T[0]) * sn + Math.cos(T[0]) * n };
+      const f = Math.min(M, sn / farN * M), j = Math.min(M - 1, Math.floor(f)), u = f - j;
       const th = T[j] + (T[j + 1] - T[j]) * u;
       return { x: Q[j].x + (Q[j + 1].x - Q[j].x) * u - Math.sin(th) * n, y: Q[j].y + (Q[j + 1].y - Q[j].y) * u + Math.cos(th) * n };
     };
+    return { at: (s: number, n: number) => pos(moved(Math.max(0, s)), n), pos };
   };
-  const was = frames(0, 0), now = frames(plan.len, plan.bend);
-  return poly.map((q, i) => {
-    if (!i || i === poly.length - 1) return q;
-    const p0 = was(at[i].s, at[i].n), p1 = now(at[i].s, at[i].n);
-    return { x: q.x + p1.x - p0.x, y: q.y + p1.y - p0.y };
+  const was = frames(0, 0), now = frames(plan.len, plan.bend), s2 = Math.max(s1 * 0.15, s1 + plan.len);
+  if (s2 >= s1) {
+    return poly.map((q, i) => {
+      if (!i || i === poly.length - 1) return q;
+      const p0 = was.at(at[i].s, at[i].n), p1 = now.at(at[i].s, at[i].n);
+      return { x: q.x + p1.x - p0.x, y: q.y + p1.y - p0.y };
+    });
+  }
+  // cut back, the stroke's two sides (the outline's runs out from a and from b, up to where the shorter side stops)
+  // are left out between where the stroke now stops and s1, and the rest, the end, is carried back as a whole, as wide
+  // each side as the stroke is where it now meets it (the font's strokes thin and thicken); a ball's outline wraps back
+  // in beside the stroke, so the sides are read off those runs, not off where the points lie
+  const runFrom = (i0: number, step: number) => {
+    const r: number[] = [];
+    for (let i = i0; i >= 0 && i < poly.length && at[i].s <= s1 + 1e-6; i += step) r.push(i);
+    return r;
+  };
+  const runA = runFrom(0, 1), runB = runFrom(poly.length - 1, -1), onSide = new Set([...runA, ...runB]);
+  const width = (run: number[], s: number) => {
+    let best = Infinity, n = 0;
+    for (const i of run) if (Math.abs(at[i].s - s) < best) { best = Math.abs(at[i].s - s); n = Math.abs(at[i].n); }
+    return n;
+  };
+  const ratio = (run: number[]) => Math.min(1.5, Math.max(2 / 3, width(run, s2) / (width(run, s1) || 1)));
+  const rA = ratio(runA), rB = ratio(runB), shift = s1 - s2, out: P[] = [];
+  poly.forEach((q, i) => {
+    if (!i || i === poly.length - 1) { out.push(q); return; }
+    const { s, n } = at[i];
+    if (onSide.has(i)) {
+      if (s > s2) return;
+      const p0 = was.at(s, n), p1 = now.at(s, n);
+      out.push({ x: q.x + p1.x - p0.x, y: q.y + p1.y - p0.y });
+      return;
+    }
+    const p0 = was.pos(s, n), p1 = now.pos(s - shift, n * (n > 0 ? rA : rB));
+    out.push({ x: q.x + p1.x - p0.x, y: q.y + p1.y - p0.y });
   });
+  return out;
 }
 
 /** The engine's end of the kind `to` picks (T its spec), drawn across a stroke's sides as the font draws them (A0

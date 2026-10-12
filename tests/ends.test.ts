@@ -65,7 +65,9 @@ describe('stroke ends: terminal, terminalForm, terminalRun, terminalLength, term
     const ends = (font: ReturnType<typeof buildFont>, ch: string) => font.glyph(ch)!.marks.filter(k => k.type === 'terminal');
     for (const ch of 'CcaesrE2') {
       assert.notEqual(f(0).glyph(ch)!.d, f(0.5).glyph(ch)!.d, ch);
-      assert.notEqual(f(1).glyph(ch)!.d, f(0.5).glyph(ch)!.d, ch);
+      // (drawn on only as far as it has room to go: the e's end, already all but touching its bowl, goes no further)
+      if (ch !== 'e') assert.notEqual(f(1).glyph(ch)!.d, f(0.5).glyph(ch)!.d, ch);
+      assert.equal(holes(f(1).glyph(ch)!), holes(f(0.5).glyph(ch)!), `${ch} stays open`);
       assert.equal(ends(f(0), ch).length, ends(f(0.5), ch).length, ch);
     }
     // the C's lower end reaches further right and curls further up as it grows
@@ -78,6 +80,16 @@ describe('stroke ends: terminal, terminalForm, terminalRun, terminalLength, term
     assert.ok(f(1).glyph('E')!.adv > f(0.5).glyph('E')!.adv);
     for (const ch of 'HOonjQy,') assert.equal(f(0).glyph(ch)!.d, f(1).glyph(ch)!.d, ch);
     assert.equal(f(0, { cursive: 1 }).glyph('n')!.d, f(1, { cursive: 1 }).glyph('n')!.d);
+  });
+
+  it('closes no letter at either end of Length or Curl, however heavy, wide-barred or cut straight', () => {
+    // a heavy squared sans's and a slab's e, where the bars outweigh the stems and a flat end's corner reaches the bar
+    // before its middle does; a blackletter's ends, broken into straight cuts; a fat face's balls
+    for (const id of ['squircle', 'woodtype', 'blackletter', 'fatface']) {
+      const st = STYLES.find(s => s.id === id)!, f = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...st.params, ...p } as Params), base = f({});
+      for (const set of [{ terminalLength: 0 }, { terminalLength: 1 }, { terminalCurl: 0 }, { terminalCurl: 1 }])
+        for (const ch of 'acefsCGS') assert.ok(holes(f(set).glyph(ch)!) <= holes(base.glyph(ch)!), `${id}'s ${ch} at ${JSON.stringify(set)}`);
+    }
   });
 
   it('a customized letter sets each stroke end on its own', () => {
@@ -121,32 +133,36 @@ describe('stroke ends: terminal, terminalForm, terminalRun, terminalLength, term
     // no jump on leaving 0.5: a step half as big moves the tip half as far
     const step = (v: number) => Math.hypot(C(v).tip.x - top.tip.x, C(v).tip.y - top.tip.y);
     assert.ok(step(0.51) < 15 && Math.abs(step(0.51) - 2 * step(0.505)) < 0.3);
-    // all the way, an end winds round more than once, drawing itself out as far as it needs
+    // all the way, an end turns a good way further round, as a TypeLab font's own end does, and no further than its own
+    // last stretch reaches: no volute winding out past its letter
     const reach = (g: typeof round.g) => {
       const tip = g.marks.find(k => k.id === top.e.id)!;
       return Math.hypot(tip.x - top.e.x, tip.y - top.e.y);
     };
-    assert.ok(reach(round.g) > 60 && reach(C(0).g) > 60);
-    assert.ok(C(0, 'c').g.adv > C(0.5, 'c').g.adv, 'a curl swinging out widens its letter');
-    // a curl winding back toward the letter keeps clear of its other strokes, however far the end is drawn on
+    const xh = buildFont(DEFAULTS).m.xh;
+    for (const g of [round.g, C(0).g]) assert.ok(reach(g) > 30 && reach(g) < xh * 0.45, `${reach(g)}`);
+    // a curl turning back toward the letter keeps clear of its other strokes, however far the end is drawn on
     for (const len of [0.5, 1]) {
       const { e } = C(1, 'r'), font = buildFont({ ...DEFAULTS, glyphs: { r: { terminalCurls: { [e.id!]: 1 }, terminalEnds: { [e.id!]: len } } } });
       const [stem, arm] = font.glyph('r')!.strokes, xs = (s: typeof stem) => s.cmds.flatMap(c => typeof c[1] === 'number' ? [c[1]] : []);
       const low = arm.cmds.filter(c => typeof c[2] === 'number' && c[2] < font.m.xh * 0.5).map(c => c[1] as number);
-      assert.ok(low.length && Math.min(...low) > Math.max(...xs(stem)) + font.m.s * 0.2, `r at length ${len}`);
+      assert.ok(!low.length || Math.min(...low) > Math.max(...xs(stem)) + font.m.s * 0.2, `r at length ${len}`);
     }
-    // all the way out, a curl with room to wind winds round far more than once (along the arm,
-    // which first unbends, it turns over twice)
-    const wound = (weight: number) => {
-      const { e } = C(0, 'r'), line = buildFont({ ...DEFAULTS, weight, glyphs: { r: { terminalCurls: { [e.id!]: 0 } } } }).glyph('r')!.skeleton.at(-1)!;
+    // all the way out, an end turns at most a sixth of a turn further than it is drawn (along the arm, which unbends)
+    const wound = (weight: number, curl: number) => {
+      const { e } = C(0, 'r'), line = buildFont({ ...DEFAULTS, weight, glyphs: { r: { terminalCurls: { [e.id!]: curl } } } }).glyph('r')!.skeleton.at(-1)!;
       let turned = 0;
       for (let k = 2; k < line.length; k++) {
         const a = Math.atan2(line[k - 1].y - line[k - 2].y, line[k - 1].x - line[k - 2].x), b = Math.atan2(line[k].y - line[k - 1].y, line[k].x - line[k - 1].x);
         turned += Math.atan2(Math.sin(b - a), Math.cos(b - a));
       }
-      return Math.abs(turned) / (2 * Math.PI);
+      return turned / (2 * Math.PI);
     };
-    assert.ok(wound(0.5) > 2 && wound(0.5) < 3.5, `${wound(0.5)}`);
+    for (const weight of [0.3, 0.5, 0.75]) for (const curl of [0, 1]) {
+      const more = Math.abs(wound(weight, curl) - wound(weight, 0.5));
+      assert.ok(more > 0.02 && more < 1 / 6 + 0.01, `r at weight ${weight}, curl ${curl}: ${more}`);
+    }
+    // a curl's tip stays clear of the rest of its stroke, however heavy
     // wound round more than once, a curl's tip stays clear of the turn around it, however heavy
     for (const weight of [0.3, 0.5, 0.75]) {
       const { e } = C(0, 'j'), font = buildFont({ ...DEFAULTS, weight, glyphs: { j: { terminalCurls: { [e.id!]: 0 } } } });

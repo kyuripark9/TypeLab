@@ -31,7 +31,12 @@ file.
 4. `buildGlyph` (`glyph.ts`) runs its stages in this order:
    1. the glyph function draws centerline strokes on a `Builder` and returns the body width;
    2. `boxQuarters` (`corners.ts`) when Bowls are Box; `weighFillets`; `markTurns` gives each turn its id and radii;
-   3. `stretchTerminals` (`ends.ts`): Length, Curl, straight runs; the body grows by their reach;
+   3. `stretchTerminals` (`ends.ts`): Length, Curl, straight runs; the body grows by their reach. Curl is gentle, as
+      on TypeLab's own fonts: the end's last stretch (`CURL_REACH` of the x-height, never back past where another stroke
+      meets it, the leg of a y on its tail) turns up to `CURL_BEND` either way, its share of as far as it has room to
+      (`curlCrowd`: the letter's centerlines, and the corners of its tip read against the pen's width there,
+      `CORNER_KEEP`); Length draws on its share of its room the same way; on Chamfer's straight cuts the stretch bends
+      as one curve;
    4. `faceSerifs`, then `cupSerifs` (`serif-sides.ts`), while serifs are on;
    5. `wobbleSkeleton`: Hand-drawn moves the strokes, counters, marks and end homes through one field;
    6. `expandStroke` (`stroke.ts`) on every stroke drawn with a path (not dots, fillets or blobs), weighed by its own
@@ -154,9 +159,11 @@ A design with `freeFont` set draws its letters from a free font instead of build
    further past its stroke than `REACH_X` of the x-height, its slider a share of that (`reachT`), drawn back along its
    stroke (`END_CUTS`) and curled less where even the least of it would come too near; an end with no room still is
    left as the font draws it, so a heavy C never closes into an O. Length and Curl alone carry the font's own end
-   (`carryEnd`: every outline point moved by its place beside the skeleton, run on straight past its tip, the end past
-   its shorter side carried whole) by their share of as far as it has room for at the ends of their sliders
-   (`carriedEnd`). A taper runs back its share of all the way the stroke runs alone past Taper length's middle.
+   (`carryEnd`: every outline point moved by its place beside the skeleton, smoothed and drawn again as a fine curve
+   by `smoothLine`, run on straight past its tip, the end past its shorter side carried whole) by their share of as far
+   as it has room for at the ends of their sliders (`carriedEnd`). Drawn longer, the stroke stretches from nothing at
+   S; drawn shorter, it is cut back, not squeezed (squeezed, the inside of a curve folds into a flag), and the end is
+   carried back along it as wide as the stroke where it now meets it. A taper runs back its share of all the way the stroke runs alone past Taper length's middle.
    Serifs also squares off an upright stroke's round end on a line (`roundTip` in
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
 5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,

@@ -4,9 +4,9 @@
    once (stretchTerminals), and a stroke's clip widened to follow a moved end. Runs on skeletons, before buildGlyph
    (glyph.ts) expands them; then, on the strokes as expanded, the ends that reach out past them (drops, points,
    flares, slants) made as small as the room the letter has for them (fitEnds). */
-import { endCurl, endId, endLength, endReach, type Terminal } from '../params';
+import { endCurl, endId, endLength, endReach, onEndScale, type Terminal } from '../params';
 import { clamp, cubicAt, lerp, lerpP, quarter, subCubic } from './geom';
-import { expandStroke, type Expanded } from './stroke';
+import { autoThickness, expandStroke, type Expanded } from './stroke';
 import type { ClipBox, Cmd, PenCtx, Pt, StrokeOpts, TermSpec } from './types';
 import { type Builder, hasSerif, type Metrics, quarterK, strokeWt } from './font';
 
@@ -122,35 +122,19 @@ export function stretchEnd(cmds: Cmd[], which: 's' | 'e', d: number, m: Metrics)
 const endAt = (cmds: Cmd[], which: 's' | 'e', m: Metrics): Pt | null => stretchEnd(cmds, which, 0, m)?.from ?? null;
 
 /* Curling an end: the last stretch of the stroke, up to CURL_REACH of the x-height back from its
-   tip, is redrawn by following its own tangents and turning more at every step. Above 0.5 the
-   end curls on round the way it already turns (a straight end toward the middle of the letter);
-   below it a curved end first unbends until it is straight, and then, like a straight end, curls
-   the other way. A curl winds like a volute, gently where it leaves the stroke and tighter toward
-   the tip. It winds further round the further Curl is from 0.5, CURL_TURNS times round per unit
-   of that at first, climbing steeply to CURL_MOST turns at either end, or as many as fit within
-   CURL_WIDEST x-heights of its middle. It draws the end out as far as it needs for that, up to
-   CURL_LONGEST x-heights, and never turns tighter at the tip than CURL_TIGHT of the stroke
-   width, or CURL_ROUND once it winds twice round.
-   Winding more than once round, it never turns so tight that a turn comes nearer the one around
-   it than CURL_GAP stroke widths (centerline to centerline), and runs on a little further to
-   wind round instead.
-   Its length changes as with stretchEnd, and any length past what the curl takes first draws
-   the end on along its own path, carrying the curl further out.
-   A curl keeps CURL_CLEAR of the stroke width clear of the rest of the letter (centerline to
-   centerline), and CURL_GAP clear of its own earlier turns and of the rest of its own stroke,
-   bar where it leaves it. Where it would run into another stroke it draws the end on first, up
-   to CURL_LEAD x-heights, winds less and smaller, or, when the length drawn on first is what
-   runs into the letter, gives some of that up, whichever changes it least (see CURL_TRIES). */
-const CURL_REACH = 0.45, CURL_TURNS = 1.25, CURL_MOST = 3, CURL_WIDEST = 1.2, CURL_LONGEST = 14, CURL_TIGHT = 0.9, CURL_ROUND = 1.5, CURL_CLEAR = 1.6, CURL_GAP = 1.5, CURL_LEAD = 0.6;
-/** How much of the lower half of Curl a curved end takes to straighten. */
-const CURL_UNBEND = 0.3;
-/** How much longer than its Archimedean spiral a curl is drawn: shapeEnd's spiral() multiplies by it and fits
-    divides by it, solving spiral for the number of turns a length holds, so the two stay in step. */
-const SPIRAL_SLACK = 1.2;
-/** The ways a crowded curl can give way, as [how much further on it starts, in x-heights; its
-    size; how much of the length drawn on before it it keeps], cheapest first. */
-const CURL_TRIES = [1, 0.5, 0].flatMap(g => [0, 0.1, 0.2, 0.3, 0.45, CURL_LEAD].flatMap(x => [1, 0.85, 0.7, 0.55, 0.42, 0.3, 0.2, 0.12, 0.06, 0].map(f => [x, f, g])))
-  .map(t => ({ t, cost: t[0] * 2 + 1 - t[1] + (1 - t[2]) * 0.5 })).sort((p, q) => p.cost - q.cost).map(({ t }) => t).slice(1);
+   tip, is redrawn by following its own tangents and turning more at every step, gently where it
+   leaves the stroke and most toward the tip. Above 0.5 the end curls on round the way it already
+   turns (a straight end toward the middle of the letter); below it a curved end unbends and turns
+   out the other way. At either end of Curl it turns CURL_BEND further round by its tip, as a
+   TypeLab font's own end does (endMoves in restyle.ts), or as far of that as keeps it CURL_CLEAR
+   of the stroke width clear of the rest of the letter (centerline to centerline) and CURL_GAP
+   clear of the rest of its own stroke; Curl moves it its share of that, all the way along.
+   Its length changes as with stretchEnd, and length drawn on runs on straight past its tip. */
+const CURL_REACH = 0.45, CURL_BEND = Math.PI / 3, CURL_CLEAR = 1.6, CURL_GAP = 1.5;
+/** How much of CURL_BEND an end curled on its own turns at the least, room or none. */
+const CURL_OWN = 0.25;
+/** How much of the gap between the corner of an end's tip and the stroke beside it a curl or a longer end keeps. */
+const CORNER_KEEP = 0.3;
 
 /** A dot's outline, a point every `step` along it (its own points marked `corner`), and its middle, for a curl to keep off. */
 function dotPoints(poly: Pt[], step: number): (Pt & { dot: true; corner?: boolean })[] {
@@ -165,33 +149,48 @@ function dotPoints(poly: Pt[], step: number): (Pt & { dot: true; corner?: boolea
   return out;
 }
 
-/** A point a curl keeps clear of: a centerline's, or a dot's (on its outline, a `corner` of it, or its middle). */
-type CrowdPt = Pt & { dot?: boolean; corner?: boolean };
+/** A point a curl keeps clear of: a centerline's (`w` the pen's width there), or a dot's (on its outline, a `corner`
+    of it, or its middle). */
+type CrowdPt = Pt & { dot?: boolean; corner?: boolean; w?: number };
+
+/** A centerline's points (see centerPoints), each with the pen's width there, the way it runs read off its neighbours. */
+function widthsOn(pts: Pt[], m: Metrics): CrowdPt[] {
+  return pts.map((q, k) => {
+    const a = pts[Math.max(0, k - 1)], b = pts[Math.min(pts.length - 1, k + 1)], l = Math.hypot(b.x - a.x, b.y - a.y);
+    return { ...q, w: l > 1e-6 ? autoThickness((b.x - a.x) / l, (b.y - a.y) / l, m.ctx, m.ctx.thick, m.ctx.thin) : undefined };
+  });
+}
 
 /** What a curl on the start ('s') or end ('e') of `cmds` keeps clear of: the rest of the letter (crowd(), its other
     centerlines and dots) and the rest of its own stroke, short of the stretch it redraws (S0 long, from the joint J at
     `at(0)` out to the tip at `at(S0)`). `hits(pts, h, T, most, cells)` counts the points of a curl traced in steps `h`
     long and winding `T` round that come too near those (`cells`: the grid by default, or `loose`, which keeps it off
     only the ink of a dot) or near its own earlier turns, up to `most`. */
-function curlCrowd(cmds: Cmd[], which: 's' | 'e', S0: number, at: (s: number) => Pt, m: Metrics, crowd: () => CrowdPt[]) {
-  // how near the curl may come to a point: `most`, or as near as the end as drawn already comes
-  // (across a narrow opening, say), but no nearer
-  const nOwn = Math.ceil(S0 / m.s * 5), own = Array.from({ length: nOwn + 1 }, (_, k) => at(S0 * k / nOwn));
-  const room = (q: Pt, most: number) => Math.min(most, Math.min(...own.map(p => Math.hypot(p.x - q.x, p.y - q.y))));
+function curlCrowd(cmds: Cmd[], which: 's' | 'e', S0: number, at: (s: number) => Pt, m: Metrics, crowd: () => CrowdPt[], extra = 0) {
+  // how near the curl may come to a point: `most`, or near enough to keep ROOM_KEEP of the gap the end as drawn already
+  // leaves there (across a narrow opening, say: centerline to centerline, less a stroke's width), as a TypeLab font's
+  // own end may (roomFor in restyle.ts); the gap is read past the width of the widest side of the pen (the bars, on a
+  // letter whose bars outweigh its stems)
+  const nOwn = Math.ceil(S0 / m.s * 10), own = Array.from({ length: nOwn + 1 }, (_, k) => at(S0 * k / nOwn));
+  const wide = Math.max(m.s, m.ctx.thin), room = (q: Pt, most: number) => {
+    const d = Math.min(...own.map(p => Math.hypot(p.x - q.x, p.y - q.y)));
+    return Math.min(most, d > wide ? wide + ROOM_KEEP * (d - wide) : d);
+  };
   // Two points along the stroke touch if they are nearer than `gap` but further apart along it
-  // than any bend can bring them
-  const clear = m.s * CURL_CLEAR, gap = m.s * CURL_GAP, apart = Math.PI * gap;
+  // than a curl that turns no more than CURL_BEND brings them
+  // (and `extra` further off for a drop on the end, which hangs out past the stroke)
+  const clear = wide * CURL_CLEAR + extra, gap = wide * CURL_GAP, apart = gap * 1.2;
   // the rest of the letter on a grid, each point with how near the curl may come, and for the
   // rest of this stroke how far back from J it lies along it
   const key = (x: number, y: number) => Math.floor(x / clear) * 65536 + Math.floor(y / clear);
   // `loose` is the same but for dots, which it only keeps the curl off the ink of (see `mine` in shapeEnd)
-  type Cell = { x: number; y: number; r: number; back: number };
+  type Cell = { x: number; y: number; r: number; back: number; w?: number };
   const grid = new Map<number, Cell[]>(), loose = new Map<number, Cell[]>();
-  const add = (to: Map<number, Cell[]>, q: Pt, r: number, back: number) => {
-    const k = key(q.x, q.y), g = { x: q.x, y: q.y, r, back };
+  const add = (to: Map<number, Cell[]>, q: CrowdPt, r: number, back: number) => {
+    const k = key(q.x, q.y), g = { x: q.x, y: q.y, r, back, w: q.w };
     to.get(k)?.push(g) ?? to.set(k, [g]);
   };
-  const put = (q: Pt, r: number, back: number) => {
+  const put = (q: CrowdPt, r: number, back: number) => {
     if (r < m.s * 0.5) return;
     add(grid, q, r, back); add(loose, q, r, back);
   };
@@ -202,7 +201,7 @@ function curlCrowd(cmds: Cmd[], which: 's' | 'e', S0: number, at: (s: number) =>
     // more than the end as drawn keeps off them)
     add(loose, q, Math.min(m.s * 0.55, room(q, Infinity) * 0.95), Infinity);
   }
-  const line = centerPoints(cmds, m, m.s * 0.5);
+  const line = widthsOn(centerPoints(cmds, m, m.s * 0.25), m);
   if (which === 's') line.reverse();
   let along = 0;
   const arcs = line.map((q, k) => along += k ? Math.hypot(q.x - line[k - 1].x, q.y - line[k - 1].y) : 0), upTo = along - S0;
@@ -217,28 +216,56 @@ function curlCrowd(cmds: Cmd[], which: 's' | 'e', S0: number, at: (s: number) =>
       for (let j = 0; wound && !hit && (k - j) * h > apart; j += 2) hit = Math.hypot(p.x - pts[j].x, p.y - pts[j].y) < gap;
       near: for (const dx of [-clear, 0, clear]) for (const dy of [-clear, 0, clear]) {
         if (hit) break near;
-        for (const q of cells.get(key(p.x + dx, p.y + dy)) ?? []) if (k * h + q.back > apart && Math.hypot(p.x - q.x, p.y - q.y) < q.r) { hit = true; break near; }
+        for (const q of cells.get(key(p.x + dx, p.y + dy)) ?? []) if (k * h + q.back > apart && Math.hypot(p.x - q.x, p.y - q.y) < q.r - 0.5) { hit = true; break near; }
       }
       if (hit) n++;
     }
     return n;
   };
-  return { hits, loose };
+  // whether the corners of an end cut across at its tip (`now`, either side of it) come nearer the rest of the letter
+  // than the end as drawn lets them (`was`): no nearer at all where its corners already sit about at the edge of the
+  // stroke beside them (half the pen's width there off its centerline), and keeping CORNER_KEEP of the gap past that (a
+  // flat end's corner reaches the stroke beside it before its middle does); a corner well inside the stroke beside it
+  // as drawn is joined to it already (on letters broken into straight cuts, which run other ways than their centerlines
+  // and stand out past them at their corners, the widest pen's width, and ROOM_KEEP of the gap)
+  const cut = m.p.chamfer > 0.5, keep = cut ? ROOM_KEEP : CORNER_KEEP, cornersNear = (was: Pt[], now: Pt[], cells = grid) => now.some(p => {
+    for (const dx of [-clear, 0, clear]) for (const dy of [-clear, 0, clear]) for (const q of cells.get(key(p.x + dx, p.y + dy)) ?? []) {
+      if (q.back < apart) continue;
+      const half = ((cut ? undefined : q.w) ?? wide) / 2, d0 = Math.min(...was.map(c => Math.hypot(c.x - q.x, c.y - q.y))), lim = d0 > half ? half + keep * (d0 - half) : d0;
+      if (d0 < half * 0.8) continue;
+      if (lim < clear && Math.hypot(p.x - q.x, p.y - q.y) < lim - 0.5) return true;
+    }
+    return false;
+  });
+  return { hits, loose, cornersNear, wide };
 }
 
 /** Move the start ('s') or end ('e') of an open centerline by `d` (negative trims, as stretchEnd does) and curl it
     by `curl` (0.5 leaves it as drawn; see Curling an end above), keeping it clear of crowd() (the letter's other
-    centerlines and dots). A straight end curls toward `mid` above 0.5 and away from it below. `mine` when the curl
-    is set for this end alone. Returns the new commands, where the end was and now is, and how far the curl swings
-    out left and right, or null if it can't. */
-function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Metrics, mid: Pt, crowd: () => CrowdPt[], mine: boolean): EndMove | null {
-  if (Math.abs(curl - 0.5) < 0.005) return stretchEnd(cmds, which, d, m);
+    centerlines and dots), `extra` further off for a drop on the end. A straight end curls toward `mid` above 0.5 and
+    away from it below. Drawn on, it reaches its share of as far as it has room to at the top of Length's slider (drawn
+    `dMost` on): d of dMost. `mine` when the curl is set for this end alone. Returns the new commands, where the end
+    was and now is, and how far the curl swings out left and right, or null if it can't. */
+function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Metrics, mid: Pt, crowd: () => CrowdPt[], mine: boolean, dMost = d, extra = 0): EndMove | null {
+  const still = Math.abs(curl - 0.5) < 0.005;
+  if (still && d <= 0) return stretchEnd(cmds, which, d, m);
   const e = endCmd(cmds, which, m);
   if (!e) return null;
   const { i, c, P, oi, o, u0, u1 } = e, { arc, uAt } = arcTable(P), a = arc(u0), b = arc(u1), len = b - a;
   if (len < 1) return null;
-  // the stretch redrawn (more of it when a trim cuts deeper), and how long it becomes
-  const S0 = Math.min(len * 0.98, Math.max(m.xh * CURL_REACH, 1 - d * 1.5)), Sn = S0 + Math.max(d, -len * 0.6);
+  // the stretch redrawn (more of it when a trim cuts deeper), and how long it becomes; on letters whose curves are broken
+  // into straight cuts (Chamfer), only the last cut, as far back as a stroke and a half, turns
+  // into straight cuts (Chamfer), only the last cut, as far back as a stroke and a half, turns; and none of it reaches
+  // back past where another stroke meets this one (the leg of a y on its tail): turned there, it would leave the other's
+  // end showing
+  const cut = m.p.chamfer > 0.5, others = crowd(), meets = others.filter(q => !q.dot);
+  const most = Math.min(len * 0.98, cut ? m.s * 1.5 : Infinity, Math.max(m.xh * CURL_REACH, 1 - d * 1.5)), nMeet = Math.ceil(most / (m.s * 0.25));
+  let free = most;
+  for (let k = 0; k <= nMeet && free === most; k++) {
+    const p = cubicAt(P, uAt(which === 'e' ? b - most * k / nMeet : a + most * k / nMeet));
+    if (meets.some(q => Math.hypot(q.x - p.x, q.y - p.y) < m.s * 0.6)) free = most * k / nMeet;
+  }
+  const S0 = free < most ? Math.max(m.s * 0.5, free - m.s * 0.5) : most, long = (dd: number) => S0 + Math.max(dd, -len * 0.6);
   // s runs from the joint J, where the redrawn stretch leaves the stroke, out to the tip
   const at = (s: number) => {
     const t = cubicAt(P, uAt(which === 'e' ? b - S0 + s : a + S0 - s));
@@ -252,76 +279,89 @@ function shapeEnd(cmds: Cmd[], which: 's' | 'e', d: number, curl: number, m: Met
   const drawn = (s: number) => { const f = clamp(s / S0) * N, k = Math.min(N - 1, Math.floor(f)); return lerp(ang[k], ang[k + 1], f - k); };
   const J = at(0), tip = at(S0), turned = ang[N] - ang[0], curved = Math.abs(turned) > 0.05;
   const way = Math.sign(curved ? turned : tip.tx * (mid.y - tip.y) - tip.ty * (mid.x - tip.x)) || 1;
-  const k2 = (curl - 0.5) * 2, straighten = k2 < 0 && curved ? Math.min(1, -k2 / CURL_UNBEND) : 0;
-  const amount = k2 >= 0 ? k2 : curved ? Math.max(0, (-k2 - CURL_UNBEND) / (1 - CURL_UNBEND)) : -k2;
-  // the extra turn grows with the square of the distance into the curl, so its curvature is
-  // tightest at the tip: 2 * turn / length there. Wound many times round it becomes an
-  // Archimedean spiral, each turn `spread` further out per radian, as long as `spiral` of a turn
-  const want = (CURL_TURNS * amount + (CURL_MOST - CURL_TURNS) * amount ** 4) * 2 * Math.PI;
-  // (its tip rounder as it winds from once to twice round, so the last turn stays centered)
-  const tight = lerp(CURL_TIGHT, CURL_ROUND, clamp(want / (2 * Math.PI) - 1));
-  const rTip = Math.max(m.s * tight, m.xh * 0.08), spread = m.s * CURL_GAP * 1.15 / (2 * Math.PI);
-  const spiral = (t: number) => Math.min(Math.max(2 * t * rTip, SPIRAL_SLACK * (rTip * t + spread * t * t / 2)), m.xh * CURL_LONGEST);
-  // as many turns as fit within CURL_WIDEST (once round at least); the curl takes the stretch
-  // redrawn, or as long as those need, and any length past that comes first
-  const most = Math.min(want, Math.max(2 * Math.PI, (m.xh * CURL_WIDEST - rTip) / spread)), Ls = spiral(most);
-  const Lc = Math.min(Math.max(Sn, Ls), Math.max(S0, Ls));
-  // as many turns as that length holds
-  const fits = (Math.sqrt(rTip * rTip + 2 * spread * Lc / SPIRAL_SLACK) - rTip) / spread;
-  const turn0 = (k2 >= 0 ? way : -way) * Math.min(most, Math.max(fits, Lc / (2 * rTip)));
-  const M = 256;
-  // the curl winding `f` as far round, as long as that needs, keeping `g` of the length drawn on
-  // before it, and starting `lead` further on. With f at 0 the end keeps its own shape, and
-  // `g` of the length drawn on
-  const draw = (lead: number, f: number, g: number) => {
-    const T = Math.abs(turn0) * f, Lq = f ? Math.max(spiral(T), Lc * f * f) : lerp(Math.min(S0, Sn), Sn, g), L0 = Math.max(0, Sn - Lq) * g + lead;
-    // the extra turn along the curl, as s², except that with `left` still to wind it turns no
-    // tighter than round rTip + spread * left, an Archimedean spiral that keeps its turns apart.
-    // Wound twice round or more, it comes round to its outer turn within half as far again as
-    // that turn is wide, rather than sweeping out a long way first
-    const quick = clamp(T / (2 * Math.PI) - 1) / (1.5 * (rTip + spread * T) ** 2);
-    const dh = Lq / M, turns = [0], ramp = Math.max(2 * T / (Lq * Lq), quick);
-    for (let k = 0, v = 0; T ? v < T && k < 3 * M : k < M; k++) {
-      v = Math.min(T, v + dh * Math.min(ramp * (k + 0.5) * dh, 1 / (rTip + spread * (T - v))));
-      turns.push(v);
+  const k2 = (curl - 0.5) * 2, sign = Math.sign(k2) * way;
+  // the end redrawn Sn long (straight on past its tip where it is drawn on), turning T further round by its tip,
+  // traced in steps of about a third of the stroke width
+  // (a curl drawn in many pieces on letters whose curves are broken into straight cuts would be broken into a zigzag)
+  // (letters broken into straight cuts bend the stretch from J out as the font draws it, as one curve round J: its
+  // handle at J kept, so it leaves the stroke the way the stroke runs, the rest turned further the further out)
+  const uJ = uAt(which === 'e' ? b - S0 : a + S0), Q0 = which === 'e' ? subCubic(P, uJ, u1) : subCubic(P, u0, uJ).reverse();
+  const bent = (T: number) => Q0.map((q, k) => {
+    const th = sign * T * [0, 0, 0.6, 1][k], cs = Math.cos(th), sn = Math.sin(th);
+    return { x: J.x + (q.x - J.x) * cs - (q.y - J.y) * sn, y: J.y + (q.x - J.x) * sn + (q.y - J.y) * cs };
+  });
+  const draw = (Sn: number, T: number) => {
+    const steps = Math.round(clamp(Sn / (m.s * 0.3), 48, 320)), h = Sn / steps;
+    const angle = (s: number) => drawn(s) + sign * T * (s / Sn) ** 2, pts: Pt[] = [{ x: J.x, y: J.y }];
+    if (cut) {
+      const B = bent(T);
+      for (let k = 1; k <= steps; k++) pts.push(cubicAt(B, k / steps));
+      return { angle, pts, h: arcTable(B).arc(1) / steps, steps };
     }
-    const extra = (s: number) => {
-      const t = Math.max(0, s - L0) / dh, k = Math.min(turns.length - 2, Math.floor(t));
-      return k < 0 ? 0 : t >= turns.length - 1 ? turns[turns.length - 1] : lerp(turns[k], turns[k + 1], t - k);
-    };
-    // traced in steps of about a third of the stroke width
-    const total = L0 + (turns.length - 1) * dh, n = Math.round(clamp(total / (m.s * 0.3), 48, 320)), sign = Math.sign(turn0), h = total / n;
-    const angle = (s: number) => lerp(drawn(s), ang[0], straighten) + sign * extra(s);
-    const pts: Pt[] = [{ x: J.x, y: J.y }];
-    for (let k = 1; k <= n; k++) { const t = angle(h * (k - 0.5)), p = pts[k - 1]; pts.push({ x: p.x + Math.cos(t) * h, y: p.y + Math.sin(t) * h }); }
-    return { angle, pts, h, T, n };
+    for (let k = 1; k <= steps; k++) { const t = angle(h * (k - 0.5)), p = pts[k - 1]; pts.push({ x: p.x + Math.cos(t) * h, y: p.y + Math.sin(t) * h }); }
+    return { angle, pts, h, steps };
   };
-  const { hits, loose } = curlCrowd(cmds, which, S0, at, m, crowd);
-  let best = draw(0, 1, 1), fewest = hits(best.pts, best.h, best.T);
-  for (const [x, f, g] of CURL_TRIES) {
-    if (!fewest) break;
-    const r = draw(x * m.xh, f, g), n = hits(r.pts, r.h, r.T, fewest);
-    if (n < fewest) { best = r; fewest = n; }
-  }
-  // an end curled on its own (`mine`) and left not wound at all only keeps off a dot's ink (the dot of an i
-  // sits too close to its stem for more), and takes the most it can that comes no nearer than the end as
-  // drawn already does (the top of the stem of an @ runs along its bowl from the start); failing that it
-  // curls less, as far as fits, so its control never springs back straight as it is turned up
-  if (mine && amount > 0 && best.T === 0) {
-    const home = draw(0, 0, 1), base = hits(home.pts, home.h, home.T, Infinity, loose);
-    for (const [x, f, g] of [[0, 1, 1], ...CURL_TRIES]) {
-      if (!f) continue;
-      const r = draw(x * m.xh, f, g);
-      if (hits(r.pts, r.h, r.T, base + 1, loose) <= base) { best = r; break; }
+  // how often a drawing comes nearer the letter than CURL_CLEAR (or than the end as drawn does already); an end curled
+  // on its own (`mine`) keeps off only a dot's ink (the dot of an i sits too close to its stem for more)
+  const { hits, loose, cornersNear, wide } = curlCrowd(cmds, which, S0, at, m, () => others, extra), cells = mine ? loose : undefined;
+  // (the corners of a tip cut across it, half the widest pen's width either side, `out` further for a drop on it, which
+  // hangs out past the stroke as the end is drawn on; turned, a drop's corners would sweep round past what they near)
+  const tips = (pts: Pt[], out = 0) => {
+    const p = pts[pts.length - 1], q = pts[Math.max(0, pts.length - 4)], l = Math.hypot(p.x - q.x, p.y - q.y) || 1, r = wide / 2 + out;
+    const nx = -(p.y - q.y) / l * r, ny = (p.x - q.x) / l * r;
+    return [{ x: p.x + nx, y: p.y + ny }, { x: p.x - nx, y: p.y - ny }];
+  };
+  const near = (Sn: number, T: number, most = Infinity) => { const r = draw(Sn, T); return hits(r.pts, r.h, T, most, cells); };
+  /** the most of `most` (0..1) that comes no nearer than `ok` does, found by halves */
+  const fit = (ok: (f: number) => boolean) => {
+    if (ok(1)) return 1;
+    let lo = 0, hi = 1;
+    for (let k = 0; k < 6; k++) { const f = (lo + hi) / 2; if (ok(f)) lo = f; else hi = f; }
+    return lo;
+  };
+  // drawn on its share of as far as the end at the top of Length's slider has room to reach: uncurled, on round its own
+  // curve as stretchEnd draws it on (read from J out to its new tip), curled, as `draw` does
+  // (and the corners of its tip too)
+  const drawnOn = (x: number): { n: number; tips: Pt[] } => {
+    let pts: Pt[], h: number;
+    if (!still) ({ pts, h } = draw(long(x), 0));
+    else {
+      const r = stretchEnd(cmds, which, x, m);
+      if (!r) return { n: Infinity, tips: [] };
+      h = m.s * 0.1;
+      const line = centerPoints(r.cmds, m, h);
+      if (which === 's') line.reverse();
+      pts = [line[line.length - 1]];
+      for (let k = line.length - 2, s = 0; k >= 0 && s < S0 + x; k--) { s += Math.hypot(line[k].x - line[k + 1].x, line[k].y - line[k + 1].y); pts.push(line[k]); }
+      pts.reverse();
     }
-    if (best.T === 0 && Math.abs(curl - 0.5) > 0.04) return shapeEnd(cmds, which, d, 0.5 + (curl - 0.5) * 0.8, m, mid, crowd, true);
+    return { n: hits(pts, h, 0, Infinity, cells), tips: tips(pts, extra) };
+  };
+  let dd = d;
+  if (d > 0) {
+    const base = drawnOn(0);
+    dd = d * fit(f => { const r = drawnOn(dMost * f); return r.n <= base.n && !cornersNear(base.tips, r.tips, cells); });
   }
-  const { angle, pts, h, n: steps } = best;
-  const pieces = toBeziers(angle, pts, h, steps);
+  if (still) return stretchEnd(cmds, which, dd, m);
+  // (letters broken into straight cuts turn the end drawn on as one curve, which their cuts break as they do the rest)
+  if (cut && Math.abs(dd) >= 0.01) {
+    const r = stretchEnd(cmds, which, dd, m), t = r && shapeEnd(r.cmds, which, 0, curl, m, mid, crowd, mine, 0, extra);
+    return t ? { ...t, from: r!.from } : r;
+  }
+  // and curled round its share of as far as the end at the end of Curl's slider (CURL_BEND) has room to turn
+  // (an end curled on its own always turns some way, so its control never stands still as it is turned)
+  const Sn = long(dd), base = near(Sn, 0), was = tips(draw(Sn, 0).pts);
+  const room = Math.max(mine ? CURL_OWN : 0, fit(f => near(Sn, CURL_BEND * f, base + 1) <= base && !cornersNear(was, tips(draw(Sn, CURL_BEND * f).pts), cells)));
+  const { angle, pts, h, steps } = draw(Sn, Math.abs(k2) * CURL_BEND * room);
+  const pieces = cut ? [bent(Math.abs(k2) * CURL_BEND * room)] : toBeziers(angle, pts, h, steps);
   const xs = pts.map(p => p.x), span = { x0: Math.min(...xs), x1: Math.max(...xs) };
-  const uJ = uAt(which === 'e' ? b - S0 : a + S0), w = o.w != null ? { w: o.w, even: true } : {}, to = pts[steps], out = cmds.slice();
+  const w = o.w != null ? { w: o.w, even: true } : {}, to = pts[steps], out = cmds.slice();
   if (which === 'e') {
-    const keep: Cmd = e.line ? ['L', J.x, J.y, ...c.slice(3)] : [c[0], ...c.slice(1, oi), { ...o, u1: uJ }];
+    // (on letters broken into straight cuts, what's left of the last command is written out as a plain curve to J, cut
+    // on its own: cut as part of the whole command, it would stop at its cut's corner, short of J, and leave a spike)
+    const R = subCubic(P, u0, uJ), plainRest = { ...o };
+    delete plainRest.u0; delete plainRest.u1;
+    const keep: Cmd = e.line ? ['L', J.x, J.y, ...c.slice(3)] : cut ? ['C', R[1].x, R[1].y, R[2].x, R[2].y, R[3].x, R[3].y, plainRest] : [c[0], ...c.slice(1, oi), { ...o, u1: uJ }];
     out.splice(i, 1, keep, ...pieces.map(q => ['C', q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y, w] as Cmd));
     return { cmds: out, from: cubicAt(P, u1), to, span };
   }
@@ -445,13 +485,19 @@ export function stretchTerminals(b: Builder, m: Metrics, W: number, hooks: Set<s
       // where letters join up (the start of an entry stroke, the tip of an exit), the stroke end curl
       // would wind a knot into the join: only a curl set for that one end turns it
       const join = o.part === 'entry' || (at && b.marks.some(k => k.type === 'exit' && Math.hypot(k.x - at.x, k.y - at.y) < 1));
-      // and an end with a serif keeps it, level or plumb, as a crossbar's end runs level: only a curl set for that one
-      // end bends it (and lets a serif go)
-      const curl = join || serif || o.part === 'crossbar' ? m.p.terminalCurls?.[id] ?? 0.5 : endCurl(m.p, id);
+      // and an end with a serif keeps it, level or plumb, as a crossbar's end runs level, and a straight level bar's (a
+      // 2's foot, a 5's top) with it: only a curl set for that one end bends it (and lets a serif go)
+      const ec = endCmd(st.cmds, which, m), bar = !!ec?.line && Math.abs(cubicAt(ec.P, which === 's' ? ec.u0 : ec.u1).ty) < 0.35;
+      const curl = join || serif || o.part === 'crossbar' || bar ? m.p.terminalCurls?.[id] ?? 0.5 : endCurl(m.p, id);
       if (Math.abs(d) < 0.01 && curl === 0.5) continue;
+      // (drawn on no further than its share of the room it has at the top of Length's slider, and kept further off the
+      // letter by as far as a drop on it hangs out past the stroke)
+      // (the top of Length's slider, as far as an end's own length reaches on the same scale: past that, its own)
+      const dMost = Math.max(d, endReach(onEndScale(1)) * m.xh * (o.scale || 1)), T = m.ctx.term, drops = !plain && !serif && m.p.terminal === 'round' && (T?.form === 'droplet' || T?.form === 'ball');
+      const extra = drops && T ? Math.max(0, Math.max(T.size * m.s, DROP_MIN * m.s, T.size * 0.55 * m.ctx.thick) - m.s / 2) : 0;
       const before = st.cmds, r = shapeEnd(st.cmds, which, d, curl, m, mid ??= middle(),
-        () => b.strokes.flatMap((t, ti) => ti === si ? [] : t.cmds ? centerPoints(t.cmds, m, m.s * 0.5) : t.poly ? dotPoints(t.poly, m.s * 0.25) : []),
-        m.p.terminalCurls?.[id] != null);
+        () => b.strokes.flatMap((t, ti) => ti === si ? [] : t.cmds ? widthsOn(centerPoints(t.cmds, m, m.s * 0.25), m) : t.poly ? dotPoints(t.poly, m.s * 0.25) : []),
+        m.p.terminalCurls?.[id] != null, dMost, extra);
       if (!r) continue;
       st.cmds = r.cmds;
       if (plain && type !== 'flat' && curl !== 0.5) st.o = { ...st.o, [which]: 'flat' };
