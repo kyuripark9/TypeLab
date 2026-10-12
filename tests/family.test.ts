@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { inflateRawSync } from 'node:zlib';
 import { describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
-import { FAMILY_STYLES, familyMember, familyMembers, ownStyle, WEIGHTS, weightIdOf, weightRatio } from '../shared/family';
+import { anchorOf, FAMILY_STYLES, familyMember, familyMembers, ownStyle, stemRatio, WEIGHTS, weightIdOf } from '../shared/family';
 import { DEFAULTS, isValidParams, sanitizeParams, weightScale, weightUnscale } from '../shared/params';
 import { buildFont, type Glyph } from '../shared/engine';
 import { buildFamilyZip } from '../server/export';
@@ -49,9 +49,23 @@ describe('font family', () => {
         for (const v of ws) assert.ok(v >= 0 && v <= 1);
       }
     }
-    // Regular at the default weight: Thin is a fraction as heavy, Black over twice
-    assert.ok(weightRatio(0.4, 'regular', 'thin') < 0.4);
-    assert.ok(weightRatio(0.4, 'regular', 'black') > 2.5);
+    // Regular at the default weight: Thin's stems a fraction as thick, Black's over twice
+    const stem = buildFont(DEFAULTS).m.s;
+    assert.ok(stemRatio(stem, 'regular', 'thin') < 0.4);
+    assert.ok(stemRatio(stem, 'regular', 'black') > 2.4);
+  });
+
+  it('reads a design by its stems, and steps evenly where Verticals already draw them heavy', () => {
+    // Weight 65 is a SemiBold's, but at Verticals 97 its stems are past a Black's
+    assert.equal(anchorOf({ ...DEFAULTS, weight: 0.65 }), 'semibold');
+    const p = { ...DEFAULTS, weight: 0.65, vWeight: 0.97 }, anchor = anchorOf(p);
+    assert.equal(anchor, 'black');
+    assert.equal(ownStyle(p).style, 'Black');
+    // every weight lighter than the next by a step of about the same ratio, Thin as light as a plain Thin
+    const stems = WEIGHTS.map(w => buildFont(familyMember(p, anchor, w.id, false).params).m.s);
+    for (let i = 1; i < stems.length; i++) assert.ok(stems[i] > stems[i - 1] * 1.25 && stems[i] < stems[i - 1] * 1.5, `${WEIGHTS[i].id}: ${stems[i - 1]} → ${stems[i]}`);
+    assert.ok(Math.abs(stems[0] - buildFont({ ...DEFAULTS, weight: WEIGHTS[0].at }).m.s) < 0.5);
+    for (const w of WEIGHTS) assert.ok(isValidParams(sanitizeParams(familyMember(p, anchor, w.id, true).params)));
   });
 
   it('reweighs and reslants letters with their own weight or slant, and keeps valid settings', () => {
@@ -71,7 +85,7 @@ describe('font family', () => {
   it('thickens and thins letters drawn in Points with the family, keeps them as drawn in the design, and leans them in its italics', () => {
     // an l drawn as a plain stem, standing on the baseline and reaching the capitals' height
     const l = { adv: 320, contours: [[{ x: 60, y: 0 }, { x: 260, y: 0 }, { x: 260, y: 700 }, { x: 60, y: 700 }]] };
-    const p = sanitizeParams({ ...DEFAULTS, outlines: { l } }), anchor = weightIdOf(p.weight);
+    const p = sanitizeParams({ ...DEFAULTS, outlines: { l } }), anchor = anchorOf(p);
     const glyph = (weight: (typeof WEIGHTS)[number]['id'], italic = false) => buildFont(familyMember(p, anchor, weight, italic).params).glyph('l')!;
     const box = (g: Glyph) => {
       const xs = g.cmds.flatMap(c => c.slice(1).filter((_, i) => i % 2 === 0) as number[]), ys = g.cmds.flatMap(c => c.slice(2).filter((_, i) => i % 2 === 0) as number[]);

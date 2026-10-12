@@ -152,11 +152,14 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   Slant move (a family in one weight or only an italic gives that font); `withoutReserved` takes the family's own and
   reserved names out of an exported font's name (OFL; an own font reserves nothing). Own fonts' names are font ids in
   saved designs: never rename one.
-- `family.ts`: the nine `WEIGHTS` (Regular at index 3, Bold at 6), `TYPICAL` places on the Weight slider (0.4 is
-  Regular, as Weight 0.4 is the default and a free font's 400), the anchor (the weight the design is named as), and
-  `familyMember`, which reweighs and reslants the design and each letter's own weight or slant, and marks the member's
-  params (`drawnFrom`) so the engine moves letters drawn in Points from the design to its weight and lean
-  (engine/family-drawn.ts): a copy of a member's params draws them unmoved. Italics lean 0.55
+- `family.ts`: the nine `WEIGHTS` (Regular at index 3, Bold at 6), their places on the Weight slider (`at`; 0.4 is
+  Regular, as Weight 0.4 is the default and a free font's 400), the anchor (`anchorOf`: the weight the design's stems
+  read as, the Weight that draws stems as thick with Verticals as drawn, so Weight 65 at Verticals 97 is a Black), and
+  `familyMember`. A family steps by stems (Metrics.s): `stemRatio` spreads them evenly from the design's to the lightest
+  and heaviest weights' stems, and each member's Weight is solved to draw them (past either end of the slider, its
+  Verticals too); each letter's own weight follows, and its own slant leans. It marks the member's params (`drawnFrom`)
+  so the engine moves letters drawn in Points from the design to its weight and lean (engine/family-drawn.ts): a copy
+  of a member's params draws them unmoved. Italics lean 0.55
   (about 11°) unless the design is slanted past `SLANTED` (0.05) already. `FAMILY_STYLES` names the eighteen styles
   (uprights, then italics) and `ownStyle` the one the design is by itself: the Export window saves any of them, one or several.
 - `traits.ts`: each trait's steps set a few settings; `applyTraits` lays them in `TRAITS` order and `traitsKey`

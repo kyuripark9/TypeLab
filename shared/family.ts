@@ -1,8 +1,11 @@
 /* A font family: the design drawn again at other weights and upright or italic, each saved as its
    own font file under one family name, so font menus list them together (Thin to Black, each with
-   its italic). The design itself is one of them, at the weight it is named as. */
+   its italic). The design itself is one of them, at the weight its stems read as. The weights step by
+   how thick their stems are drawn, so a design whose Verticals already draw them heavy still steps
+   evenly to its Thin. */
 import { drawnFrom } from './engine';
-import { slantDeg, weightScale, weightUnscale, type GlyphParams, type Params } from './params';
+import { metrics, resolve } from './engine/font';
+import { DEFAULTS, slantDeg, type GlyphParams, type Params } from './params';
 
 /** The weights a family can have, lightest first, with the OpenType weight class each installs as, and where each
     sits on the Weight slider when it isn't the design's own (`at`): the design's default weight (DEFAULTS.weight,
@@ -25,29 +28,57 @@ export const isWeightId = (v: unknown): v is WeightId => WEIGHTS.some(w => w.id 
     fill in, short of the very ends of the slider where counters close. */
 const LIGHTEST = WEIGHTS[0].at, HEAVIEST = WEIGHTS[WEIGHTS.length - 1].at;
 
-/** The weight a design reads as, by its Weight setting: the nearest of the weights' places (`at`). */
+/** The weight a design of Weight `weight` reads as, its Verticals as drawn: the nearest of the weights' places (`at`). */
 export function weightIdOf(weight: number): WeightId {
   let best = 0;
   WEIGHTS.forEach((w, i) => { if (Math.abs(w.at - weight) < Math.abs(WEIGHTS[best].at - weight)) best = i; });
   return WEIGHTS[best].id;
 }
 
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+/** How thick a design's stems are drawn (Metrics.s, in font units), its Verticals counted: what a family steps by. */
+const stemOf = (p: Params) => metrics(resolve(p)).s;
+/** How thick Weight `w` draws stems with Verticals as drawn (DEFAULTS'): where the weights' places sit in stems. */
+const plainStem = (w: number) => stemOf({ ...DEFAULTS, weight: w });
 
-/** How many times heavier than the design the weight `id` draws its strokes, when the design is
-    named `anchor`. The lighter weights are spread evenly, step by step in the same ratio, from the
-    lightest a family reaches up to the design, and the heavier ones from the design up to the
-    heaviest, so the design is exactly one of them and no two steps feel far apart. */
-export function weightRatio(designWeight: number, anchor: WeightId, id: WeightId): number {
+/** Where between lo and hi the rising f reaches `want` (at lo or hi, where it stays short of it there). */
+function solve(f: (v: number) => number, want: number, lo: number, hi: number) {
+  if (f(lo) >= want) return lo;
+  if (f(hi) <= want) return hi;
+  for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (f(mid) < want) lo = mid; else hi = mid; }
+  return (lo + hi) / 2;
+}
+
+/** The weight a design reads as: the nearest of the weights' places to where on the Weight slider its stems sit (the
+    Weight that draws stems as thick with Verticals as drawn), which is its Weight setting while Verticals are as
+    drawn. A design whose Verticals draw its stems heavier reads heavier: Weight 65 at Verticals 97 draws stems past
+    a Black's, and so is the family's Black. */
+export const anchorOf = (p: Params): WeightId => weightIdOf(solve(plainStem, stemOf(p), 0, 1));
+
+/** How many times thicker than the design's (`stem` thick) the weight `id` draws its stems, the design being the
+    weight `anchor`. The lighter weights are spread evenly, step by step in the same ratio, from the stems of the
+    lightest a family reaches up to the design's, and the heavier ones from the design's up to the heaviest's, so the
+    design is exactly one of them and no two steps feel far apart. */
+export function stemRatio(stem: number, anchor: WeightId, id: WeightId): number {
   const a = WEIGHTS.findIndex(w => w.id === anchor), i = WEIGHTS.findIndex(w => w.id === id);
-  const s0 = weightScale(designWeight);
   if (i === a) return 1;
-  const end = weightScale(i < a ? LIGHTEST : HEAVIEST);
+  const end = plainStem(i < a ? LIGHTEST : HEAVIEST);
   // a design heavier than Black or lighter than Thin: spread from it, not back past it
   const t = i < a ? (a - i) / a : (i - a) / (WEIGHTS.length - 1 - a);
-  const s = s0 * Math.pow(end / s0, t);
-  return i < a ? Math.min(1, s / s0) : Math.max(1, s / s0);
+  const r = Math.pow(end / stem, t);
+  return i < a ? Math.min(1, r) : Math.max(1, r);
 }
+
+/** Design `p` with its stems `stem` thick: its Weight moved, and past either end of the slider its Verticals too (a
+    design whose Verticals draw heavy stems reaches a Thin's only with lighter ones), as far as the engine draws
+    stems at all. */
+function withStem(p: Params, stem: number): Pick<Params, 'weight' | 'vWeight'> {
+  const at = (weight: number, vWeight = p.vWeight) => stemOf({ ...p, weight, vWeight });
+  if (stem < at(0)) return { weight: 0, vWeight: solve(v => at(0, v), stem, 0, p.vWeight) };
+  if (stem > at(1)) return { weight: 1, vWeight: solve(v => at(1, v), stem, p.vWeight, 1) };
+  return { weight: solve(w => at(w), stem, 0, 1), vWeight: p.vWeight };
+}
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /** The slant a family's italics take when the design is upright: about 11° (see slantDeg). */
 const ITALIC_SLANT = 0.55;
@@ -73,30 +104,33 @@ const styleName = (weight: WeightId, italic: boolean) => {
 export const FAMILY_STYLES = [false, true].flatMap(italic => WEIGHTS.map(w => ({ weight: w.id, italic, style: styleName(w.id, italic) })));
 
 /** The style a design is by itself: its weight, italic when it leans already. */
-export const ownStyle = (params: Params, anchor: WeightId = weightIdOf(params.weight)) =>
+export const ownStyle = (params: Params, anchor: WeightId = anchorOf(params)) =>
   FAMILY_STYLES.find(f => f.weight === anchor && f.italic === params.slant >= SLANTED)!;
 
-/** One member of the family: the design at the weight `id` and upright or italic. A letter with its
-    own weight or slant keeps how it differs from the rest. Letters drawn by hand in Points mode, which
+/** One member of the family: the design at the weight `id` (its stems as stemRatio has them, by its Weight, and past
+    either end of it its Verticals) and upright or italic. A letter with its own weight or slant keeps how it differs
+    from the rest. Letters drawn by hand in Points mode, which
     no setting shapes, are moved from the design instead: their strokes thickened or thinned and the
     letters leaned as the member's are (family-drawn.ts in the engine, which finds the design by the
     member's params object). A design written in a free font follows the weight and slant to the
     family's heavier or lighter fonts and its italic, as the editor does (see freeLetters in the engine). */
 export function familyMember(params: Params, anchor: WeightId, weight: WeightId, italic: boolean): FamilyMember {
-  const ratio = weightRatio(params.weight, anchor, weight);
-  const reweigh = (v: number) => clamp01(weightUnscale(weightScale(v) * ratio));
+  const own = weight === anchor, ratio = own ? 1 : stemRatio(stemOf(params), anchor, weight);
+  const weighs = own ? {} : withStem(params, stemOf(params) * ratio);
+  // (a letter's own weight, as far as its own stems step: within the slider, its Verticals the member's)
+  const reweigh = (g: GlyphParams) => withStem({ ...params, ...weighs, ...g, glyphs: {} }, stemOf({ ...params, ...g, glyphs: {} }) * ratio).weight;
   const ownSlant = params.slant >= SLANTED;
   const slant = italic ? (ownSlant ? params.slant : ITALIC_SLANT) : 0;
   const reslant = (v: number) => clamp01(v + slant - params.slant);
   const glyphs: Record<string, GlyphParams> = {};
   for (const [ch, g] of Object.entries(params.glyphs)) {
-    glyphs[ch] = { ...g, ...(g.weight !== undefined && { weight: reweigh(g.weight) }), ...(g.slant !== undefined && { slant: reslant(g.slant) }) };
+    glyphs[ch] = { ...g, ...(g.weight !== undefined && !own && { weight: reweigh(g) }), ...(g.slant !== undefined && { slant: reslant(g.slant) }) };
   }
   const cls = WEIGHTS.find(w => w.id === weight)!.cls;
   return {
     weight, italic, style: styleName(weight, italic), cls,
     angle: slantDeg(slant),
-    params: drawnFrom({ ...params, weight: reweigh(params.weight), slant, glyphs }, params)
+    params: drawnFrom({ ...params, ...weighs, slant, glyphs }, params)
   };
 }
 

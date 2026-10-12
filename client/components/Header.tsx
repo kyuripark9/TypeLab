@@ -7,13 +7,13 @@ import { Link, useLocation } from 'react-router';
 import { styleById } from '../../shared/content';
 import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
 import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../../shared/params';
-import { FAMILY_STYLES, ownStyle, weightIdOf } from '../../shared/family';
+import { anchorOf, FAMILY_STYLES, ownStyle } from '../../shared/family';
 import { parseFontId, withoutReserved } from '../../shared/free-fonts';
 import { api, download, errorMessage } from '../lib/api';
 import { useEscape } from '../lib/hooks';
 import { DESIGNS, NEW_DESIGN, designPath } from '../lib/routes';
 import { actions, isDirty, savedName, useEditor } from '../state/editor';
-import { FamilyPicker } from './Family';
+import { FamilyPicker, useFamilySamplesAhead } from './Family';
 
 /** Under the export's name, written in a free font: the name it exports under when the font's licence
     reserves part of it (a changed font may not take a reserved name, see withoutReserved). */
@@ -143,6 +143,7 @@ function NamePrompt({ onDone, onCancel }: { onDone: (name: string) => void; onCa
 /** Export, in the header: opens the Export window (so does the last page of controls, through exportOpen). */
 function ExportButton() {
   const open = useEditor(s => s.exportOpen);
+  useFamilySamplesAhead();
   return <>
     <button className="btn primary" aria-haspopup="dialog" aria-expanded={open} onClick={() => actions.setExportOpen(true)}>Export</button>
     {open && <ExportDialog onClose={() => actions.setExportOpen(false)} />}
@@ -190,9 +191,9 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   const touched = useRef(false);
   const takeName = () => { if (cleanName(draft) !== cleanName(useEditor.getState().name)) void commitName(draft); };
 
-  // the styles to save, by the names they install under: at first the design's own, the weight its Weight
-  // setting reads as, italic when it leans; the family's other weights spread from it
-  const anchor = weightIdOf(params.weight);
+  // the styles to save, by the names they install under: at first the design's own, the weight its stems read as,
+  // italic when it leans; the family's other weights spread from it
+  const anchor = anchorOf(params);
   const [picked, setPicked] = useState(() => [ownStyle(params, anchor).style]);
   const styles = FAMILY_STYLES.filter(f => picked.includes(f.style));
 

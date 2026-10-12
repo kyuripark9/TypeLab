@@ -74,8 +74,8 @@ file.
 | `grid.ts` | Construction grids and their groups, Grid A to T (`glyphGrid`, `gridGroups`, `gridOf`) |
 | `free.ts` | The free-font registry and its packed format |
 | `free-letters.ts` | A design's letters drawn from its free font: `freeLetters`, `freeGlyph`, `restyled`, the twin |
-| `skin.ts`, `scan.ts` | A free font's letter rigged on its scanned skeleton and moved by the engine's measures (`skinMove`), or, a letter drawn in Points, with its straight edges kept straight and its rounds round (`skinEdges`); the scan |
-| `family-drawn.ts` | Letters drawn in Points in a family's other members: found by the member's params object (`drawnFrom`, `drawnDesign`), rigged from the design they were drawn in (`RigLetters`: its drawn letters and its h p x n H), moved by `skinEdges` as far toward the member's weight as their edges don't cross (else `skinMove`), spaced and leaned (`movedDrawn`) |
+| `skin.ts`, `scan.ts` | A free font's letter rigged on its scanned skeleton and moved by the engine's measures (`skinMove`), or, a letter drawn in Points, as a drawing of straight edges and rounds (`skinEdges`: edges moved whole, or bent where their stroke narrows; stroke ends, edges on the letter's lines and the far side of a bar on one kept; corners met again; rounds carried with their corner or stretched; every corner, round and handle held short of the outline across from it (`reach`); long curves cut first; null where it still crosses); the scan |
+| `family-drawn.ts` | Letters drawn in Points in a family's other members: found by the member's params object (`drawnFrom`, `drawnDesign`), rigged from the design they were drawn in (`RigLetters`: its drawn letters and its h p x n H), moved by `skinEdges` as far toward the member's weight as their edges don't cross, in eighths (else `skinMove`), spaced and leaned (`movedDrawn`) |
 | `restyle.ts` | The engine's shapes redrawn on a free font's letter: dots, bowls, ends, serifs, stencil, peaks, corners |
 | `highlight.ts` | `highlightD` and `RING_KEYS` |
 | `geom.ts`, `types.ts` | Béziers, polygons, corner rounding, path output (`cmdsToD`); points, commands, the pen, marks |

@@ -13,7 +13,7 @@ import { dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { buildFont, OUT, rowsPNG, rowsSVG, styleParams, withSets, type Row } from './lib';
 import { DEFAULTS, sanitizeParams, upgradeParams, type Params } from '../shared/params';
-import { familyMember, WEIGHTS, weightIdOf } from '../shared/family';
+import { anchorOf, familyMember, WEIGHTS } from '../shared/family';
 
 const { values: a } = parseArgs({
   options: {
@@ -37,7 +37,7 @@ const rows: Row[] = [];
 if (a.sweep) {
   for (let i = 0; i <= 8; i++) rows.push({ font: buildFont(withSets(base, [`${a.sweep}=${i / 8}`])), text: a.text!, label: `${a.sweep} ${(i / 8).toFixed(3)}` });
 } else if (a.family || a.italic) {
-  const anchor = weightIdOf(base.weight);
+  const anchor = anchorOf(base);
   for (const w of WEIGHTS) {
     const f = familyMember(base, anchor, w.id, a.italic!);
     rows.push({ font: buildFont(f.params), text: a.text!, label: f.style + (w.id === anchor ? ' (the design)' : '') });

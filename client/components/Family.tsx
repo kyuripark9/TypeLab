@@ -1,12 +1,14 @@
 /* The styles of a design's family to export, picked in the Export window, one or several: every weight from Thin
    to Black, upright and italic, each drawn in a sample as the font it will be, so the steps between them can be
-   judged before downloading. The design itself is one of them, at the weight its Weight setting reads as (the
-   nearest of the family's), whose name stands out in the list. Picked styles look as a picked option does in the
+   judged before downloading. The design itself is one of them, at the weight its stems read as (anchorOf in
+   shared/family.ts), whose name stands out in the list. Picked styles look as a picked option does in the
    panel, ringed and drawn in the accent; the design's own, picked to start with, is filled. Only the weights'
    names show: the samples say the rest. */
-import { useDeferredValue, useMemo } from 'react';
-import { FAMILY_STYLES, familyMember, ownStyle, WEIGHTS, type FamilyMember, type WeightId } from '../../shared/family';
+import { useDeferredValue, useEffect, useMemo } from 'react';
+import { buildFont, type Font } from '../../shared/engine';
+import { anchorOf, FAMILY_STYLES, familyMember, ownStyle, WEIGHTS, type FamilyMember, type WeightId } from '../../shared/family';
 import type { Params } from '../../shared/params';
+import { useEditor } from '../state/editor';
 import { useFreeFonts } from '../lib/free';
 import { n1 } from '../lib/hooks';
 import { fontFor } from '../state/editor';
@@ -16,7 +18,7 @@ const SAMPLE = 'Hamburgefonstiv';
 
 interface PickerProps {
   params: Params;
-  /** the weight the design reads as (weightIdOf) */ anchor: WeightId;
+  /** the weight the design reads as (anchorOf) */ anchor: WeightId;
   /** the styles picked, by the names they install under */ picked: string[]; onPick: (picked: string[]) => void;
 }
 
@@ -26,8 +28,8 @@ export function FamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
   const rows = useMemo(() => WEIGHTS.map(w => ({
     ...w, upright: familyMember(params, anchor, w.id, false), italic: familyMember(params, anchor, w.id, true)
   })), [params, anchor]);
-  // (a design with letters drawn in Points draws its samples once the window is open: moving those letters to the other
-  // weights takes a moment the first time, see family-drawn.ts in the engine)
+  // (a design with letters drawn in Points draws its samples once the window is open, in case they weren't drawn ahead
+  // (useFamilySamplesAhead): moving those letters to the other weights takes a moment the first time)
   const shown = useDeferredValue(rows, Object.keys(params.outlines).length ? null : rows);
   const toggle = (style: string) => onPick(picked.includes(style) ? picked.filter(s => s !== style) : [...picked, style]);
   // All picks every style; pressed again, it goes back to the design alone, as the window opened
@@ -60,6 +62,31 @@ export function FamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
       </div>
     </div>
   );
+}
+
+/** The samples' letters drawn in Points, moved to every style of the family ahead of the Export window, a letter of a
+    style at a time while the editor is idle (a second after the settings last changed), so the window opens with its
+    samples drawn: moving them takes a moment the first time (family-drawn.ts in the engine keeps what it moved). */
+export function useFamilySamplesAhead() {
+  const params = useEditor(s => s.params);
+  useEffect(() => {
+    const chars = [...new Set(SAMPLE)].filter(ch => params.outlines[ch]);
+    if (!chars.length) return;
+    const anchor = anchorOf(params), steps = FAMILY_STYLES.flatMap(f => chars.map(ch => ({ f, ch }))), fonts = new Map<string, Font>();
+    let next = 0, handle = 0;
+    const idle = typeof requestIdleCallback === 'function';
+    const work = (deadline?: IdleDeadline) => {
+      do {
+        const { f, ch } = steps[next++];
+        let font = fonts.get(f.style);
+        if (!font) { font = buildFont(familyMember(params, anchor, f.weight, f.italic).params); fonts.set(f.style, font); }
+        font.glyph(ch);
+      } while (next < steps.length && deadline && deadline.timeRemaining() > 4);
+      if (next < steps.length) handle = idle ? requestIdleCallback(work) : window.setTimeout(work, 30);
+    };
+    const start = window.setTimeout(() => { handle = idle ? requestIdleCallback(work) : window.setTimeout(work, 30); }, 1000);
+    return () => { clearTimeout(start); if (idle) cancelIdleCallback(handle); else clearTimeout(handle); };
+  }, [params]);
 }
 
 /** One member's sample, drawn by the font it exports as. */

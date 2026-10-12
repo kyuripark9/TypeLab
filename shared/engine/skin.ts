@@ -153,8 +153,16 @@ const SHORT_EDGE = 0.04;
 /** How much further than its own stroke thins or thickens a point on a round may go with the edges either side of it
     (skinEdges), as a share of its stroke's half-thickness. */
 const HOLD = 0.3;
+/** The most of the ink before it, the way it moves, a corner goes into as the edges either side of it move (skinEdges):
+    a little under half, as the outline across from it may come as far. */
+const CORNER_IN = 0.49;
 /** The least share of its size a round on the outside of a corner keeps as the edges either side move in (skinEdges). */
 const ROUND_KEPT = 0.1;
+/** How long a curve skinEdges moves in one piece, as a share of the capitals' height: a longer one is cut in pieces, so
+    a point along it can be held back where its ink is thin. */
+const LONG_CURVE = 0.08;
+/** At how many places along a slanted edge skinEdges tries bending or stepping the line it moves along. */
+const BEND_TRIES = 24;
 /** how many of the latest ways a rig was moved it keeps (SkinRig.moves) */
 const MOVES_KEPT = 6;
 /** an anchor whose way in and way out part by more than 30° is a corner */
@@ -779,44 +787,123 @@ export function skinMove(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures): Node
 }
 
 /** The rigged letter thickened or thinned from m0 toward `to` as a drawing of straight edges and rounds is (a letter
-    drawn in Points, see family-drawn.ts), its heights and width kept: each straight edge moved out or in whole, by its
-    stroke's change of thickness, or not at all where it lies on one of the letter's lines (as the engine's letters keep
-    their heights) or ends a stroke; each corner between two straight edges where they meet again; and each run of
-    curves between two straight edges carried whole with the corner the two make, so a round keeps its shape (one on
-    the outside of the corner made as much smaller or larger as the edges move in or out), unless that takes a point of
-    it into or out of its ink further than its own stroke thins or thickens (a round under a hairline, the corner its
-    edges make running up through it): then each end goes with its own edge and the rest is stretched between them, no
-    point going further than it may. A contour with no straight edge moves each point as its own sample does (edgeMoves).
-    Every point and handle is the outline's own, moved. Null where the outline so moved crosses itself (edges moved past
-    the ones across from them), for skinMove to draw. */
+    drawn in Points, see family-drawn.ts), its heights and width kept. Each straight edge moves out or in by its stroke's
+    change of thickness: an upright or level one whole, a slanted one along a line that may bend where its stroke
+    narrows; one lying on one of the letter's lines, or ending a stroke, stays. Each corner between two straight edges
+    goes where they meet again, and each run of curves between two is carried whole with the corner the two make, so a
+    round keeps its shape (one on the outside of the corner made smaller or larger as the edges move in or out), unless
+    that takes a point of it into or out of its ink further than its own stroke thins or thickens: then its ends go
+    with their edges and the rest is stretched between them. No corner, round or handle goes further into the ink
+    before it than the outline across from it leaves room for (a counter's corner under a hairline stays under it), and
+    upright and level edges stay so. A contour with no straight edge moves each point as its own sample does
+    (edgeMoves). Long curves are cut in pieces first, so a point along one can be held back. Every point and handle is
+    the outline's own, moved. Null where the outline so moved crosses itself (edges moved past the ones across from
+    them), for family-drawn.ts to move it less far. */
 export function skinEdges(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures): Node[][] | null {
   const m1 = reaching(rig, m0, to);
   if (sameMeasures(m0, m1)) return rig.contours;
+  // (kept by the measures, as a family's styles ask again for the ones they were drawn at)
+  let kept = edgeMovesKept.get(rig);
+  if (!kept) { kept = new Map(); edgeMovesKept.set(rig, kept); }
+  const key = [m0, m1].map(m => MEASURES.map(k => m[k].toFixed(4)).join()).join('|');
+  if (kept.has(key)) return kept.get(key)!;
+  const moved = edgesMoved(rig, m0, m1);
+  if (kept.size >= EDGE_MOVES_KEPT) kept.delete(kept.keys().next().value!);
+  kept.set(key, moved);
+  return moved;
+}
+
+/** The ways skinEdges moved each rig, by the measures it moved it from and to (as many as a family has styles, and some). */
+const edgeMovesKept = new WeakMap<SkinRig, Map<string, Node[][] | null>>();
+const EDGE_MOVES_KEPT = 40;
+
+/** skinEdges, the rig moved from m0 to m1 (the measures that reach it). */
+function edgesMoved(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] | null {
   const mv = moveMap(rig, m0, m1), c = rig.ctx, lines = [0, c.cap, ...(c.lower ? [c.xh, c.asc, c.desc] : [])];
-  const out = rig.contours.map((cn, r) => {
-    const bs = rig.bones[r], { moved } = edgeMoves(bs, r, mv), n = cn.length;
-    const bySeg: number[][] = cn.map(() => []);
+  // how far the ink reaches from point p, the way (ux, uy) goes, to the outline (read as polygons, a few points along
+  // each curve; its contours don't overlap, so inside is inside an odd number of them); no limit the way out of it
+  let polys = outlines.get(rig);
+  if (!polys) {
+    polys = rig.contours.map(cn => cn.flatMap((a, i) => {
+      const b = cn[(i + 1) % cn.length];
+      return a.ox === undefined && b.ix === undefined ? [{ x: a.x, y: a.y }] : Array.from({ length: 8 }, (_, k) => bez(a, b, k / 8));
+    }));
+    outlines.set(rig, polys);
+  }
+  const inkAhead = (p: P, ux: number, uy: number, fixed?: { on: boolean }) => {
+    let best = Infinity, flat = false;
+    for (const ring of polys!) for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length], sx = b.x - a.x, sy = b.y - a.y, den = ux * sy - uy * sx;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((a.x - p.x) * sy - (a.y - p.y) * sx) / den, w = ((a.x - p.x) * uy - (a.y - p.y) * ux) / den;
+      if (t > 0.5 && w >= 0 && w <= 1 && t < best) { best = t; flat = Math.abs(sy) < 1e-6 && lines.some(L => Math.abs(a.y - L) < 2.5); }
+    }
+    if (fixed) fixed.on = flat;
+    const q = { x: p.x + ux * 0.5, y: p.y + uy * 0.5 };
+    return polys!.reduce((k, ring) => k !== inPoly(ring, q), false) ? best : Infinity;
+  };
+  // how far a corner (or a round) at p may go the way (ux, uy): CORNER_IN of the ink before it, as the outline across
+  // from it may come as far toward it; nearly all of it where that lies on one of the letter's lines, which stays
+  const reach = (p: P, ux: number, uy: number) => { const f = { on: false }, d = inkAhead(p, ux, uy, f); return d * (f.on ? 0.95 : CORNER_IN); };
+  const out = rig.contours.map((c0, r) => {
+    const bs = rig.bones[r], { moved } = edgeMoves(bs, r, mv);
+    const bySeg: number[][] = c0.map(() => []);
     bs.forEach((b, i) => bySeg[b.seg].push(i));
-    // each straight edge: its ends, its inward normal (as its samples read it), and how far it moves out: as its stroke
-    // thickens or thins, read straight across (w0) from most of it, as a join at either end reads it thicker and a
-    // hairline run into it thinner (which thicknessWithoutJoins, reading along the outline, carries into an edge shorter
-    // than its stretch); or not at all, on one of the letter's lines or a stroke's end
+    // (a long curve cut in pieces, the same curve, so a point along it can be held back where its ink is thin; each point
+    // read by its own sample, the nearest, and each piece by the segment it is cut from)
+    const { cn, own, seg } = cutCurves(c0, bs, bySeg, c.cap * LONG_CURVE), n = cn.length;
+    // each straight edge: its ends, its inward normal (as its samples read it), and how far each end (and each bend)
+    // moves out. Each sample goes as far as its stroke thickens or thins, its half-thickness read straight across from it
+    // (w0) or as the paper's distance from the stroke's middle (`best`), the less (straight across from a flare's side,
+    // above the round of a counter beside it, runs on through the stem it flares from); what lies within that of either
+    // end of the edge (half of it, of an upright or level edge, which may be a short stub's side) is left out, as a join
+    // there reads the stroke thicker and a hairline run into it thinner. An upright or level edge stays so, moved whole
+    // no further than all but a fifth of it goes; a slanted one follows its samples' moves along it, in one straight
+    // line, or bent once or stepped (a wedge run into a hairline thins all along; an edge that is a flare's side for a
+    // stretch and a hairline's after bends where the two meet), drawn back as far as it went past any of them, and
+    // carried on to its ends no further than they went. One lying on one of the letter's lines, or cut across a stroke's
+    // end, stays
     const middle = (v: number[]) => v.slice().sort((p, q) => p - q)[v.length >> 1];
-    const edges = cn.map((a, i) => {
-      const b = cn[(i + 1) % n], dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy), on = bySeg[i].filter(j => !bs[j].corner);
+    const edges = cn.map((a, i): EdgeMove | null => {
+      const b = cn[(i + 1) % n], dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy), on = bySeg[seg[i]].filter(j => !bs[j].corner);
       if (a.ox !== undefined || b.ix !== undefined || l < c.cap * SHORT_EDGE || !on.length) return null;
       let nx = -dy / l, ny = dx / l;
       const s0 = bs[on[on.length >> 1]];
       if (s0.nx * nx + s0.ny * ny < 0) { nx = -nx; ny = -ny; }
       const onLine = Math.abs(ny) > 0.97 && lines.some(L => Math.abs(a.y - L) < 2.5 && Math.abs(b.y - L) < 2.5);
-      if (onLine || on.filter(j => crossEnd(bs[j])).length * 2 > on.length) return { a, b, nx, ny, d: 0 };
-      const d = middle(on.map(j => {
-        const p = bs[j], d = (mv.weighs({ ...p, w: p.w0 }) * mv.keeps(p, r, j) - 1) * p.w0;
-        return d > 0 ? Math.min(d, p.gap * OPEN) : d;
-      }));
-      return { a, b, nx, ny, d };
+      if (onLine || on.filter(j => crossEnd(bs[j])).length * 2 > on.length) return { a, b, nx, ny, da: 0, db: 0 };
+      // (nor where it ends a stroke the rig took for one running across it: where the ink a little way in from it is
+      // about as wide as it is, and reaches in from it at least as far; and where it reaches in only about as far as it
+      // is wide there (a block about as tall as it is wide, a stub hanging from a bar, reads either way), where, upright
+      // or level, it runs across the way the design's heavy strokes run (a level edge where the verticals are the
+      // heavier, an upright one where the horizontals are))
+      const w2 = 2 * middle(on.map(j => bs[j].w0)), depth = 0.25 * Math.min(w2, l), mx = (a.x + b.x) / 2 + nx * depth, my = (a.y + b.y) / 2 + ny * depth;
+      const across = inkAhead({ x: mx, y: my }, dx / l, dy / l) + inkAhead({ x: mx, y: my }, -dx / l, -dy / l);
+      const crosswise = Math.abs(ny) > 0.98 ? m0.v >= m0.hT : Math.abs(nx) > 0.98 ? m0.hT >= m0.v : true;
+      if (w2 >= 0.8 * l && across <= 1.6 * l && (w2 >= 1.5 * across || crosswise)) return { a, b, nx, ny, da: 0, db: 0 };
+      // (an upright or level edge, a stroke's side all along, reads its stroke as thick as it reads anywhere along it
+      // (`best` shrinks toward a short stub's free end, which lies nearer than its sides))
+      const level = Math.abs(nx) > 0.98 || Math.abs(ny) > 0.98, widest = Math.max(...on.map(j => bs[j].best));
+      const pts = on.map(j => {
+        const p = bs[j], h = Math.min(p.w0, level ? widest : p.best), d = (mv.weighs({ ...p, w: h }) * mv.keeps(p, r, j) - 1) * h;
+        return { t: ((p.x - a.x) * dx + (p.y - a.y) * dy) / (l * l), h, v: d > 0 ? Math.min(d, p.gap * OPEN) : d };
+      });
+      const skip = level ? 0.5 : 1, inner = pts.filter(q => q.t * l > q.h * skip && (1 - q.t) * l > q.h * skip), use = inner.length >= 3 ? inner : pts;
+      // (each sample read as the middle of it and its neighbours: a sample reads its stroke a little off now and then)
+      const v = use.map((_, k) => middle(use.slice(Math.max(0, k - 2), k + 3).map(q => q.v))), t = use.map(q => q.t);
+      const inward = middle(v) < 0, lo = Math.min(...v), hi = Math.max(...v);
+      // (a level stroke lying on one of the letter's lines, a bar along the capitals' height or the baseline, thickens
+      // or thins wholly from this side, as its far side stays on the line)
+      const far = Math.abs(ny) > 0.98 && lines.some(L => Math.abs(a.y + ny * w2 - L) < 3);
+      // (as far as all but a fifth of it goes, the least of them: an edge whose stroke narrows along it, a flare's side,
+      // goes no further than its narrower stretch lets it)
+      if (level) { const d = v.slice().sort((p, q) => (inward ? q - p : p - q))[Math.floor((v.length - 1) * 0.2)] * (far ? 2 : 1); return { a, b, nx, ny, da: d, db: d }; }
+      const fit = bentLine(t, v, Math.max(2, 0.08 * Math.max(-lo, hi)), l);
+      const back = Math.max(0, ...t.map((u, k) => (inward ? v[k] - fit.at(u) : fit.at(u) - v[k])));
+      const at = (u: number) => Math.min(hi, Math.max(lo, fit.at(u) + (inward ? back : -back)));
+      return { a, b, nx, ny, da: at(0), db: at(1), bends: fit.bends.map(u => ({ t: u, d: at(u) })) };
     });
-    type Edge = NonNullable<(typeof edges)[number]>;
+    type Edge = EdgeMove;
     // where two lines meet (each through a point, running one way), unless they run alike
     const cross = (p: P, u: P, q: P, w: P): P | null => {
       const det = u.x * w.y - u.y * w.x;
@@ -824,38 +911,53 @@ export function skinEdges(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures): Nod
       const s = ((q.x - p.x) * w.y - (q.y - p.y) * w.x) / det;
       return { x: p.x + u.x * s, y: p.y + u.y * s };
     };
-    // how far an edge moves, straight out from it
-    const shift = (e: Edge): P => ({ x: -e.nx * e.d, y: -e.ny * e.d }), way = (e: Edge): P => ({ x: e.b.x - e.a.x, y: e.b.y - e.a.y });
+    // how far an edge's start and end move, straight out from it; where a place along it (0 to 1) moves to, out `d`;
+    // and its first and last stretch, moved (the whole of it, but where it bends)
+    const shiftA = (e: Edge): P => ({ x: -e.nx * e.da, y: -e.ny * e.da }), shiftB = (e: Edge): P => ({ x: -e.nx * e.db, y: -e.ny * e.db });
+    const way = (p: P, q: P): P => ({ x: q.x - p.x, y: q.y - p.y });
+    const movedAt = (e: Edge, u: number, d: number): P => ({ x: e.a.x + (e.b.x - e.a.x) * u - e.nx * d, y: e.a.y + (e.b.y - e.a.y) * u - e.ny * d });
+    const bendsAt = (e: Edge) => (e.bends ?? []).map(q => movedAt(e, q.t, q.d)), ends = (e: Edge) => [movedAt(e, 0, e.da), ...bendsAt(e), movedAt(e, 1, e.db)];
+    const first = (e: Edge) => ends(e).slice(0, 2), last = (e: Edge) => ends(e).slice(-2);
     // the corner two edges make (e1 coming in, e2 going out), and how far it moves as they meet again: not much further
     // than they moved (a sharp corner's would run far out); null where they run alike
     const meet = (e1: Edge, e2: Edge): { C: P; T: P } | null => {
-      const s1 = shift(e1), s2 = shift(e2), C = cross(e1.a, way(e1), e2.a, way(e2));
-      const C1 = cross({ x: e1.a.x + s1.x, y: e1.a.y + s1.y }, way(e1), { x: e2.a.x + s2.x, y: e2.a.y + s2.y }, way(e2));
+      const [p1, q1] = last(e1), [p2, q2] = first(e2);
+      const C = cross(e1.a, way(e1.a, e1.b), e2.a, way(e2.a, e2.b)), C1 = cross(p1, way(p1, q1), p2, way(p2, q2));
       if (!C || !C1) return null;
       let x = C1.x - C.x, y = C1.y - C.y;
-      const lim = 1.6 * Math.max(Math.abs(e1.d), Math.abs(e2.d)), l = Math.hypot(x, y);
+      const lim = 1.6 * Math.max(Math.abs(e1.db), Math.abs(e2.da)), l = Math.hypot(x, y);
       if (l > lim) { x *= lim / l; y *= lim / l; }
       return { C, T: { x, y } };
     };
     // how far each point moves, and for one on a round made smaller or larger, by how much and about which point
-    const K: ({ f: number; c: P } | null)[] = cn.map(() => null);
+    const K: ({ f: number; c: P } | null)[] = cn.map(() => null), stretched = cn.map(() => false);
     const D: P[] = cn.map((_, i) => {
-      const j = bySeg[i][0];
+      const j = own[i];
       return { x: -bs[j].nx * moved[j], y: -bs[j].ny * moved[j] };
     });
     if (edges.some(Boolean)) for (let i = 0; i < n; i++) {
       const e1 = edges[(i - 1 + n) % n], e2 = edges[i];
-      if (e1 && e2) { const s1 = shift(e1), s2 = shift(e2); D[i] = meet(e1, e2)?.T ?? { x: (s1.x + s2.x) / 2, y: (s1.y + s2.y) / 2 }; continue; }
+      if (e1 && e2) {
+        const s1 = shiftB(e1), s2 = shiftA(e2), T = meet(e1, e2)?.T ?? { x: (s1.x + s2.x) / 2, y: (s1.y + s2.y) / 2 };
+        // (a corner goes no further into the ink before it, the way it goes, than reach allows, as the outline across
+        // from it comes toward it too: one pointing into a hairline, a counter's corner under a thin bar, stays under it,
+        // and the corners of a foot drawn narrower don't pass each other; nor, straight ahead of it, further than nine
+        // tenths of what lies across from it there (w0). Held back, it goes as far the same way)
+        const l = Math.hypot(T.x, T.y), most = l > 1e-6 ? reach(cn[i], T.x / l, T.y / l) : Infinity;
+        const U = l > most ? { x: T.x * most / l, y: T.y * most / l } : T, p = bs[own[i]], into = U.x * p.nx + U.y * p.ny, half = 0.9 * p.w0;
+        D[i] = into > half ? { x: U.x * half / into, y: U.y * half / into } : U;
+        continue;
+      }
       if (!e1 || e2) continue;
       // a run of curves from here to the next straight edge
       const run = [i];
       for (let k = i; !edges[k]; ) { k = (k + 1) % n; run.push(k); }
       const last = run[run.length - 1], e3 = edges[last]!, met = meet(e1, e3);
-      const a = cn[i], b = cn[last], s1 = shift(e1), s3 = shift(e3), ux = b.x - a.x, uy = b.y - a.y, l2 = ux * ux + uy * uy || 1;
+      const a = cn[i], b = cn[last], s1 = shiftB(e1), s3 = shiftA(e3), ux = b.x - a.x, uy = b.y - a.y, l2 = ux * ux + uy * uy || 1;
       // how far a point of it may go out of its ink (in, negative): no further than its own stroke thickens or thins,
       // and a little more (in, a share of what is left of its half of the stroke)
       const room = (k: number, d: P) => {
-        const j = bySeg[k][0], p = bs[j], m = moved[j], out = d.x * -p.nx + d.y * -p.ny;
+        const j = own[k], p = bs[j], m = moved[j], out = d.x * -p.nx + d.y * -p.ny;
         return { p, out, o1: Math.min(Math.max(0, m) + HOLD * p.w, Math.max(Math.min(0, m) - HOLD * Math.max(0, p.w + Math.min(0, m)), out)) };
       };
       // carried whole with the corner its edges make, where none of it goes so further than it may; and a round on the
@@ -863,8 +965,11 @@ export function skinEdges(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures): Nod
       // in or out, as the outline of a thinner or thicker stroke rounds its corners (one inside, an ink trap or a
       // counter's, keeps its size)
       if (met) {
-        const { C, T } = met, seg = bySeg[run[(run.length - 1) >> 1]], mid = bs[seg[seg.length >> 1]];
-        const L = (Math.hypot(a.x - C.x, a.y - C.y) + Math.hypot(b.x - C.x, b.y - C.y)) / 2, dm = Math.abs(e1.d) > Math.abs(e3.d) ? e1.d : e3.d;
+        // (the corner carried no further into the ink before the round than reach allows, as a corner)
+        const { C } = met, ss = bySeg[seg[run[(run.length - 1) >> 1]]], mid = bs[ss[ss.length >> 1]];
+        const tl = Math.hypot(met.T.x, met.T.y), most = tl > 1e-6 ? reach(cn[run[run.length >> 1]], met.T.x / tl, met.T.y / tl) : Infinity;
+        const T = tl > most ? { x: met.T.x * most / tl, y: met.T.y * most / tl } : met.T;
+        const L = (Math.hypot(a.x - C.x, a.y - C.y) + Math.hypot(b.x - C.x, b.y - C.y)) / 2, dm = Math.abs(e1.db) > Math.abs(e3.da) ? e1.db : e3.da;
         const f = (C.x - mid.x) * mid.nx + (C.y - mid.y) * mid.ny < 0 && L > 1 ? Math.max(ROUND_KEPT, 1 + dm / L) : 1;
         const at = (k: number): P => ({ x: T.x + (cn[k].x - C.x) * (f - 1), y: T.y + (cn[k].y - C.y) * (f - 1) });
         if (run.every((k, r) => r === 0 || r === run.length - 1 || Math.abs(room(k, at(k)).o1 - room(k, at(k)).out) < 1)) {
@@ -877,18 +982,39 @@ export function skinEdges(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures): Nod
       run.forEach((k, r) => {
         const t = Math.min(1, Math.max(0, ((cn[k].x - a.x) * ux + (cn[k].y - a.y) * uy) / l2));
         const d = { x: s1.x + (s3.x - s1.x) * t, y: s1.y + (s3.y - s1.y) * t };
+        stretched[k] = true;
         if (r === 0 || r === run.length - 1) { D[k] = r ? s3 : s1; return; }
         const { p, out, o1 } = room(k, d);
         D[k] = { x: d.x - p.nx * (o1 - out), y: d.y - p.ny * (o1 - out) };
       });
     }
-    return cn.map((p, i): Node => {
-      const { x, y } = D[i], k = K[i], to = (u: number, v: number) => (k ? [u + x + (u - k.c.x) * (k.f - 1), v + y + (v - k.c.y) * (k.f - 1)] : [u + x, v + y]);
-      const q: Node = { ...p };
-      [q.x, q.y] = to(p.x, p.y);
-      if (p.ix !== undefined) [q.ix, q.iy] = to(p.ix, p.iy!);
-      if (p.ox !== undefined) [q.ox, q.oy] = to(p.ox, p.oy!);
-      return q;
+    // (and no handle of a curve, nor point of a round stretched between its edges, goes further into the ink before it
+    // than it may (reach): a round's ends, carried out with their edges, stop short of a hairline, and the handles of a
+    // round carried up under one, and the curve, which keeps within its handles, with them; a round made smaller or
+    // larger goes with its corner)
+    const held = (p: P, d: P, ok: boolean): P => {
+      const l = Math.hypot(d.x, d.y), most = l > 1e-6 && ok ? reach(p, d.x / l, d.y / l) : Infinity;
+      return l > most ? { x: d.x * most / l, y: d.y * most / l } : d;
+    };
+    D.forEach((d, i) => { D[i] = held(cn[i], d, stretched[i]); });
+    // (an upright or level edge stays so: where its ends were held back unequally, both go as far out as the nearer)
+    edges.forEach((e, i) => {
+      const j = (i + 1) % n;
+      if (!e || e.bends?.length || K[i] || K[j] || !(Math.abs(e.nx) > 0.98 || Math.abs(e.ny) > 0.98)) return;
+      const na = D[i].x * e.nx + D[i].y * e.ny, nb = D[j].x * e.nx + D[j].y * e.ny, c = Math.abs(na) < Math.abs(nb) ? na : nb;
+      D[i] = { x: D[i].x + e.nx * (c - na), y: D[i].y + e.ny * (c - na) };
+      D[j] = { x: D[j].x + e.nx * (c - nb), y: D[j].y + e.ny * (c - nb) };
+    });
+    const DI = D.map((d, i) => (cn[i].ix === undefined ? d : held({ x: cn[i].ix!, y: cn[i].iy! }, d, !K[i])));
+    const DO = D.map((d, i) => (cn[i].ox === undefined ? d : held({ x: cn[i].ox!, y: cn[i].oy! }, d, !K[i])));
+    // (an edge that bends gets a point at each bend)
+    return cn.flatMap((p, i): Node[] => {
+      const k = K[i], to = (u: number, v: number, { x, y }: P) => (k ? [u + x + (u - k.c.x) * (k.f - 1), v + y + (v - k.c.y) * (k.f - 1)] : [u + x, v + y]);
+      const q: Node = { ...p }, e = edges[i];
+      [q.x, q.y] = to(p.x, p.y, D[i]);
+      if (p.ix !== undefined) [q.ix, q.iy] = to(p.ix, p.iy!, DI[i]);
+      if (p.ox !== undefined) [q.ox, q.oy] = to(p.ox, p.oy!, DO[i]);
+      return [q, ...(e ? bendsAt(e) : [])];
     });
   });
   // (read as polygons, a few points along each curve, for the crossing test)
@@ -975,6 +1101,87 @@ function weighsOf(rig: SkinRig, kv: number, kh: number) {
     const T = 2 * b.w, byThick = T <= hair ? kHair : T >= stem ? kv : (hair * kHair + (stem * kv - hair * kHair) * (T - hair) / (stem - hair)) / T;
     return byWay + (byThick - byWay) * contrasty;
   }
+}
+
+/** Contour `c` with each curve longer than `most` cut in pieces as long, the same curve (by de Casteljau), for skinEdges:
+    its points, each one's own sample (`own`: a point's first, a cut's nearest of its curve's) and the segment of `c` each
+    piece is cut from (`seg`). */
+function cutCurves(c: Node[], bs: Bone[], bySeg: number[][], most: number) {
+  const cn: Node[] = [], own: number[] = [], seg: number[] = [], nodes = c.map(n => ({ ...n }));
+  const lerp = (p: P, q: P, t: number): P => ({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
+  c.forEach((a, i) => {
+    const b = c[(i + 1) % c.length];
+    cn.push(nodes[i]); own.push(bySeg[i][0]); seg.push(i);
+    if (a.ox === undefined && b.ix === undefined) return;
+    let p0: P = a, p1: P = { x: a.ox ?? a.x, y: a.oy ?? a.y }, p2: P = { x: b.ix ?? b.x, y: b.iy ?? b.y };
+    const p3: P = b, len = Math.hypot(p1.x - p0.x, p1.y - p0.y) + Math.hypot(p2.x - p1.x, p2.y - p1.y) + Math.hypot(p3.x - p2.x, p3.y - p2.y);
+    const k = Math.ceil(len / most);
+    if (k < 2) return;
+    // (each piece cut off the rest of the curve in turn, at its share of what is left)
+    for (let m = 1; m < k; m++) {
+      const t = 1 / (k - m + 1), q0 = lerp(p0, p1, t), q1 = lerp(p1, p2, t), q2 = lerp(p2, p3, t), r0 = lerp(q0, q1, t), r1 = lerp(q1, q2, t), s = lerp(r0, r1, t);
+      if (m === 1) { nodes[i].ox = q0.x; nodes[i].oy = q0.y; } else { cn[cn.length - 1].ox = q0.x; cn[cn.length - 1].oy = q0.y; }
+      const j = bySeg[i].reduce((best, j) => (Math.hypot(bs[j].x - s.x, bs[j].y - s.y) < Math.hypot(bs[best].x - s.x, bs[best].y - s.y) ? j : best), bySeg[i][0]);
+      cn.push({ x: s.x, y: s.y, ix: r0.x, iy: r0.y, s: 1 }); own.push(j); seg.push(i);
+      p0 = s; p1 = r1; p2 = q2;
+    }
+    cn[cn.length - 1].ox = p1.x; cn[cn.length - 1].oy = p1.y;
+    const nb = nodes[(i + 1) % c.length];
+    nb.ix = p2.x; nb.iy = p2.y;
+  });
+  return { cn, own, seg };
+}
+
+/** Each rig's outline as polygons (a few points along each curve), kept for skinEdges's reading of the ink ahead. */
+const outlines = new WeakMap<SkinRig, P[][]>();
+
+/** A straight edge of a letter drawn in Points as skinEdges moves it: its ends, its inward normal, how far its start
+    and end move out (in, negative), and, where it bends, the places along it (0 to 1) and how far each moves out. */
+interface EdgeMove { a: P; b: P; nx: number; ny: number; da: number; db: number; bends?: { t: number; d: number }[] }
+
+/** The straight line nearest values `v` at places `t` (0 to 1) along an edge `len` long, by least squares; or, where it
+    stays further than `tol` from some of them, two bent once, or a step (two levels joined by a stretch as steep as it
+    is high: a hairline's side running on into a wedge's), whichever comes a quarter nearer than the others. */
+function bentLine(t: number[], v: number[], tol: number, len: number): { at: (u: number) => number; bends: number[] } {
+  const worst = (at: (u: number) => number) => Math.max(...t.map((u, k) => Math.abs(at(u) - v[k])));
+  const fit = (tb?: number) => {
+    // (the normal equations for p + q·u, and + r·(u − tb) past tb)
+    const f = (u: number) => (tb === undefined ? [1, u] : [1, u, Math.max(0, u - tb)]), m = tb === undefined ? 2 : 3;
+    const A = Array.from({ length: m }, () => new Array<number>(m).fill(0)), y = new Array<number>(m).fill(0);
+    t.forEach((u, k) => { const r = f(u); for (let i = 0; i < m; i++) { y[i] += r[i] * v[k]; for (let j = 0; j < m; j++) A[i][j] += r[i] * r[j]; } });
+    // (by elimination, pivoting on the largest)
+    for (let i = 0; i < m; i++) {
+      let p = i;
+      for (let j = i + 1; j < m; j++) if (Math.abs(A[j][i]) > Math.abs(A[p][i])) p = j;
+      if (Math.abs(A[p][i]) < 1e-9) return null;
+      [A[i], A[p]] = [A[p], A[i]]; [y[i], y[p]] = [y[p], y[i]];
+      for (let j = i + 1; j < m; j++) { const k = A[j][i] / A[i][i]; for (let c = i; c < m; c++) A[j][c] -= k * A[i][c]; y[j] -= k * y[i]; }
+    }
+    const co = new Array<number>(m).fill(0);
+    for (let i = m - 1; i >= 0; i--) { let sum = y[i]; for (let c = i + 1; c < m; c++) sum -= A[i][c] * co[c]; co[i] = sum / A[i][i]; }
+    const at = (u: number) => f(u).reduce((sum, r, i) => sum + r * co[i], 0);
+    return { at, bends: tb === undefined ? [] : [tb], worst: worst(at) };
+  };
+  const one = fit();
+  if (!one) { const d = v.slice().sort((p, q) => p - q)[v.length >> 1]; return { at: () => d, bends: [] }; }
+  if (one.worst <= tol || t.length < 6) return one;
+  let best: { at: (u: number) => number; bends: number[]; worst: number } = one;
+  const nearer = (c: typeof best | null) => { if (c && c.worst <= best.worst * 0.75) best = c; };
+  // (where it bends or steps tried at no more than BEND_TRIES places along it)
+  const tries = Array.from(new Set(Array.from({ length: BEND_TRIES }, (_, i) => 2 + Math.round(i * (t.length - 5) / (BEND_TRIES - 1))))).filter(k => k >= 2 && k < t.length - 2);
+  let hinge: typeof best | null = null;
+  for (const k of tries) { const h = fit(t[k]); if (h && (!hinge || h.worst < hinge.worst)) hinge = h; }
+  nearer(hinge);
+  const mid = (w: number[]) => w.slice().sort((p, q) => p - q)[w.length >> 1];
+  let step: typeof best | null = null;
+  for (const k of tries) {
+    const lo = mid(v.slice(0, k)), hi = mid(v.slice(k)), w = Math.min(0.3, Math.abs(hi - lo) / Math.max(1, len)) / 2, tk = (t[k - 1] + t[k]) / 2;
+    if (tk - w <= 0 || tk + w >= 1) continue;
+    const at = (u: number) => (u <= tk - w ? lo : u >= tk + w ? hi : lo + (hi - lo) * (u - tk + w) / (2 * w)), s = { at, bends: [tk - w, tk + w], worst: worst(at) };
+    if (!step || s.worst < step.worst) step = s;
+  }
+  nearer(step);
+  return best;
 }
 
 /** A stroke's end, cut across it (not a stem's foot on a line): it stays where it is as the sides either side move. */
