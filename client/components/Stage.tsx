@@ -13,7 +13,7 @@ import { cardText, sampleText } from '../lib/preview';
 import { actions, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
 import { BuiltText } from './BuiltText';
 import { Inspector } from './Inspector';
-import { FeelingName, focusFilters } from './Panel';
+import { focusFilters, TagName } from './Panel';
 import { Preview } from './Preview';
 
 export function Stage() {
@@ -200,13 +200,12 @@ function CardsFoot({ style: s }: { style: StyleDef }) {
 }
 
 /** Everything picked, search, categories, feelings and traits, as one row of chips, each removed with a click; the
-    trait chips are tinted apart from the filters, and a feeling is named in its font as on its chip. */
+    trait chips are tinted apart from the filters, and a category or a feeling is named in its font as on its chip. */
 function ActiveBar({ onClear }: { onClear: () => void }) {
   const { f, traits } = useStyleMatch();
-  const tag = <T extends string>(list: { id: T; label: string }[], id: T) => list.find(x => x.id === id)!.label;
   const items: { key: string; label: string; card?: string; trait?: boolean; remove: () => void }[] = [
     ...(f.query?.trim() ? [{ key: 'q', label: `“${f.query.trim()}”`, remove: () => actions.setQuery('') }] : []),
-    ...f.groups.map(g => ({ key: `g-${g}`, label: tag(STYLE_GROUPS, g), remove: () => actions.toggleGroup(g) })),
+    ...f.groups.map(g => STYLE_GROUPS.find(x => x.id === g)!).map(({ id, label, card }) => ({ key: `g-${id}`, label, card, remove: () => actions.toggleGroup(id) })),
     ...f.moods.map(m => MOODS.find(x => x.id === m)!).map(({ id, label, card }) => ({ key: `m-${id}`, label, card, remove: () => actions.toggleMood(id) })),
     ...traitLabels(traits).map(t => ({ key: `t-${t.id}`, label: t.label, trait: true, remove: () => actions.setTrait(t.id, null) }))
   ];
@@ -215,7 +214,7 @@ function ActiveBar({ onClear }: { onClear: () => void }) {
     <div className="active-bar" role="group" aria-label="Active filters and traits">
       {items.map(it => (
         <button key={it.key} className={it.trait ? 'active-chip trait' : 'active-chip'} onClick={it.remove} aria-label={`Remove ${it.label}`}>
-          {it.card ? <FeelingName label={it.label} card={it.card} /> : it.label}
+          {it.card ? <TagName label={it.label} card={it.card} /> : it.label}
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg>
         </button>
       ))}

@@ -167,9 +167,9 @@ shared rule after the headings lists them; a letter named in one keeps its case 
 inspector's hint), as Studio Think writes its asides; Lineup (`--display`, `client/fonts/Lineup.otf`, written by
 `npm run fonts:ui` from `Asset/lineup.typelab.json`, one weight, never bolded) only for the logo, in capitals, the
 header's and the opening's (which draws it first from `client/fonts/Lineup.json`, its capitals' outlines, written with
-it): the design was drawn for capitals, and its small letters run into each other. The Feeling names are the one
-exception, each in an own font (`.feel`). Labels drawn in the canvases and diagrams take `--t-xs` too. Text runs at a
-line height of 1.45, headings at 1.25, serif titles at 1.2.
+it): the design was drawn for capitals, and its small letters run into each other. The Category and Feeling names
+are the one exception, each in an own font (`.tag-name`, `TagName`). Labels drawn in the canvases and diagrams take
+`--t-xs` too. Text runs at a line height of 1.45, headings at 1.25, serif titles at 1.2.
 Colours: warm ink (`#201f1d`) on cream paper (`#fef5ec`) ruled faintly in 60px squares (`--grid-paper`, on the body,
 the editor, its header and My designs), sheets a paler cream (`#fdfaf6`) edged by a warm hairline (`--raise`), warm
 greys for text (`#46423d`, `#504b45` for notes, both 7:1 or more on the paper), warm hairlines (`--line`), slider and

@@ -7,7 +7,8 @@
    and bold); a light serif for every title (--serif: Gambetta Light, a touch heavier than its 300, in the place of
    Studio Think's Ortica Linear), drawn in a little; Geist Mono only for numbers and for the small capitals that name
    a group; a handwriting (--hand) only for the odd note in the margin, as Studio Think writes its asides; Lineup
-   only for the logo (below). The Feeling names are the one exception, each in a font with that feeling (.feel).
+   only for the logo (below). The Category and Feeling names are the one exception, each in a font of that kind or
+   feeling (.tag-name).
    Colour: warm ink (#201f1d) on cream paper ruled faintly in squares (--paper, --grid-paper), the sheets a paler cream
    (--surface) with wells a shade under it (--well, --tint), two warm greys for text (#46423d, and a step lighter for
    notes; both 7:1 or more on the paper), warm hairlines (--line) for edges, ink laid thin for the tracks of sliders and switches (--track),
@@ -400,10 +401,10 @@ body.resizing.y { cursor: row-resize; }
 /* a tag with no matching styles: still readable, in the notes' grey, marked out by a dashed border */
 .chip[aria-disabled=true] { color: var(--ink-3); border-color: var(--line-2); border-style: dashed; background: transparent; cursor: default; }
 .chip[aria-disabled=true]:hover { color: var(--ink-3); background: transparent; }
-/* a Feeling's name, on its chip and on the bar over the cards, in a font with that feeling (FeelingName) and in its
+/* a Category's or a Feeling's name, on its chip and on the bar over the cards, in a font of it (TagName) and in its
    own case, Manrope until the font comes: its lowercase kept as tall as the others' (a script's is small for its
    size), its line the chip's, so tall capitals reach past it rather than making the chip taller */
-.feel { font-family: var(--ui); font-size: var(--t-base); font-size-adjust: .5; line-height: 1; text-transform: none; letter-spacing: 0; }
+.tag-name { font-family: var(--ui); font-size: var(--t-base); font-size-adjust: .5; line-height: 1; text-transform: none; letter-spacing: 0; }
 .facet-picked { min-width: 16px; padding: 0 5px; border-radius: var(--pill); background: var(--marker); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
 .facet-chevron { margin-left: auto; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: transform .25s ease; }
 .sheet-btn svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }

@@ -1,5 +1,5 @@
-/* The starting styles (shared/content/styles.ts, tags.ts): valid presets, the Style page's cards and Feeling
-   chips (each named in a card's own font), word spaces in joined-up scripts, and letters that must sit right
+/* The starting styles (shared/content/styles.ts, tags.ts): valid presets, the Style page's cards and Category and
+   Feeling chips (each named in a card's own font), word spaces in joined-up scripts, and letters that must sit right
    (v w V W on the baseline, no gap after a curled Q). */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -45,6 +45,13 @@ describe('style page', () => {
     for (const m of MOODS) {
       assert.ok(PAGE_STYLES.find(s => s.id === m.card)?.moods.includes(m.id), `${m.id}: ${m.card}`);
       assert.ok(isOwnFont(parseFontId(STYLE_FONTS[m.card])!.family), `${m.id}: ${STYLE_FONTS[m.card]}`);
+    }
+  });
+
+  it('names each Category on the page in the own font of a card of that kind', () => {
+    for (const g of STYLE_GROUPS.filter(g => PAGE_STYLES.some(s => s.group === g.id))) {
+      assert.equal(PAGE_STYLES.find(s => s.id === g.card)?.group, g.id, `${g.id}: ${g.card}`);
+      assert.ok(isOwnFont(parseFontId(STYLE_FONTS[g.card!])!.family), `${g.id}: ${STYLE_FONTS[g.card!]}`);
     }
   });
 });

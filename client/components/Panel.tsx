@@ -16,7 +16,7 @@ import { actions, letterOf, useEditor } from '../state/editor';
 import { closeStyleSheet, StylePanel } from './panel/StylePanel';
 import { ControlsPanel } from './panel/ControlsPanel';
 
-export { closeStyleSheet, FeelingName, focusFilters, focusStyleSearch } from './panel/StylePanel';
+export { closeStyleSheet, focusFilters, focusStyleSearch, TagName } from './panel/StylePanel';
 
 export function Panel() {
   const category = useEditor(s => s.category), customizing = useEditor(s => !!letterOf(s));

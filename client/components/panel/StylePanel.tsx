@@ -195,20 +195,20 @@ function Specimen({ params, text }: { params: Params; text: string }) {
 /** The kinds of letters a card is, in the order of the groups over the cards: those no card is are left out. */
 const CARD_GROUPS = STYLE_GROUPS.filter(g => PAGE_STYLES.some(s => s.group === g.id));
 
-/** The Category chips, in the UI's face. Kinds add up: each one picked brings its cards in, so a chip's count is the
-    cards of that kind the other filters leave, and one with none does nothing. */
+/** The Category chips, each named in a font of its kind (STYLE_GROUPS' `card`). Kinds add up: each one picked brings
+    its cards in, so a chip's count is the cards of that kind the other filters leave, and one with none does nothing. */
 function Categories() {
   const { f, matches } = useStyleMatch();
   return (
     <div className="facet" role="group" aria-labelledby="f-category">
       <h3 className="facet-label" id="f-category">Category</h3>
       <div className="chips">
-        {CARD_GROUPS.map(({ id, label, hint }) => {
+        {CARD_GROUPS.map(({ id, label, hint, card }) => {
           const on = f.groups.includes(id), n = PAGE_STYLES.filter(s => matches(s, { groups: [id] })).length, none = !n && !on;
           return (
             <button key={id} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} aria-disabled={none || undefined}
               aria-label={`${label}, ${n} ${n === 1 ? 'style' : 'styles'}`} onClick={() => { if (!none) actions.toggleGroup(id); }}>
-              {label}<span className="count" aria-hidden="true">{n}</span>
+              {card ? <TagName label={label} card={card} /> : label}<span className="count" aria-hidden="true">{n}</span>
             </button>
           );
         })}
@@ -217,11 +217,11 @@ function Categories() {
   );
 }
 
-/** A feeling's name in the own font of the card that says it best (MOODS), the UI's face standing in until it comes:
-    on its chip, and on the stage's bar of what is picked. */
-export function FeelingName({ label, card }: { label: string; card: string }) {
+/** A Category's or a Feeling's name in the own font of the card that says it best (STYLE_GROUPS, MOODS), the UI's face
+    standing in until it comes: on its chip, and on the stage's bar of what is picked. */
+export function TagName({ label, card }: { label: string; card: string }) {
   const font = useWebFont(STYLE_FONTS[card]);
-  return <span className="feel" style={font ? fontStyle(font) : undefined}>{label}</span>;
+  return <span className="tag-name" style={font ? fontStyle(font) : undefined}>{label}</span>;
 }
 
 /** The Feeling chips, every one that enough cards carry (FEELINGS), all in view, each named in a font that has that
@@ -243,7 +243,7 @@ function Feelings() {
           return (
             <button key={tag} className={on ? 'chip on' : 'chip'} aria-pressed={on} aria-disabled={none || undefined}
               aria-label={`${label}, ${n} ${n === 1 ? 'style' : 'styles'}`} onClick={() => { if (!none) actions.toggleMood(tag); }}>
-              <FeelingName label={label} card={card} /><span className="count" aria-hidden="true">{n}</span>
+              <TagName label={label} card={card} /><span className="count" aria-hidden="true">{n}</span>
             </button>
           );
         })}
