@@ -1,17 +1,18 @@
-/* A change made to one letter's points, carried to the other letters shaped the same way there. The change is
-   read by comparing the letter's contours with what they were: the points both keep stay put, and each run of
-   points between them that moved, came or went is one changed stretch; a corner rounded, cut or scooped where its
-   point stays is a change of its own; and a shape moved, turned or resized whole, or taken away, is a change to
-   that whole contour. Every other letter is then searched for a stretch of outline shaped as the changed one was,
-   with a little of the outline either side of it, allowing it to be somewhat wider or narrower, taller or shorter
-   (the serif of a d against an l's); or, for a whole contour, for a contour shaped as it was (the dot of an i and
-   a j's). A match is close when the outline further round it is the same too (a serif and the stem under it), or
-   when a whole contour sits as high (the two dots), else it is only the stretch, or the shape, that is the same
-   (the top of an n's arch and the top of an o; a dot and a full stop). A shape added is carried to where the
-   outline nearest it is found; a letter that has the shape only mirrored, or only roughly (a font drawn by hand), is
-   offered it too. There, where the other letter has the same points as the changed one had, each moves by as much
-   as its own did; otherwise the new stretch or shape is put in place of the old one, fitted to that letter. Pure,
-   in font units, y up: tests/carry.test.ts. */
+/* A change made to one letter's points, carried to the other letters shaped the same way there. The change is read
+   by comparing the letter's contours with what they were: the points both keep stay put, and each run of points
+   between them that moved, came or went is one changed stretch; a corner rounded, cut or scooped where its point
+   stays is a change of its own; and a shape moved, turned or resized whole, or taken away, is a change to that whole
+   contour. Every other letter is then searched for a stretch of outline shaped as the changed one was, with a little
+   of the outline either side of it, allowing it to be somewhat wider or narrower, taller or shorter (the serif of a
+   d against an l's); or, for a whole contour, for a contour shaped as it was (the dot of an i and a j's). A match is
+   close when the outline further round it is the same too (a serif and the stem under it), or when a whole contour
+   sits as high (the two dots), else it is only the stretch, or the shape, that is the same (the top of an n's arch
+   and the top of an o; a dot and a full stop). A shape added is carried to where the outline nearest it is found; a
+   letter that has the shape only mirrored, or only roughly (a font drawn by hand), is offered it too, and a counter
+   or a dot moved, turned or resized goes to the ones doing the same in other letters even where they're drawn
+   otherwise (a script's counters). There, where the other letter has the same points as the changed one had, each
+   moves by as much as its own did; otherwise the new stretch or shape is put in place of the old one, fitted to that
+   letter. Pure, in font units, y up: tests/carry.test.ts. */
 import { ALL_CHARS, hasIn, hasOut, segment, type Drawn, type Node } from '../../shared/engine';
 
 type P = { x: number; y: number };
@@ -31,10 +32,14 @@ type Box = ReturnType<typeof boxOf>;
     is now in `fresh`, or none when it was taken away, and `a` and `b` 0. `after` is the contour as it is now, with
     where `a` and `b` are on it (none for a contour taken away). A shape added is a change that leaves the outline
     nearest it as it was: `add` is the new contour, and the stretch from `a` to `b` (the next point) the outline it
-    is placed by, nearest it `at` that share of the way along. */
+    is placed by, nearest it `at` that share of the way along. A whole contour other than its letter's body (a counter,
+    a dot) moved, turned or resized as it was, every point by one map, has that map in `affine`. */
 export interface Change {
   c: number; was: Node[]; a: number; b: number; fresh: Node[]; whole?: true; after?: { con: Node[]; a: number; b: number }; add?: Node[]; at?: number
+  affine?: Affine
 }
+/** x' = a x + c y + e, y' = b x + d y + f, as [a, b, c, d, e, f]. */
+type Affine = [number, number, number, number, number, number];
 
 /** Whether two points stand at the same place with the same handles (their corners perhaps rounded otherwise). */
 const sameAt = (p: Node, q: Node) => p.x === q.x && p.y === q.y && p.ix === q.ix && p.iy === q.iy && p.ox === q.ox && p.oy === q.oy && !p.s === !q.s;
@@ -102,7 +107,7 @@ function contourChanges(O: Node[], E: Node[], c: number): Change[] {
 
 /** Which of `now`'s contours each of `base`'s became (-1 where it was taken away): those left as they were, and
     between them, in order where as many are left on each side, else each to the one it overlaps most. Contours
-    added aren't changes that can be carried (there's no telling where they'd go), so none come back for them. */
+    added are left unpaired (changesOf places them by the outline nearest). */
 function contourPairs(base: Node[][], now: Node[][]): [number, number][] {
   const keep = kept(base, now, sameContour), out: [number, number][] = [];
   const overlap = (p: Box, q: Box) => Math.max(0, Math.min(p.x1, q.x1) - Math.max(p.x0, q.x0)) * Math.max(0, Math.min(p.y1, q.y1) - Math.max(p.y0, q.y0));
@@ -148,14 +153,40 @@ function added(con: Node[], base: Node[][], kept: number[]): Change | null {
   return { c, was, a: i, b: (i + 1) % was.length, fresh: [], add: con.map(n => ({ ...n })), at: Math.min(1, Math.max(0, at)) };
 }
 
+/** Which of a letter's contours is its body: the one going round the most. */
+const bodyOf = (cs: Node[][]) => cs.reduce((best, con, c) => (Math.abs(woundOf(con)) > Math.abs(woundOf(cs[best])) ? c : best), 0);
+
+/** The one map taking each point of `O` to the same point of `E` (to within rounding to whole units), or null. */
+function affineOf(O: Node[], E: Node[]): Affine | null {
+  if (O.length < 3) return null;
+  // least squares, x' and y' each from x, y and 1
+  let sxx = 0, sxy = 0, syy = 0, sx = 0, sy = 0;
+  const n = O.length, rx = [0, 0, 0], ry = [0, 0, 0];
+  O.forEach((p, k) => {
+    const q = E[k];
+    sxx += p.x * p.x; sxy += p.x * p.y; syy += p.y * p.y; sx += p.x; sy += p.y;
+    rx[0] += p.x * q.x; rx[1] += p.y * q.x; rx[2] += q.x; ry[0] += p.x * q.y; ry[1] += p.y * q.y; ry[2] += q.y;
+  });
+  const A = [[sxx, sxy, sx], [sxy, syy, sy], [sx, sy, n]], det = (m: number[][]) =>
+    m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const D = det(A);
+  if (Math.abs(D) < 1e-6) return null;
+  const solve = (r: number[]) => [0, 1, 2].map(k => det(A.map((row, i) => row.map((v, j) => (j === k ? r[i] : v)))) / D);
+  const [a, c, e] = solve(rx), [b, d, f] = solve(ry), m: Affine = [a, b, c, d, e, f];
+  return O.every((p, k) => dist(apply(m, p), E[k]) <= 1.5) ? m : null;
+}
+const apply = ([a, b, c, d, e, f]: Affine, p: P): P => ({ x: a * p.x + c * p.y + e, y: b * p.x + d * p.y + f });
+
 /** The changes from `base` to `now`, contour by contour (see Change), then the shapes added, each placed by the
     outline nearest it (but not where contours were broken apart or merged, which only seem to add some). A letter
     moved whole has changed its place, not its shape: no change comes back for it. */
 export function changesOf(base: Node[][], now: Node[][]): Change[] {
   if (shifted(base, now)) return [];
-  const pairs = contourPairs(base, now);
+  const pairs = contourPairs(base, now), body = bodyOf(base);
   const out = pairs.flatMap(([c, j]) => j < 0 ? [{ c, was: base[c], a: 0, b: 0, fresh: [], whole: true as const }]
     : sameContour(base[c], now[j]) ? [] : contourChanges(base[c], now[j], c));
+  // a counter or a dot moved, turned or resized as it was: the map it was moved by, to move ones shaped otherwise by
+  for (const ch of out) if (ch.whole && ch.c !== body && ch.fresh.length === ch.was.length) { const m = affineOf(ch.was, ch.fresh); if (m) ch.affine = m; }
   if (out.some(ch => ch.whole)) return out;
   const paired = new Set(pairs.map(([, j]) => j)), kept = pairs.filter(([, j]) => j >= 0).map(([c]) => c);
   for (let j = 0; j < now.length; j++) if (!paired.has(j) && now[j].length > 1) { const ch = added(now[j], base, kept); if (ch) out.push(ch); }
@@ -259,6 +290,7 @@ function samplesOf(con: Node[]) {
     at most and could have been; and whether the outline round it is the same too (a whole contour: as high). */
 export interface Place {
   c: number; ends: { A: { i: number; t: number }; B: { i: number; t: number } } | null; fit: Fit; s0: number; s1: number; off: number; tol: number; close: boolean
+  /** a contour doing in its letter what the changed one did, shaped otherwise (see rolesIn) */ role?: true
 }
 /** x' = sx x + tx, y' = sy y + ty: a stretch carried to another letter, a little wider or taller there perhaps. */
 interface Fit { sx: number; sy: number; tx: number; ty: number }
@@ -360,8 +392,8 @@ function placesIn(piece: Piece, ch: Change, con: Node[], c: number): Place[] {
     // close is given up
     let qs: number[] = [], lost = false;
     for (let it = 0; it < 8 && !lost; it++) {
-      qs = ps.map(p => near.nearest(to(f, p), reach));
-      if (qs.some(j => j < 0)) { lost = true; break; }
+      qs = nearestAll(near, ps, f, reach);
+      if (!qs.length) { lost = true; break; }
       const ts = qs.map(j => T.p[j]), prev = f;
       if (it === 2 && Math.max(...ts.map((t, z) => dist(t, to(prev, ps[z])))) > 3 * tol) lost = true;
       f = it < 3 ? { ...f, tx: f.tx + avg(ts.map((t, z) => t.x - to(f, ps[z]).x)), ty: f.ty + avg(ts.map((t, z) => t.y - to(f, ps[z]).y)) }
@@ -369,8 +401,8 @@ function placesIn(piece: Piece, ch: Change, con: Node[], c: number): Place[] {
       if (it >= 3 && Math.abs(f.tx - prev.tx) + Math.abs(f.ty - prev.ty) < 0.2 && Math.abs(f.sx - prev.sx) + Math.abs(f.sy - prev.sy) < 0.002) break;
     }
     if (lost) continue;
-    qs = ps.map(p => near.nearest(to(f, p), reach));
-    if (qs.some(j => j < 0)) continue;
+    qs = nearestAll(near, ps, f, reach);
+    if (!qs.length) continue;
     const off = Math.max(...ps.map((p, z) => dist(to(f, p), T.p[qs[z]])));
     if (off > tol) continue;
     // along the other letter's outline the same way round, over about as long a stretch
@@ -400,6 +432,12 @@ function placesIn(piece: Piece, ch: Change, con: Node[], c: number): Place[] {
 }
 
 const avg = (v: number[]) => v.reduce((a, b) => a + b, 0) / v.length;
+/** The sample nearest each of `ps` carried by `f`, or none at all once one has none within `reach`. */
+function nearestAll(near: Near, ps: P[], f: Fit, reach: number): number[] {
+  const out: number[] = [];
+  for (const p of ps) { const j = near.nearest(to(f, p), reach); if (j < 0) return []; out.push(j); }
+  return out;
+}
 const dist = (a: P, b: P) => Math.hypot(a.x - b.x, a.y - b.y);
 
 /** Least squares for q = s p + t along one axis, s kept to SCALE_MIN..SCALE_MAX; where the piece hardly spans
@@ -482,6 +520,25 @@ function wholesIn(ch: Change, doc: Drawn, slack = 1): Place[] {
     if (off > tol + STEP / 2) return;
     const per = T.s[T.s.length - 1], high = Math.max(1.5 * tol, Math.min(a.h / 2, 80)), close = Math.abs(t.y0 - a.y0) <= high && Math.abs(t.y1 - a.y1) <= high;
     out.push({ c, ends: null, fit: f, s0: 0, s1: per, off, tol, close });
+  });
+  return out;
+}
+
+/** How much wider or narrower, taller or shorter a contour doing the same may be (rolesIn). */
+const ROLE_MIN = 0.6, ROLE_MAX = 1.7;
+
+/** The contours of `doc` that do in it what a whole contour that changed did in its letter, though shaped otherwise
+    (a script's counters, each drawn its own way): not its body, wound the same way (a counter for a counter), about as
+    high, top and bottom, and not too much wider or narrower, taller or shorter. */
+function rolesIn(ch: Change, doc: Drawn): Place[] {
+  const a = boxOf(sample(ch.was, 0, ch.was.length, STEP).p), wound = Math.sign(woundOf(ch.was)), body = bodyOf(doc.contours);
+  const high = Math.max(10, Math.min(a.h / 2, 80)), out: Place[] = [];
+  doc.contours.forEach((con, c) => {
+    if (c === body || con.length < 3 || Math.sign(woundOf(con)) !== wound) return;
+    const t = boxOf(samplesOf(con).T.p), sx = a.w > 20 ? t.w / a.w : 1, sy = a.h > 20 ? t.h / a.h : 1;
+    if (!(sx >= ROLE_MIN && sx <= ROLE_MAX && sy >= ROLE_MIN && sy <= ROLE_MAX)) return;
+    if (Math.abs(t.y0 - a.y0) > high || Math.abs(t.y1 - a.y1) > high) return;
+    out.push({ c, ends: null, fit: { sx, sy, tx: t.x0 - sx * a.x0, ty: t.y0 - sy * a.y0 }, s0: 0, s1: 0, off: 0, tol: high, close: true, role: true });
   });
   return out;
 }
@@ -630,6 +687,25 @@ function replaced(con: Node[], ch: Change, p: Place): Node[] | null {
   return fitted(fresh, f);
 }
 
+/** A contour doing what a whole one that changed did (rolesIn), moved, turned or resized as that one was, about its
+    own middle and by as much for its size; run the other way round where the map flips it, so it winds as it did. */
+function transformed(con: Node[], ch: Change, p: Place): Node[] {
+  const m = ch.affine!, [a, b, c, d] = m, w = boxOf(sample(ch.was, 0, ch.was.length, STEP).p), t = boxOf(samplesOf(con).T.p);
+  const cw = { x: (w.x0 + w.x1) / 2, y: (w.y0 + w.y1) / 2 }, ct = { x: (t.x0 + t.x1) / 2, y: (t.y0 + t.y1) / 2 }, went = apply(m, cw);
+  const sh = { x: (went.x - cw.x) * p.fit.sx, y: (went.y - cw.y) * p.fit.sy };
+  const map = (q: P) => ({ x: R(a * (q.x - ct.x) + c * (q.y - ct.y) + ct.x + sh.x), y: R(b * (q.x - ct.x) + d * (q.y - ct.y) + ct.y + sh.y) });
+  const flip = a * d - b * c < 0;
+  const out = con.map(n => {
+    const { ix, iy, ox, oy, ...rest } = n, o: Node = { ...rest, ...map(n) };
+    const hin = hasIn(n) ? map({ x: ix!, y: iy! }) : null, hout = hasOut(n) ? map({ x: ox!, y: oy! }) : null;
+    const [i, u] = flip ? [hout, hin] : [hin, hout];
+    if (i) { o.ix = i.x; o.iy = i.y; }
+    if (u) { o.ox = u.x; o.oy = u.y; }
+    return o;
+  });
+  return flip ? out.reverse() : out;
+}
+
 /** A contour carried to another letter by the fit there, to whole units. */
 function fitted(con: Node[], f: Fit): Node[] {
   const map = (q: P) => { const v = to(f, q); return { x: R(v.x), y: R(v.y) }; };
@@ -650,7 +726,7 @@ function hasAt(cs: Node[][], con: Node[]): boolean {
 /** `doc` with the change put in at each of `places`. */
 export function carryInto(ch: Change, doc: Drawn, places: Place[]): Drawn {
   if (ch.add) return { adv: doc.adv, contours: [...doc.contours, ...places.map(p => fitted(ch.add!, p.fit)).filter(con => !hasAt(doc.contours, con))] };
-  if (ch.whole) return { adv: doc.adv, contours: doc.contours.flatMap((con, c) => { const p = places.find(q => q.c === c), r = p ? replaced(con, ch, p) : con; return r ? [r] : []; }) };
+  if (ch.whole) return { adv: doc.adv, contours: doc.contours.flatMap((con, c) => { const p = places.find(q => q.c === c), r = !p ? con : p.role ? transformed(con, ch, p) : replaced(con, ch, p); return r ? [r] : []; }) };
   return { adv: doc.adv, contours: doc.contours.map((con, c) => { const here = places.filter(p => p.c === c); return here.length ? spliced(con, ch, here) : con; }) };
 }
 
@@ -748,16 +824,23 @@ export function carryLetter(changes: Change[], ch: string, doc: Drawn, own = fal
     // (where some places are close, only those: the change's surroundings, not just the shape changed)
     const look = (d: Change, slack = 1) => { const ps = placesOf(d, out, slack).filter(p => !own || !madeAt(c, p, out)); return ps.some(p => p.close) ? ps.filter(p => p.close) : ps; };
     let use = c, places = look(c), loose = false;
-    // where the letter has none of it as it was, nor as it is now (the change in it already), the change drawn
-    // mirrored (not a corner rounded, which is rounded where it stands); and with none that way either, as it was
-    // again, allowing it to differ more. Either only where the outline round it is the same too (close), or they'd
-    // find some round or stem end in nearly every letter
-    const back = places.length || cornerOf(c) ? null : undone(c), has = !!back && look(back).length > 0;
-    if (!places.length && !cornerOf(c) && !has) for (const f of FLIPS) {
-      const m = flipped(c, f), ps = look(m).filter(p => p.close);
-      if (ps.length) { use = m; places = ps; break; }
+    // where the letter has none of it as it was: the change drawn mirrored (not a corner rounded, which is rounded
+    // where it stands); with none that way either, as it was again, allowing it to differ more; and for a counter or
+    // a dot moved, turned or resized as it was, those doing the same in this letter though shaped otherwise, moved as
+    // much (a script's counters, each drawn its own way). The first two only where the outline round them is the same
+    // too (close), or they'd find some round or stem end in nearly every letter; and none of them in a letter that has
+    // the change in it already
+    if (!places.length) {
+      let alt: { use: Change; places: Place[]; rough: boolean } | null = null;
+      if (!cornerOf(c)) for (const f of FLIPS) {
+        const m = flipped(c, f), ps = look(m).filter(p => p.close);
+        if (ps.length) { alt = { use: m, places: ps, rough: false }; break; }
+      }
+      if (!alt) { const ps = look(c, ROUGH).filter(p => p.close); if (ps.length) alt = { use: c, places: ps, rough: true }; }
+      if (!alt && c.affine) { const ps = rolesIn(c, out).filter(p => !own || !madeAt(c, p, out)); if (ps.length) alt = { use: c, places: ps, rough: true }; }
+      const back = alt && !cornerOf(c) ? undone(c) : null;
+      if (alt && !(back && look(back).length)) ({ use, places, rough: loose } = alt);
     }
-    if (!places.length && !has) { places = look(c, ROUGH).filter(p => p.close); loose = places.length > 0; }
     if (!places.length) continue;
     out = carryInto(use, out, places);
     n += places.length;

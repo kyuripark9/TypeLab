@@ -213,13 +213,21 @@ describe('carry: to the other letters of an own font', () => {
 });
 
 describe('carry: to the other letters of a font drawn by hand', () => {
-  let font: Font;
-  const outline = (ch: string): Drawn | null => { const g = font.glyph(ch); return g ? traceOf(g) : null; };
-  before(async () => {
-    const st = STYLES.find(s => s.id === 'blackletter')!, id = STYLE_FONTS.blackletter;
+  let font: Font, script: Font;
+  const outline = (ch: string, f = font): Drawn | null => { const g = f.glyph(ch); return g ? traceOf(g) : null; };
+  const load = async (style: string) => {
+    const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
     if (!freeFont(id)) registerFreeFont(await new FreeFonts(null, async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); }).load(id));
-    font = buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params);
-  });
+    return buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params);
+  };
+  before(async () => { font = await load('blackletter'); script = await load('chancery'); });
+  /** The biggest of a letter's counters (the contours wound against its outside). */
+  const counterOf = (d: Drawn) => {
+    const big = d.contours.reduce((p, q) => (Math.abs(contourArea(q)) > Math.abs(contourArea(p)) ? q : p));
+    return d.contours.map((con, c) => ({ con, c })).filter(q => Math.sign(contourArea(q.con)) !== Math.sign(contourArea(big)))
+      .sort((p, q) => Math.abs(contourArea(q.con)) - Math.abs(contourArea(p.con)))[0].c;
+  };
+  const width = (con: Node[]) => Math.max(...con.map(n => n.x)) - Math.min(...con.map(n => n.x));
 
   it("finds Cathedral's b counter from its o's only roughly, offered but not as alike as a strict match", () => {
     // the o's counter (wound against its outside) made wider, its right half moved out
@@ -230,6 +238,24 @@ describe('carry: to the other letters of a font drawn by hand', () => {
     const b = carryLetter(changesOf(o.contours, wider), 'b', outline('b')!);
     assert.ok(b?.rough && b.close, `the b's counter is a rough, close match (${b && JSON.stringify({ rough: b.rough, close: b.close })})`);
     assert.equal(b.doc.contours.length, outline('b')!.contours.length);
+  });
+
+  it("widens Serenade's b and d counters as its o's was widened, though each is drawn its own way", () => {
+    const o = outline('o', script)!, c = counterOf(o), con = o.contours[c], cx = (Math.min(...con.map(n => n.x)) + Math.max(...con.map(n => n.x))) / 2;
+    const wider = o.contours.map((k, i) => (i !== c ? k : k.map(n => {
+      const x = (v: number) => Math.round(cx + 1.15 * (v - cx)), q: Node = { ...n, x: x(n.x) };
+      if (n.ix !== undefined) q.ix = x(n.ix);
+      if (n.ox !== undefined) q.ox = x(n.ox);
+      return q;
+    })));
+    const changes = changesOf(o.contours, wider);
+    for (const ch of 'bd') {
+      const was = outline(ch, script)!, got = carryLetter(changes, ch, was), k = counterOf(was);
+      assert.ok(got?.rough && got.close, `${ch}'s counter is offered, roughly (${got && JSON.stringify({ rough: got.rough, close: got.close })})`);
+      const w0 = width(was.contours[k]), w1 = width(got.doc.contours[k]);
+      assert.ok(w1 > w0 * 1.1 && w1 < w0 * 1.2, `${ch}'s counter is as much wider, from ${w0.toFixed(0)} to ${w1.toFixed(0)}`);
+      assert.deepEqual(got.doc.contours.filter((_, i) => i !== k), was.contours.filter((_, i) => i !== k), `the rest of ${ch} stays`);
+    }
   });
 });
 
