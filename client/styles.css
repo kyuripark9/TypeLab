@@ -959,10 +959,15 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
    the pen's (Points mode), and filled; then the wordmark. The drawing's timings are POINTS_MS, LETTER_MS and FILL_MS in
    Intro.tsx, which sets each animation's delay */
 .intro { position: fixed; inset: 0; z-index: 100; background: var(--paper); cursor: default; transition: opacity .45s ease; }
-.intro.leave { opacity: 0; pointer-events: none; }
+.intro.leave { opacity: 0; pointer-events: none; transition: opacity .33s ease .12s; }
+/* leaving, the words go first and the paper after them (FADE_MS in Intro.tsx, all told), so they never stand over the
+   app */
+.intro.leave .intro-art, .intro.leave .intro-tag { opacity: 0; transition: opacity .15s ease; }
 .intro-art { position: absolute; inset: 0; overflow: visible; }
 .intro-word { fill: var(--ink); }
-.intro-mark { fill: var(--ink); font-family: var(--ui); font-weight: 700; letter-spacing: -.04em; animation: intro-mark .5s cubic-bezier(.2, .7, .2, 1) both; }
+.intro-mark { fill: var(--ink); font-family: var(--ui); font-weight: 700; letter-spacing: -.04em; animation: intro-mark .4s cubic-bezier(.2, .7, .2, 1) .13s both; }
+/* the filled drawing goes as the wordmark comes, the two hardly over each other */
+.intro-drawn { fill: var(--ink); animation: intro-out .14s ease-in forwards; }
 .intro-guide { transition: transform .14s cubic-bezier(.2, .7, .2, 1); }
 .intro-guide line { stroke: var(--line-2); transform-box: view-box; transform-origin: 0 0; animation: intro-rule .35s cubic-bezier(.2, .7, .2, 1) both; }
 /* the lines' names, only under the drawing: in quickly and gone again before its ink fills */
@@ -977,7 +982,9 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .intro-pt circle.h { fill: var(--accent); stroke: none; }
 .intro-tag { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: .3em; font-size: 18px; color: var(--ink-3); }
 .intro-tag span { animation: intro-word .5s ease both; }
-@keyframes intro-mark { from { font-weight: 600; letter-spacing: .02em; } }
+/* the wordmark comes in as wide as the drawing it takes over from and draws in; its weight stays put (the interface's
+   font comes in a few weights, and a weight changing half way jumps) */
+@keyframes intro-mark { from { opacity: 0; letter-spacing: 0; } }
 @keyframes intro-word { from { opacity: 0; transform: translateY(6px); } }
 @keyframes intro-rule { from { transform: scaleX(0); } }
 @keyframes intro-in { from { opacity: 0; } }
