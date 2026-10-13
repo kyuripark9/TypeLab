@@ -177,10 +177,12 @@ long and soft); what you press is a pill (`--pill`); a section head is a lemon s
 hairline (`.group-head`). An edit's scope is coloured through `var(--accent…)` and the sliders' `--fill`:
 `.inspector`, `.preview` and the settings panel set them to `--sync` (every letter changes: ink lines, rings, points
 and slider fills, `--accent-soft` a translucent lemon, and `--accent-mark` the opaque lemon a lit part of a letter is
-filled with, edged in ink so it reads on the paper; All letters is lemon), and the `.customizing` wrappers and
-`.ctl[data-letter]` to the red `--custom` (one letter alone: red lines, fills and lit parts, a pale red wash on the
-panel, a red frame on the inspector; Only <letter> is filled red), so the two can't be mistaken; elsewhere the accent
-is the sync look.
+filled with; All letters is lemon), and the `.customizing` wrappers and `.ctl[data-letter]` to the red `--custom` (one
+letter alone: red lines and fills, a pale red wash on the panel, a red frame on the inspector; Only <letter> is red),
+so the two can't be mistaken; elsewhere the accent is the sync look. Both scopes are drawn alike: the colour fills a
+shape and its edge is always ink (a pill with ink words, a banner, a lit part, a ring, a picked option, a switch
+turned on, a field typed in, the strip's mark on a letter with its own settings), as the lemon is laid under ink; only
+lines (slider fills, guides, the pen's points, the frame) take the colour itself.
 Class prefixes: `.pv-` preview, `.i-` inspector canvas, `.pen-`, `.d-` diagrams, `.ex-` explainer text, `.ctl-`,
 `.lib-`, `.acct-`. Some class names are built at runtime (`lib-${view}`, `resize-${side}`, Diagram's arguments, and
 the `x`/`y` class Resizer puts on `body` while dragging), so search for the bare word before deleting a rule.

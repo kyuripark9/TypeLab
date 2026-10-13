@@ -18,7 +18,10 @@
    the one strong colour in the system, so anything that belongs to one letter alone reads apart from what all of
    them share. A scope recolours what it holds by setting --accent (lines, rings, slider fills, points), --accent-ink
    (text), --accent-soft (a translucent wash: halos, what is picked, rings' insides) and --accent-mark (an opaque
-   highlight laid over ink: a part of a letter lit up) and the sliders' --fill (below the inspector's head), so a rule
+   highlight laid over ink: a part of a letter lit up) and the sliders' --fill (below the inspector's head). Both
+   scopes are drawn alike: their colour fills a shape and its edge is always ink (a pill, a banner, a lit part, a
+   ring, a picked option, a field typed in), as the lemon is laid under ink; only lines (slider fills, guides, the
+   pen's points) are drawn in the colour itself. A rule
    takes those by var() where it is used rather than through a token mixed on :root, which would keep the sync look.
    Form warnings are an orange-brown (--warn-ink, --warn-tint), deleting a deep red (--danger), the construction grid
    a teal and a pink (--grid-*) and the pen's snap guides a deep teal, cool so they never read as one letter's red
@@ -144,7 +147,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .btn.primary.danger-btn { background: var(--danger); color: var(--white); box-shadow: none; }
 .btn.primary.danger-btn:hover { background: var(--danger-hover); }
 /* A field you type into is a pill on a pale well with a hairline inside it, edged darker when pointed at and, typed
-   in, turned pale and ringed in the accent (its scope's: a letter's own numbers ring red). On the paper (the nav's
+   in, turned pale, edged in ink and haloed in its scope's wash (a letter's own numbers in pink). On the paper (the nav's
    Find a setting, My designs' search) it is a pale pill raised by a hairline instead. A key it answers to sits at its
    right end on a grey pill. */
 .type-field input, .search-field input, .size-field, .field input, .export-name input, .name-prompt input, .pen-num-field input {
@@ -154,7 +157,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .nav-search input, .lib-search input { border: 0; border-radius: var(--pill); background: var(--surface); box-shadow: var(--raise); color: var(--ink); outline: none; transition: box-shadow .15s, background .15s; }
 .type-field input:focus, .search-field input:focus, .size-field:focus-within, .field input:focus, .export-name input:focus, .name-prompt input:focus, .pen-num-field input:focus,
 .nav-search input:focus, .lib-search input:focus {
-  outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
+  outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--ink), 0 0 0 3px var(--accent-soft); }
 .nav-search kbd, .lib-search kbd, .search-field kbd { position: absolute; right: 7px; min-width: 18px; height: 18px; padding: 0 6px; border-radius: var(--pill); background: var(--tint);
   font: 400 var(--t-xs)/18px var(--mono); color: var(--ink-2); text-align: center; pointer-events: none; }
 /* A segmented switch is a grey track with its pick a pale tab raised on it: List/Grid and Help me choose/Browse
@@ -262,10 +265,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .gl rect { fill: transparent; }
 .gl { cursor: pointer; }
 /* a letter pointed at is marked in the highlighter behind it; the parts a setting shapes are lit in the scope's
-   highlight, edged in its line so a lemon part reads against the paper */
+   highlight, edged in ink so a lemon part reads against the paper */
 .gl:hover rect { fill: var(--accent-mark); }
-.pv-hl { fill: var(--accent-mark); stroke: var(--accent); stroke-width: var(--sw); pointer-events: none; }
-.pv-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: var(--sw); pointer-events: none; }
+.pv-hl { fill: var(--accent-mark); stroke: var(--ink); stroke-width: var(--sw); pointer-events: none; }
+.pv-ring { fill: var(--accent-soft); stroke: var(--ink); stroke-width: var(--sw); pointer-events: none; }
 .pv-band { fill: var(--accent-mark); opacity: .8; }
 .pv-guide { stroke: var(--accent); stroke-width: var(--sw); stroke-dasharray: calc(var(--sw) * 4) calc(var(--sw) * 3); opacity: .8; }
 .pv-guide.base { stroke: var(--ink-3); opacity: .5; }
@@ -435,8 +438,8 @@ body.resizing.y { cursor: row-resize; }
 .diagram { display: block; width: 100%; height: 100%; }
 @container panel (max-height: 560px) { .explainer { position: static; } }
 .d-ink { fill: var(--ink); }
-.d-hl { fill: var(--accent-mark); stroke: var(--accent); }
-.d-ring { fill: var(--accent-soft); stroke: var(--accent); }
+.d-hl { fill: var(--accent-mark); stroke: var(--ink); }
+.d-ring { fill: var(--accent-soft); stroke: var(--ink); }
 .d-guide { stroke: var(--line-2); stroke-width: 1; }
 .d-guide.hot { stroke: var(--accent); stroke-dasharray: 4 3; }
 .d-label { font: 600 var(--t-xs) var(--ui); fill: var(--ink-3); }
@@ -482,11 +485,11 @@ body.resizing.y { cursor: row-resize; }
   font: 500 var(--t-s) var(--mono); text-align: center; color: var(--ink); transition: background .15s, box-shadow .15s; }
 .ctl:hover .ctl-num, .ctl.active .ctl-num { background: var(--surface); }
 .ctl-num:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
-.ctl-num:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
+.ctl-num:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--ink), 0 0 0 3px var(--accent-soft); }
 .ctl-label { font-weight: 600; font-size: var(--t-base); line-height: 26px; }
 /* a tag after the name is one pill: short of room it goes down a line whole, rather than splitting itself or the name */
 .ctl-label em { display: inline-block; white-space: nowrap; font-style: normal; font-size: var(--t-xs); line-height: 14px; font-weight: 500; color: var(--ink-2); border-radius: var(--pill); padding: 2px 7px; margin-left: 6px; background: var(--tint); vertical-align: 1px; }
-.ctl-label em.own { color: var(--custom-ink); background: var(--custom-soft); }
+.ctl-label em.own { color: var(--ink); background: var(--custom); box-shadow: inset 0 0 0 1px var(--ink); }
 /* each slider's drawing (SliderIcons.tsx) sits before its name, in its scope's colour while the slider is in use */
 .ctl-icon { display: inline-block; vertical-align: -4px; margin-right: 8px; color: var(--ink-3); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: color .15s; }
 .ctl-icon .solid { fill: currentColor; stroke: none; }
@@ -562,13 +565,13 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .opt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px 7px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); font-size: var(--t-s); color: var(--ink-2); transition: border-color .15s, background .15s; }
 .opt svg { fill: var(--ink); max-width: 100%; }
 .opt:hover { border-color: var(--line-2); background: var(--well); }
-.opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.opt.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); background: var(--accent-soft); color: var(--ink); font-weight: 600; }
 .opt.on svg { fill: var(--accent); }
 .sub-label { margin: 14px 0 7px; }
 .switch { width: 34px; height: 20px; border-radius: var(--pill); background: var(--track); position: relative; flex: none; transition: background .15s; }
 .switch i { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--white); box-shadow: var(--knob); transition: transform .2s ease; }
 .switch:hover { background: var(--ink-3); }
-.switch.on { background: var(--accent); }
+.switch.on { background: var(--accent); box-shadow: inset 0 0 0 1px var(--ink); }
 .switch.on i { transform: translateX(14px); }
 .reveal { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease; }
 .reveal > div { overflow: hidden; }
@@ -597,11 +600,11 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .insp-title h2 { margin: 0; font-size: var(--t-2xl); }
 .grow { flex: 1; }
 /* Parts/Points and All letters/Only a: the shared segmented switch, the scope picked in its look: All letters ink on
-   the lemon, edged in ink (the system's own primary look), Only a filled in the red */
+   the lemon, Only a on the red, both with ink words and an ink edge (the system's own primary look) */
 .scope { margin-left: 8px; }
 .scope button { gap: 7px; padding: 0 13px 0 11px; }
 .scope button.on[data-scope="all"] { background: var(--marker); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
-.scope button.on[data-scope="letter"], .inspector.customizing .scope button.on[data-mode="points"] { background: var(--custom); color: var(--white); box-shadow: none; }
+.scope button.on[data-scope="letter"], .inspector.customizing .scope button.on[data-mode="points"] { background: var(--custom); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .scope-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.3; }
 .scope-icon .fill { fill: currentColor; }
 /* every letter in sync: the inspector, the preview and the settings take the system's own look, handles and slider
@@ -613,10 +616,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .inspector.customizing { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --accent-mark: var(--custom); --fill: var(--custom); }
 .inspector.customizing .insp-body { position: relative; box-shadow: inset 0 0 0 2px var(--custom); border-radius: 0 0 var(--radius) var(--radius); }
 .scope-banner { position: absolute; top: 12px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 7px; padding: 4px 12px;
-  border-radius: var(--pill); background: var(--custom); color: var(--white); font-size: var(--t-m); line-height: 1.45; width: max-content; max-width: calc(100% - 132px); pointer-events: auto; }
+  border-radius: var(--pill); background: var(--custom); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); font-size: var(--t-m); line-height: 1.45; width: max-content; max-width: calc(100% - 132px); pointer-events: auto; }
 .scope-banner > span { text-wrap: balance; }
 .scope-banner b { font-weight: 700; }
-.scope-banner .scope-icon { stroke: var(--white); }
+.scope-banner .scope-icon { stroke: currentColor; }
 /* (a free font's letter in step with the rest: the banner is a plain note, as nothing here is this letter's alone) */
 .inspector:not(.customizing) .scope-banner { background: var(--surface); color: var(--ink-2); box-shadow: var(--raise); }
 .scope-note { display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 6px; padding: 10px 12px; border-radius: var(--radius); background: var(--custom-tint); color: var(--ink); font-size: var(--t-m); line-height: 1.45; }
@@ -648,8 +651,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .insp-canvas { flex: 1; min-width: 0; min-height: 0; overflow: hidden; position: relative; user-select: none; touch-action: none; }
 .insp-canvas svg { display: block; }
 .i-ink { fill: var(--ink); }
-.i-hl { fill: var(--accent-mark); stroke: var(--accent); stroke-width: var(--sw); }
-.i-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: var(--sw); }
+.i-hl { fill: var(--accent-mark); stroke: var(--ink); stroke-width: var(--sw); }
+.i-ring { fill: var(--accent-soft); stroke: var(--ink); stroke-width: var(--sw); }
 .i-adv { fill: rgba(32, 31, 29, .025); stroke: var(--line-2); stroke-dasharray: 3 4; }
 .i-guide { stroke: var(--line-2); }
 .i-guide.hot { stroke: var(--accent); stroke-width: 1.5; }
@@ -669,7 +672,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .i-hint { position: absolute; left: 16px; bottom: 10px; margin: 0; font: 400 var(--t-l)/1.2 var(--hand); letter-spacing: 0; color: var(--ink-2); pointer-events: none; }
 .i-hint.on { color: var(--accent-ink); }
 .i-knob { pointer-events: none; }
-.i-knob circle { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
+.i-knob circle { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
 .i-knob path { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .i-knob.pulse { pointer-events: all; cursor: grab; }
 .i-knob .halo { fill: var(--accent-soft); stroke: none; transform-box: fill-box; transform-origin: center; animation: knob-pulse 1.8s ease-out infinite; }
@@ -838,7 +841,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .pen-carry-dock { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 6px; max-width: calc(100% - 84px); pointer-events: none; }
 .pen-carry-dock > * { pointer-events: auto; }
 .pen-carry-pill { display: flex; align-items: center; gap: 2px; max-width: 100%; padding: 3px; border-radius: var(--pill); background: var(--surface); box-shadow: var(--raise); }
-.pen-carry-pill.ask { box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--accent-soft); }
+.pen-carry-pill.ask { box-shadow: 0 0 0 1px var(--ink), 0 0 0 4px var(--accent-soft); }
 .pen-carry-pill .btn { margin-left: 2px; }
 .pen-carry-sum { display: flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 6px 0 9px; border-radius: var(--pill); font-size: var(--t-m); color: var(--ink-2); white-space: nowrap; }
 .pen-carry-sum span { overflow: hidden; text-overflow: ellipsis; }
@@ -902,7 +905,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .cell.on { background: var(--accent-soft); }
 .cell.on svg { fill: var(--accent-ink); }
 /* a letter with settings of its own, or drawn point by point */
-.cell.custom::after { content: ''; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; background: var(--custom); }
+.cell.custom::after { content: ''; position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; background: var(--custom); box-shadow: inset 0 0 0 1px var(--ink); }
 
 /* ---------- popover & toast */
 .popover { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; width: 300px; padding: 6px; display: grid; gap: 1px; animation: pop .14s ease-out; transform-origin: top right; }
@@ -1122,7 +1125,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .doc-name { height: 30px; padding: 0 26px 0 10px; field-sizing: content; min-width: 96px; max-width: min(280px, 24vw); border: 0; border-radius: var(--pill); background: transparent;
   font: 600 var(--t-base) var(--ui); letter-spacing: inherit; color: var(--ink); text-overflow: ellipsis; transition: box-shadow .15s, background .15s; }
 .doc-name:hover { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); }
-.doc-name:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
+.doc-name:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--ink), 0 0 0 3px var(--accent-soft); }
 .doc-name-pen { position: absolute; right: 9px; fill: none; stroke: var(--ink-3); stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; transition: opacity .15s; }
 .doc-name:focus + .doc-name-pen { opacity: 0; }
 /* brand / name, read as a path */
