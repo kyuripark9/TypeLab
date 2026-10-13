@@ -5,10 +5,10 @@
      baseline and some in the accent, and settles into the name letter by letter, each settled letter dropping onto
      the baseline, the letters still in fonts of their own, set evenly by their ink and each staying put once settled;
    - the whole name cuts from font to font, each cut led by one font setting half its letters among others in fonts of
-     their own, some carried over from the cut before, so one cut mixes into the next (one cut all mixed), over the
-     guide lines a font is drawn on (baseline, x-height, cap height), which move to each leading font's own heights;
-     each cut's new letters come in a way of its own (rising, stretched tall, dropped, turned), the card goes ink and
-     then the accent under a few, one cut is set larger, and the last is slammed down onto the lines;
+     their own, some carried over from the cut before, so one cut mixes into the next, over the guide lines a font is
+     drawn on (baseline, x-height, cap height), which move to each leading font's own heights; four cuts in all, each
+     one's new letters coming in a way of its own (rising, turned, stretched tall), one set larger on the accent, and
+     the last slammed down onto the lines;
    - the name is drawn in the logo's letters, in capitals as the header sets it, as Points mode shows a letter: its
      points (corners and extremes) and handles come in along it as its outline is drawn on, the lines move to the
      logo's heights and its ink fills in;
@@ -52,20 +52,16 @@ const LETTER_GAP = 0.07;
     baseline, stretched tall, or turned; `slam` sets the whole name down from larger. */
 type Motion = 'burst' | 'rise' | 'drop' | 'stretch' | 'turn' | 'slam';
 /** One cut: the font that leads it, how long it shows and how its new letters come in; the card's ground under it
-    (ink or the accent, the letters in paper); and how much larger it is set, as the window allows. */
-interface Cut { lead: string; ms: number; motion: Motion; ground?: 'ink' | 'accent'; zoom?: number }
-/** The whole name's cuts, in order: a font's name leads the cut, setting LEAD of its letters, and `*` gives every
-    letter a font of its own. Neighbours look far apart, heavy after light, and the last, held longest, is the boldest.
-    The dark grounds come in one run, so the card turns dark only once and never flashes. A font that didn't come is
-    left out. */
+    (the accent, the letters in paper); and how much larger it is set, as the window allows. */
+interface Cut { lead: string; ms: number; motion: Motion; ground?: 'accent'; zoom?: number }
+/** The whole name's cuts, in order, each led by a font's name setting LEAD of its letters. Neighbours look far apart,
+    heavy after light, and the last, held longest, is the boldest. Only one has the accent under it, so the card
+    changes colour but once. A font that didn't come is left out. */
 const CUTS: Cut[] = [
-  { lead: 'Couture', ms: 150, motion: 'rise' },
-  { lead: 'Timber', ms: 150, motion: 'stretch' },
-  { lead: '*', ms: 160, motion: 'drop', ground: 'ink' },
-  { lead: 'Serenade', ms: 170, motion: 'turn', ground: 'ink' },
+  { lead: 'Couture', ms: 160, motion: 'rise' },
+  { lead: 'Serenade', ms: 180, motion: 'turn' },
   { lead: 'Gumdrop', ms: 260, motion: 'stretch', ground: 'accent', zoom: 1.5 },
-  { lead: 'Dispatch', ms: 200, motion: 'rise' },
-  { lead: 'Orbital', ms: 560, motion: 'slam' }
+  { lead: 'Orbital', ms: 480, motion: 'slam' }
 ];
 /** how far apart, in ms, a cut's new letters start coming in, left to right */
 const STAGGER = 12;
@@ -73,21 +69,21 @@ const STAGGER = 12;
     font of their own, a letter keeping the one it had the cut before by CHURN's odds, so one cut mixes into the next */
 const LEAD = 0.5;
 /** the cuts the saved fonts take, the latest saved first, so as many of them come up as there are, the cuts as many */
-const MINE_AT = ['Gumdrop', 'Timber', 'Dispatch'];
+const MINE_AT = ['Gumdrop', 'Couture', 'Serenade'];
 /** how long to wait for the fonts, and the fewest to play with */
 const WAIT_MS = 1200, FEWEST = 6;
 /** each step of the scramble growing and of it settling */
-const GROW_MS = 55, SETTLE_MS = 70;
+const GROW_MS = 45, SETTLE_MS = 55;
 /** The drawing: its points come in over POINTS_MS while each letter's outline is drawn on (over .intro-outline's
-    .42s in styles.css, a letter LETTER_MS after the one before), the ink fills in from FILL_MS as the points and
+    .36s in styles.css, a letter LETTER_MS after the one before), the ink fills in from FILL_MS as the points and
     lines go, and the wordmark follows at DRAW_MS. */
-const POINTS_MS = 420, LETTER_MS = 30, FILL_MS = 760, DRAW_MS = 1100;
+const POINTS_MS = 340, LETTER_MS = 30, FILL_MS = 620, DRAW_MS = 880;
 /** the smallest size, in px to the em, the drawing's points show their handles at; how sharply the outline turns at a
     point for it to show as a corner (the cosine of 25°), and how far apart, in units, two points it shows are at least */
 const HANDLES_FROM = 80, CORNER = Math.cos(25 * Math.PI / 180), CLEAR = 50;
 /** how long the wordmark shows, then how long it fades; FADE_MS matches .intro.leave's opacity transition in
     styles.css, its delay counted */
-const HOLD_MS = 1100, FADE_MS = 450;
+const HOLD_MS = 900, FADE_MS = 450;
 /** the least room between the window's edge and a scramble's letters, and how near, in px, a guide line can come to
     one before it without being left out, the two reading as one */
 const EDGE = 24, ONE = 6;
@@ -196,21 +192,21 @@ function plan(fonts: FreeFontRef[], mine: Font[], drawing: Logo | null): Step[] 
   // the cuts, a saved font in the place of an own one where there is one, each mixing into the one before: its
   // leading face sets LEAD of the letters, wherever they fall, and every other letter is in a face unlike its
   // neighbours' and the leading one, keeping the one it had the cut before by CHURN's odds; the lines at the leading
-  // face's heights (a cut all mixed keeps the last's)
+  // face's heights
   const named = new Map(own.map(f => [f.web.family, f]));
   const cuts = CUTS.flatMap(cut => {
-    const face = cut.lead === '*' ? undefined : saved[MINE_AT.indexOf(cut.lead)] ?? named.get(cut.lead);
-    return face || cut.lead === '*' ? [{ cut, lead: face }] : [];
+    const lead = saved[MINE_AT.indexOf(cut.lead)] ?? named.get(cut.lead);
+    return lead ? [{ cut, lead }] : [];
   });
-  let lines = heightsOf(cuts.find(c => c.lead)?.lead ?? own[0]), was = settled;
+  let lines = heightsOf(cuts[0]?.lead ?? own[0]), was = settled;
   for (const { cut, lead } of cuts) {
     const at = new Set<number>();
-    while (lead && at.size < Math.round(NAME.length * LEAD)) at.add(Math.floor(Math.random() * NAME.length));
+    while (at.size < Math.round(NAME.length * LEAD)) at.add(Math.floor(Math.random() * NAME.length));
     const letters = [...NAME].reduce<Letter[]>((ls, ch, i) => {
       const prev = ls.at(-1)?.face, had = was[i], kept = Math.random() > CHURN && had.face !== prev && had.face !== lead;
-      return [...ls, lead && at.has(i) ? letter(ch, lead) : kept ? had : letter(ch, other(ch, prev, lead))];
+      return [...ls, at.has(i) ? letter(ch, lead) : kept ? had : letter(ch, other(ch, prev, lead))];
     }, []);
-    if (lead) lines = heightsOf(lead) ?? lines;
+    lines = heightsOf(lead) ?? lines;
     steps.push({ ms: cut.ms, letters, lines, motion: cut.motion, stagger: STAGGER, ground: cut.ground, zoom: cut.zoom });
     was = letters;
   }
@@ -438,7 +434,7 @@ export function Intro() {
       )}
       {step && !step.letters && !step.drawn && (
         <div className="intro-tag" style={{ top: n1(base + 0.36 * size) }}>
-          {'Experiment with type.'.split(' ').map((w, i) => <span key={i} style={{ animationDelay: `${250 + i * 120}ms` }}>{w}</span>)}
+          {'Experiment with type.'.split(' ').map((w, i) => <span key={i} style={{ animationDelay: `${150 + i * 100}ms` }}>{w}</span>)}
         </div>
       )}
     </div>
