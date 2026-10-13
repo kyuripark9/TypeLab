@@ -1047,10 +1047,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
    --intro-line the guide lines */
 .intro { --intro-fg: var(--ink); --intro-hot: var(--accent); --intro-line: var(--line-2); position: fixed; inset: 0; z-index: 100; background: var(--paper); cursor: default; transition: opacity .45s ease; }
 .intro[data-ground=accent] { --intro-fg: var(--paper); --intro-hot: var(--ink); --intro-line: color-mix(in srgb, var(--paper) 35%, transparent); background: var(--accent); }
-.intro.leave { opacity: 0; pointer-events: none; transition: opacity .33s ease .12s; }
+.intro.leave { opacity: 0; pointer-events: none; transition: opacity .45s ease .2s; }
 /* leaving, the words go first and the paper after them (FADE_MS in Intro.tsx, all told), so they never stand over the
    app */
-.intro.leave .intro-art, .intro.leave .intro-tag { opacity: 0; transition: opacity .15s ease; }
+.intro.leave .intro-art, .intro.leave .intro-tag { opacity: 0; transition: opacity .3s ease; }
 .intro-art { position: absolute; inset: 0; overflow: visible; }
 .intro-word { fill: var(--intro-fg); }
 .intro-word .hot { fill: var(--intro-hot); }
@@ -1064,20 +1064,22 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .intro-in.stretch { animation-name: intro-stretch; }
 .intro-in.turn { animation-name: intro-turn; }
 .intro-word.slam { transform-box: view-box; animation: intro-slam .3s cubic-bezier(.3, 1.25, .5, 1) both; }
-.intro-mark { fill: var(--ink); font-family: var(--display); font-weight: 400; font-synthesis: none; animation: intro-mark .4s cubic-bezier(.2, .7, .2, 1) .13s both; }
-/* the filled drawing goes as the wordmark comes, the two hardly over each other */
-.intro-drawn { fill: var(--ink); animation: intro-out .14s ease-in forwards; }
+.intro-mark { fill: var(--ink); font-family: var(--display); font-weight: 400; font-synthesis: none; animation: intro-mark .3s ease both; }
+/* the filled drawing stays whole under the wordmark as it comes in over it, the very same letters, and goes only once
+   it is in, so the logo never pales between the two */
+.intro-drawn { fill: var(--ink); animation: intro-out .2s ease .3s forwards; }
 .intro-guide { transition: transform .14s cubic-bezier(.2, .7, .2, 1); }
 .intro-guide line { stroke: var(--intro-line); transform-box: view-box; transform-origin: 0 0; animation: intro-rule .35s cubic-bezier(.2, .7, .2, 1) both; }
 .intro-guides.end, .intro-points { animation: intro-out .2s ease forwards; }
-/* the outline is drawn on in the accent, as the pen's points are, and goes ink as it fills */
-.intro-outline { fill: var(--ink); fill-opacity: 0; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-line .36s cubic-bezier(.4, 0, .2, 1) both, intro-fill .26s ease both; }
+/* the outline is drawn on in the accent, as the pen's points are, and gives way to the ink as it fills, so the
+   filled drawing is the wordmark's weight */
+.intro-outline { fill: var(--ink); fill-opacity: 0; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-line .42s cubic-bezier(.4, 0, .2, 1) both, intro-fill .26s ease both; }
 .intro-pt { transform-box: view-box; animation: intro-pop .18s cubic-bezier(.3, 1.5, .5, 1) both; }
 .intro-pt rect, .intro-pt circle { fill: var(--surface); stroke: var(--accent); stroke-width: 1.2; }
 .intro-pt line { stroke: var(--accent); stroke-width: 1; }
 .intro-pt circle.h { fill: var(--accent); stroke: none; }
 .intro-tag { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: .3em; font-size: 18px; color: var(--ink-3); }
-.intro-tag span { animation: intro-word .5s ease both; }
+.intro-tag span { animation: intro-word .6s ease both; }
 /* the wordmark is the logo in its font (Lineup), the very letters drawn and spaced as the font spaces them, so it comes
    in where the drawing stands */
 @keyframes intro-mark { from { opacity: 0; } }
@@ -1085,7 +1087,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 @keyframes intro-rule { from { transform: scaleX(0); } }
 @keyframes intro-out { to { opacity: 0; } }
 @keyframes intro-line { to { stroke-dashoffset: 0; } }
-@keyframes intro-fill { to { fill-opacity: 1; stroke: var(--ink); } }
+@keyframes intro-fill { to { fill-opacity: 1; stroke-opacity: 0; } }
 @keyframes intro-pop { from { opacity: 0; transform: scale(.3); } }
 @keyframes intro-burst { from { transform: scale(1.9); } }
 @keyframes intro-rise { from { transform: translateY(calc(var(--em) * .45)); } }

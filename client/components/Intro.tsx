@@ -75,15 +75,15 @@ const WAIT_MS = 1200, FEWEST = 6;
 /** each step of the scramble growing and of it settling */
 const GROW_MS = 45, SETTLE_MS = 55;
 /** The drawing: its points come in over POINTS_MS while each letter's outline is drawn on (over .intro-outline's
-    .36s in styles.css, a letter LETTER_MS after the one before), the ink fills in from FILL_MS as the points and
+    .42s in styles.css, a letter LETTER_MS after the one before), the ink fills in from FILL_MS as the points and
     lines go, and the wordmark follows at DRAW_MS. */
-const POINTS_MS = 340, LETTER_MS = 30, FILL_MS = 620, DRAW_MS = 880;
+const POINTS_MS = 420, LETTER_MS = 30, FILL_MS = 760, DRAW_MS = 1100;
 /** the smallest size, in px to the em, the drawing's points show their handles at; how sharply the outline turns at a
     point for it to show as a corner (the cosine of 25°), and how far apart, in units, two points it shows are at least */
 const HANDLES_FROM = 80, CORNER = Math.cos(25 * Math.PI / 180), CLEAR = 50;
 /** how long the wordmark shows, then how long it fades; FADE_MS matches .intro.leave's opacity transition in
     styles.css, its delay counted */
-const HOLD_MS = 900, FADE_MS = 450;
+const HOLD_MS = 1300, FADE_MS = 650;
 /** the least room between the window's edge and a scramble's letters, and how near, in px, a guide line can come to
     one before it without being left out, the two reading as one */
 const EDGE = 24, ONE = 6;
@@ -426,7 +426,7 @@ export function Intro() {
             ? <Word key={step.motion === 'slam' ? at : undefined} letters={step.letters} from={step.from} size={s} cx={W / 2} base={b} motion={step.motion} stagger={step.stagger} />
             : step.drawn ? drawn && <Drawing letters={drawn} size={size} />
               : <>
-                {/* the drawing, filled, gives way to the wordmark as it comes in, so one reads as the other */}
+                {/* the drawing, filled, stays under the wordmark as it comes in over it, so one reads as the other */}
                 {drawn && steps[at - 1]?.drawn && <g className="intro-drawn">{drawn.map((l, i) => <path key={i} d={l.d} />)}</g>}
                 <text className="intro-mark" x={W / 2} y={base} textAnchor="middle" fontSize={size}>{MARK}</text>
               </>}
@@ -434,7 +434,7 @@ export function Intro() {
       )}
       {step && !step.letters && !step.drawn && (
         <div className="intro-tag" style={{ top: n1(base + 0.36 * size) }}>
-          {'Experiment with type.'.split(' ').map((w, i) => <span key={i} style={{ animationDelay: `${150 + i * 100}ms` }}>{w}</span>)}
+          {'Experiment with type.'.split(' ').map((w, i) => <span key={i} style={{ animationDelay: `${300 + i * 150}ms` }}>{w}</span>)}
         </div>
       )}
     </div>
