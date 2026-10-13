@@ -17,7 +17,7 @@ import type { FreeFontData, PackedNode } from '../../shared/engine';
 import { OWN_FAMILIES, fontId, type FreeFontRef } from '../../shared/free-fonts';
 import { api } from '../lib/api';
 import { fontStyle, webFont } from '../lib/free';
-import { guideLines, stackLabels } from '../lib/guide-labels';
+import { guideLines } from '../lib/guide-labels';
 import { n1, useSize } from '../lib/hooks';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
 
@@ -46,8 +46,8 @@ const HANDLES_FROM = 80;
 /** how long the wordmark shows, then how long it fades; FADE_MS matches .intro's opacity transition in styles.css */
 const HOLD_MS = 1100, FADE_MS = 450;
 /** the window's left edge to the lines' names, and the narrowest window that shows them (on phones they'd run into
-    the name) */
-const EDGE = 24, NAMED_FROM = 600;
+    the name); lines nearer than CLOSE px set their names side by side, GAP apart */
+const EDGE = 24, NAMED_FROM = 600, CLOSE = 14, GAP = 12;
 
 type Letter = { ch: string; font: FreeFontRef };
 /** A font's heights in ems: x-height and cap height, and, in the drawing, its ascender and (below zero) descender. */
@@ -67,6 +67,14 @@ function heightsOf(r: FreeFontRef): Heights | undefined {
   ctx.font = `${s.fontStyle} ${s.fontWeight} 100px ${s.fontFamily}`;
   const up = (ch: string) => ctx!.measureText(ch).actualBoundingBoxAscent / 100;
   return { xh: up('x'), cap: up('H') };
+}
+
+/** How wide a guide line's name is, in px (its type: .intro-guide text in styles.css). */
+function nameWidth(name: string) {
+  ctx ??= document.createElement('canvas').getContext('2d');
+  if (!ctx) return name.length * 5.5;
+  ctx.font = '500 10px Inter, sans-serif';
+  return ctx.measureText(name).width;
 }
 
 /** The drawing's heights: the font's own x-height and cap height, and the name's highest and lowest points. */
@@ -148,22 +156,44 @@ function drawName(data: FreeFontData, k: number, cx: number, base: number) {
   });
 }
 
-/** The guide lines across the window at `h`'s heights over the baseline `base`, at `size` px to the em, each named
-    at its left end on a window wide enough; `end` fades them out with the drawing's points. */
-function Guides({ h, base, size, width, end }: { h: Heights; base: number; size: number; width: number; end: boolean }) {
-  const lines = guideLines({ xh: h.xh, cap: h.cap, asc: h.asc ?? NaN, desc: h.desc ?? NaN }).filter(([, y]) => !Number.isNaN(y));
-  const labels = stackLabels(lines.map(([id, y]) => [id, y * size] as const), y => base - y);
+/** A guide line: its id and name, where it runs across the window (px down) and how wide its name is. */
+interface Guide { id: string; name: string; at: number; w: number }
+
+/** The guide lines at `h`'s heights over the baseline `base`, at `size` px to the em. */
+const guidesAt = (h: Heights, base: number, size: number): Guide[] =>
+  guideLines({ xh: h.xh, cap: h.cap, asc: h.asc ?? NaN, desc: h.desc ?? NaN })
+    .filter(([, y]) => !Number.isNaN(y))
+    .map(([id, y, name]) => ({ id, name, at: Math.round(base - y * size) + 0.5, w: n1(nameWidth(name)) }));
+
+/** Where each line's name starts along it, on a window wide enough to name them: near the left end, or, where the
+    line runs too close under another for their names to sit one over the other, past that one's name. */
+function namesAt(lines: Guide[], width: number) {
+  const xs = new Map<string, number>();
+  if (width < NAMED_FROM) return xs;
+  let up: { at: number; end: number } | undefined;
+  for (const l of [...lines].sort((a, b) => a.at - b.at)) {
+    const x = up && l.at - up.at < CLOSE ? up.end + GAP : EDGE;
+    xs.set(l.id, x);
+    up = { at: l.at, end: x + l.w };
+  }
+  return xs;
+}
+
+/** The guide lines across the window, each with its name (where `xs` places one) on it, the line broken around it,
+    so a name moves with its line and is never taken for a neighbour's. `end` fades them out with the drawing's
+    points. */
+function Guides({ lines, xs, width, end }: { lines: Guide[]; xs: Map<string, number>; width: number; end: boolean }) {
   return (
     <g className={end ? 'intro-guides end' : 'intro-guides'} style={end ? { animationDelay: `${FILL_MS}ms` } : undefined}>
-      {lines.map(([id, y, name]) => {
-        const at = Math.round(base - y * size) + 0.5;
-        return (
-          <g key={id} className="intro-guide" style={{ transform: `translateY(${at}px)` }}>
-            <line x2={width} />
-            {width >= NAMED_FROM && <text x={EDGE} y={n1(labels.get(id)! - at)}>{name}</text>}
+      <g>{lines.map(l => <g key={l.id} className="intro-guide" style={{ transform: `translateY(${l.at}px)` }}><line x2={width} /></g>)}</g>
+      <g>
+        {lines.map(l => xs.has(l.id) && (
+          <g key={l.id} className="intro-guide name" style={{ transform: `translate(${xs.get(l.id)}px, ${l.at}px)` }}>
+            <rect x={-5} y={-6} width={l.w + 10} height={12} />
+            <text y={3.5}>{l.name}</text>
           </g>
-        );
-      })}
+        ))}
+      </g>
     </g>
   );
 }
@@ -234,15 +264,21 @@ export function Intro() {
   const { width: W, height: H } = box;
   const size = Math.min(112, Math.max(56, W * 0.08)), base = Math.round(H / 2 + 0.2 * size - 10);
   const drawn = useMemo(() => (drawing && W ? drawName(drawing, size / 1000, W / 2, base) : null), [drawing, W, size, base]);
+  // the names through the cuts, each where the cut crowding it most puts it, so none hops along and back
+  const cutNames = useMemo(() => steps.filter(s => s.lines && !s.drawn).reduce((xs, s) => {
+    for (const [id, x] of namesAt(guidesAt(s.lines!, base, size), W)) xs.set(id, Math.max(x, xs.get(id) ?? x));
+    return xs;
+  }, new Map<string, number>()), [steps, W, size, base]);
 
   if (!shown) return null;
   // nothing while the fonts come (or when skipped before they did)
   const step = phase === 'wait' ? undefined : steps[at];
+  const lines = step?.lines && guidesAt(step.lines, base, size);
   return (
     <div ref={ref} className={phase === 'leave' ? 'intro leave' : 'intro'} onClick={() => setPhase('leave')} aria-hidden="true">
       {step && W > 0 && (
         <svg className="intro-art" width={W} height={H}>
-          {step.lines && <Guides h={step.lines} base={base} size={size} width={W} end={!!step.drawn} />}
+          {lines && <Guides lines={lines} xs={step.drawn ? namesAt(lines, W) : cutNames} width={W} end={!!step.drawn} />}
           {step.letters
             ? <text className="intro-word" x={W / 2} y={base} textAnchor="middle" fontSize={size}>
               {step.letters.map((l, i) => <tspan key={i} style={fontStyle(l.font)}>{l.ch}</tspan>)}
