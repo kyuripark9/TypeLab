@@ -263,17 +263,20 @@ describe('grid blocks (Built from: Blocks, Block letters: Grid)', () => {
     return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
   };
 
-  it('has cells for every character, rows of one length, and cuts only where filled cells meet at a corner', () => {
+  it('has cells for every character, in rows of one length', () => {
     assert.deepEqual(Object.keys(GRID).sort(), [...ALL_CHARS].sort());
     for (const ch of ALL_CHARS) {
       const c = gridCells(ch)!, rows = (typeof GRID[ch] === 'string' ? GRID[ch] : GRID[ch][0]) as string;
       assert.ok(rows.split(' ').every(r => r.length === c.cols && /^[#.]+$/.test(r)), ch);
       assert.ok(c.rows - c.drop >= 5, `${ch} stands on the five rows`);
-      for (const k of c.cut) {
-        const [x, y] = k.split(',').map(Number), tl = c.ink(x - 1, y - 1), tr = c.ink(x, y - 1), bl = c.ink(x - 1, y), br = c.ink(x, y);
-        assert.ok(tl === br && tr === bl && tl !== tr, `${ch} cuts ${k}, where cells meet only at a corner`);
-      }
     }
+  });
+
+  it('tells apart the letters and figures alike in shape by at least two cells', () => {
+    const cells = (ch: string) => GRID[ch] as string;
+    const apart = (a: string, b: string) => [...cells(a)].filter((c, i) => c !== cells(b)[i]).length;
+    for (const set of ['obdpq', 'g9q', '6Gb', '5Ss'])
+      for (const a of set) for (const b of set) if (a < b && !(a.toLowerCase() === b.toLowerCase())) assert.ok(apart(a, b) >= 2, `${a} ${b}`);
   });
 
   it('draws every character on cells a fifth of the cap height, upper and lower case alike, at any weight and width', () => {
@@ -290,10 +293,10 @@ describe('grid blocks (Built from: Blocks, Block letters: Grid)', () => {
     assert.ok(Math.abs(n.w - n.h) < 1, 'five cells square');
   });
 
-  it('joins strokes meeting at a corner through a neck, unless the letter cuts it', () => {
+  it('joins strokes meeting at a corner through a neck', () => {
     const font = buildFont(grid);
-    assert.equal(contours(font.glyph('o')!.d), 2, 'a ring round its counter');
-    assert.equal(contours(font.glyph('d')!.d), 1, 'the o cut open at its foot');
+    assert.equal(contours(font.glyph('o')!.d), 2, 'a ring round its counter, joined at its corners');
+    assert.equal(contours(font.glyph('x')!.d), 1, 'diagonals of cells one stroke');
     assert.equal(contours(font.glyph('.')!.d), 1);
     // a single cell rounded right round is a circle: as wide as high, its outline all curves
     assert.equal(curves(font.glyph('.')!.d), 4);
