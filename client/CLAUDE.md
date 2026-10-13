@@ -159,7 +159,7 @@ interface, buttons and tags included, on a scale of eight sizes (`--t-xs` 11px, 
 names, 700 for what you press and `<b>`; Manrope is loaded in only those three); every title (pages', dialogs', the
 tour's, the explainer's, the inspected letter, an account or Export section's, a font's name on
 its card in My designs, the name prompt's: the shared heading rule lists them) in a light serif drawn in a little:
-Gambetta from Fontshare's variable cut, its Light set a touch heavier (`--serif-w`, 340) so it holds up at UI sizes,
+Gambetta from Fontshare's variable cut at its Regular (`--serif-w`, 400), thicker than its Light to hold up at UI sizes,
 in the place of Studio Think's Ortica Linear; Geist Mono (`--mono`, Google Fonts) only for numbers, rule by rule, and
 in capitals for the small name over a group (section heads, the nav's page groups, menu heads, field labels: the
 shared rule after the headings lists them; a letter named in one keeps its case in a `<span className="ch">`, as

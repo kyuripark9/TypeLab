@@ -41,7 +41,9 @@ const MIN_TURN = 25 * DEG;
 const rho = (l: { x: number; y: number; a: number }) => l.y * Math.cos(l.a) - l.x * Math.sin(l.a);
 const angleGap = (a: number, b: number) => { const d = Math.abs(a - b) % Math.PI; return Math.min(d, Math.PI - d); };
 
-function sameLine(a: GridLine, b: GridLine, place = true) {
+/** Whether two lines are one: level at the same height, upright at the same place, diagonal at the same angle and (with
+    `place`) the same place. The inspector finds a dragged line in the other letters of its group by it. */
+export function sameLine(a: GridLine, b: GridLine, place = true) {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'h') return Math.abs(a.y - b.y) <= SAME;
   if (a.kind === 'v') return Math.abs(a.x - b.x) <= SAME;

@@ -19,5 +19,5 @@ export type { FreeFontData, PackedNode } from './free';
 export { CORNER_KINDS, CORNER_MIN, cornerRoom, cornerTurn, drawnCmds, fitOutline, hasIn, hasOut, segment } from './outline';
 export type { CornerKind, Drawn, Node } from './outline';
 export { combine, cutOut, shape, unite } from './boolean';
-export { glyphGrid, gridGroups, gridOf } from './grid';
-export type { GlyphGrid, GridGroup } from './grid';
+export { glyphGrid, gridGroups, gridOf, sameLine } from './grid';
+export type { GlyphGrid, GridGroup, GridLine } from './grid';

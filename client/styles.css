@@ -4,7 +4,7 @@
 
    Type: Manrope for every word of the interface, buttons and tags included, in eight sizes (--t-xs to --t-3xl; a rule
    takes a step, never a size of its own) and three weights (500 to read, 600 for names, 700 for what you press,
-   and bold); a light serif for every title (--serif: Gambetta Light, a touch heavier than its 300, in the place of
+   and bold); a light serif for every title (--serif: Gambetta at its Regular, heavier than its Light, in the place of
    Studio Think's Ortica Linear), drawn in a little; Geist Mono only for numbers and for the small capitals that name
    a group; a handwriting (--hand) only for the odd note in the margin, as Studio Think writes its asides; Lineup
    only for the logo (below). The Category and Feeling names are the one exception, each in a font of that kind or
@@ -67,7 +67,7 @@
   /* a pale knob (a slider's, a switch's) edged in ink and lifted off its track */
   --knob: 0 0 0 1px rgba(32, 31, 29, .7), 0 1px 3px rgba(32, 31, 29, .18);
   --ui: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --serif: "Gambetta", Georgia, "Times New Roman", serif; --serif-w: 340;
+  --serif: "Gambetta", Georgia, "Times New Roman", serif; --serif-w: 400;
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --hand: "Just Me Again Down Here", "Bradley Hand", cursive;
   --display: "TypeLab Lineup", Georgia, "Times New Roman", serif;
@@ -114,7 +114,8 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 /* every title is the light serif, drawn in a little, as Studio Think sets its titles: pages', dialogs', the tour's,
    the explainer's (what a control does), the inspected letter, a section of the account page
    or the Export window, a font's name on its card in My designs (as Studio Think names a work), the name prompt's.
-   Its Light is drawn a touch heavier (--serif-w, on the variable axis) so it holds up at the UI's sizes */
+   It is set at its Regular (--serif-w, on the variable axis), its strokes a little thicker than its Light's so they
+   hold up at the UI's sizes */
 .cards-head h1, .dialog h2, .guide-card h2, .message-page h1, .lib-head h1, .lib-empty h2, .ex-title,
 .insp-title h2, .acct-label h2, .export-styles h3, .lib-meta h3, .lib-rename, .name-prompt label {
   font-family: var(--serif); font-weight: var(--serif-w); letter-spacing: -.02em; line-height: 1.2; }

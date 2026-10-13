@@ -5,17 +5,17 @@
    reaches every letter or this one (in Parts through the settings, a letter edited in Points too, as the settings
    it was drawn at move it as they move; in Points by shape, each edit going on to the letters shaped the same way
    there, CarryOffer's search), Reset <letter> beside it for a letter with settings or edits of its own, and the
-   Construction grid toggle. letterControls and ScopeIcon are also used by the side panel
+   Construction grid toggle (in Parts the grid's lines drag, moving the points on them: ConstructionGrid's useGridDrag). letterControls and ScopeIcon are also used by the side panel
    (panel/ControlsPanel). */
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
-import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph, type GlyphGrid } from '../../shared/engine';
+import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph, type GlyphGrid, type GridGroup } from '../../shared/engine';
 import { isStrokeId, type NumericParam, type Params } from '../../shared/params';
 import { dragSpec, handlesFor, letterCorners, letterJoins, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { guideLines, stackLabels } from '../lib/guide-labels';
 import { n1, useSize } from '../lib/hooks';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
-import { GridBar, GridLines, useGrid } from './ConstructionGrid';
+import { GridBar, GridLines, useGrid, useGridDrag } from './ConstructionGrid';
 import { LetterHistory } from './LetterHistory';
 import { nameList, useMates } from './CarryOffer';
 import { PenCanvas } from './PenCanvas';
@@ -169,7 +169,7 @@ export function Inspector() {
       </div>
       {grid && <GridBar ch={ch} font={font} group={grid.group} />}
       <div className="insp-body">
-        {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} />}
+        {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} group={grid?.group} />}
         {/* one short line over the canvas for what the switches above don't say: what an edit here does, and what
             still moves a letter drawn as it is; the whole story is in its tooltip */}
         {pen && (own ? (
@@ -297,7 +297,7 @@ interface Readout { x: number; y: number; param: NumericParam; end?: { id: strin
 interface Hover { id: string; x: number; y: number }
 interface TipRow { axis: Axis; label: string; ends: [string, string] }
 
-function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Font; grid?: GlyphGrid }) {
+function InspectorCanvas({ ch, g, font, grid, group }: { ch: string; g: Glyph; font: Font; grid?: GlyphGrid; group?: GridGroup }) {
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
   const part = useEditor(s => s.part), active = useEditor(s => s.active), faded = useEditor(s => s.faded);
@@ -331,6 +331,11 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
   const guides = guideLines(m).filter(([id]) => !(Math.abs(m.asc - m.cap) < 45 && id === 'ascender' && !lower));
   const labelY = stackLabels(guides.map(([id, y]) => [id, y] as const), Y);
   const dragging = held !== null;
+  // the grid's lines, dragged in the advance box (the guides take a press out beyond it)
+  const gridDrag = useGridDrag({
+    ch, font, grid, group, view: { sc, ox, oy }, box: { x0: X(0), y0: Y(top - 40), x1: X(g.adv), y1: Y(bot + 20) },
+    size: { W, H }, heights: guides.map(([, y]) => y), hold: setHeld
+  });
 
   /* Guidance. Pointing at a part shows grab handles where it moves and a tip naming what each
      direction does; pointing at a slider (or opening the inspector the first time) shows handles
@@ -457,6 +462,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
               ))}
             </g>
           </g>
+          {gridDrag.lines}
           {/* the right edge of the advance box sets the width */}
           <g className={edge || (dragging && drag.current?.part === 'advance') ? 'i-edge hot' : 'i-edge'}>
             <line x1={X(g.adv)} x2={X(g.adv)} y1={Y(top - 40)} y2={Y(bot + 20)} />
@@ -470,10 +476,11 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
       )}
       {readout && <DragReadout {...readout} />}
       {hover && tip.length > 0 && <DragTip key={hover.id} x={hover.x} y={hover.y} W={W} H={H} rows={tip} />}
+      {gridDrag.overlay}
       {size.width > 0 && !dragging && (
         handles.length > 0
           ? <p className="i-hint on">{hotKey ? `Or drag the handles on the letter to change ${labelOf(showKey!).toLowerCase()}` : 'Drag the handles, or any part of the letter, to reshape it'}</p>
-          : <p className="i-hint">Drag a part to reshape it · click to find its slider</p>
+          : <p className="i-hint">{grid ? 'Drag a grid line to move its points · a part to reshape it' : 'Drag a part to reshape it · click to find its slider'}</p>
       )}
     </div>
   );
