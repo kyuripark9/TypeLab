@@ -1,0 +1,208 @@
+{
+  "app": "TypeLab",
+  "version": 4,
+  "name": "Lineup",
+  "styleId": "hairserif",
+  "params": {
+    "weight": 0.07,
+    "vWeight": 0.5,
+    "hWeight": 0.5,
+    "width": 0.15,
+    "height": 0.5,
+    "slant": 0,
+    "rotation": 0.5,
+    "contrast": 0.5,
+    "pinch": 0,
+    "pinchPos": 0.5,
+    "build": "strokes",
+    "blockForm": "basic",
+    "bowlForm": "oval",
+    "boxRound": 0.5,
+    "curve": 0.2,
+    "squareness": 0,
+    "chamfer": 0,
+    "bowlJoin": "curved",
+    "overlap": 1,
+    "roundness": 0,
+    "joinRound": 0.95,
+    "innerRound": 0.16,
+    "bends": "sharp",
+    "apex": 0.4,
+    "steps": 0,
+    "joints": 0,
+    "terminal": "flat",
+    "terminalLength": 0.5,
+    "terminalCurl": 0.5,
+    "terminalFlare": 0.5,
+    "terminalDepth": 0.5,
+    "terminalSize": 0.5,
+    "terminalRound": 1,
+    "terminalPoint": 0.5,
+    "terminalClip": 0.5,
+    "terminalLean": 0.5,
+    "terminalSlope": 0.5,
+    "terminalTilt": 0.5,
+    "terminalTip": 0.5,
+    "terminalTaper": 0.5,
+    "serif": true,
+    "serifSize": 0.74,
+    "serifThickness": 0.25,
+    "serifAngle": 0,
+    "serifBracket": 0,
+    "serifTip": "round",
+    "serifTipRound": 1,
+    "serifTipSlant": 0.8,
+    "serifBase": "flat",
+    "serifCup": 0.5,
+    "serifSides": "both",
+    "serifInner": "same",
+    "serifInnerSize": 0.5,
+    "serifInnerThickness": 0.5,
+    "serifBalance": 0.5,
+    "serifTops": 0.5,
+    "serifArms": 1,
+    "serifArmThickness": 0.5,
+    "serifArmLean": 0.5,
+    "story": "auto",
+    "diagonals": "symmetric",
+    "apexForm": "serif",
+    "gForm": "hook",
+    "iForm": "auto",
+    "jForm": "cup",
+    "kForm": "arm",
+    "mForm": "raised",
+    "qForm": "crossing",
+    "rForm": "leg",
+    "sForm": "curved",
+    "yForm": "forked",
+    "dots": "auto",
+    "dotSize": 0.5,
+    "mirror": "normal",
+    "cursive": 0,
+    "wobble": 0,
+    "scriptForm": "auto",
+    "swell": 0,
+    "xHeight": 0.679,
+    "extenders": 0.5,
+    "tail": 0.5,
+    "crossbar": 0.5,
+    "barGap": 0,
+    "descender": 0.5,
+    "counter": 0.5,
+    "aperture": 0.5,
+    "letterSpacing": 0.23,
+    "wordSpacing": 0.67,
+    "mono": 0.5,
+    "sideBearing": 0.7,
+    "fill": "solid",
+    "module": 0.4,
+    "dotGain": 0.5,
+    "stencil": 0,
+    "stencilPos": 0,
+    "stencilRound": 0,
+    "slice": 0,
+    "slicePos": 0.5,
+    "sliceRound": 0,
+    "rough": 0,
+    "strokeWeights": {},
+    "barEnds": "short",
+    "terminalEnds": {},
+    "terminalCurls": {},
+    "corners": {},
+    "innerCorners": {},
+    "terminalRun": "curved",
+    "terminalForm": "plain",
+    "cornerSteps": {},
+    "aForm": "plain",
+    "joinGaps": {},
+    "serifShape": "bracketed",
+    "geoHuman": 0.5,
+    "softSharp": 0.5,
+    "classicFuture": 0.5,
+    "playfulFormal": 0.5,
+    "glyphs": {
+      "K": {
+        "serifSides": "outside",
+        "width": 0.05,
+        "sideBearing": 0.97
+      },
+      "R": {
+        "serifSides": "outside",
+        "sideBearing": 1
+      },
+      "T": {
+        "serifSize": 1,
+        "width": 0.425,
+        "sideBearing": 0.54
+      },
+      "Z": {
+        "serifSize": 1,
+        "width": 0.24
+      },
+      "E": {
+        "serifSize": 0.81
+      },
+      "F": {
+        "serifSize": 0.81
+      },
+      "L": {
+        "serifSize": 0.81,
+        "sideBearing": 1
+      },
+      "M": {
+        "width": 0.1
+      },
+      "O": {
+        "width": 0.1,
+        "sideBearing": 0
+      },
+      "D": {
+        "width": 0.08,
+        "sideBearing": 0.42
+      },
+      "H": {
+        "width": 0.1,
+        "sideBearing": 1
+      },
+      "V": {
+        "width": 0.35,
+        "sideBearing": 1
+      },
+      "Y": {
+        "width": 0.45,
+        "sideBearing": 0.06
+      },
+      "J": {
+        "sideBearing": 0.42,
+        "width": 0.23
+      },
+      "N": {
+        "sideBearing": 0.74
+      },
+      "A": {
+        "sideBearing": 1
+      },
+      "S": {
+        "sideBearing": 0.48
+      },
+      "U": {
+        "sideBearing": 0.3
+      },
+      "B": {
+        "joinRound": 0
+      },
+      "C": {
+        "sideBearing": 0
+      },
+      "G": {
+        "sideBearing": 0
+      },
+      "Q": {
+        "sideBearing": 0
+      }
+    },
+    "outlines": {},
+    "freeFont": "",
+    "freeAt": {}
+  }
+}

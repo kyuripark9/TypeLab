@@ -19,7 +19,8 @@
     "render": "node --import tsx tools/render.ts",
     "sweep": "node --import tsx tools/sweep.ts",
     "fonts:import": "node --import tsx tools/fonts/import.ts",
-    "fonts:blocks": "node --import tsx tools/fonts/blocks.ts"
+    "fonts:blocks": "node --import tsx tools/fonts/blocks.ts",
+    "fonts:ui": "node --import tsx tools/fonts/ui.ts"
   },
   "dependencies": {
     "express": "^5.2.1",
