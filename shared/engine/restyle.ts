@@ -1279,7 +1279,9 @@ export function restyleSerifs(cs: Node[][], c: RestyleCtx & { lower: boolean; li
     const across = { x: Math.abs(out.y), y: Math.abs(out.x) }, h = { x: end.x - out.x * Math.min(sf.th * 0.5, n.r), y: end.y - out.y * Math.min(sf.th * 0.5, n.r) };
     let room = Infinity;
     for (const sg of [-1, 1]) {
-      const from = f.width / 2 + 2;
+      // (read from past the stroke's own edge: its face can measure a unit or two narrower than the stroke is)
+      let from = f.width / 2 + 2;
+      while (from < f.width / 2 + n.r * 0.5 && inkAt(g, h.x + across.x * sg * from, h.y + across.y * sg * from)) from += 1;
       for (let q = from; q < from + sf.len * 3; q += 2) if (inkAt(g, h.x + across.x * sg * q, h.y + across.y * sg * q)) { room = Math.min(room, q - from); break; }
     }
     const pen: PenCtx = { thick: n.r * 2, thin: n.r * 2, stress: 0, k: CIRCLE_K, org: 0, terminal: 'flat', serif: room < Infinity ? { ...sf, len: Math.min(sf.len, room * 0.42) } : sf };

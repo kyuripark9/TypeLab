@@ -182,6 +182,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    sits off its middle), moves a gap out only on a stroke leaving steeply, leaves a stroke that runs on along its host
    before leaving it whole (a heavy R's leg), and keeps a gap only where every piece stays solid ink and it lands on no
    other join, narrowing it down to `GAP_LEAST` of Stencil's first, as the engine's `stencilPieces` does.
+   A serif's length is held to most of half the room beside it, read from past its stroke's own edge (a face can read a
+   unit narrower than the stroke, and the room came out nothing: an R's, an N's, a K's feet went bare).
    Serifs also squares off an upright stroke's round end on a line (`roundTip` in
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
 5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,

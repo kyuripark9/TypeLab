@@ -370,6 +370,18 @@ describe("TypeLab's own fonts", () => {
     for (const moves of [{ bowlForm: 'oval' }, { chamfer: 1 }, { boxRound: 0 }] as Partial<Params>[]) assert.equal(design(moves).glyph('H')!.d, design().glyph('H')!.d, `the H's square corners (${JSON.stringify(moves)})`);
   });
 
+  it("stand serifs on every stem's foot, a face read a unit narrower than its stroke too: Bulwark's and Mainline's R, N and K", async () => {
+    const fonts = new FreeFonts(null, noFetch);
+    for (const style of ['block', 'grotesque']) {
+      const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
+      if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+      const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, plain = buildFont(p), serifed = buildFont({ ...p, serif: true, serifShape: 'slab' });
+      // (the ink along the baseline, just above it: wider by the serifs reaching out from each foot)
+      const foot = (g: Glyph) => { const ink = shape(toPolys(g.cmds)); let n = 0; for (let x = -100; x < 1000; x += 2) if (ink.has(x, 6)) n += 2; return n; };
+      for (const ch of 'RNK') assert.ok(foot(serifed.glyph(ch)!) > foot(plain.glyph(ch)!) + plain.m.s * 0.5, `${style}'s ${ch} stands on serifs`);
+    }
+  });
+
   it('open a heavy letter by Stencil only where every piece stays solid ink: no slivers in Bulwark or Gumdrop', async () => {
     const fonts = new FreeFonts(null, noFetch);
     for (const style of ['block', 'chunkyround']) {
