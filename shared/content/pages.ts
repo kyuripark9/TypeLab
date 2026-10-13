@@ -13,7 +13,7 @@ export const GROUPS: Record<GroupId, string> = { proportion: 'Proportions', shap
    `hint` says in a few words what the page holds; it is the page's tooltip in the navigation (client/components/Chrome.tsx). */
 export const CATEGORIES: { id: CategoryId; label: string; hint: string; group?: GroupId }[] = [
   { id: 'style', label: 'Style', hint: 'Pick a typeface to start from' },
-  { id: 'weight', label: 'Weight & contrast', hint: 'Thick or thin strokes, and the difference between them', group: 'proportion' },
+  { id: 'weight', label: 'Weight', hint: 'Thick or thin strokes, and the difference between them', group: 'proportion' },
   { id: 'size', label: 'Size & slant', hint: 'Width, height, slant, rotation and mirroring', group: 'proportion' },
   { id: 'heights', label: 'Heights', hint: 'Lowercase height, ascenders, descenders, tails and crossbars', group: 'proportion' },
   { id: 'insides', label: 'Inner space', hint: 'The space inside letters and how open their mouths are', group: 'proportion' },

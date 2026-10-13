@@ -5,7 +5,7 @@
 import type { ReactNode } from 'react';
 
 const SLIDER: Record<string, ReactNode> = {
-  // —— Weight & contrast
+  // —— Weight
   // a hairline stem beside a heavy one
   weight: <><path className="faint" d="M5 4v12" /><rect className="solid" x="9.5" y="4" width="6" height="12" rx=".8" /></>,
   // an H with heavy stems and a thin bar

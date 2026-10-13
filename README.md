@@ -191,7 +191,7 @@ empty cells read as round nodes.
 - `styles.css`: the one stylesheet, its colours and sizes as tokens on `:root`.
 - The editor's pages are listed in `shared/content/pages.ts` (`CATEGORIES`), and each control names the page it
   is on (its `control` in `shared/params/spec.ts`). Proportions, Shapes and Details are groups (`GROUPS`): their
-  pages (Weight & contrast, Heights, Corners, Stroke ends, Serifs, Letters…) sit under them in the navigation.
+  pages (Weight, Heights, Corners, Stroke ends, Serifs, Letters…) sit under them in the navigation.
   Pages run from the broadest settings to the finest, and a page shows its controls in the order they are listed
   in `CONTROLS`.
 

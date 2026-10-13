@@ -8,7 +8,7 @@
    the engine code that draws it. A slider also needs its icon (client/components/SliderIcons.tsx; a test
    checks). Entries run in the editor's order: a page shows its controls in the order they are listed, a choice
    of shape before the sliders that tune it, the optional ones after and the advanced ones last; a nested
-   slider follows the control it sits under. A page's entries may sit in several runs (Weight & contrast and
+   slider follows the control it sits under. A page's entries may sit in several runs (Weight and
    Size & slant each have two): in the editor only the order among one page's own entries, and among one
    control's nested sliders, matters. */
 import type { Params } from './model';
@@ -99,7 +99,7 @@ const fontSpec = <const O extends Extra = {}>(o?: O) => ({ kind: 'font' as const
 const value = <T, const O extends Extra = {}>(d: T, o?: O) => ({ kind: 'value' as const, default: d, ...(o as O) });
 
 export const SPECS = {
-  /* ---- Weight & contrast */
+  /* ---- Weight */
   weight: num(0.4, { free: true, control: { cat: 'weight', label: 'Weight', friendly: 'Make strokes thicker', tech: 'Weight', lo: 'Thin', hi: 'Bold', demo: 'n',
     explain: 'Letters widen a little so their insides stay open.' } }),
   vWeight: num(0.5, { free: true,
@@ -117,7 +117,7 @@ export const SPECS = {
   rotation: num(0.5, { free: true, control: { cat: 'size', label: 'Rotation', friendly: 'Turn the letters round', tech: 'Rotation', lo: 'Anticlockwise', hi: 'Clockwise', demo: 'Hag', bipolar: true, degrees: true,
     explain: 'Turns each letter about its own middle, and spaces the letters to fit. Synced, every letter turns the same way; customize a letter to give it its own angle.' } }),
 
-  /* ---- Weight & contrast */
+  /* ---- Weight */
   contrast: num(0.5, { free: true, control: { cat: 'weight', label: 'Contrast', friendly: 'Vary thick and thin strokes', tech: 'Contrast · Reverse contrast', lo: 'Reversed', hi: 'High', demo: 'HOe', bipolar: true,
     explain: 'Above the middle the horizontals thin out while the stems stay heavy; below it the stems thin out under heavy horizontals.' } }),
   pinch: num(0, { free: true, control: { cat: 'weight', off: 0, label: 'Pinch', friendly: 'Thin the strokes to a point', tech: 'Pinch · Waist', lo: 'Slight', hi: 'To a point', demo: 'aplo',
