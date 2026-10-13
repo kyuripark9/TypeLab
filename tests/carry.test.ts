@@ -1,8 +1,9 @@
 /* Carrying a change made to one letter's points to the other letters shaped the same way there (client/lib/carry.ts):
    reading the change against the letter as it was (stretches, corners rounded where they stand, whole contours moved
    or taken away), finding its old shape in other letters (close matches, where the outline round it is the same too
-   or a whole contour sits as high, and looser ones), and putting the change in, point for point where the letter
-   has the same points, else as a new stretch or contour fitted to it. */
+   or a whole contour sits as high, and looser ones; and the letter's own other places, not where it was made), and
+   putting the change in, point for point where the letter has the same points, else as a new stretch or contour
+   fitted to it. */
 import { before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { STYLES } from '../shared/content';
@@ -151,6 +152,18 @@ describe('carry: to the other letters of an own font', () => {
     const rounded = nodes(got.doc).filter(n => n.r === 16).length;
     assert.ok(rounded >= 3, `${rounded} of the h's corners rounded`);
     assert.deepEqual(nodes(got.doc).map(n => [n.x, n.y]), nodes(h).map(n => [n.x, n.y]), 'no point of the h moves');
+  });
+
+  it("carries a change to the letter's own other places shaped the same, not again where it was made: an n's other foot", () => {
+    const n = outline('n')!, ps = n.contours.flatMap((con, c) => con.map((p, i) => ({ c, i, p })));
+    // the left foot's serif, out to the left: its end, the points furthest down and left
+    const best = Math.max(...ps.map(q => -q.p.x - 1.2 * q.p.y)), end = ps.filter(q => -q.p.x - 1.2 * q.p.y >= best - 25);
+    const now = moveAnchors(n.contours, end, -40, 0), got = carryChange('n', n.contours, now, outline).find(c => c.ch === 'n');
+    assert.ok(got?.close, 'the n itself is a close match');
+    assert.equal(got.places, 1, 'one other place');
+    const was = now.flat(), moved = nodes(got.doc).map((q, k) => ({ q, dx: q.x - was[k].x })).filter(m => Math.abs(m.dx) > 0.5);
+    assert.ok(moved.length >= 1 && moved.every(m => m.dx <= -30 && m.dx >= -50 && m.q.x > Math.min(...was.map(q => q.x)) + 100),
+      `only the right foot's serif moves out (${moved.map(m => `${m.q.x.toFixed(0)}: ${m.dx.toFixed(0)}`).join(', ')})`);
   });
 
   it('offers nothing to a letter that already looks as the change would leave it', () => {

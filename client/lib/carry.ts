@@ -613,13 +613,26 @@ function toSeg(v: P, a: P, b: P): number {
     whether the outline round any of them is the same as round the change too (a close match). */
 export interface Carried { ch: string; was: Drawn; doc: Drawn; places: number; close: boolean }
 
+/** Whether a place found in the changed letter itself is where the change was made: the contour it became, or
+    outline running into the stretch between the change's kept points (found again, perhaps fitted wider). */
+function madeAt(ch: Change, p: Place, doc: Drawn): boolean {
+  const con = doc.contours[p.c];
+  if (ch.whole) return sameContour(con, ch.fresh);
+  const A = con.findIndex(n => sameAt(n, ch.was[ch.a])), B = con.findIndex(n => sameAt(n, ch.was[ch.b]));
+  if (A < 0 || B < 0) return false;
+  const { T } = samplesOf(con), per = T.s[T.s.length - 1], s0 = T.at[A], s1 = T.at[B] > s0 ? T.at[B] : T.at[B] + per;
+  return overlaps(p, { ...p, s0, s1 }, per);
+}
+
 /** Letter `ch`'s outline `doc` with `changes` carried to every place shaped as they were, or null where there's none
-    (or where it already looks as the change would leave it). */
-export function carryLetter(changes: Change[], ch: string, doc: Drawn): Carried | null {
+    (or where it already looks as the change would leave it). With `own`, `doc` is the changed letter itself as it
+    is now, and the change goes to its other places shaped the same (an n's other foot, a colon's other dot), not
+    again where it was made. */
+export function carryLetter(changes: Change[], ch: string, doc: Drawn, own = false): Carried | null {
   let out = doc, n = 0, close = false;
   // each change in turn, found again in the letter as the ones before left it
   for (const c of changes) {
-    const places = placesOf(c, out);
+    const places = placesOf(c, out).filter(p => !own || !madeAt(c, p, out));
     if (!places.length) continue;
     out = carryInto(c, out, places);
     n += places.length;
@@ -628,14 +641,16 @@ export function carryLetter(changes: Change[], ch: string, doc: Drawn): Carried 
   return n && !looksSame(doc.contours, out.contours) ? { ch, was: doc, doc: out, places: n, close } : null;
 }
 
-/** The letters other than `ch` with the shape `base` had where it differs from `now`, each with the change carried
-    to it; outlines are read by `outlineOf` (null for a letter there isn't). */
+/** The letters with the shape `base` had where it differs from `now`, each with the change carried to it: `ch`
+    itself (as it is now, at its other places) and the others; outlines are read by `outlineOf` (null for a letter
+    there isn't). */
 export function carryChange(ch: string, base: Node[][], now: Node[][], outlineOf: (ch: string) => Drawn | null): Carried[] {
   const changes = changesOf(base, now);
   if (!changes.length) return [];
   const out: Carried[] = [];
   for (const o of ALL_CHARS) {
-    const doc = o === ch ? null : outlineOf(o), got = doc && doc.contours.length ? carryLetter(changes, o, doc) : null;
+    const own = o === ch, was = outlineOf(o), doc = own && was ? { adv: was.adv, contours: now } : was;
+    const got = doc && doc.contours.length ? carryLetter(changes, o, doc, own) : null;
     if (got) out.push(got);
   }
   return out;
