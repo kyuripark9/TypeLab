@@ -9,7 +9,7 @@ import { MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../.
 import { parseFontId, STYLE_FONTS, type FreeFontRef } from '../../shared/free-fonts';
 import { fontStyle, textWidth, useWebFont } from '../lib/free';
 import { useSize } from '../lib/hooks';
-import { sampleText } from '../lib/preview';
+import { cardText, sampleText } from '../lib/preview';
 import { actions, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
 import { BuiltText } from './BuiltText';
 import { FinderBack, FinderQuestion, useFinder } from './Finder';
@@ -138,9 +138,12 @@ const GRID_LINES = 2;
     font, or in the engine's letters where no font stands behind the style. The finder asks its
     question first, and the cards come once it's answered, under a way back to the question. */
 function StyleCards() {
-  const custom = useEditor(s => s.custom), text = sampleText(custom);
+  const custom = useEditor(s => s.custom);
   const finder = useFinder();
-  const view = useEditor(s => s.view);
+  const view = useEditor(s => s.view), text = view === 'grid' ? cardText(custom) : sampleText(custom);
+  // typed text in the grid is cut after GRID_LINES lines; the short sample never runs past them, so it goes uncut and
+  // a script's tails under its last line show whole
+  const clamp = view === 'grid' && !!custom.trim();
   const head = useRef<HTMLHeadingElement>(null);
   const { f, traits: now, matches } = useStyleMatch();
   // new traits re-filter the cards a moment after the panel answers; the cards dim until they catch up
@@ -172,7 +175,7 @@ function StyleCards() {
                   <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
                     <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
                     <div className={view === 'list' ? 'cards list' : 'cards'}>
-                      {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} text={text} view={view} />)}
+                      {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} text={text} view={view} clamp={clamp} />)}
                     </div>
                   </section>
                 ))}
@@ -260,8 +263,8 @@ function wordFit(font: FreeFontRef | null, text: string, width: number, size: nu
 }
 
 /** A style's card: the sample text set in its free font, as the browser draws the font, or, for a style no font
-    stands behind (built from blocks), in the engine's letters; in the grid, cut to GRID_LINES lines. */
-function StyleCard({ style: s, text, view }: { style: StyleDef; text: string; view: CardView }) {
+    stands behind (built from blocks), in the engine's letters; typed text in the grid (`clamp`) cut to GRID_LINES lines. */
+function StyleCard({ style: s, text, view, clamp }: { style: StyleDef; text: string; view: CardView; clamp: boolean }) {
   const id = STYLE_FONTS[s.id];
   const on = useEditor(st => st.styleId === s.id && (!id || !!st.params.freeFont));
   const font = useWebFont(id), [ref, box] = useSize<HTMLSpanElement>();
@@ -269,7 +272,7 @@ function StyleCard({ style: s, text, view }: { style: StyleDef; text: string; vi
     <button className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
       <span className="card-name">{s.name}<span className="card-like">{id ? parseFontId(id)?.family : 'Built from blocks'}</span></span>
       {id
-        ? <span ref={ref} className={font ? 'card-free' : 'card-free loading'} style={{ ...(font && fontStyle(font)), fontSize: wordFit(font, text, box.width, CARD_SIZE[view]) }}>{text}</span>
+        ? <span ref={ref} className={`card-free${font ? '' : ' loading'}${clamp ? ' clamp' : ''}`} style={{ ...(font && fontStyle(font)), fontSize: wordFit(font, text, box.width, CARD_SIZE[view]) }}>{text}</span>
         : <BuiltText className="card-free" params={s.params} text={text} size={CARD_SIZE[view]} lines={view === 'grid' ? GRID_LINES : undefined} />}
     </button>
   );

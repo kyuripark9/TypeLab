@@ -1,5 +1,6 @@
-/* What the live preview sets (the typed text, or the default sentence), the characters on screen that are
-   rebuilt first, and the ink boxes that keep long tails and loops from being cut off. */
+/* What the live preview sets (the typed text, or the default sentence) and the grid's style cards (or their short
+   sample), the characters on screen that are rebuilt first, and the ink boxes that keep long tails and loops from
+   being cut off. */
 import { useMemo } from 'react';
 import { TEXTS } from '../../shared/content';
 import type { Font, Glyph, Line } from '../../shared/engine';
@@ -7,6 +8,8 @@ import { useEditor } from '../state/editor';
 
 /** What to set: the typed text, or the default sentence while the field is empty. */
 export const sampleText = (custom: string) => custom.trim() ? custom : TEXTS.sentence;
+/** What a style card in the grid sets: the typed text, or the short sample that fits its two lines. */
+export const cardText = (custom: string) => custom.trim() ? custom : TEXTS.card;
 
 /** Characters on screen right now: these get rebuilt first while a slider moves. */
 export function useVisibleChars() {

@@ -33,5 +33,9 @@ export const ANATOMY: Record<string, [string, string]> = {
 };
 
 export const TEXTS = {
-  sentence: 'If you can design one thing, you can design everything.'
+  sentence: 'If you can design one thing, you can design everything.',
+  /** The style cards' sample in the grid while nothing is typed: two words, each set small enough to fit a line, so
+      it never runs past a card's two lines (the sentence was cut off at "If you can design one…"). Its h, t, g and y
+      still show the ascenders and descenders. */
+  card: 'Design everything'
 };

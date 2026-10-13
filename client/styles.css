@@ -308,8 +308,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 /* a style's card in its free font: the text set as the browser draws the font, hidden until it has loaded; a word
    too long for the card is set smaller to fit (wordFit in Stage.tsx), and breaks only past half the size */
 .card-free { display: block; color: var(--ink); line-height: 1.3; overflow-wrap: anywhere; }
-/* in the grid, each card keeps to two lines (GRID_LINES in Stage.tsx), so the cards line up in rows */
-.cards:not(.list) .card-free:not(.built) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+/* in the grid, typed text keeps to two lines (GRID_LINES in Stage.tsx), so the cards line up in rows. The clamp clips
+   whatever hangs past those lines, a script's tails too, so the short sample shown while nothing is typed, which
+   never runs past two lines, goes unclamped */
+.card-free.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .card-free.loading { visibility: hidden; }
 /* a style no font stands behind (built from blocks), its card and finder tile in the engine's letters (BuiltText) */
 .built svg { display: block; fill: currentColor; overflow: visible; }
