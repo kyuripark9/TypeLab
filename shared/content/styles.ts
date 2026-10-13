@@ -433,10 +433,14 @@ export const STYLES: StyleDef[] = [
       vWeight: 0.54, hWeight: 0.42, counter: 1, descender: 1, joinRound: 0.93, wordSpacing: 0.412, sideBearing: 0.1, classicFuture: 0.68,
       playfulFormal: 0.51 }),
 
-  /* ---- Blocks: built from blocks, not strokes (shared/engine/basic-blocks.ts, blocks.ts), so no font file stands behind them */
+  /* ---- Blocks: Block is written in Bulwark, the engine's block letters made a font of TypeLab's own, so every setting
+     reaches it as it reaches the other cards' fonts; the slot blocks are built from blocks (shared/engine/blocks.ts),
+     and no font stands behind them */
   style('block', 'blocks', [], 'Block', ['loud', 'futuristic', 'business'], 'Eurostile, Russo One, Michroma',
-    'Plain, solid block letters: even strokes, square bowls with softly rounded corners, open counters and a real lowercase. Weight, Width and Contrast reshape every stroke, Bowls and Roundness every corner; Block letters switches to slot blocks.',
-    { build: 'blocks', blockForm: 'basic', weight: 0.7, width: 0.6, bowlForm: 'box', boxRound: 0.55, xHeight: 0.76 }),
+    'Plain, solid block letters: even strokes, square bowls with softly rounded corners, open counters and a real lowercase. Every setting reshapes them, serifs, stroke ends and letter forms too; Built from: Blocks gives letters built from blocks alone, plain, slotted or on a grid.',
+    { weight: 0.7, width: 0.56, contrast: 0.51, hWeight: 0.98, xHeight: 0.76, bowlForm: 'box', boxRound: 0.57, curve: 0.2, overlap: 0.76,
+      roundness: 0.42, joinRound: 0.07, apex: 0.81, terminalLength: 0.79, terminalCurl: 0.08, crossbar: 0.54, descender: 0.52, counter: 0.55,
+      geoHuman: 0.34, classicFuture: 0.42, story: 'double' }),
   style('slotblocks', 'blocks', [], 'Slot Blocks', ['loud', 'playful', 'futuristic'], 'Bungee, Dela Gothic One, Rammetto One',
     'Solid round-cornered blocks with their counters cut in as narrow slots, after a heavy 70s poster face, the small letters as small capitals. Weight closes the slots up and Roundness softens every corner.',
     { build: 'blocks', blockForm: 'slots', weight: 0.6, roundness: 1, joinRound: 0.5, sideBearing: 0.31 }),

@@ -316,7 +316,7 @@ describe("TypeLab's own fonts", () => {
 
   it('write every card of the Style page in one, each kept in fonts/ with every letter and no licence', async () => {
     const fonts = new FreeFonts(null, noFetch), used = new Set<string>();
-    // (but the cards built from blocks, which no font draws)
+    // (but a card built from blocks, which no font draws)
     for (const st of PAGE_STYLES.filter(s => s.params.build !== 'blocks')) {
       const id = STYLE_FONTS[st.id], r = parseFontId(id);
       assert.ok(r && isOwnFont(r.family), `${st.id} is written in one of TypeLab's own fonts`);
@@ -329,7 +329,25 @@ describe("TypeLab's own fonts", () => {
       assert.ok(!data.licenseText);
     }
     assert.deepEqual([...used].sort(), Object.keys(OWN_FAMILIES).sort(), 'one card each');
-    assert.equal(new Set(Object.values(OWN_FAMILIES).map(o => o.sheet)).size, used.size, 'each from its own sheet');
+    // (each from its own sheet, but Bulwark, the engine's block letters, which have none)
+    const sheets = Object.values(OWN_FAMILIES).filter(o => !o.blocks).map(o => o.sheet);
+    assert.ok(sheets.every(n => n !== undefined) && new Set(sheets).size === sheets.length, 'each from its own sheet');
+    assert.equal(STYLE_FONTS.block, 'Bulwark:700', 'the Block card in Bulwark');
+  });
+
+  it("give a block letter's short heavy end another kind of end on itself: Bulwark's r keeps its arm, its y its tail", async () => {
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'block')!, id = STYLE_FONTS.block;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    const design = (moves: Partial<Params> = {}) => buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params), ...moves } as Params);
+    const box = (g: Glyph) => { const ps = toPolys(g.cmds).flat(); return { x1: Math.max(...ps.map(p => p.x)), y0: Math.min(...ps.map(p => p.y)) }; };
+    const flat = design();
+    for (const look of [{ terminal: 'round', terminalForm: 'round' }, { terminal: 'sharp', terminalForm: 'pointed' }] as Partial<Params>[]) {
+      const f = design(look), r = f.glyph('r')!, y = f.glyph('y')!;
+      assert.notEqual(r.d, flat.glyph('r')!.d, `the r's end ${look.terminalForm}`);
+      // (an end drawn on the arm takes off no more than its round: the arm still reaches well past the stem)
+      assert.ok(box(r).x1 > box(flat.glyph('r')!).x1 - f.m.s * 0.6, `the r's arm kept (${look.terminalForm}: ${box(r).x1.toFixed(0)})`);
+      assert.ok(box(y).y0 < f.m.desc * 0.6, `the y's tail kept (${look.terminalForm}: ${box(y).y0.toFixed(0)})`);
+    }
   });
 
   it('read a design saved in a font they took the place of as written in its own', () => {

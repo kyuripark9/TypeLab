@@ -31,6 +31,9 @@ export interface RestyleCtx {
   /** in a script whose letters stand apart, the font's stems' thickness (its n's), against which a small letter's exit
       stroke is told as a hairline: a free end, which Length and Curl move (see terminalEnds; FreeFamily.freeExits) */
   exits?: { stem: number };
+  /** a font of block letters (FreeFamily.blocks), whose ends stand out short and heavy from the strokes they leave: an
+      r's arm, a y's tail (see measureEnd and restyleEnds) */
+  stubs?: true;
 }
 
 /** The skeleton of the very contours passed with it, scanned only when first asked for (see restyled in
@@ -531,9 +534,9 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
     if (!restyle && Math.abs(mv.len) < 0.5 && Math.abs(mv.bend) < 0.005) continue;
     const left = (d: P) => ({ x: -d.y, y: d.x });
     /** the end drawn again as `plan` has it, on whichever ring holds the stroke's two sides there ('done', or left as
-        the font draws it); 'nearer' where those sides, walked out from S, don't both run on to its end (one stops at a
+        the font draws it); 'nearer' (or 'short', one stopping at once) where those sides, walked out from S, don't both run on to its end (one stops at a
         corner where another stroke meets it); 'none' where no ring has the stroke's two sides at S */
-    const redraw = (plan: EndPlan): 'done' | 'nearer' | 'none' => {
+    const redraw = (plan: EndPlan): 'done' | 'nearer' | 'short' | 'none' => {
       const { S, outS, E, way, shaped } = plan;
       for (let ri = 0; ri < rings.length; ri++) {
         let ring = rings[ri];
@@ -584,9 +587,11 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
           for (let j = k + 1; j >= 1 && j < path.length && !next; j++) if (Math.hypot(path[j].x - q.x, path[j].y - q.y) > body * 0.5) next = path[j];
           return !!next && (next.x - q.x) * (other.x - side[0].x) + (next.y - q.y) * (other.y - side[0].y) < 0;
         };
-        const shortA = la < lb, rev = endPath.slice().reverse();
-        if (Math.min(la, lb) < Math.max(la, lb) * 0.35 && Math.abs(la - lb) > body * 3 && !shaped
-          && (shortA ? offAway(A0, endPath, cb) : offAway(B0, rev, ca))) return 'nearer';
+        const shortA = la < lb, rev = endPath.slice().reverse(), away = () => (shortA ? offAway(A0, endPath, cb) : offAway(B0, rev, ca));
+        if (Math.min(la, lb) < Math.max(la, lb) * 0.35 && Math.abs(la - lb) > body * 3 && !shaped && away()) return 'nearer';
+        // (one side turning off at once, the other running on out far: S is back past where a short heavy stroke, a block
+        // letter's tail (a y's), leaves the rest of the letter, by less than the stroke is thick)
+        if (c.stubs && Math.min(la, lb) < body * 0.3 && Math.max(la, lb) > body && !shaped && straightTo(end.pts, plan.atS) && away()) return 'short';
         // (a ball or a drop: the end's round about as wide as the neck it hangs from, or wider, a Didone's or a Baskerville's,
         // and round all the way: not a squared arm's end, an r's, widening out to its cut)
         const w = Math.hypot(ca.x - cb.x, ca.y - cb.y), tipR = end.pts[0].r;
@@ -633,7 +638,7 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
     // (and where the line across the stroke there runs into the end itself, as across a ball's neck into the ball hanging
     // over it, from a little further back each time)
     for (let tries = 0, cap = Infinity, alone = true, back = 0; tries < 7; tries++) {
-      const plan = measureEnd(end, arc, kEnd, mv, to, T, alone ? (p, d) => widthAcross(rings, p, left(d), body * 4) : null, cap, back);
+      const plan = measureEnd(end, arc, kEnd, mv, to, T, alone ? (p, d) => widthAcross(rings, p, left(d), body * 4) : null, cap, back, !!c.stubs);
       const got = redraw(plan);
       if (got === 'done') break;
       // (an exit stroke drawn again from far back along it, where it runs beside a stem, from nearer its tip)
@@ -645,7 +650,7 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
         if (on <= Math.min(cap, arc[arc.length - 1] * 0.6) && plan.atS >= back - 0.5) back = on;
         else if (alone) { alone = false; back = 0; }
         else break;
-      } else if (plan.atS < body * 2) break;
+      } else if (plan.atS < body * (got === 'short' ? 0.8 : 2)) break;
       else { cap = plan.atS * 0.7; back = 0; }
     }
   }
@@ -669,6 +674,18 @@ interface EndPlan {
 /** How much wider across than its skeleton says it is thick a stroke may grow before another stroke counts as running
     into it (see measureEnd). */
 const ALONE_WIDE = 1.5;
+/** Whether a stroke's skeleton (`pts`, from its tip in) runs straight from near its tip to `at` along it: no point
+    between further off the line joining them than a twentieth of how far apart they are. */
+function straightTo(pts: SkPt[], at: number): boolean {
+  const arc = arcOf(pts), k1 = indexAt(arc, at), k0 = indexAt(arc, arc[k1] * 0.2), a = pts[k0], b = pts[k1];
+  const l = Math.hypot(b.x - a.x, b.y - a.y);
+  if (k1 - k0 < 3 || l < 1) return false;
+  for (let k = k0; k <= k1; k++) if (Math.abs((pts[k].x - a.x) * (b.y - a.y) - (pts[k].y - a.y) * (b.x - a.x)) / l > l * 0.05) return false;
+  return true;
+}
+/** How much wider across than it is thick a stub (a stroke running alone for less than its end needs) may grow before
+    it counts as leaving the stroke it stands out of: less than ALONE_WIDE, as a stub's join is close and rounded. */
+const STUB_WIDE = 1.15;
 /** How far round (radians) a stroke may turn between its tip and where its end is drawn again from. */
 const ALONE_TURN = 2.1;
 /** How wide the ink is across the line through p along n (a unit vector), as far as `max` out either side: from the
@@ -689,7 +706,7 @@ function widthAcross(rings: P[][], p: P, n: P, max: number) {
     picks (T its spec), moved by `mv` (see endMoves) at curvature kEnd (see endCurvature): no further back than `cap`,
     nor, given `across` (how wide the letter's ink is across a point along a way, widthAcross), than the stroke runs
     alone; and no nearer its tip than `back`, where it is drawn from further back. */
-function measureEnd(end: End, arc: number[], kEnd: number, mv: { len: number; bend: number }, to: Effective, T: TermSpec, across: ((p: P, d: P) => number) | null, cap = Infinity, back = 0): EndPlan {
+function measureEnd(end: End, arc: number[], kEnd: number, mv: { len: number; bend: number }, to: Effective, T: TermSpec, across: ((p: P, d: P) => number) | null, cap = Infinity, back = 0, stubs = false): EndPlan {
   const { pts, body } = end, total = arc[arc.length - 1], t0 = body * 2;
   // the font's own end: as far back as its thickness strays from the stroke's (a ball, a flare, a taper)
   // (only the stretch from its tip on in, while it stays so)
@@ -716,6 +733,16 @@ function measureEnd(end: End, arc: number[], kEnd: number, mv: { len: number; be
     if (arc[k] < from) continue;
     if (Math.abs(turned) > ALONE_TURN || across(pts[k], d) > 2 * Math.max(pts[k].r, body * 0.5) * ALONE_WIDE) { alone = Math.max(from, arc[k] - body * 0.4); break; }
   }
+  // (a stroke that runs alone for less than that, a block letter's short square arm out of its stem (an r's), is a stub:
+  // drawn again from just short of where it leaves the other stroke, never from inside that stroke)
+  // (only a straight stroke as thick all the way: a curving end, a c's or an s's, widens across as it bends)
+  let stub = 0, d0: P | null = null, w0 = 0;
+  if (stubs && across && !shaped && !end.exit) for (let k = indexAt(arc, body * 0.5); k < pts.length - 2 && arc[k] < from; k = indexAt(arc, arc[k] + body * 0.2)) {
+    const d = dirAlong(pts, Math.max(0, k - 2), Math.min(pts.length - 1, k + 2)), w = across(pts[k], d);
+    if (!d0) { d0 = d; w0 = w; }
+    if (w > w0 * STUB_WIDE) { if (w0 < 2 * body * STUB_WIDE) stub = Math.max(body * 0.5, arc[k] - body * 0.4); break; }
+    if (Math.abs(w - w0) > w0 * 0.04) break;
+  }
   // (a taper runs back as many thicknesses as Taper length asks up to its middle, as the engine's do, and from there on
   // its share of all the way the stroke runs alone, so the slider moves it to its end)
   // (no further than TAPER_MOST of the stroke, so a short heavy stroke's two ends, a c's, don't taper all of it)
@@ -723,7 +750,8 @@ function measureEnd(end: End, arc: number[], kEnd: number, mv: { len: number; be
   const runBack = tapers ? Math.max(1, T.taper <= 3 ? taperAt(T.taper) : lerp(taperAt(3), room, (T.taper - 3) / 3)) : flares ? Math.max(1, Math.min(total * 0.45, t0 * 3)) : 0;
   // (an exit stroke is drawn again from EXIT_BACK of its run, as far as it runs alone, so Curl turns most of it)
   const prefer = end.exit ? Math.min(alone, (end.run ?? 0) * EXIT_BACK) : 0;
-  const sAt = Math.min(Math.max(alone, back), Math.max(zone + body * 0.6, runBack + body * 0.3, -mv.len + body * 1.2, back, prefer));
+  const sAt = stub && !back ? Math.min(stub, Math.max(body * 0.5, runBack + body * 0.3, -mv.len + body * 1.2))
+    : Math.min(Math.max(alone, back), Math.max(zone + body * 0.6, runBack + body * 0.3, -mv.len + body * 1.2, back, prefer));
   // (a shorter end is cut back no further than the stretch drawn again)
   const len = Math.max(mv.len, -(sAt - body * 0.8));
   const kS = indexAt(arc, sAt), kE = indexAt(arc, Math.min(zone, sAt - 2));

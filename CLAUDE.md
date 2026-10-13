@@ -81,7 +81,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 | Points mode: tracing, drawn letters, pen tools | `shared/engine/outline.ts`, `client/lib/pen.ts`, `client/components/PenCanvas.tsx` | client/CLAUDE.md |
 | A free font's letters under the settings | `shared/engine/free-letters.ts`, `skin.ts`, `scan.ts`, `restyle.ts` | shared/engine/CLAUDE.md |
 | Which free font a style is written in; families, licences | `shared/free-fonts.ts` | shared/CLAUDE.md |
-| TypeLab's own fonts (the Style page's 21): their names, sheets and letters | `OWN_FAMILIES` in `shared/free-fonts.ts`; `Asset/After/<n>.ai`; `tools/fonts/`; `fonts/` (generated) | shared/CLAUDE.md, tools/README.md |
+| TypeLab's own fonts (the Style page's 22, Block's Bulwark from the block letters): their names, sheets and letters | `OWN_FAMILIES` in `shared/free-fonts.ts`; `Asset/After/<n>.ai`; `tools/fonts/` (`blocks.ts` for Bulwark); `fonts/` (generated) | shared/CLAUDE.md, tools/README.md |
 | A starting style's preset | `shared/content/styles.ts` (ids never change; `tools/fit/apply.ts` rewrites presets) | shared/CLAUDE.md |
 | Pages, groups, pickers, anatomy copy, settings search | `shared/content/` (`pages.ts`, `controls.ts`, `copy.ts`, `search.ts`) | shared/CLAUDE.md |
 | Style tags and Feelings; the Adjust tab's traits | `shared/content/tags.ts`; `shared/traits.ts` | shared/CLAUDE.md |

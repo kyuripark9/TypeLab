@@ -1,6 +1,7 @@
 /* Free fonts: each starting style can be written in a ready-made font, free to use, change and share, all but the
-   ones built from blocks, which no font draws. The other 21 styles on the Style page are written in TypeLab's own
-   fonts (OWN_FAMILIES), drawn for it on specimen sheets and kept in fonts/ as the engine draws them; the styles off
+   ones built from blocks, which no font draws. The 22 styles on the Style page are written in TypeLab's own fonts
+   (OWN_FAMILIES), drawn for it on specimen sheets (Block's from the engine's block letters) and kept in fonts/ as the
+   engine draws them; the styles off
    the page keep a font from Google Fonts (SIL Open Font License or Apache 2.0), fetched and converted by the server
    (server/free-fonts.ts). Each style's pick (STYLE_FONTS) is a family like it, in the weight and italic closest to
    its look, and the style's settings are fitted to that font (tools/fit). A design written in it keeps those
@@ -18,14 +19,17 @@ export interface FreeFamily {
   /** one of TypeLab's own fonts (OWN_FAMILIES): kept in fonts/, not fetched */ own?: true;
   /** a script whose letters stand apart, joined to none: each small letter's exit stroke ends free, and Length and
       Curl draw it on and curl it as they do a stroke end (see terminalEnds in restyle.ts) */ freeExits?: true;
+  /** block letters (Bulwark, the engine's): their stroke ends stand out short and heavy from the strokes they leave, and
+      a new end is drawn on the stub itself (RestyleCtx.stubs in restyle.ts) */ blocks?: true;
 }
 
 /** TypeLab's own fonts, one for each card of the Style page: drawn for TypeLab, free to use, change and share with
     no licence to pass on. Each comes in one weight, upright or italic, and is drawn on its specimen sheet
-    (Asset/After/<sheet>.ai), which tools/fonts/import.ts makes into fonts/<Family>-<weight>.json. Their names are
-    kept in saved designs (as font ids), so they never change. A script whose letters don't join is `freeExits` (see
-    FreeFamily). */
-export const OWN_FAMILIES: Record<string, { weight: number; italic: boolean; sheet: number; freeExits?: true }> = {
+    (Asset/After/<sheet>.ai), which tools/fonts/import.ts makes into fonts/<Family>-<weight>.json; one with no sheet
+    (Bulwark, the Block card's) is the engine's block letters, which tools/fonts/blocks.ts writes there. Their names
+    are kept in saved designs (as font ids), so they never change. A script whose letters don't join is `freeExits`
+    (see FreeFamily). */
+export const OWN_FAMILIES: Record<string, { weight: number; italic: boolean; sheet?: number; freeExits?: true; blocks?: true }> = {
   Ballyhoo: { weight: 400, italic: false, sheet: 1 },
   Timber: { weight: 400, italic: false, sheet: 2 },
   Turnpike: { weight: 500, italic: false, sheet: 3 },
@@ -46,7 +50,8 @@ export const OWN_FAMILIES: Record<string, { weight: number; italic: boolean; she
   Mainline: { weight: 600, italic: false, sheet: 18 },
   Hearth: { weight: 600, italic: false, sheet: 19 },
   Orbital: { weight: 600, italic: false, sheet: 20 },
-  Cathedral: { weight: 400, italic: false, sheet: 21 }
+  Cathedral: { weight: 400, italic: false, sheet: 21 },
+  Bulwark: { weight: 700, italic: false, blocks: true }
 };
 
 export const FREE_FAMILIES: Record<string, FreeFamily> = {
@@ -123,7 +128,7 @@ export const FREE_FAMILIES: Record<string, FreeFamily> = {
   "Workbench": { designers: ["Jens Kut\u00edlek"], weights: [400], italics: [], license: 'ofl', reserved: [] },
   "Xanh Mono": { designers: ["Yellow Type", "L\u00e2m B\u1ea3o", "Duy Dao"], weights: [400], italics: [400], license: 'ofl', reserved: [] },
   ...Object.fromEntries(Object.entries(OWN_FAMILIES).map(([family, o]): [string, FreeFamily] =>
-    [family, { designers: ['TypeLab'], weights: o.italic ? [] : [o.weight], italics: o.italic ? [o.weight] : [], license: null, reserved: [], own: true, ...(o.freeExits ? { freeExits: true } : {}) }]))
+    [family, { designers: ['TypeLab'], weights: o.italic ? [] : [o.weight], italics: o.italic ? [o.weight] : [], license: null, reserved: [], own: true, ...(o.freeExits ? { freeExits: true } : {}), ...(o.blocks ? { blocks: true } : {}) }]))
 };
 
 /** The free font each starting style is written in, by style id, as a font id (see fontId); none for a style built
@@ -149,6 +154,7 @@ export const STYLE_FONTS: Record<string, string> = {
   thinsans: 'Raleway:100',
   sporty: 'Kanit:700i',
   chunkyround: 'Gumdrop:700',
+  block: 'Bulwark:700',
   radial: 'Space Grotesk:400',
   mirrorsans: 'Space Grotesk:400',
   oldstyle: 'Vellum:400',

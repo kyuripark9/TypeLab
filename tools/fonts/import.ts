@@ -290,9 +290,11 @@ function importFont(family: string): { data: FreeFontData; notes: string[] } {
   return { data, notes };
 }
 
-const families = names.length ? names : Object.keys(OWN_FAMILIES);
+// (a font with no sheet, Bulwark, is written by tools/fonts/blocks.ts)
+const families = names.length ? names : Object.keys(OWN_FAMILIES).filter(f => OWN_FAMILIES[f].sheet !== undefined);
 for (const family of families) {
   if (!OWN_FAMILIES[family]) throw new Error(`${family} isn't one of TypeLab's own fonts (OWN_FAMILIES in shared/free-fonts.ts)`);
+  if (OWN_FAMILIES[family].sheet === undefined) throw new Error(`${family} has no sheet: tools/fonts/blocks.ts writes it`);
   const { data, notes } = importFont(family);
   const file = ownFontFile(data.id);
   const old = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as FreeFontData) : null;

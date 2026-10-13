@@ -157,7 +157,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    (a stem's foot, a crossbar's end and a Didone's s's beak keep theirs), drawn again from no further back than the
    stroke runs alone (`widthAcross`, `ALONE_TURN`) and stepped further back where the line across it runs into a ball;
    an end cut on a slant is told from one another stroke meets by which way the outline turns where its short side
-   stops. In a script whose letters stand apart (`freeExits`, Serenade), a small letter's exit stroke is an end too
+   stops. In a font of block letters (`blocks`, Bulwark: `RestyleCtx.stubs`) an end that stands out shorter than an
+   end needs (an r's square arm) is drawn again from just short of where it leaves its stem (`STUB_WIDE`), and a
+   straight heavy tail whose side turns off at once (a y's) from nearer its tip ('short'). In a script whose letters stand apart (`freeExits`, Serenade), a small letter's exit stroke is an end too
    (`exit`: the hairline, thinner than `EXIT_THIN` of the font's stems, rising out of the right of the letter): Length
    draws it shorter or longer by a share of its run (`EXIT_LEN`), Curl turns most of it (`EXIT_BACK`) back over the
    letter or out flat, and no kind of end reshapes it, as the engine's own exits end plain. A ball or drop of the

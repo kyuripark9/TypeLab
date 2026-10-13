@@ -18,7 +18,8 @@
     "compare": "node --import tsx tools/compare.ts",
     "render": "node --import tsx tools/render.ts",
     "sweep": "node --import tsx tools/sweep.ts",
-    "fonts:import": "node --import tsx tools/fonts/import.ts"
+    "fonts:import": "node --import tsx tools/fonts/import.ts",
+    "fonts:blocks": "node --import tsx tools/fonts/blocks.ts"
   },
   "dependencies": {
     "express": "^5.2.1",
