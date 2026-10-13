@@ -358,6 +358,13 @@ export const actions = {
     const history = [...s.history.slice(0, s.hi + 1), snap].slice(-200);
     set({ history, hi: history.length - 1 });
   },
+  /** Fold what changed since the last undo step into that step, so one undo takes both back (an edit in Points and
+      the letters shaped the same way it then went on to). Only the newest step can take more. */
+  amend() {
+    const s = get(), snap = histSnap(s.params, s.styleId);
+    if (s.history[s.hi] === snap || s.hi !== s.history.length - 1) return;
+    set({ history: [...s.history.slice(0, s.hi), snap] });
+  },
   setOption<K extends keyof Params>(key: K, v: Params[K]) {
     actions.setParam(key, v);
     actions.commit();

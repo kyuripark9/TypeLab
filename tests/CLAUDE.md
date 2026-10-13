@@ -49,7 +49,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `golden.test.ts` | The engine's golden outlines; the free fonts' too with `GOLDEN_FREE=1` |
 
 | `stroke-order.test.ts` | Every glyph draws its strokes in the order `tests/stroke-order.txt` keeps (the defaults, each letter form, and the settings that draw strokes of their own), so saved per-letter values stay on their strokes. An order changed on purpose: `UPDATE_STROKE_ORDER=1 node --import tsx --test tests/stroke-order.test.ts` rewrites the file |
-| `editor.test.ts` | `client/state/editor.ts` without a browser: a design written in its style's free font and back, a style built from blocks started without one, a customized letter's own values, a drawing keeping the settings it was drawn at and Reset dropping it with the letter's own values, loading a style over changes, renaming, the 200-step undo limit |
+| `editor.test.ts` | `client/state/editor.ts` without a browser: a design written in its style's free font and back, a style built from blocks started without one, a customized letter's own values, a drawing keeping the settings it was drawn at and Reset dropping it with the letter's own values, loading a style over changes, renaming, a change folded into the newest undo step (`amend`), the 200-step undo limit |
 
 Invariants other files also pin: every handle's id is one a saved design keeps (handles.test.ts); deep links parse,
 every nested slider has a place in the panel, and every part a control shapes names a real control (pages.test.ts);

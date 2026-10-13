@@ -1,10 +1,11 @@
 /* Glyph inspector: one letter, large, on the stage. Its parts are live: pointing at one
    highlights it and the slider that shapes it, dragging it reshapes the design (lib/drag), and
    the side panel groups its sliders by part (letterControls). Its head holds the Parts / Points
-   switch (Points hands the canvas to PenCanvas, whose edits change this letter alone), the All letters /
-   Only <letter> switch for whether a change in Parts reaches every letter or this one (a letter edited in Points
-   too: the settings it was drawn at move it as they move), Reset <letter> beside it for a letter with settings or
-   edits of its own, and the Construction grid toggle. letterControls and ScopeIcon are also used by the side panel
+   switch (Points hands the canvas to PenCanvas), the All letters / Only <letter> switch for whether a change
+   reaches every letter or this one (in Parts through the settings, a letter edited in Points too, as the settings
+   it was drawn at move it as they move; in Points by shape, each edit going on to the letters shaped the same way
+   there, CarryOffer's search), Reset <letter> beside it for a letter with settings or edits of its own, and the
+   Construction grid toggle. letterControls and ScopeIcon are also used by the side panel
    (panel/ControlsPanel). */
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
@@ -15,6 +16,7 @@ import { guideLines, stackLabels } from '../lib/guide-labels';
 import { n1, useSize } from '../lib/hooks';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
 import { GridBar, GridLines, useGrid } from './ConstructionGrid';
+import { nameList, useMates } from './CarryOffer';
 import { PenCanvas } from './PenCanvas';
 import { actions, endOf, hlKey, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type OwnKey, type Scope } from '../state/editor';
 
@@ -133,17 +135,19 @@ function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } 
 }
 
 export function Inspector() {
-  const ch = useEditor(s => s.inspect), pen = useEditor(s => s.penMode), letter = useEditor(s => (s.penMode ? null : letterOf(s)));
+  const ch = useEditor(s => s.inspect), pen = useEditor(s => s.penMode), letter = useEditor(letterOf);
   const hand = useEditor(s => !!s.inspect && !!s.params.outlines[s.inspect]);
+  // in Points, the letters shaped the same way as the points picked (null till some are picked and they're found)
+  const mates = useMates(s => (s.ch === ch ? s.letters : null));
   const font = useFont();
   const g = ch ? font.glyph(ch) : null;
   // a free font's letter is drawn as it is, as one drawn by hand
   const free = !hand && !!g?.drawn && font.free ? font.free.family : null, drawn = hand || !!free;
   const grid = useGrid(font, ch);
   if (!ch || !g) return null;
-  // the pen's points belong to this letter alone, like its own settings (a letter drawn in Points, or a free font's,
-  // moves with the settings like the rest, so it is this letter's alone only while customizing)
-  const own = pen || !!letter;
+  // only while customizing is an edit this letter's alone: in Points too, All letters takes each edit on to the
+  // letters shaped the same way (and a letter drawn in Points, or a free font's, moves with the settings like the rest)
+  const own = !!letter;
 
   return (
     <section className={own ? 'inspector customizing' : 'inspector'} aria-label={`Glyph inspector: ${ch}`} data-guide="inspector">
@@ -152,7 +156,7 @@ export function Inspector() {
         <div className="insp-title"><h2>{ch}</h2></div>
         <button className="btn ghost round" onClick={() => actions.stepInspector(1)} aria-label="Next glyph">→</button>
         <ModeToggle />
-        {!pen && <ScopeToggle ch={ch} />}
+        <ScopeToggle ch={ch} pen={pen} />
         {/* what the canvas shows; it drops to a line of its own when the head runs out of room */}
         <div className="insp-view">
           <ConstructionToggle />
@@ -166,11 +170,16 @@ export function Inspector() {
         {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} />}
         {/* one short line over the canvas for what the switches above don't say: what an edit here does, and what
             still moves a letter drawn as it is; the whole story is in its tooltip */}
-        {pen && (
-          <div className="scope-banner" role="status" title={`Points edits ${ch} alone, and ${ch} keeps the shape you give it. Weight, contrast, width, the heights and slant still move it, as they move the other letters; Reset ${ch}, in Parts, gives it back to the font`}>
+        {pen && (own ? (
+          <div className="scope-banner" role="status" title={`An edit here changes ${ch} alone, and ${ch} keeps the shape you give it; after it, the letters shaped the same way are offered the change. Weight, contrast, width, the heights and slant still move ${ch}, as they move the other letters; Reset ${ch} gives it back to the font`}>
             <ScopeIcon id="letter" /><span>Only <b>{ch}</b> changes here · weight, width and heights still move it</span>
           </div>
-        )}
+        ) : (
+          <div className="scope-banner" role="status" title={`After each edit, the letters with the same shape where ${ch} changed (a d's serif in b h k l, an n's foot in m and h) change the same way, in the same undo step; the pill at the bottom right names them, and puts any back as it was. Only ${ch} keeps an edit to ${ch}`}>
+            <span>{!mates ? 'An edit goes to every letter shaped the same there'
+              : mates.length ? <>Same shape in <b>{nameList(mates)}</b> · they change with it</> : <>No other letter is shaped the same here · only <b>{ch}</b> changes</>}</span>
+          </div>
+        ))}
         {!pen && drawn && (
           <div className="scope-banner" role="status">
             {own && <ScopeIcon id="letter" />}<span>{free ? <><b>{ch}</b> is {free}'s letter · reshape it in Points</> : <><b>{ch}</b> was edited in Points · weight, width and heights still move it</>}</span>
@@ -203,12 +212,16 @@ function ModeToggle() {
   );
 }
 
-/** Whether a change in Parts reshapes every letter or only this one. A letter with settings of its own, or edits in
-    Points, can be reset to follow the rest. (Points always edits this letter alone, and offers the change to the
-    others after.) */
-function ScopeToggle({ ch }: { ch: string }) {
+/** Whether a change reshapes every letter or only this one: in Parts through the settings; in Points by shape,
+    All letters taking each edit on to the letters shaped the same way there, Only <letter> keeping it to this one
+    (and offering it to the others after). A letter with settings of its own, or edits in Points, can be reset to
+    follow the rest. */
+function ScopeToggle({ ch, pen }: { ch: string; pen: boolean }) {
   const scope = useEditor(s => s.scope), custom = useEditor(s => !!s.params.glyphs[ch]), drawn = useEditor(s => !!s.params.outlines[ch]);
-  const opts: [Scope, string, string][] = [
+  const opts: [Scope, string, string][] = pen ? [
+    ['all', 'All letters', `An edit to ${ch}'s points goes on to every letter with the same shape there`],
+    ['letter', `Only ${ch}`, `An edit changes ${ch} alone; after it, you can still give it to the letters shaped the same way`]
+  ] : [
     ['all', 'All letters', 'A change reshapes every letter'],
     ['letter', `Only ${ch}`, `A change reshapes ${ch} alone; the other letters stay as they are`]
   ];

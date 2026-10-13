@@ -268,8 +268,11 @@ first point to close); **Convert point** (`⇧C`) switches corner ↔ smooth or 
 **Shape** tool adds a rectangle (`M`), ellipse (`L`), rounded rectangle, triangle, hexagon or star. The bar
 below types exact coordinates and the width; points snap to whole units, and with *Snap* to the guide
 lines, other points, centers, midpoints, the outline, crossings and tangents. **Mirror** moves a point's
-partner across the letter's middle the other way. An edit changes only the letter in view; after it, the
-letters shaped the same way there are offered, each drawn with the change in, to make it in them too. `⌘`-scroll zooms, Space-drag pans, `⌘0` fits the letter.
+partner across the letter's middle the other way. **All letters / Only R** works here too, by shape: with All
+letters, picking points names the letters shaped the same way there ("Same shape in b h k l"), and an edit goes
+on to them as soon as it is done, in the same undo step (the pill in the corner names them, and puts any back);
+with Only R, the edit changes the letter in view alone, and after it those letters are offered, each drawn with
+the change in, to make it in them too. `⌘`-scroll zooms, Space-drag pans, `⌘0` fits the letter.
 The first edit makes the letter a drawing, saved with the design (`params.outlines`) with the settings it
 was drawn at: it keeps the shape you give it, and weight, contrast, width, the heights, crossbar, inner space
 and slant still move it as they move from those, for all letters or only this one. **Reset** gives it back to

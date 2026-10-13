@@ -1,6 +1,6 @@
 /* The editor's store (client/state/editor.ts), run without a browser: starting a design in its free font,
    a customized letter's own values, a letter drawn in Points keeping the settings it was drawn at, loading a style
-   over changes, renaming, and how far undo reaches. Nothing here
+   over changes, renaming, a change folded into the last undo step, and how far undo reaches. Nothing here
    draws a design written in a free font, which would fetch the font from the server. */
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
@@ -92,6 +92,26 @@ describe('the editor', () => {
     // with the change undone, only the name differed, and that is saved
     actions.travel(-1);
     assert.equal(isDirty(state()), false);
+  });
+
+  it('folds a change into the last undo step, so one undo takes both back, and only into the newest', () => {
+    const was = [state().params.weight, state().params.contrast];
+    actions.setOption('weight', 0.7);
+    const steps = state().history.length;
+    // (as an edit in Points carried on to the letters shaped the same way: a second write after the first's commit)
+    actions.setParam('contrast', 0.9);
+    actions.amend();
+    assert.equal(state().history.length, steps, 'no new step');
+    actions.travel(-1);
+    assert.deepEqual([state().params.weight, state().params.contrast], was);
+    actions.travel(1);
+    assert.deepEqual([state().params.weight, state().params.contrast], [0.7, 0.9]);
+    // an older step, undone to, takes nothing more
+    actions.travel(-1);
+    actions.setParam('contrast', 0.2);
+    actions.amend();
+    actions.travel(1);
+    assert.equal(state().params.contrast, 0.9);
   });
 
   it('keeps the last 200 steps to undo', () => {

@@ -11,14 +11,18 @@
    page is open ("d's change: b h k l"), until another is applied: clicked, the card opens to review it, where each
    click puts a letter back as it was or gives it the change at once (an undo step each). What is offered is
    everything done to the letter since it was first opened in Points, or since its last offer was taken up or turned
-   down, also when it is opened again later. The search runs after each finished edit, in slices between frames, so
-   it never holds up a drag. A click elsewhere, or Escape, folds the card back to its pill. */
+   down, also when it is opened again later. With All letters (the inspector's switch, in Points too) nothing is
+   asked: an edit just made goes on at once to the letters the offer would have picked, in the edit's own undo step,
+   and the pill names them, to review; and before an edit, the letters shaped the same way as the points picked are
+   looked for too (`useMates`), for the inspector's banner to name. The searches run after each finished edit (or
+   pick), in slices between frames, so they never hold up a drag. A click elsewhere, or Escape, folds the card back
+   to its pill. */
 import { memo, useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { ALL_CHARS, CHARSET, cmdsToD, drawnCmds, drawnLetter, type Drawn, type Font, type Glyph } from '../../shared/engine';
 import { drawnAtOf } from '../../shared/params';
-import { carryLetter, changesOf, kindOf, sameDrawing, type Carried } from '../lib/carry';
-import { traceOf } from '../lib/pen';
+import { carryLetter, changesOf, kindOf, placesOf, sameDrawing, type Carried } from '../lib/carry';
+import { keyRef, moveAnchors, traceOf } from '../lib/pen';
 import { actions, useEditor } from '../state/editor';
 
 /** How long the search runs before letting a frame through, in ms. */
@@ -51,11 +55,19 @@ function forDesign() {
 }
 
 /** Letters by name, the first few, then how many more. */
-const names = (cs: Carried[]) => cs.slice(0, NAMED).map(c => c.ch).join(' ') + (cs.length > NAMED ? ` +${cs.length - NAMED}` : '');
+const names = (cs: Carried[]) => nameList(cs.map(c => c.ch));
+export const nameList = (chs: string[]) => chs.slice(0, NAMED).join(' ') + (chs.length > NAMED ? ` +${chs.length - NAMED}` : '');
 
-export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }) {
+/** The letters shaped the same way as the points picked in letter `ch` (the letter itself first, where it has the
+    shape elsewhere too: an n's other foot), as an edit with All letters would go on to them: close matches of its
+    own kind, or, with none, of any; empty for none, null while nothing is picked or the search runs. */
+export const useMates = create<{ ch: string | null; letters: string[] | null }>(() => ({ ch: null, letters: null }));
+
+/** `picked` is the points picked in the letter, as the pen keeps them ("contour:index"). */
+export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: Glyph; font: Font; picked: string[] }) {
   // a new undo step: an edit finished, or one undone or redone
   const hi = useEditor(s => s.hi);
+  const sync = useEditor(s => s.scope === 'all'), history = useEditor(s => s.history);
   const stored = useEditor(s => s.params.outlines[ch]);
   const outlines = useEditor(s => s.params.outlines);
   const applied = useApplied(s => s.last), last = applied && sameDesign(applied.of, ofNow()) ? applied : null;
@@ -66,6 +78,9 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
   else if (!bases.has(ch)) bases.set(ch, stored);
   const fontNow = useRef(font);
   fontNow.current = font;
+  // the undo history and the letter's drawing as the last search found them, to tell an edit just made here from a
+  // step undone or redone, or a slider moved
+  const seen = useRef({ history: useEditor.getState().history, stored });
   const [offer, setOffer] = useState<{ now: Drawn; found: Carried[] } | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [peek, setPeek] = useState<Carried | null>(null);
@@ -86,7 +101,9 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
   useEffect(() => {
     // the letter as the settings draw it now, and as it was before, drawn at the same settings (each letter, drawn or
     // not, read as it stands)
-    const f = fontNow.current, base = bases.get(ch), now = useEditor.getState().params.outlines[ch] && f.glyph(ch)?.drawn;
+    const f = fontNow.current, base = bases.get(ch), s0 = useEditor.getState(), now = s0.params.outlines[ch] && f.glyph(ch)?.drawn;
+    const made = s0.history !== seen.current.history && s0.hi === s0.history.length - 1 && s0.params.outlines[ch] !== seen.current.stored;
+    seen.current = { history: s0.history, stored: s0.params.outlines[ch] };
     const was = now && base ? drawnLetter(ch, base, f).drawn : undefined;
     const changes = now && was ? changesOf(was.contours, now.contours) : [];
     if (!now || !changes.length) { setOffer(null); return; }
@@ -105,16 +122,60 @@ export function CarryOffer({ ch, g, font }: { ch: string; g: Glyph; font: Font }
       // looser ones of its kind, then the rest
       const rank = (c: Carried) => (c.close ? 0 : 2) + (kindOf(c.ch) === kindOf(ch) ? 0 : 1);
       found.sort((a, b) => rank(a) - rank(b) || Number(b.ch === ch) - Number(a.ch === ch));
-      const mine = found.filter(c => rank(c) === 0);
-      setPicked(new Set((mine.length ? mine : found.filter(c => c.close)).map(c => c.ch)));
+      const mine = found.filter(c => rank(c) === 0), picks = mine.length ? mine : found.filter(c => c.close);
       setPeek(null);
       setOpen(false);
+      // All letters: an edit just made goes on to them now, folded into its undo step (unless another has begun since)
+      const s = useEditor.getState();
+      if (made && s.scope === 'all' && picks.length && s.params === s0.params) {
+        const prev = Object.fromEntries(found.map(c => [c.ch, s.params.outlines[c.ch]]));
+        actions.setParam('outlines', { ...s.params.outlines, ...Object.fromEntries(picks.map(c => [c.ch, c.doc])) });
+        actions.amend();
+        useApplied.setState({ last: { from: ch, found, prev, of: ofNow() } });
+        const after = useEditor.getState();
+        bases.set(ch, after.params.outlines[ch]!);
+        seen.current = { history: after.history, stored: after.params.outlines[ch] };
+        setOffer(null);
+        return;
+      }
+      setPicked(new Set(picks.map(c => c.ch)));
       // looser matches alone aren't worth asking about
       setOffer(found.some(c => c.close) ? { now, found } : null);
     };
     timer = window.setTimeout(step, 120);
     return () => clearTimeout(timer);
   }, [hi, ch]);
+
+  // with All letters, the letters shaped the same way as the points picked, before they're edited: as though they moved,
+  // where else the stretch they're on runs, or the shape they make (searched again once an edit finishes, or is
+  // carried on, as the shapes change)
+  const pickKey = [...pickedPts].sort().join(' ');
+  useEffect(() => {
+    useMates.setState({ ch, letters: null });
+    if (!sync || !pickKey) return;
+    const f = fontNow.current, gl = f.glyph(ch), cs = gl ? traceOf(gl).contours : [], refs = pickKey.split(' ').map(keyRef);
+    if (refs.some(r => !cs[r.c]?.[r.i])) return;
+    const moved = moveAnchors(cs, refs, 24, 0), changes = changesOf(cs, moved);
+    // (every shape picked, moved whole, carries nothing; turned or resized, each shape is looked for: say neither)
+    if (!changes.length) return;
+    const close: string[] = [];
+    let k = 0, timer = 0;
+    const step = () => {
+      const t0 = performance.now();
+      while (k < ALL_CHARS.length && performance.now() - t0 < SLICE) {
+        const o = ALL_CHARS[k++];
+        if (o === ch) { if (carryLetter(changes, o, { adv: gl!.adv, contours: moved }, true)?.close) close.unshift(o); continue; }
+        const og = f.glyph(o), doc = og ? traceOf(og) : null;
+        if (doc?.contours.length && changes.some(c => placesOf(c, doc).some(p => p.close))) close.push(o);
+      }
+      if (k < ALL_CHARS.length) { timer = window.setTimeout(step, 0); return; }
+      const mine = close.filter(o => kindOf(o) === kindOf(ch));
+      useMates.setState({ ch, letters: mine.length ? mine : close });
+    };
+    timer = window.setTimeout(step, 150);
+    return () => clearTimeout(timer);
+  }, [sync, pickKey, history, ch]);
+  useEffect(() => () => useMates.setState({ ch: null, letters: null }), []);
 
   // mid-drag, or once the letter has changed again, an offer waits for the search to catch up
   if (offer && !sameDrawing(offer.now, stored && traceOf(g))) return null;
