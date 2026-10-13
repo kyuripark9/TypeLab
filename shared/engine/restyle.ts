@@ -683,6 +683,9 @@ function straightTo(pts: SkPt[], at: number): boolean {
   for (let k = k0; k <= k1; k++) if (Math.abs((pts[k].x - a.x) * (b.y - a.y) - (pts[k].y - a.y) * (b.x - a.x)) / l > l * 0.05) return false;
   return true;
 }
+/** How long, at the most, a tail run out of a ring is against the ring, for Stencil to cut the ring down its middle as
+    an O's rather than open it where the tail leaves (a Q's tail; a 9's stroke is far longer). */
+const TAIL_SHORT = 0.15;
 /** How narrow, at the least, a stencil gap on a free font's letter is drawn (a share of Stencil's) where its full width
     would leave a sliver of ink (a heavy letter's short bar). */
 const GAP_LEAST = 0.4;
@@ -1317,7 +1320,8 @@ export const stencilLook = (e: Effective): StencilLook => ({ gap: e.stencil, pos
     every gap moves the same way; a ring with no join (an o) is cut down its middle. A crossbar's Gap cuts it back
     at both ends, or, run through, cuts the strokes it meets above and below it. In a heavy letter, as the engine's
     stencilPieces does, a gap opens only where every piece stays solid ink and it lands on no other join, narrowed
-    first if need be; a stroke running on along its host before it leaves it (an R's leg) is left whole. */
+    first if need be; a stroke running on along its host before it leaves it (an R's leg, a K's) and a bar on a slanted
+    host (an A's) are cut square across where they run alone; a ring with a short tail (a Q) is cut as an O is. */
 export function restyleStencil(cs: Node[][], c: RestyleCtx, from: StencilLook, to: StencilLook, sk: SkeletonOf): Node[][] {
   const v = added(from.gap, to.gap), bv = added(from.bar, to.bar);
   if (!(v > 0) && !(bv > 0)) return cs;
@@ -1338,6 +1342,38 @@ export function restyleStencil(cs: Node[][], c: RestyleCtx, from: StencilLook, t
     rs.sort((p, q) => p - q);
     return { n, tx, ty, half: rs.length ? rs[rs.length >> 1] : n.r * 0.8 };
   });
+  /** How far along a bar (branch br, `r` half as thick) from join ji it runs on alone: its ink across no more than 1.2
+      times as thick as it is, read every two units out from the join; -1 where it never does. */
+  const barFree = (ji: number, br: Branch, r: number) => {
+    const { n } = hosts[ji], d = leaving(s, br, n.r * 3), px = -d.y, py = d.x, E = s.edges[br.e];
+    for (let t = 0; t < E.len; t += 2) {
+      const qx = n.x + d.x * t, qy = n.y + d.y * t;
+      if (!ink.has(qx, qy)) continue;
+      let w = 0;
+      for (const o of [1, -1]) { let u = 0; while (u < r * 4 && ink.has(qx + px * o * (u + 1), qy + py * o * (u + 1))) u += 1; w += u; }
+      if (w <= 2 * r * 1.2) return t;
+    }
+    return -1;
+  };
+  /** A gap cut square across branch br of join ji, from where it runs on alone, as wide as Stencil asks of a stroke as
+      thick (its own thickness at Stencil's top: a short heavy stroke, an A's bar or a K's leg, cut as wide as a stem's
+      gap would be taken away), or as leaves a solid piece before the stroke at its other end (or its own free end), if
+      that is a gap at all. */
+  const aloneCut = (ji: number, br: Branch, ends: number[]) => {
+    const E = s.edges[br.e], r = E.pts[E.pts.length >> 1].r, t1 = barFree(ji, br, r), others = ends.filter(k => k !== ji);
+    if (t1 < 0) return;
+    const far = s.nodes[br.end === 'a' ? E.b : E.a], t2 = others.length ? barFree(others[0], E.a === joins[others[0]].node ? { e: br.e, end: 'a' } : { e: br.e, end: 'b' }, r) : far.edges.length === 1 ? -far.r : 0;
+    const room = E.len - t1 - Math.max(0, t2) + (t2 < 0 ? -t2 : 0), piece = Math.min(r * 1.2, room / 3), g = Math.min(gapOf(v), 2 * r * v, room - piece);
+    if (g >= Math.min(gapOf(v), Math.max(8, r * 0.3))) opened.push({ bands: [square(ji, br, t1, t1 + g)], ji });
+  };
+  /** Whether edge e is a ring with nothing run out of it but a short tail ending free (a Q's, not a 9's long stroke). */
+  const tailed = (e: number) => {
+    const E = s.edges[e];
+    return E.a === E.b && s.nodes[E.a].edges.length > 2 && s.nodes[E.a].edges.every(k => {
+      const K = s.edges[k], far = K.a === E.a ? K.b : K.a;
+      return k === e || (s.nodes[far].edges.length === 1 && K.len < E.len * TAIL_SHORT);
+    });
+  };
   /** A band across branch `br` from join j: from `d1` to `d2` out from the host's middle, along its edge. */
   const across = (ji: number, br: Branch, d1: number, d2: number) => {
     const { n, tx, ty } = hosts[ji], d = leaving(s, br, n.r * 3);
@@ -1417,16 +1453,23 @@ export function restyleStencil(cs: Node[][], c: RestyleCtx, from: StencilLook, t
         return;
       }
       if (!(v > 0)) return;
+      // (a ring isn't opened where a short tail runs out of it, a Q's: that would leave a C; it is cut down its middle
+      // below, as an O is)
+      if (tailed(br.e)) return;
       // (a bar joined at both ends opens at the end further left, or up)
       if (bar && ends.some(k => k !== ji && (hosts[k].n.x < h.n.x - 1 || (Math.abs(hosts[k].n.x - h.n.x) <= 1 && hosts[k].n.y > h.n.y)))) return;
+      // a bar run into a slanted stroke, an A's: cut square across, from where it runs on alone past that stroke (its
+      // ink across no wider than it is thick), as wide as leaves a solid piece before the stroke at its other end
+      if (bar && Math.abs(h.ty) < 0.95) { aloneCut(ji, br, ends); return; }
       // (from where the stroke's edges leave the host's ink, read off it: a heavy join's skeleton sits off its middle,
       // nearer the stroke that ends in it, and a gap from its half thickness would bite into the host; moved out along
       // the stroke only where it leaves the host steeply, as the engine's: one leaving at a slant would have its gap run
       // off down its length)
       const { dn } = clear(ji, br), e = edgeAt(ji, br), from = e > 0 ? e * Math.max(dn, 0.25) : h.half, o = dn > 0.8 ? off : 0;
-      // (a stroke running on along the host's edge a long way before it leaves it, a heavy R's leg under its bowl or a y's
-      // arm meeting its tail at a slant, is no join to open there: left whole)
-      if (from > h.half * 2.5) return;
+      // (a stroke running on along the host's edge a long way before it leaves it, a heavy K's leg out of its arm or a y's
+      // arm meeting its tail at a slant, isn't cut along the host there, which would run down its length: it is cut
+      // square across where it runs on alone, as a bar on a slanted host is below)
+      if (from > h.half * 2.5 && !bar) { aloneCut(ji, br, ends); return; }
       // (as wide as Stencil asks, or, where that leaves no solid piece, as wide as does, down to GAP_LEAST of it)
       const tries = [1, 0.75, 0.55, GAP_LEAST].map(k => across(ji, br, from + o, from + o + gapOf(v) * k)).filter((b): b is Pt[] => !!b);
       if (tries.length) opened.push({ bands: tries, ji });
@@ -1448,9 +1491,9 @@ export function restyleStencil(cs: Node[][], c: RestyleCtx, from: StencilLook, t
     })());
     if (band) bands.push(band);
   }
-  // a ring on its own (an o, a 0), cut down its middle
-  if (v > 0) s.edges.forEach(E => {
-    if (E.a !== E.b || s.nodes[E.a].edges.length !== 2) return;
+  // a ring on its own (an o, a 0), or with only a short tail running free out of it (a Q's), cut down its middle
+  if (v > 0) s.edges.forEach((E, e) => {
+    if (E.a !== E.b || (s.nodes[E.a].edges.length !== 2 && !tailed(e))) return;
     const xs = E.pts.map(p => p.x), ys = E.pts.map(p => p.y), r = Math.max(...E.pts.map(p => p.r));
     const cx = (Math.min(...xs) + Math.max(...xs)) / 2, g = Math.min(gapOf(v), (Math.max(...xs) - Math.min(...xs)) * 0.5), y0 = Math.min(...ys) - r * 1.5, y1 = Math.max(...ys) + r * 1.5;
     bands.push([{ x: cx - g / 2, y: y0 }, { x: cx + g / 2, y: y0 }, { x: cx + g / 2, y: y1 }, { x: cx - g / 2, y: y1 }]);

@@ -413,6 +413,17 @@ describe("TypeLab's own fonts", () => {
         }
       }
       assert.ok(opened >= 4, `${style}: Stencil still opens most of them (${opened})`);
+      if (style !== 'block') continue;
+      // (Bulwark's slanting strokes cut where they run on alone, its A's bar square across; and its Q cut down its middle,
+      // as its O, not opened where its tail leaves the ring into a C)
+      for (const ch of 'RAKy') assert.notEqual(f.glyph(ch)!.d, whole.glyph(ch)!.d, `its ${ch} is cut`);
+      const Q = f.glyph('Q')!, ink = shape(toPolys(Q.cmds)), ps = toPolys(whole.glyph('Q')!.cmds).flat();
+      const x0 = Math.min(...ps.map(p => p.x)), x1 = Math.max(...ps.map(p => p.x)), y1 = Math.max(...ps.map(p => p.y)), mid = y1 * 0.55;
+      // (the ring's right side, at half its height: some ink in the right third, past its tail)
+      let right = false;
+      for (let x = x1; x > x0 + (x1 - x0) * 0.66; x -= 2) if (ink.has(x, mid)) right = true;
+      assert.ok(right, "its Q's ring stays shut on the right");
+      assert.ok(!ink.has((x0 + x1) / 2, y1 - f.m.s * 0.3), 'and is cut at its top, as its O');
     }
   });
 

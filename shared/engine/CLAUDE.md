@@ -179,9 +179,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    S; drawn shorter, it is cut back, not squeezed (squeezed, the inside of a curve folds into a flag), and the end is
    carried back along it as wide as the stroke where it now meets it. A taper runs back its share of all the way the stroke runs alone past Taper length's middle.
    Stencil cuts each join from where the stroke's edges leave the host's ink (read off it, as a heavy join's skeleton
-   sits off its middle), moves a gap out only on a stroke leaving steeply, leaves a stroke that runs on along its host
-   before leaving it whole (a heavy R's leg), and keeps a gap only where every piece stays solid ink and it lands on no
-   other join, narrowing it down to `GAP_LEAST` of Stencil's first, as the engine's `stencilPieces` does.
+   sits off its middle), moves a gap out only on a stroke leaving steeply, and keeps a gap only where every piece stays
+   solid ink and it lands on no other join, narrowing it down to `GAP_LEAST` of Stencil's first, as the engine's
+   `stencilPieces` does. A stroke that runs on along its host before leaving it (a heavy R's leg, a K's, a y's arm) and
+   a bar on a slanted host (an A's) are cut square across where they run on alone instead (`aloneCut`: no wider than
+   Stencil times the stroke's thickness, leaving a solid piece); a ring with only a short tail (`TAIL_SHORT`, a Q's) is
+   cut down its middle as an O, never opened where the tail leaves it.
    A serif's length is held to most of half the room beside it, read from past its stroke's own edge (a face can read a
    unit narrower than the stroke, and the room came out nothing: an R's, an N's, a K's feet went bare).
    Serifs also squares off an upright stroke's round end on a line (`roundTip` in
