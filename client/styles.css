@@ -1099,6 +1099,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .intro-drawn { fill: var(--ink); animation: intro-out .2s ease .3s forwards; }
 .intro-guide { transition: transform .3s var(--intro-ease); }
 .intro-guide line { stroke: var(--line-2); transform-box: view-box; transform-origin: 0 0; animation: intro-rule .35s cubic-bezier(.2, .7, .2, 1) both; }
+/* the upright guide lines draw on downward, and the slanted ones along themselves */
+.intro-guide line.up, .intro-slant { stroke: var(--line-2); stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-line .5s var(--intro-ease) both; }
 .intro-guides.end, .intro-points { animation: intro-out .2s ease forwards; }
 /* the outline is drawn on and gives way to the ink as it fills, so the filled drawing is the wordmark's weight */
 .intro-outline { fill: var(--ink); fill-opacity: 0; stroke: var(--ink); stroke-width: .8; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-line .42s cubic-bezier(.4, 0, .2, 1) both, intro-fill .26s ease both; }
