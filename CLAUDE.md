@@ -93,7 +93,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 | Editor state, undo, saving, demo deep links | `client/state/editor.ts`, `client/pages/EditorPage.tsx` (`useDeepLinks`) | client/CLAUDE.md |
 | The look of anything | `client/styles.css` (one sheet; tokens on `:root`) | client/CLAUDE.md |
 | The control panel | `client/components/Panel.tsx`, `client/components/panel/` | client/CLAUDE.md |
-| The Style page: cards, finder, filters, traits | `client/components/Stage.tsx`, `Finder.tsx`, `BuiltText.tsx`, `panel/StylePanel.tsx` | client/CLAUDE.md |
+| The Style page: cards, filters, traits | `client/components/Stage.tsx`, `BuiltText.tsx`, `panel/StylePanel.tsx` | client/CLAUDE.md |
 | The inspector and dragging a letter's parts | `client/components/Inspector.tsx`, `client/lib/drag.ts` | client/CLAUDE.md |
 | The Histories, the font's and each letter's, kept with the design | `shared/font-log.ts`, `shared/letter-log.ts`, `client/components/FontHistory.tsx`, `LetterHistory.tsx`, `client/lib/history.ts`, `restoreVersion` and `restoreLetter` in `client/state/editor.ts` | client/CLAUDE.md, shared/CLAUDE.md |
 | Header and the Export window; nav, glyph strip, toast; the tour; sign-in | `Header.tsx`; `Chrome.tsx`; `Guide.tsx`; `Account.tsx` and `client/state/auth.ts` | client/CLAUDE.md |

@@ -2,7 +2,7 @@
    needs the font's letters before the engine can draw them: they come from the server (server/free-fonts.ts),
    which keeps TypeLab's own and fetches the rest from Google Fonts, and are registered with the engine
    (registerFreeFont in shared/engine/free.ts, which tells onFreeFont's listeners). Until then the design's own
-   letters stand in. The style cards and the finder show a style's free font as a web font instead, which is
+   letters stand in. The style cards show a style's free font as a web font instead, which is
    quicker to fetch: an own font as the OpenType file the server builds from it, any other from Google Fonts. */
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { freeFont, onFreeFont, registerFreeFont } from '../../shared/engine';

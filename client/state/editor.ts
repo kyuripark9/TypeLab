@@ -71,8 +71,6 @@ export interface EditorState extends Doc {
   moods: Mood[];
   /** Style page search words */
   query: string;
-  /** the Style page asks what kind of letters (the Category) before it shows the cards */
-  finder: boolean;
   /** Style page traits, laid over every starting style */
   traits: Traits;
   styleTab: StyleTab;
@@ -161,8 +159,6 @@ export const useEditor = create<EditorState>()(() => ({
   groups: [],
   moods: [],
   query: '',
-  // on unless this browser was left browsing every card
-  finder: !prefFlag(PREFS.browseAll),
   traits: {},
   styleTab: 'filter',
   view: prefOneOf(PREFS.cardView, ['grid', 'list'], 'grid'),
@@ -546,12 +542,6 @@ export const actions = {
   toggleGroup(g: StyleGroup) { set(s => ({ groups: toggle(s.groups, g) })); },
   toggleMood(m: Mood) { set(s => ({ moods: toggle(s.moods, m) })); },
   clearFilters() { set({ groups: [], moods: [], query: '' }); },
-  /** Ask the finder's question again, or leave it and browse every card; either way no filter is left on. */
-  setFinder(finder: boolean) {
-    actions.clearFilters();
-    set({ finder });
-    setPrefFlag(PREFS.browseAll, !finder);
-  },
   setQuery(query: string) { set({ query }); },
   setStyleTab(styleTab: StyleTab) { set({ styleTab }); },
   /** Pick a step of a trait, or with null (or the step already picked) let each style keep its own. */

@@ -1,7 +1,7 @@
 /* The Style page's panel: Filter narrows the starting styles by search and tags, Adjust lays traits over every one of them.
    On phones it is a sheet over the cards, opened from the bar on top (Stage.tsx), with a foot that closes it. */
 import { type KeyboardEvent } from 'react';
-import { FEELINGS, PAGE_STYLES, styleById, type Mood } from '../../../shared/content';
+import { FEELINGS, PAGE_STYLES, STYLE_GROUPS, styleById, type Mood } from '../../../shared/content';
 import { cmdsBox } from '../../../shared/engine';
 import { STYLE_FONTS } from '../../../shared/free-fonts';
 import type { Params } from '../../../shared/params';
@@ -37,8 +37,7 @@ const STYLE_TABS: [StyleTab, string][] = [['filter', 'Filter'], ['adjust', 'Adju
     one of them, so each card shows its style with them and any mix can be started from. */
 export function StylePanel() {
   const tab = useEditor(s => s.styleTab);
-  // the Filter tab counts what it holds: the finder's answer (groups) is on the stage, with its own way back
-  const nFilters = useEditor(s => s.moods.length + (s.query.trim() ? 1 : 0));
+  const nFilters = useEditor(s => s.groups.length + s.moods.length + (s.query.trim() ? 1 : 0));
   const nTraits = useEditor(s => Object.keys(s.traits).length);
   const counts = { filter: nFilters, adjust: nTraits };
   const move = (e: KeyboardEvent<HTMLButtonElement>) => {
@@ -78,11 +77,11 @@ function SheetFoot() {
   );
 }
 
-/** Search, then the feelings. The kind of letters is what the style finder asks on the stage (and
-    how the cards are grouped), so it isn't asked again here; a genre is found by searching its name. */
+/** Search, then the kind of letters (the Category the cards are grouped by) and the feelings; a genre is found by
+    searching its name. */
 function StyleFilters() {
   const { f } = useStyleMatch();
-  const picked = f.moods.length > 0 || !!f.query?.trim();
+  const picked = f.groups.length + f.moods.length > 0 || !!f.query?.trim();
   return (
     <>
       <div className="search-row">
@@ -95,8 +94,9 @@ function StyleFilters() {
           <kbd aria-hidden="true">/</kbd>
         </div>
         {/* the button leaves once pressed, so focus goes back to the tab rather than the page */}
-        {picked && <button className="btn ghost small" aria-label="Clear filters" onClick={() => { actions.setQuery(''); f.moods.forEach(actions.toggleMood); focusFilters(); }}>Clear</button>}
+        {picked && <button className="btn ghost small" aria-label="Clear filters" onClick={() => { actions.clearFilters(); focusFilters(); }}>Clear</button>}
       </div>
+      <Categories />
       <Feelings />
     </>
   );
@@ -189,6 +189,31 @@ function Specimen({ params, text }: { params: Params; text: string }) {
         {items.map((it, j) => <path key={j} d={f.glyph(it.ch)!.d} transform={`translate(${n1(it.x)},0)`} />)}
       </g>
     </svg>
+  );
+}
+
+/** The kinds of letters a card is, in the order of the groups over the cards: those no card is are left out. */
+const CARD_GROUPS = STYLE_GROUPS.filter(g => PAGE_STYLES.some(s => s.group === g.id));
+
+/** The Category chips, in the UI's face. Kinds add up: each one picked brings its cards in, so a chip's count is the
+    cards of that kind the other filters leave, and one with none does nothing. */
+function Categories() {
+  const { f, matches } = useStyleMatch();
+  return (
+    <div className="facet" role="group" aria-labelledby="f-category">
+      <h3 className="facet-label" id="f-category">Category</h3>
+      <div className="chips">
+        {CARD_GROUPS.map(({ id, label, hint }) => {
+          const on = f.groups.includes(id), n = PAGE_STYLES.filter(s => matches(s, { groups: [id] })).length, none = !n && !on;
+          return (
+            <button key={id} className={on ? 'chip on' : 'chip'} title={hint} aria-pressed={on} aria-disabled={none || undefined}
+              aria-label={`${label}, ${n} ${n === 1 ? 'style' : 'styles'}`} onClick={() => { if (!none) actions.toggleGroup(id); }}>
+              {label}<span className="count" aria-hidden="true">{n}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

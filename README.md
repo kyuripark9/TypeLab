@@ -181,8 +181,8 @@ empty cells read as round nodes.
   `SUBS` (`shared/content/controls.ts`); `ControlsPanel.tsx`'s `Control` picks the component for each, and
   nested sliders are placed there or in `ShapeControls.tsx`. A control that changes nothing in view says so
   (`panel/reach.tsx`, `lib/reach.ts`).
-- `components/Stage.tsx`, `Finder.tsx`, `Inspector.tsx`, `PenCanvas.tsx`, `Header.tsx`, `Chrome.tsx`,
-  `Guide.tsx`: the stage with the style cards and the preview, the style finder, the glyph inspector, the pen,
+- `components/Stage.tsx`, `Inspector.tsx`, `PenCanvas.tsx`, `Header.tsx`, `Chrome.tsx`,
+  `Guide.tsx`: the stage with the style cards and the preview, the glyph inspector, the pen,
   the top bar and the Export window, the page navigation and glyph strip, and the first-run tour.
 - `lib/`: the API client (`api.ts`), free fonts in the browser (`free.ts`), dragging a letter's parts
   (`drag.ts`), the pen's operations (`pen.ts`), whether a setting reaches the letters in view (`reach.ts`), the

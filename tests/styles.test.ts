@@ -29,8 +29,8 @@ describe('style page', () => {
     for (const s of PAGE_STYLES) assert.ok(s.params.fill === 'solid' && !s.params.stencil && !s.params.slice, s.id);
   });
 
-  it('keeps every Feeling on a card, and gives the finder two Categories or more to offer', () => {
-    // search reads every feeling, so each needs a card; the finder leaves out answers with none, and search reads each genre's label
+  it('keeps every Feeling on a card, and gives the Category filter two or more to offer', () => {
+    // search reads every feeling, so each needs a card; the Category chips leave out kinds with none, and search reads each genre's label
     for (const m of MOODS) assert.ok(PAGE_STYLES.some(s => s.moods.includes(m.id)), m.id);
     assert.ok(STYLE_GROUPS.filter(g => PAGE_STYLES.some(s => s.group === g.id)).length >= 2);
     for (const s of PAGE_STYLES) for (const k of s.kinds) assert.ok(KIND_SECTIONS.some(sec => sec.tags.some(t => t.id === k)), `${s.id}: ${k}`);

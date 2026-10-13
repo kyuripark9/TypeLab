@@ -14,8 +14,6 @@ export const PREFS = {
   dragTipSeen: 'typelab.dragTip.seen',
   /** the Style page's cards: 'grid' or 'list' */
   cardView: 'typelab.cardView',
-  /** '1' while the style finder is off and every card shows (the key names the browsing, not the finder) */
-  browseAll: 'typelab.browseAll',
   /** the inspector draws the construction grid: '1' */
   construction: 'typelab.construction',
   /** the panel sections folded to their heading: a JSON list of control keys */

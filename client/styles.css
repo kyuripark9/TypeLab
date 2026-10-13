@@ -111,10 +111,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 
 /* ---------- the system's shared parts */
 /* every title is the light serif, drawn in a little, as Studio Think sets its titles: pages', dialogs', the tour's,
-   the finder's question, the explainer's (what a control does), the inspected letter, a section of the account page
+   the explainer's (what a control does), the inspected letter, a section of the account page
    or the Export window, a font's name on its card in My designs (as Studio Think names a work), the name prompt's.
    Its Light is drawn a touch heavier (--serif-w, on the variable axis) so it holds up at the UI's sizes */
-.cards-head h1, .finder-head, .dialog h2, .guide-card h2, .message-page h1, .lib-head h1, .lib-empty h2, .ex-title,
+.cards-head h1, .dialog h2, .guide-card h2, .message-page h1, .lib-head h1, .lib-empty h2, .ex-title,
 .insp-title h2, .acct-label h2, .export-styles h3, .lib-meta h3, .lib-rename, .name-prompt label {
   font-family: var(--serif); font-weight: var(--serif-w); letter-spacing: -.02em; line-height: 1.2; }
 /* Geist Mono in capitals is kept for one thing, the small name over a group (a section's head, the nav's page groups,
@@ -163,8 +163,8 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
   outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--ink), 0 0 0 3px var(--accent-soft); }
 .nav-search kbd, .lib-search kbd, .search-field kbd { position: absolute; right: 7px; min-width: 18px; height: 18px; padding: 0 6px; border-radius: var(--pill); background: var(--tint);
   font: 400 var(--t-xs)/18px var(--mono); color: var(--ink-2); text-align: center; pointer-events: none; }
-/* A segmented switch is a grey track with its pick a pale tab raised on it: List/Grid and Help me choose/Browse
-   all over the style cards, Filter/Adjust, the inspector's Parts/Points and All letters/Only a, My designs' Sort and
+/* A segmented switch is a grey track with its pick a pale tab raised on it: List/Grid over the style cards,
+   Filter/Adjust, the inspector's Parts/Points and All letters/Only a, My designs' Sort and
    Layout, and the pen's point kinds, corner shapes, Snap and Mirror. */
 .view-toggle, .style-tabs, .scope, .pen-kind { display: flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--pill); background: var(--tint); }
 .view-toggle button, .style-tabs button, .scope button, .pen-kind button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 12px;
@@ -283,14 +283,12 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .pv-hl, .pv-ring, .pv-band, .pv-guide, .i-hl, .i-ring { animation: lit 1s linear forwards; }
 
 /* ---------- style cards */
-/* the heading: the title and what the cards are on the left, the two ways in (Help me choose, Browse all) on the right */
+/* the heading: the title and what the cards are */
 .cards-head { display: flex; align-items: center; gap: 12px 24px; margin: 4px 0 20px; }
 .cards-title { flex: 1; min-width: 0; }
 .cards-head h1 { margin: 0; font-size: var(--t-3xl); }
 /* what the cards are, one quiet line under the title */
 .letters-note { margin: 6px 0 0; max-width: 64ch; font-size: var(--t-m); color: var(--ink-2); text-wrap: pretty; }
-/* the switch is the shared segmented look with words on its tabs, as My designs' Sort */
-.find-mode button { width: auto; padding: 0 14px; }
 .skip { flex: none; font-size: var(--t-m); font-weight: 700; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
 .cards-empty { color: var(--ink-2); }
 /* a link in the words is underlined in ink, as Studio Think's are, and pointed at it takes the highlighter */
@@ -319,9 +317,8 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
    never runs past two lines, goes unclamped */
 .card-free.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .card-free.loading { visibility: hidden; }
-/* a style no font stands behind (built from blocks), its card and finder tile in the engine's letters (BuiltText) */
+/* a style no font stands behind (built from blocks), its card in the engine's letters (BuiltText) */
 .built svg { display: block; fill: currentColor; overflow: visible; }
-.finder-typed.built { color: var(--ink); }
 /* while the cards catch up with a new trait, they dim a little */
 .style-groups { transition: opacity .15s; }
 .style-groups.stale { opacity: .55; }
@@ -340,25 +337,6 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .cards-foot-label { margin-right: 4px; }
 .cards-foot .btn { flex: none; gap: 5px; }
 .cards-foot .btn svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-right: -2px; }
-/* the style finder: its one question as a grid of tiles, and once answered the way back to it, in the same place */
-.finder-head { margin: 0 0 14px; font-size: var(--t-xl); }
-.finder-back-row { margin: -4px 0 12px -8px; }
-.finder-back { color: var(--ink-2); gap: 4px; padding-left: 6px; }
-.finder-back svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.finder-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-/* tiles come in one after another, each its sample centred in it; pointed at, a tile takes the accent */
-.finder-option { text-align: left; min-width: 0; min-height: 96px; display: flex; flex-direction: column; justify-content: center; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
-  transition: border-color .15s, box-shadow .15s, background .15s; animation: finder-in .3s ease-out both; }
-.finder-option:hover, .finder-option:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.finder-option:active { background: var(--well); }
-.finder-option:focus-visible { outline-offset: 0; }
-@keyframes finder-in { from { opacity: 0; transform: translateY(6px); } }
-.finder-free { display: block; width: 100%; height: 56px; overflow: visible; white-space: nowrap; color: var(--ink); line-height: 56px; }
-.finder-free.loading { visibility: hidden; }
-.finder-label { font-size: var(--t-base); font-weight: 600; color: var(--ink); }
-/* typed text, under the answer: one line, sized to fit (Finder.tsx), an ellipsis past the smallest size */
-.finder-typed { display: block; height: 42px; margin-top: 8px; min-width: 0; }
-.finder-typed.free { line-height: 42px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 
 /* ---------- panel resize handles: the gap between two sheets is the grab strip, a short bar in its middle lit in
    the accent while used */
@@ -409,6 +387,8 @@ body.resizing.y { cursor: row-resize; }
 /* labels wrap (and hyphenate) rather than being cut off in narrow tiles */
 .trait-opts .opt span { max-width: 100%; padding: 0 1px; font-size: var(--t-s); line-height: 1.25; text-align: center; -webkit-hyphens: auto; hyphens: auto; }
 .specimen { display: block; overflow: visible; }
+/* the Filter tab's chip sets, Category then Feeling */
+.facet + .facet { margin-top: 22px; }
 .facet-label { margin: 0 0 10px; }
 .count { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -659,6 +639,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .grid-key.shared i { border-color: var(--grid-shared); }
 .cg line, .cg ellipse { fill: none; stroke: var(--grid-own); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .cg .shared { stroke: var(--grid-shared); }
+/* a line of the grid pointed at or dragged, run across the canvas, and the letter's points on it, which move with it */
+.cg-hot line { stroke: var(--grid-own); stroke-width: 2; }
+.cg-hot rect { fill: var(--surface); stroke: var(--grid-own); stroke-width: 1.5; }
+.cg-hot.shared line, .cg-hot.shared rect { stroke: var(--grid-shared); }
 .i-trace { fill: none; stroke: var(--ink); stroke-linejoin: round; }
 .i-ink.bare { fill: var(--surface); }
 .insp-canvas.gridded .i-hl { opacity: .16; }
@@ -1067,15 +1051,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
   .type-field { flex-basis: 100%; }
   .stage-scroll { padding: 16px 16px 40px; }
   .cards { grid-template-columns: minmax(0, 1fr); }
-  /* the Style page: List/Grid beside the text field, the two ways in a full-width switch under the title, the
-     finder's tiles two to a row, and the foot kept at the window's bottom (overflow: clip, unlike hidden, leaves
-     the page the scroller it sticks in) */
+  /* the Style page: List/Grid beside the text field, and the foot kept at the window's bottom (overflow: clip, unlike
+     hidden, leaves the page the scroller it sticks in) */
   .cards-bar .type-field { flex-basis: 0; }
   .cards-head { flex-direction: column; align-items: stretch; gap: 14px; }
-  .find-mode button { flex: 1; }
-  .finder-options { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .finder-option { min-height: 80px; padding: 14px; }
-  .finder-free { height: 44px; line-height: 44px; }
   .stage:has(.cards-foot) { overflow: clip; }
   .cards-foot { position: sticky; bottom: 0; z-index: 3; padding-left: 16px; }
   .panel { overflow: visible; container-type: normal; }

@@ -1,6 +1,6 @@
-/* The stage: the Type something bar, then on the Style page the finder and the style cards (each
-   in its style's free font, or in the engine's letters for one built from blocks, under a row of chips for
-   what's picked) with the way on to Customize at the foot, or on the other pages the live preview with its size
+/* The stage: the Type something bar, then on the Style page the style cards (each in its style's free
+   font, or in the engine's letters for one built from blocks, under a row of chips for what's picked) with
+   the way on to Customize at the foot, or on the other pages the live preview with its size
    slider and box, and the inspector over it while a letter is open. Like Google Fonts, the one bar on top sets the
    sample text, both for the style cards and for the live preview of the design. The size only shows with the
    preview: the cards are for comparing styles, so every card in a layout keeps one size. */
@@ -12,7 +12,6 @@ import { useSize } from '../lib/hooks';
 import { cardText, sampleText } from '../lib/preview';
 import { actions, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
 import { BuiltText } from './BuiltText';
-import { FinderBack, FinderQuestion, useFinder } from './Finder';
 import { Inspector } from './Inspector';
 import { FeelingName, focusFilters } from './Panel';
 import { Preview } from './Preview';
@@ -86,10 +85,9 @@ const VIEWS: [CardView, string, string][] = [
   ['grid', 'Grid', 'M3.5 3.5h5v5h-5zM11.5 3.5h5v5h-5zM3.5 11.5h5v5h-5zM11.5 11.5h5v5h-5z']
 ];
 
-/** List or grid layout for the style cards; hidden while the finder asks a question, which has no cards to lay out. */
+/** List or grid layout for the style cards. */
 function ViewToggle() {
   const view = useEditor(s => s.view);
-  if (useFinder().question) return null;
   return (
     <div className="view-toggle" role="radiogroup" aria-label="Layout">
       {VIEWS.map(([id, label, d]) => (
@@ -105,10 +103,10 @@ function ViewToggle() {
 }
 
 /** On phones, where the panel would come after every card, the way to it: Filter opens it as a sheet over the cards
-    (shown only there, styles.css), counting the feelings, search and traits that are on, as its tabs do. */
+    (shown only there, styles.css), counting the categories, feelings, search and traits that are on, as its tabs do. */
 function SheetButton() {
   const open = useEditor(s => s.stylePanelOpen);
-  const n = useEditor(s => s.moods.length + (s.query.trim() ? 1 : 0) + Object.keys(s.traits).length);
+  const n = useEditor(s => s.groups.length + s.moods.length + (s.query.trim() ? 1 : 0) + Object.keys(s.traits).length);
   return (
     <button className="btn outline sheet-btn" aria-expanded={open} onClick={focusFilters}>
       <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5h7M12 5h2M2 11h2M7 11h7" /><circle cx="10.5" cy="5" r="1.5" /><circle cx="5.5" cy="11" r="1.5" /></svg>
@@ -133,26 +131,22 @@ function SampleText() {
 const CARD_SIZE: Record<CardView, number> = { list: 48, grid: 32 };
 const GRID_LINES = 2;
 
-/** Cards are grouped by Category, the finder's question, and narrowed by all the filters, which
-    see each style as the Adjust tab's traits make it. Each card sets the text in its style's free
-    font, or in the engine's letters where no font stands behind the style. The finder asks its
-    question first, and the cards come once it's answered, under a way back to the question. */
+/** Cards are grouped by Category and narrowed by all the filters, which see each style as the
+    Adjust tab's traits make it. Each card sets the text in its style's free font, or in the engine's
+    letters where no font stands behind the style. */
 function StyleCards() {
   const custom = useEditor(s => s.custom);
-  const finder = useFinder();
   const view = useEditor(s => s.view), text = view === 'grid' ? cardText(custom) : sampleText(custom);
   // typed text in the grid is cut after GRID_LINES lines; the short sample never runs past them, so it goes uncut and
   // a script's tails under its last line show whole
   const clamp = view === 'grid' && !!custom.trim();
   const head = useRef<HTMLHeadingElement>(null);
-  const { f, traits: now, matches } = useStyleMatch();
+  const { traits: now, matches } = useStyleMatch();
   // new traits re-filter the cards a moment after the panel answers; the cards dim until they catch up
   const traits = useDeferredValue(now);
   const shown = PAGE_STYLES.filter(s => matches(s, {}, traits));
   const current = useEditor(s => styleById(s.styleId));
   const refocus = () => head.current?.focus();
-  // the finder's answer is on: the cards are the ones it leaves
-  const answered = finder.on && !finder.question && f.groups.length > 0;
   return (
     <>
       <div className="stage-scroll" data-guide="stage">
@@ -162,49 +156,29 @@ function StyleCards() {
               <h1 ref={head} tabIndex={-1}>Start with a style</h1>
               <p className="letters-note">{LETTERS_NOTE}</p>
             </div>
-            <FindMode />
             {/* the filters sit after every card in tab order; this jumps there, and shows only when focused */}
             <button className="skip" onClick={focusFilters}>Skip to filters</button>
           </div>
-          <ActiveBar answered={answered} onClear={refocus} />
-          {finder.question ? <FinderQuestion options={finder.question} onAnswer={refocus} /> : <>
-            {answered && <FinderBack groups={f.groups} onBack={refocus} />}
-            {shown.length ? (
-              <div className={traits === now ? 'style-groups' : 'style-groups stale'}>
-                {STYLE_GROUPS.filter(g => shown.some(s => s.group === g.id)).map(g => (
-                  <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
-                    <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
-                    <div className={view === 'list' ? 'cards list' : 'cards'}>
-                      {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} text={text} view={view} clamp={clamp} />)}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            ) : (
-              <p className="cards-empty">No styles match these filters. <button className="link" onClick={() => { actions.clearFilters(); refocus(); }}>Clear filters</button></p>
-            )}
-          </>}
+          <ActiveBar onClear={refocus} />
+          {shown.length ? (
+            <div className={traits === now ? 'style-groups' : 'style-groups stale'}>
+              {STYLE_GROUPS.filter(g => shown.some(s => s.group === g.id)).map(g => (
+                <section key={g.id} className="style-group" aria-labelledby={`g-${g.id}`}>
+                  <h2 className="group-head" id={`g-${g.id}`}>{g.label}<span>{g.hint}</span></h2>
+                  <div className={view === 'list' ? 'cards list' : 'cards'}>
+                    {shown.filter(s => s.group === g.id).map(s => <StyleCard key={s.id} style={s} text={text} view={view} clamp={clamp} />)}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <p className="cards-empty">No styles match these filters. <button className="link" onClick={() => { actions.clearFilters(); refocus(); }}>Clear filters</button></p>
+          )}
         </div>
       </div>
       {/* the way on, once the style that's loaded is among the cards: shape it */}
-      {!finder.question && current && shown.includes(current) && <CardsFoot style={current} />}
+      {current && shown.includes(current) && <CardsFoot style={current} />}
     </>
-  );
-}
-
-/** The two ways into the cards, as one switch: the finder's question first, or every card at once. Either way
-    starts with no filter on (setFinder). */
-const FIND_MODES: [boolean, string][] = [[true, 'Help me choose'], [false, 'Browse all']];
-
-function FindMode() {
-  const finder = useEditor(s => s.finder);
-  return (
-    <div className="view-toggle find-mode" role="radiogroup" aria-label="How to find a style">
-      {FIND_MODES.map(([on, label]) => (
-        <button key={label} role="radio" aria-checked={finder === on} className={finder === on ? 'on' : undefined}
-          onClick={() => { if (finder !== on) actions.setFinder(on); }}>{label}</button>
-      ))}
-    </div>
   );
 }
 
@@ -225,15 +199,14 @@ function CardsFoot({ style: s }: { style: StyleDef }) {
   );
 }
 
-/** Everything picked, search, the finder's answer, feelings and traits, as one row of chips, each removed with a
-    click; the trait chips are tinted apart from the filters, and a feeling is named in its font as on its chip. While the finder's answer is on, the way back to its
-    question stands for it (FinderBack), so it has no chip of its own. */
-function ActiveBar({ answered, onClear }: { answered: boolean; onClear: () => void }) {
+/** Everything picked, search, categories, feelings and traits, as one row of chips, each removed with a click; the
+    trait chips are tinted apart from the filters, and a feeling is named in its font as on its chip. */
+function ActiveBar({ onClear }: { onClear: () => void }) {
   const { f, traits } = useStyleMatch();
   const tag = <T extends string>(list: { id: T; label: string }[], id: T) => list.find(x => x.id === id)!.label;
   const items: { key: string; label: string; card?: string; trait?: boolean; remove: () => void }[] = [
     ...(f.query?.trim() ? [{ key: 'q', label: `“${f.query.trim()}”`, remove: () => actions.setQuery('') }] : []),
-    ...(answered ? [] : f.groups.map(g => ({ key: `g-${g}`, label: tag(STYLE_GROUPS, g), remove: () => actions.toggleGroup(g) }))),
+    ...f.groups.map(g => ({ key: `g-${g}`, label: tag(STYLE_GROUPS, g), remove: () => actions.toggleGroup(g) })),
     ...f.moods.map(m => MOODS.find(x => x.id === m)!).map(({ id, label, card }) => ({ key: `m-${id}`, label, card, remove: () => actions.toggleMood(id) })),
     ...traitLabels(traits).map(t => ({ key: `t-${t.id}`, label: t.label, trait: true, remove: () => actions.setTrait(t.id, null) }))
   ];

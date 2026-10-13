@@ -7,9 +7,9 @@ import { searchTerms, startsWords } from './search';
 import type { StyleDef } from './styles';
 
 /* Starting styles are tagged like the fonts on Google Fonts. The group is a style's Category: it
-   sorts the cards on the stage and is the style finder's question. Then come the finer
+   sorts the cards on the stage and is the panel's first filter. Then come the finer
    Classification tags (Sans Serif, Serif and Calligraphy, in the order of the card groups) and
-   Appearance, both of which search reads, and Feeling, the panel's filter. Blocks are the letters built from
+   Appearance, both of which search reads, and Feeling, the panel's other filter. Blocks are the letters built from
    blocks (Built from, see shared/engine/blocks.ts) rather than strokes. */
 export type StyleGroup = 'sans' | 'serif' | 'slab' | 'mono' | 'hand' | 'blocks' | 'display';
 export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string }[] = [

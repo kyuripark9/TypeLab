@@ -133,7 +133,7 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   each written in one of TypeLab's own fonts: Block (`block`, Category Blocks) in Bulwark, the engine's basic block
   letters made a font (so every setting reaches it as it reaches the other cards; Built from: Blocks gives the block
   letters themselves, plain, slotted or on a grid). Slot Blocks (`slotblocks`) stays in STYLES off the page. Every
-  style keys `STYLE_FONTS` but those built from blocks, which no font draws (their card and finder tile draw the
+  style keys `STYLE_FONTS` but those built from blocks, which no font draws (their card draws the
   engine's letters, `client/components/BuiltText.tsx`). `tools/fit/apply.ts` rewrites a style's params
   object in place, finding `style('<id>',` by text and its params as the first `{` outside quotes: keep that layout,
   with the style's own letters under `glyphs:` inside it. tests/styles.test.ts and tests/free-fonts.test.ts check the

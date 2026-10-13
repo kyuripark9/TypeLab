@@ -35,9 +35,9 @@ without subscribing.
   defaults, where the engine adds nothing to the font's own spacing), and the font's letters are the design's to
   shape: there is no switch to letters built from the settings (only Blocks styles and designs saved before free fonts
   have those). When a free font arrives, the open design gets a fresh params object so it draws again.
-- The Style page: filters (`groups`, `moods`, `query`), the finder (`finder`: ask what kind of letters first),
-  traits (`traits`, `adjustedParams`, cached per style and trait set), and `picked`: while the design's params still
-  equal the JSON picked on the Style page, trait changes re-apply to it.
+- The Style page: filters (`groups`, the Category chips; `moods`; `query`), traits (`traits`, `adjustedParams`,
+  cached per style and trait set), and `picked`: while the design's params still equal the JSON picked on the Style
+  page, trait changes re-apply to it.
 - Saving: `designInput(s)` is what a save sends; EditorPage registers its save flow with `onSaveRequest`, and
   `actions.requestSave()` reaches it from anywhere (the panel's last page).
 - UI: `category`, `active`, `hot` (the active control's parts lit in the preview) and `faded` (what was pointed at
@@ -63,8 +63,7 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `pages/AccountPage.tsx` | Name, Google and password, other browsers, closing the account |
 | `components/Header.tsx` | Logo, the design's name, undo and redo, History (`FontHistory.tsx`), Guide, My designs, Save, and Export, a window in the middle of the screen (`exportOpen`): the styles of the design's family to save fill it (one as an `.otf`, several as one `.zip`; the design's own picked each time it opens), and a side beside them holds the font's name and Download, and at its foot three small buttons: All letters (the specimen `.svg`) and Design file (`.typelab.json`), which leave the window open, and Open design file…; errors show beside their buttons, since a toast sits under the window (one column on phones) |
 | `components/Chrome.tsx` | `Nav` (pages, Find a setting on ⌘K; both only what the letters take, `pagesFor`, so blocks have no Serifs), `GlyphStrip` (one memo `StripCell` per glyph), `Toast` |
-| `components/Stage.tsx` | The Type something bar; on the Style page the Help me choose / Browse all switch, the finder and the style cards (each in its free font as a web font, or, for a style built from blocks, which has none, in the engine's letters: `BuiltText.tsx`; 48 px in the list, 32 px and two lines in the grid, where a short sample, `TEXTS.card`, stands in for the sentence while nothing is typed), and the foot with Customize; elsewhere the preview and the inspector |
-| `components/Finder.tsx` | The style finder's one question, what kind of letters (the Category); its answer is the `groups` filter, and the way back to the question sits over the cards it leaves (`FinderBack`) |
+| `components/Stage.tsx` | The Type something bar; on the Style page the style cards (each in its free font as a web font, or, for a style built from blocks, which has none, in the engine's letters: `BuiltText.tsx`; 48 px in the list, 32 px and two lines in the grid, where a short sample, `TEXTS.card`, stands in for the sentence while nothing is typed), and the foot with Customize; elsewhere the preview and the inspector |
 | `components/Preview.tsx`, `GlyphDefs.tsx` | The live preview, every letter a `<use>` of `#g<code>` defined once in GlyphDefs, with highlights `#h<code>` |
 | `components/Inspector.tsx` | One letter, large: its parts live, drags through `lib/drag.ts`, a click on a part scrolls to its setting (opening the page it's on), Parts/Points, All letters/Only <letter> (and Reset, and History: `LetterHistory.tsx`; in Points by shape: All letters carries each edit on to the letters shaped the same way, and the banner names those shaped as the picked points, `useMates`), the construction grid toggle, and a one-line banner over the canvas for what those switches don't say; `letterControls` |
 | `components/PenCanvas.tsx` | Points mode: Selection, the tool a letter opens with (whole shapes: a box, standing as turned as they are (`Frame`; turned while picked, else `turnOf`), scales them along its sides by its handles and turns them from just outside a corner, Illustrator's cursors drawn as SVG here, a knob inside each corner rounds them all, ⌥-click on a knob cycles round, cut, scooped; ⌥-drag copies, the bar's W, H, turn and Weight; ⌘C ⌘X ⌘V carry shapes between letters, in place; the tool picked stays from letter to letter), Direct selection, Pen, Convert point, the Shape tool (strokes as thick as the letter's, boxes, rounds, polygons), Corners (round, cut or scoop the picked corners or every one, outside and inside apart; a picked corner's handle drags its radius), Overlaps (Merge, Cut out, Break apart with a Gap), Mirror, Snap (`SNAPS`); the bar's actions on what is picked (`ACTS`: the flips, Reverse direction, Delete), each one checked under ⋯ a button on the bar, dimmed where it doesn't apply (the flips until changed, and every one on a touch screen; `PREFS.penActions`) and all of them under ⋯ (`ActMenu`), its menus kept inside the window (`useInWindow`); after each edit `CarryOffer.tsx` finds the other letters shaped the same way there, and the letter's own other places (`lib/carry.ts`): with All letters it carries the edit on to them at once, in the edit's undo step (`actions.amend`), and with Only <letter> offers it as a pill in the canvas's bottom right corner, opening to a card of the letters by kind (close matches of the letter's kind picked, each a toggle drawn with the change in, hovered one shown large); the last change applied stays there on every letter while the page is open, to review (`useApplied`), and unanswered offers come back with their letter (`bases`) |
@@ -87,8 +86,9 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `lib/hooks.ts` | `n1`, `useSize`, `isTyping` (every keyboard shortcut's text-field check), `useEscape`, `useDismiss`, `DRAWER_QUERY`, `PHONE_QUERY` |
 | `lib/guide-labels.ts` | The guide lines and their labels (`guideLines`, `stackLabels`), shared by the inspector and the pen |
 
-The panel (`components/Panel.tsx`, then `panel/`): `StylePanel.tsx` (the Style page's Filter and Adjust tabs; on
-phones a sheet over the cards, opened from Filter in the stage's bar, as under them it would come after every card),
+The panel (`components/Panel.tsx`, then `panel/`): `StylePanel.tsx` (the Style page's Filter tab, search then the
+Category and Feeling chips, and its Adjust tab; on phones a sheet over the cards, opened from Filter in the stage's bar,
+as under them it would come after every card),
 `ControlsPanel.tsx` (a page of controls, only its own: while a letter is inspected, those shaping its parts lead under
 Parts of <letter>; `Control` picks the component for each key), `ShapeControls.tsx` (stroke ends, the a, letter forms,
 serifs, fill), `SliderControl.tsx` (a slider with its number box, the crossbar's ends, Stencil and Slice), `inputs.tsx`, `LetterOwn.tsx` (a customized letter's own values), `heads.tsx` (titles, folds,
@@ -157,7 +157,7 @@ Think's (studiothink.framer.website). Type: Manrope (`--ui`, Google Fonts in `in
 interface, buttons and tags included, on a scale of eight sizes (`--t-xs` 11px, `-s` 12, `-m` 13, `-base` 14, `-l` 16,
 `-xl` 20, `-2xl` 24, `-3xl` 32; a new rule takes a step, never a literal) in three weights (500 to read, 600 for
 names, 700 for what you press and `<b>`; Manrope is loaded in only those three); every title (pages', dialogs', the
-tour's, the finder's question, the explainer's, the inspected letter, an account or Export section's, a font's name on
+tour's, the explainer's, the inspected letter, an account or Export section's, a font's name on
 its card in My designs, the name prompt's: the shared heading rule lists them) in a light serif drawn in a little:
 Gambetta from Fontshare's variable cut, its Light set a touch heavier (`--serif-w`, 340) so it holds up at UI sizes,
 in the place of Studio Think's Ortica Linear; Geist Mono (`--mono`, Google Fonts) only for numbers, rule by rule, and
