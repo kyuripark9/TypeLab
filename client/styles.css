@@ -47,9 +47,9 @@
   /* every letter in sync: ink, with the lemon under it (translucent, so a ring or a box over a letter shows through) */
   --sync: var(--ink); --sync-ink: var(--ink); --sync-soft: rgba(242, 240, 40, .55); --sync-mark: var(--marker);
   /* one letter alone is a hot red (#ff034a), its text a deeper shade (7:1 on the paper); a control in use and the
-     scope note sit on a dusty rose (OKLCH .945 .012 22, half as coloured as the red mixed into the sheet), so their
-     words read as plainly as on the sheet; the pen's bar on the red mixed in at 3% */
-  --custom: #ff034a; --custom-ink: #a8002f; --custom-soft: rgba(255, 3, 74, .14); --custom-tint: #f5eae9; --custom-wash: #fdf3f1;
+     scope note sit on a pale rose as light and as faintly coloured as the sync well (OKLCH .961 .013, turned to the
+     red's hue), so their words read as plainly as on the sheet; the pen's bar on the red mixed in at 3% */
+  --custom: #ff034a; --custom-ink: #a8002f; --custom-soft: rgba(255, 3, 74, .14); --custom-tint: #fbefee; --custom-wash: #fdf3f1;
   --accent: var(--sync); --accent-ink: var(--sync-ink); --accent-soft: var(--sync-soft); --accent-mark: var(--sync-mark);
   --warn-ink: #a3531c; --warn-tint: #f8e6d8;
   --danger: #b3261e; --danger-hover: #8c1d17; --danger-wash: #fbeceb;

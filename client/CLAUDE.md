@@ -40,7 +40,9 @@ without subscribing.
   equal the JSON picked on the Style page, trait changes re-apply to it.
 - Saving: `designInput(s)` is what a save sends; EditorPage registers its save flow with `onSaveRequest`, and
   `actions.requestSave()` reaches it from anywhere (the panel's last page).
-- UI: `category`, `active`, `hot`, `inspect`, `penMode`, `construction`, `mirror`, `snap`, `folded`, `tips`,
+- UI: `category`, `active`, `hot` (the active control's parts lit in the preview) and `adjusted` (a value changed
+  since: the preview's letters back in plain ink, so the design reads as it is dragged, till another control is
+  pointed at), `inspect`, `penMode`, `construction`, `mirror`, `snap`, `folded`, `tips`,
   `switchedOn`, `part`, `hotEnd`, `toast`, `navOpen`, `exportOpen`, `stylePanelOpen` (the phone's sheet).
 
 **`state/auth.ts`**: `useAuth` with `user` (undefined until the server answers, null when signed out), `google`
@@ -178,7 +180,7 @@ hairline (`.group-head`). An edit's scope is coloured through `var(--accent…)`
 `.inspector`, `.preview` and the settings panel set them to `--sync` (every letter changes: ink lines, rings, points
 and slider fills, `--accent-soft` a translucent lemon, and `--accent-mark` the opaque lemon a lit part of a letter is
 filled with; All letters is lemon), and the `.customizing` wrappers and `.ctl[data-letter]` to the red `--custom` (one
-letter alone: red lines and fills, a dusty rose under a control in use and the scope note while the panel keeps its
+letter alone: red lines and fills, a pale rose under a control in use and the scope note while the panel keeps its
 sheet, a red frame on the inspector; Only <letter> is red),
 so the two can't be mistaken; elsewhere the accent is the sync look. Both scopes are drawn alike: the colour fills a
 shape and its edge is always ink (a pill with ink words, a banner, a lit part, a ring, a picked option, a switch
