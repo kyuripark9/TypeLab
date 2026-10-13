@@ -183,7 +183,7 @@ filled with; All letters is lemon), and the `.customizing` wrappers and `.ctl[da
 letter alone: red lines and fills, a pale rose under a control in use and the scope note while the panel keeps its
 sheet, a red frame on the inspector; Only <letter> is red),
 so the two can't be mistaken; elsewhere the accent is the sync look. Both scopes are drawn alike: the colour fills a
-shape and its edge is always ink (a pill with ink words, a banner, a lit part, a ring, a picked option, a switch
+shape and its edge is always ink (a pill, its words ink on the lemon and white on the red, a banner, a lit part, a ring, a picked option, a switch
 turned on, a field typed in, the strip's mark on a letter with its own settings), as the lemon is laid under ink; only
 lines (slider fills, guides, the pen's points, the frame) take the colour itself.
 Class prefixes: `.pv-` preview, `.i-` inspector canvas, `.pen-`, `.d-` diagrams, `.ex-` explainer text, `.ctl-`,

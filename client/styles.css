@@ -46,10 +46,11 @@
   --marker: #f7f780; --marker-hover: #eeee5e;
   /* every letter in sync: ink, with the lemon under it (translucent, so a ring or a box over a letter shows through) */
   --sync: var(--ink); --sync-ink: var(--ink); --sync-soft: rgba(242, 240, 40, .55); --sync-mark: var(--marker);
-  /* one letter alone is a hot red (#ff034a), its text a deeper shade (7:1 on the paper); a control in use and the
-     scope note sit on a pale rose as light and as faintly coloured as the sync well (OKLCH .961 .013, turned to the
-     red's hue), so their words read as plainly as on the sheet; the pen's bar on the red mixed in at 3% */
-  --custom: #ff034a; --custom-ink: #a8002f; --custom-soft: rgba(255, 3, 74, .14); --custom-tint: #fbefee; --custom-wash: #fdf3f1;
+  /* one letter alone is a hot red (#ff034a), its text a deeper shade (7:1 on the paper), and words on the red are
+     white (APCA Lc 68, where ink reads only 38); a control in use and the scope note sit on a pale rose as light as the
+     sync well and a little more coloured (OKLCH .96 .018 16), so it reads as rose, not cream, and its words as plainly
+     as on the sheet; the pen's bar on the red mixed in at 3% */
+  --custom: #ff034a; --custom-ink: #a8002f; --custom-soft: rgba(255, 3, 74, .14); --custom-tint: #feedee; --custom-wash: #fdf3f1;
   --accent: var(--sync); --accent-ink: var(--sync-ink); --accent-soft: var(--sync-soft); --accent-mark: var(--sync-mark);
   --warn-ink: #a3531c; --warn-tint: #f8e6d8;
   --danger: #b3261e; --danger-hover: #8c1d17; --danger-wash: #fbeceb;
@@ -490,7 +491,7 @@ body.resizing.y { cursor: row-resize; }
 .ctl-label { font-weight: 600; font-size: var(--t-base); line-height: 26px; }
 /* a tag after the name is one pill: short of room it goes down a line whole, rather than splitting itself or the name */
 .ctl-label em { display: inline-block; white-space: nowrap; font-style: normal; font-size: var(--t-xs); line-height: 14px; font-weight: 500; color: var(--ink-2); border-radius: var(--pill); padding: 2px 7px; margin-left: 6px; background: var(--tint); vertical-align: 1px; }
-.ctl-label em.own { color: var(--ink); background: var(--custom); box-shadow: inset 0 0 0 1px var(--ink); }
+.ctl-label em.own { color: var(--white); background: var(--custom); box-shadow: inset 0 0 0 1px var(--ink); }
 /* each slider's drawing (SliderIcons.tsx) sits before its name, in its scope's colour while the slider is in use */
 .ctl-icon { display: inline-block; vertical-align: -4px; margin-right: 8px; color: var(--ink-3); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: color .15s; }
 .ctl-icon .solid { fill: currentColor; stroke: none; }
@@ -601,11 +602,11 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .insp-title h2 { margin: 0; font-size: var(--t-2xl); }
 .grow { flex: 1; }
 /* Parts/Points and All letters/Only a: the shared segmented switch, the scope picked in its look: All letters ink on
-   the lemon, Only a on the red, both with ink words and an ink edge (the system's own primary look) */
+   the lemon, Only a white on the red, both with an ink edge (the system's own primary look) */
 .scope { margin-left: 8px; }
 .scope button { gap: 7px; padding: 0 13px 0 11px; }
 .scope button.on[data-scope="all"] { background: var(--marker); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
-.scope button.on[data-scope="letter"], .inspector.customizing .scope button.on[data-mode="points"] { background: var(--custom); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.scope button.on[data-scope="letter"], .inspector.customizing .scope button.on[data-mode="points"] { background: var(--custom); color: var(--white); box-shadow: inset 0 0 0 1px var(--ink); }
 .scope-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.3; }
 .scope-icon .fill { fill: currentColor; }
 /* every letter in sync: the inspector, the preview and the settings take the system's own look, handles and slider
@@ -617,7 +618,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .inspector.customizing { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --accent-mark: var(--custom); --fill: var(--custom); }
 .inspector.customizing .insp-body { position: relative; box-shadow: inset 0 0 0 2px var(--custom); border-radius: 0 0 var(--radius) var(--radius); }
 .scope-banner { position: absolute; top: 12px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 7px; padding: 4px 12px;
-  border-radius: var(--pill); background: var(--custom); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); font-size: var(--t-m); line-height: 1.45; width: max-content; max-width: calc(100% - 132px); pointer-events: auto; }
+  border-radius: var(--pill); background: var(--custom); color: var(--white); box-shadow: inset 0 0 0 1px var(--ink); font-size: var(--t-m); line-height: 1.45; width: max-content; max-width: calc(100% - 132px); pointer-events: auto; }
 .scope-banner > span { text-wrap: balance; }
 .scope-banner b { font-weight: 700; }
 .scope-banner .scope-icon { stroke: currentColor; }
@@ -626,10 +627,12 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .scope-note { display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 6px; padding: 10px 12px; border-radius: var(--radius); background: var(--custom-tint); color: var(--ink); font-size: var(--t-m); line-height: 1.45; }
 .scope-note .scope-icon { margin-top: 1px; color: var(--custom); }
 /* customizing one letter: the panel keeps the sheet it has in sync, unframed (the inspector's frame says it), and the
-   controls that reshape only that letter take its colour; Whole font ones keep the ink and lemon of every letter in sync */
+   controls that reshape only that letter take its colour, the rose under one pointed at or in use (a slider nested in
+   one adds no rose of its own, as in sync); Whole font ones keep the ink and lemon of every letter in sync */
 .panel.customizing .explainer { --accent-ink: var(--custom-ink); }
 .ctl[data-letter] { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --accent-mark: var(--custom); --fill: var(--custom); }
-.ctl.active[data-letter] { background: var(--custom-tint); }
+.ctl:is(:hover, .active)[data-letter] { background: var(--custom-tint); }
+.ctl .ctl[data-letter] { background: none; }
 .scope-note em { font-style: normal; font-weight: 700; }
 .check { display: flex; align-items: center; gap: 6px; font-size: var(--t-m); color: var(--ink-2); cursor: pointer; white-space: nowrap; }
 .check input { accent-color: var(--accent); }

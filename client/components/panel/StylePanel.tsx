@@ -144,16 +144,21 @@ const SOFT: Record<string, string> = {
   Hairline: 'Hair\u00adline', Moderate: 'Mod\u00aderate', Squarish: 'Squar\u00adish'
 };
 
+/** Most steps a trait shows side by side: a trait with more (Fill's eleven, Stroke ends' six) runs to even rows of
+    fewer, so each step keeps room for its drawing and its name. */
+const TRAIT_ROW = 5;
+
 function TraitRow({ def }: { def: TraitDef }) {
   const picked = useEditor(s => s.traits[def.id]), traits = useEditor(s => s.traits);
   const base = useEditor(s => styleById(s.styleId)) ?? PAGE_STYLES[0];
+  const n = def.options.length, across = n <= TRAIT_ROW ? n : Math.ceil(n / Math.ceil(n / TRAIT_ROW));
   return (
     <div className="trait" role="group" aria-labelledby={`tr-${def.id}`}>
       <div className="trait-head">
         <span className="trait-label" id={`tr-${def.id}`} title={def.hint}>{def.label}</span>
         {picked && <button className="trait-any" onClick={() => actions.setTrait(def.id, null)} title="Let each style keep its own">Any</button>}
       </div>
-      <div className="trait-opts" style={{ gridTemplateColumns: `repeat(${def.options.length}, minmax(0, 1fr))` }}>
+      <div className="trait-opts" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))` }}>
         {def.options.map(o => (
           <button key={o.id} className={picked === o.id ? 'opt on' : 'opt'} aria-pressed={picked === o.id}
             onClick={() => actions.setTrait(def.id, o.id)}>
