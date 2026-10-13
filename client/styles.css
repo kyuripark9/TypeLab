@@ -433,7 +433,8 @@ body.resizing.y { cursor: row-resize; }
 .ctl-num:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
 .ctl-num:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
 .ctl-label { font-weight: 500; font-size: var(--t-base); line-height: 26px; }
-.ctl-label em { font-style: normal; font-size: var(--t-xs); font-weight: 400; color: var(--ink-2); border-radius: var(--radius-s); padding: 2px 7px; margin-left: 6px; background: var(--tint); vertical-align: 1px; }
+/* a tag after the name is one pill: short of room it goes down a line whole, rather than splitting itself or the name */
+.ctl-label em { display: inline-block; white-space: nowrap; font-style: normal; font-size: var(--t-xs); line-height: 14px; font-weight: 400; color: var(--ink-2); border-radius: var(--radius-s); padding: 2px 7px; margin-left: 6px; background: var(--tint); vertical-align: 1px; }
 .ctl-label em.own { color: var(--custom-ink); background: var(--custom-soft); }
 /* each slider's drawing (SliderIcons.tsx) sits before its name, in its scope's colour while the slider is in use */
 .ctl-icon { display: inline-block; vertical-align: -4px; margin-right: 8px; color: var(--ink-3); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: color .15s; }
