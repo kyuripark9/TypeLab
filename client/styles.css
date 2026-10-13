@@ -180,7 +180,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .top-left { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .brand { display: flex; align-items: center; gap: 8px; text-decoration: none; flex: none; }
 .top-left .brand { margin-right: 12px; }
-.brand-name { font-family: var(--display); font-size: var(--t-l); font-weight: 400; text-transform: uppercase; letter-spacing: .04em; font-synthesis: none; transition: color .15s; }
+/* Lineup's line reaches far less over its capitals than under them (its ascender is 98 units over the cap height, its
+   descender 272 under the baseline), so centred as a line its capitals stood about 2px over the name's beside them:
+   set down by that, they stand level with the name's capitals */
+.brand-name { position: relative; top: .14em; font-family: var(--display); font-size: var(--t-l); font-weight: 400; text-transform: uppercase; letter-spacing: .04em; font-synthesis: none; transition: color .15s; }
 .brand:hover .brand-name { color: var(--ink-3); }
 .top-actions { display: flex; align-items: center; gap: 4px; }
 .sep { width: 1px; height: 18px; background: var(--line-2); margin: 0 10px; }
