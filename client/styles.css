@@ -1090,7 +1090,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .intro.leave { opacity: 0; pointer-events: none; transition: opacity .45s ease .2s; }
 /* leaving, the words go first and the paper after them (FADE_MS in Intro.tsx, all told), so they never stand over the
    app */
-.intro.leave .intro-art, .intro.leave .intro-tag { opacity: 0; transition: opacity .3s ease; }
+.intro.leave .intro-art, .intro.leave .intro-tag, .intro.leave .intro-skip { opacity: 0; transition: opacity .3s ease; }
 .intro-art { position: absolute; inset: 0; overflow: visible; }
 .intro-word { fill: var(--ink); }
 /* a letter rolls through the line's slot (#intro-slot, SLOT in Intro.tsx) as on a split-flap board, a new one up into
@@ -1118,6 +1118,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .intro-pt circle.h { fill: var(--accent); stroke: none; }
 .intro-tag { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: .3em; font-size: 18px; color: var(--ink-3); }
 .intro-tag span { animation: intro-word .6s ease both; }
+/* the note saying how to skip the card, at its foot, a moment after it starts and gone as the wordmark comes */
+.intro-skip { position: absolute; left: 0; right: 0; bottom: 28px; text-align: center; font: 500 var(--t-xs) var(--ui); color: var(--ink-3); transition: opacity .3s ease; animation: intro-mark .4s ease .8s backwards; }
+.intro-skip.gone { opacity: 0; }
 /* the wordmark is the logo in its font (Lineup), the very letters drawn and spaced as the font spaces them, so it comes
    in where the drawing stands */
 @keyframes intro-mark { from { opacity: 0; } }

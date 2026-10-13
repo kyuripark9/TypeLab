@@ -17,7 +17,7 @@
      logo's heights and its letters' edges, and its ink fills in;
    - the drawing gives way to the wordmark, the header's logo in its font (Lineup), the very letters drawn, with the
      tagline under it, and the card fades to the app, the words first.
-   A key or a click skips ahead to the fade. It is one SVG, so the name keeps one baseline under every font and the
+   A key or a click skips ahead to the fade, as a faint note at the card's foot says. It is one SVG, so the name keeps one baseline under every font and the
    lines sit true to it. The own fonts are the cards' web fonts, a saved font is drawn as the engine builds it (as My
    designs draws its name), and the drawing is the logo's capitals as tools/fonts/ui.ts writes them beside its font
    (client/fonts/Lineup.json): the card waits up to WAIT_MS for them, plays with those that came (leaving out the
@@ -54,7 +54,7 @@ const LETTER_GAP = 0.07;
 const CUTS = ['Couture', 'Serenade', 'Gumdrop', 'Orbital'];
 /** how long each cut shows, the last held longest, and how far apart, in ms, its letters that change start rolling,
     from the left */
-const CUT_MS = 300, LAST_MS = 400, STAGGER = 14;
+const CUT_MS = 250, LAST_MS = 300, STAGGER = 14;
 /** The slot the name's letters roll through, in ems over and under the baseline: what a letter draws outside it is
     cut off, so it is roomy, and .intro-roll's travel in styles.css carries a letter clear of it. */
 const SLOT = [1.3, 0.55] as const;
@@ -67,7 +67,7 @@ const MINE_AT = ['Gumdrop', 'Couture', 'Serenade'];
 /** how long to wait for the fonts, and the fewest to play with */
 const WAIT_MS = 900, FEWEST = 6;
 /** each step of the scramble growing and of it settling */
-const GROW_MS = 55, SETTLE_MS = 65;
+const GROW_MS = 40, SETTLE_MS = 45;
 /** The drawing: its points come in over POINTS_MS while each letter's outline is drawn on (over .intro-outline's
     .42s in styles.css, a letter LETTER_MS after the one before), the ink fills in from FILL_MS as the points and
     lines go, and the wordmark follows at DRAW_MS. */
@@ -77,7 +77,7 @@ const POINTS_MS = 420, LETTER_MS = 30, FILL_MS = 760, DRAW_MS = 1100;
 const HANDLES_FROM = 80, CORNER = Math.cos(25 * Math.PI / 180), CLEAR = 50;
 /** how long the wordmark shows, then how long it fades; FADE_MS matches .intro.leave's opacity transition in
     styles.css, its delay counted */
-const HOLD_MS = 1300, FADE_MS = 650;
+const HOLD_MS = 1000, FADE_MS = 650;
 /** the least room between the window's edge and a scramble's letters, and how near, in px, a guide line can come to
     one before it without being left out, the two reading as one */
 const EDGE = 24, ONE = 6;
@@ -440,6 +440,8 @@ export function Intro() {
           {'Experiment with type.'.split(' ').map((w, i) => <span key={i} style={{ animationDelay: `${300 + i * 150}ms` }}>{w}</span>)}
         </div>
       )}
+      {/* how to skip it, while the name is still being made */}
+      {step && <div className={step.letters || step.drawn ? 'intro-skip' : 'intro-skip gone'}>{window.matchMedia('(hover: none)').matches ? 'Tap' : 'Click'} to skip</div>}
     </div>
   );
 }
