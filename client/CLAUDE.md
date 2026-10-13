@@ -41,9 +41,10 @@ without subscribing.
 - Saving: `designInput(s)` is what a save sends; EditorPage registers its save flow with `onSaveRequest`, and
   `actions.requestSave()` reaches it from anywhere (the panel's last page).
 - UI: `category`, `active`, `hot` (the active control's parts lit in the preview) and `adjusted` (a value changed
-  since: the preview's letters back in plain ink, so the design reads as it is dragged, till another control is
-  pointed at), `inspect`, `penMode`, `construction`, `mirror`, `snap`, `folded`, `tips`,
-  `switchedOn`, `part`, `hotEnd`, `toast`, `navOpen`, `exportOpen`, `stylePanelOpen` (the phone's sheet).
+  since: the preview's and the inspector's letters back in plain ink, so the design reads as it is dragged, till
+  another control or part is pointed at; the inspector's handles stay), `inspect`, `penMode`, `construction`,
+  `mirror`, `snap`, `folded`, `tips`, `switchedOn`, `part`, `hotEnd`, `toast`, `navOpen`, `exportOpen`,
+  `stylePanelOpen` (the phone's sheet).
 
 **`state/auth.ts`**: `useAuth` with `user` (undefined until the server answers, null when signed out), `google`
 (whether the server offers it), the sign-in `dialog`, `googleWaiting`. Google sign-in runs in a popup that reports on

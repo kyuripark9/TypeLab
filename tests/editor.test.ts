@@ -20,7 +20,7 @@ describe('the editor', () => {
     useEditor.setState({ scope: 'all', inspect: null, toast: null });
   });
 
-  it('lights a control\'s parts when it is pointed at, and puts them away once its value changes till another is', () => {
+  it('lights a control\'s or a part\'s parts when pointed at, and puts them away once a value changes till another is', () => {
     actions.setCategory('weight');
     actions.focusControl('serifSize');
     assert.equal(hlKeyOf(state()), 'serif');
@@ -38,6 +38,14 @@ describe('the editor', () => {
     actions.setHot(false);
     actions.focusControl('weight');
     assert.equal(hlKeyOf(state()), 'weight', 'coming back to the controls lights it again');
+    // the inspector's letter too: a part dragged reads in plain ink till another part is pointed at
+    actions.setPart('stem');
+    actions.setParam('weight', 0.8);
+    assert.equal(state().adjusted, true);
+    actions.setPart(null);
+    assert.equal(state().adjusted, true, 'moving off the part keeps it so');
+    actions.setPart('bowl');
+    assert.equal(state().adjusted, false);
   });
 
   it('starts a style in its free font, spaced as the font spaces its letters', () => {

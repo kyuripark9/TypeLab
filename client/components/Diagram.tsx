@@ -96,7 +96,7 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
       {under}
       <g transform={`translate(${n1(ox)},${n1(oy)}) scale(${sc.toFixed(5)})`}>
         <g className="d-ink">{items.map((it, i) => <path key={i} d={font.glyph(it.ch)!.d} transform={`translate(${n1(it.x)},0)`} />)}</g>
-        <g className={ring ? 'd-ring' : 'd-hl'} strokeWidth={n1(1.6 / sc)}>
+        <g className={ring ? 'd-ring' : 'd-hl'} strokeWidth={n1(1 / sc)}>
           {items.map((it, i) => <path key={i} d={font.hl(it.ch, ctlKey)} transform={`translate(${n1(it.x)},0)`} />)}
         </g>
       </g>

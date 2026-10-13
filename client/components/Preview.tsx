@@ -28,7 +28,7 @@ export function Preview({ width }: { width: number }) {
   const H = n1((lines.length * LH + 40 + o.t + o.b) * sc);
   return (
     <div className="preview" onClick={pick}>
-      <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} style={{ '--sw': n1(1.6 / sc) } as CSSProperties}>
+      <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} style={{ '--sw': n1(1.6 / sc), '--edge': n1(1 / sc) } as CSSProperties}>
         <g transform={`translate(${n1(o.l * sc)} ${n1(o.t * sc)}) scale(${sc})`}>
           {lines.map((ln, i) => <PreviewLine key={i} line={ln} y={n1(topU + i * LH)} font={font} hl={hl} topU={topU} LH={LH} widthU={width / sc} />)}
         </g>

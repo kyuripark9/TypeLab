@@ -58,8 +58,9 @@ export interface EditorState extends Doc {
   active: ActiveKey;
   /** true while the pointer is over the controls: highlight affected glyph parts */
   hot: boolean;
-  /** a value was changed since the pointer came to the active control: the preview puts its highlight away, so the
-      design reads in plain ink while it is adjusted, till another control is pointed at */
+  /** a value was changed since the pointer came to the active control or part: the preview and the inspector put
+      their highlight away, so the design reads in plain ink while it is adjusted, till another control or part is
+      pointed at */
   adjusted: boolean;
   /** the preview text; empty shows the default sentence */
   custom: string;
@@ -582,8 +583,9 @@ export const actions = {
     const i = ALL_CHARS.indexOf(get().inspect ?? 'A');
     actions.openInspector(ALL_CHARS[(i + d + ALL_CHARS.length) % ALL_CHARS.length]);
   },
-  setPart(part: string | null) { if (get().part !== part) set({ part }); },
-  setHotEnd(hotEnd: string | null) { if (get().hotEnd !== hotEnd) set({ hotEnd }); },
+  /** Point at a part (null: at none); pointing at another lights it again after a change (`adjusted`). */
+  setPart(part: string | null) { if (get().part !== part) set(part ? { part, adjusted: false } : { part }); },
+  setHotEnd(hotEnd: string | null) { if (get().hotEnd !== hotEnd) set(hotEnd ? { hotEnd, adjusted: false } : { hotEnd }); },
   setConstruction(construction: boolean) {
     set({ construction });
     setPrefFlag(PREFS.construction, construction);
