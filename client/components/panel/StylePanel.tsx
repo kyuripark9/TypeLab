@@ -187,8 +187,9 @@ function Specimen({ params, text }: { params: Params; text: string }) {
   );
 }
 
-/** A feeling's name in the own font of the card that says it best (MOODS), the UI's face standing in until it comes. */
-function FeelingName({ label, card }: { label: string; card: string }) {
+/** A feeling's name in the own font of the card that says it best (MOODS), the UI's face standing in until it comes:
+    on its chip, and on the stage's bar of what is picked. */
+export function FeelingName({ label, card }: { label: string; card: string }) {
   const font = useWebFont(STYLE_FONTS[card]);
   return <span className="feel" style={font ? fontStyle(font) : undefined}>{label}</span>;
 }
