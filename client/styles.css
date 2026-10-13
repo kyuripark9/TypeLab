@@ -267,11 +267,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .gl rect { fill: transparent; }
 .gl { cursor: pointer; }
 /* a letter pointed at is marked in the highlighter behind it; the parts a setting shapes are lit in the scope's
-   highlight, edged in a 1px ink hairline (--edge, as are the inspector's and the diagrams') so a lemon part reads
-   against the paper without a heavy line round it */
+   highlight, edged in ink so a lemon part reads against the paper */
 .gl:hover rect { fill: var(--accent-mark); }
-.pv-hl { fill: var(--accent-mark); stroke: var(--ink); stroke-width: var(--edge); pointer-events: none; }
-.pv-ring { fill: var(--accent-soft); stroke: var(--ink); stroke-width: var(--edge); pointer-events: none; }
+.pv-hl { fill: var(--accent-mark); stroke: var(--ink); stroke-width: var(--sw); pointer-events: none; }
+.pv-ring { fill: var(--accent-soft); stroke: var(--ink); stroke-width: var(--sw); pointer-events: none; }
 .pv-band { fill: var(--accent-mark); opacity: .8; }
 .pv-guide { stroke: var(--accent); stroke-width: var(--sw); stroke-dasharray: calc(var(--sw) * 4) calc(var(--sw) * 3); opacity: .8; }
 .pv-guide.base { stroke: var(--ink-3); opacity: .5; }
@@ -655,8 +654,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .insp-canvas { flex: 1; min-width: 0; min-height: 0; overflow: hidden; position: relative; user-select: none; touch-action: none; }
 .insp-canvas svg { display: block; }
 .i-ink { fill: var(--ink); }
-.i-hl { fill: var(--accent-mark); stroke: var(--ink); stroke-width: var(--edge); }
-.i-ring { fill: var(--accent-soft); stroke: var(--ink); stroke-width: var(--edge); }
+.i-hl { fill: var(--accent-mark); stroke: var(--ink); stroke-width: var(--sw); }
+.i-ring { fill: var(--accent-soft); stroke: var(--ink); stroke-width: var(--sw); }
 .i-adv { fill: rgba(32, 31, 29, .025); stroke: var(--line-2); stroke-dasharray: 3 4; }
 .i-guide { stroke: var(--line-2); }
 .i-guide.hot { stroke: var(--accent); stroke-width: 1.5; }
