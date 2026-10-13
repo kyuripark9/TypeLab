@@ -159,7 +159,11 @@ A design with `freeFont` set draws its letters from a free font instead of build
    an end cut on a slant is told from one another stroke meets by which way the outline turns where its short side
    stops. In a font of block letters (`blocks`, Bulwark: `RestyleCtx.stubs`) an end that stands out shorter than an
    end needs (an r's square arm) is drawn again from just short of where it leaves its stem (`STUB_WIDE`), and a
-   straight heavy tail whose side turns off at once (a y's) from nearer its tip ('short'). In a script whose letters stand apart (`freeExits`, Serenade), a small letter's exit stroke is an end too
+   straight heavy tail whose side turns off at once (a y's) from nearer its tip ('short'); and its bowls, which turn in
+   corners, are reshaped by those corners (`restyleBlockBowls`, in place of Bowls' ovals): each round between two
+   straights grown or shrunk as basic-blocks.ts's Corners asks (the inside's the outside's less the stroke), as round
+   as half of each straight apex to apex lets it be for Oval, cut straight by Facets, fuller by Curves and Squareness;
+   the stems' square corners have no round to change. In a script whose letters stand apart (`freeExits`, Serenade), a small letter's exit stroke is an end too
    (`exit`: the hairline, thinner than `EXIT_THIN` of the font's stems, rising out of the right of the letter): Length
    draws it shorter or longer by a share of its run (`EXIT_LEN`), Curl turns most of it (`EXIT_BACK`) back over the
    letter or out flat, and no kind of end reshapes it, as the engine's own exits end plain. A ball or drop of the

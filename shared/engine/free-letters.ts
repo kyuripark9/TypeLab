@@ -8,7 +8,7 @@ import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
 import { FORM_LETTERS, descK, rigSkeleton, skinMeasures, skinMove, skinRig, type SkinMeasures, type SkinRig } from './skin';
-import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
+import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBlockBowls, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
 import { SERIF_SB, buildFont, type Effective, type Font, type Glyph, glyphDefOf, hasGlyph, type Metrics, metrics, resolve, scriptForms, scriptId, termSpec } from './font';
@@ -267,7 +267,8 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
     const oRig = fl.now.overlap < fl.pick.overlap && OVERLAP_LETTERS.includes(x.ch) && fl.font ? skinRig(fl.font, 'o') : null;
     out = restyleOverlap(cs, c, fl.pick.overlap, fl.now.overlap, oRig && skinMove(oRig, fl.from, fl.to));
     out = restyleDots(out, c, fl.pick, fl.now);
-    out = restyleBowls(out, ba, bb, scan(out));
+    // (a font of block letters turns its bowls in corners: those are drawn again)
+    out = c.stubs ? restyleBlockBowls(out, ba, bb, c.stem) : restyleBowls(out, ba, bb, scan(out));
     out = restyleEnds(out, c, fl.pick, fl.now, scan(out));
     out = restyleCursive(out, c, fl.pick.cursive, fl.now.cursive);
     const bare = out;

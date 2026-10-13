@@ -154,7 +154,8 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   (`sheet`), each in one weight, upright or (Sonnet) italic, under no licence; `tools/fonts/import.ts` makes them into
   `fonts/`, which the server reads instead of fetching. Bulwark (`blocks`), the Block card's, has no sheet: it is the
   engine's basic block letters at the settings `tools/fonts/blocks.ts` builds them at (`npm run fonts:blocks`), and
-  its short heavy stroke ends take another kind of end on the stub itself (`RestyleCtx.stubs` in engine/restyle.ts). They replaced the Google families in `OLD_FONTS`:
+  its short heavy stroke ends take another kind of end on the stub itself, and Bowls, Corners, Facets and Curves
+  reshape its bowls by their rounded corners (`RestyleCtx.stubs`, `restyleBlockBowls` in engine/restyle.ts). They replaced the Google families in `OLD_FONTS`:
   `sanitizeParams` reads a saved id of one as its own font (`ownFontOf`). `FREE_FAMILIES` lists them (`own`,
   `license: null`) with the Google families, each with its weights and italics up to 900, its licence folder (`ofl` or
   `apache`), its reserved names, `grid` for a pixel font (VT323, Silkscreen) that only stretches, and `freeExits` for a

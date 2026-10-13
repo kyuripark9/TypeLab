@@ -350,6 +350,26 @@ describe("TypeLab's own fonts", () => {
     }
   });
 
+  it("reshape a block letter's bowls by their corners: Bulwark's o oval, square or cut, its H's corners as they are", async () => {
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'block')!, id = STYLE_FONTS.block;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    const design = (moves: Partial<Params> = {}) => buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params), ...moves } as Params);
+    // the ink along the o's top edge, a little in from it: how far its flat runs, against the o's width
+    const flat = (g: Glyph) => {
+      const ink = shape(toPolys(g.cmds)), ps = toPolys(g.cmds).flat(), x0 = Math.min(...ps.map(p => p.x)), x1 = Math.max(...ps.map(p => p.x)), y1 = Math.max(...ps.map(p => p.y));
+      let n = 0;
+      for (let x = x0; x <= x1; x += 2) if (ink.has(x, y1 - 3)) n += 2;
+      return n / (x1 - x0);
+    };
+    const o = flat(design().glyph('o')!), oval = flat(design({ bowlForm: 'oval' }).glyph('o')!), square = flat(design({ boxRound: 0 }).glyph('o')!);
+    assert.ok(oval < o - 0.2, `oval: its top as round as it goes (${oval.toFixed(2)} flat, the box's ${o.toFixed(2)})`);
+    assert.ok(square > 0.97, `Corners 0: square (${square.toFixed(2)} flat)`);
+    const cut = design({ chamfer: 1 }).glyph('o')!;
+    assert.ok(toPolys(cut.cmds).flat().length < toPolys(design().glyph('o')!.cmds).flat().length, 'Facets: its rounds cut straight');
+    // (the stems' corners, square, stay so)
+    for (const moves of [{ bowlForm: 'oval' }, { chamfer: 1 }, { boxRound: 0 }] as Partial<Params>[]) assert.equal(design(moves).glyph('H')!.d, design().glyph('H')!.d, `the H's square corners (${JSON.stringify(moves)})`);
+  });
+
   it('read a design saved in a font they took the place of as written in its own', () => {
     assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Roboto:600' }).freeFont, 'Mainline:600');
     assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Roboto:900i' }).freeFont, 'Mainline:600');

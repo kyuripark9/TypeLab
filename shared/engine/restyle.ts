@@ -13,7 +13,7 @@
    restyled() keeps its results under, or a dragged slider shows letters drawn for an earlier value. */
 import { CURSIVE_FORMS, bowlK, bowlOrg, buildFont, cursiveHookR, dotRoundOf, innerRoundR, roundnessR, stencilOff, termSpec, type Effective, type Font } from './font';
 import { DEFAULTS, endReach, onEndScale, type Params } from '../params';
-import { fitOutline, type Node } from './outline';
+import { fitOutline, hasIn, hasOut, type Node } from './outline';
 import { CIRCLE_K, lerp, roundContour, signedArea, smoothstep } from './geom';
 import { bez, branches, endFace, inkAt, inkGrid, joinsOf, leaving, nearestOn, roundTip, type Branch, type Grid, type Join, type SkPt, type Skeleton } from './scan';
 import { STEP_DEPTH, buildSerif, expandStroke, serifCup, serifSides, termCap, termDropBack } from './stroke';
@@ -1451,6 +1451,124 @@ export interface BowlLook { k: number; chamfer: number; org: number; box: boolea
 export const bowlLook = (e: Effective): BowlLook => ({ k: bowlK(e), chamfer: e.chamfer, org: bowlOrg(e), box: e.bowlForm === 'box', round: e.bowlForm === 'box' ? e.boxRound : 0.5 });
 const sameBowls = (a: BowlLook, b: BowlLook) => Math.abs(a.k - b.k) < 1e-4 && Math.abs(a.chamfer - b.chamfer) < 1e-4 && Math.abs(a.org - b.org) < 1e-4 && a.box === b.box
   && Math.abs(a.round - b.round) < 1e-4;
+
+/* A font of block letters (Bulwark) turns its bowls in corners: straight sides, and each quarter one round between
+   them, as basic-blocks.ts draws them. There a bowl's look is its corners': their radius, the outside's Corners (twice
+   the stroke at most) or, oval, as round as the sides between let it be, and the inside's the outside's less the
+   stroke; Facets cuts them straight, Curves and Squareness draw them fuller. The stems' corners are square, with no
+   round to change. */
+
+/** How far a run of the contour from point `i` heads on straight the way it heads (no handles, turning less than 3°),
+    back toward `step` -1 or on toward +1, and the point where it stops. */
+function straightOn(con: Node[], i: number, step: 1 | -1): { len: number; at: number } {
+  const n = con.length;
+  let len = 0, j = i, dir: P | null = null;
+  for (let k = 0; k < n; k++) {
+    const a = con[j], b = con[(j + step + n) % n], seg = step > 0 ? [a, b] : [b, a];
+    if (hasOut(seg[0]) || hasIn(seg[1])) break;
+    const l = Math.hypot(b.x - a.x, b.y - a.y);
+    if (l < 1e-6) { j = (j + step + n) % n; continue; }
+    const d = { x: (b.x - a.x) / l, y: (b.y - a.y) / l };
+    if (dir && dir.x * d.x + dir.y * d.y < Math.cos(3 * Math.PI / 180)) break;
+    dir ??= d; len += l; j = (j + step + n) % n;
+  }
+  return { len, at: j };
+}
+
+/** The contours of a block letter with its bowls' corners drawn again as `to` asks, where they stand as `from` had
+    them: each curve between two straights is a corner, rounded on the ink's outside (a bowl's outside) or its inside
+    (a counter's); its new round stays within half of each straight it runs into, apex to apex, so an oval's ends
+    meet in the middle of its sides. `T` is the stroke. */
+export function restyleBlockBowls(cs: Node[][], from: BowlLook, to: BowlLook, T: number): Node[][] {
+  // (the bowls' diagonal fullness, bowlOrg, moved by Slant and the hand, is no corner's)
+  if (sameBowls(from, { ...to, org: from.org })) return cs;
+  const outer = (b: BowlLook) => (b.box ? b.round * 2 * T : Infinity);
+  const want = (b: BowlLook, convex: boolean) => (convex ? outer(b) : Math.max(0, outer(b) - T));
+  // (a quarter turn's handles: a circle's, fuller as Curves and Squareness ask, cut straight by Facets)
+  const fuller = to.k / Math.max(1e-3, from.k), cut = Math.max(0, Math.min(1, to.chamfer - from.chamfer));
+  const ink = shape(cs.map(c => sampled(c)));
+  return cs.map(con0 => {
+    const n = con0.length;
+    if (n < 3) return con0;
+    // (read from a point a straight runs into, so no corner runs round the contour's start)
+    const isCurve = (i: number) => hasOut(con0[i]) || hasIn(con0[(i + 1) % n]);
+    const r = con0.findIndex((_, i) => !isCurve((i - 1 + n) % n));
+    if (r < 0) return con0;
+    const con = [...con0.slice(r), ...con0.slice(0, r)];
+    // the corners: each run of curves with a straight either side, and how far each reaches along them now
+    const curved = (i: number) => hasOut(con[i]) || hasIn(con[(i + 1) % n]);
+    type Corner = { i0: number; i1: number; V: P; din: P; dout: P; th: number; convex: boolean; t: number; tB: number; back: number; on: number };
+    const corners: Corner[] = [];
+    for (let i = 0; i < n; i++) {
+      if (!curved(i) || curved((i - 1 + n) % n)) continue;
+      let j = i;
+      while (curved((j + 1) % n) && (j + 1) % n !== i) j = (j + 1) % n;
+      const A = con[i], B = con[(j + 1) % n], P0 = con[(i - 1 + n) % n], Q = con[(j + 2) % n];
+      if (curved((j + 1) % n) || B === P0) continue;
+      const lin = Math.hypot(A.x - P0.x, A.y - P0.y), lout = Math.hypot(Q.x - B.x, Q.y - B.y);
+      if (lin < 1e-6 || lout < 1e-6) continue;
+      const din = { x: (A.x - P0.x) / lin, y: (A.y - P0.y) / lin }, dout = { x: (Q.x - B.x) / lout, y: (Q.y - B.y) / lout };
+      const cr = din.x * dout.y - din.y * dout.x, th = Math.acos(Math.max(-1, Math.min(1, din.x * dout.x + din.y * dout.y)));
+      if (th < 0.35 || th > 2.8 || Math.abs(cr) < 1e-6) continue;
+      // (a round turning one way all along, as a corner's does: not an S, two rounds turning either way, as at an 8's waist)
+      let oneWay = true;
+      for (let k = i; oneWay; k = (k + 1) % n) {
+        const p = con[k], q = con[(k + 1) % n], a = hasOut(p) ? { x: p.ox!, y: p.oy! } : q, b = hasIn(q) ? { x: q.ix!, y: q.iy! } : p;
+        const u = { x: a.x - p.x, y: a.y - p.y }, v = { x: q.x - b.x, y: q.y - b.y }, w = { x: b.x - a.x, y: b.y - a.y };
+        if ((u.x * w.y - u.y * w.x) * cr < -1e-6 || (w.x * v.y - w.y * v.x) * cr < -1e-6) oneWay = false;
+        if (k === j) break;
+      }
+      if (!oneWay) continue;
+      // the apex: where the two straights would meet
+      const s = ((B.x - A.x) * dout.y - (B.y - A.y) * dout.x) / cr, V = { x: A.x + din.x * s, y: A.y + din.y * s };
+      // (a bowl's outside rounds its ink off, leaving the apex bare; a counter's corner, rounded, is ink there)
+      const mid = { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 }, convex = !ink.has(V.x + (V.x - mid.x) * 0.15, V.y + (V.y - mid.y) * 0.15);
+      const tA = Math.hypot(V.x - A.x, V.y - A.y);
+      corners.push({ i0: i, i1: j, V, din, dout, th, convex, t: tA, tB: Math.hypot(V.x - B.x, V.y - B.y), back: 0, on: 0 });
+    }
+    if (!corners.length) return con;
+    // (each straight from apex to apex: on to the next corner's apex where it runs into one, else to where it turns)
+    const byA = new Map(corners.map(c => [c.i0, c])), byB = new Map(corners.map(c => [(c.i1 + 1) % n, c]));
+    for (const c of corners) {
+      const b = straightOn(con, c.i0, -1), o = straightOn(con, (c.i1 + 1) % n, 1);
+      c.back = c.t + b.len + (byB.get(b.at)?.tB ?? 0);
+      c.on = c.tB + o.len + (byA.get(o.at)?.t ?? 0);
+    }
+    // each one's new reach along its straights: its own round grown or shrunk as the asked one is against the font's
+    // (as round as the sides let it be, oval), within half of each straight, apex to apex
+    const reach = corners.map(c => {
+      const w0 = want(from, c.convex), w1 = want(to, c.convex);
+      const t = !Number.isFinite(w1) ? Infinity : Number.isFinite(w0) && w0 > 0 ? c.t * w1 / w0 : w1 * Math.tan(c.th / 2);
+      return Math.max(0, Math.min(t, c.back / 2, c.on / 2));
+    });
+    const at = new Map(corners.map((c, k) => [c.i0, k]));
+    const out: Node[] = [];
+    for (let i = 0; i < n;) {
+      const k = at.get(i);
+      if (k === undefined) { out.push(con[i]); i++; continue; }
+      const c = corners[k], t = reach[k];
+      if (t < 0.5) out.push({ x: Math.round(c.V.x), y: Math.round(c.V.y) });
+      else {
+        const h = t * (4 / 3) * Math.tan(c.th / 4) / Math.tan(c.th / 2) * fuller * (1 - cut);
+        const a = { x: c.V.x - c.din.x * t, y: c.V.y - c.din.y * t }, b = { x: c.V.x + c.dout.x * t, y: c.V.y + c.dout.y * t };
+        out.push({ x: Math.round(a.x), y: Math.round(a.y), ...(h > 0.5 ? { ox: Math.round(a.x + c.din.x * h), oy: Math.round(a.y + c.din.y * h) } : {}) });
+        out.push({ x: Math.round(b.x), y: Math.round(b.y), ...(h > 0.5 ? { ix: Math.round(b.x - c.dout.x * h), iy: Math.round(b.y - c.dout.y * h) } : {}) });
+      }
+      // (on past the corner's own points, its curves' ends)
+      i = c.i1 + 2;
+    }
+    // (two rounds meeting halfway along a side, an oval's, meet in one smooth point)
+    for (let k = out.length - 1; k >= 0 && out.length > 2; k--) {
+      const a = out[k], b = out[(k + 1) % out.length];
+      if (a === b || Math.abs(a.x - b.x) > 0.5 || Math.abs(a.y - b.y) > 0.5) continue;
+      const m: Node = { x: a.x, y: a.y, ...(hasIn(a) ? { ix: a.ix, iy: a.iy } : {}), ...(hasOut(b) ? { ox: b.ox, oy: b.oy } : {}) };
+      if (hasIn(m) && hasOut(m)) m.s = 1;
+      out.splice(k, 1, m);
+      out.splice((k + 1) % (out.length), 1);
+    }
+    return out;
+  });
+}
 
 /** The upright oval through weighted points, fitted by least squares (A x² + C y² + D x + E y = 1): its middle and half
     widths, or null where they don't make one. */

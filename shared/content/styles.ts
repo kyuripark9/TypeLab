@@ -438,7 +438,7 @@ export const STYLES: StyleDef[] = [
      and no font stands behind them */
   style('block', 'blocks', [], 'Block', ['loud', 'futuristic', 'business'], 'Eurostile, Russo One, Michroma',
     'Plain, solid block letters: even strokes, square bowls with softly rounded corners, open counters and a real lowercase. Every setting reshapes them, serifs, stroke ends and letter forms too; Built from: Blocks gives letters built from blocks alone, plain, slotted or on a grid.',
-    { weight: 0.7, width: 0.56, contrast: 0.51, hWeight: 0.98, xHeight: 0.76, bowlForm: 'box', boxRound: 0.57, curve: 0.2, overlap: 0.76,
+    { weight: 0.7, width: 0.56, contrast: 0.51, hWeight: 0.98, xHeight: 0.76, bowlForm: 'box', boxRound: 0.55, curve: 0.2, overlap: 0.76,
       roundness: 0.42, joinRound: 0.07, apex: 0.81, terminalLength: 0.79, terminalCurl: 0.08, crossbar: 0.54, descender: 0.52, counter: 0.55,
       geoHuman: 0.34, classicFuture: 0.42, story: 'double' }),
   style('slotblocks', 'blocks', [], 'Slot Blocks', ['loud', 'playful', 'futuristic'], 'Bungee, Dela Gothic One, Rammetto One',
