@@ -1,71 +1,135 @@
 /* A change made to one letter's points, carried to the other letters shaped the same way there. The change is
    read by comparing the letter's contours with what they were: the points both keep stay put, and each run of
-   points between them that moved, came or went is one changed stretch. Every other letter is then searched for
-   a stretch of outline shaped as the changed one was, with a little of the outline either side of it, allowing
-   it to be somewhat wider or narrower, taller or shorter (the serif of a d against an l's). A match is close
-   when the outline further round it is the same too (a serif and the stem under it), else it is only the
-   stretch that is the same (the top of an n's arch and the top of an o). There, where the other letter has the
-   same points as the changed one had, each moves by as much as its own did; otherwise the new stretch is put in
-   place of the old one, fitted to that letter. Pure, in font units, y up: tests/carry.test.ts. */
+   points between them that moved, came or went is one changed stretch; a corner rounded, cut or scooped where its
+   point stays is a change of its own; and a shape moved, turned or resized whole, or taken away, is a change to
+   that whole contour. Every other letter is then searched for a stretch of outline shaped as the changed one was,
+   with a little of the outline either side of it, allowing it to be somewhat wider or narrower, taller or shorter
+   (the serif of a d against an l's); or, for a whole contour, for a contour shaped as it was (the dot of an i and
+   a j's). A match is close when the outline further round it is the same too (a serif and the stem under it), or
+   when a whole contour sits as high (the two dots), else it is only the stretch, or the shape, that is the same
+   (the top of an n's arch and the top of an o; a dot and a full stop). There, where the other letter has the same
+   points as the changed one had, each moves by as much as its own did; otherwise the new stretch or shape is put
+   in place of the old one, fitted to that letter. Pure, in font units, y up: tests/carry.test.ts. */
 import { ALL_CHARS, hasIn, hasOut, segment, type Drawn, type Node } from '../../shared/engine';
 
 type P = { x: number; y: number };
 const R = Math.round;
 
-/** One changed stretch of a contour: in `was` (the contour as it was) the points `a` and `b` stay, and the
-    ones running between them, from a to b, gave way to `fresh` (none, when points were only taken away). */
-export interface Change { c: number; was: Node[]; a: number; b: number; fresh: Node[] }
+/** The box round some points. */
+function boxOf(ps: P[]) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const q of ps) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); }
+  return { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
+}
+type Box = ReturnType<typeof boxOf>;
 
-const same = (p: Node, q: Node) => p.x === q.x && p.y === q.y && p.ix === q.ix && p.iy === q.iy && p.ox === q.ox && p.oy === q.oy
-  && !p.s === !q.s && p.r === q.r && p.corner === q.corner;
+/** One changed stretch of a contour: in `was` (the contour as it was) the points `a` and `b` stay, and the
+    ones running between them, from a to b, gave way to `fresh` (none, when points were only taken away). A
+    change to a `whole` contour (moved, turned or resized whole, or every point of it changed) has all of it as it
+    is now in `fresh`, or none when it was taken away, and `a` and `b` 0. */
+export interface Change { c: number; was: Node[]; a: number; b: number; fresh: Node[]; whole?: true }
+
+/** Whether two points stand at the same place with the same handles (their corners perhaps rounded otherwise). */
+const sameAt = (p: Node, q: Node) => p.x === q.x && p.y === q.y && p.ix === q.ix && p.iy === q.iy && p.ox === q.ox && p.oy === q.oy && !p.s === !q.s;
+const same = (p: Node, q: Node) => sameAt(p, q) && p.r === q.r && p.corner === q.corner;
+const sameContour = (p: Node[], q: Node[]) => p === q || (p.length === q.length && p.every((n, i) => same(n, q[i])));
 
 /** Whether two drawings are the same, point for point (one read back from an undo step is a copy). */
 export const sameDrawing = (p: Drawn | undefined, q: Drawn | undefined): boolean => p === q || (!!p && !!q && p.adv === q.adv
-  && p.contours.length === q.contours.length && p.contours.every((con, c) => con.length === q.contours[c].length && con.every((n, i) => same(n, q.contours[c][i]))));
+  && p.contours.length === q.contours.length && p.contours.every((con, c) => sameContour(con, q.contours[c])));
 
-/** The points two contours keep in common, as index pairs in order (the longest such run). */
-function kept(O: Node[], E: Node[]): [number, number][] {
+/** The items two lists keep in common, as index pairs in order (the longest such run). */
+function kept<T>(O: T[], E: T[], eq: (p: T, q: T) => boolean): [number, number][] {
   const n = O.length, m = E.length, L = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
-  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = same(O[i], E[j]) ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = eq(O[i], E[j]) ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
   const out: [number, number][] = [];
   for (let i = 0, j = 0; i < n && j < m;) {
-    if (same(O[i], E[j])) { out.push([i, j]); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) i++; else j++;
+    if (eq(O[i], E[j])) { out.push([i, j]); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) i++; else j++;
   }
   return out;
 }
 
-/** The stretches where `now` differs from `base`, contour by contour. Changes with no more than two kept points
-    between them are one change; a contour changed all over, and contours added or taken away, aren't changes
-    that can be carried, so none come back for them. */
-export function changesOf(base: Node[][], now: Node[][]): Change[] {
-  if (base.length !== now.length) return [];
-  const out: Change[] = [];
-  base.forEach((O, c) => {
-    const E = now[c], n = O.length, m = E.length, pairs = kept(O, E), k = pairs.length;
-    if (k === n && k === m) return;
-    if (k < 2) return;
-    // the gaps between kept points, round the contour: gap g runs from pairs[g] to pairs[g + 1]
-    const gaps: number[] = [];
-    for (let g = 0; g < k; g++) {
-      const [i0, j0] = pairs[g], [i1, j1] = pairs[(g + 1) % k];
-      if ((i1 - i0 - 1 + n) % n || (j1 - j0 - 1 + m) % m) gaps.push(g);
-    }
-    // merged where close: [first gap, last gap] runs, cyclically
-    const runs: [number, number][] = [];
-    for (const g of gaps) {
-      const last = runs[runs.length - 1];
-      if (last && g - last[1] <= 2) last[1] = g; else runs.push([g, g]);
-    }
-    if (runs.length > 1 && runs[0][0] + k - runs[runs.length - 1][1] <= 2) { const first = runs.shift()!; runs[runs.length - 1][1] = first[1] + k; }
-    for (const [g0, g1] of runs) {
-      const [a, ja] = pairs[g0 % k], [b, jb] = pairs[(g1 + 1) % k];
-      if (g1 - g0 + 1 >= k) continue; // no kept point left outside it
-      const fresh: Node[] = [];
+/** The stretches where contour E differs from O (point for point by `eq`), with the points both keep; changes with
+    no more than two kept points between them are one. Null where no kept point is left outside them: the contour
+    changed all over. */
+function stretches(O: Node[], E: Node[], c: number, eq: (p: Node, q: Node) => boolean): { pairs: [number, number][]; changes: Change[] } | null {
+  const n = O.length, m = E.length, pairs = kept(O, E, eq), k = pairs.length;
+  if (k === n && k === m) return { pairs, changes: [] };
+  if (k < 2) return null;
+  // the gaps between kept points, round the contour: gap g runs from pairs[g] to pairs[g + 1]
+  const gaps: number[] = [];
+  for (let g = 0; g < k; g++) {
+    const [i0, j0] = pairs[g], [i1, j1] = pairs[(g + 1) % k];
+    if ((i1 - i0 - 1 + n) % n || (j1 - j0 - 1 + m) % m) gaps.push(g);
+  }
+  // merged where close: [first gap, last gap] runs, cyclically
+  const runs: [number, number][] = [];
+  for (const g of gaps) {
+    const last = runs[runs.length - 1];
+    if (last && g - last[1] <= 2) last[1] = g; else runs.push([g, g]);
+  }
+  if (runs.length > 1 && runs[0][0] + k - runs[runs.length - 1][1] <= 2) { const first = runs.shift()!; runs[runs.length - 1][1] = first[1] + k; }
+  // (one run round every kept point leaves none outside it)
+  if (runs.some(([g0, g1]) => g1 - g0 + 1 >= k)) return null;
+  return {
+    pairs, changes: runs.map(([g0, g1]) => {
+      const [a, ja] = pairs[g0 % k], [b, jb] = pairs[(g1 + 1) % k], fresh: Node[] = [];
       for (let j = (ja + 1) % m; j !== jb; j = (j + 1) % m) fresh.push({ ...E[j] });
-      out.push({ c, was: O, a, b, fresh });
+      return { c, was: O, a, b, fresh };
+    })
+  };
+}
+
+/** What changed in one contour: the stretches where it moved, and each corner rounded, cut or scooped otherwise
+    where its point stayed, on its own (so all of a shape's corners rounded at once are found corner by corner); or,
+    where it moved all over, the whole contour. */
+function contourChanges(O: Node[], E: Node[], c: number): Change[] {
+  const moved = stretches(O, E, c, sameAt), n = O.length;
+  if (!moved) return [{ c, was: O, a: 0, b: 0, fresh: E.map(e => ({ ...e })), whole: true }];
+  const inside = (i: number) => moved.changes.some(ch => (i - ch.a + n) % n > 0 && (i - ch.a + n) % n < (ch.b - ch.a + n) % n);
+  // the corners first: they leave the outline where it was, so the stretches are still found after them
+  const corners = n < 3 ? [] : moved.pairs.filter(([i, j]) => !same(O[i], E[j]) && !inside(i))
+    .map(([i, j]): Change => ({ c, was: O, a: (i - 1 + n) % n, b: (i + 1) % n, fresh: [{ ...E[j] }] }));
+  return [...corners, ...moved.changes];
+}
+
+/** Which of `now`'s contours each of `base`'s became (-1 where it was taken away): those left as they were, and
+    between them, in order where as many are left on each side, else each to the one it overlaps most. Contours
+    added aren't changes that can be carried (there's no telling where they'd go), so none come back for them. */
+function contourPairs(base: Node[][], now: Node[][]): [number, number][] {
+  const keep = kept(base, now, sameContour), out: [number, number][] = [];
+  const overlap = (p: Box, q: Box) => Math.max(0, Math.min(p.x1, q.x1) - Math.max(p.x0, q.x0)) * Math.max(0, Math.min(p.y1, q.y1) - Math.max(p.y0, q.y0));
+  [...keep, [base.length, now.length]].forEach(([i1, j1], k) => {
+    const [i0, j0] = k ? keep[k - 1] : [-1, -1], bs: number[] = [], ns: number[] = [];
+    for (let i = i0 + 1; i < i1; i++) bs.push(i);
+    for (let j = j0 + 1; j < j1; j++) ns.push(j);
+    if (bs.length === ns.length) bs.forEach((i, z) => out.push([i, ns[z]]));
+    else for (const i of bs) {
+      const b = boxOf(base[i]), best = ns.map(j => ({ j, o: overlap(b, boxOf(now[j])) })).filter(q => q.o > 0).sort((p, q) => q.o - p.o)[0];
+      if (best) ns.splice(ns.indexOf(best.j), 1);
+      out.push([i, best ? best.j : -1]);
     }
+    if (k < keep.length) out.push(keep[k]);
   });
   return out;
+}
+
+/** Whether every point of `now` is where `base`'s was, moved by as much: the letter moved whole. */
+function shifted(base: Node[][], now: Node[][]): boolean {
+  const p = base[0]?.[0], q = now[0]?.[0];
+  if (!p || !q || base.length !== now.length) return false;
+  const dx = q.x - p.x, dy = q.y - p.y, by = (n: Node): Node => ({
+    ...n, x: n.x + dx, y: n.y + dy, ...(hasIn(n) ? { ix: n.ix! + dx, iy: n.iy! + dy } : {}), ...(hasOut(n) ? { ox: n.ox! + dx, oy: n.oy! + dy } : {})
+  });
+  return (dx !== 0 || dy !== 0) && base.every((con, c) => sameContour(con.map(by), now[c]));
+}
+
+/** The changes from `base` to `now`, contour by contour (see Change). A letter moved whole has changed its place,
+    not its shape: no change comes back for it. */
+export function changesOf(base: Node[][], now: Node[][]): Change[] {
+  if (shifted(base, now)) return [];
+  return contourPairs(base, now).flatMap(([c, j]) => j < 0 ? [{ c, was: base[c], a: 0, b: 0, fresh: [], whole: true as const }]
+    : sameContour(base[c], now[j]) ? [] : contourChanges(base[c], now[j], c));
 }
 
 /* ---- sampling outlines */
@@ -128,12 +192,21 @@ class Near {
   }
 }
 
+/** A whole contour's samples and their grid, kept while the contour is (each letter's contours are searched once for
+    every change). */
+const sampled = new WeakMap<Node[], { T: Samples; near: Near }>();
+function samplesOf(con: Node[]) {
+  let got = sampled.get(con);
+  if (!got) { const T = sample(con, 0, con.length, STEP); got = { T, near: new Near(T.p, 12) }; sampled.set(con, got); }
+  return got;
+}
+
 /* ---- finding the stretch in another letter */
 
-/** A stretch of another letter's outline shaped as a change's was: its contour; where the change's kept points `a`
-    and `b` fall on it (segment and place along it), when they can be told; the map from the changed letter to it;
-    where it runs round the contour (s0 to s1), how far off it is at most and could have been; and whether the
-    outline round it is the same too. */
+/** A stretch of another letter's outline shaped as a change's was (or, for a whole contour, a contour shaped as it
+    was): its contour; where the change's kept points `a` and `b` fall on it (segment and place along it), when they
+    can be told; the map from the changed letter to it; where it runs round the contour (s0 to s1), how far off it is
+    at most and could have been; and whether the outline round it is the same too (a whole contour: as high). */
 export interface Place {
   c: number; ends: { A: { i: number; t: number }; B: { i: number; t: number } } | null; fit: Fit; s0: number; s1: number; off: number; tol: number; close: boolean
 }
@@ -183,13 +256,28 @@ function pieceOf(ch: Change) {
   const trim = (ctx: number) => all.s.map((s, k) => (s >= c0 - ctx && s <= c1 + ctx ? k : -1)).filter(k => k >= 0);
   let ctx = Math.max(20, Math.min(60, 0.25 * (c1 - c0))), keep = trim(ctx);
   while (ctx < 300 && turning(keep.map(k => all.p[k])) < TURN && (c0 - ctx > 0 || c1 + ctx < all.s[all.s.length - 1])) keep = trim((ctx += 20));
-  const p = keep.map(k => all.p[k]), first = all.s[keep[0]], last = all.s[keep[keep.length - 1]];
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const q of p) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); }
-  const size = Math.max(x1 - x0, y1 - y0), around = trim(ctx + AROUND).filter((_, z) => z % 2 === 0).map(k => all.p[k]);
+  const p = keep.map(k => all.p[k]), first = all.s[keep[0]], last = all.s[keep[keep.length - 1]], box = boxOf(p);
+  const size = Math.max(box.w, box.h), around = trim(ctx + AROUND).filter((_, z) => z % 2 === 0).map(k => all.p[k]);
   return { p, size, len: last - first, tol: Math.max(6, 0.07 * size), around, before: Math.max(0, first - sA), after: Math.max(0, sB - last) };
 }
 type Piece = ReturnType<typeof pieceOf>;
+
+/** The corner a change rounds, cuts or scoops otherwise, where it stays (null for a change that moves the outline). */
+function cornerOf(ch: Change): Node | null {
+  const i = (ch.a + 1) % ch.was.length, o = ch.was[i];
+  return !ch.whole && ch.fresh.length === 1 && (ch.b - ch.a + ch.was.length) % ch.was.length === 2 && !o.s && sameAt(o, ch.fresh[0]) ? o : null;
+}
+
+/** Which way the outline comes into point i of a contour and leaves it, in radians: along its handles, or towards
+    the points either side. */
+function wayAt(con: Node[], i: number): [number, number] {
+  const n = con.length, p = con[i], prev = con[(i - 1 + n) % n], next = con[(i + 1) % n];
+  const back = hasIn(p) ? { x: p.ix!, y: p.iy! } : hasOut(prev) ? { x: prev.ox!, y: prev.oy! } : prev;
+  const on = hasOut(p) ? { x: p.ox!, y: p.oy! } : hasIn(next) ? { x: next.ix!, y: next.iy! } : next;
+  return [Math.atan2(p.y - back.y, p.x - back.x), Math.atan2(on.y - p.y, on.x - p.x)];
+}
+/** Whether two corners turn about alike: the outline coming in and going out each within 40° of the other's. */
+const sameTurn = (a: [number, number], b: [number, number]) => a.every((v, k) => Math.abs(Math.atan2(Math.sin(v - b[k]), Math.cos(v - b[k]))) <= (40 * Math.PI) / 180);
 
 /** Evenly spread picks of `k` items out of `n`. */
 const spread = (n: number, k: number) => Array.from({ length: Math.min(n, k) }, (_, q) => Math.round((q * (n - 1)) / Math.max(1, Math.min(n, k) - 1)));
@@ -198,13 +286,16 @@ const spread = (n: number, k: number) => Array.from({ length: Math.min(n, k) }, 
     overlapping. */
 function placesIn(piece: Piece, ch: Change, con: Node[], c: number): Place[] {
   if (con.length < 2) return [];
-  const T = sample(con, 0, con.length, STEP), per = T.s[T.s.length - 1], near = new Near(T.p, 12), tol = piece.tol;
+  const { T, near } = samplesOf(con), per = T.s[T.s.length - 1], tol = piece.tol;
   const probe = spread(piece.p.length, 9), body = spread(piece.p.length, 36);
-  // starting guesses: a point of the other letter where the change's kept points, or the points between, were
-  const was = ch.was, n = was.length, keys: P[] = [];
-  for (let i = ch.a; ; i = (i + 1) % n) { keys.push(was[i]); if (i === ch.b) break; }
+  // starting guesses: a point of the other letter where the change's kept points, or the points between, were (for
+  // a corner rounded otherwise, only a corner of the other letter where that corner was: it is rounded in place)
+  const was = ch.was, n = was.length, keys: number[] = [], corner = !!cornerOf(ch);
+  for (let i = ch.a; ; i = (i + 1) % n) { keys.push(i); if (i === ch.b) break; }
   const found: Place[] = [], tried: P[] = [], reach = 3 * tol + 20, ps = body.map(j => piece.p[j]);
-  for (const q of con) for (const k of keys) {
+  for (let qi = 0; qi < con.length; qi++) for (const ki of keys) {
+    const q = con[qi], k = was[ki];
+    if (corner && !(!q.s && !k.s && sameTurn(wayAt(was, ki), wayAt(con, qi)))) continue;
     let f: Fit = { sx: 1, sy: 1, tx: q.x - k.x, ty: q.y - k.y };
     // a start next to one tried already ends up where that one did
     if (tried.some(t => Math.abs(t.x - f.tx) + Math.abs(t.y - f.ty) < tol / 2)) continue;
@@ -302,8 +393,49 @@ const overlaps = (p: Place, q: Place, per: number) => {
   return a0 < b1 && b0 < a1;
 };
 
+/** Twice the area a closed run of points goes round, positive anticlockwise: which way a contour is wound. */
+const woundOf = (ps: P[]) => ps.reduce((sum, p, k) => { const q = ps[(k + 1) % ps.length]; return sum + p.x * q.y - q.x * p.y; }, 0);
+/** How far, at most, any of `ps` is from the nearest of the samples `near` holds (Infinity past `reach`). */
+function furthest(ps: P[], near: Near, reach: number): number {
+  let worst = 0;
+  for (const p of ps) { const k = near.nearest(p, reach); if (k < 0) return Infinity; worst = Math.max(worst, dist(p, near.ps[k])); }
+  return worst;
+}
+
+/** The contours of `doc` shaped as a whole contour that changed was, wound the same way (a counter is found among
+    counters), a little wider or narrower, taller or shorter perhaps: fitted by their boxes, then closer, then
+    every part of each within a few units of the other's outline. Close where it sits about as high, its top and
+    bottom each within half its height (80 units at most) of where the changed one's were: two dots drawn by hand,
+    not a dot and a full stop. */
+function wholesIn(ch: Change, doc: Drawn): Place[] {
+  const A = sample(ch.was, 0, ch.was.length, STEP), a = boxOf(A.p), size = Math.max(a.w, a.h), tol = Math.max(6, 0.07 * size);
+  const ps = spread(A.p.length, 48).map(k => A.p[k]), wound = Math.sign(woundOf(A.p));
+  const out: Place[] = [];
+  doc.contours.forEach((con, c) => {
+    if (con.length < 2) return;
+    const { T, near } = samplesOf(con), t = boxOf(T.p);
+    if (Math.sign(woundOf(T.p)) !== wound) return;
+    // a box hardly any wide (or tall) can't tell how much wider it is: as much as it is taller (or wider), then
+    const kx = a.w > 20 ? t.w / a.w : NaN, ky = a.h > 20 ? t.h / a.h : NaN, sx = Number.isNaN(kx) ? ky : kx, sy = Number.isNaN(ky) ? kx : ky;
+    if (!(sx >= SCALE_MIN && sx <= SCALE_MAX && sy >= SCALE_MIN && sy <= SCALE_MAX)) return;
+    let f: Fit = { sx, sy, tx: t.x0 - sx * a.x0, ty: t.y0 - sy * a.y0 };
+    for (let it = 0; it < 3; it++) {
+      const qs = ps.map(p => near.nearest(to(f, p), 3 * tol));
+      if (qs.some(j => j < 0)) break;
+      const ts = qs.map(j => T.p[j]);
+      f = { ...axisFit(ps.map(p => p.x), ts.map(q => q.x), f.sx, 'x'), ...axisFit(ps.map(p => p.y), ts.map(q => q.y), f.sy, 'y') } as Fit;
+    }
+    const mine = A.p.map(p => to(f, p)), off = Math.max(furthest(mine, near, tol + STEP), furthest(T.p, new Near(mine, 12), tol + STEP));
+    if (off > tol + STEP / 2) return;
+    const per = T.s[T.s.length - 1], high = Math.max(1.5 * tol, Math.min(a.h / 2, 80)), close = Math.abs(t.y0 - a.y0) <= high && Math.abs(t.y1 - a.y1) <= high;
+    out.push({ c, ends: null, fit: f, s0: 0, s1: per, off, tol, close });
+  });
+  return out;
+}
+
 /** Every place a change's old shape is found in `doc`, best first. */
 export function placesOf(ch: Change, doc: Drawn): Place[] {
+  if (ch.whole) return wholesIn(ch, doc).sort((p, q) => Number(q.close) - Number(p.close) || p.off - q.off);
   const piece = pieceOf(ch);
   if (piece.p.length < 4) return [];
   return doc.contours.flatMap((con, c) => placesIn(piece, ch, con, c)).sort((p, q) => Number(q.close) - Number(p.close) || p.off - q.off);
@@ -340,9 +472,39 @@ function sameRow(con: Node[], want: P[], tol: number): number[] | null {
   return best;
 }
 
+/** Point `n` (in place, in another letter) moved as the changed letter's `o` became `e`, by as much, scaled by the
+    fit: its handles too, where both have them, else as `e`'s are; and rounded, smooth or not as `e` is. */
+function moveLike(n: Node, o: Node, e: Node, f: Fit) {
+  const by = (v: number, w0: number, w1: number, k: number) => R(v + k * (w1 - w0));
+  n.x = by(n.x, o.x, e.x, f.sx); n.y = by(n.y, o.y, e.y, f.sy);
+  for (const [h, hx, hy] of [['i', 'ix', 'iy'], ['o', 'ox', 'oy']] as const) {
+    const had = h === 'i' ? hasIn(o) : hasOut(o), has = h === 'i' ? hasIn(e) : hasOut(e), mine = h === 'i' ? hasIn(n) : hasOut(n);
+    if (had && has && mine) { n[hx] = by(n[hx]!, o[hx]!, e[hx]!, f.sx); n[hy] = by(n[hy]!, o[hy]!, e[hy]!, f.sy); }
+    else if (has) { n[hx] = R(n.x + f.sx * (e[hx]! - e.x)); n[hy] = R(n.y + f.sy * (e[hy]! - e.y)); }
+    else { delete n[hx]; delete n[hy]; }
+  }
+  if (e.s) n.s = 1; else delete n.s;
+  if (e.r) n.r = e.r; else delete n.r;
+  if (e.corner) n.corner = e.corner; else delete n.corner;
+}
+
 /** A contour with a change put in at each of `places` (on this contour, none overlapping). */
 function spliced(con0: Node[], ch: Change, places: Place[]): Node[] {
-  const con = con0.map(n => ({ ...n }));
+  const con = con0.map(n => ({ ...n })), corner = cornerOf(ch);
+  // a corner rounded otherwise: the other letter's corner there (the nearest, a little further off allowed) is rounded
+  // as it was, and nothing else of it changes
+  if (corner) {
+    const e = ch.fresh[0];
+    for (const p of places) {
+      const v = to(p.fit, corner);
+      let best: Node | null = null, bd = 2 * p.tol;
+      for (const n of con) if (!n.s && dist(n, v) <= bd) { best = n; bd = dist(n, v); }
+      if (!best) continue;
+      if (e.r) best.r = e.r; else delete best.r;
+      if (e.corner) best.corner = e.corner; else delete best.corner;
+    }
+    return con;
+  }
   const { was, a, b, fresh } = ch, A0 = was[a], B0 = was[b], olds: Node[] = [];
   for (let i = (a + 1) % was.length; i !== b; i = (i + 1) % was.length) olds.push(was[i]);
   // where the letter has the same points as the changed one had, in a row, each where it was: each moves by as much
@@ -351,19 +513,7 @@ function spliced(con0: Node[], ch: Change, places: Place[]): Node[] {
   for (const p of places) {
     const f = p.fit, row = olds.length === fresh.length ? sameRow(con, olds.map(o => to(f, o)), p.tol) : null;
     if (!row) { if (p.ends) rest.push(p); continue; }
-    row.forEach((at, z) => {
-      const n = con[at], o = olds[z], e = fresh[z], by = (v: number, w0: number, w1: number, k: number) => R(v + k * (w1 - w0));
-      n.x = by(n.x, o.x, e.x, f.sx); n.y = by(n.y, o.y, e.y, f.sy);
-      for (const [h, hx, hy] of [['i', 'ix', 'iy'], ['o', 'ox', 'oy']] as const) {
-        const had = h === 'i' ? hasIn(o) : hasOut(o), has = h === 'i' ? hasIn(e) : hasOut(e), mine = h === 'i' ? hasIn(n) : hasOut(n);
-        if (had && has && mine) { n[hx] = by(n[hx]!, o[hx]!, e[hx]!, f.sx); n[hy] = by(n[hy]!, o[hy]!, e[hy]!, f.sy); }
-        else if (has) { n[hx] = R(n.x + f.sx * (e[hx]! - e.x)); n[hy] = R(n.y + f.sy * (e[hy]! - e.y)); }
-        else { delete n[hx]; delete n[hy]; }
-      }
-      if (e.s) n.s = 1; else delete n.s;
-      if (e.r) n.r = e.r; else delete n.r;
-      if (e.corner) n.corner = e.corner; else delete n.corner;
-    });
+    row.forEach((at, z) => moveLike(con[at], olds[z], fresh[z], f));
   }
   // elsewhere the stretch between the kept points' places gives way to the new one: first those places become points,
   // a point already there (or nearly: within a third of how closely the shapes had to match), or the curve cut there
@@ -410,8 +560,25 @@ function spliced(con0: Node[], ch: Change, places: Place[]): Node[] {
   return con;
 }
 
+/** A contour shaped as a whole one that changed was, as that one is now (null where it was taken away): each point
+    moved by as much as its own, where it has the same points, else the new contour, fitted to it. */
+function replaced(con: Node[], ch: Change, p: Place): Node[] | null {
+  const { was, fresh } = ch, f = p.fit;
+  if (!fresh.length) return null;
+  const row = fresh.length === was.length && con.length === was.length ? sameRow(con, was.map(o => to(f, o)), p.tol) : null;
+  if (row) { const out = con.map(n => ({ ...n })); row.forEach((at, z) => moveLike(out[at], was[z], fresh[z], f)); return out; }
+  return fresh.map(n => {
+    const o: Node = { ...n, ...map(n) };
+    if (hasIn(n)) { const h = map({ x: n.ix!, y: n.iy! }); o.ix = h.x; o.iy = h.y; }
+    if (hasOut(n)) { const h = map({ x: n.ox!, y: n.oy! }); o.ox = h.x; o.oy = h.y; }
+    return o;
+  });
+  function map(q: P) { const v = to(f, q); return { x: R(v.x), y: R(v.y) }; }
+}
+
 /** `doc` with the change put in at each of `places`. */
 export function carryInto(ch: Change, doc: Drawn, places: Place[]): Drawn {
+  if (ch.whole) return { adv: doc.adv, contours: doc.contours.flatMap((con, c) => { const p = places.find(q => q.c === c), r = p ? replaced(con, ch, p) : con; return r ? [r] : []; }) };
   return { adv: doc.adv, contours: doc.contours.map((con, c) => { const here = places.filter(p => p.c === c); return here.length ? spliced(con, ch, here) : con; }) };
 }
 
