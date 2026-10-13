@@ -8,8 +8,7 @@
      their own, some carried over from the cut before, so one cut mixes into the next (one cut all mixed), over the
      guide lines a font is drawn on (baseline, x-height, cap height), which move to each leading font's own heights;
      each cut's new letters come in a way of its own (rising, stretched tall, dropped, turned), the card goes ink and
-     then the accent under a few, one cut is set larger, one has the name again a row over the whole window in fonts
-     of their own, and the last is slammed down onto the lines;
+     then the accent under a few, one cut is set larger, and the last is slammed down onto the lines;
    - the name is drawn in the logo's letters, in capitals as the header sets it, as Points mode shows a letter: its
      points (corners and extremes) and handles come in along it as its outline is drawn on, the lines move to the
      logo's heights and its ink fills in;
@@ -53,9 +52,8 @@ const LETTER_GAP = 0.07;
     baseline, stretched tall, or turned; `slam` sets the whole name down from larger. */
 type Motion = 'burst' | 'rise' | 'drop' | 'stretch' | 'turn' | 'slam';
 /** One cut: the font that leads it, how long it shows and how its new letters come in; the card's ground under it
-    (ink or the accent, the letters in paper); how much larger it is set, as the window allows; and whether the name
-    comes again a row over the whole window, each row in a font of its own and hollow. */
-interface Cut { lead: string; ms: number; motion: Motion; ground?: 'ink' | 'accent'; zoom?: number; rows?: true }
+    (ink or the accent, the letters in paper); and how much larger it is set, as the window allows. */
+interface Cut { lead: string; ms: number; motion: Motion; ground?: 'ink' | 'accent'; zoom?: number }
 /** The whole name's cuts, in order: a font's name leads the cut, setting LEAD of its letters, and `*` gives every
     letter a font of its own. Neighbours look far apart, heavy after light, and the last, held longest, is the boldest.
     The dark grounds come in one run, so the card turns dark only once and never flashes. A font that didn't come is
@@ -66,11 +64,11 @@ const CUTS: Cut[] = [
   { lead: '*', ms: 160, motion: 'drop', ground: 'ink' },
   { lead: 'Serenade', ms: 170, motion: 'turn', ground: 'ink' },
   { lead: 'Gumdrop', ms: 260, motion: 'stretch', ground: 'accent', zoom: 1.5 },
-  { lead: 'Dispatch', ms: 440, motion: 'rise', rows: true },
+  { lead: 'Dispatch', ms: 200, motion: 'rise' },
   { lead: 'Orbital', ms: 560, motion: 'slam' }
 ];
-/** how far apart, in ms, a cut's new letters start coming in, left to right; the rows' pitch, in ems */
-const STAGGER = 12, PITCH = 1.05;
+/** how far apart, in ms, a cut's new letters start coming in, left to right */
+const STAGGER = 12;
 /** the share of the name's letters a cut's leading font sets, at places drawn afresh each cut; the rest are each in a
     font of their own, a letter keeping the one it had the cut before by CHURN's odds, so one cut mixes into the next */
 const LEAD = 0.5;
@@ -103,11 +101,11 @@ type Letter = { ch: string; face: Face; id: number; dy?: number; hot?: true };
 type Heights = { xh: number; cap: number; asc?: number; desc?: number };
 /** One step of the card for `ms`: the name in `letters`, each in its font, or `drawn` from its points; neither is the
     wordmark. `lines` are the guide lines' heights, none before the cuts and on the wordmark. The scramble is set from
-    where `from`, the settled name, starts. Its new letters come in by `motion`, `stagger` ms apart; a cut's `ground`,
-    `zoom` and `rows` (the name in each row's face) are its Cut's. */
+    where `from`, the settled name, starts. Its new letters come in by `motion`, `stagger` ms apart; a cut's `ground`
+    and `zoom` are its Cut's. */
 interface Step {
   ms: number; letters?: Letter[]; from?: Letter[]; drawn?: true; lines?: Heights;
-  motion?: Motion; stagger?: number; ground?: Cut['ground']; zoom?: number; rows?: Letter[][];
+  motion?: Motion; stagger?: number; ground?: Cut['ground']; zoom?: number;
 }
 /** The logo's letters as tools/fonts/ui.ts writes them: its heights, and each capital's advance and outline. */
 type Logo = Pick<FreeFontData, 'cap' | 'xh' | 'glyphs'>;
@@ -213,9 +211,7 @@ function plan(fonts: FreeFontRef[], mine: Font[], drawing: Logo | null): Step[] 
       return [...ls, lead && at.has(i) ? letter(ch, lead) : kept ? had : letter(ch, other(ch, prev, lead))];
     }, []);
     if (lead) lines = heightsOf(lead) ?? lines;
-    // the rows: the name in every other face, in an order drawn afresh
-    const rows = cut.rows && faces.filter(f => f !== lead).sort(() => Math.random() - 0.5).map(f => [...NAME].map(ch => letter(ch, f)));
-    steps.push({ ms: cut.ms, letters, lines, motion: cut.motion, stagger: STAGGER, ground: cut.ground, zoom: cut.zoom, rows: rows || undefined });
+    steps.push({ ms: cut.ms, letters, lines, motion: cut.motion, stagger: STAGGER, ground: cut.ground, zoom: cut.zoom });
     was = letters;
   }
   if (drawing) steps.push({ ms: DRAW_MS, drawn: true, lines: drawnHeights(drawing) });
@@ -365,20 +361,6 @@ function Word({ letters, from, size, cx, base, motion, stagger = 0 }: {
   );
 }
 
-/** The name again in `rows`, a row in each one's face over the whole window `height` high, above and below the one on
-    `base`, hollow, those next to each other sliding in from either side, the nearest first. */
-function Rows({ rows, size, cx, base, height }: { rows: Letter[][]; size: number; cx: number; base: number; height: number }) {
-  const pitch = Math.round(size * PITCH), placed: { y: number; k: number; side: number }[] = [];
-  for (let k = 1; base - k * pitch + 0.3 * size > 0 || base + k * pitch - size < height; k++) {
-    placed.push({ y: base - k * pitch, k, side: 0 }, { y: base + k * pitch, k, side: 1 });
-  }
-  return placed.map(({ y, k, side }, j) => (
-    <g key={y} className={(k + side) % 2 ? 'intro-row r' : 'intro-row l'} style={{ animationDelay: `${(k - 1) * 30}ms` }}>
-      <Word letters={rows[j % rows.length]} size={size} cx={cx} base={y} />
-    </g>
-  ));
-}
-
 function shouldPlay() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
   return !prefFlag(PREFS.introSeen);
@@ -444,7 +426,6 @@ export function Intro() {
       {step && W > 0 && (
         <svg className="intro-art" width={W} height={H} style={{ '--em': `${s}px` } as CSSProperties}>
           {lines && <Guides lines={lines} width={W} end={!!step.drawn} />}
-          {step.rows && <Rows key={at} rows={step.rows} size={s} cx={W / 2} base={b} height={H} />}
           {step.letters
             ? <Word key={step.motion === 'slam' ? at : undefined} letters={step.letters} from={step.from} size={s} cx={W / 2} base={b} motion={step.motion} stagger={step.stagger} />
             : step.drawn ? drawn && <Drawing letters={drawn} size={size} />
