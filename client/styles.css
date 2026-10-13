@@ -1040,10 +1040,6 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .intro-drawn { fill: var(--ink); animation: intro-out .14s ease-in forwards; }
 .intro-guide { transition: transform .14s cubic-bezier(.2, .7, .2, 1); }
 .intro-guide line { stroke: var(--line-2); transform-box: view-box; transform-origin: 0 0; animation: intro-rule .35s cubic-bezier(.2, .7, .2, 1) both; }
-/* the lines' names, only under the drawing: in quickly and gone again before its ink fills */
-.intro-guide.name { opacity: .6; animation: intro-in .15s ease .05s both, intro-out .15s ease .45s forwards; }
-.intro-guide rect { fill: var(--paper); }
-.intro-guide text { font: 500 10px var(--ui); fill: var(--ink-3); }
 .intro-guides.end, .intro-points { animation: intro-out .2s ease forwards; }
 .intro-outline { fill: var(--ink); fill-opacity: 0; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-line .42s cubic-bezier(.4, 0, .2, 1) both, intro-fill .26s ease both; }
 .intro-pt { transform-box: view-box; animation: intro-pop .18s cubic-bezier(.3, 1.5, .5, 1) both; }
@@ -1057,7 +1053,6 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 @keyframes intro-mark { from { opacity: 0; } }
 @keyframes intro-word { from { opacity: 0; transform: translateY(6px); } }
 @keyframes intro-rule { from { transform: scaleX(0); } }
-@keyframes intro-in { from { opacity: 0; } }
 @keyframes intro-out { to { opacity: 0; } }
 @keyframes intro-line { to { stroke-dashoffset: 0; } }
 @keyframes intro-fill { to { fill-opacity: 1; } }

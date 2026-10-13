@@ -3,11 +3,12 @@
    browser's owner has saved (My designs, but for those begun as blackletter), and is then made as a font is made:
    - a scramble of characters grows in from the left, each in a font of its own, and settles into the name letter by
      letter, the letters still in fonts of their own, set evenly by their ink and each staying put once settled;
-   - the whole name cuts from font to font, some cuts mixing them, over the guide lines a font is drawn on (baseline,
-     x-height, cap height), which move to each font's own heights;
+   - the whole name cuts from font to font, each cut led by one font setting half its letters among others in fonts of
+     their own, some carried over from the cut before, so one cut mixes into the next (one cut all mixed), over the
+     guide lines a font is drawn on (baseline, x-height, cap height), which move to each leading font's own heights;
    - the name is drawn in the logo's letters, in capitals as the header sets it, as Points mode shows a letter: its
      points (corners and extremes) and handles come in along it as its outline is drawn on, the lines move to the
-     logo's heights and, standing still now, are named faintly as the inspector names them, and its ink fills in;
+     logo's heights and its ink fills in;
    - the drawing gives way to the wordmark, the header's logo in its font (Lineup), the very letters drawn, with the
      tagline under it, and the card fades to the app, the words first.
    A key or a click skips ahead to the fade. It is one SVG, so the name keeps one baseline under every font and the
@@ -41,10 +42,13 @@ const NOISE = 'ABDEGHKMNQRSUWXZadfghkmnqrsuwz0123456789&?!#%@*';
 const CHURN = 0.6;
 /** the room between two letters in fonts of their own, ink to ink, in ems */
 const LETTER_GAP = 0.07;
-/** The whole name's cuts, in order: a font's name sets it in that font, and `*` gives every letter a font of its own.
-    Neighbours look far apart, heavy after light, and the last, held longest, is the boldest. A font that didn't come
-    is left out. */
+/** The whole name's cuts, in order: a font's name leads the cut, setting LEAD of its letters, and `*` gives every
+    letter a font of its own. Neighbours look far apart, heavy after light, and the last, held longest, is the boldest.
+    A font that didn't come is left out. */
 const CUTS = ['Couture', 'Timber', '*', 'Serenade', 'Gumdrop', 'Dispatch', 'Orbital'];
+/** the share of the name's letters a cut's leading font sets, at places drawn afresh each cut; the rest are each in a
+    font of their own, a letter keeping the one it had the cut before by CHURN's odds, so one cut mixes into the next */
+const LEAD = 0.5;
 /** the cuts the saved fonts take, the latest saved first, so as many of them come up as there are, the cuts as many */
 const MINE_AT = ['Gumdrop', 'Timber', 'Dispatch'];
 /** how long to wait for the fonts, and the fewest to play with */
@@ -61,10 +65,9 @@ const HANDLES_FROM = 80, CORNER = Math.cos(25 * Math.PI / 180), CLEAR = 50;
 /** how long the wordmark shows, then how long it fades; FADE_MS matches .intro.leave's opacity transition in
     styles.css, its delay counted */
 const HOLD_MS = 1100, FADE_MS = 450;
-/** the window's edge to the lines' names (and the least to a scramble's letters), and the narrowest window that shows them (on phones they'd run into
-    the name); lines nearer than CLOSE px set their names side by side, GAP apart, and a line within ONE px of one
-    before it is left out, the two reading as one */
-const EDGE = 24, NAMED_FROM = 600, CLOSE = 14, GAP = 12, ONE = 6;
+/** the least room between the window's edge and a scramble's letters, and how near, in px, a guide line can come to
+    one before it without being left out, the two reading as one */
+const EDGE = 24, ONE = 6;
 
 /** What a letter is set in: an own font's web font, or a saved font's letters as the engine draws them. */
 type Face = { web: FreeFontRef; mine?: undefined } | { mine: Font; web?: undefined };
@@ -109,14 +112,6 @@ function inkOf({ web: r, mine }: Face, ch: string): [number, number] {
   return m ? [-m.actualBoundingBoxLeft / 100, m.actualBoundingBoxRight / 100] : [0, 0.6];
 }
 
-/** How wide a guide line's name is, in px (its type: .intro-guide text in styles.css). */
-function nameWidth(name: string) {
-  ctx ??= document.createElement('canvas').getContext('2d');
-  if (!ctx) return name.length * 5.5;
-  ctx.font = `500 10px ${getComputedStyle(document.documentElement).getPropertyValue('--ui')}`;
-  return ctx.measureText(name).width;
-}
-
 /** The drawing's heights: the font's own x-height and cap height, and the name's highest and lowest points. */
 function drawnHeights(data: Logo): Heights {
   const ys = [...MARK].flatMap(ch => (data.glyphs[ch]?.[1] ?? []).flat().map(n => n[1]));
@@ -141,7 +136,6 @@ function plan(fonts: FreeFontRef[], mine: Font[], drawing: Logo | null): Step[] 
   const own = fonts.map(web => ({ web })), saved = mine.map(f => ({ mine: f })), faces: Face[] = [...own, ...saved];
   // a face other than those in `not` that draws `ch`, so letters side by side differ
   const other = (ch: string, ...not: (Face | undefined)[]) => any(faces.filter(f => !not.includes(f) && (!f.mine || f.mine.glyph(ch))));
-  const mixed = (chars: string[]) => chars.reduce<Letter[]>((ls, ch) => [...ls, { ch, face: other(ch, ls.at(-1)?.face) }], []);
   // the scramble's next `n` letters after `was`, each changed by CHURN's odds (a new one always), in a face unlike
   // its neighbours' (`left` the face of the letter before them)
   const stir = (was: Letter[], n: number, left?: Face) => Array.from({ length: n }).reduce<Letter[]>((ls, _, i) => {
@@ -162,19 +156,27 @@ function plan(fonts: FreeFontRef[], mine: Font[], drawing: Logo | null): Step[] 
   const steps: Step[] = scramble.map((letters, i) => ({
     ms: i < NAME.length ? GROW_MS : i < scramble.length - 1 ? SETTLE_MS : SETTLE_MS * 3, letters, from: settled
   }));
-  // the cuts, a saved font in the place of an own one where there is one, the lines at each face's heights (a mixed
-  // cut keeps the last face's)
+  // the cuts, a saved font in the place of an own one where there is one, each mixing into the one before: its
+  // leading face sets LEAD of the letters, wherever they fall, and every other letter is in a face unlike its
+  // neighbours' and the leading one, keeping the one it had the cut before by CHURN's odds; the lines at the leading
+  // face's heights (a cut all mixed keeps the last's)
   const named = new Map(own.map(f => [f.web.family, f]));
   const cuts = CUTS.flatMap((c): (Face | '*')[] => {
     const face = c === '*' ? c : saved[MINE_AT.indexOf(c)] ?? named.get(c);
     return face ? [face] : [];
   });
-  let lines = heightsOf(cuts.find(c => c !== '*') ?? own[0]);
+  let lines = heightsOf(cuts.find(c => c !== '*') ?? own[0]), was = settled;
   cuts.forEach((c, k) => {
-    const ms = CUT_MS + SLOW_MS * (k / Math.max(1, cuts.length - 1)) ** 2;
-    if (c === '*') { steps.push({ ms, letters: mixed([...NAME]), lines }); return; }
-    lines = heightsOf(c) ?? lines;
-    steps.push({ ms, letters: [...NAME].map(ch => ({ ch, face: c })), lines });
+    const ms = CUT_MS + SLOW_MS * (k / Math.max(1, cuts.length - 1)) ** 2, lead = c === '*' ? undefined : c;
+    const at = new Set<number>();
+    while (lead && at.size < Math.round(NAME.length * LEAD)) at.add(Math.floor(Math.random() * NAME.length));
+    const letters = [...NAME].reduce<Letter[]>((ls, ch, i) => {
+      const prev = ls.at(-1)?.face, had = was[i].face, kept = Math.random() > CHURN && had !== prev && had !== lead;
+      return [...ls, { ch, face: lead && at.has(i) ? lead : kept ? had : other(ch, prev, lead) }];
+    }, []);
+    if (lead) lines = heightsOf(lead) ?? lines;
+    steps.push({ ms, letters, lines });
+    was = letters;
   });
   if (drawing) steps.push({ ms: DRAW_MS, drawn: true, lines: drawnHeights(drawing) });
   return [...steps, mark];
@@ -226,45 +228,22 @@ function drawName(data: Logo, k: number, cx: number, base: number) {
   });
 }
 
-/** A guide line: its id and name, where it runs across the window (px down) and how wide its name is. */
-interface Guide { id: string; name: string; at: number; w: number }
+/** A guide line: its id, and where it runs across the window (px down). */
+interface Guide { id: string; at: number }
 
 /** The guide lines at `h`'s heights over the baseline `base`, at `size` px to the em (the drawing's ascender is
     often all but its cap height). */
 const guidesAt = (h: Heights, base: number, size: number): Guide[] =>
   guideLines({ xh: h.xh, cap: h.cap, asc: h.asc ?? NaN, desc: h.desc ?? NaN })
     .filter(([, y]) => !Number.isNaN(y))
-    .map(([id, y, name]) => ({ id, name, at: Math.round(base - y * size) + 0.5, w: n1(nameWidth(name)) }))
+    .map(([id, y]) => ({ id, at: Math.round(base - y * size) + 0.5 }))
     .filter((l, i, ls) => !ls.slice(0, i).some(k => Math.abs(k.at - l.at) < ONE));
 
-/** Where each line's name starts along it, on a window wide enough to name them: near the left end, or, where the
-    line runs too close under another for their names to sit one over the other, past that one's name. */
-function namesAt(lines: Guide[], width: number) {
-  const xs = new Map<string, number>();
-  if (width < NAMED_FROM) return xs;
-  let up: { at: number; end: number } | undefined;
-  for (const l of [...lines].sort((a, b) => a.at - b.at)) {
-    const x = up && l.at - up.at < CLOSE ? up.end + GAP : EDGE;
-    xs.set(l.id, x);
-    up = { at: l.at, end: x + l.w };
-  }
-  return xs;
-}
-
-/** The guide lines across the window, each with its name (where `xs` places one) on it, the line broken around it,
-    so a name is never taken for a neighbour's. `end` fades them out with the drawing's points. */
-function Guides({ lines, xs, width, end }: { lines: Guide[]; xs: Map<string, number>; width: number; end: boolean }) {
+/** The guide lines across the window, unnamed. `end` fades them out with the drawing's points. */
+function Guides({ lines, width, end }: { lines: Guide[]; width: number; end: boolean }) {
   return (
     <g className={end ? 'intro-guides end' : 'intro-guides'} style={end ? { animationDelay: `${FILL_MS}ms` } : undefined}>
-      <g>{lines.map(l => <g key={l.id} className="intro-guide" style={{ transform: `translateY(${l.at}px)` }}><line x2={width} /></g>)}</g>
-      <g>
-        {lines.map(l => xs.has(l.id) && (
-          <g key={l.id} className="intro-guide name" style={{ transform: `translate(${xs.get(l.id)}px, ${l.at}px)` }}>
-            <rect x={-5} y={-6} width={l.w + 10} height={12} />
-            <text y={3.5}>{l.name}</text>
-          </g>
-        ))}
-      </g>
+      {lines.map(l => <g key={l.id} className="intro-guide" style={{ transform: `translateY(${l.at}px)` }}><line x2={width} /></g>)}
     </g>
   );
 }
@@ -396,7 +375,7 @@ export function Intro() {
     <div ref={ref} className={phase === 'leave' ? 'intro leave' : 'intro'} onClick={() => setPhase('leave')} aria-hidden="true">
       {step && W > 0 && (
         <svg className="intro-art" width={W} height={H}>
-          {lines && <Guides lines={lines} xs={step.drawn ? namesAt(lines, W) : new Map()} width={W} end={!!step.drawn} />}
+          {lines && <Guides lines={lines} width={W} end={!!step.drawn} />}
           {step.letters
             ? <Word letters={step.letters} from={step.from} size={size} cx={W / 2} base={base} />
             : step.drawn ? drawn && <Drawing letters={drawn} size={size} />

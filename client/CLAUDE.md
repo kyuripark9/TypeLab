@@ -152,8 +152,8 @@ the small name over a group (section heads, the nav's page groups, menu heads, f
 `Asset/lineup.typelab.json`, one weight, never bolded) only for the logo, in capitals, the header's and the opening's
 (which draws it first from `client/fonts/Lineup.json`, its capitals' outlines, written with it): the design was drawn
 for capitals, and its small letters run into each other. The Feeling names are the one exception, each in an own
-font (`.feel`). Labels drawn in the canvases and diagrams take `--t-xs` too; only the opening's guide names keep
-their own size. Text runs at a line height of 1.45, headings at 1.25.
+font (`.feel`). Labels drawn in the canvases and diagrams take `--t-xs` too. Text runs at a line height of 1.45,
+headings at 1.25.
 Colours are a type specimen sheet's: black ink on light ivory paper (`#f7f2e9`), paler ivory sheets, warm greys,
 a warm grey like its construction lines (`#e6ddd0`) for hairlines, tags and tracks, and its point markers' orange
 (`#cc4516`, deep enough for white on it) as the one accent. Sheets, cards, tiles and menus are square and flat
