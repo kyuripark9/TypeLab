@@ -1117,7 +1117,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .intro-pt rect, .intro-pt circle { fill: var(--surface); stroke: var(--accent); stroke-width: 1.2; }
 .intro-pt line { stroke: var(--accent); stroke-width: 1; }
 .intro-pt circle.h { fill: var(--accent); stroke: none; }
-.intro-tag { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: .3em; font-size: 18px; color: var(--ink-3); }
+.intro-tag { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: .3em; font-size: var(--t-xl); color: var(--ink-3); }
 .intro-tag span { animation: intro-word .6s ease both; }
 /* the note saying how to skip the card, at its foot, a moment after it starts and gone as the wordmark comes */
 .intro-skip { position: absolute; left: 0; right: 0; bottom: 28px; text-align: center; font: 500 var(--t-xs) var(--ui); color: var(--ink-3); transition: opacity .3s ease; animation: intro-mark .4s ease .8s backwards; }

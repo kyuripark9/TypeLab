@@ -15,9 +15,9 @@
    stays slides along to its new place, the guide lines with it, all on one easing;
    - the name is drawn in the logo's letters, in capitals as the header sets it, as Points mode shows a letter: its
      points (corners and extremes) and handles come in along it as its outline is drawn on, the lines move to the
-     logo's heights and its letters' edges, and its ink fills in;
-   - the drawing gives way to the wordmark, the header's logo in its font (Lineup), the very letters drawn, with the
-     tagline under it, and the card fades to the app, the words first.
+     logo's heights and its letters' edges, and its ink fills in, as the tagline comes in under it word by word;
+   - the drawing gives way to the wordmark, the header's logo in its font (Lineup), the very letters drawn, the
+     tagline staying under it, and the card fades to the app, the words first.
    A key or a click skips ahead to the fade, as a faint note at the card's foot says. It is one SVG, so the name keeps one baseline under every font and the
    lines sit true to it. The own fonts are the cards' web fonts, a saved font is drawn as the engine builds it (as My
    designs draws its name), and the drawing is the logo's capitals as tools/fonts/ui.ts writes them beside its font
@@ -436,9 +436,10 @@ export function Intro() {
           </>}
         </svg>
       )}
-      {step && !step.letters && !step.drawn && (
+      {/* the tagline, from the drawing on, so it is read before the card goes */}
+      {step && !step.letters && (
         <div className="intro-tag" style={{ top: n1(base + 0.36 * size) }}>
-          {'Experiment with type.'.split(' ').map((w, i) => <span key={i} style={{ animationDelay: `${300 + i * 150}ms` }}>{w}</span>)}
+          {'Experiment with type.'.split(' ').map((w, i) => <span key={i} style={{ animationDelay: `${200 + i * 120}ms` }}>{w}</span>)}
         </div>
       )}
       {/* how to skip it, while the name is still being made */}
