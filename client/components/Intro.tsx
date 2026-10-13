@@ -1,9 +1,9 @@
 /* The opening title card, played on the first visit in a browser (not with reduced motion). "TypeLab" comes up in
    TypeLab's own fonts, the ones the Style page's cards start from (all but the blackletter), and in the fonts this
    browser's owner has saved (My designs, but for those begun as blackletter), and is then made as a font is made:
-   - the name's first letter comes up, a scramble of characters grows from it to its right, each in an own font of
-     its own, and it settles into the name letter by letter, the letters still in fonts of their own, set evenly by
-     their ink and each staying put once settled;
+   - the name's first letter comes up, turning from font to font as a scramble of characters grows from it to its
+     right, each in an own font of its own, and it settles into the name letter by letter, the letters still in fonts
+     of their own, set evenly by their ink and each staying put once settled;
    - the whole name cuts from font to font, four cuts on one beat, each led by one font setting half its letters among
      others in fonts of their own, some carried over from the cut before, so one cut mixes into the next, over the
      guide lines a font is drawn on (baseline, x-height, cap height), which move to each leading font's own heights;
@@ -53,12 +53,13 @@ const LETTER_GAP = 0.07;
 const CUTS = ['Couture', 'Serenade', 'Gumdrop', 'Orbital'];
 /** how long each cut shows, the last held longest, and how far apart, in ms, its letters that change start rolling,
     from the left */
-const CUT_MS = 300, LAST_MS = 600, STAGGER = 14;
+const CUT_MS = 300, LAST_MS = 400, STAGGER = 14;
 /** The slot the name's letters roll through, in ems over and under the baseline: what a letter draws outside it is
     cut off, so it is roomy, and .intro-roll's travel in styles.css carries a letter clear of it. */
 const SLOT = [1.3, 0.55] as const;
 /** the share of the name's letters a cut's leading font sets, at places drawn afresh each cut; the rest are each in a
-    font of their own, a letter keeping the one it had the cut before by CHURN's odds, so one cut mixes into the next */
+    font of their own, a letter keeping the one it had the cut before by CHURN's odds, so one cut mixes into the next,
+    but never for two cuts running, so no font stays long */
 const LEAD = 0.5;
 /** the cuts the saved fonts take, the latest saved first, so as many of them come up as there are, the cuts as many */
 const MINE_AT = ['Gumdrop', 'Couture', 'Serenade'];
@@ -165,20 +166,24 @@ function plan(fonts: FreeFontRef[], mine: Font[], drawing: Logo | null): Step[] 
     const prev = ls.at(-1)?.face ?? left, kept = i < was.length && Math.random() > CHURN && was[i].face !== prev, ch = any([...NOISE]);
     return [...ls, kept ? was[i] : letter(ch, other(ch, own, prev, was[i + 1]?.face), true)];
   }, []);
-  // the name's first letter comes first, and the scramble grows from it to its right
-  const settled: Letter[] = [letter(NAME[0], other(NAME[0], faces))];
+  // the name's first letter comes first, turning from font to font as the scramble grows from it to its right
   const scramble: Letter[][] = [];
-  let noise: Letter[] = [];
-  for (let n = 0; n < NAME.length; n++) scramble.push([settled[0], ...(noise = stir(noise, n, settled[0].face))]);
+  let noise: Letter[] = [], first: Letter | undefined;
+  for (let n = 0; n < NAME.length; n++) {
+    first = letter(NAME[0], other(NAME[0], own, first?.face), true);
+    scramble.push([first, ...(noise = stir(noise, n, first.face))]);
+  }
   // settling from the left, each letter keeps the face it settled in; the full name, all mixed, stays a moment longer
-  for (let n = 2; n <= NAME.length; n++) {
-    settled.push(letter(NAME[n - 1], other(NAME[n - 1], faces, settled.at(-1)?.face, noise[1]?.face)));
-    noise = stir(noise.slice(1), NAME.length - n, settled[n - 1].face);
+  const settled: Letter[] = [];
+  for (let n = 1; n <= NAME.length; n++) {
+    const rest = n === 1 ? noise : noise.slice(1);
+    settled.push(letter(NAME[n - 1], other(NAME[n - 1], faces, settled.at(-1)?.face, rest[0]?.face)));
+    noise = stir(rest, NAME.length - n, settled[n - 1].face);
     scramble.push([...settled, ...noise]);
   }
   // all of it set from where the settled name starts, so it grows from there and a settled letter stays put
   const steps: Step[] = scramble.map((letters, i) => ({
-    ms: i < NAME.length ? GROW_MS : i < scramble.length - 1 ? SETTLE_MS : SETTLE_MS * 3, letters, from: settled
+    ms: i < NAME.length ? GROW_MS : i < scramble.length - 1 ? SETTLE_MS : SETTLE_MS * 2, letters, from: settled
   }));
   // the cuts, a saved font in the place of an own one where there is one, each mixing into the one before: its
   // leading face sets LEAD of the letters, wherever they fall, and every other letter is in a face unlike its
@@ -189,16 +194,19 @@ function plan(fonts: FreeFontRef[], mine: Font[], drawing: Logo | null): Step[] 
     const lead = saved[MINE_AT.indexOf(c)] ?? named.get(c);
     return lead ? [lead] : [];
   });
-  let lines = heightsOf(cuts[0] ?? own[0]), was = settled;
+  // (`carried`, the letters the cut before kept from the one before it, which change now)
+  let lines = heightsOf(cuts[0] ?? own[0]), was = settled, carried = new Set<Letter>();
   cuts.forEach((lead, k) => {
     const at = new Set<number>();
     while (at.size < Math.round(NAME.length * LEAD)) at.add(Math.floor(Math.random() * NAME.length));
     const letters = [...NAME].reduce<Letter[]>((ls, ch, i) => {
-      const prev = ls.at(-1)?.face, had = was[i], kept = Math.random() > CHURN && had.face !== prev && had.face !== lead;
+      const prev = ls.at(-1)?.face, had = was[i];
+      const kept = Math.random() > CHURN && !carried.has(had) && had.face !== prev && had.face !== lead;
       return [...ls, at.has(i) ? letter(ch, lead) : kept ? had : letter(ch, other(ch, faces, prev, lead))];
     }, []);
     lines = heightsOf(lead) ?? lines;
     steps.push({ ms: k < cuts.length - 1 ? CUT_MS : LAST_MS, letters, lines, cut: true });
+    carried = new Set(letters.filter((l, i) => l === was[i]));
     was = letters;
   });
   if (drawing) steps.push({ ms: DRAW_MS, drawn: true, lines: drawnHeights(drawing) });
