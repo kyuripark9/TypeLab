@@ -235,12 +235,12 @@ function ScopeToggle({ ch, pen }: { ch: string; pen: boolean }) {
             onClick={() => actions.setScope(id)}><ScopeIcon id={id} />{label}</button>
         ))}
       </div>
-      {(custom || drawn) && (
-        <button className="btn ghost small" onClick={() => actions.syncLetter(ch)}
-          title={`Drop ${ch}'s ${custom && drawn ? 'own settings and its edits in Points' : custom ? 'own settings' : 'edits in Points'}, so it follows the other letters again`}>
-          Reset {ch}
-        </button>
-      )}
+      {/* while the letter has nothing to reset, Reset holds its place unseen (as the History clock does), so the first
+          change to it doesn't push the head onto another line and shrink the letter under the pointer */}
+      <button className="btn ghost small insp-reset" disabled={!custom && !drawn} onClick={() => actions.syncLetter(ch)}
+        title={`Drop ${ch}'s ${custom && drawn ? 'own settings and its edits in Points' : custom ? 'own settings' : 'edits in Points'}, so it follows the other letters again`}>
+        Reset {ch}
+      </button>
       <LetterHistory ch={ch} />
     </>
   );

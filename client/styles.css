@@ -606,6 +606,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .insp-head { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 60px 10px 14px; border-bottom: 1px solid var(--line); }
 .insp-head > * { flex: none; }
 .insp-view { display: flex; align-items: center; gap: 14px; min-height: 34px; margin-left: auto; }
+/* Reset and the letter's History hold their places unseen till the letter has something of its own: the head keeps
+   its lines, and the letter its size, as a first change makes them appear */
+.insp-reset:disabled, .insp-head .history > .btn:disabled { visibility: hidden; }
 .insp-close { position: absolute; top: 10px; right: 14px; }
 .insp-title { display: flex; align-items: baseline; gap: 8px; min-width: 28px; justify-content: center; }
 .insp-title h2 { margin: 0; font-size: var(--t-2xl); }

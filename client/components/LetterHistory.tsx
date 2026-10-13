@@ -9,20 +9,21 @@ import { n1, useDismiss } from '../lib/hooks';
 import { actions, useEditor, useFont } from '../state/editor';
 
 /** The History button (a clock turning back, to keep the inspector's head on one line), while the letter has a
-    record, and its menu. */
+    record, and its menu. Till then it holds its place unseen (styles.css), so the letter's first edit doesn't push
+    the head onto another line and shrink the canvas under the pointer. */
 export function LetterHistory({ ch }: { ch: string }) {
   const list = useEditor(s => s.log[ch]);
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   useDismiss(open, setOpen, wrap, true);
-  if (!list?.length) return null;
+  const none = !list?.length;
   return (
     <div className="history" ref={wrap}>
-      <button className="btn ghost icon" aria-label={`History of ${ch}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(o => !o)}
+      <button className="btn ghost icon" aria-label={`History of ${ch}`} aria-haspopup="menu" aria-expanded={open} disabled={none} onClick={() => setOpen(o => !o)}
         title={`History of ${ch}: every version your edits made, kept with the font, to bring back`}>
         <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.6 8a5.4 5.4 0 1 0 1.6-3.8M2.5 2.5v2.2h2.2M8 5v3.2l2.1 1.4" /></svg>
       </button>
-      {open && <HistoryMenu ch={ch} list={list} close={() => setOpen(false)} />}
+      {open && !none && <HistoryMenu ch={ch} list={list} close={() => setOpen(false)} />}
     </div>
   );
 }
