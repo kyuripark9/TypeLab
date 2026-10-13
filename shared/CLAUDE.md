@@ -20,6 +20,7 @@ Everything here runs in the browser and on the server alike, so nothing touches 
 | `family.ts` | A font family: `WEIGHTS`, `FAMILY_STYLES`, `familyMember(s)`, the anchor weight, `ownStyle`, `SLANTED` |
 | `traits.ts` | The Style page's Adjust tab: `TRAIT_SECTIONS`, `applyTraits`, `traitsKey` |
 | `letter-log.ts` | Each letter's record of its own edits, kept with a design beside its settings: `LetterEdit`, `recordEdits`, `withOwn`, `sameOwn`, `packLog`/`cleanLog` (saved packed: a drawing leaves out the settings it was drawn at where the one before it has them), `upgradeLog`, `mergeLogs`; `LOG_KEEP` edits a letter, `LOG_BYTES` a design |
+| `font-log.ts` | The font's History, kept with a design beside its settings: `FontVersion` (the whole design after a change, the settings and letters it changed, what made it), `recordVersion`, `sameDesign`, `packVersions`/`cleanVersions` (saved packed: each version only what changed from the one before, the first whole), `upgradeVersions`, `mergeVersions`; `VERSIONS_KEEP`, `VERSIONS_BYTES` |
 | `design.ts`, `account.ts` | What client and server exchange: `Design`, `DesignInput`, `cleanName`, `slug`; `User`, `EmailCheck`, `GoogleResult`, the sign-up rules |
 
 ## The settings spec
@@ -112,9 +113,10 @@ settings it was drawn at (`Drawn.at`, every setting but `glyphs` and `outlines`,
 `.typelab.json` import in `client/components/Header.tsx`, a file without a version being version 1). Version 1
 kept the Lowercase height on its first scale (`xHeightFromOld`); version 2 had only slot blocks, so a design (or a
 letter) built from blocks then reads `blockForm: 'slots'`; version 3 drawings stood as drawn whatever the settings,
-so each reads as drawn at its design's settings (`drawnAtDesign`), where it stands as it did. A design's letters'
-record of their edits (`letter-log.ts`) holds letters' own settings and drawings too: `upgradeLog` brings it up with
-its design wherever `upgradeParams` runs, and its fields (`t`, `keys`, `own`, `drawn`, `back`, `by`) keep their names.
+so each reads as drawn at its design's settings (`drawnAtDesign`), where it stands as it did. The Histories hold
+settings too: each letter's record (`letter-log.ts`) and the font's versions (`font-log.ts`) are brought up with their
+design wherever `upgradeParams` runs (`upgradeLog`, `upgradeVersions`), and their fields (`t`, `keys`, `own`, `drawn`,
+`back`, `by`; `letters`, `made`, `base`, `styleId`, `set`, `glyphs`, `outlines`) keep their names.
 
 `isValidParams` accepts only input `sanitizeParams` would leave unchanged (a `freeAt` may lack keys), so the client
 always sends complete, current settings or the API answers 400.

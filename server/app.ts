@@ -3,6 +3,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import express, { type NextFunction, type Request, type Response, type Router } from 'express';
 import { styleById } from '../shared/content';
 import { cleanName, slug, type DesignInput } from '../shared/design';
+import { cleanVersions, packVersions } from '../shared/font-log';
 import { cleanLog } from '../shared/letter-log';
 import { isValidParams, type Params } from '../shared/params';
 import { FREE_FAMILIES, parseFontId } from '../shared/free-fonts';
@@ -21,12 +22,13 @@ class HttpError extends Error {
 const fields = (body: unknown) => (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
 
 /** Validate a design body. Params must already be valid: the client never sends partial ones. The letters' record of
-    their edits is only kept, so what of it doesn't read is dropped rather than refused. */
+    their edits and the font's History are only kept, so what of them doesn't read is dropped rather than refused. */
 function readDesign(body: unknown): DesignInput {
   const b = fields(body);
   if (!isValidParams(b.params)) throw new HttpError(400, 'params is missing or has invalid values');
   if (typeof b.styleId !== 'string' || !styleById(b.styleId)) throw new HttpError(400, 'styleId is not a known starting style');
-  return { name: cleanName(b.name), styleId: b.styleId, params: b.params, ...(b.log === undefined ? {} : { log: cleanLog(b.log) }) };
+  return { name: cleanName(b.name), styleId: b.styleId, params: b.params, ...(b.log === undefined ? {} : { log: cleanLog(b.log) }),
+    ...(b.versions === undefined ? {} : { versions: packVersions(cleanVersions(b.versions)) }) };
 }
 
 function readExport(body: unknown) {
@@ -426,7 +428,8 @@ export function createApp(store: DesignStore, { google = null, fonts = new FreeF
   const app = express();
   app.disable('x-powered-by');
   const api = express.Router();
-  api.use(express.json({ limit: '4mb' }));
+  // (a design brings its letters' record and its History with it)
+  api.use(express.json({ limit: '8mb' }));
 
   api.get('/health', (_req, res) => { res.json({ ok: true }); });
 

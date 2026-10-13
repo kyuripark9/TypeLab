@@ -1,10 +1,10 @@
 /* A letter's record of its own edits (shared/letter-log.ts), opened from the inspector's History: how the letter
    stood after each edit, newest first, each drawn small as it would stand in the design now, the one it stands as
    marked Now, and at the foot the font's own letter. Picking one brings the letter back to it in one undo step. */
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { CONTROLS, SUBS, type ControlKey } from '../../shared/content';
+import { memo, useMemo, useRef, useState } from 'react';
 import { buildFont, type Font, type Glyph } from '../../shared/engine';
 import { ownOf, sameOwn, withOwn, type LetterEdit, type Own } from '../../shared/letter-log';
+import { settingName, someOf, useDrawnRows, useInWindow, when } from '../lib/history';
 import { n1, useDismiss } from '../lib/hooks';
 import { actions, useEditor, useFont } from '../state/editor';
 
@@ -27,8 +27,6 @@ export function LetterHistory({ ch }: { ch: string }) {
   );
 }
 
-/** The rows that draw their letter as the menu opens, and how many more each frame after, so it opens at once. */
-const FIRST = 6, MORE = 3;
 /** The font's own letter: nothing of its own. */
 const NONE: Own = {};
 
@@ -38,18 +36,10 @@ function HistoryMenu({ ch, list, close }: { ch: string; list: LetterEdit[]; clos
   // newest first, each with whether the letter stands as it now; the newest of those is Now
   const rows = useMemo(() => list.map((e, i) => ({ e, i, same: sameOwn(e, { own, drawn }) })).reverse(), [list, own, drawn]);
   const plain = !own && !drawn, now = rows.find(r => r.same)?.i ?? (plain ? -1 : -2);
+  // (on phones the button sits at the left)
   const menu = useRef<HTMLDivElement>(null);
-  // kept inside the window: where its left side would run out (on phones the button sits at the left), it moves right
-  useLayoutEffect(() => {
-    const el = menu.current, out = el ? 8 - el.getBoundingClientRect().left : 0;
-    if (el && out > 0) el.style.right = `${parseFloat(getComputedStyle(el).right) - out}px`;
-  }, []);
-  const [shown, setShown] = useState(FIRST);
-  useEffect(() => {
-    if (shown > rows.length) return;
-    const id = requestAnimationFrame(() => setShown(n => n + MORE));
-    return () => cancelAnimationFrame(id);
-  }, [shown, rows.length]);
+  useInWindow(menu);
+  const shown = useDrawnRows(rows.length);
   const bring = (e: LetterEdit) => {
     if (actions.restoreLetter(ch, e)) actions.toast(`${ch} is back as it was at ${when(e.t)} · ⌘Z undoes it`);
     close();
@@ -98,11 +88,6 @@ function versionOf(font: Font, ch: string, o: Own): Glyph | null {
   return g;
 }
 
-/** The names of what a customized letter sets one by one (ID_KEYS), as the panel's lists of them name them. */
-const EACH: Record<string, string> = {
-  terminalEnds: 'Each end', terminalCurls: 'Each end’s curl', corners: 'Each corner', innerCorners: 'Each corner’s inside',
-  cornerSteps: 'Each corner’s step', strokeWeights: 'Each stroke', joinGaps: 'Each join'
-};
 /** What made a version: the settings it changed by their labels (a few, then how many more), its points, carried
     from another letter, brought back (its picture says which), or Reset; "As it was" where the record notes how the
     letter stood before an edit. */
@@ -110,13 +95,6 @@ function whatOf(e: LetterEdit): string {
   if (e.back !== undefined) return 'Brought back';
   if (!e.own && !e.drawn) return 'Reset';
   if (!e.keys.length) return 'As it was';
-  const names = e.keys.map(k => (k === 'points' ? 'Points' : EACH[k] ?? CONTROLS[k as ControlKey]?.label ?? SUBS[k as keyof typeof SUBS]?.label ?? k));
-  const what = names.length > 3 ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} more` : names.join(', ');
+  const what = someOf(e.keys.map(k => (k === 'points' ? 'Points' : settingName(k) ?? k)));
   return e.by ? `${what} · carried from ${e.by}` : what;
-}
-
-/** When an edit was made: the time today, the day and time before. */
-function when(t: number): string {
-  const d = new Date(t), time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${time}`;
 }

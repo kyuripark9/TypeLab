@@ -1,11 +1,12 @@
 /* The editor's top bar: the logo (Brand, also on the library and account pages), the design's name
-   renamed in place, the style it started from, undo and redo, Guide, My designs, Save (asking for a
+   renamed in place, the style it started from, undo and redo and the font's History, Guide, My designs, Save (asking for a
    name on a first save) and Export, a window in the middle of the screen: the font in any styles of the
    design's family, one or several, a specimen, and settings as .typelab.json out and in. */
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { styleById } from '../../shared/content';
 import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
+import { cleanVersions, packVersions, upgradeVersions } from '../../shared/font-log';
 import { cleanLog, packLog, upgradeLog } from '../../shared/letter-log';
 import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../../shared/params';
 import { anchorOf, FAMILY_STYLES, ownStyle } from '../../shared/family';
@@ -15,6 +16,7 @@ import { useEscape } from '../lib/hooks';
 import { DESIGNS, NEW_DESIGN, designPath } from '../lib/routes';
 import { actions, isDirty, savedName, useEditor } from '../state/editor';
 import { FamilyPicker, useFamilySamplesAhead } from './Family';
+import { FontHistory } from './FontHistory';
 
 /** Under the export's name, written in a free font: the name it exports under when the font's licence
     reserves part of it (a changed font may not take a reserved name, see withoutReserved). */
@@ -86,6 +88,7 @@ export function Header({ onSave, onGuide, naming, onNamed, onCancelNaming }: Hea
         <button className="btn ghost icon" onClick={() => actions.travel(1)} disabled={!canRedo} title="Redo (⇧⌘Z)" aria-label="Redo">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" strokeLinejoin="round" /></svg>
         </button>
+        <FontHistory />
         <span className="sep" />
         <button className="btn ghost guide-btn" onClick={onGuide}>Guide</button>
         <Link className="btn ghost" to={DESIGNS}>My designs</Link>
@@ -234,7 +237,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   const exportJSON = () => {
     takeName();
     const s = useEditor.getState(), name = cleanName(s.name);
-    const data = { app: 'TypeLab', version: PARAMS_VERSION, name, styleId: s.styleId, params: s.params, log: packLog(s.log) };
+    const data = { app: 'TypeLab', version: PARAMS_VERSION, name, styleId: s.styleId, params: s.params, log: packLog(s.log), versions: packVersions(s.versions) };
     download(`${slug(name)}.typelab.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     setDone('json'); setError(null);
   };
@@ -247,8 +250,9 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
       const o = JSON.parse(await file.text());
       if (!o || typeof o !== 'object' || !o.params || typeof o.params !== 'object') throw new Error();
       const version = typeof o.version === 'number' ? o.version : 1;
-      // the letters' record of their edits that came with it joins the open design's
-      actions.replaceParams(sanitizeParams(upgradeParams(o.params, version)), typeof o.styleId === 'string' ? o.styleId : undefined, cleanLog(upgradeLog(o.log, o.params, version)));
+      // the letters' record of their edits and the History that came with it join the open design's
+      actions.replaceParams(sanitizeParams(upgradeParams(o.params, version)), typeof o.styleId === 'string' ? o.styleId : undefined,
+        cleanLog(upgradeLog(o.log, o.params, version)), cleanVersions(upgradeVersions(o.versions, version)));
       if (typeof o.name === 'string') actions.setName(cleanName(o.name));
       actions.toast('Design file opened');
       onClose();

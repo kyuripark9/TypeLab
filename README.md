@@ -279,7 +279,9 @@ was drawn at: it keeps the shape you give it, and weight, contrast, width, the h
 and slant still move it as they move from those, for all letters or only this one. **Reset** gives it back to
 the font. **History** (the clock beside it) keeps every version of the letter its edits made, with Only R or in
 Points, a Reset too, saved with the design: newest first, each drawn small, and picking one brings the letter back
-to it in one undo step.
+to it in one undo step. The **History** beside undo and redo does the same for the whole font: every change, to
+every letter or one, a style picked or a design file opened, each drawn small as it was; picking one brings the whole
+font back to it.
 
 **Construction grid**, in the inspector's header, draws the letter as an outline on the grid it is
 built on, like the grid pages of a type specimen: its straight edges carried on across the canvas,

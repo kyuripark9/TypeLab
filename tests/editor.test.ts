@@ -1,7 +1,7 @@
 /* The editor's store (client/state/editor.ts), run without a browser: starting a design in its free font,
    a customized letter's own values, a letter drawn in Points keeping the settings it was drawn at, loading a style
    over changes, renaming, a change folded into the last undo step, how far undo reaches, and each letter's record of
-   its edits (kept past undo, brought back, saved and loaded). Nothing here
+   its edits and the font's History (kept past undo, brought back, saved and loaded). Nothing here
    draws a design written in a free font, which would fetch the font from the server. */
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
@@ -11,7 +11,7 @@ import { DEFAULTS, freeAtOf } from '../shared/params';
 import { actions, designInput, isDirty, useEditor } from '../client/state/editor';
 
 const state = () => useEditor.getState();
-const serif = STYLES.find(s => s.id === 'serif')!;
+const serif = STYLES.find(s => s.id === 'serif')!, slab = STYLES.find(s => s.id === 'slab')!;
 
 describe('the editor', () => {
   beforeEach(() => {
@@ -164,6 +164,33 @@ describe('the editor', () => {
     const b = { t: 5, keys: ['width'], own: { width: 0.2 } };
     actions.replaceParams({ ...state().params, glyphs: { b: { width: 0.2 } } }, undefined, { b: [b] });
     assert.deepEqual(state().log, { a: state().log.a, b: [b] });
+  });
+
+  it('records every change in the font\'s History past undo, brings any version back in one undo step, and saves it', () => {
+    actions.setOption('weight', 0.8);
+    useEditor.setState({ scope: 'letter', inspect: 'a' });
+    actions.setOption('width', 0.3);
+    actions.loadStyle('slab');
+    assert.deepEqual(state().versions.map(v => [v.keys, v.letters, v.made ?? null]),
+      [[[], [], null], [['weight'], [], null], [[], ['a'], null], [state().versions[3].keys, ['a'], 'style']]);
+    // undone, the versions stay
+    actions.travel(-3);
+    assert.equal(state().versions.length, 4);
+    // the font as it was after the letter's edit: its style, settings and the letter's own, in one undo step (the
+    // History first noting how it stood, undone to its start)
+    const v = state().versions[2], steps = state().hi;
+    assert.equal(actions.restoreVersion(v), true);
+    assert.equal(state().hi, steps + 1);
+    assert.deepEqual([state().styleId, state().params.weight, state().params.glyphs.a], [v.styleId, 0.8, { width: 0.3 }]);
+    assert.equal(state().versions.at(-1)!.back, v.t);
+    assert.equal(actions.restoreVersion(v), false, 'it stands so already');
+    // the History goes with a save, packed, and comes back with the design
+    const input = designInput(state());
+    actions.loadDesign({ id: 'd3', name: 'Kept', styleId: state().styleId, params: input.params, versions: JSON.parse(JSON.stringify(input.versions)), createdAt: '', updatedAt: '' });
+    assert.deepEqual(state().versions.map(x => x.params.weight), [DEFAULTS.weight, 0.8, 0.8, slab.params.weight, DEFAULTS.weight, 0.8]);
+    // the first change after opening it goes on from its newest version
+    actions.setOption('contrast', 0.1);
+    assert.equal(state().versions.length, 7);
   });
 
   it('keeps the last 200 steps to undo', () => {

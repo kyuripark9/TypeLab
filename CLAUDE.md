@@ -55,7 +55,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 - A refactor changes no outlines. Floating-point order is behaviour: summing in another order, or swapping a local
   copy for a shared helper, can move points (shared/engine/CLAUDE.md).
 - What users have saved never changes shape: setting keys, option values, style ids, free-font ids (own fonts' names included), the stroke, end,
-  corner, join and turn ids, the fields of a letter's record of its edits, `localStorage` keys, and the addresses `/`, `/d/:id`, `/designs`, `/account`. When saved
+  corner, join and turn ids, the fields of the Histories (a letter's record, the font's versions), `localStorage` keys, and the addresses `/`, `/d/:id`, `/designs`, `/account`. When saved
   settings must be read differently, bump `PARAMS_VERSION` and add the step to `upgradeParams`
   (`shared/params/clean.ts`). Compatibility code (old columns, old option names, older contrast) stays.
 - A glyph function keeps its strokes in their order and adds a new one after them: saved designs key a letter's own
@@ -94,7 +94,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 | The control panel | `client/components/Panel.tsx`, `client/components/panel/` | client/CLAUDE.md |
 | The Style page: cards, finder, filters, traits | `client/components/Stage.tsx`, `Finder.tsx`, `BuiltText.tsx`, `panel/StylePanel.tsx` | client/CLAUDE.md |
 | The inspector and dragging a letter's parts | `client/components/Inspector.tsx`, `client/lib/drag.ts` | client/CLAUDE.md |
-| A letter's History, the record of its edits kept with the design | `shared/letter-log.ts`, `client/components/LetterHistory.tsx`, `restoreLetter` in `client/state/editor.ts` | client/CLAUDE.md, shared/CLAUDE.md |
+| The Histories, the font's and each letter's, kept with the design | `shared/font-log.ts`, `shared/letter-log.ts`, `client/components/FontHistory.tsx`, `LetterHistory.tsx`, `client/lib/history.ts`, `restoreVersion` and `restoreLetter` in `client/state/editor.ts` | client/CLAUDE.md, shared/CLAUDE.md |
 | Header and the Export window; nav, glyph strip, toast; the tour; sign-in | `Header.tsx`; `Chrome.tsx`; `Guide.tsx`; `Account.tsx` and `client/state/auth.ts` | client/CLAUDE.md |
 | The "changes nothing here" note | `client/lib/reach.ts`, `client/components/panel/reach.tsx` | client/CLAUDE.md |
 | What a browser remembers | `client/lib/prefs.ts` (every `localStorage` key) | client/CLAUDE.md |

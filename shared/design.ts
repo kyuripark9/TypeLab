@@ -1,4 +1,5 @@
 /* A saved design as exchanged between client and server. */
+import type { Packed } from './font-log';
 import type { LetterLog } from './letter-log';
 import type { Params } from './params';
 
@@ -9,6 +10,8 @@ export interface Design {
   params: Params;
   /** each letter's record of its own edits, packed (shared/letter-log.ts); left out of the list of designs */
   log?: LetterLog;
+  /** the font's History, packed (shared/font-log.ts); left out of the list of designs */
+  versions?: Packed[];
   createdAt: string;
   updatedAt: string;
 }
@@ -19,6 +22,8 @@ export interface DesignInput {
   params: Params;
   /** each letter's record of its own edits, packed; left out, a saved design keeps the one it has */
   log?: LetterLog;
+  /** the font's History, packed; left out, a saved design keeps the one it has */
+  versions?: Packed[];
 }
 
 export const NAME_MAX = 60;

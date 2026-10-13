@@ -13,6 +13,7 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { after, before, describe, it } from 'node:test';
 import type { Design } from '../shared/design';
+import { cleanVersions, packVersions } from '../shared/font-log';
 import { STYLES } from '../shared/content';
 import { ALL_CHARS } from '../shared/engine';
 import { createHash } from 'node:crypto';
@@ -115,6 +116,20 @@ describe('designs API', () => {
     assert.ok(!('log' in list[0]));
     assert.equal((await call('PUT', `/designs/${created.id}`, { name: 'Renamed', styleId: 'serif', params })).status, 200);
     assert.deepEqual(((await (await call('GET', `/designs/${created.id}`)).json()) as Design).log, clean);
+  });
+
+  it('keeps the font\'s History, cleaned, out of the list, and when a save sends none', async () => {
+    const params = { ...serif.params, weight: 0.8 };
+    const versions = [{ t: 1, keys: [], letters: [], base: true, styleId: 'serif', set: serif.params, glyphs: {}, outlines: {} }, { t: 2, keys: ['weight', 'nope'], letters: [], set: { weight: 0.8 } }];
+    const res = await call('PUT', `/designs/${created.id}`, { name: 'Renamed', styleId: 'serif', params, versions });
+    assert.equal(res.status, 200);
+    const clean = packVersions(cleanVersions(versions)), got = ((await res.json()) as Design).versions;
+    assert.deepEqual(got, JSON.parse(JSON.stringify(clean)));
+    assert.deepEqual(got!.map(v => [v.t, v.keys, v.set?.weight]), [[1, [], serif.params.weight], [2, ['weight'], 0.8]]);
+    const list: Design[] = await (await call('GET', '/designs')).json();
+    assert.ok(!('versions' in list[0]));
+    assert.equal((await call('PUT', `/designs/${created.id}`, { name: 'Renamed', styleId: 'serif', params })).status, 200);
+    assert.deepEqual(((await (await call('GET', `/designs/${created.id}`)).json()) as Design).versions, got);
   });
 
   it('keeps each browser\'s designs to itself', async () => {
@@ -516,8 +531,8 @@ describe('design storage', () => {
     assert.deepEqual(s.list('first').map(d => d.name), ['Old Serif']);
     assert.deepEqual(s.list('second'), []);
     assert.equal(s.get('old1', 'second'), null);
-    // a design saved before the letters' records has none, and takes one
-    assert.deepEqual(s.get('old1', 'first')!.log, {});
+    // a design saved before the letters' records and the History has neither, and takes them
+    assert.deepEqual([s.get('old1', 'first')!.log, s.get('old1', 'first')!.versions], [{}, []]);
     const log = { a: [{ t: 1, keys: ['weight'], own: { weight: 0.8 } }] };
     assert.deepEqual(s.update('old1', { name: 'Old Serif', styleId: 'serif', params: serif.params, log }, 'first')!.log, log);
     s.close();

@@ -629,8 +629,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .i-tip-head b { font-weight: 600; color: var(--ink); }
 .i-tip-ends { display: flex; justify-content: space-between; gap: 20px; color: var(--accent-ink); font-weight: 500; }
 @media (prefers-reduced-motion: reduce) { .i-knob .halo { animation: none; opacity: .6; } }
-/* a letter's History (LetterHistory.tsx): each version of it its edits made, newest first, drawn small beside what
-   made it and when; the one it stands as now in the scope's colour */
+/* the Histories, a letter's in the inspector (LetterHistory.tsx) and the font's in the header (FontHistory.tsx): each
+   version, newest first, drawn small beside what made it and when; the one standing now in the accent */
 .history { position: relative; }
 .history > .btn.icon svg { stroke-width: 1.4; stroke-linejoin: round; }
 .popover.history-menu { width: 300px; padding: 6px 0; gap: 0; }
@@ -644,6 +644,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .history-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .history-when { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
 .history-now { font-size: var(--t-s); font-weight: 500; color: var(--accent-ink); }
+.font-history { position: relative; }
+.history-row.wide { grid-template-columns: 60px minmax(0, 1fr) auto; }
+.history-row.wide svg { width: 60px; }
 
 /* ---------- the pen: a letter's anchor points and handles. Customizing, points belong to the one letter, so the pen
    is dressed as customizing: its points, handles and picked tool take the blue, its bar the wash, inside the frame */

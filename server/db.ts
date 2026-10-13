@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { Design, DesignInput } from '../shared/design';
+import { cleanVersions, packVersions, upgradeVersions } from '../shared/font-log';
 import { cleanLog, packLog, upgradeLog } from '../shared/letter-log';
 import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../shared/params';
 
@@ -14,6 +15,8 @@ interface Row {
   params: string;
   /** the letters' record of their edits, packed; not read for the list of designs, and null in rows from before it */
   log?: string | null;
+  /** the font's History, packed; not read for the list, and null in rows from before it */
+  versions?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,6 +28,7 @@ const toDesign = (r: Row): Design => ({
   // re-validate on the way out so an old or hand-edited row can never crash the engine
   params: sanitizeParams(JSON.parse(r.params)),
   ...(r.log === undefined ? {} : { log: packLog(cleanLog(parsed(r.log))) }),
+  ...(r.versions === undefined ? {} : { versions: packVersions(cleanVersions(parsed(r.versions))) }),
   createdAt: r.created_at,
   updatedAt: r.updated_at
 });
@@ -34,7 +38,9 @@ function parsed(json: string | null): unknown {
 }
 /** A record as it is stored: packed, or null for none (a design that sends none keeps its own, see update). */
 const logColumn = (input: DesignInput) => (input.log ? JSON.stringify(packLog(input.log)) : null);
-/** The columns the list of designs reads: all but the letters' records, which only an open design needs. */
+/** The History as it is stored (packed already), or null for none, kept as it is the same way. */
+const versionsColumn = (input: DesignInput) => (input.versions ? JSON.stringify(input.versions) : null);
+/** The columns the list of designs reads: all but the letters' records and the History, which only an open design needs. */
 const LIST_COLUMNS = 'id, name, style_id, params, created_at, updated_at';
 
 const newId = () => randomBytes(8).toString('base64url');
@@ -65,6 +71,8 @@ export class DesignStore {
     if (!cols.some(c => c.name === 'owner')) this.db.exec('ALTER TABLE designs ADD COLUMN owner TEXT');
     // each letter's record of its own edits (shared/letter-log.ts); rows from before it have none
     if (!cols.some(c => c.name === 'log')) this.db.exec('ALTER TABLE designs ADD COLUMN log TEXT');
+    // the font's History (shared/font-log.ts); rows from before it have none
+    if (!cols.some(c => c.name === 'versions')) this.db.exec('ALTER TABLE designs ADD COLUMN versions TEXT');
     this.db.exec('CREATE INDEX IF NOT EXISTS designs_owner ON designs (owner, updated_at DESC)');
     this.upgrade();
   }
@@ -75,17 +83,18 @@ export class DesignStore {
     const at = Number((this.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version);
     if (at >= PARAMS_VERSION) return;
     // a database from before versions (0) holds designs of the first version
-    const from = Math.max(1, at), rows = this.db.prepare('SELECT id, params, log FROM designs').all() as unknown as { id: string; params: string; log: string | null }[];
-    const save = this.db.prepare('UPDATE designs SET params = ?, log = ? WHERE id = ?');
+    const from = Math.max(1, at), rows = this.db.prepare('SELECT id, params, log, versions FROM designs').all() as unknown as { id: string; params: string; log: string | null; versions: string | null }[];
+    const save = this.db.prepare('UPDATE designs SET params = ?, log = ?, versions = ? WHERE id = ?');
     this.db.exec('BEGIN');
     try {
       for (const r of rows) {
         let p: unknown;
         try { p = JSON.parse(r.params); } catch { continue; }
         if (!p || typeof p !== 'object' || Array.isArray(p)) continue;
-        // the letters' records are written in their design's version too
-        const log = parsed(r.log);
-        save.run(JSON.stringify(upgradeParams(p as Record<string, unknown>, from)), log === null ? r.log : JSON.stringify(upgradeLog(log, p, from)), r.id);
+        // the letters' records and the History are written in their design's version too
+        const log = parsed(r.log), versions = parsed(r.versions);
+        save.run(JSON.stringify(upgradeParams(p as Record<string, unknown>, from)), log === null ? r.log : JSON.stringify(upgradeLog(log, p, from)),
+          versions === null ? r.versions : JSON.stringify(packVersions(cleanVersions(upgradeVersions(versions, from)))), r.id);
       }
       this.db.exec(`PRAGMA user_version = ${PARAMS_VERSION}`);
       this.db.exec('COMMIT');
@@ -116,15 +125,15 @@ export class DesignStore {
 
   create(input: DesignInput, owner: string): Design {
     const now = new Date().toISOString(), id = newId();
-    this.db.prepare('INSERT INTO designs (id, name, style_id, params, log, created_at, updated_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(id, input.name, input.styleId, JSON.stringify(input.params), logColumn(input), now, now, owner);
+    this.db.prepare('INSERT INTO designs (id, name, style_id, params, log, versions, created_at, updated_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, input.name, input.styleId, JSON.stringify(input.params), logColumn(input), versionsColumn(input), now, now, owner);
     return this.get(id, owner)!;
   }
 
-  /** Replace a design; one sent without the letters' record keeps the one it has. */
+  /** Replace a design; one sent without the letters' record, or without its History, keeps the one it has. */
   update(id: string, input: DesignInput, owner: string): Design | null {
-    const res = this.db.prepare('UPDATE designs SET name = ?, style_id = ?, params = ?, log = COALESCE(?, log), updated_at = ? WHERE id = ? AND owner = ?')
-      .run(input.name, input.styleId, JSON.stringify(input.params), logColumn(input), new Date().toISOString(), id, owner);
+    const res = this.db.prepare('UPDATE designs SET name = ?, style_id = ?, params = ?, log = COALESCE(?, log), versions = COALESCE(?, versions), updated_at = ? WHERE id = ? AND owner = ?')
+      .run(input.name, input.styleId, JSON.stringify(input.params), logColumn(input), versionsColumn(input), new Date().toISOString(), id, owner);
     return res.changes ? this.get(id, owner) : null;
   }
 
