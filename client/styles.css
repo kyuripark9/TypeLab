@@ -47,10 +47,10 @@
   /* every letter in sync: ink, with the lemon under it (translucent, so a ring or a box over a letter shows through) */
   --sync: var(--ink); --sync-ink: var(--ink); --sync-soft: rgba(242, 240, 40, .55); --sync-mark: var(--marker);
   /* one letter alone is a hot red (#ff034a), its text a deeper shade (7:1 on the paper), and words on the red are
-     white (APCA Lc 68, where ink reads only 38); a control in use and the scope note sit on a pale rose as light as the
-     sync well and a little more coloured (OKLCH .96 .018 16), so it reads as rose, not cream, and its words as plainly
-     as on the sheet; the pen's bar on the red mixed in at 3% */
-  --custom: #ff034a; --custom-ink: #a8002f; --custom-soft: rgba(255, 3, 74, .14); --custom-tint: #feedee; --custom-wash: #fdf3f1;
+     white (APCA Lc 68, where ink reads only 38); a control in use and the scope note sit on a pale rose a step lighter
+     than the sync well (OKLCH .969 .015 17), coloured enough to read as rose, not cream, and light enough that its
+     words read as on the sheet; the pen's bar on the red mixed in at 3% */
+  --custom: #ff034a; --custom-ink: #a8002f; --custom-soft: rgba(255, 3, 74, .14); --custom-tint: #fff1f1; --custom-wash: #fdf3f1;
   --accent: var(--sync); --accent-ink: var(--sync-ink); --accent-soft: var(--sync-soft); --accent-mark: var(--sync-mark);
   --warn-ink: #a3531c; --warn-tint: #f8e6d8;
   --danger: #b3261e; --danger-hover: #8c1d17; --danger-wash: #fbeceb;
@@ -267,10 +267,11 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .gl rect { fill: transparent; }
 .gl { cursor: pointer; }
 /* a letter pointed at is marked in the highlighter behind it; the parts a setting shapes are lit in the scope's
-   highlight, edged in ink so a lemon part reads against the paper */
+   highlight, edged in a 1px ink hairline (--edge, as are the inspector's and the diagrams') so a lemon part reads
+   against the paper without a heavy line round it */
 .gl:hover rect { fill: var(--accent-mark); }
-.pv-hl { fill: var(--accent-mark); stroke: var(--ink); stroke-width: var(--sw); pointer-events: none; }
-.pv-ring { fill: var(--accent-soft); stroke: var(--ink); stroke-width: var(--sw); pointer-events: none; }
+.pv-hl { fill: var(--accent-mark); stroke: var(--ink); stroke-width: var(--edge); pointer-events: none; }
+.pv-ring { fill: var(--accent-soft); stroke: var(--ink); stroke-width: var(--edge); pointer-events: none; }
 .pv-band { fill: var(--accent-mark); opacity: .8; }
 .pv-guide { stroke: var(--accent); stroke-width: var(--sw); stroke-dasharray: calc(var(--sw) * 4) calc(var(--sw) * 3); opacity: .8; }
 .pv-guide.base { stroke: var(--ink-3); opacity: .5; }
@@ -654,8 +655,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .insp-canvas { flex: 1; min-width: 0; min-height: 0; overflow: hidden; position: relative; user-select: none; touch-action: none; }
 .insp-canvas svg { display: block; }
 .i-ink { fill: var(--ink); }
-.i-hl { fill: var(--accent-mark); stroke: var(--ink); stroke-width: var(--sw); }
-.i-ring { fill: var(--accent-soft); stroke: var(--ink); stroke-width: var(--sw); }
+.i-hl { fill: var(--accent-mark); stroke: var(--ink); stroke-width: var(--edge); }
+.i-ring { fill: var(--accent-soft); stroke: var(--ink); stroke-width: var(--edge); }
 .i-adv { fill: rgba(32, 31, 29, .025); stroke: var(--line-2); stroke-dasharray: 3 4; }
 .i-guide { stroke: var(--line-2); }
 .i-guide.hot { stroke: var(--accent); stroke-width: 1.5; }
