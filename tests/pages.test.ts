@@ -1,14 +1,15 @@
 /* The editor's pages and controls (shared/content/pages.ts, controls.ts, search.ts): every control on one
-   page, the order of pages and of the controls on each, links naming a page or group (and reading a link into the
-   editor, client/lib/routes.ts), finding a setting, every nested slider placed in the panel, and the parts the
-   letter inspector names. */
+   page, the order of pages and of the controls on each, the pages letters built from blocks are offered, links naming
+   a page or group (and reading a link into the editor, client/lib/routes.ts), finding a setting, every nested slider
+   placed in the panel, and the parts the letter inspector names. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   ANATOMY, CATEGORIES, CONTROLS, FILL_SUBS, GROUPS, PART_CONTROL, PINCH_SUBS, ROUND_SUBS, SERIF_ARM_SUBS, SERIF_DETAILS, SERIF_INNER_SUBS, SERIF_SIZES,
-  SERIF_TIP_DETAILS, SLICE_SUBS, STENCIL_SUBS, SUBS, TERMINAL_DETAILS, TERMINAL_SHAPES, WEIGHT_SUBS, controlFor, findSettings, firstControl, pageOf, type ActiveKey, type ControlKey
+  SERIF_TIP_DETAILS, SLICE_SUBS, STENCIL_SUBS, SUBS, TERMINAL_DETAILS, TERMINAL_SHAPES, WEIGHT_SUBS, controlFor, controlInUse, findSettings, firstControl, pageOf, pagesFor,
+  type ActiveKey, type CategoryId, type ControlKey
 } from '../shared/content';
-import { DEFAULTS, TERMINAL_FORMS } from '../shared/params';
+import { BLOCK_FORMS, DEFAULTS, TERMINAL_FORMS } from '../shared/params';
 import { readDeepLink } from '../client/lib/routes';
 
 const controls = Object.keys(CONTROLS) as ControlKey[];
@@ -48,6 +49,24 @@ describe('editor pages', () => {
       const flags = on(c.id).map(k => !!CONTROLS[k].advanced);
       assert.deepEqual(flags, [...flags].sort((a, b) => Number(a) - Number(b)), c.id);
     }
+  });
+
+  it('offers only the pages with something to shape: letters built from blocks have no ends, serifs or letter forms', () => {
+    assert.deepEqual(pagesFor({ build: 'strokes', blockForm: 'basic' }), CATEGORIES);
+    for (const blockForm of BLOCK_FORMS) {
+      const pages = pagesFor({ build: 'blocks', blockForm }), ids = pages.map(c => c.id);
+      // the same array for the same letters, as the navigation's rows are kept by it
+      assert.equal(pagesFor({ build: 'blocks', blockForm }), pages);
+      for (const c of CATEGORIES) {
+        const used = controls.some(k => CONTROLS[k].cat === c.id && controlInUse(k, { build: 'blocks', blockForm }));
+        assert.equal(ids.includes(c.id), c.id === 'style' || used, `${blockForm} ${c.id}`);
+      }
+      for (const id of ['ends', 'serifs', 'letters']) assert.ok(!ids.includes(id as CategoryId), `${blockForm} ${id}`);
+      // a page left out always has one before it to give way to
+      assert.equal(ids[1], 'weight', blockForm);
+      assert.ok(controlInUse('blockForm', { build: 'blocks', blockForm }) && controlInUse('build', { build: 'blocks', blockForm }), blockForm);
+    }
+    assert.ok(!controlInUse('blockForm', { build: 'strokes', blockForm: 'basic' }));
   });
 
   it('opens the page a link names: a page, a group on its first page, or the page an older link\'s group name (OLD_GROUPS) now maps to', () => {

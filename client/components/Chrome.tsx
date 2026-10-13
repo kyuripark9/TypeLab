@@ -1,6 +1,6 @@
 /* The frame around the stage: category navigation, glyph strip and toast. */
 import { memo, useDeferredValue, useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { CATEGORIES, GROUPS, controlFor, findSettings, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
+import { CATEGORIES, GROUPS, controlFor, controlInUse, findSettings, pagesFor, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
 import { Link } from 'react-router';
 import { CHARSET, type Font, type Glyph } from '../../shared/engine';
 import { DRAWER_QUERY, n1 } from '../lib/hooks';
@@ -12,12 +12,19 @@ import { PageIcon, SearchIcon } from './Icons';
 
 /** The navigation's rows: a page on its own, or a group's name with its pages under it. */
 type NavRow = { id: CategoryId; label: string; hint: string } | { group: GroupId; pages: { id: CategoryId; label: string; hint: string }[] };
-const NAV: NavRow[] = [];
-for (const c of CATEGORIES) {
-  const last = NAV[NAV.length - 1];
-  if (!c.group) NAV.push(c);
-  else if (last && 'group' in last && last.group === c.group) last.pages.push(c);
-  else NAV.push({ group: c.group, pages: [c] });
+const NAV = new Map<typeof CATEGORIES, NavRow[]>();
+/** The rows of `pages` (pagesFor's, so the same array for the same letters). */
+function navRows(pages: typeof CATEGORIES): NavRow[] {
+  let rows = NAV.get(pages);
+  if (rows) return rows;
+  NAV.set(pages, rows = []);
+  for (const c of pages) {
+    const last = rows[rows.length - 1];
+    if (!c.group) rows.push(c);
+    else if (last && 'group' in last && last.group === c.group) last.pages.push(c);
+    else rows.push({ group: c.group, pages: [c] });
+  }
+  return rows;
 }
 
 const SEARCH_ID = 'setting-search';
@@ -56,8 +63,11 @@ function openSetting(h: SettingHit) {
 
 export function Nav() {
   const category = useEditor(s => s.category);
+  // letters built from blocks leave out the pages and settings that shape strokes
+  const build = useEditor(s => s.params.build), blockForm = useEditor(s => s.params.blockForm), blocks = build === 'blocks';
   const [query, setQuery] = useState(''), [pick, setPick] = useState(0);
-  const hits = query.trim() ? findSettings(query) : null;
+  const found = query.trim() ? findSettings(query, 100) : null;
+  const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm })).slice(0, 12) ?? null;
   const list = useRef<HTMLDivElement>(null);
   useEffect(() => { list.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }, [pick]);
   const choose = (h: SettingHit) => { setQuery(''); openSetting(h); (document.activeElement as HTMLElement | null)?.blur(); };
@@ -97,11 +107,13 @@ export function Nav() {
                 {pageName(h.page) !== (h.parent ?? h.label) && <span className="nav-hit-page">{pageName(h.page)}</span>}
               </span>
             </button>
-          )) : <p className="nav-empty">No setting matches “{query.trim()}”. Try a word like bold, italic, serif or spacing.</p>}
+          )) : <p className="nav-empty">{found?.length
+            ? `Letters built from blocks have no setting for “${query.trim()}”.`
+            : `No setting matches “${query.trim()}”. Try a word like bold, italic, ${blocks ? 'round' : 'serif'} or spacing.`}</p>}
         </div>
       ) : (
         <div className="nav-pages">
-          {NAV.map(row => 'group' in row ? (
+          {navRows(pagesFor({ build, blockForm })).map(row => 'group' in row ? (
             <div key={row.group} className="nav-group" role="group" aria-labelledby={`nav-${row.group}`}>
               <div className="nav-group-name" id={`nav-${row.group}`}>{GROUPS[row.group]}</div>
               {row.pages.map(page)}

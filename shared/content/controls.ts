@@ -1,6 +1,7 @@
 /* The editor's controls and the sliders nested under them (read off each setting's spec in
    shared/params/spec.ts), which shapes each picker offers, and which control a key belongs to. */
 import { PARAM_KEYS, SPECS, formOf, type CategoryId, type ControlDef, type ControlKey, type SubControlDef, type SubKey, type SubKeyOf } from '../params';
+import { CATEGORIES } from './pages';
 import type { AForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, GForm, IForm, KForm, Mirror, Params, QForm, RForm, ScriptForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from '../params';
 
 export type { CategoryId, ControlKey } from '../params';
@@ -42,6 +43,24 @@ export const BLOCK_CONTROLS: Record<BlockForm, readonly ControlKey[]> = {
   // grid letters stand on the same five cells in either case, so the x-height doesn't reach them
   grid: SLOT_CONTROLS.filter(k => k !== 'xHeight')
 };
+/** Whether control `k` shapes letters built as `p` says: letters built from blocks take their kind's BLOCK_CONTROLS
+    alone, and only they have a kind of blocks to pick. */
+export const controlInUse = (k: ControlKey, p: Pick<Params, 'build' | 'blockForm'>) =>
+  p.build === 'blocks' ? BLOCK_CONTROLS[p.blockForm].includes(k) : k !== 'blockForm';
+const PAGES = new Map<string, typeof CATEGORIES>();
+/** The pages, in order, with something to shape in letters built as `p` says: the Style page and each page holding a
+    control in use. Letters built from blocks have no stroke ends, serifs or other letter forms, so those pages go (and
+    Inner space and Heights for the blocks that don't take their settings). The same array each time for the same
+    letters. */
+export function pagesFor(p: Pick<Params, 'build' | 'blockForm'>): typeof CATEGORIES {
+  const id = p.build === 'blocks' ? p.blockForm : 'strokes';
+  let pages = PAGES.get(id);
+  if (!pages) {
+    const keys = (Object.keys(CONTROLS) as ControlKey[]).filter(k => controlInUse(k, p));
+    PAGES.set(id, pages = CATEGORIES.filter(c => c.id === 'style' || keys.some(k => CONTROLS[k].cat === c.id)));
+  }
+  return pages;
+}
 export const SERIF_SUBS = subsOf('serif');
 /** The sliders every serif shape has, and the finer ones of each shape, shown while that shape is picked. */
 export const SERIF_SIZES: SerifSubKey[] = ['serifSize', 'serifThickness', 'serifAngle'];

@@ -1,6 +1,6 @@
 /* A page of controls: the explainer, the page's controls (grouped by the parts of an inspected letter), and the steps to the pages beside it. */
-import type { ReactNode } from 'react';
-import { BLOCK_CONTROLS, PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
+import { useLayoutEffect, type ReactNode } from 'react';
+import { PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, controlFor, controlInUse, pagesFor, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
 import type { NumericParam, SubControlDef } from '../../../shared/params';
 import { actions, letterOf, useEditor, useFont, useParam } from '../../state/editor';
 import { ScopeIcon, letterControls } from '../Inspector';
@@ -11,30 +11,44 @@ import { TerminalControl, StoryControl, type LetterFormKey, FormControl, SerifCo
 
 export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
   const serifs = useParam('serif'), shape = useParam('serifShape'), pointed = shape === 'wedge' || shape === 'diamond', outside = useParam('serifSides') === 'outside';
-  const blocks = useParam('build') === 'blocks', form = useParam('blockForm');
+  const build = useParam('build'), blockForm = useParam('blockForm'), blocks = build === 'blocks';
+  const pages = pagesFor({ build, blockForm });
+  // a page with nothing for these letters isn't offered; one opened anyway (undo back to blocks, a link) gives way to the
+  // page before it before it is drawn
+  const shown = pages.some(c => c.id === category);
+  useLayoutEffect(() => {
+    if (!shown) actions.setCategory(CATEGORIES.slice(0, CATEGORIES.findIndex(c => c.id === category)).filter(c => pages.includes(c)).at(-1)!.id);
+  }, [shown, category, pages]);
   // the Serifs page has nothing to shape while serifs are off, a wedge or a diamond, already a point, has no tip to finish,
   // and serifs that only reach out of the letter leave none inside it; letters built from blocks have no
   // strokes, so only the controls that shape their kind of blocks show, and which blocks shows only while built from them
   const all = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category && (blocks || k !== 'blockForm'));
-  const keys = all.filter(k => (!blocks || BLOCK_CONTROLS[form].includes(k)) &&
+  const keys = all.filter(k => controlInUse(k, { build, blockForm }) &&
     (category !== 'serifs' || k === 'serif' || (serifs && !(pointed && k === 'serifTip') && !(outside && k === 'serifInner'))));
   const inspecting = useEditor(s => !!s.inspect);
+  // the page opens on its first setting these letters take, so the explainer speaks of one shown here
+  const keyList = keys.join();
+  useLayoutEffect(() => {
+    const ks = keyList.split(',') as ControlKey[];
+    if (keyList && !ks.includes(controlFor(useEditor.getState().active))) actions.setActive(ks[0]);
+  }, [keyList]);
   const note = blocks && keys.length < all.length
-    ? <p className="page-note">{keys.length ? 'Letters built from blocks use only these settings here.' : 'Letters built from blocks have nothing to shape here.'} Switch Built from back to Strokes for the rest.</p>
+    ? <p className="page-note">Letters built from blocks use only these settings here. Switch Built from back to Strokes for the rest.</p>
     : category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
+  if (!shown) return null;
   return (
     <div className="controls-page">
       <Explainer />
       {inspecting ? <LetterControls keys={keys} category={category} note={note} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}{note}</div>}
-      <PageSteps category={category} />
+      <PageSteps category={category} pages={pages} />
     </div>
   );
 }
 
-/** The foot of every page of controls: the way back and on through the pages in order, so a design
-    can be made by walking them from Style to the end, where Save and Export take over. */
-function PageSteps({ category }: { category: Exclude<CategoryId, 'style'> }) {
-  const i = CATEGORIES.findIndex(c => c.id === category), prev = CATEGORIES[i - 1], next = CATEGORIES[i + 1];
+/** The foot of every page of controls: the way back and on through the pages in order (those with something to shape
+    in these letters), so a design can be made by walking them from Style to the end, where Save and Export take over. */
+function PageSteps({ category, pages }: { category: Exclude<CategoryId, 'style'>; pages: typeof CATEGORIES }) {
+  const i = pages.findIndex(c => c.id === category), prev = pages[i - 1], next = pages[i + 1];
   const go = (id: CategoryId) => () => actions.setCategory(id);
   const arrow = (d: string) => <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d={d} /></svg>;
   return (

@@ -78,7 +78,8 @@ bends before apex.
    `restyled`'s cache key, `FORM_LETTERS` for a letter-form setting) and a `FREE_MOVES` entry in tools/golden.ts; then
    `npm run golden`.
    If it shapes letters built from blocks, add it to `BLOCK_CONTROLS` (content/controls.ts), under the Block letters
-   it reaches (basic, slots, grid): every other control is hidden while Built from is Blocks. If it shapes a definite part, give it a case in `highlightD` or a `RINGS` entry
+   it reaches (basic, slots, grid): every other control is hidden while Built from is Blocks, and a page with none of
+   them is left out of the navigation (`pagesFor`). If it shapes a definite part, give it a case in `highlightD` or a `RINGS` entry
    (engine/highlight.ts), or the explainer, inspector and preview light nothing up for it.
 8. Words people use for it that its copy lacks go in `ALSO` (`content/search.ts`).
 9. `npm run typecheck` (the compile checks above are types only; `npm test` runs through tsx and doesn't check them).
@@ -137,7 +138,9 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
 - **Controls** (`content/controls.ts`): `CONTROLS` and `SUBS` come from the specs; `FORM_OPTIONS` (each shape drawn as
   a letter `ch`), the option label lists, `TERMINAL_SHAPES` (every kind and form of stroke end as one list, in
   families; tests/pages.test.ts checks each is there once), `TERMINAL_DETAILS`, `SERIF_SIZES`, `SERIF_DETAILS`,
-  `SERIF_TIP_DETAILS`; `BLOCK_CONTROLS` (all that shows while Built from is Blocks, by Block letters); `PART_CONTROL`
+  `SERIF_TIP_DETAILS`; `BLOCK_CONTROLS` (all that shows while Built from is Blocks, by Block letters), `controlInUse`
+  and `pagesFor` (the controls and pages a design's letters take: the navigation, the page steps and Find a setting
+  offer only those); `PART_CONTROL`
   (anatomy part to the control that shapes it); `controlFor` (a sub to its parent).
 - **Copy and search**: `ANATOMY` in `content/copy.ts` names every part the inspector can point at; `findSettings`
   searches the controls' words, `ALSO`, and the shapes they offer.
