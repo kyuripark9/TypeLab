@@ -857,8 +857,9 @@ const levelEnd = (end: Pick<StrokeEnd, 'dx' | 'dy' | 'type'>) => (end.type === '
 /** Where a serif sits: on the end of an arm (a level stroke), on top of a stroke, or at its foot. */
 export type SerifPlace = 'arm' | 'top' | 'foot';
 export const serifPlace = (end: Pick<StrokeEnd, 'dx' | 'dy' | 'type'>): SerifPlace => (levelEnd(end) ? 'arm' : end.dy > 0 ? 'top' : 'foot');
-/** How high the base of a cupped serif arches: up to three quarters of its thickness, and a third of its length. */
-export const serifCup = (sf: SerifSpec) => (sf.cup ?? 0) * Math.min(sf.th * 0.75, sf.len * 0.3);
+/** How high the base of a cupped serif arches: up to three quarters of its thickness, and a third of the length its
+    heights are drawn for (SerifSpec.ref), so a longer serif arches no higher. */
+export const serifCup = (sf: SerifSpec) => (sf.cup ?? 0) * Math.min(sf.th * 0.75, (sf.ref ?? sf.len) * 0.3);
 
 /** The sides of a stem's end its serif is drawn on: the ones the letter gives it, less those the design leaves
     off (`keep`, see SERIF_SIDES in shared/params/options.ts). `inward` are the sides that face into the letter. */
@@ -887,6 +888,13 @@ const diamondFrame = (end: SerifEnd, sides: SerifSides) => {
 /** How tall a diamond stands for its width: Thickness, from half as tall (flat) through square at 0.5 to half as tall again.
     It reads the Thickness setting back out of sf.th, undoing serifTh in font.ts (8 to 95 units): keep the two in step. */
 const diamondK = (sf: SerifSpec) => lerp(0.5, 1.5, clamp((sf.th - 8) / 87));
+/** A diamond's reach `D` past the middle of a stem's end `t` thick, and `k`, how tall it stands for that: as tall as one
+    the length its heights are drawn for (SerifSpec.ref), so Length draws it only wider or narrower. The cut under it
+    (diamondCut) slopes by the same `k`. */
+const diamondSize = (end: SerifEnd, sf: SerifSpec, scale = 1) => {
+  const tops = end.dy > 0 ? sf.tops ?? 1 : 1, D = end.t / 2 + sf.len * scale * tops * 0.5;
+  return { D, k: diamondK(sf) * ((end.t / 2 + (sf.ref ?? sf.len) * scale * tops * 0.5) / D) };
+};
 /** What a stroke keeps under a diamond: all but the corner of its end cut off on a slant, from its far edge at the end
     back to its near edge one stroke width in. That corner is a small triangle, so the cut reaches no further along the
     stroke (the other arm of a v). Its stroke keeps the three pieces beyond each side of the triangle (the one past the
@@ -894,7 +902,7 @@ const diamondK = (sf: SerifSpec) => lerp(0.5, 1.5, clamp((sf.th - 8) / 87));
     overlap, and as they are wound alike they fill as one (splitPoly keeps the side each normal points away from).
     Only for an end diamondEnd picks, so the serifs are set. */
 export function diamondCut(end: SerifEnd, ctx: PenCtx, sides: SerifSides): HalfPlane[] {
-  const { o, u, hw, n } = diamondFrame(end, sides), e = 1, k = diamondK(ctx.serif!);
+  const { o, u, hw, n } = diamondFrame(end, sides), e = 1, { k } = diamondSize(end, ctx.serif!);
   return [
     { x: end.x + u.x * hw, y: end.y + u.y * hw, nx: o.x / k - u.x, ny: o.y / k - u.y },
     { x: end.x - u.x * (hw + e), y: end.y - u.y * (hw + e), nx: n.x, ny: n.y },
@@ -919,12 +927,15 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
   const sf = ctx.serif; if (!sf) return null;
   const horiz = levelEnd(end);
   // a diamond reaches past the stem about half its length, and always at least half a stroke
-  if (diamondEnd(end, ctx)) return diamond(end, end.t / 2 + sf.len * (scale || 1) * (end.dy > 0 ? sf.tops ?? 1 : 1) * 0.5, diamondK(sf), sides);
+  if (diamondEnd(end, ctx)) { const { D, k } = diamondSize(end, sf, scale || 1); return diamond(end, D, k, sides); }
   const out = horiz ? { x: Math.sign(end.dx), y: 0 } : { x: 0, y: Math.sign(end.dy) || -1 };
   const u = horiz ? { x: 0, y: 1 } : { x: 1, y: 0 };
   const along = Math.abs(end.dx * out.x + end.dy * out.y);
   const hw = (end.t / 2) / Math.max(0.35, along);
-  const Ln = sf.len * (scale || 1) * (horiz ? sf.arms ?? 1 : out.y > 0 ? sf.tops ?? 1 : 1);
+  const size = horiz ? sf.arms ?? 1 : out.y > 0 ? sf.tops ?? 1 : 1, Ln = sf.len * (scale || 1) * size;
+  // the heights (a bracket's, a sloped top's, a wedge's) are drawn for the serif at its usual length: Length, Balance
+  // and the inside serifs' Length draw it only longer or shorter, where Top and Arm serifs size it whole
+  const H = (sf.ref ?? sf.len) * (scale || 1) * size;
   const th = sf.th * (horiz ? 0.9 * (sf.armTh ?? 1) : 1);
   const ang = sf.angle, tip = sf.tip ?? 'square';
   // a serif on an arm can lean out from upright (or in under the arm), its tip cut square across it
@@ -943,10 +954,10 @@ export function buildSerif(end: SerifEnd, sides: SerifSides, ctx: PenCtx, scale?
     }
     if (tan && tip !== 'pointed') top[0] += tt * Math.sin(2 * armLean) / 2;
     const tipPts = tip === 'pointed' ? [foot] : [foot, top];
-    if (wedge) return [...tipPts, [hw, -(th * 0.6 + L * (0.75 + ang * 0.5))]];
-    const thTip = -top[1], thStem = th + L * ang * 0.35;
+    if (wedge) return [...tipPts, [hw, -(th * 0.6 + H * (0.75 + ang * 0.5))]];
+    const thTip = -top[1], thStem = th + H * ang * 0.35;
     if (shape !== 'bracketed') return [...tipPts, [hw, -thStem, 'sharp']];
-    const br = L * (sf.bracket ?? 0.85);
+    const br = H * (sf.bracket ?? 0.85);
     const P = [{ x: top[0], y: -thTip }, { x: hw + L * 0.3, y: -thTip - (thStem - thTip) * 0.6 },
       { x: hw, y: -thStem - br * 0.25 }, { x: hw, y: -(thStem + br) }];
     const prof = tipPts.slice();

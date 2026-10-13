@@ -260,7 +260,7 @@ export function metrics(e: Effective): Metrics {
     term: termSpec(e), dropLow: e.serif ? xh * 0.5 : undefined,
     pinch: e.pinch > 0 ? { y: pinchY(e.pinchPos, xh, cap), amount: e.pinch, reach: xh / 2 } : undefined,
     serif: e.serif ? {
-      len: serifLen(e.serifSize, ws),
+      len: serifLen(e.serifSize, ws), ref: serifLen(DEFAULTS.serifSize, ws),
       th: serifTh(e.serifThickness, e.serifShape),
       shape: e.serifShape, angle: e.serifAngle,
       bracket: 0.85 * serifScale(e.serifBracket, 0.25, 1.8), tip: e.serifTip, tipRound: lerp(0.1, 0.5, e.serifTipRound), tipSlant: (e.serifTipSlant - 0.5) * 2,

@@ -83,7 +83,9 @@ export interface StrokeOpts {
     the same both ways and the same length everywhere. */
 export interface SerifSpec {
   len: number; th: number; shape: SerifShape; angle: number;
-  /** bracketed: how far up the stroke the curve runs, in serif lengths */ bracket?: number;
+  /** the length its heights are drawn for (a bracket's, a sloped top's, a wedge's, a diamond's), so the lengths draw
+      it only longer or shorter, never taller: Length's at its default (metrics in font.ts); left out, `len` */ ref?: number;
+  /** bracketed: how far up the stroke the curve runs, in `ref` lengths */ bracket?: number;
   /** how the tips finish (see SERIF_TIPS in shared/params/options.ts) */ tip?: SerifTip;
   /** round tips: the corner radius, as a share of the tip's thickness (0.5 a half circle) */ tipRound?: number;
   /** angled tips: how far the cut leans, in tip thicknesses: + runs the foot of the tip further out, - its top */ tipSlant?: number;

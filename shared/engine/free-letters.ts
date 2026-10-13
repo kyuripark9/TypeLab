@@ -244,7 +244,7 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   const a = cornerLooks(fl.pick, c), b = cornerLooks(fl.now, c);
   // the engine's serifs, set on the stems the letter's own were taken off (or on a sans's), in the font's units; the
   // lines they stand on, where the settings moved them
-  const sf = fl.serifs && fl.serif ? { ...fl.serif, len: fl.serif.len / fl.k, th: fl.serif.th / fl.k, inner: fl.serif.inner && { ...fl.serif.inner, th: fl.serif.inner.th / fl.k } } : null;
+  const sf = fl.serifs && fl.serif ? { ...fl.serif, len: fl.serif.len / fl.k, ref: (fl.serif.ref ?? fl.serif.len) / fl.k, th: fl.serif.th / fl.k, inner: fl.serif.inner && { ...fl.serif.inner, th: fl.serif.inner.th / fl.k } } : null;
   // (as moveMap in skin.ts moves the letter's own heights, there clamped, and the ascenders and descenders only a
   // lowercase letter's: keep the two in step)
   const kd = fl.to.desc / fl.from.desc, xh1 = x.lower ? x.xh * fl.to.xr / fl.from.xr : x.xh;

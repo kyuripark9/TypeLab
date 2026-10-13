@@ -1220,8 +1220,9 @@ function toPolygon(cmds: Cmd[]): Pt[] {
 
 /* ---- serifs */
 
-/** Everything about a serif but its length (which a font's own serifs follow on their skeletons, see skin.ts). */
-export const serifLook = (sf: SerifSpec | null | undefined) => (sf ? JSON.stringify({ ...sf, len: 0 }) : '');
+/** Everything about a serif but its length (which a font's own serifs follow on their skeletons, see skin.ts), and the
+    length its heights are drawn for, which Width moves. */
+export const serifLook = (sf: SerifSpec | null | undefined) => (sf ? JSON.stringify({ ...sf, len: 0, ref: 0 }) : '');
 
 /** The contours with the engine's serifs (stroke.ts) set on the ends of their stems, legs and arms: a stroke cut
     level across where it stands on a line or reaches up to one (the baseline, the x-height, the capitals', the
