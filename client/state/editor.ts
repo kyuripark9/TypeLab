@@ -184,7 +184,7 @@ const set = useEditor.setState, get = useEditor.getState;
 
 /** How long what is pointed at (a control's parts, a part of the inspected letter) shows lit before the letters go
     back to plain ink; styles.css's `lit` animation fades it out over its last stretch, as long as this. */
-export const LIT_MS = 1500;
+export const LIT_MS = 1000;
 let litTimer: ReturnType<typeof setTimeout> | undefined;
 /** Light what is pointed at now, for LIT_MS: the state to set with it. */
 function lit() {

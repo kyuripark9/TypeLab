@@ -279,7 +279,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
    alike; the editor puts it away when it ends (LIT_MS in client/state/editor.ts, as long as this). The fade is drawn in
    fill and stroke opacity, so a part's own opacity (a band's, the construction grid's dimmed letter) holds under it */
 @keyframes lit { 0%, 80% { fill-opacity: 1; stroke-opacity: 1; } 100% { fill-opacity: 0; stroke-opacity: 0; } }
-.pv-hl, .pv-ring, .pv-band, .pv-guide, .i-hl, .i-ring { animation: lit 1.5s linear forwards; }
+.pv-hl, .pv-ring, .pv-band, .pv-guide, .i-hl, .i-ring { animation: lit 1s linear forwards; }
 
 /* ---------- style cards */
 /* the heading: the title and what the cards are on the left, the two ways in (Help me choose, Browse all) on the right */
