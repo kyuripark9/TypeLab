@@ -64,8 +64,10 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 - Params objects are never mutated; every change makes a new one. Fonts are built once per params object.
 - Anything that draws many glyphs renders one memo component per glyph, so slider drags stay smooth.
 - Code style: each file opens with a plain-language comment saying what it holds; comments say what and why in the
-  design's terms, not the code's. Match the surrounding density. UI: one typeface (Inter), light borders, no
-  decorative flourishes.
+  design's terms, not the code's. Match the surrounding density. UI: the Soren template's system (client/CLAUDE.md,
+  CSS): Switzer for every word on a seven-step scale (`--t-*`), Chivo Mono only for numbers and the small capitals
+  naming a group, Lineup only for the logo; ivory paper, warm hairlines, square sheets, pill buttons, one orange
+  accent, no decorative flourishes.
 
 ## Where things go
 

@@ -82,7 +82,7 @@ function LetterControls({ keys, category, note }: { keys: ControlKey[]; category
           <button className="link small" onClick={() => actions.syncLetter(ch)}>{`Reset ${ch}`}</button>
         </div>
       )}
-      {rows.length > 0 && <div className="list-head">Parts of {ch}</div>}
+      {rows.length > 0 && <div className="list-head">Parts of <span className="ch">{ch}</span></div>}
       {rows.map(r => <Control key={r.key} k={r.key} parts={r.parts} />)}
       {rows.length > 0 && rest.length > 0 && <div className="list-head">More {CATEGORIES.find(c => c.id === category)?.label.toLowerCase()}</div>}
       {rest.map(k => <Control key={k} k={k} />)}

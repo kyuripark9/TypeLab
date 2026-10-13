@@ -43,7 +43,7 @@ const LETTER_GAP = 0.07;
 const CUTS = ['Couture', 'Timber', '*', 'Serenade', 'Gumdrop', 'Dispatch', 'Orbital'];
 /** the cuts the saved fonts take, the latest saved first, so as many of them come up as there are, the cuts as many */
 const MINE_AT = ['Gumdrop', 'Timber', 'Dispatch'];
-/** the font the name is drawn in last: a sans like the wordmark's Inter, so the wordmark reads as what was drawn */
+/** the font the name is drawn in last: a sans like the wordmark's Switzer, so the wordmark reads as what was drawn */
 const DRAWN = 'Mainline:600';
 /** how long to wait for the fonts, and the fewest to play with */
 const WAIT_MS = 1200, FEWEST = 6;
@@ -109,7 +109,7 @@ function inkOf({ web: r, mine }: Face, ch: string): [number, number] {
 function nameWidth(name: string) {
   ctx ??= document.createElement('canvas').getContext('2d');
   if (!ctx) return name.length * 5.5;
-  ctx.font = '500 10px Inter, sans-serif';
+  ctx.font = `500 10px ${getComputedStyle(document.documentElement).getPropertyValue('--ui')}`;
   return ctx.measureText(name).width;
 }
 

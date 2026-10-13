@@ -38,12 +38,12 @@ const webFamily = (r: FreeFontRef) => (isOwnFont(r.family) ? `TypeLab ${r.family
 /** The CSS font shorthand for a font at `px`. */
 const fontSpec = (r: FreeFontRef, px: number) => `${r.italic ? 'italic ' : ''}${r.weight} ${px}px '${webFamily(r)}'`;
 /** The inline style that sets text in a font. */
-export const fontStyle = (r: FreeFontRef) => ({ fontFamily: `'${webFamily(r)}', Inter, sans-serif`, fontWeight: r.weight, fontStyle: r.italic ? 'italic' : 'normal' });
+export const fontStyle = (r: FreeFontRef) => ({ fontFamily: `'${webFamily(r)}', Switzer, sans-serif`, fontWeight: r.weight, fontStyle: r.italic ? 'italic' : 'normal' });
 /** Where a font's web font comes from: the server's file of an own font, else its stylesheet on Google Fonts. */
 const webSource = (r: FreeFontRef) => (isOwnFont(r.family) ? fontFileUrl(fontId(r)) : fontCss(r));
 
 /** Load a font's web font: an own font straight from its file, any other by its stylesheet from Google Fonts and then
-    the font itself. Resolves whether it came (text not set in it falls back to Inter). */
+    the font itself. Resolves whether it came (text not set in it falls back to Switzer, the interface's face). */
 function loadWebFont(r: FreeFontRef): Promise<boolean> {
   const src = webSource(r);
   let p = linked.get(src);
