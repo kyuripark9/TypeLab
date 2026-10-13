@@ -1,5 +1,6 @@
 /* The opening title card, played on the first visit in a browser (not with reduced motion). "TypeLab" comes up in
-   TypeLab's own fonts, the ones the Style page's cards start from, and is then made as a font is made:
+   TypeLab's own fonts, the ones the Style page's cards start from (all but the blackletter), and in the fonts this
+   browser's owner has saved (My designs, but for those begun as blackletter), and is then made as a font is made:
    - a scramble of characters grows in from the left, each in a font of its own, and settles into the name letter by
      letter, the letters still in fonts of their own;
    - the whole name cuts from font to font, some cuts mixing them, over the guide lines a font is drawn on (baseline,
@@ -9,21 +10,26 @@
      names them, and its ink fills in;
    - it lands on the wordmark, the header's logo, with the tagline under it, and the card fades to the app.
    A key or a click skips ahead to the fade. It is one SVG, so the name keeps one baseline under every font and the
-   lines sit true to it. The fonts are the cards' web fonts, and the drawing is DRAWN's letters as the server sends
-   them: the card waits up to WAIT_MS for them, plays with those that came (leaving out the drawing if its letters
-   didn't), and shows the wordmark alone when too few fonts did. Once seen it's marked in localStorage under
+   lines sit true to it. The own fonts are the cards' web fonts, a saved font is drawn as the engine builds it (as My
+   designs draws its name), and the drawing is DRAWN's letters as the server sends them: the card waits up to WAIT_MS
+   for them, plays with those that came (leaving out the drawing if its letters didn't), and shows the wordmark alone
+   when too few own fonts did. Once seen it's marked in localStorage under
    PREFS.introSeen (lib/prefs.ts), which the browser tools in tools/browser set beforehand to keep it out of the way. */
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import type { FreeFontData, PackedNode } from '../../shared/engine';
-import { OWN_FAMILIES, fontId, type FreeFontRef } from '../../shared/free-fonts';
+import type { Design } from '../../shared/design';
+import type { Font, FreeFontData, PackedNode } from '../../shared/engine';
+import { OWN_FAMILIES, STYLE_FONTS, fontId, parseFontId, type FreeFontRef } from '../../shared/free-fonts';
 import { api } from '../lib/api';
-import { fontStyle, webFont } from '../lib/free';
+import { fontStyle, loadFreeFont, textWidth, webFont } from '../lib/free';
 import { guideLines } from '../lib/guide-labels';
 import { n1, useSize } from '../lib/hooks';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
+import { fontFor } from '../state/editor';
 
 const NAME = 'TypeLab';
-const FONTS = Object.entries(OWN_FAMILIES).map(([family, o]) => fontId({ family, weight: o.weight, italic: o.italic }));
+/** the blackletter style and its own font, which the card leaves out (its letters read as another script) */
+const BLACKLETTER = 'blackletter', BLACK_FONT = parseFontId(STYLE_FONTS[BLACKLETTER] ?? '')?.family;
+const FONTS = Object.entries(OWN_FAMILIES).filter(([family]) => family !== BLACK_FONT).map(([family, o]) => fontId({ family, weight: o.weight, italic: o.italic }));
 /** what the scramble shows where a letter hasn't settled yet, and the share of those that change at each step (the
     rest stay, so it churns rather than flickers) */
 const NOISE = 'ABDEGHKMNQRSUWXZadfghkmnqrsuwz0123456789&?!#%@*';
@@ -31,7 +37,9 @@ const CHURN = 0.6;
 /** The whole name's cuts, in order: a font's name sets it in that font, and `*` gives every letter a font of its own.
     Neighbours look far apart, heavy after light, and the last, held longest, is the boldest. A font that didn't come
     is left out. */
-const CUTS = ['Couture', 'Cathedral', '*', 'Serenade', 'Gumdrop', 'Dispatch', 'Orbital'];
+const CUTS = ['Couture', 'Timber', '*', 'Serenade', 'Gumdrop', 'Dispatch', 'Orbital'];
+/** the cuts the saved fonts take, the latest saved first, so as many of them come up as there are, the cuts as many */
+const MINE_AT = ['Gumdrop', 'Timber', 'Dispatch'];
 /** the font the name is drawn in last: a sans like the wordmark's Inter, so the wordmark reads as what was drawn */
 const DRAWN = 'Mainline:600';
 /** how long to wait for the fonts, and the fewest to play with */
@@ -51,7 +59,9 @@ const HOLD_MS = 1100, FADE_MS = 450;
     before it is left out, the two reading as one */
 const EDGE = 24, NAMED_FROM = 600, CLOSE = 14, GAP = 12, ONE = 6;
 
-type Letter = { ch: string; font: FreeFontRef };
+/** What a letter is set in: an own font's web font, or a saved font's letters as the engine draws them. */
+type Face = { web: FreeFontRef; mine?: undefined } | { mine: Font; web?: undefined };
+type Letter = { ch: string; face: Face };
 /** A font's heights in ems: x-height and cap height, and, in the drawing, its ascender and (below zero) descender. */
 type Heights = { xh: number; cap: number; asc?: number; desc?: number };
 /** One step of the card for `ms`: the name in `letters`, each in its font, or `drawn` from its points; neither is the
@@ -61,8 +71,9 @@ interface Step { ms: number; letters?: Letter[]; drawn?: true; lines?: Heights }
 const any = <T,>(xs: readonly T[]) => xs[Math.floor(Math.random() * xs.length)];
 
 let ctx: CanvasRenderingContext2D | null | undefined;
-/** A font's x-height and cap height, from its web font's ink: an x's and an H's. */
-function heightsOf(r: FreeFontRef): Heights | undefined {
+/** A face's x-height and cap height: a saved font's own, a web font's from its ink (an x's and an H's). */
+function heightsOf({ web: r, mine }: Face): Heights | undefined {
+  if (mine) return { xh: mine.m.xh / 1000, cap: mine.m.cap / 1000 };
   ctx ??= document.createElement('canvas').getContext('2d');
   if (!ctx) return undefined;
   const s = fontStyle(r);
@@ -85,39 +96,54 @@ function drawnHeights(data: FreeFontData): Heights {
   return { xh: data.xh / 1000, cap: data.cap / 1000, asc: Math.max(...ys) / 1000, desc: Math.min(...ys) / 1000 };
 }
 
-/** The steps, drawn afresh each time from the fonts that came, and the drawing's letters if they did. */
-function plan(fonts: FreeFontRef[], drawing: FreeFontData | null): Step[] {
+/** A saved font's letters, once the free fonts it's written in have come; null when it can't draw the name. */
+async function built(d: Design): Promise<Font | null> {
+  await Promise.all(fontFor(d.params).freeMissing.map(loadFreeFont));
+  const f = fontFor(d.params);
+  return [...NAME].every(ch => f.glyph(ch)) ? f : null;
+}
+
+/** Whether a saved font was begun as blackletter, or is written in its font. */
+const blackletter = (d: Design) => d.styleId === BLACKLETTER || (!!d.params.freeFont && parseFontId(d.params.freeFont)?.family === BLACK_FONT);
+
+/** The steps, drawn afresh each time from the own fonts and saved ones that came, and the drawing's letters if they
+    did. */
+function plan(fonts: FreeFontRef[], mine: Font[], drawing: FreeFontData | null): Step[] {
   const mark: Step = { ms: HOLD_MS };
   if (fonts.length < FEWEST) return [mark];
-  // a font other than those in `not`, so letters side by side differ
-  const other = (...not: (FreeFontRef | undefined)[]) => any(fonts.filter(f => !not.includes(f)));
-  const mixed = (chars: string[]) => chars.reduce<Letter[]>((ls, ch) => [...ls, { ch, font: other(ls.at(-1)?.font) }], []);
-  // the scramble's next `n` letters after `was`, each changed by CHURN's odds (a new one always), in a font unlike
-  // its neighbours' (`left` the font of the letter before them)
-  const stir = (was: Letter[], n: number, left?: FreeFontRef) => Array.from({ length: n }).reduce<Letter[]>((ls, _, i) => {
-    const prev = ls.at(-1)?.font ?? left, kept = i < was.length && Math.random() > CHURN && was[i].font !== prev;
-    return [...ls, kept ? was[i] : { ch: any([...NOISE]), font: other(prev, was[i + 1]?.font) }];
+  const own = fonts.map(web => ({ web })), saved = mine.map(f => ({ mine: f })), faces: Face[] = [...own, ...saved];
+  // a face other than those in `not` that draws `ch`, so letters side by side differ
+  const other = (ch: string, ...not: (Face | undefined)[]) => any(faces.filter(f => !not.includes(f) && (!f.mine || f.mine.glyph(ch))));
+  const mixed = (chars: string[]) => chars.reduce<Letter[]>((ls, ch) => [...ls, { ch, face: other(ch, ls.at(-1)?.face) }], []);
+  // the scramble's next `n` letters after `was`, each changed by CHURN's odds (a new one always), in a face unlike
+  // its neighbours' (`left` the face of the letter before them)
+  const stir = (was: Letter[], n: number, left?: Face) => Array.from({ length: n }).reduce<Letter[]>((ls, _, i) => {
+    const prev = ls.at(-1)?.face ?? left, kept = i < was.length && Math.random() > CHURN && was[i].face !== prev, ch = any([...NOISE]);
+    return [...ls, kept ? was[i] : { ch, face: other(ch, prev, was[i + 1]?.face) }];
   }, []);
   const steps: Step[] = [];
   let noise: Letter[] = [];
   for (let n = 1; n <= NAME.length; n++) steps.push({ ms: GROW_MS, letters: noise = stir(noise, n) });
-  // settling from the left, each letter keeps the font it settled in; the full name, all mixed, stays a moment longer
+  // settling from the left, each letter keeps the face it settled in; the full name, all mixed, stays a moment longer
   const settled: Letter[] = [];
   for (let n = 1; n <= NAME.length; n++) {
-    settled.push({ ch: NAME[n - 1], font: other(settled.at(-1)?.font, noise[1]?.font) });
-    noise = stir(noise.slice(1), NAME.length - n, settled[n - 1].font);
+    settled.push({ ch: NAME[n - 1], face: other(NAME[n - 1], settled.at(-1)?.face, noise[1]?.face) });
+    noise = stir(noise.slice(1), NAME.length - n, settled[n - 1].face);
     steps.push({ ms: n === NAME.length ? SETTLE_MS * 3 : SETTLE_MS, letters: [...settled, ...noise] });
   }
-  // the cuts, the lines at each font's heights (a mixed cut keeps the last font's)
-  const named = new Map(fonts.map(f => [f.family, f]));
-  const cuts = CUTS.filter(c => c === '*' || named.has(c));
-  let lines = heightsOf(named.get(cuts.find(c => c !== '*') ?? '') ?? fonts[0]);
+  // the cuts, a saved font in the place of an own one where there is one, the lines at each face's heights (a mixed
+  // cut keeps the last face's)
+  const named = new Map(own.map(f => [f.web.family, f]));
+  const cuts = CUTS.flatMap((c): (Face | '*')[] => {
+    const face = c === '*' ? c : saved[MINE_AT.indexOf(c)] ?? named.get(c);
+    return face ? [face] : [];
+  });
+  let lines = heightsOf(cuts.find(c => c !== '*') ?? own[0]);
   cuts.forEach((c, k) => {
     const ms = CUT_MS + SLOW_MS * (k / Math.max(1, cuts.length - 1)) ** 2;
     if (c === '*') { steps.push({ ms, letters: mixed([...NAME]), lines }); return; }
-    const font = named.get(c)!;
-    lines = heightsOf(font) ?? lines;
-    steps.push({ ms, letters: [...NAME].map(ch => ({ ch, font })), lines });
+    lines = heightsOf(c) ?? lines;
+    steps.push({ ms, letters: [...NAME].map(ch => ({ ch, face: c })), lines });
   });
   if (drawing) steps.push({ ms: DRAW_MS, drawn: true, lines: drawnHeights(drawing) });
   return [...steps, mark];
@@ -221,6 +247,28 @@ function Drawing({ letters, size }: { letters: ReturnType<typeof drawName>; size
   );
 }
 
+/** The name in `letters` at `size` px to the em, centred on `cx` with its baseline at `base`: in one web font as the
+    browser sets it (kerned), else letter by letter, each as wide as its face has it, a saved font's as the engine
+    spaces them. */
+function Word({ letters, size, cx, base }: { letters: Letter[]; size: number; cx: number; base: number }) {
+  const one = letters[0]?.face.web && letters.every(l => l.face === letters[0].face) ? letters[0].face.web : null;
+  if (one) return <text className="intro-word" x={cx} y={base} textAnchor="middle" fontSize={size} style={fontStyle(one)}>{letters.map(l => l.ch).join('')}</text>;
+  const ems = letters.map(({ ch, face: { web, mine } }, i) => (mine ? (mine.advance(ch) + (i < letters.length - 1 ? mine.m.track : 0)) / 1000 : textWidth(web, ch)));
+  const k = +(size / 1000).toFixed(4);
+  let x = cx - ems.reduce((w, e) => w + e, 0) * size / 2;
+  return (
+    <g className="intro-word">
+      {letters.map(({ ch, face: { web, mine } }, i) => {
+        const at = n1(x), g = mine?.glyph(ch);
+        x += ems[i] * size;
+        return web
+          ? <text key={i} x={at} y={base} fontSize={size} style={fontStyle(web)}>{ch}</text>
+          : g && <path key={i} d={g.d} transform={`translate(${at} ${base}) scale(${k})`} />;
+      })}
+    </g>
+  );
+}
+
 function shouldPlay() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
   return !prefFlag(PREFS.introSeen);
@@ -238,13 +286,19 @@ export function Intro() {
   useEffect(() => {
     if (phase !== 'wait') return;
     setPrefFlag(PREFS.introSeen, true);
-    const got: FreeFontRef[] = [];
+    const got: FreeFontRef[] = [], mine: (Font | null)[] = [];
     let data: FreeFontData | null = null, live = true;
-    const start = () => { if (!live) return; live = false; setDrawing(data); setSteps(plan(got, data)); setPhase('play'); };
+    const start = () => {
+      if (!live) return;
+      live = false; setDrawing(data); setSteps(plan(got, mine.filter(f => f !== null), data)); setPhase('play');
+    };
     const t = setTimeout(start, WAIT_MS);
     void Promise.all([
       ...FONTS.map(id => webFont(id).then(r => { if (r) got.push(r); })),
-      api.freeFont(DRAWN).then(d => { data = d; }, () => undefined)
+      api.freeFont(DRAWN).then(d => { data = d; }, () => undefined),
+      // the latest saved fonts, as many as the cuts they take, kept in that order
+      api.listDesigns().then(ds => Promise.all(ds.filter(d => !blackletter(d)).slice(0, MINE_AT.length)
+        .map((d, i) => built(d).then(f => { mine[i] = f; }, () => undefined))), () => undefined)
     ]).then(start);
     return () => { live = false; clearTimeout(t); };
   }, [phase]);
@@ -278,9 +332,7 @@ export function Intro() {
         <svg className="intro-art" width={W} height={H}>
           {lines && <Guides lines={lines} xs={step.drawn ? namesAt(lines, W) : new Map()} width={W} end={!!step.drawn} />}
           {step.letters
-            ? <text className="intro-word" x={W / 2} y={base} textAnchor="middle" fontSize={size}>
-              {step.letters.map((l, i) => <tspan key={i} style={fontStyle(l.font)}>{l.ch}</tspan>)}
-            </text>
+            ? <Word letters={step.letters} size={size} cx={W / 2} base={base} />
             : step.drawn ? drawn && <Drawing letters={drawn} size={size} />
               : <text className="intro-mark" x={W / 2} y={base} textAnchor="middle" fontSize={size}>{NAME}</text>}
         </svg>
