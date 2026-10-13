@@ -200,7 +200,7 @@ function ModeToggle() {
     [true, 'Points', 'Edit the outline point by point, like a vector editor']
   ];
   return (
-    <div className="scope" role="radiogroup" aria-label="Edit with">
+    <div className="scope" role="radiogroup" aria-label="Edit with" data-guide="mode">
       {opts.map(([on, label, title]) => (
         <button key={label} role="radio" aria-checked={pen === on} data-mode={on ? 'points' : 'shape'} className={pen === on ? 'on' : undefined} title={title} onClick={() => actions.setPenMode(on)}>
           <svg className="scope-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">

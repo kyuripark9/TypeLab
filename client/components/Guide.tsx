@@ -2,7 +2,7 @@
    gives a small task to try there; the spotlight stays live while the rest of the editor is held
    still, and the task ticks off once the editor sees it done. Opens once per browser and can be
    replayed from the header. Targets are elements marked with data-guide="…": stage and type in
-   Stage.tsx, panel in Panel.tsx, nav and strip in Chrome.tsx, inspector and scope in Inspector.tsx,
+   Stage.tsx, panel in Panel.tsx, nav and strip in Chrome.tsx, inspector, mode and scope in Inspector.tsx,
    actions in Header.tsx. */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CategoryId } from '../../shared/content';
@@ -12,7 +12,7 @@ import { actions, useEditor, type EditorState, type StyleTab } from '../state/ed
 
 type Side = 'top' | 'right' | 'bottom' | 'left';
 /** the data-guide names the steps spotlight (see the list above) */
-type Target = 'stage' | 'type' | 'panel' | 'nav' | 'inspector' | 'scope' | 'strip' | 'actions';
+type Target = 'stage' | 'type' | 'panel' | 'nav' | 'inspector' | 'mode' | 'scope' | 'strip' | 'actions';
 interface Step {
   target?: Target; side?: Side;
   /** the page to show: Style always, another page only if the Style page is open (a page picked earlier stays) */
@@ -21,6 +21,8 @@ interface Step {
   styleTab?: StyleTab;
   /** 'open' shows a letter in the inspector (R, unless one is open already), 'keep' leaves it as it is; otherwise it closes */
   inspector?: 'open' | 'keep';
+  /** the inspector in Parts (false) or Points (true); left as it is when not given */
+  pen?: boolean;
   /** the area, named small above the task */
   label?: string;
   /** the thing to try, as the card's heading; done once `done` holds against the editor as it was when the step began */
@@ -47,13 +49,18 @@ const STEPS: Step[] = [
     task: 'Drag a slider', done: (s, t) => s.params !== t.params },
   { target: 'stage', side: 'right', category: 'weight', label: 'Preview',
     task: 'Click a letter', done: s => !!s.inspect },
-  { target: 'inspector', side: 'right', category: 'weight', inspector: 'open', label: 'Letter',
+  { target: 'inspector', side: 'right', category: 'weight', inspector: 'open', pen: false, label: 'Letter',
     task: 'Drag a part of the letter', done: (s, t) => s.params !== t.params },
-  { target: 'scope', side: 'bottom', category: 'weight', inspector: 'open', label: 'One letter',
+  { target: 'scope', side: 'bottom', category: 'weight', inspector: 'open', pen: false, label: 'One letter',
     task: 'Switch to Only, beside All letters', note: 'Changes then reshape this letter alone.', done: s => s.scope === 'letter' },
-  { target: 'inspector', side: 'right', category: 'weight', inspector: 'open', label: 'One letter',
+  { target: 'inspector', side: 'right', category: 'weight', inspector: 'open', pen: false, label: 'One letter',
     task: 'Drag a part again', note: 'Only this letter changes; Reset puts it back in step.',
     done: (s, t) => s.scope === 'letter' && s.params.glyphs !== t.params.glyphs },
+  { target: 'mode', side: 'bottom', category: 'weight', inspector: 'open', pen: false, label: 'Points',
+    task: 'Switch to Points, beside Parts', note: 'Edit the outline point by point, like a vector editor.', done: s => s.penMode },
+  { target: 'inspector', side: 'right', category: 'weight', inspector: 'open', pen: true, label: 'Points',
+    task: 'Drag a point with Direct selection', note: 'The hollow arrow on the bar, or press A.',
+    done: (s, t) => s.params.outlines !== t.params.outlines },
   { target: 'strip', side: 'top', category: 'weight', inspector: 'keep', label: 'Glyphs',
     task: 'Click another glyph', done: (s, t) => !!s.inspect && s.inspect !== t.inspect },
   { target: 'actions', side: 'bottom', inspector: 'keep', label: 'Undo, save, export',
@@ -104,7 +111,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
   // remember where the user was, and put them back when the tour ends
   const start = useRef((() => {
     const s = useEditor.getState();
-    return { category: s.category, styleTab: s.styleTab, scope: s.scope, focus: document.activeElement as HTMLElement | null };
+    return { category: s.category, styleTab: s.styleTab, scope: s.scope, pen: s.penMode, focus: document.activeElement as HTMLElement | null };
   })());
   const close = () => {
     setPrefFlag(PREFS.guideSeen, true);
@@ -115,6 +122,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
     actions.setCategory(s.category);
     actions.setStyleTab(s.styleTab);
     actions.setScope(s.scope);
+    actions.setPenMode(s.pen);
     s.focus?.focus();
     onClose();
   };
@@ -128,6 +136,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
     if (s.exportOpen) actions.setExportOpen(false);
     if (step.inspector === 'open') { if (!s.inspect) actions.openInspector('R'); }
     else if (step.inspector !== 'keep' && s.inspect) actions.closeInspector();
+    if (step.pen !== undefined && s.penMode !== step.pen) actions.setPenMode(step.pen);
     if (step.category === 'style' || (step.category && s.category === 'style')) actions.setCategory(step.category);
     if (step.styleTab) actions.setStyleTab(step.styleTab);
     // in a narrow window the page menu is a drawer: open it for the step about it
@@ -171,9 +180,10 @@ export function Guide({ onClose }: { onClose: () => void }) {
       e.preventDefault();
       e.stopPropagation();
     };
-    // capture, so the editor's own Escape/arrow shortcuts stay quiet during the tour
-    addEventListener('keydown', onKey, true);
-    return () => removeEventListener('keydown', onKey, true);
+    // caught on the way down, so the editor's own Escape/arrow shortcuts stay quiet during the tour; on the document,
+    // so the pen's keys (on the window) come first: arrows nudge the points picked, Escape lets them go
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   });
 
   const ok = done.has(i), task = !!step.done && can;

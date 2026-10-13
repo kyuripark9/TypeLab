@@ -129,7 +129,8 @@ Code and tools find elements by these; renaming one means updating every reader.
 - A slider's range has `aria-label` = its spec's `tech`, not its visible label (Contrast's is `Contrast · Reverse
   contrast`); `drag-bench.mjs` matches it exactly.
 - The tour's targets are `data-guide` attributes: `stage` and `type` (Stage), `panel` (Panel), `nav` and `strip`
-  (Chrome), `inspector` and `scope` (Inspector), `actions` (Header). Nothing tests that each target exists.
+  (Chrome), `inspector`, `mode` (Parts / Points) and `scope` (Inspector), `actions` (Header). Nothing tests that each
+  target exists.
 - Glyph paths are `#g<charCode>`, highlights `#h<charCode>` (only for characters on screen); the preview's glyphs
   carry `data-c` for clicks.
 - Phone CSS hides `.top-actions [aria-label=Undo]`, `[aria-label=Redo]`, `.guide-btn` and `a[href="/designs"]`.
