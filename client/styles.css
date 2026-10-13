@@ -1,57 +1,68 @@
-/* A flat, quiet UI after the Soren portfolio template (soren-template.framer.website), in a type specimen sheet's
-   colours. This sheet opens with the system (the tokens, then the parts every page shares: type, buttons, fields,
-   segmented switches, what floats), and the rest of it lays out each part of the app with those.
+/* A paper-and-pencil UI after Studio Think (studiothink.framer.website): cream graph paper, warm ink, one highlighter.
+   This sheet opens with the system (the tokens, then the parts every page shares: type, buttons, fields, segmented
+   switches, what floats), and the rest of it lays out each part of the app with those.
 
-   Type: one typeface for every word, Switzer, from page titles to buttons and tags, in seven sizes (--t-xs to --t-2xl;
-   a rule takes a step, never a size of its own) and three weights (400 to read, 500 for names and what you press,
-   600 for titles and bold); Chivo Mono only for numbers and for the small capitals that name a group; Lineup only for
-   the logo (below). The Feeling names are the one exception, each in a font with that feeling (.feel).
-   Colour: black ink on a light grey paper (#eff0f0), the sheets white (--surface) with wells a shade under it
-   (--well, --tint), two greys for text (#3e4245, and a step lighter for notes; both 7:1 or more on the paper), a pale
-   grey (#e4e7e7) for hairlines and the tracks of sliders and switches, and a type specimen's orange, its point
-   markers' a shade deeper (#cc4516) so white reads on it, as the only accent. An edit's two scopes
-   each have a colour: the orange (--sync) while every letter changes together, in the inspector, the preview and the
-   settings, and a blue (--custom) while one letter is customized, so anything that belongs to one letter alone reads
-   apart from what all of them share; the -ink shades are for text, -soft for highlights, and -tint and -wash pale
-   mixes for backgrounds. A scope recolours what it holds by setting --accent, --accent-ink, --accent-soft and the
-   sliders' --fill (below the inspector's head), so a rule takes those by var() where it is used rather than through a
-   token mixed on :root, which would keep the orange. Form warnings are an orange-brown (--warn-ink, --warn-tint),
-   deleting a deep red (--danger), the construction grid a teal and a pink (--grid-*) and the pen's snap guides a pink.
-   Shape: sheets, cards, tiles and menus are square and flat (--radius); what you press (buttons, tags, switches,
-   fields) rounds off into a pill (--pill); a pale tab or field on the paper is set off by a hairline (--raise), and
-   only what floats over the page casts a shadow (--shadow). A section head opens with a small orange square over a
-   hairline. No decorative flourishes.
-   The editor is laid out as sheets: the page menu sits on the grey paper, and the preview, the settings and the
+   Type: Manrope for every word of the interface, buttons and tags included, in eight sizes (--t-xs to --t-3xl; a rule
+   takes a step, never a size of its own) and three weights (500 to read, 600 for names, 700 for what you press,
+   bold and the sans titles); a light serif for titles (--serif: Gambetta Light, standing in for Studio Think's
+   Ortica Linear), drawn in a little; Geist Mono only for numbers and for the small capitals that name a group; a
+   handwriting (--hand) only for the odd note in the margin, as Studio Think writes its asides; Lineup only for the
+   logo (below). The Feeling names are the one exception, each in a font with that feeling (.feel).
+   Colour: warm ink (#201f1d) on cream paper ruled faintly in squares (--paper, --grid-paper), the sheets a paler cream
+   (--surface) with wells a shade under it (--well, --tint), two warm greys for text (#46423d, and a step lighter for
+   notes; both 7:1 or more on the paper), warm hairlines (--line) for edges and the tracks of sliders and switches,
+   and a highlighter's lemon (--marker, #f7f780) as the one accent, laid under ink as a marker is (a primary button,
+   the page you are on, what is picked, selected text), never as ink itself, since lemon can't be read on cream.
+   An edit's two scopes each have a look: every letter in sync (--sync) is the system's own, ink with the lemon
+   under it, in the inspector, the preview and the settings; one letter customized (--custom) is a printer's blue,
+   the one strong colour in the system, so anything that belongs to one letter alone reads apart from what all of
+   them share. A scope recolours what it holds by setting --accent (lines, rings, slider fills, points), --accent-ink
+   (text), --accent-soft (a translucent wash: halos, what is picked, rings' insides) and --accent-mark (an opaque
+   highlight laid over ink: a part of a letter lit up) and the sliders' --fill (below the inspector's head), so a rule
+   takes those by var() where it is used rather than through a token mixed on :root, which would keep the sync look.
+   Form warnings are an orange-brown (--warn-ink, --warn-tint), deleting a deep red (--danger), the construction grid
+   a teal and a pink (--grid-*) and the pen's snap guides a pink.
+   Shape: sheets, cards, tiles and menus are square, edged by a warm hairline (--raise); what you press (buttons,
+   tags, switches, fields) rounds off into a pill (--pill); only what floats over the page casts a shadow (--shadow),
+   long and soft as under a card laid on paper. A section head opens with a small lemon square edged in ink over a
+   hairline. No other flourishes.
+   The editor is laid out as sheets: the page menu sits on the ruled paper, and the preview, the settings and the
    glyph strip are pale sheets set on it with a gap between, the gaps doubling as the resize handles. */
 :root {
-  --paper: #eff0f0; --surface: #fff; --well: #f6f7f7; --tint: #e9ebeb;
-  --ink: #000; --ink-2: #3e4245; --ink-3: #4a4e51; --ink-hover: #2a2d2f; --white: #fff;
-  --line: #e4e7e7; --line-2: #d2d7d8;
-  --accent: #cc4516; --accent-ink: #a8390d; --accent-soft: rgba(204, 69, 22, .12);
-  /* every letter in sync is the accent itself */
-  --sync: var(--accent); --sync-ink: var(--accent-ink); --sync-soft: var(--accent-soft);
-  /* one letter alone is a printer's deep blue, quiet enough to sit by the orange on the grey, its pale shades
-     faintly blue rather than lilac */
-  --custom: #225b90; --custom-ink: #0b4475; --custom-soft: rgba(34, 91, 144, .12); --custom-tint: #e3eaf2; --custom-wash: #f5f8fc;
-  --warn-ink: #a3531c; --warn-tint: #f8ebe2;
+  --paper: #fef5ec; --surface: #fdfaf6; --well: #f8f1e9; --tint: #efe7de;
+  /* the paper's squares, 60px, as Studio Think rules its pages */
+  --grid-paper: linear-gradient(to right, rgba(32, 31, 29, .05) 1px, transparent 1px) 0 0 / 60px 60px,
+    linear-gradient(to bottom, rgba(32, 31, 29, .05) 1px, transparent 1px) 0 0 / 60px 60px, var(--paper);
+  --ink: #201f1d; --ink-2: #46423d; --ink-3: #504b45; --ink-hover: #3a3733; --white: #fffdf9;
+  --line: #e9e1d8; --line-2: #d6cec6;
+  /* the highlighter, and a step deeper for a lemon button pointed at */
+  --marker: #f7f780; --marker-hover: #eeee5e;
+  /* every letter in sync: ink, with the lemon under it (translucent, so a ring or a box over a letter shows through) */
+  --sync: var(--ink); --sync-ink: var(--ink); --sync-soft: rgba(242, 240, 40, .55); --sync-mark: var(--marker);
+  /* one letter alone is a printer's deep blue, its pale shades faintly blue */
+  --custom: #225b90; --custom-ink: #0b4475; --custom-soft: rgba(34, 91, 144, .14); --custom-tint: #e2e9f1; --custom-wash: #f4f6f8;
+  --accent: var(--sync); --accent-ink: var(--sync-ink); --accent-soft: var(--sync-soft); --accent-mark: var(--sync-mark);
+  --warn-ink: #a3531c; --warn-tint: #f8e6d8;
   --danger: #b3261e; --danger-hover: #8c1d17; --danger-wash: #fbeceb;
   --grid-shared: #2a9db5; --grid-own: #d0458a; --snap: #d94f8c;
-  --hover: rgba(0, 0, 0, .04); --active: rgba(0, 0, 0, .07);
+  --hover: rgba(32, 31, 29, .05); --active: rgba(32, 31, 29, .08);
   /* the dim under a drawer, a sheet or a dialog */
-  --scrim: rgba(0, 0, 0, .25);
+  --scrim: rgba(32, 31, 29, .3);
   --radius: 0; --pill: 999px;
   --gap: 8px; --top-h: 52px;
   --raise: 0 0 0 1px var(--line);
-  --shadow: 0 0 0 1px rgba(0, 0, 0, .05), 0 .6px 1.6px -1.5px rgba(0, 0, 0, .17), 0 2.3px 6px -3px rgba(0, 0, 0, .14), 0 10px 26px -4.5px rgba(0, 0, 0, .1);
-  /* a white knob (a slider's, a switch's) lifted off its track */
-  --knob: 0 0 0 .5px rgba(0, 0, 0, .14), 0 1px 2px rgba(0, 0, 0, .18), 0 2px 6px rgba(0, 0, 0, .08);
-  --ui: "Switzer", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --mono: "Chivo Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --shadow: 0 0 0 1px rgba(32, 31, 29, .1), 0 1px 2px rgba(32, 31, 29, .06), 0 16px 32px -6px rgba(32, 31, 29, .2);
+  /* a pale knob (a slider's, a switch's) edged in ink and lifted off its track */
+  --knob: 0 0 0 1px rgba(32, 31, 29, .7), 0 1px 3px rgba(32, 31, 29, .18);
+  --ui: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --serif: "Gambetta", Georgia, "Times New Roman", serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --hand: "Just Me Again Down Here", "Bradley Hand", cursive;
   --display: "TypeLab Lineup", Georgia, "Times New Roman", serif;
   /* the type scale: small capitals and keys; tags, notes and meta; the UI's text and buttons; body and fields;
-     titles in a sheet; the letter inspected; page titles. Text runs at a line height of 1.45, headings and a
-     word under an icon at 1.25 */
-  --t-xs: 11px; --t-s: 12px; --t-m: 13px; --t-base: 14px; --t-l: 16px; --t-xl: 20px; --t-2xl: 24px;
+     titles in a sheet; the letter inspected and serif titles in a sheet; sans page titles; serif page titles. Text
+     runs at a line height of 1.45, headings and a word under an icon at 1.25 */
+  --t-xs: 11px; --t-s: 12px; --t-m: 13px; --t-base: 14px; --t-l: 16px; --t-xl: 20px; --t-2xl: 24px; --t-3xl: 32px;
 }
 /* The logo is set in Lineup, a font made in TypeLab (client/fonts, written by tools/fonts/ui.ts); it has one weight,
    so it is never bolded. It was drawn for capitals (its small letters run into each other), so it marks the name alone,
@@ -72,14 +83,14 @@
    deleting a rule. */
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-body { background: var(--paper); color: var(--ink); font: 400 var(--t-base)/1.45 var(--ui); letter-spacing: -.01em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+body { background: var(--grid-paper); color: var(--ink); font: 500 var(--t-base)/1.45 var(--ui); letter-spacing: -.01em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
   cursor: default; user-select: none; -webkit-user-select: none; }
 /* The I-beam and text selection belong only to fields you type into. */
 input:not([type]), input[type=text], input[type=search], input[type=number], textarea, [contenteditable]:not([contenteditable=false]) { cursor: text; user-select: text; -webkit-user-select: text; }
 ::selection { background: var(--accent-soft); color: var(--ink); }
 ::placeholder { color: var(--ink-3); opacity: 1; }
 a { color: inherit; }
-b, strong { font-weight: 600; }
+b, strong { font-weight: 700; }
 button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -88,10 +99,13 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .grow, .page-steps-grow, .guide-grow { flex: 1; }
 
 /* ---------- the system's shared parts */
-/* headings are Switzer a step heavier and drawn in a little, as Soren sets its titles */
-.cards-head h1, .finder-head, .dialog h2, .guide-card h2, .message-page h1, .lib-head h1, .lib-empty h2, .acct-label h2 {
-  font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
-/* Chivo Mono in capitals is kept for one thing, the small name over a group (a section's head, the nav's page groups,
+/* titles are the light serif, drawn in a little, as Studio Think sets its titles (and the explainer's title, which
+   names what a control does); one too small for a light serif to read well (a section of the account page) stays
+   in Manrope, bold */
+.cards-head h1, .finder-head, .dialog h2, .guide-card h2, .message-page h1, .lib-head h1, .lib-empty h2, .ex-title {
+  font-family: var(--serif); font-weight: 300; letter-spacing: -.02em; line-height: 1.2; }
+.acct-label h2 { font-weight: 700; letter-spacing: -.02em; line-height: 1.25; }
+/* Geist Mono in capitals is kept for one thing, the small name over a group (a section's head, the nav's page groups,
    a menu's head, a field's label), so it reads as a marker over the words rather than as words: the smallest size, a
    grey a step back. Numbers are in the mono too, rule by rule, for their even widths. A letter named in one keeps its
    case (.ch), as Parts of a isn't Parts of A. */
@@ -101,13 +115,14 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
   font-family: var(--mono); font-size: var(--t-xs); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); }
 .ch { text-transform: none; }
 /* Buttons are pills in three looks: ghost (words or an icon over whatever is under them, washed grey when pointed at),
-   primary (white on black, the one thing a place asks you to do) and raised (a pale pill set off by a hairline:
+   primary (ink on the lemon, edged in ink, as Studio Think's Start a project: the one thing a place asks you to do)
+   and raised (a pale pill set off by a hairline:
    .outline, .wide across its box, .round an icon in a circle). Then sizes (.icon a square, .small a step down) and
    deleting (.danger-btn: red words, or white on red). */
-.btn { text-decoration: none; white-space: nowrap; height: 32px; padding: 0 14px; border-radius: var(--pill); font-weight: 500; font-size: var(--t-m); display: inline-flex; align-items: center; gap: 7px; transition: background .15s, color .15s, opacity .15s, box-shadow .15s; }
+.btn { text-decoration: none; white-space: nowrap; height: 32px; padding: 0 14px; border-radius: var(--pill); font-weight: 700; font-size: var(--t-m); display: inline-flex; align-items: center; gap: 7px; transition: background .15s, color .15s, opacity .15s, box-shadow .15s; }
 .btn.ghost:hover { background: var(--active); }
-.btn.primary { background: var(--ink); color: var(--white); padding: 0 16px; }
-.btn.primary:hover { background: var(--ink-hover); }
+.btn.primary { background: var(--marker); color: var(--ink); padding: 0 16px; box-shadow: inset 0 0 0 1px var(--ink); }
+.btn.primary:hover { background: var(--marker-hover); }
 .btn.outline, .btn.wide, .btn.round, .dialog-actions .btn:not(.primary) { background: var(--surface); box-shadow: var(--raise); }
 .btn.outline:hover, .btn.wide:hover, .btn.round:hover, .dialog-actions .btn:not(.primary):hover { background: var(--well); }
 .btn.wide { width: 100%; justify-content: center; }
@@ -120,7 +135,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .btn:disabled { opacity: .35; pointer-events: none; }
 .btn.danger-btn:not(.primary) { color: var(--danger); }
 .btn.danger-btn:not(.primary):hover { box-shadow: 0 0 0 1px var(--danger); }
-.btn.primary.danger-btn { background: var(--danger); }
+.btn.primary.danger-btn { background: var(--danger); color: var(--white); box-shadow: none; }
 .btn.primary.danger-btn:hover { background: var(--danger-hover); }
 /* A field you type into is a pill on a pale well with a hairline inside it, edged darker when pointed at and, typed
    in, turned pale and ringed in the accent (its scope's: a letter's own numbers ring blue). On the paper (the nav's
@@ -141,7 +156,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
    Layout, and the pen's point kinds, corner shapes, Snap and Mirror. */
 .view-toggle, .style-tabs, .scope, .pen-kind { display: flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--pill); background: var(--tint); }
 .view-toggle button, .style-tabs button, .scope button, .pen-kind button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 12px;
-  border-radius: var(--pill); font-size: var(--t-m); font-weight: 500; color: var(--ink-2); white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }
+  border-radius: var(--pill); font-size: var(--t-m); font-weight: 600; color: var(--ink-2); white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }
 .view-toggle button:hover, .style-tabs button:hover, .scope button:hover, .pen-kind button:hover { color: var(--ink); }
 .view-toggle button.on, .style-tabs button.on, .scope button.on, .pen-kind button.on { background: var(--surface); color: var(--ink); box-shadow: var(--raise); }
 /* What floats over the page (popovers and menus, the pen's tools and its carry card, the inspector's tips, dialogs and
@@ -149,22 +164,22 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
    grey when pointed at. */
 .popover, .dialog, .guide-card, .pen-tools, .pen-shape-menu, .pen-carry, .pen-carry-peek, .i-tip { background: var(--surface); border: 0; border-radius: var(--radius); box-shadow: var(--shadow); }
 
-/* ---------- the editor: a grid of sheets on the paper */
-.editor { display: grid; height: 100vh; overflow: hidden; background: var(--paper); column-gap: var(--gap); padding: 0 var(--gap) var(--gap) 0;
+/* ---------- the editor: a grid of sheets on the ruled paper */
+.editor { display: grid; height: 100vh; overflow: hidden; background: var(--grid-paper); column-gap: var(--gap); padding: 0 var(--gap) var(--gap) 0;
   grid-template: "top top top" var(--top-h) "nav stage panel" minmax(0, 1fr) "nav strip strip" auto / var(--nav-w, 208px) minmax(0, 1fr) var(--panel-w, 356px); }
 
-/* ---------- header: on the paper, no rule under it; the sheets below set the edge */
-.top { grid-area: top; display: flex; align-items: center; justify-content: space-between; padding: 0 6px 0 16px; background: var(--paper); }
+/* ---------- header: on the ruled paper, no rule under it; the sheets below set the edge */
+.top { grid-area: top; display: flex; align-items: center; justify-content: space-between; padding: 0 6px 0 16px; background: var(--grid-paper); }
 .editor .top { margin-right: calc(-1 * var(--gap)); padding-right: 14px; }
 .top-left { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .brand { display: flex; align-items: center; gap: 8px; text-decoration: none; flex: none; }
 .top-left .brand { margin-right: 12px; }
 .brand-name { font-family: var(--display); font-size: var(--t-l); font-weight: 400; text-transform: uppercase; letter-spacing: .04em; font-synthesis: none; transition: color .15s; }
-.brand:hover .brand-name { color: var(--accent-ink); }
+.brand:hover .brand-name { color: var(--ink-3); }
 .top-actions { display: flex; align-items: center; gap: 4px; }
 .sep { width: 1px; height: 18px; background: var(--line-2); margin: 0 10px; }
-/* unsaved changes: a small orange square on Save's corner, outside the label so the word stays centred */
-.btn .dirty { position: absolute; top: -1px; right: 1px; width: 7px; height: 7px; background: var(--accent); box-shadow: 0 0 0 2px var(--paper); opacity: 0; transform: scale(.4); transition: opacity .15s, transform .15s; }
+/* unsaved changes: a small lemon square edged in ink on Save's corner, outside the label so the word stays centred */
+.btn .dirty { position: absolute; top: -2px; right: 0; width: 9px; height: 9px; background: var(--marker); box-shadow: inset 0 0 0 1px var(--ink), 0 0 0 2px var(--paper); opacity: 0; transform: scale(.4); transition: opacity .15s, transform .15s; }
 .btn .dirty.on { opacity: 1; transform: none; }
 .top-actions .btn.outline { position: relative; }
 /* the header's plain links recede a step, so Save and Export lead */
@@ -182,12 +197,12 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 /* the pages (or the settings found) scroll between the search and the foot, so the account stays in the
    corner; padded out to the nav's edges so a raised tab's shadow and the focus ring aren't clipped */
 .nav-pages, .nav-hits { min-height: 0; overflow: auto; scrollbar-width: none; margin: -4px -8px; padding: 4px 8px; }
-/* the page open now is a pale tab raised off the paper, like the sheets */
+/* the page open now is marked in the highlighter, as Studio Think marks a word */
 .nav-item { text-align: left; padding: 5px 10px; min-height: 32px; border-radius: var(--radius); display: flex; align-items: center; gap: 10px; color: var(--ink-2); transition: background .15s, color .15s, box-shadow .15s; }
 .nav-item:hover { background: var(--active); color: var(--ink); }
-.nav-label { font-size: var(--t-m); font-weight: 500; min-width: 0; }
-.nav-item.on { background: var(--surface); color: var(--ink); box-shadow: var(--raise); }
-.nav-item.on .nav-label { font-weight: 600; }
+.nav-label { font-size: var(--t-m); font-weight: 600; min-width: 0; }
+.nav-item.on { background: var(--marker); color: var(--ink); }
+.nav-item.on .nav-label { font-weight: 700; }
 .nav-item.on .page-icon { color: var(--accent-ink); }
 /* a group's pages sit under its name */
 .nav-group { display: flex; flex-direction: column; gap: 1px; margin-top: 12px; }
@@ -195,15 +210,15 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 /* Find a setting: a field at the top of the nav; while it holds words, the settings it finds take the pages' place */
 .nav-search { position: relative; display: flex; align-items: center; margin-bottom: 10px; color: var(--ink-3); }
 .nav-search .page-icon { position: absolute; left: 12px; pointer-events: none; }
-.nav-search input { width: 100%; height: 32px; padding: 0 40px 0 33px; font: 400 var(--t-m) var(--ui); letter-spacing: inherit; }
+.nav-search input { width: 100%; height: 32px; padding: 0 40px 0 33px; font: 500 var(--t-m) var(--ui); letter-spacing: inherit; }
 .nav-search input::-webkit-search-cancel-button { cursor: pointer; }
 .nav-hits { display: flex; flex-direction: column; gap: 1px; }
 .nav-hit { text-align: left; padding: 7px 10px; border-radius: var(--radius); display: flex; align-items: flex-start; gap: 10px; color: var(--ink-2); }
 .nav-hit .page-icon { margin-top: 1px; }
-.nav-hit.on { background: var(--surface); color: var(--ink); box-shadow: var(--raise); }
+.nav-hit.on { background: var(--marker); color: var(--ink); }
 .nav-hit-text { display: flex; flex-direction: column; min-width: 0; }
 .nav-hit .nav-label { color: var(--ink); }
-.nav-hit-parent { color: var(--ink-3); font-weight: 400; }
+.nav-hit-parent { color: var(--ink-3); font-weight: 500; }
 .nav-hit-page { font-size: var(--t-s); color: var(--ink-3); }
 .nav-empty { margin: 4px 10px; font-size: var(--t-m); color: var(--ink-3); }
 /* the setting Find a setting opened glows once */
@@ -218,11 +233,11 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .account-corner .account-row:hover { background: var(--well); }
 
 /* ---------- stage: the preview's pale sheet */
-.stage { grid-area: stage; position: relative; display: flex; flex-direction: column; min-width: 0; background: var(--surface); border-radius: var(--radius); overflow: hidden; }
+.stage { grid-area: stage; position: relative; display: flex; flex-direction: column; min-width: 0; background: var(--surface); border-radius: var(--radius); box-shadow: var(--raise); overflow: hidden; }
 .stage-bar { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 /* the sample text: a filled well rather than a boxed field, the one big input on the page */
 .type-field { flex: 1; min-width: 0; position: relative; }
-.type-field input { width: 100%; height: 34px; padding: 0 40px 0 16px; font: 400 var(--t-base) var(--ui); }
+.type-field input { width: 100%; height: 34px; padding: 0 40px 0 16px; font: 500 var(--t-base) var(--ui); }
 .type-clear { position: absolute; right: 6px; top: 50%; translate: 0 -50%; width: 24px; height: 24px; border-radius: 50%; font-size: var(--t-xs); color: var(--ink-3); transition: background .15s, color .15s; }
 .type-clear:hover { background: var(--active); color: var(--ink); }
 .size { display: flex; align-items: center; gap: 10px; flex: none; }
@@ -237,10 +252,12 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .preview svg { display: block; fill: var(--ink); overflow: visible; }
 .gl rect { fill: transparent; }
 .gl { cursor: pointer; }
-.gl:hover > use:first-of-type { fill: var(--accent); }
-.pv-hl { fill: var(--accent); pointer-events: none; }
+/* a letter pointed at is marked in the highlighter behind it; the parts a setting shapes are lit in the scope's
+   highlight, edged in its line so a lemon part reads against the paper */
+.gl:hover rect { fill: var(--accent-mark); }
+.pv-hl { fill: var(--accent-mark); stroke: var(--accent); stroke-width: var(--sw); pointer-events: none; }
 .pv-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: var(--sw); pointer-events: none; }
-.pv-band { fill: var(--accent); opacity: .14; }
+.pv-band { fill: var(--accent-mark); opacity: .8; }
 .pv-guide { stroke: var(--accent); stroke-width: var(--sw); stroke-dasharray: calc(var(--sw) * 4) calc(var(--sw) * 3); opacity: .8; }
 .pv-guide.base { stroke: var(--ink-3); opacity: .5; }
 
@@ -248,30 +265,31 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 /* the heading: the title and what the cards are on the left, the two ways in (Help me choose, Browse all) on the right */
 .cards-head { display: flex; align-items: center; gap: 12px 24px; margin: 4px 0 20px; }
 .cards-title { flex: 1; min-width: 0; }
-.cards-head h1 { margin: 0; font-size: var(--t-2xl); line-height: 1.25; }
+.cards-head h1 { margin: 0; font-size: var(--t-3xl); }
 /* what the cards are, one quiet line under the title */
 .letters-note { margin: 6px 0 0; max-width: 64ch; font-size: var(--t-m); color: var(--ink-2); text-wrap: pretty; }
 /* the switch is the shared segmented look with words on its tabs, as My designs' Sort */
 .find-mode button { width: auto; padding: 0 14px; }
-.skip { flex: none; font-size: var(--t-m); font-weight: 500; color: var(--accent-ink); }
+.skip { flex: none; font-size: var(--t-m); font-weight: 700; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
 .cards-empty { color: var(--ink-2); }
-.link { color: var(--accent-ink); font-weight: 500; }
-.link:hover { text-decoration: underline; }
+/* a link in the words is underlined in ink, as Studio Think's are, and pointed at it takes the highlighter */
+.link { color: var(--accent-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.link:hover { background: var(--marker); }
 .style-group + .style-group { margin-top: 28px; }
-/* each group's head as a Soren section's: an orange square, the name, what the group is at the far end, a hairline under */
+/* each group's head: a lemon square edged in ink, the name, what the group is at the far end, a hairline under */
 .group-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line); font-size: var(--t-s); color: var(--ink); }
-.group-head::before { content: ''; flex: none; width: 8px; height: 8px; background: var(--accent); }
-.group-head span { margin-left: auto; font-family: var(--ui); font-size: var(--t-s); font-weight: 400; text-transform: none; letter-spacing: -.01em; color: var(--ink-3); }
+.group-head::before { content: ''; flex: none; width: 9px; height: 9px; background: var(--marker); box-shadow: inset 0 0 0 1px var(--ink); }
+.group-head span { margin-left: auto; font-family: var(--ui); font-size: var(--t-s); font-weight: 500; text-transform: none; letter-spacing: -.01em; color: var(--ink-3); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 .cards.list { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .card { text-align: left; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px 18px; background: var(--surface); display: flex; flex-direction: column; gap: 10px; transition: border-color .15s, box-shadow .15s, background .15s; }
 .cards:not(.list) .card { padding: 12px 16px 14px; gap: 6px; }
-.card-name { font-size: var(--t-m); font-weight: 500; color: var(--ink-2); }
+.card-name { font-size: var(--t-m); font-weight: 600; color: var(--ink-2); }
 .card:hover { border-color: var(--line-2); background: var(--well); }
 .card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .card.on .card-name { color: var(--accent-ink); }
 /* beside the style's name, the free font its card is set in */
-.card-like { margin-left: 8px; font-weight: 400; color: var(--ink-3); }
+.card-like { margin-left: 8px; font-weight: 500; color: var(--ink-3); }
 /* a style's card in its free font: the text set as the browser draws the font, hidden until it has loaded; a word
    too long for the card is set smaller to fit (wordFit in Stage.tsx), and breaks only past half the size */
 .card-free { display: block; color: var(--ink); line-height: 1.3; overflow-wrap: anywhere; }
@@ -288,19 +306,19 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .active-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -6px 0 20px; }
 .active-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px 0 12px; border-radius: var(--pill); background: var(--ink); color: var(--white); font-size: var(--t-s); transition: background .15s; }
 .active-chip:hover { background: var(--ink-hover); }
-.active-chip.trait { background: var(--accent-soft); color: var(--accent-ink); }
-.active-chip.trait:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.active-chip.trait { background: var(--marker); color: var(--ink); }
+.active-chip.trait:hover { background: var(--marker-hover); }
 .active-chip svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; opacity: .75; }
 .link.small { font-size: var(--t-s); margin-left: 4px; }
 /* the foot: the style the design starts from and Customize, in sight under the cards as .page-steps is under a page
    of controls (on phones, where the page scrolls rather than the cards, it sticks to the window's bottom) */
 .cards-foot { flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 18px; border-top: 1px solid var(--line); background: var(--surface); }
-.cards-foot-pick { flex: 1; min-width: 0; font-size: var(--t-m); font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cards-foot-pick { flex: 1; min-width: 0; font-size: var(--t-m); font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cards-foot-label { margin-right: 4px; }
 .cards-foot .btn { flex: none; gap: 5px; }
 .cards-foot .btn svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-right: -2px; }
 /* the style finder: its one question as a grid of tiles, and once answered the way back to it, in the same place */
-.finder-head { margin: 0 0 14px; font-size: var(--t-l); }
+.finder-head { margin: 0 0 14px; font-size: var(--t-xl); }
 .finder-back-row { margin: -4px 0 12px -8px; }
 .finder-back { color: var(--ink-2); gap: 4px; padding-left: 6px; }
 .finder-back svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
@@ -314,7 +332,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 @keyframes finder-in { from { opacity: 0; transform: translateY(6px); } }
 .finder-free { display: block; width: 100%; height: 56px; overflow: visible; white-space: nowrap; color: var(--ink); line-height: 56px; }
 .finder-free.loading { visibility: hidden; }
-.finder-label { font-size: var(--t-base); font-weight: 500; color: var(--ink); }
+.finder-label { font-size: var(--t-base); font-weight: 600; color: var(--ink); }
 /* typed text, under the answer: one line, sized to fit (Finder.tsx), an ellipsis past the smallest size */
 .finder-typed { display: block; height: 42px; margin-top: 8px; min-width: 0; }
 .finder-typed.free { line-height: 42px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
@@ -335,7 +353,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 body.resizing.y { cursor: row-resize; }
 
 /* ---------- right panel */
-.panel { grid-area: panel; container: panel / size; overflow: auto; background: var(--surface); border-radius: var(--radius); scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.panel { grid-area: panel; container: panel / size; overflow: auto; background: var(--surface); border-radius: var(--radius); box-shadow: var(--raise); scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 .panel-pad { padding: 16px 16px 24px; }
 
 /* the Style page's panel */
@@ -344,7 +362,7 @@ body.resizing.y { cursor: row-resize; }
 .search-row { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; }
 .search-field { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; }
 .search-field > svg { position: absolute; left: 13px; fill: none; stroke: var(--ink-3); stroke-width: 1.6; stroke-linecap: round; pointer-events: none; }
-.search-field input { width: 100%; height: 32px; padding: 0 34px; font: 400 var(--t-m) var(--ui); }
+.search-field input { width: 100%; height: 32px; padding: 0 34px; font: 500 var(--t-m) var(--ui); }
 .search-field input::-webkit-search-cancel-button { display: none; }
 .search-field input:focus ~ kbd, .search-field input:not(:placeholder-shown) ~ kbd { display: none; }
 /* Adjust: a row of named steps per trait, each drawn in the current style, set as one segmented
@@ -356,9 +374,9 @@ body.resizing.y { cursor: row-resize; }
 .traits-tools svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .trait + .trait { margin-top: 14px; }
 .trait-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; min-height: 18px; }
-.trait-label { font-size: var(--t-m); font-weight: 500; }
-.trait-any { margin-left: auto; font-size: var(--t-s); font-weight: 500; color: var(--accent-ink); }
-.trait-any:hover { text-decoration: underline; }
+.trait-label { font-size: var(--t-m); font-weight: 600; }
+.trait-any { margin-left: auto; font-size: var(--t-s); font-weight: 700; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+.trait-any:hover { background: var(--marker); }
 .trait-opts { display: grid; gap: 2px; padding: 2px; border-radius: var(--radius); background: var(--well); box-shadow: inset 0 0 0 1px var(--line); }
 .trait-opts .opt { gap: 3px; padding: 7px 0 5px; min-width: 0; border: 0; border-radius: var(--radius); background: none; color: var(--ink-3); transition: background .15s, color .15s, box-shadow .15s; }
 .trait-opts .opt svg { fill: var(--ink-2); }
@@ -371,7 +389,7 @@ body.resizing.y { cursor: row-resize; }
 .facet-label { margin: 0 0 10px; }
 .count { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-/* a tag, as Soren's: words on a grey pill; picked, it turns black */
+/* a tag: words on a pale pill; picked, it turns ink */
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; white-space: nowrap; border-radius: var(--pill); border: 1px solid transparent; font-size: var(--t-s); color: var(--ink-2); background: var(--tint); transition: background .15s, border-color .15s, color .15s; }
 .chip:hover { background: var(--line-2); color: var(--ink); }
 .chip.on { background: var(--ink); border-color: var(--ink); color: var(--white); }
@@ -380,10 +398,10 @@ body.resizing.y { cursor: row-resize; }
 .chip[aria-disabled=true] { color: var(--ink-3); border-color: var(--line-2); border-style: dashed; background: transparent; cursor: default; }
 .chip[aria-disabled=true]:hover { color: var(--ink-3); background: transparent; }
 /* a Feeling's name, on its chip and on the bar over the cards, in a font with that feeling (FeelingName) and in its
-   own case, Switzer until the font comes: its lowercase kept as tall as the others' (a script's is small for its
+   own case, Manrope until the font comes: its lowercase kept as tall as the others' (a script's is small for its
    size), its line the chip's, so tall capitals reach past it rather than making the chip taller */
 .feel { font-family: var(--ui); font-size: var(--t-base); font-size-adjust: .5; line-height: 1; text-transform: none; letter-spacing: 0; }
-.facet-picked { min-width: 16px; padding: 0 5px; border-radius: var(--pill); background: var(--accent); color: var(--white); line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+.facet-picked { min-width: 16px; padding: 0 5px; border-radius: var(--pill); background: var(--marker); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
 .facet-chevron { margin-left: auto; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: transform .25s ease; }
 .sheet-btn svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
 /* phones: the Style page's panel, which would come after every card, is a sheet over them instead, opened from Filter
@@ -408,13 +426,13 @@ body.resizing.y { cursor: row-resize; }
 .diagram { display: block; width: 100%; height: 100%; }
 @container panel (max-height: 560px) { .explainer { position: static; } }
 .d-ink { fill: var(--ink); }
-.d-hl { fill: var(--accent); }
+.d-hl { fill: var(--accent-mark); stroke: var(--accent); }
 .d-ring { fill: var(--accent-soft); stroke: var(--accent); }
 .d-guide { stroke: var(--line-2); stroke-width: 1; }
 .d-guide.hot { stroke: var(--accent); stroke-dasharray: 4 3; }
-.d-label { font: 500 var(--t-xs) var(--ui); fill: var(--ink-3); }
-.d-band { fill: var(--accent); opacity: .1; }
-.d-band.strong { opacity: .2; }
+.d-label { font: 600 var(--t-xs) var(--ui); fill: var(--ink-3); }
+.d-band { fill: var(--accent-mark); opacity: .6; }
+.d-band.strong { opacity: 1; }
 .d-dim line { stroke: var(--accent); stroke-width: 1.5; }
 .d-dim.light line { stroke: var(--white); }
 .d-axis { stroke: var(--accent); stroke-width: 1.5; }
@@ -425,7 +443,7 @@ body.resizing.y { cursor: row-resize; }
 .ex-text:first-child .ex-head { border-radius: var(--radius) var(--radius) 0 0; }
 .ex-head .facet-chevron { position: absolute; top: 50%; margin-top: -6px; right: 18px; color: var(--ink-3); }
 .ex-head[aria-expanded=false] .facet-chevron { transform: rotate(180deg); }
-.ex-title { max-width: 100%; font-size: var(--t-m); font-weight: 600; line-height: 1.25; color: var(--accent-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-title { max-width: 100%; font-size: var(--t-xl); color: var(--accent-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ex-text p { margin: -6px 0 0; padding: 0 44px 14px 18px; color: var(--ink-2); font-size: var(--t-m); line-height: 1.45; }
 
 .ctl-list { padding: 8px 8px 24px; display: grid; gap: 2px; }
@@ -456,9 +474,9 @@ body.resizing.y { cursor: row-resize; }
 .ctl:hover .ctl-num, .ctl.active .ctl-num { background: var(--surface); }
 .ctl-num:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
 .ctl-num:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
-.ctl-label { font-weight: 500; font-size: var(--t-base); line-height: 26px; }
+.ctl-label { font-weight: 600; font-size: var(--t-base); line-height: 26px; }
 /* a tag after the name is one pill: short of room it goes down a line whole, rather than splitting itself or the name */
-.ctl-label em { display: inline-block; white-space: nowrap; font-style: normal; font-size: var(--t-xs); line-height: 14px; font-weight: 400; color: var(--ink-2); border-radius: var(--pill); padding: 2px 7px; margin-left: 6px; background: var(--tint); vertical-align: 1px; }
+.ctl-label em { display: inline-block; white-space: nowrap; font-style: normal; font-size: var(--t-xs); line-height: 14px; font-weight: 500; color: var(--ink-2); border-radius: var(--pill); padding: 2px 7px; margin-left: 6px; background: var(--tint); vertical-align: 1px; }
 .ctl-label em.own { color: var(--custom-ink); background: var(--custom-soft); }
 /* each slider's drawing (SliderIcons.tsx) sits before its name, in its scope's colour while the slider is in use */
 .ctl-icon { display: inline-block; vertical-align: -4px; margin-right: 8px; color: var(--ink-3); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: color .15s; }
@@ -476,7 +494,7 @@ body.resizing.y { cursor: row-resize; }
 .serif-shapes.idle > .opts { opacity: .8; transition: opacity .15s; }
 .serif-shapes.idle:hover > .opts { opacity: 1; }
 .reach-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0 0 8px; font-size: var(--t-s); line-height: 1.45; color: var(--ink-3); }
-.reach-ch { min-width: 24px; height: 22px; padding: 0 6px; border: 1px solid var(--line-2); border-radius: var(--pill); background: var(--surface); font: 500 var(--t-s) var(--ui); color: var(--ink); transition: border-color .15s, color .15s; }
+.reach-ch { min-width: 24px; height: 22px; padding: 0 6px; border: 1px solid var(--line-2); border-radius: var(--pill); background: var(--surface); font: 600 var(--t-s) var(--ui); color: var(--ink); transition: border-color .15s, color .15s; }
 .reach-ch:hover { border-color: var(--accent); color: var(--accent-ink); }
 .reach-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 4px 0 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); font-size: var(--t-m); line-height: 1.45; color: var(--ink-2); }
 .each-end { margin-top: 14px; padding-top: 2px; border-top: 1px solid var(--line); }
@@ -484,7 +502,7 @@ body.resizing.y { cursor: row-resize; }
 .each-end.locked { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 0 10px; padding-top: 12px; }
 .each-end.locked .sub-label { margin: 0; }
 .each-end.locked .btn { width: auto; }
-.each-end:not(.locked) { --accent: var(--custom); --accent-soft: var(--custom-soft); --fill: var(--custom); }
+.each-end:not(.locked) { --accent: var(--custom); --accent-soft: var(--custom-soft); --accent-mark: var(--custom); --fill: var(--custom); }
 .end-thumb { width: 40px; height: 40px; flex: none; border-radius: var(--radius); background: var(--paper); border: 1px solid var(--line); transition: border-color .15s; }
 .end-thumb path { fill: var(--line-2); }
 .end-thumb circle { fill: var(--accent); stroke: var(--paper); stroke-width: 18; paint-order: stroke; }
@@ -535,7 +553,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .opt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px 7px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); font-size: var(--t-s); color: var(--ink-2); transition: border-color .15s, background .15s; }
 .opt svg { fill: var(--ink); max-width: 100%; }
 .opt:hover { border-color: var(--line-2); background: var(--well); }
-.opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); color: var(--ink); font-weight: 500; }
+.opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-soft); color: var(--ink); font-weight: 600; }
 .opt.on svg { fill: var(--accent); }
 .sub-label { margin: 14px 0 7px; }
 .switch { width: 34px; height: 20px; border-radius: var(--pill); background: var(--line-2); position: relative; flex: none; transition: background .15s; }
@@ -567,46 +585,47 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .insp-view { display: flex; align-items: center; gap: 14px; min-height: 34px; margin-left: auto; }
 .insp-close { position: absolute; top: 10px; right: 14px; }
 .insp-title { display: flex; align-items: baseline; gap: 8px; min-width: 28px; justify-content: center; }
-.insp-title h2 { margin: 0; font-size: var(--t-xl); font-weight: 500; }
+.insp-title h2 { margin: 0; font-size: var(--t-xl); font-weight: 600; }
 .grow { flex: 1; }
-/* Parts/Points and All letters/Only a: the shared segmented switch, the scope picked filled in its colour */
+/* Parts/Points and All letters/Only a: the shared segmented switch, the scope picked in its look: All letters ink on
+   the lemon, edged in ink (the system's own primary look), Only a filled in the blue */
 .scope { margin-left: 8px; }
 .scope button { gap: 7px; padding: 0 13px 0 11px; }
-.scope button.on[data-scope="all"] { background: var(--sync); color: var(--white); box-shadow: none; }
+.scope button.on[data-scope="all"] { background: var(--marker); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .scope button.on[data-scope="letter"], .inspector.customizing .scope button.on[data-mode="points"] { background: var(--custom); color: var(--white); box-shadow: none; }
 .scope-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.3; }
 .scope-icon .fill { fill: currentColor; }
-/* every letter in sync: the inspector, the preview and the settings take the orange, highlights, handles and
-   slider fills; All letters is filled in it */
-.inspector, .preview, .panel:not(.styles) { --accent: var(--sync); --accent-ink: var(--sync-ink); --accent-soft: var(--sync-soft); --fill: var(--sync); }
+/* every letter in sync: the inspector, the preview and the settings take the system's own look, handles and slider
+   fills in ink, highlights in the lemon edged in ink; All letters is lemon */
+.inspector, .preview, .panel:not(.styles) { --accent: var(--sync); --accent-ink: var(--sync-ink); --accent-soft: var(--sync-soft); --accent-mark: var(--sync-mark); --fill: var(--sync); }
 /* customizing one letter, through its own settings or point by point with the pen: the letter is framed
    and its switch turns blue, so the mode can't be missed; a banner over the canvas says only what the switches
    don't (Points reaching other letters, a letter the settings no longer change). The inspector's highlights and handles all turn blue too. */
-.inspector.customizing { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --fill: var(--custom); }
+.inspector.customizing { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --accent-mark: var(--custom); --fill: var(--custom); }
 .inspector.customizing .insp-body { position: relative; box-shadow: inset 0 0 0 2px var(--custom); border-radius: 0 0 var(--radius) var(--radius); }
 .scope-banner { position: absolute; top: 12px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 7px; padding: 4px 12px;
   border-radius: var(--pill); background: var(--custom); color: var(--white); font-size: var(--t-m); line-height: 1.45; width: max-content; max-width: calc(100% - 132px); pointer-events: auto; }
 .scope-banner > span { text-wrap: balance; }
-.scope-banner b { font-weight: 600; }
+.scope-banner b { font-weight: 700; }
 .scope-banner .scope-icon { stroke: var(--white); }
 /* (a free font's letter in step with the rest: the banner is a plain note, as nothing here is this letter's alone) */
 .inspector:not(.customizing) .scope-banner { background: var(--surface); color: var(--ink-2); box-shadow: var(--raise); }
 .scope-note { display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 6px; padding: 10px 12px; border-radius: var(--radius); background: var(--custom-tint); color: var(--ink); font-size: var(--t-m); line-height: 1.45; }
 .scope-note .scope-icon { margin-top: 1px; color: var(--custom); }
 /* customizing one letter: the panel is washed in blue, unframed (the inspector's frame says it), and the controls
-   that reshape only that letter take its colour; Whole font ones keep the orange of every letter in sync */
+   that reshape only that letter take its colour; Whole font ones keep the ink and lemon of every letter in sync */
 .panel.customizing { background: var(--custom-wash); }
 .panel.customizing .explainer { --accent-ink: var(--custom-ink); }
-.ctl[data-letter] { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --fill: var(--custom); }
+.ctl[data-letter] { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --accent-mark: var(--custom); --fill: var(--custom); }
 .ctl.active[data-letter] { background: var(--custom-tint); }
-.scope-note em { font-style: normal; font-weight: 600; }
+.scope-note em { font-style: normal; font-weight: 700; }
 .check { display: flex; align-items: center; gap: 6px; font-size: var(--t-m); color: var(--ink-2); cursor: pointer; white-space: nowrap; }
 .check input { accent-color: var(--accent); }
 /* the construction grid: a bar naming the grid and the letters on it, and in the canvas the letter as an
    outline with its lines and circles drawn through it (shared with the group in one colour, its own in the other) */
 .grid-bar { flex: none; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 4px 14px; border-bottom: 1px solid var(--line); font-size: var(--t-m); color: var(--ink-3); white-space: nowrap; }
 .grid-bar > * { flex: none; }
-.grid-name { font-size: var(--t-s); font-weight: 500; color: var(--ink); }
+.grid-name { font-size: var(--t-s); font-weight: 600; color: var(--ink); }
 .grid-bar .grid-chars { display: flex; flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; --cell-h: 34px; }
 .grid-key { display: inline-flex; align-items: center; gap: 6px; }
 .grid-key i { width: 14px; height: 0; border-top: 1.5px solid var(--grid-own); }
@@ -620,12 +639,12 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .insp-canvas { flex: 1; min-width: 0; min-height: 0; overflow: hidden; position: relative; user-select: none; touch-action: none; }
 .insp-canvas svg { display: block; }
 .i-ink { fill: var(--ink); }
-.i-hl { fill: var(--accent); }
+.i-hl { fill: var(--accent-mark); stroke: var(--accent); stroke-width: var(--sw); }
 .i-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: var(--sw); }
-.i-adv { fill: rgba(0, 0, 0, .02); stroke: var(--line-2); stroke-dasharray: 3 4; }
+.i-adv { fill: rgba(32, 31, 29, .025); stroke: var(--line-2); stroke-dasharray: 3 4; }
 .i-guide { stroke: var(--line-2); }
 .i-guide.hot { stroke: var(--accent); stroke-width: 1.5; }
-.i-label { font: 500 var(--t-xs) var(--ui); fill: var(--ink-3); }
+.i-label { font: 600 var(--t-xs) var(--ui); fill: var(--ink-3); }
 .i-label.hot { fill: var(--accent-ink); }
 .i-hit { fill: transparent; stroke: none; pointer-events: all; cursor: grab; }
 .i-hit.line { stroke: transparent; stroke-width: 10; cursor: row-resize; }
@@ -636,8 +655,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .i-edge.hot line:first-child { stroke: var(--accent); }
 .i-readout { position: absolute; pointer-events: none; padding: 3px 7px; border: 1px solid var(--line-2); border-radius: var(--pill);
   background: var(--surface); font: 400 var(--t-s) var(--mono); color: var(--ink-2); white-space: nowrap; }
-.i-readout b { font-weight: 600; color: var(--ink); }
-.i-hint { position: absolute; left: 16px; bottom: 12px; margin: 0; font-size: var(--t-s); color: var(--ink-3); pointer-events: none; }
+.i-readout b { font-weight: 500; color: var(--ink); }
+/* the hint in the canvas's corner is a note written in the margin */
+.i-hint { position: absolute; left: 16px; bottom: 10px; margin: 0; font: 400 var(--t-l)/1.2 var(--hand); letter-spacing: 0; color: var(--ink-2); pointer-events: none; }
 .i-hint.on { color: var(--accent-ink); }
 .i-knob { pointer-events: none; }
 .i-knob circle { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
@@ -649,8 +669,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .i-tip-row { display: flex; flex-direction: column; gap: 3px; }
 .i-tip-row + .i-tip-row { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
 .i-tip-head { color: var(--ink-3); }
-.i-tip-head b { font-weight: 600; color: var(--ink); }
-.i-tip-ends { display: flex; justify-content: space-between; gap: 20px; color: var(--accent-ink); font-weight: 500; }
+.i-tip-head b { font-weight: 700; color: var(--ink); }
+.i-tip-ends { display: flex; justify-content: space-between; gap: 20px; color: var(--accent-ink); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .i-knob .halo { animation: none; opacity: .6; } }
 /* the Histories, a letter's in the inspector (LetterHistory.tsx) and the font's in the header (FontHistory.tsx): each
    version, newest first, drawn small beside what made it and when; the one standing now in the accent */
@@ -666,7 +686,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .history-row.now svg { background: var(--accent-soft); fill: var(--accent); }
 .history-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .history-when { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
-.history-now { font-size: var(--t-s); font-weight: 500; color: var(--accent-ink); }
+.history-now { font-size: var(--t-s); font-weight: 600; color: var(--accent-ink); }
 .font-history { position: relative; }
 .history-row.wide { grid-template-columns: 60px minmax(0, 1fr) auto; }
 .history-row.wide svg { width: 60px; }
@@ -708,7 +728,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .pen-range .pen-num-field span { display: none; }
 .pen-range .pen-num-field input { width: 50px; height: 26px; }
 .pen-bg { fill: transparent; }
-.pen-ink { fill: rgba(0, 0, 0, .14); pointer-events: none; }
+.pen-ink { fill: rgba(32, 31, 29, .14); pointer-events: none; }
 .pen-fill { fill: transparent; }
 .pen-fill.hit { cursor: move; }
 .pen-line { fill: none; stroke: var(--ink); pointer-events: none; }
@@ -723,7 +743,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .pen-edge:hover { stroke: var(--accent); stroke-width: 2; }
 .pen-snap { stroke: var(--snap); stroke-width: 1; pointer-events: none; }
 .pen-catch path { fill: none; stroke: var(--snap); stroke-width: 1.5; }
-.pen-catch text { font: 500 var(--t-xs) var(--ui); fill: var(--snap); stroke: var(--surface); stroke-width: 3px; paint-order: stroke; }
+.pen-catch text { font: 600 var(--t-xs) var(--ui); fill: var(--snap); stroke: var(--surface); stroke-width: 3px; paint-order: stroke; }
 .pen-snapper { position: relative; flex: none; }
 .pen-snapper .pen-kind button { padding: 0 7px; }
 .pen-snapper .pen-kind button + button { padding: 0 5px; }
@@ -733,7 +753,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .pen-snap-menu > button { display: grid; grid-template-columns: 16px 1fr 12px; align-items: center; gap: 10px; padding: 7px 10px; border-radius: var(--radius); text-align: left; color: var(--ink-3); transition: background .15s, color .15s; }
 .pen-snap-menu > button:hover { background: var(--hover); }
 .pen-snap-menu > button.on { color: var(--ink); }
-.pen-snap-menu b { display: block; font-size: var(--t-m); font-weight: 500; }
+.pen-snap-menu b { display: block; font-size: var(--t-m); font-weight: 600; }
 .pen-snap-menu small { display: block; font-size: var(--t-s); color: var(--ink-3); line-height: 1.45; }
 .pen-snap-icon { fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
 .pen-snap-icon .fill { fill: currentColor; stroke: none; }
@@ -767,7 +787,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .pen-aim .mark { fill: none; stroke: var(--white); stroke-width: 1.5; stroke-linecap: round; }
 .pen-aim circle.mark { fill: none; stroke: var(--white); stroke-width: 1.4; }
 .pen-aim-shape * { fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.5; stroke-linejoin: round; }
-.pen-size { font: 500 var(--t-xs) var(--ui); fill: var(--accent-ink); stroke: var(--surface); stroke-width: 3px; paint-order: stroke; font-variant-numeric: tabular-nums; pointer-events: none; }
+.pen-size { font: 600 var(--t-xs) var(--ui); fill: var(--accent-ink); stroke: var(--surface); stroke-width: 3px; paint-order: stroke; font-variant-numeric: tabular-nums; pointer-events: none; }
 /* the bar under the canvas, in two sides: on the left what is picked (its name and numbers) or, with nothing picked,
    the tool's name and its tips, and at its end, after a rule, the pinned actions and ⋯, which stay put whatever is
    picked; on the right Mirror and Snap, then after a rule the letter's width. Too narrow for both, the right side moves
@@ -795,7 +815,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 /* the tips: one line of gestures and what they do; those that wrap are cut off, so the line keeps the first that fit */
 .pen-tips { flex: 1 1 0; width: 0; min-width: 0; display: flex; flex-wrap: wrap; column-gap: 16px; height: 18px; line-height: 18px; overflow: hidden; color: var(--ink-3); }
 .pen-tip { white-space: nowrap; }
-.pen-tip b { font-weight: 500; color: var(--ink-2); }
+.pen-tip b { font-weight: 600; color: var(--ink-2); }
 /* a narrow bar keeps its icons and drops the words beside them (their tooltips still say them) */
 @container (max-width: 900px) { .pen-mirror > span { display: none; } .pen-bar .pen-num-field input { width: 50px; } }
 @container (max-width: 760px) { .pen-point-kind span { display: none; } .pen-point-kind button { padding: 0 6px; } }
@@ -814,13 +834,13 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .pen-carry-sum { display: flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 6px 0 9px; border-radius: var(--pill); font-size: var(--t-m); color: var(--ink-2); white-space: nowrap; }
 .pen-carry-sum span { overflow: hidden; text-overflow: ellipsis; }
 .pen-carry-sum:hover, .pen-carry-sum[aria-expanded=true] { background: var(--hover); color: var(--ink); }
-.pen-carry-sum b { font-weight: 500; color: var(--accent-ink); letter-spacing: .06em; }
+.pen-carry-sum b { font-weight: 600; color: var(--accent-ink); letter-spacing: .06em; }
 .pen-carry-chev { flex: none; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; rotate: 180deg; transition: rotate .15s; }
 .pen-carry-sum[aria-expanded=true] .pen-carry-chev { rotate: 0deg; }
 .pen-carry { position: relative; width: max-content; max-width: min(640px, 100%); display: flex; flex-direction: column; gap: 6px;
   padding: 8px 10px 10px 14px; }
 .pen-carry-head { display: flex; align-items: center; gap: 6px; }
-.pen-carry-q { flex: 1; margin-right: 10px; font-size: var(--t-m); font-weight: 500; }
+.pen-carry-q { flex: 1; margin-right: 10px; font-size: var(--t-m); font-weight: 600; }
 .pen-carry-kinds { display: grid; grid-template-columns: max-content auto; column-gap: 14px; row-gap: 2px; max-height: 212px; overflow-y: auto; padding-top: 4px; border-top: 1px solid var(--line); }
 .pen-carry-kind { display: contents; }
 .pen-carry-pick { align-self: start; height: 32px; font-size: var(--t-m); color: var(--ink-3); }
@@ -841,7 +861,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .pen-icon-btn:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
 .pen-icon-btn:disabled { color: var(--ink-3); opacity: .5; cursor: default; }
 .pen-icon-btn svg { fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
-.pen-bar-label { color: var(--ink); font-weight: 500; white-space: nowrap; }
+.pen-bar-label { color: var(--ink); font-weight: 600; white-space: nowrap; }
 .pen-num-field { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); }
 .pen-num-field input { width: 58px; height: 28px; padding: 0 10px; font: 500 var(--t-s) var(--mono); }
 .pen-num-field svg { fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
@@ -853,10 +873,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .pen-mirror svg .fill { fill: currentColor; }
 
 /* ---------- glyph strip: its cells grow with its height (--strip-h, set by dragging its top border) */
-.strip { grid-area: strip; position: relative; display: flex; min-width: 0; min-height: var(--strip-h, 76px); --cell-h: calc(var(--strip-h, 76px) - 28px); margin-top: var(--gap); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.strip { grid-area: strip; position: relative; display: flex; min-width: 0; min-height: var(--strip-h, 76px); --cell-h: calc(var(--strip-h, 76px) - 28px); margin-top: var(--gap); border-radius: var(--radius); background: var(--surface); box-shadow: var(--raise); overflow: hidden; }
 .strip-scroll { position: relative; flex: 1; min-width: 0; display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; padding: 0 12px; scrollbar-width: thin; }
 /* more glyphs past an edge: an arrow the glyphs fade out under, the forward one naming the group that comes next */
-.strip-arrow { position: absolute; top: 0; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 0 12px; font-size: var(--t-s); font-weight: 500; color: var(--ink-2); transition: color .15s; }
+.strip-arrow { position: absolute; top: 0; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 0 12px; font-size: var(--t-s); font-weight: 600; color: var(--ink-2); transition: color .15s; }
 .strip-arrow:hover { color: var(--accent-ink); }
 .strip-arrow svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .strip-arrow.back { left: 0; padding-right: 40px; background: linear-gradient(to left, transparent, var(--surface) 36px); }
@@ -878,16 +898,16 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 /* ---------- popover & toast */
 .popover { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; width: 300px; padding: 6px; display: grid; gap: 1px; animation: pop .14s ease-out; transform-origin: top right; }
 @keyframes pop { from { opacity: 0; transform: translateY(-4px); } }
-.toast { position: fixed; left: 50%; bottom: calc(var(--strip-h, 76px) + 24px); transform: translate(-50%, 8px); background: var(--ink); color: var(--white); padding: 9px 16px; border-radius: var(--pill); font-size: var(--t-m); font-weight: 500; box-shadow: var(--shadow); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; z-index: 40; display: flex; align-items: center; gap: 14px; }
+.toast { position: fixed; left: 50%; bottom: calc(var(--strip-h, 76px) + 24px); transform: translate(-50%, 8px); background: var(--ink); color: var(--white); padding: 9px 16px; border-radius: var(--pill); font-size: var(--t-m); font-weight: 600; box-shadow: var(--shadow); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; z-index: 40; display: flex; align-items: center; gap: 14px; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .toast.has-action.show { pointer-events: auto; padding-right: 6px; }
-.toast-action { height: 26px; padding: 0 12px; border-radius: var(--pill); font-size: var(--t-s); font-weight: 500; color: var(--white); background: rgba(255, 255, 255, .14); transition: background .15s; }
+.toast-action { height: 26px; padding: 0 12px; border-radius: var(--pill); font-size: var(--t-s); font-weight: 600; color: var(--white); background: rgba(255, 255, 255, .14); transition: background .15s; }
 .toast-action:hover { background: rgba(255, 255, 255, .26); }
 
 /* ---------- confirm dialog (in place of the browser's own) */
 .dialog-scrim { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: var(--scrim); backdrop-filter: blur(2px); animation: fade .15s ease; }
 .dialog { width: min(400px, 100%); padding: 20px 20px 16px; animation: pop .16s ease-out; }
-.dialog h2 { margin: 0; font-size: var(--t-l); }
+.dialog h2 { margin: 0; font-size: var(--t-xl); }
 .dialog p { margin: 6px 0 0; color: var(--ink-2); font-size: var(--t-base); }
 .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-top: 18px; }
 
@@ -897,13 +917,13 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .dialog.export { width: min(920px, 100%); max-height: calc(100vh - 32px); display: grid; grid-template-columns: minmax(0, 1fr) 248px; grid-template-rows: auto minmax(0, 1fr); padding: 0; overflow: hidden; }
 .export-head { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 20px; border-bottom: 1px solid var(--line); }
 .export-styles { display: grid; align-content: start; gap: 12px; min-height: 0; overflow: auto; padding: 16px 20px 20px; }
-.export-styles h3 { margin: 0; font-size: var(--t-base); font-weight: 500; }
+.export-styles h3 { margin: 0; font-size: var(--t-base); font-weight: 600; }
 .export-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; padding: 16px; border-left: 1px solid var(--line); background: var(--well); }
 .export-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .export-named { display: grid; gap: 6px; }
 .export-name { display: grid; gap: 6px; }
 /* the font's name: a field on the side's well, so pale rather than filled, and edged a step darker */
-.export-name input { height: 34px; padding: 0 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); font: 500 var(--t-base) var(--ui); }
+.export-name input { height: 34px; padding: 0 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); font: 600 var(--t-base) var(--ui); }
 .export-name input:hover:not(:focus) { box-shadow: inset 0 0 0 1px var(--ink-3); }
 .dialog p.export-note { margin: 0; font-size: var(--t-s); line-height: 1.45; color: var(--ink-3); }
 .export-send { display: grid; gap: 8px; }
@@ -919,14 +939,14 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .family-head > span { padding-left: 10px; }
 .family-head .chip { padding: 5px 9px; }
 .family-weight { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
-.family-weight b { font-size: var(--t-m); font-weight: 400; color: var(--ink-2); }
+.family-weight b { font-size: var(--t-m); font-weight: 500; color: var(--ink-2); }
 /* the weight the design is: its name in full ink and bold */
-.family-weight.own b { font-weight: 600; color: var(--ink); }
-/* one style, a toggle drawn in its sample; picked ones look as a picked option (.opt.on) does: ringed in the accent,
-   tinted, the sample drawn in the accent */
+.family-weight.own b { font-weight: 700; color: var(--ink); }
+/* one style, a toggle drawn in its sample; picked ones look as a picked option (.opt.on) does: ringed in the accent
+   over its wash, the sample drawn in the accent */
 .family-cell { display: flex; align-items: center; min-width: 0; height: 40px; padding: 0 10px; border-radius: var(--radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; transition: box-shadow .15s, background .15s; }
 .family-cell:hover { box-shadow: inset 0 0 0 1px var(--line-2); background: var(--well); }
-.family-cell[aria-pressed=true] { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.family-cell[aria-pressed=true] { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 1px var(--accent); background: var(--accent-soft); }
 .family-sample { display: block; flex: 1; min-width: 0; height: 28px; fill: var(--ink); transition: fill .15s; }
 .family-cell[aria-pressed=true] .family-sample { fill: var(--accent); }
 /* the design's own style, the one picked to start with: filled in the accent with its sample drawn white while
@@ -961,11 +981,11 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 /* the spotlight lets clicks through to the editor; the blocks around it and the plain dim hold the rest still */
 .guide { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
 .guide-dim, .guide-spot, .guide-block { position: fixed; }
-.guide-dim { inset: 0; background: rgba(0, 0, 0, .45); animation: fade .2s ease; pointer-events: auto; }
+.guide-dim { inset: 0; background: rgba(32, 31, 29, .45); animation: fade .2s ease; pointer-events: auto; }
 .guide-block { pointer-events: auto; }
-.guide-spot { border-radius: var(--radius); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .45); transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease; }
+.guide-spot { border-radius: var(--radius); box-shadow: 0 0 0 100vmax rgba(32, 31, 29, .45); transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease; }
 .guide-card { pointer-events: auto; position: fixed; width: 248px; padding: 14px 14px 12px; transition: left .25s ease, top .25s ease; }
-.guide-card h2 { margin: 0; font-size: var(--t-l); }
+.guide-card h2 { margin: 0; font-size: var(--t-xl); }
 .guide-card p { margin: 4px 0 0; color: var(--ink-2); font-size: var(--t-m); }
 .guide-step { display: flex; gap: 8px; margin-bottom: 8px; }
 .guide-step span { color: var(--accent-ink); }
@@ -1091,7 +1111,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
    is; a pencil beside it, which steps aside while you type */
 .doc-name-wrap { position: relative; display: flex; align-items: center; min-width: 0; cursor: text; }
 .doc-name { height: 30px; padding: 0 26px 0 10px; field-sizing: content; min-width: 96px; max-width: min(280px, 24vw); border: 0; border-radius: var(--pill); background: transparent;
-  font: 500 var(--t-base) var(--ui); letter-spacing: inherit; color: var(--ink); text-overflow: ellipsis; transition: box-shadow .15s, background .15s; }
+  font: 600 var(--t-base) var(--ui); letter-spacing: inherit; color: var(--ink); text-overflow: ellipsis; transition: box-shadow .15s, background .15s; }
 .doc-name:hover { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); }
 .doc-name:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
 .doc-name-pen { position: absolute; right: 9px; fill: none; stroke: var(--ink-3); stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; transition: opacity .15s; }
@@ -1101,13 +1121,13 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 /* the first save asks for a name, just under Save */
 .save-wrap { position: relative; }
 .name-prompt { width: 280px; padding: 14px; gap: 0; }
-.name-prompt label { font-size: var(--t-m); font-weight: 600; }
-.name-prompt input { margin-top: 8px; height: 34px; padding: 0 14px; font: 400 var(--t-base) var(--ui); }
+.name-prompt label { font-size: var(--t-m); font-weight: 700; }
+.name-prompt input { margin-top: 8px; height: 34px; padding: 0 14px; font: 500 var(--t-base) var(--ui); }
 .name-prompt p { margin: 6px 0 0; font-size: var(--t-s); color: var(--ink-3); }
 .name-prompt-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
-/* the style the design began as, a Soren tag */
+/* the style the design began as, a tag */
 .based-on { flex: none; height: 24px; padding: 0 10px; margin-left: 2px; border-radius: var(--pill); font-size: var(--t-s); color: var(--ink-2); background: var(--tint); white-space: nowrap; transition: background .15s, color .15s; }
-.based-on b { font-weight: 500; color: var(--ink); }
+.based-on b { font-weight: 600; color: var(--ink); }
 .based-on:hover { background: var(--line-2); color: var(--ink); }
 /* phones: the brand is hidden, so no slash before the name, nor the pencil or where it began; the name takes the room
    there is, and the header's buttons sit closer */
@@ -1119,31 +1139,31 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 }
 
 /* ---------- loading & message pages */
-.loading { position: fixed; inset: var(--top-h) 0 var(--strip-h, 76px); display: grid; place-items: center; background: color-mix(in srgb, var(--paper) 75%, transparent); font-weight: 500; color: var(--ink-2); z-index: 20; }
+.loading { position: fixed; inset: var(--top-h) 0 var(--strip-h, 76px); display: grid; place-items: center; background: color-mix(in srgb, var(--paper) 75%, transparent); font-weight: 600; color: var(--ink-2); z-index: 20; }
 .message-page { min-height: 100vh; display: grid; place-content: center; justify-items: center; text-align: center; gap: 4px; padding: 24px; }
-.message-page h1 { margin: 0; font-size: var(--t-2xl); }
+.message-page h1 { margin: 0; font-size: var(--t-3xl); }
 .message-page p { margin: 0 0 16px; color: var(--ink-2); }
 .message-page .row { display: flex; gap: 8px; }
 .message-page .btn.wide { width: auto; }
 
 /* ---------- library */
-.library { min-height: 100vh; display: flex; flex-direction: column; background: var(--paper); }
+.library { min-height: 100vh; display: flex; flex-direction: column; background: var(--grid-paper); }
 .library .top { position: sticky; top: 0; z-index: 5; height: var(--top-h); padding: 0 14px 0 16px; background: color-mix(in srgb, var(--paper) 85%, transparent); backdrop-filter: blur(12px); }
 .library .top .btn.primary svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; margin-left: -2px; }
 .lib-main { width: 100%; max-width: 1240px; margin: 0 auto; padding: 24px 32px 88px; }
 /* the title and its count on the left, finding and ordering on the right */
 .lib-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; margin-bottom: 20px; }
 .lib-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.lib-head h1 { margin: 0; font-size: var(--t-2xl); }
+.lib-head h1 { margin: 0; font-size: var(--t-3xl); }
 .lib-head p { margin: 0; color: var(--ink-3); font-size: var(--t-m); font-variant-numeric: tabular-nums; }
 .lib-tools { display: flex; align-items: center; gap: 8px; }
 /* the search: white and raised on the paper, like the editor's Find a setting */
 .lib-search { position: relative; display: flex; align-items: center; color: var(--ink-3); }
 .lib-search .page-icon { position: absolute; left: 12px; pointer-events: none; }
-.lib-search input { width: 220px; height: 32px; padding: 0 34px 0 33px; font: 400 var(--t-m) var(--ui); letter-spacing: inherit; }
+.lib-search input { width: 220px; height: 32px; padding: 0 34px 0 33px; font: 500 var(--t-m) var(--ui); letter-spacing: inherit; }
 .lib-search input::-webkit-search-cancel-button { cursor: pointer; }
 .lib-tools .view-toggle { background: var(--line); }
-.lib-sort button { width: auto; padding: 0 12px; font-size: var(--t-m); font-weight: 500; }
+.lib-sort button { width: auto; padding: 0 12px; font-size: var(--t-m); font-weight: 600; }
 
 /* cards: the name set in the font on a well, then the name, the style it started from and when it was
    edited, with Download and the ⋯ menu beside them. The well's inside (.lib-open, 132px tall with 22px padding
@@ -1151,20 +1171,20 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
    WELL_ASPECT in LibraryPage.tsx assumes that shape when it decides whether a name breaks onto two lines */
 .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
 .lib-card { display: grid; grid-template: "open open" auto "meta actions" auto / minmax(0, 1fr) auto; min-width: 0; padding: 6px;
-  background: var(--surface); border-radius: var(--radius); transition: box-shadow .15s; }
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--raise); transition: box-shadow .15s; }
 .lib-card:hover { box-shadow: var(--shadow); }
 .lib-open { grid-area: open; display: flex; height: 132px; padding: 22px 22px; border-radius: var(--radius); background: var(--well); transition: background .15s; }
 .lib-open:hover { background: var(--tint); }
 .lib-open svg { display: block; width: 100%; height: 100%; fill: var(--ink); overflow: visible; }
 .lib-meta { grid-area: meta; min-width: 0; padding: 10px 4px 8px 10px; }
-.lib-meta h3 { margin: 0; font-size: var(--t-base); font-weight: 500; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-meta h3 { margin: 0; font-size: var(--t-base); font-weight: 600; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-meta p { display: flex; margin: 1px 0 0; font-size: var(--t-s); color: var(--ink-3); white-space: nowrap; overflow: hidden; }
 .lib-meta p span { overflow: hidden; text-overflow: ellipsis; }
 .lib-meta p span + span::before { content: "·"; margin: 0 5px; color: var(--line-2); }
 .lib-meta p span:last-child { flex: none; }
 /* the latest save: its time in the accent */
-.lib-recent { color: var(--accent-ink); font-weight: 500; }
-.lib-rename { width: 100%; min-width: 0; height: 26px; margin: -3px 0 -2px -7px; padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--pill); box-shadow: 0 0 0 3px var(--accent-soft); font: 500 var(--t-base) var(--ui); color: var(--ink); background: var(--surface); outline: none; }
+.lib-recent { color: var(--ink); font-weight: 700; background: var(--marker); }
+.lib-rename { width: 100%; min-width: 0; height: 26px; margin: -3px 0 -2px -7px; padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--pill); box-shadow: 0 0 0 3px var(--accent-soft); font: 600 var(--t-base) var(--ui); color: var(--ink); background: var(--surface); outline: none; }
 .lib-actions { grid-area: actions; position: relative; display: flex; align-items: center; gap: 0; padding: 0 2px 0 4px; }
 .lib-actions .btn.icon { color: var(--ink-3); }
 .lib-actions .btn.icon:hover, .lib-actions .btn.icon[aria-expanded=true] { color: var(--ink); background: var(--hover); }
@@ -1172,13 +1192,13 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .lib-actions .btn.icon[aria-haspopup] svg { stroke-width: 2.4; }
 .lib-more { position: relative; display: flex; }
 .lib-menu { width: 160px; }
-.lib-menu button { text-align: left; height: 32px; padding: 0 10px; border-radius: var(--radius); font-size: var(--t-m); font-weight: 500; transition: background .15s, color .15s; }
+.lib-menu button { text-align: left; height: 32px; padding: 0 10px; border-radius: var(--radius); font-size: var(--t-m); font-weight: 600; transition: background .15s, color .15s; }
 .lib-menu button:hover { background: var(--hover); }
 .lib-menu .danger { color: var(--danger); }
 .lib-menu .danger:hover { background: var(--danger-wash); color: var(--danger); }
 
 /* the list: one sheet of rows, the name and its details, then the name set in the font, then the actions */
-.lib-list { display: flex; flex-direction: column; gap: 2px; padding: 6px; background: var(--surface); border-radius: var(--radius); }
+.lib-list { display: flex; flex-direction: column; gap: 2px; padding: 6px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--raise); }
 .lib-list .lib-card { grid-template: "meta open actions" auto / minmax(160px, 240px) minmax(0, 1fr) auto; align-items: center; padding: 0 6px 0 4px; border-radius: var(--radius); box-shadow: none; transition: background .15s; }
 .lib-list .lib-card:hover { background: var(--well); box-shadow: none; }
 .lib-list .lib-open { height: 64px; padding: 14px 16px; background: none; }
@@ -1194,27 +1214,27 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .lib-list.lib-loading .lib-card { box-shadow: none; }
 @keyframes lib-pulse { to { opacity: .5; } }
 
-.lib-empty { background: var(--surface); border: 0; border-radius: var(--radius); padding: 56px 24px; text-align: center; display: grid; justify-items: center; gap: 6px; }
-.lib-empty h2 { margin: 0; font-size: var(--t-l); overflow-wrap: anywhere; }
+.lib-empty { background: var(--surface); border: 0; border-radius: var(--radius); box-shadow: var(--raise); padding: 56px 24px; text-align: center; display: grid; justify-items: center; gap: 6px; }
+.lib-empty h2 { margin: 0; font-size: var(--t-xl); overflow-wrap: anywhere; }
 .lib-empty p { margin: 0 0 12px; color: var(--ink-2); }
 .lib-empty .btn.wide { width: auto; }
 .lib-empty h2 + .btn { margin-top: 12px; }
 
 /* ---------- accounts: the sign-in dialog, the account button in the bottom-left corner and its menu, the library's
    sign-in note and the account page */
-.field { display: grid; gap: 5px; margin-top: 14px; font-size: var(--t-m); font-weight: 500; color: var(--ink-2); }
-.field > span:first-child i { font-style: normal; font-weight: 400; color: var(--ink-3); margin-left: 4px; }
-.field input { width: 100%; height: 38px; padding: 0 16px; font: inherit; font-size: var(--t-base); font-weight: 400; cursor: text; user-select: text; -webkit-user-select: text; }
+.field { display: grid; gap: 5px; margin-top: 14px; font-size: var(--t-m); font-weight: 600; color: var(--ink-2); }
+.field > span:first-child i { font-style: normal; font-weight: 500; color: var(--ink-3); margin-left: 4px; }
+.field input { width: 100%; height: 38px; padding: 0 16px; font: inherit; font-size: var(--t-base); font-weight: 500; cursor: text; user-select: text; -webkit-user-select: text; }
 .field input:disabled { background: var(--tint); color: var(--ink-3); box-shadow: none; }
-.field small { font-size: var(--t-s); font-weight: 400; color: var(--ink-3); transition: color .15s; }
+.field small { font-size: var(--t-s); font-weight: 500; color: var(--ink-3); transition: color .15s; }
 .field small.field-ok { color: var(--accent-ink); }
 .field small.field-warn { color: var(--warn-ink); }
 .field-head { display: flex; align-items: baseline; justify-content: space-between; }
-.field-link { font-size: var(--t-m); font-weight: 500; color: var(--accent-ink); }
-.field-link:hover { text-decoration: underline; }
+.field-link { font-size: var(--t-m); font-weight: 700; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+.field-link:hover { background: var(--marker); }
 .field-row { position: relative; display: block; }
 .field-row input { padding-right: 58px; }
-.field-show { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); height: 26px; padding: 0 8px; border-radius: var(--pill); font-size: var(--t-s); font-weight: 500; color: var(--ink-3); }
+.field-show { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); height: 26px; padding: 0 8px; border-radius: var(--pill); font-size: var(--t-s); font-weight: 600; color: var(--ink-3); }
 .field-show:hover { background: var(--hover); color: var(--ink); }
 .form-error { margin: 12px 0 0; padding: 8px 10px; border-radius: var(--radius); background: var(--warn-tint); color: var(--warn-ink); font-size: var(--t-m); }
 .dialog.auth { position: relative; width: min(380px, 100%); padding: 24px; }
@@ -1233,7 +1253,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 /* the email being signed in with, under the title once it's been checked */
 .auth-email { position: relative; display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 0 6px 0 16px; height: 38px; border-radius: var(--pill); background: var(--well); font-size: var(--t-base); }
 .auth-email span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.auth-email button { height: 26px; padding: 0 8px; border-radius: var(--pill); font-size: var(--t-s); font-weight: 500; color: var(--accent-ink); }
+.auth-email button { height: 26px; padding: 0 8px; border-radius: var(--pill); font-size: var(--t-s); font-weight: 600; color: var(--accent-ink); }
 .auth-email button:hover { background: var(--hover); }
 .dialog p.auth-note { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); background: var(--well); font-size: var(--t-m); }
 .dialog p.auth-wait { margin-top: 10px; text-align: center; font-size: var(--t-m); color: var(--ink-3); }
@@ -1244,21 +1264,21 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .account-row .nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .account-row.signin { padding-left: 10px; gap: 10px; }
 .account-row.signin .nav-label { color: inherit; }
-.avatar { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--white); font: 600 var(--t-xs) var(--ui); }
+.avatar { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--white); font: 700 var(--t-xs) var(--ui); }
 /* the menu opens upward from the corner */
 .account-menu { width: 230px; top: auto; bottom: calc(100% + 6px); left: 0; right: auto; transform-origin: bottom left; animation-name: pop-up; }
 @keyframes pop-up { from { opacity: 0; transform: translateY(4px); } }
 .account-who { display: grid; padding: 8px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); min-width: 0; }
-.account-who b { font-size: var(--t-base); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-who b { font-size: var(--t-base); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-who span { font-size: var(--t-m); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.account-menu a, .account-menu button { display: flex; align-items: center; height: 32px; padding: 0 10px; border-radius: var(--radius); font-size: var(--t-m); font-weight: 500; text-align: left; text-decoration: none; color: var(--ink); transition: background .15s; }
+.account-menu a, .account-menu button { display: flex; align-items: center; height: 32px; padding: 0 10px; border-radius: var(--radius); font-size: var(--t-m); font-weight: 600; text-align: left; text-decoration: none; color: var(--ink); transition: background .15s; }
 .account-menu a:hover, .account-menu button:hover { background: var(--hover); }
 .library .top-actions { gap: 8px; }
 /* signed out: one line saying where the fonts are kept, on a pale well rather than a boxed card */
 .lib-signin { display: flex; align-items: center; gap: 6px; margin: -6px 0 18px; padding: 6px 6px 6px 14px; border-radius: var(--radius); background: var(--tint); }
 .lib-signin-icon { flex: none; fill: none; stroke: var(--ink-3); stroke-width: 1.5; stroke-linejoin: round; }
 .lib-signin p { flex: 1; min-width: 0; margin: 0 8px 0 4px; font-size: var(--t-m); color: var(--ink-2); }
-.lib-signin b { font-weight: 600; color: var(--ink); }
+.lib-signin b { font-weight: 700; color: var(--ink); }
 .lib-empty .row { display: flex; gap: 8px; }
 .account-main { max-width: 760px; }
 .acct-section { display: grid; grid-template-columns: 200px 1fr; gap: 24px; padding: 24px 0; border-top: 1px solid var(--line); }
@@ -1276,7 +1296,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .acct-icon { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--well); }
 .acct-icon svg:not(.google-mark) { fill: none; stroke: var(--ink-2); stroke-width: 1.5; stroke-linecap: round; }
 .acct-what { flex: 1; min-width: 0; display: grid; }
-.acct-what b { font-size: var(--t-base); font-weight: 500; }
+.acct-what b { font-size: var(--t-base); font-weight: 600; }
 .acct-what span { font-size: var(--t-m); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .acct-password { padding: 4px 0 8px 48px; }
 .acct-password .row .btn { height: 34px; }

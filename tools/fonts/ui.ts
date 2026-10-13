@@ -5,7 +5,7 @@
    one outline, as one .otf that client/styles.css loads as "TypeLab Lineup", and beside it (Lineup.json) its
    capitals' outlines, the .otf's own, which the opening title card draws from their points before the wordmark, set
    in the .otf, takes over (client/components/Intro.tsx). Run it again after the design changes; every other word is
-   Switzer. */
+   Manrope (or the titles' serif). */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { buildOTF } from '../../server/export';
 import { buildFont, drawnCmds, unite, type Cmd, type Node, type PackedNode } from '../../shared/engine';
