@@ -4,10 +4,10 @@
 
    Type: Manrope for every word of the interface, buttons and tags included, in eight sizes (--t-xs to --t-3xl; a rule
    takes a step, never a size of its own) and three weights (500 to read, 600 for names, 700 for what you press,
-   bold and the sans titles); a light serif for titles (--serif: Gambetta Light, standing in for Studio Think's
-   Ortica Linear), drawn in a little; Geist Mono only for numbers and for the small capitals that name a group; a
-   handwriting (--hand) only for the odd note in the margin, as Studio Think writes its asides; Lineup only for the
-   logo (below). The Feeling names are the one exception, each in a font with that feeling (.feel).
+   and bold); a light serif for every title (--serif: Gambetta Light, a touch heavier than its 300, in the place of
+   Studio Think's Ortica Linear), drawn in a little; Geist Mono only for numbers and for the small capitals that name
+   a group; a handwriting (--hand) only for the odd note in the margin, as Studio Think writes its asides; Lineup
+   only for the logo (below). The Feeling names are the one exception, each in a font with that feeling (.feel).
    Colour: warm ink (#201f1d) on cream paper ruled faintly in squares (--paper, --grid-paper), the sheets a paler cream
    (--surface) with wells a shade under it (--well, --tint), two warm greys for text (#46423d, and a step lighter for
    notes; both 7:1 or more on the paper), warm hairlines (--line) for edges and the tracks of sliders and switches,
@@ -32,8 +32,8 @@
 :root {
   --paper: #fef5ec; --surface: #fdfaf6; --well: #f8f1e9; --tint: #efe7de;
   /* the paper's squares, 60px, as Studio Think rules its pages */
-  --grid-paper: linear-gradient(to right, rgba(32, 31, 29, .05) 1px, transparent 1px) 0 0 / 60px 60px,
-    linear-gradient(to bottom, rgba(32, 31, 29, .05) 1px, transparent 1px) 0 0 / 60px 60px, var(--paper);
+  --grid-paper: linear-gradient(to right, rgba(32, 31, 29, .03) 1px, transparent 1px) 0 0 / 60px 60px,
+    linear-gradient(to bottom, rgba(32, 31, 29, .03) 1px, transparent 1px) 0 0 / 60px 60px, var(--paper);
   --ink: #201f1d; --ink-2: #46423d; --ink-3: #504b45; --ink-hover: #3a3733; --white: #fffdf9;
   --line: #e9e1d8; --line-2: #d6cec6;
   /* the highlighter, and a step deeper for a lemon button pointed at */
@@ -57,7 +57,7 @@
   /* a pale knob (a slider's, a switch's) edged in ink and lifted off its track */
   --knob: 0 0 0 1px rgba(32, 31, 29, .7), 0 1px 3px rgba(32, 31, 29, .18);
   --ui: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --serif: "Gambetta", Georgia, "Times New Roman", serif;
+  --serif: "Gambetta", Georgia, "Times New Roman", serif; --serif-w: 340;
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --hand: "Just Me Again Down Here", "Bradley Hand", cursive;
   --display: "TypeLab Lineup", Georgia, "Times New Roman", serif;
@@ -101,12 +101,13 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .grow, .page-steps-grow, .guide-grow { flex: 1; }
 
 /* ---------- the system's shared parts */
-/* titles are the light serif, drawn in a little, as Studio Think sets its titles (and the explainer's title, which
-   names what a control does); one too small for a light serif to read well (a section of the account page) stays
-   in Manrope, bold */
-.cards-head h1, .finder-head, .dialog h2, .guide-card h2, .message-page h1, .lib-head h1, .lib-empty h2, .ex-title {
-  font-family: var(--serif); font-weight: 300; letter-spacing: -.02em; line-height: 1.2; }
-.acct-label h2 { font-weight: 700; letter-spacing: -.02em; line-height: 1.25; }
+/* every title is the light serif, drawn in a little, as Studio Think sets its titles: pages', dialogs', the tour's,
+   the finder's question, the explainer's (what a control does), the inspected letter, a section of the account page
+   or the Export window, a font's name on its card in My designs (as Studio Think names a work), the name prompt's.
+   Its Light is drawn a touch heavier (--serif-w, on the variable axis) so it holds up at the UI's sizes */
+.cards-head h1, .finder-head, .dialog h2, .guide-card h2, .message-page h1, .lib-head h1, .lib-empty h2, .ex-title,
+.insp-title h2, .acct-label h2, .export-styles h3, .lib-meta h3, .lib-rename, .name-prompt label {
+  font-family: var(--serif); font-weight: var(--serif-w); letter-spacing: -.02em; line-height: 1.2; }
 /* Geist Mono in capitals is kept for one thing, the small name over a group (a section's head, the nav's page groups,
    a menu's head, a field's label), so it reads as a marker over the words rather than as words: the smallest size, a
    grey a step back. Numbers are in the mono too, rule by rule, for their even widths. A letter named in one keeps its
@@ -587,7 +588,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .insp-view { display: flex; align-items: center; gap: 14px; min-height: 34px; margin-left: auto; }
 .insp-close { position: absolute; top: 10px; right: 14px; }
 .insp-title { display: flex; align-items: baseline; gap: 8px; min-width: 28px; justify-content: center; }
-.insp-title h2 { margin: 0; font-size: var(--t-xl); font-weight: 600; }
+.insp-title h2 { margin: 0; font-size: var(--t-2xl); }
 .grow { flex: 1; }
 /* Parts/Points and All letters/Only a: the shared segmented switch, the scope picked in its look: All letters ink on
    the lemon, edged in ink (the system's own primary look), Only a filled in the red */
@@ -919,7 +920,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .dialog.export { width: min(920px, 100%); max-height: calc(100vh - 32px); display: grid; grid-template-columns: minmax(0, 1fr) 248px; grid-template-rows: auto minmax(0, 1fr); padding: 0; overflow: hidden; }
 .export-head { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 20px; border-bottom: 1px solid var(--line); }
 .export-styles { display: grid; align-content: start; gap: 12px; min-height: 0; overflow: auto; padding: 16px 20px 20px; }
-.export-styles h3 { margin: 0; font-size: var(--t-base); font-weight: 600; }
+.export-styles h3 { margin: 0; font-size: var(--t-l); }
 .export-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; padding: 16px; border-left: 1px solid var(--line); background: var(--well); }
 .export-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .export-named { display: grid; gap: 6px; }
@@ -1123,7 +1124,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 /* the first save asks for a name, just under Save */
 .save-wrap { position: relative; }
 .name-prompt { width: 280px; padding: 14px; gap: 0; }
-.name-prompt label { font-size: var(--t-m); font-weight: 700; }
+.name-prompt label { font-size: var(--t-l); }
 .name-prompt input { margin-top: 8px; height: 34px; padding: 0 14px; font: 500 var(--t-base) var(--ui); }
 .name-prompt p { margin: 6px 0 0; font-size: var(--t-s); color: var(--ink-3); }
 .name-prompt-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
@@ -1179,14 +1180,14 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .lib-open:hover { background: var(--tint); }
 .lib-open svg { display: block; width: 100%; height: 100%; fill: var(--ink); overflow: visible; }
 .lib-meta { grid-area: meta; min-width: 0; padding: 10px 4px 8px 10px; }
-.lib-meta h3 { margin: 0; font-size: var(--t-base); font-weight: 600; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-meta h3 { margin: 0; font-size: var(--t-l); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-meta p { display: flex; margin: 1px 0 0; font-size: var(--t-s); color: var(--ink-3); white-space: nowrap; overflow: hidden; }
 .lib-meta p span { overflow: hidden; text-overflow: ellipsis; }
 .lib-meta p span + span::before { content: "·"; margin: 0 5px; color: var(--line-2); }
 .lib-meta p span:last-child { flex: none; }
 /* the latest save: its time in the accent */
 .lib-recent { color: var(--ink); font-weight: 700; background: var(--marker); }
-.lib-rename { width: 100%; min-width: 0; height: 26px; margin: -3px 0 -2px -7px; padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--pill); box-shadow: 0 0 0 3px var(--accent-soft); font: 600 var(--t-base) var(--ui); color: var(--ink); background: var(--surface); outline: none; }
+.lib-rename { width: 100%; min-width: 0; height: 26px; margin: -3px 0 -2px -7px; padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--pill); box-shadow: 0 0 0 3px var(--accent-soft); font-size: var(--t-l); color: var(--ink); background: var(--surface); outline: none; }
 .lib-actions { grid-area: actions; position: relative; display: flex; align-items: center; gap: 0; padding: 0 2px 0 4px; }
 .lib-actions .btn.icon { color: var(--ink-3); }
 .lib-actions .btn.icon:hover, .lib-actions .btn.icon[aria-expanded=true] { color: var(--ink); background: var(--hover); }
@@ -1284,7 +1285,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .lib-empty .row { display: flex; gap: 8px; }
 .account-main { max-width: 760px; }
 .acct-section { display: grid; grid-template-columns: 200px 1fr; gap: 24px; padding: 24px 0; border-top: 1px solid var(--line); }
-.acct-label h2 { margin: 0; font-size: var(--t-base); }
+.acct-label h2 { margin: 0; font-size: var(--t-xl); }
 .acct-label p { margin: 4px 0 0; font-size: var(--t-m); color: var(--ink-3); }
 .acct-body form { display: grid; justify-items: start; }
 .acct-body .field { width: 100%; margin: 0 0 14px; }

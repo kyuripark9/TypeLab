@@ -141,7 +141,7 @@ Code and tools find elements by these; renaming one means updating every reader.
 `styles.css` is the one stylesheet, in sections that each open with a `---------- name` comment. It opens with the
 design system: the tokens on `:root` (`--paper`, `--grid-paper`, `--surface`, `--well`, `--tint`, `--ink*`, `--white`,
 `--line*`, `--marker*`, `--accent*`, `--sync*`, `--custom*`, `--warn*`, `--danger*`, `--grid-*`, `--snap`, `--hover`,
-`--active`, `--scrim`, `--radius`, `--pill`, `--gap`, `--raise`, `--shadow`, `--knob`, `--ui`, `--serif`, `--mono`,
+`--active`, `--scrim`, `--radius`, `--pill`, `--gap`, `--raise`, `--shadow`, `--knob`, `--ui`, `--serif*`, `--mono`,
 `--hand`, `--display`, `--t-*`; use them, not literals), then the shared parts every page draws with: headings, the
 small capitals naming a group, buttons (`.btn` ghost, primary, raised: `.outline`, `.wide`, `.round`; `.icon`,
 `.small`, `.danger-btn`), text fields (a pill on a well, or raised on the paper; one focus ring), segmented switches
@@ -152,10 +152,11 @@ drawn: a token mixed from it on `:root` would keep the sync look inside a red sc
 Think's (studiothink.framer.website). Type: Manrope (`--ui`, Google Fonts in `index.html`) for every word of the
 interface, buttons and tags included, on a scale of eight sizes (`--t-xs` 11px, `-s` 12, `-m` 13, `-base` 14, `-l`
 16, `-xl` 20, `-2xl` 24, `-3xl` 32; a new rule takes a step, never a literal) in three weights (500 to read, 600 for
-names, 700 for what you press, `<b>` and a sans title; Manrope is loaded in only those three); titles (page titles,
-dialogs', the tour's, the finder's question, the explainer's) in a light serif (`--serif`, weight 300, drawn in a
-little): Gambetta Light from Fontshare, standing in for Studio Think's Ortica Linear (Collletttivo, OFL), which needs
-downloading; Geist Mono (`--mono`, Google Fonts) only for numbers, rule by rule, and in capitals for the small name
+names, 700 for what you press and `<b>`; Manrope is loaded in only those three); every title (pages', dialogs', the
+tour's, the finder's question, the explainer's, the inspected letter, an account or Export section's, a font's name
+on its card in My designs, the name prompt's: the shared heading rule lists them) in a light serif drawn in a little:
+Gambetta from Fontshare's variable cut, its Light set a touch heavier (`--serif-w`, 340) so it holds up at UI sizes,
+in the place of Studio Think's Ortica Linear; Geist Mono (`--mono`, Google Fonts) only for numbers, rule by rule, and in capitals for the small name
 over a group (section heads, the nav's page groups, menu heads, field labels: the shared rule after the headings
 lists them; a letter named in one keeps its case in a `<span className="ch">`, as "Parts of a" isn't "Parts of A");
 a handwriting (`--hand`, Just Me Again Down Here) only for a note in the margin (the inspector's hint), as Studio Think
