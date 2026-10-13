@@ -178,7 +178,8 @@ hairline (`.group-head`). An edit's scope is coloured through `var(--accent…)`
 `.inspector`, `.preview` and the settings panel set them to `--sync` (every letter changes: ink lines, rings, points
 and slider fills, `--accent-soft` a translucent lemon, and `--accent-mark` the opaque lemon a lit part of a letter is
 filled with; All letters is lemon), and the `.customizing` wrappers and `.ctl[data-letter]` to the red `--custom` (one
-letter alone: red lines and fills, a pale red wash on the panel, a red frame on the inspector; Only <letter> is red),
+letter alone: red lines and fills, a dusty rose under a control in use and the scope note while the panel keeps its
+sheet, a red frame on the inspector; Only <letter> is red),
 so the two can't be mistaken; elsewhere the accent is the sync look. Both scopes are drawn alike: the colour fills a
 shape and its edge is always ink (a pill with ink words, a banner, a lit part, a ring, a picked option, a switch
 turned on, a field typed in, the strip's mark on a letter with its own settings), as the lemon is laid under ink; only

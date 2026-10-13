@@ -46,9 +46,10 @@
   --marker: #f7f780; --marker-hover: #eeee5e;
   /* every letter in sync: ink, with the lemon under it (translucent, so a ring or a box over a letter shows through) */
   --sync: var(--ink); --sync-ink: var(--ink); --sync-soft: rgba(242, 240, 40, .55); --sync-mark: var(--marker);
-  /* one letter alone is a hot red (#ff034a), its text a deeper shade (7:1 on the paper), its pale shades the red
-     mixed thinly into the sheet (8% a control in use and the scope note, 3% the panel's wash) */
-  --custom: #ff034a; --custom-ink: #a8002f; --custom-soft: rgba(255, 3, 74, .14); --custom-tint: #fde6e8; --custom-wash: #fdf3f1;
+  /* one letter alone is a hot red (#ff034a), its text a deeper shade (7:1 on the paper); a control in use and the
+     scope note sit on a dusty rose (OKLCH .945 .012 22, half as coloured as the red mixed into the sheet), so their
+     words read as plainly as on the sheet; the pen's bar on the red mixed in at 3% */
+  --custom: #ff034a; --custom-ink: #a8002f; --custom-soft: rgba(255, 3, 74, .14); --custom-tint: #f5eae9; --custom-wash: #fdf3f1;
   --accent: var(--sync); --accent-ink: var(--sync-ink); --accent-soft: var(--sync-soft); --accent-mark: var(--sync-mark);
   --warn-ink: #a3531c; --warn-tint: #f8e6d8;
   --danger: #b3261e; --danger-hover: #8c1d17; --danger-wash: #fbeceb;
@@ -624,9 +625,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .inspector:not(.customizing) .scope-banner { background: var(--surface); color: var(--ink-2); box-shadow: var(--raise); }
 .scope-note { display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 6px; padding: 10px 12px; border-radius: var(--radius); background: var(--custom-tint); color: var(--ink); font-size: var(--t-m); line-height: 1.45; }
 .scope-note .scope-icon { margin-top: 1px; color: var(--custom); }
-/* customizing one letter: the panel is washed in red, unframed (the inspector's frame says it), and the controls
-   that reshape only that letter take its colour; Whole font ones keep the ink and lemon of every letter in sync */
-.panel.customizing { background: var(--custom-wash); }
+/* customizing one letter: the panel keeps the sheet it has in sync, unframed (the inspector's frame says it), and the
+   controls that reshape only that letter take its colour; Whole font ones keep the ink and lemon of every letter in sync */
 .panel.customizing .explainer { --accent-ink: var(--custom-ink); }
 .ctl[data-letter] { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --accent-mark: var(--custom); --fill: var(--custom); }
 .ctl.active[data-letter] { background: var(--custom-tint); }
