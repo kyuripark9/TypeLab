@@ -303,8 +303,6 @@ body.resizing.y { cursor: row-resize; }
 .specimen { display: block; overflow: visible; }
 .facet-label { margin: 0 0 8px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
 .count { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.tag-face { display: flex; align-items: center; min-width: 0; }
-.tag-face svg { display: block; fill: currentColor; overflow: visible; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 100px; border: 1px solid var(--line-2); font-size: 12.5px; font-weight: 500; background: var(--surface); transition: background .15s, border-color .15s, color .15s; }
 .chip:hover { border-color: var(--ink-3); background: var(--well); }
@@ -952,15 +950,13 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
   .strip-arrow span { display: none; }
 }
 
-/* ---------- opening title card: the name cut through the own fonts, a span a letter (each in its font), then the
-   wordmark. The name's line and the tagline's keep their heights throughout, so nothing moves when either changes */
+/* ---------- opening title card */
 .intro { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; gap: 10px; background: var(--paper); cursor: default; transition: opacity .45s ease; }
 .intro.leave { opacity: 0; pointer-events: none; }
-.intro-name { height: 1.3em; font-size: clamp(56px, 8vw, 112px); line-height: 1.3; white-space: nowrap; color: var(--ink); }
-.intro-mark { font-weight: 700; letter-spacing: -.04em; animation: intro-mark .5s cubic-bezier(.2, .7, .2, 1) both; }
-.intro-tag { display: flex; gap: .3em; height: 1.45em; font-size: 18px; color: var(--ink-3); }
+.intro-name { font-size: 56px; font-weight: 700; letter-spacing: -.04em; color: var(--ink); animation: intro-name .9s cubic-bezier(.2, .7, .2, 1) both; }
+.intro-tag { display: flex; gap: .3em; font-size: 18px; color: var(--ink-3); }
 .intro-tag span { animation: intro-word .5s ease both; }
-@keyframes intro-mark { from { font-weight: 600; letter-spacing: .02em; } }
+@keyframes intro-name { from { opacity: 0; transform: translateY(10px); font-weight: 400; letter-spacing: 0; } }
 @keyframes intro-word { from { opacity: 0; transform: translateY(6px); } }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

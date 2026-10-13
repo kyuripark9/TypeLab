@@ -3,7 +3,7 @@
    after a curled Q). */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, STYLES, TAG_FACE } from '../shared/content';
+import { FEELINGS, KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, STYLES } from '../shared/content';
 import { buildFont } from '../shared/engine';
 import { isValidParams } from '../shared/params';
 
@@ -28,20 +28,16 @@ describe('style page', () => {
     for (const s of PAGE_STYLES) assert.ok(s.params.fill === 'solid' && !s.params.stencil && !s.params.slice, s.id);
   });
 
-  it('keeps every Feeling chip live, and gives the finder two Categories or more to offer', () => {
-    // the panel shows every feeling, so each needs a card; the finder leaves out answers with none, and search reads each genre's label
+  it('keeps every Feeling on a card, and gives the finder two Categories or more to offer', () => {
+    // search reads every feeling, so each needs a card; the finder leaves out answers with none, and search reads each genre's label
     for (const m of MOODS) assert.ok(PAGE_STYLES.some(s => s.moods.includes(m.id)), m.id);
     assert.ok(STYLE_GROUPS.filter(g => PAGE_STYLES.some(s => s.group === g.id)).length >= 2);
     for (const s of PAGE_STYLES) for (const k of s.kinds) assert.ok(KIND_SECTIONS.some(sec => sec.tags.some(t => t.id === k)), `${s.id}: ${k}`);
   });
 
-  it('draws each Feeling chip in a style on the page that carries it', () => {
-    const onPage = new Set(PAGE_STYLES.map(s => s.id));
-    for (const m of MOODS) {
-      const face = TAG_FACE[m.id];
-      assert.ok(onPage.has(face), `${m.id} is drawn in ${face}, which has no card`);
-      assert.ok(STYLES.find(s => s.id === face)!.moods.includes(m.id), `${m.id} is drawn in ${face}, which does not carry it`);
-    }
+  it('offers most Feelings as chips', () => {
+    // a chip needs FEELING_MIN cards; retagging the styles shouldn't leave the panel with a handful
+    assert.ok(FEELINGS.length >= 10, `only ${FEELINGS.map(m => m.label).join(', ')}`);
   });
 });
 

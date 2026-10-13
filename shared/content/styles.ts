@@ -2,7 +2,7 @@
    tools/fit/apply.ts rewrites the settings objects in place: keep each style a `style('<id>', ...)` call whose
    settings object is the first `{` after it, with no braces in names, families or descriptions. */
 import { DEFAULTS, type Params } from '../params';
-import { looksOf, type Kind, type Look, type Mood, type StyleGroup } from './tags';
+import { MOODS, looksOf, type Kind, type Look, type Mood, type StyleGroup } from './tags';
 
 export interface StyleDef {
   id: string; name: string; group: StyleGroup; kinds: Kind[]; moods: Mood[]; desc: string;
@@ -23,8 +23,8 @@ const style = (id: string, group: StyleGroup, kinds: Kind[], name: string, moods
 
 /* Ids are stored with saved designs and deep links (?style=), so they never change, even when a style is
    renamed, and never leave STYLES: the API refuses a design whose styleId isn't here (server/app.ts
-   readDesign). Each id may be a TAG_FACE (tags.ts), and keys STYLE_FONTS (shared/free-fonts.ts) unless the style
-   is built from blocks, which no font draws. */
+   readDesign). Each id keys STYLE_FONTS (shared/free-fonts.ts) unless the style is built from blocks, which no
+   font draws. */
 export const STYLES: StyleDef[] = [
   /* ---- Sans Serif */
   style('geometric', 'sans', ['geometric'], 'Geometric', ['calm', 'business'], 'Poppins, Montserrat, Jost',
@@ -622,5 +622,11 @@ const PAGE_ORDER = [
   'block'
 ];
 export const PAGE_STYLES = PAGE_ORDER.map(id => STYLES.find(s => s.id === id)!);
+
+/** Fewest cards a Feeling holds to be one of the Style page's chips: a feeling that leaves a card or two is a way to
+    those cards rather than a filter. Search still finds a style by every feeling it carries. */
+export const FEELING_MIN = 3;
+/** The Feelings the Style page offers as chips, read off the cards, so one comes and goes as styles are tagged. */
+export const FEELINGS = MOODS.filter(m => PAGE_STYLES.filter(s => s.moods.includes(m.id)).length >= FEELING_MIN);
 
 export const styleById = (id: string | null | undefined) => STYLES.find(s => s.id === id);

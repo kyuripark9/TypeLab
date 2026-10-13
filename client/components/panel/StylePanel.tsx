@@ -1,7 +1,7 @@
 /* The Style page's panel: Filter narrows the starting styles by search and tags, Adjust lays traits over every one of them.
    On phones it is a sheet over the cards, opened from the bar on top (Stage.tsx), with a foot that closes it. */
 import { type KeyboardEvent } from 'react';
-import { MOODS, PAGE_STYLES, TAG_FACE, styleById, type Mood } from '../../../shared/content';
+import { FEELINGS, PAGE_STYLES, styleById, type Mood } from '../../../shared/content';
 import { cmdsBox } from '../../../shared/engine';
 import type { Params } from '../../../shared/params';
 import { n1, PHONE_QUERY } from '../../lib/hooks';
@@ -185,8 +185,9 @@ function Specimen({ params, text }: { params: Params; text: string }) {
   );
 }
 
-/** The Feeling chips, all of them in view. Each feeling picked narrows the cards, so a chip's count is what
-    picking it would leave (a picked one's, what is showing), and one that would leave none does nothing. */
+/** The Feeling chips, every one that enough cards carry (FEELINGS), all in view and named in the UI's own type.
+    Each feeling picked narrows the cards, so a chip's count is what picking it would leave (a picked one's, what is
+    showing), and one that would leave none does nothing. */
 function Feelings() {
   const { f, matches } = useStyleMatch();
   const count = (m: Mood) => {
@@ -197,57 +198,17 @@ function Feelings() {
     <div className="facet" role="group" aria-labelledby="f-feeling">
       <h3 className="facet-label" id="f-feeling">Feeling</h3>
       <div className="chips">
-        {MOODS.map(({ id: tag, label }) => {
+        {FEELINGS.map(({ id: tag, label }) => {
           const on = f.moods.includes(tag), n = count(tag), none = !n && !on;
           // a tag with no matches stays focusable, so it can still be found, but does nothing
           return (
             <button key={tag} className={on ? 'chip on' : 'chip'} aria-pressed={on} aria-disabled={none || undefined}
               aria-label={`${label}, ${n} ${n === 1 ? 'style' : 'styles'}`} onClick={() => { if (!none) actions.toggleMood(tag); }}>
-              <TagText tag={tag} label={label} /><span className="count" aria-hidden="true">{n}</span>
+              {label}<span className="count" aria-hidden="true">{n}</span>
             </button>
           );
         })}
       </div>
     </div>
-  );
-}
-
-/** Cap height of a tag label in px, so every face reads at about the size of the UI text. */
-const TAG_CAP = 9.5;
-
-/** A face drawn as small as a chip label keeps its character but not its hairlines: contrast is
-    eased toward even and the lightest weights are raised, so "Fancy" doesn't lose the arm of its F. */
-const legible = (p: Params): Params => ({
-  ...p,
-  weight: Math.max(p.weight, 0.36),
-  contrast: Math.min(Math.max(p.contrast, 0.35), 0.66),
-  vWeight: Math.max(p.vWeight, 0.45),
-  hWeight: Math.max(p.hWeight, 0.45)
-});
-/** Each tag's legible params, made once so fontFor (which builds once per params object) builds each tag's font once. */
-const LEGIBLE = new Map<Mood, Params>();
-const legibleOf = (tag: Mood) => {
-  let p = LEGIBLE.get(tag);
-  if (!p) LEGIBLE.set(tag, p = legible(styleById(TAG_FACE[tag])!.params));
-  return p;
-};
-
-/** A filter tag's name, drawn in a starting style that belongs to it. The chip carries the
-    name for screen readers, so the drawing is hidden from them. */
-function TagText({ tag, label }: { tag: Mood; label: string }) {
-  const f = fontFor(legibleOf(tag));
-  const sc = TAG_CAP / f.m.cap, top = Math.max(f.m.asc, f.m.cap), line = f.layout(label, Infinity)[0];
-  const W = n1(line.width * sc), H = n1((top - f.m.desc) * sc);
-  return (
-    <span className="tag-face">
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
-        <g transform={`scale(${sc})`}>
-          {line.items.map((it, j) => {
-            const g = f.glyph(it.ch);
-            return g && <path key={j} d={g.d} transform={`translate(${n1(it.x)},${n1(top)})`} />;
-          })}
-        </g>
-      </svg>
-    </span>
   );
 }

@@ -24,7 +24,8 @@ export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string }[] = [
 export type Mood = 'business' | 'calm' | 'sincere' | 'happy' | 'excited' | 'playful' | 'cute' | 'childlike' | 'fancy' | 'sophisticated'
   | 'artistic' | 'innovative' | 'loud' | 'rugged' | 'stiff' | 'vintage' | 'futuristic';
 /* Each style's moods follow the Google Fonts Feeling scores of its reference families. Listed A to Z,
-   so a mood is quick to find among the seventeen, all of them in view on the panel. */
+   so a mood is quick to find. Search reads all seventeen; the panel's chips are those enough cards carry
+   (FEELINGS, styles.ts). */
 export const MOODS: { id: Mood; label: string }[] = ([
   ['artistic', 'Artistic'], ['business', 'Business'], ['calm', 'Calm'], ['childlike', 'Childlike'], ['cute', 'Cute'], ['excited', 'Excited'],
   ['fancy', 'Fancy'], ['futuristic', 'Futuristic'], ['happy', 'Happy'], ['innovative', 'Innovative'], ['loud', 'Loud'], ['playful', 'Playful'],
@@ -115,10 +116,3 @@ export const searchMatches = (s: StyleDef, query: string, looks: Look[] = s.look
 };
 /** The Appearance tags a set of params shows. */
 export function looksOf(p: Params): Look[] { const e = resolve(p); return LOOKS.filter(l => l.test(e)).map(l => l.id); }
-
-/** The starting style each Feeling chip is set in: one that carries the feeling. */
-export const TAG_FACE: Record<Mood, string> = {
-  business: 'grotesque', calm: 'humanist', happy: 'soft', playful: 'comic', cute: 'chunkyround', childlike: 'casual',
-  fancy: 'didone', sophisticated: 'chancery', artistic: 'serifitalic', loud: 'fatface', rugged: 'woodtype', vintage: 'typewriter',
-  futuristic: 'industrial', sincere: 'softslab', excited: 'informal', innovative: 'squircle', stiff: 'code'
-};

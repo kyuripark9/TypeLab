@@ -10,8 +10,8 @@ Everything here runs in the browser and on the server alike, so nothing touches 
 | `params/options.ts` | The named choices (`TERMINALS`, `TERMINAL_FORMS`, `SERIF_SHAPES`, `FILLS`, the letter forms...) and `formOf` |
 | `params/scales.ts` | The id formats a letter's own values are kept under, and the scales that turn 0..1 into lengths and angles |
 | `params/clean.ts` | Reading settings from outside: `PARAMS_VERSION`, `upgradeParams`, `sanitizeParams`, `isValidParams` |
-| `content/styles.ts` | The starting styles (`STYLES`), the Style page's cards (`PAGE_STYLES`), `styleById` |
-| `content/tags.ts` | Style tags: Category (`StyleGroup`), Classification (`Kind`, `KIND_SECTIONS`), Appearance (`Look`, read off the settings), Feeling (`Mood`, `MOODS`, `TAG_FACE`); `styleMatches`, `searchMatches` |
+| `content/styles.ts` | The starting styles (`STYLES`), the Style page's cards (`PAGE_STYLES`) and Feeling chips (`FEELINGS`, those `FEELING_MIN` cards carry), `styleById` |
+| `content/tags.ts` | Style tags: Category (`StyleGroup`), Classification (`Kind`, `KIND_SECTIONS`), Appearance (`Look`, read off the settings), Feeling (`Mood`, `MOODS`); `styleMatches`, `searchMatches` |
 | `content/pages.ts` | The editor's pages (`CATEGORIES`), their groups (`GROUPS`), older page names (`OLD_GROUPS`), `pageOf` |
 | `content/controls.ts` | `CONTROLS`, `SUBS` and each control's `*_SUBS`, the pickers' options and finer sliders, `PART_CONTROL`, `controlFor`, `firstControl` |
 | `content/copy.ts` | `ANATOMY` (part id to name and definition), `TEXTS` (sample text) |
@@ -127,7 +127,7 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   written in TypeLab's own fonts, and Block (`block`, Category Blocks), built from basic blocks (Slot Blocks,
   `slotblocks`, stays in STYLES off the page: its slot blocks are a pick away, Block letters). Every style keys
   `STYLE_FONTS` but those built from blocks, which no font draws (their card and finder tile draw the engine's
-  letters, `client/components/BuiltText.tsx`), and may be a `TAG_FACE`. `tools/fit/apply.ts` rewrites a style's params
+  letters, `client/components/BuiltText.tsx`). `tools/fit/apply.ts` rewrites a style's params
   object in place, finding `style('<id>',` by text and its params as the first `{` outside quotes: keep that layout,
   with the style's own letters under `glyphs:` inside it. tests/styles.test.ts and tests/free-fonts.test.ts check the
   cards, Feelings and fonts.
