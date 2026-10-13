@@ -161,8 +161,8 @@ header's and the opening's (which draws it first from `client/fonts/Lineup.json`
 it): the design was drawn for capitals, and its small letters run into each other. The Feeling names are the one
 exception, each in an own font (`.feel`). Labels drawn in the canvases and diagrams take `--t-xs` too. Text runs at a
 line height of 1.45, headings at 1.25.
-Colours are a type specimen sheet's: black ink on light ivory paper (`#f7f2e9`), paler ivory sheets, warm greys, a
-warm grey like its construction lines (`#e6ddd0`) for hairlines, tags and tracks, and its point markers' orange
+Colours: black ink on a light grey paper (`#eff0f0`, the ivory `#f7f2e9` was dropped), white sheets, cool neutral
+greys, a pale grey (`#e4e7e7`) for hairlines and tracks, and a type specimen's point markers' orange
 (`#cc4516`, deep enough for white on it) as the one accent. Sheets, cards, tiles and menus are square and flat
 (`--radius` is 0; a pale tab or field on the paper is set off by `--raise`, and only what floats casts `--shadow`);
 what you press is a pill (`--pill`); a section head is an orange square, its name and a hairline (`.group-head`); no

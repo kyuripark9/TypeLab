@@ -6,10 +6,10 @@
    a rule takes a step, never a size of its own) and three weights (400 to read, 500 for names and what you press,
    600 for titles and bold); Chivo Mono only for numbers and for the small capitals that name a group; Lineup only for
    the logo (below). The Feeling names are the one exception, each in a font with that feeling (.feel).
-   Colour: black ink on a light ivory paper (#f7f2e9), the sheets a paler ivory (--surface) with wells a shade under it
-   (--well, --tint), two warm greys for text (#463f38, and a step lighter for notes; both 7:1 or more on the paper), a
-   warm grey like the sheet's construction lines (#e6ddd0) for hairlines and the tracks of sliders and switches, and
-   its point markers' orange, a shade deeper (#cc4516) so white reads on it, as the only accent. An edit's two scopes
+   Colour: black ink on a light grey paper (#eff0f0), the sheets white (--surface) with wells a shade under it
+   (--well, --tint), two greys for text (#3e4245, and a step lighter for notes; both 7:1 or more on the paper), a pale
+   grey (#e4e7e7) for hairlines and the tracks of sliders and switches, and a type specimen's orange, its point
+   markers' a shade deeper (#cc4516) so white reads on it, as the only accent. An edit's two scopes
    each have a colour: the orange (--sync) while every letter changes together, in the inspector, the preview and the
    settings, and a blue (--custom) while one letter is customized, so anything that belongs to one letter alone reads
    apart from what all of them share; the -ink shades are for text, -soft for highlights, and -tint and -wash pale
@@ -21,16 +21,16 @@
    fields) rounds off into a pill (--pill); a pale tab or field on the paper is set off by a hairline (--raise), and
    only what floats over the page casts a shadow (--shadow). A section head opens with a small orange square over a
    hairline. No decorative flourishes.
-   The editor is laid out as sheets: the page menu sits on the ivory paper, and the preview, the settings and the
+   The editor is laid out as sheets: the page menu sits on the grey paper, and the preview, the settings and the
    glyph strip are pale sheets set on it with a gap between, the gaps doubling as the resize handles. */
 :root {
-  --paper: #f7f2e9; --surface: #fffdfa; --well: #f9f5ee; --tint: #efe7db;
-  --ink: #000; --ink-2: #463f38; --ink-3: #574f47; --ink-hover: #2e2a26; --white: #fff;
-  --line: #e6ddd0; --line-2: #d8cdbf;
+  --paper: #eff0f0; --surface: #fff; --well: #f6f7f7; --tint: #e9ebeb;
+  --ink: #000; --ink-2: #3e4245; --ink-3: #4a4e51; --ink-hover: #2a2d2f; --white: #fff;
+  --line: #e4e7e7; --line-2: #d2d7d8;
   --accent: #cc4516; --accent-ink: #a8390d; --accent-soft: rgba(204, 69, 22, .12);
   /* every letter in sync is the accent itself */
   --sync: var(--accent); --sync-ink: var(--accent-ink); --sync-soft: var(--accent-soft);
-  /* one letter alone is a printer's deep blue, quiet enough to sit by the orange on the ivory, its pale shades
+  /* one letter alone is a printer's deep blue, quiet enough to sit by the orange on the grey, its pale shades
      faintly blue rather than lilac */
   --custom: #225b90; --custom-ink: #0b4475; --custom-soft: rgba(34, 91, 144, .12); --custom-tint: #e3eaf2; --custom-wash: #f5f8fc;
   --warn-ink: #a3531c; --warn-tint: #f8ebe2;
@@ -136,7 +136,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
   outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft); }
 .nav-search kbd, .lib-search kbd, .search-field kbd { position: absolute; right: 7px; min-width: 18px; height: 18px; padding: 0 6px; border-radius: var(--pill); background: var(--tint);
   font: 400 var(--t-xs)/18px var(--mono); color: var(--ink-2); text-align: center; pointer-events: none; }
-/* A segmented switch is a warm grey track with its pick a pale tab raised on it: List/Grid and Help me choose/Browse
+/* A segmented switch is a grey track with its pick a pale tab raised on it: List/Grid and Help me choose/Browse
    all over the style cards, Filter/Adjust, the inspector's Parts/Points and All letters/Only a, My designs' Sort and
    Layout, and the pen's point kinds, corner shapes, Snap and Mirror. */
 .view-toggle, .style-tabs, .scope, .pen-kind { display: flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--pill); background: var(--tint); }
@@ -371,7 +371,7 @@ body.resizing.y { cursor: row-resize; }
 .facet-label { margin: 0 0 10px; }
 .count { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-/* a tag, as Soren's: words on a warm grey pill; picked, it turns black */
+/* a tag, as Soren's: words on a grey pill; picked, it turns black */
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; white-space: nowrap; border-radius: var(--pill); border: 1px solid transparent; font-size: var(--t-s); color: var(--ink-2); background: var(--tint); transition: background .15s, border-color .15s, color .15s; }
 .chip:hover { background: var(--line-2); color: var(--ink); }
 .chip.on { background: var(--ink); border-color: var(--ink); color: var(--white); }
