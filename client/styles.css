@@ -275,6 +275,11 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .pv-band { fill: var(--accent-mark); opacity: .8; }
 .pv-guide { stroke: var(--accent); stroke-width: var(--sw); stroke-dasharray: calc(var(--sw) * 4) calc(var(--sw) * 3); opacity: .8; }
 .pv-guide.base { stroke: var(--ink-3); opacity: .5; }
+/* what is pointed at shows lit for a moment and fades out over the last fifth of it, the preview's and the inspector's
+   alike; the editor puts it away when it ends (LIT_MS in client/state/editor.ts, as long as this). The fade is drawn in
+   fill and stroke opacity, so a part's own opacity (a band's, the construction grid's dimmed letter) holds under it */
+@keyframes lit { 0%, 80% { fill-opacity: 1; stroke-opacity: 1; } 100% { fill-opacity: 0; stroke-opacity: 0; } }
+.pv-hl, .pv-ring, .pv-band, .pv-guide, .i-hl, .i-ring { animation: lit 1.5s linear forwards; }
 
 /* ---------- style cards */
 /* the heading: the title and what the cards are on the left, the two ways in (Help me choose, Browse all) on the right */

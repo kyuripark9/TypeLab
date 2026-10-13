@@ -1,7 +1,7 @@
 /* The large live preview: the text set in the design, line by line, each letter a <use> of its path in
    GlyphDefs (#g65, by char code; GlyphDefs must be mounted for anything to show) and, while the pointer is on
-   the controls and nothing has been changed there yet, of the active control's highlight (#h65), with the guides or
-   spacing bands that control is about. Clicking a letter opens it in the inspector. */
+   the controls, for a moment and until a value is changed there (`faded`), of the active control's highlight (#h65),
+   with the guides or spacing bands that control is about, each keyed by the control so its fade starts over. Clicking a letter opens it in the inspector. */
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import type { ControlKey } from '../../shared/content';
 import { RING_KEYS, type Font, type Line } from '../../shared/engine';
@@ -39,11 +39,11 @@ export function Preview({ width }: { width: number }) {
 
 function PreviewLine({ line, y, font, hl, topU, LH, widthU }: { line: Line; y: number; font: Font; hl: ControlKey | null; topU: number; LH: number; widthU: number }) {
   const m = font.m, out: ReactNode[] = [];
-  const band = (key: string, x: number, w: number) => out.push(<rect key={key} className="pv-band" x={n1(x)} y={n1(y - m.cap)} width={n1(Math.max(0, w))} height={n1(m.cap)} />);
+  const band = (key: string, x: number, w: number) => out.push(<rect key={key + hl} className="pv-band" x={n1(x)} y={n1(y - m.cap)} width={n1(Math.max(0, w))} height={n1(m.cap)} />);
   if (hl === 'xHeight' || hl === 'height') {
     const gy = n1(y - (hl === 'height' ? m.cap : m.xh));
-    out.push(<line key="guide" className="pv-guide" x1={0} x2={n1(widthU)} y1={gy} y2={gy} />);
-    out.push(<line key="base" className="pv-guide base" x1={0} x2={n1(widthU)} y1={y} y2={y} />);
+    out.push(<line key={'guide' + hl} className="pv-guide" x1={0} x2={n1(widthU)} y1={gy} y2={gy} />);
+    out.push(<line key={'base' + hl} className="pv-guide base" x1={0} x2={n1(widthU)} y1={y} y2={y} />);
   }
   const ring = hl && RING_KEYS[hl];
   line.items.forEach((it, j) => {
@@ -60,7 +60,7 @@ function PreviewLine({ line, y, font, hl, topU, LH, widthU }: { line: Line; y: n
       <g key={j} className="gl" data-c={c} transform={`translate(${n1(it.x)},${y})`}>
         <rect x={0} y={n1(-topU + 40)} width={n1(it.adv)} height={n1(LH - 80)} />
         <use href={`#g${c}`} />
-        {hl && <use className={ring ? 'pv-ring' : 'pv-hl'} href={`#h${c}`} />}
+        {hl && <use key={hl} className={ring ? 'pv-ring' : 'pv-hl'} href={`#h${c}`} />}
       </g>
     );
   });

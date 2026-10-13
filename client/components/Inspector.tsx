@@ -300,7 +300,7 @@ interface TipRow { axis: Axis; label: string; ends: [string, string] }
 function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Font; grid?: GlyphGrid }) {
   const [ref, size] = useSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
-  const part = useEditor(s => s.part), active = useEditor(s => s.active), adjusted = useEditor(s => s.adjusted);
+  const part = useEditor(s => s.part), active = useEditor(s => s.active), faded = useEditor(s => s.faded);
   // while only this letter changes, each stroke end is dragged on its own
   const oneEnd = useEditor(s => !!letterOf(s)), hotEnd = useEditor(s => s.hotEnd);
   const drag = useRef<Drag | null>(null);
@@ -364,14 +364,14 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
   const showKey = hover || dragging ? null : guideKey && typeof font.params[guideKey as keyof Params] === 'number' ? guideKey as NumericParam : intro ? 'weight' : null;
   const handles: Handle[] = showKey ? handlesFor(showKey, lf, ch, [...parts, ...guides.map(([id]) => id), 'advance']) : [];
 
-  // once a value changes the letter reads in plain ink, as the preview does, till another part or control is pointed at;
-  // the handles stay
-  let hl: { d: string; ring?: boolean } | null;
-  if (adjusted) hl = null;
-  else if (hotEnd && isStrokeId(hotEnd)) hl = { d: g.strokes.filter(s => s.id === hotEnd).map(s => cmdsToD(s.cmds)).join('') };
-  else if (hotEnd) hl = { ring: true, d: ringsD(g.marks.filter(k => k.id === hotEnd), markRing(m)) };
-  else if (part) hl = partD(g, part, font);
-  else { const k = hlKey(active); hl = { d: font.hl(ch, k), ring: !!RING_KEYS[k] }; }
+  // what is pointed at shows for a moment, then the letter reads in plain ink, as the preview does (`faded`), till
+  // another part or control is pointed at; the handles stay. Keyed by what it lights, so its fade starts over
+  let hl: { d: string; ring?: boolean; id: string } | null;
+  if (faded) hl = null;
+  else if (hotEnd && isStrokeId(hotEnd)) hl = { id: hotEnd, d: g.strokes.filter(s => s.id === hotEnd).map(s => cmdsToD(s.cmds)).join('') };
+  else if (hotEnd) hl = { id: hotEnd, ring: true, d: ringsD(g.marks.filter(k => k.id === hotEnd), markRing(m)) };
+  else if (part) hl = { id: part, ...partD(g, part, font) };
+  else { const k = hlKey(active); hl = { id: k, d: font.hl(ch, k), ring: !!RING_KEYS[k] }; }
 
   // hovering never changes the highlight mid-drag, since the parts reshape under the pointer
   const point = (id: string | null) => { if (!drag.current) pointPart(id); };
@@ -448,7 +448,7 @@ function InspectorCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: Fo
             {/* on its construction grid the letter is an outline: a stroke, its inner half covered */}
             {grid && <path className="i-trace" d={g.d} style={{ strokeWidth: n1(4 / sc) }} />}
             <path className={grid ? 'i-ink bare' : 'i-ink'} d={g.d} />
-            {hl && <path className={hl.ring ? 'i-ring' : 'i-hl'} d={hl.d} />}
+            {hl && <path key={`${ch} ${hl.id}`} className={hl.ring ? 'i-ring' : 'i-hl'} d={hl.d} />}
             {grid && <GridLines grid={grid} />}
             <g aria-hidden="true">
               {parts.map(f => (

@@ -1,15 +1,15 @@
 /* The editor's store (client/state/editor.ts), run without a browser: starting a design in its free font,
    a customized letter's own values, a letter drawn in Points keeping the settings it was drawn at, loading a style
    over changes, renaming, a change folded into the last undo step, how far undo reaches, and each letter's record of
-   its edits and the font's History (kept past undo, brought back, saved and loaded), and a control's highlight put
-   away once its value is changed. Nothing here
+   its edits and the font's History (kept past undo, brought back, saved and loaded), and what is pointed at lit for
+   a moment, and put away at once when a value is changed. Nothing here
    draws a design written in a free font, which would fetch the font from the server. */
 import assert from 'node:assert/strict';
-import { beforeEach, describe, it } from 'node:test';
+import { beforeEach, describe, it, mock } from 'node:test';
 import { STYLES } from '../shared/content';
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { DEFAULTS, freeAtOf } from '../shared/params';
-import { actions, designInput, hlKeyOf, isDirty, useEditor } from '../client/state/editor';
+import { LIT_MS, actions, designInput, hlKeyOf, isDirty, useEditor } from '../client/state/editor';
 
 const state = () => useEditor.getState();
 const serif = STYLES.find(s => s.id === 'serif')!, slab = STYLES.find(s => s.id === 'slab')!;
@@ -20,10 +20,22 @@ describe('the editor', () => {
     useEditor.setState({ scope: 'all', inspect: null, toast: null });
   });
 
-  it('lights a control\'s or a part\'s parts when pointed at, and puts them away once a value changes till another is', () => {
+  it('lights a control\'s or a part\'s parts for a moment when pointed at, and puts them away once a value changes', (t) => {
+    t.after(() => mock.timers.reset());
+    mock.timers.enable({ apis: ['setTimeout'] });
     actions.setCategory('weight');
     actions.focusControl('serifSize');
     assert.equal(hlKeyOf(state()), 'serif');
+    mock.timers.tick(LIT_MS - 1);
+    actions.focusControl('serifSize');
+    assert.equal(hlKeyOf(state()), 'serif', 'still lit, and the same control pointed at again starts no new moment');
+    mock.timers.tick(1);
+    assert.equal(hlKeyOf(state()), null, 'then the letters read in plain ink');
+    actions.focusControl('weight');
+    assert.equal(hlKeyOf(state()), 'weight', 'another control lights for its own moment');
+    mock.timers.tick(LIT_MS);
+    assert.equal(hlKeyOf(state()), null);
+    actions.focusControl('serifSize');
     // a drag: each move points at the control again and sets its value
     actions.setParam('serifSize', 0.6);
     actions.focusControl('serifSize');
@@ -38,14 +50,17 @@ describe('the editor', () => {
     actions.setHot(false);
     actions.focusControl('weight');
     assert.equal(hlKeyOf(state()), 'weight', 'coming back to the controls lights it again');
-    // the inspector's letter too: a part dragged reads in plain ink till another part is pointed at
+    // the inspector's letter too: a part dragged reads in plain ink till another part is pointed at, and a part
+    // pointed at shows for its moment
     actions.setPart('stem');
     actions.setParam('weight', 0.8);
-    assert.equal(state().adjusted, true);
+    assert.equal(state().faded, true);
     actions.setPart(null);
-    assert.equal(state().adjusted, true, 'moving off the part keeps it so');
+    assert.equal(state().faded, true, 'moving off the part keeps it so');
     actions.setPart('bowl');
-    assert.equal(state().adjusted, false);
+    assert.equal(state().faded, false);
+    mock.timers.tick(LIT_MS);
+    assert.equal(state().faded, true);
   });
 
   it('starts a style in its free font, spaced as the font spaces its letters', () => {

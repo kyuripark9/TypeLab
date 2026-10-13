@@ -58,10 +58,10 @@ export interface EditorState extends Doc {
   active: ActiveKey;
   /** true while the pointer is over the controls: highlight affected glyph parts */
   hot: boolean;
-  /** a value was changed since the pointer came to the active control or part: the preview and the inspector put
-      their highlight away, so the design reads in plain ink while it is adjusted, till another control or part is
-      pointed at */
-  adjusted: boolean;
+  /** the highlight of what was pointed at last (a control, or a part of the inspected letter) has gone: shown for
+      `LIT_MS` and put away at once by a change of a value, so the preview and the inspector read in plain ink while
+      the design is looked at and adjusted, till another control or part is pointed at */
+  faded: boolean;
   /** the preview text; empty shows the default sentence */
   custom: string;
   /** the preview's text size, in px per em */
@@ -155,7 +155,7 @@ export const useEditor = create<EditorState>()(() => ({
   category: 'style',
   active: 'weight',
   hot: false,
-  adjusted: false,
+  faded: false,
   custom: '',
   size: 48,
   groups: [],
@@ -181,6 +181,17 @@ export const useEditor = create<EditorState>()(() => ({
 }));
 
 const set = useEditor.setState, get = useEditor.getState;
+
+/** How long what is pointed at (a control's parts, a part of the inspected letter) shows lit before the letters go
+    back to plain ink; styles.css's `lit` animation fades it out over its last stretch, as long as this. */
+export const LIT_MS = 1500;
+let litTimer: ReturnType<typeof setTimeout> | undefined;
+/** Light what is pointed at now, for LIT_MS: the state to set with it. */
+function lit() {
+  clearTimeout(litTimer);
+  litTimer = setTimeout(() => { if (!get().faded) set({ faded: true }); }, LIT_MS);
+  return { faded: false };
+}
 
 /** when the newest undo step was made: the time its letters' edits are recorded at, which amend folds into */
 let stepAt = 0;
@@ -217,7 +228,7 @@ export const isDirty = (s: EditorState) => docSnap(s) !== s.saved;
 
 /** The key whose affected parts are highlighted, or null. Serif sub-sliders highlight serifs. */
 export const hlKeyOf = (s: EditorState): ControlKey | null =>
-  s.hot && !s.adjusted && s.category !== 'style' ? hlKey(s.active) : null;
+  s.hot && !s.faded && s.category !== 'style' ? hlKey(s.active) : null;
 /** The key whose parts `active` highlights: Horizontals the level strokes Contrast thins, else its control's. */
 export const hlKey = (active: ActiveKey): ControlKey => (active === 'hWeight' ? 'contrast' : controlFor(active));
 
@@ -386,12 +397,12 @@ export const actions = {
   setSaving(saving: boolean) { set({ saving }); },
 
   /** Live change while dragging: no history entry until commit(). While edits go to one letter,
-      its settings change and the other letters stay as they are. The control's highlight is put away (`adjusted`). */
+      its settings change and the other letters stay as they are. The control's highlight is put away (`faded`). */
   setParam<K extends keyof Params>(key: K, v: Params[K]) {
     set(s => {
       const ch = letterOf(s);
-      if (key === 'outlines') return { params: withDrawings(s.params, v as Params['outlines']), adjusted: true };
-      return { params: ch && isGlyphKey(key) ? withGlyph(s.params, ch, key, v) : { ...s.params, [key]: v }, adjusted: true };
+      if (key === 'outlines') return { params: withDrawings(s.params, v as Params['outlines']), faded: true };
+      return { params: ch && isGlyphKey(key) ? withGlyph(s.params, ch, key, v) : { ...s.params, [key]: v }, faded: true };
     });
   },
   commit() { step(); },
@@ -442,7 +453,7 @@ export const actions = {
     const s = get(), ch = letterOf(s);
     if (ch && isGlyphKey(key)) {
       if (s.params.glyphs[ch]?.[key] === undefined) return;
-      set({ params: withGlyph(s.params, ch, key, undefined), adjusted: true });
+      set({ params: withGlyph(s.params, ch, key, undefined), faded: true });
       actions.commit();
       return;
     }
@@ -471,7 +482,7 @@ export const actions = {
   setEnd(id: string, v: number, key: OwnKey = 'terminalEnds') {
     set(s => {
       const ch = letterOf(s);
-      return ch ? { params: withGlyph(s.params, ch, key, { ...paramOf(s, key), [id]: v }), adjusted: true } : {};
+      return ch ? { params: withGlyph(s.params, ch, key, { ...paramOf(s, key), [id]: v }), faded: true } : {};
     });
   },
   /** Drop one of a customized letter's own values by id (see OwnKey), so that stroke end, corner, turn, stroke or join follows the letter's setting again. */
@@ -480,7 +491,7 @@ export const actions = {
     if (!ch || !own || own[id] === undefined) return;
     const rest = { ...own };
     delete rest[id];
-    set({ params: withGlyph(s.params, ch, key, Object.keys(rest).length ? rest : undefined), adjusted: true });
+    set({ params: withGlyph(s.params, ch, key, Object.keys(rest).length ? rest : undefined), faded: true });
     actions.commit();
   },
   /** Put a letter back in step with the rest of the alphabet: its own settings dropped, and its edits in Points. */
@@ -524,9 +535,12 @@ export const actions = {
   },
   setActive(active: ActiveKey) { if (get().active !== active) set({ active }); },
   setHot(hot: boolean) { if (get().hot !== hot) set({ hot }); },
-  /** Point at a control: make it active and show what it changes, until a value is changed (`adjusted`); the same
-      control pointed at again, as a drag runs over its parts, keeps the highlight put away. */
-  focusControl(key: ActiveKey) { set(s => ({ active: key, hot: true, adjusted: s.hot && s.active === key && s.adjusted })); },
+  /** Point at a control: make it active and show what it changes for a moment (`lit`); the same control pointed at
+      again, as the pointer or a drag runs over its parts, leaves the highlight as it is. */
+  focusControl(key: ActiveKey) {
+    const s = get();
+    set({ active: key, hot: true, ...(s.hot && s.active === key ? {} : lit()) });
+  },
   setCustom(custom: string) { set({ custom }); },
   setSize(size: number) { set({ size }); },
   toggleGroup(g: StyleGroup) { set(s => ({ groups: toggle(s.groups, g) })); },
@@ -572,10 +586,11 @@ export const actions = {
     set({ tips });
     setPrefFlag(PREFS.tipsShown, tips);
   },
+  /** Open a letter large; what the control in hand shapes in it shows for a moment (`lit`). */
   openInspector(ch: string) {
     if (!fontFor(get().params).glyph(ch)) return;
     const s = get();
-    set({ inspect: ch, part: null, ...(s.category === 'style' ? { category: 'weight' as const, active: 'weight' as const } : {}) });
+    set({ inspect: ch, part: null, ...lit(), ...(s.category === 'style' ? { category: 'weight' as const, active: 'weight' as const } : {}) });
   },
   closeInspector() { set({ inspect: null, part: null }); },
   setScope(scope: Scope) { set({ scope }); },
@@ -583,9 +598,9 @@ export const actions = {
     const i = ALL_CHARS.indexOf(get().inspect ?? 'A');
     actions.openInspector(ALL_CHARS[(i + d + ALL_CHARS.length) % ALL_CHARS.length]);
   },
-  /** Point at a part (null: at none); pointing at another lights it again after a change (`adjusted`). */
-  setPart(part: string | null) { if (get().part !== part) set(part ? { part, adjusted: false } : { part }); },
-  setHotEnd(hotEnd: string | null) { if (get().hotEnd !== hotEnd) set(hotEnd ? { hotEnd, adjusted: false } : { hotEnd }); },
+  /** Point at a part (null: at none): it shows for a moment (`lit`). */
+  setPart(part: string | null) { if (get().part !== part) set(part ? { part, ...lit() } : { part }); },
+  setHotEnd(hotEnd: string | null) { if (get().hotEnd !== hotEnd) set(hotEnd ? { hotEnd, ...lit() } : { hotEnd }); },
   setConstruction(construction: boolean) {
     set({ construction });
     setPrefFlag(PREFS.construction, construction);
@@ -600,7 +615,7 @@ export const actions = {
   shareParam(ch: string, key: keyof GlyphParams) {
     const s = get();
     if (s.params.glyphs[ch]?.[key] === undefined) return;
-    set({ params: withGlyph(s.params, ch, key, undefined), adjusted: true });
+    set({ params: withGlyph(s.params, ch, key, undefined), faded: true });
     actions.commit();
   },
   setExportOpen(exportOpen: boolean) { set({ exportOpen }); },
