@@ -1,6 +1,6 @@
 /* The opening title card, played on the first visit in a browser (not with reduced motion). "TypeLab" comes up in
-   TypeLab's own fonts, the ones the Style page's cards start from (all but the blackletter), and in the fonts this
-   browser's owner has saved (My designs, but for those begun as blackletter), and is then made as a font is made:
+   TypeLab's own fonts, the ones the Style page's cards start from (all but the blackletter), and is then made as a
+   font is made:
    - the name's first letter comes up, turning from font to font as a scramble of capitals grows from it to its right,
      each in an own font of its own, and it settles into the name letter by letter, in capitals as the logo sets it,
      so the name keeps one shape from here to the wordmark, the letters still in fonts of their own, set evenly by
@@ -18,24 +18,20 @@
      logo's heights and its letters' edges, and its ink fills in, as the tagline comes in under it word by word;
    - the drawing gives way to the wordmark, the header's logo in its font (Lineup), the very letters drawn, the
      tagline staying under it, and the card fades to the app, the words first.
-   A key or a click skips ahead to the fade, as a faint note at the card's foot says. It is one SVG, so the name keeps one baseline under every font and the
-   lines sit true to it. The own fonts are the cards' web fonts, a saved font is drawn as the engine builds it (as My
-   designs draws its name), and the drawing is the logo's capitals as tools/fonts/ui.ts writes them beside its font
-   (client/fonts/Lineup.json): the card waits up to WAIT_MS for them, plays with those that came (leaving out the
-   drawing if its letters didn't), and shows the wordmark alone when too few own fonts did. A saved font is built only
-   while the card waits, its name's letters and those the lines are read off with it, so nothing is built as it plays
-   (building one holds the page up). Once seen it's marked in localStorage under PREFS.introSeen (lib/prefs.ts), which
-   the browser tools in tools/browser set beforehand to keep it out of the way. */
+   A key or a click skips ahead to the fade, as a faint note at the card's foot says. It is one SVG, so the name keeps
+   one baseline under every font and the lines sit true to it. The own fonts are the cards' web fonts (so the cards
+   behind it are ready in them when it goes), and the drawing is the logo's capitals as tools/fonts/ui.ts writes them
+   beside its font (client/fonts/Lineup.json): the card waits up to WAIT_MS for them, plays with those that came
+   (leaving out the drawing if its letters didn't), and shows the wordmark alone when too few own fonts did. Once seen
+   it's marked in localStorage under PREFS.introSeen (lib/prefs.ts), which the browser tools in tools/browser set
+   beforehand to keep it out of the way. */
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import type { Design } from '../../shared/design';
-import { cmdsBox, type Font, type FreeFontData, type PackedNode } from '../../shared/engine';
+import type { FreeFontData, PackedNode } from '../../shared/engine';
 import { OWN_FAMILIES, STYLE_FONTS, fontId, parseFontId, type FreeFontRef } from '../../shared/free-fonts';
-import { api } from '../lib/api';
-import { fontStyle, loadFreeFont, webFont } from '../lib/free';
+import { fontStyle, webFont } from '../lib/free';
 import { guideLines } from '../lib/guide-labels';
 import { n1, useSize } from '../lib/hooks';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
-import { fontFor } from '../state/editor';
 
 import LOGO_LETTERS from '../fonts/Lineup.json?url';
 const NAME = 'TypeLab';
@@ -63,8 +59,6 @@ const SLOT = [1.3, 0.55] as const;
     font of their own, a letter keeping the one it had the cut before by CHURN's odds, so one cut mixes into the next,
     but never for two cuts running, so no font stays long */
 const LEAD = 0.5;
-/** the cuts the saved fonts take, the latest saved first, so as many of them come up as there are, the cuts as many */
-const MINE_AT = ['Gumdrop', 'Couture', 'Serenade'];
 /** how long to wait for the fonts, and the fewest to play with */
 const WAIT_MS = 900, FEWEST = 6;
 /** each step of the scramble growing and of it settling */
@@ -83,11 +77,9 @@ const HOLD_MS = 1000, FADE_MS = 650;
     one before it without being left out, the two reading as one */
 const EDGE = 24, ONE = 6;
 
-/** What a letter is set in: an own font's web font, or a saved font's letters as the engine draws them. */
-type Face = { web: FreeFontRef; mine?: undefined } | { mine: Font; web?: undefined };
 /** A letter in its face, `id` new each time one changes, so only what changed rolls; one of the scramble's characters
     rolls in `quick`. */
-type Letter = { ch: string; face: Face; id: number; quick?: true };
+type Letter = { ch: string; face: FreeFontRef; id: number; quick?: true };
 /** A font's heights in ems: x-height and cap height, and, in the drawing, its ascender and (below zero) descender. */
 type Heights = { xh: number; cap: number; asc?: number; desc?: number };
 /** One step of the card for `ms`: the name in `letters`, each in its font, or `drawn` from its points; neither is the
@@ -110,21 +102,15 @@ function measure(r: FreeFontRef, ch: string) {
   return ctx.measureText(ch);
 }
 
-/** A saved font's letter's ink, in its units, as the engine draws it. */
-const boxOf = (f: Font, ch: string) => { const g = f.glyph(ch); return g ? cmdsBox(g.cmds) : null; };
-
-/** A face's x-height and cap height, from its ink (an x's and an H's), so the lines sit on the letters as drawn: a
-    heavier saved font's grow past its own measures. */
-function heightsOf({ web: r, mine }: Face): Heights | undefined {
-  if (mine) return { xh: (boxOf(mine, 'x')?.y1 ?? mine.m.xh) / 1000, cap: (boxOf(mine, 'H')?.y1 ?? mine.m.cap) / 1000 };
+/** A font's x-height and cap height, from its ink (an x's and an H's), so the lines sit on the letters as drawn. */
+function heightsOf(r: FreeFontRef): Heights | undefined {
   const up = (ch: string) => (measure(r, ch)?.actualBoundingBoxAscent ?? NaN) / 100;
   const h = { xh: up('x'), cap: up('H') };
   return Number.isNaN(h.xh) ? undefined : h;
 }
 
 /** Where a letter's ink runs across, in ems from where it is set. */
-function inkOf({ web: r, mine }: Face, ch: string): [number, number] {
-  if (mine) { const b = boxOf(mine, ch); return b ? [b.x0 / 1000, b.x1 / 1000] : [0, mine.advance(ch) / 1000]; }
+function inkOf(r: FreeFontRef, ch: string): [number, number] {
   const m = measure(r, ch);
   return m ? [-m.actualBoundingBoxLeft / 100, m.actualBoundingBoxRight / 100] : [0, 0.6];
 }
@@ -135,51 +121,32 @@ function drawnHeights(data: Logo): Heights {
   return { xh: data.xh / 1000, cap: data.cap / 1000, asc: Math.max(...ys) / 1000, desc: Math.min(...ys) / 1000 };
 }
 
-/** A saved font's letters, once the free fonts it's written in have come, built while the card still `waits`: the
-    name's, and the x and the H its lines are read off; null when it can't draw the name or the card has started. */
-async function built(d: Design, waits: () => boolean): Promise<Font | null> {
-  await Promise.all(fontFor(d.params).freeMissing.map(loadFreeFont));
-  // a moment for the card's wait to run out, as the free fonts may all come at once
-  await new Promise(r => setTimeout(r));
-  if (!waits()) return null;
-  const f = fontFor(d.params);
-  if (![...MARK].every(ch => f.glyph(ch))) return null;
-  for (const ch of 'xH') f.glyph(ch);
-  return f;
-}
-
-/** Whether a saved font was begun as blackletter, or is written in its font. */
-const blackletter = (d: Design) => d.styleId === BLACKLETTER || (!!d.params.freeFont && parseFontId(d.params.freeFont)?.family === BLACK_FONT);
-
-/** The steps, drawn afresh each time from the own fonts and saved ones that came, and the drawing's letters if they
-    did. */
-function plan(fonts: FreeFontRef[], mine: Font[], drawing: Logo | null): Step[] {
+/** The steps, drawn afresh each time from the fonts that came, and the drawing's letters if they did. */
+function plan(fonts: FreeFontRef[], drawing: Logo | null): Step[] {
   const mark: Step = { ms: HOLD_MS };
   if (fonts.length < FEWEST) return [mark];
-  const own = fonts.map(web => ({ web })), saved = mine.map(f => ({ mine: f })), faces: Face[] = [...own, ...saved];
-  // a face of `pool` other than those in `not` that draws `ch`, so letters side by side differ
-  const other = (ch: string, pool: Face[], ...not: (Face | undefined)[]) => any(pool.filter(f => !not.includes(f) && (!f.mine || f.mine.glyph(ch))));
+  // a font other than those in `not`, so letters side by side differ
+  const other = (...not: (FreeFontRef | undefined)[]) => any(fonts.filter(f => !not.includes(f)));
   let made = 0;
-  const letter = (ch: string, face: Face, quick?: true): Letter => ({ ch, face, id: made++, quick });
-  // the scramble's next `n` letters after `was`, each changed by CHURN's odds (a new one always), in an own face (a
-  // saved one would be built letter by letter as it plays) unlike its neighbours' (`left` the face of the letter
-  // before them)
-  const stir = (was: Letter[], n: number, left?: Face) => Array.from({ length: n }).reduce<Letter[]>((ls, _, i) => {
-    const prev = ls.at(-1)?.face ?? left, kept = i < was.length && Math.random() > CHURN && was[i].face !== prev, ch = any([...NOISE]);
-    return [...ls, kept ? was[i] : letter(ch, other(ch, own, prev, was[i + 1]?.face), true)];
+  const letter = (ch: string, face: FreeFontRef, quick?: true): Letter => ({ ch, face, id: made++, quick });
+  // the scramble's next `n` letters after `was`, each changed by CHURN's odds (a new one always), in a font unlike its
+  // neighbours' (`left` the font of the letter before them)
+  const stir = (was: Letter[], n: number, left?: FreeFontRef) => Array.from({ length: n }).reduce<Letter[]>((ls, _, i) => {
+    const prev = ls.at(-1)?.face ?? left, kept = i < was.length && Math.random() > CHURN && was[i].face !== prev;
+    return [...ls, kept ? was[i] : letter(any([...NOISE]), other(prev, was[i + 1]?.face), true)];
   }, []);
   // the name's first letter comes first, turning from font to font as the scramble grows from it to its right
   const scramble: Letter[][] = [];
   let noise: Letter[] = [], first: Letter | undefined;
   for (let n = 0; n < MARK.length; n++) {
-    first = letter(MARK[0], other(MARK[0], own, first?.face), true);
+    first = letter(MARK[0], other(first?.face), true);
     scramble.push([first, ...(noise = stir(noise, n, first.face))]);
   }
   // settling from the left, each letter keeps the face it settled in; the full name, all mixed, stays a moment longer
   const settled: Letter[] = [];
   for (let n = 1; n <= MARK.length; n++) {
     const rest = n === 1 ? noise : noise.slice(1);
-    settled.push(letter(MARK[n - 1], other(MARK[n - 1], faces, settled.at(-1)?.face, rest[0]?.face)));
+    settled.push(letter(MARK[n - 1], other(settled.at(-1)?.face, rest[0]?.face)));
     noise = stir(rest, MARK.length - n, settled[n - 1].face);
     scramble.push([...settled, ...noise]);
   }
@@ -187,24 +154,20 @@ function plan(fonts: FreeFontRef[], mine: Font[], drawing: Logo | null): Step[] 
   const steps: Step[] = scramble.map((letters, i) => ({
     ms: i < MARK.length ? GROW_MS : i < scramble.length - 1 ? SETTLE_MS : SETTLE_MS * 2, letters, from: settled
   }));
-  // the cuts, a saved font in the place of an own one where there is one, each mixing into the one before: its
-  // leading face sets LEAD of the letters, wherever they fall, and every other letter is in a face unlike its
-  // neighbours' and the leading one, keeping the one it had the cut before by CHURN's odds; the lines at the leading
-  // face's heights
-  const named = new Map(own.map(f => [f.web.family, f]));
-  const cuts = CUTS.flatMap(c => {
-    const lead = saved[MINE_AT.indexOf(c)] ?? named.get(c);
-    return lead ? [lead] : [];
-  });
+  // the cuts, each mixing into the one before: its leading font sets LEAD of the letters, wherever they fall, and
+  // every other letter is in a font unlike its neighbours' and the leading one, keeping the one it had the cut before
+  // by CHURN's odds; the lines at the leading font's heights
+  const named = new Map(fonts.map(f => [f.family, f]));
+  const cuts = CUTS.flatMap(c => named.get(c) ?? []);
   // (`carried`, the letters the cut before kept from the one before it, which change now)
-  let lines = heightsOf(cuts[0] ?? own[0]), was = settled, carried = new Set<Letter>();
+  let lines = heightsOf(cuts[0] ?? fonts[0]), was = settled, carried = new Set<Letter>();
   cuts.forEach((lead, k) => {
     const at = new Set<number>();
     while (at.size < Math.round(MARK.length * LEAD)) at.add(Math.floor(Math.random() * MARK.length));
     const letters = [...MARK].reduce<Letter[]>((ls, ch, i) => {
       const prev = ls.at(-1)?.face, had = was[i];
       const kept = Math.random() > CHURN && !carried.has(had) && had.face !== prev && had.face !== lead;
-      return [...ls, at.has(i) ? letter(ch, lead) : kept ? had : letter(ch, other(ch, faces, prev, lead))];
+      return [...ls, at.has(i) ? letter(ch, lead) : kept ? had : letter(ch, other(prev, lead))];
     }, []);
     lines = heightsOf(lead) ?? lines;
     steps.push({ ms: k < cuts.length - 1 ? CUT_MS : LAST_MS, letters, lines, cut: true });
@@ -336,13 +299,9 @@ interface Gone { letter: Letter; x: number; i: number }
     `xs` sets them, and `gone`, the letters of the step before that changed. A letter that stays slides to its new
     place; a new one rolls up into the line from under it, and one gone rolls up out of it; in a `wave`, each a
     moment after the one on its left. Each letter is two groups, the outer setting it along the line and the inner
-    rolling, as a saved font's letter is placed by its own transform. */
+    rolling, so the two moves never undo each other. */
 function Line({ letters, xs, gone, size, base, wave }: { letters: Letter[]; xs: number[]; gone: Gone[]; size: number; base: number; wave: boolean }) {
-  const k = +(size / 1000).toFixed(4);
-  const glyph = ({ ch, face: { web, mine } }: Letter) => {
-    const g = mine?.glyph(ch);
-    return web ? <text y={base} fontSize={size} style={fontStyle(web)}>{ch}</text> : g && <path d={g.d} transform={`translate(0 ${base}) scale(${k})`} />;
-  };
+  const glyph = ({ ch, face }: Letter) => <text y={base} fontSize={size} style={fontStyle(face)}>{ch}</text>;
   const roll = (i: number) => (wave ? { animationDelay: `${i * STAGGER}ms` } : undefined);
   // the letters that stay first, so they keep their places among the elements and slide rather than start again
   return (
@@ -370,19 +329,16 @@ export function Intro() {
   useEffect(() => {
     if (phase !== 'wait') return;
     setPrefFlag(PREFS.introSeen, true);
-    const got: FreeFontRef[] = [], mine: (Font | null)[] = [];
+    const got: FreeFontRef[] = [];
     let data: Logo | null = null, live = true;
     const start = () => {
       if (!live) return;
-      live = false; setDrawing(data); setSteps(plan(got, mine.filter(f => f !== null), data)); setPhase('play');
+      live = false; setDrawing(data); setSteps(plan(got, data)); setPhase('play');
     };
     const t = setTimeout(start, WAIT_MS);
     void Promise.all([
       ...FONTS.map(id => webFont(id).then(r => { if (r) got.push(r); })),
-      fetch(LOGO_LETTERS).then(r => (r.ok ? r.json() as Promise<Logo> : null)).then(d => { data = d; }, () => undefined),
-      // the latest saved fonts, as many as the cuts they take, kept in that order, those built while the card waits
-      api.listDesigns().then(ds => Promise.all(ds.filter(d => !blackletter(d)).slice(0, MINE_AT.length)
-        .map((d, i) => built(d, () => live).then(f => { mine[i] = f; }, () => undefined))), () => undefined)
+      fetch(LOGO_LETTERS).then(r => (r.ok ? r.json() as Promise<Logo> : null)).then(d => { data = d; }, () => undefined)
     ]).then(start);
     return () => { live = false; clearTimeout(t); };
   }, [phase]);
