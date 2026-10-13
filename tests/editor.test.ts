@@ -1,14 +1,15 @@
 /* The editor's store (client/state/editor.ts), run without a browser: starting a design in its free font,
    a customized letter's own values, a letter drawn in Points keeping the settings it was drawn at, loading a style
    over changes, renaming, a change folded into the last undo step, how far undo reaches, and each letter's record of
-   its edits and the font's History (kept past undo, brought back, saved and loaded). Nothing here
+   its edits and the font's History (kept past undo, brought back, saved and loaded), and a control's highlight put
+   away once its value is changed. Nothing here
    draws a design written in a free font, which would fetch the font from the server. */
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { DEFAULTS, freeAtOf } from '../shared/params';
-import { actions, designInput, isDirty, useEditor } from '../client/state/editor';
+import { actions, designInput, hlKeyOf, isDirty, useEditor } from '../client/state/editor';
 
 const state = () => useEditor.getState();
 const serif = STYLES.find(s => s.id === 'serif')!, slab = STYLES.find(s => s.id === 'slab')!;
@@ -17,6 +18,26 @@ describe('the editor', () => {
   beforeEach(() => {
     actions.newDesign();
     useEditor.setState({ scope: 'all', inspect: null, toast: null });
+  });
+
+  it('lights a control\'s parts when it is pointed at, and puts them away once its value changes till another is', () => {
+    actions.setCategory('weight');
+    actions.focusControl('serifSize');
+    assert.equal(hlKeyOf(state()), 'serif');
+    // a drag: each move points at the control again and sets its value
+    actions.setParam('serifSize', 0.6);
+    actions.focusControl('serifSize');
+    actions.setParam('serifSize', 0.7);
+    actions.commit();
+    assert.equal(hlKeyOf(state()), null, 'the design reads in plain ink while it is adjusted');
+    actions.focusControl('serifSize');
+    assert.equal(hlKeyOf(state()), null, 'and stays so on the same control');
+    actions.focusControl('weight');
+    assert.equal(hlKeyOf(state()), 'weight');
+    actions.setOption('weight', 0.7);
+    actions.setHot(false);
+    actions.focusControl('weight');
+    assert.equal(hlKeyOf(state()), 'weight', 'coming back to the controls lights it again');
   });
 
   it('starts a style in its free font, spaced as the font spaces its letters', () => {

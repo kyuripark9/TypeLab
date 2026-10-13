@@ -1,5 +1,6 @@
 /* Every glyph is defined once here as <path id="g65"> (its char code), with the active control's highlight as
-   <path id="h65"> for the characters on screen while the pointer is on the controls. The preview, the glyph strip
+   <path id="h65"> for the characters on screen while the pointer is on the controls, until a value is changed there
+   (`adjusted`: the design then reads in plain ink as it is adjusted). The preview, the glyph strip
    and the construction grid's bar reuse the glyph paths with <use href="#g65">, and the preview alone reuses the
    highlights (#h65), so a parameter change only rewrites these paths.
    Glyphs on screen update immediately; the rest follow in a deferred render, one glyph at a time so a new slider

@@ -1,7 +1,7 @@
 /* The large live preview: the text set in the design, line by line, each letter a <use> of its path in
    GlyphDefs (#g65, by char code; GlyphDefs must be mounted for anything to show) and, while the pointer is on
-   the controls, of the active control's highlight (#h65), with the guides or spacing bands that control is
-   about. Clicking a letter opens it in the inspector. */
+   the controls and nothing has been changed there yet, of the active control's highlight (#h65), with the guides or
+   spacing bands that control is about. Clicking a letter opens it in the inspector. */
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import type { ControlKey } from '../../shared/content';
 import { RING_KEYS, type Font, type Line } from '../../shared/engine';

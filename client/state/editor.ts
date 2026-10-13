@@ -58,6 +58,9 @@ export interface EditorState extends Doc {
   active: ActiveKey;
   /** true while the pointer is over the controls: highlight affected glyph parts */
   hot: boolean;
+  /** a value was changed since the pointer came to the active control: the preview puts its highlight away, so the
+      design reads in plain ink while it is adjusted, till another control is pointed at */
+  adjusted: boolean;
   /** the preview text; empty shows the default sentence */
   custom: string;
   /** the preview's text size, in px per em */
@@ -151,6 +154,7 @@ export const useEditor = create<EditorState>()(() => ({
   category: 'style',
   active: 'weight',
   hot: false,
+  adjusted: false,
   custom: '',
   size: 48,
   groups: [],
@@ -212,7 +216,7 @@ export const isDirty = (s: EditorState) => docSnap(s) !== s.saved;
 
 /** The key whose affected parts are highlighted, or null. Serif sub-sliders highlight serifs. */
 export const hlKeyOf = (s: EditorState): ControlKey | null =>
-  s.hot && s.category !== 'style' ? hlKey(s.active) : null;
+  s.hot && !s.adjusted && s.category !== 'style' ? hlKey(s.active) : null;
 /** The key whose parts `active` highlights: Horizontals the level strokes Contrast thins, else its control's. */
 export const hlKey = (active: ActiveKey): ControlKey => (active === 'hWeight' ? 'contrast' : controlFor(active));
 
@@ -381,12 +385,12 @@ export const actions = {
   setSaving(saving: boolean) { set({ saving }); },
 
   /** Live change while dragging: no history entry until commit(). While edits go to one letter,
-      its settings change and the other letters stay as they are. */
+      its settings change and the other letters stay as they are. The control's highlight is put away (`adjusted`). */
   setParam<K extends keyof Params>(key: K, v: Params[K]) {
     set(s => {
       const ch = letterOf(s);
-      if (key === 'outlines') return { params: withDrawings(s.params, v as Params['outlines']) };
-      return { params: ch && isGlyphKey(key) ? withGlyph(s.params, ch, key, v) : { ...s.params, [key]: v } };
+      if (key === 'outlines') return { params: withDrawings(s.params, v as Params['outlines']), adjusted: true };
+      return { params: ch && isGlyphKey(key) ? withGlyph(s.params, ch, key, v) : { ...s.params, [key]: v }, adjusted: true };
     });
   },
   commit() { step(); },
@@ -437,7 +441,7 @@ export const actions = {
     const s = get(), ch = letterOf(s);
     if (ch && isGlyphKey(key)) {
       if (s.params.glyphs[ch]?.[key] === undefined) return;
-      set({ params: withGlyph(s.params, ch, key, undefined) });
+      set({ params: withGlyph(s.params, ch, key, undefined), adjusted: true });
       actions.commit();
       return;
     }
@@ -466,7 +470,7 @@ export const actions = {
   setEnd(id: string, v: number, key: OwnKey = 'terminalEnds') {
     set(s => {
       const ch = letterOf(s);
-      return ch ? { params: withGlyph(s.params, ch, key, { ...paramOf(s, key), [id]: v }) } : {};
+      return ch ? { params: withGlyph(s.params, ch, key, { ...paramOf(s, key), [id]: v }), adjusted: true } : {};
     });
   },
   /** Drop one of a customized letter's own values by id (see OwnKey), so that stroke end, corner, turn, stroke or join follows the letter's setting again. */
@@ -475,7 +479,7 @@ export const actions = {
     if (!ch || !own || own[id] === undefined) return;
     const rest = { ...own };
     delete rest[id];
-    set({ params: withGlyph(s.params, ch, key, Object.keys(rest).length ? rest : undefined) });
+    set({ params: withGlyph(s.params, ch, key, Object.keys(rest).length ? rest : undefined), adjusted: true });
     actions.commit();
   },
   /** Put a letter back in step with the rest of the alphabet: its own settings dropped, and its edits in Points. */
@@ -519,8 +523,9 @@ export const actions = {
   },
   setActive(active: ActiveKey) { if (get().active !== active) set({ active }); },
   setHot(hot: boolean) { if (get().hot !== hot) set({ hot }); },
-  /** Point at a control: make it active and show what it changes. */
-  focusControl(key: ActiveKey) { set({ active: key, hot: true }); },
+  /** Point at a control: make it active and show what it changes, until a value is changed (`adjusted`); the same
+      control pointed at again, as a drag runs over its parts, keeps the highlight put away. */
+  focusControl(key: ActiveKey) { set(s => ({ active: key, hot: true, adjusted: s.hot && s.active === key && s.adjusted })); },
   setCustom(custom: string) { set({ custom }); },
   setSize(size: number) { set({ size }); },
   toggleGroup(g: StyleGroup) { set(s => ({ groups: toggle(s.groups, g) })); },
@@ -593,7 +598,7 @@ export const actions = {
   shareParam(ch: string, key: keyof GlyphParams) {
     const s = get();
     if (s.params.glyphs[ch]?.[key] === undefined) return;
-    set({ params: withGlyph(s.params, ch, key, undefined) });
+    set({ params: withGlyph(s.params, ch, key, undefined), adjusted: true });
     actions.commit();
   },
   setExportOpen(exportOpen: boolean) { set({ exportOpen }); },
