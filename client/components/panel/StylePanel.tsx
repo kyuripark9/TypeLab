@@ -3,7 +3,9 @@
 import { type KeyboardEvent } from 'react';
 import { FEELINGS, PAGE_STYLES, styleById, type Mood } from '../../../shared/content';
 import { cmdsBox } from '../../../shared/engine';
+import { STYLE_FONTS } from '../../../shared/free-fonts';
 import type { Params } from '../../../shared/params';
+import { fontStyle, useWebFont } from '../../lib/free';
 import { n1, PHONE_QUERY } from '../../lib/hooks';
 import { actions, adjustedParams, fontFor, useEditor, useStyleMatch, type StyleTab } from '../../state/editor';
 import { TRAIT_SECTIONS, type TraitDef } from '../../../shared/traits';
@@ -185,9 +187,15 @@ function Specimen({ params, text }: { params: Params; text: string }) {
   );
 }
 
-/** The Feeling chips, every one that enough cards carry (FEELINGS), all in view and named in the UI's own type.
-    Each feeling picked narrows the cards, so a chip's count is what picking it would leave (a picked one's, what is
-    showing), and one that would leave none does nothing. */
+/** A feeling's name in the own font of the card that says it best (MOODS), the UI's face standing in until it comes. */
+function FeelingName({ label, card }: { label: string; card: string }) {
+  const font = useWebFont(STYLE_FONTS[card]);
+  return <span className="feel" style={font ? fontStyle(font) : undefined}>{label}</span>;
+}
+
+/** The Feeling chips, every one that enough cards carry (FEELINGS), all in view, each named in a font that has that
+    feeling. Each feeling picked narrows the cards, so a chip's count is what picking it would leave (a picked one's,
+    what is showing), and one that would leave none does nothing. */
 function Feelings() {
   const { f, matches } = useStyleMatch();
   const count = (m: Mood) => {
@@ -198,13 +206,13 @@ function Feelings() {
     <div className="facet" role="group" aria-labelledby="f-feeling">
       <h3 className="facet-label" id="f-feeling">Feeling</h3>
       <div className="chips">
-        {FEELINGS.map(({ id: tag, label }) => {
+        {FEELINGS.map(({ id: tag, label, card }) => {
           const on = f.moods.includes(tag), n = count(tag), none = !n && !on;
           // a tag with no matches stays focusable, so it can still be found, but does nothing
           return (
             <button key={tag} className={on ? 'chip on' : 'chip'} aria-pressed={on} aria-disabled={none || undefined}
               aria-label={`${label}, ${n} ${n === 1 ? 'style' : 'styles'}`} onClick={() => { if (!none) actions.toggleMood(tag); }}>
-              {label}<span className="count" aria-hidden="true">{n}</span>
+              <FeelingName label={label} card={card} /><span className="count" aria-hidden="true">{n}</span>
             </button>
           );
         })}

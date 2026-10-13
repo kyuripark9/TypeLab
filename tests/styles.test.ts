@@ -1,10 +1,11 @@
 /* The starting styles (shared/content/styles.ts, tags.ts): valid presets, the Style page's cards and Feeling
-   chips, word spaces in joined-up scripts, and letters that must sit right (v w V W on the baseline, no gap
-   after a curled Q). */
+   chips (each named in a card's own font), word spaces in joined-up scripts, and letters that must sit right
+   (v w V W on the baseline, no gap after a curled Q). */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { FEELINGS, KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, STYLES } from '../shared/content';
 import { buildFont } from '../shared/engine';
+import { isOwnFont, parseFontId, STYLE_FONTS } from '../shared/free-fonts';
 import { isValidParams } from '../shared/params';
 
 /** The lowest point of a glyph's ink, in font units above the baseline (outlines are drawn y-down). */
@@ -38,6 +39,13 @@ describe('style page', () => {
   it('offers most Feelings as chips', () => {
     // a chip needs FEELING_MIN cards; retagging the styles shouldn't leave the panel with a handful
     assert.ok(FEELINGS.length >= 10, `only ${FEELINGS.map(m => m.label).join(', ')}`);
+  });
+
+  it('names each Feeling in the own font of a card that carries it', () => {
+    for (const m of MOODS) {
+      assert.ok(PAGE_STYLES.find(s => s.id === m.card)?.moods.includes(m.id), `${m.id}: ${m.card}`);
+      assert.ok(isOwnFont(parseFontId(STYLE_FONTS[m.card])!.family), `${m.id}: ${STYLE_FONTS[m.card]}`);
+    }
   });
 });
 

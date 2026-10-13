@@ -25,12 +25,16 @@ export type Mood = 'business' | 'calm' | 'sincere' | 'happy' | 'excited' | 'play
   | 'artistic' | 'innovative' | 'loud' | 'rugged' | 'stiff' | 'vintage' | 'futuristic';
 /* Each style's moods follow the Google Fonts Feeling scores of its reference families. Listed A to Z,
    so a mood is quick to find. Search reads all seventeen; the panel's chips are those enough cards carry
-   (FEELINGS, styles.ts). */
-export const MOODS: { id: Mood; label: string }[] = ([
-  ['artistic', 'Artistic'], ['business', 'Business'], ['calm', 'Calm'], ['childlike', 'Childlike'], ['cute', 'Cute'], ['excited', 'Excited'],
-  ['fancy', 'Fancy'], ['futuristic', 'Futuristic'], ['happy', 'Happy'], ['innovative', 'Innovative'], ['loud', 'Loud'], ['playful', 'Playful'],
-  ['rugged', 'Rugged'], ['sincere', 'Sincere'], ['sophisticated', 'Sophisticated'], ['stiff', 'Stiff'], ['vintage', 'Vintage']
-] as [Mood, string][]).map(([id, label]) => ({ id, label }));
+   (FEELINGS, styles.ts), each named in the own font of the card that says it best (`card`, a style id): Business in
+   the neo grotesque, Fancy in the formal script, Vintage in the blackletter. */
+export const MOODS: { id: Mood; label: string; card: string }[] = ([
+  ['artistic', 'Artistic', 'serifitalic'], ['business', 'Business', 'grotesque'], ['calm', 'Calm', 'soft'],
+  ['childlike', 'Childlike', 'casual'], ['cute', 'Cute', 'chunkyround'], ['excited', 'Excited', 'informal'],
+  ['fancy', 'Fancy', 'chancery'], ['futuristic', 'Futuristic', 'squircle'], ['happy', 'Happy', 'chunkyround'],
+  ['innovative', 'Innovative', 'squircle'], ['loud', 'Loud', 'fatface'], ['playful', 'Playful', 'informal'],
+  ['rugged', 'Rugged', 'woodtype'], ['sincere', 'Sincere', 'oldstyle'], ['sophisticated', 'Sophisticated', 'didone'],
+  ['stiff', 'Stiff', 'code'], ['vintage', 'Vintage', 'blackletter']
+] as [Mood, string, string][]).map(([id, label, card]) => ({ id, label, card }));
 
 /* Appearance, like Google's tags of that name: what the letters look like, for search to find.
    Unlike the other tags these are not hand-picked but read off each style's settings, so they

@@ -11,7 +11,7 @@ Everything here runs in the browser and on the server alike, so nothing touches 
 | `params/scales.ts` | The id formats a letter's own values are kept under, and the scales that turn 0..1 into lengths and angles |
 | `params/clean.ts` | Reading settings from outside: `PARAMS_VERSION`, `upgradeParams`, `sanitizeParams`, `isValidParams` |
 | `content/styles.ts` | The starting styles (`STYLES`), the Style page's cards (`PAGE_STYLES`) and Feeling chips (`FEELINGS`, those `FEELING_MIN` cards carry), `styleById` |
-| `content/tags.ts` | Style tags: Category (`StyleGroup`), Classification (`Kind`, `KIND_SECTIONS`), Appearance (`Look`, read off the settings), Feeling (`Mood`, `MOODS`); `styleMatches`, `searchMatches` |
+| `content/tags.ts` | Style tags: Category (`StyleGroup`), Classification (`Kind`, `KIND_SECTIONS`), Appearance (`Look`, read off the settings), Feeling (`Mood`, `MOODS`, each with the `card` whose own font names its chip); `styleMatches`, `searchMatches` |
 | `content/pages.ts` | The editor's pages (`CATEGORIES`), their groups (`GROUPS`), older page names (`OLD_GROUPS`), `pageOf` |
 | `content/controls.ts` | `CONTROLS`, `SUBS` and each control's `*_SUBS`, the pickers' options and finer sliders, `PART_CONTROL`, `controlFor`, `firstControl` |
 | `content/copy.ts` | `ANATOMY` (part id to name and definition), `TEXTS` (sample text) |
