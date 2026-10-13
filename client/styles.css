@@ -440,13 +440,15 @@ body.resizing.y { cursor: row-resize; }
 .d-dim.light line { stroke: var(--white); }
 .d-axis { stroke: var(--accent); stroke-width: 1.5; }
 .d-axis.ghost { stroke: var(--ink-3); stroke-dasharray: 3 3; stroke-width: 1; }
-/* the title is the button that opens the explanation and closes it again */
-.ex-head { position: relative; width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 44px 12px 18px; text-align: left; transition: background .15s; }
+/* the title is the button that opens the explanation and closes it again. A title runs to a second line rather than
+   being cut short, and the head keeps room for two lines whatever the title, so moving from control to control
+   never moves the sliders under the pointer */
+.ex-head { position: relative; width: 100%; min-height: calc(24px + 2.4 * var(--t-xl)); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 2px; padding: 12px 44px 12px 18px; text-align: left; transition: background .15s; }
 .ex-head:hover { background: var(--hover); }
 .ex-text:first-child .ex-head { border-radius: var(--radius) var(--radius) 0 0; }
 .ex-head .facet-chevron { position: absolute; top: 50%; margin-top: -6px; right: 18px; color: var(--ink-3); }
 .ex-head[aria-expanded=false] .facet-chevron { transform: rotate(180deg); }
-.ex-title { max-width: 100%; font-size: var(--t-xl); color: var(--accent-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-title { max-width: 100%; font-size: var(--t-xl); color: var(--accent-ink); text-wrap: balance; }
 .ex-text p { margin: -6px 0 0; padding: 0 44px 14px 18px; color: var(--ink-2); font-size: var(--t-m); line-height: 1.45; }
 
 .ctl-list { padding: 8px 8px 24px; display: grid; gap: 2px; }
