@@ -690,10 +690,11 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .pen-act-run { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: var(--radius); font-size: 13px; text-align: left; color: var(--ink); transition: background .15s; }
 .pen-act-run:hover:not(:disabled) { background: var(--hover); }
 .pen-act-run:disabled { color: var(--ink-3); opacity: .5; cursor: default; }
-.pen-act-run svg, .pen-act-pin svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
-.pen-act-pin { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-3); opacity: .6; transition: background .15s, color .15s, opacity .15s; }
-.pen-act-pin:hover { background: var(--hover); opacity: 1; }
-.pen-act-pin.on { color: var(--accent); opacity: 1; }
+.pen-act-run svg, .pen-act-check svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.pen-act-check { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-s); color: var(--ink-3); opacity: .35; transition: background .15s, color .15s, opacity .15s; }
+.pen-act-check svg { stroke-width: 1.6; }
+.pen-act-check:hover { background: var(--hover); opacity: .8; }
+.pen-act-check.on { color: var(--accent); opacity: 1; }
 .pen-act-foot { margin-top: 4px; padding: 8px 8px 4px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--ink-3); }
 /* the tips: one line of gestures and what they do; those that wrap are cut off, so the line keeps the first that fit */
 .pen-tips { flex: 1 1 0; width: 0; min-width: 0; display: flex; flex-wrap: wrap; column-gap: 16px; height: 18px; line-height: 18px; overflow: hidden; color: var(--ink-3); }

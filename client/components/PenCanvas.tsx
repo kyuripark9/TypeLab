@@ -1386,7 +1386,7 @@ const savedActs = (): ActId[] => {
 };
 
 /** ⋯ at the end of the bar's actions: a menu of every one, to run it (dimmed where it doesn't apply to what is picked)
-    or, by its pin, to show it on the bar or take it off. */
+    or, by its check, to show it on the bar or take it off. */
 function ActMenu({ acts, pinned, onPin }: { acts: Record<ActId, (() => void) | null>; pinned: ActId[]; onPin: (ids: ActId[]) => void }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null), menu = useRef<HTMLDivElement>(null);
@@ -1407,15 +1407,15 @@ function ActMenu({ acts, pinned, onPin }: { acts: Record<ActId, (() => void) | n
                 <button className="pen-act-run" disabled={!run} title={a.title} onClick={() => { run?.(); setOpen(false); }}>
                   <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">{a.icon}</svg>{a.label}
                 </button>
-                <button className={on ? 'pen-act-pin on' : 'pen-act-pin'} aria-pressed={on} aria-label={`${a.label} on the bar`}
+                <button className={on ? 'pen-act-check on' : 'pen-act-check'} aria-pressed={on} aria-label={`${a.label} on the bar`}
                   title={on ? 'On the bar: click to take it off' : 'Show on the bar'}
                   onClick={() => onPin(on ? pinned.filter(p => p !== a.id) : ACT_IDS.filter(p => p === a.id || pinned.includes(p)))}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M5 1.5h4M5.8 1.5v4L3.5 8h7L8.2 5.5v-4M7 8v4.5" /></svg>
+                  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.5l2.3 2.3 4.7-5" /></svg>
                 </button>
               </div>
             );
           })}
-          <div className="pen-act-foot">Pinned ones show on the bar</div>
+          <div className="pen-act-foot">Checked ones show on the bar</div>
         </div>
       )}
     </div>
