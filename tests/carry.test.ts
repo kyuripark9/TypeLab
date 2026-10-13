@@ -1,9 +1,9 @@
 /* Carrying a change made to one letter's points to the other letters shaped the same way there (client/lib/carry.ts):
    reading the change against the letter as it was (stretches, corners rounded where they stand, whole contours moved
    or taken away), finding its old shape in other letters (close matches, where the outline round it is the same too
-   or a whole contour sits as high, and looser ones; and the letter's own other places, not where it was made), and
-   putting the change in, point for point where the letter has the same points, else as a new stretch or contour
-   fitted to it. */
+   or a whole contour sits as high, and looser ones; the letter's own other places, not where it was made; and,
+   where a letter has the shape only mirrored, mirrored), and putting the change in, point for point where the
+   letter has the same points, else as a new stretch or contour fitted to it. */
 import { before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { STYLES } from '../shared/content';
@@ -91,9 +91,9 @@ describe('carry: to the other letters of an own font', () => {
     const d = outline('d')!, refs = tip(d);
     assert.equal(refs.length, 2, 'the serif ends in two points');
     const out = carryChange('d', d.contours, moveAnchors(d.contours, refs, -200, 0), outline);
-    const close = out.filter(c => c.close).map(c => c.ch).join(''), all = out.map(c => c.ch).join('');
+    const close = out.filter(c => c.close).map(c => c.ch).join(''), all = out.filter(c => !c.mirrored).map(c => c.ch).join('');
     for (const ch of 'bhkl') assert.ok(close.includes(ch), `${ch} is a close match (close: ${close}, all: ${all})`);
-    for (const ch of 'aceosuACOS') assert.ok(!all.includes(ch), `${ch} has no such serif (${all})`);
+    for (const ch of 'aceosuACOS') assert.ok(!all.includes(ch), `${ch} has no such serif the same way round (${all})`);
     // the l's serif is as much longer, give or take the l's own proportions
     const l = out.find(c => c.ch === 'l')!, x0 = Math.min(...nodes(outline('l')!).map(n => n.x)), x1 = Math.min(...nodes(l.doc).map(n => n.x));
     assert.ok(x1 < x0 - 140 && x1 > x0 - 280, `the l's serif reaches from ${x0.toFixed(0)} to ${x1.toFixed(0)}`);
@@ -164,6 +164,24 @@ describe('carry: to the other letters of an own font', () => {
     const was = now.flat(), moved = nodes(got.doc).map((q, k) => ({ q, dx: q.x - was[k].x })).filter(m => Math.abs(m.dx) > 0.5);
     assert.ok(moved.length >= 1 && moved.every(m => m.dx <= -30 && m.dx >= -50 && m.q.x > Math.min(...was.map(q => q.x)) + 100),
       `only the right foot's serif moves out (${moved.map(m => `${m.q.x.toFixed(0)}: ${m.dx.toFixed(0)}`).join(', ')})`);
+  });
+
+  it("carries a b's bowl, made wider, to a d's mirrored (and to a p's as it is), and a bracket to its other side", () => {
+    const b = outline('b')!, right = nodes(b).reduce((p, q) => (q.x > p.x ? q : p));
+    const at = b.contours.flatMap((con, c) => con.map((n, i) => ({ c, i, n }))).filter(q => q.n === right);
+    const out = carryChange('b', b.contours, moveAnchors(b.contours, at, 30, 0), outline);
+    const d = out.find(c => c.ch === 'd'), p = out.find(c => c.ch === 'p');
+    assert.ok(d?.mirrored && d.close, "the d's bowl is a close match, mirrored");
+    assert.ok(p && !p.mirrored, "the p's bowl is the same way round");
+    const x0 = Math.min(...nodes(outline('d')!).map(n => n.x)), x1 = Math.min(...nodes(d.doc).map(n => n.x));
+    assert.ok(x1 < x0 - 15 && x1 > x0 - 45, `the d's bowl reaches out left, from ${x0.toFixed(0)} to ${x1.toFixed(0)}`);
+    // a bracket's curve pushed out: the other bracket's, pushed out the other way
+    const open = outline('(')!, left = nodes(open).reduce((p, q) => (q.x < p.x ? q : p));
+    const where = open.contours.flatMap((con, c) => con.map((n, i) => ({ c, i, n }))).filter(q => q.n === left);
+    const close = carryChange('(', open.contours, moveAnchors(open.contours, where, -30, 0), outline).find(c => c.ch === ')');
+    assert.ok(close?.mirrored, 'the closing bracket is a mirrored match');
+    const r0 = Math.max(...nodes(outline(')')!).map(n => n.x)), r1 = Math.max(...nodes(close.doc).map(n => n.x));
+    assert.ok(r1 > r0 + 15 && r1 < r0 + 45, `the closing bracket reaches out right, from ${r0.toFixed(0)} to ${r1.toFixed(0)}`);
   });
 
   it('offers nothing to a letter that already looks as the change would leave it', () => {

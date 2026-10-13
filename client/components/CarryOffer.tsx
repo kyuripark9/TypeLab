@@ -6,17 +6,17 @@
    a row with a box that picks all of it, and above them All, for every one; Not now and Apply wait at the foot,
    under the letters they act on. Each letter is a toggle drawn with the change in it; hovering one shows it large
    beside the card, as it was (dashed) and as it would be. Close matches (the outline round the change the same too)
-   of the edited letter's kind come picked, the rest unpicked. Apply puts the change in the picked letters in one
-   undo step; Not now lets it be. The last change applied stays in the corner on every letter, for as long as the
-   page is open ("d's change: b h k l"), until another is applied: clicked, the card opens to review it, where each
-   click puts a letter back as it was or gives it the change at once (an undo step each). What is offered is
-   everything done to the letter since it was first opened in Points, or since its last offer was taken up or turned
-   down, also when it is opened again later. With All letters (the inspector's switch, in Points too) nothing is
-   asked: an edit just made goes on at once to the letters the offer would have picked, in the edit's own undo step,
-   and the pill names them, to review; and before an edit, the letters shaped the same way as the points picked are
-   looked for too (`useMates`), for the inspector's banner to name. The searches run after each finished edit (or
-   pick), in slices between frames, so they never hold up a drag. A click elsewhere, or Escape, folds the card back
-   to its pill. */
+   of the edited letter's kind come picked, the rest unpicked, and so do those that have the shape only mirrored (a
+   b's bowl in a d), which the change goes to mirrored. Apply puts the change in the picked letters in one undo step;
+   Not now lets it be. The last change applied stays in the corner on every letter, for as long as the page is open
+   ("d's change: b h k l"), until another is applied: clicked, the card opens to review it, where each click puts a
+   letter back as it was or gives it the change at once (an undo step each). What is offered is everything done to
+   the letter since it was first opened in Points, or since its last offer was taken up or turned down, also when it
+   is opened again later. With All letters (the inspector's switch, in Points too) nothing is asked: an edit just
+   made goes on at once to the letters the offer would have picked, in the edit's own undo step, and the pill names
+   them, to review; and before an edit, the letters shaped the same way as the points picked are looked for too
+   (`useMates`), for the inspector's banner to name. The searches run after each finished edit (or pick), in slices
+   between frames, so they never hold up a drag. A click elsewhere, or Escape, folds the card back to its pill. */
 import { memo, useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { ALL_CHARS, CHARSET, cmdsToD, drawnCmds, drawnLetter, type Drawn, type Font, type Glyph } from '../../shared/engine';
@@ -119,10 +119,10 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
       }
       if (k < ALL_CHARS.length) { timer = window.setTimeout(step, 0); return; }
       // close matches of the letter's own kind first (the letter itself before them), then other close ones, then the
-      // looser ones of its kind, then the rest
-      const rank = (c: Carried) => (c.close ? 0 : 2) + (kindOf(c.ch) === kindOf(ch) ? 0 : 1);
+      // looser ones of its kind, then the rest; a match only mirrored (a b's bowl in a d) is offered, never picked
+      const picked = (c: Carried) => c.close && !c.mirrored, rank = (c: Carried) => (picked(c) ? 0 : 2) + (kindOf(c.ch) === kindOf(ch) ? 0 : 1);
       found.sort((a, b) => rank(a) - rank(b) || Number(b.ch === ch) - Number(a.ch === ch));
-      const mine = found.filter(c => rank(c) === 0), picks = mine.length ? mine : found.filter(c => c.close);
+      const mine = found.filter(c => rank(c) === 0), picks = mine.length ? mine : found.filter(picked);
       setPeek(null);
       setOpen(false);
       // All letters: an edit just made goes on to them now, folded into its undo step (unless another has begun since)
@@ -306,7 +306,7 @@ const CarryChip = memo(function CarryChip({ c, own, font, on, applied, onToggle,
   return (
     <button className={on ? 'pen-carry-chip on' : 'pen-carry-chip'} aria-pressed={on} aria-label={c.ch} onClick={() => onToggle(c.ch)}
       onPointerEnter={() => onPeek(c)} onFocus={() => onPeek(c)}
-      title={`${c.ch}${where}${c.close ? '' : `${own ? ',' : ':'} the same shape, in other surroundings`} · click to ${applied ? (on ? 'put it back as it was' : 'give it the change') : on ? 'leave it as it is' : 'change it too'}`}>
+      title={`${c.ch}${where}${c.mirrored ? ' (mirrored)' : ''}${c.close ? '' : `${own ? ',' : ':'} the same shape, in other surroundings`} · click to ${applied ? (on ? 'put it back as it was' : 'give it the change') : on ? 'leave it as it is' : 'change it too'}`}>
       <svg width={24} height={28} viewBox={`${b.x} ${b.y} ${b.w} ${b.h}`} aria-hidden="true">
         <path d={cmdsToD(drawnCmds(c.doc.contours))} />
       </svg>

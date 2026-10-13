@@ -26,8 +26,9 @@ type Box = ReturnType<typeof boxOf>;
 /** One changed stretch of a contour: in `was` (the contour as it was) the points `a` and `b` stay, and the
     ones running between them, from a to b, gave way to `fresh` (none, when points were only taken away). A
     change to a `whole` contour (moved, turned or resized whole, or every point of it changed) has all of it as it
-    is now in `fresh`, or none when it was taken away, and `a` and `b` 0. */
-export interface Change { c: number; was: Node[]; a: number; b: number; fresh: Node[]; whole?: true }
+    is now in `fresh`, or none when it was taken away, and `a` and `b` 0. `after` is the contour as it is now, with
+    where `a` and `b` are on it (none for a contour taken away). */
+export interface Change { c: number; was: Node[]; a: number; b: number; fresh: Node[]; whole?: true; after?: { con: Node[]; a: number; b: number } }
 
 /** Whether two points stand at the same place with the same handles (their corners perhaps rounded otherwise). */
 const sameAt = (p: Node, q: Node) => p.x === q.x && p.y === q.y && p.ix === q.ix && p.iy === q.iy && p.ox === q.ox && p.oy === q.oy && !p.s === !q.s;
@@ -75,7 +76,7 @@ function stretches(O: Node[], E: Node[], c: number, eq: (p: Node, q: Node) => bo
     pairs, changes: runs.map(([g0, g1]) => {
       const [a, ja] = pairs[g0 % k], [b, jb] = pairs[(g1 + 1) % k], fresh: Node[] = [];
       for (let j = (ja + 1) % m; j !== jb; j = (j + 1) % m) fresh.push({ ...E[j] });
-      return { c, was: O, a, b, fresh };
+      return { c, was: O, a, b, fresh, after: { con: E, a: ja, b: jb } };
     })
   };
 }
@@ -85,11 +86,11 @@ function stretches(O: Node[], E: Node[], c: number, eq: (p: Node, q: Node) => bo
     where it moved all over, the whole contour. */
 function contourChanges(O: Node[], E: Node[], c: number): Change[] {
   const moved = stretches(O, E, c, sameAt), n = O.length;
-  if (!moved) return [{ c, was: O, a: 0, b: 0, fresh: E.map(e => ({ ...e })), whole: true }];
+  if (!moved) return [{ c, was: O, a: 0, b: 0, fresh: E.map(e => ({ ...e })), whole: true, after: { con: E, a: 0, b: 0 } }];
   const inside = (i: number) => moved.changes.some(ch => (i - ch.a + n) % n > 0 && (i - ch.a + n) % n < (ch.b - ch.a + n) % n);
   // the corners first: they leave the outline where it was, so the stretches are still found after them
   const corners = n < 3 ? [] : moved.pairs.filter(([i, j]) => !same(O[i], E[j]) && !inside(i))
-    .map(([i, j]): Change => ({ c, was: O, a: (i - 1 + n) % n, b: (i + 1) % n, fresh: [{ ...E[j] }] }));
+    .map(([i, j]): Change => ({ c, was: O, a: (i - 1 + n) % n, b: (i + 1) % n, fresh: [{ ...E[j] }], after: { con: E, a: (j - 1 + E.length) % E.length, b: (j + 1) % E.length } }));
   return [...corners, ...moved.changes];
 }
 
@@ -166,27 +167,47 @@ function sample(con: Node[], from: number, count: number, step: number): Samples
 
 /** Samples kept in a grid, to find the one nearest a point quickly. */
 class Near {
-  private cells = new Map<number, number[]>();
+  // the cells in a row-by-row array over the samples' box, each cell's samples listed in order in `items`, from
+  // `start[cell]` to `start[cell + 1]`
+  private x0 = 0; private y0 = 0; private nx = 0; private ny = 0;
+  private start = new Int32Array(1); private items = new Int32Array(0);
+  private box = { x0: 0, y0: 0, x1: -1, y1: -1 };
   constructor(readonly ps: P[], readonly cell: number) {
-    ps.forEach((p, k) => { const key = this.key(Math.floor(p.x / cell), Math.floor(p.y / cell)); (this.cells.get(key) ?? this.cells.set(key, []).get(key)!).push(k); });
+    if (!ps.length) return;
+    this.box = boxOf(ps);
+    this.x0 = Math.floor(this.box.x0 / cell); this.y0 = Math.floor(this.box.y0 / cell);
+    this.nx = Math.floor(this.box.x1 / cell) - this.x0 + 1; this.ny = Math.floor(this.box.y1 / cell) - this.y0 + 1;
+    const at = ps.map(p => (Math.floor(p.y / cell) - this.y0) * this.nx + Math.floor(p.x / cell) - this.x0);
+    this.start = new Int32Array(this.nx * this.ny + 1);
+    for (const c of at) this.start[c + 1]++;
+    for (let c = 0; c < this.nx * this.ny; c++) this.start[c + 1] += this.start[c];
+    const fill = this.start.slice(0, -1);
+    this.items = new Int32Array(ps.length);
+    at.forEach((c, k) => { this.items[fill[c]++] = k; });
   }
-  private key = (x: number, y: number) => (x + 4096) * 8192 + y + 4096;
   /** The sample nearest `q` within `reach` units, or -1. */
   nearest(q: P, reach: number): number {
-    const cx = Math.floor(q.x / this.cell), cy = Math.floor(q.y / this.cell), rings = Math.ceil(reach / this.cell);
-    let best = -1, bd = reach;
+    const { cell, box, nx, ny, start, items, ps } = this;
+    // none near a point further than that from all of them
+    if (Math.hypot(Math.max(box.x0 - q.x, 0, q.x - box.x1), Math.max(box.y0 - q.y, 0, q.y - box.y1)) > reach) return -1;
+    const cx = Math.floor(q.x / cell) - this.x0, cy = Math.floor(q.y / cell) - this.y0, rings = Math.ceil(reach / cell);
+    let best = -1, bd = reach, bd2 = reach * reach;
     for (let r = 0; r <= rings; r++) {
       for (let y = cy - r; y <= cy + r; y++) {
+        if (y < 0 || y >= ny) continue;
         // the ring's cells: its top and bottom rows whole, the columns either side between them
         const edge = y === cy - r || y === cy + r;
         for (let x = cx - r; x <= cx + r; x += edge || !r ? 1 : 2 * r) {
-          const ks = this.cells.get(this.key(x, y));
-          if (!ks) continue;
-          for (const k of ks) { const d = Math.hypot(this.ps[k].x - q.x, this.ps[k].y - q.y); if (d <= bd) { bd = d; best = k; } }
+          if (x < 0 || x >= nx) continue;
+          const c = y * nx + x;
+          for (let z = start[c]; z < start[c + 1]; z++) {
+            const k = items[z], dx = ps[k].x - q.x, dy = ps[k].y - q.y, d2 = dx * dx + dy * dy;
+            if (d2 <= bd2) { bd2 = d2; bd = Math.sqrt(d2); best = k; }
+          }
         }
       }
       // nothing in a further ring can be nearer than (r) cells away
-      if (best >= 0 && bd <= r * this.cell) break;
+      if (best >= 0 && bd <= r * cell) break;
     }
     return best;
   }
@@ -609,9 +630,43 @@ function toSeg(v: P, a: P, b: P): number {
   return Math.hypot(v.x - a.x - t * dx, v.y - a.y - t * dy);
 }
 
-/** Another letter a change can be carried to: its outline as it was and with the change in, in how many places, and
-    whether the outline round any of them is the same as round the change too (a close match). */
-export interface Carried { ch: string; was: Drawn; doc: Drawn; places: number; close: boolean }
+/** Another letter a change can be carried to: its outline as it was and with the change in, in how many places,
+    whether the outline round any of them is the same as round the change too (a close match), and whether it went in
+    mirrored there (where the letter has the shape only the other way round: a b's bowl in a d). */
+export interface Carried { ch: string; was: Drawn; doc: Drawn; places: number; close: boolean; mirrored: boolean }
+
+/** Which way a change is drawn mirrored: left for right, top for bottom, or both (turned half round). */
+type Flip = 'x' | 'y' | 'xy';
+/** The ways tried, in turn: left for right first (b and d, a bracket's two sides), then turned (n and u), then top for
+    bottom (b and p). */
+const FLIPS: Flip[] = ['x', 'xy', 'y'];
+
+/** A change as it would be drawn mirrored about the middle of the contour it was made in: each point and handle
+    flipped, and, flipped one way only, the contour run the other way round so that it winds as it did (its stretch
+    from a to b then runs from b's place to a's, and each point's handles in and out change places). */
+function flipped(ch: Change, f: Flip): Change {
+  const box = boxOf(ch.was), fx = f !== 'y', fy = f !== 'x', back = f !== 'xy';
+  const at = (q: P): P => ({ x: fx ? box.x0 + box.x1 - q.x : q.x, y: fy ? box.y0 + box.y1 - q.y : q.y });
+  const node = (p: Node): Node => {
+    const { ix, iy, ox, oy, ...rest } = p, q: Node = { ...rest, ...at(p) };
+    const hin = hasIn(p) ? at({ x: ix!, y: iy! }) : null, hout = hasOut(p) ? at({ x: ox!, y: oy! }) : null;
+    const [i, o] = back ? [hout, hin] : [hin, hout];
+    if (i) { q.ix = i.x; q.iy = i.y; }
+    if (o) { q.ox = o.x; q.oy = o.y; }
+    return q;
+  };
+  const n = ch.was.length, was = ch.was.map(node), fresh = ch.fresh.map(node);
+  if (!back) return { ...ch, was, fresh };
+  return { ...ch, was: was.reverse(), fresh: fresh.reverse(), a: ch.whole ? 0 : n - 1 - ch.b, b: ch.whole ? 0 : n - 1 - ch.a };
+}
+
+/** A change the other way: from the contour as it is now back to as it was (null for one taken away). */
+function undone(ch: Change): Change | null {
+  if (!ch.after) return null;
+  const { con, a, b } = ch.after, olds: Node[] = [];
+  if (!ch.whole) for (let i = (ch.a + 1) % ch.was.length; i !== ch.b; i = (i + 1) % ch.was.length) olds.push(ch.was[i]);
+  return { c: ch.c, was: con, a, b, fresh: ch.whole ? ch.was : olds, whole: ch.whole };
+}
 
 /** Whether a place found in the changed letter itself is where the change was made: the contour it became, or
     outline running into the stretch between the change's kept points (found again, perhaps fitted wider). */
@@ -629,16 +684,26 @@ function madeAt(ch: Change, p: Place, doc: Drawn): boolean {
     is now, and the change goes to its other places shaped the same (an n's other foot, a colon's other dot), not
     again where it was made. */
 export function carryLetter(changes: Change[], ch: string, doc: Drawn, own = false): Carried | null {
-  let out = doc, n = 0, close = false;
+  let out = doc, n = 0, close = false, mirrored = false;
   // each change in turn, found again in the letter as the ones before left it
   for (const c of changes) {
-    const places = placesOf(c, out).filter(p => !own || !madeAt(c, p, out));
+    const look = (d: Change) => placesOf(d, out).filter(p => !own || !madeAt(c, p, out));
+    let use = c, places = look(c);
+    // where the letter has none of it as it was, nor as it is now (the change in it already), the change drawn
+    // mirrored, a close match before a looser one (not a corner rounded, which is rounded where it stands)
+    const back = places.length || cornerOf(c) ? null : undone(c);
+    if (!places.length && !cornerOf(c) && !(back && look(back).length)) for (const f of FLIPS) {
+      const m = flipped(c, f), ps = look(m);
+      if (ps.length && (!places.length || (ps.some(p => p.close) && !places.some(p => p.close)))) { use = m; places = ps; }
+      if (places.some(p => p.close)) break;
+    }
     if (!places.length) continue;
-    out = carryInto(c, out, places);
+    out = carryInto(use, out, places);
     n += places.length;
     close ||= places.some(p => p.close);
+    mirrored ||= use !== c;
   }
-  return n && !looksSame(doc.contours, out.contours) ? { ch, was: doc, doc: out, places: n, close } : null;
+  return n && !looksSame(doc.contours, out.contours) ? { ch, was: doc, doc: out, places: n, close, mirrored } : null;
 }
 
 /** The letters with the shape `base` had where it differs from `now`, each with the change carried to it: `ch`
