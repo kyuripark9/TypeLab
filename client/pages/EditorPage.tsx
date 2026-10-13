@@ -14,7 +14,7 @@ import { Dialog } from '../components/Dialog';
 import { GlyphDefs } from '../components/GlyphDefs';
 import { Guide, guideSeen } from '../components/Guide';
 import { Header } from '../components/Header';
-import { Panel, focusStyleSearch } from '../components/Panel';
+import { Panel, closeStyleSheet, focusStyleSearch } from '../components/Panel';
 import { Resizer } from '../components/Resizer';
 import { Stage } from '../components/Stage';
 
@@ -137,7 +137,7 @@ function useShortcuts(save: () => void) {
       else if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); focusSettingSearch(); }
       // / finds a style on the Style page, and a setting on the others
       else if (e.key === '/' && !mod && !typing) { e.preventDefault(); if (s.category === 'style') focusStyleSearch(); else focusSettingSearch(); }
-      else if (e.key === 'Escape') { if (s.navOpen) actions.setNavOpen(false); else if (s.exportOpen) actions.setExportOpen(false); else actions.closeInspector(); }
+      else if (e.key === 'Escape') { if (s.navOpen) actions.setNavOpen(false); else if (s.stylePanelOpen) closeStyleSheet(); else if (s.exportOpen) actions.setExportOpen(false); else actions.closeInspector(); }
       else if (s.inspect && !typing && (e.target as HTMLInputElement).type !== 'range' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault();
         actions.stepInspector(e.key === 'ArrowLeft' ? -1 : 1);

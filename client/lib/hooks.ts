@@ -66,3 +66,6 @@ export function useDismiss(open: boolean, setOpen: (open: boolean) => void, wrap
 /** The window width where the page menu turns into a drawer opened from the header: the same width as the
     `@media (max-width: 1180px)` block in styles.css, which lays the drawer out. */
 export const DRAWER_QUERY = '(max-width: 1180px)';
+/** The window width where the editor is one column, scrolling as a page: the same width as styles.css's
+    `@media (max-width: 760px)` blocks. There the Style page's panel is a sheet opened over the cards. */
+export const PHONE_QUERY = '(max-width: 760px)';

@@ -1,20 +1,32 @@
-/* The Style page's panel: Filter narrows the starting styles by search and tags, Adjust lays traits over every one of them. */
-import { useState, type KeyboardEvent } from 'react';
-import { MOODS, PAGE_STYLES, TAG_FACE, styleById, type Mood, type StyleFilter } from '../../../shared/content';
+/* The Style page's panel: Filter narrows the starting styles by search and tags, Adjust lays traits over every one of them.
+   On phones it is a sheet over the cards, opened from the bar on top (Stage.tsx), with a foot that closes it. */
+import { type KeyboardEvent } from 'react';
+import { MOODS, PAGE_STYLES, TAG_FACE, styleById, type Mood } from '../../../shared/content';
 import { cmdsBox } from '../../../shared/engine';
 import type { Params } from '../../../shared/params';
-import { n1 } from '../../lib/hooks';
+import { n1, PHONE_QUERY } from '../../lib/hooks';
 import { actions, adjustedParams, fontFor, useEditor, useStyleMatch, type StyleTab } from '../../state/editor';
 import { TRAIT_SECTIONS, type TraitDef } from '../../../shared/traits';
 
 /** The Filter tab's search box. */
 const STYLE_SEARCH_ID = 'style-search';
-/** Focus the open Filter or Adjust tab: the stage's "Skip to filters" and both Clear buttons send focus here. */
-export const focusFilters = () => document.querySelector<HTMLElement>('.style-tabs [aria-selected=true]')?.focus();
+/** On phones the panel is a sheet that has to be opened before anything in it takes the focus. */
+const openSheet = () => { if (matchMedia(PHONE_QUERY).matches) actions.setStylePanelOpen(true); };
+/** Focus the open Filter or Adjust tab: the stage's "Skip to filters" and Filter, and both Clear buttons, send focus here. */
+export const focusFilters = () => {
+  openSheet();
+  requestAnimationFrame(() => document.querySelector<HTMLElement>('.style-tabs [aria-selected=true]')?.focus());
+};
 /** Open the Filter tab and put the cursor in its search box (the / key). */
 export const focusStyleSearch = () => {
   actions.setStyleTab('filter');
+  openSheet();
   requestAnimationFrame(() => document.getElementById(STYLE_SEARCH_ID)?.focus());
+};
+/** Close the phone's sheet, the focus going back to Filter, which opened it. */
+export const closeStyleSheet = () => {
+  actions.setStylePanelOpen(false);
+  requestAnimationFrame(() => document.querySelector<HTMLElement>('.sheet-btn')?.focus());
 };
 
 const STYLE_TABS: [StyleTab, string][] = [['filter', 'Filter'], ['adjust', 'Adjust']];
@@ -47,6 +59,19 @@ export function StylePanel() {
       <div role="tabpanel" id={`tp-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === 'filter' ? <StyleFilters /> : <StyleTraits />}
       </div>
+      <SheetFoot />
+    </div>
+  );
+}
+
+/** The foot of the phone's sheet: back to the cards, saying how many the filters leave. Hidden elsewhere (styles.css). */
+function SheetFoot() {
+  const open = useEditor(s => s.stylePanelOpen), { matches } = useStyleMatch();
+  if (!open) return null;
+  const n = PAGE_STYLES.filter(s => matches(s)).length;
+  return (
+    <div className="sheet-foot">
+      <button className="btn primary" onClick={closeStyleSheet}>Show {n} {n === 1 ? 'style' : 'styles'}</button>
     </div>
   );
 }
@@ -54,9 +79,7 @@ export function StylePanel() {
 /** Search, then the feelings. The kind of letters is what the style finder asks on the stage (and
     how the cards are grouped), so it isn't asked again here; a genre is found by searching its name. */
 function StyleFilters() {
-  const { f, matches } = useStyleMatch();
-  // each tag's count is what picking it would show, given the other filters
-  const count = (pick: Partial<StyleFilter>) => PAGE_STYLES.filter(s => matches(s, pick)).length;
+  const { f } = useStyleMatch();
   const picked = f.moods.length > 0 || !!f.query?.trim();
   return (
     <>
@@ -72,7 +95,7 @@ function StyleFilters() {
         {/* the button leaves once pressed, so focus goes back to the tab rather than the page */}
         {picked && <button className="btn ghost small" aria-label="Clear filters" onClick={() => { actions.setQuery(''); f.moods.forEach(actions.toggleMood); focusFilters(); }}>Clear</button>}
       </div>
-      <ChipFacet id="feeling" label="Feeling" tags={MOODS} picked={f.moods} count={m => count({ moods: [m] })} toggle={actions.toggleMood} />
+      <Feelings />
     </>
   );
 }
@@ -162,54 +185,28 @@ function Specimen({ params, text }: { params: Params; text: string }) {
   );
 }
 
-/** Chips a long facet shows before "Show more". Picked chips always stay visible. */
-const FACET_LIMIT = 8;
-
-/** One section of tag chips. Its heading opens and closes it; a long one also folds down to its first few until expanded. */
-function ChipFacet({ id, label, tags, picked, count, toggle }: {
-  id: string; label: string; tags: { id: Mood; label: string }[]; picked: Mood[];
-  count: (tag: Mood) => number; toggle: (tag: Mood) => void;
-}) {
-  const [closed, setClosed] = useState(false);
-  const [open, setOpen] = useState(false);
-  // folding away just one or two chips saves no room, so only long sections fold
-  const folds = tags.length > FACET_LIMIT + 2;
-  const shown = open || !folds ? tags : tags.filter((t, i) => i < FACET_LIMIT || picked.includes(t.id));
-  const more = tags.length - shown.length;
-  const nPicked = tags.filter(x => picked.includes(x.id)).length;
+/** The Feeling chips, all of them in view. Each feeling picked narrows the cards, so a chip's count is what
+    picking it would leave (a picked one's, what is showing), and one that would leave none does nothing. */
+function Feelings() {
+  const { f, matches } = useStyleMatch();
+  const count = (m: Mood) => {
+    const moods = f.moods.includes(m) ? f.moods : [...f.moods, m];
+    return PAGE_STYLES.filter(s => matches(s, { moods })).length;
+  };
   return (
-    <div className="facet" role="group" aria-labelledby={`f-${id}`}>
-      <h3 className="facet-h">
-        <button className="facet-head" aria-expanded={!closed} aria-controls={`c-${id}`} onClick={() => setClosed(!closed)}
-          aria-label={closed && nPicked > 0 ? `${label}, ${nPicked} selected` : undefined}>
-          <span className="facet-label" id={`f-${id}`}>{label}</span>
-          {/* a closed section still says how many of its tags are picked */}
-          {closed && nPicked > 0 && <span className="facet-picked">{nPicked}</span>}
-          <svg className="facet-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5" /></svg>
-        </button>
-      </h3>
-      <div className={closed ? 'reveal' : 'reveal open'} id={`c-${id}`} inert={closed}>
-        <div>
-          <div className="facet-body">
-            <div className="chips" id={`chips-${id}`}>
-              {shown.map(({ id: tag, label }) => {
-                const on = picked.includes(tag), n = count(tag), none = !n && !on;
-                // a tag with no matches stays focusable, so it can still be found, but does nothing
-                return (
-                  <button key={tag} className={on ? 'chip on' : 'chip'} aria-pressed={on} aria-disabled={none || undefined}
-                    aria-label={`${label}, ${n} ${n === 1 ? 'style' : 'styles'}`} onClick={() => { if (!none) toggle(tag); }}>
-                    <TagText tag={tag} label={label} /><span className="count" aria-hidden="true">{n}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {(open || more > 0) && (
-              <button className="facet-more" aria-expanded={open} aria-controls={`chips-${id}`} onClick={() => setOpen(!open)}>
-                {open ? 'Show less' : `Show ${more} more`}
-              </button>
-            )}
-          </div>
-        </div>
+    <div className="facet" role="group" aria-labelledby="f-feeling">
+      <h3 className="facet-label" id="f-feeling">Feeling</h3>
+      <div className="chips">
+        {MOODS.map(({ id: tag, label }) => {
+          const on = f.moods.includes(tag), n = count(tag), none = !n && !on;
+          // a tag with no matches stays focusable, so it can still be found, but does nothing
+          return (
+            <button key={tag} className={on ? 'chip on' : 'chip'} aria-pressed={on} aria-disabled={none || undefined}
+              aria-label={`${label}, ${n} ${n === 1 ? 'style' : 'styles'}`} onClick={() => { if (!none) actions.toggleMood(tag); }}>
+              <TagText tag={tag} label={label} /><span className="count" aria-hidden="true">{n}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

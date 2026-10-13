@@ -37,7 +37,7 @@ function PreviewBar() {
           value={custom} onChange={e => actions.setCustom(e.target.value)} />
         {custom && <button className="type-clear" aria-label="Clear preview text" onClick={() => actions.setCustom('')}>✕</button>}
       </div>
-      {style ? <ViewToggle /> : (
+      {style ? <><ViewToggle /><SheetButton /></> : (
         <div className="size">
           <span>Size</span>
           <input type="range" min={14} max={220} value={size} aria-label="Size" onChange={e => actions.setSize(Number(e.target.value))} />
@@ -101,6 +101,19 @@ function ViewToggle() {
         </button>
       ))}
     </div>
+  );
+}
+
+/** On phones, where the panel would come after every card, the way to it: Filter opens it as a sheet over the cards
+    (shown only there, styles.css), counting the feelings, search and traits that are on, as its tabs do. */
+function SheetButton() {
+  const open = useEditor(s => s.stylePanelOpen);
+  const n = useEditor(s => s.moods.length + (s.query.trim() ? 1 : 0) + Object.keys(s.traits).length);
+  return (
+    <button className="btn outline sheet-btn" aria-expanded={open} onClick={focusFilters}>
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5h7M12 5h2M2 11h2M7 11h7" /><circle cx="10.5" cy="5" r="1.5" /><circle cx="5.5" cy="11" r="1.5" /></svg>
+      Filter{n > 0 && <span className="facet-picked" aria-label={`, ${n} on`}>{n}</span>}
+    </button>
   );
 }
 

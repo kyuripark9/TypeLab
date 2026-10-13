@@ -33,7 +33,7 @@ without subscribing.
 - Saving: `designInput(s)` is what a save sends; EditorPage registers its save flow with `onSaveRequest`, and
   `actions.requestSave()` reaches it from anywhere (the panel's last page).
 - UI: `category`, `active`, `hot`, `inspect`, `penMode`, `construction`, `mirror`, `snap`, `folded`, `tips`,
-  `switchedOn`, `part`, `hotEnd`, `toast`, `navOpen`, `exportOpen`.
+  `switchedOn`, `part`, `hotEnd`, `toast`, `navOpen`, `exportOpen`, `stylePanelOpen` (the phone's sheet).
 
 **`state/auth.ts`**: `useAuth` with `user` (undefined until the server answers, null when signed out), `google`
 (whether the server offers it), the sign-in `dialog`, `googleWaiting`. Google sign-in runs in a popup that reports on
@@ -69,10 +69,11 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `lib/reach.ts` | Whether a setting changes the letters in view (`reachOf`); tests/reach.test.ts |
 | `lib/preview.ts` | The sample text, the characters on screen (`useVisibleChars`), ink boxes |
 | `lib/prefs.ts`, `lib/routes.ts` | Below |
-| `lib/hooks.ts` | `n1`, `useSize`, `isTyping` (every keyboard shortcut's text-field check), `useEscape`, `useDismiss`, `DRAWER_QUERY` |
+| `lib/hooks.ts` | `n1`, `useSize`, `isTyping` (every keyboard shortcut's text-field check), `useEscape`, `useDismiss`, `DRAWER_QUERY`, `PHONE_QUERY` |
 | `lib/guide-labels.ts` | The guide lines and their labels (`guideLines`, `stackLabels`), shared by the inspector and the pen |
 
-The panel (`components/Panel.tsx`, then `panel/`): `StylePanel.tsx` (the Style page's Filter and Adjust tabs),
+The panel (`components/Panel.tsx`, then `panel/`): `StylePanel.tsx` (the Style page's Filter and Adjust tabs; on
+phones a sheet over the cards, opened from Filter in the stage's bar, as under them it would come after every card),
 `ControlsPanel.tsx` (a page of controls; `Control` picks the component for each key), `ShapeControls.tsx` (stroke
 ends, the a, letter forms, serifs, fill), `SliderControl.tsx` (a slider with its number box, the crossbar's ends,
 Stencil and Slice), `inputs.tsx`, `LetterOwn.tsx` (a customized letter's own values), `heads.tsx` (titles, folds,
@@ -116,11 +117,13 @@ Code and tools find elements by these; renaming one means updating every reader.
 - Glyph paths are `#g<charCode>`, highlights `#h<charCode>` (only for characters on screen); the preview's glyphs
   carry `data-c` for clicks.
 - Phone CSS hides `.top-actions [aria-label=Undo]`, `[aria-label=Redo]`, `.guide-btn` and `a[href="/designs"]`.
-- `data-scope` and `data-mode` on the inspector's toggles are styled; `.style-tabs [aria-selected=true]` takes focus.
+- `data-scope` and `data-mode` on the inspector's toggles are styled; `.style-tabs [aria-selected=true]` takes focus,
+  and `.sheet-btn` (the phone's Filter) when the sheet closes.
 - `Resizer` finds `:scope > .nav`, `.panel`, `.strip`, `.top` inside `.editor`; its sizes are `--nav-w`, `--panel-w`,
   `--strip-h`, kept per browser.
-- `DRAWER_QUERY` (`lib/hooks.ts`) is `styles.css`'s 1180px drawer width; Escape in dialogs (`useEscape`) and
-  claiming popovers (`useDismiss`) is caught in the capture phase so the editor's own Escape stays quiet.
+- `DRAWER_QUERY` (`lib/hooks.ts`) is `styles.css`'s 1180px drawer width and `PHONE_QUERY` its 760px phone width;
+  Escape in dialogs (`useEscape`) and claiming popovers (`useDismiss`) is caught in the capture phase so the editor's
+  own Escape stays quiet.
 
 ## CSS
 

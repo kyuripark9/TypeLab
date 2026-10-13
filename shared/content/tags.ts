@@ -24,7 +24,7 @@ export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string }[] = [
 export type Mood = 'business' | 'calm' | 'sincere' | 'happy' | 'excited' | 'playful' | 'cute' | 'childlike' | 'fancy' | 'sophisticated'
   | 'artistic' | 'innovative' | 'loud' | 'rugged' | 'stiff' | 'vintage' | 'futuristic';
 /* Each style's moods follow the Google Fonts Feeling scores of its reference families. Listed A to Z,
-   so a mood is quick to find among the seventeen. */
+   so a mood is quick to find among the seventeen, all of them in view on the panel. */
 export const MOODS: { id: Mood; label: string }[] = ([
   ['artistic', 'Artistic'], ['business', 'Business'], ['calm', 'Calm'], ['childlike', 'Childlike'], ['cute', 'Cute'], ['excited', 'Excited'],
   ['fancy', 'Fancy'], ['futuristic', 'Futuristic'], ['happy', 'Happy'], ['innovative', 'Innovative'], ['loud', 'Loud'], ['playful', 'Playful'],
@@ -94,10 +94,11 @@ export const KIND_SECTIONS: { groups: StyleGroup[]; tags: TagDef<Kind>[] }[] = [
 
 /** The picked tags of each facet; an empty list means no filter on that facet. `query` is typed search words. */
 export interface StyleFilter { groups: StyleGroup[]; moods: Mood[]; query?: string }
-/** Faceted like Google Fonts: any of the picked tags within a facet, every facet at once. `looks`
-    are the style's Appearance as shown, which traits laid over it may change, for search to find. */
+/** Faceted: any of the picked Categories (each style is one), every picked Feeling, so each feeling
+    picked narrows the cards ("Vintage" and "Rugged" leave the styles that are both), and the search.
+    `looks` are the style's Appearance as shown, which traits laid over it may change, for search to find. */
 export const styleMatches = (s: StyleDef, f: StyleFilter, looks: Look[] = s.looks) =>
-  (!f.groups.length || f.groups.includes(s.group)) && (!f.moods.length || s.moods.some(m => f.moods.includes(m))) &&
+  (!f.groups.length || f.groups.includes(s.group)) && f.moods.every(m => s.moods.includes(m)) &&
   searchMatches(s, f.query ?? '', looks);
 
 /** Everything a search can find a style by: its name, genre, feelings, looks, description, the font it's written in

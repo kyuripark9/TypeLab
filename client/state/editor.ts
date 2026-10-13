@@ -96,6 +96,8 @@ export interface EditorState extends Doc {
   toast: { id: number; msg: string; action?: ToastAction } | null;
   /** the page menu, opened from the header while the window is too narrow to show it alongside */
   navOpen: boolean;
+  /** on phones, the Style page's panel open as a sheet over the cards */
+  stylePanelOpen: boolean;
 }
 
 /** A button on a toast, like Undo after a delete. */
@@ -161,7 +163,8 @@ export const useEditor = create<EditorState>()(() => ({
   snap: savedSnap(),
   exportOpen: false,
   toast: null,
-  navOpen: false
+  navOpen: false,
+  stylePanelOpen: false
 }));
 
 const set = useEditor.setState, get = useEditor.getState;
@@ -446,7 +449,7 @@ export const actions = {
   setCategory(category: CategoryId, active?: ActiveKey) {
     if (category === 'style') { set({ category, inspect: null, part: null }); return; }
     // the "Customize" offered on picking a style has done its job once a page of controls is open
-    set(s => ({ category, active: active ?? firstControl(category), ...(s.toast?.id === styleToast ? { toast: null } : {}) }));
+    set(s => ({ category, active: active ?? firstControl(category), stylePanelOpen: false, ...(s.toast?.id === styleToast ? { toast: null } : {}) }));
   },
   setActive(active: ActiveKey) { if (get().active !== active) set({ active }); },
   setHot(hot: boolean) { if (get().hot !== hot) set({ hot }); },
@@ -530,6 +533,7 @@ export const actions = {
   setExportOpen(exportOpen: boolean) { set({ exportOpen }); },
   requestSave() { saveRequest(); },
   toast(msg: string, action?: ToastAction) { set({ toast: { id: ++toastId, msg, action } }); },
-  setNavOpen(navOpen: boolean) { set({ navOpen }); }
+  setNavOpen(navOpen: boolean) { set({ navOpen }); },
+  setStylePanelOpen(stylePanelOpen: boolean) { if (get().stylePanelOpen !== stylePanelOpen) set({ stylePanelOpen }); }
 };
 

@@ -6,7 +6,7 @@
    actions in Header.tsx. */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CategoryId } from '../../shared/content';
-import { DRAWER_QUERY, isTyping } from '../lib/hooks';
+import { DRAWER_QUERY, isTyping, PHONE_QUERY } from '../lib/hooks';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
 import { actions, useEditor, type EditorState, type StyleTab } from '../state/editor';
 
@@ -111,6 +111,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
     const s = start.current;
     if (useEditor.getState().inspect) actions.closeInspector();
     actions.setNavOpen(false);
+    actions.setStylePanelOpen(false);
     actions.setCategory(s.category);
     actions.setStyleTab(s.styleTab);
     actions.setScope(s.scope);
@@ -131,6 +132,8 @@ export function Guide({ onClose }: { onClose: () => void }) {
     if (step.styleTab) actions.setStyleTab(step.styleTab);
     // in a narrow window the page menu is a drawer: open it for the step about it
     actions.setNavOpen(step.target === 'nav' && matchMedia(DRAWER_QUERY).matches);
+    // on a phone the Style page's panel is a sheet: open it for the step about it
+    actions.setStylePanelOpen(step.target === 'panel' && step.category === 'style' && matchMedia(PHONE_QUERY).matches);
     s = useEditor.getState();
     setCan(!step.can || step.can(s));
     const then = s;

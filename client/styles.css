@@ -301,8 +301,7 @@ body.resizing.y { cursor: row-resize; }
 /* labels wrap (and hyphenate) rather than being cut off in narrow tiles */
 .trait-opts .opt span { max-width: 100%; padding: 0 1px; font-size: 11px; line-height: 1.2; text-align: center; -webkit-hyphens: auto; hyphens: auto; }
 .specimen { display: block; overflow: visible; }
-.facet-h { margin: 0; font: inherit; }
-.facet-label { margin-bottom: 8px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.facet-label { margin: 0 0 8px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
 .count { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .tag-face { display: flex; align-items: center; min-width: 0; }
 .tag-face svg { display: block; fill: currentColor; overflow: visible; }
@@ -314,18 +313,22 @@ body.resizing.y { cursor: row-resize; }
 /* a tag with no matching styles: still readable (the UI's grey meets 4.5:1), marked out by a dashed border */
 .chip[aria-disabled=true] { color: var(--ink-3); border-style: dashed; background: transparent; cursor: default; }
 .chip[aria-disabled=true]:hover { border-color: var(--line-2); }
-.facet-head { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; color: var(--ink-3); transition: color .15s; }
-.facet-head:hover { color: var(--ink); }
-.facet-head .facet-label { margin-bottom: 0; color: inherit; }
 .facet-picked { min-width: 16px; padding: 0 5px; border-radius: 100px; background: var(--accent); color: #fff; font-size: 10.5px; font-weight: 600; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
 .facet-chevron { margin-left: auto; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: transform .25s ease; }
-.facet-head[aria-expanded=false] .facet-chevron { transform: rotate(180deg); }
-/* the reveal clips its content, so it widens by the focus ring's reach and pads it back in */
-.facet .reveal { margin: 0 -4px; transition: grid-template-rows .25s ease, margin-bottom .25s ease; }
-.facet .reveal.open { margin-bottom: -4px; }
-.facet-body { padding: 8px 4px 4px; }
-.facet-more { margin-top: 10px; font-size: 12px; font-weight: 500; color: var(--ink-3); transition: color .15s; }
-.facet-more:hover { color: var(--ink); }
+.sheet-btn svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+/* phones: the Style page's panel, which would come after every card, is a sheet over them instead, opened from Filter
+   in the bar on top (Stage.tsx); its foot, back to the cards, sticks to the sheet's bottom */
+.sheet-btn, .sheet-foot, .sheet-scrim { display: none; }
+@media (max-width: 760px) {
+  .cards-bar .sheet-btn { display: inline-flex; }
+  .panel.styles { display: none; }
+  .panel.styles.open { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 39; max-height: 85dvh; overflow: auto; overscroll-behavior: contain;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0; box-shadow: var(--shadow); animation: sheet-in .2s ease-out; }
+  .sheet-scrim { display: block; position: fixed; inset: 0; z-index: 38; background: rgba(46, 59, 62, .2); animation: fade .15s ease; }
+  .panel.open .sheet-foot { display: block; position: sticky; bottom: 0; margin: 20px -16px -24px; padding: 10px 16px 14px; background: var(--surface); border-top: 1px solid var(--line); }
+  .sheet-foot .btn { width: 100%; justify-content: center; }
+}
+@keyframes sheet-in { from { opacity: 0; transform: translateY(24px); } }
 
 /* the explainer stays on top of the panel as it scrolls: the diagram in a soft well, then what the control does.
    The diagram gives up height as the panel gets shorter, so the sliders under it keep most of the room, and on
