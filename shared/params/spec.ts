@@ -302,9 +302,11 @@ export const SPECS = {
 
   /* ---- Effects */
   fill: option(FILLS, 'solid', { global: true, free: true, control: { cat: 'effects', type: 'fill', label: 'Fill', friendly: 'Change what fills the letters', tech: 'Fill', demo: 'Rg',
-    explain: 'Solid ink, outlines, a grid of pixels, dots or lines, a line cut down the middle of each stroke, a hollow outline, or a shadow cast down to the right. Size sets how coarse the grid is, how wide the line, or how far the shadow falls.' } }),
+    explain: 'Solid ink, outlines, a grid of pixels, hexagons, dots or lines, dots that flow together, a halftone, a line cut down the middle of each stroke, a hollow outline, or a shadow cast down to the right. Size sets how coarse the grid is, how wide the line, or how far the shadow falls; Spread shrinks a grid’s cells apart or grows them together.' } }),
   module: num(0.4, { global: true,
     sub: { parent: 'fill', label: 'Size', friendly: 'Size the grid, line or shadow', tech: 'Module size', lo: 'Fine', hi: 'Coarse' } }),
+  dotGain: num(0.5, { global: true,
+    sub: { parent: 'fill', label: 'Spread', friendly: 'Shrink the pixels or dots apart, or grow them together', tech: 'Dot gain', lo: 'Apart', hi: 'Merged' } }),
   stencil: num(0, { free: true, control: { cat: 'effects', off: 0, label: 'Stencil', friendly: 'Cut gaps where the strokes meet', tech: 'Stencil', lo: 'Solid', hi: 'Wide gaps', demo: 'BOa',
     explain: 'Strokes break where they join, as if cut from a sheet. Thickness sets how wide the gaps open; Position moves the gaps out along the strokes; Rounding softens their corners.' },
     sub: { parent: 'stencil', label: 'Thickness', friendly: 'Open the gaps wider', tech: 'Gap width', lo: 'Thin', hi: 'Thick' } }),
@@ -317,6 +319,8 @@ export const SPECS = {
     sub: { parent: 'slice', label: 'Thickness', friendly: 'Make the cut taller', tech: 'Cut height', lo: 'Thin', hi: 'Thick' } }),
   slicePos: num(0.5, { sub: { parent: 'slice', label: 'Position', friendly: 'Move the cut up or down', tech: 'Slice height', lo: 'Low', hi: 'High' } }),
   sliceRound: num(0, { sub: { parent: 'slice', label: 'Rounding', friendly: 'Round the corners the cut leaves', tech: 'Cut corner radius', lo: 'Sharp', hi: 'Round' } }),
+  rough: num(0, { global: true, control: { cat: 'effects', off: 0, label: 'Rough edges', friendly: 'Rough up the edges like worn print', tech: 'Rough edges', lo: 'Clean', hi: 'Rough', demo: 'Type',
+    explain: 'The edges wander a little, as ink spreads into paper or a worn block prints. It works on every fill.' } }),
 
   /* ---- not a control of their own: pickers inside another control (barEnds under Crossbar height,
      terminalRun and terminalForm under Stroke ends, aForm under Letter a, serifShape under Serifs), the

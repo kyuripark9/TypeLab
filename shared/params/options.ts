@@ -27,8 +27,12 @@ export const SERIF_SIDES = ['both', 'left', 'right', 'inside', 'outside'] as con
 /** The shape of the serifs that reach into the letter: the same as the rest, or one of their own. */
 export const SERIF_INNERS = ['same', ...SERIF_SHAPES] as const;
 /** What the letters are built from: solid ink, a wireframe of every stroke, a grid of pixels, dots or lines, ink with a
-    line cut down its strokes (inline), the letter's hollow outline (outline), or ink casting a shadow down to the right. */
-export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines', 'inline', 'outline', 'shadow'] as const;
+    line cut down its strokes (inline), the letter's hollow outline (outline), ink casting a shadow down to the right, a
+    grid of hexagons (hex), dots that run together where they sit side by side (blobs), or a printer's screen of dots
+    as big as the ink round them (halftone). */
+export const FILLS = ['solid', 'wire', 'pixels', 'dots', 'lines', 'inline', 'outline', 'shadow', 'hex', 'blobs', 'halftone'] as const;
+/** The fills drawn on a grid (Metrics.cell): their Size sets the grid's, and Spread (dotGain) how far their cells spread. */
+export const GRID_FILLS: readonly Fill[] = ['pixels', 'hex', 'dots', 'blobs', 'halftone', 'lines'];
 /** The lowercase a: two storeys (bowl under a hook) or one (just a bowl). 'auto' lets the personality and cursive settings pick. */
 export const STORIES = ['auto', 'double', 'single'] as const;
 /** How a bowl meets its stem (b d p q g, the single-storey a): curving out of it, or square, its flat top and bottom running straight into it. */

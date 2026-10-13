@@ -84,6 +84,8 @@ export interface Params {
   /** length of tails and hooks (Q y j g t f, the comma, cursive exits): 0.5 is the usual length */ tail: number;
   fill: Fill;
   /** the fill's size: how coarse the pixels, dots or lines are, how wide the wireframe's, inline's or outline's line, or how far the shadow falls */ module: number;
+  /** how far the grid fills' cells spread (pixels, hexagons, dots, blobs, halftone dots, lines): 0.5 as each fill
+      draws them, lower shrinking them apart, higher growing them until they run together */ dotGain: number;
   /** gaps where strokes meet, like a stencil */ stencil: number;
   /** how far out along a stroke from the join its stencil gap is cut, from 0 right at the join */ stencilPos: number;
   /** how round the corners a stencil gap cuts are, from 0 sharp */ stencilRound: number;
@@ -93,6 +95,7 @@ export interface Params {
   /** a horizontal cut through every letter */ slice: number;
   /** the height of the slice: 0 the baseline, 0.5 half the x-height, 1 the cap height */ slicePos: number;
   /** how round the corners the slice cuts are, from 0 sharp */ sliceRound: number;
+  /** edges that wander, as ink spreads into paper or a worn block prints, from 0 clean */ rough: number;
   serif: boolean; serifSize: number; serifThickness: number; serifShape: SerifShape; serifAngle: number;
   /** bracketed serifs: how far the curve into the stem runs, 0.5 as usual */ serifBracket: number;
   /** how serifs finish at their tips (see SERIF_TIPS) */ serifTip: SerifTip;

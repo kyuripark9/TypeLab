@@ -9,6 +9,7 @@ import { blockDims, blockRings } from './blocks';
 import { basicDims, basicRings, basicRound } from './basic-blocks';
 import { gridDims, gridRings } from './grid-blocks';
 import { fillOutline, shadowShift, slice } from './effects';
+import { roughen } from './rough';
 import { drawnCmds, type Drawn } from './outline';
 import { buildSerif, diamondCut, diamondEnd, expandStroke, type Expanded, serifPlace, type SerifPlace } from './stroke';
 import type { Cmd, Mark, Mat, PenCtx, Pt } from './types';
@@ -452,7 +453,7 @@ export function buildBlock(ch: string, m: Metrics): Glyph | null {
 }
 
 /** Place a glyph drawn `W` wide between side bearings lsb and rsb: rotation, monospacing, the pixel grid,
-    playful bounce and hand jitter, slant, then the slice and the fills, which run on its final outline.
+    playful bounce and hand jitter, slant, then the slice, the fills and rough edges, which run on its final outline.
     A free font's letters are placed here too, each of these effects counted only as far as the settings move it from
     where the font was picked (freeLetters, in free-letters.ts, hands them Metrics that do so): a new effect needs the
     same there. */
@@ -473,7 +474,7 @@ export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, c
     rsb = adv - lsb - W * sx;
   }
   if (m.cell && m.p.fill !== 'lines') {
-    // pixels and dots: whole cells, with the letter centred in its cells
+    // a grid fill's cells: whole cells, with the letter centred in its cells
     const snapped = Math.max(m.cell, Math.round(adv / m.cell) * m.cell);
     lsb += (snapped - adv) / 2; rsb += (snapped - adv) / 2; adv = snapped;
   }
@@ -499,11 +500,13 @@ export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, c
   if (m.sliceH) cmds = slice(cmds, m.sliceY - m.sliceH / 2, m.sliceY + m.sliceH / 2, m.sliceRound, m.s, m.s * 0.35);
   const skeleton = out.skeleton.map(r => r.map(tp));
   if (m.p.fill !== 'solid') {
-    cmds = fillOutline(cmds, { fill: m.p.fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness, size: m.p.module,
+    cmds = fillOutline(cmds, { fill: m.p.fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness, size: m.p.module, gain: m.p.dotGain,
       // an entry or exit stroke reaches out of the letter's own room into its neighbour's, between
       // the baseline and the x-height (a tail or an overhanging f goes below or above it)
       stem: m.s, thick: m.tDir, skeleton, joins: p => (p.x < 0 || p.x > adv) && p.y > 0 && p.y < m.xh });
   }
+  // rough edges last of all, so they rough up whatever the fill drew
+  if (m.p.rough > 0) cmds = roughen(cmds, m.p.rough, m.cap, code, m.p.fill !== 'solid' && m.p.fill !== 'wire');
   return {
     ...out, serifs, counters: out.counters.map(tf),
     marks: out.marks.map(k => k.home ? { ...tp(k), home: tp(k.home) } : tp(k)), skeleton,

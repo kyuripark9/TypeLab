@@ -56,7 +56,7 @@ export function showContext(k: string): Partial<Params> {
   }
   return ({
     stencilPos: { stencil: 0.5 }, stencilRound: { stencil: 0.5 }, slicePos: { slice: 0.5 }, sliceRound: { slice: 0.5 },
-    pinchPos: { pinch: 0.7 }, boxRound: { bowlForm: 'box' }, module: { fill: 'pixels' }, swell: { scriptForm: 'script' },
+    pinchPos: { pinch: 0.7 }, boxRound: { bowlForm: 'box' }, module: { fill: 'pixels' }, dotGain: { fill: 'pixels' }, swell: { scriptForm: 'script' },
     dotSize: { dots: 'round' }, blockForm: { build: 'blocks' }
   } as Record<string, Partial<Params>>)[k] ?? {};
 }

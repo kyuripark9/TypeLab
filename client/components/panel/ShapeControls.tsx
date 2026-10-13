@@ -5,7 +5,7 @@ import {
   STORY_OPTIONS, TERMINAL_DETAILS, TERMINAL_SHAPES, TERMINAL_SUBS, controlFor, terminalLabel, type FillSubKey, type FormKey,
   type SerifInnerSubKey
 } from '../../../shared/content';
-import { formOf, type Terminal, type TerminalForm } from '../../../shared/params';
+import { GRID_FILLS, formOf, type Terminal, type TerminalForm } from '../../../shared/params';
 import { autoIBars, scriptForms } from '../../../shared/engine';
 import { actions, useEditor, useParam, useScopedFont } from '../../state/editor';
 import { FillIcon, FormIcon, SerifIcon, SerifSidesIcon, StoryIcon, TerminalIcon } from '../Diagram';
@@ -218,7 +218,9 @@ export function FillControl() {
         </div>
         <div className={solid ? 'reveal' : 'reveal open'} inert={solid}>
           <div>
-            {(Object.keys(FILL_SUBS) as FillSubKey[]).map(k => <SliderControl key={k} k={k} def={FILL_SUBS[k]} />)}
+            {/* (Spread only where the fill is drawn on a grid of cells) */}
+            {(Object.keys(FILL_SUBS) as FillSubKey[]).filter(k => k !== 'dotGain' || GRID_FILLS.includes(fill))
+              .map(k => <SliderControl key={k} k={k} def={FILL_SUBS[k]} />)}
           </div>
         </div>
       </Fold>

@@ -54,7 +54,8 @@ file.
    10. side bearings: the glyph's sb factors times `m.sb`, room for what reaches past the body, `clearStems` under
        diamond serifs;
    11. `placeGlyph`: rotation, mirroring, monospacing, whole fill cells, the shadow's room, bounce and jitter, slant
-       about `SLANT_PIVOT` of the x-height, then the slice and the fills on the final outline; it sets `M`, `cmds`, `d`.
+       about `SLANT_PIVOT` of the x-height, then the slice, the fills and rough edges (`roughen`) on the final outline;
+       it sets `M`, `cmds`, `d`.
 5. `font.hl(ch, key)` (`highlight.ts`) is the part of a letter a control shapes, for the explainer and the inspector.
 
 ## Files
@@ -77,7 +78,8 @@ file.
 | `joins.ts` | Inside corners where strokes cross, filled with fillets (`joinCorners`, `joinR`); how Joins and Counters split the inside corners by how wide they are, Joins the crotches and Counters the square ones (`innerShare`, `crotchShare`, `innerFor`, `crotchFor`), turns' insides too (`markTurns`) |
 | `stencil.ts` | Stencil gaps at joins and turns, the crossbar Gap, bars run Through |
 | `serif-sides.ts` | Which way each stem's serifs reach (Sides, inside serifs), and cupped feet |
-| `effects.ts`, `boolean.ts` | The slice and the fills (wire, pixels, dots, lines, inline, outline, shadow); unions and cuts of outlines (`shape`, `combine`), and a letter's overlapping contours made one with its curves kept (`unite`), or one outline's ink cut out of another's the same way (`cutOut`, the pen's Cut out and Break apart; the two share `inkOf`, and `unite`'s results are the free fonts', so check `npm run golden` after touching it) |
+| `rough.ts` | Rough edges (`roughen`): the ink made one (only contours whose boxes overlap; a fill that draws its cells apart is taken as it is), its corners rounded, walked in short steps and each pushed out or in by smooth noise of where it lies, no further than `ROOM` of the ink or space across from it, drawn again as a smooth curve (`smoothLoop`) |
+| `effects.ts`, `boolean.ts` | The slice and the fills (wire, pixels, hexagons, dots, blobs, halftone, lines, inline, outline, shadow; the grid ones are `GRID_FILLS`, and Spread, `dotGain`, sizes their cells: pixels apart as squares or grown together on a grid of middles and seams, hexagons traced on whole-number corners, blobs a field of soft balls drawn by marching squares, halftone dots sized by the ink round them); unions and cuts of outlines (`shape`, `combine`), and a letter's overlapping contours made one with its curves kept (`unite`), or one outline's ink cut out of another's the same way (`cutOut`, the pen's Cut out and Break apart; the two share `inkOf`, and `unite`'s results are the free fonts', so check `npm run golden` after touching it) |
 | `outline.ts` | Drawn letters (`Node`, `Drawn`), curve fitting (`fitOutline`), `cleanDrawn`; live corners: a corner point's radius `r` and kind (`corner`: round, cut or scoop), drawn by `drawnCmds` (which draws a contour with none exactly as before) with the point left where the corner is (`cornerTurn`, `cornerRoom`); imports only types, as shared/params reads it |
 | `grid.ts` | Construction grids and their groups, Grid A to T (`glyphGrid`, `gridGroups`, `gridOf`) |
 | `free.ts` | The free-font registry and its packed format |
@@ -227,7 +229,7 @@ tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, wh
 | Unplaced, `blankParts()` | A glyph before `placeGlyph`; the empty parts a block, drawn or free letter has. A new Glyph field such letters leave empty goes in `blankParts` |
 | `font.letter(ch)` | The font a letter is drawn from: one built from `{ ...params, ...glyphs[ch], glyphs: {} }` when it has its own settings |
 | hl, RING_KEYS | `font.hl(ch, key)` is the SVG path of what control `key` shapes; keys in `RING_KEYS` light rings round marks instead of strokes |
-| cell | The fill grid's size (`m.cell`); advances and tracking snap to it for pixels and dots. Not the client's strip `.cell`, nor `scan.ts`'s ink Grid |
+| cell | The fill grid's size (`m.cell`, for `GRID_FILLS`); advances and tracking snap to it for all but lines. Hexagons are `cell` across their flats and the halftone's rows are hexagons' rows. Not the client's strip `.cell`, nor `scan.ts`'s ink Grid |
 | wobble | Hand-drawn: one smooth displacement field per glyph, seeded by its char code; `Builder.joins` pins it where script letters meet |
 | freeAt, pick, now | The settings a free font was picked at; `fl.pick` and `fl.now` are those and the asked-for ones, resolved |
 | skin, rig | A free font's letter moved on its skeleton; the rig is the letter prepared for that (`SkinRig`: contours, its overlapping pieces united; bones; ends, each stroke end's run of samples; ctx, stem, bar) |
@@ -263,8 +265,11 @@ tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, wh
 - Outline points are tracked by identity from `expandStroke` to placement (`endCorners`, `clipMade`, the stencil's
   `drawn` sets): clipping and splitting keep the original Pt objects; never copy them in between.
 - Outlines wind anticlockwise with clockwise holes; `combine` returns them so, and the fills rely on it.
-- Fills and the slice run last, on the placed outline, so a grid lines up across a line. A new effect in
-  `placeGlyph` needs the same neutralizing in `freeLetters`, or a free font's letters change as soon as it is picked.
+- Fills, the slice and rough edges run last, on the placed outline, so a grid lines up across a line. A new effect
+  in `placeGlyph` needs the same neutralizing in `freeLetters`, or a free font's letters change as soon as it is
+  picked (Spread and Rough edges need none: no font has them, so they aren't `free` and reach its letters as set).
+- A grid fill at Spread 0.5 draws exactly as it did before Spread: pixels and hexagons keep their traced outline
+  there (`gain === 0.5`), dots and lines their sizes times exactly 1.
 - Grid names come from the order of `SETS` and `KINDS` in `grid.ts`; the inspector shows them and tests pin them.
 - Every numeric setting keeps changing the letters to 1: map as a share of the range (`weighed`, `push`), and keep
   piecewise maps around 0.5 continuous.

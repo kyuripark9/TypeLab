@@ -1,12 +1,12 @@
 /* Effects on finished outlines: a horizontal slice through every letter, and fills that rebuild
-   a letter as a wireframe or from a grid of pixels, dots or lines, cut an inline down its strokes,
-   draw it hollow (a line round the inside of its edge) or cast a shadow behind it. They run on the
-   glyph's final outline, after slant and spacing (placeGlyph in glyph.ts calls them), so a grid lines
-   up from one letter to the next. The outline is read with the nonzero rule, like the font itself:
-   overlapping strokes count once. */
+   a letter as a wireframe or from a grid of pixels, hexagons, dots, blobs, halftone dots or lines, cut
+   an inline down its strokes, draw it hollow (a line round the inside of its edge) or cast a shadow
+   behind it. They run on the glyph's final outline, after slant and spacing (placeGlyph in glyph.ts
+   calls them), so a grid lines up from one letter to the next. The outline is read with the nonzero
+   rule, like the font itself: overlapping strokes count once. */
 import type { Fill } from '../params';
 import { combine, shape, type Shape } from './boolean';
-import { CIRCLE_K, dist, roundContour, roundCuts, signedArea, splitPoly, toPolys } from './geom';
+import { CIRCLE_K, dist, lerp, roundContour, roundCuts, signedArea, splitPoly, toPolys } from './geom';
 import type { Cmd, Pt } from './types';
 
 const polysToCmds = (polys: Pt[][], R: number) => polys.flatMap(p => roundContour(p, R));
@@ -226,7 +226,11 @@ function dotGrid(polys: Pt[][], cell: number): Grid {
    separate shapes instead of pinching together. */
 function traceCells(G: Grid, cell: number): Pt[][] {
   const { i0, j0, cols, rows, on } = G;
-  const at = (i: number, j: number) => i >= 0 && j >= 0 && i < cols && j < rows && on[j * cols + i] === 1;
+  return traceGrid(cols, rows, (i, j) => i >= 0 && j >= 0 && i < cols && j < rows && on[j * cols + i] === 1, i => (i + i0) * cell, j => (j + j0) * cell);
+}
+
+/** traceCells on any grid of rectangles: `at` says which are on, and X and Y where the lines between them run. */
+function traceGrid(cols: number, rows: number, at: (i: number, j: number) => boolean, X: (i: number) => number, Y: (j: number) => number): Pt[][] {
   const key = (x: number, y: number) => x * 100003 + y;
   const edges = new Map<number, [number, number, number, number][]>();
   const add = (ax: number, ay: number, bx: number, by: number) => {
@@ -262,7 +266,7 @@ function traceCells(G: Grid, cell: number): Pt[][] {
       const n = pts.length, poly: Pt[] = [];
       for (let k = 0; k < n; k++) {
         const a = pts[(k + n - 1) % n], b = pts[k], c = pts[(k + 1) % n];
-        if ((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]) !== 0) poly.push({ x: (b[0] + i0) * cell, y: (b[1] + j0) * cell });
+        if ((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]) !== 0) poly.push({ x: X(b[0]), y: Y(b[1]) });
       }
       if (poly.length > 2) out.push(poly);
     }
@@ -275,6 +279,206 @@ const circle = (cx: number, cy: number, r: number): Cmd[] => {
   return [['M', cx + r, cy], ['C', cx + r, cy + k, cx + k, cy + r, cx, cy + r], ['C', cx - k, cy + r, cx - r, cy + k, cx - r, cy],
     ['C', cx - r, cy - k, cx - k, cy - r, cx, cy - r], ['C', cx + k, cy - r, cx + r, cy - k, cx + r, cy], ['Z']];
 };
+
+/** How far a grid fill's cells spread (Spread, params.dotGain): their size against the size the fill draws them at
+    0.5, `lo` of it at 0 and `hi` at 1. */
+const spread = (gain: number, lo: number, hi: number) => gain < 0.5 ? lerp(lo, 1, gain * 2) : lerp(1, hi, gain * 2 - 1);
+
+/** Each lit cell's own square, `s` a side, in its middle: pixels drawn apart. */
+function apartCells(G: Grid, cell: number, s: number): Pt[][] {
+  const out: Pt[][] = [], h = s / 2;
+  for (let j = 0; j < G.rows; j++) for (let i = 0; i < G.cols; i++) if (G.on[j * G.cols + i]) {
+    const cx = (G.i0 + i + 0.5) * cell, cy = (G.j0 + j + 0.5) * cell;
+    out.push([{ x: cx - h, y: cy - h }, { x: cx + h, y: cy - h }, { x: cx + h, y: cy + h }, { x: cx - h, y: cy + h }]);
+  }
+  return out;
+}
+
+/** The lit cells grown `e` past each side and run together. Traced on a grid of the cells' middles and the seams
+    between them (along each way, even places are the seams, odd ones the middles), a seam lit where a cell either
+    side of it is, and the corner where four cells meet where any of them is. */
+function grownCells(G: Grid, cell: number, e: number): Pt[][] {
+  const { i0, j0, cols, rows, on } = G;
+  const lit = (i: number, j: number) => i >= 0 && j >= 0 && i < cols && j < rows && on[j * cols + i] === 1;
+  const near = (c: number) => c % 2 ? [(c - 1) / 2] : [c / 2 - 1, c / 2];
+  const at = (a: number, b: number) => a >= 0 && b >= 0 && a <= 2 * cols && b <= 2 * rows && near(a).some(i => near(b).some(j => lit(i, j)));
+  const line = (c: number, k0: number) => (Math.floor(c / 2) + k0) * cell + (c % 2 ? e : -e);
+  return traceGrid(2 * cols + 1, 2 * rows + 1, at, c => line(c, i0), c => line(c, j0));
+}
+
+/* The hexagon fill's grid: hexagons standing on a point, `cell` across their flats, each row half a cell along from
+   the rows either side. Counted in half cells across and quarters of a corner's reach (rho) up, every corner falls
+   on whole numbers, so hexagons side by side share their corners exactly. */
+const HEX_K = Math.sqrt(3);
+
+/** Which hexagons the outline covers, as [column, row]: a hexagon is lit when at least 3 of 7 points in it are inside
+    (its middle and six round it, as a square cell takes 4 of 9), and a mark thinner than that keeps its best one. */
+function hexGrid(polys: Pt[][], cell: number): [number, number][] {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const p of polys) for (const q of p) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+  if (!(x1 > x0)) return [];
+  const rho = cell / HEX_K, hh = rho * 1.5, out: [number, number][] = [];
+  // (the six points round the middle, toward its corners, a little over half way)
+  const ax = rho * 0.476, ay = rho * 0.275, by = rho * 0.55;
+  let best = -1, bestAt: [number, number] = [0, 0];
+  for (let j = Math.floor(y0 / hh) - 1; j <= Math.ceil(y1 / hh); j++) {
+    const cy = (j + 0.5) * hh, sp = [spans(polys, cy - by), spans(polys, cy - ay), spans(polys, cy), spans(polys, cy + ay), spans(polys, cy + by)];
+    for (let i = Math.floor(x0 / cell) - 1; i <= Math.ceil(x1 / cell); i++) {
+      const cx = (i + 0.5 + (j & 1) / 2) * cell;
+      const n = +inside(sp[2], cx) + +inside(sp[0], cx) + +inside(sp[4], cx) + +inside(sp[1], cx - ax) + +inside(sp[1], cx + ax) + +inside(sp[3], cx - ax) + +inside(sp[3], cx + ax);
+      if (n >= 3) out.push([i, j]);
+      if (n > best) { best = n; bestAt = [i, j]; }
+    }
+  }
+  if (!out.length && best > 0) out.push(bestAt);
+  return out;
+}
+
+/** Hexagon [i, j]'s corners anticlockwise from the lower right, in whole units. */
+function hexCorners(i: number, j: number): [number, number][] {
+  const cx = 2 * i + 1 + (j & 1), cy = 6 * j + 3;
+  return [[cx + 1, cy - 2], [cx + 1, cy + 2], [cx, cy + 4], [cx - 1, cy + 2], [cx - 1, cy - 2], [cx, cy - 4]];
+}
+
+/** The outline of a set of hexagons, as traceCells does for squares: each lit one's sides, anticlockwise, less those it
+    shares with another lit one, chained into contours. (Three hexagons meet at a corner, each beside the other two,
+    so no corner has two ways on.) */
+function traceHexes(hexes: [number, number][], cell: number): Pt[][] {
+  const sides = new Map<string, [number, number, number, number]>();
+  for (const [i, j] of hexes) {
+    const c = hexCorners(i, j);
+    for (let k = 0; k < 6; k++) {
+      const [ax, ay] = c[k], [bx, by] = c[(k + 1) % 6], back = `${bx},${by},${ax},${ay}`;
+      if (sides.has(back)) sides.delete(back); else sides.set(`${ax},${ay},${bx},${by}`, [ax, ay, bx, by]);
+    }
+  }
+  const from = new Map<string, [number, number, number, number]>();
+  for (const sd of sides.values()) from.set(`${sd[0]},${sd[1]}`, sd);
+  const rho = cell / HEX_K, out: Pt[][] = [];
+  for (const start of [...from.values()]) {
+    if (!from.has(`${start[0]},${start[1]}`)) continue;
+    const poly: Pt[] = [];
+    for (let sd = from.get(`${start[0]},${start[1]}`); sd; sd = from.get(`${sd[2]},${sd[3]}`)) {
+      from.delete(`${sd[0]},${sd[1]}`);
+      poly.push({ x: sd[0] * cell / 2, y: sd[1] * rho / 4 });
+    }
+    if (poly.length > 2) out.push(poly);
+  }
+  return out;
+}
+
+/** Hexagon [i, j] on its own, scaled by k about its middle. */
+function hexagon(i: number, j: number, cell: number, k: number): Pt[] {
+  const rho = cell / HEX_K, cx = (i + 0.5 + (j & 1) / 2) * cell, cy = (j + 0.5) * rho * 1.5;
+  return hexCorners(i, j).map(([x, y]) => ({ x: cx + (x * cell / 2 - cx) * k, y: cy + (y * rho / 4 - cy) * k }));
+}
+
+/** Where a field `f` is at least `T`, sampled every `h` from (x0, y0) for nx × ny points, as contours: marching
+    squares, each crossing put where the field passes T between two samples, and every piece laid with the inside on
+    its left, so the outlines come out anticlockwise and their holes clockwise. The field is under T all round the
+    edge of the samples, so every contour closes. */
+function contours(f: Float64Array, nx: number, ny: number, x0: number, y0: number, h: number, T: number): Pt[][] {
+  const v = (i: number, j: number) => f[j * nx + i];
+  // a crossing is named by its side of a square: across from (i, j) (0) or up from it (1)
+  const key = (i: number, j: number, up: number) => (j * nx + i) * 2 + up;
+  const point = new Map<number, Pt>(), next = new Map<number, number>();
+  const cross = (i: number, j: number, up: number) => {
+    const k = key(i, j, up);
+    if (!point.has(k)) {
+      const a = v(i, j), b = up ? v(i, j + 1) : v(i + 1, j), t = (T - a) / (b - a);
+      point.set(k, { x: x0 + (i + (up ? 0 : t)) * h, y: y0 + (j + (up ? t : 0)) * h });
+    }
+    return k;
+  };
+  for (let j = 0; j + 1 < ny; j++) for (let i = 0; i + 1 < nx; i++) {
+    // the corners anticlockwise from the lower left, and the sides between them (below, right, above, left)
+    const c = [v(i, j) >= T, v(i + 1, j) >= T, v(i + 1, j + 1) >= T, v(i, j + 1) >= T];
+    if (c[0] === c[1] && c[1] === c[2] && c[2] === c[3]) continue;
+    const side = [() => cross(i, j, 0), () => cross(i + 1, j, 1), () => cross(i, j + 1, 0), () => cross(i, j, 1)];
+    // going round, a side the inside leaves by and the next it comes back in by
+    const outs = [0, 1, 2, 3].filter(s => c[s] && !c[(s + 1) % 4]), ins = [0, 1, 2, 3].filter(s => !c[s] && c[(s + 1) % 4]);
+    if (outs.length === 1) next.set(side[outs[0]](), side[ins[0]]());
+    else {
+      // a saddle: the middle tells whether the two inside corners run together through it
+      const mid = (v(i, j) + v(i + 1, j) + v(i + 1, j + 1) + v(i, j + 1)) / 4 >= T;
+      for (const o of outs) next.set(side[o](), side[mid ? (o + 1) % 4 : (o + 3) % 4]());
+    }
+  }
+  const out: Pt[][] = [];
+  for (const k0 of [...next.keys()]) {
+    if (!next.has(k0)) continue;
+    const loop: Pt[] = [];
+    for (let k: number | undefined = k0; k !== undefined && next.has(k);) { const n: number = next.get(k)!; next.delete(k); loop.push(point.get(k)!); k = n; }
+    if (loop.length > 2) out.push(loop);
+  }
+  return out;
+}
+
+/** A closed polygon drawn as a smooth curve through its points (Catmull-Rom). */
+export function smoothLoop(p: Pt[]): Cmd[] {
+  const n = p.length, at = (i: number) => p[(i + n) % n], out: Cmd[] = [['M', p[0].x, p[0].y]];
+  for (let i = 0; i < n; i++) {
+    const a = at(i - 1), b = at(i), c = at(i + 1), d = at(i + 2);
+    out.push(['C', b.x + (c.x - a.x) / 6, b.y + (c.y - a.y) / 6, c.x - (d.x - b.x) / 6, c.y - (d.y - b.y) / 6, c.x, c.y]);
+  }
+  out.push(['Z']);
+  return out;
+}
+
+/** The blobs: a dot on each lit cell (as the dot fill lights them), every dot a soft ball of ink whose pull reaches
+    0.8 of a cell, so dots side by side run together through a neck and those a diagonal apart stay apart, and the
+    ink drawn where the balls' pull adds up to `T` (higher, smaller dots and no necks; lower, all one blob). */
+function blobs(G: Grid, cell: number, T: number): Cmd[] {
+  const { i0, j0, cols, rows, on } = G, K = cell * 0.8, steps = 6, h = cell / steps;
+  // (sampled a cell out past the grid all round, where nothing reaches)
+  const nx = (cols + 2) * steps + 1, ny = (rows + 2) * steps + 1, x0 = (i0 - 1) * cell, y0 = (j0 - 1) * cell;
+  const f = new Float64Array(nx * ny);
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    if (!on[j * cols + i]) continue;
+    const cx = (i0 + i + 0.5) * cell, cy = (j0 + j + 0.5) * cell;
+    // (the samples within K of the dot: those in the cells round it)
+    for (let b = (j + 0.5) * steps - steps; b <= (j + 1.5) * steps + steps; b++) for (let a = (i + 0.5) * steps - steps; a <= (i + 1.5) * steps + steps; a++) {
+      const dx = x0 + a * h - cx, dy = y0 + b * h - cy, u = (dx * dx + dy * dy) / (K * K);
+      if (u < 1) f[b * nx + a] += (1 - u) * (1 - u);
+    }
+  }
+  return contours(f, nx, ny, x0, y0, h, T).filter(p => Math.abs(signedArea(p)) > cell * cell * 0.01).flatMap(smoothLoop);
+}
+
+/** The halftone: dots on a grid of rows half a cell along from each other, each as big as the share of ink round it
+    (in a circle `blur` across), by area, as a printer's screen draws a softened letter: whole in the middle of a stroke
+    and shrinking out to its edges, `most` the radius of a dot in full ink. */
+function halftone(polys: Pt[][], cell: number, most: number): Cmd[] {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const p of polys) for (const q of p) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+  if (!(x1 > x0)) return [];
+  const blur = cell * 1.1, q = cell / 5, hh = cell * HEX_K / 2;
+  // the ink sampled every q, out past it by the blur
+  const sx = Math.floor((x0 - blur) / q), sy = Math.floor((y0 - blur) / q), nx = Math.ceil((x1 + blur) / q) - sx + 1, ny = Math.ceil((y1 + blur) / q) - sy + 1;
+  const ink = new Uint8Array(nx * ny);
+  for (let b = 0; b < ny; b++) {
+    const sp = spans(polys, (sy + b) * q);
+    for (let a = 0; a < nx; a++) if (inside(sp, (sx + a) * q)) ink[b * nx + a] = 1;
+  }
+  const reach = Math.ceil(blur / q), out: Cmd[] = [];
+  for (let j = Math.floor((y0 - blur) / hh); j <= Math.ceil((y1 + blur) / hh); j++) {
+    const cy = (j + 0.5) * hh;
+    for (let i = Math.floor((x0 - blur) / cell) - 1; i <= Math.ceil((x1 + blur) / cell); i++) {
+      const cx = (i + 0.5 + (j & 1) / 2) * cell, ca = Math.round(cx / q) - sx, cb = Math.round(cy / q) - sy;
+      let n = 0, all = 0;
+      for (let b = cb - reach; b <= cb + reach; b++) for (let a = ca - reach; a <= ca + reach; a++) {
+        const dx = (sx + a) * q - cx, dy = (sy + b) * q - cy;
+        if (dx * dx + dy * dy > blur * blur) continue;
+        all++;
+        if (a >= 0 && b >= 0 && a < nx && b < ny && ink[b * nx + a]) n++;
+      }
+      // (a speck of a dot, less than a twelfth of a cell across, would print as dirt)
+      const r = most * Math.sqrt(n / all);
+      if (r >= cell * 0.06) out.push(...circle(cx, cy, r));
+    }
+  }
+  return out;
+}
 
 /** Offset a closed polygon sideways by d (mitered, with a limit so sharp spikes stay short). */
 function offset(p: Pt[], d: number): Pt[] {
@@ -320,6 +524,7 @@ interface FillOpts {
   /** how wide the wire fill's ring is (glyph.ts sets it by the fill's Size) */ line: number;
   /** how round pixels' corners and the ends of the lines' bars are, 0 to 1 (Roundness) */ roundness: number;
   /** the size the fill is set at, 0 to 1 (the Fill's Size slider, params.module) */ size: number;
+  /** how far a grid fill's cells spread, 0 to 1: 0.5 as each fill draws them (the Fill's Spread slider, params.dotGain) */ gain: number;
   /** stem thickness, and the thickness of a stroke running in direction (dx, dy) */ stem: number; thick: (dx: number, dy: number) => number;
   /** the letter's centerlines, placed like its outline (the inline runs down them) */ skeleton: Pt[][];
   /** whether a stroke ending at p runs on into the next letter (the entry and exit of a joined-up hand) */ joins: (p: Pt) => boolean;
@@ -658,19 +863,36 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
       }
       return out;
     }
-    case 'pixels': return polysToCmds(traceCells(rasterize(polys, cell), cell), cell * 0.5 * o.roundness);
+    case 'pixels': {
+      const G = rasterize(polys, cell);
+      if (o.gain === 0.5) return polysToCmds(traceCells(G, cell), cell * 0.5 * o.roundness);
+      // spread apart, each pixel its own square; spread together, the pixels grown and run into one, their joined
+      // outline rounded as the pixels' is (so a step in a staircase stays a step)
+      const s = cell * spread(o.gain, 0.3, 1.7);
+      return polysToCmds(o.gain < 0.5 ? apartCells(G, cell, s) : grownCells(G, cell, (s - cell) / 2), s * 0.5 * o.roundness);
+    }
+    case 'hex': {
+      const H = hexGrid(polys, cell), R = cell * 0.5 * o.roundness;
+      if (o.gain === 0.5) return polysToCmds(traceHexes(H, cell), R);
+      const k = spread(o.gain, 0.3, 1.6), apart = H.map(([i, j]) => hexagon(i, j, cell, k));
+      if (o.gain < 0.5) return polysToCmds(apart, R * k);
+      const ink = shape(apart);
+      return polysToCmds(combine([ink], ink.has), R * k);
+    }
     case 'dots': {
-      const G = dotGrid(polys, cell), out: Cmd[] = [];
+      const G = dotGrid(polys, cell), out: Cmd[] = [], r = cell * 0.43 * spread(o.gain, 0.3, 1.75);
       for (let j = 0; j < G.rows; j++) for (let i = 0; i < G.cols; i++) {
-        if (G.on[j * G.cols + i]) out.push(...circle((G.i0 + i + 0.5) * cell, (G.j0 + j + 0.5) * cell, cell * 0.43));
+        if (G.on[j * G.cols + i]) out.push(...circle((G.i0 + i + 0.5) * cell, (G.j0 + j + 0.5) * cell, r));
       }
       return out;
     }
+    case 'blobs': return blobs(dotGrid(polys, cell), cell, o.gain < 0.5 ? lerp(0.92, 0.6, o.gain * 2) : lerp(0.6, 0.15, o.gain * 2 - 1));
+    case 'halftone': return halftone(polys, cell, cell * 0.5 * spread(o.gain, 0.6, 1.5));
     case 'lines': {
       // one horizontal bar per grid row, as long as the letter is wide at that height
       let y0 = Infinity, y1 = -Infinity;
       for (const p of polys) for (const q of p) { y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
-      const h = cell * 0.52, out: Cmd[] = [];
+      const h = cell * 0.52 * spread(o.gain, 0.3, 1.92), out: Cmd[] = [];
       for (let j = Math.floor(y0 / cell); j * cell < y1; j++) {
         const yc = (j + 0.5) * cell;
         for (const [a, b] of spans(polys, yc)) {

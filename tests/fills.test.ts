@@ -6,16 +6,24 @@ import { combine, cutOut, shape, unite } from '../shared/engine/boolean';
 import type { Node } from '../shared/engine/outline';
 import { toPolys } from '../shared/engine/geom';
 import { signedArea } from '../shared/engine/geom';
-import { DEFAULTS, FILLS, sanitizeParams } from '../shared/params';
-import { coords } from './outlines';
+import { DEFAULTS, FILLS, GRID_FILLS, sanitizeParams, type Params } from '../shared/params';
+import { contours, coords } from './outlines';
 
-/* Fills: pixels and dots on one grid, every fill drawing every glyph, the Outline, Inline and Shadow, and the
-   nonzero joins and cuts (boolean.ts) they are made with, and a free font's letter drawn in pieces made one (unite).
-   `cmds` are font units, y up. */
+/* Fills: the grid fills on one grid, every fill drawing every glyph, Spread, the Hexagons, Blobs and Halftone, the
+   Outline, Inline and Shadow, Rough edges, and the nonzero joins and cuts (boolean.ts) they are made with, and a free
+   font's letter drawn in pieces made one (unite). `cmds` are font units, y up. */
+
+/** How much of a box round the letter its ink covers, sampled every `step` units. */
+function inkArea(cmds: Parameters<typeof toPolys>[0], step = 4) {
+  const ink = shape(toPolys(cmds));
+  let n = 0;
+  for (let x = -200; x < 1200; x += step) for (let y = -400; y < 1000; y += step) if (ink.has(x, y)) n++;
+  return n * step * step;
+}
 
 describe('fills: fill, module', () => {
-  it('pixel and dot fills sit on one grid across the line', () => {
-    for (const fill of ['pixels', 'dots'] as const) {
+  it('the grid fills sit on one grid across the line', () => {
+    for (const fill of GRID_FILLS.filter(f => f !== 'lines')) {
       const f = buildFont({ ...DEFAULTS, fill });
       const cell = f.m.cell;
       assert.ok(cell > 0);
@@ -82,6 +90,79 @@ describe('fills: fill, module', () => {
     assert.ok(!ink.has(x1 + 2, y), 'a gap beside it');
     assert.ok(ink.has(x1 + f.m.s * 0.4, y - f.m.s * 0.5), 'the shadow beyond the gap');
     assert.ok(g.adv > l.adv, 'the shadow widens the letter');
+  });
+
+  it('Spread draws a grid fill as it was in the middle, shrinks its cells apart below and grows them together above', () => {
+    for (const fill of GRID_FILLS) {
+      const at = (dotGain: number) => buildFont({ ...DEFAULTS, weight: 0.6, module: 0.6, fill, dotGain }).glyph('n')!;
+      assert.equal(at(0.5).d, buildFont({ ...DEFAULTS, weight: 0.6, module: 0.6, fill }).glyph('n')!.d, fill);
+      const a = [0, 0.25, 0.5, 0.75, 1].map(v => inkArea(at(v).cmds));
+      for (let i = 1; i < a.length; i++) assert.ok(a[i] > a[i - 1], `${fill}: more ink as it spreads (${a.join(', ')})`);
+    }
+    // pixels apart are a square each; together, one outline for the n's two stems and arch
+    const pixels = (dotGain: number) => buildFont({ ...DEFAULTS, weight: 0.6, module: 0.6, fill: 'pixels', dotGain }).glyph('n')!;
+    assert.ok(contours(pixels(0.2).d) > 20);
+    assert.equal(contours(pixels(0.8).d), 1);
+  });
+
+  it('hexagons tile the letter, sharing their sides, so it reads as solid as the letter', () => {
+    const p: Params = { ...DEFAULTS, weight: 0.6, module: 0.7 }, f = buildFont({ ...p, fill: 'hex' });
+    for (const ch of 'HOe') {
+      const g = f.glyph(ch)!, solid = inkArea(buildFont(p).glyph(ch)!.cmds), hex = inkArea(g.cmds);
+      assert.ok(Math.abs(hex / solid - 1) < 0.25, `${ch}: ${hex} against ${solid}`);
+      // (an H's stems and bar one outline, the O's ring an outline and its hole)
+      assert.equal(contours(g.d), ch === 'H' ? 1 : 2, ch);
+      // every corner of a hexagon's side: the sides are all a hexagon's long, standing at 30°, 90° or 150°
+      const polys = toPolys(g.cmds), side = f.m.cell / Math.sqrt(3);
+      for (const q of polys) for (let i = 0; i < q.length; i++) {
+        const a = q[i], b = q[(i + 1) % q.length];
+        assert.ok(Math.abs(Math.hypot(b.x - a.x, b.y - a.y) - side) < 0.01, `${ch}: a side ${Math.hypot(b.x - a.x, b.y - a.y)} long`);
+      }
+    }
+  });
+
+  it('blobs run dots side by side together through a neck, apart at the least Spread and all one at the most', () => {
+    const p: Params = { ...DEFAULTS, weight: 0.7, module: 0.7 };
+    const dots = buildFont({ ...p, fill: 'dots' }).glyph('l')!, at = (dotGain: number) => buildFont({ ...p, fill: 'blobs', dotGain }).glyph('l')!;
+    // apart, a blob for every dot
+    assert.equal(contours(at(0).d), contours(dots.d));
+    // in the middle, the l's dots joined into one, with a hole between every four
+    const mid = at(0.5), polys = toPolys(mid.cmds);
+    assert.equal(polys.filter(q => signedArea(q) > 0).length, 1);
+    assert.ok(polys.filter(q => signedArea(q) < 0).length > 3);
+    // all one, and the holes filled in
+    assert.equal(contours(at(1).d), 1);
+  });
+
+  it('a halftone dot is bigger in the middle of a stroke than at its edge, and a speck outside it is left out', () => {
+    const f = buildFont({ ...DEFAULTS, weight: 0.9, module: 0.5, fill: 'halftone' }), g = f.glyph('l')!, solid = buildFont({ ...DEFAULTS, weight: 0.9 }).glyph('l')!;
+    const { xs } = coords(solid.cmds), mid = (Math.min(...xs) + Math.max(...xs)) / 2;
+    // each dot's middle and radius, from its box
+    const dots = toPolys(g.cmds).map(q => {
+      const qx = q.map(r => r.x), qy = q.map(r => r.y);
+      return { x: (Math.min(...qx) + Math.max(...qx)) / 2, y: (Math.min(...qy) + Math.max(...qy)) / 2, r: (Math.max(...qx) - Math.min(...qx)) / 2 };
+    }).filter(d => d.y > f.m.xh * 0.3 && d.y < f.m.xh * 0.7);
+    const inner = dots.filter(d => Math.abs(d.x - mid) < f.m.cell * 0.6), outer = dots.filter(d => Math.abs(d.x - mid) > f.m.s / 2);
+    assert.ok(inner.length && outer.length);
+    assert.ok(Math.min(...inner.map(d => d.r)) > Math.max(...outer.map(d => d.r)));
+    assert.ok(dots.every(d => d.r >= f.m.cell * 0.06 - 0.5));
+  });
+
+  it('rough edges move the edges in and out but keep the ink, the hairlines and the counters, the same each time', () => {
+    for (const [id, chars] of [['didone', 'aeHs'], ['grotesque', 'Bg8']] as const) {
+      const p = STYLES.find(s => s.id === id)!.params, solid = buildFont(p), rough = buildFont({ ...p, rough: 1 });
+      for (const ch of chars) {
+        const g = rough.glyph(ch)!, a = inkArea(g.cmds), b = inkArea(solid.glyph(ch)!.cmds);
+        assert.notEqual(g.d, solid.glyph(ch)!.d);
+        assert.ok(Math.abs(a / b - 1) < 0.08, `${id} ${ch}: ink ${a} against ${b}`);
+        // (the ink made one first: as many outlines and holes as the letter has, read as one)
+        const ink = shape(toPolys(solid.glyph(ch)!.cmds));
+        assert.equal(contours(g.d), combine([ink], ink.has).length, `${id} ${ch}`);
+        assert.equal(g.d, buildFont({ ...p, rough: 1 }).glyph(ch)!.d);
+      }
+    }
+    // on every fill (and on a free font's letters: free-fonts.test.ts)
+    for (const fill of FILLS) assert.notEqual(buildFont({ ...DEFAULTS, fill, rough: 0.5 }).glyph('a')!.d, buildFont({ ...DEFAULTS, fill }).glyph('a')!.d, fill);
   });
 
   it('makes a letter drawn in overlapping pieces one outline, keeping its curves and its winding', () => {

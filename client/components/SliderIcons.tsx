@@ -158,6 +158,10 @@ const SLIDER: Record<string, ReactNode> = {
   // —— Effects
   // grid size: a grid of dots
   module: <><circle className="solid" cx="5" cy="5" r="1.6" /><circle className="solid" cx="10" cy="5" r="1.6" /><circle className="solid" cx="15" cy="5" r="1.6" /><circle className="solid" cx="5" cy="10" r="1.6" /><circle className="solid" cx="10" cy="10" r="1.6" /><circle className="solid" cx="15" cy="10" r="1.6" /><circle className="solid" cx="5" cy="15" r="1.6" /><circle className="solid" cx="10" cy="15" r="1.6" /><circle className="solid" cx="15" cy="15" r="1.6" /></>,
+  // dots growing until they run together
+  dotGain: <><circle className="solid" cx="3.5" cy="10" r="1.2" /><circle className="solid" cx="8.6" cy="10" r="2.3" /><circle className="solid" cx="15" cy="10" r="3.5" /></>,
+  // a stem whose edge wanders, beside a ruled one
+  rough: <><path className="faint" d="M4 3.5v13" /><path className="solid" d="M7.5 3.5h5.2l-.6 1.5.8 1.3-.7 1.6.6 1.3-.8 1.6.7 1.5-.7 1.4.8 1.5-.6 1.8H7.5z" /></>,
   // an O cut into two halves
   stencil: <path d="M12 3.82a6.5 6.5 0 0 1 0 12.36M8 16.18a6.5 6.5 0 0 1 0-12.36" />,
   // Stencil's Thickness, the gap between two strokes widening. Stencil's and Slice's Thickness slider shares the key

@@ -487,6 +487,10 @@ describe("TypeLab's own fonts", () => {
     assert.ok(!twin.drawn && twin.M[2] > 0.15, `the twin's g leans (${twin.M[2]})`);
     // Hand-drawn moves the font's own letters, not only where they sit
     assert.ok(!same((await design('grotesque', { wobble: 1 })).glyph('H')!, sans.glyph('H')!), 'a hand-drawn H');
+    // Rough edges and the new grid fills draw on the font's own letters
+    for (const more of [{ rough: 0.6 }, { fill: 'hex' }, { fill: 'blobs' }, { fill: 'halftone' }] as Partial<Params>[]) {
+      assert.ok(!same((await design('grotesque', more)).glyph('a')!, sans.glyph('a')!), JSON.stringify(more));
+    }
     // Joins fills the narrow crotches and Counters rounds the square corners, each leaving the other's be
     const joins = await design('grotesque', { joinRound: 1 }), counters = await design('grotesque', { innerRound: 1 });
     for (const ch of 'VvMN') assert.ok(!same(joins.glyph(ch)!, sans.glyph(ch)!) && same(counters.glyph(ch)!, sans.glyph(ch)!), `Mainline's ${ch}: crotches`);
