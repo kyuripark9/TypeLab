@@ -23,7 +23,9 @@
   --accent: #cc4516; --accent-ink: #a8390d; --accent-soft: rgba(204, 69, 22, .12);
   /* every letter in sync is the accent itself */
   --sync: var(--accent); --sync-ink: var(--accent-ink); --sync-soft: var(--accent-soft);
-  --custom: #2b55f5; --custom-ink: #1d3fcc; --custom-soft: rgba(43, 85, 245, .12); --custom-tint: #e8edfe; --custom-wash: #f6f8ff;
+  /* one letter alone is a printer's deep blue, quiet enough to sit by the orange on the ivory, its pale shades
+     faintly blue rather than lilac */
+  --custom: #225b90; --custom-ink: #0b4475; --custom-soft: rgba(34, 91, 144, .12); --custom-tint: #e3eaf2; --custom-wash: #f5f8fc;
   --warn-ink: #a3531c; --warn-tint: #f8ebe2;
   --danger: #b3261e; --danger-hover: #8c1d17; --danger-wash: #fbeceb;
   --grid-shared: #2a9db5; --grid-own: #d0458a; --snap: #d94f8c;
