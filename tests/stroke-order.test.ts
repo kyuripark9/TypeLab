@@ -25,7 +25,7 @@ const DESIGNS: [string, Partial<Params>][] = [
   ['defaults', {}], ['story=single', { story: 'single' }], ['aForm=spur', { aForm: 'spur' }],
   ['gForm=mirrored', { gForm: 'mirrored' }], ['gForm=double', { gForm: 'double' }], ['kForm=stem', { kForm: 'stem' }], ['kForm=bar', { kForm: 'bar' }],
   ['iForm=bars', { iForm: 'bars' }], ['sForm=flat', { sForm: 'flat' }], ['qForm=inside', { qForm: 'inside' }], ['qForm=sweep', { qForm: 'sweep' }],
-  ['rForm=loop', { rForm: 'loop' }], ['yForm=cup', { yForm: 'cup' }], ['diagonals=upright', { diagonals: 'upright' }], ['diagonals=arch', { diagonals: 'arch' }],
+  ['rForm=loop', { rForm: 'loop' }], ['apexForm=serif,serif=true', { apexForm: 'serif', serif: true }], ['mForm=raised', { mForm: 'raised' }], ['jForm=cup', { jForm: 'cup' }], ['yForm=cup', { yForm: 'cup' }], ['diagonals=upright', { diagonals: 'upright' }], ['diagonals=arch', { diagonals: 'arch' }],
   ['bends=round', { bends: 'round' }], ['bowlJoin=square', { bowlJoin: 'square' }], ['bowlJoin=square,weight=1,width=0', { bowlJoin: 'square', weight: 1, width: 0 }],
   ['bowlJoin=square,fill=wire', { bowlJoin: 'square', fill: 'wire' }],
   ['cursive=0.3', { cursive: 0.3 }], ['cursive=1', { cursive: 1 }], ['scriptForm=script', { scriptForm: 'script' }]

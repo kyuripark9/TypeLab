@@ -15,7 +15,8 @@ const ALSO: Partial<Record<ActiveKey, string>> = {
   dotGain: 'bleed merge join apart gap', rough: 'distressed worn letterpress grunge ink bleed texture stamp',
   terminal: 'tip ending finish sharp angled slanted cut tapered rounded teardrop wedge', serif: 'feet slab', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
   aperture: 'opening mouth', extenders: 'ascender descender', build: 'blocks stroke construction', blockForm: 'block slot plain square eurostile grid cell pixel modular node dot matrix', stencil: 'gap cut break', slice: 'cut line split',
-  squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', joinRound: 'crotch fillet', innerRound: 'inside corners', dots: 'tittle period i j'
+  squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', joinRound: 'crotch fillet', innerRound: 'inside corners', dots: 'tittle period i j',
+  apexForm: 'apex peak serif top latin clarendon', mForm: 'vertex middle point short raised', jForm: 'hook cup tail'
 };
 
 export interface SettingHit {

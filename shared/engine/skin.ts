@@ -543,7 +543,7 @@ export function skinRig(font: RigLetters, ch: string): SkinRig | null {
     its own comes from the font's twin (formChanged and twinGlyph in free-letters.ts), and skinFollows says the setting
     reaches it (see FORM_FOLLOWS). */
 export const FORM_LETTERS = {
-  aForm: 'a', gForm: 'g', kForm: 'kK', iForm: 'IiJl', sForm: 'sS$', diagonals: 'AVWvw', yForm: 'Yy', qForm: 'Q', rForm: 'R',
+  aForm: 'a', gForm: 'g', kForm: 'kK', iForm: 'IiJl', sForm: 'sS$', diagonals: 'AVWvw', yForm: 'Yy', qForm: 'Q', rForm: 'R', apexForm: 'A', mForm: 'M', jForm: 'J',
   bowlJoin: 'abdgpqhmnru', bends: 'AMNVWYZvwyz', terminalRun: 'acefjrstyCGJS235690?'
 } satisfies Partial<Record<keyof Params, string>>;
 /** The letters each setting that draws letters in another form reaches, for skinFollows: FORM_LETTERS's, the a's

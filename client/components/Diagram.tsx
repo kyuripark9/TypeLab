@@ -207,8 +207,8 @@ export function BarEndsIcon({ ends }: { ends: BarEnds }) {
 const formPaths = new Map<string, { d: string; box: string }>();
 export function FormIcon({ k, id }: { k: FormKey; id: string }) {
   const icon = cached(formPaths, `${k}:${id}`, () => {
-    // (block letters are drawn built from blocks)
-    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, ...(k === 'blockForm' ? { build: 'blocks' } : {}), [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
+    // (block letters are drawn built from blocks, and the A's top with serifs, which it lays one across)
+    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, ...(k === 'blockForm' ? { build: 'blocks' } : k === 'apexForm' ? { serif: true } : {}), [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
     return { d: g?.d ?? '', box: `0 ${n1(-f.m.asc - 30)} ${n1(g?.adv ?? 500)} ${n1(f.m.asc - f.m.desc + 60)}` };
   });
   return <svg viewBox={icon.box} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;

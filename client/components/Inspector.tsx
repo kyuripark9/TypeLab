@@ -48,6 +48,7 @@ function glyphParams(g: Glyph, ch: string, serif: boolean): ControlKey[] {
     if (ch === 'k' || ch === 'K') p.push('kForm');
     if (ch === 's' || ch === 'S' || ch === '$') p.push('sForm');
     if ('IJil'.includes(ch)) p.push('iForm');
+    if (ch === 'J') p.push('jForm');
     if ('Yy'.includes(ch)) p.push('yForm');
     if ('Wvw'.includes(ch)) p.push('diagonals');
     if ('NWYZvwyz'.includes(ch)) p.push('bends');

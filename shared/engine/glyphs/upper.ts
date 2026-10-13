@@ -1,6 +1,7 @@
 /* The capitals, A to Z (see index.ts for how a glyph is drawn and registered). */
 import { defGlyph as def, type Builder, type Metrics } from '../font';
-import { lerp } from '../geom';
+import { clipPoly, lerp } from '../geom';
+import { buildSerif } from '../stroke';
 import type { Cmd } from '../types';
 import { H, J, T, archUp, arched, bowlRx, capAperture, capBowl, cup, cupY, footIn, hookU, iBars, kArms, openBowl, oval, sShape, tailEnd, tailK, upright, uprightV, uprightW, zed, zig } from './shared';
 import { POINTED, bendTurn, placeTurns, roundBends, turnStroke } from './turns';
@@ -20,15 +21,24 @@ def('A', [0.25, 0.25], (g, m) => {
     turnStroke(g, m, [[l, 0], [xr, C], [xr, 0]], [{ i: 1, ax: 1, at: C, dir: 1 }], { s: H, e: H, part: 'diagonal', serifS: 'both', serifE: 'both' });
     return W;
   }
-  const W = m.W(620), C = m.cap, l = m.s * 0.55, r = W - l, cx = W / 2;
-  const ys = zig(g, m, [l, cx, r], C, 0, false, { part: 'stem' });
+  const W = m.W(620), C = m.cap, l = m.s * 0.55, r = W - l, cx = W / 2, topSerif = m.p.apexForm === 'serif' && m.serif;
+  // (under a serif the peak stops at the cap height, whatever Peaks asks)
+  const ys = zig(g, m, [l, cx, r], C, 0, false, { part: 'stem' }, topSerif ? { y1: C } : undefined);
   // (Crossbar moves this bar 0.36 of the cap height; skin.ts's BARS.A moves a free font's A's 0.26, as the arched A's)
   const by = C * (0.12 + 0.36 * m.bar), f = by / ys[1];
   const xl = lerp(l, cx, f), xr = lerp(r, cx, f);
   g.line(xl, by, xr, by, { s: J, e: J, part: 'crossbar' });
   g.counter([[cx, ys[1]], [xl, by], [xr, by]]);
+  // a serif laid across the top, both ways from the peak and a third longer than a stem's, as it spans two strokes;
+  // its brackets run down into the legs, each half cut back along the inner edge of its leg so none of it reaches
+  // into the counter (drawn last, so the A's other strokes keep their ids)
+  if (topSerif) {
+    const pts = buildSerif({ x: cx, y: C, dx: 0, dy: 1, t: 1, type: 'flat' }, 'both', m.ctx, 4 / 3);
+    const a = Math.atan2(cx - l, ys[1]), sin = Math.sin(a), cos = Math.cos(a), yIn = ys[1] - m.thin / 2 / sin;
+    if (pts) for (const side of [-1, 1]) g.blob(clipPoly(pts, { planes: [{ x: cx, y: yIn, nx: -side, ny: 0 }, { x: cx, y: yIn, nx: -side * cos, ny: -sin }] }), 'serif');
+  }
   return W;
-}, { params: ['diagonals', 'bends', 'apex', 'crossbar', 'weight'] });
+}, { params: ['diagonals', 'apexForm', 'bends', 'apex', 'crossbar', 'weight'] });
 
 def('B', [1, 0.55], (g, m) => {
   // (skin.ts's BARS.B moves a free font's B's waist as far, 0.14 of the cap height across Crossbar)
@@ -92,9 +102,16 @@ def('I', [1, 1], (g, m) => {
 
 def('J', [0.4, 1], (g, m) => {
   // barred, a bar runs in across the top and the J is as wide as a U
-  const bar = iBars(m), W = m.W(bar ? 540 : 390), C = m.cap, hs = m.s / 2, hh = m.hT / 2, xr = W - hs, xl = hs, yb = -m.os + hh;
+  const bar = iBars(m), cupJ = m.p.jForm === 'cup', W = m.W(bar ? 540 : cupJ ? 470 : 390), C = m.cap, hs = m.s / 2, hh = m.hT / 2, xr = W - hs, xl = hs, yb = -m.os + hh;
   const ry = yb + Math.min((xr - xl) * 0.55, C * 0.4), cx = (xl + xr) / 2;
   const head: Cmd[] = bar ? [['M', 0, C - hh], ['L', xr, C - hh]] : [['M', xr, C]];
+  if (cupJ) {
+    // a cup: the foot turns right round as a U's and its left side rises half the cap height, serifed inward at its
+    // end and both ways at the top
+    const cy = yb + (xr - xl) / 2;
+    g.path([...head, ['L', xr, cy], ['vh', cx, yb], ['hv', xl, cy], ['L', xl, Math.max(cy, C * 0.5)]], { e: T, part: 'stem', serifS: bar ? null : 'both', serifE: 'b' });
+    return W;
+  }
   g.path([...head, ['L', xr, ry], ['vh', cx, yb], ['hv', xl, ry, { u1: hookU(m, 0.6) }]], { e: T, part: 'stem', serifS: bar ? null : 'a' });
   const e = m.qpt(cx, yb, xl, ry, 'hv', hookU(m, 0.6));
   tailEnd(g, e.x, e.y, W);
@@ -115,20 +132,24 @@ def('L', [1, 0.3], (g, m) => {
   return W;
 });
 
+/** How far up the raised M's middle stops, as a share of the cap height (see M_FORMS). */
+const M_RAISED = 0.25;
 def('M', [1, 1], (g, m) => {
   const W = m.W(740), C = m.cap, hs = m.s / 2;
   if (arched(m)) { archUp(g, m, W, C); g.stem(W / 2, 0, C, { s: 'flat', e: J, serifS: 'both' }); return W; }
+  // the foot of the V: on the baseline, or raised a quarter of the way up
+  const yv = m.p.mForm === 'raised' ? C * M_RAISED : 0;
   if (roundBends(m)) {
     // one stroke, bent round at the top of each stem and at the foot of the V
-    turnStroke(g, m, [[hs, 0], [hs, C], [W / 2, 0], [W - hs, C], [W - hs, 0]],
-      [{ i: 1, ax: 1, at: C, dir: 1 }, { i: 2, ax: 1, at: 0, dir: -1 }, { i: 3, ax: 1, at: C, dir: 1 }], { s: H, e: H, part: 'stem', serifS: 'both', serifE: 'both' });
+    turnStroke(g, m, [[hs, 0], [hs, C], [W / 2, yv], [W - hs, C], [W - hs, 0]],
+      [{ i: 1, ax: 1, at: C, dir: 1 }, { i: 2, ax: 1, at: yv, dir: -1 }, { i: 3, ax: 1, at: C, dir: 1 }], { s: H, e: H, part: 'stem', serifS: 'both', serifE: 'both' });
     return W;
   }
   g.stem(hs, 0, C, { serifS: 'both', serifE: 'a', w: lerp(1, 0.35, m.p.contrast) });
   g.stem(W - hs, 0, C, { serifS: 'both', serifE: 'b' });
-  zig(g, m, [hs, W / 2, W - hs], C, 0, true, { serifS: null, serifE: null }, { x0: 0, x1: W });
+  zig(g, m, [hs, W / 2, W - hs], C, yv, true, { serifS: null, serifE: null }, { x0: 0, x1: W });
   return W;
-}, { params: ['bends', 'apex', 'weight', 'contrast'] });
+}, { params: ['mForm', 'bends', 'apex', 'weight', 'contrast'] });
 
 def('N', [1, 1], (g, m) => {
   const W = m.W(600), C = m.cap, hs = m.s / 2;

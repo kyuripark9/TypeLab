@@ -2,7 +2,7 @@
    shared/params/spec.ts), which shapes each picker offers, and which control a key belongs to. */
 import { PARAM_KEYS, SPECS, formOf, type CategoryId, type ControlDef, type ControlKey, type SubControlDef, type SubKey, type SubKeyOf } from '../params';
 import { CATEGORIES } from './pages';
-import type { AForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, GForm, IForm, KForm, Mirror, Params, QForm, RForm, ScriptForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from '../params';
+import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, GForm, IForm, JForm, KForm, MForm, Mirror, Params, QForm, RForm, ScriptForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from '../params';
 
 export type { CategoryId, ControlKey } from '../params';
 
@@ -117,7 +117,7 @@ const ALL_SUBS = { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERI
 export const SUBS = ALL_SUBS as Record<SubKey, SubControlDef>;
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
-export type FormKey = 'build' | 'blockForm' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'scriptForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm';
+export type FormKey = 'build' | 'blockForm' | 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'scriptForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm' | 'apexForm' | 'mForm' | 'jForm';
 // (a control of type 'form' draws its shapes from FORM_OPTIONS, so each needs its entry)
 type FormControl = { [K in ControlKey]: (typeof SPECS)[K] extends { control: { type: 'form' } } ? K : never }[ControlKey];
 ({}) as { [K in Exclude<FormControl, FormKey>]: K } satisfies Record<string, never>;
@@ -126,6 +126,9 @@ export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Par
   blockForm: { ch: 'R', options: [['basic', 'Basic'], ['slots', 'Slots'], ['grid', 'Grid']] as [BlockForm, string][] },
   gForm: { ch: 'g', options: [['hook', 'Hook'], ['mirrored', 'Mirrored'], ['double', 'Two-storey']] as [GForm, string][] },
   kForm: { ch: 'k', options: [['arm', 'From arm'], ['stem', 'From stem'], ['bar', 'On a bar']] as [KForm, string][] },
+  jForm: { ch: 'J', options: [['hook', 'Hook'], ['cup', 'Cup']] as [JForm, string][] },
+  apexForm: { ch: 'A', options: [['plain', 'Peak'], ['serif', 'Serif on top']] as [ApexForm, string][] },
+  mForm: { ch: 'M', options: [['full', 'To the baseline'], ['raised', 'Raised']] as [MForm, string][] },
   iForm: { ch: 'i', options: [['plain', 'Plain'], ['bars', 'Bars']] as [Exclude<IForm, 'auto'>, string][] },
   sForm: { ch: 's', options: [['curved', 'Curved'], ['flat', 'Flat spine']] as [SForm, string][] },
   diagonals: { ch: 'A', options: [['symmetric', 'Symmetric'], ['upright', 'Upright'], ['arch', 'Arches']] as [Diagonals, string][] },

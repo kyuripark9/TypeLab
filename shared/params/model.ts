@@ -3,7 +3,7 @@
    entry there (the compiler asks for it). */
 import type { Drawn } from '../engine/outline';
 import type { FreeAt, GlyphParams } from './spec';
-import type { AForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, GForm, IForm, KForm, Mirror, QForm, RForm,
+import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, GForm, IForm, JForm, KForm, MForm, Mirror, QForm, RForm,
   ScriptForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from './options';
 
 export interface Params {
@@ -64,6 +64,9 @@ export interface Params {
   /** how bowls meet their stems (see BOWL_JOINS) */ bowlJoin: BowlJoin;
   /** the shape of the g (see G_FORMS) */ gForm: GForm;
   /** where the arm and leg of k and K meet (see K_FORMS) */ kForm: KForm;
+  /** the foot of the J, a hook or a cup (see J_FORMS) */ jForm: JForm;
+  /** the top of the A, a peak or under a serif (see APEX_FORMS) */ apexForm: ApexForm;
+  /** how far down the middle of the M reaches (see M_FORMS) */ mForm: MForm;
   /** square or round dots (see DOTS) */ dots: Dots;
   /** how big the dots are: 0.5 as usual */ dotSize: number;
   /** plain I i J l, or with bars (see I_FORMS) */ iForm: IForm;

@@ -6,11 +6,11 @@ import { DEFAULTS, type Params } from '../shared/params';
 import { coords, xsOf } from './outlines';
 
 /* The letters' forms and heights: the a's storey and spur, how bowls join and overlap their stems, the forms of
-   g, k, Q, R, s, Y and i/l/I/J, dots, diagonals, bends, box bowls, mirrored letters, the crossbar's height, and
+   g, k, Q, R, s, Y and i/l/I/J, the A's top, the M's middle and the J's foot, dots, diagonals, bends, box bowls, mirrored letters, the crossbar's height, and
    the descender, stem and tail lengths. Outlines: `d` is SVG path data (y down); `cmds`, strokes, skeleton and
    marks are font units, y up (see outlines.ts). */
 
-describe('letter forms: story, overlap, bowlJoin, gForm, qForm, kForm, dots, dotSize, iForm, diagonals, bends, bowlForm, boxRound, aForm, crossbar, rForm, yForm, sForm, mirror', () => {
+describe('letter forms: story, overlap, bowlJoin, gForm, qForm, kForm, dots, dotSize, iForm, diagonals, bends, bowlForm, boxRound, aForm, crossbar, rForm, apexForm, mForm, jForm, yForm, sForm, mirror', () => {
   it('a picked storey overrides the one the other settings choose', () => {
     const single = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p }).eff.singleStory;
     const a = (p: Partial<Params>) => buildFont({ ...DEFAULTS, ...p }).glyph('a')!.d;
@@ -236,6 +236,28 @@ describe('letter forms: story, overlap, bowlJoin, gForm, qForm, kForm, dots, dot
     // the bowl runs on round into the leg in one stroke, beside the stem
     assert.equal(f('loop').glyph('R')!.strokes.length, 2);
     assert.equal(f('leg').glyph('P')!.d, f('loop').glyph('P')!.d);
+  });
+
+  it('the A can lay a serif across its top, the M stop its middle short of the baseline, and the J turn up in a cup', () => {
+    const f = (p: Partial<Params>) => buildFont({ ...DEFAULTS, serif: true, ...p });
+    const cap = f({}).m.cap;
+    // the A's ink along its top: a peak, or a serif reaching out both ways, cut flat on the cap height
+    const top = (p: Partial<Params>) => { const { xs, ys } = coords(f(p).glyph('A')!.cmds), at = xs.filter((_, i) => ys[i] > cap - 2); return Math.max(...at) - Math.min(...at); };
+    assert.ok(top({ apexForm: 'serif' }) > 4 * top({}), `${top({ apexForm: 'serif' })} against ${top({})}`);
+    assert.ok(Math.max(...coords(f({ apexForm: 'serif', apex: 0 }).glyph('A')!.cmds).ys) <= cap + 0.5, 'no peak above the serif');
+    // drawn only while the serifs are on
+    assert.equal(f({ serif: false, apexForm: 'serif' }).glyph('A')!.d, f({ serif: false }).glyph('A')!.d);
+    // the M's middle meets a quarter of the way up
+    const vertex = (mForm: Params['mForm']) => f({ mForm }).glyph('M')!.marks.find(k => k.type === 'vertex')!.y;
+    assert.ok(vertex('full') < cap * 0.02 && Math.abs(vertex('raised') - cap * 0.25) < 1, `${vertex('full')} ${vertex('raised')}`);
+    for (const bends of ['sharp', 'round'] as const) assert.notEqual(f({ bends, mForm: 'raised' }).glyph('M')!.d, f({ bends }).glyph('M')!.d, bends);
+    // the cup J stands on the baseline, its left side rising half the cap height to a serif turned in; the hook stays low
+    const J = (jForm: Params['jForm']) => coords(f({ jForm }).glyph('J')!.cmds), left = (jForm: Params['jForm']) => {
+      const { xs, ys } = J(jForm), x0 = Math.min(...xs);
+      return Math.max(...ys.filter((_, i) => xs[i] < x0 + 30));
+    };
+    assert.ok(left('cup') > cap * 0.45 && left('hook') < cap * 0.4, `${left('cup')} ${left('hook')}`);
+    assert.ok(Math.min(...J('cup').ys) > -f({}).m.os - 1);
   });
 
   it('the Y can be a cup, and the tail of Q can run from inside the bowl', () => {

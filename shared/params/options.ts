@@ -70,6 +70,14 @@ export const SCRIPT_FORMS = ['auto', 'print', 'script'] as const;
 export const S_FORMS = ['curved', 'flat'] as const;
 /** The foot of the a: a plain stem, or a spur running out to the right along the baseline. */
 export const A_FORMS = ['plain', 'spur'] as const;
+/** The top of the A: its diagonals meeting in a peak, or under a serif laid across it, as in Clarendons and Latin
+    display types (drawn while the serifs are on). */
+export const APEX_FORMS = ['plain', 'serif'] as const;
+/** The middle of the M: its diagonals meeting on the baseline, or raised, meeting a quarter of the way up. */
+export const M_FORMS = ['full', 'raised'] as const;
+/** The J: its foot hooking out to the left, or a cup whose left side rises half the cap height, its end serifed inward
+    while the serifs are on. */
+export const J_FORMS = ['hook', 'cup'] as const;
 /** What the letters are built from: strokes drawn along a skeleton, or solid blocks (see BLOCK_FORMS). */
 export const BUILDS = ['strokes', 'blocks'] as const;
 /** Which block letters Blocks builds: plain block letters with a real lowercase (basic-blocks.ts), solid blocks with
@@ -98,6 +106,9 @@ export type Dots = (typeof DOTS)[number];
 export type IForm = (typeof I_FORMS)[number];
 export type SForm = (typeof S_FORMS)[number];
 export type AForm = (typeof A_FORMS)[number];
+export type ApexForm = (typeof APEX_FORMS)[number];
+export type MForm = (typeof M_FORMS)[number];
+export type JForm = (typeof J_FORMS)[number];
 export type TerminalRun = (typeof TERMINAL_RUNS)[number];
 export type BarEnds = (typeof BAR_ENDS)[number];
 export type Build = (typeof BUILDS)[number];

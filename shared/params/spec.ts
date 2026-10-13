@@ -13,7 +13,7 @@
    control's nested sliders, matters. */
 import type { Params } from './model';
 import { isCornerId, isEndId, isJoinId, isStrokeId, isTurnId } from './scales';
-import { A_FORMS, BAR_ENDS, BENDS, BLOCK_FORMS, BOWL_FORMS, BOWL_JOINS, BUILDS, DIAGONALS, DOTS, FILLS, G_FORMS, I_FORMS, K_FORMS, MIRRORS, Q_FORMS,
+import { A_FORMS, APEX_FORMS, BAR_ENDS, BENDS, BLOCK_FORMS, BOWL_FORMS, BOWL_JOINS, BUILDS, DIAGONALS, DOTS, FILLS, G_FORMS, I_FORMS, J_FORMS, K_FORMS, M_FORMS, MIRRORS, Q_FORMS,
   R_FORMS, S_FORMS, SCRIPT_FORMS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, STORIES, TERMINAL_FORM_IDS, TERMINAL_RUNS,
   TERMINALS, Y_FORMS } from './options';
 
@@ -237,12 +237,18 @@ export const SPECS = {
     explain: 'Two-storey like book type, or one bowl like handwriting. Its foot can run out in a spur along the baseline.' } }),
   diagonals: option(DIAGONALS, 'symmetric', { free: true, control: { cat: 'letters', type: 'form', label: 'Letters A, V and W', friendly: 'Straighten or arch A, V and W', tech: 'Symmetric, upright or arched diagonals', demo: 'AVW',
     explain: 'Two matching diagonals, or one diagonal leaning on an upright stem at the right (the upright A has no crossbar). Arches have no diagonals at all: A and N bend over like an upturned U, M with a stem down the middle, V is a U and W a U with a stem up the middle. Also v and w.' } }),
+  apexForm: option(APEX_FORMS, 'plain', { free: true, control: { cat: 'letters', type: 'form', label: 'Letter A', friendly: 'Choose the top of the A', tech: 'A apex · Apex serif', demo: 'AH',
+    explain: 'Its diagonals meet in a peak, pointed or flat as Peaks sets it, or under a serif laid across the top, as in Clarendons and Latin display types. The serif is drawn while the serifs are on.' } }),
   gForm: option(G_FORMS, 'hook', { free: true, control: { cat: 'letters', type: 'form', label: 'Letter g', friendly: 'Choose the shape of the g', tech: 'Single- or double-storey g', demo: 'gag',
     explain: 'The tail hooks back under the bowl, or drops from its left side and hooks out to the right; or two storeys, as in book type: a small bowl with an ear, linked to a loop under the baseline.' } }),
   iForm: option(I_FORMS, 'auto', { free: true, control: { cat: 'letters', type: 'form', label: 'Letters I, J, i and l', friendly: 'Give I, J, i and l bars', tech: 'Barred I, J, i and l', demo: 'IJil',
     explain: 'A plain stem, or bars as in a typewriter face: i and l get a flag and a foot, I a bar at the top and foot, J a bar across the top.' } }),
+  jForm: option(J_FORMS, 'hook', { free: true, control: { cat: 'letters', type: 'form', label: 'Letter J', friendly: 'Choose the foot of the J', tech: 'J hook', demo: 'JU',
+    explain: 'The foot hooks out to the left, or turns right round into a cup whose left side rises half the cap height, its end serifed inward while the serifs are on.' } }),
   kForm: option(K_FORMS, 'arm', { free: true, control: { cat: 'letters', type: 'form', label: 'Letter k', friendly: 'Choose the joint of k', tech: 'k and K junction', demo: 'kK',
     explain: 'The leg springs from the arm, both meet at the stem, or both meet at the end of a short bar.' } }),
+  mForm: option(M_FORMS, 'full', { free: true, control: { cat: 'letters', type: 'form', label: 'Letter M', friendly: 'Choose how far down the middle of M reaches', tech: 'M vertex', demo: 'MN',
+    explain: 'The diagonals of the M meet on the baseline, or are raised to meet a quarter of the way up, as in many display serifs.' } }),
   qForm: option(Q_FORMS, 'crossing', { free: true, control: { cat: 'letters', type: 'form', label: 'Letter Q', friendly: 'Choose where the tail of Q goes', tech: 'Q tail', demo: 'QO',
     explain: 'The tail crosses the bowl at the bottom right, runs from inside the bowl into its bottom right corner, or sweeps out from under the bowl to the right in a long curve, as in book type.' } }),
   rForm: option(R_FORMS, 'leg', { free: true, control: { cat: 'letters', type: 'form', label: 'Letter R', friendly: 'Choose the leg of R', tech: 'R leg', demo: 'RP',

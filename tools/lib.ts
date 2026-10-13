@@ -38,7 +38,7 @@ export async function styleParams(id: string, free = false): Promise<Params> {
 }
 
 /** The settings that make setting `k` show at all: serifs on for the serif sliders (and the tip, base or inside
-    shape a finer one belongs to), its form for a stroke end's finer shape, the stencil or slice for their position
+    shape a finer one belongs to) and for the A's top serif, its form for a stroke end's finer shape, the stencil or slice for their position
     and rounding, and so on. The sweep and the golden probes try each setting in this context. */
 export function showContext(k: string): Partial<Params> {
   if (k.startsWith('serif') && k !== 'serif') {
@@ -57,7 +57,7 @@ export function showContext(k: string): Partial<Params> {
   return ({
     stencilPos: { stencil: 0.5 }, stencilRound: { stencil: 0.5 }, slicePos: { slice: 0.5 }, sliceRound: { slice: 0.5 },
     pinchPos: { pinch: 0.7 }, boxRound: { bowlForm: 'box' }, module: { fill: 'pixels' }, dotGain: { fill: 'pixels' }, swell: { scriptForm: 'script' },
-    dotSize: { dots: 'round' }, blockForm: { build: 'blocks' }
+    dotSize: { dots: 'round' }, blockForm: { build: 'blocks' }, apexForm: { serif: true }
   } as Record<string, Partial<Params>>)[k] ?? {};
 }
 
