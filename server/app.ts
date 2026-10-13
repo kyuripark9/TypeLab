@@ -3,6 +3,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import express, { type NextFunction, type Request, type Response, type Router } from 'express';
 import { styleById } from '../shared/content';
 import { cleanName, slug, type DesignInput } from '../shared/design';
+import { cleanLog } from '../shared/letter-log';
 import { isValidParams, type Params } from '../shared/params';
 import { FREE_FAMILIES, parseFontId } from '../shared/free-fonts';
 import type { DesignStore } from './db';
@@ -19,12 +20,13 @@ class HttpError extends Error {
 
 const fields = (body: unknown) => (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
 
-/** Validate a design body. Params must already be valid: the client never sends partial ones. */
+/** Validate a design body. Params must already be valid: the client never sends partial ones. The letters' record of
+    their edits is only kept, so what of it doesn't read is dropped rather than refused. */
 function readDesign(body: unknown): DesignInput {
   const b = fields(body);
   if (!isValidParams(b.params)) throw new HttpError(400, 'params is missing or has invalid values');
   if (typeof b.styleId !== 'string' || !styleById(b.styleId)) throw new HttpError(400, 'styleId is not a known starting style');
-  return { name: cleanName(b.name), styleId: b.styleId, params: b.params };
+  return { name: cleanName(b.name), styleId: b.styleId, params: b.params, ...(b.log === undefined ? {} : { log: cleanLog(b.log) }) };
 }
 
 function readExport(body: unknown) {

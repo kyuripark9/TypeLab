@@ -35,8 +35,8 @@ Bodies are JSON (up to 4 MB). Errors answer `{ error }`.
 | GET | `/api/auth/google` | `?intent=signin` or `link`, `popup=1`, `back=/path` → a redirect to Google, which returns to `/api/auth/google/callback` |
 | DELETE | `/api/auth/google` | → `{ user }`, Google disconnected (needs a password set) |
 | GET | `/api/designs` | The owner's designs, newest first |
-| POST | `/api/designs` | `{ name, styleId, params }` → 201, the design |
-| GET, PUT, PATCH, DELETE | `/api/designs/:id` | Read; replace (`{ name, styleId, params }`); rename (`{ name }`); delete (204) |
+| POST | `/api/designs` | `{ name, styleId, params, log? }` → 201, the design |
+| GET, PUT, PATCH, DELETE | `/api/designs/:id` | Read; replace (`{ name, styleId, params, log? }`); rename (`{ name }`); delete (204) |
 | GET | `/api/free-fonts/:id` | A free font's letters (`FreeFontData`): an own font's from `fonts/` (`no-cache`, its ETag answers), any other fetched from Google Fonts the first time; 502 when that fails |
 | GET | `/api/free-fonts/:id/font.otf` | One of TypeLab's own fonts as an OpenType file, for the style cards' web fonts (`fontFileUrl`); 404 for any other |
 | POST | `/api/export/otf` | `{ name, params, member? }` → an `.otf`: the design as it is, installed as Regular, or with `member: { anchor, weight, italic }` that member of its family, as the family's `.zip` has it (`<slug>-<Style>.otf`) |
@@ -84,6 +84,8 @@ One SQLite file holds designs, users and sessions. Older databases must keep ope
 - `PRAGMA user_version` records the `PARAMS_VERSION` the stored params are written in; `upgrade()` runs
   `upgradeParams` over every row once, in a transaction (0 means version 1).
 - Every row's params pass `sanitizeParams` on the way out.
+- `designs.log` is added when missing (null: no record). `upgrade()` brings each record up with its design's params
+  (`upgradeLog`), and a record passes `cleanLog` on the way out.
 
 Test any schema change against a database in the old shape (tests/params.test.ts and the `design storage` test in
 tests/api.test.ts build one).

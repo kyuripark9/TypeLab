@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { styleById } from '../../shared/content';
 import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
+import { cleanLog, packLog, upgradeLog } from '../../shared/letter-log';
 import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../../shared/params';
 import { anchorOf, FAMILY_STYLES, ownStyle } from '../../shared/family';
 import { parseFontId, withoutReserved } from '../../shared/free-fonts';
@@ -233,7 +234,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   const exportJSON = () => {
     takeName();
     const s = useEditor.getState(), name = cleanName(s.name);
-    const data = { app: 'TypeLab', version: PARAMS_VERSION, name, styleId: s.styleId, params: s.params };
+    const data = { app: 'TypeLab', version: PARAMS_VERSION, name, styleId: s.styleId, params: s.params, log: packLog(s.log) };
     download(`${slug(name)}.typelab.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     setDone('json'); setError(null);
   };
@@ -245,7 +246,9 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     try {
       const o = JSON.parse(await file.text());
       if (!o || typeof o !== 'object' || !o.params || typeof o.params !== 'object') throw new Error();
-      actions.replaceParams(sanitizeParams(upgradeParams(o.params, typeof o.version === 'number' ? o.version : 1)), typeof o.styleId === 'string' ? o.styleId : undefined);
+      const version = typeof o.version === 'number' ? o.version : 1;
+      // the letters' record of their edits that came with it joins the open design's
+      actions.replaceParams(sanitizeParams(upgradeParams(o.params, version)), typeof o.styleId === 'string' ? o.styleId : undefined, cleanLog(upgradeLog(o.log, o.params, version)));
       if (typeof o.name === 'string') actions.setName(cleanName(o.name));
       actions.toast('Design file opened');
       onClose();

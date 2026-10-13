@@ -10,6 +10,7 @@ import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../sha
 import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
 import { DEFAULT_NAME, cleanName, type Design, type DesignInput } from '../../shared/design';
+import { cleanLog, mergeLogs, ownOf, packLog, recordEdits, sameOwn, withOwn, type LetterEdit, type LetterLog } from '../../shared/letter-log';
 import { SNAP_KINDS, type SnapKind } from '../lib/pen';
 import { PREFS, prefFlag, prefJson, prefOneOf, setPrefFlag, writePref } from '../lib/prefs';
 import { DEFAULTS, drawnAtOf, endCurl, endLength, freeAtOf, isGlyphKey, type GlyphParams, type IdKey, type NumericParam, type Params } from '../../shared/params';
@@ -32,11 +33,14 @@ const savedSnap = (): { on: boolean; kinds: SnapKind[] } => {
   return { on: true, kinds: [...SNAP_KINDS] };
 };
 
-interface Doc { designId: string | null; name: string; styleId: string; params: Params }
+interface Doc { designId: string | null; name: string; styleId: string; params: Params; log: LetterLog }
 
 export interface EditorState extends Doc {
   /** document snapshot at the last load/save; differs from the current one when dirty */
   saved: string;
+  /** each letter's record of its own edits (shared/letter-log.ts): what a committed change did to the letters'
+      own settings and drawings, kept past undo and saved with the design */
+  log: LetterLog;
   /** undo entries (see histSnap): the style and settings as loaded and after each committed change, oldest first, the last 200 kept */
   history: string[];
   /** the entry in `history` the design is at; undo and redo move it */
@@ -118,10 +122,10 @@ const readDoc = (snap: string): Pick<Doc, 'name' | 'styleId' | 'params'> => {
 };
 /** The name as last loaded or saved. */
 export const savedName = (s: EditorState) => readDoc(s.saved).name;
-/** What a save sends: the design's name (cleaned), its style and its settings. */
-export const designInput = (s: EditorState): DesignInput => ({ name: cleanName(s.name), styleId: s.styleId, params: s.params });
+/** What a save sends: the design's name (cleaned), its style, its settings and its letters' record, packed. */
+export const designInput = (s: EditorState): DesignInput => ({ name: cleanName(s.name), styleId: s.styleId, params: s.params, log: packLog(s.log) });
 
-const blankDoc = (): Doc => ({ designId: null, name: DEFAULT_NAME, styleId: STYLES[0].id, params: { ...STYLES[0].params } });
+const blankDoc = (): Doc => ({ designId: null, name: DEFAULT_NAME, styleId: STYLES[0].id, params: { ...STYLES[0].params }, log: {} });
 
 function freshDocState(doc: Doc): Pick<EditorState, keyof Doc | 'picked' | 'saved' | 'history' | 'hi' | 'inspect' | 'switchedOn' | 'part' | 'hotEnd'> {
   return {
@@ -168,6 +172,24 @@ export const useEditor = create<EditorState>()(() => ({
 }));
 
 const set = useEditor.setState, get = useEditor.getState;
+
+/** when the newest undo step was made: the time its letters' edits are recorded at, which amend folds into */
+let stepAt = 0;
+/** the undo step a letter was brought back in from its record (restoreLetter) */
+let backStep = '';
+/** Whether the design stands at the undo step that brought a letter back from its record: no edit made in Points, so
+    nothing to carry on to the letters shaped the same way (CarryOffer). */
+export const broughtBack = (s: EditorState) => s.history[s.hi] === backStep;
+/** A new undo step for what changed since the newest one (none where nothing did), the letters' own settings and
+    drawings it changed recorded in their record, with `how` (an edit bringing a letter back). A `quiet` step, a style
+    or a file taking the design's settings' place, records nothing: a letter's own are replaced, not edited. */
+function step(quiet = false, how: { back?: number } = {}) {
+  const s = get(), snap = histSnap(s.params, s.styleId);
+  if (s.history[s.hi] === snap) return;
+  const history = [...s.history.slice(0, s.hi + 1), snap].slice(-200);
+  stepAt = Date.now();
+  set({ history, hi: history.length - 1, ...(quiet ? {} : { log: recordEdits(s.log, readHist(s.history[s.hi]).params, s.params, { t: stepAt, by: s.inspect, ...how }) }) });
+}
 
 const toggle = <T,>(list: T[], x: T) => list.includes(x) ? list.filter(y => y !== x) : [...list, x];
 
@@ -310,7 +332,7 @@ function setTraits(traits: Traits) {
   if (st && s.picked !== null && s.picked === JSON.stringify(s.params)) {
     const params = startParams(st, traits, !!s.params.freeFont);
     set({ traits, params, picked: JSON.stringify(params) });
-    actions.commit();
+    step(true);
   } else set({ traits });
 }
 
@@ -321,7 +343,7 @@ export const actions = {
   },
   loadDesign(d: Design) {
     const s = get();
-    set({ ...freshDocState({ designId: d.id, name: d.name, styleId: d.styleId, params: d.params }),
+    set({ ...freshDocState({ designId: d.id, name: d.name, styleId: d.styleId, params: d.params, log: cleanLog(d.log) }),
       category: s.category === 'style' ? 'weight' : s.category, hot: false, picked: null });
   },
   /** Record a successful save. `sent` is what went to the server, which may differ from the
@@ -352,26 +374,25 @@ export const actions = {
       return { params: ch && isGlyphKey(key) ? withGlyph(s.params, ch, key, v) : { ...s.params, [key]: v } };
     });
   },
-  commit() {
-    const s = get(), snap = histSnap(s.params, s.styleId);
-    if (s.history[s.hi] === snap) return;
-    const history = [...s.history.slice(0, s.hi + 1), snap].slice(-200);
-    set({ history, hi: history.length - 1 });
-  },
+  commit() { step(); },
   /** Fold what changed since the last undo step into that step, so one undo takes both back (an edit in Points and
-      the letters shaped the same way it then went on to). Only the newest step can take more. */
+      the letters shaped the same way it then went on to). Only the newest step can take more, and the letters' record
+      takes it in as part of that step's edits. */
   amend() {
     const s = get(), snap = histSnap(s.params, s.styleId);
     if (s.history[s.hi] === snap || s.hi !== s.history.length - 1) return;
-    set({ history: [...s.history.slice(0, s.hi), snap] });
+    const log = recordEdits(s.log, readHist(s.history[s.hi]).params, s.params, { t: stepAt, by: s.inspect, fold: stepAt });
+    set({ history: [...s.history.slice(0, s.hi), snap], log });
   },
   setOption<K extends keyof Params>(key: K, v: Params[K]) {
     actions.setParam(key, v);
     actions.commit();
   },
-  replaceParams(params: Params, styleId?: string) {
-    set(s => ({ params, styleId: styleId && styleById(styleId) ? styleId : s.styleId }));
-    actions.commit();
+  /** Settings in place of the design's (a design file's), with the letters' record that came with them laid into the
+      design's own. */
+  replaceParams(params: Params, styleId?: string, log: LetterLog = {}) {
+    set(s => ({ params, styleId: styleId && styleById(styleId) ? styleId : s.styleId, log: mergeLogs(s.log, log) }));
+    step(true);
   },
   travel(d: number) {
     const s = get(), j = s.hi + d;
@@ -386,7 +407,7 @@ export const actions = {
     // a design shaped since its style was picked loses that work to the new style: say so, with a way back
     const shaped = s.hi > 0 && s.picked !== JSON.stringify(s.params);
     set({ params, styleId: id, switchedOn: [], picked: JSON.stringify(params) });
-    actions.commit();
+    step(true);
     if (shaped) { actions.toast(`${st.name} loaded in place of your changes`, { label: 'Undo', run: () => actions.travel(-1) }); return; }
     // the way on from here, Customize, stays in sight at the Style page's foot (Stage.tsx), so the toast just says what came in
     const font = parseFontId(params.freeFont);
@@ -449,7 +470,18 @@ export const actions = {
     delete outlines[ch];
     set({ params: { ...s.params, glyphs, outlines } });
     actions.commit();
-    actions.toast(drawn ? `${ch} is the font's again · ⌘Z brings your edits back` : `${ch} is synced with the other letters again`);
+    actions.toast(drawn ? `${ch} is the font's again · its History keeps your edits` : `${ch} is synced with the other letters again`);
+  },
+  /** Bring letter `ch` back to how it stood after edit `e` of its record: its own settings and drawing as they were
+      then, in one undo step, recorded as brought back. Returns false where it already stands so. */
+  restoreLetter(ch: string, e: LetterEdit) {
+    const s = get();
+    if (sameOwn(ownOf(s.params, ch), e)) return false;
+    const p = withOwn(s.params, ch, e);
+    set({ params: withDrawings(p, p.outlines) });
+    step(false, { back: e.t });
+    backStep = get().history[get().hi];
+    return true;
   },
 
   /* ---- UI */

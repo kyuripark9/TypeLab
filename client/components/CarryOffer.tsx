@@ -24,7 +24,7 @@ import { ALL_CHARS, CHARSET, cmdsToD, drawnCmds, drawnLetter, type Drawn, type F
 import { drawnAtOf } from '../../shared/params';
 import { carryLetter, changesOf, kindOf, placesOf, sameDrawing, type Carried } from '../lib/carry';
 import { keyRef, moveAnchors, traceOf } from '../lib/pen';
-import { actions, useEditor } from '../state/editor';
+import { actions, broughtBack, useEditor } from '../state/editor';
 
 /** How long the search runs before letting a frame through, in ms. */
 const SLICE = 10;
@@ -103,7 +103,8 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
     // the letter as the settings draw it now, and as it was before, drawn at the same settings (each letter, drawn or
     // not, read as it stands)
     const f = fontNow.current, base = bases.get(ch), s0 = useEditor.getState(), now = s0.params.outlines[ch] && f.glyph(ch)?.drawn;
-    const made = s0.history !== seen.current.history && s0.hi === s0.history.length - 1 && s0.params.outlines[ch] !== seen.current.stored;
+    // (a letter brought back from its History is no edit made here)
+    const made = s0.history !== seen.current.history && s0.hi === s0.history.length - 1 && s0.params.outlines[ch] !== seen.current.stored && !broughtBack(s0);
     seen.current = { history: s0.history, stored: s0.params.outlines[ch] };
     const was = now && base ? drawnLetter(ch, base, f).drawn : undefined;
     const changes = now && was ? changesOf(was.contours, now.contours) : [];

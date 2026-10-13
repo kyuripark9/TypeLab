@@ -16,6 +16,7 @@ import { guideLines, stackLabels } from '../lib/guide-labels';
 import { n1, useSize } from '../lib/hooks';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
 import { GridBar, GridLines, useGrid } from './ConstructionGrid';
+import { LetterHistory } from './LetterHistory';
 import { nameList, useMates } from './CarryOffer';
 import { PenCanvas } from './PenCanvas';
 import { actions, endOf, hlKey, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type OwnKey, type Scope } from '../state/editor';
@@ -216,7 +217,7 @@ function ModeToggle() {
 /** Whether a change reshapes every letter or only this one: in Parts through the settings; in Points by shape,
     All letters taking each edit on to the letters shaped the same way there, Only <letter> keeping it to this one
     (and offering it to the others after). A letter with settings of its own, or edits in Points, can be reset to
-    follow the rest. */
+    follow the rest, and one with a record of its edits brought back to any version of it (History). */
 function ScopeToggle({ ch, pen }: { ch: string; pen: boolean }) {
   const scope = useEditor(s => s.scope), custom = useEditor(s => !!s.params.glyphs[ch]), drawn = useEditor(s => !!s.params.outlines[ch]);
   const opts: [Scope, string, string][] = pen ? [
@@ -240,6 +241,7 @@ function ScopeToggle({ ch, pen }: { ch: string; pen: boolean }) {
           Reset {ch}
         </button>
       )}
+      <LetterHistory ch={ch} />
     </>
   );
 }

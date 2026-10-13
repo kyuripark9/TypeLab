@@ -1,7 +1,8 @@
 /* The HTTP API (server/app.ts) on an in-memory store, called through a stand-in browser that keeps its cookies:
    designs, accounts, Google sign-in (against a stand-in Google) and which account it joins (joinGoogle), the
    development stand-in for Google (googleStandIn) and its account picker, export,
-   and reading a database saved before designs had owners (server/db.ts) or accounts had Google (server/accounts.ts).
+   and reading a database saved before designs had owners or letters' records of their edits (server/db.ts) or accounts
+   had Google (server/accounts.ts).
    The tests in each describe run in order and build on the designs and accounts the earlier ones made. */
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -102,6 +103,18 @@ describe('designs API', () => {
     assert.equal(d.name, 'Renamed');
     assert.equal(d.params.weight, 0.8);
     assert.equal((await call('PATCH', `/designs/${created.id}`, {})).status, 400);
+  });
+
+  it('keeps the letters\' record of their edits, cleaned, out of the list, and when a save sends none', async () => {
+    const params = { ...serif.params, weight: 0.8 }, log = { a: [{ t: 1, keys: ['weight'], own: { weight: 0.8 } }, { t: 2, keys: ['weight', 'nope'], own: { weight: 3 } }] };
+    const res = await call('PUT', `/designs/${created.id}`, { name: 'Renamed', styleId: 'serif', params, log });
+    assert.equal(res.status, 200);
+    const clean = { a: [log.a[0], { t: 2, keys: ['weight'], own: { weight: 1 } }] };
+    assert.deepEqual(((await res.json()) as Design).log, clean);
+    const list: Design[] = await (await call('GET', '/designs')).json();
+    assert.ok(!('log' in list[0]));
+    assert.equal((await call('PUT', `/designs/${created.id}`, { name: 'Renamed', styleId: 'serif', params })).status, 200);
+    assert.deepEqual(((await (await call('GET', `/designs/${created.id}`)).json()) as Design).log, clean);
   });
 
   it('keeps each browser\'s designs to itself', async () => {
@@ -503,6 +516,10 @@ describe('design storage', () => {
     assert.deepEqual(s.list('first').map(d => d.name), ['Old Serif']);
     assert.deepEqual(s.list('second'), []);
     assert.equal(s.get('old1', 'second'), null);
+    // a design saved before the letters' records has none, and takes one
+    assert.deepEqual(s.get('old1', 'first')!.log, {});
+    const log = { a: [{ t: 1, keys: ['weight'], own: { weight: 0.8 } }] };
+    assert.deepEqual(s.update('old1', { name: 'Old Serif', styleId: 'serif', params: serif.params, log }, 'first')!.log, log);
     s.close();
   });
 

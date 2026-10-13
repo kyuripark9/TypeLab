@@ -579,6 +579,21 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .i-tip-head b { font-weight: 600; color: var(--ink); }
 .i-tip-ends { display: flex; justify-content: space-between; gap: 20px; color: var(--accent-ink); font-weight: 500; }
 @media (prefers-reduced-motion: reduce) { .i-knob .halo { animation: none; opacity: .6; } }
+/* a letter's History (LetterHistory.tsx): each version of it its edits made, newest first, drawn small beside what
+   made it and when; the one it stands as now in the scope's colour */
+.history { position: relative; }
+.history > .btn.icon svg { stroke-width: 1.4; stroke-linejoin: round; }
+.popover.history-menu { width: 300px; padding: 6px 0; gap: 0; }
+.history-menu .list-head { padding: 4px 12px 6px; }
+.history-list { display: grid; gap: 1px; max-height: min(420px, 60vh); overflow-y: auto; padding: 0 6px; }
+.history-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 4px 8px 4px 4px; border-radius: var(--radius); text-align: left; font-size: var(--t-m); transition: background .15s; }
+.history-row:hover:not(:disabled) { background: var(--hover); }
+.history-row:disabled { cursor: default; }
+.history-row svg { width: 40px; height: 40px; background: var(--well); fill: var(--ink); }
+.history-row.now svg { background: var(--accent-soft); fill: var(--accent); }
+.history-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-when { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
+.history-now { font-size: var(--t-s); font-weight: 500; color: var(--accent-ink); }
 
 /* ---------- the pen: a letter's anchor points and handles. Customizing, points belong to the one letter, so the pen
    is dressed as customizing: its points, handles and picked tool take the orange, its bar the wash, inside the frame */

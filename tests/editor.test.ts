@@ -1,13 +1,14 @@
 /* The editor's store (client/state/editor.ts), run without a browser: starting a design in its free font,
    a customized letter's own values, a letter drawn in Points keeping the settings it was drawn at, loading a style
-   over changes, renaming, a change folded into the last undo step, and how far undo reaches. Nothing here
+   over changes, renaming, a change folded into the last undo step, how far undo reaches, and each letter's record of
+   its edits (kept past undo, brought back, saved and loaded). Nothing here
    draws a design written in a free font, which would fetch the font from the server. */
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { DEFAULTS, freeAtOf } from '../shared/params';
-import { actions, isDirty, useEditor } from '../client/state/editor';
+import { actions, designInput, isDirty, useEditor } from '../client/state/editor';
 
 const state = () => useEditor.getState();
 const serif = STYLES.find(s => s.id === 'serif')!;
@@ -112,6 +113,57 @@ describe('the editor', () => {
     actions.amend();
     actions.travel(1);
     assert.equal(state().params.contrast, 0.9);
+  });
+
+  it('records each of a letter\'s own edits past undo, brings any back in one undo step, and saves the record', () => {
+    useEditor.setState({ scope: 'letter', inspect: 'a' });
+    actions.setOption('weight', 0.8);
+    actions.setOption('width', 0.3);
+    assert.deepEqual(state().log.a.map(e => e.keys), [['weight'], ['width']]);
+    // undone, the edits stay in the record
+    actions.travel(-2);
+    assert.ok(!('a' in state().params.glyphs));
+    assert.equal(state().log.a.length, 2);
+    // brought back to how it stood after the first: one undo step, recorded as brought back
+    const first = state().log.a[0], steps = state().hi;
+    assert.equal(actions.restoreLetter('a', first), true);
+    assert.deepEqual(state().params.glyphs.a, { weight: 0.8 });
+    assert.equal(state().hi, steps + 1);
+    assert.equal(state().log.a.at(-1)!.back, first.t);
+    assert.equal(actions.restoreLetter('a', first), false, 'it stands so already');
+    actions.travel(-1);
+    assert.ok(!('a' in state().params.glyphs));
+    // the record goes with a save, packed, and comes back with the design
+    const input = designInput(state());
+    actions.loadDesign({ id: 'd2', name: 'Kept', styleId: state().styleId, params: input.params, log: JSON.parse(JSON.stringify(input.log)), createdAt: '', updatedAt: '' });
+    assert.deepEqual(state().log.a.map(e => e.own), [{ weight: 0.8 }, { weight: 0.8, width: 0.3 }, { weight: 0.8 }]);
+  });
+
+  it('records a Reset, so a drawn letter comes back after it, and the letters an edit in Points went on to', () => {
+    useEditor.setState({ scope: 'all', inspect: 'l' });
+    const box = (x: number) => ({ adv: 320, contours: [[{ x, y: 0 }, { x: 260, y: 0 }, { x: 260, y: 700 }, { x, y: 700 }]] });
+    actions.setParam('outlines', { l: box(60) });
+    actions.commit();
+    // (carried on to the i, in the edit's undo step)
+    actions.setParam('outlines', { ...state().params.outlines, i: box(80) });
+    actions.amend();
+    assert.deepEqual(state().log.i.map(e => [e.keys, e.by]), [[['points'], 'l']]);
+    const drawn = state().params.outlines.l;
+    actions.syncLetter('l');
+    assert.deepEqual(state().log.l.map(e => !!e.drawn), [true, false]);
+    assert.equal(actions.restoreLetter('l', state().log.l[0]), true);
+    assert.deepEqual(state().params.outlines.l, drawn, 'with the settings it was drawn at');
+  });
+
+  it('records nothing for a style or a design file taking the settings\' place, and takes in the file\'s record', () => {
+    useEditor.setState({ scope: 'letter', inspect: 'a' });
+    actions.setOption('weight', 0.8);
+    actions.loadStyle('slab');
+    assert.ok(!('a' in state().params.glyphs));
+    assert.equal(state().log.a.length, 1);
+    const b = { t: 5, keys: ['width'], own: { width: 0.2 } };
+    actions.replaceParams({ ...state().params, glyphs: { b: { width: 0.2 } } }, undefined, { b: [b] });
+    assert.deepEqual(state().log, { a: state().log.a, b: [b] });
   });
 
   it('keeps the last 200 steps to undo', () => {

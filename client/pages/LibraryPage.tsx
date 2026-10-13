@@ -77,7 +77,9 @@ export function LibraryPage() {
 
   const duplicate = async (d: Design) => {
     try {
-      const copy = await api.createDesign({ name: cleanName(`${d.name} copy`), styleId: d.styleId, params: d.params });
+      // the list leaves out each design's record of its letters' edits: the copy takes the one saved
+      const { log } = await api.getDesign(d.id);
+      const copy = await api.createDesign({ name: cleanName(`${d.name} copy`), styleId: d.styleId, params: d.params, log });
       setDesigns(list => list && [copy, ...list]);
       actions.toast(`Duplicated “${d.name}”`);
     } catch (e) { actions.toast(`Couldn’t duplicate — ${errorMessage(e)}`); }
