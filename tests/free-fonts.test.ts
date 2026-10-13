@@ -370,6 +370,20 @@ describe("TypeLab's own fonts", () => {
     for (const moves of [{ bowlForm: 'oval' }, { chamfer: 1 }, { boxRound: 0 }] as Partial<Params>[]) assert.equal(design(moves).glyph('H')!.d, design().glyph('H')!.d, `the H's square corners (${JSON.stringify(moves)})`);
   });
 
+  it("draw Bulwark's letters at any Weight from its nearest weight, each the block letters at that Weight: an 8 at 20 as built", async () => {
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'block')!, own = OWN_FAMILIES.Bulwark;
+    assert.deepEqual(own.weights, [100, 200, 300, 400, 500, 600, 700, 800, 900], 'nine weights');
+    for (const w of own.weights!) if (!freeFont(`Bulwark:${w}`)) registerFreeFont(await fonts.load(`Bulwark:${w}`));
+    const p = { ...st.params, freeFont: STYLE_FONTS.block, freeAt: freeAtOf(st.params) } as Params;
+    for (const [weight, id] of [[0.2, 'Bulwark:200'], [0.42, 'Bulwark:400'], [0.95, 'Bulwark:900']] as const) {
+      const f = buildFont({ ...p, weight });
+      assert.equal(f.free?.id, id, `Weight ${weight * 100} draws from ${id}, not ${f.free?.id}`);
+      // (at a weight it comes in, its letters are that font's as they are: as a design picked in it draws them)
+      const own = buildFont({ ...p, weight, freeFont: id, freeAt: freeAtOf({ ...st.params, weight } as Params) });
+      if (weight === 0.2) for (const ch of '8&B3') assert.equal(f.glyph(ch)!.d, own.glyph(ch)!.d, `${ch} as Bulwark 200 draws it`);
+    }
+  });
+
   it("stand serifs on every stem's foot, a face read a unit narrower than its stroke too: Bulwark's and Mainline's R, N and K", async () => {
     const fonts = new FreeFonts(null, noFetch);
     for (const style of ['block', 'grotesque']) {

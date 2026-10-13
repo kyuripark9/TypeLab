@@ -153,7 +153,9 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   Dispatch, Funnies, Jotter, Boardwalk, Serenade, Cathedral, Bulwark): drawn for TypeLab on the sheets in `Asset/After/`
   (`sheet`), each in one weight, upright or (Sonnet) italic, under no licence; `tools/fonts/import.ts` makes them into
   `fonts/`, which the server reads instead of fetching. Bulwark (`blocks`), the Block card's, has no sheet: it is the
-  engine's basic block letters at the settings `tools/fonts/blocks.ts` builds them at (`npm run fonts:blocks`), and
+  engine's basic block letters at the settings `tools/fonts/blocks.ts` builds them at (`npm run fonts:blocks`), in
+  nine weights (`weights`, 100 to 900, each the block letters at that Weight, its card's the 700), so Weight draws it
+  from the nearest as a Google family's (a thin 8's waist stays clean, where moving the 700 so far swelled it), and
   its short heavy stroke ends take another kind of end on the stub itself, and Bowls, Corners, Facets and Curves
   reshape its bowls by their rounded corners (`RestyleCtx.stubs`, `restyleBlockBowls` in engine/restyle.ts). They replaced the Google families in `OLD_FONTS`:
   `sanitizeParams` reads a saved id of one as its own font (`ownFontOf`). `FREE_FAMILIES` lists them (`own`,

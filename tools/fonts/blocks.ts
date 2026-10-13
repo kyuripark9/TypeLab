@@ -2,8 +2,10 @@
    (`npm run fonts:blocks`; `--check` writes nothing and reports what would change). Unlike TypeLab's other own fonts
    it has no specimen sheet: its letters are basic-blocks.ts's, built at BULWARK below (the Block card's settings
    before it was written in a font of its own) and kept in fonts/ as they were drawn, so that later changes to the
-   block letters don't reach designs written in it. Each outline is copied point for point, its lines and curves as
-   they are, to whole units. */
+   block letters don't reach designs written in it. It comes in every weight OWN_FAMILIES lists, each the block letters
+   at that Weight (a 400 at 0.4, as a free font's weights stand), so Weight draws the letters from the nearest as the
+   block letters themselves draw them, and moves them only the rest of the way. Each outline is copied point for
+   point, its lines and curves as they are, to whole units. */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { ALL_CHARS, buildFont, packNode, type Cmd, type FreeFontData, type Node } from '../../shared/engine';
 import { OWN_FAMILIES, fontId } from '../../shared/free-fonts';
@@ -11,7 +13,7 @@ import { DEFAULTS, type Params } from '../../shared/params';
 import { ownFontFile } from '../../server/free-fonts';
 
 /** The settings Bulwark's letters are built at: the basic block letters, heavy and a little wide, box bowls with
-    softly rounded corners. */
+    softly rounded corners (its 700; each other weight at its own Weight). */
 export const BULWARK: Params = { ...DEFAULTS, build: 'blocks', blockForm: 'basic', weight: 0.7, width: 0.6, bowlForm: 'box', boxRound: 0.55, xHeight: 0.76 };
 
 const R = Math.round;
@@ -44,17 +46,19 @@ function contoursOf(cmds: Cmd[]): Node[][] {
   return out;
 }
 
-const family = 'Bulwark', own = OWN_FAMILIES[family], id = fontId({ family, weight: own.weight, italic: own.italic });
-const font = buildFont(BULWARK), glyphs: FreeFontData['glyphs'] = {};
-for (const ch of ALL_CHARS) {
-  const g = font.glyph(ch);
-  if (g) glyphs[ch] = [R(g.adv), contoursOf(g.cmds).map(c => c.map(packNode))];
+const family = 'Bulwark', own = OWN_FAMILIES[family];
+for (const weight of own.weights ?? [own.weight]) {
+  const id = fontId({ family, weight, italic: own.italic }), font = buildFont({ ...BULWARK, weight: weight / 1000 }), glyphs: FreeFontData['glyphs'] = {};
+  for (const ch of ALL_CHARS) {
+    const g = font.glyph(ch);
+    if (g) glyphs[ch] = [R(g.adv), contoursOf(g.cmds).map(c => c.map(packNode))];
+  }
+  const data: FreeFontData = {
+    id, family, designers: ['TypeLab'], copyright: '', license: '', licenseUrl: '',
+    cap: R(font.m.cap), xh: R(font.m.xh), space: R(font.advance(' ')), glyphs
+  };
+  const file = ownFontFile(id), was = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) as FreeFontData : null;
+  const changed = Object.keys(glyphs).filter(ch => JSON.stringify(glyphs[ch]) !== JSON.stringify(was?.glyphs[ch]));
+  console.log(`${id}: ${Object.keys(glyphs).length} letters, cap ${data.cap}, x-height ${data.xh}; ${was ? `changed: ${changed.join('') || 'none'}` : 'new'}`);
+  if (!process.argv.includes('--check')) writeFileSync(file, JSON.stringify(data));
 }
-const data: FreeFontData = {
-  id, family, designers: ['TypeLab'], copyright: '', license: '', licenseUrl: '',
-  cap: R(font.m.cap), xh: R(font.m.xh), space: R(font.advance(' ')), glyphs
-};
-const file = ownFontFile(id), was = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) as FreeFontData : null;
-const changed = Object.keys(glyphs).filter(ch => JSON.stringify(glyphs[ch]) !== JSON.stringify(was?.glyphs[ch]));
-console.log(`${id}: ${Object.keys(glyphs).length} letters, cap ${data.cap}, x-height ${data.xh}; ${was ? `changed: ${changed.join('') || 'none'}` : 'new'}`);
-if (!process.argv.includes('--check')) writeFileSync(file, JSON.stringify(data));

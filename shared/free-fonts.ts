@@ -26,10 +26,12 @@ export interface FreeFamily {
 /** TypeLab's own fonts, one for each card of the Style page: drawn for TypeLab, free to use, change and share with
     no licence to pass on. Each comes in one weight, upright or italic, and is drawn on its specimen sheet
     (Asset/After/<sheet>.ai), which tools/fonts/import.ts makes into fonts/<Family>-<weight>.json; one with no sheet
-    (Bulwark, the Block card's) is the engine's block letters, which tools/fonts/blocks.ts writes there. Their names
+    (Bulwark, the Block card's) is the engine's block letters, which tools/fonts/blocks.ts writes there in every
+    weight it comes in (`weights`; `weight` is its card's), as a Google family comes in several, so Weight draws each
+    from the one nearest. Their names
     are kept in saved designs (as font ids), so they never change. A script whose letters don't join is `freeExits`
     (see FreeFamily). */
-export const OWN_FAMILIES: Record<string, { weight: number; italic: boolean; sheet?: number; freeExits?: true; blocks?: true }> = {
+export const OWN_FAMILIES: Record<string, { weight: number; weights?: number[]; italic: boolean; sheet?: number; freeExits?: true; blocks?: true }> = {
   Ballyhoo: { weight: 400, italic: false, sheet: 1 },
   Timber: { weight: 400, italic: false, sheet: 2 },
   Turnpike: { weight: 500, italic: false, sheet: 3 },
@@ -51,7 +53,7 @@ export const OWN_FAMILIES: Record<string, { weight: number; italic: boolean; she
   Hearth: { weight: 600, italic: false, sheet: 19 },
   Orbital: { weight: 600, italic: false, sheet: 20 },
   Cathedral: { weight: 400, italic: false, sheet: 21 },
-  Bulwark: { weight: 700, italic: false, blocks: true }
+  Bulwark: { weight: 700, weights: [100, 200, 300, 400, 500, 600, 700, 800, 900], italic: false, blocks: true }
 };
 
 export const FREE_FAMILIES: Record<string, FreeFamily> = {
@@ -128,7 +130,7 @@ export const FREE_FAMILIES: Record<string, FreeFamily> = {
   "Workbench": { designers: ["Jens Kut\u00edlek"], weights: [400], italics: [], license: 'ofl', reserved: [] },
   "Xanh Mono": { designers: ["Yellow Type", "L\u00e2m B\u1ea3o", "Duy Dao"], weights: [400], italics: [400], license: 'ofl', reserved: [] },
   ...Object.fromEntries(Object.entries(OWN_FAMILIES).map(([family, o]): [string, FreeFamily] =>
-    [family, { designers: ['TypeLab'], weights: o.italic ? [] : [o.weight], italics: o.italic ? [o.weight] : [], license: null, reserved: [], own: true, ...(o.freeExits ? { freeExits: true } : {}), ...(o.blocks ? { blocks: true } : {}) }]))
+    [family, { designers: ['TypeLab'], weights: o.italic ? [] : o.weights ?? [o.weight], italics: o.italic ? [o.weight] : [], license: null, reserved: [], own: true, ...(o.freeExits ? { freeExits: true } : {}), ...(o.blocks ? { blocks: true } : {}) }]))
 };
 
 /** The free font each starting style is written in, by style id, as a font id (see fontId); none for a style built
