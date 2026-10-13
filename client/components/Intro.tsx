@@ -1,8 +1,9 @@
 /* The opening title card, played on the first visit in a browser (not with reduced motion). "TypeLab" comes up in
    TypeLab's own fonts, the ones the Style page's cards start from (all but the blackletter), and in the fonts this
    browser's owner has saved (My designs, but for those begun as blackletter), and is then made as a font is made:
-   - a scramble of characters grows in from the left, each in a font of its own, and settles into the name letter by
-     letter, the letters still in fonts of their own, set evenly by their ink and each staying put once settled;
+   - the name's first letter comes up, a scramble of characters grows from it to its right, each in an own font of
+     its own, and it settles into the name letter by letter, the letters still in fonts of their own, set evenly by
+     their ink and each staying put once settled;
    - the whole name cuts from font to font, four cuts on one beat, each led by one font setting half its letters among
      others in fonts of their own, some carried over from the cut before, so one cut mixes into the next, over the
      guide lines a font is drawn on (baseline, x-height, cap height), which move to each leading font's own heights;
@@ -19,9 +20,10 @@
    lines sit true to it. The own fonts are the cards' web fonts, a saved font is drawn as the engine builds it (as My
    designs draws its name), and the drawing is the logo's capitals as tools/fonts/ui.ts writes them beside its font
    (client/fonts/Lineup.json): the card waits up to WAIT_MS for them, plays with those that came (leaving out the
-   drawing if its letters didn't), and shows the wordmark alone when too few own fonts did. Once seen it's marked in
-   localStorage under PREFS.introSeen (lib/prefs.ts), which the browser tools in tools/browser set beforehand to keep
-   it out of the way. */
+   drawing if its letters didn't), and shows the wordmark alone when too few own fonts did. A saved font is built only
+   while the card waits, its name's letters and those the lines are read off with it, so nothing is built as it plays
+   (building one holds the page up). Once seen it's marked in localStorage under PREFS.introSeen (lib/prefs.ts), which
+   the browser tools in tools/browser set beforehand to keep it out of the way. */
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { Design } from '../../shared/design';
 import { cmdsBox, type Font, type FreeFontData, type PackedNode } from '../../shared/engine';
@@ -61,7 +63,7 @@ const LEAD = 0.5;
 /** the cuts the saved fonts take, the latest saved first, so as many of them come up as there are, the cuts as many */
 const MINE_AT = ['Gumdrop', 'Couture', 'Serenade'];
 /** how long to wait for the fonts, and the fewest to play with */
-const WAIT_MS = 1200, FEWEST = 6;
+const WAIT_MS = 900, FEWEST = 6;
 /** each step of the scramble growing and of it settling */
 const GROW_MS = 55, SETTLE_MS = 65;
 /** The drawing: its points come in over POINTS_MS while each letter's outline is drawn on (over .intro-outline's
@@ -130,11 +132,17 @@ function drawnHeights(data: Logo): Heights {
   return { xh: data.xh / 1000, cap: data.cap / 1000, asc: Math.max(...ys) / 1000, desc: Math.min(...ys) / 1000 };
 }
 
-/** A saved font's letters, once the free fonts it's written in have come; null when it can't draw the name. */
-async function built(d: Design): Promise<Font | null> {
+/** A saved font's letters, once the free fonts it's written in have come, built while the card still `waits`: the
+    name's, and the x and the H its lines are read off; null when it can't draw the name or the card has started. */
+async function built(d: Design, waits: () => boolean): Promise<Font | null> {
   await Promise.all(fontFor(d.params).freeMissing.map(loadFreeFont));
+  // a moment for the card's wait to run out, as the free fonts may all come at once
+  await new Promise(r => setTimeout(r));
+  if (!waits()) return null;
   const f = fontFor(d.params);
-  return [...NAME].every(ch => f.glyph(ch)) ? f : null;
+  if (![...NAME].every(ch => f.glyph(ch))) return null;
+  for (const ch of 'xH') f.glyph(ch);
+  return f;
 }
 
 /** Whether a saved font was begun as blackletter, or is written in its font. */
@@ -146,23 +154,25 @@ function plan(fonts: FreeFontRef[], mine: Font[], drawing: Logo | null): Step[] 
   const mark: Step = { ms: HOLD_MS };
   if (fonts.length < FEWEST) return [mark];
   const own = fonts.map(web => ({ web })), saved = mine.map(f => ({ mine: f })), faces: Face[] = [...own, ...saved];
-  // a face other than those in `not` that draws `ch`, so letters side by side differ
-  const other = (ch: string, ...not: (Face | undefined)[]) => any(faces.filter(f => !not.includes(f) && (!f.mine || f.mine.glyph(ch))));
+  // a face of `pool` other than those in `not` that draws `ch`, so letters side by side differ
+  const other = (ch: string, pool: Face[], ...not: (Face | undefined)[]) => any(pool.filter(f => !not.includes(f) && (!f.mine || f.mine.glyph(ch))));
   let made = 0;
   const letter = (ch: string, face: Face, quick?: true): Letter => ({ ch, face, id: made++, quick });
-  // the scramble's next `n` letters after `was`, each changed by CHURN's odds (a new one always), in a face unlike
-  // its neighbours' (`left` the face of the letter before them)
+  // the scramble's next `n` letters after `was`, each changed by CHURN's odds (a new one always), in an own face (a
+  // saved one would be built letter by letter as it plays) unlike its neighbours' (`left` the face of the letter
+  // before them)
   const stir = (was: Letter[], n: number, left?: Face) => Array.from({ length: n }).reduce<Letter[]>((ls, _, i) => {
     const prev = ls.at(-1)?.face ?? left, kept = i < was.length && Math.random() > CHURN && was[i].face !== prev, ch = any([...NOISE]);
-    return [...ls, kept ? was[i] : letter(ch, other(ch, prev, was[i + 1]?.face), true)];
+    return [...ls, kept ? was[i] : letter(ch, other(ch, own, prev, was[i + 1]?.face), true)];
   }, []);
+  // the name's first letter comes first, and the scramble grows from it to its right
+  const settled: Letter[] = [letter(NAME[0], other(NAME[0], faces))];
   const scramble: Letter[][] = [];
   let noise: Letter[] = [];
-  for (let n = 1; n <= NAME.length; n++) scramble.push(noise = stir(noise, n));
+  for (let n = 0; n < NAME.length; n++) scramble.push([settled[0], ...(noise = stir(noise, n, settled[0].face))]);
   // settling from the left, each letter keeps the face it settled in; the full name, all mixed, stays a moment longer
-  const settled: Letter[] = [];
-  for (let n = 1; n <= NAME.length; n++) {
-    settled.push(letter(NAME[n - 1], other(NAME[n - 1], settled.at(-1)?.face, noise[1]?.face)));
+  for (let n = 2; n <= NAME.length; n++) {
+    settled.push(letter(NAME[n - 1], other(NAME[n - 1], faces, settled.at(-1)?.face, noise[1]?.face)));
     noise = stir(noise.slice(1), NAME.length - n, settled[n - 1].face);
     scramble.push([...settled, ...noise]);
   }
@@ -185,7 +195,7 @@ function plan(fonts: FreeFontRef[], mine: Font[], drawing: Logo | null): Step[] 
     while (at.size < Math.round(NAME.length * LEAD)) at.add(Math.floor(Math.random() * NAME.length));
     const letters = [...NAME].reduce<Letter[]>((ls, ch, i) => {
       const prev = ls.at(-1)?.face, had = was[i], kept = Math.random() > CHURN && had.face !== prev && had.face !== lead;
-      return [...ls, at.has(i) ? letter(ch, lead) : kept ? had : letter(ch, other(ch, prev, lead))];
+      return [...ls, at.has(i) ? letter(ch, lead) : kept ? had : letter(ch, other(ch, faces, prev, lead))];
     }, []);
     lines = heightsOf(lead) ?? lines;
     steps.push({ ms: k < cuts.length - 1 ? CUT_MS : LAST_MS, letters, lines, cut: true });
@@ -353,9 +363,9 @@ export function Intro() {
     void Promise.all([
       ...FONTS.map(id => webFont(id).then(r => { if (r) got.push(r); })),
       fetch(LOGO_LETTERS).then(r => (r.ok ? r.json() as Promise<Logo> : null)).then(d => { data = d; }, () => undefined),
-      // the latest saved fonts, as many as the cuts they take, kept in that order
+      // the latest saved fonts, as many as the cuts they take, kept in that order, those built while the card waits
       api.listDesigns().then(ds => Promise.all(ds.filter(d => !blackletter(d)).slice(0, MINE_AT.length)
-        .map((d, i) => built(d).then(f => { mine[i] = f; }, () => undefined))), () => undefined)
+        .map((d, i) => built(d, () => live).then(f => { mine[i] = f; }, () => undefined))), () => undefined)
     ]).then(start);
     return () => { live = false; clearTimeout(t); };
   }, [phase]);
