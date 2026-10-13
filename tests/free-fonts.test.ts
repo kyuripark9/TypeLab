@@ -370,6 +370,26 @@ describe("TypeLab's own fonts", () => {
     for (const moves of [{ bowlForm: 'oval' }, { chamfer: 1 }, { boxRound: 0 }] as Partial<Params>[]) assert.equal(design(moves).glyph('H')!.d, design().glyph('H')!.d, `the H's square corners (${JSON.stringify(moves)})`);
   });
 
+  it('open a heavy letter by Stencil only where every piece stays solid ink: no slivers in Bulwark or Gumdrop', async () => {
+    const fonts = new FreeFonts(null, noFetch);
+    for (const style of ['block', 'chunkyround']) {
+      const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
+      if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+      const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, f = buildFont({ ...p, stencil: 0.6 }), whole = buildFont(p);
+      let opened = 0;
+      for (const ch of 'RAQyHtPBK') {
+        const sh = shape(toPolys(f.glyph(ch)!.cmds)), rings = combine([sh], sh.has).filter(r => r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p.x * q.y - q.x * p.y; }, 0) > 0);
+        if (f.glyph(ch)!.d !== whole.glyph(ch)!.d) opened++;
+        for (const r of rings) {
+          const xs = r.map(p => p.x), ys = r.map(p => p.y), area = r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p.x * q.y - q.x * p.y; }, 0) / 2;
+          const across = area / Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+          assert.ok(across > f.m.s * 0.3, `${style}'s ${ch}: a piece ${across.toFixed(0)} across on the whole, against stems ${f.m.s.toFixed(0)}`);
+        }
+      }
+      assert.ok(opened >= 4, `${style}: Stencil still opens most of them (${opened})`);
+    }
+  });
+
   it('read a design saved in a font they took the place of as written in its own', () => {
     assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Roboto:600' }).freeFont, 'Mainline:600');
     assert.equal(sanitizeParams({ ...DEFAULTS, freeFont: 'Roboto:900i' }).freeFont, 'Mainline:600');

@@ -178,6 +178,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    as it has room for at the ends of their sliders (`carriedEnd`). Drawn longer, the stroke stretches from nothing at
    S; drawn shorter, it is cut back, not squeezed (squeezed, the inside of a curve folds into a flag), and the end is
    carried back along it as wide as the stroke where it now meets it. A taper runs back its share of all the way the stroke runs alone past Taper length's middle.
+   Stencil cuts each join from where the stroke's edges leave the host's ink (read off it, as a heavy join's skeleton
+   sits off its middle), moves a gap out only on a stroke leaving steeply, leaves a stroke that runs on along its host
+   before leaving it whole (a heavy R's leg), and keeps a gap only where every piece stays solid ink and it lands on no
+   other join, narrowing it down to `GAP_LEAST` of Stencil's first, as the engine's `stencilPieces` does.
    Serifs also squares off an upright stroke's round end on a line (`roundTip` in
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
 5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,

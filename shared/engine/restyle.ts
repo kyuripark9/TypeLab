@@ -683,6 +683,9 @@ function straightTo(pts: SkPt[], at: number): boolean {
   for (let k = k0; k <= k1; k++) if (Math.abs((pts[k].x - a.x) * (b.y - a.y) - (pts[k].y - a.y) * (b.x - a.x)) / l > l * 0.05) return false;
   return true;
 }
+/** How narrow, at the least, a stencil gap on a free font's letter is drawn (a share of Stencil's) where its full width
+    would leave a sliver of ink (a heavy letter's short bar). */
+const GAP_LEAST = 0.4;
 /** How much wider across than it is thick a stub (a stroke running alone for less than its end needs) may grow before
     it counts as leaving the stroke it stands out of: less than ALONE_WIDE, as a stub's join is close and rounded. */
 const STUB_WIDE = 1.15;
@@ -1310,7 +1313,9 @@ export const stencilLook = (e: Effective): StencilLook => ({ gap: e.stencil, pos
     runs into another (read off the skeleton, see joinsOf), it is cut back from it, along the other's edge, the gap
     wide (moved out along it by the gap's place); a bar joined at both ends is cut at its left or upper end only, so
     every gap moves the same way; a ring with no join (an o) is cut down its middle. A crossbar's Gap cuts it back
-    at both ends, or, run through, cuts the strokes it meets above and below it. */
+    at both ends, or, run through, cuts the strokes it meets above and below it. In a heavy letter, as the engine's
+    stencilPieces does, a gap opens only where every piece stays solid ink and it lands on no other join, narrowed
+    first if need be; a stroke running on along its host before it leaves it (an R's leg) is left whole. */
 export function restyleStencil(cs: Node[][], c: RestyleCtx, from: StencilLook, to: StencilLook, sk: SkeletonOf): Node[][] {
   const v = added(from.gap, to.gap), bv = added(from.bar, to.bar);
   if (!(v > 0) && !(bv > 0)) return cs;
@@ -1318,6 +1323,8 @@ export function restyleStencil(cs: Node[][], c: RestyleCtx, from: StencilLook, t
   // moved out as far, stencilOff in font.ts)
   const s = sk(), stem = c.stem, gapOf = (k: number) => k * (24 * c.cap / 700 + 2 * stem), off = stencilOff(to.pos, stem, c.xh);
   const bands: Pt[][] = [];
+  // (a stroke's gaps, by the join each opens, to be kept only where they leave solid ink: see below)
+  const opened: { bands: Pt[][]; ji: number }[] = [];
   const joins = joinsOf(s);
   // each join's host: its way along, its half thickness, and the way out of it toward the stroke that ends in it
   const hosts = joins.map(j => {
@@ -1361,7 +1368,7 @@ export function restyleStencil(cs: Node[][], c: RestyleCtx, from: StencilLook, t
     let nx = -ty, ny = tx;
     if (nx * d.x + ny * d.y < 0) { nx = -nx; ny = -ny; }
     const dn = nx * d.x + ny * d.y, E = s.edges[br.e], r = E.pts[E.pts.length >> 1].r, px = -d.y, py = d.x;
-    return { d, r, at: dn < 0.2 ? half : Math.max(...[1, -1].map(o => (half - o * r * (px * nx + py * ny)) / dn)) };
+    return { d, r, dn, at: dn < 0.2 ? half : Math.max(...[1, -1].map(o => (half - o * r * (px * nx + py * ny)) / dn)) };
   };
   // the letter's ink as the font draws it, read for where a stroke ends and cut by the bands
   const ink = shape(cs.map(cn => sampled(cn)));
@@ -1410,10 +1417,35 @@ export function restyleStencil(cs: Node[][], c: RestyleCtx, from: StencilLook, t
       if (!(v > 0)) return;
       // (a bar joined at both ends opens at the end further left, or up)
       if (bar && ends.some(k => k !== ji && (hosts[k].n.x < h.n.x - 1 || (Math.abs(hosts[k].n.x - h.n.x) <= 1 && hosts[k].n.y > h.n.y)))) return;
-      const b2 = across(ji, br, h.half + off, h.half + off + gapOf(v));
-      if (b2) bands.push(b2);
+      // (from where the stroke's edges leave the host's ink, read off it: a heavy join's skeleton sits off its middle,
+      // nearer the stroke that ends in it, and a gap from its half thickness would bite into the host; moved out along
+      // the stroke only where it leaves the host steeply, as the engine's: one leaving at a slant would have its gap run
+      // off down its length)
+      const { dn } = clear(ji, br), e = edgeAt(ji, br), from = e > 0 ? e * Math.max(dn, 0.25) : h.half, o = dn > 0.8 ? off : 0;
+      // (a stroke running on along the host's edge a long way before it leaves it, a heavy R's leg under its bowl or a y's
+      // arm meeting its tail at a slant, is no join to open there: left whole)
+      if (from > h.half * 2.5) return;
+      // (as wide as Stencil asks, or, where that leaves no solid piece, as wide as does, down to GAP_LEAST of it)
+      const tries = [1, 0.75, 0.55, GAP_LEAST].map(k => across(ji, br, from + o, from + o + gapOf(v) * k)).filter((b): b is Pt[] => !!b);
+      if (tries.length) opened.push({ bands: tries, ji });
     });
   });
+  // a gap opens only where it leaves every piece solid ink, no sliver (half a stem across, on the whole, or most of a
+  // hairline's in a font of thin bars, as the engine's stencilPieces asks), and lands on no other stroke's join (the
+  // leg of a heavy R on the foot of its bowl): a stroke too short for one is left whole, as the engine leaves it
+  const least = Math.min(stem * 0.5, c.bar * 0.9);
+  const solid = (r: P[]) => {
+    const xs = r.map(q => q.x), ys = r.map(q => q.y), area = signedArea(r);
+    return area <= 0 || area / Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1) >= least;
+  };
+  const inside = (pl: Pt[], q: P) => { let w = false; for (let i = 0, j = pl.length - 1; i < pl.length; j = i++) if ((pl[i].y > q.y) !== (pl[j].y > q.y) && q.x < (pl[j].x - pl[i].x) * (q.y - pl[i].y) / (pl[j].y - pl[i].y) + pl[i].x) w = !w; return w; };
+  for (const { bands: tries, ji } of opened) {
+    const band = tries.find(b => !joins.some((j, k) => k !== ji && !crosses(j) && inside(b, s.nodes[j.node])) && (() => {
+      const one = shape([b]);
+      return combine([ink, one], (x, y) => ink.has(x, y) && !one.has(x, y)).every(solid);
+    })());
+    if (band) bands.push(band);
+  }
   // a ring on its own (an o, a 0), cut down its middle
   if (v > 0) s.edges.forEach(E => {
     if (E.a !== E.b || s.nodes[E.a].edges.length !== 2) return;
