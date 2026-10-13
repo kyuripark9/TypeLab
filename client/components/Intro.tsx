@@ -3,9 +3,10 @@
    - a scramble of characters grows in from the left, each in a font of its own, and settles into the name letter by
      letter, the letters still in fonts of their own;
    - the whole name cuts from font to font, some cuts mixing them, over the guide lines a font is drawn on (baseline,
-     x-height, cap height, named as the inspector names them), which move to each font's own heights;
+     x-height, cap height), which move to each font's own heights;
    - the name is drawn as Points mode shows a letter: its anchor points and handles come in along it as its outline is
-     drawn on, ascender and descender join the lines, and its ink fills in;
+     drawn on, ascender and descender join the lines, which, standing still now, are named faintly as the inspector
+     names them, and its ink fills in;
    - it lands on the wordmark, the header's logo, with the tagline under it, and the card fades to the app.
    A key or a click skips ahead to the fade. It is one SVG, so the name keeps one baseline under every font and the
    lines sit true to it. The fonts are the cards' web fonts, and the drawing is DRAWN's letters as the server sends
@@ -46,8 +47,9 @@ const HANDLES_FROM = 80;
 /** how long the wordmark shows, then how long it fades; FADE_MS matches .intro's opacity transition in styles.css */
 const HOLD_MS = 1100, FADE_MS = 450;
 /** the window's left edge to the lines' names, and the narrowest window that shows them (on phones they'd run into
-    the name); lines nearer than CLOSE px set their names side by side, GAP apart */
-const EDGE = 24, NAMED_FROM = 600, CLOSE = 14, GAP = 12;
+    the name); lines nearer than CLOSE px set their names side by side, GAP apart, and a line within ONE px of one
+    before it is left out, the two reading as one */
+const EDGE = 24, NAMED_FROM = 600, CLOSE = 14, GAP = 12, ONE = 6;
 
 type Letter = { ch: string; font: FreeFontRef };
 /** A font's heights in ems: x-height and cap height, and, in the drawing, its ascender and (below zero) descender. */
@@ -159,11 +161,13 @@ function drawName(data: FreeFontData, k: number, cx: number, base: number) {
 /** A guide line: its id and name, where it runs across the window (px down) and how wide its name is. */
 interface Guide { id: string; name: string; at: number; w: number }
 
-/** The guide lines at `h`'s heights over the baseline `base`, at `size` px to the em. */
+/** The guide lines at `h`'s heights over the baseline `base`, at `size` px to the em (the drawing's ascender is
+    often all but its cap height). */
 const guidesAt = (h: Heights, base: number, size: number): Guide[] =>
   guideLines({ xh: h.xh, cap: h.cap, asc: h.asc ?? NaN, desc: h.desc ?? NaN })
     .filter(([, y]) => !Number.isNaN(y))
-    .map(([id, y, name]) => ({ id, name, at: Math.round(base - y * size) + 0.5, w: n1(nameWidth(name)) }));
+    .map(([id, y, name]) => ({ id, name, at: Math.round(base - y * size) + 0.5, w: n1(nameWidth(name)) }))
+    .filter((l, i, ls) => !ls.slice(0, i).some(k => Math.abs(k.at - l.at) < ONE));
 
 /** Where each line's name starts along it, on a window wide enough to name them: near the left end, or, where the
     line runs too close under another for their names to sit one over the other, past that one's name. */
@@ -180,8 +184,7 @@ function namesAt(lines: Guide[], width: number) {
 }
 
 /** The guide lines across the window, each with its name (where `xs` places one) on it, the line broken around it,
-    so a name moves with its line and is never taken for a neighbour's. `end` fades them out with the drawing's
-    points. */
+    so a name is never taken for a neighbour's. `end` fades them out with the drawing's points. */
 function Guides({ lines, xs, width, end }: { lines: Guide[]; xs: Map<string, number>; width: number; end: boolean }) {
   return (
     <g className={end ? 'intro-guides end' : 'intro-guides'} style={end ? { animationDelay: `${FILL_MS}ms` } : undefined}>
@@ -264,11 +267,6 @@ export function Intro() {
   const { width: W, height: H } = box;
   const size = Math.min(112, Math.max(56, W * 0.08)), base = Math.round(H / 2 + 0.2 * size - 10);
   const drawn = useMemo(() => (drawing && W ? drawName(drawing, size / 1000, W / 2, base) : null), [drawing, W, size, base]);
-  // the names through the cuts, each where the cut crowding it most puts it, so none hops along and back
-  const cutNames = useMemo(() => steps.filter(s => s.lines && !s.drawn).reduce((xs, s) => {
-    for (const [id, x] of namesAt(guidesAt(s.lines!, base, size), W)) xs.set(id, Math.max(x, xs.get(id) ?? x));
-    return xs;
-  }, new Map<string, number>()), [steps, W, size, base]);
 
   if (!shown) return null;
   // nothing while the fonts come (or when skipped before they did)
@@ -278,7 +276,7 @@ export function Intro() {
     <div ref={ref} className={phase === 'leave' ? 'intro leave' : 'intro'} onClick={() => setPhase('leave')} aria-hidden="true">
       {step && W > 0 && (
         <svg className="intro-art" width={W} height={H}>
-          {lines && <Guides lines={lines} xs={step.drawn ? namesAt(lines, W) : cutNames} width={W} end={!!step.drawn} />}
+          {lines && <Guides lines={lines} xs={step.drawn ? namesAt(lines, W) : new Map()} width={W} end={!!step.drawn} />}
           {step.letters
             ? <text className="intro-word" x={W / 2} y={base} textAnchor="middle" fontSize={size}>
               {step.letters.map((l, i) => <tspan key={i} style={fontStyle(l.font)}>{l.ch}</tspan>)}
