@@ -32,12 +32,12 @@ import { fontStyle, webFont } from '../lib/free';
 import { guideLines } from '../lib/guide-labels';
 import { n1, useSize } from '../lib/hooks';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
-
 import LOGO_LETTERS from '../fonts/Lineup.json?url';
+
 const NAME = 'TypeLab';
-/** the blackletter style and its own font, which the card leaves out (its letters read as another script) */
 /** the name as the logo sets it, in capitals (.brand-name in styles.css): the drawing and the wordmark */
 const MARK = NAME.toUpperCase();
+/** the blackletter style and its own font, which the card leaves out (its letters read as another script) */
 const BLACKLETTER = 'blackletter', BLACK_FONT = parseFontId(STYLE_FONTS[BLACKLETTER] ?? '')?.family;
 const FONTS = Object.entries(OWN_FAMILIES).filter(([family]) => family !== BLACK_FONT).map(([family, o]) => fontId({ family, weight: o.weight, italic: o.italic }));
 /** what the scramble shows where a letter hasn't settled yet, capitals as the name is set in, and the share of those
@@ -82,13 +82,13 @@ const EDGE = 24, ONE = 6;
 type Letter = { ch: string; face: FreeFontRef; id: number; quick?: true };
 /** A font's heights in ems: x-height and cap height, and, in the drawing, its ascender and (below zero) descender. */
 type Heights = { xh: number; cap: number; asc?: number; desc?: number };
+/** The logo's letters as tools/fonts/ui.ts writes them: its heights, and each capital's advance and outline. */
+type Logo = Pick<FreeFontData, 'cap' | 'xh' | 'glyphs'>;
 /** One step of the card for `ms`: the name in `letters`, each in its font, or `drawn` from its points; neither is the
     wordmark. `lines` are the guide lines' heights, none before the cuts and on the wordmark. The scramble is set from
     where `from`, the settled name, starts. In a `cut`, the letters that change roll one after another from the left;
     in the scramble, all at once. */
 interface Step { ms: number; letters?: Letter[]; from?: Letter[]; drawn?: true; lines?: Heights; cut?: true }
-/** The logo's letters as tools/fonts/ui.ts writes them: its heights, and each capital's advance and outline. */
-type Logo = Pick<FreeFontData, 'cap' | 'xh' | 'glyphs'>;
 
 const any = <T,>(xs: readonly T[]) => xs[Math.floor(Math.random() * xs.length)];
 
