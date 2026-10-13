@@ -1,9 +1,9 @@
 /* Carrying a change made to one letter's points to the other letters shaped the same way there (client/lib/carry.ts):
    reading the change against the letter as it was (stretches, corners rounded where they stand, whole contours moved
-   or taken away), finding its old shape in other letters (close matches, where the outline round it is the same too
-   or a whole contour sits as high, and looser ones; the letter's own other places, not where it was made; and,
-   where a letter has the shape only mirrored, mirrored), and putting the change in, point for point where the
-   letter has the same points, else as a new stretch or contour fitted to it. */
+   or taken away, shapes added), finding its old shape in other letters (close matches, where the outline round it is
+   the same too or a whole contour sits as high, and looser ones; the letter's own other places, not where it was
+   made; where a letter has the shape only mirrored, mirrored; and in a font drawn by hand, roughly), and putting the
+   change in, point for point where the letter has the same points, else as a new stretch or contour fitted to it. */
 import { before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { STYLES } from '../shared/content';
@@ -12,15 +12,14 @@ import { STYLE_FONTS } from '../shared/free-fonts';
 import { freeAtOf, type Params } from '../shared/params';
 import { FreeFonts } from '../server/free-fonts';
 import { carryChange, carryLetter, changesOf, sameDrawing } from '../client/lib/carry';
-import { moveAnchors, splitSegment, deleteAnchors, traceOf, type Ref } from '../client/lib/pen';
+import { contourArea, moveAnchors, splitSegment, deleteAnchors, traceOf, type Ref } from '../client/lib/pen';
 
 describe('carry: reading what changed', () => {
   // a square of eight points, three to a side
   const sq: Node[] = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 100 }, { x: 200, y: 200 }, { x: 100, y: 200 }, { x: 0, y: 200 }, { x: 0, y: 100 }];
 
-  it('finds nothing when nothing changed, or when shapes came or went', () => {
+  it('finds nothing when nothing changed', () => {
     assert.deepEqual(changesOf([sq], [sq.map(n => ({ ...n }))]), []);
-    assert.deepEqual(changesOf([sq], [sq, sq]), []);
   });
 
   it('reads a moved point as the stretch between the points either side of it', () => {
@@ -61,8 +60,15 @@ describe('carry: reading what changed', () => {
     // a dot taken away, the other contour's point moved: both read, each against its own contour
     const gone = changesOf([sq, dot], moveAnchors([sq], [{ c: 0, i: 3 }], 30, 0));
     assert.deepEqual(gone.map(c => [c.c, !!c.whole, c.fresh.length]), [[0, false, 1], [1, true, 0]]);
-    // a shape added is no change that can be carried, and leaves the others as they are read
-    assert.deepEqual(changesOf([sq], [...moveAnchors([sq], [{ c: 0, i: 3 }], 30, 0), dot]).map(c => [c.c, c.a, c.b]), [[0, 2, 4]]);
+    // a shape added, beside the others as they are read: placed by the outline of the square nearest its middle, at the
+    // corner at 200,200 (the start of the top side, running from it to 100,200)
+    const got = changesOf([sq], [...moveAnchors([sq], [{ c: 0, i: 3 }], 30, 0), dot]);
+    assert.deepEqual(got.map(c => [c.c, c.a, c.b, c.add?.length ?? 0]), [[0, 2, 4, 0], [0, 4, 5, 4]]);
+    assert.ok(got[1].at! < 0.05, `at the corner (${got[1].at})`);
+    // a ball set on the top side, overlapping it: by the point under its middle, at 100,200
+    const ball = changesOf([sq], [sq, [{ x: 80, y: 190 }, { x: 120, y: 190 }, { x: 120, y: 230 }, { x: 80, y: 230 }]]);
+    assert.deepEqual(ball.map(c => [c.a, c.b]), [[5, 6]]);
+    assert.ok(ball[0].at! < 0.05, `at the point under its middle (${ball[0].at})`);
   });
 
   it("reads every corner of a contour rounded, its points staying put, as a change at each corner", () => {
@@ -184,8 +190,52 @@ describe('carry: to the other letters of an own font', () => {
     assert.ok(r1 > r0 + 15 && r1 < r0 + 45, `the closing bracket reaches out right, from ${r0.toFixed(0)} to ${r1.toFixed(0)}`);
   });
 
+  it("puts a shape added to an l where the other letters have the l's top serif, as it sits on it there", () => {
+    const l = outline('l')!, end = tip(l).map(r => l.contours[r.c][r.i]), x = end[0].x, y = Math.max(...end.map(n => n.y));
+    const out = carryChange('l', l.contours, [...l.contours, round(x, y + 18, 30)], outline);
+    for (const ch of 'bhk') {
+      const got = out.find(c => c.ch === ch), was = outline(ch)!;
+      assert.ok(got?.close && !got.mirrored, `${ch} is a close match`);
+      assert.equal(got.doc.contours.length, was.contours.length + 1, `${ch} has the shape added`);
+      const [h] = tip(was).map(r => was.contours[r.c][r.i]), ball = got.doc.contours[got.doc.contours.length - 1];
+      const cx = (Math.min(...ball.map(n => n.x)) + Math.max(...ball.map(n => n.x))) / 2, cy = (Math.min(...ball.map(n => n.y)) + Math.max(...ball.map(n => n.y))) / 2;
+      assert.ok(Math.abs(cx - h.x) < 15 && Math.abs(cy - (Math.max(...tip(was).map(r => was.contours[r.c][r.i].y)) + 18)) < 15, `${ch}'s ball sits on its serif's end (${cx.toFixed(0)}, ${cy.toFixed(0)})`);
+    }
+    // carried twice, it isn't put in twice
+    const h = out.find(c => c.ch === 'h')!, again = carryLetter(changesOf(l.contours, [...l.contours, round(x, y + 18, 30)]), 'h', h.doc);
+    assert.equal(again, null);
+  });
+
   it('offers nothing to a letter that already looks as the change would leave it', () => {
     const d = outline('d')!, now = moveAnchors(d.contours, tip(d), -200, 0);
     assert.equal(carryLetter(changesOf(d.contours, now), 'x', { adv: d.adv, contours: now }), null);
   });
 });
+
+describe('carry: to the other letters of a font drawn by hand', () => {
+  let font: Font;
+  const outline = (ch: string): Drawn | null => { const g = font.glyph(ch); return g ? traceOf(g) : null; };
+  before(async () => {
+    const st = STYLES.find(s => s.id === 'blackletter')!, id = STYLE_FONTS.blackletter;
+    if (!freeFont(id)) registerFreeFont(await new FreeFonts(null, async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); }).load(id));
+    font = buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params);
+  });
+
+  it("finds Cathedral's b counter from its o's only roughly, offered but not as alike as a strict match", () => {
+    // the o's counter (wound against its outside) made wider, its right half moved out
+    const o = outline('o')!, big = o.contours.reduce((p, q) => (Math.abs(contourArea(q)) > Math.abs(contourArea(p)) ? q : p));
+    const c = o.contours.findIndex(con => Math.sign(contourArea(con)) !== Math.sign(contourArea(big))), con = o.contours[c];
+    const cx = (Math.min(...con.map(n => n.x)) + Math.max(...con.map(n => n.x))) / 2;
+    const wider = moveAnchors(o.contours, con.map((n, i) => ({ c, i, n })).filter(q => q.n.x > cx), 14, 0);
+    const b = carryLetter(changesOf(o.contours, wider), 'b', outline('b')!);
+    assert.ok(b?.rough && b.close, `the b's counter is a rough, close match (${b && JSON.stringify({ rough: b.rough, close: b.close })})`);
+    assert.equal(b.doc.contours.length, outline('b')!.contours.length);
+  });
+});
+
+/** A round of four points, `r` across, about cx, cy. */
+function round(cx: number, cy: number, r: number): Node[] {
+  const k = 0.5523 * r;
+  return [{ x: cx + r, y: cy, ix: cx + r, iy: cy - k, ox: cx + r, oy: cy + k, s: 1 }, { x: cx, y: cy + r, ix: cx + k, iy: cy + r, ox: cx - k, oy: cy + r, s: 1 },
+    { x: cx - r, y: cy, ix: cx - r, iy: cy + k, ox: cx - r, oy: cy - k, s: 1 }, { x: cx, y: cy - r, ix: cx - k, iy: cy - r, ox: cx + k, oy: cy - r, s: 1 }];
+}
