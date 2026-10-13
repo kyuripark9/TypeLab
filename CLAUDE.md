@@ -68,7 +68,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
   CSS): Manrope for every word on an eight-step scale (`--t-*`), a light serif (`--serif`) for titles, Geist Mono only
   for numbers and the small capitals naming a group, a handwriting only for a margin note, Lineup only for the logo;
   cream graph paper, warm ink and hairlines, square sheets, pill buttons, one lemon highlighter under ink; every
-  letter in sync is ink and lemon, one letter alone the blue.
+  letter in sync is ink and lemon, one letter alone the red.
 
 ## Where things go
 

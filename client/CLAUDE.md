@@ -148,7 +148,7 @@ small capitals naming a group, buttons (`.btn` ghost, primary, raised: `.outline
 (`.view-toggle`, `.style-tabs`, `.scope`, `.pen-kind`) and what floats (`.popover`, `.dialog`, the pen's menus, tips).
 A new field, switch or floating panel joins those selector lists rather than restyling itself; its own rule keeps
 only its size, spacing and type. A colour a scope changes (`--accent…`, `--fill`) is used by `var()` where it is
-drawn: a token mixed from it on `:root` would keep the sync look inside a blue scope. The design system is Studio
+drawn: a token mixed from it on `:root` would keep the sync look inside a red scope. The design system is Studio
 Think's (studiothink.framer.website). Type: Manrope (`--ui`, Google Fonts in `index.html`) for every word of the
 interface, buttons and tags included, on a scale of eight sizes (`--t-xs` 11px, `-s` 12, `-m` 13, `-base` 14, `-l`
 16, `-xl` 20, `-2xl` 24, `-3xl` 32; a new rule takes a step, never a literal) in three weights (500 to read, 600 for
@@ -176,8 +176,8 @@ square edged in ink, its name and a hairline (`.group-head`). An edit's scope is
 and the sliders' `--fill`: `.inspector`, `.preview` and the settings panel set them to `--sync` (every letter
 changes: ink lines, rings, points and slider fills, `--accent-soft` a translucent lemon, and `--accent-mark` the
 opaque lemon a lit part of a letter is filled with, edged in ink so it reads on the paper; All letters is lemon), and
-the `.customizing` wrappers and `.ctl[data-letter]` to the blue `--custom` (one letter alone: blue lines, fills and
-lit parts, a blue wash on the panel, a blue frame on the inspector; Only <letter> is filled blue), so the two can't be
+the `.customizing` wrappers and `.ctl[data-letter]` to the red `--custom` (one letter alone: red lines, fills and
+lit parts, a pale red wash on the panel, a red frame on the inspector; Only <letter> is filled red), so the two can't be
 mistaken; elsewhere the accent is the sync look.
 Class prefixes: `.pv-` preview, `.i-` inspector canvas, `.pen-`, `.d-` diagrams, `.ex-` explainer text, `.ctl-`,
 `.lib-`, `.acct-`. Some class names are built at runtime (`lib-${view}`, `resize-${side}`, Diagram's arguments, and

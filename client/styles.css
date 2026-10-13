@@ -14,14 +14,15 @@
    and a highlighter's lemon (--marker, #f7f780) as the one accent, laid under ink as a marker is (a primary button,
    the page you are on, what is picked, selected text), never as ink itself, since lemon can't be read on cream.
    An edit's two scopes each have a look: every letter in sync (--sync) is the system's own, ink with the lemon
-   under it, in the inspector, the preview and the settings; one letter customized (--custom) is a printer's blue,
+   under it, in the inspector, the preview and the settings; one letter customized (--custom) is a tomato red,
    the one strong colour in the system, so anything that belongs to one letter alone reads apart from what all of
    them share. A scope recolours what it holds by setting --accent (lines, rings, slider fills, points), --accent-ink
    (text), --accent-soft (a translucent wash: halos, what is picked, rings' insides) and --accent-mark (an opaque
    highlight laid over ink: a part of a letter lit up) and the sliders' --fill (below the inspector's head), so a rule
    takes those by var() where it is used rather than through a token mixed on :root, which would keep the sync look.
    Form warnings are an orange-brown (--warn-ink, --warn-tint), deleting a deep red (--danger), the construction grid
-   a teal and a pink (--grid-*) and the pen's snap guides a pink.
+   a teal and a pink (--grid-*) and the pen's snap guides a deep teal, cool so they never read as one letter's red
+   points.
    Shape: sheets, cards, tiles and menus are square, edged by a warm hairline (--raise); what you press (buttons,
    tags, switches, fields) rounds off into a pill (--pill); only what floats over the page casts a shadow (--shadow),
    long and soft as under a card laid on paper. A section head opens with a small lemon square edged in ink over a
@@ -39,12 +40,13 @@
   --marker: #f7f780; --marker-hover: #eeee5e;
   /* every letter in sync: ink, with the lemon under it (translucent, so a ring or a box over a letter shows through) */
   --sync: var(--ink); --sync-ink: var(--ink); --sync-soft: rgba(242, 240, 40, .55); --sync-mark: var(--marker);
-  /* one letter alone is a printer's deep blue, its pale shades faintly blue */
-  --custom: #225b90; --custom-ink: #0b4475; --custom-soft: rgba(34, 91, 144, .14); --custom-tint: #e2e9f1; --custom-wash: #f4f6f8;
+  /* one letter alone is a tomato red, a shade calmer than a pure red so it sits by the lemon on the cream, its pale
+     shades faintly pink */
+  --custom: #c0392b; --custom-ink: #8f2018; --custom-soft: rgba(192, 57, 43, .14); --custom-tint: #f7e0da; --custom-wash: #fcf1ed;
   --accent: var(--sync); --accent-ink: var(--sync-ink); --accent-soft: var(--sync-soft); --accent-mark: var(--sync-mark);
   --warn-ink: #a3531c; --warn-tint: #f8e6d8;
   --danger: #b3261e; --danger-hover: #8c1d17; --danger-wash: #fbeceb;
-  --grid-shared: #2a9db5; --grid-own: #d0458a; --snap: #d94f8c;
+  --grid-shared: #2a9db5; --grid-own: #d0458a; --snap: #13788c;
   --hover: rgba(32, 31, 29, .05); --active: rgba(32, 31, 29, .08);
   /* the dim under a drawer, a sheet or a dialog */
   --scrim: rgba(32, 31, 29, .3);
@@ -138,7 +140,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .btn.primary.danger-btn { background: var(--danger); color: var(--white); box-shadow: none; }
 .btn.primary.danger-btn:hover { background: var(--danger-hover); }
 /* A field you type into is a pill on a pale well with a hairline inside it, edged darker when pointed at and, typed
-   in, turned pale and ringed in the accent (its scope's: a letter's own numbers ring blue). On the paper (the nav's
+   in, turned pale and ringed in the accent (its scope's: a letter's own numbers ring red). On the paper (the nav's
    Find a setting, My designs' search) it is a pale pill raised by a hairline instead. A key it answers to sits at its
    right end on a grey pill. */
 .type-field input, .search-field input, .size-field, .field input, .export-name input, .name-prompt input, .pen-num-field input {
@@ -588,7 +590,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .insp-title h2 { margin: 0; font-size: var(--t-xl); font-weight: 600; }
 .grow { flex: 1; }
 /* Parts/Points and All letters/Only a: the shared segmented switch, the scope picked in its look: All letters ink on
-   the lemon, edged in ink (the system's own primary look), Only a filled in the blue */
+   the lemon, edged in ink (the system's own primary look), Only a filled in the red */
 .scope { margin-left: 8px; }
 .scope button { gap: 7px; padding: 0 13px 0 11px; }
 .scope button.on[data-scope="all"] { background: var(--marker); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
@@ -599,8 +601,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
    fills in ink, highlights in the lemon edged in ink; All letters is lemon */
 .inspector, .preview, .panel:not(.styles) { --accent: var(--sync); --accent-ink: var(--sync-ink); --accent-soft: var(--sync-soft); --accent-mark: var(--sync-mark); --fill: var(--sync); }
 /* customizing one letter, through its own settings or point by point with the pen: the letter is framed
-   and its switch turns blue, so the mode can't be missed; a banner over the canvas says only what the switches
-   don't (Points reaching other letters, a letter the settings no longer change). The inspector's highlights and handles all turn blue too. */
+   and its switch turns red, so the mode can't be missed; a banner over the canvas says only what the switches
+   don't (Points reaching other letters, a letter the settings no longer change). The inspector's highlights and handles all turn red too. */
 .inspector.customizing { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --accent-mark: var(--custom); --fill: var(--custom); }
 .inspector.customizing .insp-body { position: relative; box-shadow: inset 0 0 0 2px var(--custom); border-radius: 0 0 var(--radius) var(--radius); }
 .scope-banner { position: absolute; top: 12px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 7px; padding: 4px 12px;
@@ -612,7 +614,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .inspector:not(.customizing) .scope-banner { background: var(--surface); color: var(--ink-2); box-shadow: var(--raise); }
 .scope-note { display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 6px; padding: 10px 12px; border-radius: var(--radius); background: var(--custom-tint); color: var(--ink); font-size: var(--t-m); line-height: 1.45; }
 .scope-note .scope-icon { margin-top: 1px; color: var(--custom); }
-/* customizing one letter: the panel is washed in blue, unframed (the inspector's frame says it), and the controls
+/* customizing one letter: the panel is washed in red, unframed (the inspector's frame says it), and the controls
    that reshape only that letter take its colour; Whole font ones keep the ink and lemon of every letter in sync */
 .panel.customizing { background: var(--custom-wash); }
 .panel.customizing .explainer { --accent-ink: var(--custom-ink); }
@@ -692,7 +694,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .history-row.wide svg { width: 60px; }
 
 /* ---------- the pen: a letter's anchor points and handles. Customizing, points belong to the one letter, so the pen
-   is dressed as customizing: its points, handles and picked tool take the blue, its bar the wash, inside the frame */
+   is dressed as customizing: its points, handles and picked tool take the red, its bar the wash, inside the frame */
 .pen-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; padding: 2px; }
 .pen-canvas { flex: 1; min-height: 0; overflow: hidden; position: relative; touch-action: none; }
 .pen-canvas svg { display: block; }
