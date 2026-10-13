@@ -14,8 +14,7 @@
    stays slides along to its new place, the guide lines with it, all on one easing;
    - the name is drawn in the logo's letters, in capitals as the header sets it, as Points mode shows a letter: its
      points (corners and extremes) and handles come in along it as its outline is drawn on, the lines move to the
-     logo's heights and its letters' edges, slanted ones run on across the window along its slanted strokes, and its
-     ink fills in;
+     logo's heights and its letters' edges, and its ink fills in;
    - the drawing gives way to the wordmark, the header's logo in its font (Lineup), the very letters drawn, with the
      tagline under it, and the card fades to the app, the words first.
    A key or a click skips ahead to the fade. It is one SVG, so the name keeps one baseline under every font and the
@@ -76,9 +75,6 @@ const POINTS_MS = 420, LETTER_MS = 30, FILL_MS = 760, DRAW_MS = 1100;
 /** the smallest size, in px to the em, the drawing's points show their handles at; how sharply the outline turns at a
     point for it to show as a corner (the cosine of 25°), and how far apart, in units, two points it shows are at least */
 const HANDLES_FROM = 80, CORNER = Math.cos(25 * Math.PI / 180), CLEAR = 50;
-/** how long, in units, a straight edge of the drawing is, and how far off level and plumb it runs (in degrees), for a
-    slanted guide line to run on along it */
-const SLANT_LONG = 200, SLANT_OFF = 15;
 /** how long the wordmark shows, then how long it fades; FADE_MS matches .intro.leave's opacity transition in
     styles.css, its delay counted */
 const HOLD_MS = 1300, FADE_MS = 650;
@@ -225,8 +221,7 @@ interface Point { x: number; y: number; smooth: boolean; handles: [number, numbe
 /** The name as the logo sets it, in the drawing's letters at `k` px a unit, centred on `cx` with its baseline at
     `base`: each letter's outline as a path, and the points a type designer would put it on: its corners, and a
     curve's only where it runs level or plumb (a font's rounds can carry many more, which crowd into a string of
-    beads), each clear of those before it by CLEAR units; where it stands across (`box`, as the font spaces it); and
-    its long straight edges running slant (`slants`, each its two ends). */
+    beads), each clear of those before it by CLEAR units; and where it stands across (`box`, as the font spaces it). */
 function drawName(data: Logo, k: number, cx: number, base: number) {
   const letters = [...MARK].flatMap(ch => (data.glyphs[ch] ? [data.glyphs[ch]] : []));
   let left = cx - letters.reduce((w, [adv]) => w + adv, 0) * k / 2;
@@ -235,7 +230,7 @@ function drawName(data: Logo, k: number, cx: number, base: number) {
     // a point's handles, coming in and going out, where it has them
     const ins = (n: PackedNode) => (n.length > 2 && n[2] != null && n[3] != null ? [n[2], n[3]] as const : null);
     const outs = (n: PackedNode) => (n.length > 4 ? [n[4] as number, n[5] as number] as const : null);
-    const points: Point[] = [], slants: number[][] = [];
+    const points: Point[] = [];
     let d = '';
     const kept: PackedNode[] = [];
     for (const c of contours) {
@@ -243,10 +238,6 @@ function drawName(data: Logo, k: number, cx: number, base: number) {
         const prev = c[(i + c.length - 1) % c.length], next = c[(i + 1) % c.length], o = outs(n), ni = ins(next), h = ins(n);
         if (i === 0) d += `M${X(n[0])} ${Y(n[1])}`;
         d += o || ni ? `C${X((o ?? n)[0])} ${Y((o ?? n)[1])} ${X((ni ?? next)[0])} ${Y((ni ?? next)[1])} ${X(next[0])} ${Y(next[1])}` : `L${X(next[0])} ${Y(next[1])}`;
-        if (!(o || ni)) {
-          const dx = next[0] - n[0], dy = next[1] - n[1], a = Math.abs(Math.atan2(dy, dx)) * 180 / Math.PI;
-          if (Math.hypot(dx, dy) >= SLANT_LONG && Math.min(a, 180 - a) > SLANT_OFF && Math.abs(a - 90) > SLANT_OFF) slants.push([X(n[0]), Y(n[1]), X(next[0]), Y(next[1])]);
-        }
         // the way the outline comes in and goes out (along a handle, or to the next point where it has none)
         type At = readonly [number, number, ...unknown[]];
         const way = (a: At, b: At) => (a[0] === b[0] && a[1] === b[1] ? null : [b[0] - a[0], b[1] - a[1]] as const);
@@ -266,23 +257,7 @@ function drawName(data: Logo, k: number, cx: number, base: number) {
     }
     const box = [n1(left), n1(left + adv * k)] as const;
     left += adv * k;
-    return { d, points, box, slants };
-  });
-}
-
-/** Slanted guide lines across the window `w` by `h` px, each running on along one of `edges` (each its two ends), one
-    to a stroke: an edge parallel to one kept and nearer it than `apart` px, its stroke's other side, is left out. */
-function across(edges: number[][], w: number, h: number, apart: number) {
-  const kept: { u: number[]; c: number }[] = [];
-  return edges.flatMap(([x1, y1, x2, y2]) => {
-    // its way, from left to right, and how far it passes from the window's corner
-    const len = Math.hypot(x2 - x1, y2 - y1), s = x2 < x1 ? -1 : 1, u = [s * (x2 - x1) / len, s * (y2 - y1) / len], c = x1 * u[1] - y1 * u[0];
-    if (kept.some(k => Math.abs(k.u[0] * u[1] - k.u[1] * u[0]) < 0.05 && Math.abs(k.c - c) < apart)) return [];
-    kept.push({ u, c });
-    // where it comes into the window and where it leaves
-    const tx = [-x1 / u[0], (w - x1) / u[0]], ty = [-y1 / u[1], (h - y1) / u[1]];
-    const t0 = Math.max(Math.min(...tx), Math.min(...ty)), t1 = Math.min(Math.max(...tx), Math.max(...ty));
-    return [[x1 + t0 * u[0], y1 + t0 * u[1], x1 + t1 * u[0], y1 + t1 * u[1]].map(n1)];
+    return { d, points, box };
   });
 }
 
@@ -297,17 +272,13 @@ const guidesAt = (h: Heights, base: number, size: number): Guide[] =>
     .map(([id, y]) => ({ id, at: Math.round(base - y * size) + 0.5 }))
     .filter((l, i, ls) => !ls.slice(0, i).some(k => Math.abs(k.at - l.at) < ONE));
 
-/** The guide lines across the window `width` by `height`, unnamed: level ones at a font's heights, upright ones at
-    `columns`, parting its letters, which slide with them, and `slants`, each its two ends. `end` fades them out with
-    the drawing's points. */
-function Guides({ lines, columns = [], slants = [], width, height, end }: {
-  lines: Guide[]; columns?: number[]; slants?: number[][]; width: number; height: number; end: boolean;
-}) {
+/** The guide lines across the window `width` by `height`, unnamed: level ones at a font's heights, and upright ones,
+    fainter, at `columns`, parting its letters, which slide with them. `end` fades them out with the drawing's points. */
+function Guides({ lines, columns = [], width, height, end }: { lines: Guide[]; columns?: number[]; width: number; height: number; end: boolean }) {
   return (
     <g className={end ? 'intro-guides end' : 'intro-guides'} style={end ? { animationDelay: `${FILL_MS}ms` } : undefined}>
       {lines.map(l => <g key={l.id} className="intro-guide" style={{ transform: `translateY(${l.at}px)` }}><line x2={width} /></g>)}
       {columns.map((x, i) => <g key={`c${i}`} className="intro-guide" style={{ transform: `translateX(${x}px)` }}><line className="up" y2={height} pathLength={1} /></g>)}
-      {slants.map(([x1, y1, x2, y2], i) => <line key={`s${i}`} className="intro-slant" x1={x1} y1={y1} x2={x2} y2={y2} pathLength={1} style={{ animationDelay: `${i * 80}ms` }} />)}
     </g>
   );
 }
@@ -433,8 +404,6 @@ export function Intro() {
   const { width: W, height: H } = box;
   const size = Math.min(150, Math.max(60, W * 0.1)), base = Math.round(H / 2 + 0.2 * size - 10);
   const drawn = useMemo(() => (drawing && W ? drawName(drawing, size / 1000, W / 2, base) : null), [drawing, W, size, base]);
-  // the drawing's slanted guide lines, one to a stroke
-  const slants = useMemo(() => drawn && across(drawn.flatMap(l => l.slants), W, H, 0.2 * size), [drawn, W, H, size]);
 
   if (!shown) return null;
   // nothing while the fonts come (or when skipped before they did)
@@ -456,7 +425,7 @@ export function Intro() {
       {step && W > 0 && (
         <svg className="intro-art" width={W} height={H} style={{ '--em': `${size}px` } as CSSProperties}>
           <defs><clipPath id="intro-slot"><rect y={n1(base - SLOT[0] * size)} width={W} height={n1((SLOT[0] + SLOT[1]) * size)} /></clipPath></defs>
-          {lines && <Guides lines={lines} columns={columns} slants={step.drawn ? slants ?? undefined : undefined} width={W} height={H} end={!!step.drawn} />}
+          {lines && <Guides lines={lines} columns={columns} width={W} height={H} end={!!step.drawn} />}
           {(step.letters || gone.length > 0) && <Line letters={step.letters ?? []} xs={set?.xs ?? []} gone={gone} size={size} base={base} wave={wave} />}
           {step.drawn && drawn && <Drawing letters={drawn} size={size} />}
           {!step.letters && !step.drawn && <>
