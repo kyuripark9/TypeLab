@@ -2,7 +2,7 @@
 import { crc32, deflateRawSync } from 'node:zlib';
 import type { FontConstructorOptions } from 'opentype.js';
 import { CHARSET, ALL_CHARS, buildFont } from '../shared/engine';
-import type { Cmd, Font } from '../shared/engine';
+import type { Cmd, Font, Glyph } from '../shared/engine';
 import { TEXTS } from '../shared/content';
 import { slug } from '../shared/design';
 import { familyMembers, type FamilyRequest } from '../shared/family';
@@ -37,8 +37,10 @@ export function exportName(params: Params, name: string, font: Font = buildFont(
 /** An installable OpenType (CFF) font with every glyph TypeLab draws. A design written in a free font
     (its letters registered first, see free-fonts.ts) passes on the font's copyright notice and licence,
     as the licence asks, and doesn't take the font's own name: under the Open Font License a changed
-    font may not. TypeLab's own fonts come under no licence, so there is none to pass on. */
-export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR): Buffer {
+    font may not. TypeLab's own fonts come under no licence, so there is none to pass on. `outline` is the outline
+    a letter is written with: the engine's, unless asked for another (the interface's logo font writes its letters'
+    overlapping pieces made one, tools/fonts/ui.ts). */
+export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, outline: (g: Glyph) => Cmd[] = g => g.cmds): Buffer {
   const font = buildFont(params), m = font.m, free = font.free, licensed = free?.license ? free : null;
   name = exportName(params, name, font);
   // an advance width can't go below zero in a font file, and tight tracking takes it down: a space keeps at
@@ -61,7 +63,7 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR):
       name: 'uni' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'),
       unicode: ch.charCodeAt(0),
       advanceWidth: R(Math.max(20, g.adv + m.track)),
-      path: toPath(g.cmds)
+      path: toPath(outline(g))
     }));
   }
   // Apps that only know Regular, Italic, Bold and Bold Italic list each other weight as a family of

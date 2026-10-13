@@ -69,7 +69,7 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `components/LetterHistory.tsx` | History, in the inspector's head while the letter has a record (a clock button, so the head keeps to one line): how the letter stood after each edit, newest first, each drawn small as it would stand in the design now (from the design's font, a few rows a frame), what made it and when, the one it stands as marked Now, the font's own letter at the foot; a pick is `restoreLetter` (or Reset). The menu moves right where it would run out of the window |
 | `components/Panel.tsx`, `panel/` | The right-hand panel (below) |
 | `components/Diagram.tsx` | The explainer's live diagrams; its icon caches last the session and depend only on their props |
-| `components/Family.tsx`, `Account.tsx`, `Guide.tsx`, `Intro.tsx`, `Dialog.tsx` | The Export window's styles of the family, each a toggle with its sample, rows named by weight alone (`FamilyPicker`; a design with letters drawn in Points draws its samples in a deferred render, as moving them to every weight takes a moment the first time, and `useFamilySamplesAhead`, in the header's Export button, moves them ahead while the editor is idle); the sign-in dialog and account button; the first-run tour; the opening title card (one SVG: the name scrambled, settled and cut through the own fonts, but the blackletter, and the latest saved fonts (`api.listDesigns`, drawn by `fontFor`, none begun as blackletter) over guide lines at each font's heights, then drawn from Mainline's points as the pen shows them and filled, then the wordmark); the confirm dialog |
+| `components/Family.tsx`, `Account.tsx`, `Guide.tsx`, `Intro.tsx`, `Dialog.tsx` | The Export window's styles of the family, each a toggle with its sample, rows named by weight alone (`FamilyPicker`; a design with letters drawn in Points draws its samples in a deferred render, as moving them to every weight takes a moment the first time, and `useFamilySamplesAhead`, in the header's Export button, moves them ahead while the editor is idle); the sign-in dialog and account button; the first-run tour; the opening title card (one SVG: the name scrambled, settled and cut through the own fonts, but the blackletter, and the latest saved fonts (`api.listDesigns`, drawn by `fontFor`, none begun as blackletter) over guide lines at each font's heights, then drawn in capitals from the logo's points (Lineup's, `client/fonts/Lineup.json`) as the pen shows them and filled, then the wordmark, the logo in Lineup over the very letters drawn); the confirm dialog |
 | `components/SliderIcons.tsx`, `Icons.tsx`, `Resizer.tsx` | One icon per slider (`SLIDER_ICON_KEYS`, tested); the pages' icons; the draggable borders between panels |
 | `lib/api.ts` | Every `/api` request (routes in server/app.ts) |
 | `lib/free.ts` | Fetching and registering free fonts (`loadFreeFont`), `useFreeFonts`, the cards' web fonts (`useWebFont`, `fontStyle`: an own font from the server's file as a `FontFace` named `TypeLab <Family>`, a Google one by its stylesheet; `webFont`, the opening title card's, resolves null for one that didn't come) |
@@ -149,10 +149,12 @@ you press, 600 for headings); Chivo Mono (`--mono`, Google Fonts) only for numbe
 the small name over a group (section heads, the nav's page groups, menu heads, field labels: the shared rule after
 `:root` lists them; a letter named in one keeps its case in a `<span className="ch">`, as "Parts of a" isn't
 "Parts of A"); Lineup (`--display`, `client/fonts/Lineup.otf`, written by `npm run fonts:ui` from
-`Asset/lineup.typelab.json`, one weight, never bolded) only for the logo, as its hairlines don't read at UI sizes. The
-Feeling names are the one exception, each in an own font (`.feel`). Labels drawn in the canvases and diagrams take
-`--t-xs` too; only the opening's guide names keep their own size. Text runs at a line height of 1.45, headings at
-1.25. Colours are a type specimen sheet's: black ink on light ivory paper (`#f7f2e9`), paler ivory sheets, warm greys,
+`Asset/lineup.typelab.json`, one weight, never bolded) only for the logo, in capitals, the header's and the opening's
+(which draws it first from `client/fonts/Lineup.json`, its capitals' outlines, written with it): the design was drawn
+for capitals, and its small letters run into each other. The Feeling names are the one exception, each in an own
+font (`.feel`). Labels drawn in the canvases and diagrams take `--t-xs` too; only the opening's guide names keep
+their own size. Text runs at a line height of 1.45, headings at 1.25.
+Colours are a type specimen sheet's: black ink on light ivory paper (`#f7f2e9`), paler ivory sheets, warm greys,
 a warm grey like its construction lines (`#e6ddd0`) for hairlines, tags and tracks, and its point markers' orange
 (`#cc4516`, deep enough for white on it) as the one accent. Sheets, cards, tiles and menus are square and flat
 (`--radius`, `-l`, `-xl` are 0; only what floats casts `--shadow`); what you press is a pill (`--radius-s`, `--pill`);

@@ -5,17 +5,18 @@
      letter, the letters still in fonts of their own, set evenly by their ink and each staying put once settled;
    - the whole name cuts from font to font, some cuts mixing them, over the guide lines a font is drawn on (baseline,
      x-height, cap height), which move to each font's own heights;
-   - the name is drawn as Points mode shows a letter: its points (corners and extremes) and handles come in along it as
-     its outline is drawn on, ascender and descender join the lines, which, standing still now, are named faintly as
-     the inspector names them, and its ink fills in;
-   - the drawing gives way to the wordmark, the header's logo, with the tagline under it, and the card fades to the
-     app, the words first.
+   - the name is drawn in the logo's letters, in capitals as the header sets it, as Points mode shows a letter: its
+     points (corners and extremes) and handles come in along it as its outline is drawn on, the lines move to the
+     logo's heights and, standing still now, are named faintly as the inspector names them, and its ink fills in;
+   - the drawing gives way to the wordmark, the header's logo in its font (Lineup), the very letters drawn, with the
+     tagline under it, and the card fades to the app, the words first.
    A key or a click skips ahead to the fade. It is one SVG, so the name keeps one baseline under every font and the
    lines sit true to it. The own fonts are the cards' web fonts, a saved font is drawn as the engine builds it (as My
-   designs draws its name), and the drawing is DRAWN's letters as the server sends them: the card waits up to WAIT_MS
-   for them, plays with those that came (leaving out the drawing if its letters didn't), and shows the wordmark alone
-   when too few own fonts did. Once seen it's marked in localStorage under
-   PREFS.introSeen (lib/prefs.ts), which the browser tools in tools/browser set beforehand to keep it out of the way. */
+   designs draws its name), and the drawing is the logo's capitals as tools/fonts/ui.ts writes them beside its font
+   (client/fonts/Lineup.json): the card waits up to WAIT_MS for them, plays with those that came (leaving out the
+   drawing if its letters didn't), and shows the wordmark alone when too few own fonts did. Once seen it's marked in
+   localStorage under PREFS.introSeen (lib/prefs.ts), which the browser tools in tools/browser set beforehand to keep
+   it out of the way. */
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { Design } from '../../shared/design';
 import { cmdsBox, type Font, type FreeFontData, type PackedNode } from '../../shared/engine';
@@ -27,8 +28,11 @@ import { n1, useSize } from '../lib/hooks';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
 import { fontFor } from '../state/editor';
 
+import LOGO_LETTERS from '../fonts/Lineup.json?url';
 const NAME = 'TypeLab';
 /** the blackletter style and its own font, which the card leaves out (its letters read as another script) */
+/** the name as the logo sets it, in capitals (.brand-name in styles.css): the drawing and the wordmark */
+const MARK = NAME.toUpperCase();
 const BLACKLETTER = 'blackletter', BLACK_FONT = parseFontId(STYLE_FONTS[BLACKLETTER] ?? '')?.family;
 const FONTS = Object.entries(OWN_FAMILIES).filter(([family]) => family !== BLACK_FONT).map(([family, o]) => fontId({ family, weight: o.weight, italic: o.italic }));
 /** what the scramble shows where a letter hasn't settled yet, and the share of those that change at each step (the
@@ -43,8 +47,6 @@ const LETTER_GAP = 0.07;
 const CUTS = ['Couture', 'Timber', '*', 'Serenade', 'Gumdrop', 'Dispatch', 'Orbital'];
 /** the cuts the saved fonts take, the latest saved first, so as many of them come up as there are, the cuts as many */
 const MINE_AT = ['Gumdrop', 'Timber', 'Dispatch'];
-/** the font the name is drawn in last: a sans like the wordmark's Switzer, so the wordmark reads as what was drawn */
-const DRAWN = 'Mainline:600';
 /** how long to wait for the fonts, and the fewest to play with */
 const WAIT_MS = 1200, FEWEST = 6;
 /** each step of the scramble growing and of it settling; the cuts slow from CUT_MS to CUT_MS + SLOW_MS */
@@ -73,6 +75,8 @@ type Heights = { xh: number; cap: number; asc?: number; desc?: number };
     wordmark. `lines` are the guide lines' heights, none before the cuts and on the wordmark. The scramble is set from
     where `from`, the settled name, starts. */
 interface Step { ms: number; letters?: Letter[]; from?: Letter[]; drawn?: true; lines?: Heights }
+/** The logo's letters as tools/fonts/ui.ts writes them: its heights, and each capital's advance and outline. */
+type Logo = Pick<FreeFontData, 'cap' | 'xh' | 'glyphs'>;
 
 const any = <T,>(xs: readonly T[]) => xs[Math.floor(Math.random() * xs.length)];
 
@@ -114,8 +118,8 @@ function nameWidth(name: string) {
 }
 
 /** The drawing's heights: the font's own x-height and cap height, and the name's highest and lowest points. */
-function drawnHeights(data: FreeFontData): Heights {
-  const ys = [...NAME].flatMap(ch => (data.glyphs[ch]?.[1] ?? []).flat().map(n => n[1]));
+function drawnHeights(data: Logo): Heights {
+  const ys = [...MARK].flatMap(ch => (data.glyphs[ch]?.[1] ?? []).flat().map(n => n[1]));
   return { xh: data.xh / 1000, cap: data.cap / 1000, asc: Math.max(...ys) / 1000, desc: Math.min(...ys) / 1000 };
 }
 
@@ -131,7 +135,7 @@ const blackletter = (d: Design) => d.styleId === BLACKLETTER || (!!d.params.free
 
 /** The steps, drawn afresh each time from the own fonts and saved ones that came, and the drawing's letters if they
     did. */
-function plan(fonts: FreeFontRef[], mine: Font[], drawing: FreeFontData | null): Step[] {
+function plan(fonts: FreeFontRef[], mine: Font[], drawing: Logo | null): Step[] {
   const mark: Step = { ms: HOLD_MS };
   if (fonts.length < FEWEST) return [mark];
   const own = fonts.map(web => ({ web })), saved = mine.map(f => ({ mine: f })), faces: Face[] = [...own, ...saved];
@@ -180,12 +184,12 @@ function plan(fonts: FreeFontRef[], mine: Font[], drawing: FreeFontData | null):
     ends of its handles. */
 interface Point { x: number; y: number; smooth: boolean; handles: [number, number][] }
 
-/** The name in the drawing's letters at `k` px a unit, centred on `cx` with its baseline at `base`: each letter's
-    outline as a path, and the points a type designer would put it on: its corners, and a curve's only where it runs
-    level or plumb (the font's sheets put many more on a round, which crowd into a string of beads), each clear of
-    those before it by CLEAR units. */
-function drawName(data: FreeFontData, k: number, cx: number, base: number) {
-  const letters = [...NAME].flatMap(ch => (data.glyphs[ch] ? [data.glyphs[ch]] : []));
+/** The name as the logo sets it, in the drawing's letters at `k` px a unit, centred on `cx` with its baseline at
+    `base`: each letter's outline as a path, and the points a type designer would put it on: its corners, and a
+    curve's only where it runs level or plumb (a font's rounds can carry many more, which crowd into a string of
+    beads), each clear of those before it by CLEAR units. */
+function drawName(data: Logo, k: number, cx: number, base: number) {
+  const letters = [...MARK].flatMap(ch => (data.glyphs[ch] ? [data.glyphs[ch]] : []));
   let left = cx - letters.reduce((w, [adv]) => w + adv, 0) * k / 2;
   return letters.map(([adv, contours]) => {
     const X = (u: number) => n1(left + u * k), Y = (u: number) => n1(base - u * k);
@@ -339,7 +343,7 @@ function shouldPlay() {
 export function Intro() {
   const [phase, setPhase] = useState<'wait' | 'play' | 'leave' | 'done'>(() => (shouldPlay() ? 'wait' : 'done'));
   const [steps, setSteps] = useState<Step[]>([]);
-  const [drawing, setDrawing] = useState<FreeFontData | null>(null);
+  const [drawing, setDrawing] = useState<Logo | null>(null);
   const [at, setAt] = useState(0);
   const [ref, box] = useSize<HTMLDivElement>();
   const shown = phase !== 'done';
@@ -349,7 +353,7 @@ export function Intro() {
     if (phase !== 'wait') return;
     setPrefFlag(PREFS.introSeen, true);
     const got: FreeFontRef[] = [], mine: (Font | null)[] = [];
-    let data: FreeFontData | null = null, live = true;
+    let data: Logo | null = null, live = true;
     const start = () => {
       if (!live) return;
       live = false; setDrawing(data); setSteps(plan(got, mine.filter(f => f !== null), data)); setPhase('play');
@@ -357,7 +361,7 @@ export function Intro() {
     const t = setTimeout(start, WAIT_MS);
     void Promise.all([
       ...FONTS.map(id => webFont(id).then(r => { if (r) got.push(r); })),
-      api.freeFont(DRAWN).then(d => { data = d; }, () => undefined),
+      fetch(LOGO_LETTERS).then(r => (r.ok ? r.json() as Promise<Logo> : null)).then(d => { data = d; }, () => undefined),
       // the latest saved fonts, as many as the cuts they take, kept in that order
       api.listDesigns().then(ds => Promise.all(ds.filter(d => !blackletter(d)).slice(0, MINE_AT.length)
         .map((d, i) => built(d).then(f => { mine[i] = f; }, () => undefined))), () => undefined)
@@ -399,7 +403,7 @@ export function Intro() {
               : <>
                 {/* the drawing, filled, gives way to the wordmark as it comes in, so one reads as the other */}
                 {drawn && steps[at - 1]?.drawn && <g className="intro-drawn">{drawn.map((l, i) => <path key={i} d={l.d} />)}</g>}
-                <text className="intro-mark" x={W / 2} y={base} textAnchor="middle" fontSize={size}>{NAME}</text>
+                <text className="intro-mark" x={W / 2} y={base} textAnchor="middle" fontSize={size}>{MARK}</text>
               </>}
         </svg>
       )}

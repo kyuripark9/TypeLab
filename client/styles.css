@@ -44,7 +44,8 @@
   --t-xs: 11px; --t-s: 12px; --t-m: 13px; --t-base: 14px; --t-l: 16px; --t-xl: 20px; --t-2xl: 24px;
 }
 /* The logo is set in Lineup, a font made in TypeLab (client/fonts, written by tools/fonts/ui.ts); it has one weight,
-   so it is never bolded. Its strokes are hairlines, too fine to read at the UI's sizes, so it marks the name alone. */
+   so it is never bolded. It was drawn for capitals (its small letters run into each other), so it marks the name alone,
+   in capitals. */
 @font-face { font-family: "TypeLab Lineup"; src: url("./fonts/Lineup.otf") format("opentype"); font-weight: 400; font-style: normal; font-display: swap; }
 .brand-name { font-family: var(--display); font-weight: 400; letter-spacing: 0; font-synthesis: none; }
 /* headings are Switzer a step heavier and drawn in a little, as Soren sets its titles */
@@ -1034,7 +1035,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .intro.leave .intro-art, .intro.leave .intro-tag { opacity: 0; transition: opacity .15s ease; }
 .intro-art { position: absolute; inset: 0; overflow: visible; }
 .intro-word { fill: var(--ink); }
-.intro-mark { fill: var(--ink); font-family: var(--ui); font-weight: 700; letter-spacing: -.04em; animation: intro-mark .4s cubic-bezier(.2, .7, .2, 1) .13s both; }
+.intro-mark { fill: var(--ink); font-family: var(--display); font-weight: 400; font-synthesis: none; animation: intro-mark .4s cubic-bezier(.2, .7, .2, 1) .13s both; }
 /* the filled drawing goes as the wordmark comes, the two hardly over each other */
 .intro-drawn { fill: var(--ink); animation: intro-out .14s ease-in forwards; }
 .intro-guide { transition: transform .14s cubic-bezier(.2, .7, .2, 1); }
@@ -1051,9 +1052,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .intro-pt circle.h { fill: var(--accent); stroke: none; }
 .intro-tag { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: .3em; font-size: 18px; color: var(--ink-3); }
 .intro-tag span { animation: intro-word .5s ease both; }
-/* the wordmark comes in as wide as the drawing it takes over from and draws in; its weight stays put (the interface's
-   font comes in a few weights, and a weight changing half way jumps) */
-@keyframes intro-mark { from { opacity: 0; letter-spacing: 0; } }
+/* the wordmark is the logo in its font (Lineup), the very letters drawn and spaced as the font spaces them, so it comes
+   in where the drawing stands */
+@keyframes intro-mark { from { opacity: 0; } }
 @keyframes intro-word { from { opacity: 0; transform: translateY(6px); } }
 @keyframes intro-rule { from { transform: scaleX(0); } }
 @keyframes intro-in { from { opacity: 0; } }

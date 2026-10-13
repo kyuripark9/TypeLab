@@ -107,8 +107,10 @@ throwing the kept files away. `ready(...params)` registers every free font the s
 ## Export
 
 `buildOTF`: a CFF font at 1000 units per em with `.notdef`, space, no-break space and every character of
-`ALL_CHARS` (named `uniXXXX`, one UTF-16 code unit each), advances never below 20 (a space 40). Regular, Italic,
-Bold and Bold Italic share one family name; other weights get a family of their own plus the typographic names.
+`ALL_CHARS` (named `uniXXXX`, one UTF-16 code unit each), advances never below 20 (a space 40), each letter in the
+engine's outline unless the caller passes another (`outline`: tools/fonts/ui.ts writes the logo font's overlapping
+pieces made one). Regular, Italic, Bold and Bold Italic share one family name; other weights get a family of their
+own plus the typographic names.
 Written in a free font from Google Fonts, it carries the font's copyright notice and full licence, and its name loses
 the font's own and reserved names (`withoutReserved`); TypeLab's own fonts come under no licence, so neither applies. `buildFamilyZip` builds every `familyMember` into `<slug>/<slug>-<Style>.otf`
 (and `LICENSE.txt` for a Google font). `buildSpecimenSVG` sets the name, every character and a pangram. Every export
