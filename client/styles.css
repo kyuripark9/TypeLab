@@ -1042,38 +1042,31 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 /* ---------- opening title card: one drawing over the paper. The name keeps one baseline while its fonts cut (a tspan a
    letter, each in its font), over guide lines dressed as the inspector's; then it is drawn from its points, dressed as
    the pen's (Points mode), and filled; then the wordmark. The drawing's timings are POINTS_MS, LETTER_MS and FILL_MS in
-   Intro.tsx, which sets each animation's delay. The card's colours are its own properties, which the accent's cut
-   (data-ground=accent) turns over: --intro-fg the letters, --intro-hot the scramble's letters in the accent,
-   --intro-line the guide lines */
-.intro { --intro-fg: var(--ink); --intro-hot: var(--accent); --intro-line: var(--line-2); position: fixed; inset: 0; z-index: 100; background: var(--paper); cursor: default; transition: opacity .45s ease; }
-.intro[data-ground=accent] { --intro-fg: var(--paper); --intro-hot: var(--ink); --intro-line: color-mix(in srgb, var(--paper) 35%, transparent); background: var(--accent); }
+   Intro.tsx, which sets each animation's delay. Everything that moves on the card moves on one easing, --intro-ease */
+.intro { --intro-ease: cubic-bezier(.2, .8, .2, 1); position: fixed; inset: 0; z-index: 100; background: var(--paper); cursor: default; transition: opacity .45s ease; }
 .intro.leave { opacity: 0; pointer-events: none; transition: opacity .45s ease .2s; }
 /* leaving, the words go first and the paper after them (FADE_MS in Intro.tsx, all told), so they never stand over the
    app */
 .intro.leave .intro-art, .intro.leave .intro-tag { opacity: 0; transition: opacity .3s ease; }
 .intro-art { position: absolute; inset: 0; overflow: visible; }
-.intro-word { fill: var(--intro-fg); }
-.intro-word .hot { fill: var(--intro-hot); }
-/* a step's new letters come in, each about its ink's middle on the baseline (Intro.tsx sets its origin and delay;
-   --em, on the drawing, is the name's size): bursting in from larger, rising, dropping onto the baseline, stretched
-   tall, turned, never fading, so a cut shows at once; a slam sets the whole name down from larger */
-.intro-in { transform-box: view-box; animation: .17s cubic-bezier(.2, .8, .3, 1.2) both; }
-.intro-in.burst { animation-name: intro-burst; }
-.intro-in.rise { animation-name: intro-rise; }
-.intro-in.drop { animation-name: intro-drop; }
-.intro-in.stretch { animation-name: intro-stretch; }
-.intro-in.turn { animation-name: intro-turn; }
-.intro-word.slam { transform-box: view-box; animation: intro-slam .3s cubic-bezier(.3, 1.25, .5, 1) both; }
+.intro-word { fill: var(--ink); }
+/* a letter rolls through the line's slot (#intro-slot, SLOT in Intro.tsx) as on a split-flap board, a new one up into
+   it from under it and one gone up out of it, far enough (in --em, the name's size, set on the drawing) to be clear
+   of the slot, the scramble's characters spinning through quicker; one that stays slides to its new place, as the
+   guide lines do */
+.intro-at { transition: transform .3s var(--intro-ease); }
+.intro-roll { animation: intro-roll-in .3s var(--intro-ease) both; }
+.intro-roll.quick { animation-duration: .15s; }
+.intro-roll.out { animation-name: intro-roll-out; }
 .intro-mark { fill: var(--ink); font-family: var(--display); font-weight: 400; font-synthesis: none; animation: intro-mark .3s ease both; }
 /* the filled drawing stays whole under the wordmark as it comes in over it, the very same letters, and goes only once
    it is in, so the logo never pales between the two */
 .intro-drawn { fill: var(--ink); animation: intro-out .2s ease .3s forwards; }
-.intro-guide { transition: transform .14s cubic-bezier(.2, .7, .2, 1); }
-.intro-guide line { stroke: var(--intro-line); transform-box: view-box; transform-origin: 0 0; animation: intro-rule .35s cubic-bezier(.2, .7, .2, 1) both; }
+.intro-guide { transition: transform .3s var(--intro-ease); }
+.intro-guide line { stroke: var(--line-2); transform-box: view-box; transform-origin: 0 0; animation: intro-rule .35s cubic-bezier(.2, .7, .2, 1) both; }
 .intro-guides.end, .intro-points { animation: intro-out .2s ease forwards; }
-/* the outline is drawn on in the accent, as the pen's points are, and gives way to the ink as it fills, so the
-   filled drawing is the wordmark's weight */
-.intro-outline { fill: var(--ink); fill-opacity: 0; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-line .42s cubic-bezier(.4, 0, .2, 1) both, intro-fill .26s ease both; }
+/* the outline is drawn on and gives way to the ink as it fills, so the filled drawing is the wordmark's weight */
+.intro-outline { fill: var(--ink); fill-opacity: 0; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-line .42s cubic-bezier(.4, 0, .2, 1) both, intro-fill .26s ease both; }
 .intro-pt { transform-box: view-box; animation: intro-pop .18s cubic-bezier(.3, 1.5, .5, 1) both; }
 .intro-pt rect, .intro-pt circle { fill: var(--surface); stroke: var(--accent); stroke-width: 1.2; }
 .intro-pt line { stroke: var(--accent); stroke-width: 1; }
@@ -1089,12 +1082,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 @keyframes intro-line { to { stroke-dashoffset: 0; } }
 @keyframes intro-fill { to { fill-opacity: 1; stroke-opacity: 0; } }
 @keyframes intro-pop { from { opacity: 0; transform: scale(.3); } }
-@keyframes intro-burst { from { transform: scale(1.9); } }
-@keyframes intro-rise { from { transform: translateY(calc(var(--em) * .45)); } }
-@keyframes intro-drop { from { transform: translateY(calc(var(--em) * -.55)); } }
-@keyframes intro-stretch { from { transform: scaleY(2.4); } }
-@keyframes intro-turn { from { transform: rotate(-40deg) scale(.4); } }
-@keyframes intro-slam { from { transform: scale(1.7); } }
+@keyframes intro-roll-in { from { transform: translateY(calc(var(--em) * 1.9)); } }
+@keyframes intro-roll-out { to { transform: translateY(calc(var(--em) * -1.9)); } }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
