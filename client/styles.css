@@ -10,11 +10,11 @@
    only for the logo (below). The Feeling names are the one exception, each in a font with that feeling (.feel).
    Colour: warm ink (#201f1d) on cream paper ruled faintly in squares (--paper, --grid-paper), the sheets a paler cream
    (--surface) with wells a shade under it (--well, --tint), two warm greys for text (#46423d, and a step lighter for
-   notes; both 7:1 or more on the paper), warm hairlines (--line) for edges and the tracks of sliders and switches,
+   notes; both 7:1 or more on the paper), warm hairlines (--line) for edges, ink laid thin for the tracks of sliders and switches (--track),
    and a highlighter's lemon (--marker, #f7f780) as the one accent, laid under ink as a marker is (a primary button,
    the page you are on, what is picked, selected text), never as ink itself, since lemon can't be read on cream.
    An edit's two scopes each have a look: every letter in sync (--sync) is the system's own, ink with the lemon
-   under it, in the inspector, the preview and the settings; one letter customized (--custom) is a tomato red,
+   under it, in the inspector, the preview and the settings; one letter customized (--custom) is a hot red,
    the one strong colour in the system, so anything that belongs to one letter alone reads apart from what all of
    them share. A scope recolours what it holds by setting --accent (lines, rings, slider fills, points), --accent-ink
    (text), --accent-soft (a translucent wash: halos, what is picked, rings' insides) and --accent-mark (an opaque
@@ -36,13 +36,16 @@
     linear-gradient(to bottom, rgba(32, 31, 29, .03) 1px, transparent 1px) 0 0 / 60px 60px, var(--paper);
   --ink: #201f1d; --ink-2: #46423d; --ink-3: #504b45; --ink-hover: #3a3733; --white: #fffdf9;
   --line: #e9e1d8; --line-2: #d6cec6;
+  /* the tracks of sliders and switches: ink laid thin over whatever is under them, so a track stands out as well on a
+     row in use or a tinted panel as on the sheet (about 1.5:1 on each) */
+  --track: rgba(32, 31, 29, .2);
   /* the highlighter, and a step deeper for a lemon button pointed at */
   --marker: #f7f780; --marker-hover: #eeee5e;
   /* every letter in sync: ink, with the lemon under it (translucent, so a ring or a box over a letter shows through) */
   --sync: var(--ink); --sync-ink: var(--ink); --sync-soft: rgba(242, 240, 40, .55); --sync-mark: var(--marker);
-  /* one letter alone is a tomato red, a shade calmer than a pure red so it sits by the lemon on the cream, its pale
-     shades faintly pink */
-  --custom: #c0392b; --custom-ink: #8f2018; --custom-soft: rgba(192, 57, 43, .14); --custom-tint: #f7e0da; --custom-wash: #fcf1ed;
+  /* one letter alone is a hot red (#ff034a), its text a deeper shade (7:1 on the paper), its pale shades the red
+     mixed thinly into the sheet (8% a control in use and the scope note, 3% the panel's wash) */
+  --custom: #ff034a; --custom-ink: #a8002f; --custom-soft: rgba(255, 3, 74, .14); --custom-tint: #fde6e8; --custom-wash: #fdf3f1;
   --accent: var(--sync); --accent-ink: var(--sync-ink); --accent-soft: var(--sync-soft); --accent-mark: var(--sync-mark);
   --warn-ink: #a3531c; --warn-tint: #f8e6d8;
   --danger: #b3261e; --danger-hover: #8c1d17; --danger-wash: #fbeceb;
@@ -528,13 +531,13 @@ body.resizing.y { cursor: row-resize; }
 /* a slider: a rounded 6px bar filled in its scope's colour up to the value, and a white knob lifted off it on a soft
    shadow, with no outline; hovered it takes a halo in the accent, held it grows a little, focused it is ringed */
 input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: none; margin: 0; cursor: pointer; --v: .5; }
-input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: var(--pill); background: linear-gradient(to right, var(--fill, var(--ink)) calc(var(--v) * 100%), var(--line) 0); }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: var(--pill); background: linear-gradient(to right, var(--fill, var(--ink)) calc(var(--v) * 100%), var(--track) 0); }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px; border: 0; border-radius: 50%; background: var(--white); box-shadow: var(--knob); transition: box-shadow .15s, transform .15s; }
 input[type=range]:hover::-webkit-slider-thumb { box-shadow: var(--knob), 0 0 0 5px var(--accent-soft); }
 input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); box-shadow: var(--knob), 0 0 0 6px var(--accent-soft); }
 input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: var(--knob), 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 input[type=range]:focus-visible { outline: none; }
-input[type=range]::-moz-range-track { height: 6px; border-radius: var(--pill); background: var(--line); }
+input[type=range]::-moz-range-track { height: 6px; border-radius: var(--pill); background: var(--track); }
 input[type=range]::-moz-range-progress { height: 6px; border-radius: var(--pill); background: var(--fill, var(--ink)); }
 input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--white); box-shadow: var(--knob); transition: box-shadow .15s, transform .15s; }
 input[type=range]:hover::-moz-range-thumb { box-shadow: var(--knob), 0 0 0 5px var(--accent-soft); }
@@ -544,11 +547,11 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
    track's centre at 50, so the two line up. */
 .ctl { --mid-dot: linear-gradient(var(--surface), var(--surface)) 50% 50% / 2px 100% no-repeat; }
 .ctl input[type=range]::-webkit-slider-runnable-track { background: var(--mid-dot),
-  linear-gradient(to right, var(--fill, var(--ink)) calc(var(--v) * 100%), var(--line) 0); }
-.ctl input[type=range]::-moz-range-track { background: var(--mid-dot), var(--line); }
+  linear-gradient(to right, var(--fill, var(--ink)) calc(var(--v) * 100%), var(--track) 0); }
+.ctl input[type=range]::-moz-range-track { background: var(--mid-dot), var(--track); }
 .bipolar input[type=range]::-webkit-slider-runnable-track { background: var(--mid-dot),
-  linear-gradient(to right, var(--line) calc(min(var(--v), .5) * 100%), var(--fill, var(--ink)) 0, var(--fill, var(--ink)) calc(max(var(--v), .5) * 100%), var(--line) 0); }
-.size input[type=range]::-webkit-slider-runnable-track { background: var(--line); }
+  linear-gradient(to right, var(--track) calc(min(var(--v), .5) * 100%), var(--fill, var(--ink)) 0, var(--fill, var(--ink)) calc(max(var(--v), .5) * 100%), var(--track) 0); }
+.size input[type=range]::-webkit-slider-runnable-track { background: var(--track); }
 
 .opts { display: grid; gap: 4px; }
 .opts.two { grid-template-columns: repeat(2, 1fr); }
@@ -561,7 +564,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-soft); color: var(--ink); font-weight: 600; }
 .opt.on svg { fill: var(--accent); }
 .sub-label { margin: 14px 0 7px; }
-.switch { width: 34px; height: 20px; border-radius: var(--pill); background: var(--line-2); position: relative; flex: none; transition: background .15s; }
+.switch { width: 34px; height: 20px; border-radius: var(--pill); background: var(--track); position: relative; flex: none; transition: background .15s; }
 .switch i { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--white); box-shadow: var(--knob); transition: transform .2s ease; }
 .switch:hover { background: var(--ink-3); }
 .switch.on { background: var(--accent); }
@@ -1091,7 +1094,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .intro-guide line { stroke: var(--line-2); transform-box: view-box; transform-origin: 0 0; animation: intro-rule .35s cubic-bezier(.2, .7, .2, 1) both; }
 .intro-guides.end, .intro-points { animation: intro-out .2s ease forwards; }
 /* the outline is drawn on and gives way to the ink as it fills, so the filled drawing is the wordmark's weight */
-.intro-outline { fill: var(--ink); fill-opacity: 0; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-line .42s cubic-bezier(.4, 0, .2, 1) both, intro-fill .26s ease both; }
+.intro-outline { fill: var(--ink); fill-opacity: 0; stroke: var(--ink); stroke-width: .8; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-line .42s cubic-bezier(.4, 0, .2, 1) both, intro-fill .26s ease both; }
 .intro-pt { transform-box: view-box; animation: intro-pop .18s cubic-bezier(.3, 1.5, .5, 1) both; }
 .intro-pt rect, .intro-pt circle { fill: var(--surface); stroke: var(--accent); stroke-width: 1.2; }
 .intro-pt line { stroke: var(--accent); stroke-width: 1; }

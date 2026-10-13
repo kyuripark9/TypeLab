@@ -140,46 +140,47 @@ Code and tools find elements by these; renaming one means updating every reader.
 
 `styles.css` is the one stylesheet, in sections that each open with a `---------- name` comment. It opens with the
 design system: the tokens on `:root` (`--paper`, `--grid-paper`, `--surface`, `--well`, `--tint`, `--ink*`, `--white`,
-`--line*`, `--marker*`, `--accent*`, `--sync*`, `--custom*`, `--warn*`, `--danger*`, `--grid-*`, `--snap`, `--hover`,
-`--active`, `--scrim`, `--radius`, `--pill`, `--gap`, `--raise`, `--shadow`, `--knob`, `--ui`, `--serif*`, `--mono`,
-`--hand`, `--display`, `--t-*`; use them, not literals), then the shared parts every page draws with: headings, the
-small capitals naming a group, buttons (`.btn` ghost, primary, raised: `.outline`, `.wide`, `.round`; `.icon`,
-`.small`, `.danger-btn`), text fields (a pill on a well, or raised on the paper; one focus ring), segmented switches
-(`.view-toggle`, `.style-tabs`, `.scope`, `.pen-kind`) and what floats (`.popover`, `.dialog`, the pen's menus, tips).
-A new field, switch or floating panel joins those selector lists rather than restyling itself; its own rule keeps
-only its size, spacing and type. A colour a scope changes (`--accent…`, `--fill`) is used by `var()` where it is
-drawn: a token mixed from it on `:root` would keep the sync look inside a red scope. The design system is Studio
+`--line*`, `--track`, `--marker*`, `--accent*`, `--sync*`, `--custom*`, `--warn*`, `--danger*`, `--grid-*`, `--snap`,
+`--hover`, `--active`, `--scrim`, `--radius`, `--pill`, `--gap`, `--raise`, `--shadow`, `--knob`, `--ui`, `--serif*`,
+`--mono`, `--hand`, `--display`, `--t-*`; use them, not literals), then the shared parts every page draws with:
+headings, the small capitals naming a group, buttons (`.btn` ghost, primary, raised: `.outline`, `.wide`, `.round`;
+`.icon`, `.small`, `.danger-btn`), text fields (a pill on a well, or raised on the paper; one focus ring), segmented
+switches (`.view-toggle`, `.style-tabs`, `.scope`, `.pen-kind`) and what floats (`.popover`, `.dialog`, the pen's
+menus, tips). A new field, switch or floating panel joins those selector lists rather than restyling itself; its own
+rule keeps only its size, spacing and type. A colour a scope changes (`--accent…`, `--fill`) is used by `var()` where
+it is drawn: a token mixed from it on `:root` would keep the sync look inside a red scope. The design system is Studio
 Think's (studiothink.framer.website). Type: Manrope (`--ui`, Google Fonts in `index.html`) for every word of the
-interface, buttons and tags included, on a scale of eight sizes (`--t-xs` 11px, `-s` 12, `-m` 13, `-base` 14, `-l`
-16, `-xl` 20, `-2xl` 24, `-3xl` 32; a new rule takes a step, never a literal) in three weights (500 to read, 600 for
+interface, buttons and tags included, on a scale of eight sizes (`--t-xs` 11px, `-s` 12, `-m` 13, `-base` 14, `-l` 16,
+`-xl` 20, `-2xl` 24, `-3xl` 32; a new rule takes a step, never a literal) in three weights (500 to read, 600 for
 names, 700 for what you press and `<b>`; Manrope is loaded in only those three); every title (pages', dialogs', the
-tour's, the finder's question, the explainer's, the inspected letter, an account or Export section's, a font's name
-on its card in My designs, the name prompt's: the shared heading rule lists them) in a light serif drawn in a little:
+tour's, the finder's question, the explainer's, the inspected letter, an account or Export section's, a font's name on
+its card in My designs, the name prompt's: the shared heading rule lists them) in a light serif drawn in a little:
 Gambetta from Fontshare's variable cut, its Light set a touch heavier (`--serif-w`, 340) so it holds up at UI sizes,
-in the place of Studio Think's Ortica Linear; Geist Mono (`--mono`, Google Fonts) only for numbers, rule by rule, and in capitals for the small name
-over a group (section heads, the nav's page groups, menu heads, field labels: the shared rule after the headings
-lists them; a letter named in one keeps its case in a `<span className="ch">`, as "Parts of a" isn't "Parts of A");
-a handwriting (`--hand`, Just Me Again Down Here) only for a note in the margin (the inspector's hint), as Studio Think
-writes its asides; Lineup (`--display`, `client/fonts/Lineup.otf`, written by `npm run fonts:ui` from
-`Asset/lineup.typelab.json`, one weight, never bolded) only for the logo, in capitals, the header's and the
-opening's (which draws it first from `client/fonts/Lineup.json`, its capitals' outlines, written with it): the design
-was drawn for capitals, and its small letters run into each other. The Feeling names are the one exception, each in
-an own font (`.feel`). Labels drawn in the canvases and diagrams take `--t-xs` too. Text runs at a line height of
-1.45, headings at 1.25, serif titles at 1.2.
+in the place of Studio Think's Ortica Linear; Geist Mono (`--mono`, Google Fonts) only for numbers, rule by rule, and
+in capitals for the small name over a group (section heads, the nav's page groups, menu heads, field labels: the
+shared rule after the headings lists them; a letter named in one keeps its case in a `<span className="ch">`, as
+"Parts of a" isn't "Parts of A"); a handwriting (`--hand`, Just Me Again Down Here) only for a note in the margin (the
+inspector's hint), as Studio Think writes its asides; Lineup (`--display`, `client/fonts/Lineup.otf`, written by
+`npm run fonts:ui` from `Asset/lineup.typelab.json`, one weight, never bolded) only for the logo, in capitals, the
+header's and the opening's (which draws it first from `client/fonts/Lineup.json`, its capitals' outlines, written with
+it): the design was drawn for capitals, and its small letters run into each other. The Feeling names are the one
+exception, each in an own font (`.feel`). Labels drawn in the canvases and diagrams take `--t-xs` too. Text runs at a
+line height of 1.45, headings at 1.25, serif titles at 1.2.
 Colours: warm ink (`#201f1d`) on cream paper (`#fef5ec`) ruled faintly in 60px squares (`--grid-paper`, on the body,
 the editor, its header and My designs), sheets a paler cream (`#fdfaf6`) edged by a warm hairline (`--raise`), warm
-greys for text (`#46423d`, `#504b45` for notes, both 7:1 or more on the paper), warm hairlines and tracks (`--line`),
-and a highlighter's lemon (`--marker`, `#f7f780`) as the one accent, always under ink, never as ink (it can't be read
-on cream): the primary button (ink on lemon, edged in ink), the page open in the nav, selected text, a picked tag,
-what a link turns when pointed at, a section head's square. Sheets, cards, tiles and menus are square (`--radius` is
-0; only what floats casts `--shadow`, long and soft); what you press is a pill (`--pill`); a section head is a lemon
-square edged in ink, its name and a hairline (`.group-head`). An edit's scope is coloured through `var(--accent…)`
-and the sliders' `--fill`: `.inspector`, `.preview` and the settings panel set them to `--sync` (every letter
-changes: ink lines, rings, points and slider fills, `--accent-soft` a translucent lemon, and `--accent-mark` the
-opaque lemon a lit part of a letter is filled with, edged in ink so it reads on the paper; All letters is lemon), and
-the `.customizing` wrappers and `.ctl[data-letter]` to the red `--custom` (one letter alone: red lines, fills and
-lit parts, a pale red wash on the panel, a red frame on the inspector; Only <letter> is filled red), so the two can't be
-mistaken; elsewhere the accent is the sync look.
+greys for text (`#46423d`, `#504b45` for notes, both 7:1 or more on the paper), warm hairlines (`--line`), slider and
+switch tracks in ink laid thin (`--track`, so they read on a tinted row too), and a highlighter's lemon (`--marker`,
+`#f7f780`) as the one accent, always under ink, never as ink (it can't be read on cream): the primary button (ink on
+lemon, edged in ink), the page open in the nav, selected text, a picked tag, what a link turns when pointed at, a
+section head's square. Sheets, cards, tiles and menus are square (`--radius` is 0; only what floats casts `--shadow`,
+long and soft); what you press is a pill (`--pill`); a section head is a lemon square edged in ink, its name and a
+hairline (`.group-head`). An edit's scope is coloured through `var(--accent…)` and the sliders' `--fill`:
+`.inspector`, `.preview` and the settings panel set them to `--sync` (every letter changes: ink lines, rings, points
+and slider fills, `--accent-soft` a translucent lemon, and `--accent-mark` the opaque lemon a lit part of a letter is
+filled with, edged in ink so it reads on the paper; All letters is lemon), and the `.customizing` wrappers and
+`.ctl[data-letter]` to the red `--custom` (one letter alone: red lines, fills and lit parts, a pale red wash on the
+panel, a red frame on the inspector; Only <letter> is filled red), so the two can't be mistaken; elsewhere the accent
+is the sync look.
 Class prefixes: `.pv-` preview, `.i-` inspector canvas, `.pen-`, `.d-` diagrams, `.ex-` explainer text, `.ctl-`,
 `.lib-`, `.acct-`. Some class names are built at runtime (`lib-${view}`, `resize-${side}`, Diagram's arguments, and
 the `x`/`y` class Resizer puts on `body` while dragging), so search for the bare word before deleting a rule.
