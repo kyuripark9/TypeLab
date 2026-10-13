@@ -138,34 +138,40 @@ Code and tools find elements by these; renaming one means updating every reader.
 
 ## CSS
 
-`styles.css` is the one stylesheet, in sections that each open with a `---------- name` comment. Colours, radii,
-gaps and shadows are tokens on `:root` (`--paper`, `--surface`, `--well`, `--ink*`, `--line*`, `--accent*`,
-`--sync*`, `--custom*`, `--warn*`, `--danger*`, `--sheet`, `--raise`, `--shadow`, `--radius*`, `--pill`, `--gap`, `--ui`,
-`--mono`, `--display`, `--t-*`); use them, not literals. The design system is the Soren portfolio template's
+`styles.css` is the one stylesheet, in sections that each open with a `---------- name` comment. It opens with the
+design system: the tokens on `:root` (`--paper`, `--surface`, `--well`, `--tint`, `--ink*`, `--white`, `--line*`,
+`--accent*`, `--sync*`, `--custom*`, `--warn*`, `--danger*`, `--grid-*`, `--snap`, `--hover`, `--active`, `--scrim`,
+`--radius`, `--pill`, `--gap`, `--raise`, `--shadow`, `--knob`, `--ui`, `--mono`, `--display`, `--t-*`; use them,
+not literals), then the shared parts every page draws with: headings, the small capitals naming a group, buttons
+(`.btn` ghost, primary, raised: `.outline`, `.wide`, `.round`; `.icon`, `.small`, `.danger-btn`), text fields (a pill
+on a well, or raised on the paper; one focus ring), segmented switches (`.view-toggle`, `.style-tabs`, `.scope`,
+`.pen-kind`) and what floats (`.popover`, `.dialog`, the pen's menus, tips). A new field, switch or floating
+panel joins those selector lists rather than restyling itself; its own rule keeps only its size, spacing and type.
+A colour a scope changes (`--accent…`, `--fill`) is used by `var()` where it is drawn: a token mixed from it on
+`:root` would keep the orange inside a blue scope. The design system is the Soren portfolio template's
 (soren-template.framer.website). Type: one face for every word, Switzer (`--ui`, from Fontshare in `index.html`),
 headings, buttons and tags included, on a scale of seven sizes (`--t-xs` 11px, `-s` 12, `-m` 13, `-base` 14, `-l` 16,
 `-xl` 20, `-2xl` 24; a new rule takes a step, never a literal) in three weights (400 to read, 500 for names and what
-you press, 600 for headings); Chivo Mono (`--mono`, Google Fonts) only for numbers, rule by rule, and in capitals for
-the small name over a group (section heads, the nav's page groups, menu heads, field labels: the shared rule after
-`:root` lists them; a letter named in one keeps its case in a `<span className="ch">`, as "Parts of a" isn't
-"Parts of A"); Lineup (`--display`, `client/fonts/Lineup.otf`, written by `npm run fonts:ui` from
-`Asset/lineup.typelab.json`, one weight, never bolded) only for the logo, in capitals, the header's and the opening's
-(which draws it first from `client/fonts/Lineup.json`, its capitals' outlines, written with it): the design was drawn
-for capitals, and its small letters run into each other. The Feeling names are the one exception, each in an own
-font (`.feel`). Labels drawn in the canvases and diagrams take `--t-xs` too. Text runs at a line height of 1.45,
-headings at 1.25.
-Colours are a type specimen sheet's: black ink on light ivory paper (`#f7f2e9`), paler ivory sheets, warm greys,
-a warm grey like its construction lines (`#e6ddd0`) for hairlines, tags and tracks, and its point markers' orange
+you press, 600 for headings and `<b>`; Switzer is loaded in only those three); Chivo Mono (`--mono`, Google Fonts)
+only for numbers, rule by rule, and in capitals for the small name over a group (section heads, the nav's page groups,
+menu heads, field labels: the shared rule after the headings lists them; a letter named in one keeps its case in a
+`<span className="ch">`, as "Parts of a" isn't "Parts of A"); Lineup (`--display`, `client/fonts/Lineup.otf`, written
+by `npm run fonts:ui` from `Asset/lineup.typelab.json`, one weight, never bolded) only for the logo, in capitals, the
+header's and the opening's (which draws it first from `client/fonts/Lineup.json`, its capitals' outlines, written with
+it): the design was drawn for capitals, and its small letters run into each other. The Feeling names are the one
+exception, each in an own font (`.feel`). Labels drawn in the canvases and diagrams take `--t-xs` too. Text runs at a
+line height of 1.45, headings at 1.25.
+Colours are a type specimen sheet's: black ink on light ivory paper (`#f7f2e9`), paler ivory sheets, warm greys, a
+warm grey like its construction lines (`#e6ddd0`) for hairlines, tags and tracks, and its point markers' orange
 (`#cc4516`, deep enough for white on it) as the one accent. Sheets, cards, tiles and menus are square and flat
-(`--radius`, `-l`, `-xl` are 0; only what floats casts `--shadow`); what you press is a pill (`--radius-s`, `--pill`);
-a section head is an orange square, its name and a hairline (`.group-head`); no decorative flourishes. An edit's scope
-is coloured through `var(--accent…)` and the sliders' `--fill`: `.inspector`, `.preview` and the settings panel set
-them to `--sync` (every letter changes, the orange), and the `.customizing` wrappers and `.ctl[data-letter]` to the
-blue `--custom` (one letter alone); elsewhere the accent is the same orange. Class
-prefixes: `.pv-` preview, `.i-` inspector canvas, `.pen-`, `.d-` diagrams, `.ex-` explainer text, `.ctl-`, `.lib-`,
-`.acct-`. Some class names are built at runtime (`lib-${view}`,
-`resize-${side}`, Diagram's arguments, and the `x`/`y` class Resizer puts on `body` while dragging), so search for the
-bare word before deleting a rule.
+(`--radius` is 0; a pale tab or field on the paper is set off by `--raise`, and only what floats casts `--shadow`);
+what you press is a pill (`--pill`); a section head is an orange square, its name and a hairline (`.group-head`); no
+decorative flourishes. An edit's scope is coloured through `var(--accent…)` and the sliders' `--fill`: `.inspector`,
+`.preview` and the settings panel set them to `--sync` (every letter changes, the orange), and the `.customizing`
+wrappers and `.ctl[data-letter]` to the blue `--custom` (one letter alone); elsewhere the accent is the same orange.
+Class prefixes: `.pv-` preview, `.i-` inspector canvas, `.pen-`, `.d-` diagrams, `.ex-` explainer text, `.ctl-`,
+`.lib-`, `.acct-`. Some class names are built at runtime (`lib-${view}`, `resize-${side}`, Diagram's arguments, and
+the `x`/`y` class Resizer puts on `body` while dragging), so search for the bare word before deleting a rule.
 Widths: 1280px, 1180px (the drawer), 760px (phones), 640px, 600px. `prefers-reduced-motion` turns every transition
 and animation off, so time UI with JS timers, never `transitionend`.
 
