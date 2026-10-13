@@ -950,16 +950,34 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
   .strip-arrow span { display: none; }
 }
 
-/* ---------- opening title card: the name cut through the own fonts, a span a letter (each in its font), then the
-   wordmark. The name's line and the tagline's keep their heights throughout, so nothing moves when either changes */
-.intro { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; gap: 10px; background: var(--paper); cursor: default; transition: opacity .45s ease; }
+/* ---------- opening title card: one drawing over the paper. The name keeps one baseline while its fonts cut (a tspan a
+   letter, each in its font), over guide lines dressed as the inspector's; then it is drawn from its points, dressed as
+   the pen's (Points mode), and filled; then the wordmark. The drawing's timings are POINTS_MS, LETTER_MS and FILL_MS in
+   Intro.tsx, which sets each animation's delay */
+.intro { position: fixed; inset: 0; z-index: 100; background: var(--paper); cursor: default; transition: opacity .45s ease; }
 .intro.leave { opacity: 0; pointer-events: none; }
-.intro-name { height: 1.3em; font-size: clamp(56px, 8vw, 112px); line-height: 1.3; white-space: nowrap; color: var(--ink); }
-.intro-mark { font-weight: 700; letter-spacing: -.04em; animation: intro-mark .5s cubic-bezier(.2, .7, .2, 1) both; }
-.intro-tag { display: flex; gap: .3em; height: 1.45em; font-size: 18px; color: var(--ink-3); }
+.intro-art { position: absolute; inset: 0; overflow: visible; }
+.intro-word { fill: var(--ink); }
+.intro-mark { fill: var(--ink); font-family: var(--ui); font-weight: 700; letter-spacing: -.04em; animation: intro-mark .5s cubic-bezier(.2, .7, .2, 1) both; }
+.intro-guide { transition: transform .1s ease-out; }
+.intro-guide line { stroke: var(--line-2); transform-box: view-box; transform-origin: 0 0; animation: intro-rule .35s cubic-bezier(.2, .7, .2, 1) both; }
+.intro-guide text { font: 500 10px var(--ui); fill: var(--ink-3); animation: intro-in .2s ease .1s both; }
+.intro-guides.end, .intro-points { animation: intro-out .2s ease forwards; }
+.intro-outline { fill: var(--ink); fill-opacity: 0; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-line .42s cubic-bezier(.4, 0, .2, 1) both, intro-fill .26s ease both; }
+.intro-pt { transform-box: view-box; animation: intro-pop .18s cubic-bezier(.3, 1.5, .5, 1) both; }
+.intro-pt rect, .intro-pt circle { fill: var(--surface); stroke: var(--accent); stroke-width: 1.2; }
+.intro-pt line { stroke: var(--accent); stroke-width: 1; }
+.intro-pt circle.h { fill: var(--accent); stroke: none; }
+.intro-tag { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: .3em; font-size: 18px; color: var(--ink-3); }
 .intro-tag span { animation: intro-word .5s ease both; }
 @keyframes intro-mark { from { font-weight: 600; letter-spacing: .02em; } }
 @keyframes intro-word { from { opacity: 0; transform: translateY(6px); } }
+@keyframes intro-rule { from { transform: scaleX(0); } }
+@keyframes intro-in { from { opacity: 0; } }
+@keyframes intro-out { to { opacity: 0; } }
+@keyframes intro-line { to { stroke-dashoffset: 0; } }
+@keyframes intro-fill { to { fill-opacity: 1; } }
+@keyframes intro-pop { from { opacity: 0; transform: scale(.3); } }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
