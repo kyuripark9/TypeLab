@@ -7,7 +7,7 @@
    over one inside an `[inert]` fold. The explainer's root keeps the class `explainer`, which Inspector.tsx measures to
    scroll a control in just under it. */
 import { createContext, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
-import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey } from '../../../shared/content';
+import { ANATOMY, CATEGORIES, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey } from '../../../shared/content';
 import { isGlyphKey, type Params } from '../../../shared/params';
 import { actions, letterOf, useEditor, useFont } from '../../state/editor';
 import { Diagram } from '../Diagram';
@@ -79,14 +79,16 @@ export function Fold({ k, shut, quiet = false, children }: { k: FoldKey; shut?: 
 
 export function Explainer() {
   const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
-  const part = useEditor(s => s.inspect ? s.part : null), tips = useEditor(s => s.tips);
+  const part = useEditor(s => s.inspect ? s.part : null), tips = useEditor(s => s.tips), category = useEditor(s => s.category);
   // a free font's letters have no parts for a diagram to point at, so the diagram drawn with them goes
   const free = useEditor(s => !!s.params.freeFont);
   const c = CONTROLS[controlFor(active)], sub = SUBS[active as keyof typeof SUBS];
   const shapedBy = part && PART_CONTROL[part];
+  // a setting on another page names that page, which a click on the part opens
+  const elsewhere = shapedBy && CONTROLS[shapedBy].cat !== category ? CATEGORIES.find(x => x.id === CONTROLS[shapedBy].cat) : null;
   // two levels only, a title and its explanation; a part says which setting shapes it in the explanation
   const [title, text] = part
-    ? [ANATOMY[part][0], `${ANATOMY[part][1]}${shapedBy ? ` Shaped by ${CONTROLS[shapedBy].label}.` : ''}`]
+    ? [ANATOMY[part][0], `${ANATOMY[part][1]}${shapedBy ? ` Shaped by ${CONTROLS[shapedBy].label}${elsewhere ? ` on the ${elsewhere.label} page` : ''}.` : ''}`]
     : [(sub ?? c).friendly, sub?.explain ?? c.explain];
   // while inspecting, the large letter on the stage already shows the part, so drop the diagram
   return (

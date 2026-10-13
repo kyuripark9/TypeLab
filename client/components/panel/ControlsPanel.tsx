@@ -25,7 +25,7 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
   return (
     <div className="controls-page">
       <Explainer />
-      {inspecting ? <LetterControls keys={keys} category={category} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}{note}</div>}
+      {inspecting ? <LetterControls keys={keys} category={category} note={note} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}{note}</div>}
       <PageSteps category={category} />
     </div>
   );
@@ -51,12 +51,13 @@ function PageSteps({ category }: { category: Exclude<CategoryId, 'style'> }) {
   );
 }
 
-/** The inspected letter's sliders, named by the parts they shape, then the rest of the category. */
-function LetterControls({ keys, category }: { keys: ControlKey[]; category: Exclude<CategoryId, 'style'> }) {
+/** The page's controls while a letter is inspected: those that shape its parts first, named by the parts, then the rest
+    of the page. Each page shows only its own, so the letter's settings on other pages are a click on its part away. */
+function LetterControls({ keys, category, note }: { keys: ControlKey[]; category: Exclude<CategoryId, 'style'>; note: ReactNode }) {
   const ch = useEditor(s => s.inspect)!, font = useFont(), customizing = useEditor(s => !!letterOf(s));
   const hand = useEditor(s => !!s.params.outlines[ch]);
   const g = font.glyph(ch);
-  const rows = g ? letterControls(g, ch, font.letter(ch).params.serif) : [];
+  const rows = g ? letterControls(g, ch, font.letter(ch).params.serif).filter(r => keys.includes(r.key)) : [];
   const rest = keys.filter(k => !rows.some(r => r.key === k));
   return (
     <div className="ctl-list">
@@ -67,10 +68,11 @@ function LetterControls({ keys, category }: { keys: ControlKey[]; category: Excl
           <button className="link small" onClick={() => actions.syncLetter(ch)}>{`Reset ${ch}`}</button>
         </div>
       )}
-      <div className="list-head">Parts of {ch}</div>
+      {rows.length > 0 && <div className="list-head">Parts of {ch}</div>}
       {rows.map(r => <Control key={r.key} k={r.key} parts={r.parts} />)}
-      {rest.length > 0 && <div className="list-head">More {CATEGORIES.find(c => c.id === category)?.label.toLowerCase()}</div>}
+      {rows.length > 0 && rest.length > 0 && <div className="list-head">More {CATEGORIES.find(c => c.id === category)?.label.toLowerCase()}</div>}
       {rest.map(k => <Control key={k} k={k} />)}
+      {note}
     </div>
   );
 }

@@ -75,25 +75,35 @@ export function letterControls(g: Glyph, ch: string, serif: boolean): { key: Con
   return rows;
 }
 
-/** Point at a part: highlight it and make its slider the active one. */
+/** Point at a part: highlight it, and make its slider the active one when the slider is on this page (the explainer
+    names the page of one elsewhere). */
 function pointPart(id: string | null) {
   actions.setPart(id);
   const k = id && PART_CONTROL[id];
-  if (k) actions.setActive(k);
+  if (k && CONTROLS[k].cat === useEditor.getState().category) actions.setActive(k);
 }
 
-/** Click a part: scroll the panel so its slider sits at the top of the visible list, just under
-    the sticky explainer. */
+/** Click a part: open the page its slider is on, if it's another, and scroll the panel so the slider sits at the top
+    of the visible list, just under the sticky explainer. */
 function pickPart(id: string) {
   const k = PART_CONTROL[id];
+  if (!k) return;
   // a folded section opens, so the slider is there to find
-  if (k) actions.toggleFold(k, true);
-  const el = k && document.querySelector<HTMLElement>(`[data-ctl="${k}"]`);
-  const panel = el && el.closest<HTMLElement>('.panel');
+  actions.toggleFold(k, true);
+  if (CONTROLS[k].cat === useEditor.getState().category) { scrollToControl(k, 'smooth'); return; }
+  // the other page draws first, starting at its top
+  actions.setCategory(CONTROLS[k].cat, k);
+  requestAnimationFrame(() => requestAnimationFrame(() => scrollToControl(k, 'auto')));
+}
+
+/** Scroll the panel so control `k` sits just under the sticky explainer. */
+function scrollToControl(k: ControlKey, behavior: ScrollBehavior) {
+  const el = document.querySelector<HTMLElement>(`[data-ctl="${k}"]`);
+  const panel = el?.closest<HTMLElement>('.panel');
   if (!el || !panel) return;
   const cover = panel.querySelector<HTMLElement>('.explainer')?.offsetHeight ?? 0;
   const top = panel.scrollTop + el.getBoundingClientRect().top - panel.getBoundingClientRect().top - cover - 8;
-  panel.scrollTo({ top, behavior: 'smooth' });
+  panel.scrollTo({ top, behavior });
 }
 
 /** Parts drawn as guide lines rather than shapes. */
