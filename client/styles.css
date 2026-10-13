@@ -301,9 +301,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 body.resizing.y { cursor: row-resize; }
 
 /* ---------- right panel */
-/* its edge is a border, clear until one letter is customized (below), so the frame then is one line round the outside
-   of the scrollbar and of the explainer and foot stuck over the scrolling controls, and nothing moves as it shows */
-.panel { grid-area: panel; container: panel / size; overflow: auto; background: var(--surface); border: 2px solid transparent; border-radius: var(--radius-xl); box-shadow: var(--sheet); scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.panel { grid-area: panel; container: panel / size; overflow: auto; background: var(--surface); border-radius: var(--radius-xl); box-shadow: var(--sheet); scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 .panel-pad { padding: 16px 16px 24px; }
 
 /* the Style page's panel */
@@ -571,9 +569,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .inspector:not(.customizing) .scope-banner { background: var(--surface); color: var(--ink-2); box-shadow: var(--raise); }
 .scope-note { display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 6px; padding: 10px 12px; border-radius: var(--radius); background: var(--custom-tint); color: var(--ink); font-size: var(--t-m); line-height: 1.45; }
 .scope-note .scope-icon { margin-top: 1px; color: var(--custom); }
-/* customizing one letter: the panel is edged and washed in blue like the inspector's frame, and the controls
+/* customizing one letter: the panel is washed in blue, unframed (the inspector's frame says it), and the controls
    that reshape only that letter take its colour; Whole font ones keep the orange of every letter in sync */
-.panel.customizing { background: var(--custom-wash); border-color: var(--custom); }
+.panel.customizing { background: var(--custom-wash); }
 .panel.customizing .explainer { --accent-ink: var(--custom-ink); }
 .ctl[data-letter] { --accent: var(--custom); --accent-ink: var(--custom-ink); --accent-soft: var(--custom-soft); --fill: var(--custom); }
 .ctl.active[data-letter] { background: var(--custom-tint); }
