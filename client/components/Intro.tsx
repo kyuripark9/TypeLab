@@ -23,18 +23,20 @@ import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
 
 const NAME = 'TypeLab';
 const FONTS = Object.entries(OWN_FAMILIES).map(([family, o]) => fontId({ family, weight: o.weight, italic: o.italic }));
-/** what the scramble shows where a letter hasn't settled yet */
+/** what the scramble shows where a letter hasn't settled yet, and the share of those that change at each step (the
+    rest stay, so it churns rather than flickers) */
 const NOISE = 'ABDEGHKMNQRSUWXZadfghkmnqrsuwz0123456789&?!#%@*';
-/** The whole name's cuts, in order: a font's name sets it in that font, a `+` after it sets two of its letters in
-    others, and `*` gives every letter a font of its own. Neighbours look far apart. A font that didn't come is left
-    out. */
-const CUTS = ['Cathedral', '*', 'Gumdrop', 'Serenade', 'Dispatch+', 'Orbital', 'Couture', '*', 'Boardwalk', 'Jotter'];
+const CHURN = 0.6;
+/** The whole name's cuts, in order: a font's name sets it in that font, and `*` gives every letter a font of its own.
+    Neighbours look far apart, heavy after light, and the last, held longest, is the boldest. A font that didn't come
+    is left out. */
+const CUTS = ['Couture', 'Cathedral', '*', 'Serenade', 'Gumdrop', 'Dispatch', 'Orbital'];
 /** the font the name is drawn in last: a sans like the wordmark's Inter, so the wordmark reads as what was drawn */
 const DRAWN = 'Mainline:600';
 /** how long to wait for the fonts, and the fewest to play with */
 const WAIT_MS = 1200, FEWEST = 6;
 /** each step of the scramble growing and of it settling; the cuts slow from CUT_MS to CUT_MS + SLOW_MS */
-const GROW_MS = 45, SETTLE_MS = 55, CUT_MS = 55, SLOW_MS = 100;
+const GROW_MS = 55, SETTLE_MS = 70, CUT_MS = 85, SLOW_MS = 120;
 /** The drawing: its points come in over POINTS_MS while each letter's outline is drawn on (over .intro-outline's
     .42s in styles.css, a letter LETTER_MS after the one before), the ink fills in from FILL_MS as the points and
     lines go, and the wordmark follows at DRAW_MS. */
@@ -77,29 +79,35 @@ function drawnHeights(data: FreeFontData): Heights {
 function plan(fonts: FreeFontRef[], drawing: FreeFontData | null): Step[] {
   const mark: Step = { ms: HOLD_MS };
   if (fonts.length < FEWEST) return [mark];
-  // a font other than `not`, so letters side by side, or a word and the letters set apart in it, differ
-  const other = (not?: FreeFontRef) => any(fonts.filter(f => f !== not));
+  // a font other than those in `not`, so letters side by side differ
+  const other = (...not: (FreeFontRef | undefined)[]) => any(fonts.filter(f => !not.includes(f)));
   const mixed = (chars: string[]) => chars.reduce<Letter[]>((ls, ch) => [...ls, { ch, font: other(ls.at(-1)?.font) }], []);
-  const noise = (n: number) => Array.from({ length: n }, () => any([...NOISE]));
+  // the scramble's next `n` letters after `was`, each changed by CHURN's odds (a new one always), in a font unlike
+  // its neighbours' (`left` the font of the letter before them)
+  const stir = (was: Letter[], n: number, left?: FreeFontRef) => Array.from({ length: n }).reduce<Letter[]>((ls, _, i) => {
+    const prev = ls.at(-1)?.font ?? left, kept = i < was.length && Math.random() > CHURN && was[i].font !== prev;
+    return [...ls, kept ? was[i] : { ch: any([...NOISE]), font: other(prev, was[i + 1]?.font) }];
+  }, []);
   const steps: Step[] = [];
-  for (let n = 1; n <= NAME.length; n++) steps.push({ ms: GROW_MS, letters: mixed(noise(n)) });
+  let noise: Letter[] = [];
+  for (let n = 1; n <= NAME.length; n++) steps.push({ ms: GROW_MS, letters: noise = stir(noise, n) });
   // settling from the left, each letter keeps the font it settled in; the full name, all mixed, stays a moment longer
   const settled: Letter[] = [];
   for (let n = 1; n <= NAME.length; n++) {
-    settled.push({ ch: NAME[n - 1], font: other(settled.at(-1)?.font) });
-    steps.push({ ms: n === NAME.length ? SETTLE_MS * 3 : SETTLE_MS, letters: [...settled, ...mixed(noise(NAME.length - n))] });
+    settled.push({ ch: NAME[n - 1], font: other(settled.at(-1)?.font, noise[1]?.font) });
+    noise = stir(noise.slice(1), NAME.length - n, settled[n - 1].font);
+    steps.push({ ms: n === NAME.length ? SETTLE_MS * 3 : SETTLE_MS, letters: [...settled, ...noise] });
   }
   // the cuts, the lines at each font's heights (a mixed cut keeps the last font's)
   const named = new Map(fonts.map(f => [f.family, f]));
-  const cuts = CUTS.filter(c => c === '*' || named.has(c.replace('+', '')));
-  let lines = heightsOf(named.get(cuts.find(c => c !== '*')?.replace('+', '') ?? '') ?? fonts[0]);
+  const cuts = CUTS.filter(c => c === '*' || named.has(c));
+  let lines = heightsOf(named.get(cuts.find(c => c !== '*') ?? '') ?? fonts[0]);
   cuts.forEach((c, k) => {
     const ms = CUT_MS + SLOW_MS * (k / Math.max(1, cuts.length - 1)) ** 2;
     if (c === '*') { steps.push({ ms, letters: mixed([...NAME]), lines }); return; }
-    const font = named.get(c.replace('+', ''))!, odd = new Set<number>();
-    while (c.endsWith('+') && odd.size < 2) odd.add(Math.floor(Math.random() * NAME.length));
+    const font = named.get(c)!;
     lines = heightsOf(font) ?? lines;
-    steps.push({ ms, letters: [...NAME].map((ch, i) => ({ ch, font: odd.has(i) ? other(font) : font })), lines });
+    steps.push({ ms, letters: [...NAME].map(ch => ({ ch, font })), lines });
   });
   if (drawing) steps.push({ ms: DRAW_MS, drawn: true, lines: drawnHeights(drawing) });
   return [...steps, mark];
