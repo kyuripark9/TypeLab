@@ -30,18 +30,42 @@ function inkRuns(cmds: Cmd[], at: number, down: boolean): [number, number][] {
   return runs;
 }
 
+/** An outline with each curve cut in four: toPolys reads a curve as six straight pieces, whose chords cut a long smooth
+    curve's hairline thinner than it is. */
+function finer(cmds: Cmd[]): Cmd[] {
+  const out: Cmd[] = [], mix = (a: number[], b: number[], t: number) => a.map((v, k) => v + (b[k] - v) * t);
+  let at = [0, 0];
+  for (const c of cmds) {
+    if (c[0] === 'C') {
+      let p = [at, [c[1], c[2]], [c[3], c[4]], [c[5], c[6]]];
+      for (let k = 4; k > 1; k--) {
+        const t = 1 / k, a = mix(p[0], p[1], t), b = mix(p[1], p[2], t), d = mix(p[2], p[3], t), ab = mix(a, b, t), bd = mix(b, d, t), m = mix(ab, bd, t);
+        out.push(['C', a[0], a[1], ab[0], ab[1], m[0], m[1]] as Cmd);
+        p = [m, bd, d, p[3]];
+      }
+      out.push(['C', p[1][0], p[1][1], p[2][0], p[2][1], p[3][0], p[3][1]] as Cmd);
+    } else out.push(c);
+    if (c[0] !== 'Z') at = [c[c.length - 2] as number, c[c.length - 1] as number];
+  }
+  return out;
+}
+
 /** How thick a design's letters draw their hairlines and stems: the H's crossbar down the middle of the letter, the
     o's thinnest (its top and bottom, down the middle of the bowl), and the n's stem across the middle of its height. */
 function hairlines(p: Params) {
-  const f = buildFont(p), H = f.glyph('H')!, o = f.glyph('o')!, n = f.glyph('n')!;
-  const bh = cmdsBox(H.cmds)!, bo = cmdsBox(o.cmds)!, bn = cmdsBox(n.cmds)!;
-  const bar = inkRuns(H.cmds, (bh.x0 + bh.x1) / 2, true).filter(([lo, hi]) => lo > bh.y1 * 0.2 && hi < bh.y1 * 0.8);
+  // (an italic read upright, as it was drawn before it leaned: read straight up through a leaning bowl, a hairline that
+  // runs on thin further round it, as a lighter weight's does, reads thinner than it is)
+  const f = buildFont(p), lean = f.m.slant;
+  const upright = (g: Glyph) => finer(g.cmds.map(c => c.map((v, k) => (k % 2 && typeof v === 'number' ? v - lean * (c[k + 1] as number) : v)) as Cmd));
+  const H = upright(f.glyph('H')!), o = upright(f.glyph('o')!), n = upright(f.glyph('n')!);
+  const bh = cmdsBox(H)!, bo = cmdsBox(o)!, bn = cmdsBox(n)!;
+  const bar = inkRuns(H, (bh.x0 + bh.x1) / 2, true).filter(([lo, hi]) => lo > bh.y1 * 0.2 && hi < bh.y1 * 0.8);
   let oThin = Infinity;
   for (let k = 0; k <= 20; k++) {
-    const runs = inkRuns(o.cmds, bo.x0 + (bo.x1 - bo.x0) * (0.3 + 0.4 * k / 20), true);
+    const runs = inkRuns(o, bo.x0 + (bo.x1 - bo.x0) * (0.3 + 0.4 * k / 20), true);
     if (runs.length >= 2) oThin = Math.min(oThin, runs[0][1] - runs[0][0], runs[runs.length - 1][1] - runs[runs.length - 1][0]);
   }
-  const [stem] = inkRuns(n.cmds, (bn.y0 + bn.y1) / 2, false);
+  const [stem] = inkRuns(n, (bn.y0 + bn.y1) / 2, false);
   assert.equal(bar.length, 1, 'one crossbar');
   return { bar: bar[0][1] - bar[0][0], o: oThin, stem: stem[1] - stem[0] };
 }

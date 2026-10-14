@@ -146,17 +146,22 @@ A design with `freeFont` set draws its letters from a free font instead of build
    goes out with its stem's edge and thickens away from its line, and a longer one stops short of the serif it faces.
    Serifs are found on stems ending at a line (`serifReach`): thin ones, gone a little way in, and slabs as tall as a
    fifth of the capitals' height with a square top (a wood type's, a typewriter's). Specks a move pinches off are
-   dropped (`SPECK`). A lighter weight (the stems themselves drawn thinner: `MoveMap.lighter`) does two things more: it
-   reads a straight stroke's side that taking the joins out wore down (a short stem's between two joins, an a's, a p's
-   below its bowl, a heavy H's bar, a sans b's stem inside its bowl) as thick as it reads past its end samples, which
-   read the joins (`Bone.wl`, `PLATEAU`), so it thins with the rest, and the
-   curve such a side runs on into (a bracket into its serif, a d's ear) too, till it is as thin as `BRACKET_LEAST` of
-   the side, so it goes in with the side rather than standing out from the thinner stem as a bulb; and where a
-   thin stroke runs into a heavy one's side (a Didone's bowl or arch into its stem, `JOIN_*`; not a serif's bracket
-   nor an ear, whose thin stroke ends a little way out), the thin one's end on every outline goes with that side as it
-   moves in and the stroke stretches to it (`followJoins`), so the join stays whole rather than hanging clear or
-   meeting by a sliver; the ends are carried after (`RingMove.finish`). A heavier weight reads and moves as before. A
-   pixel font (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
+   dropped (`SPECK`). A lighter weight (the stems themselves drawn thinner: `MoveMap.lighter`) is drawn again from a
+   skeleton of its own (`thinSkeleton`: a coarser grid, `THIN_CELL`, and short strokes running straight on through a
+   join kept, `skeleton(…, through)`, a d's stem below its bowl), read once a letter (`thinReads`: each point's own
+   half thickness with the joins' bulges taken out, and each join's stem run straight through it, `straightThrough`).
+   `thinMoves` moves each side in to where a round along its middle as thick as the stroke is now ends (`weighsOf`; a
+   high-contrast font's sides by their own reading across, never thinner than its hairline as the weight keeps it,
+   `hairKept`), a side by a join or a crotch along a ray to those rounds' ink (read only when a round could stop it,
+   `stops`, through `pointGrid`/`inBand`), a crotch where its two strokes' edges cross (`crossing`), a stem's square
+   foot on a line staying (`FLAT_END`); `moveRing` carries a corner's round whole (`carryFillets`) and sets a
+   zero-thickness point where its neighbours meet (`pinPoints`). Joins its stems thin to under `REBUILD_BELOW` of
+   themselves, no serif on them, are drawn again from the strokes along the skeleton (`rebuildJoins`, within
+   `JOIN_REACH`, the moved outline kept where it keeps within `JOIN_GIVE` of them, never past the letter's ink). A
+   letter that comes out broken (`whole`: its outlines and counters, a pinhole opened where strokes cross aside, and
+   ink along its strokes' middles) is mended with those strokes laid over it (`thinStrokes`), then thinned only as far
+   as keeps it whole, in eighths. A heavier weight reads and moves as before. A pixel font
+   (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
 4. `restyle.ts`: `restyled` (in `free-letters.ts`) redraws the engine's shapes on the moved outline in a fixed order,
    Overlap, Dots, Bowls, Ends, Cursive, Serifs, Stencil, Peaks, Corners, each only where its settings differ from
    the pick, each handing back the very same array when nothing it follows moved. Results are cached by the contours and
