@@ -298,8 +298,10 @@ const lenOf = (pts: SkPt[]) => { let l = 0; for (let k = 1; k < pts.length; k++)
 
 /** Branches that are only a stroke's square end forking into its corners, or a bump on its edge, pruned:
     a branch to a free end that reaches no further out than the round of ink it leaves from, give or take. With
-    `through`, one running straight on from another stroke through the join it leaves (within 30°) and out past the join's
-    round stays: a d's stem below its bowl, an n's above its arch, short in a heavy letter, a stroke in a light one. */
+    `through`, one running on from another stroke through the join it leaves (within 40°: a square end forks into its
+    corners at 45°), out past the join's round and as thick as two fifths of it at its end (not a fork into a corner,
+    which ends in a sliver) stays: a d's stem below its bowl, an n's above its arch, short in a heavy letter, a stroke in
+    a light one. */
 function prune(sk: Skeleton, through = false): Skeleton {
   let { nodes, edges } = sk;
   const alive = edges.map(() => true);
@@ -311,8 +313,8 @@ function prune(sk: Skeleton, through = false): Skeleton {
   };
   const runsOn = (i: number, root: number, tip: number) => {
     const e = edges[i], u = way(e, root);
-    if (lenOf(e.pts) + nodes[tip].r < nodes[root].r) return false;
-    return nodes[root].edges.some(k => k !== i && alive[k] && (() => { const v = way(edges[k], root); return u.x * v.x + u.y * v.y < -0.866; })());
+    if (lenOf(e.pts) + nodes[tip].r < nodes[root].r || nodes[tip].r < 0.4 * nodes[root].r) return false;
+    return nodes[root].edges.some(k => k !== i && alive[k] && (() => { const v = way(edges[k], root); return u.x * v.x + u.y * v.y < -0.766; })());
   };
   for (let pass = 0; pass < 6; pass++) {
     let cut = false;
