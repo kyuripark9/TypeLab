@@ -149,7 +149,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    dropped (`SPECK`). A lighter weight (the stems themselves drawn thinner: `MoveMap.lighter`) is drawn again from a
    skeleton of its own (`thinSkeleton`: a coarser grid, `THIN_CELL`; short strokes running on through a join kept,
    `skeleton(…, through)`, a d's stem below its bowl; and a stub where a stroke's middle turns but its ink runs on
-   straight, `withStubs`, an n's stem above its arch, a p's above its bowl, an a's foot), read once a letter
+   straight, `withStubs`, an n's stem above its arch, a p's above its bowl, an a's foot; and a thin serif's foot drawn
+   level, `withFeet`: where the skeleton forks from a stem's middle round a bracket out to tips on a line, one level
+   stroke along the serif, as thick as it reads, the stem run down to it), read once a letter
    (`thinReads`: each point's own half thickness with the joins' bulges taken out, a short stroke between two joins no
    thicker than the strokes leaving them, and each join's stem run straight through it, `straightThrough`, a join a
    short stroke off it going with it, a K's arms meeting its stem). `thinMoves` moves each side in to where a round along its middle as thick as the
@@ -157,8 +159,11 @@ A design with `freeFont` set draws its letters from a free font instead of build
    hairline as the weight keeps it, `hairKept`), a side by a join or a crotch along a ray to those rounds' ink (read
    only when a round could stop it, `stops`, through `pointGrid`/`inBand`), a crotch where its two strokes' edges
    cross nearest the join (`crossing`), an edge cut across its stroke and facing the way it runs staying (a stem's
-   square foot on a line, `FLAT_END`); `moveRing` carries each stroke end by its turn alone (`endsOf`, `EndRun.ca`/`cb`:
-   a j's tail's curve goes in as a side), a corner's round whole (`carryFillets`), and sets a zero-thickness point
+   square foot on a line, `FLAT_END`), a level foot's edge on its line staying and the rest of it, bracket and all, in
+   to a round as thick as the serif is now standing on that edge (`footRound`: a contrasty font's no thicker than its
+   hairline); `moveRing` carries each stroke end by its turn alone (`endsOf`, `EndRun.ca`/`cb`:
+   a j's tail's curve goes in as a side), a corner's round whole (`carryFillets`, but a serif's bracket on a level
+   foot), and sets a zero-thickness point
    where its neighbours meet (`pinPoints`). Joins its stems thin to under `REBUILD_BELOW` of themselves, no serif on
    them, are drawn again from the strokes along the skeleton (`rebuildJoins`, within `JOIN_REACH` but for the stroke
    ends out past them, the moved outline kept where it keeps within `JOIN_GIVE` of them, never past the letter's ink,
