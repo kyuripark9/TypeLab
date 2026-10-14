@@ -1363,11 +1363,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .legal-part ul { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 6px; }
 .legal-part b { color: var(--ink); font-weight: 600; }
 .legal code { font-family: var(--mono); font-size: var(--t-s); color: var(--ink); }
-.legal a, .lib-foot a, .nav-legal { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
-.legal a:hover, .lib-foot a:hover, .nav-legal:hover { background: var(--marker); color: var(--ink); }
-/* the way to it: at the foot of My designs and Account, and of the editor's page menu */
+.legal a, .lib-foot a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.legal a:hover, .lib-foot a:hover { background: var(--marker); color: var(--ink); }
+/* the way to it: at the foot of My designs and Account */
 .lib-foot { margin-top: 40px; font-size: var(--t-s); color: var(--ink-3); }
-.nav-legal { flex: none; align-self: flex-start; margin: 4px 0 0 10px; font-size: var(--t-xs); color: var(--ink-3); }
 @media (max-width: 760px) {
   .library .top-left .brand { display: flex; }
   .lib-main { padding: 16px 16px 88px; }

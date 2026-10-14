@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 import { CHARSET, type Font, type Glyph } from '../../shared/engine';
 import { DRAWER_QUERY, n1, shortcut } from '../lib/hooks';
 import { ink } from '../lib/preview';
-import { DESIGNS, PRIVACY } from '../lib/routes';
+import { DESIGNS } from '../lib/routes';
 import { actions, useEditor, useFont } from '../state/editor';
 import { AccountButton } from './Account';
 import { PageIcon, SearchIcon } from './Icons';
@@ -124,7 +124,6 @@ export function Nav() {
       {/* phones: the header has no room for it, so it sits at the foot of the drawer */}
       <Link className="nav-item nav-designs" to={DESIGNS}><span className="nav-label">My designs</span></Link>
       <div className="nav-account"><AccountButton /></div>
-      <Link className="nav-legal" to={PRIVACY}>Privacy &amp; terms</Link>
     </nav>
   );
 }
