@@ -140,8 +140,8 @@ design and its members need (`FreeFonts.wanted`), or answers 502, and builds on 
 
 Asked for with `accents`, the fonts and the specimen also have the accented letters (`ACCENTED`, `accentGlyph` in
 shared/engine/accents.ts: Latin-1's, Latin Extended-A's for Central and Eastern Europe, Turkish and the Baltic
-languages, Romanian's commas below, and ı), after the rest, each as wide as its letter; they leave the font's line
-spacing as it was. They are export only: the preview, `ALL_CHARS` and the golden outlines don't have them.
+languages, Romanian's commas below, and ı), after the rest, each as wide as its letter (ď ľ ť Ľ a little wider where
+their apostrophe needs the room before a tall letter); they leave the font's line spacing as it was. They are export only: the preview, `ALL_CHARS` and the golden outlines don't have them.
 
 ## Environment
 

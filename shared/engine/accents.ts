@@ -4,14 +4,19 @@
    never see them.
 
    A mark is the design's own where it has one: the acute, grave and double acute are its grave accent (`), turned
-   about for the acute; a dot and a dieresis are the i's own dot (round, square or a lozenge, as it draws it); the
-   comma below, ģ's turned comma and the caron beside the stems of ď ť ľ Ľ are its comma and apostrophe. The rest
+   about for the acute; a dot and a dieresis are the i's own dot (round, square or a lozenge, as it draws it; where a
+   heavy script's has run into the stem, its full stop no bigger than such a dot), a dieresis's two kept apart and inside
+   their letter's advance, smaller where a heavy or narrow letter (ï) has no room for them, so two letters' dots side by
+   side don't meet; the comma below, ģ's turned comma and the caron beside the stems of ď ť ľ Ľ are its comma and
+   apostrophe. The rest
    (circumflex, caron, breve, macron, tilde, ring, cedilla, ogonek) are drawn by its pen through every stage a letter
    goes through (strokesGlyph in glyph.ts: its contrast and stress, Roundness, Hand-drawn, fills) at the weight its
    stems are drawn (a free font's are read off its l, i and n). A small letter's mark stands as far above its ink as
    the i's dot stands over its stem; a capital's sits closer and flatter, as type has them. Above, a mark is centred on
    the top of the letter's ink, below on its foot, both read along the way its stems lean; an ogonek hangs from the
-   letter's right foot, a cedilla from the middle of its foot. Each keeps its letter's advance. í ì î ï ī are drawn on
+   letter's right foot, a cedilla from the middle of its foot. Each keeps its letter's advance, but ď ľ ť Ľ, whose
+   apostrophe stands out past the stem: it is drawn smaller and closer where the letter would otherwise widen much, and
+   the advance widened as far as it needs to stand clear of a tall letter after it (caronMark). í ì î ï ī are drawn on
    ı, the i with its dot taken off. */
 import { applyM, clipPoly, signedArea, toPolys } from './geom';
 import { type Builder, type Font, type Glyph, type GlyphDef, type Metrics } from './font';
@@ -24,6 +29,14 @@ import type { Cmd, Pt } from './types';
 type MarkId = 'acute' | 'grave' | 'circumflex' | 'caron' | 'tilde' | 'dieresis' | 'ring' | 'macron' | 'breve' | 'dot' | 'hungarumlaut'
   | 'commaturned' | 'caroncomma' | 'cedilla' | 'ogonek' | 'commabelow';
 const BELOW: MarkId[] = ['cedilla', 'ogonek', 'commabelow'];
+
+/** A full stop standing in for the i's dot (a heavy script's runs into its stem) is made no wider than DOT_OF_STEM of
+    the i's stem, nor DOT_MOST of the x-height. */
+const DOT_OF_STEM = 1.25, DOT_MOST = 0.32;
+/** A dieresis's dots keep DOTS_APART of a dot between them, and stand inside their letter's advance by DOTS_IN of a
+    dot (so two letters' dots side by side keep twice that apart), made smaller (to DOTS_LEAST) where a heavy or narrow
+    letter has no room for them; a dot stands at least DOT_CLEAR of its height clear of the letter. */
+const DOTS_APART = 0.35, DOTS_IN = 0.12, DOTS_LEAST = 0.6, DOT_CLEAR = 0.2;
 
 /** Each accented letter, by its mark: the accented letter and its letter, two by two ('ÀA'); ı for the small i's that
     lose their dot. Latin-1's, and Latin Extended-A's (and Romanian's commas below) for Central and Eastern Europe,
@@ -57,7 +70,8 @@ export const ACCENTED = [...ACCENTS.keys(), 'ı'].sort((a, b) => Number(isCap(b)
 /** The letter accented letter `ch` is drawn on, and its mark (null for one that isn't in ACCENTED). */
 export const accentOf = (ch: string) => ACCENTS.get(ch) ?? null;
 
-/** An accented letter: its outline (placed, y up, as Glyph.cmds) and its advance (its letter's). */
+/** An accented letter: its outline (placed, y up, as Glyph.cmds) and its advance: its letter's, but for ď ľ ť Ľ,
+    whose apostrophe stands out past the stem and takes the room it needs before a tall letter (caronMark). */
 export interface AccentGlyph { cmds: Cmd[]; adv: number }
 
 /** Part of an outline, with its ink's box. */
@@ -91,11 +105,13 @@ function compose(font: Font, ch: string): AccentGlyph | null {
   const a = ACCENTS.get(ch);
   const base = a && (a.base === 'ı' ? look.dotless : font.glyph(a.base));
   if (!a || !base) return null;
-  const mark = placeMark(font, look, base, a.mark, isCap(a.base), ch);
-  if (!mark) return { cmds: base.cmds, adv: base.adv };
+  const placed = a.mark === 'caroncomma' ? caronMark(font, look, base, isCap(a.base))
+    : { cmds: placeMark(font, look, base, a.mark, isCap(a.base), ch), adv: base.adv };
+  const mark = placed?.cmds;
+  if (!placed || !mark) return { cmds: base.cmds, adv: base.adv };
   // the mark wound the way the letter's ink is (a free font's outlines run the other way round from the engine's
   // strokes), so where a cedilla or an ogonek runs into the letter the two fill as one ink, not cancel
-  return { cmds: [...base.cmds, ...(winding(mark) * winding(base.cmds) < 0 ? reversed(mark) : mark)], adv: base.adv };
+  return { cmds: [...base.cmds, ...(winding(mark) * winding(base.cmds) < 0 ? reversed(mark) : mark)], adv: placed.adv };
 }
 
 /** Which way an outline's ink winds: its largest contour's turn, 1 anticlockwise (y up), -1 clockwise. */
@@ -188,6 +204,13 @@ function lookOf(font: Font): Look {
   // take the full stop's)
   const neck = i && !dots.length ? neckCut(i, xh, lean) : null;
   let dot = dots.length ? { cmds: dots.flatMap(p => p.cmds), box: union(dots.map(p => p.box)) } : part('.');
+  // (the full stop standing in, made no bigger than a dot on the i's stem would be: a little wider than the stem, and
+  // well under the x-height; a heavy script's stop is a ball)
+  if (!dots.length) {
+    const runs = runsAt(ip, xh * 0.4, lean), iStem = runs.length ? Math.min(...runs.map(([a, b]) => b - a)) : stem;
+    const size = Math.max(dot.box.x1 - dot.box.x0, dot.box.y1 - dot.box.y0), k = Math.min(1, iStem * DOT_OF_STEM / size, xh * DOT_MOST / size);
+    if (k < 1) dot = scaled(dot, k);
+  }
   // (a dot gone to a speck, as a block font's thinnest weight's, drawn by the pen as the engine draws one, a stem and a
   // little across)
   if (Math.min(dot.box.x1 - dot.box.x0, dot.box.y1 - dot.box.y0) < stem * 0.6) {
@@ -237,6 +260,12 @@ const mapped = (cmds: Cmd[], f: (x: number, y: number) => [number, number]): Cmd
 });
 /** Commands moved by (dx, dy). */
 const moved = (cmds: Cmd[], dx: number, dy: number) => mapped(cmds, (x, y) => [x + dx, y + dy]);
+/** A part made `k` times as large about its middle. */
+function scaled(p: Part, k: number): Part {
+  const cx = (p.box.x0 + p.box.x1) / 2, cy = (p.box.y0 + p.box.y1) / 2, f = (x: number, y: number): [number, number] => [cx + (x - cx) * k, cy + (y - cy) * k];
+  const [x0, y0] = f(p.box.x0, p.box.y0), [x1, y1] = f(p.box.x1, p.box.y1);
+  return { cmds: mapped(p.cmds, f), box: { x0, y0, x1, y1 } };
+}
 
 /** Each contour run the other way round, so one turned over (mirrored) still winds as the ink does. */
 function reversed(cmds: Cmd[]): Cmd[] {
@@ -301,12 +330,19 @@ function placeMark(font: Font, look: Look, base: Glyph, id: MarkId, caps: boolea
       const a = one(s * 0.78), ab = inkBox(a)!, aw = ab.x1 - ab.x0, apart = Math.max(aw * 0.62, aw * 0.4 + look.stem * 0.8) / 2;
       return [...put(a, mid - apart, above), ...put(a, mid + apart, above)];
     }
-    case 'dot': return put(look.dot.cmds, mid, above);
-    case 'dieresis': {
-      // as far apart as a small letter's are, but on a narrow letter (ï) no further out than a little past its ink
-      const w = look.dot.box.x1 - look.dot.box.x0, want = Math.max(w * (caps ? 1.05 : 1), (caps ? 0.14 : 0.18) * u * Math.sqrt(font.m.ws));
-      const apart = Math.max(w * 0.9, Math.min(want, wide / 2 + w * 0.5));
-      return [...put(look.dot.cmds, mid - apart, above), ...put(look.dot.cmds, mid + apart, above)];
+    case 'dot': case 'dieresis': {
+      // (clear of the letter by a share of the dot's height, as a heavy weight's dots stand closer)
+      const d0 = look.dot, over = Math.max(above, box.y1 + (d0.box.y1 - d0.box.y0) * DOT_CLEAR);
+      if (id === 'dot') return put(d0.cmds, mid, over);
+      // as far apart as a small letter's are, and no further out than the letter's room (from its middle, read along
+      // the lean, to the sides of its advance: the dots of the letter beside it lean as far over at the same height, so
+      // what keeps them apart is where each pair stands in its own letter); the dots made smaller where even DOTS_APART
+      // between them won't fit (a heavy letter's, ï's), so two letters' dots side by side don't meet
+      const w0 = d0.box.x1 - d0.box.x0, room = Math.min(mid, base.adv - mid);
+      const least = (1 + DOTS_APART) / 2 + 0.5 + DOTS_IN, k = Math.max(DOTS_LEAST, Math.min(1, room / (least * w0))), d = k < 1 ? scaled(d0, k) : d0, w = w0 * k;
+      const want = Math.max(w * (caps ? 1.05 : 1), (caps ? 0.14 : 0.18) * u * Math.sqrt(font.m.ws));
+      const apart = Math.max(w * (1 + DOTS_APART) / 2, Math.min(want, room - w * (0.5 + DOTS_IN)));
+      return [...put(d.cmds, mid - apart, over), ...put(d.cmds, mid + apart, over)];
     }
     case 'commabelow': {
       const c = look.comma, k = 0.85, ox = (c.box.x0 + c.box.x1) / 2;
@@ -317,15 +353,8 @@ function placeMark(font: Font, look: Look, base: Glyph, id: MarkId, caps: boolea
       const c = look.comma, ox = (c.box.x0 + c.box.x1) / 2, oy = (c.box.y0 + c.box.y1) / 2, k = 0.85;
       return put(mapped(c.cmds, (x, y) => [ox - (x - ox) * k, oy - (y - oy) * k]), mid, above);
     }
-    case 'caroncomma': {
-      // the apostrophe beside the top of the stem (above a t's crossbar), its top as high as the stem's, and on a
-      // short stem (ť) no lower than the x-height, clear of the letter after
-      const q = look.quote, k = tall || caps ? 0.85 : 0.72, cmds = mapped(q.cmds, (x, y) => [q.box.x0 + (x - q.box.x0) * k, q.box.y1 + (y - q.box.y1) * k]), b = inkBox(cmds);
-      const stemTop = bandBox(polys, box.y1 - h * (tall || caps ? 0.22 : 0.1), box.y1 - h * 0.01, lean), lb = b && bandBox(toPolys(cmds), b.y0, b.y1, lean);
-      if (!b || !stemTop || !lb) return null;
-      const dy = Math.max(box.y1 - b.y1, caps ? -Infinity : look.xh * 1.04 - b.y0);
-      return moved(cmds, stemTop.x1 + look.xh * 0.06 - lb.x0 + lean * dy, dy);
-    }
+    // (ď ľ ť Ľ's apostrophe, which takes room of its own: caronMark)
+    case 'caroncomma': return null;
     default: {
       const drawn = drawMark(font, look, id, caps, below ? 0 : above, ch, wide);
       if (!drawn) return null;
@@ -339,6 +368,48 @@ function placeMark(font: Font, look: Look, base: Glyph, id: MarkId, caps: boolea
       return put(drawn.cmds, mid, above);
     }
   }
+}
+
+/** The letters an apostrophe on a stem may come up against after it: a small letter's ascenders, and the i's and j's
+    dots; a capital's (Ľ) the capitals' stems and the small ascenders. */
+const TALL_AFTER = { small: 'bdfhijklt', caps: 'BDEFHIKLNPRbdfhklt' };
+/** The apostrophe's sizes tried, largest first, on an ascender or a capital (ď ľ Ľ) and on a t: the first that needs
+    the advance widened by no more than CARON_ROOM of the x-height is kept, else the smallest, with what it needs. */
+const CARON_SIZES = { tall: [0.8, 0.7, 0.62], short: [0.68, 0.6, 0.54] }, CARON_ROOM = 0.1;
+
+/** ď ľ ť Ľ: the apostrophe beside the top of the stem, its top as high as the stem's (a t's above its crossbar, no
+    lower than the x-height), just clear of the letter's ink at the apostrophe's own heights (a blackletter d's ascender
+    runs back over its bowl); and the letter's advance, widened as far as the apostrophe needs to stand clear of a tall
+    letter after it (half the room the letter leaves an l at its top, or a little of the x-height, whichever is more),
+    the apostrophe drawn smaller and so closer where that would widen the letter much, as type has it. */
+function caronMark(font: Font, look: Look, base: Glyph, caps: boolean): { cmds: Cmd[]; adv: number } | null {
+  const polys = toPolys(base.cmds), box = inkBox(base.cmds), q = look.quote, { lean, xh } = look;
+  if (!box || !q.cmds.length) return null;
+  const tall = caps || box.y1 > xh * 1.25;
+  const rightAt = (ps: Pt[][], y: number) => { const r = runsAt(ps, y); return r.length ? r[r.length - 1][1] : -Infinity; };
+  const leftAt = (ps: Pt[][], y: number) => { const r = runsAt(ps, y); return r.length ? r[0][0] : Infinity; };
+  const l = font.glyph('l'), top = box.y1 - (box.y1 - Math.max(0, box.y0)) * 0.1;
+  const natural = l ? base.adv - rightAt(polys, top) + leftAt(toPolys(l.cmds), top) : NaN;
+  const clear = Math.max(xh * 0.06, Number.isFinite(natural) ? natural * 0.5 : 0);
+  const after = [...TALL_AFTER[caps ? 'caps' : 'small']].flatMap(c => { const g = font.glyph(c); return g ? [toPolys(g.cmds)] : []; });
+  let best: { cmds: Cmd[]; adv: number } | null = null;
+  for (const k of CARON_SIZES[tall ? 'tall' : 'short']) {
+    const cmds0 = mapped(q.cmds, (x, y) => [q.box.x0 + (x - q.box.x0) * k, q.box.y1 + (y - q.box.y1) * k]), b = inkBox(cmds0);
+    if (!b) return null;
+    const dy = Math.max(box.y1 - b.y1, caps ? -Infinity : xh * 1.04 - b.y0), lo = b.y0 + dy, hi = b.y1 + dy;
+    const side = bandBox(polys, Math.max(lo, box.y0), Math.min(hi, box.y1), lean), lb = bandBox(toPolys(cmds0), b.y0, b.y1, lean);
+    if (!side || !lb) return null;
+    const cmds = moved(cmds0, side.x1 + xh * 0.05 - lb.x0 + lean * dy, dy), ap = toPolys(cmds);
+    // (at each height the apostrophe spans, its right side and the left side of each tall letter that could come after)
+    let adv = base.adv;
+    for (let s = 0; s <= 12; s++) {
+      const y = lo + (hi - lo) * s / 12, r = rightAt(ap, y);
+      if (Number.isFinite(r)) for (const p of after) { const left = leftAt(p, y); if (Number.isFinite(left)) adv = Math.max(adv, r + clear - left); }
+    }
+    best = { cmds, adv };
+    if (adv - base.adv <= xh * CARON_ROOM) break;
+  }
+  return best;
 }
 
 /** A drawn mark moved so its anchor (where it hangs from the letter) lands at height y, x along the lean. */

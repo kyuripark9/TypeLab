@@ -11,7 +11,7 @@ import { accentOf } from '../shared/engine/accents';
 import { toPolys } from '../shared/engine/geom';
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { freeAtOf, type Params } from '../shared/params';
-import { anchorOf } from '../shared/family';
+import { anchorOf, familyMember } from '../shared/family';
 import { buildFamilyZip, buildOTF, buildSpecimenSVG } from '../server/export';
 import { ExportPool } from '../server/export-pool';
 import { FreeFonts } from '../server/free-fonts';
@@ -47,6 +47,33 @@ function band(cmds: Cmd[], lo: number, hi: number, lean: number): Box {
   return { x0, y0: lo, x1, y1: hi };
 }
 const contourCount = (cmds: Cmd[]) => cmds.filter(c => c[0] === 'M').length;
+/** An outline's contours, each its own commands. */
+const contours = (cmds: Cmd[]) => cmds.reduce<Cmd[][]>((out, c) => { if (c[0] === 'M') out.push([]); out[out.length - 1]?.push(c); return out; }, []);
+const union = (bs: Box[]): Box => ({ x0: Math.min(...bs.map(b => b.x0)), y0: Math.min(...bs.map(b => b.y0)), x1: Math.max(...bs.map(b => b.x1)), y1: Math.max(...bs.map(b => b.y1)) });
+/** A dieresis's two dots, left and right: each the contours on its side of the mark's middle. */
+function dotsOf(mark: Cmd[]): [Box, Box] {
+  const m = box(mark), mid = (m.x0 + m.x1) / 2, parts = contours(mark).map(c => box(c));
+  return [union(parts.filter(b => (b.x0 + b.x1) / 2 < mid)), union(parts.filter(b => (b.x0 + b.x1) / 2 >= mid))];
+}
+/** Where an outline's ink starts and ends along the row at height y, moved right by dx; null where it has none. */
+function rowInk(cmds: Cmd[], y: number, dx = 0): [number, number] | null {
+  let x0 = Infinity, x1 = -Infinity;
+  for (const r of toPolys(cmds)) for (let i = 0; i < r.length; i++) {
+    const a = r[i], b = r[(i + 1) % r.length];
+    if ((a.y <= y) !== (b.y <= y)) { const x = a.x + (y - a.y) / (b.y - a.y) * (b.x - a.x) + dx; x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+  }
+  return x0 <= x1 ? [x0, x1] : null;
+}
+/** The least room between two outlines along the rows they share between heights lo and hi (the second moved right by
+    dx): Infinity where they share none. */
+function roomBetween(left: Cmd[], right: Cmd[], dx: number, lo: number, hi: number): number {
+  let least = Infinity;
+  for (let k = 0; k <= 24; k++) {
+    const y = lo + (hi - lo) * k / 24, a = rowInk(left, y), b = rowInk(right, y, dx);
+    if (a && b) least = Math.min(least, b[0] - a[1]);
+  }
+  return least;
+}
 
 /** Every accented letter of `font`: its letter's outline, the mark's (what follows it), and their boxes. */
 function* accented(font: Font) {
@@ -86,7 +113,9 @@ describe('accented letters', () => {
       const font = buildFont(await params()), lean = leans ?? (font.free ? null : font.m.slant);
       const xh = box(font.glyph('x')!.cmds).y1, cap = box(font.glyph('H')!.cmds).y1;
       for (const { ch, a, base, g, mark } of accented(font)) {
-        assert.equal(g.adv, base.adv, `${ch} keeps ${a.base}'s advance`);
+        // (ď ľ ť Ľ's apostrophe may take room of its own: see the test of what follows them)
+        if (a.mark === 'caroncomma') assert.ok(g.adv >= base.adv && g.adv <= base.adv + xh * 0.45, `${ch} as wide as ${a.base} or a little wider (${g.adv.toFixed(0)}, ${base.adv.toFixed(0)})`);
+        else assert.equal(g.adv, base.adv, `${ch} keeps ${a.base}'s advance`);
         assert.ok(mark.length > 0, `${ch} has a mark`);
         const b = box(base.cmds), m = box(mark), caps = a.base !== a.base.toLowerCase();
         if (['cedilla', 'ogonek'].includes(a.mark)) {
@@ -99,7 +128,8 @@ describe('accented letters', () => {
           // beside the stem's top (a small letter's over the x-height), standing to its right
           assert.ok(m.y0 > (caps ? cap * 0.5 : xh), `${ch}'s caron stands high on the stem (${m.y0.toFixed(0)})`);
           assert.ok(m.y1 <= b.y1 + xh * 0.35, `${ch}'s caron is not much taller than the stem`);
-          assert.ok(m.x0 > band(base.cmds, b.y1 - (b.y1 - b.y0) * 0.1, b.y1, 0).x1 - 1, `${ch}'s caron stands beside its stem`);
+          // (clear of the letter's ink at its own heights, so it shows: a blackletter d's ascender runs back over its bowl)
+          assert.ok(roomBetween(base.cmds, mark, 0, m.y0, m.y1) > 0, `${ch}'s caron stands beside its letter's ink`);
         } else {
           assert.ok(m.y0 > b.y1, `${ch}'s ${a.mark} stands over its letter (${m.y0.toFixed(0)} over ${b.y1.toFixed(0)})`);
           assert.ok(m.y0 > (caps ? cap : xh), `${ch}'s ${a.mark} stands over the ${caps ? 'cap height' : 'x-height'}`);
@@ -119,6 +149,46 @@ describe('accented letters', () => {
       assert.equal(contourCount(mk('ë')), 2 * contourCount(mk('ė')), 'a dieresis is two dots');
     });
   }
+
+  it('ď ľ ť Ľ stand clear of a tall letter after them, widened only as far as that takes', async () => {
+    for (const [name, params] of [...DESIGNS.slice(0, 1), ...DESIGNS.filter(([n]) => /Couture|Mainline|Boardwalk|Cathedral/.test(n))]) {
+      const font = buildFont(await params()), xh = box(font.glyph('x')!.cmds).y1;
+      for (const [ch, after] of [['ď', 'lhkbdf'], ['ľ', 'lhkbdf'], ['ť', 'lhkbd'], ['Ľ', 'LIEDlh']] as const) {
+        const a = accentOf(ch)!, base = font.glyph(a.base)!, g = accentGlyph(font, ch)!, mark = g.cmds.slice(base.cmds.length), m = box(mark);
+        for (const next of after) {
+          const room = roomBetween(mark, font.glyph(next)!.cmds, g.adv, m.y0, m.y1);
+          assert.ok(room >= xh * 0.05, `${name}: ${ch}${next}, the apostrophe ${room.toFixed(0)} from the ${next}`);
+        }
+      }
+    }
+    // Mainline's Ľ, whose foot runs out past its apostrophe, keeps the L's advance
+    const mainline = buildFont(await inFont('grotesque'));
+    assert.equal(accentGlyph(mainline, 'Ľ')!.adv, mainline.glyph('L')!.adv);
+  });
+
+  it('give a dieresis dots in proportion at the heaviest weights, apart, clear of the letter and inside its advance', async () => {
+    for (const [name, id] of [['Boardwalk', 'informal'], ['Couture', 'didone'], ['Mainline', 'grotesque'], ['Cathedral', 'blackletter']] as const) {
+      const p = await inFont(id);
+      for (const weight of ['extrabold', 'black'] as const) for (const italic of [false, true]) {
+        const font = buildFont(familyMember(p, anchorOf(p), weight, italic).params), xh = box(font.glyph('x')!.cmds).y1;
+        const at = `${name} ${weight}${italic ? ' italic' : ''}`;
+        for (const ch of 'äëöüÿÄËÖÜï') {
+          const a = accentOf(ch)!, base = a.base === 'ı' ? accentGlyph(font, 'ı')! : font.glyph(a.base)!, g = accentGlyph(font, ch)!;
+          const mark = g.cmds.slice(base.cmds.length), m = box(mark), dots = dotsOf(mark), w = dots[0].x1 - dots[0].x0, h = dots[0].y1 - dots[0].y0;
+          // (a heavy script's dot is a stand-in full stop, made no bigger than a dot on its i: well under the x-height)
+          assert.ok(w <= xh * (name === 'Boardwalk' ? 0.34 : 0.45), `${at} ${ch}: a dot ${w.toFixed(0)} across, the x-height ${xh.toFixed(0)}`);
+          assert.ok(dots[1].x0 - dots[0].x1 >= w * 0.3, `${at} ${ch}: the dots ${(dots[1].x0 - dots[0].x1).toFixed(0)} apart, a dot ${w.toFixed(0)}`);
+          assert.ok(m.y0 - box(base.cmds).y1 >= h * 0.15, `${at} ${ch}: the dots clear of the letter`);
+        }
+        // and two letters' dots side by side keep apart (ï's, on a narrow stem, a little less)
+        for (const pair of ['ëä', 'äë', 'öü', 'üö', 'ÄÖ', 'ÖÜ', 'ëï', 'ïë', 'öï']) {
+          const [p0, p1] = [...pair].map(ch => { const a = accentOf(ch)!, base = a.base === 'ı' ? accentGlyph(font, 'ı')! : font.glyph(a.base)!, g = accentGlyph(font, ch)!; return { g, mark: g.cmds.slice(base.cmds.length) }; });
+          const m = box(p0.mark), d = dotsOf(p0.mark)[1], w = d.x1 - d.x0, room = roomBetween(p0.mark, p1.mark, p0.g.adv, m.y0, m.y1);
+          assert.ok(room >= w * (pair.includes('ï') ? 0.1 : 0.2), `${at} ${pair}: their dots ${room.toFixed(0)} apart, a dot ${w.toFixed(0)}`);
+        }
+      }
+    }
+  });
 
   it('are in an exported font only when asked for, each as wide as its letter there', () => {
     const p = style('serif'), plain = opentype.parse(buildOTF(p, 'Plain').buffer as ArrayBuffer);
