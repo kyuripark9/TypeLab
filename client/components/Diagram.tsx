@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { CONTROLS, FORM_OPTIONS, controlFor, type ActiveKey, type FormKey } from '../../shared/content';
 import { CIRCLE_K, RING_KEYS, SLANT_PIVOT, applyM, buildFont, buildSerif, cmdsToD, expandStroke, roundContour, serifCup, serifSides, signedArea, termSpec, type Font, type LineItem, type Pt } from '../../shared/engine';
 import { DEFAULTS, TERMINAL_FORMS, type BarEnds, type Fill, type SerifInner, type SerifShape, type SerifSide, type SerifTip, type Story, type Terminal, type TerminalForm } from '../../shared/params';
+import { stackLabels } from '../lib/guide-labels';
 import { n1 } from '../lib/hooks';
 
 /** The explainer figure's size, in px. */
@@ -17,11 +18,13 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
   const ctlKey = controlFor(k), ctl = CONTROLS[ctlKey];
   const m = font.m, text = ctl.demo, line = font.layout(text, Infinity)[0];
   const hasDesc = /[gjpqy]/.test(text);
-  const guides = k === 'xHeight' || k === 'height';
+  // Stem length and Descender length: the parts above the x-height and below the baseline, lit, between their lines
+  const up = k === 'extenders', down = up || k === 'descender';
+  const guides = k === 'xHeight' || k === 'height' || down;
   // a serif's finer shape shows only close up: the diagram then frames the foot of the letters, on a baseline near its bottom edge
   const sf = ctl.zoom ? m.ctx.serif : null, foot = sf ? Math.max(sf.len * 1.2, sf.th * 2.4, m.s * 0.8) + sf.th : 0;
-  const top = sf ? foot : Math.max(m.asc, m.cap) + 50, bot = sf ? -foot * 0.2 : hasDesc ? m.desc - 30 : k === 'width' ? -190 : -110;
-  const padL = guides ? 64 : sf ? 52 : 22, padR = sf ? 52 : 22;
+  const top = sf ? foot : k === 'descender' ? m.xh + 90 : Math.max(m.asc, m.cap) + 50, bot = sf ? -foot * 0.2 : hasDesc ? m.desc - 30 : k === 'width' ? -190 : -110;
+  const padL = guides ? 64 : sf ? 52 : 22, padR = sf ? 52 : down ? 34 : 22;
   const sc = Math.min((H - 18) / (top - bot), (W - padL - padR) / Math.max(1, line.width));
   const ox = padL + (W - padL - padR - line.width * sc) / 2, oy = sf ? H - 30 : (H - (top - bot) * sc) / 2 + top * sc;
   const X = (x: number) => n1(ox + x * sc), Y = (y: number) => n1(oy - y * sc);
@@ -32,12 +35,12 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
   const items = line.items.filter(it => font.glyph(it.ch));
 
   const under: ReactNode[] = [], over: ReactNode[] = [];
-  const hline = (key: string, y: number, cls: string, label?: string) => under.push(
-    <g key={key}>
-      <line className={cls} x1={guides ? 8 : 0} x2={W} y1={Y(y)} y2={Y(y)} />
-      {label && <text className="d-label" x={8} y={Y(y) - 4}>{label}</text>}
-    </g>
-  );
+  // the lines' names, placed once every line is in, so lines close together keep their names apart
+  const names: [string, number, string][] = [];
+  const hline = (key: string, y: number, cls: string, label?: string) => {
+    under.push(<line key={key} className={cls} x1={guides ? 8 : 0} x2={W} y1={Y(y)} y2={Y(y)} />);
+    if (label) names.push([key, y, label]);
+  };
   hline('base', 0, 'd-guide', guides ? 'Baseline' : undefined);
   if (k === 'xHeight') {
     under.push(<rect key="band" className="d-band" x={0} width={W} y={Y(m.xh)} height={n1(m.xh * sc)} />);
@@ -48,6 +51,13 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
     hline('cap', m.cap, 'd-guide hot', 'Cap height');
     hline('xh', m.xh, 'd-guide', 'x-height');
   }
+  if (down) {
+    if (up) hline('asc', m.asc, 'd-guide hot', 'Ascender');
+    hline('xh', m.xh, 'd-guide', 'x-height');
+    hline('desc', m.desc, 'd-guide hot', 'Descender');
+  }
+  const nameAt = stackLabels(names.map(([key, y]) => [key, y] as const), Y);
+  for (const [key, , label] of names) under.push(<text key={`${key}-name`} className="d-label" x={8} y={nameAt.get(key)}>{label}</text>);
 
   // spacing bands
   const band = (key: string, x0: number, x1: number) => under.push(
@@ -89,6 +99,21 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
       over.push(<line key="a1" className="d-axis" x1={X(cx + m.slant * (y0 - m.xh * SLANT_PIVOT))} x2={X(cx + m.slant * (y1 - m.xh * SLANT_PIVOT))} y1={Y(y0)} y2={Y(y1)} />);
     }
   }
+  // how far the stems reach past the x-height and the baseline, measured beside the letters, a head on the way
+  // the slider lengthens them
+  const reach = (key: string, y0: number, y1: number) => {
+    const x = n1(ox + line.width * sc + 14), a = Y(y0), b = Y(y1), d = Math.sign(a - b) * Math.min(4, Math.abs(a - b) / 2);
+    over.push(
+      <g key={key} className="d-dim">
+        <line x1={x} y1={a} x2={x} y2={b} />
+        <line x1={x - 4} y1={a} x2={x + 4} y2={a} />
+        <line x1={x - 4} y1={n1(b + d)} x2={x} y2={b} />
+        <line x1={x + 4} y1={n1(b + d)} x2={x} y2={b} />
+      </g>
+    );
+  };
+  if (up) reach('asc', m.xh, m.asc);
+  if (down) reach('desc', 0, m.desc);
 
   const ring = RING_KEYS[ctlKey];
   return (
@@ -99,6 +124,17 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
         <g className={ring ? 'd-ring' : 'd-hl'} strokeWidth={n1(1 / sc)}>
           {items.map((it, i) => <path key={i} d={font.hl(it.ch, ctlKey)} transform={`translate(${n1(it.x)},0)`} />)}
         </g>
+        {down && <>
+          {/* the letters again, cut to above the x-height and below the baseline (y runs down here), clear of the
+              bowls' overshoot */}
+          <clipPath id="d-reach">
+            {up && <rect x={-500} y={n1(-top - 500)} width={n1(line.width + 1000)} height={n1(top + 500 - m.xh - m.os * 2)} />}
+            <rect x={-500} y={n1(m.os * 2)} width={n1(line.width + 1000)} height={n1(500 - bot)} />
+          </clipPath>
+          <g className="d-hl" strokeWidth={n1(1 / sc)} clipPath="url(#d-reach)">
+            {items.map((it, i) => <path key={i} d={font.glyph(it.ch)!.d} transform={`translate(${n1(it.x)},0)`} />)}
+          </g>
+        </>}
       </g>
       {over}
     </svg>
