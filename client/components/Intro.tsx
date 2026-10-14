@@ -26,6 +26,7 @@
    it's marked in localStorage under PREFS.introSeen (lib/prefs.ts), which the browser tools in tools/browser set
    beforehand to keep it out of the way. */
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { flushSync } from 'react-dom';
 import type { FreeFontData, PackedNode } from '../../shared/engine';
 import { OWN_FAMILIES, STYLE_FONTS, fontId, parseFontId, type FreeFontRef } from '../../shared/free-fonts';
 import { fontStyle, webFont } from '../lib/free';
@@ -49,9 +50,10 @@ const LETTER_GAP = 0.07;
 /** The whole name's cuts, in order, each led by a font's name setting LEAD of its letters. Neighbours look far apart,
     heavy after light, and the last, held longest, is the boldest. A font that didn't come is left out. */
 const CUTS = ['Couture', 'Serenade', 'Gumdrop', 'Orbital'];
-/** how long each cut shows, the last held longest, and how far apart, in ms, its letters that change start rolling,
-    from the left */
-const CUT_MS = 250, LAST_MS = 300, STAGGER = 14;
+/** how long each cut shows, long enough for its letters to land (.intro-roll's .3s in styles.css, and the stagger)
+    and stand a moment, the last held longest, and how far apart, in ms, its letters that change start rolling, from
+    the left */
+const CUT_MS = 450, LAST_MS = 550, STAGGER = 14;
 /** The slot the name's letters roll through, in ems over and under the baseline: what a letter draws outside it is
     cut off, so it is roomy, and .intro-roll's travel in styles.css carries a letter clear of it. */
 const SLOT = [1.3, 0.55] as const;
@@ -61,8 +63,9 @@ const SLOT = [1.3, 0.55] as const;
 const LEAD = 0.5;
 /** how long to wait for the fonts, and the fewest to play with */
 const WAIT_MS = 900, FEWEST = 6;
-/** each step of the scramble growing and of it settling */
-const GROW_MS = 40, SETTLE_MS = 45;
+/** each step of the scramble growing and of it settling, and how long the settled name, all mixed, stays before the
+    cuts (its last letter landing) */
+const GROW_MS = 40, SETTLE_MS = 45, SETTLED_MS = 250;
 /** The drawing: its points come in over POINTS_MS while each letter's outline is drawn on (over .intro-outline's
     .42s in styles.css, a letter LETTER_MS after the one before), the ink fills in from FILL_MS as the points and
     lines go, and the wordmark follows at DRAW_MS. */
@@ -152,7 +155,7 @@ function plan(fonts: FreeFontRef[], drawing: Logo | null): Step[] {
   }
   // all of it set from where the settled name starts, so it grows from there and a settled letter stays put
   const steps: Step[] = scramble.map((letters, i) => ({
-    ms: i < MARK.length ? GROW_MS : i < scramble.length - 1 ? SETTLE_MS : SETTLE_MS * 2, letters, from: settled
+    ms: i < MARK.length ? GROW_MS : i < scramble.length - 1 ? SETTLE_MS : SETTLED_MS, letters, from: settled
   }));
   // the cuts, each mixing into the one before: its leading font sets LEAD of the letters, wherever they fall, and
   // every other letter is in a font unlike its neighbours' and the leading one, keeping the one it had the cut before
@@ -325,7 +328,8 @@ export function Intro() {
   const [ref, box] = useSize<HTMLDivElement>();
   const shown = phase !== 'done';
 
-  // the fonts and the drawing's letters, as many as come within WAIT_MS
+  // the fonts and the drawing's letters, as many as come within WAIT_MS, then the card starts at once (as each step
+  // is, below)
   useEffect(() => {
     if (phase !== 'wait') return;
     setPrefFlag(PREFS.introSeen, true);
@@ -333,7 +337,8 @@ export function Intro() {
     let data: Logo | null = null, live = true;
     const start = () => {
       if (!live) return;
-      live = false; setDrawing(data); setSteps(plan(got, data)); setPhase('play');
+      live = false;
+      flushSync(() => { setDrawing(data); setSteps(plan(got, data)); setPhase('play'); });
     };
     const t = setTimeout(start, WAIT_MS);
     void Promise.all([
@@ -343,10 +348,13 @@ export function Intro() {
     return () => { live = false; clearTimeout(t); };
   }, [phase]);
 
+  // each step drawn at once (flushSync): as the app opens, the editor under the card builds its letters in a deferred
+  // render (GlyphDefs), which React lets no ordinary update cut into, so a step made from a timer waited it out (the
+  // name's first letter stood alone for most of a second, then the rest ran on its own beat)
   useEffect(() => {
     if (phase !== 'play' && phase !== 'leave') return;
-    const t = phase === 'leave' ? setTimeout(() => setPhase('done'), FADE_MS)
-      : setTimeout(() => (at < steps.length - 1 ? setAt(at + 1) : setPhase('leave')), steps[at].ms);
+    const t = phase === 'leave' ? setTimeout(() => flushSync(() => setPhase('done')), FADE_MS)
+      : setTimeout(() => flushSync(() => (at < steps.length - 1 ? setAt(at + 1) : setPhase('leave'))), steps[at].ms);
     return () => clearTimeout(t);
   }, [phase, at, steps]);
 
