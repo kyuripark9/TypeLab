@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { buildFont, gridOf, sameRound, type GridLine, type GridRound, type Node } from '../shared/engine';
 import { DEFAULTS } from '../shared/params';
 import {
-  chainPoints, chainsOf, leaned, lineIn, mapChains, mostScale, moveLine, pivotOf, pointsOn, scaleAbout, scaleFor, slideBy, slideOf, snapTo
+  chainPoints, chainsOf, leaned, lineIn, mapChains, mostScale, moveLine, pivotOf, pointsOn, scaleAbout, scaleFor, slideBy, slideOf, snapTo, withArcEnds
 } from '../client/lib/grid-drag';
 import { traceOf } from '../client/lib/pen';
 
@@ -102,6 +102,19 @@ describe('dragging a circle of the construction grid', () => {
     assert.deepEqual(p, { at: c });
     const top = cs[chains[0].c].reduce((a, n) => (n.y > a.y ? n : a)), moved = scaleAbout(top, p, 1.2);
     assert.ok(near(moved.y - c.y, (top.y - c.y) * 1.2, 1e-9));
+  });
+
+  it('puts a point in where an arc ends between two of the letter\'s points, the curve kept, and tells a tiny arc\'s ends apart', () => {
+    // the corner's round read as two arcs, split at its middle (as the grid splits a curve where it bends most)
+    const halves = round(100, 50, 50, [[100, 0, 135.35, 14.65], [135.35, 14.65, 150, 50]]);
+    const split = withArcEnds(square, [halves], upright);
+    assert.equal(split[0].length, 6);
+    assert.deepEqual([split[0][2].x, split[0][2].y], [135, 15], 'the new point on the curve');
+    assert.deepEqual(chainsOf(split, halves, upright), [{ c: 0, s: 1, n: 2, loop: false }], 'both halves, one stretch');
+    assert.equal(withArcEnds(square, [corner], upright), square, 'nothing put in where the arcs end at points');
+    // a round two units across, its ends at two points four apart
+    const tiny = [[pt(0, 0), pt(10, 0, { ox: 11, oy: 0 }), pt(12, 2, { ix: 12, iy: 1 }), pt(12, 20), pt(0, 20)]];
+    assert.deepEqual(chainsOf(tiny, round(10, 2, 2, [[10, 0, 12, 2]]), upright), [{ c: 0, s: 1, n: 1, loop: false }]);
   });
 
   it('finds a leaning letter\'s bowl by its curves lying on the round, its points traced where it leans', () => {

@@ -1,15 +1,17 @@
 /* The construction grid in the inspector, like the grid page of a type specimen: the lines and
    circles the letter is built on (engine/grid), drawn through it, and a bar naming the grid and the
    letters that share it. What the letter has in common with its group is drawn in one colour, what
-   is its own in another. In Parts the grid can be taken hold of (useGridDrag, lib/grid-drag): every point
-   of the letter on a line moves with it; a circle's rim resizes the curves it was read off and its middle
-   moves them. With All letters a line or circle shared with the group changes in each of the group's
-   letters that has the very same one too; the letters changed become drawings, as an edit in Points makes
-   them. */
+   is its own in another. The grid can be taken hold of (useGridDrag, lib/grid-drag), in Parts and, with the
+   selection tools, in Points: every point of the letter on a line moves with it; a circle's rim resizes the
+   curves it was read off and its middle moves them. In Parts, with All letters, a line or circle shared with
+   the group changes in each of the group's letters that has the very same one too; in Points it changes the
+   letter alone, and goes on to the others as any edit there does. The letters changed become drawings, as an
+   edit in Points makes them. */
 import { useDeferredValue, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { gridOf, sameRound, type Drawn, type Font, type GlyphGrid, type GridGroup, type GridLine, type GridRound, type Node } from '../../shared/engine';
 import {
-  chainPoints, chainsOf, leaned, lineIn, mapChains, mostScale, moveLine, pivotOf, pointsOn, scaleAbout, scaleFor, slideBy, slideOf, snapTo, type Chain, type Lean, type Pivot
+  chainPoints, chainsOf, leaned, lineIn, mapChains, mostScale, moveLine, pivotOf, pointsOn, scaleAbout, scaleFor, slideBy, slideOf, snapTo, withArcEnds,
+  type Chain, type Lean, type Pivot
 } from '../lib/grid-drag';
 import { n1 } from '../lib/hooks';
 import { traceOf, type Ref } from '../lib/pen';
@@ -142,43 +144,51 @@ function roundMovers(font: Font, ch: string, r: GridRound, grid: GlyphGrid, grou
   for (const c of all && r.shared && group ? [ch, ...group.chars.filter(o => o !== ch)] : [ch]) {
     const info = c === ch ? { grid } : gridOf(font, c), g = info && font.glyph(c);
     if (!info || !g) continue;
-    const doc = traceOf(g), rounds = c === ch ? [r] : info.grid.rounds.filter(k => sameRound(r, k));
-    const held = rounds.flatMap(k => heldOn(doc.contours, k, info.grid));
+    // (its curves split where the rounds' arcs end between its points, so they are resized between points)
+    const rounds = c === ch ? [r] : info.grid.rounds.filter(k => sameRound(r, k)), traced = traceOf(g), cs = withArcEnds(traced.contours, rounds, info.grid);
+    const doc = cs === traced.contours ? traced : { ...traced, contours: cs }, held = rounds.flatMap(k => heldOn(cs, k, info.grid));
     if (held.length || c === ch) out.push(one(c, doc, held));
   }
   return out;
 }
 
 /**
- * Dragging the grid in the inspector's canvas (Parts): its lines move the points on them, its rounds' rims resize the
- * curves they were read off and their middles move them (lib/grid-drag). `view` places the letter (font units to
- * canvas px, y up), `box` is the advance box in canvas px (the grid is grabbed there and a little past it), `size` the
- * canvas, `heights` the guides' heights (a level line stops at them), and `hold` holds the view still while a drag
- * runs (and lets it go with null). Gives the grab areas, what is in hand and its points (`lines`, for the canvas's SVG,
- * over the letter's parts) and the tip or the readout beside the pointer (`overlay`, over the canvas).
+ * Dragging the grid in the inspector's canvases: its lines move the points on them, its rounds' rims resize the curves
+ * they were read off and their middles move them (lib/grid-drag). `view` places the letter (font units to canvas px,
+ * y up), `box` is the advance box in canvas px (the grid is grabbed there and a little past it), `size` the canvas,
+ * `heights` the guides' heights (a level line stops at them), and `hold` holds the view still while a drag runs (and
+ * lets it go with null). In Points (`alone`) a drag changes the letter alone, and what it changed goes on to the
+ * others as any edit there does (CarryOffer); `enabled` false leaves the grid only drawn (while the pen's tools that
+ * add to the letter are in hand), and `onStart` hears a drag begin. Gives the grab areas, what is in hand and its
+ * points (`lines`, for the canvas's SVG) and the tip or the readout beside the pointer (`overlay`, over the canvas).
  */
-export function useGridDrag({ ch, font, grid, group, view, box, size, heights, hold }: {
+export function useGridDrag({ ch, font, grid, group, view, box, size, heights, hold, alone = false, enabled = true, onStart }: {
   ch: string; font: Font; grid?: GlyphGrid; group?: GridGroup; view: { sc: number; ox: number; oy: number }; box: Rect;
   size: { W: number; H: number }; heights: number[]; hold: (v: { sc: number; ox: number; oy: number } | null) => void;
+  alone?: boolean; enabled?: boolean; onStart?: () => void;
 }): { lines: ReactNode; overlay: ReactNode } {
   const [hover, setHover] = useState<(Grab & P) | null>(null);
   const [pull, setPull] = useState<Pull | null>(null);
   const finish = useRef<(() => void) | null>(null);
   useEffect(() => () => finish.current?.(), []);
-  const all = useEditor(s => !letterOf(s));
+  const all = useEditor(s => !letterOf(s)) && !alone;
   const clipId = 'cg-grab' + useId().replace(/[^\w-]/g, '');
   const g = font.glyph(ch);
-  // each round's chains of the letter's points: a round with none can't be taken hold of
-  const held = useMemo(() => (grid && g ? grid.rounds.map(r => heldOn(traceOf(g).contours, r, grid)) : []), [grid, g]);
+  // each round's chains of the letter's points (split where its arcs end between them): a round with none can't be
+  // taken hold of
+  const held = useMemo(() => (grid && g ? grid.rounds.map(r => {
+    const cs = withArcEnds(traceOf(g).contours, [r], grid);
+    return { cs, list: heldOn(cs, r, grid) };
+  }) : []), [grid, g]);
   const pointed = hover && !pull ? hover : null;
   // the letters what is pointed at reshapes too with All letters, for the tip to name
   const pointedOthers = useMemo(() => {
-    if (!pointed || !grid) return [];
+    if (!pointed || !grid || alone) return [];
     const ms = pointed.kind === 'line' ? (grid.lines[pointed.i] ? lineMovers(font, ch, grid.lines[pointed.i], grid, group, true) : [])
       : grid.rounds[pointed.i] ? roundMovers(font, ch, grid.rounds[pointed.i], grid, group, true, true) : [];
     return ms.slice(1).map(m => m.ch);
-  }, [pointed?.kind, pointed?.i, grid, font, ch, group]);
-  if (!grid || !g) return { lines: null, overlay: null };
+  }, [pointed?.kind, pointed?.i, grid, font, ch, group, alone]);
+  if (!grid || !g || !enabled) return { lines: null, overlay: null };
   const lean: Lean = { slant: grid.slant, pivot: grid.pivot };
   const { sc, ox, oy } = view;
   const X = (x: number) => ox + x * sc, Y = (y: number) => oy - y * sc;
@@ -231,7 +241,7 @@ export function useGridDrag({ ch, font, grid, group, view, box, size, heights, h
       };
       changed = v => v.x !== 0;
     } else {
-      const r = grid.rounds[grabbed.i], mine = held[grabbed.i];
+      const r = grid.rounds[grabbed.i], mine = held[grabbed.i]?.list;
       if (!r || !mine?.length) return;
       movers = roundMovers(font, ch, r, grid, group, all, grabbed.kind === 'rim');
       const main = nearestHeld(mine, movers[0].doc.contours, q0)!, least = 0.3 * Math.min(r.rx, r.ry);
@@ -253,6 +263,7 @@ export function useGridDrag({ ch, font, grid, group, view, box, size, heights, h
         if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < DRAG_START) return;
         moving = true;
         hold(view0);
+        onStart?.();
       }
       v = toValue((ev.clientX - x0) / view0.sc, -(ev.clientY - y0) / view0.sc, ev);
       const s = useEditor.getState(), drawn = movers.map(m => [m.ch, { adv: m.doc.adv, contours: m.draw(v) }] as const);
@@ -297,21 +308,22 @@ export function useGridDrag({ ch, font, grid, group, view, box, size, heights, h
       // (a round in hand drawn as its main chain is: moved, or resized about that chain's pivot)
       const r = grid.rounds[i], v = lit.v, pv = pull?.pivot;
       const { d, mid } = roundD(r, !pull ? undefined : kind === 'mid' ? q => ({ x: q.x + v.x, y: q.y + v.y }) : pv ? q => scaleAbout(q, pv, v.x) : undefined);
-      hot = { d, mid, shared: r.shared, pts: lit.pts ?? (held[i] ?? []).flatMap(h => chainPoints(cs, h.chain)).map(({ c, i: k }) => cs[c][k]) };
+      const on = held[i];
+      hot = { d, mid, shared: r.shared, pts: lit.pts ?? (on ? on.list.flatMap(h => chainPoints(on.cs, h.chain)).map(({ c, i: k }) => on.cs[c][k]) : []) };
     }
   }
   const lines = (
     <g className="cg-drag">
       <clipPath id={clipId}><rect x={n1(grab.x0)} y={n1(grab.y0)} width={n1(grab.x1 - grab.x0)} height={n1(grab.y1 - grab.y0)} /></clipPath>
       <g clipPath={`url(#${clipId})`}>
-        {grid.rounds.map((r, i) => held[i]?.length ? <path key={i} className="i-hit rim" d={roundD(r).d} {...point({ kind: 'rim', i })} /> : null)}
+        {grid.rounds.map((r, i) => held[i]?.list.length ? <path key={i} className="i-hit rim" d={roundD(r).d} {...point({ kind: 'rim', i })} /> : null)}
       </g>
       {grid.lines.map((l, i) => {
         const s = seg(l, 0, grab);
         return s && <line key={i} className={slideOf(l) === 'x' ? 'i-hit edge' : 'i-hit line'} x1={n1(s[0])} y1={n1(s[1])} x2={n1(s[2])} y2={n1(s[3])} {...point({ kind: 'line', i })} />;
       })}
       {grid.rounds.map((r, i) => {
-        if (!held[i]?.length) return null;
+        if (!held[i]?.list.length) return null;
         const { mid } = roundD(r);
         return <circle key={i} className="i-hit mid" cx={n1(mid.x)} cy={n1(mid.y)} r={7} {...point({ kind: 'mid', i })} />;
       })}

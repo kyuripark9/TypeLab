@@ -7,7 +7,8 @@
    up and down the slant.
 
    A circle (a round): the stretches of curve it was read off (`GridRound.arcs`), found among the letter's points
-   (`chainsOf`), are resized or moved with it. Resized, a stretch keeps to what it runs on into (`pivotOf`), by how
+   (`chainsOf`; where an arc ends between two of them, a point is put in there first, `withArcEnds`), are resized or
+   moved with it. Resized, a stretch keeps to what it runs on into (`pivotOf`), by how
    its ends meet the rest of the outline, running on smoothly or at a corner: a whole contour (an o's bowl, a counter)
    grows about the round's middle; one whose ends both run on (a rounded corner between two edges, a shoulder, a
    quarter of a bowl) grows about the corner it rounds, so its ends slide along the edges and curves they lead into,
@@ -17,7 +18,7 @@
    No end slides past the next point of what it runs on into (`mostScale`). Moved, a stretch moves whole, and what it
    runs on into stretches to it. Pure, tests/grid-drag.test.ts. */
 import { hasIn, hasOut, sameLine, segment, type GlyphGrid, type GridArc, type GridLine, type GridRound, type Node } from '../../shared/engine';
-import { moveAnchors, type Ref } from './pen';
+import { moveAnchors, nearestSegment, splitSegment, type Ref } from './pen';
 
 type P = { x: number; y: number };
 /** How a grid leans: by `slant` units across per unit up, about the level line y = `pivot` (GlyphGrid's). */
@@ -82,6 +83,25 @@ export const leaned = (q: P, lean: Lean): P => ({ x: q.x + lean.slant * (q.y - l
 export const chainPoints = (cs: Node[][], { c, s, n, loop }: Chain): Ref[] =>
   Array.from({ length: loop ? cs[c].length : n + 1 }, (_, k) => ({ c, i: (s + k) % cs[c].length }));
 
+/** How near a point of the letter an arc's end must be to be it: `tol`, or for a tiny arc under half the way between
+    its ends, so its two ends never take one point. */
+const arcTol = (arc: GridArc, tol: number) => Math.min(tol, 0.45 * Math.hypot(arc.b.x - arc.a.x, arc.b.y - arc.a.y));
+
+/** `cs` with a point put in wherever an arc of these rounds ends between two of its points (on the outline, within
+    `ON_LINE`, but no point of it within `tol`), the curve split there as it runs: a font's own points needn't fall
+    where the grid splits its curves (at their level and upright points, where they bend most), and an arc is resized
+    between points. The same `cs` back where none is wanted. */
+export function withArcEnds(cs: Node[][], rounds: readonly GridRound[], lean: Lean, tol = 2 * ON_LINE): Node[][] {
+  let out = cs;
+  for (const r of rounds) for (const arc of r.arcs) for (const end of [arc.a, arc.b]) {
+    const q = leaned(end, lean), near = arcTol(arc, tol);
+    if (out.some(con => con.some(n => Math.hypot(n.x - q.x, n.y - q.y) <= near))) continue;
+    const at = nearestSegment(out, q);
+    if (at && at.d <= ON_LINE && at.t > 0 && at.t < 1) out = splitSegment(out, at.c, at.i, at.t);
+  }
+  return out;
+}
+
 /** The chains of `cs` round `r` was read off: each of its arcs found by the points at its two ends (the shorter way
     round the contour between them), and arcs that run on one into the next made one chain. An arc whose ends aren't
     points of the letter (within `tol` units) is found instead by its curves lying on the round, all along, between the
@@ -90,16 +110,16 @@ export const chainPoints = (cs: Node[][], { c, s, n, loop }: Chain): Ref[] =>
 export function chainsOf(cs: Node[][], r: GridRound, lean: Lean, tol = 2 * ON_LINE): Chain[] {
   // each contour's segments (segment i runs from point i to the next) that lie on the round
   const on = cs.map(con => con.map(() => false));
-  const nearest = (con: Node[], q: P) => {
+  const nearest = (con: Node[], q: P, tol: number) => {
     let best = -1, bd = tol;
     con.forEach((n, i) => { const d = Math.hypot(n.x - q.x, n.y - q.y); if (d <= bd) { best = i; bd = d; } });
     return best;
   };
   for (const arc of r.arcs) {
-    const a = leaned(arc.a, lean), b = leaned(arc.b, lean);
+    const a = leaned(arc.a, lean), b = leaned(arc.b, lean), near = arcTol(arc, tol);
     let best: { c: number; s: number; n: number } | null = null;
     for (let c = 0; c < cs.length; c++) {
-      const con = cs[c], i = nearest(con, a), j = nearest(con, b), L = con.length;
+      const con = cs[c], i = nearest(con, a, near), j = nearest(con, b, near), L = con.length;
       if (i < 0 || j < 0 || i === j) continue;
       const fwd = (j - i + L) % L, back = (i - j + L) % L, run = fwd <= back ? { c, s: i, n: fwd } : { c, s: j, n: back };
       if (!best || run.n < best.n) best = run;

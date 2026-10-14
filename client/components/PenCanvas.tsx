@@ -18,7 +18,8 @@
    the same way there, in that same step; with Only it changes this letter alone, and is offered to them after. With Mirror, a point
    moved here moves the other way in its partner across the letter's middle. Snapping catches a dragged point or handle on points, guide
    lines, centers, midpoints, the outline, crossings and tangents (each can be turned off); ⌘ held
-   while dragging places it freely. */
+   while dragging places it freely. With the construction grid on, the Selection tools also take hold of its lines and
+   circles (ConstructionGrid's useGridDrag): an edit of this letter's points like any other. */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from 'react';
 import { CORNER_KINDS, cmdsToD, cornerRoom, drawnCmds, hasIn, hasOut, segment, type CornerKind, type Drawn, type Font, type Glyph, type GlyphGrid, type Node } from '../../shared/engine';
 import { guideLines, stackLabels } from '../lib/guide-labels';
@@ -33,7 +34,7 @@ import {
 import { PREFS, prefJson, prefOneOf, writePref } from '../lib/prefs';
 import { actions, fontFor, useEditor } from '../state/editor';
 import { CarryOffer } from './CarryOffer';
-import { GridLines } from './ConstructionGrid';
+import { GridLines, useGridDrag } from './ConstructionGrid';
 
 type Tool = 'object' | 'select' | 'pen' | 'convert' | 'shape';
 type P = { x: number; y: number };
@@ -781,6 +782,14 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const last = drawingOk !== null ? cs[drawingOk][cs[drawingOk].length - 1] : null;
   const guides = guideLines(m);
   const labelY = stackLabels(guides.map(([id, y]) => [id, y] as const), Y);
+  // the construction grid's lines and circles, taken hold of with the selection tools (in the advance box, between the
+  // letter's fill and its outline, so its points and segments still come first), changing this letter alone: what a
+  // drag changed goes on to the others as any edit here does (CarryOffer). A drag lets the points picked go, as it can
+  // put points in where a circle's curves end
+  const gridDrag = useGridDrag({
+    ch, font, grid, view: { sc, ox, oy }, box: { x0: X(0), y0: Y(top - 40), x1: X(doc.adv), y1: Y(bot + 20) }, size: { W, H },
+    heights: guides.map(([, y]) => y), hold: () => {}, alone: true, enabled: tool === 'object' || tool === 'select', onStart: () => setSel([])
+  });
   const one = selRefs.length === 1 ? cs[selRefs[0].c][selRefs[0].i] : null;
   // whole shapes picked, with their box: the bar gives their size, turn and weight, and the flips
   const boxed = frame !== null && (tool === 'object' || tool === 'shape');
@@ -870,6 +879,9 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
                 <path key={c} className={tool === 'select' || tool === 'object' ? 'pen-fill hit' : 'pen-fill'} d={cmdsToD(drawnCmds([cs[c]]))}
                   onPointerDown={tool === 'select' || tool === 'object' ? onContour(c) : onBackground} />
               ))}
+            </g>
+            {gridDrag.lines}
+            <g transform={`translate(${n1(ox)},${n1(oy)}) scale(${sc.toFixed(5)})`}>
               {rounded && <path className="pen-sharp" d={cmdsToD(drawnCmds(cs, true))} />}
               <path className="pen-line" d={d} style={{ strokeWidth: 1.25 / sc }} />
               <path className="pen-seg" d={d} style={{ strokeWidth: (HIT * 2) / sc }} onPointerDown={onSegment} />
@@ -926,6 +938,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             {caught && <SnapMark hit={caught} x={X(caught.x)} y={Y(caught.y)} />}
           </svg>
         )}
+        {gridDrag.overlay}
         <span className="pen-stats">{count} points · {Math.round(sc / fitSc * 100)}%</span>
         <CarryOffer ch={ch} g={g} font={font} picked={sel.filter(valid)} />
       </div>
