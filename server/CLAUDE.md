@@ -10,7 +10,7 @@ preview (`shared/engine`).
 | `app.ts` | `createApp(store, { google, fonts })`: the headers on every answer (nosniff, no framing, the referrer policy), a log line when a proxy is seen without `TRUST_PROXY`, compression, then every route, the who's-asking middleware, cookies, throttles, errors. Kept apart from index.ts so tests mount it on an in-memory store |
 | `db.ts` | `DesignStore`: designs by owner, the schema upgrades, `PARAMS_VERSION` upgrades |
 | `accounts.ts` | `AccountStore`: users, scrypt password hashes, sessions |
-| `google.ts` | Google sign-in (authorization code with PKCE, no library); `googleFromEnv`; `googleStandIn`, development's stand-in for Google |
+| `google.ts` | Google sign-in (authorization code with PKCE, no library); `googleFromEnv`; `googleStandIn`, a stand-in for Google for the tests and test servers (`GOOGLE_STAND_IN`) |
 | `mail.ts` | Email, for password reset: `mailerFromEnv` (SMTP through nodemailer, `SMTP_URL` and `MAIL_FROM`); `mailStandIn`, development's, which logs each message and shows it at `/dev/mail` |
 | `free-fonts.ts` | `FreeFonts`: TypeLab's own fonts read from `fonts/`, the others fetched, converted and kept; each as a web font (`webFont`); `keptFile`, `ownFontFile`, `fontFile` |
 | `export.ts` | `buildOTF`, `buildFamilyZip`, `buildSpecimenSVG`, `exportName`; `buildExport`, one route's export (`ExportJob`), and the pieces it is built in (`exportPieces`, `buildPiece`, `joinPieces`: a family's members one a piece) |
@@ -88,10 +88,14 @@ An 18-style family in an own font takes some 6 to 10 seconds the first time on t
   BroadcastChannel `AUTH_CHANNEL` (`'typelab-auth'`); the full-page fallback carries the result in
   `?GOOGLE_RESULT_PARAM=` (`?google=`). Both names live in `shared/account.ts`, which the server and the client
   (`client/state/auth.ts`, `client/lib/api.ts`) import, with `GoogleIntent`.
-- Without Google's keys, development (any `NODE_ENV` but `production`) signs in with `googleStandIn`: index.ts
+- With Google's keys (`.env`), development signs in with Google itself, as production does; the owner's 5173 server
+  is registered with Google at `http://localhost:5173/api/auth/google/callback` (open it as `localhost`, not
+  `127.0.0.1`, or the redirect URI won't match). Without keys no Google is offered, and development's log says why.
+- `GOOGLE_STAND_IN=1` (any `NODE_ENV` but `production`) signs in with `googleStandIn` instead, keys or not: index.ts
   mounts its account picker at `STAND_IN_PATH` (`/dev/google`), whose two made-up accounts (`mina@stand-in.test`,
   `jun@stand-in.test`) come back through the real callback, PKCE and all. Their `.test` emails can't match a real
-  account, so picking one never takes a real account's password off. Production without keys offers no Google.
+  account, so picking one never takes a real account's password off. It is for test servers: their ports aren't
+  registered with Google, which would answer `redirect_uri_mismatch`.
 
 ## Database compatibility
 
@@ -154,7 +158,8 @@ their apostrophe needs the room before a tall letter); they leave the font's lin
 | `DB_PATH` | `data/typelab.db` | The database; free fonts are kept in `free-fonts/` beside it; `:memory:` keeps nothing |
 | `TRUST_PROXY` | | Set behind an HTTPS proxy: cookies get Secure and throttles count each visitor |
 | `PUBLIC_URL` | | The site's address for Google's redirect, when it differs from the one requests arrive on |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Both set: Google sign-in is offered. Without them, development signs in with a stand-in for Google and production offers none |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Both set: Google sign-in is offered, in development too. Without them no Google is offered |
+| `GOOGLE_STAND_IN` | | Set, outside production: sign in with a stand-in for Google (`/dev/google`, two made-up accounts) in place of Google, for a test server |
 | `SMTP_URL`, `MAIL_FROM` | | Both set (and `PUBLIC_URL` in production): password reset is offered, its email sent through that SMTP server from that address. Without them development shows the mail at `/dev/mail` and production offers no reset |
 | `EXPORT_WORKERS` | one fewer than the cores, at most 4 | How many worker threads build exports side by side; each holds a few hundred MB at its busiest |
 
@@ -171,6 +176,8 @@ echo $!            # the server's PID (tools/node.sh execs node); later: kill <p
 ```
 
 `npm run dev` with the same variables also works and restarts on server changes, but its PID is npm's. Never
-`pkill` by pattern. With `.tools/test.db`, free fonts are kept in `.tools/free-fonts` and fetched from Google the
-first time; copy `data/free-fonts/*.json` there to skip that. tests/api.test.ts and tests/free-fonts.test.ts mount
-`createApp` on `DesignStore(':memory:')` with a stand-in Google and stand-in font fetches, so they need no network.
+`pkill` by pattern. A test server reads the owner's `.env` too, Google's keys included, but Google knows only
+5173's address: to try signing in with Google there, add `GOOGLE_STAND_IN=1`. With `.tools/test.db`, free fonts are
+kept in `.tools/free-fonts` and fetched from Google the first time; copy `data/free-fonts/*.json` there to skip that.
+tests/api.test.ts and tests/free-fonts.test.ts mount `createApp` on `DesignStore(':memory:')` with a stand-in Google
+and stand-in font fetches, so they need no network.

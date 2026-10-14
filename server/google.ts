@@ -3,8 +3,9 @@
    is traded here (with the client secret and the verifier) for an ID token naming the person.
    The token comes straight from Google over TLS, so its claims are read without checking its
    signature, as OpenID Connect allows for a token taken from the token endpoint itself.
-   In development without Google's keys, a stand-in takes Google's place (googleStandIn): a page on
-   this server to pick one of two made-up accounts, so the whole sign-in can be tried locally. */
+   Without Google's keys no Google is offered, in development as in production. A stand-in can take Google's place
+   (googleStandIn): a page on this server to pick one of two made-up accounts, for the tests and, asked for with
+   GOOGLE_STAND_IN in development, a test server Google doesn't know the address of. */
 import { createHash, randomBytes } from 'node:crypto';
 
 export interface GoogleProfile { sub: string; email: string; emailVerified: boolean; name: string }
@@ -71,7 +72,7 @@ const STAND_IN_PEOPLE: Record<string, GoogleProfile> = {
   jun: { sub: 'stand-in-jun', email: 'jun@stand-in.test', emailVerified: true, name: 'Jun' }
 };
 
-/** A stand-in for Google, for development without its keys: authUrl sends the browser to this
+/** A stand-in for Google, for the tests and test servers (GOOGLE_STAND_IN): authUrl sends the browser to this
     server's account picker (`chooser`), whose links come back to the redirect as Google would, with a
     code naming the account; exchange checks the PKCE verifier against the challenge as Google does.
     The way back is the one authUrl was given, kept by state, never one taken from the address. */
@@ -113,7 +114,7 @@ h1{margin:0 24px 2px;font-size:20px;font-weight:600}p{margin:0 24px 16px;color:#
 .initial{width:32px;height:32px;border-radius:50%;background:#2f5fd0;color:#fff;display:grid;place-items:center;font-weight:600}
 .cancel{display:inline-block;margin:10px 24px 0;color:#2f5fd0;text-decoration:none}
 </style></head><body><main>
-<div class="note">A stand-in for Google, in development only. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to use Google itself.</div>
+<div class="note">A stand-in for Google, for testing only (GOOGLE_STAND_IN). Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, without it, to use Google itself.</div>
 <h1>Choose an account</h1>
 ${body}
 </main></body></html>`;

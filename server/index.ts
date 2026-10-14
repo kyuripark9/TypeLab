@@ -4,7 +4,7 @@
    It reads from the environment, or from a .env file at the root: PORT (5173), NODE_ENV (`production`
    serves dist/), DB_PATH (data/typelab.db; the free fonts are kept beside it, in free-fonts/) and
    TRUST_PROXY here, PUBLIC_URL in app.ts, GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in google.ts (without
-   them, development signs in with a stand-in for Google and production offers no Google), and SMTP_URL and MAIL_FROM
+   them no Google is offered; GOOGLE_STAND_IN, in development only, signs in with a stand-in for it), and SMTP_URL and MAIL_FROM
    in mail.ts (without them, or in production without PUBLIC_URL, development shows the password reset's mail at
    /dev/mail and production offers no reset). */
 import { existsSync } from 'node:fs';
@@ -28,8 +28,9 @@ const dbFile = process.env.DB_PATH || resolve(root, 'data/typelab.db');
 const store = new DesignStore(dbFile);
 // free fonts are fetched once and kept beside the database
 const fonts = new FreeFonts(dbFile === ':memory:' ? null : resolve(dirname(dbFile), 'free-fonts'));
-// Google itself when its keys are set; else, in development only, a stand-in to try the sign-in with
-const google = googleFromEnv(), standIn = google || prod ? null : googleStandIn();
+// Google itself when its keys are set, in development as in production. The stand-in, a page here to pick a made-up
+// account, only when asked for (GOOGLE_STAND_IN, development only): for a test server, whose port Google doesn't know
+const standIn = !prod && process.env.GOOGLE_STAND_IN ? googleStandIn() : null, google = standIn ? null : googleFromEnv();
 // a reset's link is built from PUBLIC_URL in production, never from the address a request names, which anyone can set
 let mail = mailerFromEnv();
 if (mail && prod && !process.env.PUBLIC_URL) {
@@ -74,7 +75,10 @@ if (prod) {
 
 server.listen(port, () => {
   console.log(`TypeLab ${prod ? '' : '(dev) '}running at http://localhost:${port}`);
-  if (standIn) console.log('Google sign-in: a stand-in (set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET for Google itself)');
+  // in development, the address Google must have as an Authorized redirect URI, or why there is no Google
+  if (standIn) console.log(`Google sign-in: a stand-in, at ${STAND_IN_PATH} (GOOGLE_STAND_IN)`);
+  else if (google && !prod) console.log(`Google sign-in: Google, back to ${process.env.PUBLIC_URL?.replace(/\/+$/, '') || `http://localhost:${port}`}/api/auth/google/callback`);
+  else if (!prod) console.log('Google sign-in: off (set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env; README.md, Sign in with Google)');
   if (mailIn) console.log(`Mail: a stand-in, shown at ${STAND_IN_MAIL_PATH} (set SMTP_URL and MAIL_FROM to send it)`);
 });
 

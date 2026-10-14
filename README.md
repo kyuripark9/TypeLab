@@ -33,14 +33,20 @@ Every environment variable the server and the tools read is listed in `tools/REA
 
 ### Sign in with Google (optional)
 
-The sign-in dialog offers **Continue with Google** once the server has Google OAuth keys:
+The sign-in dialog offers **Continue with Google** once the server has Google OAuth keys, in
+development as in production; without them it offers email and password only.
 
-1. In the [Google Cloud console](https://console.cloud.google.com/apis/credentials), create an
-   **OAuth client ID** of type *Web application* (set up the consent screen first if asked; the
-   scopes needed are `openid`, `email` and `profile`).
-2. Under *Authorized redirect URIs* add `http://localhost:5173/api/auth/google/callback`, and the
-   same path on your real address when you deploy (e.g. `https://typelab.example.com/api/auth/google/callback`).
-3. Put the keys in a `.env` file at the project root (it's git-ignored), then restart the server:
+1. In the [Google Auth Platform](https://console.cloud.google.com/auth/overview), pick or create a
+   project and click **Get started**: an app name, your email for support and contact, Audience
+   **External**. TypeLab asks only for `openid`, `email` and `profile`, so nothing needs verifying
+   and no test users need adding.
+2. Under **Clients**, **Create client** of type *Web application*, and under *Authorized redirect URIs*
+   add `http://localhost:5173/api/auth/google/callback` (and the same path on your real address when
+   you deploy, e.g. `https://typelab.example.com/api/auth/google/callback`). Copy the client secret
+   as it's shown, or download the JSON: Google never shows it again.
+3. Put the keys in a `.env` file at the project root (it's git-ignored), then restart the server,
+   whose log names the redirect URI it uses. Open the app at `http://localhost:5173` (not
+   `127.0.0.1`), or Google answers `redirect_uri_mismatch`:
 
    ```sh
    GOOGLE_CLIENT_ID=1234-abc.apps.googleusercontent.com
