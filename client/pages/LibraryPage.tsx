@@ -243,7 +243,7 @@ function DesignCard({ d, list, recent, onDownload, onDuplicate, onDelete, onRena
           : <h3 title={`${d.name} — double-click to rename`} onDoubleClick={() => setEditing(true)}>{d.name}</h3>}
         <p>
           {style && <span title={`Started from ${style}`}>{style}</span>}
-          <span className={recent ? 'lib-recent' : undefined} title={`${recent ? 'Your latest save · ' : ''}Edited ${new Date(d.updatedAt).toLocaleString()}`}>{ago(d.updatedAt)}</span>
+          <span title={`${recent ? 'Your latest save · ' : ''}Edited ${new Date(d.updatedAt).toLocaleString()}`}>{recent ? <mark className="lib-recent">{ago(d.updatedAt)}</mark> : ago(d.updatedAt)}</span>
         </p>
       </div>
       <div className="lib-actions">

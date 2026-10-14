@@ -1199,7 +1199,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .lib-meta p span { overflow: hidden; text-overflow: ellipsis; }
 .lib-meta p span + span::before { content: "·"; margin: 0 5px; color: var(--line-2); }
 .lib-meta p span:last-child { flex: none; }
-/* the latest save: its time in the accent */
+/* the latest save: its time in the accent (on the time alone, not the dot before it) */
 .lib-recent { color: var(--ink); font-weight: 700; background: var(--marker); }
 .lib-rename { width: 100%; min-width: 0; height: 26px; margin: -3px 0 -2px -7px; padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--pill); box-shadow: 0 0 0 3px var(--accent-soft); font-size: var(--t-l); color: var(--ink); background: var(--surface); outline: none; }
 .lib-actions { grid-area: actions; position: relative; display: flex; align-items: center; gap: 0; padding: 0 2px 0 4px; }
