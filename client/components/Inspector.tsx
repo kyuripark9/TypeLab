@@ -5,7 +5,7 @@
    reaches every letter or this one (in Parts through the settings, a letter edited in Points too, as the settings
    it was drawn at move it as they move; in Points by shape, each edit going on to the letters shaped the same way
    there, CarryOffer's search), Reset <letter> beside it for a letter with settings or edits of its own, and the
-   Construction grid toggle (in Parts the grid's lines drag, moving the points on them: ConstructionGrid's useGridDrag). letterControls and ScopeIcon are also used by the side panel
+   Construction grid toggle (in Parts the grid's lines and circles drag, reshaping the letter's points on them: ConstructionGrid's useGridDrag). letterControls and ScopeIcon are also used by the side panel
    (panel/ControlsPanel). */
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
@@ -331,7 +331,7 @@ function InspectorCanvas({ ch, g, font, grid, group }: { ch: string; g: Glyph; f
   const guides = guideLines(m).filter(([id]) => !(Math.abs(m.asc - m.cap) < 45 && id === 'ascender' && !lower));
   const labelY = stackLabels(guides.map(([id, y]) => [id, y] as const), Y);
   const dragging = held !== null;
-  // the grid's lines, dragged in the advance box (the guides take a press out beyond it)
+  // the grid's lines and circles, dragged in the advance box (the guides take a press out beyond it)
   const gridDrag = useGridDrag({
     ch, font, grid, group, view: { sc, ox, oy }, box: { x0: X(0), y0: Y(top - 40), x1: X(g.adv), y1: Y(bot + 20) },
     size: { W, H }, heights: guides.map(([, y]) => y), hold: setHeld
@@ -480,7 +480,7 @@ function InspectorCanvas({ ch, g, font, grid, group }: { ch: string; g: Glyph; f
       {size.width > 0 && !dragging && (
         handles.length > 0
           ? <p className="i-hint on">{hotKey ? `Or drag the handles on the letter to change ${labelOf(showKey!).toLowerCase()}` : 'Drag the handles, or any part of the letter, to reshape it'}</p>
-          : <p className="i-hint">{grid ? 'Drag a grid line to move its points · a part to reshape it' : 'Drag a part to reshape it · click to find its slider'}</p>
+          : <p className="i-hint">{grid ? 'Drag a grid line or circle · a part to reshape it' : 'Drag a part to reshape it · click to find its slider'}</p>
       )}
     </div>
   );

@@ -12,8 +12,11 @@ type P = { x: number; y: number };
 /** A straight line of a grid, through (x, y) at angle `a` (radians from level, 0 ≤ a < π): level,
     upright or diagonal. `len` is how much of the outline lies on it. */
 export interface GridLine { kind: 'h' | 'v' | 'd'; x: number; y: number; a: number; len: number; shared: boolean }
-/** A circle or ellipse of a grid; `len` is the span of the arc the outline takes from it. */
-export interface GridRound { cx: number; cy: number; rx: number; ry: number; len: number; shared: boolean }
+/** A stretch of a letter's curve, from where it starts to where it ends (as the grid reads the letter, upright). */
+export interface GridArc { a: P; b: P }
+/** A circle or ellipse of a grid; `len` is the span of the arc the outline takes from it, and `arcs` the stretches of
+    the letter's curves it was read off (the inspector finds them in the letter's points to reshape them by it). */
+export interface GridRound { cx: number; cy: number; rx: number; ry: number; len: number; shared: boolean; arcs: GridArc[] }
 /** One letter's grid, as the letter stands upright: a slanted letter's grid leans with it, by `slant`
     units across per unit up, about the level line y = `pivot`. */
 export interface GlyphGrid { lines: GridLine[]; rounds: GridRound[]; slant: number; pivot: number }
@@ -53,6 +56,14 @@ export function sameLine(a: GridLine, b: GridLine, place = true) {
 function sameSize(a: GridRound, b: GridRound) {
   const tol = Math.max(SAME_R, 0.05 * Math.max(a.rx, a.ry));
   return Math.abs(a.rx - b.rx) <= tol && Math.abs(a.ry - b.ry) <= tol;
+}
+
+/** Whether two rounds are one circle, as a letter's grid takes them: of one size, `b`'s middle within a few units of
+    `a`'s (or a twentieth of `a`'s radius for a big one). The inspector finds a dragged round in the group's other
+    letters by it. */
+export function sameRound(a: GridRound, b: GridRound) {
+  const near = Math.max(SAME_R, 0.05 * Math.max(a.rx, a.ry));
+  return sameSize(a, b) && Math.abs(a.cx - b.cx) <= near && Math.abs(a.cy - b.cy) <= near;
 }
 
 /** A point of a cubic. */
@@ -105,12 +116,12 @@ export function glyphGrid(g: Glyph, m: Metrics): GlyphGrid {
     const l: GridLine = { kind, x, y, a, len, shared: false }, was = lines.find(o => sameLine(o, l));
     if (was) was.len += len; else lines.push(l);
   };
-  const round = (cx: number, cy: number, rx: number, ry: number, len: number) => {
+  const round = (cx: number, cy: number, rx: number, ry: number, len: number, arc: GridArc) => {
     if (!(rx >= 2 && ry >= 2 && rx <= most && ry <= most)) return false;
-    const r: GridRound = { cx, cy, rx, ry, len, shared: false };
+    const r: GridRound = { cx, cy, rx, ry, len, shared: false, arcs: [arc] };
     const near = Math.max(SAME_R, 0.05 * Math.max(rx, ry));
     const was = rounds.find(o => sameSize(o, r) && Math.abs(o.cx - cx) <= near && Math.abs(o.cy - cy) <= near);
-    if (was) was.len += len; else rounds.push(r);
+    if (was) { was.len += len; was.arcs.push(arc); } else rounds.push(r);
     return true;
   };
 
@@ -142,7 +153,7 @@ export function glyphGrid(g: Glyph, m: Metrics): GlyphGrid {
     if (centre && rx >= 2 && ry >= 2 && pieces.every(q => [0.25, 0.5, 0.75].every(t => {
       const at = bez(q.B, t);
       return Math.abs(((at.x - centre.x) / rx) ** 2 + ((at.y - centre.y) / ry) ** 2 - 1) <= 0.1;
-    })) && round(centre.x, centre.y, rx, ry, len)) return;
+    })) && round(centre.x, centre.y, rx, ry, len, { a, b })) return;
     // the curve at a few points of each piece: where it is, which way it runs, how tightly it bends (signed)
     const at = pieces.flatMap(q => [0.04, 0.27, 0.5, 0.73, 0.96].map(t => {
       const d1 = bez1(q.B, t), v = Math.hypot(d1.x, d1.y);
@@ -159,7 +170,9 @@ export function glyphGrid(g: Glyph, m: Metrics): GlyphGrid {
         const mid = (bend.length - 1) / 2, tight = bend.map((q, n) => ({ q, n })).filter(o => Math.abs(o.q.k) >= tightest * 0.88)
           .reduce((best, o) => (Math.abs(o.n - mid) < Math.abs(best.n - mid) ? o : best)).q;
         const r = 1 / Math.abs(tight.k), s = Math.sign(tight.k);
-        round(tight.p.x - s * tight.d.y / tight.v * r, tight.p.y + s * tight.d.x / tight.v * r, r, r, len * bend.length / at.length);
+        // (five points a piece: the bend's arc runs from the start of the piece its first point is on to the end of its last's)
+        const arc = { a: pieces[Math.floor(i / 5)].B[0], b: pieces[Math.floor(j / 5)].B[3] };
+        round(tight.p.x - s * tight.d.y / tight.v * r, tight.p.y + s * tight.d.x / tight.v * r, r, r, len * bend.length / at.length, arc);
       }
       i = j + 1;
     }

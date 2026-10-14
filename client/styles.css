@@ -641,10 +641,14 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .grid-key.shared i { border-color: var(--grid-shared); }
 .cg line, .cg ellipse { fill: none; stroke: var(--grid-own); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .cg .shared { stroke: var(--grid-shared); }
-/* a line of the grid pointed at or dragged, run across the canvas, and the letter's points on it, which move with it */
-.cg-hot line { stroke: var(--grid-own); stroke-width: 2; }
+/* the grid in the inspector's canvas, taken hold of: a round by its rim (resized) or its middle (moved), and a line or
+   round pointed at or dragged, drawn bolder (a line run across the canvas, a round's middle crossed), with the letter's
+   points that move with it */
+.i-hit.rim { fill: none; stroke: transparent; stroke-width: 10; pointer-events: stroke; cursor: nwse-resize; }
+.i-hit.mid { cursor: move; }
+.cg-hot path { fill: none; stroke: var(--grid-own); stroke-width: 2; }
 .cg-hot rect { fill: var(--surface); stroke: var(--grid-own); stroke-width: 1.5; }
-.cg-hot.shared line, .cg-hot.shared rect { stroke: var(--grid-shared); }
+.cg-hot.shared path, .cg-hot.shared rect { stroke: var(--grid-shared); }
 .i-trace { fill: none; stroke: var(--ink); stroke-linejoin: round; }
 .i-ink.bare { fill: var(--surface); }
 .insp-canvas.gridded .i-hl { opacity: .16; }
