@@ -136,6 +136,8 @@ export interface SkinRig {
   /** whether a stroke of it ends square across, where the engine's serifs could stand (see restyleSerifs) */ squareEnds?: boolean;
   /** how near each edge's stroke is to where it runs into another, from 1 there to 0 a little way off (see joinsNear) */ near?: number[][];
   /** each sample's stroke read off the skeleton, for a lighter weight (see thinReads) */ thin?: ThinReads;
+  /** itself with its strokes ending round kept in its lighter weight's skeleton, for a letter that breaks without them
+      (see moveRig), or null where they make no difference */ round?: SkinRig | null;
 }
 
 /** how far apart the outline is sampled, in the font's units (1000 to the em) */
@@ -1133,12 +1135,20 @@ function moveRig(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
   // a lighter weight that breaks the letter (a stroke parted from the one it joins, or lost, a counter run out into the
   // paper, where the strokes meet in a way the skeleton reads amiss) is mended with the strokes drawn again along its
   // skeleton (thinStrokes), which run on through every join; failing that, it is drawn as those strokes alone, within its
-  // ink (a design's details lost, but as light as the rest); failing that, thinned as far toward the weight as keeps it
-  // whole, in eighths: a letter a little heavier than the rest rather than one in pieces
+  // ink (a design's details lost, but as light as the rest); failing that, moved again on a skeleton keeping its strokes
+  // that end round (roundRig); failing that, thinned as far toward the weight as keeps it whole, in eighths: a letter a
+  // little heavier than the rest rather than one in pieces
   const mended = movedOnce(rig, m0, m1, 'mended');
   if (whole(rig, mended)) return mended.out;
   const drawn = movedOnce(rig, m0, m1, 'strokes');
   if (whole(rig, drawn)) return drawn.out;
+  // (or its skeleton read again, its strokes ending round kept: a heavy w, whose feet and middle peak are short beside
+  // the rounds where its strokes meet, which the skeleton otherwise takes for a square end's corners and leaves out)
+  const R = roundRig(rig);
+  if (R) {
+    const again = movedOnce(R, m0, m1);
+    if (whole(R, again)) return again.out;
+  }
   const at = (f: number) => Object.fromEntries(MEASURES.map(k => [k, m0[k] + (m1[k] - m0[k]) * f])) as unknown as SkinMeasures;
   let lo = 0, best: Node[][] | null = null;
   for (let hi = 1, step = 0; step < 3; step++) {
@@ -1334,9 +1344,9 @@ interface ThinReads {
   /** the joins, where they are and their distance to the paper */ joins: Map<number, SkPt>;
   /** its points by where they lie (pointGrid), made when first asked for */ grid?: PointGrid;
 }
-/** A stroke leaving a join: its own half thickness just past the join's bulge, the way it leaves, and its points (of
-    ThinReads') from the join out. */
-interface Leg { s: number; x: number; y: number; pts: number[] }
+/** A stroke leaving a join: its own half thickness just past the join's bulge, the way it leaves, its points (of
+    ThinReads') from the join out, and the skeleton node it runs to. */
+interface Leg { s: number; x: number; y: number; pts: number[]; to: number }
 
 function thinReads(rig: SkinRig): ThinReads {
   const sk = thinSkeleton(rig), isJoin = (n: number) => sk.nodes[n].edges.length >= 3;
@@ -1355,6 +1365,19 @@ function thinReads(rig: SkinRig): ThinReads {
     }
     return out;
   });
+  // (a short stroke from one join to another, inside the ink where they meet, no thicker than the strokes leaving them
+  // read: a K's arms meeting just off its stem)
+  sk.edges.forEach((E, e) => {
+    if (!isJoin(E.a) || !isJoin(E.b) || cum[e][cum[e].length - 1] > JOIN_ZONE * Math.min(sk.nodes[E.a].r, sk.nodes[E.b].r)) return;
+    let most = Infinity;
+    for (const n of [E.a, E.b]) for (const k of sk.nodes[n].edges) {
+      if (k === e) continue;
+      const K = sk.edges[k], c = cum[k], L = c[c.length - 1], Z = Math.min(JOIN_ZONE * sk.nodes[n].r, L / 2);
+      const i = K.a === n ? Math.max(0, c.findIndex(v => v >= Z)) : c.length - 1 - Math.max(0, [...c].reverse().findIndex(v => L - v >= Z));
+      most = Math.min(most, own[k][i]);
+    }
+    if (most < Infinity) own[e] = own[e].map(v => Math.min(v, most));
+  });
   const first = cum.map((_, e) => sk.edges.slice(0, e).reduce((a, E) => a + E.pts.length, 0));
   const legs = new Map<number, Leg[]>();
   sk.nodes.forEach((N, n) => {
@@ -1363,7 +1386,8 @@ function thinReads(rig: SkinRig): ThinReads {
       const c = cum[br.e], L = c[c.length - 1], Z = Math.min(JOIN_ZONE * N.r, L / 2);
       const i = br.end === 'a' ? Math.max(0, c.findIndex(v => v >= Z)) : c.length - 1 - Math.max(0, [...c].reverse().findIndex(v => L - v >= Z));
       const d = leaving(sk, br, Math.max(Z, 2)), all = sk.edges[br.e].pts.map((_, k) => first[br.e] + k);
-      return { s: own[br.e][i], x: d.x, y: d.y, pts: br.end === 'a' ? all : all.reverse() };
+      const E = sk.edges[br.e];
+      return { s: own[br.e][i], x: d.x, y: d.y, pts: br.end === 'a' ? all : all.reverse(), to: br.end === 'a' ? E.b : E.a };
     }));
   });
   const joins = [...legs.keys()], n = sk.edges.reduce((a, E) => a + E.pts.length, 0);
@@ -1397,15 +1421,33 @@ function thinReads(rig: SkinRig): ThinReads {
   // again thinner along it, a stem a bowl or an arm joins would bend toward it there. A stem running on through the join
   // (two of its strokes leaving it opposite ways) runs straight through instead, as a thin face draws it, and the other
   // strokes come into it as they curved in, their ends carried onto it
-  for (const [k, ls] of legs) straightThrough(out, sk.nodes[k], ls);
+  for (const [k, ls] of legs) {
+    // (a join a short stroke away, too short to read, goes with the join it leaves, its own strokes carried with it out
+    // to its bulge's edge: a K's arms, meeting just off its stem, meet the stem run straight)
+    const went = straightThrough(out, sk.nodes[k], ls);
+    if (went) for (const l of went.joins) {
+      const N = sk.nodes[l.to];
+      for (const o of legs.get(l.to) ?? []) {
+        if (o.to === k) continue;
+        const D = STRAIGHT_FROM * N.r;
+        for (let m = 0, arc = 0; m < o.pts.length && arc < D; m++) {
+          if (m) arc += Math.hypot(out.x[o.pts[m]] - out.x[o.pts[m - 1]], out.y[o.pts[m]] - out.y[o.pts[m - 1]]);
+          const w = Math.max(0, 1 - arc / D);
+          out.x[o.pts[m]] += went.sx * w; out.y[o.pts[m]] += went.sy * w;
+        }
+      }
+    }
+  }
   return out;
 }
 
 /** A join's stem run straight through it (thinReads): of the strokes leaving join N, the two leaving it most nearly
     opposite ways (within STRAIGHT_THROUGH), each read as a line out past the join's bulge (STRAIGHT_FROM), have their
     points within the bulge set on the line through them, and every other stroke's points there go as far as the join's
-    own point goes onto it, less and less out to the bulge's edge. */
-function straightThrough(T: ThinReads, N: SkPt, ls: Leg[]) {
+    own point goes onto it, less and less out to the bulge's edge (a stroke too short to read, less and less out to its
+    end, or, running to another join, all the way, that join going too). How far the join went, and the strokes to the
+    joins that go with it. */
+function straightThrough(T: ThinReads, N: SkPt, ls: Leg[]): { sx: number; sy: number; joins: Leg[] } | null {
   const X = T.x.slice(), Y = T.y.slice();
   // (each stroke where it leaves the bulge, its point there and the way out along it: the line from there through its
   // middle a little further out, read as the mean of a few points each, the skeleton being a little uneven)
@@ -1431,14 +1473,26 @@ function straightThrough(T: ThinReads, N: SkPt, ls: Leg[]) {
     const dot = a.ux * b.ux + a.uy * b.uy;
     if (dot < most) { most = dot; best = [i, j]; }
   }
-  if (!best) return;
+  if (!best) return null;
   const a = out[best[0]]!, b = out[best[1]]!, lx = b.A.x - a.A.x, ly = b.A.y - a.A.y, ll = Math.hypot(lx, ly) || 1, vx = lx / ll, vy = ly / ll;
   const onto = (x: number, y: number) => { const t = (x - a.A.x) * vx + (y - a.A.y) * vy; return { x: a.A.x + vx * t, y: a.A.y + vy * t }; };
   // (the join's own point onto the line: a stem bending far off it isn't one stroke run on)
   const J = onto(N.x, N.y), sx = J.x - N.x, sy = J.y - N.y;
-  if (Math.hypot(sx, sy) > 0.5 * N.r) return;
+  if (Math.hypot(sx, sy) > 0.5 * N.r) return null;
+  const joins: Leg[] = [];
   out.forEach((o, i) => {
-    if (!o) return;
+    if (!o) {
+      const l = ls[i], pts = l.pts, isJoin = T.joins.has(l.to);
+      if (isJoin) joins.push(l);
+      let L = 0;
+      for (let m = 1; m < pts.length; m++) L += Math.hypot(X[pts[m]] - X[pts[m - 1]], Y[pts[m]] - Y[pts[m - 1]]);
+      for (let m = 0, arc = 0; m < pts.length; m++) {
+        if (m) arc += Math.hypot(X[pts[m]] - X[pts[m - 1]], Y[pts[m]] - Y[pts[m - 1]]);
+        const w = isJoin ? 1 : 1 - arc / (L || 1);
+        T.x[pts[m]] = X[pts[m]] + sx * w; T.y[pts[m]] = Y[pts[m]] + sy * w;
+      }
+      return;
+    }
     const through = i === best![0] || i === best![1];
     for (let m = 0; m < o.e; m++) {
       const p = o.pts[m];
@@ -1451,6 +1505,7 @@ function straightThrough(T: ThinReads, N: SkPt, ls: Leg[]) {
       }
     }
   });
+  return { sx, sy, joins };
 }
 
 /** A lighter weight's skeleton points (thinReads) by where they lie: a grid GRID_CELL units a side from (x0, y0), W
@@ -1744,6 +1799,14 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // stroke goes in past where the stroke would be thinner, however it read its move (an o's top, read off its curve)
   if (byThick) bs.forEach((b, i) => { if (!b.corner && !b.dot && !b.serifDx && T.across[r][i] && !crossEnd(b)) delta[i] = Math.max(delta[i], Math.min(0, hairKept / 2 - b.best)); });
   return { k0, delta, crotches };
+}
+
+/** The rig as moveRig tries it a last time: its lighter weight's skeleton keeping its strokes that end round (prune's
+    `round`), or null where that keeps none more. */
+function roundRig(rig: SkinRig): SkinRig | null {
+  if (rig.round !== undefined) return rig.round;
+  const sk = withStubs(rig, skeleton(rig.contours, THIN_CELL, true, true)), at = (k: Skeleton) => k.nodes.map(n => `${Math.round(n.x)} ${Math.round(n.y)}`).sort().join();
+  return (rig.round = at(sk) === at(thinSkeleton(rig)) ? null : { ...rig, thinSk: sk, thin: undefined, round: null });
 }
 
 /** A lighter weight's joins drawn again from its skeleton: within JOIN_REACH of each join's distance to the paper (but

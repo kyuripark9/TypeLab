@@ -150,8 +150,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    skeleton of its own (`thinSkeleton`: a coarser grid, `THIN_CELL`; short strokes running on through a join kept,
    `skeleton(…, through)`, a d's stem below its bowl; and a stub where a stroke's middle turns but its ink runs on
    straight, `withStubs`, an n's stem above its arch, a p's above its bowl, an a's foot), read once a letter
-   (`thinReads`: each point's own half thickness with the joins' bulges taken out, and each join's stem run straight
-   through it, `straightThrough`). `thinMoves` moves each side in to where a round along its middle as thick as the
+   (`thinReads`: each point's own half thickness with the joins' bulges taken out, a short stroke between two joins no
+   thicker than the strokes leaving them, and each join's stem run straight through it, `straightThrough`, a join a
+   short stroke off it going with it, a K's arms meeting its stem). `thinMoves` moves each side in to where a round along its middle as thick as the
    stroke is now ends (`weighsOf`; a high-contrast font's sides by their own reading across, never thinner than its
    hairline as the weight keeps it, `hairKept`), a side by a join or a crotch along a ray to those rounds' ink (read
    only when a round could stop it, `stops`, through `pointGrid`/`inBand`), a crotch where its two strokes' edges
@@ -164,7 +165,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    `letterInk`). Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
    opened where strokes cross aside, and ink along its strokes' middles) is mended with those strokes laid over it
    (`thinStrokes`, each run on at its free end to the moved letter's ink), or else drawn as those strokes alone within
-   its ink, its dots as moved, then thinned only as far as keeps it whole, in eighths. A heavier weight reads and moves
+   its ink, its dots as moved, or else moved again on a skeleton keeping its strokes that end round (`roundRig`,
+   `skeleton(…, round)`: a heavy w's feet and middle peak), then thinned only as far as keeps it whole, in eighths. A heavier weight reads and moves
    as before. A pixel font
    (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
 4. `restyle.ts`: `restyled` (in `free-letters.ts`) redraws the engine's shapes on the moved outline in a fixed order,

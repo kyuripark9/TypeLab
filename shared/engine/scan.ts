@@ -198,8 +198,8 @@ function thin(g: Grid): Uint8Array {
 
 /** The skeleton of a letter's outline: its ends, joins and strokes. `cell` is the grid's in units (2 reads a
     letter 1000 units to the em finely enough for its hairlines, and quickly). `through` keeps a short stroke running
-    straight on through the join it leaves (prune). */
-export function skeleton(cs: Node[][], cell = 2, through = false): Skeleton {
+    straight on through the join it leaves, and `round` one ending round (prune). */
+export function skeleton(cs: Node[][], cell = 2, through = false, round = false): Skeleton {
   const g = inkGrid(cs, cell), s = thin(g), { W } = g;
   const deg = new Int8Array(W * g.H);
   const on: number[] = [];
@@ -268,7 +268,7 @@ export function skeleton(cs: Node[][], cell = 2, through = false): Skeleton {
     }
     finish(id, id, cells);
   }
-  const sk = prune({ nodes, edges }, through);
+  const sk = prune({ nodes, edges }, through, round);
   for (const e of sk.edges) e.pts = smooth(e.pts);
   // a stroke's end that runs on into one of its corners (a square end whose other corner was pruned):
   // where the round of ink shrinks toward the tip as fast as into a corner, it is cut back to where that starts
@@ -301,8 +301,9 @@ const lenOf = (pts: SkPt[]) => { let l = 0; for (let k = 1; k < pts.length; k++)
     `through`, one running on from another stroke through the join it leaves (within 40°: a square end forks into its
     corners at 45°), out past the join's round and as thick as two fifths of it at its end (not a fork into a corner,
     which ends in a sliver) stays: a d's stem below its bowl, an n's above its arch, short in a heavy letter, a stroke in
-    a light one. */
-function prune(sk: Skeleton, through = false): Skeleton {
+    a light one. With `round`, one ending round, at least half as thick as the join it leaves, and out past the join's
+    round stays too: a heavy w's feet and its middle peak, short beside their joins' rounds. */
+function prune(sk: Skeleton, through = false, round = false): Skeleton {
   let { nodes, edges } = sk;
   const alive = edges.map(() => true);
   // (the way an edge leaves node n, read as far out along it as the node's round reaches)
@@ -316,6 +317,7 @@ function prune(sk: Skeleton, through = false): Skeleton {
     if (lenOf(e.pts) + nodes[tip].r < nodes[root].r || nodes[tip].r < 0.4 * nodes[root].r) return false;
     return nodes[root].edges.some(k => k !== i && alive[k] && (() => { const v = way(edges[k], root); return u.x * v.x + u.y * v.y < -0.766; })());
   };
+  const roundEnd = (i: number, root: number, tip: number) => round && nodes[tip].r >= 0.5 * nodes[root].r && lenOf(edges[i].pts) + nodes[tip].r >= 1.25 * nodes[root].r;
   for (let pass = 0; pass < 6; pass++) {
     let cut = false;
     // every branch that is only a fork is cut at once, so a square end's two corners both go, leaving the
@@ -328,7 +330,7 @@ function prune(sk: Skeleton, through = false): Skeleton {
       if (ends.length !== 1) return;
       const tip = ends[0], root = tip === e.a ? e.b : e.a;
       if (live(root) < 3) return;
-      if (lenOf(e.pts) + nodes[tip].r < nodes[root].r * 2 + 2 && !(through && runsOn(i, root, tip))) { const l = spurs.get(root) ?? []; l.push(i); spurs.set(root, l); }
+      if (lenOf(e.pts) + nodes[tip].r < nodes[root].r * 2 + 2 && !((through && runsOn(i, root, tip)) || roundEnd(i, root, tip))) { const l = spurs.get(root) ?? []; l.push(i); spurs.set(root, l); }
     });
     for (const [root, l] of spurs) {
       const keep = live(root) - l.length >= 1 ? -1 : l.reduce((a, b) => (lenOf(edges[a].pts) >= lenOf(edges[b].pts) ? a : b));
