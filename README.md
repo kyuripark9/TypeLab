@@ -245,8 +245,7 @@ in 15 minutes from one address for one email pause sign-in for that pair. A forg
 account's other browsers out. Production sends it through SMTP: set `SMTP_URL` (e.g.
 `smtps://user:password@smtp.example.com:465`, as any mail service gives one), `MAIL_FROM` and `PUBLIC_URL` (the link is
 built from it, never from the address a request names); without them it offers no reset. Development shows the mail
-it would send at `/dev/mail`. `/privacy` says what TypeLab keeps and the terms it's offered on, and the address to
-write to (kyuripark9@gmail.com; `VITE_CONTACT_EMAIL` when building names another).
+it would send at `/dev/mail`. `/privacy` says what TypeLab keeps and the terms it's offered on.
 
 Google sign-in (`server/google.ts`) is the authorization-code flow with PKCE and a random state,
 both kept for the browser in a 10-minute HttpOnly cookie. It runs in a popup so the open design stays

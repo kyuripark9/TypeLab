@@ -1,8 +1,7 @@
 /* Privacy and terms (/privacy): what TypeLab keeps and why, the cookies and browser storage it uses, who else takes part
    (the interface's type, Google sign-in, the reset email), what a person can delete, and the terms the site is offered
    on, the fonts' licences among them. Kept true to the code: server/app.ts sets the cookies, server/accounts.ts says
-   how long a sign-in and a reset last, client/lib/prefs.ts lists what the browser keeps. The address to write to is
-   TypeLab's own, unless the build names another (VITE_CONTACT_EMAIL). */
+   how long a sign-in and a reset last, client/lib/prefs.ts lists what the browser keeps. */
 import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ACCOUNT, DESIGNS } from '../lib/routes';
@@ -11,7 +10,6 @@ import { Toast } from '../components/Chrome';
 import { Brand } from '../components/Header';
 
 const UPDATED = '13 October 2026';
-const CONTACT = (import.meta.env.VITE_CONTACT_EMAIL as string | undefined)?.trim() || 'kyuripark9@gmail.com';
 
 function Part({ id, title, children }: { id?: string; title: string; children: ReactNode }) {
   return (
@@ -95,8 +93,6 @@ export function PrivacyPage() {
             <li><b>Changes.</b> When these change, the date at the top does too.</li>
           </ul>
         </Part>
-
-        <p className="legal-contact">Questions, or something to delete you can’t reach yourself? Write to <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
       </main>
       <Toast />
     </div>

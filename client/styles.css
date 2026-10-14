@@ -1365,7 +1365,6 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .legal code { font-family: var(--mono); font-size: var(--t-s); color: var(--ink); }
 .legal a, .lib-foot a, .nav-legal { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .legal a:hover, .lib-foot a:hover, .nav-legal:hover { background: var(--marker); color: var(--ink); }
-.legal-contact { margin: 24px 0 0; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-2); }
 /* the way to it: at the foot of My designs and Account, and of the editor's page menu */
 .lib-foot { margin-top: 40px; font-size: var(--t-s); color: var(--ink-3); }
 .nav-legal { flex: none; align-self: flex-start; margin: 4px 0 0 10px; font-size: var(--t-xs); color: var(--ink-3); }
