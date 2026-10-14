@@ -2,9 +2,11 @@
    own font file under one family name, so font menus list them together (Thin to Black, each with
    its italic). The design itself is one of them, at the weight its stems read as. The weights step by
    how thick their stems are drawn, so a design whose Verticals already draw them heavy still steps
-   evenly to its Thin. */
-import { drawnFrom } from './engine';
+   evenly to its Thin; a lighter weight of a design with much contrast keeps its hairlines as thick as
+   the design's, with less contrast, as a Didone family's do. */
+import { buildFont, drawnFrom, freeFont, type Cmd } from './engine';
 import { metrics, resolve } from './engine/font';
+import { cmdsBox, toPolys } from './engine/geom';
 import { DEFAULTS, slantDeg, type GlyphParams, type Params } from './params';
 
 /** The weights a family can have, lightest first, with the OpenType weight class each installs as, and where each
@@ -79,6 +81,138 @@ function withStem(p: Params, stem: number): Pick<Params, 'weight' | 'vWeight'> {
 }
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+/* Hairlines. A family's weights step by their stems, and a design's bars and hairlines stepped with them, so a
+   Didone's lighter weights drew hairlines half as thick as its own, or less, and they vanished at text sizes (an H read
+   as II). A lighter weight keeps its hairlines as thick as the design's instead, its contrast lowered as far as that
+   takes, as a Didone family's lighter weights have less contrast; a design with less contrast keeps less of them, and
+   a sans or a book face, whose bars are strokes nearly as heavy as its stems, thins them with its stems as before. */
+
+/** How thick a lighter weight's hairlines may be at most, as a share of its own stems: the lightest weights, whose
+    stems are as thin as a heavy design's hairlines, keep a little contrast rather than turning it round. */
+const HAIR_MOST = 0.85;
+/** The design's hairline, as a share of its stems, up to which a lighter weight keeps it whole (a Didone's, a fat
+    face's), and from which it thins it as much as its stems, as a sans or a book face does; between, a little less. */
+const HAIR_KEEP: [number, number] = [0.2, 0.45];
+
+/** How thick a design draws its hairline (its bars) and its stems, read off its letters or (`read` false) by its measures. */
+interface Look { hair: number; stem: number; read: boolean }
+
+/** The ink's runs down the column at `at` (or, `!down`, across the row), as [start, end] pairs, its overlapping pieces as one. */
+function inkRuns(cmds: Cmd[], at: number, down: boolean): [number, number][] {
+  const hits: { t: number; d: number }[] = [];
+  for (const poly of toPolys(cmds)) for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    const [pa, pb, qa, qb] = down ? [a.x, b.x, a.y, b.y] : [a.y, b.y, a.x, b.x];
+    if ((pa <= at) !== (pb <= at)) hits.push({ t: qa + (qb - qa) * (at - pa) / (pb - pa), d: pb > pa ? 1 : -1 });
+  }
+  hits.sort((p, q) => p.t - q.t);
+  const runs: [number, number][] = [];
+  let w = 0, from = 0;
+  for (const h of hits) {
+    const was = w;
+    w += h.d;
+    if (!was && w) from = h.t;
+    else if (was && !w) runs.push([from, h.t]);
+  }
+  return runs;
+}
+
+/** A design's letters as they are drawn, without its letters' own settings or drawings, and without what cuts or
+    outlines them (as where its free font was picked), for reading its hairline and stems off them. */
+function plainLetters(p: Params): Params {
+  const picked = p.freeAt as Partial<Params>;
+  return { ...p, glyphs: {}, outlines: {}, fill: picked.fill ?? DEFAULTS.fill, slice: picked.slice ?? DEFAULTS.slice, stencil: picked.stencil ?? DEFAULTS.stencil,
+    barGap: picked.barGap ?? DEFAULTS.barGap, wobble: picked.wobble ?? DEFAULTS.wobble, rotation: picked.rotation ?? DEFAULTS.rotation, rough: DEFAULTS.rough };
+}
+
+/** How thick a design's letters draw its hairline: its H's crossbar, down the middle of the letter (the
+    one run of ink across the middle of its height there). null where it has none to read. */
+function barOf(p: Params): number | null {
+  const H = buildFont(plainLetters(p)).glyph('H'), b = H && cmdsBox(H.cmds);
+  if (!H || !b) return null;
+  const h = b.y1 - b.y0, runs = inkRuns(H.cmds, (b.x0 + b.x1) / 2, true).filter(([lo, hi]) => lo > b.y0 + h * 0.2 && hi < b.y1 - h * 0.2);
+  return runs.length === 1 ? runs[0][1] - runs[0][0] : null;
+}
+
+/** How thick a design's letters draw its stems: the thinnest of the H's two, under its bar, and the n's
+    first, across the middle of its height. null where they can't be read. */
+function stemOfLetters(p: Params): number | null {
+  const f = buildFont(plainLetters(p)), widths: number[] = [];
+  for (const [ch, at] of [['H', 0.3], ['n', 0.5]] as const) {
+    const g = f.glyph(ch), b = g && cmdsBox(g.cmds);
+    const runs = g && b ? inkRuns(g.cmds, b.y0 + (b.y1 - b.y0) * at, false) : [];
+    if (runs.length) widths.push(...(ch === 'H' ? [runs[0], runs[runs.length - 1]] : [runs[0]]).map(([lo, hi]) => hi - lo));
+  }
+  return widths.length ? Math.min(...widths) : null;
+}
+
+/** How thick a design draws its hairline and its stems. The engine's letters built from strokes draw them as its
+    measures say (Metrics.hT, and the upright pen's); a free font's letters as the font has them, moved by those
+    measures (the skin in the engine keeps a font's own contrast, its strokes between hairline and stem drawn as far
+    between the new ones), and block letters as their corners do, so those are read off the letters (barOf,
+    stemOfLetters). Where they can't be read, the measures stand in. */
+function lookOf(p: Params, read = !!p.freeFont || p.build === 'blocks'): Look {
+  const m = metrics(resolve(p)), measured = { hair: m.hT, stem: m.tDir(0, 1), read: false };
+  if (!read) return measured;
+  const hair = barOf(p), stem = stemOfLetters(p);
+  return hair && stem ? { hair, stem, read: true } : measured;
+}
+
+/** The settings that draw member `q`, a lighter weight of design `p` (which draws `look`), with its hairline as thick
+    as the design's, and never thicker than HAIR_MOST of its own stems: its Contrast lowered as far as that takes, to
+    50 (none) at the most, and then its Horizontals raised. A design with less contrast keeps less of its hairline: it
+    thins by a power of how much thinner the stems are, 0 (kept whole) while the hairline is HAIR_KEEP[0] of the stems
+    or less, rising to 1 (thinned as much as the stems) at HAIR_KEEP[1]. None where the member draws its hairline so
+    already, or its contrast is reversed (its thin strokes are its stems). */
+function keepHairline(p: Params, look: Look, q: Params): Pick<Params, 'contrast' | 'hWeight'> | null {
+  if (q.contrast < 0.5) return null;
+  let now = lookOf(q, look.read);
+  // (read off the letters for both or for neither: a font whose H has no bar to read is measured as the engine draws)
+  if (now.read !== look.read) { look = lookOf(p, false); now = lookOf(q, false); }
+  const share = clamp01((look.hair / look.stem - HAIR_KEEP[0]) / (HAIR_KEEP[1] - HAIR_KEEP[0]));
+  const want = Math.min(look.hair * Math.pow(now.stem / look.stem, share), HAIR_MOST * now.stem);
+  if (now.hair >= want) return null;
+  // (the way from as it is, 0, to Contrast at 50, 1, and on to Horizontals at 100, 2: the hairline thickens all along)
+  const at = (u: number): Params => (u <= 1 ? { ...q, contrast: lerp(q.contrast, 0.5, u) } : { ...q, contrast: 0.5, hWeight: lerp(q.hWeight, 1, u - 1) });
+  const hT = (u: number) => metrics(resolve(at(u))).hT;
+  let u = 0;
+  if (!now.read) u = solve(hT, want, 0, 2);
+  else {
+    // a free font's hairline, or a block letter's bar, is drawn about in step with the measure that moves it
+    // (Metrics.hT): the measure it wants is found on the line through the two tries nearest it on either side (till
+    // one is past it, the last two below it, the first through nothing) and tried, till one draws it, or a little
+    // thicker (a font's points stand on whole units)
+    type Try = { u: number; h: number; b: number };
+    let prev: Try = { u: 0, h: 0, b: 0 }, lo: Try = { u: 0, h: hT(0), b: now.hair }, hi: Try | null = null;
+    for (let k = 0; k < 5; k++) {
+      const [a, c] = hi ? [lo, hi] : [prev, lo];
+      const next = solve(hT, a.h + (want - a.b) * (c.h - a.h) / (c.b - a.b), lo.u, hi ? hi.u : 2), b = barOf(at(next));
+      if (b === null) break;
+      const t = { u: next, h: hT(next), b };
+      // (a font whose hairline doesn't follow the measure, a pixel font's, stays as it is)
+      if (b < want) { if (b <= lo.b) break; prev = lo; lo = t; } else { hi = t; if (b <= want * 1.03 + 1) break; }
+    }
+    u = hi ? hi.u : lo.u;
+    if (!u) return null;
+  }
+  const to = at(u);
+  return { contrast: to.contrast, hWeight: to.hWeight };
+}
+
+/** A lighter weight's hairline settings (keepHairline), worked out once a design, its anchor and the weight, `q` the
+    design at that weight's stems: its upright and its italic share them. */
+const hairlines = new WeakMap<Params, { look: Look; kept: Map<string, Pick<Params, 'contrast' | 'hWeight'> | null> }>();
+function hairlineOf(params: Params, anchor: WeightId, weight: WeightId, q: Params) {
+  // (a free font not here yet has no letters to read: measured as the engine draws, and not kept)
+  if (params.freeFont && !freeFont(params.freeFont)) return keepHairline(params, lookOf(params, false), q);
+  let h = hairlines.get(params);
+  if (!h) { h = { look: lookOf(params), kept: new Map() }; hairlines.set(params, h); }
+  const key = `${anchor} ${weight}`;
+  if (!h.kept.has(key)) h.kept.set(key, keepHairline(params, h.look, q));
+  return h.kept.get(key)!;
+}
 
 /** The slant a family's italics take when the design is upright: about 11° (see slantDeg). */
 const ITALIC_SLANT = 0.55;
@@ -109,28 +243,36 @@ export const ownStyle = (params: Params, anchor: WeightId = anchorOf(params)) =>
 
 /** One member of the family: the design at the weight `id` (its stems as stemRatio has them, by its Weight, and past
     either end of it its Verticals) and upright or italic. A letter with its own weight or slant keeps how it differs
-    from the rest. Letters drawn by hand in Points mode, which
-    no setting shapes, are moved from the design instead: their strokes thickened or thinned and the
+    from the rest. A lighter weight keeps its hairlines as thick as the design's, with less contrast (keepHairline),
+    and a letter with its own contrast or Horizontals has them lowered or raised as much. Letters drawn by hand in
+    Points mode, which no setting shapes, are moved from the design instead: their strokes thickened or thinned and the
     letters leaned as the member's are (family-drawn.ts in the engine, which finds the design by the
     member's params object). A design written in a free font follows the weight and slant to the
     family's heavier or lighter fonts and its italic, as the editor does (see freeLetters in the engine). */
 export function familyMember(params: Params, anchor: WeightId, weight: WeightId, italic: boolean): FamilyMember {
   const own = weight === anchor, ratio = own ? 1 : stemRatio(stemOf(params), anchor, weight);
   const weighs = own ? {} : withStem(params, stemOf(params) * ratio);
+  const lighter = WEIGHTS.findIndex(w => w.id === weight) < WEIGHTS.findIndex(w => w.id === anchor);
+  const hair: Partial<Pick<Params, 'contrast' | 'hWeight'>> = (lighter && hairlineOf(params, anchor, weight, { ...params, ...weighs })) || {};
   // (a letter's own weight, as far as its own stems step: within the slider, its Verticals the member's)
   const reweigh = (g: GlyphParams) => withStem({ ...params, ...weighs, ...g, glyphs: {} }, stemOf({ ...params, ...g, glyphs: {} }) * ratio).weight;
   const ownSlant = params.slant >= SLANTED;
   const slant = italic ? (ownSlant ? params.slant : ITALIC_SLANT) : 0;
   const reslant = (v: number) => clamp01(v + slant - params.slant);
+  // (a letter's own contrast as much less, not past none, and its own Horizontals as much heavier)
+  const rehair = (g: GlyphParams): GlyphParams => ({
+    ...(hair.contrast !== undefined && g.contrast !== undefined && g.contrast >= 0.5 && { contrast: Math.max(0.5, g.contrast + hair.contrast - params.contrast) }),
+    ...(hair.hWeight !== undefined && g.hWeight !== undefined && { hWeight: clamp01(g.hWeight + hair.hWeight - params.hWeight) })
+  });
   const glyphs: Record<string, GlyphParams> = {};
   for (const [ch, g] of Object.entries(params.glyphs)) {
-    glyphs[ch] = { ...g, ...(g.weight !== undefined && !own && { weight: reweigh(g) }), ...(g.slant !== undefined && { slant: reslant(g.slant) }) };
+    glyphs[ch] = { ...g, ...(g.weight !== undefined && !own && { weight: reweigh(g) }), ...(g.slant !== undefined && { slant: reslant(g.slant) }), ...rehair(g) };
   }
   const cls = WEIGHTS.find(w => w.id === weight)!.cls;
   return {
     weight, italic, style: styleName(weight, italic), cls,
     angle: slantDeg(slant),
-    params: drawnFrom({ ...params, ...weighs, slant, glyphs }, params)
+    params: drawnFrom({ ...params, ...weighs, ...hair, slant, glyphs }, params)
   };
 }
 

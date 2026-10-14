@@ -224,7 +224,7 @@ function ActiveBar({ onClear }: { onClear: () => void }) {
 }
 
 /** What the cards are: each style in one of TypeLab's own fonts, which every setting reshapes. */
-const LETTERS_NOTE = 'TypeLab’s own fonts, yours to change and use as you like. Every setting reshapes their letters, and Points redraws any of them.';
+const LETTERS_NOTE = 'TypeLab’s own fonts, free to change, use and share under the Open Font License. Every setting reshapes their letters, and Points redraws any of them.';
 
 /** The size text is set at in a free font in a box `width` px wide: `size`, or, where its longest word would overrun
     the box, smaller, down to half of it, past which the word breaks (as BuiltText sizes the engine's letters). */

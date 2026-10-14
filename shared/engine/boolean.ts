@@ -94,19 +94,30 @@ export function combine(shapes: Shape[], keep: (x: number, y: number) => boolean
   // three slightly different ways), found through a grid of cells that size. A point keeps the
   // one it was first given, as a point found later nearby could otherwise win it the next time
   // and a chain would lose its way there
-  const ids = new Map<string, { x: number; y: number; id: string }[]>(), had = new Map<string, string>();
+  // (a point is asked for again and again, as the end of two edges and where cuts are shared: the same point, by
+  // identity, gets the id it got before; a place given an id before, by its two numbers, gets that one (as their text
+  // would find it: -0 is 0); and a cell is found by a number, its id kept as the text "i,j:n", which orders the pairs below)
+  const ids = new Map<number | string, { x: number; y: number; id: string }[]>(), had = new Map<number, Map<number, string>>(), seen = new Map<Pt, string>();
+  const cell = (i: number, j: number) => (Math.abs(i) < 2 ** 24 && Math.abs(j) < 2 ** 24 ? (i + 2 ** 24) * 2 ** 25 + (j + 2 ** 24) : `${i},${j}`);
+  const remember = (p: Pt, id: string) => { (had.get(p.x) ?? had.set(p.x, new Map()).get(p.x)!).set(p.y, id); return id; };
   let n = 0;
   const key = (p: Pt) => {
-    const at = p.x + ',' + p.y, was = had.get(at);
+    const known = seen.get(p);
+    if (known) return known;
+    const id = keyAt(p);
+    seen.set(p, id);
+    return id;
+  };
+  const keyAt = (p: Pt) => {
+    const was = had.get(p.x)?.get(p.y);
     if (was) return was;
     const i = Math.floor(p.x * 100), j = Math.floor(p.y * 100);
     for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
-      for (const q of ids.get(`${i + a},${j + b}`) ?? []) if (Math.abs(q.x - p.x) <= 0.01 && Math.abs(q.y - p.y) <= 0.01) { had.set(at, q.id); return q.id; }
+      for (const q of ids.get(cell(i + a, j + b)) ?? []) if (Math.abs(q.x - p.x) <= 0.01 && Math.abs(q.y - p.y) <= 0.01) return remember(p, q.id);
     }
-    const id = `${i},${j}`, c = { x: p.x, y: p.y, id: id + ':' + n++ };
-    (ids.get(id) ?? ids.set(id, []).get(id)!).push(c);
-    had.set(at, c.id);
-    return c.id;
+    const k = cell(i, j), c = { x: p.x, y: p.y, id: `${i},${j}:${n++}` };
+    (ids.get(k) ?? ids.set(k, []).get(k)!).push(c);
+    return remember(p, c.id);
   };
   // the pieces that bound the region, turned to keep it on their left;
   // an edge two shapes share (a stroke's side running along another's) is kept once, and one

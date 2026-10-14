@@ -8,7 +8,7 @@ import { ApiError, api, errorMessage } from '../lib/api';
 import { isTyping } from '../lib/hooks';
 import { DESIGNS, NEW_DESIGN, designPath, readDeepLink } from '../lib/routes';
 import { auth, useAuth } from '../state/auth';
-import { actions, designInput, isDirty, onSaveRequest, useEditor } from '../state/editor';
+import { actions, designInput, hasWork, onSaveRequest, useEditor } from '../state/editor';
 import { GlyphStrip, Nav, Toast, focusSettingSearch } from '../components/Chrome';
 import { Dialog } from '../components/Dialog';
 import { GlyphDefs } from '../components/GlyphDefs';
@@ -152,7 +152,7 @@ function useShortcuts(save: () => void) {
     allowed there) and on in-app navigation, where a dialog offers to save on the way out. Returns
     that dialog, while it's open. */
 function useLeaveGuard(save: (o?: { stay?: boolean }) => Promise<boolean>) {
-  const dirty = useEditor(isDirty);
+  const dirty = useEditor(hasWork);
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
@@ -164,7 +164,7 @@ function useLeaveGuard(save: (o?: { stay?: boolean }) => Promise<boolean>) {
   // while the save was on its way
   const blocker = useBlocker(({ nextLocation }) => {
     const s = useEditor.getState();
-    return isDirty(s) && !(s.designId && nextLocation.pathname === designPath(s.designId));
+    return hasWork(s) && !(s.designId && nextLocation.pathname === designPath(s.designId));
   });
   const stay = useCallback(() => blocker.reset?.(), [blocker]);
   if (blocker.state !== 'blocked') return null;

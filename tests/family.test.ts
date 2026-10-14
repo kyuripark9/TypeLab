@@ -5,12 +5,46 @@ import { inflateRawSync } from 'node:zlib';
 import { describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
 import { anchorOf, FAMILY_STYLES, familyMember, familyMembers, ownStyle, stemRatio, WEIGHTS, weightIdOf } from '../shared/family';
-import { DEFAULTS, isValidParams, sanitizeParams, weightScale, weightUnscale } from '../shared/params';
-import { buildFont, type Glyph } from '../shared/engine';
+import { STYLE_FONTS } from '../shared/free-fonts';
+import { DEFAULTS, freeAtOf, isValidParams, sanitizeParams, weightScale, weightUnscale, type Params } from '../shared/params';
+import { buildFont, freeFont, registerFreeFont, type Cmd, type Glyph } from '../shared/engine';
+import { cmdsBox, toPolys } from '../shared/engine/geom';
 import { buildFamilyZip } from '../server/export';
+import { FreeFonts } from '../server/free-fonts';
 import { opentype } from '../server/opentype';
 
 const serif = STYLES.find(s => s.id === 'serif')!;
+
+/** The ink's runs down the column at x (or across the row at y), as [start, end] pairs, overlapping pieces as one. */
+function inkRuns(cmds: Cmd[], at: number, down: boolean): [number, number][] {
+  const hits: { t: number; d: number }[] = [];
+  for (const poly of toPolys(cmds)) for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    const [pa, pb, qa, qb] = down ? [a.x, b.x, a.y, b.y] : [a.y, b.y, a.x, b.x];
+    if ((pa <= at) !== (pb <= at)) hits.push({ t: qa + (qb - qa) * (at - pa) / (pb - pa), d: pb > pa ? 1 : -1 });
+  }
+  hits.sort((p, q) => p.t - q.t);
+  const runs: [number, number][] = [];
+  let w = 0, from = 0;
+  for (const h of hits) { const was = w; w += h.d; if (!was && w) from = h.t; else if (was && !w) runs.push([from, h.t]); }
+  return runs;
+}
+
+/** How thick a design's letters draw their hairlines and stems: the H's crossbar down the middle of the letter, the
+    o's thinnest (its top and bottom, down the middle of the bowl), and the n's stem across the middle of its height. */
+function hairlines(p: Params) {
+  const f = buildFont(p), H = f.glyph('H')!, o = f.glyph('o')!, n = f.glyph('n')!;
+  const bh = cmdsBox(H.cmds)!, bo = cmdsBox(o.cmds)!, bn = cmdsBox(n.cmds)!;
+  const bar = inkRuns(H.cmds, (bh.x0 + bh.x1) / 2, true).filter(([lo, hi]) => lo > bh.y1 * 0.2 && hi < bh.y1 * 0.8);
+  let oThin = Infinity;
+  for (let k = 0; k <= 20; k++) {
+    const runs = inkRuns(o.cmds, bo.x0 + (bo.x1 - bo.x0) * (0.3 + 0.4 * k / 20), true);
+    if (runs.length >= 2) oThin = Math.min(oThin, runs[0][1] - runs[0][0], runs[runs.length - 1][1] - runs[runs.length - 1][0]);
+  }
+  const [stem] = inkRuns(n.cmds, (bn.y0 + bn.y1) / 2, false);
+  assert.equal(bar.length, 1, 'one crossbar');
+  return { bar: bar[0][1] - bar[0][0], o: oThin, stem: stem[1] - stem[0] };
+}
 
 /** The files in a .zip, by name. */
 function unzip(buf: Buffer): Map<string, Buffer> {
@@ -66,6 +100,50 @@ describe('font family', () => {
     for (let i = 1; i < stems.length; i++) assert.ok(stems[i] > stems[i - 1] * 1.25 && stems[i] < stems[i - 1] * 1.5, `${WEIGHTS[i].id}: ${stems[i - 1]} → ${stems[i]}`);
     assert.ok(Math.abs(stems[0] - buildFont({ ...DEFAULTS, weight: WEIGHTS[0].at }).m.s) < 0.5);
     for (const w of WEIGHTS) assert.ok(isValidParams(sanitizeParams(familyMember(p, anchor, w.id, true).params)));
+  });
+
+  it('keeps a high-contrast design\'s hairlines as thick as its own in its lighter weights, with less contrast, its stems still stepping lighter', async () => {
+    // the Didone card: Contrast 100, in the engine's letters and in its own font, Couture, whose lighter weights' H read
+    // as II at text sizes, their crossbar half as thick as the design's
+    const didone = STYLES.find(s => s.id === 'didone')!.params, id = STYLE_FONTS.didone;
+    if (!freeFont(id)) registerFreeFont(await new FreeFonts(null, async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); }).load(id));
+    const inFont = { ...didone, freeFont: id, freeAt: freeAtOf(didone) };
+    for (const [p, name] of [[didone, 'engine'], [inFont, 'Couture']] as const) {
+      const anchor = anchorOf(p), a = WEIGHTS.findIndex(w => w.id === anchor);
+      assert.equal(anchor, 'semibold');
+      for (const italic of [false, true]) {
+        const looks = WEIGHTS.map(w => hairlines(familyMember(p, anchor, w.id, italic).params)), own = looks[a];
+        for (let i = 0; i < a; i++) {
+          const at = `${name} ${WEIGHTS[i].id}${italic ? ' italic' : ''}`, l = looks[i];
+          // the stems still step lighter, and the lighter weights draw less contrast
+          assert.ok(l.stem < looks[i + 1].stem, `${at}: stems ${l.stem} → ${looks[i + 1].stem}`);
+          assert.ok(familyMember(p, anchor, WEIGHTS[i].id, italic).params.contrast < p.contrast, `${at}: less contrast`);
+          // its crossbar as thick as the design's (to a unit, where a font's points stand), or, where its stems are
+          // thinner than the design's hairline (the engine's Thin), most of its stems' thickness; and its o's thinnest
+          // about as thick (a heavier pen's bowl comes out a little thicker than its bars at the top)
+          const want = (v: number) => Math.min(v, 0.85 * l.stem) - 0.5;
+          assert.ok(l.bar >= want(own.bar), `${at}: crossbar ${l.bar}, the design's ${own.bar}`);
+          assert.ok(l.o >= 0.9 * want(own.o), `${at}: the o's thinnest ${l.o}, the design's ${own.o}`);
+          assert.ok(l.bar < l.stem, `${at}: crossbar ${l.bar} thinner than its stems ${l.stem}`);
+        }
+        // Couture's Thin keeps the design's hairline whole
+        if (name === 'Couture') assert.ok(looks[0].bar >= own.bar - 0.5 && looks[0].o >= own.o - 0.5, `Couture Thin: ${JSON.stringify(looks[0])}, the design's ${JSON.stringify(own)}`);
+        // the heavier weights as they were
+        for (const w of WEIGHTS.slice(a)) {
+          const m: Params = familyMember(p, anchor, w.id, italic).params;
+          assert.deepEqual([m.contrast, m.hWeight], [p.contrast, p.hWeight], w.id);
+        }
+      }
+    }
+    // a letter with its own contrast has as much less
+    const ownA = sanitizeParams({ ...didone, glyphs: { a: { contrast: 0.9 } } }), thin = familyMember(ownA, 'semibold', 'thin', false).params;
+    assert.ok(thin.contrast < ownA.contrast && Math.abs(thin.glyphs.a.contrast! - (0.9 + thin.contrast - ownA.contrast)) < 1e-9);
+    assert.ok(isValidParams(thin));
+    // a sans, whose bars are nearly as heavy as its stems, thins them with its stems as before
+    for (const w of WEIGHTS) {
+      const m = familyMember(DEFAULTS, 'regular', w.id, false).params;
+      assert.deepEqual([m.contrast, m.hWeight], [DEFAULTS.contrast, DEFAULTS.hWeight], w.id);
+    }
   });
 
   it('reweighs and reslants letters with their own weight or slant, and keeps valid settings', () => {

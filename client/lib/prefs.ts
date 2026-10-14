@@ -32,6 +32,8 @@ export const PREFS = {
   designsSort: 'typelab.designs.sort',
   /** the email last signed in with */
   email: 'typelab.email',
+  /** the Export window adds the accented letters (é ñ ü …) to the fonts and the specimen: '1' */
+  exportAccents: 'typelab.export.accents',
   /** a panel's width or the glyph strip's height in px, set by dragging its border: one key per side */
   sizeNav: 'typelab.size.nav',
   sizePanel: 'typelab.size.panel',

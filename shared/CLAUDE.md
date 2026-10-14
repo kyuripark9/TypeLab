@@ -17,7 +17,7 @@ Everything here runs in the browser and on the server alike, so nothing touches 
 | `content/copy.ts` | `ANATOMY` (part id to name and definition), `TEXTS` (sample text) |
 | `content/search.ts` | Find a setting: `findSettings`, `ALSO` (words people use that the copy doesn't) |
 | `free-fonts.ts` | TypeLab's own fonts (`OWN_FAMILIES`) and the Google families (`FREE_FAMILIES`), each style's font (`STYLE_FONTS`), the fonts the own ones replaced (`OLD_FONTS`, `ownFontOf`), font ids, `nearestFont`, `withoutReserved` |
-| `family.ts` | A font family: `WEIGHTS`, `FAMILY_STYLES`, `familyMember(s)`, the anchor weight, `ownStyle`, `SLANTED` |
+| `family.ts` | A font family: `WEIGHTS`, `FAMILY_STYLES`, `familyMember(s)`, the anchor weight, `ownStyle`, `SLANTED`; lighter weights keep the design's hairline (`keepHairline`) |
 | `traits.ts` | The Style page's Adjust tab: `TRAIT_SECTIONS`, `applyTraits`, `traitsKey` |
 | `letter-log.ts` | Each letter's record of its own edits, kept with a design beside its settings: `LetterEdit`, `recordEdits`, `withOwn`, `sameOwn`, `packLog`/`cleanLog` (saved packed: a drawing leaves out the settings it was drawn at where the one before it has them), `upgradeLog`, `mergeLogs`; `LOG_KEEP` edits a letter, `LOG_BYTES` a design |
 | `font-log.ts` | The font's History, kept with a design beside its settings: `FontVersion` (the whole design after a change, the settings and letters it changed, what made it), `recordVersion`, `sameDesign`, `packVersions`/`cleanVersions` (saved packed: each version only what changed from the one before, the first whole), `upgradeVersions`, `mergeVersions`; `VERSIONS_KEEP`, `VERSIONS_BYTES` |
@@ -156,7 +156,8 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
 - `free-fonts.ts`: `OWN_FAMILIES` are TypeLab's own fonts, one per Style page card (Mainline, Parlance,
   Compass, Cotton, Turnpike, Orbital, Gumdrop, Almanac, Vellum, Couture, Sonnet, Ballyhoo, Hearth, Timber, Kernel,
   Dispatch, Funnies, Jotter, Boardwalk, Serenade, Cathedral, Bulwark): drawn for TypeLab on the sheets in `Asset/After/`
-  (`sheet`), each in one weight, upright or (Sonnet) italic, under no licence; `tools/fonts/import.ts` makes them into
+  (`sheet`), each in one weight, upright or (Sonnet) italic, TypeLab's under the SIL Open Font License (`ownLicense`,
+  fonts/README.md); `tools/fonts/import.ts` makes them into
   `fonts/`, which the server reads instead of fetching. Bulwark (`blocks`), the Block card's, has no sheet: it is the
   engine's basic block letters at the settings `tools/fonts/blocks.ts` builds them at (`npm run fonts:blocks`), in
   nine weights (`weights`, 100 to 900, each the block letters at that Weight, its card's the 700), so Weight draws it
@@ -176,7 +177,15 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   read as, the Weight that draws stems as thick with Verticals as drawn, so Weight 65 at Verticals 97 is a Black), and
   `familyMember`. A family steps by stems (Metrics.s): `stemRatio` spreads them evenly from the design's to the lightest
   and heaviest weights' stems, and each member's Weight is solved to draw them (past either end of the slider, its
-  Verticals too); each letter's own weight follows, and its own slant leans. It marks the member's params (`drawnFrom`)
+  Verticals too); each letter's own weight follows, and its own slant leans. A lighter weight keeps the design's
+  hairline (`keepHairline`): its Contrast lowered (then its Horizontals raised) till its H's crossbar is as thick as
+  the design's, never past `HAIR_MOST` of its own stems, so a Didone's Thin to Medium keep their hairlines; a design
+  with less contrast keeps less of it (`HAIR_KEEP`: whole up to a hairline a fifth of the stems, thinned with the stems
+  as before from 0.45 of them, a sans or a book face), and a heavier weight is left as it was. The engine's stroked
+  letters are read by their measures (Metrics.hT); a free font's (whose skin squeezes a contrasty font's hairlines
+  more than hT says) and block letters off the letters themselves, a few H's drawn per weight, kept per params object
+  and shared by a weight's upright and italic; a letter's own Contrast and Horizontals move as much. It marks the
+  member's params (`drawnFrom`)
   so the engine moves letters drawn in Points from the design to its weight and lean (engine/family-drawn.ts): a copy
   of a member's params draws them unmoved. Italics lean 0.55
   (about 11°) unless the design is slanted past `SLANTED` (0.05) already. `FAMILY_STYLES` names the eighteen styles

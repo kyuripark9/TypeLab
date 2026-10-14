@@ -140,7 +140,7 @@ function CornerSlider({ g, corners, corner: { id, label, v, vi: drawn, st } }: {
               tip="Left makes the inside of the turn square; right rounds it wide, thickening the corner. Well under the outside, the stroke thins across the corner, though never to less than half" reset="Follow the outside again" />
           </>}
       {stepped && <EndRow id={id} k="cornerSteps" name="Step" label={label} value={st!}
-        tip="Left leaves the corner whole; right cuts a square step out of it, up to nearly the stroke's width" reset="Follow Steps again" />}
+        tip="Left leaves the corner whole; right cuts a square step out of it, up to nearly the stroke’s width" reset="Follow Steps again" />}
     </div>
   );
 }

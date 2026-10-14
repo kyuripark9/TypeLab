@@ -1,18 +1,21 @@
 /* The TypeLab API. Kept separate from index.ts so tests can mount it on an in-memory database. */
 import { randomBytes, timingSafeEqual } from 'node:crypto';
+import compression from 'compression';
 import express, { type NextFunction, type Request, type Response, type Router } from 'express';
 import { styleById } from '../shared/content';
-import { cleanName, slug, type DesignInput } from '../shared/design';
+import { cleanName, type DesignInput } from '../shared/design';
 import { cleanVersions, packVersions } from '../shared/font-log';
 import { cleanLog } from '../shared/letter-log';
 import { isValidParams, type Params } from '../shared/params';
 import { FREE_FAMILIES, parseFontId } from '../shared/free-fonts';
 import type { DesignStore } from './db';
-import { AccountStore, SESSION_DAYS } from './accounts';
+import { AccountStore, RESET_MINUTES, SESSION_DAYS } from './accounts';
+import type { Mail, Mailer } from './mail';
 import { AUTH_CHANNEL, GOOGLE_RESULT_PARAM, cleanEmail, cleanUserName, isEmail, passwordProblem, type GoogleIntent, type GoogleResult, type User } from '../shared/account';
 import { pkce, type GoogleAuth } from './google';
 import { familyMember, familyMembers, isWeightId, type FamilyRequest, type MemberRequest, type WeightId } from '../shared/family';
-import { buildFamilyZip, buildOTF, buildSpecimenSVG, exportName } from './export';
+import type { ExportJob } from './export';
+import { Busy, ExportPool } from './export-pool';
 import { FreeFonts } from './free-fonts';
 
 class HttpError extends Error {
@@ -25,16 +28,18 @@ const fields = (body: unknown) => (body && typeof body === 'object' ? body : {})
     their edits and the font's History are only kept, so what of them doesn't read is dropped rather than refused. */
 function readDesign(body: unknown): DesignInput {
   const b = fields(body);
-  if (!isValidParams(b.params)) throw new HttpError(400, 'params is missing or has invalid values');
-  if (typeof b.styleId !== 'string' || !styleById(b.styleId)) throw new HttpError(400, 'styleId is not a known starting style');
+  if (!isValidParams(b.params)) throw new HttpError(400, 'This design has settings TypeLab can’t read');
+  if (typeof b.styleId !== 'string' || !styleById(b.styleId)) throw new HttpError(400, 'This design’s style isn’t one TypeLab knows');
   return { name: cleanName(b.name), styleId: b.styleId, params: b.params, ...(b.log === undefined ? {} : { log: cleanLog(b.log) }),
     ...(b.versions === undefined ? {} : { versions: packVersions(cleanVersions(b.versions)) }) };
 }
 
+/** An export's design and name, and whether its fonts take the accented letters too (`accents`, off unless true). */
 function readExport(body: unknown) {
   const b = fields(body);
-  if (!isValidParams(b.params)) throw new HttpError(400, 'params is missing or has invalid values');
-  return { name: cleanName(b.name), params: b.params };
+  if (!isValidParams(b.params)) throw new HttpError(400, 'This design has settings TypeLab can’t read');
+  if (b.accents !== undefined && typeof b.accents !== 'boolean') throw new HttpError(400, 'accents must be true or false');
+  return { name: cleanName(b.name), params: b.params, accents: b.accents === true };
 }
 
 /** Which members of a family to build: at least one style, each a weight upright or italic. A request in the
@@ -93,8 +98,24 @@ function setSession(req: Request, res: Response, token: string | null) {
     : `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`);
 }
 
-/** Where Google sends the browser back to: PUBLIC_URL when set, else the address this was asked on. */
-const redirectUri = (req: Request) => `${(process.env.PUBLIC_URL?.replace(/\/+$/, '') || `${req.protocol}://${req.get('host')}`)}/api/auth/google/callback`;
+/** The site's own address: PUBLIC_URL when set, else the one this was asked on (development: index.ts offers password
+    reset in production only with PUBLIC_URL, as a link built from the Host header could point anywhere). */
+const siteUrl = (req: Request) => process.env.PUBLIC_URL?.replace(/\/+$/, '') || `${req.protocol}://${req.get('host')}`;
+/** Where Google sends the browser back to. */
+const redirectUri = (req: Request) => `${siteUrl(req)}/api/auth/google/callback`;
+
+/** The email a forgotten password sends: the link that sets a new one, and what to do if it wasn't asked for. */
+function resetMail(to: string, name: string, link: string): Mail {
+  const html = (t: string) => t.replace(/[<>&"]/g, c => `&#${c.charCodeAt(0)};`);
+  const hours = RESET_MINUTES === 60 ? 'an hour' : `${RESET_MINUTES} minutes`;
+  return {
+    to,
+    subject: 'Reset your TypeLab password',
+    text: `Hi ${name},\n\nSomeone, hopefully you, asked to reset the password of the TypeLab account for ${to}. To set a new one, open this link within ${hours}:\n\n${link}\n\nIf it wasn’t you, ignore this email: your password stays as it is.\n\nTypeLab`,
+    html: `<p>Hi ${html(name)},</p><p>Someone, hopefully you, asked to reset the password of the TypeLab account for ${html(to)}. To set a new one, open this link within ${hours}:</p>`
+      + `<p><a href="${html(link)}">Set a new password</a></p><p>If it wasn’t you, ignore this email: your password stays as it is.</p><p>TypeLab</p>`
+  };
+}
 
 /** Back to a page with how Google sign-in went, for the page to show and take out of the address. */
 function withResult(back: string, result: GoogleResult) {
@@ -125,7 +146,7 @@ function popupPage(result: GoogleResult, back: string) {
   const said = result.ok ? (result.intent === 'link' ? 'Google is connected.' : 'You’re signed in.') : result.cancelled ? 'Sign-in cancelled.' : result.error;
   const html = (t: string) => t.replace(/[<>&"]/g, c => `&#${c.charCodeAt(0)};`);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TypeLab</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eff0f0;color:#2e3b3e;font:15px/1.5 Inter,system-ui,sans-serif}main{text-align:center;padding:24px}a{color:#3464c4}</style></head>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#fef5ec;color:#201f1d;font:500 15px/1.5 Manrope,system-ui,sans-serif}main{text-align:center;padding:24px}a{color:inherit;font-weight:600}</style></head>
 <body><main><p>${html(said)}</p><p><a href="${html(back)}">Back to TypeLab</a></p></main>
 <script>try{new BroadcastChannel('${AUTH_CHANNEL}').postMessage({type:'google',result:${data}})}catch(e){}window.close()</script></body></html>`;
 }
@@ -159,9 +180,9 @@ const attachment = (res: Response, file: string, type: string) => {
   res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
 };
 
-/** What the route groups share: where designs and accounts are kept, Google sign-in when this server
-    offers it, and the free fonts. */
-interface Ctx { store: DesignStore; accounts: AccountStore; google: GoogleAuth | null; fonts: FreeFonts }
+/** What the route groups share: where designs and accounts are kept, Google sign-in and the mail password resets
+    are sent by when this server offers them, the free fonts, and the workers exports are built on. */
+interface Ctx { store: DesignStore; accounts: AccountStore; google: GoogleAuth | null; mail: Mailer | null; fonts: FreeFonts; exports: ExportPool }
 
 /** The signed-in account, or 401. */
 function me(res: Response): User {
@@ -196,10 +217,10 @@ export function joinGoogle(accounts: AccountStore, linked: User | null, g: { sub
 /** Signing up and in with an email and password, and the account itself: its name, its password, the
     other browsers signed in to it, and closing it. */
 function accountRoutes(api: Router, ctx: Ctx) {
-  const { store, accounts, google } = ctx, throttle = new Throttle(), lookups = new Throttle(60);
+  const { store, accounts, google, mail } = ctx, throttle = new Throttle(), lookups = new Throttle(60), resets = new Throttle(5);
 
-  // who's signed in, and whether this server offers Google sign-in
-  api.get('/auth/me', (_req, res) => { res.json({ user: who(res).user, google: !!google }); });
+  // who's signed in, and whether this server offers Google sign-in and password reset
+  api.get('/auth/me', (_req, res) => { res.json({ user: who(res).user, google: !!google, reset: !!mail }); });
 
   /** The sign-in dialog's first step: whether this email has an account, and how it signs in. */
   api.post('/auth/check', (req, res) => {
@@ -233,6 +254,40 @@ function accountRoutes(api: Router, ctx: Ctx) {
     }
     throttle.clear(key);
     res.json(signIn(ctx, req, res, user));
+  });
+
+  /** Forgot the password: email a link that sets a new one. Answered the same whether or not the email has an
+      account; at most five asked for in 15 minutes per address and per email. */
+  api.post('/auth/reset', async (req, res) => {
+    if (!mail) throw new HttpError(503, 'Password reset isn’t set up on this server');
+    const email = cleanEmail(fields(req.body).email), ip = `ip:${req.ip}`;
+    if (!isEmail(email)) throw new HttpError(400, 'Enter a valid email address');
+    resets.check(ip);
+    resets.check(email);
+    resets.fail(ip);
+    resets.fail(email);
+    const started = accounts.startReset(email);
+    if (started) {
+      const link = `${siteUrl(req)}/reset?${new URLSearchParams({ token: started.token })}`;
+      try { await mail.send(resetMail(email, started.user.name, link)); } catch (e) {
+        console.error(e);
+        throw new HttpError(502, 'Couldn’t send the email. Try again in a moment');
+      }
+    }
+    res.status(204).end();
+  });
+
+  /** A reset link used: the new password set, every browser signed out of the account, and this one signed in. The
+      email is the holder's now, as the link reached them there. */
+  api.post('/auth/reset/confirm', async (req, res) => {
+    const b = fields(req.body), problem = passwordProblem(b.password);
+    if (problem) throw new HttpError(400, problem);
+    const user = typeof b.token === 'string' && b.token.length <= 64 ? accounts.takeReset(b.token) : null;
+    if (!user) throw new HttpError(400, 'This link has expired or was used already. Ask for a new one');
+    await accounts.setPassword(user.id, b.password as string);
+    accounts.verifyEmail(user.id);
+    accounts.endAllSessions(user.id);
+    res.json(signIn(ctx, req, res, accounts.get(user.id)!));
   });
 
   api.post('/auth/logout', (req, res) => {
@@ -372,10 +427,19 @@ function designRoutes(api: Router, { store }: Ctx) {
 }
 
 /** Free fonts' letters, and the exports: a font, a family and a specimen sheet. */
-function fontRoutes(api: Router, { fonts }: Ctx) {
-  /** Register the free fonts the design is written in, or answer that they couldn't be fetched. */
-  const freeReady = async (...params: Params[]) => {
-    try { await fonts.ready(...params); } catch (e) { console.error(e); throw new HttpError(502, "Couldn't fetch the free font this design is written in. Try again in a moment."); }
+function fontRoutes(api: Router, { fonts, exports }: Ctx) {
+  /** Build an export on a worker, from the free fonts the design and `more` (its family's members) are written in,
+      and send it as a download; or answer that those fonts couldn't be fetched, or that too many exports wait. */
+  const send = async (res: Response, job: ExportJob, ...more: Params[]) => {
+    let wanted;
+    try { wanted = await fonts.wanted(job.params, ...more); } catch (e) { console.error(e); throw new HttpError(502, 'Couldn’t fetch the free font this design is written in. Try again in a moment.'); }
+    let built;
+    try { built = await exports.run(job, wanted); } catch (e) {
+      if (e instanceof Busy) throw new HttpError(503, 'TypeLab is busy building other fonts. Try again in a minute.');
+      throw e;
+    }
+    attachment(res, built.file, built.type);
+    res.send(built.data);
   };
 
   // a free font's letters, as the engine draws them (TypeLab's own from fonts/, any other fetched from Google Fonts
@@ -384,7 +448,7 @@ function fontRoutes(api: Router, { fonts }: Ctx) {
     const ref = parseFontId(req.params.id);
     if (!ref) throw new HttpError(404, 'No such free font');
     let data;
-    try { data = await fonts.load(req.params.id); } catch (e) { console.error(e); throw new HttpError(502, "Couldn't fetch the font from Google Fonts"); }
+    try { data = await fonts.load(req.params.id); } catch (e) { console.error(e); throw new HttpError(502, 'Couldn’t fetch the font from Google Fonts'); }
     res.setHeader('Cache-Control', FREE_FAMILIES[ref.family].own ? 'no-cache' : 'public, max-age=86400');
     res.json(data);
   });
@@ -400,33 +464,48 @@ function fontRoutes(api: Router, { fonts }: Ctx) {
 
   // one font file: the design as it is, or one member of its family (the weight and italic picked), named for it
   api.post('/export/otf', async (req, res) => {
-    const { name, params } = readExport(req.body), pick = readMember(req.body);
+    const { name, params, accents } = readExport(req.body), pick = readMember(req.body);
     const member = pick && familyMember(params, pick.anchor, pick.weight, pick.italic);
-    await freeReady(params, ...(member ? [member.params] : []));
-    const file = slug(exportName(params, name));
-    attachment(res, member ? `${file}-${member.style.replace(/ /g, '')}.otf` : `${file}.otf`, 'font/otf');
-    res.send(member ? buildOTF(member.params, name, member) : buildOTF(params, name));
+    await send(res, { kind: 'otf', name, params, member: pick, accents }, ...(member ? [member.params] : []));
   });
 
   api.post('/export/family', async (req, res) => {
-    const { name, params } = readExport(req.body), family = readFamily(req.body);
-    await freeReady(...familyMembers(params, family).map(f => f.params));
-    attachment(res, `${slug(exportName(params, name))}-family.zip`, 'application/zip');
-    res.send(buildFamilyZip(params, name, family));
+    const { name, params, accents } = readExport(req.body), family = readFamily(req.body);
+    await send(res, { kind: 'family', name, params, family, accents }, ...familyMembers(params, family).map(f => f.params));
   });
 
   api.post('/export/svg', async (req, res) => {
-    const { name, params } = readExport(req.body);
-    await freeReady(params);
-    attachment(res, `${slug(name)}-specimen.svg`, 'image/svg+xml');
-    res.send(buildSpecimenSVG(params, name));
+    const { name, params, accents } = readExport(req.body);
+    await send(res, { kind: 'svg', name, params, accents });
   });
 }
 
-export function createApp(store: DesignStore, { google = null, fonts = new FreeFonts(null) }: { google?: GoogleAuth | null; fonts?: FreeFonts } = {}) {
-  const ctx: Ctx = { store, accounts: new AccountStore(store.db), google, fonts };
+export function createApp(store: DesignStore, { google = null, mail = null, fonts = new FreeFonts(null), exports = new ExportPool() }: { google?: GoogleAuth | null; mail?: Mailer | null; fonts?: FreeFonts; exports?: ExportPool } = {}) {
+  const ctx: Ctx = { store, accounts: new AccountStore(store.db), google, mail, fonts, exports };
   const app = express();
   app.disable('x-powered-by');
+  // every answer, the app's files too (index.ts mounts them after this): no reading a file as a type it isn't sent
+  // as, no showing the editor framed inside another site, and only this site's address passed on to the sites it
+  // links to
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
+  // a proxy in front (X-Forwarded-For) with TRUST_PROXY unset: every visitor then reads as the proxy, so the sign-in
+  // throttles count them all as one and cookies go without Secure. Said once, in the server's log
+  let warned = false;
+  app.use((req, _res, next) => {
+    if (!warned && req.headers['x-forwarded-for'] && !req.app.get('trust proxy')) {
+      warned = true;
+      console.warn('Requests arrive through a proxy but TRUST_PROXY is not set: set TRUST_PROXY=1 so each visitor is told apart and sign-in cookies are Secure.');
+    }
+    next();
+  });
+  // the app's script, its fonts and the letters' JSON go about a third the size
+  app.use(compression());
   const api = express.Router();
   // (a design brings its letters' record and its History with it)
   api.use(express.json({ limit: '8mb' }));
@@ -453,12 +532,14 @@ export function createApp(store: DesignStore, { google = null, fonts = new FreeF
 
   api.use((_req, _res) => { throw new HttpError(404, 'No such API route'); });
 
-  // Express 5 forwards thrown and rejected errors here
+  // Express 5 forwards thrown and rejected errors here. An HttpError's message is written for the person asking (a
+  // fetch that failed has been logged where it was caught); anything else is logged and said in general terms
   api.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     const e = err as { status?: number; type?: string; message?: string };
     const status = err instanceof HttpError ? err.status : e.type === 'entity.parse.failed' ? 400 : e.status && e.status < 500 ? e.status : 500;
-    if (status >= 500) console.error(err);
-    res.status(status).json({ error: status >= 500 ? 'Something went wrong on the server' : e.message });
+    const said = err instanceof HttpError || status < 500;
+    if (!said) console.error(err);
+    res.status(status).json({ error: !said ? 'Something went wrong on the server' : e.type === 'entity.parse.failed' ? 'The request isn’t valid JSON' : e.message });
   });
 
   app.use('/api', api);

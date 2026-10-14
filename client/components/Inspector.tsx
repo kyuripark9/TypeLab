@@ -171,20 +171,20 @@ export function Inspector() {
       <div className="insp-body">
         {pen ? <PenCanvas key={ch} ch={ch} g={g} font={font} grid={grid?.grid} /> : <InspectorCanvas ch={ch} g={g} font={font} grid={grid?.grid} group={grid?.group} />}
         {/* one short line over the canvas for what the switches above don't say: what an edit here does, and what
-            still moves a letter drawn as it is; the whole story is in its tooltip */}
+            still moves a letter drawn as it is (`banner-more`, left out on a phone); the whole story is in its tooltip */}
         {pen && (own ? (
           <div className="scope-banner" role="status" title={`An edit here changes ${ch} alone, and ${ch} keeps the shape you give it; after it, the letters shaped the same way are offered the change. Weight, contrast, width, the heights and slant still move ${ch}, as they move the other letters; Reset ${ch} gives it back to the font`}>
-            <ScopeIcon id="letter" /><span>Only <b>{ch}</b> changes here · weight, width and heights still move it</span>
+            <ScopeIcon id="letter" /><span>Only <b>{ch}</b> changes here<span className="banner-more"> · weight, width and heights still move it</span></span>
           </div>
         ) : (
-          <div className="scope-banner" role="status" title={`After each edit, the letters with the same shape where ${ch} changed (a d's serif in b h k l, an n's foot in m and h) change the same way, in the same undo step; the pill at the bottom right names them, and puts any back as it was. Only ${ch} keeps an edit to ${ch}`}>
+          <div className="scope-banner" role="status" title={`After each edit, the letters with the same shape where ${ch} changed (a d’s serif in b h k l, an n’s foot in m and h) change the same way, in the same undo step; the pill at the bottom right names them, and puts any back as it was. Only ${ch} keeps an edit to ${ch}`}>
             <span>{!mates ? 'An edit goes to every letter shaped the same there'
-              : mates.length ? <>Same shape in <b>{nameList(mates)}</b> · they change with it</> : <>No other letter is shaped the same here · only <b>{ch}</b> changes</>}</span>
+              : mates.length ? <>Same shape in <b>{nameList(mates)}</b><span className="banner-more"> · they change with it</span></> : <>No other letter is shaped the same here<span className="banner-more"> · only <b>{ch}</b> changes</span></>}</span>
           </div>
         ))}
         {!pen && drawn && (
           <div className="scope-banner" role="status">
-            {own && <ScopeIcon id="letter" />}<span>{free ? <><b>{ch}</b> is {free}'s letter · reshape it in Points</> : <><b>{ch}</b> was edited in Points · weight, width and heights still move it</>}</span>
+            {own && <ScopeIcon id="letter" />}<span>{free ? <><b>{ch}</b> is {free}’s letter<span className="banner-more"> · reshape it in Points</span></> : <><b>{ch}</b> was edited in Points<span className="banner-more"> · weight, width and heights still move it</span></>}</span>
           </div>
         )}
       </div>
@@ -196,7 +196,7 @@ export function Inspector() {
 function ModeToggle() {
   const pen = useEditor(s => s.penMode);
   const opts: [boolean, string, string][] = [
-    [false, 'Parts', 'Drag the letter\'s stems, bowls and ends; the settings move with them'],
+    [false, 'Parts', 'Drag the letter’s stems, bowls and ends; the settings move with them'],
     [true, 'Points', 'Edit the outline point by point, like a vector editor']
   ];
   return (
@@ -221,7 +221,7 @@ function ModeToggle() {
 function ScopeToggle({ ch, pen }: { ch: string; pen: boolean }) {
   const scope = useEditor(s => s.scope), custom = useEditor(s => !!s.params.glyphs[ch]), drawn = useEditor(s => !!s.params.outlines[ch]);
   const opts: [Scope, string, string][] = pen ? [
-    ['all', 'All letters', `An edit to ${ch}'s points goes on to every letter with the same shape there`],
+    ['all', 'All letters', `An edit to ${ch}’s points goes on to every letter with the same shape there`],
     ['letter', `Only ${ch}`, `An edit changes ${ch} alone; after it, you can still give it to the letters shaped the same way`]
   ] : [
     ['all', 'All letters', 'A change reshapes every letter'],
@@ -238,7 +238,7 @@ function ScopeToggle({ ch, pen }: { ch: string; pen: boolean }) {
       {/* while the letter has nothing to reset, Reset holds its place unseen (as the History clock does), so the first
           change to it doesn't push the head onto another line and shrink the letter under the pointer */}
       <button className="btn ghost small insp-reset" disabled={!custom && !drawn} onClick={() => actions.syncLetter(ch)}
-        title={`Drop ${ch}'s ${custom && drawn ? 'own settings and its edits in Points' : custom ? 'own settings' : 'edits in Points'}, so it follows the other letters again`}>
+        title={`Drop ${ch}’s ${custom && drawn ? 'own settings and its edits in Points' : custom ? 'own settings' : 'edits in Points'}, so it follows the other letters again`}>
         Reset {ch}
       </button>
       <LetterHistory ch={ch} />

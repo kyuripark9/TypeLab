@@ -24,7 +24,7 @@ export const CATEGORIES: { id: CategoryId; label: string; hint: string; group?: 
   { id: 'serifs', label: 'Serifs', hint: 'Feet on the strokes: shape, tips, base and sides', group: 'shape' },
   { id: 'letters', label: 'Letters', hint: 'Other shapes for a, g, k, Q, R, s, Y and more', group: 'details' },
   { id: 'script', label: 'Handwriting', hint: 'Cursive strokes, script letters and a wobbly hand', group: 'details' },
-  { id: 'effects', label: 'Effects', hint: 'Outlines, pixels, dots, stencil and slice', group: 'details' }
+  { id: 'effects', label: 'Effects', hint: 'Outlines, pixels, dots, stencil, slice and rough edges', group: 'details' }
 ];
 /** Names older links use for a page or group the navigation doesn't have (structure, personality), or that now names a
     group (proportion), with the page each opens. pageOf reads these before the groups, so 'proportion' opens Heights

@@ -33,6 +33,9 @@ stop it by its PID, and open a fresh tab per URL (the editor's unsaved-changes g
 | `DB_PATH` | `server/index.ts` | `data/typelab.db` | The database; free fonts are kept in `free-fonts/` beside it; `:memory:` keeps nothing on disk |
 | `TRUST_PROXY` | `server/index.ts` | | Set behind an HTTPS proxy: sign-in cookies get Secure, throttles count each visitor |
 | `PUBLIC_URL` | `server/app.ts` | the address asked on | The site's address for Google's redirect |
+| `SMTP_URL`, `MAIL_FROM` | `server/mail.ts` | | Both set (and `PUBLIC_URL` in production): password reset emails its link through that SMTP server. Without them development shows the mail at `/dev/mail` and production offers no reset |
+| `EXPORT_WORKERS` | `server/index.ts` | one fewer than the cores, at most 4 | How many worker threads build exports side by side; each holds a few hundred MB at its busiest, so a host short of memory sets fewer |
+| `VITE_CONTACT_EMAIL` | `client/pages/PrivacyPage.tsx` (at build time) | kyuripark9@gmail.com | The address `/privacy` gives to write to |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | `server/google.ts` | | Both set: Google sign-in is offered. Without them, development signs in with a stand-in for Google (`/dev/google`, two made-up accounts) and production offers none |
 | `TOOLS_OUT` | `lib.ts` | `.tools/out` | Where tools write |
 | `FONTS_DIR` | `lib.ts` (golden, render, scan, fit) | `data/free-fonts` | Where the free fonts from Google Fonts are kept (the server's cache); TypeLab's own are always read from `fonts/` |

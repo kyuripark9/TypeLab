@@ -5,6 +5,8 @@ import './glyphs';
 import './script';
 
 export { ALL_CHARS, CHARSET, SLANT_PIVOT, buildFont, scriptForms, termSpec } from './font';
+export { ACCENTED, accentGlyph } from './accents';
+export type { AccentGlyph } from './accents';
 export type { Font, Glyph, Line, LineItem } from './font';
 export { autoIBars } from './glyphs/shared';
 export { RING_KEYS } from './highlight';

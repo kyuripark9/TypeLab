@@ -1727,8 +1727,10 @@ const bowlScans = new WeakMap<Node[][], BowlScan>();
 
 function scanBowls(cs: Node[][], s: Skeleton): BowlScan {
   const arcs: Arc[] = [];
+  // (how far each edge's point k is from the next, read once: the walks below add them up step by step)
+  const step = s.edges.map(E => E.pts.slice(1).map((q, k) => Math.hypot(q.x - E.pts[k].x, q.y - E.pts[k].y)));
   s.edges.forEach((E, e) => {
-    const pts = E.pts, n = pts.length;
+    const pts = E.pts, n = pts.length, len = step[e];
     if (n < 6) return;
     // the way it heads at each point, read across a few cells either side and unwound, then split where it turns
     // back the other way by more than a little (a cell-by-cell skeleton turns in steps)
@@ -1740,7 +1742,7 @@ function scanBowls(cs: Node[][], s: Skeleton): BowlScan {
       H.push(h);
     }
     // how much each point's stretch bends: none along a straight (a D's stem, an e's bar), which stays where it is
-    const at = (k: number, d: number) => { let j = k, l = 0; while (j > 0 && j < n - 1 && l < Math.abs(d)) { const q = j + Math.sign(d); l += Math.hypot(pts[q].x - pts[j].x, pts[q].y - pts[j].y); j = q; } return j; };
+    const at = (k: number, d: number) => { let j = k, l = 0; while (j > 0 && j < n - 1 && l < Math.abs(d)) { const q = j + Math.sign(d); l += len[Math.min(j, q)]; j = q; } return j; };
     // (nor round a corner, which turns as far in a short way: a D's stem into its bowl)
     const bend = pts.map((p, k) => {
       const a = at(k, -p.r * 2.5), b = at(k, p.r * 2.5), c = at(k, -p.r * 0.8), d = at(k, p.r * 0.8);
@@ -1780,8 +1782,9 @@ function scanBowls(cs: Node[][], s: Skeleton): BowlScan {
       let ew = eased.get(arc)!.get(q.i);
       if (ew === undefined) {
         let d0 = 0, d1 = 0;
-        for (let k = arc.i0 + 1; k <= q.i; k++) d0 += Math.hypot(E.pts[k].x - E.pts[k - 1].x, E.pts[k].y - E.pts[k - 1].y);
-        for (let k = q.i + 1; k <= arc.i1; k++) d1 += Math.hypot(E.pts[k].x - E.pts[k - 1].x, E.pts[k].y - E.pts[k - 1].y);
+        const len = step[arc.e];
+        for (let k = arc.i0 + 1; k <= q.i; k++) d0 += len[k - 1];
+        for (let k = q.i + 1; k <= arc.i1; k++) d1 += len[k - 1];
         eased.get(arc)!.set(q.i, ew = smoothstep(Math.min(d0, d1) / arc.ease));
       }
       w = ew;

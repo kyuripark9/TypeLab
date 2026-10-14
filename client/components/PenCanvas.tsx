@@ -23,7 +23,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from 'react';
 import { CORNER_KINDS, cmdsToD, cornerRoom, drawnCmds, hasIn, hasOut, segment, type CornerKind, type Drawn, type Font, type Glyph, type GlyphGrid, type Node } from '../../shared/engine';
 import { guideLines, stackLabels } from '../lib/guide-labels';
-import { isTyping, n1, useDismiss, useSize } from '../lib/hooks';
+import { isTyping, n1, shortcut, useDismiss, useSize } from '../lib/hooks';
 import {
   anchorsIn, breakShapes, constrain, contourArea, cornerHandle, cornersAt, cutShapes, deleteAnchors, isStroke, keyRef, mergeShapes, mirrorEdit,
   boxAlong, mirrorLine, mirrorPairs, moveAnchors, nearestSegment, overlapping, pickedPoints, pointOn, pullHandles, refKey, reshapeSegment, reverseContour,
@@ -849,9 +849,9 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
         <CornerMenu cs={cs} picked={selRefs} targets={cornerTargets} slide={cornerSlide} onKind={cornerKind} />
         <OverlapMenu cs={cs} picked={pickedContours().length} stem={font.m.s} onMerge={merge} onCut={cutOutPicked} onBreak={breakApart} canAgain={canGapAgain} />
         <span className="pen-sep" />
-        <button title="Zoom in (⌘+)" aria-label="Zoom in" onClick={() => zoomBy(1.25)}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 5v10M5 10h10" /></svg></button>
-        <button title="Zoom out (⌘−)" aria-label="Zoom out" onClick={() => zoomBy(0.8)}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M5 10h10" /></svg></button>
-        <button title="Fit the letter (⌘0)" aria-label="Fit the letter" onClick={() => setView(null)}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 8V4h4M12 4h4v4M16 12v4h-4M8 16H4v-4" /></svg></button>
+        <button title={shortcut('Zoom in (⌘+)')} aria-label="Zoom in" onClick={() => zoomBy(1.25)}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 5v10M5 10h10" /></svg></button>
+        <button title={shortcut('Zoom out (⌘−)')} aria-label="Zoom out" onClick={() => zoomBy(0.8)}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M5 10h10" /></svg></button>
+        <button title={shortcut('Fit the letter (⌘0)')} aria-label="Fit the letter" onClick={() => setView(null)}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 8V4h4M12 4h4v4M16 12v4h-4M8 16H4v-4" /></svg></button>
       </div>
 
       <div className="pen-canvas" ref={ref} style={{ cursor }}>
@@ -919,7 +919,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
               const n = cs[r.c][r.i], at = Math.max(h.at, 16 / sc), x = n1(X(n.x + h.ux * at)), y = n1(Y(n.y + h.uy * at));
               return (
                 <g key={refKey(r)} className="pen-corner" style={{ cursor: ROUND_CURSOR }} onPointerDown={onCornerHandle(r)}>
-                  <title>{tool === 'object' ? 'Drag into the corner to round the shapes’ corners · ⌥-click: round, cut or scooped' : 'Drag into the corner to round it · ⌥-click: round, cut or scooped'}</title>
+                  <title>{shortcut(tool === 'object' ? 'Drag into the corner to round the shapes’ corners · ⌥-click: round, cut or scooped' : 'Drag into the corner to round it · ⌥-click: round, cut or scooped')}</title>
                   <circle className="grab" cx={x} cy={y} r={HIT} />
                   <circle cx={x} cy={y} r={4.5} />
                   <circle className="dot" cx={x} cy={y} r={1.5} />
@@ -978,7 +978,7 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
             <>
               <span className="pen-bar-label">{tool === 'shape' ? SHAPE_INFO[shape].label : TOOLS.find(t => t.id === tool)!.label}</span>
               {tool === 'shape' && isStroke(shape) && <NumField label="Thickness" value={strokeW ?? stem()} onSet={v => setStrokeW(Math.max(1, v))} />}
-              <Tips tips={tipsFor(tool, drawingOk !== null, shape)} />
+              <Tips tips={tipsFor(tool, drawingOk !== null, shape).map(([k, v]) => [shortcut(k), v])} />
             </>
           )}
           <span className="pen-acts">
@@ -1324,7 +1324,7 @@ function SnapMenu({ snap, onSet }: { snap: { on: boolean; kinds: SnapKind[] }; o
   return (
     <div className="pen-snapper" ref={wrap}>
       <div className="pen-kind">
-        <button aria-pressed={on} className={on ? 'on' : undefined} title="Snap dragged points and handles (hold ⌘ while dragging to place one freely)"
+        <button aria-pressed={on} className={on ? 'on' : undefined} title={shortcut('Snap dragged points and handles (hold ⌘ while dragging to place one freely)')}
           onClick={() => onSet({ on: !on, kinds: snap.kinds.length ? snap.kinds : [...SNAP_KINDS] })}>
           <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v6a4 4 0 008 0v-6M4 5.5h3M9 5.5h3" /></svg>Snap
         </button>
@@ -1345,7 +1345,7 @@ function SnapMenu({ snap, onSet }: { snap: { on: boolean; kinds: SnapKind[] }; o
               </button>
             );
           })}
-          <div className="pen-snap-foot">Hold ⌘ while dragging to place a point freely</div>
+          <div className="pen-snap-foot">{shortcut('Hold ⌘ while dragging to place a point freely')}</div>
         </div>
       )}
     </div>

@@ -83,8 +83,17 @@ export function inkGrid(cs: Node[][], cell = 1): Grid {
     }
   }
   const g = new Float64Array(W * H), n = Math.max(W, H), f = new Float64Array(n), d = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1);
-  for (let i = 0; i < W * H; i++) g[i] = ink[i] ? 1e12 : 0;
-  for (let x = 0; x < W; x++) { for (let y = 0; y < H; y++) f[y] = g[y * W + x]; edt1(f, H, d, v, z); for (let y = 0; y < H; y++) g[y * W + x] = d[y]; }
+  // down each column first, the squared distance to the column's nearest paper cell: what edt1 gives on a column of
+  // paper (0) and ink (1e12), worked out from how many cells away the nearest paper above and below is, row by row so
+  // it reads the grid in order (a column with no paper at all is 1e12 all the way, as edt1 has it)
+  const FAR = 1 << 30, above = new Int32Array(W * H), below = new Int32Array(W);
+  for (let i = 0; i < W * H; i++) above[i] = ink[i] ? (i >= W ? Math.min(FAR, above[i - W] + 1) : FAR) : 0;
+  for (let y = H - 1; y >= 0; y--) for (let x = 0; x < W; x++) {
+    const i = y * W + x, b = ink[i] ? (y < H - 1 ? Math.min(FAR, below[x] + 1) : FAR) : 0, q = Math.min(above[i], b);
+    below[x] = b;
+    g[i] = q >= FAR ? 1e12 : q * q;
+  }
+  // then along each row
   for (let y = 0; y < H; y++) { for (let x = 0; x < W; x++) f[x] = g[y * W + x]; edt1(f, W, d, v, z); for (let x = 0; x < W; x++) g[y * W + x] = Math.sqrt(d[x]) * cell; }
   return { x0, y0, W, H, cell, ink, dt: g };
 }
@@ -103,14 +112,21 @@ export const inkAt = (g: Grid, x: number, y: number) => {
 // the eight neighbours, counterclockwise from the east, as [column, row] steps (row down)
 const NB: [number, number][] = [[1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1]];
 
-/** Whether taking cell i away leaves the ink as connected as it was round it (Yokoi's number, 8-connected, is 1). */
-function simple(s: Uint8Array, W: number, i: number) {
-  const x = NB.map(([dc, dr]) => s[i + dr * W + dc] ? 1 : 0);
+/** Which of cell i's eight neighbours are inked, as bits in NB's order (bit k the k-th). */
+const around = (s: Uint8Array, W: number, i: number) =>
+  (s[i + 1] ? 1 : 0) | (s[i - W + 1] ? 2 : 0) | (s[i - W] ? 4 : 0) | (s[i - W - 1] ? 8 : 0) | (s[i - 1] ? 16 : 0) | (s[i + W - 1] ? 32 : 0) | (s[i + W] ? 64 : 0) | (s[i + W + 1] ? 128 : 0);
+/** For each way the neighbours can be inked (`around`): whether taking the cell away leaves the ink as connected as it was
+    round it (Yokoi's number, 8-connected, is 1), and how many of them are inked. Read off a table, as the thinning asks
+    it of every cell it tries. */
+const SIMPLE = new Uint8Array(256), COUNT = new Uint8Array(256);
+for (let m = 0; m < 256; m++) {
+  const x = NB.map((_, k) => (m >> k) & 1);
   let n = 0;
   for (let k = 0; k < 8; k += 2) { const a = 1 - x[k], b = 1 - x[k + 1], c = 1 - x[(k + 2) % 8]; n += a - a * b * c; }
-  return n === 1;
+  SIMPLE[m] = n === 1 ? 1 : 0;
+  COUNT[m] = x.reduce((p, q) => p + q, 0);
 }
-const neighbours = (s: Uint8Array, W: number, i: number) => { let n = 0; for (const [dc, dr] of NB) if (s[i + dr * W + dc]) n++; return n; };
+const neighbours = (s: Uint8Array, W: number, i: number) => COUNT[around(s, W, i)];
 
 /** The ink thinned to its skeleton: one cell wide, as connected as the ink, and keeping its holes. */
 function thin(g: Grid): Uint8Array {
@@ -118,28 +134,36 @@ function thin(g: Grid): Uint8Array {
   for (let i = 0; i < W * H; i++) s[i] = g.ink[i];
   // the middle of a round of ink no neighbour's round holds: none of them is as much further from the
   // paper as it is from this cell
+  // (each neighbour's step in cells, in NB's order, and how much further from the paper it would have to be)
+  const step = NB.map(([dc, dr]) => dr * W + dc), far = NB.map(([dc, dr]) => Math.hypot(dc, dr) * g.cell * 0.9);
   const centre = (i: number) => {
-    for (const [dc, dr] of NB) { const j = i + dr * W + dc; if (dt[j] - dt[i] >= Math.hypot(dc, dr) * g.cell * 0.9) return false; }
+    for (let k = 0; k < 8; k++) if (dt[i + step[k]] - dt[i] >= far[k]) return false;
     return true;
   };
-  // a binary heap of cells by their distance to the paper, the nearest first
-  const heap: number[] = [], queued = new Uint8Array(W * H);
+  // a binary heap of cells by their distance to the paper, the nearest first: `heap` the cells, `key` their distances
+  // beside them, `size` how many; a cell is in it at most once at a time (`queued`), so it never holds more than the ink
+  let inked = 0;
+  for (let i = 0; i < W * H; i++) inked += s[i];
+  const heap = new Int32Array(inked), key = new Float64Array(inked), queued = new Uint8Array(W * H);
+  let size = 0;
+  const swap = (a: number, b: number) => { const c = heap[a], d = key[a]; heap[a] = heap[b]; key[a] = key[b]; heap[b] = c; key[b] = d; };
   const push = (i: number) => {
-    heap.push(i); queued[i] = 1;
-    let k = heap.length - 1;
-    while (k > 0) { const p = (k - 1) >> 1; if (dt[heap[p]] <= dt[heap[k]]) break; [heap[p], heap[k]] = [heap[k], heap[p]]; k = p; }
+    heap[size] = i; key[size] = dt[i]; queued[i] = 1;
+    let k = size++;
+    while (k > 0) { const p = (k - 1) >> 1; if (key[p] <= key[k]) break; swap(p, k); k = p; }
   };
   const pop = () => {
-    const top = heap[0], last = heap.pop()!;
-    if (heap.length) {
-      heap[0] = last;
+    const top = heap[0];
+    size--;
+    if (size) {
+      heap[0] = heap[size]; key[0] = key[size];
       let k = 0;
       for (;;) {
         const l = 2 * k + 1, r = l + 1; let m = k;
-        if (l < heap.length && dt[heap[l]] < dt[heap[m]]) m = l;
-        if (r < heap.length && dt[heap[r]] < dt[heap[m]]) m = r;
+        if (l < size && key[l] < key[m]) m = l;
+        if (r < size && key[r] < key[m]) m = r;
         if (m === k) break;
-        [heap[m], heap[k]] = [heap[k], heap[m]]; k = m;
+        swap(m, k); k = m;
       }
     }
     queued[top] = 0;
@@ -149,19 +173,23 @@ function thin(g: Grid): Uint8Array {
     const i = r * W + c;
     if (s[i] && (!s[i - 1] || !s[i + 1] || !s[i - W] || !s[i + W])) push(i);
   }
-  while (heap.length) {
+  while (size) {
     const i = pop();
-    if (!s[i] || !simple(s, W, i)) continue;
-    if (neighbours(s, W, i) === 1 && centre(i)) continue;
+    if (!s[i]) continue;
+    const m = around(s, W, i);
+    if (!SIMPLE[m]) continue;
+    if (COUNT[m] === 1 && centre(i)) continue;
     s[i] = 0;
-    for (const [dc, dr] of NB) { const j = i + dr * W + dc; if (s[j] && !queued[j]) push(j); }
+    for (let k = 0; k < 8; k++) { const j = i + step[k]; if (s[j] && !queued[j]) push(j); }
   }
   // a staircase leaves cells with a neighbour each way round a corner (one to the east, one to the north):
   // those that can go, go, so a line is one cell wide on the diagonal too
   for (let pass = 0; pass < 2; pass++) for (let i = W; i < W * (H - 1); i++) {
-    if (!s[i] || neighbours(s, W, i) < 2) continue;
-    const e = s[i + 1], n = s[i - W], w = s[i - 1], so = s[i + W];
-    if (((e && n) || (n && w) || (w && so) || (so && e)) && simple(s, W, i)) s[i] = 0;
+    if (!s[i]) continue;
+    const m = around(s, W, i);
+    if (COUNT[m] < 2) continue;
+    const e = m & 1, n = m & 4, w = m & 16, so = m & 64;
+    if (((e && n) || (n && w) || (w && so) || (so && e)) && SIMPLE[m]) s[i] = 0;
   }
   return s;
 }
@@ -376,14 +404,74 @@ export function joinsOf(sk: Skeleton): Join[] {
   return out;
 }
 
-/** The skeleton point nearest (x, y): its edge, its index along it, and how far it is. */
+/** The skeleton point nearest (x, y): its edge, its index along it, and how far it is; of two as near, the one first
+    along the edges in order. A restyle asks it of every point of a letter's outline, so the points are looked up in
+    square buckets round (x, y), nearest buckets first (`nearIndex`), which finds the very point a walk past every point
+    would. */
 export function nearestOn(sk: Skeleton, x: number, y: number): { e: number; i: number; d: number } | null {
+  const ix = nearIndex(sk);
+  if (!ix || !Number.isFinite(x) || !Number.isFinite(y)) return nearestAll(sk, x, y);
+  const { x0, y0, W, H, start, at } = ix;
+  const cx = Math.floor((x - x0) / NEAR_CELL), cy = Math.floor((y - y0) / NEAR_CELL);
+  // (from the first ring of buckets that reaches the grid, out until a bucket further out can hold nothing nearer)
+  const reach = Math.max(cx - (W - 1), -cx, cy - (H - 1), -cy, 0), last = Math.max(cx, W - 1 - cx, cy, H - 1 - cy);
+  let bd = Infinity, bo = -1;
+  const look = (c: number, r: number) => {
+    if (c < 0 || r < 0 || c >= W || r >= H) return;
+    const k = r * W + c;
+    for (let j = start[k]; j < start[k + 1]; j++) {
+      const o = at[j], p = ix.pts[o], d = Math.hypot(p.x - x, p.y - y);
+      if (d < bd || (d === bd && o < bo)) { bd = d; bo = o; }
+    }
+  };
+  for (let ring = reach; ring <= last; ring++) {
+    // (a point in a bucket this ring or further out lies more than ring - 1 buckets' sides away, as (x, y) may sit at
+    // the far side of its own)
+    if (bo >= 0 && bd < (ring - 1) * NEAR_CELL - 1e-6) break;
+    if (ring === 0) { look(cx, cy); continue; }
+    // (only the ring's buckets on the grid: a point far off it has a long way to come)
+    for (let c = Math.max(0, cx - ring), e = Math.min(W - 1, cx + ring); c <= e; c++) { look(c, cy - ring); look(c, cy + ring); }
+    for (let r = Math.max(0, cy - ring + 1), e = Math.min(H - 1, cy + ring - 1); r <= e; r++) { look(cx - ring, r); look(cx + ring, r); }
+  }
+  return bo < 0 ? null : { e: ix.edge[bo], i: ix.index[bo], d: bd };
+}
+
+/** nearestOn the long way, every point tried in turn. */
+function nearestAll(sk: Skeleton, x: number, y: number): { e: number; i: number; d: number } | null {
   let best: { e: number; i: number; d: number } | null = null;
   sk.edges.forEach((E, e) => E.pts.forEach((p, i) => {
     const d = Math.hypot(p.x - x, p.y - y);
     if (!best || d < best.d) best = { e, i, d };
   }));
   return best;
+}
+
+/** The side of nearestOn's buckets, in units. */
+const NEAR_CELL = 16;
+/** A skeleton's points in buckets: each point's place in the order the edges run (`pts`, with its edge and index), and
+    for each bucket, row by row up from (x0, y0), the places of the points in it (`at`, from start[k] to start[k + 1]).
+    Kept with the skeleton, and made again should its edges have been given other points. */
+interface NearIndex { x0: number; y0: number; W: number; H: number; start: Int32Array; at: Int32Array; pts: SkPt[]; edge: Int32Array; index: Int32Array; of: SkPt[][]; lens: number[] }
+const nearIndexes = new WeakMap<Skeleton, NearIndex | null>();
+function nearIndex(sk: Skeleton): NearIndex | null {
+  const had = nearIndexes.get(sk);
+  if (had !== undefined && (had === null ? !sk.edges.some(E => E.pts.length)
+    : had.of.length === sk.edges.length && had.of.every((p, e) => p === sk.edges[e].pts && p.length === had.lens[e]))) return had;
+  const pts: SkPt[] = [], edge: number[] = [], index: number[] = [];
+  sk.edges.forEach((E, e) => E.pts.forEach((p, i) => { pts.push(p); edge.push(e); index.push(i); }));
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of pts) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+  if (!pts.length || !Number.isFinite(x0 + y0 + x1 + y1)) { nearIndexes.set(sk, null); return null; }
+  const W = Math.floor((x1 - x0) / NEAR_CELL) + 1, H = Math.floor((y1 - y0) / NEAR_CELL) + 1;
+  const cellOf = pts.map(p => Math.min(H - 1, Math.floor((p.y - y0) / NEAR_CELL)) * W + Math.min(W - 1, Math.floor((p.x - x0) / NEAR_CELL)));
+  const start = new Int32Array(W * H + 1), at = new Int32Array(pts.length);
+  for (const k of cellOf) start[k + 1]++;
+  for (let k = 0; k < W * H; k++) start[k + 1] += start[k];
+  const fill = start.slice(0, W * H);
+  cellOf.forEach((k, o) => { at[fill[k]++] = o; });
+  const ix: NearIndex = { x0, y0, W, H, start, at, pts, edge: Int32Array.from(edge), index: Int32Array.from(index), of: sk.edges.map(E => E.pts), lens: sk.edges.map(E => E.pts.length) };
+  nearIndexes.set(sk, ix);
+  return ix;
 }
 
 /** How far along edge `e` its point i lies from the branch's end. */

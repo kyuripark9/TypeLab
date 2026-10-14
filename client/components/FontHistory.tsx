@@ -9,7 +9,7 @@ import { sameDesign, type FontVersion } from '../../shared/font-log';
 import type { Params } from '../../shared/params';
 import { loadFreeFont } from '../lib/free';
 import { settingName, someOf, useDrawnRows, useInWindow, when } from '../lib/history';
-import { n1, useDismiss } from '../lib/hooks';
+import { n1, shortcut, useDismiss } from '../lib/hooks';
 import { actions, useEditor, useFont } from '../state/editor';
 
 /** The History button, dimmed until the font has changed, and its menu. */
@@ -42,7 +42,7 @@ function VersionsMenu({ versions, close }: { versions: FontVersion[]; close: () 
   useInWindow(menu);
   const shown = useDrawnRows(rows.length);
   const bring = (v: FontVersion) => {
-    if (actions.restoreVersion(v)) actions.toast(`The font is back as it was at ${when(v.t)} · ⌘Z undoes it`);
+    if (actions.restoreVersion(v)) actions.toast(`The font is back as it was at ${when(v.t)} · ${shortcut('⌘Z')} undoes it`);
     close();
   };
   return (
@@ -70,7 +70,7 @@ const VersionRow = memo(function VersionRow({ v, font, draw, now, off, onPick }:
   }) : null;
   return (
     <button role="menuitem" className={now ? 'history-row wide now' : 'history-row wide'} disabled={off} onClick={onPick}
-      title={off ? 'The font stands so now' : 'Bring the font back to this'}>
+      title={off ? 'The font as it is now' : 'Bring the font back to this'}>
       <svg viewBox={`${n1((x - w) / 2)} ${n1(-top)} ${n1(w)} ${n1(h)}`} aria-hidden="true">{paths}</svg>
       <span className="history-what">{whatOf(v)}</span>
       {now ? <span className="history-now">Now</span> : <span className="history-when">{when(v.t)}</span>}

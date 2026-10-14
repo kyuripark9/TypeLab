@@ -6,7 +6,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { PASSWORD_MIN, USER_NAME_MAX } from '../../shared/account';
 import { api, errorMessage } from '../lib/api';
 import { useDismiss, useEscape } from '../lib/hooks';
-import { ACCOUNT, DESIGNS, NEW_DESIGN, isDesignPath } from '../lib/routes';
+import { ACCOUNT, DESIGNS, NEW_DESIGN, PRIVACY, isDesignPath } from '../lib/routes';
 import { auth, lastEmail, useAuth, type AuthMode } from '../state/auth';
 import { actions, isDirty, useEditor } from '../state/editor';
 import { Dialog } from './Dialog';
@@ -52,11 +52,13 @@ const STEP_TEXT: Record<Step, { title: string | Record<AuthMode, string>; submit
 };
 
 function AuthForm({ mode }: { mode: AuthMode }) {
-  const google = useAuth(s => s.google), waiting = useAuth(s => s.googleWaiting === 'signin'), googleError = useAuth(s => s.googleError);
+  const google = useAuth(s => s.google), reset = useAuth(s => s.reset), waiting = useAuth(s => s.googleWaiting === 'signin'), googleError = useAuth(s => s.googleError);
   const [step, setStep] = useState<Step>('email'), [hasGoogle, setHasGoogle] = useState(false);
   const [email, setEmail] = useState(lastEmail), [name, setName] = useState(''), [password, setPassword] = useState('');
   const [show, setShow] = useState(false), [caps, setCaps] = useState(false), [forgot, setForgot] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  // a reset link asked for, and the email it went to
+  const [sending, setSending] = useState(false), [sentTo, setSentTo] = useState('');
   const passwordRef = useRef<HTMLInputElement>(null);
   useEscape(auth.close);
 
@@ -84,6 +86,13 @@ function AuthForm({ mode }: { mode: AuthMode }) {
       if (step === 'password') passwordRef.current?.select();
     }
     setBusy(false);
+  };
+
+  const sendReset = async () => {
+    setSending(true);
+    setError('');
+    try { await api.requestReset(email); setSentTo(email); } catch (err) { setError(errorMessage(err)); }
+    setSending(false);
   };
 
   const capsKey = (e: KeyEvent<HTMLInputElement>) => setCaps(e.getModifierState('CapsLock'));
@@ -143,13 +152,17 @@ function AuthForm({ mode }: { mode: AuthMode }) {
           </div>
         )}
 
-        {forgot && (
+        {forgot && (reset ? (
+          <p className="auth-note" role={sentTo === email ? 'status' : undefined}>{sentTo === email
+            ? <>A link to set a new password is on its way to <b>{email}</b>. It works for an hour; if it doesn’t come, look in spam.</>
+            : <>TypeLab can email you a link to set a new password. <button type="button" className="field-link" disabled={sending} onClick={sendReset}>{sending ? 'Sending…' : 'Email me a link'}</button></>}</p>
+        ) : (
           <p className="auth-note">{google
             ? 'If this email is a Google account, continue with Google to get back in, then set a new password in Account settings.'
-            : 'TypeLab can’t email a reset link yet. Signed in on another computer, you can change the password in Account settings there.'}</p>
-        )}
+            : 'Password reset isn’t available here. Signed in on another computer, you can change the password in Account settings there.'}</p>
+        ))}
 
-        {step === 'google' && <p className="auth-note">This account signs in with Google{google ? '.' : ', which isn’t available on this server right now.'}</p>}
+        {step === 'google' && <p className="auth-note">This account signs in with Google{google ? '.' : ', which isn’t available right now.'}</p>}
 
         {message && <p className="form-error" role="alert">{message}</p>}
 
@@ -160,10 +173,14 @@ function AuthForm({ mode }: { mode: AuthMode }) {
           </button>
         )}
         {google && (step === 'email' || step === 'google' || (step === 'password' && (hasGoogle || forgot))) && <>{step !== 'google' && or}<GoogleButton /></>}
-        {waiting && <p className="auth-wait" role="status">Finish signing in in the Google window.</p>}
+        {waiting && <p className="auth-wait" role="status">Finish signing in through the Google window.</p>}
 
         {step === 'email' && (
           <p className="auth-switch">{mode === 'signup' ? 'Have an account already? Enter its email to sign in.' : 'New here? Enter your email to make an account.'}</p>
+        )}
+        {step === 'create' && (
+          // (a new tab: the dialog sits over a design that may have changes not saved)
+          <p className="auth-switch">Creating an account, you agree to the <a href={`${PRIVACY}#terms`} target="_blank" rel="noopener">terms</a>; <a href={PRIVACY} target="_blank" rel="noopener">privacy</a> says what TypeLab keeps.</p>
         )}
       </form>
     </div>

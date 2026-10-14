@@ -314,7 +314,7 @@ describe("TypeLab's own fonts", () => {
   /** A fetch that fails: an own font is never fetched. */
   const noFetch = async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); };
 
-  it('write every card of the Style page in one, each kept in fonts/ with every letter and no licence', async () => {
+  it('write every card of the Style page in one, each kept in fonts/ with every letter, under the Open Font License', async () => {
     const fonts = new FreeFonts(null, noFetch), used = new Set<string>();
     // (but a card built from blocks, which no font draws)
     for (const st of PAGE_STYLES.filter(s => s.params.build !== 'blocks')) {
@@ -325,8 +325,9 @@ describe("TypeLab's own fonts", () => {
       assert.equal(data.id, id);
       for (const ch of CHARSET.upper + CHARSET.lower + CHARSET.digits) assert.ok(data.glyphs[ch]?.[1].length, `${r.family} has ${ch}`);
       assert.ok(data.cap > 500 && data.cap < 900 && data.xh > 250 && data.xh < data.cap, `${r.family}'s heights ${data.cap}, ${data.xh}`);
-      assert.equal(data.license, '');
-      assert.ok(!data.licenseText);
+      assert.equal(data.license, 'SIL Open Font License, Version 1.1', `${r.family}'s licence`);
+      assert.equal(data.copyright, 'Copyright 2026 TypeLab.');
+      assert.match(data.licenseText!, /^Copyright 2026 TypeLab\.\n\n.*SIL OPEN FONT LICENSE Version 1\.1/s);
     }
     assert.deepEqual([...used].sort(), Object.keys(OWN_FAMILIES).sort(), 'one card each');
     // (each from its own sheet, but Bulwark, the engine's block letters, which have none)
@@ -592,14 +593,14 @@ describe("TypeLab's own fonts", () => {
     for (const ch of 'HLE') assert.ok(same(joins.glyph(ch)!, sans.glyph(ch)!) && !same(counters.glyph(ch)!, sans.glyph(ch)!), `Mainline's ${ch}: square corners`);
   });
 
-  it('export under any name, with no licence to pass on', async () => {
+  it('export under any name, passing on the notice and licence they come under', async () => {
     const params = { ...STYLES.find(s => s.id === 'grotesque')!.params, freeFont: 'Mainline:600' };
     await new FreeFonts(null, noFetch).ready(params);
     const otf = opentype.parse(buildOTF(params, 'Mainline Bold').buffer as ArrayBuffer);
     const names = (otf.names as unknown as { windows: Record<string, { en: string } | undefined> }).windows;
     assert.equal(names.fontFamily?.en, 'Mainline Bold');
-    // (opentype.js writes a name left out as a space)
-    assert.ok(!names.license?.en.trim(), 'no licence');
+    assert.match(names.copyright?.en ?? '', /^Copyright 2026 TypeLab\. Changed with TypeLab\.$/);
+    assert.match(names.license?.en ?? '', /Open Font License.*\n\nCopyright 2026 TypeLab\..*SIL OPEN FONT LICENSE Version 1\.1/s);
   });
 
   it('are served as letters and as a web font', async () => {
@@ -614,6 +615,8 @@ describe("TypeLab's own fonts", () => {
       assert.equal(file.status, 200);
       const f = opentype.parse(await file.arrayBuffer()), names = (f.names as unknown as { windows: Record<string, { en: string }> }).windows;
       assert.equal(names.fontFamily.en, 'Serenade');
+      assert.equal(names.copyright?.en, 'Copyright 2026 TypeLab.', 'the notice goes with the web font');
+      assert.match(names.license?.en ?? '', /SIL OPEN FONT LICENSE Version 1\.1/, 'and the licence');
       assert.ok(f.charToGlyph('a').path.commands.length > 0, 'its letters are in it');
       assert.equal((await fetch(`${base}/free-fonts/${encodeURIComponent('Parisienne:400')}/font.otf`)).status, 404, 'only own fonts are served as files');
     } finally { server.close(); store.close(); }

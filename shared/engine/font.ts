@@ -89,7 +89,8 @@ export interface Metrics {
 /** The controls that shape a letter, which the letter inspector lists for it. */
 interface GlyphMeta { params?: ControlKey[] }
 type GlyphFn = (g: Builder, m: Metrics) => number;
-interface GlyphDef { sb: [number, number]; fn: GlyphFn; meta: GlyphMeta }
+/** A glyph table entry (defGlyph): its side-bearing factors, the function drawing it, and what the inspector lists. */
+export interface GlyphDef { sb: [number, number]; fn: GlyphFn; meta: GlyphMeta }
 
 /** `id` is the stroke's own (see isStrokeId, and Builder.strokes for where it comes from), for the strokes a
     letter can weight one by one. */

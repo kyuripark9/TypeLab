@@ -38,7 +38,7 @@ without subscribing.
 - The Style page: filters (`groups`, the Category chips; `moods`; `query`), traits (`traits`, `adjustedParams`,
   cached per style and trait set), and `picked`: while the design's params still equal the JSON picked on the Style
   page, trait changes re-apply to it.
-- Saving: `designInput(s)` is what a save sends; EditorPage registers its save flow with `onSaveRequest`, and
+- Saving: `designInput(s)` is what a save sends, and `designFile(s)` the design file Export writes (and the crash page); EditorPage registers its save flow with `onSaveRequest`, and
   `actions.requestSave()` reaches it from anywhere (the panel's last page).
 - UI: `category`, `active`, `hot` (the active control's parts lit in the preview) and `faded` (what was pointed at
   last, a control or a part of the inspected letter, has shown lit for `LIT_MS`, or a value was changed: the
@@ -48,7 +48,7 @@ without subscribing.
   `toast`, `navOpen`, `exportOpen`, `stylePanelOpen` (the phone's sheet).
 
 **`state/auth.ts`**: `useAuth` with `user` (undefined until the server answers, null when signed out), `google`
-(whether the server offers it), the sign-in `dialog`, `googleWaiting`. Google sign-in runs in a popup that reports on
+(whether the server offers it), `reset` (whether it offers password reset: the sign-in dialog's Forgot it? then emails a link), the sign-in `dialog`, `googleWaiting`. Google sign-in runs in a popup that reports on
 the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a popup the result comes back in
 `?google=`, which `auth.start()` takes off the address before the router is created (`main.tsx`). Tabs also post
 `{ type: 'changed' }` on sign-in and sign-out. Treat `undefined` as unknown, never as signed out.
@@ -57,11 +57,13 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 
 | Path | Holds |
 | --- | --- |
-| `main.tsx` | The router: one `EditorPage` serves `/` and `/d/:id` (a pathless layout route, so a first save doesn't remount it), `/designs`, `/account`, Page not found. A data router (`createBrowserRouter`), as the leave guard's `useBlocker` needs. `AuthDialog` and `Intro` sit outside it, so they use no router hooks |
+| `main.tsx` | The router: one `EditorPage` serves `/` and `/d/:id` (a pathless layout route, so a first save doesn't remount it), `/designs`, `/account`, Page not found, and Something went wrong for a page that throws (`Crashed`, the errorElement over them all: Reload, and Save design file while the design has changes not saved, `designFile`). A data router (`createBrowserRouter`), as the leave guard's `useBlocker` needs. `AuthDialog` and `Intro` sit outside it, so they use no router hooks, each in `Quiet`, which draws nothing in place of one that throws |
 | `pages/EditorPage.tsx` | Loading the design in the address, `useSave` (a first save of an Untitled font asks for a name; a 404 on update saves it as new), `useShortcuts`, `useLeaveGuard`, `useDeepLinks` |
 | `pages/LibraryPage.tsx` | My designs: cards or list, search, sort, rename, duplicate, download; a delete waits `ACTION_TOAST_MS` for Undo and is sent on `pagehide` |
 | `pages/AccountPage.tsx` | Name, Google and password, other browsers, closing the account |
-| `components/Header.tsx` | Logo, the design's name, undo and redo, History (`FontHistory.tsx`), Guide, My designs, Save, and Export, a window in the middle of the screen (`exportOpen`): the styles of the design's family to save fill it (one as an `.otf`, several as one `.zip`; the design's own picked each time it opens), and a side beside them holds the font's name and Download, and at its foot three small buttons: All letters (the specimen `.svg`) and Design file (`.typelab.json`), which leave the window open, and Open design file…; errors show beside their buttons, since a toast sits under the window (one column on phones) |
+| `pages/ResetPage.tsx` | A new password from an emailed reset link (`/reset?token=`, the token taken out of the address at once); it signs in and goes on to My designs |
+| `pages/PrivacyPage.tsx` | Privacy and terms (`/privacy`, `#terms`): what TypeLab keeps, the cookies, who else takes part, the fonts' licences; linked at the foot of the nav, My designs and Account, and from the sign-up step. Keep it true to the code (cookies in server/app.ts, `PREFS`). Its contact line gives kyuripark9@gmail.com, or the build's `VITE_CONTACT_EMAIL` |
+| `components/Header.tsx` | Logo, the design's name, undo and redo, History (`FontHistory.tsx`), Guide, My designs, Save, and Export, a window in the middle of the screen (`exportOpen`): the styles of the design's family to save fill it (one as an `.otf`, several as one `.zip`; the design's own picked each time it opens), and a side beside them holds the font's name, Accented letters (a switch, off at first and then as the browser last left it, `PREFS.exportAccents`: the fonts and the specimen take é ñ ü and the rest, the export's `accents`) and Download, and at its foot three small buttons: All letters (the specimen `.svg`) and Design file (`.typelab.json`), which leave the window open, and Open design file…; errors show beside their buttons, since a toast sits under the window (one column on phones) |
 | `components/Chrome.tsx` | `Nav` (pages, Find a setting on ⌘K; both only what the letters take, `pagesFor`, so blocks have no Serifs), `GlyphStrip` (one memo `StripCell` per glyph), `Toast` |
 | `components/Stage.tsx` | The Type something bar; on the Style page the style cards (each in its free font as a web font, or, for a style built from blocks, which has none, in the engine's letters: `BuiltText.tsx`; 48 px in the list, 32 px and two lines in the grid, where a short sample, `TEXTS.card`, stands in for the sentence while nothing is typed), and the foot with Customize; elsewhere the preview and the inspector |
 | `components/Preview.tsx`, `GlyphDefs.tsx` | The live preview, every letter a `<use>` of `#g<code>` defined once in GlyphDefs, with highlights `#h<code>` |
@@ -84,7 +86,7 @@ the BroadcastChannel `'typelab-auth'` (`{ type: 'google', result }`); without a 
 | `lib/reach.ts` | Whether a setting changes the letters in view (`reachOf`); tests/reach.test.ts |
 | `lib/preview.ts` | The sample text, the characters on screen (`useVisibleChars`), ink boxes |
 | `lib/prefs.ts`, `lib/routes.ts` | Below |
-| `lib/hooks.ts` | `n1`, `useSize`, `isTyping` (every keyboard shortcut's text-field check), `useEscape`, `useDismiss`, `DRAWER_QUERY`, `PHONE_QUERY` |
+| `lib/hooks.ts` | `n1`, `useSize`, `isTyping` (every keyboard shortcut's text-field check), `shortcut` (a hint's ⌘ ⌥ ⇧ as Ctrl, Alt, Shift off a Mac: wrap every hint that names a key in it), `useEscape`, `useDismiss`, `DRAWER_QUERY`, `PHONE_QUERY` |
 | `lib/guide-labels.ts` | The guide lines and their labels (`guideLines`, `stackLabels`), shared by the inspector and the pen |
 
 The panel (`components/Panel.tsx`, then `panel/`): `StylePanel.tsx` (the Style page's Filter tab, search then the
@@ -104,7 +106,7 @@ params stop changing). A nested slider shows only where `Control` or `ShapeContr
 keep these: never rename a key or change how its value is written. `tools/browser/cdp.mjs` sets `typelab.guide.seen`
 and `typelab.intro.seen` by name.
 
-`lib/routes.ts` holds the addresses (`NEW_DESIGN`, `DESIGNS`, `ACCOUNT`, `designPath`, `isDesignPath`); every link
+`lib/routes.ts` holds the addresses (`NEW_DESIGN`, `DESIGNS`, `ACCOUNT`, `RESET`, `PRIVACY`, `designPath`, `isDesignPath`); every link
 and redirect builds them there. They never change: bookmarks point at them, the leave guard lets exactly the first
 save's move to `designPath(id)` through, and styles.css hides the header's My designs link on phones by
 `a[href="/designs"]`.
@@ -133,7 +135,7 @@ Code and tools find elements by these; renaming one means updating every reader.
   target exists.
 - Glyph paths are `#g<charCode>`, highlights `#h<charCode>` (only for characters on screen); the preview's glyphs
   carry `data-c` for clicks.
-- Phone CSS hides `.top-actions [aria-label=Undo]`, `[aria-label=Redo]`, `.guide-btn` and `a[href="/designs"]`.
+- Phone CSS hides `.top-actions .guide-btn` and `a[href="/designs"]` (Undo and Redo stay, at 30px).
 - `data-scope` and `data-mode` on the inspector's toggles are styled; `.style-tabs [aria-selected=true]` takes focus,
   and `.sheet-btn` (the phone's Filter) when the sheet closes.
 - `Resizer` finds `:scope > .nav`, `.panel`, `.strip`, `.top` inside `.editor`; its sizes are `--nav-w`, `--panel-w`,

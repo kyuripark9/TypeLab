@@ -21,7 +21,7 @@ export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string; card?:
   { id: 'slab', label: 'Slab Serif', hint: 'Heavy, block-shaped serifs', card: 'woodtype' },
   { id: 'mono', label: 'Monospace', hint: 'Every letter takes the same width', card: 'typewriter' },
   { id: 'hand', label: 'Calligraphy', hint: 'Drawn by hand with a pen or brush', card: 'informal' },
-  { id: 'blocks', label: 'Blocks', hint: 'Solid block letters, plain or with slot counters', card: 'block' },
+  { id: 'blocks', label: 'Blocks', hint: 'Solid block letters: plain, with slot counters, or cells on a grid', card: 'block' },
   { id: 'display', label: 'Display', hint: 'Decorative, made for headlines' }
 ];
 export type Mood = 'business' | 'calm' | 'sincere' | 'happy' | 'excited' | 'playful' | 'cute' | 'childlike' | 'fancy' | 'sophisticated'

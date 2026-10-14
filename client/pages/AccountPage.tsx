@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { PASSWORD_MIN, USER_NAME_MAX } from '../../shared/account';
 import { api, errorMessage } from '../lib/api';
-import { DESIGNS, NEW_DESIGN } from '../lib/routes';
+import { DESIGNS, NEW_DESIGN, PRIVACY } from '../lib/routes';
 import { AccountCorner, GoogleMark } from '../components/Account';
 import { Toast } from '../components/Chrome';
 import { Brand } from '../components/Header';
@@ -43,6 +43,7 @@ export function AccountPage() {
               <Close />
             </>
           )}
+        <footer className="lib-foot"><Link to={PRIVACY}>Privacy &amp; terms</Link></footer>
       </main>
       <Toast />
     </div>
@@ -104,7 +105,8 @@ function SignIn() {
   return (
     <Section title="Signing in" note="The ways you can sign in to this account.">
       <div className="acct-methods">
-        <div className="acct-method">
+        {/* Google only where this server offers it, or where the account is already connected and can let it go */}
+        {(google || user.google !== null) && <div className="acct-method">
           <span className="acct-icon"><GoogleMark /></span>
           <div className="acct-what">
             <b>Google</b>
@@ -114,7 +116,7 @@ function SignIn() {
           {user.google !== null ? (
             <button className="btn outline" disabled={busy || !user.hasPassword} title={user.hasPassword ? undefined : 'Set a password first, so you can still sign in'} onClick={disconnect}>Disconnect</button>
           ) : google && <button className="btn outline" onClick={() => auth.google('link')}>Connect</button>}
-        </div>
+        </div>}
         <div className="acct-method">
           <span className="acct-icon">
             <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect x="3.5" y="8" width="11" height="7.5" rx="1.8" /><path d="M6 8V5.8a3 3 0 0 1 6 0V8" /></svg>

@@ -5,7 +5,7 @@ import { memo, useMemo, useRef, useState } from 'react';
 import { buildFont, type Font, type Glyph } from '../../shared/engine';
 import { ownOf, sameOwn, withOwn, type LetterEdit, type Own } from '../../shared/letter-log';
 import { settingName, someOf, useDrawnRows, useInWindow, when } from '../lib/history';
-import { n1, useDismiss } from '../lib/hooks';
+import { n1, shortcut, useDismiss } from '../lib/hooks';
 import { actions, useEditor, useFont } from '../state/editor';
 
 /** The History button (a clock turning back, to keep the inspector's head on one line), while the letter has a
@@ -42,7 +42,7 @@ function HistoryMenu({ ch, list, close }: { ch: string; list: LetterEdit[]; clos
   useInWindow(menu);
   const shown = useDrawnRows(rows.length);
   const bring = (e: LetterEdit) => {
-    if (actions.restoreLetter(ch, e)) actions.toast(`${ch} is back as it was at ${when(e.t)} · ⌘Z undoes it`);
+    if (actions.restoreLetter(ch, e)) actions.toast(`${ch} is back as it was at ${when(e.t)} · ${shortcut('⌘Z')} undoes it`);
     close();
   };
   return (
@@ -66,7 +66,7 @@ const Row = memo(function Row({ ch, o, font, draw, now, off, what, time, onPick 
   const g = draw ? versionOf(font, ch, o) : null, m = font.m, top = Math.max(m.asc, m.cap) + 80, size = top - m.desc + 80;
   return (
     <button role="menuitem" className={now ? 'history-row now' : 'history-row'} disabled={off} onClick={onPick}
-      title={off ? `${ch} stands so now` : `Bring ${ch} back to this`}>
+      title={off ? `${ch} as it is now` : `Bring ${ch} back to this`}>
       <svg viewBox={`${g ? n1((g.adv - size) / 2) : 0} ${n1(-top)} ${n1(size)} ${n1(size)}`} aria-hidden="true">{g && <path d={g.d} />}</svg>
       <span className="history-what">{what}</span>
       {now ? <span className="history-now">Now</span> : time && <span className="history-when">{time}</span>}

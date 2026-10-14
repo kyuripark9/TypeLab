@@ -62,9 +62,10 @@ file.
 
 | File | Holds |
 | --- | --- |
-| `index.ts` | The public entry: registers the glyphs, re-exports what the client, server and tools use |
+| `index.ts` | The public entry: registers the glyphs, re-exports what the client, server and tools use (`ACCENTED` and `accentGlyph` too, for the server's exports) |
 | `font.ts` | The hub: types (Effective, Metrics, Glyph, Font), the glyph table (`defGlyph`, `glyphDefOf`, `glyphIds()`, `hasGlyph`), `resolve`, `metrics` and the formulas it shares, `Builder`, `variantOf`, `buildFont` |
-| `glyph.ts` | One letter: `buildGlyph`'s stages, `placeGlyph`, `buildBlock`, `drawnGlyph`, `blankParts()` (the empty parts of a letter not built from strokes) |
+| `glyph.ts` | One letter: `buildGlyph`'s stages (`strokesGlyph`, which also draws an export's accent marks from a glyph function never put in the table), `placeGlyph`, `buildBlock`, `drawnGlyph`, `blankParts()` (the empty parts of a letter not built from strokes) |
+| `accents.ts` | An exported font's accented letters, export only (`ACCENTED`, `accentGlyph`; server/export.ts asks for them): each its letter as the font draws it and a mark, the design's own where it has one (its grave turned about for the acute, the i's dot, its comma and apostrophe) and else drawn by its pen (`strokesGlyph`, the hooks below in quarter turns so Facets cut them); sized by the x-height or, flatter, the cap height, weighed by the stems as drawn, over the letter's ink as far as the i's dot stands over its stem, centred along the stems' lean, wound as the letter's ink; ı is the i with its dot taken off |
 | `glyphs/index.ts` | Registers the letter files in order: `upper.ts`, `lower.ts`, `figures.ts`, `punctuation.ts` (punctuation and symbols) |
 | `glyphs/shared.ts` | Constructions the letter files share: bowls, the s, shoulders (`arch`), K's arms, upright and arched diagonals, tails and hooks, cursive `entry`/`exitEnd`, dots (`dotK`), `lc` |
 | `glyphs/turns.ts` | Strokes that turn at a point (`turnStroke`, `placeTurns`): A M N V W Y Z, v w y z ^, the turns of Q and R; `POINTED`, `peakPast`, `peakCut` |
@@ -84,7 +85,7 @@ file.
 | `grid.ts` | Construction grids and their groups, Grid A to T (`glyphGrid`, `gridGroups`, `gridOf`); each round keeps the arcs of curve it was read off (`GridRound.arcs`, as the grid reads the letter, upright); `sameLine` and `sameRound`, which the inspector finds a dragged line or circle in the group's other letters by |
 | `free.ts` | The free-font registry and its packed format |
 | `free-letters.ts` | A design's letters drawn from its free font: `freeLetters`, `freeGlyph`, `restyled`, the twin |
-| `skin.ts`, `scan.ts` | A free font's letter rigged on its scanned skeleton and moved by the engine's measures (`skinMove`), or, a letter drawn in Points, as a drawing of straight edges and rounds (`skinEdges`: edges moved whole, or bent where their stroke narrows; stroke ends, edges on the letter's lines and the far side of a bar on one kept; corners met again; rounds carried with their corner or stretched; every corner, round and handle held short of the outline across from it (`reach`); long curves cut first; null where it still crosses); the scan |
+| `skin.ts`, `scan.ts` | A free font's letter rigged on its scanned skeleton and moved by the engine's measures (`skinMove`), or, a letter drawn in Points, as a drawing of straight edges and rounds (`skinEdges`: edges moved whole, or bent where their stroke narrows; stroke ends, edges on the letter's lines and the far side of a bar on one kept; corners met again; rounds carried with their corner or stretched; every corner, round and handle held short of the outline across from it (`reach`); long curves cut first; null where it still crosses); the scan, which a family's members ask of every letter they restyle, so its hot paths are written for speed and give exactly what the plain ways gave: the distance down each column worked out from the nearest paper above and below, the thinning's neighbours read as one byte off tables (`SIMPLE`, `COUNT`) and its heap in typed arrays, `nearestOn` through square buckets (`nearIndex`; `nearestAll` is the walk past every point it stands for) |
 | `family-drawn.ts` | Letters drawn in Points as the settings move (`drawnLetter`): from the settings a drawing was drawn at (`Drawn.at`, as a design of its own: `atDesign`), or, in a family's other members, from the design (found by the member's params object: `drawnFrom`, `drawnDesign`); rigged from that design (`RigLetters`: its drawn letters and its h p x n H), moved by `skinEdges` as far toward the new measures as their edges don't cross, in eighths, or by `skinMove`, whichever keeps it most as drawn and goes furthest (`keptMove`: how much more its outline turns than the drawing's, the edges' shortfall in eighths or in ink counted too; a letter of bars and corners keeps its edges, one traced off a font's curves is moved as the font's are), spaced and leaned (`movedDrawn`). Settings that reshape a letter (curves, corners, ends, forms, fills) don't reach a drawing |
 | `restyle.ts` | The engine's shapes redrawn on a free font's letter: dots, bowls, ends, serifs, stencil, peaks, corners |
 | `highlight.ts` | `highlightD` and `RING_KEYS` |
@@ -145,7 +146,16 @@ A design with `freeFont` set draws its letters from a free font instead of build
    goes out with its stem's edge and thickens away from its line, and a longer one stops short of the serif it faces.
    Serifs are found on stems ending at a line (`serifReach`): thin ones, gone a little way in, and slabs as tall as a
    fifth of the capitals' height with a square top (a wood type's, a typewriter's). Specks a move pinches off are
-   dropped (`SPECK`). A pixel font (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
+   dropped (`SPECK`). A lighter weight (the stems themselves drawn thinner: `MoveMap.lighter`) does two things more: it
+   reads a straight stroke's side that taking the joins out wore down (a short stem's between two joins, an a's, a p's
+   below its bowl, a heavy H's bar) as thick as it reads (`Bone.wl`, `PLATEAU`), so it thins with the rest, and the
+   curve such a side runs on into (a bracket into its serif, a d's ear) too, till it is as thin as `BRACKET_LEAST` of
+   the side, so it goes in with the side rather than standing out from the thinner stem as a bulb; and where a
+   thin stroke runs into a heavy one's side (a Didone's bowl or arch into its stem, `JOIN_*`; not a serif's bracket
+   nor an ear, whose thin stroke ends a little way out), the thin one's end on every outline goes with that side as it
+   moves in and the stroke stretches to it (`followJoins`), so the join stays whole rather than hanging clear or
+   meeting by a sliver; the ends are carried after (`RingMove.finish`). A heavier weight reads and moves as before. A
+   pixel font (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
 4. `restyle.ts`: `restyled` (in `free-letters.ts`) redraws the engine's shapes on the moved outline in a fixed order,
    Overlap, Dots, Bowls, Ends, Cursive, Serifs, Stencil, Peaks, Corners, each only where its settings differ from
    the pick, each handing back the very same array when nothing it follows moved. Results are cached by the contours and

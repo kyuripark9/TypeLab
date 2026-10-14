@@ -10,6 +10,10 @@ export const NEW_DESIGN = '/';
 export const DESIGNS = '/designs';
 /** The account settings. */
 export const ACCOUNT = '/account';
+/** Setting a new password from an emailed reset link (`?token=`). */
+export const RESET = '/reset';
+/** What TypeLab keeps and the terms it's offered on. */
+export const PRIVACY = '/privacy';
 /** A saved design, open in the editor (`:id` in the router's pattern). */
 export const designPath = (id: string) => `/d/${id}`;
 /** Whether `path` is a saved design's address. */

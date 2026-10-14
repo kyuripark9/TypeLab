@@ -10,8 +10,8 @@
 
 /** A family: its designers, the weights it comes in upright and in italic (up to 900, the heaviest the font
     files the server fetches come in), the licence it comes under (its folder in github.com/google/fonts; null for
-    TypeLab's own, which come under none) and the names its licence reserves, which a changed font may not take (see
-    server/export.ts). */
+    TypeLab's own, which are never fetched: theirs is ownLicense's) and the names its licence reserves, which a changed
+    font may not take (see server/export.ts). */
 export interface FreeFamily {
   designers: string[]; weights: number[]; italics: number[]; license: 'ofl' | 'apache' | null; reserved: string[];
   /** drawn on a grid of pixels, which moving its letters on their skeletons would break: only its own
@@ -23,8 +23,8 @@ export interface FreeFamily {
       a new end is drawn on the stub itself (RestyleCtx.stubs in restyle.ts) */ blocks?: true;
 }
 
-/** TypeLab's own fonts, one for each card of the Style page: drawn for TypeLab, free to use, change and share with
-    no licence to pass on. Each comes in one weight, upright or italic, and is drawn on its specimen sheet
+/** TypeLab's own fonts, one for each card of the Style page: drawn for TypeLab, free to use, change and share under the
+    SIL Open Font License (ownLicense). Each comes in one weight, upright or italic, and is drawn on its specimen sheet
     (Asset/After/<sheet>.ai), which tools/fonts/import.ts makes into fonts/<Family>-<weight>.json; one with no sheet
     (Bulwark, the Block card's) is the engine's block letters, which tools/fonts/blocks.ts writes there in every
     weight it comes in (`weights`; `weight` is its card's), as a Google family comes in several, so Weight draws each
@@ -55,6 +55,17 @@ export const OWN_FAMILIES: Record<string, { weight: number; weights?: number[]; 
   Cathedral: { weight: 400, italic: false, sheet: 21 },
   Bulwark: { weight: 700, weights: [100, 200, 300, 400, 500, 600, 700, 800, 900], italic: false, blocks: true }
 };
+
+/** The licence TypeLab's own fonts come under, by name and address, and the file in fonts/ holding it in full. */
+export const OWN_LICENSE = { name: 'SIL Open Font License, Version 1.1', url: 'https://openfontlicense.org', file: 'OFL.txt' } as const;
+
+/** The copyright notice and licence one of TypeLab's own fonts comes under, so they travel with it (`lines` as a
+    licence file opens, `copyright` as a font's name table has it): TypeLab's, under the SIL Open Font License, which
+    lets anyone use, change and share it, and sell what they make with it, though not the font by itself. */
+export function ownLicense() {
+  const lines = ['Copyright 2026 TypeLab.'];
+  return { lines, copyright: lines.join(' '), license: OWN_LICENSE.name, licenseUrl: OWN_LICENSE.url };
+}
 
 export const FREE_FAMILIES: Record<string, FreeFamily> = {
   "Alegreya": { designers: ["Juan Pablo del Peral", "HT Fonts"], weights: [400, 500, 600, 700, 800, 900], italics: [400, 500, 600, 700, 800, 900], license: 'ofl', reserved: [] },

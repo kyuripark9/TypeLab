@@ -10,7 +10,7 @@ import { useFreeFonts } from '../lib/free';
 import { isTyping, n1, useDismiss } from '../lib/hooks';
 import { PREFS, prefOneOf, writePref } from '../lib/prefs';
 import { overhang } from '../lib/preview';
-import { NEW_DESIGN, designPath } from '../lib/routes';
+import { NEW_DESIGN, PRIVACY, designPath } from '../lib/routes';
 import { auth, useAuth } from '../state/auth';
 import { actions, fontFor, useEditor, type ToastAction } from '../state/editor';
 import { AccountCorner } from '../components/Account';
@@ -222,6 +222,7 @@ export function LibraryPage() {
             {shown.map(d => <DesignCard key={d.id} d={d} list={view === 'list'} recent={d.id === recentId && count > 1} onDownload={() => downloadFont(d)} onDuplicate={() => duplicate(d)} onDelete={() => remove(d)} onRename={n => rename(d, n)} />)}
           </div>
         )}
+        <footer className="lib-foot"><Link to={PRIVACY}>Privacy &amp; terms</Link></footer>
       </main>
       <Toast />
     </div>

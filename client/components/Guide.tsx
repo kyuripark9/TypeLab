@@ -42,7 +42,7 @@ const STEPS: Step[] = [
   { target: 'type', side: 'bottom', category: 'style', label: 'Sample text',
     task: 'Type a word', done: (s, t) => !!s.custom.trim() && s.custom !== t.custom },
   { target: 'panel', side: 'left', category: 'style', styleTab: 'adjust', label: 'Traits',
-    task: 'Pick a trait, like Bold', note: 'Every style takes it on.', done: (s, t) => s.traits !== t.traits },
+    task: 'Pick a trait, like Bold', note: 'The style you start from takes it on.', done: (s, t) => s.traits !== t.traits },
   { target: 'nav', side: 'right', label: 'Pages',
     task: 'Open another page', note: 'Or type in Find a setting to go straight to one.', done: (s, t) => s.category !== t.category },
   { target: 'panel', side: 'left', category: 'weight', label: 'Controls',
@@ -84,10 +84,19 @@ function measure(target: Target): Rect | null {
 }
 const same = (a: Rect | null, b: Rect | null) => a === b || (!!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h);
 
-/** Card position beside the spotlight on the step's side, kept inside the viewport. */
+/** Card position beside the spotlight on the step's side, kept inside the viewport. Where it can't stand there clear of
+    the spotlight (a phone, whose panels run the screen's width), it goes under the spotlight or over it, and failing
+    both, to the screen's foot, leaving the spotlight's start in view. */
 function place(r: Rect | null, side: Side, cw: number, ch: number) {
   let x = (innerWidth - cw) / 2, y = (innerHeight - ch) / 2;
   if (r) {
+    const clear = (s: Side) => s === 'right' ? r.x + r.w + GAP + cw <= innerWidth - EDGE : s === 'left' ? r.x - GAP - cw >= EDGE
+      : s === 'bottom' ? r.y + r.h + GAP + ch <= innerHeight - EDGE : r.y - GAP - ch >= EDGE;
+    if (!clear(side)) {
+      const s = (['bottom', 'top'] as Side[]).find(clear);
+      if (!s) return { left: Math.round(Math.max((innerWidth - cw) / 2, EDGE)), top: Math.round(Math.max(innerHeight - ch - EDGE, EDGE)) };
+      side = s;
+    }
     if (side === 'right') { x = r.x + r.w + GAP; y = r.y + 24; }
     else if (side === 'left') { x = r.x - GAP - cw; y = r.y + 24; }
     else if (side === 'bottom') { x = r.x + r.w - cw; y = r.y + r.h + GAP; }
@@ -145,12 +154,14 @@ export function Guide({ onClose }: { onClose: () => void }) {
     actions.setStylePanelOpen(step.target === 'panel' && step.category === 'style' && matchMedia(PHONE_QUERY).matches);
     s = useEditor.getState();
     setCan(!step.can || step.can(s));
+    // where the editor scrolls as a page (a phone), bring the step's target into view once it has its place
+    const into = requestAnimationFrame(() => document.querySelector(`[data-guide="${step.target}"]`)?.scrollIntoView({ block: 'nearest' }));
     const then = s;
     const unsub = step.done && useEditor.subscribe(now => {
       if (step.done!(now, then)) setDone(d => (d.has(i) ? d : new Set(d).add(i)));
     });
     next.current?.focus();
-    return () => { unsub?.(); };
+    return () => { unsub?.(); cancelAnimationFrame(into); };
   }, [step, i]);
 
   // follow the target as the editor moves around it (panels open, the inspector comes and goes)

@@ -36,12 +36,16 @@ const json = async <T>(method: string, url: string, body?: unknown): Promise<T> 
 export interface SignedIn { user: User; moved: number }
 
 export const api = {
-  /** Who's signed in, and whether the server offers Google sign-in. */
-  me: () => json<{ user: User | null; google: boolean }>('GET', '/api/auth/me'),
+  /** Who's signed in, and whether the server offers Google sign-in and password reset. */
+  me: () => json<{ user: User | null; google: boolean; reset: boolean }>('GET', '/api/auth/me'),
   checkEmail: (email: string) => json<EmailCheck>('POST', '/api/auth/check', { email }),
   signUp: (b: { email: string; password: string; name: string }) => json<SignedIn>('POST', '/api/auth/signup', b),
   signIn: (b: { email: string; password: string }) => json<SignedIn>('POST', '/api/auth/login', b),
   signOut: async () => { await send('POST', '/api/auth/logout'); },
+  /** Email a link that sets a new password (answered alike whether or not the email has an account). */
+  requestReset: async (email: string) => { await send('POST', '/api/auth/reset', { email }); },
+  /** Set the new password with the emailed link's token, which signs this browser in. */
+  confirmReset: (token: string, password: string) => json<SignedIn>('POST', '/api/auth/reset/confirm', { token, password }),
   renameAccount: async (name: string) => (await json<{ user: User }>('PATCH', '/api/auth/me', { name })).user,
   /** Change the password, or set a first one (no current password) on an account made with Google. */
   setPassword: async (next: string, current?: string) => (await json<{ user: User }>('POST', '/api/auth/password', { current, next })).user,
@@ -63,10 +67,11 @@ export const api = {
   deleteDesign: async (id: string) => { await send('DELETE', `/api/designs/${encodeURIComponent(id)}`, undefined, { keepalive: true }); },
   /** A free font's letters, as the engine draws them (see lib/free.ts). */
   freeFont: (id: string) => json<FreeFontData>('GET', `/api/free-fonts/${encodeURIComponent(id)}`),
-  /** Build a font file or specimen on the server; a font file can be one member of the design's family. */
-  exportFile: async (kind: 'otf' | 'svg', body: { name: string; params: Params; member?: MemberRequest }) => (await send('POST', `/api/export/${kind}`, body)).blob(),
-  /** Build every member of a family on the server, as one .zip of fonts. */
-  exportFamily: async (body: { name: string; params: Params; family: FamilyRequest }) => (await send('POST', '/api/export/family', body)).blob()
+  /** Build a font file or specimen on the server; a font file can be one member of the design's family. With `accents`,
+      the accented letters (é ñ ü …) too. */
+  exportFile: async (kind: 'otf' | 'svg', body: { name: string; params: Params; member?: MemberRequest; accents?: boolean }) => (await send('POST', `/api/export/${kind}`, body)).blob(),
+  /** Build every member of a family on the server, as one .zip of fonts, with the accented letters when `accents`. */
+  exportFamily: async (body: { name: string; params: Params; family: FamilyRequest; accents?: boolean }) => (await send('POST', '/api/export/family', body)).blob()
 };
 
 export function download(fileName: string, data: Blob) {

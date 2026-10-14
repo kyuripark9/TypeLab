@@ -6,8 +6,8 @@
    parent; Inspector.tsx (pickPart) and Chrome.tsx (settings search) find a control by `[data-ctl]`, the search passing
    over one inside an `[inert]` fold. The explainer's root keeps the class `explainer`, which Inspector.tsx measures to
    scroll a control in just under it. */
-import { createContext, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
-import { ANATOMY, CATEGORIES, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey } from '../../../shared/content';
+import { createContext, useMemo, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
+import { ANATOMY, CATEGORIES, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type CategoryId } from '../../../shared/content';
 import { isGlyphKey, type Params } from '../../../shared/params';
 import { actions, letterOf, useEditor, useFont } from '../../state/editor';
 import { Diagram } from '../Diagram';
@@ -77,19 +77,35 @@ export function Fold({ k, shut, quiet = false, children }: { k: FoldKey; shut?: 
   );
 }
 
+/** What a part of the letter is, and which setting shapes it: one on another page names that page, which a click on
+    the part opens. */
+function partText(part: string, category: CategoryId) {
+  const shapedBy = PART_CONTROL[part as keyof typeof PART_CONTROL];
+  const elsewhere = shapedBy && CONTROLS[shapedBy].cat !== category ? CATEGORIES.find(x => x.id === CONTROLS[shapedBy].cat) : null;
+  return `${ANATOMY[part as keyof typeof ANATOMY][1]}${shapedBy ? ` Shaped by ${CONTROLS[shapedBy].label}${elsewhere ? ` on the ${elsewhere.label} page` : ''}.` : ''}`;
+}
+
+/** Every explanation a page can show: its controls', their finer sliders', and while a letter is inspected its parts'. */
+function pageTexts(category: CategoryId, inspecting: boolean) {
+  const own = (k: string) => CONTROLS[controlFor(k as ActiveKey)]?.cat === category;
+  return [...new Set([
+    ...Object.values(CONTROLS).filter(c => c.cat === category).map(c => c.explain),
+    ...Object.entries(SUBS).filter(([k, sub]) => own(k) && sub.explain).map(([, sub]) => sub.explain!),
+    ...(inspecting ? Object.keys(ANATOMY).map(p => partText(p, category)) : [])
+  ])].filter(Boolean);
+}
+
 export function Explainer() {
   const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
   const part = useEditor(s => s.inspect ? s.part : null), tips = useEditor(s => s.tips), category = useEditor(s => s.category);
   // a free font's letters have no parts for a diagram to point at, so the diagram drawn with them goes
   const free = useEditor(s => !!s.params.freeFont);
   const c = CONTROLS[controlFor(active)], sub = SUBS[active as keyof typeof SUBS];
-  const shapedBy = part && PART_CONTROL[part];
-  // a setting on another page names that page, which a click on the part opens
-  const elsewhere = shapedBy && CONTROLS[shapedBy].cat !== category ? CATEGORIES.find(x => x.id === CONTROLS[shapedBy].cat) : null;
   // two levels only, a title and its explanation; a part says which setting shapes it in the explanation
-  const [title, text] = part
-    ? [ANATOMY[part][0], `${ANATOMY[part][1]}${shapedBy ? ` Shaped by ${CONTROLS[shapedBy].label}${elsewhere ? ` on the ${elsewhere.label} page` : ''}.` : ''}`]
-    : [(sub ?? c).friendly, sub?.explain ?? c.explain];
+  const [title, text] = part ? [ANATOMY[part][0], partText(part, category)] : [(sub ?? c).friendly, sub?.explain ?? c.explain];
+  // the page's other explanations lie unseen under the one shown, so the box keeps the height of the longest and the
+  // controls under it stay put as the pointer passes from one to the next
+  const ghosts = useMemo(() => pageTexts(category, inspecting), [category, inspecting]);
   // while inspecting, the large letter on the stage already shows the part, so drop the diagram
   return (
     <div className="explainer">
@@ -101,7 +117,12 @@ export function Explainer() {
           <span className="ex-title">{title}</span>
           <svg className="facet-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5" /></svg>
         </button>
-        {tips && <p id="ex-body">{text}</p>}
+        {tips && (
+          <div id="ex-body" className="ex-body">
+            {ghosts.map(t => <p key={t} className="ex-ghost" aria-hidden="true">{t}</p>)}
+            <p>{text}</p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -116,7 +116,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
    or the Export window, a font's name on its card in My designs (as Studio Think names a work), the name prompt's.
    It is set at 450 (--serif-w, on the variable axis), between its Regular and Medium, so its strokes hold up at the
    UI's sizes */
-.cards-head h1, .dialog h2, .guide-card h2, .message-page h1, .lib-head h1, .lib-empty h2, .ex-title,
+.cards-head h1, .dialog h2, .guide-card h2, .message-page h1, .lib-head h1, .lib-empty h2, .legal-part h2, .ex-title,
 .insp-title h2, .acct-label h2, .export-styles h3, .lib-meta h3, .lib-rename, .name-prompt label {
   font-family: var(--serif); font-weight: var(--serif-w); letter-spacing: -.02em; line-height: 1.2; }
 /* Geist Mono in capitals is kept for one thing, the small name over a group (a section's head, the nav's page groups,
@@ -228,7 +228,9 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
 .nav-search { position: relative; display: flex; align-items: center; margin-bottom: 10px; color: var(--ink-3); }
 .nav-search .page-icon { position: absolute; left: 12px; pointer-events: none; }
 .nav-search input { width: 100%; height: 32px; padding: 0 40px 0 33px; font: 500 var(--t-m) var(--ui); letter-spacing: inherit; }
-.nav-search input::-webkit-search-cancel-button { cursor: pointer; }
+.nav-search input::-webkit-search-cancel-button, .lib-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none; appearance: none; width: 14px; height: 14px; cursor: pointer; background: var(--ink-3);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 3l8 8M11 3l-8 8' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; }
 .nav-hits { display: flex; flex-direction: column; gap: 1px; }
 .nav-hit { text-align: left; padding: 7px 10px; border-radius: var(--radius); display: flex; align-items: flex-start; gap: 10px; color: var(--ink-2); }
 .nav-hit .page-icon { margin-top: 1px; }
@@ -450,6 +452,11 @@ body.resizing.y { cursor: row-resize; }
 .ex-head[aria-expanded=false] .facet-chevron { transform: rotate(180deg); }
 .ex-title { max-width: 100%; font-size: var(--t-xl); color: var(--accent-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ex-text p { margin: -6px 0 0; padding: 0 44px 14px 18px; color: var(--ink-2); font-size: var(--t-m); line-height: 1.45; }
+/* the explanation shown over the page's others, laid unseen in the same cell: the box is as tall as the longest, up to
+   four lines (a longer one, rare, still grows it) */
+.ex-body { display: grid; }
+.ex-body > p { grid-area: 1 / 1; }
+.ex-ghost { visibility: hidden; max-height: calc(4lh + 14px); overflow: hidden; }
 
 .ctl-list { padding: 8px 8px 24px; display: grid; gap: 2px; }
 .list-head { padding: 14px 10px 4px; }
@@ -527,7 +534,8 @@ body.resizing.y { cursor: row-resize; }
 
 /* a slider: a rounded 6px bar filled in its scope's colour up to the value, and a white knob lifted off it on a soft
    shadow, with no outline; hovered it takes a halo in the accent, held it grows a little, focused it is ringed */
-input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: none; margin: 0; cursor: pointer; --v: .5; }
+/* (a finger moving down a slider scrolls the page; across, it drags: inputs.tsx's Range) */
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: none; margin: 0; cursor: pointer; touch-action: pan-y; --v: .5; }
 input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: var(--pill); background: linear-gradient(to right, var(--fill, var(--ink)) calc(var(--v) * 100%), var(--track) 0); }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px; border: 0; border-radius: 50%; background: var(--white); box-shadow: var(--knob); transition: box-shadow .15s, transform .15s; }
 input[type=range]:hover::-webkit-slider-thumb { box-shadow: var(--knob), 0 0 0 5px var(--accent-soft); }
@@ -585,7 +593,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 /* ---------- inspector */
 .inspector { position: absolute; inset: 0; background: var(--surface); display: flex; flex-direction: column; z-index: 5; animation: fade .15s ease; }
 @keyframes fade { from { opacity: 0; } }
-.insp-head { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 60px 10px 14px; border-bottom: 1px solid var(--line); }
+/* (gaps kept tight enough that a wide letter's Only W and Reset W leave Construction grid on the first line at 1440px) */
+.insp-head { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 10px 56px 10px 14px; border-bottom: 1px solid var(--line); }
 .insp-head > * { flex: none; }
 .insp-view { display: flex; align-items: center; gap: 14px; min-height: 34px; margin-left: auto; }
 /* Reset and the letter's History hold their places unseen till the letter has something of its own: the head keeps
@@ -722,8 +731,6 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .pen-tools svg { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .pen-tools svg .fill { fill: currentColor; }
 .pen-sep { height: 1px; margin: 3px 4px; background: var(--line); }
-/* phones: the canvas is short, so the tools stand in two columns rather than running down over the bar */
-@media (max-width: 760px) { .pen-tools { display: grid; grid-template-columns: repeat(2, 32px); } .pen-sep { grid-column: 1 / -1; } }
 .pen-shape-tool { position: relative; }
 .pen-tools .corner { stroke: none; opacity: .55; }
 .pen-shape-menu { position: absolute; top: -5px; left: calc(100% + 10px); z-index: 3; width: 196px; display: flex; flex-direction: column; gap: 1px; padding: 4px; }
@@ -741,6 +748,17 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .pen-tools .pen-corner-kinds button { flex: 1; width: auto; height: 26px; display: inline-flex; justify-content: center; gap: 6px; padding: 0 6px; font-size: var(--t-m); color: var(--ink-2); }
 .pen-tools .pen-corner-kinds button.on { background: var(--surface); color: var(--ink); box-shadow: var(--raise); }
 .pen-tools .pen-corner-kinds svg { stroke-width: 1.3; }
+/* a phone: the tools a row over the canvas rather than a column on it, which hid the guides' names and a fifth of the
+   letter; their menus open under the row, as wide as the screen allows */
+@media (max-width: 760px) {
+  .pen-tools { position: relative; top: auto; left: auto; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0; margin: 6px 6px 0; padding: 3px; }
+  .pen-tools button { width: 30px; }
+  .pen-sep { width: 1px; height: 22px; margin: 0 3px; }
+  .pen-shape-tool { position: static; }
+  .pen-shape-menu, .pen-shape-menu.pen-tool-menu { top: calc(100% + 6px); left: 0; right: 0; width: auto; max-width: 320px; margin: 0 auto; }
+  .pen-wrap .pen-carry-dock { max-width: calc(100% - 24px); }
+  .pen-wrap ~ .scope-banner { top: 54px; }
+}
 .pen-range { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 8px; padding: 2px 6px; font-size: var(--t-m); color: var(--ink-2); }
 .pen-range .pen-num-field span { display: none; }
 .pen-range .pen-num-field input { width: 50px; height: 26px; }
@@ -915,7 +933,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 /* ---------- popover & toast */
 .popover { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; width: 300px; padding: 6px; display: grid; gap: 1px; animation: pop .14s ease-out; transform-origin: top right; }
 @keyframes pop { from { opacity: 0; transform: translateY(-4px); } }
-.toast { position: fixed; left: 50%; bottom: calc(var(--strip-h, 76px) + 24px); transform: translate(-50%, 8px); background: var(--ink); color: var(--white); padding: 9px 16px; border-radius: var(--pill); font-size: var(--t-m); font-weight: 600; box-shadow: var(--shadow); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; z-index: 40; display: flex; align-items: center; gap: 14px; }
+.toast { position: fixed; left: 50%; width: max-content; max-width: calc(100vw - 32px); bottom: calc(var(--strip-h, 76px) + 24px); transform: translate(-50%, 8px); background: var(--ink); color: var(--white); padding: 9px 16px; border-radius: var(--pill); font-size: var(--t-m); font-weight: 600; box-shadow: var(--shadow); opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; z-index: 40; display: flex; align-items: center; gap: 14px; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .toast.has-action.show { pointer-events: auto; padding-right: 6px; }
 .toast-action { height: 26px; padding: 0 12px; border-radius: var(--pill); font-size: var(--t-s); font-weight: 600; color: var(--white); background: rgba(255, 255, 255, .14); transition: background .15s; }
@@ -945,6 +963,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .dialog p.export-note { margin: 0; font-size: var(--t-s); line-height: 1.45; color: var(--ink-3); }
 .export-send { display: grid; gap: 8px; }
 .export-send .btn.primary { height: 36px; justify-content: center; }
+/* Accented letters: its name and the shared switch, the whole row taking a press */
+.export-accents { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 0 4px; font-size: var(--t-m); font-weight: 600; color: var(--ink); cursor: pointer; }
 .dialog p.export-error { margin: 0; font-size: var(--t-s); line-height: 1.45; color: var(--danger); }
 .export-more { display: grid; justify-items: start; gap: 2px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); }
 .export-more .btn { margin-left: -10px; color: var(--ink-2); }
@@ -1045,7 +1065,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
   .top { position: sticky; top: 0; z-index: 37; gap: 6px; }
   .editor .top { margin-bottom: calc(-1 * var(--gap)); }
   .strip { margin-top: 0; }
-  .top-left .brand, .top .sep, .top-actions [aria-label=Undo], .top-actions [aria-label=Redo], .top-actions .guide-btn, .top-actions a[href="/designs"] { display: none; }
+  .top-left .brand, .top .sep, .top-actions .guide-btn, .top-actions a[href="/designs"] { display: none; }
+  /* undo and redo stay, as a phone has no keys for them; the name gives up its room first */
+  .top-actions .btn.icon { width: 30px; }
   .nav-designs { display: flex; }
   .nav-designs + .nav-account { margin-top: 0; }
   .top-actions .btn:not(.small) { padding: 0 8px; }
@@ -1069,6 +1091,14 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
   .strip { position: sticky; bottom: 0; z-index: 4; }
   .popover { right: -8px; width: min(300px, calc(100vw - 24px)); }
   .strip-arrow span { display: none; }
+  /* a letter open in the inspector takes the screen's height, under the header, so it can be drawn on at a size; the
+     settings follow under it. Its banner says only the first half of its line */
+  .stage:has(.inspector) { min-height: calc(100dvh - var(--top-h) - 12px); }
+  .banner-more { display: none; }
+  /* the construction grid's bar in rows: its name, its key, then the letters on it across the width */
+  .grid-bar { flex-wrap: wrap; row-gap: 2px; padding-block: 6px; }
+  .grid-bar .grow { display: none; }
+  .grid-bar .grid-chars { order: 1; flex-basis: 100%; }
 }
 
 /* ---------- opening title card: one drawing over the paper. The name keeps one baseline while its fonts cut (a tspan a
@@ -1178,7 +1208,6 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .lib-search { position: relative; display: flex; align-items: center; color: var(--ink-3); }
 .lib-search .page-icon { position: absolute; left: 12px; pointer-events: none; }
 .lib-search input { width: 220px; height: 32px; padding: 0 34px 0 33px; font: 500 var(--t-m) var(--ui); letter-spacing: inherit; }
-.lib-search input::-webkit-search-cancel-button { cursor: pointer; }
 .lib-tools .view-toggle { background: var(--line); }
 .lib-sort button { width: auto; padding: 0 12px; font-size: var(--t-m); font-weight: 600; }
 
@@ -1317,6 +1346,29 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .acct-what span { font-size: var(--t-m); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .acct-password { padding: 4px 0 8px 48px; }
 .acct-password .row .btn { height: 34px; }
+/* a new password from an emailed reset link: the account page's password form, alone on the page */
+.reset-main { max-width: 760px; }
+.reset-form { display: grid; justify-items: start; max-width: 380px; }
+.reset-form .field { width: 100%; margin: 0 0 14px; }
+.reset-form .form-error { margin: 0 0 14px; width: 100%; }
+.reset-form .row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- privacy & terms: one column of reading, its parts under hairlines as the account page's */
+.legal { max-width: 760px; }
+.legal-lead { margin: 0 0 8px; font-size: var(--t-l); color: var(--ink-2); max-width: 62ch; }
+.legal-part { padding: 20px 0 4px; border-top: 1px solid var(--line); margin-top: 16px; scroll-margin-top: calc(var(--top-h) + 16px); }
+.legal-part h2 { margin: 0 0 8px; font-size: var(--t-xl); }
+.legal-part p, .legal-part li { max-width: 62ch; color: var(--ink-2); }
+.legal-part p { margin: 0 0 10px; }
+.legal-part ul { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 6px; }
+.legal-part b { color: var(--ink); font-weight: 600; }
+.legal code { font-family: var(--mono); font-size: var(--t-s); color: var(--ink); }
+.legal a, .lib-foot a, .nav-legal { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.legal a:hover, .lib-foot a:hover, .nav-legal:hover { background: var(--marker); color: var(--ink); }
+.legal-contact { margin: 24px 0 0; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-2); }
+/* the way to it: at the foot of My designs and Account, and of the editor's page menu */
+.lib-foot { margin-top: 40px; font-size: var(--t-s); color: var(--ink-3); }
+.nav-legal { flex: none; align-self: flex-start; margin: 4px 0 0 10px; font-size: var(--t-xs); color: var(--ink-3); }
 @media (max-width: 760px) {
   .library .top-left .brand { display: flex; }
   .lib-main { padding: 16px 16px 88px; }

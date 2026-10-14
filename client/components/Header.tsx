@@ -6,15 +6,16 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { styleById } from '../../shared/content';
 import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
-import { cleanVersions, packVersions, upgradeVersions } from '../../shared/font-log';
-import { cleanLog, packLog, upgradeLog } from '../../shared/letter-log';
-import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../../shared/params';
+import { cleanVersions, upgradeVersions } from '../../shared/font-log';
+import { cleanLog, upgradeLog } from '../../shared/letter-log';
+import { sanitizeParams, upgradeParams } from '../../shared/params';
 import { anchorOf, FAMILY_STYLES, ownStyle } from '../../shared/family';
 import { parseFontId, withoutReserved } from '../../shared/free-fonts';
 import { api, download, errorMessage } from '../lib/api';
-import { useEscape } from '../lib/hooks';
+import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
+import { shortcut, useEscape } from '../lib/hooks';
 import { DESIGNS, NEW_DESIGN, designPath } from '../lib/routes';
-import { actions, isDirty, savedName, useEditor } from '../state/editor';
+import { actions, designFile, isDirty, savedName, useEditor } from '../state/editor';
 import { FamilyPicker, useFamilySamplesAhead } from './Family';
 import { FontHistory } from './FontHistory';
 
@@ -82,10 +83,10 @@ export function Header({ onSave, onGuide, naming, onNamed, onCancelNaming }: Hea
         <BasedOn />
       </div>
       <div className="top-actions" data-guide="actions">
-        <button className="btn ghost icon" onClick={() => actions.travel(-1)} disabled={!canUndo} title="Undo (⌘Z)" aria-label="Undo">
+        <button className="btn ghost icon" onClick={() => actions.travel(-1)} disabled={!canUndo} title={shortcut('Undo (⌘Z)')} aria-label="Undo">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" strokeLinejoin="round" /></svg>
         </button>
-        <button className="btn ghost icon" onClick={() => actions.travel(1)} disabled={!canRedo} title="Redo (⇧⌘Z)" aria-label="Redo">
+        <button className="btn ghost icon" onClick={() => actions.travel(1)} disabled={!canRedo} title={shortcut('Redo (⇧⌘Z)')} aria-label="Redo">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" strokeLinejoin="round" /></svg>
         </button>
         <FontHistory />
@@ -93,8 +94,8 @@ export function Header({ onSave, onGuide, naming, onNamed, onCancelNaming }: Hea
         <button className="btn ghost guide-btn" onClick={onGuide}>Guide</button>
         <Link className="btn ghost" to={DESIGNS}>My designs</Link>
         <div className="save-wrap">
-          <button className="btn outline" onClick={onSave} disabled={saving} title="Save (⌘S)">
-            {saving ? 'Saving…' : 'Save'}<i className={dirty ? 'dirty on' : 'dirty'} aria-label={dirty ? 'Unsaved changes' : undefined} />
+          <button className="btn outline" onClick={onSave} disabled={saving} title={shortcut('Save (⌘S)')}>
+            {saving ? 'Saving…' : 'Save'}<i className={dirty ? 'dirty on' : 'dirty'} aria-hidden="true" />{dirty && <span className="sr-only">, unsaved changes</span>}
           </button>
           {naming && <NamePrompt onDone={onNamed} onCancel={onCancelNaming} />}
         </div>
@@ -168,8 +169,9 @@ const Glyph = ({ d }: { d: keyof typeof ICONS }) =>
   <svg className="export-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d={ICONS[d]} /></svg>;
 
 /** The Export window, in the middle of the screen: the styles of the design's family to save fill it (one as an .otf,
-    several as the family's fonts in one .zip); beside them, the font's name and Download, and at the foot the other
-    files in a few words each: every letter as an .svg, the design file out, and a design file in. */
+    several as the family's fonts in one .zip); beside them, the font's name, Accented letters (a switch, kept per
+    browser: the fonts and the specimen take é ñ ü and the rest too) and Download, and at the foot the other files in a
+    few words each: every letter as an .svg, the design file out, and a design file in. */
 function ExportDialog({ onClose }: { onClose: () => void }) {
   const params = useEditor(s => s.params);
   const [busy, setBusy] = useState<'fonts' | 'svg' | null>(null);
@@ -200,6 +202,9 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   const anchor = anchorOf(params);
   const [picked, setPicked] = useState(() => [ownStyle(params, anchor).style]);
   const styles = FAMILY_STYLES.filter(f => picked.includes(f.style));
+  // the accented letters (é ñ ü …) in the fonts and the specimen too: off at first, then as this browser last left it
+  const [accents, setAccents] = useState(() => prefFlag(PREFS.exportAccents));
+  const toggleAccents = () => { setAccents(!accents); setPrefFlag(PREFS.exportAccents, !accents); };
 
   const saveFonts = async () => {
     takeName();
@@ -208,10 +213,10 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     try {
       if (styles.length === 1) {
         const [f] = styles;
-        download(fontFile(name, styles), await api.exportFile('otf', { name, params: s.params, member: { anchor, weight: f.weight, italic: f.italic } }));
+        download(fontFile(name, styles), await api.exportFile('otf', { name, params: s.params, member: { anchor, weight: f.weight, italic: f.italic }, accents }));
         actions.toast(`${name} ${f.style} exported — open the .otf to install it`);
       } else {
-        download(fontFile(name, styles), await api.exportFamily({ name, params: s.params, family: { anchor, styles: styles.map(f => ({ weight: f.weight, italic: f.italic })) } }));
+        download(fontFile(name, styles), await api.exportFamily({ name, params: s.params, family: { anchor, styles: styles.map(f => ({ weight: f.weight, italic: f.italic })) }, accents }));
         actions.toast(`${styles.length} fonts exported — unzip them and open each to install`);
       }
       onClose();
@@ -226,7 +231,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     const s = useEditor.getState(), name = cleanName(s.name);
     setBusy('svg'); setError(null);
     try {
-      download(`${slug(name)}-specimen.svg`, await api.exportFile('svg', { name, params: s.params }));
+      download(`${slug(name)}-specimen.svg`, await api.exportFile('svg', { name, params: s.params, accents }));
       setDone('svg');
     } catch (e) {
       setError({ at: 'files', text: `Export failed: ${errorMessage(e)}` });
@@ -236,9 +241,8 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
 
   const exportJSON = () => {
     takeName();
-    const s = useEditor.getState(), name = cleanName(s.name);
-    const data = { app: 'TypeLab', version: PARAMS_VERSION, name, styleId: s.styleId, params: s.params, log: packLog(s.log), versions: packVersions(s.versions) };
-    download(`${slug(name)}.typelab.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const { file, blob } = designFile(useEditor.getState());
+    download(file, blob);
     setDone('json'); setError(null);
   };
 
@@ -288,6 +292,11 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
             <ReservedNote name={draft} />
           </div>
           <div className="export-send">
+            <label className="export-accents">
+              <span>Accented letters<span className="export-ext"> é ñ ü …</span></span>
+              <button type="button" className={accents ? 'switch on' : 'switch'} role="switch" aria-checked={accents} disabled={!!busy}
+                title="Add À to ž: Western, Central and Eastern European, Turkish and Baltic letters" onClick={toggleAccents}><i /></button>
+            </label>
             <button ref={go} type="button" className="btn primary" disabled={!!busy || !n} onClick={saveFonts}>
               <Glyph d="down" />
               {busy === 'fonts' ? 'Building…' : !n ? 'Pick a style' : n > 1 ? `Download ${n} fonts` : 'Download font'}

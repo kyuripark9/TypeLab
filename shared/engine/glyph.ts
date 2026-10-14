@@ -13,7 +13,7 @@ import { roughen } from './rough';
 import { drawnCmds, type Drawn } from './outline';
 import { buildSerif, diamondCut, diamondEnd, expandStroke, type Expanded, serifPlace, type SerifPlace } from './stroke';
 import type { Cmd, Mark, Mat, PenCtx, Pt } from './types';
-import { Builder, SLANT_PIVOT, filletPts, type Glyph, glyphDefOf, type GlyphStroke, hasSerif, type Metrics, quarterK, strokeWt } from './font';
+import { Builder, SLANT_PIVOT, filletPts, type Glyph, type GlyphDef, glyphDefOf, type GlyphStroke, hasSerif, type Metrics, quarterK, strokeWt } from './font';
 import { barsThrough, gapOf, isBar, isHorizontal, stencilCut, stencilCuts, stencilOpens, stencilPieces, strokeJoins, turnKeep, turnPieces } from './stencil';
 import { fitEnds, stretchTerminals } from './ends';
 import { boxQuarters, endCorners, markTurns, turnsOf } from './corners';
@@ -222,7 +222,13 @@ function ringOutline(ex: Expanded, m: Metrics, w: number): { cmds: Cmd[]; hole: 
     the character and the form it draws ('a.alt', 'f.cur', 'S.scr'). */
 export function buildGlyph(id: string, m: Metrics, ch = id): Glyph | null {
   const def = glyphDefOf(id);
-  if (!def) return null;
+  return def ? strokesGlyph(def, id.charCodeAt(0), m, ch) : null;
+}
+
+/** A glyph drawn by `def`'s strokes, through every stage a letter of the glyph table goes through (`buildGlyph`), with
+    `code` seeding what is drawn by chance (Hand-drawn, bounce): also an accent mark of an exported font's accented
+    letters, drawn with the design's own pen but never put in the table (accents.ts). */
+export function strokesGlyph(def: GlyphDef, code: number, m: Metrics, ch: string): Glyph {
   const b = new Builder(m);
   const hooks = new Set<string>(), plains = new Set<string>(), homes = new Map<string, Pt>(), W0 = def.fn(b, m);
   if (m.p.bowlForm === 'box') boxQuarters(b, m);
@@ -231,7 +237,6 @@ export function buildGlyph(id: string, m: Metrics, ch = id): Glyph | null {
   const grow = stretchTerminals(b, m, W0, hooks, plains, homes), W = W0 + grow.r;
   const facing = m.ctx.serif ? faceSerifs(b, m) : null;
   const cups = m.ctx.serif?.cup ? cupSerifs(b, m, facing) : null;
-  const code = id.charCodeAt(0);
   const ctx = wobbleSkeleton(b, m, code, homes);
   const out = {
     ch, strokes: [] as GlyphStroke[], serifs: [] as Cmd[][], serifAt: [] as SerifPlace[], counters: [] as Cmd[][], marks: b.marks.slice(),

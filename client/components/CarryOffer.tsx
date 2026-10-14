@@ -230,20 +230,20 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
             <span>{take.length ? <>Apply to <b>{names(take)}</b>?</> : elsewhere ? 'Apply this change elsewhere?' : 'Apply this change to other letters?'}</span>{chevron}
           </button>
           <button className="btn primary small" disabled={!take.length} onClick={apply}
-            title={take.length ? `Change ${take.map(c => c.ch).join(' ')} the same way; they become drawn letters, which the sliders no longer change` : 'Pick the letters to change'}>Apply</button>
+            title={take.length ? `Change ${take.map(c => c.ch).join(' ')} the same way; they become drawn letters, which weight, width and heights still move but the shape settings no longer reach` : 'Pick the letters to change'}>Apply</button>
           <button className="pen-icon-btn" aria-label="Not now" title="Not now" onClick={answered}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" /></svg>
           </button>
         </div>
       ) : (
         <div className="pen-carry-pill" role="status">
-          <button className="pen-carry-sum" aria-expanded={open} onClick={() => setOpen(o => !o)} title={`Look at the letters ${review!.from}'s change went to, and put any back as it was`}>
+          <button className="pen-carry-sum" aria-expanded={open} onClick={() => setOpen(o => !o)} title={`Look at the letters ${review!.from}’s change went to, and put any back as it was`}>
             <span><b>{review!.from}</b>’s change: {has.length ? <b>{names(has)}</b> : 'no letters'}</span>{chevron}
           </button>
         </div>
       )}
       {open && (
-        <div className="pen-carry" role="group" aria-label={offer ? `Apply the change to ${ch} to other letters` : `The letters ${from}'s change went to`} onPointerLeave={() => setPeek(null)}>
+        <div className="pen-carry" role="group" aria-label={offer ? `Apply the change to ${ch} to other letters` : `The letters ${from}’s change went to`} onPointerLeave={() => setPeek(null)}>
           {peek && <CarryPeek c={peek} font={font} />}
           <div className="pen-carry-head">
             <span className="pen-carry-q">{review ? `${from}’s change, in ${has.length} ${has.length === 1 ? 'letter' : 'letters'}` : elsewhere ? 'Apply this change elsewhere too?' : 'Apply this change to other letters too?'}</span>
@@ -265,7 +265,7 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
               <>
                 <button className="btn ghost small" onClick={answered}>Not now</button>
                 <button className="btn primary small" disabled={!take.length} onClick={apply}
-                  title={take.length ? `Change ${take.map(c => c.ch).join(' ')} the same way; they become drawn letters, which the sliders no longer change` : 'Pick the letters to change'}>
+                  title={take.length ? `Change ${take.map(c => c.ch).join(' ')} the same way; they become drawn letters, which weight, width and heights still move but the shape settings no longer reach` : 'Pick the letters to change'}>
                   {take.length ? `Apply to ${take.length}` : 'Apply'}
                 </button>
               </>

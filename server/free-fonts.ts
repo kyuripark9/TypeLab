@@ -8,7 +8,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ALL_CHARS, freeFont, freeFontsWanted, packNode, registerFreeFont, type FreeFontData, type Node, type PackedNode } from '../shared/engine';
-import { FREE_FAMILIES, parseFontId, type FreeFontRef } from '../shared/free-fonts';
+import { FREE_FAMILIES, OWN_LICENSE, ownLicense, parseFontId, type FreeFontRef } from '../shared/free-fonts';
 import type { Params } from '../shared/params';
 import { opentype } from './opentype';
 
@@ -125,6 +125,8 @@ export function webFont(data: FreeFontData): Buffer {
   const ys = Object.values(data.glyphs).flatMap(([, cs]) => cs.flatMap(c => c.map(n => n[1])));
   const font = new opentype.Font({
     familyName: data.family, styleName: 'Regular', unitsPerEm: 1000,
+    // the font's notice and licence travel with it, as its licence asks
+    ...(data.license ? { copyright: data.copyright, license: data.licenseText || data.license, licenseURL: data.licenseUrl } : {}),
     ascender: Math.round(Math.max(data.cap, ...ys)), descender: Math.round(Math.min(-200, ...ys)), glyphs
   } as unknown as ConstructorParameters<typeof opentype.Font>[0]);
   return Buffer.from(font.toArrayBuffer());
@@ -153,8 +155,12 @@ export class FreeFonts {
     return p;
   }
 
+  /** One of TypeLab's own fonts, with the notice and licence it comes under (ownLicense) laid in: its file holds only
+      its letters, and the licence's text is kept once beside them, in fonts/. */
   private async readOwn(id: string): Promise<FreeFontData> {
-    return JSON.parse(readFileSync(ownFontFile(id), 'utf8')) as FreeFontData;
+    const data = JSON.parse(readFileSync(ownFontFile(id), 'utf8')) as FreeFontData, own = ownLicense();
+    const text = readFileSync(join(OWN_FONTS_DIR, OWN_LICENSE.file), 'utf8').trim();
+    return { ...data, copyright: own.copyright, license: own.license, licenseUrl: own.licenseUrl, licenseText: `${own.lines.join('\n')}\n\n${text}` };
   }
 
   /** Font `id` as an OpenType file (see webFont), built once. */
@@ -202,7 +208,12 @@ export class FreeFonts {
     } catch { return ''; }
   }
 
-  /** Register the free fonts `params` are written in with the engine, so it draws them (an export). */
+  /** Every free font `params` are written in, loaded: what an export's worker draws from (export-pool.ts). */
+  wanted(...params: Params[]): Promise<FreeFontData[]> {
+    return Promise.all([...new Set(params.flatMap(freeFontsWanted))].map(id => this.load(id)));
+  }
+
+  /** Register the free fonts `params` are written in with the engine, so it draws them here. */
   async ready(...params: Params[]) {
     for (const id of new Set(params.flatMap(freeFontsWanted))) if (!freeFont(id)) registerFreeFont(await this.load(id));
   }

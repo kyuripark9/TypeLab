@@ -1,6 +1,7 @@
 /* The HTTP API (server/app.ts) on an in-memory store, called through a stand-in browser that keeps its cookies:
    designs, accounts, Google sign-in (against a stand-in Google) and which account it joins (joinGoogle), the
-   development stand-in for Google (googleStandIn) and its account picker, export,
+   development stand-in for Google (googleStandIn) and its account picker, password reset by email (against the mail
+   stand-in, server/mail.ts), export (on a worker, server/export-pool.ts),
    and reading a database saved before designs had owners or letters' records of their edits (server/db.ts) or accounts
    had Google (server/accounts.ts).
    The tests in each describe run in order and build on the designs and accounts the earlier ones made. */
@@ -20,6 +21,8 @@ import { createHash } from 'node:crypto';
 import { AccountStore } from '../server/accounts';
 import { createApp, joinGoogle } from '../server/app';
 import { DesignStore } from '../server/db';
+import { ExportPool } from '../server/export-pool';
+import { mailStandIn } from '../server/mail';
 import { STAND_IN_PATH, googleStandIn, type GoogleAuth, type GoogleProfile } from '../server/google';
 import { opentype } from '../server/opentype';
 
@@ -165,7 +168,7 @@ describe('accounts API', () => {
   it('signs up, bringing along the fonts saved in that browser', async () => {
     const ana = browser();
     await make(ana, 'Before signing up');
-    assert.deepEqual(await (await ana('GET', '/auth/me')).json(), { user: null, google: false });
+    assert.deepEqual(await (await ana('GET', '/auth/me')).json(), { user: null, google: false, reset: false });
     for (const bad of [{ email: 'nope', password }, { email, password: 'short' }, {}]) {
       assert.equal((await ana('POST', '/auth/signup', bad)).status, 400);
     }
@@ -194,7 +197,7 @@ describe('accounts API', () => {
     const names = ((await (await laptop('GET', '/designs')).json()) as Design[]).map(d => d.name).sort();
     assert.deepEqual(names, ['Before signing up', 'Made on the laptop']);
     assert.equal((await laptop('POST', '/auth/logout')).status, 204);
-    assert.deepEqual(await (await laptop('GET', '/auth/me')).json(), { user: null, google: false });
+    assert.deepEqual(await (await laptop('GET', '/auth/me')).json(), { user: null, google: false, reset: false });
     assert.deepEqual(await (await laptop('GET', '/designs')).json(), []);
   });
 
@@ -207,7 +210,7 @@ describe('accounts API', () => {
     assert.equal((await a('POST', '/auth/password', { current: password, next: 'short' })).status, 400);
     assert.equal((await a('POST', '/auth/password', { current: password, next: 'a new password' })).status, 200);
     assert.equal((await (await a('GET', '/auth/me')).json()).user.name, 'Ana P');
-    assert.deepEqual(await (await b('GET', '/auth/me')).json(), { user: null, google: false });
+    assert.deepEqual(await (await b('GET', '/auth/me')).json(), { user: null, google: false, reset: false });
     assert.equal((await b('POST', '/auth/login', { email, password })).status, 401);
     assert.equal((await b('POST', '/auth/login', { email, password: 'a new password' })).status, 200);
     assert.equal((await browser()('PATCH', '/auth/me', { name: 'x' })).status, 401);
@@ -226,7 +229,7 @@ describe('accounts API', () => {
     await a('POST', '/auth/login', { email, password: 'a new password' });
     assert.equal((await a('DELETE', '/auth/me', { password: 'wrong' })).status, 403);
     assert.equal((await a('DELETE', '/auth/me', { password: 'a new password' })).status, 204);
-    assert.deepEqual(await (await a('GET', '/auth/me')).json(), { user: null, google: false });
+    assert.deepEqual(await (await a('GET', '/auth/me')).json(), { user: null, google: false, reset: false });
     assert.equal((await a('POST', '/auth/login', { email, password: 'a new password' })).status, 401);
     assert.equal((store.db.prepare('SELECT COUNT(*) AS n FROM designs WHERE owner LIKE \'user:%\' AND name = ?').get('Before signing up') as { n: number }).n, 0);
   });
@@ -516,6 +519,74 @@ describe('export API', () => {
 
   it('rejects invalid params', async () => {
     assert.equal((await call('POST', '/export/otf', { name: 'x', params: { weight: 1 } })).status, 400);
+  });
+
+  it('builds on a worker, answering other requests meanwhile, and says it is busy past the exports it takes', async () => {
+    // one worker and one export waiting: of three families asked for at once, one builds, one waits, one is turned away
+    const own = new DesignStore(':memory:'), app = createApp(own, { exports: new ExportPool(1, 1) }).listen(0);
+    await new Promise(r => app.once('listening', r));
+    const at = `http://127.0.0.1:${(app.address() as AddressInfo).port}/api`;
+    try {
+      const styles = ['thin', 'regular', 'bold', 'black'].map(weight => ({ weight, italic: false }));
+      const ask = () => fetch(`${at}/export/family`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'x', params: serif.params, family: { anchor: 'regular', styles } }) });
+      const asked = [ask(), ask(), ask()];
+      const t = Date.now(), health = await fetch(`${at}/health`);
+      assert.equal(health.status, 200);
+      assert.ok(Date.now() - t < 500, 'the server answers while fonts build');
+      const statuses = (await Promise.all(asked)).map(r => r.status).sort();
+      assert.deepEqual(statuses, [200, 200, 503]);
+    } finally { app.close(); own.close(); }
+  });
+});
+
+describe('password reset', () => {
+  const mail = mailStandIn();
+  let app: Server, at = '';
+  before(async () => {
+    app = createApp(new DesignStore(':memory:'), { mail }).listen(0);
+    await new Promise(r => app.once('listening', r));
+    at = `http://127.0.0.1:${(app.address() as AddressInfo).port}/api`;
+  });
+  after(() => { app.close(); });
+  const tokenIn = (text: string) => /[?&]token=([\w-]+)/.exec(text)?.[1] ?? '';
+
+  it('emails a link that sets a new password once, signs every other browser out and this one in', async () => {
+    const laptop = browser(() => at), phone = browser(() => at), email = 'reset@example.com';
+    assert.equal((await laptop('POST', '/auth/signup', { email, password: 'forgotten one' })).status, 201);
+    await phone('POST', '/auth/login', { email, password: 'forgotten one' });
+    assert.equal((await (await phone('GET', '/auth/me')).json()).reset, true, 'the server says it offers reset');
+
+    const asker = browser(() => at);
+    assert.equal((await asker('POST', '/auth/reset', { email: 'nope' })).status, 400);
+    assert.equal((await asker('POST', '/auth/reset', { email: ' RESET@example.com ' })).status, 204);
+    assert.equal(mail.sent.length, 1);
+    assert.equal(mail.sent[0].to, email);
+    assert.match(mail.sent[0].text, /\/reset\?token=[\w-]{43}\b/);
+    const token = tokenIn(mail.sent[0].text);
+
+    // a password that won't do leaves the link working
+    assert.equal((await asker('POST', '/auth/reset/confirm', { token, password: 'short' })).status, 400);
+    const res = await asker('POST', '/auth/reset/confirm', { token, password: 'remembered now' });
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).user.email, email);
+    assert.equal((await (await asker('GET', '/auth/me')).json()).user.email, email, 'signed in');
+    assert.equal((await (await phone('GET', '/auth/me')).json()).user, null, 'the other browsers are signed out');
+    assert.equal((await asker('POST', '/auth/reset/confirm', { token, password: 'once more please' })).status, 400, 'the link works once');
+    assert.equal((await browser(() => at)('POST', '/auth/login', { email, password: 'forgotten one' })).status, 401);
+    assert.equal((await browser(() => at)('POST', '/auth/login', { email, password: 'remembered now' })).status, 200);
+  });
+
+  it('answers the same for an email with no account, sends nothing, and limits how often it is asked', async () => {
+    const before = mail.sent.length, b = browser(() => at);
+    assert.equal((await b('POST', '/auth/reset', { email: 'nobody@example.com' })).status, 204);
+    assert.equal(mail.sent.length, before);
+    for (let i = 0; i < 4; i++) await b('POST', '/auth/reset', { email: 'nobody@example.com' });
+    assert.equal((await b('POST', '/auth/reset', { email: 'nobody@example.com' })).status, 429);
+    assert.equal((await b('POST', '/auth/reset/confirm', { token: 'x'.repeat(43), password: 'whatever it is' })).status, 400);
+  });
+
+  it('isn\'t offered by a server without mail', async () => {
+    assert.equal((await call('POST', '/auth/reset', { email: 'ana@example.com' })).status, 503);
   });
 });
 

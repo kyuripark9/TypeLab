@@ -9,12 +9,12 @@ import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type
 import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../shared/engine';
 import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
-import { DEFAULT_NAME, cleanName, type Design, type DesignInput } from '../../shared/design';
+import { DEFAULT_NAME, cleanName, slug, type Design, type DesignInput } from '../../shared/design';
 import { cleanLog, mergeLogs, ownOf, packLog, recordEdits, sameOwn, withOwn, type LetterEdit, type LetterLog } from '../../shared/letter-log';
 import { cleanVersions, keyOf, mergeVersions, packVersions, recordVersion, sameDesign, type FontLog, type FontVersion, type Made, type Snapshot } from '../../shared/font-log';
 import { SNAP_KINDS, type SnapKind } from '../lib/pen';
 import { PREFS, prefFlag, prefJson, prefOneOf, setPrefFlag, writePref } from '../lib/prefs';
-import { DEFAULTS, drawnAtOf, endCurl, endLength, freeAtOf, isGlyphKey, type GlyphParams, type IdKey, type NumericParam, type Params } from '../../shared/params';
+import { DEFAULTS, PARAMS_VERSION, drawnAtOf, endCurl, endLength, freeAtOf, isGlyphKey, type GlyphParams, type IdKey, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
 /** The Style page's panel: filters that narrow the cards, or traits laid over every card. */
@@ -131,7 +131,21 @@ export const savedName = (s: EditorState) => readDoc(s.saved).name;
 /** What a save sends: the design's name (cleaned), its style, its settings, and its letters' record and its History, packed. */
 export const designInput = (s: EditorState): DesignInput => ({ name: cleanName(s.name), styleId: s.styleId, params: s.params, log: packLog(s.log), versions: packVersions(s.versions) });
 
-const blankDoc = (): Doc => ({ designId: null, name: DEFAULT_NAME, styleId: STYLES[0].id, params: { ...STYLES[0].params }, log: {}, versions: [] });
+/** The settings a style's free font stands for as it comes: moved from these, its letters move too. */
+/** Letter and word spacing where the engine adds nothing to a free font's own spacing: the settings' defaults,
+    which `track` and `space` in shared/engine/font.ts take as their zero (written there as 0.2 and 0.35, so a new
+    default has to reach both; Formal nudges letter spacing before `track` reads it). */
+const FREE_SPACING = { letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAULTS.wordSpacing };
+/** A style's settings to start from, written in its free font (unless a design built from the settings asks
+    otherwise). Its free font's letters are spaced as the font spaces them, so letter and word spacing start at FREE_SPACING. Traits laid over the style move the
+    font's letters as they move the settings (Bold makes it heavier). */
+function startParams(st: StyleDef, traits: Traits, free = true): Params {
+  const p = { ...applyTraits(st.params, traits) }, id = STYLE_FONTS[st.id];
+  return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING } : p;
+}
+/** A new design: the first style, in its font, as picking its card starts it (so the card shows picked and Customize
+    shapes the letters the card shows). */
+const blankDoc = (): Doc => ({ designId: null, name: DEFAULT_NAME, styleId: STYLES[0].id, params: startParams(STYLES[0], {}), log: {}, versions: [] });
 
 function freshDocState(doc: Doc): Pick<EditorState, keyof Doc | 'picked' | 'saved' | 'history' | 'hi' | 'inspect' | 'switchedOn' | 'part' | 'hotEnd'> {
   return {
@@ -221,6 +235,18 @@ function step(how: { quiet?: boolean; made?: Made; back?: number } = {}) {
 const toggle = <T,>(list: T[], x: T) => list.includes(x) ? list.filter(y => y !== x) : [...list, x];
 
 export const isDirty = (s: EditorState) => docSnap(s) !== s.saved;
+/** Whether leaving would lose work: changes not saved, beyond a new design that is just a style as it was picked
+    (nothing shaped, renamed or drawn since), which the Style page gives back in a click. */
+export const hasWork = (s: EditorState) =>
+  isDirty(s) && !(s.designId === null && s.name === savedName(s) && !Object.keys(s.log).length && s.picked === JSON.stringify(s.params));
+
+/** The open design as a design file (`.typelab.json`, which Open design file… reads back): its name, style and
+    settings, with the letters' records and the font's History. */
+export function designFile(s: EditorState): { file: string; blob: Blob } {
+  const name = cleanName(s.name);
+  const data = { app: 'TypeLab', version: PARAMS_VERSION, name, styleId: s.styleId, params: s.params, log: packLog(s.log), versions: packVersions(s.versions) };
+  return { file: `${slug(name)}.typelab.json`, blob: new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }) };
+}
 
 /** The key whose affected parts are highlighted, or null. Serif sub-sliders highlight serifs. */
 export const hlKeyOf = (s: EditorState): ControlKey | null =>
@@ -292,18 +318,6 @@ export function fontFor(p: Params): Font {
 // the open design draws again when the free font it's written in arrives (its settings unchanged)
 onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont) useEditor.setState({ params: { ...s.params } }); });
 
-/** The settings a style's free font stands for as it comes: moved from these, its letters move too. */
-/** Letter and word spacing where the engine adds nothing to a free font's own spacing: the settings' defaults,
-    which `track` and `space` in shared/engine/font.ts take as their zero (written there as 0.2 and 0.35, so a new
-    default has to reach both; Formal nudges letter spacing before `track` reads it). */
-const FREE_SPACING = { letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAULTS.wordSpacing };
-/** A style's settings to start from, written in its free font (unless a design built from the settings asks
-    otherwise). Its free font's letters are spaced as the font spaces them, so letter and word spacing start at FREE_SPACING. Traits laid over the style move the
-    font's letters as they move the settings (Bold makes it heavier). */
-function startParams(st: StyleDef, traits: Traits, free = true): Params {
-  const p = { ...applyTraits(st.params, traits) }, id = STYLE_FONTS[st.id];
-  return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING } : p;
-}
 export const useFont = () => fontFor(useEditor(s => s.params));
 /** The font the controls act on: the inspected letter's own while edits go to that letter. */
 export function useScopedFont() {
@@ -499,7 +513,7 @@ export const actions = {
     delete outlines[ch];
     set({ params: { ...s.params, glyphs, outlines } });
     actions.commit();
-    actions.toast(drawn ? `${ch} is the font's again · its History keeps your edits` : `${ch} is synced with the other letters again`);
+    actions.toast(drawn ? `${ch} is the font’s again · its History keeps your edits` : `${ch} is synced with the other letters again`);
   },
   /** Bring letter `ch` back to how it stood after edit `e` of its record: its own settings and drawing as they were
       then, in one undo step, recorded as brought back. Returns false where it already stands so. */

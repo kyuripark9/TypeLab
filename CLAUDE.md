@@ -55,7 +55,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 - A refactor changes no outlines. Floating-point order is behaviour: summing in another order, or swapping a local
   copy for a shared helper, can move points (shared/engine/CLAUDE.md).
 - What users have saved never changes shape: setting keys, option values, style ids, free-font ids (own fonts' names included), the stroke, end,
-  corner, join and turn ids, the fields of the Histories (a letter's record, the font's versions), `localStorage` keys, and the addresses `/`, `/d/:id`, `/designs`, `/account`. When saved
+  corner, join and turn ids, the fields of the Histories (a letter's record, the font's versions), `localStorage` keys, and the addresses `/`, `/d/:id`, `/designs`, `/account`, `/reset` (emailed links), `/privacy`. When saved
   settings must be read differently, bump `PARAMS_VERSION` and add the step to `upgradeParams`
   (`shared/params/clean.ts`). Compatibility code (old columns, old option names, older contrast) stays.
 - A glyph function keeps its strokes in their order and adds a new one after them: saved designs key a letter's own
@@ -100,7 +100,8 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 | The "changes nothing here" note | `client/lib/reach.ts`, `client/components/panel/reach.tsx` | client/CLAUDE.md |
 | What a browser remembers | `client/lib/prefs.ts` (every `localStorage` key) | client/CLAUDE.md |
 | API calls from the browser | `client/lib/api.ts` (routes in `server/app.ts`) | server/CLAUDE.md |
-| API routes, accounts, sessions, Google sign-in | `server/app.ts`, `server/accounts.ts`, `server/google.ts` | server/CLAUDE.md |
+| API routes, accounts, sessions, Google sign-in, password reset by email | `server/app.ts`, `server/accounts.ts`, `server/google.ts`, `server/mail.ts` | server/CLAUDE.md |
+| Privacy and terms, the reset page | `client/pages/PrivacyPage.tsx`, `client/pages/ResetPage.tsx` | client/CLAUDE.md |
 | Storage and its upgrades | `server/db.ts` | server/CLAUDE.md |
 | Fetching and caching free fonts | `server/free-fonts.ts` | server/CLAUDE.md |
 | Font files, the family .zip, the specimen | `server/export.ts` | server/CLAUDE.md |

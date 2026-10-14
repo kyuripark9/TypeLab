@@ -103,6 +103,9 @@ interface Bone {
   /** the way the stroke runs at the skeleton point */ dx: number; dy: number;
   /** half the thickness of the stroke this edge belongs to, and as read across from it, joins and all (see
       thicknessWithoutJoins) */ w: number; w0: number;
+  /** half its stroke's thickness as a lighter weight thins it: `w`, but a stroke's side read about as thick all along
+      for most of its own thickness (a short stem's between two joins, an a's, a p's below its bowl, a heavy H's bar)
+      as thick as it reads, where taking the joins out wore it down */ wl: number;
   /** how far past its stem's edge a serif's point reaches (0 off a serif); and on a serif, how thick its stem is and
       how far the paper reaches out from the stem's edge on that side (Infinity outside the letter), and how far the serif
       reaches past the stem along this point's row */ serifDx: number; serifStem: number; serifRoom: number; serifReach: number;
@@ -165,6 +168,17 @@ const LONG_CURVE = 0.08;
 const BEND_TRIES = 24;
 /** how many of the latest ways a rig was moved it keeps (SkinRig.moves) */
 const MOVES_KEPT = 6;
+/** A join of a thin stroke into a heavy one (followJoins): the heavy one at least this share of the
+    font's stem, the thin one at most this share of the heavy one, and the thin one stretched to follow the heavy one's
+    side over this many times as far as that side moved; a thin stroke ending within this many of the font's stem's half
+    thicknesses of the join (a serif, an ear) is none. */
+const JOIN_HEAVY = 0.6, JOIN_THIN = 0.35, JOIN_REACH = 3, JOIN_SHORT = 3.2;
+/** How far either way, in half its thickness, a stretch of a stroke's side reads about as thick all along to be a side
+    and not a join's bump (Bone.wl, thicknessWithoutJoins). */
+const PLATEAU = 0.75;
+/** How thin, as a share of such a side's thickness, the curve it runs on into gets before it is the serif's or the
+    hairline's own and no longer goes in with the side (thicknessWithoutJoins). */
+const BRACKET_LEAST = 0.25;
 /** an anchor whose way in and way out part by more than 30° is a corner */
 const CORNER = Math.cos(30 * Math.PI / 180);
 
@@ -334,7 +348,7 @@ function readSample(p: Sample, f: Grid, ctx: Ctx, lines: number[], serifLines: n
   const onLine = p.straight && Math.abs(ny) > 0.97 && lines.some(L => Math.abs(p.y - L) < 2.5);
   // (out from the edge, the paper's width to the next ink: a counter's, or the room between two strokes)
   const gap = march(f, p.x, p.y, -nx, -ny, ctx.cap);
-  return { ...p, nx, ny, ax, ay, best, dx, dy, w: chord / 2, w0: chord / 2, serifDx: sr.dx, serifStem: sr.stem, serifRoom: sr.room, serifReach: sr.reach, gap, onLine, cap: false, lineCap: false, dot: false };
+  return { ...p, nx, ny, ax, ay, best, dx, dy, w: chord / 2, w0: chord / 2, wl: chord / 2, serifDx: sr.dx, serifStem: sr.stem, serifRoom: sr.room, serifReach: sr.reach, gap, onLine, cap: false, lineCap: false, dot: false };
 }
 
 /** Where strokes join (a bowl and its stem, a bar and an arm) an edge reads thicker than either for a
@@ -344,7 +358,33 @@ function thicknessWithoutJoins(bones: Bone[], typical: number) {
   // one of them is about that long: a fat face's hairline meets its stems over their whole width)
   const heavy = bones.map(b => b.w).sort((a, b) => a - b)[Math.floor(bones.length * 0.75)];
   const w = opening(bones.map(b => b.w), Math.min(30, Math.max(2, Math.round(Math.max(typical, heavy) * 2 / STEP))));
-  bones.forEach((b, i) => { b.w = w[i]; });
+  bones.forEach((b, i) => { b.w = w[i]; b.wl = w[i]; });
+  // (that stretch can be longer than a short stroke's side between two joins, and wears it down to the thin strokes'
+  // either side: a straight side the stroke runs along, at least PLATEAU as long as it is thick, reading about as thick
+  // all along and worn down to under 0.8 of that, is no join, and a lighter weight reads it as thick as it reads at the
+  // least; a heavier one reads it as before)
+  const segs = new Map<number, number[]>(), n = bones.length;
+  bones.forEach((b, i) => { if (b.straight && !b.corner) { if (!segs.has(b.seg)) segs.set(b.seg, []); segs.get(b.seg)!.push(i); } });
+  for (const is of segs.values()) {
+    const sb = is.map(i => bones[i]);
+    const least = Math.min(...sb.map(b => b.w0)), most = Math.max(...sb.map(b => b.w0)), worn = sb.reduce((s, b) => s + b.w, 0) / sb.length;
+    const len = Math.hypot(sb[sb.length - 1].x - sb[0].x, sb[sb.length - 1].y - sb[0].y) + STEP;
+    if (most > 1.3 * least || worn >= 0.8 * least || len < 2 * PLATEAU * least) continue;
+    if (sb.some(b => b.cap || b.onLine || b.serifDx || Math.abs(b.tx * b.dx + b.ty * b.dy) < 0.7)) continue;
+    for (const b of sb) b.wl = Math.max(b.w, least);
+    // (and the curve the side runs on into as it flares or narrows away from it, a bracket into its serif, as thick as
+    // it reads there, worn down as much, till it is no thicker than a hairline: so it goes in with the side, less and
+    // less, and keeps its shape rather than standing out from a thinner stem as a bulb)
+    for (const [from, dir] of [[is[0], -1], [is[is.length - 1], 1]]) {
+      let was = bones[from].w0;
+      for (let k = 1; k < n; k++) {
+        const q = bones[(from + dir * k + n) % n];
+        if (q.corner || q.cap || q.onLine || q.dot || q.w0 > was + 1 || q.w0 < BRACKET_LEAST * least || q.w >= 0.8 * q.w0) break;
+        q.wl = Math.max(q.wl, q.w0);
+        was = q.w0;
+      }
+    }
+  }
 }
 
 /** A stroke's end: a straight edge between two corners, about as long as the stroke is thick, that the
@@ -1029,6 +1069,7 @@ function edgesMoved(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] 
 interface MoveMap {
   gy: (y: number) => number; gyDot: (y: number) => number; gx: (x: number) => number;
   top: number; top1: number; sx: number; kv: number; kh: number; ks: number; kd: number;
+  /** a lighter weight: the stems themselves drawn thinner (Weight or Verticals), not only their pen turned or pinched */ lighter: boolean;
   /** how much each edge's stroke thickens (thins, under 1) by Weight and Contrast, before Pinch and Joints */ weighs: (b: Bone) => number;
   keeps: (b: Bone, r: number, i: number) => number;
 }
@@ -1037,7 +1078,9 @@ interface MoveMap {
     letter put back to its heights and its flat edges onto their lines, and its outline tidied and traced. */
 function moveRig(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
   const mv = moveMap(rig, m0, m1);
-  const rings = rig.bones.map((bs, r) => moveRing(rig, bs, r, mv));
+  const moving = rig.bones.map((bs, r) => moveRing(rig, bs, r, mv));
+  followJoins(rig, moving);
+  const rings = moving.map(m => m.finish());
   keepHeights(rig, rings, mv.gy);
   snapFlatEdges(rig, rings, mv.gy);
   return tidyRings(rings, rig.ctx.cap);
@@ -1072,7 +1115,7 @@ function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
   const pinchY = m1.pinchPos < 0.5 ? xh1 * m1.pinchPos : xh1 / 2 + (c.cap - xh1 / 2) * (m1.pinchPos * 2 - 1);
   const keeps = (b: Bone, r: number, i: number) => (pinch ? Math.max(0.012, 1 - pinch * (1 - Math.min(1, Math.abs(gy(b.ay) - pinchY) / (xh1 / 2)))) : 1)
     * (near ? 1 - 0.55 * joints * near[r][i] : 1);
-  return { gy, gyDot, gx, top, top1, sx, kv, kh, ks, kd, weighs: weighsOf(rig, kv, kh), keeps };
+  return { gy, gyDot, gx, top, top1, sx, kv, kh, ks, kd, lighter: m1.s < m0.s * 0.999 && kv < 1, weighs: weighsOf(rig, kv, kh), keeps };
 }
 
 /** How much an edge's stroke thickens (thins, under 1): an upright stroke by the engine's upright weight (kv), a level
@@ -1187,6 +1230,59 @@ function bentLine(t: number[], v: number[], tol: number, len: number): { at: (u:
 /** A stroke's end, cut across it (not a stem's foot on a line): it stays where it is as the sides either side move. */
 const crossEnd = (b: Bone) => b.cap && !b.lineCap;
 
+/** One contour of the rig moved but for its ends (moveRing): each point where it goes (`out`) and where it would go with
+    its stroke as thick as it was (`base`), the joins of a thin stroke into a heavy one on it, and `finish`, which
+    carries its ends with their sides once every contour's sides have gone where they go. */
+interface RingMove { out: P[]; base: P[]; joins: Join[]; finish: () => P[] }
+/** Where a thin stroke runs into a heavy one whose side moves in (see followJoins): the heavy side's sample there
+    (where it was), its inward normal and half thickness, how far it moves, and how far out the thin one follows it. */
+interface Join { x: number; y: number; nx: number; ny: number; D: P; w: number; reach: number }
+
+/** Whether a sample is on a stroke at most JOIN_THIN as thick as a heavy one `w` half thick: read across it with its
+    joins taken out and as it is (the side of a short stem between two joins, a p's below its bowl, reads as thin as
+    the joins round it once they are taken out, but not as it is). */
+const thinBeside = (b: Bone, w: number) => Math.max(b.w, b.w0) <= JOIN_THIN * w;
+
+/** Point j of a moved contour carried `f` of the way a join's heavy side moves (D) further than it goes already: a
+    corner at the join (a crotch) as far as the side, its own move left out, as its two edges no longer meet where it put
+    them, and one further off less so. */
+function followTo(out: P[], base: P[], j: number, corner: boolean, D: P, f: number) {
+  if (corner) { out[j] = { x: out[j].x + (base[j].x + D.x * f - out[j].x) * f, y: out[j].y + (base[j].y + D.y * f - out[j].y) * f }; return; }
+  const d2 = D.x * D.x + D.y * D.y, own = ((out[j].x - base[j].x) * D.x + (out[j].y - base[j].y) * D.y) / d2, k = f * Math.max(0, 1 - Math.max(0, own));
+  out[j] = { x: out[j].x + D.x * k, y: out[j].y + D.y * k };
+}
+
+/** Where a thin stroke runs into a heavy one (a Didone's bowl or arch into its stem, a hairline serif's bracket), and the
+    heavy one's side moves in as it thins (a lighter weight), the thin one's end goes with that side, and the stroke
+    stretches to it over JOIN_REACH times as far as the side moved: left where it was, the end hung clear of the stem or
+    met it by a sliver. Both sides of the thin stroke follow, whichever outline each is on (a b's bowl meets its stem
+    round a corner outside and curves into it inside, and at its foot meets the stem's own end outside): each sample of a
+    thin stroke near a join (the joins found along every outline, by moveRing) on the paper's side of the heavy one goes
+    as far as the joins near it move, less the further it lies from them, its ends and their corners too (the ends are
+    carried with their sides after). A heavier weight, whose stem's sides move out over the thin one's end, leaves it. */
+function followJoins(rig: SkinRig, moving: RingMove[]) {
+  const joins = moving.flatMap(m => m.joins);
+  if (!joins.length) return;
+  rig.bones.forEach((bs, r) => {
+    const { out, base } = moving[r];
+    bs.forEach((b, i) => {
+      if (b.dot) return;
+      let fx = 0, fy = 0, fs = 0;
+      for (const J of joins) {
+        // (and a corner right by the join, on the heavy side's edge: the crotch on the other outline, where the thin
+        // stroke's other side meets the stem round a corner)
+        const ox = b.x - J.x, oy = b.y - J.y, d = Math.hypot(ox, oy), crotch = b.corner && d < J.w;
+        if (d >= J.reach || !(crotch || thinBeside(b, J.w)) || ox * J.nx + oy * J.ny > (crotch ? 0.25 * J.w : 1)) continue;
+        const u = d / J.reach, f = 1 - u * u * (3 - 2 * u);
+        fx += J.D.x * f; fy += J.D.y * f; fs += f;
+      }
+      if (!fs) return;
+      // (as far as the joins near it move, together no further than one of them)
+      followTo(out, base, i, b.corner, { x: fx / fs, y: fy / fs }, fs / Math.max(1, fs));
+    });
+  });
+}
+
 /** How far each sample of one contour of the rig (contour r, its samples bs) moves out (in, lighter, negative) as its
     stroke thickens or thins (`moved`), how much its stroke thickens (k0, before easing), and the room a dot has to
     grow. */
@@ -1203,10 +1299,12 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap) {
   // edge's own normal, so a bracket's edge goes as the stem's beside it does. (A lighter one's thins round its stem as
   // its stem does.)
   const serifOut = (b: Bone) => Math.sign(b.serifDx) * Math.min((mv.kv - 1) * b.serifStem / 2, b.serifRoom * OPEN);
+  // (a lighter weight reads a short stroke's side as thick as it is, Bone.wl)
+  const side = mv.lighter ? bs.map(b => (b.wl > b.w ? { ...b, w: b.wl } : b)) : bs;
   // (how much each edge's stroke thickens, eased along the outline a stroke's width or so, as where a curve turns from
   // upright to level the edge's own heading wavers, more so where it runs into a join)
-  const k0 = bs.map((b, i) => weighs(b) * keeps(b, r, i)), ks1 = bs.map((b, i) => b.corner || end(b) ? k0[i] : ease(k0, bs, i, j => !bs[j].corner && !end(bs[j]), 6));
-  const delta = bs.map((b, i) => {
+  const k0 = side.map((b, i) => weighs(b) * keeps(b, r, i)), ks1 = bs.map((b, i) => b.corner || end(b) ? k0[i] : ease(k0, bs, i, j => !bs[j].corner && !end(bs[j]), 6));
+  const delta = side.map((b, i) => {
     if (end(b)) return 0;
     const k = ks1[i];
     const d = b.serifDx && mv.kv > 1 ? -b.nx * serifOut(b) + (b.onLine ? 0 : (k - 1) * b.w * b.ny * b.ny) : (k - 1) * b.w;
@@ -1219,7 +1317,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap) {
 /** One contour of the rig moved (contour r, its samples bs): each edge out or in by its stroke's change of thickness,
     carried where the heights and the width put it, each corner where its two edges meet again, and each stroke's end
     with the sides it joins. */
-function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
+function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): RingMove {
   const { gy, gyDot, gx, top, top1, sx, kd, ks } = mv;
   const n = bs.length, { dotRoom, k0, moved } = edgeMoves(bs, r, mv);
   // where the heights and the width put it: the skeleton point moved, and the edge kept as far across the
@@ -1259,11 +1357,14 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   const ends = rig.ends[r], inEnd = new Uint8Array(n), md = (i: number) => ((i % n) + n) % n;
   for (const { a, b } of ends) for (let i = a + 1; i < b; i++) inEnd[md(i)] = 1;
   const shift = (axis: number, i: number) => bs[i].corner ? geo[axis][i] : ease(geo[axis], bs, i, j => !bs[j].corner && !inEnd[j]);
+  // (where each point would be with its stroke as thick as it was)
+  const base: P[] = [];
   const out = bs.map((b, i) => {
     // (a longer serif reaches no further than two fifths of the room beside its tip, so two reaching toward each other
     // across a counter's foot keep apart)
     const kS = ks > 1 && b.serifDx ? 1 + Math.min(ks - 1, 0.4 * b.serifRoom / Math.max(1, b.serifReach * sx)) : ks;
     const x = b.x + shift(0, i) + b.serifDx * (kS - 1) * sx, y = b.y + shift(1, i);
+    base[i] = { x, y };
     if (!b.corner) return { x: x - b.nx * moved[i], y: y - b.ny * moved[i] };
     // a corner sits where its two edges, each moved its own way, meet again (not much further out than they moved)
     const away = (tx: number, ty: number) => { const o = { x: ty, y: -tx }; return o.x * b.nx + o.y * b.ny > 0 ? { x: -o.x, y: -o.y } : o; };
@@ -1275,28 +1376,83 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     if (l > lim) { mx *= lim / l; my *= lim / l; }
     return { x: x + mx, y: y + my };
   });
+  // (a lighter weight's: Pinch and Joints thin strokes where they are, not as a weight does)
+  const joins = mv.lighter ? joinsHere() : [];
   // (how far this outline's heavy strokes thicken or thin as asked, each side by its own reading of its stroke: a
   // heavy face's sides, read with their joins taken out, often read thinner than they are and move less)
-  const heavy = ends.some(e => e.ball) ? heavyShare() : 1;
-  // a stroke's end goes with the two sides it joins, as they now stand: turned, moved and made as much larger or
-  // smaller as the stroke is now thicker or thinner across them, so a cap stays as wide as its stroke and a round
-  // end round (the end's own points, read off the skeleton where it forks out to its corners, would part). A ball,
-  // thicker than the neck it hangs from, goes as far as it is one with the point it hangs from (`pin` of the way from
-  // one side to the other) and is made as much smaller or larger round it as a stroke as thick as it (ballK), so it
-  // stays round and the curve it runs on with keeps its way into it; not turned, as two sides close together, much
-  // nearer than the ball is wide, give no sure turn
-  for (const { a, b, ball, pin } of ends) {
-    const A = bs[md(a)], B = bs[md(b)], A1 = out[md(a)], B1 = out[md(b)];
-    const ux = B.x - A.x, uy = B.y - A.y, vx = B1.x - A1.x, vy = B1.y - A1.y, l2 = ux * ux + uy * uy;
-    if (l2 < 1e-6 || vx * vx + vy * vy < 1e-6) continue;
-    const hx = A.x + ux * pin, hy = A.y + uy * pin, hx1 = A1.x + vx * pin, hy1 = A1.y + vy * pin, k = ball ? ballK(a, b, hx, hy) : 1;
-    for (let i = a + 1; i < b; i++) {
-      const p = bs[md(i)], dx = p.x - A.x, dy = p.y - A.y, s = (dx * ux + dy * uy) / l2, t = (dy * ux - dx * uy) / l2;
-      const qx = A1.x + s * vx - t * vy, qy = A1.y + s * vy + t * vx;
-      out[md(i)] = ball ? { x: qx + (hx1 + (p.x - hx) * k - qx) * ball, y: qy + (hy1 + (p.y - hy) * k - qy) * ball } : { x: qx, y: qy };
+  let heavy = 1;
+  return { out, base, joins, finish };
+
+  /** The ends carried, once every outline of the letter has its sides where they go (followJoins). */
+  function finish() {
+    heavy = ends.some(e => e.ball) ? heavyShare() : 1;
+    // a stroke's end goes with the two sides it joins, as they now stand: turned, moved and made as much larger or
+    // smaller as the stroke is now thicker or thinner across them, so a cap stays as wide as its stroke and a round
+    // end round (the end's own points, read off the skeleton where it forks out to its corners, would part). A ball,
+    // thicker than the neck it hangs from, goes as far as it is one with the point it hangs from (`pin` of the way from
+    // one side to the other) and is made as much smaller or larger round it as a stroke as thick as it (ballK), so it
+    // stays round and the curve it runs on with keeps its way into it; not turned, as two sides close together, much
+    // nearer than the ball is wide, give no sure turn
+    for (const { a, b, ball, pin } of ends) {
+      const A = bs[md(a)], B = bs[md(b)], A1 = out[md(a)], B1 = out[md(b)];
+      const ux = B.x - A.x, uy = B.y - A.y, vx = B1.x - A1.x, vy = B1.y - A1.y, l2 = ux * ux + uy * uy;
+      if (l2 < 1e-6 || vx * vx + vy * vy < 1e-6) continue;
+      const hx = A.x + ux * pin, hy = A.y + uy * pin, hx1 = A1.x + vx * pin, hy1 = A1.y + vy * pin, k = ball ? ballK(a, b, hx, hy) : 1;
+      for (let i = a + 1; i < b; i++) {
+        const p = bs[md(i)], dx = p.x - A.x, dy = p.y - A.y, s = (dx * ux + dy * uy) / l2, t = (dy * ux - dx * uy) / l2;
+        const qx = A1.x + s * vx - t * vy, qy = A1.y + s * vy + t * vx;
+        out[md(i)] = ball ? { x: qx + (hx1 + (p.x - hx) * k - qx) * ball, y: qy + (hy1 + (p.y - hy) * k - qy) * ball } : { x: qx, y: qy };
+      }
     }
+    return out;
   }
-  return out;
+
+  /** This outline's joins of a thin stroke into a heavy one whose side moves in (see followJoins), the heavy side's last
+      few samples there, eased toward the thin one's moves, moved wholly as the side does (and the corner of the crotch, if
+      there is one, as far). A join is where the outline steps, within a few samples, from a heavy stroke's side (at least
+      JOIN_HEAVY of the font's stem, the stroke running along it, and on behind the join at least as long as it is
+      thick: a stem's, not a ball's flank) to a stroke JOIN_THIN as thick or less, round a corner or not (the inside of a
+      b's bowl curves into its stem); a gradual swell, an o's, is none. */
+  function joinsHere(): Join[] {
+    const found: Join[] = [], stemW = rig.ref().stem / 2;
+    const heavy = (i: number) => !bs[i].dot && !bs[i].cap && !inEnd[i] && bs[i].wl >= JOIN_HEAVY * stemW;
+    const gone = (i: number, j: number) => Math.hypot(bs[i].x - bs[j].x, bs[i].y - bs[j].y);
+    for (let i = 0; i < n; i++) for (const dir of [-1, 1]) {
+      if (!heavy(i) || heavy(md(i + dir))) continue;
+      // (the thin stroke, within a few samples)
+      let t = 0;
+      for (let k = 1; k <= 4 && !t; k++) {
+        const j = md(i + dir * k);
+        if (bs[j].dot || inEnd[j] || heavy(j)) break;
+        if (!bs[j].cap && thinBeside(bs[j], bs[i].wl)) t = k;
+      }
+      if (!t) continue;
+      // (a serif's bracket is none, nor an ear's root: the thin stroke ends a little way out, where a bowl or an arch runs
+      // on round into another heavy stroke; the serif stands on the stem's end, and goes as its stem's foot does)
+      let short = false;
+      for (let k = t + 1, s = 0; k < n && s < JOIN_SHORT * stemW; k++) {
+        const j = md(i + dir * k), b = bs[j];
+        // (its end: cut across, or the outline turning back round a tip)
+        if (b.cap || inEnd[j] || (b.corner && b.inx! * b.outx! + b.iny! * b.outy! < -0.5)) { short = true; break; }
+        if (heavy(j)) break;
+        s += gone(j, md(j - dir));
+      }
+      if (short) continue;
+      let run = 0;
+      for (let k = 1; k < n && run < 2 * bs[i].wl; k++) { const j = md(i - dir * k); if (!heavy(j)) break; run += gone(j, md(j + dir)); }
+      // (its move where it is wholly its own, the furthest in of its next few samples back from the join, past where the
+      // thin side's moves are eased in, and where a join that curves into it reads it thinner)
+      let h = md(i - dir * 3), back = 3;
+      for (let k = 4; k <= 12; k++) { const j = md(i - dir * k); if (!heavy(j)) break; if (!bs[j].corner && moved[j] < moved[h]) { h = j; back = k; } }
+      // (and the thin stroke leaves it out over the paper, not across the heavy one's own end, as a stem's cut top does)
+      const H = bs[h], O = bs[md(i + dir * (t + 2))];
+      if (run < 2 * bs[i].wl || moved[h] >= 0 || Math.abs(H.tx * H.dx + H.ty * H.dy) < 0.7 || (O.x - bs[i].x) * H.nx + (O.y - bs[i].y) * H.ny >= 0) continue;
+      const D = { x: -H.nx * moved[h], y: -H.ny * moved[h] };
+      for (let k = 0; k <= back; k++) { const j = md(i - dir * k); if (!heavy(j)) break; followTo(out, base, j, bs[j].corner, D, 1); }
+      found.push({ x: bs[i].x, y: bs[i].y, nx: H.nx, ny: H.ny, D, w: bs[i].wl, reach: Math.max(JOIN_REACH * Math.hypot(D.x, D.y), bs[i].wl) });
+    }
+    return found;
+  }
 
   /** How much of the change asked of its strokes this outline's heavy sides make (0 to 1): those as thick as a stem,
       off its ends, its corners and its serifs, each by its move across the thickness it reads, joins and all; 1 for an

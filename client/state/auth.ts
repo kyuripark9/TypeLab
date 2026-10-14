@@ -12,8 +12,9 @@ export type AuthMode = 'signin' | 'signup';
 
 interface AuthState {
   user: User | null | undefined;
-  /** whether this server offers Google sign-in */
+  /** whether this server offers Google sign-in, and password reset by email */
   google: boolean;
+  reset: boolean;
   /** the sign-in dialog, while it's open */
   dialog: AuthMode | null;
   /** a Google window is open, waiting for the person to finish there */
@@ -22,7 +23,7 @@ interface AuthState {
   googleError: string;
 }
 
-export const useAuth = create<AuthState>(() => ({ user: undefined, google: false, dialog: null, googleWaiting: null, googleError: '' }));
+export const useAuth = create<AuthState>(() => ({ user: undefined, google: false, reset: false, dialog: null, googleWaiting: null, googleError: '' }));
 
 const fonts = (n: number) => `${n} ${n === 1 ? 'font' : 'fonts'}`;
 
@@ -58,8 +59,8 @@ export const auth = {
 
   async load() {
     try {
-      const { user, google } = await api.me();
-      useAuth.setState({ user, google });
+      const { user, google, reset } = await api.me();
+      useAuth.setState({ user, google, reset });
     } catch { useAuth.setState({ user: null }); }
   },
   open(mode: AuthMode) { useAuth.setState({ dialog: mode, googleWaiting: null, googleError: '' }); },
@@ -106,7 +107,7 @@ export const auth = {
       return;
     }
     auth.signedIn({ user, moved: result.moved }, result.isNew,
-      result.passwordRemoved ? '. Google confirmed this email, so its old password is off; set a new one in Account settings' : '');
+      result.passwordRemoved ? '. Google confirmed this email, so its old password was removed; set a new one in Account settings' : '');
   },
 
   /** Sign out, first saving the open design if it has changes (it's in the account, and out of

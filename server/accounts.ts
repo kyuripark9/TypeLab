@@ -1,7 +1,7 @@
 /* Accounts: people sign up with an email and a password, or with Google, and their designs follow
    them to any browser they sign in on. Passwords are kept only as scrypt hashes (an account made
    with Google has none until it sets one); a signed-in browser holds a random session token whose
-   SHA-256 is all the database stores. */
+   SHA-256 is all the database stores, and a password reset's emailed link holds another, good once for an hour. */
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type { EmailCheck, User } from '../shared/account';
@@ -18,6 +18,8 @@ const toUser = (r: UserRow): User => ({
 
 /** How long a sign-in lasts before the browser has to sign in again. */
 export const SESSION_DAYS = 90;
+/** How long a password reset's link works. */
+export const RESET_MINUTES = 60;
 
 const KEY_LEN = 64, SCRYPT = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 
@@ -57,6 +59,11 @@ export class AccountStore {
         expires_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS sessions_user ON sessions (user_id);
+      CREATE TABLE IF NOT EXISTS resets (
+        token_hash TEXT PRIMARY KEY,
+        user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        expires_at TEXT NOT NULL
+      );
     `);
     // databases older than Google sign-in lack these columns: the Google account a user signs in with,
     // and whether the email is known to be theirs (Google said so). An empty password means the account has none
@@ -66,6 +73,7 @@ export class AccountStore {
     if (!cols.has('email_verified')) db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0');
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_google ON users (google_sub)');
     db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(new Date().toISOString());
+    db.prepare('DELETE FROM resets WHERE expires_at < ?').run(new Date().toISOString());
   }
 
   /** null when the email is already taken. Made with Google, it has no password and its email is
@@ -151,6 +159,7 @@ export class AccountStore {
 
   delete(id: string) {
     this.endAllSessions(id);
+    this.db.prepare('DELETE FROM resets WHERE user_id = ?').run(id);
     this.db.prepare('DELETE FROM users WHERE id = ?').run(id);
   }
 
@@ -187,5 +196,30 @@ export class AccountStore {
 
   endAllSessions(userId: string) {
     this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+  }
+
+  /** A password reset for the account with this email, for its emailed link: a random token, kept only as its
+      SHA-256, that works once within RESET_MINUTES, in place of any asked for before. null when there's no such account. */
+  startReset(email: string): { user: User; token: string } | null {
+    const r = this.byEmail(email);
+    if (!r) return null;
+    const token = randomBytes(32).toString('base64url');
+    this.db.prepare('DELETE FROM resets WHERE user_id = ?').run(r.id);
+    this.db.prepare('INSERT INTO resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
+      .run(sha256(token), r.id, new Date(Date.now() + RESET_MINUTES * 60e3).toISOString());
+    return { user: toUser(r), token };
+  }
+
+  /** Use a reset's token: the account it is for, while it hasn't expired, and the token gone either way. */
+  takeReset(token: string): User | null {
+    const r = this.db.prepare('SELECT user_id, expires_at FROM resets WHERE token_hash = ?').get(sha256(token)) as { user_id: string; expires_at: string } | undefined;
+    if (!r) return null;
+    this.db.prepare('DELETE FROM resets WHERE token_hash = ?').run(sha256(token));
+    return r.expires_at > new Date().toISOString() ? this.get(r.user_id) : null;
+  }
+
+  /** The email has been shown to be the account holder's (they used a link sent to it). */
+  verifyEmail(id: string) {
+    this.db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(id);
   }
 }

@@ -17,7 +17,7 @@ export const ANATOMY: Record<string, [string, string]> = {
   shoulder: ['Shoulder', 'The arch that springs from a stem, as in n, h and m.'],
   spine: ['Spine', 'The main curved stroke of the S.'],
   hook: ['Hook', 'A curved stroke that bends back on itself.'],
-  dot: ['Dot', 'The dot above i and j is called a tittle.'],
+  dot: ['Dot', 'The dot above i and j, also called a tittle.'],
   counter: ['Counter', 'The enclosed space inside a letter.'],
   terminal: ['Terminal', 'The free end of a stroke.'],
   corner: ['Corner', 'Where a stroke turns, or a corner of a stroke end.'],

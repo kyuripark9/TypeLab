@@ -31,11 +31,15 @@ export function NumberField({ value, label, onChange, degrees }: { value: number
   );
 }
 
-/** A 0..1 range input shown as whole steps from 0 to 100 (or `steps`). `onInput` fires while dragging; `onCommit` once on release (one undo step). */
+/** A 0..1 range input shown as whole steps from 0 to 100 (or `steps`). `onInput` fires while dragging; `onCommit` once on release (one undo step).
+    On a touch screen a finger landing on it while scrolling the panel leaves it be: it takes a touch only once the
+    finger moves more across than down, so a touch the page scrolls with, or a tap, changes nothing. */
 export function Range({ value, label, onInput, onCommit, onReset, steps = 100 }: { value: number; label: string; onInput: (v: number) => void; onCommit: () => void; onReset: () => void; steps?: number }) {
   const ref = useRef<HTMLInputElement>(null);
   const commit = useRef(onCommit);
   commit.current = onCommit;
+  // a touch not yet known to be a drag along the slider, and where it began
+  const touch = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
     const el = ref.current!, h = () => commit.current();
     el.addEventListener('change', h);
@@ -44,6 +48,13 @@ export function Range({ value, label, onInput, onCommit, onReset, steps = 100 }:
   return (
     <input ref={ref} type="range" min={0} max={steps} step={1} value={Math.round(value * steps)} aria-label={label}
       title="Double-click to reset" style={{ '--v': value } as CSSProperties}
-      onChange={e => onInput(Number(e.target.value) / steps)} onDoubleClick={onReset} />
+      onPointerDown={e => { touch.current = e.pointerType === 'touch' ? { x: e.clientX, y: e.clientY } : null; }}
+      onPointerMove={e => {
+        const t = touch.current, dx = t ? Math.abs(e.clientX - t.x) : 0;
+        if (t && dx > 6 && dx > Math.abs(e.clientY - t.y)) touch.current = null;
+      }}
+      // (let go a frame later, past the value a browser sets as the finger lifts)
+      onPointerUp={() => requestAnimationFrame(() => { touch.current = null; })} onPointerCancel={() => { touch.current = null; }}
+      onChange={e => { if (!touch.current) onInput(Number(e.target.value) / steps); }} onDoubleClick={onReset} />
   );
 }

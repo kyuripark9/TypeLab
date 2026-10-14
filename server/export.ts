@@ -1,11 +1,11 @@
 /* Server-side export: the same engine that draws the live preview builds the font files. */
 import { crc32, deflateRawSync } from 'node:zlib';
 import type { FontConstructorOptions } from 'opentype.js';
-import { CHARSET, ALL_CHARS, buildFont } from '../shared/engine';
+import { ACCENTED, CHARSET, ALL_CHARS, accentGlyph, buildFont, cmdsToD } from '../shared/engine';
 import type { Cmd, Font, Glyph } from '../shared/engine';
 import { TEXTS } from '../shared/content';
 import { slug } from '../shared/design';
-import { familyMembers, type FamilyRequest } from '../shared/family';
+import { WEIGHTS, familyMember, type FamilyRequest, type MemberRequest } from '../shared/family';
 import { withoutReserved } from '../shared/free-fonts';
 import type { Params } from '../shared/params';
 import { opentype } from './opentype';
@@ -37,10 +37,13 @@ export function exportName(params: Params, name: string, font: Font = buildFont(
 /** An installable OpenType (CFF) font with every glyph TypeLab draws. A design written in a free font
     (its letters registered first, see free-fonts.ts) passes on the font's copyright notice and licence,
     as the licence asks, and doesn't take the font's own name: under the Open Font License a changed
-    font may not. TypeLab's own fonts come under no licence, so there is none to pass on. `outline` is the outline
+    font may not. TypeLab's own fonts pass on theirs the same way, TypeLab's notice and the Open Font License
+    (ownLicense in shared/free-fonts.ts). `outline` is the outline
     a letter is written with: the engine's, unless asked for another (the interface's logo font writes its letters'
-    overlapping pieces made one, tools/fonts/ui.ts). */
-export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, outline: (g: Glyph) => Cmd[] = g => g.cmds): Buffer {
+    overlapping pieces made one, tools/fonts/ui.ts). With `accents`, the accented letters too (ACCENTED, each its
+    letter and a mark drawn for the design: accents.ts in the engine), after the rest, leaving the line spacing as it
+    is. */
+export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, outline: (g: Glyph) => Cmd[] = g => g.cmds, accents = false): Buffer {
   const font = buildFont(params), m = font.m, free = font.free, licensed = free?.license ? free : null;
   name = exportName(params, name, font);
   // an advance width can't go below zero in a font file, and tight tracking takes it down: a space keeps at
@@ -64,6 +67,15 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
       unicode: ch.charCodeAt(0),
       advanceWidth: R(Math.max(20, g.adv + m.track)),
       path: toPath(outline(g))
+    }));
+  }
+  if (accents) for (const ch of ACCENTED) {
+    const g = accentGlyph(font, ch); if (!g) continue;
+    glyphs.push(new opentype.Glyph({
+      name: 'uni' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'),
+      unicode: ch.charCodeAt(0),
+      advanceWidth: R(Math.max(20, g.adv + m.track)),
+      path: toPath(g.cmds)
     }));
   }
   // Apps that only know Regular, Italic, Bold and Bold Italic list each other weight as a family of
@@ -100,15 +112,54 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
 }
 
 /** Every member of a family as its own font, in one .zip with a folder named after the family; written in a
-    free font that comes under a licence, with the licence beside them. */
-export function buildFamilyZip(params: Params, name: string, req: FamilyRequest): Buffer {
-  const font = buildFont(params), free = font.free?.license ? font.free : null;
-  name = exportName(params, name, font);
-  const dir = slug(name);
-  return zip([
-    ...familyMembers(params, req).map(f => ({ name: `${dir}/${dir}-${f.style.replace(/ /g, '')}.otf`, data: buildOTF(f.params, name, f) })),
-    ...(free ? [{ name: `${dir}/LICENSE.txt`, data: Buffer.from(`${name} is based on ${free.family} by ${free.designers.join(', ')} (${free.copyright}), changed with TypeLab, and comes under the ${free.license}: ${free.licenseUrl}\n\n${free.licenseText || ''}\n`, 'utf8') }] : [])
-  ]);
+    free font that comes under a licence, with the licence beside them. Built piece by piece, here one after another
+    (the server builds the pieces side by side: exportPieces), with the accented letters in each font when `accents`. */
+export function buildFamilyZip(params: Params, name: string, req: FamilyRequest, accents = false): Buffer {
+  const job: ExportJob = { kind: 'family', name, params, family: req, accents };
+  return joinPieces(job, exportPieces(job).map(buildPiece)).data;
+}
+
+/** The styles of family `req`, in the order its .zip holds them: lightest first, each upright before its italic, as
+    familyMembers (shared/family.ts) lists them. */
+const familyStyles = (req: FamilyRequest) =>
+  WEIGHTS.flatMap(w => [false, true].filter(italic => req.styles.some(s => s.weight === w.id && s.italic === italic)).map(italic => ({ weight: w.id, italic })));
+
+/** A file of a .zip as it is kept there: its path, its bytes deflated, their CRC-32 and how many there were. */
+export interface ZipFile { name: string; packed: Uint8Array; crc: number; size: number }
+const zipFile = (name: string, data: Buffer): ZipFile => ({ name, packed: deflateRawSync(data), crc: crc32(data), size: data.length });
+
+/** A piece of an export, built on its own: all of a font file or a specimen (`part` 0); or one file of a family's
+    .zip, `part` k its k-th member (familyStyles) and the part after the last its licence and the .zip's name. A
+    family's members are each a couple of seconds' work where a free font's letters move, so the server builds its
+    pieces side by side on its workers (export-pool.ts) and puts them together (joinPieces), which takes no time. */
+export interface ExportPiece { job: ExportJob; part: number }
+/** A piece built: the export itself, or files of a family's .zip (the last piece with the .zip's own name). */
+export type PieceBuilt = { built: Built } | { files: ZipFile[]; file?: string };
+
+/** The pieces `job` is built in. */
+export const exportPieces = (job: ExportJob): ExportPiece[] =>
+  Array.from({ length: job.kind === 'family' ? familyStyles(job.family).length + 1 : 1 }, (_, part) => ({ job, part }));
+
+/** One piece of an export built: what the worker it is given to does (export-worker.ts). */
+export function buildPiece({ job, part }: ExportPiece): PieceBuilt {
+  if (job.kind !== 'family') return { built: buildExport(job) };
+  const { params, family } = job, font = buildFont(params), name = exportName(params, job.name, font), dir = slug(name), styles = familyStyles(family);
+  if (part < styles.length) {
+    const f = familyMember(params, family.anchor, styles[part].weight, styles[part].italic);
+    return { files: [zipFile(`${dir}/${dir}-${f.style.replace(/ /g, '')}.otf`, buildOTF(f.params, name, f, undefined, job.accents))] };
+  }
+  const free = font.free?.license ? font.free : null;
+  return {
+    file: `${dir}-family.zip`,
+    files: free ? [zipFile(`${dir}/LICENSE.txt`, Buffer.from(`${name} is based on ${free.family} by ${free.designers.join(', ')}${free.copyright ? ` (${free.copyright.replace(/\.$/, '')})` : ''}, changed with TypeLab, and comes under the ${free.license}: ${free.licenseUrl}\n\n${free.licenseText || ''}\n`, 'utf8'))] : []
+  };
+}
+
+/** An export put together from its pieces, built (in exportPieces' order). */
+export function joinPieces(job: ExportJob, pieces: PieceBuilt[]): Built {
+  if (job.kind !== 'family') return (pieces[0] as { built: Built }).built;
+  const files = pieces.flatMap(p => ('files' in p ? p.files : []));
+  return { file: (pieces[pieces.length - 1] as { file: string }).file, type: 'application/zip', data: zip(files) };
 }
 
 /* A zip file's records and fields (PKWARE's APPNOTE.TXT): each file's local header, then its entry in the
@@ -117,24 +168,24 @@ export function buildFamilyZip(params: Params, name: string, req: FamilyRequest)
 const ZIP_LOCAL = 0x04034b50, ZIP_CENTRAL = 0x02014b50, ZIP_END = 0x06054b50;
 const ZIP_VERSION = 20, ZIP_UTF8_NAMES = 0x0800, ZIP_DEFLATE = 8;
 
-/** A .zip archive of `files`, each compressed. */
-function zip(files: { name: string; data: Buffer }[]): Buffer {
-  const local: Buffer[] = [], central: Buffer[] = [];
+/** A .zip archive of `files`, each compressed already (zipFile). */
+function zip(files: ZipFile[]): Buffer {
+  const local: Uint8Array[] = [], central: Buffer[] = [];
   let offset = 0;
   // DOS time and date of now, as zip keeps them
   const d = new Date();
   const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
   const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
   for (const f of files) {
-    const nameBuf = Buffer.from(f.name, 'utf8'), packed = deflateRawSync(f.data), crc = crc32(f.data);
+    const nameBuf = Buffer.from(f.name, 'utf8'), { packed, crc } = f;
     const head = Buffer.alloc(30);
     head.writeUInt32LE(ZIP_LOCAL, 0); head.writeUInt16LE(ZIP_VERSION, 4); head.writeUInt16LE(ZIP_UTF8_NAMES, 6); head.writeUInt16LE(ZIP_DEFLATE, 8);
     head.writeUInt16LE(time, 10); head.writeUInt16LE(date, 12); head.writeUInt32LE(crc, 14);
-    head.writeUInt32LE(packed.length, 18); head.writeUInt32LE(f.data.length, 22); head.writeUInt16LE(nameBuf.length, 26);
+    head.writeUInt32LE(packed.length, 18); head.writeUInt32LE(f.size, 22); head.writeUInt16LE(nameBuf.length, 26);
     const entry = Buffer.alloc(46);
     entry.writeUInt32LE(ZIP_CENTRAL, 0); entry.writeUInt16LE(ZIP_VERSION, 4); entry.writeUInt16LE(ZIP_VERSION, 6); entry.writeUInt16LE(ZIP_UTF8_NAMES, 8); entry.writeUInt16LE(ZIP_DEFLATE, 10);
     entry.writeUInt16LE(time, 12); entry.writeUInt16LE(date, 14); entry.writeUInt32LE(crc, 16);
-    entry.writeUInt32LE(packed.length, 20); entry.writeUInt32LE(f.data.length, 24); entry.writeUInt16LE(nameBuf.length, 28);
+    entry.writeUInt32LE(packed.length, 20); entry.writeUInt32LE(f.size, 24); entry.writeUInt16LE(nameBuf.length, 28);
     entry.writeUInt32LE(offset, 42);
     local.push(head, nameBuf, packed);
     central.push(entry, nameBuf);
@@ -148,22 +199,54 @@ function zip(files: { name: string; data: Buffer }[]): Buffer {
 
 const escapeXml = (s: string) => s.replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]!));
 
-/** A vector specimen sheet: the name, every character and a pangram. */
-export function buildSpecimenSVG(params: Params, name: string): string {
+/** A vector specimen sheet: the name, every character and a pangram; with `accents`, the accented letters (ACCENTED)
+    too, capitals and small letters each a row, under the rest. */
+export function buildSpecimenSVG(params: Params, name: string, accents = false): string {
   const font = buildFont(params), m = font.m;
   const rows = [name, CHARSET.upper, CHARSET.lower, CHARSET.digits + ' ' + CHARSET.punct, CHARSET.symbols, TEXTS.sentence];
+  if (accents) rows.push(...[true, false].map(caps => [...ACCENTED].filter(ch => (ch !== ch.toLowerCase()) === caps).join('')));
   // in font units: rows as far apart as the letters reach plus 160, the first row's tallest letters 80 from the
   // top, 100 of margin each side and the sheet 120 taller than its rows; shown at a quarter size (a 1000-unit em
   // is 250 pixels)
   const lh = Math.max(m.asc, m.cap) - m.desc + 160;
   let body = '', maxW = 0;
   rows.forEach((t, r) => {
+    const y = R(Math.max(m.asc, m.cap) + 80 + r * lh);
+    // (an accented letter isn't one of the font's own, so it is set by its own advance)
+    if (r >= 6) {
+      let x = 0;
+      for (const ch of t) { const g = accentGlyph(font, ch); if (!g) continue; body += `<path transform="translate(${R(x)},${y})" d="${cmdsToD(g.cmds)}"/>`; x += g.adv + m.track; }
+      maxW = Math.max(maxW, x);
+      return;
+    }
     const ln = font.layout(t, Infinity)[0];
     maxW = Math.max(maxW, ln.width);
-    const y = R(Math.max(m.asc, m.cap) + 80 + r * lh);
     for (const it of ln.items) { const g = font.glyph(it.ch); if (g) body += `<path transform="translate(${R(it.x)},${y})" d="${g.d}"/>`; }
   });
   const W = R(maxW + 200), H = R(rows.length * lh + 120);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-100 0 ${W} ${H}" width="${W / 4}" height="${H / 4}">` +
     `<title>${escapeXml(name)} — TypeLab specimen</title><rect x="-100" width="${W}" height="${H}" fill="#fff"/><g fill="#111">${body}</g></svg>`;
+}
+
+/** What an export route asks for: one font file (the design as it is, or one member of its family), the family as a
+    .zip, or the specimen sheet; each with the accented letters too when `accents`. */
+export type ExportJob =
+  | { kind: 'otf'; name: string; params: Params; member: MemberRequest | null; accents?: boolean }
+  | { kind: 'family'; name: string; params: Params; family: FamilyRequest; accents?: boolean }
+  | { kind: 'svg'; name: string; params: Params; accents?: boolean };
+
+/** An export built: the file's name, its type and its bytes. */
+export interface Built { file: string; type: string; data: Buffer }
+
+/** An export built, all of it here (the server builds a family's members side by side instead: exportPieces). The free
+    fonts the design and its members draw from are registered first. A font file is named for the design, less a name
+    its free font reserves, and for the member picked (`<slug>-<Style>.otf`), as the family's .zip names it. */
+export function buildExport(job: ExportJob): Built {
+  const { name, params, accents = false } = job;
+  if (job.kind === 'svg') return { file: `${slug(name)}-specimen.svg`, type: 'image/svg+xml; charset=utf-8', data: Buffer.from(buildSpecimenSVG(params, name, accents)) };
+  if (job.kind === 'family') return joinPieces(job, exportPieces(job).map(buildPiece));
+  const file = slug(exportName(params, name));
+  const m = job.member && familyMember(params, job.member.anchor, job.member.weight, job.member.italic);
+  return m ? { file: `${file}-${m.style.replace(/ /g, '')}.otf`, type: 'font/otf', data: buildOTF(m.params, name, m, undefined, accents) }
+    : { file: `${file}.otf`, type: 'font/otf', data: buildOTF(params, name, undefined, undefined, accents) };
 }

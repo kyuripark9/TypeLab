@@ -1,7 +1,7 @@
 # TypeLab
 
 **Experiment with type.** An interactive font design playground: start from a style, reshape its
-structure and personality with plain-language controls, watch every letter update live, save designs
+proportions, shapes and details with plain-language controls, watch every letter update live, save designs
 to your library, and export a real `.otf` font.
 
 > Don't edit numbers. Design letters.
@@ -23,8 +23,12 @@ npm start          # serves the app and the API on http://localhost:5173
 ```
 
 Set `PORT` to change the port and `DB_PATH` to put the database somewhere other than `data/typelab.db`.
-On a host that ends HTTPS in a proxy in front of the app (most do), set `TRUST_PROXY=1` so sign-in
-cookies are marked Secure and wrong-password limits count each visitor rather than the proxy.
+The database (and the free fonts kept beside it) must live on a disk that outlasts a deploy: on a host
+whose file system is wiped each time, point `DB_PATH` at its persistent volume. On a host that ends HTTPS
+in a proxy in front of the app (most do), set `TRUST_PROXY=1` so sign-in cookies are marked Secure and
+sign-in limits count each visitor rather than the proxy (the server's log says so when it sees a proxy
+without it). The server compresses what it sends, keeps the built files cached for good (their names
+change with each build) and asks browsers not to show the app framed in another site.
 Every environment variable the server and the tools read is listed in `tools/README.md`.
 
 ### Sign in with Google (optional)
@@ -93,7 +97,8 @@ and builds exported fonts on the server. A full rebuild of every glyph takes a f
 | `ends.ts`, `corners.ts`, `joins.ts`, `stencil.ts`, `serif-sides.ts` | Stroke ends (length, curl, straight runs), corners and steps, inside-corner fillets, stencil gaps, which way serifs reach and cupped serifs |
 | `effects.ts`, `boolean.ts` | Whole-outline effects (the slice; the wireframe, pixel, hexagon, dot, blob, halftone, line, inline, outline and shadow fills, and how far a grid fill's cells spread), and the unions and cuts they need |
 | `rough.ts` | Rough edges: the finished outline's edges wandering in and out, as worn print does, on any fill |
-| `blocks.ts` | Block letters: solid rounded blocks with their counters cut in as slots (*Built from: Blocks*) |
+| `basic-blocks.ts` | Block letters, the default kind: plain, even blocks of the ordinary shapes with a real lowercase (*Built from: Blocks*, *Block letters: Basic*) |
+| `blocks.ts` | Slot block letters: solid rounded blocks with their counters cut in as slots (*Block letters: Slots*) |
 | `grid-blocks.ts` | Grid letters: every character cells on a grid five high, all corners round, strokes meeting at a corner joined through a neck (*Block letters: Grid*) |
 | `outline.ts` | Letters drawn by hand with the pen: anchor points and bézier handles, and the curve fitting that traces a generated letter into them |
 | `grid.ts` | Construction grids: the lines and circles a letter is built on, and the groups of letters that share a grid |
@@ -104,7 +109,9 @@ and builds exported fonts on the server. A full rebuild of every glyph takes a f
 
 Every starting style can also be written in a ready-made font (`shared/free-fonts.ts` names one per style),
 except those built from blocks, which no font draws. The 22 on the Style page are TypeLab's own fonts, drawn for
-it and free to use, change and share with no licence: each was drawn on a specimen sheet (`Asset/After/<n>.ai`),
+it and free to use, change and share under the SIL Open Font License: the server lays TypeLab's notice and the
+licence into the fonts it serves and every export (`ownLicense` in `shared/free-fonts.ts`, `fonts/OFL.txt`). Each
+was drawn on a specimen sheet (`Asset/After/<n>.ai`),
 which `npm run fonts:import` (`tools/fonts/`) turns into the outlines the engine draws, kept in `fonts/`; Block's,
 Bulwark, is the engine's block letters made a font (`npm run fonts:blocks`), so serifs, stroke ends, letter forms
 and the rest reach it as they reach the other cards. The other styles use a free
@@ -159,10 +166,12 @@ the ones that reach in a shape, length and thickness of their own, apart from th
 *Balance* reaches further to one side, and the serifs on top of stems and across the ends of arms are
 sized apart from the feet.
 
-Letters can also be *built from blocks* instead of strokes: each capital, figure and punctuation mark is a
-solid block with its counters cut in as narrow slots, drawn as outlines of corners that each carry their
-own radius. Weight closes the slots up, Roundness rounds the corners and slot ends, Joins the small
-inside curves, and the lowercase become small capitals. Or they are *grid letters*: cells on a grid five high,
+Letters can also be *built from blocks* instead of strokes, drawn as outlines of corners that each carry their
+own radius, with no skeleton. Plain block letters come first: even blocks of the ordinary shapes, an O a box with a
+box cut out of it, with a real lowercase, every part measured from the design so they keep their shapes from thin to
+black. Or each capital, figure and punctuation mark is a solid block with its counters cut in as narrow slots: Weight
+closes the slots up, Roundness rounds the corners and slot ends, Joins the small inside curves, and the lowercase
+become small capitals. Or they are *grid letters*: cells on a grid five high,
 both cases as tall, every corner rounded and strokes that meet at a corner joined through a narrow neck, so the
 empty cells read as round nodes.
 
@@ -203,11 +212,13 @@ empty cells read as round nodes.
 | `POST` | `/api/auth/signup` | `{ email, password, name? }` → signs in, `{ user, moved }` |
 | `POST` | `/api/auth/login` | `{ email, password }` → signs in, `{ user, moved }` |
 | `POST` | `/api/auth/logout` | signs this browser out |
-| `GET` | `/api/auth/me` | `{ user, google }`: who's signed in (null for nobody), and whether Google sign-in is offered |
+| `GET` | `/api/auth/me` | `{ user, google, reset }`: who's signed in (null for nobody), and whether Google sign-in and password reset are offered |
 | `PATCH` | `/api/auth/me` | rename the account, `{ name }` |
 | `DELETE` | `/api/auth/me` | close the account and its fonts: `{ password }`, or `{ confirm: email }` on an account with no password |
 | `POST` | `/api/auth/password` | `{ current, next }`, signing other browsers out; `{ next }` alone sets a first password on a Google account |
 | `GET` / `DELETE` | `/api/auth/sessions` | how many other browsers are signed in · sign them out |
+| `POST` | `/api/auth/reset` | `{ email }` → emails a link that sets a new password (204 whether or not the email has an account) |
+| `POST` | `/api/auth/reset/confirm` | `{ token, password }` → sets it, signs every other browser out and this one in, `{ user, moved }` |
 | `GET` | `/api/auth/google` | `?intent=signin` or `link`, `&popup=1&back=/path` → off to Google; it returns to `/api/auth/google/callback` |
 | `DELETE` | `/api/auth/google` | disconnect Google (needs a password set) |
 | `GET` | `/api/designs` | list saved designs, newest first |
@@ -215,9 +226,9 @@ empty cells read as round nodes.
 | `GET` / `PUT` / `PATCH` / `DELETE` | `/api/designs/:id` | read · update `{ name, styleId, params }` · rename `{ name }` · delete |
 | `GET` | `/api/free-fonts/:id` | a free font's letters, as the engine draws them (TypeLab's own from `fonts/`, others fetched from Google Fonts the first time) |
 | `GET` | `/api/free-fonts/:id/font.otf` | one of TypeLab's own fonts as an OpenType file, for the style cards |
-| `POST` | `/api/export/otf` | `{ name, params }` → OpenType font file |
-| `POST` | `/api/export/family` | `{ name, params, family }` → .zip of fonts |
-| `POST` | `/api/export/svg` | `{ name, params }` → SVG specimen |
+| `POST` | `/api/export/otf` | `{ name, params, member?, accents? }` → OpenType font file (one member of the design's family with `member`; with `accents: true`, the accented letters é ñ ü … too) |
+| `POST` | `/api/export/family` | `{ name, params, family, accents? }` → .zip of fonts, built side by side on the server's workers |
+| `POST` | `/api/export/svg` | `{ name, params, accents? }` → SVG specimen |
 | `GET` | `/api/health` | liveness check |
 
 Designs live in SQLite through Node's built-in `node:sqlite`, so there are no native modules to
@@ -229,7 +240,13 @@ Anyone can design and save without an account: designs saved signed out belong t
 and from then on the account's designs open on any browser signed in to it. Passwords are stored only
 as scrypt hashes (`server/accounts.ts`), a sign-in is a random token in an HttpOnly, SameSite=Lax
 `typelab_session` cookie (the database keeps only its SHA-256) lasting 90 days, and ten wrong passwords
-in 15 minutes from one address for one email pause sign-in for that pair. There is no password reset by email.
+in 15 minutes from one address for one email pause sign-in for that pair. A forgotten password is reset by email
+(`server/mail.ts`): the link (`/reset?token=…`) works once, for an hour, and setting the new password signs the
+account's other browsers out. Production sends it through SMTP: set `SMTP_URL` (e.g.
+`smtps://user:password@smtp.example.com:465`, as any mail service gives one), `MAIL_FROM` and `PUBLIC_URL` (the link is
+built from it, never from the address a request names); without them it offers no reset. Development shows the mail
+it would send at `/dev/mail`. `/privacy` says what TypeLab keeps and the terms it's offered on, and the address to
+write to (kyuripark9@gmail.com; `VITE_CONTACT_EMAIL` when building names another).
 
 Google sign-in (`server/google.ts`) is the authorization-code flow with PKCE and a random state,
 both kept for the browser in a 10-minute HttpOnly cookie. It runs in a popup so the open design stays

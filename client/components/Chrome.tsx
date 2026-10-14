@@ -3,9 +3,9 @@ import { memo, useDeferredValue, useEffect, useRef, useState, type KeyboardEvent
 import { CATEGORIES, GROUPS, controlFor, controlInUse, findSettings, pagesFor, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
 import { Link } from 'react-router';
 import { CHARSET, type Font, type Glyph } from '../../shared/engine';
-import { DRAWER_QUERY, n1 } from '../lib/hooks';
+import { DRAWER_QUERY, n1, shortcut } from '../lib/hooks';
 import { ink } from '../lib/preview';
-import { DESIGNS } from '../lib/routes';
+import { DESIGNS, PRIVACY } from '../lib/routes';
 import { actions, useEditor, useFont } from '../state/editor';
 import { AccountButton } from './Account';
 import { PageIcon, SearchIcon } from './Icons';
@@ -28,7 +28,7 @@ function navRows(pages: typeof CATEGORIES): NavRow[] {
 }
 
 const SEARCH_ID = 'setting-search';
-const FIND_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K';
+const FIND_KEY = shortcut('⌘K');
 /** Put the cursor in Find a setting (⌘K), opening the page menu first where it is a drawer. */
 export function focusSettingSearch() {
   const focus = () => {
@@ -124,6 +124,7 @@ export function Nav() {
       {/* phones: the header has no room for it, so it sits at the foot of the drawer */}
       <Link className="nav-item nav-designs" to={DESIGNS}><span className="nav-label">My designs</span></Link>
       <div className="nav-account"><AccountButton /></div>
+      <Link className="nav-legal" to={PRIVACY}>Privacy &amp; terms</Link>
     </nav>
   );
 }

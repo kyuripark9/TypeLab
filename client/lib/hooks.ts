@@ -1,7 +1,7 @@
 /* Small browser helpers: n1 rounds a coordinate to one decimal, which keeps SVG attributes short,
-   useSize tracks an element's size, isTyping tells keyboard shortcuts to stand aside in text fields,
-   useEscape and useDismiss close dialogs and popovers, and DRAWER_QUERY is the width where the page menu
-   becomes a drawer. */
+   useSize tracks an element's size, isTyping tells keyboard shortcuts to stand aside in text fields, shortcut
+   names one as the computer's keyboard does (⌘ on a Mac, Ctrl elsewhere), useEscape and useDismiss close dialogs
+   and popovers, and DRAWER_QUERY is the width where the page menu becomes a drawer. */
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 
 export const n1 = (v: number) => Math.round(v * 10) / 10;
@@ -24,6 +24,13 @@ export function useSize<T extends HTMLElement>(): [(el: T | null) => void, { wid
 /** True when a keyboard event is aimed at a text field (so shortcuts should stand aside). */
 export const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && !['range', 'checkbox', 'radio', 'button'].includes(t.type));
+
+const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+const KEY_NAMES: Record<string, string> = { '⌘': 'Ctrl', '⌥': 'Alt', '⇧': 'Shift' };
+/** A shortcut as this computer's keyboard names it: as written (⌘ ⌥ ⇧) on a Mac, and elsewhere with Ctrl, Alt and Shift,
+    which the handlers take there ("⇧⌘Z" is "Ctrl+Shift+Z", "⌥-drag" "Alt-drag", "hold ⌘" "hold Ctrl"). */
+export const shortcut = (s: string) => MAC ? s : s.replace(/⇧⌘/g, '⌘⇧')
+  .replace(/[⌘⌥⇧](?=[⌘⌥⇧A-Z0-9+−=])/g, k => `${KEY_NAMES[k]}+`).replace(/[⌘⌥⇧]/g, k => KEY_NAMES[k]);
 
 /** A dialog's Escape: it calls `onClose`, caught in the capture phase and stopped there, so the editor's own
     Escape (closing the inspector) stays quiet. The element in `first` takes the focus when the dialog opens,
