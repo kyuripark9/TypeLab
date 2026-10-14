@@ -148,7 +148,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    fifth of the capitals' height with a square top (a wood type's, a typewriter's). Specks a move pinches off are
    dropped (`SPECK`). A lighter weight (the stems themselves drawn thinner: `MoveMap.lighter`) does two things more: it
    reads a straight stroke's side that taking the joins out wore down (a short stem's between two joins, an a's, a p's
-   below its bowl, a heavy H's bar) as thick as it reads (`Bone.wl`, `PLATEAU`), so it thins with the rest, and the
+   below its bowl, a heavy H's bar, a sans b's stem inside its bowl) as thick as it reads past its end samples, which
+   read the joins (`Bone.wl`, `PLATEAU`), so it thins with the rest, and the
    curve such a side runs on into (a bracket into its serif, a d's ear) too, till it is as thin as `BRACKET_LEAST` of
    the side, so it goes in with the side rather than standing out from the thinner stem as a bulb; and where a
    thin stroke runs into a heavy one's side (a Didone's bowl or arch into its stem, `JOIN_*`; not a serif's bracket

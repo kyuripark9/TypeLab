@@ -367,7 +367,10 @@ function thicknessWithoutJoins(bones: Bone[], typical: number) {
   bones.forEach((b, i) => { if (b.straight && !b.corner) { if (!segs.has(b.seg)) segs.set(b.seg, []); segs.get(b.seg)!.push(i); } });
   for (const is of segs.values()) {
     const sb = is.map(i => bones[i]);
-    const least = Math.min(...sb.map(b => b.w0)), most = Math.max(...sb.map(b => b.w0)), worn = sb.reduce((s, b) => s + b.w, 0) / sb.length;
+    // (read past its first and last samples, at the points where it meets the curves either side, which read the
+    // joins there: a sans's b reads its stem's inside a third thinner at the point where its bowl leaves it)
+    const inner = sb.length > 4 ? sb.slice(1, -1) : sb;
+    const least = Math.min(...inner.map(b => b.w0)), most = Math.max(...inner.map(b => b.w0)), worn = sb.reduce((s, b) => s + b.w, 0) / sb.length;
     const len = Math.hypot(sb[sb.length - 1].x - sb[0].x, sb[sb.length - 1].y - sb[0].y) + STEP;
     if (most > 1.3 * least || worn >= 0.8 * least || len < 2 * PLATEAU * least) continue;
     if (sb.some(b => b.cap || b.onLine || b.serifDx || Math.abs(b.tx * b.dx + b.ty * b.dy) < 0.7)) continue;
