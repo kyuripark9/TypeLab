@@ -15,16 +15,17 @@
    stays slides along to its new place, the guide lines with it, all on one easing;
    - the name is drawn in the logo's letters, in capitals as the header sets it, as Points mode shows a letter: its
      points (corners and extremes) and handles come in along it as its outline is drawn on, the lines move to the
-     logo's heights and its letters' edges, and its ink fills in, as the tagline comes in under it word by word;
+     logo's heights and its letters' edges, and its ink fills in, as the tagline comes in under it word by word and
+     the credit after it at the card's foot;
    - the drawing gives way to the wordmark, the header's logo in its font (Lineup), the very letters drawn, the
-     tagline staying under it, and the card fades to the app, the words first.
-   A key or a click skips ahead to the fade, as a faint note at the card's foot says. It is one SVG, so the name keeps
-   one baseline under every font and the lines sit true to it. The own fonts are the cards' web fonts (so the cards
-   behind it are ready in them when it goes), and the drawing is the logo's capitals as tools/fonts/ui.ts writes them
-   beside its font (client/fonts/Lineup.json): the card waits up to WAIT_MS for them, plays with those that came
-   (leaving out the drawing if its letters didn't), and shows the wordmark alone when too few own fonts did. Once seen
-   it's marked in localStorage under PREFS.introSeen (lib/prefs.ts), which the browser tools in tools/browser set
-   beforehand to keep it out of the way. */
+     tagline and the credit staying, and the card fades to the app, the words first.
+   A key or a click skips ahead to the fade, as a faint note at the card's foot says until the credit takes its place.
+   It is one SVG, so the name keeps one baseline under every font and the lines sit true to it. The own fonts are the
+   cards' web fonts (so the cards behind it are ready in them when it goes), and the drawing is the logo's capitals as
+   tools/fonts/ui.ts writes them beside its font (client/fonts/Lineup.json): the card waits up to WAIT_MS for them,
+   plays with those that came (leaving out the drawing if its letters didn't), and shows the wordmark alone when too
+   few own fonts did. Once seen it's marked in localStorage under PREFS.introSeen (lib/prefs.ts), which the browser
+   tools in tools/browser set beforehand to keep it out of the way. */
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { flushSync } from 'react-dom';
 import type { FreeFontData, PackedNode } from '../../shared/engine';
@@ -70,12 +71,15 @@ const GROW_MS = 40, SETTLE_MS = 45, SETTLED_MS = 250;
     .42s in styles.css, a letter LETTER_MS after the one before), the ink fills in from FILL_MS as the points and
     lines go, and the wordmark follows at DRAW_MS. */
 const POINTS_MS = 420, LETTER_MS = 30, FILL_MS = 760, DRAW_MS = 1100;
+/** how far into the drawing the credit comes in at the card's foot: once the tagline has started and the skip note
+    has gone (.intro-skip's .3s fade in styles.css) */
+const CREDIT_MS = 500;
 /** the smallest size, in px to the em, the drawing's points show their handles at; how sharply the outline turns at a
     point for it to show as a corner (the cosine of 25°), and how far apart, in units, two points it shows are at least */
 const HANDLES_FROM = 80, CORNER = Math.cos(25 * Math.PI / 180), CLEAR = 50;
-/** how long the wordmark shows, then how long it fades; FADE_MS matches .intro.leave's opacity transition in
-    styles.css, its delay counted */
-const HOLD_MS = 1000, FADE_MS = 650;
+/** how long the wordmark shows, long enough for the credit under it to be read, then how long it fades; FADE_MS
+    matches .intro.leave's opacity transition in styles.css, its delay counted */
+const HOLD_MS = 1300, FADE_MS = 650;
 /** the least room between the window's edge and a scramble's letters, and how near, in px, a guide line can come to
     one before it without being left out, the two reading as one */
 const EDGE = 24, ONE = 6;
@@ -406,8 +410,10 @@ export function Intro() {
           {'Experiment with type.'.split(' ').map((w, i) => <span key={i} style={{ animationDelay: `${200 + i * 120}ms` }}>{w}</span>)}
         </div>
       )}
-      {/* how to skip it, while the name is still being made */}
-      {step && <div className={step.letters || step.drawn ? 'intro-skip' : 'intro-skip gone'}>{window.matchMedia('(hover: none)').matches ? 'Tap' : 'Click'} to skip</div>}
+      {/* how to skip it, while the name's letters are being set */}
+      {step && <div className={step.letters ? 'intro-skip' : 'intro-skip gone'}>{window.matchMedia('(hover: none)').matches ? 'Tap' : 'Click'} to skip</div>}
+      {/* the credit, in that note's place from the drawing on (with the wordmark, a card without its drawing) */}
+      {step && !step.letters && <div className="intro-credit" style={step.drawn ? { animationDelay: `${CREDIT_MS}ms` } : undefined}>Designed by <b>Kyuri Park</b></div>}
     </div>
   );
 }
