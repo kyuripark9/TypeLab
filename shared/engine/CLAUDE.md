@@ -153,7 +153,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    `withFeet`, in a font standing its stems on serifs (`fontSerifed`, its n's or H's): where the skeleton forks from a
    stem's middle round a bracket out to tips on a line, turns from a stem into a serif running one way (an n's right
    foot, a y's arm), or runs up into a slab and stops (a v's arms), one level stroke along each serif, out as far as the
-   ink runs along the line, the stem run down to the line; a slab as thick as its stem is one, `FOOT_THIN`,
+   ink runs along the line, the stem run down to the line; a flag atop a stem whose arch or bowl joins it further down
+   than the join's round reaches the line (an n's, an r's, a g's ear, an a's foot) the same, with a stub on from the
+   line to the join, the foot reaching across the stem's own width (`Foot.side`); a slab as thick as its stem is one, `FOOT_THIN`,
    `FOOT_REACH`; kept on copies of the rig, `footRig`, that only the lighter weights move on: thin serifs' feet from
    stems 0.6 of the design's, slabs' from 0.4, `FOOT_UNDER`, so a Bold keeps its brackets), read once a letter
    (`thinReads`: each point's own half thickness with the joins' bulges taken out, a short stroke between two joins no
@@ -166,7 +168,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    square foot on a line, `FLAT_END`), a level foot's samples in along their normals to its shape as the move thins it
    (`intoFoot`, `byFoot`: its stem's round run down to the line, each serif a band as thick as it is now standing on its
    edge, `footRound`, a contrasty font's no thicker than its hairline), so its edge on the line stays, its bracket comes
-   down, and its serifs' ends, cut across them, stay and come down with their edges; `moveRing` carries each stroke end by its turn alone (`endsOf`, `EndRun.ca`/`cb`:
+   down, and its serifs' ends, cut across them, stay and come down with their edges, a flag's top past its stem's side
+   pinned to that side's corner (`pins`, which `moveRing` puts where they say); a dot made smaller about its middle,
+   one with corners (a square, a diamond) pinned there point by point, as its sides moved in alone crossed at its
+   corners and left a sliver; `moveRing` carries each stroke end by its turn alone (`endsOf`, `EndRun.ca`/`cb`:
    a j's tail's curve goes in as a side), a corner's round whole (`carryFillets`, but a serif's bracket on a level
    foot), and sets a zero-thickness point
    where its neighbours meet (`pinPoints`). Joins its stems thin to under `REBUILD_BELOW` of themselves, no serif on

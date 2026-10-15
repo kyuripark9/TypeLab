@@ -682,7 +682,7 @@ function plainSkeleton(rig: SkinRig): Skeleton {
 /** A serif's foot drawn level (withFeet): the line it stands on and which way from it the ink lies, its stem's middle
     run down to the line (from the line up), a point of that run, and each serif along the line, from the stem out to its
     tip, with a point of it, whose rounds read how thick each is. */
-interface Foot { line: number; dir: number; stem: [SkPt, SkPt]; stemPt: SkPt; serifs: { x0: number; x1: number; pt: SkPt; edge: number }[] }
+interface Foot { line: number; dir: number; stem: [SkPt, SkPt]; stemPt: SkPt; serifs: { x0: number; x1: number; pt: SkPt; edge: number }[]; side?: number }
 /** Each point of a foot drawn level, and on its serif, the letter's edge along the line under it, as drawn. */
 const FEET = new WeakMap<SkPt, { foot: Foot; stem: boolean; edge: number }>();
 /** A serif withFeet draws level is no thicker, half, than FOOT_THIN of the round where its stem meets it, from a
@@ -722,9 +722,19 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
     const ys = rig.bones.flat().filter(q => !q.corner && q.ny * dir > 0.7 && Math.abs(q.y - L) < 2 * tol && q.x >= lo && q.x <= hi).map(q => q.y).sort((a, b) => a - b);
     return ys.length ? ys[ys.length >> 1] : L;
   };
+  // (half how thick the ink is at x, read in from the line, no deeper than deep: a serif's there)
+  const thickAt = (x: number, L: number, dir: number, deep: number) => {
+    const tol = tolOf();
+    let y0 = NaN;
+    for (let d = -tol; d <= 4 * tol && Number.isNaN(y0); d += 1) if (inside(x, L + dir * d)) y0 = L + dir * d;
+    if (Number.isNaN(y0)) return Infinity;
+    let d = 0;
+    while (d < deep && inside(x, y0 + dir * (d + 1))) d++;
+    return (d + 1 + Math.abs(y0 - L)) / 2;
+  };
   // a serif standing out to one side of its stem only: the skeleton turns from the stem into it, with no join there, so
   // one is made at the turn, where it has run level from its tip
-  const turns = new Set<number>();
+  const turns = new Set<number>(), flags: { e: number; end: 'a' | 'b'; L: number; dir: number }[] = [];
   for (let e = 0, count = edges.length; e < count; e++) {
     const E = edges[e];
     if (E.a === E.b) continue;
@@ -746,9 +756,13 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       // (out past the turn's round to the serif's end, the tip's round past the tip: a stem's own end turns at once)
       if (!(Math.abs(K.y - L) < 1.5 * K.r && dx + T.r > 1.2 * K.r && dx < FOOT_REACH * K.r && Math.abs(K.y - T.y) < 0.67 * Math.max(dx, 1))) continue;
       if (flatAlong(L, dir, T.x, K.x) < 0.7) continue;
-      // (a turn into a join near it is that join's foot's, which the join reads)
+      // (a turn into a join near it is that join's foot's, which the join reads; or, the join further off the line than
+      // its round reaches, a flag's, read below)
       const far = nodes[end === 'a' ? E.b : E.a];
-      if (far.edges.length >= 3 && Math.hypot(far.x - K.x, far.y - K.y) < 1.5 * Math.max(K.r, far.r)) continue;
+      if (far.edges.length >= 3 && Math.hypot(far.x - K.x, far.y - K.y) < 1.5 * Math.max(K.r, far.r)) {
+        if (Math.abs(far.y - L) > 1.5 * far.r) flags.push({ e, end, L, dir });
+        continue;
+      }
       // (the edge parted there: from the tip to the turn, and on from it)
       const J = nodes.length, other = end === 'a' ? E.b : E.a, e2 = edges.length, at = end === 'a' ? k : E.pts.length - 1 - k;
       nodes.push({ x: K.x, y: K.y, r: K.r, edges: [e, e2] });
@@ -759,6 +773,43 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       turns.add(J);
       break;
     }
+  }
+  // a flag: a serif standing out one way atop a stem whose join with its arch or bowl lies further down than the join's
+  // round reaches the line (an n's, an r's, a p's): the stem's middle run on up to the line, a stub to the join, the
+  // flag level from it out to its tip, as thick as it reads there
+  for (const { e, end, L, dir } of flags) {
+    const E = edges[e], t = end === 'a' ? E.a : E.b, f = end === 'a' ? E.b : E.a, T = nodes[t], F = nodes[f], tol = tolOf();
+    const stems = branches(G, f).filter(br => br.e !== e && leaving(G, br, F.r).y * dir > 0.7);
+    if (stems.length !== 1) continue;
+    const sp = from(stems[0]), a = sp.findIndex(q => Math.hypot(q.x - F.x, q.y - F.y) >= F.r);
+    if (a < 0) continue;
+    let b = sp.findIndex((q, k) => k > a && Math.hypot(q.x - sp[a].x, q.y - sp[a].y) >= F.r);
+    if (b < 0) b = sp.length - 1;
+    const A = sp[a], vx = sp[b].x - A.x, vy = sp[b].y - A.y, l = Math.hypot(vx, vy);
+    if (!(l >= 1 && vy * dir >= 0.7 * l)) continue;
+    const J1 = { x: A.x + vx * (L - A.y) / vy, y: L, r: A.r };
+    if (!(Math.hypot(J1.x - F.x, J1.y - F.y) < 3 * F.r) || Math.abs(T.x - J1.x) >= FOOT_REACH * A.r || (T.x - J1.x) * (T.x - F.x) <= 0) continue;
+    const h = thickAt(J1.x + 0.7 * (T.x - J1.x), L, dir, 2 * F.r);
+    if (!(h < most * A.r)) continue;
+    const foot: Foot = { line: L, dir, stem: [J1, A], stemPt: sp[b], serifs: [], side: A.r };
+    const tip = { x: T.x, y: L, r: h }, flag = run(J1, tip, () => h), stub = run(J1, F, k => A.r + (F.r - A.r) * k);
+    const base = rig.bones.flat().filter(q => !q.corner && q.ny * dir > 0.7 && Math.abs(q.y - L) < 2 * tol);
+    const edgeAt = (x: number) => { let best: Bone | null = null; for (const q of base) if (!best || Math.abs(q.x - x) < Math.abs(best.x - x)) best = q; return best && Math.abs(best.x - x) < 4 * THIN_CELL ? best.y : L; };
+    FEET.set(flag[0], { foot, stem: true, edge: L });
+    for (const q of flag.slice(1)) FEET.set(q, { foot, stem: false, edge: edgeAt(q.x) });
+    for (const q of stub.slice(0, -1)) FEET.set(q, { foot, stem: true, edge: L });
+    const way = Math.sign(T.x - J1.x) || 1, yi = L + dir * Math.min(tol, h);
+    let x = J1.x;
+    while (Math.abs(x - J1.x) < FOOT_REACH * A.r && inside(x + way * 2, yi)) x += way * 2;
+    const x1 = way * x > way * (T.x + way * T.r) ? x : T.x + way * T.r;
+    foot.serifs.push({ x0: J1.x, x1, pt: flag[Math.floor(flag.length * 0.7)], edge: edgeOf(L, dir, J1.x, x1) });
+    // (the flag's edge from its tip to the new node on the line, a stub on from there to the join)
+    const n1 = nodes.length, e2 = edges.length, len = (pts: SkPt[]) => pts.reduce((s, q, k) => (k ? s + Math.hypot(q.x - pts[k - 1].x, q.y - pts[k - 1].y) : 0), 0);
+    nodes.push({ x: J1.x, y: J1.y, r: J1.r, edges: [e, e2] });
+    edges[e] = { a: n1, b: t, pts: flag, len: len(flag) };
+    edges.push({ a: n1, b: f, pts: stub, len: len(stub) });
+    F.edges[F.edges.indexOf(e)] = e2;
+    T.x = tip.x; T.y = tip.y; T.r = h;
   }
   nodes.forEach((J, j) => {
     if (J.edges.length < 3 && !turns.has(j)) return;
@@ -1577,7 +1628,7 @@ interface ThinReads {
       (-1) */ foot: Float64Array; footDir: Int8Array; footStem: Int8Array; footId: Int32Array;
   /** the letter's feet drawn level: the line, which way the ink lies, the stem's middle from the line up, a point of it,
       and each serif's reach along the line and a point of it */
-  feet: { line: number; dir: number; stem: number[]; stemJ: number; serifs: { x0: number; x1: number; j: number; edge: number }[] }[];
+  feet: { line: number; dir: number; stem: number[]; stemJ: number; serifs: { x0: number; x1: number; j: number; edge: number }[]; side: number }[];
   /** each sample's nearest point of them to its stroke's middle, contour by contour (-1 with no skeleton) */ near: number[][];
   /** whether each sample's round, the widest touching it, touches the outline again across from it (a side, its round
       spanning its stroke), not only round to one side of it (by a corner, a stroke's end) */ across: boolean[][];
@@ -1666,7 +1717,7 @@ function thinReads(rig: SkinRig): ThinReads {
     out.zone.push(joins.filter(k => Math.hypot(p.x - sk.nodes[k].x, p.y - sk.nodes[k].y) < JOIN_ZONE * sk.nodes[k].r));
     j++;
   }));
-  out.feet = [...footIds.keys()].map(F => ({ line: F.line, dir: F.dir, stem: [F.stem[0].x, F.stem[0].y, F.stem[1].x, F.stem[1].y], stemJ: idx.get(F.stemPt) ?? -1, serifs: F.serifs.map(S => ({ x0: S.x0, x1: S.x1, j: idx.get(S.pt) ?? -1, edge: S.edge })) }));
+  out.feet = [...footIds.keys()].map(F => ({ line: F.line, dir: F.dir, stem: [F.stem[0].x, F.stem[0].y, F.stem[1].x, F.stem[1].y], stemJ: idx.get(F.stemPt) ?? -1, serifs: F.serifs.map(S => ({ x0: S.x0, x1: S.x1, j: idx.get(S.pt) ?? -1, edge: S.edge })), side: F.side ?? 0 }));
   // within a join's bulge each stroke's middle bends round to meet the others' (the skeleton of a heavy letter): drawn
   // again thinner along it, a stem a bowl or an arm joins would bend toward it there. A stem running on through the join
   // (two of its strokes leaving it opposite ways) runs straight through instead, as a thin face draws it, and the other
@@ -1885,7 +1936,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // (whether the font thins its strokes by how thick each is: drawn with much contrast, weighsOf)
   const { stem: s0, hair: h0 } = rig.ref(), byThick = Math.abs(mv.weighs({ tx: 0, ty: 1, w: h0 / 2, serifDx: 0, dot: false } as Bone) - mv.weighs({ tx: 0, ty: 1, w: s0 / 2, serifDx: 0, dot: false } as Bone)) > 0.02;
   const hairKept = h0 * mv.weighs({ tx: 1, ty: 0, w: h0 / 2, serifDx: 0, dot: false } as Bone);
-  const crotches = new Map<number, Crotch>();
+  const crotches = new Map<number, Crotch>(), pins = new Map<number, P>();
   bs.forEach((b, i) => {
     if (!b.corner || !concaveAt(b)) return;
     let N: SkPt | null = null, n0 = -1;
@@ -1914,11 +1965,19 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   });
   const iv: [number, number][] = [];
   const dotMid = bs[0]?.dot ? { x: bs.reduce((a, b) => a + b.x, 0) / bs.length, y: bs.reduce((a, b) => a + b.y, 0) / bs.length } : { x: 0, y: 0 };
+  // (a dot with corners, square or a diamond, whose sides run on askew to the way to its middle: moved in only along their
+  // way across, they would cross at its corners, and its ring came out a sliver)
+  const squareDot = !!bs[0]?.dot && bs.some(b => { const ox = dotMid.x - b.x, oy = dotMid.y - b.y; return Math.abs(ox * b.ny - oy * b.nx) > 0.3 * Math.hypot(ox, oy); });
   const k0: number[] = [];
   const plain = (b: Bone, i: number): number => {
     const kp = mv.keeps(b, r, i);
     // (a dot is made as much smaller about its middle as the stems are thinner, keeping its shape)
-    if (b.dot) { const k = mv.weighs(b) * kp; k0.push(k); return (k - 1) * Math.max(0, (dotMid.x - b.x) * b.nx + (dotMid.y - b.y) * b.ny); }
+    if (b.dot) {
+      const k = mv.weighs(b) * kp;
+      k0.push(k);
+      if (squareDot) pins.set(i, { x: dotMid.x + (b.x - dotMid.x) * k, y: dotMid.y + (b.y - dotMid.y) * k });
+      return (k - 1) * Math.max(0, (dotMid.x - b.x) * b.nx + (dotMid.y - b.y) * b.ny);
+    }
     if (crossEnd(b)) { k0.push(1); return 0; }
     // (a serif's edge, which the skeleton leaves out, by its own thickness, as its stroke would thin: as its round reads it
     // where that spans the serif, or as read across it where the round is cut short, by a slab's tip)
@@ -2018,8 +2077,18 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // them, or, never reaching them so, by as far as it lies off them; never out: its bracket with it, its edge on the line
   // staying there)
   const delta = bs.map((b, i) => {
-    const jf = T.near[r][i], fid = jf >= 0 && !b.dot && !crossEnd(b) ? T.footId[jf] : -1;
-    if (fid < 0 || !byFoot(T.feet[fid], b, Math.max(6, 0.02 * rig.ctx.cap), rig.ctx.cap)) return plain(b, i);
+    // (a flag's stem side, past the stem's middle from the flag, the side of the slab it stood under, cut off there)
+    const jf = T.near[r][i], ff = jf >= 0 && !b.dot ? T.footId[jf] : -1, F = ff >= 0 ? T.feet[ff] : null;
+    const fid = F && (!crossEnd(b) || (F.side > 0 && (b.x - F.stem[0]) * (F.serifs[0].x1 - F.stem[0]) < 0)) ? ff : -1;
+    // (a flag's edge along its line, out past its stem's side the other way from the flag, the top of the stem it stood
+    // over: in to that side's corner, read off the join below it or not)
+    const tol = Math.max(6, 0.02 * rig.ctx.cap);
+    if (!b.dot && !crossEnd(b)) for (const G of T.feet) {
+      if (!(G.side > 0) || Math.abs(b.y - G.line) > tol || b.ny * G.dir <= 0.7) continue;
+      const way = -Math.sign(G.serifs[0].x1 - G.stem[0]), rs = G.stemJ >= 0 ? R[G.stemJ] * mv.keeps(b, r, i) : 0, x = G.stem[0] + way * rs;
+      if ((b.x - x) * way > 0 && (b.x - G.stem[0]) * way <= G.side + tol) { pins.set(i, { x, y: b.y }); k0.push(1); return 0; }
+    }
+    if (fid < 0 || !byFoot(T.feet[fid], b, tol, rig.ctx.cap)) return plain(b, i);
     const kp = mv.keeps(b, r, i);
     k0.push(1);
     return intoFoot(T.feet[fid], b, j => R[j] * kp, j => footRound(rig, mv, R[j]) * kp, Math.max(6, 0.02 * rig.ctx.cap), 0.3 * rig.ctx.cap);
@@ -2062,7 +2131,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // a font drawn with much contrast keeps its hairline as the weight keeps it (family.ts) all round: no side spanning its
   // stroke goes in past where the stroke would be thinner, however it read its move (an o's top, read off its curve)
   if (byThick) bs.forEach((b, i) => { if (!b.corner && !b.dot && !b.serifDx && T.across[r][i] && !crossEnd(b)) delta[i] = Math.max(delta[i], Math.min(0, hairKept / 2 - b.best)); });
-  return { k0, delta, crotches };
+  return { k0, delta, crotches, pins };
 }
 
 /** The rig as moveRig tries it a last time: its lighter weight's skeleton keeping its strokes that end round (prune's
@@ -2197,7 +2266,7 @@ function thinMiddle(rig: SkinRig, mv: MoveMap, j: number): P & { R: number } {
     skeleton nearest a sample's middle is a foot's, the sample may be another stroke's beside it, a y's other arm's). */
 function byFoot(F: ThinReads['feet'][number], b: Bone, tol: number, cap: number) {
   // (as deep as its stem's run, or a wedge serif's, deepest by its stem, up to a quarter of the capitals' height)
-  const xs = [F.stem[0], ...F.serifs.flatMap(S => [S.x0, S.x1])], h = (b.y - F.line) * F.dir, top = Math.max((F.stem[3] - F.line) * F.dir, 0.25 * cap);
+  const xs = [F.stem[0] - F.side, F.stem[0] + F.side, ...F.serifs.flatMap(S => [S.x0, S.x1])], h = (b.y - F.line) * F.dir, top = Math.max((F.stem[3] - F.line) * F.dir, 0.25 * cap);
   return b.x >= Math.min(...xs) - tol && b.x <= Math.max(...xs) + tol && h >= -tol && h <= top + tol;
 }
 
@@ -2382,9 +2451,9 @@ const endsOf = (rig: SkinRig, r: number, mv: MoveMap) => (mv.lighter ? rig.ends[
 function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   const { weighs, keeps } = mv, end = crossEnd;
   if (rig && mv.lighter) {
-    const { k0, delta, crotches } = thinMoves(rig, bs, r, mv);
+    const { k0, delta, crotches, pins } = thinMoves(rig, bs, r, mv);
     const moved = bs.map((b, i) => b.corner ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && end(bs[j]) === end(b)));
-    return { dotRoom: bs[0]?.dot ? Math.min(...bs.map(b => b.gap)) * OPEN : Infinity, k0, moved, crotches };
+    return { dotRoom: bs[0]?.dot ? Math.min(...bs.map(b => b.gap)) * OPEN : Infinity, k0, moved, crotches, pins };
   }
   // how far each edge moves out (in, lighter): its stroke's change of thickness on this side, a stem's by
   // Weight, a bar's by Contrast too; a stroke's end, which runs across it, stays. An edge across a counter from another
@@ -2407,7 +2476,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     return d > 0 ? Math.min(d, b.dot ? dotRoom : b.gap * OPEN) : d;
   });
   const moved = bs.map((b, i) => b.corner ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && end(bs[j]) === end(b)));
-  return { dotRoom, k0, moved, crotches: undefined as Map<number, Crotch> | undefined };
+  return { dotRoom, k0, moved, crotches: undefined as Map<number, Crotch> | undefined, pins: undefined as Map<number, P> | undefined };
 }
 
 /** One contour of the rig moved (contour r, its samples bs): each edge out or in by its stroke's change of thickness,
@@ -2415,7 +2484,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     with the sides it joins. */
 function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   const { gy, gyDot, gx, top, top1, sx, kd, ks } = mv;
-  const n = bs.length, { dotRoom, k0, moved, crotches } = edgeMoves(bs, r, mv, rig);
+  const n = bs.length, { dotRoom, k0, moved, crotches, pins } = edgeMoves(bs, r, mv, rig);
   // where the heights and the width put it: the skeleton point moved, and the edge kept as far across the
   // stroke from it as it was, the stroke turned as they turn it (a diagonal leans further as the letter
   // widens), so every stroke keeps its thickness; narrower, upright strokes thin a little, as a condensed
@@ -2476,6 +2545,10 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     const kS = ks > 1 && b.serifDx ? 1 + Math.min(ks - 1, 0.4 * b.serifRoom / Math.max(1, b.serifReach * sx)) : ks;
     const x = b.x + shift(0, i) + b.serifDx * (kS - 1) * sx, y = b.y + shift(1, i);
     base[i] = { x, y };
+    // (where thinMoves pins it: a flag's top past its stem's side at that side's corner, a dot with corners made smaller
+    // about its middle)
+    const pin = pins?.get(i);
+    if (pin) return { x: pin.x + x - b.x, y: pin.y + y - b.y };
     if (!b.corner) return { x: x - b.nx * moved[i], y: y - b.ny * moved[i] };
     // a corner sits where its two edges, each moved its own way, meet again (not much further out than they moved); a
     // lighter weight's crotch where strokes join, along the ways the strokes' middles run (thinMoves)
