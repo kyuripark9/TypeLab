@@ -2,16 +2,21 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { CHARSET, buildFont } from '../shared/engine';
 import { hasGlyph } from '../shared/engine/font';
-import { DEFAULTS, type Params } from '../shared/params';
+import { STYLES } from '../shared/content';
+import { freeFont, registerFreeFont } from '../shared/engine';
+import { STYLE_FONTS } from '../shared/free-fonts';
+import { DEFAULTS, freeAtOf, isValidParams, sanitizeParams, type Params } from '../shared/params';
 import { buildOTF } from '../server/export';
+import { FreeFonts } from '../server/free-fonts';
 import { opentype } from '../server/opentype';
 
-/* The script settings, the panel's Handwriting page: Cursive and the joined-up script letterforms (script.ts), their
-   high joins (the 'hi' forms, set by the layout and exported as contextual alternates), and Swell. The Lowercase height scale, down to a copperplate's x-height, and moving older designs onto it are in
+/* The script settings, the panel's Handwriting page: Cursive, the joined-up script letters the engine writes a design
+   more than half cursive in (script.ts), their high joins (the 'hi' forms, set by the layout and exported as contextual
+   alternates), and Swell; and Letterforms, taken out: a design in a font is written in the font's own letters. The Lowercase height scale, down to a copperplate's x-height, and moving older designs onto it are in
    params.test.ts. */
 
 /** A light, slanted script of high contrast and a small x-height, as a copperplate is written. */
-const copperplate: Params = { ...DEFAULTS, scriptForm: 'script', weight: 0.36, contrast: 1, slant: 1, xHeight: 0.1 };
+const copperplate: Params = { ...DEFAULTS, cursive: 1, weight: 0.36, contrast: 1, slant: 1, xHeight: 0.1 };
 const area = (d: string) => {
   // the ink of an outline, near enough: the shoelace sum over its points and handles, contour by contour
   let a = 0;
@@ -22,24 +27,24 @@ const area = (d: string) => {
   return Math.abs(a / 2);
 };
 
-describe('cursive and scriptForm', () => {
+describe('cursive and the script letters', () => {
   it('cursive switches to italic letterforms and adds exit strokes', () => {
-    const print = buildFont(DEFAULTS), script = buildFont({ ...DEFAULTS, cursive: 1, scriptForm: 'print' });
+    const print = buildFont(DEFAULTS), script = buildFont({ ...DEFAULTS, cursive: 0.45 });
     assert.ok(script.glyph('n')!.marks.some(k => k.type === 'exit'));
     assert.ok(!print.glyph('n')!.marks.some(k => k.type === 'exit'));
     assert.notEqual(print.glyph('y')!.d, script.glyph('y')!.d);
   });
 
   it('writes the letters as a joined-up script, every small letter joining the next on one line', () => {
-    const print = buildFont(DEFAULTS), script = buildFont({ ...DEFAULTS, scriptForm: 'script' }), auto = buildFont({ ...DEFAULTS, cursive: 1 });
+    const print = buildFont(DEFAULTS), script = buildFont({ ...DEFAULTS, cursive: 1 });
     const xh = script.m.xh;
     for (const ch of 'abcdefghijklmnopqrstuvwxyzAQRZ') {
       const g = script.glyph(ch)!;
       assert.ok(g.d && g.d !== print.glyph(ch)!.d, ch);
     }
-    // left alone, a design more than half cursive is written
-    assert.ok(auto.glyph('n')!.lsb + auto.glyph('n')!.rsb === 0 && print.glyph('n')!.lsb > 0);
-    assert.ok(buildFont({ ...DEFAULTS, cursive: 1, scriptForm: 'print' }).glyph('n')!.lsb > 0);
+    // a design the engine draws more than half cursive is written; less, printed
+    assert.ok(script.glyph('n')!.lsb + script.glyph('n')!.rsb === 0 && print.glyph('n')!.lsb > 0);
+    assert.ok(buildFont({ ...DEFAULTS, cursive: 0.45 }).glyph('n')!.lsb > 0);
     // each small letter's join crosses its left edge and its right edge at the same height (JY in script.ts), so they
     // meet; b o v w leave from their tops, level across the right edge at HY, where the next letter's 'hi' form comes in
     const at = (pts: { x: number; y: number }[], x: number, y: number) => pts.some(p => Math.abs(p.x - x) < 1.5 && Math.abs(p.y - xh * y) < 1.5);
@@ -54,7 +59,7 @@ describe('cursive and scriptForm', () => {
   });
 
   it('writes a letter after b, o, v or w in the form that takes its high join, and no other', () => {
-    const script = buildFont({ ...DEFAULTS, scriptForm: 'script' }), alts = (t: string) => script.layout(t, Infinity)[0].items.map(it => it.alt ?? '-').join(' ');
+    const script = buildFont({ ...DEFAULTS, cursive: 1 }), alts = (t: string) => script.layout(t, Infinity)[0].items.map(it => it.alt ?? '-').join(' ');
     assert.equal(alts('ovo'), '- hi hi');
     assert.equal(alts('now'), '- - hi');
     assert.equal(alts('nun'), '- - -');
@@ -67,7 +72,7 @@ describe('cursive and scriptForm', () => {
   });
 
   it('exports the high joins as contextual alternates', () => {
-    const otf = opentype.parse(buildOTF({ ...DEFAULTS, scriptForm: 'script' }, 'Joined').buffer as ArrayBuffer), gsub = otf.tables.gsub;
+    const otf = opentype.parse(buildOTF({ ...DEFAULTS, cursive: 1 }, 'Joined').buffer as ArrayBuffer), gsub = otf.tables.gsub;
     assert.deepEqual(gsub.features.map((f: { tag: string }) => f.tag), ['calt']);
     const name = (i: number) => otf.glyphs.get(i).name, [single, chain] = gsub.lookups.map((l: { subtables: unknown[] }) => l.subtables[0]);
     assert.equal(single.coverage.glyphs.length, 26);
@@ -90,5 +95,34 @@ describe('swell', () => {
       assert.ok(sw < at * 0.97, `${ch}: ${sw} vs ${at}`);
     }
     assert.equal(buildFont({ ...DEFAULTS, swell: 1 }).glyph('n')!.d, buildFont(DEFAULTS).glyph('n')!.d);
+  });
+});
+
+describe('Letterforms, taken out', () => {
+  const ownFonts = new FreeFonts(null, async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); });
+  const inFont = async (id: string): Promise<Params> => {
+    const style = STYLES.find(s => s.id === id)!.params, fid = STYLE_FONTS[id];
+    if (!freeFont(fid)) registerFreeFont(await ownFonts.load(fid));
+    return { ...style, freeFont: fid, freeAt: freeAtOf(style) } as Params;
+  };
+
+  it('writes a design in its font\'s own letters, print or script, however cursive', async () => {
+    for (const id of ['geometric', 'informal']) {
+      const cur = buildFont({ ...(await inFont(id)), cursive: 1 });
+      // (Cursive gives a print font's letters flicks, but never the engine's script letters)
+      for (const ch of 'naoR') assert.ok(!cur.glyph(ch)!.meta.joined, `${id} ${ch}`);
+      assert.equal(cur.layout('ovo', Infinity)[0].items.filter(it => it.alt).length, 0, id);
+    }
+  });
+
+  it('opens and saves a design that still carries it, without it', async () => {
+    const p = await inFont('geometric');
+    const old = { ...p, scriptForm: 'script', freeAt: { ...p.freeAt, scriptForm: 'auto' }, glyphs: { n: { scriptForm: 'print', contrast: 0.7 } } } as unknown as Params;
+    const read = sanitizeParams(old) as unknown as Record<string, unknown>;
+    assert.ok(!('scriptForm' in read) && !('scriptForm' in (read.freeAt as object)) && !('scriptForm' in (read.glyphs as Record<string, object>).n));
+    assert.equal(buildFont(read as unknown as Params).glyph('n')!.d, buildFont({ ...p, glyphs: { n: { contrast: 0.7 } } }).glyph('n')!.d);
+    // a page opened before it went saves it still: read without it, not refused
+    assert.ok(isValidParams(old));
+    assert.ok(!isValidParams({ ...p, freeAt: { ...p.freeAt, weight: 'heavy' } }));
   });
 });

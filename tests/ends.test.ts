@@ -222,7 +222,7 @@ describe('stroke ends: terminal, terminalForm, terminalRun, terminalLength, term
   });
 
   it('sets the tip of a hook or tail only by its own length', () => {
-    for (const [ch, p] of [['f', {}], ['y', {}], ['Q', {}], ['n', { cursive: 0.8, scriptForm: 'print' }]] as const) {
+    for (const [ch, p] of [['f', {}], ['y', {}], ['Q', {}], ['n', { cursive: 0.45 }]] as const) {
       const base = buildFont({ ...DEFAULTS, ...p }), tips = base.glyph(ch)!.marks.filter(k => k.type === 'terminal' && k.hook);
       assert.ok(tips.length, ch);
       // Length leaves it alone, so Tails & hooks (or Cursive) sets it (y and Q have no other ends to shift the letter)

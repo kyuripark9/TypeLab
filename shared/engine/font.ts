@@ -32,7 +32,7 @@ import type { Drawn } from './outline';
 import { autoThickness, organicK, type SerifPlace } from './stroke';
 import type { Cmd, Mark, MarkType, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
 import { buildBlock, buildGlyph } from './glyph';
-import { fontScript, formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
+import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
 import { drawnDesign, drawnFrom, drawnLetter } from './family-drawn';
 import { highlightD } from './highlight';
 
@@ -416,8 +416,9 @@ export function strokeWt(m: Metrics, si: number) {
     serif sides and cups (serif-sides.ts) all go by it. */
 export const hasSerif = (m: Metrics, o: StrokeOpts, which: 's' | 'e') => m.serif && !o.scale && !!(which === 's' ? o.serifS : o.serifE);
 
-/** Whether the letters are written as a joined-up script's (see SCRIPT_FORMS): on auto, in a design more than half cursive. */
-export const scriptForms = (e: Pick<Params, 'scriptForm' | 'cursive'>) => e.scriptForm === 'script' || (e.scriptForm === 'auto' && e.cursive >= 0.5);
+/** Whether the engine writes the letters as a joined-up script's (script.ts): in a design more than half cursive. (A free
+    font's letters are its own, script or print: see formChanged in free-letters.ts.) */
+export const scriptForms = (e: Pick<Params, 'cursive'>) => e.cursive >= 0.5;
 
 /** The glyph id letter `ch`'s script form ('S.scr', see script.ts) is registered and picked under. */
 export const scriptId = (ch: string) => ch + '.scr';
@@ -466,8 +467,8 @@ export function buildFont(params: Params, from?: Font): Font {
   // stand on no side bearings: the space is wider by both joins and by a side bearing (in whole cells on a grid fill),
   // so the words stand about as far apart as their letters' ink would in print, and never nearer, the ends of the two
   // joins, than SCRIPT_GAP of an x-height across, however tight the design's words are set (a join's hairline end
-  // stands out less than a letter's side). (A free font that is a script itself spaces its own words.)
-  const joined = fl && free ? fontScript(fl.now, fl.pick) && !scriptForms(fl.pick) : scriptForms(e);
+  // stands out less than a letter's side). (A free font's letters are its own, and it spaces its own words.)
+  const joined = !free && scriptForms(e);
   const across = scriptAcross(m1), sp = Math.max(m1.space + 2 * SCRIPT_PAST * across + m1.sb, (SCRIPT_GAP + 2 * SCRIPT_PAST) * across - m1.track);
   const m = joined ? { ...m1, space: m1.cell && e.fill !== 'lines' ? Math.max(m1.cell, Math.round(sp / m1.cell) * m1.cell) : sp } : m1;
   // a family member's drawn letters are moved from the design they were drawn in (family-drawn.ts)

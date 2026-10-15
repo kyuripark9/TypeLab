@@ -19,8 +19,8 @@ describe('letter forms: story, overlap, bowlJoin, gForm, qForm, kForm, dots, dot
     assert.equal(a({}), a({ story: 'double' }));
     assert.notEqual(a({}), a({ story: 'single' }));
     // (the storeys of the print a: a script writes its own)
-    assert.equal(a({ cursive: 1, scriptForm: 'print' }), a({ cursive: 1, scriptForm: 'print', story: 'single' }));
-    assert.notEqual(a({ cursive: 1, scriptForm: 'print' }), a({ cursive: 1, scriptForm: 'print', story: 'double' }));
+    assert.equal(a({ cursive: 0.45 }), a({ cursive: 0.45, story: 'single' }));
+    assert.notEqual(a({ cursive: 0.45 }), a({ cursive: 0.45, story: 'double' }));
   });
 
   it('bowl overlap pulls the o of b d p q off the stem', () => {
@@ -328,12 +328,12 @@ describe('heights: descender, extenders, tail', () => {
     assert.ok(tip(f(1), 'y').y < tip(f(0.5), 'y').y && tip(f(0.5), 'y').y < tip(f(0), 'y').y);
     for (const ch of 'nHOoe') assert.equal(f(0).glyph(ch)!.d, f(1).glyph(ch)!.d, ch);
     // cursive exit strokes flick further out
-    assert.ok(tip(f(1, { cursive: 1, scriptForm: 'print' }), 'n').x > tip(f(0, { cursive: 1, scriptForm: 'print' }), 'n').x);
+    assert.ok(tip(f(1, { cursive: 0.45 }), 'n').x > tip(f(0, { cursive: 0.45 }), 'n').x);
   });
 
   it('puts the handle of every tail and exit stroke on the end of its stroke', () => {
     // (on a pen that neither wobbles nor facets its curves)
-    for (const p of [{ tail: 0 }, { tail: 1 }, { cursive: 1, scriptForm: 'print' as const }, { scriptForm: 'script' as const }]) {
+    for (const p of [{ tail: 0 }, { tail: 1 }, { cursive: 0.45 }, { cursive: 1 }]) {
       const f = buildFont({ ...DEFAULTS, ...p });
       for (const ch of ALL_CHARS) {
         const g = f.glyph(ch)!, ends = g.skeleton.flatMap(l => (l.length ? [l[0], l[l.length - 1]] : []));

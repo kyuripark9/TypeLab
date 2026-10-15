@@ -29,7 +29,7 @@ file.
      otherwise `build: 'blocks'` draws `buildBlock` (basic block letters, slot blocks or grid letters, by `blockForm`), and anything
      else (a letter the free font lacks too) is
      `buildGlyph(variantOf(ch, e), m, ch)`.
-   - `variantOf` picks the glyph id: in a script (`scriptForms`) `<ch>.scr`;
+   - `variantOf` picks the glyph id: in a design the engine draws more than half cursive (`scriptForms`) `<ch>.scr`;
      `a.alt` for a single-storey a; `<ch>.cur` from Cursive 0.35 (`CURSIVE_FORMS`); else `ch`.
    - `font.glyph(ch, alt)` asks for a letter in the form the letter before it calls for (`GlyphAlt`): `'hi'`, a
      joined script's small letter after one whose join leaves it high (`GlyphMeta.exitHigh`: b, o, v, w), drawn from
@@ -258,8 +258,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    Serifs also squares off an upright stroke's round end on a line (`roundTip` in
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
 5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,
-   script or not, the a's storeys, a `FORM_LETTERS` setting; Letterforms and
-   the Letter a left on auto keep the font's own forms, whatever Cursive asks); `twinGlyph` draws the engine's own
+   the a's storeys, a `FORM_LETTERS` setting; the Letter a left on auto keeps the font's own form, and a font is written
+   in its own letters, script or print, whatever Cursive asks); `twinGlyph` draws the engine's own
    letter at the settings the font reads as (`twinFit`: the weight and contrast whose stems and bars match the font's
    own, read off its n and H by `fontLook` with the design's Verticals and Horizontals counted, its x-height, width,
    serifs, and its stems' lean as slant), moved as far as the design moves from the pick.

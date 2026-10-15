@@ -4,7 +4,7 @@
 import type { Drawn } from '../engine/outline';
 import type { FreeAt, GlyphParams } from './spec';
 import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, GForm, IForm, JForm, KForm, MForm, Mirror, QForm, RForm,
-  ScriptForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from './options';
+  SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from './options';
 
 export interface Params {
   /** strokes or blocks (see BUILDS) */ build: Build;
@@ -81,7 +81,6 @@ export interface Params {
   /** the shape of the Y (see Y_FORMS) */ yForm: YForm;
   /** the tail of the Q (see Q_FORMS) */ qForm: QForm;
   /** the leg of the R (see R_FORMS) */ rForm: RForm;
-  /** print or joined-up script letters (see SCRIPT_FORMS) */ scriptForm: ScriptForm;
   /** how gradually the pointed pen of the script letters presses into a downstroke and lets up: 0 at once,
       higher swelling from a point and easing off before the turn (see swell in stroke.ts) */ swell: number;
   /** length of tails and hooks (Q y j g t f, the comma, cursive exits): 0.5 is the usual length */ tail: number;

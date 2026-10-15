@@ -165,10 +165,22 @@ export function sanitizeParams(input: unknown): Params {
   return out as unknown as Params;
 }
 
+/** Settings taken out of TypeLab that older designs still carry, at the top, in freeAt and in a letter's own: sanitizeParams
+    drops them (it reads only PARAM_KEYS), and isValidParams reads a design without them rather than refusing it (a page
+    opened before they went saves them still). Letterforms (scriptForm, 2026-10-15): every design is written in its
+    font's own letters, script or print. */
+const RETIRED = ['scriptForm'];
+const withoutRetired = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v)
+  ? Object.fromEntries(Object.entries(v).filter(([k]) => !RETIRED.includes(k))) : v);
+
 /** True when `input` is already fully valid (used by the API to reject bad bodies loudly). */
 export function isValidParams(input: unknown): input is Params {
   if (!input || typeof input !== 'object') return false;
-  const src = input as Record<string, unknown>;
+  const given = input as Record<string, unknown>, glyphs = given.glyphs;
+  const src: Record<string, unknown> = { ...given, freeAt: withoutRetired(given.freeAt),
+    glyphs: glyphs && typeof glyphs === 'object' && !Array.isArray(glyphs) ? Object.fromEntries(Object.entries(glyphs).map(([ch, g]) => [ch, withoutRetired(g)])) : glyphs };
+  if (!('freeAt' in given)) delete src.freeAt;
+  if (!('glyphs' in given)) delete src.glyphs;
   const clean = sanitizeParams(input) as unknown as Record<string, unknown>;
   // (an older design's freeAt may leave out free settings: sanitizeParams fills them in, so compare only the ones the input names)
   const fill = (k: keyof Params, v: unknown) => k === 'freeAt' && src.freeAt && typeof src.freeAt === 'object'

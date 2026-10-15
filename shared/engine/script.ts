@@ -4,8 +4,9 @@
    is a few pen strokes through points laid out on a 700-high capital, drawn smooth through them
    (each point's way out is the average of the ways in from the point before and on to the next).
    The stroke expander gives them their thick and thin, the terminals their ends and the slant its
-   lean, as for every other letter. The script styles use them, and the small letters below, in place
-   of the print ones (Letterforms: Script, the scriptForm setting; scriptForms() in font.ts picks these). */
+   lean, as for every other letter. A design the engine draws more than half cursive is written in them, and
+   the small letters below, in place of the print ones (scriptForms() in font.ts): a script style's letters
+   while its free font is on its way. */
 import type { ControlKey } from '../params';
 import { SCRIPT_PAST, altId, defGlyph as def, scriptAcross, scriptId, type Builder, type Metrics } from './font';
 import type { Cmd, EndType, StrokeOpts } from './types';
@@ -125,7 +126,7 @@ function scriptCap(Wn: number, strokes: [Runs, StrokeOpts][]) {
 }
 
 /** The controls the inspector shows for a script letter, capital or small. */
-const SCRIPT_PARAMS: ControlKey[] = ['scriptForm', 'contrast', 'slant', 'width'];
+const SCRIPT_PARAMS: ControlKey[] = ['contrast', 'slant', 'width'];
 
 /** A script capital with side bearing `sbL` on the left (as a share of the design's). */
 const capDef = (ch: string, sbL: number, Wn: number, strokes: [Runs, StrokeOpts][]) =>

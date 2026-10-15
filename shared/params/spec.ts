@@ -14,7 +14,7 @@
 import type { Params } from './model';
 import { isCornerId, isEndId, isJoinId, isStrokeId, isTurnId } from './scales';
 import { A_FORMS, APEX_FORMS, BAR_ENDS, BENDS, BLOCK_FORMS, BOWL_FORMS, BOWL_JOINS, BUILDS, DIAGONALS, DOTS, FILLS, G_FORMS, I_FORMS, J_FORMS, K_FORMS, M_FORMS, MIRRORS, Q_FORMS,
-  R_FORMS, S_FORMS, SCRIPT_FORMS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, STORIES, TERMINAL_FORM_IDS, TERMINAL_RUNS,
+  R_FORMS, S_FORMS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, STORIES, TERMINAL_FORM_IDS, TERMINAL_RUNS,
   TERMINALS, Y_FORMS } from './options';
 
 /** A page of the editor: Style, or one set of controls. */
@@ -271,8 +271,6 @@ export const SPECS = {
     explain: 'Strokes flick on toward the next letter, like script.' } }),
   wobble: num(0, { free: true, control: { cat: 'script', off: 0, label: 'Hand-drawn', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
     explain: 'Strokes drift, swell and sit a little off the line.' } }),
-  scriptForm: option(SCRIPT_FORMS, 'auto', { free: true, control: { cat: 'script', type: 'form', label: 'Letterforms', friendly: 'Write joined script or print', tech: 'Print or script letterforms', demo: 'Rain',
-    explain: 'Print letters built like type, or script written with a pen and joined on hairlines.' } }),
   swell: num(0, { control: { cat: 'script', off: 0, label: 'Swell', friendly: 'Press into the downstrokes', tech: 'Pointed pen · Pressure', lo: 'At once', hi: 'Gradual', demo: 'nitu',
     explain: 'Each downstroke swells from a fine point and lets up again, as a pointed pen does.' } }),
 

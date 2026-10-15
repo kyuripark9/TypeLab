@@ -348,7 +348,7 @@ interface End { pts: SkPt[]; body: number; reach: number; exit?: true; run?: num
     curving strokes: a crossbar's ends (an f's, a 2's foot) run straight, and keep the font's own. */
 const SPOT_LOOKS: Record<'upright' | 'italic', Partial<Params>[]> = {
   upright: [{}, { story: 'single' }, { gForm: 'double' }],
-  italic: [{}, { story: 'single' }, { gForm: 'double' }, { cursive: 0.45, scriptForm: 'print' }]
+  italic: [{}, { story: 'single' }, { gForm: 'double' }, { cursive: 0.45 }]
 };
 const spotFonts: Font[] = [], spotsOf = new Map<string, P[]>();
 function endSpots(ch: string, italic: boolean): P[] {

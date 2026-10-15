@@ -6,7 +6,7 @@ import {
   type SerifInnerSubKey
 } from '../../../shared/content';
 import { GRID_FILLS, formOf, type Terminal, type TerminalForm } from '../../../shared/params';
-import { autoIBars, scriptForms } from '../../../shared/engine';
+import { autoIBars } from '../../../shared/engine';
 import { actions, useEditor, useParam, useScopedFont } from '../../state/editor';
 import { FillIcon, FormIcon, SerifIcon, SerifSidesIcon, StoryIcon, TerminalIcon } from '../Diagram';
 import { CtlHead, FoldHead, Fold, Quiet, useControlFocus } from './heads';
@@ -100,7 +100,7 @@ export function FormControl({ k, parts }: { k: LetterFormKey; parts?: string[] }
 function FormOptions({ k, label }: { k: FormKey; label: string }) {
   const value = useParam(k), font = useScopedFont(), { options } = FORM_OPTIONS[k];
   // the option 'auto' stands for, as the engine picks it
-  const current = value !== 'auto' ? value : k === 'dots' ? (font.m.dotRound >= 0.5 ? 'round' : 'square') : k === 'scriptForm' ? (scriptForms(font.eff) ? 'script' : 'print')
+  const current = value !== 'auto' ? value : k === 'dots' ? (font.m.dotRound >= 0.5 ? 'round' : 'square')
     : k === 'iForm' ? (autoIBars(font.eff) ? 'bars' : 'plain') : value;
   return (
     <div className={options.length === 3 ? 'opts three' : 'opts two'} role="radiogroup" aria-label={label}>

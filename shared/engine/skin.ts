@@ -618,7 +618,7 @@ export const FORM_LETTERS = {
     left out: not a SKIN_KEYS setting, it reaches every letter as skinFollows answers it. */
 const FORM_FOLLOWS: Record<string, RegExp> = {
   story: /a/, ...Object.fromEntries(Object.entries(FORM_LETTERS).filter(([k]) => k !== 'terminalRun').map(([k, set]) => [k, new RegExp(`[${set}]`)])),
-  build: /./, scriptForm: /[A-Za-z]/, cursive: /[adhijlmnpru]/
+  build: /./, cursive: /[adhijlmnpru]/
 };
 
 /** The settings a free font's letter follows only when it is rigged (moved on its skeleton by skinMove, or redrawn

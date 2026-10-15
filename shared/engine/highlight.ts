@@ -46,7 +46,6 @@ export function highlightD(g: Glyph, key: ControlKey, m: Metrics): string {
     case 'apexForm': return g.ch === 'A' ? g.d : '';
     case 'mForm': return g.ch === 'M' ? g.d : '';
     case 'jForm': return g.ch === 'J' ? g.d : '';
-    case 'scriptForm': return /^[A-Za-z]$/.test(g.ch) ? g.d : '';
     case 'bowlForm': return strokes(s => s.curved);
     case 'bends': return /[AMNVWYZvwyz]/.test(g.ch) ? g.d : '';
     case 'bowlJoin': return /[abdgpq]/.test(g.ch) ? strokes(s => s.part === 'bowl') : /[hmnru]/.test(g.ch) ? strokes(s => s.part === 'shoulder') : '';

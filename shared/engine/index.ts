@@ -4,7 +4,7 @@
 import './glyphs';
 import './script';
 
-export { ALL_CHARS, CHARSET, SLANT_PIVOT, buildFont, scriptForms, termSpec } from './font';
+export { ALL_CHARS, CHARSET, SLANT_PIVOT, buildFont, termSpec } from './font';
 export { ACCENTED, accentGlyph } from './accents';
 export type { AccentGlyph } from './accents';
 export type { Font, Glyph, GlyphAlt, Line, LineItem } from './font';

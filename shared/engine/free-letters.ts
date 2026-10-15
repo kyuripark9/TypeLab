@@ -11,7 +11,7 @@ import { FORM_LETTERS, descK, rigSkeleton, skinMeasures, skinMove, skinRig, type
 import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBlockBowls, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
-import { SERIF_SB, buildFont, type Effective, type Font, type Glyph, type GlyphAlt, glyphDefOf, hasGlyph, type Metrics, metrics, resolve, scriptForms, scriptId, termSpec } from './font';
+import { SERIF_SB, buildFont, type Effective, type Font, type Glyph, type GlyphAlt, glyphDefOf, type Metrics, metrics, resolve, termSpec } from './font';
 import { blankParts, placeGlyph, wobbler, type Unplaced } from './glyph';
 
 /* ---- free fonts' letters (see shared/free-fonts.ts), moved by the settings as far as they're moved from the
@@ -109,24 +109,18 @@ export function inkX(d: Drawn): [number, number] {
 }
 
 /* ---- a free font's twin: the font read as the engine's own settings, for the letters asked for in a form the font
-   hasn't got (a single-storey a, a mirrored g, a k on a bar, Arches, a script's letters), which the engine draws */
+   hasn't got (a single-storey a, a mirrored g, a k on a bar, Arches), which the engine draws */
 
 /** Whether letter `ch` is asked for (settings `a`) in another form than the one the font's own stands for (its settings
-    as picked, `b`): built otherwise, written as a script's or not (Letterforms; left on auto, the font's own), the
-    a's storeys (left on auto, the font's), or a letter-form setting moved on the letters it reaches (FORM_LETTERS in
-    skin.ts). (Cursive flicks the font's own letters: restyleCursive.) */
+    as picked, `b`): built otherwise, the a's storeys (left on auto, the font's), or a letter-form setting moved on the
+    letters it reaches (FORM_LETTERS in skin.ts). A font is written as it is drawn, script or print, whatever Cursive asks:
+    Cursive gives the font's own letters the engine's flicks (restyleCursive in restyle.ts). */
 export function formChanged(ch: string, a: Effective, b: Effective): boolean {
   if (a.build !== b.build) return true;
-  // (Letterforms and the Letter a left on auto keep the font's own forms, which its letters are drawn in, whatever
-  // Cursive asks: it gives the font's letters the engine's flicks instead, see restyleCursive in restyle.ts)
-  if (fontScript(a, b) !== scriptForms(b)) return hasGlyph(scriptId(ch));
+  // (the Letter a left on auto keeps the font's own form, which its letters are drawn in)
   return (ch === 'a' && a.story !== 'auto' && a.singleStory !== b.singleStory)
     || (Object.keys(FORM_LETTERS) as (keyof typeof FORM_LETTERS)[]).some(k => FORM_LETTERS[k].includes(ch) && a[k] !== b[k]);
 }
-
-/** Whether design `a` written in a free font picked at `b` draws its letters as a script's: as the font does, unless
-    Letterforms says otherwise. */
-export const fontScript = (a: Effective, b: Effective) => (a.scriptForm === 'auto' ? scriptForms(b) : a.scriptForm === 'script');
 
 /* What a free font's width reads as, metrics() (font.ts) undone: twinFit reads the font's n back through it, and
    tests/free-fonts.test.ts runs it the other way, so a change to metrics() that leaves it behind fails there. (Its
