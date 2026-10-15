@@ -38,8 +38,9 @@ export type Mat = [number, number, number, number, number, number];
 export interface HalfPlane { x: number; y: number; nx: number; ny: number }
 export interface ClipBox { x0?: number; x1?: number; y0?: number; y1?: number; planes?: HalfPlane[] }
 
-/** How a stroke ends: styled terminal, flat, cut along an axis, or joined to another stroke. */
-export type EndType = 'flat' | 'term' | 'h' | 'v' | 'join';
+/** How a stroke ends: styled terminal, flat, cut along an axis, joined to another stroke, or round, as a round nib
+    leaves a stroke where the pen turns back (the script letters', see script.ts). */
+export type EndType = 'flat' | 'term' | 'h' | 'v' | 'join' | 'round';
 /** Which side of a stroke end gets a serif ('a' = toward -x or -y). */
 export type SerifSides = 'both' | 'a' | 'b' | null;
 /** Stroke weight override: 0 = thin, 1 = thick. */

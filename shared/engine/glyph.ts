@@ -469,7 +469,8 @@ export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, c
   const flip = m.p.mirror === 'mirrored';
   if (flip) [lsb, rsb] = [rsb, lsb];
   let sx = 1, adv = Math.max(10, lsb + W + rsb);
-  const mono = m.p.mono;
+  // (a joined-up letter keeps its own width: centred in a cell its joins would no longer meet its neighbours')
+  const mono = joined ? 0 : m.p.mono;
   if (mono > 0) {
     // wide letters are squeezed a little, narrow ones centred in the shared width
     const T = m.monoAdv;

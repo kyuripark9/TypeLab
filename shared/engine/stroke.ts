@@ -341,6 +341,8 @@ function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: Pe
   if (type === 'join') { a.sharp = b.sharp = true; a.smooth = b.smooth = false; return []; }
   if (type === 'h' || type === 'v') { cutSide(A, p, d, type, t); cutSide(B, p, d, type, t); return []; }
   a.smooth = b.smooth = false;
+  // a half circle across the stroke, as a round nib's mark ends
+  if (type === 'round') { a.r = b.r = t / 2 + 0.5; return []; }
   if (type !== 'term') return [];
   const T = ctx.term ?? TERM;
   // a level bar's end (an f's or a t's crossbar, a 2's foot) is cut across, whatever the letters' other ends: a point, a

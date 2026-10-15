@@ -32,7 +32,7 @@ import type { Drawn } from './outline';
 import { autoThickness, organicK, type SerifPlace } from './stroke';
 import type { Cmd, Mark, MarkType, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
 import { buildBlock, buildGlyph } from './glyph';
-import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
+import { fontScript, formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
 import { drawnDesign, drawnFrom, drawnLetter } from './family-drawn';
 import { highlightD } from './highlight';
 
@@ -404,6 +404,12 @@ export const scriptForms = (e: Pick<Params, 'scriptForm' | 'cursive'>) => e.scri
 
 /** The glyph id letter `ch`'s script form ('S.scr', see script.ts) is registered and picked under. */
 export const scriptId = (ch: string) => ch + '.scr';
+/** How far a script's join runs straight on past the edge of a small letter, out of it and into the next (in x-heights
+    across, see script.ts): out past the last letter of a word and in before the first of the next, into the space. */
+export const SCRIPT_PAST = 0.07;
+/** An x-height across, as the script's small letters are drawn in it (script.ts): as Width sets it, and widened as the
+    strokes get heavier, so the counters stay open. */
+export const scriptAcross = (m: Pick<Metrics, 'xh' | 's' | 'W'>) => (m.xh * 1.05 + m.s * 1.1) * m.W(1000) / 1000;
 
 /** The glyph id letter `ch` is drawn from in design `e`: a script's own letter first, as it is written whole,
     single-storey a and all; else the single-storey a, the cursive form, or the letter itself. */
@@ -431,7 +437,14 @@ export function buildFont(params: Params, from?: Font): Font {
   // a free font's letters stand as tall as the design's capitals, and its space is the font's own, wider or
   // narrower by Word spacing
   const fl = e.freeFont ? freeLetters(params, e, m0) : null, free = fl?.font;
-  const m = free ? { ...m0, space: Math.max(20, free.space * fl.k * fl.sx + (e.wordSpacing - 0.35) * 520) } : m0;
+  const m1 = free ? { ...m0, space: Math.max(20, free.space * fl.k * fl.sx + (e.wordSpacing - 0.35) * 520) } : m0;
+  // a script's joins run out past the end of a word and in before the next, into the space, and its small letters
+  // stand on no side bearings: the space is wider by both joins and by a side bearing (in whole cells on a grid fill),
+  // so the words stand about as far apart as their letters' ink would in print. (A free font that is a script itself
+  // spaces its own words.)
+  const joined = fl && free ? fontScript(fl.now, fl.pick) && !scriptForms(fl.pick) : scriptForms(e);
+  const sp = m1.space + 2 * SCRIPT_PAST * scriptAcross(m1) + m1.sb;
+  const m = joined ? { ...m1, space: m1.cell && e.fill !== 'lines' ? Math.max(m1.cell, Math.round(sp / m1.cell) * m1.cell) : sp } : m1;
   // a family member's drawn letters are moved from the design they were drawn in (family-drawn.ts)
   const at = drawnDesign(params);
   const cache = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
