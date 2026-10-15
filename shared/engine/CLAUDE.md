@@ -158,7 +158,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    side on the line or a round up it, an A's leg leaning out over its slab; or a hairline serif's corner with an arm
    running on along the line, `FOOT_HAIR`, a Didone's E, L, B, its arm run level in to the corner), one level stroke
    along each serif, out as far as the
-   ink runs along the line, the stem run down to the line; a flag atop a stem whose arch or bowl joins it further down
+   ink runs along the line, the stem run down to the line; a vertex standing on a line where a hairline meets a heavy
+   stroke (`VERTEX_HAIR`, a fat face's v, w, M, a Didone's A and V) drawn again where the strokes' middles, run on
+   straight, meet (its cut on the line staying, its corners going in with the strokes, its join's crotches read as far
+   out as before, `ThinReads.vertices`; the runs in left out of the whole check, `vrun`); a flag atop a stem whose arch or bowl joins it further down
    than the join's round reaches the line (an n's, an r's, a g's ear, an a's foot) the same, with a stub on from the
    line to the join, the foot reaching across the stem's own width (`Foot.side`); a slab as thick as its stem is one, `FOOT_THIN`,
    `FOOT_REACH`; kept on copies of the rig, `footRig`, that only the lighter weights move on: thin serifs' feet from
