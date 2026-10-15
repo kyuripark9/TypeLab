@@ -2881,6 +2881,9 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       // (a round inside a join only: a counter's tight round, its bowl's thin top above it, is no join's; and a round on
       // the outside of a corner, an L's, turning no further than most of a half turn, which a round end does)
       if (inside ? !atJoin(md(s + ((e - s) >> 1))) : total > ROUND_MOST) continue;
+      // (nor the side running on from a stroke's end, the curve of an r's arm under its ear: carried, it lifts off its
+      // stroke into the ear)
+      if (inside && rig.ends[r].some(E => [a, z].some(i => { for (let k = -2; k <= 2; k++) { const j = md(i + k); if (md(j - E.a) <= E.b - E.a) return true; } return false; }))) continue;
       // (nor a serif's bracket on a foot drawn level, which goes in point by point with the serif, to it)
       if (inside && onFoot(md(s + ((e - s) >> 1)))) continue;
       // (its edges, the ways in and out at its ends, met again)
