@@ -916,7 +916,10 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
     const J1 = { x: A.x + vx * (L - A.y) / vy, y: L, r: A.r }, y = L + dir * Math.min(tol, 0.5 * T.r);
     if (!(Math.hypot(J1.x - A.x, J1.y - A.y) < 3 * T.r)) return;
     const reach = (out: number) => { let x = J1.x; while (Math.abs(x - J1.x) < FOOT_REACH * T.r && inside(x + out * 2, y)) x += out * 2; return x; };
-    const ends = [-1, 1].map(reach).filter(x => Math.abs(x - J1.x) > A.r + tol);
+    // (out past the stem's side on the line, or a round up from it, where a leaning stem (an A's leg) stands further over
+    // its slab one way)
+    const xc = J1.x + vx * dir * A.r / vy, half = A.r * l / Math.abs(vy);
+    const ends = [-1, 1].map(out => ({ out, x: reach(out) })).filter(({ out, x }) => Math.abs(x - J1.x) > A.r + tol || (x - xc - out * half) * out > tol).map(e => e.x);
     if (!ends.length || flatAlong(L, dir, Math.min(J1.x, ...ends), Math.max(J1.x, ...ends)) < 0.7) return;
     // (as thick as the slab reads halfway out along its longer overhang)
     const far = ends.reduce((p, q) => (Math.abs(q - J1.x) > Math.abs(p - J1.x) ? q : p)), xm = (J1.x + Math.sign(far - J1.x) * A.r + far) / 2;
@@ -1962,6 +1965,10 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     let N: SkPt | null = null, n0 = -1;
     for (const [k, q] of T.joins) { const d = Math.hypot(b.x - q.x, b.y - q.y); if (d < 1.5 * JOIN_ZONE * q.r && (!N || d < Math.hypot(b.x - N.x, b.y - N.y))) { N = q; n0 = k; } }
     if (!N) return;
+    // (nor a corner of a foot drawn level, nearer its line than the join: an A's leg into its slab, the slab's own
+    // corner, under the crossbar's join)
+    const near = Math.hypot(b.x - N.x, b.y - N.y);
+    if (T.feet.some(F => Math.abs(b.y - F.line) < near && byFoot(F, b, Math.max(6, 0.02 * rig.ctx.cap), rig.ctx.cap))) return;
     const legs = T.legs.get(n0)!.map(l => {
       let k = 0;
       while (k + 1 < l.pts.length / 2 && Math.hypot(T.x[l.pts[k]] - N!.x, T.y[l.pts[k]] - N!.y) < 1.05 * N!.r) k++;
@@ -2108,8 +2115,17 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
       const way = -Math.sign(G.serifs[0].x1 - G.stem[0]), rs = G.stemJ >= 0 ? R[G.stemJ] * mv.keeps(b, r, i) : 0, x = G.stem[0] + way * rs;
       if ((b.x - x) * way > 0 && (b.x - G.stem[0]) * way <= G.side + tol) { pins.set(i, { x, y: b.y }); k0.push(1); return 0; }
     }
-    if (fid < 0 || !byFoot(T.feet[fid], b, tol, rig.ctx.cap)) return plain(b, i);
-    const kp = mv.keeps(b, r, i), d = intoFoot(T.feet[fid], b, j => R[j] * kp, j => footRound(rig, mv, R[j]) * kp, Math.max(6, 0.02 * rig.ctx.cap), 0.3 * rig.ctx.cap);
+    // (or a serif's own straight edge out past its stem's side, whose middle reads nearer the stem's run above the foot
+    // than the foot's (a slab's under an A's leg leaning out over it): its edge on the line, or the edge facing away from
+    // it, in to it; not another stroke's side by it, which runs across the line, nor a ball's round)
+    let G = fid >= 0 && byFoot(T.feet[fid], b, tol, rig.ctx.cap) ? T.feet[fid] : null;
+    if (!G && b.straight && !b.dot && !crossEnd(b) && Math.abs(b.ny) > 0.7) G = T.feet.find(F => {
+      const h = (b.y - F.line) * F.dir, rs = F.stemJ >= 0 ? R[F.stemJ] * mv.keeps(b, r, i) : 0;
+      return (b.ny * F.dir > 0.7 ? Math.abs(h) <= tol : b.ny * F.dir < -0.7 && h > tol) && Math.abs(b.x - F.stem[0]) > rs + tol
+        && F.serifs.some(S => (b.x - S.x0) * (b.x - S.x1) < 0) && byFoot(F, b, tol, rig.ctx.cap);
+    }) ?? null;
+    if (!G) return plain(b, i);
+    const kp = mv.keeps(b, r, i), d = intoFoot(G, b, j => R[j] * kp, j => footRound(rig, mv, R[j]) * kp, Math.max(6, 0.02 * rig.ctx.cap), 0.3 * rig.ctx.cap);
     if (Number.isNaN(d)) return plain(b, i);
     k0.push(1);
     return d;

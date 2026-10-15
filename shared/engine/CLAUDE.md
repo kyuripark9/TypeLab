@@ -154,7 +154,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    `withFeet`, in a font standing its stems on serifs (`fontSerifed`, its n's or H's): where the skeleton forks from a
    stem's middle round a bracket out to tips on a line, turns from a stem into a serif running one way (an n's right
    foot, a y's arm), or runs up into a slab and stops (a v's arms; or stops a stub short of a join, an upright stem
-   running on past it, a slab u's or d's foot below its bowl, `Foot.side` as a flag's), one level stroke along each serif, out as far as the
+   running on past it, a slab u's or d's foot below its bowl, `Foot.side` as a flag's; its serifs out past the stem's
+   side on the line or a round up it, an A's leg leaning out over its slab), one level stroke along each serif, out as far as the
    ink runs along the line, the stem run down to the line; a flag atop a stem whose arch or bowl joins it further down
    than the join's round reaches the line (an n's, an r's, a g's ear, an a's foot) the same, with a stub on from the
    line to the join, the foot reaching across the stem's own width (`Foot.side`); a slab as thick as its stem is one, `FOOT_THIN`,
@@ -166,10 +167,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    stroke is now ends (`weighsOf`; a high-contrast font's sides by their own reading across, never thinner than its
    hairline as the weight keeps it, `hairKept`), a side by a join or a crotch along a ray to those rounds' ink (read
    only when a round could stop it, `stops`, through `pointGrid`/`inBand`), a crotch where its two strokes' edges
-   cross nearest the join (`crossing`), an edge cut across its stroke and facing the way it runs staying (a stem's
+   cross nearest the join (`crossing`; a foot's own corner nearer its line than the join is none), an edge cut across its stroke and facing the way it runs staying (a stem's
    square foot on a line, `FLAT_END`), a level foot's samples in along their normals to its shape as the move thins it
    (`intoFoot`, `byFoot`: its stem's round run down to the line, each serif a band as thick as it is now standing on its
-   edge, `footRound`, a contrasty font's no thicker than its hairline), so its edge on the line stays, its bracket comes
+   edge, a serif's straight edges out past its stem's side among them whichever middle they read, `footRound`, a contrasty font's no thicker than its hairline), so its edge on the line stays, its bracket comes
    down, and its serifs' ends, cut across them, stay and come down with their edges, a flag's top past its stem's side
    pinned to that side's corner (`pins`, which `moveRing` puts where they say); a dot made smaller about its middle,
    one with corners (a square, a diamond) pinned there point by point, as its sides moved in alone crossed at its
