@@ -4,8 +4,8 @@ Params in, glyph outlines out. Pure math with no DOM: the browser draws the live
 builds exported fonts with it. Coordinates are font units, 1000 to the em, y up, baseline at 0. The settings
 themselves (spec, ids, scales) are described in shared/CLAUDE.md.
 
-Code that builds fonts imports `shared/engine` (`index.ts`): importing it registers every glyph (`glyphs/`, then
-`script.ts`), and `buildFont` finds no letters without it. A pure helper such as `resolve` may be imported from its own
+Code that builds fonts imports `shared/engine` (`index.ts`): importing it registers every glyph (`glyphs/`), and
+`buildFont` finds no letters without it. A pure helper such as `resolve` may be imported from its own
 file.
 
 ## From params to an outline
@@ -29,12 +29,8 @@ file.
      otherwise `build: 'blocks'` draws `buildBlock` (basic block letters, slot blocks or grid letters, by `blockForm`), and anything
      else (a letter the free font lacks too) is
      `buildGlyph(variantOf(ch, e), m, ch)`.
-   - `variantOf` picks the glyph id: in a design the engine draws more than half cursive (`scriptForms`) `<ch>.scr`;
-     `a.alt` for a single-storey a; `<ch>.cur` from Cursive 0.35 (`CURSIVE_FORMS`); else `ch`.
-   - `font.glyph(ch, alt)` asks for a letter in the form the letter before it calls for (`GlyphAlt`): `'hi'`, a
-     joined script's small letter after one whose join leaves it high (`GlyphMeta.exitHigh`: b, o, v, w), drawn from
-     glyph id `altId(id, 'hi')` (`<ch>.scr.hi`), the same advance; a letter with no such form (drawn, a free font's own,
-     a print one) gives its own glyph. `layout` sets `LineItem.alt`, and everything that draws a line passes it on.
+   - `variantOf` picks the glyph id: `a.alt` for a single-storey a; `<ch>.cur` from Cursive 0.35 (`CURSIVE_FORMS`);
+     else `ch`. The engine writes no joined script of its own: scripts are the script fonts'.
 4. `buildGlyph` (`glyph.ts`) runs its stages in this order:
    1. the glyph function draws centerline strokes on a `Builder` and returns the body width;
    2. `boxQuarters` (`corners.ts`) when Bowls are Box; `weighFillets`; `markTurns` gives each turn its id and radii;
@@ -62,8 +58,8 @@ file.
        about `SLANT_PIVOT` of the x-height, then the slice, the fills and rough edges (`roughen`) on the final outline;
        it sets `M`, `cmds`, `d`.
 5. `font.hl(ch, key)` (`highlight.ts`) is the part of a letter a control shapes, for the explainer and the inspector.
-6. `font.layout(text, maxWidth)` sets lines: each character at its advance plus Letter spacing (`m.track`), the word
-   space `m.space` (a joined script's wider, `SCRIPT_PAST`, `SCRIPT_GAP`), and each item's `alt` (above).
+6. `font.layout(text, maxWidth)` sets lines: each character at its advance plus Letter spacing (`m.track`), and the
+   word space `m.space`.
 
 ## Files
 
@@ -76,7 +72,6 @@ file.
 | `glyphs/index.ts` | Registers the letter files in order: `upper.ts`, `lower.ts`, `figures.ts`, `punctuation.ts` (punctuation and symbols) |
 | `glyphs/shared.ts` | Constructions the letter files share: bowls, the s, shoulders (`arch`), K's arms, upright and arched diagonals, tails and hooks, cursive `entry`/`exitEnd`, dots (`dotK`), `lc` |
 | `glyphs/turns.ts` | Strokes that turn at a point (`turnStroke`, `placeTurns`): A M N V W Y Z, v w y z ^, the turns of Q and R; `POINTED`, `peakPast`, `peakCut` |
-| `script.ts` | Script capitals and joined small letters (`<ch>.scr`, and each small letter's `<ch>.scr.hi`): written with a `Pen` in x-heights across (`scriptAcross`: narrower than tall, wider under a heavy stroke) whose curves turn as a circle would between their two ways (`Pen.to`, never swinging out past either, handles no longer than the curve), each run a stroke of its own. Where the pen turns, the runs end `'round'` (a nib's round end, inside the stroke), or under a pen with contrast the heavier `'flat'`, square as a pointed pen's shade (`SQUARE_SHADE`); two runs on along one line part where other ink hides the notch. Joins cross the letters' edges at `JY` rising at `JA`, running on across Letter spacing (`hand.track`); b, o, v and w leave level at `HY` (`bridge`, `exitHigh`), which the next letter's `hi` form (`hand.hi`: `enter`, `bowl`, `loopUp` start high) takes up. Ascender loops always loop; descender loops (`loopRy`), feet and loops never run back up into themselves. r is a stem with a shoulder ending in a ball (`lower`'s `ball`). The small letters and the capitals (`joins` set, empty) ignore Monospace and Bounce (`placeGlyph`, `joined`); the word space is wider (`buildFont`), and a font file has each letter made one ink (`GlyphMeta.joined`, `oneInk` in server/export.ts) |
 | `basic-blocks.ts` | Basic block letters (Block letters: Basic, the default): plain block letters, every character a lowercase included, rings of corners y up from the baseline measured from the design (`V` upright, `B` level, `D` slanted strokes; counters a share of the cap height times Width), each corner of a kind ('o' Roundness, 'b'/'k' a bowl's outside and inside by Bowls, 'c' Counters, 'i' Joins, 's' sharp); Contrast, Peaks, Steps, Crossbar height (`barY`) and Openness (`open`) reach them too, and lone bars (dashes, + = #, frames) keep `LONE` of the stems at any contrast (`L`); `BASIC`, `basicDims`, `basicRound`, `basicRings` |
 | `blocks.ts` | Slot blocks (Block letters: Slots): rings of corners on a 224 × 175 grid, y down from the top, each corner of a kind ('o', 'e', 'i', 's'); the lowercase are small capitals; `BLOCKS`, `blockDims`, `blockRings` |
 | `grid-blocks.ts` | Grid letters (Block letters: Grid): each character filled and empty cells of a grid five high (`GRID`, rows from the top as `'#'`/`'.'` strings), upper and lower case alike tall; the cells' edges followed into rings, every corner rounded by Roundness, and filled cells meeting only at a corner joined through a neck between empty cells round right round; b d p q on a stem a cell past their bowl, and look-alikes (o b d p q, g 9 q, 6 G, 5 S) at least two cells apart; Weight moves every edge out or in (`GROW`), Width the cells' width; `gridCells`, `gridDims`, `gridRings` |
@@ -104,7 +99,7 @@ file.
 A formula or constant two files need lives once and both import it. `metrics()`'s shared pieces sit beside it in
 `font.ts`: `serifLen`, `counterScale`, `roundnessR`, `innerRoundR`, `stencilOff`, `bowlK`, `bowlOrg`, `dotRoundOf`,
 `cursiveHookR`, the constants `SERIF_SB`, `SLANT_PIVOT`, `CURSIVE_FORMS`, and the helpers `hasSerif`, `variantOf`,
-`scriptId`, `scriptForms`, `termSpec`, `quarterK`, `strokeWt`. Elsewhere: `geom.ts` (`inPoly`, `CIRCLE_K`,
+`termSpec`, `quarterK`, `strokeWt`. Elsewhere: `geom.ts` (`inPoly`, `CIRCLE_K`,
 `MIN_ROUND`, `SAME_PT`, `cmdsBox`, `toPolys`), `shared/params/scales.ts` (`endId`, `isPlainEnd`, the id tests,
 `slantDeg`, `rotationOf`, `weightUnscale` beside `weightScale`, `xHeightOfRatio` beside `xHeightRatio`, `joinGap`,
 `barCut`, `endReach`), `stroke.ts` (`STEP_DEPTH`), `joins.ts` (`innerShare`, `crotchShare`), `glyphs/turns.ts` (`POINTED`, `peakPast`,
@@ -288,10 +283,10 @@ tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, wh
 | Effective (`e`, `m.p`, `font.eff`) | Params after `resolve`. `e.contrast` is the pen's amount (`contrastOf` gives 0.05..1; the classicFuture macro can push it down to 0), not the slider; read raw Params where the slider value is meant |
 | Metrics (`m`) | Measures from `metrics(e)`: `s` stem, `thin` hairline and bars, `hT` a horizontal stroke's thickness, `tDir(dx, dy)` thickness by direction, `cap`, `xh`, `asc`, `desc` (negative), `os` overshoot, `ws` width scale, `W(base, cls)` body width ('r' round, 'c' classically narrow) |
 | more Metrics | `k`, `org` quarter-turn tension and organic share; `sb` a stem's side bearing; `track`, `space`; `slant` (a tangent), `rot` (radians clockwise); `R` Roundness radius; `innerR` Counters radius; `dotRound`; `bar`, `apex`, `ap`, `cnt` (-1..1), `sq`, `cur`, `wob`; `cell`, `gap`, `gapOff`, `gapRound`, `sliceY`, `sliceH`, `sliceRound`; `serif` (on or off); `monoAdv` the advance monospacing pulls toward; `qpt(x0, y0, x1, y1, mode, u)` the point and tangent at `u` along a quarter turn, drawn with the pen's tension |
-| PenCtx (`m.ctx`, `pen`) | What the stroke expander knows: thick, thin, stress, k, org, terminal and its `term` (TermSpec), serif spec, chamfer, joints, reverse, pinch, swell, wobble, dropLow |
-| Builder (`g`, `b`) | What a glyph function draws on: `path`, `line`, `stem`, `dot`, `fillet`, `blob`, `counter`, `mark`; `strokes`, `reachL`/`reachR`, `sb`, `joins` |
+| PenCtx (`m.ctx`, `pen`) | What the stroke expander knows: thick, thin, stress, k, org, terminal and its `term` (TermSpec), serif spec, chamfer, joints, reverse, pinch, wobble, dropLow |
+| Builder (`g`, `b`) | What a glyph function draws on: `path`, `line`, `stem`, `dot`, `fillet`, `blob`, `counter`, `mark`; `strokes`, `reachL`/`reachR`, `sb` |
 | glyph table, `def` | `defGlyph(id, sb, fn, meta)` registers a glyph: `sb` side-bearing factors (1 a stem, about .55 round, .25 diagonal), `fn(g, m)` returns the body width, `meta.params` the controls the inspector shows first |
-| glyph id | The character, or a form of it: `a.alt`, `f.cur`, `y.cur`, `<ch>.scr`. `buildGlyph` takes the id; `g.ch` is the character |
+| glyph id | The character, or a form of it: `a.alt`, `f.cur`, `y.cur`. `buildGlyph` takes the id; `g.ch` is the character |
 | Cmd | A path command: `['M',x,y]`, `['L',x,y,opts?]`, `['C',...,opts?]`, `['hv',x,y,opts?]` (or `'vh'`), `['Z']`. Outlines use only M, L, C, Z |
 | `hv`, `vh` | A quarter (super)ellipse leaving level and arriving plumb, or the reverse; `u0`/`u1` draw part of it |
 | command options | `w` a weight ('thin', 'thick', 0..1), `even` (no easing in), `turn` (TurnR at its start), `u0`/`u1` |
@@ -316,7 +311,7 @@ tools/golden.ts, or the free set never moves it. Never mutate `rig.contours`, wh
 | `font.letter(ch)` | The font a letter is drawn from: one built from `{ ...params, ...glyphs[ch], glyphs: {} }` when it has its own settings |
 | hl, RING_KEYS | `font.hl(ch, key)` is the SVG path of what control `key` shapes; keys in `RING_KEYS` light rings round marks instead of strokes |
 | cell | The fill grid's size (`m.cell`, for `GRID_FILLS`); advances and tracking snap to it for all but lines. Hexagons are `cell` across their flats and the halftone's rows are hexagons' rows. Not the client's strip `.cell`, nor `scan.ts`'s ink Grid |
-| wobble | Hand-drawn: one smooth displacement field per glyph, seeded by its char code; `Builder.joins` pins it where script letters meet |
+| wobble | Hand-drawn: one smooth displacement field per glyph, seeded by its char code |
 | freeAt, pick, now | The settings a free font was picked at; `fl.pick` and `fl.now` are those and the asked-for ones, resolved |
 | skin, rig | A free font's letter moved on its skeleton; the rig is the letter prepared for that (`SkinRig`: contours, its overlapping pieces united; bones; ends, each stroke end's run of samples; ctx, stem, bar) |
 | restyle | Redrawing one of the engine's shapes on a free font's letter where the settings ask for another than the font's |

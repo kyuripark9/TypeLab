@@ -98,7 +98,6 @@ and builds exported fonts on the server. A full rebuild of every glyph takes a f
 | `font.ts` | The hub: params → `resolve()` → metrics; the glyph table, the `Builder` glyphs draw on, the formulas the metrics share with other files, and `buildFont` (letters on demand, layout) |
 | `glyph.ts` | Building one letter: skeleton → turns and ends → serif sides → wobble → pen → corners and joins → stencil → serifs, then placed with its spacing, slant, slice and fill; block letters and drawn ones |
 | `glyphs/` | Parametric skeletons: `upper.ts`, `lower.ts`, `figures.ts`, `punctuation.ts` (punctuation and symbols), the constructions they share (`shared.ts`), and strokes that turn at a point (`turns.ts`) |
-| `script.ts` | Script capitals and joined small letters |
 | `stroke.ts` | Centerline → outline: pen-model contrast, terminals, serifs |
 | `ends.ts`, `corners.ts`, `joins.ts`, `stencil.ts`, `serif-sides.ts` | Stroke ends (length, curl, straight runs), corners and steps, inside-corner fillets, stencil gaps, which way serifs reach and cupped serifs |
 | `effects.ts`, `boolean.ts` | Whole-outline effects (the slice; the wireframe, pixel, hexagon, dot, blob, halftone, line, inline, outline and shadow fills, and how far a grid fill's cells spread), and the unions and cuts they need |
@@ -134,7 +133,7 @@ settings move those middles and thicken or thin the strokes round them by the sa
 builds its own letters with, keeping the font's heights. Where a setting asks for one of the engine's own
 shapes (its dots, bowls, stroke ends, serifs, stencil gaps, peaks or corners), that shape is drawn onto the
 font's letter (`shared/engine/restyle.ts`), and a letter asked for in a form the font hasn't got (a
-single-storey a, a script's letters) is the engine's own, drawn at the settings the font reads as. Unmoved,
+single-storey a, a k on a bar) is the engine's own, drawn at the settings the font reads as. Unmoved,
 the letters are the font's exactly. A pixel font's letters (VT323, Silkscreen) would lose their grid on their
 skeletons, so they only stretch and take the family's own weights. Points opens its letters with the font's
 own anchor points.

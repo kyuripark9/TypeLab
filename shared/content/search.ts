@@ -11,7 +11,7 @@ import type { CategoryId } from '../params';
 const ALSO: Partial<Record<ActiveKey, string>> = {
   weight: 'bold heavy light thick thin black', slant: 'italic oblique lean', width: 'condensed expanded narrow wide', height: 'cap height size tall',
   rotation: 'rotate turn angle', mirror: 'flip reverse backwards', contrast: 'thick thin stress', letterSpacing: 'kerning tracking',
-  mono: 'typewriter code fixed width', wobble: 'rough sketchy organic jitter', cursive: 'script connected joined', swell: 'pressure shade pointed pen nib copperplate taper', fill: 'outline texture pattern halftone bitmap honeycomb metaball bubbles goo drip ink splotch',
+  mono: 'typewriter code fixed width', wobble: 'rough sketchy organic jitter', cursive: 'script connected joined', fill: 'outline texture pattern halftone bitmap honeycomb metaball bubbles goo drip ink splotch',
   dotGain: 'bleed merge join apart gap cloud puffy bubble', rough: 'distressed worn letterpress grunge ink bleed texture stamp',
   terminal: 'tip ending finish sharp angled slanted cut tapered rounded teardrop wedge', serif: 'feet slab', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
   aperture: 'opening mouth', extenders: 'ascender descender', build: 'blocks stroke construction', blockForm: 'block slot plain square eurostile grid cell pixel modular node dot matrix', stencil: 'gap cut break', slice: 'cut line split',

@@ -271,8 +271,6 @@ export const SPECS = {
     explain: 'Strokes flick on toward the next letter, like script.' } }),
   wobble: num(0, { free: true, control: { cat: 'script', off: 0, label: 'Hand-drawn', friendly: 'Make it look drawn by hand', tech: 'Hand-drawn · Irregularity', lo: 'Precise', hi: 'Wobbly', demo: 'Hand',
     explain: 'Strokes drift, swell and sit a little off the line.' } }),
-  swell: num(0, { control: { cat: 'script', off: 0, label: 'Swell', friendly: 'Press into the downstrokes', tech: 'Pointed pen · Pressure', lo: 'At once', hi: 'Gradual', demo: 'nitu',
-    explain: 'Each downstroke swells from a fine point and lets up again, as a pointed pen does.' } }),
 
   /* ---- Heights */
   xHeight: num(0.679, { global: true, free: true, control: { cat: 'heights', label: 'Lowercase height', friendly: 'Make lowercase letters taller', tech: 'x-height', lo: 'Small', hi: 'Large', demo: 'Hxn',

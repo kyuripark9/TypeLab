@@ -1,7 +1,7 @@
 /* Words the editor shows outside the controls: the parts of a letter, and the sample text. */
 
 /** The parts of a letter, by part id: its name and what it is. The ids are the `part` the engine gives a stroke
-    (shared/engine/glyphs.ts, script.ts) and the marks and guide lines the Inspector names
+    (shared/engine/glyphs/) and the marks and guide lines the Inspector names
     (client/components/Inspector.tsx). A part without an entry here (an ear, link, spur, fillet or drawn) isn't
     named there, and its strokes are called just Stroke (client/lib/drag.ts). PART_CONTROL (controls.ts) says which
     control shapes each part. */

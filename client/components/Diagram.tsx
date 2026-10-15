@@ -29,7 +29,7 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
   const ox = padL + (W - padL - padR - line.width * sc) / 2, oy = sf ? H - 30 : (H - (top - bot) * sc) / 2 + top * sc;
   const X = (x: number) => n1(ox + x * sc), Y = (y: number) => n1(oy - y * sc);
   const body = (it: LineItem, x: number, y: number): [number, number] => {
-    const p = applyM(font.glyph(it.ch, it.alt)!.M, x, y);
+    const p = applyM(font.glyph(it.ch)!.M, x, y);
     return [X(it.x + p[0]), Y(p[1])];
   };
   const items = line.items.filter(it => font.glyph(it.ch));
@@ -65,11 +65,11 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
   );
   if (k === 'letterSpacing') items.forEach((it, i) => {
     const nx = items[i + 1];
-    if (nx) band(`g${i}`, it.x + it.adv - font.glyph(it.ch, it.alt)!.rsb, nx.x + font.glyph(nx.ch, nx.alt)!.lsb);
+    if (nx) band(`g${i}`, it.x + it.adv - font.glyph(it.ch)!.rsb, nx.x + font.glyph(nx.ch)!.lsb);
   });
   if (k === 'wordSpacing') line.items.forEach((it, i) => { if (it.ch === ' ') band(`w${i}`, it.x, it.x + it.adv); });
   if (k === 'sideBearing' || k === 'mono') items.forEach((it, i) => {
-    const g = font.glyph(it.ch, it.alt)!;
+    const g = font.glyph(it.ch)!;
     band(`l${i}`, it.x, it.x + g.lsb);
     band(`r${i}`, it.x + it.adv - g.rsb, it.x + it.adv);
   });
@@ -84,7 +84,7 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
       </g>
     );
   };
-  const it0 = items[0], g0 = it0 && font.glyph(it0.ch, it0.alt)!;
+  const it0 = items[0], g0 = it0 && font.glyph(it0.ch)!;
   if (it0 && g0) {
     if (k === 'weight') dim('w', body(it0, 0, m.xh * 0.42), body(it0, m.s, m.xh * 0.42), 'd-dim light');
     if (k === 'width') dim('w', body(it0, 0, -95), body(it0, g0.bodyW, -95), 'd-dim');
@@ -120,7 +120,7 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
     <svg className="diagram" viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={`${ctl.tech} diagram`}>
       {under}
       <g transform={`translate(${n1(ox)},${n1(oy)}) scale(${sc.toFixed(5)})`}>
-        <g className="d-ink">{items.map((it, i) => <path key={i} d={font.glyph(it.ch, it.alt)!.d} transform={`translate(${n1(it.x)},0)`} />)}</g>
+        <g className="d-ink">{items.map((it, i) => <path key={i} d={font.glyph(it.ch)!.d} transform={`translate(${n1(it.x)},0)`} />)}</g>
         <g className={ring ? 'd-ring' : 'd-hl'} strokeWidth={n1(1 / sc)}>
           {items.map((it, i) => <path key={i} d={font.hl(it.ch, ctlKey)} transform={`translate(${n1(it.x)},0)`} />)}
         </g>
@@ -132,7 +132,7 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
             <rect x={-500} y={n1(m.os * 2)} width={n1(line.width + 1000)} height={n1(500 - bot)} />
           </clipPath>
           <g className="d-hl" strokeWidth={n1(1 / sc)} clipPath="url(#d-reach)">
-            {items.map((it, i) => <path key={i} d={font.glyph(it.ch, it.alt)!.d} transform={`translate(${n1(it.x)},0)`} />)}
+            {items.map((it, i) => <path key={i} d={font.glyph(it.ch)!.d} transform={`translate(${n1(it.x)},0)`} />)}
           </g>
         </>}
       </g>

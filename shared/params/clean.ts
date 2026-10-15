@@ -167,9 +167,9 @@ export function sanitizeParams(input: unknown): Params {
 
 /** Settings taken out of TypeLab that older designs still carry, at the top, in freeAt and in a letter's own: sanitizeParams
     drops them (it reads only PARAM_KEYS), and isValidParams reads a design without them rather than refusing it (a page
-    opened before they went saves them still). Letterforms (scriptForm, 2026-10-15): every design is written in its
-    font's own letters, script or print. */
-const RETIRED = ['scriptForm'];
+    opened before they went saves them still). Letterforms (scriptForm) and Swell (swell), 2026-10-15: every design is
+    written in its font's own letters, script or print, and the engine writes no script of its own. */
+const RETIRED = ['scriptForm', 'swell'];
 const withoutRetired = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v)
   ? Object.fromEntries(Object.entries(v).filter(([k]) => !RETIRED.includes(k))) : v);
 

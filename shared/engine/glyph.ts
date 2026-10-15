@@ -4,7 +4,7 @@
    cuts it (stencil.ts); its corners are rounded and its serifs set on; and then it is placed: spaced,
    slanted, turned, mirrored, sliced and filled (placeGlyph). Also letters built from blocks, and drawn ones. */
 import { dotGainFromOld, endId, joinGap } from '../params';
-import { applyM, clamp, clipPoly, cmdsBox, cmdsToD, cubicAt, lerp, mulM, quarter, roundContour, roundCuts, signedArea, smoothstep, splitPoly, transformCmds } from './geom';
+import { applyM, clamp, clipPoly, cmdsBox, cmdsToD, cubicAt, lerp, mulM, quarter, roundContour, roundCuts, signedArea, splitPoly, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { basicDims, basicRings, basicRound } from './basic-blocks';
 import { gridDims, gridRings } from './grid-blocks';
@@ -76,14 +76,11 @@ const hash = (n: number, k: number) => { const v = Math.sin(n * 12.9898 + k * 78
 /* Hand-drawn irregularity: a smooth displacement field, different for every glyph. Every
    stroke of a glyph moves through the same field, so strokes that touch keep touching. (A free font's letters are
    moved through it too, as drawn: see freeGlyph in free-letters.ts.) */
-export function wobbler(code: number, m: Metrics, pins: [number, number][] = []) {
+export function wobbler(code: number, m: Metrics) {
   const A0 = m.wob * m.xh * 0.085, f = 2 * Math.PI / (m.xh * 1.1);
   const p = [1, 2, 3, 4, 5, 6].map(k => hash(code, k + 10) * 2 * Math.PI);
-  // still at a pin, and coming in smoothly further off: two joined letters' wobbles differ, and
-  // their joins have to lie on the one line all the same
-  const A = (x: number, y: number) => A0 * pins.reduce((k, [px, py]) => k * smoothstep((Math.hypot(x - px, y - py) - m.xh * 0.2) / (m.xh * 0.4)), 1);
-  const dx = (x: number, y: number) => A(x, y) * (0.5 * Math.sin(x * f * 0.7 + y * f * 0.5 + p[0]) + 0.3 * Math.sin(y * f * 1.3 + p[1]) + 0.2 * Math.sin(y * f * 3.1 + x * f * 0.9 + p[4]));
-  const dy = (x: number, y: number) => A(x, y) * 0.75 * (0.5 * Math.sin(x * f * 1.1 - y * f * 0.4 + p[2]) + 0.3 * Math.sin(x * f * 0.5 + p[3]) + 0.2 * Math.sin(x * f * 2.9 - y * f * 1.3 + p[5]));
+  const dx = (x: number, y: number) => A0 * (0.5 * Math.sin(x * f * 0.7 + y * f * 0.5 + p[0]) + 0.3 * Math.sin(y * f * 1.3 + p[1]) + 0.2 * Math.sin(y * f * 3.1 + x * f * 0.9 + p[4]));
+  const dy = (x: number, y: number) => A0 * 0.75 * (0.5 * Math.sin(x * f * 1.1 - y * f * 0.4 + p[2]) + 0.3 * Math.sin(x * f * 0.5 + p[3]) + 0.2 * Math.sin(x * f * 2.9 - y * f * 1.3 + p[5]));
   const pt = (x: number, y: number): [number, number] => [x + dx(x, y), y + dy(x, y)];
   // A handle goes the way the field carries the bit of curve beside its point, not to where the field
   // would take the handle itself: then two curves that met smoothly still do, where moving each handle
@@ -141,7 +138,7 @@ export function wobbler(code: number, m: Metrics, pins: [number, number][] = [])
     each stroke's thickness along it, in the letter's own phase. */
 function wobbleSkeleton(b: Builder, m: Metrics, code: number, homes: Map<string, Pt>): PenCtx {
   if (!(m.wob > 0)) return m.ctx;
-  const wb = wobbler(code, m, b.joins);
+  const wb = wobbler(code, m);
   for (const st of b.strokes) {
     if (st.cmds) st.cmds = wb.cmds(st.cmds);
     if (st.poly) st.poly = st.poly.map(q => { const [x, y] = wb.pt(q.x, q.y); return { ...q, x, y }; });
@@ -219,7 +216,7 @@ function ringOutline(ex: Expanded, m: Metrics, w: number): { cmds: Cmd[]; hole: 
 }
 
 /** Build glyph `id` from the glyph table, for the character `ch` it is drawn for. The id is the character, or
-    the character and the form it draws ('a.alt', 'f.cur', 'S.scr'). */
+    the character and the form it draws ('a.alt', 'f.cur'). */
 export function buildGlyph(id: string, m: Metrics, ch = id): Glyph | null {
   const def = glyphDefOf(id);
   return def ? strokesGlyph(def, id.charCodeAt(0), m, ch) : null;
@@ -383,7 +380,7 @@ export function strokesGlyph(def: GlyphDef, code: number, m: Metrics, ch: string
   const sbf = b.sb ?? def.sb;
   let lsb = m.sb * sbf[0] + padL + grow.l + leanL, rsb = m.sb * sbf[1] + padR + leanR;
   if (ctx.serif?.shape === 'diamond') [lsb, rsb] = clearStems(out, W, lsb, rsb, m, outward);
-  return placeGlyph(out, W, lsb, rsb, code, m, !!b.joins);
+  return placeGlyph(out, W, lsb, rsb, code, m);
 }
 
 /** Side bearings that keep a letter's ink clear of the stems beside it. A blackletter is packed so close
@@ -462,15 +459,14 @@ export function buildBlock(ch: string, m: Metrics): Glyph | null {
     A free font's letters are placed here too, each of these effects counted only as far as the settings move it from
     where the font was picked (freeLetters, in free-letters.ts, hands them Metrics that do so): a new effect needs the
     same there. */
-export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: number, m: Metrics, joined = false): Glyph {
+export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: number, m: Metrics): Glyph {
   const turn = m.rot ? turnAbout(out, m.rot) : null;
   if (turn) { lsb += turn.grow; rsb += turn.grow; }
   // mirrored, the letter's margins change sides with it
   const flip = m.p.mirror === 'mirrored';
   if (flip) [lsb, rsb] = [rsb, lsb];
   let sx = 1, adv = Math.max(10, lsb + W + rsb);
-  // (a joined-up letter keeps its own width: centred in a cell its joins would no longer meet its neighbours')
-  const mono = joined ? 0 : m.p.mono;
+  const mono = m.p.mono;
   if (mono > 0) {
     // wide letters are squeezed a little, narrow ones centred in the shared width
     const T = m.monoAdv;
@@ -488,8 +484,7 @@ export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, c
   if (m.p.fill === 'shadow') { const sh = shadowShift(m.s, m.p.module).dx; rsb += sh; adv += sh; }
   let M: Mat = flip ? [-sx, 0, 0, 1, lsb + W * sx, 0] : [sx, 0, 0, 1, lsb, 0];
   if (turn) M = mulM(M, turn.M);
-  // (a joined-up letter isn't tipped or lifted: its joins would no longer meet its neighbours')
-  const bounce = joined ? 0 : m.p.bounce, wob = joined ? 0 : m.wob;
+  const bounce = m.p.bounce, wob = m.wob;
   if (bounce > 0 || wob > 0) {
     const a = (hash(code, 1) - 0.5) * 2 * (0.11 * bounce + 0.05 * wob);
     const dy = (hash(code, 2) - 0.5) * 2 * (38 * bounce + 18 * wob);

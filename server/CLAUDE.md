@@ -132,10 +132,7 @@ throwing the kept files away. `ready(...params)` registers every free font the s
 `buildOTF`: a CFF font at 1000 units per em with `.notdef`, space, no-break space and every character of
 `ALL_CHARS` (named `uniXXXX`, one UTF-16 code unit each), advances never below 20 (a space 40), each letter in the
 engine's outline unless the caller passes another (`outline`: tools/fonts/ui.ts writes the logo font's overlapping
-pieces made one). A joined script's letters (`GlyphMeta.joined`) are made one ink by default (`oneInk`: `unite`, or,
-where it can't make out strokes running along one another, the ink as straight edges with curves fitted again), as a
-browser fills a web font's overlaps unevenly; their `hi` forms follow as unencoded `uniXXXX.hi` glyphs, put in place
-by a `calt` feature (`altFeature`: a chaining lookup after b o v w, either form). Regular, Italic, Bold and Bold Italic share one family name; other weights get a family of their
+pieces made one). Regular, Italic, Bold and Bold Italic share one family name; other weights get a family of their
 own plus the typographic names.
 Written in a free font from Google Fonts, it carries the font's copyright notice and full licence, and its name loses
 the font's own and reserved names (`withoutReserved`); TypeLab's own fonts carry theirs the same way, as `load` lays

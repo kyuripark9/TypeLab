@@ -42,7 +42,7 @@ export function overhang(font: Font, lines: Line[], width: number, top: number, 
   const o = { l: 0, r: 0, t: 0, b: 0 };
   lines.forEach((ln, i) => {
     for (const it of ln.items) {
-      const g = font.glyph(it.ch, it.alt);
+      const g = font.glyph(it.ch);
       if (!g) continue;
       const b = ink(g);
       o.l = Math.max(o.l, -(it.x + b.x0));

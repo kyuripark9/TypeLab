@@ -1,6 +1,5 @@
 /* The large live preview: the text set in the design, line by line, each letter a <use> of its path in
-   GlyphDefs (#g65, by char code; GlyphDefs must be mounted for anything to show), or, in the form the letter before it
-   asks for (a joined script's after an o: LineItem.alt), its own path, and, while the pointer is on
+   GlyphDefs (#g65, by char code; GlyphDefs must be mounted for anything to show) and, while the pointer is on
    the controls, for a moment and until a value is changed there (`faded`), of the active control's highlight (#h65),
    with the guides or spacing bands that control is about, each keyed by the control so its fade starts over. Clicking a letter opens it in the inspector. */
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
@@ -48,19 +47,19 @@ function PreviewLine({ line, y, font, hl, topU, LH, widthU }: { line: Line; y: n
   }
   const ring = hl && RING_KEYS[hl];
   line.items.forEach((it, j) => {
-    const g = font.glyph(it.ch, it.alt);
+    const g = font.glyph(it.ch);
     if (hl === 'wordSpacing' && it.ch === ' ') band(`w${j}`, it.x, it.adv);
     if (!g) return;
     const c = it.ch.charCodeAt(0);
     if (hl === 'sideBearing' || hl === 'mono') { band(`l${j}`, it.x, g.lsb); band(`r${j}`, it.x + it.adv - g.rsb, g.rsb); }
     if (hl === 'letterSpacing') {
-      const nx = line.items[j + 1], g2 = nx && font.glyph(nx.ch, nx.alt);
+      const nx = line.items[j + 1], g2 = nx && font.glyph(nx.ch);
       if (nx && g2) band(`t${j}`, it.x + it.adv - g.rsb, nx.x + g2.lsb - (it.x + it.adv - g.rsb));
     }
     out.push(
       <g key={j} className="gl" data-c={c} transform={`translate(${n1(it.x)},${y})`}>
         <rect x={0} y={n1(-topU + 40)} width={n1(it.adv)} height={n1(LH - 80)} />
-        {it.alt ? <path d={g.d} /> : <use href={`#g${c}`} />}
+        <use href={`#g${c}`} />
         {hl && <use key={hl} className={ring ? 'pv-ring' : 'pv-hl'} href={`#h${c}`} />}
       </g>
     );

@@ -38,9 +38,8 @@ export type Mat = [number, number, number, number, number, number];
 export interface HalfPlane { x: number; y: number; nx: number; ny: number }
 export interface ClipBox { x0?: number; x1?: number; y0?: number; y1?: number; planes?: HalfPlane[] }
 
-/** How a stroke ends: styled terminal, flat, cut along an axis, joined to another stroke, or round, as a round nib
-    leaves a stroke where the pen turns back (the script letters', see script.ts). */
-export type EndType = 'flat' | 'term' | 'h' | 'v' | 'join' | 'round';
+/** How a stroke ends: styled terminal, flat, cut along an axis, or joined to another stroke. */
+export type EndType = 'flat' | 'term' | 'h' | 'v' | 'join';
 /** Which side of a stroke end gets a serif ('a' = toward -x or -y). */
 export type SerifSides = 'both' | 'a' | 'b' | null;
 /** Stroke weight override: 0 = thin, 1 = thick. */
@@ -75,9 +74,6 @@ export interface StrokeOpts {
   serifE?: SerifSides;
   /** its serifs this much larger */
   serifScale?: number;
-  /** 'pointed': weighed as a pointed pen or brush writes, swelling only where it presses down and a
-      hairline everywhere else (up, across), instead of by the way it runs alone, as a broad nib does */
-  pen?: 'pointed';
 }
 
 /** A serif's finer shape is optional: left out, it is bracketed as usual, square at its tips, flat underneath,
@@ -137,9 +133,6 @@ export interface PenCtx {
   /** strokes thin toward the level line at y, by `amount` there (1 to a point), back to their full
       weight `reach` above and below it */
   pinch?: { y: number; amount: number; reach: number };
-  /** how gradually a pointed pen presses into its downstrokes and lets up (0..1): 0 at once, as the way
-      it runs alone weighs it, 1 over four and a half stems of the stroke (see swell in stroke.ts) */
-  swell?: number;
   /** hand-drawn irregularity (0..1) and a per-glyph phase for it */
   wobble?: number;
   seed?: number;

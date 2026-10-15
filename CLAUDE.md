@@ -77,7 +77,6 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 | A setting (default, options, page, label, explainer copy) | `shared/params/spec.ts`, its field in `model.ts` | shared/CLAUDE.md |
 | How a setting draws | `shared/engine/` (`font.ts` metrics, `glyph.ts` stages) | shared/engine/CLAUDE.md |
 | A letter's skeleton | `shared/engine/glyphs/` (`upper.ts`, `lower.ts`, `figures.ts`, `punctuation.ts`; `shared.ts`, `turns.ts`) | shared/engine/CLAUDE.md |
-| Script letters | `shared/engine/script.ts` (`<ch>.scr`) | shared/engine/CLAUDE.md |
 | Block letters (*Built from: Blocks*) | *Block letters*: Basic (`shared/engine/basic-blocks.ts`, plain block letters with a real lowercase, y up), Slots (`shared/engine/blocks.ts`, y down) or Grid (`shared/engine/grid-blocks.ts`, cells five high, both cases as tall); corner outlines, no skeleton. Their Style page card is `block` (Blocks); `slotblocks` stays in STYLES | shared/engine/CLAUDE.md |
 | Fills, the slice and rough edges | `shared/engine/effects.ts`, `boolean.ts`, `rough.ts` | shared/engine/CLAUDE.md |
 | The construction grid | `shared/engine/grid.ts`, `client/components/ConstructionGrid.tsx` | shared/engine/CLAUDE.md |

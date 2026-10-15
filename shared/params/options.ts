@@ -63,8 +63,6 @@ export const Y_FORMS = ['forked', 'cup'] as const;
 export const Q_FORMS = ['crossing', 'inside', 'sweep'] as const;
 /** The R: a leg from the bowl, or a loop: the bowl's lower bar stops short of the stem and turns back into the leg. */
 export const R_FORMS = ['leg', 'loop'] as const;
-/** The letters: built as print type, or written as a joined-up script's (see script.ts); auto writes them in a
-    design that is more than half cursive. */
 /** The spine of s, S and $: a curve running corner to corner, or level between two tight turns, like two rounded boxes stacked. */
 export const S_FORMS = ['curved', 'flat'] as const;
 /** The foot of the a: a plain stem, or a spur running out to the right along the baseline. */

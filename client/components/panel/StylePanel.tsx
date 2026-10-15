@@ -178,7 +178,7 @@ function Specimen({ params, text }: { params: Params; text: string }) {
   // the ink's box across the line, y down
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const it of items) {
-    const b = cmdsBox(f.glyph(it.ch, it.alt)!.cmds);
+    const b = cmdsBox(f.glyph(it.ch)!.cmds);
     if (b) { x0 = Math.min(x0, it.x + b.x0); x1 = Math.max(x1, it.x + b.x1); y0 = Math.min(y0, -b.y1); y1 = Math.max(y1, -b.y0); }
   }
   if (!(x0 < x1)) return null;
@@ -186,7 +186,7 @@ function Specimen({ params, text }: { params: Params; text: string }) {
   return (
     <svg className="specimen" width={W} height={TRAIT_H} viewBox={`0 0 ${W} ${TRAIT_H}`} aria-hidden="true">
       <g transform={`translate(0 ${n1((TRAIT_H - (y1 - y0) * sc) / 2)}) scale(${sc}) translate(${n1(-x0)} ${n1(-y0)})`}>
-        {items.map((it, j) => <path key={j} d={f.glyph(it.ch, it.alt)!.d} transform={`translate(${n1(it.x)},0)`} />)}
+        {items.map((it, j) => <path key={j} d={f.glyph(it.ch)!.d} transform={`translate(${n1(it.x)},0)`} />)}
       </g>
     </svg>
   );

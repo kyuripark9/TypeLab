@@ -1,13 +1,12 @@
-/* Public entry point of the font engine. Importing it registers every glyph: the letter files fill the glyph
-   table (font.ts) as they load, the glyphs/ folder's first, then the script letters. buildFont finds no letters
+/* Public entry point of the font engine. Importing it registers every glyph: the letter files of the glyphs/ folder
+   fill the glyph table (font.ts) as they load. buildFont finds no letters
    unless this file was imported, so code outside the engine imports shared/engine, not font.ts. */
 import './glyphs';
-import './script';
 
 export { ALL_CHARS, CHARSET, SLANT_PIVOT, buildFont, termSpec } from './font';
 export { ACCENTED, accentGlyph } from './accents';
 export type { AccentGlyph } from './accents';
-export type { Font, Glyph, GlyphAlt, Line, LineItem } from './font';
+export type { Font, Glyph, Line, LineItem } from './font';
 export { autoIBars } from './glyphs/shared';
 export { RING_KEYS } from './highlight';
 export { freeFontsWanted } from './free-letters';

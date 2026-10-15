@@ -81,8 +81,6 @@ export interface Params {
   /** the shape of the Y (see Y_FORMS) */ yForm: YForm;
   /** the tail of the Q (see Q_FORMS) */ qForm: QForm;
   /** the leg of the R (see R_FORMS) */ rForm: RForm;
-  /** how gradually the pointed pen of the script letters presses into a downstroke and lets up: 0 at once,
-      higher swelling from a point and easing off before the turn (see swell in stroke.ts) */ swell: number;
   /** length of tails and hooks (Q y j g t f, the comma, cursive exits): 0.5 is the usual length */ tail: number;
   fill: Fill;
   /** the fill's size: how coarse the pixels, dots or lines are, how wide the wireframe's, inline's or outline's line, or how far the shadow falls */ module: number;

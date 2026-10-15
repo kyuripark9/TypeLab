@@ -56,7 +56,7 @@ export function showContext(k: string): Partial<Params> {
   }
   return ({
     stencilPos: { stencil: 0.5 }, stencilRound: { stencil: 0.5 }, slicePos: { slice: 0.5 }, sliceRound: { slice: 0.5 },
-    pinchPos: { pinch: 0.7 }, boxRound: { bowlForm: 'box' }, module: { fill: 'pixels' }, dotGain: { fill: 'pixels' }, swell: { cursive: 1 },
+    pinchPos: { pinch: 0.7 }, boxRound: { bowlForm: 'box' }, module: { fill: 'pixels' }, dotGain: { fill: 'pixels' },
     dotSize: { dots: 'round' }, blockForm: { build: 'blocks' }, apexForm: { serif: true }
   } as Record<string, Partial<Params>>)[k] ?? {};
 }
@@ -98,7 +98,7 @@ function setLine(font: Font, text: string) {
   const [line] = font.layout(text, Infinity);
   const shapes: { x: number; cmds: Cmd[]; d: string }[] = [];
   for (const it of line?.items ?? []) {
-    const g = font.letter(it.ch).glyph(it.ch, it.alt);
+    const g = font.letter(it.ch).glyph(it.ch);
     if (g) shapes.push({ x: it.x, cmds: g.cmds, d: g.d });
   }
   return { shapes, width: line?.width ?? 0 };

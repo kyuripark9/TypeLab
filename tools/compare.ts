@@ -49,7 +49,7 @@ const MOVES: [string, Design][] = [
   ['barGap=0.6,through', { barGap: 0.6, barEnds: 'through' }], ['glyphs', glyphOver], ['wobble=1', { wobble: 1 }], ['mono=1', { mono: 1 }], ['slant=1', { slant: 1 }],
   ['rotation=0.3', { rotation: 0.3 }], ['slice=0.5', { slice: 0.5, slicePos: 0.3, sliceRound: 1 }], ['steps=1', { steps: 1 }], ['innerRound=1', { innerRound: 1 }],
   ['joinRound=1', { joinRound: 1 }], ['roundness=1', { roundness: 1 }], ['squareness=1', { squareness: 1 }], ['chamfer=1', { chamfer: 1 }], ['pinch=1', { pinch: 1, pinchPos: 0.2 }],
-  ['joints=1', { joints: 1 }], ['cursive=1', { cursive: 1 }], ['script,swell', { cursive: 1, swell: 1 }],
+  ['joints=1', { joints: 1 }], ['cursive=1', { cursive: 1 }],
   ['serif=on,cupped,round', { serif: true, serifBase: 'cupped', serifTip: 'round', serifSides: 'inside', serifInner: 'wedge' }], ['serif=on,diamond', { serif: true, serifShape: 'diamond', serifTip: 'angled', serifBalance: 1, serifTops: 0, serifArms: 1, serifArmLean: 1 }],
   ['contrast=0', { contrast: 0 }], ['contrast=1', { contrast: 1, vWeight: 1, hWeight: 0 }], ['weight=0', { weight: 0 }], ['weight=1', { weight: 1 }], ['width=0', { width: 0 }], ['width=1', { width: 1 }],
   ['xHeight=0,ext=1', { xHeight: 0, extenders: 1, descender: 0 }], ['blocks', { build: 'blocks', roundness: 0.6, joinRound: 0.5 }], ['blocks,heavy', { build: 'blocks', weight: 1, width: 0 }],
