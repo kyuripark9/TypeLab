@@ -25,7 +25,7 @@
    counterScale, roundnessR, innerRoundR, stencilOff, bowlK, bowlOrg, dotRoundOf and cursiveHookR, and the
    constants SERIF_SB, SLANT_PIVOT and CURSIVE_FORMS, read by the glyph files and by the free fonts' letters
    (skin.ts, restyle.ts, free-letters.ts), which move as far as the engine's own. */
-import { DEFAULTS, GRID_FILLS, contrastOf, formOf, joinGap, rotationDeg, slantDeg, weighed, weightScale, xHeightRatio, type ControlKey, type Params } from '../params';
+import { DEFAULTS, GRID_FILLS, contrastOf, formOf, gridCells, joinGap, rotationDeg, slantDeg, weighed, weightScale, xHeightRatio, type ControlKey, type Params } from '../params';
 import { CIRCLE_K, clamp, cubicAt, lerp, quarter } from './geom';
 import { freeFont, type FreeFont } from './free';
 import type { Drawn } from './outline';
@@ -289,7 +289,7 @@ export function metrics(e: Effective): Metrics {
   };
   const monoAdv = W(500) + sb * 1.5;
   // the grid fills sit on one grid across the line, so spacing moves in whole cells
-  const cell = GRID_FILLS.includes(e.fill) ? cap / lerp(30, 7, e.module) : 0;
+  const cell = GRID_FILLS.includes(e.fill) ? cap / gridCells(e.module) : 0;
   const snap = (v: number) => (cell && e.fill !== 'lines' ? Math.round(v / cell) * cell : v);
   // at 100 the slice takes the middle half of the x-height, short of a thin stroke's width at the top and bottom
   const sliceH = e.slice > 0 ? lerp(4, Math.max(xh * 0.14, Math.min(xh * 0.5, xh - 2 * thin)), e.slice) : 0;

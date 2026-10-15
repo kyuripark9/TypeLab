@@ -3,12 +3,12 @@
    expands its strokes (stroke.ts); fillets go into the corners where strokes join (joins.ts); the stencil
    cuts it (stencil.ts); its corners are rounded and its serifs set on; and then it is placed: spaced,
    slanted, turned, mirrored, sliced and filled (placeGlyph). Also letters built from blocks, and drawn ones. */
-import { endId, joinGap } from '../params';
-import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, mulM, quarter, roundContour, roundCuts, signedArea, smoothstep, splitPoly, transformCmds } from './geom';
+import { dotGainFromOld, endId, joinGap } from '../params';
+import { applyM, clamp, clipPoly, cmdsBox, cmdsToD, cubicAt, lerp, mulM, quarter, roundContour, roundCuts, signedArea, smoothstep, splitPoly, transformCmds } from './geom';
 import { blockDims, blockRings } from './blocks';
 import { basicDims, basicRings, basicRound } from './basic-blocks';
 import { gridDims, gridRings } from './grid-blocks';
-import { dotsRoom, fillOutline, shadowShift, slice } from './effects';
+import { fillOutline, shadowShift, slice } from './effects';
 import { roughen } from './rough';
 import { drawnCmds, type Drawn } from './outline';
 import { buildSerif, diamondCut, diamondEnd, expandStroke, type Expanded, serifPlace, type SerifPlace } from './stroke';
@@ -485,9 +485,6 @@ export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, c
   }
   // a shadow takes its own room on the right, so it doesn't run into the next letter
   if (m.p.fill === 'shadow') { const sh = shadowShift(m.s, m.p.module).dx; rsb += sh; adv += sh; }
-  // dots spread into puffs stand out past the letter's cells: they take whole cells of room each side, so the clouds
-  // stay apart
-  if (m.p.fill === 'dots') { const e = dotsRoom(m.cell, m.p.dotGain); lsb += e; rsb += e; adv += 2 * e; }
   let M: Mat = flip ? [-sx, 0, 0, 1, lsb + W * sx, 0] : [sx, 0, 0, 1, lsb, 0];
   if (turn) M = mulM(M, turn.M);
   // (a joined-up letter isn't tipped or lifted: its joins would no longer meet its neighbours')
@@ -503,15 +500,29 @@ export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, c
   const tf = (c: Cmd[]) => transformCmds(c, M);
   const tp = <T extends Pt>(p: T): T => { const q = applyM(M, p.x, p.y); return { ...p, x: q[0], y: q[1] }; };
   out.strokes.forEach(s => s.cmds = tf(s.cmds));
-  const serifs = out.serifs.map(tf);
+  let serifs = out.serifs.map(tf);
   let cmds = [...out.strokes.flatMap(s => s.cmds), ...serifs.flat()];
   if (m.sliceH) cmds = slice(cmds, m.sliceY - m.sliceH / 2, m.sliceY + m.sliceH / 2, m.sliceRound, m.s, m.s * 0.35);
-  const skeleton = out.skeleton.map(r => r.map(tp));
+  let skeleton = out.skeleton.map(r => r.map(tp));
   if (m.p.fill !== 'solid') {
+    // (dots no bigger than Spread drew them before PARAMS_VERSION 5 keep the room they had)
+    const grown = m.p.fill === 'blobs' ? m.p.dotGain > 0.5 : m.p.fill === 'dots' && m.p.dotGain > dotGainFromOld(1);
+    const inked = grown ? cmdsBox(cmds) : null;
     cmds = fillOutline(cmds, { fill: m.p.fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness, size: m.p.module, gain: m.p.dotGain,
       // an entry or exit stroke reaches out of the letter's own room into its neighbour's, between
       // the baseline and the x-height (a tail or an overhanging f goes below or above it)
       stem: m.s, thick: m.tDir, skeleton, joins: p => (p.x < 0 || p.x > adv) && p.y > 0 && p.y < m.xh });
+    // dots and blobs grown out past the letter into more than half its margin on a side take whole cells more room
+    // there, so the next letter's stay clear of them and the letter keeps its place on the grid
+    const box = inked && cmdsBox(cmds), more = (over: number, margin: number) => Math.max(0, Math.ceil((over - margin / 2) / m.cell - 0.25)) * m.cell;
+    const eL = box ? more(inked.x0 - box.x0, inked.x0) : 0, eR = box ? more(box.x1 - inked.x1, adv - inked.x1) : 0;
+    if (eL || eR) {
+      const by: Mat = [1, 0, 0, 1, eL, 0], move = (c: Cmd[]) => transformCmds(c, by);
+      M = mulM(by, M);
+      out.strokes.forEach(s => s.cmds = move(s.cmds));
+      serifs = serifs.map(move); cmds = move(cmds); skeleton = skeleton.map(r => r.map(q => ({ ...q, x: q.x + eL })));
+      lsb += eL; rsb += eR; adv += eL + eR;
+    }
   }
   // rough edges last of all, so they rough up whatever the fill drew
   if (m.p.rough > 0) cmds = roughen(cmds, m.p.rough, m.cap, code, m.p.fill !== 'solid' && m.p.fill !== 'wire');

@@ -92,3 +92,20 @@ export const xHeightRatio = (v: number) => 0.3 + 0.56 * v;
 export const xHeightOfRatio = (r: number) => (r - 0.3) / 0.56;
 /** An x-height saved on the version 1 scale, which starts at half the cap height, as a value on the scale xHeightRatio reads. */
 export const xHeightFromOld = (v: number) => Math.round((0.2 + 0.36 * v) / 0.56 * 1000) / 1000;
+
+/** How many of the grid fills' cells stand in the cap height at Size 0 and at Size 1, the same share fewer each step
+    between (gridCells). */
+export const GRID_CELLS = [40, 5];
+/** How many of the grid fills' cells stand in the cap height at `v` on the Size scale. */
+export const gridCells = (v: number) => GRID_CELLS[0] * (GRID_CELLS[1] / GRID_CELLS[0]) ** v;
+/** A Size saved before PARAMS_VERSION 5, whose scale ran evenly from 30 cells in the cap height to 7, as a value on
+    the scale gridCells reads (unrounded: a monospaced letter's advance can stand right between two whole cells). */
+export const moduleFromOld = (v: number) => Math.log((30 - 23 * v) / GRID_CELLS[0]) / Math.log(GRID_CELLS[1] / GRID_CELLS[0]);
+/** The dot fill's dots against their size at Spread 0.5, at Spread 0 and at Spread 1 (dotGainFromOld). */
+export const DOTS_SPREAD = [0.15, 3.5];
+/** A dot fill's Spread saved before PARAMS_VERSION 5, whose dots ran from 0.3 of their size at 0.5 to 1.75, as a
+    value on the scale DOTS_SPREAD sets. */
+export const dotGainFromOld = (v: number) => {
+  const k = v < 0.5 ? 0.3 + 0.7 * v * 2 : 1 + 0.75 * (v * 2 - 1);
+  return k < 1 ? (k - DOTS_SPREAD[0]) / (1 - DOTS_SPREAD[0]) / 2 : 0.5 + (k - 1) / (DOTS_SPREAD[1] - 1) / 2;
+};

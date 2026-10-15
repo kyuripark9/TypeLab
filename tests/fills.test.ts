@@ -105,21 +105,18 @@ describe('fills: fill, module', () => {
     assert.equal(contours(pixels(0.8).d), 1);
   });
 
-  it('dots spread past touching grow into puffs big and small, like a cloud, keeping the counters and taking room', () => {
-    const p: Params = { ...DEFAULTS, weight: 0.6, module: 0.75, fill: 'dots' }, f = buildFont({ ...p, dotGain: 1 });
-    const o = f.glyph('o')!, radii = toPolys(o.cmds).map(q => (Math.max(...q.map(v => v.x)) - Math.min(...q.map(v => v.x))) / 2);
-    assert.ok(Math.max(...radii) > f.m.cell, 'puffs wider than the grid');
-    assert.ok(Math.max(...radii) > Math.min(...radii) * 2, 'puffs big and small');
-    const { xs } = coords(o.cmds);
-    assert.ok(!shape(toPolys(o.cmds)).has((Math.min(...xs) + Math.max(...xs)) / 2, f.m.xh / 2), 'the counter open');
-    assert.ok(o.adv > buildFont(p).glyph('o')!.adv, 'room beside it');
-    // (in the middle the dots are all one size, as they were)
-    const mid = buildFont({ ...p, dotGain: 0.5 }).glyph('o')!, sizes = new Set(toPolys(mid.cmds).map(q => Math.round(Math.max(...q.map(v => v.x)) - Math.min(...q.map(v => v.x)))));
-    assert.equal(sizes.size, 1);
+  it('dots are all one size, from specks at the least Spread to dots run well into one another at the most, which take room', () => {
+    const p: Params = { ...DEFAULTS, weight: 0.6, module: 0.5, fill: 'dots' }, f = (dotGain: number) => buildFont({ ...p, dotGain });
+    const radii = (dotGain: number) => toPolys(f(dotGain).glyph('o')!.cmds).map(q => (Math.max(...q.map(v => v.x)) - Math.min(...q.map(v => v.x))) / 2);
+    for (const v of [0, 0.5, 1]) assert.ok(Math.max(...radii(v)) - Math.min(...radii(v)) < 0.01, `Spread ${v}: dots ${Math.min(...radii(v))} to ${Math.max(...radii(v))}`);
+    const cell = f(1).m.cell;
+    assert.ok(radii(0)[0] < cell * 0.1, 'specks');
+    assert.ok(radii(1)[0] > cell * 1.4, 'well into one another');
+    assert.ok(f(1).glyph('o')!.adv > f(0.5).glyph('o')!.adv, 'room beside it');
   });
 
   it('hexagons tile the letter, sharing their sides, so it reads as solid as the letter', () => {
-    const p: Params = { ...DEFAULTS, weight: 0.6, module: 0.7 }, f = buildFont({ ...p, fill: 'hex' });
+    const p: Params = { ...DEFAULTS, weight: 0.6, module: 0.556 }, f = buildFont({ ...p, fill: 'hex' });
     for (const ch of 'HOe') {
       const g = f.glyph(ch)!, solid = inkArea(buildFont(p).glyph(ch)!.cmds), hex = inkArea(g.cmds);
       assert.ok(Math.abs(hex / solid - 1) < 0.25, `${ch}: ${hex} against ${solid}`);
@@ -134,17 +131,21 @@ describe('fills: fill, module', () => {
     }
   });
 
-  it('blobs run dots side by side together through a neck, apart at the least Spread and all one at the most', () => {
-    const p: Params = { ...DEFAULTS, weight: 0.7, module: 0.7 };
-    const dots = buildFont({ ...p, fill: 'dots' }).glyph('l')!, at = (dotGain: number) => buildFont({ ...p, fill: 'blobs', dotGain }).glyph('l')!;
-    // apart, a blob for every dot
-    assert.equal(contours(at(0).d), contours(dots.d));
-    // in the middle, the l's dots joined into one, with a hole between every four
-    const mid = at(0.5), polys = toPolys(mid.cmds);
-    assert.equal(polys.filter(q => signedArea(q) > 0).length, 1);
-    assert.ok(polys.filter(q => signedArea(q) < 0).length > 3);
-    // all one, and the holes filled in
-    assert.equal(contours(at(1).d), 1);
+  it('blobs are drops of many sizes, apart at the least Spread and run together into one ink from the middle, the counters kept', () => {
+    const p: Params = { ...DEFAULTS, weight: 0.6, module: 0.5 }, at = (dotGain: number) => buildFont({ ...p, fill: 'blobs', dotGain }).glyph('o')!;
+    const dots = contours(buildFont({ ...p, fill: 'dots' }).glyph('o')!.d), half = (q: { x: number }[]) => (Math.max(...q.map(v => v.x)) - Math.min(...q.map(v => v.x))) / 2;
+    // apart, near a drop for every dot, some much bigger than others (the dots are all one size)
+    const apart = toPolys(at(0).cmds).map(half);
+    assert.ok(apart.length > dots * 0.7, `${apart.length} drops for ${dots} dots`);
+    assert.ok(Math.max(...apart) > Math.min(...apart) * 2, 'drops of many sizes');
+    // in the middle, run together but for a drop or two; at the most, the o's ring one outline round its counter
+    assert.ok(contours(at(0.5).d) < dots / 8, `${contours(at(0.5).d)} outlines`);
+    assert.equal(contours(at(1).d), 2);
+    for (const v of [0.5, 1]) {
+      const { xs } = coords(at(v).cmds);
+      assert.ok(!shape(toPolys(at(v).cmds)).has((Math.min(...xs) + Math.max(...xs)) / 2, buildFont(p).m.xh / 2), `Spread ${v}: the counter open`);
+    }
+    assert.ok(at(1).adv > at(0).adv, 'room beside it');
   });
 
   it('a halftone dot is bigger in the middle of a stroke than at its edge, and a speck outside it is left out', () => {

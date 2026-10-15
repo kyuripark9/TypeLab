@@ -4,7 +4,7 @@
    behind it. They run on the glyph's final outline, after slant and spacing (placeGlyph in glyph.ts
    calls them), so a grid lines up from one letter to the next. The outline is read with the nonzero
    rule, like the font itself: overlapping strokes count once. */
-import type { Fill } from '../params';
+import { DOTS_SPREAD, type Fill } from '../params';
 import { combine, shape, type Shape } from './boolean';
 import { CIRCLE_K, dist, lerp, roundContour, roundCuts, signedArea, splitPoly, toPolys } from './geom';
 import type { Cmd, Pt } from './types';
@@ -284,38 +284,28 @@ const circle = (cx: number, cy: number, r: number): Cmd[] => {
     0.5, `lo` of it at 0 and `hi` at 1. */
 const spread = (gain: number, lo: number, hi: number) => gain < 0.5 ? lerp(lo, 1, gain * 2) : lerp(1, hi, gain * 2 - 1);
 
-/** How big the dot fill's dots grow at the top of Spread, against their size at 0.5: each by its own share between
-    the least and the most, picked by where it stands on the grid, so they run together into one ink of puffs big and
-    small, like a cloud. */
-const DOTS_PUFF = [1.05, 4.2];
-/** The share of the paper between a dot's stroke and the ink across from it (a counter, the gap between an n's
-    stems, a crotch) a puff may grow into: the puffs across from it take as much, and the rest stays open. */
-const DOTS_TAKE = 0.3;
+/** The radius of the dot fill's dots, on a grid `cell` across, at Spread `gain`: every dot the same size. */
+const dotRadius = (cell: number, gain: number) => cell * 0.43 * spread(gain, DOTS_SPREAD[0], DOTS_SPREAD[1]);
 
-/** How much room each side of a letter takes for its dots spread past 0.5, in whole cells (so the letter keeps its
-    place on the grid): what its puffs stand out past the cells it is drawn in, on the whole. */
-export function dotsRoom(cell: number, gain: number) {
-  if (gain <= 0.5) return 0;
-  const mean = 0.43 * (1 + ((DOTS_PUFF[0] + DOTS_PUFF[1]) / 2 - 1) * (gain * 2 - 1));
-  return Math.round(Math.max(0, mean - 0.35)) * cell;
-}
+/** The blobs' balls against the cell, at Spread 0 and at Spread 1 (between them the same share bigger each step), and
+    how much smaller or bigger than that each one is (blobSize): specks and drops of many sizes, to puffs. */
+const BLOB_GROW = [0.22, 1.5], BLOB_SIZES = [0.5, 2.2];
+/** How big a ball is against the others, for `h` (0 to 1, a hash of its cell): most of them smaller, a few big. */
+const blobSize = (h: number) => lerp(BLOB_SIZES[0], BLOB_SIZES[1], h ** 1.5);
+/** The level the balls' pull is drawn at: a ball alone is drawn its own size, and balls close together run into one
+    another through a neck (the higher, the further apart they still do). */
+const BLOB_T = 0.28;
+/** The share of the paper between a ball's stroke and the ink across from it (a counter, the gap between an n's
+    stems, a crotch) a ball may grow into: the balls across from it take as much, and the rest stays open. */
+const BLOB_TAKE = 0.3;
+/** A blob's size at Spread `gain`, on a grid `cell` across, before blobSize. */
+const blobBase = (cell: number, gain: number) => cell * BLOB_GROW[0] * (BLOB_GROW[1] / BLOB_GROW[0]) ** gain;
+/** A number 0 to 1 for grid cell (i, j), the same each time. */
+const cellHash = (i: number, j: number) => { const v = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return v - Math.floor(v); };
 
-/** Each lit dot's radius at `t` of the way from Spread 0.5 to its top, from `r0`, its size at 0.5: grown by its own
-    share (DOTS_PUFF, a hash of its place on the grid), steadily as Spread rises, as far as its room lets it
-    (dotRoom). */
-function puffs(G: Grid, polys: Pt[][], cell: number, r0: number, t: number): Float64Array {
-  const { i0, j0, cols, rows, on } = G, room = dotRoom(polys, cell, r0), r = new Float64Array(cols * rows);
-  const puff = (i: number, j: number) => { const v = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return v - Math.floor(v); };
-  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) if (on[j * cols + i]) {
-    const grow = lerp(DOTS_PUFF[0], DOTS_PUFF[1], puff(i0 + i, j0 + j));
-    r[j * cols + i] = room((i0 + i + 0.5) * cell, (j0 + j + 0.5) * cell, r0 * (1 + (grow - 1) * t));
-  }
-  return r;
-}
-
-/** How big a dot of a dot fill spread past 0.5 may be, from `r0` (its size at 0.5) up to `most`: across the paper
-    between its stroke and the ink across from it no further than DOTS_TAKE of the way, read along sixteen rays out
-    of its middle, and out into open paper as far as it likes, so a letter puffs out and keeps its counters. Paper the
+/** How big a blob's ball may be, up to `most`, no smaller than `r0` (a dot's size at Spread 0.5): across the paper
+    between its stroke and the ink across from it no further than BLOB_TAKE of the way, read along sixteen rays out
+    of its middle, and out into open paper as far as it likes, so a letter puffs out and keeps its counters. Paper a
     dot covers at r0 anyway (its own stroke's edge, from a middle just off it) doesn't count. */
 function dotRoom(polys: Pt[][], cell: number, r0: number): (cx: number, cy: number, most: number) => number {
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
@@ -340,15 +330,16 @@ function dotRoom(polys: Pt[][], cell: number, r0: number): (cx: number, cy: numb
       for (let t = q / 2; ; t += q / 2) {
         const inInk = on(cx + dx * t, cy + dy * t);
         if (from < 0) { if (t >= r) break; if (!inInk) from = t; continue; }
-        // (paper wide enough that the dot would stop past r anyway)
-        if (!inInk) { if (from + (t - from) * DOTS_TAKE >= r) break; continue; }
-        if (t > r0) { r = Math.max(r0, from + (t - from) * DOTS_TAKE); break; }
+        // (paper wide enough that the ball would stop past r anyway)
+        if (!inInk) { if (from + (t - from) * BLOB_TAKE >= r) break; continue; }
+        if (t > r0) { r = Math.min(r, Math.max(r0, from + (t - from) * BLOB_TAKE)); break; }
         from = -1;
       }
     }
     return r;
   };
 }
+
 
 /** Each lit cell's own square, `s` a side, in its middle: pixels drawn apart. */
 function apartCells(G: Grid, cell: number, s: number): Pt[][] {
@@ -491,24 +482,32 @@ export function smoothLoop(p: Pt[]): Cmd[] {
   return out;
 }
 
-/** The blobs: a dot on each lit cell (as the dot fill lights them), every dot a soft ball of ink whose pull reaches
-    0.8 of a cell, so dots side by side run together through a neck and those a diagonal apart stay apart, and the
-    ink drawn where the balls' pull adds up to `T` (higher, smaller dots and no necks; lower, all one blob). */
-function blobs(G: Grid, cell: number, T: number): Cmd[] {
-  const { i0, j0, cols, rows, on } = G, K = cell * 0.8, steps = 6, h = cell / steps;
-  // (sampled a cell out past the grid all round, where nothing reaches)
-  const nx = (cols + 2) * steps + 1, ny = (rows + 2) * steps + 1, x0 = (i0 - 1) * cell, y0 = (j0 - 1) * cell;
-  const f = new Float64Array(nx * ny);
-  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
-    if (!on[j * cols + i]) continue;
+/** The blobs: a soft ball of ink on each cell the dot fill lights, each its own size (BLOB_SIZES) and as big as Spread
+    asks (BLOB_GROW) where it has the room (dotRoom), the ink drawn where the balls' pull adds up to BLOB_T: drops and
+    puffs of many sizes, each round, running together through smooth necks where they come close, like a liquid. */
+function blobs(polys: Pt[][], G: Grid, cell: number, gain: number): Cmd[] {
+  const { i0, j0, cols, rows, on } = G, base = blobBase(cell, gain), room = dotRoom(polys, cell, cell * 0.43);
+  // (a ball's pull reaches far enough that, alone, it is drawn its own size)
+  const reach = 1 / Math.sqrt(1 - Math.sqrt(BLOB_T)), balls: { x: number; y: number; K: number }[] = [];
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) if (on[j * cols + i]) {
     const cx = (i0 + i + 0.5) * cell, cy = (j0 + j + 0.5) * cell;
-    // (the samples within K of the dot: those in the cells round it)
-    for (let b = (j + 0.5) * steps - steps; b <= (j + 1.5) * steps + steps; b++) for (let a = (i + 0.5) * steps - steps; a <= (i + 1.5) * steps + steps; a++) {
-      const dx = x0 + a * h - cx, dy = y0 + b * h - cy, u = (dx * dx + dy * dy) / (K * K);
+    balls.push({ x: cx, y: cy, K: room(cx, cy, base * blobSize(cellHash(i0 + i, j0 + j))) * reach });
+  }
+  if (!balls.length) return [];
+  // the pull sampled every h (an eighth of a cell, no finer than a few units on the finest grids), out past the grid as
+  // far as any ball reaches
+  const h = Math.max(cell / 8, 2.5), pad = Math.ceil(Math.max(...balls.map(b => b.K)) / cell) + 1;
+  const nx = Math.ceil((cols + 2 * pad) * cell / h) + 1, ny = Math.ceil((rows + 2 * pad) * cell / h) + 1, x0 = (i0 - pad) * cell, y0 = (j0 - pad) * cell;
+  const f = new Float64Array(nx * ny);
+  for (const { x, y, K } of balls) {
+    const a0 = Math.max(0, Math.floor((x - K - x0) / h)), a1 = Math.min(nx - 1, Math.ceil((x + K - x0) / h));
+    const b0 = Math.max(0, Math.floor((y - K - y0) / h)), b1 = Math.min(ny - 1, Math.ceil((y + K - y0) / h));
+    for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) {
+      const dx = x0 + a * h - x, dy = y0 + b * h - y, u = (dx * dx + dy * dy) / (K * K);
       if (u < 1) f[b * nx + a] += (1 - u) * (1 - u);
     }
   }
-  return contours(f, nx, ny, x0, y0, h, T).filter(p => Math.abs(signedArea(p)) > cell * cell * 0.01).flatMap(smoothLoop);
+  return contours(f, nx, ny, x0, y0, h, BLOB_T).filter(p => Math.abs(signedArea(p)) > h * h * 2).flatMap(smoothLoop);
 }
 
 /** The halftone: dots on a grid of rows half a cell along from each other, each as big as the share of ink round it
@@ -946,14 +945,13 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
       return polysToCmds(combine([ink], ink.has), R * k);
     }
     case 'dots': {
-      // spread past 0.5, each dot grows into a puff of its own size (puffs)
-      const G = dotGrid(polys, cell), out: Cmd[] = [], r = cell * 0.43 * spread(o.gain, 0.3, 1), sizes = o.gain > 0.5 ? puffs(G, polys, cell, r, o.gain * 2 - 1) : null;
+      const G = dotGrid(polys, cell), out: Cmd[] = [], r = dotRadius(cell, o.gain);
       for (let j = 0; j < G.rows; j++) for (let i = 0; i < G.cols; i++) {
-        if (G.on[j * G.cols + i]) out.push(...circle((G.i0 + i + 0.5) * cell, (G.j0 + j + 0.5) * cell, sizes ? sizes[j * G.cols + i] : r));
+        if (G.on[j * G.cols + i]) out.push(...circle((G.i0 + i + 0.5) * cell, (G.j0 + j + 0.5) * cell, r));
       }
       return out;
     }
-    case 'blobs': return blobs(dotGrid(polys, cell), cell, o.gain < 0.5 ? lerp(0.92, 0.6, o.gain * 2) : lerp(0.6, 0.15, o.gain * 2 - 1));
+    case 'blobs': return blobs(polys, dotGrid(polys, cell), cell, o.gain);
     case 'halftone': return halftone(polys, cell, cell * 0.5 * spread(o.gain, 0.6, 1.5));
     case 'lines': {
       // one horizontal bar per grid row, as long as the letter is wide at that height

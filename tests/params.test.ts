@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { describe, it } from 'node:test';
 import { buildFont } from '../shared/engine';
-import { DEFAULTS, PARAMS_VERSION, drawnAtOf, isValidParams, sanitizeParams, upgradeParams, xHeightFromOld, xHeightRatio } from '../shared/params';
+import { DEFAULTS, PARAMS_VERSION, drawnAtOf, isValidParams, moduleFromOld, sanitizeParams, upgradeParams, xHeightFromOld, xHeightRatio } from '../shared/params';
+import { toPolys } from '../shared/engine/geom';
 import { DesignStore } from '../server/db';
 
 /* Reading settings from outside (shared/params/clean.ts): sanitizeParams and isValidParams clamp, drop and fall
@@ -173,5 +174,22 @@ describe('letters drawn in Points', () => {
     const read = () => { const s = new DesignStore(file), d = s.get('a', 'me')!; s.close(); return d.params.outlines.l.at; };
     assert.equal(read()?.weight, 0.7);
     assert.equal(read()?.width, 0.3);
+  });
+});
+
+describe('the grid fills\' Size and the dots\' Spread', () => {
+  it('a grid fill saved before PARAMS_VERSION 5 keeps its cells, and the dot fill its dots, as big as they were', () => {
+    // version 4 ran from 30 cells in the cap height to 7, evenly, and the dots from 0.3 of their size at Spread 0.5 to 1.75
+    const f = buildFont(sanitizeParams(upgradeParams({ ...DEFAULTS, fill: 'dots', module: 0.55, dotGain: 0.9 }, 4))), cell = f.m.cap / (30 - 23 * 0.55);
+    assert.ok(Math.abs(f.m.cell - cell) < 0.01, `${f.m.cell} against ${cell}`);
+    const dot = toPolys(f.glyph('l')!.cmds)[0], r = (Math.max(...dot.map(q => q.x)) - Math.min(...dot.map(q => q.x))) / 2;
+    assert.ok(Math.abs(r / (cell * 0.43 * 1.6) - 1) < 0.002, `a dot ${r} across`);
+    // another grid fill keeps its Spread, a fill on no grid its Size, and settings written since are left as they are
+    assert.equal(upgradeParams({ fill: 'pixels', module: 0.55, dotGain: 0.9 }, 4).dotGain, 0.9);
+    assert.deepEqual(upgradeParams({ fill: 'wire', module: 0.55 }, 4), { fill: 'wire', module: 0.55 });
+    assert.deepEqual(upgradeParams({ fill: 'dots', module: 0.55 }, PARAMS_VERSION), { fill: 'dots', module: 0.55 });
+    // a drawing keeps the settings it was drawn at on the new scales too
+    const drawn = upgradeParams({ outlines: { l: { adv: 300, contours: [], at: { fill: 'hex', module: 0.55 } } } }, 4) as { outlines: { l: { at: { module: number } } } };
+    assert.equal(drawn.outlines.l.at.module, moduleFromOld(0.55));
   });
 });
