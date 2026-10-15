@@ -8,7 +8,7 @@ import { applyM, clamp, clipPoly, cmdsToD, cubicAt, lerp, mulM, quarter, roundCo
 import { blockDims, blockRings } from './blocks';
 import { basicDims, basicRings, basicRound } from './basic-blocks';
 import { gridDims, gridRings } from './grid-blocks';
-import { fillOutline, shadowShift, slice } from './effects';
+import { dotsRoom, fillOutline, shadowShift, slice } from './effects';
 import { roughen } from './rough';
 import { drawnCmds, type Drawn } from './outline';
 import { buildSerif, diamondCut, diamondEnd, expandStroke, type Expanded, serifPlace, type SerifPlace } from './stroke';
@@ -485,6 +485,9 @@ export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, c
   }
   // a shadow takes its own room on the right, so it doesn't run into the next letter
   if (m.p.fill === 'shadow') { const sh = shadowShift(m.s, m.p.module).dx; rsb += sh; adv += sh; }
+  // dots spread into puffs stand out past the letter's cells: they take whole cells of room each side, so the clouds
+  // stay apart
+  if (m.p.fill === 'dots') { const e = dotsRoom(m.cell, m.p.dotGain); lsb += e; rsb += e; adv += 2 * e; }
   let M: Mat = flip ? [-sx, 0, 0, 1, lsb + W * sx, 0] : [sx, 0, 0, 1, lsb, 0];
   if (turn) M = mulM(M, turn.M);
   // (a joined-up letter isn't tipped or lifted: its joins would no longer meet its neighbours')

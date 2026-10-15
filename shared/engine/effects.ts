@@ -284,6 +284,72 @@ const circle = (cx: number, cy: number, r: number): Cmd[] => {
     0.5, `lo` of it at 0 and `hi` at 1. */
 const spread = (gain: number, lo: number, hi: number) => gain < 0.5 ? lerp(lo, 1, gain * 2) : lerp(1, hi, gain * 2 - 1);
 
+/** How big the dot fill's dots grow at the top of Spread, against their size at 0.5: each by its own share between
+    the least and the most, picked by where it stands on the grid, so they run together into one ink of puffs big and
+    small, like a cloud. */
+const DOTS_PUFF = [1.05, 4.2];
+/** The share of the paper between a dot's stroke and the ink across from it (a counter, the gap between an n's
+    stems, a crotch) a puff may grow into: the puffs across from it take as much, and the rest stays open. */
+const DOTS_TAKE = 0.3;
+
+/** How much room each side of a letter takes for its dots spread past 0.5, in whole cells (so the letter keeps its
+    place on the grid): what its puffs stand out past the cells it is drawn in, on the whole. */
+export function dotsRoom(cell: number, gain: number) {
+  if (gain <= 0.5) return 0;
+  const mean = 0.43 * (1 + ((DOTS_PUFF[0] + DOTS_PUFF[1]) / 2 - 1) * (gain * 2 - 1));
+  return Math.round(Math.max(0, mean - 0.35)) * cell;
+}
+
+/** Each lit dot's radius at `t` of the way from Spread 0.5 to its top, from `r0`, its size at 0.5: grown by its own
+    share (DOTS_PUFF, a hash of its place on the grid), steadily as Spread rises, as far as its room lets it
+    (dotRoom). */
+function puffs(G: Grid, polys: Pt[][], cell: number, r0: number, t: number): Float64Array {
+  const { i0, j0, cols, rows, on } = G, room = dotRoom(polys, cell, r0), r = new Float64Array(cols * rows);
+  const puff = (i: number, j: number) => { const v = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return v - Math.floor(v); };
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) if (on[j * cols + i]) {
+    const grow = lerp(DOTS_PUFF[0], DOTS_PUFF[1], puff(i0 + i, j0 + j));
+    r[j * cols + i] = room((i0 + i + 0.5) * cell, (j0 + j + 0.5) * cell, r0 * (1 + (grow - 1) * t));
+  }
+  return r;
+}
+
+/** How big a dot of a dot fill spread past 0.5 may be, from `r0` (its size at 0.5) up to `most`: across the paper
+    between its stroke and the ink across from it no further than DOTS_TAKE of the way, read along sixteen rays out
+    of its middle, and out into open paper as far as it likes, so a letter puffs out and keeps its counters. Paper the
+    dot covers at r0 anyway (its own stroke's edge, from a middle just off it) doesn't count. */
+function dotRoom(polys: Pt[][], cell: number, r0: number): (cx: number, cy: number, most: number) => number {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const p of polys) for (const q of p) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+  // the ink sampled every q (none past it), each ray read every half of that
+  const q = cell / 6, sx = Math.floor(x0 / q), sy = Math.floor(y0 / q), nx = Math.ceil(x1 / q) - sx + 1, ny = Math.ceil(y1 / q) - sy + 1;
+  const ink = new Uint8Array(Math.max(0, nx * ny));
+  for (let b = 0; b < ny; b++) {
+    const sp = spans(polys, (sy + b) * q);
+    for (let a = 0; a < nx; a++) if (inside(sp, (sx + a) * q)) ink[b * nx + a] = 1;
+  }
+  const on = (x: number, y: number) => {
+    const a = Math.round(x / q) - sx, b = Math.round(y / q) - sy;
+    return a >= 0 && b >= 0 && a < nx && b < ny && ink[b * nx + a] === 1;
+  };
+  const rays = Array.from({ length: 16 }, (_, k) => [Math.cos(k * Math.PI / 8), Math.sin(k * Math.PI / 8)]);
+  return (cx, cy, most) => {
+    let r = most;
+    for (const [dx, dy] of rays) {
+      // along the ray, where the paper starts (-1 while in the ink), and where the ink comes back across it
+      let from = on(cx, cy) ? -1 : 0;
+      for (let t = q / 2; ; t += q / 2) {
+        const inInk = on(cx + dx * t, cy + dy * t);
+        if (from < 0) { if (t >= r) break; if (!inInk) from = t; continue; }
+        // (paper wide enough that the dot would stop past r anyway)
+        if (!inInk) { if (from + (t - from) * DOTS_TAKE >= r) break; continue; }
+        if (t > r0) { r = Math.max(r0, from + (t - from) * DOTS_TAKE); break; }
+        from = -1;
+      }
+    }
+    return r;
+  };
+}
+
 /** Each lit cell's own square, `s` a side, in its middle: pixels drawn apart. */
 function apartCells(G: Grid, cell: number, s: number): Pt[][] {
   const out: Pt[][] = [], h = s / 2;
@@ -880,9 +946,10 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
       return polysToCmds(combine([ink], ink.has), R * k);
     }
     case 'dots': {
-      const G = dotGrid(polys, cell), out: Cmd[] = [], r = cell * 0.43 * spread(o.gain, 0.3, 1.75);
+      // spread past 0.5, each dot grows into a puff of its own size (puffs)
+      const G = dotGrid(polys, cell), out: Cmd[] = [], r = cell * 0.43 * spread(o.gain, 0.3, 1), sizes = o.gain > 0.5 ? puffs(G, polys, cell, r, o.gain * 2 - 1) : null;
       for (let j = 0; j < G.rows; j++) for (let i = 0; i < G.cols; i++) {
-        if (G.on[j * G.cols + i]) out.push(...circle((G.i0 + i + 0.5) * cell, (G.j0 + j + 0.5) * cell, r));
+        if (G.on[j * G.cols + i]) out.push(...circle((G.i0 + i + 0.5) * cell, (G.j0 + j + 0.5) * cell, sizes ? sizes[j * G.cols + i] : r));
       }
       return out;
     }

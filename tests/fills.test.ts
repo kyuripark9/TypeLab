@@ -105,6 +105,19 @@ describe('fills: fill, module', () => {
     assert.equal(contours(pixels(0.8).d), 1);
   });
 
+  it('dots spread past touching grow into puffs big and small, like a cloud, keeping the counters and taking room', () => {
+    const p: Params = { ...DEFAULTS, weight: 0.6, module: 0.75, fill: 'dots' }, f = buildFont({ ...p, dotGain: 1 });
+    const o = f.glyph('o')!, radii = toPolys(o.cmds).map(q => (Math.max(...q.map(v => v.x)) - Math.min(...q.map(v => v.x))) / 2);
+    assert.ok(Math.max(...radii) > f.m.cell, 'puffs wider than the grid');
+    assert.ok(Math.max(...radii) > Math.min(...radii) * 2, 'puffs big and small');
+    const { xs } = coords(o.cmds);
+    assert.ok(!shape(toPolys(o.cmds)).has((Math.min(...xs) + Math.max(...xs)) / 2, f.m.xh / 2), 'the counter open');
+    assert.ok(o.adv > buildFont(p).glyph('o')!.adv, 'room beside it');
+    // (in the middle the dots are all one size, as they were)
+    const mid = buildFont({ ...p, dotGain: 0.5 }).glyph('o')!, sizes = new Set(toPolys(mid.cmds).map(q => Math.round(Math.max(...q.map(v => v.x)) - Math.min(...q.map(v => v.x)))));
+    assert.equal(sizes.size, 1);
+  });
+
   it('hexagons tile the letter, sharing their sides, so it reads as solid as the letter', () => {
     const p: Params = { ...DEFAULTS, weight: 0.6, module: 0.7 }, f = buildFont({ ...p, fill: 'hex' });
     for (const ch of 'HOe') {
