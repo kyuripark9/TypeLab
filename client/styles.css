@@ -451,11 +451,12 @@ body.resizing.y { cursor: row-resize; }
 .ex-head .facet-chevron { position: absolute; top: 50%; margin-top: -6px; right: 18px; color: var(--ink-3); }
 .ex-head[aria-expanded=false] .facet-chevron { transform: rotate(180deg); }
 .ex-title { max-width: 100%; font-size: var(--t-xl); color: var(--accent-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ex-text p { margin: -6px 0 0; padding: 0 44px 14px 18px; color: var(--ink-2); font-size: var(--t-m); line-height: 1.45; }
-/* the explanation shown over the page's others, laid unseen in the same cell: the box is as tall as the longest, up to
-   four lines (a longer one, rare, still grows it) */
+.ex-text p { margin: -6px 0 0; padding: 0 18px 14px; color: var(--ink-2); font-size: var(--t-m); line-height: 1.45; }
+/* the explanation shown over the page's others, laid unseen in the same cell: the box is two lines tall on every page,
+   as every explanation fits in two at the panel's usual widths; in a narrower panel it takes the longest's height, up
+   to four lines (a longer one still grows it) */
 .ex-body { display: grid; }
-.ex-body > p { grid-area: 1 / 1; }
+.ex-body > p { grid-area: 1 / 1; min-height: calc(2lh + 14px); }
 .ex-ghost { visibility: hidden; max-height: calc(4lh + 14px); overflow: hidden; }
 
 .ctl-list { padding: 8px 8px 24px; display: grid; gap: 2px; }
