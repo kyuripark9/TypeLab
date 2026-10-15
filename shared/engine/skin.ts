@@ -702,6 +702,9 @@ const FOOT_HAIR = 0.2;
 /** A vertex is drawn again where its strokes meet only where its join's round is more than VERTEX_HAIR times its
     hairline's (withFeet). */
 const VERTEX_HAIR = 4;
+/** A corner whose serif the skeleton leaves out (withFeet) is a foot only by a serif no thicker, half, than CORNER_HAIR
+    of its stem's round. */
+const CORNER_HAIR = 0.25;
 function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
   if (!rig.serifed()) return sk;
   const { ctx } = rig, lines = ctx.lower ? [0, ctx.xh, ctx.asc, ctx.desc] : [0, ctx.cap], polys = outlineOf(rig);
@@ -918,6 +921,114 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
         put(br, [...lead, ...op]);
       }
       J.x = J1.x; J.y = J1.y; J.r = J1.r;
+      break;
+    }
+  });
+  // a corner where a stem turns into an arm running along a line, a hairline serif standing out past the stem the
+  // other way that the skeleton leaves out (a fat face's E's, L's, B's): a foot, the stem's middle run on to the line,
+  // the serif level out from it to its end, the arm run level in to it
+  const cornerCount = edges.length;
+  for (let e = 0; e < Math.min(edges.length, cornerCount + 8); e++) for (const flip of [false, true]) {
+    const E = edges[e], pts = flip ? E.pts.slice().reverse() : E.pts, n = pts.length, tol = tolOf();
+    if (n < 8) continue;
+    let done = false;
+    for (const L of lines) {
+      if (done) break;
+      // (where the middle, coming upright toward the line a round, runs level along it two rounds on)
+      let s0 = -1;
+      for (let i = 2; i < n - 2 && s0 < 0; i++) {
+        const q = pts[i], m = Math.max(2, Math.round(q.r / THIN_CELL)), dir = Math.sign(q.y - L) || 1;
+        if (i - m < 0 || i + 2 * m >= n || Math.abs(q.y - L) > 2.5 * q.r) continue;
+        const b = pts[i - m], f = pts[i + 2 * m], ib = Math.hypot(q.x - b.x, q.y - b.y), if_ = Math.hypot(f.x - q.x, f.y - q.y);
+        if (ib < 1 || if_ < 1) continue;
+        if ((q.y - b.y) * dir < -0.95 * ib && Math.abs(f.y - q.y) < 0.35 * if_) s0 = i;
+      }
+      if (s0 < 0) continue;
+      const S0 = pts[s0], dir = Math.sign(S0.y - L) || 1, m = Math.max(2, Math.round(S0.r / THIN_CELL)), A = pts[s0 - m];
+      // (the arm from where its middle runs level, a round or so off the line)
+      let a0 = -1;
+      for (let i = s0 + 1; i + m < n && a0 < 0; i++) { const q = pts[i], f = pts[i + m], l = Math.hypot(f.x - q.x, f.y - q.y); if (l > 1 && Math.abs(f.y - q.y) < 0.2 * l) a0 = i; }
+      if (a0 < 0) continue;
+      const way = Math.sign(pts[a0 + m].x - pts[a0].x) || 1, vx = S0.x - A.x, vy = S0.y - A.y;
+      if (Math.abs(vy) < 1) continue;
+      const J1 = { x: A.x + vx * (L - A.y) / vy, y: L, r: A.r }, out = -way, yi = L + dir * Math.min(tol, 0.25 * A.r);
+      // (the serif: ink along the line out past the stem the other way from the arm, standing on it, a hairline)
+      let x = J1.x;
+      while (Math.abs(x - J1.x) < FOOT_REACH * A.r && inside(x + out * 2, yi)) x += out * 2;
+      const reach = Math.abs(x - J1.x);
+      if (!(reach > A.r + Math.max(tol, 0.25 * A.r)) || flatAlong(L, dir, J1.x, x) < 0.7) continue;
+      const h = thickAt(J1.x + out * (A.r + 0.7 * (reach - A.r)), L, dir, 2 * A.r);
+      if (!(h < CORNER_HAIR * A.r)) continue;
+      // (the edge parted: the stem down to the foot, the arm in from it, the serif out)
+      const foot: Foot = { line: L, dir, stem: [J1, A], stemPt: pts[Math.max(0, s0 - 2 * m)], serifs: [] };
+      const down = run(J1, A, () => A.r).slice(0, -1).reverse(), stemPts = [...pts.slice(0, s0 - m + 1), ...down];
+      const armY = pts[a0].y, lv = run({ x: J1.x, y: armY, r: pts[a0].r }, pts[a0], () => pts[a0].r).slice(0, -1), armPts = [{ x: J1.x, y: J1.y, r: J1.r }, ...lv, ...pts.slice(a0)];
+      const tip = { x: x - out * h, y: L, r: h }, serif = run(J1, tip, () => h);
+      const base = rig.bones.flat().filter(q => !q.corner && q.ny * dir > 0.7 && Math.abs(q.y - L) < 2 * tol);
+      const edgeAt = (x: number) => { let best: Bone | null = null; for (const q of base) if (!best || Math.abs(q.x - x) < Math.abs(best.x - x)) best = q; return best && Math.abs(best.x - x) < 4 * THIN_CELL ? best.y : L; };
+      for (const q of down) FEET.set(q, { foot, stem: true, edge: L });
+      FEET.set(armPts[0], { foot, stem: true, edge: L });
+      FEET.set(serif[0], { foot, stem: true, edge: L });
+      for (const q of serif.slice(1)) FEET.set(q, { foot, stem: false, edge: edgeAt(q.x) });
+      foot.serifs.push({ x0: J1.x, x1: x, pt: serif[Math.floor(serif.length * 0.7)], edge: edgeOf(L, dir, J1.x, x) });
+      const len = (ps: SkPt[]) => ps.reduce((acc, q, k) => (k ? acc + Math.hypot(q.x - ps[k - 1].x, q.y - ps[k - 1].y) : 0), 0);
+      const first = flip ? E.b : E.a, last = flip ? E.a : E.b, nj = nodes.length, nt = nj + 1, ea = edges.length, es = ea + 1;
+      nodes.push({ x: J1.x, y: J1.y, r: J1.r, edges: [e, ea, es] }, { ...tip, edges: [es] });
+      edges[e] = { a: first, b: nj, pts: stemPts, len: len(stemPts) };
+      edges.push({ a: nj, b: last, pts: armPts, len: len(armPts) }, { a: nj, b: nt, pts: serif, len: len(serif) });
+      const ll = nodes[last].edges, li = ll.indexOf(e);
+      if (li >= 0) ll[li] = ea;
+      done = true;
+    }
+    if (done) break;
+  }
+  // (or such a corner where the skeleton has a node, two of its strokes leaving it: a D's ring met at its corner)
+  nodes.forEach((N, nn) => {
+    if (N.edges.length !== 2 || turns.has(nn)) return;
+    const tol = tolOf();
+    for (const L of lines) {
+      if (Math.abs(N.y - L) > 2.5 * N.r) continue;
+      const dir = Math.sign(N.y - L) || 1, bs = branches(G, nn);
+      if (bs.length !== 2) return;
+      const ups = bs.filter(br => leaving(G, br, N.r).y * dir > 0.9), levels = bs.filter(br => br !== ups[0]);
+      if (ups.length !== 1 || levels.length !== 1) continue;
+      const stemFrom = from(ups[0]), armFrom = from(levels[0]);
+      // (the stem's middle a round up from the node, straight)
+      const iA = stemFrom.findIndex(q => Math.hypot(q.x - N.x, q.y - N.y) >= N.r), iB = iA < 0 ? -1 : stemFrom.findIndex((q, k) => k > iA && Math.hypot(q.x - stemFrom[iA].x, q.y - stemFrom[iA].y) >= N.r);
+      if (iA < 0 || iB < 0) continue;
+      const A = stemFrom[iA], B = stemFrom[iB], vx = B.x - A.x, vy = B.y - A.y;
+      if (!(Math.abs(vy) > 0.95 * Math.hypot(vx, vy))) continue;
+      const m = Math.max(2, Math.round(N.r / THIN_CELL));
+      let a0 = -1;
+      for (let i = 1; i + m < armFrom.length && a0 < 0; i++) { const q = armFrom[i], f = armFrom[i + m], l = Math.hypot(f.x - q.x, f.y - q.y); if (l > 1 && Math.abs(f.y - q.y) < 0.2 * l && Math.abs(q.y - L) < 1.5 * q.r) a0 = i; }
+      if (a0 < 0) continue;
+      const way = Math.sign(armFrom[a0 + m].x - armFrom[a0].x) || 1, out = -way;
+      const J1 = { x: A.x + vx * (L - A.y) / vy, y: L, r: A.r }, yi = L + dir * Math.min(tol, 0.25 * A.r);
+      let x = J1.x;
+      while (Math.abs(x - J1.x) < FOOT_REACH * A.r && inside(x + out * 2, yi)) x += out * 2;
+      const reach = Math.abs(x - J1.x);
+      if (!(reach > A.r + Math.max(tol, 0.25 * A.r)) || flatAlong(L, dir, J1.x, x) < 0.7) continue;
+      const h = thickAt(J1.x + out * (A.r + 0.7 * (reach - A.r)), L, dir, 2 * A.r);
+      if (!(h < CORNER_HAIR * A.r)) continue;
+      const foot: Foot = { line: L, dir, stem: [J1, A], stemPt: B, serifs: [] };
+      const down = run(J1, A, () => A.r).slice(0, -1), lv = run({ x: J1.x, y: armFrom[a0].y, r: armFrom[a0].r }, armFrom[a0], () => armFrom[a0].r).slice(0, -1);
+      const tip = { x: x - out * h, y: L, r: h }, serif = run(J1, tip, () => h);
+      const base = rig.bones.flat().filter(q => !q.corner && q.ny * dir > 0.7 && Math.abs(q.y - L) < 2 * tol);
+      const edgeAt = (x: number) => { let best: Bone | null = null; for (const q of base) if (!best || Math.abs(q.x - x) < Math.abs(best.x - x)) best = q; return best && Math.abs(best.x - x) < 4 * THIN_CELL ? best.y : L; };
+      for (const q of down) FEET.set(q, { foot, stem: true, edge: L });
+      const armLead = [{ x: J1.x, y: J1.y, r: J1.r }, ...lv];
+      FEET.set(armLead[0], { foot, stem: true, edge: L });
+      FEET.set(serif[0], { foot, stem: true, edge: L });
+      for (const q of serif.slice(1)) FEET.set(q, { foot, stem: false, edge: edgeAt(q.x) });
+      foot.serifs.push({ x0: J1.x, x1: x, pt: serif[Math.floor(serif.length * 0.7)], edge: edgeOf(L, dir, J1.x, x) });
+      put(levels[0], [...armLead, ...armFrom.slice(a0)]);
+      const stemNow = from(ups[0]);
+      put(ups[0], [...down, ...stemNow.slice(iA)]);
+      const nt = nodes.length, es = edges.length;
+      nodes.push({ ...tip, edges: [es] });
+      edges.push({ a: nn, b: nt, pts: serif, len: serif.reduce((acc, q, k) => (k ? acc + Math.hypot(q.x - serif[k - 1].x, q.y - serif[k - 1].y) : 0), 0) });
+      N.edges.push(es);
+      N.x = J1.x; N.y = J1.y; N.r = J1.r;
       break;
     }
   });
