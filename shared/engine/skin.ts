@@ -712,7 +712,7 @@ interface Foot { line: number; dir: number; stem: [SkPt, SkPt]; stemPt: SkPt; se
 const FEET = new WeakMap<SkPt, { foot: Foot; stem: boolean; edge: number }>();
 /** Each vertex withFeet draws standing on a line, by the skeleton it is drawn on (a fat face's v's point): where its
     join is drawn, on which line, and how far the join reached as read. */
-const VERTICES = new WeakMap<Skeleton, { x: number; line: number; y: number; r: number }[]>();
+const VERTICES = new WeakMap<Skeleton, { x: number; line: number; y: number; r: number; ox: number; oy: number }[]>();
 /** The points of the strokes' middles withFeet runs in to a vertex, which their ink, moved, need not keep to. */
 const VRUN = new WeakSet<SkPt>();
 /** A serif withFeet draws level is no thicker, half, than FOOT_THIN of the round where its stem meets it, from a
@@ -731,7 +731,7 @@ const VERTEX_HAIR = 4;
     of its stem's round. */
 const CORNER_HAIR = 0.25;
 function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
-  if (!rig.serifed()) return sk;
+  const feetOn = rig.serifed();
   const { ctx } = rig, lines = ctx.lower ? [0, ctx.xh, ctx.asc, ctx.desc] : [0, ctx.cap], polys = outlineOf(rig);
   const inside = (x: number, y: number) => polys.reduce((k, ring) => k !== inPoly(ring, { x, y }), false);
   const nodes = sk.nodes.map(n => ({ ...n, edges: [...n.edges] })), edges = sk.edges.map(e => ({ ...e, pts: e.pts.slice() }));
@@ -771,6 +771,9 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
     while (d < deep && inside(x, y0 + dir * (d + 1))) d++;
     return (d + 1 + Math.abs(y0 - L)) / 2;
   };
+  // (a font with no serifs has only its vertices drawn again, below)
+  const vertices: { x: number; line: number; y: number; r: number; ox: number; oy: number }[] = [];
+  if (!feetOn) { vertexPass(); if (vertices.length) VERTICES.set(G, vertices); return G; }
   // a serif standing out to one side of its stem only: the skeleton turns from the stem into it, with no join there, so
   // one is made at the turn, where it has run level from its tip
   const turns = new Set<number>(), flags: { e: number; end: 'a' | 'b'; L: number; dir: number }[] = [];
@@ -1060,7 +1063,8 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
   // a vertex standing on a line, its two strokes meeting a way up from it (a fat face's v, its heavy stroke's middle
   // reaching its hairline's well up the vertex's ink): the strokes' middles run on straight to where they meet, the
   // vertex's own short end there, on its line
-  const vertices: { x: number; line: number; y: number; r: number }[] = [];
+  vertexPass();
+  function vertexPass() {
   nodes.forEach((J, j) => {
     if (J.edges.length !== 3) return;
     const tol = tolOf();
@@ -1087,19 +1091,25 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       if (Math.abs(det) < 1e-6) continue;
       const t = ((Q.A.x - P.A.x) * d2y - (Q.A.y - P.A.y) * d2x) / det, M = { x: P.A.x + d1x * t, y: P.A.y + d1y * t };
       if (!((M.y - L) * dir < (J.y - L) * dir)) continue;
-      // (only where a hairline meets a heavy stroke, the join's round many times the hairline's: a Didone's, a fat face's;
-      // a book face's or a slab's vertex reads its join near enough the line)
+      // (in a font standing on serifs, only where a hairline meets a heavy stroke, the join's round many times the
+      // hairline's: a Didone's, a fat face's; a book face's or a slab's vertex, its counter's foot cut flat, reads its
+      // join near enough the line)
       const r0 = Math.min(P.A.r, Q.A.r), J1 = { x: M.x, y: (M.y - L) * dir < r0 ? L + dir * r0 : M.y, r: r0 };
-      if (!(J.r > VERTEX_HAIR * r0)) continue;
+      if (feetOn && !(J.r > VERTEX_HAIR * r0)) continue;
+      // (and only where they meet within the vertex's own end, its round: a w's middle peak, short of the x-height,
+      // isn't drawn up to it)
+      const T = nodes[far(tipBr[0])];
+      if (Math.hypot(J1.x - T.x, J1.y - T.y) > T.r + tol) continue;
       for (const R of runs) { const lead = run(J1, R.A, () => R.A.r).slice(0, -1); for (const q of lead) VRUN.add(q); put(R.br, [...lead, ...R.sp.slice(R.a)]); }
-      const T = nodes[far(tipBr[0])], tip = { x: J1.x, y: L + dir * r0 * 0.5, r: r0 * 0.5 };
+      const tip = { x: J1.x, y: L + dir * r0 * 0.5, r: r0 * 0.5 };
       put(tipBr[0], [{ x: J1.x, y: J1.y, r: J1.r }, tip]);
       T.x = tip.x; T.y = tip.y; T.r = tip.r;
-      vertices.push({ x: J1.x, line: L, y: J1.y, r: J.r });
+      vertices.push({ x: J1.x, line: L, y: J1.y, r: J.r, ox: J.x, oy: J.y });
       J.x = J1.x; J.y = J1.y; J.r = J1.r;
       break;
     }
   });
+  }
   // a stroke's end standing on a slab its skeleton stops short of, running up into the slab's middle (a v's arms, the
   // slab hardly wider than the stroke is thick): a foot with no skeleton out along it, its serifs read off the ink along
   // the line either way past the stroke's sides
@@ -1864,7 +1874,7 @@ interface ThinReads {
       and 0 off one); and on the stem run down to one, which way from its line the ink lies; and which of feet either is
       (-1) */ foot: Float64Array; footDir: Int8Array; footStem: Int8Array; footId: Int32Array;
   /** the vertices standing on a line (withFeet), where they are drawn and how far their join reached as read, and 1 on
-      the strokes' middles run in to them */ vertices: { x: number; line: number; y: number; r: number }[]; vrun: Uint8Array;
+      the strokes' middles run in to them */ vertices: { x: number; line: number; y: number; r: number; ox: number; oy: number }[]; vrun: Uint8Array;
   /** the letter's feet drawn level: the line, which way the ink lies, the stem's middle from the line up, a point of it,
       and each serif's reach along the line and a point of it */
   feet: { line: number; dir: number; stem: number[]; stemJ: number; serifs: { x0: number; x1: number; j: number; edge: number }[]; side: number }[];
@@ -2181,7 +2191,11 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     if (!b.corner || !concaveAt(b)) return;
     let N: SkPt | null = null, n0 = -1;
     // (a vertex's join, run down to where its strokes meet, reaching its corners as far as it did as read)
-    for (const [k, q] of T.joins) { const d = Math.hypot(b.x - q.x, b.y - q.y), zr = T.vertices.find(V => V.x === q.x && V.y === q.y)?.r ?? q.r; if (d < 1.5 * JOIN_ZONE * zr && (!N || d < Math.hypot(b.x - N.x, b.y - N.y))) { N = q; n0 = k; } }
+    for (const [k, q] of T.joins) {
+      const V = T.vertices.find(v => v.x === q.x && v.y === q.y), zr = V?.r ?? q.r;
+      const d = Math.hypot(b.x - q.x, b.y - q.y), dz = V ? Math.min(d, Math.hypot(b.x - V.ox, b.y - V.oy)) : d;
+      if (dz < 1.5 * JOIN_ZONE * zr && (!N || d < Math.hypot(b.x - N.x, b.y - N.y))) { N = q; n0 = k; }
+    }
     if (!N) return;
     // (nor a corner of a foot drawn level, nearer its line than the join: an A's leg into its slab, the slab's own
     // corner, under the crossbar's join)
