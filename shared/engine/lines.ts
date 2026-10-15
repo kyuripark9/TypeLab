@@ -31,6 +31,13 @@ const SIDE = 0.04;
     along their line than ALONG times the stroke is thick (a heavy w's stroke between its notches, its sides each on
     one side of where it meets the next). */
 const PARALLEL = 0.1, APART = 1.6, INKED = 0.9, ALONG = 1.5;
+/** Two strokes meet only where they cross at MEET_SIN (the sine of the angle) or more; where their middles cross past
+    the ink, at a corner the design cuts square or blunt, each runs on past its sides no further than CORNER times as far
+    as such a corner reaches (a monospace W's narrow points, cut flat on the baseline, far). */
+const MEET_SIN = 0.2, CORNER = 1.5;
+/** A stroke ends short of its end at a meet only where the other stroke reaches it, within REACHED times as far as the
+    corner the two make reaches past its sides. */
+const REACHED = 1.2;
 /** A letter is read by its straight strokes only where the thickest is no more than EVEN times the thinnest. */
 const EVEN = 1.6;
 /** The letter's ink the strokes leave out (further than COVER_TOL of a stroke's half thickness outside it): no more
@@ -42,7 +49,8 @@ const GRID = 2;
 /** A stroke with a side a lighter weight keeps where it is: run level along one of the letter's lines, its side on it (an
     E's arms, an L's foot), or a slab, along its face. A point of that side (fx, fy), the way in from it (nx, ny), the way
     the stroke runs (ux, uy), its half thickness as read, and how far in from the side a point of the skeleton lies. */
-export interface Flush { fx: number; fy: number; nx: number; ny: number; ux: number; uy: number; h: number; at: number }
+export interface Flush { fx: number; fy: number; nx: number; ny: number; ux: number; uy: number; h: number; at: number;
+  /** a vertex's: its corner reaches k times the strokes' half thickness past it, and it only comes nearer the line */ k?: number }
 /** Each point of a skeleton lineSkeleton reads that goes in or out as such strokes thin, and with which: a point of one
     all the way, and a point of a stroke ending at one as much less as it lies further from that end (an E's stem, its
     ends going with its arms; a Z's diagonal with both). */
@@ -206,7 +214,7 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
   const meets: Meet[] = [];
   for (let a = 0; a < S.length; a++) for (let b = a + 1; b < S.length; b++) {
     const A = S[a], B = S[b], det = A.ux * B.uy - A.uy * B.ux;
-    if (Math.abs(det) < 0.25) continue;
+    if (Math.abs(det) < MEET_SIN) continue;
     const ta = ((B.px - A.px) * B.uy - (B.py - A.py) * B.ux) / det, tb = ((B.px - A.px) * A.uy - (B.py - A.py) * A.ux) / det;
     const ext = (A.h + B.h) / Math.abs(det) + Math.max(A.h, B.h);
     if (ta < A.lo - ext || ta > A.hi + ext || tb < B.lo - ext || tb > B.hi + ext) continue;
@@ -216,18 +224,18 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
     if (inked(g, p.x, p.y)) { meets.push({ ...p, a, b, ta, tb }); continue; }
     // (and each stroke run on no further past its sides than a corner of the two reaches: not two strokes apart, a K's arm
     // run on down past its stem's foot)
-    const past = (S0: Stroke, t: number, O: Stroke) => Math.max(0, S0.lo - t, t - S0.hi) <= 1.2 * (O.h / Math.abs(det) + S0.h);
+    const past = (S0: Stroke, t: number, O: Stroke) => Math.max(0, S0.lo - t, t - S0.hi) <= CORNER * (O.h / Math.abs(det) + S0.h);
     if (!past(A, ta, B) || !past(B, tb, A)) continue;
     let near: P | null = null;
     // (ink within as far as such a corner reaches: a ring of looks every third of a stroke out to it)
-    const reach = 1.2 * (r / Math.abs(det) + r);
+    const reach = CORNER * (r / Math.abs(det) + r);
     for (let k = 0; k < 16 * Math.ceil(3 * reach / r) && !near; k++) { const a = k * Math.PI / 8, d = r * (1 + (k >> 4)) / 3, q = { x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d }; if (inked(g, q.x, q.y)) near = q; }
     if (!near) continue;
     // (in along the way between the two strokes, back toward each one's middle)
     const sa = Math.sign((A.lo + A.hi) / 2 - ta), sb = Math.sign((B.lo + B.hi) / 2 - tb), wx = sa * A.ux + sb * B.ux, wy = sa * A.uy + sb * B.uy;
     const vl = Math.hypot(wx, wy) || 1, vx = wx / vl, vy = wy / vl, deep = 0.5 * Math.min(A.h, B.h);
     let q = p;
-    for (let d = 0; d < 4 * r && dtAt(g, q.x, q.y) < deep; d += 2) q = { x: p.x + vx * d, y: p.y + vy * d };
+    for (let d = 0; d < reach + 4 * r && dtAt(g, q.x, q.y) < deep; d += 2) q = { x: p.x + vx * d, y: p.y + vy * d };
     if (dtAt(g, q.x, q.y) < deep) continue;
     // (and brought in to within a stroke of each one's sides, not out along one away from the other)
     const nearSpan = (S0: Stroke) => { const t = Math.max(S0.lo, Math.min(S0.hi, (q.x - S0.px) * S0.ux + (q.y - S0.py) * S0.uy)), c = at(S0, t); return Math.hypot(q.x - c.x, q.y - c.y) <= 1.5 * S0.h; };
@@ -251,7 +259,7 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
       // (and, short of its end, only where the other reaches: not where its line, run on, crosses this one far off, a wood
       // type's k's leg's its stem high up)
       const to = tOf(m, other(m, s));
-      if (into > 0 && Math.max(0, o.lo - to, to - o.hi) > 1.2 * (A.h / sinT + o.h)) continue;
+      if (into > 0 && Math.max(0, o.lo - to, to - o.hi) > REACHED * (A.h / sinT + o.h)) continue;
       // (not where its sides run on out past the other stroke's far side, inked: it crosses there, a #'s bars)
       const tq = t + dir * (o.h / sinT + 0.5 * A.h), q = at(A, tq);
       if ((end - tq) * dir >= 0 && dtAt(g, q.x, q.y) >= 0.5 * A.h) continue;
@@ -388,14 +396,34 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
     const y = at(A, (A.lo + A.hi) / 2).y, L = lines.find(L => Math.abs(y + A.h - L) < tol || Math.abs(y - A.h - L) < tol);
     if (L !== undefined) level.set(A, { fx: 0, fy: L, nx: 0, ny: Math.abs(y + A.h - L) < tol ? -1 : 1, ux: A.ux, uy: A.uy, h: A.h });
   }
-  if (level.size) {
-    // (a node such strokes meet at keeps each one's side, one of those whose sides run one way: a beak's corner with its
-    // arm, its face upright and the arm's on the line)
-    const on = new Map<number, Omit<Flush, 'at'>[]>(), held = (F: Omit<Flush, 'at'>, p: P): Flush => ({ ...F, at: (p.x - F.fx) * F.nx + (p.y - F.fy) * F.ny });
-    sk.edges.forEach((E, i) => {
-      const F = owner[i] && level.get(owner[i]!);
-      if (F && E.pts.length) for (const n of [E.a, E.b]) { const l = on.get(n) ?? []; if (!l.some(G => G.nx * F.nx + G.ny * F.ny > 0.9)) on.set(n, [...l, F]); }
-    });
+  // (a node such strokes meet at keeps each one's side, one of those whose sides run one way: a beak's corner with its
+  // arm, its face upright and the arm's on the line)
+  const on = new Map<number, Omit<Flush, 'at'>[]>(), held = (F: Omit<Flush, 'at'>, p: P): Flush => ({ ...F, at: (p.x - F.fx) * F.nx + (p.y - F.fy) * F.ny });
+  sk.edges.forEach((E, i) => {
+    const F = owner[i] && level.get(owner[i]!);
+    if (F && E.pts.length) for (const n of [E.a, E.b]) { const l = on.get(n) ?? []; if (!l.some(G => G.nx * F.nx + G.ny * F.ny > 0.9)) on.set(n, [...l, F]); }
+  });
+  // (and a point two strokes turn at, where the design's ink out past it runs to one of the letter's lines (a V's, an M's
+  // flat vertex on the baseline, an N's corner at the capitals' height): brought no further off the line than its corner,
+  // the strokes' sides run on till they meet, reaches as the strokes are now thick, so its point stays on the line)
+  nodes.forEach((N, n) => {
+    const es = N.edges.filter(e => sk.edges[e].pts.length > 1);
+    if (es.length !== 2 || es.some(e => !owner[e] || level.has(owner[e]!)) || on.has(n)) return;
+    const ways = es.map(e => { const E = sk.edges[e], q = E.a === n ? E.pts[Math.min(E.pts.length - 1, 4)] : E.pts[Math.max(0, E.pts.length - 5)], l = Math.hypot(q.x - N.x, q.y - N.y) || 1; return { x: (q.x - N.x) / l, y: (q.y - N.y) / l }; });
+    const ol = Math.hypot(ways[0].x + ways[1].x, ways[0].y + ways[1].y);
+    if (ol < 0.2) return;
+    const ox = -(ways[0].x + ways[1].x) / ol, oy = -(ways[0].y + ways[1].y) / ol;
+    if (Math.abs(oy) < 0.7) return;
+    const A = owner[es[0]]!, B = owner[es[1]]!, half = Math.sqrt(Math.max(0, (1 - (ways[0].x * ways[1].x + ways[0].y * ways[1].y)) / 2));
+    let d = 0;
+    while (d < 6 * Math.max(A.h, B.h) && inked(g, N.x + ox * (d + 2), N.y + oy * (d + 2))) d += 2;
+    // (the ink there its own corner's, run out no further than the corner the two make reaches: not on through another
+    // stroke, a K's arm from where its bar turns down into its leg)
+    const L = lines.find(L => Math.abs(N.y + oy * d - L) < tol);
+    if (L === undefined || half < 0.1 || d > CORNER * (A.h + B.h) / 2 / half) return;
+    on.set(n, [{ fx: N.x, fy: L, nx: 0, ny: oy < 0 ? 1 : -1, ux: A.ux, uy: A.uy, h: (A.h + B.h) / 2, k: 1 / half }]);
+  });
+  if (on.size || level.size) {
     sk.edges.forEach((E, i) => {
       const n = E.pts.length, F = owner[i] && level.get(owner[i]!), at = (m: number) => (on.get(m) ?? []).map(G => held(G, nodes[m]));
       const Fa = at(E.a), Fb = at(E.b);

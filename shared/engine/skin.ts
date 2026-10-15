@@ -2798,7 +2798,11 @@ function thinMiddle(rig: SkinRig, mv: MoveMap, j: number): P & { R: number } {
   const by = T.flush[j];
   if (by) {
     let dx = 0, dy = 0;
-    for (const [F, w] of by) { const d = w * (Math.max(1, mv.weighs({ tx: F.ux, ty: F.uy, w: F.h, serifDx: 0, dot: false } as Bone) * F.h) - F.at); dx += F.nx * d; dy += F.ny * d; }
+    for (const [F, w] of by) {
+      // (a vertex's point no further off its line than its corner now reaches: nearer, its point cut flat by the line)
+      const R0 = Math.max(1, mv.weighs({ tx: F.ux, ty: F.uy, w: F.h, serifDx: 0, dot: false } as Bone) * F.h), to = F.k ? Math.min(F.at, R0 * F.k) : R0, d = w * (to - F.at);
+      dx += F.nx * d; dy += F.ny * d;
+    }
     return { x: T.x[j] + dx, y: T.y[j] + dy, R };
   }
   return { x: T.x[j], y: T.y[j], R };

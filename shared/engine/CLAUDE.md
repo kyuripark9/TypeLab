@@ -206,7 +206,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    the stroke's thickness (`roundAt`); a stroke whose sides run on out past another's is read crossing it (a #'s bars),
    and two whose middles meet a little past a corner the design cuts square or blunt meet there brought in between them
    (a squared N's, M's and W's, a pointed V's). A stroke run level along one of the letter's lines keeps its side there
-   as it thins, and a stroke ending at one goes with it (`FLUSH`: an E's arms and its stem's ends). A wood type, its
+   as it thins, and a stroke ending at one goes with it (`FLUSH`: an E's arms and its stem's ends); so does a point two
+   strokes turn at whose ink runs out to a line, brought no further off it than its corner now reaches (an M's flat
+   vertex on the baseline). Two strokes crossing at as little as `MEET_SIN` meet past the ink up to `CORNER` times as far
+   as their corner reaches (a monospace W's narrow points, cut flat on the baseline). A wood type, its
    slabs short blocks a tab either side of its n's and H's feet (`fontSlabbed`, Timber), has its letters read with its
    slabs (`slabsOf` in `slabs.ts`) as strokes along their faces kept there, its strokes' sides off its outline without
    them, its sides' ink read only where both sides run and a thin stroke read inside much thicker ones dropped
