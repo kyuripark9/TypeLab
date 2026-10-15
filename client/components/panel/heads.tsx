@@ -6,7 +6,7 @@
    parent; Inspector.tsx (pickPart) and Chrome.tsx (settings search) find a control by `[data-ctl]`, the search passing
    over one inside an `[inert]` fold. The explainer's root keeps the class `explainer`, which Inspector.tsx measures to
    scroll a control in just under it. */
-import { createContext, useMemo, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
+import { createContext, useLayoutEffect, useRef, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import { ANATOMY, CATEGORIES, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type CategoryId } from '../../../shared/content';
 import { isGlyphKey, type Params } from '../../../shared/params';
 import { actions, letterOf, useEditor, useFont } from '../../state/editor';
@@ -85,14 +85,31 @@ function partText(part: string, category: CategoryId) {
   return `${ANATOMY[part as keyof typeof ANATOMY][1]}${shapedBy ? ` Shaped by ${CONTROLS[shapedBy].label}${elsewhere ? ` on the ${elsewhere.label} page` : ''}.` : ''}`;
 }
 
-/** Every explanation a page can show: its controls', their finer sliders', and while a letter is inspected its parts'. */
-function pageTexts(category: CategoryId, inspecting: boolean) {
-  const own = (k: string) => CONTROLS[controlFor(k as ActiveKey)]?.cat === category;
-  return [...new Set([
-    ...Object.values(CONTROLS).filter(c => c.cat === category).map(c => c.explain),
-    ...Object.entries(SUBS).filter(([k, sub]) => own(k) && sub.explain).map(([, sub]) => sub.explain!),
-    ...(inspecting ? Object.keys(ANATOMY).map(p => partText(p, category)) : [])
-  ])].filter(Boolean);
+/* The explainer is as tall as the explanation it shows, so pointing at a control whose explanation takes another
+   number of lines moves the controls under it. The panel scrolls by as much, keeping the control pointed at where it
+   stood (`pointed`, noted as it is pointed at and read once the explanation has changed). Where the panel can't
+   scroll so far the controls do move (`moved`, how far), and another one can slide under a pointer that hasn't: it
+   takes over only once the pointer has gone further than that from where it pointed (`pointedY`), or the two would
+   trade places for as long as the pointer stays. */
+let pointed: { key: ActiveKey; el: Element; top: number } | null = null;
+let moved = 0, pointedY = 0;
+/** How much of a control's top, in px, the explainer may cover: its padding and border above its title (`.ctl`). */
+const COVER = 11;
+
+/** The box that scrolls the panel's controls: the panel, or on phones, where the panel runs on down the page, the page. */
+function scrollerOf(el: Element): Element {
+  const panel = el.closest('.panel');
+  return panel && getComputedStyle(panel).overflowY !== 'visible' ? panel : document.scrollingElement ?? document.documentElement;
+}
+
+/** Makes `key` the active control as the pointer comes over it, unless the controls have just moved under a pointer
+    that hasn't. */
+function point(e: PointerEvent, key: ActiveKey) {
+  if (moved && Math.abs(e.clientY - pointedY) <= moved) return;
+  moved = 0;
+  pointedY = e.clientY;
+  if (useEditor.getState().active !== key) pointed = { key, el: e.currentTarget, top: e.currentTarget.getBoundingClientRect().top };
+  actions.focusControl(key);
 }
 
 export function Explainer() {
@@ -103,12 +120,23 @@ export function Explainer() {
   const c = CONTROLS[controlFor(active)], sub = SUBS[active as keyof typeof SUBS];
   // two levels only, a title and its explanation; a part says which setting shapes it in the explanation
   const [title, text] = part ? [ANATOMY[part][0], partText(part, category)] : [(sub ?? c).friendly, sub?.explain ?? c.explain];
-  // the page's other explanations lie unseen under the one shown, so the box keeps the height of the longest and the
-  // controls under it stay put as the pointer passes from one to the next
-  const ghosts = useMemo(() => pageTexts(category, inspecting), [category, inspecting]);
+  // the control just pointed at stays where it stood as the explainer takes the new explanation's height: a sticky
+  // explainer stays in sight as the controls scroll under it; one that scrolls with them (a short panel) stays in
+  // view and the controls move, unless it has already scrolled away. The explainer may cover a control's padding
+  // above its title (COVER), but a control whose title it would cover is pushed down instead
+  const root = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const p = pointed, box = root.current;
+    pointed = null;
+    if (!p || !box || p.key !== active || !p.el.isConnected) return;
+    const off = p.el.getBoundingClientRect().top - p.top, s = scrollerOf(p.el), edge = box.getBoundingClientRect().bottom;
+    const shown = getComputedStyle(box).position === 'sticky' || edge <= (s === document.scrollingElement ? 0 : s.getBoundingClientRect().top);
+    if (off && shown && p.top >= edge - COVER) s.scrollTo({ top: s.scrollTop + off, behavior: 'instant' });
+    moved = Math.abs(p.el.getBoundingClientRect().top - p.top);
+  }, [active, text]);
   // while inspecting, the large letter on the stage already shows the part, so drop the diagram
   return (
-    <div className="explainer">
+    <div className="explainer" ref={root}>
       {!inspecting && !free && <div className="diagram-box"><Diagram font={font} k={active} /></div>}
       {/* closed, the explanation shows only its title; the title opens it */}
       <div className="ex-text">
@@ -118,10 +146,7 @@ export function Explainer() {
           <svg className="facet-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5" /></svg>
         </button>
         {tips && (
-          <div id="ex-body" className="ex-body">
-            {ghosts.map(t => <p key={t} className="ex-ghost" aria-hidden="true">{t}</p>)}
-            <p>{text}</p>
-          </div>
+          <div id="ex-body" className="ex-body"><p>{text}</p></div>
         )}
       </div>
     </div>
@@ -135,7 +160,9 @@ export function useControlFocus(key: ActiveKey) {
   const letterOnly = useEditor(s => !!letterOf(s) && isGlyphKey(key));
   return {
     'data-letter': letterOnly || undefined,
-    onPointerOver: (e: PointerEvent) => { if (own(e)) actions.focusControl(key); },
+    onPointerOver: (e: PointerEvent) => { if (own(e)) point(e, key); },
+    // one held back while the controls moved under the pointer takes over as the pointer moves on over it
+    onPointerMove: (e: PointerEvent) => { if (moved && own(e)) point(e, key); },
     onFocus: (e: FocusEvent) => { if (own(e)) actions.focusControl(key); }
   };
 }
