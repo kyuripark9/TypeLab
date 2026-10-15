@@ -92,6 +92,14 @@ describe('fills: fill, module', () => {
     assert.ok(g.adv > l.adv, 'the shadow widens the letter');
   });
 
+  it('the coarsest grid leaves a lowercase letter four cells tall or more, so its curves hold together', () => {
+    // (the defaults, and a narrow hairline serif whose c and e came apart into specks on a coarser one)
+    for (const p of [DEFAULTS, STYLES.find(s => s.id === 'hairserif')!.params]) {
+      const f = buildFont({ ...p, fill: 'blobs', module: 1 });
+      assert.ok(f.m.xh / f.m.cell >= 4, `${f.m.xh / f.m.cell} cells`);
+    }
+  });
+
   it('Spread draws a grid fill as it was in the middle, shrinks its cells apart below and grows them together above', () => {
     for (const fill of GRID_FILLS) {
       const at = (dotGain: number) => buildFont({ ...DEFAULTS, weight: 0.6, module: 0.6, fill, dotGain }).glyph('n')!;

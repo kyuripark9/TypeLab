@@ -7,15 +7,16 @@ import { cleanDrawn, type Drawn } from '../engine/outline';
 import { ownFontOf, parseFontId } from '../free-fonts';
 import type { Params } from './model';
 import { GRID_FILLS } from './options';
-import { contrastFromOld, dotGainFromOld, moduleFromOld, xHeightFromOld } from './scales';
+import { contrastFromOld, dotGainFromOld, moduleFromOld, moduleFromV5, xHeightFromOld } from './scales';
 import { DEFAULTS, DRAWN_AT_KEYS, FREE_AT_KEYS, ID_KEYS, PARAM_KEYS, SPECS, drawnAtOf, isGlyphKey, type DrawnAt, type FreeAt, type GlyphParams, type Spec } from './spec';
 /** The version of the settings this build writes; settings files and the database record it. Version 1 settings have
     the Lowercase height on its first scale (see xHeightFromOld); version 2 settings built from blocks were built from
     slot blocks, the only ones there were; version 3 letters drawn in Points stood as drawn whatever the settings, and
     keep no settings they were drawn at (Drawn.at); version 4 grid fills had their Size on an even scale of 30 cells in
-    the cap height to 7 (moduleFromOld), and dots their Spread from 0.3 of their size to 1.75 (dotGainFromOld). Bump
-    it, and add the step to upgradeParams, when saved settings need reading differently. */
-export const PARAMS_VERSION = 5;
+    the cap height to 7 (moduleFromOld), and dots their Spread from 0.3 of their size to 1.75 (dotGainFromOld); version 5
+    grid fills had their Size from 40 cells to 5 (moduleFromV5). Bump it, and add the step to upgradeParams, when saved
+    settings need reading differently. */
+export const PARAMS_VERSION = 6;
 /** Settings written by an older version (see PARAMS_VERSION), as this one reads them. */
 export function upgradeParams(src: Record<string, unknown>, version: number): Record<string, unknown> {
   if (version < 2 && typeof src.xHeight === 'number' && Number.isFinite(src.xHeight)) src = { ...src, xHeight: xHeightFromOld(Math.min(1, Math.max(0, src.xHeight))) };
@@ -25,18 +26,18 @@ export function upgradeParams(src: Record<string, unknown>, version: number): Re
   // from there as they move
   if (version < 4) src = drawnAtDesign(src);
   // a grid fill keeps its cells, and the dot fill its dots, as big as they were drawn (a drawing's settings too)
-  if (version < 5) src = gridScales(src);
+  if (version < 6) src = gridScales(src, version);
   return src;
 }
-/** Settings `src` with a grid fill's Size, and the dot fill's Spread, written on the scales before PARAMS_VERSION 5,
-    on today's; each drawn letter's settings (Drawn.at) likewise. */
-function gridScales(src: Record<string, unknown>): Record<string, unknown> {
+/** Settings `src`, written at `version`, with a grid fill's Size and the dot fill's Spread on today's scales; each drawn
+    letter's settings (Drawn.at) likewise. */
+function gridScales(src: Record<string, unknown>, version: number): Record<string, unknown> {
   const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v), in01 = (v: number) => Math.min(1, Math.max(0, v));
   const one = (p: Record<string, unknown>) => {
     if (!(GRID_FILLS as readonly unknown[]).includes(p.fill)) return p;
     const out = { ...p };
-    if (num(p.module)) out.module = moduleFromOld(in01(p.module));
-    if (p.fill === 'dots' && num(p.dotGain)) out.dotGain = dotGainFromOld(in01(p.dotGain));
+    if (num(p.module)) out.module = (version < 5 ? moduleFromOld : moduleFromV5)(in01(p.module));
+    if (version < 5 && p.fill === 'dots' && num(p.dotGain)) out.dotGain = dotGainFromOld(in01(p.dotGain));
     return out;
   };
   const o = src.outlines, plain = (d: unknown): d is Record<string, unknown> => !!d && typeof d === 'object' && !Array.isArray(d);

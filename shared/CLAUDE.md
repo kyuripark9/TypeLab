@@ -108,12 +108,12 @@ settings it was drawn at (`Drawn.at`, every setting but `glyphs` and `outlines`,
 
 ## PARAMS_VERSION and the compatibility code that stays
 
-`PARAMS_VERSION` is 5. `sanitizeParams` doesn't upgrade: every reader of stored or imported settings calls
+`PARAMS_VERSION` is 6. `sanitizeParams` doesn't upgrade: every reader of stored or imported settings calls
 `upgradeParams(src, version)` first (server/db.ts once per database, recorded in `PRAGMA user_version`; the
 `.typelab.json` import in `client/components/Header.tsx`, a file without a version being version 1). Version 1
 kept the Lowercase height on its first scale (`xHeightFromOld`); version 2 had only slot blocks, so a design (or a
 letter) built from blocks then reads `blockForm: 'slots'`; version 3 drawings stood as drawn whatever the settings,
-so each reads as drawn at its design's settings (`drawnAtDesign`), where it stands as it did; version 4 grid fills had Size on an even scale of 30 cells in the cap height to 7 and dots their Spread from 0.3 to 1.75 of their size, so a grid fill's Size (`moduleFromOld`) and a dot fill's Spread (`dotGainFromOld`) are read onto today's wider scales (`gridScales`), a drawing's settings too. The Histories hold
+so each reads as drawn at its design's settings (`drawnAtDesign`), where it stands as it did; version 4 grid fills had Size on an even scale of 30 cells in the cap height to 7 and dots their Spread from 0.3 to 1.75 of their size, so a grid fill's Size (`moduleFromOld`) and a dot fill's Spread (`dotGainFromOld`) are read onto today's wider scales (`gridScales`), a drawing's settings too; version 5 Size ran from 40 cells to 5, too coarse for a lowercase letter to hold, so a grid fill's Size is read onto today's 40 to 6 (`moduleFromV5`), anything coarser taken to 6. The Histories hold
 settings too: each letter's record (`letter-log.ts`) and the font's versions (`font-log.ts`) are brought up with their
 design wherever `upgradeParams` runs (`upgradeLog`, `upgradeVersions`), and their fields (`t`, `keys`, `own`, `drawn`,
 `back`, `by`; `letters`, `made`, `base`, `styleId`, `set`, `glyphs`, `outlines`) keep their names.

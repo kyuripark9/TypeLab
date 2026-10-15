@@ -192,4 +192,15 @@ describe('the grid fills\' Size and the dots\' Spread', () => {
     const drawn = upgradeParams({ outlines: { l: { adv: 300, contours: [], at: { fill: 'hex', module: 0.55 } } } }, 4) as { outlines: { l: { at: { module: number } } } };
     assert.equal(drawn.outlines.l.at.module, moduleFromOld(0.55));
   });
+
+  it('a grid fill saved at PARAMS_VERSION 5 keeps its cells, one coarser than today\'s coarsest taken to it', () => {
+    // version 5 ran from 40 cells in the cap height to 5
+    for (const v of [0, 0.4, 0.8]) {
+      const f = buildFont(sanitizeParams(upgradeParams({ ...DEFAULTS, fill: 'blobs', module: v }, 5)));
+      assert.ok(Math.abs(f.m.cap / f.m.cell - 40 * (5 / 40) ** v) < 1e-6, `Size ${v}`);
+    }
+    assert.equal(upgradeParams({ fill: 'pixels', module: 1 }, 5).module, 1);
+    // the dots' Spread was on today's scale already
+    assert.equal(upgradeParams({ fill: 'dots', module: 0.5, dotGain: 0.9 }, 5).dotGain, 0.9);
+  });
 });

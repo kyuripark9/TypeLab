@@ -212,7 +212,7 @@ export function FillIcon({ fill }: { fill: Fill }) {
   const icon = cached(fillPaths, fill, () => {
     // (blobs, the liquid and the halftone on a coarser grid, where their necks and sizes still show this small; Size
     // draws the grid fills' cells and the others' lines on scales of their own)
-    const module = fill === 'wire' ? 0.4 : fill === 'shadow' ? 0.3 : fill === 'blobs' || fill === 'liquid' ? 0.65 : fill === 'halftone' ? 0.58 : GRID_FILLS.includes(fill) ? 0.45 : 0.62;
+    const module = fill === 'wire' ? 0.4 : fill === 'shadow' ? 0.3 : fill === 'blobs' || fill === 'liquid' ? 0.71 : fill === 'halftone' ? 0.63 : GRID_FILLS.includes(fill) ? 0.49 : 0.62;
     const g = buildFont({ ...DEFAULTS, weight: 0.72, xHeight: ICON_XH, counter: 0.6, fill, module }).glyph('a');
     return { d: g?.d ?? '', w: g?.adv ?? 500 };
   });
