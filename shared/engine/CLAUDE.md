@@ -155,7 +155,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    stem's middle round a bracket out to tips on a line, turns from a stem into a serif running one way (an n's right
    foot, a y's arm), or runs up into a slab and stops (a v's arms; or stops a stub short of a join, an upright stem
    running on past it, a slab u's or d's foot below its bowl, `Foot.side` as a flag's; its serifs out past the stem's
-   side on the line or a round up it, an A's leg leaning out over its slab), one level stroke along each serif, out as far as the
+   side on the line or a round up it, an A's leg leaning out over its slab; or a hairline serif's corner with an arm
+   running on along the line, `FOOT_HAIR`, a Didone's E, L, B, its arm run level in to the corner), one level stroke
+   along each serif, out as far as the
    ink runs along the line, the stem run down to the line; a flag atop a stem whose arch or bowl joins it further down
    than the join's round reaches the line (an n's, an r's, a g's ear, an a's foot) the same, with a stub on from the
    line to the join, the foot reaching across the stem's own width (`Foot.side`); a slab as thick as its stem is one, `FOOT_THIN`,
@@ -170,7 +172,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    cross nearest the join (`crossing`; a foot's own corner nearer its line than the join is none), an edge cut across its stroke and facing the way it runs staying (a stem's
    square foot on a line, `FLAT_END`), a level foot's samples in along their normals to its shape as the move thins it
    (`intoFoot`, `byFoot`: its stem's round run down to the line, each serif a band as thick as it is now standing on its
-   edge, a serif's straight edges out past its stem's side among them whichever middle they read, `footRound`, a contrasty font's no thicker than its hairline), so its edge on the line stays, its bracket comes
+   edge, a serif's straight edges out past its stem's side among them whichever middle they read, and a straight edge it
+   stands on along its line staying there past the foot, an E's arm's top, `footRound`, a contrasty font's no thicker than its hairline), so its edge on the line stays, its bracket comes
    down, and its serifs' ends, cut across them, stay and come down with their edges, a flag's top past its stem's side
    pinned to that side's corner (`pins`, which `moveRing` puts where they say); a dot made smaller about its middle,
    one with corners (a square, a diamond) pinned there point by point, as its sides moved in alone crossed at its
@@ -183,7 +186,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    `letterInk`). Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
    opened where strokes cross aside, and ink along its strokes' middles) is mended with those strokes laid over it
    (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;
-   none of them, nor the middles `whole` reads, past a foot's line, where `keepHeights`' lift, keeping a round's
+   none of them, nor the middles `whole` reads, past a foot's edge, where `keepHeights`' lift, keeping a round's
    overshoot, would take them), or else drawn as those strokes alone within
    its ink, its dots as moved, or else moved again on a skeleton keeping its strokes that end round (`roundRig`,
    `skeleton(…, round)`: a heavy w's feet and middle peak), then thinned only as far as keeps it whole, in eighths. A heavier weight reads and moves

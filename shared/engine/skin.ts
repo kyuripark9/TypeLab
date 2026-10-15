@@ -691,6 +691,9 @@ const FEET = new WeakMap<SkPt, { foot: Foot; stem: boolean; edge: number }>();
     further out from the stem than FOOT_REACH of that round (a typewriter's long slabs, not an E's arm). */
 const FOOT_THIN = 0.6, FOOT_SLAB = 1.2, FOOT_REACH = 4.5;
 const FOOT_UNDER: [number, number] = [0.6, 0.4];
+/** A corner where an arm runs on along the line from a stem (an E's, an L's) is a foot only by a hairline serif, no
+    thicker, half, than FOOT_HAIR of the round where they meet (a Didone's); a bracketed serif's corner keeps its curve. */
+const FOOT_HAIR = 0.2;
 function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
   if (!rig.serifed()) return sk;
   const { ctx } = rig, lines = ctx.lower ? [0, ctx.xh, ctx.asc, ctx.desc] : [0, ctx.cap], polys = outlineOf(rig);
@@ -826,8 +829,10 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       }
       if (!stem || !tips.length || tips.length > 2) continue;
       // (nor a stroke running on through the line (a t's or an f's bar against the x-height, its stem on above it), or
-      // along it (an E's arm, an L's bar: its corner is no serif's foot))
-      if (others.some(br => { const u = leaving(G, br, J.r); return u.y * dir < -0.5 || Math.abs(u.y) < 0.5; })) continue;
+      // along it (an E's arm, an L's bar), but by a hairline serif on an upright stem (FOOT_HAIR), its corner a foot)
+      const off = (br: Branch) => { const u = leaving(G, br, J.r); return u.y * dir < -0.5 || Math.abs(u.y) < 0.5; };
+      const along = new Set(others.filter(br => off(br) && !from(br).some(q => (q.y - L) * dir < -0.5 * J.r)));
+      if (others.some(br => off(br) && !along.has(br))) continue;
       const sides = tips.map(br => Math.sign(nodes[far(br)].x - J.x));
       if (tips.length === 2 && sides[0] === sides[1]) continue;
       // (the serif's thickness most of the way out to its tip, read up from the line)
@@ -842,6 +847,7 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       });
       const h = Math.max(...half);
       if (!(h < most * J.r)) continue;
+      if (along.size && !(h < FOOT_HAIR * J.r && leaving(G, stem, J.r).y * dir > 0.95)) continue;
       // (the stem's middle past the join's round, run on down to the line, the serifs along it)
       const sp = from(stem);
       let a = sp.findIndex(q => Math.hypot(q.x - J.x, q.y - J.y) >= J.r);
@@ -877,13 +883,27 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       }
       // (a foot whose skeleton runs out one way only, its slab reaching a little past the stem the other way too, as a
       // slab serif's often does: a short serif that way, out as far as the ink along the line)
-      if (tips.length === 1 && foot.serifs.length) {
+      if (tips.length === 1 && foot.serifs.length && !along.size) {
         const out = -Math.sign(foot.serifs[0].x1 - J1.x), y = L + dir * Math.min(tol, h);
         let x = J1.x;
         while (Math.abs(x - J1.x) < FOOT_REACH * J.r && inside(x + out * 2, y)) x += out * 2;
         if ((x - J1.x) * out > A.r + tol) foot.serifs.push({ x0: J1.x, x1: x, pt: foot.serifs[0].pt, edge: edgeOf(L, dir, J1.x, x) });
       }
-      for (const br of others) { const op = from(br), lead = run(J1, op[0], t => J1.r + (op[0].r - J1.r) * t).slice(0, -1); FEET.set(lead[0], { foot, stem: true, edge: L }); put(br, [...lead, ...op]); }
+      for (const br of others) {
+        const op = from(br);
+        // (a stroke running on along the line (an E's arm), from where its middle first runs level a round off the line,
+        // its run in to the corner along the line too, as its edge there is, not down round the join and up again)
+        const k = along.has(br) ? op.findIndex((q, i) => i > 0 && Math.abs((q.y - L) * dir - q.r) < tol && Math.abs(q.y - op[Math.min(op.length - 1, i + 3)].y) < 0.25 * Math.max(1, Math.abs(q.x - op[Math.min(op.length - 1, i + 3)].x))) : -1;
+        if (k > 0 && Math.abs(op[k].x - J1.x) < FOOT_REACH * J.r) {
+          const lv = run({ x: J1.x, y: op[k].y, r: op[k].r }, op[k], () => op[k].r).slice(0, -1), lead = [{ x: J1.x, y: J1.y, r: J1.r }, ...lv];
+          FEET.set(lead[0], { foot, stem: true, edge: L });
+          put(br, [...lead, ...op.slice(k)]);
+          continue;
+        }
+        const lead = run(J1, op[0], t => J1.r + (op[0].r - J1.r) * t).slice(0, -1);
+        for (const q of along.has(br) ? lead : lead.slice(0, 1)) FEET.set(q, { foot, stem: true, edge: L });
+        put(br, [...lead, ...op]);
+      }
       J.x = J1.x; J.y = J1.y; J.r = J1.r;
       break;
     }
@@ -1521,7 +1541,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // (each foot drawn level over its reach along its line, where the move puts it: nothing lifted with the letter's
   // heights goes past it there, as the lift that keeps a round's overshoot below the baseline would take a stem's foot
   // below it, its edge on the line staying)
-  const feet = !mv.lighter || !rig.thin ? [] : rig.thin.feet.map(F => { const xs = [F.stem[0] - F.side, F.stem[0] + F.side, ...F.serifs.flatMap(S => [S.x0, S.x1])]; return { lo: mv.gx(Math.min(...xs)), hi: mv.gx(Math.max(...xs)), y: mv.gy(F.line), dir: F.dir }; });
+  const feet = !mv.lighter || !rig.thin ? [] : rig.thin.feet.map(F => { const xs = [F.stem[0] - F.side, F.stem[0] + F.side, ...F.serifs.flatMap(S => [S.x0, S.x1])]; const es = [F.line, ...F.serifs.map(S => S.edge)]; return { lo: mv.gx(Math.min(...xs)), hi: mv.gx(Math.max(...xs)), y: mv.gy(F.dir > 0 ? Math.max(...es) : Math.min(...es)), dir: F.dir }; });
   const onFeet = <Q extends P>(q: Q, inset: number): Q => { for (const F of feet) if (q.x >= F.lo && q.x <= F.hi && (q.y - F.y) * F.dir < inset) q.y = F.y + F.dir * inset; return q; };
   if (mv.lighter && rig.thin) {
     let j0 = 0;
@@ -2103,6 +2123,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // as thick as it is now (a contrasty font's no thicker than its hairline); the foot's edge in as far along it as to
   // them, or, never reaching them so, by as far as it lies off them; never out: its bracket with it, its edge on the line
   // staying there)
+  const footed = new Uint8Array(bs.length);
   const delta = bs.map((b, i) => {
     // (a flag's stem side, past the stem's middle from the flag, the side of the slab it stood under, cut off there)
     const jf = T.near[r][i], ff = jf >= 0 && !b.dot ? T.footId[jf] : -1, F = ff >= 0 ? T.feet[ff] : null;
@@ -2128,6 +2149,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     const kp = mv.keeps(b, r, i), d = intoFoot(G, b, j => R[j] * kp, j => footRound(rig, mv, R[j]) * kp, Math.max(6, 0.02 * rig.ctx.cap), 0.3 * rig.ctx.cap);
     if (Number.isNaN(d)) return plain(b, i);
     k0.push(1);
+    footed[i] = 1;
     return d;
   });
   // a straight edge is one stroke's side all along, and moves whole, by the most of its samples' moves (where a V's
@@ -2138,14 +2160,20 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   const bySeg = new Map<number, number[]>(), inRun = new Uint8Array(bs.length);
   for (const { a, b } of rig.ends[r]) for (let i = a; i <= b; i++) inRun[((i % bs.length) + bs.length) % bs.length] = 1;
   // (but a serif's foot drawn level, standing on its line, moves as thinMoves read it point by point)
-  const onFoot = (i: number) => { const j = T.near[r][i]; return j >= 0 && (T.footDir[j] !== 0 || T.footStem[j] !== 0); };
+  const onFoot = (i: number) => { const j = T.near[r][i]; return footed[i] || (j >= 0 && (T.footDir[j] !== 0 || T.footStem[j] !== 0)); };
   bs.forEach((b, i) => { if (!b.corner && !crossEnd(b) && !b.dot && !b.serifDx && T.near[r][i] >= 0 && !onFoot(i)) { const l = bySeg.get(b.seg) ?? []; l.push(i); bySeg.set(b.seg, l); } });
   const mid = (v: number[]) => v.sort((p, q) => p - q)[v.length >> 1];
   const slabSegs = new Set(bs.filter(b => b.serifDx).map(b => b.seg));
+  // (an edge a foot drawn level stands on, along its line, running on past the foot: an E's arm's top along the capitals'
+  // height out past its corner's foot, which stays on its line with it)
+  const footLine = new Map<number, number>();
+  bs.forEach((b, i) => { if (footed[i] && b.straight && Math.abs(b.ny) > 0.9 && T.feet.some(F => Math.abs(b.y - F.line) < Math.max(6, 0.02 * rig.ctx.cap) && b.ny * F.dir > 0.9)) footLine.set(b.seg, b.y); });
   for (const is of bySeg.values()) {
     // (straight as drawn, or a curve that keeps within a unit or so of a line, as a sheet's straight edges may be drawn)
     const A = bs[is[0]], B = bs[is[is.length - 1]], len = Math.hypot(B.x - A.x, B.y - A.y) + STEP;
     if (is.length < 3 || (!A.straight && is.some(i => Math.abs((bs[i].x - A.x) * (B.y - A.y) - (bs[i].y - A.y) * (B.x - A.x)) / len > 1 + 0.005 * len))) continue;
+    const fl = footLine.get(A.seg);
+    if (fl !== undefined && is.every(i => Math.abs(bs[i].y - fl) < 2.5)) { for (const i of is) delta[i] = 0; continue; }
     // (an end's samples read the ink running on in from them further than their rounds reach, the stroke running on away
     // from them; it is no longer than the stroke is thick, give or take, and turns into no crotch at either end: a side's
     // round reaches across its stroke, a stub's too, an f's bar's, and a stem's side above the arch it runs into, cut off
