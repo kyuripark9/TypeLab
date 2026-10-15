@@ -534,6 +534,31 @@ function fontSerifed(font: RigLetters) {
   return kept.serifed;
 }
 
+/** The ink of pieces `cs`, united, without a slit: where a piece drawn the other way round overlaps another by a few
+    units (Gumdrop's H's left stem under its bar), the nonzero rule leaves the overlap paper, a hairline gap the
+    skeleton forks round; such a piece is turned, where turning it fills no more than a slit's worth (SLIT of the
+    capitals' height, squared), not a loop's counter a script draws so (Serenade's L). */
+function uniteRig(cs: Node[][], cap: number): Node[][] {
+  const united = unite(cs);
+  if (cs.length < 2) return united;
+  const polys = cs.map(c => c.flatMap((n, i) => Array.from({ length: 4 }, (_, k) => bez(n, c[(i + 1) % c.length], k / 4))));
+  const areas = polys.map(signedArea), inside = (i: number, j: number) => i !== j && polys[i].every(q => inPoly(polys[j], q));
+  const meets = (i: number, j: number) => polys[i].some(q => inPoly(polys[j], q)) || polys[j].some(q => inPoly(polys[i], q));
+  const roots = cs.map((_, i) => i).filter(i => !cs.some((_, j) => inside(i, j)));
+  const ink = (us: Node[][]) => Math.abs(us.reduce((a, c) => a + signedArea(c.flatMap((n, k) => Array.from({ length: 4 }, (_, t) => bez(n, c[(k + 1) % c.length], t / 4)))), 0));
+  let best = united, base = ink(united);
+  for (const i of roots) {
+    if (!roots.some(j => j !== i && Math.sign(areas[j]) !== Math.sign(areas[i]) && meets(i, j))) continue;
+    const turned = new Set([i, ...cs.map((_, j) => j).filter(j => inside(j, i))]);
+    const us = unite(cs.map((c, k) => (turned.has(k) ? c.slice().reverse().map(n => ({ ...n, ix: n.ox, iy: n.oy, ox: n.ix, oy: n.iy })) : c)));
+    const gain = ink(us) - base;
+    if (gain > 0 && gain < (SLIT * cap) ** 2 && us.length < best.length) { best = us; break; }
+  }
+  return best;
+}
+/** How much ink, as a share of the capitals' height, squared, a slit uniteRig fills is at most. */
+const SLIT = 0.05;
+
 /** Letter `ch` of a free font (or of a design's drawn letters), rigged (once, then kept with the font). */
 export function skinRig(font: RigLetters, ch: string): SkinRig | null {
   let kept = rigs.get(font);
@@ -565,7 +590,7 @@ export function skinRig(font: RigLetters, ch: string): SkinRig | null {
   // the outline rigged is the ink's own: a letter drawn in overlapping pieces (a stem whole and a bowl run into it, as a
   // variable font's are and pieces drawn on a sheet and never united) has edges inside its ink, which, moved as the
   // sides of strokes, come out of the strokes round them as notches and spurs
-  const cs = unite(g.contours);
+  const cs = uniteRig(g.contours, font.cap);
   // (a dot is on its own: a counter as small, a bold e's eye, is inside the letter's outline, and so is no dot, nor an o round its counter)
   const polys = cs.map(c => c.map(n => ({ x: n.x, y: n.y })));
   const bones = cs.map((c, i) => rigContour(c, f, ctx, !polys.some((o, j) => j !== i && o.length > 2 && (inPoly(o, polys[i][0]) || inPoly(polys[i], o[0])))));
