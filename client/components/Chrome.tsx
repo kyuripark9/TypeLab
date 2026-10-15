@@ -1,5 +1,5 @@
 /* The frame around the stage: category navigation, glyph strip and toast. */
-import { memo, useDeferredValue, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { memo, useDeferredValue, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
 import { CATEGORIES, GROUPS, controlFor, controlInUse, findSettings, pagesFor, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
 import { Link } from 'react-router';
 import { CHARSET, type Font, type Glyph } from '../../shared/engine';
@@ -25,6 +25,24 @@ function navRows(pages: typeof CATEGORIES): NavRow[] {
     else rows.push({ group: c.group, pages: [c] });
   }
   return rows;
+}
+
+/** Which ends of the scrolling list in `ref` have more of it out of sight, as ' above' and ' below' for its class:
+    those ends fade out (styles.css), so a row half scrolled away never stands sliced under the account's rule.
+    Measured again as the list scrolls, resizes, or (`deps`) changes. */
+function useScrolledEdges(ref: RefObject<HTMLElement | null>, deps: unknown[]) {
+  const [edges, setEdges] = useState('');
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setEdges((el.scrollTop > 1 ? ' above' : '') + (el.scrollTop + el.clientHeight < el.scrollHeight - 1 ? ' below' : ''));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    el.addEventListener('scroll', measure, { passive: true });
+    return () => { ro.disconnect(); el.removeEventListener('scroll', measure); };
+  }, deps);
+  return edges;
 }
 
 const SEARCH_ID = 'setting-search';
@@ -68,8 +86,10 @@ export function Nav() {
   const [query, setQuery] = useState(''), [pick, setPick] = useState(0);
   const found = query.trim() ? findSettings(query, 100) : null;
   const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm })).slice(0, 12) ?? null;
-  const list = useRef<HTMLDivElement>(null);
+  // the list under the search: the settings found, or the pages
+  const list = useRef<HTMLDivElement>(null), rows = navRows(pagesFor({ build, blockForm }));
   useEffect(() => { list.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }, [pick]);
+  const edges = useScrolledEdges(list, [hits, rows]);
   const choose = (h: SettingHit) => { setQuery(''); openSetting(h); (document.activeElement as HTMLElement | null)?.blur(); };
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') { e.stopPropagation(); if (query) setQuery(''); else e.currentTarget.blur(); }
@@ -80,8 +100,7 @@ export function Nav() {
   const page = ({ id, label, hint }: { id: CategoryId; label: string; hint: string }) => (
     <button key={id} className={id === category ? 'nav-item on' : 'nav-item'} aria-current={id === category ? 'page' : undefined} title={hint}
       onClick={() => { actions.setCategory(id); actions.setNavOpen(false); }}>
-      <PageIcon id={id} />
-      <span className="nav-label">{label}</span>
+      <span className="nav-ink"><PageIcon id={id} /><span className="nav-label">{label}</span></span>
     </button>
   );
   const pageName = (id: CategoryId) => CATEGORIES.find(c => c.id === id)!.label;
@@ -96,7 +115,7 @@ export function Nav() {
         {!query && <kbd aria-hidden="true">{FIND_KEY}</kbd>}
       </label>
       {hits ? (
-        <div className="nav-hits" id="setting-hits" role="listbox" aria-label="Settings found" ref={list}>
+        <div className={'nav-hits' + edges} id="setting-hits" role="listbox" aria-label="Settings found" ref={list}>
           {hits.length ? hits.map((h, i) => (
             <button key={h.key} id={`hit-${i}`} role="option" aria-selected={i === pick} className={i === pick ? 'nav-hit on' : 'nav-hit'}
               onPointerEnter={() => setPick(i)} onClick={() => choose(h)}>
@@ -112,8 +131,8 @@ export function Nav() {
             : `No setting matches “${query.trim()}”. Try a word like bold, italic, ${blocks ? 'round' : 'serif'} or spacing.`}</p>}
         </div>
       ) : (
-        <div className="nav-pages">
-          {navRows(pagesFor({ build, blockForm })).map(row => 'group' in row ? (
+        <div className={'nav-pages' + edges} ref={list}>
+          {rows.map(row => 'group' in row ? (
             <div key={row.group} className="nav-group" role="group" aria-labelledby={`nav-${row.group}`}>
               <div className="nav-group-name" id={`nav-${row.group}`}>{GROUPS[row.group]}</div>
               {row.pages.map(page)}
