@@ -98,7 +98,7 @@ function setLine(font: Font, text: string) {
   const [line] = font.layout(text, Infinity);
   const shapes: { x: number; cmds: Cmd[]; d: string }[] = [];
   for (const it of line?.items ?? []) {
-    const g = font.letter(it.ch).glyph(it.ch);
+    const g = font.letter(it.ch).glyph(it.ch, it.alt);
     if (g) shapes.push({ x: it.x, cmds: g.cmds, d: g.d });
   }
   return { shapes, width: line?.width ?? 0 };

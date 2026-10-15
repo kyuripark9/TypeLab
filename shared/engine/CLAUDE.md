@@ -31,6 +31,10 @@ file.
      `buildGlyph(variantOf(ch, e), m, ch)`.
    - `variantOf` picks the glyph id: in a script (`scriptForms`) `<ch>.scr`;
      `a.alt` for a single-storey a; `<ch>.cur` from Cursive 0.35 (`CURSIVE_FORMS`); else `ch`.
+   - `font.glyph(ch, alt)` asks for a letter in the form the letter before it calls for (`GlyphAlt`): `'hi'`, a
+     joined script's small letter after one whose join leaves it high (`GlyphMeta.exitHigh`: b, o, v, w), drawn from
+     glyph id `altId(id, 'hi')` (`<ch>.scr.hi`), the same advance; a letter with no such form (drawn, a free font's own,
+     a print one) gives its own glyph. `layout` sets `LineItem.alt`, and everything that draws a line passes it on.
 4. `buildGlyph` (`glyph.ts`) runs its stages in this order:
    1. the glyph function draws centerline strokes on a `Builder` and returns the body width;
    2. `boxQuarters` (`corners.ts`) when Bowls are Box; `weighFillets`; `markTurns` gives each turn its id and radii;
@@ -58,6 +62,8 @@ file.
        about `SLANT_PIVOT` of the x-height, then the slice, the fills and rough edges (`roughen`) on the final outline;
        it sets `M`, `cmds`, `d`.
 5. `font.hl(ch, key)` (`highlight.ts`) is the part of a letter a control shapes, for the explainer and the inspector.
+6. `font.layout(text, maxWidth)` sets lines: each character at its advance plus Letter spacing (`m.track`), the word
+   space `m.space` (a joined script's wider, `SCRIPT_PAST`, `SCRIPT_GAP`), and each item's `alt` (above).
 
 ## Files
 
@@ -70,7 +76,7 @@ file.
 | `glyphs/index.ts` | Registers the letter files in order: `upper.ts`, `lower.ts`, `figures.ts`, `punctuation.ts` (punctuation and symbols) |
 | `glyphs/shared.ts` | Constructions the letter files share: bowls, the s, shoulders (`arch`), K's arms, upright and arched diagonals, tails and hooks, cursive `entry`/`exitEnd`, dots (`dotK`), `lc` |
 | `glyphs/turns.ts` | Strokes that turn at a point (`turnStroke`, `placeTurns`): A M N V W Y Z, v w y z ^, the turns of Q and R; `POINTED`, `peakPast`, `peakCut` |
-| `script.ts` | Script capitals and joined small letters (`<ch>.scr`): written with a `Pen` whose curves turn as a circle would between their two ways (`Pen.to`, never swinging out past either), each run a stroke of its own, ending `'round'` where the pen turns (a nib's round end, inside the stroke: two runs on along one line part where another stroke's ink hides the notch); each join runs on across Letter spacing (`hand.track`) so it meets the next letter's on its line; the small letters ignore Monospace (`placeGlyph`, `joined`), and the word space is wider by the joins and a side bearing (`buildFont`, `SCRIPT_PAST`, `scriptAcross`) |
+| `script.ts` | Script capitals and joined small letters (`<ch>.scr`, and each small letter's `<ch>.scr.hi`): written with a `Pen` in x-heights across (`scriptAcross`: narrower than tall, wider under a heavy stroke) whose curves turn as a circle would between their two ways (`Pen.to`, never swinging out past either, handles no longer than the curve), each run a stroke of its own. Where the pen turns, the runs end `'round'` (a nib's round end, inside the stroke), or under a pen with contrast the heavier `'flat'`, square as a pointed pen's shade (`SQUARE_SHADE`); two runs on along one line part where other ink hides the notch. Joins cross the letters' edges at `JY` rising at `JA`, running on across Letter spacing (`hand.track`); b, o, v and w leave level at `HY` (`bridge`, `exitHigh`), which the next letter's `hi` form (`hand.hi`: `enter`, `bowl`, `loopUp` start high) takes up. Ascender loops always loop; descender loops (`loopRy`), feet and loops never run back up into themselves. r is a stem with a shoulder ending in a ball (`lower`'s `ball`). The small letters and the capitals (`joins` set, empty) ignore Monospace and Bounce (`placeGlyph`, `joined`); the word space is wider (`buildFont`), and a font file has each letter made one ink (`GlyphMeta.joined`, `oneInk` in server/export.ts) |
 | `basic-blocks.ts` | Basic block letters (Block letters: Basic, the default): plain block letters, every character a lowercase included, rings of corners y up from the baseline measured from the design (`V` upright, `B` level, `D` slanted strokes; counters a share of the cap height times Width), each corner of a kind ('o' Roundness, 'b'/'k' a bowl's outside and inside by Bowls, 'c' Counters, 'i' Joins, 's' sharp); Contrast, Peaks, Steps, Crossbar height (`barY`) and Openness (`open`) reach them too, and lone bars (dashes, + = #, frames) keep `LONE` of the stems at any contrast (`L`); `BASIC`, `basicDims`, `basicRound`, `basicRings` |
 | `blocks.ts` | Slot blocks (Block letters: Slots): rings of corners on a 224 × 175 grid, y down from the top, each corner of a kind ('o', 'e', 'i', 's'); the lowercase are small capitals; `BLOCKS`, `blockDims`, `blockRings` |
 | `grid-blocks.ts` | Grid letters (Block letters: Grid): each character filled and empty cells of a grid five high (`GRID`, rows from the top as `'#'`/`'.'` strings), upper and lower case alike tall; the cells' edges followed into rings, every corner rounded by Roundness, and filled cells meeting only at a corner joined through a neck between empty cells round right round; b d p q on a stem a cell past their bowl, and look-alikes (o b d p q, g 9 q, 6 G, 5 S) at least two cells apart; Weight moves every edge out or in (`GROW`), Width the cells' width; `gridCells`, `gridDims`, `gridRings` |

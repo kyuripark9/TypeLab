@@ -87,7 +87,21 @@ export interface Metrics {
 }
 
 /** The controls that shape a letter, which the letter inspector lists for it. */
-interface GlyphMeta { params?: ControlKey[] }
+interface GlyphMeta {
+  params?: ControlKey[];
+  /** a joined-up hand's letter (script.ts), whose strokes run over one another where the pen goes back over them (up
+      an n's stem, round an o): a font file has them made one ink, as a browser fills a web font's overlaps unevenly */
+  joined?: true;
+  /** a joined script's small letter whose join leaves it high, level from its top (an o's, a v's): the letter after it
+      is written in its 'hi' form (GlyphAlt), its own join coming in level at that height */ exitHigh?: true;
+}
+/** Another form a letter is written in where the letter before it asks for one: 'hi', a joined script's small letter
+    after one whose join leaves it high (GlyphMeta.exitHigh), its join coming in level at that height instead of rising
+    from low down (a dip between the two read as one more stroke, an o and a v as ow). Its glyph id is the letter's
+    form's with '.hi' after it (altId), and it keeps the letter's advance, so the layout stands as it is. */
+export type GlyphAlt = 'hi';
+/** The glyph id form `id` is written in as `alt`. */
+export const altId = (id: string, alt: GlyphAlt) => id + '.' + alt;
 type GlyphFn = (g: Builder, m: Metrics) => number;
 /** A glyph table entry (defGlyph): its side-bearing factors, the function drawing it, and what the inspector lists. */
 export interface GlyphDef { sb: [number, number]; fn: GlyphFn; meta: GlyphMeta }
@@ -116,7 +130,8 @@ export interface Glyph {
   d: string;
 }
 
-export interface LineItem { ch: string; x: number; adv: number }
+/** A character set on a line: where it stands, its advance, and the form the letter before it asks it to be written in. */
+export interface LineItem { ch: string; x: number; adv: number; alt?: GlyphAlt }
 export interface Line { items: LineItem[]; width: number }
 
 export interface Font {
@@ -127,7 +142,8 @@ export interface Font {
   /** written in a free font that isn't registered yet: the letters are built meanwhile, or drawn from the font
       picked while the weight or italic the settings ask for is on its way */ freePending: boolean;
   /** the free fonts it draws from that weren't registered when it was built (see freeFontsWanted) */ freeMissing: string[];
-  glyph(ch: string): Glyph | null;
+  /** Letter `ch`, in the form `alt` where it has one (else as it is: drawn in Points, a free font's own, not a script's). */
+  glyph(ch: string, alt?: GlyphAlt): Glyph | null;
   /** The font `ch` is drawn from: one built with its own settings when it has any, else this one. */
   letter(ch: string): Font;
   /** SVG path data of the part of `ch` that parameter `key` affects ('' if none). */
@@ -355,7 +371,8 @@ export class Builder {
   reachL = 0; reachR = 0;
   /** side-bearing factors for a form of the letter with other sides than its usual one (an arched V's stems) */
   sb?: [number, number];
-  /** where a joined-up letter meets its neighbours (see script.ts): the hand's irregularity leaves these be */
+  /** where a joined-up letter meets its neighbours (see script.ts): the hand's irregularity leaves these be (a script
+      capital's is empty: it meets none, but is placed as the hand's small letters are, see placeGlyph) */
   joins?: [number, number][];
   constructor(public m: Metrics) {}
   path(cmds: Cmd[], o?: StrokeOpts) { this.strokes.push({ cmds, o: o || {} }); return this; }
@@ -407,9 +424,16 @@ export const scriptId = (ch: string) => ch + '.scr';
 /** How far a script's join runs straight on past the edge of a small letter, out of it and into the next (in x-heights
     across, see script.ts): out past the last letter of a word and in before the first of the next, into the space. */
 export const SCRIPT_PAST = 0.07;
-/** An x-height across, as the script's small letters are drawn in it (script.ts): as Width sets it, and widened as the
-    strokes get heavier, so the counters stay open. */
-export const scriptAcross = (m: Pick<Metrics, 'xh' | 's' | 'W'>) => (m.xh * 1.05 + m.s * 1.1) * m.W(1000) / 1000;
+/** The least room between a script's words, from the end of one's join to the start of the next one's, in x-heights
+    across (see buildFont). */
+export const SCRIPT_GAP = 0.45;
+/** An x-height across, as the script's small letters are drawn in it (script.ts): narrower than it is tall, as a hand
+    writes, as Width sets it, and widened as the strokes get heavier, the more so past a stroke an eighth of it wide, so
+    a heavy hand's counters, between stems as between the sides of its loops, stay open. */
+export const scriptAcross = (m: Pick<Metrics, 'xh' | 's' | 'W'>) => {
+  const base = (m.xh * 0.86 + m.s * 1.5) * m.W(1000) / 1000;
+  return base * (1 + 2.5 * Math.max(0, m.s / base - 0.12));
+};
 
 /** The glyph id letter `ch` is drawn from in design `e`: a script's own letter first, as it is written whole,
     single-storey a and all; else the single-storey a, the cursive form, or the letter itself. */
@@ -440,10 +464,11 @@ export function buildFont(params: Params, from?: Font): Font {
   const m1 = free ? { ...m0, space: Math.max(20, free.space * fl.k * fl.sx + (e.wordSpacing - 0.35) * 520) } : m0;
   // a script's joins run out past the end of a word and in before the next, into the space, and its small letters
   // stand on no side bearings: the space is wider by both joins and by a side bearing (in whole cells on a grid fill),
-  // so the words stand about as far apart as their letters' ink would in print. (A free font that is a script itself
-  // spaces its own words.)
+  // so the words stand about as far apart as their letters' ink would in print, and never nearer, the ends of the two
+  // joins, than SCRIPT_GAP of an x-height across, however tight the design's words are set (a join's hairline end
+  // stands out less than a letter's side). (A free font that is a script itself spaces its own words.)
   const joined = fl && free ? fontScript(fl.now, fl.pick) && !scriptForms(fl.pick) : scriptForms(e);
-  const sp = m1.space + 2 * SCRIPT_PAST * scriptAcross(m1) + m1.sb;
+  const across = scriptAcross(m1), sp = Math.max(m1.space + 2 * SCRIPT_PAST * across + m1.sb, (SCRIPT_GAP + 2 * SCRIPT_PAST) * across - m1.track);
   const m = joined ? { ...m1, space: m1.cell && e.fill !== 'lines' ? Math.max(m1.cell, Math.round(sp / m1.cell) * m1.cell) : sp } : m1;
   // a family member's drawn letters are moved from the design they were drawn in (family-drawn.ts)
   const at = drawnDesign(params);
@@ -451,22 +476,25 @@ export function buildFont(params: Params, from?: Font): Font {
   const built = (from && from.free === free && sameSettings(from.params, params) && settingsGlyphs.get(from)) || new Map<string, Glyph | null>();
   /** Letter `ch` as the settings draw it: its own letter's font's, a free font's (in a form the font hasn't got, its
       twin's), a block letter, or the glyph table's form of it (variantOf). */
-  const fromSettings = (ch: string): Glyph | null => {
+  const fromSettings = (ch: string, alt?: GlyphAlt): Glyph | null => {
     const lf = font.letter(ch);
-    if (lf !== font) return lf.glyph(ch);
-    if (free?.glyphs[ch]) return (fl!.skin && formChanged(ch, fl!.now, fl!.pick) && twinGlyph(ch, fl!)) || freeGlyph(ch, free.glyphs[ch], fl!);
-    if (e.build === 'blocks') { const b = buildBlock(ch, m); if (b) return b; }
-    return buildGlyph(variantOf(ch, e), m, ch);
+    if (lf !== font) return lf.glyph(ch, alt);
+    if (free?.glyphs[ch]) return (fl!.skin && formChanged(ch, fl!.now, fl!.pick) && twinGlyph(ch, fl!, alt)) || (alt ? font.glyph(ch) : freeGlyph(ch, free.glyphs[ch], fl!));
+    if (e.build === 'blocks') { const b = buildBlock(ch, m); if (b) return alt ? font.glyph(ch) : b; }
+    const id = variantOf(ch, e);
+    if (alt && !hasGlyph(altId(id, alt))) return font.glyph(ch);
+    return buildGlyph(alt ? altId(id, alt) : id, m, ch);
   };
-  /** Letter `ch`: as drawn, if it is (moved as far as the settings move from those it was drawn at, or, in a family
-      member, from its design); else as built before with the same settings, or built now and kept. */
-  const pickGlyph = (ch: string): Glyph | null => {
+  /** Letter `ch` (in form `alt`): as drawn, if it is (moved as far as the settings move from those it was drawn at, or,
+      in a family member, from its design; a drawn letter has no other form); else as built before with the same
+      settings, or built now and kept. */
+  const pickGlyph = (ch: string, alt?: GlyphAlt): Glyph | null => {
     const drawn = params.outlines?.[ch];
-    if (drawn) return drawnLetter(ch, drawn, font, at);
-    const before = built.get(ch);
+    if (drawn) return alt ? font.glyph(ch) : drawnLetter(ch, drawn, font, at);
+    const key = alt ? ch + '\u0001' + alt : ch, before = built.get(key);
     if (before !== undefined) return before;
-    const g = fromSettings(ch);
-    built.set(ch, g);
+    const g = fromSettings(ch, alt);
+    built.set(key, g);
     return g;
   };
   const font: Font = {
@@ -478,9 +506,10 @@ export function buildFont(params: Params, from?: Font): Font {
       if (!f) { const lp: Params = { ...params, ...own, glyphs: {} }; f = buildFont(at ? drawnFrom(lp, at) : lp); letters.set(ch, f); }
       return f;
     },
-    glyph(ch) {
-      let g = cache.get(ch);
-      if (g === undefined) { g = pickGlyph(ch); cache.set(ch, g); }
+    glyph(ch, alt) {
+      const key = alt ? ch + '\u0001' + alt : ch;
+      let g = cache.get(key);
+      if (g === undefined) { g = pickGlyph(ch, alt); cache.set(key, g); }
       return g;
     },
     hl(ch, key) {
@@ -504,6 +533,11 @@ export function buildFont(params: Params, from?: Font): Font {
         const flush = (upto?: number) => {
           const items = upto == null ? line : line.slice(0, upto);
           while (items.length && items[items.length - 1].ch === ' ') items.pop();
+          // a letter after one whose join leaves it high takes it up at that height, where it has a form for it
+          items.forEach((it, i) => {
+            const prev = items[i - 1], hi = !!prev && !!font.glyph(prev.ch)?.meta.exitHigh && font.glyph(it.ch, 'hi') !== font.glyph(it.ch);
+            if (hi) it.alt = 'hi'; else delete it.alt;
+          });
           const last = items[items.length - 1];
           lines.push({ items, width: last ? last.x + last.adv : 0 });
           const rest = upto == null ? [] : line.slice(upto + 1);

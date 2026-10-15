@@ -1,7 +1,8 @@
 /* Server-side export: the same engine that draws the live preview builds the font files. */
 import { crc32, deflateRawSync } from 'node:zlib';
 import type { FontConstructorOptions } from 'opentype.js';
-import { ACCENTED, CHARSET, ALL_CHARS, accentGlyph, buildFont, cmdsToD } from '../shared/engine';
+import { ACCENTED, CHARSET, ALL_CHARS, accentGlyph, buildFont, cmdsContours, cmdsToD, combine, drawnCmds, fitOutline, shape, unite } from '../shared/engine';
+import { toPolys } from '../shared/engine/geom';
 import type { Cmd, Font, Glyph } from '../shared/engine';
 import { TEXTS } from '../shared/content';
 import { slug } from '../shared/design';
@@ -21,6 +22,19 @@ function toPath(cmds: Cmd[]) {
     else p.close();
   }
   return p;
+}
+
+/** A letter's outline as a font file has it: a joined-up hand's (GlyphMeta.joined) made one ink, its strokes running
+    over one another (a browser fills a web font's overlaps unevenly: an o's bowl, gone round past its start, came out
+    half hollow), every other letter's as the engine draws it. */
+function oneInk(g: Glyph): Cmd[] {
+  if (!g.meta.joined) return g.cmds;
+  const cs = cmdsContours(g.cmds), u = unite(cs);
+  if (u !== cs || cs.length < 2) return drawnCmds(u);
+  // (where unite can't make it out, its edges running right along one another as the pen goes back over a line, the
+  // ink is made one as straight edges, and curves fitted to them again)
+  const ink = shape(toPolys(g.cmds)), lines = combine([ink], ink.has).flatMap((p): Cmd[] => [['M', p[0].x, p[0].y], ...p.slice(1).map((q): Cmd => ['L', q.x, q.y]), ['Z']]);
+  return drawnCmds(fitOutline(lines));
 }
 
 /** How a font installs within its family: its style name, weight class and italic angle. */
@@ -43,7 +57,7 @@ export function exportName(params: Params, name: string, font: Font = buildFont(
     overlapping pieces made one, tools/fonts/ui.ts). With `accents`, the accented letters too (ACCENTED, each its
     letter and a mark drawn for the design: accents.ts in the engine), after the rest, leaving the line spacing as it
     is. */
-export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, outline: (g: Glyph) => Cmd[] = g => g.cmds, accents = false): Buffer {
+export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, outline: (g: Glyph) => Cmd[] = oneInk, accents = false): Buffer {
   const font = buildFont(params), m = font.m, free = font.free, licensed = free?.license ? free : null;
   name = exportName(params, name, font);
   // an advance width can't go below zero in a font file, and tight tracking takes it down: a space keeps at
@@ -59,8 +73,11 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
   // most platforms: 60 units over the taller of ascender and cap height and 40 under the descender, for air
   // between lines. A free font's flourishes can reach past the design's own lines: the font's lines reach as far
   let top = Math.max(m.asc, m.cap) + 60, bottom = m.desc - 40;
+  /** each character's glyph's place in the font */
+  const index = new Map<string, number>();
   for (const ch of ALL_CHARS) {
     const g = font.glyph(ch); if (!g) continue;
+    index.set(ch, glyphs.length);
     if (free) for (const c of g.cmds) for (let i = 2; i < c.length; i += 2) { top = Math.max(top, c[i] as number); bottom = Math.min(bottom, c[i] as number); }
     glyphs.push(new opentype.Glyph({
       name: 'uni' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'),
@@ -77,6 +94,17 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
       advanceWidth: R(Math.max(20, g.adv + m.track)),
       path: toPath(g.cmds)
     }));
+  }
+  // a joined script's small letters in the form they take after a letter whose join leaves it high (GlyphAlt in the
+  // engine), with no character of their own: the calt feature below puts them in place, as the layout does
+  const alts: [number, number][] = [], high: number[] = [];
+  for (const [ch, i] of index) {
+    const g = font.glyph(ch)!, a = font.glyph(ch, 'hi');
+    if (g.meta.exitHigh) high.push(i);
+    if (!a || a === g) continue;
+    if (a.meta.exitHigh) high.push(glyphs.length);
+    alts.push([i, glyphs.length]);
+    glyphs.push(new opentype.Glyph({ name: glyphs[i].name + '.hi', advanceWidth: R(Math.max(20, a.adv + m.track)), path: toPath(outline(a)) }));
   }
   // Apps that only know Regular, Italic, Bold and Bold Italic list each other weight as a family of
   // its own ("Name Light"); the rest read the whole family from the typographic names. The style is read
@@ -105,10 +133,28 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
       names.licenseURL = { en: licensed.licenseUrl };
     }
   }
+  if (alts.length && high.length) (otf as unknown as { tables: Record<string, unknown> }).tables.gsub = altFeature(alts, high);
   // opentype.js reads font.weightClass only for the head table's macStyle bold bit (bold from 600 up); OS/2 keeps
   // as.cls. Only Bold sets the bit
   (otf as unknown as { weightClass: number }).weightClass = weightName === 'Bold' ? 700 : 400;
   return Buffer.from(otf.toArrayBuffer());
+}
+
+/** The GSUB table of a font with joined script letters (`alts`, each letter's glyph and its 'hi' form's): its contextual
+    alternates (calt), a letter after one whose join leaves it high (`high`, either form) written in its 'hi' form. */
+function altFeature(alts: [number, number][], high: number[]) {
+  const sorted = alts.slice().sort((a, b) => a[0] - b[0]), lang = { reserved: 0, reqFeatureIndex: 0xffff, featureIndexes: [0] };
+  return {
+    version: 1,
+    scripts: ['DFLT', 'latn'].map(tag => ({ tag, script: { defaultLangSys: lang, langSysRecords: [] } })),
+    features: [{ tag: 'calt', feature: { featureParams: 0, lookupListIndexes: [1] } }],
+    lookups: [
+      // (0: each letter to its 'hi' form, applied only by 1)
+      { lookupType: 1, lookupFlag: 0, subtables: [{ substFormat: 2, coverage: { format: 1, glyphs: sorted.map(a => a[0]) }, substitute: sorted.map(a => a[1]) }] },
+      { lookupType: 6, lookupFlag: 0, subtables: [{ substFormat: 3, backtrackCoverage: [{ format: 1, glyphs: [...new Set(high)].sort((a, b) => a - b) }],
+        inputCoverage: [{ format: 1, glyphs: sorted.map(a => a[0]) }], lookaheadCoverage: [], lookupRecords: [{ sequenceIndex: 0, lookupListIndex: 0 }] }] }
+    ]
+  };
 }
 
 /** Every member of a family as its own font, in one .zip with a folder named after the family; written in a
@@ -221,7 +267,7 @@ export function buildSpecimenSVG(params: Params, name: string, accents = false):
     }
     const ln = font.layout(t, Infinity)[0];
     maxW = Math.max(maxW, ln.width);
-    for (const it of ln.items) { const g = font.glyph(it.ch); if (g) body += `<path transform="translate(${R(it.x)},${y})" d="${g.d}"/>`; }
+    for (const it of ln.items) { const g = font.glyph(it.ch, it.alt); if (g) body += `<path transform="translate(${R(it.x)},${y})" d="${g.d}"/>`; }
   });
   const W = R(maxW + 200), H = R(rows.length * lh + 120);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-100 0 ${W} ${H}" width="${W / 4}" height="${H / 4}">` +

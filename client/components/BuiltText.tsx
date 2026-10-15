@@ -32,7 +32,7 @@ export const BuiltText = memo(function BuiltText({ params, text, size, lines: mo
         <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
           <g transform={`scale(${sc})`}>
             {lines.map((ln, i) => ln.items.map((it, j) => {
-              const g = f.glyph(it.ch);
+              const g = f.glyph(it.ch, it.alt);
               return g && <path key={`${i}-${j}`} d={g.d} transform={`translate(${n1(it.x)},${n1(i * LH + base)})`} />;
             }))}
           </g>

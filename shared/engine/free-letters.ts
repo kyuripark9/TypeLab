@@ -11,7 +11,7 @@ import { FORM_LETTERS, descK, rigSkeleton, skinMeasures, skinMove, skinRig, type
 import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBlockBowls, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
-import { SERIF_SB, buildFont, type Effective, type Font, type Glyph, glyphDefOf, hasGlyph, type Metrics, metrics, resolve, scriptForms, scriptId, termSpec } from './font';
+import { SERIF_SB, buildFont, type Effective, type Font, type Glyph, type GlyphAlt, glyphDefOf, hasGlyph, type Metrics, metrics, resolve, scriptForms, scriptId, termSpec } from './font';
 import { blankParts, placeGlyph, wobbler, type Unplaced } from './glyph';
 
 /* ---- free fonts' letters (see shared/free-fonts.ts), moved by the settings as far as they're moved from the
@@ -226,7 +226,7 @@ function twinFit(font: FreeFont, pick: Params): Partial<Params> {
 const twinFonts = new Map<string, Font>();
 /** Letter `ch` as the free font's twin draws it: the engine's, at the settings the font reads as (twinFit) moved as far
     as the design moves them from those it was picked at. */
-export function twinGlyph(ch: string, fl: FreeLetters): Glyph | null {
+export function twinGlyph(ch: string, fl: FreeLetters, alt?: GlyphAlt): Glyph | null {
   if (!fl.font) return null;
   const fit = twinFit(fl.font, fl.rawPick), now = fl.raw, pick = fl.rawPick;
   const moved = (k: 'weight' | 'contrast' | 'xHeight' | 'width' | 'slant') => clamp((fit[k] as number) + (now[k] as number) - (pick[k] as number));
@@ -235,7 +235,7 @@ export function twinGlyph(ch: string, fl: FreeLetters): Glyph | null {
   const key = JSON.stringify(p);
   let f = twinFonts.get(key);
   if (!f) { f = buildFont(p); if (twinFonts.size > 8) twinFonts.delete(twinFonts.keys().next().value!); twinFonts.set(key, f); }
-  return f.glyph(ch);
+  return f.glyph(ch, alt);
 }
 
 const restyles = new WeakMap<Node[][], Map<string, Node[][]>>();

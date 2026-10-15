@@ -57,6 +57,28 @@ export function drawnCmds(contours: Node[][], sharp = false): Cmd[] {
   return out;
 }
 
+/** Drawn contours from path commands, drawnCmds the other way: each closed contour's points, a curve's handles on the
+    points they leave and reach (a contour that comes back to where it began ends on its first point, which takes the
+    handle it came in by). */
+export function cmdsContours(cmds: Cmd[]): Node[][] {
+  const cs: Node[][] = [];
+  let c: Node[] = [];
+  const close = () => {
+    const a = c[0], z = c.at(-1);
+    if (c.length > 1 && a.x === z!.x && a.y === z!.y) { a.ix = z!.ix; a.iy = z!.iy; c.pop(); }
+    if (c.length > 1) cs.push(c);
+    c = [];
+  };
+  for (const k of cmds) {
+    if (k[0] === 'M') { close(); c.push({ x: k[1], y: k[2] }); }
+    else if (k[0] === 'L') c.push({ x: k[1], y: k[2] });
+    else if (k[0] === 'C') { Object.assign(c.at(-1)!, { ox: k[1], oy: k[2] }); c.push({ x: k[5], y: k[6], ix: k[3], iy: k[4] }); }
+    else close();
+  }
+  close();
+  return cs;
+}
+
 /* ---------------------------------------------------------------- fitting */
 
 const sub = (a: P, b: P): P => ({ x: a.x - b.x, y: a.y - b.y });

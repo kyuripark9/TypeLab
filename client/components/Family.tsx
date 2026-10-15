@@ -98,7 +98,7 @@ function MemberSample({ member, label }: { member: FamilyMember; label: string }
   return (
     <svg className="family-sample" viewBox={`-60 -900 ${w} 1150`} preserveAspectRatio="xMinYMid meet" role="img" aria-label={label}>
       <title>{label}</title>
-      {ln.items.map((it, i) => { const g = f.glyph(it.ch); return g && <path key={i} d={g.d} transform={`translate(${n1(it.x)},0)`} />; })}
+      {ln.items.map((it, i) => { const g = f.glyph(it.ch, it.alt); return g && <path key={i} d={g.d} transform={`translate(${n1(it.x)},0)`} />; })}
     </svg>
   );
 }

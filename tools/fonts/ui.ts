@@ -8,7 +8,7 @@
    Manrope (or the titles' serif). */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { buildOTF } from '../../server/export';
-import { buildFont, drawnCmds, unite, type Cmd, type Node, type PackedNode } from '../../shared/engine';
+import { buildFont, cmdsContours, drawnCmds, unite, type Cmd, type Node, type PackedNode } from '../../shared/engine';
 import { sanitizeParams, upgradeParams } from '../../shared/params';
 
 const args = process.argv.slice(2);
@@ -25,23 +25,7 @@ const params = sanitizeParams(upgradeParams(file.params, typeof file.version ===
     pieces unevenly (Lineup's A came out with its bar hollow where it crosses the legs), and the opening's drawing
     would show the edges inside the ink. */
 function united(cmds: Cmd[]): Node[][] {
-  const cs: Node[][] = [];
-  let c: Node[] = [];
-  const close = () => {
-    // a contour that comes back to where it began ends on its first point, which takes the handle it came in by
-    const a = c[0], z = c.at(-1);
-    if (c.length > 1 && a.x === z!.x && a.y === z!.y) { a.ix = z!.ix; a.iy = z!.iy; c.pop(); }
-    if (c.length > 1) cs.push(c);
-    c = [];
-  };
-  for (const k of cmds) {
-    if (k[0] === 'M') { close(); c.push({ x: k[1], y: k[2] }); }
-    else if (k[0] === 'L') c.push({ x: k[1], y: k[2] });
-    else if (k[0] === 'C') { Object.assign(c.at(-1)!, { ox: k[1], oy: k[2] }); c.push({ x: k[5], y: k[6], ix: k[3], iy: k[4] }); }
-    else close();
-  }
-  close();
-  return unite(cs);
+  return unite(cmdsContours(cmds));
 }
 
 const otf = buildOTF(params, file.name ?? 'Lineup', undefined, g => drawnCmds(united(g.cmds)));
