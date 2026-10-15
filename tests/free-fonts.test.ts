@@ -15,7 +15,8 @@ import { metrics, resolve } from '../shared/engine/font';
 import { formChanged, widthOfScale } from '../shared/engine/free-letters';
 import { bowlLook, cornerLooks, restyleBowls, restyleCorners, restyleDots, restyleEnds, restylePeaks, restyleStencil, stencilLook } from '../shared/engine/restyle';
 import { skeleton } from '../shared/engine/scan';
-import { SKIN_KEYS, skinFollows } from '../shared/engine/skin';
+import { lineSkeleton } from '../shared/engine/lines';
+import { SKIN_KEYS, skinFollows, skinRig } from '../shared/engine/skin';
 import { familyMember } from '../shared/family';
 import { OLD_FONTS, OWN_FAMILIES, STYLE_FONTS, isOwnFont, nearestFont, parseFontId } from '../shared/free-fonts';
 import { DEFAULTS, FREE_AT_KEYS, freeAtOf, sanitizeParams, xHeightOfRatio, xHeightRatio, type Params } from '../shared/params';
@@ -481,6 +482,27 @@ describe("TypeLab's own fonts", () => {
     for (let y = y0; y <= y1; y++) tip = Math.max(tip, runs(E, 'y', y).slice(-1)[0]?.[1] ?? -Infinity);
     const near = runs(E, 'x', tip - (y1 - y0) * 0.15).filter(([a, b]) => b > y0 - 20 && a < y1 + 20);
     assert.equal(near.length, 1, `one end to the middle arm, not two (${JSON.stringify(near)})`);
+  });
+
+  it("draw a letter of straight strokes lighter as those strokes, read off their sides: Gumdrop's w and N at Regular", async () => {
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'chunkyround')!, id = STYLE_FONTS.chunkyround;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    // (so heavy its counters are notches: the middle of the w's ink is one bar notched above and below, the N's diagonal
+    // meets its stems half way down; read along its strokes' sides, the w is one stroke through its three points, the N
+    // one through its two corners)
+    for (const ch of 'wN') {
+      const rig = skinRig(freeFont(id)!, ch)!, sk = lineSkeleton(rig.contours, rig.ctx.cap, rig.ref().stem, 3);
+      assert.ok(sk && sk.edges.length === 1 && sk.nodes.length === 2, `${ch} read as one stroke turning`);
+    }
+    // and drawn so at Regular: each stroke crossed once, half way up, as thick as the others
+    const f = buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params), weight: 0.4 } as Params);
+    for (const [ch, y, n] of [['w', f.m.xh / 2, 4], ['N', f.m.cap / 2, 3]] as const) {
+      const ink = shape(toPolys(f.glyph(ch)!.cmds)), runs: [number, number][] = [];
+      for (let x = -200, on = false; x < 1400; x += 0.5) { const has = ink.has(x, y); if (has && !on) runs.push([x, x]); if (has) runs[runs.length - 1][1] = x; on = has; }
+      const w = runs.map(([a, b]) => b - a);
+      assert.equal(runs.length, n, `${ch}: ${JSON.stringify(runs)}`);
+      assert.ok(Math.max(...w) < 1.5 * Math.min(...w), `${ch}'s strokes as thick as each other: ${w}`);
+    }
   });
 
   it('answer every setting on their letters without breaking them, and each setting changes what it says', async () => {
