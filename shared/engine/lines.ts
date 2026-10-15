@@ -173,8 +173,28 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
     const ta = ((B.px - A.px) * B.uy - (B.py - A.py) * B.ux) / det, tb = ((B.px - A.px) * A.uy - (B.py - A.py) * A.ux) / det;
     const ext = (A.h + B.h) / Math.abs(det) + Math.max(A.h, B.h);
     if (ta < A.lo - ext || ta > A.hi + ext || tb < B.lo - ext || tb > B.hi + ext) continue;
-    const p = at(A, ta);
-    if (inked(g, p.x, p.y)) meets.push({ ...p, a, b, ta, tb });
+    // (in the ink; or a little past it, where a square design's corner cuts off the point two strokes meet at, a squared
+    // N's, a pointed V's, brought in between them till the ink is half as deep as the thinner of them)
+    const p = at(A, ta), r = Math.max(A.h, B.h);
+    if (inked(g, p.x, p.y)) { meets.push({ ...p, a, b, ta, tb }); continue; }
+    // (and each stroke run on no further past its sides than a corner of the two reaches: not two strokes apart, a K's arm
+    // run on down past its stem's foot)
+    const past = (S0: Stroke, t: number, O: Stroke) => Math.max(0, S0.lo - t, t - S0.hi) <= 1.2 * (O.h / Math.abs(det) + S0.h);
+    if (!past(A, ta, B) || !past(B, tb, A)) continue;
+    let near: P | null = null;
+    for (let k = 0; k < 144 && !near; k++) { const a = k * Math.PI / 8, d = r * (1 + (k >> 4)) / 3, q = { x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d }; if (inked(g, q.x, q.y)) near = q; }
+    if (!near) continue;
+    // (in along the way between the two strokes, back toward each one's middle)
+    const sa = Math.sign((A.lo + A.hi) / 2 - ta), sb = Math.sign((B.lo + B.hi) / 2 - tb), wx = sa * A.ux + sb * B.ux, wy = sa * A.uy + sb * B.uy;
+    const vl = Math.hypot(wx, wy) || 1, vx = wx / vl, vy = wy / vl, deep = 0.5 * Math.min(A.h, B.h);
+    let q = p;
+    for (let d = 0; d < 4 * r && dtAt(g, q.x, q.y) < deep; d += 2) q = { x: p.x + vx * d, y: p.y + vy * d };
+    if (dtAt(g, q.x, q.y) < deep) continue;
+    // (and brought in to within a stroke of each one's sides, not out along one away from the other)
+    const nearSpan = (S0: Stroke) => { const t = Math.max(S0.lo, Math.min(S0.hi, (q.x - S0.px) * S0.ux + (q.y - S0.py) * S0.uy)), c = at(S0, t); return Math.hypot(q.x - c.x, q.y - c.y) <= 1.5 * S0.h; };
+    if (!nearSpan(A) || !nearSpan(B)) continue;
+    // (where along each stroke still read where their lines cross)
+    meets.push({ ...q, a, b, ta, tb });
   }
   // each stroke's end: the meet nearest inside it of those at or past that end, else a free end, where its ink no
   // longer holds a round as thick as the stroke
@@ -185,9 +205,11 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
     for (const m of meets) {
       if (m.a !== s && m.b !== s) continue;
       const t = tOf(m, s), into = (end - t) * dir, o = S[other(m, s)];
-      if (into > Math.min(A.h + o.h, len / 2)) continue;
+      // (no further in than the point the two make reaches past where their middles cross: a narrow V's, far)
+      const sinT = Math.abs(A.ux * o.uy - A.uy * o.ux);
+      if (into > Math.min(1.25 * (o.h / sinT + A.h), len / 2)) continue;
       // (not where its sides run on out past the other stroke's far side, inked: it crosses there, a #'s bars)
-      const sin = Math.abs(A.ux * o.uy - A.uy * o.ux), tq = t + dir * (o.h / sin + 0.5 * A.h), q = at(A, tq);
+      const tq = t + dir * (o.h / sinT + 0.5 * A.h), q = at(A, tq);
       if ((end - tq) * dir >= 0 && dtAt(g, q.x, q.y) >= 0.5 * A.h) continue;
       if (!best || into > (end - tOf(best, s)) * dir) best = m;
     }
@@ -230,13 +252,17 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
   const edge = (a: number, b: number, h: number, on?: { s: Stroke; ta: number; tb: number }) => {
     if (a === b) return;
     const A = nodes[a], B = nodes[b], len = Math.hypot(B.x - A.x, B.y - A.y), n = Math.max(1, Math.round(len / cell)), pts: SkPt[] = [];
-    const P0 = on ? at(on.s, on.ta) : A, P1 = on ? at(on.s, on.tb) : B;
+    // (but straight to a node well off the stroke's line, a squared corner's brought in)
+    const off = (N: SkNode) => (on ? Math.abs((N.x - on.s.px) * -on.s.uy + (N.y - on.s.py) * on.s.ux) : 0), along = on && off(A) < 0.25 * on.s.h && off(B) < 0.25 * on.s.h;
+    const proj = (N: SkNode) => at(on!.s, (N.x - on!.s.px) * on!.s.ux + (N.y - on!.s.py) * on!.s.uy);
+    const P0 = along ? proj(A) : A, P1 = along ? proj(B) : B;
     // (as thick as the stroke all along, out to its ends and into its joins: where the ink is thinner, a heavy W's points
     // cut off short of where its strokes' middles meet, or thicker, where strokes meet, it is still the stroke's)
     for (let k = 0; k <= n; k++) pts.push(k === 0 ? { x: A.x, y: A.y, r: A.r } : k === n ? { x: B.x, y: B.y, r: B.r } : { x: P0.x + (P1.x - P0.x) * k / n, y: P0.y + (P1.y - P0.y) * k / n, r: h });
     sk.edges.push({ a, b, pts, len });
     A.edges.push(sk.edges.length - 1); B.edges.push(sk.edges.length - 1);
-    segs.push({ a: A, b: B, h });
+    // (the ink it stands for read along its line)
+    segs.push(on ? { a: at(on.s, on.ta), b: at(on.s, on.tb), h } : { a: A, b: B, h });
   };
   for (const { s, stops } of runs) for (let k = 1; k < stops.length; k++) edge(stops[k - 1].n, stops[k].n, S[s].h, { s: S[s], ta: stops[k - 1].t, tb: stops[k].t });
   // a join standing off a stroke it touches, in the ink across from it (a heavy K's arm and leg meeting just off its

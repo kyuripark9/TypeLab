@@ -202,7 +202,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    in `lines.ts`: the middle of a heavy one's ink, a w's one bar notched above and below, isn't its strokes'), each
    free end cut as the design's is, square or aslant, or round, its joins' rounds no thicker than the thinnest stroke
    there (but a stroke running on through), a turn's outside cornered as the design's is, mitred or round as round for
-   the stroke's thickness (`roundAt`); a stroke whose sides run on out past another's is read crossing it (a #'s bars).
+   the stroke's thickness (`roundAt`); a stroke whose sides run on out past another's is read crossing it (a #'s bars),
+   and two whose middles meet a little past a corner the design cuts square or blunt meet there brought in between them
+   (a squared N's, M's and W's, a pointed V's).
    Every letter of a font of heavy strokes ending round (`fontRoundStroked`: no square ends, low contrast, stems over
    `ROUND_HEAVY` of its capitals', Gumdrop) is drawn as its strokes too, on the skeleton its ink's middle reads, evened
    out (`SMOOTH`), parted where it bends tighter than it is thick, and no stub into a corner drawn; failing `whole`, it
