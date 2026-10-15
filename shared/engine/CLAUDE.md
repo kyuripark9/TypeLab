@@ -201,8 +201,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    W, w, z; a grotesque's E, L, Z) is first drawn as those strokes alone, read off its sides (`linedRig`, `lineSkeleton`
    in `lines.ts`: the middle of a heavy one's ink, a w's one bar notched above and below, isn't its strokes'), each
    free end cut as the design's is, square or aslant, or round, its joins' rounds no thicker than the thinnest stroke
-   there, a turn's outside cornered as the design's is, mitred or round as round for the stroke's thickness
-   (`roundAt`); failing `whole`, it is moved as any letter is. Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
+   there (but a stroke running on through), a turn's outside cornered as the design's is, mitred or round as round for
+   the stroke's thickness (`roundAt`); a stroke whose sides run on out past another's is read crossing it (a #'s bars).
+   Every letter of a font of heavy strokes ending round (`fontRoundStroked`: no square ends, low contrast, stems over
+   `ROUND_HEAVY` of its capitals', Gumdrop) is drawn as its strokes too, on the skeleton its ink's middle reads, evened
+   out (`SMOOTH`), parted where it bends tighter than it is thick, and no stub into a corner drawn; failing `whole`, it
+   is moved as any letter is. Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
    opened where strokes cross aside, and ink along its strokes' middles) is mended with those strokes laid over it
    (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;
    none of them, nor the middles `whole` reads, past a foot's edge, where `keepHeights`' lift, keeping a round's

@@ -27,7 +27,7 @@ const SIDE = 0.04;
     further apart than APART times the font's stem, the band between them inked over INKED of it, and no further apart
     along their line than ALONG times the stroke is thick (a heavy w's stroke between its notches, its sides each on
     one side of where it meets the next). */
-const PARALLEL = 0.07, APART = 1.6, INKED = 0.9, ALONG = 1.5;
+const PARALLEL = 0.1, APART = 1.6, INKED = 0.9, ALONG = 1.5;
 /** A letter is read by its straight strokes only where the thickest is no more than EVEN times the thinnest. */
 const EVEN = 1.6;
 /** The letter's ink the strokes leave out (further than COVER_TOL of a stroke's half thickness outside it): no more
@@ -186,6 +186,9 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
       if (m.a !== s && m.b !== s) continue;
       const t = tOf(m, s), into = (end - t) * dir, o = S[other(m, s)];
       if (into > Math.min(A.h + o.h, len / 2)) continue;
+      // (not where its sides run on out past the other stroke's far side, inked: it crosses there, a #'s bars)
+      const sin = Math.abs(A.ux * o.uy - A.uy * o.ux), tq = t + dir * (o.h / sin + 0.5 * A.h), q = at(A, tq);
+      if ((end - tq) * dir >= 0 && dtAt(g, q.x, q.y) >= 0.5 * A.h) continue;
       if (!best || into > (end - tOf(best, s)) * dir) best = m;
     }
     if (best) return { meet: best, t: tOf(best, s) };
