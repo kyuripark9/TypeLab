@@ -9,7 +9,7 @@ import { signedArea } from '../shared/engine/geom';
 import { DEFAULTS, FILLS, GRID_FILLS, sanitizeParams, type Params } from '../shared/params';
 import { contours, coords } from './outlines';
 
-/* Fills: the grid fills on one grid, every fill drawing every glyph, Spread, the Hexagons, Blobs and Halftone, the
+/* Fills: the grid fills on one grid, every fill drawing every glyph, Spread, the Hexagons, Blobs, Liquid and Halftone, the
    Outline, Inline and Shadow, Rough edges, and the nonzero joins and cuts (boolean.ts) they are made with, and a free
    font's letter drawn in pieces made one (unite). `cmds` are font units, y up. */
 
@@ -131,8 +131,21 @@ describe('fills: fill, module', () => {
     }
   });
 
-  it('blobs are drops of many sizes, apart at the least Spread and run together into one ink from the middle, the counters kept', () => {
-    const p: Params = { ...DEFAULTS, weight: 0.6, module: 0.5 }, at = (dotGain: number) => buildFont({ ...p, fill: 'blobs', dotGain }).glyph('o')!;
+  it('blobs run dots side by side together through a neck, apart at the least Spread and all one at the most', () => {
+    const p: Params = { ...DEFAULTS, weight: 0.7, module: 0.51 };
+    const dots = buildFont({ ...p, fill: 'dots' }).glyph('l')!, at = (dotGain: number) => buildFont({ ...p, fill: 'blobs', dotGain }).glyph('l')!;
+    // apart, a blob for every dot
+    assert.equal(contours(at(0).d), contours(dots.d));
+    // in the middle, the l's dots joined into one, with a hole between every four
+    const mid = at(0.5), polys = toPolys(mid.cmds);
+    assert.equal(polys.filter(q => signedArea(q) > 0).length, 1);
+    assert.ok(polys.filter(q => signedArea(q) < 0).length > 3);
+    // all one, and the holes filled in
+    assert.equal(contours(at(1).d), 1);
+  });
+
+  it('the liquid is drops of many sizes, apart at the least Spread and run together into one ink from the middle, the counters kept', () => {
+    const p: Params = { ...DEFAULTS, weight: 0.6, module: 0.5 }, at = (dotGain: number) => buildFont({ ...p, fill: 'liquid', dotGain }).glyph('o')!;
     const dots = contours(buildFont({ ...p, fill: 'dots' }).glyph('o')!.d), half = (q: { x: number }[]) => (Math.max(...q.map(v => v.x)) - Math.min(...q.map(v => v.x))) / 2;
     // apart, near a drop for every dot, some much bigger than others (the dots are all one size)
     const apart = toPolys(at(0).cmds).map(half);

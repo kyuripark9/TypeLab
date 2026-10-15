@@ -1,5 +1,5 @@
 /* Effects on finished outlines: a horizontal slice through every letter, and fills that rebuild
-   a letter as a wireframe or from a grid of pixels, hexagons, dots, blobs, halftone dots or lines, cut
+   a letter as a wireframe or from a grid of pixels, hexagons, dots, blobs, liquid drops, halftone dots or lines, cut
    an inline down its strokes, draw it hollow (a line round the inside of its edge) or cast a shadow
    behind it. They run on the glyph's final outline, after slant and spacing (placeGlyph in glyph.ts
    calls them), so a grid lines up from one letter to the next. The outline is read with the nonzero
@@ -287,24 +287,24 @@ const spread = (gain: number, lo: number, hi: number) => gain < 0.5 ? lerp(lo, 1
 /** The radius of the dot fill's dots, on a grid `cell` across, at Spread `gain`: every dot the same size. */
 const dotRadius = (cell: number, gain: number) => cell * 0.43 * spread(gain, DOTS_SPREAD[0], DOTS_SPREAD[1]);
 
-/** The blobs' balls against the cell, at Spread 0 and at Spread 1 (between them the same share bigger each step), and
-    how much smaller or bigger than that each one is (blobSize): specks and drops of many sizes, to puffs. */
-const BLOB_GROW = [0.22, 1.5], BLOB_SIZES = [0.5, 2.2];
+/** The liquid's balls against the cell, at Spread 0 and at Spread 1 (between them the same share bigger each step),
+    and how much smaller or bigger than that each one is (liquidSize): specks and drops of many sizes, to puffs. */
+const LIQUID_GROW = [0.22, 1.5], LIQUID_SIZES = [0.5, 2.2];
 /** How big a ball is against the others, for `h` (0 to 1, a hash of its cell): most of them smaller, a few big. */
-const blobSize = (h: number) => lerp(BLOB_SIZES[0], BLOB_SIZES[1], h ** 1.5);
+const liquidSize = (h: number) => lerp(LIQUID_SIZES[0], LIQUID_SIZES[1], h ** 1.5);
 /** The level the balls' pull is drawn at: a ball alone is drawn its own size, and balls close together run into one
     another through a neck (the higher, the further apart they still do). */
-const BLOB_T = 0.28;
+const LIQUID_T = 0.28;
 /** The share of the paper between a ball's stroke and the ink across from it (a counter, the gap between an n's
     stems, a crotch) a ball may grow into: the balls across from it take as much, and the rest stays open. */
-const BLOB_TAKE = 0.3;
-/** A blob's size at Spread `gain`, on a grid `cell` across, before blobSize. */
-const blobBase = (cell: number, gain: number) => cell * BLOB_GROW[0] * (BLOB_GROW[1] / BLOB_GROW[0]) ** gain;
+const LIQUID_TAKE = 0.3;
+/** A liquid ball's size at Spread `gain`, on a grid `cell` across, before liquidSize. */
+const liquidBase = (cell: number, gain: number) => cell * LIQUID_GROW[0] * (LIQUID_GROW[1] / LIQUID_GROW[0]) ** gain;
 /** A number 0 to 1 for grid cell (i, j), the same each time. */
 const cellHash = (i: number, j: number) => { const v = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return v - Math.floor(v); };
 
-/** How big a blob's ball may be, up to `most`, no smaller than `r0` (a dot's size at Spread 0.5): across the paper
-    between its stroke and the ink across from it no further than BLOB_TAKE of the way, read along sixteen rays out
+/** How big a liquid's ball may be, up to `most`, no smaller than `r0` (a dot's size at Spread 0.5): across the paper
+    between its stroke and the ink across from it no further than LIQUID_TAKE of the way, read along sixteen rays out
     of its middle, and out into open paper as far as it likes, so a letter puffs out and keeps its counters. Paper a
     dot covers at r0 anyway (its own stroke's edge, from a middle just off it) doesn't count. */
 function dotRoom(polys: Pt[][], cell: number, r0: number): (cx: number, cy: number, most: number) => number {
@@ -331,8 +331,8 @@ function dotRoom(polys: Pt[][], cell: number, r0: number): (cx: number, cy: numb
         const inInk = on(cx + dx * t, cy + dy * t);
         if (from < 0) { if (t >= r) break; if (!inInk) from = t; continue; }
         // (paper wide enough that the ball would stop past r anyway)
-        if (!inInk) { if (from + (t - from) * BLOB_TAKE >= r) break; continue; }
-        if (t > r0) { r = Math.min(r, Math.max(r0, from + (t - from) * BLOB_TAKE)); break; }
+        if (!inInk) { if (from + (t - from) * LIQUID_TAKE >= r) break; continue; }
+        if (t > r0) { r = Math.min(r, Math.max(r0, from + (t - from) * LIQUID_TAKE)); break; }
         from = -1;
       }
     }
@@ -482,16 +482,17 @@ export function smoothLoop(p: Pt[]): Cmd[] {
   return out;
 }
 
-/** The blobs: a soft ball of ink on each cell the dot fill lights, each its own size (BLOB_SIZES) and as big as Spread
-    asks (BLOB_GROW) where it has the room (dotRoom), the ink drawn where the balls' pull adds up to BLOB_T: drops and
-    puffs of many sizes, each round, running together through smooth necks where they come close, like a liquid. */
-function blobs(polys: Pt[][], G: Grid, cell: number, gain: number): Cmd[] {
-  const { i0, j0, cols, rows, on } = G, base = blobBase(cell, gain), room = dotRoom(polys, cell, cell * 0.43);
+/** The liquid: a soft ball of ink on each cell the dot fill lights, each its own size (LIQUID_SIZES) and as big as
+    Spread asks (LIQUID_GROW) where it has the room (dotRoom), the ink drawn where the balls' pull adds up to
+    LIQUID_T: drops and puffs of many sizes, each round, running together through smooth necks where they come close,
+    like a liquid. The blobs' balls, below, are all one size, beads strung on necks. */
+function liquid(polys: Pt[][], G: Grid, cell: number, gain: number): Cmd[] {
+  const { i0, j0, cols, rows, on } = G, base = liquidBase(cell, gain), room = dotRoom(polys, cell, cell * 0.43);
   // (a ball's pull reaches far enough that, alone, it is drawn its own size)
-  const reach = 1 / Math.sqrt(1 - Math.sqrt(BLOB_T)), balls: { x: number; y: number; K: number }[] = [];
+  const reach = 1 / Math.sqrt(1 - Math.sqrt(LIQUID_T)), balls: { x: number; y: number; K: number }[] = [];
   for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) if (on[j * cols + i]) {
     const cx = (i0 + i + 0.5) * cell, cy = (j0 + j + 0.5) * cell;
-    balls.push({ x: cx, y: cy, K: room(cx, cy, base * blobSize(cellHash(i0 + i, j0 + j))) * reach });
+    balls.push({ x: cx, y: cy, K: room(cx, cy, base * liquidSize(cellHash(i0 + i, j0 + j))) * reach });
   }
   if (!balls.length) return [];
   // the pull sampled every h (an eighth of a cell, no finer than a few units on the finest grids), out past the grid as
@@ -507,7 +508,27 @@ function blobs(polys: Pt[][], G: Grid, cell: number, gain: number): Cmd[] {
       if (u < 1) f[b * nx + a] += (1 - u) * (1 - u);
     }
   }
-  return contours(f, nx, ny, x0, y0, h, BLOB_T).filter(p => Math.abs(signedArea(p)) > h * h * 2).flatMap(smoothLoop);
+  return contours(f, nx, ny, x0, y0, h, LIQUID_T).filter(p => Math.abs(signedArea(p)) > h * h * 2).flatMap(smoothLoop);
+}
+
+/** The blobs: a dot on each lit cell (as the dot fill lights them), every dot a soft ball of ink whose pull reaches
+    0.8 of a cell, so dots side by side run together through a neck and those a diagonal apart stay apart, and the
+    ink drawn where the balls' pull adds up to `T` (higher, smaller dots and no necks; lower, all one blob). */
+function blobs(G: Grid, cell: number, T: number): Cmd[] {
+  const { i0, j0, cols, rows, on } = G, K = cell * 0.8, steps = 6, h = cell / steps;
+  // (sampled a cell out past the grid all round, where nothing reaches)
+  const nx = (cols + 2) * steps + 1, ny = (rows + 2) * steps + 1, x0 = (i0 - 1) * cell, y0 = (j0 - 1) * cell;
+  const f = new Float64Array(nx * ny);
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    if (!on[j * cols + i]) continue;
+    const cx = (i0 + i + 0.5) * cell, cy = (j0 + j + 0.5) * cell;
+    // (the samples within K of the dot: those in the cells round it)
+    for (let b = (j + 0.5) * steps - steps; b <= (j + 1.5) * steps + steps; b++) for (let a = (i + 0.5) * steps - steps; a <= (i + 1.5) * steps + steps; a++) {
+      const dx = x0 + a * h - cx, dy = y0 + b * h - cy, u = (dx * dx + dy * dy) / (K * K);
+      if (u < 1) f[b * nx + a] += (1 - u) * (1 - u);
+    }
+  }
+  return contours(f, nx, ny, x0, y0, h, T).filter(p => Math.abs(signedArea(p)) > cell * cell * 0.01).flatMap(smoothLoop);
 }
 
 /** The halftone: dots on a grid of rows half a cell along from each other, each as big as the share of ink round it
@@ -951,7 +972,8 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
       }
       return out;
     }
-    case 'blobs': return blobs(polys, dotGrid(polys, cell), cell, o.gain);
+    case 'blobs': return blobs(dotGrid(polys, cell), cell, o.gain < 0.5 ? lerp(0.92, 0.6, o.gain * 2) : lerp(0.6, 0.15, o.gain * 2 - 1));
+    case 'liquid': return liquid(polys, dotGrid(polys, cell), cell, o.gain);
     case 'halftone': return halftone(polys, cell, cell * 0.5 * spread(o.gain, 0.6, 1.5));
     case 'lines': {
       // one horizontal bar per grid row, as long as the letter is wide at that height

@@ -64,7 +64,8 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
     { id: 'fill', label: 'Fill', hint: 'What the letters are made of', sample: 'R', options: [
       opt('solid', 'Solid', { fill: 'solid' }), opt('wire', 'Wireframe', { fill: 'wire' }), opt('pixels', 'Pixels', { fill: 'pixels', module: 0.4 }),
       opt('hex', 'Hexagons', { fill: 'hex', module: 0.4 }), opt('dots', 'Dots', { fill: 'dots', module: 0.37 }),
-      opt('blobs', 'Blobs', { fill: 'blobs', module: 0.4 }), opt('halftone', 'Halftone', { fill: 'halftone', module: 0.34 }), opt('lines', 'Lines', { fill: 'lines', module: 0.31 }),
+      opt('blobs', 'Blobs', { fill: 'blobs', module: 0.4 }), opt('liquid', 'Liquid', { fill: 'liquid', module: 0.4 }),
+      opt('halftone', 'Halftone', { fill: 'halftone', module: 0.34 }), opt('lines', 'Lines', { fill: 'lines', module: 0.31 }),
       opt('inline', 'Inline', { fill: 'inline', module: 0.35 }),
       opt('outline', 'Outline', { fill: 'outline', module: 0.5 }), opt('shadow', 'Shadow', { fill: 'shadow', module: 0.35 })] },
     { id: 'cuts', label: 'Cuts', hint: 'Gaps cut into the letters', sample: 'B', options: [

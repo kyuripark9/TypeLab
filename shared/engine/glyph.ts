@@ -506,13 +506,13 @@ export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, c
   let skeleton = out.skeleton.map(r => r.map(tp));
   if (m.p.fill !== 'solid') {
     // (dots no bigger than Spread drew them before PARAMS_VERSION 5 keep the room they had)
-    const grown = m.p.fill === 'blobs' ? m.p.dotGain > 0.5 : m.p.fill === 'dots' && m.p.dotGain > dotGainFromOld(1);
+    const grown = m.p.fill === 'liquid' ? m.p.dotGain > 0.5 : m.p.fill === 'dots' && m.p.dotGain > dotGainFromOld(1);
     const inked = grown ? cmdsBox(cmds) : null;
     cmds = fillOutline(cmds, { fill: m.p.fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness, size: m.p.module, gain: m.p.dotGain,
       // an entry or exit stroke reaches out of the letter's own room into its neighbour's, between
       // the baseline and the x-height (a tail or an overhanging f goes below or above it)
       stem: m.s, thick: m.tDir, skeleton, joins: p => (p.x < 0 || p.x > adv) && p.y > 0 && p.y < m.xh });
-    // dots and blobs grown out past the letter into more than half its margin on a side take whole cells more room
+    // dots and the liquid grown out past the letter into more than half its margin on a side take whole cells more room
     // there, so the next letter's stay clear of them and the letter keeps its place on the grid
     const box = inked && cmdsBox(cmds), more = (over: number, margin: number) => Math.max(0, Math.ceil((over - margin / 2) / m.cell - 0.25)) * m.cell;
     const eL = box ? more(inked.x0 - box.x0, inked.x0) : 0, eR = box ? more(box.x1 - inked.x1, adv - inked.x1) : 0;

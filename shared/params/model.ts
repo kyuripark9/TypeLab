@@ -87,7 +87,7 @@ export interface Params {
   /** length of tails and hooks (Q y j g t f, the comma, cursive exits): 0.5 is the usual length */ tail: number;
   fill: Fill;
   /** the fill's size: how coarse the pixels, dots or lines are, how wide the wireframe's, inline's or outline's line, or how far the shadow falls */ module: number;
-  /** how far the grid fills' cells spread (pixels, hexagons, dots, blobs, halftone dots, lines): 0.5 as each fill
+  /** how far the grid fills' cells spread (pixels, hexagons, dots, blobs, the liquid, halftone dots, lines): 0.5 as each fill
       draws them, lower shrinking them apart, higher growing them until they run together */ dotGain: number;
   /** gaps where strokes meet, like a stencil */ stencil: number;
   /** how far out along a stroke from the join its stencil gap is cut, from 0 right at the join */ stencilPos: number;

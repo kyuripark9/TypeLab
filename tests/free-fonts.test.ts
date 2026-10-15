@@ -584,7 +584,7 @@ describe("TypeLab's own fonts", () => {
     // Hand-drawn moves the font's own letters, not only where they sit
     assert.ok(!same((await design('grotesque', { wobble: 1 })).glyph('H')!, sans.glyph('H')!), 'a hand-drawn H');
     // Rough edges and the new grid fills draw on the font's own letters
-    for (const more of [{ rough: 0.6 }, { fill: 'hex' }, { fill: 'blobs' }, { fill: 'halftone' }] as Partial<Params>[]) {
+    for (const more of [{ rough: 0.6 }, { fill: 'hex' }, { fill: 'blobs' }, { fill: 'liquid' }, { fill: 'halftone' }] as Partial<Params>[]) {
       assert.ok(!same((await design('grotesque', more)).glyph('a')!, sans.glyph('a')!), JSON.stringify(more));
     }
     // Joins fills the narrow crotches and Counters rounds the square corners, each leaving the other's be
