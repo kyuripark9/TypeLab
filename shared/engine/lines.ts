@@ -182,7 +182,9 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
     const past = (S0: Stroke, t: number, O: Stroke) => Math.max(0, S0.lo - t, t - S0.hi) <= 1.2 * (O.h / Math.abs(det) + S0.h);
     if (!past(A, ta, B) || !past(B, tb, A)) continue;
     let near: P | null = null;
-    for (let k = 0; k < 144 && !near; k++) { const a = k * Math.PI / 8, d = r * (1 + (k >> 4)) / 3, q = { x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d }; if (inked(g, q.x, q.y)) near = q; }
+    // (ink within as far as such a corner reaches: a ring of looks every third of a stroke out to it)
+    const reach = 1.2 * (r / Math.abs(det) + r);
+    for (let k = 0; k < 16 * Math.ceil(3 * reach / r) && !near; k++) { const a = k * Math.PI / 8, d = r * (1 + (k >> 4)) / 3, q = { x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d }; if (inked(g, q.x, q.y)) near = q; }
     if (!near) continue;
     // (in along the way between the two strokes, back toward each one's middle)
     const sa = Math.sign((A.lo + A.hi) / 2 - ta), sb = Math.sign((B.lo + B.hi) / 2 - tb), wx = sa * A.ux + sb * B.ux, wy = sa * A.uy + sb * B.uy;
