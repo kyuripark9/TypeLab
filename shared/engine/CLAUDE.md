@@ -161,7 +161,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    a flag standing out one way, a slab p's whose bowl leaves it at the x-height; and a serif's foot drawn level,
    `withFeet`, in a font standing its stems on serifs (`fontSerifed`, its n's or H's): where the skeleton forks from a
    stem's middle round a bracket out to tips on a line, turns from a stem into a serif running one way (an n's right
-   foot, a y's arm), or runs up into a slab and stops (a v's arms; or stops a stub short of a join, an upright stem
+   foot, a y's arm), or runs up into a slab and stops (a v's arms, not a ball touching the line, `BALL_FOOT`, a fat
+   face's r's; or stops a stub short of a join, an upright stem
    running on past it, a slab u's or d's foot below its bowl, `Foot.side` as a flag's; its serifs out past the stem's
    side on the line or a round up it, an A's leg leaning out over its slab; or a hairline serif's corner with an arm
    running on along the line, `FOOT_HAIR`, a Didone's E, L, B, its arm run level in to the corner), one level stroke
@@ -194,7 +195,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    one with corners (a square, a diamond) pinned there point by point, as its sides moved in alone crossed at its
    corners and left a sliver; `moveRing` carries each stroke end by its turn alone (`endsOf`, `EndRun.ca`/`cb`:
    a j's tail's curve goes in as a side), a corner's round whole (`carryFillets`, but a serif's bracket on a level
-   foot), and sets a zero-thickness point
+   foot, a round inside running on from a stroke's end, an r's arm under its ear, or outside running into a ball, a fat
+   face's r's arm), and sets a zero-thickness point
    where its neighbours meet (`pinPoints`). Joins its stems thin to under `REBUILD_BELOW` of themselves, no serif on
    them, are drawn again from the strokes along the skeleton (`rebuildJoins`, within `JOIN_REACH` but for the stroke
    ends out past them, the moved outline kept where it keeps within `JOIN_GIVE` of them, never past the letter's ink,

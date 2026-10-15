@@ -744,6 +744,9 @@ const VERTEX_HAIR = 4;
 /** A corner whose serif the skeleton leaves out (withFeet) is a foot only by a serif no thicker, half, than CORNER_HAIR
     of its stem's round. */
 const CORNER_HAIR = 0.25;
+/** A stroke's end touching a line is a foot only where its round is no more than BALL_FOOT times the stroke's a round in
+    from it (withFeet): wider, it is a ball. */
+const BALL_FOOT = 1.6;
 function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
   const feetOn = rig.serifed();
   const { ctx } = rig, lines = ctx.lower ? [0, ctx.xh, ctx.asc, ctx.desc] : [0, ctx.cap], polys = outlineOf(rig);
@@ -1149,6 +1152,8 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
     if (b < 0) b = sp.length - 1;
     const A = sp[a], vx = sp[b].x - A.x, vy = sp[b].y - A.y, l = Math.hypot(vx, vy);
     if (!(l >= 0.5 * T.r && vy * dir >= 0.5 * l)) return;
+    // (not a ball the stroke swells into, its round far wider than the stroke's, touching the line: an r's)
+    if (!stub && T.r > BALL_FOOT * A.r) return;
     const J1 = { x: A.x + vx * (L - A.y) / vy, y: L, r: A.r }, y = L + dir * Math.min(tol, 0.5 * T.r);
     if (!(Math.hypot(J1.x - A.x, J1.y - A.y) < 3 * T.r)) return;
     const reach = (out: number) => { let x = J1.x; while (Math.abs(x - J1.x) < FOOT_REACH * T.r && inside(x + out * 2, y)) x += out * 2; return x; };
@@ -3018,8 +3023,9 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       // the outside of a corner, an L's, turning no further than most of a half turn, which a round end does)
       if (inside ? !atJoin(md(s + ((e - s) >> 1))) : total > ROUND_MOST) continue;
       // (nor the side running on from a stroke's end, the curve of an r's arm under its ear: carried, it lifts off its
-      // stroke into the ear)
-      if (inside && rig.ends[r].some(E => [a, z].some(i => { for (let k = -2; k <= 2; k++) { const j = md(i + k); if (md(j - E.a) <= E.b - E.a) return true; } return false; }))) continue;
+      // stroke into the ear; nor, outside, one running into a ball, which, made smaller, moves further than any edge, so
+      // the round's other end, carried with it, crosses its stroke: a fat face's r's arm into its ball)
+      if (rig.ends[r].some(E => (inside || E.ball > 0) && [a, z].some(i => { for (let k = -2; k <= 2; k++) { const j = md(i + k); if (md(j - E.a) <= E.b - E.a) return true; } return false; }))) continue;
       // (nor a serif's bracket on a foot drawn level, which goes in point by point with the serif, to it)
       if (inside && onFoot(md(s + ((e - s) >> 1)))) continue;
       // (its edges, the ways in and out at its ends, met again)
