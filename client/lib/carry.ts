@@ -14,6 +14,7 @@
    moves by as much as its own did; otherwise the new stretch or shape is put in place of the old one, fitted to that
    letter. Pure, in font units, y up: tests/carry.test.ts. */
 import { ALL_CHARS, hasIn, hasOut, segment, type Drawn, type Node } from '../../shared/engine';
+import { GRID_FILLS, type Params } from '../../shared/params';
 
 type P = { x: number; y: number };
 const R = Math.round;
@@ -732,6 +733,16 @@ export function carryInto(ch: Change, doc: Drawn, places: Place[]): Drawn {
 
 /** Small letters, capitals, figures, or the rest. */
 export const kindOf = (ch: string) => (/[a-z]/.test(ch) ? 'a' : /[A-Z]/.test(ch) ? 'A' : /[0-9]/.test(ch) ? '0' : '.');
+
+/** Whether letter `ch` of `p` stands in a grid fill's cells (pixels, hexagons, dots, lines…) as Points shows it: drawn
+    under one, or drawn without a fill and taking one now (family-drawn's withEffects), or not drawn and set in one.
+    Every cell is shaped as every other, the letter's own and every other letter's, so a change to one is never carried:
+    it would go to all of them. */
+export function inCells(p: Params, ch: string): boolean {
+  const d = p.outlines[ch], at = d?.at && (d.at.fill ?? 'solid');
+  const fill = !d ? p.fill : !at ? 'solid' : at !== 'solid' ? at : p.fill;
+  return GRID_FILLS.includes(fill);
+}
 
 /** The corners drawn round, cut or scooped in an outline, where and how much. */
 const roundsOf = (cs: Node[][]) => cs.flat().filter(n => n.r).map(n => `${R(n.x)},${R(n.y)},${R(n.r!)},${n.corner ?? ''}`).sort().join(' ');

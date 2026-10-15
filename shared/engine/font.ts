@@ -108,6 +108,8 @@ export interface Glyph {
   bodyW: number;
   lsb: number; rsb: number; adv: number;
   /** the outline a letter drawn as it is was drawn from (with the pen, or a free font's) */ drawn?: Drawn;
+  /** the effects (the slice, the fill, rough edges) drew its outline, so `cmds` aren't `drawn` as it stands: Points
+      shows the letter as they draw it */ fx?: boolean;
   M: Mat;
   cmds: Cmd[];
   /** SVG path data (y flipped) */

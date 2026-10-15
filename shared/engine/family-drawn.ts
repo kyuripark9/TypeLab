@@ -4,13 +4,14 @@
    contrast, width, the heights, crossbar, serif length, inner space, dots, pinch, ink traps), its straight edges kept
    straight and its rounds round (skinEdges), its side bearings changed as the engine's are, and leaned as far as the
    slant moves. Its shape stays its own: no setting that reshapes a letter (its curves, corners, ends, forms) reaches it.
+   The effects it was drawn without (the slice, the fill, rough edges) run on it as on the rest (withEffects).
    A font family's other members (shared/family.ts) move a design's drawings the same way, from the design they were
    drawn in (drawnFrom), or from the settings a drawing was drawn at where those aren't the design's. */
 import { DEFAULTS, DRAWN_AT_KEYS, type DrawnAt, type Params } from '../params';
 import { SLANT_PIVOT, buildFont, glyphDefOf, type Font, type Glyph } from './font';
 import { freeFont } from './free';
-import { inkX, mapDrawn } from './free-letters';
-import { drawnGlyph } from './glyph';
+import { inkX, inlineSkeleton, mapDrawn } from './free-letters';
+import { drawnEffects, drawnGlyph, type DrawnFx } from './glyph';
 import { signedArea, toPolys } from './geom';
 import { drawnCmds, fitOutline, type Drawn, type Node } from './outline';
 import { sameMeasures, skinEdges, skinMeasures, skinMove, skinRig, type RigLetters, type SkinMeasures, type SkinRig } from './skin';
@@ -35,7 +36,19 @@ export const drawnDesign = (params: Params): Params | undefined => drawnIn.get(p
 export function drawnLetter(ch: string, drawn: Drawn, font: Font, design?: Params): Glyph {
   const own = (p: Params) => (drawn.at && !drawnAtNow(drawn.at, p, ch) ? atDesign(ch, drawn) : undefined);
   const from = design ? own(design) ?? design : own(font.params);
-  return from ? movedDrawn(ch, drawn, font, from) : drawnGlyph(ch, drawn);
+  return withEffects(ch, drawn, from ? movedDrawn(ch, drawn, font, from) : drawnGlyph(ch, drawn), font);
+}
+
+/** Drawn letter `g` with the effects (the slice, the fill, rough edges) its drawing was drawn without run on it, as
+    `font` sets them: one turned on since reaches it as it reaches the other letters. One it was drawn under is in its
+    points already (Points shows a letter as its effects draw it, and an edit there keeps them), so it stays as drawn
+    whatever that effect is set to now. A drawing that keeps no settings takes none. */
+function withEffects(ch: string, drawn: Drawn, g: Glyph, font: Font): Glyph {
+  const at = drawn.at;
+  if (!at) return g;
+  const was = <K extends keyof DrawnAt>(k: K) => (k in at ? at[k] : DEFAULTS[k]);
+  const run: DrawnFx = { slice: !(was('slice')! > 0), fill: was('fill') === 'solid', rough: !(was('rough')! > 0) };
+  return drawnEffects(g, font.letter(ch).m, run, () => inlineSkeleton(g.drawn!.contours));
 }
 
 /** Whether letter `ch` of `p` is drawn at the settings `at` (those it leaves out at their defaults, as a setting

@@ -17,6 +17,7 @@ import { n1, useSize } from '../lib/hooks';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
 import { GridBar, GridLines, useGrid, useGridDrag } from './ConstructionGrid';
 import { LetterHistory } from './LetterHistory';
+import { inCells } from '../lib/carry';
 import { nameList, useMates } from './CarryOffer';
 import { PenCanvas } from './PenCanvas';
 import { actions, endOf, hlKey, letterOf, paramOf, useEditor, useFont, useParam, useScopedFont, type OwnKey, type Scope } from '../state/editor';
@@ -139,8 +140,10 @@ function partD(g: Glyph, id: string, font: Font): { d: string; ring?: boolean } 
 export function Inspector() {
   const ch = useEditor(s => s.inspect), pen = useEditor(s => s.penMode), letter = useEditor(letterOf);
   const hand = useEditor(s => !!s.inspect && !!s.params.outlines[s.inspect]);
-  // in Points, the letters shaped the same way as the points picked (null till some are picked and they're found)
+  // in Points, the letters shaped the same way as the points picked (null till some are picked and they're found);
+  // none in a grid fill's cells, each shaped as every other
   const mates = useMates(s => (s.ch === ch ? s.letters : null));
+  const cells = useEditor(s => !!s.inspect && inCells(s.params, s.inspect));
   const font = useFont();
   const g = ch ? font.glyph(ch) : null;
   // a free font's letter is drawn as it is, as one drawn by hand
@@ -175,6 +178,10 @@ export function Inspector() {
         {pen && (own ? (
           <div className="scope-banner" role="status" title={`An edit here changes ${ch} alone, and ${ch} keeps the shape you give it; after it, the letters shaped the same way are offered the change. Weight, contrast, width, the heights and slant still move ${ch}, as they move the other letters; Reset ${ch} gives it back to the font`}>
             <ScopeIcon id="letter" /><span>Only <b>{ch}</b> changes here<span className="banner-more"> · weight, width and heights still move it</span></span>
+          </div>
+        ) : cells ? (
+          <div className="scope-banner" role="status" title={`Every cell of the fill is shaped the same, in ${ch} and in every other letter, so an edit here stays on ${ch}`}>
+            <span>Only <b>{ch}</b> changes here<span className="banner-more"> · the fill’s cells are alike in every letter</span></span>
           </div>
         ) : (
           <div className="scope-banner" role="status" title={`After each edit, the letters with the same shape where ${ch} changed (a d’s serif in b h k l, an n’s foot in m and h) change the same way, in the same undo step; the pill at the bottom right names them, and puts any back as it was. Only ${ch} keeps an edit to ${ch}`}>

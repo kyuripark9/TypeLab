@@ -19,7 +19,8 @@ file.
    - `pickGlyph`: a letter drawn in Points (`params.outlines[ch]`) is `drawnLetter` (`family-drawn.ts`): `drawnGlyph`
      while the letter's settings are those it was drawn at (`Drawn.at`), else moved from them (`movedDrawn`); in a
      family member (`drawnFrom`, set by `familyMember` in shared/family.ts) moved from the design, or from its own
-     `at` where that isn't the design's; else a letter already built with
+     `at` where that isn't the design's; then the effects its `at` was without (slice, fill, rough edges) run on it
+     (`withEffects`, `drawnEffects` in glyph.ts), those it was drawn under being in its points; else a letter already built with
      the same settings (an earlier font `from`, whose params differ only in `outlines`, lends its letters, so dragging
      a point rebuilds one letter); else `fromSettings`.
    - `fromSettings`: a letter with its own settings (`params.glyphs[ch]`) comes from `font.letter(ch)`, a font built
@@ -86,7 +87,7 @@ file.
 | `free.ts` | The free-font registry and its packed format |
 | `free-letters.ts` | A design's letters drawn from its free font: `freeLetters`, `freeGlyph`, `restyled`, the twin |
 | `skin.ts`, `scan.ts` | A free font's letter rigged on its scanned skeleton and moved by the engine's measures (`skinMove`), or, a letter drawn in Points, as a drawing of straight edges and rounds (`skinEdges`: edges moved whole, or bent where their stroke narrows; stroke ends, edges on the letter's lines and the far side of a bar on one kept; corners met again; rounds carried with their corner or stretched; every corner, round and handle held short of the outline across from it (`reach`); long curves cut first; null where it still crosses); the scan, which a family's members ask of every letter they restyle, so its hot paths are written for speed and give exactly what the plain ways gave: the distance down each column worked out from the nearest paper above and below, the thinning's neighbours read as one byte off tables (`SIMPLE`, `COUNT`) and its heap in typed arrays, `nearestOn` through square buckets (`nearIndex`; `nearestAll` is the walk past every point it stands for) |
-| `family-drawn.ts` | Letters drawn in Points as the settings move (`drawnLetter`): from the settings a drawing was drawn at (`Drawn.at`, as a design of its own: `atDesign`), or, in a family's other members, from the design (found by the member's params object: `drawnFrom`, `drawnDesign`); rigged from that design (`RigLetters`: its drawn letters and its h p x n H), moved by `skinEdges` as far toward the new measures as their edges don't cross, in eighths, or by `skinMove`, whichever keeps it most as drawn and goes furthest (`keptMove`: how much more its outline turns than the drawing's, the edges' shortfall in eighths or in ink counted too; a letter of bars and corners keeps its edges, one traced off a font's curves is moved as the font's are), spaced and leaned (`movedDrawn`). Settings that reshape a letter (curves, corners, ends, forms, fills) don't reach a drawing |
+| `family-drawn.ts` | Letters drawn in Points as the settings move (`drawnLetter`): from the settings a drawing was drawn at (`Drawn.at`, as a design of its own: `atDesign`), or, in a family's other members, from the design (found by the member's params object: `drawnFrom`, `drawnDesign`); rigged from that design (`RigLetters`: its drawn letters and its h p x n H), moved by `skinEdges` as far toward the new measures as their edges don't cross, in eighths, or by `skinMove`, whichever keeps it most as drawn and goes furthest (`keptMove`: how much more its outline turns than the drawing's, the edges' shortfall in eighths or in ink counted too; a letter of bars and corners keeps its edges, one traced off a font's curves is moved as the font's are), spaced and leaned (`movedDrawn`). Settings that reshape a letter (curves, corners, ends, forms) don't reach a drawing; the effects it was drawn without (slice, fill, rough edges) run on it (`withEffects`), while one it was drawn under stays in its points whatever it is set to now |
 | `restyle.ts` | The engine's shapes redrawn on a free font's letter: dots, bowls, ends, serifs, stencil, peaks, corners |
 | `highlight.ts` | `highlightD` and `RING_KEYS` |
 | `geom.ts`, `types.ts` | Béziers, polygons, corner rounding, path output (`cmdsToD`); points, commands, the pen, marks |
@@ -247,7 +248,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    own, read off its n and H by `fontLook` with the design's Verticals and Horizontals counted, its x-height, width,
    serifs, and its stems' lean as slant), moved as far as the design moves from the pick.
 6. `freeGlyph` sizes the letter to the design, gives it side bearings, places it with `placeGlyph`, and keeps the placed
-   outline as `Glyph.drawn`, so Points opens with the font's own points (its overlapping pieces made one). An unmoved
+   outline as `Glyph.drawn`, so Points opens with the font's own points (its overlapping pieces made one; with an effect
+   on, `Glyph.fx`, Points traces the outline the effect draws instead, so an edit keeps it). An unmoved
    letter is spaced by the font's own outline, the united one leaving out a speck under a unit square. A parted bowl and
    Cursive's flicks get the room they reach out into; the engine's serifs get room only on a letter they were set on;
    a monospaced font with Monospace lowered loses the

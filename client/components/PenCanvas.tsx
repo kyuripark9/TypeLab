@@ -12,8 +12,9 @@
    out of the rest, or breaks them apart with a gap. Hovering shows what a click will do: a
    point the pen would add on the outline (where it goes), the start it would close on. A letter
    not yet drawn shows its outline traced into points (traceOf in lib/pen: a free font's own
-   points, else fitOutline), and becomes a drawing with the first edit: its shape its own, kept with the settings it
-   was drawn at, which move it (weight, width, heights, slant) as they move from there. Every change is one undo
+   points, else fitOutline; with an effect on, the outline the effect draws, hexagons, a shadow or rough edges), and
+   becomes a drawing with the first edit: its shape its own, the effects it was edited under kept in its points, kept
+   with the settings it was drawn at, which move it (weight, width, heights, slant) as they move from there. Every change is one undo
    step: with All letters (the inspector's switch) CarryOffer carries it on, once done, to the other letters shaped
    the same way there, in that same step; with Only it changes this letter alone, and is offered to them after. With Mirror, a point
    moved here moves the other way in its partner across the letter's middle. Snapping catches a dragged point or handle on points, guide

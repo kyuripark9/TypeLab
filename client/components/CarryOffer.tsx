@@ -22,7 +22,7 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { ALL_CHARS, CHARSET, cmdsToD, drawnCmds, drawnLetter, type Drawn, type Font, type Glyph } from '../../shared/engine';
 import { drawnAtOf } from '../../shared/params';
-import { carryLetter, changesOf, kindOf, placesOf, sameDrawing, type Carried } from '../lib/carry';
+import { carryLetter, changesOf, inCells, kindOf, placesOf, sameDrawing, type Carried } from '../lib/carry';
 import { keyRef, moveAnchors, traceOf } from '../lib/pen';
 import { actions, broughtBack, useEditor } from '../state/editor';
 
@@ -101,13 +101,14 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
 
   useEffect(() => {
     // the letter as the settings draw it now, and as it was before, drawn at the same settings (each letter, drawn or
-    // not, read as it stands)
-    const f = fontNow.current, base = bases.get(ch), s0 = useEditor.getState(), now = s0.params.outlines[ch] && f.glyph(ch)?.drawn;
+    // not, read as it stands, with the effects on it as the pen shows them)
+    const f = fontNow.current, base = bases.get(ch), s0 = useEditor.getState(), gNow = s0.params.outlines[ch] && f.glyph(ch), now = gNow ? traceOf(gNow) : undefined;
     // (a letter brought back from its History is no edit made here)
     const made = s0.history !== seen.current.history && s0.hi === s0.history.length - 1 && s0.params.outlines[ch] !== seen.current.stored && !broughtBack(s0);
     seen.current = { history: s0.history, stored: s0.params.outlines[ch] };
-    const was = now && base ? drawnLetter(ch, base, f).drawn : undefined;
-    const changes = now && was ? changesOf(was.contours, now.contours) : [];
+    const was = now && base ? traceOf(drawnLetter(ch, base, f)) : undefined;
+    // (in a grid fill's cells, every cell is shaped the same: an edit stays where it was made)
+    const changes = now && was && !inCells(s0.params, ch) ? changesOf(was.contours, now.contours) : [];
     if (!now || !changes.length) { setOffer(null); return; }
     const found: Carried[] = [];
     let k = 0, timer = 0;
@@ -155,7 +156,7 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
   const pickKey = [...pickedPts].sort().join(' ');
   useEffect(() => {
     useMates.setState({ ch, letters: null });
-    if (!sync || !pickKey) return;
+    if (!sync || !pickKey || inCells(useEditor.getState().params, ch)) return;
     const f = fontNow.current, gl = f.glyph(ch), cs = gl ? traceOf(gl).contours : [], refs = pickKey.split(' ').map(keyRef);
     if (refs.some(r => !cs[r.c]?.[r.i])) return;
     const moved = moveAnchors(cs, refs, 24, 0), changes = changesOf(cs, moved);

@@ -526,10 +526,47 @@ export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, c
   }
   // rough edges last of all, so they rough up whatever the fill drew
   if (m.p.rough > 0) cmds = roughen(cmds, m.p.rough, m.cap, code, m.p.fill !== 'solid' && m.p.fill !== 'wire');
+  const fx = m.sliceH > 0 || m.p.fill !== 'solid' || m.p.rough > 0;
   return {
     ...out, serifs, counters: out.counters.map(tf),
     marks: out.marks.map(k => k.home ? { ...tp(k), home: tp(k.home) } : tp(k)), skeleton,
-    lsb, rsb, adv, M, cmds, d: cmdsToD(cmds)
+    lsb, rsb, adv, M, cmds, d: cmdsToD(cmds), ...(fx ? { fx } : null)
+  };
+}
+
+/** Which of the effects to run on a letter drawn in Points: those it was drawn without. */
+export interface DrawnFx { slice: boolean; fill: boolean; rough: boolean }
+
+/** Letter `g`, drawn in Points, with the effects `run` names run on its outline as placeGlyph runs them on the engine's
+    letters, at settings `m`: a grid fill's whole cells, with the letter centred in them, and a shadow's room, then the
+    slice, the fill and rough edges. `skeleton` gives the drawing's middle lines, for Inline. */
+export function drawnEffects(g: Glyph, m: Metrics, run: DrawnFx, skeleton: () => Pt[][]): Glyph {
+  const fill = run.fill && m.p.fill !== 'solid' ? m.p.fill : null, sliceH = run.slice ? m.sliceH : 0, rough = run.rough ? m.p.rough : 0;
+  if (!fill && !sliceH && !rough) return g;
+  let dx = 0, adv = g.adv;
+  if (fill && m.cell && fill !== 'lines') {
+    const snapped = Math.max(m.cell, Math.round(adv / m.cell) * m.cell);
+    dx = (snapped - adv) / 2; adv = snapped;
+  }
+  if (fill === 'shadow') adv += shadowShift(m.s, m.p.module).dx;
+  const by = (c: Cmd[], x: number) => (x ? transformCmds(c, [1, 0, 0, 1, x, 0]) : c);
+  let cmds = by(g.cmds, dx);
+  if (sliceH) cmds = slice(cmds, m.sliceY - sliceH / 2, m.sliceY + sliceH / 2, m.sliceRound, m.s, m.s * 0.35);
+  if (fill) {
+    const grown = fill === 'liquid' ? m.p.dotGain > 0.5 : fill === 'dots' && m.p.dotGain > dotGainFromOld(1);
+    const inked = grown ? cmdsBox(cmds) : null, edge = adv;
+    cmds = fillOutline(cmds, { fill, cell: m.cell, line: lerp(6, 48, m.p.module), roundness: m.p.roundness, size: m.p.module, gain: m.p.dotGain,
+      stem: m.s, thick: m.tDir, skeleton: fill === 'inline' ? skeleton().map(l => l.map(q => ({ x: q.x + dx, y: q.y }))) : [],
+      joins: p => (p.x < 0 || p.x > edge) && p.y > 0 && p.y < m.xh });
+    // (dots and the liquid grown out past the letter take whole cells more room, as in placeGlyph)
+    const box = inked && cmdsBox(cmds), more = (over: number, margin: number) => Math.max(0, Math.ceil((over - margin / 2) / m.cell - 0.25)) * m.cell;
+    const eL = box ? more(inked.x0 - box.x0, inked.x0) : 0, eR = box ? more(box.x1 - inked.x1, adv - inked.x1) : 0;
+    if (eL || eR) { cmds = by(cmds, eL); dx += eL; adv += eL + eR; }
+  }
+  if (rough) cmds = roughen(cmds, rough, m.cap, g.ch.codePointAt(0)!, m.p.fill !== 'solid' && m.p.fill !== 'wire');
+  return {
+    ...g, strokes: g.strokes.map(s => ({ ...s, cmds: by(s.cmds, dx) })), lsb: g.lsb + dx, rsb: g.rsb + adv - g.adv - dx, adv,
+    M: dx ? mulM([1, 0, 0, 1, dx, 0], g.M) : g.M, cmds, d: cmdsToD(cmds), fx: true
   };
 }
 

@@ -1,13 +1,16 @@
 /* The pen (client/lib/pen.ts, and tracing in shared/engine/outline.ts): letters traced into points, drawn
-   letters in params.outlines, editing points, Mirror and Snapping; live corners (a radius kept on a
+   letters in params.outlines (and the effects on them), editing points, Mirror and Snapping; live corners (a radius kept on a
    corner point, drawn round, cut or scooped), corners told outside or inside, overlapping shapes merged, cut out
    and broken apart, and strokes drawn with the Shape tool; picked shapes scaled, turned and flipped, and made thicker
    or thinner with their points kept. */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ALL_CHARS, buildFont, drawnCmds, fitOutline, type Cmd, type Node } from '../shared/engine';
+import { ALL_CHARS, buildFont, drawnCmds, fitOutline, registerFreeFont, type Cmd, type Node } from '../shared/engine';
+import { cmdsBox } from '../shared/engine/geom';
 import { STYLES, styleById } from '../shared/content';
-import { DEFAULTS, drawnAtOf, isValidParams, sanitizeParams, type Params } from '../shared/params';
+import { STYLE_FONTS } from '../shared/free-fonts';
+import { DEFAULTS, drawnAtOf, freeAtOf, isValidParams, sanitizeParams, type Params } from '../shared/params';
+import { FreeFonts } from '../server/free-fonts';
 import {
   breakShapes, contourArea, cornersAt, cutShapes, deleteAnchors, inkOf, mergeShapes, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, nearestSegment,
   boxAlong, overlapping, pickedBox, pickedPoints, reshapeSegment, reverseContour, scaleAbout, scaleAlong, setCorners, setHandle, setWeight, shapesOf, snapIn, snapScene, splitSegment,
@@ -177,6 +180,33 @@ describe('Drawn letters in the font', () => {
     // back to settings, n is the settings' n again; a setting changed builds every letter afresh
     assert.notEqual(buildFont({ ...drawn.params, outlines: {} }, drawn).glyph('n')!.drawn, n);
     assert.notEqual(buildFont({ ...drawn.params, weight: drawn.params.weight + 0.1 }, drawn).glyph('m'), m);
+  });
+
+  it('shows a letter as its effects draw it, keeps them once edited, and runs those turned on since on a drawing', async () => {
+    // a Style card's letter, written in its own font, with its own points under the effect
+    const st = styleById('serif')!, id = STYLE_FONTS.serif;
+    registerFreeFont(await new FreeFonts(null, () => Promise.reject(new Error('an own font is never fetched'))).load(id));
+    const plain: Params = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) };
+    const box = (cmds: Cmd[]) => { const b = cmdsBox(cmds)!; return [b.x0, b.x1, b.y0, b.y1].map(Math.round); };
+    for (const fx of [{ fill: 'hex' }, { fill: 'shadow' }, { fill: 'inline' }, { rough: 0.6 }, { slice: 0.5 }] as Partial<Params>[]) {
+      const p = { ...plain, ...fx }, g = buildFont(p).glyph('a')!, shown = traceOf(g), what = JSON.stringify(fx);
+      // the pen edits the outline the effect draws, not the font's points under it
+      assert.ok(g.fx && g.drawn, what);
+      assert.notDeepEqual(shown.contours, g.drawn.contours, what);
+      // edited (stored at the settings it was edited at), it stands as traced: the effect isn't run on it again
+      const edited = buildFont({ ...p, outlines: { a: { ...shown, at: drawnAtOf(p, 'a') } } }).glyph('a')!;
+      assert.ok(!edited.fx, what);
+      assert.deepEqual(traceOf(edited).contours, shown.contours, what);
+      // nor once that effect is changed or turned off: it is in the drawing's points
+      assert.equal(buildFont({ ...plain, outlines: { a: { ...shown, at: drawnAtOf(p, 'a') } } }).glyph('a')!.d, edited.d, what);
+      // drawn before the effect was turned on, it takes it as the font's letters do
+      const before = { ...traceOf(buildFont(plain).glyph('a')!), at: drawnAtOf(plain, 'a') };
+      const later = buildFont({ ...p, outlines: { a: before } }).glyph('a')!;
+      assert.ok(later.fx, what);
+      assert.ok(Math.abs(later.adv - g.adv) < 0.5, `${what}: ${later.adv} wide, the font's ${g.adv}`);
+      assert.deepEqual(box(later.cmds), box(g.cmds), what);
+      assert.equal(later.cmds.filter(c => c[0] === 'M').length, g.cmds.filter(c => c[0] === 'M').length, what);
+    }
   });
 });
 

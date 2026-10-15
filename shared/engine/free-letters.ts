@@ -92,6 +92,13 @@ export const mapDrawn = (d: Drawn, adv: number, f: (x: number, y: number) => [nu
   }))
 });
 
+/** The middle lines an Inline fill runs down a letter drawn as `contours`: its skeleton, scanned off the letter as drawn,
+    eased along (as a cell-by-cell skeleton steps). */
+export function inlineSkeleton(contours: Node[][]): Pt[][] {
+  const ease = (l: Pt[]) => { let c = l; for (let k = 0; k < 6; k++) c = c.map((q, i) => (i === 0 || i === c.length - 1 ? q : { x: (c[i - 1].x + 2 * q.x + c[i + 1].x) / 4, y: (c[i - 1].y + 2 * q.y + c[i + 1].y) / 4 })); return c; };
+  return skeleton(contours).edges.map(e => ease(e.pts.map(q => ({ x: q.x, y: q.y }))));
+}
+
 /** The ink's left and right edges, by its points and handles. */
 export function inkX(d: Drawn): [number, number] {
   let x0 = Infinity, x1 = -Infinity;
@@ -338,10 +345,8 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
     return out;
   })) } : flat;
   const cmds = drawnCmds(body.contours);
-  // (the inline runs down the middle of the strokes: their skeleton, scanned off the letter as drawn)
-  // (eased along, as a cell-by-cell skeleton steps)
-  const ease = (l: Pt[]) => { let c = l; for (let k = 0; k < 6; k++) c = c.map((q, i) => (i === 0 || i === c.length - 1 ? q : { x: (c[i - 1].x + 2 * q.x + c[i + 1].x) / 4, y: (c[i - 1].y + 2 * q.y + c[i + 1].y) / 4 })); return c; };
-  const skel = fl.m.p.fill === 'inline' ? skeleton(body.contours).edges.map(e => ease(e.pts.map(q => ({ x: q.x, y: q.y })))) : [];
+  // (the inline runs down the middle of the strokes)
+  const skel = fl.m.p.fill === 'inline' ? inlineSkeleton(body.contours) : [];
   const out: Unplaced = {
     ch, strokes: [{ part: 'drawn', cmds, curved: false }], ...blankParts(), skeleton: skel, bodyW: x1 - x0
   };

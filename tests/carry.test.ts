@@ -3,7 +3,8 @@
    or taken away, shapes added), finding its old shape in other letters (close matches, where the outline round it is
    the same too or a whole contour sits as high, and looser ones; the letter's own other places, not where it was
    made; where a letter has the shape only mirrored, mirrored; and in a font drawn by hand, roughly), and putting the
-   change in, point for point where the letter has the same points, else as a new stretch or contour fitted to it. */
+   change in, point for point where the letter has the same points, else as a new stretch or contour fitted to it;
+   never in a grid fill's cells, each shaped as every other. */
 import { before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { STYLES } from '../shared/content';
@@ -11,7 +12,7 @@ import { buildFont, freeFont, registerFreeFont, type Drawn, type Font, type Node
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { freeAtOf, type Params } from '../shared/params';
 import { FreeFonts } from '../server/free-fonts';
-import { carryChange, carryLetter, changesOf, sameDrawing } from '../client/lib/carry';
+import { carryChange, carryLetter, changesOf, inCells, sameDrawing } from '../client/lib/carry';
 import { contourArea, moveAnchors, splitSegment, deleteAnchors, traceOf, type Ref } from '../client/lib/pen';
 
 describe('carry: reading what changed', () => {
@@ -256,6 +257,23 @@ describe('carry: to the other letters of a font drawn by hand', () => {
       assert.ok(w1 > w0 * 1.1 && w1 < w0 * 1.2, `${ch}'s counter is as much wider, from ${w0.toFixed(0)} to ${w1.toFixed(0)}`);
       assert.deepEqual(got.doc.contours.filter((_, i) => i !== k), was.contours.filter((_, i) => i !== k), `the rest of ${ch} stays`);
     }
+  });
+});
+
+describe('carry: never in a grid fill\'s cells', () => {
+  it('tells a letter standing in cells, as Points shows it, from one in ink, an outline or a shadow', () => {
+    const a: Drawn = { adv: 500, contours: [round(250, 250, 200)] }, p = STYLES[0].params;
+    const at = (fill: Params['fill']) => ({ ...a, at: { fill } });
+    // set in cells, or drawn without a fill and taking them now
+    assert.ok(inCells({ ...p, fill: 'dots' }, 'a'));
+    assert.ok(inCells({ ...p, fill: 'hex', outlines: { a: at('solid') } }, 'a'));
+    // drawn in cells (they're in its points), whatever the fill is now
+    assert.ok(inCells({ ...p, fill: 'solid', outlines: { a: at('pixels') } }, 'a'));
+    // ink, an outline or a shadow carry as before; a drawing that keeps no settings takes no fill
+    assert.ok(!inCells({ ...p, fill: 'solid' }, 'a'));
+    assert.ok(!inCells({ ...p, fill: 'shadow' }, 'a'));
+    assert.ok(!inCells({ ...p, fill: 'dots', outlines: { a: at('outline') } }, 'a'));
+    assert.ok(!inCells({ ...p, fill: 'dots', outlines: { a } }, 'a'));
   });
 });
 
