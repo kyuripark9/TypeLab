@@ -895,7 +895,12 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
         const out = -Math.sign(foot.serifs[0].x1 - J1.x), y = L + dir * Math.min(tol, h);
         let x = J1.x;
         while (Math.abs(x - J1.x) < FOOT_REACH * J.r && inside(x + out * 2, y)) x += out * 2;
-        if ((x - J1.x) * out > A.r + tol) foot.serifs.push({ x0: J1.x, x1: x, pt: foot.serifs[0].pt, edge: edgeOf(L, dir, J1.x, x) });
+        // (a turn's past its stem's side by a quarter of its round at least: a fat face's i's stem flaring a little to
+        // its top is no serif)
+        if ((x - J1.x) * out > A.r + (turns.has(j) ? Math.max(tol, 0.25 * A.r) : tol)) foot.serifs.push({ x0: J1.x, x1: x, pt: foot.serifs[0].pt, edge: edgeOf(L, dir, J1.x, x) });
+        // (or none, a turn's serif standing out from its stem one way only, ending as a serif does (not a 5's bar), the
+        // stem's own top beside it: the foot reaches across the stem, as a flag's does)
+        else if (turns.has(j) && Math.abs(foot.serifs[0].x1 - J1.x) < FOOT_REACH * J.r - 2) foot.side = A.r;
       }
       for (const br of others) {
         const op = from(br);
