@@ -147,7 +147,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    as far as the outline's heavy strokes thin or thicken (`ballK`); and returns `rig.contours` itself when nothing
    moved. How much each
    edge's stroke thickens is `weighsOf`: by the way it runs (upright by the upright pen's weight, `SkinMeasures.v`,
-   which reversed contrast thins; level by the bars'), and in a font with much contrast (its hairline, `rig.ref()`, a
+   which reversed contrast thins; level by the bars', which Weight alone, lighter, draws no heavier than the stems but
+   as far as the font's are, `freeLetters`: a heavy design's raised Horizontals would draw Orbital's, Gumdrop's and
+   Timber's lighter bars twice their stems), and in a font with much contrast (its hairline, `rig.ref()`, a
    small share of its stem) by how thick the stroke is, between hairline and stem, so a Didone's balls and swells
    thicken as its stems do while its hairlines follow the bars. An edge grows into a counter (or toward another
    stroke, `Bone.gap`) by at most `OPEN` of the room, so heavier letters keep their counters; a heavier letter's serif

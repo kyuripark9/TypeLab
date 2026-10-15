@@ -63,6 +63,14 @@ export function freeLetters(params: Params, e: Effective, m: Metrics): FreeLette
   // are set on where any are asked for that the font's aren't
   const to = skinMeasures(m), had = mb.ctx.serif, asked = m.ctx.serif, other = !!had && (!asked || serifLook(had) !== serifLook(asked));
   if (other) to.serif = 0;
+  // Weight alone draws the font's bars no heavier than its stems, but as far as the design's are: a heavy design's
+  // Horizontals, raised to draw its bars as heavy as the font's where the measures hold them under a share of the
+  // x-height, draw a lighter weight's bars as much as twice its stems (Orbital's, Gumdrop's, Timber's). The bars as
+  // much heavier or lighter again as Contrast and Horizontals are asked past the pick's
+  if (e.weight < b.weight) {
+    const pick = { ...params, ...params.freeAt }, mw = metrics(resolve({ ...params, contrast: pick.contrast, hWeight: pick.hWeight })), rw = mw.hT / mw.tDir(0, 1), most = Math.max(1, from.hT / from.v);
+    if (rw > most) to.hT *= most / rw;
+  }
   return {
     font, want, k: font ? m.cap / font.cap : 1, sx: m.ws / mb.ws, from, to, skin: !FREE_FAMILIES[r.family]?.grid, pick: b, now: e,
     serif: asked ?? null, serifs: !!asked && (!had || other), raw: params, rawPick: { ...params, ...params.freeAt },
