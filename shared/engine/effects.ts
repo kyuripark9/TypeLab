@@ -485,7 +485,7 @@ export function smoothLoop(p: Pt[]): Cmd[] {
 /** The liquid: a soft ball of ink on each cell the dot fill lights, each its own size (LIQUID_SIZES) and as big as
     Spread asks (LIQUID_GROW) where it has the room (dotRoom), the ink drawn where the balls' pull adds up to
     LIQUID_T: drops and puffs of many sizes, each round, running together through smooth necks where they come close,
-    like a liquid. The blobs' balls, below, are all one size, beads strung on necks. */
+    like a liquid. The blobs' balls, below, are all one size, beads strung on necks of their own. */
 function liquid(polys: Pt[][], G: Grid, cell: number, gain: number): Cmd[] {
   const { i0, j0, cols, rows, on } = G, base = liquidBase(cell, gain), room = dotRoom(polys, cell, cell * 0.43);
   // (a ball's pull reaches far enough that, alone, it is drawn its own size)
@@ -511,11 +511,19 @@ function liquid(polys: Pt[][], G: Grid, cell: number, gain: number): Cmd[] {
   return contours(f, nx, ny, x0, y0, h, LIQUID_T).filter(p => Math.abs(signedArea(p)) > h * h * 2).flatMap(smoothLoop);
 }
 
+/** How thick a blob's neck is in its middle, against a dot drawn alone. */
+const NECK_SHARE = 0.65;
+/** The steps from a dot to the dots a neck may join it to: side by side, a diagonal apart, two cells along, and a
+    knight's move, each one way (the other way is the other dot's). */
+const NECK_STEPS: [number, number][] = [[1, 0], [0, 1], [1, 1], [1, -1], [2, 0], [0, 2], [2, 1], [1, 2], [2, -1], [1, -2], [2, 2], [2, -2]];
+
 /** The blobs: a dot on each lit cell (as the dot fill lights them), every dot a soft ball of ink whose pull reaches
-    0.8 of a cell, so dots side by side run together through a neck and those a diagonal apart stay apart, and the
-    ink drawn where the balls' pull adds up to `T` (higher, smaller dots and no necks; lower, all one blob). */
-function blobs(G: Grid, cell: number, T: number): Cmd[] {
-  const { i0, j0, cols, rows, on } = G, K = cell * 0.8, steps = 6, h = cell / steps;
+    0.8 of a cell, and a neck pulling along the line between each two dots of a stroke next to one another (side by
+    side, or a step or two apart round a curve), NECK_SHARE of a dot thick in its middle at `neck` 1; the ink drawn
+    where their pull adds up to `T` (higher, smaller dots and thinner necks; lower, all one blob). Four dots in a
+    square keep a hole between them. */
+function blobs(polys: Pt[][], G: Grid, cell: number, T: number, neck: number): Cmd[] {
+  const { i0, j0, cols, rows, on } = G, K = cell * 0.8, steps = 6, h = cell / steps, ink = shape(polys);
   // (sampled a cell out past the grid all round, where nothing reaches)
   const nx = (cols + 2) * steps + 1, ny = (rows + 2) * steps + 1, x0 = (i0 - 1) * cell, y0 = (j0 - 1) * cell;
   const f = new Float64Array(nx * ny);
@@ -526,6 +534,37 @@ function blobs(G: Grid, cell: number, T: number): Cmd[] {
     for (let b = (j + 0.5) * steps - steps; b <= (j + 1.5) * steps + steps; b++) for (let a = (i + 0.5) * steps - steps; a <= (i + 1.5) * steps + steps; a++) {
       const dx = x0 + a * h - cx, dy = y0 + b * h - cy, u = (dx * dx + dy * dy) / (K * K);
       if (u < 1) f[b * nx + a] += (1 - u) * (1 - u);
+    }
+  }
+  // the necks: between two dots up to two cells apart that no dot between them joins already, along a line that keeps
+  // to the letter's ink (a step round a curve, never across a counter)
+  // (each neck NECK_SHARE of a lone dot thick, w, however far apart its two dots stand: its pull reaches w / 0.6 from
+  // its line, and is as strong as it takes, with what the two dots pull there, to come to T at w in its middle)
+  const w = Math.sqrt(Math.max(0, 1 - Math.sqrt(T))) * 0.8 * NECK_SHARE, KB = cell * w / 0.6;
+  const lit = (i: number, j: number) => i >= 0 && j >= 0 && i < cols && j < rows && on[j * cols + i] === 1;
+  // (the ink, or within a quarter of a cell of it either side of the line, as a hairline's dots stand a little off it)
+  const inInk = (x: number, y: number, ux: number, uy: number) => [0, 0.25, -0.25].some(k => ink.has(x + ux * k * cell, y + uy * k * cell));
+  if (neck > 0 && w > 0) for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    if (!on[j * cols + i]) continue;
+    const ax = (i0 + i + 0.5) * cell, ay = (j0 + j + 0.5) * cell;
+    for (const [di, dj] of NECK_STEPS) {
+      if (!lit(i + di, j + dj)) continue;
+      const ex = di * cell, ey = dj * cell, L2 = ex * ex + ey * ey, L = Math.sqrt(L2);
+      const dots = 2 * Math.max(0, 1 - ((di * di + dj * dj) / 4 + w * w) / 0.64) ** 2, W = neck * Math.max(0, T - dots) / 0.4096;
+      // (another dot near the line between them links them already)
+      let between = false;
+      for (let q = Math.min(0, dj); q <= Math.max(0, dj) && !between; q++) for (let p = 0; p <= di && !between; p++) {
+        if ((p || q) && (p !== di || q !== dj) && lit(i + p, j + q) && Math.abs(p * dj - q * di) / Math.sqrt(di * di + dj * dj) < 0.75) between = true;
+      }
+      if (!W || between || ![0.3, 0.5, 0.7].every(t => inInk(ax + ex * t, ay + ey * t, -ey / L, ex / L))) continue;
+      // (the samples within KB of the line between the two dots)
+      const a0 = Math.max(0, Math.floor((Math.min(ax, ax + ex) - KB - x0) / h)), a1 = Math.min(nx - 1, Math.ceil((Math.max(ax, ax + ex) + KB - x0) / h));
+      const b0 = Math.max(0, Math.floor((Math.min(ay, ay + ey) - KB - y0) / h)), b1 = Math.min(ny - 1, Math.ceil((Math.max(ay, ay + ey) + KB - y0) / h));
+      for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) {
+        const px = x0 + a * h - ax, py = y0 + b * h - ay, t = Math.max(0, Math.min(1, (px * ex + py * ey) / L2));
+        const dx = px - ex * t, dy = py - ey * t, u = (dx * dx + dy * dy) / (KB * KB);
+        if (u < 1) f[b * nx + a] += W * (1 - u) * (1 - u);
+      }
     }
   }
   return contours(f, nx, ny, x0, y0, h, T).filter(p => Math.abs(signedArea(p)) > cell * cell * 0.01).flatMap(smoothLoop);
@@ -972,7 +1011,8 @@ export function fillOutline(cmds: Cmd[], o: FillOpts): Cmd[] {
       }
       return out;
     }
-    case 'blobs': return blobs(dotGrid(polys, cell), cell, o.gain < 0.5 ? lerp(0.92, 0.6, o.gain * 2) : lerp(0.6, 0.15, o.gain * 2 - 1));
+    // (the necks grow in over the first stretch of Spread, so at 0 the dots stand apart)
+    case 'blobs': return blobs(polys, dotGrid(polys, cell), cell, o.gain < 0.5 ? lerp(0.92, 0.6, o.gain * 2) : lerp(0.6, 0.15, o.gain * 2 - 1), Math.min(1, o.gain / 0.3));
     case 'liquid': return liquid(polys, dotGrid(polys, cell), cell, o.gain);
     case 'halftone': return halftone(polys, cell, cell * 0.5 * spread(o.gain, 0.6, 1.5));
     case 'lines': {

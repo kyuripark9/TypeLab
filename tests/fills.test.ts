@@ -131,7 +131,7 @@ describe('fills: fill, module', () => {
     }
   });
 
-  it('blobs run dots side by side together through a neck, apart at the least Spread and all one at the most', () => {
+  it('blobs run dots next to one another together through a neck, apart at the least Spread and all one at the most', () => {
     const p: Params = { ...DEFAULTS, weight: 0.7, module: 0.51 };
     const dots = buildFont({ ...p, fill: 'dots' }).glyph('l')!, at = (dotGain: number) => buildFont({ ...p, fill: 'blobs', dotGain }).glyph('l')!;
     // apart, a blob for every dot
@@ -142,6 +142,8 @@ describe('fills: fill, module', () => {
     assert.ok(polys.filter(q => signedArea(q) < 0).length > 3);
     // all one, and the holes filled in
     assert.equal(contours(at(1).d), 1);
+    // a light o's dots, stepping round its corners, joined by necks into one ring round its counter, from early on
+    for (const v of [0.3, 0.5]) assert.equal(contours(buildFont({ ...DEFAULTS, weight: 0.4, module: 0.65, fill: 'blobs', dotGain: v }).glyph('o')!.d), 2, `Spread ${v}`);
   });
 
   it('the liquid is drops of many sizes, apart at the least Spread and run together into one ink from the middle, the counters kept', () => {
