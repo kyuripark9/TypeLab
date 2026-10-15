@@ -149,10 +149,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    dropped (`SPECK`). A lighter weight (the stems themselves drawn thinner: `MoveMap.lighter`) is drawn again from a
    skeleton of its own (`thinSkeleton`: a coarser grid, `THIN_CELL`; short strokes running on through a join kept,
    `skeleton(…, through)`, a d's stem below its bowl; and a stub where a stroke's middle turns but its ink runs on
-   straight, `withStubs`, an n's stem above its arch, a p's above its bowl, an a's foot; and a serif's foot drawn level,
+   straight, `withStubs`, an n's stem above its arch, a p's above its bowl, an a's foot, in a serif font one run up under
+   a flag standing out one way, a slab p's whose bowl leaves it at the x-height; and a serif's foot drawn level,
    `withFeet`, in a font standing its stems on serifs (`fontSerifed`, its n's or H's): where the skeleton forks from a
    stem's middle round a bracket out to tips on a line, turns from a stem into a serif running one way (an n's right
-   foot, a y's arm), or runs up into a slab and stops (a v's arms), one level stroke along each serif, out as far as the
+   foot, a y's arm), or runs up into a slab and stops (a v's arms; or stops a stub short of a join, an upright stem
+   running on past it, a slab u's or d's foot below its bowl, `Foot.side` as a flag's), one level stroke along each serif, out as far as the
    ink runs along the line, the stem run down to the line; a flag atop a stem whose arch or bowl joins it further down
    than the join's round reaches the line (an n's, an r's, a g's ear, an a's foot) the same, with a stub on from the
    line to the join, the foot reaching across the stem's own width (`Foot.side`); a slab as thick as its stem is one, `FOOT_THIN`,
@@ -179,7 +181,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    ends out past them, the moved outline kept where it keeps within `JOIN_GIVE` of them, never past the letter's ink,
    `letterInk`). Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
    opened where strokes cross aside, and ink along its strokes' middles) is mended with those strokes laid over it
-   (`thinStrokes`, each run on at its free end to the moved letter's ink), or else drawn as those strokes alone within
+   (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;
+   none of them, nor the middles `whole` reads, past a foot's line, where `keepHeights`' lift, keeping a round's
+   overshoot, would take them), or else drawn as those strokes alone within
    its ink, its dots as moved, or else moved again on a skeleton keeping its strokes that end round (`roundRig`,
    `skeleton(…, round)`: a heavy w's feet and middle peak), then thinned only as far as keeps it whole, in eighths. A heavier weight reads and moves
    as before. A pixel font
