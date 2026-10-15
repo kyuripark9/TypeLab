@@ -147,7 +147,7 @@ Code and tools find elements by these; renaming one means updating every reader.
 ## CSS
 
 `styles.css` is the one stylesheet, in sections that each open with a `---------- name` comment. It opens with the
-design system: the tokens on `:root` (`--paper`, `--grid-paper`, `--surface`, `--well`, `--tint`, `--ink*`, `--white`,
+design system: the tokens on `:root` (`--paper`, `--paper-grain`, `--paper-shade`, `--grid-paper`, `--surface`, `--well`, `--tint`, `--ink*`, `--white`,
 `--line*`, `--track`, `--marker*`, `--accent*`, `--sync*`, `--custom*`, `--warn*`, `--danger*`, `--grid-*`, `--snap`,
 `--hover`, `--active`, `--scrim`, `--radius`, `--pill`, `--gap`, `--raise`, `--shadow`, `--knob`, `--ui`, `--serif*`,
 `--mono`, `--hand`, `--display`, `--t-*`; use them, not literals), then the shared parts every page draws with:
@@ -174,8 +174,9 @@ header's and the opening's (which draws it first from `client/fonts/Lineup.json`
 it): the design was drawn for capitals, and its small letters run into each other. The Category and Feeling names
 are the one exception, each in an own font (`.tag-name`, `TagName`). Labels drawn in the canvases and diagrams take
 `--t-xs` too. Text runs at a line height of 1.45, headings at 1.25, serif titles at 1.2.
-Colours: warm ink (`#201f1d`) on cream paper (`#fef5ec`) ruled faintly in 60px squares (`--grid-paper`, on the body,
-the editor, its header and My designs), sheets a paler cream (`#fdfaf6`) edged by a warm hairline (`--raise`), warm
+Colours: warm ink (`#201f1d`) on cream paper (`#fef5ec`) with a fine grain of specks and a soft unevenness in its tone (`--paper-grain`, and
+`--paper-shade` fixed to the window; the opening title card's grain is twice as dark, `--intro-grain`), ruled faintly in 60px squares
+(`--grid-paper`, on the body, the editor, its header and My designs; the drawer's page menu takes the grain unruled), sheets a paler cream (`#fdfaf6`) edged by a warm hairline (`--raise`), warm
 greys for text (`#46423d`, `#504b45` for notes, both 7:1 or more on the paper), warm hairlines (`--line`), slider and
 switch tracks in ink laid thin (`--track`, so they read on a tinted row too), and a highlighter's lemon (`--marker`,
 `#f7f780`) as the one accent, always under ink, never as ink (it can't be read on cream): the primary button (ink on
