@@ -2288,11 +2288,12 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // the rays below)
   const R = new Float64Array(n);
   let Rmost = 0;
-  for (let j = 0; j < n; j++) { R[j] = Math.max(0, mv.weighs({ tx: T.tx[j], ty: T.ty[j], w: T.s[j], serifDx: 0, dot: false } as Bone) * T.s[j]); Rmost = Math.max(Rmost, R[j]); }
-  const grid = T.grid ??= pointGrid(T);
   // (whether the font thins its strokes by how thick each is: drawn with much contrast, weighsOf)
   const { stem: s0, hair: h0 } = rig.ref(), byThick = Math.abs(mv.weighs({ tx: 0, ty: 1, w: h0 / 2, serifDx: 0, dot: false } as Bone) - mv.weighs({ tx: 0, ty: 1, w: s0 / 2, serifDx: 0, dot: false } as Bone)) > 0.02;
   const hairKept = h0 * mv.weighs({ tx: 1, ty: 0, w: h0 / 2, serifDx: 0, dot: false } as Bone);
+  const floor = hairFloor(rig, mv);
+  for (let j = 0; j < n; j++) { R[j] = Math.max(0, mv.weighs({ tx: T.tx[j], ty: T.ty[j], w: T.s[j], serifDx: 0, dot: false } as Bone) * T.s[j], Math.min(T.s[j], floor)); Rmost = Math.max(Rmost, R[j]); }
+  const grid = T.grid ??= pointGrid(T);
   const crotches = new Map<number, Crotch>(), pins = new Map<number, P>();
   bs.forEach((b, i) => {
     if (!b.corner || !concaveAt(b)) return;
@@ -2359,7 +2360,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     // turns into the hairline at its foot, the skeleton cuts the corner along the hairline's middle) as well as any)
     const crotch = b.corner && concaveAt(b), joined = T.zone[jn].length > 0 || crotch;
     if (!b.corner && T.across[r][i] && !joined && (Math.hypot(b.ax - T.x[jn], b.ay - T.y[jn]) > Math.max(4, 0.5 * b.best) || b.best > 2 * T.s[jn] + 4)) {
-      const k = mv.weighs({ ...b, w: b.best }) * kp, d = (k - 1) * b.best;
+      const k = mv.weighs({ ...b, w: b.best }) * kp, d = Math.max((k - 1) * b.best, Math.min(0, floor * kp - b.best));
       k0.push(k);
       return d > 0 ? Math.min(d, b.gap * OPEN) : d;
     }
@@ -2429,8 +2430,11 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
         k0.push(k);
         return d > 0 ? Math.min(d, b.gap * OPEN) : d;
       }
-      const d = R[jn] * kp - T.s[jn];
+      let d = R[jn] * kp - T.s[jn];
       if (d < -4 && stops(d)) { const e = ray(); if (e > -Infinity && t0 - e * kp < -d - 4) return byRay(e); }
+      // (a wood type's curve, its sample out in a bulge past its stroke's round (a heavy arch's round shoulder), in as much
+      // further as it stands out: the bulge made as much smaller as the stroke is thinner)
+      if (rig.slabless && d < 0 && !b.corner && !b.straight && T.s[jn] > 0.5 && t0 > BULGE * T.s[jn]) d = (R[jn] * kp / T.s[jn] - 1) * t0;
       k0.push(T.s[jn] > 0.5 ? R[jn] * kp / T.s[jn] : 1);
       return d > 0 ? Math.min(d, b.gap * OPEN) : d;
     }
@@ -2770,6 +2774,19 @@ function straightened(ps: P[]) {
   return out;
 }
 
+/** A wood type's curve's sample standing out past its stroke's round further than BULGE of it is in a bulge (thinMoves). */
+const BULGE = 1.2;
+/** How thin, half, no stroke of a wood type's lighter weight is drawn (its letter without its slabs, slabRig), but where
+    the design's is thinner still: its hairline as the weight keeps it. Its arches taper hard into their stems, and thinned
+    in step they came out hairlines beside its stems. 0 at a weight no lighter, or in a font drawn with much contrast,
+    whose hairlines are kept so already (weighsOf). */
+function hairFloor(rig: SkinRig, mv: MoveMap) {
+  if (!mv.lighter || !rig.slabless) return 0;
+  const { stem: s0, hair: h0 } = rig.ref(), w = (b: number) => mv.weighs({ tx: 0, ty: 1, w: b / 2, serifDx: 0, dot: false } as Bone);
+  if (Math.abs(w(h0) - w(s0)) > 0.02) return 0;
+  return h0 * mv.weighs({ tx: 1, ty: 0, w: h0 / 2, serifDx: 0, dot: false } as Bone) / 2;
+}
+
 /** Whether the outline the way (ux, uy) from p runs out to is round there: on a curve, no corner near (the design's
     corner a stroke turns at, drawn round, not square or to a point). */
 function roundAt(rig: SkinRig, p: P, ux: number, uy: number, ahead: (p: P, ux: number, uy: number) => number) {
@@ -2788,7 +2805,7 @@ const SMOOTH = 4;
 /** Point j of a lighter weight's skeleton (thinReads), and the stroke's half thickness there now, as the strokes drawn
     again have it (moved with the letter's heights after, which carry a stroke along a line back to it). */
 function thinMiddle(rig: SkinRig, mv: MoveMap, j: number): P & { R: number } {
-  const T = rig.thin!, s = T.s[j], R = Math.max(1, mv.weighs({ tx: T.tx[j], ty: T.ty[j], w: s, serifDx: 0, dot: false } as Bone) * s);
+  const T = rig.thin!, s = T.s[j], R = Math.max(1, mv.weighs({ tx: T.tx[j], ty: T.ty[j], w: s, serifDx: 0, dot: false } as Bone) * s, Math.min(s, hairFloor(rig, mv)));
   // (a serif's foot drawn level stands on its line, as thick as it is now: thinMoves)
   if (T.footDir[j]) { const Rf = footRound(rig, mv, R); return { x: T.x[j], y: T.foot[j] + T.footDir[j] * Rf, R: Rf }; }
   // (and the stem run down to one no further than its round reaches the line)
