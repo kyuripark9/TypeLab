@@ -134,7 +134,7 @@ export interface SkinRig {
   /** the font's own stem and hairline (its n's stems and its H's bar), in its units: how much contrast the font is drawn with */ ref: () => { stem: number; hair: number };
   /** whether the font stands its stems on serifs (fontSerifed) */ serifed: () => boolean;
   /** whether the font is drawn in heavy strokes ending round, about as thick as each other, and no serifs
-      (fontRoundStroked) */ roundStroked: () => boolean;
+      (fontStroked): 1 at every lighter weight, 2 from STROKED_UNDER down, 0 not */ stroked: () => 0 | 1 | 2;
   /** whether the font's slabs are short blocks, a wood type's (fontSlabbed) */ shortSlabs: () => boolean;
   /** the last ways it was moved (MOVES_KEPT of them), by the measures it was moved from and to (dragging a slider back
       and forth) */ moves: Map<string, Node[][]>;
@@ -509,7 +509,7 @@ const BARS: Record<string, { at: [number, number, number, number]; move: number 
     design draws in Points with those it reads its lines and its stems off (family-drawn.ts). */
 export type RigLetters = Pick<FreeFont, 'cap' | 'xh' | 'glyphs'>;
 
-const rigs = new WeakMap<RigLetters, { lines: { asc: number; desc: number }; unicase: boolean; letters: Map<string, SkinRig | null>; ref?: { stem: number; hair: number }; serifed?: boolean; round?: boolean; slabs?: boolean }>();
+const rigs = new WeakMap<RigLetters, { lines: { asc: number; desc: number }; unicase: boolean; letters: Map<string, SkinRig | null>; ref?: { stem: number; hair: number }; serifed?: boolean; stroked?: 0 | 1 | 2; slabs?: boolean }>();
 
 /** A font's own stem and hairline, in its units: its n's (or H's) stems and its H's bar (or the n's level strokes),
     read once. A fat face's or a Didone's hairline is a small share of its stem, a sans's most of it. */
@@ -545,21 +545,23 @@ function fontSerifed(font: RigLetters) {
   return kept.serifed;
 }
 
-/** Whether a font is drawn in heavy strokes about as thick as each other, ending round, with no serifs (Gumdrop): its
-    lowercase's outline cut square across a stroke's end nowhere (ROUND_CUT of it, read every few units), its hairline
-    ROUND_EVEN of its stem or more, and its stem ROUND_HEAVY of its capitals' height or more. Its lighter weights are
-    drawn as their strokes (moveRig): its outline, moved, keeps the heavy design's notches and swells where its strokes
-    meet and end. */
-const ROUND_CUT = 0.005, ROUND_EVEN = 0.7, ROUND_HEAVY = 0.14;
-function fontRoundStroked(font: RigLetters) {
+/** Whether a font is drawn in heavy strokes about as thick as each other, with no serifs: its hairline STROKED_EVEN of its
+    stem or more, and, its lowercase's outline cut square across a stroke's end nowhere (ROUND_CUT of it, read every few
+    units), its stem ROUND_HEAVY of its capitals' height or more (Gumdrop: 1), or else STROKED_HEAVY (Orbital: 2). Its
+    lighter weights are drawn as their strokes (moveRig): its outline, moved, keeps the heavy design's notches and swells
+    where its strokes meet and end. A font cutting its strokes' ends square is so drawn only from a weight whose stems are
+    STROKED_UNDER of the design's down: a little lighter, the strokes drawn again round off the corners the design keeps. */
+const ROUND_CUT = 0.005, STROKED_EVEN = 0.7, ROUND_HEAVY = 0.14, STROKED_HEAVY = 0.2, STROKED_UNDER = 0.6;
+function fontStroked(font: RigLetters) {
   const kept = rigs.get(font)!;
-  if (kept.round === undefined) {
+  if (kept.stroked === undefined) {
     let n = 0, cut = 0;
     for (const ch of 'abcdefghijklmnopqrstuvwxyz') for (const bs of skinRig(font, ch)?.bones ?? []) for (const b of bs) { n++; if (b.cap) cut++; }
     const { stem, hair } = fontRef(font);
-    kept.round = n > 0 && cut <= ROUND_CUT * n && hair >= ROUND_EVEN * stem && stem >= ROUND_HEAVY * font.cap && !fontSerifed(font);
+    const even = n > 0 && hair >= STROKED_EVEN * stem && !fontSerifed(font);
+    kept.stroked = !even ? 0 : cut <= ROUND_CUT * n && stem >= ROUND_HEAVY * font.cap ? 1 : stem >= STROKED_HEAVY * font.cap ? 2 : 0;
   }
-  return kept.round;
+  return kept.stroked;
 }
 
 /** Whether a font is a slab serif whose slabs are short blocks hardly wider than its stems (Timber, a wood type), no
@@ -646,7 +648,7 @@ function rigOf(font: RigLetters, cs: Node[][], f: Grid, ctx: Ctx): SkinRig {
   const level = bones.flat().filter(b => Math.abs(b.ny) > 0.9 && !b.cap && !b.dot).map(b => b.w * 2).sort((a, b) => a - b);
   const stem = (upright[upright.length >> 1] ?? 0) / font.cap;
   return { contours: cs, bones, ends: bones.map(strokeEnds), ctx, serifs: bones.some(bs => bs.some(b => b.serifDx !== 0)), stem, bar: level.length ? level[level.length >> 1] / font.cap : stem,
-    font, ref: () => fontRef(font), serifed: () => fontSerifed(font), roundStroked: () => fontRoundStroked(font), shortSlabs: () => fontSlabbed(font), moves: new Map() };
+    font, ref: () => fontRef(font), serifed: () => fontSerifed(font), stroked: () => fontStroked(font), shortSlabs: () => fontSlabbed(font), moves: new Map() };
 }
 
 /** The rig without its slabs (slabsOf), rigged as the font's letter, and the slabs; null where it has none (or is that
@@ -1732,10 +1734,10 @@ interface MoveMap {
 function moveRig(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
   // (a letter of straight strokes in a font without serifs drawn as those strokes, read along them: its outline, moved,
   // keeps the design's joins, a crotch's round as wide as the stroke it was, and the middle of a heavy one's ink, a w's
-  // one bar notched, isn't its strokes'; and any letter of a font of heavy strokes ending round, Gumdrop's, drawn as its
+  // one bar notched, isn't its strokes'; and any letter of a font of heavy even strokes, Gumdrop's, Orbital's, drawn as its
   // strokes too, its notches and swells where strokes meet and end its heavy design's; failing that, as any letter is)
   const lighter = m1.s < m0.s * 0.999 && m1.v < m0.v;
-  const lined = lighter ? linedRig(rig) ?? (rig.roundStroked() ? rig : null) : null;
+  const st = rig.stroked(), lined = lighter ? linedRig(rig) ?? (st === 1 || (st === 2 && m1.v <= m0.v * STROKED_UNDER) ? rig : null) : null;
   if (lined) { const drawn = movedOnce(lined, m0, m1, 'strokes'); if (whole(lined, drawn)) return drawn.out; }
   // (a wood type's letter not so drawn moved without its slabs, each laid back over it, thinner)
   const U = lighter && rig.shortSlabs() ? slabRig(rig) : null;
@@ -1856,7 +1858,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
     // (the letter drawn as its strokes alone, as thick as they are now, within its ink as drawn; its dots as moved)
     // (a dot's own skeleton left out: its dot is as moved)
     const inDot = (r: P[]) => rig.bones.some(bs => bs[0]?.dot && inPoly(bs, { x: r.reduce((a, q) => a + q.x, 0) / r.length, y: r.reduce((a, q) => a + q.y, 0) / r.length }));
-    const was = letterInk(rig, mv), S = shape(thinStrokes(rig, mv, R => R, undefined, LINED.has(thinSkeleton(rig)) ? 2 : rig.roundStroked() ? 1 : 0).filter(r => !inDot(r)).map(r => r.map(p => ({ x: mv.gx(p.x), y: mv.gy(p.y) }))).map(r => (signedArea(r) < 0 ? r.slice().reverse() : r)), true);
+    const was = letterInk(rig, mv), S = shape(thinStrokes(rig, mv, R => R, undefined, LINED.has(thinSkeleton(rig)) ? 2 : rig.stroked() ? 1 : 0).filter(r => !inDot(r)).map(r => r.map(p => ({ x: mv.gx(p.x), y: mv.gy(p.y) }))).map(r => (signedArea(r) < 0 ? r.slice().reverse() : r)), true);
     const drawn: P[][] = combine([S, was], (x, y) => S.has(x, y) && was.has(x, y));
     const outer = drawn.reduce((a, r) => (Math.abs(signedArea(r)) > Math.abs(signedArea(a)) ? r : a), drawn[0] ?? []), sign = Math.sign(signedArea(outer)) || 1;
     const dotRings = rings.filter((_, i) => dots![i]).map(r => (Math.sign(signedArea(r)) === sign ? r : r.slice().reverse()));
@@ -2653,6 +2655,13 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = (R: number) => Math.max(1, 
     const T = sk.nodes[t], ux = T.x - J.x, uy = T.y - J.y, ul = Math.hypot(ux, uy) || 1;
     return !branches(sk, j).some(br => { if (sk.edges[br.e] === E) return false; const w = leaving(sk, br, J.r); return -(w.x * ux + w.y * uy) / ul > Math.cos(Math.PI / 6); });
   };
+  // (whether the outline ahead of a stroke's middle o, the way (ux, uy), `mid` on, is a stroke's end cut across it, straight)
+  const capAhead = (o: P, ux: number, uy: number, mid: number, s: number) => {
+    const hx = o.x + ux * mid, hy = o.y + uy * mid;
+    let best: Bone | null = null, bd = Infinity;
+    for (const bs of rig.bones) for (const q of bs) { const e = Math.hypot(q.x - hx, q.y - hy); if (e < bd) { bd = e; best = q; } }
+    return !!best && (best.cap || (best.straight && Math.abs(best.tx * ux + best.ty * uy) < 0.85)) && bd < 0.25 * s;
+  };
   let j0 = 0;
   for (const E of sk.edges) {
     const n0 = E.pts.length, raw = E.pts.map((_, i) => { const q = thinMiddle(rig, mv, j0 + i); return { ...q, R: by(q.R), s: rig.thin!.s[j0 + i], ox: rig.thin!.x[j0 + i], oy: rig.thin!.y[j0 + i] }; });
@@ -2681,14 +2690,46 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = (R: number) => Math.max(1, 
       // further one way as nearer the other; read about the middle as the design has it, a stroke kept on a line or a
       // slab's face (lineSkeleton's FLUSH) having gone off it)
       const o = { x: p.ox, y: p.oy }, mid = ahead(o, ux, uy), side = [-1, 1].map(k => ahead({ x: o.x - uy * w * k, y: o.y + ux * w * k }, ux, uy) - mid);
-      const cut = lined && Math.abs(side[0] + side[1]) < 0.12 * p.s && Math.abs(side[0]) < 1.5 * w;
+      // (and, drawn on the skeleton the ink's middle reads, where the outline ahead is a stroke's end cut across it, straight:
+      // that skeleton's end, read off its corners, bends, and the ink ahead either side of it reads round)
+      const cut = lined ? Math.abs(side[0] + side[1]) < 0.12 * p.s && Math.abs(side[0]) < 1.5 * w : drawn === 1 && capAhead(o, ux, uy, mid, p.s);
       cuts0.push(cut);
       for (let d = THIN_CELL, to = Math.min(far, rig.ctx.cap) - (cut ? 0 : p.R); d <= to; d += THIN_CELL) more.push({ x: p.x + ux * d, y: p.y + uy * d, R: p.R, s: p.s, ox: p.ox + ux * d, oy: p.oy + uy * d });
       return [...ps, ...more];
     };
     // (a foot's stem run down to its line ends there: no free end)
     const T = rig.thin!, foot = (j: number) => T.footStem[j] !== 0 || T.footDir[j] !== 0;
-    const at = on(on(mid, sk.nodes[E.b].edges.length === 1 && !foot(j0 - 1)).reverse(), sk.nodes[E.a].edges.length === 1 && !foot(j0 - n0)).reverse(), n = at.length;
+    // (where `drawn` on the skeleton the ink's middle reads, a free end's tail tapering into a corner its round reads into, an
+    // arm's end cut aslant forking into its sharp corner, left off: the stroke run on from where it is as thick as it is,
+    // on its way, to the end as the design cuts it)
+    const taper = (ps: typeof mid, free: boolean) => {
+      if (drawn !== 1 || !free || ps.length < 6) return ps;
+      // (one the design cuts, not one ending round, which tapers into its round)
+      { const p = ps[ps.length - 1], q = ps[ps.length - 6], l = Math.hypot(p.x - q.x, p.y - q.y) || 1, ux = (p.x - q.x) / l, uy = (p.y - q.y) / l, o = { x: p.ox, y: p.oy };
+        if (!capAhead(o, ux, uy, ahead(o, ux, uy), p.s)) return ps; }
+      const Rs = ps.map(q => q.R).sort((a, b) => a - b), Rm = Rs[Rs.length >> 1];
+      let k = ps.length;
+      while (k > 3 && ps[k - 1].R < TAPER * Rm) k--;
+      // (and where it turns off its way into that corner: the way it runs a round or two in from its end, and each step on
+      // from there no more than TAPER_TURN off it)
+      {
+        const arc = (i: number, j: number) => { let l = 0; for (let q = i; q < j; q++) l += Math.hypot(ps[q + 1].x - ps[q].x, ps[q + 1].y - ps[q].y); return l; };
+        let b = k - 1;
+        while (b > 0 && arc(b, k - 1) < 1.5 * Rm) b--;
+        let a = b;
+        while (a > 0 && arc(a, b) < 1.5 * Rm) a--;
+        if (a < b) {
+          const ux = ps[b].x - ps[a].x, uy = ps[b].y - ps[a].y, ul = Math.hypot(ux, uy) || 1;
+          for (let q = b + 1; q < k; q++) {
+            const vx = ps[q].x - ps[b].x, vy = ps[q].y - ps[b].y, vl = Math.hypot(vx, vy);
+            if (vl > 2 && (ux * vx + uy * vy) / (ul * vl) < Math.cos(TAPER_TURN)) { k = q; break; }
+          }
+        }
+      }
+      return k < ps.length ? ps.slice(0, Math.max(3, k)) : ps;
+    };
+    const fb = sk.nodes[E.b].edges.length === 1 && !foot(j0 - 1), fa = sk.nodes[E.a].edges.length === 1 && !foot(j0 - n0);
+    const at = on(on(taper(taper(mid, fb).reverse(), fa).reverse(), fb).reverse(), fa).reverse(), n = at.length;
     // (a round at each end, but an end cut as the design cuts it, where the ink cuts the round off)
     const [cutB, cutA] = n < 2 ? [false, false] : cuts0;
     if (!cutA) out.push(round(at[0], atJoin.get(E.a) ?? at[0].R));
@@ -2726,7 +2767,8 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = (R: number) => Math.max(1, 
       const p = at[i], a = at[i - 1], b = at[i + 1], la = Math.hypot(p.x - a.x, p.y - a.y) || 1, lb = Math.hypot(b.x - p.x, b.y - p.y) || 1;
       const ax = (p.x - a.x) / la, ay = (p.y - a.y) / la, bx = (b.x - p.x) / lb, by2 = (b.y - p.y) / lb, k = ax * by2 - ay * bx > 0 ? 1 : -1;
       const nax = ay * k, nay = -ax * k, nbx = by2 * k, nby = -bx * k, ml = Math.hypot(nax + nbx, nay + nby), R = Math.max(Ra, Rb);
-      if (ml < 1e-3) { out.push(round(p, R)); continue; }
+      // (a turn too slight to cross its sides at a point, a bend parted along a stroke all but straight, a round)
+      if (ml < 1e-3 || Math.abs(ax * by2 - ay * bx) < 1e-3) { out.push(round(p, R)); continue; }
       const ux = (nax + nbx) / ml, uy = (nay + nby) / ml, half = Math.sin(Math.acos(Math.max(-1, Math.min(1, -(ax * bx + ay * by2)))) / 2);
       // (the design's corner's round: how far short of the point its sides would make the outline crosses the way out)
       const rho = Math.min(Ra, Rb, roundAt(rig, p, ux, uy, ahead) ? Math.max(0, Math.min(p.s, (p.s / half - ahead(p, ux, uy)) / (1 / half - 1))) * R / p.s : 0);
@@ -2799,6 +2841,9 @@ function roundAt(rig: SkinRig, p: P, ux: number, uy: number, ahead: (p: P, ux: n
   return true;
 }
 
+/** A stroke drawn on the skeleton the ink's middle reads ends where its round falls under TAPER of its middle's, at a free
+    end (thinStrokes). */
+const TAPER = 0.75, TAPER_TURN = 20 * Math.PI / 180;
 /** How many points either way a stroke drawn on the skeleton the ink's middle reads is evened out over (thinStrokes). */
 const SMOOTH = 4;
 

@@ -214,10 +214,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    slabs (`slabsOf` in `slabs.ts`) as strokes along their faces kept there, its strokes' sides off its outline without
    them, its sides' ink read only where both sides run and a thin stroke read inside much thicker ones dropped
    (`buried`); a letter of it not so drawn is moved without its slabs and each laid back over it (`slabRig`).
-   Every letter of a font of heavy strokes ending round (`fontRoundStroked`: no square ends, low contrast, stems over
-   `ROUND_HEAVY` of its capitals', Gumdrop) is drawn as its strokes too, on the skeleton its ink's middle reads, evened
-   out (`SMOOTH`), parted where it bends tighter than it is thick, and no stub into a corner drawn; failing `whole`, it
-   is moved as any letter is. Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
+   Every letter of a font of heavy, even strokes without serifs (`fontStroked`: low contrast, stems over `STROKED_HEAVY`
+   of its capitals' and from a weight whose stems are `STROKED_UNDER` of its own down, Orbital, Bulwark, or over
+   `ROUND_HEAVY` with no square ends at every lighter weight, Gumdrop) is drawn as its strokes too, on the
+   skeleton its ink's middle reads, evened out (`SMOOTH`), parted where it bends tighter than it is thick, and no stub into
+   a corner drawn; a free end the design cuts straight across (`capAhead`) cut so, its tail tapering or turning into the
+   cut's corner left off (`TAPER`, `TAPER_TURN`); failing `whole`, it is moved as any letter is. Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
    opened where strokes cross aside, and ink along its strokes' middles) is mended with those strokes laid over it
    (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;
    none of them, nor the middles `whole` reads, past a foot's edge, where `keepHeights`' lift, keeping a round's
