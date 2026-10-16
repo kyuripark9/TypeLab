@@ -220,10 +220,11 @@ export function FillIcon({ fill }: { fill: Fill }) {
 }
 
 /* Storey icons are the engine's two a's, bold enough to read small. */
-const storyPaths = new Map<Story, { d: string; w: number }>();
-export function StoryIcon({ story }: { story: Story }) {
-  const icon = cached(storyPaths, story, () => {
-    const g = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, story }).glyph('a');
+const storyPaths = new Map<string, { d: string; w: number }>();
+export function StoryIcon({ story, grid }: { story: Story; grid?: boolean }) {
+  const icon = cached(storyPaths, `${story}${grid ? ':grid' : ''}`, () => {
+    const look = grid ? { build: 'blocks' as const, blockForm: 'grid' as const, roundness: 1, weight: 0.4 } : {};
+    const g = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, story, ...look }).glyph('a');
     return { d: g?.d ?? '', w: g?.adv ?? 500 };
   });
   return <svg viewBox={`0 -620 ${n1(icon.w)} 680`} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;
@@ -240,12 +241,15 @@ export function BarEndsIcon({ ends }: { ends: BarEnds }) {
 }
 
 /* Letter-shape icons: the letter each option shapes, drawn by the engine in that shape, bold
-   enough to read small and framed from descender to ascender. */
+   enough to read small and framed from descender to ascender; in slot or grid blocks (`blocks`) while the letters are
+   built from them, and Cell joins and Grid rows, which shape only the grid letters, always in those. */
 const formPaths = new Map<string, { d: string; box: string }>();
-export function FormIcon({ k, id }: { k: FormKey; id: string }) {
-  const icon = cached(formPaths, `${k}:${id}`, () => {
+export function FormIcon({ k, id, blocks }: { k: FormKey; id: string; blocks?: 'slots' | 'grid' }) {
+  const form = k === 'cellJoin' || k === 'gridRows' ? 'grid' : blocks;
+  const icon = cached(formPaths, `${k}:${id}:${form ?? ''}`, () => {
     // (the A's top is drawn with serifs, which it lays one across)
-    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, ...(k === 'apexForm' ? { serif: true } : {}), [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
+    const look = form ? { build: 'blocks' as const, blockForm: form, roundness: 1, weight: form === 'grid' ? 0.4 : 0.6 } : {};
+    const f = buildFont({ ...DEFAULTS, weight: 0.6, xHeight: ICON_XH, ...(k === 'apexForm' ? { serif: true } : {}), ...look, [k]: id }), g = f.glyph(FORM_OPTIONS[k].ch);
     return { d: g?.d ?? '', box: `0 ${n1(-f.m.asc - 30)} ${n1(g?.adv ?? 500)} ${n1(f.m.asc - f.m.desc + 60)}` };
   });
   return <svg viewBox={icon.box} width="46" height="40" aria-hidden="true"><path d={icon.d} /></svg>;

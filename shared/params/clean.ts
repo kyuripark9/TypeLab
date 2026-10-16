@@ -14,9 +14,10 @@ import { DEFAULTS, DRAWN_AT_KEYS, FREE_AT_KEYS, ID_KEYS, PARAM_KEYS, SPECS, draw
     slot blocks, the only ones there were; version 3 letters drawn in Points stood as drawn whatever the settings, and
     keep no settings they were drawn at (Drawn.at); version 4 grid fills had their Size on an even scale of 30 cells in
     the cap height to 7 (moduleFromOld), and dots their Spread from 0.3 of their size to 1.75 (dotGainFromOld); version 5
-    grid fills had their Size from 40 cells to 5 (moduleFromV5). Bump it, and add the step to upgradeParams, when saved
-    settings need reading differently. */
-export const PARAMS_VERSION = 6;
+    grid fills had their Size from 40 cells to 5 (moduleFromV5); version 6 slot and grid blocks drew alike whatever
+    Contrast, Inner space, Openness, the crossbars, the corners, Stencil and the letter forms said (BLOCK_LOOKS). Bump
+    it, and add the step to upgradeParams, when saved settings need reading differently. */
+export const PARAMS_VERSION = 7;
 /** Settings written by an older version (see PARAMS_VERSION), as this one reads them. */
 export function upgradeParams(src: Record<string, unknown>, version: number): Record<string, unknown> {
   if (version < 2 && typeof src.xHeight === 'number' && Number.isFinite(src.xHeight)) src = { ...src, xHeight: xHeightFromOld(Math.min(1, Math.max(0, src.xHeight))) };
@@ -27,7 +28,33 @@ export function upgradeParams(src: Record<string, unknown>, version: number): Re
   if (version < 4) src = drawnAtDesign(src);
   // a grid fill keeps its cells, and the dot fill its dots, as big as they were drawn (a drawing's settings too)
   if (version < 6) src = gridScales(src, version);
+  // slot and grid blocks keep the shapes they had, the settings they now follow read at their defaults
+  if (version < 7) src = blockLooks(src);
   return src;
+}
+/** The settings slot and grid blocks follow since version 7, which they drew alike whatever they said before. */
+const BLOCK_LOOKS: Record<'slots' | 'grid', readonly string[]> = {
+  slots: ['contrast', 'counter', 'aperture', 'crossbar', 'innerRound', 'chamfer', 'steps', 'joints', 'stencil', 'stencilPos', 'stencilRound',
+    'iForm', 'jForm', 'mForm', 'qForm', 'dots', 'dotSize'],
+  grid: ['contrast', 'vWeight', 'hWeight', 'joinRound', 'innerRound', 'chamfer', 'steps', 'joints', 'stencil', 'stencilPos', 'stencilRound',
+    'story', 'kForm', 'iForm', 'jForm', 'mForm', 'qForm', 'rForm', 'yForm', 'sForm', 'dots', 'dotSize']
+};
+/** Settings `src` with BLOCK_LOOKS taken out wherever slot or grid blocks draw: the design's (and its drawn letters'
+    settings) when it is built from them, and any letter's own values where that letter is. A character those letters
+    have no shape for is drawn in strokes, and follows the defaults from then on. */
+function blockLooks(src: Record<string, unknown>): Record<string, unknown> {
+  const plain = (d: unknown): d is Record<string, unknown> => !!d && typeof d === 'object' && !Array.isArray(d);
+  const formOf = (p: Record<string, unknown>, from?: Record<string, unknown>) => {
+    const build = p.build ?? from?.build, form = p.blockForm ?? from?.blockForm;
+    return build === 'blocks' && (form === 'slots' || form === 'grid') ? form : null;
+  };
+  const without = (p: Record<string, unknown>, form: 'slots' | 'grid' | null) =>
+    form ? Object.fromEntries(Object.entries(p).filter(([k]) => !BLOCK_LOOKS[form].includes(k))) : p;
+  const form = formOf(src), out = without(src, form);
+  if (plain(src.glyphs)) out.glyphs = Object.fromEntries(Object.entries(src.glyphs).map(([ch, g]) => [ch, plain(g) ? without(g, formOf(g, src)) : g]));
+  if (plain(src.outlines)) out.outlines = Object.fromEntries(Object.entries(src.outlines).map(([ch, d]) =>
+    [ch, plain(d) && plain(d.at) ? { ...d, at: without(d.at, formOf(d.at, src)) } : d]));
+  return out;
 }
 /** Settings `src`, written at `version`, with a grid fill's Size and the dot fill's Spread on today's scales; each drawn
     letter's settings (Drawn.at) likewise. */

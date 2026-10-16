@@ -8,6 +8,7 @@ import { applyM, clamp, clipPoly, cmdsBox, cmdsToD, cubicAt, lerp, mulM, quarter
 import { blockDims, blockRings } from './blocks';
 import { basicDims, basicRings, basicRound } from './basic-blocks';
 import { gridDims, gridRings } from './grid-blocks';
+import { cutCorners, stencilCounters, type CornerCuts } from './block-corners';
 import { fillOutline, shadowShift, slice } from './effects';
 import { roughen } from './rough';
 import { drawnCmds, type Drawn } from './outline';
@@ -420,7 +421,7 @@ export const blankParts = (): Pick<Glyph, 'serifs' | 'serifAt' | 'counters' | 'm
     apart. Null when the character has no block shape. */
 export function buildBlock(ch: string, m: Metrics): Glyph | null {
   const e = m.p;
-  let b: { rings: Pt[][]; holes: number; W: number } | null, lsb: number, rsb: number;
+  let b: { rings: Pt[][]; holes: number; W: number } | null, lsb: number, rsb: number, stencilT = 0;
   if (e.blockForm === 'basic') {
     const d = basicDims(m), r = basicRings(ch, d, basicRound(m, d));
     if (!r) return null;
@@ -429,18 +430,25 @@ export function buildBlock(ch: string, m: Metrics): Glyph | null {
     const sb = m.cap * (0.006 + 0.15 * e.sideBearing);
     b = r; lsb = sb * r.sb[0]; rsb = sb * r.sb[1];
   } else if (e.blockForm === 'grid') {
-    const d = gridDims(m);
-    b = gridRings(ch, d);
-    if (!b) return null;
+    const d = gridDims(m), r = gridRings(ch, d);
+    if (!r) return null;
     // from touching cells to a cell and a half apart, a cell apart at the middle of Side margins
     lsb = rsb = d.cw * (0.05 + 0.9 * e.sideBearing);
+    b = { ...r, rings: cutCorners(r.rings, blockCuts(e, Math.min(d.cw + 2 * d.gx, d.ch + 2 * d.gy))) };
   } else {
-    const small = ch !== ch.toUpperCase();
-    b = blockRings(ch, blockDims(small ? m.xh : m.cap, e), { o: e.roundness, e: Math.min(1, e.roundness), i: Math.min(2, e.joinRound * 2) });
-    if (!b) return null;
+    const small = ch !== ch.toUpperCase(), d = blockDims(small ? m.xh : m.cap, e);
+    const r = blockRings(ch, d, { o: e.roundness, e: Math.min(1, e.roundness), i: Math.min(2, e.joinRound * 2), c: e.innerRound });
+    if (!r) return null;
     // slot blocks sit close: at the middle of Side margins a thirtieth of the cap height each side
     lsb = rsb = m.cap * (0.004 + 0.06 * e.sideBearing);
+    b = { ...r, rings: cutCorners(r.rings, blockCuts(e, (d.tv + d.th) / 2)) };
+    stencilT = (d.tv + d.th) / 2;
   }
+  // Facets flatten the slot and grid blocks' rounds; the basic blocks have their own corners. Stencil cuts the slot
+  // blocks' counters open (the grid letters' tiles are drawn apart already)
+  const cut = e.blockForm === 'basic' ? 0 : e.chamfer;
+  const stencilled = (cmds: Cmd[]) => (e.blockForm === 'slots' && e.stencil > 0 ? stencilCounters(cmds, b!.rings.slice(b!.rings.length - b!.holes),
+    stencilT * (0.15 + 1.1 * e.stencil), e.stencilPos, e.stencilRound) : cmds);
   const code = ch.charCodeAt(0);
   let rings = b.rings;
   if (m.wob > 0) {
@@ -448,11 +456,18 @@ export function buildBlock(ch: string, m: Metrics): Glyph | null {
     rings = rings.map(r => r.map(q => { const [x, y] = wb.pt(q.x, q.y); return { ...q, x, y }; }));
   }
   const out: Unplaced = {
-    ch, strokes: [{ part: 'stem', cmds: rings.flatMap(r => roundContour(r, 0)), curved: true, id: '0' }], ...blankParts(),
-    counters: rings.slice(rings.length - b.holes).map(r => roundContour(r, 0)), bodyW: b.W
+    ch, strokes: [{ part: 'stem', cmds: stencilled(rings.flatMap(r => roundContour(r, 0, cut))), curved: true, id: '0' }], ...blankParts(),
+    counters: rings.slice(rings.length - b.holes).map(r => roundContour(r, 0, cut)), bodyW: b.W
   };
   return placeGlyph(out, b.W, lsb, rsb, code, m);
 }
+
+/** How deep Steps and Ink traps cut the corners of slot or grid blocks whose strokes are `T` thick, past the corners'
+    rounds: a step up to half a stroke, a trap up to `TRAP` of a stroke through a slot widening with it; and Facets. */
+function blockCuts(e: Metrics['p'], T: number): CornerCuts {
+  return { steps: e.steps, stepMax: 0.5 * T, trap: e.joints * TRAP * T, trapW: e.joints * TRAP_W * T, cut: e.chamfer };
+}
+const TRAP = 0.55, TRAP_W = 0.6;
 
 /** Place a glyph drawn `W` wide between side bearings lsb and rsb: rotation, monospacing, the pixel grid,
     playful bounce and hand jitter, slant, then the slice, the fills and rough edges, which run on its final outline.

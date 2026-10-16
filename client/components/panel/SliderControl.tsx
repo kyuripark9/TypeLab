@@ -85,9 +85,12 @@ export function BarEndsControl() {
   );
 }
 
-/** Stencil and Slice: a switch, then how thick the cut is, where it runs and how round its corners are. */
+/** Stencil and Slice: a switch, then how thick the cut is, where it runs and how round its corners are. Grid letters'
+    stencil parts every cell from the next, so there is nowhere along a stroke to move it. */
 export function CutControl({ k, parts }: { k: 'stencil' | 'slice'; parts?: string[] }) {
-  const c = CONTROLS[k], subs = k === 'stencil' ? STENCIL_SUBS : SLICE_SUBS;
+  const tiles = useEditor(s => s.params.build === 'blocks' && s.params.blockForm === 'grid');
+  const c = CONTROLS[k], all = k === 'stencil' ? STENCIL_SUBS : SLICE_SUBS;
+  const subs = k === 'stencil' && tiles ? Object.fromEntries(Object.entries(all).filter(([s]) => s !== 'stencilPos')) as typeof all : all;
   const on = useEditor(s => isOn(s, k, c.off!)), active = useEditor(s => controlFor(s.active) === k), reach = useReachNote(k);
   const cls = ['ctl', active && 'active', !on && 'off', reach.idle && 'idle'].filter(Boolean).join(' ');
   return (

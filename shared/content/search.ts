@@ -17,7 +17,7 @@ const ALSO: Partial<Record<ActiveKey, string>> = {
   aperture: 'opening mouth', extenders: 'ascender descender', stencil: 'gap cut break', slice: 'cut line split',
   squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', joinRound: 'crotch fillet', innerRound: 'inside corners', dots: 'tittle period i j',
   apexForm: 'apex peak serif top latin clarendon', mForm: 'vertex middle point short raised', jForm: 'hook cup tail', gForm: 'ear loop',
-  iForm: 'flag'
+  iForm: 'flag', cellJoin: 'neck diagonal pixel nodes grid cells corner', gridRows: 'matrix 5x7 5x5 rows cells ascender descender grid'
 };
 
 export interface SettingHit {

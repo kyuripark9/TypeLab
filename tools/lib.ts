@@ -57,7 +57,8 @@ export function showContext(k: string): Partial<Params> {
   return ({
     stencilPos: { stencil: 0.5 }, stencilRound: { stencil: 0.5 }, slicePos: { slice: 0.5 }, sliceRound: { slice: 0.5 },
     pinchPos: { pinch: 0.7 }, boxRound: { bowlForm: 'box' }, module: { fill: 'pixels' }, dotGain: { fill: 'pixels' },
-    dotSize: { dots: 'round' }, blockForm: { build: 'blocks' }, apexForm: { serif: true }
+    dotSize: { dots: 'round' }, blockForm: { build: 'blocks' }, apexForm: { serif: true }, cellJoin: { build: 'blocks', blockForm: 'grid', roundness: 1 },
+    gridRows: { build: 'blocks', blockForm: 'grid', roundness: 1 }
   } as Record<string, Partial<Params>>)[k] ?? {};
 }
 

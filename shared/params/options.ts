@@ -82,6 +82,12 @@ export const BUILDS = ['strokes', 'blocks', 'arcs'] as const;
     their counters cut in as slots, after a 70s poster face, the lowercase as small capitals (blocks.ts), or letters of
     cells on a grid five high, every corner round and the empty cells round nodes (grid-blocks.ts). */
 export const BLOCK_FORMS = ['basic', 'slots', 'grid'] as const;
+/** Grid letters' cells meeting only at a corner: joined through a round neck (the empty cells beside it round nodes),
+    by a straight diagonal as thick as the strokes, or only touching, like a pixel font's. */
+export const CELL_JOINS = ['nodes', 'diagonal', 'pixel'] as const;
+/** Grid letters on five rows, both cases as tall, or on seven, the capitals seven cells tall and the small letters with
+    ascenders and descenders. */
+export const GRID_ROWS = ['five', 'seven'] as const;
 /** A letter as drawn, or mirrored left to right (a reversed e). */
 export const MIRRORS = ['normal', 'mirrored'] as const;
 /** Curved stroke ends: stop part way round the curve, or turn onto the nearest level or plumb line and run straight out. */
@@ -111,6 +117,8 @@ export type TerminalRun = (typeof TERMINAL_RUNS)[number];
 export type BarEnds = (typeof BAR_ENDS)[number];
 export type Build = (typeof BUILDS)[number];
 export type BlockForm = (typeof BLOCK_FORMS)[number];
+export type CellJoin = (typeof CELL_JOINS)[number];
+export type GridRows = (typeof GRID_ROWS)[number];
 export type Mirror = (typeof MIRRORS)[number];
 export type BowlForm = (typeof BOWL_FORMS)[number];
 export type Diagonals = (typeof DIAGONALS)[number];

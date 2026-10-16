@@ -13,7 +13,7 @@
    control's nested sliders, matters. */
 import type { Params } from './model';
 import { isCornerId, isEndId, isJoinId, isStrokeId, isTurnId } from './scales';
-import { A_FORMS, APEX_FORMS, BAR_ENDS, BENDS, BLOCK_FORMS, BOWL_FORMS, BOWL_JOINS, BUILDS, DIAGONALS, DOTS, FILLS, G_FORMS, I_FORMS, J_FORMS, K_FORMS, M_FORMS, MIRRORS, Q_FORMS,
+import { A_FORMS, APEX_FORMS, BAR_ENDS, BENDS, BLOCK_FORMS, BOWL_FORMS, BOWL_JOINS, BUILDS, CELL_JOINS, DIAGONALS, DOTS, GRID_ROWS, FILLS, G_FORMS, I_FORMS, J_FORMS, K_FORMS, M_FORMS, MIRRORS, Q_FORMS,
   R_FORMS, S_FORMS, SERIF_BASES, SERIF_INNERS, SERIF_SHAPES, SERIF_SIDES, SERIF_TIPS, STORIES, TERMINAL_FORM_IDS, TERMINAL_RUNS,
   TERMINALS, Y_FORMS } from './options';
 
@@ -160,6 +160,8 @@ export const SPECS = {
     explain: 'Cuts a square notch into each square corner, like a letter built on a grid.' } }),
   joints: num(0, { free: true, control: { cat: 'corners', off: 0, label: 'Ink traps', friendly: 'Carve ink traps into joins', tech: 'Ink traps · Joints', lo: 'Solid', hi: 'Trapped', demo: 'nab',
     explain: 'Corners are carved out where strokes join.' } }),
+  cellJoin: option(CELL_JOINS, 'nodes', { control: { cat: 'corners', type: 'form', label: 'Cell joins', friendly: 'Join cells that meet at a corner', tech: 'Grid diagonals · Nodes', demo: 'xkz',
+    explain: 'Grid letters’ cells meeting at a corner: a round neck, a straight diagonal, or just touching like pixels.' } }),
 
   /* ---- Stroke ends */
   terminal: option(TERMINALS, 'flat', { free: true, control: { cat: 'ends', type: 'options', label: 'Stroke ends', friendly: 'Choose how strokes end', tech: 'Letter endings · Terminals', demo: 'Cas',
@@ -272,6 +274,8 @@ export const SPECS = {
     explain: 'Strokes drift, swell and sit a little off the line.' } }),
 
   /* ---- Heights */
+  gridRows: option(GRID_ROWS, 'five', { global: true, control: { cat: 'heights', type: 'form', label: 'Grid rows', friendly: 'Five or seven cells tall', tech: 'Rows · 5×5 or 5×7 matrix', demo: 'Hhgy',
+    explain: 'Five: both cases as tall. Seven: small letters with ascenders and descenders, their heights in whole cells.' } }),
   xHeight: num(0.679, { global: true, free: true, control: { cat: 'heights', label: 'Lowercase height', friendly: 'Make lowercase letters taller', tech: 'x-height', lo: 'Small', hi: 'Large', demo: 'Hxn',
     explain: 'Taller lowercase feels modern and reads well small.' } }),
   extenders: num(0.5, { global: true, free: true, control: { cat: 'heights', label: 'Stem length', friendly: 'Extend stems up and down', tech: 'Ascenders & descenders', lo: 'Short', hi: 'Long', demo: 'hpdy',

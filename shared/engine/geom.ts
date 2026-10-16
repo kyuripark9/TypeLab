@@ -254,8 +254,9 @@ interface Corner { i: number; th: number; r: number; d: number; f: boolean }
 /* Turn a polygon into path commands, replacing corners with circular-ish fillets.
    Point flags: smooth (sampled curve, never a corner), sharp (never rounded),
    r (forced radius, e.g. round terminals), step (a square notch cut out of the corner
-   instead, see stepCorners). R is the default corner radius. */
-export function roundContour(src: Pt[], R: number): Cmd[] {
+   instead, see stepCorners). R is the default corner radius. `cut` flattens every round
+   toward a straight facet across the corner, all the way at 1 (Facets on block letters). */
+export function roundContour(src: Pt[], R: number, cut = 0): Cmd[] {
   const pts: Pt[] = [];
   for (const p of src) {
     const q = pts[pts.length - 1];
@@ -320,7 +321,7 @@ export function roundContour(src: Pt[], R: number): Cmd[] {
     const v = pts[b.i];
     if (b.d) {
       const p1 = at(sB), p2 = at(S[ib] + b.d);
-      const f = (4 / 3) * Math.tan(b.th / 4) / Math.tan(b.th / 2);
+      const f = (4 / 3) * Math.tan(b.th / 4) / Math.tan(b.th / 2) * (1 - cut);
       cmds.push(['L', p1.x, p1.y]);
       cmds.push(['C', lerp(p1.x, v.x, f), lerp(p1.y, v.y, f), lerp(p2.x, v.x, f), lerp(p2.y, v.y, f), p2.x, p2.y]);
     } else {

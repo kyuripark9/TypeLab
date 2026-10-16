@@ -3,12 +3,14 @@
    entry there (the compiler asks for it). */
 import type { Drawn } from '../engine/outline';
 import type { FreeAt, GlyphParams } from './spec';
-import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, Diagonals, Dots, Fill, GForm, IForm, JForm, KForm, MForm, Mirror, QForm, RForm,
+import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, CellJoin, Diagonals, GridRows, Dots, Fill, GForm, IForm, JForm, KForm, MForm, Mirror, QForm, RForm,
   SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from './options';
 
 export interface Params {
   /** strokes or blocks (see BUILDS) */ build: Build;
   /** the block letters Blocks builds, basic, slots or grid (see BLOCK_FORMS) */ blockForm: BlockForm;
+  /** how grid letters' cells meeting only at a corner join (see CELL_JOINS) */ cellJoin: CellJoin;
+  /** how many cells tall grid letters stand (see GRID_ROWS) */ gridRows: GridRows;
   weight: number; width: number; height: number; slant: number;
   /** each letter turned about its own middle: 0.5 upright, lower anticlockwise and higher clockwise, half a turn at either end (see rotationDeg) */ rotation: number;
   /** thick and thin (see contrastOf): 0.5 as drawn, higher thins the horizontals against the stems,

@@ -11,7 +11,7 @@ import { TerminalControl, StoryControl, type LetterFormKey, FormControl, SerifCo
 
 export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
   const serifs = useParam('serif'), shape = useParam('serifShape'), pointed = shape === 'wedge' || shape === 'diamond', outside = useParam('serifSides') === 'outside';
-  const build = useParam('build'), blockForm = useParam('blockForm');
+  const build = useParam('build'), blockForm = useParam('blockForm'), gridRows = useParam('gridRows');
   const pages = pagesFor({ build, blockForm });
   // a page with nothing for these letters isn't offered; one opened anyway (undo back to blocks, a link) gives way to the
   // page before it before it is drawn
@@ -23,7 +23,7 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
   // and serifs that only reach out of the letter leave none inside it; letters built from blocks or arcs have no
   // skeleton of strokes, so only the controls that shape them show
   const all = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category);
-  const keys = all.filter(k => controlInUse(k, { build, blockForm }) &&
+  const keys = all.filter(k => controlInUse(k, { build, blockForm, gridRows }) &&
     (category !== 'serifs' || k === 'serif' || (serifs && !(pointed && k === 'serifTip') && !(outside && k === 'serifInner'))));
   const inspecting = useEditor(s => !!s.inspect);
   // the page opens on its first setting these letters take, so the explainer speaks of one shown here

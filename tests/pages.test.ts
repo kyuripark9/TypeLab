@@ -51,7 +51,7 @@ describe('editor pages', () => {
     }
   });
 
-  it('offers only the pages with something to shape: letters built from blocks have no ends, serifs or letter forms', () => {
+  it('offers only the pages with something to shape: letters built from blocks have no ends or serifs, and only the slot and grid blocks letter forms', () => {
     assert.deepEqual(pagesFor({ build: 'strokes', blockForm: 'basic' }), CATEGORIES);
     for (const blockForm of BLOCK_FORMS) {
       const pages = pagesFor({ build: 'blocks', blockForm }), ids = pages.map(c => c.id);
@@ -61,7 +61,9 @@ describe('editor pages', () => {
         const used = controls.some(k => CONTROLS[k].cat === c.id && controlInUse(k, { build: 'blocks', blockForm }));
         assert.equal(ids.includes(c.id), c.id === 'style' || used, `${blockForm} ${c.id}`);
       }
-      for (const id of ['ends', 'serifs', 'letters']) assert.ok(!ids.includes(id as CategoryId), `${blockForm} ${id}`);
+      for (const id of ['ends', 'serifs']) assert.ok(!ids.includes(id as CategoryId), `${blockForm} ${id}`);
+      // the slot and grid blocks draw some letter forms of their own (I J M Q and the dots; a k I i l J M Q R Y s and the dots)
+      assert.equal(ids.includes('letters'), blockForm !== 'basic', `${blockForm} letters`);
       // a page left out always has one before it to give way to
       assert.equal(ids[1], 'weight', blockForm);
     }

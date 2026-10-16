@@ -55,9 +55,11 @@ export function TerminalControl({ parts }: { parts?: string[] }) {
   );
 }
 
-/** Double or single storey. Left on auto, the form the other settings picked shows as chosen. */
+/** Double or single storey. Left on auto, the form the other settings picked shows as chosen; grid letters draw a
+    double-storey a until single is picked, and have no foot to choose. */
 export function StoryControl({ parts }: { parts?: string[] }) {
-  const single = useScopedFont().eff.singleStory, active = useEditor(s => s.active === 'story');
+  const font = useScopedFont(), grid = font.eff.build === 'blocks' && font.eff.blockForm === 'grid', active = useEditor(s => s.active === 'story');
+  const single = grid ? font.eff.story === 'single' : font.eff.singleStory;
   const c = CONTROLS.story, current = single ? 'single' : 'double', reach = useReachNote('story');
   return (
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="story" {...useControlFocus('story')}>
@@ -67,12 +69,14 @@ export function StoryControl({ parts }: { parts?: string[] }) {
         {STORY_OPTIONS.map(([id, label]) => (
           <button key={id} role="radio" aria-checked={current === id} className={current === id ? 'opt on' : 'opt'}
             onClick={() => actions.setOption('story', id)}>
-            <StoryIcon story={id} /><span>{label}</span>
+            <StoryIcon story={id} grid={grid} /><span>{label}</span>
           </button>
         ))}
       </div>
-      <div className="sub-label">Foot</div>
-      <FormOptions k="aForm" label="Foot of the a" />
+      {!grid && <>
+        <div className="sub-label">Foot</div>
+        <FormOptions k="aForm" label="Foot of the a" />
+      </>}
     </div>
   );
 }
@@ -99,15 +103,19 @@ export function FormControl({ k, parts }: { k: LetterFormKey; parts?: string[] }
 /** The named shapes of `k` as a row of pictured options. */
 function FormOptions({ k, label }: { k: FormKey; label: string }) {
   const value = useParam(k), font = useScopedFont(), { options } = FORM_OPTIONS[k];
+  // letters built from slot or grid blocks are pictured in their own blocks
+  const build = useParam('build'), blockForm = useParam('blockForm'), blocks = build === 'blocks' && blockForm !== 'basic' ? blockForm : undefined;
   // the option 'auto' stands for, as the engine picks it
-  const current = value !== 'auto' ? value : k === 'dots' ? (font.m.dotRound >= 0.5 ? 'round' : 'square')
+  // (slot and grid blocks draw their own shapes on auto, neither option's, so none shows as picked; but the slot
+  // blocks' I on auto is their plain one)
+  const current = value !== 'auto' ? value : blocks ? (blocks === 'slots' && k === 'iForm' ? 'plain' : value) : k === 'dots' ? (font.m.dotRound >= 0.5 ? 'round' : 'square')
     : k === 'iForm' ? (autoIBars(font.eff) ? 'bars' : 'plain') : value;
   return (
     <div className={options.length === 3 ? 'opts three' : 'opts two'} role="radiogroup" aria-label={label}>
       {options.map(([id, name]) => (
         <button key={id} role="radio" aria-checked={current === id} className={current === id ? 'opt on' : 'opt'}
           onClick={() => actions.setOption(k, id as never)}>
-          <FormIcon k={k} id={id} /><span>{name}</span>
+          <FormIcon k={k} id={id} blocks={blocks} /><span>{name}</span>
         </button>
       ))}
     </div>

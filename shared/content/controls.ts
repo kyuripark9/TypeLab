@@ -2,7 +2,7 @@
    shared/params/spec.ts), which shapes each picker offers, and which control a key belongs to. */
 import { PARAM_KEYS, SPECS, formOf, type CategoryId, type ControlDef, type ControlKey, type SubControlDef, type SubKey, type SubKeyOf } from '../params';
 import { CATEGORIES } from './pages';
-import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Diagonals, Dots, Fill, GForm, IForm, JForm, KForm, MForm, Mirror, Params, QForm, RForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from '../params';
+import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, CellJoin, Diagonals, GridRows, Dots, Fill, GForm, IForm, JForm, KForm, MForm, Mirror, Params, QForm, RForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from '../params';
 
 export type { CategoryId, ControlKey } from '../params';
 
@@ -30,19 +30,26 @@ const subsOf = <P extends ControlKey>(parent: P) => Object.fromEntries(PARAM_KEY
   const { parent: _, ...def } = s;
   return [[k, def]];
 })) as Record<SubKeyOf<P>, SubControlDef>;
-/** The controls that shape letters built from blocks, by kind of blocks (blockForm): the slot blocks' (blocks.ts) size, weight and
+/** The controls that shape letters built from blocks, by kind of blocks (blockForm): every kind's size, weight and
     corners, the hand, spacing and the effects that run on any outline; the basic block letters' (basic-blocks.ts)
     also their contrast, bowls, peaks and steps, the crossbars' height and how open C S G are, and the lowercase's
-    ascenders and descenders; the grid letters' (grid-blocks.ts) the slot blocks' but the x-height. The rest shape
-    strokes, which blocks don't have. */
+    ascenders and descenders; the slot blocks' (blocks.ts) and the grid letters' (grid-blocks.ts) their contrast and
+    the corners cut alike (block-corners.ts: Facets, Steps, Ink traps) and Stencil (counters cut open, cells drawn
+    apart), the slot blocks' also the size of their slots and counters (Inner space), how deep their slots run
+    (Openness) and the bars' height, the grid letters' how their cells meeting at a corner join; and the letter forms
+    each draws (blocks.ts: I, J, M, Q and the dots; GRID_FORMS in grid-blocks.ts). The rest shape strokes, which
+    blocks don't have. */
 const SLOT_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'roundness', 'mirror', 'wobble',
   'xHeight', 'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice', 'rough'];
+const CUT_CONTROLS: readonly ControlKey[] = ['contrast', 'chamfer', 'steps', 'joints', 'stencil'];
 export const BLOCK_CONTROLS: Record<BlockForm, readonly ControlKey[]> = {
   basic: [...SLOT_CONTROLS, 'contrast', 'bowlForm', 'apex', 'steps', 'crossbar', 'aperture', 'extenders', 'descender'],
-  slots: SLOT_CONTROLS,
+  slots: [...SLOT_CONTROLS, ...CUT_CONTROLS, 'counter', 'aperture', 'crossbar', 'iForm', 'jForm', 'mForm', 'qForm', 'dots'],
   // grid letters stand on the same five cells in either case, so the x-height doesn't reach them
-  grid: SLOT_CONTROLS.filter(k => k !== 'xHeight')
+  grid: [...SLOT_CONTROLS.filter(k => k !== 'xHeight'), ...CUT_CONTROLS, 'cellJoin', 'gridRows', 'story', 'kForm', 'iForm', 'jForm', 'mForm', 'qForm', 'rForm', 'yForm', 'sForm', 'dots']
 };
+/** On seven rows (Grid rows) the grid letters' small letters have an x-height, ascenders and descenders to set. */
+const GRID7_CONTROLS: readonly ControlKey[] = ['xHeight', 'extenders', 'descender'];
 /** The controls that shape the arc letters (arcs.ts): their size, weight, contrast and pinch, Width stretching every cut
     of the circle at once, Squareness squaring it off, Curves and Facets as on any curve; the x-height, the ascenders
     and descenders, the bars' height (Crossbar height), the tails (Tails & hooks), how far the open bowls run round
@@ -53,9 +60,10 @@ export const ARC_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height',
   'overlap', 'xHeight', 'extenders', 'descender', 'crossbar', 'tail', 'aperture', 'terminal', 'roundness', 'dots', 'mirror', 'wobble',
   'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice', 'rough'];
 /** Whether control `k` shapes letters built as `p` says: letters built from blocks take their kind's BLOCK_CONTROLS
-    alone, letters built from arcs ARC_CONTROLS, strokes every control. */
-export const controlInUse = (k: ControlKey, p: Pick<Params, 'build' | 'blockForm'>) =>
-  p.build === 'blocks' ? BLOCK_CONTROLS[p.blockForm].includes(k) : p.build === 'arcs' ? ARC_CONTROLS.includes(k) : true;
+    alone (grid letters on seven rows GRID7_CONTROLS too), letters built from arcs ARC_CONTROLS, strokes every control. */
+export const controlInUse = (k: ControlKey, p: Pick<Params, 'build' | 'blockForm'> & { gridRows?: GridRows }) =>
+  p.build === 'blocks' ? BLOCK_CONTROLS[p.blockForm].includes(k) || (p.blockForm === 'grid' && p.gridRows === 'seven' && GRID7_CONTROLS.includes(k))
+    : p.build === 'arcs' ? ARC_CONTROLS.includes(k) : true;
 const PAGES = new Map<string, typeof CATEGORIES>();
 /** The pages, in order, with something to shape in letters built as `p` says: the Style page and each page holding a
     control in use. Letters built from blocks have no stroke ends, serifs or other letter forms, so those pages go (and
@@ -126,7 +134,7 @@ const ALL_SUBS = { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERI
 export const SUBS = ALL_SUBS as Record<SubKey, SubControlDef>;
 export const STORY_OPTIONS: [Exclude<Story, 'auto'>, string][] = [['double', 'Double'], ['single', 'Single']];
 /** The letter-shape pickers: each option is drawn as the letter `ch` in that shape. */
-export type FormKey = 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm' | 'apexForm' | 'mForm' | 'jForm';
+export type FormKey = 'mirror' | 'gForm' | 'kForm' | 'iForm' | 'sForm' | 'diagonals' | 'yForm' | 'qForm' | 'rForm' | 'bowlForm' | 'bends' | 'bowlJoin' | 'dots' | 'terminalRun' | 'aForm' | 'apexForm' | 'mForm' | 'jForm' | 'cellJoin' | 'gridRows';
 // (a control of type 'form' draws its shapes from FORM_OPTIONS, so each needs its entry)
 type FormControl = { [K in ControlKey]: (typeof SPECS)[K] extends { control: { type: 'form' } } ? K : never }[ControlKey];
 ({}) as { [K in Exclude<FormControl, FormKey>]: K } satisfies Record<string, never>;
@@ -148,7 +156,9 @@ export const FORM_OPTIONS: { [K in FormKey]: { ch: string; options: [Exclude<Par
   terminalRun: { ch: 'c', options: [['curved', 'Curved'], ['straight', 'Straight']] as [TerminalRun, string][] },
   bowlJoin: { ch: 'd', options: [['curved', 'Curved'], ['square', 'Square']] as [BowlJoin, string][] },
   dots: { ch: 'i', options: [['square', 'Square'], ['round', 'Round']] as [Exclude<Dots, 'auto'>, string][] },
-  aForm: { ch: 'a', options: [['plain', 'Plain'], ['spur', 'Spur']] as [AForm, string][] }
+  aForm: { ch: 'a', options: [['plain', 'Plain'], ['spur', 'Spur']] as [AForm, string][] },
+  cellJoin: { ch: 'x', options: [['nodes', 'Nodes'], ['diagonal', 'Diagonal'], ['pixel', 'Pixel']] as [CellJoin, string][] },
+  gridRows: { ch: 'g', options: [['five', 'Five'], ['seven', 'Seven']] as [GridRows, string][] }
 };
 export const FILL_OPTIONS: [Fill, string][] = [['solid', 'Solid'], ['wire', 'Wireframe'], ['pixels', 'Pixels'], ['hex', 'Hexagons'], ['dots', 'Dots'], ['blobs', 'Blobs'],
   ['liquid', 'Liquid'], ['halftone', 'Halftone'], ['lines', 'Lines'], ['inline', 'Inline'], ['outline', 'Outline'], ['shadow', 'Shadow']];

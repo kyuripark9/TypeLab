@@ -46,6 +46,19 @@ function engineProbes(): [string, Params][] {
   out.push(['blocks=slots,weight=1,roundness=1', { ...DEFAULTS, build: 'blocks', blockForm: 'slots', weight: 1, roundness: 1 }]);
   out.push(['blocks=grid,weight=1,roundness=1', { ...DEFAULTS, build: 'blocks', blockForm: 'grid', weight: 1, roundness: 1 }]);
   out.push(['blocks=grid,weight=0,width=0', { ...DEFAULTS, build: 'blocks', blockForm: 'grid', weight: 0, width: 0, roundness: 0.5 }]);
+  // the slot and grid blocks' settings at their ends: contrast, slots and counters, bars, cut corners and the stencil
+  const slots = { ...DEFAULTS, build: 'blocks', blockForm: 'slots', weight: 0.6, roundness: 1, joinRound: 0.5 } as Params;
+  const grid = { ...DEFAULTS, build: 'blocks', blockForm: 'grid', roundness: 1 } as Params;
+  out.push(['slots,contrast=1,counter=1,aperture=1,crossbar=1', { ...slots, contrast: 1, counter: 1, aperture: 1, crossbar: 1 }]);
+  out.push(['slots,contrast=0,counter=0,aperture=0,crossbar=0', { ...slots, contrast: 0, counter: 0, aperture: 0, crossbar: 0, weight: 1 }]);
+  out.push(['slots,steps=1,joints=1,chamfer=0.5,innerRound=1', { ...slots, steps: 1, joints: 1, chamfer: 0.5, innerRound: 1 }]);
+  out.push(['slots,stencil=0.6,stencilPos=1,stencilRound=1', { ...slots, stencil: 0.6, stencilPos: 1, stencilRound: 1 }]);
+  out.push(['grid,contrast=1,vWeight=1,joinRound=1,steps=1', { ...grid, contrast: 1, vWeight: 1, joinRound: 1, steps: 1 }]);
+  out.push(['grid,diagonal,joints=1,chamfer=1,innerRound=1', { ...grid, cellJoin: 'diagonal', joints: 1, chamfer: 1, roundness: 0.3, innerRound: 1 }]);
+  out.push(['grid,pixel,contrast=0,hWeight=1', { ...grid, cellJoin: 'pixel', contrast: 0, hWeight: 1, roundness: 0 }]);
+  out.push(['grid,stencil=0.7,stencilRound=1', { ...grid, stencil: 0.7, stencilRound: 1, weight: 0.7 }]);
+  out.push(['slots,forms', { ...slots, iForm: 'bars', jForm: 'cup', mForm: 'raised', qForm: 'sweep', dots: 'round', dotSize: 1 }]);
+  out.push(['grid,forms', { ...grid, story: 'single', kForm: 'bar', iForm: 'bars', jForm: 'cup', mForm: 'raised', qForm: 'inside', rForm: 'loop', yForm: 'cup', sForm: 'flat', dots: 'square', dotSize: 0 }]);
   // the arc letters at their ends: Length run on round the circle and cut back, squared off, stretched and heavy
   out.push(['arcs,terminalLength=1,squareness=1,width=1', { ...DEFAULTS, build: 'arcs', terminalLength: 1, squareness: 1, width: 1 }]);
   out.push(['arcs,terminalLength=0,weight=1,width=0', { ...DEFAULTS, build: 'arcs', terminalLength: 0, weight: 1, width: 0, terminal: 'round' }]);

@@ -82,10 +82,10 @@ function openSetting(h: SettingHit) {
 export function Nav() {
   const category = useEditor(s => s.category);
   // letters built from blocks or arcs leave out the pages and settings that shape strokes
-  const build = useEditor(s => s.params.build), blockForm = useEditor(s => s.params.blockForm), blocks = build === 'blocks';
+  const build = useEditor(s => s.params.build), blockForm = useEditor(s => s.params.blockForm), gridRows = useEditor(s => s.params.gridRows), blocks = build === 'blocks';
   const [query, setQuery] = useState(''), [pick, setPick] = useState(0);
   const found = query.trim() ? findSettings(query, 100) : null;
-  const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm })).slice(0, 12) ?? null;
+  const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm, gridRows })).slice(0, 12) ?? null;
   // the list under the search: the settings found, or the pages
   const list = useRef<HTMLDivElement>(null), rows = navRows(pagesFor({ build, blockForm }));
   useEffect(() => { list.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }, [pick]);
