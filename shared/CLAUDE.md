@@ -79,9 +79,9 @@ bends before apex.
 7. `global` and `free` as above. `free: true` also needs the free-font work in engine/CLAUDE.md (`SKIN_KEYS`,
    `restyled`'s cache key, `FORM_LETTERS` for a letter-form setting) and a `FREE_MOVES` entry in tools/golden.ts; then
    `npm run golden`.
-   If it shapes letters built from blocks, add it to `BLOCK_CONTROLS` (content/controls.ts), under the Block letters
-   it reaches (basic, slots, grid): every other control is hidden while Built from is Blocks, and a page with none of
-   them is left out of the navigation (`pagesFor`). If it shapes a definite part, give it a case in `highlightD` or a `RINGS` entry
+   If it shapes letters built from blocks or arcs, add it to `BLOCK_CONTROLS` (content/controls.ts), under the kinds
+   of blocks it reaches (basic, slots, grid), or to `ARC_CONTROLS`: every other control is hidden on those letters, and
+   a page with none of them is left out of the navigation (`pagesFor`). If it shapes a definite part, give it a case in `highlightD` or a `RINGS` entry
    (engine/highlight.ts), or the explainer, inspector and preview light nothing up for it.
 8. Words people use for it that its copy lacks go in `ALSO` (`content/search.ts`).
 9. `npm run typecheck` (the compile checks above are types only; `npm test` runs through tsx and doesn't check them).
@@ -129,12 +129,15 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
 
 - **Styles** (`content/styles.ts`): `style(id, group, kinds, name, moods, like, desc, params)`, its params laid over
   `DEFAULTS`. Ids never change and never leave `STYLES`: saved designs and `?style=` links name them, and the API
-  refuses a design whose `styleId` isn't known. `PAGE_ORDER` picks the 22 cards (`PAGE_STYLES`), all solid letters,
-  each written in one of TypeLab's own fonts: Block (`block`, Category Blocks) in Bulwark, the engine's basic block
-  letters made a font (so every setting reaches it as it reaches the other cards; Built from: Blocks gives the block
-  letters themselves, plain, slotted or on a grid). Slot Blocks (`slotblocks`) stays in STYLES off the page. Every
-  style keys `STYLE_FONTS` but those built from blocks, which no font draws (their card draws the
-  engine's letters, `client/components/BuiltText.tsx`). `tools/fit/apply.ts` rewrites a style's params
+  refuses a design whose `styleId` isn't known. `PAGE_ORDER` picks the 25 cards (`PAGE_STYLES`), all solid letters,
+  each written in one of TypeLab's own fonts but those built from blocks or arcs: Block (`block`, Category Blocks) in
+  Bulwark, the engine's basic block letters made a font (so every setting reaches it as it reaches the other cards).
+  Slot Blocks (`slotblocks`) and Grid Blocks (`gridblocks`) under Blocks, and Arcs (`arcs`, Category Arcs), are the
+  only way to letters built from blocks or arcs: `build` and `blockForm` have no control, since a change of build is
+  new letters with nothing of the style left (`startStyle` names an older design built otherwise than its style after
+  the card of its letters, in the header and on the cards). Every style keys `STYLE_FONTS` but those built from blocks
+  or arcs, which no font draws (their card draws the engine's letters, `client/components/BuiltText.tsx`, and the Arcs
+  chip `BuiltWord`). `tools/fit/apply.ts` rewrites a style's params
   object in place, finding `style('<id>',` by text and its params as the first `{` outside quotes: keep that layout,
   with the style's own letters under `glyphs:` inside it. tests/styles.test.ts and tests/free-fonts.test.ts check the
   cards, Feelings and fonts.
@@ -144,7 +147,7 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
 - **Controls** (`content/controls.ts`): `CONTROLS` and `SUBS` come from the specs; `FORM_OPTIONS` (each shape drawn as
   a letter `ch`), the option label lists, `TERMINAL_SHAPES` (every kind and form of stroke end as one list, in
   families; tests/pages.test.ts checks each is there once), `TERMINAL_DETAILS`, `SERIF_SIZES`, `SERIF_DETAILS`,
-  `SERIF_TIP_DETAILS`; `BLOCK_CONTROLS` (all that shows while Built from is Blocks, by Block letters), `controlInUse`
+  `SERIF_TIP_DETAILS`; `BLOCK_CONTROLS` and `ARC_CONTROLS` (all that shows on letters built from blocks, by kind, or from arcs), `controlInUse`
   and `pagesFor` (the controls and pages a design's letters take: the navigation, the page steps and Find a setting
   offer only those); `PART_CONTROL`
   (anatomy part to the control that shapes it); `controlFor` (a sub to its parent).

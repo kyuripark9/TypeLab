@@ -46,6 +46,9 @@ function engineProbes(): [string, Params][] {
   out.push(['blocks=slots,weight=1,roundness=1', { ...DEFAULTS, build: 'blocks', blockForm: 'slots', weight: 1, roundness: 1 }]);
   out.push(['blocks=grid,weight=1,roundness=1', { ...DEFAULTS, build: 'blocks', blockForm: 'grid', weight: 1, roundness: 1 }]);
   out.push(['blocks=grid,weight=0,width=0', { ...DEFAULTS, build: 'blocks', blockForm: 'grid', weight: 0, width: 0, roundness: 0.5 }]);
+  // the arc letters at their ends: Length run on round the circle and cut back, squared off, stretched and heavy
+  out.push(['arcs,terminalLength=1,squareness=1,width=1', { ...DEFAULTS, build: 'arcs', terminalLength: 1, squareness: 1, width: 1 }]);
+  out.push(['arcs,terminalLength=0,weight=1,width=0', { ...DEFAULTS, build: 'arcs', terminalLength: 0, weight: 1, width: 0, terminal: 'round' }]);
   // the settings only basic blocks follow, at their ends
   out.push(['blocks,contrast=1,steps=1,box', { ...DEFAULTS, build: 'blocks', contrast: 1, steps: 1, bowlForm: 'box', apex: 1, innerRound: 1, joinRound: 1 }]);
   out.push(['blocks,weight=0,contrast=0', { ...DEFAULTS, build: 'blocks', weight: 0, contrast: 0, apex: 0, xHeight: 1, extenders: 1, descender: 1 }]);

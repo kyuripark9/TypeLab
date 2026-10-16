@@ -1,4 +1,4 @@
-/* Block letters (Built from: Blocks).
+/* Slot block letters (the Slot Blocks card: build 'blocks', blockForm 'slots').
    Each letter is a solid block, its corners rounded, with its counters cut in as slots: E is a block
    with two slots running in from the right, O a block with a tall round hole. There is no skeleton;
    every letter is one or more outlines of corners, each with its own radius.

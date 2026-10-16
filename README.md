@@ -102,9 +102,10 @@ and builds exported fonts on the server. A full rebuild of every glyph takes a f
 | `ends.ts`, `corners.ts`, `joins.ts`, `stencil.ts`, `serif-sides.ts` | Stroke ends (length, curl, straight runs), corners and steps, inside-corner fillets, stencil gaps, which way serifs reach and cupped serifs |
 | `effects.ts`, `boolean.ts` | Whole-outline effects (the slice; the wireframe, pixel, hexagon, dot, blob, halftone, line, inline, outline and shadow fills, and how far a grid fill's cells spread), and the unions and cuts they need |
 | `rough.ts` | Rough edges: the finished outline's edges wandering in and out, as worn print does, on any fill |
-| `basic-blocks.ts` | Block letters, the default kind: plain, even blocks of the ordinary shapes with a real lowercase (*Built from: Blocks*, *Block letters: Basic*) |
-| `blocks.ts` | Slot block letters: solid rounded blocks with their counters cut in as slots (*Block letters: Slots*) |
-| `grid-blocks.ts` | Grid letters: every character cells on a grid five high, all corners round, strokes meeting at a corner joined through a neck (*Block letters: Grid*) |
+| `basic-blocks.ts` | Block letters, the default kind: plain, even blocks of the ordinary shapes with a real lowercase (`blockForm: 'basic'`; the Block card's Bulwark is made of them) |
+| `blocks.ts` | Slot block letters: solid rounded blocks with their counters cut in as slots (the Slot Blocks card) |
+| `grid-blocks.ts` | Grid letters: every character cells on a grid five high, all corners round, strokes meeting at a corner joined through a neck (the Grid Blocks card) |
+| `arcs.ts` | Arc letters: every letter a few cuts of one circle, drawn as centreline strokes (the Arcs card) |
 | `outline.ts` | Letters drawn by hand with the pen: anchor points and bézier handles, and the curve fitting that traces a generated letter into them |
 | `grid.ts` | Construction grids: the lines and circles a letter is built on, and the groups of letters that share a grid |
 | `free.ts`, `free-letters.ts` | Free fonts' letters: registered fonts, and a design's letters drawn from its free font (nearest weight, the twin for other forms) |

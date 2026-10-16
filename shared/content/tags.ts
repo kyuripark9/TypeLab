@@ -10,11 +10,13 @@ import type { StyleDef } from './styles';
    sorts the cards on the stage and is the panel's first filter. Then come the finer
    Classification tags (Sans Serif, Serif and Calligraphy, in the order of the card groups) and
    Appearance, both of which search reads, and Feeling, the panel's other filter. Blocks are the letters built from
-   blocks (Built from, see shared/engine/blocks.ts) rather than strokes. Like a Feeling, a Category's chip names it
+   blocks (shared/engine/blocks.ts) and Arcs those cut from one circle (arcs.ts) rather than strokes, a build only
+   their cards start. Like a Feeling, a Category's chip names it
    in the own font of the card of that kind that shows it best (`card`, a style id): Slab Serif in the wood type,
    whose slabs show at a chip's size, Monospace in the typewriter, Calligraphy in the retro script rather than the
-   formal one, whose hairlines a chip loses. Display has no card on the page, so no chip and no font. */
-export type StyleGroup = 'sans' | 'serif' | 'slab' | 'mono' | 'hand' | 'blocks' | 'display';
+   formal one, whose hairlines a chip loses; Arcs in the engine's arc letters, no font standing behind them. Display has
+   no card on the page, so no chip and no font. */
+export type StyleGroup = 'sans' | 'serif' | 'slab' | 'mono' | 'hand' | 'blocks' | 'arcs' | 'display';
 export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string; card?: string }[] = [
   { id: 'sans', label: 'Sans Serif', hint: 'Clean letters with no serifs', card: 'grotesque' },
   { id: 'serif', label: 'Serif', hint: 'Small finishing strokes on each letter', card: 'serif' },
@@ -22,6 +24,7 @@ export const STYLE_GROUPS: { id: StyleGroup; label: string; hint: string; card?:
   { id: 'mono', label: 'Monospace', hint: 'Every letter takes the same width', card: 'typewriter' },
   { id: 'hand', label: 'Calligraphy', hint: 'Drawn by hand with a pen or brush', card: 'informal' },
   { id: 'blocks', label: 'Blocks', hint: 'Solid block letters: plain, with slot counters, or cells on a grid', card: 'block' },
+  { id: 'arcs', label: 'Arcs', hint: 'Every letter cut from one circle', card: 'arcs' },
   { id: 'display', label: 'Display', hint: 'Decorative, made for headlines' }
 ];
 export type Mood = 'business' | 'calm' | 'sincere' | 'happy' | 'excited' | 'playful' | 'cute' | 'childlike' | 'fancy' | 'sophisticated'

@@ -3,7 +3,7 @@
    (v w V W on the baseline, no gap after a curled Q). */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { FEELINGS, KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, STYLES } from '../shared/content';
+import { FEELINGS, KIND_SECTIONS, MOODS, PAGE_STYLES, STYLE_GROUPS, STYLES, startStyle } from '../shared/content';
 import { buildFont } from '../shared/engine';
 import { isOwnFont, parseFontId, STYLE_FONTS } from '../shared/free-fonts';
 import { isValidParams } from '../shared/params';
@@ -48,11 +48,26 @@ describe('style page', () => {
     }
   });
 
-  it('names each Category on the page in the own font of a card of that kind', () => {
+  it('names each Category on the page in the own font of a card of that kind, or its letters where no font stands behind it', () => {
     for (const g of STYLE_GROUPS.filter(g => PAGE_STYLES.some(s => s.group === g.id))) {
-      assert.equal(PAGE_STYLES.find(s => s.id === g.card)?.group, g.id, `${g.id}: ${g.card}`);
-      assert.ok(isOwnFont(parseFontId(STYLE_FONTS[g.card!])!.family), `${g.id}: ${STYLE_FONTS[g.card!]}`);
+      const card = PAGE_STYLES.find(s => s.id === g.card);
+      assert.equal(card?.group, g.id, `${g.id}: ${g.card}`);
+      if (card!.params.build !== 'strokes') assert.equal(STYLE_FONTS[g.card!], undefined, g.id);
+      else assert.ok(isOwnFont(parseFontId(STYLE_FONTS[g.card!])!.family), `${g.id}: ${STYLE_FONTS[g.card!]}`);
     }
+  });
+
+  it('starts each build of letters from a card of its own, and names a design after the letters it is built from', () => {
+    for (const [build, blockForm, id] of [['arcs', 'basic', 'arcs'], ['blocks', 'slots', 'slotblocks'], ['blocks', 'grid', 'gridblocks']] as const) {
+      const card = PAGE_STYLES.find(s => s.id === id);
+      assert.ok(card && card.params.build === build && (build !== 'blocks' || card.params.blockForm === blockForm), id);
+      // a design saved from another style while Built from was still a control
+      assert.equal(startStyle('geometric', { build, blockForm })?.id, id);
+      assert.equal(startStyle(id, { build, blockForm })?.id, id);
+    }
+    // the basic block letters' card is Bulwark, the font made of them
+    assert.equal(startStyle('geometric', { build: 'blocks', blockForm: 'basic' })?.id, 'block');
+    assert.equal(startStyle('geometric', { build: 'strokes', blockForm: 'basic' })?.id, 'geometric');
   });
 });
 

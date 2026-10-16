@@ -5,7 +5,7 @@
    sample text, both for the style cards and for the live preview of the design. The size only shows with the
    preview: the cards are for comparing styles, so every card in a layout keeps one size. */
 import { useDeferredValue, useRef, useState } from 'react';
-import { MOODS, PAGE_STYLES, STYLE_GROUPS, styleById, type StyleDef } from '../../shared/content';
+import { MOODS, PAGE_STYLES, STYLE_GROUPS, startStyle, type StyleDef } from '../../shared/content';
 import { parseFontId, STYLE_FONTS, type FreeFontRef } from '../../shared/free-fonts';
 import { fontStyle, textWidth, useWebFont } from '../lib/free';
 import { useSize } from '../lib/hooks';
@@ -145,7 +145,7 @@ function StyleCards() {
   // new traits re-filter the cards a moment after the panel answers; the cards dim until they catch up
   const traits = useDeferredValue(now);
   const shown = PAGE_STYLES.filter(s => matches(s, {}, traits));
-  const current = useEditor(s => styleById(s.styleId));
+  const current = useEditor(s => startStyle(s.styleId, s.params));
   const refocus = () => head.current?.focus();
   return (
     <>
@@ -235,14 +235,14 @@ function wordFit(font: FreeFontRef | null, text: string, width: number, size: nu
 }
 
 /** A style's card: the sample text set in its free font, as the browser draws the font, or, for a style no font
-    stands behind (built from blocks), in the engine's letters; typed text in the grid (`clamp`) cut to GRID_LINES lines. */
+    stands behind (built from blocks or arcs), in the engine's letters; typed text in the grid (`clamp`) cut to GRID_LINES lines. */
 function StyleCard({ style: s, text, view, clamp }: { style: StyleDef; text: string; view: CardView; clamp: boolean }) {
   const id = STYLE_FONTS[s.id];
-  const on = useEditor(st => st.styleId === s.id && (!id || !!st.params.freeFont));
+  const on = useEditor(st => startStyle(st.styleId, st.params) === s && (!id || !!st.params.freeFont));
   const font = useWebFont(id), [ref, box] = useSize<HTMLSpanElement>();
   return (
     <button className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
-      <span className="card-name">{s.name}<span className="card-like">{id ? parseFontId(id)?.family : 'Built from blocks'}</span></span>
+      <span className="card-name">{s.name}<span className="card-like">{id ? parseFontId(id)?.family : `Built from ${s.params.build}`}</span></span>
       {id
         ? <span ref={ref} className={`card-free${font ? '' : ' loading'}${clamp ? ' clamp' : ''}`} style={{ ...(font && fontStyle(font)), fontSize: wordFit(font, text, box.width, CARD_SIZE[view]) }}>{text}</span>
         : <BuiltText className="card-free" params={s.params} text={text} size={CARD_SIZE[view]} lines={view === 'grid' ? GRID_LINES : undefined} />}

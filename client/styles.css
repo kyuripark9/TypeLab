@@ -345,8 +345,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer
    never runs past two lines, goes unclamped */
 .card-free.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .card-free.loading { visibility: hidden; }
-/* a style no font stands behind (built from blocks), its card in the engine's letters (BuiltText) */
+/* a style no font stands behind (built from blocks or arcs), its card in the engine's letters (BuiltText), and its
+   name on a chip (BuiltWord) */
 .built svg { display: block; fill: currentColor; overflow: visible; }
+.built-word { display: inline-block; fill: currentColor; overflow: visible; }
 /* while the cards catch up with a new trait, they dim a little */
 .style-groups { transition: opacity .15s; }
 .style-groups.stale { opacity: .55; }

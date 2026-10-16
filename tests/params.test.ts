@@ -111,7 +111,7 @@ describe('block letters', () => {
     assert.deepEqual(upgradeParams({ build: 'blocks', weight: 0.6 }, 2), { build: 'blocks', weight: 0.6, blockForm: 'slots' });
     assert.deepEqual(upgradeParams({ glyphs: { E: { build: 'blocks' } } }, 2), { glyphs: { E: { build: 'blocks' } }, blockForm: 'slots' });
     assert.deepEqual(upgradeParams({ build: 'strokes' }, 2), { build: 'strokes' });
-    // written since, a design built from blocks without a Block letters of its own has the basic ones
+    // written since, a design built from blocks without a blockForm of its own has the basic ones
     assert.deepEqual(upgradeParams({ build: 'blocks' }, PARAMS_VERSION), { build: 'blocks' });
     assert.equal(sanitizeParams({ build: 'blocks' }).blockForm, 'basic');
   });

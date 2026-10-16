@@ -75,8 +75,9 @@ export const M_FORMS = ['full', 'raised'] as const;
 /** The J: its foot hooking out to the left, or a cup whose left side rises half the cap height, its end serifed inward
     while the serifs are on. */
 export const J_FORMS = ['hook', 'cup'] as const;
-/** What the letters are built from: strokes drawn along a skeleton, or solid blocks (see BLOCK_FORMS). */
-export const BUILDS = ['strokes', 'blocks'] as const;
+/** What the letters are built from: strokes drawn along a skeleton, solid blocks (see BLOCK_FORMS), or arcs cut from
+    one circle (arcs.ts). */
+export const BUILDS = ['strokes', 'blocks', 'arcs'] as const;
 /** Which block letters Blocks builds: plain block letters with a real lowercase (basic-blocks.ts), solid blocks with
     their counters cut in as slots, after a 70s poster face, the lowercase as small capitals (blocks.ts), or letters of
     cells on a grid five high, every corner round and the empty cells round nodes (grid-blocks.ts). */

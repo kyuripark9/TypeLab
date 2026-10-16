@@ -64,11 +64,11 @@ export function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { 
 }
 
 /** The crossbars' Gap and where it opens: at the bar's ends, or above and below it with the bar run
-    through the strokes it meets. Picking a way while the bars are joined opens a gap to show it. Block letters
-    have no joins to open, so they show neither (their crossbars still move with Crossbar height). */
+    through the strokes it meets. Picking a way while the bars are joined opens a gap to show it. Block and arc
+    letters have no joins to open, so they show neither (their crossbars still move with Crossbar height). */
 export function BarEndsControl() {
-  const ends = useParam('barEnds'), gap = useParam('barGap'), blocks = useParam('build') === 'blocks';
-  if (blocks) return null;
+  const ends = useParam('barEnds'), gap = useParam('barGap'), joined = useParam('build') === 'strokes';
+  if (!joined) return null;
   return (
     <>
       <div className="sub-label">Ends</div>

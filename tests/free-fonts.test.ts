@@ -60,11 +60,11 @@ function googleFonts(file = fontFile()) {
 }
 
 describe('free fonts', () => {
-  it('give every style a font that is one of the families, in a weight it comes in, all but those built from blocks', () => {
-    // styles off the page too: a design saved from one can still be written in its free font; no font draws blocks
+  it('give every style a font that is one of the families, in a weight it comes in, all but those built from blocks or arcs', () => {
+    // styles off the page too: a design saved from one can still be written in its free font; no font draws blocks or arcs
     for (const s of STYLES) {
       const id = STYLE_FONTS[s.id];
-      if (s.params.build === 'blocks') { assert.equal(id, undefined, `${s.id} is built from blocks`); continue; }
+      if (s.params.build !== 'strokes') { assert.equal(id, undefined, `${s.id} is built from ${s.params.build}`); continue; }
       assert.ok(id, `${s.id} has a free font`);
       assert.ok(parseFontId(id), `${s.id}'s ${id} is a font the families have`);
     }
@@ -317,8 +317,8 @@ describe("TypeLab's own fonts", () => {
 
   it('write every card of the Style page in one, each kept in fonts/ with every letter, under the Open Font License', async () => {
     const fonts = new FreeFonts(null, noFetch), used = new Set<string>();
-    // (but a card built from blocks, which no font draws)
-    for (const st of PAGE_STYLES.filter(s => s.params.build !== 'blocks')) {
+    // (but a card built from blocks or arcs, which no font draws)
+    for (const st of PAGE_STYLES.filter(s => s.params.build === 'strokes')) {
       const id = STYLE_FONTS[st.id], r = parseFontId(id);
       assert.ok(r && isOwnFont(r.family), `${st.id} is written in one of TypeLab's own fonts`);
       used.add(r.family);

@@ -1,5 +1,5 @@
 /* Text set in the letters the engine builds from a style's settings, for a style no font stands behind (one built
-   from blocks): its card on the Style page draws it so, where every other style shows its font as a web font. It is sized as that text is: `size` px to the em (the engine's 1000 units), lines LINE em
+   from blocks or arcs): its card on the Style page draws it so, where every other style shows its font as a web font. It is sized as that text is: `size` px to the em (the engine's 1000 units), lines LINE em
    apart, each line's letters centred in it as the browser centres a font's. */
 import { memo } from 'react';
 import type { Params } from '../../shared/params';
@@ -39,5 +39,22 @@ export const BuiltText = memo(function BuiltText({ params, text, size, lines: mo
         </svg>
       )}
     </span>
+  );
+});
+
+/** `text` on one line in the letters `params` build, set inline in the text around it as a font would be: an em to the
+    engine's 1000 units, or with `adjust` the x-height that share of an em (as CSS font-size-adjust sets a font's),
+    standing on the baseline. A style's name on a chip, where no font stands behind the style. */
+export const BuiltWord = memo(function BuiltWord({ params, text, adjust }: { params: Params; text: string; adjust?: number }) {
+  const f = fontFor(params), top = Math.max(f.m.asc, f.m.cap), bottom = -f.m.desc;
+  const ln = f.layout(text, Infinity)[0], w = ln?.width ?? 0, em = adjust ? adjust / f.m.xh : 1 / 1000;
+  return (
+    <svg className="built-word" viewBox={`0 ${n1(-top)} ${n1(w)} ${n1(top + bottom)}`} role="img" aria-label={text}
+      style={{ width: `${n1(w * em * 100) / 100}em`, height: `${n1((top + bottom) * em * 100) / 100}em`, verticalAlign: `${-n1(bottom * em * 100) / 100}em` }}>
+      {ln?.items.map((it, j) => {
+        const g = f.glyph(it.ch);
+        return g && <path key={j} d={g.d} transform={`translate(${n1(it.x)},0)`} />;
+      })}
+    </svg>
   );
 });

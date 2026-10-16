@@ -81,7 +81,7 @@ function openSetting(h: SettingHit) {
 
 export function Nav() {
   const category = useEditor(s => s.category);
-  // letters built from blocks leave out the pages and settings that shape strokes
+  // letters built from blocks or arcs leave out the pages and settings that shape strokes
   const build = useEditor(s => s.params.build), blockForm = useEditor(s => s.params.blockForm), blocks = build === 'blocks';
   const [query, setQuery] = useState(''), [pick, setPick] = useState(0);
   const found = query.trim() ? findSettings(query, 100) : null;
@@ -127,7 +127,7 @@ export function Nav() {
               </span>
             </button>
           )) : <p className="nav-empty">{found?.length
-            ? `Letters built from blocks have no setting for “${query.trim()}”.`
+            ? `Letters built from ${build} have no setting for “${query.trim()}”.`
             : `No setting matches “${query.trim()}”. Try a word like bold, italic, ${blocks ? 'round' : 'serif'} or spacing.`}</p>}
         </div>
       ) : (

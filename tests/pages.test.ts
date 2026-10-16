@@ -64,9 +64,14 @@ describe('editor pages', () => {
       for (const id of ['ends', 'serifs', 'letters']) assert.ok(!ids.includes(id as CategoryId), `${blockForm} ${id}`);
       // a page left out always has one before it to give way to
       assert.equal(ids[1], 'weight', blockForm);
-      assert.ok(controlInUse('blockForm', { build: 'blocks', blockForm }) && controlInUse('build', { build: 'blocks', blockForm }), blockForm);
     }
-    assert.ok(!controlInUse('blockForm', { build: 'strokes', blockForm: 'basic' }));
+    // letters built from arcs keep their ends, their heights and their openness but have no serifs; of the letter
+    // forms only their dots
+    const arcs = pagesFor({ build: 'arcs', blockForm: 'basic' }).map(c => c.id);
+    assert.ok(['ends', 'heights', 'insides'].every(id => arcs.includes(id as CategoryId)) && !arcs.includes('serifs'), arcs.join());
+    assert.deepEqual(controls.filter(k => CONTROLS[k].cat === 'letters' && controlInUse(k, { build: 'arcs', blockForm: 'basic' })), ['dots']);
+    // what the letters are built from comes with the style they start from: no control changes it
+    assert.ok(!('build' in CONTROLS) && !('blockForm' in CONTROLS));
   });
 
   it('opens the page a link names: a page, a group on its first page, or the page an older link\'s group name (OLD_GROUPS) now maps to', () => {

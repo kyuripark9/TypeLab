@@ -8,6 +8,7 @@ import type { Params } from '../../../shared/params';
 import { fontStyle, useWebFont } from '../../lib/free';
 import { n1, PHONE_QUERY } from '../../lib/hooks';
 import { actions, adjustedParams, fontFor, useEditor, useStyleMatch, type StyleTab } from '../../state/editor';
+import { BuiltWord } from '../BuiltText';
 import { TRAIT_SECTIONS, type TraitDef } from '../../../shared/traits';
 
 /** The Filter tab's search box. */
@@ -217,10 +218,22 @@ function Categories() {
   );
 }
 
+/** The weight a card's letters are drawn at on a chip at least: the arc letters' hairline goes grey at its size. */
+const CHIP_WEIGHT = 0.45;
+const chips = new WeakMap<Params, Params>();
+/** A card's settings for its chip, one object per card, so its letters are built once. */
+function chipParams(p: Params) {
+  let q = chips.get(p);
+  if (!q) chips.set(p, q = { ...p, weight: Math.max(p.weight, CHIP_WEIGHT) });
+  return q;
+}
+
 /** A Category's or a Feeling's name in the own font of the card that says it best (STYLE_GROUPS, MOODS), the UI's face
-    standing in until it comes: on its chip, and on the stage's bar of what is picked. */
+    standing in until it comes, or in the engine's letters where no font stands behind the card (Arcs): on its chip,
+    and on the stage's bar of what is picked. */
 export function TagName({ label, card }: { label: string; card: string }) {
-  const font = useWebFont(STYLE_FONTS[card]);
+  const id = STYLE_FONTS[card], font = useWebFont(id), built = id ? undefined : styleById(card);
+  if (built) return <span className="tag-name"><BuiltWord params={chipParams(built.params)} text={label} adjust={0.5} /></span>;
   return <span className="tag-name" style={font ? fontStyle(font) : undefined}>{label}</span>;
 }
 

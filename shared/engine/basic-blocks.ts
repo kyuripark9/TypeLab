@@ -1,4 +1,4 @@
-/* Basic block letters (Built from: Blocks, Block letters: Basic).
+/* Basic block letters (build 'blocks', blockForm 'basic'; Bulwark, the Block card's font, is made of them).
    Plain, even block letters of the ordinary shapes: an O a box with a box cut out of it, an E a stem with three arms,
    a real lowercase with ascenders and descenders. Like the slot blocks (blocks.ts) there is no skeleton: every letter
    is outlines of corners, y up from the baseline, but here each part is measured from the design, so the letters

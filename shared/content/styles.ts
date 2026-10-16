@@ -23,8 +23,8 @@ const style = (id: string, group: StyleGroup, kinds: Kind[], name: string, moods
 
 /* Ids are stored with saved designs and deep links (?style=), so they never change, even when a style is
    renamed, and never leave STYLES: the API refuses a design whose styleId isn't here (server/app.ts
-   readDesign). Each id keys STYLE_FONTS (shared/free-fonts.ts) unless the style is built from blocks, which no
-   font draws. */
+   readDesign). Each id keys STYLE_FONTS (shared/free-fonts.ts) unless the style is built from blocks or arcs, which
+   no font draws. */
 export const STYLES: StyleDef[] = [
   /* ---- Sans Serif */
   style('geometric', 'sans', ['geometric'], 'Geometric', ['calm', 'business'], 'Poppins, Montserrat, Jost',
@@ -434,16 +434,24 @@ export const STYLES: StyleDef[] = [
       playfulFormal: 0.51 }),
 
   /* ---- Blocks: Block is written in Bulwark, the engine's block letters made a font of TypeLab's own, so every setting
-     reaches it as it reaches the other cards' fonts; the slot blocks are built from blocks (shared/engine/blocks.ts),
-     and no font stands behind them */
+     reaches it as it reaches the other cards' fonts; the slot and grid blocks are built from blocks
+     (shared/engine/blocks.ts, grid-blocks.ts), and no font stands behind them */
   style('block', 'blocks', [], 'Block', ['loud', 'futuristic', 'business'], 'Eurostile, Russo One, Michroma',
-    'Plain, solid block letters: even strokes, square bowls with softly rounded corners, open counters and a real lowercase. Every setting reshapes them, serifs, stroke ends and letter forms too; Built from: Blocks gives letters built from blocks alone, plain, slotted or on a grid.',
+    'Plain, solid block letters: even strokes, square bowls with softly rounded corners, open counters and a real lowercase. Every setting reshapes them, serifs, stroke ends and letter forms too.',
     { weight: 0.7, width: 0.56, contrast: 0.51, hWeight: 0.98, xHeight: 0.76, bowlForm: 'box', boxRound: 0.55, curve: 0.2, overlap: 0.76,
       roundness: 0.42, joinRound: 0.07, apex: 0.81, terminalLength: 0.79, terminalCurl: 0.08, crossbar: 0.54, descender: 0.52, counter: 0.55,
       geoHuman: 0.34, classicFuture: 0.42, story: 'double' }),
   style('slotblocks', 'blocks', [], 'Slot Blocks', ['loud', 'playful', 'futuristic'], 'Bungee, Dela Gothic One, Rammetto One',
     'Solid round-cornered blocks with their counters cut in as narrow slots, after a heavy 70s poster face, the small letters as small capitals. Weight closes the slots up and Roundness softens every corner.',
     { build: 'blocks', blockForm: 'slots', weight: 0.6, roundness: 1, joinRound: 0.5, sideBearing: 0.31 }),
+  style('gridblocks', 'blocks', [], 'Grid Blocks', ['futuristic', 'playful'], 'Silkscreen, Pixelify Sans, Tiny5',
+    'Letters of cells on a grid five high, the small letters as tall as the capitals, every corner round and cells meeting at a corner joined through a neck. Weight thickens every cell and Width stretches it.',
+    { build: 'blocks', blockForm: 'grid', weight: 0.4, roundness: 1, sideBearing: 0.27 }),
+
+  /* ---- Arcs: every letter a few cuts of one circle (shared/engine/arcs.ts); no font stands behind them */
+  style('arcs', 'arcs', [], 'Arcs', ['artistic', 'playful', 'sophisticated'], 'Megrim, Poiret One, Comfortaa',
+    'Every letter cut from one circle: a fine, even line of loops, half turns and three-quarter turns running into their neighbours, with a lowercase and punctuation drawn the same way. Heavier, the loops grow rounder and the letters wider.',
+    { build: 'arcs', weight: 0.2, terminal: 'round', terminalForm: 'round' }),
 
   /* ---- Display (Wood Type is shown with the slab serifs) */
   style('woodtype', 'slab', ['slab'], 'Wood Type', ['rugged', 'vintage', 'loud'], 'Alfa Slab One, Sancreek, Rye',
@@ -609,9 +617,10 @@ export const STYLES: StyleDef[] = [
    and wide, the fat face, the heavy slab, the slab mono and the italic have cards of their own because
    rebuilding them from a nearer card with their own settings breaks their letters up; every other style
    rebuilds cleanly from a card here, and the display looks (box bowls, octagons, pinches, steps,
-   hairlines) are settings over these. Letters built from blocks are a build of their own, with one card under
-   Blocks, the basic block letters (the slot blocks are a pick away, Block letters); there is no font behind it, so
-   its card draws the engine's letters. Every card is solid letters
+   hairlines) are settings over these. Letters built from blocks or arcs are builds of their own, picked only here
+   (no control changes a build): under Blocks, Bulwark, the basic block letters made a font, then the slot and the
+   grid blocks, and under Arcs the arc letters; no font stands behind those, so their cards draw the engine's
+   letters. Every card is solid letters
    (tests/styles.test.ts checks). Styles off the page stay in STYLES, so designs saved from them still open. */
 const PAGE_ORDER = [
   // Sans Serif: the everyday text faces, then rounded and squared, then the wide and the heavy rounded
@@ -622,8 +631,10 @@ const PAGE_ORDER = [
   'code', 'typewriter',
   // Calligraphy: printing, handwriting, a retro and a formal script, and blackletter
   'comic', 'casual', 'informal', 'chancery', 'blackletter',
-  // Blocks: solid block letters
-  'block'
+  // Blocks: solid block letters, plain, slotted and on a grid
+  'block', 'slotblocks', 'gridblocks',
+  // Arcs: letters cut from one circle
+  'arcs'
 ];
 export const PAGE_STYLES = PAGE_ORDER.map(id => STYLES.find(s => s.id === id)!);
 
@@ -634,3 +645,14 @@ export const FEELING_MIN = 3;
 export const FEELINGS = MOODS.filter(m => PAGE_STYLES.filter(s => s.moods.includes(m.id)).length >= FEELING_MIN);
 
 export const styleById = (id: string | null | undefined) => STYLES.find(s => s.id === id);
+
+/** The card of each build of letters other than strokes, by build or kind of blocks: the basic block letters' is
+    Bulwark's, the font made of them. */
+const BUILT_CARDS: Record<string, string> = { arcs: 'arcs', basic: 'block', slots: 'slotblocks', grid: 'gridblocks' };
+/** The style a design starts from, as its letters show it: its own, or, for a design built otherwise than its style
+    (saved while Built from was still a control), the card of the letters it is built from. */
+export function startStyle(styleId: string | null | undefined, p: Pick<Params, 'build' | 'blockForm'>): StyleDef | undefined {
+  const s = styleById(styleId);
+  if (p.build === 'strokes' || (s?.params.build === p.build && (p.build !== 'blocks' || s.params.blockForm === p.blockForm))) return s;
+  return styleById(BUILT_CARDS[p.build === 'blocks' ? p.blockForm : p.build]) ?? s;
+}

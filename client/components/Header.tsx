@@ -4,7 +4,7 @@
    design's family, one or several, a specimen, and settings as .typelab.json out and in. */
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useLocation } from 'react-router';
-import { styleById } from '../../shared/content';
+import { startStyle, styleById } from '../../shared/content';
 import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
 import { cleanVersions, upgradeVersions } from '../../shared/font-log';
 import { cleanLog, upgradeLog } from '../../shared/letter-log';
@@ -105,9 +105,10 @@ export function Header({ onSave, onGuide, naming, onNamed, onCancelNaming }: Hea
   );
 }
 
-/** The style the design started from, after its name: a click goes back to the styles to pick another. */
+/** The style the design started from, as its letters show it (startStyle), after its name: a click goes back to the
+    styles to pick another. */
 function BasedOn() {
-  const style = useEditor(s => styleById(s.styleId));
+  const style = useEditor(s => startStyle(s.styleId, s.params));
   if (!style) return null;
   return (
     <button className="based-on" title={`Based on ${style.name}. Pick another style`} onClick={() => { actions.setCategory('style'); actions.setNavOpen(false); }}>

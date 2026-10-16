@@ -1,4 +1,4 @@
-/* Grid block letters (Built from: Blocks, Block letters: Grid).
+/* Grid block letters (the Grid Blocks card: build 'blocks', blockForm 'grid').
    Every character is a few cells of a grid five cells high, filled or empty, after a modular display face: an n is a
    bar of three cells over two stems, an o a ring of cells round a three by three counter. The cells of a letter are one
    shape, every corner of it rounded, outside and in, so a stroke ends in a half circle and a counter's ends are

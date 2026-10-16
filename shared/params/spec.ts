@@ -125,11 +125,10 @@ export const SPECS = {
   pinchPos: num(0.5, { free: true,
     sub: { parent: 'pinch', label: 'Position', friendly: 'Move the pinch up or down', tech: 'Pinch height', lo: 'Baseline', hi: 'Cap height' } }),
 
-  /* ---- Build & curves */
-  build: option(BUILDS, 'strokes', { free: true, control: { cat: 'curves', type: 'form', label: 'Built from', friendly: 'Draw with strokes or blocks', tech: 'Stroke or block construction', demo: 'EOS',
-    explain: 'Strokes drawn along a skeleton, or solid blocks cut to the design’s measures.' } }),
-  blockForm: option(BLOCK_FORMS, 'basic', { control: { cat: 'curves', type: 'form', label: 'Block letters', friendly: 'Plain, slot or grid blocks', tech: 'Block letterforms', demo: 'Rag',
-    explain: 'Plain blocks with a real lowercase, blocks with slots cut in, or cells on a grid.' } }),
+  /* ---- Build & curves. What the letters are built from, and which blocks, come with the style they start from (the
+     Style page's Blocks and Arcs cards), not a control: a change of build is new letters, none of the style's left */
+  build: option(BUILDS, 'strokes', { free: true }),
+  blockForm: option(BLOCK_FORMS, 'basic'),
   bowlForm: option(BOWL_FORMS, 'oval', { free: true, control: { cat: 'curves', type: 'form', label: 'Bowls', friendly: 'Make bowls ovals or boxes', tech: 'Oval or box bowls', demo: 'OCS',
     explain: 'Boxes have straight sides and corners round outside, square inside.' } }),
   boxRound: num(0.5, { free: true, sub: { parent: 'bowlForm', label: 'Corners', friendly: 'Round box bowls’ corners', tech: 'Box corner radius', lo: 'Sharp', hi: 'Wide' } }),

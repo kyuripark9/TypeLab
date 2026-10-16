@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { CONTROLS, STYLES } from '../shared/content';
 import { ALL_CHARS, CHARSET, buildFont, cmdsToD, expandStroke, type Cmd, type Glyph } from '../shared/engine';
+import { ARC_LETTERS } from '../shared/engine/arcs';
 import { BLOCKS } from '../shared/engine/blocks';
 import { BASIC } from '../shared/engine/basic-blocks';
 import { GRID, gridCells } from '../shared/engine/grid-blocks';
@@ -12,7 +13,7 @@ import { contours, coords, curves, pathPts, xsOf, ysOf } from './outlines';
 
 /* The font engine as a whole: every style and a set of extreme settings draw every glyph with finite outlines;
    spacing, letters customized on their own, and layout; the glyph registry and the stroke expander's outputs;
-   block letters (Built from: Blocks), rotation, and sliders that keep changing to 100. Each setting's own tests
+   block letters (build 'blocks'), rotation, and sliders that keep changing to 100. Each setting's own tests
    are in the files beside this one: letterforms, ends, corners, cuts, fills, weights, script, serifs and grid,
    and params for reading saved settings. Outlines: a glyph's `d` is SVG path data, y flipped (down); its `cmds`,
    strokes, serifs, counters, skeleton and marks are font units, y up (see outlines.ts). */
@@ -122,7 +123,7 @@ describe('stroke expander (expandStroke)', () => {
   });
 });
 
-describe('basic block letters (Built from: Blocks, Block letters: Basic)', () => {
+describe('basic block letters (blockForm: basic)', () => {
   const blocks = { ...DEFAULTS, build: 'blocks' as const, weight: 0.6 };
   const box = (d: string) => {
     const ys = ysOf(d).map(y => -y), xs = xsOf(d);
@@ -207,7 +208,7 @@ describe('basic block letters (Built from: Blocks, Block letters: Basic)', () =>
   });
 });
 
-describe('slot blocks (Built from: Blocks, Block letters: Slots)', () => {
+describe('slot blocks (the Slot Blocks card)', () => {
   const blocks = { ...DEFAULTS, build: 'blocks' as const, blockForm: 'slots' as const, weight: 0.6, roundness: 1, joinRound: 0.5 };
   /** The height and width of the ink of path data. */
   const size = (d: string) => {
@@ -256,7 +257,7 @@ describe('slot blocks (Built from: Blocks, Block letters: Slots)', () => {
   });
 });
 
-describe('grid blocks (Built from: Blocks, Block letters: Grid)', () => {
+describe('grid blocks (the Grid Blocks card)', () => {
   const grid = { ...DEFAULTS, build: 'blocks' as const, blockForm: 'grid' as const, roundness: 1 };
   const size = (d: string) => {
     const ys = ysOf(d), xs = xsOf(d);
@@ -308,6 +309,99 @@ describe('grid blocks (Built from: Blocks, Block letters: Grid)', () => {
     assert.ok(stem({ weight: 0 }) < stem({ weight: 0.4 }) && stem({ weight: 0.4 }) < stem({ weight: 1 }));
     const w = (width: number) => size(buildFont({ ...grid, width }).glyph('o')!.d).w;
     assert.ok(w(0) < w(0.5) && w(0.5) < w(1));
+  });
+});
+
+describe('arc letters (the Arcs card)', () => {
+  const arcs = { ...DEFAULTS, build: 'arcs' as const, weight: 0.1 };
+  /** How far each point of stroke `si`'s centreline in letter `ch` lies off its cut's ellipse, as a share of its size
+      (0 on it), the letter drawn upright with `p`. */
+  const offEllipse = (p: Params, ch: string, si: number) => {
+    const font = buildFont(p), g = font.glyph(ch)!, m = font.m, c = ARC_LETTERS[ch].cuts[si];
+    const D = (m.cap + 2 * m.os - m.hT) / 2, sx = D * m.ws, r = (c.rot ?? 0) * Math.PI / 180;
+    const cx = g.lsb + m.s / 2 + c.x * sx, cy = m.cap / 2 + c.y * D;
+    // the stroke's own run of the skeleton
+    assert.ok(g.skeleton[si].length > 8, `${ch} ${si} has its centreline`);
+    return g.skeleton[si].map(q => {
+      // back through the stretch, then turned upright
+      const x = (q.x - cx) / sx, y = (q.y - cy) / D, u = x * Math.cos(r) + y * Math.sin(r), v = -x * Math.sin(r) + y * Math.cos(r);
+      return Math.abs(Math.hypot(u / c.a, v / c.b) - 1);
+    });
+  };
+
+  it('draws every character of the set in arcs, a capital one stroke a cut, the small letters a lowercase of their own', () => {
+    const font = buildFont(arcs), strokes = buildFont({ ...arcs, build: 'strokes' });
+    for (const ch of [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789']) assert.ok(ARC_LETTERS[ch], ch);
+    for (const ch of Object.keys(ARC_LETTERS)) assert.equal(font.glyph(ch)!.strokes.length, ARC_LETTERS[ch].cuts.length, ch);
+    for (const ch of [...CHARSET.upper + CHARSET.lower + CHARSET.digits + CHARSET.punct + CHARSET.symbols, 'ı']) {
+      const g = font.glyph(ch)!;
+      assert.ok(g.d.length > 0 && !g.d.includes('NaN') && g.d !== strokes.glyph(ch)?.d, ch);
+    }
+    // the small letters stand to the x-height, their ascenders past the capitals and their descenders under the baseline
+    const ys = (ch: string) => ysOf(font.glyph(ch)!.d), top = (ch: string) => Math.max(...ys(ch).map(y => -y)), foot = (ch: string) => Math.max(...ys(ch));
+    for (const ch of 'acemnorsuvwxz') assert.ok(Math.abs(top(ch) - font.m.xh) < font.m.xh * 0.08, `${ch} ${top(ch).toFixed(0)}`);
+    for (const ch of 'bdhkl') assert.ok(top(ch) > font.m.cap * 0.97, ch);
+    for (const ch of 'gjpqy') assert.ok(foot(ch) > -font.m.desc * 0.6, ch);
+    // an i's dot over its stem, a j's too, and the ı with none
+    assert.equal(font.glyph('i')!.strokes.filter(st => st.dot).length, 1);
+    assert.equal(font.glyph('ı')!.strokes.filter(st => st.dot).length, 0);
+  });
+
+  it('spaces the letters from their ink: a round side closer than a straight one, an open one closer still', () => {
+    const font = buildFont(arcs), g = (ch: string) => font.glyph(ch)!;
+    assert.ok(g('o').lsb < g('b').lsb && g('o').lsb > 0, `o ${g('o').lsb.toFixed(0)}, b ${g('b').lsb.toFixed(0)}`);
+    assert.ok(g('c').rsb < g('c').lsb, 'the c\'s open side');
+    // Side margins still reach them
+    const wide = buildFont({ ...arcs, sideBearing: 1 });
+    assert.ok(wide.glyph('n')!.lsb > g('n').lsb + 20);
+  });
+
+  it('keeps every cut on its ellipse, and Width stretches them all across with the height kept', () => {
+    for (const ch of Object.keys(ARC_LETTERS)) ARC_LETTERS[ch].cuts.forEach((_, si) => assert.ok(Math.max(...offEllipse(arcs, ch, si)) < 0.01, `${ch} ${si}`));
+    const H = (width: number) => buildFont({ ...arcs, width }).glyph('H')!;
+    const body = (width: number) => H(width).bodyW - buildFont({ ...arcs, width }).m.s;
+    assert.ok(Math.abs(body(0) / body(0.5) - 0.6) < 1e-6 && Math.abs(body(1) / body(0.5) - 1.5) < 1e-6);
+    const tall = (width: number) => { const ys = ysOf(H(width).d); return Math.max(...ys) - Math.min(...ys); };
+    assert.ok(Math.abs(tall(0) - tall(1)) < 1);
+  });
+
+  it('keeps every loop open however heavy, and draws heavier letters wider with Width still reaching them', () => {
+    // a loop's centreline (a stroke turning 250° or more round) is at least as wide across as keeps a stroke's 0.4 open
+    // inside it (a loop runs across at least 0.75 of its ellipse's narrowest width); a narrow loop that can't keep
+    // that open runs less far round, so is no loop
+    const turn = (pts: { x: number; y: number }[]) => {
+      let t = 0;
+      for (let i = 2; i < pts.length; i++) {
+        const a = Math.atan2(pts[i - 1].y - pts[i - 2].y, pts[i - 1].x - pts[i - 2].x), b = Math.atan2(pts[i].y - pts[i - 1].y, pts[i].x - pts[i - 1].x);
+        t += Math.atan2(Math.sin(b - a), Math.cos(b - a));
+      }
+      return Math.abs(t) * 180 / Math.PI;
+    };
+    for (const p of [{ ...arcs, weight: 1, width: 0 }, { ...arcs, weight: 1, width: 0.5, xHeight: 0 }]) {
+      const font = buildFont(p), s = font.m.s;
+      for (const c of CHARSET.upper + CHARSET.lower + CHARSET.digits) font.glyph(c)!.skeleton.forEach((pts, si) => {
+        if (pts.length < 3 || turn(pts) < 250) return;
+        let across = Infinity;
+        for (let i = 0; i < 90; i++) {
+          const a = i * Math.PI / 90, d = pts.map(q => q.x * Math.cos(a) + q.y * Math.sin(a));
+          across = Math.min(across, Math.max(...d) - Math.min(...d));
+        }
+        assert.ok(across >= 0.75 * 1.4 * s, `${c} ${si}: ${across.toFixed(0)} across a ${s.toFixed(0)} stroke`);
+      });
+    }
+    const body = (weight: number, width: number) => buildFont({ ...arcs, weight, width }).glyph('M')!.bodyW;
+    assert.ok(body(1, 0.5) > body(0.5, 0.5) * 1.15 && body(0.5, 0.5) > body(0.1, 0.5));
+    assert.ok(body(1, 0) < body(1, 0.5) && body(1, 0.5) < body(1, 1));
+  });
+
+  it('runs Stroke ends\' Length on round each cut\'s own circle, and cuts it back short of it', () => {
+    const run = (terminalLength: number) => buildFont({ ...arcs, terminalLength }).glyph('T')!.skeleton[0];
+    const span = (pts: { y: number }[]) => Math.max(...pts.map(q => q.y)) - Math.min(...pts.map(q => q.y));
+    // the T's stem, a half standing upright, runs on round past its top and bottom and back toward its middle
+    assert.ok(span(run(0)) < span(run(0.5)));
+    const long = run(1), x = (pts: { x: number }[]) => Math.max(...pts.map(q => q.x));
+    assert.ok(x(long) > x(run(0.5)) + 10, 'its ends turn in toward the right');
+    for (const v of [0, 0.25, 0.75, 1]) assert.ok(Math.max(...offEllipse({ ...arcs, terminalLength: v }, 'T', 0)) < 0.01, `Length ${v}`);
   });
 });
 

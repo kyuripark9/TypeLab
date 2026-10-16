@@ -14,7 +14,7 @@ const ALSO: Partial<Record<ActiveKey, string>> = {
   mono: 'typewriter code fixed width', wobble: 'rough sketchy organic jitter', cursive: 'script connected joined', fill: 'outline texture pattern halftone bitmap honeycomb metaball bubbles goo drip ink splotch',
   dotGain: 'bleed merge join apart gap cloud puffy bubble', rough: 'distressed worn letterpress grunge ink bleed texture stamp',
   terminal: 'tip ending finish sharp angled slanted cut tapered rounded teardrop wedge', serif: 'feet slab', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
-  aperture: 'opening mouth', extenders: 'ascender descender', build: 'blocks stroke construction', blockForm: 'block slot plain square eurostile grid cell pixel modular node dot matrix', stencil: 'gap cut break', slice: 'cut line split',
+  aperture: 'opening mouth', extenders: 'ascender descender', stencil: 'gap cut break', slice: 'cut line split',
   squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', joinRound: 'crotch fillet', innerRound: 'inside corners', dots: 'tittle period i j',
   apexForm: 'apex peak serif top latin clarendon', mForm: 'vertex middle point short raised', jForm: 'hook cup tail', gForm: 'ear loop',
   iForm: 'flag'

@@ -32,6 +32,7 @@ import type { Drawn } from './outline';
 import { autoThickness, organicK, type SerifPlace } from './stroke';
 import type { Cmd, Mark, MarkType, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
 import { buildBlock, buildGlyph } from './glyph';
+import { buildArc } from './arcs';
 import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
 import { drawnDesign, drawnFrom, drawnLetter } from './family-drawn';
 import { highlightD } from './highlight';
@@ -432,6 +433,7 @@ export function buildFont(params: Params, from?: Font): Font {
     if (lf !== font) return lf.glyph(ch);
     if (free?.glyphs[ch]) return (fl!.skin && formChanged(ch, fl!.now, fl!.pick, fl!.font) && twinGlyph(ch, fl!)) || freeGlyph(ch, free.glyphs[ch], fl!);
     if (e.build === 'blocks') { const b = buildBlock(ch, m); if (b) return b; }
+    if (e.build === 'arcs') { const a = buildArc(ch, m); if (a) return a; }
     return buildGlyph(variantOf(ch, e), m, ch);
   };
   /** Letter `ch`: as drawn, if it is (moved as far as the settings move from those it was drawn at, or, in a family
