@@ -86,6 +86,15 @@ describe('font engine', () => {
     assert.equal(own.letter('R').m.xh, own.m.xh);
   });
 
+  it('keeps a stroke run back on itself on its line through the hand, so no corner throws a spike', () => {
+    // a narrow or heavy loop-legged R's bar runs back to where its leg turns off; the wobble carried it a hair
+    // askew, and the corner mitred out hundreds of units past the letter (Casual's R, Jotter's twin)
+    for (const p of [{ width: 0.2 }, { width: 0.5, weight: 0.9 }, { ...STYLES.find(s => s.id === 'casual')!.params, width: 0.5 }] as Partial<Params>[]) {
+      const font = buildFont({ ...DEFAULTS, ...p, rForm: 'loop', wobble: 1 }), g = font.glyph('R')!, xs = xsOf(g.d);
+      assert.ok(Math.min(...xs) > -font.m.s && Math.max(...xs) < g.adv + font.m.s, `R within its box at ${JSON.stringify(p).slice(0, 40)}: ${Math.min(...xs).toFixed(0)}..${Math.max(...xs).toFixed(0)}`);
+    }
+  });
+
   it('wraps text to a width', () => {
     const font = buildFont(DEFAULTS);
     const lines = font.layout('the quick brown fox jumps over the lazy dog', 4000);

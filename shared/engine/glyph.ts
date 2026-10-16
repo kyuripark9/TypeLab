@@ -129,6 +129,25 @@ export function wobbler(code: number, m: Metrics) {
       if (i > 0 && src[i - 1][0] === 'L') along(i, 1, at[i - 1], at[i]);
       if (i + 1 < src.length && src[i + 1][0] === 'L') along(i, 3, end(i + 1), end(i));
     });
+    // and a straight run straight back along the way the stroke came (a narrow loop-legged R's bar, back to where its
+    // leg turns off) stays on that line: carried through the field a hair askew, it turns a hair short of a full turn,
+    // and its corner mitres out into a long spike
+    const into = (o: Cmd[], i: number): Pt | null => {
+      const c = o[i - 1], p0 = i > 1 ? (o[i - 2][0] === 'C' ? { x: o[i - 2][5], y: o[i - 2][6] } : { x: o[i - 2][1], y: o[i - 2][2] }) : null;
+      const e = c[0] === 'C' ? { x: c[5], y: c[6] } : { x: c[1], y: c[2] }, from = c[0] === 'C' ? { x: c[3], y: c[4] } : p0;
+      if (!from) return null;
+      const dx = e.x - from.x, dy = e.y - from.y, l = Math.hypot(dx, dy);
+      return l > 1e-9 ? { x: dx / l, y: dy / l } : null;
+    };
+    src.forEach((cmd, i) => {
+      if (cmd[0] !== 'L' || i < 1 || src[i - 1][0] === 'Z' || src[i - 1][0] === 'M') return;
+      const u = into(src, i), a = at[i], b = end(i), l = Math.hypot(b.x - a.x, b.y - a.y);
+      if (!u || l < 1e-9 || ((b.x - a.x) * u.x + (b.y - a.y) * u.y) / l > -0.9999) return;
+      const v = into(out, i), o = out[i], s0 = out[i - 1][0] === 'C' ? { x: out[i - 1][5], y: out[i - 1][6] } : { x: out[i - 1][1], y: out[i - 1][2] };
+      if (!v) return;
+      const k = Math.hypot(o[1] - s0.x, o[2] - s0.y);
+      o[1] = s0.x - v.x * k; o[2] = s0.y - v.y * k;
+    });
     return out;
   };
   return { pt, cmds };

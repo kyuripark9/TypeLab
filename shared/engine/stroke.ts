@@ -634,12 +634,17 @@ function weighSamples(runs: Run[], all: Sample[], total: number, o: StrokeOpts, 
   }
 }
 
+/** The longest a turn given radii mitres, as a miter limit (StrokeOpts.miter): as long as the pointed turns' (POINTED in
+    glyphs/turns.ts), so only a stroke nearly run back on itself is cut short. */
+const TURN_MITER = 18;
 /** Join the sides of each run (`Lr` left, `Rr` right) to the next run's, and round a ring (`isLoop`) the last
     run's to the first's: where two runs meet, the earlier side's last point moves to where the two sides cross
     (rounded by the turn's radii, stepped, or left sharp) and the later side's first point goes (set to null),
     unless that crossing lies past the miter limit outside or back past most of either run inside. */
 function joinRuns(runs: Run[], Lr: (Pt | null)[][], Rr: (Pt | null)[][], isLoop: boolean, o: StrokeOpts) {
-  // the miter limit: a turn given radii always mitres, and rounds its outside and inside by them
+  // the miter limit: a turn given radii mitres whatever the stroke's limit, and rounds its outside and inside by them,
+  // but no further out than TURN_MITER (a stroke run back on itself, turned a hair by the hand's wobble, would throw
+  // its point off the page: a narrow loop-legged R's bar)
   const limit = o.miter || 5;
   /** The length of run k and the runs carrying straight on from it, back (-1) or forward (+1),
       round a ring, and how much of it the turn at its far end takes up on its centerline: where the
@@ -682,7 +687,7 @@ function joinRuns(runs: Run[], Lr: (Pt | null)[][], Rr: (Pt | null)[][], isLoop:
       const u = (P.x - B.x) * sb.tx + (P.y - B.y) * sb.ty;
       const outer = s > 0;
       if (outer) {
-        if (!turn && Math.hypot(P.x - sa.x, P.y - sa.y) > limit * Math.max(sa.t, sb.t) / 2) continue;
+        if (Math.hypot(P.x - sa.x, P.y - sa.y) > (turn ? Math.max(limit, TURN_MITER) : limit) * Math.max(sa.t, sb.t) / 2) continue;
       } else if (-s > lenA * 0.95 || u > lenB * 0.95) continue;
       // a stepped turn has a square step cut out of its outside, and its notch rounds like any corner
       // (TurnR.step, a share, made a depth: at its deepest STEP_DEPTH of the thinner side)
