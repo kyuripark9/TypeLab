@@ -296,12 +296,12 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
     if (j && reach(m.a, m.ta) && reach(m.b, m.tb)) for (const [s, t] of [[m.a, m.ta], [m.b, m.tb]] as const) if (!j.on.has(s)) j.on.set(s, t);
   }
   // each stroke from end to end, through the joins along it; a join past where the stroke ends is not on it
-  const nodes: SkNode[] = [], sk: Skeleton = { nodes, edges: [] };
+  const nodes: SkNode[] = [], sk: Skeleton = { nodes, edges: [] }, free = new Set<number>();
   const jNode = joins.map(j => { nodes.push({ x: j.x, y: j.y, r: dtAt(g, j.x, j.y), edges: [] }); return nodes.length - 1; });
   const runs: { s: number; stops: { t: number; n: number }[] }[] = S.map((A, s) => {
     const [e0, e1] = ends[s], stops: { t: number; n: number }[] = [];
     joins.forEach((j, k) => { const t = j.on.get(s); if (t !== undefined && t >= e0.t - 0.6 * A.h - 1 && t <= e1.t + 0.6 * A.h + 1) stops.push({ t, n: jNode[k] }); });
-    for (const e of [e0, e1]) if (!e.meet) { nodes.push({ ...at(A, e.t), r: A.h, edges: [] }); stops.push({ t: e.t, n: nodes.length - 1 }); }
+    for (const e of [e0, e1]) if (!e.meet) { nodes.push({ ...at(A, e.t), r: A.h, edges: [] }); stops.push({ t: e.t, n: nodes.length - 1 }); free.add(nodes.length - 1); }
     stops.sort((a, b) => a.t - b.t);
     return { s, stops };
   });
@@ -322,7 +322,10 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
     sk.edges.push({ a, b, pts, len }); owner.push(on?.s ?? null);
     A.edges.push(sk.edges.length - 1); B.edges.push(sk.edges.length - 1);
     // (the ink it stands for read along its line)
-    segs.push(on ? { a: at(on.s, on.ta), b: at(on.s, on.tb), h } : { a: A, b: B, h });
+    // (out to where its sides end at a free end, which its drawing runs on to: a diagonal's end cut level, its sharp
+    // corner past the round at its middle's end)
+    const out = (t: number, o: number, n: number) => (!free.has(n) ? t : t < o ? Math.min(t, on!.s.lo) : Math.max(t, on!.s.hi));
+    segs.push(on ? { a: at(on.s, out(on.ta, on.tb, a)), b: at(on.s, out(on.tb, on.ta, b)), h } : { a: A, b: B, h });
   };
   for (const { s, stops } of runs) for (let k = 1; k < stops.length; k++) edge(stops[k - 1].n, stops[k].n, S[s].h, { s: S[s], ta: stops[k - 1].t, tb: stops[k].t });
   // a join standing off a stroke it touches, in the ink across from it (a heavy K's arm and leg meeting just off its
