@@ -17,6 +17,7 @@ import type { FreeFont } from './free';
 import { fitOutline, type Node } from './outline';
 import { signedArea } from './geom';
 import { combine, shape, unite } from './boolean';
+import { contours } from './effects';
 import { FREE_FAMILIES } from '../free-fonts';
 import { HOOK_LETTERS, OPEN_LETTERS, PEAK_LETTERS, added, bowlStem, hasPeaks, hasTerminals } from './restyle';
 import { FLUSH, lineSkeleton, type Flush } from './lines';
@@ -1875,13 +1876,12 @@ function fromPick(rig: SkinRig, lined: SkinRig, m0: SkinMeasures, m1: SkinMeasur
   const k = 1 - PICK_THIN * t, moved = movedOnce(rig, m0, { ...m1, s: m1.s * k, hT: m1.hT * k, v: m1.v * k }, 'moved', true).out;
   // (the moved letter within the design's ink: a wood type's arm, moved without its slab, runs out past where the slab
   // ended)
-  const ring = (c: Node[]) => c.flatMap((n, i) => { const m = c[(i + 1) % c.length], line = n.ox === undefined && m.ix === undefined; return line ? [{ x: n.x, y: n.y }] : Array.from({ length: 6 }, (_, q) => bez(n, m, q / 6)); });
   // (and within as far of the strokes as it lies nearer the pick than PICK_BLEND (squared), out to PICK_GROW of the
   // font's stem at the pick: the strokes drawn again so much thicker, read every third point, where the letter moved,
   // rougher, pokes out past them, and as it thins, out past where its strokes end, a K's leg's foot)
   const mv = moveMap(lined, m0, m1);
   const near = shape(thinStrokes(lined, mv, R => R + e, undefined, drawnMode(lined)).map(r => r.filter((_, i) => i % 3 === 0 || r.length < 9).map(p => ({ x: mv.gx(p.x), y: mv.gy(p.y) }))).map(r => (signedArea(r) < 0 ? r.slice().reverse() : r)), true);
-  const A = shape(out.map(ring)), B = shape(moved.map(ring)), ink = letterInk(rig, moveMap(rig, m0, m1));
+  const A = shape(out.map(ringOf)), B = shape(moved.map(ringOf)), ink = letterInk(rig, moveMap(rig, m0, m1));
   return tidyRings(combine([A, B, ink, near], (x, y) => A.has(x, y) || (B.has(x, y) && ink.has(x, y) && near.has(x, y))), rig.ctx.cap);
 }
 /** How far below the font's own stems, as a share of them, a letter drawn as its strokes starts in from the design
@@ -1898,15 +1898,115 @@ function moveRig(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
   // strokes too, its notches and swells where strokes meet and end its heavy design's, and a wood type's without its slabs
   // (or with none) so; failing that, as any letter is)
   const lighter = m1.s < m0.s * 0.999 && m1.v < m0.v;
-  const st = rig.stroked(), slabStroked = rig.shortSlabs() && !slabRig(rig);
-  const lined = lighter ? linedRig(rig) ?? (st === 1 || ((st === 2 || slabStroked) && m1.v <= m0.v * STROKED_UNDER) ? rig : null) : null;
-  if (lined) { const drawn = movedOnce(lined, m0, m1, 'strokes'); if (whole(lined, drawn)) return fromPick(rig, lined, m0, m1, drawn.out); }
+  const st = rig.stroked(), slabStroked = rig.shortSlabs() && !slabRig(rig), lr = lighter ? linedRig(rig) : null;
+  if (lr) { const d = strokesAt(rig, lr, m0, m1); if (d) return d; }
+  else if (lighter && (st === 1 || st === 2 || slabStroked)) {
+    // (Gumdrop's at every lighter weight; Orbital's, Bulwark's and a wood type's from STROKED_UNDER of its stems down,
+    // in from the letter as moved over SWITCH_BLEND)
+    const kv = m1.v / m0.v, under = st === 1 ? 1 : STROKED_UNDER;
+    const d = kv <= under ? strokesAt(rig, rig, m0, m1) : null;
+    if (d) {
+      const s = (under - kv) / SWITCH_BLEND;
+      return st === 1 || s >= 1 ? d : crossfade(rig, s, movedAt(rig, m0, m1), d);
+    }
+  }
+  return movedAt(rig, m0, m1);
+}
+
+/** The rig drawn as its strokes alone (rig `lined`, its skeleton: the letter's, or one read along its straight strokes),
+    in from the design near the pick (fromPick); null where that isn't whole. */
+function strokesAt(rig: SkinRig, lined: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] | null {
+  const drawn = movedOnce(lined, m0, m1, 'strokes');
+  return whole(lined, drawn) ? fromPick(rig, lined, m0, m1, drawn.out) : null;
+}
+
+/** The rig moved as any letter is (moveRig): a wood type's without its slabs, each laid back over it, thinner; a serif
+    font's lighter weights with their serifs' feet drawn level (footRig) from FOOT_UNDER[0] of its stems, the lightest
+    its slabs' too from FOOT_UNDER[1], each point going over SWITCH_BLEND from where the moves before put it to where
+    these do. */
+function movedAt(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
+  const lighter = m1.s < m0.s * 0.999 && m1.v < m0.v;
   // (a wood type's letter not so drawn moved without its slabs, each laid back over it, thinner)
   const U = lighter && rig.shortSlabs() ? slabRig(rig) : null;
   if (U) return moveRig(U.rig, m0, m1);
-  // (the lighter weights on a skeleton with their serifs' feet drawn level, the lightest their slabs' too)
-  if (m1.s < m0.s * 0.999 && m1.v <= m0.v * FOOT_UNDER[0]) rig = footRig(rig, m1.v <= m0.v * FOOT_UNDER[1] ? FOOT_SLAB : FOOT_THIN) ?? rig;
-  const first = movedOnce(rig, m0, m1);
+  const kv = m1.v / m0.v;
+  if (m1.s < m0.s * 0.999 && kv <= FOOT_UNDER[0]) {
+    const thin = footRig(rig, FOOT_THIN) ?? rig, slab = footRig(rig, FOOT_SLAB) ?? rig;
+    const [X, Y, under] = kv <= FOOT_UNDER[1] ? [thin, slab, FOOT_UNDER[1]] : [rig, thin, FOOT_UNDER[0]], s = (under - kv) / SWITCH_BLEND;
+    return X === Y || s >= 1 ? movedPlain(Y, m0, m1) : movedPlain(X, m0, m1, { rig: Y, s });
+  }
+  return movedPlain(rig, m0, m1);
+}
+
+/** Two ways of drawing a letter, `X` a little heavier than a weight where the drawing turns to `Y`, `s` of the way from
+    one to the other (0 to 1): each read on a grid FADE_CELL units a side as how far in from its outline (out, less than
+    0) each point lies, the two taken s of the way from X's to Y's, and the outline traced where that is 0 (marching
+    squares), so the letter goes from X's drawing to Y's as the weight does, not at a jump where the drawing turns. */
+function crossfade(rig: SkinRig, s: number, x: Node[][], y: Node[][]): Node[][] {
+  const A = x.map(ringOf), B = y.map(ringOf), h = FADE_CELL;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const r of [...A, ...B]) for (const q of r) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+  if (!(x1 > x0)) return s < 0.5 ? x : y;
+  x0 -= 4 * h; y0 -= 4 * h; x1 += 4 * h; y1 += 4 * h;
+  const nx = Math.ceil((x1 - x0) / h) + 1, ny = Math.ceil((y1 - y0) / h) + 1;
+  const fa = signedField(A, nx, ny, x0, y0, h), fb = signedField(B, nx, ny, x0, y0, h), f = new Float64Array(nx * ny);
+  for (let k = 0; k < f.length; k++) f[k] = fa[k] + (fb[k] - fa[k]) * s;
+  const C = contours(f, nx, ny, x0, y0, h, 0);
+  return tidyRings(C, rig.ctx.cap, C.map(r => dotOf(rig, r as Node[])));
+}
+
+/** How far in from rings' outline (read nonzero) each point of a grid nx × ny from (x0, y0) h apart lies, out less than
+    0: whether each point is inside read along its row, then the distance to the nearest point the other side (Felzenszwalb
+    and Huttenlocher's distance transform), less half a step, so the outline lies between the points either side. */
+function signedField(rings: P[][], nx: number, ny: number, x0: number, y0: number, h: number): Float64Array {
+  const inside = new Uint8Array(nx * ny);
+  const byRow: [P, P][][] = Array.from({ length: ny }, () => []);
+  for (const p of rings) p.forEach((a, i) => { const b = p[(i + 1) % p.length], lo = Math.max(0, Math.ceil((Math.min(a.y, b.y) - y0) / h)), hi = Math.min(ny - 1, Math.floor((Math.max(a.y, b.y) - y0) / h)); for (let j = lo; j <= hi; j++) byRow[j].push([a, b]); });
+  for (let j = 0; j < ny; j++) {
+    const y = y0 + j * h, xs: [number, number][] = [];
+    for (const [a, b] of byRow[j]) if ((a.y <= y) !== (b.y <= y)) xs.push([a.x + (y - a.y) * (b.x - a.x) / (b.y - a.y), b.y > a.y ? 1 : -1]);
+    xs.sort((p, q) => p[0] - q[0]);
+    let w = 0, k = 0;
+    for (let i = 0; i < nx; i++) { const x = x0 + i * h; while (k < xs.length && xs[k][0] <= x) w += xs[k++][1]; if (w !== 0) inside[j * nx + i] = 1; }
+  }
+  // (the squared distance, in steps, to the nearest point of the other kind, columns then rows)
+  const dist = (other: (k: number) => boolean) => {
+    const INF = 1e20, d = new Float64Array(nx * ny);
+    for (let k = 0; k < d.length; k++) d[k] = other(k) ? 0 : INF;
+    const n = Math.max(nx, ny), fbuf = new Float64Array(n), out = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1);
+    const pass = (len: number, get: (i: number) => number, put: (i: number, x: number) => void) => {
+      for (let q = 0; q < len; q++) fbuf[q] = get(q);
+      let kk = 0; v[0] = 0; z[0] = -INF; z[1] = INF;
+      for (let q = 1; q < len; q++) {
+        let sx = ((fbuf[q] + q * q) - (fbuf[v[kk]] + v[kk] * v[kk])) / (2 * q - 2 * v[kk]);
+        while (sx <= z[kk]) { kk--; sx = ((fbuf[q] + q * q) - (fbuf[v[kk]] + v[kk] * v[kk])) / (2 * q - 2 * v[kk]); }
+        kk++; v[kk] = q; z[kk] = sx; z[kk + 1] = INF;
+      }
+      kk = 0;
+      for (let q = 0; q < len; q++) { while (z[kk + 1] < q) kk++; out[q] = (q - v[kk]) * (q - v[kk]) + fbuf[v[kk]]; }
+      for (let q = 0; q < len; q++) put(q, out[q]);
+    };
+    for (let i = 0; i < nx; i++) pass(ny, j => d[j * nx + i], (j, x) => { d[j * nx + i] = x; });
+    for (let j = 0; j < ny; j++) pass(nx, i => d[j * nx + i], (i, x) => { d[j * nx + i] = x; });
+    return d;
+  };
+  const toOut = dist(k => !inside[k]), toIn = dist(k => !!inside[k]), f = new Float64Array(nx * ny);
+  for (let k = 0; k < f.length; k++) f[k] = inside[k] ? (Math.sqrt(toOut[k]) - 0.5) * h : -(Math.sqrt(toIn[k]) - 0.5) * h;
+  return f;
+}
+/** The grid crossfade reads two drawings on, in units. */
+const FADE_CELL = 3;
+
+/** How far below a weight where a lighter weight's drawing turns, as a share of the design's stems, it is in from the
+    drawing before (crossfade). */
+const SWITCH_BLEND = 0.1;
+/** An outline's points, its curves read six points along each. */
+const ringOf = (c: Node[]) => c.flatMap((n, i) => { const m = c[(i + 1) % c.length], line = n.ox === undefined && m.ix === undefined; return line ? [{ x: n.x, y: n.y }] : Array.from({ length: 6 }, (_, q) => bez(n, m, q / 6)); });
+
+/** The rig moved as any letter is, on the skeleton it has (movedAt), or `toward` another's of the same outline (its feet
+    drawn level) s of the way; and, a lighter weight that breaks it, mended. */
+function movedPlain(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, toward?: { rig: SkinRig; s: number }): Node[][] {
+  const first = movedOnce(rig, m0, m1, 'moved', false, toward);
   if (!(m1.s < m0.s * 0.999 && m1.v < m0.v) || whole(rig, first)) return first.out;
   // a lighter weight that breaks the letter (a stroke parted from the one it joins, or lost, a counter run out into the
   // paper, where the strokes meet in a way the skeleton reads amiss) is mended with the strokes drawn again along its
@@ -1986,10 +2086,16 @@ const dotOf = (rig: SkinRig, c: Node[]) => rig.bones.some(bs => {
 
 /** The rig moved from m0 to m1 once (moveRig); `mend`, a lighter weight's, with the strokes drawn again along its
     skeleton laid over it; `heavy`, moved as a heavier weight is, whichever way. */
-function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved' | 'mended' | 'strokes' = 'moved', heavy = false): { out: Node[][]; middles: (P & { s: number })[][] } {
+function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved' | 'mended' | 'strokes' = 'moved', heavy = false, toward?: { rig: SkinRig; s: number }): { out: Node[][]; middles: (P & { s: number })[][] } {
   const mv = moveMap(rig, m0, m1);
   if (heavy) mv.lighter = false;
   let rings = rig.bones.map((bs, r) => moveRing(rig, bs, r, mv));
+  // (or each point s of the way to where another skeleton of the same outline puts it: one with its serifs' feet drawn
+  // level, from a weight where the lighter weights take it on)
+  if (toward) {
+    const to = toward.rig.bones.map((bs, r) => moveRing(toward.rig, bs, r, moveMap(toward.rig, m0, m1)));
+    rings = rings.map((ring, r) => (to[r]?.length !== ring.length ? ring : ring.map((p, i) => ({ x: p.x + (to[r][i].x - p.x) * toward.s, y: p.y + (to[r][i].y - p.y) * toward.s }))));
+  }
   // (a little lighter than the font as picked, in from the design: within PICK_BLEND of its stems, each point as far from
   // where a heavier weight's moves put it, which go on from the design, to where the lighter's put it as the stems are
   // thinner: their crotches met again on their strokes' edges and their finest strokes drawn as thick as the hairline
@@ -2739,8 +2845,12 @@ function rebuildJoins(rig: SkinRig, mv: MoveMap, lift: (y: number) => number, ri
   // (only joins whose strokes thin to under REBUILD_BELOW of themselves, which the moves leave astray; and none a serif
   // stands on, whose brackets the strokes drawn again would lose)
   const serifs = rig.bones.flat().filter(b => b.serifDx);
-  const joins = sk.nodes.filter(n => n.edges.length >= 3 && mv.weighs({ tx: 0, ty: 1, w: n.r, serifDx: 0, dot: false } as Bone) < REBUILD_BELOW
-    && !serifs.some(b => Math.hypot(b.x - n.x, b.y - n.y) < n.r * JOIN_REACH)).map(n => ({ ...at(n), r: n.r * JOIN_REACH }));
+  // (each drawn again over a round growing from nothing as its strokes thin from REBUILD_BELOW, to its full reach
+  // SWITCH_BLEND further on: while it lies within the ink it changes nothing, then the strokes drawn again take more of its
+  // outline as they thin: drawn again all at once, a join came out other than it was, at a jump)
+  const weigh = (n: SkPt) => mv.weighs({ tx: 0, ty: 1, w: n.r, serifDx: 0, dot: false } as Bone);
+  const joins = sk.nodes.filter(n => n.edges.length >= 3 && weigh(n) < REBUILD_BELOW
+    && !serifs.some(b => Math.hypot(b.x - n.x, b.y - n.y) < n.r * JOIN_REACH)).map(n => ({ ...at(n), r: n.r * JOIN_REACH * Math.min(1, (REBUILD_BELOW - weigh(n)) / SWITCH_BLEND) }));
   if (!joins.length) return { rings, dots };
   const round = (c: { x: number; y: number; r: number }): P[] => Array.from({ length: 32 }, (_, k) => ({ x: c.x + Math.cos(k * Math.PI / 16) * c.r, y: c.y + Math.sin(k * Math.PI / 16) * c.r }));
   // (each stroke's end from a little short of its skeleton's end on out, the way the stroke runs: no further back, where

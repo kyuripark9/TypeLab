@@ -238,7 +238,13 @@ A design with `freeFont` set draws its letters from a free font instead of build
    weight's moves put it to where the lighter's do over the same stretch (`movedOnce`'s `lam`, crumbs dropped as small
    as that), so its crotches and finest strokes don't jump; `doubledBack` keeps a point the design itself turns back
    at (a Didone's serif's tip); and a stroke's cut end runs out to the ink exactly, each side to the design's cut, square
-   or aslant (an A's feet along the baseline). Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
+   or aslant (an A's feet along the baseline). Where a lighter weight's drawing turns, it turns over `SWITCH_BLEND` of the
+   design's stems, not at a jump: to its strokes alone from `STROKED_UNDER` (`crossfade`: the letter moved and drawn as
+   its strokes, each read on a grid, `FADE_CELL`, as how far in from its outline each point lies, the two mixed and
+   traced, marching squares, `contours` in effects.ts; combine's chains came apart where two drawings so alike ran a
+   hair apart), to its feet drawn level from `FOOT_UNDER` (`movedOnce`'s `toward`: each point of the outline going from
+   where the one skeleton puts it to where the other does), and each join drawn again from `REBUILD_BELOW` over a round
+   growing from nothing (`rebuildJoins`). Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
    opened where strokes cross aside, and ink along its strokes' middles) is mended with those strokes laid over it
    (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;
    none of them, nor the middles `whole` reads, past a foot's edge, where `keepHeights`' lift, keeping a round's

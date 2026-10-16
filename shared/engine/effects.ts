@@ -434,7 +434,7 @@ function hexagon(i: number, j: number, cell: number, k: number): Pt[] {
     squares, each crossing put where the field passes T between two samples, and every piece laid with the inside on
     its left, so the outlines come out anticlockwise and their holes clockwise. The field is under T all round the
     edge of the samples, so every contour closes. */
-function contours(f: Float64Array, nx: number, ny: number, x0: number, y0: number, h: number, T: number): Pt[][] {
+export function contours(f: Float64Array, nx: number, ny: number, x0: number, y0: number, h: number, T: number): Pt[][] {
   const v = (i: number, j: number) => f[j * nx + i];
   // a crossing is named by its side of a square: across from (i, j) (0) or up from it (1)
   const key = (i: number, j: number, up: number) => (j * nx + i) * 2 + up;
