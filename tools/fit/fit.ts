@@ -11,7 +11,7 @@ import { refImages, score, iou, SCRATCH } from './lib';
 
 const NUM = ['weight', 'width', 'contrast', 'vWeight', 'hWeight', 'xHeight', 'extenders', 'descender', 'counter', 'aperture', 'crossbar',
   'roundness', 'curve', 'apex', 'terminalLength', 'terminalCurl', 'squareness', 'overlap', 'joinRound', 'tail', 'dotSize',
-  'geoHuman', 'softSharp', 'classicFuture', 'playfulFormal',
+  // (not the personality macros: a card sets the sliders they push itself, see shared/CLAUDE.md)
   'serifSize', 'serifThickness', 'serifAngle', 'serifBracket', 'serifTops', 'serifArms', 'serifArmThickness',
   'terminalFlare', 'terminalSize', 'terminalDepth'] as const;
 const ENUM: Record<string, readonly unknown[]> = {

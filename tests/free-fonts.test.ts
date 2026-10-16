@@ -315,6 +315,17 @@ describe("TypeLab's own fonts", () => {
   /** A fetch that fails: an own font is never fetched. */
   const noFetch = async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); };
 
+  it('start each card with no personality macro holding part of a slider flat', () => {
+    // (resolve() pushes a slider by a macro as far as 0 or 1 and no further, so a card setting one off its middle leaves
+    // a stretch of every slider it pushes doing nothing: Blackletter's Roundness below 70, Wood Type's Squareness above
+    // 36; a card's preset sets those sliders itself)
+    for (const s of PAGE_STYLES) {
+      const id = STYLE_FONTS[s.id];
+      if (!id || !isOwnFont(id.split(':')[0])) continue;
+      for (const k of ['geoHuman', 'softSharp', 'classicFuture', 'playfulFormal'] as const) assert.equal(s.params[k], 0.5, `${s.id}'s ${k}`);
+    }
+  });
+
   it('write every card of the Style page in one, each kept in fonts/ with every letter, under the Open Font License', async () => {
     const fonts = new FreeFonts(null, noFetch), used = new Set<string>();
     // (but a card built from blocks or arcs, which no font draws)
@@ -537,6 +548,32 @@ describe("TypeLab's own fonts", () => {
     const bent = await design('blackletter', { bends: 'round' });
     for (const ch of 'AMNVWYZvwyz') assert.ok(bent.glyph(ch)!.drawn, `Cathedral's ${ch} stays its own under round Bends`);
     assert.ok(skinFollows(freeFont(STYLE_FONTS.squircle)!, 'V', 'bends') && skinFollows(freeFont(STYLE_FONTS.squircle)!, 'V', 'apex'), "Orbital's V turns round and comes to a point");
+    // a blackletter, a joined script and a narrow italic keep their own letters in every letter form asked for: the
+    // engine's sans or print letters can't stand in for them
+    for (const style of ['blackletter', 'chancery', 'informal', 'serifitalic']) {
+      await design(style);
+      const font = freeFont(STYLE_FONTS[style])!;
+      for (const [k, v, ch] of [['gForm', 'double', 'g'], ['kForm', 'bar', 'k'], ['story', 'single', 'a'], ['diagonals', 'upright', 'V'], ['rForm', 'loop', 'R']] as const) {
+        assert.ok((await design(style, { [k]: v })).glyph(ch)!.drawn, `${style}'s ${ch} its own at ${k} ${v}`);
+        assert.ok(!skinFollows(font, ch, k), `and ${k} says so`);
+      }
+    }
+    assert.ok(!(await design('grotesque', { gForm: 'double' })).glyph('g')!.drawn, "Mainline's g takes the engine's two storeys");
+    // on the blackletter Joins and Counters round different corners: Joins the notches where its strokes meet (an n's
+    // head and arch, its feet), Counters the corners round its counters (an n's arch from inside)
+    const inkOf = (g: Glyph) => shape(toPolys(g.cmds)), joined = await design('blackletter', { joinRound: 1 }), countered = await design('blackletter', { innerRound: 1 });
+    for (const ch of 'nao') {
+      const a = inkOf(cathedral.glyph(ch)!), j = inkOf(joined.glyph(ch)!), k = inkOf(countered.glyph(ch)!);
+      // (ink each adds, counted where it adds a few units all round: not the slivers redrawing the outline leaves)
+      const adds = (o: typeof a, x: number, y: number) => [[0, 0], [2, 0], [-2, 0], [0, 2], [0, -2]].every(([dx, dy]) => o.has(x + dx, y + dy) && !a.has(x + dx, y + dy));
+      let byJ = 0, byC = 0, both = 0;
+      for (let x = -50; x < 900; x += 2) for (let y = -350; y < 800; y += 2) {
+        const jj = adds(j, x, y), kk = adds(k, x, y);
+        if (jj) byJ++; if (kk) byC++; if (jj && kk) both++;
+      }
+      assert.ok(byJ > 10 && byC > 10, `Cathedral's ${ch}: Joins fills ${byJ}, Counters ${byC}`);
+      assert.ok(both <= 0.1 * Math.min(byJ, byC), `in different places (${both} shared)`);
+    }
     // a heavy round face's stems end round without being stroke ends: a drop goes on the c, not on the h, b or n
     const gum = await design('chunkyround'), drop = await design('chunkyround', { terminal: 'round', terminalForm: 'droplet' });
     for (const ch of 'hbn') assert.ok(same(drop.glyph(ch)!, gum.glyph(ch)!), `Gumdrop's ${ch}`);
@@ -609,8 +646,14 @@ describe("TypeLab's own fonts", () => {
     const sans = await design('grotesque'), cursive = await design('grotesque', { cursive: 0.8 });
     assert.ok(!same(cursive.glyph('n')!, sans.glyph('n')!) && cursive.glyph('n')!.drawn, 'a flick on the font\'s n');
     for (const ch of ALL_CHARS) assert.equal(formChanged(ch, cursive.eff, resolve({ ...cursive.params, ...cursive.params.freeAt })), false, ch);
-    // a letter in a form an italic hasn't got is drawn leaning as it does
-    const twin = (await design('serifitalic', { gForm: 'double' })).glyph('g')!;
+    // a letter in a form an italic hasn't got is drawn leaning as it does (an italic of slanted bars standing in for
+    // one: Sonnet, the card's, keeps its own letters in every form)
+    const lean = Math.tan(12 * Math.PI / 180), slanted = ([x0, x1, y0, y1]: number[]): [number, number][] => [[x0 + lean * y0, y0], [x1 + lean * y0, y0], [x1 + lean * y1, y1], [x0 + lean * y1, y1]];
+    registerFreeFont({ id: 'Libre Franklin:400i', family: 'Libre Franklin', designers: ['Test'], copyright: '', license: 'OFL', licenseUrl: '', cap: 700, xh: 450, space: 250,
+      glyphs: { n: [560, [[60, 140, 0, 450], [380, 460, 0, 450], [60, 460, 370, 450]].map(slanted)], H: [700, [[60, 150, 0, 700], [520, 610, 0, 700], [60, 610, 310, 390]].map(slanted)],
+        g: [520, [[60, 140, -200, 450], [380, 460, -200, 450], [60, 460, 370, 450], [60, 460, -200, -120]].map(slanted)],
+        l: [220, [[60, 140, 0, 720]].map(slanted)], I: [230, [[60, 150, 0, 700]].map(slanted)] } } as FreeFontData);
+    const italic = sanitizeParams({ ...DEFAULTS, freeFont: 'Libre Franklin:400i' }), twin = buildFont({ ...italic, gForm: 'double' }).glyph('g')!;
     assert.ok(!twin.drawn && twin.M[2] > 0.15, `the twin's g leans (${twin.M[2]})`);
     // Hand-drawn moves the font's own letters, not only where they sit
     assert.ok(!same((await design('grotesque', { wobble: 1 })).glyph('H')!, sans.glyph('H')!), 'a hand-drawn H');

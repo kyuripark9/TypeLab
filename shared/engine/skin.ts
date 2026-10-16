@@ -716,8 +716,12 @@ export function skinFollows(font: FreeFont, ch: string, key: string) {
   // (a pixel font's letters only stretch, and change weight where the family has another)
   if (FREE_FAMILIES[font.family]?.grid) return !SKIN_KEYS.has(key);
   if (key === 'crossbar') return ch in BARS;
+  // (curved or straight stroke ends draw a letter in the engine's other form, which a font keeping its own takes not)
+  if (key === 'terminalRun' && FREE_FAMILIES[font.family]?.ownForms) return false;
   if (!SKIN_KEYS.has(key)) return true;
-  if (FORM_FOLLOWS[key]) return FORM_FOLLOWS[key].test(ch) && (key !== 'bends' || fontVertexed(font));
+  // (a font keeping its own forms, a blackletter or a joined script, takes no other form: only another build and Cursive's
+  // flicks reach it)
+  if (FORM_FOLLOWS[key]) return FORM_FOLLOWS[key].test(ch) && (key === 'build' || key === 'cursive' || !FREE_FAMILIES[font.family]?.ownForms) && (key !== 'bends' || fontVertexed(font));
   const rig = skinRig(font, ch);
   if (!rig) return false;
   const ys = rig.contours.flat().map(n => n.y);

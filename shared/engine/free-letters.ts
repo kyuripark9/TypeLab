@@ -122,10 +122,12 @@ export function inkX(d: Drawn): [number, number] {
 /** Whether letter `ch` is asked for (settings `a`) in another form than the one the font's own stands for (its settings
     as picked, `b`): built otherwise, the a's storeys (left on auto, the font's), or a letter-form setting moved on the
     letters it reaches (FORM_LETTERS in skin.ts). A font is written as it is drawn, script or print, whatever Cursive asks:
-    Cursive gives the font's own letters the engine's flicks (restyleCursive in restyle.ts). Given the `font`, round
-    Bends reaches only a font whose letters turn in straight points as the engine's do (fontVertexed). */
+    Cursive gives the font's own letters the engine's flicks (restyleCursive in restyle.ts). Given the `font`, a font whose
+    letters keep their own forms (FreeFamily.ownForms: a blackletter, a joined script) is in none, and round Bends
+    reaches only a font whose letters turn in straight points as the engine's do (fontVertexed). */
 export function formChanged(ch: string, a: Effective, b: Effective, font?: FreeFont | null): boolean {
   if (a.build !== b.build) return true;
+  if (font && FREE_FAMILIES[font.family]?.ownForms) return false;
   // (the Letter a left on auto keeps the font's own form, which its letters are drawn in)
   return (ch === 'a' && a.story !== 'auto' && a.singleStory !== b.singleStory)
     || (Object.keys(FORM_LETTERS) as (keyof typeof FORM_LETTERS)[]).some(k => FORM_LETTERS[k].includes(ch) && a[k] !== b[k] && (k !== 'bends' || !font || fontVertexed(font)));

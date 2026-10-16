@@ -18,10 +18,11 @@ import type { Mark, Pt } from './types';
 import { type Builder, type Metrics, strokeWt } from './font';
 
 /** Where Counters starts taking over from Joins: an inside corner two thirds of a right angle across. */
-const CROTCH = Math.PI / 3;
+export const CROTCH = Math.PI / 3;
 /** The share of Counters' radius (innerRound) a corner whose inside is `angle` across rounds by: all of it at a
     right angle or wider, easing off as it narrows to none at CROTCH, leaving the crotches (the arms of a K, the
-    shoulder of an n) to Joins. A free font's inside corners split the same way (restyleCorners in restyle.ts). */
+    shoulder of an n) to Joins. A free font's inside corners split the same way, but for those no narrower than CROTCH
+    and not between upright and level strokes, which go by what they face (restyleCorners in restyle.ts). */
 export const innerShare = (angle: number) => smoothstep((angle - CROTCH) / (Math.PI / 2 - CROTCH));
 /** The share of Joins' radius (joinRound) a corner whose inside is `angle` across rounds by: what Counters
     leaves (innerShare), all of it in a crotch narrower than CROTCH, none at a right angle or wider. */

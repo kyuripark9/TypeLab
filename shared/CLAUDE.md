@@ -139,8 +139,10 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   or arcs, which no font draws (their card draws the engine's letters, `client/components/BuiltText.tsx`, and the Arcs
   chip `BuiltWord`). `tools/fit/apply.ts` rewrites a style's params
   object in place, finding `style('<id>',` by text and its params as the first `{` outside quotes: keep that layout,
-  with the style's own letters under `glyphs:` inside it. tests/styles.test.ts and tests/free-fonts.test.ts check the
-  cards, Feelings and fonts.
+  with the style's own letters under `glyphs:` inside it. A card's preset leaves the personality macros (geoHuman,
+  softSharp, classicFuture, playfulFormal) at their middle and sets the sliders they push itself: a macro pushes a slider
+  only as far as 0 or 1, so the slider's stretch past that does nothing (Blackletter's Roundness was dead below 70).
+  tests/styles.test.ts and tests/free-fonts.test.ts check the cards, Feelings and fonts.
 - **Pages** (`content/pages.ts`): `CATEGORIES` in navigation order, each with a `hint` (its tooltip) and, all but
   Style, a group; `GROUPS` names the groups Proportions, Shapes and Details. `pageOf` reads a page id, then `OLD_GROUPS`, then a group
   (which opens its first page).

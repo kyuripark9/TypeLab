@@ -18,7 +18,7 @@ import { CIRCLE_K, lerp, roundContour, signedArea, smoothstep } from './geom';
 import { bez, branches, endFace, inkAt, inkGrid, joinsOf, leaving, nearestOn, roundTip, type Branch, type Grid, type Join, type SkPt, type Skeleton } from './scan';
 import { STEP_DEPTH, buildSerif, expandStroke, serifCup, serifSides, termCap, termDropBack } from './stroke';
 import { DROP_MIN, ROOM_KEEP, ROOM_MAX, reachingOf } from './ends';
-import { crotchShare, innerShare, joinR } from './joins';
+import { CROTCH, crotchShare, innerShare, joinR } from './joins';
 import { combine, shape } from './boolean';
 import type { Cmd, PenCtx, Pt, SerifSides, SerifSpec, TermSpec } from './types';
 
@@ -94,6 +94,38 @@ function sampled(c: Node[], step = 3): P[] {
   return pts;
 }
 
+/** How nearly straight back, in radians short of a half turn, the outline must double back at a point for it to be
+    the tip of a spur of no width (despike). */
+const SPUR_TURN = 0.05;
+/** A ring without the spurs of no width an outline can run out along and back (a curve whose handle overshoots along
+    its own line: Vellum's A's counter out along its crossbar), which take no ink but read as corners. */
+function despike(pts: P[]): P[] {
+  const out = pts.slice();
+  for (let changed = true; changed && out.length > 3;) {
+    changed = false;
+    for (let i = 0; i < out.length && out.length > 3; i++) {
+      const n = out.length, a = out[(i - 1 + n) % n], p = out[i], b = out[(i + 1) % n];
+      const ux = p.x - a.x, uy = p.y - a.y, vx = b.x - p.x, vy = b.y - p.y;
+      if (Math.hypot(ux, uy) < 1e-9 || Math.hypot(vx, vy) < 1e-9) continue;
+      if (Math.PI - Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)) < SPUR_TURN) { out.splice(i, 1); i--; changed = true; }
+    }
+  }
+  return out;
+}
+
+/** The sample a side is read out to from sample i, going `dir` (1 on, -1 back): two samples on along a curve, its
+    samples a few units apart, but only one where the first step is a straight side of its own or ends at a corner, so
+    a side read past a straight edge's far end doesn't run on round the next corner (Vellum's A's counter, its rounded
+    foot read out along the crossbar across the counter). */
+function sideTo(s: S[], i: number, dir: 1 | -1): S {
+  const n = s.length, j1 = (i + dir + n) % n;
+  return s[j1].kink || Math.hypot(s[j1].x - s[i].x, s[j1].y - s[i].y) > SIDE_STEP ? s[j1] : s[(i + 2 * dir + 2 * n) % n];
+}
+/** The longest step between the samples of a curve (sampled's step, and a little over): a longer one is a straight side. */
+const SIDE_STEP = 6;
+/** The most of a counter the ink rings round (an o's, an 8's) an inside corner's round may fill (restyleCorners). */
+const HOLE_FILL = 0.25;
+
 /** A ring of points with the turn at each and the length on to the next (points on top of each other gone). */
 function annotate(pts: P[]): S[] {
   const clean = pts.filter((p, i) => { const q = pts[(i + 1) % pts.length]; return Math.hypot(q.x - p.x, q.y - p.y) > 0.05; });
@@ -156,7 +188,7 @@ function cornersOf(s: S[], rMax: number): Corner[] {
     for (let k = a; k <= b; k++) { const j = (k + n) % n; turn += s[j].turn; used[j] = 1; if (k < b) len += s[j].len; }
     if (Math.abs(turn) < 0.5 || Math.abs(turn) > Math.PI * 1.15) continue;
     // the sides it rounds: the outline coming into it and going on out of it, read just past it
-    const p0 = s[(a - 1 + n) % n], pin = s[(a - 3 + n) % n], p1 = s[(b + 1) % n], pout = s[(b + 3) % n];
+    const p0 = s[(a - 1 + n) % n], pin = sideTo(s, (a - 1 + n) % n, -1), p1 = s[(b + 1) % n], pout = sideTo(s, (b + 1) % n, 1);
     const halves: [number, number][] = Math.abs(turn) > 2.1 ? [[a, Math.round((a + b) / 2)], [Math.round((a + b) / 2), b]] : [[a, b]];
     for (const [h0, h1] of halves) {
       let ht = 0, hl = 0;
@@ -189,15 +221,70 @@ const CROTCH_MIN = 10 * Math.PI / 180;
 /** How close, in stems, the corners the ink wraps round follow each other to be one tip to round: a broad pen's
     point cut across by a facet a hair long (a blackletter's heads and feet) is one point, not two corners with no room. */
 const TIP_GAP = 0.2;
+/** How close to the corners either side of it, as a share of the gap a run is made one across, a corner of the other
+    kind is passed over as a notch in the run (crotchesOf). */
+const NOTCH_GAP = 0.25;
+/** The least share of their turns two corners made one must turn through together (crotchesOf). */
+const MERGE_KEEP = 0.6;
+/** How far from upright or level, in radians, a corner's two sides may run for it to be a square corner of upright and
+    level strokes (an H's, a T's), which Joins and Counters split by its width alone. */
+const LEVEL_TOL = 12 * Math.PI / 180;
+/** How far, in radians, an inside corner's side may curve on round the way the corner turns and still be room for its
+    round (restyleCorners' straight). */
+const BEND_ON = 1;
+/** How far out from an inside corner, in stems, the paper is read across for a channel (facesCounter): near, and
+    further on. */
+const CHANNEL_NEAR = 1, CHANNEL_FAR = 4;
+/** How much wider the paper may grow from near to far out and still be a channel, a counter's, not a notch opening out. */
+const CHANNEL_SPREAD = 1.8;
+
+/** Whether the paper at an inside corner of the letter's outer outline is a counter's: read across the way that halves
+    the corner (`dir`, from point p a little in from it), it runs on between ink on both sides and widens little, a
+    channel (an n's arch from inside, a u's foot), not a notch opening out to the paper round the letter, as a wedge
+    widens (a blackletter's head or foot on its stem, an X's crotches). A corner of a ring round a counter (an o's
+    inside) is one anyway. */
+function facesCounter(g: Grid, p: P, dir: number, stem: number): boolean {
+  const x1 = g.x0 + g.W * g.cell, y1 = g.y0 + g.H * g.cell, dx = Math.cos(dir), dy = Math.sin(dir);
+  // (how far across from q the paper runs each way to the ink; none where it runs out of the letter's box)
+  const across = (q: P) => {
+    let w = 0;
+    for (const sg of [1, -1]) {
+      let d = g.cell;
+      for (; ; d += g.cell) {
+        const x = q.x - dy * sg * d, y = q.y + dx * sg * d;
+        if (x < g.x0 || y < g.y0 || x > x1 || y > y1) return Infinity;
+        if (inkAt(g, x, y)) break;
+      }
+      w += d;
+    }
+    return w;
+  };
+  const near = { x: p.x + dx * stem * CHANNEL_NEAR, y: p.y + dy * stem * CHANNEL_NEAR }, far = { x: p.x + dx * stem * CHANNEL_FAR, y: p.y + dy * stem * CHANNEL_FAR };
+  if (inkAt(g, near.x, near.y) || inkAt(g, far.x, far.y)) return true;
+  const w0 = across(near), w1 = across(far);
+  return w1 < Infinity && w1 <= CHANNEL_SPREAD * Math.max(w0, stem);
+}
+/** The letter's ink on a grid, for facesCounter: kept with its rings, as a slider dragged reads the same ones again. */
+const counterGrids = new WeakMap<Node[][], Grid>();
 /** The inside corners of a contour's corners (in any order) that follow each other closer than `gap` along it, with
     no other corner between, made one: a crotch a font draws rounded (cornersOf reads a round turning past 120° as
     its two halves) or cut across in facets (Turnpike's) is one crotch to round. With `convex`, the corners the ink
-    wraps round instead (a tip cut across in facets is one tip). In the contour's order. */
-function crotchesOf(s: S[], corners: Corner[], gap: number, convex = false): Corner[] {
-  const n = s.length, ks = corners.slice().sort((a, b) => a.i0 - b.i0), sg = convex ? 1 : -1;
+    wraps round instead (a tip cut across in facets is one tip). In the contour's order. Given `inInk`, inside corners are
+    made one only where the point their sides close to is in the ink (not past a hairline across a counter's end, where
+    the round would run out through it). Between inside corners, one the
+    ink wraps round a hair from both (a hairline's end tucked into a stem, a notch NOTCH_GAP of `gap` across) is passed
+    over, and goes in the round made of them. */
+function crotchesOf(s: S[], corners: Corner[], gap: number, convex = false, inInk?: (p: P) => boolean): Corner[] {
+  const n = s.length, sorted = corners.slice().sort((a, b) => a.i0 - b.i0), sg = convex ? 1 : -1;
   const span = (i: number, j: number) => { let l = 0; for (let k = i; k !== j; k = (k + 1) % n) l += s[k].len; return l; };
-  const sideIn = (i: number): [P, P] => s[i].kink ? [s[(i - 1 + n) % n], s[i]] : [s[(i - 3 + n) % n], s[(i - 1 + n) % n]];
-  const sideOut = (i: number): [P, P] => s[i].kink ? [s[i], s[(i + 1) % n]] : [s[(i + 1) % n], s[(i + 3) % n]];
+  const N = sorted.length, notch = gap * NOTCH_GAP;
+  const ks = sorted.filter((k, i) => {
+    if (convex || k.convex === convex || N < 3) return true;
+    const a = sorted[(i - 1 + N) % N], b = sorted[(i + 1) % N];
+    return !(a.convex === convex && b.convex === convex && span(a.i1, k.i0) < notch && span(k.i1, b.i0) < notch);
+  });
+  const sideIn = (i: number): [P, P] => s[i].kink ? [s[(i - 1 + n) % n], s[i]] : [sideTo(s, (i - 1 + n) % n, -1), s[(i - 1 + n) % n]];
+  const sideOut = (i: number): [P, P] => s[i].kink ? [s[i], s[(i + 1) % n]] : [s[(i + 1) % n], sideTo(s, (i + 1) % n, 1)];
   const out: Corner[] = [];
   for (const k of ks) {
     const last = out[out.length - 1];
@@ -205,9 +292,11 @@ function crotchesOf(s: S[], corners: Corner[], gap: number, convex = false): Cor
       const v = meet(...sideIn(last.i0), ...sideOut(k.i1));
       let turn = 0, len = 0;
       for (let j = last.i0; ; j = (j + 1) % n) { turn += s[j].turn; if (j === k.i1) break; len += s[j].len; }
-      // (as long as they close into a point near them, not a slot's two square corners, whose sides run on side by side)
+      // (as long as they close into a point near them, not a slot's two square corners, whose sides run on side by side;
+      // and turn on as far as most of the two do, not a zigzag through a notch that comes out nearly straight)
       const near = (p: P) => Math.hypot(p.x - v!.x, p.y - v!.y) < gap * 4;
-      if (v && turn * sg > 0 && Math.PI - turn * sg > CROTCH_MIN && near(s[last.i0]) && near(s[k.i1])) { out[out.length - 1] = { v, i0: last.i0, i1: k.i1, turn, r: len / Math.max(0.05, Math.abs(turn)), convex }; continue; }
+      const most = Math.abs(turn) >= Math.max(KINK, MERGE_KEEP * (Math.abs(last.turn) + Math.abs(k.turn)));
+      if (v && most && turn * sg > 0 && Math.PI - turn * sg > CROTCH_MIN && near(s[last.i0]) && near(s[k.i1]) && (!inInk || inInk(v))) { out[out.length - 1] = { v, i0: last.i0, i1: k.i1, turn, r: len / Math.max(0.05, Math.abs(turn)), convex }; continue; }
     }
     out.push(k);
   }
@@ -228,16 +317,39 @@ const sameCorners = (a: CornerLooks, b: CornerLooks) => Math.abs(a.round - b.rou
 /** The contours with their corners rounded and stepped as `to` has them, where they stand as `from` had them. */
 export function restyleCorners(cs: Node[][], c: RestyleCtx, from: CornerLooks, to: CornerLooks): Node[][] {
   if (sameCorners(from, to)) return cs;
-  const stepAmt = added(from.step, to.step), thin = Math.min(c.stem, c.bar);
-  const out: Node[][] = [];
+  const stepAmt = added(from.step, to.step), thin = Math.min(c.stem, c.bar), inside = to.inner > from.inner || to.join > from.join;
+  const gridOf = () => {
+    let g = counterGrids.get(cs);
+    if (!g) { g = inkGrid(cs, Math.max(2, c.stem / 6)); counterGrids.set(cs, g); }
+    return g;
+  };
+  const out: Node[][] = [], all = inkRings(cs).map(r => annotate(despike(r)));
+  let ink: ReturnType<typeof shape> | undefined;
+  const inkOf = () => (ink ??= shape(all));
   let changed = false;
-  for (const ring of inkRings(cs)) {
-    const s = annotate(ring);
+  /** Whether no outline of the letter runs into triangle `t`, but for the stretch of `own` from i0 to i1 (the outline the
+      round drawn in the triangle takes the place of). */
+  const clear = (t: [P, P, P], own: S[], i0: number, i1: number) => {
+    const [A, B, C] = t, side = (p: P, q: P, r: P) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+    const area = side(A, B, C), sg = Math.sign(area);
+    if (Math.abs(area) < 1e-6) return true;
+    // (strictly inside, by a hair: the outline the round meets touches its corners)
+    const inside = (p: P) => sg * side(A, B, p) > 0.25 && sg * side(B, C, p) > 0.25 && sg * side(C, A, p) > 0.25;
+    const cross = (p: P, q: P, u: P, v: P) => side(p, q, u) * side(p, q, v) < 0 && side(u, v, p) * side(u, v, q) < 0;
+    for (const ring of all) for (let i = 0; i < ring.length; i++) {
+      if (ring === own && ((i - i0 + ring.length) % ring.length) < ((i1 - i0 + ring.length) % ring.length)) continue;
+      const a = ring[i], b = ring[(i + 1) % ring.length];
+      if (inside(a) || cross(a, b, A, B) || cross(a, b, B, C) || cross(a, b, C, A)) return false;
+    }
+    return true;
+  };
+
+  for (const s of all) {
     if (s.length < 3) continue;
     // (a run of inside corners close together as one crotch, while Joins or Counters asks for rounder ones; and of
     // corners the ink wraps round a hair apart as one tip, while Roundness does)
     const found = cornersOf(s, Math.max(6, c.stem * 0.6));
-    const crotches = to.inner > from.inner || to.join > from.join ? crotchesOf(s, found, c.stem * 0.6) : found;
+    const crotches = inside ? crotchesOf(s, found, c.stem * 0.6, false, q => inkOf().has(q.x, q.y)) : found;
     const corners = to.round > from.round ? crotchesOf(s, crotches, c.stem * TIP_GAP, true) : crotches;
     // how wide an inside corner is: the angle between its sides read a stem out from it, past any round or cut the
     // font gives it (its other inside corners), short of a corner the ink wraps round (a crossbar's end). A crotch
@@ -256,11 +368,36 @@ export function restyleCorners(cs: Node[][], c: RestyleCtx, from: CornerLooks, t
       }
       return s[j];
     };
-    const wide = (k: Corner) => {
+    // (the ink on its left: a ring running clockwise rings a counter, its paper all inside it)
+    const hole = Math.max(0, -signedArea(s));
+    const sidesOf = (k: Corner) => {
       const a = out1(k.i0, -1), p = s[k.i0], q = s[k.i1], b = out1(k.i1, 1);
-      const ux = p.x - a.x, uy = p.y - a.y, vx = b.x - q.x, vy = b.y - q.y;
+      return [p.x - a.x, p.y - a.y, b.x - q.x, b.y - q.y];
+    };
+    const wide = (k: Corner) => {
+      const [ux, uy, vx, vy] = sidesOf(k);
       if (Math.hypot(ux, uy) < 0.5 || Math.hypot(vx, vy) < 0.5) return Math.PI - Math.abs(k.turn);
       return Math.PI - Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy));
+    };
+    // whether a corner's sides run upright and level (an H's, a T's)
+    // (a side read no way out, a corner the ink wraps round next to it, by the stretch next to the corner)
+    const level = (k: Corner) => {
+      const n = s.length, off = (x: number, y: number) => { const a = Math.abs(Math.atan2(y, x)) % (Math.PI / 2); return Math.min(a, Math.PI / 2 - a); };
+      let [ux, uy, vx, vy] = sidesOf(k);
+      if (Math.hypot(ux, uy) < 0.5) { const a = s[(k.i0 - 1 + n) % n]; ux = s[k.i0].x - a.x; uy = s[k.i0].y - a.y; }
+      if (Math.hypot(vx, vy) < 0.5) { const b = s[(k.i1 + 1) % n]; vx = b.x - s[k.i1].x; vy = b.y - s[k.i1].y; }
+      return Math.hypot(ux, uy) >= 0.5 && Math.hypot(vx, vy) >= 0.5 && off(ux, uy) < LEVEL_TOL && off(vx, vy) < LEVEL_TOL;
+    };
+    // whether the paper at a corner is a counter's, read from a little in from its middle along the way that halves it
+    const faces = (k: Corner) => {
+      const n = s.length, m = s[(k.i0 + (((k.i1 - k.i0 + n) % n) >> 1)) % n], a = s[(k.i0 - 1 + n) % n], b = s[(k.i1 + 1) % n];
+      const ia = Math.hypot(s[k.i0].x - a.x, s[k.i0].y - a.y) || 1, ib = Math.hypot(b.x - s[k.i1].x, b.y - s[k.i1].y) || 1;
+      let hx = -(s[k.i0].x - a.x) / ia + (b.x - s[k.i1].x) / ib, hy = -(s[k.i0].y - a.y) / ia + (b.y - s[k.i1].y) / ib;
+      const hl = Math.hypot(hx, hy);
+      // (the paper on the outline's right, the ink on its left)
+      if (hl < 1e-6) { hx = (s[k.i0].y - a.y) / ia; hy = -(s[k.i0].x - a.x) / ia; } else { hx /= hl; hy /= hl; }
+      const g = gridOf();
+      return hole > 0 || facesCounter(g, { x: m.x + hx * c.stem * 0.35, y: m.y + hy * c.stem * 0.35 }, Math.atan2(hy, hx), c.stem);
     };
     // each corner's radius (and step) as asked for
     const plan = corners.map(k => {
@@ -270,14 +407,18 @@ export function restyleCorners(cs: Node[][], c: RestyleCtx, from: CornerLooks, t
         // a square corner (between 70° and 110°) steps back, as far as most of the thinner stroke's thickness
         if (stepAmt > 0 && Math.abs(Math.abs(k.turn) - Math.PI / 2) < 0.35) step = stepAmt * STEP_DEPTH * thin;
       } else {
-        // inside corners only round further: a square or open one by Counters, a narrow crotch by Joins, split by
-        // how wide it is as the engine's are (innerShare, crotchShare)
-        const ang = wide(k), inner = Math.max(0, to.inner - from.inner) * innerShare(ang);
-        const join = Math.max(0, to.join - from.join) * crotchShare(ang);
+        if (!inside) return { k, r, step, full: r, redo: false };
+        // inside corners only round further: a narrow crotch by Joins, a square corner of upright and level strokes by
+        // Counters, split by how wide it is as the engine's are (innerShare, crotchShare); any other whole by Counters
+        // where it faces a counter (a blackletter's arches, an o's inside) and by Joins where it is a notch in the
+        // letter's outline, where strokes meet at a slant (a blackletter's heads and feet on their stems, a bracket)
+        const ang = wide(k), [ish, jsh] = ang > CROTCH && !level(k) ? (faces(k) ? [1, 0] : [0, 1]) : [innerShare(ang), crotchShare(ang)];
+        const inner = Math.max(0, to.inner - from.inner) * ish;
+        const join = Math.max(0, to.join - from.join) * jsh;
         r = Math.max(k.r, k.r + Math.max(inner, join));
         // and as far as the sliders at their top would round it, so a corner with less room than that rounds a share
         // of it (below), as an engine's join does, and keeps rounding all the way to the top
-        const full = Math.max(innerRoundR(1, c.cap) - from.inner, 0) * innerShare(ang), fullJoin = Math.max(joinR(1, c.stem) - from.join, 0) * crotchShare(ang);
+        const full = Math.max(innerRoundR(1, c.cap) - from.inner, 0) * ish, fullJoin = Math.max(joinR(1, c.stem) - from.join, 0) * jsh;
         return { k, r, step, full: k.r + Math.max(full, fullJoin), redo: Math.abs(r - k.r) > 0.5 };
       }
       // (and as far as Roundness at its top would round it, as an inside corner by Joins and Counters)
@@ -293,21 +434,64 @@ export function restyleCorners(cs: Node[][], c: RestyleCtx, from: CornerLooks, t
     // a round reaches no further along either side than about half way to the next corner, so two never cross
     // (a B's counters, rounded all round by Counters, stay counters)
     // and no further than either side runs on straight: past that it curves away (a B's waist, between its bowls)
-    const straight = (i: number, dir: 1 | -1) => {
+    // (an inside corner's side curving on round the way the corner turns, as a pointed arch's into its stem, is room for
+    // its round up to BEND_ON from where it starts: the round carries on its curve)
+    const straight = (i: number, dir: 1 | -1, bend = 0) => {
       const n = s.length, a = s[i], b = s[(i + dir + n) % n], ux = (b.x - a.x), uy = (b.y - a.y), lu = Math.hypot(ux, uy) || 1;
       let len = 0;
       for (let k = 0; k < n - 1; k++) {
         const p = s[(i + dir * k + n * (k + 1)) % n], q = s[(i + dir * (k + 1) + n * (k + 1)) % n], l = Math.hypot(q.x - p.x, q.y - p.y);
-        if (l > 0 && ((q.x - p.x) * ux + (q.y - p.y) * uy) / (l * lu) < Math.cos(0.4)) break;
+        const cos = l > 0 ? ((q.x - p.x) * ux + (q.y - p.y) * uy) / (l * lu) : 1;
+        if (cos < Math.cos(0.4) && (!bend || Math.sign(ux * (q.y - p.y) - uy * (q.x - p.x)) * dir !== Math.sign(bend) || cos < Math.cos(BEND_ON))) break;
         len += l;
       }
       return len;
     };
+    // an inside corner's round reaches as far as it can be drawn clear of the letter's other ink (a stroke across the
+    // corner's mouth, a counter narrower than it: fits), no further along either side than half way
+    // to a corner rounded too, nine tenths of the way to one that isn't, and no further than the side runs on straight
+    // or curving round the corner's way (straight): past that it curves away (a B's waist, an 8's)
+    const fits = (k: Corner, r: number) => {
+      // (the round runs from as far along the outline either side as its radius reaches, roundContour's want, round
+      // the corner's point: in the triangle the three make, where no other ink may be)
+      const n = s.length, d = r * Math.tan(Math.min(Math.abs(k.turn), 2.6) / 2);
+      const walk = (start: number, dir: 1 | -1): { p: P; j: number } | null => {
+        let prev: P = k.v, l = 0;
+        for (let m = 0, j = start; m < n - 1; m++, j = (j + dir + n) % n) {
+          const q = s[j], seg = Math.hypot(q.x - prev.x, q.y - prev.y);
+          if (l + seg >= d) { const t = (d - l) / (seg || 1); return { p: { x: prev.x + (q.x - prev.x) * t, y: prev.y + (q.y - prev.y) * t }, j }; }
+          l += seg; prev = q;
+        }
+        return null;
+      };
+      const a = walk((k.i0 - 1 + n) % n, -1), b = walk((k.i1 + 1) % n, 1);
+      if (!a || !b) return false;
+      // (in a counter the ink rings round, filling no more than HOLE_FILL of it)
+      if (hole > 0 && Math.abs((a.p.x - k.v.x) * (b.p.y - k.v.y) - (a.p.y - k.v.y) * (b.p.x - k.v.x)) / 2 > HOLE_FILL * hole) return false;
+      return clear([a.p, k.v, b.p], s, a.j, b.j);
+    };
+
+    const rounding = (o: (typeof plan)[number]) => o.k.r > 0.5 || o.full > o.k.r + 0.5;
     plan.forEach((p, j) => {
-      if (plan.length < 2 || p.r <= p.k.r) return;
+      // (a ring with one corner, a teardrop counter, rounds it as far as the rest of the ring leaves room)
+      if ((plan.length < 2 && p.k.convex) || p.r <= p.k.r) return;
       const J = plan.length, prev = (pos[j] - pos[(j - 1 + J) % J] + total) % total || total, next = (pos[(j + 1) % J] - pos[j] + total) % total || total;
-      const room = Math.min(0.45 * Math.min(prev, next), 0.9 * straight((p.k.i0 - 1 + s.length) % s.length, -1), 0.9 * straight((p.k.i1 + 1) % s.length, 1));
-      const most = room / Math.tan(Math.min(Math.abs(p.k.turn), 2.6) / 2);
+      let most: number;
+      if (p.k.convex) {
+        const room = Math.min(0.45 * Math.min(prev, next), 0.9 * straight((p.k.i0 - 1 + s.length) % s.length, -1), 0.9 * straight((p.k.i1 + 1) % s.length, 1));
+        most = room / Math.tan(Math.min(Math.abs(p.k.turn), 2.6) / 2);
+      } else {
+        // (each side read from the corner itself, its first stretch counted: a straight side is one stretch, its two ends)
+        const share = (o: (typeof plan)[number]) => (rounding(o) ? 0.45 : 0.9), bend = p.k.turn;
+        const room = Math.min(share(plan[(j - 1 + J) % J]) * prev, share(plan[(j + 1) % J]) * next,
+          0.9 * straight(p.k.i0, -1, bend), 0.9 * straight(p.k.i1, 1, bend));
+        most = room / Math.tan(Math.min(Math.abs(p.k.turn), 2.6) / 2);
+        if (!fits(p.k, most)) {
+          let lo = 0, hi = most;
+          for (let it = 0; it < 14; it++) { const mid = (lo + hi) / 2; if (fits(p.k, mid)) lo = mid; else hi = mid; }
+          most = lo;
+        }
+      }
       p.r = p.full <= most ? Math.max(p.k.r, Math.min(p.r, most)) : p.k.r + (p.r - p.k.r) * Math.max(0, most - p.k.r) / (p.full - p.k.r);
       p.redo = Math.abs(p.r - p.k.r) > 0.5 || p.step > 0;
     });

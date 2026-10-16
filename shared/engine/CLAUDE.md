@@ -237,8 +237,16 @@ A design with `freeFont` set draws its letters from a free font instead of build
    a key of every setting the steps read. Overlap parts a b d p q's bowl from an upright stem as the font's own o
    (`bowlStem`, `OVERLAP_LETTERS`); Cursive adds the engine's exit and entry flicks to the lowercase (`EXIT_LETTERS`,
    `ENTRY_LETTERS`); Peaks reshapes only `PEAK_LETTERS` with straight sides (`hasPeaks`; skinFollows reports no others);
-   Corners rounds a run of corners a hair apart as one (a blackletter's points, `TIP_GAP`) and each corner, outside or
-   in, as a share of what its room allows, so Roundness, Joins and Counters keep rounding to 100; Ends restyles only the free ends standing
+   Corners rounds a run of corners a hair apart as one (a blackletter's points, `TIP_GAP`; inside corners only where
+   their sides close in the ink, past a hairline's notch `NOTCH_GAP`, turning on as `MERGE_KEEP` asks) and each corner,
+   outside or in, as a share of what its room allows, so Roundness, Joins and Counters keep rounding to 100. An inside
+   corner goes to Joins or Counters by its width as the engine's (`innerShare`) where it is a narrow crotch or a square
+   corner of upright and level strokes; any other wholly to Counters where it faces a counter (`facesCounter`: a ring
+   round one, or paper running on between ink as a channel) and to Joins where it is a notch opening out (a
+   blackletter's heads and feet, an X's crotches). Its round reaches as far as the side runs straight or curving round
+   its way (`BEND_ON`), half way to a rounded neighbour or most of the way to another, is drawn clear of other ink (the
+   triangle it is drawn in, `fits`), and fills no more than `HOLE_FILL` of a counter it rings; sides are read along
+   their own stretch (`sideTo`) and spurs of no width dropped first (`despike`). Ends restyles only the free ends standing
    where the engine's letter of the same character has a styled end on a curving stroke (`endSpots`, `SPOT_NEAR`; on a
    cursive design its italic letters' too), each of a stroke that curves (`END_TURN`) and no serif's or beak's prong
    (a stem's foot, a crossbar's end and a Didone's s's beak keep theirs), drawn again from no further back than the
@@ -278,8 +286,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
 5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,
    the a's storeys, a `FORM_LETTERS` setting; the Letter a left on auto keeps the font's own form, and a font is written
-   in its own letters, script or print, whatever Cursive asks; round Bends only in a font whose V or v comes to a
-   straight point, `fontVertexed`: a blackletter's or a script's are kept); `twinGlyph` draws the engine's own
+   in its own letters, script or print, whatever Cursive asks; a family `ownForms` (Cathedral, Serenade, Boardwalk,
+   Sonnet: their twins look nothing like them) takes no other form; round Bends only in a font whose V or v comes to a
+   straight point, `fontVertexed`); `twinGlyph` draws the engine's own
    letter at the settings the font reads as (`twinFit`: the weight and contrast whose stems and bars match the font's
    own, read off its n and H by `fontLook` with the design's Verticals and Horizontals counted, its x-height, width,
    serifs, and its stems' lean as slant), moved as far as the design moves from the pick.
