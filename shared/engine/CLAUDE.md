@@ -231,7 +231,14 @@ A design with `freeFont` set draws its letters from a free font instead of build
    stopped short of the x-height by as much as they were thinner; at each line the level stroke furthest out goes out so
    far, the letter between in step, its counters taller and its level strokes no thicker, a stroke running steeply into a
    line to end there less and less to none at its end, `hugFade`; kept within its ink as that moves it too); failing
-   `whole`, it is moved as any letter is. Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
+   `whole`, it is moved as any letter is. A letter drawn as its strokes starts in from the design, not off it at the
+   first hair lighter (`fromPick`: within `PICK_BLEND` of the design's stems, the strokes united with the letter moved as
+   a heavier weight is, thinning faster, `PICK_THIN`, kept within the design's ink and within a band round the strokes,
+   the strokes drawn again thicker, narrowing to nothing, `PICK_GROW`); a letter moved lighter goes from where a heavier
+   weight's moves put it to where the lighter's do over the same stretch (`movedOnce`'s `lam`, crumbs dropped as small
+   as that), so its crotches and finest strokes don't jump; `doubledBack` keeps a point the design itself turns back
+   at (a Didone's serif's tip); and a stroke's cut end runs out to the ink exactly, each side to the design's cut, square
+   or aslant (an A's feet along the baseline). Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
    opened where strokes cross aside, and ink along its strokes' middles) is mended with those strokes laid over it
    (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;
    none of them, nor the middles `whole` reads, past a foot's edge, where `keepHeights`' lift, keeping a round's
