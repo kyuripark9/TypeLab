@@ -158,6 +158,13 @@ function strokesOf(pairs: Stroke[], g: Grid): Stroke[] {
     // (along where both its sides run: past one's end, a stroke meeting a line aslant (a K's leg, its foot cut level), the
     // band runs out of the ink)
     const [c0, c1] = core && core[1] > core[0] ? core : [lo, hi];
+    // (and where its sides don't run side by side at all, its middle inked across the gap between where one ends and the
+    // other starts: not the sides of two pieces apart, an !'s stroke's and its dot's)
+    if (core && core[1] <= core[0]) {
+      let m = 0, q = 0;
+      for (let t = core[1]; t <= core[0]; t += 2) { m++; if (inked(g, px + ux * t, py + uy * t)) q++; }
+      if (m && q < INKED * m) continue;
+    }
     for (let t = c0; t <= c1; t += Math.max(2, d / 8)) for (const f of [-0.4, -0.2, 0, 0.2, 0.4]) { n++; if (inked(g, px + ux * t - uy * f * d, py + uy * t + ux * f * d)) k++; }
     if (k >= INKED * n) out.push({ px, py, ux, uy, h, lo, hi });
   }
@@ -202,6 +209,17 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
   // (its strokes all about as thick: one drawn with contrast, or slabs thin beside its stems (a wood type's), is more
   // than its strokes)
   if (Math.max(...S0.map(s => s.h)) > even * Math.min(...S0.map(s => s.h))) return null;
+  // (nor two strokes side by side, running the same way within a stroke of each other over most of the shorter, not one:
+  // a tapered stroke's sides read each with a short edge beside the other, an !'s, its stroke read as two)
+  for (let a = 0; a < S0.length; a++) for (let b = a + 1; b < S0.length; b++) {
+    const A = S0[a], B = S0[b];
+    if (Math.abs(A.ux * B.uy - A.uy * B.ux) > PARALLEL) continue;
+    const s = A.ux * B.ux + A.uy * B.uy > 0 ? 1 : -1, b0 = (B.px - A.px) * A.ux + (B.py - A.py) * A.uy, blo = Math.min(b0 + s * B.lo, b0 + s * B.hi), bhi = Math.max(b0 + s * B.lo, b0 + s * B.hi);
+    // (how far apart their middles lie, the furthest at either end of where they run side by side)
+    const over = Math.min(A.hi, bhi) - Math.max(A.lo, blo), apart = (t: number) => { const x = A.px + A.ux * t, y = A.py + A.uy * t, u = (x - B.px) * B.ux + (y - B.py) * B.uy; return Math.hypot(x - B.px - B.ux * u, y - B.py - B.uy * u); };
+    const off = Math.max(apart(Math.max(A.lo, blo)), apart(Math.min(A.hi, bhi)));
+    if (over > 0.5 * Math.min(A.hi - A.lo, bhi - blo) && off >= 0.4 * Math.max(A.h, B.h) && off < Math.max(A.h, B.h)) return null;
+  }
   // (and each slab a stroke along its face, half as deep in, from end to end)
   const slabbed = new Map<Stroke, Slab>(), S = [...S0, ...slabs.map(sl => {
     const l = Math.hypot(sl.b.x - sl.a.x, sl.b.y - sl.a.y) || 1, A: Stroke = { px: sl.a.x + sl.nx * sl.d / 2, py: sl.a.y + sl.ny * sl.d / 2, ux: (sl.b.x - sl.a.x) / l, uy: (sl.b.y - sl.a.y) / l, h: sl.d / 2, lo: 0, hi: l };

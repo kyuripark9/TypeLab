@@ -2354,9 +2354,10 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   });
   const iv: [number, number][] = [];
   const dotMid = bs[0]?.dot ? { x: bs.reduce((a, b) => a + b.x, 0) / bs.length, y: bs.reduce((a, b) => a + b.y, 0) / bs.length } : { x: 0, y: 0 };
-  // (a dot with corners, square or a diamond, whose sides run on askew to the way to its middle: moved in only along their
-  // way across, they would cross at its corners, and its ring came out a sliver)
-  const squareDot = !!bs[0]?.dot && bs.some(b => { const ox = dotMid.x - b.x, oy = dotMid.y - b.y; return Math.abs(ox * b.ny - oy * b.nx) > 0.3 * Math.hypot(ox, oy); });
+  // (a dot made smaller about its middle, each point pinned there: moved in only along its way across, a dot with corners,
+  // or a round one a little squared, its sides running on askew to the way to its middle, crossed itself at its corners,
+  // and its ring came out a sliver or a pinwheel)
+  const squareDot = !!bs[0]?.dot;
   const k0: number[] = [];
   const plain = (b: Bone, i: number): number => {
     const kp = mv.keeps(b, r, i);
@@ -3381,9 +3382,12 @@ function snapFlatEdges(rig: SkinRig, rings: P[][], gy: (y: number) => number) {
 function tidyRings(rings: P[][], cap: number, dots?: boolean[]): Node[][] {
   let tidy = rings.map(r => untangle(r)), kept = dots;
   if (crosses(tidy)) {
-    const ccw = tidy.reduce((a, r) => a + signedArea(r), 0) > 0, sh = shape(ccw ? tidy : tidy.map(r => r.slice().reverse()), true);
-    tidy = combine([sh], sh.has);
-    kept = undefined;
+    // (the rest made one ink, a dot kept apart and kept: made smaller with the stems, it may be smaller than a speck)
+    const own = tidy.filter((_, i) => kept?.[i]), rest = tidy.filter((_, i) => !kept?.[i]);
+    const ccw = rest.reduce((a, r) => a + signedArea(r), 0) > 0, sh = shape(ccw ? rest : rest.map(r => r.slice().reverse()), true);
+    const one = combine([sh], sh.has);
+    tidy = [...one, ...own.map(r => (signedArea(r) < 0 ? r.slice().reverse() : r))];
+    kept = own.length ? [...one.map(() => false), ...own.map(() => true)] : undefined;
   }
   const speck = (cap * SPECK) ** 2;
   if (tidy.some(r => Math.abs(signedArea(r)) < speck)) tidy = tidy.filter((r, i) => kept?.[i] || Math.abs(signedArea(r)) >= speck);
