@@ -7,7 +7,7 @@ import { applyM, clamp } from './geom';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
-import { FORM_LETTERS, descK, rigSkeleton, skinMeasures, skinMove, skinRig, type SkinMeasures, type SkinRig } from './skin';
+import { FORM_LETTERS, descK, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, type SkinMeasures, type SkinRig } from './skin';
 import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBlockBowls, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
@@ -122,12 +122,13 @@ export function inkX(d: Drawn): [number, number] {
 /** Whether letter `ch` is asked for (settings `a`) in another form than the one the font's own stands for (its settings
     as picked, `b`): built otherwise, the a's storeys (left on auto, the font's), or a letter-form setting moved on the
     letters it reaches (FORM_LETTERS in skin.ts). A font is written as it is drawn, script or print, whatever Cursive asks:
-    Cursive gives the font's own letters the engine's flicks (restyleCursive in restyle.ts). */
-export function formChanged(ch: string, a: Effective, b: Effective): boolean {
+    Cursive gives the font's own letters the engine's flicks (restyleCursive in restyle.ts). Given the `font`, round
+    Bends reaches only a font whose letters turn in straight points as the engine's do (fontVertexed). */
+export function formChanged(ch: string, a: Effective, b: Effective, font?: FreeFont | null): boolean {
   if (a.build !== b.build) return true;
   // (the Letter a left on auto keeps the font's own form, which its letters are drawn in)
   return (ch === 'a' && a.story !== 'auto' && a.singleStory !== b.singleStory)
-    || (Object.keys(FORM_LETTERS) as (keyof typeof FORM_LETTERS)[]).some(k => FORM_LETTERS[k].includes(ch) && a[k] !== b[k]);
+    || (Object.keys(FORM_LETTERS) as (keyof typeof FORM_LETTERS)[]).some(k => FORM_LETTERS[k].includes(ch) && a[k] !== b[k] && (k !== 'bends' || !font || fontVertexed(font)));
 }
 
 /* What a free font's width reads as, metrics() (font.ts) undone: twinFit reads the font's n back through it, and

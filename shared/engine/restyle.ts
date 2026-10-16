@@ -186,24 +186,28 @@ function meet(a: P, b: P, c: P, d: P): P | null {
 
 /** The narrowest a run of inside corners made one may be across: narrower, its sides run on side by side. */
 const CROTCH_MIN = 10 * Math.PI / 180;
+/** How close, in stems, the corners the ink wraps round follow each other to be one tip to round: a broad pen's
+    point cut across by a facet a hair long (a blackletter's heads and feet) is one point, not two corners with no room. */
+const TIP_GAP = 0.2;
 /** The inside corners of a contour's corners (in any order) that follow each other closer than `gap` along it, with
     no other corner between, made one: a crotch a font draws rounded (cornersOf reads a round turning past 120° as
-    its two halves) or cut across in facets (Turnpike's) is one crotch to round. In the contour's order. */
-function crotchesOf(s: S[], corners: Corner[], gap: number): Corner[] {
-  const n = s.length, ks = corners.slice().sort((a, b) => a.i0 - b.i0);
+    its two halves) or cut across in facets (Turnpike's) is one crotch to round. With `convex`, the corners the ink
+    wraps round instead (a tip cut across in facets is one tip). In the contour's order. */
+function crotchesOf(s: S[], corners: Corner[], gap: number, convex = false): Corner[] {
+  const n = s.length, ks = corners.slice().sort((a, b) => a.i0 - b.i0), sg = convex ? 1 : -1;
   const span = (i: number, j: number) => { let l = 0; for (let k = i; k !== j; k = (k + 1) % n) l += s[k].len; return l; };
   const sideIn = (i: number): [P, P] => s[i].kink ? [s[(i - 1 + n) % n], s[i]] : [s[(i - 3 + n) % n], s[(i - 1 + n) % n]];
   const sideOut = (i: number): [P, P] => s[i].kink ? [s[i], s[(i + 1) % n]] : [s[(i + 1) % n], s[(i + 3) % n]];
   const out: Corner[] = [];
   for (const k of ks) {
     const last = out[out.length - 1];
-    if (last && !last.convex && !k.convex && span(last.i1, k.i0) < gap) {
+    if (last && last.convex === convex && k.convex === convex && span(last.i1, k.i0) < gap) {
       const v = meet(...sideIn(last.i0), ...sideOut(k.i1));
       let turn = 0, len = 0;
       for (let j = last.i0; ; j = (j + 1) % n) { turn += s[j].turn; if (j === k.i1) break; len += s[j].len; }
       // (as long as they close into a point near them, not a slot's two square corners, whose sides run on side by side)
       const near = (p: P) => Math.hypot(p.x - v!.x, p.y - v!.y) < gap * 4;
-      if (v && turn < 0 && Math.PI + turn > CROTCH_MIN && near(s[last.i0]) && near(s[k.i1])) { out[out.length - 1] = { v, i0: last.i0, i1: k.i1, turn, r: len / Math.max(0.05, -turn), convex: false }; continue; }
+      if (v && turn * sg > 0 && Math.PI - turn * sg > CROTCH_MIN && near(s[last.i0]) && near(s[k.i1])) { out[out.length - 1] = { v, i0: last.i0, i1: k.i1, turn, r: len / Math.max(0.05, Math.abs(turn)), convex }; continue; }
     }
     out.push(k);
   }
@@ -230,9 +234,11 @@ export function restyleCorners(cs: Node[][], c: RestyleCtx, from: CornerLooks, t
   for (const ring of inkRings(cs)) {
     const s = annotate(ring);
     if (s.length < 3) continue;
-    // (a run of inside corners close together as one crotch, while Joins or Counters asks for rounder ones)
+    // (a run of inside corners close together as one crotch, while Joins or Counters asks for rounder ones; and of
+    // corners the ink wraps round a hair apart as one tip, while Roundness does)
     const found = cornersOf(s, Math.max(6, c.stem * 0.6));
-    const corners = to.inner > from.inner || to.join > from.join ? crotchesOf(s, found, c.stem * 0.6) : found;
+    const crotches = to.inner > from.inner || to.join > from.join ? crotchesOf(s, found, c.stem * 0.6) : found;
+    const corners = to.round > from.round ? crotchesOf(s, crotches, c.stem * TIP_GAP, true) : crotches;
     // how wide an inside corner is: the angle between its sides read a stem out from it, past any round or cut the
     // font gives it (its other inside corners), short of a corner the ink wraps round (a crossbar's end). A crotch
     // the font draws rounded, read as two halves of a round, or cut across, read as two shallow corners, is then as
@@ -274,7 +280,8 @@ export function restyleCorners(cs: Node[][], c: RestyleCtx, from: CornerLooks, t
         const full = Math.max(innerRoundR(1, c.cap) - from.inner, 0) * innerShare(ang), fullJoin = Math.max(joinR(1, c.stem) - from.join, 0) * crotchShare(ang);
         return { k, r, step, full: k.r + Math.max(full, fullJoin), redo: Math.abs(r - k.r) > 0.5 };
       }
-      return { k, r, step, full: r, redo: Math.abs(r - k.r) > 0.5 || step > 0 };
+      // (and as far as Roundness at its top would round it, as an inside corner by Joins and Counters)
+      return { k, r, step, full: Math.max(r, k.r + roundnessR(1, c.stem) - from.round), redo: Math.abs(r - k.r) > 0.5 || step > 0 };
     });
     // a step takes at most half the side it shares with the next corner, as the engine's do (two steps on a
     // stroke's square end meet in its middle at most)
@@ -301,7 +308,7 @@ export function restyleCorners(cs: Node[][], c: RestyleCtx, from: CornerLooks, t
       const J = plan.length, prev = (pos[j] - pos[(j - 1 + J) % J] + total) % total || total, next = (pos[(j + 1) % J] - pos[j] + total) % total || total;
       const room = Math.min(0.45 * Math.min(prev, next), 0.9 * straight((p.k.i0 - 1 + s.length) % s.length, -1), 0.9 * straight((p.k.i1 + 1) % s.length, 1));
       const most = room / Math.tan(Math.min(Math.abs(p.k.turn), 2.6) / 2);
-      p.r = p.k.convex || p.full <= most ? Math.max(p.k.r, Math.min(p.r, most)) : p.k.r + (p.r - p.k.r) * Math.max(0, most - p.k.r) / (p.full - p.k.r);
+      p.r = p.full <= most ? Math.max(p.k.r, Math.min(p.r, most)) : p.k.r + (p.r - p.k.r) * Math.max(0, most - p.k.r) / (p.full - p.k.r);
       p.redo = Math.abs(p.r - p.k.r) > 0.5 || p.step > 0;
     });
     plan.forEach((p, j) => {
@@ -1950,18 +1957,17 @@ export function restyleOverlap(cs: Node[][], c: RestyleCtx, from: number, to: nu
     ascender, a y's looped tail or a Q's tail stand on a line between slanting sides too). */
 export const PEAK_LETTERS = 'AMNVWXYvwxyz47';
 
-/** The contours with the peaks of their diagonals (the top of an A, the foot of a V, a W's and an M's points) as
-    pointed or flat as `to` (Peaks, 0 pointed to 1 flat) asks, where they stand as the font draws them for `from`, as the
-    engine draws them (see zig in glyphs/shared.ts): the outer edges of the two strokes are carried on to where they
-    meet, the peak is moved out past the line (or back in) so they cross it as far apart as the flat top is to be wide,
-    and it is cut off at the line where the font's own stood. The move eases off along the strokes, evenly, so they
-    stay straight. */
-export function restylePeaks(cs: Node[][], c: RestyleCtx & { lines: number[] }, from: number, to: number): Node[][] {
-  if (Math.abs(from - to) < 1e-4 || !PEAK_LETTERS.includes(c.ch)) return cs;
-  const rings = inkRings(cs), band = c.cap * ON_LINE, reach = c.stem * 2.2, inkShape = shape(rings);
+/** A peak Peaks reshapes: where it stands across (x), which way it faces out of its line (out) and the line's height
+    (top), how far it moves out (s), the tip the strokes' outer edges make past it, its flat's width and the slant of
+    its sides. */
+interface Peak { x: number; out: number; top: number; s: number; tip: P[]; w0: number; tanHalf: number }
+/** The peaks of a letter's ink (inkRings) that Peaks moved from `from` to `to` reshapes, with the ink's lowest and
+    highest points. */
+function peaksOf(rings: P[][], c: RestyleCtx & { lines: number[] }, from: number, to: number): { peaks: Peak[]; y0: number; y1: number } {
+  const band = c.cap * ON_LINE, reach = c.stem * 2.2, inkShape = shape(rings);
   let y0 = Infinity, y1 = -Infinity;
   for (const r of rings) for (const p of r) { y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
-  const peaks: { x: number; out: number; top: number; s: number; tip: P[]; w0: number; tanHalf: number }[] = [];
+  const peaks: Peak[] = [];
   for (const r of rings) {
     const n = r.length;
     for (const L of c.lines) for (const out of [1, -1]) {
@@ -2008,6 +2014,22 @@ export function restylePeaks(cs: Node[][], c: RestyleCtx & { lines: number[] }, 
       }
     }
   }
+  return { peaks, y0, y1 };
+}
+
+/** Whether letter `c.ch` drawn as `cs` has a peak Peaks reshapes: a point where two straight diagonals meet on a line.
+    A blackletter's or a script's letters, their strokes broken or curving into one another, have none. */
+export const hasPeaks = (cs: Node[][], c: RestyleCtx & { lines: number[] }) => PEAK_LETTERS.includes(c.ch) && peaksOf(inkRings(cs), c, 0, 1).peaks.length > 0;
+
+/** The contours with the peaks of their diagonals (the top of an A, the foot of a V, a W's and an M's points) as
+    pointed or flat as `to` (Peaks, 0 pointed to 1 flat) asks, where they stand as the font draws them for `from`, as the
+    engine draws them (see zig in glyphs/shared.ts): the outer edges of the two strokes are carried on to where they
+    meet, the peak is moved out past the line (or back in) so they cross it as far apart as the flat top is to be wide,
+    and it is cut off at the line where the font's own stood. The move eases off along the strokes, evenly, so they
+    stay straight. */
+export function restylePeaks(cs: Node[][], c: RestyleCtx & { lines: number[] }, from: number, to: number): Node[][] {
+  if (Math.abs(from - to) < 1e-4 || !PEAK_LETTERS.includes(c.ch)) return cs;
+  const rings = inkRings(cs), { peaks, y0, y1 } = peaksOf(rings, c, from, to);
   if (!peaks.length) return cs;
   // the tips filled in, then everything moved out by as much as it stands near the peak, less further down the letter
   const tipped = shape([...rings, ...peaks.map(p => p.tip)]), filled = combine([tipped], tipped.has);

@@ -430,7 +430,7 @@ export function buildFont(params: Params, from?: Font): Font {
   const fromSettings = (ch: string): Glyph | null => {
     const lf = font.letter(ch);
     if (lf !== font) return lf.glyph(ch);
-    if (free?.glyphs[ch]) return (fl!.skin && formChanged(ch, fl!.now, fl!.pick) && twinGlyph(ch, fl!)) || freeGlyph(ch, free.glyphs[ch], fl!);
+    if (free?.glyphs[ch]) return (fl!.skin && formChanged(ch, fl!.now, fl!.pick, fl!.font) && twinGlyph(ch, fl!)) || freeGlyph(ch, free.glyphs[ch], fl!);
     if (e.build === 'blocks') { const b = buildBlock(ch, m); if (b) return b; }
     return buildGlyph(variantOf(ch, e), m, ch);
   };

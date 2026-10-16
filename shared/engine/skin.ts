@@ -18,7 +18,7 @@ import { fitOutline, type Node } from './outline';
 import { signedArea } from './geom';
 import { combine, shape, unite } from './boolean';
 import { FREE_FAMILIES } from '../free-fonts';
-import { HOOK_LETTERS, OPEN_LETTERS, PEAK_LETTERS, added, bowlStem, hasTerminals } from './restyle';
+import { HOOK_LETTERS, OPEN_LETTERS, PEAK_LETTERS, added, bowlStem, hasPeaks, hasTerminals } from './restyle';
 import { FLUSH, lineSkeleton, type Flush } from './lines';
 import { slabsOf, type Slab } from './slabs';
 import { alongFrom, bez, branchNode, branches, endFace, inkAt, inkGrid, joinsOf, leaving, nearestOn, roundTip, skeleton, type Branch, type Grid, type Skeleton, type SkPt } from './scan';
@@ -141,6 +141,7 @@ export interface SkinRig {
   /** its skeleton, scanned when a setting first needs it (see scan.ts) */ sk?: Skeleton;
   /** its skeleton as a lighter weight draws it again, with its short strokes run on through their joins (thinSkeleton) */ thinSk?: Skeleton;
   /** whether a stroke of it ends square across, where the engine's serifs could stand (see restyleSerifs) */ squareEnds?: boolean;
+  /** whether it has a peak Peaks reshapes (rigPeaks) */ peaks?: boolean;
   /** how near each edge's stroke is to where it runs into another, from 1 there to 0 a little way off (see joinsNear) */ near?: number[][];
   /** each sample's stroke read off the skeleton, for a lighter weight (see thinReads) */ thin?: ThinReads;
   /** itself with its strokes ending round kept in its lighter weight's skeleton, for a letter that breaks without them
@@ -688,6 +689,25 @@ export const SKIN_KEYS = new Set(['contrast', 'vWeight', 'hWeight', 'xHeight', '
   'serifSides', 'serifInner', 'serifInnerSize', 'serifInnerThickness', 'serifBalance', 'serifTops', 'serifArms', 'serifArmThickness', 'serifArmLean',
   'stencil', 'stencilPos', 'stencilRound', 'barGap', 'barEnds', 'tail', 'aperture', 'dots', 'squareness', 'chamfer', 'curve', 'bowlForm', 'boxRound', 'apex', 'overlap', ...Object.keys(FORM_FOLLOWS)]);
 
+/** Whether a rigged letter has a peak Peaks reshapes, two straight diagonals meeting on a line (hasPeaks in
+    restyle.ts), as the font draws it. */
+function rigPeaks(rig: SkinRig) {
+  const c = rig.ctx;
+  return (rig.peaks ??= hasPeaks(rig.contours, { ch: c.ch, cap: c.cap, xh: c.xh, stem: rig.stem * c.cap, bar: rig.bar * c.cap, lines: [0, c.cap, c.xh, c.asc, c.desc] }));
+}
+const vertexed = new WeakMap<FreeFont, boolean>();
+/** Whether a font turns its strokes in points where straight diagonals meet (its V's foot or its v's, rigPeaks), as
+    the engine's letters do: only then are its letters Bends reaches drawn as the engine's (its twin's) when the bends
+    are rounded. A blackletter's or a script's letters turn otherwise, and are kept as the font draws them. */
+export function fontVertexed(font: FreeFont) {
+  let v = vertexed.get(font);
+  if (v === undefined) {
+    v = ['V', 'v'].some(ch => { const r = skinRig(font, ch); return !!r && rigPeaks(r); });
+    vertexed.set(font, v);
+  }
+  return v;
+}
+
 /** Whether setting `key` moves letter `ch` of a free font on its skeleton: Crossbar only a letter with a
     bar it moves, x-height only the lowercase, the serifs' size only a letter with serifs, Stem length a
     lowercase letter reaching up or down past the x-height and the baseline, the dots' size a letter with a
@@ -697,7 +717,7 @@ export function skinFollows(font: FreeFont, ch: string, key: string) {
   if (FREE_FAMILIES[font.family]?.grid) return !SKIN_KEYS.has(key);
   if (key === 'crossbar') return ch in BARS;
   if (!SKIN_KEYS.has(key)) return true;
-  if (FORM_FOLLOWS[key]) return FORM_FOLLOWS[key].test(ch);
+  if (FORM_FOLLOWS[key]) return FORM_FOLLOWS[key].test(ch) && (key !== 'bends' || fontVertexed(font));
   const rig = skinRig(font, ch);
   if (!rig) return false;
   const ys = rig.contours.flat().map(n => n.y);
@@ -706,7 +726,7 @@ export function skinFollows(font: FreeFont, ch: string, key: string) {
     case 'extenders': return rig.ctx.lower && Math.max(...ys) > rig.ctx.xh + rig.ctx.cap * 0.12;
     case 'descender': return rig.ctx.lower && Math.min(...ys) < -rig.ctx.cap * 0.1;
     case 'dotSize': case 'dots': return rig.bones.some(bs => bs[0]?.dot);
-    case 'apex': return PEAK_LETTERS.includes(ch);
+    case 'apex': return PEAK_LETTERS.includes(ch) && rigPeaks(rig);
     case 'overlap': return !!bowlStem(rig.contours, { ch, cap: rig.ctx.cap, xh: rig.ctx.xh, stem: rig.stem * rig.ctx.cap, bar: rig.bar * rig.ctx.cap });
     // (a letter with a bowl or a curve, which these reshape)
     case 'squareness': case 'chamfer': case 'curve': case 'bowlForm': case 'boxRound': return /[a-gj-mo-zA-DGJ-SU0-9&@$?]/.test(ch) && !/[lvwxzAKMNVWXZ17]/.test(ch);

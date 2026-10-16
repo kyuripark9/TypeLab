@@ -528,6 +528,15 @@ describe("TypeLab's own fonts", () => {
     const sq = await design('squircle'), pointed = await design('squircle', { apex: 0 });
     for (const ch of 'bgyQ') assert.ok(same(pointed.glyph(ch)!, sq.glyph(ch)!), `Orbital's ${ch} has no peak`);
     for (const ch of 'AVW') assert.ok(!same(pointed.glyph(ch)!, sq.glyph(ch)!), `Orbital's ${ch} comes to a point`);
+    // a blackletter's corners round further at every step of Roundness, its pointed feet and heads too; its letters
+    // turn in no straight points, so Peaks reaches none and round Bends keeps them its own (not the engine's sans)
+    const cathedral = await design('blackletter'), cathFont = freeFont(STYLE_FONTS.blackletter)!;
+    const rounder = [cathedral, ...await Promise.all([0.25, 0.5, 0.75, 1].map(v => design('blackletter', { roundness: v })))];
+    for (const ch of 'npq') for (let i = 1; i < rounder.length; i++) assert.ok(!same(rounder[i].glyph(ch)!, rounder[i - 1].glyph(ch)!), `Cathedral's ${ch} rounder at Roundness ${i * 25}`);
+    for (const ch of 'AMNVvw') assert.ok(!skinFollows(cathFont, ch, 'apex') && !skinFollows(cathFont, ch, 'bends'), `Cathedral's ${ch} has no straight point`);
+    const bent = await design('blackletter', { bends: 'round' });
+    for (const ch of 'AMNVWYZvwyz') assert.ok(bent.glyph(ch)!.drawn, `Cathedral's ${ch} stays its own under round Bends`);
+    assert.ok(skinFollows(freeFont(STYLE_FONTS.squircle)!, 'V', 'bends') && skinFollows(freeFont(STYLE_FONTS.squircle)!, 'V', 'apex'), "Orbital's V turns round and comes to a point");
     // a heavy round face's stems end round without being stroke ends: a drop goes on the c, not on the h, b or n
     const gum = await design('chunkyround'), drop = await design('chunkyround', { terminal: 'round', terminalForm: 'droplet' });
     for (const ch of 'hbn') assert.ok(same(drop.glyph(ch)!, gum.glyph(ch)!), `Gumdrop's ${ch}`);

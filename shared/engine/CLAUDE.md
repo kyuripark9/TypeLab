@@ -233,7 +233,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    the pick, each handing back the very same array when nothing it follows moved. Results are cached by the contours and
    a key of every setting the steps read. Overlap parts a b d p q's bowl from an upright stem as the font's own o
    (`bowlStem`, `OVERLAP_LETTERS`); Cursive adds the engine's exit and entry flicks to the lowercase (`EXIT_LETTERS`,
-   `ENTRY_LETTERS`); Peaks reshapes only `PEAK_LETTERS` with straight sides; Ends restyles only the free ends standing
+   `ENTRY_LETTERS`); Peaks reshapes only `PEAK_LETTERS` with straight sides (`hasPeaks`; skinFollows reports no others);
+   Corners rounds a run of corners a hair apart as one (a blackletter's points, `TIP_GAP`) and each corner, outside or
+   in, as a share of what its room allows, so Roundness, Joins and Counters keep rounding to 100; Ends restyles only the free ends standing
    where the engine's letter of the same character has a styled end on a curving stroke (`endSpots`, `SPOT_NEAR`; on a
    cursive design its italic letters' too), each of a stroke that curves (`END_TURN`) and no serif's or beak's prong
    (a stem's foot, a crossbar's end and a Didone's s's beak keep theirs), drawn again from no further back than the
@@ -273,7 +275,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
 5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,
    the a's storeys, a `FORM_LETTERS` setting; the Letter a left on auto keeps the font's own form, and a font is written
-   in its own letters, script or print, whatever Cursive asks); `twinGlyph` draws the engine's own
+   in its own letters, script or print, whatever Cursive asks; round Bends only in a font whose V or v comes to a
+   straight point, `fontVertexed`: a blackletter's or a script's are kept); `twinGlyph` draws the engine's own
    letter at the settings the font reads as (`twinFit`: the weight and contrast whose stems and bars match the font's
    own, read off its n and H by `fontLook` with the design's Verticals and Horizontals counted, its x-height, width,
    serifs, and its stems' lean as slant), moved as far as the design moves from the pick.
