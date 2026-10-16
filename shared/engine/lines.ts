@@ -19,10 +19,11 @@ type P = { x: number; y: number };
 
 /** A straight edge of the outline, from (x0, y0) to (x1, y1): the way it runs, the way out of the ink from it, its
     length and its middle. */
-interface Edge { x0: number; y0: number; x1: number; y1: number; ux: number; uy: number; nx: number; ny: number; len: number; mx: number; my: number }
+interface Edge { x0: number; y0: number; x1: number; y1: number; ux: number; uy: number; nx: number; ny: number; len: number; mx: number; my: number; apart?: boolean }
 /** A straight stroke: its middle line, through (px, py) running (ux, uy); half its thickness; and how far along that line
     its sides reach, from lo to hi. */
-interface Stroke { px: number; py: number; ux: number; uy: number; h: number; lo: number; hi: number; core?: [number, number] }
+interface Stroke { px: number; py: number; ux: number; uy: number; h: number; lo: number; hi: number; core?: [number, number];
+  /** a dot's, meeting no stroke but its own dot's */ apart?: boolean }
 
 /** An edge is a stroke's side only as long as SIDE of the capitals' height (shorter, a step or a notch's lip). */
 const SIDE = 0.04;
@@ -88,9 +89,9 @@ function buried(S: Stroke[]): Stroke[] {
 }
 const BURIED = 0.8, THICKER = 1.5;
 
-function straightEdges(cs: Node[][], inside: (x: number, y: number) => boolean, cap: number): Edge[] {
+function straightEdges(cs: Node[][], inside: (x: number, y: number) => boolean, cap: number, apart: boolean[] = []): Edge[] {
   const out: Edge[] = [];
-  for (const c of cs) {
+  for (const [ci, c] of cs.entries()) {
     const n = c.length;
     // (a segment is straight with no handles, or with its handles on the line between its ends)
     const straight = c.map((a, i) => {
@@ -108,7 +109,7 @@ function straightEdges(cs: Node[][], inside: (x: number, y: number) => boolean, 
       if (len >= SIDE * cap) {
         const ux = (run.b.x - run.a.x) / len, uy = (run.b.y - run.a.y) / len, mx = (run.a.x + run.b.x) / 2, my = (run.a.y + run.b.y) / 2;
         const out1 = inside(mx + 2 * uy, my - 2 * ux);
-        out.push({ x0: run.a.x, y0: run.a.y, x1: run.b.x, y1: run.b.y, ux, uy, nx: out1 ? -uy : uy, ny: out1 ? ux : -ux, len, mx, my });
+        out.push({ x0: run.a.x, y0: run.a.y, x1: run.b.x, y1: run.b.y, ux, uy, nx: out1 ? -uy : uy, ny: out1 ? ux : -ux, len, mx, my, apart: apart[ci] });
       }
       run = null;
     };
@@ -144,7 +145,7 @@ function pairsOf(edges: Edge[], stem: number, parallel = PARALLEL): Stroke[] {
     const along = (x: number, y: number) => (x - px) * ux + (y - py) * uy;
     const ta = [along(A.x0, A.y0), along(A.x1, A.y1)].sort((a, b) => a - b), tb = [along(B.x0, B.y0), along(B.x1, B.y1)].sort((a, b) => a - b);
     if (Math.max(ta[0], tb[0]) - Math.min(ta[1], tb[1]) > ALONG * d) continue;
-    out.push({ px, py, ux, uy, h: d / 2, lo: Math.min(ta[0], tb[0]), hi: Math.max(ta[1], tb[1]), core: [Math.max(ta[0], tb[0]), Math.min(ta[1], tb[1])] });
+    out.push({ px, py, ux, uy, h: d / 2, lo: Math.min(ta[0], tb[0]), hi: Math.max(ta[1], tb[1]), core: [Math.max(ta[0], tb[0]), Math.min(ta[1], tb[1])], apart: A.apart || B.apart });
   }
   return out;
 }
@@ -152,7 +153,7 @@ function pairsOf(edges: Edge[], stem: number, parallel = PARALLEL): Stroke[] {
 /** The strokes the pairs make, the band between each pair's edges inked, those on one line made one. */
 function strokesOf(pairs: Stroke[], g: Grid): Stroke[] {
   const out: Stroke[] = [];
-  for (const { px, py, ux, uy, h, lo, hi, core } of pairs) {
+  for (const { px, py, ux, uy, h, lo, hi, core, apart } of pairs) {
     const d = 2 * h;
     let n = 0, k = 0;
     // (along where both its sides run: past one's end, a stroke meeting a line aslant (a K's leg, its foot cut level), the
@@ -166,7 +167,7 @@ function strokesOf(pairs: Stroke[], g: Grid): Stroke[] {
       if (m && q < INKED * m) continue;
     }
     for (let t = c0; t <= c1; t += Math.max(2, d / 8)) for (const f of [-0.4, -0.2, 0, 0.2, 0.4]) { n++; if (inked(g, px + ux * t - uy * f * d, py + uy * t + ux * f * d)) k++; }
-    if (k >= INKED * n) out.push({ px, py, ux, uy, h, lo, hi });
+    if (k >= INKED * n) out.push({ px, py, ux, uy, h, lo, hi, apart });
   }
   // (a side in pieces, an E's stem's between its arms, pairs once a piece: the strokes on one line, inked between, are one)
   for (let merged = true; merged;) {
@@ -195,12 +196,12 @@ function strokesOf(pairs: Stroke[], g: Grid): Stroke[] {
     stroke are; `even` and `parallel` stand for EVEN and PARALLEL, `lines` are the letter's heights. A slab serif's
     letter is read with its `slabs` (slabsOf) strokes along their faces, its strokes' sides read off its outline without
     them (`sides`). */
-export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: number, { even = EVEN, parallel = PARALLEL, lines = [] as number[], slabs = [] as Slab[], sides = cs } = {}): Skeleton | null {
+export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: number, { even = EVEN, parallel = PARALLEL, lines = [] as number[], slabs = [] as Slab[], sides = cs, apart = [] as boolean[] } = {}): Skeleton | null {
   // (read first by the outline alone, which a letter with no two straight edges a stroke apart needs no more of)
   const rings = cs.map(c => c.flatMap((n, i) => Array.from({ length: 8 }, (_, k) => bez(n, c[(i + 1) % c.length], k / 8))));
   const ringsOf = sides === cs ? rings : sides.map(c => c.flatMap((n, i) => Array.from({ length: 8 }, (_, k) => bez(n, c[(i + 1) % c.length], k / 8))));
   const inside = (x: number, y: number) => ringsOf.reduce((k, r) => k !== inRing(r, x, y), false);
-  const edges = straightEdges(sides, inside, cap);
+  const edges = straightEdges(sides, inside, cap, apart);
   if (edges.length < 2) return null;
   const pairs = pairsOf(edges, stem, parallel);
   if (!pairs.length) return null;
@@ -232,7 +233,7 @@ export function lineSkeleton(cs: Node[][], cap: number, stem: number, cell: numb
   const meets: Meet[] = [];
   for (let a = 0; a < S.length; a++) for (let b = a + 1; b < S.length; b++) {
     const A = S[a], B = S[b], det = A.ux * B.uy - A.uy * B.ux;
-    if (Math.abs(det) < MEET_SIN) continue;
+    if (Math.abs(det) < MEET_SIN || !!A.apart !== !!B.apart) continue;
     const ta = ((B.px - A.px) * B.uy - (B.py - A.py) * B.ux) / det, tb = ((B.px - A.px) * A.uy - (B.py - A.py) * A.ux) / det;
     const ext = (A.h + B.h) / Math.abs(det) + Math.max(A.h, B.h);
     if (ta < A.lo - ext || ta > A.hi + ext || tb < B.lo - ext || tb > B.hi + ext) continue;

@@ -216,13 +216,22 @@ A design with `freeFont` set draws its letters from a free font instead of build
    slabs short blocks a tab either side of its n's and H's feet (`fontSlabbed`, Timber), has its letters read with its
    slabs (`slabsOf` in `slabs.ts`) as strokes along their faces kept there, its strokes' sides off its outline without
    them, its sides' ink read only where both sides run and a thin stroke read inside much thicker ones dropped
-   (`buried`); a letter of it not so drawn is moved without its slabs and each laid back over it (`slabRig`).
+   (`buried`; a dot's strokes, `apart`, meeting none of the others, an i's stem run on up into its square dot); a letter
+   of it not so drawn is drawn without its slabs, each laid back over it (`slabRig`), as its strokes as below from
+   `STROKED_UNDER` of its stems down (moved, its heavy arches and beaks came out wavy and blotted), moved above, a t's or
+   f's bar no longer than it is thick a stub out from its stem, its edge kept on its line (`withBars`).
    Every letter of a font of heavy, even strokes without serifs (`fontStroked`: low contrast, stems over `STROKED_HEAVY`
    of its capitals' and from a weight whose stems are `STROKED_UNDER` of its own down, Orbital, Bulwark, or over
    `ROUND_HEAVY` with no square ends at every lighter weight, Gumdrop) is drawn as its strokes too, on the
    skeleton its ink's middle reads, evened out (`SMOOTH`), parted where it bends tighter than it is thick, and no stub into
-   a corner drawn; a free end the design cuts straight across (`capAhead`) cut so, its tail tapering or turning into the
-   cut's corner left off (`TAPER`, `TAPER_TURN`); failing `whole`, it is moved as any letter is. Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
+   a corner drawn, nor, in a font cutting its ends, one `withStubs` ran on past a turn whose end isn't cut (`STUBBED`: the
+   turn's outside, a u's corner, an n's shoulder); a free end the design cuts straight across (`capAhead`) cut so, its
+   tail tapering or turning into the cut's corner left off (`TAPER`, `TAPER_TURN`), run on along the design's way; its
+   strokes' sides kept on the letter's lines (`hugMap`: drawn along the heavy letter's middle, an o's round and an n's arch
+   stopped short of the x-height by as much as they were thinner; at each line the level stroke furthest out goes out so
+   far, the letter between in step, its counters taller and its level strokes no thicker, a stroke running steeply into a
+   line to end there less and less to none at its end, `hugFade`; kept within its ink as that moves it too); failing
+   `whole`, it is moved as any letter is. Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
    opened where strokes cross aside, and ink along its strokes' middles) is mended with those strokes laid over it
    (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;
    none of them, nor the middles `whole` reads, past a foot's edge, where `keepHeights`' lift, keeping a round's
