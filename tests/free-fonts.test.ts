@@ -315,6 +315,21 @@ describe("TypeLab's own fonts", () => {
   /** A fetch that fails: an own font is never fetched. */
   const noFetch = async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); };
 
+  it('move their letters no further than a hair at the first nudge of a setting, the room they take included', async () => {
+    // (a letter's room was read off its points and handles, which a moved outline places otherwise: Blackletter's letters
+    // came out up to 11 units narrower at a nudge of Weight, Vellum's o 19 units off to one side)
+    const fonts = new FreeFonts(null, noFetch);
+    for (const style of ['blackletter', 'oldstyle', 'grotesque']) {
+      const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
+      if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+      const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, a = buildFont(p), b = buildFont({ ...p, weight: p.weight + 0.001 });
+      for (const ch of 'hnKoa25') {
+        const g = a.glyph(ch)!, h = b.glyph(ch)!;
+        assert.ok(Math.abs(h.adv - g.adv) < 2 && Math.abs(h.lsb - g.lsb) < 2, `${style}'s ${ch}: advance ${(h.adv - g.adv).toFixed(1)}, side ${(h.lsb - g.lsb).toFixed(1)}`);
+      }
+    }
+  });
+
   it('start each card with no personality macro holding part of a slider flat', () => {
     // (resolve() pushes a slider by a macro as far as 0 or 1 and no further, so a card setting one off its middle leaves
     // a stretch of every slider it pushes doing nothing: Blackletter's Roundness below 70, Wood Type's Squareness above

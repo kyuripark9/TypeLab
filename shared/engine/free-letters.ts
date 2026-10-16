@@ -107,6 +107,25 @@ export function inlineSkeleton(contours: Node[][]): Pt[][] {
   return skeleton(contours).edges.map(e => ease(e.pts.map(q => ({ x: q.x, y: q.y }))));
 }
 
+/** The ink's left and right edges, as far as its curves reach (a handle standing out past its curve doesn't count): the
+    room a letter takes, the same whether the font drew it or the settings moved it, its handles moved otherwise (a
+    blackletter's heads and feet, Vellum's o: measured by its handles a letter came out up to 19 units narrower and off
+    to one side at the first nudge of any setting). */
+export function inkSpan(d: Drawn): [number, number] {
+  let x0 = Infinity, x1 = -Infinity;
+  const at = (v: number) => { if (v < x0) x0 = v; if (v > x1) x1 = v; };
+  for (const c of d.contours) for (let i = 0; i < c.length; i++) {
+    const a = c[i], b = c[(i + 1) % c.length];
+    at(a.x);
+    if (a.ox === undefined && b.ix === undefined) continue;
+    // (where the curve turns back across: its x' a quadratic in t)
+    const p0 = a.x, p1 = a.ox ?? a.x, p2 = b.ix ?? b.x, p3 = b.x, A = -p0 + 3 * p1 - 3 * p2 + p3, B = 2 * (p0 - 2 * p1 + p2), C = p1 - p0;
+    const ts = Math.abs(A) < 1e-12 ? (Math.abs(B) < 1e-12 ? [] : [-C / B]) : B * B - 4 * A * C < 0 ? [] : [1, -1].map(sg => (-B + sg * Math.sqrt(B * B - 4 * A * C)) / (2 * A));
+    for (const t of ts) if (t > 0 && t < 1) { const u = 1 - t; at(u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3); }
+  }
+  return x0 > x1 ? [0, 0] : [x0, x1];
+}
+
 /** The ink's left and right edges, by its points and handles. */
 export function inkX(d: Drawn): [number, number] {
   let x0 = Infinity, x1 = -Infinity;
@@ -309,14 +328,14 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   // (unmoved, by the font's own outline: the rig's has its pieces united, and a speck a corner's curl leaves outside it
   // dropped, which would move the letter's room a little as it is picked)
   const own = rig && skinned === rig.contours ? src.contours : skinned;
-  const [i0, i1] = inkX(sized);
-  let [x0, x1] = own ? inkX({ adv: 0, contours: own }).map(v => v * fl.k) : [i0, i1];
+  const [i0, i1] = inkSpan(sized);
+  let [x0, x1] = own ? inkSpan({ adv: 0, contours: own }).map(v => v * fl.k) : [i0, i1];
   // (a bowl parted from its stem takes its room with it)
   if (rig && fl.now.overlap < fl.pick.overlap && OVERLAP_LETTERS.includes(ch)) { x0 = Math.min(x0, i0); x1 = Math.max(x1, i1); }
   // (and as far again as a serif reaches out past it, less a little, so two side by side don't run into one another: a
   // font's own side bearings are drawn for letters with no serifs)
   const sl = fl.serifs && fl.serif && withSerifs.has(moved.contours) ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * SERIF_SB, over + sl * 0.15) : v);
-  const [a0, a1] = inkX(src);
+  const [a0, a1] = inkSpan(src);
   let lsb = room(a0 * fl.k * fl.sx * fl.sb, x0 - i0), rsb = room((src.adv - a1) * fl.k * fl.sx * fl.sb, i1 - x1);
   // (Cursive's flicks get most of the room they reach out into, so they touch the letter beside instead of running
   // through it, as the engine's do: see padL and padR in buildGlyph, glyph.ts)
