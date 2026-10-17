@@ -1039,8 +1039,10 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
         let x = J1.x;
         while (Math.abs(x - J1.x) < FOOT_REACH * J.r && inside(x + out * 2, y)) x += out * 2;
         // (a turn's past its stem's side by a quarter of its round at least: a fat face's i's stem flaring a little to
-        // its top is no serif)
-        if ((x - J1.x) * out > A.r + (turns.has(j) ? Math.max(tol, 0.25 * A.r) : tol)) foot.serifs.push({ x0: J1.x, x1: x, pt: foot.serifs[0].pt, edge: edgeOf(L, dir, J1.x, x) });
+        // its top is no serif; a leaning stem's side read where it is at that height, as wide across as it leans: an R's
+        // leg's own foot, cut aslant, is no serif)
+        const lean = { c: J1.x + vx * (y - L) / vy, half: A.r * Math.hypot(vx, vy) / Math.abs(vy) };
+        if ((x - lean.c) * out > lean.half + (turns.has(j) ? Math.max(tol, 0.25 * A.r) : tol)) foot.serifs.push({ x0: J1.x, x1: x, pt: foot.serifs[0].pt, edge: edgeOf(L, dir, J1.x, x) });
         // (or none, a turn's serif standing out from its stem one way only, ending as a serif does (not a 5's bar), the
         // stem's own top beside it: the foot reaches across the stem, as a flag's does)
         else if (turns.has(j) && Math.abs(foot.serifs[0].x1 - J1.x) < FOOT_REACH * J.r - 2) foot.side = A.r;
@@ -3047,7 +3049,8 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     const kp = mv.keeps(b, r, i), d = intoFoot(G, b, j => R[j] * kp, j => footRound(rig, mv, R[j]) * kp, Math.max(6, 0.02 * rig.ctx.cap), 0.3 * rig.ctx.cap);
     if (Number.isNaN(d)) return plain(b, i);
     k0.push(1);
-    footed[i] = 1;
+    // (1 by its nearest of the skeleton, a foot's; 2 by a serif's own straight edge)
+    footed[i] = fid >= 0 ? 1 : 2;
     return d;
   });
   // a straight edge is one stroke's side all along, and moves whole, by the most of its samples' moves (where a V's
@@ -3098,8 +3101,11 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     for (const i of is) delta[i] = m;
   }
   // a font drawn with much contrast keeps its hairline as the weight keeps it (family.ts) all round: no side spanning its
-  // stroke goes in past where the stroke would be thinner, however it read its move (an o's top, read off its curve)
-  if (byThick > 0) bs.forEach((b, i) => { if (!b.corner && !b.dot && !b.serifDx && T.across[r][i] && !crossEnd(b)) delta[i] += (Math.max(delta[i], Math.min(0, hairKept / 2 - b.best)) - delta[i]) * byThick; });
+  // stroke goes in past where the stroke would be thinner, however it read its move (an o's top, read off its curve);
+  // but a serif drawn level on its line (withFeet), already no thicker than its hairline (footRound), which this read
+  // off the serif's middle as it was, before it was drawn level: an A's leaning leg's inner serif kept 28 units thick at
+  // Thin, a dark wedge under the leg
+  if (byThick > 0) bs.forEach((b, i) => { if (!b.corner && !b.dot && !b.serifDx && T.across[r][i] && !crossEnd(b) && (footed[i] !== 1 || T.footStem[T.near[r][i]] !== 0)) delta[i] += (Math.max(delta[i], Math.min(0, hairKept / 2 - b.best)) - delta[i]) * byThick; });
   return { k0, delta, crotches, pins };
 }
 

@@ -165,7 +165,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    foot, a y's arm), or runs up into a slab and stops (a v's arms, not a ball touching the line, `BALL_FOOT`, a fat
    face's r's; or stops a stub short of a join, an upright stem
    running on past it, a slab u's or d's foot below its bowl, `Foot.side` as a flag's; its serifs out past the stem's
-   side on the line or a round up it, an A's leg leaning out over its slab; or a hairline serif's corner with an arm
+   side on the line or a round up it, an A's leg leaning out over its slab, a turn's short serif the other way past a leaning stem's side read at its height, as wide across as it leans, an R's leg's own foot cut aslant being none; or a hairline serif's corner with an arm
    running on along the line, `FOOT_HAIR`, a Didone's E, L, B, its arm run level in to the corner), one level stroke
    along each serif, out as far as the
    ink runs along the line, the stem run down to the line; a vertex standing on a line, in a sans font
@@ -193,7 +193,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    square foot on a line, `FLAT_END`), a level foot's samples in along their normals to its shape as the move thins it
    (`intoFoot`, `byFoot`: its stem's round run down to the line, each serif a band as thick as it is now standing on its
    edge, a serif's straight edges out past its stem's side among them whichever middle they read, and a straight edge it
-   stands on along its line staying there past the foot, an E's arm's top, `footRound`, a contrasty font's no thicker than its hairline, eased in over `FEET_APART`), so its edge on the line stays, its bracket comes
+   stands on along its line staying there past the foot, an E's arm's top, `footRound`, a contrasty font's no thicker than its hairline, eased in over `FEET_APART`, and so not held back again by the hairline floor read off the serif's middle as drawn, an A's leaning leg's inner serif), so its edge on the line stays, its bracket comes
    down, and its serifs' ends, cut across them, stay and come down with their edges, a flag's top past its stem's side
    pinned to that side's corner (`pins`, which `moveRing` puts where they say); a dot made smaller about its middle,
    one with corners (a square, a diamond) pinned there point by point, as its sides moved in alone crossed at its
