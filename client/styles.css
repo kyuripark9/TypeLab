@@ -1224,7 +1224,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 }
 
 /* ---------- loading & message pages */
-.loading { position: fixed; inset: var(--top-h) 0 var(--strip-h, 76px); display: grid; place-items: center; background: color-mix(in srgb, var(--paper) 75%, transparent); font-weight: 600; color: var(--ink-2); z-index: 20; }
+/* a wait shows only once it has lasted a moment, so a quick load doesn't flash it */
+.loading { position: fixed; inset: var(--top-h) 0 var(--strip-h, 76px); display: grid; place-items: center; background: color-mix(in srgb, var(--paper) 75%, transparent); font-weight: 600; color: var(--ink-2); z-index: 20; animation: fade .2s .3s both; }
 .message-page { min-height: 100vh; display: grid; place-content: center; justify-items: center; text-align: center; gap: 4px; padding: 24px; }
 .message-page h1 { margin: 0; font-size: var(--t-3xl); }
 .message-page p { margin: 0 0 16px; color: var(--ink-2); }
@@ -1290,7 +1291,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .lib-list .lib-open:hover svg { fill: var(--accent-ink); }
 .lib-list .lib-meta { padding: 10px 8px 10px 10px; }
 
-/* loading: the cards' shapes, faintly */
+/* loading: the cards' shapes, faintly, once the wait has lasted a moment (as .loading) */
+.lib-loading { animation: fade .2s .3s both; }
 .lib-loading .lib-card { box-shadow: none; }
 .lib-loading .lib-meta i { display: block; width: 46%; height: 10px; margin: 4px 0 8px; border-radius: var(--pill); background: var(--well); }
 .lib-loading .lib-meta i + i { width: 64%; margin-bottom: 2px; }
