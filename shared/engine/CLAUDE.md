@@ -260,7 +260,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;
    none of them, nor the middles `whole` reads, past a foot's edge, where `keepHeights`' lift, keeping a round's
    overshoot, would take them; a middle so kept is inked where the move put it too, Couture's R's foot dipping below
-   its line), or else drawn as those strokes alone within
+   its line; within `MEND_BLEND` of the design's stems of a weight where it comes out whole unmended, the strokes grown
+   in, not laid over it at once: `mendFrom` reads wholeness on a grid of weights, `MEND_STEPS` to the stretch, kept on
+   the rig, from the nearest whole one (not one where it breaks all at once, `SUDDEN`), wholly grown where it is next
+   drawn as its strokes; `grownIn` keeps each stroke out along itself as far from the letter's ink as that share of
+   the farthest point beyond it, Dijkstra's on a grid, `GROW_CELL`, and a piece parted keeps where the letter has ink
+   at both ends, `wasIn`; not for a letter drawn as its strokes where they come out whole), or else drawn as those strokes alone within
    its ink, its dots as moved, or else moved again on a skeleton keeping its strokes that end round (`roundRig`,
    `skeleton(…, round)`: a heavy w's feet and middle peak), then thinned only as far as keeps it whole, in eighths. A heavier weight reads and moves
    as before. A pixel font

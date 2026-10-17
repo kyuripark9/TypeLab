@@ -341,6 +341,19 @@ describe("TypeLab's own fonts", () => {
     for (let i = 1; i < advs.length; i++) assert.ok(Math.abs(advs[i] - advs[i - 1]) < 6, `the g's advance ${advs.map(a => a.toFixed(0)).join(', ')}`);
   });
 
+  it('grow a lighter weight\'s mending strokes in, not lay them over a letter all at once', async () => {
+    // (a letter a lighter weight breaks is mended with strokes laid along its skeleton; laid over it from the first
+    // weight it broke at, Jotter's M came out 17 units wider at once, Chancery's n 26)
+    const fonts = new FreeFonts(null, noFetch);
+    for (const [style, ch, from, to] of [['casual', 'M', 0.085, 0.125], ['chancery', 'n', 0.04, 0.17]] as const) {
+      const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
+      if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+      const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, advs: number[] = [];
+      for (let w = from; w <= to + 1e-9; w += 0.005) advs.push(buildFont({ ...p, weight: +w.toFixed(4) }).glyph(ch)!.adv);
+      for (let i = 1; i < advs.length; i++) assert.ok(Math.abs(advs[i] - advs[i - 1]) < 10, `${style}'s ${ch}'s advance ${advs.map(a => a.toFixed(0)).join(', ')}`);
+    }
+  });
+
   it('start each card with no personality macro holding part of a slider flat', () => {
     // (resolve() pushes a slider by a macro as far as 0 or 1 and no further, so a card setting one off its middle leaves
     // a stretch of every slider it pushes doing nothing: Blackletter's Roundness below 70, Wood Type's Squareness above

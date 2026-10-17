@@ -1915,7 +1915,9 @@ function moveRig(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
       return st === 1 || s >= 1 ? d : crossfade(rig, s, movedAt(rig, m0, m1), d);
     }
   }
-  return movedAt(rig, m0, m1);
+  // (a letter drawn as its strokes where they come out whole moved so where they don't: a mend grown in from the letter
+  // moved, which isn't drawn either side, would draw the letter other than those weights do)
+  return movedAt(rig, m0, m1, !(lighter && (lr || st === 1 || ((st === 2 || slabStroked) && m1.v / m0.v <= STROKED_UNDER))));
 }
 
 /** The rig drawn as its strokes alone (rig `lined`, its skeleton: the letter's, or one read along its straight strokes),
@@ -1929,7 +1931,7 @@ function strokesAt(rig: SkinRig, lined: SkinRig, m0: SkinMeasures, m1: SkinMeasu
     font's lighter weights with their serifs' feet drawn level (footRig) from FOOT_UNDER[0] of its stems, the lightest
     its slabs' too from FOOT_UNDER[1], each point going over SWITCH_BLEND from where the moves before put it to where
     these do. */
-function movedAt(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
+function movedAt(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true): Node[][] {
   const lighter = m1.s < m0.s * 0.999 && m1.v < m0.v;
   // (a wood type's letter not so drawn moved without its slabs, each laid back over it, thinner)
   const U = lighter && rig.shortSlabs() ? slabRig(rig) : null;
@@ -1938,9 +1940,9 @@ function movedAt(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): Node[][] {
   if (m1.s < m0.s * 0.999 && kv <= FOOT_UNDER[0]) {
     const thin = footRig(rig, FOOT_THIN) ?? rig, slab = footRig(rig, FOOT_SLAB) ?? rig;
     const [X, Y, under] = kv <= FOOT_UNDER[1] ? [thin, slab, FOOT_UNDER[1]] : [rig, thin, FOOT_UNDER[0]], s = (under - kv) / SWITCH_BLEND;
-    return X === Y || s >= 1 ? movedPlain(Y, m0, m1) : movedPlain(X, m0, m1, { rig: Y, s });
+    return X === Y || s >= 1 ? movedPlain(Y, m0, m1, undefined, grows) : movedPlain(X, m0, m1, { rig: Y, s }, grows);
   }
-  return movedPlain(rig, m0, m1);
+  return movedPlain(rig, m0, m1, undefined, grows);
 }
 
 /** Two ways of drawing a letter, `X` a little heavier than a weight where the drawing turns to `Y`, `s` of the way from
@@ -2028,19 +2030,25 @@ const ringOf = (c: Node[]) => c.flatMap((n, i) => { const m = c[(i + 1) % c.leng
 
 /** The rig moved as any letter is, on the skeleton it has (movedAt), or `toward` another's of the same outline (its feet
     drawn level) s of the way; and, a lighter weight that breaks it, mended. */
-function movedPlain(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, toward?: { rig: SkinRig; s: number }): Node[][] {
-  if (!toward) return movedWay(rig, m0, m1).out;
+function movedPlain(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, toward?: { rig: SkinRig; s: number }, grows = true): Node[][] {
+  if (!toward) return movedWay(rig, m0, m1, grows).out;
   // (part moved toward another skeleton: moved the way the nearer of the two is at this weight, whole, mended or drawn
   // as its strokes, read off that one alone: the letter between, read so itself, came out mended or not part way, at a
   // jump, a stroke's middle on one lying off the other's ink)
-  const way = movedWay(toward.s < 0.5 ? rig : toward.rig, m0, m1);
-  return way.how === 'strokes' || way.how === 'round' ? way.out : movedOnce(rig, m0, way.m1, way.how, false, toward, way.joinsAs).out;
+  const way = movedWay(toward.s < 0.5 ? rig : toward.rig, m0, m1, grows, false);
+  return way.how === 'strokes' || way.how === 'round' ? way.out : movedOnce(rig, m0, way.m1, way.how, false, toward, way.joinsAs, way.grow?.s, way.grow && [way.grow.was, way.grow.full], way.grow?.by).out;
 }
 
-/** The rig moved (movedPlain), with the way it was: as it is, its joins drawn again eased in, whole or not at all, mended,
-    drawn as its strokes, on its round-ended skeleton, or toward a heavier weight (m1). */
-function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): { out: Node[][]; how: 'moved' | 'mended' | 'strokes' | 'round'; m1: SkinMeasures; joinsAs?: 'full' | 'none' } {
-  const first = movedOnce(rig, m0, m1), as = (out: Node[][], how: 'moved' | 'mended' | 'strokes' | 'round' = 'moved', joinsAs?: 'full' | 'none', m = m1) => ({ out, how, m1: m, joinsAs });
+/** A lighter weight's way of drawing a letter (movedWay): as it is, its joins drawn again eased in, whole or not at all,
+    mended, drawn as its strokes, on its round-ended skeleton, or toward a heavier weight (m1); and, mended near a weight
+    where it comes out whole without, how far its mending strokes have grown in (mendFrom, 0 to 1), the letter as it is
+    there, and as wholly mended. */
+interface Way { out: Node[][]; how: 'moved' | 'mended' | 'strokes' | 'round'; m1: SkinMeasures; joinsAs?: 'full' | 'none'; grow?: { s: number; was: Node[][]; full: Node[][]; by: number } }
+
+/** The rig moved (movedPlain), with the way it was (Way); `grows`, a mend grown in near a weight it is whole unmended;
+    `draws`, so drawn (else, mended, as wholly mended, the way to draw it handed back for movedPlain to draw it so). */
+function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true, draws = true): Way {
+  const first = movedOnce(rig, m0, m1), as = (out: Node[][], how: Way['how'] = 'moved', joinsAs?: 'full' | 'none', m = m1): Way => ({ out, how, m1: m, joinsAs });
   if (!(m1.s < m0.s * 0.999 && m1.v < m0.v) || whole(rig, first, true)) return as(first.out);
   // (a join drawn again only part of the way round may part a letter whole without it: drawn again whole there, or,
   // that breaking it too, not at all)
@@ -2054,8 +2062,13 @@ function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): { out: Node
   // ink (a design's details lost, but as light as the rest); failing that, moved again on a skeleton keeping its strokes
   // that end round (roundRig); failing that, thinned as far toward the weight as keeps it whole, in eighths: a letter a
   // little heavier than the rest rather than one in pieces
+  // (its mending strokes growing in from nothing near a weight where it comes out whole without them (mendFrom): mended
+  // all at once, a letter grew the strokes laid over it at a jump, a Jotter's M 17 units wider, a Chancery's n 26)
   const mended = movedOnce(rig, m0, m1, 'mended');
-  if (whole(rig, mended)) return as(mended.out, 'mended');
+  if (whole(rig, mended)) {
+    const { s, was, by } = grows ? mendFrom(rig, m0, m1, [...first.out, ...(first.dropped ?? [])]) : { s: 1, was: [], by: 0 };
+    return s < 1 ? { ...as(draws ? movedOnce(rig, m0, m1, 'mended', false, undefined, 'eased', s, [was, mended.out], by).out : mended.out, 'mended'), grow: { s, was, full: mended.out, by } } : as(mended.out, 'mended');
+  }
   const drawn = movedOnce(rig, m0, m1, 'strokes');
   if (whole(rig, drawn)) return as(drawn.out, 'strokes');
   // (or its skeleton read again, its strokes ending round kept: a heavy w, whose feet and middle peak are short beside
@@ -2066,13 +2079,100 @@ function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): { out: Node
     if (whole(R, again)) return as(again.out, 'round');
   }
   const at = (f: number) => Object.fromEntries(MEASURES.map(k => [k, m0[k] + (m1[k] - m0[k]) * f])) as unknown as SkinMeasures;
-  let lo = 0, best: ReturnType<typeof as> | null = null;
+  let lo = 0, best: Way | null = null;
   for (let hi = 1, step = 0; step < 3; step++) {
     const f = (lo + hi) / 2, tried = movedOnce(rig, m0, at(f));
     if (whole(rig, tried)) { lo = f; best = as(tried.out, 'moved', undefined, at(f)); } else hi = f;
   }
   return best ?? as(first.out);
 }
+
+/** How far a letter mended at m1 has grown its mending strokes in (movedWay), 0 to 1: from the nearest weight within
+    MEND_BLEND of the design's stems of m1's, heavier or lighter, where it comes out whole unmended (unmended), as far as
+    m1 is from there over MEND_BLEND; or, a weight it is drawn as its strokes lying the other way (mendedWhole), over
+    the distance between the two, so it is wholly mended there as before; 1 with none; and the letter as it is at the
+    weight it comes out whole unmended (`was`). Weights are read on a grid
+    MEND_BLEND / MEND_STEPS apart, so a drag asks the same ones again (kept on the rig). Not from a weight where the
+    letter unmended breaks all at once (the grid's weight next to the whole one, or m1's if that is next, its room more
+    than SUDDEN units or its ink more than SUDDEN_INK, and as much as its stems thinned, off the whole one's): there,
+    growing its mending strokes in would bare the break. */
+function mendFrom(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, out: Node[][]): { s: number; was: Node[][]; by: number } {
+  const kv = m1.v / m0.v, G = MEND_BLEND / MEND_STEPS, top = Math.floor(0.999 / G), now = reachOf(out);
+  // (the measures at stems i·G of the design's: on the way from m0 through m1, which a Weight's measures keep to, a bar
+  // as thick as near enough a straight line of the stem gives, so a drag of Weight reads the same ones again, kept by
+  // them, the bar's to a quarter unit: read off the way through each m1, it came out a hair off each time)
+  const at = (i: number): SkinMeasures => { const f = (1 - i * G) / (1 - kv), m = Object.fromEntries(MEASURES.map(k => [k, m0[k] + (m1[k] - m0[k]) * f])) as unknown as SkinMeasures; m.hT = Math.round(m.hT * 4) / 4; return m; };
+  const base = MEASURES.map(k => m0[k].toFixed(3)).join(), keyOf = (i: number) => base + '|' + MEASURES.map(k => at(i)[k].toFixed(3)).join();
+  const inked = (p: { ink: number }, q: { ink: number }, by: number) => Math.abs(p.ink - q.ink) <= (SUDDEN_INK + by / kv) * Math.max(p.ink, q.ink);
+  let best = Infinity, side = 0, was: Node[][] = [];
+  for (const dir of [1, -1]) {
+    const far = Math.max(1, Math.min(top, Math.round((kv + dir * MEND_BLEND) / G))), near = dir > 0 ? Math.floor(kv / G) + 1 : Math.ceil(kv / G) - 1;
+    // (the grid's weight nearest m1 where it is whole, read one by one out from m1, and the one before it, not; none
+    // where it isn't whole at the stretch's end, a letter deep in a stretch it is mended over read at once)
+    let hi = NaN;
+    if ((far - near) * dir >= 0 && unmended(rig, m0, at(far), keyOf(far)).whole)
+      for (let i = near; (far - i) * dir >= 0 && i >= 1 && i <= top; i += dir) if (unmended(rig, m0, at(i), keyOf(i)).whole) { hi = i; break; }
+    if (Number.isNaN(hi)) continue;
+    const lo = hi - dir;
+    const b = unmended(rig, m0, at(hi), keyOf(hi)), off = Math.abs(hi * G - kv);
+    const a = lo === near - dir ? now : unmended(rig, m0, at(lo), keyOf(lo));
+    if (Math.abs(a.x0 - b.x0) > SUDDEN || Math.abs(a.x1 - b.x1) > SUDDEN || !inked(a, b, G)) continue;
+    if (off < best) { best = off; side = dir; was = b.out; }
+  }
+  // (how far off the letter there a piece of it here may lie and be its: as much as its stems thinned or thickened between)
+  const by = WAS_BY + (best * m0.s) / 2;
+  if (best >= MEND_BLEND) return { s: 1, was, by };
+  // (and where, the other way, it stops coming out whole mended, to be drawn as its strokes: the grid's next few weights,
+  // and the stretch's end and between)
+  const first = side > 0 ? Math.ceil(kv / G) - 1 : Math.floor(kv / G) + 1, far = Math.max(1, Math.min(top, Math.round((kv - side * (MEND_BLEND - best)) / G)));
+  let strokes = Infinity;
+  for (let i = first, n = 0; n < MEND_NEAR && i >= 1 && i <= top && (i - far) * -side <= 0; i -= side, n++) if (!mendedWhole(rig, m0, at(i), keyOf(i))) { strokes = i; break; }
+  if (strokes === Infinity && (far * G - kv) * -side > 0 && !mendedWhole(rig, m0, at(far), keyOf(far))) {
+    let lo = first - side * (MEND_NEAR - 1), hi = far;
+    while (Math.abs(hi - lo) > 1) { const mid = Math.round((lo + hi) / 2); if (mendedWhole(rig, m0, at(mid), keyOf(mid))) lo = mid; else hi = mid; }
+    strokes = hi;
+  }
+  return { s: strokes === Infinity ? best / MEND_BLEND : Math.min(1, best / (best + Math.abs(strokes * G - kv))), was, by };
+}
+/** How far from a weight where a lighter weight's letter comes out whole unmended, in the design's stems, its mending
+    strokes grow in (mendFrom), and how many of the grid's weights it reads them on lie in that; how far apart its room
+    unmended, in units, may lie either side of the weight it turns whole at for them to, and its ink, as a share (more,
+    it breaks all at once). */
+const MEND_BLEND = 0.1, MEND_STEPS = 8, SUDDEN = 4, SUDDEN_INK = 0.08;
+/** How many of the grid's weights next to m1 mendFrom reads one by one for where the letter is drawn as its strokes. */
+const MEND_NEAR = 3;
+
+/** How far a letter's outlines reach either side, and how much ink they hold. */
+function reachOf(out: Node[][]) {
+  let x0 = Infinity, x1 = -Infinity, a = 0;
+  for (const c of out) { for (const n of c) { x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x); } a += area(c); }
+  return { x0, x1, ink: Math.abs(a) };
+}
+
+/** A lighter weight's letter at m1 unmended (mendFrom): whether it comes out whole moved as it is or its joins drawn
+    again not at all, and how far its outline reaches and how much ink it holds; kept on the rig by `key`. */
+function unmended(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, key: string): { whole: boolean; x0: number; x1: number; ink: number; out: Node[][] } {
+  return kept(rig, 'u' + key, () => {
+    const first = movedOnce(rig, m0, m1), none = !whole(rig, first, true) && first.eased ? movedOnce(rig, m0, m1, 'moved', false, undefined, 'none') : null;
+    const ok = whole(rig, first, true) ? first : none && whole(rig, none, true) ? none : null;
+    // (its pieces dropped as crumbs read with it: a mend grown in part of the way keeps those more than a speck)
+    const u = ok ?? first;
+    return { whole: !!ok, ...reachOf([...u.out, ...(u.dropped ?? [])]), out: u.out };
+  });
+}
+/** Whether a lighter weight's letter at m1 comes out whole mended (mendFrom); kept on the rig by `key`. */
+const mendedWhole = (rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, key: string) => kept(rig, 'm' + key, () => whole(rig, movedOnce(rig, m0, m1, 'mended')));
+/** A value worked out for a rig, kept by key, the last MEND_KEPT of them. */
+function kept<T>(rig: SkinRig, key: string, make: () => T): T {
+  let map = MENDS.get(rig) as Map<string, T> | undefined;
+  if (!map) MENDS.set(rig, (map = new Map()));
+  if (map.has(key)) return map.get(key)!;
+  const v = make();
+  if (map.size >= MEND_KEPT) map.delete(map.keys().next().value!);
+  map.set(key, v);
+  return v;
+}
+const MENDS = new WeakMap<SkinRig, Map<string, unknown>>(), MEND_KEPT = 400;
 
 /** Whether a moved letter is whole: the outlines its rig has, as many inked and as many counters (its dots and any crumb
     aside, crumbs), and ink along the middles of its strokes (the skeleton where the move put it), but for stretches no
@@ -2129,8 +2229,16 @@ const dotOf = (rig: SkinRig, c: Node[]) => rig.bones.some(bs => {
 
 /** The rig moved from m0 to m1 once (moveRig); `mend`, a lighter weight's, with the strokes drawn again along its
     skeleton laid over it; `heavy`, moved as a heavier weight is, whichever way. */
-function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved' | 'mended' | 'strokes' = 'moved', heavy = false, toward?: { rig: SkinRig; s: number }, joinsAs: 'eased' | 'full' | 'none' = 'eased'): { out: Node[][]; middles: (P & { s: number; y0: number })[][]; eased?: boolean; lost?: number } {
+function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved' | 'mended' | 'strokes' = 'moved', heavy = false, toward?: { rig: SkinRig; s: number }, joinsAs: 'eased' | 'full' | 'none' = 'eased', grow = 1, ends?: [Node[][], Node[][]], wasBy = WAS_BY): { out: Node[][]; middles: (P & { s: number; y0: number })[][]; eased?: boolean; lost?: number; dropped?: Node[][] } {
   const mv = moveMap(rig, m0, m1), mvTo = toward ? moveMap(toward.rig, m0, m1) : null;
+  // (a mend grown in part of the way: whether a piece lies where the letter had ink at the weight it was whole unmended
+  // and has it wholly mended (`ends`), most of its points within each or by its edge (wasBy off the letter whole, which
+  // is lighter or heavier): a hairline's piece runs along the hairline's edge; one the whole letter had but its mend
+  // drops, a Cathedral k's foot's tip, kept, stood off from it)
+  const inkOf = (cs: Node[][]) => { const polys = cs.map(c => c.flatMap((n, i) => Array.from({ length: 4 }, (_, k) => bez(n, c[(i + 1) % c.length], k / 4)))); return { polys, sh: shape(polys) }; };
+  const inks = grow < 1 && ends?.[0].length && ends[1].length ? ends.map(inkOf) : null;
+  const by = (polys: P[][], q: P, d: number) => polys.some(r => r.some((a, i) => { const b = r[(i + 1) % r.length], dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, ((q.x - a.x) * dx + (q.y - a.y) * dy) / l2)) : 0; return Math.hypot(q.x - a.x - dx * t, q.y - a.y - dy * t) < d; }));
+  const wasIn = (r: P[]) => !!inks && inks.every(({ polys, sh }, e) => r.filter(q => sh.has(q.x, q.y) || by(polys, q, e ? WAS_BY : wasBy)).length * 2 >= r.length);
   if (heavy) mv.lighter = false;
   let rings = rig.bones.map((bs, r) => moveRing(rig, bs, r, mv));
   // (or each point s of the way to where another skeleton of the same outline puts it: one with its serifs' feet drawn
@@ -2209,11 +2317,14 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
     // (and none past a foot's line, above; part moved toward another skeleton, along that one's, its feet level: along
     // this one's, a stroke running down a serif's bracket, which the other's outline hasn't, closed a crumb there, filled)
     const [mr, mm] = toward ? [toward.rig, mvTo!] : [rig, mv], on = mr === rig ? onFeet : clamp(feetOf(mr));
-    const more = thinStrokes(mr, mm, undefined, to).map(r => r.map(p => on({ x: mm.gx(p.x), y: lift(mm.gy(p.y)) }, 0)));
+    // (grown in (movedWay's grow), as much thinner, and only within as far of the letter's ink as they have grown)
+    const more = thinStrokes(mr, mm, grow < 1 ? R => Math.max(0.05, mendBy(R) * grow) : mendBy, to).map(r => r.map(p => on({ x: mm.gx(p.x), y: lift(mm.gy(p.y)) }, 0)));
     // (wound as the letter's outside is, so they add to its ink)
     const outer = rings.reduce((a, r) => (Math.abs(signedArea(r)) > Math.abs(signedArea(a)) ? r : a), rings[0]), sign = Math.sign(signedArea(outer));
-    rings = [...rings, ...more.map(r => (Math.sign(signedArea(r)) === sign ? r : r.slice().reverse()))];
-    dots = undefined;
+    const wound = more.map(r => (Math.sign(signedArea(r)) === sign ? r : r.slice().reverse()));
+    rings = grow < 1 ? grownIn(rings, wound, sign, grow, (rig.ctx.cap * SPECK) ** 2, wasIn) : [...rings, ...wound];
+    // (a piece of it no more than a speck, apart where the letter whole had ink, kept as a dot is till the strokes reach it)
+    dots = grow < 1 ? rings.map(r => Math.sign(signedArea(r)) === sign && Math.abs(signedArea(r)) < (rig.ctx.cap * SPECK) ** 2 && wasIn(r)) : undefined;
   }
   // (a wood type's letter drawn without its slabs (slabRig) has each laid back over it along its face, out to its tab's
   // ends, as thick as a stroke of the slab's thickness running along the face is now)
@@ -2234,10 +2345,104 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // (and a crumb a lighter weight leaves where strokes meet, a sliver or a pinhole, goes, as small as a crumb is as far in
   // from the design (PICK_BLEND); its dots stay)
   if (!mv.lighter) return { out, middles, eased };
-  // (and the most ink a piece of the letter so dropped held, for whole)
-  const kept = out.filter(c => dotOf(rig, c) || !crumb(rig, c, lam)), outer = out.reduce((a, c) => (Math.abs(area(c)) > Math.abs(area(a)) ? c : a), out[0] ?? []);
-  const sign = Math.sign(area(outer)), lost = out.reduce((m, c) => (kept.includes(c) || Math.sign(area(c)) !== sign ? m : Math.max(m, Math.abs(area(c)))), 0);
-  return { out: kept, middles, eased, lost };
+  // (and the most ink a piece of the letter so dropped held, for whole; a mend grown in part of the way keeping a piece
+  // of ink apart no bigger than a crumb, or a little more (CRUMB_NEAR), only where the letter has ink at either end of
+  // the stretch (wasIn): kept by its size alone, a piece a crumb's size, one way or the other of it as the mend grew,
+  // came and went, a Cathedral k's foot's tip 64 units off it)
+  const outer = out.reduce((a, c) => (Math.abs(area(c)) > Math.abs(area(a)) ? c : a), out[0] ?? []), sign = Math.sign(area(outer));
+  const kept = out.filter(c => dotOf(rig, c) || (grow < 1 && Math.sign(area(c)) === sign ? Math.abs(area(c)) >= CRUMB_NEAR * (rig.ctx.cap * CRUMB * lam) ** 2 || wasIn(c.map(n => ({ x: n.x, y: n.y }))) : !crumb(rig, c, lam)));
+  const dropped = out.filter(c => !kept.includes(c) && Math.sign(area(c)) === sign), lost = dropped.reduce((m, c) => Math.max(m, Math.abs(area(c))), 0);
+  return { out: kept, middles, eased, lost, dropped };
+}
+
+/** A lighter weight's letter mended (movedOnce), its mending strokes `more` grown `grow` of the way (0 to 1) out along
+    themselves from where they lie in its outline as moved: each point kept where it lies along them from the letter's
+    ink no further than that share of the way to the farthest point beyond it, so every stroke grows out from the
+    letter at once, its tip reaching out as the weight goes, and the letter goes from unmended to mended, its room and
+    all, as the weight does. Read on a grid GROW_CELL units a side, the way along the strokes (Dijkstra's), traced where
+    it stops (marching squares) and spread a cell or two past their sides, so the strokes keep their own edges but where
+    they grow. Each ring wound `sign`'s way as the letter's outside is. (Kept within a distance of the letter as the
+    crow flies, a stroke lying a way off along it came in all at once; within one share of the farthest any reaches,
+    a stroke's tip reaching out past the letter came in at the end of the stretch: a Chancery's n's 24 units of room.) */
+function grownIn(moved: P[][], more: P[][], sign: number, grow: number, crumbs: number, was: (r: P[]) => boolean): P[][] {
+  // (the letter's folds cut out first, as tidyRings cuts them, and read as it reads them: a fold, or a piece wound the
+  // other way, read as wound one way, is a hole; and a piece of its ink no more than a speck (`crumbs`), dropped as the
+  // letter unmended is, not lying where it had ink as it was whole (`was`), grown in as its strokes are: a Chancery's
+  // n's hairline exit, parted from it, came back all at once where a stroke reached it, 24 units of room; one the letter
+  // whole had, a Couture's R's leg's tip, or a larger piece, whose dropping breaks it (whole), it keeps, apart, till the
+  // strokes reach it)
+  const fix = (r: P[]) => { const u = untangle(r); return sign < 0 ? u.reverse() : u; }, all = moved.map(fix);
+  const crumb = (r: P[]) => signedArea(r) > 0 && signedArea(r) < crumbs && !was(r), Ar = all.filter(r => !crumb(r)), Br = [...more.map(fix), ...all.filter(crumb)];
+  const A = shape(Ar), B = shape(Br, true), h = GROW_CELL;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const r of Br) for (const q of r) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+  if (!(x1 > x0)) return moved;
+  x0 -= 3 * h; y0 -= 3 * h;
+  const nx = Math.ceil((x1 - x0) / h) + 4, ny = Math.ceil((y1 - y0) / h) + 4, inB = insideOf(Br, nx, ny, x0, y0, h, true), inA = insideOf(Ar, nx, ny, x0, y0, h, false);
+  // (how far along the strokes each point of them lies from the letter's ink)
+  const D = new Float64Array(nx * ny).fill(Infinity), from = new Int32Array(nx * ny).fill(-1), heap: number[] = [], done: number[] = [];
+  const push = (k: number) => { heap.push(k); let i = heap.length - 1; while (i) { const up = (i - 1) >> 1; if (D[heap[up]] <= D[heap[i]]) break; [heap[up], heap[i]] = [heap[i], heap[up]]; i = up; } };
+  const pop = () => { const top = heap[0], last = heap.pop()!; if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && D[heap[l]] < D[heap[m]]) m = l; if (r < heap.length && D[heap[r]] < D[heap[m]]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+  for (let k = 0; k < D.length; k++) if (inB[k] && inA[k]) { D[k] = 0; push(k); }
+  const steps: [number, number, number][] = [[1, 0, h], [-1, 0, h], [0, 1, h], [0, -1, h], [1, 1, h * Math.SQRT2], [1, -1, h * Math.SQRT2], [-1, 1, h * Math.SQRT2], [-1, -1, h * Math.SQRT2]];
+  while (heap.length) {
+    const k = pop(), i = k % nx, j = (k - i) / nx;
+    if (k === done[done.length - 1]) continue;
+    done.push(k);
+    for (const [di, dj, w] of steps) {
+      const ii = i + di, jj = j + dj;
+      if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue;
+      const q = jj * nx + ii;
+      if (inB[q] && D[k] + w < D[q]) { D[q] = D[k] + w; from[q] = k; push(q); }
+    }
+  }
+  // (and the farthest point beyond each, the way it was reached: back from the last reached)
+  const far = D.slice();
+  for (let q = done.length - 1; q >= 0; q--) { const k = done[q]; if (from[k] >= 0) far[from[k]] = Math.max(far[from[k]], far[k]); }
+  if (!done.length || grow * (D[done[done.length - 1]] + h) < 0.5) return moved;
+  // (kept where that is no further than grow of the way; a piece of them the letter's ink doesn't reach along them, at
+  // the end; and the edge spread out past their sides)
+  let g = new Float64Array(nx * ny);
+  for (let k = 0; k < g.length; k++) g[k] = !inB[k] ? -h : D[k] < Infinity ? grow * (far[k] + h) - D[k] : (grow - 1) * h;
+  for (let pass = 0; pass < 2; pass++) {
+    const was = g; g = was.slice();
+    for (let j = 1; j + 1 < ny; j++) for (let i = 1; i + 1 < nx; i++) {
+      const k = j * nx + i;
+      if (inB[k]) continue;
+      let m = was[k];
+      for (const [di, dj] of steps) m = Math.max(m, was[k + dj * nx + di]);
+      g[k] = m;
+    }
+  }
+  // (its outline's points along a straight run left out: they only slow combine)
+  const G = shape(contours(g, nx, ny, x0, y0, h, 0).map(r => r.filter((q, i) => { const a = r[(i + r.length - 1) % r.length], b = r[(i + 1) % r.length]; return Math.abs((b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x)) > 0.25 * Math.hypot(b.x - a.x, b.y - a.y); })).filter(r => r.length > 2));
+  return combine([A, B, G], (x, y) => A.has(x, y) || (B.has(x, y) && G.has(x, y))).map(r => (sign < 0 ? r.slice().reverse() : r));
+}
+/** The grid grownIn reads a mend's strokes on, in units; and how near the letter's edge as it was whole, in units, a
+    piece of it lying there counts as its (movedOnce's wasIn). */
+const GROW_CELL = 2.5, WAS_BY = 3;
+
+/** Which points of a grid nx × ny from (x0, y0) h apart lie inside rings (`positive`, wound anticlockwise more than
+    clockwise; else nonzero): each row's crossings, left to right; and the points nearest the rings' edges too, so a
+    stroke thinner than the grid stays in one piece. */
+function insideOf(rings: P[][], nx: number, ny: number, x0: number, y0: number, h: number, positive: boolean): Uint8Array {
+  const inside = new Uint8Array(nx * ny), byRow: [P, P][][] = Array.from({ length: ny }, () => []);
+  for (const p of rings) p.forEach((a, i) => { const b = p[(i + 1) % p.length], lo = Math.max(0, Math.ceil((Math.min(a.y, b.y) - y0) / h)), hi = Math.min(ny - 1, Math.floor((Math.max(a.y, b.y) - y0) / h)); for (let j = lo; j <= hi; j++) byRow[j].push([a, b]); });
+  for (let j = 0; j < ny; j++) {
+    const y = y0 + j * h, xs: [number, number][] = [];
+    for (const [a, b] of byRow[j]) if ((a.y <= y) !== (b.y <= y)) xs.push([a.x + (y - a.y) * (b.x - a.x) / (b.y - a.y), b.y > a.y ? 1 : -1]);
+    xs.sort((p, q) => p[0] - q[0]);
+    let w = 0, k = 0;
+    for (let i = 0; i < nx; i++) { const x = x0 + i * h; while (k < xs.length && xs[k][0] <= x) w += xs[k++][1]; if (positive ? w > 0 : w !== 0) inside[j * nx + i] = 1; }
+  }
+  for (const p of rings) p.forEach((a, i) => {
+    const b = p[(i + 1) % p.length], m = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (h / 2)) || 1;
+    for (let t = 0; t <= m; t++) {
+      const ii = Math.round((a.x + (b.x - a.x) * t / m - x0) / h), jj = Math.round((a.y + (b.y - a.y) * t / m - y0) / h);
+      if (ii >= 0 && jj >= 0 && ii < nx && jj < ny) inside[jj * nx + ii] = 1;
+    }
+  });
+  return inside;
 }
 
 function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
@@ -2310,9 +2515,14 @@ const ACROSS = Math.cos(140 * Math.PI / 180);
 /** The side, as a share of the capitals' height, of the largest crumb (an outline a lighter weight leaves where strokes
     meet, a sliver of ink or a pinhole) dropped from it (crumb). */
 const CRUMB = 0.075;
+/** How many times a crumb's ink a piece apart holds, at most, for a mend grown in part of the way to keep it only where
+    the letter has ink at either end of the stretch (movedOnce). */
+const CRUMB_NEAR = 1.2;
 /** How much narrower than the strokes drawn again, in units (or a fifth, the more), the strokes that mend a lighter
     weight's broken letter are (thinStrokes). */
 const MEND_IN = 2.5;
+/** How thick, as the half thickness R a lighter weight's stroke is now, the strokes that mend its broken letter are. */
+const mendBy = (R: number) => Math.max(1, Math.min(R - MEND_IN, R * 0.8));
 /** A lighter weight's letter rebuilt from its skeleton (thinReads): each point along the middles of its strokes, with
     the distance to the paper there (`r`, half the stroke's thickness, more where strokes meet), the stroke's own half
     thickness (`s`: within JOIN_ZONE of a join, no more than it reads that far out, the bulge where they meet taken out),
@@ -2985,7 +3195,7 @@ function letterInk(rig: SkinRig, mv: MoveMap, hy = (y: number) => y) {
     where the moves put them. `drawn`, the letter drawn as its strokes alone: its joins' rounds no thicker than the
     thinnest stroke there (but a stroke running on through), no stub into a corner; and 2, a letter read along its
     straight strokes (linedRig), its ends cut as the design's are and its corners as the design's too. */
-function thinStrokes(rig: SkinRig, mv: MoveMap, by = (R: number) => Math.max(1, Math.min(R - MEND_IN, R * 0.8)), ahead = (p: P, ux: number, uy: number) => inkAhead(rig, p, ux, uy), drawn: 0 | 1 | 2 = 0): P[][] {
+function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: number, uy: number) => inkAhead(rig, p, ux, uy), drawn: 0 | 1 | 2 = 0): P[][] {
   rig.thin ??= thinReads(rig);
   const sk = thinSkeleton(rig), out: P[][] = [];
   const lined = drawn === 2;
