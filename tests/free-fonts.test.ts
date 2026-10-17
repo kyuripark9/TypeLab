@@ -330,6 +330,17 @@ describe("TypeLab's own fonts", () => {
     }
   });
 
+  it("keep a stroke along a line as thick as its weight makes it, a typewriter g's ear at Thin", async () => {
+    // (the heights lift a letter's top by as much as a round beside a flat edge sank, and put the edge back on its line
+    // alone: the stroke under it was squashed against the line, the g's ear went to a unit's thickness, parted from its
+    // stem and was lost below about Weight 0.065, the letter 137 units narrower at once)
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'typewriter')!, id = STYLE_FONTS.typewriter;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params;
+    const advs = [0.05, 0.055, 0.06, 0.065, 0.07, 0.075, 0.08].map(weight => buildFont({ ...p, weight }).glyph('g')!.adv);
+    for (let i = 1; i < advs.length; i++) assert.ok(Math.abs(advs[i] - advs[i - 1]) < 6, `the g's advance ${advs.map(a => a.toFixed(0)).join(', ')}`);
+  });
+
   it('start each card with no personality macro holding part of a slider flat', () => {
     // (resolve() pushes a slider by a macro as far as 0 or 1 and no further, so a card setting one off its middle leaves
     // a stretch of every slider it pushes doing nothing: Blackletter's Roundness below 70, Wood Type's Squareness above

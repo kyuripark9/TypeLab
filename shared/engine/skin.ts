@@ -2036,12 +2036,12 @@ function movedPlain(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, toward?: {
     drawn as its strokes, on its round-ended skeleton, or toward a heavier weight (m1). */
 function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): { out: Node[][]; how: 'moved' | 'mended' | 'strokes' | 'round'; m1: SkinMeasures; joinsAs?: 'full' | 'none' } {
   const first = movedOnce(rig, m0, m1), as = (out: Node[][], how: 'moved' | 'mended' | 'strokes' | 'round' = 'moved', joinsAs?: 'full' | 'none', m = m1) => ({ out, how, m1: m, joinsAs });
-  if (!(m1.s < m0.s * 0.999 && m1.v < m0.v) || whole(rig, first)) return as(first.out);
+  if (!(m1.s < m0.s * 0.999 && m1.v < m0.v) || whole(rig, first, true)) return as(first.out);
   // (a join drawn again only part of the way round may part a letter whole without it: drawn again whole there, or,
   // that breaking it too, not at all)
   if (first.eased) {
     const none = movedOnce(rig, m0, m1, 'moved', false, undefined, 'none');
-    if (whole(rig, none)) { const full = movedOnce(rig, m0, m1, 'moved', false, undefined, 'full'); return whole(rig, full) ? as(full.out, 'moved', 'full') : as(none.out, 'moved', 'none'); }
+    if (whole(rig, none, true)) { const full = movedOnce(rig, m0, m1, 'moved', false, undefined, 'full'); return whole(rig, full) ? as(full.out, 'moved', 'full') : as(none.out, 'moved', 'none'); }
   }
   // a lighter weight that breaks the letter (a stroke parted from the one it joins, or lost, a counter run out into the
   // paper, where the strokes meet in a way the skeleton reads amiss) is mended with the strokes drawn again along its
@@ -2072,8 +2072,11 @@ function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): { out: Node
 /** Whether a moved letter is whole: the outlines its rig has, as many inked and as many counters (its dots and any crumb
     aside, crumbs), and ink along the middles of its strokes (the skeleton where the move put it), but for stretches no
     longer than a few times the stroke is thick (where the skeleton cuts the corner of an L or bends into a join, round
-    what the stroke thinned away; a stroke lost is longer). */
-function whole(rig: SkinRig, { out, middles }: { out: Node[][]; middles: (P & { s: number; y0: number })[][] }) {
+    what the stroke thinned away; a stroke lost is longer). And `unmended`, moved as it is, it has dropped no piece of ink
+    more than a speck as a crumb: a blackletter H's spurs parted from its stems and lost, read whole, the letter went
+    unmended for a hair of the Weight between mended ones, 72 units narrower. */
+function whole(rig: SkinRig, { out, middles, lost }: { out: Node[][]; middles: (P & { s: number; y0: number })[][]; lost?: number }, unmended = false) {
+  if (unmended && (lost ?? 0) > (rig.ctx.cap * SPECK) ** 2) return false;
   if (middles.length) {
     const polys = out.map(c => c.flatMap((n, i) => Array.from({ length: 6 }, (_, k) => bez(n, c[(i + 1) % c.length], k / 6))));
     const sh = shape(polys);
@@ -2121,7 +2124,7 @@ const dotOf = (rig: SkinRig, c: Node[]) => rig.bones.some(bs => {
 
 /** The rig moved from m0 to m1 once (moveRig); `mend`, a lighter weight's, with the strokes drawn again along its
     skeleton laid over it; `heavy`, moved as a heavier weight is, whichever way. */
-function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved' | 'mended' | 'strokes' = 'moved', heavy = false, toward?: { rig: SkinRig; s: number }, joinsAs: 'eased' | 'full' | 'none' = 'eased'): { out: Node[][]; middles: (P & { s: number; y0: number })[][]; eased?: boolean } {
+function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved' | 'mended' | 'strokes' = 'moved', heavy = false, toward?: { rig: SkinRig; s: number }, joinsAs: 'eased' | 'full' | 'none' = 'eased'): { out: Node[][]; middles: (P & { s: number; y0: number })[][]; eased?: boolean; lost?: number } {
   const mv = moveMap(rig, m0, m1), mvTo = toward ? moveMap(toward.rig, m0, m1) : null;
   if (heavy) mv.lighter = false;
   let rings = rig.bones.map((bs, r) => moveRing(rig, bs, r, mv));
@@ -2167,7 +2170,12 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
       j0 += E.pts.length;
     }
   }
-  snapFlatEdges(rig, rings, mv.gy);
+  const across = snapFlatEdges(rig, rings, mv.gy);
+  // (and the middles of a stroke along a line, which its edge put back on the line brought back with it)
+  if (across.length && how !== 'strokes') for (const run of middles) for (const m of run) {
+    const a = across.find(a => Math.abs(m.x - a.x) <= STEP / 2 && m.y >= Math.min(a.y0, a.y1) && m.y <= Math.max(a.y0, a.y1));
+    if (a) { m.y += a.dy; m.y0 += a.dy; }
+  }
   // (a lighter weight's end that stays, its corners gone in past its points along it, doubles back on itself there; and
   // a dot, made as much smaller as the stems are thinner, is never taken for a speck)
   if (mv.lighter) rings = rings.map((ring, r) => doubledBack(ring, rig.bones[r]));
@@ -2220,7 +2228,11 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const out = tidyRings(rings, rig.ctx.cap, dots);
   // (and a crumb a lighter weight leaves where strokes meet, a sliver or a pinhole, goes, as small as a crumb is as far in
   // from the design (PICK_BLEND); its dots stay)
-  return { out: mv.lighter ? out.filter(c => dotOf(rig, c) || !crumb(rig, c, lam)) : out, middles, eased };
+  if (!mv.lighter) return { out, middles, eased };
+  // (and the most ink a piece of the letter so dropped held, for whole)
+  const kept = out.filter(c => dotOf(rig, c) || !crumb(rig, c, lam)), outer = out.reduce((a, c) => (Math.abs(area(c)) > Math.abs(area(a)) ? c : a), out[0] ?? []);
+  const sign = Math.sign(area(outer)), lost = out.reduce((m, c) => (kept.includes(c) || Math.sign(area(c)) !== sign ? m : Math.max(m, Math.abs(area(c)))), 0);
+  return { out: kept, middles, eased, lost };
 }
 
 function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
@@ -3783,24 +3795,66 @@ function keepHeights(rig: SkinRig, rings: P[][], gy: (y: number) => number) {
 }
 
 /** A flat edge on a line stays on it exactly (a serif's foot beside a heavier stroke's, which moved
-    further and so set where the rest went), its neighbours eased onto it. */
-function snapFlatEdges(rig: SkinRig, rings: P[][], gy: (y: number) => number) {
+    further and so set where the rest went), its neighbours eased onto it; and the side of a stroke along the line comes
+    back with the stroke behind it, the edge across it as far, so the stroke keeps the thickness the move gave it. The
+    heights (keepHeights) lift the whole top of a letter by as much as a round beside the edge sank: the edge put back on
+    its line alone, the stroke under it was squashed against the line, a typewriter g's ear to a unit's thickness at
+    Thin, where it parted from its stem and was lost (the letter 137 units narrower at once). Hands back, for each edge
+    across so brought back, where it was and how far (movedOnce brings the strokes' middles there back with it). */
+function snapFlatEdges(rig: SkinRig, rings: P[][], gy: (y: number) => number): { x: number; y0: number; y1: number; dy: number }[] {
   const c = rig.ctx;
   const lines = [0, c.cap, ...(c.lower ? [c.xh, c.asc, c.desc] : [])];
-  rig.bones.forEach((bs, r) => {
-    const n = bs.length, fix = bs.map((b, i) => {
-      if (!b.onLine || b.dot) return 0;
-      const L = lines.find(L => Math.abs(b.y - L) < 2.5);
-      return L === undefined ? 0 : gy(L) + b.y - L - rings[r][i].y;
-    });
-    if (!fix.some(Boolean)) return;
-    rings[r].forEach((p, i) => {
-      if (fix[i]) { p.y += fix[i]; return; }
+  const fixes = rig.bones.map((bs, r) => bs.map((b, i) => {
+    if (!b.onLine || b.dot) return 0;
+    const L = lines.find(L => Math.abs(b.y - L) < 2.5);
+    return L === undefined ? 0 : gy(L) + b.y - L - rings[r][i].y;
+  }));
+  if (!fixes.some(f => f.some(Boolean))) return [];
+  // (the edge across: where a ray in from the edge first meets the outline, no further than ACROSS_MOST times the
+  // stroke is thick, fading out over the last of that, and facing back at it)
+  const carried = rings.map(r => new Float64Array(r.length)), spans: { x: number; y0: number; y1: number; dy: number }[] = [];
+  rig.bones.forEach((bs, r) => bs.forEach((b, i) => {
+    // (from the side of a stroke running along the line only, inside a flat run, fading out as the stroke turns off
+    // it: not a stem's end cut across, a slanted leg's foot or a corner, whose rays run along the stroke or off it)
+    const f = fixes[r][i], p = rings[r][i], most = ACROSS_MOST * 2 * b.w, nb = bs.length;
+    const along = Math.min(1, Math.max(0, (Math.abs(b.dx) / (Math.hypot(b.dx, b.dy) || 1) - ALONG[0]) / (ALONG[1] - ALONG[0])));
+    if (!f || !along || b.cap || b.corner || !bs[(i + 1) % nb].onLine || !bs[(i - 1 + nb) % nb].onLine || !(most > 0)) return;
+    let best = Infinity, q = -1, k = -1, k1 = -1;
+    for (let rq = 0; rq < rings.length; rq++) for (let rk = 0, ring = rings[rq]; rk < ring.length; rk++) {
+      const rk1 = (rk + 1) % ring.length;
+      if (rq === r && (rk === i || rk1 === i)) continue;
+      const a = ring[rk], e = ring[rk1], sx = e.x - a.x, sy = e.y - a.y, den = b.nx * sy - b.ny * sx;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((a.x - p.x) * sy - (a.y - p.y) * sx) / den, w = ((a.x - p.x) * b.ny - (a.y - p.y) * b.nx) / den;
+      if (t > 0.5 && w >= 0 && w <= 1 && t < best) { best = t; q = rq; k = rk; k1 = rk1; }
+    }
+    if (q < 0 || best >= most) return;
+    // (and the edge it meets facing back at it, the stroke's other side: a slanted stroke's edge the ray runs up into
+    // faces off across the line)
+    const o = rig.bones[q]?.[k], back = o ? -(b.nx * o.nx + b.ny * o.ny) : 0;
+    const facing = Math.min(1, Math.max(0, (back - ALONG[0]) / (ALONG[1] - ALONG[0])));
+    const g = f * along * facing * Math.min(1, (most - best) / (most * ACROSS_FADE));
+    if (!g) return;
+    spans.push({ x: p.x, y0: p.y, y1: p.y + b.ny * best, dy: g });
+    for (const j of [k, k1]) if (!fixes[q][j] && Math.abs(g) > Math.abs(carried[q][j])) carried[q][j] = g;
+  }));
+  rings.forEach((ring, r) => {
+    const n = ring.length, fix = fixes[r], across = carried[r], moved = ring.map((_, i) => fix[i] || across[i]);
+    if (!moved.some(Boolean)) return;
+    ring.forEach((p, i) => {
+      if (moved[i]) { p.y += moved[i]; return; }
       // (the nearest such edge within a few samples, less the further it is)
-      for (let k = 1; k <= 4; k++) for (const j of [(i - k + n) % n, (i + k) % n]) if (fix[j]) { p.y += fix[j] * (1 - k / 5); return; }
+      for (let k = 1; k <= 4; k++) for (const j of [(i - k + n) % n, (i + k) % n]) if (moved[j]) { p.y += moved[j] * (1 - k / 5); return; }
     });
   });
+  return spans;
 }
+/** How far in from a flat edge on a line, as many times the stroke is thick, the edge across it may lie and come back
+    with it (snapFlatEdges), the last ACROSS_FADE of that fading out. */
+const ACROSS_MOST = 2.5, ACROSS_FADE = 0.4;
+/** How nearly along a flat edge's line its stroke runs, and how nearly the edge across faces back at it, for that edge
+    to come back with it (snapFlatEdges), as the cosine of the angle: none from 40° off, wholly within 20°. */
+const ALONG = [Math.cos(40 * Math.PI / 180), Math.cos(20 * Math.PI / 180)];
 
 /** Folds cut out; where moved edges still cross (strokes thickened into each other), the letter is its
     ink read as the font reads it, without the folds (which wind the other way); then traced back into curves. A speck

@@ -249,8 +249,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    off the nearer of the two alone, `movedWay`, its joins drawn again on the nearer's and a mend's strokes along the one
    with feet: read off the letter between, a stroke's middle on one lay off the other's ink and a hairline stroke down a
    serif's bracket closed a crumb there, filled), and each join drawn again from `REBUILD_BELOW` over a round
-   growing from nothing (`rebuildJoins`). Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
-   opened where strokes cross aside, and ink along its strokes' middles) is mended with those strokes laid over it
+   growing from nothing (`rebuildJoins`). A flat edge on a line put back on it after `keepHeights`' lift
+   (`snapFlatEdges`) brings the far side of the stroke running along the line back with it, and the middles `whole`
+   reads (`ACROSS_MOST`, `ALONG`: put back alone, the stroke was squashed against the line by as much as a round beside
+   it had sunk, a typewriter g's ear to a unit and lost). Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
+   opened where strokes cross aside, and ink along its strokes' middles; and, moved as it is, no piece of ink more than
+   a speck dropped as a crumb, `movedOnce`'s `lost`, a blackletter's spurs) is mended with those strokes laid over it
    (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;
    none of them, nor the middles `whole` reads, past a foot's edge, where `keepHeights`' lift, keeping a round's
    overshoot, would take them; a middle so kept is inked where the move put it too, Couture's R's foot dipping below
