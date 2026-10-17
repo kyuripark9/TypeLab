@@ -2617,8 +2617,8 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // the rays below)
   const R = new Float64Array(n);
   let Rmost = 0;
-  // (whether the font thins its strokes by how thick each is: drawn with much contrast, weighsOf)
-  const { stem: s0, hair: h0 } = rig.ref(), byThick = Math.abs(mv.weighs({ tx: 0, ty: 1, w: h0 / 2, serifDx: 0, dot: false } as Bone) - mv.weighs({ tx: 0, ty: 1, w: s0 / 2, serifDx: 0, dot: false } as Bone)) > 0.02;
+  // (how far the font thins its strokes by how thick each is: drawn with much contrast, weighsOf)
+  const { hair: h0 } = rig.ref(), byThick = thickShare(rig, mv);
   const hairKept = h0 * mv.weighs({ tx: 1, ty: 0, w: h0 / 2, serifDx: 0, dot: false } as Bone);
   const floor = hairFloor(rig, mv);
   for (let j = 0; j < n; j++) { R[j] = Math.max(0, mv.weighs({ tx: T.tx[j], ty: T.ty[j], w: T.s[j], serifDx: 0, dot: false } as Bone) * T.s[j], Math.min(T.s[j], floor)); Rmost = Math.max(Rmost, R[j]); }
@@ -2666,6 +2666,17 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // and its ring came out a sliver or a pinwheel)
   const squareDot = !!bs[0]?.dot;
   const k0: number[] = [];
+  // (whether a sample's inward normal runs the other way from the ink its ring's winding puts on that side: read where its
+  // stroke is thinner than the probe, a serif's tip drawn to nothing, either way)
+  const wind = Math.sign(signedArea(bs)) || 1, flipped = (b: Bone) => (-b.ty * b.nx + b.tx * b.ny) * wind < 0;
+  // (and the samples, so read or reading nothing across, running out to a point the outline turns straight back at, a
+  // serif's tip: pushed out to the hairline, one side crossed the other and the tip was cut off as a fold)
+  const atTip = new Uint8Array(bs.length), nb = bs.length;
+  bs.forEach((b, i) => {
+    if (!b.corner || b.inx === undefined || b.inx * b.outx! + b.iny! * b.outy! > -TIP_TURN) return;
+    atTip[i] = 1;
+    for (const way of [-1, 1]) for (let k = 1; k < nb; k++) { const j = (((i + way * k) % nb) + nb) % nb, q = bs[j]; if (q.corner || !(flipped(q) || q.best < TIP_HAIR)) break; atTip[j] = 1; }
+  });
   const plain = (b: Bone, i: number): number => {
     const kp = mv.keeps(b, r, i);
     // (a dot is made as much smaller about its middle as the stems are thinner, keeping its shape)
@@ -2755,18 +2766,25 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
       // curve, reads thicker, an o's top a little off its thinnest)
       // (and none thinner than its hairline as the weight keeps it (family.ts), a finer one drawn as thick: an o's top,
       // where a lean would read it thinner still across its shoulder)
-      if (byThick && T.across[r][i]) {
-        const k = mv.weighs({ ...b, w: b.best }) * kp, d = Math.max((k - 1) * b.best, hairKept / 2 - b.best);
-        k0.push(k);
+      // (but a serif's tip's not pushed out, atTip; and as far as the font reads as thinning its strokes so, thickShare,
+      // this reading and the plain one mixed: read so all at once where its hairlines and stems first thinned apart, a
+      // letter's every hairline's side moved at once)
+      const side = () => {
+        let d = R[jn] * kp - T.s[jn];
+        if (d < -4 && stops(d)) { const e = ray(); if (e > -Infinity && t0 - e * kp < -d - 4) return byRay(e); }
+        // (a wood type's curve, its sample out in a bulge past its stroke's round (a heavy arch's round shoulder), in as much
+        // further as it stands out: the bulge made as much smaller as the stroke is thinner)
+        if (rig.slabless && d < 0 && !b.corner && !b.straight && T.s[jn] > 0.5 && t0 > BULGE * T.s[jn]) d = (R[jn] * kp / T.s[jn] - 1) * t0;
+        k0.push(T.s[jn] > 0.5 ? R[jn] * kp / T.s[jn] : 1);
         return d > 0 ? Math.min(d, b.gap * OPEN) : d;
-      }
-      let d = R[jn] * kp - T.s[jn];
-      if (d < -4 && stops(d)) { const e = ray(); if (e > -Infinity && t0 - e * kp < -d - 4) return byRay(e); }
-      // (a wood type's curve, its sample out in a bulge past its stroke's round (a heavy arch's round shoulder), in as much
-      // further as it stands out: the bulge made as much smaller as the stroke is thinner)
-      if (rig.slabless && d < 0 && !b.corner && !b.straight && T.s[jn] > 0.5 && t0 > BULGE * T.s[jn]) d = (R[jn] * kp / T.s[jn] - 1) * t0;
-      k0.push(T.s[jn] > 0.5 ? R[jn] * kp / T.s[jn] : 1);
-      return d > 0 ? Math.min(d, b.gap * OPEN) : d;
+      };
+      if (!(byThick > 0 && T.across[r][i])) return side();
+      const k = mv.weighs({ ...b, w: b.best }) * kp, d = Math.max((k - 1) * b.best, atTip[i] ? Math.min(0, hairKept / 2 - b.best) : hairKept / 2 - b.best);
+      const dT = d > 0 ? Math.min(d, b.gap * OPEN) : d;
+      if (byThick >= 1) { k0.push(k); return dT; }
+      const dS = side(), kS = k0.pop()!;
+      k0.push(kS + (k - kS) * byThick);
+      return dS + (dT - dS) * byThick;
     }
     const e = ray();
     if (e === -Infinity) { const d = R[jn] * kp - T.s[jn]; k0.push(T.s[jn] > 0.5 ? R[jn] * kp / T.s[jn] : 1); return d > 0 ? Math.min(d, b.gap * OPEN) : d; }
@@ -2854,7 +2872,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   }
   // a font drawn with much contrast keeps its hairline as the weight keeps it (family.ts) all round: no side spanning its
   // stroke goes in past where the stroke would be thinner, however it read its move (an o's top, read off its curve)
-  if (byThick) bs.forEach((b, i) => { if (!b.corner && !b.dot && !b.serifDx && T.across[r][i] && !crossEnd(b)) delta[i] = Math.max(delta[i], Math.min(0, hairKept / 2 - b.best)); });
+  if (byThick > 0) bs.forEach((b, i) => { if (!b.corner && !b.dot && !b.serifDx && T.across[r][i] && !crossEnd(b)) delta[i] += (Math.max(delta[i], Math.min(0, hairKept / 2 - b.best)) - delta[i]) * byThick; });
   return { k0, delta, crotches, pins };
 }
 
@@ -3178,13 +3196,26 @@ const BULGE = 1.2;
 /** How thin, half, no stroke of a wood type's lighter weight is drawn (its letter without its slabs, slabRig), but where
     the design's is thinner still: its hairline as the weight keeps it. Its arches taper hard into their stems, and thinned
     in step they came out hairlines beside its stems. 0 at a weight no lighter, or in a font drawn with much contrast,
-    whose hairlines are kept so already (weighsOf). */
+    whose hairlines are kept so already (weighsOf), less as far as it reads so (thickShare). */
 function hairFloor(rig: SkinRig, mv: MoveMap) {
   if (!mv.lighter || !rig.slabless) return 0;
-  const { stem: s0, hair: h0 } = rig.ref(), w = (b: number) => mv.weighs({ tx: 0, ty: 1, w: b / 2, serifDx: 0, dot: false } as Bone);
-  if (Math.abs(w(h0) - w(s0)) > 0.02) return 0;
-  return h0 * mv.weighs({ tx: 1, ty: 0, w: h0 / 2, serifDx: 0, dot: false } as Bone) / 2;
+  const { hair: h0 } = rig.ref(), t = thickShare(rig, mv);
+  return (1 - t) * h0 * mv.weighs({ tx: 1, ty: 0, w: h0 / 2, serifDx: 0, dot: false } as Bone) / 2;
 }
+
+/** How far a lighter weight reads the font as thinning its strokes by how thick each is (weighsOf: drawn with much
+    contrast), 0 to 1: as its hairlines and its stems thin apart, across `band` of their difference (THICK_APART;
+    FEET_APART for its feet's serifs, footRound). Read so all at once where they first thinned 0.02 apart, a letter's
+    every hairline moved at once there: Couture's serifs' tips cut off at 0.735 of its stems, Ballyhoo's slab serifs
+    turned to hairlines (a fifth of its H's ink) within 0.005 of Weight. */
+function thickShare(rig: SkinRig, mv: MoveMap, band = THICK_APART) {
+  const { stem: s0, hair: h0 } = rig.ref(), w = (b: number) => mv.weighs({ tx: 0, ty: 1, w: b / 2, serifDx: 0, dot: false } as Bone);
+  return Math.min(1, Math.max(0, (Math.abs(w(h0) - w(s0)) - band[0]) / (band[1] - band[0])));
+}
+/** A point the outline turns back at by more than this (its two ways' cosine under minus it) is a tip (thinMoves); a sample
+    by one reading its stroke under TIP_HAIR across runs out to it. */
+const TIP_TURN = 0.9, TIP_HAIR = 0.5;
+const THICK_APART = [0.015, 0.025], FEET_APART = [0.01, 0.05];
 
 /** Whether the outline the way (ux, uy) from p runs out to is round there: on a curve, no corner near (the design's
     corner a stroke turns at, drawn round, not square or to a point). */
@@ -3323,10 +3354,10 @@ function intoFoot(F: ThinReads['feet'][number], b: Bone, Rs: (j: number) => numb
 }
 
 /** A serif's foot drawn level (withFeet), its round R as thick as it is now: a font drawn with much contrast keeps its
-    serifs no thicker than its hairline as the weight keeps it (family.ts). */
+    serifs no thicker than its hairline as the weight keeps it (family.ts), as far as it reads so (thickShare). */
 function footRound(rig: SkinRig, mv: MoveMap, R: number) {
-  const { stem: s0, hair: h0 } = rig.ref(), w = (b: number) => mv.weighs({ tx: 0, ty: 1, w: b / 2, serifDx: 0, dot: false } as Bone);
-  return Math.abs(w(h0) - w(s0)) > 0.02 ? Math.min(R, h0 * mv.weighs({ tx: 1, ty: 0, w: h0 / 2, serifDx: 0, dot: false } as Bone) / 2) : R;
+  const { hair: h0 } = rig.ref(), t = thickShare(rig, mv, FEET_APART);
+  return R + (Math.min(R, h0 * mv.weighs({ tx: 1, ty: 0, w: h0 / 2, serifDx: 0, dot: false } as Bone) / 2) - R) * t;
 }
 
 /** How much an edge's stroke thickens (thins, under 1): an upright stroke by the engine's upright weight (kv), a level

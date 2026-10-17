@@ -184,13 +184,15 @@ A design with `freeFont` set draws its letters from a free font instead of build
    thicker than the strokes leaving them, and each join's stem run straight through it, `straightThrough`, a join a
    short stroke off it going with it, a K's arms meeting its stem). `thinMoves` moves each side in to where a round along its middle as thick as the
    stroke is now ends (`weighsOf`; a high-contrast font's sides by their own reading across, never thinner than its
-   hairline as the weight keeps it, `hairKept`), a side by a join or a crotch along a ray to those rounds' ink (read
+   hairline as the weight keeps it, `hairKept`, but a serif's tip drawn to nothing, whose samples read their sides
+   either way round, `atTip`, which pushed out crossed and was cut off as a fold; read so as far as its hairlines and stems
+   thin apart, `thickShare` over `THICK_APART`, not all at once at 0.02 apart), a side by a join or a crotch along a ray to those rounds' ink (read
    only when a round could stop it, `stops`, through `pointGrid`/`inBand`), a crotch where its two strokes' edges
    cross nearest the join (`crossing`; a foot's own corner nearer its line than the join is none), an edge cut across its stroke and facing the way it runs staying (a stem's
    square foot on a line, `FLAT_END`), a level foot's samples in along their normals to its shape as the move thins it
    (`intoFoot`, `byFoot`: its stem's round run down to the line, each serif a band as thick as it is now standing on its
    edge, a serif's straight edges out past its stem's side among them whichever middle they read, and a straight edge it
-   stands on along its line staying there past the foot, an E's arm's top, `footRound`, a contrasty font's no thicker than its hairline), so its edge on the line stays, its bracket comes
+   stands on along its line staying there past the foot, an E's arm's top, `footRound`, a contrasty font's no thicker than its hairline, eased in over `FEET_APART`), so its edge on the line stays, its bracket comes
    down, and its serifs' ends, cut across them, stay and come down with their edges, a flag's top past its stem's side
    pinned to that side's corner (`pins`, which `moveRing` puts where they say); a dot made smaller about its middle,
    one with corners (a square, a diamond) pinned there point by point, as its sides moved in alone crossed at its
