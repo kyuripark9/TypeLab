@@ -171,7 +171,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    ink runs along the line, the stem run down to the line; a vertex standing on a line, in a sans font
    any, in a serif font one where a hairline meets a heavy stroke (`VERTEX_HAIR`, a fat face's v, w, M, a Didone's A
    and V; a book face's, its counter's foot cut flat, stays as it was) or whose join reads well up from the line
-   (`VERTEX_NEAR`, a slab's W's apex cut flat a hundred units across; `VERTEX_FAR`, `VERTEX_TIP`), drawn again where the strokes' middles, run on
+   (`VERTEX_NEAR`, a slab's W's apex cut flat a hundred units across; `VERTEX_FAR`, `VERTEX_TIP`; and where a hairline
+   meets a heavy stroke its end's round up to `VERTEX_GAP` of itself off the line, its strokes' middles meeting in its ink
+   past that round, a Didone's W's cut flat, its M's point), drawn again where the strokes' middles, run on
    straight, meet within the vertex's own end (its cut on the line staying, its corners going in with the strokes, its
    join's crotches read as far out as before and from where it was, `ThinReads.vertices`; the runs in left out of the
    whole check, `vrun`; withFeet runs this alone for a font without serifs); a corner where a stem turns
@@ -179,7 +181,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    an edge or at a ring's node), the stem run on to the line, the serif level out, the arm level in; a flag atop a stem whose arch or bowl joins it further down
    than the join's round reaches the line (an n's, an r's, a g's ear, an a's foot) the same, with a stub on from the
    line to the join, the foot reaching across the stem's own width (`Foot.side`); a slab as thick as its stem is one, `FOOT_THIN`,
-   `FOOT_REACH`; kept on copies of the rig, `footRig`, that only the lighter weights move on: thin serifs' feet from
+   `FOOT_REACH`, 5.5 of the stem's round, a typewriter's K's long slab; kept on copies of the rig, `footRig`, that only the lighter weights move on: thin serifs' feet from
    stems 0.6 of the design's, slabs' from 0.4, `FOOT_UNDER`, so a Bold keeps its brackets), read once a letter
    (`thinReads`: each point's own half thickness with the joins' bulges taken out, a short stroke between two joins no
    thicker than the strokes leaving them, and each join's stem run straight through it, `straightThrough`, a join a
@@ -191,7 +193,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    only when a round could stop it, `stops`, through `pointGrid`/`inBand`), a crotch where its two strokes' edges
    cross nearest the join (`crossing`; a foot's own corner nearer its line than the join is none), an edge cut across its stroke and facing the way it runs staying (a stem's
    square foot on a line, `FLAT_END`), a level foot's samples in along their normals to its shape as the move thins it
-   (`intoFoot`, `byFoot`: its stem's round run down to the line, each serif a band as thick as it is now standing on its
+   (`intoFoot`, `byFoot`, not eased with their neighbours as other moves are, a leaning leg's bracket's rays running far
+   in within a few samples: its stem's round run down to the line, each serif a band as thick as it is now standing on its
    edge, a serif's straight edges out past its stem's side among them whichever middle they read, and a straight edge it
    stands on along its line staying there past the foot, an E's arm's top, `footRound`, a contrasty font's no thicker than its hairline, eased in over `FEET_APART`, and so not held back again by the hairline floor read off the serif's middle as drawn, an A's leaning leg's inner serif), so its edge on the line stays, its bracket comes
    down, and its serifs' ends, cut across them, stay and come down with their edges, a flag's top past its stem's side
@@ -202,7 +205,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    foot, a round inside running on from a stroke's end, an r's arm under its ear, or outside running into a ball, a fat
    face's r's arm), and sets a zero-thickness point
    where its neighbours meet (`pinPoints`). Joins its stems thin to under `REBUILD_BELOW` of themselves, no serif on
-   them, are drawn again from the strokes along the skeleton (`rebuildJoins`, within `JOIN_REACH` but for the stroke
+   them, nor, in a font with serifs where a hairline meets a heavy stroke (`REBUILD_HAIR`), one a short stroke runs
+   from out to an end on or near a line, not the run on of a stroke through it (`REBUILD_TIP`, `REBUILD_THROUGH`: a fat
+   face's Z's foot, which the strokes drawn again notched; a t's stem over its bar, a book face's 4's apex still are),
+   are drawn again from the strokes along the skeleton (`rebuildJoins`, within `JOIN_REACH` but for the stroke
    ends out past them, the moved outline kept where it keeps within `JOIN_GIVE` of them, never past the letter's ink,
    `letterInk`). A letter of straight strokes about as thick as each other in a font without serifs (Gumdrop's A, E, M, N,
    W, w, z; a grotesque's E, L, Z) is first drawn as those strokes alone, read off its sides (`linedRig`, `lineSkeleton`

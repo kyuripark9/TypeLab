@@ -825,8 +825,8 @@ const VRUN = new WeakSet<SkPt>();
 /** A serif withFeet draws level is no thicker, half, than FOOT_THIN of the round where its stem meets it, from a
     weight whose stems are FOOT_UNDER[0] of the design's, or FOOT_SLAB, a slab serif as thick as its stem, from
     FOOT_UNDER[1] (a little lighter, as a Bold's to a Regular, its brackets thin with it as moved); and it reaches no
-    further out from the stem than FOOT_REACH of that round (a typewriter's long slabs, not an E's arm). */
-const FOOT_THIN = 0.6, FOOT_SLAB = 1.2, FOOT_REACH = 4.5;
+    further out from the stem than FOOT_REACH of that round (a typewriter's long slabs, its K's 5.2, not an E's arm). */
+const FOOT_THIN = 0.6, FOOT_SLAB = 1.2, FOOT_REACH = 5.5;
 const FOOT_UNDER: [number, number] = [0.6, 0.4];
 /** A corner where an arm runs on along the line from a stem (an E's, an L's) is a foot only by a hairline serif, no
     thicker, half, than FOOT_HAIR of the round where they meet (a Didone's); a bracketed serif's corner keeps its curve. */
@@ -834,8 +834,9 @@ const FOOT_HAIR = 0.2;
 /** A vertex is drawn again where its strokes meet only where its join's round is more than VERTEX_HAIR times its
     hairline's, or, in a font with serifs, its join reads further than VERTEX_NEAR of its round from its line (a slab's
     W's apex cut flat a hundred units across); and only a join no further than VERTEX_FAR of its round from its line,
-    its stub out to the line no longer than VERTEX_TIP of it (withFeet). */
-const VERTEX_HAIR = 4, VERTEX_FAR = 3, VERTEX_TIP = 2, VERTEX_NEAR = 1.5;
+    its stub out to the line no longer than VERTEX_TIP of it (a Didone's M's point, 2.4), that stub's end's own round
+    no further off the line than VERTEX_GAP of it (a Didone's W's, cut flat on the line, its round 65 units up) (withFeet). */
+const VERTEX_HAIR = 4, VERTEX_FAR = 3, VERTEX_TIP = 2.5, VERTEX_NEAR = 1.5, VERTEX_GAP = 1.1;
 /** A corner whose serif the skeleton leaves out (withFeet) is a foot only by a serif no thicker, half, than CORNER_HAIR
     of its stem's round. */
 const CORNER_HAIR = 0.25;
@@ -1185,7 +1186,11 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
     for (const L of lines) {
       if (Math.abs(J.y - L) > VERTEX_FAR * J.r) continue;
       const dir = Math.sign(J.y - L) || 1, bs = branches(G, j);
-      const tipBr = bs.filter(br => { const T = nodes[far(br)], gap = (T.y - L) * dir - T.r; return T.edges.length === 1 && gap > -tol && gap < Math.max(tol, 0.5 * T.r) && edges[br.e].len < VERTEX_TIP * J.r; });
+      // (a stub further off its line or longer than the plain reach (0.5 of its own round, 2 of the join's), or strokes
+      // meeting past its round, only where a hairline meets a heavy stroke, VERTEX_HAIR: a Didone's W, M, w; a book face's
+      // 4 or a script's s came out with a dark wedge at their tops so)
+      const plain = (br: Branch) => { const T = nodes[far(br)]; return (T.y - L) * dir - T.r < Math.max(tol, 0.5 * T.r) && edges[br.e].len < 2 * J.r; };
+      const tipBr = bs.filter(br => { const T = nodes[far(br)], gap = (T.y - L) * dir - T.r; return T.edges.length === 1 && gap > -tol && gap < Math.max(tol, VERTEX_GAP * T.r) && edges[br.e].len < VERTEX_TIP * J.r; });
       if (tipBr.length !== 1) continue;
       const legs = bs.filter(br => br !== tipBr[0] && br.e !== tipBr[0].e);
       if (legs.length !== 2) continue;
@@ -1213,7 +1218,11 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       // (and only where they meet within the vertex's own end, its round: a w's middle peak, short of the x-height,
       // isn't drawn up to it)
       const T = nodes[far(tipBr[0])];
-      if (Math.hypot(J1.x - T.x, J1.y - T.y) > T.r + tol) continue;
+      // (or in its ink, no further across from its end than the join's round: a Didone's W's, cut flat on its line, its
+      // end's round well up from it, its M's, a point, the strokes' middles meeting 80 units up it)
+      const within = Math.hypot(J1.x - T.x, J1.y - T.y) <= T.r + tol;
+      if (!within && !(Math.abs(M.x - T.x) <= Math.max(T.r, J.r) && inside(M.x, M.y))) continue;
+      if (!(within && plain(tipBr[0])) && !(J.r > VERTEX_HAIR * r0)) continue;
       for (const R of runs) { const lead = run(J1, R.A, () => R.A.r).slice(0, -1); for (const q of lead) VRUN.add(q); put(R.br, [...lead, ...R.sp.slice(R.a)]); }
       const tip = { x: J1.x, y: L + dir * r0 * 0.5, r: r0 * 0.5 };
       put(tipBr[0], [{ x: J1.x, y: J1.y, r: J1.r }, tip]);
@@ -2502,6 +2511,11 @@ const FLAT_END = 1.25;
     again (rebuildJoins), and how much its stems must thin for it to be: to under 2/5 of themselves (less, the moves
     keep it well, its brackets and all). */
 const JOIN_REACH = 1.5, REBUILD_BELOW = 0.4;
+/** How long, in its join's rounds, a stroke from a join out to an end standing on a line may be for the join not to be
+    drawn again (rebuildJoins): a serif's corner read as a stroke of its own; not the run on of a stroke through the
+    join (within 15°); and only where the join's round is more than REBUILD_HAIR times its thinnest stroke's (a fat
+    face's Z's foot, 3.7). */
+const REBUILD_TIP = 3, REBUILD_THROUGH = Math.cos(Math.PI / 12), REBUILD_HAIR = 3;
 /** How far, as a share of a stroke's half thickness (and a unit), a lighter weight's moved outline may stand off its
     strokes drawn again within a join and stay (rebuildJoins). */
 const JOIN_GIVE = 0.2;
@@ -3106,7 +3120,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // off the serif's middle as it was, before it was drawn level: an A's leaning leg's inner serif kept 28 units thick at
   // Thin, a dark wedge under the leg
   if (byThick > 0) bs.forEach((b, i) => { if (!b.corner && !b.dot && !b.serifDx && T.across[r][i] && !crossEnd(b) && (footed[i] !== 1 || T.footStem[T.near[r][i]] !== 0)) delta[i] += (Math.max(delta[i], Math.min(0, hairKept / 2 - b.best)) - delta[i]) * byThick; });
-  return { k0, delta, crotches, pins };
+  return { k0, delta, crotches, pins, footed };
 }
 
 /** The rig as moveRig tries it a last time: its lighter weight's skeleton keeping its strokes that end round (prune's
@@ -3145,7 +3159,26 @@ function rebuildJoins(rig: SkinRig, mv: MoveMap, lift: (y: number) => number, ri
   // SWITCH_BLEND further on: while it lies within the ink it changes nothing, then the strokes drawn again take more of its
   // outline as they thin: drawn again all at once, a join came out other than it was, at a jump)
   const weigh = (n: SkPt) => mv.weighs({ tx: 0, ty: 1, w: n.r, serifDx: 0, dot: false } as Bone);
-  const near = sk.nodes.filter(n => n.edges.length >= 3 && weigh(n) < REBUILD_BELOW && !serifs.some(b => Math.hypot(b.x - n.x, b.y - n.y) < n.r * JOIN_REACH));
+  // (nor, in a font standing on serifs, where a hairline meets a heavy stroke, one a short stroke runs from out to an end standing on a line, or near it, its
+  // ink running on to it: a serif's corner the skeleton reads as a stroke of its own, a fat face's Z's foot, whose strokes
+  // drawn again ran out into the corner, off the bar, a notch cut in it; a vertex cut flat on its line, a Didone's W's, its
+  // ink below the end's round cut off by the round drawn again; not one running along the line, a t's bar's end, nor a
+  // sans font's stem's end over its arch, an n's, drawn again as before)
+  const c = rig.ctx, lines = [0, c.cap, ...(c.lower ? [c.xh, c.asc, c.desc] : [])], tol = Math.max(6, 0.02 * c.cap);
+  const serifed = rig.serifed(), onLine = (n: SkPt) => {
+    const bs = branches(sk, sk.nodes.indexOf(n));
+    // (and only where a hairline meets a heavy stroke, REBUILD_HAIR: a book face's 4's apex, 2.5, is drawn again well)
+    const hair = Math.min(...bs.map(br => { const E = sk.edges[br.e], pts = br.end === 'a' ? E.pts : E.pts.slice().reverse(); return (pts.find(q => Math.hypot(q.x - n.x, q.y - n.y) >= 2 * n.r) ?? pts[pts.length - 1]).r; }));
+    return serifed && n.r > REBUILD_HAIR * hair && bs.some(br => {
+      const E = sk.edges[br.e], T = sk.nodes[br.end === 'a' ? E.b : E.a];
+      if (!(T.edges.length === 1 && E.len < REBUILD_TIP * n.r && Math.abs(T.y - n.y) > 0.4 * Math.hypot(T.x - n.x, T.y - n.y))) return false;
+      if (!lines.some(L => Math.abs(T.y - L) - T.r > -tol && Math.abs(T.y - L) - T.r < Math.max(tol, T.r))) return false;
+      // (not a stroke's own end, run on straight through the join from the other side: a t's stem over its bar)
+      const u = leaving(sk, br, n.r);
+      return !bs.some(o => { if (o === br) return false; const v = leaving(sk, o, 2 * n.r); return -(u.x * v.x + u.y * v.y) > REBUILD_THROUGH; });
+    });
+  };
+  const near = sk.nodes.filter(n => n.edges.length >= 3 && weigh(n) < REBUILD_BELOW && !serifs.some(b => Math.hypot(b.x - n.x, b.y - n.y) < n.r * JOIN_REACH) && !onLine(n));
   const t = (n: SkPt) => (joinsAs === 'full' ? 1 : Math.min(1, (REBUILD_BELOW - weigh(n)) / SWITCH_BLEND)), eased = near.some(n => t(n) < 1);
   const joins = near.map(n => ({ ...at(n), r: n.r * JOIN_REACH * t(n) }));
   if (!joins.length || joinsAs === 'none') return { rings, dots, eased };
@@ -3749,8 +3782,10 @@ const endsOf = (rig: SkinRig, r: number, mv: MoveMap) => (mv.lighter ? rig.ends[
 function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   const { weighs, keeps } = mv, end = crossEnd;
   if (rig && mv.lighter) {
-    const { k0, delta, crotches, pins } = thinMoves(rig, bs, r, mv);
-    const moved = bs.map((b, i) => b.corner ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && end(bs[j]) === end(b)));
+    const { k0, delta, crotches, pins, footed } = thinMoves(rig, bs, r, mv);
+    // (a level foot's samples as they reach it: eased, a leaning leg's bracket's, its rays running 40 to 100 units in
+    // within a few samples, stopped short of it, a wedge under the leg, Almanac's K's)
+    const moved = bs.map((b, i) => b.corner || footed[i] ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && end(bs[j]) === end(b)));
     return { dotRoom: bs[0]?.dot ? Math.min(...bs.map(b => b.gap)) * OPEN : Infinity, k0, moved, crotches, pins };
   }
   // how far each edge moves out (in, lighter): its stroke's change of thickness on this side, a stem's by
