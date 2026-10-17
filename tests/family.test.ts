@@ -113,17 +113,34 @@ describe('font family', () => {
     assert.ok(stemRatio(stem, 'regular', 'black') > 2.4);
   });
 
-  it('reads a design by its stems, and steps evenly where Verticals already draw them heavy', () => {
+  it('reads a design by its stems, and steps as the weights\' places do where Verticals already draw them heavy', () => {
     // Weight 65 is a SemiBold's, but at Verticals 97 its stems are past a Black's
     assert.equal(anchorOf({ ...DEFAULTS, weight: 0.65 }), 'semibold');
     const p = { ...DEFAULTS, weight: 0.65, vWeight: 0.97 }, anchor = anchorOf(p);
     assert.equal(anchor, 'black');
     assert.equal(ownStyle(p).style, 'Black');
-    // every weight lighter than the next by a step of about the same ratio, Thin as light as a plain Thin
+    // every weight lighter than the next by about the step between their places on the slider, Thin as light as a plain Thin
     const stems = WEIGHTS.map(w => buildFont(familyMember(p, anchor, w.id, false).params).m.s);
-    for (let i = 1; i < stems.length; i++) assert.ok(stems[i] > stems[i - 1] * 1.25 && stems[i] < stems[i - 1] * 1.5, `${WEIGHTS[i].id}: ${stems[i - 1]} → ${stems[i]}`);
-    assert.ok(Math.abs(stems[0] - buildFont({ ...DEFAULTS, weight: WEIGHTS[0].at }).m.s) < 0.5);
+    const places = WEIGHTS.map(w => buildFont({ ...DEFAULTS, weight: w.at }).m.s);
+    for (let i = 1; i < stems.length; i++) {
+      const step = stems[i] / stems[i - 1], place = places[i] / places[i - 1];
+      assert.ok(step > 1.1 && step > place * 0.9 && step < place * 1.2, `${WEIGHTS[i].id}: ${stems[i - 1]} → ${stems[i]}, places ${place.toFixed(2)}`);
+    }
+    assert.ok(Math.abs(stems[0] - places[0]) < 0.5);
     for (const w of WEIGHTS) assert.ok(isValidParams(sanitizeParams(familyMember(p, anchor, w.id, true).params)));
+  });
+
+  it('steps on across a design that reads as Light as across a Regular: its Regular as much heavier as a Regular is than a Light', () => {
+    // the Comic card, Weight 30: spread evenly either side of it, its Regular's stems were 1.22 of its own, its
+    // ExtraLight's 0.57
+    const p = { ...DEFAULTS, weight: 0.3 }, anchor = anchorOf(p);
+    assert.equal(anchor, 'light');
+    const stems = WEIGHTS.map(w => buildFont(familyMember(p, anchor, w.id, false).params).m.s);
+    const places = WEIGHTS.map(w => buildFont({ ...DEFAULTS, weight: w.at }).m.s);
+    assert.ok(stems[3] / stems[2] > 0.9 * places[3] / places[2], `Regular ${stems[3]} over Light ${stems[2]}`);
+    for (let i = 1; i < stems.length; i++) assert.ok(stems[i] > stems[i - 1] * 1.1, `${WEIGHTS[i].id}: ${stems[i - 1]} → ${stems[i]}`);
+    // a Regular design's family sits on the places
+    for (const w of WEIGHTS) assert.ok(Math.abs(buildFont(familyMember(DEFAULTS, 'regular', w.id, false).params).m.s - buildFont({ ...DEFAULTS, weight: w.at }).m.s) < 1, w.id);
   });
 
   it('keeps a high-contrast design\'s hairlines as thick as its own in its lighter weights, with less contrast, its stems still stepping lighter', async () => {

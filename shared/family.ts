@@ -42,6 +42,10 @@ const stemOf = (p: Params) => metrics(resolve(p)).s;
 /** How thick Weight `w` draws stems with Verticals as drawn (DEFAULTS'): where the weights' places sit in stems. */
 const plainStem = (w: number) => stemOf({ ...DEFAULTS, weight: w });
 
+/** How thick each weight's place on the slider draws stems with Verticals as drawn (plainStem of its `at`), lightest first. */
+let places: number[] | null = null;
+const placeStems = () => (places ??= WEIGHTS.map(w => plainStem(w.at)));
+
 /** Where between lo and hi the rising f reaches `want` (at lo or hi, where it stays short of it there). */
 function solve(f: (v: number) => number, want: number, lo: number, hi: number) {
   if (f(lo) >= want) return lo;
@@ -57,15 +61,19 @@ function solve(f: (v: number) => number, want: number, lo: number, hi: number) {
 export const anchorOf = (p: Params): WeightId => weightIdOf(solve(plainStem, stemOf(p), 0, 1));
 
 /** How many times thicker than the design's (`stem` thick) the weight `id` draws its stems, the design being the
-    weight `anchor`. The lighter weights are spread evenly, step by step in the same ratio, from the stems of the
-    lightest a family reaches up to the design's, and the heavier ones from the design's up to the heaviest's, so the
-    design is exactly one of them and no two steps feel far apart. */
+    weight `anchor`. The lighter weights are spread from the stems of the lightest a family reaches up to the design's,
+    and the heavier ones from the design's up to the heaviest's, as the weights' places on the slider are (`at`): each
+    as far along, by how many times thicker it draws its stems, as its place is from the anchor's to Thin's or Black's.
+    So the design is exactly one of them, a Regular's family steps as the places do, and the steps run on across the
+    design as they do across a Regular: a light weight's steps further apart than a heavy one's, as they look as far
+    apart. (Spread evenly either side, a design that reads as Light stepped twice by 1.75 to its Thin and six times by
+    1.22 to its Black, its Regular hardly heavier than itself.) */
 export function stemRatio(stem: number, anchor: WeightId, id: WeightId): number {
   const a = WEIGHTS.findIndex(w => w.id === anchor), i = WEIGHTS.findIndex(w => w.id === id);
   if (i === a) return 1;
-  const end = plainStem(i < a ? LIGHTEST : HEAVIEST);
+  const end = plainStem(i < a ? LIGHTEST : HEAVIEST), at = placeStems();
   // a design heavier than Black or lighter than Thin: spread from it, not back past it
-  const t = i < a ? (a - i) / a : (i - a) / (WEIGHTS.length - 1 - a);
+  const t = Math.log(at[i] / at[a]) / Math.log(at[i < a ? 0 : WEIGHTS.length - 1] / at[a]);
   const r = Math.pow(end / stem, t);
   return i < a ? Math.min(1, r) : Math.max(1, r);
 }
@@ -185,14 +193,16 @@ function keepHairline(p: Params, look: Look, q: Params): Pick<Params, 'contrast'
     // one is past it, the last two below it, the first through nothing) and tried, till one draws it, or a little
     // thicker (a font's points stand on whole units)
     type Try = { u: number; h: number; b: number };
-    let prev: Try = { u: 0, h: 0, b: 0 }, lo: Try = { u: 0, h: hT(0), b: now.hair }, hi: Try | null = null;
+    let prev: Try = { u: 0, h: 0, b: 0 }, lo: Try = { u: 0, h: hT(0), b: now.hair }, hi: Try | null = null, far = 1;
     for (let k = 0; k < 5; k++) {
-      const [a, c] = hi ? [lo, hi] : [prev, lo];
-      const next = solve(hT, a.h + (want - a.b) * (c.h - a.h) / (c.b - a.b), lo.u, hi ? hi.u : 2), b = barOf(at(next));
+      const [a, c] = hi ? [lo, hi] : [prev, lo], h = a.h + (want - a.b) * (c.h - a.h) / (c.b - a.b);
+      const next = solve(hT, hi ? h : lo.h + (h - lo.h) * far, lo.u, hi ? hi.u : 2), b = barOf(at(next));
       if (b === null) break;
       const t = { u: next, h: hT(next), b };
-      // (a font whose hairline doesn't follow the measure, a pixel font's, stays as it is)
-      if (b < want) { if (b <= lo.b) break; prev = lo; lo = t; } else { hi = t; if (b <= want * 1.03 + 1) break; }
+      // (a font whose hairline doesn't follow the measure, a pixel font's, stays as it is; one whose points stand on
+      // whole units may not draw it a unit thicker for a short way, a step lighter than the design: tried again as far
+      // again before it is given up, Couture's Medium's crossbar 2 units thin)
+      if (b < want) { if (b > lo.b) { prev = lo; lo = t; far = 1; } else if (far > 1) break; else far = 2; } else { hi = t; if (b <= want * 1.03 + 1) break; }
     }
     u = hi ? hi.u : lo.u;
     if (!u) return null;

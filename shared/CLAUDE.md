@@ -180,11 +180,15 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
 - `family.ts`: the nine `WEIGHTS` (Regular at index 3, Bold at 6), their places on the Weight slider (`at`; 0.4 is
   Regular, as Weight 0.4 is the default and a free font's 400), the anchor (`anchorOf`: the weight the design's stems
   read as, the Weight that draws stems as thick with Verticals as drawn, so Weight 65 at Verticals 97 is a Black), and
-  `familyMember`. A family steps by stems (Metrics.s): `stemRatio` spreads them evenly from the design's to the lightest
-  and heaviest weights' stems, and each member's Weight is solved to draw them (past either end of the slider, its
+  `familyMember`. A family steps by stems (Metrics.s): `stemRatio` spreads them from the design's to the lightest and
+  heaviest weights' stems as the weights' places step (each as far along, in ratio, as its place's stems are from the
+  anchor's place's to Thin's or Black's): a Regular design's family sits on the places, and a design read as Light
+  steps to its Regular as much as a Regular does from a Light (spread evenly either side, Comic's Regular was 1.22 of
+  its Light, its ExtraLight 0.57). Each member's Weight is solved to draw them (past either end of the slider, its
   Verticals too); each letter's own weight follows, and its own slant leans. A lighter weight keeps the design's
   hairline (`keepHairline`): its Contrast lowered (then its Horizontals raised) till its H's crossbar is as thick as
-  the design's, never past `HAIR_MOST` of its own stems, so a Didone's Thin to Medium keep their hairlines; a design
+  the design's (a free font's, whose points stand on whole units, tried again as far again where a short way drew it
+  no thicker), never past `HAIR_MOST` of its own stems, so a Didone's Thin to Medium keep their hairlines; a design
   with less contrast keeps less of it (`HAIR_KEEP`: whole up to a hairline a fifth of the stems, thinned with the stems
   as before from 0.45 of them, a sans or a book face), and a heavier weight is left as it was. The engine's stroked
   letters are read by their measures (Metrics.hT); a free font's (whose skin squeezes a contrasty font's hairlines
