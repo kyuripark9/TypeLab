@@ -1261,6 +1261,9 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
     while (d < 2 * T.r && inside(xm, L + dir * (d + 1))) d++;
     const h = (d + 1) / 2;
     if (!(h < most * T.r)) return;
+    // (and, out one way only, reaching out past the stroke's side further than it is thick: not a V's point cut flat, nor
+    // a beak a stroke's end turns down into (a typewriter C's), the stroke as thick over the line as the slab it would be)
+    if (ends.length === 1 && Math.abs(far - J1.x) - A.r < h) return;
     const down = run(J1, stub ? own[own.length - 1] : A, () => A.r).slice(0, -1);
     if (down.length < 2) return;
     const foot: Foot = { line: L, dir, stem: [J1, A], stemPt: sp[b], serifs: ends.map(x1 => ({ x0: J1.x, x1, pt: sp[b], edge: edgeOf(L, dir, J1.x, x1) })), side: stub ? A.r : undefined };
