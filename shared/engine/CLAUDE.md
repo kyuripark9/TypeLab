@@ -170,7 +170,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    along each serif, out as far as the
    ink runs along the line, the stem run down to the line; a vertex standing on a line, in a sans font
    any, in a serif font one where a hairline meets a heavy stroke (`VERTEX_HAIR`, a fat face's v, w, M, a Didone's A
-   and V; a book face's, its counter's foot cut flat, stays as it was), drawn again where the strokes' middles, run on
+   and V; a book face's, its counter's foot cut flat, stays as it was) or whose join reads well up from the line
+   (`VERTEX_NEAR`, a slab's W's apex cut flat a hundred units across; `VERTEX_FAR`, `VERTEX_TIP`), drawn again where the strokes' middles, run on
    straight, meet within the vertex's own end (its cut on the line staying, its corners going in with the strokes, its
    join's crotches read as far out as before and from where it was, `ThinReads.vertices`; the runs in left out of the
    whole check, `vrun`; withFeet runs this alone for a font without serifs); a corner where a stem turns
@@ -226,7 +227,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    of its capitals' and from a weight whose stems are `STROKED_UNDER` of its own down, Orbital, Bulwark, or over
    `ROUND_HEAVY` with no square ends at every lighter weight, Gumdrop) is drawn as its strokes too, on the
    skeleton its ink's middle reads, evened out (`SMOOTH`), parted where it bends tighter than it is thick, and no stub into
-   a corner drawn, nor, in a font cutting its ends, one `withStubs` ran on past a turn whose end isn't cut (`STUBBED`: the
+   a corner drawn (but one whose way out meets the ink's edge aslant, `STUB_SQUARE`, a stroke running on its heavy
+   design's skeleton cuts short, Bulwark's &'s arm and tail), nor, in a font cutting its ends, one `withStubs` ran on past a turn whose end isn't cut (`STUBBED`: the
    turn's outside, a u's corner, an n's shoulder); a free end the design cuts straight across (`capAhead`) cut so, its
    tail tapering or turning into the cut's corner left off (`TAPER`, `TAPER_TURN`), run on along the design's way; its
    strokes' sides kept on the letter's lines (`hugMap`: drawn along the heavy letter's middle, an o's round and an n's arch

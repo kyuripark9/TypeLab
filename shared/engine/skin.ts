@@ -832,8 +832,10 @@ const FOOT_UNDER: [number, number] = [0.6, 0.4];
     thicker, half, than FOOT_HAIR of the round where they meet (a Didone's); a bracketed serif's corner keeps its curve. */
 const FOOT_HAIR = 0.2;
 /** A vertex is drawn again where its strokes meet only where its join's round is more than VERTEX_HAIR times its
-    hairline's (withFeet). */
-const VERTEX_HAIR = 4;
+    hairline's, or, in a font with serifs, its join reads further than VERTEX_NEAR of its round from its line (a slab's
+    W's apex cut flat a hundred units across); and only a join no further than VERTEX_FAR of its round from its line,
+    its stub out to the line no longer than VERTEX_TIP of it (withFeet). */
+const VERTEX_HAIR = 4, VERTEX_FAR = 3, VERTEX_TIP = 2, VERTEX_NEAR = 1.5;
 /** A corner whose serif the skeleton leaves out (withFeet) is a foot only by a serif no thicker, half, than CORNER_HAIR
     of its stem's round. */
 const CORNER_HAIR = 0.25;
@@ -1179,9 +1181,9 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
     if (J.edges.length !== 3) return;
     const tol = tolOf();
     for (const L of lines) {
-      if (Math.abs(J.y - L) > 2.5 * J.r) continue;
+      if (Math.abs(J.y - L) > VERTEX_FAR * J.r) continue;
       const dir = Math.sign(J.y - L) || 1, bs = branches(G, j);
-      const tipBr = bs.filter(br => { const T = nodes[far(br)], gap = (T.y - L) * dir - T.r; return T.edges.length === 1 && gap > -tol && gap < Math.max(tol, 0.5 * T.r) && edges[br.e].len < 1.5 * J.r; });
+      const tipBr = bs.filter(br => { const T = nodes[far(br)], gap = (T.y - L) * dir - T.r; return T.edges.length === 1 && gap > -tol && gap < Math.max(tol, 0.5 * T.r) && edges[br.e].len < VERTEX_TIP * J.r; });
       if (tipBr.length !== 1) continue;
       const legs = bs.filter(br => br !== tipBr[0] && br.e !== tipBr[0].e);
       if (legs.length !== 2) continue;
@@ -1205,7 +1207,7 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       // hairline's: a Didone's, a fat face's; a book face's or a slab's vertex, its counter's foot cut flat, reads its
       // join near enough the line)
       const r0 = Math.min(P.A.r, Q.A.r), J1 = { x: M.x, y: (M.y - L) * dir < r0 ? L + dir * r0 : M.y, r: r0 };
-      if (feetOn && !(J.r > VERTEX_HAIR * r0)) continue;
+      if (feetOn && !(J.r > VERTEX_HAIR * r0) && Math.abs(J.y - L) <= VERTEX_NEAR * J.r) continue;
       // (and only where they meet within the vertex's own end, its round: a w's middle peak, short of the x-height,
       // isn't drawn up to it)
       const T = nodes[far(tipBr[0])];
@@ -3020,7 +3022,13 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = (R: number) => Math.max(1, 
     const [t, j] = sk.nodes[E.a].edges.length === 1 ? [E.a, E.b] : [E.b, E.a], J = sk.nodes[j];
     if (sk.nodes[t].edges.length !== 1 || J.edges.length < 3 || E.len > 0.9 * J.r) return false;
     const T = sk.nodes[t], ux = T.x - J.x, uy = T.y - J.y, ul = Math.hypot(ux, uy) || 1;
-    return !branches(sk, j).some(br => { if (sk.edges[br.e] === E) return false; const w = leaving(sk, br, J.r); return -(w.x * ux + w.y * uy) / ul > Math.cos(Math.PI / 6); });
+    if (branches(sk, j).some(br => { if (sk.edges[br.e] === E) return false; const w = leaving(sk, br, J.r); return -(w.x * ux + w.y * uy) / ul > Math.cos(Math.PI / 6); })) return false;
+    // (but not a stroke running on, which its skeleton, a heavy design's, cuts short (an &'s tail, Bulwark's): its way
+    // out meets the ink's edge aslant, where a stub into a corner meets the corner, or an edge square across it)
+    const vx = ux / ul, vy = uy / ul, d = ahead(T, vx, vy), hx = T.x + vx * d, hy = T.y + vy * d;
+    let best: Bone | null = null, bd = Infinity;
+    for (const bs of rig.bones) for (const q of bs) { const e = Math.hypot(q.x - hx, q.y - hy); if (e < bd) { bd = e; best = q; } }
+    return !best || best.corner || Math.abs(best.nx * vx + best.ny * vy) >= STUB_SQUARE;
   };
   // (nor, in a font cutting its strokes' ends, a stub withStubs ran on past a turn whose end isn't cut: the outside of
   // the turn, round past it, not a stroke's end, a heavy u's bottom corner, an n's shoulder)
@@ -3247,6 +3255,8 @@ function roundAt(rig: SkinRig, p: P, ux: number, uy: number, ahead: (p: P, ux: n
 /** A stroke drawn on the skeleton the ink's middle reads ends where its round falls under TAPER of its middle's, at a free
     end (thinStrokes). */
 const TAPER = 0.75, TAPER_TURN = 20 * Math.PI / 180;
+/** A stub into a corner meets the ink's edge ahead of it no further off square across its way than this (thinStrokes). */
+const STUB_SQUARE = 0.75;
 /** How many points either way a stroke drawn on the skeleton the ink's middle reads is evened out over (thinStrokes). */
 const SMOOTH = 4;
 
