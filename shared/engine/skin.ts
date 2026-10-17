@@ -2024,13 +2024,24 @@ const ringOf = (c: Node[]) => c.flatMap((n, i) => { const m = c[(i + 1) % c.leng
 /** The rig moved as any letter is, on the skeleton it has (movedAt), or `toward` another's of the same outline (its feet
     drawn level) s of the way; and, a lighter weight that breaks it, mended. */
 function movedPlain(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, toward?: { rig: SkinRig; s: number }): Node[][] {
-  const first = movedOnce(rig, m0, m1, 'moved', false, toward);
-  if (!(m1.s < m0.s * 0.999 && m1.v < m0.v) || whole(rig, first)) return first.out;
+  if (!toward) return movedWay(rig, m0, m1).out;
+  // (part moved toward another skeleton: moved the way the nearer of the two is at this weight, whole, mended or drawn
+  // as its strokes, read off that one alone: the letter between, read so itself, came out mended or not part way, at a
+  // jump, a stroke's middle on one lying off the other's ink)
+  const way = movedWay(toward.s < 0.5 ? rig : toward.rig, m0, m1);
+  return way.how === 'strokes' || way.how === 'round' ? way.out : movedOnce(rig, m0, way.m1, way.how, false, toward, way.joinsAs).out;
+}
+
+/** The rig moved (movedPlain), with the way it was: as it is, its joins drawn again eased in, whole or not at all, mended,
+    drawn as its strokes, on its round-ended skeleton, or toward a heavier weight (m1). */
+function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): { out: Node[][]; how: 'moved' | 'mended' | 'strokes' | 'round'; m1: SkinMeasures; joinsAs?: 'full' | 'none' } {
+  const first = movedOnce(rig, m0, m1), as = (out: Node[][], how: 'moved' | 'mended' | 'strokes' | 'round' = 'moved', joinsAs?: 'full' | 'none', m = m1) => ({ out, how, m1: m, joinsAs });
+  if (!(m1.s < m0.s * 0.999 && m1.v < m0.v) || whole(rig, first)) return as(first.out);
   // (a join drawn again only part of the way round may part a letter whole without it: drawn again whole there, or,
   // that breaking it too, not at all)
   if (first.eased) {
-    const none = movedOnce(rig, m0, m1, 'moved', false, toward, 'none');
-    if (whole(rig, none)) { const full = movedOnce(rig, m0, m1, 'moved', false, toward, 'full'); return whole(rig, full) ? full.out : none.out; }
+    const none = movedOnce(rig, m0, m1, 'moved', false, undefined, 'none');
+    if (whole(rig, none)) { const full = movedOnce(rig, m0, m1, 'moved', false, undefined, 'full'); return whole(rig, full) ? as(full.out, 'moved', 'full') : as(none.out, 'moved', 'none'); }
   }
   // a lighter weight that breaks the letter (a stroke parted from the one it joins, or lost, a counter run out into the
   // paper, where the strokes meet in a way the skeleton reads amiss) is mended with the strokes drawn again along its
@@ -2039,37 +2050,37 @@ function movedPlain(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, toward?: {
   // that end round (roundRig); failing that, thinned as far toward the weight as keeps it whole, in eighths: a letter a
   // little heavier than the rest rather than one in pieces
   const mended = movedOnce(rig, m0, m1, 'mended');
-  if (whole(rig, mended)) return mended.out;
+  if (whole(rig, mended)) return as(mended.out, 'mended');
   const drawn = movedOnce(rig, m0, m1, 'strokes');
-  if (whole(rig, drawn)) return drawn.out;
+  if (whole(rig, drawn)) return as(drawn.out, 'strokes');
   // (or its skeleton read again, its strokes ending round kept: a heavy w, whose feet and middle peak are short beside
   // the rounds where its strokes meet, which the skeleton otherwise takes for a square end's corners and leaves out)
   const R = roundRig(rig);
   if (R) {
     const again = movedOnce(R, m0, m1);
-    if (whole(R, again)) return again.out;
+    if (whole(R, again)) return as(again.out, 'round');
   }
   const at = (f: number) => Object.fromEntries(MEASURES.map(k => [k, m0[k] + (m1[k] - m0[k]) * f])) as unknown as SkinMeasures;
-  let lo = 0, best: Node[][] | null = null;
+  let lo = 0, best: ReturnType<typeof as> | null = null;
   for (let hi = 1, step = 0; step < 3; step++) {
     const f = (lo + hi) / 2, tried = movedOnce(rig, m0, at(f));
-    if (whole(rig, tried)) { lo = f; best = tried.out; } else hi = f;
+    if (whole(rig, tried)) { lo = f; best = as(tried.out, 'moved', undefined, at(f)); } else hi = f;
   }
-  return best ?? first.out;
+  return best ?? as(first.out);
 }
 
 /** Whether a moved letter is whole: the outlines its rig has, as many inked and as many counters (its dots and any crumb
     aside, crumbs), and ink along the middles of its strokes (the skeleton where the move put it), but for stretches no
     longer than a few times the stroke is thick (where the skeleton cuts the corner of an L or bends into a join, round
     what the stroke thinned away; a stroke lost is longer). */
-function whole(rig: SkinRig, { out, middles }: { out: Node[][]; middles: (P & { s: number })[][] }) {
+function whole(rig: SkinRig, { out, middles }: { out: Node[][]; middles: (P & { s: number; y0: number })[][] }) {
   if (middles.length) {
     const polys = out.map(c => c.flatMap((n, i) => Array.from({ length: 6 }, (_, k) => bez(n, c[(i + 1) % c.length], k / 6))));
     const sh = shape(polys);
     for (const run of middles) {
       let gone = 0, most = 0;
       for (let k = 0; k < run.length; k++) {
-        if (sh.has(run[k].x, run[k].y)) { gone = 0; most = 0; continue; }
+        if (sh.has(run[k].x, run[k].y) || sh.has(run[k].x, run[k].y0)) { gone = 0; most = 0; continue; }
         if (k) gone += Math.hypot(run[k].x - run[k - 1].x, run[k].y - run[k - 1].y);
         most = Math.max(most, run[k].s);
         if (gone > 3 * most + 0.05 * rig.ctx.cap) return false;
@@ -2110,14 +2121,14 @@ const dotOf = (rig: SkinRig, c: Node[]) => rig.bones.some(bs => {
 
 /** The rig moved from m0 to m1 once (moveRig); `mend`, a lighter weight's, with the strokes drawn again along its
     skeleton laid over it; `heavy`, moved as a heavier weight is, whichever way. */
-function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved' | 'mended' | 'strokes' = 'moved', heavy = false, toward?: { rig: SkinRig; s: number }, joinsAs: 'eased' | 'full' | 'none' = 'eased'): { out: Node[][]; middles: (P & { s: number })[][]; eased?: boolean } {
-  const mv = moveMap(rig, m0, m1);
+function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved' | 'mended' | 'strokes' = 'moved', heavy = false, toward?: { rig: SkinRig; s: number }, joinsAs: 'eased' | 'full' | 'none' = 'eased'): { out: Node[][]; middles: (P & { s: number; y0: number })[][]; eased?: boolean } {
+  const mv = moveMap(rig, m0, m1), mvTo = toward ? moveMap(toward.rig, m0, m1) : null;
   if (heavy) mv.lighter = false;
   let rings = rig.bones.map((bs, r) => moveRing(rig, bs, r, mv));
   // (or each point s of the way to where another skeleton of the same outline puts it: one with its serifs' feet drawn
   // level, from a weight where the lighter weights take it on)
   if (toward) {
-    const to = toward.rig.bones.map((bs, r) => moveRing(toward.rig, bs, r, moveMap(toward.rig, m0, m1)));
+    const to = toward.rig.bones.map((bs, r) => moveRing(toward.rig, bs, r, mvTo!));
     rings = rings.map((ring, r) => (to[r]?.length !== ring.length ? ring : ring.map((p, i) => ({ x: p.x + (to[r][i].x - p.x) * toward.s, y: p.y + (to[r][i].y - p.y) * toward.s }))));
   }
   // (a little lighter than the font as picked, in from the design: within PICK_BLEND of its stems, each point as far from
@@ -2133,21 +2144,24 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // (a lighter weight's skeleton where the move puts it (lifted to the letter's heights with its outline; its strokes drawn
   // alone are not), every few points along each stroke, with the stroke's half
   // thickness: the middles of its strokes, for whole)
-  const middles: (P & { s: number })[][] = [];
+  const middles: (P & { s: number; y0: number })[][] = [];
   // (each foot drawn level over its reach along its line, where the move puts it: nothing lifted with the letter's
   // heights goes past it there, as the lift that keeps a round's overshoot below the baseline would take a stem's foot
   // below it, its edge on the line staying)
-  const feet = !mv.lighter || !rig.thin ? [] : rig.thin.feet.map(F => { const xs = [F.stem[0] - F.side, F.stem[0] + F.side, ...F.serifs.flatMap(S => [S.x0, S.x1])]; const es = [F.line, ...F.serifs.map(S => S.edge)]; return { lo: mv.gx(Math.min(...xs)), hi: mv.gx(Math.max(...xs)), y: mv.gy(F.dir > 0 ? Math.max(...es) : Math.min(...es)), dir: F.dir }; });
-  const onFeet = <Q extends P>(q: Q, inset: number): Q => { for (const F of feet) if (q.x >= F.lo && q.x <= F.hi && (q.y - F.y) * F.dir < inset) q.y = F.y + F.dir * inset; return q; };
+  const feetOf = (r: SkinRig) => (!mv.lighter || !r.thin ? [] : r.thin.feet.map(F => { const xs = [F.stem[0] - F.side, F.stem[0] + F.side, ...F.serifs.flatMap(S => [S.x0, S.x1])]; const es = [F.line, ...F.serifs.map(S => S.edge)]; return { lo: mv.gx(Math.min(...xs)), hi: mv.gx(Math.max(...xs)), y: mv.gy(F.dir > 0 ? Math.max(...es) : Math.min(...es)), dir: F.dir }; }));
+  const feet = feetOf(rig), clamp = (fs: ReturnType<typeof feetOf>) => <Q extends P>(q: Q, inset: number): Q => { for (const F of fs) if (q.x >= F.lo && q.x <= F.hi && (q.y - F.y) * F.dir < inset) q.y = F.y + F.dir * inset; return q; }, onFeet = clamp(feet);
   // (drawn as its strokes on the skeleton the ink's middle reads, those kept on its lines as thinStrokes draws them)
   const hugs = how === 'strokes' && !!rig.thin && drawnMode(rig) === 1;
-  if (mv.lighter && rig.thin) {
+  // (and each where the move puts it too, below a foot's line where the design takes its ink there: Couture's R's foot;
+  // none for a letter part moved toward another skeleton, which movedPlain reads off the nearer of the two)
+  if (mv.lighter && rig.thin && !toward) {
     let j0 = 0;
     for (const E of thinSkeleton(rig).edges) {
-      const run: (P & { s: number })[] = [];
+      const run: (P & { s: number; y0: number })[] = [];
       for (let i = 0; i < E.pts.length; i += 3) {
         if (rig.thin.vrun[j0 + i]) continue;
-        const q = thinMiddle(rig, mv, j0 + i, hugs); run.push(onFeet({ x: mv.gx(q.x), y: how === 'strokes' ? mv.gy(q.y) : lift(mv.gy(q.y)), s: rig.thin.s[j0 + i] }, 1));
+        const q = thinMiddle(rig, mv, j0 + i, hugs), y = how === 'strokes' ? mv.gy(q.y) : lift(mv.gy(q.y));
+        run.push({ ...onFeet({ x: mv.gx(q.x), y, s: rig.thin.s[j0 + i] }, 1), y0: y });
       }
       middles.push(run);
       j0 += E.pts.length;
@@ -2170,13 +2184,19 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
     const dotRings = rings.filter((_, i) => dots![i]).map(r => (Math.sign(signedArea(r)) === sign ? r : r.slice().reverse()));
     rings = [...drawn, ...dotRings];
     dots = [...drawn.map(() => false), ...dotRings.map(() => true)];
-  } else if (mv.lighter) ({ rings, dots, eased } = rebuildJoins(rig, mv, lift, rings, dots!, joinsAs));
+  } else if (mv.lighter) {
+    // (part moved toward another skeleton, its joins read off the nearer of the two, as movedPlain reads it whole)
+    const near = toward && toward.s >= 0.5;
+    ({ rings, dots, eased } = rebuildJoins(near ? toward.rig : rig, near ? mvTo! : mv, lift, rings, dots!, joinsAs));
+  }
   if (how === 'mended' && mv.lighter) {
     // (each run on at its free end as far as the moved letter's ink, the piece it is to join: the ink as drawn, lifted with
     // the moved letter's heights, would take it out past its line)
     const moved = rings, to = (p: P, ux: number, uy: number) => Math.min(inkAhead(rig, p, ux, uy), rayOut(moved, { x: mv.gx(p.x), y: lift(mv.gy(p.y)) }, ux, uy));
-    // (and none past a foot's line, above)
-    const more = thinStrokes(rig, mv, undefined, to).map(r => r.map(p => onFeet({ x: mv.gx(p.x), y: lift(mv.gy(p.y)) }, 0)));
+    // (and none past a foot's line, above; part moved toward another skeleton, along that one's, its feet level: along
+    // this one's, a stroke running down a serif's bracket, which the other's outline hasn't, closed a crumb there, filled)
+    const [mr, mm] = toward ? [toward.rig, mvTo!] : [rig, mv], on = mr === rig ? onFeet : clamp(feetOf(mr));
+    const more = thinStrokes(mr, mm, undefined, to).map(r => r.map(p => on({ x: mm.gx(p.x), y: lift(mm.gy(p.y)) }, 0)));
     // (wound as the letter's outside is, so they add to its ink)
     const outer = rings.reduce((a, r) => (Math.abs(signedArea(r)) > Math.abs(signedArea(a)) ? r : a), rings[0]), sign = Math.sign(signedArea(outer));
     rings = [...rings, ...more.map(r => (Math.sign(signedArea(r)) === sign ? r : r.slice().reverse()))];
@@ -2200,9 +2220,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const out = tidyRings(rings, rig.ctx.cap, dots);
   // (and a crumb a lighter weight leaves where strokes meet, a sliver or a pinhole, goes, as small as a crumb is as far in
   // from the design (PICK_BLEND); its dots stay)
-  // (its strokes' middles, read off the skeleton it moved on, not those of a letter part moved toward another's: the
-  // whole check reads its outlines and counters alone)
-  return { out: mv.lighter ? out.filter(c => dotOf(rig, c) || !crumb(rig, c, lam)) : out, middles: toward ? [] : middles, eased };
+  return { out: mv.lighter ? out.filter(c => dotOf(rig, c) || !crumb(rig, c, lam)) : out, middles, eased };
 }
 
 function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {

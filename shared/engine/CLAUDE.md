@@ -243,12 +243,16 @@ A design with `freeFont` set draws its letters from a free font instead of build
    its strokes, each read on a grid, `FADE_CELL`, as how far in from its outline each point lies, the two mixed and
    traced, marching squares, `contours` in effects.ts; combine's chains came apart where two drawings so alike ran a
    hair apart), to its feet drawn level from `FOOT_UNDER` (`movedOnce`'s `toward`: each point of the outline going from
-   where the one skeleton puts it to where the other does), and each join drawn again from `REBUILD_BELOW` over a round
+   where the one skeleton puts it to where the other does; whether it is whole, so mended or drawn as its strokes, read
+   off the nearer of the two alone, `movedWay`, its joins drawn again on the nearer's and a mend's strokes along the one
+   with feet: read off the letter between, a stroke's middle on one lay off the other's ink and a hairline stroke down a
+   serif's bracket closed a crumb there, filled), and each join drawn again from `REBUILD_BELOW` over a round
    growing from nothing (`rebuildJoins`). Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
    opened where strokes cross aside, and ink along its strokes' middles) is mended with those strokes laid over it
    (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;
    none of them, nor the middles `whole` reads, past a foot's edge, where `keepHeights`' lift, keeping a round's
-   overshoot, would take them), or else drawn as those strokes alone within
+   overshoot, would take them; a middle so kept is inked where the move put it too, Couture's R's foot dipping below
+   its line), or else drawn as those strokes alone within
    its ink, its dots as moved, or else moved again on a skeleton keeping its strokes that end round (`roundRig`,
    `skeleton(…, round)`: a heavy w's feet and middle peak), then thinned only as far as keeps it whole, in eighths. A heavier weight reads and moves
    as before. A pixel font
