@@ -409,6 +409,19 @@ describe("TypeLab's own fonts", () => {
     }
   });
 
+  it('run a stroke drawn as its strokes on into an end cut square across it its own way, not off a round', async () => {
+    // (left off where its last stretch came off a round, as much further back as the stroke was thicker, and run on from
+    // there, Bulwark's 2's top's tail met its foot at a slant a point and 5 degrees more a step of Weight: 13 units)
+    const fonts = new FreeFonts(null, noFetch);
+    for (const [style, ch, from, to] of [['block', '2', 0.2, 0.27], ['block', '5', 0.22, 0.29], ['block', 'G', 0.2, 0.25], ['squircle', 'q', 0.13, 0.15], ['squircle', 'g', 0, 0.025]] as const) {
+      const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
+      if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+      const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, advs: number[] = [];
+      for (let w = from; w <= to + 1e-9; w += 0.005) advs.push(buildFont({ ...p, weight: +w.toFixed(4) }).glyph(ch)!.adv);
+      for (let i = 1; i < advs.length; i++) assert.ok(Math.abs(advs[i] - advs[i - 1]) < 6, `${style}'s ${ch}'s advance ${advs.map(a => a.toFixed(0)).join(', ')}`);
+    }
+  });
+
   it('start each card with no personality macro holding part of a slider flat', () => {
     // (resolve() pushes a slider by a macro as far as 0 or 1 and no further, so a card setting one off its middle leaves
     // a stretch of every slider it pushes doing nothing: Blackletter's Roundness below 70, Wood Type's Squareness above

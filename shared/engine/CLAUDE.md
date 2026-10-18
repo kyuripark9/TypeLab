@@ -287,7 +287,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    a corner drawn (but one whose way out meets the ink's edge aslant, `STUB_SQUARE`, a stroke running on its heavy
    design's skeleton cuts short, Bulwark's &'s arm and tail), nor, in a font cutting its ends, one `withStubs` ran on past a turn whose end isn't cut (`STUBBED`: the
    turn's outside, a u's corner, an n's shoulder); a free end the design cuts straight across (`capAhead`) cut so, its
-   tail tapering or turning into the cut's corner left off (`TAPER`, `TAPER_TURN`), run on along the design's way; its
+   tail tapering or turning into the cut's corner left off (`TAPER`, `TAPER_TURN`; not a last stretch running square
+   into an edge, `runsSquare`, `TAPER_SQUARE`: Bulwark's 2's tail, left off as far back as it was thick), run on along the design's way; its
    strokes' sides kept on the letter's lines (`hugMap`: drawn along the heavy letter's middle, an o's round and an n's arch
    stopped short of the x-height by as much as they were thinner; at each line the level stroke furthest out goes out so
    far, the letter between in step, its counters taller and its level strokes no thicker, a stroke running steeply into a

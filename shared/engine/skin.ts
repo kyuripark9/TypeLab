@@ -3584,6 +3584,16 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: 
     // (where `drawn` on the skeleton the ink's middle reads, a free end's tail tapering into a corner its round reads into, an
     // arm's end cut aslant forking into its sharp corner, left off: the stroke run on from where it is as thick as it is,
     // on its way, to the end as the design cuts it)
+    // (whether a run's last stretch, its way as the design's skeleton runs over its last few points, meets the ink's edge
+    // square across it, within TAPER_SQUARE, and not at a corner: no tail into a corner)
+    const runsSquare = (ps: typeof mid) => {
+      const p = ps[ps.length - 1], q = ps[ps.length - 6], dx = p.ox - q.ox, dy = p.oy - q.oy, l = Math.hypot(dx, dy);
+      if (!(l > 1e-6)) return false;
+      const ux = dx / l, uy = dy / l, d = ahead({ x: p.ox, y: p.oy }, ux, uy), hx = p.ox + ux * d, hy = p.oy + uy * d;
+      let best: Bone | null = null, bd = Infinity;
+      for (const bs of rig.bones) for (const o of bs) { const e = Math.hypot(o.x - hx, o.y - hy); if (e < bd) { bd = e; best = o; } }
+      return !!best && !best.corner && bd < 0.25 * p.s && Math.abs(best.nx * ux + best.ny * uy) > TAPER_SQUARE;
+    };
     const taper = (ps: typeof mid, free: boolean) => {
       if (drawn !== 1 || !free || ps.length < 6) return ps;
       // (one the design cuts, not one ending round, which tapers into its round)
@@ -3593,8 +3603,12 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: 
       let k = ps.length;
       while (k > 3 && ps[k - 1].R < TAPER * Rm) k--;
       // (and where it turns off its way into that corner: the way it runs a round or two in from its end, and each step on
-      // from there no more than TAPER_TURN off it)
-      {
+      // from there no more than TAPER_TURN off it; not where it runs square into an end cut across it (runsSquare), its
+      // last stretch straight off a round: Bulwark's 2's top's tail, which runs round and straight down into its foot
+      // cut level, was left off where it came off the round, as much further back as the stroke was thicker, and run on
+      // from there its way there, at a slant past the foot's middle, a point more, and 5 degrees, from one step of Weight
+      // to the next: its room 13 units at a step)
+      if (!runsSquare(ps)) {
         const arc = (i: number, j: number) => { let l = 0; for (let q = i; q < j; q++) l += Math.hypot(ps[q + 1].x - ps[q].x, ps[q + 1].y - ps[q].y); return l; };
         let b = k - 1;
         while (b > 0 && arc(b, k - 1) < 1.5 * Rm) b--;
@@ -3754,6 +3768,8 @@ function roundAt(rig: SkinRig, p: P, ux: number, uy: number, ahead: (p: P, ux: n
 /** A stroke drawn on the skeleton the ink's middle reads ends where its round falls under TAPER of its middle's, at a free
     end (thinStrokes). */
 const TAPER = 0.75, TAPER_TURN = 20 * Math.PI / 180;
+/** How nearly square across its way the ink's edge a free end runs into lies, as the cosine, for its tail to be kept (thinStrokes). */
+const TAPER_SQUARE = Math.cos(15 * Math.PI / 180);
 /** A stub into a corner meets the ink's edge ahead of it no further off square across its way than this (thinStrokes). */
 const STUB_SQUARE = 0.75;
 /** Drawn on the letter's skeleton, a stub runs into a turn's corner where it runs out from the join no further off the
