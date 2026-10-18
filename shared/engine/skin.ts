@@ -22,7 +22,7 @@ import { FREE_FAMILIES } from '../free-fonts';
 import { HOOK_LETTERS, OPEN_LETTERS, PEAK_LETTERS, added, bowlStem, hasPeaks, hasTerminals } from './restyle';
 import { FLUSH, lineSkeleton, type Flush } from './lines';
 import { slabsOf, type Slab } from './slabs';
-import { alongFrom, bez, branchNode, branches, endFace, inkAt, inkGrid, joinsOf, leaving, nearestOn, roundTip, skeleton, type Branch, type Grid, type Skeleton, type SkPt } from './scan';
+import { alongFrom, bez, branchNode, branches, endFace, inkAt, inkGrid, joinsOf, leaving, nearestOn, roundTip, skeleton, type Branch, type Grid, type Skeleton, type SkNode, type SkPt } from './scan';
 
 type P = { x: number; y: number };
 
@@ -2061,6 +2061,15 @@ interface Way { out: Node[][]; how: 'moved' | 'mended' | 'strokes' | 'round'; m1
 function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true, draws = true): Way {
   const first = movedOnce(rig, m0, m1), as = (out: Node[][], how: Way['how'] = 'moved', joinsAs?: 'full' | 'none', m = m1): Way => ({ out, how, m1: m, joinsAs });
   if (!(m1.s < m0.s * 0.999 && m1.v < m0.v) || whole(rig, first, true)) return as(first.out);
+  // (a letter its crotches met again break, an arch's or a bowl's (archCrotches), moved without them where it comes out
+  // whole so, its rounds kept on their lines still: a humanist's b's foot, its bowl's end met again up its stem at Thin,
+  // its counter opened)
+  if ([...archCrotches(rig).values()].flat().some(G => !G.trap)) {
+    ARCH_OFF = true;
+    let plain;
+    try { plain = movedOnce(rig, m0, m1); } finally { ARCH_OFF = false; }
+    if (whole(rig, plain, true)) return as(plain.out);
+  }
   // (a join drawn again only part of the way round may part a letter whole without it: drawn again whole there, or,
   // that breaking it too, not at all)
   if (first.eased) {
@@ -2504,7 +2513,7 @@ const CROTCH_BEND = Math.cos(15 * Math.PI / 180);
     curve's stroke. A shallow crotch is met again wholly within ARCH_REACH[0] of the curve's stroke now (its half), not at
     all past ARCH_REACH[1]. And where stretchRounds reads a corner of two lines, they cross at more than ARCH_TURN (sine). */
 const ARCH_RUN = 6, ARCH_FROM = 2, ARCH_UPRIGHT = 0.9, ARCH_NEAR = 0.2, ARCH_PAIR = 0.02, ARCH_SLANT = [Math.cos(75 * Math.PI / 180), Math.cos(20 * Math.PI / 180)];
-const ARCH_STEEP = Math.cos(40 * Math.PI / 180), ARCH_NECK = 0.45, ARCH_REACH = [4, 6], ARCH_TURN = 0.3;
+const ARCH_STEEP = Math.cos(40 * Math.PI / 180), ARCH_NECK = 0.45, ARCH_REACH = [4, 6], ARCH_TURN = 0.3, ARCH_TIGHT = 8 * Math.PI / 180, ARCH_ROUND = 0.04, ARCH_V = [Math.cos(150 * Math.PI / 180), Math.cos(30 * Math.PI / 180)];
 /** A lighter weight's round inside a join, carried whole (moveRing's carryFillets): its samples each turning away from
     the ink by at least FILLET_TURN (radians, half the turn from the sample before to the one after), FILLET_MIN in all. */
 const FILLET_TURN = 0.02, FILLET_MIN = 25 * Math.PI / 180;
@@ -3134,9 +3143,11 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // carry the corner up or down as far: two edges meeting at a point, nearly alike, met again as their average, left a
   // point lifted less than its edges, a speed line's tip hooked)
   const hug = H ? new Float64Array(bs.length) : null, hugY = H ? new Float64Array(bs.length) : null;
+  // (nor any by an edge level on its line, a stem's foot's round corners, which stay with it: carried down, a spur)
+  const onLineAt = (k: number) => bs[((k % nb) + nb) % nb].onLine, byLine = (i: number) => { for (let k = -HUG_BY; k <= HUG_BY; k++) if (onLineAt(i + k)) return true; return false; };
   if (H) bs.forEach((b, i) => {
     const j = T.near[r][i];
-    if (j < 0 || b.dot || b.onLine || footed[i] || pins.has(i)) return;
+    if (j < 0 || b.dot || b.onLine || footed[i] || pins.has(i) || byLine(i)) return;
     hugY![i] = H[j];
     if (!b.corner) { hug![i] = -H[j] * b.ny; delta[i] += hug![i]; }
   });
@@ -3173,8 +3184,8 @@ const sameNodes = (a: Skeleton, b: Skeleton) => { const at = (k: Skeleton) => k.
 function rebuildJoins(rig: SkinRig, mv: MoveMap, lift: (y: number) => number, rings: P[][], dots: boolean[], joinsAs: 'eased' | 'full' | 'none' = 'eased'): { rings: P[][]; dots: boolean[]; eased: boolean } {
   // (each node where the move puts it, a round kept on its line with it, movedHug)
   const sk = thinSkeleton(rig), H = movedHug(rig, mv), firsts = sk.edges.map((_, e) => sk.edges.slice(0, e).reduce((a, E) => a + E.pts.length, 0));
-  const hugOf = (n: SkPt) => { if (!H) return 0; const ni = sk.nodes.indexOf(n), e = n.edges[0], E = sk.edges[e]; return ni >= 0 && E?.pts.length ? H[firsts[e] + (E.a === ni ? 0 : E.pts.length - 1)] : 0; };
-  const at = (p: P) => ({ x: mv.gx(p.x), y: lift(mv.gy(p.y)) }), atN = (n: SkPt) => ({ x: mv.gx(n.x), y: lift(mv.gy(n.y + hugOf(n))) });
+  const hugOf = (n: SkNode) => { if (!H) return 0; const ni = sk.nodes.indexOf(n), e = n.edges[0], E = sk.edges[e]; return ni >= 0 && E?.pts.length ? H[firsts[e] + (E.a === ni ? 0 : E.pts.length - 1)] : 0; };
+  const at = (p: P) => ({ x: mv.gx(p.x), y: lift(mv.gy(p.y)) }), atN = (n: SkNode) => ({ x: mv.gx(n.x), y: lift(mv.gy(n.y + hugOf(n))) });
   // (only joins whose strokes thin to under REBUILD_BELOW of themselves, which the moves leave astray; and none a serif
   // stands on, whose brackets the strokes drawn again would lose)
   const serifs = rig.bones.flat().filter(b => b.serifDx);
@@ -3188,7 +3199,7 @@ function rebuildJoins(rig: SkinRig, mv: MoveMap, lift: (y: number) => number, ri
   // ink below the end's round cut off by the round drawn again; not one running along the line, a t's bar's end, nor a
   // sans font's stem's end over its arch, an n's, drawn again as before)
   const c = rig.ctx, lines = [0, c.cap, ...(c.lower ? [c.xh, c.asc, c.desc] : [])], tol = Math.max(6, 0.02 * c.cap);
-  const serifed = rig.serifed(), onLine = (n: SkPt) => {
+  const serifed = rig.serifed(), onLine = (n: SkNode) => {
     const bs = branches(sk, sk.nodes.indexOf(n));
     // (and only where a hairline meets a heavy stroke, REBUILD_HAIR: a book face's 4's apex, 2.5, is drawn again well)
     const hair = Math.min(...bs.map(br => { const E = sk.edges[br.e], pts = br.end === 'a' ? E.pts : E.pts.slice().reverse(); return (pts.find(q => Math.hypot(q.x - n.x, q.y - n.y) >= 2 * n.r) ?? pts[pts.length - 1]).r; }));
@@ -3595,18 +3606,21 @@ function hugMap(rig: SkinRig, mv: MoveMap): (y: number) => number {
     level (the cosine of its slope) it runs. */
 const HUG = 0.06, HUG_LEVEL = 0.7, HUG_FADE = 2;
 /** How far a lighter weight moved (not drawn as its strokes) puts each point of its skeleton (thinReads) up or down, to keep
-    its rounds on a line where the letter also stands level on it: an n's arch, thinning about its middle, sank under the
-    x-height its stem's top, cut level on it, stays on (37 units at Thin, Mainline's), which keepHeights, lifting the
-    letter's top as far as its highest edge there is under it, left so, the stem's top already on the line; a u's bowl rose
-    off the baseline its stem's foot stands on. At a line an arch's or a bowl's crotch runs to (archCrotches), as hugMap
-    does at every line for a letter drawn as its strokes, the stroke running level whose side lies furthest out within HUG
-    of it goes out by as much as it is thinner, and the strokes joined to the crotch in step with it from the crotch's
-    height, none a stroke's thickness short of that; less and less along a stroke running steeply into a line to end there
-    (hugFade), and none on a foot drawn level or a stroke run along a line (thinMiddle's own). null where none so moves. */
+    its rounds on the line an arch's or a bowl's crotch runs to (archCrotches): an n's arch, thinning about its middle,
+    sank under the x-height its stem's top, cut level on it, stays on (37 units at Thin, Mainline's), which keepHeights,
+    lifting the letter's top as far as its highest edge there is under it, left so, the stem's top already on the line; a
+    u's bowl rose off the baseline its stem's foot stands on; and an h's arch, which keepHeights lifts after the crotch
+    has been met again under it, came apart from its stem. At such a line, as hugMap does at every line for a letter
+    drawn as its strokes, the stroke running level whose side lies furthest out within HUG of it, its round past the
+    line and past any edge cut level on it, goes out by as much as it is thinner, and the strokes joined to the crotch in
+    step with it from the crotch's height, none a stroke's thickness short of that; less and less along a stroke running
+    steeply into a line to end there (hugFade), and none on a foot drawn level or a stroke run along a line (thinMiddle's
+    own). null where none so moves. */
 function movedHug(rig: SkinRig, mv: MoveMap): Float64Array | null {
   const got = MOVED_HUGS.get(mv);
   if (got !== undefined) return got;
-  const crotches = [...archCrotches(rig).values()].flat();
+  // (not past an ink trap's crotch, a monospace's, whose thin neck the round lifted off parted, mended at a jump)
+  const crotches = [...archCrotches(rig).values()].flat().filter(G => !G.trap);
   if (!crotches.length) { MOVED_HUGS.set(mv, null); return null; }
   const T = rig.thin!, c = rig.ctx, band = HUG * c.cap, n = T.x.length, tol = Math.max(6, 0.02 * c.cap);
   const lines = [...(c.lower ? [c.xh, c.asc] : [c.cap]).map(L => [L, 1] as const), ...(c.lower ? [0, c.desc] : [0]).map(L => [L, -1] as const)];
@@ -3625,13 +3639,16 @@ function movedHug(rig: SkinRig, mv: MoveMap): Float64Array | null {
     const facing = (b: Bone) => !b.dot && (up > 0 ? -b.ny : b.ny) >= 0.5;
     // (an edge cut level on it, or within a unit or two, a stem's end; and a round past it, its overshoot, further out
     // than any such edge: not a serif's bracket, which stays inside its line)
-    let flatAt = -Infinity, roundAt = -Infinity;
+    let flatAt = -Infinity, roundAt = -Infinity, uncut = false;
     for (const bs of rig.bones) for (const b of bs) {
       if (!facing(b) || b.corner || Math.abs(b.y - L) > band) continue;
-      if (b.straight && Math.abs(b.y - L) < tol) flatAt = Math.max(flatAt, (b.y - L) * up);
+      if (b.straight && Math.abs(b.y - L) < tol) { flatAt = Math.max(flatAt, (b.y - L) * up); if (!b.cap) uncut = true; }
       else if (!b.straight) roundAt = Math.max(roundAt, (b.y - L) * up);
     }
-    if (!(flatAt > -Infinity && roundAt > HUG_PAST && roundAt > flatAt + HUG_PAST)) continue;
+    // (nor where an edge level on the line is no stroke's end cut across it, an industrial's stem's foot or top running
+    // round its corners, which keepHeights brings back with the letter: put back alone, it folded on its round corner,
+    // a sliver out past the stem, at a jump)
+    if (!(roundAt > HUG_PAST && roundAt > flatAt + HUG_PAST) || (uncut)) continue;
     let best: [number, number] | null = null, out = -Infinity;
     for (let j = 0; j < n; j++) {
       const tx = Math.abs(T.tx[j]), s = T.s[j];
@@ -3656,7 +3673,7 @@ function movedHug(rig: SkinRig, mv: MoveMap): Float64Array | null {
 }
 const MOVED_HUGS = new WeakMap<MoveMap, Float64Array | null>();
 /** How far past its line, and past the edges cut level on it, a round reaches for movedHug to keep it there. */
-const HUG_PAST = 2.5;
+const HUG_PAST = 2.5, HUG_BY = 3;
 /** Each move's joins whose crotches moveRing drew again along a stem (archMeet, stretchRounds), by node. */
 const ARCHED = new WeakMap<MoveMap, Set<number>>();
 /** Each move's hugMap, made when first asked for. */
@@ -3912,29 +3929,86 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     foot beside its stem), at a slant (ARCH_SLANT); and no ink trap, the ink across from the corner as far as ARCH_NECK
     of the curve's stroke (a monospace's d, its bowl run into its stem on a thin neck, kept so). By contour, with which
     way the stem's side runs from it (1, on along the contour) and the joins whose bulge it lies in. */
-interface ArchCrotch { first: number; last: number; stem: number; joins: number[]; shallow: boolean; line: number; y: number; stroke: number }
+interface ArchCrotch { first: number; last: number; stem: number; joins: number[]; shallow: boolean; line: number; y: number; stroke: number; trap: boolean }
 function archCrotches(rig: SkinRig): Map<number, ArchCrotch[]> {
   const got = ARCH_CROTCHES.get(rig);
   if (got) return got;
-  if (rig.serifed() || drawnMode(rig)) { const none = new Map<number, ArchCrotch[]>(); ARCH_CROTCHES.set(rig, none); return none; }
+  // (none in a font with serifs, one drawn as its strokes, or one keeping its own forms, a blackletter's or a joined
+  // script's, whose strokes meet otherwise)
+  const family = (rig.font as Partial<FreeFont>).family;
+  if (rig.serifed() || drawnMode(rig) || (family && FREE_FAMILIES[family]?.ownForms)) { const none = new Map<number, ArchCrotch[]>(); ARCH_CROTCHES.set(rig, none); return none; }
   const T = rig.thin ??= thinReads(rig), c = rig.ctx, lines = [0, c.cap, ...(c.lower ? [c.xh, c.asc, c.desc] : [])], near = ARCH_NEAR * c.cap;
   const all = rig.bones.flatMap((bs, r) => bs.map((b, i) => ({ b, r, i })));
   const out = new Map<number, ArchCrotch[]>();
   rig.bones.forEach((bs, r) => {
     const n = bs.length, md = (i: number) => ((i % n) + n) % n, found: ArchCrotch[] = [];
+    // (each notch: a concave corner, with a second cut a few units on, or a tight round cut off a stem's straight side,
+    // turning away from the ink, ARCH_TIGHT a sample and as much as a corner in all within ARCH_ROUND, a stencil-ish
+    // industrial's n's shoulder)
+    const cands: [number, number][] = [], turnAt = (k: number) => {
+      const p = bs[md(k - 1)], q = bs[md(k + 1)], b = bs[md(k)];
+      if (b.corner || b.straight || b.dot || (q.tx - p.tx) * b.nx + (q.ty - p.ty) * b.ny >= 0) return 0;
+      return Math.acos(Math.max(-1, Math.min(1, p.tx * q.tx + p.ty * q.ty))) / 2;
+    };
     for (let i = 0; i < n; i++) {
       const b = bs[i];
-      if (!b.corner || !concaveAt(b) || b.dot) continue;
-      // (a second corner cut a few units on, a notch's two)
-      let last = i;
-      for (let k = 1; k <= 3; k++) { const q = bs[md(i + k)]; if (Math.hypot(q.x - b.x, q.y - b.y) > ARCH_PAIR * c.cap) break; if (q.corner) { if (concaveAt(q)) last = md(i + k); break; } }
-      if (found.some(G => G.last === i)) continue;
+      if (b.dot) continue;
+      if (b.corner && concaveAt(b)) {
+        let last = i;
+        for (let k = 1; k <= 3; k++) { const q = bs[md(i + k)]; if (Math.hypot(q.x - b.x, q.y - b.y) > ARCH_PAIR * c.cap) break; if (q.corner) { if (concaveAt(q)) last = md(i + k); break; } }
+        if (!cands.some(([, l]) => l === i)) cands.push([i, last]);
+        continue;
+      }
+      // (a round off a straight side's end, the way dir)
+      if (!b.straight || b.corner || Math.abs(b.nx) <= ARCH_UPRIGHT) continue;
+      for (const dir of [1, -1]) {
+        if (bs[md(i + dir)].straight || bs[md(i + dir)].corner) continue;
+        let k = i + dir, turn = 0, arc = 0;
+        // (and on over a corner within it, the round turning back a little into a hook, an industrial's u's foot)
+        while (Math.abs(k - i) < n && (turnAt(k) > ARCH_TIGHT || bs[md(k)].corner) && arc < ARCH_ROUND * c.cap) { turn += turnAt(k) * 2; arc += Math.hypot(bs[md(k)].x - bs[md(k - dir)].x, bs[md(k)].y - bs[md(k - dir)].y); k += dir; }
+        if (turn < Math.PI / 4 || k === i + dir) continue;
+        const a = md(i + dir), z = md(k - dir);
+        cands.push(dir > 0 ? [a, z] : [z, a]);
+      }
+    }
+    for (const [i0, last0] of cands) {
       const side = (from: number, dir: number) => Array.from({ length: ARCH_RUN }, (_, k) => bs[md(from + dir * (k + 1))]);
       const stemOk = (qs: Bone[]) => qs.every(q => !q.corner && q.straight && q.seg === qs[0].seg && Math.abs(q.nx) > ARCH_UPRIGHT);
       const curveOk = (qs: Bone[]) => qs.every(q => !q.corner && !q.dot) && !qs.every(q => q.straight);
-      const back = side(i, -1), on = side(last, 1);
-      const stem = stemOk(back) && curveOk(on) ? -1 : stemOk(on) && curveOk(back) ? 1 : 0;
+      // (the stem's side read past a little round between it and the corner, ARCH_ROUND at the most: an industrial's
+      // n's notch, its corner a few units off the stem's straight side)
+      const past = (from: number, dir: number) => {
+        let k = from, arc = 0;
+        while (arc < ARCH_ROUND * c.cap && !bs[md(k + dir)].straight && !bs[md(k + dir)].corner) { arc += Math.hypot(bs[md(k + dir)].x - bs[md(k)].x, bs[md(k + dir)].y - bs[md(k)].y); k += dir; }
+        return md(k);
+      };
+      let i = i0, last = last0, stem = 0;
+      if (curveOk(side(last0, 1))) { const k = stemOk(side(i0, -1)) ? i0 : past(i0, -1); if (stemOk(side(k, -1))) { stem = -1; i = k; } }
+      if (!stem && curveOk(side(i0, -1))) { const k = stemOk(side(last0, 1)) ? last0 : past(last0, 1); if (stemOk(side(k, 1))) { stem = 1; last = k; } }
+      // (or a notch between two curves both leaving it toward a line near by, an m's between its arches: met again where
+      // the two edges as moved meet, as a shallow crotch is)
+      if (!stem && bs[i0].corner && curveOk(side(i0, -1)) && curveOk(side(last0, 1))) {
+        const P = side(i0, -1), Q = side(last0, 1), p0 = P[P.length - 1], q0 = Q[Q.length - 1], b = bs[i0];
+        const way = Math.sign(p0.y - b.y), line = lines.find(L => (L - b.y) * way > 0 && (L - b.y) * way < near);
+        const ux = p0.x - P[ARCH_FROM - 1].x, uy = p0.y - P[ARCH_FROM - 1].y, vx = q0.x - Q[ARCH_FROM - 1].x, vy = q0.y - Q[ARCH_FROM - 1].y;
+        const cos = (ux * vx + uy * vy) / ((Math.hypot(ux, uy) * Math.hypot(vx, vy)) || 1);
+        if (way && Math.sign(q0.y - bs[last0].y) === way && line !== undefined && cos > ARCH_V[0] && cos < ARCH_V[1]) {
+          const joins = new Set<number>();
+          for (let k = i0; ; k = md(k + 1)) { const j = T.near[r][k]; if (j >= 0) for (const z of T.zone[j]) joins.add(z); if (k === last0) break; }
+          // (and no ink trap: the ink across from it, the curves' other sides, as far as ARCH_NECK of their strokes, a
+          // monospace's m's between its arches run in on a thin neck)
+          let neck = Infinity, stroke = 0;
+          for (const o of all) {
+            if (o.r === r) { const d = Math.min(md(o.i - i0), md(i0 - o.i), md(o.i - last0), md(last0 - o.i)); if (d <= 2 * ARCH_RUN) continue; }
+            if (o.b.nx * Q[ARCH_FROM].nx + o.b.ny * Q[ARCH_FROM].ny > -0.5 && o.b.nx * P[ARCH_FROM].nx + o.b.ny * P[ARCH_FROM].ny > -0.5) continue;
+            neck = Math.min(neck, Math.hypot(o.b.x - b.x, o.b.y - b.y));
+          }
+          for (let k = ARCH_RUN; k < 6 * ARCH_RUN; k++) for (const j of [T.near[r][md(last0 + k)], T.near[r][md(i0 - k)]]) if (j >= 0) stroke = Math.max(stroke, 2 * T.s[j]);
+          found.push({ first: i0, last: last0, stem: 0, joins: [...joins], shallow: true, line, y: b.y, stroke, trap: !(neck >= ARCH_NECK * stroke) });
+        }
+      }
       if (!stem) continue;
+      const b = bs[md(i + (md(last - i) >> 1))], back = side(i, -1), on = side(last, 1);
       const S = stem > 0 ? on : back, C = stem > 0 ? back : on, at = stem > 0 ? bs[last] : b, from = stem > 0 ? b : bs[last];
       const way = Math.sign(S[S.length - 1].y - at.y), cEnd = C[C.length - 1];
       const line = lines.find(L => (L - b.y) * way > 0 && (L - b.y) * way < near);
@@ -3957,10 +4031,10 @@ function archCrotches(rig: SkinRig): Map<number, ArchCrotch[]> {
         if (j < 0) continue;
         stroke = Math.max(stroke, 2 * T.s[j]);
       }
-      if (!(neck >= ARCH_NECK * stroke)) continue;
+      const trap = !(neck >= ARCH_NECK * stroke);
       const joins = new Set<number>();
       for (let k = i; ; k = md(k + 1)) { const j = T.near[r][k]; if (j >= 0) for (const z of T.zone[j]) joins.add(z); if (k === last) break; }
-      found.push({ first: i, last, stem, joins: [...joins], shallow: cos > ARCH_STEEP, line, y: b.y, stroke });
+      found.push({ first: i, last, stem, joins: [...joins], shallow: cos > ARCH_STEEP, line, y: b.y, stroke, trap });
     }
     if (found.length) out.set(r, found);
   });
@@ -3968,6 +4042,8 @@ function archCrotches(rig: SkinRig): Map<number, ArchCrotch[]> {
   return out;
 }
 const ARCH_CROTCHES = new WeakMap<SkinRig, Map<number, ArchCrotch[]>>();
+/** Set while movedWay moves a letter again without its crotches met again (archMeet, stretchRounds). */
+let ARCH_OFF = false;
 
 /** One contour of the rig moved (contour r, its samples bs): each edge out or in by its stroke's change of thickness,
     carried where the heights and the width put it, each corner where its two edges meet again, and each stroke's end
@@ -4031,10 +4107,11 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   // or a bowl leaving its stem (archCrotches): where the two edges, as moved, meet again, each read off its own samples
   // past the crotch; and its corners, two cut a few units apart, and what lies between them, all there)
   const plainAt = (j: number) => { const q = bs[md(j)]; return { x: q.x + shift(0, md(j)) - q.nx * moved[md(j)], y: q.y + shift(1, md(j)) - q.ny * moved[md(j)] }; };
-  const groups = mv.lighter ? (archCrotches(rig).get(r) ?? []) : [];
+  const groups = mv.lighter && !ARCH_OFF ? (archCrotches(rig).get(r) ?? []).filter(G => !G.trap) : [];
   const groupOf = (i: number) => groups.find(G => md(i - G.first) <= md(G.last - G.first));
   const meetOf = (G: ArchCrotch): { M: P; w: number } | null => {
-    const S = G.stem, C = -G.stem, sEnd = S > 0 ? G.last : G.first, cEnd = S > 0 ? G.first : G.last;
+    // (a notch between two curves read off both, the one before as the stem's side is)
+    const S = G.stem || -1, C = -S, sEnd = S > 0 ? G.last : G.first, cEnd = S > 0 ? G.first : G.last;
     const sa = plainAt(sEnd + S * ARCH_FROM), sc = plainAt(sEnd + S * ARCH_RUN), ca = plainAt(cEnd + C * ARCH_FROM), cc = plainAt(cEnd + C * ARCH_RUN);
     const ux = sc.x - sa.x, uy = sc.y - sa.y, vx = cc.x - ca.x, vy = cc.y - ca.y, den = ux * vy - uy * vx;
     if (Math.abs(den) < 0.1 * Math.hypot(ux, uy) * Math.hypot(vx, vy)) return null;
@@ -4044,7 +4121,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     // it than ARCH_REACH of the curve's stroke as thick as it is now, less and less there: a geometric q's bowl, met again
     // far down the stem at Thin, its thin arm, the round inside it as it was, pinched off)
     const k = md(cEnd + C * ARCH_RUN), j = rig.thin?.near[r][k] ?? -1, R = j >= 0 ? Math.max(1, rig.thin!.s[j] * k0[k]) : 1;
-    const own = plainAt(G.stem > 0 ? G.first : G.last), reach = Math.hypot(M.x - own.x, M.y - own.y) / R;
+    const own = plainAt(cEnd), reach = Math.hypot(M.x - own.x, M.y - own.y) / R;
     return { M, w: Math.min(1, Math.max(0, (ARCH_REACH[1] - reach) / (ARCH_REACH[1] - ARCH_REACH[0]))) };
   };
   const groupMeets = new Map<ArchCrotch, { M: P; w: number } | null>();
@@ -4059,7 +4136,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   // (the joins whose crotches these draw again, which rebuildJoins then leaves as they are)
   const arched = (i: number) => { const j = rig.thin?.near[r][i] ?? -1; if (j < 0) return; let set = ARCHED.get(mv); if (!set) ARCHED.set(mv, set = new Set()); for (const k of rig.thin!.zone[j]) set.add(k); };
   // (whether sample i lies in the bulge of a join an arch's or a bowl's outside crotch is met again in, archCrotches)
-  const archJoins = new Set(mv.lighter ? [...archCrotches(rig).values()].flat().flatMap(G => G.joins) : []);
+  const archJoins = new Set(mv.lighter && !ARCH_OFF ? [...archCrotches(rig).values()].flat().filter(G => !G.trap).flatMap(G => G.joins) : []);
   const inArchJoin = (i: number) => { const j = rig.thin?.near[r][i] ?? -1; return j >= 0 && rig.thin!.zone[j].some(z => archJoins.has(z)); };
   // (whether sample i and ARCH_RUN on from it the way dir lie along a stem's straight upright side)
   const stemSide = (i: number, dir: number) => { for (let k = 0; k < ARCH_RUN; k++) { const q = bs[md(i + dir * k)]; if (q.corner || !q.straight || Math.abs(q.nx) <= ARCH_UPRIGHT || q.seg !== bs[i].seg) return false; } return true; };
@@ -4223,6 +4300,16 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       // (from the stem's side or the crotch, a, along the run, the way `on`, to where the curve runs on plain, z)
       const run0: number[] = [];
       for (let k = s; k <= e; k++) run0.push(md(k));
+      // (a curve run on through the join, plain at both ends, past an arch's or a bowl's crotch met again, a geometric
+      // q's counter by its stem: as its ends move, eased along it by length, not as the join's rounds put each, which took
+      // its middle in further than its ends and left a bump at the end of that)
+      if (plain(md(s - 1), -1) && plain(md(e + 1), 1) && run0.some(inArchJoin)) {
+        const a = md(s - 1), z = md(e + 1), cum = [0];
+        for (let k = 0; k <= run0.length; k++) { const p0 = bs[k ? run0[k - 1] : a], p1 = bs[k < run0.length ? run0[k] : z]; cum.push(cum[cum.length - 1] + Math.hypot(p1.x - p0.x, p1.y - p0.y)); }
+        const total = cum[cum.length - 1] || 1;
+        run0.forEach((j, k) => { const t = cum[k + 1] / total, m = moved[a] + (moved[z] - moved[a]) * t, b = bs[j]; out[j] = { x: base[j].x - b.nx * m, y: base[j].y - b.ny * m }; arched(j); });
+        continue;
+      }
       for (const [a, z0, on] of [[md(s - 1), md(e + 1), 1], [md(e + 1), md(s - 1), -1]] as const) {
         if (!plain(z0, on)) continue;
         const D0 = bs[a], P0 = out[a];

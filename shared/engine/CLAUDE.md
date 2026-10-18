@@ -204,19 +204,28 @@ A design with `freeFont` set draws its letters from a free font instead of build
    a j's tail's curve goes in as a side), a corner's round whole (`carryFillets`, but a serif's bracket on a level
    foot, a round inside running on from a stroke's end, an r's arm under its ear, or outside running into a ball, a fat
    face's r's arm), and sets a zero-thickness point
-   where its neighbours meet (`pinPoints`). In a font without serifs, not drawn as its strokes, a crotch where a stem's
-   straight upright side meets an arch or a bowl leaving it at a slant toward a line near by (`archCrotches`: an n's
-   shoulder, a p's bowl's foot, two corners cut a few units apart one, `ARCH_PAIR`; not an ink trap, its neck under
-   `ARCH_NECK` of the curve's stroke, a monospace's d) is met again where the two edges as moved meet (`archMeet`; one the
-   curve comes into shallower than `ARCH_STEEP`, a geometric q's, less and less as that lies past `ARCH_REACH` of its
-   stroke: its corner, carried along a ray to the join's round, ran level a way out from the stem and the arch turned up
-   from there, a ledge), the round inside the join drawn again from the stem's side to the curve as full as the design's
-   in the corner they make now (`stretchRounds`, not `carryFillets`), and its joins not drawn again (`ARCHED`). Such a
-   letter keeps its rounds on a line where it also stands level on it (`movedHug`, hugMap's lift at those lines alone,
-   from a stroke's thickness short of the crotch out and only on the strokes joined to it: an n's arch sank under the
-   x-height its stem's top stays on, 37 units at Mainline's Thin, which `keepHeights`, its top already on the line, left
-   so), its skeleton lifted for the rays, `crossing`, the joins drawn again and the mending strokes, a free end of them
-   run on the design's way (`thinStrokes`' `moved`), a corner carried up or down whole (`hugY`).
+   where its neighbours meet (`pinPoints`). In a font without serifs, not drawn as its strokes nor keeping its own forms
+   (a blackletter's, a joined script's), a crotch where a stem's straight upright side meets an arch or a bowl leaving it
+   at a slant toward a line near by (`archCrotches`: an n's shoulder, a p's bowl's foot; two corners cut a few units apart
+   one, `ARCH_PAIR`; or a tight round cut off the stem's side, `ARCH_TIGHT` a sample within `ARCH_ROUND`, over a little
+   hook, an industrial's n and u, its side read past a little round before its corner; or a notch between two curves both
+   leaving it toward the line, `ARCH_V`, an m's between its arches, an a's bowl's foot; none an ink trap, its neck under
+   `ARCH_NECK` of the curve's stroke, a monospace's d and m) is met again where the two edges as moved meet (`archMeet`;
+   one the curve comes into shallower than `ARCH_STEEP`, a geometric q's, and a notch between curves, less and less as
+   that lies past `ARCH_REACH` of its stroke: its corner, carried along a ray to the join's round, ran level a way out
+   from the stem and the arch turned up from there, a ledge), the round inside the join drawn again from the stem's side
+   to the curve as full as the design's in the corner they make now (`stretchRounds`, not `carryFillets`), a curve run
+   on through the join plain at both ends moved as its ends are, eased along it (a geometric q's counter by its stem,
+   bumped where the join's rounds took its middle in further), and its joins not drawn again (`ARCHED`). A letter those
+   break but that comes out whole without them is moved without them (`movedWay`, `ARCH_OFF`: a humanist's b, d, m, p,
+   q, u at Thin, its bowl's end met again up its stem, its counter opened). Such a letter keeps its rounds on the line
+   the crotch runs to (`movedHug`, hugMap's lift at those lines alone, from a stroke's thickness short of the crotch out
+   and only on the strokes joined to it, not past an ink trap nor where an edge level on the line is no stroke's end cut
+   across it, an industrial's stem's round-cornered top, which folded put back alone: an n's arch sank under the x-height
+   its stem's top stays on, 37 units at Mainline's Thin, which `keepHeights`, its top already on the line, left so; an h's
+   arch, lifted by `keepHeights` only after its crotch was met again under it, came apart from its stem), its skeleton
+   lifted for the rays, `crossing`, the joins drawn again and the mending strokes, a free end of them run on the design's
+   way (`thinStrokes`' `moved`), a corner carried up or down whole (`hugY`), the samples by an edge level on a line not.
    Joins its stems thin to under `REBUILD_BELOW` of themselves, no serif on
    them, nor, in a font with serifs where a hairline meets a heavy stroke (`REBUILD_HAIR`), one a short stroke runs
    from out to an end on or near a line, not the run on of a stroke through it (`REBUILD_TIP`, `REBUILD_THROUGH`: a fat
