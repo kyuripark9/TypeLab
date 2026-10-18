@@ -254,7 +254,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    in `lines.ts`: the middle of a heavy one's ink, a w's one bar notched above and below, isn't its strokes'), each
    free end cut as the design's is, square or aslant, or round, its joins' rounds no thicker than the thinnest stroke
    there (but a stroke running on through), a turn's outside cornered as the design's is, mitred or round as round for
-   the stroke's thickness (`roundAt`); a stroke whose sides run on out past another's is read crossing it (a #'s bars),
+   the stroke's thickness (`roundAt`), round where its sides meet further off than `MITRE_MOST` of its round (a stroke
+   all but doubling back, or all but straight: a wood type's q's stem's mitre, its sides meeting thousands of units out,
+   clipped to the ink, a wedge); a stroke whose sides run on out past another's is read crossing it (a #'s bars),
    and two whose middles meet a little past a corner the design cuts square or blunt meet there brought in between them
    (a squared N's, M's and W's, a pointed V's). A stroke run level along one of the letter's lines keeps its side there
    as it thins, and a stroke ending at one goes with it (`FLUSH`: an E's arms and its stem's ends); so does a point two
@@ -271,7 +273,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    Every letter of a font of heavy, even strokes without serifs (`fontStroked`: low contrast, stems over `STROKED_HEAVY`
    of its capitals' and from a weight whose stems are `STROKED_UNDER` of its own down, Orbital, Bulwark, or over
    `ROUND_HEAVY` with no square ends at every lighter weight, Gumdrop) is drawn as its strokes too, on the
-   skeleton its ink's middle reads, evened out (`SMOOTH`), parted where it bends tighter than it is thick, and no stub into
+   skeleton its ink's middle reads, evened out along it over most of its design's thickness either way, its ends and its
+   sharp turns staying (`evenRun`, `EVEN_SPAN`, `EVEN_TURN`: evened out a few points either way, a heavy round's middle,
+   flat a while and kinking where the outline it is read off goes from one curve to the next, drew Gumdrop's c's and s's
+   lumpy), parted where it bends tighter than it is thick, and no stub into
    a corner drawn (but one whose way out meets the ink's edge aslant, `STUB_SQUARE`, a stroke running on its heavy
    design's skeleton cuts short, Bulwark's &'s arm and tail), nor, in a font cutting its ends, one `withStubs` ran on past a turn whose end isn't cut (`STUBBED`: the
    turn's outside, a u's corner, an n's shoulder); a free end the design cuts straight across (`capAhead`) cut so, its

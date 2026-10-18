@@ -3520,16 +3520,9 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: 
     const n0 = E.pts.length, raw = E.pts.map((_, i) => { const q = thinMiddle(rig, mv, j0 + i, drawn === 1 || (moved ? 'moved' : false)); return { ...q, R: by(q.R), s: rig.thin!.s[j0 + i], ox: rig.thin!.x[j0 + i], oy: rig.thin!.y[j0 + i] }; });
     j0 += n0;
     if (!n0 || stub(E) || runOn(E)) continue;
-    // (where `drawn` on the skeleton the ink's middle reads, that middle and its thickness evened out a few points either
-    // way, its ends staying: read a cell at a time off a heavy stroke, it wanders, and a stroke drawn along it is lumpy)
-    const K = drawn === 1 ? SMOOTH : 0;
-    const mid = !K ? raw : raw.map((p, i) => {
-      const k = Math.min(K, i, n0 - 1 - i);
-      if (!k) return p;
-      let x = 0, y = 0, R = 0;
-      for (let d = -k; d <= k; d++) { x += raw[i + d].x; y += raw[i + d].y; R += raw[i + d].R; }
-      return { ...p, x: x / (2 * k + 1), y: y / (2 * k + 1), R: R / (2 * k + 1) };
-    });
+    // (where `drawn` on the skeleton the ink's middle reads, that middle and its thickness evened out along it (evenRun):
+    // read a cell at a time off a heavy stroke, it wanders, and a stroke drawn along it is lumpy)
+    const mid = drawn !== 1 ? raw : evenRun(raw);
     // (a stroke's free end run on its way to where the ink ends, less its round: the skeleton stops a round of the stroke
     // as drawn short of its end, which a thinner stroke's round, stopping there, would leave apart, a V's tip, a K's arm's)
     // (and, where `lined`, an end the design cuts straight across, as far as the ink there across the stroke as it was ends
@@ -3636,6 +3629,10 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: 
       const rho = Math.min(Ra, Rb, roundAt(rig, p, ux, uy, ahead) ? Math.max(0, Math.min(p.s, (p.s / half - ahead(p, ux, uy)) / (1 / half - 1))) * R / p.s : 0);
       const pa = { x: p.x + nax * Ra, y: p.y + nay * Ra }, pb = { x: p.x + nbx * Rb, y: p.y + nby * Rb }, det = ax * by2 - ay * bx;
       const t = ((pb.x - pa.x) * by2 - (pb.y - pa.y) * bx) / det, X = { x: pa.x + ax * t, y: pa.y + ay * t };
+      // (a turn whose sides meet further off than MITRE_MOST of its round, a stroke all but doubling back on itself or,
+      // a little unlike in thickness either side, all but straight, a round: a wood type's q's stem doubling back at its
+      // top had its sides meet 7,000 units out, and the mitre, clipped to the ink, stood in the stem as a wedge)
+      if (Math.hypot(X.x - p.x, X.y - p.y) > MITRE_MOST * R) { out.push(round(p, R)); continue; }
       if (rho <= 0.05 * R) { out.push([p, pa, X, pb]); continue; }
       // (the round's middle as far in from either side, the strokes either side as thick as they are)
       const qa = { x: pa.x - nax * rho, y: pa.y - nay * rho }, qb = { x: pb.x - nbx * rho, y: pb.y - nby * rho }, tq = ((qb.x - qa.x) * by2 - (qb.y - qa.y) * bx) / det;
@@ -3733,7 +3730,46 @@ const STUB_SQUARE = 0.75;
     way out from between the two strokes turning there than this (thinStrokes). */
 const STUB_CORNER = 0.9;
 /** How many points either way a stroke drawn on the skeleton the ink's middle reads is evened out over (thinStrokes). */
-const SMOOTH = 4;
+/** A run of a skeleton's points (a stroke's middle read off a heavy letter, drawn on) and their thickness, evened out
+    along it: each a mean of those within EVEN_SPAN of the stroke's half-thickness as the design has it either way along
+    the run (EVEN_CELLS cells at least), each weighing less the further along it is, its ends and its sharp turns, turning
+    EVEN_TURN or more over half that thickness either way, staying where they are, and the reach either side no further
+    than the nearer of them. A heavy round's middle, read off its outline a cell at a time, runs flat a while and kinks
+    where the outline it is read off goes from one curve to the next, a few cells apart or a stroke's thickness:
+    Gumdrop's c's and s's rounds, drawn along it evened out a few points either way only, came out lumpy at every lighter
+    weight. (Each point weighs alike over its reach, two points next to each other, their reaches over the same points
+    where they are unevenly apart, came out one: a stroke's side read across it there went off along no way at all, a
+    Gumdrop's 2 at Weight 0.41 drawn in a chord across its counter.) */
+function evenRun<Q extends P & { R: number; s: number }>(raw: Q[]): Q[] {
+  const n = raw.length, cum = [0];
+  if (n < 3) return raw;
+  for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(raw[i].x - raw[i - 1].x, raw[i].y - raw[i - 1].y));
+  const at = (d: number) => { let lo = 0, hi = n - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (cum[m] < d) lo = m + 1; else hi = m; } return lo; };
+  const turn = raw.map((p, i) => {
+    const L = Math.max(2 * THIN_CELL, 0.5 * p.s);
+    if (cum[i] < L || cum[n - 1] - cum[i] < L) return 0;
+    const a = raw[at(cum[i] - L)], b = raw[at(cum[i] + L)], ax = p.x - a.x, ay = p.y - a.y, bx = b.x - p.x, by = b.y - p.y, la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+    return la && lb ? Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb)))) : 0;
+  });
+  const fixed = [0];
+  for (let i = 1; i < n - 1; i++) if (turn[i] > EVEN_TURN && turn[i] >= turn[i - 1] && turn[i] > turn[i + 1]) fixed.push(i);
+  fixed.push(n - 1);
+  let f = 0;
+  return raw.map((p, i) => {
+    while (fixed[f + 1] < i) f++;
+    const lo = fixed[f], hi = fixed[f + 1];
+    const h = Math.min(Math.max(EVEN_CELLS * THIN_CELL, EVEN_SPAN * p.s), cum[i] - cum[lo], cum[hi] - cum[i]);
+    if (!(h > 0)) return p;
+    let x = 0, y = 0, R = 0, w = 0;
+    for (let j = at(cum[i] - h); j < n && cum[j] <= cum[i] + h; j++) { const k = 1 - Math.abs(cum[j] - cum[i]) / h; x += raw[j].x * k; y += raw[j].y * k; R += raw[j].R * k; w += k; }
+    return w > 0 ? { ...p, x: x / w, y: y / w, R: R / w } : p;
+  });
+}
+const EVEN_SPAN = 1.1, EVEN_CELLS = 6, EVEN_TURN = 50 * Math.PI / 180;
+/** How far off a turn drawn as strokes its sides may meet, as many times its round as, and be mitred there (thinStrokes):
+    further, the turn is all but a stroke doubling back, or all but straight. A mitre MITRE_MOST rounds long is a point
+    of 14 degrees. */
+const MITRE_MOST = 8;
 
 /** Point j of a lighter weight's skeleton (thinReads), and the stroke's half thickness there now, as the strokes drawn
     again have it (moved with the letter's heights after, which carry a stroke along a line back to it). */
