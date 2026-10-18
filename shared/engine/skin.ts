@@ -2745,6 +2745,11 @@ const STRAIGHT_TAPER = 3, STRAIGHT_FIT = 0.5;
 /** And how many of its samples it takes, and how long, as a share of how thick it reads, the edge must be: a short one, a
     stub's or a bar's end, its few moves read off the strokes round it, ran off at a slant. */
 const STRAIGHT_FEW = 5, STRAIGHT_LONG = 2;
+/** A serif's bracket drawn again (carryFillets): its level edge's slope (sine) and nearness to a line (a share of the
+    capitals' height), its stem's side's lean (sine), the least share of the stem kept, and the longest it may be (times
+    the stem's half thickness: longer, a hook's round); drawn so from BRACKET_KEEP of its stem kept, wholly at BRACKET_BLEND
+    more. */
+const BRACKET_LEVEL = 0.45, BRACKET_NEAR = 0.12, BRACKET_UPRIGHT = 0.35, BRACKET_KEEP = 0.45, BRACKET_BLEND = 0.15, BRACKET_ARC = 3;
 const FILLET_TURN = 0.02, FILLET_MIN = 25 * Math.PI / 180;
 /** A round on a letter's outside ending within this many samples of a crotch runs on into it, and is not carried as a
     corner's (carryFillets). */
@@ -4590,6 +4595,12 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       const a = Math.abs(Math.atan2(p.tx * q.ty - p.ty * q.tx, p.tx * q.tx + p.ty * q.ty)) / 2;
       return ((q.tx - p.tx) * b.nx + (q.ty - p.ty) * b.ny < 0) === inside ? a : 0;
     });
+    // (a serif's bracket: a round inside a join on the letter's outside, between an edge running level near a line, the
+    // serif's, and a stem's upright side)
+    const lineYs = rig.ctx.lower ? [0, rig.ctx.xh, rig.ctx.asc, rig.ctx.desc] : [0, rig.ctx.cap];
+    const level = (q: Bone) => Math.abs(q.ty) < BRACKET_LEVEL && lineYs.some(L => Math.abs(q.y - L) < BRACKET_NEAR * rig.ctx.cap), upright = (q: Bone) => Math.abs(q.tx) < BRACKET_UPRIGHT;
+    const wound = (q: Bone[]) => Math.sign(q.reduce((t, p, i) => { const w = q[(i + 1) % q.length]; return t + p.x * w.y - w.x * p.y; }, 0));
+    const outside = wound(bs) === wound(rig.bones.reduce((m, q) => (q.length > m.length ? q : m), rig.bones[0]));
     for (const inside of [true, false]) {
     const turn = turns(inside);
     for (let s = 0; s < n; s++) {
@@ -4599,6 +4610,21 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       while (e - s < n - 1 && turn[md(e)] >= FILLET_TURN) { total += turn[md(e)]; if (e > s) arc += Math.hypot(bs[md(e)].x - bs[md(e - 1)].x, bs[md(e)].y - bs[md(e - 1)].y); e++; }
       const a = md(s - 1), z = md(e), d1 = moved[a], d2 = moved[z];
       if (bs[a].w0 < 1 || bs[z].w0 < 1) continue;
+      // (a serif's bracket too long to carry, more than four times as long as its edges move, where its stem thins little,
+      // drawn again as the design's, made smaller about the corner its edges make as far as the stem thinned, eased in
+      // from point by point as the stem thins less: point by point, a Didone's at Regular came out an S, its foot's stem
+      // side moved further in than the serif's top)
+      if (inside && rig.serifed() && outside && total >= FILLET_MIN && ((level(bs[a]) && upright(bs[z])) || (level(bs[z]) && upright(bs[a])))) {
+        const st = upright(bs[a]) ? a : z, sv = st === a ? z : a, S0 = base[st], V0 = base[sv], stem = stemSide(st, st === a ? -1 : 1);
+        const cross = (P: P, u: P, Q: P, v: P) => { const den = u.x * v.y - u.y * v.x; if (Math.abs(den) < 1e-6) return null; const t = ((Q.x - P.x) * v.y - (Q.y - P.y) * v.x) / den; return { x: P.x + u.x * t, y: P.y + u.y * t }; };
+        const us = { x: bs[st].tx, y: bs[st].ty }, uv = { x: bs[sv].tx, y: bs[sv].ty }, C0 = cross(S0, us, V0, uv), C1 = cross(out[st], us, out[sv], uv);
+        const w = bs[st].w0, f = Math.min(1, (w + moved[st]) / (w || 1));
+        const t = Math.max(0, Math.min(1, (f - BRACKET_KEEP) / BRACKET_BLEND)), carried = !(arc > 4 * Math.max(Math.abs(d1), Math.abs(d2)) + 10);
+        if (C0 && C1 && t > 0 && !carried && stem && arc <= BRACKET_ARC * w && Math.hypot(C0.x - S0.x, C0.y - S0.y) < 3 * Math.hypot(S0.x - V0.x, S0.y - V0.y)) {
+          for (let k = s; k < e; k++) { const j = md(k), q = { x: C1.x + (base[j].x - C0.x) * f, y: C1.y + (base[j].y - C0.y) * f }; out[j] = { x: out[j].x + (q.x - out[j].x) * t, y: out[j].y + (q.y - out[j].y) * t }; }
+          continue;
+        }
+      }
       // (no longer than its edges move, give or take, or a round on the outside of a corner, one of whose edges lies on a
       // line and stays, an L's foot: point by point, it would lift off the line its edge stays on)
       if (total < FILLET_MIN || (arc > 4 * Math.max(Math.abs(d1), Math.abs(d2)) + 10 && (inside || !(flatOn(rig, bs[a]) || flatOn(rig, bs[z]))))) continue;
