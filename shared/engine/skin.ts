@@ -1610,6 +1610,19 @@ function reaching(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures): SkinMeasure
   };
 }
 
+/** How far a lighter weight's letter as skinMove gave it reached either side as moved, before its outline was tidied
+    (movedOnce): a tip whose sides crossed as they thinned (a blackletter's spurs and flags) is cut off as a fold all at
+    once, the letter's room with it, where its outline as moved goes in as the weight does. Undefined where it wasn't
+    read so (a letter drawn as its strokes near the pick, or between two drawings). */
+export const skinSpan = (out: Node[][]) => SPANS.get(out);
+const SPANS = new WeakMap<Node[][], [number, number]>();
+/** How far rings reach, left and right. */
+function xSpan(rings: P[][]): [number, number] {
+  let x0 = Infinity, x1 = -Infinity;
+  for (const r of rings) for (const q of r) { if (q.x < x0) x0 = q.x; if (q.x > x1) x1 = q.x; }
+  return [x0, x1];
+}
+
 /** The rigged letter moved from the measures it was drawn at (m0) toward `to`, only the measures that reach this
     letter taken (m1); its outline traced back into curves. */
 export function skinMove(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures): Node[][] {
@@ -1969,8 +1982,11 @@ function crossfade(rig: SkinRig, s: number, x: Node[][], y: Node[][]): Node[][] 
   const nx = Math.ceil((x1 - x0) / h) + 1, ny = Math.ceil((y1 - y0) / h) + 1;
   const fa = signedField(A, nx, ny, x0, y0, h), fb = signedField(B, nx, ny, x0, y0, h), f = new Float64Array(nx * ny);
   for (let k = 0; k < f.length; k++) f[k] = fa[k] + (fb[k] - fa[k]) * s;
-  const C = contours(f, nx, ny, x0, y0, h, 0);
-  return tidyRings(C, rig.ctx.cap, C.map(r => dotOf(rig, r as Node[])));
+  const C = contours(f, nx, ny, x0, y0, h, 0), out = tidyRings(C, rig.ctx.cap, C.map(r => dotOf(rig, r as Node[])));
+  // (and its reach as moved, skinSpan, s of the way from x's to y's, either's ink where it has none)
+  const sx = SPANS.get(x), sy = SPANS.get(y);
+  if (sx || sy) { const a = sx ?? xSpan(A), b = sy ?? xSpan(B); SPANS.set(out, [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s]); }
+  return out;
 }
 
 /** How far in from rings' outline (read nonzero) each point of a grid nx × ny from (x0, y0) h apart lies, out less than
@@ -2072,9 +2088,15 @@ function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true
   }
   // (a join drawn again only part of the way round may part a letter whole without it: drawn again whole there, or,
   // that breaking it too, not at all)
+  // (whichever holds ink nearer the letter as it is, and not much further off it than EASED_INK, else mended: a Cathedral's
+  // s, its joins not drawn again, held 30% more ink for a step of Weight between two drawn the eased way)
   if (first.eased) {
     const none = movedOnce(rig, m0, m1, 'moved', false, undefined, 'none');
-    if (whole(rig, none, true)) { const full = movedOnce(rig, m0, m1, 'moved', false, undefined, 'full'); return whole(rig, full) ? as(full.out, 'moved', 'full') : as(none.out, 'moved', 'none'); }
+    if (whole(rig, none, true)) {
+      const full = movedOnce(rig, m0, m1, 'moved', false, undefined, 'full'), e = reachOf(first.out).ink, off = (w: { out: Node[][] }) => Math.abs(reachOf(w.out).ink - e);
+      const [w, j] = whole(rig, full) && off(full) <= off(none) ? [full, 'full' as const] : [none, 'none' as const];
+      if (off(w) <= EASED_INK * e || !whole(rig, movedOnce(rig, m0, m1, 'mended'))) return as(w.out, 'moved', j);
+    }
   }
   // a lighter weight that breaks the letter (a stroke parted from the one it joins, or lost, a counter run out into the
   // paper, where the strokes meet in a way the skeleton reads amiss) is mended with the strokes drawn again along its
@@ -2159,6 +2181,9 @@ function mendFrom(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, out: Node[][
     unmended, in units, may lie either side of the weight it turns whole at for them to, and its ink, as a share (more,
     it breaks all at once). */
 const MEND_BLEND = 0.1, MEND_STEPS = 8, SUDDEN = 4, SUDDEN_INK = 0.08;
+/** How much more or less ink than the letter moved as it is, its joins drawn again part of the way round, a lighter weight
+    whole with them drawn again not at all, or wholly, may hold, as a share, to be drawn so rather than mended (movedWay). */
+const EASED_INK = 0.08;
 /** How many of the grid's weights next to m1 mendFrom reads one by one for where the letter is drawn as its strokes. */
 const MEND_NEAR = 3;
 
@@ -2174,7 +2199,7 @@ function reachOf(out: Node[][]) {
 function unmended(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, key: string): { whole: boolean; x0: number; x1: number; ink: number; out: Node[][] } {
   return kept(rig, 'u' + key, () => {
     const first = movedOnce(rig, m0, m1), none = !whole(rig, first, true) && first.eased ? movedOnce(rig, m0, m1, 'moved', false, undefined, 'none') : null;
-    const ok = whole(rig, first, true) ? first : none && whole(rig, none, true) ? none : null;
+    const e = reachOf(first.out).ink, ok = whole(rig, first, true) ? first : none && whole(rig, none, true) && Math.abs(reachOf(none.out).ink - e) <= EASED_INK * e ? none : null;
     // (its pieces dropped as crumbs read with it: a mend grown in part of the way keeps those more than a speck)
     const u = ok ?? first;
     return { whole: !!ok, ...reachOf([...u.out, ...(u.dropped ?? [])]), out: u.out };
@@ -2312,6 +2337,9 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // (a lighter weight's end that stays, its corners gone in past its points along it, doubles back on itself there; and
   // a dot, made as much smaller as the stems are thinner, is never taken for a speck)
   if (mv.lighter) rings = rings.map((ring, r) => doubledBack(ring, rig.bones[r]));
+  // (how far its outline so moved reaches either side, before a tip whose sides crossed is cut off as a fold: see skinSpan;
+  // not a letter drawn as its strokes, which stop short of its tips as drawn)
+  const span = mv.lighter && how !== 'strokes' ? xSpan(rings) : null;
   let dots = mv.lighter ? rig.bones.map(bs => !!bs[0]?.dot) : undefined, eased = false;
   if (mv.lighter && how === 'strokes') {
     // (the letter drawn as its strokes alone, as thick as they are now, within its ink as drawn; its dots as moved)
@@ -2372,6 +2400,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const outer = out.reduce((a, c) => (Math.abs(area(c)) > Math.abs(area(a)) ? c : a), out[0] ?? []), sign = Math.sign(area(outer));
   const kept = out.filter(c => dotOf(rig, c) || (grow < 1 && Math.sign(area(c)) === sign ? Math.abs(area(c)) >= CRUMB_NEAR * (rig.ctx.cap * CRUMB * lam) ** 2 || wasIn(c.map(n => ({ x: n.x, y: n.y }))) : !crumb(rig, c, lam)));
   const dropped = out.filter(c => !kept.includes(c) && Math.sign(area(c)) === sign), lost = dropped.reduce((m, c) => Math.max(m, Math.abs(area(c))), 0);
+  if (span) SPANS.set(kept, span);
   return { out: kept, middles, eased, lost, dropped };
 }
 

@@ -7,7 +7,7 @@ import { applyM, clamp } from './geom';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
-import { FORM_LETTERS, descK, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, type SkinMeasures, type SkinRig } from './skin';
+import { FORM_LETTERS, descK, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinSpan, type SkinMeasures, type SkinRig } from './skin';
 import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBlockBowls, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
@@ -315,6 +315,10 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   return out;
 }
 
+/** How far, in the font's units, a lighter weight's letter's ink may fall short of its outline as moved before its room
+    keeps to the outline (freeGlyph, skinSpan): a moved outline traced back into curves lies a unit or so off it. */
+const SPAN_TOL = 2;
+
 /** A free font's letter at the design's size, moved by the settings and placed like any glyph. Its
     outline as placed is kept as its drawing, for Points to start from. */
 export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
@@ -330,6 +334,11 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   const own = rig && skinned === rig.contours ? src.contours : skinned;
   const [i0, i1] = inkSpan(sized);
   let [x0, x1] = own ? inkSpan({ adv: 0, contours: own }).map(v => v * fl.k) : [i0, i1];
+  // (a lighter weight's letter keeps the room its outline took as moved, where tidying it cut off a tip whose sides crossed
+  // as they thinned, more than SPAN_TOL of it: cut all at once, a blackletter b's foot's spur took 46 units of room with
+  // it in a step of Weight)
+  const sp = rig && skinned !== rig.contours ? skinSpan(skinned!) : undefined;
+  if (sp) { x0 = Math.min(x0, (sp[0] + SPAN_TOL) * fl.k); x1 = Math.max(x1, (sp[1] - SPAN_TOL) * fl.k); }
   // (a bowl parted from its stem takes its room with it)
   if (rig && fl.now.overlap < fl.pick.overlap && OVERLAP_LETTERS.includes(ch)) { x0 = Math.min(x0, i0); x1 = Math.max(x1, i1); }
   // (and as far again as a serif reaches out past it, less a little, so two side by side don't run into one another: a

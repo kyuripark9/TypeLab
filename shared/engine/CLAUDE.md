@@ -107,7 +107,7 @@ A formula or constant two files need lives once and both import it. `metrics()`'
 `MIN_ROUND`, `SAME_PT`, `cmdsBox`, `toPolys`), `shared/params/scales.ts` (`endId`, `isPlainEnd`, the id tests,
 `slantDeg`, `rotationOf`, `weightUnscale` beside `weightScale`, `xHeightOfRatio` beside `xHeightRatio`, `joinGap`,
 `barCut`, `endReach`), `stroke.ts` (`STEP_DEPTH`), `joins.ts` (`innerShare`, `crotchShare`), `glyphs/turns.ts` (`POINTED`, `peakPast`,
-`peakCut`), `skin.ts` (`FORM_LETTERS`, `descK`, `sameMeasures`), `free-letters.ts` (`mapDrawn`, `inkX`; a free letter's room is read by `inkSpan`, its curves' true reach), `restyle.ts` (`HOOK_LETTERS`, `OPEN_LETTERS`, `added`).
+`peakCut`), `skin.ts` (`FORM_LETTERS`, `descK`, `sameMeasures`), `free-letters.ts` (`mapDrawn`, `inkX`; a free letter's room is read by `inkSpan`, its curves' true reach, a lighter weight's no narrower than `skinSpan`), `restyle.ts` (`HOOK_LETTERS`, `OPEN_LETTERS`, `added`).
 
 Some code repeats or mirrors another's, because sharing would change results (a shared helper takes its sums in
 another order) or because it works in other units. Copies with their sums in another order: `effects.ts` `within`
@@ -282,7 +282,13 @@ A design with `freeFont` set draws its letters from a free font instead of build
    growing from nothing (`rebuildJoins`). A flat edge on a line put back on it after `keepHeights`' lift
    (`snapFlatEdges`) brings the far side of the stroke running along the line back with it, and the middles `whole`
    reads (`ACROSS_MOST`, `ALONG`: put back alone, the stroke was squashed against the line by as much as a round beside
-   it had sunk, a typewriter g's ear to a unit and lost). Crumbs (`CRUMB`) go. A letter that comes out broken (`whole`: its outlines and counters, a pinhole
+   it had sunk, a typewriter g's ear to a unit and lost). Crumbs (`CRUMB`) go. A lighter weight's letter keeps the room
+   its outline took as moved, before tidying (`skinSpan`, read by `freeGlyph` past `SPAN_TOL`; not a letter drawn as
+   its strokes, and between two drawings `crossfade` blends the two): a tip whose sides crossed as they thinned is cut
+   off as a fold all at once, and its room went with it (Cathedral's b's foot's spur, 46 units in a step of Weight). A
+   join drawn again part of the way round that breaks the letter is drawn again wholly or not at all, whichever holds
+   ink nearer, within `EASED_INK` of it, else mended (Cathedral's s, its joins not drawn again, 30% heavier for a step).
+   A letter that comes out broken (`whole`: its outlines and counters, a pinhole
    opened where strokes cross aside, and ink along its strokes' middles; and, moved as it is, no piece of ink more than
    a speck dropped as a crumb, `movedOnce`'s `lost`, a blackletter's spurs) is mended with those strokes laid over it
    (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;

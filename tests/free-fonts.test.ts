@@ -354,6 +354,19 @@ describe("TypeLab's own fonts", () => {
     }
   });
 
+  it('keep a lighter weight\'s room where a tip whose sides crossed as they thinned is cut off', async () => {
+    // (cut off as a fold all at once, a tip took the letter's room with it in a step of Weight: Cathedral's b's foot's spur
+    // 46 units, its k's 45, its q's flag 32, Industrial's R's 28)
+    const fonts = new FreeFonts(null, noFetch);
+    for (const [style, ch, from, to] of [['blackletter', 'b', 0.21, 0.235], ['blackletter', 'k', 0.17, 0.19], ['blackletter', 'q', 0.31, 0.33], ['industrial', 'R', 0.17, 0.21]] as const) {
+      const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
+      if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+      const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, advs: number[] = [];
+      for (let w = from; w <= to + 1e-9; w += 0.005) advs.push(buildFont({ ...p, weight: +w.toFixed(4) }).glyph(ch)!.adv);
+      for (let i = 1; i < advs.length; i++) assert.ok(Math.abs(advs[i] - advs[i - 1]) < 6, `${style}'s ${ch}'s advance ${advs.map(a => a.toFixed(0)).join(', ')}`);
+    }
+  });
+
   it('start each card with no personality macro holding part of a slider flat', () => {
     // (resolve() pushes a slider by a macro as far as 0 or 1 and no further, so a card setting one off its middle leaves
     // a stretch of every slider it pushes doing nothing: Blackletter's Roundness below 70, Wood Type's Squareness above
