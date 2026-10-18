@@ -2740,6 +2740,9 @@ const ROUND_GROW = [1.5, 2], STRETCH_HAIR = 0.3;
 /** A lighter weight's round inside a join, carried whole (moveRing's carryFillets): its samples each turning away from
     the ink by at least FILLET_TURN (radians, half the turn from the sample before to the one after), FILLET_MIN in all. */
 const FILLET_TURN = 0.02, FILLET_MIN = 25 * Math.PI / 180;
+/** A round on a letter's outside ending within this many samples of a crotch runs on into it, and is not carried as a
+    corner's (carryFillets). */
+const FILLET_CROTCH = 4;
 /** The most a round on the outside of a corner, carried whole, turns (carryFillets): more is a stroke's round end. */
 const ROUND_MOST = 135 * Math.PI / 180;
 /** A slit's tip (carryFillets): within how far of the strokes drawn again ahead of it, and how far past them it goes. */
@@ -4579,6 +4582,11 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       // stands for: a grotesque s's shoulder into its cut end, 130 units round, was carried whole 77 units at Weight 0.15,
       // its turn pinched to a hook, and not at 0.155, its edges' moves a little shorter, a step of 11% of its ink)
       if (!inside && !rig.serifed() && (bs[a].corner || bs[z].corner)) continue;
+      // (nor, outside, one running on into a crotch within FILLET_CROTCH samples of either end: a stroke's curve on into
+      // where it joins another, not a corner's round; carried whole, the samples by the crotch left as they moved, it
+      // stood off them in a hook, a fat face's R's bowl and leg either side of their crotch at Regular, and a script's
+      // arches into their stems in needles at Thin)
+      if (!inside && [a, z].some((i, k) => { for (let j = 0; j <= FILLET_CROTCH; j++) { const q = bs[md(i + (k ? j : -j))]; if (q.corner && concaveAt(q)) return true; } return false; })) continue;
       // (a round inside a join only: a counter's tight round, its bowl's thin top above it, is no join's; and a round on
       // the outside of a corner, an L's, turning no further than most of a half turn, which a round end does)
       if (inside ? !atJoin(md(s + ((e - s) >> 1))) : total > ROUND_MOST) continue;
