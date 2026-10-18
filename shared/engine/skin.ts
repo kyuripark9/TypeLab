@@ -2766,6 +2766,10 @@ const STRAIGHT_TAPER = 3, STRAIGHT_FIT = 0.5;
 const STRAIGHT_FEW = 5, STRAIGHT_LONG = 2;
 /** How near a line an edge lies on it, for a lighter weight not to move it out past it (thinMoves). */
 const ON_LINE = 2.5;
+/** A straight edge cut across its stroke stays as the stroke's end (thinMoves) only by where the stroke's middle ends, within
+    END_NEAR times its round, or level (within END_LEVEL, the normal's share upright) by a line, within END_BAND of the
+    capitals' height, or where it is short, under END_SHORT of that height. */
+const END_NEAR = 2, END_LEVEL = 0.9, END_BAND = 0.05, END_SHORT = 0.055;
 /** A serif's bracket drawn again (carryFillets): its level edge's slope (sine) and nearness to a line (a share of the
     capitals' height), its stem's side's lean (sine), the least share of the stem kept, and the longest it may be (times
     the stem's half thickness: longer, a hook's round); drawn so from BRACKET_KEEP of its stem kept, wholly at BRACKET_BLEND
@@ -3359,6 +3363,8 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // thick, give or take: a Z's heavy stroke cut off along the capitals' height under its top bar), which stays, so the
   // stroke stops at its line, and is carried with its corners as they meet the sides again (see moveRing)
   const bySeg = new Map<number, number[]>(), inRun = new Uint8Array(bs.length);
+  const skEnds = thinSkeleton(rig).nodes.filter(q => q.edges.length === 1);
+  const endLines = [0, rig.ctx.cap, ...(rig.ctx.lower ? [rig.ctx.xh, rig.ctx.asc, rig.ctx.desc] : [])];
   for (const { a, b } of rig.ends[r]) for (let i = a; i <= b; i++) inRun[((i % bs.length) + bs.length) % bs.length] = 1;
   // (but a serif's foot drawn level, standing on its line, moves as thinMoves read it point by point)
   const onFoot = (i: number) => { const j = T.near[r][i]; return footed[i] || (j >= 0 && (T.footDir[j] !== 0 || T.footStem[j] !== 0)); };
@@ -3394,7 +3400,12 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     // (and facing the way its stroke runs, within 60°: not a side by a stroke's end, which its rounds, stopped by the end,
     // read short of across too, a j's tail's inside)
     const facing = is.reduce((a, i) => { const j = T.near[r][i]; return a + Math.abs(bs[i].nx * T.tx[j] + bs[i].ny * T.ty[j]); }, 0) / is.length >= 0.5;
-    const end = facing && flatEnd && !is.some(i => inRun[i]) && len < 3.6 * Math.max(...is.map(i => bs[i].best)) && is.filter(i => !T.across[r][i]).length * 2 > is.length && !crotch(is[0] - 1) && !crotch(is[is.length - 1] + 1);
+    // (and lies on a line, or level by one (within END_LEVEL, END_BAND of the capitals' height off it: a stem's top cut
+    // under a Didone's flag), or by where the stroke's middle ends, within END_NEAR of its round, or is short, under
+    // END_SHORT of that height (a blackletter's hairline's facet where it meets its stem, which, let go, cut it off):
+    // a blackletter's diamond foot's facet, facing along the hairline it turns into, held as drawn, kept the foot as heavy
+    // as the design's at Thin, a blot under each stem; a grotesque e's bar's cut past its bowl, a spur at Thin)
+    const end = facing && flatEnd && !is.some(i => inRun[i]) && len < 3.6 * Math.max(...is.map(i => bs[i].best)) && is.filter(i => !T.across[r][i]).length * 2 > is.length && !crotch(is[0] - 1) && !crotch(is[is.length - 1] + 1) && (len < END_SHORT * rig.ctx.cap || is.some(i => flatOn(rig, bs[i])) || is.every(i => Math.abs(bs[i].ny) > END_LEVEL && endLines.some(L => Math.abs(bs[i].y - L) < END_BAND * rig.ctx.cap)) || is.some(i => { const j = T.near[r][i]; return j >= 0 && skEnds.some(q => Math.hypot(q.x - T.x[j], q.y - T.y[j]) <= END_NEAR * Math.max(T.s[j], q.r) + 10); }));
     // (a side moves by the samples whose rounds span its stroke, where it has any: those by its end read the stroke the
     // end runs into; but not one by a crotch, which stands in the rounds of the stroke across it, where another spans its
     // own: a Didone's d's stem's side under its bowl, its only other such sample reading the stem, stayed as drawn, the
