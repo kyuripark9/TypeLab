@@ -3660,7 +3660,10 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: 
       // a little unlike in thickness either side, all but straight, a round: a wood type's q's stem doubling back at its
       // top had its sides meet 7,000 units out, and the mitre, clipped to the ink, stood in the stem as a wedge)
       if (Math.hypot(X.x - p.x, X.y - p.y) > MITRE_MOST * R) { out.push(round(p, R)); continue; }
-      if (rho <= 0.05 * R) { out.push([p, pa, X, pb]); continue; }
+      // (its inside point a little in from the turn's, so the piece overlaps both strokes, not along their sides, a hair
+      // apart where each reads its own round: united, a slit between them, a grotesque w's flat vertex split 27 units up)
+      const inner = { x: p.x - ux * TURN_IN * R, y: p.y - uy * TURN_IN * R };
+      if (rho <= 0.05 * R) { out.push([inner, pa, X, pb]); continue; }
       // (the round's middle as far in from either side, the strokes either side as thick as they are)
       const qa = { x: pa.x - nax * rho, y: pa.y - nay * rho }, qb = { x: pb.x - nbx * rho, y: pb.y - nby * rho }, tq = ((qb.x - qa.x) * by2 - (qb.y - qa.y) * bx) / det;
       const C = { x: qa.x + ax * tq, y: qa.y + ay * tq }, tA = { x: C.x + nax * rho, y: C.y + nay * rho }, tB = { x: C.x + nbx * rho, y: C.y + nby * rho };
@@ -3668,7 +3671,7 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: 
       let da = a1 - a0;
       while (da > Math.PI) da -= 2 * Math.PI;
       while (da < -Math.PI) da += 2 * Math.PI;
-      out.push([p, pa, ...Array.from({ length: 9 }, (_, q) => ({ x: C.x + Math.cos(a0 + da * q / 8) * rho, y: C.y + Math.sin(a0 + da * q / 8) * rho })), pb]);
+      out.push([inner, pa, ...Array.from({ length: 9 }, (_, q) => ({ x: C.x + Math.cos(a0 + da * q / 8) * rho, y: C.y + Math.sin(a0 + da * q / 8) * rho })), pb]);
     }
     // (each side out along the middle's normal, read a few points either way, the skeleton being a little uneven)
     for (let c = 1; c < cuts.length; c++) {
@@ -3797,6 +3800,8 @@ const EVEN_SPAN = 1.1, EVEN_CELLS = 6, EVEN_TURN = 50 * Math.PI / 180;
     further, the turn is all but a stroke doubling back, or all but straight. A mitre MITRE_MOST rounds long is a point
     of 14 degrees. */
 const MITRE_MOST = 8;
+/** How far in from a turn drawn as strokes, as a share of its round, the piece drawing its outside reaches (thinStrokes). */
+const TURN_IN = 0.5;
 
 /** Point j of a lighter weight's skeleton (thinReads), and the stroke's half thickness there now, as the strokes drawn
     again have it (moved with the letter's heights after, which carry a stroke along a line back to it). */
