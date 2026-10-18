@@ -2319,6 +2319,9 @@ function whole(rig: SkinRig, { out, middles, lost }: { out: Node[][]; middles: (
   return (p0 === p1 && n0 === n1) || (p0 === n1 && n0 === p1);
 }
 
+/** How small a pinhole a lighter weight opens, as a share of a crumb's square, goes (movedOnce): from a crumb's down to it,
+    made smaller as it is. */
+const HOLE_FADE = 0.5;
 /** An outline's area, signed (its curves read a few points along each). */
 const area = (c: Node[]) => signedArea(c.flatMap((n, i) => Array.from({ length: 4 }, (_, k) => bez(n, c[(i + 1) % c.length], k / 4))));
 /** Whether an outline of a moved letter is a dot of the letter's (lying in one of its dots' boxes, which a lighter weight
@@ -2473,6 +2476,15 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // came and went, a Cathedral k's foot's tip 64 units off it)
   const outer = out.reduce((a, c) => (Math.abs(area(c)) > Math.abs(area(a)) ? c : a), out[0] ?? []), sign = Math.sign(area(outer));
   const kept = out.filter(c => dotOf(rig, c) || (grow < 1 && Math.sign(area(c)) === sign ? Math.abs(area(c)) >= CRUMB_NEAR * (rig.ctx.cap * CRUMB * lam) ** 2 || wasIn(c.map(n => ({ x: n.x, y: n.y }))) : !crumb(rig, c, lam)));
+  // (but a pinhole smaller than a crumb made as much smaller about its middle as it is short of one, to nothing at HOLE_FADE
+  // of one: dropped at a crumb's size, it filled at once, a Chancery's s's loop's 3,000 square units of ink)
+  const c2 = (rig.ctx.cap * CRUMB * lam) ** 2;
+  for (const c of out) {
+    const a = Math.abs(area(c)), k = (a / c2 - HOLE_FADE) / (1 - HOLE_FADE);
+    if (kept.includes(c) || Math.sign(area(c)) === sign || dotOf(rig, c) || a >= c2 || k <= 0) continue;
+    const f = Math.sqrt(k), mx = c.reduce((t, q) => t + q.x, 0) / c.length, my = c.reduce((t, q) => t + q.y, 0) / c.length, at = (v: number, m: number) => m + (v - m) * f;
+    kept.push(c.map(q => ({ ...q, x: at(q.x, mx), y: at(q.y, my), ...(q.ix !== undefined ? { ix: at(q.ix, mx), iy: at(q.iy!, my) } : {}), ...(q.ox !== undefined ? { ox: at(q.ox, mx), oy: at(q.oy!, my) } : {}) })));
+  }
   const dropped = out.filter(c => !kept.includes(c) && Math.sign(area(c)) === sign), lost = dropped.reduce((m, c) => Math.max(m, Math.abs(area(c))), 0);
   if (span) SPANS.set(kept, span);
   return { out: kept, middles, eased, lost, dropped };
