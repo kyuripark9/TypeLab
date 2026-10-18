@@ -381,14 +381,29 @@ function markEnds(bones: Bone[]) {
   }
 }
 
+/** The area of the convex hull of points (monotone chain). */
+function hullArea(pts: P[]): number {
+  const p = pts.map(q => [q.x, q.y]).sort((a, b) => a[0] - b[0] || a[1] - b[1]), cr = (o: number[], a: number[], b: number[]) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo: number[][] = [], up: number[][] = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (const q of p.slice().reverse()) { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  const h = [...lo.slice(0, -1), ...up.slice(0, -1)];
+  let a = 0;
+  h.forEach((q, i) => { const w = h[(i + 1) % h.length]; a += q[0] * w[1] - w[0] * q[1]; });
+  return Math.abs(a) / 2;
+}
+/** A dot's least share of its box (a diamond's is half), and of its hull, where it fills less than a round one. */
+const DIAMOND_FILL = 0.45, DIAMOND_HULL = 0.85;
 /** A dot: a ring round one point, which grows evenly; or a square one (Oswald's), a small blob about as wide as it
-    is tall that fills most of its box, its skeleton the cross of its diagonals. */
+    is tall that fills most of its box, its skeleton the cross of its diagonals; or a diamond, most of its hull. */
 function markDot(bones: Bone[], ctx: Ctx, alone: boolean, typical: number) {
   let cx = 0, cy = 0, x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const b of bones) { cx += b.ax; cy += b.ay; x0 = Math.min(x0, b.x); x1 = Math.max(x1, b.x); y0 = Math.min(y0, b.y); y1 = Math.max(y1, b.y); }
   cx /= bones.length; cy /= bones.length;
   const bw = x1 - x0, bh = y1 - y0, area = Math.abs(signedArea(bones));
-  const blob = alone && bw > 0 && bh > 0 && bw / bh < 1.6 && bh / bw < 1.6 && Math.max(bw, bh) < ctx.cap * 0.3 && area > bw * bh * 0.6;
+  // (or a diamond, Cathedral's, half its box, its sides a little hollow: most of its hull)
+  const box = alone && bw > 0 && bh > 0 && bw / bh < 1.6 && bh / bw < 1.6 && Math.max(bw, bh) < ctx.cap * 0.3;
+  const blob = box && (area > bw * bh * 0.6 || (area > bw * bh * DIAMOND_FILL && area > DIAMOND_HULL * hullArea(bones)));
   if (blob || Math.max(...bones.map(b => Math.hypot(b.ax - cx, b.ay - cy))) < 0.35 * typical) for (const b of bones) { b.dot = true; b.corner = false; b.cap = false; }
 }
 
