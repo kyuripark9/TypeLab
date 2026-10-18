@@ -224,7 +224,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    one the curve comes into shallower than `ARCH_STEEP`, a geometric q's, and a notch between curves, less and less as
    that lies past `ARCH_REACH` of its stroke: its corner, carried along a ray to the join's round, ran level a way out
    from the stem and the arch turned up from there, a ledge), the round inside the join drawn again from the stem's side
-   to the curve as full as the design's in the corner they make now (`stretchRounds`, not `carryFillets`), a curve run
+   to the curve as full as the design's in the corner they make now (`stretchRounds`, not `carryFillets`; in a font with
+   serifs, any such round in a counter, met again or not, its curve thinner than `STRETCH_HAIR` of the stem, less and less
+   where the two, as moved, meet further out along both than the design's did, `ROUND_GROW`: a fat face's counter's
+   round under its bowl's top came out an S at Regular), a curve run
    on through the join plain at both ends moved as its ends are, eased along it (a geometric q's counter by its stem,
    bumped where the join's rounds took its middle in further), and its joins not drawn again (`ARCHED`). A letter those
    break but that comes out whole without them is moved without them (`movedWay`, `ARCH_OFF`: a humanist's b, d, m, p,

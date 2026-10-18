@@ -2730,6 +2730,10 @@ const CROTCH_BEND = Math.cos(15 * Math.PI / 180);
     all past ARCH_REACH[1]. And where stretchRounds reads a corner of two lines, they cross at more than ARCH_TURN (sine). */
 const ARCH_RUN = 6, ARCH_FROM = 2, ARCH_UPRIGHT = 0.9, ARCH_NEAR = 0.2, ARCH_PAIR = 0.02, ARCH_SLANT = [Math.cos(75 * Math.PI / 180), Math.cos(20 * Math.PI / 180)];
 const ARCH_STEEP = Math.cos(40 * Math.PI / 180), ARCH_NECK = 0.45, ARCH_REACH = [4, 6], ARCH_TURN = 0.3, ARCH_TIGHT = 8 * Math.PI / 180, ARCH_ROUND = 0.04, ARCH_V = [Math.cos(150 * Math.PI / 180), Math.cos(30 * Math.PI / 180)];
+/** How much further out than the design's a stem's side and a curve may meet along both, the round between them met
+    again by no crotch (stretchRounds), for the round to be drawn again: wholly up to the first, less and less to none at
+    the second; and how much thinner than the stem the curve must be. */
+const ROUND_GROW = [1.5, 2], STRETCH_HAIR = 0.3;
 /** A lighter weight's round inside a join, carried whole (moveRing's carryFillets): its samples each turning away from
     the ink by at least FILLET_TURN (radians, half the turn from the sample before to the one after), FILLET_MIN in all. */
 const FILLET_TURN = 0.02, FILLET_MIN = 25 * Math.PI / 180;
@@ -4593,8 +4597,13 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       the curve: its samples, moved by the join's rounds, ran level out from the stem and turned up into the curve, a
       ledge. Drawn again from the stem's side as moved round to the curve where it runs on plain, in the corner the two
       make now, as full as the design's round is in its own; from a crotch met again, the design's piece turned and
-      scaled onto it. Only in a join whose outside crotch archCrotches meets again. */
+      scaled onto it. Only in a join whose outside crotch archCrotches meets again, or in a font with serifs. */
   function stretchRounds() {
+    // (whether this outline is a counter's, wound the other way from the letter's outside, its largest)
+    const area = (q: Bone[]) => q.reduce((t, p, i) => { const w = q[(i + 1) % q.length]; return t + p.x * w.y - w.x * p.y; }, 0);
+    const outer = rig.bones.reduce((m, q) => (Math.abs(area(q)) > Math.abs(area(m)) ? q : m), rig.bones[0]), counter = Math.sign(area(bs)) !== Math.sign(area(outer));
+    // (and its middle's height: a round under a bowl's top, over it, not one at its foot)
+    const midY = (Math.min(...bs.map(b => b.y)) + Math.max(...bs.map(b => b.y))) / 2;
     const inRun = (i: number) => { const b = bs[i]; return !b.corner && !b.straight && !b.dot && !inEnd[i] && atJoin(i); };
     const plain = (i: number, dir: number) => { for (let k = 0; k < 3; k++) { const j = md(i + dir * k), q = bs[j]; if (q.corner || q.straight || q.dot || inEnd[j] || atJoin(j)) return false; } return true; };
     for (let s = 0; s < n; s++) {
@@ -4626,9 +4635,13 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
           break;
         }
         if (!stemSide(a, -on)) continue;
-        // (only in a join an arch's or a bowl's outside crotch is met again in (archCrotches): elsewhere, an ink trap's,
-        // its round run into the stem on a thin neck, kept as it was)
-        if (!run0.some(inArchJoin)) continue;
+        // (only in a join an arch's or a bowl's outside crotch is met again in (archCrotches), or in a font with serifs where
+        // a curve under STRETCH_HAIR of the stem's thickness leaves it, a fat face's counter's round under its bowl's top,
+        // which, moved point by point, came out an S, a lump at Regular: elsewhere, an ink trap's, its round run into the
+        // stem on a thin neck, kept as it was, and a typewriter's G's, its curve as thick as its stem, as it was)
+        const thick = (i: number) => { const j = rig.thin?.near[r][i] ?? -1; return j >= 0 ? rig.thin!.s[j] : 0; };
+        const serifRound = rig.serifed() && counter && thick(md(z0 + on * 2)) < STRETCH_HAIR * thick(md(a - on * 2));
+        if (!run0.some(inArchJoin) && !serifRound) continue;
         const z = z0, D1 = bs[z], P1 = out[z], run: number[] = [];
         for (let k = 1; k < n; k++) { const j = md(a + on * k); if (j === z) break; run.push(j); }
         // (the stem's side as moved, read past the samples by the round, which the join's rounds may pull in off it, set
@@ -4651,6 +4664,13 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
         if (dl0 < 1 || dl1 < 1 || !run.length) continue;
         const Xd = corner(D0, d0x / dl0, d0y / dl0, D1, d1x / dl1, d1y / dl1), Q0 = onStem(P0), X = corner(Q0, u0x, u0y, P1, u1x, u1y);
         if (!Xd || !X) continue;
+        if (!run0.some(inArchJoin) && Xd.y < midY) continue;
+        // (but, met again by no crotch, less and less where the two lines meet further out along both than the design's did,
+        // from ROUND_GROW's first to none at its second, its stem and its curve leaving each other later: a round as full
+        // would fill the corner, a fat face's a's counter's foot where its bowl's hairline runs into its stem, a wedge at
+        // Thin; all at once, the a's ink stepped 11% at a Weight)
+        const grow = Math.min(X.t / Xd.t, X.w / Xd.w), keep = run0.some(inArchJoin) ? 1 : Math.min(1, Math.max(0, (ROUND_GROW[1] - grow) / (ROUND_GROW[1] - ROUND_GROW[0])));
+        if (keep <= 0) continue;
         const mid = bs[run[run.length >> 1]], cx = (D0.x + D1.x) / 2, cy = (D0.y + D1.y) / 2, vx = Xd.x - cx, vy = Xd.y - cy, vl = vx * vx + vy * vy;
         const f = Math.min(1, Math.max(0.3, vl > 1 ? (4 / 3) * ((mid.x - cx) * vx + (mid.y - cy) * vy) / vl : 0.55));
         // (the round from the stem's side to the curve, turned in the corner they make now, as full as the design's; each
@@ -4659,9 +4679,10 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
         const cum = [Math.hypot(bs[run[0]].x - D0.x, bs[run[0]].y - D0.y)];
         for (let k = 1; k < run.length; k++) cum.push(cum[k - 1] + Math.hypot(bs[run[k]].x - bs[run[k - 1]].x, bs[run[k]].y - bs[run[k - 1]].y));
         const total = cum[cum.length - 1] + Math.hypot(D1.x - bs[run[run.length - 1]].x, D1.y - bs[run[run.length - 1]].y);
-        run.forEach((j, k) => { const t = cum[k] / total, m = 1 - t; out[j] = { x: m * m * m * Q0.x + 3 * m * m * t * C0.x + 3 * m * t * t * C1.x + t * t * t * P1.x, y: m * m * m * Q0.y + 3 * m * m * t * C0.y + 3 * m * t * t * C1.y + t * t * t * P1.y }; arched(j); });
+        const put = (j: number, q: P) => { out[j] = { x: out[j].x + (q.x - out[j].x) * keep, y: out[j].y + (q.y - out[j].y) * keep }; };
+        run.forEach((j, k) => { const t = cum[k] / total, m = 1 - t; put(j, { x: m * m * m * Q0.x + 3 * m * m * t * C0.x + 3 * m * t * t * C1.x + t * t * t * P1.x, y: m * m * m * Q0.y + 3 * m * m * t * C0.y + 3 * m * t * t * C1.y + t * t * t * P1.y }); arched(j); });
         // (and the stem's side by the round back on its line)
-        for (let k = 0; k <= ARCH_RUN - 3; k++) { const j = md(a - on * k); out[j] = onStem(out[j]); }
+        for (let k = 0; k <= ARCH_RUN - 3; k++) { const j = md(a - on * k); put(j, onStem(out[j])); }
         break;
       }
     }
