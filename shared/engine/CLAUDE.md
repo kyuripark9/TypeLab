@@ -311,7 +311,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    growing from nothing (`rebuildJoins`). A flat edge on a line put back on it after `keepHeights`' lift
    (`snapFlatEdges`) brings the far side of the stroke running along the line back with it, and the middles `whole`
    reads (`ACROSS_MOST`, `ALONG`: put back alone, the stroke was squashed against the line by as much as a round beside
-   it had sunk, a typewriter g's ear to a unit and lost). Crumbs (`CRUMB`) go. A lighter weight's letter keeps the room
+   it had sunk, a typewriter g's ear to a unit and lost); at a lighter weight a far side facing back as moved comes
+   too, if not a corner (a serif's bracket, slanted as drawn: Oldstyle's R's foot folded). Crumbs (`CRUMB`) go. A lighter weight's letter keeps the room
    its outline took as moved, before tidying (`skinSpan`, read by `freeGlyph` past `SPAN_TOL`; not a letter drawn as
    its strokes, and between two drawings `crossfade` blends the two): a tip whose sides crossed as they thinned is cut
    off as a fold all at once, and its room went with it (Cathedral's b's foot's spur, 46 units in a step of Weight). A

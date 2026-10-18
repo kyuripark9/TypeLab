@@ -2486,7 +2486,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
     const go = d < 0 ? -(V + 0.5 * R.wn) - d : -V * (1 - d / R.reach);
     m.x += R.ox * go - R.tx * zu; m.y += R.oy * go - R.ty * zu; m.y0 += R.oy * go - R.ty * zu;
   }
-  const across = snapFlatEdges(rig, rings, mv.gy);
+  const across = snapFlatEdges(rig, rings, mv.gy, mv.lighter);
   // (and the middles of a stroke along a line, which its edge put back on the line brought back with it)
   if (across.length && how !== 'strokes') for (const run of middles) for (const m of run) {
     const a = across.find(a => Math.abs(m.x - a.x) <= STEP / 2 && m.y >= Math.min(a.y0, a.y1) && m.y <= Math.max(a.y0, a.y1));
@@ -4795,7 +4795,7 @@ function keepHeights(rig: SkinRig, rings: P[][], gy: (y: number) => number) {
     its line alone, the stroke under it was squashed against the line, a typewriter g's ear to a unit's thickness at
     Thin, where it parted from its stem and was lost (the letter 137 units narrower at once). Hands back, for each edge
     across so brought back, where it was and how far (movedOnce brings the strokes' middles there back with it). */
-function snapFlatEdges(rig: SkinRig, rings: P[][], gy: (y: number) => number): { x: number; y0: number; y1: number; dy: number }[] {
+function snapFlatEdges(rig: SkinRig, rings: P[][], gy: (y: number) => number, lighter = false): { x: number; y0: number; y1: number; dy: number }[] {
   const c = rig.ctx;
   const lines = [0, c.cap, ...(c.lower ? [c.xh, c.asc, c.desc] : [])];
   const fixes = rig.bones.map((bs, r) => bs.map((b, i) => {
@@ -4824,8 +4824,11 @@ function snapFlatEdges(rig: SkinRig, rings: P[][], gy: (y: number) => number): {
     }
     if (q < 0 || best >= most) return;
     // (and the edge it meets facing back at it, the stroke's other side: a slanted stroke's edge the ray runs up into
-    // faces off across the line)
-    const o = rig.bones[q]?.[k], back = o ? -(b.nx * o.nx + b.ny * o.ny) : 0;
+    // faces off across the line; as drawn or as moved: a serif's bracket, slanted as drawn, moves in level with the
+    // serif's foot, and left where the heights put it, the serif's root was squashed flat against the line, Oldstyle's
+    // R's foot's, which folded, the R drawn as its strokes a step lighter than Weight 0.105, 10% lighter)
+    const o = rig.bones[q]?.[k], a = rings[q][k], e = rings[q][k1], el = Math.hypot(e.x - a.x, e.y - a.y) || 1;
+    const back = Math.max(o ? -(b.nx * o.nx + b.ny * o.ny) : 0, lighter && !o?.corner ? Math.abs(b.nx * (e.y - a.y) - b.ny * (e.x - a.x)) / el : 0);
     const facing = Math.min(1, Math.max(0, (back - ALONG[0]) / (ALONG[1] - ALONG[0])));
     const g = f * along * facing * Math.min(1, (most - best) / (most * ACROSS_FADE));
     if (!g) return;

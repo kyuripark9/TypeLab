@@ -363,6 +363,17 @@ describe("TypeLab's own fonts", () => {
     for (let i = 1; i < advs.length; i++) assert.ok(Math.abs(advs[i] - advs[i - 1]) < 8, `the R's advance ${advs.map(a => a.toFixed(0)).join(', ')}`);
   });
 
+  it('keep a foot serif\'s root as thick as the move makes it where its foot goes back on the line', async () => {
+    // (its bracket's edge, slanted as drawn, left where the heights put it, the root squashed flat against the line, and
+    // Oldstyle's R's foot serif folded and went a step lighter than Weight 0.105: drawn as its strokes, 10% lighter)
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'oldstyle')!, id = STYLE_FONTS.oldstyle;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, inks: number[] = [];
+    const areaOf = (ps: { x: number; y: number }[][]) => Math.abs(ps.reduce((t, r) => t + r.reduce((u, a, i) => { const b = r[(i + 1) % r.length]; return u + a.x * b.y - b.x * a.y; }, 0) / 2, 0));
+    for (let w = 0.09; w <= 0.12 + 1e-9; w += 0.005) inks.push(areaOf(toPolys(buildFont({ ...p, weight: +w.toFixed(4) }).glyph('R')!.cmds)));
+    for (let i = 1; i < inks.length; i++) assert.ok(Math.abs(inks[i] - inks[i - 1]) < 0.05 * inks[i - 1], `the R's ink ${inks.map(a => a.toFixed(0)).join(', ')}`);
+  });
+
   it('close a pinhole a lighter weight opens little by little, not at once as it gets smaller than a crumb', async () => {
     // (a Chancery's s's loop, where its strokes cross, held 15% more ink a step of Weight heavier than 0.19, its pinhole
     // dropped as a crumb)
