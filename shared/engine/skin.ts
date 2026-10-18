@@ -835,9 +835,7 @@ const FOOT_HAIR = 0.2;
     hairline's, or, in a font with serifs, its join reads further than VERTEX_NEAR of its round from its line (a slab's
     W's apex cut flat a hundred units across); and only a join no further than VERTEX_FAR of its round from its line,
     its stub out to the line no longer than VERTEX_TIP of it (a Didone's M's point, 2.4), that stub's end's own round
-    no further off the line than VERTEX_GAP of it (a Didone's W's, cut flat on the line, its round 65 units up); a leg
-    leaning less than VERTEX_UPRIGHT across its length stands upright (an N's stem over its point) (withFeet). */
-const VERTEX_UPRIGHT = 0.15;
+    no further off the line than VERTEX_GAP of it (a Didone's W's, cut flat on the line, its round 65 units up) (withFeet). */
 const VERTEX_HAIR = 4, VERTEX_FAR = 3, VERTEX_TIP = 2.5, VERTEX_NEAR = 1.5, VERTEX_GAP = 1.1;
 /** A corner whose serif the skeleton leaves out (withFeet) is a foot only by a serif no thicker, half, than CORNER_HAIR
     of its stem's round. */
@@ -1225,28 +1223,7 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       const within = Math.hypot(J1.x - T.x, J1.y - T.y) <= T.r + tol;
       if (!within && !(Math.abs(M.x - T.x) <= Math.max(T.r, J.r) && inside(M.x, M.y))) continue;
       if (!(within && plain(tipBr[0])) && !(J.r > VERTEX_HAIR * r0)) continue;
-      // (one leg standing upright, an N's stem over its point: the vertex on the line under that stem's middle, the other
-      // leg's middle swung about its far end to meet it there, its stroke's middle meeting the stem's well up it, a stub
-      // hanging on under the diagonal)
-      const upright = runs.findIndex(R => Math.abs(R.B.x - R.A.x) < VERTEX_UPRIGHT * Math.hypot(R.B.x - R.A.x, R.B.y - R.A.y));
-      let swing: P | null = null;
-      if (upright >= 0 && (J1.y - L) * dir > 2 * r0) {
-        const U = runs[upright], y = L + dir * r0, x = U.A.x + (U.B.x - U.A.x) * (y - U.A.y) / (U.B.y - U.A.y);
-        swing = { x: x - J1.x, y: y - J1.y };
-        J1.x = x; J1.y = y;
-      }
-      runs.forEach((R, k) => {
-        let sp = R.sp;
-        if (swing && k !== upright) {
-          const d = new Float64Array(sp.length);
-          for (let m = sp.length - 2; m >= R.a; m--) d[m] = d[m + 1] + Math.hypot(sp[m + 1].x - sp[m].x, sp[m + 1].y - sp[m].y);
-          const D = d[R.a] + Math.hypot(R.A.x - M.x, R.A.y - M.y);
-          sp = sp.map((q, m) => (m < R.a ? q : { ...q, x: q.x + swing!.x * d[m] / D, y: q.y + swing!.y * d[m] / D }));
-        }
-        const lead = run(J1, sp[R.a], () => R.A.r).slice(0, -1);
-        for (const q of lead) VRUN.add(q);
-        put(R.br, [...lead, ...sp.slice(R.a)]);
-      });
+      for (const R of runs) { const lead = run(J1, R.A, () => R.A.r).slice(0, -1); for (const q of lead) VRUN.add(q); put(R.br, [...lead, ...R.sp.slice(R.a)]); }
       const tip = { x: J1.x, y: L + dir * r0 * 0.5, r: r0 * 0.5 };
       put(tipBr[0], [{ x: J1.x, y: J1.y, r: J1.r }, tip]);
       T.x = tip.x; T.y = tip.y; T.r = tip.r;
@@ -3808,6 +3785,8 @@ const HUG_PAST = 2.5, HUG_BY = 3;
     more than HAIR_ROOT times as far as the hairline's own, out to HAIR_REACH of the side's move from it, the round under
     it as much shorter as the stem is thinner, to HAIR_ROUND of it at the least. */
 const HAIR_ROOT = 4, HAIR_REACH = 2.5, HAIR_ROUND = 0.2;
+/** How much further in than its edges a round inside a join off a stem's side, held there, goes (holdBrackets). */
+const HOLD_SLACK = 4;
 
 /** A lighter weight's hairlines' roots carried with their stems' sides (moveRing's hairRoots), by the moves that put them
     there: each crotch as moved before, how far it went, the way out from the stem and how far out it carries. */
@@ -4326,7 +4305,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   });
   // (a shallow crotch met again part of the way, archMeet's w)
   for (const i of blend) { const m = archMeet(i)!; out[i] = { x: out[i].x + (m.M.x - out[i].x) * m.w, y: out[i].y + (m.M.y - out[i].y) * m.w }; meets.set(i, out[i]); arched(i); }
-  if (mv.lighter) { carryFillets(); pinPoints(); stretchRounds(); hairRoots(); }
+  if (mv.lighter) { carryFillets(); pinPoints(); stretchRounds(); hairRoots(); holdBrackets(); }
   // (how far this outline's heavy strokes thicken or thin as asked, each side by its own reading of its stroke: a
   // heavy face's sides, read with their joins taken out, often read thinner than they are and move less)
   const heavy = ends.some(e => e.ball) ? heavyShare() : 1;
@@ -4376,6 +4355,10 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       // (no longer than its edges move, give or take, or a round on the outside of a corner, one of whose edges lies on a
       // line and stays, an L's foot: point by point, it would lift off the line its edge stays on)
       if (total < FILLET_MIN || (arc > 4 * Math.max(Math.abs(d1), Math.abs(d2)) + 10 && (inside || !(flatOn(rig, bs[a]) || flatOn(rig, bs[z]))))) continue;
+      // (nor, outside, in a font without serifs, one running into a sharp corner, a stroke's cut end, which no round
+      // stands for: a grotesque s's shoulder into its cut end, 130 units round, was carried whole 77 units at Weight 0.15,
+      // its turn pinched to a hook, and not at 0.155, its edges' moves a little shorter, a step of 11% of its ink)
+      if (!inside && !rig.serifed() && (bs[a].corner || bs[z].corner)) continue;
       // (a round inside a join only: a counter's tight round, its bowl's thin top above it, is no join's; and a round on
       // the outside of a corner, an L's, turning no further than most of a half turn, which a round end does)
       if (inside ? !atJoin(md(s + ((e - s) >> 1))) : total > ROUND_MOST) continue;
@@ -4499,6 +4482,31 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
         // (and the stem's side by the round back on its line)
         for (let k = 0; k <= ARCH_RUN - 3; k++) { const j = md(a - on * k); out[j] = onStem(out[j]); }
         break;
+      }
+    }
+  }
+
+  /** A lighter weight's round inside a join running off a stem's straight side (the bracket under a hairline stem's
+      serif): no sample of it in past the stem's other side as thin as the stem is now, where it reads a heavy stroke
+      behind the stem and would go far in: held where its edges go, give or take HOLD_SLACK (a Didone's N's bracket under
+      its top serif, the diagonal beside its hairline stem thinning, went 40 units in across the stem and cut it off). */
+  function holdBrackets() {
+    const inside = (i: number) => { const b = bs[md(i)], p = bs[md(i - 1)], q = bs[md(i + 1)]; if (b.corner || b.dot || inEnd[md(i)] || b.straight) return false; return (q.tx - p.tx) * b.nx + (q.ty - p.ty) * b.ny < 0 && Math.abs(Math.atan2(p.tx * q.ty - p.ty * q.tx, p.tx * q.tx + p.ty * q.ty)) / 2 >= FILLET_TURN; };
+    for (let s = 0; s < n; s++) {
+      if (!inside(s) || inside(s - 1)) continue;
+      let e = s;
+      while (e - s < n - 1 && inside(e + 1)) e++;
+      const a = md(s - 1), z = md(e + 1);
+      for (const E of [a, z]) {
+        const B = bs[E];
+        if (B.corner || !B.straight || !stemSide(E, E === a ? -1 : 1)) continue;
+        // (the stem's other side as it is now, the way into the stem from this one)
+        const P = out[E], th = Math.max(1, 2 * (B.w + moved[E])), lim = Math.max(Math.abs(moved[a]), Math.abs(moved[z])) + HOLD_SLACK;
+        for (let k = s; k <= e; k++) {
+          const j = md(k), b = bs[j];
+          if (meets.has(j) || (out[j].x - P.x) * B.nx + (out[j].y - P.y) * B.ny < th - 1 || moved[j] >= -lim) continue;
+          out[j] = { x: base[j].x + b.nx * lim, y: base[j].y + b.ny * lim };
+        }
       }
     }
   }

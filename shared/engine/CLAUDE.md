@@ -174,9 +174,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    (`VERTEX_NEAR`, a slab's W's apex cut flat a hundred units across; `VERTEX_FAR`, `VERTEX_TIP`; and where a hairline
    meets a heavy stroke its end's round up to `VERTEX_GAP` of itself off the line, its strokes' middles meeting in its ink
    past that round, a Didone's W's cut flat, its M's point), drawn again where the strokes' middles, run on
-   straight, meet within the vertex's own end (where one leg stands upright, `VERTEX_UPRIGHT`, an N's stem over its
-   point, on the line under that stem's middle, the other leg's swung about its far end to meet it there: met well up the
-   stem, a stub hung on under the diagonal) (its cut on the line staying, its corners going in with the strokes, its
+   straight, meet within the vertex's own end (its cut on the line staying, its corners going in with the strokes, its
    join's crotches read as far out as before and from where it was, `ThinReads.vertices`; the runs in left out of the
    whole check, `vrun`; withFeet runs this alone for a font without serifs); a corner where a stem turns
    into an arm along a line, its hairline serif left out of the skeleton (`CORNER_HAIR`, a fat face's E, L, B, D, on
@@ -205,7 +203,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    corners and left a sliver; `moveRing` carries each stroke end by its turn alone (`endsOf`, `EndRun.ca`/`cb`:
    a j's tail's curve goes in as a side), a corner's round whole (`carryFillets`, but a serif's bracket on a level
    foot, a round inside running on from a stroke's end, an r's arm under its ear, or outside running into a ball, a fat
-   face's r's arm), and sets a zero-thickness point
+   face's r's arm, or, in a font without serifs, outside running into a sharp corner, a grotesque s's shoulder into its
+   cut end, carried whole at some weights and not others, pinched to a hook), and sets a zero-thickness point
    where its neighbours meet (`pinPoints`; no further out than a corner a sample or two from it: a Didone's h's foot
    serif's tip, its sides meeting at a few degrees, ran 13 units out past its corner at some weights and not others). In a font without serifs, not drawn as its strokes nor keeping its own forms
    (a blackletter's, a joined script's), a crotch where a stem's straight upright side meets an arch or a bowl leaving it
@@ -236,7 +235,11 @@ A design with `freeFont` set draws its letters from a free font instead of build
    (`HAIR_ROOTS`), its join not drawn again; only where the round is on the same outline and both run out past the carry
    before a corner (not a b's bowl, round a counter of its own, nor a fat face's n, its counter narrower than the
    carry). The crotch, met again on the skeleton's middles bending level into the stem, and the round, run in along its
-   normals, crossed: Couture's m parted from its stem at Light, its shoulders notched at Thin.
+   normals, crossed: Couture's m parted from its stem at Light, its shoulders notched at Thin. And a round inside a join
+   running off a stem's straight side has no sample in past the stem's other side as thin as the stem is now, held
+   where its edges go, give or take `HOLD_SLACK` (`holdBrackets`: a Didone's N's bracket under its top serif read the
+   diagonal beside its hairline stem, went 40 units in across the stem and cut it off, the letter mended at Thin to
+   Light).
    Joins its stems thin to under `REBUILD_BELOW` of themselves, no serif on
    them, nor, in a font with serifs where a hairline meets a heavy stroke (`REBUILD_HAIR`), one a short stroke runs
    from out to an end on or near a line, not the run on of a stroke through it (`REBUILD_TIP`, `REBUILD_THROUGH`: a fat
