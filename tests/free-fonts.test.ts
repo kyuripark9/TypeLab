@@ -374,6 +374,17 @@ describe("TypeLab's own fonts", () => {
     for (let i = 1; i < inks.length; i++) assert.ok(Math.abs(inks[i] - inks[i - 1]) < 0.06 * inks[i - 1], `the s's ink ${inks.map(a => a.toFixed(0)).join(', ')}`);
   });
 
+  it('close a corner a counter pinches off little by little, not at once as it parts from the counter', async () => {
+    // (a Cathedral's s's counters each pinch off a corner where its spine meets its bowl, smaller than a crumb, and dropped
+    // as soon as it parted, the s held 11% more ink a step of Weight heavier than 0.185)
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'blackletter')!, id = STYLE_FONTS.blackletter;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, inks: number[] = [];
+    const areaOf = (ps: { x: number; y: number }[][]) => Math.abs(ps.reduce((t, r) => t + r.reduce((u, a, i) => { const b = r[(i + 1) % r.length]; return u + a.x * b.y - b.x * a.y; }, 0) / 2, 0));
+    for (let w = 0.18; w <= 0.2 + 1e-9; w += 0.005) inks.push(areaOf(toPolys(buildFont({ ...p, weight: +w.toFixed(4) }).glyph('s')!.cmds)));
+    for (let i = 1; i < inks.length; i++) assert.ok(Math.abs(inks[i] - inks[i - 1]) < 0.08 * inks[i - 1], `the s's ink ${inks.map(a => a.toFixed(0)).join(', ')}`);
+  });
+
   it('keep a lighter weight\'s room where a tip whose sides crossed as they thinned is cut off', async () => {
     // (cut off as a fold all at once, a tip took the letter's room with it in a step of Weight: Cathedral's b's foot's spur
     // 46 units, its k's 45, its q's flag 32, Industrial's R's 28)

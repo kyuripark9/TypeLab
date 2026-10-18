@@ -2369,6 +2369,13 @@ function whole(rig: SkinRig, { out, middles, lost }: { out: Node[][]; middles: (
 /** How small a pinhole a lighter weight opens, as a share of a crumb's square, goes (movedOnce): from a crumb's down to it,
     made smaller as it is. */
 const HOLE_FADE = 0.5;
+/** How far, as a share of a crumb's side, a pinhole a counter pinched off goes from it as it closes (movedOnce). */
+const HOLE_GAP = 0.25;
+/** The narrowest gap between two rings of points: from either's points to the other's edges. */
+const gapOf = (a: P[], b: P[]) => {
+  const to = (q: P, r: P[]) => r.reduce((m, u, i) => { const v = r[(i + 1) % r.length], dx = v.x - u.x, dy = v.y - u.y, l = dx * dx + dy * dy, t = l ? Math.max(0, Math.min(1, ((q.x - u.x) * dx + (q.y - u.y) * dy) / l)) : 0; return Math.min(m, Math.hypot(q.x - u.x - t * dx, q.y - u.y - t * dy)); }, Infinity);
+  return Math.min(a.reduce((m, q) => Math.min(m, to(q, b)), Infinity), b.reduce((m, q) => Math.min(m, to(q, a)), Infinity));
+};
 /** An outline's area, signed (its curves read a few points along each). */
 const area = (c: Node[]) => signedArea(c.flatMap((n, i) => Array.from({ length: 4 }, (_, k) => bez(n, c[(i + 1) % c.length], k / 4))));
 /** Whether an outline of a moved letter is a dot of the letter's (lying in one of its dots' boxes, which a lighter weight
@@ -2524,11 +2531,16 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const outer = out.reduce((a, c) => (Math.abs(area(c)) > Math.abs(area(a)) ? c : a), out[0] ?? []), sign = Math.sign(area(outer));
   const kept = out.filter(c => dotOf(rig, c) || (grow < 1 && Math.sign(area(c)) === sign ? Math.abs(area(c)) >= CRUMB_NEAR * (rig.ctx.cap * CRUMB * lam) ** 2 || wasIn(c.map(n => ({ x: n.x, y: n.y }))) : !crumb(rig, c, lam)));
   // (but a pinhole smaller than a crumb made as much smaller about its middle as it is short of one, to nothing at HOLE_FADE
-  // of one: dropped at a crumb's size, it filled at once, a Chancery's s's loop's 3,000 square units of ink)
-  const c2 = (rig.ctx.cap * CRUMB * lam) ** 2;
+  // of one: dropped at a crumb's size, it filled at once, a Chancery's s's loop's 3,000 square units of ink; and one a
+  // counter pinched off kept as it is where it parts from it, made smaller as it moves away, to nothing HOLE_GAP of a
+  // crumb's side off it: a Cathedral's s's counters each pinch off a corner of 1,800 square units where its spine meets
+  // its bowl, and dropped as soon as it parted it filled at once)
+  const c2 = (rig.ctx.cap * CRUMB * lam) ** 2, counters = out.filter(c => Math.sign(area(c)) !== sign && Math.abs(area(c)) >= c2).map(ringOf);
   for (const c of out) {
-    const a = Math.abs(area(c)), k = (a / c2 - HOLE_FADE) / (1 - HOLE_FADE);
-    if (kept.includes(c) || Math.sign(area(c)) === sign || dotOf(rig, c) || a >= c2 || k <= 0) continue;
+    const a = Math.abs(area(c));
+    if (kept.includes(c) || Math.sign(area(c)) === sign || dotOf(rig, c) || a >= c2) continue;
+    const r = ringOf(c), gap = Math.min(Infinity, ...counters.map(o => gapOf(r, o))), k = Math.max((a / c2 - HOLE_FADE) / (1 - HOLE_FADE), 1 - gap / (HOLE_GAP * Math.sqrt(c2)));
+    if (k <= 0) continue;
     const f = Math.sqrt(k), mx = c.reduce((t, q) => t + q.x, 0) / c.length, my = c.reduce((t, q) => t + q.y, 0) / c.length, at = (v: number, m: number) => m + (v - m) * f;
     kept.push(c.map(q => ({ ...q, x: at(q.x, mx), y: at(q.y, my), ...(q.ix !== undefined ? { ix: at(q.ix, mx), iy: at(q.iy!, my) } : {}), ...(q.ox !== undefined ? { ox: at(q.ox, mx), oy: at(q.oy!, my) } : {}) })));
   }
