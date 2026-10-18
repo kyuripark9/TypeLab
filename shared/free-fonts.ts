@@ -308,8 +308,13 @@ export const INTRO_SYMBOLS = '&@#$%?!*§¶©®';
 /** The letters the opening title card sets: the name and the scramble in capitals, its symbols, and the x its x-height
     line is read off. Its fonts are cut to these (introFontUrl, tools/fonts/intro.ts), so a first visit fetches little. */
 export const INTRO_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZx' + INTRO_SYMBOLS;
-/** The own fonts the opening title card mixes in among the designs saved in My designs, a style apiece. */
-export const INTRO_OWN = ['Couture', 'Serenade', 'Timber', 'Kernel', 'Orbital', 'Dispatch'];
+/** The own fonts the opening title card mixes in among the designs saved in My designs: all but those the saved designs
+    are built on (Gumdrop, Sonnet) or read as (Bulwark, the block letters), which would show as their twins, and the
+    blackletter (Cathedral), kept off the card. */
+export const INTRO_OWN = [
+  'Couture', 'Serenade', 'Timber', 'Kernel', 'Orbital', 'Dispatch', 'Ballyhoo', 'Turnpike', 'Jotter', 'Funnies',
+  'Vellum', 'Almanac', 'Cotton', 'Parlance', 'Boardwalk', 'Compass', 'Mainline', 'Hearth'
+];
 /** Where the browser loads one of TypeLab's own fonts cut to INTRO_CHARS, for the opening title card. */
 export const introFontUrl = (id: string) => `/api/free-fonts/${encodeURIComponent(id)}/intro.otf`;
 

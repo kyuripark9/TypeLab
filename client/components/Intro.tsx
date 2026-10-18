@@ -1,20 +1,19 @@
 /* The opening title card, played on the first visit in a browser (not with reduced motion). "TypeLab" comes up in
-   the fonts saved in My designs (the designer's, but for those begun as blackletter), with now and then one of
-   TypeLab's own fonts among them, a style apiece (INTRO_OWN in shared/free-fonts.ts), and is then made as a font is
-   made:
+   the fonts saved in My designs (the designer's, but for those begun as blackletter), with TypeLab's own fonts among
+   them (INTRO_OWN in shared/free-fonts.ts), no font set twice in a line and each step bringing in fonts the one
+   before didn't set, and is then made as a font is made:
    - the name's first letter comes up, turning from font to font as a scramble of capitals, symbols here and there
      among them, grows from it to its right, each in a font of its own, and a few steps in, as it goes on growing, it
      settles into the name letter by letter from the left, in capitals as the logo sets it, so the name keeps one
      shape from here to the wordmark, the letters still in fonts of their own, set evenly by their ink and each
      staying put once settled;
-   - the whole name cuts from font to font, four cuts on one beat, each led by one font setting half its letters among
-     others in fonts of their own, some carried over from the cut before, so one cut mixes into the next, over the
-     guide lines a font is drawn on (baseline, x-height, cap height), which move to each leading font's own heights,
-     and upright ones parting its letters;
-   all of it moving one way: a letter that changes rolls through the line's slot, as on a split-flap board, the old
-   one up and out of it as the new one comes up into it from under it (in a cut, each a moment after the one on its
-   left; in the scramble, all at once and quicker, each landing before the next comes), and a letter that stays
-   slides along to its new place, the guide lines with it, all on one easing;
+   - the whole name cuts from font to font, four cuts slowing to a rest, each led by one font setting one of its
+     letters among others in fonts of their own, some carried over from the cut before, so one cut mixes into the
+     next, over the guide lines a font is drawn on (baseline, x-height, cap height), which move to each leading font's
+     own heights, and upright ones parting its letters;
+   all of it moving one way: a letter that changes rolls through the line's slot, as on a split-flap
+   board, the old one up and out of it as the new one comes up into it from under it, all at once, each landing before
+   the next comes, and a letter that stays slides along to its new place, the guide lines with it, all on one easing;
    - the name is drawn in the logo's letters, in capitals as the header sets it, as Points mode shows a letter: its
      points (corners and extremes) and handles come in along it as its outline is drawn on, the lines move to the
      logo's heights and its letters' edges, and its ink fills in, as the tagline comes in under it word by word and
@@ -58,27 +57,19 @@ const FONTS: { name: string; url: string; own?: true }[] = [
     SYMBOL's odds; and the share of those that change at each step (the rest stay, so it churns rather than flickers) */
 const NOISE = 'ABCDFGHJKMNQRSUVWXZ', SYMBOL = 0.3;
 const CHURN = 0.6;
-/** the odds a letter not set in a cut's leading font is in one of the own fonts rather than a saved one, so they come
-    up now and then */
+/** the odds a letter not set in a cut's leading font is in one of the own fonts rather than a saved one, where it can
+    be either (the own fonts are many more, and fill in where the saved ones are already in its line) */
 const OWN_ODDS = 1 / 3;
 /** the room between two letters in fonts of their own, ink to ink, in ems */
 const LETTER_GAP = 0.07;
-/** The whole name's cuts, in order, each led by a saved font, by its file's name, setting LEAD of its letters.
-    Neighbours look far apart, heavy after light, and the last, held longest, is the boldest; Lineup, the logo's,
-    leads none, as the drawing after them is its. One that didn't come (or has gone from My designs) is left out, and
-    the other fonts take the cuts left. */
+/** The whole name's cuts, in order, each led by a saved font, by its file's name, setting one of its letters.
+    Neighbours look far apart, heavy after light, and the last is the boldest; Lineup, the logo's, leads none, as the
+    drawing after them is its. One that didn't come (or has gone from My designs) is left out, and the other fonts
+    take the cuts left. */
 const CUTS = ['nodes', 'my-chunky-rounded', 'hand-hex', 'ink-trap-display'], LOGO_FONT = 'lineup';
-/** how long each cut shows, long enough for its letters to land (.intro-roll's .3s in styles.css, and the stagger)
-    and stand a moment, the last held longest, and how far apart, in ms, its letters that change start rolling, from
-    the left */
-const CUT_MS = 450, LAST_MS = 550, STAGGER = 14;
 /** The slot the name's letters roll through, in ems over and under the baseline: what a letter draws outside it is
     cut off, so it is roomy, and .intro-roll's travel in styles.css carries a letter clear of it. */
 const SLOT = [1.3, 0.55] as const;
-/** the share of the name's letters a cut's leading font sets, at places drawn afresh each cut; the rest are each in a
-    font of their own, a letter keeping the one it had the cut before by CHURN's odds, so one cut mixes into the next,
-    but never for two cuts running, so no font stays long */
-const LEAD = 0.5;
 /** how long to wait for the fonts, how much longer for the own fonts once the saved ones and the drawing's letters
     have come (the page fetches those alongside the app's code, vite.config.ts's introPreload, and the own ones only
     after it, so on a slow connection the card plays without them rather than wait), and the fewest fonts to play with
@@ -86,12 +77,15 @@ const LEAD = 0.5;
 const WAIT_MS = 900, OWN_GRACE = 250, FEWEST = 3;
 /** a frame at 60 Hz, in ms */
 const FRAME = 1000 / 60;
-/** each step of the scramble, five frames at 60 Hz, a little longer than its characters' roll and slide
-    (.intro-roll.quick and .intro-word.scramble in styles.css), so each lands and stands a frame or two before the
-    next comes (three frames, every one showed under its place in two of them and the line bobbed); how many steps it
-    grows before it starts settling (grown to its length first and then settled, its thirteen steps on one beat
-    dragged); and how long the settled name, all mixed, stays before the cuts */
-const SCRAMBLE_MS = 5 * FRAME, AHEAD = 3, SETTLED_MS = 250;
+/** Each step of the scramble, on one beat from its first letter to the cuts (the cuts on a slower beat of their own,
+    450 ms, the card slowed halfway, and the scramble on theirs dragged): five frames at 60 Hz, a little longer than a
+    letter's roll and slide (.intro-roll and .intro-at in styles.css), so each lands and stands a frame or two before
+    the next comes (three frames, every one showed under its place in two of them and the line bobbed); how many steps
+    the scramble grows before it starts settling (grown to its length first and then settled, its thirteen steps
+    dragged); and how long the last cut shows, the cuts slowing to it from the scramble's beat, each longer than the
+    one before by the same share, so the name comes to rest before the drawing (on the scramble's beat, every letter
+    changing at once, they ran by in a third of a second, faster as they went) */
+const STEP_MS = 5 * FRAME, AHEAD = 3, LAST_CUT_MS = 280;
 /** how much sooner, in ms, a step may end than its `ms`, so it ends on the frame its time falls on (half a frame at
     60 Hz): the steps change on the frames' own clock (requestAnimationFrame), where a timer's fell a frame late now
     and then, one step of the scramble a frame longer than the next */
@@ -119,18 +113,15 @@ const EDGE = 24, ONE = 6;
 
 /** One of the card's fonts, loaded: its name, the family it is set in, and whether it is an own font. */
 type Face = { name: string; family: string; own?: true };
-/** A letter in its face, `id` new each time one changes, so only what changed rolls; one of the scramble's characters
-    (`quick`) rolls in and out as quickly as its steps come, and one of the name's letters as the scramble settles
-    into them (`settled`) rolls in as quickly, and out with the cut's. */
-type Letter = { ch: string; face: Face; id: number; quick?: true; settled?: true };
+/** A letter in its face, `id` new each time one changes, so only what changed rolls. */
+type Letter = { ch: string; face: Face; id: number };
 /** A font's heights in ems: x-height and cap height, and, in the drawing, its ascender and (below zero) descender. */
 type Heights = { xh: number; cap: number; asc?: number; desc?: number };
 /** The logo's letters as tools/fonts/ui.ts writes them: its heights, and each capital's advance and outline. */
 type Logo = Pick<FreeFontData, 'cap' | 'xh' | 'glyphs'>;
 /** One step of the card for `ms`: the name in `letters`, each in its font, or `drawn` from its points; neither is the
     wordmark. `lines` are the guide lines' heights, none before the cuts and on the wordmark. The scramble is set from
-    where `from`, the settled name, starts. In a `cut`, the letters that change roll one after another from the left;
-    in the scramble, all at once. */
+    where `from`, the settled name, starts. */
 interface Step { ms: number; letters?: Letter[]; from?: Letter[]; drawn?: true; lines?: Heights; cut?: true }
 
 const any = <T,>(xs: readonly T[]) => xs[Math.floor(Math.random() * xs.length)];
@@ -190,57 +181,66 @@ function drawnHeights(data: Logo): Heights {
 function plan(fonts: Face[], drawing: Logo | null): Step[] {
   const mark: Step = { ms: HOLD_MS };
   if (fonts.length < FEWEST) return [mark];
-  // a font other than those in `not`, so letters side by side differ: an own font by OWN_ODDS, else a saved one
-  const other = (...not: (Face | undefined)[]) => {
-    const free = fonts.filter(f => !not.includes(f)), own = Math.random() < OWN_ODDS, pick = free.filter(f => !!f.own === own);
-    return any(pick.length ? pick : free);
+  const faces = (ls: Letter[]) => new Set(ls.map(l => l.face));
+  // whether a line can set its next letter in a font, `taken` the fonts it sets already (and its cut's leading one):
+  // one not among them, so no font shows twice in a line, or, where every font is among them (too few came), one
+  // unlike `left`'s, the letter's before it
+  const fits = (f: Face, taken: Set<Face>, left?: Face) => (taken.size < fonts.length ? !taken.has(f) : f !== left);
+  // a font for a letter, one that fits, and, where one is left, one the line before (`before`) didn't set, so each
+  // step brings in fonts not just seen: an own font by OWN_ODDS, else a saved one
+  const other = (taken: Set<Face>, left: Face | undefined, before: Set<Face>) => {
+    const own = Math.random() < OWN_ODDS, ok = fonts.filter(f => fits(f, taken, left)), fresh = ok.filter(f => !before.has(f));
+    return any([fresh.filter(f => !!f.own === own), fresh, ok.filter(f => !!f.own === own), ok].find(p => p.length) ?? fonts);
   };
   let made = 0;
-  const letter = (ch: string, face: Face, how: Pick<Letter, 'quick' | 'settled'> = {}): Letter => ({ ch, face, id: made++, ...how });
-  // the scramble's next `n` letters after `was`, each changed by CHURN's odds (a new one always), in a font unlike its
-  // neighbours' (`left` the font of the letter before them)
-  const stir = (was: Letter[], n: number, left?: Face) => Array.from({ length: n }).reduce<Letter[]>((ls, _, i) => {
-    const prev = ls.at(-1)?.face ?? left, kept = i < was.length && Math.random() > CHURN && was[i].face !== prev;
-    return [...ls, kept ? was[i] : letter(any([...(Math.random() < SYMBOL ? INTRO_SYMBOLS : NOISE)]), other(prev, was[i + 1]?.face), { quick: true })];
-  }, []);
+  const letter = (ch: string, face: Face): Letter => ({ ch, face, id: made++ });
+  // the scramble's next `n` letters after `head`, the letters before them in its line, each in a font that fits and
+  // changed by CHURN's odds from `was`'s, those in its places the step before (a new one always)
+  const stir = (head: Letter[], was: Letter[], n: number, before: Set<Face>) => {
+    const ls = [...head];
+    for (let i = 0; i < n; i++) {
+      const taken = faces(ls), left = ls.at(-1)?.face, w = was[i];
+      ls.push(w && Math.random() > CHURN && fits(w.face, taken, left) ? w : letter(any([...(Math.random() < SYMBOL ? INTRO_SYMBOLS : NOISE)]), other(taken, left, before)));
+    }
+    return ls.slice(head.length);
+  };
   // the scramble grows a character a step to the right of the name's first letter, which comes first, turning from
   // font to font, and from AHEAD steps in it settles from the left a letter a step, each keeping the face it settled
-  // in, the rest growing on ahead of it; the full name, all mixed, stays a moment longer
+  // in, the rest growing on ahead of it
   const scramble: Letter[][] = [], settled: Letter[] = [];
   let noise: Letter[] = [], first: Letter | undefined;
   for (let s = 0; settled.length < MARK.length; s++) {
-    const n = Math.min(s + 1, MARK.length);
+    const n = Math.min(s + 1, MARK.length), before = faces(scramble.at(-1) ?? []);
     if (s < AHEAD) {
-      first = letter(MARK[0], other(first?.face), { quick: true });
-      scramble.push([first, ...(noise = stir(noise, n - 1, first.face))]);
+      first = letter(MARK[0], other(new Set(first ? [first.face] : []), undefined, before));
+      scramble.push([first, ...(noise = stir([first], noise, n - 1, before))]);
       continue;
     }
     const rest = settled.length ? noise.slice(1) : noise;
-    settled.push(letter(MARK[settled.length], other(settled.at(-1)?.face, rest[0]?.face), { settled: true }));
-    noise = stir(rest, n - settled.length, settled.at(-1)!.face);
+    settled.push(letter(MARK[settled.length], other(faces(settled), settled.at(-1)?.face, before)));
+    noise = stir(settled, rest, n - settled.length, before);
     scramble.push([...settled, ...noise]);
   }
   // all of it set from where the settled name starts, so it grows from there and a settled letter stays put
-  const steps: Step[] = scramble.map((letters, i) => ({ ms: i < scramble.length - 1 ? SCRAMBLE_MS : SETTLED_MS, letters, from: settled }));
-  // the cuts, each mixing into the one before: its leading font sets LEAD of the letters, wherever they fall, and
-  // every other letter is in a font unlike its neighbours' and the leading one, keeping the one it had the cut before
-  // by CHURN's odds; the lines at the leading font's heights (the saved fonts lead, an own font only where too few
-  // came)
+  const steps: Step[] = scramble.map(letters => ({ ms: STEP_MS, letters, from: settled }));
+  // the cuts, each mixing into the one before: its leading font sets one of the letters, wherever it falls, and every
+  // other letter is in a font that fits, keeping the one it had the cut before by CHURN's odds; the lines at the
+  // leading font's heights (the saved fonts lead, an own font only where too few came)
   const named = new Map(fonts.map(f => [f.name, f]));
   const spare = (f: Face) => !CUTS.includes(f.name) && f.name !== LOGO_FONT;
   const cuts = [...CUTS.flatMap(c => named.get(c) ?? []), ...fonts.filter(f => !f.own && spare(f)), ...fonts.filter(f => f.own)].slice(0, CUTS.length);
   // (`carried`, the letters the cut before kept from the one before it, which change now)
   let lines = heightsOf(cuts[0] ?? fonts[0]), was = settled, carried = new Set<Letter>();
   cuts.forEach((lead, k) => {
-    const at = new Set<number>();
-    while (at.size < Math.round(MARK.length * LEAD)) at.add(Math.floor(Math.random() * MARK.length));
+    const at = Math.floor(Math.random() * MARK.length), before = faces(was);
     const letters = [...MARK].reduce<Letter[]>((ls, ch, i) => {
-      const prev = ls.at(-1)?.face, had = was[i];
-      const kept = Math.random() > CHURN && !carried.has(had) && had.face !== prev && had.face !== lead;
-      return [...ls, at.has(i) ? letter(ch, lead) : kept ? had : letter(ch, other(prev, lead))];
+      if (i === at) return [...ls, letter(ch, lead)];
+      const taken = faces(ls).add(lead), left = ls.at(-1)?.face, had = was[i];
+      const kept = Math.random() > CHURN && !carried.has(had) && fits(had.face, taken, left);
+      return [...ls, kept ? had : letter(ch, other(taken, left, before))];
     }, []);
     lines = heightsOf(lead) ?? lines;
-    steps.push({ ms: k < cuts.length - 1 ? CUT_MS : LAST_MS, letters, lines, cut: true });
+    steps.push({ ms: STEP_MS * (LAST_CUT_MS / STEP_MS) ** ((k + 1) / cuts.length), letters, lines, cut: true });
     carried = new Set(letters.filter((l, i) => l === was[i]));
     was = letters;
   });
@@ -362,22 +362,20 @@ function placed(letters: Letter[], size: number, cx: number, from?: Letter[]) {
   return { xs: xs.map(x => n1(left + x * size)), edges: edges.map(e => n1(left + e * size)) };
 }
 
-/** A letter gone from the line: where it stood, in px from the window's left, and its place in the line it left. */
-interface Gone { letter: Letter; x: number; i: number }
+/** A letter gone from the line: where it stood, in px from the window's left. */
+interface Gone { letter: Letter; x: number }
 
 /** The name's line at `size` px to the em on the baseline `base`, cut off at its slot (#intro-slot): `letters` where
     `xs` sets them, and `gone`, the letters of the step before that changed. A letter that stays slides to its new
-    place, quicker in the `scramble` steps; a new one rolls up into the line from under it, and one gone rolls up
-    out of it; in a `wave`, each a moment after the one on its left. Each letter is two groups, the outer setting it
-    along the line and the inner rolling, so the two moves never undo each other. */
-function Line({ letters, xs, gone, size, base, wave, scramble }: { letters: Letter[]; xs: number[]; gone: Gone[]; size: number; base: number; wave: boolean; scramble: boolean }) {
+    place; a new one rolls up into the line from under it, and one gone rolls up out of it, all at once. Each letter
+    is two groups, the outer setting it along the line and the inner rolling, so the two moves never undo each other. */
+function Line({ letters, xs, gone, size, base }: { letters: Letter[]; xs: number[]; gone: Gone[]; size: number; base: number }) {
   const glyph = ({ ch, face }: Letter) => <text y={base} fontSize={size} style={faceStyle(face)}>{ch}</text>;
-  const roll = (i: number) => (wave ? { animationDelay: `${i * STAGGER}ms` } : undefined);
   // the letters that stay first, so they keep their places among the elements and slide rather than start again
   return (
-    <g className={scramble ? 'intro-word scramble' : 'intro-word'} clipPath="url(#intro-slot)">
-      {letters.map((l, i) => <g key={l.id} className="intro-at" style={{ transform: `translateX(${xs[i]}px)` }}><g className={l.quick || l.settled ? 'intro-roll quick' : 'intro-roll'} style={roll(i)}>{glyph(l)}</g></g>)}
-      {gone.map(({ letter, x, i }) => <g key={`-${letter.id}`} style={{ transform: `translateX(${x}px)` }}><g className={letter.quick ? 'intro-roll out quick' : 'intro-roll out'} style={roll(i)}>{glyph(letter)}</g></g>)}
+    <g className="intro-word" clipPath="url(#intro-slot)">
+      {letters.map((l, i) => <g key={l.id} className="intro-at" style={{ transform: `translateX(${xs[i]}px)` }}><g className="intro-roll">{glyph(l)}</g></g>)}
+      {gone.map(({ letter, x }) => <g key={`-${letter.id}`} style={{ transform: `translateX(${x}px)` }}><g className="intro-roll out">{glyph(letter)}</g></g>)}
     </g>
   );
 }
@@ -495,13 +493,13 @@ export function Intro() {
   const step = phase === 'wait' ? undefined : steps[at];
   const lines = step?.lines && guidesAt(step.lines, base, size);
   // the name's line: this step's letters, and those of the step before that go (all of them as the drawing follows
-  // the last cut), in a cut or as the drawing follows rolling in a wave
-  const prev = steps[at - 1], wave = !!step?.cut || (!!step?.drawn && !!prev?.cut);
+  // the last cut)
+  const prev = steps[at - 1];
   const set = step?.letters ? placed(step.letters, size, W / 2, step.from) : undefined;
   const gone: Gone[] = [];
   if ((step?.letters || step?.drawn) && prev?.letters) {
     const was = placed(prev.letters, size, W / 2, prev.from).xs, stays = new Set(step?.letters?.map(l => l.id));
-    prev.letters.forEach((letter, i) => { if (!stays.has(letter.id)) gone.push({ letter, x: was[i], i }); });
+    prev.letters.forEach((letter, i) => { if (!stays.has(letter.id)) gone.push({ letter, x: was[i] }); });
   }
   // the upright guide lines: parting a cut's letters, and the drawing's as its font spaces them
   const columns = step?.cut ? set?.edges : step?.drawn && drawn?.length ? [...drawn.map(l => l.box[0]), drawn.at(-1)!.box[1]] : undefined;
@@ -511,7 +509,7 @@ export function Intro() {
         <svg className="intro-art" width={W} height={H} style={{ '--em': `${size}px` } as CSSProperties}>
           <defs><clipPath id="intro-slot"><rect y={n1(base - SLOT[0] * size)} width={W} height={n1((SLOT[0] + SLOT[1]) * size)} /></clipPath></defs>
           {lines && <Guides lines={lines} columns={columns} width={W} height={H} end={!!step.drawn} />}
-          {(step.letters || gone.length > 0) && <Line letters={step.letters ?? []} xs={set?.xs ?? []} gone={gone} size={size} base={base} wave={wave} scramble={!!step.from} />}
+          {(step.letters || gone.length > 0) && <Line letters={step.letters ?? []} xs={set?.xs ?? []} gone={gone} size={size} base={base} />}
           {step.drawn && drawn && <Drawing letters={drawn} size={size} />}
           {!step.letters && !step.drawn && <>
             {/* the drawing, filled, stays under the wordmark as it comes in over it, so one reads as the other */}

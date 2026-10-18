@@ -1153,15 +1153,11 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .intro-word { fill: var(--ink); }
 /* a letter rolls through the line's slot (#intro-slot, SLOT in Intro.tsx) as on a split-flap board, a new one up into
    it from under it and one gone up out of it, far enough (in --em, the name's size, set on the drawing) to be clear
-   of the slot; one that stays slides to its new place, as the guide lines do. The scramble's characters, and the
-   name's letters it settles into, roll quicker (.quick), and those staying in its line slide quicker
-   (.intro-word.scramble), each within a step of it (SCRAMBLE_MS in Intro.tsx), so it lands before the next
-   comes: sliding as a cut's, one lagged its neighbours, the gaps uneven, and a letter of the name, landing as a
-   cut's, rose slowly among characters that had landed */
-.intro-at { transition: transform .3s var(--intro-ease); }
-.intro-word.scramble .intro-at { transition-duration: .08s; }
-.intro-roll { animation: intro-roll-in .3s var(--intro-ease) both; }
-.intro-roll.quick { animation-duration: .08s; }
+   of the slot; one that stays slides to its new place, as the guide lines do. The scramble changes every five frames
+   (STEP_MS in Intro.tsx) and the cuts slow from there, so a letter rolls and slides within a step and lands before
+   the next comes */
+.intro-at { transition: transform .08s var(--intro-ease); }
+.intro-roll { animation: intro-roll-in .08s var(--intro-ease) both; }
 .intro-roll.out { animation-name: intro-roll-out; }
 .intro-mark { fill: var(--ink); font-family: var(--display); font-weight: 400; font-synthesis: none; animation: intro-mark .3s ease both; }
 /* the filled drawing stays whole under the wordmark as it comes in over it, the very same letters, and goes only once
