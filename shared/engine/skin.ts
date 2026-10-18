@@ -2745,6 +2745,8 @@ const STRAIGHT_TAPER = 3, STRAIGHT_FIT = 0.5;
 /** And how many of its samples it takes, and how long, as a share of how thick it reads, the edge must be: a short one, a
     stub's or a bar's end, its few moves read off the strokes round it, ran off at a slant. */
 const STRAIGHT_FEW = 5, STRAIGHT_LONG = 2;
+/** How near a line an edge lies on it, for a lighter weight not to move it out past it (thinMoves). */
+const ON_LINE = 2.5;
 /** A serif's bracket drawn again (carryFillets): its level edge's slope (sine) and nearness to a line (a share of the
     capitals' height), its stem's side's lean (sine), the least share of the stem kept, and the longest it may be (times
     the stem's half thickness: longer, a hook's round); drawn so from BRACKET_KEEP of its stem kept, wholly at BRACKET_BLEND
@@ -3406,6 +3408,12 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // off the serif's middle as it was, before it was drawn level: an A's leaning leg's inner serif kept 28 units thick at
   // Thin, a dark wedge under the leg
   if (byThick > 0) bs.forEach((b, i) => { if (!b.corner && !b.dot && !b.serifDx && T.across[r][i] && !crossEnd(b) && (footed[i] !== 1 || T.footStem[T.near[r][i]] !== 0)) delta[i] += (Math.max(delta[i], Math.min(0, hairKept / 2 - b.best)) - delta[i]) * byThick; });
+  // (an edge lying on a line goes no further out past it: a stem's middle run on to the line under a serif's head or
+  // foot (withFeet), its round there as thick as the stem is now, read the edge over the stem out past it, a fat face's
+  // D's top over its stem 15 units over the capitals' height, which the heights then took for the letter's top and
+  // lowered the whole letter by, its serifs put back on the line alone; a Didone's heads and feet a bump over each stem)
+  const onLines = [0, rig.ctx.cap, ...(rig.ctx.lower ? [rig.ctx.xh, rig.ctx.asc, rig.ctx.desc] : [])];
+  bs.forEach((b, i) => { if (delta[i] > 0 && !b.dot && onLines.some(L => Math.abs(b.y - L) < ON_LINE && (L === 0 || L === rig.ctx.desc ? b.ny > 0.9 : b.ny < -0.9))) delta[i] = 0; });
   // and each side goes up or down with its stroke's middle as a round is kept on its line (movedHug): across its edge,
   // as far as the edge faces that way (a stem's side not at all); not an edge level on its line, which stays there
   // (and how far each so goes, across its edge and up or down, for moveRing to meet a corner's edges again without it and
