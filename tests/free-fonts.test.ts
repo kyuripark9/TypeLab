@@ -354,6 +354,15 @@ describe("TypeLab's own fonts", () => {
     }
   });
 
+  it('bring a mended letter\'s room in toward its strokes\' near the weight it is drawn as them', async () => {
+    // (mended a step heavier than a weight it is drawn as its strokes alone at, Oldstyle's R came out 26 units narrower)
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'oldstyle')!, id = STYLE_FONTS.oldstyle;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, advs: number[] = [];
+    for (let w = 0.09; w <= 0.13 + 1e-9; w += 0.005) advs.push(buildFont({ ...p, weight: +w.toFixed(4) }).glyph('R')!.adv);
+    for (let i = 1; i < advs.length; i++) assert.ok(Math.abs(advs[i] - advs[i - 1]) < 8, `the R's advance ${advs.map(a => a.toFixed(0)).join(', ')}`);
+  });
+
   it('keep a lighter weight\'s room where a tip whose sides crossed as they thinned is cut off', async () => {
     // (cut off as a fold all at once, a tip took the letter's room with it in a step of Weight: Cathedral's b's foot's spur
     // 46 units, its k's 45, its q's flag 32, Industrial's R's 28)

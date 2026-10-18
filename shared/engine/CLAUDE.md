@@ -298,6 +298,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    off as a fold all at once, and its room went with it (Cathedral's b's foot's spur, 46 units in a step of Weight). A
    join drawn again part of the way round that breaks the letter is drawn again wholly or not at all, whichever holds
    ink nearer, within `EASED_INK` of it, else mended (Cathedral's s, its joins not drawn again, 30% heavier for a step).
+   A mended letter within `STROKES_BLEND` of a lighter weight it is drawn as its strokes at (`strokesNear`, on
+   `mendGrid`) takes its room in toward that drawing's, its drawing as it is (Oldstyle's R, 26 units at once).
    A letter that comes out broken (`whole`: its outlines and counters, a pinhole
    opened where strokes cross aside, and ink along its strokes' middles; and, moved as it is, no piece of ink more than
    a speck dropped as a crumb, `movedOnce`'s `lost`, a blackletter's spurs) is mended with those strokes laid over it

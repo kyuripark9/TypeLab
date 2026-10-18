@@ -2132,7 +2132,17 @@ function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true
   const mended = movedOnce(rig, m0, m1, 'mended');
   if (whole(rig, mended)) {
     const { s, was, by } = grows ? mendFrom(rig, m0, m1, [...first.out, ...(first.dropped ?? [])]) : { s: 1, was: [], by: 0 };
-    return s < 1 ? { ...as(draws ? movedOnce(rig, m0, m1, 'mended', false, undefined, 'eased', s, [was, mended.out], by).out : mended.out, 'mended'), grow: { s, was, full: mended.out, by } } : as(mended.out, 'mended');
+    const way = s < 1 ? { ...as(draws ? movedOnce(rig, m0, m1, 'mended', false, undefined, 'eased', s, [was, mended.out], by).out : mended.out, 'mended'), grow: { s, was, full: mended.out, by } } : as(mended.out, 'mended');
+    // (and within STROKES_BLEND of a lighter weight it is drawn as its strokes at (strokesNear), its room in toward that
+    // drawing's (skinSpan): mended a step heavier, Oldstyle's R came out 26 units narrower at once. Its room alone: drawn
+    // between the two (crossfade), a letter as thin as the lightest weights, read on its grid, lost an eighth of its ink)
+    const near = grows && draws ? strokesNear(rig, m0, m1) : null;
+    if (near) {
+      const a = SPANS.get(way.out) ?? xSpan(way.out.map(ringOf)), b = near.span, f = near.f, out = [...way.out];
+      SPANS.set(out, [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+      return { ...way, out };
+    }
+    return way;
   }
   const drawn = movedOnce(rig, m0, m1, 'strokes');
   if (whole(rig, drawn)) return as(drawn.out, 'strokes');
@@ -2162,12 +2172,7 @@ function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true
     than SUDDEN units or its ink more than SUDDEN_INK, and as much as its stems thinned, off the whole one's): there,
     growing its mending strokes in would bare the break. */
 function mendFrom(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, out: Node[][]): { s: number; was: Node[][]; by: number } {
-  const kv = m1.v / m0.v, G = MEND_BLEND / MEND_STEPS, top = Math.floor(0.999 / G), now = reachOf(out);
-  // (the measures at stems i·G of the design's: on the way from m0 through m1, which a Weight's measures keep to, a bar
-  // as thick as near enough a straight line of the stem gives, so a drag of Weight reads the same ones again, kept by
-  // them, the bar's to a quarter unit: read off the way through each m1, it came out a hair off each time)
-  const at = (i: number): SkinMeasures => { const f = (1 - i * G) / (1 - kv), m = Object.fromEntries(MEASURES.map(k => [k, m0[k] + (m1[k] - m0[k]) * f])) as unknown as SkinMeasures; m.hT = Math.round(m.hT * 4) / 4; return m; };
-  const base = MEASURES.map(k => m0[k].toFixed(3)).join(), keyOf = (i: number) => base + '|' + MEASURES.map(k => at(i)[k].toFixed(3)).join();
+  const { kv, G, top, at, keyOf } = mendGrid(m0, m1), now = reachOf(out);
   const inked = (p: { ink: number }, q: { ink: number }, by: number) => Math.abs(p.ink - q.ink) <= (SUDDEN_INK + by / kv) * Math.max(p.ink, q.ink);
   let best = Infinity, side = 0, was: Node[][] = [];
   for (const dir of [1, -1]) {
@@ -2199,6 +2204,41 @@ function mendFrom(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, out: Node[][
   }
   return { s: strokes === Infinity ? best / MEND_BLEND : Math.min(1, best / (best + Math.abs(strokes * G - kv))), was, by };
 }
+/** The grid of weights a lighter weight's mend is read on (mendFrom, strokesNear), MEND_BLEND / MEND_STEPS of the design's
+    stems apart: m1's share of the design's stems, the step, the last step under them, the measures at step i and their
+    key, kept by. (The measures at stems i·G of the design's: on the way from m0 through m1, which a Weight's measures
+    keep to, a bar as thick as near enough a straight line of the stem gives, so a drag of Weight reads the same ones
+    again, kept by them, the bar's to a quarter unit: read off the way through each m1, it came out a hair off each time.) */
+function mendGrid(m0: SkinMeasures, m1: SkinMeasures) {
+  const kv = m1.v / m0.v, G = MEND_BLEND / MEND_STEPS, top = Math.floor(0.999 / G);
+  const at = (i: number): SkinMeasures => { const f = (1 - i * G) / (1 - kv), m = Object.fromEntries(MEASURES.map(k => [k, m0[k] + (m1[k] - m0[k]) * f])) as unknown as SkinMeasures; m.hT = Math.round(m.hT * 4) / 4; return m; };
+  const base = MEASURES.map(k => m0[k].toFixed(3)).join(), keyOf = (i: number) => base + '|' + MEASURES.map(k => at(i)[k].toFixed(3)).join();
+  return { kv, G, top, at, keyOf };
+}
+
+/** How far a lighter weight's letter mended at m1 has come in toward its strokes drawn alone (movedWay), 0 to 1: as far as
+    it is within STROKES_BLEND of the design's stems of the nearest lighter weight on the grid (mendGrid) where it no
+    longer comes out whole mended and does as its strokes, over STROKES_BLEND; and how far that drawing reaches either
+    side there. Null with none. */
+function strokesNear(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): { f: number; span: [number, number] } | null {
+  const { kv, G, at, keyOf } = mendGrid(m0, m1);
+  for (let i = Math.ceil(kv / G - 1e-9) - 1; i >= 1 && kv - i * G <= STROKES_BLEND; i--) {
+    if (mendedWhole(rig, m0, at(i), keyOf(i))) continue;
+    const span = kept(rig, 's' + keyOf(i), () => { const d = movedOnce(rig, m0, at(i), 'strokes'); return whole(rig, d) ? xSpan(d.out.map(ringOf)) : null; });
+    if (!span) return null;
+    // (where between that weight and the next it stops coming out whole mended, a few halvings closer: from the grid's
+    // weight, it came in a share of the grid's step short and still stepped there)
+    let lo = i, hi = i + 1;
+    for (let k = 0; k < 3; k++) { const mid = (lo + hi) / 2; if (mid * G >= kv) break; if (mendedWhole(rig, m0, at(mid), keyOf(mid))) hi = mid; else lo = mid; }
+    const f = Math.min(1, 1 - (kv - hi * G) / STROKES_BLEND);
+    return f > 0 ? { f, span } : null;
+  }
+  return null;
+}
+/** How far above a weight where a lighter weight's letter is drawn as its strokes, in the design's stems, its mend comes
+    in toward that drawing (strokesNear). */
+const STROKES_BLEND = 0.08;
+
 /** How far from a weight where a lighter weight's letter comes out whole unmended, in the design's stems, its mending
     strokes grow in (mendFrom), and how many of the grid's weights it reads them on lie in that; how far apart its room
     unmended, in units, may lie either side of the weight it turns whole at for them to, and its ink, as a share (more,
