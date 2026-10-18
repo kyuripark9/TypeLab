@@ -206,7 +206,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    a j's tail's curve goes in as a side), a corner's round whole (`carryFillets`, but a serif's bracket on a level
    foot, a round inside running on from a stroke's end, an r's arm under its ear, or outside running into a ball, a fat
    face's r's arm), and sets a zero-thickness point
-   where its neighbours meet (`pinPoints`). In a font without serifs, not drawn as its strokes nor keeping its own forms
+   where its neighbours meet (`pinPoints`; no further out than a corner a sample or two from it: a Didone's h's foot
+   serif's tip, its sides meeting at a few degrees, ran 13 units out past its corner at some weights and not others). In a font without serifs, not drawn as its strokes nor keeping its own forms
    (a blackletter's, a joined script's), a crotch where a stem's straight upright side meets an arch or a bowl leaving it
    at a slant toward a line near by (`archCrotches`: an n's shoulder, a p's bowl's foot; two corners cut a few units apart
    one, `ARCH_PAIR`; or a tight round cut off the stem's side, `ARCH_TIGHT` a sample within `ARCH_ROUND`, over a little
@@ -242,7 +243,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    face's Z's foot, which the strokes drawn again notched; a t's stem over its bar, a book face's 4's apex still are),
    are drawn again from the strokes along the skeleton (`rebuildJoins`, within `JOIN_REACH` but for the stroke
    ends out past them, the moved outline kept where it keeps within `JOIN_GIVE` of them, never past the letter's ink,
-   `letterInk`). A letter of straight strokes about as thick as each other in a font without serifs (Gumdrop's A, E, M, N,
+   `letterInk`; in a font with serifs no stub drawn into the outside of a turn two longer strokes make, `STUB_CORNER`,
+   a typewriter's z's and 7's tops, its W's middle peak, which drawn as a stroke ran on out to the ink, a spur). A letter of straight strokes about as thick as each other in a font without serifs (Gumdrop's A, E, M, N,
    W, w, z; a grotesque's E, L, Z) is first drawn as those strokes alone, read off its sides (`linedRig`, `lineSkeleton`
    in `lines.ts`: the middle of a heavy one's ink, a w's one bar notched above and below, isn't its strokes'), each
    free end cut as the design's is, square or aslant, or round, its joins' rounds no thicker than the thinnest stroke

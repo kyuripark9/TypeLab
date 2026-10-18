@@ -3383,9 +3383,10 @@ function letterInk(rig: SkinRig, mv: MoveMap, hy = (y: number) => y) {
     stroke along its middle, as thick as `by` makes it of what it is now (as thinMoves draws it again), and a round at
     each of its ends, as outlines, before the move puts them where it does. By default a little narrower, for moveRig to
     mend a letter the moves broke, filling the break but leaving its edges, which the skeleton's unevenness would roughen,
-    where the moves put them. `drawn`, the letter drawn as its strokes alone: its joins' rounds no thicker than the
-    thinnest stroke there (but a stroke running on through), no stub into a corner; and 2, a letter read along its
-    straight strokes (linedRig), its ends cut as the design's are and its corners as the design's too. */
+    where the moves put them, in a font with serifs no stub into a corner. `drawn`, the letter drawn as its strokes
+    alone: its joins' rounds no thicker than the thinnest stroke there (but a stroke running on through); and 2, a
+    letter read along its straight strokes (linedRig), its ends cut as the design's are and its corners as the design's
+    too. */
 function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: number, uy: number) => inkAhead(rig, p, ux, uy), drawn: 0 | 1 | 2 = 0, moved = false): P[][] {
   rig.thin ??= thinReads(rig);
   const sk = thinSkeleton(rig), out: P[][] = [];
@@ -3414,15 +3415,25 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: 
       atJoin.set(node, r);
     }
   }
-  // (and, where `drawn` on the skeleton the ink's middle reads, no stub running from a join into the corner its other
-  // strokes turn round, shorter than the join's round and running on none of them: the corner's ink, drawn as a stroke,
-  // a round as wide as the corner. A skeleton read along straight strokes has none: a short stroke there is one, a
-  // squat Y's stem)
+  // (and, drawn on the ink's middle, or on the letter's skeleton in a font with serifs, no stub running from a join into
+  // the corner its other strokes turn round, shorter than the join's round and running on none of them: the corner's
+  // ink, drawn as a stroke, a round as wide as the corner, or, its free end run on to the ink, a spur out into the
+  // corner, a typewriter's z's and 7's tops, its W's middle peak, the joins drawn again over them at Thin. A skeleton
+  // read along straight strokes has none: a short stroke there is one, a squat Y's stem)
   const stub = (E: (typeof sk.edges)[number]) => {
-    if (drawn !== 1) return false;
+    if (drawn === 2) return false;
     const [t, j] = sk.nodes[E.a].edges.length === 1 ? [E.a, E.b] : [E.b, E.a], J = sk.nodes[j];
     if (sk.nodes[t].edges.length !== 1 || J.edges.length < 3 || E.len > 0.9 * J.r) return false;
     const T = sk.nodes[t], ux = T.x - J.x, uy = T.y - J.y, ul = Math.hypot(ux, uy) || 1;
+    // (drawn on the letter's skeleton, only in a font with serifs, and only into the outside of the turn two longer
+    // strokes make, its way out from between them: a casual M's top's tip, a stub too, left off, came apart)
+    if (drawn === 0) {
+      if (!rig.serifed()) return false;
+      const os = branches(sk, j).filter(br => sk.edges[br.e] !== E && sk.edges[br.e].len > 2 * J.r).map(br => leaving(sk, br, J.r));
+      if (os.length !== 2) return false;
+      const bx = -(os[0].x + os[1].x), by = -(os[0].y + os[1].y), bl = Math.hypot(bx, by);
+      if (!(bl > 0.2 && (bx * ux + by * uy) / (bl * ul) > STUB_CORNER)) return false;
+    }
     if (branches(sk, j).some(br => { if (sk.edges[br.e] === E) return false; const w = leaving(sk, br, J.r); return -(w.x * ux + w.y * uy) / ul > Math.cos(Math.PI / 6); })) return false;
     // (but not a stroke running on, which its skeleton, a heavy design's, cuts short (an &'s tail, Bulwark's): its way
     // out meets the ink's edge aslant, where a stub into a corner meets the corner, or an edge square across it)
@@ -3659,6 +3670,9 @@ function roundAt(rig: SkinRig, p: P, ux: number, uy: number, ahead: (p: P, ux: n
 const TAPER = 0.75, TAPER_TURN = 20 * Math.PI / 180;
 /** A stub into a corner meets the ink's edge ahead of it no further off square across its way than this (thinStrokes). */
 const STUB_SQUARE = 0.75;
+/** Drawn on the letter's skeleton, a stub runs into a turn's corner where it runs out from the join no further off the
+    way out from between the two strokes turning there than this (thinStrokes). */
+const STUB_CORNER = 0.9;
 /** How many points either way a stroke drawn on the skeleton the ink's middle reads is evened out over (thinStrokes). */
 const SMOOTH = 4;
 
@@ -4403,7 +4417,10 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       if (Math.abs(den) < 0.05 * Math.hypot(ux, uy) * Math.hypot(vx, vy)) return;
       const t = ((q1.x - p1.x) * vy - (q1.y - p1.y) * vx) / den, s = ((q1.x - p1.x) * uy - (q1.y - p1.y) * ux) / den;
       const P = { x: p1.x + ux * t, y: p1.y + uy * t };
-      if (t >= 0 && s >= 0 && Math.hypot(P.x - mid.x, P.y - mid.y) < Math.hypot(p1.x - q1.x, p1.y - q1.y) + 5) out[i] = P;
+      // (and no further out than a corner a sample or two from it: a Didone's h's foot serif's tip, its hairline's sides
+      // meeting at a slant of a few degrees, carried 13 units out past its corner at Weight 0.52 and not at 0.515)
+      const past = [-2, -1, 1, 2].some(d => { if (!bs[md(i + d)].corner) return false; const C = out[md(i + d)]; return (P.x - C.x) * (C.x - mid.x) + (P.y - C.y) * (C.y - mid.y) > 0; });
+      if (!past && t >= 0 && s >= 0 && Math.hypot(P.x - mid.x, P.y - mid.y) < Math.hypot(p1.x - q1.x, p1.y - q1.y) + 5) out[i] = P;
     });
   }
 
