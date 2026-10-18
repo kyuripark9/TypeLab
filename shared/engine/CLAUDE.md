@@ -174,7 +174,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    (`VERTEX_NEAR`, a slab's W's apex cut flat a hundred units across; `VERTEX_FAR`, `VERTEX_TIP`; and where a hairline
    meets a heavy stroke its end's round up to `VERTEX_GAP` of itself off the line, its strokes' middles meeting in its ink
    past that round, a Didone's W's cut flat, its M's point), drawn again where the strokes' middles, run on
-   straight, meet within the vertex's own end (its cut on the line staying, its corners going in with the strokes, its
+   straight, meet within the vertex's own end (where one leg stands upright, `VERTEX_UPRIGHT`, an N's stem over its
+   point, on the line under that stem's middle, the other leg's swung about its far end to meet it there: met well up the
+   stem, a stub hung on under the diagonal) (its cut on the line staying, its corners going in with the strokes, its
    join's crotches read as far out as before and from where it was, `ThinReads.vertices`; the runs in left out of the
    whole check, `vrun`; withFeet runs this alone for a font without serifs); a corner where a stem turns
    into an arm along a line, its hairline serif left out of the skeleton (`CORNER_HAIR`, a fat face's E, L, B, D, on
@@ -226,6 +228,14 @@ A design with `freeFont` set draws its letters from a free font instead of build
    arch, lifted by `keepHeights` only after its crotch was met again under it, came apart from its stem), its skeleton
    lifted for the rays, `crossing`, the joins drawn again and the mending strokes, a free end of them run on the design's
    way (`thinStrokes`' `moved`), a corner carried up or down whole (`hugY`), the samples by an edge level on a line not.
+   A hairline leaving a heavy stem's straight side, which goes in more than `HAIR_ROOT` times as far as the hairline's
+   own (a Didone's m, n, h, r, a script italic's h), has its root carried with that side (`hairRoots`): the crotch over
+   it, its edge and the round under it, less and less out to `HAIR_REACH` of the side's move, the round as much shorter
+   along the stem as the stem is thinner (`HAIR_ROUND` at the least), the skeleton's middles there with them
+   (`HAIR_ROOTS`), its join not drawn again; only where the round is on the same outline and both run out past the carry
+   before a corner (not a b's bowl, round a counter of its own, nor a fat face's n, its counter narrower than the
+   carry). The crotch, met again on the skeleton's middles bending level into the stem, and the round, run in along its
+   normals, crossed: Couture's m parted from its stem at Light, its shoulders notched at Thin.
    Joins its stems thin to under `REBUILD_BELOW` of themselves, no serif on
    them, nor, in a font with serifs where a hairline meets a heavy stroke (`REBUILD_HAIR`), one a short stroke runs
    from out to an end on or near a line, not the run on of a stroke through it (`REBUILD_TIP`, `REBUILD_THROUGH`: a fat

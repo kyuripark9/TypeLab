@@ -835,7 +835,9 @@ const FOOT_HAIR = 0.2;
     hairline's, or, in a font with serifs, its join reads further than VERTEX_NEAR of its round from its line (a slab's
     W's apex cut flat a hundred units across); and only a join no further than VERTEX_FAR of its round from its line,
     its stub out to the line no longer than VERTEX_TIP of it (a Didone's M's point, 2.4), that stub's end's own round
-    no further off the line than VERTEX_GAP of it (a Didone's W's, cut flat on the line, its round 65 units up) (withFeet). */
+    no further off the line than VERTEX_GAP of it (a Didone's W's, cut flat on the line, its round 65 units up); a leg
+    leaning less than VERTEX_UPRIGHT across its length stands upright (an N's stem over its point) (withFeet). */
+const VERTEX_UPRIGHT = 0.15;
 const VERTEX_HAIR = 4, VERTEX_FAR = 3, VERTEX_TIP = 2.5, VERTEX_NEAR = 1.5, VERTEX_GAP = 1.1;
 /** A corner whose serif the skeleton leaves out (withFeet) is a foot only by a serif no thicker, half, than CORNER_HAIR
     of its stem's round. */
@@ -1223,7 +1225,28 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       const within = Math.hypot(J1.x - T.x, J1.y - T.y) <= T.r + tol;
       if (!within && !(Math.abs(M.x - T.x) <= Math.max(T.r, J.r) && inside(M.x, M.y))) continue;
       if (!(within && plain(tipBr[0])) && !(J.r > VERTEX_HAIR * r0)) continue;
-      for (const R of runs) { const lead = run(J1, R.A, () => R.A.r).slice(0, -1); for (const q of lead) VRUN.add(q); put(R.br, [...lead, ...R.sp.slice(R.a)]); }
+      // (one leg standing upright, an N's stem over its point: the vertex on the line under that stem's middle, the other
+      // leg's middle swung about its far end to meet it there, its stroke's middle meeting the stem's well up it, a stub
+      // hanging on under the diagonal)
+      const upright = runs.findIndex(R => Math.abs(R.B.x - R.A.x) < VERTEX_UPRIGHT * Math.hypot(R.B.x - R.A.x, R.B.y - R.A.y));
+      let swing: P | null = null;
+      if (upright >= 0 && (J1.y - L) * dir > 2 * r0) {
+        const U = runs[upright], y = L + dir * r0, x = U.A.x + (U.B.x - U.A.x) * (y - U.A.y) / (U.B.y - U.A.y);
+        swing = { x: x - J1.x, y: y - J1.y };
+        J1.x = x; J1.y = y;
+      }
+      runs.forEach((R, k) => {
+        let sp = R.sp;
+        if (swing && k !== upright) {
+          const d = new Float64Array(sp.length);
+          for (let m = sp.length - 2; m >= R.a; m--) d[m] = d[m + 1] + Math.hypot(sp[m + 1].x - sp[m].x, sp[m + 1].y - sp[m].y);
+          const D = d[R.a] + Math.hypot(R.A.x - M.x, R.A.y - M.y);
+          sp = sp.map((q, m) => (m < R.a ? q : { ...q, x: q.x + swing!.x * d[m] / D, y: q.y + swing!.y * d[m] / D }));
+        }
+        const lead = run(J1, sp[R.a], () => R.A.r).slice(0, -1);
+        for (const q of lead) VRUN.add(q);
+        put(R.br, [...lead, ...sp.slice(R.a)]);
+      });
       const tip = { x: J1.x, y: L + dir * r0 * 0.5, r: r0 * 0.5 };
       put(tipBr[0], [{ x: J1.x, y: J1.y, r: J1.r }, tip]);
       T.x = tip.x; T.y = tip.y; T.r = tip.r;
@@ -2327,6 +2350,17 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
       middles.push(run);
       j0 += E.pts.length;
     }
+  }
+  // (and those by a hairline's root carried with its stem's side, carried as its edges are, hairRoots)
+  const roots = HAIR_ROOTS.get(mv);
+  if (roots) for (const run of middles) for (const m of run) for (const R of roots) {
+    const d = (m.x - R.x) * R.ox + (m.y - R.y) * R.oy, along = (m.x - R.x) * R.oy - (m.y - R.y) * R.ox;
+    // (and the hairline's middle on in through where the stem's side was, which it now leaves bare, into the stem)
+    const V = Math.hypot(R.vx, R.vy);
+    if (d < -V || d >= R.reach || Math.abs(along) > 2 * R.reach) continue;
+    const u = (m.x - R.x) * R.tx + (m.y - R.y) * R.ty, zu = u > 0 && u < R.ua ? u * (1 - R.sk) : 0;
+    const go = d < 0 ? -(V + 0.5 * R.wn) - d : -V * (1 - d / R.reach);
+    m.x += R.ox * go - R.tx * zu; m.y += R.oy * go - R.ty * zu; m.y0 += R.oy * go - R.ty * zu;
   }
   const across = snapFlatEdges(rig, rings, mv.gy);
   // (and the middles of a stroke along a line, which its edge put back on the line brought back with it)
@@ -3704,6 +3738,14 @@ const MOVED_HUGS = new WeakMap<MoveMap, Float64Array | null>();
 /** How far past its line, and past the edges cut level on it, a round reaches for movedHug to keep it there. */
 const HUG_PAST = 2.5, HUG_BY = 3;
 /** Each move's joins whose crotches moveRing drew again along a stem (archMeet, stretchRounds), by node. */
+/** A lighter weight's hairline's root is carried with its stem's side (moveRing's hairRoots) where that side goes in
+    more than HAIR_ROOT times as far as the hairline's own, out to HAIR_REACH of the side's move from it, the round under
+    it as much shorter as the stem is thinner, to HAIR_ROUND of it at the least. */
+const HAIR_ROOT = 4, HAIR_REACH = 2.5, HAIR_ROUND = 0.2;
+
+/** A lighter weight's hairlines' roots carried with their stems' sides (moveRing's hairRoots), by the moves that put them
+    there: each crotch as moved before, how far it went, the way out from the stem and how far out it carries. */
+const HAIR_ROOTS = new WeakMap<MoveMap, { x: number; y: number; vx: number; vy: number; ox: number; oy: number; reach: number; tx: number; ty: number; ua: number; sk: number; wn: number }[]>();
 const ARCHED = new WeakMap<MoveMap, Set<number>>();
 /** Each move's hugMap, made when first asked for. */
 const HUGS = new WeakMap<MoveMap, (y: number) => number>();
@@ -4218,7 +4260,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   });
   // (a shallow crotch met again part of the way, archMeet's w)
   for (const i of blend) { const m = archMeet(i)!; out[i] = { x: out[i].x + (m.M.x - out[i].x) * m.w, y: out[i].y + (m.M.y - out[i].y) * m.w }; meets.set(i, out[i]); arched(i); }
-  if (mv.lighter) { carryFillets(); pinPoints(); stretchRounds(); }
+  if (mv.lighter) { carryFillets(); pinPoints(); stretchRounds(); hairRoots(); }
   // (how far this outline's heavy strokes thicken or thin as asked, each side by its own reading of its stroke: a
   // heavy face's sides, read with their joins taken out, often read thinner than they are and move less)
   const heavy = ends.some(e => e.ball) ? heavyShare() : 1;
@@ -4387,6 +4429,79 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
         run.forEach((j, k) => { const t = cum[k] / total, m = 1 - t; out[j] = { x: m * m * m * Q0.x + 3 * m * m * t * C0.x + 3 * m * t * t * C1.x + t * t * t * P1.x, y: m * m * m * Q0.y + 3 * m * m * t * C0.y + 3 * m * t * t * C1.y + t * t * t * P1.y }; arched(j); });
         // (and the stem's side by the round back on its line)
         for (let k = 0; k <= ARCH_RUN - 3; k++) { const j = md(a - on * k); out[j] = onStem(out[j]); }
+        break;
+      }
+    }
+  }
+
+  /** A lighter weight's hairline leaving a heavy stem's straight side, its own sides going in far less than the stem's
+      (HAIR_ROOT): its root, the crotch over it, its sides and the round under it, carried with the stem's side as that
+      goes in, less and less out along the hairline to HAIR_REACH of that move from the side as drawn. A Didone's m's
+      arch, its crotch met again on the skeleton's middles bending level into the stem and the round under it run in
+      along its normals, rose past its top edge and parted it from its stem. */
+  function hairRoots() {
+    for (let c = 0; c < n; c++) {
+      const b = bs[c];
+      if (!b.corner || !concaveAt(b) || meets.has(c) || pins?.has(c)) continue;
+      for (const S of [1, -1]) {
+        const C = -S;
+        if (!stemSide(md(c + S), S) || bs[md(c + C)].straight || bs[md(c + C)].corner) continue;
+        const s0 = md(c + S * 2), ms = moved[s0], mc = moved[md(c + C * 3)];
+        if (!(ms < 0 && -ms > HAIR_ROOT * Math.max(2, Math.abs(mc)))) continue;
+        const q = bs[s0], vx = q.nx * -ms, vy = q.ny * -ms, ox = -q.nx, oy = -q.ny, reach = HAIR_REACH * -ms;
+        const dist = (p: P) => (p.x - b.x) * ox + (p.y - b.y) * oy, fade = (p: P) => Math.min(1, Math.max(0, 1 - dist(p) / reach));
+        // (the round under it: where the stem's side, run on the other way past the hairline, turns off its line into a curve)
+        const up = bs[md(c + S * ARCH_RUN)], ux = up.x - b.x, uy = up.y - b.y;
+        let a = -1, best = 1.5 * reach;
+        for (let k = 0; k < n; k++) {
+          const p = bs[k];
+          if (p.corner || !p.straight || Math.abs(dist(p)) > 2 || p.nx * q.nx + p.ny * q.ny < 0.99) continue;
+          for (const on of [1, -1]) {
+            const r1 = bs[md(k + on)];
+            if (r1.corner || r1.straight || !stemSide(k, -on)) continue;
+            const d = Math.hypot(p.x - b.x, p.y - b.y);
+            if (d < best && md(k - c) !== 0 && (p.x - b.x) * ux + (p.y - b.y) * uy < 0) { best = d; a = k * 2 + (on > 0 ? 1 : 0); }
+          }
+        }
+        // (only with the round under it on this outline: a b's bowl's, round its counter, an outline of its own, isn't)
+        if (a < 0) break;
+        // (the round under it made as much shorter along the stem as the stem is thinner, HAIR_ROUND at least: carried
+        // whole, a Didone's n's at Thin ran a third of the x-height down its stem, a dark wedge)
+        const A = bs[a >> 1], tl = Math.hypot(A.x - b.x, A.y - b.y) || 1, tx = (A.x - b.x) / tl, ty = (A.y - b.y) / tl;
+        const ua = (A.x - b.x) * tx + (A.y - b.y) * ty, sk = Math.min(1, Math.max(HAIR_ROUND, 1 + ms / Math.max(1, q.w)));
+        // (both its sides run out past the carry, the hairline's edge and the round's, before any corner, and the round's
+        // without turning back down along the stem past where it leaves it: a fat face's n, its counter narrower than
+        // the carry, would carry the far stem's side with it)
+        const outer: number[] = [], inner: number[] = [], k0 = a >> 1, on = a & 1 ? 1 : -1;
+        let ok = false;
+        for (let k = 1; k < n; k++) { const j = md(c + C * k), p = bs[j]; if (p.corner) break; if (dist(p) >= reach) { ok = true; break; } outer.push(j); }
+        let end = -1;
+        if (ok) {
+          ok = false;
+          for (let k = 1; k < n; k++) {
+            const j = md(k0 + on * k), p = bs[j];
+            if (p.corner || (p.x - b.x) * tx + (p.y - b.y) * ty > ua + 2) break;
+            if (dist(p) >= reach) { ok = true; end = j; break; }
+            inner.push(j);
+          }
+        }
+        if (!ok) break;
+        let roots = HAIR_ROOTS.get(mv);
+        if (!roots) HAIR_ROOTS.set(mv, roots = []);
+        roots.push({ x: base[c].x, y: base[c].y, vx, vy, ox, oy, reach, tx, ty, ua, sk, wn: Math.max(0, q.w + ms) });
+        out[c] = { x: base[c].x + vx, y: base[c].y + vy };
+        arched(c);
+        for (const j of outer) {
+          const p = bs[j], f = fade(p);
+          out[j] = { x: base[j].x - p.nx * moved[j] + vx * f, y: base[j].y - p.ny * moved[j] + vy * f };
+          arched(j);
+        }
+        const mi = moved[end];
+        for (const j of inner) {
+          const p = bs[j], f = fade(p), u = (p.x - b.x) * tx + (p.y - b.y) * ty, zu = u > 0 ? u * (1 - sk) : 0;
+          out[j] = { x: base[j].x - p.nx * mi * (1 - f) + vx * f - tx * zu, y: base[j].y - p.ny * mi * (1 - f) + vy * f - ty * zu };
+          arched(j);
+        }
         break;
       }
     }
