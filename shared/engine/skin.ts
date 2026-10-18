@@ -2739,6 +2739,12 @@ const ARCH_STEEP = Math.cos(40 * Math.PI / 180), ARCH_NECK = 0.45, ARCH_REACH = 
 const ROUND_GROW = [1.5, 2], STRETCH_HAIR = 0.3;
 /** A lighter weight's round inside a join, carried whole (moveRing's carryFillets): its samples each turning away from
     the ink by at least FILLET_TURN (radians, half the turn from the sample before to the one after), FILLET_MIN in all. */
+/** A lighter weight's straight edge moved by the line through its samples' moves (thinMoves): how far off their middle
+    (units) they must lie, and how much nearer the line (a share of that). */
+const STRAIGHT_TAPER = 3, STRAIGHT_FIT = 0.5;
+/** And how many of its samples it takes, and how long, as a share of how thick it reads, the edge must be: a short one, a
+    stub's or a bar's end, its few moves read off the strokes round it, ran off at a slant. */
+const STRAIGHT_FEW = 5, STRAIGHT_LONG = 2;
 const FILLET_TURN = 0.02, FILLET_MIN = 25 * Math.PI / 180;
 /** A round on a letter's outside ending within this many samples of a crotch runs on into it, and is not carried as a
     corner's (carryFillets). */
@@ -3369,6 +3375,24 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     // stem's foot 58 units wider than the stem at Thin)
     const sides0 = is.filter(i => T.across[r][i]), byCrotch = (i: number) => crotch(i - 1) || crotch(i + 1);
     const sides = sides0.some(i => !byCrotch(i)) ? sides0.filter(i => !byCrotch(i)) : sides0, m = end ? 0 : mid((sides.length ? sides : is).map(i => delta[i]));
+    // (or, where its samples' moves run along it as a line, by that line, the edge kept straight: a wedge's side, a beak's
+    // or a bar's tapering to its end, which moved by the middle of its moves stayed as thick at its root as its middle
+    // thinned, a fat face's L's beak a dark wedge at Thin; the line read robustly, the middle of the slopes between
+    // every two of its samples, kept within the moves they read, and taken only where its samples' moves lie well off
+    // their middle, by more than STRAIGHT_TAPER, and within STRAIGHT_FIT of that off the line)
+    const use = sides.length >= 3 ? sides : is;
+    if (!end && use.length >= STRAIGHT_FEW && len >= STRAIGHT_LONG * mid(is.map(i => bs[i].best))) {
+      const ux = (B.x - A.x) / len, uy = (B.y - A.y) / len, t = (i: number) => (bs[i].x - A.x) * ux + (bs[i].y - A.y) * uy;
+      const slopes: number[] = [];
+      for (let p = 0; p < use.length; p++) for (let q = p + 1; q < use.length; q++) { const dt = t(use[q]) - t(use[p]); if (Math.abs(dt) > 1) slopes.push((delta[use[q]] - delta[use[p]]) / dt); }
+      const k = slopes.length ? mid(slopes) : 0, c = mid(use.map(i => delta[i] - k * t(i))), m0 = mid(use.map(i => delta[i]));
+      const off0 = mid(use.map(i => Math.abs(delta[i] - m0))), off1 = mid(use.map(i => Math.abs(delta[i] - c - k * t(i))));
+      if (off0 > STRAIGHT_TAPER && off1 < STRAIGHT_FIT * off0) {
+        const lo = Math.min(...use.map(i => delta[i])), hi = Math.max(...use.map(i => delta[i]));
+        for (const i of is) delta[i] = Math.max(lo, Math.min(hi, c + k * t(i)));
+        continue;
+      }
+    }
     for (const i of is) delta[i] = m;
   }
   // a font drawn with much contrast keeps its hairline as the weight keeps it (family.ts) all round: no side spanning its
