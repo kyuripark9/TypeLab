@@ -2715,6 +2715,9 @@ function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
 
 /** How far out from a join, in the join's own distance to the paper, the strokes leaving it read thicker for meeting there. */
 const JOIN_ZONE = 1.25;
+/** How nearly in line a stroke leaving a join runs on from a short stroke between two joins to count as running on through
+    it (the cosine; thinReads). */
+const LINK_ON = Math.cos(30 * Math.PI / 180);
 /** How square across one another, as the sine of their angle, the strokes either side of a lighter weight's crotch run
     for it to go where their edges meet again (an H's bar, a t's, a Didone's bowl into its stem, 60° and more); at a
     slant, it goes to the nearest ink of the strokes drawn again (moveRing). */
@@ -2823,17 +2826,26 @@ function thinReads(rig: SkinRig): ThinReads {
     return out;
   });
   // (a short stroke from one join to another, inside the ink where they meet, no thicker than the strokes leaving them
-  // read: a K's arms meeting just off its stem)
+  // read: a K's arms meeting just off its stem; or, where strokes leave them running on straight through it, within
+  // LINK_ON, than those: two strokes crossing, read as two joins a short stroke apart along the heavier, which, as thin as
+  // the hairline crossing it, the heavy stroke's sides by the crossing read as theirs, and they stayed: a fat face's &'s
+  // middle a blob at Regular, and an x's, an 8's waist a lump)
   sk.edges.forEach((E, e) => {
     if (!isJoin(E.a) || !isJoin(E.b) || cum[e][cum[e].length - 1] > JOIN_ZONE * Math.min(sk.nodes[E.a].r, sk.nodes[E.b].r)) return;
-    let most = Infinity;
-    for (const n of [E.a, E.b]) for (const k of sk.nodes[n].edges) {
-      if (k === e) continue;
-      const K = sk.edges[k], c = cum[k], L = c[c.length - 1], Z = Math.min(JOIN_ZONE * sk.nodes[n].r, L / 2);
-      const i = K.a === n ? Math.max(0, c.findIndex(v => v >= Z)) : c.length - 1 - Math.max(0, [...c].reverse().findIndex(v => L - v >= Z));
-      most = Math.min(most, own[k][i]);
+    let most = Infinity, on = Infinity;
+    for (const n of [E.a, E.b]) {
+      const way = leaving(sk, { e, end: E.a === n ? 'a' : 'b' }, cum[e][cum[e].length - 1]);
+      for (const k of sk.nodes[n].edges) {
+        if (k === e) continue;
+        const K = sk.edges[k], c = cum[k], L = c[c.length - 1], Z = Math.min(JOIN_ZONE * sk.nodes[n].r, L / 2);
+        const i = K.a === n ? Math.max(0, c.findIndex(v => v >= Z)) : c.length - 1 - Math.max(0, [...c].reverse().findIndex(v => L - v >= Z));
+        most = Math.min(most, own[k][i]);
+        const d = leaving(sk, { e: k, end: K.a === n ? 'a' : 'b' }, Math.max(Z, 2));
+        if (d.x * way.x + d.y * way.y < -LINK_ON) on = Math.min(on, own[k][i]);
+      }
     }
-    if (most < Infinity) own[e] = own[e].map(v => Math.min(v, most));
+    const cap = on < Infinity ? on : most;
+    if (cap < Infinity) own[e] = own[e].map(v => Math.min(v, cap));
   });
   const first = cum.map((_, e) => sk.edges.slice(0, e).reduce((a, E) => a + E.pts.length, 0));
   const legs = new Map<number, Leg[]>();

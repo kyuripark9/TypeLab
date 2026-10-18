@@ -189,7 +189,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    `FOOT_REACH`, 5.5 of the stem's round, a typewriter's K's long slab; kept on copies of the rig, `footRig`, that only the lighter weights move on: thin serifs' feet from
    stems 0.6 of the design's, slabs' from 0.4, `FOOT_UNDER`, so a Bold keeps its brackets), read once a letter
    (`thinReads`: each point's own half thickness with the joins' bulges taken out, a short stroke between two joins no
-   thicker than the strokes leaving them, and each join's stem run straight through it, `straightThrough`, a join a
+   thicker than the strokes leaving them, or than those running on straight through it where any do (`LINK_ON`: two strokes crossing, an &'s, an x's), and each join's stem run straight through it, `straightThrough`, a join a
    short stroke off it going with it, a K's arms meeting its stem; and a stroke the skeleton stops short of another it
    tapers into, `withTips`, run on to that one's middle and joined there, an italic X's hairline into its heavy stroke,
    which stood apart as the heavy one thinned, within `TIP_REACH`, no thicker there than `TIP_FINE` of it). `thinMoves` moves each side in to where a round along its middle as thick as the
