@@ -2404,9 +2404,28 @@ function whole(rig: SkinRig, { out, middles, lost }: { out: Node[][]; middles: (
     }
     return [pos, neg];
   };
-  const [p0, n0] = count(rig.contours), [p1, n1] = count(out);
-  return (p0 === p1 && n0 === n1) || (p0 === n1 && n0 === p1);
+  const [p0, n0] = count(rig.contours), [p1, n1] = count(out), as = (p: number, n: number) => (p === p1 && n === n1) || (p === n1 && n === p1);
+  // (or as many with those of its outlines touching another of theirs taken as one (touching): a script p's entry
+  // stroke, its tip on its stem's side, apart only as the stem thins away from it, and joined to it again by the strokes
+  // drawn again that mend the letter, which run over the hair between: mended, the p was read broken down to Thin, and
+  // was drawn thinned only partway, as heavy at Thin as at Weight 0.18)
+  const [pt, nt] = touching(rig);
+  return as(p0, n0) || ((pt > 0 || nt > 0) && as(p0 - pt, n0 - nt));
 }
+
+/** How many fewer the letter's outlines are, inked and counters, those touching another of theirs (within TOUCH_GAP)
+    taken as one: kept on the rig. */
+function touching(rig: SkinRig): [number, number] {
+  const kept = TOUCHES.get(rig);
+  if (kept) return kept;
+  const cs = rig.contours.filter(c => !crumb(rig, c)), rs = cs.map(ringOf), up = cs.map((_, i) => i), top = (i: number): number => (up[i] === i ? i : (up[i] = top(up[i])));
+  for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) if (Math.sign(area(cs[i])) === Math.sign(area(cs[j])) && gapOf(rs[i], rs[j]) < TOUCH_GAP) up[top(i)] = top(j);
+  const out: [number, number] = [0, 0];
+  cs.forEach((c, i) => { if (top(i) !== i) out[area(c) > 0 ? 0 : 1]++; });
+  TOUCHES.set(rig, out);
+  return out;
+}
+const TOUCHES = new WeakMap<SkinRig, [number, number]>(), TOUCH_GAP = 1;
 
 /** How small a pinhole a lighter weight opens, as a share of a crumb's square, goes (movedOnce): from a crumb's down to it,
     made smaller as it is. */
@@ -3512,8 +3531,10 @@ function rebuildJoins(rig: SkinRig, mv: MoveMap, lift: (y: number) => number, ri
   const strokes = (by: (R: number) => number) => shape(thinStrokes(rig, mv, by, undefined, 0, true).map(r => ccw(r.map(at))).filter(r => r.some(p => joins.some(j => Math.hypot(p.x - j.x, p.y - j.y) < j.r + 5))), true);
   const ink = rings.filter((_, i) => !dots[i]), wound = ink.reduce((a, r) => a + signedArea(r), 0) > 0 ? ink : ink.map(r => r.slice().reverse());
   // (and only where the letter had ink, carried where the move puts it: a lighter weight's strokes keep within it, where
-  // a round on a stroke drawn again to a corner of the letter would stand out past it, below a b's foot)
-  const was = letterInk(rig, mv);
+  // a round on a stroke drawn again to a corner of the letter would stand out past it, below a b's foot; and across paper
+  // narrower than its skeleton reads (narrowPaper), which runs the strokes on over it: a script p's bowl's hairline, up
+  // beside its stem a hair off it, the strokes drawn again from the stem cut off it there, its counter open to the paper)
+  const was = shape([...letterInk(rig, mv).polys, ...narrowPaper(rig).map(r => r.map(q => ({ x: mv.gx(q.x), y: mv.gy(q.y) })))]);
   // (the moved outline stands where it keeps within JOIN_GIVE of the strokes drawn again, so a join that came out well
   // runs on into the strokes beside it unbroken; past that, the strokes' own edges)
   const M = shape(wound, true), C0 = strokes(R => Math.max(1, R * (1 - JOIN_GIVE) - 1)), C1 = strokes(R => R * (1 + JOIN_GIVE) + 1);
@@ -3540,6 +3561,62 @@ function rayOut(rings: P[][], p: P, ux: number, uy: number) {
 function letterInk(rig: SkinRig, mv: MoveMap, hy = (y: number) => y) {
   return shape(rig.contours.map(c => c.flatMap((n, i) => Array.from({ length: 6 }, (_, k) => { const q = bez(n, c[(i + 1) % c.length], k / 6); return { x: mv.gx(q.x), y: mv.gy(hy(q.y)) }; }))));
 }
+
+/** The letter's paper narrower than its skeleton reads (THIN_CELL) between two edges of one outline facing each other
+    across it, all the way round from one to the other (a notch, a slit, a narrow crotch, to its tip; not a gap between
+    two strokes all but meeting, a script H's bar's end and its stem, the paper beyond it a counter drawn closed), as
+    strips across it wound as its ink, each side half a unit into the ink (edges on the outline's own confuse combine);
+    kept on the rig. */
+function narrowPaper(rig: SkinRig): P[][] {
+  const kept = NARROWS.get(rig);
+  if (kept) return kept;
+  const fine = rig.contours.map(c => c.flatMap((n, i) => Array.from({ length: 16 }, (_, k) => bez(n, c[(i + 1) % c.length], k / 16))));
+  const S = shape(fine), sign = Math.sign(fine.reduce((a, r) => (Math.abs(signedArea(r)) > Math.abs(a) ? signedArea(r) : a), 0));
+  // (each outline every unit along it, with how far along it each point lies, and its edges by where they are)
+  const rings = fine.map(r => r.flatMap((a, i) => { const b = r[(i + 1) % r.length], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y))); return Array.from({ length: n }, (_, k) => ({ x: a.x + (b.x - a.x) * k / n, y: a.y + (b.y - a.y) * k / n })); }));
+  const along = rings.map(r => r.reduce((s, q, i) => (s.push(i ? s[i - 1] + Math.hypot(q.x - r[i - 1].x, q.y - r[i - 1].y) : 0), s), [] as number[]));
+  const round = rings.map((r, k) => (r.length ? along[k][r.length - 1] + Math.hypot(r[0].x - r[r.length - 1].x, r[0].y - r[r.length - 1].y) : 0));
+  const cell = 4 * THIN_CELL, at = (x: number, y: number) => `${Math.floor(x / cell)} ${Math.floor(y / cell)}`, near = new Map<string, [number, number][]>();
+  rings.forEach((r, k) => r.forEach((q, j) => { const c = `${k} ${at(q.x, q.y)}`; if (!near.has(c)) near.set(c, []); near.get(c)!.push([k, j]); }));
+  const out: P[][] = [];
+  rings.forEach((r, k) => {
+    // (each point's nearest across paper on its outline, within THIN_CELL, further round it than the two are apart: not
+    // its neighbours round a turn)
+    const facing = r.map((a, i) => {
+      let best: { b: P; j: number } | null = null, bd = THIN_CELL;
+      const cx = Math.floor(a.x / cell), cy = Math.floor(a.y / cell);
+      for (let gx = cx - 1; gx <= cx + 1; gx++) for (let gy = cy - 1; gy <= cy + 1; gy++) for (const [, j] of near.get(`${k} ${gx} ${gy}`) ?? []) {
+        const u = r[j], v = r[(j + 1) % r.length], dx = v.x - u.x, dy = v.y - u.y, l = dx * dx + dy * dy, f = l ? Math.max(0, Math.min(1, ((a.x - u.x) * dx + (a.y - u.y) * dy) / l)) : 0;
+        const b = { x: u.x + dx * f, y: u.y + dy * f }, d = Math.hypot(b.x - a.x, b.y - a.y);
+        if (!(d < bd && d > 0.05)) continue;
+        const s = Math.abs(along[k][i] - along[k][j] - f * Math.sqrt(l));
+        if (Math.min(s, round[k] - s) < 2 * d + 1) continue;
+        if ([0.25, 0.5, 0.75].some(t => S.has(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t))) continue;
+        bd = d; best = { b, j };
+      }
+      return best;
+    });
+    // (and the outline narrow so all the way round between the two, the shorter way, but for a few points at a tip)
+    const none = facing.reduce((s, q, i) => (s.push((i ? s[i - 1] : 0) + (q ? 0 : 1)), s), [] as number[]), n = r.length;
+    const gaps = (i: number, j: number) => (i <= j ? none[j] - (i ? none[i - 1] : 0) : none[n - 1] - none[i - 1] + none[j]);
+    const across = facing.map((q, i) => { if (!q) return null; const [lo, hi] = (q.j - i + n) % n <= n / 2 ? [i, q.j] : [q.j, i]; return gaps(lo, hi) <= NARROW_TIP ? q.b : null; });
+    // (a strip along each run of points with paper so across)
+    const start = across.findIndex((b, i) => b && !across[(i - 1 + r.length) % r.length]);
+    if (start < 0) return;
+    const into = (a: P, b: P) => { const l = Math.hypot(b.x - a.x, b.y - a.y) || 1; return { x: a.x - (b.x - a.x) / l * 0.5, y: a.y - (b.y - a.y) / l * 0.5 }; };
+    for (let s = 0, i = start; s < r.length; ) {
+      const run: number[] = [];
+      while (across[i] && s < r.length) { run.push(i); i = (i + 1) % r.length; s++; }
+      if (!run.length) { i = (i + 1) % r.length; s++; continue; }
+      if (run.length < 2) continue;
+      const q = [...run.map(j => into(r[j], across[j]!)), ...run.slice().reverse().map(j => into(across[j]!, r[j]))];
+      out.push(Math.sign(signedArea(q)) === sign ? q : q.reverse());
+    }
+  });
+  NARROWS.set(rig, out);
+  return out;
+}
+const NARROWS = new WeakMap<SkinRig, P[][]>(), NARROW_TIP = 3;
 
 /** A lighter weight's letter drawn again from its skeleton (thinReads, its stems run straight through its joins): each
     stroke along its middle, as thick as `by` makes it of what it is now (as thinMoves draws it again), and a round at

@@ -396,6 +396,19 @@ describe("TypeLab's own fonts", () => {
     for (let i = 1; i < inks.length; i++) assert.ok(Math.abs(inks[i] - inks[i - 1]) < 0.08 * inks[i - 1], `the s's ink ${inks.map(a => a.toFixed(0)).join(', ')}`);
   });
 
+  it('thin a script p down to Thin, its bowl\'s hairline joined to its stem across the hair between and its entry stroke on it', async () => {
+    // (the strokes drawn again at its joins cut off the bowl's hairline where it runs up beside the stem a hair off it, and
+    // mended, its entry stroke, its tip on the stem, joined to it: read broken, Sonnet's p was as heavy at Thin as at 0.18)
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'serifitalic')!, id = STYLE_FONTS.serifitalic;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, inks: number[] = [];
+    const areaOf = (ps: { x: number; y: number }[][]) => Math.abs(ps.reduce((t, r) => t + r.reduce((u, a, i) => { const b = r[(i + 1) % r.length]; return u + a.x * b.y - b.x * a.y; }, 0) / 2, 0));
+    for (let w = 0; w <= 0.18 + 1e-9; w += 0.02) inks.push(areaOf(toPolys(buildFont({ ...p, weight: +w.toFixed(4) }).glyph('p')!.cmds)));
+    const all = inks.map(a => a.toFixed(0)).join(', ');
+    assert.ok(inks[0] < 0.6 * inks[inks.length - 1], `the p's ink ${all}`);
+    for (let i = 1; i < inks.length; i++) assert.ok(Math.abs(inks[i] - inks[i - 1]) < 0.12 * inks[i - 1], `the p's ink ${all}`);
+  });
+
   it('keep a lighter weight\'s room where a tip whose sides crossed as they thinned is cut off', async () => {
     // (cut off as a fold all at once, a tip took the letter's room with it in a step of Weight: Cathedral's b's foot's spur
     // 46 units, its k's 45, its q's flag 32, Industrial's R's 28)

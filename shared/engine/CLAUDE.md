@@ -257,7 +257,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    face's Z's foot, which the strokes drawn again notched; a t's stem over its bar, a book face's 4's apex still are),
    are drawn again from the strokes along the skeleton (`rebuildJoins`, within `JOIN_REACH` but for the stroke
    ends out past them, the moved outline kept where it keeps within `JOIN_GIVE` of them, never past the letter's ink,
-   `letterInk`; in a font with serifs no stub drawn into the outside of a turn two longer strokes make, `STUB_CORNER`,
+   `letterInk`, but over paper narrower than the skeleton reads, `THIN_CELL`, from one side of an outline round to
+   the other, `narrowPaper` (a script p's bowl's hairline up beside its stem a hair off it: cut off the stem there, its
+   counter opened; not a gap between two strokes all but meeting, a script H's bar's end and its stem); in a font with serifs no stub drawn into the outside of a turn two longer strokes make, `STUB_CORNER`,
    a typewriter's z's and 7's tops, its W's middle peak, which drawn as a stroke ran on out to the ink, a spur). A letter of straight strokes about as thick as each other in a font without serifs (Gumdrop's A, E, M, N,
    W, w, z; a grotesque's E, L, Z) is first drawn as those strokes alone, read off its sides (`linedRig`, `lineSkeleton`
    in `lines.ts`: the middle of a heavy one's ink, a w's one bar notched above and below, isn't its strokes'), each
@@ -330,7 +332,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    (Chancery's s's loop); one a counter pinches off is kept as it is where it parts, smaller as it moves away, to
    nothing `HOLE_GAP` of a crumb's side off the counter (Cathedral's s's corners where its spine meets its bowls).
    A letter that comes out broken (`whole`: its outlines and counters, a pinhole
-   opened where strokes cross aside, and ink along its strokes' middles; and, moved as it is, no piece of ink more than
+   opened where strokes cross aside, those touching another of theirs as drawn taken as one if it joins them,
+   `touching`, `TOUCH_GAP`, a script p's entry stroke's tip on its stem; and ink along its strokes' middles; and, moved as it is, no piece of ink more than
    a speck dropped as a crumb, `movedOnce`'s `lost`, a blackletter's spurs) is mended with those strokes laid over it
    (`thinStrokes`, each run on at its free end to the moved letter's ink, but a foot's stem, which ends on its line;
    none of them, nor the middles `whole` reads, past a foot's edge, where `keepHeights`' lift, keeping a round's
