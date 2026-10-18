@@ -199,7 +199,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    thin apart, `thickShare` over `THICK_APART`, not all at once at 0.02 apart), a side by a join or a crotch along a ray to those rounds' ink (read
    only when a round could stop it, `stops`, through `pointGrid`/`inBand`), a crotch where its two strokes' edges
    cross nearest the join (`crossing`; a foot's own corner nearer its line than the join is none), an edge cut across its stroke and facing the way it runs staying (a stem's
-   square foot on a line, `FLAT_END`), a straight edge moved whole by the samples spanning its stroke, not one by a crotch, which stands in the rounds of the stroke across it (a Didone's d's stem's side under its bowl), a level foot's samples in along their normals to its shape as the move thins it
+   square foot on a line, `FLAT_END`), a straight edge moved whole by the samples spanning its stroke, not one by a crotch, which stands in the rounds of the stroke across it (a Didone's d's stem's side under its bowl), a slit's tip (an inside round turning most of a half turn) carried no further than the strokes drawn again ahead of it where it already lies at them (`thinAhead`, `SLIT_NEAR`: a fat face's g's slit between bowl and loop, carried into its link), a level foot's samples in along their normals to its shape as the move thins it
    (`intoFoot`, `byFoot`, not eased with their neighbours as other moves are, a leaning leg's bracket's rays running far
    in within a few samples: its stem's round run down to the line, each serif a band as thick as it is now standing on its
    edge, a serif's straight edges out past its stem's side among them whichever middle they read, and a straight edge it

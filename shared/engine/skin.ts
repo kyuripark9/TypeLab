@@ -2739,6 +2739,8 @@ const ROUND_GROW = [1.5, 2], STRETCH_HAIR = 0.3;
 const FILLET_TURN = 0.02, FILLET_MIN = 25 * Math.PI / 180;
 /** The most a round on the outside of a corner, carried whole, turns (carryFillets): more is a stroke's round end. */
 const ROUND_MOST = 135 * Math.PI / 180;
+/** A slit's tip (carryFillets): within how far of the strokes drawn again ahead of it, and how far past them it goes. */
+const SLIT_NEAR = 4, SLIT_PAST = 2;
 /** The fewest samples a flat edge along a line runs (flatOn): 40 units. */
 const FLAT_RUN = 8;
 /** How long, as many times the stroke it closes is thick, a flat edge along a line may run and be that stroke's end
@@ -4136,6 +4138,21 @@ function inkAhead(rig: SkinRig, p: P, ux: number, uy: number) {
   return best;
 }
 
+/** How far from p along (ux, uy) the strokes a lighter weight draws again begin (thinMoves' rounds, each as thick as its
+    stroke is now). */
+function thinAhead(rig: SkinRig, mv: MoveMap, p: P, ux: number, uy: number) {
+  const T = rig.thin!, floor = hairFloor(rig, mv);
+  let best = Infinity;
+  for (let j = 0; j < T.x.length; j++) {
+    const R = Math.max(0, mv.weighs({ tx: T.tx[j], ty: T.ty[j], w: T.s[j], serifDx: 0, dot: false } as Bone) * T.s[j], Math.min(T.s[j], floor));
+    const vx = T.x[j] - p.x, vy = T.y[j] - p.y, along = vx * ux + vy * uy, off = vx * vx + vy * vy - along * along;
+    if (off >= R * R) continue;
+    const h = Math.sqrt(R * R - off);
+    if (along + h > 0) best = Math.min(best, Math.max(0, along - h));
+  }
+  return best;
+}
+
 /** A straight edge of a letter drawn in Points as skinEdges moves it: its ends, its inward normal, how far its start
     and end move out (in, negative), and, where it bends, the places along it (0 to 1) and how far each moves out. */
 interface EdgeMove { a: P; b: P; nx: number; ny: number; da: number; db: number; bends?: { t: number; d: number }[] }
@@ -4574,6 +4591,14 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       const den = A.tx * Z.ty - A.ty * Z.tx, u = ((Z.x - A.x) * Z.ty - (Z.y - A.y) * Z.tx) / (den || 1e-9), C = { x: A.x + A.tx * u, y: A.y + A.ty * u };
       const far = Math.min(slant ? Infinity : lim, 0.7 * inkAhead(rig, C, mx / (l || 1), my / (l || 1)) || lim);
       if (l > far) { mx *= far / l; my *= far / l; }
+      // (and a round turning most of a half turn, a slit's tip between two strokes, whose middle lies within SLIT_NEAR of
+      // the strokes drawn again ahead of it, a third stroke closing the slit: no further than SLIT_PAST past them, where,
+      // carried on to where its edges meet again, it cut into that stroke: a fat face's g's slit between its bowl and its
+      // loop, its edges near parallel, carried 64 units along them into its link at Regular, broke the letter)
+      if (inside && total > ROUND_MOST && rig.thin) {
+        const L = Math.hypot(mx, my), m = md(s + ((e - s) >> 1)), ahead = thinAhead(rig, mv, base[m], mx / (L || 1), my / (L || 1));
+        if (ahead < SLIT_NEAR && L > ahead + SLIT_PAST) { mx *= (ahead + SLIT_PAST) / L; my *= (ahead + SLIT_PAST) / L; }
+      }
       for (let k = s; k < e; k++) { const j = md(k); out[j] = { x: base[j].x + mx, y: base[j].y + my }; }
     }
     }
