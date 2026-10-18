@@ -204,7 +204,20 @@ A design with `freeFont` set draws its letters from a free font instead of build
    a j's tail's curve goes in as a side), a corner's round whole (`carryFillets`, but a serif's bracket on a level
    foot, a round inside running on from a stroke's end, an r's arm under its ear, or outside running into a ball, a fat
    face's r's arm), and sets a zero-thickness point
-   where its neighbours meet (`pinPoints`). Joins its stems thin to under `REBUILD_BELOW` of themselves, no serif on
+   where its neighbours meet (`pinPoints`). In a font without serifs, not drawn as its strokes, a crotch where a stem's
+   straight upright side meets an arch or a bowl leaving it at a slant toward a line near by (`archCrotches`: an n's
+   shoulder, a p's bowl's foot, two corners cut a few units apart one, `ARCH_PAIR`; not an ink trap, its neck under
+   `ARCH_NECK` of the curve's stroke, a monospace's d) is met again where the two edges as moved meet (`archMeet`; one the
+   curve comes into shallower than `ARCH_STEEP`, a geometric q's, less and less as that lies past `ARCH_REACH` of its
+   stroke: its corner, carried along a ray to the join's round, ran level a way out from the stem and the arch turned up
+   from there, a ledge), the round inside the join drawn again from the stem's side to the curve as full as the design's
+   in the corner they make now (`stretchRounds`, not `carryFillets`), and its joins not drawn again (`ARCHED`). Such a
+   letter keeps its rounds on a line where it also stands level on it (`movedHug`, hugMap's lift at those lines alone,
+   from a stroke's thickness short of the crotch out and only on the strokes joined to it: an n's arch sank under the
+   x-height its stem's top stays on, 37 units at Mainline's Thin, which `keepHeights`, its top already on the line, left
+   so), its skeleton lifted for the rays, `crossing`, the joins drawn again and the mending strokes, a free end of them
+   run on the design's way (`thinStrokes`' `moved`), a corner carried up or down whole (`hugY`).
+   Joins its stems thin to under `REBUILD_BELOW` of themselves, no serif on
    them, nor, in a font with serifs where a hairline meets a heavy stroke (`REBUILD_HAIR`), one a short stroke runs
    from out to an end on or near a line, not the run on of a stroke through it (`REBUILD_TIP`, `REBUILD_THROUGH`: a fat
    face's Z's foot, which the strokes drawn again notched; a t's stem over its bar, a book face's 4's apex still are),
