@@ -3683,7 +3683,7 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: 
       const ax = (p.x - a.x) / la, ay = (p.y - a.y) / la, bx = (b.x - p.x) / lb, by2 = (b.y - p.y) / lb, k = ax * by2 - ay * bx > 0 ? 1 : -1;
       const nax = ay * k, nay = -ax * k, nbx = by2 * k, nby = -bx * k, ml = Math.hypot(nax + nbx, nay + nby), R = Math.max(Ra, Rb);
       // (a turn too slight to cross its sides at a point, a bend parted along a stroke all but straight, a round)
-      if (ml < 1e-3 || Math.abs(ax * by2 - ay * bx) < 1e-3) { out.push(round(p, R)); continue; }
+      if (ml < 1e-3 || Math.abs(ax * by2 - ay * bx) < TURN_ROUND) { out.push(round(p, R)); continue; }
       const ux = (nax + nbx) / ml, uy = (nay + nby) / ml, half = Math.sin(Math.acos(Math.max(-1, Math.min(1, -(ax * bx + ay * by2)))) / 2);
       // (the design's corner's round: how far short of the point its sides would make the outline crosses the way out)
       const rho = Math.min(Ra, Rb, roundAt(rig, p, ux, uy, ahead) ? Math.max(0, Math.min(p.s, (p.s / half - ahead(p, ux, uy)) / (1 / half - 1))) * R / p.s : 0);
@@ -3837,6 +3837,9 @@ const EVEN_SPAN = 1.1, EVEN_CELLS = 6, EVEN_TURN = 50 * Math.PI / 180;
 const MITRE_MOST = 8;
 /** How far in from a turn drawn as strokes, as a share of its round, the piece drawing its outside reaches (thinStrokes). */
 const TURN_IN = 0.5;
+/** The least turn (its sine) of a stroke drawn as strokes whose outside is mitred (thinStrokes): slighter, a round, its sides,
+    a little unlike in thickness, all but parallel and crossing far off. */
+const TURN_ROUND = Math.sin(15 * Math.PI / 180);
 
 /** Point j of a lighter weight's skeleton (thinReads), and the stroke's half thickness there now, as the strokes drawn
     again have it (moved with the letter's heights after, which carry a stroke along a line back to it). */

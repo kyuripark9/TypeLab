@@ -265,7 +265,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    there (but a stroke running on through), a turn's outside cornered as the design's is, mitred or round as round for
    the stroke's thickness (`roundAt`), the piece drawing it reaching `TURN_IN` of its round in from the turn so it
    overlaps both strokes (along their sides, a hair apart, it left a slit: a grotesque w's flat vertex split 27 units
-   up), round where its sides meet further off than `MITRE_MOST` of its round (a stroke
+   up), round where it turns less than `TURN_ROUND` (its sides, a little unlike in thickness, crossing two rounds off: a
+   sliver out of a squircle's b's foot at one Weight) or where its sides meet further off than `MITRE_MOST` of its round (a stroke
    all but doubling back, or all but straight: a wood type's q's stem's mitre, its sides meeting thousands of units out,
    clipped to the ink, a wedge); a stroke whose sides run on out past another's is read crossing it (a #'s bars),
    and two whose middles meet a little past a corner the design cuts square or blunt meet there brought in between them
