@@ -18,7 +18,7 @@ import { skeleton } from '../shared/engine/scan';
 import { lineSkeleton } from '../shared/engine/lines';
 import { SKIN_KEYS, skinFollows, skinRig } from '../shared/engine/skin';
 import { familyMember } from '../shared/family';
-import { OLD_FONTS, OWN_FAMILIES, STYLE_FONTS, isOwnFont, nearestFont, parseFontId } from '../shared/free-fonts';
+import { INTRO_CHARS, INTRO_OWN, OLD_FONTS, OWN_FAMILIES, STYLE_FONTS, fontId, isOwnFont, nearestFont, parseFontId } from '../shared/free-fonts';
 import { DEFAULTS, FREE_AT_KEYS, freeAtOf, sanitizeParams, xHeightOfRatio, xHeightRatio, type Params } from '../shared/params';
 import { createApp } from '../server/app';
 import { DesignStore } from '../server/db';
@@ -555,6 +555,18 @@ describe("TypeLab's own fonts", () => {
     for (const old of Object.keys(OLD_FONTS)) assert.ok(!parseFontId(`${old}:400`), `${old} is no longer offered`);
   });
 
+  it('mix a style apiece into the opening title card, never the blackletter, each with every letter it sets', async () => {
+    const fonts = new FreeFonts(null, noFetch), black = parseFontId(STYLE_FONTS.blackletter)?.family;
+    assert.ok(INTRO_OWN.length > 0);
+    for (const family of INTRO_OWN) {
+      const o = OWN_FAMILIES[family];
+      assert.ok(o, `${family} is one of the own fonts`);
+      assert.notEqual(family, black, 'its letters read as another script');
+      const data = await fonts.load(fontId({ family, weight: o.weight, italic: o.italic }));
+      for (const ch of INTRO_CHARS) assert.ok(data.glyphs[ch]?.[1].length, `${family} draws ${ch}`);
+    }
+  });
+
   it('give a family in one weight, or only in italic, that font whatever is asked', () => {
     assert.equal(nearestFont('Mainline', 900, true), 'Mainline:600');
     assert.equal(nearestFont('Sonnet', 700, false), 'Sonnet:400i');
@@ -800,6 +812,10 @@ describe("TypeLab's own fonts", () => {
       assert.match(names.license?.en ?? '', /SIL OPEN FONT LICENSE Version 1\.1/, 'and the licence');
       assert.ok(f.charToGlyph('a').path.commands.length > 0, 'its letters are in it');
       assert.equal((await fetch(`${base}/free-fonts/${encodeURIComponent('Parisienne:400')}/font.otf`)).status, 404, 'only own fonts are served as files');
+      const cut = opentype.parse(await (await fetch(`${base}/free-fonts/${encodeURIComponent('Serenade:400')}/intro.otf`)).arrayBuffer());
+      for (const ch of INTRO_CHARS) assert.ok(cut.charToGlyph(ch).path.commands.length > 0, `the opening title card's ${ch} is in its cut`);
+      assert.equal(cut.charToGlyph('a').path.commands.length, 0, 'and nothing else');
+      assert.equal((await fetch(`${base}/free-fonts/${encodeURIComponent('Parisienne:400')}/intro.otf`)).status, 404);
     } finally { server.close(); store.close(); }
   });
 });

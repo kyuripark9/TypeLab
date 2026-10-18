@@ -303,6 +303,16 @@ export function fontCss(r: FreeFontRef) {
 /** Where the browser loads one of TypeLab's own fonts as a web font (an OpenType file the server builds from it). */
 export const fontFileUrl = (id: string) => `/api/free-fonts/${encodeURIComponent(id)}/font.otf`;
 
+/** The symbols the opening title card's scramble shows among its capitals (client/components/Intro.tsx). */
+export const INTRO_SYMBOLS = '&@#$%?!*§¶©®';
+/** The letters the opening title card sets: the name and the scramble in capitals, its symbols, and the x its x-height
+    line is read off. Its fonts are cut to these (introFontUrl, tools/fonts/intro.ts), so a first visit fetches little. */
+export const INTRO_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZx' + INTRO_SYMBOLS;
+/** The own fonts the opening title card mixes in among the designs saved in My designs, a style apiece. */
+export const INTRO_OWN = ['Couture', 'Serenade', 'Timber', 'Kernel', 'Orbital', 'Dispatch'];
+/** Where the browser loads one of TypeLab's own fonts cut to INTRO_CHARS, for the opening title card. */
+export const introFontUrl = (id: string) => `/api/free-fonts/${encodeURIComponent(id)}/intro.otf`;
+
 /** A changed font's name with the free font's own and the names its licence reserves taken out, wherever
     they stand (spaces or none, any case): the Open Font License keeps a reserved name off changed versions
     ("Josefin" for Josefin Slab, "Squada" for Squada One). TypeLab's own fonts reserve nothing. */

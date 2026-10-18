@@ -7,7 +7,7 @@ import { cleanName, type DesignInput } from '../shared/design';
 import { cleanVersions, packVersions } from '../shared/font-log';
 import { cleanLog } from '../shared/letter-log';
 import { isValidParams, type Params } from '../shared/params';
-import { FREE_FAMILIES, parseFontId } from '../shared/free-fonts';
+import { FREE_FAMILIES, INTRO_CHARS, parseFontId } from '../shared/free-fonts';
 import type { DesignStore } from './db';
 import { AccountStore, RESET_MINUTES, SESSION_DAYS } from './accounts';
 import type { Mail, Mailer } from './mail';
@@ -453,14 +453,17 @@ function fontRoutes(api: Router, { fonts, exports }: Ctx) {
     res.json(data);
   });
 
-  // one of TypeLab's own fonts as an OpenType file, for the browser to set a style's name in (fontFileUrl)
-  api.get('/free-fonts/:id/font.otf', async (req, res) => {
+  // one of TypeLab's own fonts as an OpenType file: whole, for the browser to set a style's name in (fontFileUrl), or
+  // cut to the letters the opening title card sets (introFontUrl), so a first visit fetches little before it plays
+  const ownFile = (cut?: string) => async (req: Request<{ id: string }>, res: Response) => {
     const ref = parseFontId(req.params.id);
     if (!ref || !FREE_FAMILIES[ref.family].own) throw new HttpError(404, 'No such font');
-    const file = await fonts.file(req.params.id);
+    const file = await fonts.file(req.params.id, cut);
     res.setHeader('Cache-Control', 'no-cache');
     res.type('font/otf').send(file);
-  });
+  };
+  api.get('/free-fonts/:id/font.otf', ownFile());
+  api.get('/free-fonts/:id/intro.otf', ownFile(INTRO_CHARS));
 
   // one font file: the design as it is, or one member of its family (the weight and italic picked), named for it
   api.post('/export/otf', async (req, res) => {

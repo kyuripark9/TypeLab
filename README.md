@@ -232,6 +232,7 @@ empty cells read as round nodes.
 | `GET` / `PUT` / `PATCH` / `DELETE` | `/api/designs/:id` | read · update `{ name, styleId, params }` · rename `{ name }` · delete |
 | `GET` | `/api/free-fonts/:id` | a free font's letters, as the engine draws them (TypeLab's own from `fonts/`, others fetched from Google Fonts the first time) |
 | `GET` | `/api/free-fonts/:id/font.otf` | one of TypeLab's own fonts as an OpenType file, for the style cards |
+| `GET` | `/api/free-fonts/:id/intro.otf` | the same, cut to the letters the opening title card sets |
 | `POST` | `/api/export/otf` | `{ name, params, member?, accents? }` → OpenType font file (one member of the design's family with `member`; with `accents: true`, the accented letters é ñ ü … too) |
 | `POST` | `/api/export/family` | `{ name, params, family, accents? }` → .zip of fonts, built side by side on the server's workers |
 | `POST` | `/api/export/svg` | `{ name, params, accents? }` → SVG specimen |

@@ -1133,9 +1133,14 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
    --paper-grain) over the same tone (--paper-shade), in ink that doesn't quite cover, the paper showing faintly through
    it in fine specks, never bare (--intro-print, a mask on the drawing and the words): a noise tile as the grain is;
    the print is fixed to the window as the paper is, so letters move under it as on a sheet. */
+/* (the grain, on the card and on the page itself until the app comes on a first visit, html.intro-ahead, set by
+   vite.config.ts's introPreload, so the page turns into the card without a change) */
+.intro, .intro-ahead {
+  --intro-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='g' x='0' y='0' width='100%' height='100%' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .125 0 0 0 0 .122 0 0 0 0 .114 1 0 0 0 0'/><feComponentTransfer><feFuncA type='table' tableValues='.2 .2 .2 .18 .14 .08 .03 .01 0 0 0 0 0 0 0 0 0 0 0 0 0'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+}
+.intro-ahead body { background: var(--intro-grain), var(--paper-shade), var(--paper); }
 .intro {
   --intro-ease: cubic-bezier(.2, .8, .2, 1);
-  --intro-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='g' x='0' y='0' width='100%' height='100%' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .125 0 0 0 0 .122 0 0 0 0 .114 1 0 0 0 0'/><feComponentTransfer><feFuncA type='table' tableValues='.2 .2 .2 .18 .14 .08 .03 .01 0 0 0 0 0 0 0 0 0 0 0 0 0'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
   --intro-print: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='p' x='0' y='0' width='100%' height='100%' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.7' numOctaves='2' seed='11' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0'/><feComponentTransfer><feFuncA type='table' tableValues='1 1 1 1 1 1 1 1 1 1 1 1 1 1 .85 .65 .5 .45 .45 .45 .45'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>");
   position: fixed; inset: 0; z-index: 100; background: var(--intro-grain), var(--paper-shade), var(--paper); cursor: default; transition: opacity .45s ease;
 }
@@ -1148,11 +1153,15 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .intro-word { fill: var(--ink); }
 /* a letter rolls through the line's slot (#intro-slot, SLOT in Intro.tsx) as on a split-flap board, a new one up into
    it from under it and one gone up out of it, far enough (in --em, the name's size, set on the drawing) to be clear
-   of the slot, the scramble's characters spinning through quicker; one that stays slides to its new place, as the
-   guide lines do */
+   of the slot; one that stays slides to its new place, as the guide lines do. The scramble's characters, and the
+   name's letters it settles into, roll quicker (.quick), and those staying in its line slide quicker
+   (.intro-word.scramble), each within a step of it (SCRAMBLE_MS in Intro.tsx), so it lands before the next
+   comes: sliding as a cut's, one lagged its neighbours, the gaps uneven, and a letter of the name, landing as a
+   cut's, rose slowly among characters that had landed */
 .intro-at { transition: transform .3s var(--intro-ease); }
+.intro-word.scramble .intro-at { transition-duration: .08s; }
 .intro-roll { animation: intro-roll-in .3s var(--intro-ease) both; }
-.intro-roll.quick { animation-duration: .15s; }
+.intro-roll.quick { animation-duration: .08s; }
 .intro-roll.out { animation-name: intro-roll-out; }
 .intro-mark { fill: var(--ink); font-family: var(--display); font-weight: 400; font-synthesis: none; animation: intro-mark .3s ease both; }
 /* the filled drawing stays whole under the wordmark as it comes in over it, the very same letters, and goes only once

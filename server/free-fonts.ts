@@ -113,12 +113,13 @@ function otfPath(contours: PackedNode[][]): OtfPath {
   return p;
 }
 
-/** A font's letters as an installable OpenType file, for the browser to set a style's name in (a web font). */
-export function webFont(data: FreeFontData): Buffer {
+/** A font's letters as an installable OpenType file, for the browser to set a style's name in (a web font): all of them,
+    or those of `cut` alone. */
+export function webFont(data: FreeFontData, cut?: string): Buffer {
   const glyphs = [
     new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }),
     new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: data.space, path: new opentype.Path() }),
-    ...Object.entries(data.glyphs).map(([ch, [adv, contours]]) => new opentype.Glyph({
+    ...Object.entries(data.glyphs).filter(([ch]) => !cut || cut.includes(ch)).map(([ch, [adv, contours]]) => new opentype.Glyph({
       name: 'uni' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'), unicode: ch.charCodeAt(0), advanceWidth: adv, path: otfPath(contours)
     }))
   ];
@@ -163,13 +164,14 @@ export class FreeFonts {
     return { ...data, copyright: own.copyright, license: own.license, licenseUrl: own.licenseUrl, licenseText: `${own.lines.join('\n')}\n\n${text}` };
   }
 
-  /** Font `id` as an OpenType file (see webFont), built once. */
-  file(id: string): Promise<Buffer> {
-    let p = this.files.get(id);
+  /** Font `id` as an OpenType file (see webFont), all of it or cut to `cut`'s letters, built once. */
+  file(id: string, cut?: string): Promise<Buffer> {
+    const key = cut ? `${id} ${cut}` : id;
+    let p = this.files.get(key);
     if (!p) {
-      p = this.load(id).then(webFont);
-      this.files.set(id, p);
-      p.catch(() => this.files.delete(id));
+      p = this.load(id).then(data => webFont(data, cut));
+      this.files.set(key, p);
+      p.catch(() => this.files.delete(key));
     }
     return p;
   }

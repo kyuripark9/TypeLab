@@ -8,6 +8,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { freeFont, onFreeFont, registerFreeFont } from '../../shared/engine';
 import { fontCss, fontFileUrl, fontId, isOwnFont, parseFontId, type FreeFontRef } from '../../shared/free-fonts';
 import { api } from './api';
+import { afterOpeningFonts } from './opening';
 
 const loading = new Map<string, Promise<boolean>>();
 
@@ -43,12 +44,13 @@ export const fontStyle = (r: FreeFontRef) => ({ fontFamily: `'${webFamily(r)}', 
 const webSource = (r: FreeFontRef) => (isOwnFont(r.family) ? fontFileUrl(fontId(r)) : fontCss(r));
 
 /** Load a font's web font: an own font straight from its file, any other by its stylesheet from Google Fonts and then
-    the font itself. Resolves whether it came (text not set in it falls back to Manrope, the interface's face). */
+    the font itself, once the opening title card's fonts have come (lib/opening.ts). Resolves whether it came (text not
+    set in it falls back to Manrope, the interface's face). */
 function loadWebFont(r: FreeFontRef): Promise<boolean> {
   const src = webSource(r);
   let p = linked.get(src);
   if (!p) {
-    p = isOwnFont(r.family)
+    p = afterOpeningFonts().then(() => isOwnFont(r.family)
       ? new FontFace(webFamily(r), `url(${src})`, { weight: String(r.weight), style: r.italic ? 'italic' : 'normal' }).load()
         .then(face => { document.fonts.add(face); return true; }, () => false)
       : new Promise<void>(resolve => {
@@ -56,17 +58,10 @@ function loadWebFont(r: FreeFontRef): Promise<boolean> {
         link.rel = 'stylesheet'; link.href = src;
         link.onload = link.onerror = () => resolve();
         document.head.appendChild(link);
-      }).then(() => document.fonts.load(fontSpec(r, 40)).then(faces => faces.length > 0, () => false));
+      }).then(() => document.fonts.load(fontSpec(r, 40)).then(faces => faces.length > 0, () => false)));
     linked.set(src, p);
   }
   return p;
-}
-
-/** A font's web font, loaded: the font once text can be set in it, or null when it couldn't be had (the opening
-    title card's fonts, which the Style page's cards then find loaded). */
-export function webFont(id: string): Promise<FreeFontRef | null> {
-  const r = parseFontId(id);
-  return r ? loadWebFont(r).then(ok => (ok ? r : null)) : Promise.resolve(null);
 }
 
 /** Whether a free font's web font has loaded, loading it. */

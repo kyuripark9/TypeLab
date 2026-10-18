@@ -16,7 +16,7 @@ Everything here runs in the browser and on the server alike, so nothing touches 
 | `content/controls.ts` | `CONTROLS`, `SUBS` and each control's `*_SUBS`, the pickers' options and finer sliders, `PART_CONTROL`, `controlFor`, `firstControl` |
 | `content/copy.ts` | `ANATOMY` (part id to name and definition), `TEXTS` (sample text) |
 | `content/search.ts` | Find a setting: `findSettings`, `ALSO` (words people use that the copy doesn't) |
-| `free-fonts.ts` | TypeLab's own fonts (`OWN_FAMILIES`) and the Google families (`FREE_FAMILIES`), each style's font (`STYLE_FONTS`), the fonts the own ones replaced (`OLD_FONTS`, `ownFontOf`), font ids, `nearestFont`, `withoutReserved` |
+| `free-fonts.ts` | TypeLab's own fonts (`OWN_FAMILIES`) and the Google families (`FREE_FAMILIES`), each style's font (`STYLE_FONTS`), the fonts the own ones replaced (`OLD_FONTS`, `ownFontOf`), font ids, `nearestFont`, `withoutReserved`; the opening title card's letters (`INTRO_CHARS`, its scramble's `INTRO_SYMBOLS`) and the own fonts it mixes in (`INTRO_OWN`, `introFontUrl`) |
 | `family.ts` | A font family: `WEIGHTS`, `FAMILY_STYLES`, `familyMember(s)`, the anchor weight, `ownStyle`, `SLANTED`; lighter weights keep the design's hairline (`keepHairline`) |
 | `traits.ts` | The Style page's Adjust tab: `TRAIT_SECTIONS`, `applyTraits`, `traitsKey` |
 | `letter-log.ts` | Each letter's record of its own edits, kept with a design beside its settings: `LetterEdit`, `recordEdits`, `withOwn`, `sameOwn`, `packLog`/`cleanLog` (saved packed: a drawing leaves out the settings it was drawn at where the one before it has them), `upgradeLog`, `mergeLogs`; `LOG_KEEP` edits a letter, `LOG_BYTES` a design |

@@ -43,6 +43,7 @@ Bodies are JSON (up to 8 MB: a design brings its Histories). Errors answer `{ er
 | GET, PUT, PATCH, DELETE | `/api/designs/:id` | Read; replace (`{ name, styleId, params, log?, versions? }`); rename (`{ name }`); delete (204) |
 | GET | `/api/free-fonts/:id` | A free font's letters (`FreeFontData`): an own font's from `fonts/` (`no-cache`, its ETag answers), any other fetched from Google Fonts the first time; 502 when that fails |
 | GET | `/api/free-fonts/:id/font.otf` | One of TypeLab's own fonts as an OpenType file, for the style cards' web fonts (`fontFileUrl`); 404 for any other |
+| GET | `/api/free-fonts/:id/intro.otf` | The same cut to the letters the opening title card sets (`INTRO_CHARS`, `introFontUrl`), for the own fonts it mixes in; 404 for any other |
 | POST | `/api/export/otf` | `{ name, params, member?, accents? }` → an `.otf`: the design as it is, installed as Regular, or with `member: { anchor, weight, italic }` that member of its family, as the family's `.zip` has it (`<slug>-<Style>.otf`); `accents: true` adds the accented letters (`ACCENTED`, below) |
 | POST | `/api/export/family` | `{ name, params, family: { anchor, styles: [{ weight, italic }] }, accents? }` → a `.zip` of those members, each with the accented letters when `accents: true` (the older `{ anchor, weights, upright, italic }` still reads) |
 | POST | `/api/export/svg` | `{ name, params, accents? }` → an SVG specimen, with rows of the accented letters when `accents: true` |

@@ -20,7 +20,8 @@
     "sweep": "node --import tsx tools/sweep.ts",
     "fonts:import": "node --import tsx tools/fonts/import.ts",
     "fonts:blocks": "node --import tsx tools/fonts/blocks.ts",
-    "fonts:ui": "node --import tsx tools/fonts/ui.ts"
+    "fonts:ui": "node --import tsx tools/fonts/ui.ts",
+    "fonts:intro": "node --import tsx tools/fonts/intro.ts"
   },
   "dependencies": {
     "compression": "^1.8.2",
