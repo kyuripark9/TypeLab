@@ -135,7 +135,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    they move from the pick.
 3. `skin.ts` with `scan.ts`: `skinRig` first makes the letter's overlapping pieces one outline (`unite` in
    `boolean.ts`: the same ink and curves; many fonts, TypeLab's own among them, draw a stem whole and run a bowl into
-   it, and the edges inside the ink, moved as stroke sides, came out as notches and spurs at the joins), keeps that as
+   it, and the edges inside the ink, moved as stroke sides, came out as notches and spurs at the joins), takes out any
+   zig-zag its outline makes within a few units (`unzig`, `ZIG`: two anchors the way between runs back against the ways
+   in and out of, made one; moved, their corners met 35 units out, a needle on an italic's n at Thin), keeps that as
    `rig.contours`, and hangs every outline sample (a `Bone`) on the letter's scanned skeleton; `strokeEnds` finds where
    the outline turns back across a stroke (a cap, a round end, a serif's end). `skinMove` moves it by the change in
    `skinMeasures` from `pick` to `now` (stem, bar, width, x-height, crossbar, serif length, Stem length, Inner space,

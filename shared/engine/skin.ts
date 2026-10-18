@@ -607,6 +607,33 @@ function uniteRig(cs: Node[][], cap: number): Node[][] {
 /** How much ink, as a share of the capitals' height, squared, a slit uniteRig fills is at most. */
 const SLIT = 0.05;
 
+/** A contour with each zig-zag its outline makes within a few units taken out: two anchors under ZIG apart, the way
+    between them running back against the way into the first and out of the second (by more than ZIG_BACK, a cosine),
+    made one anchor midway between them. A slip in the drawing, a 2-unit notch in an italic's n's stem where its arch
+    leaves it: its two corners, each moved the way its own edges go, all but opposite, met again 35 units out at Thin,
+    a needle. */
+function unzig(c: Node[]): Node[] {
+  let q = c;
+  for (let pass = 0; pass < 4; pass++) {
+    const n = q.length;
+    if (n < 4) return q;
+    let hit = -1;
+    for (let i = 0; i < n && hit < 0; i++) {
+      const a = q[i], b = q[(i + 1) % n], z = q[(i - 1 + n) % n], d = q[(i + 2) % n], mx = b.x - a.x, my = b.y - a.y, ml = Math.hypot(mx, my);
+      if (!(ml > 0 && ml < ZIG)) continue;
+      const inx = a.x - (a.ix ?? z.ox ?? z.x), iny = a.y - (a.iy ?? z.oy ?? z.y), outx = (b.ox ?? d.ix ?? d.x) - b.x, outy = (b.oy ?? d.iy ?? d.y) - b.y;
+      const li = Math.hypot(inx, iny), lo = Math.hypot(outx, outy);
+      if (li && lo && (inx * mx + iny * my) / (li * ml) < -ZIG_BACK && (outx * mx + outy * my) / (lo * ml) < -ZIG_BACK) hit = i;
+    }
+    if (hit < 0) return q;
+    const a = q[hit], b = q[(hit + 1) % n], m: Node = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    if (a.ix !== undefined) { m.ix = a.ix; m.iy = a.iy; }
+    if (b.ox !== undefined) { m.ox = b.ox; m.oy = b.oy; }
+    q = hit + 1 < n ? [...q.slice(0, hit), m, ...q.slice(hit + 2)] : [m, ...q.slice(1, n - 1)];
+  }
+  return q;
+}
+const ZIG = 4, ZIG_BACK = 0.3;
 /** Letter `ch` of a free font (or of a design's drawn letters), rigged (once, then kept with the font). */
 export function skinRig(font: RigLetters, ch: string): SkinRig | null {
   let kept = rigs.get(font);
@@ -638,7 +665,7 @@ export function skinRig(font: RigLetters, ch: string): SkinRig | null {
   // the outline rigged is the ink's own: a letter drawn in overlapping pieces (a stem whole and a bowl run into it, as a
   // variable font's are and pieces drawn on a sheet and never united) has edges inside its ink, which, moved as the
   // sides of strokes, come out of the strokes round them as notches and spurs
-  r = rigOf(font, uniteRig(g.contours, font.cap), f, ctx);
+  r = rigOf(font, uniteRig(g.contours, font.cap).map(unzig), f, ctx);
   kept.letters.set(ch, r);
   return r;
 }
