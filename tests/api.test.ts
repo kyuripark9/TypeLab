@@ -135,6 +135,32 @@ describe('designs API', () => {
     assert.deepEqual(((await (await call('GET', `/designs/${created.id}`)).json()) as Design).versions, got);
   });
 
+  it('keeps the name\'s sample, in the list too, until a save without one or a rename, and takes one alone as saved', async () => {
+    const params = { ...serif.params, weight: 0.8 }, at = (d: Design) => d.sample?.list.at;
+    const sample = { name: 'Renamed', glyphs: { R: 'm10 0l0-700 300 0c50 0 90 40 90 90z' }, list: { box: [0, -700, 400, 700], at: [['R', 0, 0]] }, extra: 1 };
+    const res = await call('PUT', `/designs/${created.id}`, { name: 'Renamed', styleId: 'serif', params, sample });
+    assert.equal(res.status, 200);
+    const saved: Design = await res.json(), { extra: _, ...clean } = sample;
+    assert.deepEqual(saved.sample, clean);
+    assert.deepEqual(((await (await call('GET', '/designs')).json()) as Design[])[0].sample, clean);
+    // what isn't a sample's outline (absolute, in fractions) is dropped, as is the sample
+    const bad = await call('PUT', `/designs/${created.id}`, { name: 'Renamed', styleId: 'serif', params, sample: { ...sample, glyphs: { R: 'M10.5 0L10 -700Z' } } });
+    assert.equal(((await bad.json()) as Design).sample, null);
+    // one alone, drawn as it was saved, leaves when it was edited as it is; one drawn before a later save is refused
+    const d: Design = await (await call('GET', `/designs/${created.id}`)).json();
+    assert.equal((await call('PUT', `/designs/${created.id}/sample`, { sample, updatedAt: d.updatedAt })).status, 204);
+    const now: Design = await (await call('GET', `/designs/${created.id}`)).json();
+    assert.deepEqual([now.updatedAt, at(now)], [d.updatedAt, [['R', 0, 0]]]);
+    assert.equal((await call('PUT', `/designs/${created.id}/sample`, { sample, updatedAt: '2000-01-01T00:00:00.000Z' })).status, 409);
+    assert.equal((await call('PUT', `/designs/${created.id}/sample`, { updatedAt: d.updatedAt })).status, 400);
+    assert.equal((await browser()('PUT', `/designs/${created.id}/sample`, { sample, updatedAt: d.updatedAt })).status, 404);
+    // a save without one, and a rename, leave it with none
+    assert.equal(((await (await call('PUT', `/designs/${created.id}`, { name: 'Renamed', styleId: 'serif', params })).json()) as Design).sample, null);
+    await call('PUT', `/designs/${created.id}`, { name: 'Renamed', styleId: 'serif', params, sample });
+    assert.equal(((await (await call('PATCH', `/designs/${created.id}`, { name: 'Renamed again' })).json()) as Design).sample, null);
+    await call('PATCH', `/designs/${created.id}`, { name: 'Renamed' });
+  });
+
   it('keeps each browser\'s designs to itself', async () => {
     const other = browser();
     const first = await other('GET', '/designs');

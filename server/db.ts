@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { Design, DesignInput } from '../shared/design';
+import { cleanSample, type Design, type DesignInput, type NameSample } from '../shared/design';
 import { cleanVersions, packVersions, upgradeVersions } from '../shared/font-log';
 import { cleanLog, packLog, upgradeLog } from '../shared/letter-log';
 import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../shared/params';
@@ -17,6 +17,8 @@ interface Row {
   log?: string | null;
   /** the font's History, packed; not read for the list, and null in rows from before it */
   versions?: string | null;
+  /** its name in its letters as My designs shows it (shared/design.ts's NameSample); null for none */
+  sample: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +31,7 @@ const toDesign = (r: Row): Design => ({
   params: sanitizeParams(JSON.parse(r.params)),
   ...(r.log === undefined ? {} : { log: packLog(cleanLog(parsed(r.log))) }),
   ...(r.versions === undefined ? {} : { versions: packVersions(cleanVersions(parsed(r.versions))) }),
+  sample: cleanSample(parsed(r.sample)) ?? null,
   createdAt: r.created_at,
   updatedAt: r.updated_at
 });
@@ -40,8 +43,10 @@ function parsed(json: string | null): unknown {
 const logColumn = (input: DesignInput) => (input.log ? JSON.stringify(packLog(input.log)) : null);
 /** The History as it is stored (packed already), or null for none, kept as it is the same way. */
 const versionsColumn = (input: DesignInput) => (input.versions ? JSON.stringify(input.versions) : null);
+/** The name's sample as it is stored, or null for none (a design saved without one has none, see update). */
+const sampleColumn = (input: DesignInput) => (input.sample ? JSON.stringify(input.sample) : null);
 /** The columns the list of designs reads: all but the letters' records and the History, which only an open design needs. */
-const LIST_COLUMNS = 'id, name, style_id, params, created_at, updated_at';
+const LIST_COLUMNS = 'id, name, style_id, params, sample, created_at, updated_at';
 
 const newId = () => randomBytes(8).toString('base64url');
 
@@ -73,18 +78,22 @@ export class DesignStore {
     if (!cols.some(c => c.name === 'log')) this.db.exec('ALTER TABLE designs ADD COLUMN log TEXT');
     // the font's History (shared/font-log.ts); rows from before it have none
     if (!cols.some(c => c.name === 'versions')) this.db.exec('ALTER TABLE designs ADD COLUMN versions TEXT');
+    // the name in its letters as My designs shows it, drawn as it was saved; rows from before it have none, and are
+    // drawn there and given one
+    if (!cols.some(c => c.name === 'sample')) this.db.exec('ALTER TABLE designs ADD COLUMN sample TEXT');
     this.db.exec('CREATE INDEX IF NOT EXISTS designs_owner ON designs (owner, updated_at DESC)');
     this.upgrade();
   }
 
   /** Bring designs saved by an older version onto today's settings (see PARAMS_VERSION), once: the
-      file's user_version records the version its designs are written in. */
+      file's user_version records the version its designs are written in. Their samples go, as their letters may
+      have moved, and are drawn again on My designs. */
   private upgrade() {
     const at = Number((this.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version);
     if (at >= PARAMS_VERSION) return;
     // a database from before versions (0) holds designs of the first version
     const from = Math.max(1, at), rows = this.db.prepare('SELECT id, params, log, versions FROM designs').all() as unknown as { id: string; params: string; log: string | null; versions: string | null }[];
-    const save = this.db.prepare('UPDATE designs SET params = ?, log = ?, versions = ? WHERE id = ?');
+    const save = this.db.prepare('UPDATE designs SET params = ?, log = ?, versions = ?, sample = NULL WHERE id = ?');
     this.db.exec('BEGIN');
     try {
       for (const r of rows) {
@@ -125,23 +134,31 @@ export class DesignStore {
 
   create(input: DesignInput, owner: string): Design {
     const now = new Date().toISOString(), id = newId();
-    this.db.prepare('INSERT INTO designs (id, name, style_id, params, log, versions, created_at, updated_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(id, input.name, input.styleId, JSON.stringify(input.params), logColumn(input), versionsColumn(input), now, now, owner);
+    this.db.prepare('INSERT INTO designs (id, name, style_id, params, log, versions, sample, created_at, updated_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, input.name, input.styleId, JSON.stringify(input.params), logColumn(input), versionsColumn(input), sampleColumn(input), now, now, owner);
     return this.get(id, owner)!;
   }
 
-  /** Replace a design; one sent without the letters' record, or without its History, keeps the one it has. */
+  /** Replace a design; one sent without the letters' record, or without its History, keeps the one it has, and one
+      sent without a sample has none. */
   update(id: string, input: DesignInput, owner: string): Design | null {
-    const res = this.db.prepare('UPDATE designs SET name = ?, style_id = ?, params = ?, log = COALESCE(?, log), versions = COALESCE(?, versions), updated_at = ? WHERE id = ? AND owner = ?')
-      .run(input.name, input.styleId, JSON.stringify(input.params), logColumn(input), versionsColumn(input), new Date().toISOString(), id, owner);
+    const res = this.db.prepare('UPDATE designs SET name = ?, style_id = ?, params = ?, log = COALESCE(?, log), versions = COALESCE(?, versions), sample = ?, updated_at = ? WHERE id = ? AND owner = ?')
+      .run(input.name, input.styleId, JSON.stringify(input.params), logColumn(input), versionsColumn(input), sampleColumn(input), new Date().toISOString(), id, owner);
     return res.changes ? this.get(id, owner) : null;
   }
 
-  /** Change only the name, leaving the saved letters as they were. */
+  /** Change only the name, leaving the saved letters as they were; the sample, of the old name, goes. */
   rename(id: string, name: string, owner: string): Design | null {
-    const res = this.db.prepare('UPDATE designs SET name = ?, updated_at = ? WHERE id = ? AND owner = ?')
+    const res = this.db.prepare('UPDATE designs SET name = ?, sample = NULL, updated_at = ? WHERE id = ? AND owner = ?')
       .run(name, new Date().toISOString(), id, owner);
     return res.changes ? this.get(id, owner) : null;
+  }
+
+  /** Give a design the sample drawn from it as it was saved at `updatedAt`, leaving when it was edited as it is;
+      false where there's no such design, or it has been saved or renamed since. */
+  setSample(id: string, sample: NameSample, updatedAt: string, owner: string): boolean {
+    return this.db.prepare('UPDATE designs SET sample = ? WHERE id = ? AND owner = ? AND updated_at = ?')
+      .run(JSON.stringify(sample), id, owner, updatedAt).changes > 0;
   }
 
   delete(id: string, owner: string): boolean {

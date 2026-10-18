@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { AUTH_CHANNEL, GOOGLE_RESULT_PARAM, type GoogleIntent, type GoogleResult, type User } from '../../shared/account';
 import { api, type SignedIn } from '../lib/api';
+import { withSample } from '../lib/name-sample';
 import { PREFS, readPref, writePref } from '../lib/prefs';
 import { actions, designInput, useEditor } from './editor';
 
@@ -115,7 +116,7 @@ export const auth = {
   async signOut(saveFirst: boolean) {
     const s = useEditor.getState();
     if (saveFirst && s.designId) {
-      const input = designInput(s);
+      const input = withSample(designInput(s));
       actions.markSaved(await api.updateDesign(s.designId, input), input);
     }
     await api.signOut();

@@ -21,7 +21,7 @@ Everything here runs in the browser and on the server alike, so nothing touches 
 | `traits.ts` | The Style page's Adjust tab: `TRAIT_SECTIONS`, `applyTraits`, `traitsKey` |
 | `letter-log.ts` | Each letter's record of its own edits, kept with a design beside its settings: `LetterEdit`, `recordEdits`, `withOwn`, `sameOwn`, `packLog`/`cleanLog` (saved packed: a drawing leaves out the settings it was drawn at where the one before it has them), `upgradeLog`, `mergeLogs`; `LOG_KEEP` edits a letter, `LOG_BYTES` a design |
 | `font-log.ts` | The font's History, kept with a design beside its settings: `FontVersion` (the whole design after a change, the settings and letters it changed, what made it), `recordVersion`, `sameDesign`, `packVersions`/`cleanVersions` (saved packed: each version only what changed from the one before, the first whole), `upgradeVersions`, `mergeVersions`; `VERSIONS_KEEP`, `VERSIONS_BYTES` |
-| `design.ts`, `account.ts` | What client and server exchange: `Design`, `DesignInput`, `cleanName`, `slug`; `User`, `EmailCheck`, `GoogleResult`, the sign-up rules |
+| `design.ts`, `account.ts` | What client and server exchange: `Design`, `DesignInput`, `cleanName`, `slug`, the name's sample My designs shows (`NameSample`, read by `cleanSample`, `SAMPLE_MAX`); `User`, `EmailCheck`, `GoogleResult`, the sign-up rules |
 
 ## The settings spec
 

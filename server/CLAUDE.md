@@ -39,8 +39,9 @@ Bodies are JSON (up to 8 MB: a design brings its Histories). Errors answer `{ er
 | GET | `/api/auth/google` | `?intent=signin` or `link`, `popup=1`, `back=/path` → a redirect to Google, which returns to `/api/auth/google/callback` |
 | DELETE | `/api/auth/google` | → `{ user }`, Google disconnected (needs a password set) |
 | GET | `/api/designs` | The owner's designs, newest first |
-| POST | `/api/designs` | `{ name, styleId, params, log?, versions? }` → 201, the design |
-| GET, PUT, PATCH, DELETE | `/api/designs/:id` | Read; replace (`{ name, styleId, params, log?, versions? }`); rename (`{ name }`); delete (204) |
+| POST | `/api/designs` | `{ name, styleId, params, log?, versions?, sample? }` → 201, the design |
+| GET, PUT, PATCH, DELETE | `/api/designs/:id` | Read; replace (`{ name, styleId, params, log?, versions?, sample? }`, a save without a sample has none); rename (`{ name }`, the sample goes); delete (204) |
+| PUT | `/api/designs/:id/sample` | `{ sample, updatedAt }`: the name's sample (`NameSample`, shared/design.ts) drawn on My designs or as the design opened, kept without touching `updatedAt` → 204; 409 once it has been saved or renamed since |
 | GET | `/api/free-fonts/:id` | A free font's letters (`FreeFontData`): an own font's from `fonts/` (`no-cache`, its ETag answers), any other fetched from Google Fonts the first time; 502 when that fails |
 | GET | `/api/free-fonts/:id/font.otf` | One of TypeLab's own fonts as an OpenType file, for the style cards' web fonts (`fontFileUrl`); 404 for any other |
 | GET | `/api/free-fonts/:id/intro.otf` | The same cut to the letters the opening title card sets (`INTRO_CHARS`, `introFontUrl`), for the own fonts it mixes in; 404 for any other |

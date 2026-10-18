@@ -3,7 +3,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import compression from 'compression';
 import express, { type NextFunction, type Request, type Response, type Router } from 'express';
 import { styleById } from '../shared/content';
-import { cleanName, type DesignInput } from '../shared/design';
+import { cleanName, cleanSample, type DesignInput } from '../shared/design';
 import { cleanVersions, packVersions } from '../shared/font-log';
 import { cleanLog } from '../shared/letter-log';
 import { isValidParams, type Params } from '../shared/params';
@@ -25,13 +25,15 @@ class HttpError extends Error {
 const fields = (body: unknown) => (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
 
 /** Validate a design body. Params must already be valid: the client never sends partial ones. The letters' record of
-    their edits and the font's History are only kept, so what of them doesn't read is dropped rather than refused. */
+    their edits, the font's History and the name's sample are only kept, so what of them doesn't read is dropped rather
+    than refused. */
 function readDesign(body: unknown): DesignInput {
   const b = fields(body);
   if (!isValidParams(b.params)) throw new HttpError(400, 'This design has settings TypeLab can’t read');
   if (typeof b.styleId !== 'string' || !styleById(b.styleId)) throw new HttpError(400, 'This design’s style isn’t one TypeLab knows');
+  const sample = cleanSample(b.sample);
   return { name: cleanName(b.name), styleId: b.styleId, params: b.params, ...(b.log === undefined ? {} : { log: cleanLog(b.log) }),
-    ...(b.versions === undefined ? {} : { versions: packVersions(cleanVersions(b.versions)) }) };
+    ...(b.versions === undefined ? {} : { versions: packVersions(cleanVersions(b.versions)) }), ...(sample ? { sample } : {}) };
 }
 
 /** An export's design and name, and whether its fonts take the accented letters too (`accents`, off unless true). */
@@ -394,7 +396,7 @@ function googleRoutes(api: Router, ctx: Ctx) {
   });
 }
 
-/** The designs whoever's asking has saved: listed, opened, saved, renamed and deleted. */
+/** The designs whoever's asking has saved: listed, opened, saved, renamed, given their name's sample and deleted. */
 function designRoutes(api: Router, { store }: Ctx) {
   api.get('/designs', (_req, res) => { res.json(store.list(who(res).owner)); });
 
@@ -418,6 +420,15 @@ function designRoutes(api: Router, { store }: Ctx) {
     const d = store.rename(req.params.id, readName(req.body), who(res).owner);
     if (!d) throw new HttpError(404, 'Design not found');
     res.json(d);
+  });
+
+  // the name's sample, drawn on My designs or as the design opened from it as saved at `updatedAt` (it had none, or
+  // the engine has moved its letters since); refused where it has been saved or renamed since
+  api.put('/designs/:id/sample', (req, res) => {
+    const b = fields(req.body), sample = cleanSample(b.sample), { owner } = who(res);
+    if (!sample || typeof b.updatedAt !== 'string') throw new HttpError(400, 'sample and updatedAt are missing or don’t read');
+    if (store.setSample(req.params.id, sample, b.updatedAt, owner)) { res.status(204).end(); return; }
+    throw store.get(req.params.id, owner) ? new HttpError(409, 'This design has been saved since') : new HttpError(404, 'Design not found');
   });
 
   api.delete('/designs/:id', (req, res) => {

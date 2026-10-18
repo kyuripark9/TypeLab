@@ -1,7 +1,7 @@
 /* Typed client for the TypeLab API: every /api request the browser makes goes through here. The routes
    are served by server/app.ts. */
 import type { EmailCheck, GoogleIntent, User } from '../../shared/account';
-import type { Design, DesignInput } from '../../shared/design';
+import type { Design, DesignInput, NameSample } from '../../shared/design';
 import type { FreeFontData } from '../../shared/engine';
 import type { FamilyRequest, MemberRequest } from '../../shared/family';
 import type { Params } from '../../shared/params';
@@ -63,6 +63,8 @@ export const api = {
   updateDesign: (id: string, d: DesignInput) => json<Design>('PUT', `/api/designs/${encodeURIComponent(id)}`, d),
   /** Change only the name, leaving the saved letters as they are. */
   renameDesign: (id: string, name: string) => json<Design>('PATCH', `/api/designs/${encodeURIComponent(id)}`, { name }),
+  /** Give a design its name's sample, drawn from it as saved at `updatedAt` (refused once it has been saved since). */
+  saveSample: async (id: string, sample: NameSample, updatedAt: string) => { await send('PUT', `/api/designs/${encodeURIComponent(id)}/sample`, { sample, updatedAt }); },
   /** keepalive, so a delete still goes through when the page is left while it waits out its Undo */
   deleteDesign: async (id: string) => { await send('DELETE', `/api/designs/${encodeURIComponent(id)}`, undefined, { keepalive: true }); },
   /** A free font's letters, as the engine draws them (see lib/free.ts). */

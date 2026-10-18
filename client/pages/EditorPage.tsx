@@ -1,14 +1,17 @@
 /* The editor, for a new design (/) or a saved one (/d/:id): opens the design named in the address, saves it (the
    first save of an unnamed design asks for its name), the keyboard shortcuts, the warning before leaving with
    unsaved changes, and demo deep links (?style, cat, active, inspect, text, hot, pen). */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
-import { DEFAULT_NAME, cleanName } from '../../shared/design';
+import { DEFAULT_NAME, cleanName, type Design } from '../../shared/design';
 import { ApiError, api, errorMessage } from '../lib/api';
+import { useFreeFonts } from '../lib/free';
 import { isTyping } from '../lib/hooks';
+import { drawName, keptSample, withSample } from '../lib/name-sample';
+import { useOpeningHolds } from '../lib/opening';
 import { DESIGNS, NEW_DESIGN, designPath, readDeepLink } from '../lib/routes';
 import { auth, useAuth } from '../state/auth';
-import { actions, designInput, hasWork, onSaveRequest, useEditor } from '../state/editor';
+import { actions, designInput, fontFor, hasWork, isDirty, onSaveRequest, useEditor } from '../state/editor';
 import { GlyphStrip, Nav, Toast, focusSettingSearch } from '../components/Chrome';
 import { Dialog } from '../components/Dialog';
 import { GlyphDefs } from '../components/GlyphDefs';
@@ -25,6 +28,8 @@ export function EditorPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status>('ready');
   const [loadError, setLoadError] = useState('');
+  // the design as it was opened, for its name's sample (useSampleCheck)
+  const [opened, setOpened] = useState<Design | null>(null);
   // first visit gets the tour, unless it arrived on a deep link
   const [guide, setGuide] = useState(() => !guideSeen() && !window.location.search);
 
@@ -40,10 +45,12 @@ export function EditorPage() {
     let live = true;
     setStatus('loading');
     api.getDesign(id)
-      .then(d => { if (live) { actions.loadDesign(d); setStatus('ready'); } })
+      .then(d => { if (live) { actions.loadDesign(d); setOpened(d); setStatus('ready'); } })
       .catch(e => { if (live) { setLoadError(errorMessage(e)); setStatus(e instanceof ApiError && e.status === 404 ? 'missing' : 'error'); } });
     return () => { live = false; };
   }, [id]);
+
+  useSampleCheck(opened);
 
   const save = useSave();
   // a design's first save asks for its name, unless it already has one of its own
@@ -101,7 +108,7 @@ function useSave() {
   return useCallback(async ({ stay = false } = {}): Promise<boolean> => {
     const s = useEditor.getState();
     if (s.saving) return false;
-    const input = designInput(s);
+    const input = withSample(designInput(s));
     actions.setSaving(true);
     try {
       let d;
@@ -125,6 +132,30 @@ function useSave() {
       actions.setSaving(false);
     }
   }, [navigate]);
+}
+
+/** A saved design, once open (and its letters let go of by the opening title card), has its name's sample drawn
+    again in a moment the editor is idle, and kept with it where it differs from the one it was saved with: it was
+    saved without one, or the engine has moved its letters since. My designs then shows it as it opens. */
+function useSampleCheck(d: Design | null) {
+  const holds = useOpeningHolds(), free = useFreeFonts(), sent = useRef('');
+  useEffect(() => {
+    if (!d || holds) return;
+    const check = () => {
+      const s = useEditor.getState();
+      if (s.designId !== d.id || isDirty(s)) return;
+      const f = fontFor(s.params), sample = keptSample(f, drawName(f, d.name)), json = JSON.stringify(sample ?? null);
+      if (!sample || json === sent.current || json === JSON.stringify(d.sample ?? null)) return;
+      sent.current = json;
+      api.saveSample(d.id, sample, d.updatedAt).catch(() => {});
+    };
+    if (typeof requestIdleCallback !== 'function') {
+      const t = window.setTimeout(check, 1000);
+      return () => clearTimeout(t);
+    }
+    const h = requestIdleCallback(check, { timeout: 5000 });
+    return () => cancelIdleCallback(h);
+  }, [d, holds, free]);
 }
 
 function useShortcuts(save: () => void) {

@@ -1,9 +1,11 @@
 /* What the opening title card (components/Intro.tsx) holds back in the app under it while it plays, where none of it
    shows: the Style page's web fonts until its scramble has settled (fetched alongside its own, they shared the line,
    and on a slower connection the card gave up waiting and showed the wordmark alone; landing as it spun, each had the
-   page laid out again under it and its frames came late), and the editor's letters until the card lets go of them
-   (GlyphDefs: a design's letters take a second or more to build on a slower computer, and the card's steps stood
-   still meanwhile). HOLD_MAX lets go of both should the card never do. */
+   page laid out again under it and its frames came late), and the letters of the designs until the card lets go of
+   them, the editor's (GlyphDefs: a design's letters take a second or more to build on a slower computer, and the
+   card's steps stood still meanwhile) and My designs' names, each in its design's letters (LibraryPage's cards,
+   built all at once as the list came, under the card's first letters). HOLD_MAX lets go of both should the card
+   never do. */
 import { useSyncExternalStore } from 'react';
 
 const HOLD_MAX = 10_000;
@@ -31,5 +33,5 @@ export function letGo() {
 /** Resolves once the card lets the Style page's fonts come, at once when it doesn't play. */
 export const afterOpeningFonts = () => (holds ? fontsCame : Promise.resolve());
 
-/** Whether the card holds the editor's letters back. */
+/** Whether the card holds the designs' letters back (the editor's and My designs'). */
 export const useOpeningHolds = () => useSyncExternalStore(l => { listeners.add(l); return () => { listeners.delete(l); }; }, () => holds);

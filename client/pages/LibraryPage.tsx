@@ -1,15 +1,16 @@
 /* My designs: every saved font, its name set in its own letterforms, as cards or as a list, found by
-   name and sorted by when it was last edited or by name. */
-import { useEffect, useRef, useState } from 'react';
+   name and sorted by when it was last edited or by name. The names are drawn as they were saved (lib/name-sample.ts),
+   and only one saved without, or before, is built here. */
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { styleById } from '../../shared/content';
-import { NAME_MAX, cleanName, slug, type Design } from '../../shared/design';
-import type { Font } from '../../shared/engine';
+import { NAME_MAX, cleanName, slug, type Design, type NameSample } from '../../shared/design';
 import { api, download, errorMessage } from '../lib/api';
 import { useFreeFonts } from '../lib/free';
-import { isTyping, n1, useDismiss } from '../lib/hooks';
+import { isTyping, useDismiss } from '../lib/hooks';
+import { drawName, keptSample } from '../lib/name-sample';
+import { useOpeningHolds } from '../lib/opening';
 import { PREFS, prefOneOf, writePref } from '../lib/prefs';
-import { overhang } from '../lib/preview';
 import { NEW_DESIGN, PRIVACY, designPath } from '../lib/routes';
 import { auth, useAuth } from '../state/auth';
 import { actions, fontFor, useEditor, type ToastAction } from '../state/editor';
@@ -233,10 +234,22 @@ function DesignCard({ d, list, recent, onDownload, onDuplicate, onDelete, onRena
   const [editing, setEditing] = useState(false);
   const style = styleById(d.styleId)?.name;
   useFreeFonts();
+  // its name in its letters as it was saved; one saved without it (or before samples) has its letters built here,
+  // once the opening title card lets go of them (lib/opening.ts: the card covers the page, and every card's built as
+  // the list came stalled its first steps), and the sample drawn from them is kept with it, once its free font, if it
+  // is written in one, has come
+  const holds = useOpeningHolds(), saved = d.sample?.name === d.name ? d.sample : null;
+  const f = saved || holds ? null : fontFor(d.params);
+  const drawn = useMemo(() => (f ? drawName(f, d.name) : null), [f, d.name]);
+  useEffect(() => {
+    const s = f && drawn && keptSample(f, drawn);
+    if (s) api.saveSample(d.id, s, d.updatedAt).catch(() => {});
+  }, [f, drawn, d.id, d.updatedAt]);
+  const sample = saved ?? drawn;
   return (
     <article className="lib-card">
       <Link to={designPath(d.id)} className="lib-open" aria-label={`Open ${d.name}`}>
-        <NameSample f={fontFor(d.params)} text={d.name} wrap={!list} />
+        {sample && <NameArt s={sample} wrap={!list} />}
       </Link>
       <div className="lib-meta">
         {editing
@@ -257,44 +270,13 @@ function DesignCard({ d, list, recent, onDownload, onDuplicate, onDelete, onRena
   );
 }
 
-/** A name on two lines: the second line sits this many letter heights (tallest top to descender) under the first. */
-const LINE_PITCH = 1.04;
-/** A card's well, width over height: .lib-open in a .lib-grid column (styles.css), in a full-width window. */
-const WELL_ASPECT = 2.6;
-/** A break onto two lines is taken only if it sets the name more than this much larger. */
-const BREAK_GAIN = 1.12;
-
-/** A font's name set in itself, as large as fits the box: on a card a long name of several words breaks
-    onto a second line where that sets it larger, in the list it stays on one. Flourishes reaching out of the
-    letters' boxes are kept in. */
-function NameSample({ f, text, wrap }: { f: Font; text: string; wrap: boolean }) {
-  const top = Math.max(f.m.asc, f.m.cap), bottom = -f.m.desc, LH = (top + bottom) * LINE_PITCH;
-  const one = (t: string) => f.layout(t, Infinity)[0];
-  let lines = [one(text)];
-  if (wrap) {
-    // the break between words that leaves the two lines most even, taken if the name comes out larger
-    // on a card's well
-    const fit = (ls: typeof lines) => Math.min(WELL_ASPECT / Math.max(...ls.map(l => l.width)), 1 / (top + bottom + (ls.length - 1) * LH));
-    const words = text.split(' ');
-    let best: typeof lines | null = null;
-    for (let i = 1; i < words.length; i++) {
-      const two = [one(words.slice(0, i).join(' ')), one(words.slice(i).join(' '))];
-      if (!best || fit(two) > fit(best)) best = two;
-    }
-    if (best && fit(best) > fit(lines) * BREAK_GAIN) lines = best;
-  }
-  const W = Math.max(1, ...lines.map(l => l.width)), o = overhang(f, lines, W, top, bottom);
-  const y0 = -top - o.t, h = top + o.t + (lines.length - 1) * LH + bottom + o.b;
+/** A font's name set in itself (lib/name-sample.ts), as large as fits the box: on a card on the lines a card sets it
+    on, in the list on one line, flush left. */
+function NameArt({ s, wrap }: { s: NameSample; wrap: boolean }) {
+  const { box, at } = (wrap && s.card) || s.list;
   return (
-    <svg viewBox={`${n1(-o.l)} ${n1(y0)} ${n1(W + o.l + o.r)} ${n1(h)}`} preserveAspectRatio={wrap ? 'xMidYMid meet' : 'xMinYMid meet'} aria-hidden="true">
-      {lines.map((ln, i) => {
-        // each line centred on a card, set flush left in the list
-        const dx = wrap ? (W - ln.width) / 2 : 0;
-        return ln.items.map((it, j) => {
-          const g = f.glyph(it.ch);
-          return g && <path key={`${i}-${j}`} d={g.d} transform={`translate(${n1(dx + it.x)},${n1(i * LH)})`} />;
-        });
-      })}
+    <svg viewBox={box.join(' ')} preserveAspectRatio={wrap ? 'xMidYMid meet' : 'xMinYMid meet'} aria-hidden="true">
+      {at.map(([ch, x, y], i) => <path key={i} d={s.glyphs[ch]} transform={`translate(${x},${y})`} />)}
     </svg>
   );
 }

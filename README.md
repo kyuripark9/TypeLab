@@ -228,8 +228,9 @@ empty cells read as round nodes.
 | `GET` | `/api/auth/google` | `?intent=signin` or `link`, `&popup=1&back=/path` → off to Google; it returns to `/api/auth/google/callback` |
 | `DELETE` | `/api/auth/google` | disconnect Google (needs a password set) |
 | `GET` | `/api/designs` | list saved designs, newest first |
-| `POST` | `/api/designs` | create `{ name, styleId, params }` |
-| `GET` / `PUT` / `PATCH` / `DELETE` | `/api/designs/:id` | read · update `{ name, styleId, params }` · rename `{ name }` · delete |
+| `POST` | `/api/designs` | create `{ name, styleId, params, sample? }` |
+| `GET` / `PUT` / `PATCH` / `DELETE` | `/api/designs/:id` | read · update `{ name, styleId, params, sample? }` · rename `{ name }` · delete |
+| `PUT` | `/api/designs/:id/sample` | keep the name's sample My designs shows, drawn from the design as saved at `updatedAt` `{ sample, updatedAt }` |
 | `GET` | `/api/free-fonts/:id` | a free font's letters, as the engine draws them (TypeLab's own from `fonts/`, others fetched from Google Fonts the first time) |
 | `GET` | `/api/free-fonts/:id/font.otf` | one of TypeLab's own fonts as an OpenType file, for the style cards |
 | `GET` | `/api/free-fonts/:id/intro.otf` | the same, cut to the letters the opening title card sets |
