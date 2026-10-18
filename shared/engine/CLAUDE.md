@@ -156,7 +156,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    Serifs are found on stems ending at a line (`serifReach`): thin ones, gone a little way in, and slabs as tall as a
    fifth of the capitals' height with a square top (a wood type's, a typewriter's). Specks a move pinches off are
    dropped (`SPECK`). A lighter weight (the stems themselves drawn thinner: `MoveMap.lighter`) is drawn again from a
-   skeleton of its own (`thinSkeleton`: a coarser grid, `THIN_CELL`; short strokes running on through a join kept,
+   skeleton of its own (`thinSkeleton`: a coarser grid, `THIN_CELL`, read with every pocket of paper the ink closes
+   round no more than `POCKET` cells inked, `fillPockets` in `scan.ts`: a notch narrowing to a slit aslant leaves cells
+   meeting only corner to corner, each a hole, and the skeleton ran a loop round them, a grotesque 5's where its bowl
+   leaves its stem; short strokes running on through a join kept,
    `skeleton(…, through)`, a d's stem below its bowl; and a stub where a stroke's middle turns but its ink runs on
    straight, `withStubs`, an n's stem above its arch, a p's above its bowl, an a's foot, in a serif font one run up under
    a flag standing out one way, a slab p's whose bowl leaves it at the x-height; and a serif's foot drawn level,

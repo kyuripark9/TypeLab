@@ -784,7 +784,7 @@ export function thinSkeleton(rig: SkinRig): Skeleton {
 /** The lighter weight's skeleton without its serifs' feet drawn level (thinSkeleton draws them, footRig its slabs). */
 function plainSkeleton(rig: SkinRig): Skeleton {
   if (rig.plainSk) return rig.plainSk;
-  const sk = withStubs(rig, skeleton(rig.contours, THIN_CELL, true));
+  const sk = withStubs(rig, skeleton(rig.contours, THIN_CELL, true, false, true));
   const tipped = withTips(rig, sk);
   return (rig.plainSk = rig.shortSlabs() || rig.stroked() ? withBars(rig, tipped) : tipped);
 }
@@ -3332,7 +3332,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     `round`), or null where that keeps none more. */
 function roundRig(rig: SkinRig): SkinRig | null {
   if (rig.round !== undefined) return rig.round;
-  const base = withStubs(rig, skeleton(rig.contours, THIN_CELL, true, true)), sk = rig.feet ? withFeet(rig, base, rig.feet) : base;
+  const base = withStubs(rig, skeleton(rig.contours, THIN_CELL, true, true, true)), sk = rig.feet ? withFeet(rig, base, rig.feet) : base;
   return (rig.round = sameNodes(sk, thinSkeleton(rig)) ? null : { ...rig, thinSk: sk, thin: undefined, round: null, footed: null });
 }
 

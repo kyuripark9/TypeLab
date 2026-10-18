@@ -128,10 +128,35 @@ for (let m = 0; m < 256; m++) {
 }
 const neighbours = (s: Uint8Array, W: number, i: number) => COUNT[around(s, W, i)];
 
+/** Ink s (W by H cells) with each pocket of paper it closes round no more than POCKET cells inked. Where a notch narrows
+    to a slit running aslant, its cells meet only corner to corner, each a hole to ink read 8-connected, and thinning,
+    which keeps holes, ran the skeleton round each, a loop where the letter has no counter: a grotesque 5's notch where
+    its bowl leaves its stem, the joins at either end of the loop drawn again as strokes at Thin, heavy, and an italic's
+    n's and h's where its arch leaves its stem. */
+function fillPockets(s: Uint8Array, W: number, H: number) {
+  // (the paper the page's edge reaches, 4-connected)
+  const out = new Uint8Array(W * H), stack: number[] = [];
+  for (let i = 0; i < W * H; i++) if (!s[i] && (i < W || i >= W * (H - 1) || i % W === 0 || i % W === W - 1)) { out[i] = 1; stack.push(i); }
+  while (stack.length) { const i = stack.pop()!; for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < W * H && !s[j] && !out[j]) { out[j] = 1; stack.push(j); } }
+  // (and each hole, read whole, inked if small)
+  const seen = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    if (s[i] || out[i] || seen[i]) continue;
+    const hole = [i];
+    seen[i] = 1;
+    for (let k = 0; k < hole.length; k++) for (const j of [hole[k] - 1, hole[k] + 1, hole[k] - W, hole[k] + W]) if (!s[j] && !seen[j]) { seen[j] = 1; hole.push(j); }
+    if (hole.length <= POCKET) for (const j of hole) s[j] = 1;
+  }
+}
+/** The most cells a pocket of paper the ink closes round may hold and be inked before thinning (thin): a counter holds
+    hundreds. */
+const POCKET = 6;
 /** The ink thinned to its skeleton: one cell wide, as connected as the ink, and keeping its holes. */
-function thin(g: Grid): Uint8Array {
+function thin(g: Grid, pockets = false): Uint8Array {
   const { W, H, dt } = g, s = new Uint8Array(W * H);
   for (let i = 0; i < W * H; i++) s[i] = g.ink[i];
+  // (where asked, a pocket of paper no more than POCKET cells the ink closes round, inked: fillPockets)
+  if (pockets) fillPockets(s, W, H);
   // the middle of a round of ink no neighbour's round holds: none of them is as much further from the
   // paper as it is from this cell
   // (each neighbour's step in cells, in NB's order, and how much further from the paper it would have to be)
@@ -198,9 +223,10 @@ function thin(g: Grid): Uint8Array {
 
 /** The skeleton of a letter's outline: its ends, joins and strokes. `cell` is the grid's in units (2 reads a
     letter 1000 units to the em finely enough for its hairlines, and quickly). `through` keeps a short stroke running
-    straight on through the join it leaves, and `round` one ending round (prune). */
-export function skeleton(cs: Node[][], cell = 2, through = false, round = false): Skeleton {
-  const g = inkGrid(cs, cell), s = thin(g), { W } = g;
+    straight on through the join it leaves, and `round` one ending round (prune); `pockets` reads it with the pockets of
+    paper its ink closes round no more than POCKET cells inked (fillPockets). */
+export function skeleton(cs: Node[][], cell = 2, through = false, round = false, pockets = false): Skeleton {
+  const g = inkGrid(cs, cell), s = thin(g, pockets), { W } = g;
   const deg = new Int8Array(W * g.H);
   const on: number[] = [];
   for (let i = W; i < W * (g.H - 1); i++) if (s[i]) { deg[i] = neighbours(s, W, i); on.push(i); }
