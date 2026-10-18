@@ -785,8 +785,78 @@ export function thinSkeleton(rig: SkinRig): Skeleton {
 function plainSkeleton(rig: SkinRig): Skeleton {
   if (rig.plainSk) return rig.plainSk;
   const sk = withStubs(rig, skeleton(rig.contours, THIN_CELL, true));
-  return (rig.plainSk = rig.shortSlabs() || rig.stroked() ? withBars(rig, sk) : sk);
+  const tipped = withTips(rig, sk);
+  return (rig.plainSk = rig.shortSlabs() || rig.stroked() ? withBars(rig, tipped) : tipped);
 }
+
+/** A stroke whose middle the skeleton stops short of another stroke it runs into, tapering to nothing inside that one's
+    ink (an italic X's hairline into its heavy stroke): its middle run on straight the way it goes to the other's, met
+    there in a join, so the two stay one as the heavy one thins (its end left free, the hairline stood apart from the heavy
+    stroke's side as that went in, the X drawn only partway lighter, heavier at Light than at Regular's next step down).
+    Only an end whose ink runs on past its round all the way to the other's middle, within TIP_REACH, and no thicker there
+    than TIP_FINE of that one. */
+function withTips(rig: SkinRig, sk: Skeleton): Skeleton {
+  const polys = outlineOf(rig), inside = (x: number, y: number) => polys.reduce((k, ring) => k !== inPoly(ring, { x, y }), false);
+  const lenOf = (pts: SkPt[]) => pts.reduce((a, q, k) => (k ? a + Math.hypot(q.x - pts[k - 1].x, q.y - pts[k - 1].y) : 0), 0);
+  // (the skeleton as it is where no end runs on; otherwise a copy, each edge's points the same array but where it changes,
+  // which keeps a stub its mark, STUBBED)
+  const nodes = sk.nodes.map(n => ({ ...n, edges: [...n.edges] })), edges = sk.edges.map(e => ({ ...e }));
+  const repts = (E: { pts: SkPt[]; len: number }, pts: SkPt[]) => { if (STUBBED.has(E.pts)) STUBBED.add(pts); E.pts = pts; E.len = lenOf(pts); };
+  let changed = false;
+  const count = nodes.length;
+  for (let t = 0; t < count; t++) {
+    const T = nodes[t];
+    if (T.edges.length !== 1) continue;
+    const e = T.edges[0], E = edges[e], from = E.a === t ? E.pts : E.pts.slice().reverse();
+    const back = from.find(q => Math.hypot(q.x - T.x, q.y - T.y) >= TIP_BACK) ?? from[from.length - 1];
+    let ux = T.x - back.x, uy = T.y - back.y;
+    const ul = Math.hypot(ux, uy);
+    if (ul < 1) continue;
+    ux /= ul; uy /= ul;
+    // (the nearest other stroke's middle ahead, within reach)
+    let best: { f: number; k: number; w: number; s: number } | null = null;
+    edges.forEach((F, f) => {
+      if (f === e) return;
+      for (let k = 0; k + 1 < F.pts.length; k++) {
+        const p = F.pts[k], q = F.pts[k + 1], vx = q.x - p.x, vy = q.y - p.y, den = ux * vy - uy * vx;
+        if (Math.abs(den) < 1e-9) continue;
+        const sAt = ((p.x - T.x) * vy - (p.y - T.y) * vx) / den, w = ((p.x - T.x) * uy - (p.y - T.y) * ux) / den;
+        if (sAt > 0 && sAt <= TIP_REACH && w >= 0 && w <= 1 && (!best || sAt < best.s)) best = { f, k, w, s: sAt };
+      }
+    });
+    if (!best) continue;
+    const B = best as { f: number; k: number; w: number; s: number };
+    // (the ink running on past its round all the way there: not a stroke's own end)
+    if (B.s <= T.r + 2) continue;
+    // (give or take the neck it tapers to, as wide as its end's round, where the ray may slip out a little)
+    let outside = 0;
+    for (let d = 1; d < B.s; d += 1.5) if (!inside(T.x + ux * d, T.y + uy * d)) outside += 1.5;
+    if (outside > Math.max(3, 2 * T.r)) continue;
+    const F = edges[B.f], p = F.pts[B.k], q = F.pts[B.k + 1], X: SkPt = { x: p.x + (q.x - p.x) * B.w, y: p.y + (q.y - p.y) * B.w, r: p.r + (q.r - p.r) * B.w };
+    // (tapering to much finer than the stroke it runs into: not a stem's end run into its slab)
+    if (!(T.r <= TIP_FINE * X.r)) continue;
+    // (the end run on to X, as thick as it is at its end; the other stroke parted at X, the end's node now the join there)
+    const n = Math.max(1, Math.round(B.s / THIN_CELL)), lead: SkPt[] = [];
+    for (let k = 1; k <= n; k++) lead.push({ x: T.x + (X.x - T.x) * k / n, y: T.y + (X.y - T.y) * k / n, r: T.r });
+    const run = [...from.slice().reverse(), ...lead];
+    repts(E, E.a === t ? run.slice().reverse() : run);
+    const f2 = edges.length, F2 = { a: t, b: F.b, pts: [X, ...F.pts.slice(B.k + 1)], len: 0 };
+    F2.len = lenOf(F2.pts);
+    if (STUBBED.has(F.pts)) STUBBED.add(F2.pts);
+    repts(F, [...F.pts.slice(0, B.k + 1), X]);
+    changed = true;
+    const Fb = nodes[F.b];
+    Fb.edges = Fb.edges.map(x => (x === B.f && F.b !== F.a ? f2 : x));
+    if (F.b === F.a) { const i = Fb.edges.lastIndexOf(B.f); if (i >= 0) Fb.edges[i] = f2; }
+    F.b = t;
+    edges.push(F2);
+    T.x = X.x; T.y = X.y; T.r = X.r; T.edges = [e, B.f, f2];
+  }
+  return changed ? { nodes, edges } : sk;
+}
+/** How far back from a free end the way it runs is read, and how far on past it it may be run to another stroke's
+    middle (withTips). */
+const TIP_BACK = 30, TIP_REACH = 60, TIP_FINE = 0.35;
 
 /** The rig as a letter of straight strokes in a font without serifs is drawn lighter: on its skeleton read along those
     strokes (lineSkeleton), or null where it isn't one. */
