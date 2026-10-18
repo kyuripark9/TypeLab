@@ -3347,8 +3347,11 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     const facing = is.reduce((a, i) => { const j = T.near[r][i]; return a + Math.abs(bs[i].nx * T.tx[j] + bs[i].ny * T.ty[j]); }, 0) / is.length >= 0.5;
     const end = facing && flatEnd && !is.some(i => inRun[i]) && len < 3.6 * Math.max(...is.map(i => bs[i].best)) && is.filter(i => !T.across[r][i]).length * 2 > is.length && !crotch(is[0] - 1) && !crotch(is[is.length - 1] + 1);
     // (a side moves by the samples whose rounds span its stroke, where it has any: those by its end read the stroke the
-    // end runs into)
-    const sides = is.filter(i => T.across[r][i]), m = end ? 0 : mid((sides.length ? sides : is).map(i => delta[i]));
+    // end runs into; but not one by a crotch, which stands in the rounds of the stroke across it, where another spans its
+    // own: a Didone's d's stem's side under its bowl, its only other such sample reading the stem, stayed as drawn, the
+    // stem's foot 58 units wider than the stem at Thin)
+    const sides0 = is.filter(i => T.across[r][i]), byCrotch = (i: number) => crotch(i - 1) || crotch(i + 1);
+    const sides = sides0.some(i => !byCrotch(i)) ? sides0.filter(i => !byCrotch(i)) : sides0, m = end ? 0 : mid((sides.length ? sides : is).map(i => delta[i]));
     for (const i of is) delta[i] = m;
   }
   // a font drawn with much contrast keeps its hairline as the weight keeps it (family.ts) all round: no side spanning its
