@@ -3095,8 +3095,9 @@ const ON_LINE = 2.5;
 const END_NEAR = 2, END_LEVEL = 0.9, END_BAND = 0.05, END_SHORT = 0.055;
 /** A foot reaching out past its stroke's middle's end by more than CAP_PAST of the end's round, its samples within CAP_TIP of
     the round of the end, made smaller about the end where more than CAP_FOLD of its moved steps turn back (each counted
-    wholly from CAP_TURN of a step back on itself), wholly from CAP_EASE more (thinMoves). */
-const CAP_PAST = 1.4, CAP_TIP = 0.15, CAP_FOLD = 0.095, CAP_EASE = 0.05, CAP_TURN = 0.2;
+    wholly from CAP_TURN of a step back on itself, and as much less as it is shorter, as moved, than CAP_SHORT of itself
+    as drawn), wholly from CAP_EASE more (thinMoves). */
+const CAP_PAST = 1.4, CAP_TIP = 0.15, CAP_FOLD = 0.095, CAP_EASE = 0.05, CAP_TURN = 0.2, CAP_SHORT = 0.05;
 /** An edge facing the way the stroke it reads runs moves as a stroke's side it lies in line with past a join (thinMoves):
     their normals within INLINE_COS of one way, it no further off the side's line than INLINE_NEAR units or INLINE_SHARE
     of the capitals' height, and the side moving in by INLINE_MORE units more. */
@@ -3114,6 +3115,10 @@ const FILLET_TURN = 0.02, FILLET_MIN = 25 * Math.PI / 180;
 /** A round on a letter's outside ending within this many samples of a crotch runs on into it, and is not carried as a
     corner's (carryFillets). */
 const FILLET_CROTCH = 4;
+/** A round on a letter's outside in a font without serifs carried whole no longer than four times as far as its edges
+    move, give or take (carryFillets), and carried less and less as it is longer, to not at all FILLET_EASE of that
+    longer. */
+const FILLET_EASE = 0.06;
 /** The most a round on the outside of a corner, carried whole, turns (carryFillets): more is a stroke's round end. */
 const ROUND_MOST = 135 * Math.PI / 180;
 /** A slit's tip (carryFillets): within how far of the strokes drawn again ahead of it, and how far past them it goes. */
@@ -3517,7 +3522,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   const floor = hairFloor(rig, mv), fat = fatFace(rig), sideBest = (b: Bone, j: number) => (fat && T.vrun[j] ? Math.max(b.best, T.s[j]) : b.best);
   for (let j = 0; j < n; j++) { R[j] = Math.max(0, mv.weighs({ tx: T.tx[j], ty: T.ty[j], w: T.s[j], serifDx: 0, dot: false } as Bone) * T.s[j], Math.min(T.s[j], floor)); Rmost = Math.max(Rmost, R[j]); }
   const grid = T.grid ??= pointGrid(T);
-  const crotches = new Map<number, Crotch>(), pins = new Map<number, P>();
+  const crotches = new Map<number, Crotch>(), pins = new Map<number, P>(), feet = new Map<number, [number, number]>();
   bs.forEach((b, i) => {
     if (!b.corner || !concaveAt(b)) return;
     let N: SkPt | null = null, n0 = -1;
@@ -3726,6 +3731,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     // point, drawn again, holds)
     // (still the foot's, out of its side's straight run: read into that run, an E's stem's side leaned with them)
     if (d === 0 && fat && !b.serifDx && Math.abs(b.ny) < FAT_SIDE_UP && T.s[jf] >= FAT_SIDE_HEAVY * rig.ref().stem) { const dp = plain(b, i); footed[i] = fid >= 0 ? 1 : 2; return dp; }
+    feet.set(i, [d, intoFoot(G, b, j => R[j] * kp, j => footRound(rig, mv, R[j]) * kp, Math.max(6, 0.02 * rig.ctx.cap), 0.3 * rig.ctx.cap, true)]);
     k0.push(1);
     // (1 by its nearest of the skeleton, a foot's; 2 by a serif's own straight edge)
     footed[i] = fid >= 0 ? 1 : 2;
@@ -3915,7 +3921,10 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // samples (those reading its round, within CAP_TIP of it) and, along its outline from them, those reading the stroke
   // within its round of the end, out past it along its middle; only in a font without serifs, an end going down to its
   // line, and folding: of its samples' moved steps, more than CAP_FOLD turned back on the way they ran, each counted as
-  // far as it turns back, wholly from CAP_TURN of the step back on itself, and wholly made smaller from CAP_EASE more
+  // far as it turns back, wholly from CAP_TURN of the step back on itself, and as much less as it is shorter than
+  // CAP_SHORT of itself as drawn (by its way alone, a step shrinking to nothing turned back all at once, Cathedral's n's
+  // foot came and went at a step at Weight 0.155 and 0.285, 6 and 7 units of room), and wholly made smaller from CAP_EASE
+  // more
   // (every such end made smaller, a sans' 9's and Q's tails and a V's point in a font with serifs moved too; and made
   // smaller at once at its share, Cathedral's n's foot came and went at a step, its room 22 units)
   if (!rig.serifed()) for (const q of skEnds) {
@@ -3933,7 +3942,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     // as drawn)
     const at = (i: number) => ({ x: bs[i].x - bs[i].nx * delta[i], y: bs[i].y - bs[i].ny * delta[i] });
     let all = 0, back = 0;
-    for (const i of cap) { const k = (i + 1) % nb; if (!cap.has(k)) continue; const a0 = at(i), a1 = at(k), dx = bs[k].x - bs[i].x, dy = bs[k].y - bs[i].y, mx = a1.x - a0.x, my = a1.y - a0.y, l = Math.hypot(dx, dy) * Math.hypot(mx, my); all++; if (l) back += Math.max(0, Math.min(1, -(mx * dx + my * dy) / l / CAP_TURN)); }
+    for (const i of cap) { const k = (i + 1) % nb; if (!cap.has(k)) continue; const a0 = at(i), a1 = at(k), dx = bs[k].x - bs[i].x, dy = bs[k].y - bs[i].y, mx = a1.x - a0.x, my = a1.y - a0.y, ld = Math.hypot(dx, dy), lm = Math.hypot(mx, my); all++; if (ld && lm) back += Math.max(0, Math.min(1, -(mx * dx + my * dy) / (ld * lm) / CAP_TURN)) * Math.min(1, lm / (CAP_SHORT * ld)); }
     const fold = all ? back / all : 0, w = Math.max(0, Math.min(1, (fold - CAP_FOLD) / CAP_EASE));
     if (w <= 0) continue;
     for (const i of cap) {
@@ -3957,7 +3966,10 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     hugY![i] = H[j];
     if (!b.corner) { hug![i] = -H[j] * b.ny; delta[i] += hug![i]; }
   });
-  return { k0, delta, crotches, pins, footed, hug, hugY };
+  // (and each foot's sample's move as read to a hair, not by the unit: a serif's bracket drawn again as far as its stem
+  // thinned (carryFillets), read by the unit, came in in steps)
+  const fine = delta.map((d, i) => { const f = feet.get(i); return f && f[0] === d ? f[1] : d; });
+  return { k0, delta, crotches, pins, footed, hug, hugY, fine };
 }
 
 /** The rig as moveRig tries it a last time: its lighter weight's skeleton keeping its strokes that end round (prune's
@@ -4687,9 +4699,11 @@ function byFoot(F: ThinReads['feet'][number], b: Bone, tol: number, cap: number)
 }
 
 /** How far in along its inward normal sample b goes to reach foot F drawn as thin as the move makes it (its stem's round
-    Rs, its serifs' Rf, read at a point j of each; tol the line's give), up to reach; or, never reaching it so, as far as
-    it lies off it (0 where it is on it already), or NaN by a foot reaching across its stem. */
-function intoFoot(F: ThinReads['feet'][number], b: Bone, Rs: (j: number) => number, Rf: (j: number) => number, tol: number, reach: number) {
+    Rs, its serifs' Rf, read at a point j of each; tol the line's give), up to reach, by the unit (`fine`, to a hair, halved
+    FOOT_FINE times); or, never reaching it so, as far as it lies off it (0 where it is on it already), or NaN by a foot
+    reaching across its stem. */
+const FOOT_FINE = 12;
+function intoFoot(F: ThinReads['feet'][number], b: Bone, Rs: (j: number) => number, Rf: (j: number) => number, tol: number, reach: number, fine = false) {
   const [ax, ay, bx, by] = F.stem, vx = bx - ax, vy = by - ay, l2 = vx * vx + vy * vy || 1, rs = F.stemJ >= 0 ? Rs(F.stemJ) : 0;
   const rf = F.serifs.map(S => (S.j >= 0 ? Rf(S.j) : 0));
   // (how far point (x, y) lies off the foot, 0 on it)
@@ -4708,7 +4722,12 @@ function intoFoot(F: ThinReads['feet'][number], b: Bone, Rs: (j: number) => numb
   // them)
   for (const S of F.serifs) { const out = Math.sign(S.x1 - S.x0); if ((b.x - S.x1) * out > -2 * tol && -b.nx * out > 0.7) return 0; }
   // (two units at a time, then the last step's first unit)
-  for (let t = 2; t <= reach; t += 2) if (off(b.x + b.nx * t, b.y + b.ny * t) <= 0) return off(b.x + b.nx * (t - 1), b.y + b.ny * (t - 1)) <= 0 ? 1 - t : -t;
+  for (let t = 2; t <= reach; t += 2) if (off(b.x + b.nx * t, b.y + b.ny * t) <= 0) {
+    if (!fine) return off(b.x + b.nx * (t - 1), b.y + b.ny * (t - 1)) <= 0 ? 1 - t : -t;
+    let lo = t - 2, hi = t;
+    for (let k = 0; k < FOOT_FINE; k++) { const m = (lo + hi) / 2; if (off(b.x + b.nx * m, b.y + b.ny * m) <= 0) hi = m; else lo = m; }
+    return -(lo + hi) / 2;
+  }
   // (a foot reaching across its stem, a flag's or a stub's, may have another stroke's side by it, a u's bowl's, which,
   // never reaching it, moves as its own stroke's: NaN)
   return F.side > 0 ? NaN : -off(b.x, b.y);
@@ -4884,11 +4903,11 @@ const endsOf = (rig: SkinRig, r: number, mv: MoveMap) => (mv.lighter ? rig.ends[
 function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   const { weighs, keeps } = mv, end = crossEnd;
   if (rig && mv.lighter) {
-    const { k0, delta, crotches, pins, footed, hug, hugY } = thinMoves(rig, bs, r, mv);
+    const { k0, delta, crotches, pins, footed, hug, hugY, fine } = thinMoves(rig, bs, r, mv);
     // (a level foot's samples as they reach it: eased, a leaning leg's bracket's, its rays running 40 to 100 units in
     // within a few samples, stopped short of it, a wedge under the leg, Almanac's K's)
     const moved = bs.map((b, i) => b.corner || footed[i] ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && end(bs[j]) === end(b)));
-    return { dotRoom: bs[0]?.dot ? Math.min(...bs.map(b => b.gap)) * OPEN : Infinity, k0, moved, crotches, pins, hug, hugY };
+    return { dotRoom: bs[0]?.dot ? Math.min(...bs.map(b => b.gap)) * OPEN : Infinity, k0, moved, crotches, pins, hug, hugY, fine };
   }
   // how far each edge moves out (in, lighter): its stroke's change of thickness on this side, a stem's by
   // Weight, a bar's by Contrast too; a stroke's end, which runs across it, stays. An edge across a counter from another
@@ -4911,7 +4930,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     return d > 0 ? Math.min(d, b.dot ? dotRoom : b.gap * OPEN) : d;
   });
   const moved = bs.map((b, i) => b.corner ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && end(bs[j]) === end(b)));
-  return { dotRoom, k0, moved, crotches: undefined as Map<number, Crotch> | undefined, pins: undefined as Map<number, P> | undefined, hug: null as Float64Array | null, hugY: null as Float64Array | null };
+  return { dotRoom, k0, moved, crotches: undefined as Map<number, Crotch> | undefined, pins: undefined as Map<number, P> | undefined, hug: null as Float64Array | null, hugY: null as Float64Array | null, fine: undefined as number[] | undefined };
 }
 
 /** A lighter weight's crotch where a stem's straight side meets an edge leaving it at a slant and curving away, an arch
@@ -5059,7 +5078,7 @@ function ringCrossesAt(out: P[], c: number) {
     with the sides it joins. */
 function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   const { gy, gyDot, gx, top, top1, sx, kd, ks } = mv;
-  const n = bs.length, { dotRoom, k0, moved, crotches, pins, hug, hugY } = edgeMoves(bs, r, mv, rig);
+  const n = bs.length, { dotRoom, k0, moved, crotches, pins, hug, hugY, fine } = edgeMoves(bs, r, mv, rig);
   // where the heights and the width put it: the skeleton point moved, and the edge kept as far across the
   // stroke from it as it was, the stroke turned as they turn it (a diagonal leans further as the letter
   // widens), so every stroke keeps its thickness; narrower, upright strokes thin a little, as a condensed
@@ -5281,6 +5300,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     const level = (q: Bone) => Math.abs(q.ty) < BRACKET_LEVEL && lineYs.some(L => Math.abs(q.y - L) < BRACKET_NEAR * rig.ctx.cap), upright = (q: Bone) => Math.abs(q.tx) < BRACKET_UPRIGHT;
     const wound = (q: Bone[]) => Math.sign(q.reduce((t, p, i) => { const w = q[(i + 1) % q.length]; return t + p.x * w.y - w.x * p.y; }, 0));
     const outside = wound(bs) === wound(rig.bones.reduce((m, q) => (q.length > m.length ? q : m), rig.bones[0]));
+    const later: { j: number; x: number; y: number; t: number }[] = [];
     for (const inside of [true, false]) {
     const turn = turns(inside);
     for (let s = 0; s < n; s++) {
@@ -5290,6 +5310,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       while (e - s < n - 1 && turn[md(e)] >= FILLET_TURN) { total += turn[md(e)]; if (e > s) arc += Math.hypot(bs[md(e)].x - bs[md(e - 1)].x, bs[md(e)].y - bs[md(e - 1)].y); e++; }
       const a = md(s - 1), z = md(e), d1 = moved[a], d2 = moved[z];
       if (bs[a].w0 < 1 || bs[z].w0 < 1) continue;
+      const wholeTo = 4 * Math.max(Math.abs(d1), Math.abs(d2)) + 10, carry = inside || rig.serifed() ? (arc > wholeTo ? 0 : 1) : Math.max(0, Math.min(1, 1 - (arc - wholeTo) / (FILLET_EASE * wholeTo)));
       // (a serif's bracket drawn again as the design's, made smaller about the corner its edges make as far as the stem
       // thinned, eased in from point by point as the stem thins less: point by point, a Didone's at Regular came out an S,
       // its foot's stem side moved further in than the serif's top. Not one carried whole, no longer than four times as
@@ -5297,21 +5318,29 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       // that so from a lighter weight on: a Didone's, carried whole at Light, its round kept as drawn on a stem a third as
       // thick, came out an S there too, or its foot drawn again square with a notch; not a fat face's, short beside its
       // stem, drawn again so at Regular, its head serif's tip drawn in to the stem, nor a script's on its slanting stem, a
-      // p's foot's, which grew the p's ink by an eighth in a step of Weight)
+      // p's foot's, which grew the p's ink by an eighth in a step of Weight. Drawn so over the round as it is carried, once
+      // carried, not over its points each moved its own way: a long one drawn again part of the way, its round, carried
+      // whole a step lighter, came in point by point at a jump, an Oldstyle's H's head's bracket 20 units at Weight 0.04;
+      // and read off its stem's side moved to a hair, not by the unit as its foot moves it, so drawn again by as much more
+      // each step, not by a sixth of the way at a time, a Didone's H's ink 6% at a step at Weight 0.18)
       if (inside && rig.serifed() && outside && total >= FILLET_MIN && ((level(bs[a]) && upright(bs[z])) || (level(bs[z]) && upright(bs[a])))) {
         const st = upright(bs[a]) ? a : z, sv = st === a ? z : a, S0 = base[st], V0 = base[sv], stem = stemSide(st, st === a ? -1 : 1);
         const cross = (P: P, u: P, Q: P, v: P) => { const den = u.x * v.y - u.y * v.x; if (Math.abs(den) < 1e-6) return null; const t = ((Q.x - P.x) * v.y - (Q.y - P.y) * v.x) / den; return { x: P.x + u.x * t, y: P.y + u.y * t }; };
         const us = { x: bs[st].tx, y: bs[st].ty }, uv = { x: bs[sv].tx, y: bs[sv].ty }, C0 = cross(S0, us, V0, uv), C1 = cross(out[st], us, out[sv], uv);
-        const w = bs[st].w0, f = Math.min(1, (w + moved[st]) / (w || 1));
-        const long = arc >= BRACKET_LONG * w && Math.abs(bs[st].tx) < BRACKET_PLUMB, t = Math.max(0, Math.min(1, long ? (f - BRACKET_KEEP_LONG) / BRACKET_BLEND_LONG : (f - BRACKET_KEEP) / BRACKET_BLEND)), carried = !(arc > 4 * Math.max(Math.abs(d1), Math.abs(d2)) + 10);
-        if (C0 && C1 && t > 0 && (long || !carried) && stem && arc <= BRACKET_ARC * w && Math.hypot(C0.x - S0.x, C0.y - S0.y) < 3 * Math.hypot(S0.x - V0.x, S0.y - V0.y)) {
-          for (let k = s; k < e; k++) { const j = md(k), q = { x: C1.x + (base[j].x - C0.x) * f, y: C1.y + (base[j].y - C0.y) * f }; out[j] = { x: out[j].x + (q.x - out[j].x) * t, y: out[j].y + (q.y - out[j].y) * t }; }
-          continue;
+        const w = bs[st].w0, f = Math.min(1, (w + (fine?.[st] ?? moved[st])) / (w || 1));
+        const long = arc >= BRACKET_LONG * w && Math.abs(bs[st].tx) < BRACKET_PLUMB, t0 = Math.max(0, Math.min(1, long ? (f - BRACKET_KEEP_LONG) / BRACKET_BLEND_LONG : (f - BRACKET_KEEP) / BRACKET_BLEND)), t = long ? t0 : t0 * (1 - carry);
+        if (C0 && C1 && t > 0 && stem && arc <= BRACKET_ARC * w && Math.hypot(C0.x - S0.x, C0.y - S0.y) < 3 * Math.hypot(S0.x - V0.x, S0.y - V0.y)) {
+          const at = Array.from({ length: e - s }, (_, k) => { const j = md(s + k); return { j, x: C1.x + (base[j].x - C0.x) * f, y: C1.y + (base[j].y - C0.y) * f, t }; });
+          later.push(...at);
         }
       }
       // (no longer than its edges move, give or take, or a round on the outside of a corner, one of whose edges lies on a
-      // line and stays, an L's foot: point by point, it would lift off the line its edge stays on)
-      if (total < FILLET_MIN || (arc > 4 * Math.max(Math.abs(d1), Math.abs(d2)) + 10 && (inside || !(flatOn(rig, bs[a]) || flatOn(rig, bs[z]))))) continue;
+      // line and stays, an L's foot: point by point, it would lift off the line its edge stays on; in a font without
+      // serifs, an outside round a little longer carried part of the way, less as it is longer (FILLET_EASE): carried
+      // whole or not at all, a blackletter n's foot's flick came off it at a step, its letter lifted 5 units, Cathedral's
+      // n's ink 6% at Weight 0.185)
+      const share = inside || !(flatOn(rig, bs[a]) || flatOn(rig, bs[z])) ? carry : 1;
+      if (total < FILLET_MIN || share <= 0) continue;
       // (nor, outside, in a font without serifs, one running into a sharp corner, a stroke's cut end, which no round
       // stands for: a grotesque s's shoulder into its cut end, 130 units round, was carried whole 77 units at Weight 0.15,
       // its turn pinched to a hook, and not at 0.155, its edges' moves a little shorter, a step of 11% of its ink)
@@ -5353,8 +5382,10 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
         const L = Math.hypot(mx, my), m = md(s + ((e - s) >> 1)), ahead = thinAhead(rig, mv, base[m], mx / (L || 1), my / (L || 1));
         if (ahead < SLIT_NEAR && L > ahead + SLIT_PAST) { mx *= (ahead + SLIT_PAST) / L; my *= (ahead + SLIT_PAST) / L; }
       }
-      for (let k = s; k < e; k++) { const j = md(k); out[j] = { x: base[j].x + mx, y: base[j].y + my }; }
+      for (let k = s; k < e; k++) { const j = md(k); out[j] = { x: out[j].x + (base[j].x + mx - out[j].x) * share, y: out[j].y + (base[j].y + my - out[j].y) * share }; }
     }
+    for (const q of later) out[q.j] = { x: out[q.j].x + (q.x - out[q.j].x) * q.t, y: out[q.j].y + (q.y - out[q.j].y) * q.t };
+    later.length = 0;
     }
   }
 
