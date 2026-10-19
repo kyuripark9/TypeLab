@@ -2263,7 +2263,11 @@ function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true
   // all at once, a letter grew the strokes laid over it at a jump, a Jotter's M 17 units wider, a Chancery's n 26)
   const mended = movedOnce(rig, m0, m1, 'mended');
   if (whole(rig, mended)) {
-    const { s, was, by } = grows ? mendFrom(rig, m0, m1, [...first.out, ...(first.dropped ?? [])]) : { s: 1, was: [], by: 0 };
+    // (a fat face's not grown in from TRIM_FROM of its stems down, where its joins are trimmed to its strokes (fatTrim),
+    // and only part of the way on to TRIM_TO: grown part of the way, its mend's strokes stopped short in ragged pieces, a
+    // d's bowl's foot a saw's teeth at Light, a Q's tail apart in three at Thin)
+    const g = fatFace(rig) ? Math.min(1, Math.max(0, (m1.v / m0.v - TRIM_FROM) / (TRIM_TO - TRIM_FROM))) : 1;
+    const grown = grows && g > 0 ? mendFrom(rig, m0, m1, [...first.out, ...(first.dropped ?? [])]) : { s: 1, was: [], by: 0 }, { was, by } = grown, s = 1 - (1 - grown.s) * g;
     const way = s < 1 ? { ...as(draws ? movedOnce(rig, m0, m1, 'mended', false, undefined, 'eased', s, [was, mended.out], by).out : mended.out, 'mended'), grow: { s, was, full: mended.out, by } } : as(mended.out, 'mended');
     // (and within STROKES_BLEND of a lighter weight it is drawn as its strokes at (strokesNear), its room in toward that
     // drawing's (skinSpan): mended a step heavier, Oldstyle's R came out 26 units narrower at once. Its room alone: drawn
@@ -2650,10 +2654,18 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
     // this one's, a stroke running down a serif's bracket, which the other's outline hasn't, closed a crumb there, filled)
     const [mr, mm] = toward ? [toward.rig, mvTo!] : [rig, mv], on = mr === rig ? onFeet : clamp(feetOf(mr));
     // (grown in (movedWay's grow), as much thinner, and only within as far of the letter's ink as they have grown)
-    const more = thinStrokes(mr, mm, grow < 1 ? R => Math.max(0.05, mendBy(R) * grow) : mendBy, to, 0, true).map(r => r.map(p => on({ x: mm.gx(p.x), y: lift(mm.gy(p.y)) }, 0)));
+    let more = thinStrokes(mr, mm, grow < 1 ? R => Math.max(0.05, mendBy(R) * grow) : mendBy, to, 0, true).map(r => r.map(p => on({ x: mm.gx(p.x), y: lift(mm.gy(p.y)) }, 0)));
+    // (a fat face's none on its balls' ink as drawn, where the move puts it: a ball made smaller as Weight goes (ballEnd),
+    // the stroke along the skeleton through the design's, mended wholly, hung from it, a 6's and an a's 100 units down)
+    let cut = false;
+    if (fatFace(rig)) {
+      const E = shape(mr.ends.flatMap((es, r) => es.filter(e => e.ball > 0).map(e => { const bs = mr.bones[r], n = bs.length; return Array.from({ length: e.b - e.a + 1 }, (_, k) => { const q = bs[(((e.a + k) % n) + n) % n]; return { x: mm.gx(q.x), y: lift(mm.gy(q.y)) }; }); })).filter(r => r.length > 2).map(r => (signedArea(r) < 0 ? r.slice().reverse() : r)), true);
+      if (E.polys.length) { const M1 = shape(more.map(r => (signedArea(r) < 0 ? r.slice().reverse() : r)), true); more = combine([M1, E], (x, y) => M1.has(x, y) && !E.has(x, y)); cut = true; }
+    }
     // (wound as the letter's outside is, so they add to its ink)
     const outer = rings.reduce((a, r) => (Math.abs(signedArea(r)) > Math.abs(signedArea(a)) ? r : a), rings[0]), sign = Math.sign(signedArea(outer));
-    const wound = more.map(r => (Math.sign(signedArea(r)) === sign ? r : r.slice().reverse()));
+    // (those cut off a ball as one ink, their holes the other way: combine winds its ink anticlockwise)
+    const wound = cut ? (sign > 0 ? more : more.map(r => r.slice().reverse())) : more.map(r => (Math.sign(signedArea(r)) === sign ? r : r.slice().reverse()));
     rings = grow < 1 ? grownIn(rings, wound, sign, grow, (rig.ctx.cap * SPECK) ** 2, wasIn) : [...rings, ...wound];
     // (a piece of it no more than a speck, apart where the letter whole had ink, kept as a dot is till the strokes reach it)
     dots = grow < 1 ? rings.map(r => Math.sign(signedArea(r)) === sign && Math.abs(signedArea(r)) < (rig.ctx.cap * SPECK) ** 2 && wasIn(r)) : undefined;

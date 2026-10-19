@@ -343,7 +343,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    the rig, from the nearest whole one (not one where it breaks all at once, `SUDDEN`), wholly grown where it is next
    drawn as its strokes; `grownIn` keeps each stroke out along itself as far from the letter's ink as that share of
    the farthest point beyond it, Dijkstra's on a grid, `GROW_CELL`, and a piece parted keeps where the letter has ink
-   at both ends, `wasIn`; not for a letter drawn as its strokes where they come out whole), or else drawn as those strokes alone within
+   at both ends, `wasIn`; not for a letter drawn as its strokes where they come out whole, nor a fat face's from `TRIM_FROM` of its stems down, where `fatTrim` trims its joins, and only part of the way on to `TRIM_TO`: grown part of the way, its mend's strokes stopped short in ragged pieces, a d's bowl's foot a saw's teeth at Light, a Q's tail apart in three at Thin; a fat face's mend draws no stroke on its balls' ink as the design has it, where the move puts it, a ball made smaller with its stems, mended wholly, hanging a stroke 100 units down from a 6's and an a's), or else drawn as those strokes alone within
    its ink, its dots as moved, or else moved again on a skeleton keeping its strokes that end round (`roundRig`,
    `skeleton(…, round)`: a heavy w's feet and middle peak), then thinned only as far as keeps it whole, in eighths. A heavier weight reads and moves
    as before. A pixel font
