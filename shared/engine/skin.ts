@@ -2864,6 +2864,10 @@ const ON_LINE = 2.5;
     END_NEAR times that end's round, or level (within END_LEVEL, the normal's share upright) by a line, within END_BAND of the
     capitals' height, or where it is short, under END_SHORT of that height. */
 const END_NEAR = 2, END_LEVEL = 0.9, END_BAND = 0.05, END_SHORT = 0.055;
+/** A foot reaching out past its stroke's middle's end by more than CAP_PAST of the end's round, its samples within CAP_TIP of
+    the round of the end, made smaller about the end where more than CAP_FOLD of its moved steps turn back (each counted
+    wholly from CAP_TURN of a step back on itself), wholly from CAP_EASE more (thinMoves). */
+const CAP_PAST = 1.4, CAP_TIP = 0.15, CAP_FOLD = 0.095, CAP_EASE = 0.05, CAP_TURN = 0.2;
 /** An edge facing the way the stroke it reads runs moves as a stroke's side it lies in line with past a join (thinMoves):
     their normals within INLINE_COS of one way, it no further off the side's line than INLINE_NEAR units or INLINE_SHARE
     of the capitals' height, and the side moving in by INLINE_MORE units more. */
@@ -3582,6 +3586,40 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // foot (withFeet), its round there as thick as the stem is now, read the edge over the stem out past it, a fat face's
   // D's top over its stem 15 units over the capitals' height, which the heights then took for the letter's top and
   // lowered the whole letter by, its serifs put back on the line alone; a Didone's heads and feet a bump over each stem)
+  // a stroke's end reaching out past its middle's end further than its round (by more than CAP_PAST of it: a
+  // blackletter's foot, its stem cut off aslant and flicked out past where its middle ends) whose samples, moved as they
+  // read, fold over each other, is made as much smaller about that end as its stroke is thinner, out past it: its
+  // samples all read the end's round, and moved in by as much along their own ways across, those of a flick thinner than
+  // the round crossed each other and the foot drew a blot, as heavy at Thin as the design's, Cathedral's a's; the end's
+  // samples (those reading its round, within CAP_TIP of it) and, along its outline from them, those reading the stroke
+  // within its round of the end, out past it along its middle; only in a font without serifs, an end going down to its
+  // line, and folding: of its samples' moved steps, more than CAP_FOLD turned back on the way they ran, each counted as
+  // far as it turns back, wholly from CAP_TURN of the step back on itself, and wholly made smaller from CAP_EASE more
+  // (every such end made smaller, a sans' 9's and Q's tails and a V's point in a font with serifs moved too; and made
+  // smaller at once at its share, Cathedral's n's foot came and went at a step, its room 22 units)
+  if (!rig.serifed()) for (const q of skEnds) {
+    if (q.y - q.r > END_BAND * rig.ctx.cap) continue;
+    const within = (f: number) => new Set(bs.flatMap((b, i) => { const j = T.near[r][i]; return j >= 0 && !b.dot && Math.hypot(T.x[j] - q.x, T.y[j] - q.y) <= Math.max(4, f * q.r) ? [i] : []; }));
+    const tip = [...within(CAP_TIP)];
+    if (tip.length < 3) continue;
+    const j = T.near[r][tip[0]];
+    if (Math.max(...tip.map(i => Math.hypot(bs[i].x - q.x, bs[i].y - q.y))) <= CAP_PAST * T.s[j]) continue;
+    const near = within(1), cap = new Set(tip);
+    for (const t of tip) for (const way of [-1, 1]) for (let k = 1; k < nb; k++) { const i = (((t + way * k) % nb) + nb) % nb; if (!near.has(i) || cap.has(i)) break; cap.add(i); }
+    const cx = tip.reduce((a, i) => a + bs[i].x - q.x, 0), cy = tip.reduce((a, i) => a + bs[i].y - q.y, 0), sg = Math.sign(cx * T.tx[j] + cy * T.ty[j]) || 1;
+    if (cy >= 0 || [...cap].some(i => { const jj = T.near[r][i]; return bs[i].serifDx || footed[i] || T.footDir[jj] !== 0 || T.footStem[jj] !== 0; })) continue;
+    // (folding: of each two samples next to each other in it, the step between them as moved running back on the step
+    // as drawn)
+    const at = (i: number) => ({ x: bs[i].x - bs[i].nx * delta[i], y: bs[i].y - bs[i].ny * delta[i] });
+    let all = 0, back = 0;
+    for (const i of cap) { const k = (i + 1) % nb; if (!cap.has(k)) continue; const a0 = at(i), a1 = at(k), dx = bs[k].x - bs[i].x, dy = bs[k].y - bs[i].y, mx = a1.x - a0.x, my = a1.y - a0.y, l = Math.hypot(dx, dy) * Math.hypot(mx, my); all++; if (l) back += Math.max(0, Math.min(1, -(mx * dx + my * dy) / l / CAP_TURN)); }
+    const fold = all ? back / all : 0, w = Math.max(0, Math.min(1, (fold - CAP_FOLD) / CAP_EASE));
+    if (w <= 0) continue;
+    for (const i of cap) {
+      const b = bs[i], jj = T.near[r][i], k = R[jj] / Math.max(1, T.s[jj]);
+      if ((b.x - q.x) * T.tx[j] * sg + (b.y - q.y) * T.ty[j] * sg > 0) { const m = at(i); pins.set(i, { x: m.x + (q.x + (b.x - q.x) * k - m.x) * w, y: m.y + (q.y + (b.y - q.y) * k - m.y) * w }); }
+    }
+  }
   const onLines = [0, rig.ctx.cap, ...(rig.ctx.lower ? [rig.ctx.xh, rig.ctx.asc, rig.ctx.desc] : [])];
   bs.forEach((b, i) => { if (delta[i] > 0 && !b.dot && onLines.some(L => Math.abs(b.y - L) < ON_LINE && (L === 0 || L === rig.ctx.desc ? b.ny > 0.9 : b.ny < -0.9))) delta[i] = 0; });
   // and each side goes up or down with its stroke's middle as a round is kept on its line (movedHug): across its edge,
