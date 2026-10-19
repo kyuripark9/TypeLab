@@ -2818,7 +2818,7 @@ const STRAIGHT_FEW = 5, STRAIGHT_LONG = 2;
 /** How near a line an edge lies on it, for a lighter weight not to move it out past it (thinMoves). */
 const ON_LINE = 2.5;
 /** A straight edge cut across its stroke stays as the stroke's end (thinMoves) only by where the stroke's middle ends, within
-    END_NEAR times its round, or level (within END_LEVEL, the normal's share upright) by a line, within END_BAND of the
+    END_NEAR times that end's round, or level (within END_LEVEL, the normal's share upright) by a line, within END_BAND of the
     capitals' height, or where it is short, under END_SHORT of that height. */
 const END_NEAR = 2, END_LEVEL = 0.9, END_BAND = 0.05, END_SHORT = 0.055;
 /** An edge facing the way the stroke it reads runs moves as a stroke's side it lies in line with past a join (thinMoves):
@@ -3470,8 +3470,10 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     // under a Didone's flag), or by where the stroke's middle ends, within END_NEAR of its round, or is short, under
     // END_SHORT of that height (a blackletter's hairline's facet where it meets its stem, which, let go, cut it off):
     // a blackletter's diamond foot's facet, facing along the hairline it turns into, held as drawn, kept the foot as heavy
-    // as the design's at Thin, a blot under each stem; a grotesque e's bar's cut past its bowl, a spur at Thin)
-    const end = facing && flatEnd && !is.some(i => inRun[i]) && len < 3.6 * Math.max(...is.map(i => bs[i].best)) && is.filter(i => !T.across[r][i]).length * 2 > is.length && !crotch(is[0] - 1) && !crotch(is[is.length - 1] + 1) && (len < END_SHORT * rig.ctx.cap || is.some(i => flatOn(rig, bs[i])) || is.every(i => Math.abs(bs[i].ny) > END_LEVEL && endLines.some(L => Math.abs(bs[i].y - L) < END_BAND * rig.ctx.cap)) || is.some(i => { const j = T.near[r][i]; return j >= 0 && skEnds.some(q => Math.hypot(q.x - T.x[j], q.y - T.y[j]) <= END_NEAR * Math.max(T.s[j], q.r) + 10); }));
+    // as the design's at Thin, a blot under each stem; a grotesque e's bar's cut past its bowl, a spur at Thin; that round
+    // the end's own, not the stroke's where the edge reads it: a blackletter's c's chin, the heavy stroke turning into its
+    // tail's hairline, reached the tail's tip by the heavy stroke's round, and was held, a blot under the c at Thin)
+    const end = facing && flatEnd && !is.some(i => inRun[i]) && len < 3.6 * Math.max(...is.map(i => bs[i].best)) && is.filter(i => !T.across[r][i]).length * 2 > is.length && !crotch(is[0] - 1) && !crotch(is[is.length - 1] + 1) && (len < END_SHORT * rig.ctx.cap || is.some(i => flatOn(rig, bs[i])) || is.every(i => Math.abs(bs[i].ny) > END_LEVEL && endLines.some(L => Math.abs(bs[i].y - L) < END_BAND * rig.ctx.cap)) || is.some(i => { const j = T.near[r][i]; return j >= 0 && skEnds.some(q => Math.hypot(q.x - T.x[j], q.y - T.y[j]) <= END_NEAR * q.r + 10); }));
     // (a side moves by the samples whose rounds span its stroke, where it has any: those by its end read the stroke the
     // end runs into; but not one by a crotch, which stands in the rounds of the stroke across it, where another spans its
     // own: a Didone's d's stem's side under its bowl, its only other such sample reading the stem, stayed as drawn, the
