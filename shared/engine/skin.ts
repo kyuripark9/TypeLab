@@ -1315,7 +1315,9 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       if (Math.abs(J.y - L) > VERTEX_FAR * J.r) continue;
       const away = (sg: number) => { let l = 0, i = k; while (i + sg >= 0 && i + sg < ps.length && l < 2 * J.r) { l += Math.hypot(ps[i + sg].x - ps[i].x, ps[i + sg].y - ps[i].y); i += sg; } return l >= 2 * J.r ? { x: ps[i].x - J.x, y: ps[i].y - J.y, r: ps[i].r } : null; };
       const u = away(-1), w = away(1);
-      if (!u || !w || Math.min(u.r, w.r) < 0.5 * Math.max(u.r, w.r)) continue;
+      // (in a fat face, a hairline into a heavy stroke too: its V's thick leg, thinned about its middle, reached the line
+      // past the hairline's, the two crossing above it round a speck of paper)
+      if (!u || !w || (Math.min(u.r, w.r) < 0.5 * Math.max(u.r, w.r) && !fatFace(rig))) continue;
       const lu = Math.hypot(u.x, u.y) || 1, lw = Math.hypot(w.x, w.y) || 1;
       if (!(u.y * dir / lu > 0.3 && w.y * dir / lw > 0.3 && Math.sign(u.x) !== Math.sign(w.x) && Math.abs(u.x / lu) > 0.2 && Math.abs(w.x / lw) > 0.2 && (u.x * w.x + u.y * w.y) / (lu * lw) > VERTEX_TURN)) continue;
       if (!inside(J.x, L + dir * Math.min(tolOf(), 0.25 * Math.abs(J.y - L)))) continue;
@@ -2453,14 +2455,190 @@ function fatTrim(rig: SkinRig, mv: MoveMap, lift: (y: number) => number, rings: 
     }
   }
   if (!zones.length) return { rings, dots };
-  const strokes = thinStrokes(rig, mv, R => R * k + TRIM_ADD).map(r => r.map(put));
+  // (its strokes as fatReads runs them on, eased back to the skeleton's own as the trim eases out)
+  const F = fatReadsAt(rig, f), fr = { ...rig, thin: F };
+  const strokes = thinStrokes(fr, mv, R => R * k + TRIM_ADD).map(r => r.map(put));
   const wind = (r: P[]) => (signedArea(r) < 0 ? r.slice().reverse() : r);
   const S = shape(strokes.map(wind), true), Z = shape(zones.map(wind), true), body = rings.filter((_, i) => !dots?.[i]), M = shape(body);
-  const kept = combine([M, S, Z], (x, y) => M.has(x, y) && (S.has(x, y) || !Z.has(x, y)));
+  // (a run of the skeleton's points drawn as a stroke as thick as it is now (`by` times, `more` units more): a ribbon
+  // along it, round at its ends, but one ending on a stroke it runs into a way off that one's join, a K's leg into its
+  // arm, cut along that stroke's far side)
+  const ends = FAT_ENDS.get(F);
+  const ribbon = (run: number[], more = 0, by = 1): P[][] => {
+    const qs = run.map(j => { const q = thinMiddle(fr, mv, j); return { ...put(q), R: q.R * by + more, j }; });
+    if (qs.length < 2) return qs.map(q => disc(q, q.R));
+    const nrm = (i: number) => { const a = qs[Math.max(0, i - 1)], b = qs[Math.min(qs.length - 1, i + 1)], dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1; return { x: -dy / l, y: dx / l }; };
+    const L = qs.map((q, i) => { const n = nrm(i); return { x: q.x + n.x * q.R, y: q.y + n.y * q.R }; }), Rt = qs.map((q, i) => { const n = nrm(i); return { x: q.x - n.x * q.R, y: q.y - n.y * q.R }; });
+    const out: P[][] = [];
+    for (const i of [0, qs.length - 1]) {
+      const c = ends?.get(qs[i].j), q = qs[i], o = qs[i === 0 ? 1 : i - 1];
+      if (c) {
+        const Ra = thinMiddle(fr, mv, c.j).R * by + more, dl = Math.hypot(q.x - o.x, q.y - o.y) || 1, d = { x: (q.x - o.x) / dl, y: (q.y - o.y) / dl };
+        let na = { x: -c.uy, y: c.ux };
+        if (na.x * d.x + na.y * d.y < 0) na = { x: -na.x, y: -na.y };
+        const dn = d.x * na.x + d.y * na.y;
+        if (dn > 0.2) {
+          const to = (S: P) => { const t = (Ra - ((S.x - q.x) * na.x + (S.y - q.y) * na.y)) / dn; return { x: S.x + d.x * t, y: S.y + d.y * t }; };
+          L[i] = to(L[i]); Rt[i] = to(Rt[i]);
+          continue;
+        }
+      }
+      out.push(disc(q, q.R));
+    }
+    out.push([...L, ...Rt.reverse()]);
+    return out;
+  };
+  // (each stroke run on straight drawn there, thinner as the trim eases out, to nothing at TRIM_TO)
+  const runsInk = fatRuns(rig, F).flatMap(r => ribbon(r, 0, 1 - f));
+  const D = runsInk.length ? shape(runsInk.map(wind), true) : null;
+  // (and about a join a stroke was run on straight into, its strokes as thick as they are now, and the letter's ink only
+  // as far out as that and a unit more, more and more out as the trim eases out)
+  const at = FAT_AT.get(F) ?? [];
+  const Zh = at.length ? shape(at.map(k => wind(disc(put(SK.nodes[k]), TRIM_ZONE * SK.nodes[k].r))), true) : null;
+  let Dh: ReturnType<typeof shape> | null = null, Sh: ReturnType<typeof shape> | null = null;
+  if (Zh) {
+    // (the strokes there: each stroke's points within the zones, and a few either side)
+    const runs: number[][] = [];
+    let j0 = 0;
+    for (const E of SK.edges) {
+      const j1 = j0 + E.pts.length, inZ = (j: number) => { const q = put(thinMiddle(fr, mv, j)); return Zh.has(q.x, q.y); };
+      let cur: number[] = [];
+      for (let j = j0; j <= j1; j++) {
+        if (j < j1 && inZ(j)) cur.push(j);
+        else if (cur.length) { const a = Math.max(j0, cur[0] - 3), b = Math.min(j1 - 1, cur[cur.length - 1] + 3); runs.push(Array.from({ length: b - a + 1 }, (_, m) => a + m)); cur = []; }
+      }
+      j0 = j1;
+    }
+    Dh = shape(runs.flatMap(r => ribbon(r, 0, 1 - f)).map(wind), true);
+    Sh = shape(runs.flatMap(r => ribbon(r, 1, 1 + f / (1 - f))).map(wind), true);
+  }
+  const kept = combine([M, S, Z, ...(D ? [D] : []), ...(Zh ? [Zh, Dh!, Sh!] : [])], (x, y) => Zh?.has(x, y) ? (M.has(x, y) && Sh!.has(x, y)) || Dh!.has(x, y) || !!D?.has(x, y) : (M.has(x, y) && (S.has(x, y) || !Z.has(x, y))) || (!!D && Z.has(x, y) && D.has(x, y)));
   if (!kept.length) return { rings, dots };
   const outer = kept.reduce((a, r) => (Math.abs(signedArea(r)) > Math.abs(signedArea(a)) ? r : a), kept[0]), sign = Math.sign(signedArea(outer)) || 1;
   const dotRings = rings.filter((_, i) => dots?.[i]).map(r => (Math.sign(signedArea(r)) === sign ? r : r.slice().reverse()));
   return { rings: [...kept, ...dotRings], dots: [...kept.map(() => false), ...dotRings.map(() => true)] };
+}
+/** A fat face's lighter weight's skeleton as fatTrim draws its strokes, and reads its middles by (movedOnce): each straight
+    hairline into a stem running on through its join (straightThrough) run on straight to the stem's middle; and a K's
+    arm and leg, meeting a way off its stem, a short stroke between, the arm run on straight along that stroke to the
+    stem's middle and the leg straight on to the arm. Where it bent round into the join, as the skeleton of so heavy a
+    letter reads it, a thin stroke drawn along it bent there: a W's hairline into its middle stroke a shelf, a K's arm a
+    bar across to its stem. */
+const FAT_READS = new WeakMap<ThinReads, ThinReads>();
+/** How far fatTrim eases out at a weight: 0 up to TRIM_FROM of the design's stems, 1 from TRIM_TO. */
+const fatEase = (mv: MoveMap) => Math.max(0, (mv.kv - TRIM_FROM) / (TRIM_TO - TRIM_FROM));
+/** fatReads' skeleton `f` of the way back to the letter's own (fatEase). */
+function fatReadsAt(rig: SkinRig, f: number): ThinReads {
+  const F = fatReads(rig), T = rig.thin!;
+  if (f <= 0) return F;
+  const B: ThinReads = { ...F, x: F.x.map((v, j) => v + (T.x[j] - v) * f), y: F.y.map((v, j) => v + (T.y[j] - v) * f), grid: undefined };
+  FAT_AT.set(B, FAT_AT.get(F)!); FAT_ENDS.set(B, FAT_ENDS.get(F)!);
+  return B;
+}
+function fatReads(rig: SkinRig): ThinReads {
+  const T = rig.thin ??= thinReads(rig), kept = FAT_READS.get(T);
+  if (kept) return kept;
+  const F: ThinReads = { ...T, x: T.x.slice(), y: T.y.slice(), tx: T.tx.slice(), ty: T.ty.slice(), grid: undefined };
+  const sk = thinSkeleton(rig);
+  const at: number[] = [], ends = new Map<number, { j: number; ux: number; uy: number }>();
+  if (!LINED.has(sk)) for (const [k, ls] of T.legs) {
+    const x0 = F.x.slice(), y0 = F.y.slice(), tx0 = F.tx.slice(), ty0 = F.ty.slice();
+    straightThrough(F, sk.nodes[k], ls, true);
+    // (only one bent round far into the join, not an E's arm, straight into its stem already, whose stem's sides about
+    // the join, drawn so, leaned)
+    const went = Math.max(0, ...ls.flatMap(l => l.pts.map(j => Math.hypot(F.x[j] - x0[j], F.y[j] - y0[j]))));
+    if (went >= HAIR_WENT * sk.nodes[k].r) at.push(k);
+    else for (const l of ls) for (const j of l.pts) { F.x[j] = x0[j]; F.y[j] = y0[j]; F.tx[j] = tx0[j]; F.ty[j] = ty0[j]; }
+  }
+  // (a K's arm and leg meeting a way off its stem, joined to it by a short stroke the skeleton reads through the ink
+  // where they meet: the arm run on straight to the stem's middle, along that stroke, and the leg straight to the arm)
+  if (!LINED.has(sk)) for (const [k, ls] of T.legs) {
+    if (ls.length !== 3) continue;
+    const N = sk.nodes[k];
+    for (const bar of ls) {
+      const s0 = bar.to, sl = T.legs.get(s0);
+      if (!sl || s0 === k) continue;
+      const others = sl.filter(o => o.to !== k);
+      if (others.length !== 2) continue;
+      const [s1, s2] = others.map(o => legLine(F, sk.nodes[s0], o));
+      if (!s1 || !s2 || s1.ux * s2.ux + s1.uy * s2.uy > STRAIGHT_THROUGH) continue;
+      const vl = Math.hypot(s2.A.x - s1.A.x, s2.A.y - s1.A.y) || 1, v = { x: (s2.A.x - s1.A.x) / vl, y: (s2.A.y - s1.A.y) / vl };
+      // (P within the stem, a round in from its ends)
+      const endOf = (L: NonNullable<typeof s1>) => { const j = L.pts[L.pts.length - 1]; return (F.x[j] - s1.A.x) * v.x + (F.y[j] - s1.A.y) * v.y; };
+      const lo = Math.min(endOf(s1), endOf(s2)) + sk.nodes[s0].r, hi = Math.max(endOf(s1), endOf(s2)) - sk.nodes[s0].r;
+      // (a hairline arm and a leg heavier than it by HAIR_INTO, each straight)
+      const pair = ls.filter(o => o !== bar).sort((a, b) => a.s - b.s);
+      if (pair[0].s >= HAIR_INTO * pair[1].s) continue;
+      const two = pair.map(o => legLine(F, N, o));
+      if (two.some(L => !L || legOff(F, L, N.r) > HAIR_STRAIGHT * N.r)) continue;
+      const meet = (a: P, ax: number, ay: number, b: P, bx: number, by: number) => { const det = ax * by - ay * bx; if (Math.abs(det) < 0.2) return null; const t = ((b.x - a.x) * by - (b.y - a.y) * bx) / det, u = ((b.x - a.x) * ay - (b.y - a.y) * ax) / det; return { t, u, x: a.x + ax * t, y: a.y + ay * t }; };
+      let done = false;
+      for (const [X, Y] of [[two[0]!, two[1]!]]) {
+        // P: back along the arm past its join to the stem's middle, within the stem; Q: back along the leg to the arm,
+        // between P and the arm's straight part
+        const Pm = meet(X.A, -X.ux, -X.uy, s1.A, v.x, v.y), Qm = Pm && meet(Y.A, -Y.ux, -Y.uy, X.A, -X.ux, -X.uy);
+        if (!Pm || !Qm || Pm.t <= 0 || Pm.u < lo || Pm.u > hi || Qm.t <= 0 || Qm.u <= 0 || Qm.u >= Pm.t) continue;
+        const along = (L: { pts: number[]; arc: number[] }, n: number, a: P, b: P) => { for (let m = 0; m < n; m++) { const f = L.arc[m] / (L.arc[n] || 1), j = L.pts[m], dx = b.x - a.x, dy = b.y - a.y, dl = Math.hypot(dx, dy) || 1, sg = Math.sign(F.tx[j] * dx + F.ty[j] * dy) || 1; F.x[j] = a.x + dx * f; F.y[j] = a.y + dy * f; F.tx[j] = sg * dx / dl; F.ty[j] = sg * dy / dl; } };
+        along(X, X.e, Qm, X.A); along(Y, Y.e, Qm, Y.A);
+        ends.set(Y.pts[0], { j: X.pts[0], ux: X.ux, uy: X.uy });
+        const B = legLine(F, N, bar, true)!;
+        along(B, B.pts.length - 1, Qm, Pm);
+        { const j = B.pts[B.pts.length - 1]; F.x[j] = Pm.x; F.y[j] = Pm.y; }
+        at.push(k, s0);
+        done = true;
+        break;
+      }
+      if (done) break;
+    }
+  }
+  FAT_READS.set(T, F);
+  FAT_AT.set(F, at);
+  FAT_ENDS.set(F, ends);
+  return F;
+}
+/** A stroke leaving join N as straightThrough reads it: its point where it leaves the bulge and the way out along it
+    (`all`: just its points and their way along it, however short). */
+function legLine(T: ThinReads, N: SkPt, l: Leg, all = false) {
+  const pts = l.pts, L = pts.length, arc = [0];
+  for (let m = 1; m < L; m++) arc.push(arc[m - 1] + Math.hypot(T.x[pts[m]] - T.x[pts[m - 1]], T.y[pts[m]] - T.y[pts[m - 1]]));
+  if (all) return { pts, e: L - 1, arc, A: { x: T.x[pts[0]], y: T.y[pts[0]] }, ux: 0, uy: 0 };
+  const from = (d: number) => { const i = arc.findIndex(v => v >= d); return i < 0 ? L - 1 : i; };
+  const at0 = Math.min(STRAIGHT_FROM * N.r, 0.4 * arc[L - 1]), e = from(at0), f = from(at0 + Math.min(N.r, 0.3 * arc[L - 1]));
+  if (e < 1 || f - e < 6) return null;
+  const mean = (i: number) => { let x = 0, y = 0, c = 0; for (let m = Math.max(0, i - 3); m <= Math.min(L - 1, i + 3); m++) { x += T.x[pts[m]]; y += T.y[pts[m]]; c++; } return { x: x / c, y: y / c }; };
+  const A = mean(e), B = mean(f), l2 = Math.hypot(B.x - A.x, B.y - A.y) || 1;
+  return { pts, e, arc, A, ux: (B.x - A.x) / l2, uy: (B.y - A.y) / l2 };
+}
+/** How far a stroke strays off the line legLine reads it along, over twice the join's round on from where it leaves the
+    bulge (Infinity, shorter). */
+function legOff(T: ThinReads, L: NonNullable<ReturnType<typeof legLine>>, r: number) {
+  const end = L.arc[L.arc.length - 1], span = Math.min(2 * r, 0.85 * (end - L.arc[L.e]));
+  if (span < 0.5 * r) return Infinity;
+  const d = L.arc[L.e] + span, far = L.arc.findIndex(v => v >= d);
+  if (far < 0) return Infinity;
+  let off = 0;
+  for (let m = L.e; m <= far; m++) off = Math.max(off, Math.abs((T.x[L.pts[m]] - L.A.x) * L.uy - (T.y[L.pts[m]] - L.A.y) * L.ux));
+  return off;
+}
+/** The joins fatReads ran a hairline on straight into. */
+const FAT_AT = new WeakMap<ThinReads, number[]>();
+/** A K's leg's end fatReads ran on to its arm: its point, and the arm's point there and its way. */
+const FAT_ENDS = new WeakMap<ThinReads, Map<number, { j: number; ux: number; uy: number }>>();
+/** The points of a fat face's skeleton fatReads runs on straight, in runs along their strokes. */
+function fatRuns(rig: SkinRig, F: ThinReads): number[][] {
+  const T = rig.thin!, runs: number[][] = [];
+  let j0 = 0;
+  // (each run with the point either side of it on its stroke)
+  for (const E of thinSkeleton(rig).edges) {
+    const j1 = j0 + E.pts.length;
+    let cur: number[] = [];
+    for (let j = j0; j <= j1; j++) {
+      if (j < j1 && (F.x[j] !== T.x[j] || F.y[j] !== T.y[j])) { if (!cur.length && j > j0) cur.push(j - 1); cur.push(j); }
+      else if (cur.length) { if (j < j1) cur.push(j); runs.push(cur); cur = []; }
+    }
+    j0 = j1;
+  }
+  return runs;
 }
 /** How heavy a serifed font's stems are, of its capitals' height, for it to be a fat face (fatTrim); and fatTrim's
     measures (see there): its strokes' thickness and more, its zones' size in a join's round, the turn, in radians, and
@@ -2593,12 +2771,14 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // (and each where the move puts it too, below a foot's line where the design takes its ink there: Couture's R's foot;
   // none for a letter part moved toward another skeleton, which movedPlain reads off the nearer of the two)
   if (mv.lighter && rig.thin && !toward) {
+    // (a fat face's trimmed, along its strokes as fatTrim draws them)
+    const fatMid = how !== 'strokes' && fatFace(rig) && fatEase(mv) < 1 ? { ...rig, thin: fatReadsAt(rig, fatEase(mv)) } : rig;
     let j0 = 0;
     for (const E of thinSkeleton(rig).edges) {
       const run: (P & { s: number; y0: number })[] = [];
       for (let i = 0; i < E.pts.length; i += 3) {
         if (rig.thin.vrun[j0 + i]) continue;
-        const q = thinMiddle(rig, mv, j0 + i, hugs || (how !== 'strokes' ? 'moved' : false)), y = how === 'strokes' ? mv.gy(q.y) : lift(mv.gy(q.y));
+        const q = thinMiddle(fatMid, mv, j0 + i, hugs || (how !== 'strokes' ? 'moved' : false)), y = how === 'strokes' ? mv.gy(q.y) : lift(mv.gy(q.y));
         run.push({ ...onFeet({ x: mv.gx(q.x), y, s: rig.thin.s[j0 + i] }, 1), y0: y });
       }
       middles.push(run);
@@ -2921,6 +3101,14 @@ const JOIN_GIVE = 0.2;
 /** How far out from a join, in the join's own distance to the paper, a lighter weight's strokes run on through it as
     they leave it (thinReads): the skeleton bends round toward the others nearer it. */
 const STRAIGHT_FROM = 1.6;
+/** A fat face's hairline into a stem running on through its join is run on straight to its middle (fatReads) where it
+    is no thicker than HAIR_INTO of the stem as it leaves the join, keeps within HAIR_STRAIGHT of the join's round of a
+    line over twice that round on, and meets the stem's middle within HAIR_RUN of that round back along it, so run on
+    HAIR_WENT of that round or more off where the skeleton put it (bent round into the join); and its
+    K's arm and leg so too, its arm no thicker than HAIR_INTO of its leg. A fat face's stroke's side a foot drawn as
+    thick as its stem takes in goes in as its stroke's side where it faces off the line by less than FAT_SIDE_UP (the
+    sine of its slope) and its stroke's half thickness is FAT_SIDE_HEAVY of the font's stems or more (thinMoves). */
+const HAIR_INTO = 0.5, HAIR_STRAIGHT = 0.15, HAIR_RUN = 4, HAIR_WENT = 0.25, FAT_SIDE_UP = 0.7, FAT_SIDE_HEAVY = 0.25;
 /** How nearly opposite ways two strokes leave a join to be one stem run on through it (straightThrough): within 30°, as
     the cosine of the angle between them. */
 const STRAIGHT_THROUGH = Math.cos(150 * Math.PI / 180);
@@ -3085,7 +3273,7 @@ function thinReads(rig: SkinRig): ThinReads {
     own point goes onto it, less and less out to the bulge's edge (a stroke too short to read, less and less out to its
     end, or, running to another join, all the way, that join going too). How far the join went, and the strokes to the
     joins that go with it. */
-function straightThrough(T: ThinReads, N: SkPt, ls: Leg[]): { sx: number; sy: number; joins: Leg[] } | null {
+function straightThrough(T: ThinReads, N: SkPt, ls: Leg[], hairs = false): { sx: number; sy: number; joins: Leg[] } | null {
   const X = T.x.slice(), Y = T.y.slice();
   // (each stroke where it leaves the bulge, its point there and the way out along it: the line from there through its
   // middle a little further out, read as the mean of a few points each, the skeleton being a little uneven)
@@ -3119,6 +3307,7 @@ function straightThrough(T: ThinReads, N: SkPt, ls: Leg[]): { sx: number; sy: nu
   if (Math.hypot(sx, sy) > 0.5 * N.r) return null;
   const joins: Leg[] = [];
   out.forEach((o, i) => {
+    if (!o && hairs) return;
     if (!o) {
       const l = ls[i], pts = l.pts, isJoin = T.joins.has(l.to);
       if (isJoin) joins.push(l);
@@ -3132,6 +3321,23 @@ function straightThrough(T: ThinReads, N: SkPt, ls: Leg[]): { sx: number; sy: nu
       return;
     }
     const through = i === best![0] || i === best![1];
+    if (hairs && through) return;
+    // (a fat face's hairline, straight, run on straight into the stem to its middle)
+    if (hairs && ls[i].s < HAIR_INTO * Math.min(ls[best![0]].s, ls[best![1]].s)) {
+      const far = (() => { const d = o.arc[o.e] + 2 * N.r, k = o.arc.findIndex(v => v >= d); return k < 0 ? -1 : k; })();
+      const det = o.ux * vy - o.uy * vx;
+      if (far > 0 && Math.abs(det) > 0.3) {
+        let off = 0;
+        for (let m = o.e; m <= far; m++) off = Math.max(off, Math.abs((X[o.pts[m]] - o.A.x) * o.uy - (Y[o.pts[m]] - o.A.y) * o.ux));
+        // where the hairline's line, back from A, meets the stem's: A - u t = a.A + v s
+        const t = ((a.A.x - o.A.x) * vy - (a.A.y - o.A.y) * vx) / -det, I = { x: o.A.x - o.ux * t, y: o.A.y - o.uy * t };
+        if (off < HAIR_STRAIGHT * N.r && t > 0 && t < HAIR_RUN * N.r) {
+          for (let m = 0; m < o.e; m++) { const f = o.arc[m] / (o.arc[o.e] || 1), p = o.pts[m]; const sg = Math.sign(T.tx[p] * o.ux + T.ty[p] * o.uy) || 1; T.x[p] = I.x + (o.A.x - I.x) * f; T.y[p] = I.y + (o.A.y - I.y) * f; T.tx[p] = sg * o.ux; T.ty[p] = sg * o.uy; }
+          return;
+        }
+      }
+    }
+    if (hairs) return;
     for (let m = 0; m < o.e; m++) {
       const p = o.pts[m];
       if (through) {
@@ -3271,7 +3477,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // (how far the font thins its strokes by how thick each is: drawn with much contrast, weighsOf)
   const { hair: h0 } = rig.ref(), byThick = thickShare(rig, mv);
   const hairKept = h0 * mv.weighs({ tx: 1, ty: 0, w: h0 / 2, serifDx: 0, dot: false } as Bone);
-  const floor = hairFloor(rig, mv);
+  const floor = hairFloor(rig, mv), fat = fatFace(rig), sideBest = (b: Bone, j: number) => (fat && T.vrun[j] ? Math.max(b.best, T.s[j]) : b.best);
   for (let j = 0; j < n; j++) { R[j] = Math.max(0, mv.weighs({ tx: T.tx[j], ty: T.ty[j], w: T.s[j], serifDx: 0, dot: false } as Bone) * T.s[j], Math.min(T.s[j], floor)); Rmost = Math.max(Rmost, R[j]); }
   const grid = T.grid ??= pointGrid(T);
   const crotches = new Map<number, Crotch>(), pins = new Map<number, P>();
@@ -3352,7 +3558,10 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     // turns into the hairline at its foot, the skeleton cuts the corner along the hairline's middle) as well as any)
     const crotch = b.corner && concaveAt(b), joined = T.zone[jn].length > 0 || crotch;
     if (!b.corner && T.across[r][i] && !joined && (Math.hypot(b.ax - T.x[jn], b.ay - T.y[jn]) > Math.max(4, 0.5 * b.best) || b.best > 2 * T.s[jn] + 4)) {
-      const k = mv.weighs({ ...b, w: b.best }) * kp, d = Math.max((k - 1) * b.best, Math.min(0, floor * kp - b.best));
+      // (a fat face's side by a vertex, run in to it, as its stroke reads: its round, touching the line the vertex is cut
+      // flat on, reads it thinner the nearer the line, a foot out off a W's leg at its point)
+      const best = sideBest(b, jn);
+      const k = mv.weighs({ ...b, w: best }) * kp, d = Math.max((k - 1) * best, Math.min(0, floor * kp - best));
       k0.push(k);
       return d > 0 ? Math.min(d, b.gap * OPEN) : d;
     }
@@ -3430,7 +3639,8 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
         return d > 0 ? Math.min(d, b.gap * OPEN) : d;
       };
       if (!(byThick > 0 && T.across[r][i])) return side();
-      const k = mv.weighs({ ...b, w: b.best }) * kp, d = Math.max((k - 1) * b.best, atTip[i] ? Math.min(0, hairKept / 2 - b.best) : hairKept / 2 - b.best);
+      const best = sideBest(b, jn);
+      const k = mv.weighs({ ...b, w: best }) * kp, d = Math.max((k - 1) * best, atTip[i] ? Math.min(0, hairKept / 2 - best) : hairKept / 2 - best);
       const dT = d > 0 ? Math.min(d, b.gap * OPEN) : d;
       if (byThick >= 1) { k0.push(k); return dT; }
       const dS = side(), kS = k0.pop()!;
@@ -3470,6 +3680,12 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
     if (!G) return plain(b, i);
     const kp = mv.keeps(b, r, i), d = intoFoot(G, b, j => R[j] * kp, j => footRound(rig, mv, R[j]) * kp, Math.max(6, 0.02 * rig.ctx.cap), 0.3 * rig.ctx.cap);
     if (Number.isNaN(d)) return plain(b, i);
+    // (but in a fat face a heavy stroke's side, not a serif's edge, facing off its line, that the foot, drawn as thick
+    // as its stem, takes in, goes in as its stroke's side: its foot's serif is far thinner, and a K's leg's side above
+    // its own little serif, left, stood out as a flag over the foot with a slit under it; not a hairline's, which a V's
+    // point, drawn again, holds)
+    // (still the foot's, out of its side's straight run: read into that run, an E's stem's side leaned with them)
+    if (d === 0 && fat && !b.serifDx && Math.abs(b.ny) < FAT_SIDE_UP && T.s[jf] >= FAT_SIDE_HEAVY * rig.ref().stem) { const dp = plain(b, i); footed[i] = fid >= 0 ? 1 : 2; return dp; }
     k0.push(1);
     // (1 by its nearest of the skeleton, a foot's; 2 by a serif's own straight edge)
     footed[i] = fid >= 0 ? 1 : 2;
@@ -3593,7 +3809,7 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // but a serif drawn level on its line (withFeet), already no thicker than its hairline (footRound), which this read
   // off the serif's middle as it was, before it was drawn level: an A's leaning leg's inner serif kept 28 units thick at
   // Thin, a dark wedge under the leg
-  if (byThick > 0) bs.forEach((b, i) => { if (!b.corner && !b.dot && !b.serifDx && T.across[r][i] && !crossEnd(b) && (footed[i] !== 1 || T.footStem[T.near[r][i]] !== 0)) delta[i] += (Math.max(delta[i], Math.min(0, hairKept / 2 - b.best)) - delta[i]) * byThick; });
+  if (byThick > 0) bs.forEach((b, i) => { if (!b.corner && !b.dot && !b.serifDx && T.across[r][i] && !crossEnd(b) && (footed[i] !== 1 || T.footStem[T.near[r][i]] !== 0)) delta[i] += (Math.max(delta[i], Math.min(0, hairKept / 2 - sideBest(b, T.near[r][i]))) - delta[i]) * byThick; });
   // (an edge lying on a line goes no further out past it: a stem's middle run on to the line under a serif's head or
   // foot (withFeet), its round there as thick as the stem is now, read the edge over the stem out past it, a fat face's
   // D's top over its stem 15 units over the capitals' height, which the heights then took for the letter's top and
