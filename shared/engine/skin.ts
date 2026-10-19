@@ -2871,6 +2871,10 @@ const INLINE_NEAR = 8, INLINE_SHARE = 0.025, INLINE_COS = 0.97, INLINE_MORE = 20
     the stem's half thickness: longer, a hook's round); drawn so from BRACKET_KEEP of its stem kept, wholly at BRACKET_BLEND
     more. */
 const BRACKET_LEVEL = 0.45, BRACKET_NEAR = 0.12, BRACKET_UPRIGHT = 0.35, BRACKET_KEEP = 0.45, BRACKET_BLEND = 0.15, BRACKET_ARC = 3;
+/** A serif's bracket at least BRACKET_LONG times its stem's half thickness round, the stem leaning less than
+    BRACKET_PLUMB (sine), is drawn again (carryFillets) carried whole or not, from BRACKET_KEEP_LONG of its stem kept,
+    wholly at BRACKET_BLEND_LONG more. */
+const BRACKET_LONG = 1.5, BRACKET_PLUMB = 0.1, BRACKET_KEEP_LONG = 0.3, BRACKET_BLEND_LONG = 0.08;
 const FILLET_TURN = 0.02, FILLET_MIN = 25 * Math.PI / 180;
 /** A round on a letter's outside ending within this many samples of a crotch runs on into it, and is not carried as a
     corner's (carryFillets). */
@@ -4881,17 +4885,21 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       while (e - s < n - 1 && turn[md(e)] >= FILLET_TURN) { total += turn[md(e)]; if (e > s) arc += Math.hypot(bs[md(e)].x - bs[md(e - 1)].x, bs[md(e)].y - bs[md(e - 1)].y); e++; }
       const a = md(s - 1), z = md(e), d1 = moved[a], d2 = moved[z];
       if (bs[a].w0 < 1 || bs[z].w0 < 1) continue;
-      // (a serif's bracket too long to carry, more than four times as long as its edges move, where its stem thins little,
-      // drawn again as the design's, made smaller about the corner its edges make as far as the stem thinned, eased in
-      // from point by point as the stem thins less: point by point, a Didone's at Regular came out an S, its foot's stem
-      // side moved further in than the serif's top)
+      // (a serif's bracket drawn again as the design's, made smaller about the corner its edges make as far as the stem
+      // thinned, eased in from point by point as the stem thins less: point by point, a Didone's at Regular came out an S,
+      // its foot's stem side moved further in than the serif's top. Not one carried whole, no longer than four times as
+      // its edges move, unless it is long beside its stem (BRACKET_LONG) and the stem stands plumb (BRACKET_PLUMB), and
+      // that so from a lighter weight on: a Didone's, carried whole at Light, its round kept as drawn on a stem a third as
+      // thick, came out an S there too, or its foot drawn again square with a notch; not a fat face's, short beside its
+      // stem, drawn again so at Regular, its head serif's tip drawn in to the stem, nor a script's on its slanting stem, a
+      // p's foot's, which grew the p's ink by an eighth in a step of Weight)
       if (inside && rig.serifed() && outside && total >= FILLET_MIN && ((level(bs[a]) && upright(bs[z])) || (level(bs[z]) && upright(bs[a])))) {
         const st = upright(bs[a]) ? a : z, sv = st === a ? z : a, S0 = base[st], V0 = base[sv], stem = stemSide(st, st === a ? -1 : 1);
         const cross = (P: P, u: P, Q: P, v: P) => { const den = u.x * v.y - u.y * v.x; if (Math.abs(den) < 1e-6) return null; const t = ((Q.x - P.x) * v.y - (Q.y - P.y) * v.x) / den; return { x: P.x + u.x * t, y: P.y + u.y * t }; };
         const us = { x: bs[st].tx, y: bs[st].ty }, uv = { x: bs[sv].tx, y: bs[sv].ty }, C0 = cross(S0, us, V0, uv), C1 = cross(out[st], us, out[sv], uv);
         const w = bs[st].w0, f = Math.min(1, (w + moved[st]) / (w || 1));
-        const t = Math.max(0, Math.min(1, (f - BRACKET_KEEP) / BRACKET_BLEND)), carried = !(arc > 4 * Math.max(Math.abs(d1), Math.abs(d2)) + 10);
-        if (C0 && C1 && t > 0 && !carried && stem && arc <= BRACKET_ARC * w && Math.hypot(C0.x - S0.x, C0.y - S0.y) < 3 * Math.hypot(S0.x - V0.x, S0.y - V0.y)) {
+        const long = arc >= BRACKET_LONG * w && Math.abs(bs[st].tx) < BRACKET_PLUMB, t = Math.max(0, Math.min(1, long ? (f - BRACKET_KEEP_LONG) / BRACKET_BLEND_LONG : (f - BRACKET_KEEP) / BRACKET_BLEND)), carried = !(arc > 4 * Math.max(Math.abs(d1), Math.abs(d2)) + 10);
+        if (C0 && C1 && t > 0 && (long || !carried) && stem && arc <= BRACKET_ARC * w && Math.hypot(C0.x - S0.x, C0.y - S0.y) < 3 * Math.hypot(S0.x - V0.x, S0.y - V0.y)) {
           for (let k = s; k < e; k++) { const j = md(k), q = { x: C1.x + (base[j].x - C0.x) * f, y: C1.y + (base[j].y - C0.y) * f }; out[j] = { x: out[j].x + (q.x - out[j].x) * t, y: out[j].y + (q.y - out[j].y) * t }; }
           continue;
         }
