@@ -49,5 +49,8 @@ export function registerFreeFont(data: FreeFontData) {
 }
 /** A font's letters, once registered. */
 export const freeFont = (id: string): FreeFont | undefined => fonts.get(id);
+/** Let a font go, and with it everything read off its letters (kept against them). A tool that draws many fonts in
+    turn (tools/golden.ts, tools/weights.ts) forgets each when done with it, or it holds all of them at once. */
+export const forgetFreeFont = (id: string) => { fonts.delete(id); };
 /** Be told when a font is registered. */
 export function onFreeFont(fn: (id: string) => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }

@@ -11,17 +11,24 @@ The owner's Mac has no system Node: `tools/node.sh <cmd>` runs any command with 
 
 | What | Command |
 | --- | --- |
-| All tests, with the engine's golden outlines (about a minute idle, most of it the golden test; longer while other sessions run) | `npm test` |
+| All tests, with the engine's golden outlines (about half a minute idle, four files at a time; longer while other sessions run) | `npm test` |
 | One test file | `node --import tsx --test tests/cuts.test.ts` |
 | Tests by name (the flag goes before the file; after it, it is ignored) | `node --import tsx --test --test-name-pattern "the slice" tests/cuts.test.ts` |
 | Type check (client, server, shared, tests, tools) | `npm run typecheck` |
 | Look at letters without the app (read the PNG) | `npm run render -- --style serif --text "Rag" --out .tools/out/x.png` |
-| Golden outlines, engine and free fonts (needs `data/free-fonts`; about a minute) | `npm run golden` |
+| Golden outlines, engine and free fonts (needs `data/free-fonts`; about two and a half minutes, under 2 GB) | `npm run golden` |
 | Accept outlines you meant to change | `npm run golden:update` |
+| The own-font cards at Thin to Regular: letters moved, faults new or gone, Weight jumps (a card: seconds to half a minute; all 22: about five minutes, about 2 GB) | `npm run weights [-- --cards fatface,softslab] [--no-sweep] [--list]` |
+| Accept the lighter weights you meant to change | `npm run weights:update` |
 | Full engine output against a git ref (about five minutes; see tools/README.md) | `npm run compare -- [ref] [--free] [--only <style-regex>]` |
 | Sliders that stop changing part way | `npm run sweep [-- keys...]` |
 | TypeLab's own fonts from their sheets (`Asset/After/<n>.ai` into `fonts/`; `--check` writes nothing) | `npm run fonts:import [-- names...]` |
 | A dev server of your own | `PORT=5199 DB_PATH=.tools/test.db npm run dev` |
+
+The heavy checks (`npm run golden`, `npm run weights`) take a lock, so only one runs on the machine at a time (from
+any checkout or copy); a second waits for the first. Don't get around it by starting several sweeps, renders or checks
+side by side: each holds up to a few GB, and on 2026-10-19 about 90 of them at once took the owner's 24 GB Mac into
+swap until it stalled. Check `sysctl vm.swapusage` before starting a long job while other sessions run.
 
 The owner keeps `npm run dev` running on port 5173 with the real database (`data/typelab.db`). Run your own servers
 on another port with their own database, and stop them by PID; never `pkill` by pattern. Other sessions may already
@@ -37,8 +44,8 @@ cleanly, start it as `PORT=5199 DB_PATH=.tools/test.db tools/node.sh node --impo
 | You changed | Run | Done means |
 | --- | --- | --- |
 | Engine code (`shared/engine/`, the scales in `shared/params/scales.ts`) | `npm test`; `npm run compare` for a refactor | Tests pass and the golden outlines are unchanged, or changed only where you meant and updated in the same commit |
-| Free-font code (`free*.ts`, `skin.ts`, `scan.ts`, `restyle.ts`) or a formula they share from `font.ts` | the above, plus `npm run golden` | The free set matches too |
-| An own font (a sheet in `Asset/After/`, `tools/fonts/`) | `npm run fonts:import`, look at it (`npm run render -- --style <id> --free`), `npm test`, `npm run golden:update` | Only the letters you meant changed (the import lists them); its golden lines looked at and accepted |
+| Free-font code (`free*.ts`, `skin.ts`, `scan.ts`, `restyle.ts`) or a formula they share from `font.ts` | the above, plus `npm run golden`; for the lighter weights (thinner than a card's design), `npm run weights` | The free set matches too; no new fault or jump, and the letters it lists as moved looked at rendered (`npm run render -- --style <id> --free --family`) |
+| An own font (a sheet in `Asset/After/`, `tools/fonts/`) | `npm run fonts:import`, look at it (`npm run render -- --style <id> --free`), `npm test`, `npm run golden:update`, `npm run weights:update -- --cards <id>` | Only the letters you meant changed (the import lists them); its golden lines looked at and accepted |
 | How a slider maps to geometry | the above, plus `npm run sweep -- <key>` | No new dead eighths |
 | A setting's spec, a style preset, pages, copy | `npm test`, `npm run typecheck` | Pages, icons and styles tests pass; changed `style:<id>` golden lines looked at and accepted |
 | Client UI | `npm run typecheck`; `npm test` if `client/lib/` or `client/components/SliderIcons.tsx` changed; a browser check | Screenshots at 1440×900 and 390×844 look right, no console errors |

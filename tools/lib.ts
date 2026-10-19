@@ -1,13 +1,15 @@
 /* Shared helpers for the command-line tools: finding a style's settings, loading free fonts from the
    server's cache, flattening outlines and drawing them to a PNG without a browser. */
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { deflateSync } from 'node:zlib';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildFont, registerFreeFont, type Cmd, type Font } from '../shared/engine';
+import { buildFont, forgetFreeFont, freeFont, freeFontsWanted, registerFreeFont, type Cmd, type Font } from '../shared/engine';
 import { STYLES, TERMINAL_DETAILS } from '../shared/content';
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { DEFAULTS, TERMINAL_FORMS, freeAtOf, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
-import { FreeFonts } from '../server/free-fonts';
+import { FreeFonts, fontFile } from '../server/free-fonts';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** Where tools write what they make, unless told otherwise (git-ignored). */
@@ -19,11 +21,55 @@ export const styleOf = (id: string) => {
   return s;
 };
 
+/** Runs `fn` while no other heavy check (npm run golden, npm run weights) runs on this machine, from this checkout or
+    any copy of it, in any session: one waits for the other. Run side by side they each take gigabytes, and several at
+    once once took a 24 GB machine into swap until it stalled. The lock is kept under the home directory (a session's
+    temporary directory may be its own); one left by a check that died is taken over. */
+export async function oneAtATime<T>(name: string, fn: () => T | Promise<T>): Promise<T> {
+  const dir = resolve(homedir(), '.cache/typelab'), lock = resolve(dir, 'check.lock');
+  mkdirSync(dir, { recursive: true });
+  for (let told = false, nameless = 0; ; ) {
+    try { mkdirSync(lock); writeFileSync(resolve(lock, 'by'), `${process.pid} ${name}`); break; } catch { /* held */ }
+    let by = '';
+    try { by = readFileSync(resolve(lock, 'by'), 'utf8'); } catch { /* being taken, or let go */ }
+    const pid = Number(by.split(' ')[0]);
+    let alive = false;
+    try { if (pid) { process.kill(pid, 0); alive = true; } } catch { /* gone */ }
+    // (a lock still nameless a round later was left by a check that died taking it)
+    nameless = by ? 0 : nameless + 1;
+    if ((by && !alive) || nameless > 1) { rmSync(lock, { recursive: true, force: true }); continue; }
+    if (!told) { console.log(`waiting for ${by || 'another check'} to finish (${lock})`); told = true; }
+    await new Promise(r => setTimeout(r, 3000));
+  }
+  const free = () => rmSync(lock, { recursive: true, force: true });
+  process.once('SIGINT', () => { free(); process.exit(130); });
+  try { return await fn(); } finally { free(); }
+}
+
 /** Where the server keeps the free fonts it has fetched, unless FONTS_DIR points elsewhere. */
 export const FONTS_DIR = process.env.FONTS_DIR ?? resolve(ROOT, 'data/free-fonts');
 let fonts: FreeFonts | null = null;
 /** The free fonts as the server has them: TypeLab's own from fonts/, the rest kept in FONTS_DIR (fetched from Google Fonts when missing). */
 export const freeFonts = () => (fonts ??= new FreeFonts(FONTS_DIR));
+
+/** Registers the fonts design `p` draws with that are kept here (never fetched): its own, and a nearer weight of its
+    family it would rather (freeFontsWanted), noting each it registers in `held`, for letGo when done with them. */
+export function holdFonts(p: Params, held: Set<string>) {
+  const take = (id: string) => {
+    if (freeFont(id)) return;
+    const file = fontFile(FONTS_DIR, id);
+    if (!existsSync(file)) return;
+    registerFreeFont(JSON.parse(readFileSync(file, 'utf8')));
+    held.add(id);
+  };
+  if (p.freeFont) take(p.freeFont);
+  for (const id of freeFontsWanted(p)) take(id);
+}
+/** Forgets the fonts holdFonts registered, and everything read off their letters with them (forgetFreeFont). */
+export function letGo(held: Set<string>) {
+  for (const id of held) forgetFreeFont(id);
+  held.clear();
+}
 
 /** Style `id`'s settings, written in its free font when `free` (the font is loaded and registered first). Its spacing
     stays the style's: the editor's startParams (client/state/editor.ts) also sets letter and word spacing to their

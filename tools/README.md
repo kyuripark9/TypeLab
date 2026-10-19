@@ -1,15 +1,19 @@
 # tools/
 
 Command-line tools for working on TypeLab without the app open. They write what they make to `.tools/out/`
-(git-ignored, `TOOLS_OUT` moves it) unless told otherwise; two write into the repository on purpose:
-`golden.ts --update` rewrites `tests/golden/*.txt` and `fit/apply.ts` rewrites `shared/content/styles.ts`. Run
-TypeScript ones with `node --import tsx <file>` or the npm script (through `tools/node.sh` when there is no Node).
+(git-ignored, `TOOLS_OUT` moves it) unless told otherwise; three write into the repository on purpose:
+`golden.ts --update` and `weights.ts --update` rewrite `tests/golden/*.txt`, and `fit/apply.ts` rewrites
+`shared/content/styles.ts`. Run TypeScript ones with `node --import tsx <file>` or the npm script (through
+`tools/node.sh` when there is no Node). The heavy checks, `golden.ts` and `weights.ts`, run one at a time on the
+machine (`oneAtATime` in `lib.ts`, a lock in `~/.cache/typelab/`): a second waits for the first, so don't
+start sweeps or checks side by side by hand.
 
 | Tool | What it's for |
 | --- | --- |
 | `node.sh` | Node for this project whether or not the machine has it: `tools/node.sh npm test`, or `export PATH="$(tools/node.sh --bin):$PATH"`. Fetches Node 24 into `.tools/node` (checksum checked) when there is no Node 22.13+. It `exec`s the command, so a server started through it has its own PID. |
 | `render.ts` | `npm run render -- --style serif --text "Rag" --size 200 --out .tools/out/x.png` (`--out` defaults to `.tools/out/render.png`): text in a design to a PNG (or `.svg`), no browser. `--size` is the cap height in pixels; `--set k=v` changes settings, `--free` writes it in the style's free font, `--params file.json` reads a saved design or a `.typelab.json`, `--sweep key` draws one row per eighth of a slider, `--family` one row per weight of the design's family (`--italic` its italics). |
-| `golden.ts` | Golden outlines (`npm run golden`, `npm run golden:update`): a hash of every glyph of every starting style and every setting at its ends and options, kept in `tests/golden/`. `npm test` checks the engine set; `npm run golden` also checks the free fonts kept in `data/free-fonts`. See tests/CLAUDE.md. |
+| `golden.ts` | Golden outlines (`npm run golden`, `npm run golden:update`): a hash of every glyph of every starting style and every setting at its ends and options, kept in `tests/golden/`. `npm test` checks the engine set; `npm run golden` also checks the free fonts kept in `data/free-fonts`, one font at a time (about two and a half minutes, under 2 GB). See tests/CLAUDE.md. |
+| `weights.ts` | The lighter weights (`npm run weights`, `npm run weights:update`): each own-font card at Thin, ExtraLight, Light and Regular, one card at a time, against `tests/golden/weights.txt`: the letters that moved, faults the design hasn't (pieces, counters, crossings, needles, slits, ink not rising) new or gone, and the jumps of a Weight sweep in steps of 0.02. `--cards a,b` some cards (seconds each without the sweep), `--no-sweep`, `--list` every fault kept, with what was seen. See its header and tests/CLAUDE.md. |
 | `compare.ts` | `npm run compare -- [<git-ref>] [--free] [--only <style-regex>]`: builds every glyph of every style (and the defaults) under about 50 setting combinations with the engine at `<ref>` (HEAD by default, checked out into `.tools/compare/<commit>` and kept) and with the working tree, and compares the full output: outline, marks, counters, strokes, skeleton, serifs, spacing, highlights, layout, metrics. Lists each design and the letters that differ and exits 1 if any do. About five minutes (`--free`, the free fonts too: closer to half an hour; `--only` cuts it to seconds); the other commit's dump is kept, so a second run dumps only the working tree. It catches what golden's probes don't reach: run it for any engine refactor. |
 | `sweep.ts` | `npm run sweep [-- keys...]`: every slider swept 0 to 1 in eighths on a light and a heavy design, and those basic block letters, slot blocks and grid letters follow (`BLOCK_CONTROLS` and their nested sliders) on a block design of that kind too; reports eighths that barely change the letters (dead zones) and exits 1 for any not listed as known. |
 | `fit/` | Fitting a style's preset to its free font: `fit.ts <id>` (coordinate descent on a raster score, to `.tools/out/fit/<id>.fit.json`), `forms.ts` (g, Q, a), `apply.ts` (writes fits into `shared/content/styles.ts`, finding each `style('<id>', ...)` call by text), `sheet.ts` (free font / before / after, to judge). |

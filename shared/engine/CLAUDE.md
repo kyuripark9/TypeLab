@@ -530,6 +530,11 @@ change and verify it.
   changes on purpose (it moves saved per-letter values; see the invariants).
 - `npm run render -- --style <id> --set k=v --text "..."`: look at what changed; `--free` for the free font,
   `--sweep <key>` for a row per eighth.
+- `npm run weights`: the own-font cards at Thin to Regular (tools/weights.ts), for anything the lighter weights
+  read (`thinReads`, `thinMoves`, `moveRing`, `movedWay` and what they call): the letters moved, faults new or gone
+  (pieces, counters, crossings, needles, slits, ink) and Weight jumps, against `tests/golden/weights.txt`. `--cards` for the
+  cards a change reaches; the whole run before committing. It replaces sweeping each card in 0.005 steps side by
+  side: run it alone, as golden (both take a lock).
 - `npm run sweep -- <key>`: dead zones in a slider.
 - Accept golden changes (`npm run golden:update`) only for a change you meant, after looking at it rendered, and
   commit the golden files with it.

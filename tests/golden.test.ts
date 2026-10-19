@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { compute, diff, GOLDEN_FILE } from '../tools/golden';
+import { compute, diff, GOLDEN_FILE, kept } from '../tools/golden';
 
 describe('golden outlines', () => {
   it('engine letters match tests/golden/outlines.txt', () => {
@@ -15,7 +15,7 @@ describe('golden outlines', () => {
   // (about half a minute, so only with GOLDEN_FREE=1; npm run golden checks the free fonts on its own)
   it('free fonts\' letters match tests/golden/free-outlines.txt (fonts kept in data/free-fonts only)', t => {
     if (!process.env.GOLDEN_FREE) { t.skip('GOLDEN_FREE=1 to check here, or npm run golden'); return; }
-    const now = compute('free');
+    const { names } = kept('free'), now = compute('free', n => names.has(n));
     if (!now.size || !existsSync(GOLDEN_FILE.free)) { t.skip('no free fonts kept'); return; }
     const changed = diff(now, 'free');
     assert.deepEqual(changed, [], `free fonts' outlines changed (npm run golden:update if this is intended):\n${changed.join('\n')}`);

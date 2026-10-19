@@ -89,11 +89,25 @@ characters per glyph: a SHA-1 of its placed outline to a hundredth of a unit, wi
   and stencil, crossbar-gap and join-gap probes on ten styles. `npm test` checks them.
 - Free probes: `<style>@<hash of the font file>[:<move>]`, each style in its free font as picked and moved by a
   few settings. TypeLab's own fonts are always there (`fonts/`); the Google ones need to be in `data/free-fonts`
-  (`FONTS_DIR`). `npm run golden` checks them, or `npm test` with `GOLDEN_FREE=1`. A font that isn't kept, or whose
-  file changed (an own font imported again), drops out of the check silently: after an import, `golden:update`.
+  (`FONTS_DIR`). `npm run golden` checks them, or `npm test` with `GOLDEN_FREE=1`. A check draws only the probes the
+  file keeps, one font at a time, letting each go after (`letGo`: all kept at once they took it to 18 GB); a font
+  that isn't kept, or whose file changed (an own font imported again), drops out, counted as `kept probes not drawn`:
+  after an import, `golden:update`. An update rewrites the styles the file already has; `--all-fonts` adds every
+  font kept in `FONTS_DIR` (the server keeps each one anybody picked, so that set only grows).
 - What golden misses: letter and word spacing (layout only), marks, counters, skeletons, highlights, metrics, and
   per-letter values beyond its probes. `npm run compare` covers those.
 
 Update them (`npm run golden:update`) only for a change you meant, after looking at it rendered, and commit them with
 that change. Renaming a setting key, an option or a style id shows as `new probe` and `probe gone`. A failure names
 each probe and the letters that moved.
+
+## The lighter weights' baseline
+
+`tests/golden/weights.txt` is `npm run weights`'s (tools/weights.ts): for each card in an own font
+(`<style>@<hash of the font file>`), the hashes of A–Z, a–z, 0–9, & and ? at Thin, ExtraLight, Light and Regular as
+its family draws them (`:<weight>`, as the golden files keep them), the faults found then (`:faults`,
+`<weight>:<letter>:<kind>`: pieces, counters, crossing, needle, slit, ink; see the tool's header) and the jumps of its Weight
+sweep (`:sweep`, `<letter>@<weight>:room|ink`). The check fails on a fault or jump the file doesn't keep, reports
+those it keeps that are gone, and lists the letters that moved. The faults kept are what is left to fix at the
+lighter weights; `npm run weights -- --list` prints them all with what was seen. Update it (`npm run weights:update`,
+or with `--cards` for some) after looking at the letters that moved, with the change.

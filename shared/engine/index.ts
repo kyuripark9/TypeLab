@@ -14,7 +14,7 @@ export { drawnFrom, drawnLetter } from './family-drawn';
 export { buildSerif, expandStroke, serifCup, serifSides } from './stroke';
 export { CIRCLE_K, applyM, clamp, cmdsBox, cmdsToD, ringsD, roundContour, signedArea } from './geom';
 export type { Cmd, Mark, Pt } from './types';
-export { freeFont, onFreeFont, packNode, registerFreeFont } from './free';
+export { forgetFreeFont, freeFont, onFreeFont, packNode, registerFreeFont } from './free';
 export { skinFollows } from './skin';
 export type { FreeFontData, PackedNode } from './free';
 export { CORNER_KINDS, CORNER_MIN, cmdsContours, cornerRoom, cornerTurn, drawnCmds, fitOutline, hasIn, hasOut, segment } from './outline';

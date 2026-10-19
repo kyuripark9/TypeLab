@@ -15,12 +15,12 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ALL_CHARS, buildFont, registerFreeFont, type Cmd } from '../shared/engine';
+import { ALL_CHARS, buildFont, registerFreeFont, type Cmd, type FreeFontData } from '../shared/engine';
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { STYLES, type StyleDef } from '../shared/content';
 import { DEFAULTS, SPECS, TERMINAL_FORMS, freeAtOf, type Params } from '../shared/params';
 import { fontFile } from '../server/free-fonts';
-import { FONTS_DIR, ROOT, showContext } from './lib';
+import { FONTS_DIR, holdFonts, letGo, oneAtATime, ROOT, showContext } from './lib';
 
 export type GoldenSet = 'engine' | 'free';
 
@@ -96,37 +96,34 @@ const FREE_MOVES: [string, (st: StyleDef) => Partial<Params>][] = [
   ['wobble=1', () => ({ wobble: 1 })], ['mono=0', () => ({ mono: 0 })]
 ];
 const FREE_CHARS = 'ABCDEGHKMNOQRSWabegikmnoprsty0258&?';
-/** Each free font kept (TypeLab's own in fonts/, the others in FONTS_DIR), its style's free-set designs, named with a
-    hash of the font's file. */
-function freeProbes(): [string, Params][] {
-  const out: [string, Params][] = [];
+/** Each free font kept (TypeLab's own in fonts/, the others in FONTS_DIR), with its style's free-set designs, named
+    with a hash of the font's file. */
+function* freeStyles(): Generator<{ fid: string; data: FreeFontData; probes: [string, Params][] }> {
   for (const st of STYLES) {
     const fid = STYLE_FONTS[st.id], file = fid && fontFile(FONTS_DIR, fid);
     if (!file || !existsSync(file)) continue;
     const text = readFileSync(file, 'utf8');
-    registerFreeFont(JSON.parse(text));
     const tag = createHash('sha1').update(text).digest('base64url').slice(0, 6);
     const freeAt = freeAtOf(st.params);
-    for (const [name, move] of FREE_MOVES) {
-      const p = { ...st.params, freeFont: fid, freeAt, ...move(st) } as Params;
-      out.push([`${st.id}@${tag}${name ? ':' + name : ''}`, p]);
-    }
+    yield { fid, data: JSON.parse(text), probes: FREE_MOVES.map(([name, move]) => [`${st.id}@${tag}${name ? ':' + name : ''}`, { ...st.params, freeFont: fid, freeAt, ...move(st) } as Params]) };
   }
-  return out;
 }
 
 const r = (v: number) => Math.round(v * 100) / 100;
 /** Three base64url characters (18 bits) for one glyph: its outline to a hundredth of a unit, and its spacing. */
-function glyphHash(cmds: Cmd[], lsb: number, adv: number): string {
+export function glyphHash(cmds: Cmd[], lsb: number, adv: number): string {
   const text = cmds.map(c => c[0] + c.slice(1).map(v => r(v as number)).join(',')).join('') + `|${r(lsb)}|${r(adv)}`;
   return createHash('sha1').update(text).digest('base64url').slice(0, 3);
 }
 
 const charsOf = (set: GoldenSet) => (set === 'engine' ? ALL_CHARS : FREE_CHARS);
-/** Every probe's glyph hashes, in the set's character order ('...' where the font has no glyph). */
-export function compute(set: GoldenSet): Map<string, string> {
+/** Every probe's glyph hashes, in the set's character order ('...' where the font has no glyph): only those `only`
+    takes, when given. The free set draws one font at a time and lets it go after (letGo), so what is read off its
+    letters goes with it: all kept at once, they took the free set to 18 GB. */
+export function compute(set: GoldenSet, only?: (name: string) => boolean): Map<string, string> {
   const out = new Map<string, string>();
-  for (const [name, p] of set === 'engine' ? engineProbes() : freeProbes()) {
+  const hash = (name: string, p: Params) => {
+    if (only && !only(name)) return;
     const f = buildFont(p);
     let line = '';
     for (const ch of charsOf(set)) {
@@ -134,8 +131,26 @@ export function compute(set: GoldenSet): Map<string, string> {
       line += g ? glyphHash(g.cmds, g.lsb, g.adv) : '...';
     }
     out.set(name, line);
+  };
+  if (set === 'engine') for (const [name, p] of engineProbes()) hash(name, p);
+  else for (const { fid, data, probes } of freeStyles()) {
+    if (only && !probes.some(([name]) => only(name))) continue;
+    // (with the nearer weights of its family a design would rather, where they're kept too)
+    const held = new Set([fid]);
+    registerFreeFont(data);
+    for (const [name, p] of probes) { if (!only || only(name)) holdFonts(p, held); hash(name, p); }
+    letGo(held);
   }
   return out;
+}
+
+/** The probes the golden file of `set` keeps, and the styles they're of: a check draws only those (a font kept here
+    and not when the file was written can't be compared), an update only those styles (a font fetched since doesn't
+    join the set unless asked, --all-fonts). */
+export function kept(set: GoldenSet): { names: Set<string>; styles: Set<string> } {
+  if (!existsSync(GOLDEN_FILE[set])) return { names: new Set(), styles: new Set() };
+  const names = new Set(read(set).hashes.keys());
+  return { names, styles: new Set([...names].map(n => n.split(/[@:]/)[0])) };
 }
 
 /** Writes these hashes as the golden file of `set`, under its character order. */
@@ -171,14 +186,21 @@ export function diff(now: Map<string, string>, set: GoldenSet): string[] {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  for (const set of ['engine', 'free'] as const) {
-    const now = compute(set);
-    if (set === 'free' && !now.size) { console.log('free: no free fonts kept in', FONTS_DIR, '(skipped)'); continue; }
-    if (process.argv.includes('--update')) { write(now, set); console.log(`${set}: wrote ${now.size} probes to ${GOLDEN_FILE[set]}`); }
-    else {
-      const d = diff(now, set);
-      console.log(d.length ? d.map(l => `${set}: ${l}`).join('\n') : `${set}: all ${now.size} probes match`);
-      if (d.length) process.exitCode = 1;
+  const update = process.argv.includes('--update'), allFonts = process.argv.includes('--all-fonts');
+  await oneAtATime('golden', () => {
+    for (const set of ['engine', 'free'] as const) {
+      const { names, styles } = kept(set);
+      const only = set === 'engine' ? undefined : update ? (allFonts || !styles.size ? undefined : (n: string) => styles.has(n.split(/[@:]/)[0])) : (n: string) => names.has(n);
+      const now = compute(set, only);
+      if (set === 'free' && !now.size) { console.log('free: no free fonts kept in', FONTS_DIR, '(skipped)'); continue; }
+      if (update) { write(now, set); console.log(`${set}: wrote ${now.size} probes to ${GOLDEN_FILE[set]}`); }
+      else {
+        const d = diff(now, set);
+        const unseen = set === 'free' ? names.size - now.size : 0;
+        console.log(d.length ? d.map(l => `${set}: ${l}`).join('\n') : `${set}: all ${now.size} probes match`);
+        if (unseen > 0) console.log(`${set}: ${unseen} kept probes not drawn (their fonts not kept here, or not the same files)`);
+        if (d.length) process.exitCode = 1;
+      }
     }
-  }
+  });
 }

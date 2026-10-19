@@ -57,6 +57,7 @@ development as in production; without them it offers email and password only.
 
 Other scripts: `npm test` (engine and API tests, and the golden outlines), `npm run typecheck`,
 `npm run render` (text in a design to a PNG, no browser needed), `npm run golden` / `golden:update`,
+`npm run weights` / `weights:update` (the own-font cards' lighter weights against their baseline),
 `npm run sweep` (sliders that stop changing part way). One test file runs with
 `node --import tsx --test tests/cuts.test.ts`, and tests by name with
 `node --import tsx --test --test-name-pattern "the slice" tests/cuts.test.ts` (the pattern before the file).
