@@ -949,9 +949,10 @@ const FOOT_HAIR = 0.2;
     its stub out to the line no longer than VERTEX_TIP of it (a Didone's M's point, 2.4), that stub's end's own round
     no further off the line than VERTEX_GAP of it (a Didone's W's, cut flat on the line, its round 65 units up) (withFeet). */
 const VERTEX_HAIR = 4, VERTEX_FAR = 3, VERTEX_TIP = 2.5, VERTEX_NEAR = 1.5, VERTEX_GAP = 1.1;
-/** A vertex cut flat on its line (a slab's V's, W's or N's, cut a hundred units across) is drawn again however near its
-    line its join reads, its tip as thick as its strokes, and, its strokes' middles meeting in one turn above the cut with
-    no join there (a slab's V's, v's), at that turn, made a join: where the letter's edge lies flat along the line across
+/** A vertex in a font with serifs, cut flat on its line (a slab's V's, W's or N's, cut a hundred units across) or round
+    (a typewriter's N's), is drawn again however near its line its join reads, its tip as thick as its strokes; and a cut
+    one, its strokes' middles meeting in one turn above the cut with no join there (a slab's V's, v's), at that turn,
+    made a join: where the letter's edge lies flat along the line across
     VERTEX_CUT of the join's round about it, the turn's two ways no further apart than VERTEX_TURN (the cosine of the angle
     between them) and its strokes' rounds within half of each other (not a Didone's v, a hairline into a heavy stroke)
     (withFeet). */
@@ -1345,10 +1346,11 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       if (legs.length !== 2) continue;
       const ways = legs.map(br => leaving(G, br, 3 * J.r));
       // (each leaning out its own way: not an N's stem standing up from its diagonal)
-      // (a vertex cut flat on its line (VERTEX_CUT) is drawn again whichever of these: by an upright stroke, an N's foot,
-      // and its join however near its line; its tip as thick as its strokes. Left, a slab's N's and W's points kept the
-      // design's cut, as wide as a stem, under strokes thinned to a fifth: a dark arrowhead at Thin)
-      const cut = feetOn && flatAlong(L, dir, J.x - 0.5 * J.r, J.x + 0.5 * J.r) >= VERTEX_CUT;
+      // (in a font with serifs a vertex, cut flat on its line or round, is drawn again whichever of these: by an upright
+      // stroke, an N's foot, and its join however near its line; its tip as thick as its strokes. Left, a slab's N's and
+      // W's points kept the design's cut, as wide as a stem, under strokes thinned to a fifth: a dark arrowhead at Thin;
+      // a typewriter's N's round foot, its join 90 units up, a hook there)
+      const cut = feetOn;
       if (!(cut && dir > 0 && ways.every(u => u.y * dir > 0.3) && ways.some(u => Math.abs(u.x) > 0.2)) && (!ways.every(u => u.y * dir > 0.3 && Math.abs(u.x) > 0.2) || Math.sign(ways[0].x) === Math.sign(ways[1].x))) continue;
       // (each leg's middle from two rounds out from the join on, straight: nearer, a hairline's bends round into the join)
       const runs = legs.map(br => {
