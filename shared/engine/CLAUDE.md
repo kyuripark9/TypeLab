@@ -209,7 +209,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    one with corners (a square, a diamond) pinned there point by point, as its sides moved in alone crossed at its
    corners and left a sliver (a dot read as one `markDot`: round, square, or a diamond filling `DIAMOND_FILL` of its
    box and `DIAMOND_HULL` of its hull, a blackletter's, which read as strokes thinned to a dash); `moveRing` carries each stroke end by its turn alone (`endsOf`, `EndRun.ca`/`cb`:
-   a j's tail's curve goes in as a side), a corner's round whole (`carryFillets`, but a serif's bracket on a level
+   a j's tail's curve goes in as a side), and a corner inside a join next to an end's side with that side where it would cross the outline (`ringCrossesAt`: a script r's ball's neck, its edges meeting again past the stroke, parted the ball off as a speck), a corner's round whole (`carryFillets`, but a serif's bracket on a level
    foot, a round inside running on from a stroke's end, an r's arm under its ear, or outside running into a ball, a fat
    face's r's arm, or, in a font without serifs, outside running into a sharp corner, a grotesque s's shoulder into its
    cut end, carried whole at some weights and not others, pinched to a hook), and sets a zero-thickness point

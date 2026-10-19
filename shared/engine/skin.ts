@@ -4643,6 +4643,23 @@ const ARCH_CROTCHES = new WeakMap<SkinRig, Map<number, ArchCrotch[]>>();
 /** Set while movedWay moves a letter again without its crotches met again (archMeet, stretchRounds). */
 let ARCH_OFF = false;
 
+/** Whether either edge of ring `out` at point c (from the point before it, to the one after it) crosses an edge of the
+    ring not next to it. */
+function ringCrossesAt(out: P[], c: number) {
+  const n = out.length, md = (i: number) => ((i % n) + n) % n;
+  const hit = (a: P, b: P, p: P, q: P) => {
+    const d = (b.x - a.x) * (q.y - p.y) - (b.y - a.y) * (q.x - p.x);
+    if (Math.abs(d) < 1e-9) return false;
+    const t = ((p.x - a.x) * (q.y - p.y) - (p.y - a.y) * (q.x - p.x)) / d, u = ((p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)) / d;
+    return t > 1e-6 && t < 1 - 1e-6 && u > 1e-6 && u < 1 - 1e-6;
+  };
+  for (const k of [md(c - 1), c]) for (let j = 0; j < n; j++) {
+    if (md(j - k + 1) <= 2) continue;
+    if (hit(out[k], out[md(k + 1)], out[j], out[md(j + 1)])) return true;
+  }
+  return false;
+}
+
 /** One contour of the rig moved (contour r, its samples bs): each edge out or in by its stroke's change of thickness,
     carried where the heights and the width put it, each corner where its two edges meet again, and each stroke's end
     with the sides it joins. */
@@ -4819,6 +4836,18 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       const p = bs[md(i)], dx = p.x - A.x, dy = p.y - A.y, s = (dx * ux + dy * uy) / l2, t = (dy * ux - dx * uy) / l2;
       const qx = A1.x + s * vx - t * vy, qy = A1.y + s * vy + t * vx;
       out[md(i)] = ball ? { x: qx + (hx1 + (p.x - hx) * k - qx) * ball, y: qy + (hy1 + (p.y - hy) * k - qy) * ball } : { x: qx, y: qy };
+    }
+    // (a lighter weight's corner inside a join next to where the end meets its side, a ball's neck, goes with that side,
+    // as far off it as it was, made as much smaller as the end is, where it would cross the outline: where its two
+    // edges, the end's and its stroke's, meet again lies far off where they run near alike, past the stroke's other side,
+    // and the outline, crossing itself, parted the end off; a script r's ball, a speck dropped from Weight 0 to 0.03. Not
+    // an end turned over, its sides changing places)
+    if (mv.lighter && ux * vx + uy * vy > 0) for (const [c, sd] of [[md(b + 1), md(b)], [md(a - 1), md(a)]]) {
+      const q = bs[c];
+      if (!q.corner || !concaveAt(q) || crotches?.get(c)?.at) continue;
+      if (!ringCrossesAt(out, c)) continue;
+      const f = Math.min(1, Math.sqrt((vx * vx + vy * vy) / l2));
+      out[c] = { x: out[sd].x + (q.x - bs[sd].x) * f, y: out[sd].y + (q.y - bs[sd].y) * f };
     }
   }
   return out;
