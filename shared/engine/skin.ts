@@ -949,6 +949,13 @@ const FOOT_HAIR = 0.2;
     its stub out to the line no longer than VERTEX_TIP of it (a Didone's M's point, 2.4), that stub's end's own round
     no further off the line than VERTEX_GAP of it (a Didone's W's, cut flat on the line, its round 65 units up) (withFeet). */
 const VERTEX_HAIR = 4, VERTEX_FAR = 3, VERTEX_TIP = 2.5, VERTEX_NEAR = 1.5, VERTEX_GAP = 1.1;
+/** A vertex cut flat on its line (a slab's V's, W's or N's, cut a hundred units across) is drawn again however near its
+    line its join reads, its tip as thick as its strokes, and, its strokes' middles meeting in one turn above the cut with
+    no join there (a slab's V's, v's), at that turn, made a join: where the letter's edge lies flat along the line across
+    VERTEX_CUT of the join's round about it, the turn's two ways no further apart than VERTEX_TURN (the cosine of the angle
+    between them) and its strokes' rounds within half of each other (not a Didone's v, a hairline into a heavy stroke)
+    (withFeet). */
+const VERTEX_CUT = 0.7, VERTEX_TURN = 0.2;
 /** A corner whose serif the skeleton leaves out (withFeet) is a foot only by a serif no thicker, half, than CORNER_HAIR
     of its stem's round. */
 const CORNER_HAIR = 0.25;
@@ -1292,6 +1299,36 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
   // vertex's own short end there, on its line
   vertexPass();
   function vertexPass() {
+  // (a vertex cut flat on its line whose strokes' middles meet in one turn above it, with no join there, a slab's V: the
+  // turn made a join, the skeleton's point nearest the line, a tip run down from it to the line, so the strokes meet
+  // there as below; left so, the vertex was drawn off the turn's round, as wide as the design's cut at Thin, a nail's
+  // head under two thin strokes)
+  if (feetOn) for (let e = 0, count = edges.length; e < count; e++) {
+    const E = edges[e], ps = E.pts;
+    if (E.a === E.b || ps.length < 9) continue;
+    for (const L of lines) {
+      let k = -1, best = Infinity;
+      ps.forEach((q, i) => { const h = Math.abs(q.y - L); if (h < best) { best = h; k = i; } });
+      if (k <= 0 || k >= ps.length - 1) continue;
+      const J = ps[k], dir = Math.sign(J.y - L) || 1;
+      if (Math.abs(J.y - L) > VERTEX_FAR * J.r) continue;
+      const away = (sg: number) => { let l = 0, i = k; while (i + sg >= 0 && i + sg < ps.length && l < 2 * J.r) { l += Math.hypot(ps[i + sg].x - ps[i].x, ps[i + sg].y - ps[i].y); i += sg; } return l >= 2 * J.r ? { x: ps[i].x - J.x, y: ps[i].y - J.y, r: ps[i].r } : null; };
+      const u = away(-1), w = away(1);
+      if (!u || !w || Math.min(u.r, w.r) < 0.5 * Math.max(u.r, w.r)) continue;
+      const lu = Math.hypot(u.x, u.y) || 1, lw = Math.hypot(w.x, w.y) || 1;
+      if (!(u.y * dir / lu > 0.3 && w.y * dir / lw > 0.3 && Math.sign(u.x) !== Math.sign(w.x) && Math.abs(u.x / lu) > 0.2 && Math.abs(w.x / lw) > 0.2 && (u.x * w.x + u.y * w.y) / (lu * lw) > VERTEX_TURN)) continue;
+      if (!inside(J.x, L + dir * Math.min(tolOf(), 0.25 * Math.abs(J.y - L)))) continue;
+      if (flatAlong(L, dir, J.x - 0.5 * J.r, J.x + 0.5 * J.r) < VERTEX_CUT) continue;
+      const nj = nodes.length, nt = nj + 1, e2 = edges.length, e3 = e2 + 1, h = Math.abs(J.y - L) / 2, T = { x: J.x, y: L + dir * h, r: h };
+      const lenOf = (q: SkPt[]) => q.reduce((a, v, i) => (i ? a + Math.hypot(v.x - q[i - 1].x, v.y - q[i - 1].y) : 0), 0);
+      nodes.push({ x: J.x, y: J.y, r: J.r, edges: [e, e2, e3] }, { ...T, edges: [e3] });
+      const back = ps.slice(k), tip = run(J, T, () => h);
+      edges.push({ a: nj, b: E.b, pts: back, len: lenOf(back) }, { a: nj, b: nt, pts: tip, len: lenOf(tip) });
+      nodes[E.b].edges = nodes[E.b].edges.map(x => (x === e ? e2 : x));
+      E.pts = ps.slice(0, k + 1); E.b = nj; E.len = lenOf(E.pts);
+      break;
+    }
+  }
   nodes.forEach((J, j) => {
     if (J.edges.length !== 3) return;
     const tol = tolOf();
@@ -1308,7 +1345,11 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       if (legs.length !== 2) continue;
       const ways = legs.map(br => leaving(G, br, 3 * J.r));
       // (each leaning out its own way: not an N's stem standing up from its diagonal)
-      if (!ways.every(u => u.y * dir > 0.3 && Math.abs(u.x) > 0.2) || Math.sign(ways[0].x) === Math.sign(ways[1].x)) continue;
+      // (a vertex cut flat on its line (VERTEX_CUT) is drawn again whichever of these: by an upright stroke, an N's foot,
+      // and its join however near its line; its tip as thick as its strokes. Left, a slab's N's and W's points kept the
+      // design's cut, as wide as a stem, under strokes thinned to a fifth: a dark arrowhead at Thin)
+      const cut = feetOn && flatAlong(L, dir, J.x - 0.5 * J.r, J.x + 0.5 * J.r) >= VERTEX_CUT;
+      if (!(cut && dir > 0 && ways.every(u => u.y * dir > 0.3) && ways.some(u => Math.abs(u.x) > 0.2)) && (!ways.every(u => u.y * dir > 0.3 && Math.abs(u.x) > 0.2) || Math.sign(ways[0].x) === Math.sign(ways[1].x))) continue;
       // (each leg's middle from two rounds out from the join on, straight: nearer, a hairline's bends round into the join)
       const runs = legs.map(br => {
         const sp = from(br), a = sp.findIndex(q => Math.hypot(q.x - J.x, q.y - J.y) >= 2 * J.r);
@@ -1326,7 +1367,7 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       // hairline's: a Didone's, a fat face's; a book face's or a slab's vertex, its counter's foot cut flat, reads its
       // join near enough the line)
       const r0 = Math.min(P.A.r, Q.A.r), J1 = { x: M.x, y: (M.y - L) * dir < r0 ? L + dir * r0 : M.y, r: r0 };
-      if (feetOn && !(J.r > VERTEX_HAIR * r0) && Math.abs(J.y - L) <= VERTEX_NEAR * J.r) continue;
+      if (!cut && feetOn && !(J.r > VERTEX_HAIR * r0) && Math.abs(J.y - L) <= VERTEX_NEAR * J.r) continue;
       // (and only where they meet within the vertex's own end, its round: a w's middle peak, short of the x-height,
       // isn't drawn up to it)
       const T = nodes[far(tipBr[0])];
@@ -1336,7 +1377,7 @@ function withFeet(rig: SkinRig, sk: Skeleton, most = FOOT_THIN): Skeleton {
       if (!within && !(Math.abs(M.x - T.x) <= Math.max(T.r, J.r) && inside(M.x, M.y))) continue;
       if (!(within && plain(tipBr[0])) && !(J.r > VERTEX_HAIR * r0)) continue;
       for (const R of runs) { const lead = run(J1, R.A, () => R.A.r).slice(0, -1); for (const q of lead) VRUN.add(q); put(R.br, [...lead, ...R.sp.slice(R.a)]); }
-      const tip = { x: J1.x, y: L + dir * r0 * 0.5, r: r0 * 0.5 };
+      const tk = cut && !(J.r > VERTEX_HAIR * r0) ? 1 : 0.5, tip = { x: J1.x, y: L + dir * r0 * tk, r: r0 * tk };
       put(tipBr[0], [{ x: J1.x, y: J1.y, r: J1.r }, tip]);
       T.x = tip.x; T.y = tip.y; T.r = tip.r;
       vertices.push({ x: J1.x, line: L, y: J1.y, r: J.r, ox: J.x, oy: J.y });
@@ -3418,6 +3459,14 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
   // thick, give or take: a Z's heavy stroke cut off along the capitals' height under its top bar), which stays, so the
   // stroke stops at its line, and is carried with its corners as they meet the sides again (see moveRing)
   const bySeg = new Map<number, number[]>(), inRun = new Uint8Array(bs.length);
+  // (a serif's root cut square: a concave corner between a serif's straight edge and its stem's straight side)
+  const squareRoot = (k: number) => {
+    const q = bs[k], nb = bs.length, at = (d: number) => bs[(((k + d) % nb) + nb) % nb];
+    if (!q.corner || !concaveAt(q)) return false;
+    const straight = (sg: number) => { for (let d = 1; d <= 3; d++) if (at(sg * d).corner || !at(sg * d).straight) return false; return true; };
+    const serif = (sg: number) => { for (let d = 1; d <= 3; d++) if (!at(sg * d).serifDx) return false; return true; };
+    return straight(-1) && straight(1) && serif(-1) !== serif(1) && Math.abs(at(serif(-1) ? 2 : -2).nx) > 0.9;
+  };
   const skEnds = thinSkeleton(rig).nodes.filter(q => q.edges.length === 1);
   const endLines = [0, rig.ctx.cap, ...(rig.ctx.lower ? [rig.ctx.xh, rig.ctx.asc, rig.ctx.desc] : [])];
   for (const { a, b } of rig.ends[r]) for (let i = a; i <= b; i++) inRun[((i % bs.length) + bs.length) % bs.length] = 1;
@@ -3488,6 +3537,14 @@ function thinMoves(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap) {
       const off = (L: (typeof lineRuns)[number], q: Bone) => Math.abs((q.x - L.A.x) * L.nx + (q.y - L.A.y) * L.ny);
       const tol = Math.max(INLINE_NEAR, INLINE_SHARE * rig.ctx.cap);
       for (const L of lineRuns) if (L.A !== A && L.nx * A.nx + L.ny * A.ny > INLINE_COS && L.nx * B.nx + L.ny * B.ny > INLINE_COS && off(L, A) < tol && off(L, B) < tol && L.m < m - INLINE_MORE && L.len > len) m = L.m;
+    }
+    // (an edge flat on its line under a slab foot whose serifs leave their stem square, unbracketed, moves as the serifs'
+    // part of it does, all of it, so the foot's foot stays flat: the part under the stem, moved as the stem's end, rose
+    // over the line by more, a slab's H's by 9 units at Light, and put back on the line it pulled the serifs' tops
+    // in over it down with it, each wedge serif's top bent into a wave)
+    if (!end && slabSegs.has(A.seg) && is.some(i => flatOn(rig, bs[i])) && (() => { const xs = bs.filter(q => q.seg === A.seg).map(q => q.x), lo = Math.min(...xs), hi = Math.max(...xs); return bs.some((q, k) => squareRoot(k) && Math.abs(q.y - A.y) < SERIF_ZONE * rig.ctx.cap && q.x > lo && q.x < hi); })()) {
+      const own = bs.flatMap((q, k) => (q.seg === A.seg && q.serifDx && !q.corner && flatOn(rig, q) ? [delta[k]] : []));
+      if (own.length >= 3) { const v = mid(own); for (const i of is) delta[i] = v; continue; }
     }
     // (or, where its samples' moves run along it as a line, by that line, the edge kept straight: a wedge's side, a beak's
     // or a bar's tapering to its end, which moved by the middle of its moves stayed as thick at its root as its middle
@@ -4709,6 +4766,18 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     // (a lighter weight's crotch where its strokes' edges, as thin as they are now, cross, carried as the corner is)
     const at = crotches?.get(i)?.at;
     if (groups.length) { const m = archMeet(i); if (m && m.w >= 1) { meets.set(i, m.M); arched(i); return m.M; } if (m) blend.push(i); }
+    // (but a serif's root cut square, its straight edge meeting its stem's straight upright side, where those two, each
+    // moved as a line, meet: the strokes' middles' ways, a wedge serif's level where its top slopes, set it under the
+    // serif's top, a notch there at Light)
+    const straightRun = (dir: number) => { for (let k = 1; k <= 3; k++) { const q = bs[md(i + dir * k)]; if (q.corner || !q.straight) return false; } return true; };
+    const serifSide = (dir: number) => { for (let k = 1; k <= 3; k++) if (!bs[md(i + dir * k)].serifDx) return false; return true; };
+    if (mv.lighter && at && concaveAt(b) && straightRun(-1) && straightRun(1) && (serifSide(-1) !== serifSide(1)) && Math.abs(bs[md(i + (serifSide(-1) ? 2 : -2))].nx) > 0.9) {
+      const e1 = away(b.inx!, b.iny!), e2 = away(b.outx!, b.outy!), de = e1.x * e2.y - e1.y * e2.x;
+      if (Math.abs(de) >= CROTCH_SQUARE * 0.5) {
+        const ex = (d1 * e2.y - d2 * e1.y) / de, ey = (e1.x * d2 - e2.x * d1) / de;
+        if (Math.hypot(ex, ey) <= lim) return { x: x + ex, y: y + ey + up };
+      }
+    }
     if (mv.lighter && at) return { x: at.x + x - b.x, y: at.y + y - b.y };
     if (mv.lighter && concaveAt(b)) {
       // (a lighter weight's corner inside a join, where the outline turns away from the ink: between strokes that meet at a
