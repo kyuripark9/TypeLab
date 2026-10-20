@@ -35,7 +35,7 @@ To deploy it in a container, the `Dockerfile` builds the app and runs the server
 `DB_PATH=/data/typelab.db`, `TRUST_PROXY=1` and one export worker; mount a persistent volume at `/data`.
 On Railway, `railway.json` builds from it, checks `/api/health`, runs one copy (SQLite has one writer) and
 won't start without a volume at `/data`. Set `PUBLIC_URL`, Google's keys and, for password reset,
-`SMTP_URL` and `MAIL_FROM` on the host.
+`RESEND_API_KEY` and `MAIL_FROM` on the host (Railway blocks SMTP below its Pro plan).
 
 ### Sign in with Google (optional)
 
@@ -257,8 +257,8 @@ as scrypt hashes (`server/accounts.ts`), a sign-in is a random token in an HttpO
 `typelab_session` cookie (the database keeps only its SHA-256) lasting 90 days, and ten wrong passwords
 in 15 minutes from one address for one email pause sign-in for that pair. A forgotten password is reset by email
 (`server/mail.ts`): the link (`/reset?token=…`) works once, for an hour, and setting the new password signs the
-account's other browsers out. Production sends it through SMTP: set `SMTP_URL` (e.g.
-`smtps://user:password@smtp.example.com:465`, as any mail service gives one), `MAIL_FROM` and `PUBLIC_URL` (the link is
+account's other browsers out. Production sends it through Resend's API, `RESEND_API_KEY`, or through SMTP, `SMTP_URL` (e.g.
+`smtps://user:password@smtp.example.com:465`, as any mail service gives one): set one, `MAIL_FROM` and `PUBLIC_URL` (the link is
 built from it, never from the address a request names); without them it offers no reset. Development shows the mail
 it would send at `/dev/mail`. `/privacy` says what TypeLab keeps and the terms it's offered on.
 

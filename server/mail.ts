@@ -1,17 +1,32 @@
-/* Sending email, for one thing so far: the link that resets a forgotten password. Production sends through an SMTP
-   server named by SMTP_URL (smtps://user:password@smtp.example.com:465, as any mail service gives one) from MAIL_FROM;
-   without them it offers no reset. Development keeps a stand-in instead, which sends nothing: it logs each message
-   and shows the latest at STAND_IN_MAIL_PATH, so a reset can be tried without a mail service. */
+/* Sending email, for one thing so far: the link that resets a forgotten password. Production sends from MAIL_FROM
+   through Resend's API when RESEND_API_KEY is set (over HTTPS: hosts such as Railway block SMTP below their Pro plan),
+   else through an SMTP server named by SMTP_URL (smtps://user:password@smtp.example.com:465, as any mail service gives
+   one); without either it offers no reset. Development keeps a stand-in instead, which sends nothing: it logs each
+   message and shows the latest at STAND_IN_MAIL_PATH, so a reset can be tried without a mail service. */
 import nodemailer from 'nodemailer';
 
 export interface Mail { to: string; subject: string; text: string; html: string }
 export interface Mailer { send(mail: Mail): Promise<void> }
 
-/** The mailer the environment sets up, or null when SMTP_URL or MAIL_FROM is missing. */
-export function mailerFromEnv(env = process.env): Mailer | null {
-  const url = env.SMTP_URL, from = env.MAIL_FROM;
-  if (!url || !from) return null;
-  const transport = nodemailer.createTransport(url);
+const RESEND = 'https://api.resend.com/emails';
+
+/** The mailer the environment sets up, or null when MAIL_FROM is missing or neither RESEND_API_KEY nor SMTP_URL is set.
+    `post` is how Resend is reached (the tests pass their own). */
+export function mailerFromEnv(env = process.env, post: typeof fetch = fetch): Mailer | null {
+  const key = env.RESEND_API_KEY?.trim(), url = env.SMTP_URL, from = env.MAIL_FROM;
+  if (!from || !(key || url)) return null;
+  if (key) return {
+    async send(m) {
+      const res = await post(RESEND, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'User-Agent': 'TypeLab' },
+        body: JSON.stringify({ from, ...m }),
+        signal: AbortSignal.timeout(15_000)
+      });
+      if (!res.ok) throw new Error(`Resend refused the email: ${res.status} ${(await res.text()).slice(0, 300)}`);
+    }
+  };
+  const transport = nodemailer.createTransport(url!);
   return { async send(m) { await transport.sendMail({ from, ...m }); } };
 }
 

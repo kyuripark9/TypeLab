@@ -22,7 +22,7 @@ import { AccountStore } from '../server/accounts';
 import { createApp, joinGoogle } from '../server/app';
 import { DesignStore } from '../server/db';
 import { ExportPool } from '../server/export-pool';
-import { mailStandIn } from '../server/mail';
+import { mailStandIn, mailerFromEnv } from '../server/mail';
 import { STAND_IN_PATH, googleStandIn, type GoogleAuth, type GoogleProfile } from '../server/google';
 import { opentype } from '../server/opentype';
 
@@ -613,6 +613,22 @@ describe('password reset', () => {
 
   it('isn\'t offered by a server without mail', async () => {
     assert.equal((await call('POST', '/auth/reset', { email: 'ana@example.com' })).status, 503);
+  });
+
+  it('sends through Resend\'s API when RESEND_API_KEY is set, from MAIL_FROM, and says when Resend refuses', async () => {
+    const posted: { url: string; init: RequestInit }[] = [];
+    let status = 200;
+    const post = (async (url: string, init: RequestInit) => { posted.push({ url, init }); return new Response('{"message":"nope"}', { status }); }) as typeof fetch;
+    const from = 'TypeLab <noreply@typelab.ink>', m = { to: 'ana@example.com', subject: 'Hi', text: 'Hi', html: '<p>Hi</p>' };
+    assert.equal(mailerFromEnv({ RESEND_API_KEY: 're_test' }, post), null, 'no MAIL_FROM, no mail');
+    assert.equal(mailerFromEnv({ MAIL_FROM: from }, post), null, 'no key or SMTP server, no mail');
+    const mailer = mailerFromEnv({ RESEND_API_KEY: ' re_test ', MAIL_FROM: from, SMTP_URL: 'smtps://u:p@smtp.example.com:465' }, post)!;
+    await mailer.send(m);
+    assert.equal(posted[0].url, 'https://api.resend.com/emails');
+    assert.equal((posted[0].init.headers as Record<string, string>).Authorization, 'Bearer re_test');
+    assert.deepEqual(JSON.parse(posted[0].init.body as string), { from, ...m });
+    status = 403;
+    await assert.rejects(mailer.send(m), /403/);
   });
 });
 

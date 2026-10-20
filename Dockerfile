@@ -14,7 +14,7 @@ WORKDIR /app
 # rather than the container's (server/export-pool.ts), and a worker keeps the letters it has rigged, so after a
 # six-style family in an own font the server held about 750 MB with one and 1.4 GB with two, as quick. A host that
 # bills memory in use pays for each; set EXPORT_WORKERS higher there for big families asked for side by side.
-# PORT is the host's to set (Railway does); PUBLIC_URL, Google's keys and SMTP_URL/MAIL_FROM are set on the host too.
+# PORT is the host's to set (Railway does); PUBLIC_URL, Google's keys and RESEND_API_KEY/MAIL_FROM are set on the host too.
 ENV NODE_ENV=production DB_PATH=/data/typelab.db TRUST_PROXY=1 EXPORT_WORKERS=1
 COPY --from=build /app/package.json /app/tsconfig.json ./
 COPY --from=build /app/node_modules node_modules

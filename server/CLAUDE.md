@@ -11,7 +11,7 @@ preview (`shared/engine`).
 | `db.ts` | `DesignStore`: designs by owner, the schema upgrades, `PARAMS_VERSION` upgrades |
 | `accounts.ts` | `AccountStore`: users, scrypt password hashes, sessions |
 | `google.ts` | Google sign-in (authorization code with PKCE, no library); `googleFromEnv`; `googleStandIn`, a stand-in for Google for the tests and test servers (`GOOGLE_STAND_IN`) |
-| `mail.ts` | Email, for password reset: `mailerFromEnv` (SMTP through nodemailer, `SMTP_URL` and `MAIL_FROM`); `mailStandIn`, development's, which logs each message and shows it at `/dev/mail` |
+| `mail.ts` | Email, for password reset: `mailerFromEnv` (Resend's HTTPS API, `RESEND_API_KEY`, else SMTP through nodemailer, `SMTP_URL`; from `MAIL_FROM`); `mailStandIn`, development's, which logs each message and shows it at `/dev/mail` |
 | `free-fonts.ts` | `FreeFonts`: TypeLab's own fonts read from `fonts/`, the others fetched, converted and kept; each as a web font (`webFont`); `keptFile`, `ownFontFile`, `fontFile` |
 | `export.ts` | `buildOTF`, `buildFamilyZip`, `buildSpecimenSVG`, `exportName`; `buildExport`, one route's export (`ExportJob`), and the pieces it is built in (`exportPieces`, `buildPiece`, `joinPieces`: a family's members one a piece) |
 | `export-pool.ts`, `export-worker.ts` | `ExportPool`: exports built piece by piece on worker threads, side by side, so the server keeps answering; `Busy` past the ones it takes |
@@ -162,7 +162,7 @@ their apostrophe needs the room before a tall letter); they leave the font's lin
 | `PUBLIC_URL` | | The site's address for Google's redirect, when it differs from the one requests arrive on |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Both set: Google sign-in is offered, in development too. Without them no Google is offered |
 | `GOOGLE_STAND_IN` | | Set, outside production: sign in with a stand-in for Google (`/dev/google`, two made-up accounts) in place of Google, for a test server |
-| `SMTP_URL`, `MAIL_FROM` | | Both set (and `PUBLIC_URL` in production): password reset is offered, its email sent through that SMTP server from that address. Without them development shows the mail at `/dev/mail` and production offers no reset |
+| `RESEND_API_KEY` or `SMTP_URL`, `MAIL_FROM` | | One and `MAIL_FROM` set (and `PUBLIC_URL` in production): password reset is offered, its email sent through Resend's API (the key wins; Railway blocks SMTP below Pro) or that SMTP server from that address. Without them development shows the mail at `/dev/mail` and production offers no reset |
 | `EXPORT_WORKERS` | one fewer than the cores, at most 4 | How many worker threads build exports side by side; each holds a few hundred MB at its busiest |
 
 tools/README.md lists the tools' variables too.

@@ -4,8 +4,8 @@
    It reads from the environment, or from a .env file at the root: PORT (5173), NODE_ENV (`production`
    serves dist/), DB_PATH (data/typelab.db; the free fonts are kept beside it, in free-fonts/) and
    TRUST_PROXY here, PUBLIC_URL in app.ts, GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in google.ts (without
-   them no Google is offered; GOOGLE_STAND_IN, in development only, signs in with a stand-in for it), and SMTP_URL and MAIL_FROM
-   in mail.ts (without them, or in production without PUBLIC_URL, development shows the password reset's mail at
+   them no Google is offered; GOOGLE_STAND_IN, in development only, signs in with a stand-in for it), and RESEND_API_KEY or SMTP_URL, and
+   MAIL_FROM, in mail.ts (without them, or in production without PUBLIC_URL, development shows the password reset's mail at
    /dev/mail and production offers no reset). */
 import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -79,7 +79,7 @@ server.listen(port, () => {
   if (standIn) console.log(`Google sign-in: a stand-in, at ${STAND_IN_PATH} (GOOGLE_STAND_IN)`);
   else if (google && !prod) console.log(`Google sign-in: Google, back to ${process.env.PUBLIC_URL?.replace(/\/+$/, '') || `http://localhost:${port}`}/api/auth/google/callback`);
   else if (!prod) console.log('Google sign-in: off (set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env; README.md, Sign in with Google)');
-  if (mailIn) console.log(`Mail: a stand-in, shown at ${STAND_IN_MAIL_PATH} (set SMTP_URL and MAIL_FROM to send it)`);
+  if (mailIn) console.log(`Mail: a stand-in, shown at ${STAND_IN_MAIL_PATH} (set RESEND_API_KEY or SMTP_URL, and MAIL_FROM, to send it)`);
 });
 
 const shutdown = () => { server.close(); store.close(); process.exit(0); };
