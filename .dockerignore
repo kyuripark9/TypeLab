@@ -1,0 +1,16 @@
+# What the Docker build is sent: never the database, the keys in .env, or the working files it doesn't need
+.git
+.claude
+.env
+node_modules
+dist
+data
+.tools
+Asset
+Fonts ai
+tests
+tools
+*.mp4
+*.pdf
+*.orig
+.DS_Store

@@ -31,6 +31,12 @@ without it). The server compresses what it sends, keeps the built files cached f
 change with each build) and asks browsers not to show the app framed in another site.
 Every environment variable the server and the tools read is listed in `tools/README.md`.
 
+To deploy it in a container, the `Dockerfile` builds the app and runs the server on Node 24 with
+`DB_PATH=/data/typelab.db`, `TRUST_PROXY=1` and one export worker; mount a persistent volume at `/data`.
+On Railway, `railway.json` builds from it, checks `/api/health`, runs one copy (SQLite has one writer) and
+won't start without a volume at `/data`. Set `PUBLIC_URL`, Google's keys and, for password reset,
+`SMTP_URL` and `MAIL_FROM` on the host.
+
 ### Sign in with Google (optional)
 
 The sign-in dialog offers **Continue with Google** once the server has Google OAuth keys, in
