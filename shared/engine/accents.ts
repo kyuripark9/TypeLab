@@ -210,6 +210,10 @@ function lookOf(font: Font): Look {
     const runs = runsAt(ip, xh * 0.4, lean), iStem = runs.length ? Math.min(...runs.map(([a, b]) => b - a)) : stem;
     const size = Math.max(dot.box.x1 - dot.box.x0, dot.box.y1 - dot.box.y0), k = Math.min(1, iStem * DOT_OF_STEM / size, xh * DOT_MOST / size);
     if (k < 1) dot = scaled(dot, k);
+  } else {
+    // (and the i's own, well under the x-height too: a heavy script's, kept apart from its stem, is a ball over a third of it)
+    const size = Math.max(dot.box.x1 - dot.box.x0, dot.box.y1 - dot.box.y0), k = Math.min(1, xh * DOT_MOST / size);
+    if (k < 1) dot = scaled(dot, k);
   }
   // (a dot gone to a speck, as a block font's thinnest weight's, drawn by the pen as the engine draws one, a stem and a
   // little across)

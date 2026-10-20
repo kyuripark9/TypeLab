@@ -346,7 +346,20 @@ A design with `freeFont` set draws its letters from a free font instead of build
    at both ends, `wasIn`; not for a letter drawn as its strokes where they come out whole, nor a fat face's from `TRIM_FROM` of its stems down, where `fatTrim` trims its joins, and only part of the way on to `TRIM_TO`: grown part of the way, its mend's strokes stopped short in ragged pieces, a d's bowl's foot a saw's teeth at Light, a Q's tail apart in three at Thin; a fat face's mend draws no stroke on its balls' ink as the design has it, where the move puts it, a ball made smaller with its stems, mended wholly, hanging a stroke 100 units down from a 6's and an a's), or else drawn as those strokes alone within
    its ink, its dots as moved, or else moved again on a skeleton keeping its strokes that end round (`roundRig`,
    `skeleton(…, round)`: a heavy w's feet and middle peak), then thinned only as far as keeps it whole, in eighths. A heavier weight reads and moves
-   as before. A pixel font
+   as before, and a move that weighs the strokes (`MoveMap.reweighed`: not lighter, its stems or bars REWEIGHED, 5%, thicker
+   or thinner; Width, x-height and Cursive alone don't) is tidied: a heavier weight's contrast read off the hairline straight
+   across (`ref().hair0`, a heavy sans not taken for a contrasty face); a stroke's end grows on along its stroke no further
+   than OPEN of the paper ahead of it (two serifs facing across a gap); crossbars' ends past a stem (`tabsOf`) go out with
+   the stem's side; crotches at a V of paper grow freely (`veeOf`); flat cuts across where strokes meet (`flatCuts`) stay
+   as ends; strokes thin no finer than the hairline as the bars now are (`HAIR_FLOOR`); serifs' brackets are carried whole
+   (`carryRounds`); after the heights, snapFlatEdges' carry fades out over `CARRY_RAMP` of its move and the ends are carried
+   again with their sides (`endsWithSides`: the heights lift the whole top as far as its bars rose, and a serif's round end
+   stayed down, a hook); then folds are taken out (`unfolded`, `doubledBack`), notches sharper than the design's there
+   bridged and new spikes cut off at their roots (`bridgeDents`, `notches`: a tip told from a notch by the ink either side,
+   the design's tips kept) and small holes the design hasn't filled (`NEW_HOLE`). A lighter weight whose uprights thin past
+   Weight (Verticals; `MoveMap.past`, `apart`) reads its strokes' ways over their half thickness, keeps a hairline floor by
+   it, and carries its cut ends (`carryCuts`). These were tuned on every card at the Weight page's ends (Weight,
+   Verticals, Horizontals and Contrast at 0 and 100), read with weights.ts's `look` on each letter's ink united. A pixel font
    (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
 4. `restyle.ts`: `restyled` (in `free-letters.ts`) redraws the engine's shapes on the moved outline in a fixed order,
    Overlap, Dots, Bowls, Ends, Cursive, Serifs, Stencil, Peaks, Corners, each only where its settings differ from

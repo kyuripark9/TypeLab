@@ -55,7 +55,7 @@ export interface Effective extends Params {
 
 export interface Metrics {
   /** the settings it is measured from, after the macros */ p: Effective;
-  /** stem thickness */ s: number;
+  /** stem thickness, and as Weight alone draws it, before Verticals */ s: number; s0: number;
   /** cap height and x-height */ cap: number; xh: number;
   /** ascender height and descender depth (desc is negative) */ asc: number; desc: number;
   /** overshoot of round letters */ os: number;
@@ -297,7 +297,7 @@ export function metrics(e: Effective): Metrics {
   // at 100 the slice takes the middle half of the x-height, short of a thin stroke's width at the top and bottom
   const sliceH = e.slice > 0 ? lerp(4, Math.max(xh * 0.14, Math.min(xh * 0.5, xh - 2 * thin)), e.slice) : 0;
   return {
-    p: e, s, cap, xh,
+    p: e, s, s0, cap, xh,
     // (skinMeasures, skin.ts, moves a free font's ascenders by the Stem length term, as a share of the cap height)
     asc: Math.max(xh * 1.12, Math.max(cap * 1.05, xh * 1.18) + (e.extenders - 0.5) * cap * 0.5),
     desc: -cap * 0.3 * lerp(0.55, 1.45, e.extenders) * (e.descender < 0.5 ? lerp(0.45, 1, e.descender * 2) : lerp(1, 1.6, e.descender * 2 - 1)),
