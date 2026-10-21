@@ -5607,6 +5607,9 @@ const SIDE_HALVES = new WeakMap<SkinRig, Map<Bone, number>>();
 /** How many samples long, at most, a crotch's flat cut is to be drawn to where its edges meet, those edges' ways read
     over FLAT_LINE samples (moveRing's flatCrotches). */
 const FLAT_CROTCH = 4, FLAT_LINE = 4;
+/** Paper as narrow as a crack, in the design's hairlines: an edge thinning away from one no wider than the first goes no
+    further than the edge across comes on, past the second thins as it would (edgeMoves). */
+const CRACK = [0.3, 0.8];
 /** How near upright, its inward normal's share across, a straight edge reads as a stem's side (sideHalf). */
 const STEM_SIDE = 0.98;
 
@@ -5985,6 +5988,35 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     const ks = (dxOf(b) || bridge[i]) && mv.contrasty ? Math.min(k, mv.kh) : k;
     return head[i] ? -b.nx * out[i] : (dxOf(b) || bridge[i]) && mv.kv > 1 ? -b.nx * out[i] + (b.onLine ? 0 : (ks - 1) * level(b, w) * b.ny * b.ny) : rootNear[i] && !b.corner ? Math.max((k - 1) * (mv.kv > 1 ? level(b, w) : w), -b.nx * rootNear[i]) : (k - 1) * (mv.kv > 1 ? level(b, w) : w);
   });
+  // (Contrast turned round, a stroke's edge thinning away from paper no wider than a crack, where the edge across it comes
+  // on into it, goes no further than that edge comes on: the paper between the two strokes as narrow as the design draws
+  // it. Thinned each about its own middle, an italic's d's stem's side drew off its bowl's hairline side, which thickened
+  // toward it, and the sliver between them opened into a crack up the join, an italic's M's diagonal off its hairline
+  // stem under its serif. Not where the edge across thins too, an M's V in a sans: so held, a wedge stood in its crotch;
+  // nor a round pen's, its strokes' ends round: a chunky 6's hook's tip so held stood a spur by its bowl)
+  if (rig && mv.reweighed && mv.kv < 1 - REWEIGHED && !mv.contrasty && !fontPen(rig.font)) {
+    const h = rig.ref().hair0, most = CRACK[1] * h, md = (i: number) => ((i % n) + n) % n, ac = acrossOf(rig, r, most);
+    // (each sample's gap the middle of its own and its neighbours', a ray slipping through a sliver read past it)
+    const gap = bs.map((b, i) => [bs[md(i - 1)].gap, b.gap, bs[md(i + 1)].gap].sort((x, y) => x - y)[1]);
+    const narrow = (i: number) => !bs[i].corner && gap[i] < most && raw[i] < 0;
+    // (each run of thinning edges by such paper, and the edges across it it faces)
+    const first = narrow(md(-1)) ? (() => { let k = 0; while (k < n && narrow(md(-1 - k))) k++; return k < n ? md(-k) : 0; })() : 0;
+    for (let k = 0; k < n; ) {
+      const i0 = md(first + k);
+      if (!narrow(i0)) { k++; continue; }
+      const run: number[] = [];
+      while (k < n && narrow(md(first + k))) run.push(md(first + k++));
+      const hit = [...new Set(run.map(i => ac[i]).filter(j => j >= 0 && !run.includes(j)))];
+      // (the edges across a stroke's side as long as a quarter of the run, not a sample by a corner alone: an M's diagonal
+      // by its stem's cut top, a humanist h's stem by its arch, so held stood wedges)
+      if (hit.length < Math.max(2, run.length / 4) || hit.reduce((t, j) => t + raw[j], 0) <= 0) continue;
+      const lim = hit.reduce((t, j) => t + Math.max(0, Math.min(raw[j], openOf(bs[j].gap, bs[j].w))), 0) / hit.length;
+      for (const i of run) {
+        const t = Math.min(1, Math.max(0, (gap[i] - CRACK[0] * h) / ((CRACK[1] - CRACK[0]) * h)));
+        if (raw[i] < -lim) raw[i] += (-lim - raw[i]) * (1 - t);
+      }
+    }
+  }
   // (and a round running on from such an edge, facing out across its line as the edge does, out no further than the line:
   // a D's bowl's top, moved out as its stroke thickened while the bar's edge it leaves stayed, stood a bump over the line
   // there, and the heights, lowering the whole top by as much, left the bar's inside a step under the bowl's)
@@ -6662,6 +6694,9 @@ const JOIN_KEEP = 0.5, JOIN_MOVE = 0.6;
 /** How far apart, as a share of how far apart they stood, two crotches either side of a join a thinned stem stands short
     of are set on its side, and how far apart, in the strokes' half thicknesses, they may stand to be read as one (joinNecks). */
 const NECK = 0.3, NECK_FAR = 1.5;
+/** How nearly opposite (the cosine, its negative) a stroke's two edges run, by a stem's side, to be one stroke running in
+    (joinNecks). */
+const PARALLEL_ARM = 0.9;
 /** How thick, as a share of its hairline, a fair font's serif's level edge is read at most, and how level (the normal's
     upright share) such an edge faces (edgeMoves). */
 const SERIF_TOP = 0.5, SERIF_LEVEL = 0.9, SERIF_LEVEL_RAMP = 0.05, SERIF_THICK = [1, 1.5];
@@ -6812,6 +6847,23 @@ function veeOf(rig: SkinRig, r: number): Uint8Array {
   return got;
 }
 const VEES = new WeakMap<Bone[], Uint8Array>();
+/** Which sample of contour r of the rig each sample faces across paper narrower than `most`: the one of the same contour
+    nearest where its gap ends, within VEE_HIT, or -1 (edgeMoves' cracks). Read once a rig. */
+function acrossOf(rig: SkinRig, r: number, most: number): Int32Array {
+  const bs = rig.bones[r];
+  let got = CRACK_ACROSS.get(bs);
+  if (got) return got;
+  got = new Int32Array(bs.length).fill(-1);
+  CRACK_ACROSS.set(bs, got);
+  bs.forEach((b, i) => {
+    if (b.corner || !(b.gap < most)) return;
+    const hx = b.x - b.nx * b.gap, hy = b.y - b.ny * b.gap;
+    let best = VEE_HIT * VEE_HIT;
+    bs.forEach((q, k) => { const d = (q.x - hx) ** 2 + (q.y - hy) ** 2; if (d < best && !q.corner) { best = d; got![i] = k; } });
+  });
+  return got;
+}
+const CRACK_ACROSS = new WeakMap<Bone[], Int32Array>();
 /** How far each of veeOf's samples may grow: across its gap and the stroke there to its other side (the stroke the
     sample nearest where its gap ends, within VEE_HIT, belongs to, read as thick as it is and slantwise along the way this
     one goes out), Infinity where none is or the two face across no more than VEE_ACROSS. Read once a rig. */
@@ -7505,10 +7557,26 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       if (d < 1 || d > NECK_FAR * (sA.w + sB.w)) continue;
       const ux = dx / d, uy = dy / d;
       if ((sA.x - bs[A.i].x) * ux + (sA.y - bs[A.i].y) * uy >= 0 || (sB.x - bs[B.i].x) * ux + (sB.y - bs[B.i].y) * uy <= 0) continue;
+      const aA = bs[A.a], aB = bs[B.a], o = out[A.s];
+      // (or one stroke whose edges run on side by side, an italic's X's hairline drawn thinner to a point where it meets the
+      // thick stroke, as both turn round: its end, its crotches met again by where its own edges ran, stood short of the
+      // stroke thinned away from it, a gap across the crossing; set on the stroke's side where its middle now meets it, as
+      // far apart along it as it now is thick)
+      if (aA.tx * aB.tx + aA.ty * aB.ty < -PARALLEL_ARM) {
+        const off = (q: P) => (q.x - o.x) * sA.nx + (q.y - o.y) * sA.ny;
+        if (Math.max(off(out[A.i]), off(out[B.i])) > -1) continue;
+        const M = { x: (out[A.a].x + out[B.a].x) / 2, y: (out[A.a].y + out[B.a].y) / 2 }, T = meet(M, aA.tx, aA.ty, o, ux, uy);
+        const sn = Math.abs(aA.tx * uy - aA.ty * ux);
+        if (!T || sn < 0.2) continue;
+        const thick = Math.abs((out[A.a].x - out[B.a].x) * aA.ty - (out[A.a].y - out[B.a].y) * aA.tx), at = (T.x - o.x) * ux + (T.y - o.y) * uy, h = thick / 2 / sn;
+        out[A.i] = { x: o.x + ux * (at - h), y: o.y + uy * (at - h) };
+        out[B.i] = { x: o.x + ux * (at + h), y: o.y + uy * (at + h) };
+        continue;
+      }
       // (the strokes' edges' tip, in the design inside the stem, as moved outside its moved side)
-      const aA = bs[A.a], aB = bs[B.a], T0 = meet(aA, aA.tx, aA.ty, aB, aB.tx, aB.ty), T = meet(out[A.a], aA.tx, aA.ty, out[B.a], aB.tx, aB.ty);
+      const T0 = meet(aA, aA.tx, aA.ty, aB, aB.tx, aB.ty), T = meet(out[A.a], aA.tx, aA.ty, out[B.a], aB.tx, aB.ty);
       if (!T0 || !T || (T0.x - sA.x) * sA.nx + (T0.y - sA.y) * sA.ny <= 0 || (T.x - out[A.s].x) * sA.nx + (T.y - out[A.s].y) * sA.ny > 0) continue;
-      const o = out[A.s], at = (T.x - o.x) * ux + (T.y - o.y) * uy, h = NECK * d / 2;
+      const at = (T.x - o.x) * ux + (T.y - o.y) * uy, h = NECK * d / 2;
       out[A.i] = { x: o.x + ux * (at - h), y: o.y + uy * (at - h) };
       out[B.i] = { x: o.x + ux * (at + h), y: o.y + uy * (at + h) };
     }

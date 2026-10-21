@@ -495,7 +495,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    edges went goes as they went instead (an industrial h's crotch over its arch, read off its ink trap's short curves,
    went fifty units into the arch and cut it off), and two crotches where strokes leave a stem's side together, now short
    of the thinned stem, are set on its side either side of where the strokes' edges meet, `NECK` of the way apart they
-   stood (`joinNecks`: a geometric K's arm and leg parted from its hairline stem); a corner inside a join, in a font
+   stood (`joinNecks`: a geometric K's arm and leg parted from its hairline stem), and one stroke whose edges run side
+   by side into the stem the same way, as far apart along its side as the stroke now is thick (an italic X's hairline,
+   drawn to a point at the thick stroke, stood short of the crossing). In a font not contrasty, a stroke's edge thinning
+   away from paper narrower than `CRACK` hairlines, the edges across it (`acrossOf`) coming on into it, goes no further
+   than they come on (an italic d's stem drew off its bowl's thickened hairline side, a crack up the join; not where the
+   edges across thin too, a sans M's crotch, which so held stood a wedge, nor in a round pen); a corner inside a join, in a font
    not contrasty, stops a stroke's new thickness short of the ring's edges across from it as moved (`thinAcross`: an
    industrial 9's and g's crotch under the bowl, its ink trap's short curve thinned as the stem's side, went out past
    the stem's far side and cut the stem off). `relaid` runs each
