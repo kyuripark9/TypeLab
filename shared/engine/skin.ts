@@ -3112,8 +3112,9 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // out two and three times as far as its strokes are thick, each sample along its own normal, its stroke thickening by
   // as much more or less round a curve as the stems' and bars' do apart, held back here and there, the outline came out
   // in lumps and knobs, a comic's b's and o's counters and its I's bars' ends at Weight 100. The moves, not the outline:
-  // run smooth, a stroke's end turning toward the stroke across a narrow opening ran into it)
-  if (mv.reweighed && mv.kv > 1 + REWEIGHED && fontPen(rig.font)) { const sg = EVEN_SMOOTH * (mv.kv - 1 - REWEIGHED) * rig.ref().stem / 2; rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg))); }
+  // run smooth, a stroke's end turning toward the stroke across a narrow opening ran into it. Its dots kept clear again:
+  // a question mark's hook's foot, run smooth, came down onto its dot)
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && fontPen(rig.font)) { const sg = EVEN_SMOOTH * (mv.kv - 1 - REWEIGHED) * rig.ref().stem / 2; rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg))); clearDots(rig, rings); }
   // (and the middles of a stroke along a line, which its edge put back on the line brought back with it)
   if (across.length && how !== 'strokes') for (const run of middles) for (const m of run) {
     const a = across.find(a => Math.abs(m.x - a.x) <= STEP / 2 && m.y >= Math.min(a.y0, a.y1) && m.y <= Math.max(a.y0, a.y1));
