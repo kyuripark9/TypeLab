@@ -402,7 +402,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    each curve's move along it as far as it moves (a b's counter's side by its stem), and its curves' thicknesses along
    them over half a stem (a d's counter's round by its stem), and a stem's upright side and a round across a narrow V of
    paper past their crotch grow into each other freely (`veeOf`'s `VEE_SIDE`: a hook at a d's top, a q's foot); a straight side running into a level end on a line
-   goes no further past the line than the corner where it now meets it (`SIDE_PAST`: a k's arm's top, an X's feet). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
+   goes no further past the line than the corner where it now meets it (`SIDE_PAST`: a k's arm's top, an X's feet); and
+   in such a sans growing heavier (`plumbHeavy`) every point's move is run smooth along the outline by `PLUMB_SMOOTH` of
+   how far its strokes thicken, its laid straight edges and its edges on a line held, a curve running on from a laid
+   edge moved with it as far as it faces the edge's way and wholly beside it, if it lags behind it (`anchoredMoves`,
+   `CARRY_TURN`, `CARRY_FADE`: a grotesque's bowls beaded, an n's counter a keyhole at Verticals 100), and an edge across
+   a V of paper grows into it no further than leaves `VEE_SLOT` of a stem (an M's counters, gone at Verticals 100). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
    moves are eased again over `FAIR_REACH` times as far as each moves, by no more than `FAIR_SHARE` of it and by less
    within `FAIR_FADE` samples of where the samples eased together end (an old style's bowls came out wavy at Weight 100;
    eased right up to samples not eased, its arches' tops stepped), an arm's or a bar's round under it is carried whole as a bracket is
