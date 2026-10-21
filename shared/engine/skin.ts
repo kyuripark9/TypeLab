@@ -3361,6 +3361,10 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
     const heavier = { ...mv, lighter: false };
     rings = rings.map((ring, r) => { const h = moveRing(rig, rig.bones[r], r, heavier); return h.length !== ring.length ? ring : ring.map((p, i) => ({ x: h[i].x + (p.x - h[i].x) * lam, y: h[i].y + (p.y - h[i].y) * lam })); });
   }
+  // (Contrast turned round, where two of its outlines run all but on each other, moved across each other, they're moved
+  // alike: at a blackletter V's tail's tip, touching its other stroke, its counter's outline and its outside's, their
+  // normals turning every way there, crossed, and the counter opened)
+  if (mv.reweighed && mv.kv < 1 - REWEIGHED) heldTouches(rig, rings);
   // (a heavier weight's outline as moved, before the heights, for its serifs to be put back as moved, snapFlatEdges)
   const unlifted = mv.reweighed && mv.kv > 1 ? rings.map(r => r.map(p => p.y)) : null;
   const lift = keepHeights(rig, rings, mv.gy, mv.reweighed);
@@ -6897,6 +6901,64 @@ const FAIR_HAIR = [0.2, 0.6], FAIR_REACH = 2, FAIR_SHARE = 0.2, FAIR_FADE = 4;
 /** How much of the ink ahead of a crotch, and of how far its thinning edge moved, a fair font's Contrast turned round
     may carry it into the join (moveRing). */
 const JOIN_KEEP = 0.5, JOIN_MOVE = 0.6;
+/** Points of a letter's outline closer than NEAR_TOUCH (units), on two rings or NEAR_ALONG samples or more apart on one, and
+    NEAR_SIDE samples either side of each along its ring, moved alike where two rings' edges among them, moved, cross
+    (heldTouches). */
+const NEAR_TOUCH = 3, NEAR_ALONG = 8, NEAR_SIDE = 2;
+function nearPairs(rig: SkinRig): [number, number, number, number][] {
+  let got = NEAR_PAIRS.get(rig);
+  if (got) return got;
+  got = [];
+  const grid = new Map<string, [number, number][]>(), key = (x: number, y: number) => `${Math.floor(x / NEAR_TOUCH)},${Math.floor(y / NEAR_TOUCH)}`;
+  rig.bones.forEach((bs, r) => bs.forEach((b, i) => { const k = key(b.x, b.y); (grid.get(k) ?? grid.set(k, []).get(k)!).push([r, i]); }));
+  rig.bones.forEach((bs, r) => bs.forEach((b, i) => {
+    const gx = Math.floor(b.x / NEAR_TOUCH), gy = Math.floor(b.y / NEAR_TOUCH);
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const [r2, j] of grid.get(`${gx + dx},${gy + dy}`) ?? []) {
+      if (r2 < r || (r2 === r && j <= i)) continue;
+      if (r2 === r && Math.min(j - i, bs.length - (j - i)) < NEAR_ALONG) continue;
+      const c = rig.bones[r2][j];
+      if (Math.hypot(c.x - b.x, c.y - b.y) < NEAR_TOUCH) got!.push([r, i, r2, j]);
+    }
+  }));
+  NEAR_PAIRS.set(rig, got);
+  return got;
+}
+const NEAR_PAIRS = new WeakMap<SkinRig, [number, number, number, number][]>();
+function heldTouches(rig: SkinRig, rings: P[][]) {
+  const pairs = nearPairs(rig);
+  if (!pairs.length || rings.some((ring, r) => ring.length !== rig.bones[r].length)) return;
+  // (the points touching each other gathered, with NEAR_SIDE more either side along their rings: where two outlines run all
+  // but on each other, if any of one's edges as moved cross the other's they're all moved alike, keeping the design's touch)
+  const up = new Map<number, number>(), key = (r: number, i: number) => r * 1e6 + i;
+  const find = (k: number): number => { while (up.has(k) && up.get(k) !== k) k = up.get(k)!; return k; };
+  const join = (a: number, b: number) => { const x = find(a), y = find(b); up.set(x, x); up.set(y, x); };
+  for (const [r, i, r2, j] of pairs) {
+    join(key(r, i), key(r2, j));
+    for (const [q, k] of [[r, i], [r2, j]]) { const n = rig.bones[q].length; for (let d = 1; d <= NEAR_SIDE; d++) { join(key(q, k), key(q, (k + d) % n)); join(key(q, k), key(q, (k - d + n) % n)); } }
+  }
+  const groups = new Map<number, number[]>();
+  for (const k of up.keys()) { const g = find(k); (groups.get(g) ?? groups.set(g, []).get(g)!).push(k); }
+  const at = (k: number) => rings[Math.floor(k / 1e6)][k % 1e6], next = (k: number) => { const r = Math.floor(k / 1e6); return key(r, (k % 1e6 + 1) % rings[r].length); };
+  const cross = (a: P, b: P, c: P, d: P) => { const r = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x); if (Math.abs(r) < 1e-9) return false; const t = ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / r, u = ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / r; return t > 0 && t < 1 && u > 0 && u < 1; };
+  for (const m of groups.values()) {
+    const set = new Set(m);
+    let hit = false;
+    for (let x = 0; x < m.length && !hit; x++) for (let y = x + 1; y < m.length && !hit; y++) {
+      const a = m[x], b = m[y], a1 = next(a), b1 = next(b);
+      if (a1 === b || b1 === a || !set.has(a1) || !set.has(b1) || Math.floor(a / 1e6) === Math.floor(b / 1e6)) continue;
+      hit = cross(at(a), at(a1), at(b), at(b1));
+    }
+    if (!hit) continue;
+    let dx = 0, dy = 0;
+    for (const k of m) { const r = Math.floor(k / 1e6), i = k % 1e6; dx += rings[r][i].x - rig.bones[r][i].x; dy += rings[r][i].y - rig.bones[r][i].y; }
+    dx /= m.length; dy /= m.length;
+    for (const k of m) { const r = Math.floor(k / 1e6), i = k % 1e6; rings[r][i] = { x: rig.bones[r][i].x + dx, y: rig.bones[r][i].y + dy }; }
+  }
+}
+/** How shallow a turn a corner's edges make (the cosine between their ways, over this) for Contrast turned round to set it
+    between its edges' moves where they go opposite ways, wholly so as far as the lesser move is FLING_MIX's share, squared,
+    of the greater and the stems FLING_RAMP thinner than where Contrast starts to turn them (moveRing). */
+const FLING_TURN = Math.cos(50 * Math.PI / 180), FLING_MIX = 0.25, FLING_RAMP = 0.3;
 /** How far apart, as a share of how far apart they stood, two crotches either side of a join a thinned stem stands short
     of are set on its side, and how far apart, in the strokes' half thicknesses, they may stand to be read as one (joinNecks). */
 const NECK = 0.3, NECK_FAR = 1.5;
@@ -7463,6 +7525,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     let mx = (o1.x * d1 + o2.x * d2) / 2 + (slide ? (slide[i0].x + slide[i1].x) / 2 : 0), my = (o1.y * d1 + o2.y * d2) / 2 + (slide ? (slide[i0].y + slide[i1].y) / 2 : 0);
     if (Math.abs(det) >= 0.25) { mx = (d1 * o2.y - d2 * o1.y) / det; my = (o1.x * d2 - o2.x * d1) / det; }
     const lim = 1.6 * Math.max(Math.abs(d1), Math.abs(d2), 0.01), l = Math.hypot(mx, my);
+    let fling: { t: number; x: number; y: number } | null = null;
     // (a lighter weight's crotch where its strokes' edges, as thin as they are now, cross, carried as the corner is)
     const at = crotches?.get(i)?.at;
     if (groups.length) { const m = archMeet(i); if (m && m.w >= 1) { meets.set(i, m.M); arched(i); return m.M; } if (m) blend.push(i); }
@@ -7500,13 +7563,20 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     if (mv.reweighed && mv.kv < 1 - REWEIGHED) {
       const g = (j: number) => ({ x: -bs[j].nx * moved[j] + (slide?.[j].x ?? 0), y: -bs[j].ny * moved[j] + (slide?.[j].y ?? 0) }), g0 = g(i0), g1 = g(i1);
       if (mx * (g0.x + g1.x) + my * (g0.y + g1.y) < 0) return { x: x + (g0.x + g1.x) / 2, y: y + (g0.y + g1.y) / 2 + up };
+      // (and an outside corner at a shallow turn, one edge thinning, the other thickening, goes toward where its neighbours
+      // go as far as its edges' lines meet further out than either moved and as they go apart: where they meet it stood far
+      // out along them, as far as 1.6 times either's move, a blackletter X's corner where its thinned stroke runs on into its
+      // thickened one 58 units out across its other stroke, the X in two; at once, a code face's 2 stepped 20 units)
+      const most = Math.max(Math.abs(d1), Math.abs(d2), 0.01);
+      if (ways.inx * ways.outx + ways.iny * ways.outy > FLING_TURN && d1 * d2 < 0 && !concaveAt(b)) fling = { t: Math.min(1, Math.max(0, (l - most) / most)) * Math.min(1, -d1 * d2 / (FLING_MIX * most * most)) * Math.min(1, (1 - REWEIGHED - mv.kv) / FLING_RAMP), x: (g0.x + g1.x) / 2, y: (g0.y + g1.y) / 2 };
     }
-    // (a fair font's crotch where Contrast turned round thins one of its strokes, its edges near alike: met again no
-    // further into the join than JOIN_KEEP of the ink ahead nor JOIN_MOVE of the way its thinning edge moved, so the
-    // strokes stay joined; met where they meet, a C0
+    // (a fair font's or a broad pen's crotch where Contrast turned round thins one of its strokes, its edges near alike: met
+    // again no further into the join than JOIN_KEEP of the ink ahead nor JOIN_MOVE of the way its thinning edge moved, so
+    // the strokes stay joined; met where they meet, a C0
     // italic's M's thick diagonal, thinned, parted from its stem under the serif, the corner carried up past the serif's
-    // top, and its N's so, and its x's hairline arm, the crotch under it carried up past its top)
-    if (mv.reweighed && mv.kv < 1 - REWEIGHED && fairFont(rig) && concaveAt(b) && Math.min(d1, d2) < 0) {
+    // top, and its N's so, and its x's hairline arm, the crotch under it carried up past its top; a blackletter P's bowl
+    // came off its stem)
+    if (mv.reweighed && mv.kv < 1 - REWEIGHED && (fairFont(rig) || nibFont(rig)) && concaveAt(b) && Math.min(d1, d2) < 0) {
       const far = Math.min(lim, JOIN_MOVE * -Math.min(d1, d2), JOIN_KEEP * inkAhead(rig, b, mx / (l || 1), my / (l || 1)));
       if (l > far) { mx *= far / l; my *= far / l; }
       return { x: x + mx, y: y + my + up };
@@ -7529,6 +7599,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       const far = thinAcross(i, x, y, mx, my);
       if (far < Math.hypot(mx, my)) { const t = Math.max(0, far) / (Math.hypot(mx, my) || 1); mx *= t; my *= t; }
     }
+    if (fling) { mx += (fling.x - mx) * fling.t; my += (fling.y - my) * fling.t; }
     return { x: x + mx, y: y + my + up };
   });
   // (a shallow crotch met again part of the way, archMeet's w)

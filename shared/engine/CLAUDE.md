@@ -429,7 +429,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    and not past it, laid on the line keeping `FEET_KEEP` of the design's way off it (`levelFeet`: an italic's foot serifs'
    undersides and its B's bottom came out in waves at Weight 100); and, Contrast turned round, a crotch meets again no
    further into its join than `JOIN_KEEP` of the ink ahead nor `JOIN_MOVE` of its thinning edge's move (an italic's M, N
-   and x at Contrast 0 came apart). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
+   and x at Contrast 0 came apart; a broad pen's so too, a blackletter P's bowl off its stem). Contrast turned round, on any
+   card, an outside corner at a turn shallower than `FLING_TURN`, one edge thinning and the other thickening, goes as its
+   neighbours do, not where its edges' lines meet far out along them (a blackletter X's, 58 units across its other stroke,
+   the X in two), and where two of a letter's outlines run within `NEAR_TOUCH` of each other, their points and `NEAR_SIDE`
+   either side moved across each other are moved alike (`heldTouches`: a blackletter V's tail's tip touching its other
+   stroke, the counter's outline crossed the outside's, and the counter opened). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
    Gumdrop's) ends aren't held by `heldBySlope`, each end's points go no further into the paper than `OPEN` of it, every
    point's move is run smooth along the outline by as far as its strokes thickened (`evenedMoves`, `EVEN_SMOOTH`) and
    short spikes left are taken out (`unspiked`). An end a stem's side has grown out past is cut where its outline crosses
