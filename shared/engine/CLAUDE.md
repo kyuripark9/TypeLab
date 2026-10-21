@@ -425,7 +425,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    100), its crotches grow freely as its bars thicken too (`veesGrow`), and `SIDE_PAST` holds its sides to their lines (an
    N's diagonal's foot under the baseline). As the uprights thin apart (`apart`), a level edge on a line stays on it, and
    joins drawn again round no thicker than their thinnest stroke (a soft slab's h's top's spike, a typewriter's beads at
-   every bowl's and arch's join at Verticals 0).
+   every bowl's and arch's join at Verticals 0), and its moves are run smooth along the outline over `APART_EASE` of its
+   stems (read stroke by stroke, a typewriter's arches knee'd where they leave their stems).
    Any reweighed letter's point flung out alone into the paper, far off the
    line through the points either side of it and near no tip the design draws, is taken out before the outline is tidied
    (`unflung`: a comic's e's bar's end's corner, a knot), and its counters the design draws are kept however small they

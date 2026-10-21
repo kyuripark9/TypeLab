@@ -3653,6 +3653,9 @@ const CROTCH_BEND = Math.cos(15 * Math.PI / 180);
     all past ARCH_REACH[1]; any, within ARCH_REACH_STEEP of the thinner of its two strokes, so. And where stretchRounds reads a corner of two lines, they cross at more than ARCH_TURN (sine). */
 const ARCH_RUN = 6, ARCH_FROM = 2, ARCH_UPRIGHT = 0.9, ARCH_NEAR = 0.2, ARCH_PAIR = 0.02, ARCH_SLANT = [Math.cos(75 * Math.PI / 180), Math.cos(20 * Math.PI / 180)];
 const ARCH_STEEP = Math.cos(40 * Math.PI / 180), ARCH_NECK = 0.45, ARCH_REACH = [4, 6], ARCH_REACH_STEEP = [8, 12], ARCH_TURN = 0.3, ARCH_TIGHT = 8 * Math.PI / 180, ARCH_ROUND = 0.04, ARCH_V = [Math.cos(150 * Math.PI / 180), Math.cos(30 * Math.PI / 180)];
+/** How far along the outline, as a share of the design's stems, a lighter weight's moves are run smooth as its uprights thin
+    apart from its bars (edgeMoves). */
+const APART_EASE = 0.35;
 /** How much further out than the design's a stem's side and a curve may meet along both, the round between them met
     again by no crotch (stretchRounds), for the round to be drawn again: wholly up to the first, less and less to none at
     the second; and how much thinner than the stem the curve must be. */
@@ -5667,7 +5670,12 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     if (mv.apart > 0) bs.forEach((b, i) => { const j = rig.thin?.near[r][i] ?? -1; if (b.onLine && !b.corner && Math.abs(b.ny) > 0.97 && j >= 0 && Math.abs(rig.thin!.ty[j]) > LINE_UPRIGHT) delta[i] = 0; });
     // (a level foot's samples as they reach it: eased, a leaning leg's bracket's, its rays running 40 to 100 units in
     // within a few samples, stopped short of it, a wedge under the leg, Almanac's K's)
-    const moved = bs.map((b, i) => b.corner || footed[i] ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && end(bs[j]) === end(b)));
+    // (and, its uprights thinned apart from the bars, over APART_EASE of its stems as far as they so thin: read stroke by
+    // stroke, a sample by a join took its stem's thinning and the next its arch's, a knee under a typewriter's h's, n's and
+    // r's arches at Verticals 0, and a blackletter's W, G and R left crumbs of ink apart; eased further, its K's, W's and o's
+    // joins parted, mended, a third slower)
+    const wide = mv.apart > 0 && !mv.contrasty ? Math.max(3, Math.round(APART_EASE * rig.ref().stem * mv.apart / STEP)) : 3;
+    const moved = bs.map((b, i) => b.corner || footed[i] ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && end(bs[j]) === end(b), wide));
     return { dotRoom: bs[0]?.dot ? Math.min(...bs.map(b => b.gap)) * OPEN : Infinity, k0, moved, rooms: null as number[] | null, slide: null as P[] | null, slid: null as number[] | null, crotches, pins, hug, hugY, fine, cuts, orphans: [] as EndRun[] };
   }
   // how far each edge moves out (in, lighter): its stroke's change of thickness on this side, a stem's by
