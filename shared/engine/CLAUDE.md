@@ -305,7 +305,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    `whole`, it is moved as any letter is. A letter drawn as its strokes starts in from the design, not off it at the
    first hair lighter (`fromPick`: within `PICK_BLEND` of the design's stems, the strokes united with the letter moved as
    a heavier weight is, thinning faster, `PICK_THIN`, kept within the design's ink and within a band round the strokes,
-   the strokes drawn again thicker, narrowing to nothing, `PICK_GROW`); a letter moved lighter goes from where a heavier
+   the strokes drawn again thicker, narrowing to nothing, `PICK_GROW`), its room keeping some of the design's reach past
+   its strokes out to `PICK_ROOM` times as far below the pick (`reachOn`: a geometric k's sharp feet, 15 units of room in
+   a few hundredths of Weight); a letter moved lighter goes from where a heavier
    weight's moves put it to where the lighter's do over the same stretch (`movedOnce`'s `lam`, crumbs dropped as small
    as that), so its crotches and finest strokes don't jump; `doubledBack` keeps a point the design itself turns back
    at (a Didone's serif's tip); and a stroke's cut end runs out to the ink exactly, each side to the design's cut, square
@@ -391,7 +393,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    (`flatEnd`), a round running on from an edge on a line held to the line (`ROUND_ON_LINE`: a D's bowl's top), and the
    edges the heights' lift puts back on a line carry no corner turning out down an upright side (pinned to the line) nor
    a round past the line (a sans B's stem's top and foot, its bowls' tops); a sans drawn with a rule (`fontPlumb`) eases
-   each curve's move along it as far as it moves (a b's counter's side by its stem); a straight side running into a level end on a line
+   each curve's move along it as far as it moves (a b's counter's side by its stem), and its curves' thicknesses along
+   them over half a stem (a d's counter's round by its stem), and a stem's upright side and a round across a narrow V of
+   paper past their crotch grow into each other freely (`veeOf`'s `VEE_SIDE`: a hook at a d's top, a q's foot); a straight side running into a level end on a line
    goes no further past the line than the corner where it now meets it (`SIDE_PAST`: a k's arm's top, an X's feet). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
    moves are eased again over `FAIR_REACH` times as far as each moves, by no more than `FAIR_SHARE` of it and by less
    within `FAIR_FADE` samples of where the samples eased together end (an old style's bowls came out wavy at Weight 100;
@@ -450,7 +454,11 @@ A design with `freeFont` set draws its letters from a free font instead of build
    they now meet, smaller where it would pass either, a serif its stem thickened over slid out with the stem's side
    (a fat face's N's hairline stems swallowed their serifs), the snap's carry having left a serif's underside and its end
    in waves and nicks. A ball's share of its heavy strokes' moves (`heavyShare`) weighs each by the way it was asked to go
-   where some thicken and some thin (summed as they were, a fat face's r's ball jumped at Contrast 15). These were tuned on every
+   where some thicken and some thin (summed as they were, a fat face's r's ball jumped at Contrast 15). In a font without serifs, Contrast turned round thins each edge
+   by its stroke read whole too, eased along the outline (a two-storey a's insides, read thin with the joins' bumps
+   taken out, left it twice as heavy as an n), a plumb sans's curves' moves are eased as they are heavier, and a crotch
+   cut flat is drawn to where the edges either side of it now meet (`flatCrotches`: a ledge where a humanist n's, m's,
+   h's and r's hairline stems meet their arches). These were tuned on every
    card at the Weight page's ends (Weight,
    Verticals, Horizontals and Contrast at 0 and 100), read with weights.ts's `look` on each letter's ink united. A pixel font
    (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
