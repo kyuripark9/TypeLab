@@ -5430,6 +5430,19 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   const out = bs.map(b => (dxOf(b) ? serifOut(b) : 0)), rootNear = new Float64Array(n), sharp = new Uint8Array(n), head = new Uint8Array(n), bridge = new Uint8Array(n);
   if (slid) {
     const { side, atEnd, runs } = serifRuns(rig, r), halves: [number, number, number][] = [];
+    // (in a font of bracketed serifs and some contrast (fairFont), its root no further out than its stem's own side
+    // moves, read on the upright straight side either side of the serif: its stem read across the serif's bracket, a
+    // little way up, reads thicker, and the serif and the stem's side beside it, slid out further than the stem's side
+    // above it went, stood out a step at each bracket of a transitional's H at Weight 100)
+    const fair = fairFont(rig!), sideMove = (s0: number, e: number) => {
+      let m: number | null = null;
+      for (const [from, dir] of [[s0, -1], [e - 1, 1]] as const) for (let k = SERIF_NEAR + 1; k <= SERIF_NEAR + SIDE_LOOK; k++) {
+        const j = (((from + dir * k) % n) + n) % n, q = bs[j];
+        if (side[j] || dxOf(q) || q.corner || endAt(j)) break;
+        if (q.straight && Math.abs(q.nx) >= STEM_SIDE) { const d = (ks1[j] - 1) * W(q, j); m = m === null ? d : Math.max(m, d); break; }
+      }
+      return m !== null && m > 0 ? m : null;
+    };
     for (let j = 0; j < n; j++) if (side[j] && !dxOf(bs[j])) bridge[j] = 1;
     for (const { s0, e, sg } of runs) {
       // (its tip where its end begins, which goes with the sides it joins there)
@@ -5443,6 +5456,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
         if (d < nearest) { nearest = d; root = Math.abs(out[e]); }
       }
       if (!reach) continue;
+      if (fair) { const sm = sideMove(s0, e); if (sm !== null) root = Math.min(root, sm); }
       least = Math.min(least, root);
       const at = Math.min(root, least + SERIF_SHORTER * reach), tip = Math.min(reach, tipAt);
       for (let j = s0; j !== e; j = (j + 1) % n) out[j] = sg * (at + (least - at) * (dxOf(bs[j]) ? Math.min(1, Math.abs(dxOf(bs[j])) / Math.max(1, tip)) : 1));
@@ -5512,7 +5526,28 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     heldBySlope(delta, held.step, own!, SLOPE_HELD, faces.map(f => !f));
     heldBySlope(delta, held.step, past, SLOPE_PAST, faces);
   }
-  const moved = bs.map((b, i) => b.corner ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && endAt(j) === endAt(i) && bare(j) === bare(i) && onLine(bs[j]) === onLine(b)));
+  const keepAt = (b: Bone, i: number) => (j: number) => !bs[j].corner && endAt(j) === endAt(i) && bare(j) === bare(i) && onLine(bs[j]) === onLine(b);
+  let moved = bs.map((b, i) => b.corner ? delta[i] : ease(delta, bs, i, keepAt(b, i)));
+  // (and a heavier weight's in a font of bracketed serifs and some contrast (fairFont), eased again over as far along the
+  // outline as FAIR_REACH times each moves, by no more than FAIR_SHARE of its own move either way (eased further, a
+  // thin stroke between two thick ones, the neck of an old style's g, thinned to a crack, or thickened, an italic's q's
+  // bowl into its stem) and no further into a counter than before: eased over a few samples, a
+  // stroke read thicker or thinner sample by sample as it curves into a join went out by as much more or less, and an old
+  // style's bowls and counters came out wavy at Weight 100, its stems three times as thick, a d's counter's side and an
+  // n's shoulder an S. Not by or onto a sample moved as its own (heldOwn), nor a serif slid with its stem: eased into
+  // them, its stems bowed out between their serifs)
+  if (rig && held && fairFont(rig)) {
+    // (each sample's kind, the samples eased together alike: -1 not eased)
+    const kind = bs.map((b, j) => (b.corner || own![j] || dxOf(b) || head[j] || bridge[j] || rootNear[j] ? -1 : (endAt(j) ? 1 : 0) | (bare(j) ? 2 : 0) | (onLine(b) ? 4 : 0))), m0 = moved;
+    moved = bs.map((b, i) => {
+      if (kind[i] < 0) return m0[i];
+      const reach = Math.max(3, Math.round(FAIR_REACH * Math.abs(m0[i]) / STEP)), w = bell(reach);
+      let sum = m0[i], ws = 1;
+      for (const dir of [-1, 1]) for (let k = 1; k <= reach; k++) { const j = (((i + dir * k) % n) + n) % n; if (kind[j] !== kind[i]) break; sum += m0[j] * w[k]; ws += w[k]; }
+      const c = Math.min(m0[i] + FAIR_SHARE * Math.abs(m0[i]), Math.max(m0[i] - FAIR_SHARE * Math.abs(m0[i]), sum / ws));
+      return c > 0 ? Math.min(c, Math.max(m0[i], room(b, i))) : c;
+    });
+  }
   const slide = slid ? bs.map((b, i) => { const f = head[i] || sharp[i] || bridge[i] ? 1 : !dxOf(b) ? 0 : Math.min(1, Math.abs(dxOf(b)) / Math.max(1, SERIF_RAMP * b.serifStem)); return { x: f * out[i] * b.ny * b.ny, y: -f * out[i] * b.nx * b.ny }; }) : null;
   return { dotRoom, k0, moved, slide, slid: slid ? out : null, crotches: undefined as Map<number, Crotch> | undefined, pins: undefined as Map<number, P> | undefined, hug: null as Float64Array | null, hugY: null as Float64Array | null, fine: undefined as number[] | undefined, cuts: undefined as number[][] | undefined, orphans: mergedEnds(orphans, bs) };
 }
@@ -5790,6 +5825,16 @@ const EVEN_NEAR = 0.3;
     purpose, a sample or two at a time. */
 const evenFont = (rig: SkinRig) => { const { stem, hair0 } = rig.ref(); return !rig.serifed() && hair0 >= EVEN_HAIR * stem; };
 const EVEN_HAIR = 0.75;
+/** A font of bracketed serifs and some contrast, its hairline FAIR_HAIR of its stems (an old style, a transitional, an
+    italic; not a Didone, a fat face or a slab), whose heavier weight's moves are eased over FAIR_REACH times as far
+    along its outline as each moves, by no more than FAIR_SHARE of each (edgeMoves). */
+const fairFont = (rig: SkinRig) => { const { stem, hair0 } = rig.ref(); return rig.serifed() && !fatFace(rig) && hair0 >= FAIR_HAIR[0] * stem && hair0 < FAIR_HAIR[1] * stem; };
+/** ease's weights reaching `r` samples either way, kept by r. */
+const bell = (r: number) => { let w = BELLS.get(r); if (!w) BELLS.set(r, w = Float64Array.from({ length: r + 1 }, (_, k) => Math.exp(-(k * k) * 3 / (2 * r * r)))); return w; };
+const BELLS = new Map<number, Float64Array>();
+const FAIR_HAIR = [0.2, 0.6], FAIR_REACH = 2, FAIR_SHARE = 0.2;
+/** How many samples past a serif's run (and SERIF_NEAR) its stem's upright straight side is looked for (edgeMoves' sideMove). */
+const SIDE_LOOK = 12;
 
 /** Runs of a stroke's end (EndRun's, its sides either side) with no more than ORPHAN_GAP samples between one and the next
     made one, their sides the first's and the last's: a V's foot, cut across in two runs a corner on the line apart. */
@@ -6275,6 +6320,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   for (const i of blend) { const m = archMeet(i)!; out[i] = { x: out[i].x + (m.M.x - out[i].x) * m.w, y: out[i].y + (m.M.y - out[i].y) * m.w }; meets.set(i, out[i]); arched(i); }
   if (mv.lighter) { carryFillets(); pinPoints(); stretchRounds(); hairRoots(); holdBrackets(); if (mv.apart) carryCuts(); }
   else if (mv.reweighed) { carryRounds(); if (linesMove(rig, mv)) straightRuns(); }
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && fairFont(rig)) cornersPast();
   // (a heavier weight's tab off a stem's side, a crossbar's end past an f's or a t's stem, goes out with that side as far
   // as it moved, keeping its own moves along the stem, so it reaches as far past the stem as before and isn't swallowed by
   // it, as a serif goes out with its stem's edge: each moved alone, the stem's side went out past the bar's end, which
@@ -6390,13 +6436,17 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   }
 
   /** A heavier weight's serifs' brackets (rounds inside a corner, the outline turning away from the ink ROUND_INSIDE or
-      more in all, between an edge running level near a line and a stem's upright side, as carryFillets reads them) no
+      more in all, between an edge running level near a line, or an arm's (see `arms`), and a stem's upright side, as carryFillets reads them) no
       longer than ROUND_CARRY times as far as those edges move carried whole, as far as where the edges, each moved its own
       way, meet again moves: each point moved its own way, a round its stroke's side thickened past turned inside out, an
       old style's brackets bites out of its stems' tops and feet. */
   function carryRounds() {
     const lineYs = rig.ctx.lower ? [0, rig.ctx.xh, rig.ctx.asc, rig.ctx.desc] : [0, rig.ctx.cap];
-    const level = (q: Bone) => Math.abs(q.ty) < BRACKET_LEVEL && lineYs.some(L => Math.abs(q.y - L) < BRACKET_NEAR * rig.ctx.cap), upright = (q: Bone) => Math.abs(q.tx) < BRACKET_UPRIGHT;
+    // (and in a font of bracketed serifs and some contrast, a straight level edge anywhere, an arm's or a bar's: moved its
+    // own way, the round under an old style's E's and F's middle arms, its stem thickened past it, turned inside out, a
+    // notch under each arm's root)
+    const arms = fairFont(rig);
+    const level = (q: Bone) => Math.abs(q.ty) < BRACKET_LEVEL && (lineYs.some(L => Math.abs(q.y - L) < BRACKET_NEAR * rig.ctx.cap) || (arms && !!q.straight)), upright = (q: Bone) => Math.abs(q.tx) < BRACKET_UPRIGHT;
     const away = bs.map((b, i) => {
       const p = bs[md(i - 1)], q = bs[md(i + 1)];
       if (b.corner || b.dot || inEnd[i] || crossEnd(b)) return false;
@@ -6431,6 +6481,25 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       const JA = out[md(s)], JZ = out[md(e - 1)];
       for (let k = 1; k < n / 4; k++) { const j = md(s - k); if (bs[j].corner || (out[j].x - JA.x) * A.tx + (out[j].y - JA.y) * A.ty <= 0) break; out[j] = { ...JA }; }
       for (let k = 0; k < n / 4; k++) { const j = md(e + k); if (bs[j].corner || (out[j].x - JZ.x) * Z.tx + (out[j].y - JZ.y) * Z.ty >= 0) break; out[j] = { ...JZ }; }
+    }
+  }
+
+  /** A heavier weight's edges' points either side of a corner inside a join that now lie past it, along the edge the
+      way it leaves the corner as drawn, brought back to it: an arm's or a bar's edge, moved off its line alone, stays
+      where it was along it, and the stem's side going out past where it began, its first points were left inside the
+      stem, a fold that read as a notch under an old style's F's middle arm's root at Weight 66. */
+  function cornersPast() {
+    for (let i = 0; i < n; i++) {
+      const b = bs[i];
+      if (!b.corner || !concaveAt(b) || inEnd[i]) continue;
+      for (const dir of [-1, 1]) {
+        const q = bs[md(i + dir)], ex = q.x - b.x, ey = q.y - b.y;
+        for (let k = 1; k < n / 4; k++) {
+          const j = md(i + dir * k);
+          if (bs[j].corner || inEnd[j] || (out[j].x - out[i].x) * ex + (out[j].y - out[i].y) * ey > 0) break;
+          out[j] = { ...out[i] };
+        }
+      }
     }
   }
 
