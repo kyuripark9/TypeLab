@@ -5743,7 +5743,16 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // (a fair font's serif's level top or underside thickens as the serif does, read no thicker than SERIF_TOP of its
   // hairline: read down through the thick stroke under it, an italic N's serif's top over its diagonal stood a bump ten
   // units high at Weight midway)
-  const topCap = rig && fairFont(rig) ? SERIF_TOP * rig.ref().hair0 : Infinity, level = (b: Bone, w: number) => (Math.abs(b.ny) >= SERIF_LEVEL ? Math.min(w, topCap) : w);
+  // (only as it reads thicker than SERIF_THICK[0] of its hairline, all of it by SERIF_THICK[1], and as it faces level
+  // within SERIF_LEVEL, coming in over SERIF_LEVEL_RAMP: read so at an old style's n's, m's and h's arches' tops, read in
+  // part as serifs and their own strokes no more than a hairline thick, each sample thickened as it read or as the cap
+  // let it, the tops came out in steps at Weight 100)
+  const hair0 = rig ? rig.ref().hair0 : 0, topCap = rig && fairFont(rig) ? SERIF_TOP * hair0 : Infinity;
+  const level = (b: Bone, w: number) => {
+    if (w <= topCap) return w;
+    const t = Math.min(1, Math.max(0, (w - SERIF_THICK[0] * hair0) / ((SERIF_THICK[1] - SERIF_THICK[0]) * hair0))) * Math.min(1, Math.max(0, (Math.abs(b.ny) - SERIF_LEVEL) / SERIF_LEVEL_RAMP + 1));
+    return w + (topCap - w) * t;
+  };
   // (and a contrasty font's level edge by a line it faces out across, running across its stroke more than along it, CUT_WAY
   // or more: the stroke's end cut along the line, which stays as a stroke's end does. Read across it, a Didone's N's top,
   // over its thick stroke, read 90 units thick and went up 40, and the heights, lowering the whole top by as much, pulled
@@ -5819,9 +5828,11 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     moved = bs.map((b, i) => {
       if (kind[i] < 0) return m0[i];
       const reach = Math.max(3, Math.round(FAIR_REACH * Math.abs(m0[i]) / STEP)), w = bell(reach);
-      let sum = m0[i], ws = 1;
-      for (const dir of [-1, 1]) for (let k = 1; k <= reach; k++) { const j = (((i + dir * k) % n) + n) % n; if (kind[j] !== kind[i]) break; sum += m0[j] * w[k]; ws += w[k]; }
-      const c = Math.min(m0[i] + FAIR_SHARE * Math.abs(m0[i]), Math.max(m0[i] - FAIR_SHARE * Math.abs(m0[i]), sum / ws));
+      let sum = m0[i], ws = 1, edge = Infinity;
+      for (const dir of [-1, 1]) for (let k = 1; k <= reach; k++) { const j = (((i + dir * k) % n) + n) % n; if (kind[j] !== kind[i]) { edge = Math.min(edge, k); break; } sum += m0[j] * w[k]; ws += w[k]; }
+      // (by no more and no more within FAIR_FADE samples of where the samples eased together end, eased by none beside
+      // it: eased right up to it, beside samples not eased, an old style's arches' tops, read part as serifs, stepped)
+      const e = Math.min(1, (edge - 1) / FAIR_FADE), c0 = Math.min(m0[i] + FAIR_SHARE * Math.abs(m0[i]), Math.max(m0[i] - FAIR_SHARE * Math.abs(m0[i]), sum / ws)), c = m0[i] + (c0 - m0[i]) * e;
       return c > 0 ? Math.min(c, Math.max(m0[i], room(b, i))) : c;
     });
   }
@@ -6119,6 +6130,9 @@ const ONE_LINE = 1.5;
     little round, or a round inside a corner between two edges be filled as they meet (straightRuns); how nearly in line
     (the cosine) two straight segments one after another run to be one such edge; how far, as many times as they moved, two such edges turning away from the ink where they
     meet may meet again; and how nearly in line (the sine of the angle between them) two may run and not be met again. */
+/** How many samples past a fair font's laid edge's end a corner inside a join is looked for, and how far from where the
+    design's corner moved, as a share of the edge's move, the two are met (straightRuns). */
+const LAID_CORNER = 12, LAID_REACH = 1.6;
 const ROUND_RUN = 24, ROUND_FADE = 8, LINE_GAP = 6, MEET_ROUND = 6, STRAIGHT_RUN = 6, STRAIGHT_ON = Math.cos(2 * Math.PI / 180), W_TURN = Math.cos(20 * Math.PI / 180), W_SLOPE = 0.05, W_NEAR = 0.6, MEET_REACH = 4, MEET_PARALLEL = Math.sin(4 * Math.PI / 180);
 /** How far out a heavier weight's straight edge is laid: as far as this share of its points go (moveRing's straightRuns). */
 const STRAIGHT_OUT = 0.9;
@@ -6203,13 +6217,13 @@ const fairFont = (rig: SkinRig) => { const { stem, hair0 } = rig.ref(); return r
 /** ease's weights reaching `r` samples either way, kept by r. */
 const bell = (r: number) => { let w = BELLS.get(r); if (!w) BELLS.set(r, w = Float64Array.from({ length: r + 1 }, (_, k) => Math.exp(-(k * k) * 3 / (2 * r * r)))); return w; };
 const BELLS = new Map<number, Float64Array>();
-const FAIR_HAIR = [0.2, 0.6], FAIR_REACH = 2, FAIR_SHARE = 0.2;
+const FAIR_HAIR = [0.2, 0.6], FAIR_REACH = 2, FAIR_SHARE = 0.2, FAIR_FADE = 4;
 /** How much of the ink ahead of a crotch, and of how far its thinning edge moved, a fair font's Contrast turned round
     may carry it into the join (moveRing). */
 const JOIN_KEEP = 0.5, JOIN_MOVE = 0.6;
 /** How thick, as a share of its hairline, a fair font's serif's level edge is read at most, and how level (the normal's
     upright share) such an edge faces (edgeMoves). */
-const SERIF_TOP = 0.5, SERIF_LEVEL = 0.9;
+const SERIF_TOP = 0.5, SERIF_LEVEL = 0.9, SERIF_LEVEL_RAMP = 0.05, SERIF_THICK = [1, 1.5];
 /** How many samples past a serif's run (and SERIF_NEAR) its stem's upright straight side is looked for (edgeMoves' sideMove). */
 const SIDE_LOOK = 12;
 
@@ -7097,6 +7111,28 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       const lay = fair === 'rev' ? revIn(mv) : 1, at = (i: number) => (out[i].x - base[i].x) * ox + (out[i].y - base[i].y) * oy, d0 = (o - at(s)) * lay, d1 = (o - at(md(s + L - 1))) * lay;
       for (let k = 0; k < L; k++) { const i = md(s + k), t = (out[i].x - px) * ux + (out[i].y - py) * uy; out[i] = { x: out[i].x + (px + ux * t - out[i].x) * lay, y: out[i].y + (py + uy * t - out[i].y) * lay }; }
       runs.push({ s, L, px, py, ux, uy, nx: -ox, ny: -oy, d: Math.abs(o), o, d0, d1 });
+    }
+    // (in a fair font, an edge laid so whose end runs within LAID_CORNER samples into a corner inside a join, met where the
+    // outline beyond the corner, as moved, comes out across the laid line, the points between brought there: the corner,
+    // set where its edges' moves meet, the stem's side's thinning into the crotch, stood inside the stem as laid, and the
+    // arch's edge, brought back to it (cornersPast), cut a notch of paper down into the stem's side where an old style's
+    // h's, n's and m's arches leave their stems at Weight 100)
+    if (fair === true) for (const R of runs) for (const dir of [1, -1]) {
+      const e = dir > 0 ? md(R.s + R.L - 1) : R.s, side = (q: P) => (q.x - R.px) * R.nx + (q.y - R.py) * R.ny;
+      let c = -1;
+      for (let k = 1; k <= LAID_CORNER; k++) { const j = md(e + dir * k); if (inEnd[j] || bs[j].dot) break; if (bs[j].corner) { if (concaveAt(bs[j])) c = j; break; } }
+      if (c < 0 || side(out[c]) <= 1) continue;
+      let last = -1, X: P | null = null;
+      for (let k = 1; k <= n >> 3; k++) {
+        const a = md(c + dir * (k - 1)), b = md(c + dir * k);
+        if (inEnd[b] || bs[b].dot) break;
+        const sa = side(out[a]), sb = side(out[b]);
+        if (sb <= 0) { const t = sa / (sa - sb); X = { x: out[a].x + (out[b].x - out[a].x) * t, y: out[a].y + (out[b].y - out[a].y) * t }; last = a; break; }
+      }
+      if (!X || Math.hypot(X.x - base[c].x, X.y - base[c].y) > LAID_REACH * Math.max(R.d, 1)) continue;
+      for (let k = 1; k < n; k++) { const i = md(e + dir * k); out[i] = { ...X }; if (i === last) break; }
+      // (and its own points gone on past there)
+      for (let k = 0; k < R.L; k++) { const i = md(e - dir * k); if (((out[i].x - X.x) * R.ux + (out[i].y - X.y) * R.uy) * dir <= 0) break; out[i] = { ...X }; }
     }
     // (the outline between two such edges, a round no longer than ROUND_RUN samples, or running on from one into a curve,
     // ROUND_FADE samples, going out as much further as the edge beside it went, from one edge's to the other's, or less and

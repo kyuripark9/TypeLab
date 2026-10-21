@@ -391,14 +391,19 @@ A design with `freeFont` set draws its letters from a free font instead of build
    a round past the line (a sans B's stem's top and foot, its bowls' tops); a sans drawn with a rule (`fontPlumb`) eases
    each curve's move along it as far as it moves (a b's counter's side by its stem); a straight side running into a level end on a line
    goes no further past the line than the corner where it now meets it (`SIDE_PAST`: a k's arm's top, an X's feet). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
-   moves are eased again over `FAIR_REACH` times as far as each moves, by no more than `FAIR_SHARE` of it (an old style's
-   bowls came out wavy at Weight 100), an arm's or a bar's round under it is carried whole as a bracket is
+   moves are eased again over `FAIR_REACH` times as far as each moves, by no more than `FAIR_SHARE` of it and by less
+   within `FAIR_FADE` samples of where the samples eased together end (an old style's bowls came out wavy at Weight 100;
+   eased right up to samples not eased, its arches' tops stepped), an arm's or a bar's round under it is carried whole as a bracket is
    (`carryRounds`' `arms`), and an edge's points left past an inside corner are brought back to it as far as the edge runs
    on the way it leaves the corner (`cornersPast`, `PAST_TURN`: a notch under an F's middle arm; further, an italic's r's
    ball went into one blot; in other fonts only along straight edges, a sliver under a typewriter's L's stem at Verticals 100), and a serif's root slides no further than its stem's own upright side moves (`sideMove`: a step
    at each bracket of an H); its stems' straight sides are laid on one line each but not met again (`straightRuns(true)`:
-   an italic's stems came out bowed); a serif's level top or underside thickens read no thicker than `SERIF_TOP` of the
-   hairline (an italic N's serif's top over its diagonal stood a bump); and, Contrast turned round, a crotch meets again no
+   an italic's stems came out bowed), save that one running within `LAID_CORNER` samples into a corner inside a join meets
+   the outline beyond it where that comes out across the laid line (the corner, set by the moves thinning into the
+   crotch, stood inside the stem as laid: a notch down an old style's h's, n's and m's stems where their arches leave
+   them); a serif's level top or underside thickens read no thicker than `SERIF_TOP` of the hairline as it reads
+   thicker than `SERIF_THICK` of it (an italic N's serif's top over its diagonal stood a bump; capped at once, an old
+   style's arches' tops, read in part as serifs, came out in steps); and, Contrast turned round, a crotch meets again no
    further into its join than `JOIN_KEEP` of the ink ahead nor `JOIN_MOVE` of its thinning edge's move (an italic's M, N
    and x at Contrast 0 came apart). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
    Gumdrop's) ends aren't held by `heldBySlope`, each end's points go no further into the paper than `OPEN` of it, every
