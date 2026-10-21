@@ -2163,13 +2163,23 @@ export function skinRoom(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures, out: 
     while (b - a > 1) { const c = (a + b) >> 1; if (G[c] <= y) a = c; else b = c; }
     return lo + (hi - lo) * (a + (y - G[a]) / Math.max(1e-9, G[b] - G[a])) / ROOM_ROWS;
   };
-  // (a script's every ROOM_STEP units along its outline, read off what it was traced from where it was: ROOM_CURVES)
-  for (const ring of rig.leans() ? alongEvery(out.map(c => TRACED.get(c) ?? polysOf([c], ROOM_CURVES)[0]), ROOM_STEP) : polys) for (const q of ring) {
-    const cl = q.x - x0, cr = x1 - q.x;
-    if (most - (sb[0] + cl) <= l && most - (sb[1] + cr) <= r) continue;
-    const y = back(q.y);
-    l = more(w.l, y, sb[0], cl, l); r = more(w.r, y, sb[1], cr, r);
-  }
+  const point = (x: number, y: number) => {
+    const cl = x - x0, cr = x1 - x;
+    if (most - (sb[0] + cl) <= l && most - (sb[1] + cr) <= r) return;
+    const yb = back(y);
+    l = more(w.l, yb, sb[0], cl, l); r = more(w.r, yb, sb[1], cr, r);
+  };
+  // (a script's, and a font of bracketed serifs' (fairFont), every ROOM_STEP units along its outline, read off what it
+  // was traced from where it was, ROOM_CURVES: its points come and go as its curves are fitted again, an italic g's ear's
+  // room 5 units at once at Weight 0.99; an edge whose ends ask no more of either side passed whole, none between could)
+  if (rig.leans() || fairFont(rig)) {
+    for (const ring of out.map(c => TRACED.get(c) ?? polysOf([c], ROOM_CURVES)[0])) for (let i = 0; i < ring.length; i++) {
+      const p = ring[i], q = ring[(i + 1) % ring.length];
+      if (most - (sb[0] + Math.min(p.x, q.x) - x0) <= l && most - (sb[1] + x1 - Math.max(p.x, q.x)) <= r) continue;
+      const n = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / ROOM_STEP));
+      for (let k = 0; k < n; k++) point(p.x + (q.x - p.x) * k / n, p.y + (q.y - p.y) * k / n);
+    }
+  } else for (const ring of polys) for (const q of ring) point(q.x, q.y);
   // (no more than the stems grew thicker: a letter moved at all is drawn a little otherwise than as the font has it,
   // Jotter's G's jaw 12 units further out at the first nudge of Weight, which its room isn't to take at once)
   const grown = (kv - 1) * ref.stem;
@@ -2178,11 +2188,6 @@ export function skinRoom(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures, out: 
 /** How much further in ink off a height reads, for each unit off it, beside a letter (skinRoom): a script's capital's
     ROOM_SLOPE_LEANS. */
 const roomSlope = (rig: SkinRig) => (rig.leans() && !rig.ctx.lower ? ROOM_SLOPE_LEANS : ROOM_SLOPE);
-/** Rings with points put in along each edge longer than `step`, evenly. */
-const alongEvery = (rings: P[][], step: number): P[][] => rings.map(ring => ring.flatMap((p, i) => {
-  const q = ring[(i + 1) % ring.length], n = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / step));
-  return Array.from({ length: n }, (_, k) => ({ x: p.x + (q.x - p.x) * k / n, y: p.y + (q.y - p.y) * k / n }));
-}));
 /** How far from a point on a rig's outline as drawn the way (dx, dy), a unit, runs across its paper to ink again
     (Infinity where it meets none): its outline read as polygons, kept. */
 function paperAlong(rig: SkinRig, p: P, dx: number, dy: number): number {

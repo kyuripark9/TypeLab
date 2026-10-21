@@ -345,7 +345,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    grew into them (Boardwalk's N into a Y, 87 units at Weight 100, its K into a Y 60 at Verticals 100); its outline as
    moved is read every `ROOM_STEP` units along the rings tidyRings traced it from (`TRACED`), so the point most asked of
    doesn't come and go as its curves are drawn again, nor step a unit at a time (Serenade's 2 stepped 8 units at Weight
-   0.96); nor are its straight stretches moved as lines (`linesMove`).
+   0.96); nor are its straight stretches moved as lines (`linesMove`). A font of bracketed serifs (`fairFont`) has its
+   outline read so too (an italic's g's ear's room stepped 5 units at Weight 0.99), an edge whose ends ask no more of
+   either side passed whole.
    A script's stroke's end, carried with its sides, goes out into the paper it faces no further than `OPEN` of it, as a
    side does, nor further than `OPEN` of the paper the way it goes, read across the design (`paperAlong`, from
    `SHUT_INTO` square out): a curl's tip ran into the stroke it curls round, Serenade's A's and z's loops shut, and its a's
