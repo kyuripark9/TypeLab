@@ -406,7 +406,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    crotch, stood inside the stem as laid: a notch down an old style's h's, n's and m's stems where their arches leave
    them); a serif's level top or underside thickens read no thicker than `SERIF_TOP` of the hairline as it reads
    thicker than `SERIF_THICK` of it (an italic N's serif's top over its diagonal stood a bump; capped at once, an old
-   style's arches' tops, read in part as serifs, came out in steps); and, Contrast turned round, a crotch meets again no
+   style's arches' tops, read in part as serifs, came out in steps); its edges facing out across a line, near it as drawn
+   and not past it, laid on the line keeping `FEET_KEEP` of the design's way off it (`levelFeet`: an italic's foot serifs'
+   undersides and its B's bottom came out in waves at Weight 100); and, Contrast turned round, a crotch meets again no
    further into its join than `JOIN_KEEP` of the ink ahead nor `JOIN_MOVE` of its thinning edge's move (an italic's M, N
    and x at Contrast 0 came apart). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
    Gumdrop's) ends aren't held by `heldBySlope`, each end's points go no further into the paper than `OPEN` of it, every

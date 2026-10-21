@@ -3248,6 +3248,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const held = mv.reweighed ? rings.map(r => r.map(p => ({ x: p.x, y: p.y }))) : null;
   const across = snapFlatEdges(rig, rings, mv.gy, mv.lighter, mv.reweighed, unlifted);
   if (held) endsWithSides(rig, held, rings);
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && fairFont(rig)) levelFeet(rig, rings, mv.gy);
   // (and Contrast turned round on a contrasty design (reversed), its moves between its straight edges run smooth along the
   // outline by REV_SMOOTH of how far its strokes thicken and thin, its straight edges, laid on their lines (straightRuns),
   // held: each moved by its own reading of its stroke, a hairline thickened sixfold and a stem thinned to a sixth, a fat
@@ -7805,6 +7806,43 @@ function keepHeights(rig: SkinRig, rings: P[][], gy: (y: number) => number, dott
     stood 12 to 17 units over the line at Horizontals 100, its right stem's top as far under the capitals'. (Not a part
     drawn reaching past the line, a blackletter B's bowl's top: lifted with what lies under it, its crotch with the
     letter's left half beside it pinched shut, a pinhole.) */
+/** A heavier weight's edges facing out across a line in a font of bracketed serifs and some contrast (fairFont): each run of
+    FEET_RUN samples or more facing within FEET_LEVEL of straight out across the line, lying as drawn within FEET_NEAR of
+    the cap of it on the ink's side and never past it (not a round's overshoot), not drawn flat on it (snapFlatEdges'), laid on the line as the heights put it,
+    keeping FEET_KEEP of how far off it the design drew each, faded in over FEET_FADE samples from either end: each sample
+    moved by its own stroke's thickening, an italic's foot serifs' undersides and its B's bottom came out in waves at
+    Weight 100. */
+function levelFeet(rig: SkinRig, rings: P[][], gy: (y: number) => number) {
+  // (the lines letters stand on, their ink above, and those they reach up to, their ink below)
+  const c = rig.ctx, lines = c.lower ? [0, c.desc, c.xh, c.asc] : [0, c.cap], foot = c.lower ? 2 : 1, near = FEET_NEAR * c.cap;
+  rings.forEach((ring, r) => {
+    const bs = rig.bones[r], n = bs.length;
+    if (ring.length !== n || n < 2 * FEET_RUN) return;
+    // (each sample's line, as an index into lines and the side its ink lies (1 above), -1 none)
+    const key = bs.map(b => {
+      if (b.dot || b.onLine || Math.abs(b.ny) < FEET_LEVEL) return -1;
+      const k = lines.findIndex((L, j) => (j < foot) === b.ny > 0 && Math.abs(b.y - L) <= near);
+      return k < 0 ? -1 : 2 * k + (b.ny > 0 ? 1 : 0);
+    });
+    for (let s = 0; s < n; s++) {
+      if (key[s] < 0 || key[(s - 1 + n) % n] === key[s]) continue;
+      let len = 0;
+      while (len < n && key[(s + len) % n] === key[s]) len++;
+      if (len < FEET_RUN || len >= n) continue;
+      // (none of it past the line: a round's overshoot, its sides levelled either side of its top, stood a step each)
+      const L = lines[key[s] >> 1], to = gy(L), up = key[s] & 1;
+      let past = false;
+      for (let k = 0; k < len && !past; k++) { const q = bs[(s + k) % n]; past = (up ? q.y - L : L - q.y) < -FEET_PAST; }
+      if (past) continue;
+      for (let k = 0; k < len; k++) {
+        const i = (s + k) % n, f = Math.min(1, (Math.min(k, len - 1 - k) + 1) / FEET_FADE), y = to + FEET_KEEP * (bs[i].y - L);
+        ring[i] = { x: ring[i].x, y: ring[i].y + (y - ring[i].y) * f };
+      }
+    }
+  });
+}
+const FEET_LEVEL = 0.94, FEET_NEAR = 0.03, FEET_PAST = 1, FEET_RUN = 6, FEET_FADE = 8, FEET_KEEP = 0.5;
+
 function footHeights(rig: SkinRig, rings: P[][], gy: (y: number) => number) {
   const c = rig.ctx, band = c.cap * 0.06, off = FOOT_OFF * c.cap, zone = FOOT_ZONE * c.cap, fade = FOOT_FADE * c.cap;
   const fixes: { L: number; up: boolean; x0: number; x1: number; at: number; d: number }[] = [];
