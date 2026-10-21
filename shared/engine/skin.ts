@@ -5784,6 +5784,8 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // (a fair font's serif's level top or underside thickens as the serif does, read no thicker than SERIF_TOP of its
   // hairline: read down through the thick stroke under it, an italic N's serif's top over its diagonal stood a bump ten
   // units high at Weight midway)
+  // (and any level edge so, a stroke's end cut level read down through it: an italic M's thick diagonal's top, moved up as
+  // far as the diagonal thickened, stood a spike over its cap line at Weight 100)
   // (only as it reads thicker than SERIF_THICK[0] of its hairline, all of it by SERIF_THICK[1], and as it faces level
   // within SERIF_LEVEL, coming in over SERIF_LEVEL_RAMP: read so at an old style's n's, m's and h's arches' tops, read in
   // part as serifs and their own strokes no more than a hairline thick, each sample thickened as it read or as the cap
@@ -5803,7 +5805,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     if (endAt(i) || cuts?.has(b) || onLine(b) || cutOn?.[i]) return 0;
     const k = ks1[i], w = ews ? ews[i] : W(b, i);
     if (glides && rootNear[i] && !b.corner && !dxOf(b) && !head[i] && !bridge[i] && -b.nx * rootNear[i] > (k - 1) * w) { glide[i] = 1; return -b.nx * rootNear[i]; }
-    return head[i] ? -b.nx * out[i] : (dxOf(b) || bridge[i]) && mv.kv > 1 ? -b.nx * out[i] + (b.onLine ? 0 : (k - 1) * level(b, w) * b.ny * b.ny) : rootNear[i] && !b.corner ? Math.max((k - 1) * w, -b.nx * rootNear[i]) : (k - 1) * w;
+    return head[i] ? -b.nx * out[i] : (dxOf(b) || bridge[i]) && mv.kv > 1 ? -b.nx * out[i] + (b.onLine ? 0 : (k - 1) * level(b, w) * b.ny * b.ny) : rootNear[i] && !b.corner ? Math.max((k - 1) * (mv.kv > 1 ? level(b, w) : w), -b.nx * rootNear[i]) : (k - 1) * (mv.kv > 1 ? level(b, w) : w);
   });
   // (and a round running on from such an edge, facing out across its line as the edge does, out no further than the line:
   // a D's bowl's top, moved out as its stroke thickened while the bar's edge it leaves stayed, stood a bump over the line

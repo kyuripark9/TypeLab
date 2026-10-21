@@ -405,8 +405,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    the outline beyond it where that comes out across the laid line (the corner, set by the moves thinning into the
    crotch, stood inside the stem as laid: a notch down an old style's h's, n's and m's stems where their arches leave
    them); a serif's level top or underside thickens read no thicker than `SERIF_TOP` of the hairline as it reads
-   thicker than `SERIF_THICK` of it (an italic N's serif's top over its diagonal stood a bump; capped at once, an old
-   style's arches' tops, read in part as serifs, came out in steps); its edges facing out across a line, near it as drawn
+   thicker than `SERIF_THICK` of it, and so any level edge (an italic N's serif's top over its diagonal stood a bump, an
+   italic M's diagonal's top a spike over the capitals' line; capped at once, an old style's arches' tops, read in part
+   as serifs, came out in steps); its edges facing out across a line, near it as drawn
    and not past it, laid on the line keeping `FEET_KEEP` of the design's way off it (`levelFeet`: an italic's foot serifs'
    undersides and its B's bottom came out in waves at Weight 100); and, Contrast turned round, a crotch meets again no
    further into its join than `JOIN_KEEP` of the ink ahead nor `JOIN_MOVE` of its thinning edge's move (an italic's M, N
