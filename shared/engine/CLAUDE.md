@@ -391,7 +391,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    on the way it leaves the corner (`cornersPast`, `PAST_TURN`: a notch under an F's middle arm; further, an italic's r's
    ball went into one blot; in other fonts only along straight edges, a sliver under a typewriter's L's stem at Verticals 100), and a serif's root slides no further than its stem's own upright side moves (`sideMove`: a step
    at each bracket of an H); its stems' straight sides are laid on one line each but not met again (`straightRuns(true)`:
-   an italic's stems came out bowed). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
+   an italic's stems came out bowed); a serif's level top or underside thickens read no thicker than `SERIF_TOP` of the
+   hairline (an italic N's serif's top over its diagonal stood a bump); and, Contrast turned round, a crotch meets again no
+   further into its join than `JOIN_KEEP` of the ink ahead nor `JOIN_MOVE` of its thinning edge's move (an italic's M, N
+   and x at Contrast 0 came apart). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
    Gumdrop's) ends aren't held by `heldBySlope`, each end's points go no further into the paper than `OPEN` of it, every
    point's move is run smooth along the outline by as far as its strokes thickened (`evenedMoves`, `EVEN_SMOOTH`) and
    short spikes left are taken out (`unspiked`).

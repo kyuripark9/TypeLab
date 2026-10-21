@@ -5619,11 +5619,15 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // (a near even font's straight edges' thickness eased along them, where not read along them as lines: evenWs)
   const ews = rig && !ws && mv.reweighed && mv.kv > 1 + REWEIGHED && evenFont(rig) ? evenWs(bs, ks1, j => bs[j].straight && !bs[j].corner && !endAt(j)) : null;
   const glides = slid && mv.contrasty, glide = new Uint8Array(n);
+  // (a fair font's serif's level top or underside thickens as the serif does, read no thicker than SERIF_TOP of its
+  // hairline: read down through the thick stroke under it, an italic N's serif's top over its diagonal stood a bump ten
+  // units high at Weight midway)
+  const topCap = rig && fairFont(rig) ? SERIF_TOP * rig.ref().hair0 : Infinity, level = (b: Bone, w: number) => (Math.abs(b.ny) >= SERIF_LEVEL ? Math.min(w, topCap) : w);
   const raw = bs.map((b, i) => {
     if (endAt(i) || cuts?.has(b) || onLine(b)) return 0;
     const k = ks1[i], w = ews ? ews[i] : W(b, i);
     if (glides && rootNear[i] && !b.corner && !dxOf(b) && !head[i] && !bridge[i] && -b.nx * rootNear[i] > (k - 1) * w) { glide[i] = 1; return -b.nx * rootNear[i]; }
-    return head[i] ? -b.nx * out[i] : (dxOf(b) || bridge[i]) && mv.kv > 1 ? -b.nx * out[i] + (b.onLine ? 0 : (k - 1) * w * b.ny * b.ny) : rootNear[i] && !b.corner ? Math.max((k - 1) * w, -b.nx * rootNear[i]) : (k - 1) * w;
+    return head[i] ? -b.nx * out[i] : (dxOf(b) || bridge[i]) && mv.kv > 1 ? -b.nx * out[i] + (b.onLine ? 0 : (k - 1) * level(b, w) * b.ny * b.ny) : rootNear[i] && !b.corner ? Math.max((k - 1) * w, -b.nx * rootNear[i]) : (k - 1) * w;
   });
   // (and a round running on from such an edge, facing out across its line as the edge does, out no further than the line:
   // a D's bowl's top, moved out as its stroke thickened while the bar's edge it leaves stayed, stood a bump over the line
@@ -6064,6 +6068,12 @@ const fairFont = (rig: SkinRig) => { const { stem, hair0 } = rig.ref(); return r
 const bell = (r: number) => { let w = BELLS.get(r); if (!w) BELLS.set(r, w = Float64Array.from({ length: r + 1 }, (_, k) => Math.exp(-(k * k) * 3 / (2 * r * r)))); return w; };
 const BELLS = new Map<number, Float64Array>();
 const FAIR_HAIR = [0.2, 0.6], FAIR_REACH = 2, FAIR_SHARE = 0.2;
+/** How much of the ink ahead of a crotch, and of how far its thinning edge moved, a fair font's Contrast turned round
+    may carry it into the join (moveRing). */
+const JOIN_KEEP = 0.5, JOIN_MOVE = 0.6;
+/** How thick, as a share of its hairline, a fair font's serif's level edge is read at most, and how level (the normal's
+    upright share) such an edge faces (edgeMoves). */
+const SERIF_TOP = 0.5, SERIF_LEVEL = 0.9;
 /** How many samples past a serif's run (and SERIF_NEAR) its stem's upright straight side is looked for (edgeMoves' sideMove). */
 const SIDE_LOOK = 12;
 
@@ -6553,6 +6563,16 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       const own = away(b.inx!, b.iny!), own2 = away(b.outx!, b.outy!), slant = Math.abs(det) < CROTCH_SQUARE || Math.abs(own.x * own2.y - own.y * own2.x) < CROTCH_SQUARE;
       if (Math.abs(det) < 0.25 || (slant && (bends(i, -1, 1.5 * lim) || bends(i, 1, 1.5 * lim)))) return { x: x - b.nx * moved[i], y: y - b.ny * moved[i] + up };
       const far = Math.min(slant ? Infinity : lim, 0.95 * inkAhead(rig, b, mx / (l || 1), my / (l || 1)));
+      if (l > far) { mx *= far / l; my *= far / l; }
+      return { x: x + mx, y: y + my + up };
+    }
+    // (a fair font's crotch where Contrast turned round thins one of its strokes, its edges near alike: met again no
+    // further into the join than JOIN_KEEP of the ink ahead nor JOIN_MOVE of the way its thinning edge moved, so the
+    // strokes stay joined; met where they meet, a C0
+    // italic's M's thick diagonal, thinned, parted from its stem under the serif, the corner carried up past the serif's
+    // top, and its N's so, and its x's hairline arm, the crotch under it carried up past its top)
+    if (mv.reweighed && mv.kv < 1 - REWEIGHED && fairFont(rig) && concaveAt(b) && Math.min(d1, d2) < 0) {
+      const far = Math.min(lim, JOIN_MOVE * -Math.min(d1, d2), JOIN_KEEP * inkAhead(rig, b, mx / (l || 1), my / (l || 1)));
       if (l > far) { mx *= far / l; my *= far / l; }
       return { x: x + mx, y: y + my + up };
     }
