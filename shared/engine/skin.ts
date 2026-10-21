@@ -556,7 +556,7 @@ const BARS: Record<string, { at: [number, number, number, number]; move: number 
     design draws in Points with those it reads its lines and its stems off (family-drawn.ts). */
 export type RigLetters = Pick<FreeFont, 'cap' | 'xh' | 'glyphs'>;
 
-const rigs = new WeakMap<RigLetters, { lines: { asc: number; desc: number }; unicase: boolean; letters: Map<string, SkinRig | null>; ref?: { stem: number; hair: number; hair0: number }; serifed?: boolean; stroked?: 0 | 1 | 2; slabs?: boolean; leans?: boolean; plumb?: boolean }>();
+const rigs = new WeakMap<RigLetters, { lines: { asc: number; desc: number }; unicase: boolean; letters: Map<string, SkinRig | null>; ref?: { stem: number; hair: number; hair0: number }; serifed?: boolean; stroked?: 0 | 1 | 2; slabs?: boolean; leans?: boolean; plumb?: boolean; pen?: boolean }>();
 
 /** A font's own stem and hairline, in its units: its n's (or H's) stems and its H's bar (or the n's level strokes),
     read once. A fat face's or a Didone's hairline is a small share of its stem, a sans's most of it. */
@@ -621,6 +621,20 @@ function fontStroked(font: RigLetters) {
     kept.stroked = !even ? 0 : cut <= ROUND_CUT * n && stem >= ROUND_HEAVY * font.cap ? 1 : stem >= STROKED_HEAVY * font.cap ? 2 : 0;
   }
   return kept.stroked;
+}
+
+/** Whether a font is drawn with a round pen: its strokes near even (evenFont) and their ends round, hardly any of its
+    lowercase's samples on an end cut across (ROUND_CUT of them) and few on a corner (PEN_CORNERS: where strokes meet), a
+    comic's, a Gumdrop's, not a broad pen's script, pointed at every turn. Read once a font. */
+function fontPen(font: RigLetters) {
+  const kept = rigs.get(font)!;
+  if (kept.pen === undefined) {
+    let n = 0, cut = 0, corners = 0;
+    for (const ch of 'abcdefghijklmnopqrstuvwxyz') for (const bs of skinRig(font, ch)?.bones ?? []) for (const b of bs) { n++; if (b.cap) cut++; if (b.corner) corners++; }
+    const { stem, hair0 } = fontRef(font);
+    kept.pen = n > 0 && !fontSerifed(font) && hair0 >= EVEN_HAIR * stem && cut <= ROUND_CUT * n && corners <= PEN_CORNERS * n;
+  }
+  return kept.pen;
 }
 
 /** Whether a font is a slab serif whose slabs are short blocks hardly wider than its stems (Timber, a wood type), no
@@ -3094,7 +3108,13 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const held = mv.reweighed ? rings.map(r => r.map(p => ({ x: p.x, y: p.y }))) : null;
   const across = snapFlatEdges(rig, rings, mv.gy, mv.lighter, mv.reweighed, unlifted);
   if (held) endsWithSides(rig, held, rings);
-      // (and the middles of a stroke along a line, which its edge put back on the line brought back with it)
+  // (and a round pen's (fontPen), as far as its strokes thickened, each point's move run smooth along the outline: moved
+  // out two and three times as far as its strokes are thick, each sample along its own normal, its stroke thickening by
+  // as much more or less round a curve as the stems' and bars' do apart, held back here and there, the outline came out
+  // in lumps and knobs, a comic's b's and o's counters and its I's bars' ends at Weight 100. The moves, not the outline:
+  // run smooth, a stroke's end turning toward the stroke across a narrow opening ran into it)
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && fontPen(rig.font)) { const sg = EVEN_SMOOTH * (mv.kv - 1 - REWEIGHED) * rig.ref().stem / 2; rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg))); }
+  // (and the middles of a stroke along a line, which its edge put back on the line brought back with it)
   if (across.length && how !== 'strokes') for (const run of middles) for (const m of run) {
     const a = across.find(a => Math.abs(m.x - a.x) <= STEP / 2 && m.y >= Math.min(a.y0, a.y1) && m.y <= Math.max(a.y0, a.y1));
     if (a) { m.y += a.dy; m.y0 += a.dy; }
@@ -3180,6 +3200,9 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
     const { stem, hair } = rig.ref(), grew = Math.max(0, (mv.kv - 1) * stem, (mv.kh - 1) * hair);
     rings = bridgeDents(rings, rig.bones.map(bs => !!bs[0]?.dot), rig.ctx.cap, designDents(rig).map(q => ({ x: mv.gx(q.x), y: lift(mv.gy(q.y)), turn: q.turn, tip: q.tip })), grew);
   }
+  // (and a round pen's points where its outline, so run smooth, turns straight back on itself within a few units taken out:
+  // a comic's k's crotch, its corner a unit or two past the sides run smooth up to it, traced as a loop)
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && fontPen(rig.font)) rings = rings.map(r => unspiked(r));
   let out = tidyRings(rings, rig.ctx.cap, dots);
   // (and a heavier weight's small hole that the design hasn't, a pocket of paper strokes thickened into each other round
   // a crotch shut in, filled: an old style's W's and w's, a hole where its strokes meet)
@@ -5560,8 +5583,10 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // end or a dot, nor through a crotch's round, turning away from the ink SLOPE_CROTCH degrees a sample or more, nor
   // within SLOPE_SERIF samples of a serif, moved as their own)
   const held = rig && mv.reweighed && mv.kv > 1 + REWEIGHED ? heldOwn(rig, r, endAt) : null;
-  // (a serif slid with its stem, a flag, a stem's head drawn across it again and a bracket's edge are moved as their own too)
-  const own = held && slid ? held.own.map((o, i) => o || !!head[i] || !!bridge[i] || !!dxOf(bs[i])) : held?.own;
+  // (a serif slid with its stem, a flag, a stem's head drawn across it again and a bracket's edge are moved as their own too;
+  // and a round pen's stroke's end, which moveRing carries whole with its sides: held by its round's own moves, less and
+  // less out toward its tip, a comic's H's stems' sides went out less and less down to their feet, a step at the bar)
+  const pen = !!rig && fontPen(rig.font), own = held ? held.own.map((o, i) => o || (pen && inRun[i] === 1) || (slid && (!!head[i] || !!bridge[i] || !!dxOf(bs[i])))) : undefined;
   if (held) heldBySlope(raw, held.step, own!, SLOPE_HELD);
   const delta = raw.map((d, i) => (d > 0 ? Math.min(d, room(bs[i], i)) : d));
   if (held) {
@@ -5762,15 +5787,36 @@ function sideWs(rig: SkinRig, r: number): Float64Array {
   const serifed = rig.serifed(), plain = (b: Bone) => b.straight && !b.corner && !b.dot && !b.cap && !(serifed && b.serifDx);
   const same = (i: number, j: number) => plain(bs[md(i)]) && plain(bs[md(j)]) && bs[md(i)].seg === bs[md(j)].seg;
   const median = (v: number[]) => { const u = v.slice().sort((a, b) => a - b); return u.length % 2 ? u[u.length >> 1] : (u[u.length / 2 - 1] + u[u.length / 2]) / 2; };
+  const runs: [number, number][] = [];
   for (let s = 0; s < n; s++) {
     if (!plain(bs[s]) || same(s - 1, s)) continue;
     let e = s;
     while (e - s < n && same(e, s)) e++;
-    const L = e - s;
-    if (L < STRAIGHT_RUN || L >= n) continue;
-    const h = L >> 1, m1 = median(Array.from({ length: h }, (_, k) => ends[md(s + k)])), m2 = median(Array.from({ length: L - h }, (_, k) => ends[md(s + h + k)]));
-    const s1 = (h - 1) / 2, s2 = h + (L - h - 1) / 2;
-    for (let k = 0; k < L; k++) got[md(s + k)] = Math.max(0, m1 + (m2 - m1) * (k - s1) / (s2 - s1));
+    if (e - s >= STRAIGHT_RUN && e - s < n) runs.push([s, e]);
+  }
+  // (in a font of near even strokes, straight edges on one line, a nub of a few samples between them, read as one, on its
+  // middling reading all along: a comic's H's stem drawn a little thicker over its bar than under it, its outer side,
+  // moved by each run's own, stepped out at the bar)
+  const one = new Int32Array(runs.length).map((_, k) => k);
+  if (evenFont(rig)) for (let k = 1; k < runs.length; k++) {
+    const [s0, e0] = runs[k - 1], [s1, e1] = runs[k], P = bs[s0], Q = bs[s1];
+    const on = (q: Bone) => Math.abs((q.x - P.x) * P.nx + (q.y - P.y) * P.ny) <= ONE_LINE;
+    let near = s1 - e0 <= LINE_GAP && P.nx * Q.nx + P.ny * Q.ny >= END_SIDE_ON && on(Q) && on(bs[md(e1 - 1)]);
+    for (let i = e0; near && i < s1; i++) near = !bs[md(i)].corner && !bs[md(i)].cap && on(bs[md(i)]);
+    if (near) one[k] = one[k - 1];
+  }
+  for (let k = 0; k < runs.length; k++) {
+    const [s, e] = runs[k], L = e - s;
+    if (one.some((g, j) => g === one[k] && j !== k)) {
+      const of = runs.filter((_, j) => one[j] === one[k]), from = of[0][0], to = of[of.length - 1][1];
+      if (k === one[k]) { const m = median(of.flatMap(([a, b]) => Array.from({ length: b - a }, (_, q) => ends[md(a + q)]))); for (let i = from; i < to; i++) got[md(i)] = m; }
+    } else {
+      const h = L >> 1, m1 = median(Array.from({ length: h }, (_, k) => ends[md(s + k)])), m2 = median(Array.from({ length: L - h }, (_, k) => ends[md(s + h + k)]));
+      const s1 = (h - 1) / 2, s2 = h + (L - h - 1) / 2;
+      for (let k = 0; k < L; k++) got[md(s + k)] = Math.max(0, m1 + (m2 - m1) * (k - s1) / (s2 - s1));
+    }
+  }
+  for (const [s, e] of runs) {
     // (and the curve it runs on into smoothly, either end, read as thick as it while it runs on within W_TURN of its way,
     // and no thinner than that by more than W_SLOPE a unit along after, where it reads as thick as W_NEAR of it or more:
     // an n's arch's inside, read thinner than its stem where it leaves the stem's side, moved out less, a dent where they
@@ -5793,6 +5839,60 @@ function sideWs(rig: SkinRig, r: number): Float64Array {
   return got;
 }
 const SIDE_WS = new WeakMap<Bone[], Float64Array>(), SIDE_GROWN = new WeakMap<Bone[], Uint8Array>();
+/** A ring's points (each its sample's, bs, moved) each moved instead as the mean of the moves of those either side of it,
+    by a bell `sigma` units along the outline as drawn wide, out to three times that: not a corner's, which stays, nor
+    past one, and near one less so. Each move is read from `was`, the sample where the heights and the width alone put it. */
+function evenedMoves(r: P[], bs: Bone[], was: P[], sigma: number): P[] {
+  const n = r.length, reach = Math.min(n >> 1, Math.ceil(3 * sigma / STEP));
+  if (n < 8 || sigma < 0.5 || reach < 1) return r;
+  // (the samples lie STEP apart along the outline as drawn: the bell read by the sample)
+  const g = Float64Array.from({ length: reach + 1 }, (_, k) => Math.exp(-((k * STEP) ** 2) / (2 * sigma * sigma)));
+  const dx = r.map((p, i) => p.x - was[i].x), dy = r.map((p, i) => p.y - was[i].y);
+  // (how many samples along each lies from the nearest corner: within the bell's middle of one, its own move kept as much
+  // more as it lies nearer, so the corner's sides, run smooth up to it and not past, don't cross over it)
+  const dc = new Int32Array(n).fill(n), near = sigma / STEP;
+  if (bs.some(b => b.corner)) for (const dir of [1, -1]) for (let k = 0, i = bs.findIndex(b => b.corner), d = n; k < 2 * n; k++, i = (i + dir + n) % n) {
+    d = bs[i].corner ? 0 : d + 1;
+    if (d < dc[i]) dc[i] = d;
+  }
+  return r.map((p, i) => {
+    if (bs[i].corner) return p;
+    let sx = dx[i], sy = dy[i], sw = 1;
+    for (const dir of [-1, 1]) for (let k = 1; k <= reach; k++) {
+      const j = ((i + dir * k) % n + n) % n;
+      if (bs[j].corner) break;
+      sx += dx[j] * g[k]; sy += dy[j] * g[k]; sw += g[k];
+    }
+    const f = Math.min(1, dc[i] / near);
+    return { x: p.x + (was[i].x + sx / sw - p.x) * f, y: p.y + (was[i].y + sy / sw - p.y) * f };
+  });
+}
+/** A ring without its points that turn back on the way to them by more than SPIKE_TURN where either way out of them runs
+    SPIKE_SHORT units or less: a spike's tip a few units long, which a curve traced through draws as a loop. */
+function unspiked(r: P[]): P[] {
+  let out = r;
+  for (let pass = 0; pass < 4; pass++) {
+    const n = out.length;
+    if (n < 8) return out;
+    const keep = out.map((p, i) => {
+      const a = out[(i - 1 + n) % n], b = out[(i + 1) % n], ux = p.x - a.x, uy = p.y - a.y, vx = b.x - p.x, vy = b.y - p.y;
+      if (Math.min(Math.hypot(ux, uy), Math.hypot(vx, vy)) > SPIKE_SHORT) return true;
+      return Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)) < SPIKE_TURN;
+    });
+    if (keep.every(Boolean)) return out;
+    out = out.filter((_, i) => keep[i] || !keep[(i - 1 + n) % n]);
+  }
+  return out;
+}
+const SPIKE_TURN = 150 * Math.PI / 180, SPIKE_SHORT = 3;
+
+/** How wide, as a share of how far its sides moved out, a round pen's heavier moves are run smooth (movedOnce,
+    evenedMoves). */
+const EVEN_SMOOTH = 0.3;
+/** The most of a round pen's lowercase's samples that may lie on corners (fontPen). */
+const PEN_CORNERS = 0.008;
+/** How far off one another's line, in units, a near even font's straight edges may lie to be read as one (sideWs). */
+const ONE_LINE = 1.5;
 /** The fewest samples a straight edge must run to be read along it all (sideWs) and laid on one line as moved
     (moveRing's straightRuns); how far off its way (the cosine) a curve running on from it reads as thick as it, and how
     much thinner, a unit along it, past that, if it reads W_NEAR of it or more (sideWs); how long a round between two such edges, and how far along a curve
@@ -6455,6 +6555,13 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       // (a script's end, made larger, out into the paper it faces no further than OPEN of it, as a side grows into a
       // counter: a hook's ball, Serenade's a's, ran into the stem's top it curls toward, its bowl shut)
       if (shut && isFinite(p.gap)) { const k = md(i), o = -((out[k].x - base[k].x) * p.nx + (out[k].y - base[k].y) * p.ny) - p.gap * OPEN; if (o > 0) out[k] = { x: out[k].x + p.nx * o, y: out[k].y + p.ny * o }; }
+    }
+    // (and a round pen's (fontPen) each of its points no further out into the paper before it than OPEN of that
+    // room, as a side's: made larger whole, a round end swells every way, and a comic's s's and G's ends, as its strokes
+    // thickened past twice, ran into the strokes they turn toward and shut their openings)
+    if (mv.reweighed && mv.kv > 1 + REWEIGHED && !ball && fontPen(rig.font)) for (let i = a + 1; i < b; i++) {
+      const p = bs[md(i)], o = out[md(i)], g = p.gap * OPEN, d = -(o.x - gx(p.x)) * p.nx - (o.y - gy(p.y)) * p.ny;
+      if (isFinite(g) && d > g) out[md(i)] = { x: o.x + (d - g) * p.nx, y: o.y + (d - g) * p.ny };
     }
     // (a lighter weight's corner inside a join next to where the end meets its side, a ball's neck, goes with that side,
     // as far off it as it was, made as much smaller as the end is, where it would cross the outline: where its two

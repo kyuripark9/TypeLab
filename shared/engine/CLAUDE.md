@@ -389,7 +389,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    bowls came out wavy at Weight 100), an arm's or a bar's round under it is carried whole as a bracket is
    (`carryRounds`' `arms`), and an edge's points left past an inside corner are brought back to it (`cornersPast`: a notch
    under an F's middle arm; in other fonts only along straight edges, a sliver under a typewriter's L's stem at Verticals 100), and a serif's root slides no further than its stem's own upright side moves (`sideMove`: a step
-   at each bracket of an H). Contrast turned round weighs each edge by its stroke read whole (`sideHalf`). These were tuned on every
+   at each bracket of an H). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
+   Gumdrop's) ends aren't held by `heldBySlope`, each end's points go no further into the paper than `OPEN` of it, every
+   point's move is run smooth along the outline by as far as its strokes thickened (`evenedMoves`, `EVEN_SMOOTH`) and
+   short spikes left are taken out (`unspiked`). Contrast turned round weighs each edge by its stroke read whole (`sideHalf`). These were tuned on every
    card at the Weight page's ends (Weight,
    Verticals, Horizontals and Contrast at 0 and 100), read with weights.ts's `look` on each letter's ink united. A pixel font
    (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
