@@ -1993,12 +1993,11 @@ const SPANS = new WeakMap<Node[][], [number, number]>();
     and two letters side by side came nearer there, to touching (Typewriter's m and w ran 24 units into each other at
     Verticals 100, Couture's f's flag 19 into a b). At ROOM_ROWS heights, each side of the letter as moved stands no
     nearer the edge of its room than the design's does about that height (within half as far as its strokes grew
-    thicker, the height a bar thickened over taking its end's room; a script's at it, ROOM_LEANS), or than ROOM_REACH of
-    the font's stem, the less: its
-    stems keep the room they had, and a T's, far in under its bar, may come nearer as it grows. `sb` is the design's side
-    bearings as the settings draw them, in the font's units. Only where the upright strokes thicken, which grow out
-    sideways (a bar thickened grows up and down, and the x-height and Cursive leave the stems as they are), from nothing
-    as they begin to. */
+    thicker, the height a bar thickened over taking its end's room; a script's within ROOM_LEANS of it, its capitals' at
+    it), or than ROOM_REACH of the font's stem, the less: its stems keep the room they had, and a T's, far in under its
+    bar, may come nearer as it grows. `sb` is the design's side bearings as the settings draw them, in the font's units.
+    Only where the upright strokes thicken, which grow out sideways (a bar thickened grows up and down, and the x-height
+    and Cursive leave the stems as they are), from nothing as they begin to. */
 export function skinRoom(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures, out: Node[][], sb: [number, number]): [number, number] {
   const m1 = reaching(rig, m0, to);
   if (out === rig.contours) return [0, 0];
@@ -2011,12 +2010,12 @@ export function skinRoom(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures, out: 
     const polys = polysOf(rig.contours, 4);
     let lo = Infinity, hi = -Infinity;
     for (const r of polys) for (const q of r) { lo = Math.min(lo, q.y); hi = Math.max(hi, q.y); }
-    const { l, r } = sidesAt(polys, curvesReach(rig.contours), Array.from({ length: ROOM_FINE }, (_, j) => lo + (hi - lo) * j / (ROOM_FINE - 1)));
+    const { l, r } = sidesAt(polys, curvesReach(rig.contours), Array.from({ length: ROOM_FINE }, (_, j) => lo + (hi - lo) * j / (ROOM_FINE - 1)), roomSlope(rig));
     const runs = (d: number[]) => { const t = [d]; for (let k = 1; 1 << k <= d.length; k++) { const u = t[k - 1], h = 1 << (k - 1); t.push(u.slice(0, d.length - (1 << k) + 1).map((v, i) => Math.min(v, u[i + h]))); } return t; };
     w = { lo, hi, l: runs(l), r: runs(r) };
     drawnSides.set(rig, w);
   }
-  const ref = rig.ref(), grew = Math.max(0, (kv - 1) * ref.stem, (kh - 1) * ref.hair) / 2 * (rig.leans() ? ROOM_LEANS : 1), most = ROOM_REACH * ref.stem, { lo, hi } = w;
+  const ref = rig.ref(), grew = Math.max(0, (kv - 1) * ref.stem, (kh - 1) * ref.hair) / 2 * (rig.leans() ? (rig.ctx.lower ? ROOM_LEANS : ROOM_LEANS_CAPS) : 1), most = ROOM_REACH * ref.stem, { lo, hi } = w;
   // (the design's least within `grew` of a height, read between its fine heights at the ends)
   const step = (hi - lo) / (ROOM_FINE - 1);
   const at = (d: number[], i: number) => { const j = Math.min(ROOM_FINE - 2, Math.floor(i)); return d[j] + (d[j + 1] - d[j]) * (i - j); };
@@ -2032,7 +2031,7 @@ export function skinRoom(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures, out: 
   const more = (t: number[][], y: number, s: number, c: number, add: number) => (most - (s + c) <= add ? add : Math.max(add, Math.min(s + about(t, y) * sx, most) - (s + c)));
   // the letter as moved read where the move takes each of the design's heights, its lines moved with the x-height
   const polys = polysOf(out, 4), [x0, x1] = curvesReach(out);
-  const ys = Array.from({ length: ROOM_ROWS }, (_, k) => lo + (hi - lo) * (k + 0.5) / ROOM_ROWS), now = sidesAt(polys, [x0, x1], ys.map(mv.gy));
+  const ys = Array.from({ length: ROOM_ROWS }, (_, k) => lo + (hi - lo) * (k + 0.5) / ROOM_ROWS), now = sidesAt(polys, [x0, x1], ys.map(mv.gy), roomSlope(rig));
   let l = 0, r = 0;
   ys.forEach((y, k) => { l = more(w.l, y, sb[0], now.l[k], l); r = more(w.r, y, sb[1], now.r[k], r); });
   // and at each point of it, at the design's height the move takes there: a corner standing out from its side, the
@@ -2047,7 +2046,8 @@ export function skinRoom(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures, out: 
     while (b - a > 1) { const c = (a + b) >> 1; if (G[c] <= y) a = c; else b = c; }
     return lo + (hi - lo) * (a + (y - G[a]) / Math.max(1e-9, G[b] - G[a])) / ROOM_ROWS;
   };
-  for (const ring of polys) for (const q of ring) {
+  // (a script's every ROOM_STEP units along its outline, read off what it was traced from where it was: ROOM_CURVES)
+  for (const ring of rig.leans() ? alongEvery(out.map(c => TRACED.get(c) ?? polysOf([c], ROOM_CURVES)[0]), ROOM_STEP) : polys) for (const q of ring) {
     const cl = q.x - x0, cr = x1 - q.x;
     if (most - (sb[0] + cl) <= l && most - (sb[1] + cr) <= r) continue;
     const y = back(q.y);
@@ -2058,6 +2058,29 @@ export function skinRoom(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures, out: 
   const grown = (kv - 1) * ref.stem;
   return [Math.min(l, grown), Math.min(r, grown)];
 }
+/** How much further in ink off a height reads, for each unit off it, beside a letter (skinRoom): a script's capital's
+    ROOM_SLOPE_LEANS. */
+const roomSlope = (rig: SkinRig) => (rig.leans() && !rig.ctx.lower ? ROOM_SLOPE_LEANS : ROOM_SLOPE);
+/** Rings with points put in along each edge longer than `step`, evenly. */
+const alongEvery = (rings: P[][], step: number): P[][] => rings.map(ring => ring.flatMap((p, i) => {
+  const q = ring[(i + 1) % ring.length], n = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / step));
+  return Array.from({ length: n }, (_, k) => ({ x: p.x + (q.x - p.x) * k / n, y: p.y + (q.y - p.y) * k / n }));
+}));
+/** How far from a point on a rig's outline as drawn the way (dx, dy), a unit, runs across its paper to ink again
+    (Infinity where it meets none): its outline read as polygons, kept. */
+function paperAlong(rig: SkinRig, p: P, dx: number, dy: number): number {
+  let ps = drawnPolys.get(rig);
+  if (!ps) drawnPolys.set(rig, ps = polysOf(rig.contours, 4));
+  let t = Infinity;
+  for (const ring of ps) for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length], ex = b.x - a.x, ey = b.y - a.y, den = dx * ey - dy * ex;
+    if (Math.abs(den) < 1e-9) continue;
+    const s = ((a.x - p.x) * ey - (a.y - p.y) * ex) / den, u = ((a.x - p.x) * dy - (a.y - p.y) * dx) / den;
+    if (s > 1 && s < t && u >= 0 && u <= 1) t = s;
+  }
+  return t;
+}
+const drawnPolys = new WeakMap<SkinRig, P[][]>();
 /** Each rig's sides as drawn, read at ROOM_FINE heights from its lowest to its highest (sidesAt), each with the least of
     its runs of 2, 4, 8 and so on heights from each, kept for skinRoom. */
 const drawnSides = new WeakMap<SkinRig, { lo: number; hi: number; l: number[][]; r: number[][] }>();
@@ -2084,14 +2107,14 @@ function curvesReach(cs: Node[][]): [number, number] {
     `ys`, ink off a height read as ROOM_SLOPE times as far in again as it is off it: so it changes only as far as the
     ink moves, with no step where a stroke's end comes to a height or leaves it (along each edge least at an end or
     where it crosses the height, each of which is tried). */
-function sidesAt(polys: P[][], [x0, x1]: [number, number], ys: number[]) {
+function sidesAt(polys: P[][], [x0, x1]: [number, number], ys: number[], slope: number) {
   const l: number[] = [], r: number[] = [];
   for (const y of ys) {
     let a = Infinity, z = Infinity;
     for (const ring of polys) for (let i = 0; i < ring.length; i++) {
       const p = ring[i], q = ring[(i + 1) % ring.length];
       if ((p.y > y) !== (q.y > y)) { const x = p.x + (q.x - p.x) * (y - p.y) / (q.y - p.y); if (x - x0 < a) a = x - x0; if (x1 - x < z) z = x1 - x; }
-      const off = ROOM_SLOPE * Math.abs(p.y - y);
+      const off = slope * Math.abs(p.y - y);
       if (off >= a && off >= z) continue;
       if (p.x - x0 + off < a) a = p.x - x0 + off;
       if (x1 - p.x + off < z) z = x1 - p.x + off;
@@ -6702,6 +6725,14 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       // (a script's end, made larger, out into the paper it faces no further than OPEN of it, as a side grows into a
       // counter: a hook's ball, Serenade's a's, ran into the stem's top it curls toward, its bowl shut)
       if (shut && isFinite(p.gap)) { const k = md(i), o = -((out[k].x - base[k].x) * p.nx + (out[k].y - base[k].y) * p.ny) - p.gap * OPEN; if (o > 0) out[k] = { x: out[k].x + p.nx * o, y: out[k].y + p.ny * o }; }
+      // (and no further than OPEN of the paper the way it goes, read across the design: slid along its side as the end
+      // grew, Serenade's a's hook's tip ran down into the stem's top below it, the narrow way into its bowl, shut)
+      if (shut && isFinite(p.gap)) {
+        const k = md(i), dx = out[k].x - base[k].x, dy = out[k].y - base[k].y, d = Math.hypot(dx, dy);
+        // (held fully from twice as square out on, not at all slid along its edge, so it eases in as the end turns out)
+        const w = d > 1 ? Math.min(1, Math.max(0, (-(dx * p.nx + dy * p.ny) / d - SHUT_INTO) / SHUT_INTO)) : 0;
+        if (w > 0) { const f = 1 - w * (1 - Math.min(1, OPEN * paperAlong(rig, p, dx / d, dy / d) / d)); out[k] = { x: base[k].x + dx * f, y: base[k].y + dy * f }; }
+      }
     }
     // (and a round pen's (fontPen) each of its points no further out into the paper before it than OPEN of that
     // room, as a side's: made larger whole, a round end swells every way, and a comic's s's and G's ends, as its strokes
@@ -7608,12 +7639,23 @@ const REWEIGHED = 0.05;
     finely), how far in from its room's edge, as a share of the font's stem, its ink may come no nearer than the
     design's, and how much further in ink off a height reads, for each unit off it (skinRoom, sidesAt). */
 const ROOM_ROWS = 24, ROOM_FINE = 240, ROOM_REACH = 0.75, ROOM_SLOPE = 2;
-/** How far up and down from a height, as a share of half as far as its strokes grew thicker, a script's room is read off
-    its design's ink (skinRoom): a quarter. Its capitals' flicks and arms pass their neighbours' one above the other, and
-    thickening, one grows into the height the other's ink stands at, Boardwalk's N's exit into a Y's arm, 87 units into it at
-    Weight 100, read as ink that was there. (Read at the height alone, its room stepped as its strokes' ends passed one,
-    Serenade's K's 14 units at Weight 0.78.) */
-const ROOM_LEANS = 0.25;
+/** How far up and down from a height, as a share of half as far as its strokes grew thicker, a script's lowercase's room
+    is read off its design's ink (skinRoom): a quarter (read at the height alone, Jotter's s's stepped 6 units at Weight
+    0.85). Its capitals' at the height alone, and ink off it read ROOM_SLOPE_LEANS times as far in again for each unit off
+    it: their flicks and arms pass their neighbours' one just above the other, Boardwalk's K's leg's top 3 units under the
+    Y's arm's foot, and thickening, one grows into the height the other's ink stands at (Boardwalk's N's exit 87 units into
+    a Y's arm at Weight 100; read within a quarter, its K 60 into a Y at Verticals 100, so 16 apart). A capital takes a little
+    more room so, Boardwalk's 50 units more at Weight 100. */
+const ROOM_LEANS = 0.25, ROOM_LEANS_CAPS = 0, ROOM_SLOPE_LEANS = 6;
+/** How many points along each curve, and how far apart along its edges at the most, a script's outline as moved is read
+    at for its room (skinRoom), off the ring it was traced from where tidyRings kept it: read at its curves' 4 points, where
+    they fell as it was drawn again, Serenade's 2's top, the point most asked of came and went, its room 8 units more at
+    once at Weight 0.96; and at its points drawn to whole units, a capital's room, read steeply off a height, stepped as a
+    point came a unit up or down, 7 units at once. */
+const ROOM_CURVES = 8, ROOM_STEP = 2;
+/** How square to its edge (a cosine) a script's end's point must go out into the paper for that way's room to begin to hold
+    it, fully from twice as square (moveRing): slid along its edge, it meets no paper ahead. */
+const SHUT_INTO = 0.2;
 /** How much thicker, as a share, a letter's upright strokes must be drawn for its room to be read again (skinRoom): a
     thousandth, not the rounding of a move that leaves them. */
 const ROOM_FROM = 0.001;
@@ -7817,7 +7859,8 @@ function tidyRings(rings: P[][], cap: number, dots?: boolean[]): Node[][] {
   }
   const speck = (cap * SPECK) ** 2;
   if (tidy.some(r => Math.abs(signedArea(r)) < speck)) tidy = tidy.filter((r, i) => kept?.[i] || Math.abs(signedArea(r)) >= speck);
-  const cmds: [string, ...number[]][] = [];
-  for (const r of tidy) { r.forEach((p, i) => cmds.push([i ? 'L' : 'M', p.x, p.y])); cmds.push(['Z']); }
-  return fitOutline(cmds, 1.2);
+  // (each traced on its own, and kept with what it was traced from, its points not yet drawn to whole units: skinRoom)
+  return tidy.flatMap(r => { const cs = fitOutline([...r.map((p, i): [string, ...number[]] => [i ? 'L' : 'M', p.x, p.y]), ['Z']], 1.2); for (const c of cs) TRACED.set(c, r); return cs; });
 }
+/** The ring each contour tidyRings traced was traced from. */
+const TRACED = new WeakMap<Node[], P[]>();

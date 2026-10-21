@@ -335,11 +335,17 @@ A design with `freeFont` set draws its letters from a free font instead of build
    as far in again, so nothing steps as a stroke's end passes a height), and no more than the stems grew (a letter
    moved at all is drawn a little otherwise than the font has it). Only as the uprights thicken (`ROOM_FROM`): a
    typewriter's m and w at Verticals 100 ran 24 units into each other, a fat face's minimum ran into one blot.
-   A script's (`fontLeans`, `SkinRig.leans`: no serifs, its upright strokes leaning `LEAN_DEG` or more) is read within a
-   quarter as far of the height (`ROOM_LEANS`): its capitals' flicks pass their neighbours' arms one above the other, and thickened grew
-   into them (Boardwalk's N into a Y, 87 units at Weight 100); nor are its straight stretches moved as lines (`linesMove`).
+   A script's (`fontLeans`, `SkinRig.leans`: no serifs, its upright strokes leaning `LEAN_DEG` or more) lowercase is read
+   within a quarter as far of the height (`ROOM_LEANS`), its capitals at the height alone, ink off it read
+   `ROOM_SLOPE_LEANS` times as far in: their flicks pass their neighbours' arms one just above the other, and thickened
+   grew into them (Boardwalk's N into a Y, 87 units at Weight 100, its K into a Y 60 at Verticals 100); its outline as
+   moved is read every `ROOM_STEP` units along the rings tidyRings traced it from (`TRACED`), so the point most asked of
+   doesn't come and go as its curves are drawn again, nor step a unit at a time (Serenade's 2 stepped 8 units at Weight
+   0.96); nor are its straight stretches moved as lines (`linesMove`).
    A script's stroke's end, carried with its sides, goes out into the paper it faces no further than `OPEN` of it, as a
-   side does (moveRing): a curl's tip ran into the stroke it curls round, Serenade's A's and z's loops shut.
+   side does, nor further than `OPEN` of the paper the way it goes, read across the design (`paperAlong`, from
+   `SHUT_INTO` square out): a curl's tip ran into the stroke it curls round, Serenade's A's and z's loops shut, and its a's
+   hook, sliding along its side as it grew, shut the way into its bowl.
    A pinhole smaller than a crumb is made smaller as it is, to nothing at `HOLE_FADE` of one, not dropped at once
    (Chancery's s's loop); one a counter pinches off is kept as it is where it parts, smaller as it moves away, to
    nothing `HOLE_GAP` of a crumb's side off the counter (Cathedral's s's corners where its spine meets its bowls).
