@@ -7053,8 +7053,9 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     }
     // (and a round pen's (fontPen) each of its points no further out into the paper before it than OPEN_HEAVY of that
     // room, as a side's: made larger whole, a round end swells every way, and a comic's s's and G's ends, as its strokes
-    // thickened past twice, ran into the strokes they turn toward and shut their openings)
-    if (mv.reweighed && mv.kv > 1 + REWEIGHED && !ball && fontPen(rig.font)) for (let i = a + 1; i < b; i++) {
+    // thickened past twice, ran into the strokes they turn toward and shut their openings; and a contrasty design's as its
+    // hairlines thicken (hairsIn): a fat face's e's terminal, thickened sixfold at Contrast 0, met its bar and shut the e)
+    if (((mv.reweighed && mv.kv > 1 + REWEIGHED && fontPen(rig.font)) || hairsIn(mv) > 0) && !ball) for (let i = a + 1; i < b; i++) {
       const p = bs[md(i)], o = out[md(i)], g = openOf(p.gap, p.w), d = -(o.x - gx(p.x)) * p.nx - (o.y - gy(p.y)) * p.ny;
       if (isFinite(g) && d > g) out[md(i)] = { x: o.x + (d - g) * p.nx, y: o.y + (d - g) * p.ny };
     }
