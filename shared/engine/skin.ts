@@ -6313,7 +6313,12 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // less out toward its tip, a comic's H's stems' sides went out less and less down to their feet, a step at the bar)
   const pen = !!rig && fontPen(rig.font), own = held ? held.own.map((o, i) => o || (pen && inRun[i] === 1) || (slid && (!!head[i] || !!bridge[i] || !!dxOf(bs[i])))) : undefined;
   if (held) heldBySlope(raw, held.step, own!, SLOPE_HELD);
-  const delta = raw.map((d, i) => (d > 0 ? Math.min(d, room(bs[i], i)) : d));
+  // (and a heavier fair font's rooms run as one along a side: least over ROOM_EVEN samples either way, then their mean over
+  // half as far, never more than a sample's own, not past a corner; read each by its own ray across, the side under an old
+  // style's a's head, its rays out through the a's mouth reading no paper and the next ones the head across, went out by
+  // steps 20 units apart, a wavy crack under the head at Weight 100)
+  const rooms0 = bs.map((b, i) => room(b, i)), even = rig && mv.reweighed && mv.kv > 1 + REWEIGHED && fairFont(rig) ? evenRooms(rooms0, bs, ROOM_EVEN) : rooms0;
+  const delta = raw.map((d, i) => (d > 0 ? Math.min(d, even[i]) : d));
   if (held) {
     const faces = bs.map((b, i) => !vee?.[i] && isFinite(room(b, i))), ends = endFacing(rig!, r), past = own!.map((o, i) => o || (faces[i] && !ends[i]));
     // (and, in a contrasty font, the edge growing into a V of paper (veeRooms) held as one facing ink, so it comes out of the
@@ -7089,6 +7094,26 @@ const fairFont = (rig: SkinRig) => { const { stem, hair0 } = rig.ref(); return r
 const bell = (r: number) => { let w = BELLS.get(r); if (!w) BELLS.set(r, w = Float64Array.from({ length: r + 1 }, (_, k) => Math.exp(-(k * k) * 3 / (2 * r * r)))); return w; };
 const BELLS = new Map<number, Float64Array>();
 const FAIR_HAIR = [0.2, 0.6], FAIR_REACH = 2, FAIR_SHARE = 0.2, FAIR_FADE = 4;
+/** Each sample's room, as least over `k` samples either way along its side and then the mean of that over half as far: as
+    much as its own or less, one with no room (Infinity) between two with some taking theirs; not read past a corner nor
+    round a dot. */
+function evenRooms(rooms: number[], bs: Bone[], k: number): number[] {
+  const n = bs.length;
+  if (n < 3 || bs[0]?.dot) return rooms;
+  const least = rooms.map((r, i) => {
+    let m = r;
+    for (const d of [-1, 1]) for (let j = i, s = 0; s < k; s++) { const q = (j + d + n) % n; if (bs[q].corner || bs[j].corner) break; j = q; m = Math.min(m, rooms[q]); }
+    return m;
+  });
+  const h = Math.max(1, k >> 1);
+  return least.map((m, i) => {
+    if (!isFinite(m)) return m;
+    let t = m, c = 1;
+    for (const d of [-1, 1]) for (let j = i, s = 0; s < h; s++) { const q = (j + d + n) % n; if (bs[q].corner || bs[j].corner || !isFinite(least[q])) break; j = q; t += least[q]; c++; }
+    return Math.min(rooms[i], t / c);
+  });
+}
+const ROOM_EVEN = 4;
 /** How much of the ink ahead of a crotch, and of how far its thinning edge moved, a fair font's Contrast turned round
     may carry it into the join (moveRing). */
 const JOIN_KEEP = 0.5, JOIN_MOVE = 0.6;

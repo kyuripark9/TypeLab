@@ -418,7 +418,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    drawn running a hair past its edges, turn away from the ink, and its E's middle arm's end, moved as a side, a wedge). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
    moves are eased again over `FAIR_REACH` times as far as each moves, by no more than `FAIR_SHARE` of it and by less
    within `FAIR_FADE` samples of where the samples eased together end (an old style's bowls came out wavy at Weight 100;
-   eased right up to samples not eased, its arches' tops stepped), an arm's or a bar's round under it is carried whole as a bracket is
+   eased right up to samples not eased, its arches' tops stepped), its rooms run as one along a side, least over
+   `ROOM_EVEN` samples either way then their mean (`evenRooms`: read each by its own ray across, an old style's a's side
+   under its head, rays out through its mouth reading no paper, went out in steps), an arm's or a bar's round under it is carried whole as a bracket is
    (`carryRounds`' `arms`; and with its bars thinner, its stems as they were, a bracket as long as `ROUND_SHORT` of the cap: a
    transitional's brackets at Contrast 100 pressed into their stems, a step at each), and an edge's points left past an inside corner are brought back to it as far as the edge runs
    on the way it leaves the corner (`cornersPast`, `PAST_TURN`: a notch under an F's middle arm; further, an italic's r's
