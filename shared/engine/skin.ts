@@ -6391,7 +6391,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   }
   // (how far this outline's heavy strokes thicken or thin as asked, each side by its own reading of its stroke: a
   // heavy face's sides, read with their joins taken out, often read thinner than they are and move less)
-  const heavy = ends.some(e => e.ball) ? heavyShare() : 1;
+  const heavy = ends.some(e => e.ball) ? heavyShare() : 1, shut = mv.reweighed && mv.kv > 1 + REWEIGHED && rig.leans();
   // a stroke's end goes with the two sides it joins, as they now stand: turned, moved and made as much larger or
   // smaller as the stroke is now thicker or thinner across them, so a cap stays as wide as its stroke and a round
   // end round (the end's own points, read off the skeleton where it forks out to its corners, would part). A ball,
@@ -6449,6 +6449,9 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       if (flat) { const f = Math.min(1, Math.max(0, (p.y - On.y) / (Off.y - On.y))); out[md(i)] = { x: p.x + On1.x - On.x + (Off1.x - Off.x - On1.x + On.x) * f, y: On1.y + (p.y - On.y) * kf }; continue; }
       const qx = level ? A1.x + dx * kx : A1.x + s * vx - deep * t * vy, qy = level ? L! + (p.y - L!) * ky : A1.y + s * vy + deep * t * vx;
       out[md(i)] = ball ? { x: qx + (hx1 + (p.x - hx) * k - qx) * ball, y: qy + (hy1 + (p.y - hy) * k - qy) * ball } : { x: qx, y: qy };
+      // (a script's end, made larger, out into the paper it faces no further than OPEN of it, as a side grows into a
+      // counter: a hook's ball, Serenade's a's, ran into the stem's top it curls toward, its bowl shut)
+      if (shut && isFinite(p.gap)) { const k = md(i), o = -((out[k].x - base[k].x) * p.nx + (out[k].y - base[k].y) * p.ny) - p.gap * OPEN; if (o > 0) out[k] = { x: out[k].x + p.nx * o, y: out[k].y + p.ny * o }; }
     }
     // (a lighter weight's corner inside a join next to where the end meets its side, a ball's neck, goes with that side,
     // as far off it as it was, made as much smaller as the end is, where it would cross the outline: where its two

@@ -338,6 +338,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    A script's (`fontLeans`, `SkinRig.leans`: no serifs, its upright strokes leaning `LEAN_DEG` or more) is read at the
    height itself (`ROOM_LEANS`): its capitals' flicks pass their neighbours' arms one above the other, and thickened grew
    into them (Boardwalk's N into a Y, 87 units at Weight 100); nor are its straight stretches moved as lines (`linesMove`).
+   A script's stroke's end, carried with its sides, goes out into the paper it faces no further than `OPEN` of it, as a
+   side does (moveRing): a curl's tip ran into the stroke it curls round, Serenade's A's and z's loops shut.
    A pinhole smaller than a crumb is made smaller as it is, to nothing at `HOLE_FADE` of one, not dropped at once
    (Chancery's s's loop); one a counter pinches off is kept as it is where it parts, smaller as it moves away, to
    nothing `HOLE_GAP` of a crumb's side off the counter (Cathedral's s's corners where its spine meets its bowls).
