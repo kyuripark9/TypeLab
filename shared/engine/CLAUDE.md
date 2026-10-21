@@ -335,6 +335,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    as far in again, so nothing steps as a stroke's end passes a height), and no more than the stems grew (a letter
    moved at all is drawn a little otherwise than the font has it). Only as the uprights thicken (`ROOM_FROM`): a
    typewriter's m and w at Verticals 100 ran 24 units into each other, a fat face's minimum ran into one blot.
+   A script's (`fontLeans`, `SkinRig.leans`: no serifs, its upright strokes leaning `LEAN_DEG` or more) is read at the
+   height itself (`ROOM_LEANS`): its capitals' flicks pass their neighbours' arms one above the other, and thickened grew
+   into them (Boardwalk's N into a Y, 87 units at Weight 100); nor are its straight stretches moved as lines (`linesMove`).
    A pinhole smaller than a crumb is made smaller as it is, to nothing at `HOLE_FADE` of one, not dropped at once
    (Chancery's s's loop); one a counter pinches off is kept as it is where it parts, smaller as it moves away, to
    nothing `HOLE_GAP` of a crumb's side off the counter (Cathedral's s's corners where its spine meets its bowls).

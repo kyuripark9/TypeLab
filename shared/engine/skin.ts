@@ -146,6 +146,7 @@ export interface SkinRig {
   /** whether the font is drawn in heavy strokes ending round, about as thick as each other, and no serifs
       (fontStroked): 1 at every lighter weight, 2 from STROKED_UNDER down, 0 not */ stroked: () => 0 | 1 | 2;
   /** whether the font's slabs are short blocks, a wood type's (fontSlabbed) */ shortSlabs: () => boolean;
+  /** whether the font's upright strokes lean, without serifs: a script's (fontLeans) */ leans: () => boolean;
   /** the last ways it was moved (MOVES_KEPT of them), by the measures it was moved from and to (dragging a slider back
       and forth) */ moves: Map<string, Node[][]>;
   /** its skeleton, scanned when a setting first needs it (see scan.ts) */ sk?: Skeleton;
@@ -555,7 +556,7 @@ const BARS: Record<string, { at: [number, number, number, number]; move: number 
     design draws in Points with those it reads its lines and its stems off (family-drawn.ts). */
 export type RigLetters = Pick<FreeFont, 'cap' | 'xh' | 'glyphs'>;
 
-const rigs = new WeakMap<RigLetters, { lines: { asc: number; desc: number }; unicase: boolean; letters: Map<string, SkinRig | null>; ref?: { stem: number; hair: number; hair0: number }; serifed?: boolean; stroked?: 0 | 1 | 2; slabs?: boolean }>();
+const rigs = new WeakMap<RigLetters, { lines: { asc: number; desc: number }; unicase: boolean; letters: Map<string, SkinRig | null>; ref?: { stem: number; hair: number; hair0: number }; serifed?: boolean; stroked?: 0 | 1 | 2; slabs?: boolean; leans?: boolean }>();
 
 /** A font's own stem and hairline, in its units: its n's (or H's) stems and its H's bar (or the n's level strokes),
     read once. A fat face's or a Didone's hairline is a small share of its stem, a sans's most of it. */
@@ -625,6 +626,21 @@ function fontSlabbed(font: RigLetters) {
   }
   return kept.slabs;
 }
+
+/** Whether a font's upright strokes lean, without serifs, a script's: the sides of its n's, H's and l's strokes, as thick as
+    LEAN_STEM of its stem or more, facing across within LEAN_SIDE, lean LEAN_DEG degrees or more, as most of them do (an
+    italic with serifs is a serif font's, moved as its serifs need). */
+function fontLeans(font: RigLetters) {
+  const kept = rigs.get(font)!;
+  if (kept.leans === undefined) {
+    const stem = fontRef(font).stem, a: number[] = [];
+    for (const ch of 'nHl') for (const bs of skinRig(font, ch)?.bones ?? []) for (const b of bs) if (Math.abs(b.nx) > LEAN_SIDE && !b.corner && 2 * b.w >= LEAN_STEM * stem) a.push(Math.atan2(b.tx * Math.sign(b.ty || 1), Math.abs(b.ty)) * 180 / Math.PI);
+    a.sort((p, q) => p - q);
+    kept.leans = !fontSerifed(font) && a.length > 0 && Math.abs(a[a.length >> 1]) >= LEAN_DEG;
+  }
+  return kept.leans;
+}
+const LEAN_SIDE = 0.9, LEAN_STEM = 0.6, LEAN_DEG = 4;
 
 /** The ink of pieces `cs`, united, without a slit: where a piece drawn the other way round overlaps another by a few
     units (Gumdrop's H's left stem under its bar), the nonzero rule leaves the overlap paper, a hairline gap the
@@ -767,7 +783,7 @@ function rigOf(font: RigLetters, cs: Node[][], f: Grid, ctx: Ctx): SkinRig {
   const stem = (upright[upright.length >> 1] ?? 0) / font.cap;
   return { contours: cs, bones, ends: bones.map(strokeEnds), ctx, serifs: bones.some(bs => bs.some(b => b.serifDx !== 0)), stem, bar: level.length ? level[level.length >> 1] / font.cap : stem,
     bar0: level0.length ? level0[level0.length >> 1] / font.cap : stem,
-    font, ref: () => fontRef(font), serifed: () => fontSerifed(font), stroked: () => fontStroked(font), shortSlabs: () => fontSlabbed(font), moves: new Map() };
+    font, ref: () => fontRef(font), serifed: () => fontSerifed(font), stroked: () => fontStroked(font), shortSlabs: () => fontSlabbed(font), leans: () => fontLeans(font), moves: new Map() };
 }
 
 /** The rig without its slabs (slabsOf), rigged as the font's letter, and the slabs; null where it has none (or is that
@@ -1913,7 +1929,8 @@ const SPANS = new WeakMap<Node[][], [number, number]>();
     and two letters side by side came nearer there, to touching (Typewriter's m and w ran 24 units into each other at
     Verticals 100, Couture's f's flag 19 into a b). At ROOM_ROWS heights, each side of the letter as moved stands no
     nearer the edge of its room than the design's does about that height (within half as far as its strokes grew
-    thicker, the height a bar thickened over taking its end's room), or than ROOM_REACH of the font's stem, the less: its
+    thicker, the height a bar thickened over taking its end's room; a script's at it, ROOM_LEANS), or than ROOM_REACH of
+    the font's stem, the less: its
     stems keep the room they had, and a T's, far in under its bar, may come nearer as it grows. `sb` is the design's side
     bearings as the settings draw them, in the font's units. Only where the upright strokes thicken, which grow out
     sideways (a bar thickened grows up and down, and the x-height and Cursive leave the stems as they are), from nothing
@@ -1935,7 +1952,7 @@ export function skinRoom(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures, out: 
     w = { lo, hi, l: runs(l), r: runs(r) };
     drawnSides.set(rig, w);
   }
-  const ref = rig.ref(), grew = Math.max(0, (kv - 1) * ref.stem, (kh - 1) * ref.hair) / 2, most = ROOM_REACH * ref.stem, { lo, hi } = w;
+  const ref = rig.ref(), grew = Math.max(0, (kv - 1) * ref.stem, (kh - 1) * ref.hair) / 2 * (rig.leans() ? ROOM_LEANS : 1), most = ROOM_REACH * ref.stem, { lo, hi } = w;
   // (the design's least within `grew` of a height, read between its fine heights at the ends)
   const step = (hi - lo) / (ROOM_FINE - 1);
   const at = (d: number[], i: number) => { const j = Math.min(ROOM_FINE - 2, Math.floor(i)); return d[j] + (d[j + 1] - d[j]) * (i - j); };
@@ -7229,6 +7246,11 @@ const REWEIGHED = 0.05;
     finely), how far in from its room's edge, as a share of the font's stem, its ink may come no nearer than the
     design's, and how much further in ink off a height reads, for each unit off it (skinRoom, sidesAt). */
 const ROOM_ROWS = 24, ROOM_FINE = 240, ROOM_REACH = 0.75, ROOM_SLOPE = 2;
+/** How far up and down from a height, as a share of half as far as its strokes grew thicker, a script's room is read off
+    its design's ink (skinRoom): none. Its capitals' flicks and arms pass their neighbours' one above the other, and
+    thickening, one grows into the height the other's ink stands at, Boardwalk's N's exit into a Y's arm, 87 units into it at
+    Weight 100, read as ink that was there. */
+const ROOM_LEANS = 0;
 /** How much thicker, as a share, a letter's upright strokes must be drawn for its room to be read again (skinRoom): a
     thousandth, not the rounding of a move that leaves them. */
 const ROOM_FROM = 0.001;
@@ -7242,8 +7264,10 @@ const weighed = (mv: MoveMap) => mv.reweighed;
     turned round, a soft sans's stems' feet stood out past their sides on the lines, needles; its bars alone thinned,
     Horizontals 0 or Contrast 100, an industrial 4's bar knotted where it crosses its stem, a notch in its 7's top.)
     (A serif's edges, bracketed and tapering, read as lines, came out with needles at their tips as the bars thinned; a
-    blackletter's hairlines, read on from its stems, a W's strokes thickened into each other round a hole.) */
-const linesMove = (rig: SkinRig, mv: MoveMap) => mv.reweighed && mv.kv >= 1 && Math.max(mv.kv, mv.kh) > 1 + REWEIGHED && !rig.serifed() && rig.ref().hair0 >= LINES_EVEN * rig.ref().stem;
+    blackletter's hairlines, read on from its stems, a W's strokes thickened into each other round a hole.) (Nor a script's,
+    its strokes leaning, fontLeans: their curves' straight stretches, each laid on its own line, stood off one another a step
+    where two meet, a notch down the inside of Boardwalk's N's second stem.) */
+const linesMove = (rig: SkinRig, mv: MoveMap) => mv.reweighed && mv.kv >= 1 && Math.max(mv.kv, mv.kh) > 1 + REWEIGHED && !rig.serifed() && !rig.leans() && rig.ref().hair0 >= LINES_EVEN * rig.ref().stem;
 const LINES_EVEN = 0.6;
 /** How nearly along a flat edge's line its stroke runs, and how nearly the edge across faces back at it, for that edge
     to come back with it (snapFlatEdges), as the cosine of the angle: none from 40° off, wholly within 20°. */
