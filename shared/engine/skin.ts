@@ -3415,7 +3415,8 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
         while (g <= MEET_ROUND && !laid[(i + g) % n]) g++;
         if (g <= MEET_ROUND) for (let k = 0; k < g; k++) met[(i + k) % n] = 1;
       }
-      return anchoredMoves(ring, bs, bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => !!laid[i] || !!met[i] || bs[i].onLine, i => !!laid[i] && !bs[i].onLine);
+      // (and its samples kept clear of its tips' corners moved over them (cornersClear))
+      return cornersClear(anchoredMoves(ring, bs, bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => !!laid[i] || !!met[i] || bs[i].onLine, i => !!laid[i] && !bs[i].onLine), bs);
     });
   }
   // (and the middles of a stroke along a line, which its edge put back on the line brought back with it)
@@ -6526,6 +6527,45 @@ function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, held: (i: nu
     return { x: x + (was[i].x + sx / sw - x) * f, y: y + (was[i].y + sy / sw - y) * f };
   });
 }
+/** A ring's samples kept clear of its corners as moved: each sample whose corner, moved, now stands in the paper before
+    it nearer than CLEAR of the room the corner's edges had (the least of its and its neighbours' gaps), where the design
+    kept them twice that apart, drawn back in along its normal until it is that far: a corner moved sideways over paper
+    the samples under it read as further across, a grotesque's a's hook's tip over its bowl's top, which grew toward the
+    eye beyond it and shut the way in under the hook at Weight and Horizontals 100, the eye a pinhole. */
+function cornersClear(r: P[], bs: Bone[]): P[] {
+  const n = r.length;
+  let out: P[] | null = null;
+  for (let c = 0; c < n; c++) {
+    if (!bs[c].corner) continue;
+    let g = Infinity;
+    for (let k = -1; k <= 1; k++) { const q = bs[(c + k + n) % n]; if (isFinite(q.gap)) g = Math.min(g, q.gap); }
+    if (!isFinite(g)) continue;
+    const keep = CLEAR * g, D = bs[c], C = (out ?? r)[c], A = bs[(c - 1 + n) % n], B = bs[(c + 1) % n];
+    // (a tip's corner, its neighbours either side of it in its ink, not a crotch's)
+    if (((A.x + B.x) / 2 - D.x) * (A.nx + B.nx) + ((A.y + B.y) / 2 - D.y) * (A.ny + B.ny) <= 0) continue;
+    for (let j = 0; j < n; j++) {
+      const dj = Math.abs(j - c), b = bs[j];
+      // (a curve's samples, not a straight edge's, which stays laid: an e's bar's underside, drawn back from its
+      // terminal's tip, was notched)
+      // (and one that faced a counter wide beyond it, CLEAR_FAR of the clearance, a way into it; not the paper outside
+      // the letter: a 6's bowl's back, its hook's tip come down over it, was cut into a crack)
+      if (Math.min(dj, n - dj) <= CLEAR_SKIP || b.corner || b.straight || !isFinite(b.gap) || b.gap < CLEAR_FAR * keep || Math.hypot(b.x - D.x, b.y - D.y) < 2 * keep) continue;
+      const p = (out ?? r)[j], vx = p.x - C.x, vy = p.y - C.y, d2 = vx * vx + vy * vy;
+      // (only a corner in the paper before the sample, not one behind it in its own ink; and one moved there from beside
+      // it, off the way it faces as drawn: a corner the design sets before it, a K's crotch's across from its arm, is
+      // as near as drawn)
+      if (d2 >= keep * keep || vx * b.nx + vy * b.ny > 0 || Math.abs((D.x - b.x) * b.ny - (D.y - b.y) * b.nx) < keep || -((D.x - b.x) * b.nx + (D.y - b.y) * b.ny) < keep / 2) continue;
+      const vn = vx * b.nx + vy * b.ny, t = Math.min(keep, -vn + Math.sqrt(vn * vn - d2 + keep * keep));
+      out ??= r.slice();
+      out[j] = { x: p.x + b.nx * t, y: p.y + b.ny * t };
+    }
+  }
+  return out ?? r;
+}
+/** How much of the room a corner's edges had a heavier plumb sans keeps between the corner as moved and the outline
+    across from it, how many samples either side of it along its ring are its own, and how many times that clearance of
+    paper a sample faces for it to be drawn back (cornersClear). */
+const CLEAR = 0.4, CLEAR_SKIP = 6, CLEAR_FAR = 4;
 /** How far round from a held edge's way (the cosine) a curve running on from it is moved with it, and over how many
     samples beside it it is moved with it wholly to not at all (anchoredMoves). */
 const CARRY_TURN = 0.3, CARRY_FADE = 4;

@@ -407,7 +407,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    how far its strokes thicken, its laid straight edges and its edges on a line held, a curve running on from a laid
    edge moved with it as far as it faces the edge's way and wholly beside it, if it lags behind it (`anchoredMoves`,
    `CARRY_TURN`, `CARRY_FADE`: a grotesque's bowls beaded, an n's counter a keyhole at Verticals 100), and an edge across
-   a V of paper grows into it no further than leaves `VEE_SLOT` of a stem (an M's counters, gone at Verticals 100). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
+   a V of paper grows into it no further than leaves `VEE_SLOT` of a stem (an M's counters, gone at Verticals 100). A
+   curve's samples facing a counter, a tip's corner moved over them from beside, are drawn back to leave `CLEAR` of the
+   room the corner's edges had (`cornersClear`: an a's hook's tip over its bowl shut the way into its eye at Weight and
+   Horizontals 100). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
    moves are eased again over `FAIR_REACH` times as far as each moves, by no more than `FAIR_SHARE` of it and by less
    within `FAIR_FADE` samples of where the samples eased together end (an old style's bowls came out wavy at Weight 100;
    eased right up to samples not eased, its arches' tops stepped), an arm's or a bar's round under it is carried whole as a bracket is
