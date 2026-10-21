@@ -7139,7 +7139,11 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       const turn = Math.abs(Math.atan2(A.tx * Z.ty - A.ty * Z.tx, A.tx * Z.tx + A.ty * Z.ty));
       // (a serif's bracket, short, between an edge running level near a line and a stem's upright side: not a hook's or a
       // bowl's long round inside, carried whole the tail of a t, nor a crotch between strokes, a k's, which parted)
-      if (turn < ROUND_INSIDE || arc > Math.min(ROUND_CARRY * Math.max(Math.abs(moved[a]), Math.abs(moved[z])), ROUND_SHORT * rig.ctx.cap)) continue;
+      // (in a fair font whose bars thin, its stems as they were (Contrast raised), as long as a short round goes: held to
+      // ROUND_CARRY times its serif's thinning, a transitional's brackets at Contrast 100 stayed while the serifs' undersides
+      // rose, each bracket pressed into its stem's side, a step at each)
+      const thins = arms && mv.kh < 1 - REWEIGHED && Math.abs(mv.kv - 1) <= REWEIGHED && Math.min(moved[a], moved[z]) < 0;
+      if (turn < ROUND_INSIDE || arc > (thins ? ROUND_SHORT * rig.ctx.cap : Math.min(ROUND_CARRY * Math.max(Math.abs(moved[a]), Math.abs(moved[z])), ROUND_SHORT * rig.ctx.cap))) continue;
       if (!((level(A) && upright(Z)) || (level(Z) && upright(A)))) continue;
       // (where the edges either side meet, as drawn and as moved)
       const meet = (P: P, Q: P) => { const den = A.tx * Z.ty - A.ty * Z.tx; if (Math.abs(den) < 1e-6) return null; const t = ((Q.x - P.x) * Z.ty - (Q.y - P.y) * Z.tx) / den; return { x: P.x + A.tx * t, y: P.y + A.ty * t }; };
