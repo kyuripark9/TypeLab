@@ -638,6 +638,27 @@ function fontPlumb(font: RigLetters) {
   return kept.plumb;
 }
 
+/** Whether a font is a sans of little contrast drawn with a rule (fontPlumb, its hairline LINES_EVEN of its stem or more,
+    no serifs) whose arches leave their stems on no ink trap's thin neck (archCrotches' trap, read off its n): its
+    Contrast turned round thins its edges by their strokes read whole (as a round pen's, fontPen) and draws a flat crotch's cut to where its edges
+    meet (edgeMoves, moveRing's flatCrotches). A monospace's n's and d's arch and bowl, run into their stems on thin necks,
+    so drawn, came off their hairline stems at Contrast 0, and its a's, b's, p's and q's counters opened. */
+function plainSans(rig: SkinRig) {
+  const { stem, hair0 } = rig.ref();
+  return hair0 >= LINES_EVEN * stem && fontPlumb(rig.font) && untrapped(rig);
+}
+/** Whether a font has no serifs and its n's arch leaves its stem on no ink trap (archCrotches' trap): its Contrast turned
+    round thins each edge by its stroke read whole (edgeMoves). */
+function untrapped(rig: SkinRig) {
+  let got = UNTRAPPED.get(rig.font);
+  if (got === undefined) {
+    const n = skinRig(rig.font, 'n');
+    UNTRAPPED.set(rig.font, got = !rig.serifed() && !(n && [...archCrotches(n).values()].flat().some(G => G.trap)));
+  }
+  return got;
+}
+const UNTRAPPED = new WeakMap<RigLetters, boolean>();
+
 /** Whether a font is drawn in heavy strokes about as thick as each other, with no serifs: its hairline STROKED_EVEN of its
     stem or more, and, its lowercase's outline cut square across a stroke's end nowhere (ROUND_CUT of it, read every few
     units), its stem ROUND_HEAVY of its capitals' height or more (Gumdrop: 1), or else STROKED_HEAVY (Orbital: 2). Its
@@ -5826,7 +5847,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // with the joins' bumps taken out round a counter joins shut all round, a two-storey a's bowl's and stem's insides
   // thinned half as far as their outsides, the a left as heavy again as the n beside it; eased on past its own, a 9's
   // bowl's side, a hairline, thinned through where it meets the tail and opened the counter)
-  const more = rig && mv.reweighed && mv.kv < 1 - REWEIGHED && !rig.serifed() ? bs.map((b, i) => (b.corner ? 0 : Math.max(0, mv.half(b) - W(b, i)))) : null;
+  const more = rig && mv.reweighed && mv.kv < 1 - REWEIGHED && (plainSans(rig) || (untrapped(rig) && fontPen(rig.font))) ? bs.map((b, i) => (b.corner ? 0 : Math.max(0, mv.half(b) - W(b, i)))) : null;
   const lift = more?.some(v => v > 0) ? (() => { const R = Math.max(3, Math.round(rig!.ref().stem / 2 / STEP)); return bs.map((b, i) => (b.corner ? more[i] : Math.min(more[i], ease(more, bs, i, j => !bs[j].corner, R)))); })() : null;
   // (a heavier sans's curves, in a font of little contrast drawn with a rule (fontPlumb), each moved by its stroke's
   // thickness eased along them over half a stem: read sample by sample, a d's bowl's top reading half the stem's
@@ -5887,7 +5908,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // stem's side inside the bowl at Weight 100; a humanist d's two; and as far as they move in, Contrast turned round: a
   // humanist n's arch's inside, its stroke read 22 units thick where it leaves the stem and 38 where it runs into it, a
   // knot where it meets its hairline stem at Contrast 0)
-  const along = rig && mv.reweighed && (mv.kv > 1 + REWEIGHED || mv.kv < 1 - REWEIGHED) && !rig.serifed() && rig.ref().hair0 >= LINES_EVEN * rig.ref().stem && fontPlumb(rig.font);
+  const along = rig && mv.reweighed && (mv.kv > 1 + REWEIGHED ? !rig.serifed() && rig.ref().hair0 >= LINES_EVEN * rig.ref().stem && fontPlumb(rig.font) : mv.kv < 1 - REWEIGHED && plainSans(rig));
   let moved = bs.map((b, i) => {
     if (b.corner) return delta[i];
     const keep = keepAt(b, i);
@@ -6426,6 +6447,9 @@ const FAIR_HAIR = [0.2, 0.6], FAIR_REACH = 2, FAIR_SHARE = 0.2, FAIR_FADE = 4;
 /** How much of the ink ahead of a crotch, and of how far its thinning edge moved, a fair font's Contrast turned round
     may carry it into the join (moveRing). */
 const JOIN_KEEP = 0.5, JOIN_MOVE = 0.6;
+/** How far apart, as a share of how far apart they stood, two crotches either side of a join a thinned stem stands short
+    of are set on its side, and how far apart, in the strokes' half thicknesses, they may stand to be read as one (joinNecks). */
+const NECK = 0.3, NECK_FAR = 1.5;
 /** How thick, as a share of its hairline, a fair font's serif's level edge is read at most, and how level (the normal's
     upright share) such an edge faces (edgeMoves). */
 const SERIF_TOP = 0.5, SERIF_LEVEL = 0.9, SERIF_LEVEL_RAMP = 0.05, SERIF_THICK = [1, 1.5];
@@ -6951,6 +6975,13 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       if (l > far) { mx *= far / l; my *= far / l; }
       return { x: x + mx, y: y + my + up };
     }
+    // (Contrast turned round, a crotch met again against the way both its edges went goes as they went, between them: read
+    // off the ways a design's ink trap's short curves leave its corner at, other than its edges run, an industrial h's
+    // crotch over its arch went fifty units on into the arch, cutting it off its hairline stem)
+    if (mv.reweighed && mv.kv < 1 - REWEIGHED) {
+      const g = (j: number) => ({ x: -bs[j].nx * moved[j] + (slide?.[j].x ?? 0), y: -bs[j].ny * moved[j] + (slide?.[j].y ?? 0) }), g0 = g(i0), g1 = g(i1);
+      if (mx * (g0.x + g1.x) + my * (g0.y + g1.y) < 0) return { x: x + (g0.x + g1.x) / 2, y: y + (g0.y + g1.y) / 2 + up };
+    }
     // (a fair font's crotch where Contrast turned round thins one of its strokes, its edges near alike: met again no
     // further into the join than JOIN_KEEP of the ink ahead nor JOIN_MOVE of the way its thinning edge moved, so the
     // strokes stay joined; met where they meet, a C0
@@ -7007,7 +7038,8 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   if (mv.reweighed && mv.contrasty) hairTips(rig, r, bs, base, out);
   if (mv.lighter) { carryFillets(); pinPoints(); stretchRounds(); hairRoots(); holdBrackets(); if (mv.apart) carryCuts(); }
   else if (mv.reweighed) { carryRounds(); if (linesMove(rig, mv)) straightRuns(); else if (mv.kv > 1 + REWEIGHED && fairFont(rig)) straightRuns(true); else if (reversed(mv)) straightRuns('rev'); }
-  if (mv.reweighed && mv.kv < 1 - REWEIGHED && !rig.serifed()) flatCrotches();
+  if (mv.reweighed && mv.kv < 1 - REWEIGHED && plainSans(rig)) flatCrotches();
+  if (mv.reweighed && mv.kv < 1 - REWEIGHED) joinNecks();
   if (mv.reweighed && (mv.kv > 1 + REWEIGHED || mv.kh > 1 + REWEIGHED)) cornersPast(mv.kv > 1 + REWEIGHED && fairFont(rig));
   // (a heavier weight's tab off a stem's side, a crossbar's end past an f's or a t's stem, goes out with that side as far
   // as it moved, keeping its own moves along the stem, so it reaches as far past the stem as before and isn't swallowed by
@@ -7166,11 +7198,42 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     return (p: P): P => { const u = ((p.x - C0.x) * cx + (p.y - C0.y) * cy) / l0, off = (p.x - P.x) * cy - (p.y - P.y) * cx, fl = Math.hypot(fx, fy) || 1; return { x: X0.x + (X1.x - X0.x) * u + off * fy / fl, y: X0.y + (X1.y - X0.y) * u - off * fx / fl }; };
   }
 
-  /** A heavier weight's serifs' brackets (rounds inside a corner, the outline turning away from the ink ROUND_INSIDE or
-      more in all, between an edge running level near a line, or an arm's (see `arms`), and a stem's upright side, as carryFillets reads them) no
-      longer than ROUND_CARRY times as far as those edges move carried whole, as far as where the edges, each moved its own
-      way, meet again moves: each point moved its own way, a round its stroke's side thickened past turned inside out, an
-      old style's brackets bites out of its stems' tops and feet. */
+  /** Contrast turned round, the uprights thinned: two strokes leaving a stem's side together, a K's arm and leg, came off it
+      as a V of ink whose tip lay inside the stem; where the stem, thinned, stands short of that tip as the strokes now are,
+      the two crotches either side, each met again where its stroke's edge carried on meets the stem's side, past one
+      another, are set on the stem's side either side of where the strokes' edges now meet, NECK of the way they stood
+      apart: met again past one another, a geometric K's and k's arm and leg parted from its hairline stem at Contrast 0. */
+  function joinNecks() {
+    const cs: { i: number; s: number; a: number }[] = [];
+    for (let i = 0; i < n; i++) {
+      const b = bs[i];
+      if (!b.corner || !concaveAt(b)) continue;
+      // (the side thinned the more is the stem's, the other the stroke's leaving it)
+      const p = md(i - 1), q = md(i + 1), s = moved[p] < moved[q] ? p : q, a = s === p ? q : p;
+      if (bs[s].straight && bs[a].straight && !bs[s].corner && !bs[a].corner && moved[s] < moved[a]) cs.push({ i, s, a });
+    }
+    const meet = (P: P, tx: number, ty: number, Q: P, ux: number, uy: number): P | null => {
+      const det = tx * uy - ty * ux;
+      if (Math.abs(det) < 0.2) return null;
+      const t = ((Q.x - P.x) * uy - (Q.y - P.y) * ux) / det;
+      return { x: P.x + tx * t, y: P.y + ty * t };
+    };
+    for (let u = 0; u < cs.length; u++) for (let v = u + 1; v < cs.length; v++) {
+      const A = cs[u], B = cs[v], sA = bs[A.s], sB = bs[B.s];
+      // (on one stem's side: alike, in line, near, their sides running away from one another with the strokes between)
+      if (sA.nx * sB.nx + sA.ny * sB.ny < 0.99 || Math.abs((bs[B.i].x - bs[A.i].x) * sA.nx + (bs[B.i].y - bs[A.i].y) * sA.ny) > 2) continue;
+      const dx = bs[B.i].x - bs[A.i].x, dy = bs[B.i].y - bs[A.i].y, d = Math.hypot(dx, dy);
+      if (d < 1 || d > NECK_FAR * (sA.w + sB.w)) continue;
+      const ux = dx / d, uy = dy / d;
+      if ((sA.x - bs[A.i].x) * ux + (sA.y - bs[A.i].y) * uy >= 0 || (sB.x - bs[B.i].x) * ux + (sB.y - bs[B.i].y) * uy <= 0) continue;
+      // (the strokes' edges' tip, in the design inside the stem, as moved outside its moved side)
+      const aA = bs[A.a], aB = bs[B.a], T0 = meet(aA, aA.tx, aA.ty, aB, aB.tx, aB.ty), T = meet(out[A.a], aA.tx, aA.ty, out[B.a], aB.tx, aB.ty);
+      if (!T0 || !T || (T0.x - sA.x) * sA.nx + (T0.y - sA.y) * sA.ny <= 0 || (T.x - out[A.s].x) * sA.nx + (T.y - out[A.s].y) * sA.ny > 0) continue;
+      const o = out[A.s], at = (T.x - o.x) * ux + (T.y - o.y) * uy, h = NECK * d / 2;
+      out[A.i] = { x: o.x + ux * (at - h), y: o.y + uy * (at - h) };
+      out[B.i] = { x: o.x + ux * (at + h), y: o.y + uy * (at + h) };
+    }
+  }
   /** Contrast turned round, in a font without serifs, a crotch cut flat on the letter's outside (a short edge, FLAT_CROTCH
       samples or fewer, between two corners turning away from the ink) drawn to where the edges either side of it now
       meet: a stem thinned to a
@@ -7219,6 +7282,11 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     }
   }
 
+  /** A heavier weight's serifs' brackets (rounds inside a corner, the outline turning away from the ink ROUND_INSIDE or
+      more in all, between an edge running level near a line, or an arm's (see `arms`), and a stem's upright side, as carryFillets reads them) no
+      longer than ROUND_CARRY times as far as those edges move carried whole, as far as where the edges, each moved its own
+      way, meet again moves: each point moved its own way, a round its stroke's side thickened past turned inside out, an
+      old style's brackets bites out of its stems' tops and feet. */
   function carryRounds() {
     const lineYs = rig.ctx.lower ? [0, rig.ctx.xh, rig.ctx.asc, rig.ctx.desc] : [0, rig.ctx.cap];
     // (and in a font of bracketed serifs and some contrast, a straight level edge anywhere, an arm's or a bar's: moved its

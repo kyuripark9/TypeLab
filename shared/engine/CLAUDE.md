@@ -454,11 +454,17 @@ A design with `freeFont` set draws its letters from a free font instead of build
    they now meet, smaller where it would pass either, a serif its stem thickened over slid out with the stem's side
    (a fat face's N's hairline stems swallowed their serifs), the snap's carry having left a serif's underside and its end
    in waves and nicks. A ball's share of its heavy strokes' moves (`heavyShare`) weighs each by the way it was asked to go
-   where some thicken and some thin (summed as they were, a fat face's r's ball jumped at Contrast 15). In a font without serifs, Contrast turned round thins each edge
-   by its stroke read whole too, eased along the outline (a two-storey a's insides, read thin with the joins' bumps
+   where some thicken and some thin (summed as they were, a fat face's r's ball jumped at Contrast 15). In a plain sans (`plainSans`: a plumb sans whose n's arch
+   leaves its stem on no ink trap; a monospace's arches and bowls, on thin necks, came off their hairline stems) and a
+   round pen's (`fontPen`: a comic's e's bar came off its bowl), Contrast turned round thins each edge by its stroke read
+   whole too, eased along the outline (a two-storey a's insides, read thin with the joins' bumps
    taken out, left it twice as heavy as an n), a plumb sans's curves' moves are eased as they are heavier, and a crotch
    cut flat is drawn to where the edges either side of it now meet (`flatCrotches`: a ledge where a humanist n's, m's,
-   h's and r's hairline stems meet their arches). These were tuned on every
+   h's and r's hairline stems meet their arches). In any font so turned, a corner met again against the way both its
+   edges went goes as they went instead (an industrial h's crotch over its arch, read off its ink trap's short curves,
+   went fifty units into the arch and cut it off), and two crotches where strokes leave a stem's side together, now short
+   of the thinned stem, are set on its side either side of where the strokes' edges meet, `NECK` of the way apart they
+   stood (`joinNecks`: a geometric K's arm and leg parted from its hairline stem). These were tuned on every
    card at the Weight page's ends (Weight,
    Verticals, Horizontals and Contrast at 0 and 100), read with weights.ts's `look` on each letter's ink united. A pixel font
    (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
