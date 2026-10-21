@@ -467,7 +467,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    counter); and a level edge by a line that runs across its stroke (`lineCuts`, `CUT_WAY`) stays as an end, a straight
    side running into it stopped at the corner on the line; an edge growing into a V of paper goes no further than the
    stroke across's other side, read slantwise (`veeRooms`), where it gets there only (a Didone's M's thick stroke grew
-   past its hairline stem into a flag). Heavier, its serifs thicken as its bars do (`min(k, kh)`: by the root, read across
+   past its hairline stem into a flag); an edge across paper from a side that grows into it less (a hairline's, a
+   serif's beak: `facingOf`, the sample its gap meets, read once a rig) takes what share of it that side leaves, both
+   shares between them (held to its own, as though the beak grew as much, a T's stem's sides under its arms stood in a
+   step). Heavier, its serifs thicken as its bars do (`min(k, kh)`: by the root, read across
    into the stem and weighed as it, a Didone's feet's brackets bulged), a foot cupped on its line is read by each side's
    own piece where it touches the line in two (`serifReach` read `near`: a K's leg's inner serif, read off the outer tip,
    was none), no serif is read on a hairline's long steep straight side (`SERIF_STEEP`: a w's middle stroke's, by the thick

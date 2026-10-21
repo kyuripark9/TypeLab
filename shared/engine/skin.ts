@@ -860,6 +860,29 @@ function tipAhead(rig: SkinRig, bs: Bone[], s0: number, e: number, sg: number, a
   return t;
 }
 const TIPS_AHEAD = new WeakMap<Bone[], Map<number, number>>();
+/** Each sample's own ring's sample across the paper before it, where its outward normal, followed its gap, meets ink
+    again, facing back (-1 outside the letter, or where that ink is another ring's): read once a rig. */
+function facingOf(bs: Bone[]): Int32Array {
+  let got = FACING.get(bs);
+  if (got) return got;
+  const n = bs.length, C = 4 * STEP, cell = new Map<number, number[]>(), key = (x: number, y: number) => Math.floor(x / C) * 100003 + Math.floor(y / C);
+  bs.forEach((b, i) => { const k = key(b.x, b.y); (cell.get(k) ?? cell.set(k, []).get(k)!).push(i); });
+  got = new Int32Array(n).fill(-1);
+  for (let i = 0; i < n; i++) {
+    const b = bs[i];
+    if (!isFinite(b.gap)) continue;
+    const hx = b.x - b.nx * b.gap, hy = b.y - b.ny * b.gap, cx = Math.floor(hx / C), cy = Math.floor(hy / C);
+    let best = 2 * STEP, at = -1;
+    for (let u = cx - 1; u <= cx + 1; u++) for (let v = cy - 1; v <= cy + 1; v++) for (const j of cell.get(u * 100003 + v) ?? []) {
+      const q = bs[j], d = Math.hypot(q.x - hx, q.y - hy);
+      if (d < best && q.nx * b.nx + q.ny * b.ny < 0) { best = d; at = j; }
+    }
+    got[i] = at;
+  }
+  FACING.set(bs, got);
+  return got;
+}
+const FACING = new WeakMap<Bone[], Int32Array>();
 /** How steep (its normals' level share, at most), how tall and how thin at most, as shares of the capitals' height, a
     straight segment runs for no serif to be read on it (serifLinedRig). */
 const SERIF_STEEP = 0.6, SERIF_STEEP_LONG = 0.15, SERIF_STEEP_THIN = 0.06;
@@ -6039,7 +6062,12 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // (and in a heavier plumb sans, no further than leaves VEE_SLOT of a stem of paper between: grown freely, a grotesque's
   // M's counters, its stems and diagonals thickened into each other, were gone at Verticals 100, the letter a block)
   const slot = rig && plumbHeavy(rig, mv) ? VEE_SLOT * rig.ref().stem : 0;
-  const room = (b: Bone, i: number) => (b.dot ? dotRoom : vee?.[i] ? (capped?.[i] ? vr![i] : slot && isFinite(b.gap) ? Math.max(0, (b.gap - slot) / 2) : Infinity) : (cv && cv[i] >= 0 ? openOf(bs[cv[i]].gap, bs[cv[i]].w) : openOf(b.gap, b.w)));
+  // (and a contrasty font's heavier weight's edge across paper from a side growing less into it, a hairline's, a serif's
+  // beak, takes what share of it that side leaves (facingOf): held to its own share, as though the beak grew as much, a
+  // Didone's T's stem's sides under its arms stood in a step 37 units deep at Verticals 100)
+  const face = rig && mv.contrasty && mv.kv > 1 + REWEIGHED ? facingOf(bs) : null;
+  const shared = (b: Bone, i: number) => { const s = openOf(b.gap, b.w), j = face ? face[i] : -1; return j < 0 ? s : 2 * s - Math.min(s, Math.max(0, raw[j])); };
+  const room = (b: Bone, i: number) => (b.dot ? dotRoom : vee?.[i] ? (capped?.[i] ? vr![i] : slot && isFinite(b.gap) ? Math.max(0, (b.gap - slot) / 2) : Infinity) : (cv && cv[i] >= 0 ? openOf(bs[cv[i]].gap, bs[cv[i]].w) : shared(b, i)));
   // (and a heavier weight's edge goes out no further than SLOPE_HELD more than the edge beside it, by the unit along the
   // outline: each moved by its own stroke as read there and held to its own room, a hairline read thinner each sample to its
   // tip, a side across from ink reading its room to it and the next past it none, went out by steps, its outline ragged: a
