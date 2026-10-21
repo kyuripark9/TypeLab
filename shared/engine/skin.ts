@@ -3722,6 +3722,10 @@ function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
   return { gy, gyDot, gx, top, top1, sx, kv, kh, ks, kd, past, apart, lighter, reweighed, weighs: weighsOf(rig, kv, kh, past < 1 ? m1.s / m0.s : kv, !(reweighed && kv > 1 + REWEIGHED)), keeps, half, contrasty: m0.hT < CONTRASTY * m0.v };
 }
 
+/** The uprights thinned apart from the bars by Verticals alone, Weight no lighter than the design's (MoveMap.apart; past is
+    then the uprights' share of the stems Weight draws): not a family's lighter weight, drawn at Weight 0 with its Verticals
+    thinned on to reach its stems (family.ts), which stays as it was drawn. */
+const vAlone = (mv: MoveMap) => mv.apart > 0 && mv.kv >= 0.999 * mv.past;
 /** Contrast turned round on a contrasty design (a fat face's, a Didone's): its hairlines thickened and its stems thinned,
     each by REWEIGHED or more. */
 const reversed = (mv: MoveMap) => mv.reweighed && mv.contrasty && mv.kv < 1 - REWEIGHED && mv.kh > 1 + REWEIGHED;
@@ -3764,6 +3768,24 @@ const ARCH_STEEP = Math.cos(40 * Math.PI / 180), ARCH_NECK = 0.45, ARCH_REACH = 
 /** How far along the outline, as a share of the design's stems, a lighter weight's moves are run smooth as its uprights thin
     apart from its bars (edgeMoves). */
 const APART_EASE = 0.35;
+/** A ring's runs of straight upright samples (within LINE_UPRIGHT of plumb, the cosine), UPRIGHT_RUN or more in a row along
+    one segment, no corner among them: [first, past last), past last over the ring's end where it runs on round. */
+function uprightRuns(bs: Bone[]): [number, number][] {
+  const n = bs.length, on = (b: Bone) => !!b.straight && !b.corner && Math.abs(b.nx) > LINE_UPRIGHT, runs: [number, number][] = [];
+  let s0 = 0;
+  while (s0 < n && on(bs[s0]) && on(bs[(s0 - 1 + n) % n]) && bs[(s0 - 1 + n) % n].seg === bs[s0].seg) s0++;
+  if (s0 >= n) return [];
+  for (let k = 0; k < n; ) {
+    const i = (s0 + k) % n;
+    if (!on(bs[i])) { k++; continue; }
+    let e = k + 1;
+    while (e < n && on(bs[(s0 + e) % n]) && bs[(s0 + e) % n].seg === bs[i].seg) e++;
+    if (e - k >= UPRIGHT_RUN) runs.push([s0 + k, s0 + e]);
+    k = e;
+  }
+  return runs;
+}
+const UPRIGHT_RUN = 8;
 /** How much further out than the design's a stem's side and a curve may meet along both, the round between them met
     again by no crotch (stretchRounds), for the round to be drawn again: wholly up to the first, less and less to none at
     the second; and how much thinner than the stem the curve must be. */
@@ -5778,14 +5800,24 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     // it back: a soft slab's h's ascender's top, read on past its head serif as its stem's side, went down with the stem's
     // thinning and its corner with it, and the heights, lifting it back, stood a spike over the stem and an ear past it.
     // Not one along a stroke lying on the line, a fat face's 2's foot, which thins as its thickness says)
-    if (mv.apart > 0) bs.forEach((b, i) => { const j = rig.thin?.near[r][i] ?? -1; if (b.onLine && !b.corner && Math.abs(b.ny) > 0.97 && j >= 0 && Math.abs(rig.thin!.ty[j]) > LINE_UPRIGHT) delta[i] = 0; });
+    // (or along the ring's top or foot, a line or not: a soft slab's l's top, over its ascenders' line, went down at its
+    // right end with its stem, an ear past it)
+    const yTop = Math.max(...bs.map(b => b.y)), yFoot = Math.min(...bs.map(b => b.y)), atEdge = (b: Bone) => b.onLine || (vAlone(mv) && (b.y > yTop - 1 || b.y < yFoot + 1));
+    if (mv.apart > 0) bs.forEach((b, i) => { const j = rig.thin?.near[r][i] ?? -1; if (atEdge(b) && !b.corner && Math.abs(b.ny) > 0.97 && j >= 0 && Math.abs(rig.thin!.ty[j]) > LINE_UPRIGHT) delta[i] = 0; });
+    // (and a straight upright side, so, moved as one by the most its samples' moves agree on, the middle one, where they
+    // thin it: one by one, those by a flag read across into its stroke, which the bars keep, a soft slab's j's and l's stems'
+    // tops stood out full width over 55 units, a step and an ear)
+    if (vAlone(mv) && !mv.contrasty) for (const [a, b] of uprightRuns(bs)) {
+      const ds = Array.from({ length: b - a }, (_, k) => delta[(a + k) % bs.length]).sort((x, y) => x - y), mid = ds[ds.length >> 1];
+      if (mid < 0) for (let k = a; k < b; k++) delta[k % bs.length] = mid;
+    }
     // (a level foot's samples as they reach it: eased, a leaning leg's bracket's, its rays running 40 to 100 units in
     // within a few samples, stopped short of it, a wedge under the leg, Almanac's K's)
     // (and, its uprights thinned apart from the bars, over APART_EASE of its stems as far as they so thin: read stroke by
     // stroke, a sample by a join took its stem's thinning and the next its arch's, a knee under a typewriter's h's, n's and
     // r's arches at Verticals 0, and a blackletter's W, G and R left crumbs of ink apart; eased further, its K's, W's and o's
     // joins parted, mended, a third slower)
-    const wide = mv.apart > 0 && !mv.contrasty ? Math.max(3, Math.round(APART_EASE * rig.ref().stem * mv.apart / STEP)) : 3;
+    const wide = vAlone(mv) && !mv.contrasty ? Math.max(3, Math.round(APART_EASE * rig.ref().stem * mv.apart / STEP)) : 3;
     const moved = bs.map((b, i) => b.corner || footed[i] ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && end(bs[j]) === end(b), wide));
     return { dotRoom: bs[0]?.dot ? Math.min(...bs.map(b => b.gap)) * OPEN : Infinity, k0, moved, rooms: null as number[] | null, slide: null as P[] | null, slid: null as number[] | null, crotches, pins, hug, hugY, fine, cuts, orphans: [] as EndRun[] };
   }

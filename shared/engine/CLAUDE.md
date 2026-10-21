@@ -440,7 +440,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    N's diagonal's foot under the baseline). As the uprights thin apart (`apart`), a level edge on a line stays on it, and
    joins drawn again round no thicker than their thinnest stroke (a soft slab's h's top's spike, a typewriter's beads at
    every bowl's and arch's join at Verticals 0), and its moves are run smooth along the outline over `APART_EASE` of its
-   stems (read stroke by stroke, a typewriter's arches knee'd where they leave their stems).
+   stems (read stroke by stroke, a typewriter's arches knee'd where they leave their stems). By Verticals alone
+   (`vAlone`: Weight no lighter, not a family's lighter weight), a straight upright side moves as one by its samples'
+   middle move (`uprightRuns`: a soft slab's j's top and its stems by their feet stood full width) and a level edge along
+   a ring's top or foot stays as one on a line does (a soft slab's l's top's ear).
    Any reweighed letter's point flung out alone into the paper, far off the
    line through the points either side of it and near no tip the design draws, is taken out before the outline is tidied
    (`unflung`: a comic's e's bar's end's corner, a knot), and its counters the design draws are kept however small they
