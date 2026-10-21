@@ -2734,7 +2734,9 @@ interface Way { out: Node[][]; how: 'moved' | 'mended' | 'strokes' | 'round'; m1
     `draws`, so drawn (else, mended, as wholly mended, the way to draw it handed back for movedPlain to draw it so). */
 function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true, draws = true): Way {
   const first = movedOnce(rig, m0, m1), as = (out: Node[][], how: Way['how'] = 'moved', joinsAs?: 'full' | 'none', m = m1): Way => ({ out, how, m1: m, joinsAs });
-  if (!(m1.s < m0.s * 0.999 && m1.v < m0.v) || whole(rig, first, true)) return as(first.out);
+  // (a broad pen's uprights thinned past its Weight read whole only as wound alike, whole's `wound`)
+  const wound = nibFont(rig) && moveMap(rig, m0, m1).past < 1;
+  if (!(m1.s < m0.s * 0.999 && m1.v < m0.v) || whole(rig, first, true, wound)) return as(first.out);
   // (a letter its crotches met again break, an arch's or a bowl's (archCrotches), moved without them where it comes out
   // whole so, its rounds kept on their lines still: a humanist's b's foot, its bowl's end met again up its stem at Thin,
   // its counter opened)
@@ -2742,7 +2744,7 @@ function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true
     ARCH_OFF = true;
     let plain;
     try { plain = movedOnce(rig, m0, m1); } finally { ARCH_OFF = false; }
-    if (whole(rig, plain, true)) return as(plain.out);
+    if (whole(rig, plain, true, wound)) return as(plain.out);
   }
   // (a join drawn again only part of the way round may part a letter whole without it: drawn again whole there, or,
   // that breaking it too, not at all)
@@ -2750,10 +2752,10 @@ function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true
   // s, its joins not drawn again, held 30% more ink for a step of Weight between two drawn the eased way)
   if (first.eased) {
     const none = movedOnce(rig, m0, m1, 'moved', false, undefined, 'none');
-    if (whole(rig, none, true)) {
+    if (whole(rig, none, true, wound)) {
       const full = movedOnce(rig, m0, m1, 'moved', false, undefined, 'full'), e = reachOf(first.out).ink, off = (w: { out: Node[][] }) => Math.abs(reachOf(w.out).ink - e);
-      const [w, j] = whole(rig, full) && off(full) <= off(none) ? [full, 'full' as const] : [none, 'none' as const];
-      if (off(w) <= EASED_INK * e || !whole(rig, movedOnce(rig, m0, m1, 'mended'))) return as(w.out, 'moved', j);
+      const [w, j] = whole(rig, full, false, wound) && off(full) <= off(none) ? [full, 'full' as const] : [none, 'none' as const];
+      if (off(w) <= EASED_INK * e || !whole(rig, movedOnce(rig, m0, m1, 'mended'), false, wound)) return as(w.out, 'moved', j);
     }
   }
   // a lighter weight that breaks the letter (a stroke parted from the one it joins, or lost, a counter run out into the
@@ -2765,7 +2767,7 @@ function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true
   // (its mending strokes growing in from nothing near a weight where it comes out whole without them (mendFrom): mended
   // all at once, a letter grew the strokes laid over it at a jump, a Jotter's M 17 units wider, a Chancery's n 26)
   const mended = movedOnce(rig, m0, m1, 'mended');
-  if (whole(rig, mended)) {
+  if (whole(rig, mended, false, wound)) {
     // (a fat face's not grown in from TRIM_FROM of its stems down, where its joins are trimmed to its strokes (fatTrim),
     // and only part of the way on to TRIM_TO: grown part of the way, its mend's strokes stopped short in ragged pieces, a
     // d's bowl's foot a saw's teeth at Light, a Q's tail apart in three at Thin)
@@ -2784,19 +2786,19 @@ function movedWay(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true
     return way;
   }
   const drawn = movedOnce(rig, m0, m1, 'strokes');
-  if (whole(rig, drawn)) return as(drawn.out, 'strokes');
+  if (whole(rig, drawn, false, wound)) return as(drawn.out, 'strokes');
   // (or its skeleton read again, its strokes ending round kept: a heavy w, whose feet and middle peak are short beside
   // the rounds where its strokes meet, which the skeleton otherwise takes for a square end's corners and leaves out)
   const R = roundRig(rig);
   if (R) {
     const again = movedOnce(R, m0, m1);
-    if (whole(R, again)) return as(again.out, 'round');
+    if (whole(R, again, false, wound)) return as(again.out, 'round');
   }
   const at = (f: number) => Object.fromEntries(MEASURES.map(k => [k, m0[k] + (m1[k] - m0[k]) * f])) as unknown as SkinMeasures;
   let lo = 0, best: Way | null = null;
   for (let hi = 1, step = 0; step < 3; step++) {
     const f = (lo + hi) / 2, tried = movedOnce(rig, m0, at(f));
-    if (whole(rig, tried)) { lo = f; best = as(tried.out, 'moved', undefined, at(f)); } else hi = f;
+    if (whole(rig, tried, false, wound)) { lo = f; best = as(tried.out, 'moved', undefined, at(f)); } else hi = f;
   }
   return best ?? as(first.out);
 }
@@ -3159,7 +3161,7 @@ const FAT_STEM = 0.19, TRIM_ROUND = 1.3, TRIM_FROM = 0.45, TRIM_TO = 0.6, TRIM_A
     what the stroke thinned away; a stroke lost is longer). And `unmended`, moved as it is, it has dropped no piece of ink
     more than a speck as a crumb: a blackletter H's spurs parted from its stems and lost, read whole, the letter went
     unmended for a hair of the Weight between mended ones, 72 units narrower. */
-function whole(rig: SkinRig, { out, middles, lost }: { out: Node[][]; middles: (P & { s: number; y0: number })[][]; lost?: number }, unmended = false) {
+function whole(rig: SkinRig, { out, middles, lost }: { out: Node[][]; middles: (P & { s: number; y0: number })[][]; lost?: number }, unmended = false, wound = false) {
   if (unmended && (lost ?? 0) > (rig.ctx.cap * SPECK) ** 2) return false;
   if (middles.length) {
     const polys = out.map(c => c.flatMap((n, i) => Array.from({ length: 6 }, (_, k) => bez(n, c[(i + 1) % c.length], k / 6))));
@@ -3186,7 +3188,10 @@ function whole(rig: SkinRig, { out, middles, lost }: { out: Node[][]; middles: (
     }
     return [pos, neg];
   };
-  const [p0, n0] = count(rig.contours), [p1, n1] = count(out), as = (p: number, n: number) => (p === p1 && n === n1) || (p === n1 && n === p1);
+  // (as many the other way round only where the outline is wound the other way, if `wound`: a broad pen's W at Verticals
+  // 0, its foot's stroke parted, two inked outlines and a counter, was read as the design's one and two)
+  const outer = (cs: Node[][]) => Math.sign(area(cs.reduce((a, c) => (Math.abs(area(c)) > Math.abs(area(a)) ? c : a), cs[0] ?? []))), turned = wound && outer(rig.contours) !== outer(out);
+  const [p0, n0] = count(rig.contours), [p1, n1] = count(out), as = (p: number, n: number) => (!wound || !turned ? p === p1 && n === n1 : false) || (!wound || turned ? p === n1 && n === p1 : false);
   // (or as many with those of its outlines touching another of theirs taken as one (touching): a script p's entry
   // stroke, its tip on its stem's side, apart only as the stem thins away from it, and joined to it again by the strokes
   // drawn again that mend the letter, which run over the hair between: mended, the p was read broken down to Thin, and
@@ -3340,8 +3345,10 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // as much more or less round a curve as the stems' and bars' do apart, held back here and there, the outline came out
   // in lumps and knobs, a comic's b's and o's counters and its I's bars' ends at Weight 100. The moves, not the outline:
   // run smooth, a stroke's end turning toward the stroke across a narrow opening ran into it. Its dots kept clear again:
-  // a question mark's hook's foot, run smooth, came down onto its dot)
-  if (mv.reweighed && mv.kv > 1 + REWEIGHED && fontPen(rig.font)) { const sg = EVEN_SMOOTH * (mv.kv - 1 - REWEIGHED) * rig.ref().stem / 2; rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg))); clearDots(rig, rings); }
+  // a question mark's hook's foot, run smooth, came down onto its dot. A broad pen's (nibFont) too, after its moves are
+  // eased (edgeMoves): a blackletter's stems' sides, held here and there by the room across from them, stood in knobs at
+  // Verticals 100)
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && (fontPen(rig.font) || nibFont(rig))) { const sg = EVEN_SMOOTH * (mv.kv - 1 - REWEIGHED) * rig.ref().stem / 2; rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg))); clearDots(rig, rings); }
   // (and a script's (leans), as far as its strokes thickened, each point's move run smooth along the outline by
   // LEANS_SMOOTH of that, and no further out into a counter than it was or than its room allows (openOf): each sample
   // read across its own stroke as a thick stroke tapers to a hairline, or put back on a line by the heights or not, a
@@ -5992,18 +5999,25 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // stroke read thicker or thinner sample by sample as it curves into a join went out by as much more or less, and an old
   // style's bowls and counters came out wavy at Weight 100, its stems three times as thick, a d's counter's side and an
   // n's shoulder an S. Not by or onto a sample moved as its own (heldOwn), nor a serif slid with its stem: eased into
-  // them, its stems bowed out between their serifs)
-  if (rig && held && fairFont(rig)) {
+  // them, its stems bowed out between their serifs). A broad pen's (nibFont) over NIB_REACH times as far, by up to NIB_SHARE
+  // of each: a blackletter's strokes, read thicker and thinner sample by sample as the pen's stroke swells and thins round
+  // its turns, went out by as much more or less, its C's and O's outsides and its stems' sides in waves at Weight 100
+  if (rig && held && (fairFont(rig) || nibFont(rig))) {
+    const [reachBy, share] = fairFont(rig) ? [FAIR_REACH, FAIR_SHARE] : [NIB_REACH, NIB_SHARE];
     // (each sample's kind, the samples eased together alike: -1 not eased)
-    const kind = bs.map((b, j) => (b.corner || own![j] || dxOf(b) || head[j] || bridge[j] || rootNear[j] ? -1 : (endAt(j) ? 1 : 0) | (bare(j) ? 2 : 0) | (onLine(b) ? 4 : 0))), m0 = moved;
+    // (a broad pen's sample read as a crotch for turning NIB_KINK degrees or less, a kink in a counter's side, eased with
+    // the rest: left as moved, the side eased either side of it, it stood a knob into a 6's bowl at Verticals 100, the
+    // counter pinched in two)
+    const kink = (j: number) => { const p = bs[(j - 1 + n) % n], q = bs[(j + 1) % n]; return !fairFont(rig) && !bs[j].corner && !bs[j].dot && !endAt(j) && Math.abs(Math.atan2(p.tx * q.ty - p.ty * q.tx, p.tx * q.tx + p.ty * q.ty)) * 180 / Math.PI <= NIB_KINK; };
+    const kind = bs.map((b, j) => (b.corner || (own![j] && !kink(j)) || dxOf(b) || head[j] || bridge[j] || rootNear[j] ? -1 : (endAt(j) ? 1 : 0) | (bare(j) ? 2 : 0) | (onLine(b) ? 4 : 0))), m0 = moved;
     moved = bs.map((b, i) => {
       if (kind[i] < 0) return m0[i];
-      const reach = Math.max(3, Math.round(FAIR_REACH * Math.abs(m0[i]) / STEP)), w = bell(reach);
+      const reach = Math.max(3, Math.round(reachBy * Math.abs(m0[i]) / STEP)), w = bell(reach);
       let sum = m0[i], ws = 1, edge = Infinity;
       for (const dir of [-1, 1]) for (let k = 1; k <= reach; k++) { const j = (((i + dir * k) % n) + n) % n; if (kind[j] !== kind[i]) { edge = Math.min(edge, k); break; } sum += m0[j] * w[k]; ws += w[k]; }
       // (by no more and no more within FAIR_FADE samples of where the samples eased together end, eased by none beside
       // it: eased right up to it, beside samples not eased, an old style's arches' tops, read part as serifs, stepped)
-      const e = Math.min(1, (edge - 1) / FAIR_FADE), c0 = Math.min(m0[i] + FAIR_SHARE * Math.abs(m0[i]), Math.max(m0[i] - FAIR_SHARE * Math.abs(m0[i]), sum / ws)), c = m0[i] + (c0 - m0[i]) * e;
+      const e = fairFont(rig) ? Math.min(1, (edge - 1) / FAIR_FADE) : 1, c0 = Math.min(m0[i] + share * Math.abs(m0[i]), Math.max(m0[i] - share * Math.abs(m0[i]), sum / ws)), c = m0[i] + (c0 - m0[i]) * e;
       return c > 0 ? Math.min(c, Math.max(m0[i], room(b, i))) : c;
     });
   }
@@ -6536,6 +6550,14 @@ const NECK = 0.3, NECK_FAR = 1.5;
 /** How thick, as a share of its hairline, a fair font's serif's level edge is read at most, and how level (the normal's
     upright share) such an edge faces (edgeMoves). */
 const SERIF_TOP = 0.5, SERIF_LEVEL = 0.9, SERIF_LEVEL_RAMP = 0.05, SERIF_THICK = [1, 1.5];
+/** A broad pen's font: no serifs, its hairlines finer than EVEN_HAIR of its stems (a blackletter's), whose heavier weight's
+    moves are eased over NIB_REACH times as far along its outline as each moves, by no more than NIB_SHARE of each
+    (edgeMoves), and run smooth as a round pen's are (movedOnce, evenedMoves). */
+const nibFont = (rig: SkinRig) => !rig.serifed() && !evenFont(rig);
+const NIB_REACH = 4, NIB_SHARE = 0.6, NIB_KINK = 20;
+/** The least share of its depth or size, as moved, a broad pen's end or ball is made to keep clear of the paper before it
+    (moveRing). */
+const END_LEAST = 0.5;
 /** How many samples past a serif's run (and SERIF_NEAR) its stem's upright straight side is looked for (edgeMoves' sideMove). */
 const SIDE_LOOK = 12;
 
@@ -7189,7 +7211,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   }
   // (how far this outline's heavy strokes thicken or thin as asked, each side by its own reading of its stroke: a
   // heavy face's sides, read with their joins taken out, often read thinner than they are and move less)
-  const heavy = ends.some(e => e.ball) ? heavyShare() : 1, shut = mv.reweighed && mv.kv > 1 + REWEIGHED && rig.leans();
+  const heavy = ends.some(e => e.ball) ? heavyShare() : 1, nib = nibFont(rig), shut = mv.reweighed && mv.kv > 1 + REWEIGHED && (rig.leans() || nib);
   // a stroke's end goes with the two sides it joins, as they now stand: turned, moved and made as much larger or
   // smaller as the stroke is now thicker or thinner across them, so a cap stays as wide as its stroke and a round
   // end round (the end's own points, read off the skeleton where it forks out to its corners, would part). A ball,
@@ -7255,15 +7277,26 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       out[md(i)] = ball ? { x: qx + (hx1 + (p.x - hx) * k - qx) * ball, y: qy + (hy1 + (p.y - hy) * k - qy) * ball } : { x: qx, y: qy };
       // (a script's end, made larger, out into the paper it faces no further than OPEN_HEAVY of it, as a side grows into a
       // counter: a hook's ball, Serenade's a's, ran into the stem's top it curls toward, its bowl shut)
-      if (shut && isFinite(p.gap)) { const k = md(i), o = -((out[k].x - base[k].x) * p.nx + (out[k].y - base[k].y) * p.ny) - openOf(p.gap, p.w); if (o > 0) out[k] = { x: out[k].x + p.nx * o, y: out[k].y + p.ny * o }; }
+      if (shut && !nib && isFinite(p.gap)) { const k = md(i), o = -((out[k].x - base[k].x) * p.nx + (out[k].y - base[k].y) * p.ny) - openOf(p.gap, p.w); if (o > 0) out[k] = { x: out[k].x + p.nx * o, y: out[k].y + p.ny * o }; }
       // (and no further than OPEN of the paper the way it goes, read across the design: slid along its side as the end
       // grew, Serenade's a's hook's tip ran down into the stem's top below it, the narrow way into its bowl, shut)
-      if (shut && isFinite(p.gap)) {
+      if (shut && !nib && isFinite(p.gap)) {
         const k = md(i), dx = out[k].x - base[k].x, dy = out[k].y - base[k].y, d = Math.hypot(dx, dy);
         // (held fully from twice as square out on, not at all slid along its edge, so it eases in as the end turns out)
         const w = d > 1 ? Math.min(1, Math.max(0, (-(dx * p.nx + dy * p.ny) / d - SHUT_INTO) / SHUT_INTO)) : 0;
         if (w > 0) { const f = 1 - w * (1 - Math.min(1, OPEN * paperAlong(rig, p, dx / d, dy / d) / d)); out[k] = { x: base[k].x + dx * f, y: base[k].y + dy * f }; }
       }
+    }
+    // (a broad pen's end made only so much deeper, or its ball larger round where it hangs, as leaves each of its points
+    // out into the paper before it no further than a side grows into it (openOf): cut back point by point, a 6's hook's end,
+    // run toward its bowl at Verticals 100, stood a flat bite out of its round; made larger whole, it ran into the bowl,
+    // the notch between shut into a counter)
+    if (shut && nib) {
+      const at = (k: number, f: number): P => { if (ball) return { x: hx1 + (out[k].x - hx1) * f, y: hy1 + (out[k].y - hy1) * f }; const p = bs[k], s = ((p.x - A.x) * ux + (p.y - A.y) * uy) / l2, cx = A1.x + s * vx, cy = A1.y + s * vy; return { x: cx + (out[k].x - cx) * f, y: cy + (out[k].y - cy) * f }; };
+      const over = (f: number) => { for (let i = a + 1; i < b; i++) { const k = md(i), p = bs[k]; if (!isFinite(p.gap)) continue; const q = at(k, f); if (-((q.x - base[k].x) * p.nx + (q.y - base[k].y) * p.ny) > openOf(p.gap, p.w)) return true; } return false; };
+      let f = 1;
+      while (f > END_LEAST && over(f)) f -= 0.05;
+      if (f < 1) for (let i = a + 1; i < b; i++) out[md(i)] = at(md(i), f);
     }
     // (and a round pen's (fontPen) each of its points no further out into the paper before it than OPEN_HEAVY of that
     // room, as a side's: made larger whole, a round end swells every way, and a comic's s's and G's ends, as its strokes

@@ -439,6 +439,13 @@ A design with `freeFont` set draws its letters from a free font instead of build
    get (`tidyRings`' `held`, down to `HOLE_LEAST` of a speck, the largest in each; a small one crossing itself loses the
    loop wound against it, `untangle`'s `least`): a Chancery's capitals' flourishes' loops filled as specks from Weight
    halfway up.
+   A broad pen's (`nibFont`: no serifs, hairlines under `EVEN_HAIR` of its
+   stems, a blackletter's) moves are eased as a fair font's over `NIB_REACH`, by up to `NIB_SHARE`, crotches turning
+   `NIB_KINK` or less eased with the rest (a kink in a 6's bowl stood a knob into it), then run smooth by `evenedMoves`;
+   its ends are made only so much deeper, its balls only so much larger,
+   as keeps each point out of the paper ahead by what `openOf` allows (`END_LEAST`: a 6's and a 9's hooks ran into their bowls);
+   and its letter thinned with its uprights past its Weight is read whole only with its outlines wound alike
+   (`whole`'s `wound`: a W at Verticals 0, its foot parted, passed as the design's one outline and two counters).
    In a contrasty font with serifs (`MoveMap.contrasty`: bars a quarter of its stems or thinner) the letter is
    rigged again with its serifs read off the ink nearest the baseline and the capitals' line (`serifLinedRig`: a Didone's
    cupped serifs touch their lines in a hairline, its capitals 10 units under theirs), a cupped serif's tip joined to its
