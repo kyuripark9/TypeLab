@@ -377,7 +377,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    (`footHeights`: a comic's N's stems at Horizontals 100) and its dots kept clear (`clearDots`); and in a sans with even
    strokes, as anything thickens (`linesMove`), sides by a slanted end read past it (`endSides`), straight edges read and
    laid on one line each, meeting where their lines cross (`sideWs`, `straightRuns`), and level ends kept on their lines
-   (`flatEnd`). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
+   (`flatEnd`), a round running on from an edge on a line held to the line (`ROUND_ON_LINE`: a D's bowl's top), and the
+   edges the heights' lift puts back on a line carry no corner turning out down an upright side (pinned to the line) nor
+   a round past the line (a sans B's stem's top and foot, its bowls' tops); a sans drawn with a rule (`fontPlumb`) eases
+   each curve's move along it as far as it moves (a b's counter's side by its stem). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
    moves are eased again over `FAIR_REACH` times as far as each moves, by no more than `FAIR_SHARE` of it (an old style's
    bowls came out wavy at Weight 100), an arm's or a bar's round under it is carried whole as a bracket is
    (`carryRounds`' `arms`), and an edge's points left past an inside corner are brought back to it (`cornersPast`: a notch
