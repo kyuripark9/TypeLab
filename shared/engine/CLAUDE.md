@@ -403,7 +403,14 @@ A design with `freeFont` set draws its letters from a free font instead of build
    and x at Contrast 0 came apart). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
    Gumdrop's) ends aren't held by `heldBySlope`, each end's points go no further into the paper than `OPEN` of it, every
    point's move is run smooth along the outline by as far as its strokes thickened (`evenedMoves`, `EVEN_SMOOTH`) and
-   short spikes left are taken out (`unspiked`).
+   short spikes left are taken out (`unspiked`). An end a stem's side has grown out past is cut where its outline crosses
+   that side, the corner put there (`endsPast`: a typewriter's G's bar's round end over its spur at Verticals 100). In an
+   even slab (`evenSlab`: a typewriter's, a soft slab's) a heavier weight's serifs thicken less than their stems by the
+   stems' share alone, by the bars' as bars do (a Y's head serifs stood a step thinner inside its arms at Horizontals
+   100), its crotches grow freely as its bars thicken too (`veesGrow`), and `SIDE_PAST` holds its sides to their lines (an
+   N's diagonal's foot under the baseline). As the uprights thin apart (`apart`), a level edge on a line stays on it, and
+   joins drawn again round no thicker than their thinnest stroke (a soft slab's h's top's spike, a typewriter's beads at
+   every bowl's and arch's join at Verticals 0).
    In a contrasty font with serifs (`MoveMap.contrasty`: bars a quarter of its stems or thinner) the letter is
    rigged again with its serifs read off the ink nearest the baseline and the capitals' line (`serifLinedRig`: a Didone's
    cupped serifs touch their lines in a hairline, its capitals 10 units under theirs), a cupped serif's tip joined to its

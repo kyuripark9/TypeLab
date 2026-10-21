@@ -4731,8 +4731,11 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: 
   // (where `drawn`, the round where strokes join no thicker than the thinnest of them, a bar's, thicker than the stem it
   // meets, would stand out either side of the stem; but as thick as a stroke running on through the join, the thinner
   // of its two sides, which, ending square there, would leave a notch either side)
+  // (and so, moved, where the uprights thin apart from the bars (Verticals 0, MoveMap.apart): a typewriter's h's arch, as
+  // thick as before, its round drawn again where it joins the hairline stem, stood out past the stem's other side, a
+  // bead at every join of a bowl or an arch with its stem)
   const atJoin = new Map<number, number>();
-  if (drawn) {
+  if (drawn || (moved && mv.apart > 0)) {
     const legs = new Map<number, { R: number; x: number; y: number }[]>();
     let j = 0;
     for (const E of sk.edges) {
@@ -5360,13 +5363,20 @@ function weighsOf(rig: SkinRig, kv: number, kh: number, kdot = kv, lighter = tru
   // (its hairlines thicken as the engine's bars do, so its own contrast is kept as a share: a Didone with less contrast
   // is still a Didone, not a monoline face at its stems' weight)
   const kHair = kh, contrasty = Math.min(1, Math.max(0, (0.8 - tf) / 0.4));
+  const slab = kv >= 1 && evenSlab(rig);
   return (b: Bone) => {
     if (b.dot) return kdot;
     const k = byWeight(b);
     // (a serif thickens less than the stroke it stands on, the further out along it: by the square root of as much at
     // its tip, as a bold's serifs thicken less than its stems; it thins as they do. Not, heavier, in a font without
     // serifs, where what reads as one is a side: see edgeMoves)
-    return b.serifDx && k > 1 && (lighter || rig.serifed()) ? Math.pow(k, 1 - 0.5 * Math.min(1, Math.abs(b.serifDx) / Math.max(1, stem * 0.6))) : k;
+    if (!(b.serifDx && k > 1 && (lighter || rig.serifed()))) return k;
+    const e = 1 - 0.5 * Math.min(1, Math.abs(b.serifDx) / Math.max(1, stem * 0.6));
+    // (a heavier even slab's (evenSlab), less by the stems' share alone: a level slab is
+    // a bar, as thick as the bars, and its edges read past a stem as a serif's, beside its edges read as a bar's past
+    // none, thickened by the bars' share less, a typewriter's Y's head serifs a step thinner inside its arms than
+    // outside at Horizontals 100)
+    return slab ? b.ty * b.ty * Math.pow(kv, e) + b.tx * b.tx * kh : Math.pow(k, e);
   };
   function byWeight(b: Bone) {
     const byWay = b.ty * b.ty * kv + b.tx * b.tx * kh;
@@ -5539,6 +5549,12 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   const { weighs, keeps } = mv, end = crossEnd;
   if (rig && mv.lighter) {
     const { k0, delta, crotches, pins, footed, hug, hugY, fine, cuts } = thinMoves(rig, bs, r, mv);
+    // (as its uprights thin apart from the bars (Verticals 0, MoveMap.apart), an edge lying level on a line across an upright
+    // stroke's end, its middle running upright there, LINE_UPRIGHT (the sine) or more, stays on it, as the heights would put
+    // it back: a soft slab's h's ascender's top, read on past its head serif as its stem's side, went down with the stem's
+    // thinning and its corner with it, and the heights, lifting it back, stood a spike over the stem and an ear past it.
+    // Not one along a stroke lying on the line, a fat face's 2's foot, which thins as its thickness says)
+    if (mv.apart > 0) bs.forEach((b, i) => { const j = rig.thin?.near[r][i] ?? -1; if (b.onLine && !b.corner && Math.abs(b.ny) > 0.97 && j >= 0 && Math.abs(rig.thin!.ty[j]) > LINE_UPRIGHT) delta[i] = 0; });
     // (a level foot's samples as they reach it: eased, a leaning leg's bracket's, its rays running 40 to 100 units in
     // within a few samples, stopped short of it, a wedge under the leg, Almanac's K's)
     const moved = bs.map((b, i) => b.corner || footed[i] ? delta[i] : ease(delta, bs, i, j => !bs[j].corner && end(bs[j]) === end(b)));
@@ -5610,7 +5626,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // far as its stroke thickens: the crotch goes out along between them, as strokes thickened into each other meet, and
   // the overlap past where their edges now cross is cut off (untangle). Held to OPEN of the paper there, a heavy stem's
   // side over an arch leaving it at a slant stood a hair off the arch's top, a crack up the shoulder of Mainline's h)
-  const vee = rig && mv.reweighed && mv.kv > 1 + REWEIGHED ? veeOf(rig, r) : null;
+  const vee = rig && veesGrow(rig, mv) ? veeOf(rig, r) : null;
   // (a reweighed letter's serif slid out across the page with its stem's side: read along each edge's own normal alone, a
   // level underside went down rather than out, and the serif's end, carried with its sides, out by as little as they
   // went, so a stem thickened threefold swallowed its serifs, an old style's E's head serif a stub past its stem, its
@@ -6546,7 +6562,7 @@ function ringCrossesAt(out: P[], c: number) {
     with the sides it joins. */
 function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   const { gy, gyDot, gx, top, top1, sx, kd, ks } = mv;
-  const n = bs.length, { dotRoom, k0, moved, slide, slid, crotches, pins, hug, hugY, fine, cuts, orphans } = edgeMoves(bs, r, mv, rig), vees = mv.reweighed && mv.kv > 1 + REWEIGHED ? veeOf(rig, r) : null;
+  const n = bs.length, { dotRoom, k0, moved, slide, slid, crotches, pins, hug, hugY, fine, cuts, orphans } = edgeMoves(bs, r, mv, rig), vees = veesGrow(rig, mv) ? veeOf(rig, r) : null;
   // where the heights and the width put it: the skeleton point moved, and the edge kept as far across the
   // stroke from it as it was, the stroke turned as they turn it (a diagonal leans further as the letter
   // widens), so every stroke keeps its thickness; narrower, upright strokes thin a little, as a condensed
@@ -6877,8 +6893,10 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   }
   // (a heavier sans's straight side running into a level end on a line, moved out along its normal, goes no further up
   // or down than the corner where it now meets the line: its points by the corner, moved past the line, stood a spike over
-  // the end, a geometric k's arm's top at Weight 100, and the heights, lowering the letter by as much, cut its end aslant)
-  if (linesMove(rig, mv)) {
+  // the end, a geometric k's arm's top at Weight 100, and the heights, lowering the letter by as much, cut its end aslant;
+  // and an even slab's (evenSlab): a soft slab's N's diagonal, thickened out under the baseline by its foot, and the heights,
+  // lifting the letter by as much, hung its stem's foot's corner 20 units under the line at Verticals 100)
+  if (linesMove(rig, mv) || (mv.reweighed && mv.kv > 1 + REWEIGHED && evenSlab(rig))) {
     const c = rig.ctx, lines = [0, c.cap, ...(c.lower ? [c.xh, c.asc, c.desc] : [])];
     bs.forEach((b, i) => {
       if (!b.corner || concaveAt(b)) return;
@@ -6890,6 +6908,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       }
     });
   }
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && !fontPen(rig.font)) endsPast();
   return out;
 
   /** Whether the end between sides a and b is cut straight across, all its points within LINE_END units of the line
@@ -6992,6 +7011,37 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
           if (fair && (bs[j].tx * ex + bs[j].ty * ey) * dir < PAST_TURN * el) break;
           out[j] = { ...out[i] };
         }
+      }
+    }
+  }
+
+  /** A heavier weight's end a stem's side has grown out past: the end's side, along the edge from a corner inside the
+      join between them, now on the stem's ink side of that side's line as moved (a typewriter's G's bar's round end
+      over its spur, the spur thickened under it at Verticals 100, the bar not). The end's points in the stem, and the
+      edge's between, cut to where the end's outline crosses the stem's side, the corner put there: left, the round ran
+      on into the stem and back out along its side, a notch under the bar's end; brought out to the corner and turned
+      with it, it stood up off the bar, a knob. Not a round pen's (fontPen), whose ends are run smooth with its sides:
+      cut, a comic's w's crotch between its middle stroke's top and its right one went in deeper on one side. */
+  function endsPast() {
+    for (let i = 0; i < n; i++) {
+      const b = bs[i];
+      if (!b.corner || !concaveAt(b) || inEnd[i]) continue;
+      for (const dir of [-1, 1]) {
+        const S = bs[md(i - dir)];
+        if (S.corner || !S.straight) continue;
+        const C = out[i], inside = (q: P) => (q.x - C.x) * S.nx + (q.y - C.y) * S.ny, grew = Math.hypot(C.x - base[i].x, C.y - base[i].y);
+        // (the end's side: the last point along the edge before the end's own, the edge straight to it, and no further from
+        // the corner than END_PAST times the corner moved: read on round a counter, the side of an m's middle stem, put
+        // inside its first stem's side's line, far across, took the counter's whole outline to one point)
+        let j = md(i + dir), straight = true;
+        for (let k = 0; k < n / 4 && !inEnd[md(j + dir)] && !bs[j].corner && straight; k++) { straight = !!bs[j].straight; j = md(j + dir); }
+        if (!straight || !inEnd[md(j + dir)] || bs[j].corner || !(inside(out[j]) > 1) || Math.hypot(bs[j].x - b.x, bs[j].y - b.y) > END_PAST * grew) continue;
+        let m = md(j + dir);
+        while (inEnd[m] && inside(out[m]) > 0) m = md(m + dir);
+        if (!inEnd[m]) continue;
+        const p = out[md(m - dir)], dp = inside(p), dm = inside(out[m]), t = dp / (dp - dm), X = { x: p.x + (out[m].x - p.x) * t, y: p.y + (out[m].y - p.y) * t };
+        if (Math.hypot(X.x - C.x, X.y - C.y) > END_PAST * grew) continue;
+        for (let k = i; k !== m; k = md(k + dir)) out[k] = { ...X };
       }
     }
   }
@@ -7795,6 +7845,16 @@ const weighed = (mv: MoveMap) => mv.reweighed;
     where two meet, a notch down the inside of Boardwalk's N's second stem.) */
 const linesMove = (rig: SkinRig, mv: MoveMap) => mv.reweighed && mv.kv >= 1 && Math.max(mv.kv, mv.kh) > 1 + REWEIGHED && !rig.serifed() && !rig.leans() && rig.ref().hair0 >= LINES_EVEN * rig.ref().stem;
 const LINES_EVEN = 0.6;
+const LINE_UPRIGHT = 0.95;
+const END_PAST = 2;
+/** Whether a heavier weight's crotches at a V of paper grow freely (veeOf): its stems thickened, or in an even slab
+    (evenSlab) its bars, the serifs with them: held to the room between, a
+    typewriter's Y's head serifs' undersides thickened less and less toward its arms at Horizontals 100, a hook under each
+    serif where it meets its arm. */
+const veesGrow = (rig: SkinRig, mv: MoveMap) => mv.reweighed && (mv.kv > 1 + REWEIGHED || (mv.kv >= 1 && mv.kh > 1 + REWEIGHED && evenSlab(rig)));
+/** Whether a font is drawn with slab serifs and little contrast, its hairline LINES_EVEN of its stem or more (a typewriter's,
+    a soft slab's). */
+const evenSlab = (rig: SkinRig) => rig.serifed() && rig.ref().hair0 >= LINES_EVEN * rig.ref().stem;
 /** How nearly along a flat edge's line its stroke runs, and how nearly the edge across faces back at it, for that edge
     to come back with it (snapFlatEdges), as the cosine of the angle: none from 40° off, wholly within 20°. */
 const ALONG = [Math.cos(40 * Math.PI / 180), Math.cos(20 * Math.PI / 180)];
