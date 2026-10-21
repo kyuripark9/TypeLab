@@ -799,13 +799,20 @@ function serifLinedRig(rig: SkinRig): SkinRig | null {
   return (rig.serifLined = count(N) > count(rig) ? N : null);
 }
 /** How far the paper reaches ahead of a serif's tip (the run of serifRuns from s0 to e reaching out `sg`), from its
-    sample furthest that way of those at its end, along it: Infinity outside the letter. */
+    sample furthest that way of those at its end, along it: Infinity outside the letter. Read once a rig. */
 function tipAhead(rig: SkinRig, bs: Bone[], s0: number, e: number, sg: number, atEnd: Uint8Array): number {
+  let got = TIPS_AHEAD.get(bs);
+  if (!got) TIPS_AHEAD.set(bs, got = new Map());
+  const key = 2 * s0 + (sg > 0 ? 1 : 0), had = got.get(key);
+  if (had !== undefined) return had;
   const n = bs.length;
   let lead = -1;
   for (let k = 0, j = s0; k < n && j !== e; k++, j = (j + 1) % n) if (atEnd[j] && (lead < 0 || sg * bs[j].x > sg * bs[lead].x)) lead = j;
-  return lead < 0 ? Infinity : paperAlong(rig, bs[lead], sg, 0);
+  const t = lead < 0 ? Infinity : paperAlong(rig, bs[lead], sg, 0);
+  got.set(key, t);
+  return t;
 }
+const TIPS_AHEAD = new WeakMap<Bone[], Map<number, number>>();
 const SERIF_LINE_NEAR = 0.02, CUP_GAP = 3, CUP_TIP = 16, CUP_TIP_THIN = 32, CUP_RAMP = 0.15;
 /** A contrasty font's hairline tips (hairTips): its cupped serifs' (serifLinedRig), each run of samples serifRuns reads as
     one's tip (2); and any run of samples read no thickness across (as thin as a unit) round a convex corner, no longer
