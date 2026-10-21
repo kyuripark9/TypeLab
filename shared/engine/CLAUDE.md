@@ -328,6 +328,13 @@ A design with `freeFont` set draws its letters from a free font instead of build
    ink nearer, within `EASED_INK` of it, else mended (Cathedral's s, its joins not drawn again, 30% heavier for a step).
    A mended letter within `STROKES_BLEND` of a lighter weight it is drawn as its strokes at (`strokesNear`, on
    `mendGrid`) takes its room in toward that drawing's, its drawing as it is (Oldstyle's R, 26 units at once).
+   A heavier letter's side bearings go out as far as its strokes grow out toward the letters beside it under what its
+   room is read off, a serif's tip or a bar's end (`skinRoom`, read by `freeGlyph`): at `ROOM_ROWS` heights and at each
+   of its points, no nearer the edge of its room than the design's ink within half as far as the strokes thickened of
+   that height, or than `ROOM_REACH` of the font's stem, the less (`sidesAt` reads ink off a height `ROOM_SLOPE` times
+   as far in again, so nothing steps as a stroke's end passes a height), and no more than the stems grew (a letter
+   moved at all is drawn a little otherwise than the font has it). Only as the uprights thicken (`ROOM_FROM`): a
+   typewriter's m and w at Verticals 100 ran 24 units into each other, a fat face's minimum ran into one blot.
    A pinhole smaller than a crumb is made smaller as it is, to nothing at `HOLE_FADE` of one, not dropped at once
    (Chancery's s's loop); one a counter pinches off is kept as it is where it parts, smaller as it moves away, to
    nothing `HOLE_GAP` of a crumb's side off the counter (Cathedral's s's corners where its spine meets its bowls).
@@ -358,7 +365,17 @@ A design with `freeFont` set draws its letters from a free font instead of build
    bridged and new spikes cut off at their roots (`bridgeDents`, `notches`: a tip told from a notch by the ink either side,
    the design's tips kept) and small holes the design hasn't filled (`NEW_HOLE`). A lighter weight whose uprights thin past
    Weight (Verticals; `MoveMap.past`, `apart`) reads its strokes' ways over their half thickness, keeps a hairline floor by
-   it, and carries its cut ends (`carryCuts`). These were tuned on every card at the Weight page's ends (Weight,
+   it, and carries its cut ends (`carryCuts`). Heavier still (stems more than REWEIGHED thicker): a serif, flag or stem's
+   head slides out with its stem's side, root to tip as one run (`serifRuns`, `slide`, `SERIF_RAMP`), and a serif standing
+   on its line is put back whole as moved (`unlifted`); edges go out no further than `SLOPE_HELD` past the edge beside
+   them (`heldBySlope`, `heldOwn`, `endFacing`: a script's tapered tops); a font without serifs reads no serifs; in a near
+   even font its letter is rigged again with its nubs merged (`nublessRig`), its straight edges' thickness eased
+   (`evenWs`), runs read as ends in no end carried as ends (`orphans`), each part on a line put back at its own height
+   (`footHeights`: a comic's N's stems at Horizontals 100) and its dots kept clear (`clearDots`); and in a sans with even
+   strokes, as anything thickens (`linesMove`), sides by a slanted end read past it (`endSides`), straight edges read and
+   laid on one line each, meeting where their lines cross (`sideWs`, `straightRuns`), and level ends kept on their lines
+   (`flatEnd`). Contrast turned round weighs each edge by its stroke read whole (`sideHalf`). These were tuned on every
+   card at the Weight page's ends (Weight,
    Verticals, Horizontals and Contrast at 0 and 100), read with weights.ts's `look` on each letter's ink united. A pixel font
    (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
 4. `restyle.ts`: `restyled` (in `free-letters.ts`) redraws the engine's shapes on the moved outline in a fixed order,

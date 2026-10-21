@@ -7,7 +7,7 @@ import { applyM, clamp } from './geom';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
-import { FORM_LETTERS, descK, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinSpan, type SkinMeasures, type SkinRig } from './skin';
+import { FORM_LETTERS, descK, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, type SkinMeasures, type SkinRig } from './skin';
 import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBlockBowls, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
@@ -346,6 +346,12 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   const sl = fl.serifs && fl.serif && withSerifs.has(moved.contours) ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * SERIF_SB, over + sl * 0.15) : v);
   const [a0, a1] = inkSpan(src);
   let lsb = room(a0 * fl.k * fl.sx * fl.sb, x0 - i0), rsb = room((src.adv - a1) * fl.k * fl.sx * fl.sb, i1 - x1);
+  // (a heavier letter's strokes keep the room the design gives them beside the letters either side, where they grow out
+  // under a serif's tip or a bar's end its room is read off: skinRoom)
+  if (rig && skinned !== rig.contours) {
+    const [l, r] = skinRoom(rig, fl.from, fl.to, skinned!, [a0 * fl.sx * fl.sb, (src.adv - a1) * fl.sx * fl.sb]);
+    lsb += l * fl.k; rsb += r * fl.k;
+  }
   // (Cursive's flicks get most of the room they reach out into, so they touch the letter beside instead of running
   // through it, as the engine's do: see padL and padR in buildGlyph, glyph.ts)
   if (rig && fl.now.cursive > fl.pick.cursive && (EXIT_LETTERS.includes(ch) || ENTRY_LETTERS.includes(ch))) {
