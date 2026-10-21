@@ -432,7 +432,14 @@ A design with `freeFont` set draws its letters from a free font instead of build
    italic M's diagonal's top a spike over the capitals' line; capped at once, an old style's arches' tops, read in part
    as serifs, came out in steps); its edges facing out across a line, near it as drawn
    and not past it, laid on the line keeping `FEET_KEEP` of the design's way off it (`levelFeet`: an italic's foot serifs'
-   undersides and its B's bottom came out in waves at Weight 100); and, Contrast turned round, a crotch meets again no
+   undersides and its B's bottom came out in waves at Weight 100); in a counter drawn as a hole, a round past a laid stem
+   side's end met as a corner inside a join is, along no more than `LAID_WALK` times the side moved (a transitional's D's
+   counter's top left corner stood a pocket of paper in its stem at Weight and Verticals 100; not outside, where the
+   round is a serif's bracket); its heavier moves run smooth along the outline by `FAIR_ANCHOR` of how far its stems
+   thickened, its straight edges, edges on a line and serifs held and run smooth up to no closer than corners are
+   (`anchoredMoves`' `stops`: run into, its serifs' brackets and its diagonals' feet stood kinks), a curve leaving a laid
+   stem side moved with it and no further into a counter than `openOf` allows (an n's, h's, m's, b's and d's counters
+   came out keyholes at Weight and Verticals 100, their tops wider than the slots below); and, Contrast turned round, a crotch meets again no
    further into its join than `JOIN_KEEP` of the ink ahead nor `JOIN_MOVE` of its thinning edge's move (an italic's M, N
    and x at Contrast 0 came apart; a broad pen's so too, a blackletter P's bowl off its stem). Contrast turned round, on any
    card, an outside corner at a turn shallower than `FLING_TURN`, one edge thinning and the other thickening, goes as its

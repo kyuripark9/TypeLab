@@ -3482,6 +3482,33 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
     });
     clearDots(rig, rings);
   }
+  // (and a fair font's heavier weight, each point's move run smooth along the outline by FAIR_ANCHOR of how far its stems
+  // thickened, its straight edges, its edges on a line and its serifs held, a curve running on from a stem's side as laid
+  // moved with it (anchoredMoves), no further out into a counter than it was or than its room allows (openOf): each sample
+  // moved by its own stroke as read, the arch thinner than the stems it leaves, a transitional's and an old style's n's,
+  // h's, m's, b's and d's counters came out keyholes at Weight and Verticals 100, their tops wider than the slots below)
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && fairFont(rig)) {
+    const { stem } = rig.ref(), sg = FAIR_ANCHOR * (mv.kv - 1 - REWEIGHED) * stem / 2;
+    rings = rings.map((ring, r) => {
+      const bs = rig.bones[r], n = bs.length, laid = new Uint8Array(n);
+      if (bs[0]?.dot || ring.length !== n) return ring;
+      for (let s = 0; s < n; s++) {
+        const a = bs[(s - 1 + n) % n];
+        if (!bs[s].straight || (a.straight && a.seg === bs[s].seg)) continue;
+        let L = 0;
+        while (L < n && bs[(s + L) % n].straight && bs[(s + L) % n].seg === bs[s].seg) L++;
+        if (L >= STRAIGHT_RUN) for (let k = 0; k < L; k++) laid[(s + k) % n] = 1;
+      }
+      const side = (b: Bone) => Math.abs(b.nx) >= FAIR_UPRIGHT && 2 * b.w >= FAIR_THICK * stem;
+      const was = bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) }));
+      return anchoredMoves(ring, bs, was, sg, i => !!laid[i] || bs[i].onLine || !!bs[i].serifDx || !!bs[i].flagDx, i => !!laid[i] && !bs[i].onLine && side(bs[i]), true).map((p, i) => {
+        const b = bs[i];
+        if (!isFinite(b.gap)) return p;
+        const out0 = -((ring[i].x - was[i].x) * b.nx + (ring[i].y - was[i].y) * b.ny), out1 = -((p.x - was[i].x) * b.nx + (p.y - was[i].y) * b.ny), most = Math.max(out0, openOf(b.gap, b.w));
+        return out1 > most ? { x: p.x + b.nx * (out1 - most), y: p.y + b.ny * (out1 - most) } : p;
+      });
+    });
+  }
   // (and a heavier plumb sans's (plumbHeavy), each point's move run smooth along the outline by PLUMB_SMOOTH of how far its
   // strokes thickened, its straight edges as laid and its edges along a line held, a curve running on from such an edge
   // moved with it (anchoredMoves): each sample moved by its own stroke as read, a grotesque's bowls' and arches' outsides
@@ -6657,7 +6684,7 @@ const RELAY_END = 0.3;
     edge laid on its line, a stroke's end carried whole) keeps its own move, but its move is read into those beside it
     (evenedMoves stops at it): the samples of a curve running on from a stem's side moved as their own strokes read, less
     far than the stem's, the outline stepping where they meet. */
-function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, held: (i: number) => boolean, from: (i: number) => boolean = held): P[] {
+function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, held: (i: number) => boolean, from: (i: number) => boolean = held, stops = false): P[] {
   const n = r.length, reach = Math.min(n >> 1, Math.ceil(3 * sigma / STEP));
   if (n < 8 || sigma < 0.5 || reach < 1) return r;
   let dx = r.map((p, i) => p.x - was[i].x), dy = r.map((p, i) => p.y - was[i].y);
@@ -6682,9 +6709,12 @@ function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, held: (i: nu
   }
   dx = cx; dy = cy;
   const g = Float64Array.from({ length: reach + 1 }, (_, k) => Math.exp(-((k * STEP) ** 2) / (2 * sigma * sigma)));
-  const dc = new Int32Array(n).fill(n), near = sigma / STEP, f0 = bs.findIndex(b => b.corner);
+  // (`stops`: held samples bound the run as corners do, none run smooth past one nor right up to it: a fair font's serifs,
+  // each moved its own way, run into, stood kinks by their brackets and a diagonal's feet)
+  const stop = (i: number) => bs[i].corner || (stops && held(i));
+  const dc = new Int32Array(n).fill(n), near = sigma / STEP, f0 = bs.findIndex((_, i) => stop(i));
   if (f0 >= 0) for (const dir of [1, -1]) for (let k = 0, i = f0, d = n; k < 2 * n; k++, i = (i + dir + n) % n) {
-    d = bs[i].corner ? 0 : d + 1;
+    d = stop(i) ? 0 : d + 1;
     if (d < dc[i]) dc[i] = d;
   }
   return r.map((p, i) => {
@@ -6692,7 +6722,7 @@ function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, held: (i: nu
     let sx = dx[i], sy = dy[i], sw = 1;
     for (const dir of [-1, 1]) for (let k = 1; k <= reach; k++) {
       const j = ((i + dir * k) % n + n) % n;
-      if (bs[j].corner) break;
+      if (stop(j)) break;
       sx += dx[j] * g[k]; sy += dy[j] * g[k]; sw += g[k];
     }
     const f = Math.min(1, dc[i] / near) * (1 - cw[i]), x = was[i].x + dx[i], y = was[i].y + dy[i];
@@ -6839,6 +6869,8 @@ const CON_SMOOTH = 0.3;
 /** How wide, as a share of how far its strokes thickened, a script's heavier moves are run smooth (movedOnce,
     evenedMoves). */
 const LEANS_SMOOTH = 0.6;
+/** How far a fair font's heavier weight's moves are run smooth, a share of how far its stems thickened (movedOnce). */
+const FAIR_ANCHOR = 0.5;
 /** The most of a round pen's lowercase's samples that may lie on corners (fontPen). */
 const PEN_CORNERS = 0.008;
 /** How far off one another's line, in units, a near even font's straight edges may lie to be read as one (sideWs). */
@@ -6850,9 +6882,10 @@ const ONE_LINE = 1.5;
     little round, or a round inside a corner between two edges be filled as they meet (straightRuns); how nearly in line
     (the cosine) two straight segments one after another run to be one such edge; how far, as many times as they moved, two such edges turning away from the ink where they
     meet may meet again; and how nearly in line (the sine of the angle between them) two may run and not be met again. */
-/** How many samples past a fair font's laid edge's end a corner inside a join is looked for, and how far from where the
-    design's corner moved, as a share of the edge's move, the two are met (straightRuns). */
-const LAID_CORNER = 12, LAID_REACH = 1.6;
+/** How many samples past a fair font's laid edge's end a corner inside a join is looked for, how far from where the
+    design's corner moved, as a share of the edge's move, the two are met, and, a counter's round in its place, along how
+    much of the outline past it, as a share of the edge's move (straightRuns). */
+const LAID_CORNER = 12, LAID_REACH = 1.6, LAID_WALK = 2;
 const ROUND_RUN = 24, ROUND_FADE = 8, LINE_GAP = 6, MEET_ROUND = 6, STRAIGHT_RUN = 6, STRAIGHT_ON = Math.cos(2 * Math.PI / 180), W_TURN = Math.cos(20 * Math.PI / 180), W_SLOPE = 0.05, W_NEAR = 0.6, MEET_REACH = 4, MEET_PARALLEL = Math.sin(4 * Math.PI / 180);
 /** How far out a heavier weight's straight edge is laid: as far as this share of its points go (moveRing's straightRuns). */
 const STRAIGHT_OUT = 0.9;
@@ -8164,15 +8197,24 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     // set where its edges' moves meet, the stem's side's thinning into the crotch, stood inside the stem as laid, and the
     // arch's edge, brought back to it (cornersPast), cut a notch of paper down into the stem's side where an old style's
     // h's, n's and m's arches leave their stems at Weight 100)
+    const hole = fair === true && Math.sign(signedArea(bs)) !== Math.sign(signedArea(rig.bones.reduce((a, q) => (Math.abs(signedArea(q)) > Math.abs(signedArea(a)) ? q : a), bs)));
     if (fair === true) for (const R of runs) for (const dir of [1, -1]) {
       const e = dir > 0 ? md(R.s + R.L - 1) : R.s, side = (q: P) => (q.x - R.px) * R.nx + (q.y - R.py) * R.ny;
       let c = -1;
       for (let k = 1; k <= LAID_CORNER; k++) { const j = md(e + dir * k); if (inEnd[j] || bs[j].dot) break; if (bs[j].corner) { if (concaveAt(bs[j])) c = j; break; } }
+      // (or, no corner there, in a counter drawn as a hole, a round, from the first point past the edge's end: a
+      // transitional's D's, B's and P's counters' top left corners, drawn a little round, their stems' sides laid past them,
+      // stood a pocket of paper in the stem at Weight and Verticals 100; not outside, where the round is a serif's
+      // bracket, carried whole (carryRounds), walked into, an italic's A's feet and W's top serifs came out square)
+      const round = c < 0 && hole && !inEnd[md(e + dir)] && !bs[md(e + dir)].dot;
+      if (round) c = md(e + dir);
       if (c < 0 || side(out[c]) <= 1) continue;
-      let last = -1, X: P | null = null;
+      // (along no more of the outline than LAID_WALK times the edge moved)
+      let last = -1, X: P | null = null, arc = 0;
       for (let k = 1; k <= n >> 3; k++) {
         const a = md(c + dir * (k - 1)), b = md(c + dir * k);
-        if (inEnd[b] || bs[b].dot) break;
+        arc += Math.hypot(bs[b].x - bs[a].x, bs[b].y - bs[a].y);
+        if (inEnd[b] || bs[b].dot || (round && arc > LAID_WALK * Math.max(R.d, 1))) break;
         const sa = side(out[a]), sb = side(out[b]);
         if (sb <= 0) { const t = sa / (sa - sb); X = { x: out[a].x + (out[b].x - out[a].x) * t, y: out[a].y + (out[b].y - out[a].y) * t }; last = a; break; }
       }
