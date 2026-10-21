@@ -6245,6 +6245,12 @@ const VEE_HIT = 6, VEE_PATH = 2.5, VEE_FACING = 0.85;
 /** How much further than either edge moved, at most, a heavier weight's crotch at such a V goes to where its edges' lines
     meet (moveRing): a square corner's lie within √2 of it. */
 const VEE_CORNER = 1.5;
+/** How nearly an edge runs on the way it leaves a corner, the cosine, for its points left past the corner to be brought
+    back to it (moveRing's cornersPast). */
+const PAST_TURN = Math.cos(30 * Math.PI / 180);
+/** A fair font's stem's side laid on one line (moveRing's straightRuns(true)): how upright (the normal's level share) and how
+    thick, of a stem. */
+const FAIR_UPRIGHT = 0.9, FAIR_THICK = 0.7;
 
 /** A lighter weight's crotch where a stem's straight side meets an edge leaving it at a slant and curving away, an arch
     or a bowl leaving its stem (moveRing's archMeet): a concave corner, or two cut a few units apart (ARCH_PAIR), the
@@ -6566,7 +6572,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   // (a shallow crotch met again part of the way, archMeet's w)
   for (const i of blend) { const m = archMeet(i)!; out[i] = { x: out[i].x + (m.M.x - out[i].x) * m.w, y: out[i].y + (m.M.y - out[i].y) * m.w }; meets.set(i, out[i]); arched(i); }
   if (mv.lighter) { carryFillets(); pinPoints(); stretchRounds(); hairRoots(); holdBrackets(); if (mv.apart) carryCuts(); }
-  else if (mv.reweighed) { carryRounds(); if (linesMove(rig, mv)) straightRuns(); }
+  else if (mv.reweighed) { carryRounds(); if (linesMove(rig, mv)) straightRuns(); else if (mv.kv > 1 + REWEIGHED && fairFont(rig)) straightRuns(true); }
   if (mv.reweighed && (mv.kv > 1 + REWEIGHED || mv.kh > 1 + REWEIGHED)) cornersPast(mv.kv > 1 + REWEIGHED && fairFont(rig));
   // (a heavier weight's tab off a stem's side, a crossbar's end past an f's or a t's stem, goes out with that side as far
   // as it moved, keeping its own moves along the stem, so it reaches as far past the stem as before and isn't swallowed by
@@ -6767,7 +6773,9 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       where it was along it, and the stem's side going out past where it began, its first points were left inside the
       stem, a fold that read as a notch under an old style's F's middle arm's root at Weight 66, and, the heights moving
       the two runs apart, a sliver of paper inside a typewriter's L's foot and under its E's arms' serifs at Verticals 100.
-      In a font drawn fair (`fair`), every such point; else only along a straight edge, not an end's side (brought to
+      In a font drawn fair (`fair`), every such point as far as the edge runs on the way it leaves the corner, within
+      PAST_TURN (on round a curl, an italic's r's ball's underside, all of it lying behind the corner that way, went into
+      it, the ball and the paper under it one blot); else only along a straight edge, not an end's side (brought to
       the corner, a G's bar's round end, turned with it, stood up off the bar, a knob), and only by a corner gone with its
       other edge, lying nearer that edge's next point as moved than half its own move (one put far off both, where a
       crotch's edges meet further out, an old style's g's link at Weight and Verticals 100, took a long stretch of edge
@@ -6778,10 +6786,11 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       if (!b.corner || !concaveAt(b) || inEnd[i]) continue;
       for (const dir of [-1, 1]) {
         if (!fair && Math.hypot(out[i].x - out[md(i - dir)].x, out[i].y - out[md(i - dir)].y) > Math.max(2 * STEP, 0.5 * Math.hypot(out[i].x - base[i].x, out[i].y - base[i].y))) continue;
-        const q = bs[md(i + dir)], ex = q.x - b.x, ey = q.y - b.y;
+        const q = bs[md(i + dir)], ex = q.x - b.x, ey = q.y - b.y, el = Math.hypot(ex, ey) || 1;
         for (let k = 1; k < n / 4; k++) {
           const j = md(i + dir * k);
           if (bs[j].corner || inEnd[j] || (!fair && (bs[j].dot || !bs[j].straight || inEnd[md(j + dir)])) || (out[j].x - out[i].x) * ex + (out[j].y - out[i].y) * ey > 0) break;
+          if (fair && (bs[j].tx * ex + bs[j].ty * ey) * dir < PAST_TURN * el) break;
           out[j] = { ...out[i] };
         }
       }
@@ -6794,10 +6803,18 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       back to it, as far as MEET_REACH times the edges moved; turning toward it, the corner (or the edge's last point) put
       on it, as far as a corner goes (1.6 times). Each point moved its own way, eased along the outline from one edge's move
       to the other's, an edge running into another it moves less or more far than bent toward it, a step where a Y's arm
-      meets its stem, a spike at each of an A's counter's feet. */
-  function straightRuns() {
+      meets its stem, a spike at each of an A's counter's feet. In a font of bracketed serifs and some contrast (`fair`), its
+      edges only laid on their lines, not its serifs', flags' or stems' heads', and not met again: each point moved by its
+      own stroke as it read thicker or thinner along a straight side, an italic's stems and an old style's W's strokes came
+      out bowed at Weight 100; met again, the side of an italic's n's stem and its exit's hairline, both straight, shut the
+      paper between into a hole, and an old style's h's head and its stem's side into a spike. */
+  function straightRuns(fair = false) {
+    // (in a fair font only a stem's side: upright within FAIR_UPRIGHT, as thick as FAIR_THICK of a stem, facing paper at
+    // least a stem wide, not a serif's, a flag's nor a stem's head: laid so, a hairline running beside a heavy stroke, an
+    // italic's V's, N's or A's, stood off it a crack, and an A's counter shut)
+    const { stem } = rig.ref(), fairSide = (b: Bone) => !b.flagDx && b.overStem < 0 && 2 * b.w >= FAIR_THICK * stem && Math.abs(b.nx) >= FAIR_UPRIGHT && b.gap >= stem;
     // (not one along a line, which the heights put back on it, snapFlatEdges)
-    const serifed = rig.serifed(), plain = (i: number) => { const b = bs[i]; return b.straight && !b.corner && !b.dot && !b.cap && !b.onLine && !(serifed && b.serifDx) && !inEnd[i] && !pins?.has(i); };
+    const serifed = rig.serifed(), plain = (i: number) => { const b = bs[i]; return b.straight && !b.corner && !b.dot && !b.cap && !b.onLine && !(serifed && b.serifDx) && !(fair && !fairSide(b)) && !inEnd[i] && !pins?.has(i); };
     // (two straight segments running on along one line, the design's point between them, as one edge: each laid on its own
     // line, the one by a crotch, its points held to the narrow paper there, stood in from the one beyond, a step, and a code
     // face's V's edges, laid past each other above its crotch, pinched a speck of paper off under it at Verticals 100)
@@ -6822,7 +6839,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       for (let k = 0; k < L; k++) face += ox * bs[md(s + k)].nx + oy * bs[md(s + k)].ny;
       if (face > 0) { ox = -ox; oy = -oy; }
       const offs = Array.from({ length: L }, (_, k) => { const i = md(s + k); return (out[i].x - base[i].x) * ox + (out[i].y - base[i].y) * oy; }).sort((p, q) => p - q);
-      const mid = offs[L >> 1], o = mid < 0 ? mid : offs[Math.min(L - 1, Math.floor(STRAIGHT_OUT * L))];
+      const mid = offs[L >> 1], o = mid < 0 || fair ? mid : offs[Math.min(L - 1, Math.floor(STRAIGHT_OUT * L))];
       const px = B0.x + ox * o, py = B0.y + oy * o;
       // (how much further out its first and last points go laid so)
       const at = (i: number) => (out[i].x - base[i].x) * ox + (out[i].y - base[i].y) * oy, d0 = o - at(s), d1 = o - at(md(s + L - 1));
@@ -6838,7 +6855,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     // (two meeting next along the outline, at a corner, or round a little round no longer than MEET_ROUND samples, or
     // neither, met again where their lines meet)
     const met = new Uint8Array(n);
-    for (let r1 = 0; r1 < runs.length; r1++) {
+    for (let r1 = 0; r1 < (fair ? 0 : runs.length); r1++) {
       const R = runs[r1], S = runs[(r1 + 1) % runs.length];
       if (R === S) continue;
       const e = md(R.s + R.L - 1), between = md(S.s - e) - 1;
@@ -6865,7 +6882,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     // its heights kept, up with it, its stems' sides off their feet)
     // (the edges along lines met so, by where along its line, as drawn, each was met (c) and is met now (x))
     const lined = new Map<number, { lo?: { c: number; x: number }; hi?: { c: number; x: number }; to: number; y: number }>();
-    for (const R of runs) for (const dir of [1, -1]) {
+    for (const R of fair ? [] : runs) for (const dir of [1, -1]) {
       const from = dir > 0 ? md(R.s + R.L - 1) : R.s;
       let g = 1;
       while (g <= LINE_GAP && !bs[md(from + dir * g)].onLine && runAt[md(from + dir * g)] < 0 && !inEnd[md(from + dir * g)] && !bs[md(from + dir * g)].dot) g++;

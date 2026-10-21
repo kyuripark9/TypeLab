@@ -387,9 +387,11 @@ A design with `freeFont` set draws its letters from a free font instead of build
    goes no further past the line than the corner where it now meets it (`SIDE_PAST`: a k's arm's top, an X's feet). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
    moves are eased again over `FAIR_REACH` times as far as each moves, by no more than `FAIR_SHARE` of it (an old style's
    bowls came out wavy at Weight 100), an arm's or a bar's round under it is carried whole as a bracket is
-   (`carryRounds`' `arms`), and an edge's points left past an inside corner are brought back to it (`cornersPast`: a notch
-   under an F's middle arm; in other fonts only along straight edges, a sliver under a typewriter's L's stem at Verticals 100), and a serif's root slides no further than its stem's own upright side moves (`sideMove`: a step
-   at each bracket of an H). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
+   (`carryRounds`' `arms`), and an edge's points left past an inside corner are brought back to it as far as the edge runs
+   on the way it leaves the corner (`cornersPast`, `PAST_TURN`: a notch under an F's middle arm; further, an italic's r's
+   ball went into one blot; in other fonts only along straight edges, a sliver under a typewriter's L's stem at Verticals 100), and a serif's root slides no further than its stem's own upright side moves (`sideMove`: a step
+   at each bracket of an H); its stems' straight sides are laid on one line each but not met again (`straightRuns(true)`:
+   an italic's stems came out bowed). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
    Gumdrop's) ends aren't held by `heldBySlope`, each end's points go no further into the paper than `OPEN` of it, every
    point's move is run smooth along the outline by as far as its strokes thickened (`evenedMoves`, `EVEN_SMOOTH`) and
    short spikes left are taken out (`unspiked`).
