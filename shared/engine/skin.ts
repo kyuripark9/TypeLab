@@ -166,6 +166,9 @@ export interface SkinRig {
   unslabbed?: { rig: SkinRig; slabs: Slab[] } | null;
   /** where it is that, the slabs taken off, which its lighter weights lay back over it (movedOnce) */ slabless?: Slab[];
   /** itself with its nubs taken out, rigged (nublessRig), for its heavier weights, or null where it has none */ nubless?: SkinRig | null;
+  /** itself with its serifs read off the ink nearest its lines (serifLinedRig), for its heavier weights, or null where that
+      reads no more of them */ serifLined?: SkinRig | null;
+  /** whether it is that */ cupped?: boolean;
 }
 
 /** how far apart the outline is sampled, in the font's units (1000 to the em) */
@@ -247,7 +250,7 @@ const FLAG_TOP = 0.05;
 /** How far past its stroke's edge the point (x, y) reaches on a serif, where a straight stroke (a stem, or a leg
     slanting in to the line, an A's or an x's) ends on line L (0 off a serif); with the stroke's thickness, and how far
     the paper reaches out from its edge on the serif's side, a little way up from the serif (Infinity outside). */
-function serifReach(f: Grid, x: number, y: number, nx: number, ny: number, L: number, cap: number): { dx: number; stem: number; room: number; reach: number; flag?: boolean; over?: number } {
+function serifReach(f: Grid, x: number, y: number, nx: number, ny: number, L: number, cap: number, near = 0): { dx: number; stem: number; room: number; reach: number; flag?: boolean; over?: number } {
   // a stroke: straight, as wide at three heights and its edges in line, as a round letter's sides never are
   // (read nearer the line where the strokes meet one another soon after it, as an x's do)
   const dir = L > cap * 0.2 ? -1 : 1, tol = cap * 0.012;
@@ -266,11 +269,32 @@ function serifReach(f: Grid, x: number, y: number, nx: number, ny: number, L: nu
     const past = L - dir * cap * 0.06;
     if (runs(f, past).some(r => r[0] < e1(past) - 2 && r[1] > e0(past) + 2)) continue;
     // the ink the point is on, along its row, is the stroke's own and ends within a serif's reach of it
-    const qx = x + nx * 1.5, qy = y + ny * 1.5, row = runs(f, qy).find(r => r[0] <= qx + 1 && r[1] >= qx - 1);
+    const qx = x + nx * 1.5, qy = y + ny * 1.5;
+    let row = runs(f, qy).find(r => r[0] <= qx + 1 && r[1] >= qx - 1);
+    // (or, read `near` the line, along the first row further in where it reaches the stroke: under a cupped serif, standing
+    // on its line at its tips, the ink there reaches none)
+    let rowY = qy;
+    for (let h = Math.ceil(Math.abs(qy - L)) + 1; near && (!row || row[0] > e1(qy) || row[1] < e0(qy)) && h <= near; h++) {
+      const yy = L + dir * h, on = runs(f, yy).find(r => r[0] <= qx + 1 && r[1] >= qx - 1);
+      if (on && on[0] <= e1(yy) && on[1] >= e0(yy)) { row = on; rowY = yy; }
+    }
+    // (and run on over gaps narrower than CUP_GAP: a cupped serif's tip, curling up past its top, read as ink beside it, the
+    // room beside it 2 units)
+    if (near && row) {
+      const rr = runs(f, rowY);
+      let i = rr.indexOf(row), j = i, lo = row[0], hi = row[1];
+      while (i > 0 && lo - rr[i - 1][1] <= CUP_GAP) lo = rr[--i][0];
+      while (j >= 0 && j < rr.length - 1 && rr[j + 1][0] - hi <= CUP_GAP) hi = rr[++j][1];
+      row = [lo, hi];
+    }
     if (!row || row[0] > e1(qy) || row[1] < e0(qy)) continue;
     // and it's a thin slab: a little way in from the line it has gone (a hook, as at the foot of a t, hasn't)
     const hi = L + dir * cap * 0.08, ha = L + dir * 2;
-    const inner = runs(f, hi).find(r => r[0] <= e1(hi) && r[1] >= e0(hi)), atLine = runs(f, ha).find(r => r[0] <= e1(ha) && r[1] >= e0(ha));
+    const inner = runs(f, hi).find(r => r[0] <= e1(hi) && r[1] >= e0(hi));
+    // (read `near` the line, as far in as the ink first reaches the stroke: a Didone's serifs, cupped, touch their lines in a
+    // hairline, its capitals' tops 10 units under the line)
+    let atLine = runs(f, ha).find(r => r[0] <= e1(ha) && r[1] >= e0(ha));
+    for (let h = 3; !atLine && h <= near; h++) atLine = runs(f, L + dir * h).find(r => r[0] <= e0(L + dir * h) + 2 && r[1] >= e1(L + dir * h) - 2);
     // (or a thick one, a slab serif's: gone by a fifth of the capitals' height, and as far out at the line as most of
     // the way up to where it has gone, its top and its foot both level, where a hook's round foot touches the line
     // over a short way and curls in above it)
@@ -300,7 +324,7 @@ function serifReach(f: Grid, x: number, y: number, nx: number, ny: number, L: nu
     // (the room beside the stem a little way up, and beside the serif's own tip, whichever is less: two serifs reaching
     // toward each other across a counter's foot keep apart)
     const out = (x0: number, h: number, side: number) => march(f, x0, h, side, 0, cap);
-    const room = (side: number) => Math.min(out(side < 0 ? e0(hs[0]) : e1(hs[0]), hs[0], side), out(side < 0 ? row[0] : row[1], qy, side));
+    const room = (side: number) => Math.min(out(side < 0 ? e0(hs[0]) : e1(hs[0]), hs[0], side), out(side < 0 ? row![0] : row![1], rowY, side));
     // (a point on the stem's own edge, which reads a hair past it, is no serif's)
     if (x < e0(y) - 2 && e0(y) - row[0] < cap * 0.2 && slabL) return { dx: x - e0(y), stem: w, room: room(-1), reach: e0(y) - row[0] };
     // (or a head serif drawn as a flag on a stem's left, at a line over it: the stroke's ink where it reaches up to the
@@ -322,10 +346,10 @@ function serifReach(f: Grid, x: number, y: number, nx: number, ny: number, L: nu
 /** One contour of the letter rigged: each sample read across its stroke, the strokes' thickness without their
     joins', and their ends and dots marked. `alone`: the contour lies inside no other and holds none (read by their
     first points), so it can be a square dot (a blob; a ring round one point is a dot alone or not). */
-function rigContour(c: Node[], f: Grid, ctx: Ctx, alone: boolean): Bone[] {
+function rigContour(c: Node[], f: Grid, ctx: Ctx, alone: boolean, near = 0): Bone[] {
   const lines = [0, ctx.xh, ctx.cap, ctx.asc, ctx.desc];
   const serifLines = ctx.lower ? [0, ctx.xh, ctx.asc, ctx.desc] : [0, ctx.cap];
-  const bones = samples(c).map(p => readSample(p, f, ctx, lines, serifLines));
+  const bones = samples(c).map(p => readSample(p, f, ctx, lines, serifLines, near));
   // (how far the skeleton typically lies from the paper: about half a typical stroke's thickness)
   const typical = bones.map(b => b.best).sort((a, b) => a - b)[bones.length >> 1];
   thicknessWithoutJoins(bones, typical);
@@ -336,7 +360,7 @@ function rigContour(c: Node[], f: Grid, ctx: Ctx, alone: boolean): Bone[] {
 
 /** A sample read across its stroke: its inward normal, followed to the skeleton; the way the stroke runs there; the
     stroke's thickness; how far it reaches out on a serif; and whether it lies flat on one of the letter's lines. */
-function readSample(p: Sample, f: Grid, ctx: Ctx, lines: number[], serifLines: number[]): Bone {
+function readSample(p: Sample, f: Grid, ctx: Ctx, lines: number[], serifLines: number[], near = 0): Bone {
   let nx = -p.ty, ny = p.tx;
   const into = (sx: number, sy: number) => dist(f, p.x + sx * 3, p.y + sy * 3) + (inked(f, p.x + sx * 3, p.y + sy * 3) ? 100 : 0);
   if (into(-nx, -ny) > into(nx, ny)) { nx = -nx; ny = -ny; }
@@ -380,7 +404,8 @@ function readSample(p: Sample, f: Grid, ctx: Ctx, lines: number[], serifLines: n
   // (a flag or a stem's end, the first line's, only where no line's serif is found)
   for (const L of serifLines) {
     if (Math.abs(p.y - L) > ctx.cap * SERIF_ZONE || (sr.dx && !sr.flag)) continue;
-    const got = serifReach(f, p.x, p.y, nx, ny, L, ctx.cap);
+    // (read `near` the baseline and the capitals' line alone: a lowercase head serif, a flag, read so tore off)
+    const got = serifReach(f, p.x, p.y, nx, ny, L, ctx.cap, L === 0 || (!ctx.lower && L === ctx.cap) ? near : 0);
     if ((got.dx && !got.flag) || (!sr.flag && sr.over === undefined)) sr = got;
   }
   const onLine = p.straight && Math.abs(ny) > 0.97 && lines.some(L => Math.abs(p.y - L) < 2.5);
@@ -762,6 +787,19 @@ function nublessRig(rig: SkinRig): SkinRig | null {
   N.nubless = null;
   return (rig.nubless = N);
 }
+/** The rig with its serifs read where the ink nearest each line, within SERIF_LINE_NEAR of the capitals' height of it,
+    first reaches across the stroke the serif stands on, for a heavier weight's moves: a Didone's cupped serifs, touching
+    their lines in a hairline, and its capitals' tops, 10 units under theirs, were read as no serifs, and its stems
+    thickened past them, their brackets in a waist, their serifs shorter. Null where it reads no more serifs. */
+function serifLinedRig(rig: SkinRig): SkinRig | null {
+  if (rig.serifLined !== undefined) return rig.serifLined;
+  const N = rigOf(rig.font, rig.contours, inkGrid(rig.contours, 1), rig.ctx, Math.round(SERIF_LINE_NEAR * rig.ctx.cap));
+  const count = (R: SkinRig) => R.bones.reduce((a, bs) => a + bs.filter(b => b.serifDx || b.flagDx).length, 0);
+  N.serifLined = null; N.nubless = rig.nubless; N.cupped = true;
+  return (rig.serifLined = count(N) > count(rig) ? N : null);
+}
+const SERIF_LINE_NEAR = 0.02, CUP_GAP = 3, CUP_TIP = 16;
+
 /** Letter `ch` of a free font (or of a design's drawn letters), rigged (once, then kept with the font). */
 export function skinRig(font: RigLetters, ch: string): SkinRig | null {
   let kept = rigs.get(font);
@@ -799,10 +837,10 @@ export function skinRig(font: RigLetters, ch: string): SkinRig | null {
 }
 
 /** Outline cs of a letter of `font` rigged, its ink f, its heights ctx (skinRig). */
-function rigOf(font: RigLetters, cs: Node[][], f: Grid, ctx: Ctx): SkinRig {
+function rigOf(font: RigLetters, cs: Node[][], f: Grid, ctx: Ctx, near = 0): SkinRig {
   // (a dot is on its own: a counter as small, a bold e's eye, is inside the letter's outline, and so is no dot, nor an o round its counter)
   const polys = cs.map(c => c.map(n => ({ x: n.x, y: n.y })));
-  const bones = cs.map((c, i) => rigContour(c, f, ctx, !polys.some((o, j) => j !== i && o.length > 2 && (inPoly(o, polys[i][0]) || inPoly(polys[i], o[0])))));
+  const bones = cs.map((c, i) => rigContour(c, f, ctx, !polys.some((o, j) => j !== i && o.length > 2 && (inPoly(o, polys[i][0]) || inPoly(polys[i], o[0]))), near));
   const upright = bones.flat().filter(b => Math.abs(b.nx) > 0.9 && !b.cap).map(b => b.w * 2).sort((a, b) => a - b);
   const level = bones.flat().filter(b => Math.abs(b.ny) > 0.9 && !b.cap && !b.dot).map(b => b.w * 2).sort((a, b) => a - b);
   const level0 = bones.flat().filter(b => Math.abs(b.ny) > 0.9 && !b.cap && !b.dot).map(b => b.w0 * 2).sort((a, b) => a - b);
@@ -2335,6 +2373,7 @@ interface MoveMap {
   /** how much each edge's stroke thickens (thins, under 1) by Weight and Contrast, before Pinch and Joints */ weighs: (b: Bone) => number;
   keeps: (b: Bone, r: number, i: number) => number;
   /** half the thickness of the stroke each edge is weighed as (Bone.w, or, Contrast turned round, as read whole, sideHalf) */ half: (b: Bone) => number;
+  /** the design's bars CONTRASTY of its stems or thinner: a fat face's, a Didone's */ contrasty: boolean;
 }
 
 /** How a lighter weight draws a rig's strokes alone (thinStrokes' `drawn`): 2 read along its straight strokes (linedRig),
@@ -2421,7 +2460,9 @@ function movedAt(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true)
   // (a heavier weight's off the letter with its nubs taken out, as it moves its stems out by more than REWEIGHED, in a font
   // of near even strokes: a blackletter's few nubs lie along its pen's facets, its X's and G's notched where they went)
   const N = m1.s >= m0.s * 0.999 && kv > 1 + REWEIGHED && evenFont(rig) ? nublessRig(rig) : null;
-  return movedPlain(N ?? rig, m0, m1, undefined, grows);
+  // (and, in a contrasty font with serifs, off the letter with its serifs read nearer its lines, serifLinedRig)
+  const S = m1.s >= m0.s * 0.999 && kv > 1 + REWEIGHED && m0.hT < CONTRASTY * m0.v && rig.serifed() ? serifLinedRig(N ?? rig) : null;
+  return movedPlain(S ?? N ?? rig, m0, m1, undefined, grows);
 }
 
 /** Two ways of drawing a letter, `X` a little heavier than a weight where the drawing turns to `Y`, `s` of the way from
@@ -3379,9 +3420,11 @@ function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
   const lighter = m1.s < m0.s * 0.999 && kv < 1, reweighed = !lighter && (Math.abs(kv - 1) > REWEIGHED || Math.abs(kh - 1) > REWEIGHED);
   // (the uprights thinned with the stems kept, Contrast turned round: each edge weighed as thick as its stroke reads whole)
   const half = reweighed && kv < 1 - REWEIGHED ? sideHalf(rig) : (b: Bone) => b.w;
-  return { gy, gyDot, gx, top, top1, sx, kv, kh, ks, kd, past, apart, lighter, reweighed, weighs: weighsOf(rig, kv, kh, past < 1 ? m1.s / m0.s : kv, !(reweighed && kv > 1 + REWEIGHED)), keeps, half };
+  return { gy, gyDot, gx, top, top1, sx, kv, kh, ks, kd, past, apart, lighter, reweighed, weighs: weighsOf(rig, kv, kh, past < 1 ? m1.s / m0.s : kv, !(reweighed && kv > 1 + REWEIGHED)), keeps, half, contrasty: m0.hT < CONTRASTY * m0.v };
 }
 
+/** How thin, at most, as a share of its stems, a design's bars are for it to be read as contrasty (MoveMap.contrasty). */
+const CONTRASTY = 0.25;
 /** How far out from a join, in the join's own distance to the paper, the strokes leaving it read thicker for meeting there. */
 const JOIN_ZONE = 1.25;
 /** How nearly in line a stroke leaving a join runs on from a short stroke between two joins to count as running on through
@@ -5498,6 +5541,20 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     };
     for (let j = 0; j < n; j++) if (side[j] && !dxOf(bs[j])) bridge[j] = 1;
     for (const { s0, e, sg } of runs) {
+      // (read on a stroke far thicker than the one its root runs on from, SERIF_OTHER of it or less, out no further than that
+      // side moves: a Didone's N's top left serif, read past its thick diagonal carried up to the line, slid out with it as
+      // far as it thickened, 53 units, its hairline stem's side beside it 5, a lump torn off the stem's top)
+      let rootAt = s0, rd = Infinity;
+      for (let k = 0, j = s0; k < n && j !== e; k++, j = (j + 1) % n) { const d = Math.abs(dxOf(bs[j])); if (d && d < rd) { rd = d; rootAt = j; } }
+      // (that stroke read as thick as the sides read at most within SERIF_NEAR samples on from either end of the run: a
+      // bracket reads as thin as its serif, and a head serif's run, its top and its foot, has a root at each end)
+      const by = rootAt === s0 ? (s0 - 1 + n) % n : e, stem = bs[rootAt].serifStem;
+      let sw = 0;
+      for (let k = 0; k < SERIF_NEAR; k++) sw = Math.max(sw, bs[(s0 - 1 - k + 2 * n) % n].w, bs[(e + k) % n].w);
+      if (mv.contrasty && !dxOf(bs[by]) && !bs[by].corner && sw > 0 && 2 * sw <= SERIF_OTHER * stem) {
+        const most = Math.max(0, (ks1[by] - 1) * sw);
+        for (let k = 0, j = s0; k < n && j !== e; k++, j = (j + 1) % n) if (Math.abs(out[j]) > most) out[j] = Math.sign(out[j]) * most;
+      }
       // (its tip where its end begins, which goes with the sides it joins there)
       let least = Infinity, reach = 0, tipAt = Infinity, root = 0, nearest = Infinity, far = s0;
       for (let k = 0, e = s0; k < n && side[e] === sg; k++, e = (e + 1) % n) {
@@ -5521,7 +5578,11 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
       halves.push([s0, far, e]);
       // (and the stem's side either side of it, where it runs into the serif's bracket, out at least as far as the root
       // goes: read across the bracket, its stroke reads thinner there and moved less, a dent where the bracket begins)
-      for (let k = 1; k <= SERIF_NEAR; k++) for (const j of [(s0 - k + n) % n, (e - 1 + k) % n]) if (!side[j] && Math.abs(rootNear[j]) < root) rootNear[j] = sg * root;
+      // (in a contrasty font, only beside the run's end at its root, not past one ending at the serif's tip: a Didone's n's
+      // foot serif's run along its top, ended at its tip, pushed the tip's own points out by the root's slide, across the
+      // counter's foot)
+      const atRoot = (j: number) => !mv.contrasty || Math.abs(dxOf(bs[j])) < SERIF_TIPWARD * reach;
+      for (let k = 1; k <= SERIF_NEAR; k++) for (const [j, by] of [[(s0 - k + n) % n, s0], [(e - 1 + k) % n, (e - 1 + n) % n]]) if (!side[j] && atRoot(by) && Math.abs(rootNear[j]) < root) rootNear[j] = sg * root;
     }
     // (a stem's end at a line, across it from a serif, a flag or its side to another, drawn across the stem again as it
     // widens: each point slid across as far between how far the two either side went as it lies across the stem, and not
@@ -5554,9 +5615,11 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   const cv = rig && linesMove(rig, mv) ? counterVees(rig, r) : null;
   // (a near even font's straight edges' thickness eased along them, where not read along them as lines: evenWs)
   const ews = rig && !ws && mv.reweighed && mv.kv > 1 + REWEIGHED && evenFont(rig) ? evenWs(bs, ks1, j => bs[j].straight && !bs[j].corner && !endAt(j)) : null;
+  const glides = slid && mv.contrasty, glide = new Uint8Array(n);
   const raw = bs.map((b, i) => {
     if (endAt(i) || cuts?.has(b) || onLine(b)) return 0;
     const k = ks1[i], w = ews ? ews[i] : W(b, i);
+    if (glides && rootNear[i] && !b.corner && !dxOf(b) && !head[i] && !bridge[i] && -b.nx * rootNear[i] > (k - 1) * w) { glide[i] = 1; return -b.nx * rootNear[i]; }
     return head[i] ? -b.nx * out[i] : (dxOf(b) || bridge[i]) && mv.kv > 1 ? -b.nx * out[i] + (b.onLine ? 0 : (k - 1) * w * b.ny * b.ny) : rootNear[i] && !b.corner ? Math.max((k - 1) * w, -b.nx * rootNear[i]) : (k - 1) * w;
   });
   // (and a round running on from such an edge, facing out across its line as the edge does, out no further than the line:
@@ -5626,7 +5689,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
       return c > 0 ? Math.min(c, Math.max(m0[i], room(b, i))) : c;
     });
   }
-  const slide = slid ? bs.map((b, i) => { const f = head[i] || sharp[i] || bridge[i] ? 1 : !dxOf(b) ? 0 : Math.min(1, Math.abs(dxOf(b)) / Math.max(1, SERIF_RAMP * b.serifStem)); return { x: f * out[i] * b.ny * b.ny, y: -f * out[i] * b.nx * b.ny }; }) : null;
+  const slide = slid ? bs.map((b, i) => { if (glide[i]) return { x: rootNear[i] * b.ny * b.ny, y: -rootNear[i] * b.nx * b.ny }; const f = head[i] || sharp[i] || bridge[i] || (glides && dxOf(b)) ? 1 : !dxOf(b) ? 0 : Math.min(1, Math.abs(dxOf(b)) / Math.max(1, SERIF_RAMP * b.serifStem)); return { x: f * out[i] * b.ny * b.ny, y: -f * out[i] * b.nx * b.ny }; }) : null;
   return { dotRoom, k0, moved, slide, slid: slid ? out : null, crotches: undefined as Map<number, Crotch> | undefined, pins: undefined as Map<number, P> | undefined, hug: null as Float64Array | null, hugY: null as Float64Array | null, fine: undefined as number[] | undefined, cuts: undefined as number[][] | undefined, orphans: mergedEnds(orphans, bs) };
 }
 
@@ -5648,6 +5711,17 @@ function serifRuns(rig: SkinRig, r: number) {
     const sa = side[md(p)], sb = side[md(q)];
     if (sa && sa === sb) for (let k = p; k <= q; k++) { const j = md(k); if (k >= a && k <= b) atEnd[j] = 1; if (!side[j]) side[j] = sa; }
   }
+  // (and, its serifs read as cupped (serifLinedRig), a few samples between two of a serif's own, CUP_TIP or fewer, as its
+  // tip: a Didone's serifs, coming to a hairline point, have no end found there, and the serif's top and foot slid out past
+  // the tip between them, a fold cutting it off)
+  const cup = new Uint8Array(n);
+  if (rig.cupped) for (let i = 0; i < n; i++) {
+    const sg = side[i];
+    if (!sg || side[md(i + 1)] || !bs[i].serifDx) continue;
+    let k = 1;
+    while (k <= CUP_TIP && !side[md(i + k)]) k++;
+    if (k <= CUP_TIP && side[md(i + k)] === sg && bs[md(i + k)].serifDx) for (let q = 1; q < k; q++) { side[md(i + q)] = sg; atEnd[md(i + q)] = 1; cup[md(i + q)] = 1; }
+  }
   const from = side.findIndex((d, i) => !d || d !== side[(i - 1 + n) % n]);
   for (let q = 0; from >= 0 && q < n; q++) {
     const s0 = (from + q) % n, sg = side[s0];
@@ -5656,10 +5730,10 @@ function serifRuns(rig: SkinRig, r: number) {
     for (let k = 0; k < n && side[e] === sg; k++) e = (e + 1) % n;
     runs.push({ s0, e, sg });
   }
-  SERIF_RUNS.set(bs, got = { side, atEnd, runs });
+  SERIF_RUNS.set(bs, got = { side, atEnd, runs, cup });
   return got;
 }
-const SERIF_RUNS = new WeakMap<Bone[], { side: Int8Array; atEnd: Uint8Array; runs: { s0: number; e: number; sg: number }[] }>(), END_GAP = 4;
+const SERIF_RUNS = new WeakMap<Bone[], { side: Int8Array; atEnd: Uint8Array; runs: { s0: number; e: number; sg: number }[]; cup: Uint8Array }>(), END_GAP = 4;
 
 /** How much further, at most, a heavier weight's edge moves out than the edge beside it, a unit along the outline: among
     edges facing ink or none, and on from an edge facing a stroke's end into those facing none (SLOPE_PAST); not through
@@ -6015,6 +6089,15 @@ const SERIF_RAMP = 0.25;
 /** How many samples of a stem's side either side of a reweighed letter's serif go out at least as far as the serif's root
     (edgeMoves). */
 const SERIF_NEAR = 8;
+/** How thick, at most, as a share of the stroke a reweighed letter's serif is read on, the stroke its root runs on from may
+    be for the serif to slide no further than that stroke's side moves (edgeMoves). */
+const SERIF_OTHER = 0.4;
+/** A contrasty font's stroke end carried unturned (moveRing): its sides nearer than TIP_SHORT of the capitals' height,
+    turned by more than TIP_TURN (radians). */
+const TIP_SHORT = 0.02, TIP_SWING = 40 * Math.PI / 180;
+/** How far out along its serif, as a share of its reach, a contrasty font's serif's run may end for the stem's side past
+    it to go out with the serif's root (edgeMoves). */
+const SERIF_TIPWARD = 0.5;
 /** How nearly upright a stem's side beside its end at a line must run (the cosine of its normal off level), and how near
     its edges, as a share of the stem, that end must reach across it, to be drawn across the stem again (edgeMoves). */
 const HEAD_SIDE = 0.9, HEAD_SPAN = 0.15;
@@ -6427,6 +6510,9 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     const det = o1.x * o2.y - o1.y * o2.x;
     // (a serif's edges slid along themselves too, edgeMoves, which where they meet at a slant moves no line they lie on, but
     // where they run on alike carries the corner with them)
+    // (a cupped serif's corner, its tip's (serifLinedRig), as the points either side of it go: its edges, a hairline apart and
+    // near alike, meet again where they moved along themselves no more than across, and it stayed as its serif slid, cut off)
+    if (rig.cupped && slide && serifRuns(rig, r).cup[i]) { const go = (j: number) => ({ x: -bs[j].nx * moved[j] + slide[j].x, y: -bs[j].ny * moved[j] + slide[j].y }), g0 = go(i0), g1 = go(i1); return { x: x + (g0.x + g1.x) / 2, y: y + (g0.y + g1.y) / 2 + up }; }
     let mx = (o1.x * d1 + o2.x * d2) / 2 + (slide ? (slide[i0].x + slide[i1].x) / 2 : 0), my = (o1.y * d1 + o2.y * d2) / 2 + (slide ? (slide[i0].y + slide[i1].y) / 2 : 0);
     if (Math.abs(det) >= 0.25) { mx = (d1 * o2.y - d2 * o1.y) / det; my = (o1.x * d2 - o2.x * d1) / det; }
     const lim = 1.6 * Math.max(Math.abs(d1), Math.abs(d2), 0.01), l = Math.hypot(mx, my);
@@ -6548,8 +6634,14 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     // capitals' line, and the letter, its heights kept, came down with it, its other corner 18 units under the line)
     const cut = linesMove(rig, mv) && !ball && !bs[0]?.dot ? flatEnd(a, b) : null;
     const flat = !cut && onA !== onB && Math.abs(uy) > Math.abs(ux) && Math.abs(B.y - A.y) > 1 && kf >= 1;
+    // (a contrasty font's hairline tip, its sides nearer than TIP_SHORT of the capitals' height, turned by its move more
+    // than TIP_SWING: carried with its sides, unturned, each point as far along as between them. Turned, a Didone's n's
+    // foot serif's tip, 5 units across, its top lifting as the serif thickened and its foot on the line, swung 40 units
+    // out across the counter's foot into the other serif's)
+    const tip = mv.contrasty && mv.reweighed && !ball && !level && l2 < (TIP_SHORT * rig.ctx.cap) ** 2 && Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)) > TIP_SWING;
     for (let i = a + 1; i < b; i++) {
       const p = bs[md(i)], dx = p.x - A.x, dy = p.y - A.y, s = (dx * ux + dy * uy) / l2, t = (dy * ux - dx * uy) / l2;
+      if (tip) { const f = Math.min(1, Math.max(0, s)); out[md(i)] = { x: p.x + (A1.x - A.x) * (1 - f) + (B1.x - B.x) * f, y: p.y + (A1.y - A.y) * (1 - f) + (B1.y - B.y) * f }; continue; }
       if (cut) { out[md(i)] = cut(p); continue; }
       if (flat) { const f = Math.min(1, Math.max(0, (p.y - On.y) / (Off.y - On.y))); out[md(i)] = { x: p.x + On1.x - On.x + (Off1.x - Off.x - On1.x + On.x) * f, y: On1.y + (p.y - On.y) * kf }; continue; }
       const qx = level ? A1.x + dx * kx : A1.x + s * vx - deep * t * vy, qy = level ? L! + (p.y - L!) * ky : A1.y + s * vy + deep * t * vx;

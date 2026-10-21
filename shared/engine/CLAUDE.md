@@ -392,7 +392,15 @@ A design with `freeFont` set draws its letters from a free font instead of build
    at each bracket of an H). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
    Gumdrop's) ends aren't held by `heldBySlope`, each end's points go no further into the paper than `OPEN` of it, every
    point's move is run smooth along the outline by as far as its strokes thickened (`evenedMoves`, `EVEN_SMOOTH`) and
-   short spikes left are taken out (`unspiked`). Contrast turned round weighs each edge by its stroke read whole (`sideHalf`). These were tuned on every
+   short spikes left are taken out (`unspiked`).
+   In a contrasty font with serifs (`MoveMap.contrasty`: bars a quarter of its stems or thinner) the letter is
+   rigged again with its serifs read off the ink nearest the baseline and the capitals' line (`serifLinedRig`: a Didone's
+   cupped serifs touch their lines in a hairline, its capitals 10 units under theirs), a cupped serif's tip joined to its
+   run (`CUP_TIP`) and its corner carried with it, its brackets sliding whole (no `SERIF_RAMP`), the stem's side beside a
+   run going out with its root only at the root's end (`SERIF_TIPWARD`), a short tip turned past `TIP_SWING` carried
+   unturned, and a serif read on a stroke far thicker than the one its root runs from sliding no further than that side
+   moves (`SERIF_OTHER`: a Didone's N's top left serif). Contrast turned round weighs each edge by its stroke read whole
+   (`sideHalf`). These were tuned on every
    card at the Weight page's ends (Weight,
    Verticals, Horizontals and Contrast at 0 and 100), read with weights.ts's `look` on each letter's ink united. A pixel font
    (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.
