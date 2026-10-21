@@ -405,7 +405,11 @@ A design with `freeFont` set draws its letters from a free font instead of build
    run going out with its root only at the root's end (`SERIF_TIPWARD`), a short tip turned past `TIP_SWING` carried
    unturned, and a serif read on a stroke far thicker than the one its root runs from sliding no further than that side
    moves (`SERIF_OTHER`: a Didone's N's top left serif). Contrast turned round weighs each edge by its stroke read whole
-   (`sideHalf`). These were tuned on every
+   (`sideHalf`), more and more over `HALF_RAMP` of the uprights' thinning (at once, a fat face's O took a quarter more ink
+   in a step of Contrast); on a contrasty design so turned (`reversed`, coming in over `REV_RAMP`) its straight edges are
+   laid on one line each (`straightRuns('rev')`) and the moves between them run smooth by `REV_SMOOTH` of how far its
+   strokes thicken and thin, its straight edges held (`evenedMoves`' `held`): moved each by its own reading, a fat face's
+   stems and bowls came out ragged at Contrast 0 to 40. These were tuned on every
    card at the Weight page's ends (Weight,
    Verticals, Horizontals and Contrast at 0 and 100), read with weights.ts's `look` on each letter's ink united. A pixel font
    (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.

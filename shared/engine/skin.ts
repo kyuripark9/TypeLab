@@ -3149,6 +3149,14 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const held = mv.reweighed ? rings.map(r => r.map(p => ({ x: p.x, y: p.y }))) : null;
   const across = snapFlatEdges(rig, rings, mv.gy, mv.lighter, mv.reweighed, unlifted);
   if (held) endsWithSides(rig, held, rings);
+  // (and Contrast turned round on a contrasty design (reversed), its moves between its straight edges run smooth along the
+  // outline by REV_SMOOTH of how far its strokes thicken and thin, its straight edges, laid on their lines (straightRuns),
+  // held: each moved by its own reading of its stroke, a hairline thickened sixfold and a stem thinned to a sixth, a fat
+  // face's bowls and counters, its E's beaks and its stems' sides came out ragged at Contrast 0 to 40)
+  if (reversed(mv)) {
+    const { hair, stem } = rig.ref(), sg = REV_SMOOTH * revIn(mv) * ((mv.kh - 1) * hair + (1 - mv.kv) * stem) / 2;
+    rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => rig.bones[r][i].straight)));
+  }
   // (and a round pen's (fontPen), as far as its strokes thickened, each point's move run smooth along the outline: moved
   // out two and three times as far as its strokes are thick, each sample along its own normal, its stroke thickening by
   // as much more or less round a curve as the stems' and bars' do apart, held back here and there, the outline came out
@@ -3418,11 +3426,23 @@ function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
     * (near ? 1 - 0.55 * joints * near[r][i] : 1);
   const kw = m0.sw > 0 ? m1.sw / m0.sw : 1, past = kw > 0 && kv / kw < 0.999 ? kv / kw : 1, apart = Math.min(1, (1 - past) / PAST_EASE);
   const lighter = m1.s < m0.s * 0.999 && kv < 1, reweighed = !lighter && (Math.abs(kv - 1) > REWEIGHED || Math.abs(kh - 1) > REWEIGHED);
-  // (the uprights thinned with the stems kept, Contrast turned round: each edge weighed as thick as its stroke reads whole)
-  const half = reweighed && kv < 1 - REWEIGHED ? sideHalf(rig) : (b: Bone) => b.w;
+  // (the uprights thinned with the stems kept, Contrast turned round: each edge weighed as thick as its stroke reads whole,
+  // so read more and more over HALF_RAMP of the uprights' thinning: so read at once, from REWEIGHED thinner, a fat face's O
+  // took a quarter more ink in a step of Contrast)
+  const hr = reweighed && kv < 1 ? Math.min(1, (1 - kv) / HALF_RAMP) : 0, whole = hr > 0 ? sideHalf(rig) : null;
+  const half = !whole ? (b: Bone) => b.w : hr >= 1 ? whole : (b: Bone) => b.w + (whole(b) - b.w) * hr;
   return { gy, gyDot, gx, top, top1, sx, kv, kh, ks, kd, past, apart, lighter, reweighed, weighs: weighsOf(rig, kv, kh, past < 1 ? m1.s / m0.s : kv, !(reweighed && kv > 1 + REWEIGHED)), keeps, half, contrasty: m0.hT < CONTRASTY * m0.v };
 }
 
+/** Contrast turned round on a contrasty design (a fat face's, a Didone's): its hairlines thickened and its stems thinned,
+    each by REWEIGHED or more. */
+const reversed = (mv: MoveMap) => mv.reweighed && mv.contrasty && mv.kv < 1 - REWEIGHED && mv.kh > 1 + REWEIGHED;
+/** How far Contrast turned round on a contrasty design has come in (0 to 1): wholly REV_RAMP of its stems thinner on. */
+const revIn = (mv: MoveMap) => (reversed(mv) ? Math.min(1, (1 - REWEIGHED - mv.kv) / REV_RAMP) : 0);
+const REV_RAMP = 0.15;
+/** How much thinner than the stems the uprights draw, as a share of them, for a reweighed move to weigh its edges wholly
+    as their strokes read whole (MoveMap.half). */
+const HALF_RAMP = 0.3;
 /** How thin, at most, as a share of its stems, a design's bars are for it to be read as contrasty (MoveMap.contrasty). */
 const CONTRASTY = 0.25;
 /** How far out from a join, in the join's own distance to the paper, the strokes leaving it read thicker for meeting there. */
@@ -5924,8 +5944,9 @@ function sideWs(rig: SkinRig, r: number): Float64Array {
 const SIDE_WS = new WeakMap<Bone[], Float64Array>(), SIDE_GROWN = new WeakMap<Bone[], Uint8Array>();
 /** A ring's points (each its sample's, bs, moved) each moved instead as the mean of the moves of those either side of it,
     by a bell `sigma` units along the outline as drawn wide, out to three times that: not a corner's, which stays, nor
-    past one, and near one less so. Each move is read from `was`, the sample where the heights and the width alone put it. */
-function evenedMoves(r: P[], bs: Bone[], was: P[], sigma: number): P[] {
+    past one, and near one less so; nor, so, a point `held` (a straight edge laid on its line). Each move is read from
+    `was`, the sample where the heights and the width alone put it. */
+function evenedMoves(r: P[], bs: Bone[], was: P[], sigma: number, held?: (i: number) => boolean): P[] {
   const n = r.length, reach = Math.min(n >> 1, Math.ceil(3 * sigma / STEP));
   if (n < 8 || sigma < 0.5 || reach < 1) return r;
   // (the samples lie STEP apart along the outline as drawn: the bell read by the sample)
@@ -5933,17 +5954,17 @@ function evenedMoves(r: P[], bs: Bone[], was: P[], sigma: number): P[] {
   const dx = r.map((p, i) => p.x - was[i].x), dy = r.map((p, i) => p.y - was[i].y);
   // (how many samples along each lies from the nearest corner: within the bell's middle of one, its own move kept as much
   // more as it lies nearer, so the corner's sides, run smooth up to it and not past, don't cross over it)
-  const dc = new Int32Array(n).fill(n), near = sigma / STEP;
-  if (bs.some(b => b.corner)) for (const dir of [1, -1]) for (let k = 0, i = bs.findIndex(b => b.corner), d = n; k < 2 * n; k++, i = (i + dir + n) % n) {
-    d = bs[i].corner ? 0 : d + 1;
+  const dc = new Int32Array(n).fill(n), near = sigma / STEP, fixed = (i: number) => bs[i].corner || !!held?.(i), f0 = bs.findIndex((_, i) => fixed(i));
+  if (f0 >= 0) for (const dir of [1, -1]) for (let k = 0, i = f0, d = n; k < 2 * n; k++, i = (i + dir + n) % n) {
+    d = fixed(i) ? 0 : d + 1;
     if (d < dc[i]) dc[i] = d;
   }
   return r.map((p, i) => {
-    if (bs[i].corner) return p;
+    if (fixed(i)) return p;
     let sx = dx[i], sy = dy[i], sw = 1;
     for (const dir of [-1, 1]) for (let k = 1; k <= reach; k++) {
       const j = ((i + dir * k) % n + n) % n;
-      if (bs[j].corner) break;
+      if (fixed(j)) break;
       sx += dx[j] * g[k]; sy += dy[j] * g[k]; sw += g[k];
     }
     const f = Math.min(1, dc[i] / near);
@@ -5972,6 +5993,9 @@ const SPIKE_TURN = 150 * Math.PI / 180, SPIKE_SHORT = 3;
 /** How wide, as a share of how far its sides moved out, a round pen's heavier moves are run smooth (movedOnce,
     evenedMoves). */
 const EVEN_SMOOTH = 0.3;
+/** How wide, as a share of how far its strokes thicken and thin, a contrasty design's moves with Contrast turned round are
+    run smooth (movedOnce, evenedMoves). */
+const REV_SMOOTH = 0.4;
 /** The most of a round pen's lowercase's samples that may lie on corners (fontPen). */
 const PEN_CORNERS = 0.008;
 /** How far off one another's line, in units, a near even font's straight edges may lie to be read as one (sideWs). */
@@ -6592,7 +6616,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   // (a shallow crotch met again part of the way, archMeet's w)
   for (const i of blend) { const m = archMeet(i)!; out[i] = { x: out[i].x + (m.M.x - out[i].x) * m.w, y: out[i].y + (m.M.y - out[i].y) * m.w }; meets.set(i, out[i]); arched(i); }
   if (mv.lighter) { carryFillets(); pinPoints(); stretchRounds(); hairRoots(); holdBrackets(); if (mv.apart) carryCuts(); }
-  else if (mv.reweighed) { carryRounds(); if (linesMove(rig, mv)) straightRuns(); else if (mv.kv > 1 + REWEIGHED && fairFont(rig)) straightRuns(true); }
+  else if (mv.reweighed) { carryRounds(); if (linesMove(rig, mv)) straightRuns(); else if (mv.kv > 1 + REWEIGHED && fairFont(rig)) straightRuns(true); else if (reversed(mv)) straightRuns('rev'); }
   if (mv.reweighed && (mv.kv > 1 + REWEIGHED || mv.kh > 1 + REWEIGHED)) cornersPast(mv.kv > 1 + REWEIGHED && fairFont(rig));
   // (a heavier weight's tab off a stem's side, a crossbar's end past an f's or a t's stem, goes out with that side as far
   // as it moved, keeping its own moves along the stem, so it reaches as far past the stem as before and isn't swallowed by
@@ -6775,10 +6799,13 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       // (and only where it still meets each edge short of the corner at that edge's far end, as moved: carried past it, a
       // serif shorter than its stem thickens, an old style's b's head serif, was swallowed to a sliver)
       // (an end's corner by its side, carried only later with its end: the side it joins there)
-      const far = (from: number, dir: 1 | -1) => { let j = from; for (let k = 0; k < n / 4 && !bs[j].corner && !inEnd[j]; k++) j = md(j + dir); return inEnd[j] && j !== from ? md(j - dir) : j; };
+      // (with Contrast turned round on a contrasty design (reversed), none where no corner comes within a quarter of the
+      // outline: read off where the search stopped, round an n's counter, a fat face's foot serifs' brackets stayed, a hook
+      // over each foot)
+      const far = (from: number, dir: 1 | -1) => { let j = from, k = 0; for (; k < n / 4 && !bs[j].corner && !inEnd[j]; k++) j = md(j + dir); return k >= n / 4 && reversed(mv) ? -1 : inEnd[j] && j !== from ? md(j - dir) : j; };
       const fa = far(a, -1), fz = far(z, 1);
-      if ((base[md(s)].x + dx - out[fa].x) * A.tx + (base[md(s)].y + dy - out[fa].y) * A.ty <= 0) continue;
-      if ((out[fz].x - base[md(e - 1)].x - dx) * Z.tx + (out[fz].y - base[md(e - 1)].y - dy) * Z.ty <= 0) continue;
+      if (fa >= 0 && (base[md(s)].x + dx - out[fa].x) * A.tx + (base[md(s)].y + dy - out[fa].y) * A.ty <= 0) continue;
+      if (fz >= 0 && (out[fz].x - base[md(e - 1)].x - dx) * Z.tx + (out[fz].y - base[md(e - 1)].y - dy) * Z.ty <= 0) continue;
       for (let i = s; i < e; i++) { const k = md(i); out[k] = { x: base[k].x + dx, y: base[k].y + dy }; }
       // (and an edge's points either side that now lie past where the round meets it, on into the stroke the round was
       // carried out of, brought back to that point: left there, a slab's underside ran on into its stem past its bracket)
@@ -6827,14 +6854,16 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       edges only laid on their lines, not its serifs', flags' or stems' heads', and not met again: each point moved by its
       own stroke as it read thicker or thinner along a straight side, an italic's stems and an old style's W's strokes came
       out bowed at Weight 100; met again, the side of an italic's n's stem and its exit's hairline, both straight, shut the
-      paper between into a hole, and an old style's h's head and its stem's side into a spike. */
-  function straightRuns(fair = false) {
+      paper between into a hole, and an old style's h's head and its stem's side into a spike. With Contrast turned round
+      on a contrasty design (`'rev'`), every such edge but a serif's laid so, on the line its points mostly take, as
+      far as the turn has come in (revIn), and not met again: a fat face's H's and N's stems' sides came out ragged. */
+  function straightRuns(fair: boolean | 'rev' = false) {
     // (in a fair font only a stem's side: upright within FAIR_UPRIGHT, as thick as FAIR_THICK of a stem, facing paper at
     // least a stem wide, not a serif's, a flag's nor a stem's head: laid so, a hairline running beside a heavy stroke, an
     // italic's V's, N's or A's, stood off it a crack, and an A's counter shut)
     const { stem } = rig.ref(), fairSide = (b: Bone) => !b.flagDx && b.overStem < 0 && 2 * b.w >= FAIR_THICK * stem && Math.abs(b.nx) >= FAIR_UPRIGHT && b.gap >= stem;
     // (not one along a line, which the heights put back on it, snapFlatEdges)
-    const serifed = rig.serifed(), plain = (i: number) => { const b = bs[i]; return b.straight && !b.corner && !b.dot && !b.cap && !b.onLine && !(serifed && b.serifDx) && !(fair && !fairSide(b)) && !inEnd[i] && !pins?.has(i); };
+    const serifed = rig.serifed(), plain = (i: number) => { const b = bs[i]; return b.straight && !b.corner && !b.dot && !b.cap && !b.onLine && !(serifed && b.serifDx) && !(fair === true && !fairSide(b)) && !inEnd[i] && !pins?.has(i); };
     // (two straight segments running on along one line, the design's point between them, as one edge: each laid on its own
     // line, the one by a crotch, its points held to the narrow paper there, stood in from the one beyond, a step, and a code
     // face's V's edges, laid past each other above its crotch, pinched a speck of paper off under it at Verticals 100)
@@ -6862,8 +6891,9 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       const mid = offs[L >> 1], o = mid < 0 || fair ? mid : offs[Math.min(L - 1, Math.floor(STRAIGHT_OUT * L))];
       const px = B0.x + ox * o, py = B0.y + oy * o;
       // (how much further out its first and last points go laid so)
-      const at = (i: number) => (out[i].x - base[i].x) * ox + (out[i].y - base[i].y) * oy, d0 = o - at(s), d1 = o - at(md(s + L - 1));
-      for (let k = 0; k < L; k++) { const i = md(s + k), t = (out[i].x - px) * ux + (out[i].y - py) * uy; out[i] = { x: px + ux * t, y: py + uy * t }; }
+      // (Contrast turned round, laid so as it comes in, revIn)
+      const lay = fair === 'rev' ? revIn(mv) : 1, at = (i: number) => (out[i].x - base[i].x) * ox + (out[i].y - base[i].y) * oy, d0 = (o - at(s)) * lay, d1 = (o - at(md(s + L - 1))) * lay;
+      for (let k = 0; k < L; k++) { const i = md(s + k), t = (out[i].x - px) * ux + (out[i].y - py) * uy; out[i] = { x: out[i].x + (px + ux * t - out[i].x) * lay, y: out[i].y + (py + uy * t - out[i].y) * lay }; }
       runs.push({ s, L, px, py, ux, uy, nx: -ox, ny: -oy, d: Math.abs(o), o, d0, d1 });
     }
     // (the outline between two such edges, a round no longer than ROUND_RUN samples, or running on from one into a curve,
