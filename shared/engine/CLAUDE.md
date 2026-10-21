@@ -410,8 +410,13 @@ A design with `freeFont` set draws its letters from a free font instead of build
    run (`CUP_TIP`) and its corner carried with it, its brackets sliding whole (no `SERIF_RAMP`), the stem's side beside a
    run going out with its root only at the root's end (`SERIF_TIPWARD`), a short tip turned past `TIP_SWING` carried
    unturned, and a serif read on a stroke far thicker than the one its root runs from sliding no further than that side
-   moves (`SERIF_OTHER`: a Didone's N's top left serif). Contrast turned round weighs each edge by its stroke read whole
-   (`sideHalf`), more and more over `HALF_RAMP` of the uprights' thinning (at once, a fat face's O took a quarter more ink
+   moves (`SERIF_OTHER`: a Didone's N's top left serif). Its hairline tips (a cupped serif's, `CUP_TIP_THIN` of samples
+   thinner than the hairline; any run read no thickness round a convex corner) are carried whole, from the move of the
+   sample before each to that of the one after, and eased with nothing (`hairTips`), so none pinches off; a serif's tip
+   slides no further into the paper ahead of it than `OPEN` of it (`tipAhead`: a Didone's m's feet met across its
+   counter); and a level edge by a line that runs across its stroke (`lineCuts`, `CUT_WAY`) stays as an end, a straight
+   side running into it stopped at the corner on the line. Contrast turned round weighs each edge by its stroke read
+   whole (`sideHalf`), more and more over `HALF_RAMP` of the uprights' thinning (at once, a fat face's O took a quarter more ink
    in a step of Contrast); on a contrasty design so turned (`reversed`, coming in over `REV_RAMP`) its straight edges are
    laid on one line each (`straightRuns('rev')`) and the moves between them run smooth by `REV_SMOOTH` of how far its
    strokes thicken and thin, its straight edges held (`evenedMoves`' `held`): moved each by its own reading, a fat face's

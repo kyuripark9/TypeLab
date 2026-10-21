@@ -798,7 +798,58 @@ function serifLinedRig(rig: SkinRig): SkinRig | null {
   N.serifLined = null; N.nubless = rig.nubless; N.cupped = true;
   return (rig.serifLined = count(N) > count(rig) ? N : null);
 }
-const SERIF_LINE_NEAR = 0.02, CUP_GAP = 3, CUP_TIP = 16, CUP_RAMP = 0.15;
+/** How far the paper reaches ahead of a serif's tip (the run of serifRuns from s0 to e reaching out `sg`), from its
+    sample furthest that way of those at its end, along it: Infinity outside the letter. */
+function tipAhead(rig: SkinRig, bs: Bone[], s0: number, e: number, sg: number, atEnd: Uint8Array): number {
+  const n = bs.length;
+  let lead = -1;
+  for (let k = 0, j = s0; k < n && j !== e; k++, j = (j + 1) % n) if (atEnd[j] && (lead < 0 || sg * bs[j].x > sg * bs[lead].x)) lead = j;
+  return lead < 0 ? Infinity : paperAlong(rig, bs[lead], sg, 0);
+}
+const SERIF_LINE_NEAR = 0.02, CUP_GAP = 3, CUP_TIP = 16, CUP_TIP_THIN = 32, CUP_RAMP = 0.15;
+/** A contrasty font's hairline tips (hairTips): its cupped serifs' (serifLinedRig), each run of samples serifRuns reads as
+    one's tip (2); and any run of samples read no thickness across (as thin as a unit) round a convex corner, no longer
+    than CUP_TIP_THIN either way (1). Read once a rig. */
+function hairTipMarks(rig: SkinRig, r: number): Uint8Array {
+  const bs = rig.bones[r];
+  let mark = HAIR_TIPS.get(bs);
+  if (mark) return mark;
+  const n = bs.length, md = (i: number) => ((i % n) + n) % n, cup = rig.cupped ? serifRuns(rig, r).cup : null;
+  mark = new Uint8Array(n);
+  if (cup) for (let i = 0; i < n; i++) if (cup[i]) mark[i] = 2;
+  for (let c = 0; c < n; c++) {
+    if (mark[c] || !bs[c].corner || concaveAt(bs[c])) continue;
+    let a = c, e = c;
+    while (c - a < CUP_TIP_THIN && !bs[md(a - 1)].corner && bs[md(a - 1)].w < 1) a--;
+    while (e - c < CUP_TIP_THIN && !bs[md(e + 1)].corner && bs[md(e + 1)].w < 1) e++;
+    if (a < c && e > c) for (let k = a; k <= e; k++) mark[md(k)] ||= 1;
+  }
+  HAIR_TIPS.set(bs, mark);
+  return mark;
+}
+const HAIR_TIPS = new WeakMap<Bone[], Uint8Array>();
+/** A contrasty font's hairline tips (moveRing, hairTipMarks), put where `base` put them and moved whole, not each along
+    its own normal: from as far as the sample before the tip moved to as far as the one after it did, along it. */
+function hairTips(rig: SkinRig, r: number, bs: Bone[], base: P[], out: P[]) {
+  const n = bs.length, md = (i: number) => ((i % n) + n) % n, mark = hairTipMarks(rig, r);
+  // (from a sample not in a tip, so each run is read whole)
+  let s0 = 0;
+  while (s0 < n && mark[s0]) s0++;
+  if (s0 === n) return;
+  for (let k = 0; k < n; k++) {
+    const a = md(s0 + k);
+    if (!mark[a] || mark[md(a - 1)]) continue;
+    let e = a;
+    while (mark[md(e + 1)]) e = md(e + 1);
+    const run: number[] = [];
+    for (let i = a; ; i = md(i + 1)) { run.push(i); if (i === e) break; }
+    // (moved as the samples either side of it went, from the one's move to the other's along it: moved as one, as its corner
+    // went or as the two did on average, its edges stood off theirs a step each side, a fold where the tip's normals turn,
+    // slivers off a Didone's T's foot and U's and u's head serifs at Weight midway)
+    const go = (i: number) => ({ x: out[i].x - base[i].x, y: out[i].y - base[i].y }), P = go(md(a - 1)), Q = go(md(e + 1));
+    run.forEach((i, k) => { const t = (k + 1) / (run.length + 1); out[i] = { x: base[i].x + P.x + (Q.x - P.x) * t, y: base[i].y + P.y + (Q.y - P.y) * t }; });
+  }
+}
 
 /** Letter `ch` of a free font (or of a design's drawn letters), rigged (once, then kept with the font). */
 export function skinRig(font: RigLetters, ch: string): SkinRig | null {
@@ -5612,6 +5663,10 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
         if (d < nearest) { nearest = d; root = Math.abs(out[e]); }
       }
       if (!reach) continue;
+      // (in a contrasty font, its tip no further into the paper ahead of it, along the way it reaches, than OPEN of it: its
+      // tip's samples face up and down off it, not ahead, and a Didone's m's and n's feet's tips, 28 units apart across
+      // the counter's foot, slid into one another at Verticals 100, the counter shut)
+      if (mv.contrasty) least = Math.min(least, OPEN * tipAhead(rig!, bs, s0, e, sg, atEnd));
       if (fair) { const sm = sideMove(s0, e); if (sm !== null) root = Math.min(root, sm); }
       least = Math.min(least, root);
       const at = Math.min(root, least + SERIF_SHORTER * reach), tip = Math.min(reach, tipAt);
@@ -5666,8 +5721,13 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // hairline: read down through the thick stroke under it, an italic N's serif's top over its diagonal stood a bump ten
   // units high at Weight midway)
   const topCap = rig && fairFont(rig) ? SERIF_TOP * rig.ref().hair0 : Infinity, level = (b: Bone, w: number) => (Math.abs(b.ny) >= SERIF_LEVEL ? Math.min(w, topCap) : w);
+  // (and a contrasty font's level edge by a line it faces out across, running across its stroke more than along it, CUT_WAY
+  // or more: the stroke's end cut along the line, which stays as a stroke's end does. Read across it, a Didone's N's top,
+  // over its thick stroke, read 90 units thick and went up 40, and the heights, lowering the whole top by as much, pulled
+  // its top left serif down off the capitals' line)
+  const cutOn = rig && mv.reweighed && mv.kv > 1 + REWEIGHED && mv.contrasty ? lineCuts(rig, r) : null;
   const raw = bs.map((b, i) => {
-    if (endAt(i) || cuts?.has(b) || onLine(b)) return 0;
+    if (endAt(i) || cuts?.has(b) || onLine(b) || cutOn?.[i]) return 0;
     const k = ks1[i], w = ews ? ews[i] : W(b, i);
     if (glides && rootNear[i] && !b.corner && !dxOf(b) && !head[i] && !bridge[i] && -b.nx * rootNear[i] > (k - 1) * w) { glide[i] = 1; return -b.nx * rootNear[i]; }
     return head[i] ? -b.nx * out[i] : (dxOf(b) || bridge[i]) && mv.kv > 1 ? -b.nx * out[i] + (b.onLine ? 0 : (k - 1) * level(b, w) * b.ny * b.ny) : rootNear[i] && !b.corner ? Math.max((k - 1) * w, -b.nx * rootNear[i]) : (k - 1) * w;
@@ -5708,7 +5768,10 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     heldBySlope(delta, held.step, own!, SLOPE_HELD, faces.map(f => !f));
     heldBySlope(delta, held.step, past, SLOPE_PAST, faces);
   }
-  const keepAt = (b: Bone, i: number) => (j: number) => !bs[j].corner && endAt(j) === endAt(i) && bare(j) === bare(i) && onLine(bs[j]) === onLine(b);
+  // (nor with a contrasty font's hairline tip, carried whole (hairTips): its samples' normals, read across to each other's
+  // sides, move them in, and eased with them the Didone's W's top serif's underside went up into its top, a crack)
+  const tips = rig && mv.reweighed && mv.contrasty ? hairTipMarks(rig, r) : null;
+  const keepAt = (b: Bone, i: number) => (j: number) => !bs[j].corner && endAt(j) === endAt(i) && bare(j) === bare(i) && onLine(bs[j]) === onLine(b) && (!tips || !tips[j] === !tips[i]);
   // (a heavier sans's curves, in a font of little contrast drawn with a rule (fontPlumb), eased over as far along them as
   // they move out, a sample for every STEP: each read across its own stroke, a geometric b's counter's side, its bowl
   // reading 20 units thick where it leaves the stem and 30 where it runs into it, went in by two steps, a bump on the
@@ -5765,12 +5828,15 @@ function serifRuns(rig: SkinRig, r: number) {
   // tip: a Didone's serifs, coming to a hairline point, have no end found there, and the serif's top and foot slid out past
   // the tip between them, a fold cutting it off)
   const cup = new Uint8Array(n);
+  const hair = rig.cupped ? rig.ref().hair0 : 0;
   if (rig.cupped) for (let i = 0; i < n; i++) {
     const sg = side[i];
     if (!sg || side[md(i + 1)] || !bs[i].serifDx) continue;
-    let k = 1;
-    while (k <= CUP_TIP && !side[md(i + k)]) k++;
-    if (k <= CUP_TIP && side[md(i + k)] === sg && bs[md(i + k)].serifDx) for (let q = 1; q < k; q++) { side[md(i + q)] = sg; atEnd[md(i + q)] = 1; cup[md(i + q)] = 1; }
+    // (or up to CUP_TIP_THIN of them all thinner than the hairline: a Didone's w's head serif's tip, its top read as its
+    // serif's only near its root, slid none while its underside slid out past it, a fold over the tip)
+    let k = 1, thin = true;
+    while (k <= CUP_TIP_THIN && !side[md(i + k)]) { thin &&= 2 * bs[md(i + k)].w < hair; k++; }
+    if ((k <= CUP_TIP || (thin && k <= CUP_TIP_THIN)) && side[md(i + k)] === sg && bs[md(i + k)].serifDx) for (let q = 1; q < k; q++) { side[md(i + q)] = sg; atEnd[md(i + q)] = 1; cup[md(i + q)] = 1; }
   }
   const from = side.findIndex((d, i) => !d || d !== side[(i - 1 + n) % n]);
   for (let q = 0; from >= 0 && q < n; q++) {
@@ -6249,6 +6315,25 @@ function veeOf(rig: SkinRig, r: number): Uint8Array {
   return got;
 }
 const VEES = new WeakMap<Bone[], Uint8Array>();
+/** Which samples of contour r of the rig lie on a stroke's end cut along a line (edgeMoves): level, within
+    SERIF_LINE_NEAR of the capitals' height of the line and facing out across it, the stroke each is read across
+    running CUT_WAY or more along its normal, and those so level by the line within CUT_SPREAD samples of one (a Didone's
+    W's foot's samples by its corner, read across their stroke the other way, went down 27 units while the rest of the
+    foot stayed, and the heights, lifting the whole foot by as much, left the rest of it over the line). Read once a rig. */
+function lineCuts(rig: SkinRig, r: number): Uint8Array {
+  const bs = rig.bones[r];
+  let got = LINE_CUTS.get(bs);
+  if (got) return got;
+  const c = rig.ctx, near = SERIF_LINE_NEAR * c.cap, n = bs.length, md = (i: number) => ((i % n) + n) % n;
+  const lines: [number, number][] = [[c.cap, 1], [0, -1], ...(c.lower ? [[c.xh, 1], [c.asc, 1], [c.desc, -1]] as [number, number][] : [])];
+  const level = bs.map(b => !b.corner && Math.abs(b.ny) > 0.97 && lines.some(([L, up]) => Math.abs(b.y - L) <= near && -b.ny * up > 0));
+  got = Uint8Array.from(bs, (b, i) => (level[i] && Math.abs(b.nx * b.dx + b.ny * b.dy) >= CUT_WAY ? 1 : 0));
+  const seed = got.slice();
+  for (let i = 0; i < n; i++) if (seed[i]) for (const d of [-1, 1]) for (let k = 1, j = md(i + d); k <= CUT_SPREAD && level[j]; k++, j = md(j + d)) got[j] = 1;
+  LINE_CUTS.set(bs, got);
+  return got;
+}
+const LINE_CUTS = new WeakMap<Bone[], Uint8Array>(), CUT_WAY = 0.6, CUT_SPREAD = 4;
 
 /** Which samples of contour r of the rig, a counter (wound against the letter's outside), face across it an edge beyond
     a corner they run to, the edge their gap reaches (the sample nearest where it ends, within VEE_HIT) lying round the
@@ -6638,6 +6723,35 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   });
   // (a shallow crotch met again part of the way, archMeet's w)
   for (const i of blend) { const m = archMeet(i)!; out[i] = { x: out[i].x + (m.M.x - out[i].x) * m.w, y: out[i].y + (m.M.y - out[i].y) * m.w }; meets.set(i, out[i]); arched(i); }
+  // (and a contrasty font's side running into a stroke's end cut along a line (lineCuts), which stays: its points by the
+  // corner, moved out, went past the line, a Didone's W's feet's outer corners hanging 24 units under the baseline at
+  // Verticals 100)
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && mv.contrasty) {
+    // (not a hairline tip's corner, carried whole after (hairTips): the side's points brought to where it was clipped stayed
+    // there as the tip went on, a sliver off a Didone's u's top serif at Weight midway)
+    const cutAt = lineCuts(rig, r), tipAt = hairTipMarks(rig, r);
+    bs.forEach((b, i) => {
+      if (!b.corner || concaveAt(b) || tipAt[i]) return;
+      for (const d of [-1, 1]) {
+        const e = bs[md(i - d)];
+        // (a straight side only: read off a C's curved beak, its top's corner went out past the bar's round beside it, a hole
+        // where they crossed at Weight 100)
+        let straight = true;
+        for (let k = 1; k <= 6 && straight; k++) straight = !!bs[md(i + k * d)].straight && !bs[md(i + k * d)].corner;
+        if (!cutAt[md(i - d)] || !straight) continue;
+        const up = e.ny < 0 ? 1 : -1, yc = out[md(i - d)].y, P = out[md(i + 2 * d)], Q = out[md(i + 6 * d)];
+        // (the corner itself, met again past the line, back on it where the side as moved crosses it: a fat face's M's
+        // and N's thick strokes' tops stood a spike over the capitals' line)
+        if ((out[i].y - yc) * up > 0 && Math.abs(Q.y - P.y) > 1e-6) out[i] = { x: P.x + (yc - P.y) * (Q.x - P.x) / (Q.y - P.y), y: yc };
+        for (let k = 1, j = md(i + d); k <= SIDE_PAST && !bs[j].corner && !inEnd[j]; k++, j = md(j + d)) if ((out[j].y - out[i].y) * up > 0) out[j] = { x: out[i].x, y: out[i].y };
+      }
+    });
+  }
+  // (a contrasty font's hairline tips carried whole (hairTips): each point moved along its own normal, the tip's edges a
+  // hairline apart and their normals read across to each other's, its edges came together and the tip pinched off, a
+  // speck past the Didone's W's top serifs, and dropped, its room 11 units less at once at Weight 75; a speck past its N's
+  // left foot)
+  if (mv.reweighed && mv.contrasty) hairTips(rig, r, bs, base, out);
   if (mv.lighter) { carryFillets(); pinPoints(); stretchRounds(); hairRoots(); holdBrackets(); if (mv.apart) carryCuts(); }
   else if (mv.reweighed) { carryRounds(); if (linesMove(rig, mv)) straightRuns(); else if (mv.kv > 1 + REWEIGHED && fairFont(rig)) straightRuns(true); else if (reversed(mv)) straightRuns('rev'); }
   if (mv.reweighed && (mv.kv > 1 + REWEIGHED || mv.kh > 1 + REWEIGHED)) cornersPast(mv.kv > 1 + REWEIGHED && fairFont(rig));
