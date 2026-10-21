@@ -798,7 +798,7 @@ function serifLinedRig(rig: SkinRig): SkinRig | null {
   N.serifLined = null; N.nubless = rig.nubless; N.cupped = true;
   return (rig.serifLined = count(N) > count(rig) ? N : null);
 }
-const SERIF_LINE_NEAR = 0.02, CUP_GAP = 3, CUP_TIP = 16;
+const SERIF_LINE_NEAR = 0.02, CUP_GAP = 3, CUP_TIP = 16, CUP_RAMP = 0.15;
 
 /** Letter `ch` of a free font (or of a design's drawn letters), rigged (once, then kept with the font). */
 export function skinRig(font: RigLetters, ch: string): SkinRig | null {
@@ -5458,7 +5458,10 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // its stem, is moved as a side: moved as a serif, out with a stem's side and level off its line, its edges stood off
   // their neighbours' by steps, a ragged hole in a Chancery's A's counter at Weight 100)
   const flags = !!rig && weighed(mv) && mv.kv > 1 && !bs[0]?.dot, unserifed = flags && !rig!.serifed(), dxOf = (b: Bone) => (unserifed ? 0 : b.serifDx || (flags ? b.flagDx : 0));
-  const serifOut = (b: Bone) => Math.sign(dxOf(b)) * Math.min((mv.kv - 1) * b.serifStem / 2, b.serifRoom * OPEN);
+  // (its serifs read cupped (serifLinedRig) slid in by CUP_RAMP of the stems' growth from where it is first so rigged: at
+  // once, a Didone's H took 7 units more room in a hundredth of Weight)
+  const cupIn = rig?.cupped ? Math.min(1, Math.max(0, (mv.kv - 1 - REWEIGHED) / CUP_RAMP)) : 1;
+  const serifOut = (b: Bone) => Math.sign(dxOf(b)) * Math.min((mv.kv - 1) * b.serifStem / 2, b.serifRoom * OPEN) * cupIn;
   // (how much each edge's stroke thickens, eased along the outline a stroke's width or so, as where a curve turns from
   // upright to level the edge's own heading wavers, more so where it runs into a join)
   // (no stroke thinner than the font's hairline as the bars now are, HAIR_FLOOR of it, unless drawn thinner: a serif's
