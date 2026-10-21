@@ -445,7 +445,17 @@ A design with `freeFont` set draws its letters from a free font instead of build
    counter); and a level edge by a line that runs across its stroke (`lineCuts`, `CUT_WAY`) stays as an end, a straight
    side running into it stopped at the corner on the line; an edge growing into a V of paper goes no further than the
    stroke across's other side, read slantwise (`veeRooms`), where it gets there only (a Didone's M's thick stroke grew
-   past its hairline stem into a flag). Contrast turned round weighs each edge by its stroke read
+   past its hairline stem into a flag). Heavier, its serifs thicken as its bars do (`min(k, kh)`: by the root, read across
+   into the stem and weighed as it, a Didone's feet's brackets bulged), a foot cupped on its line is read by each side's
+   own piece where it touches the line in two (`serifReach` read `near`: a K's leg's inner serif, read off the outer tip,
+   was none), no serif is read on a hairline's long steep straight side (`SERIF_STEEP`: a w's middle stroke's, by the thick
+   stroke's top, slid as a serif, a nose), its thick strokes' straight segments (by their samples' middle thickness) are laid on one line each
+   (`straightRuns('thick')`), each point no further out than its own room nor past a line its stroke ends on
+   (`THICK_LINE`), the points either side gone into such an edge's ink, a round folded back over itself, put where the
+   outline crosses its line (`FOLD_BACK`: a hook at a K's leg's foot), and its moves are run smooth by `CON_SMOOTH` of how
+   far its stems thickened, its straight edges, serifs and hairline tips held (`evenedMoves`): moved each by its own
+   reading, a Didone at Verticals 100 came out wavy along its feet, bowls and stems, its K's, M's and W's strokes notched
+   by their feet. Contrast turned round weighs each edge by its stroke read
    whole (`sideHalf`), more and more over `HALF_RAMP` of the uprights' thinning (at once, a fat face's O took a quarter more ink
    in a step of Contrast); on a contrasty design so turned (`reversed`, coming in over `REV_RAMP`) its straight edges are
    laid on one line each (`straightRuns('rev')`) and the moves between them run smooth by `REV_SMOOTH` of how far its
