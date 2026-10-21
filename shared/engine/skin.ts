@@ -3636,7 +3636,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
         if (g <= MEET_ROUND) for (let k = 0; k < g; k++) met[(i + k) % n] = 1;
       }
       // (and its samples kept clear of its tips' corners moved over them (cornersClear))
-      const sm = cornersClear(anchoredMoves(ring, bs, designAt(r), sg, i => !!laid[i] || !!met[i] || bs[i].onLine, i => !!laid[i] && !bs[i].onLine), bs);
+      const sm = cornersClear(anchoredMoves(ring, bs, designAt(r), sg, i => !!laid[i] || !!met[i] || bs[i].onLine, i => !!laid[i] && !bs[i].onLine, false, true), bs);
       return plain ? unkinked(sm, bs, rig.ctx.cap) : sm;
     });
   }
@@ -6787,7 +6787,7 @@ const RELAY_END = 0.3;
     edge laid on its line, a stroke's end carried whole) keeps its own move, but its move is read into those beside it
     (evenedMoves stops at it): the samples of a curve running on from a stem's side moved as their own strokes read, less
     far than the stem's, the outline stepping where they meet. */
-function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, holds: (i: number) => boolean, froms: (i: number) => boolean = holds, stops = false): P[] {
+function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, holds: (i: number) => boolean, froms: (i: number) => boolean = holds, stops = false, scaled = false): P[] {
   const n = r.length, reach = Math.min(n >> 1, Math.ceil(3 * sigma / STEP));
   if (n < 8 || sigma < 0.5 || reach < 1) return r;
   const H = Uint8Array.from({ length: n }, (_, i) => (holds(i) ? 1 : 0)), F = Uint8Array.from({ length: n }, (_, i) => (froms(i) ? 1 : 0));
@@ -6797,12 +6797,65 @@ function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, holds: (i: n
   // way, wholly beside it: each sample read across its own stroke, an arch's inside leaving a stem's side went in less
   // than the side, a notch where they meet, and the counter's top, its sides moved by less and less, a keyhole)
   const cx = dx.slice(), cy = dy.slice(), cw = new Float64Array(n);
+  // (`scaled`: a round between two held edges across paper, drawn again from them as they moved, not each sample carried
+  // from each edge wholly to not at all over CARRY_FADE samples: a round turning off an edge's way slower than its move
+  // fell stood an S where it left the edge, a grotesque's n's, m's and h's counters' tops, its D's counter's corners, its
+  // q's and e's where their bowls leave a stem or a bar, at Weight 88, Verticals 100. Between edges facing each other (an
+  // n's arch's inside, a B's bowl's) the design's round made smaller as the counter between them is narrower, about its
+  // apex as that moved, the edges running on straight to it (drawn in across only, a narrow pointed arch); between edges
+  // square to each other (a D's counter's corners) moved with the corner where the edges' lines now meet; and from one
+  // edge round to it again (a q's, a d's, an e's eye's) none of it left past the edge's line as moved, the edge running on
+  // straight to where the round comes out from behind it; drawn in toward the edge less and less to its far side, a
+  // q's and a d's counters came to points by the stem)
+  if (scaled) for (let a = 0, seen = 0; seen < n; seen++, a = (a + 1) % n) {
+    const e1 = (a - 1 + n) % n;
+    if (!held(e1) || held(a) || bs[a].corner) continue;
+    let L = 0;
+    while (L < n && !held((a + L) % n) && !bs[(a + L) % n].corner) L++;
+    const e2 = (a + L) % n, P1 = bs[e1], P2 = bs[e2];
+    if (L < 3 || L >= n || !held(e2) || !from(e1) || !from(e2) || !isFinite(P1.gap) || !isFinite(P2.gap)) continue;
+    const ux = -P1.nx, uy = -P1.ny, wx = -P2.nx, wy = -P2.ny, c = ux * wx + uy * wy;
+    const m1 = dx[e1] * ux + dy[e1] * uy, m2 = dx[e2] * wx + dy[e2] * wy;
+    const set = (i: number, x: number, y: number) => { cx[i] = x; cy[i] = y; cw[i] = 1; };
+    // (each sample's way off either edge's line into the paper, as the design drew it: the round wholly in the paper
+    // before them, near them as their room is, not a stroke's whole spine between two cut ends, an Industrial's s's)
+    const o1 = (i: number) => (was[i].x - was[e1].x) * ux + (was[i].y - was[e1].y) * uy, o2 = (i: number) => (was[i].x - was[e2].x) * wx + (was[i].y - was[e2].y) * wy;
+    let lo1 = Infinity, hi1 = -Infinity, lo2 = Infinity, hi2 = -Infinity;
+    for (let j = 0; j < L; j++) { const i = (a + j) % n, p = o1(i), q = o2(i); lo1 = Math.min(lo1, p); hi1 = Math.max(hi1, p); lo2 = Math.min(lo2, q); hi2 = Math.max(hi2, q); }
+    const tol = SCALED_TOL * Math.min(P1.gap, P2.gap);
+    if (lo1 < -tol || lo2 < -tol) continue;
+    if (c < -SCALED_FACING) {
+      const W = (was[e2].x - was[e1].x) * ux + (was[e2].y - was[e1].y) * uy, k = W > 0 ? (W - m1 - m2) / W : 1;
+      if (!(k > SCALED_LEAST && k < 1) || m1 <= 0 || m2 <= 0 || hi1 > W + tol || Math.abs(W - P1.gap) > SCALED_GAP * P1.gap || Math.abs(W - P2.gap) > SCALED_GAP * P2.gap) continue;
+      // (the way along the counter toward its round, and its apex furthest that way)
+      let vx = -uy, vy = ux, mx = 0, my = 0;
+      for (let j = 0; j < L; j++) { mx += was[(a + j) % n].x; my += was[(a + j) % n].y; }
+      if ((mx / L - was[e1].x) * vx + (my / L - was[e1].y) * vy < 0) { vx = -vx; vy = -vy; }
+      let top = -Infinity, ia = a;
+      for (let j = 0; j < L; j++) { const i = (a + j) % n, b = was[i].x * vx + was[i].y * vy; if (b > top) { top = b; ia = i; } }
+      const c0 = ((was[e1].x + was[e2].x) * ux + (was[e1].y + was[e2].y) * uy) / 2, c1 = c0 + (m1 - m2) / 2, top1 = top + dx[ia] * vx + dy[ia] * vy;
+      for (let j = 0; j < L; j++) {
+        const i = (a + j) % n, A = c1 + k * (was[i].x * ux + was[i].y * uy - c0), B = top1 - k * (top - (was[i].x * vx + was[i].y * vy));
+        set(i, ux * A + vx * B - was[i].x, uy * A + vy * B - was[i].y);
+      }
+    } else if (Math.abs(c) < SCALED_SQUARE) {
+      if ((m1 <= 0 && m2 <= 0) || hi1 > SCALED_CORNER * P1.gap || hi2 > SCALED_CORNER * P2.gap) continue;
+      for (let j = 0; j < L; j++) set((a + j) % n, ux * m1 + wx * m2, uy * m1 + wy * m2);
+    } else if (c > SCALED_FACING) {
+      const m = (m1 + m2) / 2;
+      if (m <= 0) continue;
+      for (let j = 0; j < L; j++) {
+        const i = (a + j) % n, o = Math.max(0, o1(i)), got = dx[i] * ux + dy[i] * uy;
+        if (got < m - o) set(i, dx[i] + ux * (m - o - got), dy[i] + uy * (m - o - got));
+      }
+    }
+  }
   for (let e = 0; e < n; e++) for (const dir of [-1, 1]) {
     if (!from(e) || held(((e + dir) % n + n) % n) || bs[e].corner) continue;
     const E = bs[e];
     for (let k = 1; k <= reach; k++) {
       const i = ((e + dir * k) % n + n) % n, b = bs[i];
-      if (held(i) || b.corner) break;
+      if (held(i) || b.corner || (scaled && cw[i] === 1)) break;
       const c = b.nx * E.nx + b.ny * E.ny;
       if (c < CARRY_TURN) break;
       // (only one left behind: a curve gone further than the edge it runs on from, a D's bowl's inside from its bar's, is not
@@ -6911,6 +6964,17 @@ const CLEAR = 0.4, CLEAR_SKIP = 6, CLEAR_FAR = 4;
 /** How far round from a held edge's way (the cosine) a curve running on from it is moved with it, and over how many
     samples beside it it is moved with it wholly to not at all (anchoredMoves). */
 const CARRY_TURN = 0.3, CARRY_FADE = 4;
+/** How near opposite (the cosine, negated) two held edges must face for the round between them to be drawn again smaller
+    as the counter between them narrows, or how near alike for it to be drawn in toward them (anchoredMoves' `scaled`), and
+    how small it may be made at most (its share). */
+const SCALED_FACING = 0.7, SCALED_LEAST = 0.2;
+/** How near square (the cosine) two held edges must stand for the round between them to move with the corner where their
+    lines meet (anchoredMoves' `scaled`). */
+const SCALED_SQUARE = 0.3;
+/** How far behind either edge's line, as a share of its room, a round drawn again from them may reach (anchoredMoves'
+    `scaled`); how near the room the two facing edges read must be to the way between them; how far into its room a round
+    between edges square to each other may reach, a corner's. */
+const SCALED_TOL = 0.05, SCALED_GAP = 0.25, SCALED_CORNER = 0.85;
 /** A ring without its points that turn back on the way to them by more than SPIKE_TURN where either way out of them runs
     SPIKE_SHORT units or less: a spike's tip a few units long, which a curve traced through draws as a loop. */
 function unspiked(r: P[]): P[] {

@@ -407,7 +407,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    in such a sans growing heavier (`plumbHeavy`) every point's move is run smooth along the outline by `PLUMB_SMOOTH` of
    how far its strokes thicken, its laid straight edges and its edges on a line held, a curve running on from a laid
    edge moved with it as far as it faces the edge's way and wholly beside it, if it lags behind it (`anchoredMoves`,
-   `CARRY_TURN`, `CARRY_FADE`: a grotesque's bowls beaded, an n's counter a keyhole at Verticals 100), and an edge across
+   `CARRY_TURN`, `CARRY_FADE`: a grotesque's bowls beaded, an n's counter a keyhole at Verticals 100), a round between two such edges across paper drawn again from them as they moved (`scaled`: between edges facing each other the design's round made smaller as the counter narrows, about its apex; between edges square to each other moved with their corner; from one edge round to it again none of it left behind the edge's line; `SCALED_FACING`, `SCALED_SQUARE`, `SCALED_TOL`, `SCALED_GAP`, `SCALED_CORNER`: a grotesque's n's, m's, h's, u's, D's and q's counters stepped where their rounds leave their stems at Weight 88, Verticals 100), and an edge across
    a V of paper grows into it no further than leaves `VEE_SLOT` of a stem (an M's counters, gone at Verticals 100). A
    curve's samples facing a counter, a tip's corner moved over them from beside, are drawn back to leave `CLEAR` of the
    room the corner's edges had (`cornersClear`: an a's hook's tip over its bowl shut the way into its eye at Weight and
