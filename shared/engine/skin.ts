@@ -359,10 +359,15 @@ function serifReach(f: Grid, x: number, y: number, nx: number, ny: number, L: nu
 /** One contour of the letter rigged: each sample read across its stroke, the strokes' thickness without their
     joins', and their ends and dots marked. `alone`: the contour lies inside no other and holds none (read by their
     first points), so it can be a square dot (a blob; a ring round one point is a dot alone or not). */
-function rigContour(c: Node[], f: Grid, ctx: Ctx, alone: boolean, near = 0, steep = false): Bone[] {
+function rigContour(c: Node[], f: Grid, ctx: Ctx, alone: boolean, near = 0, steep = false, bases?: Map<Node[], SampleBase[]>): Bone[] {
   const lines = [0, ctx.xh, ctx.cap, ctx.asc, ctx.desc];
   const serifLines = ctx.lower ? [0, ctx.xh, ctx.asc, ctx.desc] : [0, ctx.cap];
-  const bones = samples(c).map(p => readSample(p, f, ctx, lines, serifLines, near));
+  // (`bases`: its samples' readings but for their serifs kept, for the letter rigged again on the same ink, read `near`
+  // otherwise: serifLinedRig's two)
+  const smp = samples(c);
+  let got = bases?.get(c);
+  if (bases && !got) bases.set(c, (got = smp.map(p => sampleBase(p, f, ctx, lines))));
+  const bones = smp.map((p, i) => readSample(p, f, ctx, lines, serifLines, near, got?.[i]));
   // (`steep`: no serif read on a hairline's straight side running as steep as SERIF_STEEP and SERIF_STEEP_LONG of the
   // capitals' height tall, thinner than SERIF_STEEP_THIN of it, a stroke's side by a heavier one, not a serif's)
   if (steep) {
@@ -379,9 +384,9 @@ function rigContour(c: Node[], f: Grid, ctx: Ctx, alone: boolean, near = 0, stee
   return bones;
 }
 
-/** A sample read across its stroke: its inward normal, followed to the skeleton; the way the stroke runs there; the
-    stroke's thickness; how far it reaches out on a serif; and whether it lies flat on one of the letter's lines. */
-function readSample(p: Sample, f: Grid, ctx: Ctx, lines: number[], serifLines: number[], near = 0): Bone {
+/** A sample's reading but for its serif (readSample), the same whatever `near` its serif is read for. */
+interface SampleBase { nx: number; ny: number; ax: number; ay: number; best: number; dx: number; dy: number; chord: number; gap: number; onLine: boolean }
+function sampleBase(p: Sample, f: Grid, ctx: Ctx, lines: number[]): SampleBase {
   let nx = -p.ty, ny = p.tx;
   const into = (sx: number, sy: number) => dist(f, p.x + sx * 3, p.y + sy * 3) + (inked(f, p.x + sx * 3, p.y + sy * 3) ? 100 : 0);
   if (into(-nx, -ny) > into(nx, ny)) { nx = -nx; ny = -ny; }
@@ -421,6 +426,16 @@ function readSample(p: Sample, f: Grid, ctx: Ctx, lines: number[], serifLines: n
   const head = across(0);
   let chord = isFinite(head) ? head : 0;
   if (chord > 0) for (const deg of [-60, -45, -30, -20, -10, 10, 20, 30, 45, 60]) chord = Math.min(chord, across(deg, chord));
+  const onLine = p.straight && Math.abs(ny) > 0.97 && lines.some(L => Math.abs(p.y - L) < 2.5);
+  // (out from the edge, the paper's width to the next ink: a counter's, or the room between two strokes)
+  const gap = march(f, p.x, p.y, -nx, -ny, ctx.cap);
+  return { nx, ny, ax, ay, best, dx, dy, chord, gap, onLine };
+}
+/** A sample read across its stroke: its inward normal, followed to the skeleton; the way the stroke runs there; the
+    stroke's thickness; how far it reaches out on a serif; and whether it lies flat on one of the letter's lines (`read`,
+    all but its serif, if read already: sampleBase). */
+function readSample(p: Sample, f: Grid, ctx: Ctx, lines: number[], serifLines: number[], near = 0, read?: SampleBase): Bone {
+  const { nx, ny, ax, ay, best, dx, dy, chord, gap, onLine } = read ?? sampleBase(p, f, ctx, lines);
   let sr: ReturnType<typeof serifReach> = { dx: 0, stem: 0, room: 0, reach: 0 };
   // (a flag or a stem's end, the first line's, only where no line's serif is found)
   for (const L of serifLines) {
@@ -429,9 +444,6 @@ function readSample(p: Sample, f: Grid, ctx: Ctx, lines: number[], serifLines: n
     const got = serifReach(f, p.x, p.y, nx, ny, L, ctx.cap, L === 0 || (!ctx.lower && L === ctx.cap) ? near : 0);
     if ((got.dx && !got.flag) || (!sr.flag && sr.over === undefined)) sr = got;
   }
-  const onLine = p.straight && Math.abs(ny) > 0.97 && lines.some(L => Math.abs(p.y - L) < 2.5);
-  // (out from the edge, the paper's width to the next ink: a counter's, or the room between two strokes)
-  const gap = march(f, p.x, p.y, -nx, -ny, ctx.cap);
   return { ...p, nx, ny, ax, ay, best, dx, dy, w: chord / 2, w0: chord / 2, serifDx: sr.flag ? 0 : sr.dx, flagDx: sr.flag ? sr.dx : 0, overStem: sr.over ?? -1, serifStem: sr.stem, serifRoom: sr.room, serifReach: sr.reach, gap, onLine, cap: false, lineCap: false, dot: false };
 }
 
@@ -837,11 +849,11 @@ function serifLinedRig(rig: SkinRig): SkinRig | null {
   if (rig.serifLined !== undefined) return rig.serifLined;
   // (either way no long steep straight side read as a serif's: a Didone's w's middle hairline's side, by the thick
   // stroke's top, read as a serif reaching out from it and slid as one, a nose there at Weight 100)
-  const f = inkGrid(rig.contours, 1), N = rigOf(rig.font, rig.contours, f, rig.ctx, Math.round(SERIF_LINE_NEAR * rig.ctx.cap), true);
+  const f = inkGrid(rig.contours, 1), bases = new Map<Node[], SampleBase[]>(), N = rigOf(rig.font, rig.contours, f, rig.ctx, Math.round(SERIF_LINE_NEAR * rig.ctx.cap), true, bases);
   const count = (R: SkinRig) => R.bones.reduce((a, bs) => a + bs.filter(b => b.serifDx || b.flagDx).length, 0);
   N.serifLined = null; N.nubless = rig.nubless; N.cupped = true;
   if (count(N) > count(rig)) return (rig.serifLined = N);
-  const P = rigOf(rig.font, rig.contours, f, rig.ctx, 0, true);
+  const P = rigOf(rig.font, rig.contours, f, rig.ctx, 0, true, bases);
   P.serifLined = null; P.nubless = rig.nubless;
   return (rig.serifLined = count(P) < count(rig) ? P : null);
 }
@@ -1037,10 +1049,10 @@ export function skinRig(font: RigLetters, ch: string): SkinRig | null {
 }
 
 /** Outline cs of a letter of `font` rigged, its ink f, its heights ctx (skinRig). */
-function rigOf(font: RigLetters, cs: Node[][], f: Grid, ctx: Ctx, near = 0, steep = false): SkinRig {
+function rigOf(font: RigLetters, cs: Node[][], f: Grid, ctx: Ctx, near = 0, steep = false, bases?: Map<Node[], SampleBase[]>): SkinRig {
   // (a dot is on its own: a counter as small, a bold e's eye, is inside the letter's outline, and so is no dot, nor an o round its counter)
   const polys = cs.map(c => c.map(n => ({ x: n.x, y: n.y })));
-  const bones = cs.map((c, i) => rigContour(c, f, ctx, !polys.some((o, j) => j !== i && o.length > 2 && (inPoly(o, polys[i][0]) || inPoly(polys[i], o[0]))), near, steep));
+  const bones = cs.map((c, i) => rigContour(c, f, ctx, !polys.some((o, j) => j !== i && o.length > 2 && (inPoly(o, polys[i][0]) || inPoly(polys[i], o[0]))), near, steep, bases));
   const upright = bones.flat().filter(b => Math.abs(b.nx) > 0.9 && !b.cap).map(b => b.w * 2).sort((a, b) => a - b);
   const level = bones.flat().filter(b => Math.abs(b.ny) > 0.9 && !b.cap && !b.dot).map(b => b.w * 2).sort((a, b) => a - b);
   const level0 = bones.flat().filter(b => Math.abs(b.ny) > 0.9 && !b.cap && !b.dot).map(b => b.w0 * 2).sort((a, b) => a - b);
@@ -2074,9 +2086,10 @@ function untangle(p: P[], reach = 60, least = false) {
   for (let pass = 0; pass < 32; pass++) {
     let cut = false; const n = pts.length;
     for (let i = 0; i < n && !cut; i++) {
-      const a = pts[i], b = pts[(i + 1) % n];
+      const a = pts[i], b = pts[(i + 1) % n], x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x), y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
       for (let k = 2; k <= Math.min(reach, n - 2); k++) {
         const j = (i + k) % n, c = pts[j], d = pts[(j + 1) % n];
+        if ((c.x < x0 && d.x < x0) || (c.x > x1 && d.x > x1) || (c.y < y0 && d.y < y0) || (c.y > y1 && d.y > y1)) continue;
         const rx = b.x - a.x, ry = b.y - a.y, sx = d.x - c.x, sy = d.y - c.y, den = rx * sy - ry * sx;
         if (Math.abs(den) < 1e-9) continue;
         const t = ((c.x - a.x) * sy - (c.y - a.y) * sx) / den, u = ((c.x - a.x) * ry - (c.y - a.y) * rx) / den;
@@ -2131,7 +2144,10 @@ function doubledBack(p: P[], design?: P[]) {
     return lu < 1e-6 || lv < 1e-6 ? 1 : (ux * vx + uy * vy) / (lu * lv);
   };
   // (but not where the design turns back as sharply: a Didone's hairline serif's point)
-  const all = p.map((_, i) => i), sharp = design && design.length === p.length ? all.map(i => turn(design, all, i) <= -0.97) : null;
+  // (read once a design: the rig's own samples, mostly, unless unfolded took some out)
+  const all = p.map((_, i) => i);
+  let sharp: boolean[] | null = null;
+  if (design && design.length === p.length) { sharp = SHARP.get(design) ?? null; if (!sharp) SHARP.set(design, (sharp = all.map(i => turn(design, all, i) <= -0.97))); }
   let idx = all;
   for (let pass = 0; pass < 64 && idx.length > 3; pass++) {
     const keep = idx.filter((k, j) => sharp?.[k] || turn(p, idx, j) > -0.97);
@@ -2140,6 +2156,8 @@ function doubledBack(p: P[], design?: P[]) {
   }
   return idx.length === p.length ? p : idx.map(k => p[k]);
 }
+
+const SHARP = new WeakMap<P[], boolean[]>();
 
 /** Whether the outlines cross themselves or each other anywhere (edges bucketed on a grid, so only near ones are tried). */
 function crosses(rings: P[][]) {
@@ -2166,11 +2184,9 @@ function crosses(rings: P[][]) {
 
 const ease = (v: number[], bs: Bone[], i: number, keep: (j: number) => boolean, reach = 3) => {
   let s = 0, ws = 0;
-  for (const dir of [-1, 1]) for (let k = dir < 0 ? 0 : 1; k <= reach; k++) {
-    const j = ((i + dir * k) % bs.length + bs.length) % bs.length;
-    if (!keep(j)) break;
-    const w = Math.exp(-(k * k) * 3 / (2 * reach * reach)); s += v[j] * w; ws += w;
-  }
+  const n = bs.length, w = bell(reach);
+  for (let k = 0; k <= reach; k++) { const j = (((i - k) % n) + n) % n; if (!keep(j)) break; s += v[j] * w[k]; ws += w[k]; }
+  for (let k = 1; k <= reach; k++) { const j = (i + k) % n; if (!keep(j)) break; s += v[j] * w[k]; ws += w[k]; }
   return ws ? s / ws : v[i];
 };
 
@@ -6230,7 +6246,9 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // (nor with a contrasty font's hairline tip, carried whole (hairTips): its samples' normals, read across to each other's
   // sides, move them in, and eased with them the Didone's W's top serif's underside went up into its top, a crack)
   const tips = rig && mv.reweighed && mv.contrasty ? hairTipMarks(rig, r) : null;
-  const keepAt = (b: Bone, i: number) => (j: number) => !bs[j].corner && endAt(j) === endAt(i) && bare(j) === bare(i) && onLine(bs[j]) === onLine(b) && (!tips || !tips[j] === !tips[i]);
+  // (each sample's kind read once, eased only with its own kind: -1 a corner)
+  const kind = Int8Array.from(bs, (b, j) => (b.corner ? -1 : (endAt(j) ? 1 : 0) | (bare(j) ? 2 : 0) | (onLine(b) ? 4 : 0) | (tips?.[j] ? 8 : 0)));
+  const keepAt = (_b: Bone, i: number) => { const c = kind[i]; return (j: number) => kind[j] === c; };
   // (a heavier sans's curves, in a font of little contrast drawn with a rule (fontPlumb), eased over as far along them as
   // they move out, a sample for every STEP: each read across its own stroke, a geometric b's counter's side, its bowl
   // reading 20 units thick where it leaves the stem and 30 where it runs into it, went in by two steps, a bump on the
@@ -6513,19 +6531,17 @@ function evenedMoves(r: P[], bs: Bone[], was: P[], sigma: number, held?: (i: num
   const dx = r.map((p, i) => p.x - was[i].x), dy = r.map((p, i) => p.y - was[i].y);
   // (how many samples along each lies from the nearest corner: within the bell's middle of one, its own move kept as much
   // more as it lies nearer, so the corner's sides, run smooth up to it and not past, don't cross over it)
-  const dc = new Int32Array(n).fill(n), near = sigma / STEP, fixed = (i: number) => bs[i].corner || !!held?.(i), f0 = bs.findIndex((_, i) => fixed(i));
+  const fx = Uint8Array.from(bs, (b, i) => (b.corner || !!held?.(i) ? 1 : 0)), fixed = (i: number) => fx[i] === 1;
+  const dc = new Int32Array(n).fill(n), near = sigma / STEP, f0 = fx.indexOf(1);
   if (f0 >= 0) for (const dir of [1, -1]) for (let k = 0, i = f0, d = n; k < 2 * n; k++, i = (i + dir + n) % n) {
     d = fixed(i) ? 0 : d + 1;
     if (d < dc[i]) dc[i] = d;
   }
   return r.map((p, i) => {
-    if (fixed(i)) return p;
+    if (fx[i]) return p;
     let sx = dx[i], sy = dy[i], sw = 1;
-    for (const dir of [-1, 1]) for (let k = 1; k <= reach; k++) {
-      const j = ((i + dir * k) % n + n) % n;
-      if (fixed(j)) break;
-      sx += dx[j] * g[k]; sy += dy[j] * g[k]; sw += g[k];
-    }
+    for (let k = 1, j = i; k <= reach; k++) { j = j === 0 ? n - 1 : j - 1; if (fx[j]) break; sx += dx[j] * g[k]; sy += dy[j] * g[k]; sw += g[k]; }
+    for (let k = 1, j = i; k <= reach; k++) { j = j === n - 1 ? 0 : j + 1; if (fx[j]) break; sx += dx[j] * g[k]; sy += dy[j] * g[k]; sw += g[k]; }
     const f = Math.min(1, dc[i] / near);
     return { x: p.x + (was[i].x + sx / sw - p.x) * f, y: p.y + (was[i].y + sy / sw - p.y) * f };
   });
@@ -6684,9 +6700,11 @@ const RELAY_END = 0.3;
     edge laid on its line, a stroke's end carried whole) keeps its own move, but its move is read into those beside it
     (evenedMoves stops at it): the samples of a curve running on from a stem's side moved as their own strokes read, less
     far than the stem's, the outline stepping where they meet. */
-function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, held: (i: number) => boolean, from: (i: number) => boolean = held, stops = false): P[] {
+function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, holds: (i: number) => boolean, froms: (i: number) => boolean = holds, stops = false): P[] {
   const n = r.length, reach = Math.min(n >> 1, Math.ceil(3 * sigma / STEP));
   if (n < 8 || sigma < 0.5 || reach < 1) return r;
+  const H = Uint8Array.from({ length: n }, (_, i) => (holds(i) ? 1 : 0)), F = Uint8Array.from({ length: n }, (_, i) => (froms(i) ? 1 : 0));
+  const held = (i: number) => H[i] === 1, from = (i: number) => F[i] === 1;
   let dx = r.map((p, i) => p.x - was[i].x), dy = r.map((p, i) => p.y - was[i].y);
   // (a curve running on from a held edge, no corner between, moved as the edge's end is by as much as it faces the edge's
   // way, wholly beside it: each sample read across its own stroke, an arch's inside leaving a stem's side went in less
@@ -6711,8 +6729,8 @@ function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, held: (i: nu
   const g = Float64Array.from({ length: reach + 1 }, (_, k) => Math.exp(-((k * STEP) ** 2) / (2 * sigma * sigma)));
   // (`stops`: held samples bound the run as corners do, none run smooth past one nor right up to it: a fair font's serifs,
   // each moved its own way, run into, stood kinks by their brackets and a diagonal's feet)
-  const stop = (i: number) => bs[i].corner || (stops && held(i));
-  const dc = new Int32Array(n).fill(n), near = sigma / STEP, f0 = bs.findIndex((_, i) => stop(i));
+  const S = Uint8Array.from(bs, (b, i) => (b.corner || (stops && held(i)) ? 1 : 0)), stop = (i: number) => S[i] === 1;
+  const dc = new Int32Array(n).fill(n), near = sigma / STEP, f0 = S.indexOf(1);
   if (f0 >= 0) for (const dir of [1, -1]) for (let k = 0, i = f0, d = n; k < 2 * n; k++, i = (i + dir + n) % n) {
     d = stop(i) ? 0 : d + 1;
     if (d < dc[i]) dc[i] = d;
@@ -6720,11 +6738,8 @@ function anchoredMoves(r: P[], bs: Bone[], was: P[], sigma: number, held: (i: nu
   return r.map((p, i) => {
     if (bs[i].corner || held(i)) return p;
     let sx = dx[i], sy = dy[i], sw = 1;
-    for (const dir of [-1, 1]) for (let k = 1; k <= reach; k++) {
-      const j = ((i + dir * k) % n + n) % n;
-      if (stop(j)) break;
-      sx += dx[j] * g[k]; sy += dy[j] * g[k]; sw += g[k];
-    }
+    for (let k = 1, j = i; k <= reach; k++) { j = j === 0 ? n - 1 : j - 1; if (S[j]) break; sx += dx[j] * g[k]; sy += dy[j] * g[k]; sw += g[k]; }
+    for (let k = 1, j = i; k <= reach; k++) { j = j === n - 1 ? 0 : j + 1; if (S[j]) break; sx += dx[j] * g[k]; sy += dy[j] * g[k]; sw += g[k]; }
     const f = Math.min(1, dc[i] / near) * (1 - cw[i]), x = was[i].x + dx[i], y = was[i].y + dy[i];
     return { x: x + (was[i].x + sx / sw - x) * f, y: y + (was[i].y + sy / sw - y) * f };
   });
