@@ -493,7 +493,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    stood (`joinNecks`: a geometric K's arm and leg parted from its hairline stem); a corner inside a join, in a font
    not contrasty, stops a stroke's new thickness short of the ring's edges across from it as moved (`thinAcross`: an
    industrial 9's and g's crotch under the bowl, its ink trap's short curve thinned as the stem's side, went out past
-   the stem's far side and cut the stem off). These were tuned on every
+   the stem's far side and cut the stem off). `relaid` runs each
+   laid edge's move out into a round longer than `ROUND_RUN` beside it over `RELAY_FADE` samples (a fat face's z's diagonal
+   stood a step off its foot's round). Where a contrasty design's uprights thin past Weight's own (`uprightsIn`: Verticals
+   down, `MoveMap.past`), its straight edges are laid again too, edges only (`relaid`'s `edgesOnly`: nothing met again nor
+   carried, which came and went as the moves grew and stepped a Didone's T's room), and a fat face's moves between run
+   smooth by `REV_SMOOTH` of its stems' thinning: its hairline stems wobbled at Verticals 0, its joins came out in knots. These were tuned on every
    card at the Weight page's ends (Weight,
    Verticals, Horizontals and Contrast at 0 and 100), read with weights.ts's `look` on each letter's ink united. A pixel font
    (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.

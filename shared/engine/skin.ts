@@ -3328,6 +3328,22 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // fat face's L's top serif's underside, a nick at its end and at each bracket, from Contrast 80 down)
   const hairs = hairsIn(mv);
   if (hairs > 0) rings = rings.map((ring, r) => (rig.bones[r][0]?.dot ? ring : relaid(rig.bones[r], ring, hairs)));
+  // (and a contrasty design's uprights thinned past Weight's own (Verticals down, uprightsIn), each straight edge laid on
+  // one line again, only that: each sample's side moved by its own reading of the stroke, a fat face's E's and n's
+  // hairline stems wobbled at Verticals 0; their brackets and corners met again too, as hairsIn's are, a Didone's T's arms'
+  // ends stood out 16 units, and its room stepped as they came and went. A fat face's moves between run smooth too, by
+  // REV_SMOOTH of how far its stems thinned, its edges so laid held: its bowls' and arches' joins with its hairline stems
+  // came out in knots; not a Didone's, whose tips, so run, folded for a while, its T's room 10 units more and back)
+  const thinned = uprightsIn(mv);
+  if (thinned > 0) {
+    const { stem } = rig.ref(), sg = REV_SMOOTH * thinned * (1 - mv.kv) * stem / 2, fat = fatFace(rig);
+    rings = rings.map((ring, r) => {
+      const bs = rig.bones[r];
+      if (bs[0]?.dot) return ring;
+      const laid = relaid(bs, ring, thinned, true);
+      return fat && laid.length === bs.length ? evenedMoves(laid, bs, bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => bs[i].straight) : laid;
+    });
+  }
   if (reversed(mv)) {
     const { hair, stem } = rig.ref(), sg = REV_SMOOTH * revIn(mv) * ((mv.kh - 1) * hair + (1 - mv.kv) * stem) / 2;
     rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => rig.bones[r][i].straight)));
@@ -3660,6 +3676,9 @@ const REV_RAMP = 0.15;
     REWEIGHED, wholly by twice that; and wholly as Contrast turned round comes in (revIn). */
 const hairsIn = (mv: MoveMap) => (!mv.reweighed || !mv.contrasty ? 0 : Math.max(revIn(mv), Math.min(1, Math.max(0, (mv.kh - 1 - REWEIGHED) / HAIRS_RAMP), Math.max(0, (1 + 2 * REWEIGHED - mv.kv) / REWEIGHED))));
 const HAIRS_RAMP = 0.5;
+/** How far a contrasty design's uprights thinned past Weight's own (Verticals down, a lighter move: MoveMap.past) have
+    come in (0 to 1), for movedOnce to lay its straight edges again: MoveMap.apart. */
+const uprightsIn = (mv: MoveMap) => (mv.lighter && mv.contrasty && mv.past < 1 ? mv.apart : 0);
 /** How much thinner than the stems the uprights draw, as a share of them, for a reweighed move to weigh its edges wholly
     as their strokes read whole (MoveMap.half). */
 const HALF_RAMP = 0.3;
@@ -6282,8 +6301,9 @@ function evenedMoves(r: P[], bs: Bone[], was: P[], sigma: number, held?: (i: num
 /** A ring (bs its samples as drawn) with each straight edge laid on one line again, lay of the way: along the way it runs
     as drawn, as far out as its points mostly lie; the round between two such edges, no longer than ROUND_RUN samples,
     going out from one's to the other's as they went, and a corner between two met where their lines meet, no further
-    off than RELAY_MEET times as far as either went (a fat face's serif's underside and its end, Contrast turned round). */
-function relaid(bs: Bone[], ring: P[], lay: number): P[] {
+    off than RELAY_MEET times as far as either went (a fat face's serif's underside and its end, Contrast turned round).
+    `edgesOnly`, the edges laid and the rounds between run from one's move to the other's, nothing met again nor carried. */
+function relaid(bs: Bone[], ring: P[], lay: number, edgesOnly = false): P[] {
   const n = bs.length;
   if (n < 8 || ring.length !== n || !(lay > 0)) return ring;
   const md = (i: number) => ((i % n) + n) % n, plain = (i: number) => bs[i].straight && !bs[i].corner && !bs[i].dot;
@@ -6320,7 +6340,7 @@ function relaid(bs: Bone[], ring: P[], lay: number): P[] {
   // (a serif: a level edge read as a serif's, its end square to it at a corner)
   const serif = (T: (typeof runs)[0]) => Math.abs(T.uy) < RELAY_END && Array.from({ length: T.L }, (_, j) => bs[md(T.s + j)]).some(b => b.serifDx);
   const square = (A: (typeof runs)[0], B: (typeof runs)[0], c: number) => bs[c].corner && Math.abs(A.ux * B.ux + A.uy * B.uy) < RELAY_END;
-  for (let k = 0; k < nr; k++) {
+  if (!edgesOnly) for (let k = 0; k < nr; k++) {
     const B = bracket(k);
     if (!B) continue;
     const { R, S, e, det } = B, meet = meetOf(R, S, det), Xd = meet(bs[e].x, bs[e].y, bs[S.s].x, bs[S.s].y), Xm = meet(R.px, R.py, S.px, S.py);
@@ -6342,9 +6362,16 @@ function relaid(bs: Bone[], ring: P[], lay: number): P[] {
   }
   for (let k = 0; k < runs.length; k++) {
     const R = runs[k], S = runs[(k + 1) % runs.length], e = md(R.s + R.L - 1), gap = md(S.s - e) - 1;
+    // (a longer round between two: each edge's move as laid run out into it over RELAY_FADE samples, the rest as moved: laid,
+    // the edge stood a step off the round's first points, a fat face's z's diagonal off the round into its foot at Contrast 0)
+    if (gap > ROUND_RUN && !(R === S && gap >= n - R.L)) {
+      const F = Math.min(RELAY_FADE, gap >> 1);
+      for (let j = 1; j <= F; j++) { const t = 1 - j / (F + 1), a = md(e + j), b = md(S.s - j); go[a] = { x: go[a].x + R.c1.x * t, y: go[a].y + R.c1.y * t }; go[b] = { x: go[b].x + S.c0.x * t, y: go[b].y + S.c0.y * t }; }
+      continue;
+    }
     if (gap < 1 || gap > ROUND_RUN || (R === S && gap >= n - R.L)) continue;
     // (a corner alone between them where the two lines, as laid, meet)
-    if (gap === 1 && bs[md(e + 1)].corner && Math.abs(R.ux * S.uy - R.uy * S.ux) >= MEET_PARALLEL) {
+    if (!edgesOnly && gap === 1 && bs[md(e + 1)].corner && Math.abs(R.ux * S.uy - R.uy * S.ux) >= MEET_PARALLEL) {
       const det = R.ux * S.uy - R.uy * S.ux, t = ((S.px - R.px) * S.uy - (S.py - R.py) * S.ux) / det, c = md(e + 1), X = { x: R.px + R.ux * t, y: R.py + R.uy * t };
       const far = RELAY_MEET * Math.max(1, Math.hypot(R.c1.x, R.c1.y), Math.hypot(S.c0.x, S.c0.y));
       if (Math.hypot(X.x - ring[c].x, X.y - ring[c].y) <= far) { go[c] = { x: X.x - ring[c].x, y: X.y - ring[c].y }; continue; }
@@ -6356,7 +6383,7 @@ function relaid(bs: Bone[], ring: P[], lay: number): P[] {
     // edge as laid: a fat face's A's hairline leg, thickened, meets its foot's top near the serif's end, and the bracket
     // stood out past it, a tip)
     const det = R.ux * S.uy - R.uy * S.ux, nR = bs[e];
-    if (gap <= RELAY_ROUND && Math.abs(det) >= RELAY_SQUARE && S.ux * nR.nx + S.uy * nR.ny < 0) {
+    if (!edgesOnly && gap <= RELAY_ROUND && Math.abs(det) >= RELAY_SQUARE && S.ux * nR.nx + S.uy * nR.ny < 0) {
       const meet = (ax: number, ay: number, bx: number, by: number) => { const t = ((bx - ax) * S.uy - (by - ay) * S.ux) / det; return { x: ax + R.ux * t, y: ay + R.uy * t }; };
       const Xd = meet(bs[e].x, bs[e].y, bs[S.s].x, bs[S.s].y), Xm = meet(R.px, R.py, S.px, S.py);
       const laid = (i: number) => ({ x: ring[i].x + go[i].x, y: ring[i].y + go[i].y }), r0 = laid(R.s), s1 = laid(md(S.s + S.L - 1));
@@ -6376,6 +6403,8 @@ function relaid(bs: Bone[], ring: P[], lay: number): P[] {
 /** How many samples a straight edge runs for relaid to lay it again, and how far off, as many times as either edge beside
     it went, a corner between two may be met where their lines meet. */
 const RELAY_RUN = 3, RELAY_MEET = 3;
+/** How many samples into a round longer than ROUND_RUN relaid runs out the moves of the edges laid either side of it. */
+const RELAY_FADE = 8;
 /** How many samples long a round inside a corner relaid carries whole to where its edges now meet, and how near square
     those edges must be (the sine of the angle between them). */
 const RELAY_ROUND = 16, RELAY_SQUARE = 0.5;
