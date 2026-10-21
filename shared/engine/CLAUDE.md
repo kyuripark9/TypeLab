@@ -483,7 +483,11 @@ A design with `freeFont` set draws its letters from a free font instead of build
    outline crosses its line (`FOLD_BACK`: a hook at a K's leg's foot), and its moves are run smooth by `CON_SMOOTH` of how
    far its stems thickened, its straight edges, serifs and hairline tips held (`evenedMoves`): moved each by its own
    reading, a Didone at Verticals 100 came out wavy along its feet, bowls and stems, its K's, M's and W's strokes notched
-   by their feet. Contrast turned round weighs each edge by its stroke read
+   by their feet; and a terminal hanging off a stem's straight side (`hangsOf`: an end the side runs on round into, no
+   corner between, lying out past the side the way it faces) slides out with the side, the side's run by it, the way
+   round and the end no less far out than the side went, the end's other side less and less over `HANG_FADE` times that
+   (`hangsSlid`: a Didone's J's tail, its stem grown out over it, shrank to a bite; its t's foot, a notch above it).
+   Contrast turned round weighs each edge by its stroke read
    whole (`sideHalf`), more and more over `HALF_RAMP` of the uprights' thinning (at once, a fat face's O took a quarter more ink
    in a step of Contrast); on a contrasty design so turned (`reversed`, coming in over `REV_RAMP`) its straight edges are
    laid on one line each (`straightRuns('rev')`) and the moves between them run smooth by `REV_SMOOTH` of how far its
@@ -493,7 +497,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    on their lines its straight edges are laid again (`relaid`), serifs' too: a bracket between two carried whole to where
    they now meet, smaller where it would pass either, a serif its stem thickened over slid out with the stem's side
    (a fat face's N's hairline stems swallowed their serifs), the snap's carry having left a serif's underside and its end
-   in waves and nicks. A ball's share of its heavy strokes' moves (`heavyShare`) weighs each by the way it was asked to go
+   in waves and nicks; and a straight side running into a level edge on a line, laid past the line, met with it where it
+   crosses it, the edge run on past that brought back there (`linesMet`: a fat face's A's apex's left side stood 23 units
+   over the capitals' line at Contrast 0, its top a spur past its thinned right side). A ball's share of its heavy strokes' moves (`heavyShare`) weighs each by the way it was asked to go
    where some thicken and some thin (summed as they were, a fat face's r's ball jumped at Contrast 15). In a plain sans (`plainSans`: a plumb sans whose n's arch
    leaves its stem on no ink trap; a monospace's arches and bowls, on thin necks, came off their hairline stems) and a
    round pen's (`fontPen`: a comic's e's bar came off its bowl), Contrast turned round thins each edge by its stroke read

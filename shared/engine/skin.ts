@@ -883,6 +883,75 @@ function facingOf(bs: Bone[]): Int32Array {
   return got;
 }
 const FACING = new WeakMap<Bone[], Int32Array>();
+/** A contrasty font's terminals hanging off its stems' sides (hangsSlid): each end a stroke runs on into, round from the
+    end of a straight side with no corner on the way, lying out past that side the way the side faces (a J's tail off its
+    stem's left side, a t's foot off its right): the side's run, the way it faces out, the samples from it round to the
+    end and through it, and the end's other side's, out along it. */
+interface Hang { run: number[]; ux: number; uy: number; path: number[]; other: number[] }
+function hangsOf(rig: SkinRig, r: number): Hang[] {
+  const bs = rig.bones[r];
+  let got = HANGS.get(bs);
+  if (got) return got;
+  got = [];
+  const n = bs.length, md = (i: number) => ((i % n) + n) % n, reach = Math.ceil((HANG_REACH * rig.ctx.cap) / STEP), least = Math.ceil((HANG_RUN * rig.ctx.cap) / STEP);
+  for (const e of rig.ends[r]) {
+    const span: number[] = [];
+    for (let i = e.a; span.length <= n; i++) { span.push(md(i)); if (md(i) === md(e.b)) break; }
+    const tx = span.reduce((s, i) => s + bs[i].x, 0) / span.length, ty = span.reduce((s, i) => s + bs[i].y, 0) / span.length;
+    for (const [from, dir] of [[e.a, -1], [e.b, 1]] as const) {
+      const path: number[] = [];
+      let at = -1;
+      for (let k = 1; k <= reach; k++) {
+        const j = md(from + dir * k), q = bs[j];
+        if (q.corner) break;
+        if (q.straight) {
+          let len = 0;
+          while (len < least && bs[md(j + dir * len)].straight && bs[md(j + dir * len)].nx * q.nx + bs[md(j + dir * len)].ny * q.ny > HANG_ON) len++;
+          if (len >= least) { at = j; break; }
+        }
+        path.push(j);
+      }
+      if (at < 0 || !path.length) continue;
+      const S = bs[at], ux = -S.nx, uy = -S.ny;
+      if ((tx - S.x) * ux + (ty - S.y) * uy < HANG_OUT * rig.ref().stem) continue;
+      const other: number[] = [];
+      for (let k = 1; k <= reach; k++) { const j = md((dir > 0 ? e.a : e.b) - dir * k); if (bs[j].corner) break; other.push(j); }
+      got.push({ run: Array.from({ length: least }, (_, m) => md(at + dir * m)), ux, uy, path: [...path, ...span], other });
+    }
+  }
+  HANGS.set(bs, got);
+  return got;
+}
+const HANGS = new WeakMap<Bone[], Hang[]>();
+/** A contrasty font's heavier weight's terminals hanging off its stems' sides (hangsOf) slid out with the side: the run
+    by it, the way round to the end and the end no less far out the way the side faces than the side went (its run's
+    middle move), the
+    end's other side less and less so over HANG_FADE times as far (a Didone's J's tail, its stem's side grown out over
+    it, shrank to a bite at Weight and Verticals 100; its t's foot). `was` each sample where the move alone puts it. */
+function hangsSlid(rig: SkinRig, r: number, ring: P[], was: P[]): P[] {
+  const hs = hangsOf(rig, r);
+  if (!hs.length || ring.length !== rig.bones[r].length) return ring;
+  const out = ring.map(p => ({ x: p.x, y: p.y }));
+  for (const H of hs) {
+    const by = (i: number) => (out[i].x - was[i].x) * H.ux + (out[i].y - was[i].y) * H.uy;
+    const ms = H.run.map(by).sort((a, b) => a - b), m = ms[ms.length >> 1];
+    if (!(m > 0)) continue;
+    const push = (i: number, want: number) => { const d = by(i); if (d < want) { out[i].x += H.ux * (want - d); out[i].y += H.uy * (want - d); } };
+    // (the side's own run too, by the way round: held to its room across from the end, as it slides out with it, a t's
+    // stem's side by its foot stood in a notch)
+    for (const i of [...H.run, ...H.path]) push(i, m);
+    H.other.forEach((i, k) => { const f = 1 - ((k + 1) * STEP) / (HANG_FADE * m); if (f > 0) push(i, m * f); });
+  }
+  return out;
+}
+/** How far along the outline, as a share of the capitals' height, a contrasty font's terminal may hang from a stem's
+    straight side, how long that side's run must be, how nearly alike its samples face (the cosine), how far out past the
+    side, as a share of a stem, its end must lie (hangsOf), and over how many times its slide its end's other side goes
+    out with it (hangsSlid). */
+const HANG_REACH = 0.6, HANG_RUN = 0.12, HANG_ON = 0.99, HANG_OUT = 0.5, HANG_FADE = 2;
+/** How steep a side (its normal's upright share, at most) and how far back along its level edge, as a share of the
+    capitals' height, at most, linesMet brings an edge run on past where the side crosses its line. */
+const LINES_STEEP = 0.9, LINES_TRIM = 0.15;
 /** How steep (its normals' level share, at most), how tall and how thin at most, as shares of the capitals' height, a
     straight segment runs for no serif to be read on it (serifLinedRig). */
 const SERIF_STEEP = 0.6, SERIF_STEEP_LONG = 0.15, SERIF_STEEP_THIN = 0.06;
@@ -3350,7 +3419,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // back on it brought back the serif's end and underside part of the way, some points more than others, a wave along a
   // fat face's L's top serif's underside, a nick at its end and at each bracket, from Contrast 80 down)
   const hairs = hairsIn(mv);
-  if (hairs > 0) rings = rings.map((ring, r) => (rig.bones[r][0]?.dot ? ring : relaid(rig.bones[r], ring, hairs)));
+  if (hairs > 0) rings = rings.map((ring, r) => (rig.bones[r][0]?.dot ? ring : linesMet(rig, r, relaid(rig.bones[r], ring, hairs))));
   // (and a contrasty design's uprights thinned past Weight's own (Verticals down, uprightsIn), each straight edge laid on
   // one line again, only that: each sample's side moved by its own reading of the stroke, a fat face's E's and n's
   // hairline stems wobbled at Verticals 0; their brackets and corners met again too, as hairsIn's are, a Didone's T's arms'
@@ -3378,6 +3447,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   if (mv.reweighed && mv.kv > 1 + REWEIGHED && mv.contrasty && !reversed(mv)) {
     const sg = CON_SMOOTH * (mv.kv - 1 - REWEIGHED) * rig.ref().stem / 2;
     rings = rings.map((ring, r) => { const bs = rig.bones[r], tips = hairTipMarks(rig, r); return bs[0]?.dot || ring.length !== bs.length ? ring : evenedMoves(ring, bs, bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => bs[i].straight || !!bs[i].serifDx || !!tips[i]); });
+    rings = rings.map((ring, r) => (rig.bones[r][0]?.dot ? ring : hangsSlid(rig, r, ring, rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })))));
   }
   // (and a round pen's (fontPen), as far as its strokes thickened, each point's move run smooth along the outline: moved
   // out two and three times as far as its strokes are thick, each sample along its own normal, its stroke thickening by
@@ -6426,6 +6496,42 @@ function evenedMoves(r: P[], bs: Bone[], was: P[], sigma: number, held?: (i: num
     const f = Math.min(1, dc[i] / near);
     return { x: p.x + (was[i].x + sx / sw - p.x) * f, y: p.y + (was[i].y + sy / sw - p.y) * f };
   });
+}
+/** A contrasty design's hairlines thickened (hairsIn), its straight edges laid again (relaid): each straight side running
+    into a level edge on a line it faces out across, laid past the line, met with it where it crosses it, its points past
+    it brought there (a fat face's A's apex's left side, its hairline grown out and laid on one line, stood 23 units over
+    the capitals' line at Contrast 0). */
+function linesMet(rig: SkinRig, r: number, ring: P[]): P[] {
+  const bs = rig.bones[r], n = bs.length;
+  if (ring.length !== n) return ring;
+  const c = rig.ctx, near = SERIF_LINE_NEAR * c.cap, md = (i: number) => ((i % n) + n) % n, out = ring.map(p => ({ x: p.x, y: p.y }));
+  const lines: [number, number][] = [[c.cap, 1], [0, -1], ...(c.lower ? [[c.xh, 1], [c.asc, 1], [c.desc, -1]] as [number, number][] : [])];
+  const level = (j: number) => !bs[j].corner && Math.abs(bs[j].ny) > 0.97 && lines.some(([L, up]) => Math.abs(bs[j].y - L) <= near && -bs[j].ny * up > 0);
+  bs.forEach((b, i) => {
+    if (!b.corner || concaveAt(b)) return;
+    for (const d of [-1, 1]) {
+      const e = md(i - d);
+      let straight = level(e);
+      for (let k = 1; k <= 6 && straight; k++) straight = bs[md(i + k * d)].straight && !bs[md(i + k * d)].corner;
+      if (!straight) continue;
+      const up = bs[e].ny < 0 ? 1 : -1, yc = out[e].y, past = (q: P) => (q.y - yc) * up > 0;
+      let k = 1;
+      while (k <= SIDE_PAST && past(out[md(i + k * d)]) && !bs[md(i + k * d)].corner) k++;
+      if (k > SIDE_PAST || Math.abs(bs[md(i + d)].ny) > LINES_STEEP) continue;
+      // (where the side as laid crosses the line: between its last point past it and its first not; or, none of its points
+      // past, along its first points, as the corner may stand off its line)
+      const none = k === 1 && !past(out[i]), A = k === 1 ? out[md(i + 6 * d)] : out[md(i + (k - 1) * d)], B = out[md(i + (k === 1 ? 1 : k) * d)];
+      if (A.y === B.y) continue;
+      const X = { x: B.x + ((yc - B.y) * (A.x - B.x)) / (A.y - B.y), y: yc }, O = out[i], wx = out[e].x - O.x, wy = out[e].y - O.y, wl = Math.hypot(wx, wy);
+      const go = wl < 1e-6 ? 0 : ((X.x - O.x) * wx + (X.y - O.y) * wy) / wl;
+      if (go > LINES_TRIM * c.cap || (none && go <= 0)) continue;
+      for (let m = 0; m < k; m++) out[md(i + m * d)] = { ...X };
+      // (and the level edge run on out past where the side crosses its line, back there: a fat face's A's apex's top over
+      // its thinned right side, a nick of paper under it)
+      if (go > 0) for (let m = 1, j = md(i - d); m < SIDE_PAST && ((out[j].x - O.x) * wx + (out[j].y - O.y) * wy) / wl < go; m++, j = md(j - d)) out[j] = { ...X };
+    }
+  });
+  return out;
 }
 /** A ring (bs its samples as drawn) with each straight edge laid on one line again, lay of the way: along the way it runs
     as drawn, as far out as its points mostly lie; the round between two such edges, no longer than ROUND_RUN samples,
