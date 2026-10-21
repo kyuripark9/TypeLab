@@ -5797,9 +5797,10 @@ const SIDE_WS = new WeakMap<Bone[], Float64Array>(), SIDE_GROWN = new WeakMap<Bo
     (moveRing's straightRuns); how far off its way (the cosine) a curve running on from it reads as thick as it, and how
     much thinner, a unit along it, past that, if it reads W_NEAR of it or more (sideWs); how long a round between two such edges, and how far along a curve
     running on from one, goes out with them as laid, and how many samples off an edge along a line one may meet it round a
-    little round, or a round inside a corner between two edges be filled as they meet (straightRuns); how far, as many times as they moved, two such edges turning away from the ink where they
+    little round, or a round inside a corner between two edges be filled as they meet (straightRuns); how nearly in line
+    (the cosine) two straight segments one after another run to be one such edge; how far, as many times as they moved, two such edges turning away from the ink where they
     meet may meet again; and how nearly in line (the sine of the angle between them) two may run and not be met again. */
-const ROUND_RUN = 24, ROUND_FADE = 8, LINE_GAP = 6, MEET_ROUND = 6, STRAIGHT_RUN = 6, W_TURN = Math.cos(20 * Math.PI / 180), W_SLOPE = 0.05, W_NEAR = 0.6, MEET_REACH = 4, MEET_PARALLEL = Math.sin(4 * Math.PI / 180);
+const ROUND_RUN = 24, ROUND_FADE = 8, LINE_GAP = 6, MEET_ROUND = 6, STRAIGHT_RUN = 6, STRAIGHT_ON = Math.cos(2 * Math.PI / 180), W_TURN = Math.cos(20 * Math.PI / 180), W_SLOPE = 0.05, W_NEAR = 0.6, MEET_REACH = 4, MEET_PARALLEL = Math.sin(4 * Math.PI / 180);
 /** How far out a heavier weight's straight edge is laid: as far as this share of its points go (moveRing's straightRuns). */
 const STRAIGHT_OUT = 0.9;
 /** How near a line, in units, a heavier weight's stroke end must lie all along to be kept on it, and how steeply (the
@@ -6375,7 +6376,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   for (const i of blend) { const m = archMeet(i)!; out[i] = { x: out[i].x + (m.M.x - out[i].x) * m.w, y: out[i].y + (m.M.y - out[i].y) * m.w }; meets.set(i, out[i]); arched(i); }
   if (mv.lighter) { carryFillets(); pinPoints(); stretchRounds(); hairRoots(); holdBrackets(); if (mv.apart) carryCuts(); }
   else if (mv.reweighed) { carryRounds(); if (linesMove(rig, mv)) straightRuns(); }
-  if (mv.reweighed && mv.kv > 1 + REWEIGHED && fairFont(rig)) cornersPast();
+  if (mv.reweighed && (mv.kv > 1 + REWEIGHED || mv.kh > 1 + REWEIGHED)) cornersPast(mv.kv > 1 + REWEIGHED && fairFont(rig));
   // (a heavier weight's tab off a stem's side, a crossbar's end past an f's or a t's stem, goes out with that side as far
   // as it moved, keeping its own moves along the stem, so it reaches as far past the stem as before and isn't swallowed by
   // it, as a serif goes out with its stem's edge: each moved alone, the stem's side went out past the bar's end, which
@@ -6560,16 +6561,23 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   /** A heavier weight's edges' points either side of a corner inside a join that now lie past it, along the edge the
       way it leaves the corner as drawn, brought back to it: an arm's or a bar's edge, moved off its line alone, stays
       where it was along it, and the stem's side going out past where it began, its first points were left inside the
-      stem, a fold that read as a notch under an old style's F's middle arm's root at Weight 66. */
-  function cornersPast() {
+      stem, a fold that read as a notch under an old style's F's middle arm's root at Weight 66, and, the heights moving
+      the two runs apart, a sliver of paper inside a typewriter's L's foot and under its E's arms' serifs at Verticals 100.
+      In a font drawn fair (`fair`), every such point; else only along a straight edge, not an end's side (brought to
+      the corner, a G's bar's round end, turned with it, stood up off the bar, a knob), and only by a corner gone with its
+      other edge, lying nearer that edge's next point as moved than half its own move (one put far off both, where a
+      crotch's edges meet further out, an old style's g's link at Weight and Verticals 100, took a long stretch of edge
+      with it, and a counter's side with it). */
+  function cornersPast(fair: boolean) {
     for (let i = 0; i < n; i++) {
       const b = bs[i];
       if (!b.corner || !concaveAt(b) || inEnd[i]) continue;
       for (const dir of [-1, 1]) {
+        if (!fair && Math.hypot(out[i].x - out[md(i - dir)].x, out[i].y - out[md(i - dir)].y) > Math.max(2 * STEP, 0.5 * Math.hypot(out[i].x - base[i].x, out[i].y - base[i].y))) continue;
         const q = bs[md(i + dir)], ex = q.x - b.x, ey = q.y - b.y;
         for (let k = 1; k < n / 4; k++) {
           const j = md(i + dir * k);
-          if (bs[j].corner || inEnd[j] || (out[j].x - out[i].x) * ex + (out[j].y - out[i].y) * ey > 0) break;
+          if (bs[j].corner || inEnd[j] || (!fair && (bs[j].dot || !bs[j].straight || inEnd[md(j + dir)])) || (out[j].x - out[i].x) * ex + (out[j].y - out[i].y) * ey > 0) break;
           out[j] = { ...out[i] };
         }
       }
@@ -6586,11 +6594,15 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   function straightRuns() {
     // (not one along a line, which the heights put back on it, snapFlatEdges)
     const serifed = rig.serifed(), plain = (i: number) => { const b = bs[i]; return b.straight && !b.corner && !b.dot && !b.cap && !b.onLine && !(serifed && b.serifDx) && !inEnd[i] && !pins?.has(i); };
+    // (two straight segments running on along one line, the design's point between them, as one edge: each laid on its own
+    // line, the one by a crotch, its points held to the narrow paper there, stood in from the one beyond, a step, and a code
+    // face's V's edges, laid past each other above its crotch, pinched a speck of paper off under it at Verticals 100)
+    const onOne = (a: number, b: number) => bs[a].seg === bs[b].seg || (bs[a].tx * bs[b].tx + bs[a].ty * bs[b].ty > STRAIGHT_ON && Math.abs((bs[b].x - bs[a].x) * bs[a].ty - (bs[b].y - bs[a].y) * bs[a].tx) < 1);
     const runs: { s: number; L: number; px: number; py: number; ux: number; uy: number; nx: number; ny: number; d: number; o: number; d0: number; d1: number }[] = [];
     for (let s = 0; s < n; s++) {
-      if (!plain(s) || (plain(md(s - 1)) && bs[md(s - 1)].seg === bs[s].seg)) continue;
+      if (!plain(s) || (plain(md(s - 1)) && onOne(md(s - 1), s))) continue;
       let L = 0;
-      while (L < n && plain(md(s + L)) && bs[md(s + L)].seg === bs[s].seg) L++;
+      while (L < n && plain(md(s + L)) && (L === 0 || onOne(md(s + L - 1), md(s + L)))) L++;
       if (L < STRAIGHT_RUN || L >= n) continue;
       // (along the way the heights and the width put the edge, as far out as its points go but the last tenth (STRAIGHT_OUT):
       // by a crotch it runs into its points move no further than the narrow paper there lets them, and laid through them

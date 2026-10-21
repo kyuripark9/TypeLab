@@ -378,7 +378,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    (`evenWs`), runs read as ends in no end carried as ends (`orphans`), each part on a line put back at its own height
    (`footHeights`: a comic's N's stems at Horizontals 100) and its dots kept clear (`clearDots`); and in a sans with even
    strokes, as anything thickens (`linesMove`), sides by a slanted end read past it (`endSides`), straight edges read and
-   laid on one line each, meeting where their lines cross (`sideWs`, `straightRuns`), and level ends kept on their lines
+   laid on one line each (two segments running on in line as one), meeting where their lines cross (`sideWs`,
+   `straightRuns`), and level ends kept on their lines
    (`flatEnd`), a round running on from an edge on a line held to the line (`ROUND_ON_LINE`: a D's bowl's top), and the
    edges the heights' lift puts back on a line carry no corner turning out down an upright side (pinned to the line) nor
    a round past the line (a sans B's stem's top and foot, its bowls' tops); a sans drawn with a rule (`fontPlumb`) eases
@@ -387,7 +388,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    moves are eased again over `FAIR_REACH` times as far as each moves, by no more than `FAIR_SHARE` of it (an old style's
    bowls came out wavy at Weight 100), an arm's or a bar's round under it is carried whole as a bracket is
    (`carryRounds`' `arms`), and an edge's points left past an inside corner are brought back to it (`cornersPast`: a notch
-   under an F's middle arm), and a serif's root slides no further than its stem's own upright side moves (`sideMove`: a step
+   under an F's middle arm; in other fonts only along straight edges, a sliver under a typewriter's L's stem at Verticals 100), and a serif's root slides no further than its stem's own upright side moves (`sideMove`: a step
    at each bracket of an H). Contrast turned round weighs each edge by its stroke read whole (`sideHalf`). These were tuned on every
    card at the Weight page's ends (Weight,
    Verticals, Horizontals and Contrast at 0 and 100), read with weights.ts's `look` on each letter's ink united. A pixel font
