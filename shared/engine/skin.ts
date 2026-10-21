@@ -3252,6 +3252,13 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // outline by REV_SMOOTH of how far its strokes thicken and thin, its straight edges, laid on their lines (straightRuns),
   // held: each moved by its own reading of its stroke, a hairline thickened sixfold and a stem thinned to a sixth, a fat
   // face's bowls and counters, its E's beaks and its stems' sides came out ragged at Contrast 0 to 40)
+  // (and a contrasty design's hairlines thickened, its stems no heavier (Contrast down from the design's, and turned
+  // round), laid again after the heights and the edges put back on their lines, each straight edge on one line, its
+  // serifs' too: the heights lifted the letter's top by as much as its serifs thickened past the line, and its edge put
+  // back on it brought back the serif's end and underside part of the way, some points more than others, a wave along a
+  // fat face's L's top serif's underside, a nick at its end and at each bracket, from Contrast 80 down)
+  const hairs = hairsIn(mv);
+  if (hairs > 0) rings = rings.map((ring, r) => (rig.bones[r][0]?.dot ? ring : relaid(rig.bones[r], ring, hairs)));
   if (reversed(mv)) {
     const { hair, stem } = rig.ref(), sg = REV_SMOOTH * revIn(mv) * ((mv.kh - 1) * hair + (1 - mv.kv) * stem) / 2;
     rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => rig.bones[r][i].straight)));
@@ -3549,6 +3556,11 @@ const reversed = (mv: MoveMap) => mv.reweighed && mv.contrasty && mv.kv < 1 - RE
 /** How far Contrast turned round on a contrasty design has come in (0 to 1): wholly REV_RAMP of its stems thinner on. */
 const revIn = (mv: MoveMap) => (reversed(mv) ? Math.min(1, (1 - REWEIGHED - mv.kv) / REV_RAMP) : 0);
 const REV_RAMP = 0.15;
+/** How far a contrasty design's hairlines thickening, its stems no heavier, have come in (0 to 1), for movedOnce to lay its
+    straight edges again (relaid): wholly HAIRS_RAMP of a hairline thicker on, and out again as the stems thicken past
+    REWEIGHED, wholly by twice that; and wholly as Contrast turned round comes in (revIn). */
+const hairsIn = (mv: MoveMap) => (!mv.reweighed || !mv.contrasty ? 0 : Math.max(revIn(mv), Math.min(1, Math.max(0, (mv.kh - 1 - REWEIGHED) / HAIRS_RAMP), Math.max(0, (1 + 2 * REWEIGHED - mv.kv) / REWEIGHED))));
+const HAIRS_RAMP = 0.5;
 /** How much thinner than the stems the uprights draw, as a share of them, for a reweighed move to weigh its edges wholly
     as their strokes read whole (MoveMap.half). */
 const HALF_RAMP = 0.3;
@@ -6122,6 +6134,109 @@ function evenedMoves(r: P[], bs: Bone[], was: P[], sigma: number, held?: (i: num
     return { x: p.x + (was[i].x + sx / sw - p.x) * f, y: p.y + (was[i].y + sy / sw - p.y) * f };
   });
 }
+/** A ring (bs its samples as drawn) with each straight edge laid on one line again, lay of the way: along the way it runs
+    as drawn, as far out as its points mostly lie; the round between two such edges, no longer than ROUND_RUN samples,
+    going out from one's to the other's as they went, and a corner between two met where their lines meet, no further
+    off than RELAY_MEET times as far as either went (a fat face's serif's underside and its end, Contrast turned round). */
+function relaid(bs: Bone[], ring: P[], lay: number): P[] {
+  const n = bs.length;
+  if (n < 8 || ring.length !== n || !(lay > 0)) return ring;
+  const md = (i: number) => ((i % n) + n) % n, plain = (i: number) => bs[i].straight && !bs[i].corner && !bs[i].dot;
+  const onOne = (a: number, b: number) => bs[a].seg === bs[b].seg || (bs[a].tx * bs[b].tx + bs[a].ty * bs[b].ty > STRAIGHT_ON && Math.abs((bs[b].x - bs[a].x) * bs[a].ty - (bs[b].y - bs[a].y) * bs[a].tx) < 1);
+  const runs: { s: number; L: number; px: number; py: number; ux: number; uy: number; c0: P; c1: P }[] = [];
+  const go = ring.map(() => ({ x: 0, y: 0 })), inRun = new Uint8Array(n);
+  for (let s = 0; s < n; s++) {
+    if (!plain(s) || (plain(md(s - 1)) && onOne(md(s - 1), s))) continue;
+    let L = 0;
+    while (L < n && plain(md(s + L)) && (L === 0 || onOne(md(s + L - 1), md(s + L)))) L++;
+    if (L < RELAY_RUN || L >= n) continue;
+    const A = bs[s], Z = bs[md(s + L - 1)];
+    let ux = Z.x - A.x, uy = Z.y - A.y;
+    const ul = Math.hypot(ux, uy);
+    if (ul < 1e-6) { ux = A.tx; uy = A.ty; } else { ux /= ul; uy /= ul; }
+    const ox = uy, oy = -ux, offs = Array.from({ length: L }, (_, k) => ring[md(s + k)].x * ox + ring[md(s + k)].y * oy).sort((p, q) => p - q), o = offs[L >> 1];
+    for (let k = 0; k < L; k++) { const i = md(s + k), d = o - (ring[i].x * ox + ring[i].y * oy); go[i] = { x: ox * d, y: oy * d }; inRun[i] = 1; }
+    runs.push({ s, L, px: ring[s].x + go[s].x, py: ring[s].y + go[s].y, ux, uy, c0: go[s], c1: go[md(s + L - 1)] });
+  }
+  if (!runs.length) return ring;
+  runs.sort((a, b) => a.s - b.s);
+  // (a bracket's two edges, near square, the round between them inside the corner: the one before it and the one after)
+  const nr = runs.length, bracket = (k: number) => {
+    const R = runs[k], S = runs[(k + 1) % nr], e = md(R.s + R.L - 1), gap = md(S.s - e) - 1, det = R.ux * S.uy - R.uy * S.ux;
+    return R !== S && gap >= 1 && gap <= RELAY_ROUND && Math.abs(det) >= RELAY_SQUARE && S.ux * bs[e].nx + S.uy * bs[e].ny < 0 ? { R, S, e, gap, det } : null;
+  };
+  const meetOf = (R: (typeof runs)[0], S: (typeof runs)[0], det: number) => (ax: number, ay: number, bx: number, by: number) => { const t = ((bx - ax) * S.uy - (by - ay) * S.ux) / det; return { x: ax + R.ux * t, y: ay + R.uy * t }; };
+  // (a serif past a stem that thickened as far as it reached, or nearly, slid out with the stem's side, its end and all,
+  // as far as it reached past the stem as drawn, no further than the stem's side went: a fat face's N's hairline stems,
+  // thickened sixfold at Contrast 0, swallowed their serifs, a tick where each serif's end stood in from the stem's side)
+  const slideBy = (T: (typeof runs)[0], E: (typeof runs)[0], vx: number, vy: number) => {
+    for (const U of [T, E]) { for (let j = 0; j < U.L; j++) { const i = md(U.s + j); go[i] = { x: go[i].x + vx, y: go[i].y + vy }; } U.px += vx; U.py += vy; U.c0 = { x: U.c0.x + vx, y: U.c0.y + vy }; U.c1 = { x: U.c1.x + vx, y: U.c1.y + vy }; }
+  };
+  // (a serif: a level edge read as a serif's, its end square to it at a corner)
+  const serif = (T: (typeof runs)[0]) => Math.abs(T.uy) < RELAY_END && Array.from({ length: T.L }, (_, j) => bs[md(T.s + j)]).some(b => b.serifDx);
+  const square = (A: (typeof runs)[0], B: (typeof runs)[0], c: number) => bs[c].corner && Math.abs(A.ux * B.ux + A.uy * B.uy) < RELAY_END;
+  for (let k = 0; k < nr; k++) {
+    const B = bracket(k);
+    if (!B) continue;
+    const { R, S, e, det } = B, meet = meetOf(R, S, det), Xd = meet(bs[e].x, bs[e].y, bs[S.s].x, bs[S.s].y), Xm = meet(R.px, R.py, S.px, S.py);
+    const at = (i: number) => ({ x: ring[i].x + go[i].x, y: ring[i].y + go[i].y });
+    // (the serif along R, its end the edge before it, met at a corner)
+    const P = runs[(k - 1 + nr) % nr];
+    if (P !== R && P !== S && serif(R) && md(R.s - P.s - P.L) === 1 && square(P, R, md(P.s + P.L))) {
+      const Ld = (Xd.x - bs[R.s].x) * R.ux + (Xd.y - bs[R.s].y) * R.uy, r0 = at(R.s), Lm = (Xm.x - r0.x) * R.ux + (Xm.y - r0.y) * R.uy;
+      const sl = Math.min(Math.max(0, Ld - Lm), Math.max(0, -((Xm.x - Xd.x) * R.ux + (Xm.y - Xd.y) * R.uy)));
+      if (sl > 0) slideBy(P, R, -R.ux * sl, -R.uy * sl);
+    }
+    // (or along S, its end the edge after it)
+    const Q = runs[(k + 2) % nr], sl1 = md(S.s + S.L - 1);
+    if (Q !== R && Q !== S && serif(S) && md(Q.s - S.s - S.L) === 1 && square(S, Q, md(S.s + S.L))) {
+      const Ld = (bs[sl1].x - Xd.x) * S.ux + (bs[sl1].y - Xd.y) * S.uy, s1 = at(sl1), Lm = (s1.x - Xm.x) * S.ux + (s1.y - Xm.y) * S.uy;
+      const sl = Math.min(Math.max(0, Ld - Lm), Math.max(0, (Xm.x - Xd.x) * S.ux + (Xm.y - Xd.y) * S.uy));
+      if (sl > 0) slideBy(S, Q, S.ux * sl, S.uy * sl);
+    }
+  }
+  for (let k = 0; k < runs.length; k++) {
+    const R = runs[k], S = runs[(k + 1) % runs.length], e = md(R.s + R.L - 1), gap = md(S.s - e) - 1;
+    if (gap < 1 || gap > ROUND_RUN || (R === S && gap >= n - R.L)) continue;
+    // (a corner alone between them where the two lines, as laid, meet)
+    if (gap === 1 && bs[md(e + 1)].corner && Math.abs(R.ux * S.uy - R.uy * S.ux) >= MEET_PARALLEL) {
+      const det = R.ux * S.uy - R.uy * S.ux, t = ((S.px - R.px) * S.uy - (S.py - R.py) * S.ux) / det, c = md(e + 1), X = { x: R.px + R.ux * t, y: R.py + R.uy * t };
+      const far = RELAY_MEET * Math.max(1, Math.hypot(R.c1.x, R.c1.y), Math.hypot(S.c0.x, S.c0.y));
+      if (Math.hypot(X.x - ring[c].x, X.y - ring[c].y) <= far) { go[c] = { x: X.x - ring[c].x, y: X.y - ring[c].y }; continue; }
+    }
+    // (a round inside a corner, a bracket, no longer than RELAY_ROUND samples, its edges near square (RELAY_SQUARE): as
+    // drawn, where its two lines now meet; and the points of either edge it now covers on it, at its end. Each point moved
+    // its own way, as much the serif's as the stem's by the way it faced, a fat face's h's feet's brackets curled in
+    // under the serifs' tops at Contrast 0, a nick of paper at each. Made smaller about that corner to stay within either
+    // edge as laid: a fat face's A's hairline leg, thickened, meets its foot's top near the serif's end, and the bracket
+    // stood out past it, a tip)
+    const det = R.ux * S.uy - R.uy * S.ux, nR = bs[e];
+    if (gap <= RELAY_ROUND && Math.abs(det) >= RELAY_SQUARE && S.ux * nR.nx + S.uy * nR.ny < 0) {
+      const meet = (ax: number, ay: number, bx: number, by: number) => { const t = ((bx - ax) * S.uy - (by - ay) * S.ux) / det; return { x: ax + R.ux * t, y: ay + R.uy * t }; };
+      const Xd = meet(bs[e].x, bs[e].y, bs[S.s].x, bs[S.s].y), Xm = meet(R.px, R.py, S.px, S.py);
+      const laid = (i: number) => ({ x: ring[i].x + go[i].x, y: ring[i].y + go[i].y }), r0 = laid(R.s), s1 = laid(md(S.s + S.L - 1));
+      const a0 = (bs[md(e + 1)].x - Xd.x) * R.ux + (bs[md(e + 1)].y - Xd.y) * R.uy, b0 = (bs[md(S.s - 1)].x - Xd.x) * S.ux + (bs[md(S.s - 1)].y - Xd.y) * S.uy;
+      const aMin = (r0.x - Xm.x) * R.ux + (r0.y - Xm.y) * R.uy, bMax = (s1.x - Xm.x) * S.ux + (s1.y - Xm.y) * S.uy;
+      const k = Math.max(0, Math.min(1, a0 < aMin ? aMin / a0 : 1, b0 > bMax ? bMax / b0 : 1)), at = (i: number) => ({ x: Xm.x + (bs[i].x - Xd.x) * k, y: Xm.y + (bs[i].y - Xd.y) * k });
+      for (let j = 1; j <= gap; j++) { const i = md(e + j), q = at(i); go[i] = { x: q.x - ring[i].x, y: q.y - ring[i].y }; }
+      const A = at(md(e + 1)), Z = at(md(S.s - 1));
+      for (let k = 0; k < R.L; k++) { const i = md(e - k), p = { x: ring[i].x + go[i].x, y: ring[i].y + go[i].y }; if ((p.x - A.x) * R.ux + (p.y - A.y) * R.uy <= 0) break; go[i] = { x: A.x - ring[i].x, y: A.y - ring[i].y }; }
+      for (let k = 0; k < S.L; k++) { const i = md(S.s + k), p = { x: ring[i].x + go[i].x, y: ring[i].y + go[i].y }; if ((p.x - Z.x) * S.ux + (p.y - Z.y) * S.uy >= 0) break; go[i] = { x: Z.x - ring[i].x, y: Z.y - ring[i].y }; }
+      continue;
+    }
+    for (let j = 1; j <= gap; j++) { const t = j / (gap + 1), i = md(e + j); go[i] = { x: R.c1.x * (1 - t) + S.c0.x * t, y: R.c1.y * (1 - t) + S.c0.y * t }; }
+  }
+  return ring.map((p, i) => ({ x: p.x + go[i].x * lay, y: p.y + go[i].y * lay }));
+}
+/** How many samples a straight edge runs for relaid to lay it again, and how far off, as many times as either edge beside
+    it went, a corner between two may be met where their lines meet. */
+const RELAY_RUN = 3, RELAY_MEET = 3;
+/** How many samples long a round inside a corner relaid carries whole to where its edges now meet, and how near square
+    those edges must be (the sine of the angle between them). */
+const RELAY_ROUND = 16, RELAY_SQUARE = 0.5;
+/** How near square a serif's end must stand to it (the cosine between them) for relaid to slide the serif out with its
+    stem. */
+const RELAY_END = 0.3;
 /** A ring without its points that turn back on the way to them by more than SPIKE_TURN where either way out of them runs
     SPIKE_SHORT units or less: a spike's tip a few units long, which a curve traced through draws as a loop. */
 function unspiked(r: P[]): P[] {
@@ -7616,10 +7731,16 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       outline with none, or when hardly any change is asked. */
   function heavyShare() {
     const stem = rig.ref().stem;
+    const use = (p: Bone, i: number) => !(p.corner || p.cap || p.dot || p.serifDx || inEnd[i] || 2 * p.w0 < 0.8 * stem);
+    // (a reweighed move's, where some are asked to thicken and some to thin, each by the way it was asked to go: a stem thinned and a serif
+    // thickened sixfold, Contrast turned round, summed as they were, came to nothing at about Contrast 15 and the share
+    // went from all to none at once, a fat face's r's ball 52 units wider in a step)
+    const both = mv.reweighed && bs.some((p, i) => use(p, i) && k0[i] > 1) && bs.some((p, i) => use(p, i) && k0[i] < 1);
     let got = 0, asked = 0;
     bs.forEach((p, i) => {
-      if (p.corner || p.cap || p.dot || p.serifDx || inEnd[i] || 2 * p.w0 < 0.8 * stem) return;
-      got += moved[i] / p.w0; asked += k0[i] - 1;
+      if (!use(p, i)) return;
+      const s = both && k0[i] < 1 ? -1 : 1;
+      got += s * moved[i] / p.w0; asked += s * (k0[i] - 1);
     });
     return Math.abs(asked) < 1e-3 * bs.length ? 1 : Math.min(1, Math.max(0, got / asked));
   }
