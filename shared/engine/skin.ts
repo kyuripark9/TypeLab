@@ -3337,6 +3337,26 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // run smooth, a stroke's end turning toward the stroke across a narrow opening ran into it. Its dots kept clear again:
   // a question mark's hook's foot, run smooth, came down onto its dot)
   if (mv.reweighed && mv.kv > 1 + REWEIGHED && fontPen(rig.font)) { const sg = EVEN_SMOOTH * (mv.kv - 1 - REWEIGHED) * rig.ref().stem / 2; rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg))); clearDots(rig, rings); }
+  // (and a script's (leans), as far as its strokes thickened, each point's move run smooth along the outline by
+  // LEANS_SMOOTH of that, and no further out into a counter than it was or than its room allows (openOf): each sample
+  // read across its own stroke as a thick stroke tapers to a hairline, or put back on a line by the heights or not, a
+  // Chancery's sides came out in nicks and steps at Weight 100, its n's foot a wave, its a's hook, its v's and its o's
+  // joins notched. Run smooth without the room, a b's counter was pinched in two and a U's loop shut)
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && rig.leans()) {
+    const sg = LEANS_SMOOTH * (mv.kv - 1 - REWEIGHED) * rig.ref().stem / 2;
+    rings = rings.map((ring, r) => {
+      const bs = rig.bones[r];
+      if (bs[0]?.dot || ring.length !== bs.length) return ring;
+      const was = bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) }));
+      return evenedMoves(ring, bs, was, sg).map((p, i) => {
+        const b = bs[i];
+        if (!isFinite(b.gap)) return p;
+        const out0 = -((ring[i].x - was[i].x) * b.nx + (ring[i].y - was[i].y) * b.ny), out1 = -((p.x - was[i].x) * b.nx + (p.y - was[i].y) * b.ny), most = Math.max(out0, openOf(b.gap, b.w));
+        return out1 > most ? { x: p.x + b.nx * (out1 - most), y: p.y + b.ny * (out1 - most) } : p;
+      });
+    });
+    clearDots(rig, rings);
+  }
   // (and the middles of a stroke along a line, which its edge put back on the line brought back with it)
   if (across.length && how !== 'strokes') for (const run of middles) for (const m of run) {
     const a = across.find(a => Math.abs(m.x - a.x) <= STEP / 2 && m.y >= Math.min(a.y0, a.y1) && m.y <= Math.max(a.y0, a.y1));
@@ -6400,6 +6420,9 @@ const REV_SMOOTH = 0.4;
 const THICK_LINE = 0.06;
 const FOLD_BACK = 24;
 const CON_SMOOTH = 0.3;
+/** How wide, as a share of how far its strokes thickened, a script's heavier moves are run smooth (movedOnce,
+    evenedMoves). */
+const LEANS_SMOOTH = 0.6;
 /** The most of a round pen's lowercase's samples that may lie on corners (fontPen). */
 const PEN_CORNERS = 0.008;
 /** How far off one another's line, in units, a near even font's straight edges may lie to be read as one (sideWs). */
@@ -8165,8 +8188,10 @@ function footHeights(rig: SkinRig, rings: P[][], gy: (y: number) => number) {
     for (let k = 0; k < at.length;) {
       let j = k, was = up ? -Infinity : Infinity, now = was, flat = false;
       for (; j < at.length && (j === k || at[j].x - at[j - 1].x <= FOOT_GAP * c.cap); j++) { was = up ? Math.max(was, at[j].was) : Math.min(was, at[j].was); now = up ? Math.max(now, at[j].now) : Math.min(now, at[j].now); flat ||= at[j].flat; }
-      const d = gy(L) + was - L - now;
-      if (!flat && Math.abs(was - L) <= FOOT_ON * c.cap && Math.abs(d) > off) fixes.push({ L: gy(L), up, x0: at[k].x, x1: at[j - 1].x, at: now, d });
+      // (as much of the way back as it lies past FOOT_RAMP of FOOT_OFF, all of it from FOOT_OFF on: put back whole as soon
+      // as it lay past it, a script g's descender's loop and bowl jumped 8 units up at Weight 0.66)
+      const d = gy(L) + was - L - now, s = Math.min(1, (Math.abs(d) - FOOT_RAMP * off) / ((1 - FOOT_RAMP) * off));
+      if (!flat && Math.abs(was - L) <= FOOT_ON * c.cap && s > 0) fixes.push({ L: gy(L), up, x0: at[k].x, x1: at[j - 1].x, at: now, d: d * s });
       k = j;
     }
   }
@@ -8181,7 +8206,7 @@ function footHeights(rig: SkinRig, rings: P[][], gy: (y: number) => number) {
     p.y += dy;
   }
 }
-const FOOT_OFF = 0.01, FOOT_ON = 0.025, FOOT_GAP = 0.04, FOOT_ZONE = 0.06, FOOT_FADE = 0.2, FOOT_ACROSS = 0.08;
+const FOOT_OFF = 0.01, FOOT_RAMP = 0.5, FOOT_ON = 0.025, FOOT_GAP = 0.04, FOOT_ZONE = 0.06, FOOT_FADE = 0.2, FOOT_ACROSS = 0.08;
 
 /** A heavier weight's dots kept clear of the rest of the letter: each point of its other outlines (as moved, its heights
     kept) that comes nearer a dot than DOT_KEEP of the paper the design leaves round it, read about the dot's middle as

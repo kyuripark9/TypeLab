@@ -349,7 +349,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    A script's stroke's end, carried with its sides, goes out into the paper it faces no further than `OPEN` of it, as a
    side does, nor further than `OPEN` of the paper the way it goes, read across the design (`paperAlong`, from
    `SHUT_INTO` square out): a curl's tip ran into the stroke it curls round, Serenade's A's and z's loops shut, and its a's
-   hook, sliding along its side as it grew, shut the way into its bowl.
+   hook, sliding along its side as it grew, shut the way into its bowl. Its heavier moves are run smooth along the
+   outline by `LEANS_SMOOTH` of how far its strokes thickened (`evenedMoves`), no further out into a counter than they
+   were or than its room allows (`openOf`): each sample read across its own stroke as a thick stroke tapers to a
+   hairline, Chancery's sides came out in nicks and steps at Weight 100.
    A pinhole smaller than a crumb is made smaller as it is, to nothing at `HOLE_FADE` of one, not dropped at once
    (Chancery's s's loop); one a counter pinches off is kept as it is where it parts, smaller as it moves away, to
    nothing `HOLE_GAP` of a crumb's side off the counter (Cathedral's s's corners where its spine meets its bowls).
@@ -386,7 +389,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    them (`heldBySlope`, `heldOwn`, `endFacing`: a script's tapered tops); a font without serifs reads no serifs; in a near
    even font its letter is rigged again with its nubs merged (`nublessRig`), its straight edges' thickness eased
    (`evenWs`), runs read as ends in no end carried as ends (`orphans`), each part on a line put back at its own height
-   (`footHeights`: a comic's N's stems at Horizontals 100) and its dots kept clear (`clearDots`); and in a sans with even
+   (`footHeights`: a comic's N's stems at Horizontals 100; as much of the way as it lies past `FOOT_RAMP` of `FOOT_OFF`,
+   all of it from `FOOT_OFF` on, a script g's descender jumped 8 units at Weight 0.66) and its dots kept clear (`clearDots`); and in a sans with even
    strokes, as anything thickens (`linesMove`), sides by a slanted end read past it (`endSides`), straight edges read and
    laid on one line each (two segments running on in line as one), meeting where their lines cross (`sideWs`,
    `straightRuns`), and level ends kept on their lines
