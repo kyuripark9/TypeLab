@@ -464,7 +464,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    edges went goes as they went instead (an industrial h's crotch over its arch, read off its ink trap's short curves,
    went fifty units into the arch and cut it off), and two crotches where strokes leave a stem's side together, now short
    of the thinned stem, are set on its side either side of where the strokes' edges meet, `NECK` of the way apart they
-   stood (`joinNecks`: a geometric K's arm and leg parted from its hairline stem). These were tuned on every
+   stood (`joinNecks`: a geometric K's arm and leg parted from its hairline stem); a corner inside a join, in a font
+   not contrasty, stops a stroke's new thickness short of the ring's edges across from it as moved (`thinAcross`: an
+   industrial 9's and g's crotch under the bowl, its ink trap's short curve thinned as the stem's side, went out past
+   the stem's far side and cut the stem off). These were tuned on every
    card at the Weight page's ends (Weight,
    Verticals, Horizontals and Contrast at 0 and 100), read with weights.ts's `look` on each letter's ink united. A pixel font
    (`FREE_FAMILIES[family].grid`) is never rigged, only stretched.

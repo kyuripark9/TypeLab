@@ -6916,6 +6916,24 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   const stemSide = (i: number, dir: number) => { for (let k = 0; k < ARCH_RUN; k++) { const q = bs[md(i + dir * k)]; if (q.corner || !q.straight || Math.abs(q.nx) <= ARCH_UPRIGHT || q.seg !== bs[i].seg) return false; } return true; };
   // (where each point would be with its stroke as thick as it was)
   const base: P[] = [];
+  // (Contrast turned round, in a font not contrasty: how far from (x, y) along (mx, my) the ring's edges as moved lie, short
+  // of a stroke's new thickness, the samples within FLAT_LINE of corner i left out)
+  const thinAcross = mv.reweighed && mv.kv < 1 - REWEIGHED && !mv.contrasty && !mv.lighter ? (() => {
+    const ps = bs.map((b, j) => ({ x: b.x + shift(0, j) - b.nx * moved[j], y: b.y + shift(1, j) - b.ny * moved[j] })), keep = Math.max(2, rig.ref().stem * mv.kv);
+    return (i: number, x: number, y: number, mx: number, my: number) => {
+      const l = Math.hypot(mx, my) || 1, ux = mx / l, uy = my / l;
+      let hit = Infinity;
+      for (let k = 0; k < n; k++) {
+        const k1 = md(k + 1);
+        if (Math.min(md(k - i), md(i - k)) <= FLAT_LINE || Math.min(md(k1 - i), md(i - k1)) <= FLAT_LINE) continue;
+        const P0 = ps[k], P1 = ps[k1], sx = P1.x - P0.x, sy = P1.y - P0.y, den = ux * sy - uy * sx;
+        if (Math.abs(den) < 1e-9) continue;
+        const t = ((P0.x - x) * sy - (P0.y - y) * sx) / den, w = ((P0.x - x) * uy - (P0.y - y) * ux) / den;
+        if (t > 0 && w >= 0 && w <= 1 && t < hit) hit = t;
+      }
+      return hit - keep;
+    };
+  })() : null;
   const out = bs.map((b, i) => {
     // (a longer serif reaches no further than two fifths of the room beside its tip, so two reaching toward each other
     // across a counter's foot keep apart)
@@ -7003,6 +7021,13 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     // where its edges meet, a spur of paper at each corner of a heavy sans's e's eye)
     if (linesMove(rig, mv) && concaveAt(b) && d1 > 0 && d2 > 0 && l <= MEET_REACH * Math.max(d1, d2)) return { x: x + mx, y: y + my + up };
     if (l > lim) { mx *= lim / l; my *= lim / l; }
+    // (Contrast turned round, a corner inside a join no further on than a stroke's new thickness short of the outline across,
+    // as its edges are moved: met where its edges meet, an industrial 9's and g's crotch under the bowl, its ink trap's
+    // short curve thinned as the stem's side, went on out past the stem's thinned far side and cut the stem off the bowl)
+    if (thinAcross && concaveAt(b)) {
+      const far = thinAcross(i, x, y, mx, my);
+      if (far < Math.hypot(mx, my)) { const t = Math.max(0, far) / (Math.hypot(mx, my) || 1); mx *= t; my *= t; }
+    }
     return { x: x + mx, y: y + my + up };
   });
   // (a shallow crotch met again part of the way, archMeet's w)
