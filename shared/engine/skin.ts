@@ -5876,7 +5876,11 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
       for (let i = 0; i < n; i++) if (near[i] && raw[i] > 0) raw[i] = Math.min(raw[i], Math.max(0, (top ? L - bs[i].y : bs[i].y - L) / Math.abs(bs[i].ny)));
     }
   }
-  const room = (b: Bone, i: number) => (b.dot ? dotRoom : vee?.[i] ? Infinity : (cv && cv[i] >= 0 ? openOf(bs[cv[i]].gap, bs[cv[i]].w) : openOf(b.gap, b.w)));
+  // (a contrasty font's growing into a V of paper no further than the stroke across's other side: a Didone's M's thick
+  // stroke, steep, grown past its hairline stem at Verticals 100, stood out beside its serif a flag; held so only where it
+  // gets there, the rest as free as before, or an N's and a V's sides, held short of a hairline that grows too, bent)
+  const vr = vee && mv.contrasty ? veeRooms(rig!, r) : null, capped = vr ? raw.map((d, i) => !!vee![i] && d > vr[i]) : null;
+  const room = (b: Bone, i: number) => (b.dot ? dotRoom : vee?.[i] ? (capped?.[i] ? vr![i] : Infinity) : (cv && cv[i] >= 0 ? openOf(bs[cv[i]].gap, bs[cv[i]].w) : openOf(b.gap, b.w)));
   // (and a heavier weight's edge goes out no further than SLOPE_HELD more than the edge beside it, by the unit along the
   // outline: each moved by its own stroke as read there and held to its own room, a hairline read thinner each sample to its
   // tip, a side across from ink reading its room to it and the next past it none, went out by steps, its outline ragged: a
@@ -5894,8 +5898,11 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   if (held) heldBySlope(raw, held.step, own!, SLOPE_HELD);
   const delta = raw.map((d, i) => (d > 0 ? Math.min(d, room(bs[i], i)) : d));
   if (held) {
-    const faces = bs.map((b, i) => isFinite(room(b, i))), ends = endFacing(rig!, r), past = own!.map((o, i) => o || (faces[i] && !ends[i]));
-    heldBySlope(delta, held.step, own!, SLOPE_HELD, faces.map(f => !f));
+    const faces = bs.map((b, i) => !vee?.[i] && isFinite(room(b, i))), ends = endFacing(rig!, r), past = own!.map((o, i) => o || (faces[i] && !ends[i]));
+    // (and, in a contrasty font, the edge growing into a V of paper (veeRooms) held as one facing ink, so it comes out of the
+    // edge beside it held to OPEN of the paper by degrees: a Didone's K's stem's side, its bracket so held 25 units short of
+    // it, a notch by its foot at Verticals 100)
+    heldBySlope(delta, held.step, own!, SLOPE_HELD, faces.map((f, i) => !f && !capped?.[i]));
     heldBySlope(delta, held.step, past, SLOPE_PAST, faces);
   }
   // (nor with a contrasty font's hairline tip, carried whole (hairTips): its samples' normals, read across to each other's
@@ -6592,6 +6599,29 @@ function veeOf(rig: SkinRig, r: number): Uint8Array {
   return got;
 }
 const VEES = new WeakMap<Bone[], Uint8Array>();
+/** How far each of veeOf's samples may grow: across its gap and the stroke there to its other side (the stroke the
+    sample nearest where its gap ends, within VEE_HIT, belongs to, read as thick as it is and slantwise along the way this
+    one goes out), Infinity where none is or the two face across no more than VEE_ACROSS. Read once a rig. */
+function veeRooms(rig: SkinRig, r: number): Float64Array {
+  const bs = rig.bones[r];
+  let got = VEE_ROOMS.get(bs);
+  if (got) return got;
+  const v = veeOf(rig, r);
+  got = new Float64Array(bs.length).fill(Infinity);
+  VEE_ROOMS.set(bs, got);
+  bs.forEach((b, i) => {
+    if (!v[i] || !isFinite(b.gap)) return;
+    const hx = b.x - b.nx * b.gap, hy = b.y - b.ny * b.gap;
+    let j = -1, best = VEE_HIT * VEE_HIT;
+    bs.forEach((q, k) => { const d = (q.x - hx) ** 2 + (q.y - hy) ** 2; if (d < best) { best = d; j = k; } });
+    // (the far stroke's other side, along the way this edge goes out: across it slantwise as far further as it lies aslant)
+    const q = j >= 0 ? bs[j] : null, across = q ? -(b.nx * q.nx + b.ny * q.ny) : 0;
+    if (q && across > VEE_ACROSS) got![i] = b.gap + (2 * q.w) / across;
+  });
+  return got;
+}
+const VEE_ROOMS = new WeakMap<Bone[], Float64Array>();
+const VEE_ACROSS = 0.2;
 /** Which samples of contour r of the rig lie on a stroke's end cut along a line (edgeMoves): level, within
     SERIF_LINE_NEAR of the capitals' height of the line and facing out across it, the stroke each is read across
     running CUT_WAY or more along its normal, and those so level by the line within CUT_SPREAD samples of one (a Didone's

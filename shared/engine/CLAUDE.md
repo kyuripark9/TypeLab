@@ -443,7 +443,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    sample before each to that of the one after, and eased with nothing (`hairTips`), so none pinches off; a serif's tip
    slides no further into the paper ahead of it than `OPEN` of it (`tipAhead`: a Didone's m's feet met across its
    counter); and a level edge by a line that runs across its stroke (`lineCuts`, `CUT_WAY`) stays as an end, a straight
-   side running into it stopped at the corner on the line. Contrast turned round weighs each edge by its stroke read
+   side running into it stopped at the corner on the line; an edge growing into a V of paper goes no further than the
+   stroke across's other side, read slantwise (`veeRooms`), where it gets there only (a Didone's M's thick stroke grew
+   past its hairline stem into a flag). Contrast turned round weighs each edge by its stroke read
    whole (`sideHalf`), more and more over `HALF_RAMP` of the uprights' thinning (at once, a fat face's O took a quarter more ink
    in a step of Contrast); on a contrasty design so turned (`reversed`, coming in over `REV_RAMP`) its straight edges are
    laid on one line each (`straightRuns('rev')`) and the moves between them run smooth by `REV_SMOOTH` of how far its
