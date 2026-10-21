@@ -3518,7 +3518,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // back on it brought back the serif's end and underside part of the way, some points more than others, a wave along a
   // fat face's L's top serif's underside, a nick at its end and at each bracket, from Contrast 80 down)
   const hairs = hairsIn(mv);
-  if (hairs > 0) rings = rings.map((ring, r) => (rig.bones[r][0]?.dot ? ring : linesMet(rig, r, relaid(rig.bones[r], ring, hairs))));
+  if (hairs > 0) rings = rings.map((ring, r) => (rig.bones[r][0]?.dot ? ring : linesMet(rig, r, relaid(rig.bones[r], ring, hairs, false, rig))));
   // (and a contrasty design's uprights thinned past Weight's own (Verticals down, uprightsIn), each straight edge laid on
   // one line again, only that: each sample's side moved by its own reading of the stroke, a fat face's E's and n's
   // hairline stems wobbled at Verticals 0; their brackets and corners met again too, as hairsIn's are, a Didone's T's arms'
@@ -6674,7 +6674,7 @@ function linesMet(rig: SkinRig, r: number, ring: P[]): P[] {
     going out from one's to the other's as they went, and a corner between two met where their lines meet, no further
     off than RELAY_MEET times as far as either went (a fat face's serif's underside and its end, Contrast turned round).
     `edgesOnly`, the edges laid and the rounds between run from one's move to the other's, nothing met again nor carried. */
-function relaid(bs: Bone[], ring: P[], lay: number, edgesOnly = false): P[] {
+function relaid(bs: Bone[], ring: P[], lay: number, edgesOnly = false, rig?: SkinRig): P[] {
   const n = bs.length;
   if (n < 8 || ring.length !== n || !(lay > 0)) return ring;
   const md = (i: number) => ((i % n) + n) % n, plain = (i: number) => bs[i].straight && !bs[i].corner && !bs[i].dot;
@@ -6744,8 +6744,16 @@ function relaid(bs: Bone[], ring: P[], lay: number, edgesOnly = false): P[] {
     // (a corner alone between them where the two lines, as laid, meet)
     if (!edgesOnly && gap === 1 && bs[md(e + 1)].corner && Math.abs(R.ux * S.uy - R.uy * S.ux) >= MEET_PARALLEL) {
       const det = R.ux * S.uy - R.uy * S.ux, t = ((S.px - R.px) * S.uy - (S.py - R.py) * S.ux) / det, c = md(e + 1), X = { x: R.px + R.ux * t, y: R.py + R.uy * t };
-      const far = RELAY_MEET * Math.max(1, Math.hypot(R.c1.x, R.c1.y), Math.hypot(S.c0.x, S.c0.y));
-      if (Math.hypot(X.x - ring[c].x, X.y - ring[c].y) <= far) { go[c] = { x: X.x - ring[c].x, y: X.y - ring[c].y }; continue; }
+      const far = RELAY_MEET * Math.max(1, Math.hypot(R.c1.x, R.c1.y), Math.hypot(S.c0.x, S.c0.y)), d = Math.hypot(X.x - ring[c].x, X.y - ring[c].y);
+      // (but not a corner inside a join where that lies on past where the design's ink ahead of it ends, nor then met as a
+      // bracket: a fat face's 4's counter's apex, its stem's side thinned far and its diagonal's thickened a little, rose
+      // through the ink past the 4's top and opened the counter at Contrast 0)
+      const crotch = concaveAt(bs[c]), dX = Math.hypot(X.x - bs[c].x, X.y - bs[c].y);
+      if (crotch && rig && dX > 1) { const ahead = inkAhead(rig, bs[c], (X.x - bs[c].x) / dX, (X.y - bs[c].y) / dX); if (ahead > 0 && dX > ahead) continue; }
+      // (and an outside corner as far, too, as twice its edges' ends as laid lie from where they meet: left where it was moved,
+      // its edges laid near where they were, a fat face's h's feet's serifs' tips folded back under their tops at Contrast 0)
+      const ends = crotch ? 0 : 2 * Math.max(...[e, S.s].map(j => Math.hypot(X.x - ring[j].x - go[j].x, X.y - ring[j].y - go[j].y)));
+      if (d <= Math.max(far, ends)) { go[c] = { x: X.x - ring[c].x, y: X.y - ring[c].y }; continue; }
     }
     // (a round inside a corner, a bracket, no longer than RELAY_ROUND samples, its edges near square (RELAY_SQUARE): as
     // drawn, where its two lines now meet; and the points of either edge it now covers on it, at its end. Each point moved
@@ -7182,6 +7190,11 @@ const ROOM_EVEN = 4;
 /** How much of the ink ahead of a crotch, and of how far its thinning edge moved, a fair font's Contrast turned round
     may carry it into the join (moveRing). */
 const JOIN_KEEP = 0.5, JOIN_MOVE = 0.6;
+/** How sharp (the sine of its turn) a contrasty design's crotch is, at most, to be met again as a fair font's is (moveRing). */
+const JOIN_SHARP = 0.7;
+/** How many times as far as its other edge moved, Contrast turned round, a contrasty design's crotch's edge along a stem's
+    upright side thins for the crotch to go with it (moveRing). */
+const CARRY_THIN = 4;
 /** Points of a letter's outline closer than NEAR_TOUCH (units), on two rings or NEAR_ALONG samples or more apart on one, and
     NEAR_SIDE samples either side of each along its ring, moved alike where two rings' edges among them, moved, cross
     (heldTouches). */
@@ -7760,9 +7773,10 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   const stemSide = (i: number, dir: number) => { for (let k = 0; k < ARCH_RUN; k++) { const q = bs[md(i + dir * k)]; if (q.corner || !q.straight || Math.abs(q.nx) <= ARCH_UPRIGHT || q.seg !== bs[i].seg) return false; } return true; };
   // (where each point would be with its stroke as thick as it was)
   const base: P[] = [];
-  // (Contrast turned round, in a font not contrasty: how far from (x, y) along (mx, my) the ring's edges as moved lie, short
-  // of a stroke's new thickness, the samples within FLAT_LINE of corner i left out)
-  const thinAcross = mv.reweighed && mv.kv < 1 - REWEIGHED && !mv.contrasty && !mv.lighter ? (() => {
+  // (Contrast turned round: how far from (x, y) along (mx, my) the ring's edges as moved lie, short of a stroke's new
+  // thickness, the samples within FLAT_LINE of corner i left out; a contrasty design's too, a fat face's N's diagonal's
+  // corners by its hairline stems, met past them, parted the N in two at Contrast 0, and a Didone's M's)
+  const thinAcross = mv.reweighed && mv.kv < 1 - REWEIGHED && !mv.lighter ? (() => {
     const ps = bs.map((b, j) => ({ x: b.x + shift(0, j) - b.nx * moved[j], y: b.y + shift(1, j) - b.ny * moved[j] })), keep = Math.max(2, rig.ref().stem * mv.kv);
     return (i: number, x: number, y: number, mx: number, my: number) => {
       const l = Math.hypot(mx, my) || 1, ux = mx / l, uy = my / l;
@@ -7843,6 +7857,13 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     // crotch over its arch went fifty units on into the arch, cutting it off its hairline stem)
     if (mv.reweighed && mv.kv < 1 - REWEIGHED) {
       const g = (j: number) => ({ x: -bs[j].nx * moved[j] + (slide?.[j].x ?? 0), y: -bs[j].ny * moved[j] + (slide?.[j].y ?? 0) }), g0 = g(i0), g1 = g(i1);
+      // (a contrasty design's crotch, one of its edges thinned CARRY_THIN times as far as the other moved: goes with the thinned
+      // edge, across its own normal; met where the two meet, far down the other's line, a fat face's h's and n's shoulder's
+      // corner went 115 units into the stem and out past its far side, the arch cut off it at Contrast 0)
+      if (mv.contrasty && concaveAt(b)) {
+        const [dt, dn, gt, it, dir, io] = Math.abs(d1) >= Math.abs(d2) ? [d1, d2, g0, i0, -1, i1] : [d2, d1, g1, i1, 1, i0];
+        if (dt < 0 && Math.abs(dt) > CARRY_THIN * Math.abs(dn) && stemSide(it, dir) && !bs[io].straight) return { x: x + gt.x, y: y + gt.y + up };
+      }
       if (mx * (g0.x + g1.x) + my * (g0.y + g1.y) < 0) return { x: x + (g0.x + g1.x) / 2, y: y + (g0.y + g1.y) / 2 + up };
       // (and an outside corner at a shallow turn, one edge thinning, the other thickening, goes toward where its neighbours
       // go as far as its edges' lines meet further out than either moved and as they go apart: where they meet it stood far
@@ -7851,13 +7872,13 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       const most = Math.max(Math.abs(d1), Math.abs(d2), 0.01);
       if (ways.inx * ways.outx + ways.iny * ways.outy > FLING_TURN && d1 * d2 < 0 && !concaveAt(b)) fling = { t: Math.min(1, Math.max(0, (l - most) / most)) * Math.min(1, -d1 * d2 / (FLING_MIX * most * most)) * Math.min(1, (1 - REWEIGHED - mv.kv) / FLING_RAMP), x: (g0.x + g1.x) / 2, y: (g0.y + g1.y) / 2 };
     }
-    // (a fair font's or a broad pen's crotch where Contrast turned round thins one of its strokes, its edges near alike: met
-    // again no further into the join than JOIN_KEEP of the ink ahead nor JOIN_MOVE of the way its thinning edge moved, so
-    // the strokes stay joined; met where they meet, a C0
-    // italic's M's thick diagonal, thinned, parted from its stem under the serif, the corner carried up past the serif's
-    // top, and its N's so, and its x's hairline arm, the crotch under it carried up past its top; a blackletter P's bowl
-    // came off its stem)
-    if (mv.reweighed && mv.kv < 1 - REWEIGHED && (fairFont(rig) || nibFont(rig)) && concaveAt(b) && Math.min(d1, d2) < 0) {
+    // (a fair font's, a broad pen's or a contrasty design's crotch where Contrast turned round thins one of its strokes, its
+    // edges near alike: met again no further into the join than JOIN_KEEP of the ink ahead nor JOIN_MOVE of the way its
+    // thinning edge moved, so the strokes stay joined; met where they meet, a C0 italic's M's thick diagonal, thinned,
+    // parted from its stem under the serif, the corner carried up past the serif's top, and its N's so, and its x's
+    // hairline arm, the crotch under it carried up past its top; a blackletter P's bowl came off its stem; a fat face's 4's
+    // counter's apex rose past its top)
+    if (mv.reweighed && mv.kv < 1 - REWEIGHED && (fairFont(rig) || nibFont(rig) || (mv.contrasty && Math.abs(det) < JOIN_SHARP)) && concaveAt(b) && Math.min(d1, d2) < 0) {
       const far = Math.min(lim, JOIN_MOVE * -Math.min(d1, d2), JOIN_KEEP * inkAhead(rig, b, mx / (l || 1), my / (l || 1)));
       if (l > far) { mx *= far / l; my *= far / l; }
       return { x: x + mx, y: y + my + up };

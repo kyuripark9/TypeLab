@@ -541,10 +541,17 @@ A design with `freeFont` set draws its letters from a free font instead of build
    drawn to a point at the thick stroke, stood short of the crossing). In a font not contrasty, a stroke's edge thinning
    away from paper narrower than `CRACK` hairlines, the edges across it (`acrossOf`) coming on into it, goes no further
    than they come on (an italic d's stem drew off its bowl's thickened hairline side, a crack up the join; not where the
-   edges across thin too, a sans M's crotch, which so held stood a wedge, nor in a round pen); a corner inside a join, in a font
-   not contrasty, stops a stroke's new thickness short of the ring's edges across from it as moved (`thinAcross`: an
-   industrial 9's and g's crotch under the bowl, its ink trap's short curve thinned as the stem's side, went out past
-   the stem's far side and cut the stem off). `relaid` runs each
+   edges across thin too, a sans M's crotch, which so held stood a wedge, nor in a round pen); a corner inside a join
+   stops a stroke's new thickness short of the ring's edges across from it as moved (`thinAcross`: an industrial 9's and
+   g's crotch under the bowl, its ink trap's short curve thinned as the stem's side, went out past the stem's far side and
+   cut the stem off; a fat face's N's and a Didone's M's crotches by their hairline stems, the letter in two). On a
+   contrasty design a crotch by a stem's straight upright side, the stem thinned `CARRY_THIN` times as far as the curve
+   leaving it moved, goes with the stem's side (a fat face's h's, n's and m's arches, a Didone's h's and b's bowl, came off
+   their stems, the corner met 115 units down the arch's line, past the stem's far side), and a sharp one (`JOIN_SHARP`)
+   is met again no further into its join than a fair font's. `relaid` meets no corner inside a join where its edges'
+   lines cross on past the design's ink ahead of it (a fat face's 4's counter's apex rose through the 4's top and opened
+   it), and meets an outside corner as far as twice its edges' laid ends lie from there (a fat face's h's feet's serifs'
+   tips, left where they were moved, folded back under their tops). `relaid` runs each
    laid edge's move out into a round longer than `ROUND_RUN` beside it over `RELAY_FADE` samples (a fat face's z's diagonal
    stood a step off its foot's round). Where a contrasty design's uprights thin past Weight's own (`uprightsIn`: Verticals
    down, `MoveMap.past`), its straight edges are laid again too, edges only (`relaid`'s `edgesOnly`: nothing met again nor
