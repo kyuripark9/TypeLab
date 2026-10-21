@@ -7447,10 +7447,11 @@ const REWEIGHED = 0.05;
     design's, and how much further in ink off a height reads, for each unit off it (skinRoom, sidesAt). */
 const ROOM_ROWS = 24, ROOM_FINE = 240, ROOM_REACH = 0.75, ROOM_SLOPE = 2;
 /** How far up and down from a height, as a share of half as far as its strokes grew thicker, a script's room is read off
-    its design's ink (skinRoom): none. Its capitals' flicks and arms pass their neighbours' one above the other, and
+    its design's ink (skinRoom): a quarter. Its capitals' flicks and arms pass their neighbours' one above the other, and
     thickening, one grows into the height the other's ink stands at, Boardwalk's N's exit into a Y's arm, 87 units into it at
-    Weight 100, read as ink that was there. */
-const ROOM_LEANS = 0;
+    Weight 100, read as ink that was there. (Read at the height alone, its room stepped as its strokes' ends passed one,
+    Serenade's K's 14 units at Weight 0.78.) */
+const ROOM_LEANS = 0.25;
 /** How much thicker, as a share, a letter's upright strokes must be drawn for its room to be read again (skinRoom): a
     thousandth, not the rounding of a move that leaves them. */
 const ROOM_FROM = 0.001;
