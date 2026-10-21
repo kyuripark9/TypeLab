@@ -3046,7 +3046,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const wasIn = (r: P[]) => !!inks && inks.every(({ polys, sh }, e) => r.filter(q => sh.has(q.x, q.y) || by(polys, q, e ? WAS_BY : wasBy)).length * 2 >= r.length);
   if (heavy) mv.lighter = false;
   let rings = rig.bones.map((bs, r) => moveRing(rig, bs, r, mv));
-      // (or each point s of the way to where another skeleton of the same outline puts it: one with its serifs' feet drawn
+  // (or each point s of the way to where another skeleton of the same outline puts it: one with its serifs' feet drawn
   // level, from a weight where the lighter weights take it on)
   if (toward) {
     const to = toward.rig.bones.map((bs, r) => moveRing(toward.rig, bs, r, mvTo!));
@@ -3066,7 +3066,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const lift = keepHeights(rig, rings, mv.gy, mv.reweighed);
   if (mv.reweighed && mv.kv >= 1 && (mv.kv > 1 + REWEIGHED || mv.kh > 1 + REWEIGHED)) footHeights(rig, rings, mv.gy);
   if (mv.reweighed) clearDots(rig, rings);
-      // (a lighter weight's skeleton where the move puts it (lifted to the letter's heights with its outline; its strokes drawn
+  // (a lighter weight's skeleton where the move puts it (lifted to the letter's heights with its outline; its strokes drawn
   // alone are not), every few points along each stroke, with the stroke's half
   // thickness: the middles of its strokes, for whole)
   const middles: (P & { s: number; y0: number })[][] = [];
@@ -3131,7 +3131,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // samples slid along it past the corner its stem's side now meets it at: a slab serif's sloping underside moved out
   // with its stem, a slit at each serif's root)
   if (mv.lighter || mv.reweighed) rings = rings.map((ring, r) => doubledBack(ring, samples[r]));
-      // (how far its outline so moved reaches either side, before a tip whose sides crossed is cut off as a fold: see skinSpan;
+  // (how far its outline so moved reaches either side, before a tip whose sides crossed is cut off as a fold: see skinSpan;
   // not a letter drawn as its strokes, which stop short of its tips as drawn)
   // (and a reweighed one's, before its spikes are cut off and its notches bridged, at some weights and not others: its room
   // jumped where they were, a Didone's K's, 11 units in a step of Weight)
@@ -5596,10 +5596,11 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     heldBySlope(delta, held.step, past, SLOPE_PAST, faces);
   }
   const keepAt = (b: Bone, i: number) => (j: number) => !bs[j].corner && endAt(j) === endAt(i) && bare(j) === bare(i) && onLine(bs[j]) === onLine(b);
-  // (a near even font's heavier curves eased over as far along them as they move out, a sample for every STEP: each read
-  // across its own stroke, a geometric b's counter's side, its bowl reading 20 units thick where it leaves the stem and 30
-  // where it runs into it, went in by two steps, a bump on the stem's side inside the bowl at Weight 100)
-  const along = rig && mv.reweighed && mv.kv > 1 + REWEIGHED && evenFont(rig) && fontPlumb(rig.font);
+  // (a heavier sans's curves, in a font of little contrast drawn with a rule (fontPlumb), eased over as far along them as
+  // they move out, a sample for every STEP: each read across its own stroke, a geometric b's counter's side, its bowl
+  // reading 20 units thick where it leaves the stem and 30 where it runs into it, went in by two steps, a bump on the
+  // stem's side inside the bowl at Weight 100; a humanist d's two)
+  const along = rig && mv.reweighed && mv.kv > 1 + REWEIGHED && !rig.serifed() && rig.ref().hair0 >= LINES_EVEN * rig.ref().stem && fontPlumb(rig.font);
   let moved = bs.map((b, i) => {
     if (b.corner) return delta[i];
     const keep = keepAt(b, i);
