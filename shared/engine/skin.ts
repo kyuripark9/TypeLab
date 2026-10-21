@@ -8630,7 +8630,17 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
         const L = Math.hypot(mx, my), m = md(s + ((e - s) >> 1)), ahead = thinAhead(rig, mv, base[m], mx / (L || 1), my / (L || 1));
         if (ahead < SLIT_NEAR && L > ahead + SLIT_PAST) { mx *= (ahead + SLIT_PAST) / L; my *= (ahead + SLIT_PAST) / L; }
       }
-      for (let k = s; k < e; k++) { const j = md(k); out[j] = { x: out[j].x + (base[j].x + mx - out[j].x) * share, y: out[j].y + (base[j].y + my - out[j].y) * share }; }
+      // (where the uprights thin by Verticals alone (vAlone), an outside round carried with its corner at its middle only, its
+      // ends with the edges they run on from, by degrees between: carried whole, a fat face's n's arch's shoulder over its
+      // stem slid 65 units back along the arch's top with the stem's side, past the top's own samples, folded over them, a
+      // notch across the arch at Verticals 0)
+      const ends = !inside && vAlone(mv) ? [{ x: out[a].x - base[a].x, y: out[a].y - base[a].y }, { x: out[z].x - base[z].x, y: out[z].y - base[z].y }] : null;
+      for (let k = s; k < e; k++) {
+        const j = md(k);
+        let dx = mx, dy = my;
+        if (ends) { const f = (k - s + 1) / (e - s + 1), lx = ends[0].x + (ends[1].x - ends[0].x) * f, ly = ends[0].y + (ends[1].y - ends[0].y) * f, b = Math.sin(Math.PI * f); dx = lx + (mx - lx) * b; dy = ly + (my - ly) * b; }
+        out[j] = { x: out[j].x + (base[j].x + dx - out[j].x) * share, y: out[j].y + (base[j].y + dy - out[j].y) * share };
+      }
     }
     for (const q of later) out[q.j] = { x: out[q.j].x + (q.x - out[q.j].x) * q.t, y: out[q.j].y + (q.y - out[q.j].y) * q.t };
     later.length = 0;
