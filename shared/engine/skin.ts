@@ -3032,7 +3032,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const wasIn = (r: P[]) => !!inks && inks.every(({ polys, sh }, e) => r.filter(q => sh.has(q.x, q.y) || by(polys, q, e ? WAS_BY : wasBy)).length * 2 >= r.length);
   if (heavy) mv.lighter = false;
   let rings = rig.bones.map((bs, r) => moveRing(rig, bs, r, mv));
-    // (or each point s of the way to where another skeleton of the same outline puts it: one with its serifs' feet drawn
+      // (or each point s of the way to where another skeleton of the same outline puts it: one with its serifs' feet drawn
   // level, from a weight where the lighter weights take it on)
   if (toward) {
     const to = toward.rig.bones.map((bs, r) => moveRing(toward.rig, bs, r, mvTo!));
@@ -3052,7 +3052,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const lift = keepHeights(rig, rings, mv.gy, mv.reweighed);
   if (mv.reweighed && mv.kv >= 1 && (mv.kv > 1 + REWEIGHED || mv.kh > 1 + REWEIGHED)) footHeights(rig, rings, mv.gy);
   if (mv.reweighed) clearDots(rig, rings);
-    // (a lighter weight's skeleton where the move puts it (lifted to the letter's heights with its outline; its strokes drawn
+      // (a lighter weight's skeleton where the move puts it (lifted to the letter's heights with its outline; its strokes drawn
   // alone are not), every few points along each stroke, with the stroke's half
   // thickness: the middles of its strokes, for whole)
   const middles: (P & { s: number; y0: number })[][] = [];
@@ -3094,7 +3094,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   const held = mv.reweighed ? rings.map(r => r.map(p => ({ x: p.x, y: p.y }))) : null;
   const across = snapFlatEdges(rig, rings, mv.gy, mv.lighter, mv.reweighed, unlifted);
   if (held) endsWithSides(rig, held, rings);
-    // (and the middles of a stroke along a line, which its edge put back on the line brought back with it)
+      // (and the middles of a stroke along a line, which its edge put back on the line brought back with it)
   if (across.length && how !== 'strokes') for (const run of middles) for (const m of run) {
     const a = across.find(a => Math.abs(m.x - a.x) <= STEP / 2 && m.y >= Math.min(a.y0, a.y1) && m.y <= Math.max(a.y0, a.y1));
     if (a) { m.y += a.dy; m.y0 += a.dy; }
@@ -3110,7 +3110,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // samples slid along it past the corner its stem's side now meets it at: a slab serif's sloping underside moved out
   // with its stem, a slit at each serif's root)
   if (mv.lighter || mv.reweighed) rings = rings.map((ring, r) => doubledBack(ring, samples[r]));
-    // (how far its outline so moved reaches either side, before a tip whose sides crossed is cut off as a fold: see skinSpan;
+      // (how far its outline so moved reaches either side, before a tip whose sides crossed is cut off as a fold: see skinSpan;
   // not a letter drawn as its strokes, which stop short of its tips as drawn)
   // (and a reweighed one's, before its spikes are cut off and its notches bridged, at some weights and not others: its room
   // jumped where they were, a Didone's K's, 11 units in a step of Weight)
@@ -5920,6 +5920,8 @@ const HEAD_SIDE = 0.9, HEAD_SPAN = 0.15;
 const NEAR_LINE = 0.02;
 /** How far off a line, of the capitals' height, a round running on from an edge on it is held to it (edgeMoves). */
 const ROUND_ON_LINE = 0.1;
+/** How many samples along a straight side from a level end's corner on a line are kept from moving past the line (moveRing). */
+const SIDE_PAST = 40;
 
 /** The tabs off a stem's straight side on contour r of the rig (moveRing): the outline leaving the side's line at one corner
     (c0) and coming back onto it at another (c1), the way dir round the outline, everything between out on the paper's
@@ -6465,6 +6467,21 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       const f = Math.min(1, Math.sqrt((vx * vx + vy * vy) / l2));
       out[c] = { x: out[sd].x + (q.x - bs[sd].x) * f, y: out[sd].y + (q.y - bs[sd].y) * f };
     }
+  }
+  // (a heavier sans's straight side running into a level end on a line, moved out along its normal, goes no further up
+  // or down than the corner where it now meets the line: its points by the corner, moved past the line, stood a spike over
+  // the end, a geometric k's arm's top at Weight 100, and the heights, lowering the letter by as much, cut its end aslant)
+  if (linesMove(rig, mv)) {
+    const c = rig.ctx, lines = [0, c.cap, ...(c.lower ? [c.xh, c.asc, c.desc] : [])];
+    bs.forEach((b, i) => {
+      if (!b.corner || concaveAt(b)) return;
+      for (const d of [-1, 1]) {
+        const e = bs[md(i - d)], L = lines.find(L => Math.abs(b.y - L) < 2.5 && Math.abs(e.y - L) < 2.5);
+        if (L === undefined || !e.onLine) continue;
+        const up = L > 0 ? 1 : -1;
+        for (let k = 1, j = md(i + d); k <= SIDE_PAST && !bs[j].corner && bs[j].straight && !inEnd[j]; k++, j = md(j + d)) if ((out[j].y - out[i].y) * up > 0) out[j] = { x: out[i].x, y: out[i].y };
+      }
+    });
   }
   return out;
 
