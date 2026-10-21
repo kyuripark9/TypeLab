@@ -162,6 +162,8 @@ export interface SkinRig {
   /** its lighter weight's skeleton before any feet are drawn level (plainSkeleton) */ plainSk?: Skeleton;
   /** itself on a skeleton read along its straight strokes, a letter of them in a font without serifs, for its lighter
       weights (see moveRig), or null where it isn't one */ lined?: SkinRig | null;
+  /** itself on its lighter weight's skeleton with its thick strokes run on into the strokes they end against
+      (squaredJoins), for its uprights thinned by Verticals alone (see movedAt), or null where it has none */ squared?: SkinRig | null;
   /** itself without its slabs, rigged, and the slabs (slabRig), or null where it has none; and whether it is that */
   unslabbed?: { rig: SkinRig; slabs: Slab[] } | null;
   /** where it is that, the slabs taken off, which its lighter weights lay back over it (movedOnce) */ slabless?: Slab[];
@@ -1195,6 +1197,77 @@ function plainSkeleton(rig: SkinRig): Skeleton {
   const tipped = withTips(rig, sk);
   return (rig.plainSk = rig.shortSlabs() || rig.stroked() ? withBars(rig, tipped) : tipped);
 }
+
+/** The rig on its lighter weight's skeleton with its thick strokes' ends run on into the strokes they end against
+    (squaredJoins), or null where it has none such: what its uprights thinned by Verticals alone draw (movedAt). Not a
+    broad pen's (nibFont), its strokes slanting into their joins: run on, a blackletter's Y's room jumped 53 units in a
+    step of Verticals. */
+function squaredRig(rig: SkinRig): SkinRig | null {
+  if (rig.squared !== undefined) return rig.squared;
+  if (nibFont(rig)) return (rig.squared = null);
+  const sk = squaredJoins(thinSkeleton(rig));
+  return (rig.squared = sk ? { ...rig, thinSk: sk, plainSk: sk, thin: undefined, round: null, footed: null, slabbed: null, lined: null, squared: null } : null);
+}
+
+/** A skeleton (a copy, or null where nothing changes) with each stroke much thicker than the strokes leaving its end
+    (SQUARE_THICK times as thick or more, read within its end's round) run on straight to where they run across its way,
+    within SQUARE_REACH of its end's round, and they from there: a medial axis forks a thick stem short of a thin bar it
+    ends against by about the stem's half width, along the diagonals to the bar's edges, and a lighter weight's strokes
+    drawn along it there, its stem thinned to a hair, made a Didone's T a Y, a notch down its bar, and a crease out of each
+    of its E's corners. Only where every stroke leaving the end runs across so, SQUARE_ACROSS of square to the stem. */
+function squaredJoins(sk: Skeleton): Skeleton | null {
+  const nodes = sk.nodes.map(n => ({ ...n, edges: [...n.edges] })), edges = sk.edges.map(e => ({ ...e }));
+  const lenOf = (pts: SkPt[]) => pts.reduce((a, q, k) => (k ? a + Math.hypot(q.x - pts[k - 1].x, q.y - pts[k - 1].y) : 0), 0);
+  const line = (a: P, b: P, r0: number, r1 = r0): SkPt[] => { const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / THIN_CELL)); return Array.from({ length: n }, (_, k) => ({ x: a.x + (b.x - a.x) * k / n, y: a.y + (b.y - a.y) * k / n, r: r0 + (r1 - r0) * k / n })); };
+  let changed = false;
+  for (let ni = 0; ni < nodes.length; ni++) {
+    const N = nodes[ni];
+    if (N.edges.length < 3 || N.edges.some(e => edges[e].a === edges[e].b)) continue;
+    // (each edge's points from the end outward, and how thick it is past the end's round, its middle thickness: within
+    // it, every stroke leaving the round reads as thick as the round)
+    const from = (e: number) => (edges[e].a === ni ? edges[e].pts : edges[e].pts.slice().reverse());
+    const rOf = (pts: SkPt[]) => { const qs = pts.filter(q => Math.hypot(q.x - N.x, q.y - N.y) > N.r), rs = (qs.length ? qs : pts).map(q => q.r).sort((a, b) => a - b); return rs[rs.length >> 1]; };
+    for (const S of N.edges) {
+      const sp = from(S), q = sp.find(p => Math.hypot(p.x - N.x, p.y - N.y) >= N.r) ?? sp[sp.length - 1], ql = Math.hypot(q.x - N.x, q.y - N.y);
+      if (ql < 1) continue;
+      const ux = (N.x - q.x) / ql, uy = (N.y - q.y) / ql;
+      // (each other stroke where it first runs across the way S runs in, ahead of its end and within SQUARE_REACH of its
+      // round, and the round far thicker than it; not a wedge's two halves running straight out from its round to its
+      // tips, its medial axis its middle: run on, a Didone's E's arm's beak, its ink as moved a solid wedge, came out
+      // hollow round the stroke drawn to it)
+      const ahead = (p: P) => (p.x - N.x) * ux + (p.y - N.y) * uy;
+      const hits = N.edges.filter(e => e !== S).map(e => {
+        const pts = from(e);
+        if (N.r < SQUARE_THICK * rOf(pts)) return null;
+        for (let k = 1, d = 0; k < pts.length; k++) {
+          d += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y);
+          if (d > SQUARE_REACH * N.r) return null;
+          const f = pts[Math.min(pts.length - 1, k + 4)], vx = f.x - pts[k].x, vy = f.y - pts[k].y, vl = Math.hypot(vx, vy);
+          if (vl > 0 && Math.abs((vx * ux + vy * uy) / vl) < SQUARE_ACROSS && ahead(pts[k]) >= SQUARE_LEAST * N.r) return { e, k, pts };
+        }
+        return null;
+      });
+      if (hits.some(h => !h)) continue;
+      const t = hits.reduce((a, h) => a + ahead(h!.pts[h!.k]), 0) / hits.length;
+      if (!(t > SQUARE_LEAST * N.r && t < SQUARE_REACH * N.r)) continue;
+      const M = { x: N.x + ux * t, y: N.y + uy * t };
+      // (S run on straight from where it ended to there, as thick as it is; each stroke leaving from there straight to
+      // where it ran across, as thick as it is there)
+      const put = (e: number, pts: SkPt[]) => { const E = edges[e], out = E.a === ni ? pts : pts.slice().reverse(); if (STUBBED.has(E.pts)) STUBBED.add(out); E.pts = out; E.len = lenOf(out); };
+      const rS = rOf(sp);
+      put(S, [...line(M, N, rS), ...sp]);
+      for (const h of hits) { const P0 = h!.pts[h!.k]; put(h!.e, [...line(M, P0, Math.min(rS, rOf(h!.pts)), P0.r), ...h!.pts.slice(h!.k)]); }
+      N.x = M.x; N.y = M.y;
+      changed = true;
+      break;
+    }
+  }
+  return changed ? { nodes, edges } : null;
+}
+/** How much thicker than each stroke leaving it a join's round is that squaredJoins runs the stroke running into it on
+    to them, how far past the round it looks for where they run across (and the least it may lie past it), as shares of
+    the round, and how square to the stroke's way they then run (the cosine). */
+const SQUARE_THICK = 1.8, SQUARE_REACH = 2.5, SQUARE_LEAST = 0.4, SQUARE_ACROSS = 0.42;
 
 /** A stroke whose middle the skeleton stops short of another stroke it runs into, tapering to nothing inside that one's
     ink (an italic X's hairline into its heavy stroke): its middle run on straight the way it goes to the other's, met
@@ -2722,9 +2795,14 @@ function movedAt(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true)
   const U = lighter && rig.shortSlabs() ? slabRig(rig) : null;
   if (U) return moveRig(U.rig, m0, m1);
   const kv = m1.v / m0.v;
+  // (its uprights thinned by Verticals alone (vAlone), on its skeleton with its thick strokes run on into those they end
+  // against, squaredRig, as far of the way as they have thinned apart: a Didone's T, its stem thinned to a hair, a Y)
+  const kw = m0.sw > 0 ? m1.sw / m0.sw : 1, past = kw > 0 && kv / kw < 0.999 ? kv / kw : 1, apart = Math.min(1, (1 - past) / PAST_EASE);
+  const sq = apart > 0 && kv >= 0.999 * past ? apart : 0, squared = (r: SkinRig) => (sq > 0 ? squaredRig(r) ?? r : r);
   if (m1.s < m0.s * 0.999 && kv <= FOOT_UNDER[0]) {
-    const thin = footRig(rig, FOOT_THIN) ?? rig, slab = footRig(rig, FOOT_SLAB) ?? rig;
-    const [X, Y, under] = kv <= FOOT_UNDER[1] ? [thin, slab, FOOT_UNDER[1]] : [rig, thin, FOOT_UNDER[0]], s = (under - kv) / SWITCH_BLEND;
+    // (so far thinned, wholly so)
+    const thin = squared(footRig(rig, FOOT_THIN) ?? rig), slab = squared(footRig(rig, FOOT_SLAB) ?? rig), plain = squared(rig);
+    const [X, Y, under] = kv <= FOOT_UNDER[1] ? [thin, slab, FOOT_UNDER[1]] : [plain, thin, FOOT_UNDER[0]], s = (under - kv) / SWITCH_BLEND;
     return X === Y || s >= 1 ? movedPlain(Y, m0, m1, undefined, grows) : movedPlain(X, m0, m1, { rig: Y, s }, grows);
   }
   // (a heavier weight's off the letter with its nubs taken out, as it moves its stems out by more than REWEIGHED, in a font
@@ -2732,6 +2810,8 @@ function movedAt(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, grows = true)
   const N = m1.s >= m0.s * 0.999 && kv > 1 + REWEIGHED && evenFont(rig) ? nublessRig(rig) : null;
   // (and, in a contrasty font with serifs, off the letter with its serifs read nearer its lines, serifLinedRig)
   const S = m1.s >= m0.s * 0.999 && kv > 1 + REWEIGHED && m0.hT < CONTRASTY * m0.v && rig.serifed() ? serifLinedRig(N ?? rig) : null;
+  const Q = !S && !N && sq > 0 ? squaredRig(rig) : null;
+  if (Q) return sq >= 1 ? movedPlain(Q, m0, m1, undefined, grows) : movedPlain(rig, m0, m1, { rig: Q, s: sq }, grows);
   return movedPlain(S ?? N ?? rig, m0, m1, undefined, grows);
 }
 
