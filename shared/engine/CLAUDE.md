@@ -402,7 +402,8 @@ A design with `freeFont` set draws its letters from a free font instead of build
    each curve's move along it as far as it moves (a b's counter's side by its stem), and its curves' thicknesses along
    them over half a stem (a d's counter's round by its stem), and a stem's upright side and a round across a narrow V of
    paper past their crotch grow into each other freely (`veeOf`'s `VEE_SIDE`: a hook at a d's top, a q's foot); a straight side running into a level end on a line
-   goes no further past the line than the corner where it now meets it (`SIDE_PAST`: a k's arm's top, an X's feet); and
+   goes no further past the line than the corner where it now meets it (`SIDE_PAST`: a k's arm's top, an X's feet; a
+   level end a little over its line too, `SIDE_NEAR`: an A's flat apex, its diagonals' sides two horns over it); and
    in such a sans growing heavier (`plumbHeavy`) every point's move is run smooth along the outline by `PLUMB_SMOOTH` of
    how far its strokes thicken, its laid straight edges and its edges on a line held, a curve running on from a laid
    edge moved with it as far as it faces the edge's way and wholly beside it, if it lags behind it (`anchoredMoves`,
@@ -410,7 +411,11 @@ A design with `freeFont` set draws its letters from a free font instead of build
    a V of paper grows into it no further than leaves `VEE_SLOT` of a stem (an M's counters, gone at Verticals 100). A
    curve's samples facing a counter, a tip's corner moved over them from beside, are drawn back to leave `CLEAR` of the
    room the corner's edges had (`cornersClear`: an a's hook's tip over its bowl shut the way into its eye at Weight and
-   Horizontals 100). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
+   Horizontals 100). In a plain sans (`plainSans`) a sharp turn its moved outline makes where its design runs on
+   smooth along a curve (not a short round between two straight edges, `UNKINK_SEG`) is run smooth (`unkinked`,
+   `KINK_TURN`: an n's counter stepped where its arch leaves its stem). A stroke's end read as a cap that strokeEnds found
+   no end for is carried as an end from its straight sides within `CAP_ROUND` samples (`sideEnds`: an Industrial's corners,
+   drawn running a hair past its edges, turn away from the ink, and its E's middle arm's end, moved as a side, a wedge). In a font of bracketed serifs and some contrast (`fairFont`: an old style, a transitional, an italic) the
    moves are eased again over `FAIR_REACH` times as far as each moves, by no more than `FAIR_SHARE` of it and by less
    within `FAIR_FADE` samples of where the samples eased together end (an old style's bowls came out wavy at Weight 100;
    eased right up to samples not eased, its arches' tops stepped), an arm's or a bar's round under it is carried whole as a bracket is

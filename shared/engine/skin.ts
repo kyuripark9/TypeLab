@@ -3488,7 +3488,8 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // came out beaded at Verticals 100, their insides stepping where they leave a stem's side, an n's counter a keyhole;
   // not a round pen's, run smooth above: run smooth again, a soft sans's e's eye stepped at Weight and Verticals 100)
   if (plumbHeavy(rig, mv) && !fontPen(rig.font)) {
-    const { stem, hair } = rig.ref(), sg = PLUMB_SMOOTH * Math.max((mv.kv - 1) * stem, (mv.kh - 1) * hair) / 2;
+    // (and, in a plain sans (plainSans: no ink trap, whose sharp turns are drawn), its sharp turns run smooth (unkinked))
+    const { stem, hair } = rig.ref(), sg = PLUMB_SMOOTH * Math.max((mv.kv - 1) * stem, (mv.kh - 1) * hair) / 2, plain = plainSans(rig);
     rings = rings.map((ring, r) => {
       const bs = rig.bones[r], n = bs.length, laid = new Uint8Array(n);
       if (bs[0]?.dot || ring.length !== n) return ring;
@@ -3513,7 +3514,8 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
         if (g <= MEET_ROUND) for (let k = 0; k < g; k++) met[(i + k) % n] = 1;
       }
       // (and its samples kept clear of its tips' corners moved over them (cornersClear))
-      return cornersClear(anchoredMoves(ring, bs, bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => !!laid[i] || !!met[i] || bs[i].onLine, i => !!laid[i] && !bs[i].onLine), bs);
+      const sm = cornersClear(anchoredMoves(ring, bs, bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => !!laid[i] || !!met[i] || bs[i].onLine, i => !!laid[i] && !bs[i].onLine), bs);
+      return plain ? unkinked(sm, bs, rig.ctx.cap) : sm;
     });
   }
   // (and the middles of a stroke along a line, which its edge put back on the line brought back with it)
@@ -6732,6 +6734,44 @@ function cornersClear(r: P[], bs: Bone[]): P[] {
   }
   return out ?? r;
 }
+/** A ring's samples where, moved, the outline turns sharply (KINK_TURN) and the design runs on smooth there (under half
+    that), not a corner's, each put halfway to between its neighbours, twice: a laid edge's end and the curve it runs on
+    into, moved apart by their own strokes, a grotesque's n's, m's and h's counters stepped where the arch leaves the
+    stem at Weight 88, Verticals 100. */
+function unkinked(r: P[], bs: Bone[], cap: number): P[] {
+  const n = r.length;
+  if (n < 8) return r;
+  // (not on a short round between two straight edges, UNKINK_SEG of the cap or less: an Industrial's rounds by its stems'
+  // feet and its bevels, run smooth, came out turning again by the lines they meet)
+  const segLen = new Map<number, number>(), before = new Map<number, boolean>(), after = new Map<number, boolean>();
+  for (let i = 0; i < n; i++) {
+    const a = bs[i], b = bs[(i + 1) % n];
+    if (a.seg === b.seg) segLen.set(a.seg, (segLen.get(a.seg) ?? 0) + Math.hypot(b.x - a.x, b.y - a.y));
+    else { after.set(a.seg, b.straight); before.set(b.seg, a.straight); }
+  }
+  const cornerRound = (s: number) => !!before.get(s) && !!after.get(s) && (segLen.get(s) ?? 0) <= UNKINK_SEG * cap;
+  const turn = (a: P, b: P, c: P) => { const ux = b.x - a.x, uy = b.y - a.y, vx = c.x - b.x, vy = c.y - b.y, l = Math.hypot(ux, uy) * Math.hypot(vx, vy); return l > 0 ? (ux * vx + uy * vy) / l : 1; };
+  // (a curve's, not a straight edge's, laid as it is: an Industrial's H's sides by its corners' bevels, run smooth, were
+  // bevelled again)
+  const smooth = bs.map((b, i) => !b.corner && !b.straight && !cornerRound(b.seg) && !bs[(i - 1 + n) % n].corner && !bs[(i + 1) % n].corner && turn(bs[(i - 1 + n) % n], b, bs[(i + 1) % n]) > KINK_ON);
+  let out = r;
+  for (let it = 0; it < 2; it++) {
+    let next: P[] | null = null;
+    for (let i = 0; i < n; i++) {
+      if (!smooth[i]) continue;
+      const a = out[(i - 1 + n) % n], b = out[i], c = out[(i + 1) % n];
+      if (turn(a, b, c) > KINK_TURN) continue;
+      next ??= out.slice();
+      next[i] = { x: (b.x + (a.x + c.x) / 2) / 2, y: (b.y + (a.y + c.y) / 2) / 2 };
+    }
+    if (!next) break;
+    out = next;
+  }
+  return out;
+}
+/** How sharp a turn a heavier plumb sans's moved outline makes for unkinked to run it smooth (the cosine), and how gently the
+    design must turn there. */
+const KINK_TURN = Math.cos(30 * Math.PI / 180), KINK_ON = Math.cos(15 * Math.PI / 180), UNKINK_SEG = 0.05;
 /** How much of the room a corner's edges had a heavier plumb sans keeps between the corner as moved and the outline
     across from it, how many samples either side of it along its ring are its own, and how many times that clearance of
     paper a sample faces for it to be drawn back (cornersClear). */
@@ -6848,9 +6888,30 @@ function sideEnds(rig: SkinRig, r: number): EndRun[] {
     const a = cs[0] - 1 > e.a && onSide(e.a, cs[0], 1) ? cs[0] - 1 : e.a, b = cs[cs.length - 1] + 1 < e.b && onSide(e.b, cs[cs.length - 1], -1) ? cs[cs.length - 1] + 1 : e.b;
     return a === e.a && b === e.b ? e : { ...e, a, b };
   });
+  // (and a stroke's end cut square across, read as one (markEnds: its samples a cap) though strokeEnds found none there,
+  // from the straight sides either side of it within CAP_ROUND samples of it, facing each other: an Industrial's corners,
+  // drawn running a hair on past its edges before they turn, turn away from the ink there, and its E's middle arm's end,
+  // moved as a side, came out a wedge at Weight and Horizontals 100)
+  const covered = new Uint8Array(n);
+  for (const e of got) for (let i = e.a; i <= e.b; i++) covered[md(i)] = 1;
+  for (let s = 0; s < n; s++) {
+    if (!bs[s].cap || covered[s] || bs[md(s - 1)].cap) continue;
+    let e = s;
+    while (bs[md(e)].cap && e - s < n) e++;
+    let a = s - 1, b = e;
+    for (let k = 0; k < CAP_ROUND && !bs[md(a)].straight; k++) a--;
+    for (let k = 0; k < CAP_ROUND && !bs[md(b)].straight; k++) b++;
+    const A = bs[md(a)], B = bs[md(b)];
+    if (!A.straight || !B.straight || A.nx * B.nx + A.ny * B.ny > -CAP_FACING) continue;
+    if (a < 0) { a += n; b += n; }
+    got.push({ a, b, ball: 0, pin: 0.5 });
+  }
   SIDE_ENDS.set(bs, got);
   return got;
 }
+/** How many samples of round a stroke's end read as a cap may have between it and its sides' straight edges, and how
+    nearly those sides must face each other (the cosine between their normals, turned round), for sideEnds to carry it. */
+const CAP_ROUND = 4, CAP_FACING = 0.9;
 const SIDE_ENDS = new WeakMap<Bone[], EndRun[]>();
 /** How nearly a sample of an end's run must face as the side it begins on to be taken for that side (sideEnds: the
     cosine between their normals). */
@@ -7022,7 +7083,7 @@ const NEAR_LINE = 0.02;
 /** How far off a line, of the capitals' height, a round running on from an edge on it is held to it (edgeMoves). */
 const ROUND_ON_LINE = 0.1;
 /** How many samples along a straight side from a level end's corner on a line are kept from moving past the line (moveRing). */
-const SIDE_PAST = 40;
+const SIDE_PAST = 40, SIDE_NEAR = 0.01;
 
 /** The tabs off a stem's straight side on contour r of the rig (moveRing): the outline leaving the side's line at one corner
     (c0) and coming back onto it at another (c1), the way dir round the outline, everything between out on the paper's
@@ -7773,8 +7834,10 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     bs.forEach((b, i) => {
       if (!b.corner || concaveAt(b)) return;
       for (const d of [-1, 1]) {
-        const e = bs[md(i - d)], L = lines.find(L => Math.abs(b.y - L) < 2.5 && Math.abs(e.y - L) < 2.5);
-        if (L === undefined || !e.onLine) continue;
+        const e = bs[md(i - d)], near = Math.max(2.5, SIDE_NEAR * c.cap), L = lines.find(L => Math.abs(b.y - L) < near && Math.abs(e.y - L) < near);
+        // (a level edge a little over its line counts: an A's flat apex, 3 units over the capitals' line, its diagonals' sides
+        // stood a horn either side of it at Weight 99, Verticals 100)
+        if (L === undefined || !(e.onLine || (e.straight && Math.abs(e.ny) > 0.97))) continue;
         const up = L > 0 ? 1 : -1;
         for (let k = 1, j = md(i + d); k <= SIDE_PAST && !bs[j].corner && bs[j].straight && !inEnd[j]; k++, j = md(j + d)) if ((out[j].y - out[i].y) * up > 0) out[j] = { x: out[i].x, y: out[i].y };
       }
