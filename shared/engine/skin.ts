@@ -2143,9 +2143,9 @@ export const descK = (k: number) => (k < 1 ? Math.sqrt(k) : k);
 /** A piecewise-linear map with knots [from, to], carried on beyond them unscaled. */
 const piecewise = (knots: [number, number][]) => (y: number) => {
   if (y <= knots[0][0]) return y + knots[0][1] - knots[0][0];
-  for (let i = 1; i < knots.length; i++) if (y <= knots[i][0]) { const [a, A] = knots[i - 1], [b, B] = knots[i]; return A + (y - a) * (B - A) / (b - a); }
-  const [l, L] = knots[knots.length - 1];
-  return y + L - l;
+  for (let i = 1; i < knots.length; i++) if (y <= knots[i][0]) { const p = knots[i - 1], q = knots[i], a = p[0], A = p[1], b = q[0], B = q[1]; return A + (y - a) * (B - A) / (b - a); }
+  const l = knots[knots.length - 1];
+  return y + l[1] - l[0];
 };
 
 /** An outline's small loops cut out, where an edge moved out overruns its neighbour (inside a corner the
@@ -2217,20 +2217,17 @@ function doubledBack(p: P[], design?: P[]) {
     return lu < 1e-6 || lv < 1e-6 ? 1 : (ux * vx + uy * vy) / (lu * lv);
   };
   // (but not where the design turns back as sharply: a Didone's hairline serif's point)
-  // (read once a design: the rig's own samples, mostly, unless unfolded took some out)
-  const all = p.map((_, i) => i);
-  let sharp: boolean[] | null = null;
-  if (design && design.length === p.length) { sharp = SHARP.get(design) ?? null; if (!sharp) SHARP.set(design, (sharp = all.map(i => turn(design, all, i) <= -0.97))); }
+  // (read only at a point the outline turns back at: few)
+  const all = p.map((_, i) => i), read = design && design.length === p.length ? new Int8Array(p.length) : null;
+  const sharp = (k: number) => !!read && (read[k] || (read[k] = turn(design!, all, k) <= -0.97 ? 1 : -1)) === 1;
   let idx = all;
   for (let pass = 0; pass < 64 && idx.length > 3; pass++) {
-    const keep = idx.filter((k, j) => sharp?.[k] || turn(p, idx, j) > -0.97);
+    const keep = idx.filter((k, j) => turn(p, idx, j) > -0.97 || sharp(k));
     if (keep.length === idx.length) break;
     idx = keep;
   }
   return idx.length === p.length ? p : idx.map(k => p[k]);
 }
-
-const SHARP = new WeakMap<P[], boolean[]>();
 
 /** Whether the outlines cross themselves or each other anywhere (edges bucketed on a grid, so only near ones are tried). */
 function crosses(rings: P[][]) {
@@ -3464,6 +3461,8 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // (a heavier weight's outline as moved, before the heights, for its serifs to be put back as moved, snapFlatEdges)
   const unlifted = mv.reweighed && mv.kv > 1 ? rings.map(r => r.map(p => p.y)) : null;
   const lift = keepHeights(rig, rings, mv.gy, mv.reweighed);
+  // (each ring's samples where the heights and the width alone put them, read once for the passes run smooth from them)
+  const designs: P[][] = [], designAt = (r: number) => (designs[r] ??= rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })));
   if (mv.reweighed && mv.kv >= 1 && (mv.kv > 1 + REWEIGHED || mv.kh > 1 + REWEIGHED)) footHeights(rig, rings, mv.gy);
   if (mv.reweighed) clearDots(rig, rings);
   // (a lighter weight's skeleton where the move puts it (lifted to the letter's heights with its outline; its strokes drawn
@@ -3533,12 +3532,12 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
       const bs = rig.bones[r];
       if (bs[0]?.dot) return ring;
       const laid = relaid(bs, ring, thinned, true);
-      return fat && laid.length === bs.length ? evenedMoves(laid, bs, bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => bs[i].straight) : laid;
+      return fat && laid.length === bs.length ? evenedMoves(laid, bs, designAt(r), sg, i => bs[i].straight) : laid;
     });
   }
   if (reversed(mv)) {
     const { hair, stem } = rig.ref(), sg = REV_SMOOTH * revIn(mv) * ((mv.kh - 1) * hair + (1 - mv.kv) * stem) / 2;
-    rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => rig.bones[r][i].straight)));
+    rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], designAt(r), sg, i => rig.bones[r][i].straight)));
   }
   // (and a contrasty design's heavier weight, its moves run smooth along the outline by CON_SMOOTH of how far its stems
   // thickened, its straight edges (laid, straightRuns), its serifs and its hairline tips held: each moved by its own
@@ -3546,8 +3545,8 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // its stems' sides by their bowls and its feet came out wavy at Verticals 100)
   if (mv.reweighed && mv.kv > 1 + REWEIGHED && mv.contrasty && !reversed(mv)) {
     const sg = CON_SMOOTH * (mv.kv - 1 - REWEIGHED) * rig.ref().stem / 2;
-    rings = rings.map((ring, r) => { const bs = rig.bones[r], tips = hairTipMarks(rig, r); return bs[0]?.dot || ring.length !== bs.length ? ring : evenedMoves(ring, bs, bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => bs[i].straight || !!bs[i].serifDx || !!tips[i]); });
-    rings = rings.map((ring, r) => (rig.bones[r][0]?.dot ? ring : hangsSlid(rig, r, ring, rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })))));
+    rings = rings.map((ring, r) => { const bs = rig.bones[r], tips = hairTipMarks(rig, r); return bs[0]?.dot || ring.length !== bs.length ? ring : evenedMoves(ring, bs, designAt(r), sg, i => bs[i].straight || !!bs[i].serifDx || !!tips[i]); });
+    rings = rings.map((ring, r) => (rig.bones[r][0]?.dot ? ring : hangsSlid(rig, r, ring, designAt(r))));
   }
   // (and a round pen's (fontPen), as far as its strokes thickened, each point's move run smooth along the outline: moved
   // out two and three times as far as its strokes are thick, each sample along its own normal, its stroke thickening by
@@ -3557,7 +3556,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // a question mark's hook's foot, run smooth, came down onto its dot. A broad pen's (nibFont) too, after its moves are
   // eased (edgeMoves): a blackletter's stems' sides, held here and there by the room across from them, stood in knobs at
   // Verticals 100)
-  if (mv.reweighed && mv.kv > 1 + REWEIGHED && (fontPen(rig.font) || nibFont(rig))) { const sg = EVEN_SMOOTH * (mv.kv - 1 - REWEIGHED) * rig.ref().stem / 2; rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], rig.bones[r].map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg))); clearDots(rig, rings); }
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && (fontPen(rig.font) || nibFont(rig))) { const sg = EVEN_SMOOTH * (mv.kv - 1 - REWEIGHED) * rig.ref().stem / 2; rings = rings.map((ring, r) => (rig.bones[r][0]?.dot || ring.length !== rig.bones[r].length ? ring : evenedMoves(ring, rig.bones[r], designAt(r), sg))); clearDots(rig, rings); }
   // (and a script's (leans), as far as its strokes thickened, each point's move run smooth along the outline by
   // LEANS_SMOOTH of that, and no further out into a counter than it was or than its room allows (openOf): each sample
   // read across its own stroke as a thick stroke tapers to a hairline, or put back on a line by the heights or not, a
@@ -3568,7 +3567,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
     rings = rings.map((ring, r) => {
       const bs = rig.bones[r];
       if (bs[0]?.dot || ring.length !== bs.length) return ring;
-      const was = bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) }));
+      const was = designAt(r);
       return evenedMoves(ring, bs, was, sg).map((p, i) => {
         const b = bs[i];
         if (!isFinite(b.gap)) return p;
@@ -3596,7 +3595,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
         if (L >= STRAIGHT_RUN) for (let k = 0; k < L; k++) laid[(s + k) % n] = 1;
       }
       const side = (b: Bone) => Math.abs(b.nx) >= FAIR_UPRIGHT && 2 * b.w >= FAIR_THICK * stem;
-      const was = bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) }));
+      const was = designAt(r);
       return anchoredMoves(ring, bs, was, sg, i => !!laid[i] || bs[i].onLine || !!bs[i].serifDx || !!bs[i].flagDx, i => !!laid[i] && !bs[i].onLine && side(bs[i]), true).map((p, i) => {
         const b = bs[i];
         if (!isFinite(b.gap)) return p;
@@ -3637,7 +3636,7 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
         if (g <= MEET_ROUND) for (let k = 0; k < g; k++) met[(i + k) % n] = 1;
       }
       // (and its samples kept clear of its tips' corners moved over them (cornersClear))
-      const sm = cornersClear(anchoredMoves(ring, bs, bs.map(b => ({ x: mv.gx(b.x), y: lift(mv.gy(b.y)) })), sg, i => !!laid[i] || !!met[i] || bs[i].onLine, i => !!laid[i] && !bs[i].onLine), bs);
+      const sm = cornersClear(anchoredMoves(ring, bs, designAt(r), sg, i => !!laid[i] || !!met[i] || bs[i].onLine, i => !!laid[i] && !bs[i].onLine), bs);
       return plain ? unkinked(sm, bs, rig.ctx.cap) : sm;
     });
   }
@@ -6329,6 +6328,8 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // (each sample's kind read once, eased only with its own kind: -1 a corner)
   const kind = Int8Array.from(bs, (b, j) => (b.corner ? -1 : (endAt(j) ? 1 : 0) | (bare(j) ? 2 : 0) | (onLine(b) ? 4 : 0) | (tips?.[j] ? 8 : 0)));
   const keepAt = (_b: Bone, i: number) => { const c = kind[i]; return (j: number) => kind[j] === c; };
+  // (and with its straight samples, one not straight eased with none: 16)
+  const kindS = Int8Array.from(kind, (c, j) => (c < 0 ? c : c | (bs[j].straight ? 16 : 0)));
   // (a heavier sans's curves, in a font of little contrast drawn with a rule (fontPlumb), eased over as far along them as
   // they move out, a sample for every STEP: each read across its own stroke, a geometric b's counter's side, its bowl
   // reading 20 units thick where it leaves the stem and 30 where it runs into it, went in by two steps, a bump on the
@@ -6338,8 +6339,8 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   const along = rig && mv.reweighed && (mv.kv > 1 + REWEIGHED ? plumbHeavy(rig, mv) : mv.kv < 1 - REWEIGHED && plainSans(rig));
   let moved = bs.map((b, i) => {
     if (b.corner) return delta[i];
-    const keep = keepAt(b, i);
-    return along && !b.straight ? ease(delta, bs, i, j => keep(j) && !bs[j].straight, Math.max(3, Math.min(n >> 3, Math.round(Math.abs(delta[i]) / STEP)))) : ease(delta, bs, i, keep);
+    const keep = keepAt(b, i), c = kindS[i];
+    return along && !b.straight ? ease(delta, bs, i, j => kindS[j] === c, Math.max(3, Math.min(n >> 3, Math.round(Math.abs(delta[i]) / STEP)))) : ease(delta, bs, i, keep);
   });
   // (and a heavier weight's in a font of bracketed serifs and some contrast (fairFont), eased again over as far along the
   // outline as FAIR_REACH times each moves, by no more than FAIR_SHARE of its own move either way (eased further, a
@@ -6363,7 +6364,8 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
       if (kind[i] < 0) return m0[i];
       const reach = Math.max(3, Math.round(reachBy * Math.abs(m0[i]) / STEP)), w = bell(reach);
       let sum = m0[i], ws = 1, edge = Infinity;
-      for (const dir of [-1, 1]) for (let k = 1; k <= reach; k++) { const j = (((i + dir * k) % n) + n) % n; if (kind[j] !== kind[i]) { edge = Math.min(edge, k); break; } sum += m0[j] * w[k]; ws += w[k]; }
+      for (let k = 1, j = i; k <= reach; k++) { j = j === 0 ? n - 1 : j - 1; if (kind[j] !== kind[i]) { edge = Math.min(edge, k); break; } sum += m0[j] * w[k]; ws += w[k]; }
+      for (let k = 1, j = i; k <= reach; k++) { j = j === n - 1 ? 0 : j + 1; if (kind[j] !== kind[i]) { edge = Math.min(edge, k); break; } sum += m0[j] * w[k]; ws += w[k]; }
       // (by no more and no more within FAIR_FADE samples of where the samples eased together end, eased by none beside
       // it: eased right up to it, beside samples not eased, an old style's arches' tops, read part as serifs, stepped)
       const e = fairFont(rig) ? Math.min(1, (edge - 1) / FAIR_FADE) : 1, c0 = Math.min(m0[i] + share * Math.abs(m0[i]), Math.max(m0[i] - share * Math.abs(m0[i]), sum / ws)), c = m0[i] + (c0 - m0[i]) * e;
