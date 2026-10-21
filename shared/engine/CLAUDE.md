@@ -153,7 +153,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    Timber's lighter bars twice their stems), and in a font with much contrast (its hairline, `rig.ref()`, a
    small share of its stem) by how thick the stroke is, between hairline and stem, so a Didone's balls and swells
    thicken as its stems do while its hairlines follow the bars. An edge grows into a counter (or toward another
-   stroke, `Bone.gap`) by at most `OPEN` of the room, so heavier letters keep their counters; a heavier letter's serif
+   stroke, `Bone.gap`) by at most `OPEN` of the room, so heavier letters keep their counters (a heavier weight's, into
+   paper twice its stroke's width or more, `OPEN_HEAVY`, `openOf`: its counters keep three fifths of their width, as a
+   Black's do, where at `OPEN` a comic's n's and o's were slits at Weight 100); a heavier letter's serif
    goes out with its stem's edge and thickens away from its line, and a longer one stops short of the serif it faces.
    Serifs are found on stems ending at a line (`serifReach`): thin ones, gone a little way in, and slabs as tall as a
    fifth of the capitals' height with a square top (a wood type's, a typewriter's). Specks a move pinches off are
@@ -416,6 +418,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    N's diagonal's foot under the baseline). As the uprights thin apart (`apart`), a level edge on a line stays on it, and
    joins drawn again round no thicker than their thinnest stroke (a soft slab's h's top's spike, a typewriter's beads at
    every bowl's and arch's join at Verticals 0).
+   Any reweighed letter's point flung out alone into the paper, far off the
+   line through the points either side of it and near no tip the design draws, is taken out before the outline is tidied
+   (`unflung`: a comic's e's bar's end's corner, a knot), and its counters the design draws are kept however small they
+   get (`tidyRings`' `held`, down to `HOLE_LEAST` of a speck, the largest in each; a small one crossing itself loses the
+   loop wound against it, `untangle`'s `least`): a Chancery's capitals' flourishes' loops filled as specks from Weight
+   halfway up.
    In a contrasty font with serifs (`MoveMap.contrasty`: bars a quarter of its stems or thinner) the letter is
    rigged again with its serifs read off the ink nearest the baseline and the capitals' line (`serifLinedRig`: a Didone's
    cupped serifs touch their lines in a hairline, its capitals 10 units under theirs), a cupped serif's tip joined to its

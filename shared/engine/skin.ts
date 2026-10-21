@@ -182,6 +182,15 @@ const SPECK = 0.03;
 /** The most of a counter's width (or the room between two strokes) an edge grows into as a letter gets heavier: with
     both its sides grown, a counter keeps two fifths of its width. */
 const OPEN = 0.3;
+/** And a heavier weight's (edgeMoves, moveRing), into paper OPEN_WIDE times as wide as its stroke or more: its counters
+    keep three fifths of their width, as a Black's do, its stems taking less of their weight beside them; into paper as
+    wide as its stroke or less, OPEN, and between the two between, so a crack between two strokes, a w's between its
+    middle strokes, still grows shut (held to OPEN_HEAVY too, a pocket of paper shut in under the w's middle top). Held
+    to OPEN, a comic's n's, o's and e's counters at Weight 100 were slits between stems three times as thick, an old
+    style's B's and R's all but shut at Weight and Verticals 100. */
+const OPEN_HEAVY = 0.2, OPEN_WIDE = 2;
+/** How far a heavier weight's edge grows into `gap` of paper before it, its stroke `w` half as thick (OPEN_HEAVY). */
+const openOf = (gap: number, w: number) => { const t = w > 0 ? Math.min(1, Math.max(0, (gap / (2 * w) - 1) / (OPEN_WIDE - 1))) : 1; return gap * (OPEN + (OPEN_HEAVY - OPEN) * t); };
 /** A straight edge shorter than this share of the capitals' height (a step a join or a trace leaves) is moved as part of
     the curves either side of it, not as an edge of its own (skinEdges). */
 const SHORT_EDGE = 0.04;
@@ -1923,8 +1932,11 @@ const piecewise = (knots: [number, number][]) => (y: number) => {
 
 /** An outline's small loops cut out, where an edge moved out overruns its neighbour (inside a corner the
     strokes thicken into): where it crosses itself within a short stretch, the stretch goes, one loop a pass (a letter
-    moved far can fold in a dozen places, and each fold left winds the other way, a slit in the ink). */
-function untangle(p: P[], reach = 60) {
+    moved far can fold in a dozen places, and each fold left winds the other way, a slit in the ink). `least`: of the two
+    loops either side of a crossing, however short the outline, the one wound against the whole goes, or, both wound
+    with it, the smaller (a reweighed letter's small counter, a Chancery's J's flourish's loop, 38 points crossing itself
+    near one end, was cut to the 4 past the crossing, a sliver wound the other way, and dropped). */
+function untangle(p: P[], reach = 60, least = false) {
   let pts = p.slice();
   for (let pass = 0; pass < 32; pass++) {
     let cut = false; const n = pts.length;
@@ -1936,6 +1948,12 @@ function untangle(p: P[], reach = 60) {
         if (Math.abs(den) < 1e-9) continue;
         const t = ((c.x - a.x) * sy - (c.y - a.y) * sx) / den, u = ((c.x - a.x) * ry - (c.y - a.y) * rx) / den;
         if (!(t > 0 && t < 1 && u > 0 && u < 1)) continue;
+        const x = { x: a.x + rx * t, y: a.y + ry * t };
+        if (least) {
+          // (the loop between the two edges, and the rest: the rest goes instead where it is the one to)
+          const loop = [x, ...Array.from({ length: k }, (_, m) => pts[(i + 1 + m) % n])], all = signedArea(pts), la = signedArea(loop), ra = all - la;
+          if (Math.sign(la) === Math.sign(all) && (Math.sign(ra) !== Math.sign(all) || Math.abs(la) > Math.abs(ra))) { pts = loop; cut = true; break; }
+        }
         // the samples between the two crossing edges go, the crossing takes their place
         const keep: P[] = [];
         for (let m = 0; m < n; m++) if ((m - i - 1 + n) % n >= k) keep.push(pts[m]);
@@ -3334,7 +3352,17 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // (and a round pen's points where its outline, so run smooth, turns straight back on itself within a few units taken out:
   // a comic's k's crotch, its corner a unit or two past the sides run smooth up to it, traced as a loop)
   if (mv.reweighed && mv.kv > 1 + REWEIGHED && fontPen(rig.font)) rings = rings.map(r => unspiked(r));
-  let out = tidyRings(rings, rig.ctx.cap, dots);
+  // (and a reweighed letter's points flung out alone, off the line through the points either side: unflung)
+  if (mv.reweighed) {
+    const { stem, hair } = rig.ref(), near = Math.max(0, (mv.kv - 1) * stem, (mv.kh - 1) * hair) + SPIKE_FAR;
+    const tips = designDents(rig).filter(q => q.tip).map(q => ({ x: mv.gx(q.x), y: lift(mv.gy(q.y)) }));
+    // (the ink on the left of each ring as the letter's outside winds: its counters wound the other way)
+    const inkLeft = Math.sign(signedArea(rings.reduce((a, c) => (Math.abs(signedArea(c)) > Math.abs(signedArea(a)) ? c : a), rings[0] ?? []))) || 1;
+    rings = rings.map(r => unflung(r, inkLeft, tips, near));
+  }
+  // (a reweighed letter's counters the design draws kept however small they get: a Chancery's capitals' flourishes'
+  // loops, 1,600 square units drawn, filled as specks from Weight halfway up, SPECK of them kept)
+  let out = tidyRings(rings, rig.ctx.cap, dots, mv.reweighed ? designHoles(rig).map(h => h.map(q => ({ x: mv.gx(q.x), y: lift(mv.gy(q.y)) }))) : undefined);
   // (and a heavier weight's small hole that the design hasn't, a pocket of paper strokes thickened into each other round
   // a crotch shut in, filled: an old style's W's and w's, a hole where its strokes meet)
   if (mv.reweighed) {
@@ -5562,11 +5590,11 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   }
   // how far each edge moves out (in, lighter): its stroke's change of thickness on this side, a stem's by
   // Weight, a bar's by Contrast too; a stroke's end, which runs across it, stays. An edge across a counter from another
-  // grows into it no more than OPEN of its width, so a heavier letter's counters stay open, as the engine's do, being
+  // grows into it no more than OPEN_HEAVY of its width, so a heavier letter's counters stay open, as the engine's do, being
   // drawn wider as they get heavier; a dot grows evenly all round, as little as its nearest neighbour leaves room for
   const dotRoom = bs[0]?.dot ? Math.min(...bs.map(b => b.gap)) * OPEN : Infinity;
   // a heavier letter's serif goes out with the edge of the stem it stands on, which moves out as far as its stroke
-  // thickened (no further into a counter than OPEN of it), so the serif reaches as far past the stem as before and isn't
+  // thickened (no further into a counter than OPEN_HEAVY of it), so the serif reaches as far past the stem as before and isn't
   // swallowed by it; and it thickens away from its line, as far as its edge runs level. Both are read along the
   // edge's own normal, so a bracket's edge goes as the stem's beside it does. (A lighter one's thins round its stem as
   // its stem does.)
@@ -5578,7 +5606,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // (its serifs read cupped (serifLinedRig) slid in by CUP_RAMP of the stems' growth from where it is first so rigged: at
   // once, a Didone's H took 7 units more room in a hundredth of Weight)
   const cupIn = rig?.cupped ? Math.min(1, Math.max(0, (mv.kv - 1 - REWEIGHED) / CUP_RAMP)) : 1;
-  const serifOut = (b: Bone) => Math.sign(dxOf(b)) * Math.min((mv.kv - 1) * b.serifStem / 2, b.serifRoom * OPEN) * cupIn;
+  const serifOut = (b: Bone) => Math.sign(dxOf(b)) * Math.min((mv.kv - 1) * b.serifStem / 2, openOf(b.serifRoom, b.serifStem / 2)) * cupIn;
   // (how much each edge's stroke thickens, eased along the outline a stroke's width or so, as where a curve turns from
   // upright to level the edge's own heading wavers, more so where it runs into a join)
   // (no stroke thinner than the font's hairline as the bars now are, HAIR_FLOOR of it, unless drawn thinner: a serif's
@@ -5679,7 +5707,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
       let least = Infinity, reach = 0, tipAt = Infinity, root = 0, nearest = Infinity, far = s0;
       for (let k = 0, e = s0; k < n && side[e] === sg; k++, e = (e + 1) % n) {
         const b = bs[e], d = Math.abs(dxOf(b));
-        if (!d) { if (-b.nx * sg > 0.5) least = Math.min(least, b.gap * OPEN); continue; }
+        if (!d) { if (-b.nx * sg > 0.5) least = Math.min(least, openOf(b.gap, b.w)); continue; }
         least = Math.min(least, Math.abs(out[e]));
         if (d > reach) { reach = d; far = e; }
         if (atEnd[e]) tipAt = Math.min(tipAt, d);
@@ -5712,7 +5740,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
     // widens: each point slid across as far between how far the two either side went as it lies across the stem, and not
     // thickened, as an end isn't: moved along its normal, an old style's h's slanting head, wider, rose off the ascender
     // at its stem's right, and slid at its flag and not across its stem, a notch in its top where the two met)
-    const sideways = (j: number) => { const q = bs[j]; if (dxOf(q)) return out[j]; const d = (ks1[j] - 1) * q.w; return -q.nx * (d > 0 ? Math.min(d, q.gap * OPEN) : d); };
+    const sideways = (j: number) => { const q = bs[j]; if (dxOf(q)) return out[j]; const d = (ks1[j] - 1) * q.w; return -q.nx * (d > 0 ? Math.min(d, openOf(q.gap, q.w)) : d); };
     const beside = (j: number, dir: number): number | null => { for (let k = 0; k < 2; k++, j = (j + dir + n) % n) { const q = bs[j]; if (dxOf(q) || (!q.corner && Math.abs(q.nx) > HEAD_SIDE)) return sideways(j); if (!q.corner) return null; } return null; };
     for (let s0 = 0; s0 < n; s0++) {
       if (bs[s0].overStem < 0 || bs[(s0 - 1 + n) % n].overStem >= 0) continue;
@@ -5778,7 +5806,7 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
       for (let i = 0; i < n; i++) if (near[i] && raw[i] > 0) raw[i] = Math.min(raw[i], Math.max(0, (top ? L - bs[i].y : bs[i].y - L) / Math.abs(bs[i].ny)));
     }
   }
-  const room = (b: Bone, i: number) => (b.dot ? dotRoom : vee?.[i] ? Infinity : (cv && cv[i] >= 0 ? bs[cv[i]].gap : b.gap) * OPEN);
+  const room = (b: Bone, i: number) => (b.dot ? dotRoom : vee?.[i] ? Infinity : (cv && cv[i] >= 0 ? openOf(bs[cv[i]].gap, bs[cv[i]].w) : openOf(b.gap, b.w)));
   // (and a heavier weight's edge goes out no further than SLOPE_HELD more than the edge beside it, by the unit along the
   // outline: each moved by its own stroke as read there and held to its own room, a hairline read thinner each sample to its
   // tip, a side across from ink reading its room to it and the next past it none, went out by steps, its outline ragged: a
@@ -6112,6 +6140,29 @@ function unspiked(r: P[]): P[] {
   return out;
 }
 const SPIKE_TURN = 150 * Math.PI / 180, SPIKE_SHORT = 3;
+/** A ring without its points flung out alone: each SPIKE_FAR units or more off the line through the points either side of
+    it, and further off it than SPIKE_OUT of how far apart they lie, which no sample of an outline read every STEP lies but
+    where it moved on its own and the samples beside it didn't: a comic's e's bar's end's corner, where it meets the bowl,
+    moved 25 units out along its own way at Weight 100, the samples either side 20 units apart, and traced as a knot. */
+function unflung(r: P[], inkLeft: number, tips: P[], near: number): P[] {
+  let out = r;
+  for (let pass = 0; pass < 4; pass++) {
+    const n = out.length;
+    if (n < 8) return out;
+    const keep = out.map((p, i) => {
+      const a = out[(i - 1 + n) % n], b = out[(i + 1) % n], ab = Math.hypot(b.x - a.x, b.y - a.y);
+      const off = ab > 1e-6 ? Math.abs((p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)) / ab : Math.hypot(p.x - a.x, p.y - a.y);
+      if (off < SPIKE_FAR || off <= SPIKE_OUT * ab) return true;
+      // (only out into the paper, not a crotch's point in toward the ink, nor near a tip the design draws: where the outline
+      // runs straight, its points far apart, a fat face's A's counter's top and a V's foot are as far off the line)
+      return ((p.x - a.x) * (b.y - p.y) - (p.y - a.y) * (b.x - p.x)) * inkLeft < 0 || tips.some(q => Math.hypot(q.x - p.x, q.y - p.y) < near);
+    });
+    if (keep.every(Boolean)) return out;
+    out = out.filter((_, i) => keep[i] || !keep[(i - 1 + n) % n]);
+  }
+  return out;
+}
+const SPIKE_FAR = 3 * STEP, SPIKE_OUT = 0.8;
 
 /** How wide, as a share of how far its sides moved out, a round pen's heavier moves are run smooth (movedOnce,
     evenedMoves). */
@@ -6803,7 +6854,7 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     const own = Math.min(moved[md(T.c0 - T.dir)], moved[md(T.c1 + T.dir)]), g = linesMove(rig, mv) ? Math.max(own, Math.min(at(md(T.c0 - T.dir)), at(md(T.c1 + T.dir)))) : own;
     if (!(g > 0)) continue;
     for (let k = md(T.c0 + T.dir); k !== T.c1; k = md(k + T.dir)) {
-      const cur = (out[k].x - base[k].x) * ox + (out[k].y - base[k].y) * oy, more = Math.min(g - cur, isFinite(bs[k].gap) ? bs[k].gap * OPEN : Infinity);
+      const cur = (out[k].x - base[k].x) * ox + (out[k].y - base[k].y) * oy, more = Math.min(g - cur, isFinite(bs[k].gap) ? openOf(bs[k].gap, bs[k].w) : Infinity);
       if (more > 0) out[k] = { x: out[k].x + ox * more, y: out[k].y + oy * more };
     }
   }
@@ -6836,14 +6887,14 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
     for (let i = a + 1; i < b && !cornered; i++) cornered = bs[md(i)].corner;
     const level = cornered && kx > 0 && ky > 0 && kx < 1.5 && ky < 1.5 && Math.abs(B.x - A.x) > END_SPREAD * Math.sqrt(l2) && Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)) > END_TURNED;
     // (a heavier weight's end, made larger as its sides part, reaching on along its stroke into the paper ahead of its tip
-    // no further than OPEN of that room, as a side grows into a counter: drawn larger whole, two ends facing each other
+    // no further than OPEN_HEAVY of that room, as a side grows into a counter: drawn larger whole, two ends facing each other
     // across a gap ran into one another, a typewriter's A's feet's serifs, its E's arms' serifs on the right)
     let deep = 1;
     if (mv.reweighed && !ball && !bs[0]?.dot) {
       let D = 0, tip = -1;
       for (let i = a + 1; i < b; i++) { const p = bs[md(i)], t = Math.abs((p.y - A.y) * ux - (p.x - A.x) * uy) / Math.sqrt(l2); if (t > D) { D = t; tip = md(i); } }
       // (less as far as a serif's end slid out toward that paper with its serif, edgeMoves)
-      const kc = Math.sqrt((vx * vx + vy * vy) / l2), room = tip >= 0 ? Math.max(0, bs[tip].gap * OPEN - Math.abs(slid?.[tip] ?? 0)) : Infinity;
+      const kc = Math.sqrt((vx * vx + vy * vy) / l2), room = tip >= 0 ? Math.max(0, openOf(bs[tip].gap, bs[tip].w) - Math.abs(slid?.[tip] ?? 0)) : Infinity;
       if (D > 0 && D * (kc - 1) > room) deep = (1 + room / D) / kc;
     }
     // (a reweighed letter's end cut across a level stroke, one of its sides lying on a line and the other off it, a slab
@@ -6873,9 +6924,9 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
       if (flat) { const f = Math.min(1, Math.max(0, (p.y - On.y) / (Off.y - On.y))); out[md(i)] = { x: p.x + On1.x - On.x + (Off1.x - Off.x - On1.x + On.x) * f, y: On1.y + (p.y - On.y) * kf }; continue; }
       const qx = level ? A1.x + dx * kx : A1.x + s * vx - deep * t * vy, qy = level ? L! + (p.y - L!) * ky : A1.y + s * vy + deep * t * vx;
       out[md(i)] = ball ? { x: qx + (hx1 + (p.x - hx) * k - qx) * ball, y: qy + (hy1 + (p.y - hy) * k - qy) * ball } : { x: qx, y: qy };
-      // (a script's end, made larger, out into the paper it faces no further than OPEN of it, as a side grows into a
+      // (a script's end, made larger, out into the paper it faces no further than OPEN_HEAVY of it, as a side grows into a
       // counter: a hook's ball, Serenade's a's, ran into the stem's top it curls toward, its bowl shut)
-      if (shut && isFinite(p.gap)) { const k = md(i), o = -((out[k].x - base[k].x) * p.nx + (out[k].y - base[k].y) * p.ny) - p.gap * OPEN; if (o > 0) out[k] = { x: out[k].x + p.nx * o, y: out[k].y + p.ny * o }; }
+      if (shut && isFinite(p.gap)) { const k = md(i), o = -((out[k].x - base[k].x) * p.nx + (out[k].y - base[k].y) * p.ny) - openOf(p.gap, p.w); if (o > 0) out[k] = { x: out[k].x + p.nx * o, y: out[k].y + p.ny * o }; }
       // (and no further than OPEN of the paper the way it goes, read across the design: slid along its side as the end
       // grew, Serenade's a's hook's tip ran down into the stem's top below it, the narrow way into its bowl, shut)
       if (shut && isFinite(p.gap)) {
@@ -6885,11 +6936,11 @@ function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
         if (w > 0) { const f = 1 - w * (1 - Math.min(1, OPEN * paperAlong(rig, p, dx / d, dy / d) / d)); out[k] = { x: base[k].x + dx * f, y: base[k].y + dy * f }; }
       }
     }
-    // (and a round pen's (fontPen) each of its points no further out into the paper before it than OPEN of that
+    // (and a round pen's (fontPen) each of its points no further out into the paper before it than OPEN_HEAVY of that
     // room, as a side's: made larger whole, a round end swells every way, and a comic's s's and G's ends, as its strokes
     // thickened past twice, ran into the strokes they turn toward and shut their openings)
     if (mv.reweighed && mv.kv > 1 + REWEIGHED && !ball && fontPen(rig.font)) for (let i = a + 1; i < b; i++) {
-      const p = bs[md(i)], o = out[md(i)], g = p.gap * OPEN, d = -(o.x - gx(p.x)) * p.nx - (o.y - gy(p.y)) * p.ny;
+      const p = bs[md(i)], o = out[md(i)], g = openOf(p.gap, p.w), d = -(o.x - gx(p.x)) * p.nx - (o.y - gy(p.y)) * p.ny;
       if (isFinite(g) && d > g) out[md(i)] = { x: o.x + (d - g) * p.nx, y: o.y + (d - g) * p.ny };
     }
     // (a lighter weight's corner inside a join next to where the end meets its side, a ball's neck, goes with that side,
@@ -8059,13 +8110,15 @@ function inPaper(p: P[]): P {
     from DESIGN_DENT), the bridge no longer than DENT_WIDE nor turning on from the outline either side by more than
     DENT_END degrees (a point there); and a hole the design hasn't, smaller than NEW_HOLE of the capitals' height
     squared, is filled, made smaller about its middle as it is from that to NEW_HOLE_FADE of it. */
+/** The least share of a speck's size a hole the design draws keeps, as a counter (tidyRings). */
+const HOLE_LEAST = 0.1;
 const DENT_PAST = 2, SPIKE_WIDE = 0.03, SPIKE_LONG = 0.1, DENT_TURN = 150, DENT_REACH = 0.012, DENT_SHARPER = 20, DENT_NEAR = 0.06, DENT_WIDE = 0.05, DENT_END = 100, DESIGN_DENT = 90, NEW_HOLE = 0.1, NEW_HOLE_FADE = 0.5;
 
 /** Folds cut out; where moved edges still cross (strokes thickened into each other), the letter is its
     ink read as the font reads it, without the folds (which wind the other way); then traced back into curves. A speck
     left over, a sliver of ink or of a counter pinched off where two strokes thickened into each other, goes. */
-function tidyRings(rings: P[][], cap: number, dots?: boolean[]): Node[][] {
-  let tidy = rings.map(r => untangle(r)), kept = dots;
+function tidyRings(rings: P[][], cap: number, dots?: boolean[], held?: P[][]): Node[][] {
+  let tidy = rings.map(r => untangle(r, 60, !!held)), kept = dots;
   if (crosses(tidy)) {
     // (the rest made one ink, a dot kept apart and kept: made smaller with the stems, it may be smaller than a speck)
     const own = tidy.filter((_, i) => kept?.[i]), rest = tidy.filter((_, i) => !kept?.[i]);
@@ -8075,7 +8128,16 @@ function tidyRings(rings: P[][], cap: number, dots?: boolean[]): Node[][] {
     kept = own.length ? [...one.map(() => false), ...own.map(() => true)] : undefined;
   }
   const speck = (cap * SPECK) ** 2;
-  if (tidy.some(r => Math.abs(signedArea(r)) < speck)) tidy = tidy.filter((r, i) => kept?.[i] || Math.abs(signedArea(r)) >= speck);
+  // (the largest hole lying in each of `held`, the design's counters as moved, kept down to HOLE_LEAST of a speck: not
+  // a piece of one parted off, a Chancery's H's loop's two)
+  const lead = Math.sign(signedArea(tidy.reduce((a, r) => (Math.abs(signedArea(r)) > Math.abs(signedArea(a)) ? r : a), tidy[0] ?? []))), least = HOLE_LEAST * speck;
+  const counters = new Set<P[]>();
+  if (held?.length && tidy.some(r => Math.abs(signedArea(r)) < speck)) for (const h of held) {
+    let best: P[] | null = null;
+    for (const r of tidy) if (Math.sign(signedArea(r)) !== lead && inPoly(h, inPaper(r)) && (!best || Math.abs(signedArea(r)) > Math.abs(signedArea(best)))) best = r;
+    if (best && Math.abs(signedArea(best)) >= least) counters.add(best);
+  }
+  if (tidy.some(r => Math.abs(signedArea(r)) < speck)) tidy = tidy.filter((r, i) => kept?.[i] || Math.abs(signedArea(r)) >= speck || counters.has(r));
   // (each traced on its own, and kept with what it was traced from, its points not yet drawn to whole units: skinRoom)
   return tidy.flatMap(r => { const cs = fitOutline([...r.map((p, i): [string, ...number[]] => [i ? 'L' : 'M', p.x, p.y]), ['Z']], 1.2); for (const c of cs) TRACED.set(c, r); return cs; });
 }
