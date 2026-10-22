@@ -517,7 +517,11 @@ A design with `freeFont` set draws its letters from a free font instead of build
    outline crosses its line (`FOLD_BACK`: a hook at a K's leg's foot), and its moves are run smooth by `CON_SMOOTH` of how
    far its stems thickened, its straight edges, serifs and hairline tips held (`evenedMoves`): moved each by its own
    reading, a Didone at Verticals 100 came out wavy along its feet, bowls and stems, its K's, M's and W's strokes notched
-   by their feet; and a terminal hanging off a stem's straight side (`hangsOf`: an end the side runs on round into, no
+   by their feet; a stem's side across a V of paper from a thick straight stroke leaving its join (`veeOf` marks it 2: a
+   k's stem's side under its arm and its leg) grows into the V freely, its stroke weighed as it reads all along, not as
+   the hairline beside it the joins' bumps were opened down to (`plateauHalf`, MoveMap.half, `PLATEAU_LONG`, coming in
+   over `PLATEAU_RAMP`), and laid as far out as the stem's side on its line over the join (`LINED_NEAR`): read and laid
+   by its own points, held by its foot's serif, it stood 34 units in from the side over the arm at Verticals 100; and a terminal hanging off a stem's straight side (`hangsOf`: an end the side runs on round into, no
    corner between, lying out past the side the way it faces) slides out with the side, the side's run by it, the way
    round and the end no less far out than the side went, the end's other side less and less over `HANG_FADE` times that
    (`hangsSlid`: a Didone's J's tail, its stem grown out over it, shrank to a bite; its t's foot, a notch above it).
