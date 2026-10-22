@@ -471,7 +471,13 @@ A design with `freeFont` set draws its letters from a free font instead of build
    bar, its B's and D's stems' tops blots, its G's spur a Y); not a broad pen's. And by Verticals alone a round on the
    outside of a corner `carryFillets` carries goes with its corner at its middle only, its ends with the edges they run
    on from, by degrees between (carried whole, a fat face's n's, h's and m's arch's shoulder over its stem slid back 65
-   units along the arch's top with the stem's side, folded over the top's own samples, a notch across the arch).
+   units along the arch's top with the stem's side, folded over the top's own samples, a notch across the arch). A fat
+   face by Verticals alone has its joins trimmed (`fatTrim`) to its strokes as thick as they are now and `TRIM_ALONE`
+   units more, evened out along them (`thinStrokes`' `even`), not `TRIM_ROUND` times as thick (its hairline stems by
+   their joins stood out past themselves as moved, a step where each zone ends: its d's bowl's ends, its a's top and
+   bowl, lumps), and its joins drawn again keep the moved outline within `JOIN_GIVE_ALONE` of their strokes and
+   `JOIN_ADD_ALONE` units (`rebuildJoins`: a bracket the move kept, cut off at `JOIN_GIVE`, a ledge under its n's and m's
+   arches and a step down their stems).
    Any reweighed letter's point flung out alone into the paper, far off the
    line through the points either side of it and near no tip the design draws, is taken out before the outline is tidied
    (`unflung`: a comic's e's bar's end's corner, a knot), and its counters the design draws are kept however small they

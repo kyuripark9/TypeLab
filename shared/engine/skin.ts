@@ -3152,7 +3152,11 @@ function fatTrim(rig: SkinRig, mv: MoveMap, lift: (y: number) => number, rings: 
   if (!zones.length) return { rings, dots };
   // (its strokes as fatReads runs them on, eased back to the skeleton's own as the trim eases out)
   const F = fatReadsAt(rig, f), fr = { ...rig, thin: F };
-  const strokes = thinStrokes(fr, mv, R => R * k + TRIM_ADD).map(r => r.map(put));
+  // (where the uprights thin by Verticals alone (vAlone), drawn as thick as they are now and TRIM_ALONE units more (eased
+  // out as the trim eases out), evened out along them: drawn TRIM_ROUND times as thick, a fat face's hairline stems by their joins stood out past themselves
+  // as moved, a step where each zone ends, its d's bowl's ends, its a's top and bowl; drawn as read, its w's middle
+  // strokes as lumpy as the skeleton reads them)
+  const alone = vAlone(mv), strokes = thinStrokes(fr, mv, alone ? R => R * (k - TRIM_ROUND + 1) + TRIM_ALONE : R => R * k + TRIM_ADD, undefined, 0, false, alone).map(r => r.map(put));
   const wind = (r: P[]) => (signedArea(r) < 0 ? r.slice().reverse() : r);
   const S = shape(strokes.map(wind), true), Z = shape(zones.map(wind), true), body = rings.filter((_, i) => !dots?.[i]), M = shape(body);
   // (a run of the skeleton's points drawn as a stroke as thick as it is now (`by` times, `more` units more): a ribbon
@@ -3339,6 +3343,8 @@ function fatRuns(rig: SkinRig, F: ThinReads): number[][] {
     measures (see there): its strokes' thickness and more, its zones' size in a join's round, the turn, in radians, and
     the points either side it is read over, and a foot's slope and reach off its line. */
 const FAT_STEM = 0.19, TRIM_ROUND = 1.3, TRIM_FROM = 0.45, TRIM_TO = 0.6, TRIM_ADD = 4, TRIM_ZONE = 2, TRIM_TURN = Math.PI / 4, TRIM_SPAN = 6, TRIM_LEVEL = 0.35, TRIM_FOOT = 1.2;
+/** How much thicker than they are now, in units, fatTrim draws its strokes where the uprights thin by Verticals alone. */
+const TRIM_ALONE = 1;
 
 /** Whether a moved letter is whole: the outlines its rig has, as many inked and as many counters (its dots and any crumb
     aside, crumbs), and ink along the middles of its strokes (the skeleton where the move put it), but for stretches no
@@ -4051,8 +4057,9 @@ const JOIN_REACH = 1.5, REBUILD_BELOW = 0.4;
     face's Z's foot, 3.7). */
 const REBUILD_TIP = 3, REBUILD_THROUGH = Math.cos(Math.PI / 12), REBUILD_HAIR = 3;
 /** How far, as a share of a stroke's half thickness (and a unit), a lighter weight's moved outline may stand off its
-    strokes drawn again within a join and stay (rebuildJoins). */
-const JOIN_GIVE = 0.2;
+    strokes drawn again within a join and stay (rebuildJoins); and, in a fat face where the uprights thin by Verticals
+    alone, how far (and how many units). */
+const JOIN_GIVE = 0.2, JOIN_GIVE_ALONE = 0.6, JOIN_ADD_ALONE = 4;
 /** How far out from a join, in the join's own distance to the paper, a lighter weight's strokes run on through it as
     they leave it (thinReads): the skeleton bends round toward the others nearer it. */
 const STRAIGHT_FROM = 1.6;
@@ -5070,7 +5077,11 @@ function rebuildJoins(rig: SkinRig, mv: MoveMap, lift: (y: number) => number, ri
   const was = shape([...letterInk(rig, mv).polys, ...narrowPaper(rig).map(r => r.map(q => ({ x: mv.gx(q.x), y: mv.gy(q.y) })))]);
   // (the moved outline stands where it keeps within JOIN_GIVE of the strokes drawn again, so a join that came out well
   // runs on into the strokes beside it unbroken; past that, the strokes' own edges)
-  const M = shape(wound, true), C0 = strokes(R => Math.max(1, R * (1 - JOIN_GIVE) - 1)), C1 = strokes(R => R * (1 + JOIN_GIVE) + 1);
+  // (and, in a fat face where the uprights thin by Verticals alone (vAlone), within JOIN_GIVE_ALONE of them and
+  // JOIN_ADD_ALONE units: a bracket the move kept, its strokes hairlines, cut off at JOIN_GIVE, its n's and m's arches
+  // each a ledge under them and a step down their stems where the join's round ends)
+  const wide = vAlone(mv) && fatFace(rig), [give, add] = wide ? [JOIN_GIVE_ALONE, JOIN_ADD_ALONE] : [JOIN_GIVE, 1];
+  const M = shape(wound, true), C0 = strokes(R => Math.max(1, R * (1 - JOIN_GIVE) - 1)), C1 = strokes(R => R * (1 + give) + add);
   const D = shape(joins.map(round), true), E = shape(ends.map(r => (signedArea(r) < 0 ? r.slice().reverse() : r)), true);
   const kept: P[][] = combine([M, C0, C1, D, E, was], (x, y) => (D.has(x, y) && !E.has(x, y) ? (C0.has(x, y) || (M.has(x, y) && C1.has(x, y))) && was.has(x, y) : M.has(x, y)));
   const dotRings = rings.filter((_, i) => dots[i]);
@@ -5158,8 +5169,8 @@ const NARROWS = new WeakMap<SkinRig, P[][]>(), NARROW_TIP = 3;
     where the moves put them, in a font with serifs no stub into a corner. `drawn`, the letter drawn as its strokes
     alone: its joins' rounds no thicker than the thinnest stroke there (but a stroke running on through); and 2, a
     letter read along its straight strokes (linedRig), its ends cut as the design's are and its corners as the design's
-    too. */
-function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: number, uy: number) => inkAhead(rig, p, ux, uy), drawn: 0 | 1 | 2 = 0, moved = false): P[][] {
+    too. `even`, each stroke's middle and thickness evened out along it (evenRun) as where `drawn` is 1. */
+function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: number, uy: number) => inkAhead(rig, p, ux, uy), drawn: 0 | 1 | 2 = 0, moved = false, even = false): P[][] {
   rig.thin ??= thinReads(rig);
   const sk = thinSkeleton(rig), out: P[][] = [];
   const lined = drawn === 2, hugged = moved && !!movedHug(rig, mv);
@@ -5261,7 +5272,7 @@ function thinStrokes(rig: SkinRig, mv: MoveMap, by = mendBy, ahead = (p: P, ux: 
     // (a vertex's strokes run in to a point a round off its line (below), and its tip, drawn on its join, none)
     if (vertexTip(sk, E)) continue;
     pointed(E, raw, j0 - n0);
-    const mid = drawn !== 1 ? raw : evenRun(raw);
+    const mid = drawn !== 1 && !even ? raw : evenRun(raw);
     // (a stroke's free end run on its way to where the ink ends, less its round: the skeleton stops a round of the stroke
     // as drawn short of its end, which a thinner stroke's round, stopping there, would leave apart, a V's tip, a K's arm's)
     // (and, where `lined`, an end the design cuts straight across, as far as the ink there across the stroke as it was ends
