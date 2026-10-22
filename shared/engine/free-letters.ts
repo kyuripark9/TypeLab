@@ -7,7 +7,7 @@ import { applyM, clamp } from './geom';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
-import { FORM_LETTERS, descK, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, type SkinMeasures, type SkinRig } from './skin';
+import { FORM_LETTERS, SPAN_TOL, descK, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, type SkinMeasures, type SkinRig } from './skin';
 import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBlockBowls, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
@@ -314,10 +314,6 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   }
   return out;
 }
-
-/** How far, in the font's units, a lighter weight's letter's ink may fall short of its outline as moved before its room
-    keeps to the outline (freeGlyph, skinSpan): a moved outline traced back into curves lies a unit or so off it. */
-const SPAN_TOL = 2;
 
 /** A free font's letter at the design's size, moved by the settings and placed like any glyph. Its
     outline as placed is kept as its drawing, for Points to start from. */

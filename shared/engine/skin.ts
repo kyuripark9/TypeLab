@@ -21,6 +21,7 @@ import { contours } from './effects';
 import { FREE_FAMILIES } from '../free-fonts';
 import { HOOK_LETTERS, OPEN_LETTERS, PEAK_LETTERS, added, bowlStem, hasPeaks, hasTerminals } from './restyle';
 import { FLUSH, lineSkeleton, type Flush } from './lines';
+import { fairLighter } from './fair-light';
 import { slabsOf, type Slab } from './slabs';
 import { alongFrom, bez, branchNode, branches, endFace, inkAt, inkGrid, joinsOf, leaving, nearestOn, roundTip, skeleton, type Branch, type Grid, type Skeleton, type SkNode, type SkPt } from './scan';
 
@@ -2280,6 +2281,10 @@ function reaching(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures): SkinMeasure
     once, the letter's room with it, where its outline as moved goes in as the weight does. Undefined where it wasn't
     read so (a letter drawn as its strokes near the pick, or between two drawings). */
 export const skinSpan = (out: Node[][]) => SPANS.get(out);
+/** How far, in the font's units, a lighter weight's letter's ink may fall short of its outline as moved before its room
+    keeps to the outline (freeGlyph in free-letters.ts, skinSpan): a moved outline traced back into curves lies a unit or
+    so off it. */
+export const SPAN_TOL = 2;
 const SPANS = new WeakMap<Node[][], [number, number]>();
 
 /** How much further out a heavier letter's side bearings go, left and right, in the font's units (freeGlyph). A letter's
@@ -2438,11 +2443,41 @@ export function skinMove(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures): Node
   const key = [m0, m1].map(m => MEASURES.map(k => m[k].toFixed(4)).join()).join('|');
   const kept = rig.moves.get(key);
   if (kept) return kept;
-  const out = moveRig(rig, m0, m1);
+  const out = fairMoved(rig, m0, m1, moveRig(rig, m0, m1));
   if (rig.moves.size >= MOVES_KEPT) rig.moves.delete(rig.moves.keys().next().value!);
   rig.moves.set(key, out);
   return out;
 }
+
+/** A lighter weight's outline run smooth (fairLighter): its sides thinned on its own reading of each sample's stroke and
+    its joins drawn again from its skeleton, read on a grid, it came out waved along its edges, knotted at its crotches,
+    nicked and specked, a serif font's at Thin its every stroke, a humanist's y's crotch at Weight 16 a knot. Run smooth by
+    a bell FAIR_WIDTH of as far as its sides move in wide, wholly from FAIR_IN of its stems thinner on (none at the
+    design's, so no step leaving it); the design's corners, where the move puts them, kept. Not a letter drawn as its
+    strokes (moveRig): its joins clean, run smooth a crotch between two thin strokes filled to the bell's width, a web;
+    and less and less down to where it is (STROKED_UNDER, over SWITCH_BLEND); nor a wood type's, its slabs laid over its
+    letter apart: its stems' ends under them, run smooth, flared out past them, a bracket. */
+function fairMoved(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, out: Node[][]): Node[][] {
+  const k = m1.s / m0.s;
+  if (k >= 0.999 || m1.v >= m0.v || out === rig.contours) return out;
+  const st = rig.stroked(), kv = m1.v / m0.v;
+  if (linedRig(rig) || st === 1 || rig.shortSlabs() || (st === 2 && kv <= STROKED_UNDER)) return out;
+  const near = st === 2 ? Math.min(1, (kv - STROKED_UNDER) / SWITCH_BLEND) : 1;
+  const { stem } = rig.ref(), mv = moveMap(rig, m0, m1), sigma = FAIR_WIDTH * ((1 - k) * stem / 2) * Math.min(1, (1 - k) / FAIR_IN) * near;
+  const corners = rig.bones.flatMap(bs => bs.filter(b => b.corner).map(b => ({ x: mv.gx(b.x), y: mv.gy(b.y) })));
+  const f = fairLighter(out, out.map(c => TRACED.get(c)), { sigma, corners, near: FAIR_NEAR * (1 - k) * stem + 4, stroke: stem * k });
+  if (!f) return out;
+  f.out.forEach((c, i) => TRACED.set(c, f.rings[i]));
+  // (its room as it was before: the span it took as moved, and its curves' reach, freeGlyph's SPAN_TOL in from it; run
+  // smooth, a serif's tip pared a few units in at one weight and not the next, a typewriter's k 11 units narrower a step)
+  const span = SPANS.get(out), [r0, r1] = curvesReach(out), t = SPAN_TOL;
+  SPANS.set(f.out, span ? [Math.min(span[0], r0 - t), Math.max(span[1], r1 + t)] : [r0 - t, r1 + t]);
+  return f.out;
+}
+/** How wide a lighter weight is run smooth, as many times as far as its sides move in, and from how far thinner than the
+    design's stems (a share of them) wholly so; how near a corner of it must lie to one of the design's, moved, to be kept
+    (a share of how much its stems thinned, and 4 units). */
+const FAIR_WIDTH = 1.25, FAIR_IN = 0.25, FAIR_NEAR = 0.6;
 
 /** The rigged letter thickened or thinned from m0 toward `to` as a drawing of straight edges and rounds is (a letter
     drawn in Points, see family-drawn.ts), its heights and width kept. Each straight edge moves out or in by its stroke's
