@@ -196,8 +196,10 @@ describe('free fonts', () => {
     // Crossbar raises the bar and keeps it as thick; Contrast thins it
     const [r0, r1] = bar(buildFont({ ...at, crossbar: 0.9 }).glyph('H')!);
     assert.ok((r0 + r1) / 2 > (b0 + b1) / 2 + 40 && Math.abs((r1 - r0) - (b1 - b0)) < 6, `Crossbar raises the bar (${r0}, ${r1})`);
+    // (a little: Contrast, as Weight, Verticals and Horizontals, pushes the font's outline only as far as its drawing
+    // keeps, see even-weight.ts)
     const [c0, c1] = bar(buildFont({ ...at, contrast: 1 }).glyph('H')!);
-    assert.ok(c1 - c0 < (b1 - b0) - 15, `Contrast thins the bar (${c0}, ${c1})`);
+    assert.ok(c1 - c0 < (b1 - b0) - 8, `Contrast thins the bar (${c0}, ${c1})`);
     // heavier on its skeleton, the H keeps its height, standing on the baseline
     const heavy = buildFont({ ...at, weight: 0.8 }), Hb = heavy.glyph('H')!, stem = column(Hb, 150 * heavy.m.cap / 700)[0];
     assert.ok(heavy.freePending, 'the 800 the Weight asks for has not come, so the 500 is moved the rest of the way');
@@ -396,17 +398,17 @@ describe("TypeLab's own fonts", () => {
     for (let i = 1; i < inks.length; i++) assert.ok(Math.abs(inks[i] - inks[i - 1]) < 0.08 * inks[i - 1], `the s's ink ${inks.map(a => a.toFixed(0)).join(', ')}`);
   });
 
-  it('thin a script p down to Thin, its bowl\'s hairline joined to its stem across the hair between and its entry stroke on it', async () => {
-    // (the strokes drawn again at its joins cut off the bowl's hairline where it runs up beside the stem a hair off it, and
-    // mended, its entry stroke, its tip on the stem, joined to it: read broken, Sonnet's p was as heavy at Thin as at 0.18)
+  it('keep a script p whole down to Thin, its hairlines as drawn, never heavier a step lighter', async () => {
+    // (drawn again from its skeleton, its joins cut off the bowl's hairline where it runs up beside the stem a hair off
+    // it, and mended, its entry stroke, its tip on the stem, joined to it; pushed in evenly, its hairlines as thin as
+    // Sonnet's leave it as drawn)
     const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'serifitalic')!, id = STYLE_FONTS.serifitalic;
     if (!freeFont(id)) registerFreeFont(await fonts.load(id));
     const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, inks: number[] = [];
     const areaOf = (ps: { x: number; y: number }[][]) => Math.abs(ps.reduce((t, r) => t + r.reduce((u, a, i) => { const b = r[(i + 1) % r.length]; return u + a.x * b.y - b.x * a.y; }, 0) / 2, 0));
     for (let w = 0; w <= 0.18 + 1e-9; w += 0.02) inks.push(areaOf(toPolys(buildFont({ ...p, weight: +w.toFixed(4) }).glyph('p')!.cmds)));
     const all = inks.map(a => a.toFixed(0)).join(', ');
-    assert.ok(inks[0] < 0.6 * inks[inks.length - 1], `the p's ink ${all}`);
-    for (let i = 1; i < inks.length; i++) assert.ok(Math.abs(inks[i] - inks[i - 1]) < 0.12 * inks[i - 1], `the p's ink ${all}`);
+    for (let i = 1; i < inks.length; i++) assert.ok(inks[i - 1] <= inks[i] + 1 && inks[i] - inks[i - 1] < 0.12 * inks[i - 1], `the p's ink ${all}`);
   });
 
   it('keep a lighter weight\'s room where a tip whose sides crossed as they thinned is cut off', async () => {
@@ -627,7 +629,7 @@ describe("TypeLab's own fonts", () => {
     assert.equal(near.length, 1, `one end to the middle arm, not two (${JSON.stringify(near)})`);
   });
 
-  it("draw a letter of straight strokes lighter as those strokes, read off their sides: Gumdrop's w and N at Regular", async () => {
+  it("read a letter of straight strokes as those strokes, off their sides, and keep it as drawn at Regular: Gumdrop's w and N", async () => {
     const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'chunkyround')!, id = STYLE_FONTS.chunkyround;
     if (!freeFont(id)) registerFreeFont(await fonts.load(id));
     // (so heavy its counters are notches: the middle of the w's ink is one bar notched above and below, the N's diagonal
@@ -637,14 +639,16 @@ describe("TypeLab's own fonts", () => {
       const rig = skinRig(freeFont(id)!, ch)!, sk = lineSkeleton(rig.contours, rig.ctx.cap, rig.ref().stem, 3);
       assert.ok(sk && sk.edges.length === 1 && sk.nodes.length === 2, `${ch} read as one stroke turning`);
     }
-    // and drawn so at Regular: each stroke crossed once, half way up, as thick as the others
-    const f = buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params), weight: 0.4 } as Params);
-    for (const [ch, y, n] of [['w', f.m.xh / 2, 4], ['N', f.m.cap / 2, 3]] as const) {
-      const ink = shape(toPolys(f.glyph(ch)!.cmds)), runs: [number, number][] = [];
-      for (let x = -200, on = false; x < 1400; x += 0.5) { const has = ink.has(x, y); if (has && !on) runs.push([x, x]); if (has) runs[runs.length - 1][1] = x; on = has; }
-      const w = runs.map(([a, b]) => b - a);
-      assert.equal(runs.length, n, `${ch}: ${JSON.stringify(runs)}`);
-      assert.ok(Math.max(...w) < 1.5 * Math.min(...w), `${ch}'s strokes as thick as each other: ${w}`);
+    // and at Regular drawn as the font draws them, a little lighter (pushed in evenly, even-weight.ts): in as many
+    // pieces with as many holes, and less ink
+    const at = (weight: number) => buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params), weight } as Params);
+    const design = at(st.params.weight), f = at(0.4);
+    const area = (r: { x: number; y: number }[]) => r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p.x * q.y - q.x * p.y; }, 0) / 2;
+    const look = (g: Glyph) => { const sh = shape(toPolys(g.cmds)), rings = combine([sh], sh.has); return { pieces: rings.filter(r => area(r) > 0).length, holes: rings.filter(r => area(r) < 0).length, ink: rings.reduce((a, r) => a + area(r), 0) }; };
+    for (const ch of 'wN') {
+      const was = look(design.glyph(ch)!), now = look(f.glyph(ch)!);
+      assert.deepEqual([now.pieces, now.holes], [was.pieces, was.holes], `${ch} whole at Regular`);
+      assert.ok(now.ink < was.ink, `${ch} lighter at Regular: ${now.ink}, ${was.ink} as drawn`);
     }
   });
 

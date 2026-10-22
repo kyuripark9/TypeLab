@@ -38,10 +38,11 @@ describe('weights: weight, contrast, vWeight, hWeight, strokeWeights, pinch, pin
       return { stem: box(g.strokes.find(s => s.part === 'stem')!.cmds).w, bar: box(g.strokes.find(s => s.part === 'crossbar')!.cmds).h };
     };
     const base = H({}), heavyV = H({ vWeight: 1 }), lightV = H({ vWeight: 0 }), heavyH = H({ hWeight: 1 }), lightH = H({ hWeight: 0 });
-    assert.ok(heavyV.stem > base.stem * 1.8 && lightV.stem < base.stem * 0.5, 'Verticals weigh the stems');
+    // (from 0.6 to 1.6 times, SIDE_WEIGH in font.ts)
+    assert.ok(heavyV.stem > base.stem * 1.45 && lightV.stem < base.stem * 0.7, 'Verticals weigh the stems');
     // (all but the little the pen's slant takes from the stems' weight)
     assert.ok(Math.abs(heavyV.bar - base.bar) < base.bar * 0.05 && Math.abs(lightV.bar - base.bar) < base.bar * 0.05, 'and leave the bars');
-    assert.ok(heavyH.bar > base.bar * 1.5 && lightH.bar < base.bar * 0.5, 'Horizontals weigh the bars');
+    assert.ok(heavyH.bar > base.bar * 1.45 && lightH.bar < base.bar * 0.7, 'Horizontals weigh the bars');
     assert.ok(Math.abs(heavyH.stem - base.stem) < base.stem * 0.05 && Math.abs(lightH.stem - base.stem) < base.stem * 0.05, 'and leave the stems');
     // Horizontals can outweigh Verticals, like reverse contrast
     const rev = H({ vWeight: 0.2, hWeight: 0.9, contrast: 0.5 });

@@ -246,17 +246,23 @@ export const cursiveHookR = (s: number, xh: number, cur: number) => (cur < 0.04 
     construction grid (grid.ts) stands them up again about it. */
 export const SLANT_PIVOT = 0.4;
 
+/** How much lighter and heavier Verticals draw the stems, and Horizontals the bars, at either end of their sliders. */
+const SIDE_WEIGH = [0.6, 1.6];
+
 export function metrics(e: Effective): Metrics {
   // Verticals weigh the stems on their own, and Horizontals the bars: each scales its side of the
-  // pen, so a heavier stem leaves the bars as they were
-  const s0 = 18 + 200 * Math.pow(e.weight, 1.25), s = weighed(s0, e.vWeight, 0, Math.max(s0, 300));
+  // pen, so a heavier stem leaves the bars as they were; no further than SIDE_WEIGH either way (from a quarter to
+  // two and a half times as heavy, an arc letter's bowls at Weight 20 and Horizontals 100 came out three times as
+  // heavy at the top and foot as at the sides)
+  const s0 = 18 + 200 * Math.pow(e.weight, 1.25), s = weighed(s0, e.vWeight, s0 * SIDE_WEIGH[0], s0 * SIDE_WEIGH[1]);
   const cap = lerp(560, 840, e.height);
   const xh = cap * xHeightRatio(e.xHeight);
   const ws = e.width < 0.5 ? lerp(0.6, 1, e.width * 2) : lerp(1, 1.5, (e.width - 0.5) * 2);
   // the bars thin with contrast, from no heavier than a fifth of the x-height to no lighter than 8; past
   // its gentle start, contrast runs the whole way between the two, so neither limit stops it part way
   const thinAt = (c: number) => Math.max(8, Math.min(s0 * (1 - 0.08 - 0.84 * c), xh * 0.2));
-  const thin = weighed(e.contrast <= 0.05 ? thinAt(e.contrast) : lerp(thinAt(0.05), thinAt(1), (e.contrast - 0.05) / 0.95), e.hWeight, 4, xh * 0.32);
+  const bar = e.contrast <= 0.05 ? thinAt(e.contrast) : lerp(thinAt(0.05), thinAt(1), (e.contrast - 0.05) / 0.95);
+  const thin = weighed(bar, e.hWeight, Math.max(4, bar * SIDE_WEIGH[0]), Math.min(xh * 0.32, bar * SIDE_WEIGH[1]));
   const stress = e.stressDeg * Math.PI / 180;
   const k = bowlK(e), org = bowlOrg(e);
   const ctx: PenCtx = {

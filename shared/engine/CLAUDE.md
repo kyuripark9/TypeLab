@@ -15,6 +15,9 @@ file.
    letterSpacing; Contrast split into the pen's amount and `reverse` (`contrastOf`); and square, classic, bounce,
    singleStory, stressDeg derived.
 2. `metrics(e)` (`font.ts`) gives `Metrics` (`m`): every measure the glyph functions draw with, and the pen `m.ctx`.
+   Verticals weigh the stems, and Horizontals the bars, from 0.6 to 1.6 times as heavy (`SIDE_WEIGH`, the block
+   letters' range; from a quarter to two and a half times, an arc letter's bowls came out three times as heavy at the
+   top and foot as at the sides).
 3. `buildFont(params, from?)` gives a `Font`. `font.glyph(ch)` builds a letter on first ask and keeps it:
    - `pickGlyph`: a letter drawn in Points (`params.outlines[ch]`) is `drawnLetter` (`family-drawn.ts`): `drawnGlyph`
      while the letter's settings are those it was drawn at (`Drawn.at`), else moved from them (`movedDrawn`); in a
@@ -94,6 +97,7 @@ file.
 | `family-drawn.ts` | Letters drawn in Points as the settings move (`drawnLetter`): from the settings a drawing was drawn at (`Drawn.at`, as a design of its own: `atDesign`), or, in a family's other members, from the design (found by the member's params object: `drawnFrom`, `drawnDesign`); rigged from that design (`RigLetters`: its drawn letters and its h p x n H), moved by `skinEdges` as far toward the new measures as their edges don't cross, in eighths, or by `skinMove`, whichever keeps it most as drawn and goes furthest (`keptMove`: how much more its outline turns than the drawing's, the edges' shortfall in eighths or in ink counted too; a letter of bars and corners keeps its edges, one traced off a font's curves is moved as the font's are), spaced and leaned (`movedDrawn`). Settings that reshape a letter (curves, corners, ends, forms) don't reach a drawing; the effects it was drawn without (slice, fill, rough edges) run on it (`withEffects`), while one it was drawn under stays in its points whatever it is set to now |
 | `lines.ts` | A letter's straight strokes read off its outline (`lineSkeleton`): straight edges facing each other across the ink a stroke apart paired, their middle lines run on to where they cross, the skeleton a letter of them alone is drawn on at its lighter weights; a stroke run level along a line, and a slab along its face, kept there as it thins (`FLUSH`) |
 | `fair-light.ts` | A lighter weight's outline run smooth (`fairLighter`): waves, kinks, knots and nicks smoothed away at the scale its sides moved in, the design's corners kept, each corner drawn again where its two sides, smoothed, meet |
+| `even-weight.ts` | Weight, Verticals, Horizontals and Contrast on a free font's letter, its drawing kept (`evenWeight`): its outline pushed out or in evenly, sideways and up and down by their own distances (each edge as far as it faces either way, corners mitred), each setting no further than `PEN` of the font's stem at its slider's end, never further in than `HAIR_KEEP` of the font's thinnest strokes, drawn back onto its lines, needles and slivers gone; a letter whose counter would close, a stroke part or two pieces run into one is moved only as far as it can be without |
 | `slabs.ts` | A slab serif's slabs read off a letter's outline (`slabsOf`): a stroke's end cut across (its face) run out past its sides in a tab either side or one (a flag, a beak), and the letter without them, each stroke's sides run on to its face |
 | `restyle.ts` | The engine's shapes redrawn on a free font's letter: dots, bowls, ends, serifs, stencil, peaks, corners |
 | `highlight.ts` | `highlightD` and `RING_KEYS` |
@@ -641,6 +645,15 @@ A design with `freeFont` set draws its letters from a free font instead of build
    unit narrower than the stroke, and the room came out nothing: an R's, an N's, a K's feet went bare).
    Serifs also squares off an upright stroke's round end on a line (`roundTip` in
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
+   Weight, Verticals, Horizontals and Contrast are not moved on the skeleton: `freeLetters` hands `skinMove`, `restyled`
+   and `skinRoom` the measures asked for at the weight, Verticals, Horizontals and Contrast the font stands for (`rest`),
+   and `freeGlyph` then pushes the restyled outline out or in evenly (`weighedOut`, `evenWeight` in `even-weight.ts`):
+   sideways by Weight and Verticals, up and down by Weight, Horizontals and Contrast (`pen`, as far along each slider
+   from where the font was picked toward either end as it is moved), in no further than `HAIR_KEEP` of the font's
+   thinnest strokes (`thinnest`, read off its letters' skeletons), and spaces it by that outline. Read stroke by stroke
+   and drawn again from the skeleton, the letters reached every weight but broke on the way (2026-10-22: joins notched,
+   edges waved, hairlines thinned away, bowls beaded at Verticals or Horizontals 0 and 100); kept as drawn, they reach
+   only so far.
 5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,
    the a's storeys, a `FORM_LETTERS` setting; the Letter a left on auto keeps the font's own form, and a font is written
    in its own letters, script or print, whatever Cursive asks; a family `ownForms` (Cathedral, Serenade, Boardwalk,
