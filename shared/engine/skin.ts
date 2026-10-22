@@ -3655,6 +3655,11 @@ function movedOnce(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, how: 'moved
   // moved less far than the stem's side, a hook where they meet, Mainline's n's arch into its stem)
   // (each ring's samples as its points now stand, for doubledBack to read the design's sharp points by: a point fewer, a
   // Didone's w's hairline serif's tip went for a fold, its room 11 units less from Weight 0.88 on)
+  // (Contrast turned round, each crossing's edges moved as the one edge each pair is, its crotches where they meet)
+  if (mv.reweighed && mv.kv < 1 - REWEIGHED && !mv.lighter) {
+    const s = Math.min(1, (1 - REWEIGHED - mv.kv) / CROSS_RAMP);
+    crossingsMet(rig, rings, s);
+  }
   const samples = rig.bones.map(bs => bs as P[]);
   if (mv.reweighed && mv.kv > 1 + REWEIGHED) rings = rings.map((ring, r) => { const k = unfolded(ring, rig.bones[r]); if (!k) return ring; samples[r] = k.map(j => rig.bones[r][j]); return k.map(j => ring[j]); });
   // (a lighter weight's end that stays, its corners gone in past its points along it, doubles back on itself there; and
@@ -6056,9 +6061,12 @@ function edgeMoves(bs: Bone[], r: number, mv: MoveMap, rig?: SkinRig) {
   // bracketed serifs as wedges, a fat face's beaks as needles, a Didone's arms' serifs apart from them; not Pinch's
   // thinning, which keeps leave as they are. The hairline as a level stroke as thick is weighed: a contrasty font's
   // bars thin less than Horizontals' share, by their thickness. Only as the bars thin and the stems don't: reversed,
-  // Contrast's thin strokes are its stems)
-  const hair = rig && weighed(mv) && mv.kh < 1 && mv.kv >= 1 ? rig.ref().hair : 0;
-  const hairNow = hair > 0 ? HAIR_FLOOR * hair * weighs({ tx: 1, ty: 0, w: hair / 2, serifDx: 0, dot: false } as Bone) : 0;
+  // Contrast's thin strokes are its stems; but turned round with its bars thinner too, none thinner than the thinner of
+  // the two as now drawn, coming in over CROSS_RAMP as the stems thin: an informal's a's hairline from its bowl to its
+  // stem, thinned as the bars were, opened its counter at Contrast 0)
+  const both = !!rig && mv.reweighed && !mv.lighter && mv.kv < 1 - REWEIGHED, bothIn = both ? Math.min(1, (1 - REWEIGHED - mv.kv) / CROSS_RAMP) : 1;
+  const hair = rig && weighed(mv) && mv.kh < 1 && (mv.kv >= 1 || both) ? rig.ref().hair : 0;
+  const hairNow = hair > 0 ? HAIR_FLOOR * bothIn * Math.min(hair * weighs({ tx: 1, ty: 0, w: hair / 2, serifDx: 0, dot: false } as Bone), both ? rig!.ref().stem * mv.kv : Infinity) : 0;
   // (a heavier weight's side by a stroke's end its stroke's thickness as read past it, where read straight across it
   // leaves through the end, and a straight side's as read along it all: sideWs)
   const ws = rig && linesMove(rig, mv) ? sideWs(rig, r) : null, wg = ws ? SIDE_GROWN.get(bs) : null, W = (b: Bone, i: number) => (!ws || (wg?.[i] && weighs(b) < 1) ? b.w : ws[i]);
@@ -7440,6 +7448,143 @@ function acrossOf(rig: SkinRig, r: number, most: number): Int32Array {
   return got;
 }
 const CRACK_ACROSS = new WeakMap<Bone[], Int32Array>();
+/** A crotch's edge: contour `r`, the crotch at sample `i`, running away from it `dir` (1 on along the contour, -1 back). */
+interface CrossEdge { r: number; i: number; dir: 1 | -1 }
+/** Where two strokes cross, each crotch's edge paired with the one it runs on as on the stroke's far side (the same side
+    of the same stroke, the other stroke between: an X's thin diagonal's sides either side of its thick one, an 8's spine's
+    either side of its waist, whichever contours they lie on), each the other's nearest the way it would run on, within
+    CROSS_ALONG stems, CROSS_SIDE of that across, turned no more than CROSS_TURN allows, its ink on the same side and the
+    way between them ink. Read once a rig. */
+function crossingsOf(rig: SkinRig): [CrossEdge, CrossEdge][] {
+  let got = CROSSINGS.get(rig);
+  if (got) return got;
+  const polys = rig.bones.map(bs => bs.map(b => ({ x: b.x, y: b.y })));
+  const inInk = (x: number, y: number) => { let odd = false; for (const p of polys) for (let k = 0, j = p.length - 1; k < p.length; j = k++) if ((p[k].y > y) !== (p[j].y > y) && x < ((p[j].x - p[k].x) * (y - p[k].y)) / (p[j].y - p[k].y) + p[k].x) odd = !odd; return odd; };
+  // (each crotch's two edges, the way each runs away from it, and the way into its ink: square to the way the contour
+  // runs, the side its samples' normals mostly face; a hairline's own, read across it no thicker than a sample apart,
+  // face either way from one to the next)
+  const es: (CrossEdge & { x: number; y: number; ux: number; uy: number; nx: number; ny: number })[] = [];
+  rig.bones.forEach((bs, r) => {
+    const sg = Math.sign(bs.reduce((a, b) => a + b.nx * -b.ty + b.ny * b.tx, 0)) || 1;
+    bs.forEach((b, i) => {
+      if (!b.corner || b.inx === undefined || !concaveAt(b)) return;
+      for (const dir of [1, -1] as const) {
+        const tx = dir > 0 ? b.outx! : b.inx!, ty = dir > 0 ? b.outy! : b.iny!;
+        es.push({ r, i, dir, x: b.x, y: b.y, ux: dir * tx, uy: dir * ty, nx: -ty * sg, ny: tx * sg });
+      }
+    });
+  });
+  const most = CROSS_ALONG * rig.ref().stem, best = es.map(() => ({ k: -1, d: Infinity }));
+  es.forEach((e, a) => es.forEach((f, k) => {
+    if (k === a || (f.r === e.r && f.i === e.i)) return;
+    // (the far one ahead of this one the way it would run on, running on the same way, its ink the same side)
+    const dx = f.x - e.x, dy = f.y - e.y, along = -(dx * e.ux + dy * e.uy), side = Math.abs(dx * e.uy - dy * e.ux);
+    if (!(along > 0 && along < most) || side > CROSS_SIDE * along + 1 || -(e.ux * f.ux + e.uy * f.uy) < CROSS_TURN || e.nx * f.nx + e.ny * f.ny < CROSS_TURN) return;
+    if (!inInk((e.x + f.x) / 2, (e.y + f.y) / 2)) return;
+    const d = along + 4 * side;
+    if (d < best[a].d) best[a] = { k, d };
+  }));
+  got = [];
+  es.forEach((e, a) => { const k = best[a].k; if (k > a && best[k].k === a) got!.push([{ r: e.r, i: e.i, dir: e.dir }, { r: es[k].r, i: es[k].i, dir: es[k].dir }]); });
+  // (only crossings whole: each pair's two crotches with both their edges running on so, the strokes passing through each
+  // other; a stem's side running on past a bar that ends at it, the bar's edges running on into nothing, is no crossing)
+  for (let left = -1; left !== got.length; ) {
+    left = got.length;
+    const both = new Map<string, number>();
+    for (const pr of got) for (const e of pr) both.set(`${e.r},${e.i}`, (both.get(`${e.r},${e.i}`) ?? 0) + 1);
+    got = got.filter(pr => pr.every(e => both.get(`${e.r},${e.i}`) === 2));
+  }
+  CROSSINGS.set(rig, got);
+  return got;
+}
+const CROSSINGS = new WeakMap<SkinRig, [CrossEdge, CrossEdge][]>();
+const CROSS_READ = 3, CROSS_ALONG = 2.5, CROSS_SIDE = 0.45, CROSS_TURN = 0.8;
+/** Contrast turned round, each crossing's edges (crossingsOf) run on as one: from where each pair's samples stand as
+    moved as far beyond the crossing as it is wide again, a smooth way between the two (their ways there), its samples
+    nearer the crossing put on it, and a crotch where its two edges' ways meet (an edge running on into none along its
+    own samples as moved), `s` of the way from where the moves put them. Moved each by its own reading, which near the
+    crossing reads across it, an italic's X's thickened diagonal ended square either side of its thinned one, its halves,
+    a hairline drawn either side apart, a step apart; an 8's either side of its waist. */
+function crossingsMet(rig: SkinRig, rings: P[][], s: number): void {
+  // (not a script's: its loops cross each other at a slant, and so met, a Chancery's 9's tail went into its bowl and its g's
+  // descender opened a sliver through its link)
+  if (rig.leans()) return;
+  const pairs = crossingsOf(rig);
+  if (!pairs.length || !(s > 0)) return;
+  const n = (r: number) => rig.bones[r].length, md = (r: number, i: number) => ((i % n(r)) + n(r)) % n(r);
+  const at = (r: number, i: number) => rings[r][md(r, i)];
+  // (each edge's way: paired, a curve between the pair's samples `reach` along each, the ways they run there; as moved
+  // otherwise, its samples out to as far, on back past the crotch as its first runs)
+  const ways = new Map<string, { path: P[]; near: number; paired: boolean }>(), key = (e: CrossEdge) => `${e.r},${e.i},${e.dir}`;
+  for (const [A, B] of pairs) {
+    if (rings[A.r].length !== n(A.r) || rings[B.r].length !== n(B.r)) continue;
+    const a = rig.bones[A.r][A.i], b = rig.bones[B.r][B.i], want = Math.ceil(Math.hypot(a.x - b.x, a.y - b.y) / STEP) + CROSS_READ;
+    // (no further along either than its edge runs, short of the next corner: a t's bar's arms end a little way out)
+    const free = (e: CrossEdge) => { let k = 1; while (k <= want + 1 && !rig.bones[e.r][md(e.r, e.i + e.dir * k)].corner) k++; return k - 2; };
+    const reach = Math.min(want, free(A), free(B));
+    if (reach < CROSS_READ + 1) continue;
+    const F = at(A.r, A.i + A.dir * reach), G = at(B.r, B.i + B.dir * reach);
+    const f1 = at(A.r, A.i + A.dir * (reach - 1)), f2 = at(A.r, A.i + A.dir * (reach + 1)), g1 = at(B.r, B.i + B.dir * (reach - 1)), g2 = at(B.r, B.i + B.dir * (reach + 1));
+    const L = Math.hypot(G.x - F.x, G.y - F.y), tf = Math.hypot(f1.x - f2.x, f1.y - f2.y) || 1, tg = Math.hypot(g1.x - g2.x, g1.y - g2.y) || 1;
+    const fx = ((f1.x - f2.x) / tf) * L, fy = ((f1.y - f2.y) / tf) * L, gx = ((g2.x - g1.x) / tg) * L, gy = ((g2.y - g1.y) / tg) * L;
+    const path: P[] = [];
+    for (let k = 0; k <= CROSS_PATH; k++) {
+      const t = k / CROSS_PATH, h00 = 2 * t ** 3 - 3 * t * t + 1, h10 = t ** 3 - 2 * t * t + t, h01 = -2 * t ** 3 + 3 * t * t, h11 = t ** 3 - t * t;
+      path.push({ x: h00 * F.x + h10 * fx + h01 * G.x + h11 * gx, y: h00 * F.y + h10 * fy + h01 * G.y + h11 * gy });
+    }
+    ways.set(key(A), { path, near: reach - 1, paired: true });
+    ways.set(key(B), { path: path.slice().reverse(), near: reach - 1, paired: true });
+  }
+  if (!ways.size) return;
+  const own = (e: CrossEdge, reach: number) => {
+    const path: P[] = [];
+    for (let k = 2 * reach; k >= 1; k--) path.push(at(e.r, e.i + e.dir * k));
+    const p = path[path.length - 1], q = path[path.length - 2] ?? p, l = Math.hypot(p.x - q.x, p.y - q.y) || 1;
+    path.push({ x: p.x + ((p.x - q.x) / l) * 2 * reach * STEP, y: p.y + ((p.y - q.y) / l) * 2 * reach * STEP });
+    return path;
+  };
+  // (where two ways cross, nearest a point)
+  const meet = (u: P[], v: P[], near: P): P | null => {
+    let best: P | null = null, bd = Infinity;
+    for (let i = 0; i + 1 < u.length; i++) for (let j = 0; j + 1 < v.length; j++) {
+      const a = u[i], b = u[i + 1], c = v[j], d = v[j + 1], ex = b.x - a.x, ey = b.y - a.y, fx = d.x - c.x, fy = d.y - c.y, den = ex * fy - ey * fx;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((c.x - a.x) * fy - (c.y - a.y) * fx) / den, w = ((c.x - a.x) * ey - (c.y - a.y) * ex) / den;
+      if (t < 0 || t > 1 || w < 0 || w > 1) continue;
+      const q = { x: a.x + ex * t, y: a.y + ey * t }, dd = Math.hypot(q.x - near.x, q.y - near.y);
+      if (dd < bd) { bd = dd; best = q; }
+    }
+    return best;
+  };
+  const onto = (path: P[], q: P) => {
+    let best = q, bd = Infinity;
+    for (let i = 0; i + 1 < path.length; i++) {
+      const a = path[i], b = path[i + 1], ex = b.x - a.x, ey = b.y - a.y, l2 = ex * ex + ey * ey, t = l2 ? Math.max(0, Math.min(1, ((q.x - a.x) * ex + (q.y - a.y) * ey) / l2)) : 0;
+      const x = a.x + ex * t, y = a.y + ey * t, dd = (x - q.x) ** 2 + (y - q.y) ** 2;
+      if (dd < bd) { bd = dd; best = { x, y }; }
+    }
+    return best;
+  };
+  const to = new Map<string, P>(), put = (r: number, j: number, q: P) => to.set(`${r},${md(r, j)}`, q);
+  const crotches = new Set([...ways.keys()].map(k => k.split(',').slice(0, 2).join(',')));
+  for (const ck of crotches) {
+    const [r, i] = ck.split(',').map(Number), W1 = ways.get(`${r},${i},1`), W2 = ways.get(`${r},${i},-1`), reach = Math.max(W1?.near ?? 0, W2?.near ?? 0) + 1;
+    const e1: CrossEdge = { r, i, dir: 1 }, e2: CrossEdge = { r, i, dir: -1 };
+    const p1 = W1?.path ?? own(e1, reach), p2 = W2?.path ?? own(e2, reach), was = at(r, i);
+    const c = meet(p1, p2, was);
+    if (!c || Math.hypot(c.x - was.x, c.y - was.y) > rig.ref().stem) continue;
+    put(r, i, c);
+    // (a paired edge's samples nearer the crossing on its way, short of the crotch: none past it, folded back)
+    for (const [W, e] of [[W1, e1], [W2, e2]] as const) {
+      if (!W) continue;
+      const path = W.path, k0 = path.findIndex((q, k) => k + 1 < path.length && Math.hypot(onto([path[k], path[k + 1]], c).x - c.x, onto([path[k], path[k + 1]], c).y - c.y) < 0.5);
+      const upto = k0 >= 0 ? path.slice(0, k0 + 1).concat([c]) : path;
+      for (let k = 1; k <= W.near; k++) put(r, i + e.dir * k, onto(upto, at(r, i + e.dir * k)));
+    }
+  }
+  for (const [k, q] of to) { const [r, j] = k.split(',').map(Number), p = rings[r][j]; rings[r][j] = { ...p, x: p.x + (q.x - p.x) * s, y: p.y + (q.y - p.y) * s }; }
+}
+const CROSS_RAMP = 0.15, CROSS_PATH = 48;
 /** How far each of veeOf's samples may grow: across its gap and the stroke there to its other side (the stroke the
     sample nearest where its gap ends, within VEE_HIT, belongs to, read as thick as it is and slantwise along the way this
     one goes out), Infinity where none is or the two face across no more than VEE_ACROSS. Read once a rig. */

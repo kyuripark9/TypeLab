@@ -552,7 +552,16 @@ A design with `freeFont` set draws its letters from a free font instead of build
    edges across thin too, a sans M's crotch, which so held stood a wedge, nor in a round pen); a corner inside a join
    stops a stroke's new thickness short of the ring's edges across from it as moved (`thinAcross`: an industrial 9's and
    g's crotch under the bowl, its ink trap's short curve thinned as the stem's side, went out past the stem's far side and
-   cut the stem off; a fat face's N's and a Didone's M's crotches by their hairline stems, the letter in two). On a
+   cut the stem off; a fat face's N's and a Didone's M's crotches by their hairline stems, the letter in two). Where two
+   strokes cross (`crossingsOf`: each crotch's edge paired with the one it runs on as across the stroke it crosses, the
+   same side of the same stroke, within `CROSS_ALONG` stems and `CROSS_SIDE` of that across, the way between them ink,
+   and only crossings whole, each pair's crotches with both their edges so paired: a stem's side past a bar that ends at
+   it is none; not a script's, whose loops cross at a slant), each pair runs on as one edge (`crossingsMet`): a smooth
+   way between where its samples stand as moved as far beyond the crossing as it is wide again, its samples nearer the
+   crossing put on it and its crotches where the two ways meet, coming in over `CROSS_RAMP` (an italic X's thickened
+   diagonal, its hairline drawn in two halves a step apart, ended square either side of its thinned one). And turned
+   round with the bars thinner too, no stroke is thinner than the thinner of the hairline and the stem as now drawn
+   (`HAIR_FLOOR`'s, an informal a's hairline from its bowl to its stem, thinned as the bars were, opened its counter). On a
    contrasty design a crotch by a stem's straight upright side, the stem thinned `CARRY_THIN` times as far as the curve
    leaving it moved, goes with the stem's side (a fat face's h's, n's and m's arches, a Didone's h's and b's bowl, came off
    their stems, the corner met 115 units down the arch's line, past the stem's far side), and a sharp one (`JOIN_SHARP`)
