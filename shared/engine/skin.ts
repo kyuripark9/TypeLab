@@ -7190,6 +7190,9 @@ const ROOM_EVEN = 4;
 /** How much of the ink ahead of a crotch, and of how far its thinning edge moved, a fair font's Contrast turned round
     may carry it into the join (moveRing). */
 const JOIN_KEEP = 0.5, JOIN_MOVE = 0.6;
+/** How many samples of a straight edge running into a round pen's corner inside a join its move is read off, how few
+    will do, and how near the edge's way by the corner each must face (the cosine) (joinRuns). */
+const JOIN_RUN = 24, JOIN_RUN_LEAST = 6, JOIN_RUN_ALIKE = Math.cos(15 * Math.PI / 180);
 /** How sharp (the sine of its turn) a contrasty design's crotch is, at most, to be met again as a fair font's is (moveRing). */
 const JOIN_SHARP = 0.7;
 /** How many times as far as its other edge moved, Contrast turned round, a contrasty design's crotch's edge along a stem's
@@ -7668,12 +7671,33 @@ function ringCrossesAt(out: P[], c: number) {
   return false;
 }
 
+/** A round pen's straight edges running into a corner inside a join, each moved no further than its run's middle moves by
+    the corner, less and less so to the run's far end: its samples by the corner read their stroke across into the other
+    stroke's, thicker, and went out further, a comic's H's left stem's side 106 units by its bar where it went 87, the
+    outline as moved bulging past the stem's side and cut where it crossed the bar's top, a bevel down the stem at Weight
+    100 (held to it all the way, the outline stepped out where the run ends). */
+function joinRuns(bs: Bone[], moved: Float64Array | number[]): void {
+  const n = bs.length, md = (i: number) => ((i % n) + n) % n;
+  for (let i = 0; i < n; i++) {
+    const D = bs[i], A = bs[md(i - 2)], B = bs[md(i + 2)];
+    // (a corner inside a join: the outline either side of it turns away from its ink, not a tip's)
+    if (!D.corner || ((A.x + B.x) / 2 - D.x) * (A.nx + B.nx) + ((A.y + B.y) / 2 - D.y) * (A.ny + B.ny) >= 0) continue;
+    for (const dir of [-1, 1]) {
+      const from = md(i + dir), run: number[] = [];
+      for (let k = 0, j = from; k < JOIN_RUN && !bs[j].corner && bs[j].straight && bs[j].nx * bs[from].nx + bs[j].ny * bs[from].ny > JOIN_RUN_ALIKE; k++, j = md(j + dir)) run.push(j);
+      if (run.length < JOIN_RUN_LEAST) continue;
+      const ms = run.map(j => moved[j]).sort((p, q) => p - q), m = ms[ms.length >> 1];
+      run.forEach((j, k) => { if (moved[j] > m) moved[j] = m + (moved[j] - m) * (k / (run.length - 1)) ** 2; });
+    }
+  }
+}
 /** One contour of the rig moved (contour r, its samples bs): each edge out or in by its stroke's change of thickness,
     carried where the heights and the width put it, each corner where its two edges meet again, and each stroke's end
     with the sides it joins. */
 function moveRing(rig: SkinRig, bs: Bone[], r: number, mv: MoveMap): P[] {
   const { gy, gyDot, gx, top, top1, sx, kd, ks } = mv;
   const n = bs.length, { dotRoom, k0, moved, rooms, slide, slid, crotches, pins, hug, hugY, fine, cuts, orphans } = edgeMoves(bs, r, mv, rig), vees = veesGrow(rig, mv) ? veeOf(rig, r) : null;
+  if (mv.reweighed && mv.kv > 1 + REWEIGHED && fontPen(rig.font)) joinRuns(bs, moved);
   // where the heights and the width put it: the skeleton point moved, and the edge kept as far across the
   // stroke from it as it was, the stroke turned as they turn it (a diagonal leans further as the letter
   // widens), so every stroke keeps its thickness; narrower, upright strokes thin a little, as a condensed

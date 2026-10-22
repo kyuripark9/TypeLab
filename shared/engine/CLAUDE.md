@@ -451,7 +451,9 @@ A design with `freeFont` set draws its letters from a free font instead of build
    stroke, the counter's outline crossed the outside's, and the counter opened). A near even font's straight edges on one line read as one (`ONE_LINE`); a round pen's (`fontPen`: a comic's, a
    Gumdrop's) ends aren't held by `heldBySlope`, each end's points go no further into the paper than `OPEN` of it, every
    point's move is run smooth along the outline by as far as its strokes thickened (`evenedMoves`, `EVEN_SMOOTH`) and
-   short spikes left are taken out (`unspiked`). An end a stem's side has grown out past is cut where its outline crosses
+   short spikes left are taken out (`unspiked`); its straight edges running into a corner inside a join move no further
+   than their runs' middles by the corner (`joinRuns`: a comic's H's stem's side, read across into its bar, bulged out and
+   was cut where it crossed the bar's top, a bevel down it). An end a stem's side has grown out past is cut where its outline crosses
    that side, the corner put there (`endsPast`: a typewriter's G's bar's round end over its spur at Verticals 100). In an
    even slab (`evenSlab`: a typewriter's, a soft slab's) a heavier weight's serifs thicken less than their stems by the
    stems' share alone, by the bars' as bars do (a Y's head serifs stood a step thinner inside its arms at Horizontals
