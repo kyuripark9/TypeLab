@@ -645,6 +645,15 @@ A design with `freeFont` set draws its letters from a free font instead of build
    unit narrower than the stroke, and the room came out nothing: an R's, an N's, a K's feet went bare).
    Serifs also squares off an upright stroke's round end on a line (`roundTip` in
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
+   Box isn't pushed out from the oval as Squareness is (that waved the sides, thickened the corners and hooked a C's
+   ends back in): `boxBowls` lays each bowl's outside and inside on the lines of their furthest reach each way (read
+   per pass round the oval, so a 6's hook and its counter keep apart; tops and feet on the lines, overshoot off),
+   corners round outside and square inside (`boxRadius`, `boxCast`; square where the font's own is or a stem stands),
+   a quarter run part way into laid along its side with a free end cut square (a beak serif carried, a ball moved
+   whole), one run into a stem past its middle turned with the stem as its side (`turned`), two bowls meeting (an S's
+   spine, a 3's and a B's waist) on shared lines, a counter drawn whole as its bowl's inside, an arc cut where it turns
+   back in (`roundOnly`: a G's bar), an italic boxed upright and leaned again (`upright`), and a ring a box would fold
+   (a chunky B's counter) left as the font's.
    Weight, Verticals, Horizontals and Contrast are not moved on the skeleton: `freeLetters` hands `skinMove`, `restyled`
    and `skinRoom` the measures asked for at the weight, Verticals, Horizontals and Contrast the font stands for (`rest`),
    and `freeGlyph` then pushes the restyled outline out or in evenly (`weighedOut`, `evenWeight` in `even-weight.ts`):
