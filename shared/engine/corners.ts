@@ -100,7 +100,7 @@ export function markTurns(b: Builder, m: Metrics) {
 }
 
 /** The outside radius of a box bowl's corner at v on the Bowls' Corners slider (boxRound), for a stroke t thick. */
-export const boxOuter = (v: number, t: number) => 2 * v * t;
+const boxOuter = (v: number, t: number) => 2 * v * t;
 /** Box bowls: every quarter turn (hv, vh) becomes its two straight sides meeting in a corner that
     rounds on the outside and stays square on the inside: by the Bowls' Corners slider (boxRound), from sharp
     through as wide as the stroke (at 0.5) to twice the stroke, as far as its sides let it (any wider and

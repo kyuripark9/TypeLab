@@ -505,44 +505,45 @@ describe("TypeLab's own fonts", () => {
     for (const moves of [{ bowlForm: 'oval' }, { chamfer: 1 }, { boxRound: 0 }] as Partial<Params>[]) assert.equal(design(moves).glyph('H')!.d, design().glyph('H')!.d, `the H's square corners (${JSON.stringify(moves)})`);
   });
 
-  it("draw their bowls as boxes asked for Bowls' Box: sides straight, insides square, a C's arms and an S's spine level", async () => {
+  it("square their bowls off gently asked for Bowls' Box, the outline as clean as the font draws it", async () => {
     const fonts = new FreeFonts(null, noFetch);
-    // where a line across the letter (level at y, or upright at x) crosses its outline, in order
-    const cross = (g: Glyph, at: number, upright = false) => {
-      const xs: number[] = [];
-      for (const r of toPolys(g.cmds)) for (let i = 0; i < r.length; i++) {
-        const a = r[i], b = r[(i + 1) % r.length], [pa, qa, pb, qb] = upright ? [a.x, a.y, b.x, b.y] : [a.y, a.x, b.y, b.x];
-        if ((pa <= at) !== (pb <= at)) xs.push(qa + (at - pa) / (pb - pa) * (qb - qa));
+    // how much of its box a letter's ink fills
+    const fill = (g: Glyph) => {
+      const ink = shape(toPolys(g.cmds)), ps = toPolys(g.cmds).flat(), x0 = Math.min(...ps.map(p => p.x)), x1 = Math.max(...ps.map(p => p.x)), y0 = Math.min(...ps.map(p => p.y)), y1 = Math.max(...ps.map(p => p.y));
+      let n = 0, all = 0;
+      for (let x = x0; x <= x1; x += 4) for (let y = y0; y <= y1; y += 4) { all++; if (ink.has(x, y)) n++; }
+      return n / all;
+    };
+    // how often its outline turns from bending one way to the other, read every 6 units over a few at a time, a bend
+    // gentler than a circle 400 units round not counted (a dent or a wave each turn it twice)
+    const turns = (g: Glyph) => {
+      let count = 0;
+      for (const r of toPolys(g.cmds)) {
+        const even: { x: number; y: number }[] = [];
+        let left = 0;
+        r.forEach((a, i) => {
+          const b = r[(i + 1) % r.length], l = Math.hypot(b.x - a.x, b.y - a.y);
+          for (; left < l; left += 6) even.push({ x: a.x + (b.x - a.x) * left / l, y: a.y + (b.y - a.y) * left / l });
+          left -= l;
+        });
+        const m = even.length, head = even.map((p, i) => Math.atan2(even[(i + 1) % m].y - p.y, even[(i + 1) % m].x - p.x));
+        const bend = head.map((_, i) => { let t = 0; for (let j = -2; j < 2; j++) { let d = head[(i + j + 1 + m) % m] - head[(i + j + m) % m]; d -= 2 * Math.PI * Math.round(d / (2 * Math.PI)); t += d; } return t / 4; });
+        let last = 0;
+        for (const b of [...bend, ...bend]) { if (Math.abs(b) < 6 / 400) continue; if (last && Math.sign(b) !== last) count++; last = Math.sign(b); }
       }
-      return xs.sort((p, q) => p - q);
+      return count / 2;
     };
-    const box = (g: Glyph) => { const ps = toPolys(g.cmds).flat(); return { x0: Math.min(...ps.map(p => p.x)), x1: Math.max(...ps.map(p => p.x)), y0: Math.min(...ps.map(p => p.y)), y1: Math.max(...ps.map(p => p.y)) }; };
-    // how far each crossing wanders over the middle of a run of lines (0 for a straight side)
-    const wander = (g: Glyph, lo: number, hi: number, upright = false) => {
-      const rows = Array.from({ length: 13 }, (_, k) => cross(g, lo + (hi - lo) * k / 12, upright));
-      if (rows.some(r => r.length !== rows[0].length)) return Infinity;
-      return Math.max(...rows[0].map((_, i) => Math.max(...rows.map(r => r[i])) - Math.min(...rows.map(r => r[i]))));
-    };
-    for (const id of ['geometric', 'grotesque']) {
+    for (const id of ['geometric', 'grotesque', 'serif', 'squircle']) {
       const st = STYLES.find(s => s.id === id)!, font = STYLE_FONTS[id];
       if (!freeFont(font)) registerFreeFont(await fonts.load(font));
-      const f = buildFont({ ...st.params, freeFont: font, freeAt: freeAtOf(st.params), bowlForm: 'box' } as Params);
-      for (const ch of ['O', 'o', 'd', 'b']) {
-        // (down the middle of the bowl: the O's own height, the o's for the lowercase)
-        const g = f.glyph(ch)!, b = box(f.glyph(ch === 'O' ? 'O' : 'o')!), h = b.y1 - b.y0, w = wander(g, b.y0 + h * 0.3, b.y0 + h * 0.7);
-        // (a bowl's sides, and its counter's, upright down the middle of its height; a d's and a b's counter beside the stem too)
-        assert.ok(w < 1.5, `${id} ${ch}: its sides straight (${w.toFixed(1)} off)`);
-      }
-      const O = f.glyph('O')!, ob = box(O), ow = wander(O, ob.x0 + (ob.x1 - ob.x0) * 0.3, ob.x0 + (ob.x1 - ob.x0) * 0.7, true);
-      assert.ok(ow < 1.5, `${id} O: its top and foot level (${ow.toFixed(1)} off)`);
-      // (a C's arms run on level to their ends)
-      const C = f.glyph('C')!, cb = box(C), cw = wander(C, cb.x0 + (cb.x1 - cb.x0) * 0.3, cb.x0 + (cb.x1 - cb.x0) * 0.6, true);
-      assert.ok(cw < 1.5, `${id} C: its arms level (${cw.toFixed(1)} off)`);
+      const at = (bowlForm: 'oval' | 'box') => buildFont({ ...st.params, freeFont: font, freeAt: freeAtOf(st.params), bowlForm } as Params);
+      const oval = at('oval'), box = at('box');
+      // (an O and an o squared off: filling more of their box)
+      for (const ch of ['O', 'o']) assert.ok(fill(box.glyph(ch)!) > fill(oval.glyph(ch)!) + 0.01, `${id} ${ch}: squarer (${fill(oval.glyph(ch)!).toFixed(3)} → ${fill(box.glyph(ch)!).toFixed(3)})`);
+      // (and nothing bending back the other way the font's own letter hasn't got: no dent where a bowl meets its stem, no
+      // wave along a side, no notch at an end)
+      for (const ch of 'Oocdbeasgq') assert.ok(turns(box.glyph(ch)!) <= turns(oval.glyph(ch)!) + 0.5, `${id} ${ch}: as clean as drawn (${turns(oval.glyph(ch)!)} → ${turns(box.glyph(ch)!)} turns)`);
     }
-    // an S's spine one level bar, its two halves' sides on the same lines
-    const st = STYLES.find(s => s.id === 'geometric')!, S = buildFont({ ...st.params, freeFont: STYLE_FONTS.geometric, freeAt: freeAtOf(st.params), bowlForm: 'box' } as Params).glyph('S')!;
-    const sb = box(S), sw = wander(S, sb.x0 + (sb.x1 - sb.x0) * 0.35, sb.x0 + (sb.x1 - sb.x0) * 0.65, true);
-    assert.ok(sw < 1.5, `geometric S: its spine level (${sw.toFixed(1)} off)`);
   });
 
   it("draw Bulwark's letters at any Weight from its nearest weight, each the block letters at that Weight: an 8 at 20 as built", async () => {

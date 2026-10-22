@@ -301,7 +301,7 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   const da = [fl.pick.dots, dotLook(fl.pick)], db = [fl.now.dots, dotLook(fl.now)];
   // (every setting a restyle step below reads goes in this key: one left out leaves its slider showing the letter
   // kept from before)
-  const key = JSON.stringify([a, b, ends(fl.pick), ends(fl.now), sf, sf && lines, sa, sb, ba, bb, da, db, fl.pick.apex, fl.now.apex, fl.now.apex !== fl.pick.apex && lines, bb.box && lines,
+  const key = JSON.stringify([a, b, ends(fl.pick), ends(fl.now), sf, sf && lines, sa, sb, ba, bb, da, db, fl.pick.apex, fl.now.apex, fl.now.apex !== fl.pick.apex && lines,
     fl.pick.overlap, fl.now.overlap, fl.pick.cursive, fl.now.cursive]);
   let kept = restyles.get(cs);
   if (!kept) { kept = new Map(); restyles.set(cs, kept); }
@@ -315,7 +315,7 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
     out = restyleOverlap(cs, c, fl.pick.overlap, fl.now.overlap, oRig && skinMove(oRig, fl.from, fl.to));
     out = restyleDots(out, c, fl.pick, fl.now);
     // (a font of block letters turns its bowls in corners: those are drawn again)
-    out = c.stubs ? restyleBlockBowls(out, ba, bb, c.stem) : restyleBowls(out, ba, bb, scan(out), lines, fl.font ? Math.tan(fontLook(fl.font).lean * Math.PI / 180) : 0);
+    out = c.stubs ? restyleBlockBowls(out, ba, bb, c.stem) : restyleBowls(out, ba, bb, scan(out), fl.font ? Math.tan(fontLook(fl.font).lean * Math.PI / 180) : 0);
     out = restyleEnds(out, c, fl.pick, fl.now, scan(out));
     out = restyleCursive(out, c, fl.pick.cursive, fl.now.cursive);
     const bare = out;
