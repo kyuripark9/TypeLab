@@ -1146,7 +1146,9 @@ export function skinFollows(font: FreeFont, ch: string, key: string) {
     case 'apex': return PEAK_LETTERS.includes(ch) && rigPeaks(rig);
     case 'overlap': return !!bowlStem(rig.contours, { ch, cap: rig.ctx.cap, xh: rig.ctx.xh, stem: rig.stem * rig.ctx.cap, bar: rig.bar * rig.ctx.cap });
     // (a letter with a bowl or a curve, which these reshape)
-    case 'squareness': case 'chamfer': case 'curve': case 'bowlForm': case 'boxRound': return /[a-gj-mo-zA-DGJ-SU0-9&@$?]/.test(ch) && !/[lvwxzAKMNVWXZ17]/.test(ch);
+    case 'squareness': case 'chamfer': case 'curve': return /[a-gj-mo-zA-DGJ-SU0-9&@$?]/.test(ch) && !/[lvwxzAKMNVWXZ17]/.test(ch);
+    // (Box squares an n's and an h's shoulders too)
+    case 'bowlForm': case 'boxRound': return /[a-hj-zA-DGJ-SU0-9&@$?]/.test(ch) && !/[lvwxzAKMNVWXZ17]/.test(ch);
     case 'joints': return joinsNear(rig).some(n => n.some(Boolean));
     default:
       if (key.startsWith('serif')) return rig.serifs || squareEnds(rig);

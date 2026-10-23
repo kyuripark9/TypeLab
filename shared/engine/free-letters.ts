@@ -315,7 +315,7 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
     out = restyleOverlap(cs, c, fl.pick.overlap, fl.now.overlap, oRig && skinMove(oRig, fl.from, fl.to));
     out = restyleDots(out, c, fl.pick, fl.now);
     // (a font of block letters turns its bowls in corners: those are drawn again)
-    out = c.stubs ? restyleBlockBowls(out, ba, bb, c.stem) : restyleBowls(out, ba, bb, scan(out), fl.font ? Math.tan(fontLook(fl.font).lean * Math.PI / 180) : 0);
+    out = c.stubs ? restyleBlockBowls(out, ba, bb, c.stem) : restyleBowls(out, ba, bb, scan(out), fl.font ? Math.tan(fontLook(fl.font).lean * Math.PI / 180) : 0, 1 / fl.k);
     out = restyleEnds(out, c, fl.pick, fl.now, scan(out));
     out = restyleCursive(out, c, fl.pick.cursive, fl.now.cursive);
     const bare = out;

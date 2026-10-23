@@ -646,15 +646,20 @@ A design with `freeFont` set draws its letters from a free font instead of build
    Serifs also squares off an upright stroke's round end on a line (`roundTip` in
    `scan.ts`) to stand a serif on it; Bowls draws box bowls as round as the Bowls' Corners slider (`boxRound`) asks.
    Box on a free font's letters is a squircle, not a hard box (`boxBowls`; drawn with straight sides and square
-   insides, every place a bowl met a stem, a bar or an end came out notched): each bowl's outside and inside read in
-   frames of their own (a ring's by its reach each way, an open bowl's by a fitted oval where it runs round far enough),
-   the squircle each lies along best found (the font may be squarish already), and each squared a share of the rest of
-   the way to a square (Corners: `BOX_SHARP` to `BOX_WIDE`), never rounder; the squaring eases off toward joins and
-   anything held still (a stem, a sharp corner) round the oval, the slower the nearer the middle of a quarter
-   (`BOX_EASE_LEAST`, `BOX_EASE_MOST`), not at free ends (a serif off one moves with it); an arc is cut where it turns
-   back in (`roundOnly`: a G's bar), an italic squared upright and leaned again (`upright`). Then a letter is squared
-   only as far as adds no bend the other way along its outline (`wiggles`): all of it, else the most that stays clean
-   (`BOX_TRIES` halvings), else the font's own letter.
+   insides, every place a bowl met a stem, a bar or an end came out notched): it reads every turn of a quarter and more
+   as a bowl (`BOX_ARC`: an n's, an h's, a u's shoulders, an f's hook, not only an o's), cut short where it turns back in
+   or runs on straight into a stem (`roundOnly`: a G's bar, an h's stem to its foot), its oval fitted again. Each bowl's
+   outside and inside are read in frames of their own (a ring's by its reach each way, an open bowl's by a fitted oval
+   where it runs round far enough; an e's eye and lower curve, one running on through the join into the other, outside
+   as one), the squircle each lies along best found (the font may be squarish already), and each squared a share of
+   the rest of the way to a square (Corners: `BOX_SHARP` to `BOX_WIDE`), never rounder, a ring never past its own reach.
+   A bowl is squared all the way while its skeleton runs on its squircle (`BOX_ON`), not where it has left it, nor at a
+   join (unless another bowl runs on through it), easing back in round the oval the slower the nearer the middle of a
+   quarter (`BOX_EASE_LEAST`, `BOX_EASE_MOST`); a serif off a free end moves with it; an italic is squared upright and
+   leaned again (`upright`). The outline is traced again with no curve's handles longer than it (`tame`), and a letter is
+   squared only as far as adds no bend the other way and no kink to the font's own outline (`wiggles`, read at the
+   letters' drawn size): how far it may move and stay so is found once per letter at Corners' squarest (`boxLimits`,
+   uncut and fully cut by Facets) and any setting squares it up to that, so both sliders move it smoothly.
    Weight, Verticals, Horizontals and Contrast are not moved on the skeleton: `freeLetters` hands `skinMove`, `restyled`
    and `skinRoom` the measures asked for at the weight, Verticals, Horizontals and Contrast the font stands for (`rest`),
    and `freeGlyph` then pushes the restyled outline out or in evenly (`weighedOut`, `evenWeight` in `even-weight.ts`):

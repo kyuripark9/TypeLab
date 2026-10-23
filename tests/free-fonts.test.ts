@@ -533,7 +533,7 @@ describe("TypeLab's own fonts", () => {
       }
       return count / 2;
     };
-    for (const id of ['geometric', 'grotesque', 'serif', 'squircle']) {
+    for (const id of ['geometric', 'grotesque', 'humanist', 'soft', 'serif', 'squircle', 'industrial', 'didone']) {
       const st = STYLES.find(s => s.id === id)!, font = STYLE_FONTS[id];
       if (!freeFont(font)) registerFreeFont(await fonts.load(font));
       const at = (bowlForm: 'oval' | 'box') => buildFont({ ...st.params, freeFont: font, freeAt: freeAtOf(st.params), bowlForm } as Params);
@@ -541,8 +541,8 @@ describe("TypeLab's own fonts", () => {
       // (an O and an o squared off: filling more of their box)
       for (const ch of ['O', 'o']) assert.ok(fill(box.glyph(ch)!) > fill(oval.glyph(ch)!) + 0.01, `${id} ${ch}: squarer (${fill(oval.glyph(ch)!).toFixed(3)} → ${fill(box.glyph(ch)!).toFixed(3)})`);
       // (and nothing bending back the other way the font's own letter hasn't got: no dent where a bowl meets its stem, no
-      // wave along a side, no notch at an end)
-      for (const ch of 'Oocdbeasgq') assert.ok(turns(box.glyph(ch)!) <= turns(oval.glyph(ch)!) + 0.5, `${id} ${ch}: as clean as drawn (${turns(oval.glyph(ch)!)} → ${turns(box.glyph(ch)!)} turns)`);
+      // wave along a side, no notch at an end, an n's, an h's and a u's stems straight)
+      for (const ch of 'Oocdbeasgqnhu') assert.ok(turns(box.glyph(ch)!) <= turns(oval.glyph(ch)!) + 0.5, `${id} ${ch}: as clean as drawn (${turns(oval.glyph(ch)!)} → ${turns(box.glyph(ch)!)} turns)`);
     }
   });
 
