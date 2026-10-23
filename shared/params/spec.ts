@@ -130,7 +130,7 @@ export const SPECS = {
   build: option(BUILDS, 'strokes', { free: true }),
   blockForm: option(BLOCK_FORMS, 'basic'),
   bowlForm: option(BOWL_FORMS, 'oval', { free: true, control: { cat: 'curves', type: 'form', label: 'Bowls', friendly: 'Make bowls ovals or boxes', tech: 'Oval or box bowls', demo: 'OCS',
-    explain: 'Boxes have straight sides and corners round outside, square inside.' } }),
+    explain: 'Bowls square off into boxes with flat sides.' } }),
   boxRound: num(0.5, { free: true, sub: { parent: 'bowlForm', label: 'Corners', friendly: 'Round box bowls’ corners', tech: 'Box corner radius', lo: 'Sharp', hi: 'Wide' } }),
   curve: num(0.2, { free: true, control: { cat: 'curves', label: 'Curves', friendly: 'Geometric or organic curves', tech: 'Curve', lo: 'Geometric', hi: 'Organic', demo: 'Sae',
     explain: 'Compass-drawn circles, or fuller pen-like curves.' } }),

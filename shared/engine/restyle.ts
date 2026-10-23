@@ -14,7 +14,7 @@
 import { CURSIVE_FORMS, bowlK, bowlOrg, buildFont, cursiveHookR, dotRoundOf, innerRoundR, roundnessR, stencilOff, termSpec, type Effective, type Font } from './font';
 import { DEFAULTS, endReach, onEndScale, type Params } from '../params';
 import { drawnCmds, fitOutline, hasIn, hasOut, type Node } from './outline';
-import { CIRCLE_K, clamp, lerp, roundContour, signedArea, smoothstep, toPolys } from './geom';
+import { CIRCLE_K, clamp, lerp, roundContour, signedArea, smoothstep } from './geom';
 import { bez, branches, endFace, inkAt, inkGrid, joinsOf, leaving, nearestOn, roundTip, type Branch, type Grid, type Join, type SkPt, type Skeleton } from './scan';
 import { STEP_DEPTH, buildSerif, expandStroke, serifCup, serifSides, termCap, termDropBack } from './stroke';
 import { DROP_MIN, ROOM_KEEP, ROOM_MAX, reachingOf } from './ends';
@@ -85,13 +85,19 @@ function sampled(c: Node[], step = 3): P[] {
   for (let i = 0; i < c.length; i++) {
     const a = c[i], b = c[(i + 1) % c.length];
     pts.push({ x: a.x, y: a.y });
-    if (a.ox === undefined && b.ix === undefined) continue;
-    let len = 0, q = bez(a, b, 0);
-    for (let k = 1; k <= 16; k++) { const r = bez(a, b, k / 16); len += Math.hypot(r.x - q.x, r.y - q.y); q = r; }
-    const n = Math.max(2, Math.ceil(len / step));
-    for (let k = 1; k < n; k++) pts.push(bez(a, b, k / n));
+    for (const s of along(a, b, step)) pts.push(s.p);
   }
   return pts;
+}
+/** The points sampled takes between nodes a and b, about `step` apart, with how far along the curve each stands (t):
+    none along a straight side. */
+function along(a: Node, b: Node, step = 3): { t: number; p: P }[] {
+  if (a.ox === undefined && b.ix === undefined) return [];
+  let len = 0, q = bez(a, b, 0);
+  for (let k = 1; k <= 16; k++) { const r = bez(a, b, k / 16); len += Math.hypot(r.x - q.x, r.y - q.y); q = r; }
+  const n = Math.max(2, Math.ceil(len / step)), out: { t: number; p: P }[] = [];
+  for (let k = 1; k < n; k++) out.push({ t: k / n, p: bez(a, b, k / n) });
+  return out;
 }
 
 /** How nearly straight back, in radians short of a half turn, the outline must double back at a point for it to be
@@ -1899,7 +1905,7 @@ export function restyleBowls(cs: Node[][], from: BowlLook, to: BowlLook, sk: Ske
     if (!k.arcs.length) return cs;
     let memo = boxLimits.get(k);
     if (!memo) boxLimits.set(k, (memo = new Map()));
-    return boxBowls(k, to, unit, wiggles(cs, unit), memo, lean) ?? cs;
+    return boxBowls(cs, k, to, unit, wiggles(cs, unit), memo, lean) ?? cs;
   }
   let b = bowlScans.get(cs);
   if (!b) { b = scanBowls(cs, sk()); bowlScans.set(cs, b); }
@@ -1920,23 +1926,23 @@ export function restyleBowls(cs: Node[][], from: BowlLook, to: BowlLook, sk: Ske
   return refit(combine([ink], ink.has));
 }
 
-/* Box bowls on a free font's letters: its bowls, shoulders and hooks (an o's, an n's, an f's) squared off toward a
-   superellipse, a squircle: flatter sides, its corners still round, never a hard box (drawn as one, with straight sides and square insides, every place a bowl met a stem, a bar
-   or an end came out notched or spiked). Pushed out from one oval as Squareness pushes the outline, a contrasty o's
-   counter came out dented and a squarish font's bowls squared past square; so each bowl's outside and its inside are
-   each squared in a frame of their own, from the squircle they already lie along a share of the rest of the way to a
-   square, never rounder. Toward a join (a b's stem, an S's spine, a 3's waist) and anything held still the squaring
-   eases off round the oval, so the font's own outline runs on into it; at a free end (or one only a serif leaves, a
-   Didone C's beak) it doesn't, and the serif moves with the end. And a letter is squared only as far as keeps its
-   outline as clean as the font draws it, or not at all. */
+/* Box bowls on a free font's letters: its bowls, shoulders and hooks (an o's, an n's, an f's) squared off toward
+   squircles: flatter sides, their corners still round, never a hard box (drawn as one, every place a bowl met a stem,
+   a bar or an end came out notched). Squared a bowl at a time, round a frame of its own, a side came out uneven
+   wherever the letter's bowl wasn't the frame's oval (an e's left side waved, its counter's dome bumped, its terminal
+   jogged) and the outline traced again came out kinked; so the outline is squared a quarter at a time (boxQuarters):
+   each stretch of it between where it runs level or upright, turns a corner, or turns from bending one way to the
+   other, pushed toward the corner of the box its ends' headings span, from the squircle it lies along a share of the
+   rest of the way to a square, never rounder, its ends left where they stand heading as they did, so quarters, stems,
+   bars and ends meet as the font draws them. A quarter is squared as far as it lies beside a bowl where the skeleton
+   bends round (not a stem's corners), eased toward a join; the font's own curves are moved (movedCurves), not traced
+   again, so no node turns up where it had none and none it draws smooth breaks; and a letter is squared only as far as
+   adds no bend the other way round any of its contours, or not at all. */
 
 /** How much of the rest of the way to a square a bowl's corners are squared at the Bowls' Corners slider's ends: the
     most at Sharp (0), hardly any at Wide (1). */
 const BOX_SHARP = 0.75, BOX_WIDE = 0.1;
-/** How far off the squircle its skeleton lies along, as a share of its size, a bowl's skeleton may stand and still be
-    squared all the way, and over how much further it stops being squared at all. */
-const BOX_ON = 0.12, BOX_ON_FADE = 0.15;
-/** How far round the oval (radians) a bowl's squaring eases off toward a join: at least, where the join stands at an
+/** How far round the oval (radians) a bowl's squaring eases in from a join: at least, where the join stands at an
     extreme, and at most, half way between two. */
 const BOX_EASE_LEAST = 15 * Math.PI / 180, BOX_EASE_MOST = 80 * Math.PI / 180;
 /** An angle turned to within a half turn either way. */
@@ -1944,22 +1950,108 @@ const wrapTurn = (a: number) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
 /** How far round a stretch of the skeleton must turn (radians) for Box to square it: a shoulder's or a hook's quarter
     turn and more. */
 const BOX_ARC = 100 * Math.PI / 180;
-/** How far off heading on (radians) a bowl may turn at a join and still be read as running on through it into another
-    (an e's eye into its lower curve, round its left side: a 3's halves and a B's bowls meet at their waist square). */
+/** How far off heading on (radians) a bowl may turn at a join and still be read as running on through it into another,
+    not eased in from it (an e's eye into its lower curve, round its left side: a 3's halves and a B's bowls meet at
+    their waist square). */
 const BOX_THROUGH = 70 * Math.PI / 180;
 /** How far an arc may turn back in toward its middle (radians round the oval) before what runs on is cut off it. */
 const BOX_TURN_BACK = 10 * Math.PI / 180;
 /** How little (radians) the skeleton may turn along a run for it to be read as running on straight. */
 const BOX_STRAIGHT = 5 * Math.PI / 180;
-/** How far along the outline, in font units, each point's move is evened out with its neighbours' (the skeleton it is
-    read off steps from cell to cell). */
-const BOX_SMOOTH = 24;
 /** How many times a letter that can't be squared all the way cleanly is tried again, halving the share it is tried at,
     before it is left as the font draws it. */
 const BOX_TRIES = 4;
 /** How far apart along an outline its bends are read, in font units, and how little a step turns (radians) to count as
     running straight. */
-const BOX_STEP = 6, BOX_FLAT = 6 / 400, BOX_KINK = 0.5;
+const BOX_STEP = 6, BOX_FLAT = 6 / 400;
+/** A kink, read along an outline every third of a step: a turn of more than this (radians) within two of those, a
+    corner (a round of a dozen units or tighter, read on the letters as drawn). Read only of an outline traced again
+    (the font's curves moved keep every node it draws smooth so: a corner there is a squared one, Corners' Sharp). */
+const BOX_KINK = 0.35;
+
+/** How far a superellipse of exponent n reaches at angle t round it (1 along its axes). */
+const se = (t: number, n: number) => Math.pow(Math.pow(Math.abs(Math.cos(t)), n) + Math.pow(Math.abs(Math.sin(t)), n), -1 / n);
+/** The exponent of the superellipse whose corner, half way between its axes, reaches c (1 for a circle, √2 a square). */
+const ofCorner = (c: number) => 1 / (0.5 - Math.log2(clamp(c, 1 + 1e-6, Math.SQRT2 - 1e-6)));
+/** How sharply (radians) the outline turns between two of its points for Box to read a corner there, and how far its
+    turn over seven of them (some twenty units) must run the other way to read it as bending the other way. */
+const BOX_CORNER = 0.35, BOX_BENT = 0.03;
+/** How nearly level or upright (radians) a stretch of outline runs to be read as running so. */
+const BOX_LEVEL = Math.PI / 180;
+/** How far round (radians) a quarter must turn to be squared at all, and over as far again how it comes to be squared
+    fully. */
+const BOX_TURN_LEAST = 20 * Math.PI / 180;
+
+/** A ring's quarters, as Box squares them: each stretch of it between where it runs level or upright, turns a corner,
+    or turns from bending one way to bending the other (so it turns one way, a quarter turn at most), in the box its
+    ends' headings span (a rectangle between where it runs level and upright; between a corner's slant and the level,
+    the slant's way: square at the corner its headings meet at, C, across from its inner corner, O, the quarter's ends
+    at the other two). Each with its points between its ends in the box (u along the end's heading out of it, v along
+    the other: 0 at O, 1 at the far sides), the superellipse the stretch lies along best there (as how far that reaches at
+    each point's angle round it, and at its corner), and how fully it reads as a round to be squared: none for a stretch
+    turning hardly at all, or running all but straight across its box. */
+type Quarter = { idx: number[]; eu: P; ev: P; u: number[]; v: number[]; at: number[]; corner: number; full: number };
+function boxQuarters(r: P[]): Quarter[] {
+  const n = r.length, out: Quarter[] = [];
+  if (n < 8) return out;
+  const d = r.map((p, i) => ({ x: r[(i + 1) % n].x - p.x, y: r[(i + 1) % n].y - p.y }));
+  // (a side all but level or upright, within BOX_LEVEL, read as running level or upright: a stem leaning a hair is no
+  // quarter, nor are the rounds at its ends one with it)
+  const way = d.map(v => { const l = Math.hypot(v.x, v.y) * Math.sin(BOX_LEVEL); return [Math.abs(v.x) <= l ? 0 : Math.sign(v.x), Math.abs(v.y) <= l ? 0 : Math.sign(v.y)]; });
+  const turn = d.map((b, i) => { const a = d[(i - 1 + n) % n]; return Math.atan2(a.x * b.y - a.y * b.x, a.x * b.x + a.y * b.y); });
+  const bend = turn.map((_, i) => { let t = 0; for (let j = -3; j <= 3; j++) t += turn[(i + j + n) % n]; return t; });
+  // (the way it last bent, read round from the end)
+  let bent = 0;
+  for (let i = n - 1; i >= 0 && !bent; i--) if (Math.abs(bend[i]) > BOX_BENT) bent = Math.sign(bend[i]);
+  const cuts: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = way[(i - 1 + n) % n], b = way[i];
+    let cut = a[0] !== b[0] || a[1] !== b[1] || Math.abs(turn[i]) > BOX_CORNER;
+    if (Math.abs(bend[i]) > BOX_BENT) { if (bent && Math.sign(bend[i]) !== bent) cut = true; bent = Math.sign(bend[i]); }
+    if (cut) cuts.push(i);
+  }
+  const at = (i: number) => r[((i % n) + n) % n];
+  // (the way it heads out of an end, read off the next two points: as a curve through the three)
+  const heads = (i: number, dir: 1 | -1) => {
+    const a = at(i), b = at(i + dir), c = at(i + 2 * dir);
+    const v = { x: dir * (-3 * a.x + 4 * b.x - c.x), y: dir * (-3 * a.y + 4 * b.y - c.y) }, l = Math.hypot(v.x, v.y);
+    return l > 1e-9 ? { x: v.x / l, y: v.y / l } : null;
+  };
+  for (let k = 0; k < cuts.length; k++) {
+    const i0 = cuts[k], i1 = k + 1 < cuts.length ? cuts[k + 1] : cuts[0] + n;
+    if (i1 - i0 < 4) continue;
+    const P0 = at(i0), P1 = at(i1), t0 = heads(i0, 1), t1 = heads(i1, -1);
+    if (!t0 || !t1) continue;
+    // (t1 the way it comes into its far end, X where the two headings meet: ahead of the first end, behind the far one)
+    const det = t0.x * t1.y - t0.y * t1.x, turned = Math.acos(clamp(t0.x * t1.x + t0.y * t1.y, -1, 1));
+    if (Math.abs(det) < 1e-6 || turned < BOX_TURN_LEAST) continue;
+    const dx = P1.x - P0.x, dy = P1.y - P0.y, a = (dx * t1.y - dy * t1.x) / det, b = (t0.x * dy - t0.y * dx) / det;
+    if (!(a > 0 && b > 0)) continue;
+    const X = { x: P0.x + t0.x * a, y: P0.y + t0.y * a }, O = { x: P0.x + P1.x - X.x, y: P0.y + P1.y - X.y };
+    const eu = { x: X.x - P0.x, y: X.y - P0.y }, ev = { x: X.x - P1.x, y: X.y - P1.y }, de = eu.x * ev.y - eu.y * ev.x;
+    if (Math.min(Math.hypot(eu.x, eu.y), Math.hypot(ev.x, ev.y)) < 1.5 || Math.abs(de) < 1e-9) continue;
+    const idx: number[] = [], u: number[] = [], v: number[] = [];
+    let off = 0;
+    for (let i = i0 + 1; i < i1; i++) {
+      const q = at(i), px = q.x - O.x, py = q.y - O.y, uu = (px * ev.y - py * ev.x) / de, vv = (eu.x * py - eu.y * px) / de;
+      if (uu < -0.05 || vv < -0.05 || uu > 1.05 || vv > 1.05) off++;
+      idx.push(i % n); u.push(clamp(uu, 0, 1)); v.push(clamp(vv, 0, 1));
+    }
+    // (a stretch that runs out past its box, bending back the other way, is no quarter)
+    if (off > 0.1 * idx.length) continue;
+    let best = { n: 2, e: Infinity };
+    for (let m = 1; m <= 16; m += 0.25) {
+      let e = 0;
+      for (let j = 0; j < u.length; j++) { const g = Math.pow(Math.pow(u[j], m) + Math.pow(v[j], m), 1 / m) - 1; e += g * g; }
+      if (e < best.e) best = { n: m, e };
+    }
+    out.push({
+      idx, eu, ev, u, v, at: u.map((x, j) => se(Math.atan2(v[j], x), best.n)), corner: se(Math.PI / 4, best.n),
+      full: smoothstep((best.n - 1.3) / 0.5) * smoothstep((turned - BOX_TURN_LEAST) / BOX_TURN_LEAST)
+    });
+  }
+  return out;
+}
 
 /** A letter's bowls as read off it, stood upright: its lean (how far across its stems run for each unit up) taken out
     of the outline and the skeleton, each arc's oval fitted again and its angles round it read again. */
@@ -2036,29 +2128,25 @@ function roundOnly(b: BowlScan): BowlScan {
   })) };
 }
 
-function boxBowls(scan: BowlScan, to: BowlLook, unit: number, was: { bends: number; kinks: number }, memo: Map<string, number>, lean = 0, back = (cs: Node[][]) => cs): Node[][] | null {
-  // (an italic's bowls squared upright and leaned again, leaning as its stems do: each try judged leaned, as it is drawn)
-  if (Math.abs(lean) > 1e-3) {
-    const sh = (x: number | undefined, y: number | undefined) => (x === undefined ? undefined : x + y! * lean);
-    const leaned = (cs: Node[][]) => cs.map(c => c.map(n => {
-      const m: Node = { ...n, x: n.x + n.y * lean };
-      if (n.ix !== undefined) m.ix = sh(n.ix, n.iy);
-      if (n.ox !== undefined) m.ox = sh(n.ox, n.oy);
-      return m;
-    }));
-    const out = boxBowls(upright(scan, lean), to, unit, was, memo, 0, leaned);
-    return out && leaned(out);
-  }
-  const { arcs, rings, how, near } = roundOnly(scan);
+function boxBowls(cs: Node[][], scan: BowlScan, to: BowlLook, unit: number, was: Wiggles, memo: Map<string, number>, lean = 0): Node[][] | null {
+  // (an italic's bowls squared upright and leaned again, leaning as its stems do)
+  if (Math.abs(lean) < 1e-3) lean = 0;
+  const sh = (x: number | undefined, y: number | undefined) => (x === undefined ? undefined : x + y! * lean);
+  const leaned = (out: Node[][]) => lean ? out.map(c => c.map(n => {
+    const m: Node = { ...n, x: n.x + n.y * lean };
+    if (n.ix !== undefined) m.ix = sh(n.ix, n.iy);
+    if (n.ox !== undefined) m.ox = sh(n.ox, n.oy);
+    return m;
+  })) : out;
+  const { arcs, rings, how } = roundOnly(lean ? upright(scan, lean) : scan);
+  // (each point of the font's outline found again among the outline as read, stood upright as upright stands it)
+  const plan = curvePlan(cs, rings, lean ? q => `${q.x - q.y * lean},${q.y}` : q => `${q.x},${q.y}`);
   // (an end that runs out free, or into a serif and no further)
   const loose = (A: Arc, end: number) => A.free[end] || A.spurs[end].length > 0;
-  // how far each arc's skeleton point is squared, from none to all of it: all of it while the skeleton runs round the
-  // bowl (on the squircle it lies along best, a straight side of a squarish bowl too), none where it has left it (an n's
-  // stem run on below its arch, a D's stem past its bowl's corners, an e's bar across its eye) and at a join (not a free
-  // end); and from wherever it is held back, rising again round the oval no faster than over a stretch the longer the
-  // further that place stands from the oval's extremes (a squircle's corner reaches out most half way between them: an
-  // a's bowl running into its stem there eases in over most of a quarter, an e's into its bar, level with its middle,
-  // hardly); then evened out along the arc
+  // how far each arc's skeleton point is squared, from none to all of it: none at a join (not a free end), rising
+  // again round the oval no faster than over a stretch the longer the further the join stands from the oval's extremes
+  // (a squircle's corner reaches out most half way between them: an a's bowl running into its stem there eases in over
+  // most of a quarter, an e's into its bar, level with its middle, hardly); then evened out along the arc
   // (a join one bowl runs on through into another, heading on the way it came, an e's eye into its lower curve down its
   // left side: no join to ease off into, the two squared as one there)
   // (read between one and three strokes' widths out from the join, past where its skeleton bends off toward the third
@@ -2076,41 +2164,22 @@ function boxBowls(scan: BowlScan, to: BowlLook, unit: number, was: { bends: numb
     if (-(a.x * b.x + a.y * b.y) > Math.cos(BOX_THROUGH)) { through.add(`${ai}:${ea}`); through.add(`${bi}:${eb}`); }
   }))));
   const weights = new Map<Arc, number[]>(arcs.map((A, ai) => {
-    const last = A.th.length - 1, open = [loose(A, 0) || through.has(`${ai}:0`), loose(A, 1) || through.has(`${ai}:1`)];
-    const us = A.th.map((_, k) => { const q = A.pts[A.i0 + k]; return [Math.abs((q.x - A.cx) / A.ax), Math.abs((q.y - A.cy) / A.ay)]; });
-    let best = { e: Infinity, g: us.map(() => 1) };
-    for (let n = 2; n <= 10; n += 0.25) {
-      const g = us.map(([u, v]) => Math.pow(Math.pow(u, n) + Math.pow(v, n), 1 / n)), mean = g.reduce((a, b) => a + b, 0) / g.length;
-      const e = g.reduce((a, b) => a + (b / mean - 1) ** 2, 0);
-      if (e < best.e) best = { e, g: g.map(x => x / mean) };
-    }
-    const held = A.th.map((_, k) => {
-      let w = 1 - smoothstep((Math.abs(best.g[k] - 1) - BOX_ON) / BOX_ON_FADE);
-      if (!A.ring || A.knot) { if ((k === 0 && !open[0]) || (k === last && !open[1])) w = 0; }
-      return w;
-    });
+    // (held at a join only: not where it ends part way along its stroke, run on straight into a stem, an h's, or into
+    // the other half of an S, the outline running on there)
+    const last = A.th.length - 1, open = [0, 1].map(e => A.nodes[e] < 0 || loose(A, e) || through.has(`${ai}:${e}`));
+    const held = A.th.map((_, k): number => ((!A.ring || A.knot) && ((k === 0 && !open[0]) || (k === last && !open[1])) ? 0 : 1));
     const span = A.th.map(t => Math.max(BOX_EASE_LEAST, BOX_EASE_MOST * Math.sin(2 * Math.abs(t - Math.round(t / (Math.PI / 2)) * Math.PI / 2))));
+    // (a ring is held only where a stroke leaves it, an e's eye at its bar, and its ends there aren't neighbours round
+    // it: its outside runs on from its other end into the stroke the bar leaves, an e's lower curve)
     const raw = held.slice(), m = raw.length;
-    // (swept both ways, round a ring twice so the rise runs on past where its edge starts)
-    for (let pass = 0; pass < (A.ring ? 2 : 1); pass++) for (const dir of [1, -1]) for (let s = 1; s < m; s++) {
+    for (const dir of [1, -1]) for (let s = 1; s < m; s++) {
       const k = dir > 0 ? s : m - 1 - s, j = k - dir;
-      if (j < 0 || j >= m) continue;
       raw[k] = Math.min(raw[k], raw[j] + Math.abs(A.th[k] - A.th[j]) / span[k]);
-    }
-    if (A.ring) for (let pass = 0; pass < 2; pass++) {
-      // (across the seam: the last point and the first are neighbours round the ring)
-      raw[0] = Math.min(raw[0], raw[m - 1] + Math.abs(wrapTurn(A.th[0] - A.th[m - 1])) / span[0]);
-      for (let k = 1; k < m; k++) raw[k] = Math.min(raw[k], raw[k - 1] + Math.abs(A.th[k] - A.th[k - 1]) / span[k]);
-      raw[m - 1] = Math.min(raw[m - 1], raw[0] + Math.abs(wrapTurn(A.th[0] - A.th[m - 1])) / span[m - 1]);
-      for (let k = m - 2; k >= 0; k--) raw[k] = Math.min(raw[k], raw[k + 1] + Math.abs(A.th[k] - A.th[k + 1]) / span[k]);
     }
     for (let k = 0; k < m; k++) raw[k] = smoothstep(raw[k]);
     return [A, raw.map((_, k) => {
       let x = 0, c = 0;
-      for (let j = -6; j <= 6; j++) {
-        const i = A.ring ? (k + j + raw.length) % raw.length : clamp(k + j, 0, last), wt = 7 - Math.abs(j);
-        x += raw[i] * wt; c += wt;
-      }
+      for (let j = -6; j <= 6; j++) { const wt = 7 - Math.abs(j); x += raw[clamp(k + j, 0, last)] * wt; c += wt; }
       return x / c;
     })];
   }));
@@ -2126,147 +2195,264 @@ function boxBowls(scan: BowlScan, to: BowlLook, unit: number, was: { bends: numb
     const s = (nx.y - pr.y) * (p.x - A.cx) - (nx.x - pr.x) * (p.y - A.cy) < 0 ? -1 : 1;
     return s * ((p.x - q.x) * (q.x - A.cx) + (p.y - q.y) * (q.y - A.cy)) < 0 ? null : s;
   }));
-  // each arc's outside and inside read in a frame of their own: a ring's by how far it reaches each way (so a
-  // contrasty o's counter, narrower in the bowl's measure than its outside, squares as itself), an open bowl's by an
-  // oval fitted to it where it runs round far enough to fit one, else the skeleton's oval and half its stroke; then the
-  // squircle each lies along best in it (an exponent of 2, an oval, up: the font's bowls may be squarish already), and
-  // each squared a share of the rest of the way to a square at its corners (Corners): never rounder than the font draws
-  // it, and from a squarish bowl no further out than from an oval
-  type Frame = { cx: number; cy: number; ax: number; ay: number; from: number; corner: number; box: boolean };
-  const se = (t: number, n: number) => Math.pow(Math.pow(Math.abs(Math.cos(t)), n) + Math.pow(Math.abs(Math.sin(t)), n), -1 / n);
-  const ofCorner = (c: number) => 1 / (0.5 - Math.log2(clamp(c, 1 + 1e-6, Math.SQRT2 - 1e-6)));
-  // (the points of each arc's outside and inside, each with how far its place is squared)
-  const sidePts = new Map<Arc, { ps: [P[], P[]]; ws: [number[], number[]] }>(arcs.map(A => [A, { ps: [[], []], ws: [[], []] }]));
-  rings.forEach((r, ri) => r.forEach((p, i) => {
-    const h = how[ri][i], s = sideOf[ri][i];
-    if (!h || s === null || Math.abs(s) < 1) return;
-    const sp = sidePts.get(h.arc)!, k = s > 0 ? 0 : 1;
-    sp.ps[k].push(p); sp.ws[k].push(0.05 + weights.get(h.arc)![h.qi - h.arc.i0]);
+  // how far each point of the outline is squared: as far as its arc's skeleton point beside it, where the skeleton
+  // bends round (not where it runs straight, nor round a corner: a B's stem's, its bowls run on down into it), or none
+  // off the bowls (nor where it faces the paper across the skeleton)
+  // (beside where a ring is joined, its two ends stand at the same place: the outline there runs on from the one let go)
+  const wAt = rings.map((r, ri) => r.map((_, i) => {
+    const h = how[ri][i];
+    if (!h || sideOf[ri][i] === null) return null;
+    const ws = weights.get(h.arc)!, k = h.qi - h.arc.i0;
+    return (h.arc.knot && (k <= 1 || k >= ws.length - 2) ? Math.max(ws[0], ws[ws.length - 1]) : ws[k]) * h.arc.bend[h.qi];
   }));
-  const frameOf = (ps: P[], ws: number[], ring: boolean, fall: { cx: number; cy: number; ax: number; ay: number }): Frame => {
-    let v = fall, box = false;
-    if (ps.length >= 12 && ring) {
-      box = true;
-      const xs = ps.map(p => p.x), ys = ps.map(p => p.y), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-      v = { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, ax: Math.max(1, (x1 - x0) / 2), ay: Math.max(1, (y1 - y0) / 2) };
-    } else if (ps.length >= 12) {
-      const fit = ovalFit(ps, ws);
-      // (where it runs round at least half way and more in the fitted oval's measure)
-      if (fit && fit.ax > 0 && fit.ay > 0) {
-        const ts = ps.map(p => Math.atan2((p.y - fit.cy) / fit.ay, (p.x - fit.cx) / fit.ax)).sort((a, b) => a - b);
-        let gap = ts[0] + 2 * Math.PI - ts[ts.length - 1];
-        for (let j = 1; j < ts.length; j++) gap = Math.max(gap, ts[j] - ts[j - 1]);
-        if (gap < Math.PI * 0.8) v = fit;
-      }
+  // each quarter squared alike all along (its ends stay where they are, so quarters squared unlike meet cleanly): as far
+  // as its points beside a bowl are, on the whole, a quarter only part of which is beside one less (the foot of an h's
+  // shoulder, run on toward its stem, as the rest), one hardly beside one not at all (a serif's bracket)
+  // (read along it: a long straight side is one point at each end, a round many)
+  const quarters = rings.map((r, ri) => boxQuarters(r).map(q => {
+    let all = 0, on = 0, w = 0;
+    for (const i of q.idx) {
+      const n = r.length, l = (Math.hypot(r[(i + 1) % n].x - r[i].x, r[(i + 1) % n].y - r[i].y) + Math.hypot(r[i].x - r[(i - 1 + n) % n].x, r[i].y - r[(i - 1 + n) % n].y)) / 2, wi = wAt[ri][i];
+      all += l;
+      if (wi !== null) { on += l; w += wi * l; }
     }
-    let best = { n: 2, e: Infinity };
-    if (ps.length >= 12) for (let n = 2; n <= 10; n += 0.25) {
-      let sw = 0, m = 0, m2 = 0;
-      ps.forEach((p, j) => {
-        const g = Math.pow(Math.pow(Math.abs((p.x - v.cx) / v.ax), n) + Math.pow(Math.abs((p.y - v.cy) / v.ay), n), 1 / n);
-        sw += ws[j]; m += ws[j] * g; m2 += ws[j] * g * g;
+    return { ...q, full: q.full * (on ? w / on : 0) * smoothstep((on / Math.max(all, 1e-9) - 0.2) / 0.3) };
+  }));
+  // how far each point moves: each quarter of the outline squared in its own box, its two ends where they are, each
+  // point out from the box's inner corner by as far as the squircle `share` of the rest of the way to a square reaches
+  // past the one the quarter lies along, Facets cutting it toward an octagon, kept inside the box
+  const moves = (share: number, cut: number) => rings.map((r, ri) => {
+    const d = r.map(() => ({ x: 0, y: 0 }));
+    for (const q of quarters[ri]) {
+      const to = ofCorner(q.corner + (Math.SQRT2 - q.corner) * share);
+      q.idx.forEach((i, k) => {
+        const u = q.u[k], v = q.v[k], t = Math.atan2(v, u), c = Math.cos(t), sn = Math.sin(t);
+        const oct = Math.min(1 / Math.max(c, 1e-6), 1 / Math.max(sn, 1e-6), Math.SQRT2 / (c + sn)), want = se(t, to);
+        // (how far short of the box's sides it stands, read smoothly round its corner, scaled as far as the squircle
+        // stands short of them against the one the quarter lies along: so that one lands on the squircle, a point on a
+        // side stays on it, and none goes past one)
+        const box = (x: number, y: number) => Math.pow(Math.pow(x, 40) + Math.pow(y, 40), 1 / 40), b0 = box(u, v), bc = box(c, sn);
+        const bf = q.at[k] * bc, bt = (want + (oct - want) * Math.min(1, cut)) * bc;
+        const now = 1 - (1 - b0) * clamp((1 - bt) / Math.max(1 - bf, 1e-9), 0, 2);
+        const f = (b0 > 1e-9 ? now / b0 - 1 : 0) * q.full;
+        d[i] = { x: (u * q.eu.x + v * q.ev.x) * f, y: (u * q.eu.y + v * q.ev.y) * f };
       });
-      const mean = m / sw, e = m2 / sw / (mean * mean) - 1;
-      if (e < best.e) best = { n, e };
     }
-    return { ...v, from: best.n, corner: se(Math.PI / 4, best.n), box };
-  };
-  const frames = new Map<Arc, [Frame, Frame]>(arcs.map(A => {
-    const { ps: [po, pi], ws: [wo, wi] } = sidePts.get(A)!, rs = A.pts.slice(A.i0, A.i1 + 1).map(q => q.r).sort((a, b) => a - b), r = rs[rs.length >> 1];
-    const fall = (sg: number) => ({ cx: A.cx, cy: A.cy, ax: Math.max(1, A.ax + sg * r), ay: Math.max(1, A.ay + sg * r) });
-    return [A, [frameOf(po, wo, A.ring, fall(1)), frameOf(pi, wi, A.ring, fall(-1))]];
-  }));
-  // (bowls one runs on through into the other, an e's eye and its lower curve, squared outside as one, round the whole
-  // letter's middle: each alone would square its own corners about its own)
-  const groups = arcs.map((_, i) => i), top = (i: number): number => (groups[i] === i ? i : (groups[i] = top(groups[i])));
-  for (const key of through) { const [ai] = key.split(':').map(Number); for (const k2 of through) { const [bi] = k2.split(':').map(Number); if (ai !== bi && arcs[ai].nodes.some(n => n >= 0 && arcs[bi].nodes.includes(n))) groups[top(ai)] = top(bi); } }
-  const byGroup = new Map<number, Arc[]>();
-  arcs.forEach((A, i) => { const g = top(i); if (!byGroup.has(g)) byGroup.set(g, []); byGroup.get(g)!.push(A); });
-  for (const group of byGroup.values()) {
-    if (group.length < 2) continue;
-    const ps = group.flatMap(A => sidePts.get(A)!.ps[0]), ws = group.flatMap(A => sidePts.get(A)!.ws[0]);
-    const one = frameOf(ps, ws, true, frames.get(group[0])![0]);
-    for (const A of group) frames.get(A)![0] = one;
-  }
-  // how far a point moves, out from its side's middle by as far as the squared side reaches past the font's at its angle
-  // round it, Facets cutting it toward an octagon, a ring's never out past its own reach (a D's square corners, its stem,
-  // stay where they stand); across an end's cut, between the two sides' moves
-  const squared = (v: Frame, p: P, share: number, cut: number): P => {
-    const t = Math.atan2((p.y - v.cy) / v.ay, (p.x - v.cx) / v.ax), c = Math.abs(Math.cos(t)), s = Math.abs(Math.sin(t));
-    const oct = Math.min(1 / Math.max(c, 1e-6), 1 / Math.max(s, 1e-6), Math.SQRT2 / (c + s)), want = se(t, ofCorner(v.corner + (Math.SQRT2 - v.corner) * share));
-    const f = (want + (oct - want) * Math.min(1, cut)) / se(t, v.from) - 1;
-    let x = (p.x - v.cx) * f, y = (p.y - v.cy) * f;
-    if (v.box) {
-      x = clamp(p.x + x, Math.min(p.x, v.cx - v.ax), Math.max(p.x, v.cx + v.ax)) - p.x;
-      y = clamp(p.y + y, Math.min(p.y, v.cy - v.ay), Math.max(p.y, v.cy + v.ay)) - p.y;
+    return d;
+  });
+  // the letter moved `of` the way those moves go (1 all of it): the font's own curves moved (movedCurves), none should
+  // they cross where they move; or should the font's outline not be found as read, its outline as read moved and traced
+  // again
+  const drawn = (ds: P[][], of: number): Node[][] | null => {
+    if (plan) {
+      const out = movedCurves(plan, ([ri, i]) => ({ x: (ds[ri][i].x + ds[ri][i].y * lean) * of, y: ds[ri][i].y * of }));
+      return crossed(out) ? null : tame(out);
     }
-    return { x, y };
-  };
-  const shift = (A: Arc, p: P, s: number, w: number, share: number, cut: number): P => {
-    const [o, i] = frames.get(A)!, a = squared(i, p, share, cut), b = squared(o, p, share, cut), t = (s + 1) / 2;
-    return { x: (a.x + (b.x - a.x) * t) * w, y: (a.y + (b.y - a.y) * t) * w };
-  };
-  // each point of the outline moved as its side is squared, `share` of the rest of the way to a square (a serif off a
-  // free end, as that end's middle)
-  const moves = (share: number, cut: number) => rings.map((r, ri) => r.map((p, i): P => {
-    const h = how[ri][i], s = sideOf[ri][i];
-    if (h && s !== null) return shift(h.arc, p, s, weights.get(h.arc)![h.qi - h.arc.i0], share, cut);
-    for (const A of arcs) for (const end of [0, 1]) if (A.spurs[end].includes(near[ri][i])) return shift(A, p, 0, weights.get(A)![end ? A.th.length - 1 : 0], share, cut);
-    return { x: 0, y: 0 };
-  }));
-  // the letter moved `of` the way those moves go (1 all of it)
-  const drawn = (ds: P[][], of: number) => {
     const moved = rings.map((r, ri) => {
-    const d = ds[ri], share = of;
-    // (evened out along the outline, over a stretch, not across a long straight run's far end)
-    const nn = r.length, len = r.map((p, i) => Math.hypot(r[(i + 1) % nn].x - p.x, r[(i + 1) % nn].y - p.y));
-    const out = r.map((p, i) => {
-      let x = d[i].x, y = d[i].y, c = 1;
-      for (const dir of [-1, 1]) {
-        let k = i, l = 0;
-        for (let s = 0; s < nn; s++) {
-          l += dir > 0 ? len[k] : len[(k - 1 + nn) % nn];
-          k = (k + dir + nn) % nn;
-          if (l > BOX_SMOOTH || k === i) break;
-          const wt = 1 - l / BOX_SMOOTH;
-          x += d[k].x * wt; y += d[k].y * wt; c += wt;
-        }
-      }
-      return { x: p.x + x / c * share, y: p.y + y / c * share };
-    });
-    // (a ring the squircle would fold over on itself or squeeze flat stays the font's)
-    const was = signedArea(r), now = signedArea(out);
-    return now * was <= 0 || Math.abs(now) < 0.6 * Math.abs(was) || Math.abs(now) > 1.8 * Math.abs(was) ? r : out;
+      const out = r.map((p, i) => ({ x: p.x + ds[ri][i].x * of, y: p.y + ds[ri][i].y * of }));
+      // (a ring the squircle would fold over on itself or squeeze flat stays the font's)
+      const was = signedArea(r), now = signedArea(out);
+      return now * was <= 0 || Math.abs(now) < 0.6 * Math.abs(was) || Math.abs(now) > 1.8 * Math.abs(was) ? r : out;
     });
     const ink = shape(moved);
-    return tame(refit(combine([ink], ink.has)));
+    return leaned(tame(refit(combine([ink], ink.has))));
   };
   // (squared only as far as keeps the letter's outline as clean as the font draws it, `was` as read off it as it came: no
   // bend the other way along it the font's hasn't got, no kink, a dent or a wave where the squaring meets what it leaves
-  // as it was; else the font's own. How far it can move and stay so is found once, at Corners' squarest, uncut and cut
-  // all the way by Facets (between the two for Facets between), to within a sixteenth: any setting squares it as asked
-  // up to that, so a letter squares on smoothly as either slider is dragged, not by fits and starts, levelling off where
-  // it would go further than stays clean)
-  const clean = (cs: Node[][]) => { const w = wiggles(back(cs), unit); return w.bends <= was.bends && w.kinks <= was.kinks; };
+  // as it was; else the font's own. How much of its moves it can take and stay so is found once, at Corners' squarest,
+  // uncut and cut all the way by Facets (between the two for Facets between), to within a sixteenth, and every setting
+  // takes as much of its own: each point moves the further the squarer Corners asks, so a letter squares on smoothly as
+  // either slider is dragged, not by fits and starts)
+  // (a kink as well, should its outline be traced again: the font's curves moved keep every node that runs smooth so,
+  // so none comes but a squared corner)
+  const clean = (out: Node[][] | null): out is Node[][] => {
+    if (!out) return false;
+    const w = wiggles(out, unit);
+    return !newWiggles({ bends: w.bends, kinks: plan ? [] : w.kinks }, was, unit);
+  };
   const most = (ds: P[][], hi: number) => {
     if (clean(drawn(ds, hi))) return hi;
     let lo = 0;
     for (let k = 0; k < BOX_TRIES; k++) { const mid = (lo + hi) / 2; if (clean(drawn(ds, mid))) lo = mid; else hi = mid; }
     return lo;
   };
-  const reach = (ds: P[][]) => Math.max(1e-6, ...ds.flat().map(d => Math.hypot(d.x, d.y)));
   const at = (cut: number) => {
     let v = memo.get(`${cut}`);
-    if (v === undefined) { const ds = moves(BOX_SHARP, cut); memo.set(`${cut}`, (v = most(ds, 1) * reach(ds))); }
+    if (v === undefined) memo.set(`${cut}`, (v = most(moves(BOX_SHARP, cut), 1)));
     return v;
   };
-  const cut = clamp(to.chamfer), far = cut > 0 ? lerp(at(0), at(1), cut) : at(0);
-  if (!far) return null;
-  const ds = moves(BOX_WIDE + (BOX_SHARP - BOX_WIDE) * Math.pow(1 - clamp(to.round), 1.5), cut), limit = Math.min(1, far / reach(ds)), out = drawn(ds, limit);
+  const cut = clamp(to.chamfer), limit = cut > 0 ? lerp(at(0), at(1), cut) : at(0);
+  if (!limit) return null;
+  const ds = moves(BOX_WIDE + (BOX_SHARP - BOX_WIDE) * Math.pow(1 - clamp(to.round), 1.5), cut), out = drawn(ds, limit);
   if (clean(out)) return out;
   // (and should a gentler squaring come out less clean than the squarest, gentler still)
   const less = most(ds, limit);
   return less ? drawn(ds, less) : null;
+}
+
+/** How far (font units) a curve drawn again along a moved stretch of outline may stand off it before it is split in
+    two. */
+const BOX_FIT = 0.3;
+/** How nearly (radians) the way an outline comes into a node and the way it leaves must agree for the node to be
+    read as smooth, the outline running on through it. */
+const SMOOTH_NODE = 3 * Math.PI / 180;
+
+/** Each segment of each contour, its ends and the points sampled takes along it (how far along each stands, where it
+    stands, and which point of the outline as read it is): null should one not be found there (contours overlapping,
+    their outline as read cut where they cross). */
+type CurvePlan = { a: Node; b: Node; line: boolean; ts: number[]; os: P[]; at: [number, number][] }[][];
+function curvePlan(cs: Node[][], rings: P[][], key: (p: P) => string): CurvePlan | null {
+  const index = new Map<string, [number, number]>();
+  rings.forEach((r, ri) => r.forEach((q, i) => index.set(`${q.x},${q.y}`, [ri, i])));
+  const plan: CurvePlan = [];
+  for (const c of cs) {
+    const segs: CurvePlan[number] = [];
+    for (let j = 0; j < c.length; j++) {
+      const a = c[j], b = c[(j + 1) % c.length], line = a.ox === undefined && b.ix === undefined;
+      const ts = [0], os: P[] = [a], at: [number, number][] = [];
+      for (const s of along(a, b)) { ts.push(s.t); os.push(s.p); }
+      ts.push(1); os.push(b);
+      for (const q of os) { const f = index.get(key(q)); if (!f) return null; at.push(f); }
+      segs.push({ a, b, line, ts, os, at });
+    }
+    plan.push(segs);
+  }
+  return plan;
+}
+
+/** v at length 1 (along x should it have none). */
+const unitOr = (v: P): P => { const l = Math.hypot(v.x, v.y); return l > 1e-12 ? { x: v.x / l, y: v.y / l } : { x: 1, y: 0 }; };
+
+/** Cubics from the first of points ps to the last, through the rest (at ts along, 0 to 1), heading `ua` out of the first
+    and `ub` into the last: the handles as long as follow them best (least squares, the points' places along it read
+    again twice), split at the point it misses most should one miss any by more than BOX_FIT (a smooth node there,
+    heading the way the points run through it). */
+function fitMoved(ps: P[], ts: number[], ua: P, ub: P, depth: number): P[][] {
+  const m = ps.length - 1, A = ps[0], B = ps[m], L = Math.hypot(B.x - A.x, B.y - A.y);
+  const at = (C: P[], t: number) => { const u = 1 - t; return { x: u * u * u * C[0].x + 3 * u * u * t * C[1].x + 3 * u * t * t * C[2].x + t * t * t * C[3].x, y: u * u * u * C[0].y + 3 * u * u * t * C[1].y + 3 * u * t * t * C[2].y + t * t * t * C[3].y }; };
+  const d1 = (C: P[], t: number) => { const u = 1 - t; return { x: 3 * u * u * (C[1].x - C[0].x) + 6 * u * t * (C[2].x - C[1].x) + 3 * t * t * (C[3].x - C[2].x), y: 3 * u * u * (C[1].y - C[0].y) + 6 * u * t * (C[2].y - C[1].y) + 3 * t * t * (C[3].y - C[2].y) }; };
+  const d2 = (C: P[], t: number) => ({ x: 6 * (1 - t) * (C[2].x - 2 * C[1].x + C[0].x) + 6 * t * (C[3].x - 2 * C[2].x + C[1].x), y: 6 * (1 - t) * (C[2].y - 2 * C[1].y + C[0].y) + 6 * t * (C[3].y - 2 * C[2].y + C[1].y) });
+  const solve = (us: number[]): P[] => {
+    let c00 = 0, c01 = 0, c11 = 0, x0 = 0, x1 = 0;
+    for (let k = 1; k < m; k++) {
+      const t = us[k], u = 1 - t, b0 = u * u * u, b1 = 3 * u * u * t, b2 = 3 * u * t * t, b3 = t * t * t;
+      const a1 = { x: ua.x * b1, y: ua.y * b1 }, a2 = { x: -ub.x * b2, y: -ub.y * b2 };
+      const rx = ps[k].x - (A.x * (b0 + b1) + B.x * (b2 + b3)), ry = ps[k].y - (A.y * (b0 + b1) + B.y * (b2 + b3));
+      c00 += a1.x * a1.x + a1.y * a1.y; c01 += a1.x * a2.x + a1.y * a2.y; c11 += a2.x * a2.x + a2.y * a2.y;
+      x0 += a1.x * rx + a1.y * ry; x1 += a2.x * rx + a2.y * ry;
+    }
+    const det = c00 * c11 - c01 * c01;
+    let al = Math.abs(det) > 1e-12 ? (x0 * c11 - x1 * c01) / det : NaN, be = Math.abs(det) > 1e-12 ? (c00 * x1 - c01 * x0) / det : NaN;
+    if (!(al > L * 1e-3) || !(be > L * 1e-3)) al = be = L / 3;
+    return [A, { x: A.x + ua.x * al, y: A.y + ua.y * al }, { x: B.x - ub.x * be, y: B.y - ub.y * be }, B];
+  };
+  let us = ts.slice(), C = solve(us);
+  for (let pass = 0; pass < 2; pass++) {
+    us = us.map((t, k) => {
+      if (k === 0 || k === m) return t;
+      const q = at(C, t), v = d1(C, t), w = d2(C, t), dx = q.x - ps[k].x, dy = q.y - ps[k].y;
+      const den = v.x * v.x + v.y * v.y + dx * w.x + dy * w.y;
+      return Math.abs(den) > 1e-12 ? clamp(t - (dx * v.x + dy * v.y) / den, 0, 1) : t;
+    });
+    C = solve(us);
+  }
+  let worst = 0, wk = 0;
+  for (let k = 1; k < m; k++) { const q = at(C, us[k]), e = Math.hypot(q.x - ps[k].x, q.y - ps[k].y); if (e > worst) { worst = e; wk = k; } }
+  if (worst <= BOX_FIT || m < 6 || depth >= 3) return [C];
+  const k = clamp(wk, 2, m - 2), mid = unitOr({ x: ps[k + 1].x - ps[k - 1].x, y: ps[k + 1].y - ps[k - 1].y });
+  const left = ts.slice(0, k + 1).map(t => t / ts[k]), right = ts.slice(k).map(t => (t - ts[k]) / (1 - ts[k]));
+  return [...fitMoved(ps.slice(0, k + 1), left, ua, mid, depth + 1), ...fitMoved(ps.slice(k), right, mid, ub, depth + 1)];
+}
+
+/** The contours of a plan (curvePlan) with their outline moved, `move` giving how far each of its points goes: each
+    node moved, each curve drawn again between them heading out of and into them as the moved outline does there (on
+    through a node the font draws smooth, no corner where it had none), its handles as long as follow the moved points
+    best, and split where one curve can't follow them within BOX_FIT. The font's own nodes, none where it had none, and
+    a curve nothing moves as it was; a contour moved till it folds over or squeezes flat stays the font's. */
+function movedCurves(plan: CurvePlan, move: (at: [number, number]) => P): Node[][] {
+  return plan.map(segs => {
+    const n = segs.length, font = segs.map(sg => sg.a);
+    const moved = segs.map(sg => sg.os.map((q, k) => { const d = move(sg.at[k]); return { x: q.x + d.x, y: q.y + d.y }; }));
+    const still = moved.map((ms, j) => ms.every((m, k) => Math.abs(m.x - segs[j].os[k].x) + Math.abs(m.y - segs[j].os[k].y) < 1e-9));
+    if (still.every(Boolean)) return font;
+    const was = signedArea(segs.flatMap(sg => sg.os.slice(0, -1))), now = signedArea(moved.flatMap(ms => ms.slice(0, -1)));
+    if (now * was <= 0 || Math.abs(now) < 0.6 * Math.abs(was) || Math.abs(now) > 1.8 * Math.abs(was)) return font;
+    // the way the font's outline and the moved one head at each segment's start (end 0) and its end (1), the way it
+    // runs: the font's from its handle, the moved one's that turned as its moves turn it (read off the moves at its
+    // first points); along a straight side, from end to end; off a handle that sits on its node, toward the next point
+    const heads = (j: number, end: 0 | 1, of: 'font' | 'moved'): P => {
+      const sg = segs[j], ps = of === 'font' ? sg.os : moved[j], m = ps.length - 1;
+      if (sg.line) return unitOr({ x: ps[m].x - ps[0].x, y: ps[m].y - ps[0].y });
+      const a = sg.a, b = sg.b, L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const h0 = end ? { x: 3 * (b.x - (b.ix ?? b.x)), y: 3 * (b.y - (b.iy ?? b.y)) } : { x: 3 * ((a.ox ?? a.x) - a.x), y: 3 * ((a.oy ?? a.y) - a.y) };
+      if (Math.hypot(h0.x, h0.y) < 1e-3 * L) return unitOr(end ? { x: ps[m].x - ps[m - 1].x, y: ps[m].y - ps[m - 1].y } : { x: ps[1].x - ps[0].x, y: ps[1].y - ps[0].y });
+      if (of === 'font') return unitOr(h0);
+      // (how fast the move changes per t there, from that end in: three points, or two on a short curve)
+      const h = sg.ts[1], k = end ? [m, m - 1, m - 2] : [0, 1, 2];
+      const D = k.map(i => { const c = Math.max(0, Math.min(m, i)); return { x: moved[j][c].x - sg.os[c].x, y: moved[j][c].y - sg.os[c].y }; });
+      const dD = m >= 3 ? { x: (-3 * D[0].x + 4 * D[1].x - D[2].x) / (2 * h), y: (-3 * D[0].y + 4 * D[1].y - D[2].y) / (2 * h) } : { x: (D[1].x - D[0].x) / h, y: (D[1].y - D[0].y) / h };
+      // (read from the end inward, so at the end turned round to head the way the outline runs)
+      return unitOr(end ? { x: h0.x - dD.x, y: h0.y - dD.y } : { x: h0.x + dD.x, y: h0.y + dD.y });
+    };
+    // at each node the way the moved outline leaves it and comes into it: one way where the font runs on smooth through
+    // it (a straight side's, or a curve's left still, where one meets it)
+    const outOf: P[] = [], into: P[] = [];
+    for (let j = 0; j < n; j++) {
+      const pj = (j - 1 + n) % n, o = heads(j, 0, 'moved'), i = heads(pj, 1, 'moved');
+      const fo = heads(j, 0, 'font'), fi = heads(pj, 1, 'font');
+      if (Math.acos(clamp(fo.x * fi.x + fo.y * fi.y, -1, 1)) >= SMOOTH_NODE) { outOf.push(o); into.push(i); continue; }
+      const one = segs[j].line || still[j] ? o : segs[pj].line || still[pj] ? i : unitOr({ x: o.x + i.x, y: o.y + i.y });
+      outOf.push(one); into.push(one);
+    }
+    // each segment drawn again: its nodes, any it is split at, and the handles between
+    const out: Node[] = [], starts: number[] = [], tails: (P | undefined)[] = [];
+    segs.forEach((sg, j) => {
+      const ms = moved[j], node: Node = { ...sg.a, x: ms[0].x, y: ms[0].y };
+      delete node.ix; delete node.iy; delete node.ox; delete node.oy;
+      starts.push(out.length);
+      out.push(node);
+      if (sg.line) { tails.push(undefined); return; }
+      if (still[j]) {
+        if (sg.a.ox !== undefined) { node.ox = sg.a.ox; node.oy = sg.a.oy; }
+        tails.push(sg.b.ix === undefined ? undefined : { x: sg.b.ix, y: sg.b.iy! });
+        return;
+      }
+      const cubics = fitMoved(ms, sg.ts, outOf[j], into[(j + 1) % n], 0);
+      node.ox = cubics[0][1].x; node.oy = cubics[0][1].y;
+      for (let q = 1; q < cubics.length; q++) {
+        out.push({ x: cubics[q][0].x, y: cubics[q][0].y, ix: cubics[q - 1][2].x, iy: cubics[q - 1][2].y, ox: cubics[q][1].x, oy: cubics[q][1].y, s: 1 });
+      }
+      tails.push(cubics[cubics.length - 1][2]);
+    });
+    // (each segment's last handle on the node it comes into)
+    tails.forEach((t, j) => { if (t) { const nd = out[starts[(j + 1) % n]]; nd.ix = t.x; nd.iy = t.y; } });
+    return out;
+  });
+}
+
+/** Whether contours cross themselves or one another anywhere, read along them as sampled reads them. */
+function crossed(cs: Node[][]): boolean {
+  const cell = 24, grid = new Map<number, { a: P; b: P; r: number; i: number; n: number }[]>();
+  const cross = (o: P, p: P, q: P) => (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
+  const polys = cs.map(c => sampled(c));
+  for (let r = 0; r < polys.length; r++) {
+    const ps = polys[r], n = ps.length;
+    for (let i = 0; i < n; i++) {
+      const e = { a: ps[i], b: ps[(i + 1) % n], r, i, n };
+      const x0 = Math.floor(Math.min(e.a.x, e.b.x) / cell), x1 = Math.floor(Math.max(e.a.x, e.b.x) / cell);
+      const y0 = Math.floor(Math.min(e.a.y, e.b.y) / cell), y1 = Math.floor(Math.max(e.a.y, e.b.y) / cell);
+      for (let gx = x0; gx <= x1; gx++) for (let gy = y0; gy <= y1; gy++) {
+        const key = gx * 100003 + gy, here = grid.get(key);
+        if (here) for (const f of here) {
+          // (neighbours along the same contour meet at their shared point)
+          if (f.r === r && (Math.abs(f.i - i) <= 1 || Math.abs(f.i - i) === n - 1)) continue;
+          if (cross(e.a, e.b, f.a) * cross(e.a, e.b, f.b) < 0 && cross(f.a, f.b, e.a) * cross(f.a, f.b, e.b) < 0) return true;
+        }
+        if (here) here.push(e); else grid.set(key, [e]);
+      }
+    }
+  }
+  return false;
 }
 
 /** Contours whose curves' handles reach no further along them, together, than the curve runs: traced through points
@@ -2290,41 +2476,68 @@ function tame(cs: Node[][]): Node[][] {
   });
 }
 
-/** How many times a letter's outline turns from bending one way to bending the other (a dent, a wave, an S's spine),
-    read along it every BOX_STEP units (of the letters as drawn: `unit` the font's to one) over a few steps at a time, a bend
-    gentler than BOX_FLAT a step (a circle 400 units round) not counted as one either way; and how many kinks it has, a turn of more than BOX_KINK within three steps (a
-    corner, a shoulder where a round meets a side). */
-function wiggles(cs: Node[][], unit = 1): { bends: number; kinks: number } {
-  const step = BOX_STEP * unit;
-  let bends = 0, kinks = 0;
-  for (const r of toPolys(drawnCmds(cs))) {
-    // (evenly spaced along it, so a long straight side counts as straight)
+/** Where a letter's outline turns from bending one way to bending the other (a dent, a wave, an S's spine), read along
+    it every BOX_STEP units (of the letters as drawn: `unit` the font's to one) over a few steps at a time, a bend gentler
+    than BOX_FLAT a step (a circle 400 units round) not read as one either way; and where it kinks (BOX_KINK: a corner, a
+    notch). */
+type Wiggles = { bends: P[][]; kinks: P[] };
+function wiggles(cs: Node[][], unit = 1): Wiggles {
+  const step = BOX_STEP * unit, bends: P[][] = [], kinks: P[] = [];
+  // (its curves read finely, a few points to a step: a long curve cut in a few straight pieces reads as kinked)
+  const rings: P[][] = [];
+  let ring: P[] = [], x = 0, y = 0;
+  for (const c of drawnCmds(cs)) {
+    if (c[0] === 'M') { if (ring.length > 2) rings.push(ring); ring = [{ x: c[1], y: c[2] }]; x = c[1]; y = c[2]; }
+    else if (c[0] === 'L') { ring.push({ x: c[1], y: c[2] }); x = c[1]; y = c[2]; }
+    else if (c[0] === 'C') {
+      const P = [{ x, y }, { x: c[1], y: c[2] }, { x: c[3], y: c[4] }, { x: c[5], y: c[6] }];
+      const l = Math.hypot(P[1].x - P[0].x, P[1].y - P[0].y) + Math.hypot(P[2].x - P[1].x, P[2].y - P[1].y) + Math.hypot(P[3].x - P[2].x, P[3].y - P[2].y);
+      const n = Math.max(6, Math.ceil(l / (step / 4)));
+      for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; ring.push({ x: u * u * u * P[0].x + 3 * u * u * t * P[1].x + 3 * u * t * t * P[2].x + t * t * t * P[3].x, y: u * u * u * P[0].y + 3 * u * u * t * P[1].y + 3 * u * t * t * P[2].y + t * t * t * P[3].y }); }
+      x = c[5]; y = c[6];
+    }
+  }
+  if (ring.length > 2) rings.push(ring);
+  // (evenly spaced along it, so a long straight side counts as straight: its points, and its turn from each to the next)
+  const turns = (r: P[], at: number) => {
     const even: P[] = [];
     let left = 0;
     r.forEach((a, i) => {
       const b = r[(i + 1) % r.length], l = Math.hypot(b.x - a.x, b.y - a.y);
-      for (; left < l; left += step) even.push({ x: a.x + (b.x - a.x) * left / l, y: a.y + (b.y - a.y) * left / l });
+      for (; left < l; left += at) even.push({ x: a.x + (b.x - a.x) * left / l, y: a.y + (b.y - a.y) * left / l });
       left -= l;
     });
-    const m = even.length;
+    const m = even.length, head = even.map((p, i) => Math.atan2(even[(i + 1) % m].y - p.y, even[(i + 1) % m].x - p.x));
+    return { even, turn: head.map((h, i) => { const t = head[(i + 1) % m] - h; return t - 2 * Math.PI * Math.round(t / (2 * Math.PI)); }) };
+  };
+  for (const r of rings) {
+    const { even: fe, turn: fine } = turns(r, step / 3), fm = fine.length;
+    const kinked = (i: number) => Math.abs(fine[(i + fm) % fm] + fine[(i + 1 + fm) % fm]) > BOX_KINK;
+    for (let i = 0; i < fm; i++) if (kinked(i) && !kinked(i - 1)) kinks.push(fe[(i + 1) % fm]);
+    const { even, turn } = turns(r, step), m = turn.length, here: P[] = [];
+    bends.push(here);
     if (m < 8) continue;
-    const head = even.map((p, i) => Math.atan2(even[(i + 1) % m].y - p.y, even[(i + 1) % m].x - p.x));
-    const turn = head.map((h, i) => { const t = head[(i + 1) % m] - h; return t - 2 * Math.PI * Math.round(t / (2 * Math.PI)); });
-    let kinked = false;
-    for (let i = 0; i < m; i++) {
-      const t = Math.abs(turn[i] + turn[(i + 1) % m] + turn[(i + 2) % m]) > BOX_KINK;
-      if (t && !kinked) kinks++;
-      kinked = t;
-    }
     const bend = turn.map((_, i) => (turn[(i - 2 + m) % m] + turn[(i - 1 + m) % m] + turn[i] + turn[(i + 1) % m]) / 4);
+    // (round twice, so the way it bent before its first point is known: each turn the other way read once)
     let last = 0;
-    for (const b of [...bend, ...bend]) {
+    for (let j = 0; j < 2 * m; j++) {
+      const b = bend[j % m];
       if (Math.abs(b) < BOX_FLAT) continue;
-      if (last && Math.sign(b) !== last) bends++;
+      if (j >= m && last && Math.sign(b) !== last) here.push(even[j % m]);
       last = Math.sign(b);
     }
   }
-  return { bends: bends / 2, kinks };
+  return { bends, kinks };
+}
+/** How many more bends than `was` (wiggles, of the font's own outline) `now` has round each contour (a bend that only
+    moves along it, an S's spine run straight, isn't another: a dent or a wave is two), or all told should the contours
+    not be the same ones; and its kinks `was` has none of near (within three steps). None, and the outline is as clean
+    as the font's. */
+function newWiggles(now: Wiggles, was: Wiggles, unit = 1): number {
+  const near = (p: P, qs: P[]) => qs.some(q => Math.hypot(p.x - q.x, p.y - q.y) < 3 * BOX_STEP * unit);
+  const more = now.bends.length === was.bends.length ? now.bends.reduce((a, b, r) => a + Math.max(0, b.length - was.bends[r].length), 0)
+    : Math.max(0, now.bends.flat().length - was.bends.flat().length);
+  return more + now.kinks.filter(p => !near(p, was.kinks)).length;
 }
 
 /** A run of the skeleton that turns one way through more than 150°, with the middle and the half widths of its oval;
@@ -2343,8 +2556,8 @@ interface Arc {
     and the point of the arc's edge nearest it (qi); and the edge of the skeleton nearest every point (near). */
 interface BowlScan { arcs: Arc[]; rings: P[][]; how: ({ arc: Arc; w: number; a: number; qi: number } | null)[][]; near: number[][] }
 const bowlScans = new WeakMap<Node[][], BowlScan>(), boxScans = new WeakMap<Node[][], BowlScan>();
-/** For each letter as Box reads it, how far (font units, at the most) its squaring may move its outline and leave it
-    clean, at Corners' squarest, uncut and cut all the way by Facets. */
+/** For each letter as Box reads it, how much of its squaring's moves it takes and stays clean, at Corners' squarest,
+    uncut and cut all the way by Facets. */
 const boxLimits = new WeakMap<BowlScan, Map<string, number>>();
 
 function scanBowls(cs: Node[][], s: Skeleton, least = 150 * Math.PI / 180): BowlScan {

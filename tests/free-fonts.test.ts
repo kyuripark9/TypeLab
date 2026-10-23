@@ -505,7 +505,7 @@ describe("TypeLab's own fonts", () => {
     for (const moves of [{ bowlForm: 'oval' }, { chamfer: 1 }, { boxRound: 0 }] as Partial<Params>[]) assert.equal(design(moves).glyph('H')!.d, design().glyph('H')!.d, `the H's square corners (${JSON.stringify(moves)})`);
   });
 
-  it("square their bowls off gently asked for Bowls' Box, the outline as clean as the font draws it", async () => {
+  it("square their bowls off asked for Bowls' Box, the squarer the sharper Corners asks, the outline as clean as the font draws it", async () => {
     const fonts = new FreeFonts(null, noFetch);
     // how much of its box a letter's ink fills
     const fill = (g: Glyph) => {
@@ -514,35 +514,54 @@ describe("TypeLab's own fonts", () => {
       for (let x = x0; x <= x1; x += 4) for (let y = y0; y <= y1; y += 4) { all++; if (ink.has(x, y)) n++; }
       return n / all;
     };
-    // how often its outline turns from bending one way to the other, read every 6 units over a few at a time, a bend
-    // gentler than a circle 400 units round not counted (a dent or a wave each turn it twice)
-    const turns = (g: Glyph) => {
-      let count = 0;
-      for (const r of toPolys(g.cmds)) {
-        const even: { x: number; y: number }[] = [];
-        let left = 0;
-        r.forEach((a, i) => {
-          const b = r[(i + 1) % r.length], l = Math.hypot(b.x - a.x, b.y - a.y);
-          for (; left < l; left += 6) even.push({ x: a.x + (b.x - a.x) * left / l, y: a.y + (b.y - a.y) * left / l });
-          left -= l;
-        });
-        const m = even.length, head = even.map((p, i) => Math.atan2(even[(i + 1) % m].y - p.y, even[(i + 1) % m].x - p.x));
-        const bend = head.map((_, i) => { let t = 0; for (let j = -2; j < 2; j++) { let d = head[(i + j + 1 + m) % m] - head[(i + j + m) % m]; d -= 2 * Math.PI * Math.round(d / (2 * Math.PI)); t += d; } return t / 4; });
-        let last = 0;
-        for (const b of [...bend, ...bend]) { if (Math.abs(b) < 6 / 400) continue; if (last && Math.sign(b) !== last) count++; last = Math.sign(b); }
+    // its contours as points along them, each curve read finely (a long curve cut in a few straight pieces reads kinked)
+    const rings = (g: Glyph) => {
+      const out: { x: number; y: number }[][] = [];
+      let r: { x: number; y: number }[] = [], x = 0, y = 0;
+      for (const c of g.cmds) {
+        if (c[0] === 'M') { if (r.length > 2) out.push(r); r = [{ x: c[1], y: c[2] }]; x = c[1]; y = c[2]; }
+        else if (c[0] === 'L') { r.push({ x: c[1], y: c[2] }); x = c[1]; y = c[2]; }
+        else if (c[0] === 'C') {
+          for (let i = 1; i <= 48; i++) { const t = i / 48, u = 1 - t; r.push({ x: u * u * u * x + 3 * u * u * t * c[1] + 3 * u * t * t * c[3] + t * t * t * c[5], y: u * u * u * y + 3 * u * u * t * c[2] + 3 * u * t * t * c[4] + t * t * t * c[6] }); }
+          x = c[5]; y = c[6];
+        }
       }
-      return count / 2;
+      if (r.length > 2) out.push(r);
+      return out;
     };
+    // how often each contour turns from bending one way to the other, read every 6 units over a few at a time, a bend
+    // gentler than a circle 400 units round not counted (a dent or a wave each turn it twice)
+    const turns = (g: Glyph) => rings(g).map(r => {
+      const even: { x: number; y: number }[] = [];
+      let left = 0, count = 0;
+      r.forEach((a, i) => {
+        const b = r[(i + 1) % r.length], l = Math.hypot(b.x - a.x, b.y - a.y);
+        for (; left < l; left += 6) even.push({ x: a.x + (b.x - a.x) * left / l, y: a.y + (b.y - a.y) * left / l });
+        left -= l;
+      });
+      const m = even.length, head = even.map((p, i) => Math.atan2(even[(i + 1) % m].y - p.y, even[(i + 1) % m].x - p.x));
+      const bend = head.map((_, i) => { let t = 0; for (let j = -2; j < 2; j++) { let d = head[(i + j + 1 + m) % m] - head[(i + j + m) % m]; d -= 2 * Math.PI * Math.round(d / (2 * Math.PI)); t += d; } return t / 4; });
+      let last = 0;
+      for (const b of [...bend, ...bend]) { if (Math.abs(b) < 6 / 400) continue; if (last && Math.sign(b) !== last) count++; last = Math.sign(b); }
+      return count / 2;
+    });
     for (const id of ['geometric', 'grotesque', 'humanist', 'soft', 'serif', 'squircle', 'industrial', 'didone']) {
       const st = STYLES.find(s => s.id === id)!, font = STYLE_FONTS[id];
       if (!freeFont(font)) registerFreeFont(await fonts.load(font));
-      const at = (bowlForm: 'oval' | 'box') => buildFont({ ...st.params, freeFont: font, freeAt: freeAtOf(st.params), bowlForm } as Params);
-      const oval = at('oval'), box = at('box');
-      // (an O and an o squared off: filling more of their box)
-      for (const ch of ['O', 'o']) assert.ok(fill(box.glyph(ch)!) > fill(oval.glyph(ch)!) + 0.01, `${id} ${ch}: squarer (${fill(oval.glyph(ch)!).toFixed(3)} → ${fill(box.glyph(ch)!).toFixed(3)})`);
-      // (and nothing bending back the other way the font's own letter hasn't got: no dent where a bowl meets its stem, no
-      // wave along a side, no notch at an end, an n's, an h's and a u's stems straight)
-      for (const ch of 'Oocdbeasgqnhu') assert.ok(turns(box.glyph(ch)!) <= turns(oval.glyph(ch)!) + 0.5, `${id} ${ch}: as clean as drawn (${turns(oval.glyph(ch)!)} → ${turns(box.glyph(ch)!)} turns)`);
+      const at = (bowlForm: 'oval' | 'box', boxRound = st.params.boxRound) => buildFont({ ...st.params, freeFont: font, freeAt: freeAtOf(st.params), bowlForm, boxRound } as Params);
+      const oval = at('oval'), box = at('box'), sharp = at('box', 0), mid = at('box', 0.5), wide = at('box', 1);
+      // (squared off, filling more of their box, the more the sharper Corners asks)
+      for (const ch of 'Oode') {
+        const f = [oval, wide, mid, sharp].map(f => fill(f.glyph(ch)!)), say = f.map(v => v.toFixed(3)).join(' → ');
+        assert.ok(f[1] > f[0] && f[2] > f[1] && f[3] > f[2] && (!/O|o/.test(ch) || f[3] > f[0] + 0.03), `${id} ${ch}: squarer with Box, Wide to Sharp (${say})`);
+      }
+      // (and no contour bending back the other way more often than the font's own: no dent where a bowl meets its stem,
+      // no wave along a side, no notch at an end or where an e's eye meets its lower curve, an n's, an h's and a u's
+      // stems straight, at the card's Corners and at their sharpest)
+      for (const f of [box, sharp]) for (const ch of 'OocdbeasgqnhumprCDGS') {
+        const was = turns(oval.glyph(ch)!), now = turns(f.glyph(ch)!);
+        assert.ok(now.length === was.length && now.every((n, i) => n <= was[i]), `${id} ${ch}: as clean as drawn (${was.join(' ')} → ${now.join(' ')} turns round each contour)`);
+      }
     }
   });
 

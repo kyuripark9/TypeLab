@@ -648,18 +648,24 @@ A design with `freeFont` set draws its letters from a free font instead of build
    Box on a free font's letters is a squircle, not a hard box (`boxBowls`; drawn with straight sides and square
    insides, every place a bowl met a stem, a bar or an end came out notched): it reads every turn of a quarter and more
    as a bowl (`BOX_ARC`: an n's, an h's, a u's shoulders, an f's hook, not only an o's), cut short where it turns back in
-   or runs on straight into a stem (`roundOnly`: a G's bar, an h's stem to its foot), its oval fitted again. Each bowl's
-   outside and inside are read in frames of their own (a ring's by its reach each way, an open bowl's by a fitted oval
-   where it runs round far enough; an e's eye and lower curve, one running on through the join into the other, outside
-   as one), the squircle each lies along best found (the font may be squarish already), and each squared a share of
-   the rest of the way to a square (Corners: `BOX_SHARP` to `BOX_WIDE`), never rounder, a ring never past its own reach.
-   A bowl is squared all the way while its skeleton runs on its squircle (`BOX_ON`), not where it has left it, nor at a
-   join (unless another bowl runs on through it), easing back in round the oval the slower the nearer the middle of a
-   quarter (`BOX_EASE_LEAST`, `BOX_EASE_MOST`); a serif off a free end moves with it; an italic is squared upright and
-   leaned again (`upright`). The outline is traced again with no curve's handles longer than it (`tame`), and a letter is
-   squared only as far as adds no bend the other way and no kink to the font's own outline (`wiggles`, read at the
-   letters' drawn size): how far it may move and stay so is found once per letter at Corners' squarest (`boxLimits`,
-   uncut and fully cut by Facets) and any setting squares it up to that, so both sliders move it smoothly.
+   or runs on straight into a stem (`roundOnly`: a G's bar, an h's stem to its foot). The outline is squared a quarter at
+   a time (`boxQuarters`; squared a bowl at a time round a frame of its own, a side waved wherever the bowl wasn't the
+   frame's oval): each stretch between where it runs level or upright (within `BOX_LEVEL`), turns a corner or turns from
+   bending one way to the other is pushed toward the corner of the box its ends' headings span (a rectangle, or slanted
+   along a corner's slant: a terminal's), from the squircle it lies along a share of the rest of the way to a square
+   (Corners: `BOX_SHARP` to `BOX_WIDE`), Facets cutting it toward an octagon; each point's gap to the box's sides scaled as
+   the squircle's is against the quarter's own, so none passes them, and its two ends stay where they stand, heading as
+   they did, so quarters, stems, bars, joins and ends meet as the font draws them. A quarter is squared alike all along,
+   as far as it lies beside a bowl where the skeleton bends round (by length; not a stem's corners, a B's) and eased in
+   from a join (not where one bowl runs on through it into another, an e's eye into its lower curve, nor where an arc
+   was cut short: `BOX_EASE_LEAST`, `BOX_EASE_MOST`); an italic is squared upright and leaned again (`upright`). The font's
+   own curves are moved (`movedCurves`: each node moved, each curve's handles heading as the moved outline does at its
+   nodes, one way through a node it draws smooth, as long as follow it best, split only where one curve misses it by
+   `BOX_FIT`), not traced again: no node where it had none, none smooth broken (traced again only should its outline not
+   be found as read). A letter is squared only as far as adds no bend the other way round any of its contours to the
+   font's own (`wiggles`, read finely at the letters' drawn size; a crossing counts as unclean): how much of its moves it
+   takes and stays so is found once per letter at Corners' squarest (`boxLimits`, uncut and fully cut by Facets), and
+   every setting takes as much of its own, so both sliders move it steadily, squarer the sharper.
    Weight, Verticals, Horizontals and Contrast are not moved on the skeleton: `freeLetters` hands `skinMove`, `restyled`
    and `skinRoom` the measures asked for at the weight, Verticals, Horizontals and Contrast the font stands for (`rest`),
    and `freeGlyph` then pushes the restyled outline out or in evenly (`weighedOut`, `evenWeight` in `even-weight.ts`):
