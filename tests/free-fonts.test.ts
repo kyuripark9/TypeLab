@@ -437,6 +437,41 @@ describe("TypeLab's own fonts", () => {
     }
   });
 
+  it("draw their ascenders and descenders shorter at every step of Stem length down to 0, and keep their letters' shapes there", async () => {
+    // (carried as far as the engine's own letters go, a grotesque's ascenders came down to a sixth of their reach, its d
+    // read as an a and its f's hook folded flat onto its bar; a script's loops shut; a fat face's g's lower bowl pressed flat)
+    const fonts = new FreeFonts(null, noFetch);
+    // (each letter's ink down columns a hundredth of the capitals apart: how high it reaches and how low, and the tallest
+    // opening between two runs of ink above `over` (below `under`))
+    const read = (g: Glyph, cap: number, over = Infinity, under = -Infinity) => {
+      const ps = toPolys(g.cmds);
+      let x0 = Infinity, x1 = -Infinity, top = -Infinity, foot = Infinity, open = 0;
+      for (const q of ps.flat()) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); top = Math.max(top, q.y); foot = Math.min(foot, q.y); }
+      for (let x = x0 + cap / 200; x < x1; x += cap / 100) {
+        const ys: number[] = [];
+        for (const p of ps) for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; if ((a.x <= x) !== (b.x <= x)) ys.push(a.y + (x - a.x) / (b.x - a.x) * (b.y - a.y)); }
+        ys.sort((a, b) => a - b);
+        for (let i = 1; i + 1 < ys.length; i += 2) if (ys[i + 1] > over || ys[i] < under) open = Math.max(open, ys[i + 1] - ys[i]);
+      }
+      return { top, foot, open };
+    };
+    for (const [style, letters] of [['grotesque', 'dfg'], ['informal', 'dlgy'], ['fatface', 'dfg']] as const) {
+      const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
+      if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+      const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, a = buildFont(p), b = buildFont({ ...p, extenders: 0, descender: 0 });
+      const xa = read(a.glyph('x')!, a.m.cap).top, xb = read(b.glyph('x')!, b.m.cap).top;
+      for (const ch of letters) {
+        const was = read(a.glyph(ch)!, a.m.cap, xa, 0), now = read(b.glyph(ch)!, b.m.cap, xb, 0);
+        if (ch === 'd') assert.ok(now.top - xb >= 0.5 * (was.top - xa), `${style}'s d over its x-height: ${(now.top - xb).toFixed(0)} at Stem length 0, ${(was.top - xa).toFixed(0)} as drawn`);
+        assert.ok(now.open >= 0.4 * was.open, `${style}'s ${ch}'s openings past its lines: ${now.open.toFixed(0)} at Stem length 0, ${was.open.toFixed(0)} as drawn`);
+      }
+    }
+    // (and every step shorter than the one before, from the card's own down to 0)
+    const st = STYLES.find(s => s.id === 'grotesque')!, p = { ...st.params, freeFont: STYLE_FONTS.grotesque, freeAt: freeAtOf(st.params) } as Params;
+    const steps = [p.extenders as number, 0.375, 0.25, 0.125, 0].map(extenders => { const f = buildFont({ ...p, extenders }); return { d: read(f.glyph('d')!, f.m.cap).top, p: read(f.glyph('p')!, f.m.cap).foot }; });
+    for (let i = 1; i < steps.length; i++) assert.ok(steps[i].d < steps[i - 1].d - 1 && steps[i].p > steps[i - 1].p + 1, `the d's top ${steps.map(s => s.d.toFixed(0)).join(', ')}; the p's foot ${steps.map(s => s.p.toFixed(0)).join(', ')}`);
+  });
+
   it('start each card with no personality macro holding part of a slider flat', () => {
     // (resolve() pushes a slider by a macro as far as 0 or 1 and no further, so a card setting one off its middle leaves
     // a stretch of every slider it pushes doing nothing: Blackletter's Roundness below 70, Wood Type's Squareness above

@@ -617,7 +617,7 @@ const BARS: Record<string, { at: [number, number, number, number]; move: number 
     design draws in Points with those it reads its lines and its stems off (family-drawn.ts). */
 export type RigLetters = Pick<FreeFont, 'cap' | 'xh' | 'glyphs'>;
 
-const rigs = new WeakMap<RigLetters, { lines: { asc: number; desc: number }; unicase: boolean; letters: Map<string, SkinRig | null>; ref?: { stem: number; hair: number; hair0: number }; serifed?: boolean; stroked?: 0 | 1 | 2; slabs?: boolean; leans?: boolean; plumb?: boolean; pen?: boolean }>();
+const rigs = new WeakMap<RigLetters, { lines: { asc: number; desc: number }; unicase: boolean; letters: Map<string, SkinRig | null>; ref?: { stem: number; hair: number; hair0: number }; stems?: { asc: number; desc: number }; serifed?: boolean; stroked?: 0 | 1 | 2; slabs?: boolean; leans?: boolean; plumb?: boolean; pen?: boolean }>();
 
 /** A font's own stem and hairline, in its units: its n's (or H's) stems and its H's bar (or the n's level strokes),
     read once. A fat face's or a Didone's hairline is a small share of its stem, a sans's most of it. */
@@ -2121,7 +2121,7 @@ export interface SkinMeasures {
 }
 export const skinMeasures = (m: Metrics): SkinMeasures => ({
   s: m.s, hT: m.hT, v: m.tDir(0, 1), sw: m.s0, ws: m.ws, xr: m.xh / m.cap, bar: m.bar, serif: serifLen(m.p.serifSize, m.ws),
-  asc: (m.p.extenders - 0.5) * 0.5, desc: m.desc / m.cap, cntR: counterScale('r', m.cnt), cntN: counterScale(undefined, m.cnt),
+  asc: ascTerm(m.p.extenders), desc: m.desc / m.cap, cntR: counterScale('r', m.cnt), cntN: counterScale(undefined, m.cnt),
   dot: m.p.dotSize < 0.5 ? 0.7 + 0.6 * m.p.dotSize : 1 + (m.p.dotSize - 0.5), pinch: m.p.pinch, pinchPos: m.p.pinchPos, joints: m.p.joints
 });
 /** How near two of each measure count as the same (a stem's, a bar's and a serif's length in the engine's units, the
@@ -2142,6 +2142,95 @@ const ROUND = new Set('CDGOQabcdegopq0589@');
     are drawn for it (a tail or a bowl squeezed into a quarter of its depth comes apart). The lines a free font's
     serifs and peaks stand on move by it too (restyled in free-letters.ts). */
 export const descK = (k: number) => (k < 1 ? Math.sqrt(k) : k);
+
+/** Stem length's term of the ascenders' height (SkinMeasures.asc): how far it draws them up past where they stand at its
+    middle, as a share of the capitals' height. */
+export const ascTerm = (extenders: number) => (extenders - 0.5) * 0.5;
+/** How deep, as a share of the capitals' height, the engine draws the descenders at Stem length and Descender length 0
+    (metrics().desc in font.ts: 0.3 of the capitals, 0.55 of that at the one's end, 0.45 at the other's). */
+const DESC_LEAST = -0.3 * 0.55 * 0.45;
+
+/** Where a lowercase letter's ascenders' line goes, Stem length moving its term (SkinMeasures.asc) from `from` to `to`
+    and the x-height moved to `xh1`: up as far as the term asks; down no further than the font's letters keep their
+    shapes (fontStems), as many times less far as Stem length 0 would carry it past that, so 0 draws the shortest and
+    every step on the way still moves it; and a little way over the x-height however high that goes. */
+export function ascTo(rig: SkinRig, xh1: number, from: number, to: number): number {
+  const c = rig.ctx;
+  let by = (to - from) * c.cap;
+  if (by < 0) {
+    const room = c.asc - xh1 - fontStems(rig.font).asc * (c.asc - c.xh), end = (from - ascTerm(0)) * c.cap;
+    if (end > room) by *= Math.max(0, room) / end;
+  }
+  return Math.max(xh1 + c.cap * 0.04 * 2, c.asc + by);
+}
+/** Where a lowercase letter's descenders' line goes, Stem length and Descender length moving the depth the engine
+    draws them at (SkinMeasures.desc) from `from` to `to`: as much deeper, or less deep by descK; and no less deep than
+    the font's letters keep their shapes (fontStems), as many times less far up as both sliders at 0 would carry it
+    past that. */
+export function descTo(rig: SkinRig, from: number, to: number): number {
+  const k = descK(to / from);
+  if (k >= 1) return rig.ctx.desc * k;
+  const end = descK(DESC_LEAST / from), keep = fontStems(rig.font).desc;
+  return rig.ctx.desc * (end < keep ? 1 - (1 - k) * (1 - keep) / (1 - end) : k);
+}
+
+/** How short Stem length may draw a font's ascenders and its descenders and leave its letters whole: the least share
+    of their reach past the x-height, and of their depth under the baseline, each keeps. moveMap squeezes the strokes'
+    places there toward the line and keeps their thickness, so the openings between them close first: an f's hook
+    folded onto its bar, a script's loops shut, a g's lower bowl and a y's tail under its arms pressed flat. Read once
+    off the font's own letters (STEM_LETTERS). */
+export function fontStems(font: RigLetters): { asc: number; desc: number } {
+  const kept = rigs.get(font)!;
+  return (kept.stems ??= { asc: stemKeep(font, STEM_LETTERS.asc, 1), desc: stemKeep(font, STEM_LETTERS.desc, -1) });
+}
+/** The letters whose ascenders, and whose descenders, fontStems reads (a script's f's loop under the baseline too). */
+const STEM_LETTERS = { asc: 'bdfhkl', desc: 'fgjpqy' };
+/** The least share of its reach past line `s` (1 the x-height, -1 the baseline) a font's letters `letters` keep their
+    shapes at: down each column of each letter, every opening between two strokes past the line keeps STEM_OPEN of its
+    height (one shallower than OPEN_LEAST of the font's stem, a notch, aside); and never less than STEM_LEAST, so the
+    ascenders and descenders still stand out (a grotesque's d read as an a at a sixth of its reach). */
+function stemKeep(font: RigLetters, letters: string, s: 1 | -1): number {
+  let most = STEM_LEAST;
+  for (const ch of letters) {
+    const rig = skinRig(font, ch);
+    if (!rig?.ctx.lower) continue;
+    const line = s > 0 ? rig.ctx.xh : 0, stem = rig.ref().stem, polys = outlineOf(rig), step = STEM_COLUMN * font.cap;
+    // (how far past the line a height stands, and where squeezing the reach to share r puts it)
+    const at = (v: number, r: number) => (v > 0 ? v * r : v);
+    // a run of ink down a column, [near side, far side, how steep its stroke runs], as the squeeze to share r draws it:
+    // one along a stem has its ends moved; one across a stroke keeps the stroke's thickness about its middle, the stroke
+    // laid flatter as its place is squeezed, so cut at a slant (an f's hook's end) less tall
+    const run = ([lo, hi, t]: [number, number, number], r: number) => {
+      if (hi - lo > STEM_ALONG * stem) return [at(lo, r), at(hi, r)];
+      const m = (lo + hi) / 2, h = m > 0 ? (hi - lo) / 2 * Math.sqrt((1 + r * r * t * t) / (1 + t * t)) : (hi - lo) / 2;
+      return [at(m, r) - h, at(m, r) + h];
+    };
+    let x0 = Infinity, x1 = -Infinity;
+    for (const p of polys) for (const q of p) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); }
+    for (let x = x0 + step / 2; x < x1; x += step) {
+      const ds: { d: number; t: number }[] = [];
+      for (const p of polys) for (let i = 0; i < p.length; i++) {
+        const a = p[i], b = p[(i + 1) % p.length];
+        if ((a.x <= x) !== (b.x <= x)) ds.push({ d: s * (a.y + (x - a.x) / (b.x - a.x) * (b.y - a.y) - line), t: Math.abs((b.y - a.y) / (b.x - a.x)) });
+      }
+      ds.sort((p, q) => p.d - q.d);
+      for (let i = 1; i + 2 < ds.length; i += 2) {
+        const A: [number, number, number] = [ds[i - 1].d, ds[i].d, (ds[i - 1].t + ds[i].t) / 2], B: [number, number, number] = [ds[i + 1].d, ds[i + 2].d, (ds[i + 1].t + ds[i + 2].t) / 2];
+        const g = B[0] - A[1], open = (r: number) => run(B, r)[0] - run(A, r)[1];
+        if (g < OPEN_LEAST * stem || open(most) >= STEM_OPEN * g) continue;
+        // (the least share past `most` the opening keeps STEM_OPEN of itself at, in steps of STEM_STEP)
+        let r = 1;
+        while (r - STEM_STEP > most && open(r - STEM_STEP) >= STEM_OPEN * g) r -= STEM_STEP;
+        most = r;
+      }
+    }
+  }
+  return Math.min(1, most);
+}
+/** stemKeep's: how much of its height each opening keeps, and how much of their reach the ascenders and descenders keep
+    at least; how shallow an opening, of the font's stem, it leaves be (a notch); how long a run down a column, of the
+    stem, runs along a stroke; how far apart its columns are, of the capitals' height; and the steps it reads the share in. */
+const STEM_OPEN = 0.5, STEM_LEAST = 0.5, OPEN_LEAST = 0.5, STEM_ALONG = 1.5, STEM_COLUMN = 0.01, STEM_STEP = 0.01;
 
 /** A piecewise-linear map with knots [from, to], carried on beyond them unscaled. */
 const piecewise = (knots: [number, number][]) => (y: number) => {
@@ -3945,11 +4034,10 @@ function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
   }
   knots.push([top, top1]);
   // Stem length draws the ascenders up and the descenders down, from a little way past the x-height and the
-  // baseline (so an overshoot there stays as it is)
+  // baseline (so an overshoot there stays as it is), no shorter than the font's letters keep their shapes at
   const pad = c.cap * 0.04;
-  if (c.lower) knots.push([c.asc, Math.max(top1 + pad * 2, c.asc + (m1.asc - m0.asc) * c.cap)]);
-  const kDesc = descK(m1.desc / m0.desc);
-  if (c.lower && Math.abs(m1.desc - m0.desc) > 1e-4 && c.desc < -pad * 2) knots.unshift([c.desc, Math.min(-pad * 2, c.desc * kDesc)]);
+  if (c.lower) knots.push([c.asc, ascTo(rig, top1, m0.asc, m1.asc)]);
+  if (c.lower && Math.abs(m1.desc - m0.desc) > 1e-4 && c.desc < -pad * 2) knots.unshift([c.desc, Math.min(-pad * 2, descTo(rig, m0.desc, m1.desc))]);
   const gy = piecewise(knots), gx = (x: number) => mid + (x - mid) * sx;
   // a dot sits over the x-height, where the x-height puts it, whatever the ascenders do
   const gyDot = piecewise(knots.filter(([y]) => y >= 0 && y <= top));

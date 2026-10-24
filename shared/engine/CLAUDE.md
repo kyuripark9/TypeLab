@@ -112,7 +112,7 @@ A formula or constant two files need lives once and both import it. `metrics()`'
 `MIN_ROUND`, `SAME_PT`, `cmdsBox`, `toPolys`), `shared/params/scales.ts` (`endId`, `isPlainEnd`, the id tests,
 `slantDeg`, `rotationOf`, `weightUnscale` beside `weightScale`, `xHeightOfRatio` beside `xHeightRatio`, `joinGap`,
 `barCut`, `endReach`), `stroke.ts` (`STEP_DEPTH`), `joins.ts` (`innerShare`, `crotchShare`), `glyphs/turns.ts` (`POINTED`, `peakPast`,
-`peakCut`), `skin.ts` (`FORM_LETTERS`, `descK`, `sameMeasures`), `free-letters.ts` (`mapDrawn`, `inkX`; a free letter's room is read by `inkSpan`, its curves' true reach, a lighter weight's no narrower than `skinSpan`), `restyle.ts` (`HOOK_LETTERS`, `OPEN_LETTERS`, `added`).
+`peakCut`), `skin.ts` (`FORM_LETTERS`, `descK`, `ascTerm`, `ascTo`, `descTo`, `sameMeasures`), `free-letters.ts` (`mapDrawn`, `inkX`; a free letter's room is read by `inkSpan`, its curves' true reach, a lighter weight's no narrower than `skinSpan`), `restyle.ts` (`HOOK_LETTERS`, `OPEN_LETTERS`, `added`).
 
 Some code repeats or mirrors another's, because sharing would change results (a shared helper takes its sums in
 another order) or because it works in other units. Copies with their sums in another order: `effects.ts` `within`
@@ -151,7 +151,12 @@ A design with `freeFont` set draws its letters from a free font instead of build
    wide as its stroke and a round end round, but a ball (`ballEnd`: an end much thicker than the neck it hangs from, a
    Didone's a c r y g, its comma) carried with the point it hangs from and made smaller or larger round it, unturned,
    as far as the outline's heavy strokes thin or thicken (`ballK`); and returns `rig.contours` itself when nothing
-   moved. How much each
+   moved. Stem length squeezes the ascenders toward the x-height and the descenders toward the baseline, strokes kept
+   as thick, so no further than the font's letters stay whole (`ascTo`, `descTo`): `fontStems` reads once, down columns
+   of its b d f h k l and f g j p q y, the least share of their reach each keeps every opening between two strokes past
+   the line half as tall at (an f's hook over its bar, a script's loops, a g's lower bowl), and never under half, and
+   the slider's end lands there (carried as far as the engine's letters go, a grotesque's d read as an a, its f's hook
+   folded flat). How much each
    edge's stroke thickens is `weighsOf`: by the way it runs (upright by the upright pen's weight, `SkinMeasures.v`,
    which reversed contrast thins; level by the bars', which Weight alone, lighter, draws no heavier than the stems but
    as far as the font's are, `freeLetters`: a heavy design's raised Horizontals would draw Orbital's, Gumdrop's and

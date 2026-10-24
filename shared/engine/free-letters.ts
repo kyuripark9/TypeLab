@@ -8,7 +8,7 @@ import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
 import { HAIR_KEEP, PEN, evenWeight } from './even-weight';
-import { FORM_LETTERS, SPAN_TOL, descK, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, type SkinMeasures, type SkinRig } from './skin';
+import { FORM_LETTERS, SPAN_TOL, ascTo, descTo, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, type SkinMeasures, type SkinRig } from './skin';
 import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBlockBowls, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
@@ -294,8 +294,8 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   const sf = fl.serifs && fl.serif ? { ...fl.serif, len: fl.serif.len / fl.k, ref: (fl.serif.ref ?? fl.serif.len) / fl.k, th: fl.serif.th / fl.k, inner: fl.serif.inner && { ...fl.serif.inner, th: fl.serif.inner.th / fl.k } } : null;
   // (as moveMap in skin.ts moves the letter's own heights, there clamped, and the ascenders and descenders only a
   // lowercase letter's: keep the two in step)
-  const kd = fl.to.desc / fl.from.desc, xh1 = x.lower ? x.xh * fl.to.xr / fl.from.xr : x.xh;
-  const lines = [0, x.cap, xh1, x.asc + (fl.to.asc - fl.from.asc) * x.cap, x.desc * descK(kd)];
+  const xh1 = x.lower ? x.xh * fl.to.xr / fl.from.xr : x.xh;
+  const lines = [0, x.cap, xh1, ascTo(rig, xh1, fl.from.asc, fl.to.asc), descTo(rig, fl.from.desc, fl.to.desc)];
   const sa = stencilLook(fl.pick), sb = stencilLook(fl.now), ba = bowlLook(fl.pick), bb = bowlLook(fl.now);
   const ends = (e: Effective) => [termSpec(e), e.terminal, e.terminalLength, e.terminalCurl, e.tail, e.aperture];
   const da = [fl.pick.dots, dotLook(fl.pick)], db = [fl.now.dots, dotLook(fl.now)];
@@ -340,8 +340,8 @@ function weighedOut(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   const stem = rig.ref().stem, room = fl.font ? HAIR_KEEP * thinnest(fl.font) : Infinity;
   const inX = Math.min(1, room / ((PEN.weight.in + PEN.verticals.in) * stem)), inY = Math.min(1, room / ((PEN.weight.in + PEN.horizontals.in + PEN.contrast.in) * stem));
   const dx = fl.pen.x * stem * (fl.pen.x < 0 ? inX : 1), dy = fl.pen.y * stem * (fl.pen.y < 0 ? inY : 1);
-  const x = rig.ctx, xh = x.lower ? x.xh * fl.rest.xr / fl.from.xr : x.xh, asc = x.asc + (fl.rest.asc - fl.from.asc) * x.cap;
-  const desc = x.desc * descK(fl.rest.desc / fl.from.desc);
+  const x = rig.ctx, xh = x.lower ? x.xh * fl.rest.xr / fl.from.xr : x.xh, asc = ascTo(rig, xh, fl.from.asc, fl.rest.asc);
+  const desc = descTo(rig, fl.from.desc, fl.rest.desc);
   const lines = x.lower ? { tops: [xh, asc], feet: [0, desc] } : { tops: [x.cap], feet: [0, desc] };
   let kept = WEIGHED.get(cs);
   if (!kept) WEIGHED.set(cs, kept = new Map());
