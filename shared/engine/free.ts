@@ -41,10 +41,13 @@ export const packNode = (n: Node): PackedNode =>
   n.ox !== undefined ? [n.x, n.y, n.ix ?? null, n.iy ?? null, n.ox, n.oy!] : n.ix !== undefined ? [n.x, n.y, n.ix, n.iy!] : [n.x, n.y];
 
 /** Make a font's letters available to draw with. */
-export function registerFreeFont(data: FreeFontData) {
+export function decodeFreeFont(data: FreeFontData): FreeFont {
   const glyphs: Record<string, Drawn> = {};
   for (const [ch, [adv, contours]] of Object.entries(data.glyphs)) glyphs[ch] = { adv, contours: contours.map(c => c.map(unpack)) };
-  fonts.set(data.id, { ...data, glyphs });
+  return { ...data, glyphs };
+}
+export function registerFreeFont(data: FreeFontData) {
+  fonts.set(data.id, decodeFreeFont(data));
   for (const fn of listeners) fn(data.id);
 }
 /** A font's letters, once registered. */

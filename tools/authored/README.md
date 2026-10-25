@@ -1,0 +1,31 @@
+# Authored source tools
+
+Generate immutable source snapshots and the shared source catalog:
+
+```sh
+node --import tsx tools/authored/build-sources.ts
+node --import tsx tools/authored/build-sources.ts --check
+```
+
+The generator copies each `fonts/*.json` file byte for byte to `fonts/sources/<sha256>.json`. It records current font IDs and all previous revisions in `fonts/sources/manifest.json`, then generates `shared/source/catalog.ts`. Run it after deliberately changing a bundled source font. Existing snapshots and revision entries stay available so saved designs can keep using their original source.
+
+`--check` writes nothing and exits 1 if a snapshot, manifest, or catalog needs updating. Both modes reject changes to an existing immutable snapshot. A missing historical snapshot must be restored from version control.
+
+Audit the original geometry and coverage:
+
+```sh
+node --import tsx tools/authored/source-audit.ts --out .tools/out/source-audit.json
+node --import tsx tools/authored/source-audit.ts fonts/Mainline-600.json fonts/Hearth-600.json fonts/Couture-600.json --out .tools/out/initial-sources.json
+```
+
+The audit records exact file hashes and each glyph's geometry hash, contour node counts, handle counts, and structure hash. The structure hash records contour boundaries and handle presence. It does not establish whether the filled outline has a closed counter or connected joins.
+
+Malformed coordinates or partial handles fail validation. Missing required characters produce a report and exit 1. The three initial sources each contain all 127 required characters. The full library currently has four missing characters: Cathedral:400 lacks `−` and `÷`; Funnies:400 lacks `†` and `‡`.
+
+Render the three initial sources and their height edits:
+
+```sh
+NODE_OPTIONS=--max-old-space-size=512 node --import tsx tools/authored/review.ts --out .tools/out/authored-review
+```
+
+Each source gets a full 127-character specimen and a seven-row height comparison, as SVG and PNG. Every row uses the same scale. SVGs include row labels; the JSON manifest lists the row order for the PNGs. The tool reads pinned source snapshots through the server loader and draws the same compiled glyphs used by preview and export. Review the images before accepting geometry changes.

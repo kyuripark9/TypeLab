@@ -11,6 +11,7 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as R
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
 import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph, type GlyphGrid, type GridGroup } from '../../shared/engine';
 import { isStrokeId, type NumericParam, type Params } from '../../shared/params';
+import { sourceSupports } from '../../shared/source/capabilities';
 import { dragSpec, handlesFor, letterCorners, letterJoins, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { guideLines, stackLabels } from '../lib/guide-labels';
 import { n1, useSize } from '../lib/hooks';
@@ -85,14 +86,14 @@ export function letterControls(g: Glyph, ch: string, serif: boolean): { key: Con
 function pointPart(id: string | null) {
   actions.setPart(id);
   const k = id && PART_CONTROL[id];
-  if (k && CONTROLS[k].cat === useEditor.getState().category) actions.setActive(k);
+  if (k && sourceSupports(useEditor.getState().params, k) && CONTROLS[k].cat === useEditor.getState().category) actions.setActive(k);
 }
 
 /** Click a part: open the page its slider is on, if it's another, and scroll the panel so the slider sits at the top
     of the visible list, just under the sticky explainer. */
 function pickPart(id: string) {
   const k = PART_CONTROL[id];
-  if (!k) return;
+  if (!k || !sourceSupports(useEditor.getState().params, k)) return;
   // a folded section opens, so the slider is there to find
   actions.toggleFold(k, true);
   if (CONTROLS[k].cat === useEditor.getState().category) { scrollToControl(k, 'smooth'); return; }
@@ -148,7 +149,7 @@ export function Inspector() {
   const g = ch ? font.glyph(ch) : null;
   // a free font's letter is drawn as it is, as one drawn by hand
   const free = !hand && !!g?.drawn && font.free ? font.free.family : null, drawn = hand || !!free;
-  const grid = useGrid(font, ch);
+  const construction = useGrid(font, ch), source = !!font.params.sourceProgram, grid = source ? null : construction;
   if (!ch || !g) return null;
   // only while customizing is an edit this letter's alone: in Points too, All letters takes each edit on to the
   // letters shaped the same way (and a letter drawn in Points, or a free font's, moves with the settings like the rest)
@@ -164,7 +165,7 @@ export function Inspector() {
         <ScopeToggle ch={ch} pen={pen} />
         {/* what the canvas shows; it drops to a line of its own when the head runs out of room */}
         <div className="insp-view">
-          <ConstructionToggle />
+          {!source && <ConstructionToggle />}
         </div>
         <button className="btn ghost icon insp-close" onClick={actions.closeInspector} aria-label="Close inspector" title="Close (Esc)">
           <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
@@ -176,8 +177,8 @@ export function Inspector() {
         {/* one short line over the canvas for what the switches above don't say: what an edit here does, and what
             still moves a letter drawn as it is (`banner-more`, left out on a phone); the whole story is in its tooltip */}
         {pen && (own ? (
-          <div className="scope-banner" role="status" title={`An edit here changes ${ch} alone, and ${ch} keeps the shape you give it; after it, the letters shaped the same way are offered the change. Weight, contrast, width, the heights and slant still move ${ch}, as they move the other letters; Reset ${ch} gives it back to the font`}>
-            <ScopeIcon id="letter" /><span>Only <b>{ch}</b> changes here<span className="banner-more"> · weight, width and heights still move it</span></span>
+          <div className="scope-banner" role="status" title={`An edit here changes ${ch} alone. Width, heights and slant still move its drawing. Reset ${ch} gives it back to the font.`}>
+            <ScopeIcon id="letter" /><span>Only <b>{ch}</b> changes here<span className="banner-more"> · {source ? 'width and heights' : 'weight, width and heights'} still move it</span></span>
           </div>
         ) : cells ? (
           <div className="scope-banner" role="status" title={`Every cell of the fill is shaped the same, in ${ch} and in every other letter, so an edit here stays on ${ch}`}>
@@ -191,7 +192,7 @@ export function Inspector() {
         ))}
         {!pen && drawn && (
           <div className="scope-banner" role="status">
-            {own && <ScopeIcon id="letter" />}<span>{free ? <><b>{ch}</b> is {free}’s letter<span className="banner-more"> · reshape it in Points</span></> : <><b>{ch}</b> was edited in Points<span className="banner-more"> · weight, width and heights still move it</span></>}</span>
+            {own && <ScopeIcon id="letter" />}<span>{free ? <><b>{ch}</b> is {free}’s letter<span className="banner-more"> · reshape it in Points</span></> : <><b>{ch}</b> was edited in Points<span className="banner-more"> · {source ? 'width and heights' : 'weight, width and heights'} still move it</span></>}</span>
           </div>
         )}
       </div>
@@ -365,7 +366,11 @@ function InspectorCanvas({ ch, g, font, grid, group }: { ch: string; g: Glyph; f
     const [noun, unnamed] = endNoun(d.endKey);
     return `${endInfo(d.end, d.endKey)?.label ?? unnamed} ${noun}`;
   };
-  const hoverSpec = hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, lf, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }, oneEnd) : null;
+  const supportedDrag = (spec: DragSpec | null): DragSpec => ({
+    ...(spec?.x && sourceSupports(lf.params, spec.x.endKey ?? spec.x.key) ? { x: spec.x } : {}),
+    ...(spec?.y && sourceSupports(lf.params, spec.y.endKey ?? spec.y.key) ? { y: spec.y } : {})
+  });
+  const hoverSpec = supportedDrag(hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, lf, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }, oneEnd) : null);
   const hoverAxes = AXES.filter(a => hoverSpec?.[a]);
   const tip: TipRow[] = hoverAxes.map(a => {
     const d = hoverSpec![a]!, def = defOf(d.key), up = towardMoreOf(hover!.id, a, d) > 0;
@@ -374,7 +379,7 @@ function InspectorCanvas({ ch, g, font, grid, group }: { ch: string; g: Glyph; f
   });
   const guideKey = hotKey === 'serif' ? 'serifSize' : hotKey === 'terminal' ? 'terminalLength' : hotKey;
   const showKey = hover || dragging ? null : guideKey && typeof font.params[guideKey as keyof Params] === 'number' ? guideKey as NumericParam : intro ? 'weight' : null;
-  const handles: Handle[] = showKey ? handlesFor(showKey, lf, ch, [...parts, ...guides.map(([id]) => id), 'advance']) : [];
+  const handles: Handle[] = showKey && sourceSupports(lf.params, showKey) ? handlesFor(showKey, lf, ch, [...parts, ...guides.map(([id]) => id), 'advance']) : [];
 
   // what is pointed at shows for a moment, then the letter reads in plain ink, as the preview does (`faded`), till
   // another part or control is pointed at; the handles stay. Keyed by what it lights, so its fade starts over
@@ -401,7 +406,7 @@ function InspectorCanvas({ ch, g, font, grid, group }: { ch: string; g: Glyph; f
     e.preventDefault();
     setHover(null);
     const r = svgRef.current.getBoundingClientRect(), view = { sc, ox, oy }, x0 = e.clientX, y0 = e.clientY;
-    const spec: DragSpec = (!FIXED_PARTS.has(id) && dragSpec(id, lf, ch, { x: (x0 - r.left - ox) / sc, y: (oy - (y0 - r.top)) / sc }, oneEnd)) || {};
+    const spec = supportedDrag(!FIXED_PARTS.has(id) ? dragSpec(id, lf, ch, { x: (x0 - r.left - ox) / sc, y: (oy - (y0 - r.top)) / sc }, oneEnd) : null);
     let solve: ((t: number) => number) | null = null;
     const move = (ev: PointerEvent) => {
       const d = drag.current!, dx = ev.clientX - x0, dy = ev.clientY - y0;

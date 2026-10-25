@@ -2,11 +2,14 @@
    defaults to, how it is checked and where it sits in the editor is in spec.ts: a setting added here needs its
    entry there (the compiler asks for it). */
 import type { Drawn } from '../engine/outline';
+import type { SourceRef } from '../source/model';
 import type { FreeAt, GlyphParams } from './spec';
 import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, CellJoin, Diagonals, GridRows, Dots, Fill, GForm, IForm, JForm, KForm, MForm, Mirror, QForm, RForm,
   SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from './options';
 
 export interface Params {
+  /** Pinned original outlines and their interpreter. Null preserves the legacy renderer. */
+  sourceProgram: SourceRef | null;
   /** strokes or blocks (see BUILDS) */ build: Build;
   /** the block letters Blocks builds, basic, slots or grid (see BLOCK_FORMS) */ blockForm: BlockForm;
   /** how grid letters' cells meeting only at a corner join (see CELL_JOINS) */ cellJoin: CellJoin;

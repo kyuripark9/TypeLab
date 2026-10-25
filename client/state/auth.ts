@@ -117,7 +117,7 @@ export const auth = {
     const s = useEditor.getState();
     if (saveFirst && s.designId) {
       const input = withSample(designInput(s));
-      actions.markSaved(await api.updateDesign(s.designId, input), input);
+      actions.markSaved(await api.updateDesign(s.designId, input), input, s.session);
     }
     await api.signOut();
     auth.signedOut('Signed out');

@@ -36,6 +36,8 @@ import { buildArc } from './arcs';
 import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
 import { drawnDesign, drawnFrom, drawnLetter } from './family-drawn';
 import { highlightD } from './highlight';
+import { sourceInstance, type SourceStatus } from '../source/instance';
+import { sourceSupports } from '../source/capabilities';
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
@@ -121,6 +123,7 @@ export interface LineItem { ch: string; x: number; adv: number }
 export interface Line { items: LineItem[]; width: number }
 
 export interface Font {
+  source: SourceStatus | null;
   params: Params;
   eff: Effective;
   m: Metrics;
@@ -424,10 +427,11 @@ function sameSettings(a: Params, b: Params): boolean {
 /** The font `params` describe; `from`, an earlier build, lends its letters where only the drawings differ. */
 export function buildFont(params: Params, from?: Font): Font {
   const e = resolve(params), m0 = metrics(e);
+  const source = sourceInstance(params, m0);
   // a free font's letters stand as tall as the design's capitals, and its space is the font's own, wider or
   // narrower by Word spacing
-  const fl = e.freeFont ? freeLetters(params, e, m0) : null, free = fl?.font;
-  const m = free ? { ...m0, space: Math.max(20, free.space * fl.k * fl.sx + (e.wordSpacing - 0.35) * 520) } : m0;
+  const fl = !source && e.freeFont ? freeLetters(params, e, m0) : null, free = source?.free ?? fl?.font;
+  const m = source ? source.m : free && fl ? { ...m0, space: Math.max(20, free.space * fl.k * fl.sx + (e.wordSpacing - 0.35) * 520) } : m0;
   // a family member's drawn letters are moved from the design they were drawn in (family-drawn.ts)
   const at = drawnDesign(params);
   const cache = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
@@ -437,6 +441,7 @@ export function buildFont(params: Params, from?: Font): Font {
   const fromSettings = (ch: string): Glyph | null => {
     const lf = font.letter(ch);
     if (lf !== font) return lf.glyph(ch);
+    if (source) return source.glyph(ch);
     if (free?.glyphs[ch]) return (fl!.skin && formChanged(ch, fl!.now, fl!.pick, fl!.font) && twinGlyph(ch, fl!)) || freeGlyph(ch, free.glyphs[ch], fl!);
     if (e.build === 'blocks') { const b = buildBlock(ch, m); if (b) return b; }
     if (e.build === 'arcs') { const a = buildArc(ch, m); if (a) return a; }
@@ -445,8 +450,9 @@ export function buildFont(params: Params, from?: Font): Font {
   /** Letter `ch`: as drawn, if it is (moved as far as the settings move from those it was drawn at, or, in a family
       member, from its design); else as built before with the same settings, or built now and kept. */
   const pickGlyph = (ch: string): Glyph | null => {
+    if (source) return fromSettings(ch);
     const drawn = params.outlines?.[ch];
-    if (drawn) return drawnLetter(ch, drawn, font, at);
+    if (drawn && !source) return drawnLetter(ch, drawn, font, at);
     const before = built.get(ch);
     if (before !== undefined) return before;
     const g = fromSettings(ch);
@@ -454,7 +460,9 @@ export function buildFont(params: Params, from?: Font): Font {
     return g;
   };
   const font: Font = {
-    params, eff: e, m, free, freePending: !!fl && free?.id !== fl.want, freeMissing: freeFontsWanted(params).filter(id => !freeFont(id)),
+    params, eff: e, m, free, source: source?.status ?? null,
+    freePending: source ? source.status.state === 'missing' : !!fl && free?.id !== fl.want,
+    freeMissing: freeFontsWanted(params).filter(id => !freeFont(id)),
     letter(ch) {
       const own = params.glyphs?.[ch];
       if (!own) return font;
@@ -472,7 +480,7 @@ export function buildFont(params: Params, from?: Font): Font {
       let d = hlCache.get(id);
       if (d === undefined) {
         const g = font.glyph(ch);
-        d = g ? highlightD(g, key, font.letter(ch).m) : '';
+        d = g ? source ? sourceSupports(params, key) ? g.d : '' : highlightD(g, key, font.letter(ch).m) : '';
         hlCache.set(id, d);
       }
       return d;

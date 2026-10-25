@@ -5,11 +5,14 @@ import { FEELINGS, PAGE_STYLES, STYLE_GROUPS, styleById, type Mood } from '../..
 import { cmdsBox } from '../../../shared/engine';
 import { STYLE_FONTS } from '../../../shared/free-fonts';
 import type { Params } from '../../../shared/params';
+import { sourceNotice, sourceSupports } from '../../../shared/source/capabilities';
+import { sourceForFont } from '../../../shared/source/catalog';
 import { fontStyle, useWebFont } from '../../lib/free';
 import { n1, PHONE_QUERY } from '../../lib/hooks';
 import { actions, adjustedParams, fontFor, useEditor, useStyleMatch, type StyleTab } from '../../state/editor';
 import { BuiltWord } from '../BuiltText';
 import { TRAIT_SECTIONS, type TraitDef } from '../../../shared/traits';
+import { useSources } from '../../lib/sources';
 
 /** The Filter tab's search box. */
 const STYLE_SEARCH_ID = 'style-search';
@@ -108,6 +111,8 @@ function StyleFilters() {
     to each style. Shuffle and Clear sit on the first section's heading line. */
 function StyleTraits() {
   const n = useEditor(s => Object.keys(s.traits).length);
+  const sourceProgram = useEditor(s => sourceForFont(STYLE_FONTS[s.styleId] ?? ''));
+  const sections = TRAIT_SECTIONS.map(section => ({ ...section, traits: section.traits.filter(trait => trait.options.some(option => Object.keys(option.set).every(key => sourceSupports({ sourceProgram }, key)))) })).filter(section => section.traits.length);
   const tools = (
     <div className="traits-tools">
       <button className="btn ghost small" onClick={actions.shuffleTraits} title="Pick a random mix of traits">
@@ -119,7 +124,8 @@ function StyleTraits() {
   );
   return (
     <>
-      {TRAIT_SECTIONS.map((sec, i) => (
+      {sourceProgram && <p className="page-note">{sourceNotice}</p>}
+      {sections.map((sec, i) => (
         <div key={sec.id} className="trait-set" role="group" aria-labelledby={`t-${sec.id}`}>
           <div className="trait-set-head">
             <h3 className="facet-label" id={`t-${sec.id}`}>{sec.label}</h3>
@@ -152,7 +158,9 @@ const TRAIT_ROW = 5;
 function TraitRow({ def }: { def: TraitDef }) {
   const picked = useEditor(s => s.traits[def.id]), traits = useEditor(s => s.traits);
   const base = useEditor(s => styleById(s.styleId)) ?? PAGE_STYLES[0];
-  const n = def.options.length, across = n <= TRAIT_ROW ? n : Math.ceil(n / Math.ceil(n / TRAIT_ROW));
+  const sourceProgram = useEditor(s => sourceForFont(STYLE_FONTS[s.styleId] ?? ''));
+  const options = def.options.filter(option => Object.keys(option.set).every(key => sourceSupports({ sourceProgram }, key)));
+  const n = options.length, across = n <= TRAIT_ROW ? n : Math.ceil(n / Math.ceil(n / TRAIT_ROW));
   return (
     <div className="trait" role="group" aria-labelledby={`tr-${def.id}`}>
       <div className="trait-head">
@@ -160,7 +168,7 @@ function TraitRow({ def }: { def: TraitDef }) {
         {picked && <button className="trait-any" onClick={() => actions.setTrait(def.id, null)} title="Let each style keep its own">Any</button>}
       </div>
       <div className="trait-opts" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))` }}>
-        {def.options.map(o => (
+        {options.map(o => (
           <button key={o.id} className={picked === o.id ? 'opt on' : 'opt'} aria-pressed={picked === o.id}
             onClick={() => actions.setTrait(def.id, o.id)}>
             <Specimen params={adjustedParams(base, { ...traits, [def.id]: o.id })} text={def.sample} />
@@ -175,6 +183,7 @@ function TraitRow({ def }: { def: TraitDef }) {
 /** `text` drawn in a font made from `params`, its ink fitted into TRAIT_H px high and TRAIT_W px wide, so
     each step of a trait fills its button. Hidden from screen readers. */
 function Specimen({ params, text }: { params: Params; text: string }) {
+  useSources();
   const f = fontFor(params), items = f.layout(text, Infinity)[0].items.filter(it => f.glyph(it.ch));
   // the ink's box across the line, y down
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;

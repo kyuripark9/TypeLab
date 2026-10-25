@@ -2,6 +2,7 @@
    shared/params/spec.ts), which shapes each picker offers, and which control a key belongs to. */
 import { PARAM_KEYS, SPECS, formOf, type CategoryId, type ControlDef, type ControlKey, type SubControlDef, type SubKey, type SubKeyOf } from '../params';
 import { CATEGORIES } from './pages';
+import { sourceSupports } from '../source/capabilities';
 import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, CellJoin, Diagonals, GridRows, Dots, Fill, GForm, IForm, JForm, KForm, MForm, Mirror, Params, QForm, RForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from '../params';
 
 export type { CategoryId, ControlKey } from '../params';
@@ -61,16 +62,17 @@ export const ARC_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height',
   'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice', 'rough'];
 /** Whether control `k` shapes letters built as `p` says: letters built from blocks take their kind's BLOCK_CONTROLS
     alone (grid letters on seven rows GRID7_CONTROLS too), letters built from arcs ARC_CONTROLS, strokes every control. */
-export const controlInUse = (k: ControlKey, p: Pick<Params, 'build' | 'blockForm'> & { gridRows?: GridRows }) =>
-  p.build === 'blocks' ? BLOCK_CONTROLS[p.blockForm].includes(k) || (p.blockForm === 'grid' && p.gridRows === 'seven' && GRID7_CONTROLS.includes(k))
-    : p.build === 'arcs' ? ARC_CONTROLS.includes(k) : true;
+export const controlInUse = (k: ControlKey, p: Pick<Params, 'build' | 'blockForm'> & Partial<Pick<Params, 'gridRows' | 'sourceProgram'>>) =>
+  p.sourceProgram ? sourceSupports({ sourceProgram: p.sourceProgram }, k)
+    : p.build === 'blocks' ? BLOCK_CONTROLS[p.blockForm].includes(k) || (p.blockForm === 'grid' && p.gridRows === 'seven' && GRID7_CONTROLS.includes(k))
+      : p.build === 'arcs' ? ARC_CONTROLS.includes(k) : true;
 const PAGES = new Map<string, typeof CATEGORIES>();
 /** The pages, in order, with something to shape in letters built as `p` says: the Style page and each page holding a
     control in use. Letters built from blocks have no stroke ends, serifs or other letter forms, so those pages go (and
     Inner space and Heights for the blocks that don't take their settings); letters built from arcs keep their ends,
     have no serifs, and of the letter forms only their dots. The same array each time for the same letters. */
-export function pagesFor(p: Pick<Params, 'build' | 'blockForm'>): typeof CATEGORIES {
-  const id = p.build === 'blocks' ? p.blockForm : p.build;
+export function pagesFor(p: Pick<Params, 'build' | 'blockForm'> & Partial<Pick<Params, 'sourceProgram'>>): typeof CATEGORIES {
+  const id = p.sourceProgram ? 'outline-v1' : p.build === 'blocks' ? p.blockForm : p.build;
   let pages = PAGES.get(id);
   if (!pages) {
     const keys = (Object.keys(CONTROLS) as ControlKey[]).filter(k => controlInUse(k, p));

@@ -347,6 +347,7 @@ export const SPECS = {
   softSharp: num(0.5, { global: true, free: true }),
   classicFuture: num(0.5, { global: true, free: true }),
   playfulFormal: num(0.5, { global: true, free: true }),
+  sourceProgram: value(null, { global: true }),
   glyphs: value({}, { global: true }),
   outlines: value({}, { global: true }),
   freeFont: fontSpec({ global: true }),

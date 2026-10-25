@@ -6,10 +6,11 @@
    draws a design written in a free font, which would fetch the font from the server. */
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it, mock } from 'node:test';
-import { STYLES } from '../shared/content';
+import { STYLES, controlInUse, pagesFor } from '../shared/content';
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { DEFAULTS, freeAtOf } from '../shared/params';
-import { LIT_MS, actions, designInput, hlKeyOf, isDirty, useEditor } from '../client/state/editor';
+import { LIT_MS, actions, designInput, hasWork, hlKeyOf, isDirty, useEditor } from '../client/state/editor';
+import { sourceForFont } from '../shared/source/catalog';
 
 const state = () => useEditor.getState();
 const serif = STYLES.find(s => s.id === 'serif')!, slab = STYLES.find(s => s.id === 'slab')!;
@@ -17,6 +18,7 @@ const serif = STYLES.find(s => s.id === 'serif')!, slab = STYLES.find(s => s.id 
 describe('the editor', () => {
   beforeEach(() => {
     actions.newDesign();
+    actions.loadDesign({ id: 'legacy', name: 'Legacy', styleId: STYLES[0].id, params: { ...state().params, sourceProgram: null }, createdAt: '', updatedAt: '' });
     useEditor.setState({ scope: 'all', inspect: null, toast: null });
   });
 
@@ -68,6 +70,31 @@ describe('the editor', () => {
     assert.equal(state().params.freeFont, STYLE_FONTS.serif);
     assert.deepEqual(state().params.freeAt, freeAtOf(serif.params));
     assert.deepEqual([state().params.letterSpacing, state().params.wordSpacing], [DEFAULTS.letterSpacing, DEFAULTS.wordSpacing]);
+    assert.deepEqual(state().params.sourceProgram, sourceForFont(STYLE_FONTS.serif));
+  });
+
+  it('keeps legacy documents on their renderer and starts new styles with only supported source controls', () => {
+    assert.equal(state().params.sourceProgram, null);
+    actions.setOption('weight', 0.8);
+    assert.equal(state().params.weight, 0.8);
+    actions.loadStyle('grotesque');
+    const source = state().params.sourceProgram;
+    assert.equal(source?.fontId, 'Mainline:600');
+    const originalWeight = state().params.weight;
+    actions.setOption('weight', 0.9);
+    assert.equal(state().params.weight, originalWeight);
+    actions.setOption('width', 0.8);
+    assert.equal(state().params.width, 0.8);
+    assert.equal(controlInUse('weight', state().params), false);
+    assert.equal(controlInUse('width', state().params), true);
+    assert.equal(pagesFor(state().params).some(page => page.id === 'serifs'), false);
+    actions.setCategory('weight');
+    assert.notEqual(state().category, 'weight');
+    actions.setTrait('weight', 'black');
+    assert.equal(state().traits.weight, undefined);
+    assert.deepEqual(designInput(state()).params.sourceProgram, source);
+    actions.openInspector('j');
+    assert.equal(state().inspect, 'j', 'a deep link keeps its inspected letter while the source loads');
   });
 
   it('starts a style built from blocks in its own letters, as no font draws them', () => {
@@ -118,13 +145,13 @@ describe('the editor', () => {
 
   it('loads a style in place of changes, with a way back to them', () => {
     actions.loadStyle('serif');
-    actions.setOption('weight', 0.9);
+    actions.setOption('width', 0.9);
     actions.loadStyle('slab');
     assert.equal(state().styleId, 'slab');
     assert.equal(state().toast?.action?.label, 'Undo');
     state().toast!.action!.run();
     assert.equal(state().styleId, 'serif');
-    assert.equal(state().params.weight, 0.9);
+    assert.equal(state().params.width, 0.9);
   });
 
   it('counts a rename as saved, and keeps the other changes unsaved', () => {
@@ -134,29 +161,34 @@ describe('the editor', () => {
     actions.markRenamed('Renamed');
     assert.equal(state().name, 'Renamed');
     assert.equal(isDirty(state()), true);
-    // with the change undone, only the name differed, and that is saved
+    // Undo restores the settings, but the new History still needs saving.
     actions.travel(-1);
+    assert.equal(isDirty(state()), true);
+    const sent = designInput(state());
+    actions.markSaved({ ...sent, id: 'd1', createdAt: '', updatedAt: '' }, sent, state().session);
     assert.equal(isDirty(state()), false);
   });
 
-  it('folds a change into the last undo step, so one undo takes both back, and only into the newest', () => {
-    const was = [state().params.weight, state().params.contrast];
-    actions.setOption('weight', 0.7);
-    const steps = state().history.length;
-    // (as an edit in Points carried on to the letters shaped the same way: a second write after the first's commit)
-    actions.setParam('contrast', 0.9);
-    actions.amend();
+  it('folds matching drawings into their original edit and rejects results after another gesture or undo', () => {
+    const box = { adv: 320, contours: [[{ x: 60, y: 0 }, { x: 260, y: 0 }, { x: 260, y: 700 }, { x: 60, y: 700 }]] };
+    actions.setParam('outlines', { l: box });
+    actions.commit();
+    const edit = state(), steps = edit.history.length;
+    assert.equal(actions.amendDrawings(edit, { ...edit.params.outlines, i: box }), true);
     assert.equal(state().history.length, steps, 'no new step');
     actions.travel(-1);
-    assert.deepEqual([state().params.weight, state().params.contrast], was);
+    assert.deepEqual(state().params.outlines, {});
     actions.travel(1);
-    assert.deepEqual([state().params.weight, state().params.contrast], [0.7, 0.9]);
-    // an older step, undone to, takes nothing more
+    assert.deepEqual(Object.keys(state().params.outlines), ['l', 'i']);
+    const later = state();
+    actions.setParam('width', 0.2);
+    assert.equal(actions.amendDrawings(later, { ...later.params.outlines, t: box }), false, 'a live gesture invalidates the search');
+    assert.equal(state().params.width, 0.2);
+    assert.equal(state().params.outlines.t, undefined);
     actions.travel(-1);
-    actions.setParam('contrast', 0.2);
-    actions.amend();
-    actions.travel(1);
-    assert.equal(state().params.contrast, 0.9);
+    const undone = state();
+    assert.equal(actions.amendDrawings(undone, { t: box }), false, 'an older undo step cannot be amended');
+    assert.equal(actions.amendDrawings(edit, { t: box }), false, 'the original revision cannot be replayed');
   });
 
   it('records each of a letter\'s own edits past undo, brings any back in one undo step, and saves the record', () => {
@@ -189,8 +221,8 @@ describe('the editor', () => {
     actions.setParam('outlines', { l: box(60) });
     actions.commit();
     // (carried on to the i, in the edit's undo step)
-    actions.setParam('outlines', { ...state().params.outlines, i: box(80) });
-    actions.amend();
+    const edit = state();
+    actions.amendDrawings(edit, { ...edit.params.outlines, i: box(80) });
     assert.deepEqual(state().log.i.map(e => [e.keys, e.by]), [[['points'], 'l']]);
     const drawn = state().params.outlines.l;
     actions.syncLetter('l');
@@ -233,7 +265,7 @@ describe('the editor', () => {
     actions.loadDesign({ id: 'd3', name: 'Kept', styleId: state().styleId, params: input.params, versions: JSON.parse(JSON.stringify(input.versions)), createdAt: '', updatedAt: '' });
     assert.deepEqual(state().versions.map(x => x.params.weight), [DEFAULTS.weight, 0.8, 0.8, slab.params.weight, DEFAULTS.weight, 0.8]);
     // the first change after opening it goes on from its newest version
-    actions.setOption('contrast', 0.1);
+    actions.setOption('width', 0.1);
     assert.equal(state().versions.length, 7);
   });
 
@@ -243,5 +275,54 @@ describe('the editor', () => {
     assert.equal(state().hi, 199);
     for (let i = 0; i < 300; i++) actions.travel(-1);
     assert.equal(state().params.weight, 51 / 1000);
+  });
+
+  it('advances the edit revision after the undo list fills and on document replacement', () => {
+    for (let i = 1; i <= 210; i++) actions.setOption('width', i / 1000);
+    const full = state();
+    actions.setOption('width', 0.4);
+    assert.equal(state().hi, full.hi);
+    assert.ok(state().revision > full.revision);
+    const changed = state().revision;
+    actions.travel(-1);
+    assert.ok(state().revision > changed);
+    const undone = state().revision;
+    actions.newDesign();
+    assert.ok(state().revision > undone);
+  });
+
+  it('keeps new histories dirty after undo and preserves edits made while a save is in flight', () => {
+    actions.loadDesign({ id: 'd1', name: 'Mine', styleId: 'serif', params: serif.params, createdAt: '', updatedAt: '' });
+    actions.setOption('width', 0.3);
+    actions.travel(-1);
+    assert.equal(state().params.width, serif.params.width);
+    assert.equal(isDirty(state()), true);
+    assert.equal(hasWork(state()), true);
+    const sent = designInput(state()), session = state().session;
+    actions.setOption('width', 0.8);
+    actions.travel(-1);
+    assert.equal(actions.markSaved({ ...sent, id: 'd1', createdAt: '', updatedAt: '' }, sent, session), true);
+    assert.equal(state().params.width, sent.params.width);
+    assert.equal(isDirty(state()), true, 'the newer durable history was not part of that save');
+    const latest = designInput(state());
+    actions.markSaved({ ...latest, id: 'd1', createdAt: '', updatedAt: '' }, latest, state().session);
+    assert.equal(isDirty(state()), false);
+  });
+
+  it('ignores a save response and its completion after another document opens', () => {
+    const first = state(), sent = designInput(first);
+    actions.setSaving(true, first.session);
+    actions.newDesign();
+    const next = state();
+    assert.equal(next.saving, false, 'the new document can save while the old request finishes');
+    actions.setSaving(true, next.session);
+    assert.equal(actions.markSaved({ ...sent, id: 'old-save', createdAt: '', updatedAt: '' }, sent, first.session), false);
+    actions.setSaving(false, first.session);
+    assert.equal(state().designId, next.designId);
+    assert.equal(state().name, next.name);
+    assert.equal(state().params, next.params);
+    assert.equal(state().saved, next.saved);
+    assert.equal(state().saving, true, 'the old request cannot clear the newer save indicator');
+    actions.setSaving(false, next.session);
   });
 });

@@ -1,0 +1,66 @@
+{
+  "root": "/Users/mgl/Scratch/TypeLab",
+  "source": "Mainline:600",
+  "results": [
+    {
+      "key": "aperture",
+      "ch": "c",
+      "values": [
+        0,
+        0.5,
+        1
+      ],
+      "hashes": [
+        "b2bbb0883b02",
+        "47114e62da54",
+        "55dad478d3a9"
+      ],
+      "distinct": 3
+    },
+    {
+      "key": "dotSize",
+      "ch": "i",
+      "values": [
+        0,
+        0.5,
+        1
+      ],
+      "hashes": [
+        "016694574d53",
+        "8d2ddcbc5beb",
+        "fff497a95496"
+      ],
+      "distinct": 3
+    },
+    {
+      "key": "width",
+      "ch": "H",
+      "values": [
+        0,
+        0.5,
+        1
+      ],
+      "hashes": [
+        "824607cee875",
+        "f8e8e98a2ecf",
+        "d7eb346e383a"
+      ],
+      "distinct": 3
+    },
+    {
+      "key": "weight",
+      "ch": "H",
+      "values": [
+        0,
+        0.5,
+        1
+      ],
+      "hashes": [
+        "4a0903371f9c",
+        "ba4eb8b4a585",
+        "6dd413b80ee1"
+      ],
+      "distinct": 3
+    }
+  ]
+}

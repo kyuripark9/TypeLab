@@ -10,6 +10,7 @@ import { anchorOf, FAMILY_STYLES, familyMember, ownStyle, WEIGHTS, type FamilyMe
 import type { Params } from '../../shared/params';
 import { useEditor } from '../state/editor';
 import { useFreeFonts } from '../lib/free';
+import { useSources } from '../lib/sources';
 import { n1 } from '../lib/hooks';
 import { fontFor } from '../state/editor';
 
@@ -23,6 +24,13 @@ interface PickerProps {
 }
 
 export function FamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
+  return params.sourceProgram ? <div className="family">
+    <p className="page-note">Export this design as it appears. Additional family weights need authored weight variations.</p>
+    <FontSample params={params} label="Current design" />
+  </div> : <LegacyFamilyPicker params={params} anchor={anchor} picked={picked} onPick={onPick} />;
+}
+
+function LegacyFamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
   const ownOf = ownStyle(params, anchor), own = ownOf.style;
   // every weight upright and italic, built once per design and naming, for the samples
   const rows = useMemo(() => WEIGHTS.map(w => ({
@@ -70,6 +78,7 @@ export function FamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
 export function useFamilySamplesAhead() {
   const params = useEditor(s => s.params);
   useEffect(() => {
+    if (params.sourceProgram) return;
     const chars = [...new Set(SAMPLE)].filter(ch => params.outlines[ch]);
     if (!chars.length) return;
     const anchor = anchorOf(params), steps = FAMILY_STYLES.flatMap(f => chars.map(ch => ({ f, ch }))), fonts = new Map<string, Font>();
@@ -91,8 +100,13 @@ export function useFamilySamplesAhead() {
 
 /** One member's sample, drawn by the font it exports as. */
 function MemberSample({ member, label }: { member: FamilyMember; label: string }) {
+  return <FontSample params={member.params} label={label} />;
+}
+
+function FontSample({ params, label }: { params: Params; label: string }) {
   useFreeFonts();
-  const f = fontFor(member.params), ln = f.layout(SAMPLE, Infinity)[0];
+  useSources();
+  const f = fontFor(params), ln = f.layout(SAMPLE, Infinity)[0];
   // room on the right for an italic's lean
   const w = Math.max(4000, ln.width + 300);
   return (

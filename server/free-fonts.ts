@@ -11,6 +11,7 @@ import { ALL_CHARS, freeFont, freeFontsWanted, packNode, registerFreeFont, type 
 import { FREE_FAMILIES, OWN_LICENSE, ownLicense, parseFontId, type FreeFontRef } from '../shared/free-fonts';
 import type { Params } from '../shared/params';
 import { opentype } from './opentype';
+import { loadSource } from './sources';
 
 type Fetch = (url: string) => Promise<{ ok: boolean; status: number; text(): Promise<string>; arrayBuffer(): Promise<ArrayBuffer> }>;
 
@@ -212,11 +213,13 @@ export class FreeFonts {
 
   /** Every free font `params` are written in, loaded: what an export's worker draws from (export-pool.ts). */
   wanted(...params: Params[]): Promise<FreeFontData[]> {
+    for (const p of params) if (p.sourceProgram) loadSource(p.sourceProgram);
     return Promise.all([...new Set(params.flatMap(freeFontsWanted))].map(id => this.load(id)));
   }
 
   /** Register the free fonts `params` are written in with the engine, so it draws them here. */
   async ready(...params: Params[]) {
+    for (const p of params) if (p.sourceProgram) loadSource(p.sourceProgram);
     for (const id of new Set(params.flatMap(freeFontsWanted))) if (!freeFont(id)) registerFreeFont(await this.load(id));
   }
 }

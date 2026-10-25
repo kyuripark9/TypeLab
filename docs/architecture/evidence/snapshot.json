@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-24",
+  "mainHead": "c2a121df38ee1d484abfaf3e77b62f59c0328e2b",
+  "migrationHead": "c2a121df38ee1d484abfaf3e77b62f59c0328e2b",
+  "sha256": {
+    "shared/engine/even-weight.ts": "3a90ace8d6cb48854b3da55386bf1ab34baf0c61cc98a030f5d1b1598277afc3",
+    "shared/engine/skin.ts": "88376869e06913289047018cfee9560f98aa6dc4216e3927b144ad46c69c65cb",
+    ".tools/v2/engine/sources/fonts/letters.ts": "1bea74a234e45701eab819f5a487f531322a87b6fa37f3d49165467370dc273e",
+    ".tools/v2/engine/sources/fonts/types.ts": "f94a84e44833794408e86a7262dc69c3f1110a24241e9fe4982abea06679cb99",
+    ".tools/v2/engine/build/repair.ts": "284fe2fcf9d8691d10399934bffd3f579f821b3c1b4a0f5e4995684c0b492b4a",
+    ".tools/v2/fonts/sources/Mainline-600.json": "e6ebf359df3712b81faf93d7684bc95263883abd16b13161a801ebde35aacdae",
+    ".tools/v2/fonts/sources/Couture-600.json": "b8e1f95ab0e340d691e325909f300088286198d9d3877276c46687a9090d1b1b",
+    ".tools/v2/fonts/sources/Hearth-600.json": "6f99cdd391311fff58e54f07ca9c24fbfb56c8bd2d3ea25c21c5fde9d899506d"
+  }
+}

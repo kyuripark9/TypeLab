@@ -1,0 +1,76 @@
+{
+  "root": "/Users/mgl/Scratch/TypeLab/.tools/v2",
+  "checked": 216,
+  "differences": [
+    {
+      "style": "grotesque",
+      "ch": "j",
+      "key": "xHeight",
+      "value": 1,
+      "expected": {
+        "pieces": 2,
+        "counters": 0
+      },
+      "actual": {
+        "pieces": 1,
+        "counters": 0
+      }
+    },
+    {
+      "style": "grotesque",
+      "ch": "j",
+      "key": "extenders",
+      "value": 0,
+      "expected": {
+        "pieces": 2,
+        "counters": 0
+      },
+      "actual": {
+        "pieces": 1,
+        "counters": 0
+      }
+    },
+    {
+      "style": "didone",
+      "ch": "j",
+      "key": "extenders",
+      "value": 0,
+      "expected": {
+        "pieces": 2,
+        "counters": 0
+      },
+      "actual": {
+        "pieces": 1,
+        "counters": 0
+      }
+    },
+    {
+      "style": "softslab",
+      "ch": "y",
+      "key": "height",
+      "value": 0,
+      "expected": {
+        "pieces": 1,
+        "counters": 0
+      },
+      "actual": {
+        "pieces": 1,
+        "counters": 1
+      }
+    },
+    {
+      "style": "softslab",
+      "ch": "j",
+      "key": "extenders",
+      "value": 0,
+      "expected": {
+        "pieces": 2,
+        "counters": 0
+      },
+      "actual": {
+        "pieces": 1,
+        "counters": 0
+      }
+    }
+  ]
+}

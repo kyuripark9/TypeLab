@@ -69,6 +69,8 @@ export const api = {
   deleteDesign: async (id: string) => { await send('DELETE', `/api/designs/${encodeURIComponent(id)}`, undefined, { keepalive: true }); },
   /** A free font's letters, as the engine draws them (see lib/free.ts). */
   freeFont: (id: string) => json<FreeFontData>('GET', `/api/free-fonts/${encodeURIComponent(id)}`),
+  /** The exact outline revision pinned by a design. */
+  source: (digest: string) => json<unknown>('GET', `/api/sources/${encodeURIComponent(digest)}`),
   /** Build a font file or specimen on the server; a font file can be one member of the design's family. With `accents`,
       the accented letters (é ñ ü …) too. */
   exportFile: async (kind: 'otf' | 'svg', body: { name: string; params: Params; member?: MemberRequest; accents?: boolean }) => (await send('POST', `/api/export/${kind}`, body)).blob(),

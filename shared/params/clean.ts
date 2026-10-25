@@ -6,6 +6,7 @@
 import { cleanDrawn, type Drawn } from '../engine/outline';
 import { ownFontOf, parseFontId } from '../free-fonts';
 import type { Params } from './model';
+import { parseSourceRef } from '../source/model';
 import { GRID_FILLS } from './options';
 import { contrastFromOld, dotGainFromOld, moduleFromOld, moduleFromV5, xHeightFromOld } from './scales';
 import { DEFAULTS, DRAWN_AT_KEYS, FREE_AT_KEYS, ID_KEYS, PARAM_KEYS, SPECS, drawnAtOf, isGlyphKey, type DrawnAt, type FreeAt, type GlyphParams, type Spec } from './spec';
@@ -17,7 +18,7 @@ import { DEFAULTS, DRAWN_AT_KEYS, FREE_AT_KEYS, ID_KEYS, PARAM_KEYS, SPECS, draw
     grid fills had their Size from 40 cells to 5 (moduleFromV5); version 6 slot and grid blocks drew alike whatever
     Contrast, Inner space, Openness, the crossbars, the corners, Stencil and the letter forms said (BLOCK_LOOKS). Bump
     it, and add the step to upgradeParams, when saved settings need reading differently. */
-export const PARAMS_VERSION = 7;
+export const PARAMS_VERSION = 8;
 /** Settings written by an older version (see PARAMS_VERSION), as this one reads them. */
 export function upgradeParams(src: Record<string, unknown>, version: number): Record<string, unknown> {
   if (version < 2 && typeof src.xHeight === 'number' && Number.isFinite(src.xHeight)) src = { ...src, xHeight: xHeightFromOld(Math.min(1, Math.max(0, src.xHeight))) };
@@ -30,6 +31,7 @@ export function upgradeParams(src: Record<string, unknown>, version: number): Re
   if (version < 6) src = gridScales(src, version);
   // slot and grid blocks keep the shapes they had, the settings they now follow read at their defaults
   if (version < 7) src = blockLooks(src);
+  if (version < 8 && 'sourceProgram' in src) src = { ...src, sourceProgram: null };
   return src;
 }
 /** The settings slot and grid blocks follow since version 7, which they drew alike whatever they said before. */
@@ -102,6 +104,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
       return out;
     }
     case 'value': {
+      if (k === 'sourceProgram') return parseSourceRef(v);
       if (k !== 'freeAt' || !v || typeof v !== 'object' || Array.isArray(v)) return undefined;
       const out: Record<string, unknown> = {};
       for (const a of FREE_AT_KEYS) { const c = a in v ? cleanValue(a, (v as Record<string, unknown>)[a]) : undefined; if (c !== undefined) out[a] = c; }
@@ -203,12 +206,14 @@ const withoutRetired = (v: unknown) => (v && typeof v === 'object' && !Array.isA
 /** True when `input` is already fully valid (used by the API to reject bad bodies loudly). */
 export function isValidParams(input: unknown): input is Params {
   if (!input || typeof input !== 'object') return false;
+  try { if ('sourceProgram' in input) parseSourceRef(input.sourceProgram); } catch { return false; }
   const given = input as Record<string, unknown>, glyphs = given.glyphs;
-  const src: Record<string, unknown> = { ...given, freeAt: withoutRetired(given.freeAt),
+  const src: Record<string, unknown> = { sourceProgram: null, ...given, freeAt: withoutRetired(given.freeAt),
     glyphs: glyphs && typeof glyphs === 'object' && !Array.isArray(glyphs) ? Object.fromEntries(Object.entries(glyphs).map(([ch, g]) => [ch, withoutRetired(g)])) : glyphs };
   if (!('freeAt' in given)) delete src.freeAt;
   if (!('glyphs' in given)) delete src.glyphs;
-  const clean = sanitizeParams(input) as unknown as Record<string, unknown>;
+  let clean: Record<string, unknown>;
+  try { clean = { ...sanitizeParams(input) }; } catch { return false; }
   // (an older design's freeAt may leave out free settings: sanitizeParams fills them in, so compare only the ones the input names)
   const fill = (k: keyof Params, v: unknown) => k === 'freeAt' && src.freeAt && typeof src.freeAt === 'object'
     ? Object.fromEntries(Object.entries(v as object).filter(([a]) => a in (src.freeAt as object))) : v;

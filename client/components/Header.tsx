@@ -202,7 +202,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   // italic when it leans; the family's other weights spread from it
   const anchor = anchorOf(params);
   const [picked, setPicked] = useState(() => [ownStyle(params, anchor).style]);
-  const styles = FAMILY_STYLES.filter(f => picked.includes(f.style));
+  const styles = params.sourceProgram ? [ownStyle(params, anchor)] : FAMILY_STYLES.filter(f => picked.includes(f.style));
   // the accented letters (é ñ ü …) in the fonts and the specimen too: off at first, then as this browser last left it
   const [accents, setAccents] = useState(() => prefFlag(PREFS.exportAccents));
   const toggleAccents = () => { setAccents(!accents); setPrefFlag(PREFS.exportAccents, !accents); };
@@ -212,7 +212,10 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     const s = useEditor.getState(), name = cleanName(s.name);
     setBusy('fonts'); setError(null);
     try {
-      if (styles.length === 1) {
+      if (s.params.sourceProgram) {
+        download(`${slug(name)}.otf`, await api.exportFile('otf', { name, params: s.params, accents: false }));
+        actions.toast(`${name} exported. Open the .otf to install it.`);
+      } else if (styles.length === 1) {
         const [f] = styles;
         download(fontFile(name, styles), await api.exportFile('otf', { name, params: s.params, member: { anchor, weight: f.weight, italic: f.italic }, accents }));
         actions.toast(`${name} ${f.style} exported — open the .otf to install it`);
@@ -232,7 +235,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     const s = useEditor.getState(), name = cleanName(s.name);
     setBusy('svg'); setError(null);
     try {
-      download(`${slug(name)}-specimen.svg`, await api.exportFile('svg', { name, params: s.params, accents }));
+      download(`${slug(name)}-specimen.svg`, await api.exportFile('svg', { name, params: s.params, accents: s.params.sourceProgram ? false : accents }));
       setDone('svg');
     } catch (e) {
       setError({ at: 'files', text: `Export failed: ${errorMessage(e)}` });
@@ -293,11 +296,12 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
             <ReservedNote name={draft} />
           </div>
           <div className="export-send">
-            <label className="export-accents">
+            {!params.sourceProgram && <label className="export-accents">
               <span>Accented letters<span className="export-ext"> é ñ ü …</span></span>
               <button type="button" className={accents ? 'switch on' : 'switch'} role="switch" aria-checked={accents} disabled={!!busy}
                 title="Add À to ž: Western, Central and Eastern European, Turkish and Baltic letters" onClick={toggleAccents}><i /></button>
-            </label>
+            </label>}
+            {params.sourceProgram && <p className="export-note">Exports the characters in this source. Additional accented forms are not authored yet.</p>}
             <button ref={go} type="button" className="btn primary" disabled={!!busy || !n} onClick={saveFonts}>
               <Glyph d="down" />
               {busy === 'fonts' ? 'Building…' : !n ? 'Pick a style' : n > 1 ? `Download ${n} fonts` : 'Download font'}

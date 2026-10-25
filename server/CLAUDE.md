@@ -118,6 +118,11 @@ tests/api.test.ts build one).
 
 ## The free-font cache
 
+Pinned source designs use `sources.ts` and `/api/sources/:digest`. The loader checks the catalog, font ID and exact
+file hash before registering a source; export workers load the same immutable file. `FreeFonts.ready/wanted` routes
+source designs through that loader and keeps the font-name cache for legacy designs. Missing source revisions fail
+explicitly. Source family, family-member and generated-accent export requests are rejected until supported.
+
 TypeLab's own fonts are part of the repository, in `fonts/<Family>-<weight>.json` (`ownFontFile`): `load(id)` reads
 one from there, never fetching. The rest: `FreeFonts(dir)` keeps fonts in memory and, when `dir` is set, as JSON
 files there: `dirname(DB_PATH)/free-fonts` (`data/free-fonts` by default; none for `DB_PATH=:memory:`). `load(id)`

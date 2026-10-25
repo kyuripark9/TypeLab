@@ -2,6 +2,7 @@
 import { useLayoutEffect, type ReactNode } from 'react';
 import { PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, controlFor, controlInUse, pagesFor, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
 import type { NumericParam, SubControlDef } from '../../../shared/params';
+import { sourceNotice, sourceSupports } from '../../../shared/source/capabilities';
 import { actions, letterOf, useEditor, useFont, useParam } from '../../state/editor';
 import { ScopeIcon, letterControls } from '../Inspector';
 import { Explainer } from './heads';
@@ -12,18 +13,19 @@ import { TerminalControl, StoryControl, type LetterFormKey, FormControl, SerifCo
 export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
   const serifs = useParam('serif'), shape = useParam('serifShape'), pointed = shape === 'wedge' || shape === 'diamond', outside = useParam('serifSides') === 'outside';
   const build = useParam('build'), blockForm = useParam('blockForm'), gridRows = useParam('gridRows');
-  const pages = pagesFor({ build, blockForm });
+  const sourceProgram = useParam('sourceProgram');
+  const pages = pagesFor({ build, blockForm, sourceProgram });
   // a page with nothing for these letters isn't offered; one opened anyway (undo back to blocks, a link) gives way to the
   // page before it before it is drawn
   const shown = pages.some(c => c.id === category);
   useLayoutEffect(() => {
-    if (!shown) actions.setCategory(CATEGORIES.slice(0, CATEGORIES.findIndex(c => c.id === category)).filter(c => pages.includes(c)).at(-1)!.id);
+    if (!shown) actions.setCategory(pages.find(page => page.id !== 'style')?.id ?? 'style');
   }, [shown, category, pages]);
   // the Serifs page has nothing to shape while serifs are off, a wedge or a diamond, already a point, has no tip to finish,
   // and serifs that only reach out of the letter leave none inside it; letters built from blocks or arcs have no
   // skeleton of strokes, so only the controls that shape them show
   const all = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category);
-  const keys = all.filter(k => controlInUse(k, { build, blockForm, gridRows }) &&
+  const keys = all.filter(k => controlInUse(k, { build, blockForm, gridRows, sourceProgram }) &&
     (category !== 'serifs' || k === 'serif' || (serifs && !(pointed && k === 'serifTip') && !(outside && k === 'serifInner'))));
   const inspecting = useEditor(s => !!s.inspect);
   // the page opens on its first setting these letters take, so the explainer speaks of one shown here
@@ -32,14 +34,15 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
     const ks = keyList.split(',') as ControlKey[];
     if (keyList && !ks.includes(controlFor(useEditor.getState().active))) actions.setActive(ks[0]);
   }, [keyList]);
-  const note = build !== 'strokes' && keys.length < all.length
+  const note = sourceProgram ? <p className="page-note">{sourceNotice}</p> : build !== 'strokes' && keys.length < all.length
     ? <p className="page-note">Letters built from {build} take only these settings here.</p>
     : category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
   if (!shown) return null;
   return (
     <div className="controls-page">
       <Explainer />
-      {inspecting ? <LetterControls keys={keys} category={category} note={note} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}{note}</div>}
+      {sourceProgram && note}
+      {inspecting ? <LetterControls keys={keys} category={category} note={sourceProgram ? null : note} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}{!sourceProgram && note}</div>}
       <PageSteps category={category} pages={pages} />
     </div>
   );
@@ -78,7 +81,9 @@ function LetterControls({ keys, category, note }: { keys: ControlKey[]; category
       {customizing && <div className="scope-note"><ScopeIcon id="letter" /><span>Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</span></div>}
       {hand && (
         <div className="reach-banner">
-          <span>{`${ch} was edited in Points: weight, contrast, width, heights, crossbar and slant move it, and its shape stays as you drew it.`}</span>
+          <span>{font.params.sourceProgram
+            ? `${ch} was edited in Points. Width, heights and slant still move its drawing.`
+            : `${ch} was edited in Points: weight, contrast, width, heights, crossbar and slant move it, and its shape stays as you drew it.`}</span>
           <button className="link small" onClick={() => actions.syncLetter(ch)}>{`Reset ${ch}`}</button>
         </div>
       )}
@@ -110,14 +115,15 @@ const NESTED: Partial<Record<ControlKey, { subs?: Record<string, SubControlDef>;
     sliders or a letter's own values below theirs, and Stencil and Slice are cuts with a switch. */
 function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   const c = CONTROLS[k], n = NESTED[k];
+  const sourceProgram = useParam('sourceProgram');
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'story') return <StoryControl parts={parts} />;
   if (c.type === 'form') return <FormControl k={k as LetterFormKey} parts={parts} />;
   if (n) {
     return (
       <SliderControl k={k as NumericParam & ControlKey} def={c} parts={parts}>
-        {Object.entries(n.subs ?? {}).map(([s, d]) => <SliderControl key={s} k={s as NumericParam & ActiveKey} def={d} />)}
-        {n.more}
+        {Object.entries(n.subs ?? {}).filter(([s]) => sourceSupports({ sourceProgram }, s)).map(([s, d]) => <SliderControl key={s} k={s as NumericParam & ActiveKey} def={d} />)}
+        {!sourceProgram && n.more}
       </SliderControl>
     );
   }

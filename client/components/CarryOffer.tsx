@@ -24,7 +24,7 @@ import { ALL_CHARS, CHARSET, cmdsToD, drawnCmds, drawnLetter, type Drawn, type F
 import { drawnAtOf } from '../../shared/params';
 import { carryLetter, changesOf, inCells, kindOf, placesOf, sameDrawing, type Carried } from '../lib/carry';
 import { keyRef, moveAnchors, traceOf } from '../lib/pen';
-import { actions, broughtBack, useEditor } from '../state/editor';
+import { actions, broughtBack, fontFor, useEditor, type EditorState } from '../state/editor';
 
 /** How long the search runs before letting a frame through, in ms. */
 const SLICE = 10;
@@ -34,9 +34,9 @@ const KINDS: [string, string][] = [['Uppercase', CHARSET.upper], ['Lowercase', C
 const NAMED = 8;
 
 /** The design open now, told apart from another one, or another style started (a first save keeps it the same). */
-interface Of { style: string; design: string | null }
-const ofNow = (): Of => { const s = useEditor.getState(); return { style: s.styleId, design: s.designId }; };
-const sameDesign = (a: Of, b: Of) => a.style === b.style && (a.design === null || a.design === b.design);
+interface Of { style: string; session: number }
+const ofNow = (): Of => { const s = useEditor.getState(); return { style: s.styleId, session: s.session }; };
+const sameDesign = (a: Of, b: Of) => a.style === b.style && a.session === b.session;
 
 /** The last change applied to other letters: the letter it was made in, the letters offered (each as it was before,
     none for one the settings drew), and the design, kept while the page is open so it can be looked at again from
@@ -48,7 +48,7 @@ const useApplied = create<{ last: Applied | null }>(() => ({ last: null }));
     be drawn at the settings the edit was made at, should they have moved), by letter, for the design open now
     (another design, or another style started, begins afresh). */
 const bases = new Map<string, Drawn>();
-let basesOf: Of = { style: '', design: null };
+let basesOf: Of = { style: '', session: -1 };
 function forDesign() {
   const now = ofNow();
   if (!sameDesign(basesOf, now)) bases.clear();
@@ -67,7 +67,7 @@ export const useMates = create<{ ch: string | null; letters: string[] | null }>(
 /** `picked` is the points picked in the letter, as the pen keeps them ("contour:index"). */
 export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: Glyph; font: Font; picked: string[] }) {
   // a new undo step: an edit finished, or one undone or redone
-  const hi = useEditor(s => s.hi);
+  const revision = useEditor(s => s.revision);
   const sync = useEditor(s => s.scope === 'all'), history = useEditor(s => s.history);
   const stored = useEditor(s => s.params.outlines[ch]);
   const outlines = useEditor(s => s.params.outlines);
@@ -82,7 +82,7 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
   // the undo history and the letter's drawing as the last search found them, to tell an edit just made here from a
   // step undone or redone, or a slider moved
   const seen = useRef({ history: useEditor.getState().history, stored });
-  const [offer, setOffer] = useState<{ now: Drawn; found: Carried[] } | null>(null);
+  const [offer, setOffer] = useState<{ now: Drawn; found: Carried[]; of: Pick<EditorState, 'revision' | 'params'> } | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [peek, setPeek] = useState<Carried | null>(null);
   // the card open under the pill
@@ -106,7 +106,10 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
     // (a letter brought back from its History is no edit made here)
     const made = s0.history !== seen.current.history && s0.hi === s0.history.length - 1 && s0.params.outlines[ch] !== seen.current.stored && !broughtBack(s0);
     seen.current = { history: s0.history, stored: s0.params.outlines[ch] };
-    const was = now && base ? traceOf(drawnLetter(ch, base, f)) : undefined;
+    const before = now && base ? f.params.sourceProgram
+      ? fontFor({ ...f.params, outlines: { ...f.params.outlines, [ch]: base } }).glyph(ch)
+      : drawnLetter(ch, base, f) : null;
+    const was = before ? traceOf(before) : undefined;
     // (in a grid fill's cells, every cell is shaped the same: an edit stays where it was made)
     const changes = now && was && !inCells(s0.params, ch) ? changesOf(was.contours, now.contours) : [];
     if (!now || !changes.length) { setOffer(null); return; }
@@ -118,7 +121,7 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
         // (the letter itself as it is now, for its other places shaped the same: an n's other foot)
         const o = ALL_CHARS[k++], og = o === ch ? null : f.glyph(o);
         const doc = o === ch ? now : og ? traceOf(og) : null, got = doc?.contours.length ? carryLetter(changes, o, doc, o === ch) : null;
-        if (got) found.push(got);
+        if (got) found.push({ ...got, doc: { ...got.doc, at: drawnAtOf(s0.params, o) } });
       }
       if (k < ALL_CHARS.length) { timer = window.setTimeout(step, 0); return; }
       // close matches of the letter's own kind first (the letter itself before them), then other close ones, then the
@@ -131,10 +134,10 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
       setOpen(false);
       // All letters: an edit just made goes on to them now, folded into its undo step (unless another has begun since)
       const s = useEditor.getState();
-      if (made && s.scope === 'all' && picks.length && s.params === s0.params) {
+      if (s.revision !== s0.revision || s.params !== s0.params) { setOffer(null); return; }
+      if (made && s.scope === 'all' && picks.length) {
         const prev = Object.fromEntries(found.map(c => [c.ch, s.params.outlines[c.ch]]));
-        actions.setParam('outlines', { ...s.params.outlines, ...Object.fromEntries(picks.map(c => [c.ch, c.doc])) });
-        actions.amend();
+        if (!actions.amendDrawings(s0, { ...s.params.outlines, ...Object.fromEntries(picks.map(c => [c.ch, c.doc])) })) return;
         useApplied.setState({ last: { from: ch, found, prev, of: ofNow() } });
         const after = useEditor.getState();
         bases.set(ch, after.params.outlines[ch]!);
@@ -144,11 +147,11 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
       }
       setPicked(new Set(picks.map(c => c.ch)));
       // looser matches alone aren't worth asking about
-      setOffer(found.some(c => c.close) ? { now, found } : null);
+      setOffer(found.some(c => c.close) ? { now, found, of: s0 } : null);
     };
     timer = window.setTimeout(step, 120);
     return () => clearTimeout(timer);
-  }, [hi, ch]);
+  }, [revision, ch]);
 
   // with All letters, the letters shaped the same way as the points picked, before they're edited: as though they moved,
   // where else the stretch they're on runs, or the shape they make (searched again once an edit finishes, or is
@@ -182,7 +185,7 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
   useEffect(() => () => useMates.setState({ ch: null, letters: null }), []);
 
   // mid-drag, or once the letter has changed again, an offer waits for the search to catch up
-  if (offer && !sameDrawing(offer.now, stored && traceOf(g))) return null;
+  if (offer && (offer.of.revision !== revision || offer.of.params !== useEditor.getState().params || !sameDrawing(offer.now, stored && traceOf(g)))) return null;
   // the letters the last change applied is in now (none once it is undone everywhere)
   const has = last ? last.found.filter(c => sameDrawing(outlines[c.ch], c.doc)) : [];
   const review = !offer && last && (has.length || open) ? last : null;
@@ -194,6 +197,7 @@ export function CarryOffer({ ch, g, font, picked: pickedPts }: { ch: string; g: 
   const apply = () => {
     if (!offer || !take.length) return;
     const s = useEditor.getState(), prev = Object.fromEntries(found.map(c => [c.ch, s.params.outlines[c.ch]]));
+    if (s.revision !== offer.of.revision || s.params !== offer.of.params) { answered(); return; }
     actions.setParam('outlines', { ...s.params.outlines, ...Object.fromEntries(take.map(c => [c.ch, c.doc])) });
     actions.commit();
     useApplied.setState({ last: { from: ch, found, prev, of: ofNow() } });

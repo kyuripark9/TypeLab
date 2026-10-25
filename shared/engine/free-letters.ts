@@ -99,6 +99,7 @@ export function freeLetters(params: Params, e: Effective, m: Metrics): FreeLette
 /** The free fonts a design draws from: the one it's written in, and the heavier, lighter or italic ones
     its settings and its letters' own ask for. */
 export function freeFontsWanted(params: Params): string[] {
+  if (params.sourceProgram) return [];
   if (!params.freeFont) return [];
   const want = (p: Params) => { const e = resolve(p); return freeLetters(p, e, metrics(e))?.want; };
   return [...new Set([params.freeFont, want(params), ...Object.values(params.glyphs ?? {}).map(g => want({ ...params, ...g, glyphs: {} }))])]

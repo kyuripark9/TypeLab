@@ -4,6 +4,7 @@
    control's note (client/components/panel/reach.tsx) says so and names up to three letters it does change. */
 import { ALL_CHARS, buildFont, skinFollows, type Font } from '../../shared/engine';
 import { FREE_AT_KEYS, SPECS, TERMINAL_FORMS, isGlyphKey, type Params } from '../../shared/params';
+import { sourceSupports } from '../../shared/source/capabilities';
 /** Spacing acts on how letters are set side by side, not on the letters, so it always shows. */
 const SPACING = new Set<keyof Params>(['letterSpacing', 'wordSpacing']);
 
@@ -29,6 +30,7 @@ export interface Reach {
 /** Whether trying `k` at its other values changes any of `chars` in the font `p` makes. While edits go to
     one letter (`letter`), its own settings are what change, as moving the control would do. */
 export function reachOf(p: Params, k: keyof Params, chars: string[], letter: string | null = null): Reach {
+  if (p.sourceProgram) return { shows: sourceSupports(p, k), elsewhere: [] };
   if (SPACING.has(k)) return { shows: true, elsewhere: [] };
   const set = (v: unknown): Params => letter && isGlyphKey(k)
     ? { ...p, glyphs: { ...p.glyphs, [letter]: { ...p.glyphs[letter], [k]: v } } }

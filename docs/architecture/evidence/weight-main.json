@@ -1,0 +1,63 @@
+{
+  "root": "/Users/mgl/Scratch/TypeLab",
+  "synthetic": true,
+  "offsets": [
+    {
+      "requested": 14,
+      "applied": 14,
+      "pieces": 2
+    },
+    {
+      "requested": 15,
+      "applied": 15,
+      "pieces": 2
+    },
+    {
+      "requested": 16,
+      "applied": 14,
+      "pieces": 2
+    },
+    {
+      "requested": 17,
+      "applied": 15,
+      "pieces": 2
+    },
+    {
+      "requested": 18,
+      "applied": 15,
+      "pieces": 2
+    },
+    {
+      "requested": 19,
+      "applied": 15,
+      "pieces": 2
+    },
+    {
+      "requested": 20,
+      "applied": 14,
+      "pieces": 2
+    }
+  ],
+  "dots": [
+    {
+      "requested": 0,
+      "inputPieces": 2,
+      "outputPieces": 2
+    },
+    {
+      "requested": 0.04,
+      "inputPieces": 2,
+      "outputPieces": 2
+    },
+    {
+      "requested": 0.06,
+      "inputPieces": 2,
+      "outputPieces": 1
+    },
+    {
+      "requested": 1,
+      "inputPieces": 2,
+      "outputPieces": 1
+    }
+  ]
+}

@@ -6,7 +6,7 @@ import type { Cmd, Font, Glyph } from '../shared/engine';
 import { TEXTS } from '../shared/content';
 import { slug } from '../shared/design';
 import { WEIGHTS, familyMember, type FamilyRequest, type MemberRequest } from '../shared/family';
-import { withoutReserved } from '../shared/free-fonts';
+import { parseFontId, withoutReserved } from '../shared/free-fonts';
 import type { Params } from '../shared/params';
 import { opentype } from './opentype';
 
@@ -45,6 +45,14 @@ export function exportName(params: Params, name: string, font: Font = buildFont(
     is. */
 export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, outline: (g: Glyph) => Cmd[] = g => g.cmds, accents = false): Buffer {
   const font = buildFont(params), m = font.m, free = font.free, licensed = free?.license ? free : null;
+  if (font.source?.state === 'missing') throw new Error('The saved source must be loaded before exporting');
+  if (params.sourceProgram && accents) throw new Error('This source has no authored accented glyphs');
+  if (params.sourceProgram && as === REGULAR) {
+    const original = parseFontId(params.sourceProgram.fontId), cls = original?.weight ?? 400;
+    const angle = (original?.italic ? 12 : 0) + (params.slant - (params.freeAt.slant ?? 0)) * 20;
+    const weight = WEIGHTS.find(w => w.cls === cls)?.name ?? 'Regular';
+    as = { cls, angle, style: weight + (angle > 0 ? ' Italic' : '') };
+  }
   name = exportName(params, name, font);
   // an advance width can't go below zero in a font file, and tight tracking takes it down: a space keeps at
   // least 40 units, so words stay apart, and a letter 20. .notdef, the blank shown for a character the font
@@ -243,6 +251,10 @@ export interface Built { file: string; type: string; data: Buffer }
     its free font reserves, and for the member picked (`<slug>-<Style>.otf`), as the family's .zip names it. */
 export function buildExport(job: ExportJob): Built {
   const { name, params, accents = false } = job;
+  if (params.sourceProgram && (accents || job.kind === 'family' || job.kind === 'otf' && job.member)) {
+    throw new Error('This source does not contain the requested authored variations');
+  }
+  if (params.sourceProgram && buildFont(params).source?.state !== 'ready') throw new Error('The saved source must be loaded before exporting');
   if (job.kind === 'svg') return { file: `${slug(name)}-specimen.svg`, type: 'image/svg+xml; charset=utf-8', data: Buffer.from(buildSpecimenSVG(params, name, accents)) };
   if (job.kind === 'family') return joinPieces(job, exportPieces(job).map(buildPiece));
   const file = slug(exportName(params, name));

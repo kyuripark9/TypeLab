@@ -5,6 +5,7 @@ import { memo } from 'react';
 import type { Params } from '../../shared/params';
 import { n1, useSize } from '../lib/hooks';
 import { fontFor } from '../state/editor';
+import { useSources } from '../lib/sources';
 
 /** Line height, in ems: .card-free's in styles.css. */
 const LINE = 1.3;
@@ -15,6 +16,7 @@ const LINE = 1.3;
 export const BuiltText = memo(function BuiltText({ params, text, size, lines: most, className }: {
   params: Params; text: string; size: number; lines?: number; className: string;
 }) {
+  useSources();
   const [ref, box] = useSize<HTMLSpanElement>(), f = fontFor(params);
   const top = Math.max(f.m.asc, f.m.cap), bottom = -f.m.desc;
   // wrapped, smaller where the longest word would overrun the box (blocks are wide: a long word on a phone), down to

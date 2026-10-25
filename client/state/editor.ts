@@ -4,11 +4,15 @@
    the Style page's filters and traits. Importing it subscribes to free fonts arriving, so a design written
    in one draws again once its letters come. */
 import { create } from 'zustand';
-import { STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
+import { CONTROLS, STYLES, controlFor, firstControl, looksOf, pagesFor, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
 import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
 import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../shared/engine';
 import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
+import { loadSource } from '../lib/sources';
+import { sourceForFont } from '../../shared/source/catalog';
+import { onSource, sourceFont } from '../../shared/source/registry';
+import { sourceSupports } from '../../shared/source/capabilities';
 import { DEFAULT_NAME, cleanName, slug, type Design, type DesignInput } from '../../shared/design';
 import { cleanLog, mergeLogs, ownOf, packLog, recordEdits, sameOwn, withOwn, type LetterEdit, type LetterLog } from '../../shared/letter-log';
 import { cleanVersions, keyOf, mergeVersions, packVersions, recordVersion, sameDesign, type FontLog, type FontVersion, type Made, type Snapshot } from '../../shared/font-log';
@@ -49,6 +53,10 @@ export interface EditorState extends Doc {
   history: string[];
   /** the entry in `history` the design is at; undo and redo move it */
   hi: number;
+  /** Each committed change or document replacement gets a new revision, even once the undo list is full. */
+  revision: number;
+  /** The open document session, retained by its first save and replaced by New or Open. */
+  session: number;
   /** a save is on its way to the server */
   saving: boolean;
 
@@ -121,10 +129,11 @@ const readHist = (snap: string): Pick<Doc, 'styleId' | 'params'> => {
 };
 /** The document as `saved` holds it, as JSON so the dirty check compares strings (readDoc reads it back and
     must agree on the order). */
-const docSnap = (d: Pick<Doc, 'name' | 'styleId' | 'params'>) => JSON.stringify([d.name, d.styleId, d.params]);
-const readDoc = (snap: string): Pick<Doc, 'name' | 'styleId' | 'params'> => {
-  const [name, styleId, params] = JSON.parse(snap) as [string, string, Params];
-  return { name, styleId, params };
+const inputSnap = (d: DesignInput) => JSON.stringify([d.name, d.styleId, d.params, d.log ?? {}, d.versions ?? []]);
+const docSnap = (d: Doc) => inputSnap({ ...d, log: packLog(d.log), versions: packVersions(d.versions) });
+const readDoc = (snap: string): DesignInput => {
+  const [name, styleId, params, log, versions] = JSON.parse(snap) as [string, string, Params, LetterLog, DesignInput['versions']];
+  return { name, styleId, params, log, versions };
 };
 /** The name as last loaded or saved. */
 export const savedName = (s: EditorState) => readDoc(s.saved).name;
@@ -140,20 +149,39 @@ const FREE_SPACING = { letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAU
     otherwise). Its free font's letters are spaced as the font spaces them, so letter and word spacing start at FREE_SPACING. Traits laid over the style move the
     font's letters as they move the settings (Bold makes it heavier). */
 function startParams(st: StyleDef, traits: Traits, free = true): Params {
-  const p = { ...applyTraits(st.params, traits) }, id = STYLE_FONTS[st.id];
-  return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING } : p;
+  const id = STYLE_FONTS[st.id], sourceProgram = free && id ? sourceForFont(id) : null;
+  if (!sourceProgram) {
+    const p = applyTraits(st.params, traits);
+    return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING } : p;
+  }
+  const base = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING, height: DEFAULTS.height, sourceProgram };
+  return applyTraits(base, supportedTraits(base, traits));
+}
+/** Unsupported traits stay out of a source design, including when picked before switching styles. */
+function supportedTraits(p: Params, traits: Traits): Traits {
+  if (!p.sourceProgram) return traits;
+  const out: Traits = {};
+  for (const def of TRAIT_SECTIONS.flatMap(section => section.traits)) {
+    const option = traitOption(def.id, traits[def.id]);
+    if (option && Object.keys(option.set).every(key => sourceSupports(p, key))) out[def.id] = option.id;
+  }
+  return out;
 }
 /** A new design: the first style, in its font, as picking its card starts it (so the card shows picked and Customize
     shapes the letters the card shows). */
 const blankDoc = (): Doc => ({ designId: null, name: DEFAULT_NAME, styleId: STYLES[0].id, params: startParams(STYLES[0], {}), log: {}, versions: [] });
 
-function freshDocState(doc: Doc): Pick<EditorState, keyof Doc | 'picked' | 'saved' | 'history' | 'hi' | 'inspect' | 'switchedOn' | 'part' | 'hotEnd'> {
+let revision = 0, session = 0;
+function freshDocState(doc: Doc): Pick<EditorState, keyof Doc | 'picked' | 'saved' | 'history' | 'hi' | 'revision' | 'session' | 'saving' | 'inspect' | 'switchedOn' | 'part' | 'hotEnd'> {
   return {
     ...doc,
     picked: JSON.stringify(doc.params),
     saved: docSnap(doc),
     history: [histSnap(doc.params, doc.styleId)],
     hi: 0,
+    revision: ++revision,
+    session: ++session,
+    saving: false,
     inspect: null,
     switchedOn: [],
     part: null,
@@ -163,7 +191,6 @@ function freshDocState(doc: Doc): Pick<EditorState, keyof Doc | 'picked' | 'save
 
 export const useEditor = create<EditorState>()(() => ({
   ...freshDocState(blankDoc()),
-  saving: false,
   category: 'style',
   active: 'weight',
   hot: false,
@@ -226,7 +253,7 @@ function step(how: { quiet?: boolean; made?: Made; back?: number } = {}) {
   const history = [...s.history.slice(0, s.hi + 1), snap].slice(-200), before = stepDesign(s);
   stepAt = Date.now();
   set({
-    history, hi: history.length - 1,
+    history, hi: history.length - 1, revision: ++revision,
     versions: recordVersion(s.versions, before, { styleId: s.styleId, params: s.params, key: snap }, { t: stepAt, made: how.made, back: how.back }),
     ...(how.quiet ? {} : { log: recordEdits(s.log, before.params, s.params, { t: stepAt, by: s.inspect, back: how.back }) })
   });
@@ -238,7 +265,7 @@ export const isDirty = (s: EditorState) => docSnap(s) !== s.saved;
 /** Whether leaving would lose work: changes not saved, beyond a new design that is just a style as it was picked
     (nothing shaped, renamed or drawn since), which the Style page gives back in a click. */
 export const hasWork = (s: EditorState) =>
-  isDirty(s) && !(s.designId === null && s.name === savedName(s) && !Object.keys(s.log).length && s.picked === JSON.stringify(s.params));
+  isDirty(s) && !(s.designId === null && s.name === savedName(s) && !Object.keys(s.log).length && !s.versions.some(v => !v.made && (v.keys.length || v.letters.length)) && s.picked === JSON.stringify(s.params));
 
 /** The open design as a design file (`.typelab.json`, which Open design file… reads back): its name, style and
     settings, with the letters' records and the font's History. */
@@ -311,12 +338,17 @@ let lastFont: Font | undefined;
 export function fontFor(p: Params): Font {
   let f = fonts.get(p);
   // written in a free font that has arrived since: built again with its letters
-  if (!f || f.freeMissing.some(id => freeFont(id))) { f = lastFont = buildFont(p, lastFont); fonts.set(p, f); }
+  if (!f || f.freeMissing.some(id => freeFont(id)) || (f.source?.state === 'missing' && sourceFont(f.source.ref))) { f = lastFont = buildFont(p, lastFont); fonts.set(p, f); }
   for (const id of f.freeMissing) void loadFreeFont(id);
+  if (f.source?.state === 'missing') void loadSource(f.source.ref);
   return f;
 }
 // the open design draws again when the free font it's written in arrives (its settings unchanged)
-onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont) useEditor.setState({ params: { ...s.params } }); });
+onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont && !s.params.sourceProgram) useEditor.setState({ params: { ...s.params } }); });
+onSource(digest => {
+  const s = useEditor.getState();
+  if (s.params.sourceProgram?.digest === digest && fonts.get(s.params)?.source?.state === 'missing' && sourceFont(s.params.sourceProgram)) useEditor.setState({ params: { ...s.params } });
+});
 
 export const useFont = () => fontFor(useEditor(s => s.params));
 /** The font the controls act on: the inspected letter's own while edits go to that letter. */
@@ -343,7 +375,7 @@ export function adjustedParams(s: StyleDef, traits: Traits): Params {
   let p = adjustedCache.get(key);
   if (!p) {
     if (adjustedCache.size > 3000) adjustedCache.clear();
-    p = Object.keys(traits).length ? applyTraits(s.params, traits) : s.params;
+    p = sourceForFont(STYLE_FONTS[s.id] ?? '') ? startParams(s, traits) : Object.keys(traits).length ? applyTraits(s.params, traits) : s.params;
     adjustedCache.set(key, p);
   }
   return p;
@@ -370,6 +402,7 @@ export const traitLabels = (traits: Traits) =>
 /** New traits. A design still as it was picked on the Style page follows them. */
 function setTraits(traits: Traits) {
   const s = get(), st = styleById(s.styleId);
+  traits = supportedTraits(st ? startParams(st, {}) : s.params, traits);
   if (st && s.picked !== null && s.picked === JSON.stringify(s.params)) {
     const params = startParams(st, traits, !!s.params.freeFont);
     set({ traits, params, picked: JSON.stringify(params) });
@@ -389,22 +422,24 @@ export const actions = {
   },
   /** Record a successful save. `sent` is what went to the server, which may differ from the
       current state if the user kept editing while the request was in flight. */
-  markSaved(d: Design, sent: DesignInput) {
+  markSaved(d: Design, sent: DesignInput, expectedSession: number) {
     const s = get();
+    if (s.session !== expectedSession) return false;
     const name = s.name === sent.name || s.name.trim() === d.name ? d.name : s.name;
-    set({ designId: d.id, name, saved: docSnap({ name: d.name, styleId: sent.styleId, params: sent.params }) });
+    set({ designId: d.id, name, saved: inputSnap({ ...sent, name: d.name }) });
+    return true;
   },
   setName(name: string) { set({ name }); },
   /** A saved design was renamed on the server: the name counts as saved, while other unsaved edits stay unsaved.
       Returns the saved snapshot it replaced, for unrename. */
   markRenamed(name: string) {
-    const before = get().saved, { styleId, params } = readDoc(before);
-    set({ name, saved: docSnap({ name, styleId, params }) });
+    const before = get().saved;
+    set({ name, saved: inputSnap({ ...readDoc(before), name }) });
     return before;
   },
   /** The server refused a rename markRenamed counted as saved: `before` (what markRenamed returned) is the saved state again. */
   unrename(before: string) { set({ saved: before }); },
-  setSaving(saving: boolean) { set({ saving }); },
+  setSaving(saving: boolean, expectedSession: number) { if (get().session === expectedSession) set({ saving }); },
 
   /** Live change while dragging: no history entry until commit(). While edits go to one letter,
       its settings change and the other letters stay as they are. The control's highlight is put away (`faded`). */
@@ -412,20 +447,23 @@ export const actions = {
     set(s => {
       const ch = letterOf(s);
       if (key === 'outlines') return { params: withDrawings(s.params, v as Params['outlines']), faded: true };
+      if (!sourceSupports(s.params, key)) return {};
       return { params: ch && isGlyphKey(key) ? withGlyph(s.params, ch, key, v) : { ...s.params, [key]: v }, faded: true };
     });
   },
   commit() { step(); },
-  /** Fold what changed since the last undo step into that step, so one undo takes both back (an edit in Points and
-      the letters shaped the same way it then went on to). Only the newest step can take more, and the letters' record
-      takes it in as part of that step's edits, and the font's History as part of its version. */
-  amend() {
-    const s = get(), snap = histSnap(s.params, s.styleId);
-    if (s.history[s.hi] === snap || s.hi !== s.history.length - 1) return;
+  /** Apply a delayed Points match only to the document it searched. Its drawings and histories change together,
+      folded into the original edit's undo step. A newer gesture, undo, or document load rejects the result. */
+  amendDrawings(expected: Pick<EditorState, 'revision' | 'params'>, outlines: Params['outlines']) {
+    const s = get();
+    if (s.revision !== expected.revision || s.params !== expected.params || s.hi !== s.history.length - 1) return false;
+    const params = withDrawings(s.params, outlines), snap = histSnap(params, s.styleId);
+    if (s.history[s.hi] === snap) return false;
     const before = stepDesign(s);
-    const log = recordEdits(s.log, before.params, s.params, { t: stepAt, by: s.inspect, fold: stepAt });
-    const versions = recordVersion(s.versions, before, { styleId: s.styleId, params: s.params, key: snap }, { t: stepAt, fold: stepAt });
-    set({ history: [...s.history.slice(0, s.hi), snap], log, versions });
+    const log = recordEdits(s.log, before.params, params, { t: stepAt, by: s.inspect, fold: stepAt });
+    const versions = recordVersion(s.versions, before, { styleId: s.styleId, params, key: snap }, { t: stepAt, fold: stepAt });
+    set({ params, history: [...s.history.slice(0, s.hi), snap], log, versions, revision: ++revision });
+    return true;
   },
   setOption<K extends keyof Params>(key: K, v: Params[K]) {
     actions.setParam(key, v);
@@ -441,15 +479,15 @@ export const actions = {
     const s = get(), j = s.hi + d;
     if (j < 0 || j >= s.history.length) return;
     const { styleId, params } = readHist(s.history[j]);
-    set({ hi: j, styleId, params });
+    set({ hi: j, styleId, params, revision: ++revision });
   },
   /** Start from a style, with the Style page's traits laid over it. */
   loadStyle(id: string) {
     const st = styleById(id); if (!st) return;
-    const s = get(), traits = s.traits, params = startParams(st, traits), n = Object.keys(traits).length;
+    const s = get(), traits = supportedTraits(startParams(st, {}), s.traits), params = startParams(st, traits), n = Object.keys(traits).length;
     // a design shaped since its style was picked loses that work to the new style: say so, with a way back
     const shaped = s.hi > 0 && s.picked !== JSON.stringify(s.params);
-    set({ params, styleId: id, switchedOn: [], picked: JSON.stringify(params) });
+    set({ params, traits, styleId: id, switchedOn: [], picked: JSON.stringify(params) });
     step({ quiet: true, made: 'style' });
     if (shaped) { actions.toast(`${st.name} loaded in place of your changes`, { label: 'Undo', run: () => actions.travel(-1) }); return; }
     // the way on from here, Customize, stays in sight at the Style page's foot (Stage.tsx), so the toast just says what came in
@@ -468,7 +506,7 @@ export const actions = {
       return;
     }
     const st = styleById(s.styleId) ?? STYLES[0];
-    actions.setOption(key, st.params[key]);
+    actions.setOption(key, s.params.sourceProgram && key === 'height' ? DEFAULTS[key] : st.params[key]);
   },
   /** Switch an optional slider on, back to the value it had (or halfway), or off, to `off` where it changes nothing. */
   switchControl(key: NumericParam, on: boolean, off: number) {
@@ -540,6 +578,10 @@ export const actions = {
   /* ---- UI */
   setCategory(category: CategoryId, active?: ActiveKey) {
     if (category === 'style') { set({ category, inspect: null, part: null }); return; }
+    const p = get().params, pages = pagesFor(p);
+    if (!pages.some(page => page.id === category)) category = pages.find(page => page.id !== 'style')?.id ?? 'style';
+    if (p.sourceProgram) active = active && sourceSupports(p, active) ? active
+      : (Object.keys(CONTROLS) as ControlKey[]).find(key => CONTROLS[key].cat === category && sourceSupports(p, key));
     // the "Customize" offered on picking a style has done its job once a page of controls is open
     set(s => ({ category, active: active ?? firstControl(category), stylePanelOpen: false, ...(s.toast?.id === styleToast ? { toast: null } : {}) }));
   },
@@ -592,9 +634,11 @@ export const actions = {
   },
   /** Open a letter large; what the control in hand shapes in it shows for a moment (`lit`). */
   openInspector(ch: string) {
-    if (!fontFor(get().params).glyph(ch)) return;
-    const s = get();
-    set({ inspect: ch, part: null, ...lit(), ...(s.category === 'style' ? { category: 'weight' as const, active: 'weight' as const } : {}) });
+    const s = get(), font = fontFor(s.params);
+    const waiting = font.source?.state === 'missing' && [...ch].length === 1 && ALL_CHARS.includes(ch);
+    if (!waiting && !font.glyph(ch)) return;
+    set({ inspect: ch, part: null, ...lit() });
+    if (s.category === 'style') actions.setCategory('weight');
   },
   closeInspector() { set({ inspect: null, part: null }); },
   setScope(scope: Scope) { set({ scope }); },

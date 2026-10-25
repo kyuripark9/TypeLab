@@ -109,7 +109,7 @@ function useSave() {
     const s = useEditor.getState();
     if (s.saving) return false;
     const input = withSample(designInput(s));
-    actions.setSaving(true);
+    actions.setSaving(true, s.session);
     try {
       let d;
       try {
@@ -119,17 +119,17 @@ function useSave() {
         if (!(e instanceof ApiError && e.status === 404 && s.designId)) throw e;
         d = await api.createDesign(input);
       }
-      actions.markSaved(d, input);
+      if (!actions.markSaved(d, input, s.session)) return false;
       if (d.id !== s.designId && !stay) navigate(designPath(d.id), { replace: true });
       // saved while signed out, a design is kept only in this browser; its first save says so
       if (!s.designId && useAuth.getState().user === null) actions.toast('Saved in this browser', { label: 'Keep it in an account', run: () => auth.open('signup') });
       else actions.toast('Saved to your designs');
       return true;
     } catch (e) {
-      actions.toast(`Couldn’t save — ${errorMessage(e)}`);
+      if (useEditor.getState().session === s.session) actions.toast(`Couldn’t save — ${errorMessage(e)}`);
       return false;
     } finally {
-      actions.setSaving(false);
+      actions.setSaving(false, s.session);
     }
   }, [navigate]);
 }

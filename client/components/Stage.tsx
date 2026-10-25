@@ -8,9 +8,10 @@ import { useDeferredValue, useRef, useState } from 'react';
 import { MOODS, PAGE_STYLES, STYLE_GROUPS, startStyle, type StyleDef } from '../../shared/content';
 import { parseFontId, STYLE_FONTS, type FreeFontRef } from '../../shared/free-fonts';
 import { fontStyle, textWidth, useWebFont } from '../lib/free';
+import { retrySource, sourceError, useSources } from '../lib/sources';
 import { useSize } from '../lib/hooks';
 import { cardText, sampleText } from '../lib/preview';
-import { actions, traitLabels, useEditor, useStyleMatch, type CardView } from '../state/editor';
+import { actions, adjustedParams, traitLabels, useEditor, useFont, useStyleMatch, type CardView } from '../state/editor';
 import { BuiltText } from './BuiltText';
 import { Inspector } from './Inspector';
 import { focusFilters, TagName } from './Panel';
@@ -21,10 +22,22 @@ export function Stage() {
   return (
     <main className="stage">
       <PreviewBar />
+      <SourceStatus />
       {style ? <StyleCards /> : <SampleText />}
       <Inspector />
     </main>
   );
+}
+
+function SourceStatus() {
+  const font = useFont();
+  useSources();
+  if (!font.source || font.source.state === 'ready') return null;
+  const ref = font.source.ref, error = sourceError(ref);
+  return <p className="page-note" role="status">
+    {error ? <>This design's exact source could not be loaded. {error}{' '}<button className="link" onClick={() => { void retrySource(ref); }}>Try again</button></>
+      : 'Loading this design’s original outlines…'}
+  </p>;
 }
 
 function PreviewBar() {
@@ -238,14 +251,16 @@ function wordFit(font: FreeFontRef | null, text: string, width: number, size: nu
     stands behind (built from blocks or arcs), in the engine's letters; typed text in the grid (`clamp`) cut to GRID_LINES lines. */
 function StyleCard({ style: s, text, view, clamp }: { style: StyleDef; text: string; view: CardView; clamp: boolean }) {
   const id = STYLE_FONTS[s.id];
+  const traits = useEditor(st => st.traits), params = adjustedParams(s, traits);
+  const adjusted = !!params.sourceProgram && Object.keys(traits).length > 0;
   const on = useEditor(st => startStyle(st.styleId, st.params) === s && (!id || !!st.params.freeFont));
   const font = useWebFont(id), [ref, box] = useSize<HTMLSpanElement>();
   return (
     <button className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
       <span className="card-name">{s.name}<span className="card-like">{id ? parseFontId(id)?.family : `Built from ${s.params.build}`}</span></span>
-      {id
+      {id && !adjusted
         ? <span ref={ref} className={`card-free${font ? '' : ' loading'}${clamp ? ' clamp' : ''}`} style={{ ...(font && fontStyle(font)), fontSize: wordFit(font, text, box.width, CARD_SIZE[view]) }}>{text}</span>
-        : <BuiltText className="card-free" params={s.params} text={text} size={CARD_SIZE[view]} lines={view === 'grid' ? GRID_LINES : undefined} />}
+        : <BuiltText className="card-free" params={adjusted ? params : s.params} text={text} size={CARD_SIZE[view]} lines={view === 'grid' ? GRID_LINES : undefined} />}
     </button>
   );
 }

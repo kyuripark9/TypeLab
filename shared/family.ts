@@ -260,6 +260,7 @@ export const ownStyle = (params: Params, anchor: WeightId = anchorOf(params)) =>
     member's params object). A design written in a free font follows the weight and slant to the
     family's heavier or lighter fonts and its italic, as the editor does (see freeLetters in the engine). */
 export function familyMember(params: Params, anchor: WeightId, weight: WeightId, italic: boolean): FamilyMember {
+  if (params.sourceProgram) throw new Error('This source has no authored weight family');
   const own = weight === anchor, ratio = own ? 1 : stemRatio(stemOf(params), anchor, weight);
   const weighs = own ? {} : withStem(params, stemOf(params) * ratio);
   const lighter = WEIGHTS.findIndex(w => w.id === weight) < WEIGHTS.findIndex(w => w.id === anchor);
