@@ -1,6 +1,6 @@
 {
   "format": "source-patterns-v1",
-  "fills": ["pixels", "hex", "dots", "halftone", "lines"],
+  "fills": ["pixels", "hex", "dots", "halftone", "lines", "blobs", "liquid"],
   "cell": [0.04, 0.18],
   "gain": [0.22, 1],
   "corner": [0, 0.5],

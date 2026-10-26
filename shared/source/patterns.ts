@@ -4,8 +4,9 @@ import { clipPoly } from '../engine/geom';
 import type { Cmd, Pt } from '../engine/types';
 import type { Params } from '../params';
 import { SourceEffectError } from './effect-error';
+import { organicPatternContours } from './organic-patterns';
 
-const FILLS = ['pixels', 'hex', 'dots', 'halftone', 'lines'] as const;
+const FILLS = ['pixels', 'hex', 'dots', 'halftone', 'lines', 'blobs', 'liquid'] as const;
 export type SourcePatternFill = typeof FILLS[number];
 export interface SourcePatternPolicy {
   format: 'source-patterns-v1';
@@ -216,6 +217,9 @@ function masks(polys: Pt[][], budget: Budget): Pt[][] {
   const plan = budget.plan, box = bounds(polys), origin = anchor(polys, budget);
   const cell = Math.min(plan.capHeight, Math.min(box.x1 - box.x0, box.y1 - box.y0) * plan.smallComponentScale) * plan.cellRatio;
   if (!Number.isFinite(cell) || cell < GRID * 32) return failure('precision', 'Pattern cells are too small for this ink component');
+  if (plan.kind === 'blobs' || plan.kind === 'liquid') {
+    return organicPatternContours(plan.kind, { bounds: box, origin, cell, gain: plan.gain }, budget).flatMap(loop => flatten(loop, budget));
+  }
   const hex = plan.kind === 'hex' || plan.kind === 'halftone', row = hex ? cell * Math.sqrt(3) / 2 : cell;
   const i0 = Math.floor((box.x0 - origin.x) / cell) - 1, i1 = Math.ceil((box.x1 - origin.x) / cell) + 1;
   const j0 = Math.floor((box.y0 - origin.y) / row) - 1, j1 = Math.ceil((box.y1 - origin.y) / row) + 1;
