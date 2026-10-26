@@ -1,0 +1,10 @@
+{
+  "format": "source-patterns-v1",
+  "fills": ["pixels", "hex", "dots", "halftone", "lines"],
+  "cell": [0.04, 0.18],
+  "gain": [0.22, 1],
+  "corner": [0, 0.5],
+  "smallComponentScale": 4,
+  "maxCells": 16384,
+  "maxPoints": 131072
+}
