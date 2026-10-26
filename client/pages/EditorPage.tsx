@@ -20,6 +20,8 @@ import { Header } from '../components/Header';
 import { Panel, closeStyleSheet, focusStyleSearch } from '../components/Panel';
 import { Resizer } from '../components/Resizer';
 import { Stage } from '../components/Stage';
+import { SourceEffectBoundary } from '../components/SourceEffectBoundary';
+import { SourceEffectError } from '../../shared/source/effect-error';
 
 type Status = 'ready' | 'loading' | 'missing' | 'error';
 
@@ -82,7 +84,7 @@ export function EditorPage() {
   }
 
   return (
-    <div className={navOpen ? 'editor nav-open' : 'editor'}>
+    <SourceEffectBoundary><div className={navOpen ? 'editor nav-open' : 'editor'}>
       <Header onSave={requestSave} onGuide={() => { actions.setTips(true); setGuide(true); }}
         naming={naming} onNamed={n => { setNaming(false); actions.setName(n); void save(); }} onCancelNaming={() => setNaming(false)} />
       <Nav />
@@ -97,7 +99,7 @@ export function EditorPage() {
       {status === 'loading' && <div className="loading" role="status">Opening design…</div>}
       {guide && status === 'ready' && <Guide onClose={() => setGuide(false)} />}
       {leave}
-    </div>
+    </div></SourceEffectBoundary>
   );
 }
 
@@ -144,7 +146,15 @@ function useSampleCheck(d: Design | null) {
     const check = () => {
       const s = useEditor.getState();
       if (s.designId !== d.id || isDirty(s)) return;
-      const f = fontFor(s.params), sample = keptSample(f, drawName(f, d.name)), json = JSON.stringify(sample ?? null);
+      let sample: ReturnType<typeof keptSample>;
+      try {
+        const f = fontFor(s.params);
+        sample = keptSample(f, drawName(f, d.name));
+      } catch (error) {
+        if (error instanceof SourceEffectError) return;
+        throw error;
+      }
+      const json = JSON.stringify(sample ?? null);
       if (!sample || json === sent.current || json === JSON.stringify(d.sample ?? null)) return;
       sent.current = json;
       api.saveSample(d.id, sample, d.updatedAt).catch(() => {});

@@ -8,7 +8,9 @@
 import { availableParallelism } from 'node:os';
 import { Worker } from 'node:worker_threads';
 import type { FreeFontData } from '../shared/engine';
+import { SourceEffectError } from '../shared/source/effect-error';
 import { exportPieces, joinPieces, type Built, type ExportJob, type ExportPiece, type PieceBuilt } from './export';
+import type { ExportWorkerReply } from './export-protocol';
 
 export type { Built };
 
@@ -86,13 +88,14 @@ export class ExportPool {
     const w = new Worker(new URL('./export-worker.ts', import.meta.url));
     this.live.add(w);
     w.unref();
-    w.on('message', (m: { out?: PieceBuilt; error?: string }) => {
+    w.on('message', (m: ExportWorkerReply) => {
       const t = this.busy.get(w);
       this.busy.delete(w);
       w.unref();
       this.idle.push(w);
       if (t && !t.exp.failed) {
-        if (m.error || !m.out) this.finish(t.exp, new Error(m.error ?? 'The export worker built nothing'));
+        if (m.kind === 'effect-error') this.finish(t.exp, new SourceEffectError(m.effect, m.reason, m.message));
+        else if (m.kind === 'error') this.finish(t.exp, new Error(m.message));
         else {
           t.exp.out[t.k] = asBuffers(m.out);
           if (++t.exp.done === t.exp.pieces.length) this.finish(t.exp);

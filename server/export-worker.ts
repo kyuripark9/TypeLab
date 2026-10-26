@@ -6,7 +6,9 @@
 import { parentPort } from 'node:worker_threads';
 import { freeFont, registerFreeFont, type FreeFontData } from '../shared/engine';
 import type { Params } from '../shared/params';
+import { SourceEffectError } from '../shared/source/effect-error';
 import { buildPiece, type ExportPiece } from './export';
+import type { ExportWorkerReply } from './export-protocol';
 import { loadDesignSources } from './sources';
 
 /** The design the last piece was of: a piece of the same design is given the very same params object, as what is kept
@@ -21,8 +23,11 @@ parentPort!.on('message', ({ piece, fonts }: { piece: ExportPiece; fonts: FreeFo
     const json = JSON.stringify(piece.job.params);
     if (last?.json === json) piece.job.params = last.params;
     else last = { json, params: piece.job.params };
-    parentPort!.postMessage({ out: buildPiece(piece) });
+    parentPort!.postMessage({ kind: 'built', out: buildPiece(piece) } satisfies ExportWorkerReply);
   } catch (e) {
-    parentPort!.postMessage({ error: e instanceof Error ? e.stack ?? e.message : String(e) });
+    const reply: ExportWorkerReply = e instanceof SourceEffectError
+      ? { kind: 'effect-error', effect: e.effect, reason: e.reason, message: e.message }
+      : { kind: 'error', message: e instanceof Error ? e.stack ?? e.message : String(e) };
+    parentPort!.postMessage(reply);
   }
 });

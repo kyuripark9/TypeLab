@@ -23,6 +23,7 @@ import { MASTER_REVISIONS, masterInfo } from '../shared/source/master-catalog';
 import { PROGRAM_REVISIONS } from '../shared/source/program-catalog';
 import { sourceProgramDependencies } from '../shared/source/program';
 import { ORIGIN_MAP_REVISIONS } from '../shared/source/origin-catalog';
+import { SourceEffectError, sourceEffectMessage } from '../shared/source/effect-error';
 import { previewFontFile } from './preview-fonts';
 
 class HttpError extends Error {
@@ -467,6 +468,7 @@ function fontRoutes(api: Router, { fonts, exports }: Ctx) {
     let built;
     try { built = await exports.run(job, wanted); } catch (e) {
       if (e instanceof Busy) throw new HttpError(503, 'TypeLab is busy building other fonts. Try again in a minute.');
+      if (e instanceof SourceEffectError) throw new HttpError(422, sourceEffectMessage(e));
       throw e;
     }
     attachment(res, built.file, built.type);
