@@ -12,6 +12,7 @@ import { opentype } from './opentype';
 import { masterInfo } from '../shared/source/master-catalog';
 import { weightAt } from '../shared/source/masters';
 import { sourceMasters } from '../shared/source/registry';
+import { encodedAdvance } from '../shared/engine/spacing';
 
 const R = Math.round;
 
@@ -83,9 +84,9 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
   // lacks, is half an em
   const glyphs = [
     new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }),
-    new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() }),
+    new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: encodedAdvance(m.space, m.track, true), path: new opentype.Path() }),
     // a no-break space, as wide as a space, so text that holds one doesn't fall back to another font
-    new opentype.Glyph({ name: 'uni00A0', unicode: 0xa0, advanceWidth: R(Math.max(40, m.space + m.track)), path: new opentype.Path() })
+    new opentype.Glyph({ name: 'uni00A0', unicode: 0xa0, advanceWidth: encodedAdvance(m.space, m.track, true), path: new opentype.Path() })
   ];
   // the font's ascender and descender (the hhea and typo metrics, with no line gap) set its line spacing on
   // most platforms: 60 units over the taller of ascender and cap height and 40 under the descender, for air
@@ -97,7 +98,7 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
     glyphs.push(new opentype.Glyph({
       name: 'uni' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'),
       unicode: ch.charCodeAt(0),
-      advanceWidth: R(Math.max(20, g.adv + m.track)),
+      advanceWidth: encodedAdvance(g.adv, m.track),
       path: toPath(outline(g))
     }));
   }
@@ -106,7 +107,7 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
     glyphs.push(new opentype.Glyph({
       name: 'uni' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'),
       unicode: ch.charCodeAt(0),
-      advanceWidth: R(Math.max(20, g.adv + m.track)),
+      advanceWidth: encodedAdvance(g.adv, m.track),
       path: toPath(g.cmds)
     }));
   }

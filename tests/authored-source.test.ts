@@ -19,6 +19,9 @@ import { combine, shape } from '../shared/engine/boolean';
 import { buildOTF } from '../server/export';
 import { opentype } from '../server/opentype';
 import { createApp } from '../server/app';
+import { originMapFor } from '../shared/source/origin-catalog';
+import { masterBasisForEditing } from '../shared/source/master-catalog';
+import { parseOutlineMasterMap } from '../shared/source/outline-master-map';
 import { DesignStore } from '../server/db';
 import { ExportPool } from '../server/export-pool';
 
@@ -389,6 +392,15 @@ describe('authored source HTTP and export worker', () => {
       assert.equal(await (await fetch(`${base}/sources/${ref.digest}`)).text(), original);
       assert.equal((await fetch(`${base}/sources/${'e'.repeat(64)}`)).status, 404);
       assert.equal((await fetch(`${base}/sources/not-a-digest`)).status, 404);
+      assert.equal(ref.kind, 'outline-v1');
+      const first = masterBasisForEditing(ref); assert.ok(first);
+      const origin = originMapFor(ref, first); assert.ok(origin);
+      const correspondence = await fetch(`${base}/sources/${origin.ref.digest}`);
+      assert.equal(correspondence.status, 200);
+      assert.equal(correspondence.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+      const mapped = parseOutlineMasterMap(await correspondence.json());
+      assert.deepEqual([mapped.from, mapped.to], [ref, first]);
+      assert.ok(mapped.glyphs.R);
 
       for (const [path, extra] of [
         ['/export/otf', { accents: true }],

@@ -13,7 +13,7 @@ import { loadDesignSources } from '../lib/sources';
 import { designSourceForFont as sourceForFont, masterInfo, mastersForFont } from '../../shared/source/master-catalog';
 import { programInfo } from '../../shared/source/program-catalog';
 import { adoptProgram } from '../../shared/source/adoption';
-import { onSource, sourceFont } from '../../shared/source/registry';
+import { onSource, sourceReady } from '../../shared/source/registry';
 import { sourceAllows, sourceControl, sourceSupports } from '../../shared/source/capabilities';
 import { sourceFinishDefaults } from '../../shared/source/finish';
 import { DEFAULT_NAME, cleanName, slug, type Design, type DesignInput } from '../../shared/design';
@@ -347,7 +347,7 @@ let lastFont: Font | undefined;
 export function fontFor(p: Params): Font {
   let f = fonts.get(p);
   // written in a free font that has arrived since: built again with its letters
-  if (!f || f.freeMissing.some(id => freeFont(id)) || (f.source?.state === 'missing' && sourceFont(f.source.ref))) { f = lastFont = buildFont(p, lastFont); fonts.set(p, f); }
+  if (!f || f.freeMissing.some(id => freeFont(id)) || (f.source?.state === 'missing' && sourceReady(f.source.ref))) { f = lastFont = buildFont(p, lastFont); fonts.set(p, f); }
   for (const id of f.freeMissing) void loadFreeFont(id);
   if (f.source?.state === 'missing') void loadDesignSources(p);
   return f;
@@ -357,7 +357,7 @@ onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont && !s.p
 onSource(digest => {
   const s = useEditor.getState();
   const source = fonts.get(s.params)?.source;
-  if (source?.state === 'missing' && source.ref.digest === digest && sourceFont(source.ref)) useEditor.setState({ params: { ...s.params } });
+  if (source?.state === 'missing' && source.ref.digest === digest && sourceReady(source.ref)) useEditor.setState({ params: { ...s.params } });
 });
 
 export const useFont = () => fontFor(useEditor(s => s.params));

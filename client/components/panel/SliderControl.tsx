@@ -1,7 +1,8 @@
 /* Sliders: a setting's slider with its number box, the crossbars' Gap and where it opens, and the Stencil and Slice cuts. */
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { BAR_END_OPTIONS, CROSSBAR_SUBS, CONTROLS, SLICE_SUBS, STENCIL_SUBS, controlFor, type ActiveKey } from '../../../shared/content';
-import type { NumericParam } from '../../../shared/params';
+import { DEFAULTS, type NumericParam } from '../../../shared/params';
+import { numberAt, rotationScale, valueAt } from '../../lib/number-scale';
 import { actions, isOn, useEditor, useParam } from '../../state/editor';
 import { BarEndsIcon } from '../Diagram';
 import { CtlHead, Quiet, useControlFocus } from './heads';
@@ -17,6 +18,9 @@ interface SliderDef { label: string; tech: string; lo?: string; hi?: string; bip
     `icon` names its drawing when that isn't `k`'s own (Stencil's Thickness shares the key `stencil`). */
 export function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { k: NumericParam & ActiveKey; def: SliderDef; parts?: string[]; children?: ReactNode; holdsOn?: boolean; icon?: string }) {
   const value = useParam(k), active = useEditor(s => s.active === k);
+  const source = useEditor(s => s.params.sourceProgram), baseline = useEditor(s => s.params.freeAt.rotation ?? DEFAULTS.rotation);
+  const scale = def.degrees ? rotationScale(source ? baseline : null) : undefined;
+  const reverse = scale !== undefined && scale.units < 0;
   const optional = def.off !== undefined, on = useEditor(s => !optional || isOn(s, k, def.off!));
   // using the slider keeps it open, even dragged all the way to its off value
   const keep = () => { if (optional || holdsOn) actions.keepOn(k); };
@@ -24,11 +28,11 @@ export function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { 
   const cls = ['ctl', def.bipolar && 'bipolar', active && 'active', !on && 'off', reach.idle && 'idle'].filter(Boolean).join(' ');
   const nested = children && <Quiet.Provider value={reach.quiet}>{children}</Quiet.Provider>;
   return (
-    <div className={cls} data-ctl={k} {...useControlFocus(k)}>
+    <div className={cls} data-ctl={k} style={scale && reverse ? { '--mid': 1 - scale.origin } as CSSProperties : undefined} {...useControlFocus(k)}>
       <div className="ctl-top">
         <CtlHead k={k} label={def.label} parts={parts} advanced={def.advanced} icon={icon} />
         <div className="ctl-tools">
-          {on && <NumberField value={value} label={def.tech} degrees={def.degrees} onChange={v => { keep(); actions.focusControl(k); actions.setParam(k, v); actions.commit(); }} />}
+          {on && <NumberField value={value} label={def.tech} scale={scale} onChange={v => { keep(); actions.focusControl(k); actions.setParam(k, v); actions.commit(); }} />}
           {optional && (
             <button className={on ? 'switch on' : 'switch'} role="switch" aria-checked={on} aria-label={def.label}
               onClick={() => { actions.focusControl(k); actions.switchControl(k, !on, def.off!); }}><i /></button>
@@ -40,13 +44,18 @@ export function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { 
         <div>
           {/* its label is the setting's `tech`, which tools/browser/drag-bench.mjs finds the slider by */}
           <Range
-            value={value}
+            value={reverse ? 1 - value : value}
             label={def.tech}
-            steps={def.degrees ? 360 : 100}
+            steps={scale ? Math.abs(scale.units) : 100}
             onInput={v => {
-              // the middle is sticky: near 50 snaps onto the dot; a turn snaps onto the quarter turns
-              const q = Math.round(v * 4) / 4;
-              if (def.degrees ? Math.abs(v - q) * 360 <= 3 : Math.abs(v - 0.5) <= 0.03) v = def.degrees ? q : 0.5;
+              if (reverse) v = 1 - v;
+              if (scale && reverse) {
+                const angle = (v - scale.origin) * scale.units, quarter = Math.round(angle / 90) * 90;
+                if (Math.abs(angle - quarter) <= 3 && quarter >= Math.min(numberAt(0, scale), numberAt(1, scale)) && quarter <= Math.max(numberAt(0, scale), numberAt(1, scale))) v = valueAt(quarter, scale);
+              } else if (def.degrees) {
+                const quarter = Math.round(v * 4) / 4;
+                if (Math.abs(v - quarter) * 360 <= 3) v = quarter;
+              } else if (Math.abs(v - 0.5) <= 0.03) v = 0.5;
               keep();
               actions.focusControl(k);
               actions.setParam(k, v);
@@ -54,7 +63,7 @@ export function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { 
             onCommit={actions.commit}
             onReset={() => { keep(); actions.resetParam(k); }}
           />
-          <div className="ctl-ends"><span>{def.lo}</span><span>{def.hi}</span></div>
+          <div className="ctl-ends"><span>{scale && reverse ? `${numberAt(1, scale)}°` : def.lo}</span><span>{scale && reverse ? `${numberAt(0, scale)}°` : def.hi}</span></div>
           {optional && nested}
         </div>
       </div>

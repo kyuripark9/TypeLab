@@ -40,8 +40,8 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
       opt('small', 'Small', { xHeight: 0.511 }), opt('medium', 'Medium', { xHeight: 0.679 }), opt('large', 'Large', { xHeight: 0.82 }),
       opt('caps', 'Cap high', { xHeight: 1 })] },
     { id: 'spacing', label: 'Spacing', hint: 'The room between letters', sample: 'ill', options: [
-      opt('tight', 'Tight', { letterSpacing: 0.04, mono: 0 }), opt('normal', 'Normal', { letterSpacing: 0.2, mono: 0 }),
-      opt('loose', 'Loose', { letterSpacing: 0.4, mono: 0 }), opt('mono', 'Mono', { mono: 1 })] }
+      opt('tight', 'Tight', { letterSpacing: 0.04 }, { mono: 0 }), opt('normal', 'Normal', { letterSpacing: 0.2 }, { mono: 0 }),
+      opt('loose', 'Loose', { letterSpacing: 0.4 }, { mono: 0 }), opt('mono', 'Mono', { mono: 1 })] }
   ] },
   { id: 'details', label: 'Details', traits: [
     { id: 'serif', label: 'Serifs', hint: 'The small feet at the ends of stems', sample: 'n', options: [

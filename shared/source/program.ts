@@ -5,7 +5,8 @@ import { parseSourceFinish, type SourceFinishPolicy } from './finish';
 export interface WidthMasterRef { readonly kind: 'width-masters-v1'; readonly digest: string; readonly fontId: string }
 export interface FeatureMasterRef { readonly kind: 'feature-masters-v1'; readonly digest: string; readonly fontId: string }
 export interface SubdivisionRef { readonly kind: 'master-subdivision-v1'; readonly digest: string; readonly fontId: string }
-export type ProgramAssetRef = WidthMasterRef | FeatureMasterRef | SubdivisionRef;
+export interface OutlineMasterMapRef { readonly kind: 'outline-master-map-v1'; readonly digest: string; readonly fontId: string }
+export type ProgramAssetRef = WidthMasterRef | FeatureMasterRef | SubdivisionRef | OutlineMasterMapRef;
 export interface BasisTransition { from: MasterSourceRef; mapping: SubdivisionRef }
 export interface SourceProgramData {
   format: 'source-program-v1';

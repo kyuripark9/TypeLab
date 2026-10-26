@@ -1,10 +1,14 @@
 /* Exact source revisions loaded by digest. A failed request remains visible until the user retries it. */
 import { useSyncExternalStore } from 'react';
 import type { Params } from '../../shared/params';
-import { designSourceRefs } from '../../shared/source/dependencies';
+import { designSourceDependencies } from '../../shared/source/dependencies';
 import { parseSourceRef, type MasterSourceRef, type SourceRef } from '../../shared/source/model';
 import { parseSourceProgram, sourceProgramDependencies, type ProgramAssetRef } from '../../shared/source/program';
 import { onSource, registerSource, sourceReady } from '../../shared/source/registry';
+import { originMapInfo } from '../../shared/source/origin-catalog';
+import { parseOutlineMasterMap } from '../../shared/source/outline-master-map';
+import { parseMasterSubdivision } from '../../shared/source/subdivision';
+import { subdivisionInfo } from '../../shared/source/program-catalog';
 import { api, errorMessage } from './api';
 
 type DependencyRef = SourceRef | ProgramAssetRef;
@@ -19,7 +23,8 @@ onSource(changed);
 
 function dependencyError(ref: DependencyRef): Error {
   const label = ref.kind === 'width-masters-v1' ? 'width masters' : ref.kind === 'feature-masters-v1' ? 'feature masters'
-    : ref.kind === 'master-subdivision-v1' ? 'basis transition' : 'weight masters';
+    : ref.kind === 'master-subdivision-v1' ? 'basis transition' : ref.kind === 'outline-master-map-v1' ? 'original drawing correspondence'
+    : ref.kind === 'outline-v1' ? 'original drawing' : 'weight masters';
   return new Error(`Could not load ${label}: ${errors.get(keyOf(ref)) ?? 'the source is unavailable'}`);
 }
 function loadDependency(ref: DependencyRef, expectedBase?: MasterSourceRef, expectedFrom?: MasterSourceRef): Promise<boolean> {
@@ -38,7 +43,27 @@ function loadDependency(ref: DependencyRef, expectedBase?: MasterSourceRef, expe
           const from = parseSourceRef(data && typeof data === 'object' && 'from' in data ? data.from : undefined);
           if (!from || keyOf(from) !== keyOf(expectedFrom)) throw new Error('Basis transition does not match the previous master base');
         }
-        if (ref.kind === 'program-v1') {
+        if (ref.kind === 'master-subdivision-v1') {
+          const mapping = parseMasterSubdivision(data), expected = subdivisionInfo(ref);
+          if (expected && (keyOf(mapping.from) !== keyOf(expected.from) || keyOf(mapping.to) !== keyOf(expected.to))) {
+            throw new Error('Basis transition does not match its exact catalog pair');
+          }
+          dependencies.set(key, [mapping.from, mapping.to]);
+          await Promise.all([mapping.from, mapping.to].map(async basis => {
+            if (!await loadDependency(basis)) throw dependencyError(basis);
+          }));
+          registerSource(ref, mapping);
+        } else if (ref.kind === 'outline-master-map-v1') {
+          const mapping = parseOutlineMasterMap(data), expected = originMapInfo(ref);
+          if (!expected || keyOf(mapping.from) !== keyOf(expected.from) || keyOf(mapping.to) !== keyOf(expected.to)) {
+            throw new Error('Original drawing correspondence does not match its exact catalog pair');
+          }
+          dependencies.set(key, [mapping.from, mapping.to]);
+          await Promise.all([mapping.from, mapping.to].map(async basis => {
+            if (!await loadDependency(basis)) throw dependencyError(basis);
+          }));
+          registerSource(ref, mapping);
+        } else if (ref.kind === 'program-v1') {
           const program = parseSourceProgram(data);
           if (program.base.fontId !== ref.fontId) throw new Error('Source program does not match the saved font');
           dependencies.set(key, sourceProgramDependencies(program));
@@ -63,19 +88,26 @@ function loadDependency(ref: DependencyRef, expectedBase?: MasterSourceRef, expe
   }
   return request;
 }
-export const loadSource = (ref: SourceRef): Promise<boolean> => loadDependency(ref);
+export const loadSource = (ref: DependencyRef): Promise<boolean> => loadDependency(ref);
 
 export async function loadDesignSources(p: Pick<Params, 'sourceProgram' | 'outlines'>): Promise<boolean> {
-  return (await Promise.all(designSourceRefs(p).map(loadSource))).every(Boolean);
+  return (await Promise.all(designSourceDependencies(p).map(loadSource))).every(Boolean);
 }
 
-export function retrySource(ref: SourceRef): Promise<boolean> {
-  function clearFailed(dependency: DependencyRef) {
-    const key = keyOf(dependency);
-    for (const child of dependencies.get(key) ?? []) clearFailed(child);
-    if (errors.has(key)) { loading.delete(key); errors.delete(key); }
+export function retrySource(ref: DependencyRef): Promise<boolean> {
+  const visited = new Set<string>();
+  function clearFailed(key: string) {
+    if (visited.has(key)) return;
+    visited.add(key);
+    for (const child of dependencies.get(key) ?? []) clearFailed(keyOf(child));
+    if (!errors.has(key)) return;
+    loading.delete(key); errors.delete(key);
+    // A missing sheet can also fail its correspondence request; one retry must release both requests.
+    for (const [parent, children] of dependencies) {
+      if (errors.has(parent) && children.some(child => keyOf(child) === key)) clearFailed(parent);
+    }
   }
-  clearFailed(ref);
+  clearFailed(keyOf(ref));
   changed();
   return loadSource(ref);
 }
@@ -83,4 +115,4 @@ export function retrySource(ref: SourceRef): Promise<boolean> {
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 /** Refresh previews outside the active document too, such as trait samples. */
 export const useSources = () => useSyncExternalStore(subscribe, () => version);
-export const sourceError = (ref: SourceRef) => errors.get(keyOf(ref));
+export const sourceError = (ref: DependencyRef) => errors.get(keyOf(ref));

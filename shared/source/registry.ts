@@ -4,9 +4,10 @@ import { parseSourceData } from './data';
 import { decodeFeatureMasters, parseFeatureMasters } from './feature-masters';
 import { parseSourceRef, type MasterSourceRef, type SourceRef } from './model';
 import { decodeWeightMasters, parseWeightMasters, type WeightMasters } from './masters';
-import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from './program';
+import { parseSourceProgram, type OutlineMasterMapRef, type ProgramAssetRef, type SourceProgramData, type SubdivisionRef } from './program';
 import { decodeWidthMasters, parseWidthMasters } from './width-masters';
 import { decodeMasterSubdivision, parseMasterSubdivision, type MasterSubdivision } from './subdivision';
+import { decodeOutlineMasterMap, parseOutlineMasterMap, type OutlineMasterMap } from './outline-master-map';
 
 export interface RegisteredSourceProgram {
   data: SourceProgramData;
@@ -21,7 +22,8 @@ type RegisteredSource =
   | { kind: 'program-v1'; font: FreeFont; program: RegisteredSourceProgram }
   | { kind: 'width-masters-v1'; base: MasterSourceRef; masters: ReturnType<typeof decodeWidthMasters> }
   | { kind: 'feature-masters-v1'; base: MasterSourceRef; masters: ReturnType<typeof decodeFeatureMasters> }
-  | { kind: 'master-subdivision-v1'; subdivision: MasterSubdivision };
+  | { kind: 'master-subdivision-v1'; subdivision: MasterSubdivision }
+  | { kind: 'outline-master-map-v1'; mapping: OutlineMasterMap };
 const sources = new Map<string, RegisteredSource>();
 const listeners = new Set<(digest: string) => void>();
 const keyOf = (ref: SourceRef | ProgramAssetRef) => `${ref.kind}:${ref.digest}:${ref.fontId}`;
@@ -78,6 +80,13 @@ export function registerSource(ref: SourceRef | ProgramAssetRef, input: unknown)
       entry = { kind: ref.kind, subdivision: decodeMasterSubdivision(data, { from, to }) };
       break;
     }
+    case 'outline-master-map-v1': {
+      const data = parseOutlineMasterMap(input), to = masterBasis(data.to, ref.fontId), font = sourceFont(data.from);
+      if (!font) throw new Error('Original outline correspondence requires its exact source sheet first');
+      if (sources.has(key)) return;
+      entry = { kind: ref.kind, mapping: decodeOutlineMasterMap(data, { from: { ref: data.from, font }, to }) };
+      break;
+    }
     case 'program-v1': {
       const data = parseSourceProgram(input), basis = masterBasis(data.base, ref.fontId);
       const width = data.width ? sources.get(keyOf(data.width)) : undefined;
@@ -126,6 +135,14 @@ export function registerSource(ref: SourceRef | ProgramAssetRef, input: unknown)
 }
 
 export const sourceReady = (ref: SourceRef | ProgramAssetRef): boolean => sources.has(keyOf(ref));
+export function sourceSubdivision(ref: SubdivisionRef): MasterSubdivision | undefined {
+  const source = sources.get(keyOf(ref));
+  return source?.kind === 'master-subdivision-v1' ? source.subdivision : undefined;
+}
+export function sourceOriginMap(ref: OutlineMasterMapRef): OutlineMasterMap | undefined {
+  const source = sources.get(keyOf(ref));
+  return source?.kind === 'outline-master-map-v1' ? source.mapping : undefined;
+}
 export function sourceProgram(ref: SourceRef): RegisteredSourceProgram | undefined {
   const source = sources.get(keyOf(ref));
   return source?.kind === 'program-v1' ? source.program : undefined;

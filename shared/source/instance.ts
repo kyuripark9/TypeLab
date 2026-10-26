@@ -8,19 +8,22 @@ import type { Mat } from '../engine/types';
 import { DEFAULTS, type Params } from '../params';
 import { inverseTransform, mapPoint, type OutlineTransform } from './geometry';
 import type { SourceRef } from './model';
-import { designSourceRefs } from './dependencies';
-import { sourceFont, sourceMasters, sourceProgram } from './registry';
+import { designSourceDependencies } from './dependencies';
+import { sourceFont, sourceMasters, sourceOriginMap, sourceProgram, sourceReady, sourceSubdivision } from './registry';
 import { sourceControls } from './capabilities';
 import { sourceDot } from './features';
 import { interpolateMasters, weightAt } from './masters';
 import { masterInfo, masterBasisForEditing } from './master-catalog';
-import { programInfo } from './program-catalog';
+import { basisTransition, programInfo } from './program-catalog';
+import { originMapFor } from './origin-catalog';
+import { rebaseOutlineEdits } from './outline-master-map';
+import type { ProgramAssetRef } from './program';
 import { interpolateWidthMasters, widthAt } from './width-masters';
 import { evaluateFeatureMasters, FEATURE_CONTROLS } from './feature-masters';
 import { identifyAuthored, inheritAuthored, mapAuthored, rebaseEdits, rebaseReference, transportEdits } from './edit-transport';
 import { compileSourceFinish, finishSourceGlyph, sourceFinishBounds } from './finish';
 
-export interface SourceStatus { ref: SourceRef; state: 'missing' | 'ready'; missingCharacters: string[] }
+export interface SourceStatus { ref: SourceRef | ProgramAssetRef; state: 'missing' | 'ready'; missingCharacters: string[] }
 interface SourceInstance { m: Metrics; free?: FreeFont; status: SourceStatus; glyph(ch: string): Glyph | null }
 
 /** Each side of the pick uses its complete slider range, with positive endpoints. */
@@ -90,7 +93,7 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
   // A new character has a fixed placement frame. Using each posed edit as its frame would accumulate drift.
   const source = original ?? { adv: font.cap * 0.75, contours: [] };
   const target = pose(font, source, p, ch);
-  const digest = masterBasisForEditing(p.sourceProgram)?.digest ?? '';
+  const digest = p.sourceProgram?.kind === 'outline-v1' ? p.sourceProgram.digest : masterBasisForEditing(p.sourceProgram)?.digest ?? '';
   const identity = { digest, glyph: ch };
   let canonical = digest ? identifyAuthored(source, identity) : source, extraAdvance = 0;
   if (edited) {
@@ -102,22 +105,51 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
     }
     const beforeFont = variedFont(at) ?? font;
     let beforeSource = beforeFont.glyphs[ch] ?? source;
-    const beforeIdentity = { digest: masterBasisForEditing(at.sourceProgram)?.digest ?? '', glyph: ch };
+    let beforeBasis = masterBasisForEditing(at.sourceProgram);
+    let beforeIdentity = { digest: at.sourceProgram?.kind === 'outline-v1' ? at.sourceProgram.digest : beforeBasis?.digest ?? '', glyph: ch };
     const from = pose(beforeFont, beforeSource, at, ch);
     const curves = edited.contours.some(c => c.some(n => n.r)) ? { ...edited, contours: cmdsContours(drawnCmds(edited.contours)) } : edited;
     let unposed = move(curves, inverse(from.M));
+    if (at.sourceProgram?.kind === 'outline-v1' && beforeBasis) {
+      // One earlier interpreter labeled raw sheet points with the first-master digest; their saved frame disambiguates them.
+      const previousDigest = beforeBasis.digest;
+      unposed = { ...unposed, contours: unposed.contours.map(c => c.map(n => n.authored?.digest === previousDigest
+        && n.authored.glyph === ch ? { ...n, authored: { ...n.authored, digest: beforeIdentity.digest } } : n)) };
+    }
     if (beforeIdentity.digest && unposed.contours.some(c => c.some(n => n.authored?.digest !== beforeIdentity.digest || n.authored.glyph !== ch))) {
       unposed = inheritAuthored(unposed, mapAuthored(identifyAuthored(beforeSource, beforeIdentity), from.transform, beforeSource, beforeIdentity));
     }
     canonical = mapAuthored(unposed, inverseTransform(from.transform), beforeSource, beforeIdentity);
+    extraAdvance = (edited.adv - from.adv) / from.transform.xScale;
+    let changedBasis = false;
+    if (at.sourceProgram?.kind === 'outline-v1' && at.sourceProgram.digest !== digest && beforeBasis && beforeFont.glyphs[ch] && original) {
+      const info = originMapFor(at.sourceProgram, beforeBasis), origin = info && sourceOriginMap(info.ref);
+      if (!origin) throw new Error('Saved original-sheet Points require their exact master correspondence');
+      const rebased = rebaseOutlineEdits(canonical, origin, ch);
+      if (!rebased) throw new Error('Original-sheet correspondence is missing its saved glyph');
+      beforeSource = rebased.reference; beforeBasis = origin.data.to;
+      beforeIdentity = { digest: beforeBasis.digest, glyph: ch };
+      canonical = rebased.drawing;
+      changedBasis = true;
+    }
     if (digest && beforeIdentity.digest !== digest && beforeFont.glyphs[ch] && original) {
-      const mapping = p.sourceProgram && sourceProgram(p.sourceProgram)?.transitions.get(beforeIdentity.digest);
+      const ref = p.sourceProgram && beforeBasis && basisTransition(beforeBasis, p.sourceProgram);
+      const mapping = ref && sourceSubdivision(ref);
       if (!mapping) throw new Error('Saved Points require a compatible master basis transition');
       canonical = rebaseEdits(canonical, beforeSource, mapping.data, ch);
       beforeSource = rebaseReference(beforeSource, mapping.data, ch);
+      beforeIdentity = identity;
+      changedBasis = true;
+    }
+    if (changedBasis) {
+      // Curve subdivision and repaired masters can change handle bounds, spacing and the placement center.
+      const rebasedFont = { ...beforeFont, glyphs: { ...beforeFont.glyphs, [ch]: beforeSource } };
+      const rebasedPose = pose(rebasedFont, beforeSource, { ...at, sourceProgram: p.sourceProgram }, ch);
+      const posed = move(mapAuthored(canonical, from.transform, beforeSource, beforeIdentity), from.M);
+      canonical = mapAuthored(move(posed, inverse(rebasedPose.M)), inverseTransform(rebasedPose.transform), beforeSource, beforeIdentity);
+      extraAdvance = (edited.adv - rebasedPose.adv) / rebasedPose.transform.xScale;
     }
     if (beforeSource !== source && digest && beforeFont.glyphs[ch] && original) canonical = transportEdits(canonical, beforeSource, source, identity);
-    extraAdvance = (edited.adv - from.adv) / from.transform.xScale;
   }
   const shaped = mapAuthored({ ...canonical, adv: Math.max(0, target.adv + extraAdvance * target.transform.xScale) }, target.transform, source, identity);
   return asGlyph(ch, move(shaped, target.M), target.M, p.sourceProgram?.kind === 'program-v1');
@@ -147,8 +179,8 @@ function asGlyph(ch: string, drawn: Drawn, M: Mat, editable = false): Glyph {
 export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | null {
   const ref = p.sourceProgram;
   if (!ref) return null;
-  for (const baseline of designSourceRefs(p)) {
-    if (!sourceFont(baseline)) return { m: fallback, status: { ref: baseline, state: 'missing', missingCharacters: [] }, glyph: () => null };
+  for (const baseline of designSourceDependencies(p)) {
+    if (!sourceReady(baseline)) return { m: fallback, status: { ref: baseline, state: 'missing', missingCharacters: [] }, glyph: () => null };
   }
   const font = variedFont(p);
   if (!font) return { m: fallback, status: { ref, state: 'missing', missingCharacters: [] }, glyph: () => null };

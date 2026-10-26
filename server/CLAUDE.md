@@ -119,7 +119,8 @@ tests/api.test.ts build one).
 ## The free-font cache
 
 Pinned source designs use `sources.ts` and `/api/sources/:digest`. The loader checks the catalog, font ID and exact
-file hash before registering a source; export workers load the same immutable file. `FreeFonts.ready/wanted` routes
+file hash before registering a source; export workers load the same immutable dependencies, including origin and
+subdivision maps required by saved Points frames. `FreeFonts.ready/wanted` routes
 source designs through that loader and keeps the font-name cache for legacy designs. Missing source revisions fail
 explicitly. Source family, family-member and generated-accent export requests are rejected until supported.
 

@@ -37,6 +37,7 @@ import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from 
 import { drawnDesign, drawnFrom, drawnLetter } from './family-drawn';
 import { highlightD } from './highlight';
 import { sourceInstance, type SourceStatus } from '../source/instance';
+import { encodedAdvance } from './spacing';
 import { sourceControl } from '../source/capabilities';
 
 export const CHARSET = {
@@ -120,7 +121,9 @@ export interface Glyph {
   d: string;
 }
 
+/** The pen origin and untracked glyph advance; source pen steps match the encoded font advances. */
 export interface LineItem { ch: string; x: number; adv: number }
+/** Width ends at the last glyph's untracked advance, excluding its trailing tracking or advance floor. */
 export interface Line { items: LineItem[]; width: number }
 
 export interface Font {
@@ -492,6 +495,8 @@ export function buildFont(params: Params, from?: Font): Font {
     },
     layout(text, maxWidth) {
       const lines: Line[] = [];
+      const step = (item: LineItem) => source
+        ? encodedAdvance(item.adv, m.track, item.ch === ' ' || item.ch === '\u00a0') : item.adv + m.track;
       for (const para of text.split('\n')) {
         let line: LineItem[] = [], x = 0, lastBreak = -1;
         const flush = (upto?: number) => {
@@ -502,17 +507,18 @@ export function buildFont(params: Params, from?: Font): Font {
           const rest = upto == null ? [] : line.slice(upto + 1);
           const shift = rest.length ? rest[0].x : 0;
           rest.forEach(it => it.x -= shift);
-          line = rest; x = rest.length ? rest[rest.length - 1].x + rest[rest.length - 1].adv + m.track : 0;
+          const tail = rest[rest.length - 1];
+          line = rest; x = tail ? source ? tail.x + step(tail) : tail.x + tail.adv + m.track : 0;
           lastBreak = -1;
         };
         for (const ch of para) {
           const adv = font.advance(ch);
           if (ch === ' ') lastBreak = line.length;
-          line.push({ ch, x, adv });
-          x += adv + m.track;
-          if (ch !== ' ' && x - m.track > maxWidth && line.length > 1) {
+          const item = { ch, x, adv }; line.push(item);
+          x += step(item);
+          if (ch !== ' ' && (source ? item.x + item.adv : x - m.track) > maxWidth && line.length > 1) {
             if (lastBreak >= 0) flush(lastBreak);
-            else { const it = line.pop()!; flush(); it.x = 0; line = [it]; x = it.adv + m.track; }
+            else { const it = line.pop()!; flush(); it.x = 0; line = [it]; x = step(it); }
           }
         }
         flush();

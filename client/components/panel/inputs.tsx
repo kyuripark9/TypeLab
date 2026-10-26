@@ -1,23 +1,26 @@
 /* The two inputs every slider row uses: the 0..1 range and the number box typed over it. */
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { rotationDeg, rotationOf } from '../../../shared/params';
+import { numberAt, PERCENT_SCALE, valueAt, type NumberScale } from '../../lib/number-scale';
 
-/** The slider's value as a whole number from 0 to 100 (or a turn, in degrees from -180 to 180), typed over
+/** The slider's value in its displayed units, typed over
     directly. Enter or leaving the box applies it (clamped to that range); Escape puts the old value back; the
     arrow keys step by 1, or 10 with Shift. */
-export function NumberField({ value, label, onChange, degrees }: { value: number; label: string; onChange: (v: number) => void; degrees?: boolean }) {
-  const [lo, hi] = degrees ? [-180, 180] : [0, 100];
-  const shown = String(Math.round(degrees ? rotationDeg(value) : value * 100));
+export function NumberField({ value, label, onChange, scale = PERCENT_SCALE }: { value: number; label: string; onChange: (v: number) => void; scale?: NumberScale }) {
+  const shown = String(numberAt(value, scale));
   const [draft, setDraft] = useState<string | null>(null);
   const apply = (text: string) => {
     setDraft(null);
-    const n = Math.min(hi, Math.max(lo, Math.round(Number(text))));
-    if (text.trim() !== '' && Number.isFinite(n) && String(n) !== shown) onChange(degrees ? rotationOf(n) : n / 100);
+    const n = Number(text);
+    if (text.trim() !== '' && Number.isFinite(n)) {
+      const next = valueAt(n, scale);
+      if (String(numberAt(next, scale)) !== shown) onChange(next);
+    }
   };
   return (
-    <input className="ctl-num" type="text" inputMode="numeric" aria-label={`${label} value`} value={draft ?? shown}
+    <input className="ctl-num" type="text" inputMode={scale.precision ? 'decimal' : 'numeric'} aria-label={`${label} value`} value={draft ?? shown}
+      style={scale.precision ? { width: 'calc(6ch + 12px)' } : undefined}
       onFocus={e => e.target.select()}
-      onChange={e => setDraft(e.target.value.replace(/[^0-9-]/g, '').slice(0, 4))}
+      onChange={e => setDraft(e.target.value.replace(scale.precision ? /[^0-9.-]/g : /[^0-9-]/g, '').slice(0, scale.precision ? 8 : 4))}
       onBlur={e => apply(e.target.value)}
       onKeyDown={e => {
         if (e.key === 'Enter') e.currentTarget.blur();

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { SOURCE_REVISIONS } from '../shared/source/catalog';
 import type { Params } from '../shared/params';
-import { designSourceRefs } from '../shared/source/dependencies';
+import { designSourceDependencies } from '../shared/source/dependencies';
 import { parseSourceData } from '../shared/source/data';
 import { parseFeatureMasters, type FeatureMasterData } from '../shared/source/feature-masters';
 import { registerSource, sourceMasters } from '../shared/source/registry';
@@ -16,8 +16,10 @@ import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from
 import { PROGRAM_REVISIONS, programInfo } from '../shared/source/program-catalog';
 import { parseWidthMasters, type WidthMasterData } from '../shared/source/width-masters';
 import { parseMasterSubdivision, type MasterSubdivisionData } from '../shared/source/subdivision';
+import { originMapInfo } from '../shared/source/origin-catalog';
+import { parseOutlineMasterMap, type OutlineMasterMapData } from '../shared/source/outline-master-map';
 
-type Payload = FreeFontData | WeightMasterData | SourceProgramData | WidthMasterData | FeatureMasterData | MasterSubdivisionData;
+type Payload = FreeFontData | WeightMasterData | SourceProgramData | WidthMasterData | FeatureMasterData | MasterSubdivisionData | OutlineMasterMapData;
 const cached = new Map<string, FreeFontData>();
 const packages = new Map<string, Payload>();
 const keyOf = (ref: SourceRef | ProgramAssetRef) => `${ref.kind}:${ref.digest}:${ref.fontId}`;
@@ -41,9 +43,10 @@ function readPayload(ref: SourceRef | ProgramAssetRef, directory: string): unkno
 
 export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
   const program = ref.kind === 'program-v1' ? programInfo(ref) : undefined;
+  const origin = ref.kind === 'outline-master-map-v1' ? originMapInfo(ref) : undefined;
   const base = ref.kind === 'width-masters-v1' || ref.kind === 'feature-masters-v1' || ref.kind === 'master-subdivision-v1' ? assetBase(ref) : undefined;
   const known = ref.kind === 'outline-v1' ? SOURCE_REVISIONS.some(r => sameRef(r, ref))
-    : ref.kind === 'masters-v1' ? !!masterInfo(ref) : ref.kind === 'program-v1' ? !!program : !!base;
+    : ref.kind === 'masters-v1' ? !!masterInfo(ref) : ref.kind === 'program-v1' ? !!program : ref.kind === 'outline-master-map-v1' ? !!origin : !!base;
   if (!known) throw new Error('This saved source is unavailable');
   const key = keyOf(ref), kept = packages.get(key);
   if (kept) return kept;
@@ -109,6 +112,14 @@ export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
       registerSource(ref, data);
       break;
     }
+    case 'outline-master-map-v1': {
+      const mapping = parseOutlineMasterMap(readPayload(ref, 'origins'));
+      if (!origin || !sameRef(mapping.from, origin.from) || !sameRef(mapping.to, origin.to)) throw new Error('Original correspondence does not match its catalog pair');
+      loadSource(mapping.from); loadSource(mapping.to);
+      data = mapping;
+      registerSource(ref, data);
+      break;
+    }
     default: {
       const exhaustive: never = ref;
       throw new Error(`Unsupported source ${exhaustive}`);
@@ -127,5 +138,5 @@ export function loadSource(ref: SourceRef): FreeFontData {
 }
 
 export function loadDesignSources(p: Pick<Params, 'sourceProgram' | 'outlines'>): void {
-  for (const ref of designSourceRefs(p)) loadSource(ref);
+  for (const ref of designSourceDependencies(p)) sourcePayload(ref);
 }

@@ -572,14 +572,13 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border: 0; bord
 input[type=range]:hover::-moz-range-thumb { box-shadow: var(--knob), 0 0 0 5px var(--accent-soft); }
 input[type=range]:active::-moz-range-thumb { transform: scale(1.1); box-shadow: var(--knob), 0 0 0 6px var(--accent-soft); }
 input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
-/* Control sliders mark their middle (50) with a notch cut through the bar; the thumb's centre sits exactly on the
-   track's centre at 50, so the two line up. */
-.ctl { --mid-dot: linear-gradient(var(--surface), var(--surface)) 50% 50% / 2px 100% no-repeat; }
+/* The notch marks the neutral coordinate, normally halfway along the control. */
+.ctl { --mid: .5; --mid-dot: linear-gradient(var(--surface), var(--surface)) calc(var(--mid) * 100%) 50% / 2px 100% no-repeat; }
 .ctl input[type=range]::-webkit-slider-runnable-track { background: var(--mid-dot),
   linear-gradient(to right, var(--fill, var(--ink)) calc(var(--v) * 100%), var(--track) 0); }
 .ctl input[type=range]::-moz-range-track { background: var(--mid-dot), var(--track); }
 .bipolar input[type=range]::-webkit-slider-runnable-track { background: var(--mid-dot),
-  linear-gradient(to right, var(--track) calc(min(var(--v), .5) * 100%), var(--fill, var(--ink)) 0, var(--fill, var(--ink)) calc(max(var(--v), .5) * 100%), var(--track) 0); }
+  linear-gradient(to right, var(--track) calc(min(var(--v), var(--mid)) * 100%), var(--fill, var(--ink)) 0, var(--fill, var(--ink)) calc(max(var(--v), var(--mid)) * 100%), var(--track) 0); }
 .size input[type=range]::-webkit-slider-runnable-track { background: var(--track); }
 
 .opts { display: grid; gap: 4px; }

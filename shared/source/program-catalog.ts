@@ -1,6 +1,6 @@
 /* Generated source-program revisions name their immutable assets and reviewed editor capabilities. */
-import type { ProgramSourceRef, SourceRef } from './model';
-import type { SourceProgramData } from './program';
+import type { MasterSourceRef, ProgramSourceRef, SourceRef } from './model';
+import type { SourceProgramData, SubdivisionRef } from './program';
 import type { WidthAxis } from './width-masters';
 import type { FeatureControl } from './feature-masters';
 
@@ -2490,4 +2490,18 @@ export function programInfo(ref: SourceRef | null): ProgramInfo | undefined {
 }
 export function programForFont(fontId: string): ProgramSourceRef | null {
   return PROGRAM_REVISIONS.findLast(p => p.ref.fontId === fontId)?.ref ?? null;
+}
+
+export function basisTransition(from: MasterSourceRef, to: SourceRef): SubdivisionRef | undefined {
+  const programs = to.kind === 'program-v1' ? PROGRAM_REVISIONS.filter(p => p.ref.digest === to.digest && p.ref.fontId === to.fontId)
+    : to.kind === 'masters-v1' ? PROGRAM_REVISIONS.filter(p => p.data.base.digest === to.digest && p.data.base.fontId === to.fontId) : [];
+  return programs.flatMap(p => p.data.transitions ?? []).find(t => t.from.digest === from.digest && t.from.fontId === from.fontId)?.mapping;
+}
+
+export function subdivisionInfo(ref: SubdivisionRef): { from: MasterSourceRef; to: MasterSourceRef } | undefined {
+  for (const program of PROGRAM_REVISIONS) {
+    const transition = program.data.transitions?.find(t => t.mapping.digest === ref.digest && t.mapping.fontId === ref.fontId);
+    if (transition) return { from: transition.from, to: program.data.base };
+  }
+  return undefined;
 }

@@ -1,10 +1,13 @@
 /* A program becomes usable only after its complete immutable dependency set has loaded. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import type { FreeFontData } from '../shared/engine/free';
 import { DEFAULTS, drawnAtOf, type Params } from '../shared/params';
-import { designSourceRefs } from '../shared/source/dependencies';
+import { designSourceDependencies, designSourceRefs } from '../shared/source/dependencies';
+import { ORIGIN_MAP_REVISIONS } from '../shared/source/origin-catalog';
+import { MASTER_REVISIONS } from '../shared/source/master-catalog';
 import { parseFeatureMasters } from '../shared/source/feature-masters';
 import type { WeightMasterData } from '../shared/source/masters';
 import type { MasterSourceRef, ProgramSourceRef } from '../shared/source/model';
@@ -13,7 +16,7 @@ import { onSource, registerSource, sourceFont, sourceMasters, sourceProgram, sou
 import type { WidthMasterData } from '../shared/source/width-masters';
 import { loadDesignSources, loadSource, retrySource, sourceError } from '../client/lib/sources';
 import { fontFor, useEditor } from '../client/state/editor';
-import { PROGRAM_REVISIONS } from '../shared/source/program-catalog';
+import { basisTransition, PROGRAM_REVISIONS } from '../shared/source/program-catalog';
 import { loadSource as loadServerSource, sourcePayload } from '../server/sources';
 
 const digest = (label: string) => createHash('sha256').update(label).digest('hex');
@@ -113,6 +116,85 @@ describe('source-program registration', () => {
 });
 
 describe('browser source dependencies', () => {
+  it('keeps saved original Points unavailable until their exact correspondence arrives, then refreshes the editor', async t => {
+    const info = ORIGIN_MAP_REVISIONS.find(m => m.ref.fontId === 'Bulwark:700'); assert.ok(info);
+    const previous = useEditor.getState(); t.after(() => useEditor.setState(previous));
+    const refs = [info.from, info.to, info.ref], counts = new Map<string, number>();
+    let phase: 'missing' | 'wrong-pair' | 'ready' = 'missing';
+    t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+      const id = requestedDigest(input), ref = refs.find(r => r.digest === id); assert.ok(ref);
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+      if (ref.kind === 'outline-master-map-v1' && phase === 'missing') return response({ error: 'Correspondence temporarily unavailable' }, 503);
+      const directory = ref.kind === 'outline-v1' ? 'sources' : ref.kind === 'masters-v1' ? 'masters' : 'origins';
+      const data = JSON.parse(readFileSync(new URL(`../fonts/${directory}/${id}.json`, import.meta.url), 'utf8'));
+      if (ref.kind === 'outline-master-map-v1' && phase === 'wrong-pair') data.from = { ...info.from, digest: 'f'.repeat(64) };
+      return response(data);
+    });
+    assert.equal(await loadSource(info.from), true);
+    assert.equal(await loadSource(info.to), true);
+    const original = sourceFont(info.from)?.glyphs.A; assert.ok(original);
+    const p: Params = { ...DEFAULTS, sourceProgram: info.to, freeFont: info.to.fontId, outlines: {
+      A: { ...original, at: drawnAtOf({ ...DEFAULTS, sourceProgram: info.from }, 'A') },
+    } };
+    assert.deepEqual(designSourceDependencies({ ...p, outlines: {} }), [info.to], 'untouched letters need no origin map');
+    assert.deepEqual(designSourceDependencies(p), [info.to, info.from, info.ref]);
+    useEditor.setState({ params: p });
+    assert.deepEqual(fontFor(p).source, { ref: info.ref, state: 'missing', missingCharacters: [] });
+    assert.equal(await loadDesignSources(p), false);
+    assert.match(sourceError(info.ref) ?? '', /temporarily unavailable/);
+    assert.equal(fontFor(p).glyph('A'), null);
+    phase = 'wrong-pair';
+    assert.equal(await retrySource(info.ref), false);
+    assert.match(sourceError(info.ref) ?? '', /exact catalog pair/);
+    assert.equal(sourceReady(info.ref), false);
+    phase = 'ready';
+    assert.equal(await retrySource(info.ref), true);
+    assert.notEqual(useEditor.getState().params, p);
+    assert.equal(fontFor(p).source?.state, 'ready', 'cached missing font refreshes when the map arrives');
+    assert.ok(fontFor(useEditor.getState().params).glyph('A'));
+    assert.equal(sourceError(info.ref), undefined);
+    assert.equal(counts.get(info.ref.digest), 3);
+    assert.equal(counts.get(info.from.digest), 1);
+    assert.equal(counts.get(info.to.digest), 1);
+  });
+
+  it('loads both correspondence stages for original Points saved against a standalone derived master', () => {
+    const origin = ORIGIN_MAP_REVISIONS.find(m => m.ref.fontId === 'Cotton:300'); assert.ok(origin);
+    const target = MASTER_REVISIONS.find(m => m.ref.fontId === origin.ref.fontId && m.ref.digest !== origin.to.digest); assert.ok(target);
+    const transition = basisTransition(origin.to, target.ref); assert.ok(transition);
+    const drawing = { adv: 500, contours: [], at: drawnAtOf({ ...DEFAULTS, sourceProgram: origin.from }, 'A') };
+    assert.deepEqual(designSourceDependencies({ sourceProgram: target.ref, outlines: { A: drawing } }),
+      [target.ref, origin.from, origin.ref, transition]);
+  });
+
+  it('recovers a failed original sheet and its dependent map with one retry of the visible missing source', async t => {
+    const info = ORIGIN_MAP_REVISIONS.find(m => m.ref.fontId === 'Cathedral:400'); assert.ok(info);
+    const refs = [info.from, info.to, info.ref], counts = new Map<string, number>();
+    let offline = true;
+    t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+      const id = requestedDigest(input), ref = refs.find(r => r.digest === id); assert.ok(ref);
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+      if (ref.kind === 'outline-v1' && offline) return response({ error: 'Source offline' }, 503);
+      const directory = ref.kind === 'outline-v1' ? 'sources' : ref.kind === 'masters-v1' ? 'masters' : 'origins';
+      return response(JSON.parse(readFileSync(new URL(`../fonts/${directory}/${id}.json`, import.meta.url), 'utf8')));
+    });
+    const p: Params = { ...DEFAULTS, sourceProgram: info.to, freeFont: info.to.fontId, outlines: {
+      R: { adv: 500, contours: [], at: drawnAtOf({ ...DEFAULTS, sourceProgram: info.from }, 'R') },
+    } };
+    assert.equal(await loadDesignSources(p), false);
+    assert.deepEqual(fontFor(p).source?.ref, info.from);
+    assert.match(sourceError(info.ref) ?? '', /original drawing: Source offline/);
+    offline = false;
+    assert.equal(await retrySource(info.from), true);
+    assert.equal(await loadDesignSources(p), true);
+    assert.equal(sourceReady(info.ref), true);
+    assert.equal(sourceError(info.ref), undefined);
+    assert.equal(fontFor(p).source?.state, 'ready');
+    assert.equal(counts.get(info.from.digest), 2);
+    assert.equal(counts.get(info.ref.digest), 2);
+    assert.equal(counts.get(info.to.digest), 1);
+  });
+
   it('loads both point bases before their map and retries a map returned for the wrong predecessor', async t => {
     const f = fixture('Transition');
     const from: MasterSourceRef = { ...f.base, digest: digest('Transition-from') };
