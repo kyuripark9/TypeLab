@@ -5,7 +5,7 @@
    sample text, both for the style cards and for the live preview of the design. The size only shows with the
    preview: the cards are for comparing styles, so every card in a layout keeps one size. */
 import { useDeferredValue, useRef, useState } from 'react';
-import { MOODS, PAGE_STYLES, STYLE_GROUPS, startStyle, type StyleDef } from '../../shared/content';
+import { MOODS, PAGE_STYLES, STYLE_GROUPS, startStyle, styleById, type StyleDef } from '../../shared/content';
 import { parseFontId, STYLE_FONTS, type FreeFontRef } from '../../shared/free-fonts';
 import { fontStyle, textWidth, useWebFont } from '../lib/free';
 import { retrySource, sourceError, useSources } from '../lib/sources';
@@ -216,11 +216,12 @@ function CardsFoot({ style: s }: { style: StyleDef }) {
     trait chips are tinted apart from the filters, and a category or a feeling is named in its font as on its chip. */
 function ActiveBar({ onClear }: { onClear: () => void }) {
   const { f, traits } = useStyleMatch();
+  const base = useEditor(s => styleById(s.styleId)) ?? PAGE_STYLES[0];
   const items: { key: string; label: string; card?: string; trait?: boolean; remove: () => void }[] = [
     ...(f.query?.trim() ? [{ key: 'q', label: `“${f.query.trim()}”`, remove: () => actions.setQuery('') }] : []),
     ...f.groups.map(g => STYLE_GROUPS.find(x => x.id === g)!).map(({ id, label, card }) => ({ key: `g-${id}`, label, card, remove: () => actions.toggleGroup(id) })),
     ...f.moods.map(m => MOODS.find(x => x.id === m)!).map(({ id, label, card }) => ({ key: `m-${id}`, label, card, remove: () => actions.toggleMood(id) })),
-    ...traitLabels(traits).map(t => ({ key: `t-${t.id}`, label: t.label, trait: true, remove: () => actions.setTrait(t.id, null) }))
+    ...traitLabels(adjustedParams(base, {}), traits).map(t => ({ key: `t-${t.id}`, label: t.label, trait: true, remove: () => actions.setTrait(t.id, null) }))
   ];
   if (!items.length) return null;
   return (

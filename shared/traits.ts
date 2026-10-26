@@ -4,6 +4,7 @@
    any mix of traits, so the page reaches far past its cards. A trait left unpicked keeps what
    each style has. */
 import { TERMINAL_FORMS, TERMINALS, type Params } from './params';
+import { sourceTraitOptions } from './source/trait-recipes';
 
 export type TraitId = 'weight' | 'width' | 'contrast' | 'slant' | 'serif' | 'curves' | 'corners' | 'ends'
   | 'xHeight' | 'spacing' | 'fill' | 'cuts' | 'hand' | 'joined';
@@ -80,13 +81,34 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
 
 export const TRAITS: TraitDef[] = TRAIT_SECTIONS.flatMap(s => s.traits);
 const traitById = (id: TraitId) => TRAITS.find(t => t.id === id)!;
-export const traitOption = (id: TraitId, option: string | undefined) => traitById(id).options.find(o => o.id === option);
+/** Resolve every supported intent, including one equivalent to another choice in this style. */
+export const traitOption = (p: Params, id: TraitId, option: string | undefined) =>
+  option === undefined ? undefined : sourceTraitOptions(p, id, traitById(id).options).find(o => o.id === option);
+
+/** Compare the patch that application uses, including resets overwritten by the selected values. */
+export function sameTraitRecipe(a: TraitOption, b: TraitOption): boolean {
+  const left = Object.entries({ ...a.reset, ...a.set }), right = new Map(Object.entries({ ...b.reset, ...b.set }));
+  return left.length === right.size && left.every(([key, value]) => right.has(key) && right.get(key) === value);
+}
+const NEUTRAL: Partial<Record<TraitId, string>> = { weight: 'regular', width: 'normal', xHeight: 'medium', slant: 'upright' };
+/** Menus show distinct recipes, while application and carried selections retain their original intent. */
+export function traitOptions(p: Params, id: TraitId): readonly TraitOption[] {
+  const original = traitById(id).options;
+  if (!p.sourceProgram) return original;
+  const visible: TraitOption[] = [];
+  for (const option of sourceTraitOptions(p, id, original)) {
+    const duplicate = visible.findIndex(o => sameTraitRecipe(o, option));
+    if (duplicate < 0) visible.push(option);
+    else if (option.id === NEUTRAL[id]) visible[duplicate] = option;
+  }
+  return visible;
+}
 
 /** `p` with every picked trait laid over it, in the order the traits are listed. */
 export function applyTraits(p: Params, t: Traits): Params {
   let out = p;
   for (const def of TRAITS) {
-    const o = traitOption(def.id, t[def.id]);
+    const o = traitOption(p, def.id, t[def.id]);
     if (o) out = { ...out, ...o.reset, ...o.set };
   }
   return out;

@@ -137,10 +137,10 @@ describe('published source finishes', () => {
     const plain = buildFont(useEditor.getState().params).glyph('H'); assert.ok(plain);
     actions.setTrait('cuts', 'slice');
     let state = useEditor.getState();
-    assert.equal(state.traits.cuts, 'slice'); assert.equal(state.params.slice, .05);
+    assert.equal(state.traits.cuts, 'slice'); assert.equal(state.params.slice, .5);
     assert.notDeepEqual(buildFont(state.params).glyph('H')?.cmds, plain.cmds);
     actions.loadStyle('didone'); state = useEditor.getState(); loadDesignSources(state.params);
-    assert.equal(state.traits.cuts, 'slice'); assert.equal(state.params.slice, .05);
+    assert.equal(state.traits.cuts, 'slice'); assert.equal(state.params.slice, .5);
     assert.equal(state.params.sourceProgram?.fontId, 'Couture:600');
     assert.notDeepEqual(buildFont(state.params).glyph('H')?.cmds, buildFont({ ...state.params, slice: 0 }).glyph('H')?.cmds);
     actions.setTrait('cuts', 'none'); state = useEditor.getState();

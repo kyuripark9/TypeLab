@@ -5,7 +5,7 @@
    in one draws again once its letters come. */
 import { create } from 'zustand';
 import { CONTROLS, STYLES, controlFor, firstControl, looksOf, pagesFor, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
-import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
+import { TRAIT_SECTIONS, applyTraits, traitOption, traitOptions, traitsKey, type TraitId, type Traits } from '../../shared/traits';
 import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../shared/engine';
 import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
@@ -164,15 +164,14 @@ function startParams(st: StyleDef, traits: Traits, free = true): Params {
   const finish: Partial<Params> = program?.data.finish ? sourceFinishDefaults(program.data.finish) : {};
   const base = { ...st.params, ...features, ...finish, freeFont: id, freeAt: { ...freeAtOf(st.params), ...features, ...(program?.data.finish ? { fill: 'solid' as const } : {}), weight, width },
     weight, width, ...FREE_SPACING, height: DEFAULTS.height, sourceProgram };
-  return applyTraits(base, supportedTraits(base, traits));
+  return applyTraits(base, traits);
 }
 /** Unsupported traits stay out of a source design, including when picked before switching styles. */
 function supportedTraits(p: Params, traits: Traits): Traits {
-  if (!p.sourceProgram) return traits;
   const out: Traits = {};
   for (const def of TRAIT_SECTIONS.flatMap(section => section.traits)) {
-    const option = traitOption(def.id, traits[def.id]);
-    if (option && Object.entries(option.set).every(([key, value]) => sourceAllows(p, key, value))) out[def.id] = option.id;
+    const option = traitOption(p, def.id, traits[def.id]);
+    if (option) out[def.id] = option.id;
   }
   return out;
 }
@@ -406,8 +405,11 @@ export function useStyleMatch() {
   return { f, traits, matches: (s: StyleDef, pick: Partial<StyleFilter> = {}, t = traits) => styleMatches(s, { ...f, ...pick }, adjustedLooks(s, t)) };
 }
 /** The picked steps as "Weight: Bold", in the order of the Adjust tab. */
-export const traitLabels = (traits: Traits) =>
-  TRAIT_SECTIONS.flatMap(sec => sec.traits).filter(t => traits[t.id]).map(t => ({ id: t.id, label: `${t.label}: ${traitOption(t.id, traits[t.id])!.label}` }));
+export const traitLabels = (p: Params, traits: Traits) =>
+  TRAIT_SECTIONS.flatMap(sec => sec.traits).flatMap(t => {
+    const option = traitOption(p, t.id, traits[t.id]);
+    return option ? [{ id: t.id, label: `${t.label}: ${option.label}` }] : [];
+  });
 
 /** New traits. A design still as it was picked on the Style page follows them. */
 function setTraits(traits: Traits) {
@@ -643,10 +645,11 @@ export const actions = {
   clearTraits() { setTraits({}); },
   /** A random mix: most of the shape traits, now and then a finish. */
   shuffleTraits() {
-    const traits: Traits = {};
+    const traits: Traits = {}, s = get(), st = styleById(s.styleId), p = st ? startParams(st, {}) : s.params;
     for (const sec of TRAIT_SECTIONS) {
       for (const t of sec.traits) {
-        if (Math.random() < (sec.id === 'finish' ? 0.12 : 0.55)) traits[t.id] = t.options[Math.floor(Math.random() * t.options.length)].id;
+        const options = traitOptions(p, t.id);
+        if (options.length && Math.random() < (sec.id === 'finish' ? 0.12 : 0.55)) traits[t.id] = options[Math.floor(Math.random() * options.length)].id;
       }
     }
     setTraits(traits);
