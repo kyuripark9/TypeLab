@@ -1,6 +1,6 @@
 /* A page of controls: the explainer, the page's controls (grouped by the parts of an inspected letter), and the steps to the pages beside it. */
 import { useLayoutEffect, type ReactNode } from 'react';
-import { PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, TERMINAL_SUBS, WEIGHT_SUBS, controlFor, controlInUse, pagesFor, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
+import { PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, ROUND_SUBS, TERMINAL_SUBS, WEIGHT_SUBS, controlFor, controlInUse, pagesFor, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
 import type { NumericParam, SubControlDef } from '../../../shared/params';
 import { sourceControl, sourceNotice, sourceSupports } from '../../../shared/source/capabilities';
 import { mastersForFont, masterInfo } from '../../../shared/source/master-catalog';
@@ -141,6 +141,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   const c = weights ? { ...CONTROLS[k], lo: weightLabel(weights.min), hi: weightLabel(weights.max) }
     : width ? { ...CONTROLS[k], lo: widthLabel(width.min), hi: widthLabel(width.max) } : CONTROLS[k];
   if (sourceProgram && k === 'terminal') return <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} parts={parts} />;
+  if (sourceProgram && k === 'dots') return <SliderControl k="dotSize" def={{ ...DOT_SUBS.dotSize, label: 'Dot size' }} parts={parts} />;
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'story') return <StoryControl parts={parts} />;
   if (c.type === 'form') return <FormControl k={k as LetterFormKey} parts={parts} />;

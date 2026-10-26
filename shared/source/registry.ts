@@ -8,12 +8,14 @@ import { parseSourceProgram, type OutlineMasterMapRef, type ProgramAssetRef, typ
 import { decodeWidthMasters, parseWidthMasters } from './width-masters';
 import { decodeMasterSubdivision, parseMasterSubdivision, type MasterSubdivision } from './subdivision';
 import { decodeOutlineMasterMap, parseOutlineMasterMap, type OutlineMasterMap } from './outline-master-map';
+import { decodeSourceComponents, parseSourceComponents, type SourceComponents } from './components';
 
 export interface RegisteredSourceProgram {
   data: SourceProgramData;
   masters: WeightMasters;
   width: ReturnType<typeof decodeWidthMasters> | null;
   features: ReturnType<typeof decodeFeatureMasters> | null;
+  components: SourceComponents | null;
   transitions: ReadonlyMap<string, MasterSubdivision>;
 }
 type RegisteredSource =
@@ -22,6 +24,7 @@ type RegisteredSource =
   | { kind: 'program-v1'; font: FreeFont; program: RegisteredSourceProgram }
   | { kind: 'width-masters-v1'; base: MasterSourceRef; masters: ReturnType<typeof decodeWidthMasters> }
   | { kind: 'feature-masters-v1'; base: MasterSourceRef; masters: ReturnType<typeof decodeFeatureMasters> }
+  | { kind: 'source-components-v1'; components: SourceComponents }
   | { kind: 'master-subdivision-v1'; subdivision: MasterSubdivision }
   | { kind: 'outline-master-map-v1'; mapping: OutlineMasterMap };
 const sources = new Map<string, RegisteredSource>();
@@ -80,6 +83,15 @@ export function registerSource(ref: SourceRef | ProgramAssetRef, input: unknown)
       entry = { kind: ref.kind, subdivision: decodeMasterSubdivision(data, { from, to }) };
       break;
     }
+    case 'source-components-v1': {
+      const data = parseSourceComponents(input), basis = masterBasis(data.base, ref.fontId);
+      const width = data.width ? sources.get(keyOf(data.width)) : undefined;
+      if (data.width && width?.kind !== 'width-masters-v1') throw new Error('Source components require their exact width package first');
+      if (sources.has(key)) return;
+      entry = { kind: ref.kind, components: decodeSourceComponents(data, basis,
+        data.width && width?.kind === 'width-masters-v1' ? { ref: data.width, masters: width.masters } : undefined) };
+      break;
+    }
     case 'outline-master-map-v1': {
       const data = parseOutlineMasterMap(input), to = masterBasis(data.to, ref.fontId), font = sourceFont(data.from);
       if (!font) throw new Error('Original outline correspondence requires its exact source sheet first');
@@ -91,6 +103,12 @@ export function registerSource(ref: SourceRef | ProgramAssetRef, input: unknown)
       const data = parseSourceProgram(input), basis = masterBasis(data.base, ref.fontId);
       const width = data.width ? sources.get(keyOf(data.width)) : undefined;
       const features = data.features ? sources.get(keyOf(data.features)) : undefined;
+      const components = data.components ? sources.get(keyOf(data.components)) : undefined;
+      if (data.components && (components?.kind !== 'source-components-v1'
+        || keyOf(components.components.data.base) !== keyOf(data.base)
+        || (components.components.data.width ? !data.width || keyOf(components.components.data.width) !== keyOf(data.width) : !!data.width))) {
+        throw new Error('Source program requires components for its exact weight and width bases');
+      }
       if (data.width && (width?.kind !== 'width-masters-v1' || keyOf(width.base) !== keyOf(data.base))) {
         throw new Error('Source program requires width masters for its exact master base');
       }
@@ -122,7 +140,8 @@ export function registerSource(ref: SourceRef | ProgramAssetRef, input: unknown)
       if (!original) throw new Error('Source program lacks its original drawing');
       entry = { kind: ref.kind, font: original.font, program: { data, masters: basis.masters,
         width: width?.kind === 'width-masters-v1' ? width.masters : null,
-        features: features?.kind === 'feature-masters-v1' ? features.masters : null, transitions } };
+        features: features?.kind === 'feature-masters-v1' ? features.masters : null,
+        components: components?.kind === 'source-components-v1' ? components.components : null, transitions } };
       break;
     }
     default: {

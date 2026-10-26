@@ -18,8 +18,9 @@ import { parseWidthMasters, type WidthMasterData } from '../shared/source/width-
 import { parseMasterSubdivision, type MasterSubdivisionData } from '../shared/source/subdivision';
 import { originMapInfo } from '../shared/source/origin-catalog';
 import { parseOutlineMasterMap, type OutlineMasterMapData } from '../shared/source/outline-master-map';
+import { parseSourceComponents, type SourceComponentData } from '../shared/source/components';
 
-type Payload = FreeFontData | WeightMasterData | SourceProgramData | WidthMasterData | FeatureMasterData | MasterSubdivisionData | OutlineMasterMapData;
+type Payload = FreeFontData | WeightMasterData | SourceProgramData | WidthMasterData | FeatureMasterData | MasterSubdivisionData | OutlineMasterMapData | SourceComponentData;
 const cached = new Map<string, FreeFontData>();
 const packages = new Map<string, Payload>();
 const keyOf = (ref: SourceRef | ProgramAssetRef) => `${ref.kind}:${ref.digest}:${ref.fontId}`;
@@ -28,7 +29,7 @@ const sameRef = (a: SourceRef | ProgramAssetRef | null, b: SourceRef | ProgramAs
 function assetBase(ref: ProgramAssetRef): MasterSourceRef | undefined {
   let base: MasterSourceRef | undefined;
   for (const program of PROGRAM_REVISIONS) {
-    if (!sameRef(ref, program.data.width) && !sameRef(ref, program.data.features)
+    if (!sameRef(ref, program.data.width) && !sameRef(ref, program.data.features) && !sameRef(ref, program.data.components ?? null)
       && !program.data.transitions?.some(t => sameRef(t.mapping, ref))) continue;
     if (base && !sameRef(base, program.data.base)) throw new Error('An authored asset has conflicting catalog bases');
     base = program.data.base;
@@ -44,7 +45,8 @@ function readPayload(ref: SourceRef | ProgramAssetRef, directory: string): unkno
 export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
   const program = ref.kind === 'program-v1' ? programInfo(ref) : undefined;
   const origin = ref.kind === 'outline-master-map-v1' ? originMapInfo(ref) : undefined;
-  const base = ref.kind === 'width-masters-v1' || ref.kind === 'feature-masters-v1' || ref.kind === 'master-subdivision-v1' ? assetBase(ref) : undefined;
+  const base = ref.kind === 'width-masters-v1' || ref.kind === 'feature-masters-v1' || ref.kind === 'master-subdivision-v1'
+    || ref.kind === 'source-components-v1' ? assetBase(ref) : undefined;
   const known = ref.kind === 'outline-v1' ? SOURCE_REVISIONS.some(r => sameRef(r, ref))
     : ref.kind === 'masters-v1' ? !!masterInfo(ref) : ref.kind === 'program-v1' ? !!program : ref.kind === 'outline-master-map-v1' ? !!origin : !!base;
   if (!known) throw new Error('This saved source is unavailable');
@@ -74,11 +76,13 @@ export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
       data = parseSourceProgram(readPayload(ref, 'programs'));
       if (!program || !sameRef(data.base, program.data.base) || !sameRef(data.width, program.data.width)
         || !sameRef(data.features, program.data.features)
+        || !sameRef(data.components ?? null, program.data.components ?? null)
         || JSON.stringify(data.transitions) !== JSON.stringify(program.data.transitions)
         || JSON.stringify(data.finish) !== JSON.stringify(program.data.finish)) throw new Error('Source program does not match its catalog');
       const original = loadSource(data.base);
       if (data.width) sourcePayload(data.width);
       if (data.features) sourcePayload(data.features);
+      if (data.components) sourcePayload(data.components);
       for (const transition of data.transitions ?? []) sourcePayload(transition.mapping);
       registerSource(ref, data);
       cached.set(key, original);
@@ -109,6 +113,15 @@ export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
       const previous = PROGRAM_REVISIONS.flatMap(p => p.data.transitions ?? []).filter(t => sameRef(t.mapping, ref));
       if (!sameRef(subdivision.to, base) || previous.some(t => !sameRef(subdivision.from, t.from))) throw new Error('Basis transition does not match its catalog bases');
       loadSource(subdivision.from); loadSource(subdivision.to);
+      registerSource(ref, data);
+      break;
+    }
+    case 'source-components-v1': {
+      if (!base) throw new Error('Source components are missing their catalog base');
+      loadSource(base);
+      data = parseSourceComponents(readPayload(ref, 'components'));
+      if (!sameRef(data.base, base)) throw new Error('Source components do not match their catalog base');
+      if (data.width) sourcePayload(data.width);
       registerSource(ref, data);
       break;
     }

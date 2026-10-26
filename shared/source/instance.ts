@@ -22,6 +22,7 @@ import { interpolateWidthMasters, widthAt } from './width-masters';
 import { evaluateFeatureMasters, FEATURE_CONTROLS } from './feature-masters';
 import { identifyAuthored, inheritAuthored, mapAuthored, rebaseEdits, rebaseReference, transportEdits } from './edit-transport';
 import { compileSourceFinish, finishSourceGlyph, sourceFinishBounds } from './finish';
+import { componentMembership, componentOwnership, componentPlan, mapComponents, type ComponentMembership } from './components';
 
 export interface SourceStatus { ref: SourceRef | ProgramAssetRef; state: 'missing' | 'ready'; missingCharacters: string[] }
 interface SourceInstance { m: Metrics; free?: FreeFont; status: SourceStatus; glyph(ch: string): Glyph | null }
@@ -87,6 +88,15 @@ function pose(font: FreeFont, original: Drawn, p: Params, ch: string) {
   return { transform, M, adv };
 }
 
+function componentPlanFor(source: Drawn, p: Params, ch: string, transform: OutlineTransform) {
+  const components = p.sourceProgram && sourceProgram(p.sourceProgram)?.components;
+  const neutral = p.freeAt.dotSize ?? DEFAULTS.dotSize;
+  if (!components || p.dotSize === neutral || !components.data.glyphs.some(entry => entry.glyph === ch)) return null;
+  const identity = { digest: components.data.base.digest, glyph: ch };
+  const reference = mapAuthored(identifyAuthored(source, identity), transform, source, identity);
+  return componentPlan(components, ch, reference, p.dotSize, neutral);
+}
+
 function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
   const original = font.glyphs[ch], edited = p.outlines[ch];
   if (!original && !edited) return null;
@@ -96,20 +106,33 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
   const digest = p.sourceProgram?.kind === 'outline-v1' ? p.sourceProgram.digest : masterBasisForEditing(p.sourceProgram)?.digest ?? '';
   const identity = { digest, glyph: ch };
   let canonical = digest ? identifyAuthored(source, identity) : source, extraAdvance = 0;
+  let componentEligible: boolean[] | undefined;
+  let componentOwners: ComponentMembership[] | undefined;
+  let sizeOnly = false;
   if (edited) {
     const at: Params = { ...p, ...edited.at, glyphs: {}, outlines: {} };
-    if (sourceControls.every(key => p[key] === at[key]) && p.weight === at.weight
+    const sameFrame = sourceControls.every(key => p[key] === at[key]) && p.weight === at.weight
       && p.sourceProgram?.digest === at.sourceProgram?.digest
-      && (!programInfo(p.sourceProgram)?.data.features || FEATURE_CONTROLS.every(key => p[key] === at[key]))) {
+      && (!programInfo(p.sourceProgram)?.data.features || FEATURE_CONTROLS.every(key => p[key] === at[key]));
+    if (sameFrame && (!programInfo(p.sourceProgram)?.data.components || p.dotSize === at.dotSize)) {
       return asGlyph(ch, edited, target.M, p.sourceProgram?.kind === 'program-v1');
     }
+    sizeOnly = sameFrame;
     const beforeFont = variedFont(at) ?? font;
     let beforeSource = beforeFont.glyphs[ch] ?? source;
     let beforeBasis = masterBasisForEditing(at.sourceProgram);
     let beforeIdentity = { digest: at.sourceProgram?.kind === 'outline-v1' ? at.sourceProgram.digest : beforeBasis?.digest ?? '', glyph: ch };
     const from = pose(beforeFont, beforeSource, at, ch);
+    const previousComponents = componentPlanFor(beforeSource, at, ch, from.transform);
+    const beforeComponents = at.sourceProgram && sourceProgram(at.sourceProgram)?.components;
+    const currentComponents = p.sourceProgram && sourceProgram(p.sourceProgram)?.components;
+    const ownership = componentOwnership(beforeComponents || (currentComponents?.data.base.digest === beforeIdentity.digest ? currentComponents : null), ch);
+    if (ownership) componentOwners = componentMembership(edited, ownership);
+    componentEligible = edited.contours.map(c => c.length > 0 && c.every(n => n.authored?.glyph === ch
+      && (n.authored.digest === beforeIdentity.digest || at.sourceProgram?.kind === 'outline-v1' && n.authored.digest === beforeBasis?.digest)));
     const curves = edited.contours.some(c => c.some(n => n.r)) ? { ...edited, contours: cmdsContours(drawnCmds(edited.contours)) } : edited;
     let unposed = move(curves, inverse(from.M));
+    unposed = mapComponents(unposed, previousComponents, 'inverse', componentOwners);
     if (at.sourceProgram?.kind === 'outline-v1' && beforeBasis) {
       // One earlier interpreter labeled raw sheet points with the first-master digest; their saved frame disambiguates them.
       const previousDigest = beforeBasis.digest;
@@ -117,7 +140,16 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
         && n.authored.glyph === ch ? { ...n, authored: { ...n.authored, digest: beforeIdentity.digest } } : n)) };
     }
     if (beforeIdentity.digest && unposed.contours.some(c => c.some(n => n.authored?.digest !== beforeIdentity.digest || n.authored.glyph !== ch))) {
-      unposed = inheritAuthored(unposed, mapAuthored(identifyAuthored(beforeSource, beforeIdentity), from.transform, beforeSource, beforeIdentity));
+      const reference = mapAuthored(identifyAuthored(beforeSource, beforeIdentity), from.transform, beforeSource, beforeIdentity);
+      if (componentOwners && ownership) {
+        unposed = { ...unposed, contours: unposed.contours.map((contour, ci) => {
+          const owner = componentOwners?.[ci];
+          const binding = typeof owner === 'object' ? ownership.bindings.find(binding => binding.id === owner.component) : undefined;
+          const candidates = binding ? reference.contours.filter((_, index) => binding.contours.includes(index))
+            : owner === 'body' ? reference.contours.filter((_, index) => ownership.bindings.every(binding => !binding.contours.includes(index))) : reference.contours;
+          return inheritAuthored({ ...unposed, contours: [contour] }, { ...reference, contours: candidates }).contours[0];
+        }) };
+      } else unposed = inheritAuthored(unposed, reference);
     }
     canonical = mapAuthored(unposed, inverseTransform(from.transform), beforeSource, beforeIdentity);
     extraAdvance = (edited.adv - from.adv) / from.transform.xScale;
@@ -152,7 +184,21 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
     if (beforeSource !== source && digest && beforeFont.glyphs[ch] && original) canonical = transportEdits(canonical, beforeSource, source, identity);
   }
   const shaped = mapAuthored({ ...canonical, adv: Math.max(0, target.adv + extraAdvance * target.transform.xScale) }, target.transform, source, identity);
-  return asGlyph(ch, move(shaped, target.M), target.M, p.sourceProgram?.kind === 'program-v1');
+  const components = componentPlanFor(source, p, ch, target.transform);
+  const owners = componentOwners ?? (components && componentEligible
+    ? componentMembership(shaped, components).map((owner, ci) => componentEligible?.[ci] ? owner : 'unbound') : undefined);
+  let result = mapComponents(shaped, components, 'forward', owners);
+  if (programInfo(p.sourceProgram)?.data.components && componentEligible
+    && componentEligible.some((eligible, ci) => !eligible || componentOwners?.[ci] === 'unbound')) {
+    // Spatial transport must not turn a newly drawn contour into an owned dot on the next save.
+    result = { ...result, contours: result.contours.map((contour, ci) => componentEligible?.[ci] && componentOwners?.[ci] !== 'unbound' ? contour : contour.map(node => {
+      const out = { ...node }; delete out.authored; return out;
+    })) };
+  }
+  let placed = move(result, target.M);
+  if (sizeOnly && edited) placed = { ...placed, adv: edited.adv,
+    contours: placed.contours.map((contour, ci) => typeof owners?.[ci] === 'object' ? contour : edited.contours[ci]) };
+  return asGlyph(ch, placed, target.M, p.sourceProgram?.kind === 'program-v1');
 }
 
 function variedFont(p: Params): FreeFont | undefined {
@@ -189,6 +235,14 @@ export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | n
   const policy = programInfo(ref)?.data.finish;
   const finish = policy ? compileSourceFinish(policy, p, { capHeight: font.cap * sy }) : null;
   const bounds = finish ? sourceFinishBounds(finish) : { above: 0, below: 0 };
+  let componentRise = 0;
+  const components = sourceProgram(ref)?.components;
+  if (components) for (const ch of new Set(components.data.glyphs.map(entry => entry.glyph))) {
+    const own = p.glyphs[ch], values = own ? { ...p, ...own, glyphs: {} } : p;
+    if (values.dotSize === (values.freeAt.dotSize ?? DEFAULTS.dotSize)) continue;
+    const current = own ? variedFont(values) ?? font : font, original = current.glyphs[ch];
+    if (original) componentRise = Math.max(componentRise, componentPlanFor(original, values, ch, shape(current, values, ch))?.rise ?? 0);
+  }
   if (policy?.slice) {
     for (const own of Object.values(p.glyphs)) {
       bounds.above = Math.max(bounds.above, policy.slice.maxGap * (own.slice ?? p.slice) * font.cap * sy);
@@ -197,7 +251,7 @@ export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | n
   const m = metrics(resolve({ ...p, geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5 }));
   return {
     free: font, status: { ref, state: 'ready', missingCharacters: [...ALL_CHARS].filter(ch => !font.glyphs[ch] && !p.outlines[ch]) },
-    m: { ...m, cap: font.cap * sy, xh, asc: (lower.y[3]?.[1] ?? font.cap * sy) + bounds.above,
+    m: { ...m, cap: font.cap * sy, xh, asc: (lower.y[3]?.[1] ?? font.cap * sy) + componentRise + bounds.above,
       desc: lower.y[0][1] - bounds.below, ws: lower.xScale, slant: Math.tan((p.slant - base.slant) * 20 * Math.PI / 180),
       space: Math.max(20, font.space * lower.xScale + (p.wordSpacing - DEFAULTS.wordSpacing) * 520) },
     glyph: ch => {

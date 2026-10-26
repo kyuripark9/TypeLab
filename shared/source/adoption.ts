@@ -21,6 +21,8 @@ export function programUpgrade(ref: SourceRef | null): ProgramUpgrade | null {
     || target.width.min > previous.width.min || target.width.max < previous.width.max)) return null;
   if (FEATURE_CONTROLS.some(key => previous?.featureGlyphs[key]?.some(ch => !target.featureGlyphs[key]?.includes(ch)))) return null;
   if (previous?.data.finish && (!target.data.finish || !sourceFinishExtends(previous.data.finish, target.data.finish))) return null;
+  if (previous?.data.components && !target.data.components) return null;
+  if (previous?.componentGlyphs?.some(glyph => !target.componentGlyphs?.includes(glyph))) return null;
   return { program: target, resetWidth: !!target.width && !previous?.width };
 }
 
@@ -64,6 +66,11 @@ export function adoptProgram(params: Params): Params | null {
     for (const own of Object.values(glyphs)) for (const key of ['slice', 'slicePos', 'sliceRound'] as const) {
       if (defaults[key] !== undefined) delete own[key];
     }
+  }
+  if (program.data.components && !previous?.data.components) {
+    out.dotSize = .5;
+    out.freeAt.dotSize = .5;
+    for (const own of Object.values(glyphs)) delete own.dotSize;
   }
   return out;
 }

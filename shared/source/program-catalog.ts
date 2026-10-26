@@ -9,6 +9,7 @@ export interface ProgramInfo {
   data: SourceProgramData;
   width: WidthAxis | null;
   featureGlyphs: Partial<Record<FeatureControl, string[]>>;
+  componentGlyphs?: string[];
 }
 export const PROGRAM_REVISIONS: readonly ProgramInfo[] = [
   {

@@ -6,13 +6,15 @@ export interface WidthMasterRef { readonly kind: 'width-masters-v1'; readonly di
 export interface FeatureMasterRef { readonly kind: 'feature-masters-v1'; readonly digest: string; readonly fontId: string }
 export interface SubdivisionRef { readonly kind: 'master-subdivision-v1'; readonly digest: string; readonly fontId: string }
 export interface OutlineMasterMapRef { readonly kind: 'outline-master-map-v1'; readonly digest: string; readonly fontId: string }
-export type ProgramAssetRef = WidthMasterRef | FeatureMasterRef | SubdivisionRef | OutlineMasterMapRef;
+export interface SourceComponentRef { readonly kind: 'source-components-v1'; readonly digest: string; readonly fontId: string }
+export type ProgramAssetRef = WidthMasterRef | FeatureMasterRef | SubdivisionRef | OutlineMasterMapRef | SourceComponentRef;
 export interface BasisTransition { from: MasterSourceRef; mapping: SubdivisionRef }
 export interface SourceProgramData {
   format: 'source-program-v1';
   base: MasterSourceRef;
   width: WidthMasterRef | null;
   features: FeatureMasterRef | null;
+  components?: SourceComponentRef;
   finish?: SourceFinishPolicy;
   transitions?: BasisTransition[];
 }
@@ -32,16 +34,19 @@ function assetRef<K extends ProgramAssetRef['kind']>(input: unknown, kind: K, fo
 
 /** Dependencies name the same family; their payloads must also be validated against the complete base reference. */
 export function parseSourceProgram(input: unknown): SourceProgramData {
-  const value = object(input), fields = ['format', 'base', 'width', 'features', 'finish', 'transitions'];
+  const value = object(input), fields = ['format', 'base', 'width', 'features', 'components', 'finish', 'transitions'];
   if (value.format !== 'source-program-v1' || Object.keys(value).some(key => !fields.includes(key))) {
     throw new TypeError('Invalid or unsupported source program');
   }
   const base = parseSourceRef(value.base);
   if (base?.kind !== 'masters-v1') throw new TypeError('A source program requires an immutable weight-master base');
+  const components = 'components' in value ? assetRef(value.components, 'source-components-v1', base.fontId) : undefined;
+  if (components === null) throw new TypeError('A source component reference must be present or omitted');
   return {
     format: 'source-program-v1', base,
     width: assetRef(value.width, 'width-masters-v1', base.fontId),
     features: assetRef(value.features, 'feature-masters-v1', base.fontId),
+    ...(components ? { components } : {}),
     ...('finish' in value ? { finish: parseSourceFinish(value.finish) } : {}),
     ...('transitions' in value ? { transitions: transitions(value.transitions, base) } : {}),
   };
@@ -64,5 +69,5 @@ function transitions(input: unknown, base: MasterSourceRef): BasisTransition[] {
 
 export function sourceProgramDependencies(program: SourceProgramData): [MasterSourceRef, ...(MasterSourceRef | ProgramAssetRef)[]] {
   return [program.base, ...(program.transitions ?? []).flatMap(t => [t.from, t.mapping]),
-    ...(program.width ? [program.width] : []), ...(program.features ? [program.features] : [])];
+    ...(program.width ? [program.width] : []), ...(program.features ? [program.features] : []), ...(program.components ? [program.components] : [])];
 }

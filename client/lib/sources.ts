@@ -9,6 +9,7 @@ import { originMapInfo } from '../../shared/source/origin-catalog';
 import { parseOutlineMasterMap } from '../../shared/source/outline-master-map';
 import { parseMasterSubdivision } from '../../shared/source/subdivision';
 import { subdivisionInfo } from '../../shared/source/program-catalog';
+import { parseSourceComponents } from '../../shared/source/components';
 import { api, errorMessage } from './api';
 
 type DependencyRef = SourceRef | ProgramAssetRef;
@@ -23,6 +24,7 @@ onSource(changed);
 
 function dependencyError(ref: DependencyRef): Error {
   const label = ref.kind === 'width-masters-v1' ? 'width masters' : ref.kind === 'feature-masters-v1' ? 'feature masters'
+    : ref.kind === 'source-components-v1' ? 'letter components'
     : ref.kind === 'master-subdivision-v1' ? 'basis transition' : ref.kind === 'outline-master-map-v1' ? 'original drawing correspondence'
     : ref.kind === 'outline-v1' ? 'original drawing' : 'weight masters';
   return new Error(`Could not load ${label}: ${errors.get(keyOf(ref)) ?? 'the source is unavailable'}`);
@@ -63,6 +65,12 @@ function loadDependency(ref: DependencyRef, expectedBase?: MasterSourceRef, expe
             if (!await loadDependency(basis)) throw dependencyError(basis);
           }));
           registerSource(ref, mapping);
+        } else if (ref.kind === 'source-components-v1') {
+          const components = parseSourceComponents(data);
+          dependencies.set(key, [components.base, ...(components.width ? [components.width] : [])]);
+          if (!await loadDependency(components.base)) throw dependencyError(components.base);
+          if (components.width && !await loadDependency(components.width, components.base)) throw dependencyError(components.width);
+          registerSource(ref, components);
         } else if (ref.kind === 'program-v1') {
           const program = parseSourceProgram(data);
           if (program.base.fontId !== ref.fontId) throw new Error('Source program does not match the saved font');
@@ -72,6 +80,9 @@ function loadDependency(ref: DependencyRef, expectedBase?: MasterSourceRef, expe
           }));
           if (program.width && !await loadDependency(program.width, program.base)) throw dependencyError(program.width);
           await Promise.all([
+            ...(program.components ? [loadDependency(program.components, program.base).then(ok => {
+              if (!ok && program.components) throw dependencyError(program.components);
+            })] : []),
             ...(program.features ? [loadDependency(program.features, program.base).then(ok => {
               if (!ok && program.features) throw dependencyError(program.features);
             })] : []),

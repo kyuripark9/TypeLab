@@ -115,15 +115,18 @@ function point(e: PointerEvent, key: ActiveKey) {
 
 export function Explainer() {
   const active = useEditor(s => s.active), inspecting = useEditor(s => !!s.inspect), font = useFont();
+  const letter = useEditor(letterOf);
   const part = useEditor(s => s.inspect ? s.part : null), tips = useEditor(s => s.tips), category = useEditor(s => s.category);
   // a free font's letters have no parts for a diagram to point at, so the diagram drawn with them goes
   const free = useEditor(s => !!s.params.freeFont);
   const c = CONTROLS[controlFor(active)], sub = SUBS[active as keyof typeof SUBS];
   const sourceSlice = !!font.params.sourceProgram && controlFor(active) === 'slice' && sourceSupports(font.params, 'slice');
+  const sourceDot = active === 'dotSize' && !!font.params.sourceProgram && sourceSupports(font.params, 'dotSize', letter);
   const sliceTitle = active === 'slice' ? 'Open a gap through the letters' : active === 'slicePos' ? 'Move the gap up or down' : 'Round the new cut edges';
   // two levels only, a title and its explanation; a part says which setting shapes it in the explanation
   const [title, text] = part ? [ANATOMY[part][0], partText(part, category)] : sourceSlice
     ? [sliceTitle, 'The upper pieces move up to open a gap. The lower pieces stay in place, and Points keeps the original drawing.']
+    : sourceDot ? ['Resize this letter’s dot', 'The dot grows from its bottom edge. The letter’s body and spacing stay fixed. New shapes drawn in Points stay independent.']
     : [(sub ?? c).friendly, sub?.explain ?? c.explain];
   // the control just pointed at stays where it stood as the explainer takes the new explanation's height: a sticky
   // explainer stays in sight as the controls scroll under it; one that scrolls with them (a short panel) stays in

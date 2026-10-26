@@ -13,8 +13,9 @@ export function sourceStyleParams(style: StyleDef): Params | null {
   const weight = info ? (info.defaultWeight - info.min) / (info.max - info.min) : style.params.weight;
   const width = program?.width ? (program.width.neutral - program.width.min) / (program.width.max - program.width.min) : style.params.width;
   const features = program?.data.features ? { crossbar: .5, tail: .5, terminalLength: .5 } : {};
+  const components = program?.data.components ? { dotSize: .5 } : {};
   const finish: Partial<Params> = program?.data.finish ? sourceFinishDefaults(program.data.finish) : {};
-  return { ...style.params, ...features, ...finish, freeFont: id,
-    freeAt: { ...freeAtOf(style.params), ...features, ...(program?.data.finish ? { fill: 'solid' as const } : {}), weight, width },
+  return { ...style.params, ...features, ...components, ...finish, freeFont: id,
+    freeAt: { ...freeAtOf(style.params), ...features, ...components, ...(program?.data.finish ? { fill: 'solid' as const } : {}), weight, width },
     weight, width, letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAULTS.wordSpacing, height: DEFAULTS.height, sourceProgram: source };
 }

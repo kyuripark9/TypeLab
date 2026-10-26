@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodeFeatureMasters, FEATURE_CONTROLS, featureSupportedGlyphs, parseFeatureMasters } from '../../shared/source/feature-masters';
+import { decodeSourceComponents, parseSourceComponents } from '../../shared/source/components';
 import { masterInfo, MASTER_REVISIONS } from '../../shared/source/master-catalog';
 import { parseSourceFinish } from '../../shared/source/finish';
 import { decodeWeightMasters, parseWeightMasters } from '../../shared/source/masters';
@@ -45,6 +46,8 @@ function describe(data: SourceProgramData, digest: string): ProgramInfo {
   const width = data.width ? parseWidthMasters(readAsset('widths', data.width.digest), base) : null;
   const features = data.features ? decodeFeatureMasters(parseFeatureMasters(readAsset('features', data.features.digest)), base,
     width && data.width ? { ref: data.width, masters: decodeWidthMasters(width, base.masters) } : undefined) : null;
+  const components = data.components ? decodeSourceComponents(parseSourceComponents(readAsset('components', data.components.digest)), base,
+    width && data.width ? { ref: data.width, masters: decodeWidthMasters(width, base.masters) } : undefined) : null;
   if (width && features?.data.widthCompatibility === 'base-only') throw Error('Width and feature combinations require reviewed interaction masters');
   for (const transition of data.transitions ?? []) {
     decodeMasterSubdivision(parseMasterSubdivision(readAsset('subdivisions', transition.mapping.digest)), { from: basis(transition.from), to: base });
@@ -52,6 +55,7 @@ function describe(data: SourceProgramData, digest: string): ProgramInfo {
   if (features && (features.data.weightRange[0] !== base.data.masters[0].weight
     || features.data.weightRange[1] !== base.data.masters[base.data.masters.length - 1].weight)) throw Error('Published features must cover the whole weight family');
   return { ref: { kind: 'program-v1', digest, fontId: base.ref.fontId }, data, width: width?.axis ?? null,
+    ...(components ? { componentGlyphs: [...new Set(components.data.glyphs.map(glyph => glyph.glyph))] } : {}),
     featureGlyphs: features ? Object.fromEntries(FEATURE_CONTROLS.map(key => [key, featureSupportedGlyphs(features, key)])) : {} };
 }
 

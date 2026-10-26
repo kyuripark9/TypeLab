@@ -14,6 +14,7 @@ export function sourceSupports(p: Pick<Params, 'sourceProgram'>, key: string, gl
   if (!p.sourceProgram || sourceControls.some(control => control === key) || key === 'weight' && !!masterInfo(p.sourceProgram)) return true;
   const finish = programInfo(p.sourceProgram)?.data.finish;
   if (finish && sourceFinishControls(finish).some(control => control === key)) return true;
+  if (key === 'dotSize') return !!glyph && (programInfo(p.sourceProgram)?.componentGlyphs?.includes(glyph) ?? false);
   if (!glyph || (key !== 'crossbar' && key !== 'tail' && key !== 'terminalLength')) return false;
   return programInfo(p.sourceProgram)?.featureGlyphs[key]?.includes(glyph) ?? false;
 }
@@ -27,22 +28,23 @@ export function sourceAllows(p: Pick<Params, 'sourceProgram'>, key: string, valu
 }
 
 /** A source may offer an authored sub-slider without its generated shape picker. */
-export function sourceControl(p: Pick<Params, 'sourceProgram'>, key: ControlKey, glyph?: string | null): ControlKey | 'terminalLength' | undefined {
+export function sourceControl(p: Pick<Params, 'sourceProgram'>, key: ControlKey, glyph?: string | null): ControlKey | 'terminalLength' | 'dotSize' | undefined {
   if (sourceSupports(p, key, glyph)) return key;
   if (key === 'terminal' && sourceSupports(p, 'terminalLength', glyph)) return 'terminalLength';
+  if (key === 'dots' && sourceSupports(p, 'dotSize', glyph)) return 'dotSize';
   return undefined;
 }
 
 export function sourceNotice(p: Pick<Params, 'sourceProgram'>): string {
   const program = programInfo(p.sourceProgram);
+  const glyphs = [...new Set([...Object.values(program?.featureGlyphs ?? {}).flat(), ...(program?.componentGlyphs ?? [])])].join(', ');
   if (program?.data.finish) {
-    const glyphs = [...new Set(Object.values(program.featureGlyphs).flat())].join(', ');
     return 'This style has reviewed weight variations and effects. Points edits stay editable after applying an effect.'
       + (glyphs ? ` Letter controls are available for ${glyphs} while editing that letter alone.` : '');
   }
+  if (program?.data.components) return `This style has weight variations and letter controls for ${glyphs}. Inspect one and switch from All letters to that letter alone.`;
   if (program?.width) return 'This style has designed width and weight variations. Heights, spacing and slant remain editable.';
   if (program?.data.features) {
-    const glyphs = [...new Set(Object.values(program.featureGlyphs).flat())].join(', ');
     return `This style has reviewed weight variations. Letter controls are available for ${glyphs}. Inspect one and switch from All letters to that letter alone.`;
   }
   return masterInfo(p.sourceProgram)

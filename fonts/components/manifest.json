@@ -1,0 +1,656 @@
+[
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "f56e3caf98f4f5342cf7aaa771d26e0331e1a8defd3e1689fff8ad49a1bcdd4e",
+      "fontId": "Almanac:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "7d9763e7bc6cb7a98fbf56eec740d3562e17695888517ef8b41480b61ab76626",
+      "fontId": "Almanac:500"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.4395564447535407
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.2168143345803912
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "1f3645bfef91afbc7fbde4952969d706820441522325766edcfa37a2d6cd45b7",
+      "fontId": "Ballyhoo:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "30648f5f599154f5393cf7d533881d4174376a21e26a96d30c9394ae1fc247ab",
+      "fontId": "Ballyhoo:400"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.4820601582822917
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.4887176360569507
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "996d739f3fc61f8dc6691d26f18a2e977ecab06532e26b9222f7519cc1e90c83",
+      "fontId": "Boardwalk:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "9b2eb66ea10d73d5829d753a25c887071fd466b5152178c508f3fefb87b1406b",
+      "fontId": "Boardwalk:400"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.1,
+        "normalSpacingCollisionScale": 1.6880139405394163
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.1,
+        "normalSpacingCollisionScale": 1.232700611316472
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "7fe8a4e8762821581a0163c70bc97dea613ae097ba53536f4e8b2b5e91a9d0e9",
+      "fontId": "Bulwark:700"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "f6ff9d219c8dd03f29b36f30acb13767530de4a8197f61c481eef19166848ed5",
+      "fontId": "Bulwark:700"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7941176470588236
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.4411764705882355
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "25eef984deb469380c6296e7124c35f89cd815cc26bc644cddcb21e04a9f7651",
+      "fontId": "Cathedral:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "783a5a5cdc77d95ce7e0212a5899de26851ff1cc261ffe4b899c093a4849bc06",
+      "fontId": "Cathedral:400"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.188409796707517
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.9330686057231192
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "94436712361498acb2032f547ccd7c69790d8cb554881d64aa84e8ebc11e0b87",
+      "fontId": "Compass:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "01baf750ad45fa49fe3cf3fb768cd729534a416d0c63407ce179763aed49f91d",
+      "fontId": "Compass:300"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.8775680358515394
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.857937251980942
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "9c9edb1d885325ddd4405e629254c2fc9a0f3b50641866b8d8f9cb3f114316be",
+      "fontId": "Cotton:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e79ee882db3b4b75825be583381d1f791886c305b9b6cbecf8cce410856b14fa",
+      "fontId": "Cotton:300"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "2ef1047e72e7d515e876e30a12a0ded6f1aca412cdea57af6ff47dc1c78f18c1",
+      "fontId": "Cotton:300"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.0931506849315067
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.041616712485119
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "0ac8bfb2ead0a9dd2c0659d1d50212b6f1227bf654a8baffe932ece039b31dcd",
+      "fontId": "Couture:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3c4dfe69b87c432a1d1938e53099ac0620eaa3f75a656dc08309d2eace9d5b89",
+      "fontId": "Couture:600"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.192307692307692
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.631445477599324
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "379e0927ab04a2c7127c6fad70f298430dd856d7f1b9e830a1060b988bb043d4",
+      "fontId": "Dispatch:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c9f822303b920e03051563dd11d6792e18af9a42a4e015d44737b85003107f2c",
+      "fontId": "Dispatch:400"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 5.908770128953617
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 5.908770128953613
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "f796e894afdc0f87ac43e0e8ae87d7a346ddaa16077b9c2a40b132ccbe916c28",
+      "fontId": "Funnies:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "f5ab2b02de6583bdf4255d3aeb25127df0459d53e44b2996ff152a47dc0dd761",
+      "fontId": "Funnies:400"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.649956953528384
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.5134586918897073
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "be6a47d9e80104aabacfb8e439554f6a0d49810b06e9d5f02b2b73d9d26e7adc",
+      "fontId": "Gumdrop:700"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "2d9d079c67fee2c0300b5e2eb15284df14fdf10ee9bfe3f64c0816bd4e99c800",
+      "fontId": "Gumdrop:700"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "6294549f2cff3a88c3937d1b3435d8521e2ecfddc5f7b12bddd31552bda0e360",
+      "fontId": "Gumdrop:700"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.4876543209876543
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.8164556962025316
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "bc3ab07ed88493e454b5ca345e981e4a475e51b0d687f5eb5307e2ecd2f47ce0",
+      "fontId": "Hearth:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "a5b2b12dbd85c33f2619533efb9309a27cabb3b95a07890bbd54d22675fda623",
+      "fontId": "Hearth:600"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.0068299354939527
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.8767576248600852
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "49d6a37c189f221db59209e36ec7cb2d392dd6a839ba2d58ac9bd678999f1fee",
+      "fontId": "Jotter:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "6cb627262b5aab591f2d5ac2a4e6ccc6d3aafe776037d7a72852426a078edf89",
+      "fontId": "Jotter:400"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.9094839084640611
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.281764165134411
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "98f008986997aa9413fd5f5e317b2a35ad77a6c6502fb0c6d81e58f13fdb1f38",
+      "fontId": "Kernel:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "edf4313600883ebd93ff0f398e95ade1d952bbc3d4fa79ef3e2c9a8f27bc654f",
+      "fontId": "Kernel:500"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.6585365853658534
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.6585365853658534
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "a1a323d9febf0590fa56a7f3633b898cc382970d490d8c720947134fa66f7e38",
+      "fontId": "Mainline:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "44ce1daebc31f46d098f0f37a84023aba0f2689404d5aa529a8c0bcb261d3033",
+      "fontId": "Mainline:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "55e40c9a42f15d14cbd44011cbb107ef5c9b2ce08d12bbc7cf937009b19ca017",
+      "fontId": "Mainline:600"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.550500011969146
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.494439404267691
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "414663c16e2117dcda0db5d0edc00a306c00ccfe4390384f7c1070f9a3c833f6",
+      "fontId": "Orbital:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "4a6962ffca3871797860ddefdfacb14ae9a30f01300c40c71f7ac4203e98689b",
+      "fontId": "Orbital:600"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.2,
+        "normalSpacingCollisionScale": 1.3187820380679254
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.2,
+        "normalSpacingCollisionScale": 1.3136634777540928
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "dc1feef32b82dc7e196ea62df05f6c641b72d73a22e8e98fb82424a8a85e7b8c",
+      "fontId": "Parlance:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3f5e7e22afe6910db983a6532ae90df62aa3b3611b2698f4caedd34193ee5b95",
+      "fontId": "Parlance:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4bd6f693c92546671858f839a603219dca3811764becf18f587256a4d0f246b5",
+      "fontId": "Parlance:500"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.5509018648731272
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.5509018648731272
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "d595b12eed55daf1a981a1db6bafed16e6a150f8eaa6a9c4dd556afe76091676",
+      "fontId": "Serenade:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "b14ef9c968068311f01f20a0eb664afab87e0ceed02b71067ee640301862081b",
+      "fontId": "Serenade:400"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.497151074246667
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.5629766040429085
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "bee53c85b908126b80cc79a02fabbaf7c31b598d5e27b3a31595e1928e8e9bad",
+      "fontId": "Sonnet:400i"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "160daa6aaeeed615152244759f3d27c62a274de63015ffe1f0b4052a74839905",
+      "fontId": "Sonnet:400i"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.5693620803628208
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.2889610389610393
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "4ef1a2003520cd9908459dcf4748bc7f2086466167b812f8e12f437f562a74d1",
+      "fontId": "Timber:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "6289d00b276b5bf14cc6d8bed7c0181694bad3462858e7df95e0e0be4a2b3730",
+      "fontId": "Timber:400"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7361618200858397
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.590623640705038
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "d6430db46fb63d0b15d2a0835f098feb4eb17b37005572b8cdeec025d0a08ed2",
+      "fontId": "Turnpike:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "6eb346c64e6be82aaab845475c9630d4e730d4fce3a13fb34533142113bac98c",
+      "fontId": "Turnpike:500"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.9965290309008248
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.948459277364475
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "561dbad23e611726fe689c4138266b7d6e7da39df3c0ad8f46d9d8c4b4c3cf3e",
+      "fontId": "Vellum:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c72eda230c2c2d7e7489bc6ab119c3d6468b5ee7ae1c56c3ee5efd33762249c9",
+      "fontId": "Vellum:400"
+    },
+    "width": null,
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.061804269546157
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.6481900391812747
+      }
+    ]
+  }
+]
