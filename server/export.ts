@@ -11,9 +11,11 @@ import type { Params } from '../shared/params';
 import { opentype } from './opentype';
 import { masterInfo } from '../shared/source/master-catalog';
 import { weightAt } from '../shared/source/masters';
-import { sourceMasters } from '../shared/source/registry';
+import { sourceMasters, sourceProgram } from '../shared/source/registry';
 import { encodedAdvance } from '../shared/engine/spacing';
 import { preciseCFF, type PreciseCFFGlyph } from './cff-precision';
+import { sourceFinishPrecision } from '../shared/source/finish';
+import type { SourceEffect } from '../shared/source/effect-error';
 
 const R = Math.round;
 
@@ -90,16 +92,19 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
     new opentype.Glyph({ name: 'uni00A0', unicode: 0xa0, advanceWidth: encodedAdvance(m.space, m.track, true), path: new opentype.Path() })
   ];
   const preciseGlyphs: PreciseCFFGlyph[] = glyphs.map(glyph => ({ cmds: [], advance: glyph.advanceWidth ?? 0 }));
-  let needsPrecision = false;
+  let precisionEffect: SourceEffect | null = null;
   // the font's ascender and descender (the hhea and typo metrics, with no line gap) set its line spacing on
   // most platforms: 60 units over the taller of ascender and cap height and 40 under the descender, for air
   // between lines. A free font's flourishes can reach past the design's own lines: the font's lines reach as far
   let top = Math.max(m.asc, m.cap) + 60, bottom = m.desc - 40;
   for (const ch of ALL_CHARS) {
     const g = font.glyph(ch); if (!g) continue;
-    const commands = outline(g), precise = !!params.sourceProgram && font.letter(ch).params.fill === 'outline';
-    needsPrecision ||= precise;
-    preciseGlyphs.push({ cmds: precise ? commands : commands.map(command => command.map((v, i) => i ? R(v as number) : v) as Cmd), advance: encodedAdvance(g.adv, m.track) });
+    const commands = outline(g), letter = font.letter(ch).params;
+    const finish = letter.sourceProgram && sourceProgram(letter.sourceProgram)?.data.finish;
+    const effect = finish ? sourceFinishPrecision(finish, letter.fill) : null;
+    precisionEffect ??= effect;
+    preciseGlyphs.push({ cmds: effect ? commands : commands.map(command => command.map((v, i) => i ? R(v as number) : v) as Cmd),
+      advance: encodedAdvance(g.adv, m.track), ...(effect ? { effect } : {}) });
     if (free) for (const c of g.cmds) for (let i = 2; i < c.length; i += 2) { top = Math.max(top, c[i] as number); bottom = Math.min(bottom, c[i] as number); }
     glyphs.push(new opentype.Glyph({
       name: 'uni' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'),
@@ -149,7 +154,7 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
   // as.cls. Only Bold sets the bit
   (otf as unknown as { weightClass: number }).weightClass = weightName === 'Bold' ? 700 : 400;
   const output = Buffer.from(otf.toArrayBuffer());
-  return needsPrecision ? preciseCFF(output, preciseGlyphs, 'outline') : output;
+  return precisionEffect ? preciseCFF(output, preciseGlyphs, precisionEffect) : output;
 }
 
 /** Every member of a family as its own font, in one .zip with a folder named after the family; written in a

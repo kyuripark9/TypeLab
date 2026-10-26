@@ -9,5 +9,19 @@
   "slice": {
     "maxGap": 0.14,
     "position": [0.12, 0.88]
+  },
+  "outline": {
+    "rim": [0.006, 0.024],
+    "tolerance": 0.1
+  },
+  "patterns": {
+    "format": "source-patterns-v1",
+    "fills": ["pixels", "hex", "dots", "halftone", "lines"],
+    "cell": [0.04, 0.18],
+    "gain": [0.22, 1],
+    "corner": [0, 0.5],
+    "smallComponentScale": 4,
+    "maxCells": 16384,
+    "maxPoints": 131072
   }
 }

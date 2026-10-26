@@ -2,7 +2,7 @@
 import type { Cmd } from '../shared/engine';
 import { SourceEffectError, type SourceEffect } from '../shared/source/effect-error';
 
-export interface PreciseCFFGlyph { readonly cmds: readonly Cmd[]; readonly advance: number }
+export interface PreciseCFFGlyph { readonly cmds: readonly Cmd[]; readonly advance: number; readonly effect?: SourceEffect }
 const FIXED = 65536, MAX_STRING = 60000;
 interface Index { start: number; end: number; objects: { start: number; end: number }[] }
 interface Operand { value: number; at: number; bytes: number }
@@ -24,23 +24,35 @@ function commands(glyph: PreciseCFFGlyph, effect: SourceEffect): Buffer[] {
   if (!Number.isInteger(glyph.advance) || glyph.advance < 0 || glyph.advance > 32767) failure(effect, 'A CFF advance exceeds the supported integer range');
   const ops: Buffer[] = [Buffer.from(integer(glyph.advance))];
   let x = 0, y = 0, open = false;
+  let source: [number, number][] = [], encoded: [number, number][] = [];
+  const hasArea = (points: [number, number][]) => {
+    const a = points[0], b = points.find(p => p[0] !== a[0] || p[1] !== a[1]);
+    return b && points.some(p => (b[0] - a[0]) * (p[1] - a[1]) !== (b[1] - a[1]) * (p[0] - a[0]));
+  };
+  const close = () => {
+    if (source.length && hasArea(source) && !hasArea(encoded)) failure(effect, 'A nonzero contour collapses on the CFF fixed-point grid');
+    source = []; encoded = [];
+  };
   for (const c of glyph.cmds) {
-    if (c[0] === 'Z') { open = false; continue; }
+    if (c[0] === 'Z') { close(); open = false; continue; }
+    if (c[0] === 'M') close();
     if (c[0] !== 'M' && !open) failure(effect, 'A CFF contour must start with a move');
     const data: number[] = [];
     for (let i = 1; i < c.length; i += 2) {
       const nextX = Math.round((c[i] as number) * FIXED), nextY = Math.round((c[i + 1] as number) * FIXED);
       data.push(...fixed(nextX - x, effect), ...fixed(nextY - y, effect)); x = nextX; y = nextY;
+      source.push([c[i] as number, c[i + 1] as number]); encoded.push([x, y]);
     }
     data.push(c[0] === 'M' ? 21 : c[0] === 'L' ? 5 : 8);
     ops.push(Buffer.from(data)); open = true;
   }
+  close();
   return ops;
 }
 function encodedPaths(glyphs: readonly PreciseCFFGlyph[], effect: SourceEffect): { paths: Buffer; subrs: Buffer } {
   const subrs: Buffer[] = [], paths: (Buffer | { first: Buffer; calls: number[] })[] = [];
   for (const glyph of glyphs) {
-    const ops = commands(glyph, effect), length = ops.reduce((sum, op) => sum + op.length, 1);
+    const ops = commands(glyph, glyph.effect ?? effect), length = ops.reduce((sum, op) => sum + op.length, 1);
     if (length <= MAX_STRING) { paths.push(Buffer.concat([...ops, Buffer.from([14])])); continue; }
     // The first move consumes the explicit width before entering any subroutine.
     const first = Buffer.concat(ops.slice(0, 2)), calls: number[] = [];
@@ -130,7 +142,7 @@ function checksum(data: Buffer): number {
   return value;
 }
 
-/** Preserve metadata and 1000-UPM metrics; replace only CFF paths and container checksums.
+/** Preserve metadata and layout metrics; replace CFF paths, enclosing bounds and checksums.
  * Each absolute coordinate rounds once to 16.16: at most sqrt(2)/131072 units per point.
  * Adobe Type2 specification 5177 §§3.2,4.7 and Appendix B define operands and subroutine limits. */
 export function preciseCFF(template: Buffer, glyphs: readonly PreciseCFFGlyph[], effect: SourceEffect): Buffer {
@@ -146,6 +158,18 @@ export function preciseCFF(template: Buffer, glyphs: readonly PreciseCFFGlyph[],
   const head = tables.find(table => table.tag === 'head');
   if (!head || !tables.some(table => table.tag === 'CFF ')) failure(effect, 'The font is missing a required OpenType table');
   head.data.writeUInt32BE(0, 8);
+  // The integer template can undershoot the newly fractional boundary by half a unit.
+  const bounds = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const glyph of glyphs) for (const cmd of glyph.cmds) for (let i = 1; i < cmd.length; i += 2) {
+    const x = Math.round((cmd[i] as number) * FIXED) / FIXED, y = Math.round((cmd[i + 1] as number) * FIXED) / FIXED;
+    bounds[0] = Math.min(bounds[0], x); bounds[1] = Math.min(bounds[1], y);
+    bounds[2] = Math.max(bounds[2], x); bounds[3] = Math.max(bounds[3], y);
+  }
+  if (Number.isFinite(bounds[0])) bounds.forEach((value, i) => {
+    const bound = i < 2 ? Math.floor(value) : Math.ceil(value);
+    if (bound < -32768 || bound > 32767) failure(effect, 'The fractional outline exceeds the OpenType bounding-box range');
+    head.data.writeInt16BE(bound, 36 + i * 2);
+  });
   const chunks: Buffer[] = [header]; let offset = header.length, headOffset = 0;
   tables.forEach((table, i) => {
     const at = 12 + i * 16, padding = (4 - table.data.length % 4) % 4;
