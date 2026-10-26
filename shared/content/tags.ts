@@ -2,7 +2,12 @@
    Appearance and Feeling), and finding styles by them or by words typed in search. */
 import { resolve, type Effective } from '../engine/font';
 import { STYLE_FONTS, parseFontId } from '../free-fonts';
+import { WEIGHTS, type WeightId } from '../family';
 import type { Params } from '../params';
+import { masterInfo } from '../source/master-catalog';
+import { weightAt } from '../source/masters';
+import { programInfo } from '../source/program-catalog';
+import { widthAt } from '../source/width-masters';
 import { searchTerms, startsWords } from './search';
 import type { StyleDef } from './styles';
 
@@ -45,8 +50,9 @@ export const MOODS: { id: Mood; label: string; card: string }[] = ([
 /* Appearance, like Google's tags of that name: what the letters look like, for search to find.
    Unlike the other tags these are not hand-picked but read off each style's settings, so they
    stay true as styles are tuned. */
-export type Look = 'mono' | 'pixel' | 'stencil' | 'outline' | 'inline' | 'shadow' | 'techno' | 'inktrap' | 'contrast' | 'wide' | 'narrow';
-const LOOKS: { id: Look; label: string; test: (e: Effective) => boolean }[] = [
+type BaseLook = 'mono' | 'pixel' | 'stencil' | 'outline' | 'inline' | 'shadow' | 'techno' | 'inktrap' | 'contrast' | 'wide' | 'narrow';
+export type Look = BaseLook | WeightId | 'narrower' | 'wider' | 'lighter' | 'heavier';
+const LOOKS: { id: BaseLook; label: string; test: (e: Effective) => boolean }[] = [
   { id: 'mono', label: 'Monospace', test: e => e.mono >= 0.5 },
   { id: 'pixel', label: 'Pixel', test: e => e.fill === 'pixels' || e.fill === 'dots' },
   { id: 'stencil', label: 'Stencil', test: e => e.stencil > 0 || e.slice > 0 },
@@ -59,6 +65,11 @@ const LOOKS: { id: Look; label: string; test: (e: Effective) => boolean }[] = [
   { id: 'wide', label: 'Wide', test: e => e.width >= 0.68 },
   { id: 'narrow', label: 'Narrow', test: e => e.width <= 0.35 }
 ];
+const LOOK_LABELS = new Map<Look, string>([
+  ...LOOKS.map(({ id, label }): [Look, string] => [id, label]),
+  ...WEIGHTS.map(({ id, name }): [Look, string] => [id, name]),
+  ['narrower', 'Narrower'], ['wider', 'Wider'], ['lighter', 'Lighter'], ['heavier', 'Heavier']
+]);
 
 /* Classification, like Google's Sans Serif, Serif and Calligraphy tags: the genre a style is
    drawn in, finer than its Category. Hand-picked, and a style may carry more than one (a
@@ -117,7 +128,7 @@ export const styleMatches = (s: StyleDef, f: StyleFilter, looks: Look[] = s.look
 const words = (s: StyleDef, looks: Look[]) => [
   s.name, STYLE_GROUPS.find(g => g.id === s.group)!.label, s.like, s.desc, parseFontId(STYLE_FONTS[s.id])?.family ?? '',
   ...s.kinds.map(k => KIND_SECTIONS.flatMap(x => x.tags).find(t => t.id === k)!.label),
-  ...s.moods.map(m => MOODS.find(x => x.id === m)!.label), ...looks.map(l => LOOKS.find(x => x.id === l)!.label)
+  ...s.moods.map(m => MOODS.find(x => x.id === m)!.label), ...looks.map(l => LOOK_LABELS.get(l))
 ].join(' ');
 /** Every word typed starts a word somewhere in the style (so "futura", "round mono" and "heavy slab" all work). */
 export const searchMatches = (s: StyleDef, query: string, looks: Look[] = s.looks) => {
@@ -125,4 +136,31 @@ export const searchMatches = (s: StyleDef, query: string, looks: Look[] = s.look
   return !q.length || startsWords(searchTerms(words(s, looks)).join(' '), q);
 };
 /** The Appearance tags a set of params shows. */
-export function looksOf(p: Params): Look[] { const e = resolve(p); return LOOKS.filter(l => l.test(e)).map(l => l.id); }
+export function looksOf(p: Params, original: readonly Look[] = []): Look[] {
+  if (!p.sourceProgram) {
+    const e = resolve(p);
+    return LOOKS.filter(l => l.test(e)).map(l => l.id);
+  }
+  // Original appearance belongs to the drawing, not its normalized position in an authored axis.
+  const finishLooks = new Set<Look>(['pixel', 'stencil', 'outline', 'inline', 'shadow']);
+  const result = original.filter(look => !finishLooks.has(look));
+  const program = programInfo(p.sourceProgram), info = masterInfo(p.sourceProgram);
+  if (program?.data.finish) {
+    if (p.fill === 'outline' || p.fill === 'wire') result.push('outline');
+    else if (p.fill === 'shadow') result.push('shadow');
+    else if (p.fill === 'inline') result.push('inline');
+    else if (p.fill === 'pixels' || p.fill === 'dots') result.push('pixel');
+    if (program.data.finish.slice && p.slice > 0) result.push('stencil');
+  }
+  const width = program?.width;
+  const widthChange = width ? widthAt(p, width) - width.neutral : p.width - (p.freeAt.width ?? p.width);
+  if (widthChange < -1e-9) result.push('narrower');
+  else if (widthChange > 1e-9) result.push('wider');
+  if (info) {
+    const weight = weightAt(p, info);
+    result.push(WEIGHTS.reduce((a, b) => Math.abs(b.cls - weight) < Math.abs(a.cls - weight) ? b : a).id);
+    if (weight < info.defaultWeight - 1e-9) result.push('lighter');
+    else if (weight > info.defaultWeight + 1e-9) result.push('heavier');
+  }
+  return [...new Set(result)];
+}

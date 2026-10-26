@@ -392,7 +392,7 @@ const looksCache = new WeakMap<Params, Look[]>();
 function adjustedLooks(s: StyleDef, traits: Traits): Look[] {
   const p = adjustedParams(s, traits);
   let l = looksCache.get(p);
-  if (!l) { l = p === s.params ? s.looks : looksOf(p); looksCache.set(p, l); }
+  if (!l) { l = p === s.params ? s.looks : looksOf(p, s.looks); looksCache.set(p, l); }
   return l;
 }
 /** The Style page's filters, and a test of whether a starting style (as the traits show it) passes them, or would with `pick` in place of its facet. */
