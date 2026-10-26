@@ -46,5 +46,6 @@ export function sourceTraitOptions(p: Params, id: TraitId, legacy: readonly Trai
   } else if (id === 'cuts') {
     options = legacy.map(o => o.id === 'slice' ? { ...o, set: { slice: .5, slicePos: .5, sliceRound: 0 } } : o);
   }
-  return options.filter(o => Object.entries(o.set).every(([key, value]) => sourceAllows(p, key, value)));
+  return options.filter(o => Object.entries(o.set).every(([key, value]) => sourceAllows(p, key, value)))
+    .map(o => o.reset ? { ...o, reset: Object.fromEntries(Object.entries(o.reset).filter(([key, value]) => sourceAllows(p, key, value))) } : o);
 }

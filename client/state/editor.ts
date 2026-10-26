@@ -384,7 +384,12 @@ export function adjustedParams(s: StyleDef, traits: Traits): Params {
   let p = adjustedCache.get(key);
   if (!p) {
     if (adjustedCache.size > 3000) adjustedCache.clear();
-    p = sourceForFont(STYLE_FONTS[s.id] ?? '') ? startParams(s, traits) : Object.keys(traits).length ? applyTraits(s.params, traits) : s.params;
+    if (sourceForFont(STYLE_FONTS[s.id] ?? '')) {
+      const baseKey = `${s.id}|${traitsKey({})}`;
+      const base = adjustedCache.get(baseKey) ?? startParams(s, {});
+      adjustedCache.set(baseKey, base);
+      p = applyTraits(base, traits);
+    } else p = Object.keys(traits).length ? applyTraits(s.params, traits) : s.params;
     adjustedCache.set(key, p);
   }
   return p;

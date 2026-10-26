@@ -109,7 +109,11 @@ export function applyTraits(p: Params, t: Traits): Params {
   let out = p;
   for (const def of TRAITS) {
     const o = traitOption(p, def.id, t[def.id]);
-    if (o) out = { ...out, ...o.reset, ...o.set };
+    if (o) {
+      const patch = { ...o.reset, ...o.set };
+      // Unchanged source recipes retain the neutral preview; legacy recipes keep their existing copy behavior.
+      if (!p.sourceProgram || Object.entries(patch).some(([key, value]) => out[key as keyof Params] !== value)) out = { ...out, ...patch };
+    }
   }
   return out;
 }

@@ -253,7 +253,7 @@ function wordFit(font: FreeFontRef | null, text: string, width: number, size: nu
 function StyleCard({ style: s, text, view, clamp }: { style: StyleDef; text: string; view: CardView; clamp: boolean }) {
   const id = STYLE_FONTS[s.id];
   const traits = useEditor(st => st.traits), params = adjustedParams(s, traits);
-  const adjusted = !!params.sourceProgram && Object.keys(traits).length > 0;
+  const adjusted = !!params.sourceProgram && params !== adjustedParams(s, {});
   const on = useEditor(st => startStyle(st.styleId, st.params) === s && (!id || !!st.params.freeFont));
   const font = useWebFont(id), [ref, box] = useSize<HTMLSpanElement>();
   return (

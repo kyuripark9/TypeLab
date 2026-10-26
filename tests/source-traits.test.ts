@@ -34,13 +34,43 @@ describe('source trait recipes', () => {
     assert.deepEqual([p.weight, p.width, p.xHeight, p.slant, p.slice], [.44, .52, 1, .35, .05]);
     assert.equal(traitOption(DEFAULTS, 'slant', 'left'), undefined);
     assert.strictEqual(applyTraits(DEFAULTS, {}), DEFAULTS);
+    const alreadyRegular = { ...DEFAULTS, weight: .44 };
+    const repeated = applyTraits(alreadyRegular, { weight: 'regular' });
+    assert.notStrictEqual(repeated, alreadyRegular, 'a supported legacy choice still makes its original copy');
+    assert.deepEqual(repeated, alreadyRegular);
   });
 
-  it('returns identical evaluator inputs for the original weight, width, lowercase and lean in all 22 styles', () => {
+  it('keeps the neutral card identity for original and unsupported choices in all 22 styles', () => {
     assert.equal(bundled.length, 22);
-    for (const { params: p } of bundled) {
-      const neutral = applyTraits(p, { weight: 'regular', width: 'normal', xHeight: 'medium', slant: 'upright' });
-      assert.deepEqual(neutral, p, p.freeFont);
+    for (const { style, params: p } of bundled) {
+      const traits = { weight: 'regular', width: 'normal', xHeight: 'medium', slant: 'upright' };
+      assert.strictEqual(applyTraits(p, traits), p, p.freeFont);
+      assert.strictEqual(adjustedParams(style, traits), p, p.freeFont);
+      assert.strictEqual(adjustedParams(style, { ends: 'round', serif: 'slab' }), p, p.freeFont);
+      assert.strictEqual(adjustedParams(style, { weight: undefined }), p, p.freeFont);
+      assert.deepEqual([p.slice, p.letterSpacing, p.fill], [0, .2, 'solid']);
+      assert.strictEqual(adjustedParams(style, { cuts: 'none', spacing: 'normal', fill: 'solid' }), p, 'unsupported reset keys do not change the source');
+      const wide = adjustedParams(style, { width: 'extended' });
+      assert.notStrictEqual(wide, p, p.freeFont);
+      assert.strictEqual(applyTraits(wide, { weight: 'regular' }), wide, 'a neutral choice keeps an already adjusted object');
+    }
+    const clear = { ...base('grotesque'), fill: 'solid' as const, slice: 0, joints: 0, stencil: 0 };
+    assert.strictEqual(applyTraits(clear, { fill: 'solid', cuts: 'none' }), clear, 'unchanged reset fields keep the same object');
+    const cut = { ...clear, stencil: .7 };
+    assert.strictEqual(applyTraits(cut, { cuts: 'none' }), cut, 'an unsupported legacy reset cannot switch renderers');
+  });
+
+  it('keeps endpoint aliases on the neutral source card while retaining their intent', () => {
+    for (const { style, params: p } of bundled) {
+      const info = masterInfo(p.sourceProgram); assert.ok(info);
+      if (info.defaultWeight === info.min) {
+        assert.strictEqual(adjustedParams(style, { weight: 'thin' }), p, p.freeFont);
+        assert.strictEqual(adjustedParams(style, { weight: 'light' }), p, p.freeFont);
+      }
+      if (info.defaultWeight === info.max) {
+        assert.strictEqual(adjustedParams(style, { weight: 'bold' }), p, p.freeFont);
+        assert.strictEqual(adjustedParams(style, { weight: 'black' }), p, p.freeFont);
+      }
     }
   });
 
@@ -79,6 +109,8 @@ describe('source trait recipes', () => {
           assert.equal(choose(p, 'width', id).width, pick);
           assert.equal(widthAt(choose(p, 'width', id), old.width), 100);
           assert.ok(sameTraitRecipe(traitOption(p, 'width', id)!, traitOption(p, 'width', 'normal')!));
+          const neutral = { ...p, width: pick };
+          assert.strictEqual(choose(neutral, 'width', id), neutral, `${fontId} ${id} is an unchanged endpoint alias`);
         }
       }
     }
