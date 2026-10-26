@@ -16,6 +16,7 @@ interface Point { x: number; y: number }
 export interface LocalWidthRecipe {
   style: string; widths: number[]; columns: number; rows: number; blurCap: number;
   minDerivative: number; maxCurveError: number; rigidGlyphs: string; dotGlyphs: string;
+  preserveAdvanceRatio?: boolean;
 }
 export type SegmentInterval = SubdivisionSegment;
 export type SubdivisionBinding = MasterSubdivisionData;
@@ -26,6 +27,7 @@ export interface LocalWidthResult {
   review: { minDerivative: number; maxCurveError: number; neutralError: number; oldNodes: number; newNodes: number;
     regularized: { ch: string; weight: number; floor: number }[] };
 }
+export interface LocalWidthFeatureDrawing { glyph: string; weight: number; drawing: Drawn }
 
 export const COTTON_WIDTH: LocalWidthRecipe = {
   style: 'Cotton', widths: [85, 100, 115], columns: 160, rows: 80, blurCap: .014,
@@ -108,11 +110,14 @@ function dotContours(character: string, glyph: Drawn, cap: number, digest: strin
     return h < cap * .23 && w / h > .65 && w / h < 1.45 ? [i] : [];
   });
 }
-function mappedGlyph(glyph: Drawn, width: number, field: (amount: number) => HorizontalMap, rigid: boolean, dots: number[]): GlyphMap {
+function mappedGlyph(glyph: Drawn, width: number, field: (amount: number) => HorizontalMap, rigid: boolean, dots: number[], preserveAdvanceRatio = false): GlyphMap {
   if (width === 100) return { contours: glyph.contours.map(() => identity), advance: glyph.adv };
   const amount = width / 100 - 1;
   if (rigid) return { contours: glyph.contours.map(() => translation(glyph.adv * amount / 2)), advance: glyph.adv * (1 + amount) };
-  const map = field(amount), b = bounds(glyph.contours), advance = glyph.adv + (b.x1 - b.x0) * amount;
+  const fieldMap = field(amount), b = bounds(glyph.contours), bodyChange = (b.x1 - b.x0) * amount;
+  const advance = preserveAdvanceRatio ? glyph.adv * (1 + amount) : glyph.adv + bodyChange;
+  const offset = preserveAdvanceRatio ? (advance - glyph.adv - bodyChange) / 2 : 0;
+  const map: HorizontalMap = offset === 0 ? fieldMap : { ...fieldMap, point: x => fieldMap.point(x) + offset };
   return { advance, contours: glyph.contours.map((c, i) => {
     if (!dots.includes(i)) return map;
     const box = bounds([c]), center = (box.x0 + box.x1) / 2;
@@ -139,7 +144,8 @@ function nodes(curves: Point[][]): Node[] {
   });
 }
 
-export function authorLocalWidths(original: WeightMasterData, from: MasterSourceRef, recipe: LocalWidthRecipe): LocalWidthResult {
+export function authorLocalWidths(original: WeightMasterData, from: MasterSourceRef, recipe: LocalWidthRecipe,
+  features: readonly LocalWidthFeatureDrawing[] = []): LocalWidthResult {
   const neutral = original.masters.find(m => m.weight === original.defaultWeight);
   if (!neutral || neutral.data.family !== recipe.style || !recipe.widths.includes(100)) throw Error('Recipe does not match this family');
   const fonts = original.masters.map(m => decodeFreeFont(m.data));
@@ -149,10 +155,11 @@ export function authorLocalWidths(original: WeightMasterData, from: MasterSource
   const regularized: LocalWidthResult['review']['regularized'] = [];
   for (const ch of Object.keys(neutralFont.glyphs)) {
     const source = fonts.map(f => f.glyphs[ch]), dots = dotContours(ch, neutralFont.glyphs[ch], neutralFont.cap, original.source.digest, recipe);
+    const extra = source.map((_glyph, wi) => features.filter(f => f.glyph === ch && f.weight === original.masters[wi].weight).map(f => f.drawing));
     const maps = source.map((g, wi) => {
       const field = density(g, fonts[wi].cap, recipe);
       if (field.floor > .036 && !recipe.rigidGlyphs.includes(ch)) regularized.push({ ch, weight: original.masters[wi].weight, floor: field.floor });
-      return recipe.widths.map(width => mappedGlyph(g, width, field.at, recipe.rigidGlyphs.includes(ch), dots));
+      return recipe.widths.map(width => mappedGlyph(g, width, field.at, recipe.rigidGlyphs.includes(ch), dots, recipe.preserveAdvanceRatio));
     });
     for (const row of maps) for (const map of row) for (const c of map.contours) minimum = Math.min(minimum, c.minDerivative);
     if (minimum < recipe.minDerivative) throw Error(`${ch}: horizontal map derivative ${minimum} is below ${recipe.minDerivative}`);
@@ -163,6 +170,10 @@ export function authorLocalWidths(original: WeightMasterData, from: MasterSource
         for (let wi = 0; wi < curves.length; wi++) for (let di = 0; di < recipe.widths.length; di++) {
           const c = subCubic(curves[wi], t0, t1), map = maps[wi][di].contours[ci];
           miss = Math.max(miss, error(c, fit(c, map), map));
+          for (const drawing of extra[wi]) {
+            const part = subCubic(curve(drawing.contours[ci], si), t0, t1);
+            miss = Math.max(miss, error(part, fit(part, map), map));
+          }
         }
         if (miss > recipe.maxCurveError) {
           if (depth >= 12) throw Error(`${ch}: cannot fit smooth width map within ${recipe.maxCurveError}`);
@@ -202,6 +213,21 @@ export function authorLocalWidths(original: WeightMasterData, from: MasterSource
     provenance: original.provenance, notes });
   return { base, data, binding: { format: 'master-subdivision-v1', from, to, glyphs },
     review: { minDerivative: minimum, maxCurveError: maximumError, neutralError, oldNodes, newNodes, regularized } };
+}
+
+/** Apply the family's same width field to a compatible feature endpoint in its shared point basis. */
+export function mapLocalWidthFeature(reference: Drawn, drawing: Drawn, character: string, cap: number, digest: string,
+  width: number, recipe: LocalWidthRecipe, intervals: SegmentInterval[][]): Drawn {
+  const dots = dotContours(character, reference, cap, digest, recipe), field = density(reference, cap, recipe);
+  const map = mappedGlyph(reference, width, field.at, recipe.rigidGlyphs.includes(character), dots, recipe.preserveAdvanceRatio);
+  const contours = intervals.map((ranges, ci) => nodes(ranges.map(range => {
+    const part = subCubic(curve(drawing.contours[ci], range.segment), range.t0, range.t1);
+    if (width === 100) return part;
+    const made = fit(part, map.contours[ci]);
+    if (error(part, made, map.contours[ci]) > recipe.maxCurveError + 1e-9) throw Error(`${character}: feature width fit exceeds its authored tolerance`);
+    return made;
+  })));
+  return { adv: width === 100 ? drawing.adv : map.advance + (drawing.adv - reference.adv), contours };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

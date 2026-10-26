@@ -366,6 +366,276 @@ export const MASTER_REVISIONS: readonly MasterInfo[] = [
     "min": 500,
     "max": 700,
     "defaultWeight": 700
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "e56354a4417393b45cb5b47023524b5da7ee29ad4b13bb5cb6b52c36bd0dac8e",
+      "fontId": "Hearth:600"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "1bb3719536d0b63d06f5fc081dc22149c6c6a867fb80d30cde6900e6aa4f4cc4",
+      "fontId": "Hearth:600"
+    },
+    "min": 300,
+    "max": 800,
+    "defaultWeight": 600
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "cc1a63a8a92ca1a4dee1fde8f0fd63e633d6db2a49dc6d0eca38a0d6d5588818",
+      "fontId": "Couture:600"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "a743231893ba1e3c471e1bfa2bfed2bb7768b4863000854413e7b96712281d58",
+      "fontId": "Couture:600"
+    },
+    "min": 500,
+    "max": 700,
+    "defaultWeight": 600
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "c1fb623848b9d9dbccb4ab63606295ac5a01eadd535183b8190a76a2af39e696",
+      "fontId": "Sonnet:400i"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "7a841c89c6d8e76a396ded16f0d961b24fbda45acb45d984dc0eb9e48ab2c9f2",
+      "fontId": "Sonnet:400i"
+    },
+    "min": 400,
+    "max": 500,
+    "defaultWeight": 400
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "db318a507de92d6adcea03fca0522125e2b08f14156125bd5bbe10f0926d1356",
+      "fontId": "Vellum:400"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "4792c42fdcd5497e632d3360ccbfe6a706fad0caabb6272b7211a9a4724bee5f",
+      "fontId": "Vellum:400"
+    },
+    "min": 400,
+    "max": 600,
+    "defaultWeight": 400
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "01c05c7518e7883dcce4edb75e81bf6bf27cd9321b97e147620876edb16a4e7e",
+      "fontId": "Almanac:500"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "1e88ba172d6cf23b7fa0b83d1780ae45685e043daedad44549191a55bd941800",
+      "fontId": "Almanac:500"
+    },
+    "min": 400,
+    "max": 600,
+    "defaultWeight": 500
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "620337576cbca76b92ce43079a30bbef8a3b6c216fc85ae6bdfb7ea4af07761f",
+      "fontId": "Jotter:400"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "9140ce5613eb89165b23f8cf655a3e6c738ea6374248c78bc3d88fd65a4e5082",
+      "fontId": "Jotter:400"
+    },
+    "min": 400,
+    "max": 500,
+    "defaultWeight": 400
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
+      "fontId": "Compass:300"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "552a68b0a230d7344c6e538c0367d4a4182fef80ef3085034f676d50f3c93baf",
+      "fontId": "Compass:300"
+    },
+    "min": 300,
+    "max": 450,
+    "defaultWeight": 300
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "faf347e750555ff1f0d52cdf08a53a71002d92f63e35e4c7ceedf8bb02034998",
+      "fontId": "Dispatch:400"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "2a837e87780f1c6f17a10f23cfc6173c5807da5685b66f50a475539c1d9274f1",
+      "fontId": "Dispatch:400"
+    },
+    "min": 400,
+    "max": 600,
+    "defaultWeight": 400
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "bb4244f6a5d72fb159210a8eb6ed3fd31006cb173c0e81ad84b0d450023b9db9",
+      "fontId": "Funnies:400"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "dea1b0739e641d4da7c878181885b402f6cec2de792102601cdc4ea5ab74c1d1",
+      "fontId": "Funnies:400"
+    },
+    "min": 300,
+    "max": 500,
+    "defaultWeight": 400
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+      "fontId": "Kernel:500"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "148815302716f99a57ce4ee13edc167fa5fee3baa81387b705a22f200a375cb2",
+      "fontId": "Kernel:500"
+    },
+    "min": 450,
+    "max": 600,
+    "defaultWeight": 500
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "b27f1855b7fc6d539ba811886c5247ecf8489d440838bea26f80fe8ff3f2183d",
+      "fontId": "Orbital:600"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "a6fbb24a6752a93e1ecbda250e05f6974eb812733b348bf0a694ec980e32f15a",
+      "fontId": "Orbital:600"
+    },
+    "min": 300,
+    "max": 700,
+    "defaultWeight": 600
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "c00b5828a7da02a51c03d14756b9749b047da64df7313367ed2d3fee6e0818fc",
+      "fontId": "Turnpike:500"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "7bbb4db5a4f8f5cb8412806ce4f18d7a2259dfb1c0f4eff3381884e90c36fbf9",
+      "fontId": "Turnpike:500"
+    },
+    "min": 400,
+    "max": 600,
+    "defaultWeight": 500
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "38254154a914ca28caf9ac68bb09162ccd12726acb0af2b8474c30c1075e499a",
+      "fontId": "Ballyhoo:400"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "a932fd59c3cc30c5bb2764dd961ef7f91772a219e8ced1e4abcc00d17fea1d42",
+      "fontId": "Ballyhoo:400"
+    },
+    "min": 300,
+    "max": 500,
+    "defaultWeight": 400
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "66b994c2eef41abb8ab9e342d22c35721a4fe5f6779e8f7f9d887ab3a06fcc9e",
+      "fontId": "Boardwalk:400"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "e86e9bb8de0f75e1118894bad5f96f857ad1d4f305e6942dbd8b994cfe90f1f6",
+      "fontId": "Boardwalk:400"
+    },
+    "min": 300,
+    "max": 500,
+    "defaultWeight": 400
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "2e8599cee21b0e375dd962225489ea5c25a63140ebb28cefd8c546fee1253311",
+      "fontId": "Cathedral:400"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "feba4842866ac4dcd356e137b6891d7ad4685baa1be419ead699e158b11f0eee",
+      "fontId": "Cathedral:400"
+    },
+    "min": 300,
+    "max": 500,
+    "defaultWeight": 400
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "c8b00335571caebf83c29befdb10044e5311f4c10e1e31723888bfcdbc2d510c",
+      "fontId": "Serenade:400"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "9acdea1f08cd809a7d3020098175581adc725d54efcd45077ff2330931e8f147",
+      "fontId": "Serenade:400"
+    },
+    "min": 300,
+    "max": 500,
+    "defaultWeight": 400
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "be3978db257ccd22c1563f1fe85fb23e00726cf15bc1dbb2bc3b0b06d90fc23a",
+      "fontId": "Timber:400"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "87c8d705282e3e8e616a0e542ed6a52cca18d570e7a380a52224f12959134fb2",
+      "fontId": "Timber:400"
+    },
+    "min": 300,
+    "max": 500,
+    "defaultWeight": 400
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "6511630f95c63e312e8d9e315d039ffa2a8f3864cc99ff5242a2de339a8b7b72",
+      "fontId": "Bulwark:700"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "340d6c1566c754ff5ea0d90fdac2f77ab988393c6c62d6b4f421aabd64ea1ed3",
+      "fontId": "Bulwark:700"
+    },
+    "min": 100,
+    "max": 700,
+    "defaultWeight": 700
   }
 ];
 export function masterInfo(ref: SourceRef | null): MasterInfo | undefined {

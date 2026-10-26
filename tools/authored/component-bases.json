@@ -2,126 +2,6 @@
   {
     "base": {
       "kind": "masters-v1",
-      "digest": "7d9763e7bc6cb7a98fbf56eec740d3562e17695888517ef8b41480b61ab76626",
-      "fontId": "Almanac:500"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "30648f5f599154f5393cf7d533881d4174376a21e26a96d30c9394ae1fc247ab",
-      "fontId": "Ballyhoo:400"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "9b2eb66ea10d73d5829d753a25c887071fd466b5152178c508f3fefb87b1406b",
-      "fontId": "Boardwalk:400"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "f6ff9d219c8dd03f29b36f30acb13767530de4a8197f61c481eef19166848ed5",
-      "fontId": "Bulwark:700"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "783a5a5cdc77d95ce7e0212a5899de26851ff1cc261ffe4b899c093a4849bc06",
-      "fontId": "Cathedral:400"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "01baf750ad45fa49fe3cf3fb768cd729534a416d0c63407ce179763aed49f91d",
-      "fontId": "Compass:300"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "e79ee882db3b4b75825be583381d1f791886c305b9b6cbecf8cce410856b14fa",
-      "fontId": "Cotton:300"
-    },
-    "width": {
-      "kind": "width-masters-v1",
-      "digest": "2ef1047e72e7d515e876e30a12a0ded6f1aca412cdea57af6ff47dc1c78f18c1",
-      "fontId": "Cotton:300"
-    }
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "3c4dfe69b87c432a1d1938e53099ac0620eaa3f75a656dc08309d2eace9d5b89",
-      "fontId": "Couture:600"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "c9f822303b920e03051563dd11d6792e18af9a42a4e015d44737b85003107f2c",
-      "fontId": "Dispatch:400"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "f5ab2b02de6583bdf4255d3aeb25127df0459d53e44b2996ff152a47dc0dd761",
-      "fontId": "Funnies:400"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "2d9d079c67fee2c0300b5e2eb15284df14fdf10ee9bfe3f64c0816bd4e99c800",
-      "fontId": "Gumdrop:700"
-    },
-    "width": {
-      "kind": "width-masters-v1",
-      "digest": "6294549f2cff3a88c3937d1b3435d8521e2ecfddc5f7b12bddd31552bda0e360",
-      "fontId": "Gumdrop:700"
-    }
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "a5b2b12dbd85c33f2619533efb9309a27cabb3b95a07890bbd54d22675fda623",
-      "fontId": "Hearth:600"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "6cb627262b5aab591f2d5ac2a4e6ccc6d3aafe776037d7a72852426a078edf89",
-      "fontId": "Jotter:400"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "edf4313600883ebd93ff0f398e95ade1d952bbc3d4fa79ef3e2c9a8f27bc654f",
-      "fontId": "Kernel:500"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
       "digest": "44ce1daebc31f46d098f0f37a84023aba0f2689404d5aa529a8c0bcb261d3033",
       "fontId": "Mainline:600"
     },
@@ -130,14 +10,6 @@
       "digest": "55e40c9a42f15d14cbd44011cbb107ef5c9b2ce08d12bbc7cf937009b19ca017",
       "fontId": "Mainline:600"
     }
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "4a6962ffca3871797860ddefdfacb14ae9a30f01300c40c71f7ac4203e98689b",
-      "fontId": "Orbital:600"
-    },
-    "width": null
   },
   {
     "base": {
@@ -154,41 +26,241 @@
   {
     "base": {
       "kind": "masters-v1",
-      "digest": "b14ef9c968068311f01f20a0eb664afab87e0ceed02b71067ee640301862081b",
-      "fontId": "Serenade:400"
+      "digest": "2d9d079c67fee2c0300b5e2eb15284df14fdf10ee9bfe3f64c0816bd4e99c800",
+      "fontId": "Gumdrop:700"
     },
-    "width": null
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "6294549f2cff3a88c3937d1b3435d8521e2ecfddc5f7b12bddd31552bda0e360",
+      "fontId": "Gumdrop:700"
+    }
   },
   {
     "base": {
       "kind": "masters-v1",
-      "digest": "160daa6aaeeed615152244759f3d27c62a274de63015ffe1f0b4052a74839905",
-      "fontId": "Sonnet:400i"
+      "digest": "cc1a63a8a92ca1a4dee1fde8f0fd63e633d6db2a49dc6d0eca38a0d6d5588818",
+      "fontId": "Couture:600"
     },
-    "width": null
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "6d469e47838ea9fb2c32b7bedec7fae1e0288bb526c87e1c4b42646bb15981ba",
+      "fontId": "Couture:600"
+    }
   },
   {
     "base": {
       "kind": "masters-v1",
-      "digest": "6289d00b276b5bf14cc6d8bed7c0181694bad3462858e7df95e0e0be4a2b3730",
-      "fontId": "Timber:400"
+      "digest": "e56354a4417393b45cb5b47023524b5da7ee29ad4b13bb5cb6b52c36bd0dac8e",
+      "fontId": "Hearth:600"
     },
-    "width": null
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "d79b734ecc433284d4c053af742252d0a3dac6b11a1efce97d73c5a55d6862af",
+      "fontId": "Hearth:600"
+    }
   },
   {
     "base": {
       "kind": "masters-v1",
-      "digest": "6eb346c64e6be82aaab845475c9630d4e730d4fce3a13fb34533142113bac98c",
-      "fontId": "Turnpike:500"
-    },
-    "width": null
-  },
-  {
-    "base": {
-      "kind": "masters-v1",
-      "digest": "c72eda230c2c2d7e7489bc6ab119c3d6468b5ee7ae1c56c3ee5efd33762249c9",
+      "digest": "db318a507de92d6adcea03fca0522125e2b08f14156125bd5bbe10f0926d1356",
       "fontId": "Vellum:400"
     },
-    "width": null
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "bb1d04b31de89d3901c4836a29061e451be1b0fb4bb20eed93f772b1ec212f0f",
+      "fontId": "Vellum:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "01c05c7518e7883dcce4edb75e81bf6bf27cd9321b97e147620876edb16a4e7e",
+      "fontId": "Almanac:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "d91cb84dff52cada3e127017f766aeed03bac9b8d1bba8303038d96cf2b4515e",
+      "fontId": "Almanac:500"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
+      "fontId": "Compass:300"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "692ef6a1d7e545f0f7da2ef2b512dd500c334d89599fdb3c9eb7a84e3223fbae",
+      "fontId": "Compass:300"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "faf347e750555ff1f0d52cdf08a53a71002d92f63e35e4c7ceedf8bb02034998",
+      "fontId": "Dispatch:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "7dee622133f210f4f6fb49b79666e98fa64433cb6bd95f1f134506a20bf6320a",
+      "fontId": "Dispatch:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+      "fontId": "Kernel:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4f69862ce989ddc287ea2c59fc09802b151c8f584c95950229e520fca889eb20",
+      "fontId": "Kernel:500"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "b27f1855b7fc6d539ba811886c5247ecf8489d440838bea26f80fe8ff3f2183d",
+      "fontId": "Orbital:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "69a55c173810c97dc2f564de33eb44813c4e7144f88163fcc19717f19af8fb44",
+      "fontId": "Orbital:600"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "6511630f95c63e312e8d9e315d039ffa2a8f3864cc99ff5242a2de339a8b7b72",
+      "fontId": "Bulwark:700"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "153bfd0631c65b089e2acf0205cfea3e7172c515876d2fad079f3d10dd77514d",
+      "fontId": "Bulwark:700"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c1fb623848b9d9dbccb4ab63606295ac5a01eadd535183b8190a76a2af39e696",
+      "fontId": "Sonnet:400i"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "db4c4df661b213706048499f53410280b7b2eba1eb04fb20b7f2158869f1cfdb",
+      "fontId": "Sonnet:400i"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e79ee882db3b4b75825be583381d1f791886c305b9b6cbecf8cce410856b14fa",
+      "fontId": "Cotton:300"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "2ef1047e72e7d515e876e30a12a0ded6f1aca412cdea57af6ff47dc1c78f18c1",
+      "fontId": "Cotton:300"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "620337576cbca76b92ce43079a30bbef8a3b6c216fc85ae6bdfb7ea4af07761f",
+      "fontId": "Jotter:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "0754423289cb08aaf62505ae272b8b5c5354de400dedd62b61d3e1f7e946591c",
+      "fontId": "Jotter:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "bb4244f6a5d72fb159210a8eb6ed3fd31006cb173c0e81ad84b0d450023b9db9",
+      "fontId": "Funnies:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "444a5e73b00ca92ed00e4daa214217c9aba297b8feb889244ffd501727f384dc",
+      "fontId": "Funnies:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c00b5828a7da02a51c03d14756b9749b047da64df7313367ed2d3fee6e0818fc",
+      "fontId": "Turnpike:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "31f2ca74a2e5c5d303d383a6e5b68f825792cda3294f20c9961046cffb03be77",
+      "fontId": "Turnpike:500"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "38254154a914ca28caf9ac68bb09162ccd12726acb0af2b8474c30c1075e499a",
+      "fontId": "Ballyhoo:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "dbda2bf5581ac29af2751778308f64aed5cc60acb43a7975fb6c31da994ae539",
+      "fontId": "Ballyhoo:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "66b994c2eef41abb8ab9e342d22c35721a4fe5f6779e8f7f9d887ab3a06fcc9e",
+      "fontId": "Boardwalk:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "8a1e743181d22b1e63fcb783340ddb43b82b2ed746a00e576577c25ed1a04d10",
+      "fontId": "Boardwalk:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "2e8599cee21b0e375dd962225489ea5c25a63140ebb28cefd8c546fee1253311",
+      "fontId": "Cathedral:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4bb17f42ab0f598bd4863d5913033a25c91f8f521af81183813a00b1c32f08b3",
+      "fontId": "Cathedral:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c8b00335571caebf83c29befdb10044e5311f4c10e1e31723888bfcdbc2d510c",
+      "fontId": "Serenade:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "f33cad27209dfe5537fd0260bb2a3d36f17fe7d1c97df48b41ff43a460e9f375",
+      "fontId": "Serenade:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "be3978db257ccd22c1563f1fe85fb23e00726cf15bc1dbb2bc3b0b06d90fc23a",
+      "fontId": "Timber:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4940867c1443d44b2284acea93aee09a3939318931c395615841ecec7ff2f892",
+      "fontId": "Timber:400"
+    }
   }
 ]

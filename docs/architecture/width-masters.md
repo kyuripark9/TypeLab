@@ -1,6 +1,6 @@
 # Joint weight and width masters
 
-Mainline, Parlance, Gumdrop, and Cotton have published joint weight and width masters. Mainline, Parlance, and Gumdrop carry designed width changes from their pinned upstream fonts into the TypeLab families. Cotton uses newly authored local width drawings. The production assets live in `fonts/widths`; immutable manifests in `fonts/programs` pin each width asset and its compatible `masters-v1` base.
+All 22 current programs have published joint weight and width masters. Mainline, Parlance, and Gumdrop carry designed width changes from their pinned upstream fonts into the TypeLab families. Cotton and the remaining 18 families use local width drawings. The latest 18 ranges were implemented before optical review at the user's request. The production assets live in `fonts/widths`; immutable manifests in `fonts/programs` pin each width asset and its compatible `masters-v1` base.
 
 | Style | Upstream | Existing weights retained | Published width samples | Neutral slider position |
 | --- | --- | --- | --- | --- |
@@ -143,7 +143,7 @@ node --max-old-space-size=512 --import tsx tools/authored/expand-width-masters.t
 
 ## Coverage beyond the three native width families
 
-The remaining families need local width drawings. Borrowing another family's letter shapes would defeat style identity. A generic x-scale retains topology but changes stroke thickness; a sharp piecewise x-map can retain topology while putting visible tangent breaks into round letters. Neither is an adequate authoring result by itself.
+The remaining families now have a first set of local width drawings; optical review remains necessary. Borrowing another family's letter shapes would defeat style identity. A generic x-scale retains topology but changes stroke thickness; a sharp piecewise x-map can retain topology while putting visible tangent breaks into round letters. Neither is an adequate authoring result by itself.
 
 Use reviewed horizontal regions and paired stroke boundaries to construct smooth endpoint drawings. Dense vertical stems receive little horizontal scaling; counters, shoulders, and inter-stem space absorb more of the width change. Smooth transitions preserve round shapes. Dots and similar small components keep their shape and move with explicit anchors. Automatic analysis may propose these regions, but a family recipe must own them before release.
 
@@ -164,7 +164,7 @@ For each family, record stem and counter measurements, aperture and serif cleara
 
 ## First local width compiler
 
-[local-width-masters.ts](../../tools/authored/local-width-masters.ts) implements the first reusable local recipe. Cotton's published program uses its reviewed coordinates 85, 100, and 115. Other families require their own recipes and optical review.
+[local-width-masters.ts](../../tools/authored/local-width-masters.ts) implements the first reusable local recipe. Cotton's published program uses its reviewed coordinates 85, 100, and 115. The remaining families use the recipes below; their optical review is deferred.
 
 Two constructions were considered. Explicit segment frames can translate paired stems, stretch crossbars between attachment ports, and fit the transitions; they expose local ownership well but require bindings for each glyph. The initial reusable compiler instead measures horizontal ink occupancy and integrates a smooth positive speed field: dense vertical strokes absorb less change, while counters and the gaps between stems absorb more. A family recipe owns the range, smoothing, rigid glyphs, and dot bindings. Per-glyph segment frames remain an option when this field cannot preserve a particular construction.
 
@@ -200,3 +200,30 @@ env WIDTH_REVIEW_ALL=1 WIDTH_REVIEW_WEIGHTS=200,600 WIDTH_REVIEW_WIDTHS=85 WIDTH
   node --max-old-space-size=512 --import tsx tools/authored/width-masters.ts --render \
   .audit/width/Cotton-local-prototype.json .audit/width/Cotton-all-85-42
 ```
+
+
+## All-style local width implementation
+
+The remaining 18 families now use explicit recipes in [build-local-widths.ts](../../tools/authored/build-local-widths.ts). Every range includes the exact original at width 100.
+
+| Range | Families |
+| --- | --- |
+| 85–115 | Compass, Orbital, Bulwark |
+| 90–110 | Hearth, Almanac, Dispatch, Funnies, Kernel, Turnpike, Ballyhoo, Timber |
+| 92–108 | Couture, Vellum, Cathedral |
+| 94–106 | Sonnet, Jotter |
+| 95–105 | Boardwalk, Serenade |
+
+These recipes use the shared positive horizontal field with family-owned smoothing, limits, and rigid components. Dispatch and Kernel preserve equal advance ratios. The compiler includes existing feature endpoint curves when choosing the common subdivision, then carries each feature through the same width field. Nine families retain their previously authored feature grids this way.
+
+Across this batch, maximum sampled fit error is 0.0149995 font units, maximum neutral reconstruction error is 4.69 × 10⁻¹³ units, and minimum field derivative is 0.3500017. Common subdivisions increase the 18 families from 176,784 to 255,652 nodes. These are generation-integrity measurements, not an optical review or a complete topology proof. Parameter sweeps, small-size specimens, mixed-feature review, and browser/export review remain deferred.
+
+Rebuild and publish serially with bounded memory:
+
+```sh
+node --max-old-space-size=512 --import tsx tools/authored/build-local-widths.ts --all .audit/width/remaining
+node --max-old-space-size=512 --import tsx tools/authored/publish-widths-and-components.ts .audit/width/remaining tools/authored/source-finishes.json
+node --max-old-space-size=384 --import tsx tools/authored/build-previews.ts
+```
+
+The publisher installs compatible bases, exact edit mappings, widths, feature grids, matching component bindings, and immutable programs in dependency order. Repeating a generation uses its pinned original input rather than treating its own output as a new source. Historical programs and assets remain available to saved designs.

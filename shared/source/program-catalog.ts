@@ -2483,6 +2483,2340 @@ export const PROGRAM_REVISIONS: readonly ProgramInfo[] = [
       "tail": [],
       "terminalLength": []
     }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "7ba3d66f3af48ba7613f443b870926c2958d16b68b9a1e50f73f7ff58765ef0e",
+      "fontId": "Mainline:600"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "44ce1daebc31f46d098f0f37a84023aba0f2689404d5aa529a8c0bcb261d3033",
+        "fontId": "Mainline:600"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "55e40c9a42f15d14cbd44011cbb107ef5c9b2ce08d12bbc7cf937009b19ca017",
+        "fontId": "Mainline:600"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "d65057ada06ffaeff1b65f0d6418cbeb03c8a0847d436e5d5f08da6f6b7c09f1",
+        "fontId": "Mainline:600"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "a1a323d9febf0590fa56a7f3633b898cc382970d490d8c720947134fa66f7e38",
+        "fontId": "Mainline:600"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      }
+    },
+    "width": {
+      "min": 75,
+      "neutral": 100,
+      "max": 150
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "49f906283b281bc6170316baee68f503caaf9c5d587a20693d79e681093b4a3a",
+      "fontId": "Parlance:500"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "3f5e7e22afe6910db983a6532ae90df62aa3b3611b2698f4caedd34193ee5b95",
+        "fontId": "Parlance:500"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "4bd6f693c92546671858f839a603219dca3811764becf18f587256a4d0f246b5",
+        "fontId": "Parlance:500"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "e19b13b2363c84ba043201a4bd066f130151b04cc51223db9999069a3feef015",
+        "fontId": "Parlance:500"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "dc1feef32b82dc7e196ea62df05f6c641b72d73a22e8e98fb82424a8a85e7b8c",
+        "fontId": "Parlance:500"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      }
+    },
+    "width": {
+      "min": 75,
+      "neutral": 100,
+      "max": 150
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "b5030f4d7d7571a6fa078b59f410a477ce163d244f4abfc0e2239b30ce4590d7",
+      "fontId": "Gumdrop:700"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "2d9d079c67fee2c0300b5e2eb15284df14fdf10ee9bfe3f64c0816bd4e99c800",
+        "fontId": "Gumdrop:700"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "6294549f2cff3a88c3937d1b3435d8521e2ecfddc5f7b12bddd31552bda0e360",
+        "fontId": "Gumdrop:700"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "73d762185451ce27aad39b787709fad034ac8f06f6982af318090a03eb61f9cb",
+        "fontId": "Gumdrop:700"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "be6a47d9e80104aabacfb8e439554f6a0d49810b06e9d5f02b2b73d9d26e7adc",
+        "fontId": "Gumdrop:700"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "73a3ea6fabc80057f93f0e61739973da35ed789fa08b1980af73a7e91a7b8d0c",
+            "fontId": "Gumdrop:700"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "48b83b1b6035f229b0b88c29aa7122ef8f797e84e46f61d41ca76fd29a6c8f17",
+            "fontId": "Gumdrop:700"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 75,
+      "neutral": 100,
+      "max": 125
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "e506f02e566856eae1fed9116b3603e5f6b112799df4f1a9d667f5b84dcd8750",
+      "fontId": "Couture:600"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "cc1a63a8a92ca1a4dee1fde8f0fd63e633d6db2a49dc6d0eca38a0d6d5588818",
+        "fontId": "Couture:600"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "6d469e47838ea9fb2c32b7bedec7fae1e0288bb526c87e1c4b42646bb15981ba",
+        "fontId": "Couture:600"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "1bc6faed932f4f1992ddf7809aae51aae14f38eacdffa3a7608fea57fbff82b4",
+        "fontId": "Couture:600"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "c4eff01eb972d76a9e036f58f92999a0465ad8821f7302c8834bac9e67542713",
+        "fontId": "Couture:600"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "3c4dfe69b87c432a1d1938e53099ac0620eaa3f75a656dc08309d2eace9d5b89",
+            "fontId": "Couture:600"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "dc1cb3f5260ad3f4f1b7d08176dc037b4055522afb22a1ab8a2c567521be728d",
+            "fontId": "Couture:600"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 92,
+      "neutral": 100,
+      "max": 108
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H",
+        "A"
+      ],
+      "tail": [
+        "R"
+      ],
+      "terminalLength": [
+        "c"
+      ]
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "c47d28932f400436b2db0ae8f1402af68330936894c323b422663975532d1ef0",
+      "fontId": "Hearth:600"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "e56354a4417393b45cb5b47023524b5da7ee29ad4b13bb5cb6b52c36bd0dac8e",
+        "fontId": "Hearth:600"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "d79b734ecc433284d4c053af742252d0a3dac6b11a1efce97d73c5a55d6862af",
+        "fontId": "Hearth:600"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "ecb1c5040d148e2442ff933cda1f32ca8d68a8a97326784351e328c79dd69b44",
+        "fontId": "Hearth:600"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "5039395436dcf8ef6889d9c62a16da2807e9ea41612145dfe73b827be4b6cd89",
+        "fontId": "Hearth:600"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "a5b2b12dbd85c33f2619533efb9309a27cabb3b95a07890bbd54d22675fda623",
+            "fontId": "Hearth:600"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "3a225c811cf18905ad6ca36f850d158a48dd72564b14fcbf9b3fe22433ce4a3d",
+            "fontId": "Hearth:600"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H",
+        "A"
+      ],
+      "tail": [
+        "R"
+      ],
+      "terminalLength": [
+        "c"
+      ]
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "146e034faa7a8ed0836056dac563d0b3a2248c10c79fba5dbbe37a9c9a01ff01",
+      "fontId": "Vellum:400"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "db318a507de92d6adcea03fca0522125e2b08f14156125bd5bbe10f0926d1356",
+        "fontId": "Vellum:400"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "bb1d04b31de89d3901c4836a29061e451be1b0fb4bb20eed93f772b1ec212f0f",
+        "fontId": "Vellum:400"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "d0477c090793455ede48a2a660ae7d9ba07f3742841a73a95f3e35da2ac750f3",
+        "fontId": "Vellum:400"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "339b14cfc5ed3a5e5aa684199a6bee9484256fac5383e8ef9718bcc112605408",
+        "fontId": "Vellum:400"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "c72eda230c2c2d7e7489bc6ab119c3d6468b5ee7ae1c56c3ee5efd33762249c9",
+            "fontId": "Vellum:400"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "2bd46f7c810016eb5590536d98eb62a09674856560c09fe5475c36e638435828",
+            "fontId": "Vellum:400"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 92,
+      "neutral": 100,
+      "max": 108
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "67bfa00c1eca8d8b331304010044f6f5e55e86dbbeeb1224e4a859596fe4ab3f",
+      "fontId": "Almanac:500"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "01c05c7518e7883dcce4edb75e81bf6bf27cd9321b97e147620876edb16a4e7e",
+        "fontId": "Almanac:500"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "d91cb84dff52cada3e127017f766aeed03bac9b8d1bba8303038d96cf2b4515e",
+        "fontId": "Almanac:500"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "98911fd9486d7ad36f226cbd6142b15b19cead779c445ff00b23af5644f48602",
+        "fontId": "Almanac:500"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "bdfad4b837fa40b2536cd322213d46241d3e18b27f63a5d70f1220ed2129ff0f",
+        "fontId": "Almanac:500"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "7d9763e7bc6cb7a98fbf56eec740d3562e17695888517ef8b41480b61ab76626",
+            "fontId": "Almanac:500"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "3805a68148db8bce4ea017ac308658b0b884c9ac0ff0b2821df8fe60c58fe34e",
+            "fontId": "Almanac:500"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "03beeb43bef0efc9c20807ed802e31235dc2964b417ee0a8b3ab6c7db93ca4a9",
+      "fontId": "Compass:300"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
+        "fontId": "Compass:300"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "692ef6a1d7e545f0f7da2ef2b512dd500c334d89599fdb3c9eb7a84e3223fbae",
+        "fontId": "Compass:300"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "68c813d9642fd5e1ac83aeac1bbd437ab6f60b3e2cf20c4758db0474eefbf0a5",
+        "fontId": "Compass:300"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "faaf2a856a2943c001e756e1e90cf3c3dc4892e4df8f143dace405d7af397025",
+        "fontId": "Compass:300"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "01baf750ad45fa49fe3cf3fb768cd729534a416d0c63407ce179763aed49f91d",
+            "fontId": "Compass:300"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "c9a8e4966e20cac79d6ce8c48eecc62974c48c4262634f25184afce950a925f0",
+            "fontId": "Compass:300"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 85,
+      "neutral": 100,
+      "max": 115
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "d35fcbcc1ca8d7a329f5a7cd58c83730fbc711be2448d59e21415da4a51823aa",
+      "fontId": "Dispatch:400"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "faf347e750555ff1f0d52cdf08a53a71002d92f63e35e4c7ceedf8bb02034998",
+        "fontId": "Dispatch:400"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "7dee622133f210f4f6fb49b79666e98fa64433cb6bd95f1f134506a20bf6320a",
+        "fontId": "Dispatch:400"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "67a43f98247dd560010241a58b766bb858d022ad884e846e6d2048bb719dec60",
+        "fontId": "Dispatch:400"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "4a38aa1acb9442f62e5e12a0c9636863ccedee9084c5b32009ba5c85c748f9f5",
+        "fontId": "Dispatch:400"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "c9f822303b920e03051563dd11d6792e18af9a42a4e015d44737b85003107f2c",
+            "fontId": "Dispatch:400"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "69e89029879e664a847c3852001127d8943a306e42f0023f00416e1cc2bc29f1",
+            "fontId": "Dispatch:400"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "83accd381be645246e5ea202658125d98e3e844d8741d64206bad19407b7ccda",
+      "fontId": "Kernel:500"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+        "fontId": "Kernel:500"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "4f69862ce989ddc287ea2c59fc09802b151c8f584c95950229e520fca889eb20",
+        "fontId": "Kernel:500"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "97c68a67e7bc55ed87852c6810c19d33613926eafec8d0c83a4f179a0dffd843",
+        "fontId": "Kernel:500"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "2a87a1f5c32f0020704d9ed5e744f418ed6471fc6767ec460521dfdb3c6b4f76",
+        "fontId": "Kernel:500"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "edf4313600883ebd93ff0f398e95ade1d952bbc3d4fa79ef3e2c9a8f27bc654f",
+            "fontId": "Kernel:500"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "f4650806f6d3612c6c9334eb6ec3dba9c252095383ada4b49f3b853bffbfd7c8",
+            "fontId": "Kernel:500"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "12304bfc026e662622938acf28cfb5dd5f50c63cfc281cea64656169a4b476e4",
+      "fontId": "Orbital:600"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "b27f1855b7fc6d539ba811886c5247ecf8489d440838bea26f80fe8ff3f2183d",
+        "fontId": "Orbital:600"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "69a55c173810c97dc2f564de33eb44813c4e7144f88163fcc19717f19af8fb44",
+        "fontId": "Orbital:600"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "edb5f840cf4327bc9b5acc91a68d9f1b96eee2ae945d01b3c07318716f7f9e97",
+        "fontId": "Orbital:600"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "85fe531738526667788d7367cc97acea1688168182c391cc152a79f0864a7f30",
+        "fontId": "Orbital:600"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "4a6962ffca3871797860ddefdfacb14ae9a30f01300c40c71f7ac4203e98689b",
+            "fontId": "Orbital:600"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "04c68910e096a3758881d6fe0f9cc0c7d141bcaca2960c639779e14d70aac363",
+            "fontId": "Orbital:600"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 85,
+      "neutral": 100,
+      "max": 115
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "eb1d631bd396fe57f2e6646c835dbe61c383d4db3f65a89c099feb805d4b41be",
+      "fontId": "Bulwark:700"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "6511630f95c63e312e8d9e315d039ffa2a8f3864cc99ff5242a2de339a8b7b72",
+        "fontId": "Bulwark:700"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "153bfd0631c65b089e2acf0205cfea3e7172c515876d2fad079f3d10dd77514d",
+        "fontId": "Bulwark:700"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "6c1b5650e508d5731cb137380e2c4bab137b584b314389116d8d92554a5fd194",
+        "fontId": "Bulwark:700"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "e58a8cabdefbc71f0f2a57e7d6e4b6bb09b518b2bef59781cbf7a411456eb7d9",
+        "fontId": "Bulwark:700"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "f6ff9d219c8dd03f29b36f30acb13767530de4a8197f61c481eef19166848ed5",
+            "fontId": "Bulwark:700"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "6f706c6422c45843f72c5f655dd736a69adf9be46f3c83f8d4c486111741fd5a",
+            "fontId": "Bulwark:700"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 85,
+      "neutral": 100,
+      "max": 115
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "cab08eb9a284ffb0632a637572b857c2640eece24393310dfcfe44e4708ad291",
+      "fontId": "Sonnet:400i"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "c1fb623848b9d9dbccb4ab63606295ac5a01eadd535183b8190a76a2af39e696",
+        "fontId": "Sonnet:400i"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "db4c4df661b213706048499f53410280b7b2eba1eb04fb20b7f2158869f1cfdb",
+        "fontId": "Sonnet:400i"
+      },
+      "features": null,
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "0fbc47c59104b9e4ad8d585f5deef210cfecaea9387c169445b57cc9690cd94e",
+        "fontId": "Sonnet:400i"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "160daa6aaeeed615152244759f3d27c62a274de63015ffe1f0b4052a74839905",
+            "fontId": "Sonnet:400i"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "4ba9f0b8cf0866e034f651ec8d2906d35dab0fba1d7012725e5fb7db6777f634",
+            "fontId": "Sonnet:400i"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 94,
+      "neutral": 100,
+      "max": 106
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {}
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "947d90159552b1b1ffa1977e5447614dc1bcc0786feaa7c2ab23acc5055980bb",
+      "fontId": "Cotton:300"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "e79ee882db3b4b75825be583381d1f791886c305b9b6cbecf8cce410856b14fa",
+        "fontId": "Cotton:300"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "2ef1047e72e7d515e876e30a12a0ded6f1aca412cdea57af6ff47dc1c78f18c1",
+        "fontId": "Cotton:300"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "ae6079f2b8ef914b3205f9e91d711da80c26e614df8236505a2038ed798427ed",
+        "fontId": "Cotton:300"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "9c9edb1d885325ddd4405e629254c2fc9a0f3b50641866b8d8f9cb3f114316be",
+        "fontId": "Cotton:300"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "bbef63cb6315effcfd88971ea84aa20324700567c771b1ddbbc7e6ae215682c4",
+            "fontId": "Cotton:300"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "3e40a8be674e2e3da35c2937b6ee6192598a25373f2c46f9dc18c0e33907bd52",
+            "fontId": "Cotton:300"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 85,
+      "neutral": 100,
+      "max": 115
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "2aa0e6399197122997de4b1c59873bad82d327562f369c6f286381cc4faae36b",
+      "fontId": "Jotter:400"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "620337576cbca76b92ce43079a30bbef8a3b6c216fc85ae6bdfb7ea4af07761f",
+        "fontId": "Jotter:400"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "0754423289cb08aaf62505ae272b8b5c5354de400dedd62b61d3e1f7e946591c",
+        "fontId": "Jotter:400"
+      },
+      "features": null,
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "4df0529f9b463acb818e6d0bc7038a7d00ba823b5cd549f49bf5851085254b06",
+        "fontId": "Jotter:400"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "6cb627262b5aab591f2d5ac2a4e6ccc6d3aafe776037d7a72852426a078edf89",
+            "fontId": "Jotter:400"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "25064394ed2c7e98cffc4c967aff6a40470f33b1112bf548415c6118e11f83c6",
+            "fontId": "Jotter:400"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 94,
+      "neutral": 100,
+      "max": 106
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {}
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "cea582d70a896e65d0b1032d3f5233a6d351abf18467e7e0d63fc0596aa8ffac",
+      "fontId": "Funnies:400"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "bb4244f6a5d72fb159210a8eb6ed3fd31006cb173c0e81ad84b0d450023b9db9",
+        "fontId": "Funnies:400"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "444a5e73b00ca92ed00e4daa214217c9aba297b8feb889244ffd501727f384dc",
+        "fontId": "Funnies:400"
+      },
+      "features": null,
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "60bfc92d9c5d3cc8b6ebe1b4de6847a7ae5aa9481d0ab41df7a0ab76fd6a3b39",
+        "fontId": "Funnies:400"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "f5ab2b02de6583bdf4255d3aeb25127df0459d53e44b2996ff152a47dc0dd761",
+            "fontId": "Funnies:400"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "36296d8cf9d82f0e0acc3d0180a5d509561a00f99aaa1c6d60f4fa31274c2d5b",
+            "fontId": "Funnies:400"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {}
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "f91f41fe859db65f9a4fa6baa8d80368b7ff08be4948b0c655619fda516f580f",
+      "fontId": "Turnpike:500"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "c00b5828a7da02a51c03d14756b9749b047da64df7313367ed2d3fee6e0818fc",
+        "fontId": "Turnpike:500"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "31f2ca74a2e5c5d303d383a6e5b68f825792cda3294f20c9961046cffb03be77",
+        "fontId": "Turnpike:500"
+      },
+      "features": null,
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "5cb1e936a5311c78e29514e00e12f49216ec0a5df8ba6cc8e5819d0e414927e1",
+        "fontId": "Turnpike:500"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "6eb346c64e6be82aaab845475c9630d4e730d4fce3a13fb34533142113bac98c",
+            "fontId": "Turnpike:500"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "f02465409665080e9c6e1c57f20b2925adab78e850196311285711143548dbf7",
+            "fontId": "Turnpike:500"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {}
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "0a8c00da0dee46dd6b7c42635883493f3c9a2f4abe143f200946237fd5ec389e",
+      "fontId": "Ballyhoo:400"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "38254154a914ca28caf9ac68bb09162ccd12726acb0af2b8474c30c1075e499a",
+        "fontId": "Ballyhoo:400"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "dbda2bf5581ac29af2751778308f64aed5cc60acb43a7975fb6c31da994ae539",
+        "fontId": "Ballyhoo:400"
+      },
+      "features": null,
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "600a0ac13dff8eb32572b33ca18c0c4c67f204589c966451ea5a077e12484741",
+        "fontId": "Ballyhoo:400"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "30648f5f599154f5393cf7d533881d4174376a21e26a96d30c9394ae1fc247ab",
+            "fontId": "Ballyhoo:400"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "79c4dea76e4b57cbec82d4d80b28d42dd1eb5035195c2dbd66cc4bc9b376af99",
+            "fontId": "Ballyhoo:400"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {}
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "e094931e5899525025b5ebd187c882989a17f4f26856df2b93fabf6585704b0c",
+      "fontId": "Boardwalk:400"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "66b994c2eef41abb8ab9e342d22c35721a4fe5f6779e8f7f9d887ab3a06fcc9e",
+        "fontId": "Boardwalk:400"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "8a1e743181d22b1e63fcb783340ddb43b82b2ed746a00e576577c25ed1a04d10",
+        "fontId": "Boardwalk:400"
+      },
+      "features": null,
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "33225dc8ae06bf59d539d13a4258948ca23866e97970959a1d5ea7e86ba2e5dd",
+        "fontId": "Boardwalk:400"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "9b2eb66ea10d73d5829d753a25c887071fd466b5152178c508f3fefb87b1406b",
+            "fontId": "Boardwalk:400"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "8aae224727a7e87d085d97d406dfff0fce795b4cc1788df2f68afa38f3bbcfcf",
+            "fontId": "Boardwalk:400"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 95,
+      "neutral": 100,
+      "max": 105
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {}
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "7c96f746dc38a570847c18eb212a08e8e26e796dbc6bdd706faa6e26d7527de2",
+      "fontId": "Cathedral:400"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "2e8599cee21b0e375dd962225489ea5c25a63140ebb28cefd8c546fee1253311",
+        "fontId": "Cathedral:400"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "4bb17f42ab0f598bd4863d5913033a25c91f8f521af81183813a00b1c32f08b3",
+        "fontId": "Cathedral:400"
+      },
+      "features": null,
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "16254e6755540a5e1ceffba78db4e7e5c49a68492d8dd464a3f732824b1ad913",
+        "fontId": "Cathedral:400"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "783a5a5cdc77d95ce7e0212a5899de26851ff1cc261ffe4b899c093a4849bc06",
+            "fontId": "Cathedral:400"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "032177f28923c3162394192f7006419541b74df8b5f9f0087a5aafda7d8e3734",
+            "fontId": "Cathedral:400"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 92,
+      "neutral": 100,
+      "max": 108
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {}
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "8ba48218933d8200c995138411be8f361bdf7f86e2cc25ab30bfab76ebbb6bc0",
+      "fontId": "Serenade:400"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "c8b00335571caebf83c29befdb10044e5311f4c10e1e31723888bfcdbc2d510c",
+        "fontId": "Serenade:400"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "f33cad27209dfe5537fd0260bb2a3d36f17fe7d1c97df48b41ff43a460e9f375",
+        "fontId": "Serenade:400"
+      },
+      "features": null,
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "405b1f4efb4866342836b7a4b07a0bbfd39cc871551773d6027245543d84f565",
+        "fontId": "Serenade:400"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "b14ef9c968068311f01f20a0eb664afab87e0ceed02b71067ee640301862081b",
+            "fontId": "Serenade:400"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "159559513bcb05ffde28be7e2a2835dd818c3526e83795c37d5d5570d036115b",
+            "fontId": "Serenade:400"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 95,
+      "neutral": 100,
+      "max": 105
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {}
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "ab3f11ad692085dadc3ff36d25170c3cf0991709f95611ef550e0881625ae310",
+      "fontId": "Timber:400"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "be3978db257ccd22c1563f1fe85fb23e00726cf15bc1dbb2bc3b0b06d90fc23a",
+        "fontId": "Timber:400"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "4940867c1443d44b2284acea93aee09a3939318931c395615841ecec7ff2f892",
+        "fontId": "Timber:400"
+      },
+      "features": null,
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "d7a28b287e9897c8d5e2189dedde61b766c48b40f70676e31bb751803abe6d55",
+        "fontId": "Timber:400"
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "6289d00b276b5bf14cc6d8bed7c0181694bad3462858e7df95e0e0be4a2b3730",
+            "fontId": "Timber:400"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "ded8529e7e7ab34d736a89cbc1d79cb0a9ff153f5410001d44382cfd76f420ab",
+            "fontId": "Timber:400"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j"
+    ],
+    "featureGlyphs": {}
   }
 ];
 

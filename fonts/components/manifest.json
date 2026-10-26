@@ -652,5 +652,599 @@
         "normalSpacingCollisionScale": 1.6481900391812747
       }
     ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "c4eff01eb972d76a9e036f58f92999a0465ad8821f7302c8834bac9e67542713",
+      "fontId": "Couture:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "cc1a63a8a92ca1a4dee1fde8f0fd63e633d6db2a49dc6d0eca38a0d6d5588818",
+      "fontId": "Couture:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "6d469e47838ea9fb2c32b7bedec7fae1e0288bb526c87e1c4b42646bb15981ba",
+      "fontId": "Couture:600"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.016483516483516
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.5164835164835164
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "5039395436dcf8ef6889d9c62a16da2807e9ea41612145dfe73b827be4b6cd89",
+      "fontId": "Hearth:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e56354a4417393b45cb5b47023524b5da7ee29ad4b13bb5cb6b52c36bd0dac8e",
+      "fontId": "Hearth:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "d79b734ecc433284d4c053af742252d0a3dac6b11a1efce97d73c5a55d6862af",
+      "fontId": "Hearth:600"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.808624509766155
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7095217969022558
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "339b14cfc5ed3a5e5aa684199a6bee9484256fac5383e8ef9718bcc112605408",
+      "fontId": "Vellum:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "db318a507de92d6adcea03fca0522125e2b08f14156125bd5bbe10f0926d1356",
+      "fontId": "Vellum:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "bb1d04b31de89d3901c4836a29061e451be1b0fb4bb20eed93f772b1ec212f0f",
+      "fontId": "Vellum:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.8925984480332512
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.5291192758944145
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "bdfad4b837fa40b2536cd322213d46241d3e18b27f63a5d70f1220ed2129ff0f",
+      "fontId": "Almanac:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "01c05c7518e7883dcce4edb75e81bf6bf27cd9321b97e147620876edb16a4e7e",
+      "fontId": "Almanac:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "d91cb84dff52cada3e127017f766aeed03bac9b8d1bba8303038d96cf2b4515e",
+      "fontId": "Almanac:500"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.1993131687810727
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.9511148174452775
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "faaf2a856a2943c001e756e1e90cf3c3dc4892e4df8f143dace405d7af397025",
+      "fontId": "Compass:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
+      "fontId": "Compass:300"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "692ef6a1d7e545f0f7da2ef2b512dd500c334d89599fdb3c9eb7a84e3223fbae",
+      "fontId": "Compass:300"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.5991453993564442
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.6186574543773358
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "4a38aa1acb9442f62e5e12a0c9636863ccedee9084c5b32009ba5c85c748f9f5",
+      "fontId": "Dispatch:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "faf347e750555ff1f0d52cdf08a53a71002d92f63e35e4c7ceedf8bb02034998",
+      "fontId": "Dispatch:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "7dee622133f210f4f6fb49b79666e98fa64433cb6bd95f1f134506a20bf6320a",
+      "fontId": "Dispatch:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 5.317893116058255
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 5.3178931160582525
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "2a87a1f5c32f0020704d9ed5e744f418ed6471fc6767ec460521dfdb3c6b4f76",
+      "fontId": "Kernel:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+      "fontId": "Kernel:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4f69862ce989ddc287ea2c59fc09802b151c8f584c95950229e520fca889eb20",
+      "fontId": "Kernel:500"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.292682926829268
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.292682926829268
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "85fe531738526667788d7367cc97acea1688168182c391cc152a79f0864a7f30",
+      "fontId": "Orbital:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "b27f1855b7fc6d539ba811886c5247ecf8489d440838bea26f80fe8ff3f2183d",
+      "fontId": "Orbital:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "69a55c173810c97dc2f564de33eb44813c4e7144f88163fcc19717f19af8fb44",
+      "fontId": "Orbital:600"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.09773,
+        "normalSpacingCollisionScale": 1.1221636251196168
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.131506,
+        "normalSpacingCollisionScale": 1.1643835371002191
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "e58a8cabdefbc71f0f2a57e7d6e4b6bb09b518b2bef59781cbf7a411456eb7d9",
+      "fontId": "Bulwark:700"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "6511630f95c63e312e8d9e315d039ffa2a8f3864cc99ff5242a2de339a8b7b72",
+      "fontId": "Bulwark:700"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "153bfd0631c65b089e2acf0205cfea3e7172c515876d2fad079f3d10dd77514d",
+      "fontId": "Bulwark:700"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.5220588235294117
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.1544117647058822
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "0fbc47c59104b9e4ad8d585f5deef210cfecaea9387c169445b57cc9690cd94e",
+      "fontId": "Sonnet:400i"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c1fb623848b9d9dbccb4ab63606295ac5a01eadd535183b8190a76a2af39e696",
+      "fontId": "Sonnet:400i"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "db4c4df661b213706048499f53410280b7b2eba1eb04fb20b7f2158869f1cfdb",
+      "fontId": "Sonnet:400i"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.4174294824600864
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.069805194805195
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "4df0529f9b463acb818e6d0bc7038a7d00ba823b5cd549f49bf5851085254b06",
+      "fontId": "Jotter:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "620337576cbca76b92ce43079a30bbef8a3b6c216fc85ae6bdfb7ea4af07761f",
+      "fontId": "Jotter:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "0754423289cb08aaf62505ae272b8b5c5354de400dedd62b61d3e1f7e946591c",
+      "fontId": "Jotter:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7882468349107874
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.9315398979277338
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "60bfc92d9c5d3cc8b6ebe1b4de6847a7ae5aa9481d0ab41df7a0ab76fd6a3b39",
+      "fontId": "Funnies:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "bb4244f6a5d72fb159210a8eb6ed3fd31006cb173c0e81ad84b0d450023b9db9",
+      "fontId": "Funnies:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "444a5e73b00ca92ed00e4daa214217c9aba297b8feb889244ffd501727f384dc",
+      "fontId": "Funnies:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.3835288490114763
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.247531984985354
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "5cb1e936a5311c78e29514e00e12f49216ec0a5df8ba6cc8e5819d0e414927e1",
+      "fontId": "Turnpike:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c00b5828a7da02a51c03d14756b9749b047da64df7313367ed2d3fee6e0818fc",
+      "fontId": "Turnpike:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "31f2ca74a2e5c5d303d383a6e5b68f825792cda3294f20c9961046cffb03be77",
+      "fontId": "Turnpike:500"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.798627469065919
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7670308835739506
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "600a0ac13dff8eb32572b33ca18c0c4c67f204589c966451ea5a077e12484741",
+      "fontId": "Ballyhoo:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "38254154a914ca28caf9ac68bb09162ccd12726acb0af2b8474c30c1075e499a",
+      "fontId": "Ballyhoo:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "dbda2bf5581ac29af2751778308f64aed5cc60acb43a7975fb6c31da994ae539",
+      "fontId": "Ballyhoo:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.266808,
+        "normalSpacingCollisionScale": 1.3335110729729787
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.238123,
+        "normalSpacingCollisionScale": 1.2976541053464155
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "33225dc8ae06bf59d539d13a4258948ca23866e97970959a1d5ea7e86ba2e5dd",
+      "fontId": "Boardwalk:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "66b994c2eef41abb8ab9e342d22c35721a4fe5f6779e8f7f9d887ab3a06fcc9e",
+      "fontId": "Boardwalk:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "8a1e743181d22b1e63fcb783340ddb43b82b2ed746a00e576577c25ed1a04d10",
+      "fontId": "Boardwalk:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.1,
+        "normalSpacingCollisionScale": 1.607950038221342
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.052895,
+        "normalSpacingCollisionScale": 1.066119447625057
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "16254e6755540a5e1ceffba78db4e7e5c49a68492d8dd464a3f732824b1ad913",
+      "fontId": "Cathedral:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "2e8599cee21b0e375dd962225489ea5c25a63140ebb28cefd8c546fee1253311",
+      "fontId": "Cathedral:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4bb17f42ab0f598bd4863d5913033a25c91f8f521af81183813a00b1c32f08b3",
+      "fontId": "Cathedral:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.0130564476123634
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7719795552461919
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "405b1f4efb4866342836b7a4b07a0bbfd39cc871551773d6027245543d84f565",
+      "fontId": "Serenade:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c8b00335571caebf83c29befdb10044e5311f4c10e1e31723888bfcdbc2d510c",
+      "fontId": "Serenade:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "f33cad27209dfe5537fd0260bb2a3d36f17fe7d1c97df48b41ff43a460e9f375",
+      "fontId": "Serenade:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.3285384331669174
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.147872533668976
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "d7a28b287e9897c8d5e2189dedde61b766c48b40f70676e31bb751803abe6d55",
+      "fontId": "Timber:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "be3978db257ccd22c1563f1fe85fb23e00726cf15bc1dbb2bc3b0b06d90fc23a",
+      "fontId": "Timber:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4940867c1443d44b2284acea93aee09a3939318931c395615841ecec7ff2f892",
+      "fontId": "Timber:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.5676519963716258
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.325672,
+        "normalSpacingCollisionScale": 1.4070901437006105
+      }
+    ]
   }
 ]

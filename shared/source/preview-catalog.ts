@@ -299,6 +299,295 @@ export const PREVIEW_FONTS: readonly PreviewFontInfo[] = [
     "ascent": 700,
     "descent": 280,
     "endCorrections": {}
+  },
+  {
+    "styleId": "grotesque",
+    "source": {
+      "kind": "program-v1",
+      "digest": "7ba3d66f3af48ba7613f443b870926c2958d16b68b9a1e50f73f7ff58765ef0e",
+      "fontId": "Mainline:600"
+    },
+    "paramsDigest": "1c2cb70a8f6b202d469915a5cc7d70ffbeb1a1187a6c9e5f204ae46e2e514ecc",
+    "digest": "ddf46a8a2f3b3183bf648d298c3bfea97d8a9fde973da7b93d8952d5c473baac",
+    "ascent": 711,
+    "descent": 284.40000000000003,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "humanist",
+    "source": {
+      "kind": "program-v1",
+      "digest": "49f906283b281bc6170316baee68f503caaf9c5d587a20693d79e681093b4a3a",
+      "fontId": "Parlance:500"
+    },
+    "paramsDigest": "77eaa7cd87f793513d3169cf525d15277035e18781f09ba87eb70085adf2aaf5",
+    "digest": "0636e3e00154a0deb40067d01148f29762f70ba893172047cc240a43d823e848",
+    "ascent": 771,
+    "descent": 308.40000000000003,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "geometric",
+    "source": {
+      "kind": "program-v1",
+      "digest": "03beeb43bef0efc9c20807ed802e31235dc2964b417ee0a8b3ab6c7db93ca4a9",
+      "fontId": "Compass:300"
+    },
+    "paramsDigest": "4ae6d5a630658575aecd92afd4a124eaf549225ca0414fecda54e7486b570d91",
+    "digest": "f03a7b511953a8de0bb9c01bfc3efba500fc3c135643b66a585020bb1d3a60ac",
+    "ascent": 708,
+    "descent": 283.2,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "soft",
+    "source": {
+      "kind": "program-v1",
+      "digest": "947d90159552b1b1ffa1977e5447614dc1bcc0786feaa7c2ab23acc5055980bb",
+      "fontId": "Cotton:300"
+    },
+    "paramsDigest": "e86fc278b0fac87d0d9a52853bfe094a4137e7133f004c35c35b54031b9e7537",
+    "digest": "a0bc2bdfc001ed0696ef076bed11c39be730aacd56104bc9fc629cf8f187fbc9",
+    "ascent": 705,
+    "descent": 282,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "industrial",
+    "source": {
+      "kind": "program-v1",
+      "digest": "f91f41fe859db65f9a4fa6baa8d80368b7ff08be4948b0c655619fda516f580f",
+      "fontId": "Turnpike:500"
+    },
+    "paramsDigest": "9016658dfa9d79d4a322f39e5fee6600b13f58aa02a4b3d41d35066f5371e2a5",
+    "digest": "71ad129662d19ef4b64cdb7f6c712f1948988d62b04f5d65b2f4dc1514320dcc",
+    "ascent": 634,
+    "descent": 253.60000000000002,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "squircle",
+    "source": {
+      "kind": "program-v1",
+      "digest": "12304bfc026e662622938acf28cfb5dd5f50c63cfc281cea64656169a4b476e4",
+      "fontId": "Orbital:600"
+    },
+    "paramsDigest": "da9e79440d92fc793ad042ae6d5414c93cb8e8194c74b74d608a25cde95b8e66",
+    "digest": "80868e8540110663dfbdf196b22018f322dca75a5ee03dc5723fc306e15beab8",
+    "ascent": 768,
+    "descent": 307.20000000000005,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "chunkyround",
+    "source": {
+      "kind": "program-v1",
+      "digest": "b5030f4d7d7571a6fa078b59f410a477ce163d244f4abfc0e2239b30ce4590d7",
+      "fontId": "Gumdrop:700"
+    },
+    "paramsDigest": "a3afe2c0a516307b904014e310caec42cfa34337ee6fe47a8335a39331e7dc01",
+    "digest": "675fdb0264a537f1275f00a54514347e9357d217b73678e69afccbb1d9220b1d",
+    "ascent": 690,
+    "descent": 276,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "serif",
+    "source": {
+      "kind": "program-v1",
+      "digest": "67bfa00c1eca8d8b331304010044f6f5e55e86dbbeeb1224e4a859596fe4ab3f",
+      "fontId": "Almanac:500"
+    },
+    "paramsDigest": "486d403e2886519391cdaa2b44aed5762661db4f8ad2d991c48c327af04f2532",
+    "digest": "5a5170fd29ec5ef97c972840ad00edaa9f2e825bb5b70726f50ef9f05cec8cdc",
+    "ascent": 770,
+    "descent": 308,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "oldstyle",
+    "source": {
+      "kind": "program-v1",
+      "digest": "146e034faa7a8ed0836056dac563d0b3a2248c10c79fba5dbbe37a9c9a01ff01",
+      "fontId": "Vellum:400"
+    },
+    "paramsDigest": "9d0ead2c2cf8b05f9cbbea3945e1b5ba2c8b36de9313aeece91d24ebbbb6fb9a",
+    "digest": "7f265521bb8b0ab2dd0033923a590383aef05e67ba52ba315584a6addfea1dd9",
+    "ascent": 731,
+    "descent": 292.40000000000003,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "didone",
+    "source": {
+      "kind": "program-v1",
+      "digest": "e506f02e566856eae1fed9116b3603e5f6b112799df4f1a9d667f5b84dcd8750",
+      "fontId": "Couture:600"
+    },
+    "paramsDigest": "fed9b258957649f54f371d27b181b4d9e0cfa9d48d43015151a19ba6520d79d5",
+    "digest": "024332a94124f4a3612e861cbb0949739dd28286d272d32643c06aeffef71893",
+    "ascent": 717,
+    "descent": 286.8,
+    "endCorrections": {
+      " ": 2.842170943040401e-14,
+      " ": 2.842170943040401e-14
+    }
+  },
+  {
+    "styleId": "serifitalic",
+    "source": {
+      "kind": "program-v1",
+      "digest": "cab08eb9a284ffb0632a637572b857c2640eece24393310dfcfe44e4708ad291",
+      "fontId": "Sonnet:400i"
+    },
+    "paramsDigest": "38839cf2eab2bbcfaa5c46e7f09034eab6e8e3db5566951767c4ee7322aa3fa5",
+    "digest": "c544c58b36c2d3e6e4809c6339c3e1558558389a8a10a42e8fdd8068f9d58e7a",
+    "ascent": 708,
+    "descent": 283.2,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "fatface",
+    "source": {
+      "kind": "program-v1",
+      "digest": "0a8c00da0dee46dd6b7c42635883493f3c9a2f4abe143f200946237fd5ec389e",
+      "fontId": "Ballyhoo:400"
+    },
+    "paramsDigest": "723eb0e3b8b24a87886b23f96ffe9c734e364673b414c1fc911b41ca6c5d8d9e",
+    "digest": "b628ee062ccb4822f727a22b7c9de219c4fad8ec3f1756533d8e35ac111e2229",
+    "ascent": 700,
+    "descent": 280,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "softslab",
+    "source": {
+      "kind": "program-v1",
+      "digest": "c47d28932f400436b2db0ae8f1402af68330936894c323b422663975532d1ef0",
+      "fontId": "Hearth:600"
+    },
+    "paramsDigest": "ffba084a17ca7ceb00451991a96b47f0b5e418a1b84da65ec37768434a23dee7",
+    "digest": "5631dbe639929f0adebfb15acea3371ef9d79a5f14b2fb3b694c15524f952d68",
+    "ascent": 711,
+    "descent": 284.40000000000003,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "woodtype",
+    "source": {
+      "kind": "program-v1",
+      "digest": "ab3f11ad692085dadc3ff36d25170c3cf0991709f95611ef550e0881625ae310",
+      "fontId": "Timber:400"
+    },
+    "paramsDigest": "c8a9f36b7ebbed683218b299b9341359189da496f48e5d440e9bc4fa7bf0cafe",
+    "digest": "df87420a379851c06c9484ac47133d5708ee4ce292072e6b37e49c3711cddb12",
+    "ascent": 778,
+    "descent": 311.20000000000005,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "code",
+    "source": {
+      "kind": "program-v1",
+      "digest": "83accd381be645246e5ea202658125d98e3e844d8741d64206bad19407b7ccda",
+      "fontId": "Kernel:500"
+    },
+    "paramsDigest": "6e8879825b4634ccae5bedceec83eb0d72738c59e3fc5aa489753234179c5692",
+    "digest": "757ffacb3320948a6e841b8eb6823a31004197db9002e189571a6a8268556202",
+    "ascent": 698,
+    "descent": 279.2,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "typewriter",
+    "source": {
+      "kind": "program-v1",
+      "digest": "d35fcbcc1ca8d7a329f5a7cd58c83730fbc711be2448d59e21415da4a51823aa",
+      "fontId": "Dispatch:400"
+    },
+    "paramsDigest": "54eb0f1572f8c6cb2183c45f10b8a25bb1c3b58b2ec9cbd81f5de458136f0b55",
+    "digest": "1c71ce0391721a10cd2cc1b9e8504f46037a4326735d4750616ee1c73af5474c",
+    "ascent": 568,
+    "descent": 227.20000000000002,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "comic",
+    "source": {
+      "kind": "program-v1",
+      "digest": "cea582d70a896e65d0b1032d3f5233a6d351abf18467e7e0d63fc0596aa8ffac",
+      "fontId": "Funnies:400"
+    },
+    "paramsDigest": "1e503dcf99e736a68f5fc73a433cce077123ffbc2389f3ca37334a0d09526312",
+    "digest": "ec2410f1aaa2ccf6d127a414be75963872d6a466da149890335f67b887d1724f",
+    "ascent": 782,
+    "descent": 312.8,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "casual",
+    "source": {
+      "kind": "program-v1",
+      "digest": "2aa0e6399197122997de4b1c59873bad82d327562f369c6f286381cc4faae36b",
+      "fontId": "Jotter:400"
+    },
+    "paramsDigest": "df1a064763f23515eadaaddeeaba53f7a8fc1b78dab7c265a6bc1d96a9608adb",
+    "digest": "0760406b74b62c96791c382f78c5361721b6da6bc574e09cf21409a65ab7203c",
+    "ascent": 606,
+    "descent": 242.4,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "informal",
+    "source": {
+      "kind": "program-v1",
+      "digest": "e094931e5899525025b5ebd187c882989a17f4f26856df2b93fabf6585704b0c",
+      "fontId": "Boardwalk:400"
+    },
+    "paramsDigest": "8a1b727302b07743d290a8b9a1212eafb95aae626e3ed6edf8cab65b8c956506",
+    "digest": "8dfafa76e762c4a1f9550a26bbe8cf9618f7c22f8a9079759d7d12114a1db445",
+    "ascent": 822,
+    "descent": 328.8,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "chancery",
+    "source": {
+      "kind": "program-v1",
+      "digest": "8ba48218933d8200c995138411be8f361bdf7f86e2cc25ab30bfab76ebbb6bc0",
+      "fontId": "Serenade:400"
+    },
+    "paramsDigest": "f93dac40a7e78e8007946d1c49b9453c319759c5a2f84cf62f078b1a15d396d8",
+    "digest": "50c0e0ed28fc2b33a24eeb3543f42efb8860559cd34b52cb31397c29d15c557b",
+    "ascent": 750,
+    "descent": 300,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "blackletter",
+    "source": {
+      "kind": "program-v1",
+      "digest": "7c96f746dc38a570847c18eb212a08e8e26e796dbc6bdd706faa6e26d7527de2",
+      "fontId": "Cathedral:400"
+    },
+    "paramsDigest": "20301121588bdf72bbaa345cb3a3e042f8ee41a4219381d54d9a5a166ca393f5",
+    "digest": "c531fe184e7d6f8014499d26ef309e45499c1a1876cfdce4473c89b8157e3f62",
+    "ascent": 694,
+    "descent": 277.6,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "block",
+    "source": {
+      "kind": "program-v1",
+      "digest": "eb1d631bd396fe57f2e6646c835dbe61c383d4db3f65a89c099feb805d4b41be",
+      "fontId": "Bulwark:700"
+    },
+    "paramsDigest": "529cd75738580755254233342c51d15dc098d5659153d81e54654e4989837452",
+    "digest": "88a5117ba1041ada517b9bbfad06aa812ca5895bc3ff0bac83d1da90b8bea9f3",
+    "ascent": 700,
+    "descent": 280,
+    "endCorrections": {}
   }
 ];
 
