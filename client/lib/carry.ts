@@ -726,9 +726,10 @@ function hasAt(cs: Node[][], con: Node[]): boolean {
 
 /** `doc` with the change put in at each of `places`. */
 export function carryInto(ch: Change, doc: Drawn, places: Place[]): Drawn {
-  if (ch.add) return { adv: doc.adv, contours: [...doc.contours, ...places.map(p => fitted(ch.add!, p.fit)).filter(con => !hasAt(doc.contours, con))] };
-  if (ch.whole) return { adv: doc.adv, contours: doc.contours.flatMap((con, c) => { const p = places.find(q => q.c === c), r = !p ? con : p.role ? transformed(con, ch, p) : replaced(con, ch, p); return r ? [r] : []; }) };
-  return { adv: doc.adv, contours: doc.contours.map((con, c) => { const here = places.filter(p => p.c === c); return here.length ? spliced(con, ch, here) : con; }) };
+  const base = { adv: doc.adv, ...(doc.spacing ? { spacing: doc.spacing } : {}) };
+  if (ch.add) return { ...base, contours: [...doc.contours, ...places.map(p => fitted(ch.add!, p.fit)).filter(con => !hasAt(doc.contours, con))] };
+  if (ch.whole) return { ...base, contours: doc.contours.flatMap((con, c) => { const p = places.find(q => q.c === c), r = !p ? con : p.role ? transformed(con, ch, p) : replaced(con, ch, p); return r ? [r] : []; }) };
+  return { ...base, contours: doc.contours.map((con, c) => { const here = places.filter(p => p.c === c); return here.length ? spliced(con, ch, here) : con; }) };
 }
 
 /** Small letters, capitals, figures, or the rest. */

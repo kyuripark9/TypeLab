@@ -12,6 +12,7 @@ export const sourceControls: readonly (keyof Params)[] = [
 /** A glyph is supplied only when an edit targets that letter alone. */
 export function sourceSupports(p: Pick<Params, 'sourceProgram'>, key: string, glyph?: string | null): boolean {
   if (!p.sourceProgram || sourceControls.some(control => control === key) || key === 'weight' && !!masterInfo(p.sourceProgram)) return true;
+  if (key === 'mono') return !!programInfo(p.sourceProgram)?.data.spacing;
   const finish = programInfo(p.sourceProgram)?.data.finish;
   if (finish && sourceFinishControls(finish).some(control => control === key)) return true;
   if (key === 'dotSize') return !!glyph && (programInfo(p.sourceProgram)?.componentGlyphs?.includes(glyph) ?? false);

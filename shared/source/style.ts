@@ -15,7 +15,8 @@ export function sourceStyleParams(style: StyleDef): Params | null {
   const features = program?.data.features ? { crossbar: .5, tail: .5, terminalLength: .5 } : {};
   const components = program?.data.components ? { dotSize: .5 } : {};
   const finish: Partial<Params> = program?.data.finish ? sourceFinishDefaults(program.data.finish) : {};
-  return { ...style.params, ...features, ...components, ...finish, freeFont: id,
-    freeAt: { ...freeAtOf(style.params), ...features, ...components, ...(program?.data.finish ? { fill: 'solid' as const } : {}), weight, width },
+  const spacing = program?.data.spacing ? { mono: 0 } : {};
+  return { ...style.params, ...features, ...components, ...finish, ...spacing, freeFont: id,
+    freeAt: { ...freeAtOf(style.params), ...features, ...components, ...spacing, ...(program?.data.finish ? { fill: 'solid' as const } : {}), weight, width },
     weight, width, letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAULTS.wordSpacing, height: DEFAULTS.height, sourceProgram: source };
 }

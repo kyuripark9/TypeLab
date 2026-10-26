@@ -78,7 +78,8 @@ export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
         || !sameRef(data.features, program.data.features)
         || !sameRef(data.components ?? null, program.data.components ?? null)
         || JSON.stringify(data.transitions) !== JSON.stringify(program.data.transitions)
-        || JSON.stringify(data.finish) !== JSON.stringify(program.data.finish)) throw new Error('Source program does not match its catalog');
+        || JSON.stringify(data.finish) !== JSON.stringify(program.data.finish)
+        || JSON.stringify(data.spacing) !== JSON.stringify(program.data.spacing)) throw new Error('Source program does not match its catalog');
       const original = loadSource(data.base);
       if (data.width) sourcePayload(data.width);
       if (data.features) sourcePayload(data.features);

@@ -429,9 +429,9 @@ function sameSettings(a: Params, b: Params): boolean {
 }
 
 /** The font `params` describe; `from`, an earlier build, lends its letters where only the drawings differ. */
-export function buildFont(params: Params, from?: Font): Font {
+export function buildFont(params: Params, from?: Font, sourceMonoCell?: number): Font {
   const e = resolve(params), m0 = metrics(e);
-  const source = sourceInstance(params, m0);
+  const source = sourceInstance(params, m0, sourceMonoCell);
   // a free font's letters stand as tall as the design's capitals, and its space is the font's own, wider or
   // narrower by Word spacing
   const fl = !source && e.freeFont ? freeLetters(params, e, m0) : null, free = source?.free ?? fl?.font;
@@ -471,7 +471,7 @@ export function buildFont(params: Params, from?: Font): Font {
       const own = params.glyphs?.[ch];
       if (!own) return font;
       let f = letters.get(ch);
-      if (!f) { const lp: Params = { ...params, ...own, glyphs: {} }; f = buildFont(at ? drawnFrom(lp, at) : lp); letters.set(ch, f); }
+      if (!f) { const lp: Params = { ...params, ...own, glyphs: {} }; f = buildFont(at ? drawnFrom(lp, at) : lp, undefined, source?.monoCell); letters.set(ch, f); }
       return f;
     },
     glyph(ch) {

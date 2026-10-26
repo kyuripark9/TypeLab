@@ -123,12 +123,14 @@ export function Explainer() {
   const sourceSlice = !!font.params.sourceProgram && controlFor(active) === 'slice' && sourceSupports(font.params, 'slice');
   const sourceDot = active === 'dotSize' && !!font.params.sourceProgram && sourceSupports(font.params, 'dotSize', letter);
   const sourcePattern = active === 'roundness' && !!font.params.sourceProgram && sourceVisible(font.params, 'roundness');
+  const sourceMono = active === 'mono' && !!font.params.sourceProgram && sourceSupports(font.params, 'mono');
   const sliceTitle = active === 'slice' ? 'Open a gap through the letters' : active === 'slicePos' ? 'Move the gap up or down' : 'Round the new cut edges';
   // two levels only, a title and its explanation; a part says which setting shapes it in the explanation
   const [title, text] = part ? [ANATOMY[part][0], partText(part, category)] : sourceSlice
     ? [sliceTitle, 'The upper pieces move up to open a gap. The lower pieces stay in place, and Points keeps the original drawing.']
     : sourceDot ? ['Resize the dots', `${letter === 'i' || letter === 'j' ? 'The dot grows from its original bottom edge.' : 'Each dot resizes around its original center.'} The rest of the glyph and its spacing stay fixed. New shapes drawn in Points stay independent.`]
     : sourcePattern ? ['Round the pattern cells', 'Soften the corners of the selected pattern. The editable letter outline stays unchanged.']
+    : sourceMono ? ['Give every character one advance', 'Move letters into equal-width cells without reshaping them. Original spacing stays at the left endpoint. Wide flourishes or individual width edits may reach outside the cell.']
     : [(sub ?? c).friendly, sub?.explain ?? c.explain];
   // the control just pointed at stays where it stood as the explainer takes the new explanation's height: a sticky
   // explainer stays in sight as the controls scroll under it; one that scrolls with them (a short panel) stays in

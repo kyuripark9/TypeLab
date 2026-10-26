@@ -266,7 +266,7 @@ export function useGridDrag({ ch, font, grid, group, view, box, size, heights, h
         onStart?.();
       }
       v = toValue((ev.clientX - x0) / view0.sc, -(ev.clientY - y0) / view0.sc, ev);
-      const s = useEditor.getState(), drawn = movers.map(m => [m.ch, { adv: m.doc.adv, contours: m.draw(v) }] as const);
+      const s = useEditor.getState(), drawn = movers.map(m => [m.ch, { adv: m.doc.adv, contours: m.draw(v), ...(m.doc.spacing ? { spacing: m.doc.spacing } : {}) }] as const);
       actions.setParam('outlines', { ...s.params.outlines, ...Object.fromEntries(drawn) });
       const cs = drawn[0][1].contours, r = at(ev, svg);
       setPull({ grab: grabbed, v, pts: movers[0].refs.map(({ c, i }) => ({ x: cs[c][i].x, y: cs[c][i].y })), x: r.x, y: r.y, others: movers.slice(1).map(m => m.ch), pivot });

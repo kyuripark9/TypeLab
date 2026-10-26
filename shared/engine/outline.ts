@@ -43,7 +43,8 @@ export const CORNER_KINDS: CornerKind[] = ['round', 'cut', 'scoop'];
     other way round from the one around it cuts a hole. `at`: the settings it was drawn at, which it is drawn as it
     stands at (moved from them as they move: family-drawn.ts); a drawing from before drawings kept them has none
     until upgradeParams (shared/params/clean.ts) gives it its design's. */
-export interface Drawn { adv: number; contours: Node[][]; at?: DrawnAt }
+export interface SourceSpacingFrame { format: 'source-mono-v1'; originalAdvance: number; advance: number; shift: number }
+export interface Drawn { adv: number; contours: Node[][]; at?: DrawnAt; spacing?: SourceSpacingFrame }
 
 export const hasIn = (n: Node) => n.ix !== undefined && n.iy !== undefined;
 export const hasOut = (n: Node) => n.ox !== undefined && n.oy !== undefined;
@@ -463,5 +464,16 @@ export function cleanDrawn(v: unknown): Drawn | undefined {
     }
     contours.push(nodes);
   }
-  return { adv: Math.max(0, d.adv as number), contours };
+  let spacing: SourceSpacingFrame | undefined;
+  if (d.spacing !== undefined) {
+    if (!d.spacing || typeof d.spacing !== 'object' || Array.isArray(d.spacing)) return undefined;
+    const frame = Object.fromEntries(Object.entries(d.spacing));
+    if (frame.format !== 'source-mono-v1' || !num(frame.originalAdvance) || !num(frame.advance) || !num(frame.shift)
+      || typeof frame.originalAdvance !== 'number' || typeof frame.advance !== 'number' || typeof frame.shift !== 'number'
+      || frame.originalAdvance < 0 || frame.advance < 0
+      || frame.shift !== (frame.advance - frame.originalAdvance) / 2
+      || Object.keys(frame).some(key => !['format', 'originalAdvance', 'advance', 'shift'].includes(key))) return undefined;
+    spacing = { format: 'source-mono-v1', originalAdvance: frame.originalAdvance, advance: frame.advance, shift: frame.shift };
+  }
+  return { adv: Math.max(0, d.adv as number), contours, ...(spacing ? { spacing } : {}) };
 }

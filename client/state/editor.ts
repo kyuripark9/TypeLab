@@ -551,6 +551,7 @@ export const actions = {
       : program?.data.features && (key === 'crossbar' || key === 'tail' || key === 'terminalLength') ? .5
       : program?.data.finish && key === 'fill' ? 'solid'
       : program?.data.finish && key === 'module' ? .5
+      : program?.data.spacing && key === 'mono' ? 0
       : info && key === 'weight' ? (info.defaultWeight - info.min) / (info.max - info.min) : st.params[key]);
   },
   /** Switch an optional slider on, back to the value it had (or halfway), or off, to `off` where it changes nothing. */

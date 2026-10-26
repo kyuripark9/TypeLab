@@ -140,6 +140,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   const widthLabel = (value: number) => width && value === width.neutral ? 'Original width' : `${value}% width`;
   const c = weights ? { ...CONTROLS[k], lo: weightLabel(weights.min), hi: weightLabel(weights.max) }
     : width ? { ...CONTROLS[k], lo: widthLabel(width.min), hi: widthLabel(width.max) }
+    : sourceProgram && k === 'mono' ? { ...CONTROLS[k], lo: 'Original spacing' }
     : sourceProgram && k === 'roundness' ? { ...CONTROLS[k], label: 'Pattern corners' } : CONTROLS[k];
   if (sourceProgram && k === 'terminal') return <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} parts={parts} />;
   if (sourceProgram && k === 'dots') return <SliderControl k="dotSize" def={{ ...DOT_SUBS.dotSize, label: 'Dot size' }} parts={parts} />;

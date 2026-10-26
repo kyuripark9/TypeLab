@@ -23,9 +23,10 @@ import { evaluateFeatureMasters, FEATURE_CONTROLS } from './feature-masters';
 import { identifyAuthored, inheritAuthored, mapAuthored, rebaseEdits, rebaseReference, transportEdits } from './edit-transport';
 import { compileSourceFinish, finishSourceGlyph, sourceFinishBounds } from './finish';
 import { componentMembership, componentOwnership, componentPlan, mapComponents, type ComponentMembership } from './components';
+import { sourceMonoAdvance, spaceSourceDrawing, unspaceSourceDrawing, type SourceMonoPlan } from './spacing';
 
 export interface SourceStatus { ref: SourceRef | ProgramAssetRef; state: 'missing' | 'ready'; missingCharacters: string[] }
-interface SourceInstance { m: Metrics; free?: FreeFont; status: SourceStatus; glyph(ch: string): Glyph | null }
+interface SourceInstance { m: Metrics; free?: FreeFont; monoCell?: number; status: SourceStatus; glyph(ch: string): Glyph | null }
 
 /** Each side of the pick uses its complete slider range, with positive endpoints. */
 function axis(value: number, pick: number, low: number, high: number): number {
@@ -98,7 +99,8 @@ function componentPlanFor(source: Drawn, p: Params, ch: string, transform: Outli
 }
 
 function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
-  const original = font.glyphs[ch], edited = p.outlines[ch];
+  const original = font.glyphs[ch];
+  let edited = p.outlines[ch];
   if (!original && !edited) return null;
   // A new character has a fixed placement frame. Using each posed edit as its frame would accumulate drift.
   const source = original ?? { adv: font.cap * 0.75, contours: [] };
@@ -117,6 +119,7 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
     if (sameFrame && (!programInfo(p.sourceProgram)?.data.components || p.dotSize === at.dotSize)) {
       return asGlyph(ch, edited, target.M, p.sourceProgram?.kind === 'program-v1');
     }
+    edited = unspaceSourceDrawing(edited);
     sizeOnly = sameFrame;
     const beforeFont = variedFont(at) ?? font;
     let beforeSource = beforeFont.glyphs[ch] ?? source;
@@ -222,7 +225,7 @@ function asGlyph(ch: string, drawn: Drawn, M: Mat, editable = false): Glyph {
     M, drawn, ...(editable ? { editable: drawn } : {}), cmds, d: cmdsToD(cmds) };
 }
 
-export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | null {
+export function sourceInstance(p: Params, fallback: Metrics, parentMonoCell?: number): SourceInstance | null {
   const ref = p.sourceProgram;
   if (!ref) return null;
   for (const baseline of designSourceDependencies(p)) {
@@ -232,8 +235,21 @@ export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | n
   if (!font) return { m: fallback, status: { ref, state: 'missing', missingCharacters: [] }, glyph: () => null };
   const base = { ...DEFAULTS, ...p.freeAt }, sy = axis(p.height, DEFAULTS.height, 0.78, 1.28);
   const lower = shape(font, p, 'x'), xh = lower.y[2]?.[1] ?? font.xh * sy;
+  let mono: SourceMonoPlan | null = null;
+  if (programInfo(ref)?.data.spacing && p.mono !== 0) {
+    let cell = parentMonoCell;
+    if (cell === undefined) {
+      cell = Math.max(20, font.space * lower.xScale);
+      for (const ch of ALL_CHARS) {
+        const original = font.glyphs[ch];
+        if (original) cell = Math.max(cell, pose(font, original, p, ch).adv);
+      }
+    }
+    mono = { cell, amount: p.mono };
+  }
   const policy = programInfo(ref)?.data.finish;
   const finish = policy ? compileSourceFinish(policy, p, { capHeight: font.cap * sy }) : null;
+  const spaceExtension = mono && finish?.kind === 'shadow' ? finish.dx * mono.amount : 0;
   const bounds = finish ? sourceFinishBounds(finish) : { above: 0, below: 0 };
   let componentRise = 0, componentFall = 0;
   const components = sourceProgram(ref)?.components;
@@ -256,13 +272,21 @@ export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | n
   }
   const m = metrics(resolve({ ...p, geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5 }));
   return {
-    free: font, status: { ref, state: 'ready', missingCharacters: [...ALL_CHARS].filter(ch => !font.glyphs[ch] && !p.outlines[ch]) },
+    free: font, ...(mono ? { monoCell: mono.cell } : {}), status: { ref, state: 'ready', missingCharacters: [...ALL_CHARS].filter(ch => !font.glyphs[ch] && !p.outlines[ch]) },
     m: { ...m, cap: font.cap * sy, xh, asc: (lower.y[3]?.[1] ?? font.cap * sy) + componentRise + bounds.above,
       desc: lower.y[0][1] - componentFall - bounds.below, ws: lower.xScale, slant: Math.tan((p.slant - base.slant) * 20 * Math.PI / 180),
-      space: Math.max(20, font.space * lower.xScale + (p.wordSpacing - DEFAULTS.wordSpacing) * 520) },
+      space: sourceMonoAdvance(Math.max(20, font.space * lower.xScale + (p.wordSpacing - DEFAULTS.wordSpacing) * 520), mono) + spaceExtension },
     glyph: ch => {
-      const glyph = evaluated(font, p, ch);
-      return glyph && finish ? finishSourceGlyph(glyph, finish) : glyph;
+      let glyph = evaluated(font, p, ch);
+      if (glyph?.drawn && (mono || glyph.drawn.spacing)) {
+        const drawn = spaceSourceDrawing(glyph.drawn, mono), shift = drawn.spacing?.shift ?? 0;
+        if (drawn !== glyph.drawn || shift !== 0) {
+          const M: Mat = [...glyph.M]; M[4] += shift;
+          glyph = asGlyph(ch, drawn, M, !!glyph.editable);
+        }
+      }
+      const finished = glyph && finish ? finishSourceGlyph(glyph, finish) : glyph;
+      return finished && !finished.cmds.length && spaceExtension ? { ...finished, adv: finished.adv + spaceExtension, rsb: finished.rsb + spaceExtension } : finished;
     }
   };
 }

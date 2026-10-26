@@ -6,6 +6,7 @@ import type { SourceRef } from './model';
 import { programForFont, programInfo, type ProgramInfo } from './program-catalog';
 import { widthAt, widthSliderAt } from './width-masters';
 import { sourceFinishDefaults, sourceFinishExtends } from './finish';
+import { sourceSpacingExtends } from './spacing';
 
 export interface ProgramUpgrade { program: ProgramInfo; resetWidth: boolean }
 
@@ -21,6 +22,7 @@ export function programUpgrade(ref: SourceRef | null): ProgramUpgrade | null {
     || target.width.min > previous.width.min || target.width.max < previous.width.max)) return null;
   if (FEATURE_CONTROLS.some(key => previous?.featureGlyphs[key]?.some(ch => !target.featureGlyphs[key]?.includes(ch)))) return null;
   if (previous?.data.finish && (!target.data.finish || !sourceFinishExtends(previous.data.finish, target.data.finish))) return null;
+  if (previous?.data.spacing && (!target.data.spacing || !sourceSpacingExtends(previous.data.spacing, target.data.spacing))) return null;
   if (previous?.data.components && !target.data.components) return null;
   if (previous?.componentGlyphs?.some(glyph => !target.componentGlyphs?.includes(glyph))) return null;
   return { program: target, resetWidth: !!target.width && !previous?.width };
@@ -63,10 +65,11 @@ export function adoptProgram(params: Params): Params | null {
     const defaults = sourceFinishDefaults(program.data.finish, previous?.data.finish);
     Object.assign(out, defaults);
     if (defaults.fill) out.freeAt.fill = defaults.fill;
-    for (const own of Object.values(glyphs)) for (const key of ['slice', 'slicePos', 'sliceRound'] as const) {
+    for (const own of Object.values(glyphs)) for (const key of ['slice', 'slicePos', 'sliceRound', 'wobble'] as const) {
       if (defaults[key] !== undefined) delete own[key];
     }
   }
+  if (program.data.spacing && !previous?.data.spacing) { out.mono = 0; out.freeAt.mono = 0; }
   if (program.data.components && !previous?.data.components) {
     out.dotSize = .5;
     out.freeAt.dotSize = .5;

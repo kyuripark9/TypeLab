@@ -1,6 +1,7 @@
 /* A source program pins compatible authored assets and exact maps from any earlier point bases. */
 import { parseSourceRef, type MasterSourceRef } from './model';
 import { parseSourceFinish, type SourceFinishPolicy } from './finish';
+import { parseSourceSpacing, type SourceSpacingPolicy } from './spacing';
 
 export interface WidthMasterRef { readonly kind: 'width-masters-v1'; readonly digest: string; readonly fontId: string }
 export interface FeatureMasterRef { readonly kind: 'feature-masters-v1'; readonly digest: string; readonly fontId: string }
@@ -16,6 +17,7 @@ export interface SourceProgramData {
   features: FeatureMasterRef | null;
   components?: SourceComponentRef;
   finish?: SourceFinishPolicy;
+  spacing?: SourceSpacingPolicy;
   transitions?: BasisTransition[];
 }
 
@@ -34,7 +36,7 @@ function assetRef<K extends ProgramAssetRef['kind']>(input: unknown, kind: K, fo
 
 /** Dependencies name the same family; their payloads must also be validated against the complete base reference. */
 export function parseSourceProgram(input: unknown): SourceProgramData {
-  const value = object(input), fields = ['format', 'base', 'width', 'features', 'components', 'finish', 'transitions'];
+  const value = object(input), fields = ['format', 'base', 'width', 'features', 'components', 'finish', 'spacing', 'transitions'];
   if (value.format !== 'source-program-v1' || Object.keys(value).some(key => !fields.includes(key))) {
     throw new TypeError('Invalid or unsupported source program');
   }
@@ -48,6 +50,7 @@ export function parseSourceProgram(input: unknown): SourceProgramData {
     features: assetRef(value.features, 'feature-masters-v1', base.fontId),
     ...(components ? { components } : {}),
     ...('finish' in value ? { finish: parseSourceFinish(value.finish) } : {}),
+    ...('spacing' in value ? { spacing: parseSourceSpacing(value.spacing) } : {}),
     ...('transitions' in value ? { transitions: transitions(value.transitions, base) } : {}),
   };
 }

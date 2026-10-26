@@ -184,8 +184,8 @@ export function PenCanvas({ ch, g, font, grid }: { ch: string; g: Glyph; font: F
   const current = (): Drawn => { const now = fontFor(useEditor.getState().params).glyph(ch); return now ? traceOf(now) : doc; };
   /** Write the letter's outline. */
   const write = (contours: Node[][], adv = current().adv) => {
-    const s = useEditor.getState();
-    actions.setParam('outlines', { ...s.params.outlines, [ch]: { adv, contours } });
+    const s = useEditor.getState(), spacing = current().spacing;
+    actions.setParam('outlines', { ...s.params.outlines, [ch]: { adv, contours, ...(spacing ? { spacing } : {}) } });
   };
   const commit = (contours: Node[][], adv?: number) => { write(contours, adv); actions.commit(); };
   /** With Mirror, `edited` (an edit of `base`) made on the other side of the letter too; `held` is the handle dragged. */
