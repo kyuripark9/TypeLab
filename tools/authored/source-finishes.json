@@ -23,5 +23,13 @@
     "smallComponentScale": 4,
     "maxCells": 16384,
     "maxPoints": 131072
+  },
+  "texture": {
+    "format": "source-texture-v1",
+    "wobble": { "amplitude": 0.009, "wavelength": 0.42 },
+    "rough": { "amplitude": 0.0009, "wavelength": 0.018 },
+    "tolerance": 0.004,
+    "maxSegments": 65536,
+    "seed": 2654435769
   }
 }

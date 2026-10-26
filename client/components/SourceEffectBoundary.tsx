@@ -34,11 +34,12 @@ function EffectRecovery({ error }: { error: SourceEffectError }) {
     actions.setTrait('fill', null);
     actions.setOption('fill', 'solid');
   };
+  const texture = error.effect === 'texture';
   return <div className="message-page" role="alert">
-    <h1>This fill needs an adjustment</h1>
+    <h1>This effect needs an adjustment</h1>
     <p>{sourceEffectMessage(error)} Your point edits are still here.</p>
     <div className="row">
-      <button className="btn primary" onClick={solid}>Use Solid fill</button>
+      <button className="btn primary" onClick={texture ? actions.clearSourceTexture : solid}>{texture ? 'Turn off texture' : 'Use Solid fill'}</button>
       <button className="btn outline" disabled={!canUndo} onClick={() => actions.travel(-1)}>Undo last change</button>
       <button className="btn outline" onClick={keep}>Save design file</button>
     </div>

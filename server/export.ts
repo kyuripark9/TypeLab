@@ -101,7 +101,7 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
     const g = font.glyph(ch); if (!g) continue;
     const commands = outline(g), letter = font.letter(ch).params;
     const finish = letter.sourceProgram && sourceProgram(letter.sourceProgram)?.data.finish;
-    const effect = finish ? sourceFinishPrecision(finish, letter.fill) : null;
+    const effect = finish ? sourceFinishPrecision(finish, letter) : null;
     precisionEffect ??= effect;
     preciseGlyphs.push({ cmds: effect ? commands : commands.map(command => command.map((v, i) => i ? R(v as number) : v) as Cmd),
       advance: encodedAdvance(g.adv, m.track), ...(effect ? { effect } : {}) });

@@ -247,9 +247,11 @@ export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | n
       componentFall = Math.max(componentFall, plan?.fall ?? 0);
     }
   }
-  if (policy?.slice) {
+  if (policy) {
     for (const own of Object.values(p.glyphs)) {
-      bounds.above = Math.max(bounds.above, policy.slice.maxGap * (own.slice ?? p.slice) * font.cap * sy);
+      const ownBounds = sourceFinishBounds(compileSourceFinish(policy, { ...p, ...own }, { capHeight: font.cap * sy }));
+      bounds.above = Math.max(bounds.above, ownBounds.above);
+      bounds.below = Math.max(bounds.below, ownBounds.below);
     }
   }
   const m = metrics(resolve({ ...p, geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5 }));

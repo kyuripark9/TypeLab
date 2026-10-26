@@ -481,6 +481,16 @@ export const actions = {
     actions.setParam(key, v);
     actions.commit();
   },
+  clearSourceTexture() {
+    set(s => {
+      const traits = { ...s.traits }; delete traits.hand;
+      const glyphs = Object.fromEntries(Object.entries(s.params.glyphs).map(([ch, own]) => {
+        const rest = { ...own }; delete rest.wobble; return [ch, rest];
+      }));
+      return { traits, params: { ...s.params, wobble: 0, rough: 0, glyphs } };
+    });
+    step();
+  },
   enableMasters() {
     const s = get(), original = s.params.sourceProgram;
     if (original?.kind !== 'outline-v1') return;

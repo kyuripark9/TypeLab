@@ -1,5 +1,5 @@
 /* A finishing effect can reject a drawing without discarding the editable design. */
-export type SourceEffect = 'outline' | 'pattern';
+export type SourceEffect = 'outline' | 'pattern' | 'texture';
 export type SourceEffectFailure = 'normalization' | 'tolerance' | 'complexity' | 'precision';
 
 export class SourceEffectError extends Error {
@@ -10,6 +10,9 @@ export class SourceEffectError extends Error {
 }
 
 export function sourceEffectMessage(error: SourceEffectError): string {
+  if (error.effect === 'texture') return error.reason === 'complexity'
+    ? 'This texture is too detailed for the drawing. Reduce Hand-drawn or Rough edges, or turn them off.'
+    : 'This texture cannot preserve the small details in the drawing. Reduce Hand-drawn or Rough edges, or turn them off.';
   const name = error.effect === 'outline' ? 'Outline' : 'This pattern';
   return error.reason === 'complexity'
     ? `${name} is too detailed for this drawing. Try a larger pattern size or use Solid fill.`

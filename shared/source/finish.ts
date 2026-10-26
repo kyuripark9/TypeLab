@@ -8,6 +8,7 @@ import { compileHollow, hollowSource, type HollowPlan } from './hollow';
 import { compileSourcePattern, parseSourcePatterns, patternSourceInk, sourcePatternControls, sourcePatternFills,
   sourcePatternsExtend, type SourcePatternPlan, type SourcePatternPolicy } from './patterns';
 import type { SourceEffect } from './effect-error';
+import { compileSourceTexture, parseSourceTexture, sourceTextureExtends, textureSourceInk, type SourceTexturePlan, type SourceTexturePolicy } from './texture';
 
 export interface SourceFinishPolicy {
   format: 'source-finish-v1';
@@ -16,12 +17,13 @@ export interface SourceFinishPolicy {
   slice?: { maxGap: number; position: readonly [number, number] };
   outline?: { rim: readonly [number, number]; tolerance: number };
   patterns?: SourcePatternPolicy;
+  texture?: SourceTexturePolicy;
 }
-type FinishCoordinates = Pick<Params, 'fill' | 'module' | 'slice' | 'slicePos' | 'sliceRound' | 'dotGain' | 'roundness'>;
+type FinishCoordinates = Pick<Params, 'fill' | 'module' | 'slice' | 'slicePos' | 'sliceRound' | 'dotGain' | 'roundness' | 'wobble' | 'rough'>;
 interface SlicePlan { at: number; gap: number; rounding: number; tolerance: number }
 export type SourceFinishPlan = ({ kind: 'solid' } | {
   kind: 'shadow'; dx: number; dy: number; gap: number; tolerance: number; minArea: number;
-} | ({ kind: 'outline' } & HollowPlan) | { kind: 'pattern'; pattern: SourcePatternPlan }) & { slice?: SlicePlan };
+} | ({ kind: 'outline' } & HollowPlan) | { kind: 'pattern'; pattern: SourcePatternPlan }) & { slice?: SlicePlan; texture?: SourceTexturePlan };
 const FILLS: readonly Params['fill'][] = ['solid', 'shadow'];
 const CONTROLS: readonly (keyof Params)[] = ['fill', 'module'];
 export const sourceFinishFills = (policy: SourceFinishPolicy): readonly Params['fill'][] => [
@@ -29,19 +31,24 @@ export const sourceFinishFills = (policy: SourceFinishPolicy): readonly Params['
 ];
 export const sourceFinishControls = (policy: SourceFinishPolicy, fill?: Params['fill']): readonly (keyof Params)[] => [...new Set<keyof Params>([
   ...CONTROLS, ...(policy.slice ? ['slice', 'slicePos', 'sliceRound'] as const : []),
-  ...(policy.patterns ? sourcePatternControls(policy.patterns, fill) : [])
+  ...(policy.patterns ? sourcePatternControls(policy.patterns, fill) : []),
+  ...(policy.texture ? ['wobble', 'rough'] as const : [])
 ])];
-export function sourceFinishPrecision(policy: SourceFinishPolicy, fill: Params['fill']): SourceEffect | null {
+export function sourceFinishPrecision(policy: SourceFinishPolicy, request: Pick<Params, 'fill' | 'wobble' | 'rough'>): SourceEffect | null {
+  const { fill } = request;
+  if (policy.texture && (request.wobble > 0 || request.rough > 0)) return 'texture';
   if (fill === 'outline' && policy.outline) return 'outline';
   return policy.patterns && sourcePatternFills(policy.patterns).some(kind => kind === fill) ? 'pattern' : null;
 }
 export function sourceFinishDefaults(policy: SourceFinishPolicy, previous?: SourceFinishPolicy): Partial<FinishCoordinates> {
   return { ...(!previous ? { fill: 'solid', module: .5 } : {}),
     ...(policy.slice && !previous?.slice ? { slice: 0, slicePos: .5, sliceRound: 0 } : {}),
-    ...(policy.patterns && !previous?.patterns ? { dotGain: .5, roundness: 0 } : {}) };
+    ...(policy.patterns && !previous?.patterns ? { dotGain: .5, roundness: 0 } : {}),
+    ...(policy.texture && !previous?.texture ? { wobble: 0, rough: 0 } : {}) };
 }
 export function sourceFinishBounds(plan: SourceFinishPlan): { above: number; below: number } {
-  return { above: plan.slice?.gap ?? 0, below: plan.kind === 'shadow' ? -plan.dy : 0 };
+  return { above: (plan.slice?.gap ?? 0) + (plan.texture?.reach ?? 0),
+    below: (plan.kind === 'shadow' ? -plan.dy : 0) + (plan.texture?.reach ?? 0) };
 }
 export function sourceFinishExtends(previous: SourceFinishPolicy, next: SourceFinishPolicy): boolean {
   return previous.format === next.format && previous.tolerance === next.tolerance
@@ -51,7 +58,8 @@ export function sourceFinishExtends(previous: SourceFinishPolicy, next: SourceFi
       && previous.slice.position[0] === next.slice.position[0] && previous.slice.position[1] === next.slice.position[1])
     && (!previous.outline || !!next.outline && previous.outline.tolerance === next.outline.tolerance
       && previous.outline.rim[0] === next.outline.rim[0] && previous.outline.rim[1] === next.outline.rim[1])
-    && (!previous.patterns || !!next.patterns && sourcePatternsExtend(previous.patterns, next.patterns));
+    && (!previous.patterns || !!next.patterns && sourcePatternsExtend(previous.patterns, next.patterns))
+    && (!previous.texture || !!next.texture && sourceTextureExtends(previous.texture, next.texture));
 }
 
 function object(input: unknown, keys: readonly string[]): Record<string, unknown> {
@@ -65,7 +73,7 @@ function number(input: unknown): number {
   return input;
 }
 export function parseSourceFinish(input: unknown): SourceFinishPolicy {
-  const value = object(input, ['format', 'tolerance', 'shadow', 'slice', 'outline', 'patterns']), shadow = object(value.shadow, ['depth', 'gap', 'minAreaRatio']);
+  const value = object(input, ['format', 'tolerance', 'shadow', 'slice', 'outline', 'patterns', 'texture']), shadow = object(value.shadow, ['depth', 'gap', 'minAreaRatio']);
   if (value.format !== 'source-finish-v1' || !Array.isArray(shadow.depth) || shadow.depth.length !== 2) throw new TypeError('Unsupported source finishing policy');
   const tolerance = number(value.tolerance), low = number(shadow.depth[0]), high = number(shadow.depth[1]);
   const gap = number(shadow.gap), minAreaRatio = number(shadow.minAreaRatio);
@@ -88,13 +96,15 @@ export function parseSourceFinish(input: unknown): SourceFinishPolicy {
     outline = { rim: [low, high], tolerance };
   }
   const patterns = 'patterns' in value ? parseSourcePatterns(value.patterns) : undefined;
+  const texture = 'texture' in value ? parseSourceTexture(value.texture) : undefined;
   return { format: 'source-finish-v1', tolerance, shadow: { depth: [low, high], gap, minAreaRatio },
-    ...(slice ? { slice } : {}), ...(outline ? { outline } : {}), ...(patterns ? { patterns } : {}) };
+    ...(slice ? { slice } : {}), ...(outline ? { outline } : {}), ...(patterns ? { patterns } : {}), ...(texture ? { texture } : {}) };
 }
 
 export function compileSourceFinish(policy: SourceFinishPolicy, request: FinishCoordinates, measures: { capHeight: number }): SourceFinishPlan {
   if (!sourceFinishFills(policy).includes(request.fill)) throw new RangeError(`Unsupported source finish: ${request.fill}`);
   const { capHeight } = measures, size = request.module;
+  const texture = policy.texture ? compileSourceTexture(policy.texture, request, capHeight) : undefined;
   let slice: SlicePlan | undefined;
   if (policy.slice && request.slice !== 0) {
     if (![request.slice, request.slicePos, request.sliceRound].every(n => Number.isFinite(n) && n >= 0 && n <= 1)
@@ -103,18 +113,19 @@ export function compileSourceFinish(policy: SourceFinishPolicy, request: FinishC
     slice = { at: capHeight * (low + (high - low) * request.slicePos), gap: capHeight * policy.slice.maxGap * request.slice,
       rounding: request.sliceRound, tolerance: policy.tolerance };
   }
-  if (request.fill === 'solid') return { kind: 'solid', ...(slice ? { slice } : {}) };
+  const additions = { ...(slice ? { slice } : {}), ...(texture ? { texture } : {}) };
+  if (request.fill === 'solid') return { kind: 'solid', ...additions };
   if (!Number.isFinite(capHeight) || capHeight <= 0 || !Number.isFinite(size) || size < 0 || size > 1) throw new RangeError('Invalid source finishing coordinates');
   if (request.fill === 'outline' && policy.outline) {
     const [low, high] = policy.outline.rim;
-    return { kind: 'outline', ...compileHollow({ rim: capHeight * (low + (high - low) * size), tolerance: policy.outline.tolerance }), ...(slice ? { slice } : {}) };
+    return { kind: 'outline', ...compileHollow({ rim: capHeight * (low + (high - low) * size), tolerance: policy.outline.tolerance }), ...additions };
   }
   if (policy.patterns && sourcePatternFills(policy.patterns).some(kind => kind === request.fill)) {
-    return { kind: 'pattern', pattern: compileSourcePattern(policy.patterns, request, { capHeight, tolerance: policy.tolerance }), ...(slice ? { slice } : {}) };
+    return { kind: 'pattern', pattern: compileSourcePattern(policy.patterns, request, { capHeight, tolerance: policy.tolerance }), ...additions };
   }
   const [low, high] = policy.shadow.depth, dx = capHeight * (low + (high - low) * size), gap = capHeight * policy.shadow.gap;
   if (gap < policy.tolerance * 4) throw new RangeError('The shadow gap is too small for its curve tolerance');
-  return { kind: 'shadow', dx, dy: -dx, gap, tolerance: policy.tolerance, minArea: gap * gap * policy.shadow.minAreaRatio, ...(slice ? { slice } : {}) };
+  return { kind: 'shadow', dx, dy: -dx, gap, tolerance: policy.tolerance, minArea: gap * gap * policy.shadow.minAreaRatio, ...additions };
 }
 
 type Cubic = [Pt, Pt, Pt, Pt];
@@ -546,10 +557,11 @@ function visibleComponents(polys: Pt[][], minimum: number): Pt[][] {
 }
 
 export function finishSourceGlyph(glyph: Glyph, plan: SourceFinishPlan): Glyph {
-  if (plan.kind === 'solid' && !plan.slice || !glyph.cmds.length) return glyph;
+  if (plan.kind === 'solid' && !plan.slice && !plan.texture || !glyph.cmds.length) return glyph;
   const editable = glyph.editable ?? glyph.drawn;
   if (!editable) throw new TypeError('A source finish requires its editable drawing');
-  const face = plan.slice ? openedSlice(glyph.cmds, plan.slice) : glyph.cmds;
+  const textured = plan.texture ? textureSourceInk(glyph.cmds, plan.texture, glyph.ch) : glyph.cmds;
+  const face = plan.slice ? openedSlice(textured, plan.slice) : textured;
   if (plan.kind === 'solid') {
     const box = cmdsBox(face);
     return { ...glyph, cmds: face, d: cmdsToD(face), editable, fx: true,
