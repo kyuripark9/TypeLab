@@ -27,9 +27,17 @@ export function sourceAllows(p: Pick<Params, 'sourceProgram'>, key: string, valu
   return !!finish && sourceFinishFills(finish).some(fill => fill === value);
 }
 
+/** A supported effect parameter is shown only while the selected fill uses it. */
+export function sourceVisible(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Params, 'fill'>>, key: string, glyph?: string | null): boolean {
+  if (!sourceSupports(p, key, glyph)) return false;
+  const finish = programInfo(p.sourceProgram)?.data.finish;
+  return !finish || !sourceFinishControls(finish).some(control => control === key)
+    || sourceFinishControls(finish, p.fill).some(control => control === key);
+}
+
 /** A source may offer an authored sub-slider without its generated shape picker. */
-export function sourceControl(p: Pick<Params, 'sourceProgram'>, key: ControlKey, glyph?: string | null): ControlKey | 'terminalLength' | 'dotSize' | undefined {
-  if (sourceSupports(p, key, glyph)) return key;
+export function sourceControl(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Params, 'fill'>>, key: ControlKey, glyph?: string | null): ControlKey | 'terminalLength' | 'dotSize' | undefined {
+  if (sourceVisible(p, key, glyph)) return key;
   if (key === 'terminal' && sourceSupports(p, 'terminalLength', glyph)) return 'terminalLength';
   if (key === 'dots' && sourceSupports(p, 'dotSize', glyph)) return 'dotSize';
   return undefined;
@@ -39,7 +47,7 @@ export function sourceNotice(p: Pick<Params, 'sourceProgram'>): string {
   const program = programInfo(p.sourceProgram);
   const glyphs = [...new Set([...Object.values(program?.featureGlyphs ?? {}).flat(), ...(program?.componentGlyphs ?? [])])].join(', ');
   if (program?.data.finish) {
-    return 'This style has reviewed weight variations and effects. Points edits stay editable after applying an effect.'
+    return 'This style has authored weight variations and effects. Points edits stay editable after applying an effect.'
       + (glyphs ? ` Letter controls are available for ${glyphs} while editing that letter alone.` : '');
   }
   if (program?.data.components) return `This style has weight variations and letter controls for ${glyphs}. Inspect one and switch from All letters to that letter alone.`;

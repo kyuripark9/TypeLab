@@ -111,7 +111,8 @@ function StyleFilters() {
     to each style. Shuffle and Clear sit on the first section's heading line. */
 function StyleTraits() {
   const n = useEditor(s => Object.keys(s.traits).length);
-  const base = useEditor(s => styleById(s.styleId)) ?? PAGE_STYLES[0], params = adjustedParams(base, {});
+  const traits = useEditor(s => s.traits);
+  const base = useEditor(s => styleById(s.styleId)) ?? PAGE_STYLES[0], params = adjustedParams(base, traits);
   const sections = TRAIT_SECTIONS.map(section => ({ ...section, traits: section.traits.filter(trait => traitOptions(params, trait.id).length) })).filter(section => section.traits.length);
   const tools = (
     <div className="traits-tools">
@@ -162,7 +163,7 @@ function TraitRow({ def, base, params }: { def: TraitDef; base: StyleDef; params
   return (
     <div className="trait" role="group" aria-labelledby={`tr-${def.id}`}>
       <div className="trait-head">
-        <span className="trait-label" id={`tr-${def.id}`} title={def.hint}>{def.label}</span>
+        <span className="trait-label" id={`tr-${def.id}`} title={def.hint}>{params.sourceProgram && def.id === 'corners' ? 'Pattern corners' : def.label}</span>
         {picked && <button className="trait-any" onClick={() => actions.setTrait(def.id, null)} title="Let each style keep its own">Any</button>}
       </div>
       <div className="trait-opts" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))` }}>

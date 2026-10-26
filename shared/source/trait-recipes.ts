@@ -1,7 +1,7 @@
 /* Adjust recipes describe changes from an authored style, within its pinned coordinates. */
 import { DEFAULTS, type Params } from '../params';
 import type { TraitId, TraitOption } from '../traits';
-import { sourceAllows } from './capabilities';
+import { sourceAllows, sourceVisible } from './capabilities';
 import { masterInfo } from './master-catalog';
 import { sliderAt } from './masters';
 import { programInfo } from './program-catalog';
@@ -9,6 +9,7 @@ import { widthSliderAt } from './width-masters';
 
 export function sourceTraitOptions(p: Params, id: TraitId, legacy: readonly TraitOption[]): readonly TraitOption[] {
   if (!p.sourceProgram) return legacy;
+  if (id === 'corners' && !sourceVisible(p, 'roundness')) return [];
   const base = { ...DEFAULTS, ...p.freeAt };
   let options: readonly TraitOption[] = legacy;
   if (id === 'weight') {

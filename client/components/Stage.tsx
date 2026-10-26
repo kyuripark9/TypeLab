@@ -4,7 +4,7 @@
    slider and box, and the inspector over it while a letter is open. Like Google Fonts, the one bar on top sets the
    sample text, both for the style cards and for the live preview of the design. The size only shows with the
    preview: the cards are for comparing styles, so every card in a layout keeps one size. */
-import { useDeferredValue, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import { MOODS, PAGE_STYLES, STYLE_GROUPS, startStyle, styleById, type StyleDef } from '../../shared/content';
 import { parseFontId, STYLE_FONTS } from '../../shared/free-fonts';
 import { fontStyle, textWidth, useWebFont, type WebFont } from '../lib/free';
@@ -222,7 +222,7 @@ function ActiveBar({ onClear }: { onClear: () => void }) {
     ...(f.query?.trim() ? [{ key: 'q', label: `“${f.query.trim()}”`, remove: () => actions.setQuery('') }] : []),
     ...f.groups.map(g => STYLE_GROUPS.find(x => x.id === g)!).map(({ id, label, card }) => ({ key: `g-${id}`, label, card, remove: () => actions.toggleGroup(id) })),
     ...f.moods.map(m => MOODS.find(x => x.id === m)!).map(({ id, label, card }) => ({ key: `m-${id}`, label, card, remove: () => actions.toggleMood(id) })),
-    ...traitLabels(adjustedParams(base, {}), traits).map(t => ({ key: `t-${t.id}`, label: t.label, trait: true, remove: () => actions.setTrait(t.id, null) }))
+    ...traitLabels(adjustedParams(base, traits), traits).map(t => ({ key: `t-${t.id}`, label: t.label, trait: true, remove: () => actions.setTrait(t.id, null) }))
   ];
   if (!items.length) return null;
   return (
@@ -256,13 +256,23 @@ function StyleCard({ style: s, text, view, clamp }: { style: StyleDef; text: str
   const traits = useEditor(st => st.traits), params = adjustedParams(s, traits), neutral = adjustedParams(s, {});
   const adjusted = !!params.sourceProgram && params !== neutral;
   const on = useEditor(st => startStyle(st.styleId, st.params) === s && (!id || !!st.params.freeFont));
+  const [card, setCard] = useState<HTMLButtonElement | null>(null), [near, setNear] = useState(false);
+  useEffect(() => {
+    if (!card) return;
+    if (typeof IntersectionObserver === 'undefined') { setNear(true); return; }
+    // Load authored geometry shortly before its card scrolls into view, instead of fetching every family at once.
+    const observer = new IntersectionObserver(entries => setNear(entries.some(entry => entry.isIntersecting)), { rootMargin: '400px' });
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, [card]);
+  const renderAdjusted = adjusted && (near || on);
   const font = useWebFont(id, previewFontFor(s.id, neutral.sourceProgram)), [ref, box] = useSize<HTMLSpanElement>();
   return (
-    <button className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
+    <button ref={setCard} className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
       <span className="card-name">{s.name}<span className="card-like">{id ? parseFontId(id)?.family : `Built from ${s.params.build}`}</span></span>
-      {id && !adjusted
+      {id && !renderAdjusted
         ? <span ref={ref} className={`card-free${font ? '' : ' loading'}${clamp ? ' clamp' : ''}`} style={{ ...(font && fontStyle(font)), fontSize: wordFit(font, text, box.width, CARD_SIZE[view]) }}>{text}</span>
-        : <BuiltText className="card-free" params={adjusted ? params : s.params} text={text} size={CARD_SIZE[view]} lines={view === 'grid' ? GRID_LINES : undefined} />}
+        : <BuiltText className="card-free" params={renderAdjusted ? params : s.params} text={text} size={CARD_SIZE[view]} lines={view === 'grid' ? GRID_LINES : undefined} />}
     </button>
   );
 }

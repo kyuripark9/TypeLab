@@ -62,8 +62,8 @@ export const ARC_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height',
   'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice', 'rough'];
 /** Whether control `k` shapes letters built as `p` says: letters built from blocks take their kind's BLOCK_CONTROLS
     alone (grid letters on seven rows GRID7_CONTROLS too), letters built from arcs ARC_CONTROLS, strokes every control. */
-export const controlInUse = (k: ControlKey, p: Pick<Params, 'build' | 'blockForm'> & Partial<Pick<Params, 'gridRows' | 'sourceProgram'>>, glyph?: string | null) =>
-  p.sourceProgram ? sourceControl({ sourceProgram: p.sourceProgram }, k, glyph) !== undefined
+export const controlInUse = (k: ControlKey, p: Pick<Params, 'build' | 'blockForm'> & Partial<Pick<Params, 'gridRows' | 'sourceProgram' | 'fill'>>, glyph?: string | null) =>
+  p.sourceProgram ? sourceControl({ sourceProgram: p.sourceProgram, fill: p.fill }, k, glyph) !== undefined
     : p.build === 'blocks' ? BLOCK_CONTROLS[p.blockForm].includes(k) || (p.blockForm === 'grid' && p.gridRows === 'seven' && GRID7_CONTROLS.includes(k))
       : p.build === 'arcs' ? ARC_CONTROLS.includes(k) : true;
 const PAGES = new Map<string, typeof CATEGORIES>();
@@ -71,8 +71,8 @@ const PAGES = new Map<string, typeof CATEGORIES>();
     control in use. Letters built from blocks have no stroke ends, serifs or other letter forms, so those pages go (and
     Inner space and Heights for the blocks that don't take their settings); letters built from arcs keep their ends,
     have no serifs, and of the letter forms only their dots. The same array each time for the same letters. */
-export function pagesFor(p: Pick<Params, 'build' | 'blockForm'> & Partial<Pick<Params, 'gridRows' | 'sourceProgram'>>, glyph?: string | null): typeof CATEGORIES {
-  const id = p.sourceProgram ? `${p.sourceProgram.kind}:${p.sourceProgram.digest}:${p.sourceProgram.fontId}:${glyph ?? ''}`
+export function pagesFor(p: Pick<Params, 'build' | 'blockForm'> & Partial<Pick<Params, 'gridRows' | 'sourceProgram' | 'fill'>>, glyph?: string | null): typeof CATEGORIES {
+  const id = p.sourceProgram ? `${p.sourceProgram.kind}:${p.sourceProgram.digest}:${p.sourceProgram.fontId}:${glyph ?? ''}:${p.fill ?? ''}`
     : p.build === 'blocks' ? `${p.blockForm}:${p.gridRows ?? ''}` : p.build;
   let pages = PAGES.get(id);
   if (!pages) {

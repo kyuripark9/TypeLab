@@ -107,8 +107,10 @@ export function traitOptions(p: Params, id: TraitId): readonly TraitOption[] {
 /** `p` with every picked trait laid over it, in the order the traits are listed. */
 export function applyTraits(p: Params, t: Traits): Params {
   let out = p;
+  const fill = p.sourceProgram ? traitOption(p, 'fill', t.fill)?.set.fill : undefined;
+  const context = fill === undefined || fill === p.fill ? p : { ...p, fill };
   for (const def of TRAITS) {
-    const o = traitOption(p, def.id, t[def.id]);
+    const o = traitOption(context, def.id, t[def.id]);
     if (o) {
       const patch = { ...o.reset, ...o.set };
       // Unchanged source recipes retain the neutral preview; legacy recipes keep their existing copy behavior.

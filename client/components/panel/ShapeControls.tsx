@@ -13,7 +13,7 @@ import { CtlHead, FoldHead, Fold, Quiet, useControlFocus } from './heads';
 import { useReachNote } from './reach';
 import { SliderControl } from './SliderControl';
 import { EachEnd } from './LetterOwn';
-import { sourceAllows, sourceSupports } from '../../../shared/source/capabilities';
+import { sourceAllows, sourceVisible } from '../../../shared/source/capabilities';
 
 /** Picks a stroke end's kind and its form together, as one change to undo. */
 const pickEnd = (t: Terminal, form: TerminalForm) => { actions.setParam('terminal', t); actions.setParam('terminalForm', form); actions.commit(); };
@@ -230,7 +230,7 @@ export function FillControl() {
         <div className={solid ? 'reveal' : 'reveal open'} inert={solid}>
           <div>
             {/* (Spread only where the fill is drawn on a grid of cells) */}
-            {(Object.keys(FILL_SUBS) as FillSubKey[]).filter(k => sourceSupports({ sourceProgram }, k) && (k !== 'dotGain' || GRID_FILLS.includes(fill)))
+            {(Object.keys(FILL_SUBS) as FillSubKey[]).filter(k => sourceVisible({ sourceProgram, fill }, k) && (k !== 'dotGain' || !!sourceProgram || GRID_FILLS.includes(fill)))
               .map(k => <SliderControl key={k} k={k} def={FILL_SUBS[k]} />)}
           </div>
         </div>

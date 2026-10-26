@@ -2,7 +2,7 @@
 import { useLayoutEffect, type ReactNode } from 'react';
 import { PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, ROUND_SUBS, TERMINAL_SUBS, WEIGHT_SUBS, controlFor, controlInUse, pagesFor, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
 import type { NumericParam, SubControlDef } from '../../../shared/params';
-import { sourceControl, sourceNotice, sourceSupports } from '../../../shared/source/capabilities';
+import { sourceControl, sourceNotice, sourceVisible } from '../../../shared/source/capabilities';
 import { mastersForFont, masterInfo } from '../../../shared/source/master-catalog';
 import { programInfo } from '../../../shared/source/program-catalog';
 import { programUpgrade } from '../../../shared/source/adoption';
@@ -17,9 +17,9 @@ import { TerminalControl, StoryControl, type LetterFormKey, FormControl, SerifCo
 export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
   const serifs = useParam('serif'), shape = useParam('serifShape'), pointed = shape === 'wedge' || shape === 'diamond', outside = useParam('serifSides') === 'outside';
   const build = useParam('build'), blockForm = useParam('blockForm'), gridRows = useParam('gridRows');
-  const sourceProgram = useParam('sourceProgram');
+  const sourceProgram = useParam('sourceProgram'), fill = useParam('fill');
   const letter = useEditor(letterOf);
-  const pages = pagesFor({ build, blockForm, gridRows, sourceProgram }, letter);
+  const pages = pagesFor({ build, blockForm, gridRows, sourceProgram, fill }, letter);
   const adoption = programUpgrade(sourceProgram);
   // a page with nothing for these letters isn't offered; one opened anyway (undo back to blocks, a link) gives way to the
   // page before it before it is drawn
@@ -31,7 +31,7 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
   // and serifs that only reach out of the letter leave none inside it; letters built from blocks or arcs have no
   // skeleton of strokes, so only the controls that shape them show
   const all = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category);
-  const keys = all.filter(k => controlInUse(k, { build, blockForm, gridRows, sourceProgram }, letter) &&
+  const keys = all.filter(k => controlInUse(k, { build, blockForm, gridRows, sourceProgram, fill }, letter) &&
     (category !== 'serifs' || k === 'serif' || (serifs && !(pointed && k === 'serifTip') && !(outside && k === 'serifInner'))));
   const inspecting = useEditor(s => !!s.inspect);
   // the page opens on its first setting these letters take, so the explainer speaks of one shown here
@@ -39,10 +39,10 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
   useLayoutEffect(() => {
     const ks = keyList.split(',') as ControlKey[];
     const state = useEditor.getState();
-    if (keyList && (!ks.includes(controlFor(state.active)) || !sourceSupports(state.params, state.active, letter))) {
+    if (keyList && (!ks.includes(controlFor(state.active)) || !sourceVisible(state.params, state.active, letter))) {
       actions.setActive(sourceControl(state.params, ks[0], letter) ?? ks[0]);
     }
-  }, [keyList, letter, sourceProgram]);
+  }, [keyList, letter, sourceProgram, fill]);
   const note = sourceProgram ? <p className="page-note">{sourceNotice({ sourceProgram })}</p> : build !== 'strokes' && keys.length < all.length
     ? <p className="page-note">Letters built from {build} take only these settings here.</p>
     : category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
@@ -132,14 +132,15 @@ const NESTED: Partial<Record<ControlKey, { subs?: Record<string, SubControlDef>;
     sliders or a letter's own values below theirs, and Stencil and Slice are cuts with a switch. */
 function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   const n = NESTED[k];
-  const sourceProgram = useParam('sourceProgram');
+  const sourceProgram = useParam('sourceProgram'), fill = useParam('fill');
   const letter = useEditor(letterOf);
   const weights = k === 'weight' && masterInfo(sourceProgram);
   const width = k === 'width' && programInfo(sourceProgram)?.width;
   const weightLabel = (value: number) => `${WEIGHTS.find(w => w.cls === value)?.name ?? 'Weight'} ${value}`;
   const widthLabel = (value: number) => width && value === width.neutral ? 'Original width' : `${value}% width`;
   const c = weights ? { ...CONTROLS[k], lo: weightLabel(weights.min), hi: weightLabel(weights.max) }
-    : width ? { ...CONTROLS[k], lo: widthLabel(width.min), hi: widthLabel(width.max) } : CONTROLS[k];
+    : width ? { ...CONTROLS[k], lo: widthLabel(width.min), hi: widthLabel(width.max) }
+    : sourceProgram && k === 'roundness' ? { ...CONTROLS[k], label: 'Pattern corners' } : CONTROLS[k];
   if (sourceProgram && k === 'terminal') return <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} parts={parts} />;
   if (sourceProgram && k === 'dots') return <SliderControl k="dotSize" def={{ ...DOT_SUBS.dotSize, label: 'Dot size' }} parts={parts} />;
   if (c.type === 'options') return <TerminalControl parts={parts} />;
@@ -148,7 +149,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   if (n) {
     return (
       <SliderControl k={k as NumericParam & ControlKey} def={c} parts={parts}>
-        {Object.entries(n.subs ?? {}).filter(([s]) => sourceSupports({ sourceProgram }, s, letter)).map(([s, d]) => <SliderControl key={s} k={s as NumericParam & ActiveKey} def={d} />)}
+        {Object.entries(n.subs ?? {}).filter(([s]) => sourceVisible({ sourceProgram, fill }, s, letter)).map(([s, d]) => <SliderControl key={s} k={s as NumericParam & ActiveKey} def={d} />)}
         {!sourceProgram && n.more}
       </SliderControl>
     );

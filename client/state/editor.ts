@@ -14,7 +14,7 @@ import { designSourceForFont as sourceForFont, masterInfo, mastersForFont } from
 import { programInfo } from '../../shared/source/program-catalog';
 import { adoptProgram } from '../../shared/source/adoption';
 import { onSource, sourceReady } from '../../shared/source/registry';
-import { sourceAllows, sourceControl, sourceSupports } from '../../shared/source/capabilities';
+import { sourceAllows, sourceControl, sourceSupports, sourceVisible } from '../../shared/source/capabilities';
 import { sourceStyleParams } from '../../shared/source/style';
 import { DEFAULT_NAME, cleanName, slug, type Design, type DesignInput } from '../../shared/design';
 import { cleanLog, mergeLogs, ownOf, packLog, recordEdits, sameOwn, withOwn, type LetterEdit, type LetterLog } from '../../shared/letter-log';
@@ -162,8 +162,9 @@ function startParams(st: StyleDef, traits: Traits, free = true): Params {
 /** Unsupported traits stay out of a source design, including when picked before switching styles. */
 function supportedTraits(p: Params, traits: Traits): Traits {
   const out: Traits = {};
+  const context = p.sourceProgram ? applyTraits(p, traits) : p;
   for (const def of TRAIT_SECTIONS.flatMap(section => section.traits)) {
-    const option = traitOption(p, def.id, traits[def.id]);
+    const option = traitOption(context, def.id, traits[def.id]);
     if (option) out[def.id] = option.id;
   }
   return out;
@@ -406,7 +407,8 @@ export function useStyleMatch() {
 export const traitLabels = (p: Params, traits: Traits) =>
   TRAIT_SECTIONS.flatMap(sec => sec.traits).flatMap(t => {
     const option = traitOption(p, t.id, traits[t.id]);
-    return option ? [{ id: t.id, label: `${t.label}: ${option.label}` }] : [];
+    const label = p.sourceProgram && t.id === 'corners' ? 'Pattern corners' : t.label;
+    return option ? [{ id: t.id, label: `${label}: ${option.label}` }] : [];
   });
 
 /** New traits. A design still as it was picked on the Style page follows them. */
@@ -614,7 +616,7 @@ export const actions = {
     if (category === 'style') { set({ category, inspect: null, part: null }); return; }
     const s = get(), p = s.params, glyph = letterOf(s), pages = pagesFor(p, glyph);
     if (!pages.some(page => page.id === category)) category = pages.find(page => page.id !== 'style')?.id ?? 'style';
-    if (p.sourceProgram) active = active && sourceSupports(p, active, glyph) ? active
+    if (p.sourceProgram) active = active && sourceVisible(p, active, glyph) ? active
       : (Object.keys(CONTROLS) as ControlKey[]).filter(key => CONTROLS[key].cat === category).map(key => sourceControl(p, key, glyph)).find(key => key !== undefined);
     // the "Customize" offered on picking a style has done its job once a page of controls is open
     set(s => ({ category, active: active ?? firstControl(category), stylePanelOpen: false, ...(s.toast?.id === styleToast ? { toast: null } : {}) }));
