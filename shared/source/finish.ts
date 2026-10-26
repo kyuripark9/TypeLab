@@ -4,21 +4,23 @@ import type { Glyph } from '../engine/font';
 import { combine, shape } from '../engine/boolean';
 import { cmdsBox, cmdsToD, cubicAt, inPoly, roundContour, signedArea, subCubic, transformCmds } from '../engine/geom';
 import type { Cmd, Pt } from '../engine/types';
+import { compileHollow, hollowSource, type HollowPlan } from './hollow';
 
 export interface SourceFinishPolicy {
   format: 'source-finish-v1';
   tolerance: number;
   shadow: { depth: readonly [number, number]; gap: number; minAreaRatio: number };
   slice?: { maxGap: number; position: readonly [number, number] };
+  outline?: { rim: readonly [number, number]; tolerance: number };
 }
 type FinishCoordinates = Pick<Params, 'fill' | 'module' | 'slice' | 'slicePos' | 'sliceRound'>;
 interface SlicePlan { at: number; gap: number; rounding: number; tolerance: number }
 export type SourceFinishPlan = ({ kind: 'solid' } | {
   kind: 'shadow'; dx: number; dy: number; gap: number; tolerance: number; minArea: number;
-}) & { slice?: SlicePlan };
+} | ({ kind: 'outline' } & HollowPlan)) & { slice?: SlicePlan };
 const FILLS: readonly Params['fill'][] = ['solid', 'shadow'];
 const CONTROLS: readonly (keyof Params)[] = ['fill', 'module'];
-export const sourceFinishFills = (_policy: SourceFinishPolicy): readonly Params['fill'][] => FILLS;
+export const sourceFinishFills = (policy: SourceFinishPolicy): readonly Params['fill'][] => policy.outline ? [...FILLS, 'outline'] : FILLS;
 export const sourceFinishControls = (policy: SourceFinishPolicy): readonly (keyof Params)[] => policy.slice
   ? [...CONTROLS, 'slice', 'slicePos', 'sliceRound'] : CONTROLS;
 export function sourceFinishDefaults(policy: SourceFinishPolicy, previous?: SourceFinishPolicy): Partial<FinishCoordinates> {
@@ -33,7 +35,9 @@ export function sourceFinishExtends(previous: SourceFinishPolicy, next: SourceFi
     && previous.shadow.depth[0] === next.shadow.depth[0] && previous.shadow.depth[1] === next.shadow.depth[1]
     && previous.shadow.gap === next.shadow.gap && previous.shadow.minAreaRatio === next.shadow.minAreaRatio
     && (!previous.slice || !!next.slice && previous.slice.maxGap === next.slice.maxGap
-      && previous.slice.position[0] === next.slice.position[0] && previous.slice.position[1] === next.slice.position[1]);
+      && previous.slice.position[0] === next.slice.position[0] && previous.slice.position[1] === next.slice.position[1])
+    && (!previous.outline || !!next.outline && previous.outline.tolerance === next.outline.tolerance
+      && previous.outline.rim[0] === next.outline.rim[0] && previous.outline.rim[1] === next.outline.rim[1]);
 }
 
 function object(input: unknown, keys: readonly string[]): Record<string, unknown> {
@@ -47,7 +51,7 @@ function number(input: unknown): number {
   return input;
 }
 export function parseSourceFinish(input: unknown): SourceFinishPolicy {
-  const value = object(input, ['format', 'tolerance', 'shadow', 'slice']), shadow = object(value.shadow, ['depth', 'gap', 'minAreaRatio']);
+  const value = object(input, ['format', 'tolerance', 'shadow', 'slice', 'outline']), shadow = object(value.shadow, ['depth', 'gap', 'minAreaRatio']);
   if (value.format !== 'source-finish-v1' || !Array.isArray(shadow.depth) || shadow.depth.length !== 2) throw new TypeError('Unsupported source finishing policy');
   const tolerance = number(value.tolerance), low = number(shadow.depth[0]), high = number(shadow.depth[1]);
   const gap = number(shadow.gap), minAreaRatio = number(shadow.minAreaRatio);
@@ -61,11 +65,19 @@ export function parseSourceFinish(input: unknown): SourceFinishPolicy {
     if (maxGap <= 0 || maxGap > .25 || bottom <= 0 || bottom >= top || top >= 1) throw new RangeError('Source slice dimensions exceed the supported bounds');
     slice = { maxGap, position: [bottom, top] };
   }
-  return { format: 'source-finish-v1', tolerance, shadow: { depth: [low, high], gap, minAreaRatio }, ...(slice ? { slice } : {}) };
+  let outline: SourceFinishPolicy['outline'];
+  if ('outline' in value) {
+    const hollow = object(value.outline, ['rim', 'tolerance']);
+    if (!Array.isArray(hollow.rim) || hollow.rim.length !== 2) throw new TypeError('Invalid source outline rim interval');
+    const low = number(hollow.rim[0]), high = number(hollow.rim[1]), tolerance = number(hollow.tolerance);
+    if (low <= 0 || low >= high || high > .1 || tolerance < .01 || tolerance > .25) throw new RangeError('Source outline dimensions exceed the supported bounds');
+    outline = { rim: [low, high], tolerance };
+  }
+  return { format: 'source-finish-v1', tolerance, shadow: { depth: [low, high], gap, minAreaRatio }, ...(slice ? { slice } : {}), ...(outline ? { outline } : {}) };
 }
 
 export function compileSourceFinish(policy: SourceFinishPolicy, request: FinishCoordinates, measures: { capHeight: number }): SourceFinishPlan {
-  if (request.fill !== 'solid' && request.fill !== 'shadow') throw new RangeError(`Unsupported source finish: ${request.fill}`);
+  if (!sourceFinishFills(policy).includes(request.fill)) throw new RangeError(`Unsupported source finish: ${request.fill}`);
   const { capHeight } = measures, size = request.module;
   let slice: SlicePlan | undefined;
   if (policy.slice && request.slice !== 0) {
@@ -77,6 +89,10 @@ export function compileSourceFinish(policy: SourceFinishPolicy, request: FinishC
   }
   if (request.fill === 'solid') return { kind: 'solid', ...(slice ? { slice } : {}) };
   if (!Number.isFinite(capHeight) || capHeight <= 0 || !Number.isFinite(size) || size < 0 || size > 1) throw new RangeError('Invalid source finishing coordinates');
+  if (request.fill === 'outline' && policy.outline) {
+    const [low, high] = policy.outline.rim;
+    return { kind: 'outline', ...compileHollow({ rim: capHeight * (low + (high - low) * size), tolerance: policy.outline.tolerance }), ...(slice ? { slice } : {}) };
+  }
   const [low, high] = policy.shadow.depth, dx = capHeight * (low + (high - low) * size), gap = capHeight * policy.shadow.gap;
   if (gap < policy.tolerance * 4) throw new RangeError('The shadow gap is too small for its curve tolerance');
   return { kind: 'shadow', dx, dy: -dx, gap, tolerance: policy.tolerance, minArea: gap * gap * policy.shadow.minAreaRatio, ...(slice ? { slice } : {}) };
@@ -518,6 +534,11 @@ export function finishSourceGlyph(glyph: Glyph, plan: SourceFinishPlan): Glyph {
   if (plan.kind === 'solid') {
     const box = cmdsBox(face);
     return { ...glyph, cmds: face, d: cmdsToD(face), editable, fx: true,
+      ...(box ? { bodyW: box.x1 - box.x0, lsb: box.x0, rsb: glyph.adv - box.x1 } : {}) };
+  }
+  if (plan.kind === 'outline') {
+    const { cmds } = hollowSource(face, plan), box = cmdsBox(cmds);
+    return { ...glyph, cmds, d: cmdsToD(cmds), editable, fx: true,
       ...(box ? { bodyW: box.x1 - box.x0, lsb: box.x0, rsb: glyph.adv - box.x1 } : {}) };
   }
   const ink = shape(sourceFinishPolygons(face, plan.tolerance)), solid = combine([ink], ink.has);

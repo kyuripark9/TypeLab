@@ -1,0 +1,40 @@
+{
+  "package": "clipper2-ts",
+  "version": "2.0.1-18",
+  "license": "BSL-1.0",
+  "revision": "bf6e0303217bdffcbe2f03ab7f6218194df8e7e4",
+  "source": "https://github.com/countertype/clipper2-ts/blob/bf6e0303217bdffcbe2f03ab7f6218194df8e7e4/src/offset.ts",
+  "changes": [
+    "Import Core and Engine symbols through the supported clipper2-ts package exports.",
+    "Throw when either internal Clipper64 union returns false.",
+    "Remove source-map pointers that refer to the original package dist location."
+  ],
+  "imports": [
+    "Point64",
+    "PointD",
+    "Path64",
+    "PathD",
+    "Paths64",
+    "ClipType",
+    "FillRule",
+    "Point64Utils",
+    "PointDUtils",
+    "InternalClipper",
+    "Clipper64",
+    "PolyTree64"
+  ],
+  "files": [
+    {
+      "upstream": "dist/Offset.js",
+      "local": "clipper2-offset.js",
+      "upstreamSha256": "ae8a8c8a3d92fa38475b262c5b010def77f92a90401f0d44b02bd4ca65a1ac9b",
+      "vendoredSha256": "f1c91edffc52bf19259e2388b2a0d4c0f62401ac17c74574c29c4494829fbff5"
+    },
+    {
+      "upstream": "dist/Offset.d.ts",
+      "local": "clipper2-offset.d.ts",
+      "upstreamSha256": "f51dc65fd511372ed8e78bcf811187b950d2093a68dde689d57b69b894cb1266",
+      "vendoredSha256": "9a07735d47d4a3b156fd77ea3db1ce53914c7f00f78b3941c13ace83af24de73"
+    }
+  ]
+}
