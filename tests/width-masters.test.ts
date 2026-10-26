@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { ALL_CHARS, buildFont, packNode } from '../shared/engine';
 import { cmdsBox } from '../shared/engine/geom';
+import type { Cmd } from '../shared/engine/types';
 import type { FreeFontData } from '../shared/engine/free';
 import { DEFAULTS, drawnAtOf, freeAtOf, sanitizeParams, upgradeParams, type Params } from '../shared/params';
 import { masterInfo } from '../shared/source/master-catalog';
@@ -14,9 +15,10 @@ import { loadSource } from '../server/sources';
 import { buildOTF } from '../server/export';
 import { opentype } from '../server/opentype';
 import { traceOf } from '../client/lib/pen';
+import { adoptProgram } from '../shared/source/adoption';
 
-function family(fontId: string) {
-  const ref = programForFont(fontId), info = masterInfo(ref), definition = programInfo(ref);
+function family(fontId: string, ref = programForFont(fontId)) {
+  const info = masterInfo(ref), definition = programInfo(ref);
   assert.ok(ref && info && definition);
   loadSource(ref);
   const program = sourceProgram(ref);
@@ -75,7 +77,7 @@ describe('designed width interpolation', () => {
 describe('published source programs', () => {
   it('preserves the complete weight family at neutral and draws every glyph across width and height corners', () => {
     for (const definition of PROGRAM_REVISIONS) {
-      const { program, params, info } = family(definition.ref.fontId);
+      const { program, params, info } = family(definition.ref.fontId, definition.ref);
       for (const weight of [0, .37, 1]) {
         const original = buildFont({ ...params, sourceProgram: info.ref, width: DEFAULTS.width, freeAt: { ...params.freeAt, width: DEFAULTS.width }, weight });
         const current = buildFont({ ...params, weight });
@@ -103,6 +105,51 @@ describe('published source programs', () => {
     assert.ok(ratio > .84 && ratio < .87, `Reviewed H width ratio: ${ratio}`);
     const old = glyph({ ...params, sourceProgram: masterInfo(params.sourceProgram)!.ref, width: 0 }, 'H');
     assert.notDeepEqual(narrow.cmds, old.cmds);
+  });
+
+  it('preserves existing widths and point edits when a design adopts the expanded range', () => {
+    for (const fontId of ['Mainline:600', 'Parlance:500']) {
+      const previous = PROGRAM_REVISIONS.find(entry => entry.ref.fontId === fontId);
+      assert.ok(previous?.width);
+      assert.deepEqual(previous.width, { min: 75, neutral: 100, max: 100 });
+      const { params } = family(fontId, previous.ref);
+      loadSource(programForFont(fontId)!);
+      for (const width of [0, .23, .5, .88, 1]) {
+        const before: Params = { ...params, width, weight: .37, height: .63, xHeight: .42,
+          glyphs: { H: { width: .71 }, R: { width: .32, slant: .58 } } };
+        const source = glyph(before, 'R');
+        before.outlines = { R: { ...source.drawn, at: drawnAtOf(before, 'R'),
+          contours: source.drawn.contours.map(c => c.map(n => ({ ...n, x: n.x + 11,
+            ...(n.ix === undefined ? {} : { ix: n.ix + 11 }), ...(n.ox === undefined ? {} : { ox: n.ox + 11 }) }))) } };
+        const after = adoptProgram(before);
+        assert.ok(after);
+        assert.notEqual(after.sourceProgram?.digest, before.sourceProgram?.digest);
+        near(after.width, width / 3);
+        near(after.glyphs.H?.width ?? -1, .71 / 3);
+        near(after.glyphs.R?.width ?? -1, .32 / 3);
+        assert.equal(after.freeAt.width, 1 / 3);
+        assert.strictEqual(after.outlines, before.outlines);
+        assert.deepEqual(after.outlines.R.at?.sourceProgram, previous.ref);
+        const oldFont = buildFont(before), newFont = buildFont(after);
+        for (const ch of ALL_CHARS) {
+          const oldGlyph = oldFont.glyph(ch), newGlyph = newFont.glyph(ch);
+          assert.ok(oldGlyph && newGlyph);
+          near(newGlyph.adv, oldGlyph.adv);
+          assert.equal(newGlyph.cmds.length, oldGlyph.cmds.length);
+          for (let i = 0; i < oldGlyph.cmds.length; i++) {
+            const old: Cmd = oldGlyph.cmds[i], current: Cmd = newGlyph.cmds[i];
+            assert.equal(current[0], old[0]);
+            for (let j = 1; j < old.length; j++) {
+              const a = current[j], b = old[j];
+              assert.ok(typeof a === 'number' && typeof b === 'number'); near(a, b);
+            }
+          }
+        }
+        const restored = sanitizeParams(upgradeParams(JSON.parse(JSON.stringify(before)), 10));
+        assert.deepEqual(restored.sourceProgram, previous.ref, 'opening a saved design does not adopt a new range');
+        assert.equal(restored.width, width);
+      }
+    }
   });
 
   it('carries point edits through native widths without changing their base identity', () => {

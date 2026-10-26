@@ -311,20 +311,30 @@ export function renderWidthGrid(data: WeightWidthPrototype, output: string): voi
   });
   const selected = process.env.WIDTH_REVIEW_WEIGHTS ? process.env.WIDTH_REVIEW_WEIGHTS.split(',').map(Number)
     : unique([weights[0], weights[Math.floor(weights.length / 2)], data.defaultWeight, weights[weights.length - 1]]);
-  const texts = (process.env.WIDTH_REVIEW_TEXT ?? 'HnoagRjyus&@% The quick brown fox 0123456789').split('\n');
-  const rows = selected.flatMap(weight => grid.columns.flatMap(c => texts.map(text => ({ label: `${data.base.fontId} weight ${weight} width ${c.width}`,
-    text, font: display(interpolateWidthGrid(grid, weight, c.width)) }))));
+  const widths = process.env.WIDTH_REVIEW_WIDTHS ? process.env.WIDTH_REVIEW_WIDTHS.split(',').map(Number) : grid.columns.map(c => c.width);
+  const size = Number(process.env.WIDTH_REVIEW_SIZE ?? 42);
+  if (!Number.isFinite(size) || size <= 0) throw Error('Specimen cap height must be positive');
+  const allCharacters = process.env.WIDTH_REVIEW_ALL === '1';
+  const chars = Object.keys(data.samples[0].data.glyphs);
+  const texts = allCharacters ? Array.from({ length: Math.ceil(chars.length / 16) }, (_, i) => chars.slice(i * 16, (i + 1) * 16).join(''))
+    : (process.env.WIDTH_REVIEW_TEXT ?? 'HnoagRjyus&@% The quick brown fox 0123456789').split('\n');
+  const rows = selected.flatMap(weight => widths.flatMap(width => texts.map(text => ({ label: `${data.base.fontId} weight ${weight} width ${width}`,
+    text, font: display(interpolateWidthGrid(grid, weight, width)) }))));
   const neutral = interpolateWidthGrid(grid, data.defaultWeight, data.axis.neutral), condensed = interpolateWidthGrid(grid, data.defaultWeight, data.axis.min);
   const ratio = inkWidth(condensed.glyphs.H) / inkWidth(neutral.glyphs.H), stretched = { ...neutral, space: neutral.space * ratio,
     glyphs: Object.fromEntries(Object.entries(neutral.glyphs).map(([ch, glyph]) => [ch, scaled(glyph, ratio, 1)])) };
-  if (!process.env.WIDTH_REVIEW_TEXT) rows.push(...[{ label: 'Comparison: original width', font: neutral }, { label: 'Comparison: authored condensed', font: condensed },
+  if (!process.env.WIDTH_REVIEW_TEXT && !allCharacters) rows.push(...[{ label: 'Comparison: original width', font: neutral }, { label: 'Comparison: authored condensed', font: condensed },
     { label: `Comparison: geometric stretch ${ratio.toFixed(3)}`, font: stretched }].map(r => ({ ...r, text: 'Hnonminimum Rg@% Thin stems keep their strength', font: display(r.font) })));
-  writeFileSync(output + '.png', rowsPNG(rows, 42)); writeFileSync(output + '.svg', rowsSVG(rows, 42));
+  writeFileSync(output + '.png', rowsPNG(rows, size)); writeFileSync(output + '.svg', rowsSVG(rows, size));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [originalPath, extractedPath, output] = process.argv.slice(2);
   if (!originalPath || !extractedPath || !output) throw Error('Usage: width-masters.ts published-weight.json extracted-width.json prototype.json');
+  if (originalPath === '--render') {
+    renderWidthGrid(parseWidthPrototype(JSON.parse(readFileSync(extractedPath, 'utf8'))), output);
+    process.exit(0);
+  }
   const bytes = readFileSync(originalPath), original = parseWeightMasters(JSON.parse(bytes.toString('utf8')));
   const upstream = readUpstreamWidth(extractedPath, original.masters[0].data);
   const base: MasterSourceRef = { kind: 'masters-v1', digest: createHash('sha256').update(bytes).digest('hex'), fontId: original.source.fontId };

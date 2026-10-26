@@ -61,7 +61,7 @@ for (const weight of weights) for (const width of widths) {
       const actual = topology(glyph.contours), before = expected[ch]; cases++;
       if (actual.pieces !== before.pieces || actual.counters !== before.counters) failures.push({ ch, weight, width, setting: setting.name });
     }
-    if ((weight === first || weight === last) && width === data.axis.min) rows.push({
+    if ((weight === first || weight === last) && (width === data.axis.min || width === data.axis.max)) rows.push({
       label: `${data.base.fontId} weight ${weight}, width ${width}, ${setting.name}`,
       text: 'HnoagRjybdfiqp 0123456789', font: display(font, original.cap),
     });

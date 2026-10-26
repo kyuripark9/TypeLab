@@ -100,6 +100,14 @@ export function widthAt(p: Pick<Params, 'width' | 'freeAt'>, axis: WidthAxis): n
     : axis.neutral + (axis.max - axis.neutral) * (p.width - pick) / (1 - pick);
 }
 
+/** Preserve a design coordinate when a reviewed program expands its slider domain. */
+export function widthSliderAt(width: number, pick: number, axis: WidthAxis): number {
+  if (width === axis.neutral) return pick;
+  return width < axis.neutral
+    ? pick * (width - axis.min) / (axis.neutral - axis.min)
+    : pick + (1 - pick) * (width - axis.neutral) / (axis.max - axis.neutral);
+}
+
 const instances = new WeakMap<WidthMasters, Map<string, FreeFont>>();
 export function interpolateWidthMasters(program: WidthMasters, weight: number, width: number): FreeFont {
   if (width === program.data.axis.neutral) return interpolateMasters(program.base, weight);

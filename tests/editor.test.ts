@@ -69,7 +69,7 @@ describe('the editor', () => {
   it('starts a style in its free font, spaced as the font spaces its letters', () => {
     actions.loadStyle('serif');
     assert.equal(state().params.freeFont, STYLE_FONTS.serif);
-    assert.deepEqual(state().params.freeAt, { ...freeAtOf(serif.params), weight: 0.5 });
+    assert.deepEqual(state().params.freeAt, { ...freeAtOf(serif.params), weight: 0.5, crossbar: .5, tail: .5, terminalLength: .5, fill: 'solid' });
     assert.deepEqual([state().params.letterSpacing, state().params.wordSpacing], [DEFAULTS.letterSpacing, DEFAULTS.wordSpacing]);
     assert.deepEqual(state().params.sourceProgram, designSourceForFont(STYLE_FONTS.serif));
   });

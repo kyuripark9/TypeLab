@@ -1,5 +1,6 @@
 /* A source program selects compatible authored assets without replacing its stable master basis. */
 import { parseSourceRef, type MasterSourceRef } from './model';
+import { parseSourceFinish, type SourceFinishPolicy } from './finish';
 
 export interface WidthMasterRef { readonly kind: 'width-masters-v1'; readonly digest: string; readonly fontId: string }
 export interface FeatureMasterRef { readonly kind: 'feature-masters-v1'; readonly digest: string; readonly fontId: string }
@@ -9,6 +10,7 @@ export interface SourceProgramData {
   base: MasterSourceRef;
   width: WidthMasterRef | null;
   features: FeatureMasterRef | null;
+  finish?: SourceFinishPolicy;
 }
 
 function object(input: unknown): Record<string, unknown> {
@@ -26,7 +28,7 @@ function assetRef<K extends ProgramAssetRef['kind']>(input: unknown, kind: K, fo
 
 /** Dependencies name the same family; their payloads must also be validated against the complete base reference. */
 export function parseSourceProgram(input: unknown): SourceProgramData {
-  const value = object(input), fields = ['format', 'base', 'width', 'features'];
+  const value = object(input), fields = ['format', 'base', 'width', 'features', 'finish'];
   if (value.format !== 'source-program-v1' || Object.keys(value).some(key => !fields.includes(key))) {
     throw new TypeError('Invalid or unsupported source program');
   }
@@ -36,6 +38,7 @@ export function parseSourceProgram(input: unknown): SourceProgramData {
     format: 'source-program-v1', base,
     width: assetRef(value.width, 'width-masters-v1', base.fontId),
     features: assetRef(value.features, 'feature-masters-v1', base.fontId),
+    ...('finish' in value ? { finish: parseSourceFinish(value.finish) } : {}),
   };
 }
 

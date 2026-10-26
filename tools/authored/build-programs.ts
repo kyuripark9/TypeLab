@@ -5,7 +5,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodeFeatureMasters, FEATURE_CONTROLS, featureSupportedGlyphs, parseFeatureMasters } from '../../shared/source/feature-masters';
-import { masterInfo } from '../../shared/source/master-catalog';
+import { masterInfo, MASTER_REVISIONS } from '../../shared/source/master-catalog';
+import { parseSourceFinish } from '../../shared/source/finish';
 import { decodeWeightMasters, parseWeightMasters } from '../../shared/source/masters';
 import type { MasterSourceRef } from '../../shared/source/model';
 import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from '../../shared/source/program';
@@ -51,9 +52,24 @@ function describe(data: SourceProgramData, digest: string): ProgramInfo {
 
 const entries = PROGRAM_REVISIONS.map(entry => describe(parseSourceProgram(readAsset('programs', entry.ref.digest)), entry.ref.digest));
 const args = process.argv.slice(2).filter(arg => arg !== '--check'), selected = new Set<string>();
+function addProgram(data: SourceProgramData) {
+  if (selected.has(data.base.fontId)) throw Error('Publish one reviewed program per family in each run');
+  selected.add(data.base.fontId);
+  const digest = hash(JSON.stringify(data) + '\n'), entry = describe(data, digest);
+  publish('programs', data);
+  if (!entries.some(entry => entry.ref.digest === digest)) entries.push(entry);
+}
 for (let i = 0; i < args.length; i += 2) {
   const mode = args[i], file = args[i + 1];
-  if (!file || mode !== '--width' && mode !== '--features') throw Error('Use --width prototype.json or --features asset.json');
+  if (!file || mode !== '--width' && mode !== '--features' && mode !== '--finish') throw Error('Use --width prototype.json, --features asset.json or --finish policy.json');
+  if (mode === '--finish') {
+    const finish = parseSourceFinish(JSON.parse(readFileSync(file, 'utf8')));
+    for (const { ref } of new Map(MASTER_REVISIONS.map(info => [info.ref.fontId, info])).values()) {
+      const previous = entries.findLast(entry => entry.ref.fontId === ref.fontId)?.data;
+      addProgram(previous ? { ...previous, finish } : { format: 'source-program-v1', base: ref, width: null, features: null, finish });
+    }
+    continue;
+  }
   let base: MasterSourceRef, asset: ProgramAssetRef;
   if (mode === '--width') {
     const candidate = parseWidthPrototype(JSON.parse(readFileSync(file, 'utf8'))), original = basis(candidate.base);
@@ -72,12 +88,12 @@ for (let i = 0; i < args.length; i += 2) {
     base = data.base;
     asset = { kind: 'feature-masters-v1', digest: publish('features', data), fontId: base.fontId };
   }
-  if (selected.has(base.fontId)) throw Error('Publish one reviewed program per family in each run');
-  selected.add(base.fontId);
-  const data: SourceProgramData = { format: 'source-program-v1', base,
-    width: asset.kind === 'width-masters-v1' ? asset : null, features: asset.kind === 'feature-masters-v1' ? asset : null };
-  const digest = publish('programs', data);
-  if (!entries.some(entry => entry.ref.digest === digest)) entries.push(describe(data, digest));
+  const previous = entries.findLast(entry => entry.ref.fontId === base.fontId)?.data;
+  if (previous && previous.base.digest !== base.digest) throw Error('A changed weight basis requires compatible replacements for every existing program asset');
+  const data: SourceProgramData = { ...previous, format: 'source-program-v1', base,
+    width: asset.kind === 'width-masters-v1' ? asset : previous?.width ?? null,
+    features: asset.kind === 'feature-masters-v1' ? asset : previous?.features ?? null };
+  addProgram(data);
 }
 const catalogFile = resolve(root, 'shared/source/program-catalog.ts'), template = readFileSync(catalogFile, 'utf8');
 const catalog = template.replace(/export const PROGRAM_REVISIONS: readonly ProgramInfo\[\] = [\s\S]*?;\n/, `export const PROGRAM_REVISIONS: readonly ProgramInfo[] = ${JSON.stringify(entries, null, 2)};\n`);

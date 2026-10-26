@@ -2,6 +2,8 @@
 
 Hearth and Couture now expose authored features in single-letter scope. Their programs enable `crossbar` for `H` and `A`, `tail` for the `R` leg, and `terminalLength` for `c`. These controls remain unavailable in **All letters** scope and on other characters. Terminal length preserves the existing terminal construction.
 
+Vellum, Almanac, Compass, Dispatch, Kernel, Orbital, and Bulwark also publish `H` crossbar height in single-letter scope. Their other feature regions remain unreviewed.
+
 Mainline has a reviewed feature asset, but its published program references only its native-width asset. Combining those assets awaits the interaction drawings described below. The registry rejects native width with a `base-only` feature asset before a program becomes ready.
 
 Document version 10 supports these pinned programs. New Hearth and Couture designs start with neutral feature values. Existing source designs require explicit, undoable adoption. The [source program contract](source-program-contract.md) describes loading and adoption.
@@ -85,12 +87,74 @@ The `feature-masters-v1` payload pins its complete `MasterSourceRef`, a weight i
 
 `featureSupportedGlyphs` exposes exact per-control coverage. Hearth and Couture publish the covered controls in single-letter scope. Mainline's feature asset remains unpublished in a program until the following interaction work passes. Both the program builder and registry reject the incompatible combination.
 
+## Broad coverage inventory and H batch
+
+`tools/authored/feature-coverage.ts --inventory` enumerates 46 candidate regions in each of the 22 bundled styles. The generated `.audit/masters/features-broad/inventory.json` records the pinned base, contour sizes, required attachments, interacting controls, and review state for every region. A candidate is an authoring task, not a claim that every style has the same anatomy. A missing or alternative form requires an explicit review.
+
+The inventory includes bars and waists in `ABEFHPRaeft4`, tails and hooks in `JQRfgjty`, paired terminals in `CcSs`, and exposed ends in `GJaefgjrty235679&?`. Each terminal task first identifies the actual exposed ends. Regions such as the `R` waist and leg share geometry and need joint drawings before their controls can compose.
+
+The next batch authors `H` crossbar height in nine additional families. Both bar boundaries move by the same amount, up to 10% of cap height in each direction. Joined bars retain their paired boundary handles; separate bars follow explicit stem rails. Fixed stem regions, bar thickness, and advance remain unchanged. This reuses compatible endpoint drawings without adding runtime anatomy detection.
+
+| Style | H binding and review state |
+| --- | --- |
+| Mainline | Reviewed pilot; feature program awaits native-width interactions. |
+| Hearth | Reviewed pilot; enabled in single-letter scope. |
+| Couture | Reviewed pilot; enabled in single-letter scope. |
+| Sonnet | Slanted stem rails authored; held for insufficient neutral overlap. |
+| Vellum | Reviewed joined bar, including its curved transitions. |
+| Almanac | Reviewed joined bar with fixed serif regions. |
+| Parlance | Reviewed joined bar; feature program awaits native-width interactions. |
+| Cotton | Reviewed joined bar with fixed rounded stem ends. |
+| Gumdrop | Separate bar authored; held for opposite-winding neutral components. |
+| Jotter | Needs local frames for handwritten joins and the curved bar. |
+| Compass | Reviewed joined bar. |
+| Dispatch | Reviewed joined bar with fixed slab-serif regions. |
+| Funnies | Needs bindings over the subdivided handwritten curves. |
+| Kernel | Reviewed joined bar. |
+| Orbital | Reviewed separate bar with explicit stem overlap. |
+| Turnpike | Needs grouping of subdivided straight spans. |
+| Ballyhoo | Needs grouped spans and high-contrast join clearances. |
+| Boardwalk | Needs a script attachment frame for the loop and connector. |
+| Cathedral | Needs an identified bridge and protected angular counters. |
+| Serenade | Needs shared entry, exit, and flourish attachments. |
+| Timber | Needs grouped spans and heavy slab-serif join clearances. |
+| Bulwark | Reviewed joined bar. |
+
+The nine new families pass 975 sampled weight, feature, and height cases. Display and 24-pixel specimens retain connected joins and their original stroke construction. An independent review also checked Vellum and Bulwark. The compiler pins each accepted asset's SHA-256 in `CROSSBAR_REVIEWS`; altered output requires a new review. Seven families publish the H control. Parlance awaits native-width interactions, and Cotton awaits its new compatible width basis. Existing immutable feature files remain unchanged.
+
+The full 1,095-case candidate run reports 80 held cases. Gumdrop fails the explicit one-piece, zero-counter H requirement in all 75 cases: its opposite-winding left stem cancels the bar overlap. Sonnet fails five clearance cases at weight 400 because its unchanged right attachment measures 1.687 units after the narrow scale, below the 2-unit requirement. Comparing only with the neutral topology would miss Gumdrop's existing defect, so the batch also checks the intended filled shape. Neither failure is waived.
+
+The staged approved manifest is `.audit/masters/features-broad/approved.json`. Reproduction commands are:
+
+```sh
+node --max-old-space-size=512 --import tsx tools/authored/feature-coverage.ts --inventory
+node --max-old-space-size=512 --import tsx tools/authored/feature-coverage.ts --approved --review --render
+```
+
+`--check` regenerates reviewed candidates referenced by the program catalog and compares their published bytes without writing. It skips reviewed but unpublished assets and runs as part of `npm run programs:check`.
+
+Omitting `--approved` includes the two held candidates and returns a failing review status. The eight unbound H drawings need explicit curve spans that include every compatible subdivision, with fixed ports at both ends. Moving a selected y-band would leave intermediate points behind or distort the joins. Those spans provide the next reusable authoring step before broader bars, hooks, and terminals.
+
+The inventory finds all 467 original H anchors exactly among those eight styles' 2,155 master anchors. This supports binding original curve spans and transporting their exact subdivision parameters. Two Funnies anchors have ambiguous coordinate matches, so contour order and curve direction must also establish correspondence.
+
+## Gumdrop H candidate repair
+
+`tools/authored/repair-gumdrop-h.ts` reverses only the left-stem contour of H and swaps its incoming and outgoing handles. It applies the same repair at every weight and native-width knot. Every curve and advance remains exact, and other glyphs remain unchanged. The changed winding makes the existing bar overlap add ink instead of cancel it.
+
+The compiler checks 288 H edges against their original control points. The independent Python verifier checks 215,820 points across all weight knots and midpoints, with zero coordinate error, complete parameter coverage, and unchanged metrics. Its report is `.audit/width/Gumdrop-subdivision-review.json`.
+
+The candidate files are in `.audit/masters/gumdrop-h-repair`; `manifest.json` pins the new weight, width, and feature assets. `binding.json` records every new segment's original segment and parameter interval. For the reversed contour, new segment `j` maps to old segment `(N - 2 - j + N) % N` from parameter 1 to 0. Future adoption must use that correspondence rather than treating the reversed indices as unchanged points.
+
+The repair passes 25 native-width H cases and 75 crossbar/height cases. Every tested H has one filled piece and no counter, and its advance stays unchanged. Display and 24-pixel specimens show the left join restored without changing the stems or bar shape. Before and after images are `.audit/masters/features-broad/Gumdrop.png` and `.audit/masters/gumdrop-h-repair/after.png`; `review.json` records the geometry checks.
+
+The repair remains unpublished until runtime point mapping can preserve edits across the new basis. Existing production program and master references remain unchanged. The candidate feature asset remains restricted to neutral authored width; it does not claim reviewed width-and-crossbar interactions. Reproduction uses `node --max-old-space-size=512 --import tsx tools/authored/repair-gumdrop-h.ts --review --render`.
+
 ## Next: Mainline feature and width interactions
 
-The first joint asset should use the exact published Mainline width dependency and its compatible point basis. Its present width knots are 75, 87.5, and 100, and its weight knots are 300, 400, 500, 600, 700, and 800. This gives 18 weight/width cells and 144 H/A/R/c low/high endpoint drawings.
+The first joint asset should use the exact published Mainline width dependency and its compatible point basis. Its width knots are 75, 87.5, 100, 125, and 150, and its weight knots are 300, 400, 500, 600, 700, and 800. This gives 30 weight/width cells and 240 H/A/R/c low/high endpoint drawings.
 
 1. Compile each feature against that cell's complete width-evaluated baseline. Re-evaluate the authored bar rails, leg departure and metric anchors, and terminal ports in that baseline. Preserve the existing width-100 feature drawings exactly. Do not scale the current weight-only deltas by a width ratio.
 2. Check the narrow/heavy corners first. A-bar outer margins, c aperture, R departure overlap, and right bearing can become limiting even when point correspondence is unchanged. Add optical corrections to the affected cell drawings; keep one reviewed control interval across the grid.
 3. Publish a joint feature format that pins both the weight basis and exact `WidthMasterRef`. Store complete feature endpoint coverage at all width and weight knots. Its runtime delta is relative to the same joint baseline; the stable Points basis remains the original weight-master digest and glyph.
-4. Validate the 11 weight samples and five width samples formed by all knots and interval midpoints, five feature values, four affected glyphs, and three height maps: 3,300 combinations. Inspect 24-pixel and display specimens, including unspaced `RR`, `RH`, `Rc`, and `cc`. Test saved Points edits and export against the complete feature-plus-width baseline.
+4. Validate the 11 weight samples and nine width samples formed by all knots and interval midpoints, five feature values, four affected glyphs, and three height maps: 5,940 combinations. Inspect 24-pixel and display specimens, including unspaced `RR`, `RH`, `Rc`, and `cc`. Test saved Points edits and export against the complete feature-plus-width baseline.
 5. Publish a combined Mainline program only after those checks pass. If the width authoring range grows, its new extreme columns need feature endpoints and review before inclusion. Keep the current separate programs immutable for saved documents. Then apply the same authoring method to additional styles and character coverage.

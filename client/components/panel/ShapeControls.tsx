@@ -13,6 +13,7 @@ import { CtlHead, FoldHead, Fold, Quiet, useControlFocus } from './heads';
 import { useReachNote } from './reach';
 import { SliderControl } from './SliderControl';
 import { EachEnd } from './LetterOwn';
+import { sourceAllows, sourceSupports } from '../../../shared/source/capabilities';
 
 /** Picks a stroke end's kind and its form together, as one change to undo. */
 const pickEnd = (t: Terminal, form: TerminalForm) => { actions.setParam('terminal', t); actions.setParam('terminalForm', form); actions.commit(); };
@@ -211,13 +212,15 @@ export function SerifFormControl({ k }: { k: SerifFormKey }) {
 
 export function FillControl() {
   const fill = useEditor(s => s.params.fill), active = useEditor(s => controlFor(s.active) === 'fill');
+  const sourceProgram = useParam('sourceProgram');
+  const options = FILL_OPTIONS.filter(([id]) => sourceAllows({ sourceProgram }, 'fill', id));
   const c = CONTROLS.fill, solid = fill === 'solid';
   return (
     <div className={active ? 'ctl active' : 'ctl'} data-ctl="fill" {...useControlFocus('fill')}>
       <FoldHead k="fill" label={c.label} summary={FILL_OPTIONS.find(([id]) => id === fill)![1]} />
       <Fold k="fill">
         <div className="opts four" role="radiogroup" aria-label={c.tech}>
-          {FILL_OPTIONS.map(([id, label]) => (
+          {options.map(([id, label]) => (
             <button key={id} role="radio" aria-checked={fill === id} className={fill === id ? 'opt on' : 'opt'}
               onClick={() => actions.setOption('fill', id)}>
               <FillIcon fill={id} /><span>{label}</span>
@@ -227,7 +230,7 @@ export function FillControl() {
         <div className={solid ? 'reveal' : 'reveal open'} inert={solid}>
           <div>
             {/* (Spread only where the fill is drawn on a grid of cells) */}
-            {(Object.keys(FILL_SUBS) as FillSubKey[]).filter(k => k !== 'dotGain' || GRID_FILLS.includes(fill))
+            {(Object.keys(FILL_SUBS) as FillSubKey[]).filter(k => sourceSupports({ sourceProgram }, k) && (k !== 'dotGain' || GRID_FILLS.includes(fill)))
               .map(k => <SliderControl key={k} k={k} def={FILL_SUBS[k]} />)}
           </div>
         </div>

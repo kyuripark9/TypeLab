@@ -278,7 +278,7 @@ function clearance(d: Drawn, c: Clearance, height: OutlineTransform): number {
   const tip = node(d, measure.tip), base = node(d, measure.rail[0]), x = base.x + (tip.y - base.y) * slope(d, measure.rail);
   return (measure.side === 'left' ? x - tip.x : tip.x - x) * height.xScale;
 }
-export function reviewFeatures(program: FeatureProgram) {
+export function reviewFeatures(program: FeatureProgram, expectedInk: Readonly<Record<string, { pieces: number; counters: number }>> = {}) {
   const decoded = decodeWeightMasters(program.base), weights = program.base.masters.flatMap((m, i, all) => i ? [(all[i - 1].weight + m.weight) / 2, m.weight] : [m.weight]);
   const failures: { check: string; glyph: string; weight: number; value: number; height: number }[] = [];
   const minima = Object.fromEntries(program.clearances.map(c => [c.id, Infinity]));
@@ -289,7 +289,8 @@ export function reviewFeatures(program: FeatureProgram) {
       { xScale: 1.2, y: [[-cap * .4, -cap * .5], [0, 0], [font.xh, font.xh * 1.12], [cap, cap * 1.28]] }];
     for (const glyph of program.scope.glyphs) for (let hi = 0; hi < heights.length; hi++) {
       const height = heights[hi], source = { digest: program.source.digest, glyph };
-      const plain = font.glyphs[glyph], original = mapAuthored(identifyAuthored({ ...plain, adv: plain.adv * height.xScale }, source), height, plain, source), expected = topology(original.contours);
+      const plain = font.glyphs[glyph], original = mapAuthored(identifyAuthored({ ...plain, adv: plain.adv * height.xScale }, source), height, plain, source);
+      const expected = expectedInk[glyph] ?? topology(original.contours);
       for (const value of [-1, -.5, 0, .5, 1]) {
         const values = { crossbar: value, tail: value, terminalLength: value }, made = evaluateFeatures(program, { glyph, weight, values, height });
         const actual = topology(made.contours); cases++;
@@ -314,7 +315,7 @@ export function reviewFeatures(program: FeatureProgram) {
   return { cases, failures, minima, weights, glyphs: program.scope.glyphs, wholeFontControl: false };
 }
 
-export function renderFeatures(program: FeatureProgram, output: string): void {
+export function renderFeatures(program: FeatureProgram, output: string, text = 'H A R c  RR RH Rc'): void {
   const base = buildFont(DEFAULTS), source = decodeWeightMasters(program.base), rows: Row[] = [];
   const weights = [program.base.masters[0].weight, program.base.defaultWeight, program.base.masters[program.base.masters.length - 1].weight];
   for (const weight of [...new Set(weights)]) for (const value of [-1, 0, 1]) {
@@ -335,7 +336,7 @@ export function renderFeatures(program: FeatureProgram, output: string): void {
         return { ...original, drawn: d, cmds, d: cmdsToD(cmds), adv: d.adv, bodyW: box ? box.x1 - box.x0 : 0 };
       },
     };
-    rows.push({ font: display, text: 'H A R c  RR RH Rc', label: `${program.source.fontId} weight ${weight}, features ${value}` });
+    rows.push({ font: display, text, label: `${program.source.fontId} weight ${weight}, features ${value}` });
   }
   writeFileSync(output + '.svg', rowsSVG(rows, 100));
   writeFileSync(output + '.png', rowsPNG(rows, 100));

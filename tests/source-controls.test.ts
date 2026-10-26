@@ -21,6 +21,22 @@ function params(fontId = 'Couture:600'): Params {
 }
 
 describe('reviewed feature scope', () => {
+  it('moves only H across the additional crossbar families and retains their other drawings', () => {
+    for (const fontId of ['Vellum:400', 'Almanac:500', 'Compass:300', 'Dispatch:400', 'Kernel:500', 'Orbital:600', 'Bulwark:700']) {
+      const p = params(fontId);
+      assert.equal(sourceSupports(p, 'crossbar'), false);
+      assert.equal(sourceSupports(p, 'crossbar', 'H'), true);
+      assert.equal(sourceSupports(p, 'crossbar', 'A'), false);
+      assert.equal(sourceSupports(p, 'tail', 'R'), false);
+      for (const weight of [0, .43, 1]) {
+        const low = buildFont({ ...p, weight, glyphs: { H: { crossbar: 0 } } });
+        const high = buildFont({ ...p, weight, glyphs: { H: { crossbar: 1 } } });
+        assert.notDeepEqual(low.glyph('H')?.cmds, high.glyph('H')?.cmds, fontId);
+        for (const ch of 'ABnRcg') assert.deepEqual(low.glyph(ch)?.cmds, high.glyph(ch)?.cmds, `${fontId} ${ch}`);
+      }
+    }
+  });
+
   it('permits only authored glyph details in single-letter scope and keeps old sources fixed', () => {
     for (const fontId of ['Couture:600', 'Hearth:600']) {
       const p = params(fontId), info = masterInfo(p.sourceProgram);
@@ -116,7 +132,7 @@ describe('source detail editor actions', () => {
 describe('explicit source-program adoption', () => {
   it('starts native width styles at their original drawing and feature styles at neutral details', () => {
     useEditor.setState({ traits: {}, scope: 'all', inspect: null });
-    for (const [style, width] of [['grotesque', 1], ['humanist', 1], ['chunkyround', .5]] satisfies [string, number][]) {
+    for (const [style, width] of [['grotesque', 1 / 3], ['humanist', 1 / 3], ['chunkyround', .5]] satisfies [string, number][]) {
       actions.loadStyle(style);
       const p = useEditor.getState().params;
       assert.equal(p.sourceProgram?.kind, 'program-v1');
@@ -144,8 +160,8 @@ describe('explicit source-program adoption', () => {
       actions.enableProgram();
       const adopted = useEditor.getState().params;
       assert.deepEqual(adopted.sourceProgram, programForFont('Mainline:600'));
-      assert.equal(adopted.width, 1);
-      assert.equal(adopted.freeAt.width, 1);
+      assert.equal(adopted.width, 1 / 3);
+      assert.equal(adopted.freeAt.width, 1 / 3);
       assert.equal(adopted.glyphs.H?.width, undefined);
       assert.equal(adopted.glyphs.R?.width, undefined);
       assert.equal(adopted.glyphs.H?.slant, .6);
@@ -160,13 +176,13 @@ describe('explicit source-program adoption', () => {
       assert.deepEqual(useEditor.getState().params, adopted);
       actions.setOption('width', .2);
       actions.resetParam('width');
-      assert.equal(useEditor.getState().params.width, 1);
+      assert.equal(useEditor.getState().params.width, 1 / 3);
       actions.openInspector('H');
       actions.setScope('letter');
       actions.setParam('width', .15);
       actions.resetParam('width');
       assert.equal(useEditor.getState().params.glyphs.H?.width, undefined);
-      assert.equal(useEditor.getState().params.width, 1);
+      assert.equal(useEditor.getState().params.width, 1 / 3);
       assert.deepEqual(useEditor.getState().params.outlines, before.outlines);
     }
   });

@@ -11,9 +11,10 @@ import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
 import { loadDesignSources } from '../lib/sources';
 import { designSourceForFont as sourceForFont, masterInfo, mastersForFont } from '../../shared/source/master-catalog';
-import { programForFont, programInfo } from '../../shared/source/program-catalog';
+import { programInfo } from '../../shared/source/program-catalog';
+import { adoptProgram } from '../../shared/source/adoption';
 import { onSource, sourceFont } from '../../shared/source/registry';
-import { sourceControl, sourceSupports } from '../../shared/source/capabilities';
+import { sourceAllows, sourceControl, sourceSupports } from '../../shared/source/capabilities';
 import { DEFAULT_NAME, cleanName, slug, type Design, type DesignInput } from '../../shared/design';
 import { cleanLog, mergeLogs, ownOf, packLog, recordEdits, sameOwn, withOwn, type LetterEdit, type LetterLog } from '../../shared/letter-log';
 import { cleanVersions, keyOf, mergeVersions, packVersions, recordVersion, sameDesign, type FontLog, type FontVersion, type Made, type Snapshot } from '../../shared/font-log';
@@ -159,7 +160,8 @@ function startParams(st: StyleDef, traits: Traits, free = true): Params {
   const weight = info ? (info.defaultWeight - info.min) / (info.max - info.min) : st.params.weight;
   const width = program?.width ? (program.width.neutral - program.width.min) / (program.width.max - program.width.min) : st.params.width;
   const features = program?.data.features ? { crossbar: .5, tail: .5, terminalLength: .5 } : {};
-  const base = { ...st.params, ...features, freeFont: id, freeAt: { ...freeAtOf(st.params), ...features, weight, width },
+  const finish: Partial<Params> = program?.data.finish ? { fill: 'solid', module: .5 } : {};
+  const base = { ...st.params, ...features, ...finish, freeFont: id, freeAt: { ...freeAtOf(st.params), ...features, ...(program?.data.finish ? { fill: 'solid' as const } : {}), weight, width },
     weight, width, ...FREE_SPACING, height: DEFAULTS.height, sourceProgram };
   return applyTraits(base, supportedTraits(base, traits));
 }
@@ -169,7 +171,7 @@ function supportedTraits(p: Params, traits: Traits): Traits {
   const out: Traits = {};
   for (const def of TRAIT_SECTIONS.flatMap(section => section.traits)) {
     const option = traitOption(def.id, traits[def.id]);
-    if (option && Object.keys(option.set).every(key => sourceSupports(p, key))) out[def.id] = option.id;
+    if (option && Object.entries(option.set).every(([key, value]) => sourceAllows(p, key, value))) out[def.id] = option.id;
   }
   return out;
 }
@@ -454,7 +456,7 @@ export const actions = {
     set(s => {
       const ch = letterOf(s);
       if (key === 'outlines') return { params: withDrawings(s.params, v as Params['outlines']), faded: true };
-      if (!sourceSupports(s.params, key, ch)) return {};
+      if (!sourceAllows(s.params, key, v, ch)) return {};
       return { params: ch && isGlyphKey(key) ? withGlyph(s.params, ch, key, v) : { ...s.params, [key]: v }, faded: true };
     });
   },
@@ -487,23 +489,9 @@ export const actions = {
     actions.setCategory(CONTROLS.weight.cat, 'weight');
   },
   enableProgram() {
-    const s = get(), original = s.params.sourceProgram;
-    if (!original || original.kind === 'program-v1') return;
-    const ref = programForFont(original.fontId), program = programInfo(ref), info = masterInfo(ref);
-    if (!ref || !program || !info || (original.kind === 'outline-v1' ? info.source.digest : info.ref.digest) !== original.digest) return;
-    const weight = original.kind === 'outline-v1' ? (info.defaultWeight - info.min) / (info.max - info.min) : s.params.weight;
-    const width = program.width ? (program.width.neutral - program.width.min) / (program.width.max - program.width.min) : s.params.width;
-    const features = program.data.features ? { crossbar: .5, tail: .5, terminalLength: .5 } : {};
-    const glyphs = Object.fromEntries(Object.entries(s.params.glyphs).map(([ch, values]) => {
-      const own = { ...values };
-      if (program.width) delete own.width;
-      if (original.kind === 'outline-v1') delete own.weight;
-      if (program.data.features) { delete own.crossbar; delete own.tail; delete own.terminalLength; }
-      return [ch, own];
-    }));
-    set({ params: { ...s.params, ...features, sourceProgram: ref, weight, width, glyphs,
-      freeAt: { ...s.params.freeAt, ...features,
-        ...(original.kind === 'outline-v1' ? { weight } : {}), ...(program.width ? { width } : {}) } } });
+    const params = adoptProgram(get().params);
+    if (!params) return;
+    set({ params });
     step();
     actions.setCategory(CONTROLS.width.cat, 'width');
   },
@@ -548,6 +536,8 @@ export const actions = {
     actions.setOption(key, s.params.sourceProgram && key === 'height' ? DEFAULTS[key]
       : program?.width && key === 'width' ? (program.width.neutral - program.width.min) / (program.width.max - program.width.min)
       : program?.data.features && (key === 'crossbar' || key === 'tail' || key === 'terminalLength') ? .5
+      : program?.data.finish && key === 'fill' ? 'solid'
+      : program?.data.finish && key === 'module' ? .5
       : info && key === 'weight' ? (info.defaultWeight - info.min) / (info.max - info.min) : st.params[key]);
   },
   /** Switch an optional slider on, back to the value it had (or halfway), or off, to `off` where it changes nothing. */

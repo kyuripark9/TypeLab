@@ -22,6 +22,16 @@ describe('source program references', () => {
     assert.deepEqual(sourceProgramDependencies(plain), [base]);
     assert.deepEqual(sourceProgramDependencies(parseSourceProgram({ ...definition, width: null })), [base, features]);
     assert.deepEqual(sourceProgramDependencies(parseSourceProgram({ ...definition, features: null })), [base, width]);
+    assert.equal(Object.hasOwn(program, 'finish'), false, 'old manifests keep their original shape');
+  });
+
+  it('pins a concrete finishing policy without adding a source dependency', () => {
+    const finish = { format: 'source-finish-v1', tolerance: .04, shadow: { depth: [.04, .12], gap: .012, minAreaRatio: .25 } };
+    const program = parseSourceProgram({ ...definition, finish });
+    assert.deepEqual(program.finish, finish);
+    assert.deepEqual(sourceProgramDependencies(program), [base, width, features]);
+    assert.throws(() => parseSourceProgram({ ...definition, finish: { ...finish, tolerance: 2 } }), /bounds/);
+    assert.throws(() => parseSourceProgram({ ...definition, finish: { ...finish, slice: .4 } }), /field/);
   });
 
   it('rejects recursive bases, wrong asset kinds, other families, and malformed digests', () => {
@@ -45,7 +55,7 @@ describe('source program references', () => {
       { ...definition, width: undefined }, { ...definition, features: undefined },
       { ...definition, finish: { kind: 'pixels' } },
       { ...definition, forms: [] }, { ...definition, marks: [] },
-    ]) assert.throws(() => parseSourceProgram(bad), /program/);
+    ]) assert.throws(() => parseSourceProgram(bad), /program|finishing/);
   });
 });
 

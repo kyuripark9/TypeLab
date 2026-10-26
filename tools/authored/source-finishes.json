@@ -1,0 +1,9 @@
+{
+  "format": "source-finish-v1",
+  "tolerance": 0.04,
+  "shadow": {
+    "depth": [0.04, 0.12],
+    "gap": 0.012,
+    "minAreaRatio": 0.25
+  }
+}

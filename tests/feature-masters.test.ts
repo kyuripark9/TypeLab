@@ -140,7 +140,10 @@ describe('published partial feature drawings', () => {
       assert.equal(createHash('sha256').update(masterBytes).digest('hex'), data.base.digest);
       const basis = decodeWeightMasters(parseWeightMasters(JSON.parse(masterBytes.toString()))), features = decodeFeatureMasters(data, { ref: data.base, masters: basis });
       assert.equal(data.widthCompatibility, 'base-only');
-      const expected: Record<FeatureControl, string[]> = { crossbar: ['H', 'A'], tail: ['R'], terminalLength: ['c'] };
+      const pilot = ['Couture:600', 'Hearth:600', 'Mainline:600'].includes(data.base.fontId);
+      const expected: Record<FeatureControl, string[]> = pilot
+        ? { crossbar: ['H', 'A'], tail: ['R'], terminalLength: ['c'] }
+        : { crossbar: ['H'], tail: [], terminalLength: [] };
       for (const key of FEATURE_CONTROLS) assert.deepEqual(featureSupportedGlyphs(features, key), expected[key]);
       for (const entry of data.controls) for (const glyph of entry.glyphs) for (const master of glyph.masters) for (const [value, expected] of [[0, master.low], [1, master.high]] satisfies [number, FreeFontData['glyphs'][string]][]) {
         const baseline = interpolateMasters(basis, master.weight), made = evaluateFeatureMasters(features, { baseline, weight: master.weight, width: 'base', values: { ...neutral, [entry.control]: value } });
@@ -150,10 +153,11 @@ describe('published partial feature drawings', () => {
         assert.equal(actual.contours[0][0].authored?.glyph, glyph.glyph);
         for (const [ch, d] of Object.entries(baseline.glyphs)) if (!featureSupportedGlyphs(features, entry.control).includes(ch)) assert.strictEqual(made.glyphs[ch], d);
       }
-      const baseline = interpolateMasters(basis, 650), mid = evaluateFeatureMasters(features, { baseline, weight: 650, width: 'base', values: { crossbar: .75, tail: .25, terminalLength: .75 } });
+      const weight = (data.weightRange[0] + data.weightRange[1]) / 2;
+      const baseline = interpolateMasters(basis, weight), mid = evaluateFeatureMasters(features, { baseline, weight, width: 'base', values: { crossbar: .75, tail: .25, terminalLength: .75 } });
       for (const ch of 'HARc') for (const c of mid.glyphs[ch].contours) for (const n of c) for (const value of packNode(n)) if (value !== null) assert.ok(Number.isFinite(value));
       near(mid.space, baseline.space);
     }
-    assert.deepEqual([...families].sort(), ['Couture:600', 'Hearth:600', 'Mainline:600']);
+    assert.deepEqual([...families].sort(), ['Almanac:500', 'Bulwark:700', 'Compass:300', 'Couture:600', 'Dispatch:400', 'Hearth:600', 'Kernel:500', 'Mainline:600', 'Orbital:600', 'Vellum:400']);
   });
 });

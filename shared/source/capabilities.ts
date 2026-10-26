@@ -2,6 +2,7 @@
 import type { ControlKey, Params } from '../params';
 import { masterInfo } from './master-catalog';
 import { programInfo } from './program-catalog';
+import { sourceFinishControls, sourceFinishFills } from './finish';
 
 export const sourceControls: readonly (keyof Params)[] = [
   'width', 'height', 'xHeight', 'extenders', 'descender', 'slant', 'rotation', 'mirror',
@@ -11,8 +12,18 @@ export const sourceControls: readonly (keyof Params)[] = [
 /** A glyph is supplied only when an edit targets that letter alone. */
 export function sourceSupports(p: Pick<Params, 'sourceProgram'>, key: string, glyph?: string | null): boolean {
   if (!p.sourceProgram || sourceControls.some(control => control === key) || key === 'weight' && !!masterInfo(p.sourceProgram)) return true;
+  const finish = programInfo(p.sourceProgram)?.data.finish;
+  if (finish && sourceFinishControls(finish).some(control => control === key)) return true;
   if (!glyph || (key !== 'crossbar' && key !== 'tail' && key !== 'terminalLength')) return false;
   return programInfo(p.sourceProgram)?.featureGlyphs[key]?.includes(glyph) ?? false;
+}
+
+/** Named options must be reviewed as well as their parent control. */
+export function sourceAllows(p: Pick<Params, 'sourceProgram'>, key: string, value: unknown, glyph?: string | null): boolean {
+  if (!sourceSupports(p, key, glyph)) return false;
+  if (!p.sourceProgram || key !== 'fill') return true;
+  const finish = programInfo(p.sourceProgram)?.data.finish;
+  return !!finish && sourceFinishFills(finish).some(fill => fill === value);
 }
 
 /** A source may offer an authored sub-slider without its generated shape picker. */
@@ -24,6 +35,11 @@ export function sourceControl(p: Pick<Params, 'sourceProgram'>, key: ControlKey,
 
 export function sourceNotice(p: Pick<Params, 'sourceProgram'>): string {
   const program = programInfo(p.sourceProgram);
+  if (program?.data.finish) {
+    const glyphs = [...new Set(Object.values(program.featureGlyphs).flat())].join(', ');
+    return 'This style has reviewed weight variations and effects. Points edits stay editable after applying an effect.'
+      + (glyphs ? ` Letter controls are available for ${glyphs} while editing that letter alone.` : '');
+  }
   if (program?.width) return 'This style has designed width and weight variations. Heights, spacing and slant remain editable.';
   if (program?.data.features) {
     const glyphs = [...new Set(Object.values(program.featureGlyphs).flat())].join(', ');

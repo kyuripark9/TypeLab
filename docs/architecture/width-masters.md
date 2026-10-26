@@ -2,13 +2,13 @@
 
 Mainline, Parlance, and Gumdrop now have published joint weight and width masters. The offline authoring tools carry designed width changes from their pinned upstream fonts into the existing TypeLab weight families. The production assets live in `fonts/widths`; immutable program manifests in `fonts/programs` reference each width asset and its unchanged `masters-v1` base.
 
-| Style | Upstream | Existing weights retained | Width samples | Neutral slider position |
+| Style | Upstream | Existing weights retained | Published width samples | Neutral slider position |
 | --- | --- | --- | --- | --- |
-| Mainline | Roboto | 300, 400, 500, 600, 700, 800 | 75, 87.5, 100 | 1 |
-| Parlance | Open Sans | 300, 400, 500, 600, 700, 800 | 75, 87.5, 100 | 1 |
+| Mainline | Roboto | 300, 400, 500, 600, 700, 800 | 75, 87.5, 100, 125, 150 | 1/3 |
+| Parlance | Open Sans | 300, 400, 500, 600, 700, 800 | 75, 87.5, 100, 125, 150 | 1/3 |
 | Gumdrop | Fredoka | 500, 600, 700 | 75, 100, 125 | 0.5 |
 
-Width values are the upstream `wdth` design coordinates. They are not a geometric percentage to multiply into a glyph. The full slider interval 0–1 covers the authored width interval, including styles whose original width is the maximum. Thus Mainline and Parlance can condense from their original drawing; the prototype does not invent an expanded upstream endpoint.
+Width values are design coordinates, not a geometric percentage to multiply into a glyph. The native samples use upstream `wdth` coordinates: Mainline and Parlance supply 75–100, and Gumdrop supplies 75–125. Mainline and Parlance's 125 and 150 drawings are new local designs, described below. The full slider interval 0–1 covers the published range. Earlier native-only Mainline and Parlance programs retain their 75–100 range and endpoint neutral.
 
 ## Preserve the existing family
 
@@ -57,7 +57,7 @@ node --max-old-space-size=512 --import tsx tools/authored/width-masters.ts \
 
 The second command writes the prototype, a `.review.json` report, and `.png`/`.svg` specimens. `WIDTH_REVIEW_CHARS=HnoagRjyus\&@%` can narrow an initial diagnostic run; omit it for all-character review. Do not publish a candidate based only on a diagnostic subset.
 
-Run `node --max-old-space-size=512 --import tsx tools/authored/review-width-heights.ts .audit/width/STYLE-prototype.json` for the height interaction report and specimens. `WIDTH_REVIEW_TEXT` accepts specimen text with newlines; `WIDTH_REVIEW_WEIGHTS` selects rendered weights without changing the geometry review.
+Run `node --max-old-space-size=512 --import tsx tools/authored/review-width-heights.ts .audit/width/STYLE-prototype.json` for the height interaction report and specimens at both width extremes. `WIDTH_REVIEW_TEXT` accepts specimen text with newlines; `WIDTH_REVIEW_WEIGHTS` and `WIDTH_REVIEW_WIDTHS` select rendered coordinates without changing the geometry review. `WIDTH_REVIEW_SIZE` sets the specimen cap height in pixels.
 
 After a candidate passes geometry and optical review, publish and verify it:
 
@@ -89,7 +89,7 @@ When the transfer produces a bad join or corner, the next step is an explicit lo
 
 ## Production behavior
 
-New designs use the published program for these three styles. The Width control displays authored axis coordinates. Its original width can be at an endpoint: Mainline and Parlance reset to 100 at the slider's maximum; Gumdrop resets to 100 at its midpoint. A displayed coordinate is not an identical body-width ratio for every glyph, as the `H` measurements below demonstrate.
+New designs use the latest published program for these three styles. The Width control displays authored axis coordinates. Mainline and Parlance reset to 100 one-third along the expanded slider; Gumdrop resets to 100 at its midpoint. The older native-only programs reset at the maximum. A displayed coordinate is not an identical body-width ratio for every glyph, as the `H` measurements below demonstrate.
 
 Older saved designs retain their original source and geometric width behavior. Explicitly adopting the newer program resets the width to its authored neutral, is undoable, and retains saved Points edit frames. It does not apply the old geometric x-scale over the authored width change.
 
@@ -111,15 +111,19 @@ All 33,909 sampled geometry cases pass, and the neutral-width family is exact at
 
 `npm run typecheck` passed for the authoring tools. A small literal-coordinate probe also passed for mixed interpolation, the neutral edge, full slider mapping, out-of-range rejection, and incomplete-grid rejection. Candidate packages and reports remain under `.audit/width/`; the three native grids have been converted and published. Production tests cover Points transport and OTF output as well as grid evaluation. The original weight packages remain unchanged.
 
-Mainline and Parlance still need locally authored expanded endpoints to recover the original editor's useful wide range. Their local candidates are unpublished. Such endpoints must be labeled as new local designs, reviewed across weights and heights, and stored separately from the native review files.
+Mainline and Parlance's expanded endpoints restore a useful wide range. They are labeled as new local designs, reviewed across weights and heights, and stored separately from the native review files. New immutable program revisions include them; the native programs remain available to saved designs.
 
 ## Local expansion investigation
 
 [expand-width-masters.ts](../../tools/authored/expand-width-masters.ts) writes a separate candidate with local width coordinates 125 and 150. Its initial premise was that the full native condensed displacement could simply be reversed. Both that attempt and a second attempt constraining curve handles failed in the same Mainline glyphs: `o` and `g` each held 41 failures in the diagnostic grid. The census and rejected report are retained under `.audit/width/rejected-expansion/`.
 
-The cause was anchor ordering: reversing the upstream vertical adjustments swapped endpoints of short vertical bowl spans. Handle constraints could not repair reversed anchors. The revised local recipe changes horizontal coordinates only, preserving every vertical coordinate of the existing weight family. Mainline then passes 12,573 full-character mixed-grid cases through width 150, and its existing word specimens look coherent. Height and full-character optical review are still pending for this local extension.
+The cause was anchor ordering: reversing the upstream vertical adjustments swapped endpoints of short vertical bowl spans. Handle constraints could not repair reversed anchors. The revised local recipe changes horizontal coordinates only, preserving every vertical coordinate of the existing weight family.
 
-Parlance's full grid exposed 14 remaining failures in `®` and the heavy `v`. The authored repair under review preserves the weight-specific inner-apex shape of `v` while translating it with the aperture center. Its registered sign expands both ring boundaries by the same horizontal radius increment, preserving side-stroke thickness and centering the inner R in the larger advance. These local repairs are not yet validated; the existing `.audit/width/Parlance-local-wide.json` remains a rejected candidate until a new review passes.
+Parlance's first full grid exposed 14 remaining failures in `®` and the heavy `v`. Its repair preserves the weight-specific inner-apex shape of `v` while translating it with the aperture center. The registered sign expands both ring boundaries by the same horizontal radius increment, preserving side-stroke thickness and centering the inner R in the larger advance. The repaired grid passes.
+
+Both expanded candidates now pass 12,573 full-character mixed-grid cases and 10,160 height/x-height cases each. Full-character sheets at weights 300 and 800, width 150, were inspected at 16px and 42px cap height, along with mixed-width words and height specimens at both width extremes. At default weight, width 150 gives Mainline an `H` body width of 128.67% and stem thickness of 105.49%; Parlance reaches 155.46% and 114.95%. These are local designs with some optical stroke change, not exact stroke-preserving scaling.
+
+The reviewed files are `.audit/width/Mainline-local-wide.json` and `.audit/width/Parlance-local-wide.json`. Their individual reports and specimens accompany them; `.audit/width/local-expansion-review-summary.json` records their digests and checks. New production width assets and program revisions now contain these drawings. The native candidate files and earlier production assets remain unchanged.
 
 Reproduce a local candidate without changing the native file:
 
@@ -148,3 +152,42 @@ This is a rollout order by construction, not a claim that one recipe automatical
 Prefer the existing compatible node structure. If a smooth endpoint cannot be represented to the declared geometric tolerance without subdivision, add common exact cuts to every weight and width drawing, preserve source-segment origins, and publish a new compatible base revision. A width column cannot gain nodes while continuing to reference an incompatible unchanged base. The old source snapshot remains available.
 
 For each family, record stem and counter measurements, aperture and serif clearances, spacing, continuous curve quality, and text/display specimens. A positive map or a passing component count is useful structural evidence; it is not proof that the resulting font is usable. The native width work and the local expansion failures both demonstrate why the endpoint drawings need optical review.
+
+## First local width compiler
+
+[local-width-masters.ts](../../tools/authored/local-width-masters.ts) implements the first reusable local recipe, initially for Cotton at coordinates 85, 100, and 115. It is an offline experiment, not a published Cotton program.
+
+Two constructions were considered. Explicit segment frames can translate paired stems, stretch crossbars between attachment ports, and fit the transitions; they expose local ownership well but require bindings for each glyph. The initial reusable compiler instead measures horizontal ink occupancy and integrates a smooth positive speed field: dense vertical strokes absorb less change, while counters and the gaps between stems absorb more. A family recipe owns the range, smoothing, rigid glyphs, and dot bindings. Per-glyph segment frames remain an option when this field cannot preserve a particular construction.
+
+The field is smooth across its sampling knots. A uniform-motion floor is derived from the minimum derivative bound when a glyph has too little counter space to absorb the requested change; this keeps the same requested body width without concentrating motion into a fold. Endpoint derivatives carry through the transformed curves, so fitting does not introduce the tangent breaks seen with a sharp piecewise-linear x-map. The tool adaptively subdivides all corresponding weight and width drawings at common parameters, then fits cubic endpoints and tangents to a declared sampled error tolerance. Every vertical coordinate remains unchanged. Rigid punctuation and simple vertical constructions retain their ink shape while their spacing changes; separate dots translate with their letters.
+
+The public authoring operation is `authorLocalWidths(original, from, recipe)`. It returns a new compatible weight base, a width prototype, numerical checks, and a `master-subdivision-v1` binding. Each new segment records `{ segment, t0, t1 }` on the old contour. Straight edges use the same linear cubic parameterization as Points transport. Neutral curves are exact subdivisions, and the compiler checks their reconstruction against the original curves. The binding must accompany any future adoption path; a new base digest cannot silently inherit old contour/node identities.
+
+[review-subdivision.py](../../tools/authored/review-subdivision.py) independently verifies that binding using direct Bernstein evaluation, without importing the authoring geometry code. It checks content digests, complete source-parameter coverage, unchanged metrics, and curve samples at every weight knot and midpoint. Reversed intervals also support exact contour-winding repairs.
+
+The minimum map derivative certifies the underlying horizontal field. The cubic approximation still needs topology, clearance, and optical review; sampled fit error is not a continuous-domain proof. These outputs remain separate from the published family until those reviews and exact subdivision-aware Points adoption are complete.
+
+The current Cotton candidate passes 5,715 mixed-grid and 6,096 height/x-height cases. Its default-weight `H` body widths are 85% and 115%, while stem thickness stays at 98.18% and 101.82%. The underlying map derivative stays above 0.2000028. Maximum sampled curve-fit error is 0.024999 font units; neutral reconstruction error is below 5.1 × 10⁻¹³ units. The independent verifier passes 701,946 points across nine weight knots/midpoints, with maximum error below 3.22 × 10⁻¹³ units and complete source-parameter coverage. Shared subdivision increases the family from 2,900 to 8,666 nodes, with an explicit interval binding for each new segment.
+
+Final full-character and punctuation sheets at weights 200 and 600, both width extremes, and 16px/42px cap height were inspected. Mixed-weight words and height specimens retain Cotton's rounded construction. The render CLI and `npm run typecheck` pass. The compiler and its review artifacts are ready; no Cotton width program has been published. Its existing H feature asset still uses the older base, so publication waits for explicit saved-edit subdivision transport and a compatible feature binding.
+
+Rebuild the candidate and its exact subdivision binding:
+
+```sh
+node --max-old-space-size=512 --import tsx tools/authored/local-width-masters.ts \
+  fonts/masters/bbef63cb6315effcfd88971ea84aa20324700567c771b1ddbbc7e6ae215682c4.json \
+  .audit/width/Cotton-local
+node --max-old-space-size=512 --import tsx tools/authored/review-width-heights.ts \
+  .audit/width/Cotton-local-prototype.json
+python3 tools/authored/review-subdivision.py \
+  fonts/masters/bbef63cb6315effcfd88971ea84aa20324700567c771b1ddbbc7e6ae215682c4.json \
+  .audit/width/Cotton-local-base.json .audit/width/Cotton-local-binding.json
+```
+
+This writes `-base.json`, `-prototype.json`, `-binding.json`, `-review.json`, and word specimens. The source weight package is unchanged. Render all characters separately at each width and size without regenerating geometry:
+
+```sh
+env WIDTH_REVIEW_ALL=1 WIDTH_REVIEW_WEIGHTS=200,600 WIDTH_REVIEW_WIDTHS=85 WIDTH_REVIEW_SIZE=42 \
+  node --max-old-space-size=512 --import tsx tools/authored/width-masters.ts --render \
+  .audit/width/Cotton-local-prototype.json .audit/width/Cotton-all-85-42
+```

@@ -16,7 +16,7 @@
     "golden": "node --import tsx tools/golden.ts",
     "golden:update": "node --import tsx tools/golden.ts --update",
     "masters:check": "node --max-old-space-size=512 --import tsx tools/authored/build-masters.ts --check && node --max-old-space-size=512 --import tsx tools/masters/verify-catalog.mjs",
-    "programs:check": "node --max-old-space-size=512 --import tsx tools/authored/build-programs.ts --check && node --max-old-space-size=512 --import tsx tools/authored/build-features.ts --check",
+    "programs:check": "node --max-old-space-size=512 --import tsx tools/authored/build-programs.ts --check && node --max-old-space-size=512 --import tsx tools/authored/build-features.ts --check && node --max-old-space-size=512 --import tsx tools/authored/feature-coverage.ts --check",
     "weights": "node --import tsx tools/weights.ts",
     "weights:update": "node --import tsx tools/weights.ts --update",
     "compare": "node --import tsx tools/compare.ts",

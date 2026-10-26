@@ -18,6 +18,7 @@ import { programInfo } from './program-catalog';
 import { interpolateWidthMasters, widthAt } from './width-masters';
 import { evaluateFeatureMasters, FEATURE_CONTROLS } from './feature-masters';
 import { identifyAuthored, inheritAuthored, mapAuthored, transportEdits } from './edit-transport';
+import { compileSourceFinish, finishSourceGlyph } from './finish';
 
 export interface SourceStatus { ref: SourceRef; state: 'missing' | 'ready'; missingCharacters: string[] }
 interface SourceInstance { m: Metrics; free?: FreeFont; status: SourceStatus; glyph(ch: string): Glyph | null }
@@ -145,12 +146,17 @@ export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | n
   if (!font) return { m: fallback, status: { ref, state: 'missing', missingCharacters: [] }, glyph: () => null };
   const base = { ...DEFAULTS, ...p.freeAt }, sy = axis(p.height, DEFAULTS.height, 0.78, 1.28);
   const lower = shape(font, p, 'x'), xh = lower.y[2]?.[1] ?? font.xh * sy;
+  const policy = programInfo(ref)?.data.finish;
+  const finish = policy ? compileSourceFinish(policy, p, { capHeight: font.cap * sy }) : null;
   const m = metrics(resolve({ ...p, geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5 }));
   return {
     free: font, status: { ref, state: 'ready', missingCharacters: [...ALL_CHARS].filter(ch => !font.glyphs[ch] && !p.outlines[ch]) },
     m: { ...m, cap: font.cap * sy, xh, asc: lower.y[3]?.[1] ?? font.cap * sy,
-      desc: lower.y[0][1], ws: lower.xScale, slant: Math.tan((p.slant - base.slant) * 20 * Math.PI / 180),
+      desc: lower.y[0][1] + (finish?.kind === 'shadow' ? finish.dy : 0), ws: lower.xScale, slant: Math.tan((p.slant - base.slant) * 20 * Math.PI / 180),
       space: Math.max(20, font.space * lower.xScale + (p.wordSpacing - DEFAULTS.wordSpacing) * 520) },
-    glyph: ch => evaluated(font, p, ch)
+    glyph: ch => {
+      const glyph = evaluated(font, p, ch);
+      return glyph && finish ? finishSourceGlyph(glyph, finish) : glyph;
+    }
   };
 }

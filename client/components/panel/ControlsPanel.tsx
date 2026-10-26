@@ -4,7 +4,8 @@ import { PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, TERMINAL_
 import type { NumericParam, SubControlDef } from '../../../shared/params';
 import { sourceControl, sourceNotice, sourceSupports } from '../../../shared/source/capabilities';
 import { mastersForFont, masterInfo } from '../../../shared/source/master-catalog';
-import { programForFont, programInfo } from '../../../shared/source/program-catalog';
+import { programInfo } from '../../../shared/source/program-catalog';
+import { programUpgrade } from '../../../shared/source/adoption';
 import { WEIGHTS } from '../../../shared/family';
 import { actions, letterOf, useEditor, useFont, useParam } from '../../state/editor';
 import { ScopeIcon, letterControls } from '../Inspector';
@@ -19,9 +20,7 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
   const sourceProgram = useParam('sourceProgram');
   const letter = useEditor(letterOf);
   const pages = pagesFor({ build, blockForm, gridRows, sourceProgram }, letter);
-  const next = sourceProgram && sourceProgram.kind !== 'program-v1' ? programInfo(programForFont(sourceProgram.fontId)) : undefined;
-  const basis = next && masterInfo(next.ref);
-  const adoption = sourceProgram && next && basis && (sourceProgram.kind === 'outline-v1' ? basis.source.digest : basis.ref.digest) === sourceProgram.digest ? next : undefined;
+  const adoption = programUpgrade(sourceProgram);
   // a page with nothing for these letters isn't offered; one opened anyway (undo back to blocks, a link) gives way to the
   // page before it before it is drawn
   const shown = pages.some(c => c.id === category);
@@ -53,8 +52,10 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
       <Explainer />
       {sourceProgram && note}
       {adoption && <div className="page-note">
-        <button type="button" className="btn outline wide" onClick={actions.enableProgram}>{adoption.width ? 'Enable designed widths' : 'Enable letter controls'}</button>
-        <p>{adoption.width ? 'Width returns to the original drawing when you enable its designed variations.' : 'Reviewed letter controls start at their original values. Choose Only that letter in the inspector to use them.'}</p>
+        <button type="button" className="btn outline wide" onClick={actions.enableProgram}>{sourceProgram?.kind === 'program-v1' ? 'Update style capabilities' : adoption.resetWidth ? 'Enable designed widths' : 'Enable reviewed controls'}</button>
+        <p>{adoption.resetWidth ? 'Width returns to the original drawing when you enable its designed variations.'
+          : sourceProgram?.kind === 'program-v1' ? 'Keep your current proportions and edits while adding the latest reviewed controls.'
+          : 'The new controls start at their original values. Your point edits stay editable.'}</p>
       </div>}
       {!adoption && sourceProgram?.kind === 'outline-v1' && masterInfo(mastersForFont(sourceProgram.fontId))?.source.digest === sourceProgram.digest &&
         <button type="button" className="btn outline wide" onClick={actions.enableMasters}>Enable weight variations</button>}

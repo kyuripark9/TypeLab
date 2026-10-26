@@ -68,7 +68,8 @@ export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
     case 'program-v1': {
       data = parseSourceProgram(readPayload(ref, 'programs'));
       if (!program || !sameRef(data.base, program.data.base) || !sameRef(data.width, program.data.width)
-        || !sameRef(data.features, program.data.features)) throw new Error('Source program does not match its catalog');
+        || !sameRef(data.features, program.data.features)
+        || JSON.stringify(data.finish) !== JSON.stringify(program.data.finish)) throw new Error('Source program does not match its catalog');
       const original = loadSource(data.base);
       if (data.width) sourcePayload(data.width);
       if (data.features) sourcePayload(data.features);

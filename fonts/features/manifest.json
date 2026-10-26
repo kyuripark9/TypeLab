@@ -2,6 +2,75 @@
   {
     "ref": {
       "kind": "feature-masters-v1",
+      "digest": "cf997a7a3ee6ad0068dbd5e2f8736f0a331622b3a73912327428ea22f848dadf",
+      "fontId": "Almanac:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "7d9763e7bc6cb7a98fbf56eec740d3562e17695888517ef8b41480b61ab76626",
+      "fontId": "Almanac:500"
+    },
+    "weightRange": [
+      400,
+      600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "31bb32851cfac965e76c6873bd99d261fe02320589014b52a5f71cc5cc2b32d4",
+      "fontId": "Bulwark:700"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "f6ff9d219c8dd03f29b36f30acb13767530de4a8197f61c481eef19166848ed5",
+      "fontId": "Bulwark:700"
+    },
+    "weightRange": [
+      100,
+      700
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "5a940dde81178a4677de5afbb05c97d738a5224589eb93fe4d340e98d47b868b",
+      "fontId": "Compass:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "01baf750ad45fa49fe3cf3fb768cd729534a416d0c63407ce179763aed49f91d",
+      "fontId": "Compass:300"
+    },
+    "weightRange": [
+      300,
+      450
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
       "digest": "878d2b9adae57c5256e6eec6de137fae305a6d4dcd8d3e4b69444ec422d9ddd9",
       "fontId": "Couture:600"
     },
@@ -25,6 +94,29 @@
       "terminalLength": [
         "c"
       ]
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "558f3609b3da72471e836d80241f344b170fa2219b2e2d3026b43a9f72327c11",
+      "fontId": "Dispatch:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c9f822303b920e03051563dd11d6792e18af9a42a4e015d44737b85003107f2c",
+      "fontId": "Dispatch:400"
+    },
+    "weightRange": [
+      400,
+      600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
     }
   },
   {
@@ -58,6 +150,29 @@
   {
     "ref": {
       "kind": "feature-masters-v1",
+      "digest": "228ed640295144cda0ab06c7cbeb8103e70e6a6ec60c16ec80b3fea2cd5bdf49",
+      "fontId": "Kernel:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "edf4313600883ebd93ff0f398e95ade1d952bbc3d4fa79ef3e2c9a8f27bc654f",
+      "fontId": "Kernel:500"
+    },
+    "weightRange": [
+      450,
+      600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
       "digest": "39c1b14d702228a5147ed56092fdaf06bd76972623260157759e030764b8b5e3",
       "fontId": "Mainline:600"
     },
@@ -81,6 +196,52 @@
       "terminalLength": [
         "c"
       ]
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "639185723b1256447c87ed69f6d0cfabce12a36865f01907de32f91e7467a7ad",
+      "fontId": "Orbital:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "4a6962ffca3871797860ddefdfacb14ae9a30f01300c40c71f7ac4203e98689b",
+      "fontId": "Orbital:600"
+    },
+    "weightRange": [
+      300,
+      700
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "10a7438d8039527bc56423327fcd1460df603270882a0c46bb76efda9d03380b",
+      "fontId": "Vellum:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c72eda230c2c2d7e7489bc6ab119c3d6468b5ee7ae1c56c3ee5efd33762249c9",
+      "fontId": "Vellum:400"
+    },
+    "weightRange": [
+      400,
+      600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
     }
   }
 ]
