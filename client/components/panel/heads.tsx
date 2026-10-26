@@ -9,7 +9,7 @@
 import { createContext, useLayoutEffect, useRef, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import { ANATOMY, CATEGORIES, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type CategoryId } from '../../../shared/content';
 import { isGlyphKey, type Params } from '../../../shared/params';
-import { sourceSupports } from '../../../shared/source/capabilities';
+import { sourceSupports, sourceVisible } from '../../../shared/source/capabilities';
 import { actions, letterOf, useEditor, useFont } from '../../state/editor';
 import { Diagram } from '../Diagram';
 import { SliderIcon } from '../SliderIcons';
@@ -122,11 +122,13 @@ export function Explainer() {
   const c = CONTROLS[controlFor(active)], sub = SUBS[active as keyof typeof SUBS];
   const sourceSlice = !!font.params.sourceProgram && controlFor(active) === 'slice' && sourceSupports(font.params, 'slice');
   const sourceDot = active === 'dotSize' && !!font.params.sourceProgram && sourceSupports(font.params, 'dotSize', letter);
+  const sourcePattern = active === 'roundness' && !!font.params.sourceProgram && sourceVisible(font.params, 'roundness');
   const sliceTitle = active === 'slice' ? 'Open a gap through the letters' : active === 'slicePos' ? 'Move the gap up or down' : 'Round the new cut edges';
   // two levels only, a title and its explanation; a part says which setting shapes it in the explanation
   const [title, text] = part ? [ANATOMY[part][0], partText(part, category)] : sourceSlice
     ? [sliceTitle, 'The upper pieces move up to open a gap. The lower pieces stay in place, and Points keeps the original drawing.']
-    : sourceDot ? ['Resize this letter’s dot', 'The dot grows from its bottom edge. The letter’s body and spacing stay fixed. New shapes drawn in Points stay independent.']
+    : sourceDot ? ['Resize the dots', `${letter === 'i' || letter === 'j' ? 'The dot grows from its original bottom edge.' : 'Each dot resizes around its original center.'} The rest of the glyph and its spacing stay fixed. New shapes drawn in Points stay independent.`]
+    : sourcePattern ? ['Round the pattern cells', 'Soften the corners of the selected pattern. The editable letter outline stays unchanged.']
     : [(sub ?? c).friendly, sub?.explain ?? c.explain];
   // the control just pointed at stays where it stood as the explainer takes the new explanation's height: a sticky
   // explainer stays in sight as the controls scroll under it; one that scrolls with them (a short panel) stays in

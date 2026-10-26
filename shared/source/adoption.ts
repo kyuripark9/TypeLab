@@ -71,6 +71,12 @@ export function adoptProgram(params: Params): Params | null {
     out.dotSize = .5;
     out.freeAt.dotSize = .5;
     for (const own of Object.values(glyphs)) delete own.dotSize;
+  } else if (program.data.components) {
+    const neutral = out.freeAt.dotSize ?? .5;
+    for (const glyph of program.componentGlyphs ?? []) if (!previous?.componentGlyphs?.includes(glyph)) {
+      if (glyphs[glyph]) delete glyphs[glyph].dotSize;
+      if (out.dotSize !== neutral) (glyphs[glyph] ??= {}).dotSize = neutral;
+    }
   }
   return out;
 }

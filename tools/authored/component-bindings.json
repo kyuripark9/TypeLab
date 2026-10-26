@@ -1,0 +1,4695 @@
+{
+  "format": "component-bindings-v1",
+  "notes": [
+    "Explicit contour identities authored from each neutral source glyph. Semicolon binds its upper dot only; its comma remains attached.",
+    "Named punctuation groups use their own ink centers. No runtime height, size, area, or contour-order heuristic selects components."
+  ],
+  "fonts": [
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "1e88ba172d6cf23b7fa0b83d1780ae45685e043daedad44549191a55bd941800",
+        "fontId": "Almanac:500"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "a932fd59c3cc30c5bb2764dd961ef7f91772a219e8ced1e4abcc00d17fea1d42",
+        "fontId": "Ballyhoo:400"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "e86e9bb8de0f75e1118894bad5f96f857ad1d4f305e6942dbd8b994cfe90f1f6",
+        "fontId": "Boardwalk:400"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.1,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.1,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "340d6c1566c754ff5ea0d90fdac2f77ab988393c6c62d6b4f421aabd64ea1ed3",
+        "fontId": "Bulwark:700"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "feba4842866ac4dcd356e137b6891d7ad4685baa1be419ead699e158b11f0eee",
+        "fontId": "Cathedral:400"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "552a68b0a230d7344c6e538c0367d4a4182fef80ef3085034f676d50f3c93baf",
+        "fontId": "Compass:300"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "5de06410779deca73e7248a42dd2f629e2fa9853b2532dbe6fd18b597d37fb47",
+        "fontId": "Cotton:300"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "a743231893ba1e3c471e1bfa2bfed2bb7768b4863000854413e7b96712281d58",
+        "fontId": "Couture:600"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "2a837e87780f1c6f17a10f23cfc6173c5807da5685b66f50a475539c1d9274f1",
+        "fontId": "Dispatch:400"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "dea1b0739e641d4da7c878181885b402f6cec2de792102601cdc4ea5ab74c1d1",
+        "fontId": "Funnies:400"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "d2558f23006bf2fa5dcca491e00dc1050bf2d57358c4ab81d04a96e491611b2b",
+        "fontId": "Gumdrop:700"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "1bb3719536d0b63d06f5fc081dc22149c6c6a867fb80d30cde6900e6aa4f4cc4",
+        "fontId": "Hearth:600"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "9140ce5613eb89165b23f8cf655a3e6c738ea6374248c78bc3d88fd65a4e5082",
+        "fontId": "Jotter:400"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "148815302716f99a57ce4ee13edc167fa5fee3baa81387b705a22f200a375cb2",
+        "fontId": "Kernel:500"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "e25df3eccf1f1e498264f6232907f9c46e00b4c1d2afc33cd41f18ffa9bf9250",
+        "fontId": "Mainline:600"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "a6fbb24a6752a93e1ecbda250e05f6974eb812733b348bf0a694ec980e32f15a",
+        "fontId": "Orbital:600"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.2,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.2,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "e859f4ecf83097411e5b2ac2a59fa4457898afd8992f1b66c06bf019dd8b5f9c",
+        "fontId": "Parlance:500"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "9acdea1f08cd809a7d3020098175581adc725d54efcd45077ff2330931e8f147",
+        "fontId": "Serenade:400"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "7a841c89c6d8e76a396ded16f0d961b24fbda45acb45d984dc0eb9e48ab2c9f2",
+        "fontId": "Sonnet:400i"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "87c8d705282e3e8e616a0e542ed6a52cca18d570e7a380a52224f12959134fb2",
+        "fontId": "Timber:400"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "7bbb4db5a4f8f5cb8412806ce4f18d7a2259dfb1c0f4eff3381884e90c36fbf9",
+        "fontId": "Turnpike:500"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "kind": "outline-v1",
+        "digest": "4792c42fdcd5497e632d3360ccbfe6a706fad0caabb6272b7211a9a4724bee5f",
+        "fontId": "Vellum:400"
+      },
+      "bindings": [
+        {
+          "glyph": "i",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": "j",
+          "id": "tittle",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-bottom-center"
+          }
+        },
+        {
+          "glyph": ".",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ":",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": ";",
+          "id": "upper-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "left-dot",
+          "contours": [
+            2
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "middle-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "…",
+          "id": "right-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "!",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¡",
+          "id": "dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "?",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "¿",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "·",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "•",
+          "id": "dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "lower-dot",
+          "contours": [
+            0
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        },
+        {
+          "glyph": "÷",
+          "id": "upper-dot",
+          "contours": [
+            1
+          ],
+          "size": {
+            "min": 0.7,
+            "max": 1.35,
+            "anchor": "ink-center"
+          }
+        }
+      ]
+    }
+  ]
+}

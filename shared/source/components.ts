@@ -11,7 +11,7 @@ export interface ComponentBinding {
   glyph: string;
   id: string;
   contours: [number, ...number[]];
-  size: { min: number; max: number; anchor: 'ink-bottom-center' };
+  size: { min: number; max: number; anchor: 'ink-bottom-center' | 'ink-center' };
 }
 export interface SourceComponentData {
   format: 'source-components-v1';
@@ -33,10 +33,11 @@ interface ComponentTransform {
   readonly scale: number;
   readonly anchor: Pt;
   readonly rise: number;
+  readonly fall: number;
   readonly forward: Mat;
   readonly inverse: Mat;
 }
-export interface ComponentPlan extends ComponentOwnership { readonly transforms: readonly ComponentTransform[]; readonly rise: number }
+export interface ComponentPlan extends ComponentOwnership { readonly transforms: readonly ComponentTransform[]; readonly rise: number; readonly fall: number }
 
 function object(input: unknown, fields: readonly string[]): Record<string, unknown> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Invalid source component object');
@@ -56,12 +57,12 @@ function binding(input: unknown): ComponentBinding {
   const value = object(input, ['glyph', 'id', 'contours', 'size']), size = object(value.size, ['min', 'max', 'anchor']);
   const min = finite(size.min), max = finite(size.max);
   if (typeof value.glyph !== 'string' || [...value.glyph].length !== 1 || typeof value.id !== 'string'
-    || !/^[a-z][a-z0-9-]{0,47}$/.test(value.id) || size.anchor !== 'ink-bottom-center'
+    || !/^[a-z][a-z0-9-]{0,47}$/.test(value.id) || (size.anchor !== 'ink-bottom-center' && size.anchor !== 'ink-center')
     || min < .25 || min >= 1 || max <= 1 || max > 2) throw new TypeError('Invalid component Size domain');
   const contours = array(value.contours).map(finite), [first, ...rest] = contours;
   if (first === undefined || contours.length > 20 || new Set(contours).size !== contours.length
     || contours.some(c => !Number.isInteger(c) || c < 0 || c >= 200)) throw new TypeError('Invalid tittle contour identity');
-  return { glyph: value.glyph, id: value.id, contours: [first, ...rest], size: { min, max, anchor: 'ink-bottom-center' } };
+  return { glyph: value.glyph, id: value.id, contours: [first, ...rest], size: { min, max, anchor: size.anchor } };
 }
 
 export function parseSourceComponents(input: unknown): SourceComponentData {
@@ -167,11 +168,14 @@ export function componentPlan(components: SourceComponents | null | undefined, g
     const { min, max } = binding.size, scale = value < neutral
       ? 1 + (min - 1) * (neutral - value) / neutral : 1 + (max - 1) * (value - neutral) / (1 - neutral);
     const box = componentInkBounds(binding.contours.map(ci => referenceAfterProportions.contours[ci]));
-    const anchor = { x: (box.x0 + box.x1) / 2, y: box.y0 };
+    const centered = binding.size.anchor === 'ink-center';
+    const anchor = { x: (box.x0 + box.x1) / 2, y: centered ? (box.y0 + box.y1) / 2 : box.y0 };
     const matrix = (s: number): Mat => [s, 0, 0, s, anchor.x * (1 - s), anchor.y * (1 - s)];
-    return { binding, scale, anchor, rise: Math.max(0, (scale - 1) * (box.y1 - box.y0)), forward: matrix(scale), inverse: matrix(1 / scale) };
+    const growth = Math.max(0, (scale - 1) * (box.y1 - box.y0));
+    return { binding, scale, anchor, rise: centered ? growth / 2 : growth, fall: centered ? growth / 2 : 0,
+      forward: matrix(scale), inverse: matrix(1 / scale) };
   });
-  return { ...ownership, transforms, rise: Math.max(...transforms.map(transform => transform.rise)) };
+  return { ...ownership, transforms, rise: Math.max(...transforms.map(transform => transform.rise)), fall: Math.max(...transforms.map(transform => transform.fall)) };
 }
 
 export function mapComponents(drawing: Drawn, plan: ComponentPlan | null, direction: 'forward' | 'inverse',

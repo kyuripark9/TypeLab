@@ -235,13 +235,17 @@ export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | n
   const policy = programInfo(ref)?.data.finish;
   const finish = policy ? compileSourceFinish(policy, p, { capHeight: font.cap * sy }) : null;
   const bounds = finish ? sourceFinishBounds(finish) : { above: 0, below: 0 };
-  let componentRise = 0;
+  let componentRise = 0, componentFall = 0;
   const components = sourceProgram(ref)?.components;
   if (components) for (const ch of new Set(components.data.glyphs.map(entry => entry.glyph))) {
     const own = p.glyphs[ch], values = own ? { ...p, ...own, glyphs: {} } : p;
     if (values.dotSize === (values.freeAt.dotSize ?? DEFAULTS.dotSize)) continue;
     const current = own ? variedFont(values) ?? font : font, original = current.glyphs[ch];
-    if (original) componentRise = Math.max(componentRise, componentPlanFor(original, values, ch, shape(current, values, ch))?.rise ?? 0);
+    if (original) {
+      const plan = componentPlanFor(original, values, ch, shape(current, values, ch));
+      componentRise = Math.max(componentRise, plan?.rise ?? 0);
+      componentFall = Math.max(componentFall, plan?.fall ?? 0);
+    }
   }
   if (policy?.slice) {
     for (const own of Object.values(p.glyphs)) {
@@ -252,7 +256,7 @@ export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | n
   return {
     free: font, status: { ref, state: 'ready', missingCharacters: [...ALL_CHARS].filter(ch => !font.glyphs[ch] && !p.outlines[ch]) },
     m: { ...m, cap: font.cap * sy, xh, asc: (lower.y[3]?.[1] ?? font.cap * sy) + componentRise + bounds.above,
-      desc: lower.y[0][1] - bounds.below, ws: lower.xScale, slant: Math.tan((p.slant - base.slant) * 20 * Math.PI / 180),
+      desc: lower.y[0][1] - componentFall - bounds.below, ws: lower.xScale, slant: Math.tan((p.slant - base.slant) * 20 * Math.PI / 180),
       space: Math.max(20, font.space * lower.xScale + (p.wordSpacing - DEFAULTS.wordSpacing) * 520) },
     glyph: ch => {
       const glyph = evaluated(font, p, ch);

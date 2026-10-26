@@ -1,8 +1,8 @@
 # Source components
 
-Source components give named pieces of a glyph their own transforms. The first assets bind the tittles of i and j in all 22 bundled source styles. The Size control appears only while editing a covered letter alone. Original, Round, and Square forms remain separate capabilities; this unit enables Size only.
+Source components give named pieces of a glyph their own transforms. The authoring recipe binds i, j, and detached punctuation dots in all 22 bundled source styles. The Size control appears only while editing a covered glyph alone. Original, Round, and Square forms remain separate capabilities; these assets enable Size only.
 
-The current assets use 70% as the small endpoint. Most use 135% as the large endpoint; Boardwalk uses 110%, and Orbital uses 120%. These are linear dimensions relative to the current source component. They are implemented ranges, with full optical and interaction validation deferred.
+The assets use 70% as the small endpoint and at most 135% as the large endpoint. Boardwalk's tittles are capped at 110%, and Orbital's at 120%. Each glyph's large endpoint can be reduced further by the stored geometry's spacing or component-clearance limits. These are linear dimensions relative to the current source component. Full optical and interaction validation is deferred.
 
 ## Asset contract
 
@@ -13,13 +13,29 @@ Each binding contains:
 - A glyph and a component ID, such as `i` / `tittle`.
 - Explicit source contour indices.
 - Small and large Size multipliers.
-- The `ink-bottom-center` anchor.
+- An `ink-bottom-center` or `ink-center` anchor.
 
 Bindings may name arbitrary glyphs. Several independent components can belong to one glyph, allowing future colon, ellipsis, or divide recipes to resize each dot without scaling the spacing between them. Components cannot share contours. Shape inference and punctuation classification do not happen at runtime.
 
-The declared evaluation stage is `after-proportions-before-pose-v1`. Bounds use true cubic extrema. Uniform Size scales a component about the bottom-center of its current source ink, after weight, native width, compatible features, and height/geometric-width transforms. It then follows the same placement, rotation, slant, and finishing operations as the body. Its growth does not recalculate side bearings or advance. Size at the saved neutral is an exact no-op. Ascent can increase by the component's added vertical extent.
+The declared evaluation stage is `after-proportions-before-pose-v1`. Bounds use true cubic extrema. Uniform Size scales a component about its declared anchor after weight, native width, compatible features, and height/geometric-width transforms. It then follows the same placement, rotation, slant, and finishing operations as the body. Its growth does not recalculate side bearings or advance. Size at the saved neutral is an exact no-op. Ascent and descent can grow by the component's added vertical extent.
 
 Serenade j uses its explicit dot contour even though the body's return flourish overlaps the dot's vertical range. Selecting a component by a whole-glyph height cutoff would exclude this valid detached dot.
+
+## Punctuation coverage
+
+The recipe contains 17 component groups per style: 374 groups across 286 glyphs. Every punctuation dot uses its own source ink center, preserving the authored centers independently as Size changes. Saved point offsets follow the same transform, as described below.
+
+| Glyphs | Selected groups | Preserved pieces |
+| --- | --- | --- |
+| i j | One tittle, anchored at its bottom-center | Letter bodies |
+| . · • | The entire single-contour dot | Advance and placement |
+| : | Upper and lower dots independently | Their centers and spacing |
+| ; | Upper dot only | The attached comma head and tail |
+| … | Left, middle, and right dots independently | Their centers and spacing |
+| ! ¡ ? ¿ | The detached dot | Stroke or question body |
+| ÷ | Upper and lower dots independently | The divide bar |
+
+The explicit indices in `tools/authored/component-bindings.json` were authored from each neutral source glyph's actual contour inventory and pinned to its original outline reference. All 22 styles have the requested detached punctuation components. Neither comma tails nor question bodies are split apart, and no runtime heuristic chooses the smallest or highest contour. A whole-glyph component is valid; a remaining body is not required.
 
 ## Saved Points
 
@@ -29,7 +45,7 @@ Contour ownership is captured before generic nearest-source provenance inference
 
 A change to Size alone retains saved body/unbound contour objects and advance exactly. Changes to weight, width, heights, or pose still use normal saved-edit transport. Finishing effects consume the final component geometry; editable Points remain the pre-finish drawing.
 
-New component programs initialize `dotSize` and `freeAt.dotSize` to 0.5. Explicit adoption initializes this newly enabled control the same way and removes dormant per-letter Size values from older programs. Saved Points frames remain intact. Later component-capable revisions preserve existing Size values and their saved neutral.
+New component programs initialize `dotSize` and `freeAt.dotSize` to 0.5. Explicit adoption initializes this newly enabled control the same way and removes dormant per-letter Size values from older programs. Saved Points frames remain intact. Later component-capable revisions preserve existing Size values and their saved neutral. When coverage grows, only the newly covered glyphs start neutral; dormant values on those glyphs do not become active unexpectedly.
 
 ## Authoring and publication
 
@@ -51,14 +67,18 @@ node --max-old-space-size=512 --import tsx tools/authored/build-components.ts \
   --input tools/authored/component-bases.json --out fonts/components
 ```
 
-The compiler reads published bases and width assets, resolves the reviewed i/j identities, validates every stored weight/width knot, and writes canonical immutable JSON plus `fonts/components/manifest.json`. The manifest records the exact dependencies, ranges, and measured repeated-dot collision scales. Existing immutable files are checked before writing; programs are not published by this command. Add `--check` to compare with generated output without writing.
+The compiler reads published bases and width assets, loads the explicit bindings, validates every stored weight/width knot, and writes canonical immutable JSON plus `fonts/components/manifest.json`. The manifest records the exact dependencies, ranges, and measured collision limits. Existing immutable files are checked before writing; programs are not published by this command. Add `--check` to compare with generated output without writing. `--bindings` selects another explicit recipe file.
 
-Upper endpoints retain at least 20% of the original repeated-dot horizontal gap at the stored weight/width knots and normal tracking. Geometric-width styles include their 65% minimum width in this calculation. These bounds use the encoded advance, including rounding. They are fixed asset limits; runtime does not clamp a user's contour edits or spacing.
+Upper endpoints retain at least 20% of a separating box gap at the stored weight/width knots. The compiler considers simultaneous growth of all dots within a punctuation glyph, its unchanged body, and neighboring copies at normal tracking. It uses true curve bounds and the encoded advance, including rounding. Geometric-width styles include their 65% minimum width. All components of one glyph share its most restrictive large endpoint. These are fixed asset limits; runtime does not clamp a user's contour edits or spacing.
+
+The tittle recipe continues to use repeated-dot spacing rather than dot/body box clearance: Serenade j's separate dot and flourish have overlapping boxes. Punctuation requires a positive separating axis at each stored knot; a case lacking one stops generation and needs an explicit clearance recipe.
+
+The final width-family inputs produce some narrow large-size ranges. Funnies divide is limited to 100.6818% by its tightest stored dot/bar gap; Orbital ellipsis to 104.6556%; Mainline ellipsis to 106.7541%. Their small endpoint remains 70%. More growth would need a separately authored change to spacing, placement, or shape. The compiler does not silently move a dot center to make room.
 
 After a basis or width revision, supply a new pair file and run the same compiler. The resulting component digest changes with its exact dependencies. Publish a complete source program containing that digest, its matching base and width, and any feature/finish dependencies through `build-programs.ts --program`. Regenerate neutral preview fonts after program publication because preview fonts pin the complete program reference.
 
 ## Current validation limits
 
-The initial generator compiled 22 families and 44 bindings, and the application typecheck passes. Its checks prove explicit references, contour presence, nonzero component bounds, and the recorded knot-spacing calculations. They do not certify the entire interpolated designspace.
+The initial tittle generator compiled 22 families and 44 bindings. The punctuation generator compiled 374 component groups across 286 glyphs against the final 22 native-width pairs; typecheck also passes. Compiler checks establish explicit references, contour presence, nonzero component bounds, and the recorded knot-spacing calculations. They do not certify the entire interpolated designspace.
 
-The requested implementation-first sequence defers full unit/integration tests, rendered specimens, intermediate weight/width sweeps, height/pose interactions, arbitrary edited contours, browser behavior, and save/reopen/export comparisons. Punctuation and accents are not yet bound by these assets. They require explicit component identities and anchors before becoming available in the UI.
+The requested implementation-first sequence defers full unit/integration tests, rendered specimens, intermediate weight/width sweeps, height/pose interactions, arbitrary edited contours, browser behavior, and save/reopen/export comparisons. Accents and attached comma/quote shapes remain outside this coverage. They require explicit component identities and attachment rules before becoming available in the UI.
