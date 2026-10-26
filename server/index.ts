@@ -65,7 +65,7 @@ if (prod) {
   app.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
     res.setHeader('Cache-Control', 'no-cache');
-    res.sendFile(resolve(dist, 'index.html'));
+    res.sendFile('index.html', { root: dist });
   });
 } else {
   const { createServer: createVite } = await import('vite');
