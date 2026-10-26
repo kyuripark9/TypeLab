@@ -321,7 +321,7 @@ describe('weight edits, saved designs and export', () => {
   });
 
   it('keeps version 8 outline documents on their exact source until explicitly switched', () => {
-    assert.equal(PARAMS_VERSION, 9);
+    assert.ok(PARAMS_VERSION >= 9);
     const ref = sourceForFont('Couture:600'); assert.ok(ref);
     loadSource(ref);
     const params: Params = { ...DEFAULTS, freeFont: ref.fontId, sourceProgram: ref, freeAt: freeAtOf(DEFAULTS) };

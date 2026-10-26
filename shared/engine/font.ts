@@ -37,7 +37,7 @@ import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from 
 import { drawnDesign, drawnFrom, drawnLetter } from './family-drawn';
 import { highlightD } from './highlight';
 import { sourceInstance, type SourceStatus } from '../source/instance';
-import { sourceSupports } from '../source/capabilities';
+import { sourceControl } from '../source/capabilities';
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
@@ -111,6 +111,7 @@ export interface Glyph {
   bodyW: number;
   lsb: number; rsb: number; adv: number;
   /** the outline a letter drawn as it is was drawn from (with the pen, or a free font's) */ drawn?: Drawn;
+  /** the editable source drawing, before finishing effects; present only when its evaluator preserves that distinction */ editable?: Drawn;
   /** the effects (the slice, the fill, rough edges) drew its outline, so `cmds` aren't `drawn` as it stands: Points
       shows the letter as they draw it */ fx?: boolean;
   M: Mat;
@@ -480,7 +481,7 @@ export function buildFont(params: Params, from?: Font): Font {
       let d = hlCache.get(id);
       if (d === undefined) {
         const g = font.glyph(ch);
-        d = g ? source ? sourceSupports(params, key) ? g.d : '' : highlightD(g, key, font.letter(ch).m) : '';
+        d = g ? source ? sourceControl(params, key, ch) ? g.d : '' : highlightD(g, key, font.letter(ch).m) : '';
         hlCache.set(id, d);
       }
       return d;

@@ -1,0 +1,86 @@
+[
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "878d2b9adae57c5256e6eec6de137fae305a6d4dcd8d3e4b69444ec422d9ddd9",
+      "fontId": "Couture:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3c4dfe69b87c432a1d1938e53099ac0620eaa3f75a656dc08309d2eace9d5b89",
+      "fontId": "Couture:600"
+    },
+    "weightRange": [
+      500,
+      700
+    ],
+    "coverage": {
+      "crossbar": [
+        "H",
+        "A"
+      ],
+      "tail": [
+        "R"
+      ],
+      "terminalLength": [
+        "c"
+      ]
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "21e9a909ea84d1fc97ab9a5de4e3a06e448aacf6aa64889b1b7534d8777926e9",
+      "fontId": "Hearth:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "a5b2b12dbd85c33f2619533efb9309a27cabb3b95a07890bbd54d22675fda623",
+      "fontId": "Hearth:600"
+    },
+    "weightRange": [
+      300,
+      800
+    ],
+    "coverage": {
+      "crossbar": [
+        "H",
+        "A"
+      ],
+      "tail": [
+        "R"
+      ],
+      "terminalLength": [
+        "c"
+      ]
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "39c1b14d702228a5147ed56092fdaf06bd76972623260157759e030764b8b5e3",
+      "fontId": "Mainline:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "44ce1daebc31f46d098f0f37a84023aba0f2689404d5aa529a8c0bcb261d3033",
+      "fontId": "Mainline:600"
+    },
+    "weightRange": [
+      300,
+      800
+    ],
+    "coverage": {
+      "crossbar": [
+        "H",
+        "A"
+      ],
+      "tail": [
+        "R"
+      ],
+      "terminalLength": [
+        "c"
+      ]
+    }
+  }
+]

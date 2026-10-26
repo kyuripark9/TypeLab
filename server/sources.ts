@@ -1,51 +1,115 @@
-/* Read immutable original fonts by digest. Both the browser and export workers use these bytes. */
+/* Read immutable source packages by digest for both the browser and export workers. */
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { SOURCE_REVISIONS } from '../shared/source/catalog';
+import type { Params } from '../shared/params';
+import { designSourceRefs } from '../shared/source/dependencies';
 import { parseSourceData } from '../shared/source/data';
-import { registerSource } from '../shared/source/registry';
-import type { SourceRef } from '../shared/source/model';
+import { parseFeatureMasters, type FeatureMasterData } from '../shared/source/feature-masters';
+import { registerSource, sourceMasters } from '../shared/source/registry';
+import type { MasterSourceRef, SourceRef } from '../shared/source/model';
 import type { FreeFontData } from '../shared/engine/free';
 import { ownLicense } from '../shared/free-fonts';
 import { masterInfo } from '../shared/source/master-catalog';
 import { parseWeightMasters, type WeightMasterData } from '../shared/source/masters';
+import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from '../shared/source/program';
+import { PROGRAM_REVISIONS, programInfo } from '../shared/source/program-catalog';
+import { parseWidthMasters, type WidthMasterData } from '../shared/source/width-masters';
 
+type Payload = FreeFontData | WeightMasterData | SourceProgramData | WidthMasterData | FeatureMasterData;
 const cached = new Map<string, FreeFontData>();
-const packages = new Map<string, WeightMasterData>();
+const packages = new Map<string, Payload>();
+const keyOf = (ref: SourceRef | ProgramAssetRef) => `${ref.kind}:${ref.digest}:${ref.fontId}`;
+const sameRef = (a: SourceRef | ProgramAssetRef | null, b: SourceRef | ProgramAssetRef | null) => a === null || b === null ? a === b : keyOf(a) === keyOf(b);
 
-export function sourcePayload(ref: SourceRef): FreeFontData | WeightMasterData {
-  const font = loadSource(ref);
-  return packages.get(ref.digest) ?? font;
+function assetBase(ref: ProgramAssetRef): MasterSourceRef | undefined {
+  let base: MasterSourceRef | undefined;
+  for (const program of PROGRAM_REVISIONS) {
+    if (!sameRef(ref, program.data.width) && !sameRef(ref, program.data.features)) continue;
+    if (base && !sameRef(base, program.data.base)) throw new Error('An authored asset has conflicting catalog bases');
+    base = program.data.base;
+  }
+  return base;
+}
+function readPayload(ref: SourceRef | ProgramAssetRef, directory: string): unknown {
+  const bytes = readFileSync(new URL(`../fonts/${directory}/${ref.digest}.json`, import.meta.url));
+  if (createHash('sha256').update(bytes).digest('hex') !== ref.digest) throw new Error('Source integrity check failed');
+  return JSON.parse(bytes.toString());
 }
 
-export function loadSource(ref: SourceRef): FreeFontData {
-  const known = ref.kind === 'masters-v1' ? !!masterInfo(ref)
-    : SOURCE_REVISIONS.some(r => r.digest === ref.digest && r.fontId === ref.fontId);
+export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
+  const program = ref.kind === 'program-v1' ? programInfo(ref) : undefined;
+  const base = ref.kind === 'width-masters-v1' || ref.kind === 'feature-masters-v1' ? assetBase(ref) : undefined;
+  const known = ref.kind === 'outline-v1' ? SOURCE_REVISIONS.some(r => sameRef(r, ref))
+    : ref.kind === 'masters-v1' ? !!masterInfo(ref) : ref.kind === 'program-v1' ? !!program : !!base;
   if (!known) throw new Error('This saved source is unavailable');
-  const kept = cached.get(ref.digest);
-  if (kept) {
-    if (kept.id !== ref.fontId) throw new Error('Source reference does not match its font');
-    return kept;
+  const key = keyOf(ref), kept = packages.get(key);
+  if (kept) return kept;
+  let data: Payload;
+  switch (ref.kind) {
+    case 'outline-v1': {
+      const original = parseSourceData(readPayload(ref, 'sources')), license = ownLicense();
+      data = { ...original, copyright: license.copyright, license: license.license, licenseUrl: license.licenseUrl,
+        licenseText: `${license.lines.join('\n')}\n\n${readFileSync(new URL('../fonts/OFL.txt', import.meta.url), 'utf8').trim()}` };
+      if (data.id !== ref.fontId) throw new Error('Source reference does not match its font');
+      registerSource(ref, data);
+      cached.set(key, data);
+      break;
+    }
+    case 'masters-v1': {
+      data = parseWeightMasters(readPayload(ref, 'masters'));
+      if (data.source.fontId !== ref.fontId) throw new Error('Weight masters do not match their font');
+      const weight = data.defaultWeight, original = data.masters.find(m => m.weight === weight);
+      if (!original) throw new Error('Weight masters lack their original weight');
+      registerSource(ref, data);
+      cached.set(key, original.data);
+      break;
+    }
+    case 'program-v1': {
+      data = parseSourceProgram(readPayload(ref, 'programs'));
+      if (!program || !sameRef(data.base, program.data.base) || !sameRef(data.width, program.data.width)
+        || !sameRef(data.features, program.data.features)) throw new Error('Source program does not match its catalog');
+      const original = loadSource(data.base);
+      if (data.width) sourcePayload(data.width);
+      if (data.features) sourcePayload(data.features);
+      registerSource(ref, data);
+      cached.set(key, original);
+      break;
+    }
+    case 'width-masters-v1': {
+      if (!base) throw new Error('Width masters are missing their catalog base');
+      loadSource(base);
+      const masters = sourceMasters(base);
+      if (!masters) throw new Error('Width masters require their weight package');
+      data = parseWidthMasters(readPayload(ref, 'widths'), { ref: base, masters });
+      registerSource(ref, data);
+      break;
+    }
+    case 'feature-masters-v1': {
+      if (!base) throw new Error('Feature masters are missing their catalog base');
+      loadSource(base);
+      data = parseFeatureMasters(readPayload(ref, 'features'));
+      if (!sameRef(data.base, base)) throw new Error('Feature masters do not match their catalog base');
+      registerSource(ref, data);
+      break;
+    }
+    default: {
+      const exhaustive: never = ref;
+      throw new Error(`Unsupported source ${exhaustive}`);
+    }
   }
-  if (ref.kind === 'masters-v1') {
-    const bytes = readFileSync(new URL(`../fonts/masters/${ref.digest}.json`, import.meta.url));
-    if (createHash('sha256').update(bytes).digest('hex') !== ref.digest) throw new Error('Master integrity check failed');
-    const data = parseWeightMasters(JSON.parse(bytes.toString()));
-    if (data.source.fontId !== ref.fontId) throw new Error('Weight masters do not match their font');
-    const base = data.masters.find(m => m.weight === data.defaultWeight);
-    if (!base) throw new Error('Weight masters lack their original weight');
-    registerSource(ref, data);
-    packages.set(ref.digest, data);
-    cached.set(ref.digest, base.data);
-    return base.data;
-  }
-  const bytes = readFileSync(new URL(`../fonts/sources/${ref.digest}.json`, import.meta.url));
-  if (createHash('sha256').update(bytes).digest('hex') !== ref.digest) throw new Error('Source integrity check failed');
-  const original = parseSourceData(JSON.parse(bytes.toString())), license = ownLicense();
-  const data = { ...original, copyright: license.copyright, license: license.license, licenseUrl: license.licenseUrl,
-    licenseText: `${license.lines.join('\n')}\n\n${readFileSync(new URL('../fonts/OFL.txt', import.meta.url), 'utf8').trim()}` };
-  if (data.id !== ref.fontId) throw new Error('Source reference does not match its font');
-  registerSource(ref, data);
-  cached.set(ref.digest, data);
+  packages.set(key, data);
   return data;
+}
+
+/** Workers receive the original font while evaluation reads the complete registered program. */
+export function loadSource(ref: SourceRef): FreeFontData {
+  sourcePayload(ref);
+  const font = cached.get(keyOf(ref));
+  if (!font) throw new Error('Source program did not provide its original drawing');
+  return font;
+}
+
+export function loadDesignSources(p: Pick<Params, 'sourceProgram' | 'outlines'>): void {
+  for (const ref of designSourceRefs(p)) loadSource(ref);
 }

@@ -768,12 +768,11 @@ export function setWeight(cs: Node[][], picked: number[], w: number): Node[][] {
 /* ---- Tracing: a letter the settings draw, as points to edit */
 
 const traces = new WeakMap<Glyph, Drawn>();
-/** A letter as the settings draw it, traced into points (once per build of it); a free font's letter, or one
-    drawn in Points, has its points already, as the font has them. With effects on it (Glyph.fx: rough edges,
-    hexagons, a shadow), the outline they draw is traced, so it is that the pen edits, and an edit keeps it. */
+/** A source program supplies its editable drawing before finishing. Other letters keep their historical tracing:
+    a free font or Points drawing keeps its nodes unless effects change the ink, which is then traced. */
 export function traceOf(g: Glyph): Drawn {
   let d = traces.get(g);
-  if (!d) { d = (!g.fx && g.drawn) || { adv: Math.round(g.adv), contours: fitOutline(g.cmds) }; traces.set(g, d); }
+  if (!d) { d = g.editable ?? ((!g.fx && g.drawn) || { adv: Math.round(g.adv), contours: fitOutline(g.cmds) }); traces.set(g, d); }
   return d;
 }
 

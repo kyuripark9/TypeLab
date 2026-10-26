@@ -7,7 +7,7 @@ import { parentPort } from 'node:worker_threads';
 import { freeFont, registerFreeFont, type FreeFontData } from '../shared/engine';
 import type { Params } from '../shared/params';
 import { buildPiece, type ExportPiece } from './export';
-import { loadSource } from './sources';
+import { loadDesignSources } from './sources';
 
 /** The design the last piece was of: a piece of the same design is given the very same params object, as what is kept
     of a design is kept by its params object (a family's hairlines read off its letters, shared/family.ts), and each
@@ -16,7 +16,7 @@ let last: { json: string; params: Params } | null = null;
 
 parentPort!.on('message', ({ piece, fonts }: { piece: ExportPiece; fonts: FreeFontData[] }) => {
   try {
-    if (piece.job.params.sourceProgram) loadSource(piece.job.params.sourceProgram);
+    loadDesignSources(piece.job.params);
     for (const f of fonts) if (!freeFont(f.id)) registerFreeFont(f);
     const json = JSON.stringify(piece.job.params);
     if (last?.json === json) piece.job.params = last.params;

@@ -8,11 +8,15 @@ import type { Mat } from '../engine/types';
 import { DEFAULTS, type Params } from '../params';
 import { inverseTransform, mapPoint, type OutlineTransform } from './geometry';
 import type { SourceRef } from './model';
-import { sourceFont, sourceMasters } from './registry';
+import { designSourceRefs } from './dependencies';
+import { sourceFont, sourceMasters, sourceProgram } from './registry';
 import { sourceControls } from './capabilities';
 import { sourceDot } from './features';
 import { interpolateMasters, weightAt } from './masters';
 import { masterInfo } from './master-catalog';
+import { programInfo } from './program-catalog';
+import { interpolateWidthMasters, widthAt } from './width-masters';
+import { evaluateFeatureMasters, FEATURE_CONTROLS } from './feature-masters';
 import { identifyAuthored, inheritAuthored, mapAuthored, transportEdits } from './edit-transport';
 
 export interface SourceStatus { ref: SourceRef; state: 'missing' | 'ready'; missingCharacters: string[] }
@@ -27,7 +31,7 @@ function axis(value: number, pick: number, low: number, high: number): number {
 function shape(font: FreeFont, p: Params, ch: string): OutlineTransform {
   const base = { ...DEFAULTS, ...p.freeAt };
   const sy = axis(p.height, DEFAULTS.height, 0.78, 1.28);
-  const sx = axis(p.width, base.width, 0.65, 1.55);
+  const sx = programInfo(p.sourceProgram)?.width ? 1 : axis(p.width, base.width, 0.65, 1.55);
   if (!/^[a-z]$/.test(ch)) return { xScale: sx, y: [[0, 0], [font.cap, font.cap * sy]] };
   const xh = font.xh * axis(p.xHeight, base.xHeight, 0.76, 1 + 0.6 * (font.cap / font.xh - 1));
   const ext = axis(p.extenders, base.extenders, 0.65, 1.4);
@@ -40,7 +44,7 @@ function shape(font: FreeFont, p: Params, ch: string): OutlineTransform {
   const dot = originalRef && sourceDot(originalRef.digest, ch);
   if (!dot) return transform;
   const drawn = font.glyphs[ch];
-  const dotBox = p.sourceProgram?.kind === 'masters-v1' && drawn
+  const dotBox = masterInfo(p.sourceProgram) && drawn
     ? cmdsBox(drawnCmds(dot.contours.flatMap(i => drawn.contours[i] ? [drawn.contours[i]] : []))) : null;
   const sourceBottom = dotBox?.y0 ?? dot.bottom;
   const bottom = mapPoint({ x: 0, y: sourceBottom }, transform).y;
@@ -85,13 +89,17 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
   // A new character has a fixed placement frame. Using each posed edit as its frame would accumulate drift.
   const source = original ?? { adv: font.cap * 0.75, contours: [] };
   const target = pose(font, source, p, ch);
-  const digest = p.sourceProgram?.kind === 'masters-v1' ? p.sourceProgram.digest : '';
+  const digest = p.sourceProgram?.kind === 'masters-v1' ? p.sourceProgram.digest : masterInfo(p.sourceProgram)?.ref.digest ?? '';
   const identity = { digest, glyph: ch };
   let canonical = digest ? identifyAuthored(source, identity) : source, extraAdvance = 0;
   if (edited) {
     const at: Params = { ...p, ...edited.at, glyphs: {}, outlines: {} };
-    if (sourceControls.every(key => p[key] === at[key]) && p.weight === at.weight) return asGlyph(ch, edited, target.M);
-    const beforeFont = variedFont(at, p.sourceProgram) ?? font, beforeSource = beforeFont.glyphs[ch] ?? source;
+    if (sourceControls.every(key => p[key] === at[key]) && p.weight === at.weight
+      && p.sourceProgram?.digest === at.sourceProgram?.digest
+      && (!programInfo(p.sourceProgram)?.data.features || FEATURE_CONTROLS.every(key => p[key] === at[key]))) {
+      return asGlyph(ch, edited, target.M, p.sourceProgram?.kind === 'program-v1');
+    }
+    const beforeFont = variedFont(at) ?? font, beforeSource = beforeFont.glyphs[ch] ?? source;
     const from = pose(beforeFont, beforeSource, at, ch);
     const curves = edited.contours.some(c => c.some(n => n.r)) ? { ...edited, contours: cmdsContours(drawnCmds(edited.contours)) } : edited;
     let unposed = move(curves, inverse(from.M));
@@ -103,25 +111,36 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
     extraAdvance = (edited.adv - from.adv) / from.transform.xScale;
   }
   const shaped = mapAuthored({ ...canonical, adv: Math.max(0, target.adv + extraAdvance * target.transform.xScale) }, target.transform, source, identity);
-  return asGlyph(ch, move(shaped, target.M), target.M);
+  return asGlyph(ch, move(shaped, target.M), target.M, p.sourceProgram?.kind === 'program-v1');
 }
 
-function variedFont(p: Params, fallback?: SourceRef | null): FreeFont | undefined {
+function variedFont(p: Params): FreeFont | undefined {
   if (!p.sourceProgram) return undefined;
-  const program = sourceMasters(p.sourceProgram) ?? (fallback && sourceMasters(fallback)), info = masterInfo(p.sourceProgram) ?? masterInfo(fallback ?? null);
+  const authored = sourceProgram(p.sourceProgram), info = masterInfo(p.sourceProgram);
+  if (authored && info) {
+    const weight = weightAt(p, info), width = authored.width ? widthAt(p, authored.width.data.axis) : null;
+    const baseline = authored.width && width !== null ? interpolateWidthMasters(authored.width, weight, width) : interpolateMasters(authored.masters, weight);
+    return authored.features ? evaluateFeatureMasters(authored.features, { baseline, weight,
+      width: authored.width && width !== authored.width.data.axis.neutral ? 'varied' : 'base',
+      values: { crossbar: p.crossbar, tail: p.tail, terminalLength: p.terminalLength } }) : baseline;
+  }
+  const program = sourceMasters(p.sourceProgram);
   return program && info ? interpolateMasters(program, weightAt(p, info)) : sourceFont(p.sourceProgram);
 }
 
-function asGlyph(ch: string, drawn: Drawn, M: Mat): Glyph {
+function asGlyph(ch: string, drawn: Drawn, M: Mat, editable = false): Glyph {
   const cmds = drawnCmds(drawn.contours), box = cmdsBox(cmds) ?? { x0: 0, x1: 0, y0: 0, y1: 0 };
   return { ch, ...blankParts(), strokes: [{ part: 'drawn', cmds, curved: true }],
     bodyW: box.x1 - box.x0, lsb: box.x0, rsb: drawn.adv - box.x1, adv: drawn.adv,
-    M, drawn, cmds, d: cmdsToD(cmds) };
+    M, drawn, ...(editable ? { editable: drawn } : {}), cmds, d: cmdsToD(cmds) };
 }
 
 export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | null {
   const ref = p.sourceProgram;
   if (!ref) return null;
+  for (const baseline of designSourceRefs(p)) {
+    if (!sourceFont(baseline)) return { m: fallback, status: { ref: baseline, state: 'missing', missingCharacters: [] }, glyph: () => null };
+  }
   const font = variedFont(p);
   if (!font) return { m: fallback, status: { ref, state: 'missing', missingCharacters: [] }, glyph: () => null };
   const base = { ...DEFAULTS, ...p.freeAt }, sy = axis(p.height, DEFAULTS.height, 0.78, 1.28);

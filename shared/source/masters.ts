@@ -24,6 +24,15 @@ function text(input: unknown): string {
   return input;
 }
 
+const geometryKey = (data: FreeFontData) => JSON.stringify(Object.entries(data.glyphs).sort(([a], [b]) => a.localeCompare(b))
+  .map(([ch, [, cs]]) => [ch, cs.map(c => c.map(n => [n.length > 2 && n[2] !== null, n.length === 6]))]));
+
+export function assertCompatibleMasters(reference: FreeFontData, candidate: FreeFontData): void {
+  if (candidate.id !== reference.id || candidate.cap !== reference.cap || candidate.xh !== reference.xh || geometryKey(candidate) !== geometryKey(reference)) {
+    throw new TypeError('Masters do not have compatible source geometry');
+  }
+}
+
 export function parseWeightMasters(input: unknown): WeightMasterData {
   const v = record(input), source = parseSourceRef(v.source);
   if (v.format !== 'weight-masters-v1' || source?.kind !== 'outline-v1'
@@ -36,12 +45,9 @@ export function parseWeightMasters(input: unknown): WeightMasterData {
   });
   const base = masters.find(m => m.weight === v.defaultWeight);
   if (!base || masters.some((m, i) => i > 0 && m.weight <= masters[i - 1].weight)) throw new TypeError('Masters must be ordered and include the original weight');
-  const signature = (data: FreeFontData) => JSON.stringify(Object.entries(data.glyphs).sort(([a], [b]) => a.localeCompare(b)).map(([ch, [, cs]]) => [ch, cs.map(c => c.map(n => [n.length > 2 && n[2] !== null, n.length === 6]))]));
-  const expected = signature(base.data);
   for (const m of masters) {
-    if (m.data.id !== source.fontId || m.data.cap !== base.data.cap || m.data.xh !== base.data.xh || signature(m.data) !== expected) {
-      throw new TypeError('Weight masters do not have compatible source geometry');
-    }
+    if (m.data.id !== source.fontId) throw new TypeError('Weight masters do not match their source');
+    assertCompatibleMasters(base.data, m.data);
   }
   const provenance = v.provenance.map(input => {
     const p = record(input), sha256 = text(p.sha256);
@@ -79,6 +85,17 @@ function nodeAt(a: Node, b: Node, t: number): Node {
 }
 
 const instances = new WeakMap<WeightMasters, Map<number, FreeFont>>();
+export function mixMasterFonts(a: FreeFont, b: FreeFont, t: number): FreeFont {
+  if (t === 0) return a;
+  if (t === 1) return b;
+  const glyphs: Record<string, Drawn> = {};
+  for (const [ch, d] of Object.entries(a.glyphs)) {
+    const next = b.glyphs[ch];
+    glyphs[ch] = { adv: lerp(d.adv, next.adv, t), contours: d.contours.map((c, i) => c.map((n, j) => nodeAt(n, next.contours[i][j], t))) };
+  }
+  return { ...a, space: lerp(a.space, b.space, t), glyphs };
+}
+
 export function interpolateMasters(program: WeightMasters, weight: number): FreeFont {
   const first = program.masters[0], last = program.masters[program.masters.length - 1];
   if (weight <= first.weight) return first.font;
@@ -90,12 +107,7 @@ export function interpolateMasters(program: WeightMasters, weight: number): Free
   const kept = cache.get(weight);
   if (kept) return kept;
   const upper = program.masters.findIndex(m => m.weight > weight), a = program.masters[upper - 1], b = program.masters[upper];
-  const t = (weight - a.weight) / (b.weight - a.weight), glyphs: Record<string, Drawn> = {};
-  for (const [ch, d] of Object.entries(a.font.glyphs)) {
-    const next = b.font.glyphs[ch];
-    glyphs[ch] = { adv: lerp(d.adv, next.adv, t), contours: d.contours.map((c, i) => c.map((n, j) => nodeAt(n, next.contours[i][j], t))) };
-  }
-  const font = { ...a.font, space: lerp(a.font.space, b.font.space, t), glyphs };
+  const font = mixMasterFonts(a.font, b.font, (weight - a.weight) / (b.weight - a.weight));
   if (cache.size >= 8) cache.delete(cache.keys().next().value!);
   cache.set(weight, font);
   return font;

@@ -1,0 +1,170 @@
+/* Generated source-program revisions name their immutable assets and reviewed editor capabilities. */
+import type { ProgramSourceRef, SourceRef } from './model';
+import type { SourceProgramData } from './program';
+import type { WidthAxis } from './width-masters';
+import type { FeatureControl } from './feature-masters';
+
+export interface ProgramInfo {
+  ref: ProgramSourceRef;
+  data: SourceProgramData;
+  width: WidthAxis | null;
+  featureGlyphs: Partial<Record<FeatureControl, string[]>>;
+}
+export const PROGRAM_REVISIONS: readonly ProgramInfo[] = [
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "9a46e4f5302b4e9bc431b546053a214030040f9577ffa720f659ff20ee13d855",
+      "fontId": "Mainline:600"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "44ce1daebc31f46d098f0f37a84023aba0f2689404d5aa529a8c0bcb261d3033",
+        "fontId": "Mainline:600"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "c20530e7e224aa7185bae4610fdec7cc8c1ebc95d57de29947e053c2e13a175a",
+        "fontId": "Mainline:600"
+      },
+      "features": null
+    },
+    "width": {
+      "min": 75,
+      "neutral": 100,
+      "max": 100
+    },
+    "featureGlyphs": {}
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "a732a5db2f9b7cae5ef90f81a3b250c58c2dfd8af814c19118d87bd11502f61a",
+      "fontId": "Parlance:500"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "3f5e7e22afe6910db983a6532ae90df62aa3b3611b2698f4caedd34193ee5b95",
+        "fontId": "Parlance:500"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "5d942722af51e8431a52044f8ce547c2556a034b485eb2d233b5969d1ead1ae8",
+        "fontId": "Parlance:500"
+      },
+      "features": null
+    },
+    "width": {
+      "min": 75,
+      "neutral": 100,
+      "max": 100
+    },
+    "featureGlyphs": {}
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "7a25dae3034366f599960e5ee5e2c8bc2955ccd4d9a2a5f1b92c8843f8941b85",
+      "fontId": "Gumdrop:700"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "73a3ea6fabc80057f93f0e61739973da35ed789fa08b1980af73a7e91a7b8d0c",
+        "fontId": "Gumdrop:700"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "f336c4a2fac997e70032cd2e6801d49b80c2fa3603884dca99d2fbf53f05e34a",
+        "fontId": "Gumdrop:700"
+      },
+      "features": null
+    },
+    "width": {
+      "min": 75,
+      "neutral": 100,
+      "max": 125
+    },
+    "featureGlyphs": {}
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "d042b4e5d92a09d5657bc9e19fe5efb158326cfc9d8394d94743fe023382c237",
+      "fontId": "Couture:600"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "3c4dfe69b87c432a1d1938e53099ac0620eaa3f75a656dc08309d2eace9d5b89",
+        "fontId": "Couture:600"
+      },
+      "width": null,
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "878d2b9adae57c5256e6eec6de137fae305a6d4dcd8d3e4b69444ec422d9ddd9",
+        "fontId": "Couture:600"
+      }
+    },
+    "width": null,
+    "featureGlyphs": {
+      "crossbar": [
+        "H",
+        "A"
+      ],
+      "tail": [
+        "R"
+      ],
+      "terminalLength": [
+        "c"
+      ]
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "d13fbd8ddc2655157dc50f353d4e577df133a66336d4167e670f2e450e1abf25",
+      "fontId": "Hearth:600"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "a5b2b12dbd85c33f2619533efb9309a27cabb3b95a07890bbd54d22675fda623",
+        "fontId": "Hearth:600"
+      },
+      "width": null,
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "21e9a909ea84d1fc97ab9a5de4e3a06e448aacf6aa64889b1b7534d8777926e9",
+        "fontId": "Hearth:600"
+      }
+    },
+    "width": null,
+    "featureGlyphs": {
+      "crossbar": [
+        "H",
+        "A"
+      ],
+      "tail": [
+        "R"
+      ],
+      "terminalLength": [
+        "c"
+      ]
+    }
+  }
+];
+
+export function programInfo(ref: SourceRef | null): ProgramInfo | undefined {
+  return ref?.kind === 'program-v1' ? PROGRAM_REVISIONS.find(p => p.ref.digest === ref.digest && p.ref.fontId === ref.fontId) : undefined;
+}
+export function programForFont(fontId: string): ProgramSourceRef | null {
+  return PROGRAM_REVISIONS.findLast(p => p.ref.fontId === fontId)?.ref ?? null;
+}

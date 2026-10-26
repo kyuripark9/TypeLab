@@ -7,7 +7,7 @@ import { sourceSupports } from '../../shared/source/capabilities';
 import { DRAWER_QUERY, n1, shortcut } from '../lib/hooks';
 import { ink } from '../lib/preview';
 import { DESIGNS } from '../lib/routes';
-import { actions, useEditor, useFont } from '../state/editor';
+import { actions, letterOf, useEditor, useFont } from '../state/editor';
 import { AccountButton } from './Account';
 import { PageIcon, SearchIcon } from './Icons';
 
@@ -85,11 +85,12 @@ export function Nav() {
   // letters built from blocks or arcs leave out the pages and settings that shape strokes
   const build = useEditor(s => s.params.build), blockForm = useEditor(s => s.params.blockForm), gridRows = useEditor(s => s.params.gridRows), blocks = build === 'blocks';
   const sourceProgram = useEditor(s => s.params.sourceProgram);
+  const letter = useEditor(letterOf);
   const [query, setQuery] = useState(''), [pick, setPick] = useState(0);
   const found = query.trim() ? findSettings(query, 100) : null;
-  const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm, gridRows, sourceProgram }) && sourceSupports({ sourceProgram }, h.key)).slice(0, 12) ?? null;
+  const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm, gridRows, sourceProgram }, letter) && sourceSupports({ sourceProgram }, h.key, letter)).slice(0, 12) ?? null;
   // the list under the search: the settings found, or the pages
-  const list = useRef<HTMLDivElement>(null), rows = navRows(pagesFor({ build, blockForm, sourceProgram }));
+  const list = useRef<HTMLDivElement>(null), rows = navRows(pagesFor({ build, blockForm, gridRows, sourceProgram }, letter));
   useEffect(() => { list.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }, [pick]);
   const edges = useScrolledEdges(list, [hits, rows]);
   const choose = (h: SettingHit) => { setQuery(''); openSetting(h); (document.activeElement as HTMLElement | null)?.blur(); };

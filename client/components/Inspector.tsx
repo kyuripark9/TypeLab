@@ -11,7 +11,7 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as R
 import { ANATOMY, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type ControlKey } from '../../shared/content';
 import { RING_KEYS, cmdsToD, ringsD, type Font, type Glyph, type GlyphGrid, type GridGroup } from '../../shared/engine';
 import { isStrokeId, type NumericParam, type Params } from '../../shared/params';
-import { sourceSupports } from '../../shared/source/capabilities';
+import { sourceControl, sourceSupports } from '../../shared/source/capabilities';
 import { dragSpec, handlesFor, letterCorners, letterJoins, letterStrokes, pickAxis, solver, strokeEnds, towardMore, type Axis, type DragSpec, type Drive, type Handle } from '../lib/drag';
 import { guideLines, stackLabels } from '../lib/guide-labels';
 import { n1, useSize } from '../lib/hooks';
@@ -85,25 +85,27 @@ export function letterControls(g: Glyph, ch: string, serif: boolean): { key: Con
     names the page of one elsewhere). */
 function pointPart(id: string | null) {
   actions.setPart(id);
-  const k = id && PART_CONTROL[id];
-  if (k && sourceSupports(useEditor.getState().params, k) && CONTROLS[k].cat === useEditor.getState().category) actions.setActive(k);
+  const k = id && PART_CONTROL[id], state = useEditor.getState();
+  const active = k ? sourceControl(state.params, k, letterOf(state)) : undefined;
+  if (k && active && CONTROLS[k].cat === state.category) actions.setActive(active);
 }
 
 /** Click a part: open the page its slider is on, if it's another, and scroll the panel so the slider sits at the top
     of the visible list, just under the sticky explainer. */
 function pickPart(id: string) {
-  const k = PART_CONTROL[id];
-  if (!k || !sourceSupports(useEditor.getState().params, k)) return;
+  const k = PART_CONTROL[id], state = useEditor.getState();
+  const active = k ? sourceControl(state.params, k, letterOf(state)) : undefined;
+  if (!k || !active) return;
   // a folded section opens, so the slider is there to find
   actions.toggleFold(k, true);
-  if (CONTROLS[k].cat === useEditor.getState().category) { scrollToControl(k, 'smooth'); return; }
+  if (CONTROLS[k].cat === state.category) { scrollToControl(active, 'smooth'); return; }
   // the other page draws first, starting at its top
-  actions.setCategory(CONTROLS[k].cat, k);
-  requestAnimationFrame(() => requestAnimationFrame(() => scrollToControl(k, 'auto')));
+  actions.setCategory(CONTROLS[k].cat, active);
+  requestAnimationFrame(() => requestAnimationFrame(() => scrollToControl(active, 'auto')));
 }
 
 /** Scroll the panel so control `k` sits just under the sticky explainer. */
-function scrollToControl(k: ControlKey, behavior: ScrollBehavior) {
+function scrollToControl(k: ActiveKey, behavior: ScrollBehavior) {
   const el = document.querySelector<HTMLElement>(`[data-ctl="${k}"]`);
   const panel = el?.closest<HTMLElement>('.panel');
   if (!el || !panel) return;
@@ -310,7 +312,7 @@ function InspectorCanvas({ ch, g, font, grid, group }: { ch: string; g: Glyph; f
   const svgRef = useRef<SVGSVGElement>(null);
   const part = useEditor(s => s.part), active = useEditor(s => s.active), faded = useEditor(s => s.faded);
   // while only this letter changes, each stroke end is dragged on its own
-  const oneEnd = useEditor(s => !!letterOf(s)), hotEnd = useEditor(s => s.hotEnd);
+  const letter = useEditor(letterOf), oneEnd = !!letter && !font.params.sourceProgram, hotEnd = useEditor(s => s.hotEnd);
   const drag = useRef<Drag | null>(null);
   // while a drag runs the view holds still, so the part grows under the pointer instead of the letter re-centring
   const [held, setHeld] = useState<View | null>(null);
@@ -367,8 +369,8 @@ function InspectorCanvas({ ch, g, font, grid, group }: { ch: string; g: Glyph; f
     return `${endInfo(d.end, d.endKey)?.label ?? unnamed} ${noun}`;
   };
   const supportedDrag = (spec: DragSpec | null): DragSpec => ({
-    ...(spec?.x && sourceSupports(lf.params, spec.x.endKey ?? spec.x.key) ? { x: spec.x } : {}),
-    ...(spec?.y && sourceSupports(lf.params, spec.y.endKey ?? spec.y.key) ? { y: spec.y } : {})
+    ...(spec?.x && sourceSupports(lf.params, spec.x.endKey ?? spec.x.key, letter) ? { x: spec.x } : {}),
+    ...(spec?.y && sourceSupports(lf.params, spec.y.endKey ?? spec.y.key, letter) ? { y: spec.y } : {})
   });
   const hoverSpec = supportedDrag(hover && !dragging && !FIXED_PARTS.has(hover.id) ? dragSpec(hover.id, lf, ch, { x: (hover.x - ox) / sc, y: (oy - hover.y) / sc }, oneEnd) : null);
   const hoverAxes = AXES.filter(a => hoverSpec?.[a]);
@@ -379,7 +381,7 @@ function InspectorCanvas({ ch, g, font, grid, group }: { ch: string; g: Glyph; f
   });
   const guideKey = hotKey === 'serif' ? 'serifSize' : hotKey === 'terminal' ? 'terminalLength' : hotKey;
   const showKey = hover || dragging ? null : guideKey && typeof font.params[guideKey as keyof Params] === 'number' ? guideKey as NumericParam : intro ? 'weight' : null;
-  const handles: Handle[] = showKey && sourceSupports(lf.params, showKey) ? handlesFor(showKey, lf, ch, [...parts, ...guides.map(([id]) => id), 'advance']) : [];
+  const handles: Handle[] = showKey && sourceSupports(lf.params, showKey, letter) ? handlesFor(showKey, lf, ch, [...parts, ...guides.map(([id]) => id), 'advance']) : [];
 
   // what is pointed at shows for a moment, then the letter reads in plain ink, as the preview does (`faded`), till
   // another part or control is pointed at; the handles stay. Keyed by what it lights, so its fade starts over

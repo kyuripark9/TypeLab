@@ -30,7 +30,7 @@ export interface Reach {
 /** Whether trying `k` at its other values changes any of `chars` in the font `p` makes. While edits go to
     one letter (`letter`), its own settings are what change, as moving the control would do. */
 export function reachOf(p: Params, k: keyof Params, chars: string[], letter: string | null = null): Reach {
-  if (p.sourceProgram) return { shows: sourceSupports(p, k), elsewhere: [] };
+  if (p.sourceProgram) return { shows: sourceSupports(p, k, letter), elsewhere: [] };
   if (SPACING.has(k)) return { shows: true, elsewhere: [] };
   const set = (v: unknown): Params => letter && isGlyphKey(k)
     ? { ...p, glyphs: { ...p.glyphs, [letter]: { ...p.glyphs[letter], [k]: v } } }

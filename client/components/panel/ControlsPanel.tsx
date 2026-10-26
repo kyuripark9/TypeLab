@@ -1,9 +1,10 @@
 /* A page of controls: the explainer, the page's controls (grouped by the parts of an inspected letter), and the steps to the pages beside it. */
 import { useLayoutEffect, type ReactNode } from 'react';
-import { PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, controlFor, controlInUse, pagesFor, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
+import { PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, TERMINAL_SUBS, WEIGHT_SUBS, controlFor, controlInUse, pagesFor, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
 import type { NumericParam, SubControlDef } from '../../../shared/params';
-import { sourceNotice, sourceSupports } from '../../../shared/source/capabilities';
+import { sourceControl, sourceNotice, sourceSupports } from '../../../shared/source/capabilities';
 import { mastersForFont, masterInfo } from '../../../shared/source/master-catalog';
+import { programForFont, programInfo } from '../../../shared/source/program-catalog';
 import { WEIGHTS } from '../../../shared/family';
 import { actions, letterOf, useEditor, useFont, useParam } from '../../state/editor';
 import { ScopeIcon, letterControls } from '../Inspector';
@@ -16,7 +17,11 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
   const serifs = useParam('serif'), shape = useParam('serifShape'), pointed = shape === 'wedge' || shape === 'diamond', outside = useParam('serifSides') === 'outside';
   const build = useParam('build'), blockForm = useParam('blockForm'), gridRows = useParam('gridRows');
   const sourceProgram = useParam('sourceProgram');
-  const pages = pagesFor({ build, blockForm, sourceProgram });
+  const letter = useEditor(letterOf);
+  const pages = pagesFor({ build, blockForm, gridRows, sourceProgram }, letter);
+  const next = sourceProgram && sourceProgram.kind !== 'program-v1' ? programInfo(programForFont(sourceProgram.fontId)) : undefined;
+  const basis = next && masterInfo(next.ref);
+  const adoption = sourceProgram && next && basis && (sourceProgram.kind === 'outline-v1' ? basis.source.digest : basis.ref.digest) === sourceProgram.digest ? next : undefined;
   // a page with nothing for these letters isn't offered; one opened anyway (undo back to blocks, a link) gives way to the
   // page before it before it is drawn
   const shown = pages.some(c => c.id === category);
@@ -27,15 +32,18 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
   // and serifs that only reach out of the letter leave none inside it; letters built from blocks or arcs have no
   // skeleton of strokes, so only the controls that shape them show
   const all = (Object.keys(CONTROLS) as ControlKey[]).filter(k => CONTROLS[k].cat === category);
-  const keys = all.filter(k => controlInUse(k, { build, blockForm, gridRows, sourceProgram }) &&
+  const keys = all.filter(k => controlInUse(k, { build, blockForm, gridRows, sourceProgram }, letter) &&
     (category !== 'serifs' || k === 'serif' || (serifs && !(pointed && k === 'serifTip') && !(outside && k === 'serifInner'))));
   const inspecting = useEditor(s => !!s.inspect);
   // the page opens on its first setting these letters take, so the explainer speaks of one shown here
   const keyList = keys.join();
   useLayoutEffect(() => {
     const ks = keyList.split(',') as ControlKey[];
-    if (keyList && !ks.includes(controlFor(useEditor.getState().active))) actions.setActive(ks[0]);
-  }, [keyList]);
+    const state = useEditor.getState();
+    if (keyList && (!ks.includes(controlFor(state.active)) || !sourceSupports(state.params, state.active, letter))) {
+      actions.setActive(sourceControl(state.params, ks[0], letter) ?? ks[0]);
+    }
+  }, [keyList, letter, sourceProgram]);
   const note = sourceProgram ? <p className="page-note">{sourceNotice({ sourceProgram })}</p> : build !== 'strokes' && keys.length < all.length
     ? <p className="page-note">Letters built from {build} take only these settings here.</p>
     : category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
@@ -44,7 +52,11 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
     <div className="controls-page">
       <Explainer />
       {sourceProgram && note}
-      {sourceProgram?.kind === 'outline-v1' && masterInfo(mastersForFont(sourceProgram.fontId))?.source.digest === sourceProgram.digest &&
+      {adoption && <div className="page-note">
+        <button type="button" className="btn outline wide" onClick={actions.enableProgram}>{adoption.width ? 'Enable designed widths' : 'Enable letter controls'}</button>
+        <p>{adoption.width ? 'Width returns to the original drawing when you enable its designed variations.' : 'Reviewed letter controls start at their original values. Choose Only that letter in the inspector to use them.'}</p>
+      </div>}
+      {!adoption && sourceProgram?.kind === 'outline-v1' && masterInfo(mastersForFont(sourceProgram.fontId))?.source.digest === sourceProgram.digest &&
         <button type="button" className="btn outline wide" onClick={actions.enableMasters}>Enable weight variations</button>}
       {inspecting ? <LetterControls keys={keys} category={category} note={sourceProgram ? null : note} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}{!sourceProgram && note}</div>}
       <PageSteps category={category} pages={pages} />
@@ -120,16 +132,21 @@ const NESTED: Partial<Record<ControlKey, { subs?: Record<string, SubControlDef>;
 function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
   const n = NESTED[k];
   const sourceProgram = useParam('sourceProgram');
+  const letter = useEditor(letterOf);
   const weights = k === 'weight' && masterInfo(sourceProgram);
+  const width = k === 'width' && programInfo(sourceProgram)?.width;
   const weightLabel = (value: number) => `${WEIGHTS.find(w => w.cls === value)?.name ?? 'Weight'} ${value}`;
-  const c = weights ? { ...CONTROLS[k], lo: weightLabel(weights.min), hi: weightLabel(weights.max) } : CONTROLS[k];
+  const widthLabel = (value: number) => width && value === width.neutral ? 'Original width' : `${value}% width`;
+  const c = weights ? { ...CONTROLS[k], lo: weightLabel(weights.min), hi: weightLabel(weights.max) }
+    : width ? { ...CONTROLS[k], lo: widthLabel(width.min), hi: widthLabel(width.max) } : CONTROLS[k];
+  if (sourceProgram && k === 'terminal') return <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} parts={parts} />;
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'story') return <StoryControl parts={parts} />;
   if (c.type === 'form') return <FormControl k={k as LetterFormKey} parts={parts} />;
   if (n) {
     return (
       <SliderControl k={k as NumericParam & ControlKey} def={c} parts={parts}>
-        {Object.entries(n.subs ?? {}).filter(([s]) => sourceSupports({ sourceProgram }, s)).map(([s, d]) => <SliderControl key={s} k={s as NumericParam & ActiveKey} def={d} />)}
+        {Object.entries(n.subs ?? {}).filter(([s]) => sourceSupports({ sourceProgram }, s, letter)).map(([s, d]) => <SliderControl key={s} k={s as NumericParam & ActiveKey} def={d} />)}
         {!sourceProgram && n.more}
       </SliderControl>
     );

@@ -9,10 +9,11 @@ import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type
 import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../shared/engine';
 import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
-import { loadSource } from '../lib/sources';
+import { loadDesignSources } from '../lib/sources';
 import { designSourceForFont as sourceForFont, masterInfo, mastersForFont } from '../../shared/source/master-catalog';
+import { programForFont, programInfo } from '../../shared/source/program-catalog';
 import { onSource, sourceFont } from '../../shared/source/registry';
-import { sourceSupports } from '../../shared/source/capabilities';
+import { sourceControl, sourceSupports } from '../../shared/source/capabilities';
 import { DEFAULT_NAME, cleanName, slug, type Design, type DesignInput } from '../../shared/design';
 import { cleanLog, mergeLogs, ownOf, packLog, recordEdits, sameOwn, withOwn, type LetterEdit, type LetterLog } from '../../shared/letter-log';
 import { cleanVersions, keyOf, mergeVersions, packVersions, recordVersion, sameDesign, type FontLog, type FontVersion, type Made, type Snapshot } from '../../shared/font-log';
@@ -154,8 +155,12 @@ function startParams(st: StyleDef, traits: Traits, free = true): Params {
     const p = applyTraits(st.params, traits);
     return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING } : p;
   }
-  const info = masterInfo(sourceProgram), weight = info ? (info.defaultWeight - info.min) / (info.max - info.min) : st.params.weight;
-  const base = { ...st.params, freeFont: id, freeAt: { ...freeAtOf(st.params), weight }, weight, ...FREE_SPACING, height: DEFAULTS.height, sourceProgram };
+  const info = masterInfo(sourceProgram), program = programInfo(sourceProgram);
+  const weight = info ? (info.defaultWeight - info.min) / (info.max - info.min) : st.params.weight;
+  const width = program?.width ? (program.width.neutral - program.width.min) / (program.width.max - program.width.min) : st.params.width;
+  const features = program?.data.features ? { crossbar: .5, tail: .5, terminalLength: .5 } : {};
+  const base = { ...st.params, ...features, freeFont: id, freeAt: { ...freeAtOf(st.params), ...features, weight, width },
+    weight, width, ...FREE_SPACING, height: DEFAULTS.height, sourceProgram };
   return applyTraits(base, supportedTraits(base, traits));
 }
 /** Unsupported traits stay out of a source design, including when picked before switching styles. */
@@ -341,14 +346,15 @@ export function fontFor(p: Params): Font {
   // written in a free font that has arrived since: built again with its letters
   if (!f || f.freeMissing.some(id => freeFont(id)) || (f.source?.state === 'missing' && sourceFont(f.source.ref))) { f = lastFont = buildFont(p, lastFont); fonts.set(p, f); }
   for (const id of f.freeMissing) void loadFreeFont(id);
-  if (f.source?.state === 'missing') void loadSource(f.source.ref);
+  if (f.source?.state === 'missing') void loadDesignSources(p);
   return f;
 }
 // the open design draws again when the free font it's written in arrives (its settings unchanged)
 onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont && !s.params.sourceProgram) useEditor.setState({ params: { ...s.params } }); });
 onSource(digest => {
   const s = useEditor.getState();
-  if (s.params.sourceProgram?.digest === digest && fonts.get(s.params)?.source?.state === 'missing' && sourceFont(s.params.sourceProgram)) useEditor.setState({ params: { ...s.params } });
+  const source = fonts.get(s.params)?.source;
+  if (source?.state === 'missing' && source.ref.digest === digest && sourceFont(source.ref)) useEditor.setState({ params: { ...s.params } });
 });
 
 export const useFont = () => fontFor(useEditor(s => s.params));
@@ -448,7 +454,7 @@ export const actions = {
     set(s => {
       const ch = letterOf(s);
       if (key === 'outlines') return { params: withDrawings(s.params, v as Params['outlines']), faded: true };
-      if (!sourceSupports(s.params, key)) return {};
+      if (!sourceSupports(s.params, key, ch)) return {};
       return { params: ch && isGlyphKey(key) ? withGlyph(s.params, ch, key, v) : { ...s.params, [key]: v }, faded: true };
     });
   },
@@ -479,6 +485,27 @@ export const actions = {
     set({ params: { ...s.params, sourceProgram: ref, weight, freeAt: { ...s.params.freeAt, weight } } });
     step();
     actions.setCategory(CONTROLS.weight.cat, 'weight');
+  },
+  enableProgram() {
+    const s = get(), original = s.params.sourceProgram;
+    if (!original || original.kind === 'program-v1') return;
+    const ref = programForFont(original.fontId), program = programInfo(ref), info = masterInfo(ref);
+    if (!ref || !program || !info || (original.kind === 'outline-v1' ? info.source.digest : info.ref.digest) !== original.digest) return;
+    const weight = original.kind === 'outline-v1' ? (info.defaultWeight - info.min) / (info.max - info.min) : s.params.weight;
+    const width = program.width ? (program.width.neutral - program.width.min) / (program.width.max - program.width.min) : s.params.width;
+    const features = program.data.features ? { crossbar: .5, tail: .5, terminalLength: .5 } : {};
+    const glyphs = Object.fromEntries(Object.entries(s.params.glyphs).map(([ch, values]) => {
+      const own = { ...values };
+      if (program.width) delete own.width;
+      if (original.kind === 'outline-v1') delete own.weight;
+      if (program.data.features) { delete own.crossbar; delete own.tail; delete own.terminalLength; }
+      return [ch, own];
+    }));
+    set({ params: { ...s.params, ...features, sourceProgram: ref, weight, width, glyphs,
+      freeAt: { ...s.params.freeAt, ...features,
+        ...(original.kind === 'outline-v1' ? { weight } : {}), ...(program.width ? { width } : {}) } } });
+    step();
+    actions.setCategory(CONTROLS.width.cat, 'width');
   },
   /** Settings in place of the design's (a design file's), with the letters' record and the History that came with
       them laid into the design's own. */
@@ -517,8 +544,10 @@ export const actions = {
       return;
     }
     const st = styleById(s.styleId) ?? STYLES[0];
-    const info = masterInfo(s.params.sourceProgram);
+    const info = masterInfo(s.params.sourceProgram), program = programInfo(s.params.sourceProgram);
     actions.setOption(key, s.params.sourceProgram && key === 'height' ? DEFAULTS[key]
+      : program?.width && key === 'width' ? (program.width.neutral - program.width.min) / (program.width.max - program.width.min)
+      : program?.data.features && (key === 'crossbar' || key === 'tail' || key === 'terminalLength') ? .5
       : info && key === 'weight' ? (info.defaultWeight - info.min) / (info.max - info.min) : st.params[key]);
   },
   /** Switch an optional slider on, back to the value it had (or halfway), or off, to `off` where it changes nothing. */
@@ -543,6 +572,7 @@ export const actions = {
   setEnd(id: string, v: number, key: OwnKey = 'terminalEnds') {
     set(s => {
       const ch = letterOf(s);
+      if (!sourceSupports(s.params, key, ch)) return {};
       return ch ? { params: withGlyph(s.params, ch, key, { ...paramOf(s, key), [id]: v }), faded: true } : {};
     });
   },
@@ -591,10 +621,10 @@ export const actions = {
   /* ---- UI */
   setCategory(category: CategoryId, active?: ActiveKey) {
     if (category === 'style') { set({ category, inspect: null, part: null }); return; }
-    const p = get().params, pages = pagesFor(p);
+    const s = get(), p = s.params, glyph = letterOf(s), pages = pagesFor(p, glyph);
     if (!pages.some(page => page.id === category)) category = pages.find(page => page.id !== 'style')?.id ?? 'style';
-    if (p.sourceProgram) active = active && sourceSupports(p, active) ? active
-      : (Object.keys(CONTROLS) as ControlKey[]).find(key => CONTROLS[key].cat === category && sourceSupports(p, key));
+    if (p.sourceProgram) active = active && sourceSupports(p, active, glyph) ? active
+      : (Object.keys(CONTROLS) as ControlKey[]).filter(key => CONTROLS[key].cat === category).map(key => sourceControl(p, key, glyph)).find(key => key !== undefined);
     // the "Customize" offered on picking a style has done its job once a page of controls is open
     set(s => ({ category, active: active ?? firstControl(category), stylePanelOpen: false, ...(s.toast?.id === styleToast ? { toast: null } : {}) }));
   },

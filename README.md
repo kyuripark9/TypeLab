@@ -6,6 +6,11 @@ to your library, and export a real `.otf` font.
 
 > Don't edit numbers. Design letters.
 
+New bundled-style designs use reviewed weight masters for all 22 families. Mainline, Parlance, and Gumdrop also
+have designed widths; Hearth and Couture have initial crossbar, leg, and terminal controls on reviewed letters.
+Saved designs retain their original interpretation. See the [feature coverage map](docs/architecture/feature-parity.md)
+for the supported ranges and the remaining authoring work.
+
 ## Run it
 
 You need **Node.js 22.13 or newer** (the LTS installer from <https://nodejs.org> is fine).
