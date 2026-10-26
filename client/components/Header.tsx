@@ -9,7 +9,8 @@ import { DEFAULT_NAME, NAME_MAX, cleanName, slug } from '../../shared/design';
 import { cleanVersions, upgradeVersions } from '../../shared/font-log';
 import { cleanLog, upgradeLog } from '../../shared/letter-log';
 import { sanitizeParams, upgradeParams } from '../../shared/params';
-import { anchorOf, FAMILY_STYLES, ownStyle } from '../../shared/family';
+import { anchorOf, familyStylesFor, ownStyle } from '../../shared/family';
+import { masterInfo } from '../../shared/source/master-catalog';
 import { parseFontId, withoutReserved } from '../../shared/free-fonts';
 import { api, download, errorMessage } from '../lib/api';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
@@ -201,8 +202,9 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   // the styles to save, by the names they install under: at first the design's own, the weight its stems read as,
   // italic when it leans; the family's other weights spread from it
   const anchor = anchorOf(params);
-  const [picked, setPicked] = useState(() => [ownStyle(params, anchor).style]);
-  const styles = params.sourceProgram ? [ownStyle(params, anchor)] : FAMILY_STYLES.filter(f => picked.includes(f.style));
+  const [picked, setPicked] = useState(() => [masterInfo(params.sourceProgram) ? 'current' : ownStyle(params, anchor).style]);
+  const current = !!masterInfo(params.sourceProgram) && picked.includes('current');
+  const styles = params.sourceProgram && !masterInfo(params.sourceProgram) ? [ownStyle(params, anchor)] : familyStylesFor(params).filter(f => picked.includes(f.style));
   // the accented letters (é ñ ü …) in the fonts and the specimen too: off at first, then as this browser last left it
   const [accents, setAccents] = useState(() => prefFlag(PREFS.exportAccents));
   const toggleAccents = () => { setAccents(!accents); setPrefFlag(PREFS.exportAccents, !accents); };
@@ -212,15 +214,15 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     const s = useEditor.getState(), name = cleanName(s.name);
     setBusy('fonts'); setError(null);
     try {
-      if (s.params.sourceProgram) {
+      if (s.params.sourceProgram && (!masterInfo(s.params.sourceProgram) || current)) {
         download(`${slug(name)}.otf`, await api.exportFile('otf', { name, params: s.params, accents: false }));
         actions.toast(`${name} exported. Open the .otf to install it.`);
       } else if (styles.length === 1) {
         const [f] = styles;
-        download(fontFile(name, styles), await api.exportFile('otf', { name, params: s.params, member: { anchor, weight: f.weight, italic: f.italic }, accents }));
+        download(fontFile(name, styles), await api.exportFile('otf', { name, params: s.params, member: { anchor, weight: f.weight, italic: f.italic }, accents: s.params.sourceProgram ? false : accents }));
         actions.toast(`${name} ${f.style} exported — open the .otf to install it`);
       } else {
-        download(fontFile(name, styles), await api.exportFamily({ name, params: s.params, family: { anchor, styles: styles.map(f => ({ weight: f.weight, italic: f.italic })) }, accents }));
+        download(fontFile(name, styles), await api.exportFamily({ name, params: s.params, family: { anchor, styles: styles.map(f => ({ weight: f.weight, italic: f.italic })) }, accents: s.params.sourceProgram ? false : accents }));
         actions.toast(`${styles.length} fonts exported — unzip them and open each to install`);
       }
       onClose();
@@ -269,7 +271,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const n = styles.length;
+  const n = current ? 1 : styles.length;
   return (
     <div className="dialog-scrim" onPointerDown={e => { if (e.target === e.currentTarget && !busy) onClose(); }}>
       <div className="dialog export" role="dialog" aria-modal="true" aria-labelledby="export-title">

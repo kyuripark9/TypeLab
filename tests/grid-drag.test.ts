@@ -109,7 +109,7 @@ describe('dragging a circle of the construction grid', () => {
     const halves = round(100, 50, 50, [[100, 0, 135.35, 14.65], [135.35, 14.65, 150, 50]]);
     const split = withArcEnds(square, [halves], upright);
     assert.equal(split[0].length, 6);
-    assert.deepEqual([split[0][2].x, split[0][2].y], [135, 15], 'the new point on the curve');
+    assert.ok(near(split[0][2].x, 135.35, 1e-9) && near(split[0][2].y, 14.65, 1e-9), 'the new point stays exactly on the curve');
     assert.deepEqual(chainsOf(split, halves, upright), [{ c: 0, s: 1, n: 2, loop: false }], 'both halves, one stretch');
     assert.equal(withArcEnds(square, [corner], upright), square, 'nothing put in where the arcs end at points');
     // a round two units across, its ends at two points four apart

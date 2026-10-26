@@ -11,14 +11,15 @@ import { STYLE_FONTS } from '../shared/free-fonts';
 import { DEFAULTS, freeAtOf } from '../shared/params';
 import { LIT_MS, actions, designInput, hasWork, hlKeyOf, isDirty, useEditor } from '../client/state/editor';
 import { sourceForFont } from '../shared/source/catalog';
+import { designSourceForFont } from '../shared/source/master-catalog';
 
 const state = () => useEditor.getState();
-const serif = STYLES.find(s => s.id === 'serif')!, slab = STYLES.find(s => s.id === 'slab')!;
+const serif = STYLES.find(s => s.id === 'serif')!;
 
 describe('the editor', () => {
   beforeEach(() => {
     actions.newDesign();
-    actions.loadDesign({ id: 'legacy', name: 'Legacy', styleId: STYLES[0].id, params: { ...state().params, sourceProgram: null }, createdAt: '', updatedAt: '' });
+    actions.loadDesign({ id: 'legacy', name: 'Legacy', styleId: STYLES[0].id, params: { ...DEFAULTS }, createdAt: '', updatedAt: '' });
     useEditor.setState({ scope: 'all', inspect: null, toast: null });
   });
 
@@ -68,9 +69,9 @@ describe('the editor', () => {
   it('starts a style in its free font, spaced as the font spaces its letters', () => {
     actions.loadStyle('serif');
     assert.equal(state().params.freeFont, STYLE_FONTS.serif);
-    assert.deepEqual(state().params.freeAt, freeAtOf(serif.params));
+    assert.deepEqual(state().params.freeAt, { ...freeAtOf(serif.params), weight: 0.5 });
     assert.deepEqual([state().params.letterSpacing, state().params.wordSpacing], [DEFAULTS.letterSpacing, DEFAULTS.wordSpacing]);
-    assert.deepEqual(state().params.sourceProgram, sourceForFont(STYLE_FONTS.serif));
+    assert.deepEqual(state().params.sourceProgram, designSourceForFont(STYLE_FONTS.serif));
   });
 
   it('keeps legacy documents on their renderer and starts new styles with only supported source controls', () => {
@@ -80,21 +81,43 @@ describe('the editor', () => {
     actions.loadStyle('grotesque');
     const source = state().params.sourceProgram;
     assert.equal(source?.fontId, 'Mainline:600');
-    const originalWeight = state().params.weight;
     actions.setOption('weight', 0.9);
-    assert.equal(state().params.weight, originalWeight);
+    assert.equal(state().params.weight, 0.9);
     actions.setOption('width', 0.8);
     assert.equal(state().params.width, 0.8);
-    assert.equal(controlInUse('weight', state().params), false);
+    assert.equal(controlInUse('weight', state().params), true);
     assert.equal(controlInUse('width', state().params), true);
     assert.equal(pagesFor(state().params).some(page => page.id === 'serifs'), false);
     actions.setCategory('weight');
-    assert.notEqual(state().category, 'weight');
+    assert.equal(state().category, 'weight');
     actions.setTrait('weight', 'black');
-    assert.equal(state().traits.weight, undefined);
+    assert.equal(state().traits.weight, 'black');
     assert.deepEqual(designInput(state()).params.sourceProgram, source);
     actions.openInspector('j');
     assert.equal(state().inspect, 'j', 'a deep link keeps its inspected letter while the source loads');
+  });
+
+  it('enables masters explicitly for an original source and can undo the upgrade', () => {
+    actions.loadStyle('grotesque');
+    const original = { ...state().params, version: 8, sourceProgram: sourceForFont('Mainline:600'), weight: 0.6, width: 0.8 };
+    actions.loadDesign({ id: 'original', name: 'Original', styleId: 'grotesque', params: original, createdAt: '', updatedAt: '' });
+    const before = state().params;
+    assert.equal(before.sourceProgram?.kind, 'outline-v1');
+    actions.setOption('weight', 0.9);
+    assert.equal(state().params.weight, 0.6);
+    actions.enableMasters();
+    assert.equal(state().params.sourceProgram?.kind, 'masters-v1');
+    assert.equal(state().params.width, 0.8);
+    assert.equal(state().params.weight, 0.6);
+    assert.deepEqual(state().params.outlines, before.outlines);
+    actions.travel(-1);
+    assert.deepEqual(state().params, before);
+    actions.travel(1);
+    assert.equal(state().params.sourceProgram?.kind, 'masters-v1');
+    actions.setOption('weight', 0.9);
+    assert.equal(state().params.weight, 0.9);
+    actions.resetParam('weight');
+    assert.equal(state().params.weight, 0.6);
   });
 
   it('starts a style built from blocks in its own letters, as no font draws them', () => {
@@ -247,6 +270,7 @@ describe('the editor', () => {
     useEditor.setState({ scope: 'letter', inspect: 'a' });
     actions.setOption('width', 0.3);
     actions.loadStyle('slab');
+    const loadedWeight = state().params.weight;
     assert.deepEqual(state().versions.map(v => [v.keys, v.letters, v.made ?? null]),
       [[[], [], null], [['weight'], [], null], [[], ['a'], null], [state().versions[3].keys, ['a'], 'style']]);
     // undone, the versions stay
@@ -263,7 +287,7 @@ describe('the editor', () => {
     // the History goes with a save, packed, and comes back with the design
     const input = designInput(state());
     actions.loadDesign({ id: 'd3', name: 'Kept', styleId: state().styleId, params: input.params, versions: JSON.parse(JSON.stringify(input.versions)), createdAt: '', updatedAt: '' });
-    assert.deepEqual(state().versions.map(x => x.params.weight), [DEFAULTS.weight, 0.8, 0.8, slab.params.weight, DEFAULTS.weight, 0.8]);
+    assert.deepEqual(state().versions.map(x => x.params.weight), [DEFAULTS.weight, 0.8, 0.8, loadedWeight, DEFAULTS.weight, 0.8]);
     // the first change after opening it goes on from its newest version
     actions.setOption('width', 0.1);
     assert.equal(state().versions.length, 7);

@@ -13,12 +13,13 @@ import { AccountStore, RESET_MINUTES, SESSION_DAYS } from './accounts';
 import type { Mail, Mailer } from './mail';
 import { AUTH_CHANNEL, GOOGLE_RESULT_PARAM, cleanEmail, cleanUserName, isEmail, passwordProblem, type GoogleIntent, type GoogleResult, type User } from '../shared/account';
 import { pkce, type GoogleAuth } from './google';
-import { familyMember, familyMembers, isWeightId, type FamilyRequest, type MemberRequest, type WeightId } from '../shared/family';
+import { familyMember, familyMembers, familyStylesFor, isWeightId, type FamilyRequest, type MemberRequest, type WeightId, type FamilyStyle } from '../shared/family';
 import type { ExportJob } from './export';
 import { Busy, ExportPool } from './export-pool';
 import { FreeFonts } from './free-fonts';
 import { SOURCE_REVISIONS } from '../shared/source/catalog';
-import { loadSource } from './sources';
+import { sourcePayload } from './sources';
+import { MASTER_REVISIONS, masterInfo } from '../shared/source/master-catalog';
 
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -45,7 +46,7 @@ function readExport(body: unknown) {
   if (b.accents !== undefined && typeof b.accents !== 'boolean') throw new HttpError(400, 'accents must be true or false');
   if (b.params.sourceProgram && b.accents === true) throw new HttpError(400, 'This source has no authored accented glyphs');
   const source = b.params.sourceProgram;
-  if (source && !SOURCE_REVISIONS.some(ref => ref.digest === source.digest && ref.fontId === source.fontId)) {
+  if (source && !masterInfo(source) && !SOURCE_REVISIONS.some(ref => ref.kind === source.kind && ref.digest === source.digest && ref.fontId === source.fontId)) {
     throw new HttpError(409, 'The original font revision saved with this design is unavailable');
   }
   return { name: cleanName(b.name), params: b.params, accents: b.accents === true };
@@ -71,6 +72,14 @@ function readMember(body: unknown): MemberRequest | null {
   const b = fields(all.member);
   if (!isWeightId(b.anchor) || !isWeightId(b.weight) || typeof b.italic !== 'boolean') throw new HttpError(400, 'member needs an anchor, a weight and italic true or false');
   return { anchor: b.anchor, weight: b.weight, italic: b.italic };
+}
+
+function checkMembers(params: Params, styles: readonly Pick<FamilyStyle, 'weight' | 'italic'>[]): void {
+  if (!masterInfo(params.sourceProgram)) return;
+  const allowed = familyStylesFor(params);
+  if (styles.some(s => !allowed.some(a => a.weight === s.weight && a.italic === s.italic))) {
+    throw new HttpError(400, 'This weight or orientation is outside the source’s reviewed family');
+  }
 }
 
 // the cookies: this browser's id, its sign-in token, and a Google sign-in in progress
@@ -463,10 +472,10 @@ function fontRoutes(api: Router, { fonts, exports }: Ctx) {
   // a free font's letters, as the engine draws them (TypeLab's own from fonts/, any other fetched from Google Fonts
   // the first time). An own font is asked after each time (its ETag answers), as an import can change it
   api.get('/sources/:digest', (req, res) => {
-    const ref = SOURCE_REVISIONS.find(r => r.digest === req.params.digest);
+    const ref = SOURCE_REVISIONS.find(r => r.digest === req.params.digest) ?? MASTER_REVISIONS.find(m => m.ref.digest === req.params.digest)?.ref;
     if (!ref) throw new HttpError(404, 'This saved source is unavailable');
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    res.json(loadSource(ref));
+    res.json(sourcePayload(ref));
   });
   api.get('/free-fonts/:id', async (req, res) => {
     const ref = parseFontId(req.params.id);
@@ -492,14 +501,16 @@ function fontRoutes(api: Router, { fonts, exports }: Ctx) {
   // one font file: the design as it is, or one member of its family (the weight and italic picked), named for it
   api.post('/export/otf', async (req, res) => {
     const { name, params, accents } = readExport(req.body), pick = readMember(req.body);
-    if (params.sourceProgram && pick) throw new HttpError(400, 'This source has no authored weight family');
+    if (params.sourceProgram && !masterInfo(params.sourceProgram) && pick) throw new HttpError(400, 'This source has no authored weight family');
+    if (pick) checkMembers(params, [pick]);
     const member = pick && familyMember(params, pick.anchor, pick.weight, pick.italic);
     await send(res, { kind: 'otf', name, params, member: pick, accents }, ...(member ? [member.params] : []));
   });
 
   api.post('/export/family', async (req, res) => {
     const { name, params, accents } = readExport(req.body), family = readFamily(req.body);
-    if (params.sourceProgram) throw new HttpError(400, 'This source has no authored weight family');
+    if (params.sourceProgram && !masterInfo(params.sourceProgram)) throw new HttpError(400, 'This source has no authored weight family');
+    checkMembers(params, family.styles);
     await send(res, { kind: 'family', name, params, family, accents }, ...familyMembers(params, family).map(f => f.params));
   });
 

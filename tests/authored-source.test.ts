@@ -453,7 +453,7 @@ describe('authored source input', () => {
 
 describe('saved authored source identity', () => {
   it('keeps legacy designs on their existing renderer', () => {
-    assert.equal(PARAMS_VERSION, 8);
+    assert.equal(PARAMS_VERSION, 9);
     const ref = sourceForFont('Mainline:600');
     assert.ok(ref);
     const old = sanitizeParams(upgradeParams({ ...DEFAULTS, freeFont: 'Mainline:600', sourceProgram: ref, width: 0.73 }, 7));

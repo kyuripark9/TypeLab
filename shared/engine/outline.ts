@@ -18,7 +18,24 @@ type P = { x: number; y: number };
  * without one is straight at this end). `s` marks a smooth point: its two handles stay in line.
  * `r` is a corner point's radius, drawn as `corner` says (a round when it is left out).
  */
-export interface Node { x: number; y: number; ix?: number; iy?: number; ox?: number; oy?: number; s?: 1; r?: number; corner?: CornerKind }
+/** A point's parameter on an immutable source cubic, retained through generated height cuts and saved edits. */
+export interface AuthoredGlyph { digest: string; glyph: string }
+export interface AuthoredPoint extends AuthoredGlyph { contour: number; segment: number; t: number; segments?: number }
+export interface Node { x: number; y: number; ix?: number; iy?: number; ox?: number; oy?: number; s?: 1; r?: number; corner?: CornerKind; authored?: AuthoredPoint }
+/** The source parameter for a subdivision of one known source edge, in either direction. */
+export function authoredBetween(a: AuthoredPoint | undefined, b: AuthoredPoint | undefined, t: number): AuthoredPoint | undefined {
+  if (!a || !b || a.digest !== b.digest || a.glyph !== b.glyph || a.contour !== b.contour || a.segments !== undefined && b.segments !== undefined && a.segments !== b.segments) return undefined;
+  const segments = a.segments ?? b.segments;
+  const next = (segment: number) => segments === undefined ? segment + 1 : (segment + 1) % segments;
+  let segment: number, from: number, to: number;
+  if (a.segment === b.segment) { segment = a.segment; from = a.t; to = b.t; }
+  else if (next(a.segment) === b.segment && b.t === 0) { segment = a.segment; from = a.t; to = 1; }
+  else if (next(b.segment) === a.segment && a.t === 0) { segment = b.segment; from = 1; to = b.t; }
+  else return undefined;
+  const value = from + (to - from) * t;
+  return { digest: a.digest, glyph: a.glyph, contour: a.contour, segment: value === 1 ? next(segment) : segment, t: value === 1 ? 0 : value,
+    ...(segments === undefined ? {} : { segments }) };
+}
 /** How a corner with a radius is drawn: a round, a straight cut across it, or a round scooped out of it. */
 export type CornerKind = 'round' | 'cut' | 'scoop';
 export const CORNER_KINDS: CornerKind[] = ['round', 'cut', 'scoop'];
@@ -431,6 +448,17 @@ export function cleanDrawn(v: unknown): Drawn | undefined {
       if (q.s === 1) m.s = 1;
       if (num(q.r) && (q.r as number) > 0) m.r = q.r as number;
       if (m.r && (q.corner === 'cut' || q.corner === 'scoop')) m.corner = q.corner;
+      if (q.authored && typeof q.authored === 'object' && !Array.isArray(q.authored)) {
+        const a = Object.fromEntries(Object.entries(q.authored));
+        if (typeof a.digest === 'string' && /^[a-f0-9]{64}$/.test(a.digest)
+          && typeof a.glyph === 'string' && [...a.glyph].length === 1
+          && typeof a.contour === 'number' && Number.isInteger(a.contour) && a.contour >= 0 && a.contour < 200
+          && typeof a.segment === 'number' && Number.isInteger(a.segment) && a.segment >= 0 && a.segment < 4000
+          && typeof a.t === 'number' && Number.isFinite(a.t) && a.t >= 0 && a.t < 1) {
+          m.authored = { digest: a.digest, glyph: a.glyph, contour: a.contour, segment: a.segment, t: a.t };
+          if (typeof a.segments === 'number' && Number.isInteger(a.segments) && a.segments > a.segment && a.segments <= 4000) m.authored.segments = a.segments;
+        }
+      }
       nodes.push(m);
     }
     contours.push(nodes);

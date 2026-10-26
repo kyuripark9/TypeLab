@@ -6,11 +6,14 @@ import { blankParts } from '../engine/glyph';
 import { cmdsContours, drawnCmds, type Drawn, type Node } from '../engine/outline';
 import type { Mat } from '../engine/types';
 import { DEFAULTS, type Params } from '../params';
-import { inverseTransform, mapOutline, mapPoint, type OutlineTransform } from './geometry';
+import { inverseTransform, mapPoint, type OutlineTransform } from './geometry';
 import type { SourceRef } from './model';
-import { sourceFont } from './registry';
+import { sourceFont, sourceMasters } from './registry';
 import { sourceControls } from './capabilities';
 import { sourceDot } from './features';
+import { interpolateMasters, weightAt } from './masters';
+import { masterInfo } from './master-catalog';
+import { identifyAuthored, inheritAuthored, mapAuthored, transportEdits } from './edit-transport';
 
 export interface SourceStatus { ref: SourceRef; state: 'missing' | 'ready'; missingCharacters: string[] }
 interface SourceInstance { m: Metrics; free?: FreeFont; status: SourceStatus; glyph(ch: string): Glyph | null }
@@ -33,12 +36,17 @@ function shape(font: FreeFont, p: Params, ch: string): OutlineTransform {
     [-font.cap * 0.4, -font.cap * 0.4 * desc * sy], [0, 0],
     [font.xh, xh * sy], [font.cap, (xh + (font.cap - font.xh) * ext) * sy]
   ] };
-  const dot = p.sourceProgram && sourceDot(p.sourceProgram.digest, ch);
+  const originalRef = masterInfo(p.sourceProgram)?.source ?? p.sourceProgram;
+  const dot = originalRef && sourceDot(originalRef.digest, ch);
   if (!dot) return transform;
-  const bottom = mapPoint({ x: 0, y: dot.bottom }, transform).y;
+  const drawn = font.glyphs[ch];
+  const dotBox = p.sourceProgram?.kind === 'masters-v1' && drawn
+    ? cmdsBox(drawnCmds(dot.contours.flatMap(i => drawn.contours[i] ? [drawn.contours[i]] : []))) : null;
+  const sourceBottom = dotBox?.y0 ?? dot.bottom;
+  const bottom = mapPoint({ x: 0, y: sourceBottom }, transform).y;
   const [first, second, ...rest] = transform.y;
-  return { xScale: sx, y: [first, second, ...rest.filter(k => k[0] < dot.bottom),
-    [dot.bottom, bottom], [dot.bottom + 1, bottom + sy]] };
+  return { xScale: sx, y: [first, second, ...rest.filter(k => k[0] < sourceBottom),
+    [sourceBottom, bottom], [sourceBottom + 1, bottom + sy]] };
 }
 
 function move(d: Drawn, M: Mat): Drawn {
@@ -77,18 +85,31 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
   // A new character has a fixed placement frame. Using each posed edit as its frame would accumulate drift.
   const source = original ?? { adv: font.cap * 0.75, contours: [] };
   const target = pose(font, source, p, ch);
-  let canonical = source, extraAdvance = 0;
+  const digest = p.sourceProgram?.kind === 'masters-v1' ? p.sourceProgram.digest : '';
+  const identity = { digest, glyph: ch };
+  let canonical = digest ? identifyAuthored(source, identity) : source, extraAdvance = 0;
   if (edited) {
     const at: Params = { ...p, ...edited.at, glyphs: {}, outlines: {} };
-    if (sourceControls.every(key => p[key] === at[key])) return asGlyph(ch, edited, target.M);
-    const from = pose(font, source, at, ch);
+    if (sourceControls.every(key => p[key] === at[key]) && p.weight === at.weight) return asGlyph(ch, edited, target.M);
+    const beforeFont = variedFont(at, p.sourceProgram) ?? font, beforeSource = beforeFont.glyphs[ch] ?? source;
+    const from = pose(beforeFont, beforeSource, at, ch);
     const curves = edited.contours.some(c => c.some(n => n.r)) ? { ...edited, contours: cmdsContours(drawnCmds(edited.contours)) } : edited;
-    canonical = { ...curves, contours: mapOutline(move(curves, inverse(from.M)).contours, inverseTransform(from.transform)).contours };
+    let unposed = move(curves, inverse(from.M));
+    if (digest && unposed.contours.some(c => c.some(n => n.authored?.digest !== digest || n.authored.glyph !== ch))) {
+      unposed = inheritAuthored(unposed, mapAuthored(identifyAuthored(beforeSource, identity), from.transform, beforeSource, identity));
+    }
+    canonical = mapAuthored(unposed, inverseTransform(from.transform), beforeSource, identity);
+    if (beforeSource !== source && digest && beforeFont.glyphs[ch] && original) canonical = transportEdits(canonical, beforeSource, source, identity);
     extraAdvance = (edited.adv - from.adv) / from.transform.xScale;
   }
-  const shaped: Drawn = { adv: Math.max(0, target.adv + extraAdvance * target.transform.xScale),
-    contours: mapOutline(canonical.contours, target.transform).contours };
+  const shaped = mapAuthored({ ...canonical, adv: Math.max(0, target.adv + extraAdvance * target.transform.xScale) }, target.transform, source, identity);
   return asGlyph(ch, move(shaped, target.M), target.M);
+}
+
+function variedFont(p: Params, fallback?: SourceRef | null): FreeFont | undefined {
+  if (!p.sourceProgram) return undefined;
+  const program = sourceMasters(p.sourceProgram) ?? (fallback && sourceMasters(fallback)), info = masterInfo(p.sourceProgram) ?? masterInfo(fallback ?? null);
+  return program && info ? interpolateMasters(program, weightAt(p, info)) : sourceFont(p.sourceProgram);
 }
 
 function asGlyph(ch: string, drawn: Drawn, M: Mat): Glyph {
@@ -101,7 +122,7 @@ function asGlyph(ch: string, drawn: Drawn, M: Mat): Glyph {
 export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | null {
   const ref = p.sourceProgram;
   if (!ref) return null;
-  const font = sourceFont(ref);
+  const font = variedFont(p);
   if (!font) return { m: fallback, status: { ref, state: 'missing', missingCharacters: [] }, glyph: () => null };
   const base = { ...DEFAULTS, ...p.freeAt }, sy = axis(p.height, DEFAULTS.height, 0.78, 1.28);
   const lower = shape(font, p, 'x'), xh = lower.y[2]?.[1] ?? font.xh * sy;

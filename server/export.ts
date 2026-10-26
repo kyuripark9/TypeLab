@@ -9,6 +9,9 @@ import { WEIGHTS, familyMember, type FamilyRequest, type MemberRequest } from '.
 import { parseFontId, withoutReserved } from '../shared/free-fonts';
 import type { Params } from '../shared/params';
 import { opentype } from './opentype';
+import { masterInfo } from '../shared/source/master-catalog';
+import { weightAt } from '../shared/source/masters';
+import { sourceMasters } from '../shared/source/registry';
 
 const R = Math.round;
 
@@ -31,7 +34,26 @@ const REGULAR: FontStyle = { style: 'Regular', cls: 400, angle: 0 };
     the caller has built it already). */
 export function exportName(params: Params, name: string, font: Font = buildFont(params)) {
   const free = font.free;
-  return free ? withoutReserved(name, free.family) : name;
+  if (!free) return name;
+  let result = withoutReserved(name, free.family);
+  const program = params.sourceProgram && sourceMasters(params.sourceProgram);
+  if (!program) return result;
+  const reserved = new Set(program.provenance.map(source => source.family));
+  // Read declarations in the copyright headers, not the OFL's generic definition of a reserved name.
+  for (const match of `${free.copyright}\n${free.licenseText ?? ''}`.matchAll(/\bwith\s+Reserved\s+Font\s+Names?\s+([^\r\n]+)/gi)) {
+    const quoted = [...match[1].matchAll(/["“]([^"”]+)["”]/g)].map(name => name[1].trim());
+    for (const name of quoted.length ? quoted : [match[1].replace(/[.;]\s*$/, '').trim()]) reserved.add(name);
+  }
+  for (const family of [...reserved].sort((a, b) => b.length - a.length)) result = withoutReserved(result, family);
+  return result;
+}
+
+function exportCredits(params: Params, font: Font): { family: string; provenance: string } {
+  const program = params.sourceProgram && sourceMasters(params.sourceProgram);
+  if (!program?.provenance.length) return { family: font.free?.family ?? 'TypeLab', provenance: '' };
+  const families = [...new Set(program.provenance.map(source => source.family))];
+  const sources = program.provenance.map(source => `${source.family}: ${source.url}\nRevision: ${source.revision}\nSHA-256: ${source.sha256}`);
+  return { family: families.join(', '), provenance: `\n\nUpstream sources:\n${sources.join('\n\n')}` };
 }
 
 /** An installable OpenType (CFF) font with every glyph TypeLab draws. A design written in a free font
@@ -45,10 +67,12 @@ export function exportName(params: Params, name: string, font: Font = buildFont(
     is. */
 export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, outline: (g: Glyph) => Cmd[] = g => g.cmds, accents = false): Buffer {
   const font = buildFont(params), m = font.m, free = font.free, licensed = free?.license ? free : null;
+  const credits = exportCredits(params, font);
   if (font.source?.state === 'missing') throw new Error('The saved source must be loaded before exporting');
   if (params.sourceProgram && accents) throw new Error('This source has no authored accented glyphs');
   if (params.sourceProgram && as === REGULAR) {
-    const original = parseFontId(params.sourceProgram.fontId), cls = original?.weight ?? 400;
+    const original = parseFontId(params.sourceProgram.fontId), info = masterInfo(params.sourceProgram);
+    const cls = Math.round(info ? weightAt(params, info) : original?.weight ?? 400);
     const angle = (original?.italic ? 12 : 0) + (params.slant - (params.freeAt.slant ?? 0)) * 20;
     const weight = WEIGHTS.find(w => w.cls === cls)?.name ?? 'Regular';
     as = { cls, angle, style: weight + (angle > 0 ? ' Italic' : '') };
@@ -109,7 +133,7 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
     if (licensed) {
       names.copyright = { en: `${licensed.copyright ? licensed.copyright + ' ' : ''}Changed with TypeLab.` };
       // the licence travels with the font in full, as it asks
-      names.license = { en: `Based on ${licensed.family} by ${licensed.designers.join(', ')}, changed with TypeLab, under the ${licensed.license}. You may use, change and share this font under the same licence: ${licensed.licenseUrl}${licensed.licenseText ? `\n\n${licensed.licenseText}` : ''}` };
+      names.license = { en: `Based on ${credits.family} by ${licensed.designers.join(', ')}, changed with TypeLab, under the ${licensed.license}. You may use, change and share this font under the same licence: ${licensed.licenseUrl}${licensed.licenseText ? `\n\n${licensed.licenseText}` : ''}${credits.provenance}` };
       names.licenseURL = { en: licensed.licenseUrl };
     }
   }
@@ -157,9 +181,10 @@ export function buildPiece({ job, part }: ExportPiece): PieceBuilt {
     return { files: [zipFile(`${dir}/${dir}-${f.style.replace(/ /g, '')}.otf`, buildOTF(f.params, name, f, undefined, job.accents))] };
   }
   const free = font.free?.license ? font.free : null;
+  const credits = exportCredits(params, font);
   return {
     file: `${dir}-family.zip`,
-    files: free ? [zipFile(`${dir}/LICENSE.txt`, Buffer.from(`${name} is based on ${free.family} by ${free.designers.join(', ')}${free.copyright ? ` (${free.copyright.replace(/\.$/, '')})` : ''}, changed with TypeLab, and comes under the ${free.license}: ${free.licenseUrl}\n\n${free.licenseText || ''}\n`, 'utf8'))] : []
+    files: free ? [zipFile(`${dir}/LICENSE.txt`, Buffer.from(`${name} is based on ${credits.family} by ${free.designers.join(', ')}${free.copyright ? ` (${free.copyright.replace(/\.$/, '')})` : ''}, changed with TypeLab, and comes under the ${free.license}: ${free.licenseUrl}\n\n${free.licenseText || ''}${credits.provenance}\n`, 'utf8'))] : []
   };
 }
 
@@ -251,7 +276,7 @@ export interface Built { file: string; type: string; data: Buffer }
     its free font reserves, and for the member picked (`<slug>-<Style>.otf`), as the family's .zip names it. */
 export function buildExport(job: ExportJob): Built {
   const { name, params, accents = false } = job;
-  if (params.sourceProgram && (accents || job.kind === 'family' || job.kind === 'otf' && job.member)) {
+  if (params.sourceProgram && (accents || !masterInfo(params.sourceProgram) && (job.kind === 'family' || job.kind === 'otf' && job.member))) {
     throw new Error('This source does not contain the requested authored variations');
   }
   if (params.sourceProgram && buildFont(params).source?.state !== 'ready') throw new Error('The saved source must be loaded before exporting');

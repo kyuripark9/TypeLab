@@ -8,6 +8,9 @@ import { buildFont, drawnFrom, freeFont, type Cmd } from './engine';
 import { metrics, resolve } from './engine/font';
 import { cmdsBox, toPolys } from './engine/geom';
 import { DEFAULTS, slantDeg, type GlyphParams, type Params } from './params';
+import { masterInfo } from './source/master-catalog';
+import { sliderAt, weightAt } from './source/masters';
+import { parseFontId } from './free-fonts';
 
 /** The weights a family can have, lightest first, with the OpenType weight class each installs as, and where each
     sits on the Weight slider when it isn't the design's own (`at`): the design's default weight (DEFAULTS.weight,
@@ -58,7 +61,15 @@ function solve(f: (v: number) => number, want: number, lo: number, hi: number) {
     Weight that draws stems as thick with Verticals as drawn), which is its Weight setting while Verticals are as
     drawn. A design whose Verticals draw its stems heavier reads heavier: Weight 65 at Verticals 97 draws stems past
     a Black's, and so is the family's Black. */
-export const anchorOf = (p: Params): WeightId => weightIdOf(solve(plainStem, stemOf(p), 0, 1));
+export const anchorOf = (p: Params): WeightId => {
+  const info = masterInfo(p.sourceProgram);
+  if (!info) return weightIdOf(solve(plainStem, stemOf(p), 0, 1));
+  const weight = weightAt(p, info);
+  return WEIGHTS.reduce((a, b) => Math.abs(b.cls - weight) < Math.abs(a.cls - weight) ? b : a).id;
+};
+
+export const sourceAngle = (p: Params) => (p.sourceProgram && parseFontId(p.sourceProgram.fontId)?.italic ? 12 : 0)
+  + (p.slant - (p.freeAt.slant ?? 0)) * 20;
 
 /** How many times thicker than the design's (`stem` thick) the weight `id` draws its stems, the design being the
     weight `anchor`. The lighter weights are spread from the stems of the lightest a family reaches up to the design's,
@@ -249,7 +260,16 @@ export const FAMILY_STYLES = [false, true].flatMap(italic => WEIGHTS.map(w => ({
 
 /** The style a design is by itself: its weight, italic when it leans already. */
 export const ownStyle = (params: Params, anchor: WeightId = anchorOf(params)) =>
-  FAMILY_STYLES.find(f => f.weight === anchor && f.italic === params.slant >= SLANTED)!;
+  FAMILY_STYLES.find(f => f.weight === anchor && f.italic === (masterInfo(params.sourceProgram) ? sourceAngle(params) > 0.1 : params.slant >= SLANTED))!;
+
+export function familyStylesFor(params: Params) {
+  const info = masterInfo(params.sourceProgram);
+  if (!info) return FAMILY_STYLES;
+  return FAMILY_STYLES.filter(f => {
+    const weight = WEIGHTS.find(w => w.id === f.weight)!;
+    return weight.cls >= info.min && weight.cls <= info.max && f.italic === (sourceAngle(params) > 0.1);
+  });
+}
 
 /** One member of the family: the design at the weight `id` (its stems as stemRatio has them, by its Weight, and past
     either end of it its Verticals) and upright or italic. A letter with its own weight or slant keeps how it differs
@@ -260,6 +280,16 @@ export const ownStyle = (params: Params, anchor: WeightId = anchorOf(params)) =>
     member's params object). A design written in a free font follows the weight and slant to the
     family's heavier or lighter fonts and its italic, as the editor does (see freeLetters in the engine). */
 export function familyMember(params: Params, anchor: WeightId, weight: WeightId, italic: boolean): FamilyMember {
+  const info = masterInfo(params.sourceProgram);
+  if (info) {
+    const cls = WEIGHTS.find(w => w.id === weight)!.cls;
+    if (cls < info.min || cls > info.max || italic !== (sourceAngle(params) > 0.1)) throw new RangeError('This weight or slant is outside the authored family');
+    const pick = params.freeAt.weight ?? 0.5, value = sliderAt(cls, pick, info), current = weightAt(params, info);
+    const glyphs = Object.fromEntries(Object.entries(params.glyphs).map(([ch, g]) => [ch, g.weight === undefined ? g : {
+      ...g, weight: sliderAt(Math.max(info.min, Math.min(info.max, cls + weightAt({ ...params, ...g }, info) - current)), pick, info)
+    }]));
+    return { weight, italic, style: styleName(weight, italic), cls, angle: sourceAngle(params), params: { ...params, weight: value, glyphs } };
+  }
   if (params.sourceProgram) throw new Error('This source has no authored weight family');
   const own = weight === anchor, ratio = own ? 1 : stemRatio(stemOf(params), anchor, weight);
   const weighs = own ? {} : withStem(params, stemOf(params) * ratio);

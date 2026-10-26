@@ -1,13 +1,14 @@
 /* Editing a drawn letter's outline (see shared/engine/outline): the pure operations behind the pen
    tools. Each takes contours and returns new ones, leaving the old untouched for undo. Positions are
-   font units, y up, rounded to whole units. Besides points: corners rounded where they are (live
-   corners), told apart as pointing out of the ink or into it; overlapping shapes merged, cut out of
+   font units, y up. Drags round to whole units; subdivisions retain the curve's precision. Besides
+   points: corners rounded where they are (live corners), told apart as pointing out of the ink or into it; overlapping shapes merged, cut out of
    each other, or broken apart with a gap where one runs over another; and picked points scaled, turned
    or flipped as one, and shapes made thicker or thinner, their points kept. */
 import {
   CIRCLE_K, combine, cornerRoom, cornerTurn, cutOut, drawnCmds, fitOutline, hasIn, hasOut, segment, shape as inkShape, signedArea, unite,
   type Cmd, type CornerKind, type Drawn, type Glyph, type Node
 } from '../../shared/engine';
+import { authoredBetween } from '../../shared/engine/outline';
 
 type P = { x: number; y: number };
 /** An anchor point by contour and index. */
@@ -109,14 +110,16 @@ export function splitSegment(cs: Node[][], c: number, i: number, t: number): Nod
   const out = copy(cs), con = out[c], j = (i + 1) % con.length, a = con[i], b = con[j], s = segment(a, b);
   let m: Node;
   // a straight segment is measured as the cubic [a, a, b, b] (nearestSegment), so t is along that, not linear
-  if (!s) { const q = bez([a, a, b, b], t); m = { x: R(q.x), y: R(q.y) }; }
+  if (!s) m = bez([a, a, b, b], t);
   else {
     const L = (p: P, q: P): P => ({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
     const p01 = L(s[0], s[1]), p12 = L(s[1], s[2]), p23 = L(s[2], s[3]), p012 = L(p01, p12), p123 = L(p12, p23), mid = L(p012, p123);
-    if (hasOut(a)) { a.ox = R(p01.x); a.oy = R(p01.y); }
-    if (hasIn(b)) { b.ix = R(p23.x); b.iy = R(p23.y); }
-    m = { x: R(mid.x), y: R(mid.y), ix: R(p012.x), iy: R(p012.y), ox: R(p123.x), oy: R(p123.y), s: 1 };
+    if (hasOut(a)) { a.ox = p01.x; a.oy = p01.y; }
+    if (hasIn(b)) { b.ix = p23.x; b.iy = p23.y; }
+    m = { ...mid, ix: p012.x, iy: p012.y, ox: p123.x, oy: p123.y, s: 1 };
   }
+  const authored = authoredBetween(a.authored, b.authored, s ? t : t * t * (3 - 2 * t));
+  if (authored) m.authored = authored;
   con.splice(i + 1, 0, m);
   return out;
 }
@@ -170,6 +173,7 @@ export function reverseContour(cs: Node[][], c: number): Node[][] {
   const out = copy(cs);
   out[c] = out[c].reverse().map(n => {
     const m: Node = { x: n.x, y: n.y };
+    if (n.authored) m.authored = n.authored;
     if (hasOut(n)) { m.ix = n.ox; m.iy = n.oy; }
     if (hasIn(n)) { m.ox = n.ix; m.oy = n.iy; }
     if (n.s) m.s = 1;

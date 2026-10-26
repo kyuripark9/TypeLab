@@ -3,6 +3,8 @@ import { useLayoutEffect, type ReactNode } from 'react';
 import { PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, controlFor, controlInUse, pagesFor, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
 import type { NumericParam, SubControlDef } from '../../../shared/params';
 import { sourceNotice, sourceSupports } from '../../../shared/source/capabilities';
+import { mastersForFont, masterInfo } from '../../../shared/source/master-catalog';
+import { WEIGHTS } from '../../../shared/family';
 import { actions, letterOf, useEditor, useFont, useParam } from '../../state/editor';
 import { ScopeIcon, letterControls } from '../Inspector';
 import { Explainer } from './heads';
@@ -34,7 +36,7 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
     const ks = keyList.split(',') as ControlKey[];
     if (keyList && !ks.includes(controlFor(useEditor.getState().active))) actions.setActive(ks[0]);
   }, [keyList]);
-  const note = sourceProgram ? <p className="page-note">{sourceNotice}</p> : build !== 'strokes' && keys.length < all.length
+  const note = sourceProgram ? <p className="page-note">{sourceNotice({ sourceProgram })}</p> : build !== 'strokes' && keys.length < all.length
     ? <p className="page-note">Letters built from {build} take only these settings here.</p>
     : category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
   if (!shown) return null;
@@ -42,6 +44,8 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
     <div className="controls-page">
       <Explainer />
       {sourceProgram && note}
+      {sourceProgram?.kind === 'outline-v1' && masterInfo(mastersForFont(sourceProgram.fontId))?.source.digest === sourceProgram.digest &&
+        <button type="button" className="btn outline wide" onClick={actions.enableMasters}>Enable weight variations</button>}
       {inspecting ? <LetterControls keys={keys} category={category} note={sourceProgram ? null : note} /> : <div className="ctl-list">{keys.map(k => <Control key={k} k={k} />)}{!sourceProgram && note}</div>}
       <PageSteps category={category} pages={pages} />
     </div>
@@ -114,8 +118,11 @@ const NESTED: Partial<Record<ControlKey, { subs?: Record<string, SubControlDef>;
     entry), 'serifForm' the four finer serif choices. A control with no type is a slider; a few keys nest
     sliders or a letter's own values below theirs, and Stencil and Slice are cuts with a switch. */
 function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
-  const c = CONTROLS[k], n = NESTED[k];
+  const n = NESTED[k];
   const sourceProgram = useParam('sourceProgram');
+  const weights = k === 'weight' && masterInfo(sourceProgram);
+  const weightLabel = (value: number) => `${WEIGHTS.find(w => w.cls === value)?.name ?? 'Weight'} ${value}`;
+  const c = weights ? { ...CONTROLS[k], lo: weightLabel(weights.min), hi: weightLabel(weights.max) } : CONTROLS[k];
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'story') return <StoryControl parts={parts} />;
   if (c.type === 'form') return <FormControl k={k as LetterFormKey} parts={parts} />;

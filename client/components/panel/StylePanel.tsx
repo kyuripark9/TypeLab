@@ -124,7 +124,7 @@ function StyleTraits() {
   );
   return (
     <>
-      {sourceProgram && <p className="page-note">{sourceNotice}</p>}
+      {sourceProgram && <p className="page-note">{sourceNotice({ sourceProgram })}</p>}
       {sections.map((sec, i) => (
         <div key={sec.id} className="trait-set" role="group" aria-labelledby={`t-${sec.id}`}>
           <div className="trait-set-head">

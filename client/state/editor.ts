@@ -10,7 +10,7 @@ import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../sha
 import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
 import { loadSource } from '../lib/sources';
-import { sourceForFont } from '../../shared/source/catalog';
+import { designSourceForFont as sourceForFont, masterInfo, mastersForFont } from '../../shared/source/master-catalog';
 import { onSource, sourceFont } from '../../shared/source/registry';
 import { sourceSupports } from '../../shared/source/capabilities';
 import { DEFAULT_NAME, cleanName, slug, type Design, type DesignInput } from '../../shared/design';
@@ -154,7 +154,8 @@ function startParams(st: StyleDef, traits: Traits, free = true): Params {
     const p = applyTraits(st.params, traits);
     return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING } : p;
   }
-  const base = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING, height: DEFAULTS.height, sourceProgram };
+  const info = masterInfo(sourceProgram), weight = info ? (info.defaultWeight - info.min) / (info.max - info.min) : st.params.weight;
+  const base = { ...st.params, freeFont: id, freeAt: { ...freeAtOf(st.params), weight }, weight, ...FREE_SPACING, height: DEFAULTS.height, sourceProgram };
   return applyTraits(base, supportedTraits(base, traits));
 }
 /** Unsupported traits stay out of a source design, including when picked before switching styles. */
@@ -469,6 +470,16 @@ export const actions = {
     actions.setParam(key, v);
     actions.commit();
   },
+  enableMasters() {
+    const s = get(), original = s.params.sourceProgram;
+    if (original?.kind !== 'outline-v1') return;
+    const ref = mastersForFont(original.fontId), info = masterInfo(ref);
+    if (!ref || !info || info.source.digest !== original.digest) return;
+    const weight = (info.defaultWeight - info.min) / (info.max - info.min);
+    set({ params: { ...s.params, sourceProgram: ref, weight, freeAt: { ...s.params.freeAt, weight } } });
+    step();
+    actions.setCategory(CONTROLS.weight.cat, 'weight');
+  },
   /** Settings in place of the design's (a design file's), with the letters' record and the History that came with
       them laid into the design's own. */
   replaceParams(params: Params, styleId?: string, log: LetterLog = {}, versions: FontLog = []) {
@@ -506,7 +517,9 @@ export const actions = {
       return;
     }
     const st = styleById(s.styleId) ?? STYLES[0];
-    actions.setOption(key, s.params.sourceProgram && key === 'height' ? DEFAULTS[key] : st.params[key]);
+    const info = masterInfo(s.params.sourceProgram);
+    actions.setOption(key, s.params.sourceProgram && key === 'height' ? DEFAULTS[key]
+      : info && key === 'weight' ? (info.defaultWeight - info.min) / (info.max - info.min) : st.params[key]);
   },
   /** Switch an optional slider on, back to the value it had (or halfway), or off, to `off` where it changes nothing. */
   switchControl(key: NumericParam, on: boolean, off: number) {

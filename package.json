@@ -15,6 +15,7 @@
     "test": "node --import tsx --test --test-concurrency=4 \"tests/**/*.test.ts\"",
     "golden": "node --import tsx tools/golden.ts",
     "golden:update": "node --import tsx tools/golden.ts --update",
+    "masters:check": "node --max-old-space-size=512 --import tsx tools/authored/build-masters.ts --check && node --max-old-space-size=512 --import tsx tools/masters/verify-catalog.mjs",
     "weights": "node --import tsx tools/weights.ts",
     "weights:update": "node --import tsx tools/weights.ts --update",
     "compare": "node --import tsx tools/compare.ts",

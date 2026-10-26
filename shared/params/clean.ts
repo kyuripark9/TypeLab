@@ -18,7 +18,7 @@ import { DEFAULTS, DRAWN_AT_KEYS, FREE_AT_KEYS, ID_KEYS, PARAM_KEYS, SPECS, draw
     grid fills had their Size from 40 cells to 5 (moduleFromV5); version 6 slot and grid blocks drew alike whatever
     Contrast, Inner space, Openness, the crossbars, the corners, Stencil and the letter forms said (BLOCK_LOOKS). Bump
     it, and add the step to upgradeParams, when saved settings need reading differently. */
-export const PARAMS_VERSION = 8;
+export const PARAMS_VERSION = 9;
 /** Settings written by an older version (see PARAMS_VERSION), as this one reads them. */
 export function upgradeParams(src: Record<string, unknown>, version: number): Record<string, unknown> {
   if (version < 2 && typeof src.xHeight === 'number' && Number.isFinite(src.xHeight)) src = { ...src, xHeight: xHeightFromOld(Math.min(1, Math.max(0, src.xHeight))) };

@@ -997,6 +997,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: var(--knob), 0 0
 .family { display: grid; gap: 10px; }
 .family-grid { display: grid; gap: 6px; }
 .family-row { display: grid; grid-template-columns: 92px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px; }
+.master-family .family-row { grid-template-columns: 112px minmax(0, 1fr); }
+.master-family .family-row > :first-child { grid-column: auto; }
 .family-head > span { padding-left: 10px; }
 .family-head .chip { padding: 5px 9px; }
 .family-weight { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }

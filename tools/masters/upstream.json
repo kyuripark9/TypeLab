@@ -1,0 +1,1165 @@
+{
+  "revision": "e7db6ca603fd4862010383ff17ffd6cc4ffac1c0",
+  "families": [
+    {
+      "family": "Abril Fatface",
+      "styles": [
+        "Ballyhoo"
+      ],
+      "files": [
+        {
+          "file": "abrilfatface/AbrilFatface-Regular.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/abrilfatface/AbrilFatface-Regular.ttf",
+          "sha256": "5971d4a3758a922a9fedc7f6fb825a96341a2e718c45a4b2c9a6b417c8c4dbe9",
+          "bytes": 67364,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 1.001",
+          "copyright": "Copyright (c) 2011, Copyright (c) 2011, TypeTogether (www.type-together.com), with Reserved Font Names \"Abril\" and \"Abril Fatface\"",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 400
+        },
+        {
+          "file": "abrilfatface/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/abrilfatface/METADATA.pb",
+          "sha256": "fb7807509c5cdceaa33c8748b4e387b14d37a70a24cdc7511101a6208fc86c19",
+          "bytes": 682
+        },
+        {
+          "file": "abrilfatface/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/abrilfatface/OFL.txt",
+          "sha256": "aba8997e16b1e3888c6e855ba883c70d96bd4375bff8cb9c7ce0f097200f74b8",
+          "bytes": 4415
+        }
+      ],
+      "designers": [
+        "TypeTogether"
+      ]
+    },
+    {
+      "family": "Alfa Slab One",
+      "styles": [
+        "Timber"
+      ],
+      "files": [
+        {
+          "file": "alfaslabone/AlfaSlabOne-Regular.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/alfaslabone/AlfaSlabOne-Regular.ttf",
+          "sha256": "28664afa698a3393bd5a29eec750230a0645c5301d62200e5f2d3a027fb2299d",
+          "bytes": 97376,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 2.000",
+          "copyright": "Copyright 2016 The Alfa Slab One Project Authors (http://www.jmsole.cl | info@jmsole.cl), with Reserved Font Name \"Alfa Slab\".",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 400
+        },
+        {
+          "file": "alfaslabone/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/alfaslabone/METADATA.pb",
+          "sha256": "030e8934909865802313487b8b6ae342e79a06c102ff740efa6cfdb5b26cb97c",
+          "bytes": 676
+        },
+        {
+          "file": "alfaslabone/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/alfaslabone/OFL.txt",
+          "sha256": "e315abc82a78710c7242e2f2e6529651fd631d4d50e6ad98ea194f9b54c3d701",
+          "bytes": 4523
+        }
+      ],
+      "designers": [
+        "JM Solé"
+      ]
+    },
+    {
+      "family": "Barlow",
+      "styles": [
+        "Turnpike"
+      ],
+      "files": [
+        {
+          "file": "barlow/Barlow-Black.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow/Barlow-Black.ttf",
+          "sha256": "fc4f74e8475b181003f7597450c62d630622b417e367a6842972b286c49f9440",
+          "bytes": 111116,
+          "weight": 900,
+          "italic": false,
+          "version": "Version 1.408",
+          "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 900
+        },
+        {
+          "file": "barlow/Barlow-Bold.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow/Barlow-Bold.ttf",
+          "sha256": "84e6a4d61e7c3e21f3c50ea6a4f7e5303a3467864c038be6ea3759bab8d547f9",
+          "bytes": 108220,
+          "weight": 700,
+          "italic": false,
+          "version": "Version 1.408",
+          "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 700
+        },
+        {
+          "file": "barlow/Barlow-ExtraBold.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow/Barlow-ExtraBold.ttf",
+          "sha256": "5234d91030e1bb89525cbaccc4386892c3fe005a0582c705264ce3572d96a1a1",
+          "bytes": 110228,
+          "weight": 800,
+          "italic": false,
+          "version": "Version 1.408",
+          "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 800
+        },
+        {
+          "file": "barlow/Barlow-ExtraLight.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow/Barlow-ExtraLight.ttf",
+          "sha256": "bd47db14c6305ebb647a3f0c6afc0370ffd4e3368f12405c8cd141683a4c2b05",
+          "bytes": 102504,
+          "weight": 275,
+          "italic": false,
+          "version": "Version 1.408",
+          "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 200
+        },
+        {
+          "file": "barlow/Barlow-Light.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow/Barlow-Light.ttf",
+          "sha256": "20b1375c0c6606701867bf34c7cc97f44087850567a36587d25abb9510b183cc",
+          "bytes": 103136,
+          "weight": 300,
+          "italic": false,
+          "version": "Version 1.408",
+          "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 300
+        },
+        {
+          "file": "barlow/Barlow-Medium.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow/Barlow-Medium.ttf",
+          "sha256": "f8906f762cb73dca441da034bc363b2d8e2e68bc10d5c05e58717646c20cc4b4",
+          "bytes": 103536,
+          "weight": 500,
+          "italic": false,
+          "version": "Version 1.408",
+          "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 500
+        },
+        {
+          "file": "barlow/Barlow-Regular.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow/Barlow-Regular.ttf",
+          "sha256": "95aa02c7c43096e0dd44d787ba6216864a67157e402adab59b35572e0c1577ea",
+          "bytes": 104068,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 1.408",
+          "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 400
+        },
+        {
+          "file": "barlow/Barlow-SemiBold.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow/Barlow-SemiBold.ttf",
+          "sha256": "86577cb32f8abe3673db53ca0f4221e6856751a4f6730c867e00f720f8bb1fc5",
+          "bytes": 108348,
+          "weight": 600,
+          "italic": false,
+          "version": "Version 1.408",
+          "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 600
+        },
+        {
+          "file": "barlow/Barlow-Thin.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow/Barlow-Thin.ttf",
+          "sha256": "103671e5a8daf1c02ac2cb35c61fa30088e055e5ff718d51b4fb20012581d252",
+          "bytes": 101704,
+          "weight": 250,
+          "italic": false,
+          "version": "Version 1.408",
+          "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 100
+        },
+        {
+          "file": "barlow/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow/METADATA.pb",
+          "sha256": "636e983a5a87c2d7aa3ff9f6544f65910eac0c8537a2a8b29c584d786770d878",
+          "bytes": 4877
+        },
+        {
+          "file": "barlow/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/barlow/OFL.txt",
+          "sha256": "186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f",
+          "bytes": 4377
+        }
+      ],
+      "designers": [
+        "Jeremy Tribby"
+      ]
+    },
+    {
+      "family": "Caveat",
+      "styles": [
+        "Jotter"
+      ],
+      "files": [
+        {
+          "file": "caveat/Caveat[wght].ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/caveat/Caveat%5Bwght%5D.ttf",
+          "sha256": "0bdb6b660482d31531b3945849fba5916b3ef8695da7024a9e6b9ee3c4157988",
+          "bytes": 403648,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 2.000",
+          "copyright": "Copyright 2014 The Caveat Project Authors (https://github.com/googlefonts/caveat)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [
+            {
+              "tag": "wght",
+              "min": 400.0,
+              "default": 400.0,
+              "max": 700.0
+            }
+          ],
+          "declaredWeight": 400
+        },
+        {
+          "file": "caveat/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/caveat/METADATA.pb",
+          "sha256": "038342ea08d3f09e11b7f08cfd1e1d556b4f56a48269b0909395aa6fecd4c4f7",
+          "bytes": 1029
+        },
+        {
+          "file": "caveat/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/caveat/OFL.txt",
+          "sha256": "1f9d81d094273d82f3898a1ee8b598a717d050ecbf5ff7bede105b704880157b",
+          "bytes": 4385
+        }
+      ],
+      "designers": [
+        "Impallari Type"
+      ]
+    },
+    {
+      "family": "Comic Neue",
+      "styles": [
+        "Funnies"
+      ],
+      "files": [
+        {
+          "file": "comicneue/ComicNeue-Bold.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/comicneue/ComicNeue-Bold.ttf",
+          "sha256": "3e7e5fccfd7e0788f317b43312151c1bd5cf058c9697a8d83eac3939050bd61e",
+          "bytes": 55716,
+          "weight": 700,
+          "italic": false,
+          "version": "Version 2.003",
+          "copyright": "Copyright 2014 The Comic Neue Project Authors (https://github.com/crozynski/comicneue)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 700
+        },
+        {
+          "file": "comicneue/ComicNeue-Light.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/comicneue/ComicNeue-Light.ttf",
+          "sha256": "efb91c06dccc264f07f800c0691d40c94e8cfce6183daade0709268bec178f76",
+          "bytes": 55816,
+          "weight": 300,
+          "italic": false,
+          "version": "Version 2.003",
+          "copyright": "Copyright 2014 The Comic Neue Project Authors (https://github.com/crozynski/comicneue)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 300
+        },
+        {
+          "file": "comicneue/ComicNeue-Regular.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/comicneue/ComicNeue-Regular.ttf",
+          "sha256": "a0ee5a37c8b27c4db0700137d928598b1e23b0089e1546a8961909176b779360",
+          "bytes": 57248,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 2.003",
+          "copyright": "Copyright 2014 The Comic Neue Project Authors (https://github.com/crozynski/comicneue)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 400
+        },
+        {
+          "file": "comicneue/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/comicneue/METADATA.pb",
+          "sha256": "ae29bc6e5492754bc210fde594e2119442a2152ba999acf954bb7dbdb2ef7e68",
+          "bytes": 1937
+        },
+        {
+          "file": "comicneue/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/comicneue/OFL.txt",
+          "sha256": "7c38a22e5878e60fe423360553e63dd7be23d29f1f60336034935dbfc96e8320",
+          "bytes": 4390
+        }
+      ],
+      "designers": [
+        "Craig Rozynski, Hrant Papazian"
+      ]
+    },
+    {
+      "family": "Courier Prime",
+      "styles": [
+        "Dispatch"
+      ],
+      "files": [
+        {
+          "file": "courierprime/CourierPrime-Bold.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/courierprime/CourierPrime-Bold.ttf",
+          "sha256": "ff1f38786c849d1c41fa8e447960abdb2bd75fdfb0cfcdeb524fad65a5af3638",
+          "bytes": 72856,
+          "weight": 700,
+          "italic": false,
+          "version": "Version 3.018",
+          "copyright": "Copyright 2015 The Courier Prime Project Authors (https://github.com/quoteunquoteapps/CourierPrime).",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 700
+        },
+        {
+          "file": "courierprime/CourierPrime-Regular.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/courierprime/CourierPrime-Regular.ttf",
+          "sha256": "72f793376f8e2841656bf21d77a5de010f2929bd6956a22ee848ad0c7eb978af",
+          "bytes": 71188,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 3.018",
+          "copyright": "Copyright 2015 The Courier Prime Project Authors (https://github.com/quoteunquoteapps/CourierPrime).",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 400
+        },
+        {
+          "file": "courierprime/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/courierprime/METADATA.pb",
+          "sha256": "2f37b982be7620d7abe633a1a14ec13675ed1ce69583d66a48b8a5ca5f197055",
+          "bytes": 1548
+        },
+        {
+          "file": "courierprime/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/courierprime/OFL.txt",
+          "sha256": "9a755af092b494944c99f471be6fddd19b006a448fefdc4717e4ee0aa09a97b0",
+          "bytes": 4403
+        }
+      ],
+      "designers": [
+        "Alan Dague-Greene"
+      ]
+    },
+    {
+      "family": "EB Garamond",
+      "styles": [
+        "Vellum"
+      ],
+      "files": [
+        {
+          "file": "ebgaramond/EBGaramond[wght].ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ebgaramond/EBGaramond%5Bwght%5D.ttf",
+          "sha256": "ef9512f92f6d579e5dc75af59a5a4b1b8b47d2eda89e00b954d44520e5369027",
+          "bytes": 851176,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 1.003",
+          "copyright": "Copyright 2017 The EB Garamond Project Authors (https://github.com/octaviopardo/EBGaramond12)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org",
+          "axes": [
+            {
+              "tag": "wght",
+              "min": 400.0,
+              "default": 400.0,
+              "max": 800.0
+            }
+          ],
+          "declaredWeight": 400
+        },
+        {
+          "file": "ebgaramond/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ebgaramond/METADATA.pb",
+          "sha256": "be94098be975a66281842ed599baefa14959eff9da14c87250678e905f6043f2",
+          "bytes": 1457
+        },
+        {
+          "file": "ebgaramond/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ebgaramond/OFL.txt",
+          "sha256": "0985066662eb755ed3683ae5482a81a9195b49ce3f7e165cc2388b3dbece7dd7",
+          "bytes": 4398
+        }
+      ],
+      "designers": [
+        "Georg Duffner, Octavio Pardo"
+      ]
+    },
+    {
+      "family": "Fredoka",
+      "styles": [
+        "Gumdrop"
+      ],
+      "files": [
+        {
+          "file": "fredoka/Fredoka[wdth,wght].ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/fredoka/Fredoka%5Bwdth%2Cwght%5D.ttf",
+          "sha256": "2ba02e68b152868aef9ba28e24b3648c7d457fe6f25c761f2c2c53fb61a73fc8",
+          "bytes": 159184,
+          "weight": 300,
+          "italic": false,
+          "version": "Version 2.001",
+          "copyright": "Copyright 2016 The Fredoka Project Authors (https://github.com/hafontia/Fredoka-One)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [
+            {
+              "tag": "wght",
+              "min": 300.0,
+              "default": 300.0,
+              "max": 700.0
+            },
+            {
+              "tag": "wdth",
+              "min": 75.0,
+              "default": 100.0,
+              "max": 125.0
+            }
+          ],
+          "declaredWeight": 400
+        },
+        {
+          "file": "fredoka/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/fredoka/METADATA.pb",
+          "sha256": "17f260d0faf7c588c9331a9a1b720b55c2b871563423f42704c8cbb0953a574a",
+          "bytes": 933
+        },
+        {
+          "file": "fredoka/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/fredoka/OFL.txt",
+          "sha256": "5c9e7eee5c6b25f4b05b8d53b2e470ea4962f9ced742d044a98f7d95d1375bab",
+          "bytes": 4388
+        }
+      ],
+      "designers": [
+        "Milena Brandão, Hafontia"
+      ]
+    },
+    {
+      "family": "Great Vibes",
+      "styles": [
+        "Serenade"
+      ],
+      "files": [
+        {
+          "file": "greatvibes/GreatVibes-Regular.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/greatvibes/GreatVibes-Regular.ttf",
+          "sha256": "8d509802186f1b51572531ecf313e8098f9a5bfdfaca93f0c9b34467f9982d15",
+          "bytes": 457588,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 1.103; ttfautohint (v1.8.4.7-5d5b)",
+          "copyright": "Copyright 2010 The Great Vibes Pro Project Authors (https://github.com/googlefonts/great-vibes)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org",
+          "axes": [],
+          "declaredWeight": 400
+        },
+        {
+          "file": "greatvibes/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/greatvibes/METADATA.pb",
+          "sha256": "9acaa7e4a6ff0598c8ed6f53b6dc572dfdccfeebde4e80d65064c922f4426362",
+          "bytes": 1426
+        },
+        {
+          "file": "greatvibes/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/greatvibes/OFL.txt",
+          "sha256": "61093a21f5e63dedf54222b3c09997e54c0fe43e3851d21386e02ddcbc246d49",
+          "bytes": 4399
+        }
+      ],
+      "designers": [
+        "Robert Leuschke"
+      ]
+    },
+    {
+      "family": "IBM Plex Mono",
+      "styles": [
+        "Kernel"
+      ],
+      "files": [
+        {
+          "file": "ibmplexmono/IBMPlexMono-Bold.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ibmplexmono/IBMPlexMono-Bold.ttf",
+          "sha256": "ac27abd6450a64dd94467580a02fe6235156d5b92f2926ebbc8e7489df64e0be",
+          "bytes": 137784,
+          "weight": 700,
+          "italic": false,
+          "version": "Version 2.3",
+          "copyright": "Copyright 2017 IBM Corp. All rights reserved.",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 700
+        },
+        {
+          "file": "ibmplexmono/IBMPlexMono-ExtraLight.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ibmplexmono/IBMPlexMono-ExtraLight.ttf",
+          "sha256": "826b765bd5173b97d521053330a66277edc224f8cc5f1e0035df1d995d5f003c",
+          "bytes": 135980,
+          "weight": 200,
+          "italic": false,
+          "version": "Version 2.3",
+          "copyright": "Copyright 2017 IBM Corp. All rights reserved.",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 200
+        },
+        {
+          "file": "ibmplexmono/IBMPlexMono-Light.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ibmplexmono/IBMPlexMono-Light.ttf",
+          "sha256": "780bcf65509d72a35ec114b57bcbe220dc6b77d8ea2e9b25e294be3c570c5025",
+          "bytes": 135216,
+          "weight": 300,
+          "italic": false,
+          "version": "Version 2.3",
+          "copyright": "Copyright 2017 IBM Corp. All rights reserved.",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 300
+        },
+        {
+          "file": "ibmplexmono/IBMPlexMono-Medium.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ibmplexmono/IBMPlexMono-Medium.ttf",
+          "sha256": "a9b4c49bb299e05b5f6c481e7fb5e78943d2793249a0c8874ab574a2d1ea6755",
+          "bytes": 136704,
+          "weight": 500,
+          "italic": false,
+          "version": "Version 2.3",
+          "copyright": "Copyright 2017 IBM Corp. All rights reserved.",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 500
+        },
+        {
+          "file": "ibmplexmono/IBMPlexMono-Regular.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ibmplexmono/IBMPlexMono-Regular.ttf",
+          "sha256": "6a3412f058c7d8dfd9170c41e85ade48e5156ecb89356110ca57a0a27734af46",
+          "bytes": 135580,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 2.3",
+          "copyright": "Copyright 2017 IBM Corp. All rights reserved.",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 400
+        },
+        {
+          "file": "ibmplexmono/IBMPlexMono-SemiBold.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ibmplexmono/IBMPlexMono-SemiBold.ttf",
+          "sha256": "d3c38e55c78f5b0f28009fddba4834ec503278936a5986032424c9bd2d23aa46",
+          "bytes": 140216,
+          "weight": 600,
+          "italic": false,
+          "version": "Version 2.3",
+          "copyright": "Copyright 2017 IBM Corp. All rights reserved.",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 600
+        },
+        {
+          "file": "ibmplexmono/IBMPlexMono-Thin.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ibmplexmono/IBMPlexMono-Thin.ttf",
+          "sha256": "c44c820c14b4f1b818344e5f5dc189cee98b1d5e56b4e80055496c228f3cc7ea",
+          "bytes": 137900,
+          "weight": 100,
+          "italic": false,
+          "version": "Version 2.3",
+          "copyright": "Copyright 2017 IBM Corp. All rights reserved.",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 100
+        },
+        {
+          "file": "ibmplexmono/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ibmplexmono/METADATA.pb",
+          "sha256": "006b605a8a45174a3f8ad9456006233ff8f13cf3cae7fe7602904334dc323c7c",
+          "bytes": 6329
+        },
+        {
+          "file": "ibmplexmono/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/ibmplexmono/OFL.txt",
+          "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+          "bytes": 4456
+        }
+      ],
+      "designers": [
+        "Mike Abbink, Bold Monday"
+      ]
+    },
+    {
+      "family": "Libre Baskerville",
+      "styles": [
+        "Almanac"
+      ],
+      "files": [
+        {
+          "file": "librebaskerville/LibreBaskerville[wght].ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/librebaskerville/LibreBaskerville%5Bwght%5D.ttf",
+          "sha256": "05a95421961341c5b2556285e8415df9db27dab4f4abe22b446b3c6a8b916c5d",
+          "bytes": 171900,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 2.005",
+          "copyright": "Copyright 2012 The Libre Baskerville Project Authors (https://github.com/impallari/Libre-Baskerville)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org",
+          "axes": [
+            {
+              "tag": "wght",
+              "min": 400.0,
+              "default": 400.0,
+              "max": 700.0
+            }
+          ],
+          "declaredWeight": 400
+        },
+        {
+          "file": "librebaskerville/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/librebaskerville/METADATA.pb",
+          "sha256": "e29f1dcebfdf5918d29c4d373e1a6a0ae3bcb94538aa63362fdcc7bf095cc9c8",
+          "bytes": 1464
+        },
+        {
+          "file": "librebaskerville/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/librebaskerville/OFL.txt",
+          "sha256": "3624eddd4c8f8a908130a417ae7cd089c9da69899c4e0ca1a5217d0a6fae16fd",
+          "bytes": 4542
+        }
+      ],
+      "designers": [
+        "Impallari Type"
+      ]
+    },
+    {
+      "family": "Nunito",
+      "styles": [
+        "Cotton"
+      ],
+      "files": [
+        {
+          "file": "nunito/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/nunito/METADATA.pb",
+          "sha256": "3e20743c7ddab54c6ac57d79a6be522d4bae795223855ce90a1b13c4132f0754",
+          "bytes": 1306
+        },
+        {
+          "file": "nunito/Nunito[wght].ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/nunito/Nunito%5Bwght%5D.ttf",
+          "sha256": "bb55a5ca5c2042335b3991af27c4d0705d0ef41cac6164ac737fd8f2a1e85207",
+          "bytes": 276932,
+          "weight": 200,
+          "italic": false,
+          "version": "Version 3.602",
+          "copyright": "Copyright 2014 The Nunito Project Authors (https://github.com/googlefonts/nunito)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [
+            {
+              "tag": "wght",
+              "min": 200.0,
+              "default": 200.0,
+              "max": 1000.0
+            }
+          ],
+          "declaredWeight": 400
+        },
+        {
+          "file": "nunito/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/nunito/OFL.txt",
+          "sha256": "580df76c95a1ec5ab878ceb25bb3d85c6a076804e9c970c8c6972aea775fdf65",
+          "bytes": 4385
+        }
+      ],
+      "designers": [
+        "Vernon Adams, Cyreal, Jacques Le Bailly"
+      ]
+    },
+    {
+      "family": "Open Sans",
+      "styles": [
+        "Parlance"
+      ],
+      "files": [
+        {
+          "file": "opensans/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/opensans/METADATA.pb",
+          "sha256": "50305d75a1b32bc4b5f59a037a71b0db45be509479519f7fded5b9cfa86217e8",
+          "bytes": 5184
+        },
+        {
+          "file": "opensans/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/opensans/OFL.txt",
+          "sha256": "fbbbcfef55318de350562559b671360de6d597112ecc5c73881b05092db89602",
+          "bytes": 4389
+        },
+        {
+          "file": "opensans/OpenSans[wdth,wght].ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/opensans/OpenSans%5Bwdth%2Cwght%5D.ttf",
+          "sha256": "36643644f318a812aab2d2ed3bb98f8cf0872527f835fe9398d95fe6b9adb878",
+          "bytes": 532636,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 3.003",
+          "copyright": "Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [
+            {
+              "tag": "wght",
+              "min": 300.0,
+              "default": 400.0,
+              "max": 800.0
+            },
+            {
+              "tag": "wdth",
+              "min": 75.0,
+              "default": 100.0,
+              "max": 100.0
+            }
+          ],
+          "declaredWeight": 400
+        }
+      ],
+      "designers": [
+        "Steve Matteson"
+      ]
+    },
+    {
+      "family": "Pacifico",
+      "styles": [
+        "Boardwalk"
+      ],
+      "files": [
+        {
+          "file": "pacifico/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/pacifico/METADATA.pb",
+          "sha256": "397f1aaefe8d0e372e23f4959a95498373a7b03b1e373f0799b2896499286ae5",
+          "bytes": 705
+        },
+        {
+          "file": "pacifico/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/pacifico/OFL.txt",
+          "sha256": "a47e5daeda73568969395c656823102678f2eefb0d7d7ecb47aac4cc17e42204",
+          "bytes": 4389
+        },
+        {
+          "file": "pacifico/Pacifico-Regular.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/pacifico/Pacifico-Regular.ttf",
+          "sha256": "5b6c0d5334a7bf77dea52b975c5a0c408878c0f7115ed5b6fb151f634b7bf701",
+          "bytes": 329380,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 3.001",
+          "copyright": "Copyright 2018 The Pacifico Project Authors (https://github.com/googlefonts/Pacifico)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 400
+        }
+      ],
+      "designers": [
+        "Vernon Adams, Jacques Le Bailly, Botjo Nikoltchev, Ani Petrova"
+      ]
+    },
+    {
+      "family": "Playfair Display",
+      "styles": [
+        "Couture",
+        "Sonnet"
+      ],
+      "files": [
+        {
+          "file": "playfairdisplay/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/playfairdisplay/METADATA.pb",
+          "sha256": "c9e6a996754f710fb7ff2ba36f8dd807244318d561d63d247a22199ea1a5e94a",
+          "bytes": 1202
+        },
+        {
+          "file": "playfairdisplay/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/playfairdisplay/OFL.txt",
+          "sha256": "566be814f8e96e93dfa16101331557eb6b5467e9e03f627c0910fe93ca12300e",
+          "bytes": 4449
+        },
+        {
+          "file": "playfairdisplay/PlayfairDisplay-Italic[wght].ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/playfairdisplay/PlayfairDisplay-Italic%5Bwght%5D.ttf",
+          "sha256": "a5e26dc5e2e77fb2803a0bf02fd4f81ee136ec8dea863ccdb0c59a263b21378b",
+          "bytes": 278688,
+          "weight": 400,
+          "italic": true,
+          "version": "Version 1.203",
+          "copyright": "Copyright 2017 The Playfair Display Project Authors (https://github.com/clauseggers/Playfair-Display), with Reserved Font Name \"Playfair Display\".",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [
+            {
+              "tag": "wght",
+              "min": 400.0,
+              "default": 400.0,
+              "max": 900.0
+            }
+          ],
+          "declaredWeight": 400
+        },
+        {
+          "file": "playfairdisplay/PlayfairDisplay[wght].ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf",
+          "sha256": "c40f2293766a503bc70cce9e512ef844a4ccb7cbcde792fe2ea31d191917d8d6",
+          "bytes": 300724,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 1.203",
+          "copyright": "Copyright 2017 The Playfair Display Project Authors (https://github.com/clauseggers/Playfair-Display), with Reserved Font Name \"Playfair Display\".",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: http://scripts.sil.org/OFL",
+          "axes": [
+            {
+              "tag": "wght",
+              "min": 400.0,
+              "default": 400.0,
+              "max": 900.0
+            }
+          ],
+          "declaredWeight": 400
+        }
+      ],
+      "designers": [
+        "Claus Eggers Sørensen"
+      ]
+    },
+    {
+      "family": "Poppins",
+      "styles": [
+        "Compass"
+      ],
+      "files": [
+        {
+          "file": "poppins/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/poppins/METADATA.pb",
+          "sha256": "8121646e47a90cbcd2f4664e0df036944880035522b4f25ec51cb9465428b346",
+          "bytes": 5157
+        },
+        {
+          "file": "poppins/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/poppins/OFL.txt",
+          "sha256": "6be04893d770899a015649c7aa3b582f871b272f8747a92b78b17c3e5c8b2573",
+          "bytes": 4385
+        },
+        {
+          "file": "poppins/Poppins-Black.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/poppins/Poppins-Black.ttf",
+          "sha256": "d82aaaf98a9283f9a8edd24e51173337d8eaf09e25cd3d98831f8ec8461748a1",
+          "bytes": 153440,
+          "weight": 900,
+          "italic": false,
+          "version": "4.004",
+          "copyright": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 900
+        },
+        {
+          "file": "poppins/Poppins-Bold.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/poppins/Poppins-Bold.ttf",
+          "sha256": "983676516167748b74de6f4771fb384c664fd913acb8b471122ecacf5da5ea6c",
+          "bytes": 155996,
+          "weight": 700,
+          "italic": false,
+          "version": "4.004",
+          "copyright": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 700
+        },
+        {
+          "file": "poppins/Poppins-ExtraBold.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/poppins/Poppins-ExtraBold.ttf",
+          "sha256": "f2ab17c1a63a0ecc12c2461848fc8a469395e3cd2d641803e889c643d9f958e1",
+          "bytes": 154836,
+          "weight": 800,
+          "italic": false,
+          "version": "4.004",
+          "copyright": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 800
+        },
+        {
+          "file": "poppins/Poppins-ExtraLight.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/poppins/Poppins-ExtraLight.ttf",
+          "sha256": "55c03314cc754e26f741f97890e5e9cbe3b3278fe3abcecfecafd60111b2643d",
+          "bytes": 163568,
+          "weight": 275,
+          "italic": false,
+          "version": "4.004",
+          "copyright": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 200
+        },
+        {
+          "file": "poppins/Poppins-Light.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/poppins/Poppins-Light.ttf",
+          "sha256": "650ba57fa99d12ec40c31ccfb680be656be4497fbe14164617d67e32ffe9cd46",
+          "bytes": 161936,
+          "weight": 300,
+          "italic": false,
+          "version": "4.004",
+          "copyright": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 300
+        },
+        {
+          "file": "poppins/Poppins-Medium.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/poppins/Poppins-Medium.ttf",
+          "sha256": "90373e7d838d32468438fc3e152dca0bdb12edcab99ea639f158790b1ba1fd05",
+          "bytes": 158576,
+          "weight": 500,
+          "italic": false,
+          "version": "4.004",
+          "copyright": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 500
+        },
+        {
+          "file": "poppins/Poppins-Regular.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/poppins/Poppins-Regular.ttf",
+          "sha256": "7e65201e9b79159e2300267cc885e16c8dcef2424cdfa09a29bfb0980a94a7ba",
+          "bytes": 160316,
+          "weight": 400,
+          "italic": false,
+          "version": "4.004",
+          "copyright": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 400
+        },
+        {
+          "file": "poppins/Poppins-SemiBold.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/poppins/Poppins-SemiBold.ttf",
+          "sha256": "d3bf1bdaf0550e83da9ac0b1d1d9fe6db086835a83aa28578e609a394b9a0286",
+          "bytes": 157312,
+          "weight": 600,
+          "italic": false,
+          "version": "4.004",
+          "copyright": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 600
+        },
+        {
+          "file": "poppins/Poppins-Thin.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/poppins/Poppins-Thin.ttf",
+          "sha256": "6d8e5d9d29140cc93e321745fa1243c67889e6bc3639ec34db64f3da7a496352",
+          "bytes": 163672,
+          "weight": 250,
+          "italic": false,
+          "version": "4.004",
+          "copyright": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [],
+          "declaredWeight": 100
+        }
+      ],
+      "designers": [
+        "Indian Type Foundry, Jonny Pinhorn, Ninad Kale"
+      ]
+    },
+    {
+      "family": "Roboto",
+      "styles": [
+        "Mainline"
+      ],
+      "files": [
+        {
+          "file": "roboto/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/roboto/METADATA.pb",
+          "sha256": "6fef19da54fb62d152f0c7b21710e6849950db7ecf852ea29511c593dad462f0",
+          "bytes": 1463
+        },
+        {
+          "file": "roboto/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/roboto/OFL.txt",
+          "sha256": "061402327a96aadb0bfb694a960ed289ecd38d383e396243831ab81feb109c41",
+          "bytes": 4394
+        },
+        {
+          "file": "roboto/Roboto[wdth,wght].ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/roboto/Roboto%5Bwdth%2Cwght%5D.ttf",
+          "sha256": "d7598e12c5dbef095ff8272cfc55da0250bd07fbdecbac8a530b9b277872a134",
+          "bytes": 488584,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 3.015; 2026",
+          "copyright": "Copyright 2011 The Roboto Project Authors (https://github.com/googlefonts/roboto-classic)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org",
+          "axes": [
+            {
+              "tag": "wght",
+              "min": 100.0,
+              "default": 400.0,
+              "max": 900.0
+            },
+            {
+              "tag": "wdth",
+              "min": 75.0,
+              "default": 100.0,
+              "max": 100.0
+            }
+          ],
+          "declaredWeight": 400
+        }
+      ],
+      "designers": [
+        "Christian Robertson, ParaType, Font Bureau"
+      ]
+    },
+    {
+      "family": "Roboto Slab",
+      "styles": [
+        "Hearth"
+      ],
+      "files": [
+        {
+          "file": "robotoslab/COPYRIGHT.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/apache/robotoslab/COPYRIGHT.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358
+        },
+        {
+          "file": "robotoslab/LICENSE.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/apache/robotoslab/LICENSE.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358
+        },
+        {
+          "file": "robotoslab/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/apache/robotoslab/METADATA.pb",
+          "sha256": "d1b6fa86e355dc4b25a206ac9eb952495c30924f928a3b6965d45a8d7836e9cc",
+          "bytes": 996
+        },
+        {
+          "file": "robotoslab/RobotoSlab[wght].ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/apache/robotoslab/RobotoSlab%5Bwght%5D.ttf",
+          "sha256": "786ae192477447d33c6672c3055fba7cbfe45184c9a79e77a14f15716ca05b16",
+          "bytes": 251880,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 2.002",
+          "copyright": "Copyright 2018 The Roboto Slab Project Authors (https://github.com/googlefonts/robotoslab)",
+          "license": "Licensed under the Apache License, Version 2.0",
+          "axes": [
+            {
+              "tag": "wght",
+              "min": 100.0,
+              "default": 400.0,
+              "max": 900.0
+            }
+          ],
+          "declaredWeight": 400
+        }
+      ],
+      "designers": [
+        "Christian Robertson"
+      ]
+    },
+    {
+      "family": "Unbounded",
+      "styles": [
+        "Orbital"
+      ],
+      "files": [
+        {
+          "file": "unbounded/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/unbounded/METADATA.pb",
+          "sha256": "1783291bc9f242703a27cc385f9094c0a0672e74905d23c889eb80e96e70bb75",
+          "bytes": 1047
+        },
+        {
+          "file": "unbounded/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/unbounded/OFL.txt",
+          "sha256": "31e5d4e83955e7103c34570dd49b0570ef490800bd65b42923c0dd02445263b3",
+          "bytes": 4392
+        },
+        {
+          "file": "unbounded/Unbounded[wght].ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/unbounded/Unbounded%5Bwght%5D.ttf",
+          "sha256": "323b511be380c8d474ef030686b71aedde501f8d9cd46da558b7c40454372c3f",
+          "bytes": 778272,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 1.701;gftools[0.9.28.dev5+ged2979d]",
+          "copyright": "Copyright 2022 The Unbounded Project Authors (https://github.com/googlefonts/unbounded)",
+          "license": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL",
+          "axes": [
+            {
+              "tag": "wght",
+              "min": 200.0,
+              "default": 400.0,
+              "max": 900.0
+            }
+          ],
+          "declaredWeight": 400
+        }
+      ],
+      "designers": [
+        "NaN"
+      ]
+    },
+    {
+      "family": "UnifrakturMaguntia",
+      "styles": [
+        "Cathedral"
+      ],
+      "files": [
+        {
+          "file": "unifrakturmaguntia/METADATA.pb",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/unifrakturmaguntia/METADATA.pb",
+          "sha256": "555063583c63e67f4c85448953c432f79317bd3a841bee2835ab6f8ca3931a16",
+          "bytes": 787
+        },
+        {
+          "file": "unifrakturmaguntia/OFL.txt",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/unifrakturmaguntia/OFL.txt",
+          "sha256": "96199bf9ff12dd471a66911dee95440737b437e7f5a6fd30e9e950c16d66e8df",
+          "bytes": 4511
+        },
+        {
+          "file": "unifrakturmaguntia/UnifrakturMaguntia-Book.ttf",
+          "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/unifrakturmaguntia/UnifrakturMaguntia-Book.ttf",
+          "sha256": "d64afc0547059dd2e4a78da48bda0aba0a9901be58c7f8c201a8b2b6b4492cc8",
+          "bytes": 88508,
+          "weight": 400,
+          "italic": false,
+          "version": "Version 2010-11-24 ",
+          "copyright": "Copyright (c) 2010 j. 'mach' wust with Reserved Font Name UnifrakturMaguntia.\nCopyright (c) 2009 Peter Wiegel.\n\nThis Font Software is licensed under the SIL Open Font License, Version 1.1.",
+          "license": "Copyright (c) 2010, j. 'mach' wust, with Reserved Font Name UnifrakturMaguntia.\nCopyright (c) 2009, Peter Wiegel.\n\nThis Font Software is licensed under the SIL Open Font License, Version 1.1.\nThis license is copied below, and is also available with a FAQ at:\nhttp://scripts.sil.org/OFL\n\n\n-----------------------------------------------------------\nSIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\n-----------------------------------------------------------\n\nPREAMBLE\nThe goals of the Open Font License (OFL) are to stimulate worldwide\ndevelopment of collaborative font projects, to support the font creation\nefforts of academic and linguistic communities, and to provide a free and\nopen framework in which fonts may be shared and improved in partnership\nwith others.\n\nThe OFL allows the licensed fonts to be used, studied, modified and\nredistributed freely as long as they are not sold by themselves. The\nfonts, including any derivative works, can be bundled, embedded, \nredistributed and/or sold with any software provided that any reserved\nnames are not used by derivative works. The fonts and derivatives,\nhowever, cannot be released under any other type of license. The\nrequirement for fonts to remain under this license does not apply\nto any document created using the fonts or their derivatives.\n\nDEFINITIONS\n\"Font Software\" refers to the set of files released by the Copyright\nHolder(s) under this license and clearly marked as such. This may\ninclude source files, build scripts and documentation.\n\n\"Reserved Font Name\" refers to any names specified as such after the\ncopyright statement(s).\n\n\"Original Version\" refers to the collection of Font Software components as\ndistributed by the Copyright Holder(s).\n\n\"Modified Version\" refers to any derivative made by adding to, deleting,\nor substituting -- in part or in whole -- any of the components of the\nOriginal Version, by changing formats or by porting the Font Software to a\nnew environment.\n\n\"Author\" refers to any designer, engineer, programmer, technical\nwriter or other person who contributed to the Font Software.\n\nPERMISSION & CONDITIONS\nPermission is hereby granted, free of charge, to any person obtaining\na copy of the Font Software, to use, study, copy, merge, embed, modify,\nredistribute, and sell modified and unmodified copies of the Font\nSoftware, subject to the following conditions:\n\n1) Neither the Font Software nor any of its individual components,\nin Original or Modified Versions, may be sold by itself.\n\n2) Original or Modified Versions of the Font Software may be bundled,\nredistributed and/or sold with any software, provided that each copy\ncontains the above copyright notice and this license. These can be\nincluded either as stand-alone text files, human-readable headers or\nin the appropriate machine-readable metadata fields within text or\nbinary files as long as those fields can be easily viewed by the user.\n\n3) No Modified Version of the Font Software may use the Reserved Font\nName(s) unless explicit written permission is granted by the corresponding\nCopyright Holder. This restriction only applies to the primary font name as\npresented to the users.\n\n4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font\nSoftware shall not be used to promote, endorse or advertise any\nModified Version, except to acknowledge the contribution(s) of the\nCopyright Holder(s) and the Author(s) or with their explicit written\npermission.\n\n5) The Font Software, modified or unmodified, in part or in whole,\nmust be distributed entirely under this license, and must not be\ndistributed under any other license. The requirement for fonts to\nremain under this license does not apply to any document created\nusing the Font Software.\n\nTERMINATION\nThis license becomes null and void if any of the above conditions are\nnot met.\n\nDISCLAIMER\nTHE FONT SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND,\nEXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT\nOF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE\nCOPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,\nINCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL\nDAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING\nFROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM\nOTHER DEALINGS IN THE FONT SOFTWARE.\n",
+          "axes": [],
+          "declaredWeight": 400
+        }
+      ],
+      "designers": [
+        "j. 'mach' wust"
+      ]
+    }
+  ]
+}

@@ -6,7 +6,8 @@
    names show: the samples say the rest. */
 import { useDeferredValue, useEffect, useMemo } from 'react';
 import { buildFont, type Font } from '../../shared/engine';
-import { anchorOf, FAMILY_STYLES, familyMember, ownStyle, WEIGHTS, type FamilyMember, type WeightId } from '../../shared/family';
+import { anchorOf, FAMILY_STYLES, familyMember, familyStylesFor, ownStyle, WEIGHTS, type FamilyMember, type WeightId } from '../../shared/family';
+import { masterInfo } from '../../shared/source/master-catalog';
 import type { Params } from '../../shared/params';
 import { useEditor } from '../state/editor';
 import { useFreeFonts } from '../lib/free';
@@ -24,10 +25,34 @@ interface PickerProps {
 }
 
 export function FamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
+  if (masterInfo(params.sourceProgram)) return <MasterFamilyPicker params={params} anchor={anchor} picked={picked} onPick={onPick} />;
   return params.sourceProgram ? <div className="family">
     <p className="page-note">Export this design as it appears. Additional family weights need authored weight variations.</p>
     <FontSample params={params} label="Current design" />
   </div> : <LegacyFamilyPicker params={params} anchor={anchor} picked={picked} onPick={onPick} />;
+}
+
+function MasterFamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
+  const styles = familyStylesFor(params), all = styles.every(f => picked.includes(f.style));
+  return <div className="family master-family">
+    <p className="page-note">These weights preserve this design's proportions, slant and point edits.</p>
+    <div className="family-row">
+      <span className="family-weight own"><b>Current design</b></span>
+      <button type="button" className="family-cell own" aria-pressed={picked.includes('current')} aria-label="Current design"
+        onClick={() => onPick(['current'])}><FontSample params={params} label="Current design" /></button>
+    </div>
+    <button type="button" className={all ? 'chip on' : 'chip'} aria-pressed={all}
+      onClick={() => onPick(all ? ['current'] : styles.map(f => f.style))}>Select all weights</button>
+    <div className="family-grid" role="group" aria-label="Weights">
+      {styles.map(f => <div key={f.style} className="family-row">
+        <span className="family-weight"><b>{f.style}</b></span>
+        <button type="button" className="family-cell" aria-label={f.style}
+          aria-pressed={picked.includes(f.style)} onClick={() => onPick(picked.includes(f.style) ? picked.filter(s => s !== f.style) : [...picked.filter(s => s !== 'current'), f.style])}>
+          <MemberSample member={familyMember(params, anchor, f.weight, f.italic)} label={f.style} />
+        </button>
+      </div>)}
+    </div>
+  </div>;
 }
 
 function LegacyFamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
