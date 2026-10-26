@@ -23,6 +23,7 @@ import { MASTER_REVISIONS, masterInfo } from '../shared/source/master-catalog';
 import { PROGRAM_REVISIONS } from '../shared/source/program-catalog';
 import { sourceProgramDependencies } from '../shared/source/program';
 import { ORIGIN_MAP_REVISIONS } from '../shared/source/origin-catalog';
+import { previewFontFile } from './preview-fonts';
 
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -502,6 +503,12 @@ function fontRoutes(api: Router, { fonts, exports }: Ctx) {
   };
   api.get('/free-fonts/:id/font.otf', ownFile());
   api.get('/free-fonts/:id/intro.otf', ownFile(INTRO_CHARS));
+  api.get('/source-previews/:digest.otf', (req, res) => {
+    const bytes = previewFontFile(req.params.digest);
+    if (!bytes) throw new HttpError(404, 'This source preview is unavailable');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.type('font/otf').send(bytes);
+  });
 
   // one font file: the design as it is, or one member of its family (the weight and italic picked), named for it
   api.post('/export/otf', async (req, res) => {

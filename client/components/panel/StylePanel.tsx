@@ -6,6 +6,7 @@ import { cmdsBox } from '../../../shared/engine';
 import { STYLE_FONTS } from '../../../shared/free-fonts';
 import type { Params } from '../../../shared/params';
 import { sourceNotice } from '../../../shared/source/capabilities';
+import { previewFontFor } from '../../../shared/source/preview-catalog';
 import { fontStyle, useWebFont } from '../../lib/free';
 import { n1, PHONE_QUERY } from '../../lib/hooks';
 import { actions, adjustedParams, fontFor, useEditor, useStyleMatch, type StyleTab } from '../../state/editor';
@@ -239,7 +240,9 @@ function chipParams(p: Params) {
     standing in until it comes, or in the engine's letters where no font stands behind the card (Arcs): on its chip,
     and on the stage's bar of what is picked. */
 export function TagName({ label, card }: { label: string; card: string }) {
-  const id = STYLE_FONTS[card], font = useWebFont(id), built = id ? undefined : styleById(card);
+  const id = STYLE_FONTS[card], style = styleById(card);
+  const preview = style ? previewFontFor(card, adjustedParams(style, {}).sourceProgram) : undefined;
+  const font = useWebFont(id, preview), built = id ? undefined : style;
   if (built) return <span className="tag-name"><BuiltWord params={chipParams(built.params)} text={label} adjust={0.5} /></span>;
   return <span className="tag-name" style={font ? fontStyle(font) : undefined}>{label}</span>;
 }

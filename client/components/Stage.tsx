@@ -6,8 +6,9 @@
    preview: the cards are for comparing styles, so every card in a layout keeps one size. */
 import { useDeferredValue, useRef, useState } from 'react';
 import { MOODS, PAGE_STYLES, STYLE_GROUPS, startStyle, styleById, type StyleDef } from '../../shared/content';
-import { parseFontId, STYLE_FONTS, type FreeFontRef } from '../../shared/free-fonts';
-import { fontStyle, textWidth, useWebFont } from '../lib/free';
+import { parseFontId, STYLE_FONTS } from '../../shared/free-fonts';
+import { fontStyle, textWidth, useWebFont, type WebFont } from '../lib/free';
+import { previewFontFor } from '../../shared/source/preview-catalog';
 import { retrySource, sourceError, useSources } from '../lib/sources';
 import { useSize } from '../lib/hooks';
 import { cardText, sampleText } from '../lib/preview';
@@ -242,7 +243,7 @@ const LETTERS_NOTE = 'TypeLab’s own fonts, free to change, use and share under
 
 /** The size text is set at in a free font in a box `width` px wide: `size`, or, where its longest word would overrun
     the box, smaller, down to half of it, past which the word breaks (as BuiltText sizes the engine's letters). */
-function wordFit(font: FreeFontRef | null, text: string, width: number, size: number) {
+function wordFit(font: WebFont | null, text: string, width: number, size: number) {
   if (!font || !width) return size;
   const longest = Math.max(0.01, ...text.split(/\s+/).map(w => textWidth(font, w)));
   return Math.max(size / 2, Math.min(size, width * 0.99 / longest));
@@ -252,10 +253,10 @@ function wordFit(font: FreeFontRef | null, text: string, width: number, size: nu
     stands behind (built from blocks or arcs), in the engine's letters; typed text in the grid (`clamp`) cut to GRID_LINES lines. */
 function StyleCard({ style: s, text, view, clamp }: { style: StyleDef; text: string; view: CardView; clamp: boolean }) {
   const id = STYLE_FONTS[s.id];
-  const traits = useEditor(st => st.traits), params = adjustedParams(s, traits);
-  const adjusted = !!params.sourceProgram && params !== adjustedParams(s, {});
+  const traits = useEditor(st => st.traits), params = adjustedParams(s, traits), neutral = adjustedParams(s, {});
+  const adjusted = !!params.sourceProgram && params !== neutral;
   const on = useEditor(st => startStyle(st.styleId, st.params) === s && (!id || !!st.params.freeFont));
-  const font = useWebFont(id), [ref, box] = useSize<HTMLSpanElement>();
+  const font = useWebFont(id, previewFontFor(s.id, neutral.sourceProgram)), [ref, box] = useSize<HTMLSpanElement>();
   return (
     <button className={on ? 'card on' : 'card'} title={s.desc} aria-current={on || undefined} onClick={() => actions.loadStyle(s.id)}>
       <span className="card-name">{s.name}<span className="card-like">{id ? parseFontId(id)?.family : `Built from ${s.params.build}`}</span></span>
