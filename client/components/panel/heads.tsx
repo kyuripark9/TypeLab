@@ -9,6 +9,7 @@
 import { createContext, useLayoutEffect, useRef, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import { ANATOMY, CATEGORIES, CONTROLS, PART_CONTROL, SUBS, controlFor, type ActiveKey, type CategoryId } from '../../../shared/content';
 import { isGlyphKey, type Params } from '../../../shared/params';
+import { sourceSupports } from '../../../shared/source/capabilities';
 import { actions, letterOf, useEditor, useFont } from '../../state/editor';
 import { Diagram } from '../Diagram';
 import { SliderIcon } from '../SliderIcons';
@@ -118,8 +119,12 @@ export function Explainer() {
   // a free font's letters have no parts for a diagram to point at, so the diagram drawn with them goes
   const free = useEditor(s => !!s.params.freeFont);
   const c = CONTROLS[controlFor(active)], sub = SUBS[active as keyof typeof SUBS];
+  const sourceSlice = !!font.params.sourceProgram && controlFor(active) === 'slice' && sourceSupports(font.params, 'slice');
+  const sliceTitle = active === 'slice' ? 'Open a gap through the letters' : active === 'slicePos' ? 'Move the gap up or down' : 'Round the new cut edges';
   // two levels only, a title and its explanation; a part says which setting shapes it in the explanation
-  const [title, text] = part ? [ANATOMY[part][0], partText(part, category)] : [(sub ?? c).friendly, sub?.explain ?? c.explain];
+  const [title, text] = part ? [ANATOMY[part][0], partText(part, category)] : sourceSlice
+    ? [sliceTitle, 'The upper pieces move up to open a gap. The lower pieces stay in place, and Points keeps the original drawing.']
+    : [(sub ?? c).friendly, sub?.explain ?? c.explain];
   // the control just pointed at stays where it stood as the explainer takes the new explanation's height: a sticky
   // explainer stays in sight as the controls scroll under it; one that scrolls with them (a short panel) stays in
   // view and the controls move, unless it has already scrolled away. The explainer may cover a control's padding

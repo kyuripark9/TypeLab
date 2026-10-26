@@ -7,7 +7,7 @@ import { TERMINAL_FORMS, TERMINALS, type Params } from './params';
 
 export type TraitId = 'weight' | 'width' | 'contrast' | 'slant' | 'serif' | 'curves' | 'corners' | 'ends'
   | 'xHeight' | 'spacing' | 'fill' | 'cuts' | 'hand' | 'joined';
-export interface TraitOption { id: string; label: string; set: Partial<Params> }
+export interface TraitOption { id: string; label: string; set: Partial<Params>; reset?: Partial<Params> }
 export interface TraitDef {
   id: TraitId; label: string; hint: string;
   /** what each option's picture draws */
@@ -17,7 +17,7 @@ export interface TraitDef {
 /** The picked step of each trait, by option id. */
 export type Traits = Partial<Record<TraitId, string>>;
 
-const opt = (id: string, label: string, set: Partial<Params>): TraitOption => ({ id, label, set });
+const opt = (id: string, label: string, set: Partial<Params>, reset?: Partial<Params>): TraitOption => ({ id, label, set, ...(reset ? { reset } : {}) });
 
 const ENDS: Record<(typeof TERMINALS)[number], string> = { flat: 'Flat', round: 'Round', sharp: 'Sharp', angled: 'Angled', cut: 'Cut', tapered: 'Tapered' };
 
@@ -69,8 +69,8 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
       opt('inline', 'Inline', { fill: 'inline', module: 0.35 }),
       opt('outline', 'Outline', { fill: 'outline', module: 0.5 }), opt('shadow', 'Shadow', { fill: 'shadow', module: 0.35 })] },
     { id: 'cuts', label: 'Cuts', hint: 'Gaps cut into the letters', sample: 'B', options: [
-      opt('none', 'None', { joints: 0, stencil: 0, slice: 0 }), opt('inktrap', 'Ink traps', { joints: 0.8, stencil: 0, slice: 0 }),
-      opt('stencil', 'Stencil', { stencil: 0.15, joints: 0, slice: 0 }), opt('slice', 'Slice', { slice: 0.05, joints: 0, stencil: 0 })] },
+      opt('none', 'None', { slice: 0 }, { joints: 0, stencil: 0 }), opt('inktrap', 'Ink traps', { joints: 0.8 }, { stencil: 0, slice: 0 }),
+      opt('stencil', 'Stencil', { stencil: 0.15 }, { joints: 0, slice: 0 }), opt('slice', 'Slice', { slice: 0.05 }, { joints: 0, stencil: 0 })] },
     { id: 'hand', label: 'Hand-drawn', hint: 'Precise, or a little shaky like a pen', sample: 'a', options: [
       opt('precise', 'Precise', { wobble: 0 }), opt('slight', 'Slight', { wobble: 0.3 }), opt('rough', 'Rough', { wobble: 0.75 })] },
     { id: 'joined', label: 'Joined-up', hint: 'Separate printed letters, or script that flows on', sample: 'nu', options: [
@@ -87,7 +87,7 @@ export function applyTraits(p: Params, t: Traits): Params {
   let out = p;
   for (const def of TRAITS) {
     const o = traitOption(def.id, t[def.id]);
-    if (o) out = { ...out, ...o.set };
+    if (o) out = { ...out, ...o.reset, ...o.set };
   }
   return out;
 }

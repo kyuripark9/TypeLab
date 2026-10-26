@@ -9,6 +9,7 @@ import { drawnCmds, segment, type Drawn, type Node } from '../../shared/engine/o
 import { sourceDot } from '../../shared/source/features';
 import type { MasterSourceRef } from '../../shared/source/model';
 import { parseWeightMasters, type WeightMasterData } from '../../shared/source/masters';
+import type { MasterSubdivisionData, SubdivisionSegment } from '../../shared/source/subdivision';
 import { parseWidthPrototype, renderWidthGrid, reviewWidthGrid, type WeightWidthPrototype } from './width-masters';
 
 interface Point { x: number; y: number }
@@ -16,11 +17,8 @@ export interface LocalWidthRecipe {
   style: string; widths: number[]; columns: number; rows: number; blurCap: number;
   minDerivative: number; maxCurveError: number; rigidGlyphs: string; dotGlyphs: string;
 }
-export interface SegmentInterval { segment: number; t0: number; t1: number }
-export interface SubdivisionBinding {
-  format: 'master-subdivision-v1'; from: MasterSourceRef; to: MasterSourceRef;
-  glyphs: Record<string, SegmentInterval[][]>;
-}
+export type SegmentInterval = SubdivisionSegment;
+export type SubdivisionBinding = MasterSubdivisionData;
 interface HorizontalMap { point(x: number): number; derivative(x: number): number; minDerivative: number }
 interface GlyphMap { contours: HorizontalMap[]; advance: number }
 export interface LocalWidthResult {

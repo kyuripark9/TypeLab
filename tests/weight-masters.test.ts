@@ -7,8 +7,9 @@ import { ALL_CHARS, buildFont, drawnCmds, packNode, type Cmd } from '../shared/e
 import { decodeFreeFont, type FreeFontData } from '../shared/engine/free';
 import { DEFAULTS, PARAMS_VERSION, drawnAtOf, freeAtOf, sanitizeParams, upgradeParams, type Params } from '../shared/params';
 import { sourceForFont } from '../shared/source/catalog';
-import { MASTER_REVISIONS, masterInfo, mastersForFont } from '../shared/source/master-catalog';
+import { MASTER_REVISIONS, masterBasisForEditing, masterInfo, mastersForFont } from '../shared/source/master-catalog';
 import { decodeWeightMasters, interpolateMasters, parseWeightMasters, sliderAt, weightAt, type WeightMasterData } from '../shared/source/masters';
+import { decodeMasterSubdivision, parseMasterSubdivision } from '../shared/source/subdivision';
 import { sourceFont, sourceMasters } from '../shared/source/registry';
 import { familyMember, familyStylesFor } from '../shared/family';
 import { loadSource, sourcePayload } from '../server/sources';
@@ -88,6 +89,35 @@ describe('reviewed weight packages', () => {
           assert.ok(advance > 0 && contours.length > 0, `${info.ref.fontId} ${master.weight} ${ch}`);
         }
       }
+    }
+  });
+
+  it('retains the original editing bases and validates every appended revision against an earlier exact basis', () => {
+    const manifest: unknown = JSON.parse(readFileSync(new URL('../fonts/subdivisions/manifest.json', import.meta.url), 'utf8'));
+    assert.ok(Array.isArray(manifest));
+    const mappings = manifest.map(digest => {
+      assert.equal(typeof digest, 'string');
+      assert.match(digest, /^[a-f0-9]{64}$/);
+      const bytes = readFileSync(new URL(`../fonts/subdivisions/${digest}.json`, import.meta.url));
+      assert.equal(createHash('sha256').update(bytes).digest('hex'), digest);
+      return parseMasterSubdivision(JSON.parse(bytes.toString()));
+    });
+    for (let i = 0; i < MASTER_REVISIONS.length; i++) {
+      const info = MASTER_REVISIONS[i], original = MASTER_REVISIONS.find(m => m.ref.fontId === info.ref.fontId);
+      assert.ok(original);
+      assert.deepEqual(masterBasisForEditing(info.source), original.ref);
+      assert.equal(masterInfo(info.source), undefined, 'resolving old edit identity must not enable weight on old outline documents');
+      if (info === original) continue;
+      const mapping = mappings.find(m => m.to.digest === info.ref.digest);
+      assert.ok(mapping, `Missing exact basis map for ${info.ref.fontId} ${info.ref.digest}`);
+      const previous = MASTER_REVISIONS.slice(0, i).find(m => m.ref.digest === mapping.from.digest);
+      assert.ok(previous, 'a basis revision must follow its still-addressable parent');
+      const from = decodeWeightMasters(parseWeightMasters(sourcePayload(previous.ref)));
+      const to = decodeWeightMasters(parseWeightMasters(sourcePayload(info.ref)));
+      decodeMasterSubdivision(mapping, { from: { ref: previous.ref, masters: from }, to: { ref: info.ref, masters: to } });
+      assert.deepEqual(info.source, original.source);
+      assert.equal(to.defaultWeight, from.defaultWeight);
+      assert.equal(Object.keys(mapping.glyphs).length, 127);
     }
   });
 

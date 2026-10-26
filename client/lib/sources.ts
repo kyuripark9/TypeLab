@@ -18,10 +18,11 @@ const changed = () => { version++; for (const listener of listeners) listener();
 onSource(changed);
 
 function dependencyError(ref: DependencyRef): Error {
-  const label = ref.kind === 'width-masters-v1' ? 'width masters' : ref.kind === 'feature-masters-v1' ? 'feature masters' : 'weight masters';
+  const label = ref.kind === 'width-masters-v1' ? 'width masters' : ref.kind === 'feature-masters-v1' ? 'feature masters'
+    : ref.kind === 'master-subdivision-v1' ? 'basis transition' : 'weight masters';
   return new Error(`Could not load ${label}: ${errors.get(keyOf(ref)) ?? 'the source is unavailable'}`);
 }
-function loadDependency(ref: DependencyRef, expectedBase?: MasterSourceRef): Promise<boolean> {
+function loadDependency(ref: DependencyRef, expectedBase?: MasterSourceRef, expectedFrom?: MasterSourceRef): Promise<boolean> {
   if (sourceReady(ref)) return Promise.resolve(true);
   const key = keyOf(ref);
   let request = loading.get(key);
@@ -29,18 +30,30 @@ function loadDependency(ref: DependencyRef, expectedBase?: MasterSourceRef): Pro
     request = api.source(ref.digest)
       .then(async data => {
         if (expectedBase) {
-          const base = parseSourceRef(data && typeof data === 'object' && 'base' in data ? data.base : undefined);
+          const base = parseSourceRef(data && typeof data === 'object'
+            ? ref.kind === 'master-subdivision-v1' && 'to' in data ? data.to : 'base' in data ? data.base : undefined : undefined);
           if (!base || keyOf(base) !== keyOf(expectedBase)) throw new Error('Authored asset does not match this program\'s exact master base');
+        }
+        if (expectedFrom) {
+          const from = parseSourceRef(data && typeof data === 'object' && 'from' in data ? data.from : undefined);
+          if (!from || keyOf(from) !== keyOf(expectedFrom)) throw new Error('Basis transition does not match the previous master base');
         }
         if (ref.kind === 'program-v1') {
           const program = parseSourceProgram(data);
           if (program.base.fontId !== ref.fontId) throw new Error('Source program does not match the saved font');
-          const [base, ...assets] = sourceProgramDependencies(program);
-          dependencies.set(key, [base, ...assets]);
-          if (!await loadDependency(base)) throw dependencyError(base);
-          await Promise.all(assets.map(async asset => {
-            if (!await loadDependency(asset, base)) throw dependencyError(asset);
+          dependencies.set(key, sourceProgramDependencies(program));
+          await Promise.all([program.base, ...(program.transitions ?? []).map(t => t.from)].map(async base => {
+            if (!await loadDependency(base)) throw dependencyError(base);
           }));
+          if (program.width && !await loadDependency(program.width, program.base)) throw dependencyError(program.width);
+          await Promise.all([
+            ...(program.features ? [loadDependency(program.features, program.base).then(ok => {
+              if (!ok && program.features) throw dependencyError(program.features);
+            })] : []),
+            ...(program.transitions ?? []).map(async transition => {
+              if (!await loadDependency(transition.mapping, program.base, transition.from)) throw dependencyError(transition.mapping);
+            }),
+          ]);
           registerSource(ref, program);
         } else registerSource(ref, data);
         return true;

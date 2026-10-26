@@ -71,6 +71,29 @@
   {
     "ref": {
       "kind": "feature-masters-v1",
+      "digest": "ae6079f2b8ef914b3205f9e91d711da80c26e614df8236505a2038ed798427ed",
+      "fontId": "Cotton:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e79ee882db3b4b75825be583381d1f791886c305b9b6cbecf8cce410856b14fa",
+      "fontId": "Cotton:300"
+    },
+    "weightRange": [
+      200,
+      600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
       "digest": "878d2b9adae57c5256e6eec6de137fae305a6d4dcd8d3e4b69444ec422d9ddd9",
       "fontId": "Couture:600"
     },
@@ -110,6 +133,29 @@
     "weightRange": [
       400,
       600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "73d762185451ce27aad39b787709fad034ac8f06f6982af318090a03eb61f9cb",
+      "fontId": "Gumdrop:700"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "2d9d079c67fee2c0300b5e2eb15284df14fdf10ee9bfe3f64c0816bd4e99c800",
+      "fontId": "Gumdrop:700"
+    },
+    "weightRange": [
+      500,
+      700
     ],
     "coverage": {
       "crossbar": [
@@ -201,6 +247,29 @@
   {
     "ref": {
       "kind": "feature-masters-v1",
+      "digest": "d65057ada06ffaeff1b65f0d6418cbeb03c8a0847d436e5d5f08da6f6b7c09f1",
+      "fontId": "Mainline:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "44ce1daebc31f46d098f0f37a84023aba0f2689404d5aa529a8c0bcb261d3033",
+      "fontId": "Mainline:600"
+    },
+    "weightRange": [
+      300,
+      800
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
       "digest": "639185723b1256447c87ed69f6d0cfabce12a36865f01907de32f91e7467a7ad",
       "fontId": "Orbital:600"
     },
@@ -212,6 +281,29 @@
     "weightRange": [
       300,
       700
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "e19b13b2363c84ba043201a4bd066f130151b04cc51223db9999069a3feef015",
+      "fontId": "Parlance:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3f5e7e22afe6910db983a6532ae90df62aa3b3611b2698f4caedd34193ee5b95",
+      "fontId": "Parlance:500"
+    },
+    "weightRange": [
+      300,
+      800
     ],
     "coverage": {
       "crossbar": [

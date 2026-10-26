@@ -31,7 +31,19 @@ describe('source program references', () => {
     assert.deepEqual(program.finish, finish);
     assert.deepEqual(sourceProgramDependencies(program), [base, width, features]);
     assert.throws(() => parseSourceProgram({ ...definition, finish: { ...finish, tolerance: 2 } }), /bounds/);
-    assert.throws(() => parseSourceProgram({ ...definition, finish: { ...finish, slice: .4 } }), /field/);
+    assert.throws(() => parseSourceProgram({ ...definition, finish: { ...finish, slice: .4 } }), /finishing/);
+  });
+
+  it('pins direct transitions from older point bases and retains their dependencies', () => {
+    const from = { ...base, digest: 'd'.repeat(64) };
+    const mapping = { kind: 'master-subdivision-v1', digest: 'e'.repeat(64), fontId: base.fontId } as const;
+    const program = parseSourceProgram({ ...definition, transitions: [{ from, mapping }] });
+    assert.deepEqual(sourceProgramDependencies(program), [base, from, mapping, width, features]);
+    assert.equal(Object.hasOwn(parseSourceProgram(definition), 'transitions'), false);
+    for (const transitions of [[], [{ from: base, mapping }], [{ from, mapping }, { from, mapping }],
+      [{ from: { ...from, fontId: 'Other:400' }, mapping }], [{ from, mapping: width }], [{ from, mapping: null }]]) {
+      assert.throws(() => parseSourceProgram({ ...definition, transitions }), /transition|reference/);
+    }
   });
 
   it('rejects recursive bases, wrong asset kinds, other families, and malformed digests', () => {

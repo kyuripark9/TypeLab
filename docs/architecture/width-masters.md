@@ -1,14 +1,17 @@
 # Joint weight and width masters
 
-Mainline, Parlance, and Gumdrop now have published joint weight and width masters. The offline authoring tools carry designed width changes from their pinned upstream fonts into the existing TypeLab weight families. The production assets live in `fonts/widths`; immutable program manifests in `fonts/programs` reference each width asset and its unchanged `masters-v1` base.
+Mainline, Parlance, Gumdrop, and Cotton have published joint weight and width masters. Mainline, Parlance, and Gumdrop carry designed width changes from their pinned upstream fonts into the TypeLab families. Cotton uses newly authored local width drawings. The production assets live in `fonts/widths`; immutable manifests in `fonts/programs` pin each width asset and its compatible `masters-v1` base.
 
 | Style | Upstream | Existing weights retained | Published width samples | Neutral slider position |
 | --- | --- | --- | --- | --- |
 | Mainline | Roboto | 300, 400, 500, 600, 700, 800 | 75, 87.5, 100, 125, 150 | 1/3 |
 | Parlance | Open Sans | 300, 400, 500, 600, 700, 800 | 75, 87.5, 100, 125, 150 | 1/3 |
 | Gumdrop | Fredoka | 500, 600, 700 | 75, 100, 125 | 0.5 |
+| Cotton | Nunito, local width drawings | 200, 300, 400, 500, 600 | 85, 100, 115 | 0.5 |
 
-Width values are design coordinates, not a geometric percentage to multiply into a glyph. The native samples use upstream `wdth` coordinates: Mainline and Parlance supply 75–100, and Gumdrop supplies 75–125. Mainline and Parlance's 125 and 150 drawings are new local designs, described below. The full slider interval 0–1 covers the published range. Earlier native-only Mainline and Parlance programs retain their 75–100 range and endpoint neutral.
+Width values are design coordinates, not a geometric percentage to multiply into a glyph. The native samples use upstream `wdth` coordinates: Mainline and Parlance supply 75–100, and Gumdrop supplies 75–125. Mainline and Parlance's 125 and 150 drawings and Cotton's 85 and 115 drawings are local designs, described below. The full slider interval 0–1 covers the published range. Earlier native-only Mainline and Parlance programs retain their 75–100 range and endpoint neutral.
+
+All four current programs include reviewed H crossbar motion across width and weight. Cotton's shared curve cuts and Gumdrop's H winding repair use new base revisions with [exact saved-edit mappings](master-basis-revisions.md). The earlier sources, masters, widths, and programs remain available unchanged.
 
 ## Preserve the existing family
 
@@ -42,7 +45,7 @@ The parser requires the same ordered weight coordinates in every width column, i
 
 Run from the repository root after downloading the [pinned upstream files](../../tools/masters/SOURCES.md). The extractor accepts `--upstream-dir` or `TYPELAB_MASTER_UPSTREAM`; it defaults to `.tools/master-upstream`.
 
-Select a style's current file by its digest in `fonts/masters/manifest.json`, then run one style at a time:
+For the native transfer, select the original master revision by its digest in `fonts/masters/manifest.json`, then run one style at a time. Cotton uses the local compiler below.
 
 ```sh
 python3 tools/authored/extract-width-masters.py \
@@ -69,6 +72,8 @@ npm run programs:check
 
 The publisher checks exact neutral-column equality against the referenced weight package before writing the content-addressed asset and program manifest. `programs:check` verifies published assets and references; it does not replace the candidate's optical review.
 
+When a new basis also needs replacement width and feature assets, publish the complete dependency set with `--width-asset`, `--feature-asset`, and `--program`. The [basis revision guide](master-basis-revisions.md#publication) gives the command order. Publishing one asset over an incompatible earlier basis is rejected.
+
 ## Gumdrop correspondence repairs
 
 The edited source merges components that the upstream font stores separately. Twenty-three glyphs differ in contour count. The explicit field recipe covers those glyphs plus `6`, `/`, and `®`, whose point/contour correspondence produced bad width changes. Each source anchor and handle has fixed coefficients in a local affine displacement field fitted to 24 nearby upstream curve samples. The field carries actual upstream width deltas at the current weight; it is not a generic weight offset or an x-scale. This is an approximation and its sampled topology checks are not a positive-Jacobian proof.
@@ -78,6 +83,8 @@ The edited source merges components that the upstream font stores separately. Tw
 - The `®` inner R counter has its own contour correspondence. Its joined outer construction follows the field. A single field over the whole sign distorted that counter at the expanded end.
 
 No character is frozen to avoid a failing width change. These recipes are recorded in the candidate notes and leave neutral width unchanged.
+
+The current Gumdrop revision also reverses H contour 2 at every weight and width. Its left stem previously canceled overlapping bar ink because that contour had the opposite winding. The repair retains every curve and advance and changes the fill only at that overlap. Its exact reversed-interval map lets older Points edits adopt the repaired basis without replacing their geometry.
 
 ## Review contract
 
@@ -89,9 +96,11 @@ When the transfer produces a bad join or corner, the next step is an explicit lo
 
 ## Production behavior
 
-New designs use the latest published program for these three styles. The Width control displays authored axis coordinates. Mainline and Parlance reset to 100 one-third along the expanded slider; Gumdrop resets to 100 at its midpoint. The older native-only programs reset at the maximum. A displayed coordinate is not an identical body-width ratio for every glyph, as the `H` measurements below demonstrate.
+New designs use the latest published program for these four styles. The Width control displays authored axis coordinates. Mainline and Parlance reset to 100 one-third along the expanded slider; Gumdrop and Cotton reset to 100 at the midpoint. The older native-only programs reset at the maximum. A displayed coordinate is not an identical body-width ratio for every glyph, as the `H` measurements below demonstrate.
 
 Older saved designs retain their original source and geometric width behavior. Explicitly adopting the newer program resets the width to its authored neutral, is undoable, and retains saved Points edit frames. It does not apply the old geometric x-scale over the authored width change.
+
+Adoption from an earlier authored-width program preserves its actual width coordinate, including per-letter overrides. A changed point basis requires the target program's exact transition map. Saved Points frames retain their original source until a new edit is saved; evaluation splits and remaps those curves before applying the new program's motion.
 
 Preview, per-letter overrides, Points edit transport, family instances, and export use the same grid evaluation. Authored segment provenance carries local edits as corresponding curves change. A weight/width interaction is one evaluated drawing.
 
@@ -155,7 +164,7 @@ For each family, record stem and counter measurements, aperture and serif cleara
 
 ## First local width compiler
 
-[local-width-masters.ts](../../tools/authored/local-width-masters.ts) implements the first reusable local recipe, initially for Cotton at coordinates 85, 100, and 115. It is an offline experiment, not a published Cotton program.
+[local-width-masters.ts](../../tools/authored/local-width-masters.ts) implements the first reusable local recipe. Cotton's published program uses its reviewed coordinates 85, 100, and 115. Other families require their own recipes and optical review.
 
 Two constructions were considered. Explicit segment frames can translate paired stems, stretch crossbars between attachment ports, and fit the transitions; they expose local ownership well but require bindings for each glyph. The initial reusable compiler instead measures horizontal ink occupancy and integrates a smooth positive speed field: dense vertical strokes absorb less change, while counters and the gaps between stems absorb more. A family recipe owns the range, smoothing, rigid glyphs, and dot bindings. Per-glyph segment frames remain an option when this field cannot preserve a particular construction.
 
@@ -165,11 +174,11 @@ The public authoring operation is `authorLocalWidths(original, from, recipe)`. I
 
 [review-subdivision.py](../../tools/authored/review-subdivision.py) independently verifies that binding using direct Bernstein evaluation, without importing the authoring geometry code. It checks content digests, complete source-parameter coverage, unchanged metrics, and curve samples at every weight knot and midpoint. Reversed intervals also support exact contour-winding repairs.
 
-The minimum map derivative certifies the underlying horizontal field. The cubic approximation still needs topology, clearance, and optical review; sampled fit error is not a continuous-domain proof. These outputs remain separate from the published family until those reviews and exact subdivision-aware Points adoption are complete.
+The minimum map derivative certifies the underlying horizontal field. The cubic approximation still needs topology, clearance, and optical review; sampled fit error is not a continuous-domain proof.
 
 The current Cotton candidate passes 5,715 mixed-grid and 6,096 height/x-height cases. Its default-weight `H` body widths are 85% and 115%, while stem thickness stays at 98.18% and 101.82%. The underlying map derivative stays above 0.2000028. Maximum sampled curve-fit error is 0.024999 font units; neutral reconstruction error is below 5.1 × 10⁻¹³ units. The independent verifier passes 701,946 points across nine weight knots/midpoints, with maximum error below 3.22 × 10⁻¹³ units and complete source-parameter coverage. Shared subdivision increases the family from 2,900 to 8,666 nodes, with an explicit interval binding for each new segment.
 
-Final full-character and punctuation sheets at weights 200 and 600, both width extremes, and 16px/42px cap height were inspected. Mixed-weight words and height specimens retain Cotton's rounded construction. The render CLI and `npm run typecheck` pass. The compiler and its review artifacts are ready; no Cotton width program has been published. Its existing H feature asset still uses the older base, so publication waits for explicit saved-edit subdivision transport and a compatible feature binding.
+Final full-character and punctuation sheets at weights 200 and 600, both width extremes, and 16px/42px cap height were inspected. Mixed-weight words and height specimens retain Cotton's rounded construction. The render CLI and `npm run typecheck` pass. Cotton's published program includes the new point basis, its exact mapping, and compatible H crossbar drawings across the full width range. The four-family H interaction review adds 4,020 passing cases. Cotton's x-only width map also passes an independent y-only feature composition check, with zero difference from the explicit joint grid.
 
 Rebuild the candidate and its exact subdivision binding:
 

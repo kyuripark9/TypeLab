@@ -15,6 +15,7 @@ import { programInfo } from '../../shared/source/program-catalog';
 import { adoptProgram } from '../../shared/source/adoption';
 import { onSource, sourceFont } from '../../shared/source/registry';
 import { sourceAllows, sourceControl, sourceSupports } from '../../shared/source/capabilities';
+import { sourceFinishDefaults } from '../../shared/source/finish';
 import { DEFAULT_NAME, cleanName, slug, type Design, type DesignInput } from '../../shared/design';
 import { cleanLog, mergeLogs, ownOf, packLog, recordEdits, sameOwn, withOwn, type LetterEdit, type LetterLog } from '../../shared/letter-log';
 import { cleanVersions, keyOf, mergeVersions, packVersions, recordVersion, sameDesign, type FontLog, type FontVersion, type Made, type Snapshot } from '../../shared/font-log';
@@ -160,7 +161,7 @@ function startParams(st: StyleDef, traits: Traits, free = true): Params {
   const weight = info ? (info.defaultWeight - info.min) / (info.max - info.min) : st.params.weight;
   const width = program?.width ? (program.width.neutral - program.width.min) / (program.width.max - program.width.min) : st.params.width;
   const features = program?.data.features ? { crossbar: .5, tail: .5, terminalLength: .5 } : {};
-  const finish: Partial<Params> = program?.data.finish ? { fill: 'solid', module: .5 } : {};
+  const finish: Partial<Params> = program?.data.finish ? sourceFinishDefaults(program.data.finish) : {};
   const base = { ...st.params, ...features, ...finish, freeFont: id, freeAt: { ...freeAtOf(st.params), ...features, ...(program?.data.finish ? { fill: 'solid' as const } : {}), weight, width },
     weight, width, ...FREE_SPACING, height: DEFAULTS.height, sourceProgram };
   return applyTraits(base, supportedTraits(base, traits));

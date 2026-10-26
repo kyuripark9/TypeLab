@@ -1,5 +1,6 @@
 /* Exercise every published family through combined geometry controls, dot placement and real OTF export. */
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { MASTER_REVISIONS } from '../../shared/source/master-catalog.ts';
 import { sourceMasters } from '../../shared/source/registry.ts';
@@ -16,9 +17,33 @@ import { DEFAULTS, freeAtOf } from '../../shared/params/index.ts';
 import { buildOTF, exportName } from '../../server/export.ts';
 import { opentype } from '../../server/opentype.ts';
 import { topology } from './sources-topology.mjs';
+import { decodeMasterSubdivision, parseMasterSubdivision } from '../../shared/source/subdivision.ts';
 
 const entries = [...new Map(MASTER_REVISIONS.map(entry => [entry.ref.fontId, entry])).values()];
-const report = { families: entries.length, finiteChecks: 0, topologyChecks: 0, dots: [], issues: [], tinyComponents: [], pointEdit: [], exports: [] };
+const report = { revisions: MASTER_REVISIONS.length, families: entries.length, basisRevisions: [], finiteChecks: 0, topologyChecks: 0, dots: [], issues: [], tinyComponents: [], pointEdit: [], exports: [] };
+const mappings = JSON.parse(readFileSync(new URL('../../fonts/subdivisions/manifest.json', import.meta.url), 'utf8')).map(digest => {
+  if (typeof digest !== 'string' || !/^[a-f0-9]{64}$/.test(digest)) throw Error('Invalid subdivision manifest');
+  const bytes = readFileSync(new URL(`../../fonts/subdivisions/${digest}.json`, import.meta.url));
+  if (createHash('sha256').update(bytes).digest('hex') !== digest) throw Error('Subdivision integrity check failed');
+  return parseMasterSubdivision(JSON.parse(bytes.toString()));
+});
+for (let i = 0; i < MASTER_REVISIONS.length; i++) {
+  const info = MASTER_REVISIONS[i];
+  if (!MASTER_REVISIONS.slice(0, i).some(previous => previous.ref.fontId === info.ref.fontId)) continue;
+  const mapping = mappings.find(m => m.to.digest === info.ref.digest);
+  const previous = mapping && MASTER_REVISIONS.slice(0, i).find(m => m.ref.digest === mapping.from.digest);
+  if (!mapping || !previous) throw Error(`Missing exact basis map for ${info.ref.fontId}`);
+  loadSource(previous.ref); loadSource(info.ref);
+  const from = sourceMasters(previous.ref), to = sourceMasters(info.ref);
+  if (!from || !to) throw Error('Basis map requires both complete master packages');
+  decodeMasterSubdivision(mapping, { from: { ref: previous.ref, masters: from }, to: { ref: info.ref, masters: to } });
+  report.basisRevisions.push({ fontId: info.ref.fontId, from: previous.ref.digest, to: info.ref.digest,
+    glyphs: Object.keys(mapping.glyphs).length, weights: to.masters.length });
+}
+if (process.argv.includes('--basis-only')) {
+  process.stdout.write(JSON.stringify({ revisions: report.revisions, families: report.families, basisRevisions: report.basisRevisions }) + '\n');
+  process.exit(0);
+}
 const box = cs => cmdsBox(drawnCmds(cs));
 const nodeCount = glyph => glyph.contours.reduce((n, c) => n + c.length, 0);
 // A fixed area cutoff can count an existing microscopic speck only after scaling.

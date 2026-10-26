@@ -21,6 +21,7 @@ import { SOURCE_REVISIONS } from '../shared/source/catalog';
 import { sourcePayload } from './sources';
 import { MASTER_REVISIONS, masterInfo } from '../shared/source/master-catalog';
 import { PROGRAM_REVISIONS } from '../shared/source/program-catalog';
+import { sourceProgramDependencies } from '../shared/source/program';
 
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -474,7 +475,7 @@ function fontRoutes(api: Router, { fonts, exports }: Ctx) {
   // the first time). An own font is asked after each time (its ETag answers), as an import can change it
   api.get('/sources/:digest', (req, res) => {
     const ref = SOURCE_REVISIONS.find(r => r.digest === req.params.digest) ?? MASTER_REVISIONS.find(m => m.ref.digest === req.params.digest)?.ref
-      ?? PROGRAM_REVISIONS.flatMap(p => [p.ref, ...[p.data.width, p.data.features].filter(asset => asset !== null)]).find(r => r.digest === req.params.digest);
+      ?? PROGRAM_REVISIONS.flatMap(p => [p.ref, ...sourceProgramDependencies(p.data)]).find(r => r.digest === req.params.digest);
     if (!ref) throw new HttpError(404, 'This saved source is unavailable');
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.json(sourcePayload(ref));

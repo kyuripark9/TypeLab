@@ -5,7 +5,7 @@ import { buildFont } from '../shared/engine';
 import type { Cmd } from '../shared/engine/types';
 import { DEFAULTS, drawnAtOf, freeAtOf, sanitizeParams, type Params } from '../shared/params';
 import { MASTER_REVISIONS, masterInfo } from '../shared/source/master-catalog';
-import { programForFont, programInfo } from '../shared/source/program-catalog';
+import { PROGRAM_REVISIONS, programForFont, programInfo } from '../shared/source/program-catalog';
 import { sourceAllows, sourceSupports } from '../shared/source/capabilities';
 import { loadDesignSources, loadSource } from '../server/sources';
 import { buildOTF } from '../server/export';
@@ -32,6 +32,8 @@ describe('published source finishes', () => {
       assert.equal(sourceAllows(current, 'fill', 'shadow'), true);
       assert.equal(sourceAllows(current, 'fill', 'pixels'), false);
       assert.equal(sourceSupports(current, 'dotGain'), false);
+      assert.ok(program.data.finish?.slice);
+      for (const key of ['slice', 'slicePos', 'sliceRound'] as const) assert.equal(sourceSupports(current, key), true);
       const old: Params = { ...current, sourceProgram: program.data.base, width: DEFAULTS.width,
         freeAt: { ...current.freeAt, width: DEFAULTS.width } };
       assert.equal(sourceSupports(old, 'fill'), false);
@@ -43,6 +45,16 @@ describe('published source finishes', () => {
     }
   });
 
+  it('keeps the earlier Shadow revisions unchanged when saved Slice values are present', () => {
+    for (const fontId of new Set(MASTER_REVISIONS.map(info => info.ref.fontId))) {
+      const old = PROGRAM_REVISIONS.findLast(p => p.ref.fontId === fontId && p.data.finish && !p.data.finish.slice);
+      assert.ok(old); loadSource(old.ref);
+      const before = { ...params(fontId), sourceProgram: old.ref }, ignored = { ...before, slice: 1, slicePos: 0, sliceRound: 1 };
+      assert.equal(sourceSupports(before, 'slice'), false);
+      assert.deepEqual(buildFont(ignored).glyph('H')?.cmds, buildFont(before).glyph('H')?.cmds, fontId);
+    }
+  });
+
   it('keeps edited foreground curves and their advance intact through finishing and reopening', () => {
     const before = params('Couture:600'), source = buildFont(before).glyph('R');
     assert.ok(source?.drawn);
@@ -51,10 +63,12 @@ describe('published source finishes', () => {
         ...(n.ix === undefined ? {} : { ix: n.ix + 7 }), ...(n.ox === undefined ? {} : { ox: n.ox + 7 }) }))) };
     const edited: Params = { ...before, outlines: { R: drawing }, weight: .8, glyphs: { R: { tail: .9 } } };
     const solid = buildFont(edited).glyph('R'); assert.ok(solid?.editable);
-    const shadowed: Params = { ...edited, fill: 'shadow', module: 1 }, glyph = buildFont(shadowed).glyph('R');
+    const opened: Params = { ...edited, slice: .65, slicePos: .3, sliceRound: .75 }, face = buildFont(opened).glyph('R');
+    assert.ok(face); assert.notDeepEqual(face.cmds, solid.cmds);
+    const shadowed: Params = { ...opened, fill: 'shadow', module: 1 }, glyph = buildFont(shadowed).glyph('R');
     assert.ok(glyph?.editable);
-    assert.deepEqual(glyph.cmds.slice(0, solid.cmds.length), solid.cmds);
-    assert.ok(glyph.cmds.length > solid.cmds.length);
+    assert.deepEqual(glyph.cmds.slice(0, face.cmds.length), face.cmds);
+    assert.ok(glyph.cmds.length > face.cmds.length);
     assert.deepEqual(traceOf(glyph), solid.editable);
     assert.equal(traceOf(glyph).adv, solid.adv);
     assert.equal(glyph.adv, solid.adv + buildFont(edited).m.cap * .12);
@@ -79,10 +93,67 @@ describe('published source finishes', () => {
     actions.resetParam('fill'); assert.equal(useEditor.getState().params.fill, 'solid');
   });
 
+  it('adopts Slice without activating ignored coordinates or replacing saved Point frames', () => {
+    const current = params('Couture:600');
+    const previous = PROGRAM_REVISIONS.findLast(p => p.ref.fontId === 'Couture:600' && p.data.finish && !p.data.finish.slice);
+    assert.ok(previous); loadSource(previous.ref);
+    const before: Params = { ...current, sourceProgram: previous.ref, fill: 'shadow', module: .8,
+      slice: .9, slicePos: .1, sliceRound: .6, glyphs: { R: { tail: .9, slice: .8, slicePos: .7, sliceRound: .3 } } };
+    const clean = traceOf(buildFont(before).glyph('R')!);
+    const original: Params = { ...before, outlines: { R: { ...clean, at: drawnAtOf(before, 'R') } } };
+    actions.loadDesign({ id: 'slice-upgrade', name: 'Slice upgrade', styleId: 'didone', params: original, createdAt: '', updatedAt: '' });
+    useEditor.setState({ scope: 'all', inspect: null }); actions.enableProgram();
+    const adopted = useEditor.getState().params;
+    assert.deepEqual(adopted.sourceProgram, current.sourceProgram);
+    assert.equal(adopted.fill, 'shadow'); assert.equal(adopted.module, .8);
+    assert.equal(adopted.slice, 0); assert.equal(adopted.slicePos, .5); assert.equal(adopted.sliceRound, 0);
+    assert.deepEqual(adopted.glyphs.R, { tail: .9 });
+    assert.deepEqual(adopted.outlines, original.outlines);
+    assert.deepEqual(buildFont(adopted).glyph('R')?.cmds, buildFont(original).glyph('R')?.cmds);
+    actions.travel(-1); assert.deepEqual(useEditor.getState().params, original);
+    actions.travel(1); assert.deepEqual(useEditor.getState().params, adopted);
+  });
+
+  it('applies per-letter Slice and reserves its top allowance without changing the face measures', () => {
+    const before = params('Mainline:600'), plain = buildFont(before);
+    actions.loadDesign({ id: 'letter-slice', name: 'Letter slice', styleId: 'grotesque', params: before, createdAt: '', updatedAt: '' });
+    useEditor.setState({ scope: 'letter', inspect: 'H' });
+    actions.setOption('slice', 1); actions.setOption('slicePos', .25); actions.setOption('sliceRound', .5);
+    const edited = useEditor.getState().params, font = buildFont(edited);
+    assert.equal(edited.slice, 0); assert.equal(edited.glyphs.H?.slice, 1);
+    assert.notDeepEqual(font.glyph('H')?.cmds, plain.glyph('H')?.cmds);
+    assert.deepEqual(font.glyph('O')?.cmds, plain.glyph('O')?.cmds);
+    assert.equal(font.m.cap, plain.m.cap); assert.equal(font.m.xh, plain.m.xh);
+    assert.equal(font.m.asc, plain.m.asc + plain.m.cap * .14);
+    assert.equal(font.m.asc, font.letter('H').m.asc);
+    assert.deepEqual(traceOf(font.glyph('H')!), traceOf(plain.glyph('H')!));
+    actions.resetParam('slice'); assert.equal(useEditor.getState().params.glyphs.H?.slice, undefined);
+    assert.deepEqual(buildFont(useEditor.getState().params).glyph('H')?.cmds, plain.glyph('H')?.cmds);
+  });
+
+  it('applies the Slice Adjust choice through style selection and rejects unsupported cut choices', () => {
+    actions.newDesign(); actions.clearTraits(); actions.loadStyle('grotesque');
+    loadDesignSources(useEditor.getState().params);
+    const plain = buildFont(useEditor.getState().params).glyph('H'); assert.ok(plain);
+    actions.setTrait('cuts', 'slice');
+    let state = useEditor.getState();
+    assert.equal(state.traits.cuts, 'slice'); assert.equal(state.params.slice, .05);
+    assert.notDeepEqual(buildFont(state.params).glyph('H')?.cmds, plain.cmds);
+    actions.loadStyle('didone'); state = useEditor.getState(); loadDesignSources(state.params);
+    assert.equal(state.traits.cuts, 'slice'); assert.equal(state.params.slice, .05);
+    assert.equal(state.params.sourceProgram?.fontId, 'Couture:600');
+    assert.notDeepEqual(buildFont(state.params).glyph('H')?.cmds, buildFont({ ...state.params, slice: 0 }).glyph('H')?.cmds);
+    actions.setTrait('cuts', 'none'); state = useEditor.getState();
+    assert.equal(state.traits.cuts, 'none'); assert.equal(state.params.slice, 0);
+    actions.setTrait('cuts', 'inktrap'); state = useEditor.getState();
+    assert.equal(state.traits.cuts, undefined); assert.equal(state.params.slice, 0); assert.equal(state.params.joints, 0);
+  });
+
   it('exports the same finished paths and advance that the preview uses', () => {
-    const p: Params = { ...params('Mainline:600'), fill: 'shadow', module: .25, width: .65 };
+    const p: Params = { ...params('Mainline:600'), fill: 'shadow', module: .25, width: .65,
+      slice: .7, slicePos: .4, sliceRound: .6 };
     const preview = buildFont(p).glyph('H'); assert.ok(preview);
-    const bytes = buildOTF(p, 'Shadow proof'), font = opentype.parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+    const bytes = buildOTF(p, 'Slice and Shadow proof'), font = opentype.parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
     const installed = font.charToGlyph('H');
     assert.equal(installed.advanceWidth, Math.round(preview.adv));
     assert.equal(installed.path.commands.length, preview.cmds.length);

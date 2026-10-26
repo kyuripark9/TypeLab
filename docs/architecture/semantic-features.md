@@ -22,7 +22,7 @@ const features = decodeFeatureMasters(data, { ref: baseRef, masters });
 const font = evaluateFeatureMasters(features, {
 	baseline: interpolateMasters(masters, 650),
 	weight: 650,
-	width: 'base',
+	width: null,
 	values: { crossbar: .5, tail: .8, terminalLength: .5 },
 });
 ```
@@ -47,7 +47,7 @@ The selected design takes explicit attachment ports and region ownership from th
 
 ## Ordering and local edits
 
-`shared/source/instance.ts` evaluates weight, applies feature patches in source coordinates, and then applies the exact height map and pose. Saved Points edits move between the complete feature-evaluated baseline at save time and the complete current baseline. `Drawn.at` retains the saved program reference and feature coordinates, including per-letter overrides.
+`shared/source/instance.ts` evaluates weight and native width, applies feature patches in source coordinates, and then applies the exact height map and pose. Saved Points edits move between the complete feature-evaluated baseline at save time and the complete current baseline. `Drawn.at` retains the saved program reference and feature coordinates, including per-letter overrides.
 
 Point identities retain the weight-master digest, glyph, contour, segment, and curve parameter. A feature asset or program revision does not change that basis. Height cuts, Pen subdivisions, contour reversal, and repeated saves retain their source correspondence. Genuinely new geometry uses spatial transport rather than unrelated array indices.
 
@@ -79,11 +79,13 @@ That review also found a fresh-process loading bug. A saved Hearth `R` retained 
 
 `shared/source/feature-masters.ts` provides the sparse asset parser, dependency binding, coverage query, and evaluator. `tools/authored/build-features.ts` compiles the reviewed recipes into immutable files under `fonts/features`; `--check` verifies regeneration and the manifest without writing. `tools/authored/build-programs.ts` publishes the selected dependencies and per-letter capabilities. The registry, evaluator, and editor adoption action are connected.
 
-The `feature-masters-v1` payload pins its complete `MasterSourceRef`, a weight interval, `base-only` width compatibility, and a list of controls. Each control lists its affected glyphs and their low/high endpoint drawings at each weight sample. Packed glyphs include advances. The asset contains neither the full weight font nor a duplicate neutral font. Existing parameter coordinates use 0..1 with 0.5 neutral.
+The `feature-masters-v1` payload pins its complete `MasterSourceRef`, a weight interval, width compatibility, and a list of controls. Each control lists its affected glyphs and their low/high endpoint drawings at each weight sample. Packed glyphs include advances. The asset contains neither the full weight font nor a duplicate neutral font. Existing parameter coordinates use 0..1 with 0.5 neutral.
 
-`parseFeatureMasters` validates the wire format. `decodeFeatureMasters` binds the exact base kind/digest/font ID, validates compatible contours and handle presence, and requires samples at every base weight knot inside the interval plus both interval endpoints. It rejects unchanged coverage and conflicting coordinate or advance writes by different controls. This proves compatible correspondence and non-overlap; joint optical quality still requires authoring review.
+Width compatibility is either the existing `base-only` value or `{ kind: 'joint-grid', width: WidthMasterRef, columns }`. Root controls own the neutral-width endpoints. Each non-neutral column stores `{ width, controls }` with the same control, glyph, and weight coverage. The sparse grid pins its exact native-width dependency; it does not imply compatibility with another width revision.
 
-`evaluateFeatureMasters` adds endpoint deltas to the supplied complete canonical baseline. It preserves that baseline's offsets, advances, other metrics, and unaffected glyph objects. All-neutral values return the identical baseline even outside the feature interval. Active values require the reviewed interval and neutral authored width. New point provenance names the immutable base digest and glyph, never the feature asset revision. Height maps, pose, and saved Points edits follow this stage.
+`parseFeatureMasters` validates the wire format. `decodeFeatureMasters` binds the exact base kind/digest/font ID, validates compatible contours and handle presence, and requires samples at every base weight knot inside the interval plus both interval endpoints. A joint grid also requires its exact width reference, all native-width knots, and any additional weight knots in those width drawings. Coordinate ownership is checked across every column. It rejects unchanged coverage and conflicting coordinate or advance writes by different controls. This proves compatible correspondence and non-overlap; joint optical quality still requires authoring review.
+
+`evaluateFeatureMasters` receives the actual native-width coordinate, or `null` for a program without native width. It interpolates joint endpoints in weight and width, then adds the difference from that same complete width baseline to the supplied canonical baseline. This avoids applying width displacement twice. It preserves the baseline's offsets, advances, other metrics, and unaffected glyph objects. All-neutral values return the identical baseline even outside the feature interval. Active values require the reviewed weight and width domains. New point provenance names the immutable base digest and glyph, never the feature asset revision. Height maps, pose, and saved Points edits follow this stage.
 
 `featureSupportedGlyphs` exposes exact per-control coverage. Hearth and Couture publish the covered controls in single-letter scope. Mainline's feature asset remains unpublished in a program until the following interaction work passes. Both the program builder and registry reject the incompatible combination.
 
@@ -149,12 +151,30 @@ The repair passes 25 native-width H cases and 75 crossbar/height cases. Every te
 
 The repair remains unpublished until runtime point mapping can preserve edits across the new basis. Existing production program and master references remain unchanged. The candidate feature asset remains restricted to neutral authored width; it does not claim reviewed width-and-crossbar interactions. Reproduction uses `node --max-old-space-size=512 --import tsx tools/authored/repair-gumdrop-h.ts --review --render`.
 
-## Next: Mainline feature and width interactions
+## H and native width interactions
 
-The first joint asset should use the exact published Mainline width dependency and its compatible point basis. Its width knots are 75, 87.5, 100, 125, and 150, and its weight knots are 300, 400, 500, 600, 700, and 800. This gives 30 weight/width cells and 240 H/A/R/c low/high endpoint drawings.
+`tools/authored/feature-width-masters.ts` compiles H-only joint assets for Cotton, repaired Gumdrop, Mainline, and Parlance. Existing Mainline, Hearth, and Couture H/A/R/c pilot files remain byte-identical. Cotton's feature curves are transported through its exact subdivision binding. Gumdrop's are transported through the reversed left-stem binding. Unaffected coordinates retain the new basis literally.
+
+Two composition choices were implemented. A pinned orthogonal certificate proves that Cotton's width grid leaves every H vertical anchor and handle coordinate unchanged while its crossbar recipe leaves every horizontal coordinate and advance unchanged. It checks 2,250 coordinate slots at all knots. An explicit grid stores every joint endpoint instead. Both constructions produce the same sampled geometry. Mainline, Parlance, and Gumdrop cannot use that certificate: their native condensed H drawings change vertical coordinates by up to 2.3844, 7.3831, and 0.9036 units, respectively.
+
+All four production candidates use explicit joint grids. The extra Cotton data is small enough to keep one runtime representation: approximately 154 KB instead of 50 KB before compression. The orthogonal proof remains authoring evidence, without another parser or evaluator branch. Mainline and Parlance each store five width columns including neutral; Cotton and Gumdrop store three. Every existing weight knot is represented.
+
+The authoring command writes sparse candidates, dependency manifests, geometry reports, and display/text specimens under `.audit/masters/feature-width`. It checks the full Cartesian product of weight and width knots plus interval midpoints, five crossbar values, actual neutral/short/tall cap-height maps, and two additional piecewise height stress maps. Expected H ink is one connected component with no counter. Explicit attachment and vertical-clearance bounds, unchanged advance, neutral identity, and stable master/glyph point provenance are checked separately.
+
+```sh
+node --max-old-space-size=512 --import tsx tools/authored/feature-width-masters.ts --review --render
+```
+
+The production evaluator passes 6,700 cases: Cotton 1,125, Gumdrop 625, Mainline 2,475, and Parlance 2,475. Cotton's certificate and production joint grid agree exactly at every sampled coordinate. Maximum bar-thickness drift is `1.14e-13` units; x coordinates and advances remain literal. The tightest attachment is Gumdrop's 3.2-unit left overlap after the additional narrow stress scale, above its 2-unit guard. Display and 22-pixel text specimens were inspected across all four styles, widths, bar endpoints, and actual cap-height endpoints; joins remain connected and retain their original construction.
+
+`tests/feature-masters.test.ts` covers literal endpoints, weight/width interpolation, handle and advance changes, preserved baseline edits, neutral identity, exact dependency binding, complete knots, and coordinate conflicts introduced only by a width column. Candidate references do not enable capabilities until a program adopts them. Cotton and Gumdrop additionally require saved-edit transport across their changed master bases.
+
+## Next: diagonal bars, legs, and terminals at native widths
+
+The next Mainline joint asset should extend the H coverage to A, R, and c using the exact published width dependency and compatible point basis. Its width knots are 75, 87.5, 100, 125, and 150, and its weight knots are 300, 400, 500, 600, 700, and 800. The remaining three letters require 180 low/high endpoint drawings across 30 weight/width cells.
 
 1. Compile each feature against that cell's complete width-evaluated baseline. Re-evaluate the authored bar rails, leg departure and metric anchors, and terminal ports in that baseline. Preserve the existing width-100 feature drawings exactly. Do not scale the current weight-only deltas by a width ratio.
 2. Check the narrow/heavy corners first. A-bar outer margins, c aperture, R departure overlap, and right bearing can become limiting even when point correspondence is unchanged. Add optical corrections to the affected cell drawings; keep one reviewed control interval across the grid.
-3. Publish a joint feature format that pins both the weight basis and exact `WidthMasterRef`. Store complete feature endpoint coverage at all width and weight knots. Its runtime delta is relative to the same joint baseline; the stable Points basis remains the original weight-master digest and glyph.
-4. Validate the 11 weight samples and nine width samples formed by all knots and interval midpoints, five feature values, four affected glyphs, and three height maps: 5,940 combinations. Inspect 24-pixel and display specimens, including unspaced `RR`, `RH`, `Rc`, and `cc`. Test saved Points edits and export against the complete feature-plus-width baseline.
+3. Use the joint feature format above, with complete endpoint coverage at all width and weight knots. The stable Points basis remains the original weight-master digest and glyph.
+4. Validate the 11 weight samples and nine width samples formed by all knots and interval midpoints, five feature values, the three added glyphs, and the height maps. Inspect text and display specimens, including unspaced `RR`, `RH`, `Rc`, and `cc`. Test saved Points edits and export against the complete feature-plus-width baseline.
 5. Publish a combined Mainline program only after those checks pass. If the width authoring range grows, its new extreme columns need feature endpoints and review before inclusion. Keep the current separate programs immutable for saved documents. Then apply the same authoring method to additional styles and character coverage.

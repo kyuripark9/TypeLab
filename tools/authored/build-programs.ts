@@ -11,7 +11,8 @@ import { decodeWeightMasters, parseWeightMasters } from '../../shared/source/mas
 import type { MasterSourceRef } from '../../shared/source/model';
 import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from '../../shared/source/program';
 import { PROGRAM_REVISIONS, type ProgramInfo } from '../../shared/source/program-catalog';
-import { parseWidthMasters } from '../../shared/source/width-masters';
+import { decodeWidthMasters, parseWidthMasters } from '../../shared/source/width-masters';
+import { decodeMasterSubdivision, parseMasterSubdivision } from '../../shared/source/subdivision';
 import { parseWidthPrototype } from './width-masters';
 
 const root = fileURLToPath(new URL('../..', import.meta.url)), check = process.argv.includes('--check');
@@ -42,8 +43,12 @@ function publish(directory: string, data: unknown): string {
 function describe(data: SourceProgramData, digest: string): ProgramInfo {
   const base = basis(data.base);
   const width = data.width ? parseWidthMasters(readAsset('widths', data.width.digest), base) : null;
-  const features = data.features ? decodeFeatureMasters(parseFeatureMasters(readAsset('features', data.features.digest)), base) : null;
-  if (width && features) throw Error('Width and feature combinations require reviewed interaction masters');
+  const features = data.features ? decodeFeatureMasters(parseFeatureMasters(readAsset('features', data.features.digest)), base,
+    width && data.width ? { ref: data.width, masters: decodeWidthMasters(width, base.masters) } : undefined) : null;
+  if (width && features?.data.widthCompatibility === 'base-only') throw Error('Width and feature combinations require reviewed interaction masters');
+  for (const transition of data.transitions ?? []) {
+    decodeMasterSubdivision(parseMasterSubdivision(readAsset('subdivisions', transition.mapping.digest)), { from: basis(transition.from), to: base });
+  }
   if (features && (features.data.weightRange[0] !== base.data.masters[0].weight
     || features.data.weightRange[1] !== base.data.masters[base.data.masters.length - 1].weight)) throw Error('Published features must cover the whole weight family');
   return { ref: { kind: 'program-v1', digest, fontId: base.ref.fontId }, data, width: width?.axis ?? null,
@@ -61,7 +66,25 @@ function addProgram(data: SourceProgramData) {
 }
 for (let i = 0; i < args.length; i += 2) {
   const mode = args[i], file = args[i + 1];
-  if (!file || mode !== '--width' && mode !== '--features' && mode !== '--finish') throw Error('Use --width prototype.json, --features asset.json or --finish policy.json');
+  if (!file || !['--width', '--features', '--finish', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
+    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
+  }
+  if (mode === '--program') {
+    const data = parseSourceProgram(JSON.parse(readFileSync(file, 'utf8')));
+    const previous = entries.findLast(entry => entry.ref.fontId === data.base.fontId)?.data;
+    if (previous && previous.base.digest !== data.base.digest && !data.transitions?.some(t => t.from.digest === previous.base.digest)) {
+      throw Error('A changed master basis requires an exact transition from the previous program');
+    }
+    addProgram(data);
+    continue;
+  }
+  if (mode === '--width-asset') {
+    const input: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    if (!input || typeof input !== 'object' || !('base' in input)) throw Error('Width asset requires its master base');
+    const parsed = parseSourceProgram({ format: 'source-program-v1', base: input.base, width: null, features: null });
+    publish('widths', parseWidthMasters(input, basis(parsed.base)));
+    continue;
+  }
   if (mode === '--finish') {
     const finish = parseSourceFinish(JSON.parse(readFileSync(file, 'utf8')));
     for (const { ref } of new Map(MASTER_REVISIONS.map(info => [info.ref.fontId, info])).values()) {
@@ -84,9 +107,12 @@ for (let i = 0; i < args.length; i += 2) {
     asset = { kind: 'width-masters-v1', digest: publish('widths', data), fontId: base.fontId };
   } else {
     const data = parseFeatureMasters(JSON.parse(readFileSync(file, 'utf8')));
-    decodeFeatureMasters(data, basis(data.base));
+    const original = basis(data.base), compatibility = data.widthCompatibility;
+    decodeFeatureMasters(data, original, compatibility === 'base-only' ? undefined : { ref: compatibility.width,
+      masters: decodeWidthMasters(parseWidthMasters(readAsset('widths', compatibility.width.digest), original), original.masters) });
     base = data.base;
     asset = { kind: 'feature-masters-v1', digest: publish('features', data), fontId: base.fontId };
+    if (mode === '--feature-asset') continue;
   }
   const previous = entries.findLast(entry => entry.ref.fontId === base.fontId)?.data;
   if (previous && previous.base.digest !== base.digest) throw Error('A changed weight basis requires compatible replacements for every existing program asset');

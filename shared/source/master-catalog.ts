@@ -336,6 +336,36 @@ export const MASTER_REVISIONS: readonly MasterInfo[] = [
     "min": 100,
     "max": 700,
     "defaultWeight": 700
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "e79ee882db3b4b75825be583381d1f791886c305b9b6cbecf8cce410856b14fa",
+      "fontId": "Cotton:300"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "5de06410779deca73e7248a42dd2f629e2fa9853b2532dbe6fd18b597d37fb47",
+      "fontId": "Cotton:300"
+    },
+    "min": 200,
+    "max": 600,
+    "defaultWeight": 300
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "2d9d079c67fee2c0300b5e2eb15284df14fdf10ee9bfe3f64c0816bd4e99c800",
+      "fontId": "Gumdrop:700"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "d2558f23006bf2fa5dcca491e00dc1050bf2d57358c4ab81d04a96e491611b2b",
+      "fontId": "Gumdrop:700"
+    },
+    "min": 500,
+    "max": 700,
+    "defaultWeight": 700
   }
 ];
 export function masterInfo(ref: SourceRef | null): MasterInfo | undefined {
@@ -344,3 +374,9 @@ export function masterInfo(ref: SourceRef | null): MasterInfo | undefined {
 }
 export const mastersForFont = (fontId: string): MasterSourceRef | null => MASTER_REVISIONS.findLast(m => m.ref.fontId === fontId)?.ref ?? null;
 export const designSourceForFont = (fontId: string): SourceRef | null => programForFont(fontId) ?? mastersForFont(fontId) ?? sourceForFont(fontId);
+
+/** Original outline edits use the first compatible master basis, never a later subdivision. */
+export function masterBasisForEditing(ref: SourceRef | null): MasterSourceRef | null {
+  return masterInfo(ref)?.ref ?? (ref?.kind === 'outline-v1'
+    ? MASTER_REVISIONS.find(m => m.source.digest === ref.digest && m.source.fontId === ref.fontId)?.ref ?? null : null);
+}

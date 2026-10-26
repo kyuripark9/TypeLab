@@ -28,6 +28,13 @@ describe('style page traits', () => {
     assert.equal(applyTraits(didone, {}), didone);
     assert.notEqual(traitsKey({ weight: 'bold' }), traitsKey({ width: 'bold' }));
   });
+  it('clears competing cuts separately from the selected effect', () => {
+    const before = { ...DEFAULTS, joints: .8, stencil: .7, slice: .9 };
+    for (const [option, expected] of [['none', [0, 0, 0]], ['inktrap', [.8, 0, 0]], ['stencil', [0, .15, 0]], ['slice', [0, 0, .05]]] as const) {
+      const after = applyTraits(before, { cuts: option });
+      assert.deepEqual([after.joints, after.stencil, after.slice], expected);
+    }
+  });
 });
 
 describe('style search', () => {

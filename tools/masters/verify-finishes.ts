@@ -52,7 +52,7 @@ for (const fontId of families) {
     const base = buildFont({ ...DEFAULTS, sourceProgram: ref, freeFont: fontId, weight: slider, freeAt: { ...freeAtOf(DEFAULTS), weight: pick } });
     if (weight === info.defaultWeight) rows.push({ font: base, text: specimen, label: `${fontId} original` });
     for (const size of [0, 1]) {
-      const plan = compileSourceFinish(policy, { fill: 'shadow', module: size }, { capHeight: base.m.cap });
+      const plan = compileSourceFinish(policy, { ...DEFAULTS, fill: 'shadow', module: size }, { capHeight: base.m.cap });
       const finished = finishedFont(base, plan), text: string = all && weight === info.defaultWeight ? ALL_CHARS : sensitive;
       stats.cases++;
       for (const ch of text) {

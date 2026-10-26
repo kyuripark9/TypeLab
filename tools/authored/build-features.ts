@@ -9,6 +9,7 @@ import { mastersForFont } from '../../shared/source/master-catalog';
 import { decodeWeightMasters, parseWeightMasters } from '../../shared/source/masters';
 import type { MasterSourceRef } from '../../shared/source/model';
 import type { FeatureMasterRef } from '../../shared/source/program';
+import { decodeWidthMasters, parseWidthMasters } from '../../shared/source/width-masters';
 import { PILOT_BINDINGS, authorFeatures, evaluateFeatures, type FeatureProgram } from './feature-masters';
 
 export function compileFeatureMasters(program: FeatureProgram): FeatureMasterData {
@@ -70,7 +71,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const data = parseFeatureMasters(JSON.parse(bytes.toString()));
     const baseBytes = readFileSync(resolve(root, 'fonts/masters', data.base.digest + '.json'));
     if (createHash('sha256').update(baseBytes).digest('hex') !== data.base.digest) throw Error('Weight basis integrity check failed');
-    const basis = decodeWeightMasters(parseWeightMasters(JSON.parse(baseBytes.toString()))), decoded = decodeFeatureMasters(data, { ref: data.base, masters: basis });
+    const basis = decodeWeightMasters(parseWeightMasters(JSON.parse(baseBytes.toString()))), dependency = { ref: data.base, masters: basis };
+    let width;
+    if (data.widthCompatibility !== 'base-only') {
+      const ref = data.widthCompatibility.width, content = readFileSync(resolve(root, 'fonts/widths', ref.digest + '.json'));
+      if (createHash('sha256').update(content).digest('hex') !== ref.digest) throw Error('Feature width integrity check failed');
+      width = { ref, masters: decodeWidthMasters(parseWidthMasters(JSON.parse(content.toString()), dependency), basis) };
+    }
+    const decoded = decodeFeatureMasters(data, dependency, width);
     return { ref: { kind: 'feature-masters-v1', digest, fontId: data.base.fontId }, base: data.base, weightRange: data.weightRange,
       coverage: { crossbar: featureSupportedGlyphs(decoded, 'crossbar'), tail: featureSupportedGlyphs(decoded, 'tail'), terminalLength: featureSupportedGlyphs(decoded, 'terminalLength') } };
   });

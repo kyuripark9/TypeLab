@@ -89,7 +89,9 @@ export function BarEndsControl() {
     stencil parts every cell from the next, so there is nowhere along a stroke to move it. */
 export function CutControl({ k, parts }: { k: 'stencil' | 'slice'; parts?: string[] }) {
   const tiles = useEditor(s => s.params.build === 'blocks' && s.params.blockForm === 'grid');
-  const c = CONTROLS[k], all = k === 'stencil' ? STENCIL_SUBS : SLICE_SUBS;
+  const sourceProgram = useParam('sourceProgram'), opened = k === 'slice' && !!sourceProgram;
+  const c = CONTROLS[k], all = k === 'stencil' ? STENCIL_SUBS
+    : opened ? { ...SLICE_SUBS, slice: { ...SLICE_SUBS.slice, label: 'Gap', lo: 'Narrow', hi: 'Wide' } } : SLICE_SUBS;
   const subs = k === 'stencil' && tiles ? Object.fromEntries(Object.entries(all).filter(([s]) => s !== 'stencilPos')) as typeof all : all;
   const on = useEditor(s => isOn(s, k, c.off!)), active = useEditor(s => controlFor(s.active) === k), reach = useReachNote(k);
   const cls = ['ctl', active && 'active', !on && 'off', reach.idle && 'idle'].filter(Boolean).join(' ');

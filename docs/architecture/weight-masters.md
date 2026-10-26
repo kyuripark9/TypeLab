@@ -4,6 +4,8 @@ All 22 bundled outline families have compatible weight masters for the full 127-
 
 Each `weight-masters-v1` package records its original `outline-v1` reference, default weight, compatible drawings, provenance, licenses, and authoring notes. Publication creates an immutable `masters-v1` snapshot under `fonts/masters/<sha256>.json`. The historical files in `fonts/` and `fonts/sources/` remain unchanged, so saved designs retain their original geometry.
 
+The catalog now has 24 revisions for these 22 families. Cotton adds exact shared curve cuts for its local width drawings, and Gumdrop repairs H's left-stem winding. Their original weight ranges and curves remain available. [Master basis revisions](master-basis-revisions.md) describes the exact maps that carry older Points edits into these new representations.
+
 ## Coverage
 
 An **upstream transfer** adds the original designer's weight deltas to TypeLab's edited source curves. A **local variant** is a newly authored lighter or heavier version of the edited source. Its numerical weight identifies the local range; it does not claim an upstream font instance at that weight.
@@ -55,6 +57,7 @@ These changes belong to the new master packages. They do not overwrite the origi
 - Funnies' missing dagger and double dagger reuse its rounded plus outline, with a longer lower stem or two overlapping crosses.
 - Cathedral's missing minus reuses an equals bar. Divide adds two scaled colon dots. Backslash mirrors the slash within its advance, correcting the original direction and oversized outline.
 - Bulwark gains collapsed segments to make j and parentheses compatible. The 600 and 700 single guillemet notches are repaired. Double guillemets use two 190-unit chevrons with a 24-unit gap. The 800 and 900 drawings are excluded because their counters fail review.
+- Gumdrop's later basis revision reverses H contour 2, preserving its exact curves while removing the canceled overlap at the left bar attachment. The older master and width snapshots retain their original winding.
 
 ## Reconstruct the packages
 

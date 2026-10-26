@@ -3,6 +3,8 @@ import type { FreeFont, FreeFontData, PackedNode } from '../engine/free';
 import type { Drawn, Node } from '../engine/outline';
 import { interpolateMasters, type WeightMasters } from './masters';
 import { parseSourceRef, type MasterSourceRef } from './model';
+import type { WidthMasterRef } from './program';
+import { interpolateWidthMasters, type WidthMasters } from './width-masters';
 
 export const FEATURE_CONTROLS: readonly ['crossbar', 'tail', 'terminalLength'] = ['crossbar', 'tail', 'terminalLength'];
 export type FeatureControl = typeof FEATURE_CONTROLS[number];
@@ -11,9 +13,13 @@ type PackedGlyph = FreeFontData['glyphs'][string];
 export interface FeatureSample { weight: number; low: PackedGlyph; high: PackedGlyph }
 export interface FeatureGlyphData { glyph: string; masters: [FeatureSample, FeatureSample, ...FeatureSample[]] }
 export interface FeatureControlData { control: FeatureControl; glyphs: [FeatureGlyphData, ...FeatureGlyphData[]] }
+export interface FeatureWidthGrid {
+  kind: 'joint-grid'; width: WidthMasterRef;
+  columns: { width: number; controls: [FeatureControlData, ...FeatureControlData[]] }[];
+}
 export interface FeatureMasterData {
   format: 'feature-masters-v1'; base: MasterSourceRef;
-  weightRange: readonly [number, number]; widthCompatibility: 'base-only';
+  weightRange: readonly [number, number]; widthCompatibility: 'base-only' | FeatureWidthGrid;
   controls: [FeatureControlData, ...FeatureControlData[]]; notes: string[];
 }
 interface DecodedSample { weight: number; low: Drawn; high: Drawn }
@@ -23,9 +29,10 @@ export interface FeatureMasters {
   readonly data: FeatureMasterData;
   readonly basis: WeightMasters;
   readonly controls: readonly DecodedControl[];
+  readonly width: { program: WidthMasters; columns: { width: number; controls: readonly DecodedControl[] }[] } | null;
 }
 export interface FeatureRequest {
-  baseline: FreeFont; weight: number; width: 'base' | 'varied'; values: FeatureValues;
+  baseline: FreeFont; weight: number; width: number | null; values: FeatureValues;
 }
 
 function object(input: unknown, fields: readonly string[]): Record<string, unknown> {
@@ -69,14 +76,9 @@ function packedGlyph(input: unknown): PackedGlyph {
   return [advance, parsed];
 }
 
-/** Parse the sparse asset before its immutable base dependency is available. */
-export function parseFeatureMasters(input: unknown): FeatureMasterData {
-  const value = object(input, ['format', 'base', 'weightRange', 'widthCompatibility', 'controls', 'notes']);
-  const base = parseSourceRef(value.base), range = array(value.weightRange), min = finite(range[0]), max = finite(range[1]);
-  if (value.format !== 'feature-masters-v1' || base?.kind !== 'masters-v1' || value.widthCompatibility !== 'base-only'
-    || range.length !== 2 || min < 1 || max > 1000 || min >= max) throw new TypeError('Invalid feature master domain');
+function parseControls(input: unknown, min: number, max: number): FeatureMasterData['controls'] {
   const seenControls = new Set<FeatureControl>();
-  const controls = array(value.controls).map(input => {
+  const controls = array(input).map(input => {
     const entry = object(input, ['control', 'glyphs']), key = control(entry.control), seenGlyphs = new Set<string>();
     if (seenControls.has(key)) throw new TypeError('Duplicate feature control');
     seenControls.add(key);
@@ -100,8 +102,33 @@ export function parseFeatureMasters(input: unknown): FeatureMasterData {
   });
   const [first, ...rest] = controls;
   if (!first) throw new TypeError('A feature asset requires an authored control');
-  return { format: 'feature-masters-v1', base, weightRange: [min, max], widthCompatibility: 'base-only',
-    controls: [first, ...rest], notes: array(value.notes).map(text) };
+  return [first, ...rest];
+}
+function parseWidthGrid(input: unknown, fontId: string, min: number, max: number): FeatureWidthGrid {
+  const value = object(input, ['kind', 'width', 'columns']), ref = object(value.width, ['kind', 'digest', 'fontId']);
+  if (value.kind !== 'joint-grid' || ref.kind !== 'width-masters-v1' || ref.fontId !== fontId
+    || typeof ref.digest !== 'string' || !/^[a-f0-9]{64}$/.test(ref.digest)) throw new TypeError('Invalid feature native-width dependency');
+  const columns = array(value.columns).map(input => {
+    const column = object(input, ['width', 'controls']), width = finite(column.width);
+    if (width <= 0 || width > 1000) throw new TypeError('Invalid feature native-width coordinate');
+    return { width, controls: parseControls(column.controls, min, max) };
+  });
+  if (!columns.length || columns.length > 19 || columns.some((c, i) => i > 0 && c.width <= columns[i - 1].width)) {
+    throw new TypeError('Feature width columns must be ordered and distinct');
+  }
+  return { kind: 'joint-grid', width: { kind: 'width-masters-v1', digest: ref.digest, fontId }, columns };
+}
+
+/** Parse sparse endpoint drawings before their immutable dependencies are available. */
+export function parseFeatureMasters(input: unknown): FeatureMasterData {
+  const value = object(input, ['format', 'base', 'weightRange', 'widthCompatibility', 'controls', 'notes']);
+  const base = parseSourceRef(value.base), range = array(value.weightRange), min = finite(range[0]), max = finite(range[1]);
+  if (value.format !== 'feature-masters-v1' || base?.kind !== 'masters-v1'
+    || range.length !== 2 || min < 1 || max > 1000 || min >= max) throw new TypeError('Invalid feature master domain');
+  if (typeof value.widthCompatibility === 'string' && value.widthCompatibility !== 'base-only') throw new TypeError('Invalid feature master domain');
+  const widthCompatibility = value.widthCompatibility === 'base-only' ? 'base-only' : parseWidthGrid(value.widthCompatibility, base.fontId, min, max);
+  return { format: 'feature-masters-v1', base, weightRange: [min, max], widthCompatibility,
+    controls: parseControls(value.controls, min, max), notes: array(value.notes).map(text) };
 }
 
 function decodeGlyph([adv, contours]: PackedGlyph): Drawn {
@@ -128,18 +155,26 @@ function writes(reference: Drawn, target: Drawn): string[] {
 }
 
 /** Bind against the exact dependency and every base weight bend. This checks correspondence, not optical quality. */
-export function decodeFeatureMasters(data: FeatureMasterData, basis: { ref: MasterSourceRef; masters: WeightMasters }): FeatureMasters {
+export function decodeFeatureMasters(data: FeatureMasterData, basis: { ref: MasterSourceRef; masters: WeightMasters },
+  width?: { ref: WidthMasterRef; masters: WidthMasters }): FeatureMasters {
   if (data.base.kind !== basis.ref.kind || data.base.digest !== basis.ref.digest || data.base.fontId !== basis.ref.fontId
     || basis.masters.source.fontId !== basis.ref.fontId || basis.masters.masters.some(m => m.font.id !== basis.ref.fontId)) throw new TypeError('Feature masters name a different immutable base');
   const [min, max] = data.weightRange, baseMasters = basis.masters.masters;
   if (min < baseMasters[0].weight || max > baseMasters[baseMasters.length - 1].weight) throw new TypeError('Feature range exceeds its weight basis');
-  const required = [min, ...baseMasters.map(m => m.weight).filter(w => w > min && w < max), max];
+  const grid = data.widthCompatibility;
+  if (grid !== 'base-only' && (!width || grid.width.kind !== width.ref.kind || grid.width.digest !== width.ref.digest
+    || grid.width.fontId !== width.ref.fontId || width.masters.data.base.kind !== basis.ref.kind
+    || width.masters.data.base.digest !== basis.ref.digest || width.masters.data.base.fontId !== basis.ref.fontId)) {
+    throw new TypeError('Feature masters require their exact native-width dependency and base');
+  }
+  const required = [min, ...baseMasters.map(m => m.weight), ...(grid !== 'base-only' && width
+    ? width.masters.columns.flatMap(c => c.program.masters.map(m => m.weight)) : []), max].filter(w => w >= min && w <= max);
   const owners = new Map<string, FeatureControl>();
-  const controls = data.controls.map(entry => ({ control: entry.control, glyphs: entry.glyphs.map(glyph => {
+  const decodeControls = (controls: FeatureMasterData['controls'], referenceProgram: WeightMasters): DecodedControl[] => controls.map(entry => ({ control: entry.control, glyphs: entry.glyphs.map(glyph => {
     if (required.some(weight => !glyph.masters.some(m => m.weight === weight))) throw new TypeError('Feature samples skip a base weight knot');
     const changed = new Set<string>();
     const masters = glyph.masters.map(sample => {
-      const reference = interpolateMasters(basis.masters, sample.weight).glyphs[glyph.glyph];
+      const reference = interpolateMasters(referenceProgram, sample.weight).glyphs[glyph.glyph];
       if (!reference) throw new TypeError('Feature coverage names a glyph absent from its base');
       const low = decodeGlyph(sample.low), high = decodeGlyph(sample.high);
       for (const endpoint of [low, high]) {
@@ -156,23 +191,53 @@ export function decodeFeatureMasters(data: FeatureMasterData, basis: { ref: Mast
     }
     return { glyph: glyph.glyph, masters };
   }) }));
-  return { data, basis: basis.masters, controls };
+  const controls = decodeControls(data.controls, basis.masters);
+  let decodedWidth: FeatureMasters['width'] = null;
+  if (grid !== 'base-only' && width) {
+    const expected = width.masters.columns.filter(c => c.width !== width.masters.data.axis.neutral);
+    if (grid.columns.length !== expected.length || grid.columns.some((c, i) => c.width !== expected[i].width)) {
+      throw new TypeError('Feature width columns must cover every native-width knot and omit neutral');
+    }
+    const coverage = (controls: FeatureMasterData['controls']) => JSON.stringify(controls.map(c => [c.control, c.glyphs.map(g => [g.glyph, g.masters.map(m => m.weight)])]));
+    const signature = coverage(data.controls);
+    const columns = grid.columns.map((column, i) => {
+      if (coverage(column.controls) !== signature) throw new TypeError('Feature width columns require identical controls, glyphs, and weight knots');
+      return { width: column.width, controls: decodeControls(column.controls, expected[i].program) };
+    });
+    columns.push({ width: width.masters.data.axis.neutral, controls });
+    columns.sort((a, b) => a.width - b.width);
+    decodedWidth = { program: width.masters, columns };
+  }
+  return { data, basis: basis.masters, controls, width: decodedWidth };
 }
 
 export function featureSupportedGlyphs(features: FeatureMasters, key: FeatureControl): readonly string[] {
   return features.controls.find(c => c.control === key)?.glyphs.map(g => g.glyph) ?? [];
 }
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-function atWeight(glyph: DecodedGlyph, weight: number, side: 'low' | 'high'): Drawn {
-  const exact = glyph.masters.find(m => m.weight === weight);
-  if (exact) return exact[side];
-  const index = glyph.masters.findIndex(m => m.weight > weight), a = glyph.masters[index - 1], b = glyph.masters[index], t = (weight - a.weight) / (b.weight - a.weight);
-  const from = a[side], to = b[side];
+function mixDrawing(from: Drawn, to: Drawn, t: number): Drawn {
   return { adv: lerp(from.adv, to.adv, t), contours: from.contours.map((c, ci) => c.map((n, ni) => {
     const out = { ...n }, next = to.contours[ci][ni];
     for (const key of COORDINATES) { const a = n[key], b = next[key]; if (a !== undefined && b !== undefined) out[key] = lerp(a, b, t); }
     return out;
   })) };
+}
+function atWeight(glyph: DecodedGlyph, weight: number, side: 'low' | 'high'): Drawn {
+  const exact = glyph.masters.find(m => m.weight === weight);
+  if (exact) return exact[side];
+  const index = glyph.masters.findIndex(m => m.weight > weight), a = glyph.masters[index - 1], b = glyph.masters[index], t = (weight - a.weight) / (b.weight - a.weight);
+  return mixDrawing(a[side], b[side], t);
+}
+function atWidth(width: NonNullable<FeatureMasters['width']>, control: FeatureControl, glyph: string, weight: number, coordinate: number, side: 'low' | 'high'): Drawn {
+  const at = (column: typeof width.columns[number]) => {
+    const drawing = column.controls.find(c => c.control === control)?.glyphs.find(g => g.glyph === glyph);
+    if (!drawing) throw new TypeError('Missing bound feature width drawing');
+    return atWeight(drawing, weight, side);
+  };
+  const exact = width.columns.find(c => c.width === coordinate);
+  if (exact) return at(exact);
+  const index = width.columns.findIndex(c => c.width > coordinate), a = width.columns[index - 1], b = width.columns[index];
+  return mixDrawing(at(a), at(b), (coordinate - a.width) / (b.width - a.width));
 }
 function addDelta(current: number, before: number, after: number, amount: number): number {
   if (before === after) return current;
@@ -184,17 +249,22 @@ function addDelta(current: number, before: number, after: number, amount: number
 export function evaluateFeatureMasters(features: FeatureMasters, request: FeatureRequest): FreeFont {
   const { baseline, weight, values } = request, base = features.basis.masters;
   if (baseline.id !== features.data.base.fontId || !Number.isFinite(weight) || weight < base[0].weight || weight > base[base.length - 1].weight) throw new RangeError('Feature evaluation requires its valid weight basis');
+  if (request.width !== null && !Number.isFinite(request.width)) throw new RangeError('Feature native width must be finite');
   for (const key of FEATURE_CONTROLS) if (!Number.isFinite(values[key]) || values[key] < 0 || values[key] > 1) throw new RangeError('Feature values must be within 0..1');
   const active = features.controls.filter(c => values[c.control] !== .5);
   if (!active.length) return baseline;
-  if (request.width !== 'base') throw new RangeError('Feature and authored-width interaction has not been authored');
+  if (features.width ? request.width === null || request.width < features.width.program.data.axis.min || request.width > features.width.program.data.axis.max
+    : request.width !== null) throw new RangeError('Feature native-width coordinate is outside its authored interaction');
   if (weight < features.data.weightRange[0] || weight > features.data.weightRange[1]) throw new RangeError('Weight is outside the authored feature interval');
-  const reference = interpolateMasters(features.basis, weight), glyphs = { ...baseline.glyphs };
+  const reference = features.width && request.width !== null ? interpolateWidthMasters(features.width.program, weight, request.width)
+    : interpolateMasters(features.basis, weight), glyphs = { ...baseline.glyphs };
   for (const entry of active) for (const glyph of entry.glyphs) {
     const current = glyphs[glyph.glyph], before = reference.glyphs[glyph.glyph];
     if (!current) throw new TypeError('The current baseline lacks an authored feature glyph');
     assertCompatible(before, current);
-    const value = values[entry.control], after = atWeight(glyph, weight, value < .5 ? 'low' : 'high'), amount = Math.abs(value - .5) * 2;
+    const value = values[entry.control], side = value < .5 ? 'low' : 'high';
+    const after = features.width && request.width !== null ? atWidth(features.width, entry.control, glyph.glyph, weight, request.width, side)
+      : atWeight(glyph, weight, side), amount = Math.abs(value - .5) * 2;
     const contours = current.contours.map((c, ci) => c.map((n, ni) => {
       const origin = n.authored;
       if (origin && (origin.digest !== features.data.base.digest || origin.glyph !== glyph.glyph || origin.contour !== ci || origin.segment !== ni || origin.t !== 0)) throw new TypeError('Features require a canonical source point basis');

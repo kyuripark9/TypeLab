@@ -113,6 +113,55 @@ describe('source-program registration', () => {
 });
 
 describe('browser source dependencies', () => {
+  it('loads both point bases before their map and retries a map returned for the wrong predecessor', async t => {
+    const f = fixture('Transition');
+    const from: MasterSourceRef = { ...f.base, digest: digest('Transition-from') };
+    const wrong: MasterSourceRef = { ...f.base, digest: digest('Transition-wrong') };
+    const mapping = { kind: 'master-subdivision-v1', digest: digest('Transition-map'), fontId: f.base.fontId } as const;
+    f.data.transitions = [{ from, mapping }];
+    const subdivision = { format: 'master-subdivision-v1', from, to: f.base,
+      glyphs: { A: [[0, 1, 2, 3].map(segment => ({ segment, t0: 0, t1: 1 }))] } };
+    f.payloads.set(from.digest, f.masterData);
+    let corrupt = true;
+    t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+      const id = requestedDigest(input);
+      if (id === mapping.digest) {
+        assert.equal(sourceReady(from), true);
+        assert.equal(sourceReady(f.base), true);
+        return response({ ...subdivision, from: corrupt ? wrong : from });
+      }
+      return response(f.payloads.get(id));
+    });
+    assert.equal(await loadSource(f.ref), false);
+    assert.match(sourceError(f.ref) ?? '', /previous master base/);
+    assert.equal(sourceReady(mapping), false);
+    assert.equal(sourceReady(f.ref), false);
+    corrupt = false;
+    assert.equal(await retrySource(f.ref), true);
+    assert.deepEqual(sourceProgram(f.ref)?.transitions.get(from.digest)?.data, subdivision);
+  });
+
+  it('loads joint feature masters after the precise width package they were authored against', async t => {
+    const f = fixture('Joint');
+    f.data.features = f.features;
+    const joint = parseFeatureMasters({ ...f.featureData, widthCompatibility: { kind: 'joint-grid', width: f.width,
+      columns: f.widthData.columns.map(column => ({ width: column.width, controls: [{ control: 'crossbar', glyphs: [{ glyph: 'A',
+        masters: column.masters.map(master => {
+          const low = structuredClone(master.glyphs.A), high = structuredClone(master.glyphs.A);
+          low[1][0][1][1] = 660; high[1][0][1][1] = 740;
+          return { weight: master.weight, low, high };
+        }) }] }] })) } });
+    f.payloads.set(f.features.digest, joint);
+    t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+      const id = requestedDigest(input);
+      if (id === f.features.digest) assert.equal(sourceReady(f.width), true);
+      return response(f.payloads.get(id));
+    });
+    assert.equal(await loadSource(f.ref), true, sourceError(f.ref));
+    assert.ok(sourceProgram(f.ref)?.features?.width);
+    assert.throws(() => registerSource({ ...f.ref, digest: digest('Joint-without-width') }, { ...f.data, width: null }), /exact reviewed feature width/);
+  });
+
   it('deduplicates current and saved Points sources by their complete reference', () => {
     const f = fixture('FrameRefs', 'features');
     const p: Params = { ...DEFAULTS, sourceProgram: f.base, outlines: {} };

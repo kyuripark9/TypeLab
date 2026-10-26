@@ -13,12 +13,12 @@ import { sourceFont, sourceMasters, sourceProgram } from './registry';
 import { sourceControls } from './capabilities';
 import { sourceDot } from './features';
 import { interpolateMasters, weightAt } from './masters';
-import { masterInfo } from './master-catalog';
+import { masterInfo, masterBasisForEditing } from './master-catalog';
 import { programInfo } from './program-catalog';
 import { interpolateWidthMasters, widthAt } from './width-masters';
 import { evaluateFeatureMasters, FEATURE_CONTROLS } from './feature-masters';
-import { identifyAuthored, inheritAuthored, mapAuthored, transportEdits } from './edit-transport';
-import { compileSourceFinish, finishSourceGlyph } from './finish';
+import { identifyAuthored, inheritAuthored, mapAuthored, rebaseEdits, rebaseReference, transportEdits } from './edit-transport';
+import { compileSourceFinish, finishSourceGlyph, sourceFinishBounds } from './finish';
 
 export interface SourceStatus { ref: SourceRef; state: 'missing' | 'ready'; missingCharacters: string[] }
 interface SourceInstance { m: Metrics; free?: FreeFont; status: SourceStatus; glyph(ch: string): Glyph | null }
@@ -90,7 +90,7 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
   // A new character has a fixed placement frame. Using each posed edit as its frame would accumulate drift.
   const source = original ?? { adv: font.cap * 0.75, contours: [] };
   const target = pose(font, source, p, ch);
-  const digest = p.sourceProgram?.kind === 'masters-v1' ? p.sourceProgram.digest : masterInfo(p.sourceProgram)?.ref.digest ?? '';
+  const digest = masterBasisForEditing(p.sourceProgram)?.digest ?? '';
   const identity = { digest, glyph: ch };
   let canonical = digest ? identifyAuthored(source, identity) : source, extraAdvance = 0;
   if (edited) {
@@ -100,14 +100,22 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
       && (!programInfo(p.sourceProgram)?.data.features || FEATURE_CONTROLS.every(key => p[key] === at[key]))) {
       return asGlyph(ch, edited, target.M, p.sourceProgram?.kind === 'program-v1');
     }
-    const beforeFont = variedFont(at) ?? font, beforeSource = beforeFont.glyphs[ch] ?? source;
+    const beforeFont = variedFont(at) ?? font;
+    let beforeSource = beforeFont.glyphs[ch] ?? source;
+    const beforeIdentity = { digest: masterBasisForEditing(at.sourceProgram)?.digest ?? '', glyph: ch };
     const from = pose(beforeFont, beforeSource, at, ch);
     const curves = edited.contours.some(c => c.some(n => n.r)) ? { ...edited, contours: cmdsContours(drawnCmds(edited.contours)) } : edited;
     let unposed = move(curves, inverse(from.M));
-    if (digest && unposed.contours.some(c => c.some(n => n.authored?.digest !== digest || n.authored.glyph !== ch))) {
-      unposed = inheritAuthored(unposed, mapAuthored(identifyAuthored(beforeSource, identity), from.transform, beforeSource, identity));
+    if (beforeIdentity.digest && unposed.contours.some(c => c.some(n => n.authored?.digest !== beforeIdentity.digest || n.authored.glyph !== ch))) {
+      unposed = inheritAuthored(unposed, mapAuthored(identifyAuthored(beforeSource, beforeIdentity), from.transform, beforeSource, beforeIdentity));
     }
-    canonical = mapAuthored(unposed, inverseTransform(from.transform), beforeSource, identity);
+    canonical = mapAuthored(unposed, inverseTransform(from.transform), beforeSource, beforeIdentity);
+    if (digest && beforeIdentity.digest !== digest && beforeFont.glyphs[ch] && original) {
+      const mapping = p.sourceProgram && sourceProgram(p.sourceProgram)?.transitions.get(beforeIdentity.digest);
+      if (!mapping) throw new Error('Saved Points require a compatible master basis transition');
+      canonical = rebaseEdits(canonical, beforeSource, mapping.data, ch);
+      beforeSource = rebaseReference(beforeSource, mapping.data, ch);
+    }
     if (beforeSource !== source && digest && beforeFont.glyphs[ch] && original) canonical = transportEdits(canonical, beforeSource, source, identity);
     extraAdvance = (edited.adv - from.adv) / from.transform.xScale;
   }
@@ -122,7 +130,7 @@ function variedFont(p: Params): FreeFont | undefined {
     const weight = weightAt(p, info), width = authored.width ? widthAt(p, authored.width.data.axis) : null;
     const baseline = authored.width && width !== null ? interpolateWidthMasters(authored.width, weight, width) : interpolateMasters(authored.masters, weight);
     return authored.features ? evaluateFeatureMasters(authored.features, { baseline, weight,
-      width: authored.width && width !== authored.width.data.axis.neutral ? 'varied' : 'base',
+      width,
       values: { crossbar: p.crossbar, tail: p.tail, terminalLength: p.terminalLength } }) : baseline;
   }
   const program = sourceMasters(p.sourceProgram);
@@ -148,11 +156,17 @@ export function sourceInstance(p: Params, fallback: Metrics): SourceInstance | n
   const lower = shape(font, p, 'x'), xh = lower.y[2]?.[1] ?? font.xh * sy;
   const policy = programInfo(ref)?.data.finish;
   const finish = policy ? compileSourceFinish(policy, p, { capHeight: font.cap * sy }) : null;
+  const bounds = finish ? sourceFinishBounds(finish) : { above: 0, below: 0 };
+  if (policy?.slice) {
+    for (const own of Object.values(p.glyphs)) {
+      bounds.above = Math.max(bounds.above, policy.slice.maxGap * (own.slice ?? p.slice) * font.cap * sy);
+    }
+  }
   const m = metrics(resolve({ ...p, geoHuman: 0.5, softSharp: 0.5, classicFuture: 0.5, playfulFormal: 0.5 }));
   return {
     free: font, status: { ref, state: 'ready', missingCharacters: [...ALL_CHARS].filter(ch => !font.glyphs[ch] && !p.outlines[ch]) },
-    m: { ...m, cap: font.cap * sy, xh, asc: lower.y[3]?.[1] ?? font.cap * sy,
-      desc: lower.y[0][1] + (finish?.kind === 'shadow' ? finish.dy : 0), ws: lower.xScale, slant: Math.tan((p.slant - base.slant) * 20 * Math.PI / 180),
+    m: { ...m, cap: font.cap * sy, xh, asc: (lower.y[3]?.[1] ?? font.cap * sy) + bounds.above,
+      desc: lower.y[0][1] - bounds.below, ws: lower.xScale, slant: Math.tan((p.slant - base.slant) * 20 * Math.PI / 180),
       space: Math.max(20, font.space * lower.xScale + (p.wordSpacing - DEFAULTS.wordSpacing) * 520) },
     glyph: ch => {
       const glyph = evaluated(font, p, ch);

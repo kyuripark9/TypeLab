@@ -1,6 +1,7 @@
 /* Source parameters follow generated curve cuts and saved point edits. Spatial motion is only for new points. */
 import { segment, type AuthoredGlyph, type AuthoredPoint, type Drawn, type Node } from '../engine/outline';
 import { mapOutline, type OutlineTransform, type Point } from './geometry';
+import type { MasterSubdivisionData, SubdivisionSegment } from './subdivision';
 
 type Cubic = [Point, Point, Point, Point];
 interface Motion { x: number; y: number; dx: number; dy: number }
@@ -74,6 +75,86 @@ export function mapAuthored(d: Drawn, transform: OutlineTransform, reference: Dr
     }
     return authored ? { ...n, authored } : n;
   })) };
+}
+
+interface RebasedEdge { node: Node; curve: Cubic; outgoing: boolean; incoming: boolean }
+function assemble(edges: RebasedEdge[]): Node[] {
+  return edges.map((edge, i) => {
+    const previous = edges[(i + edges.length - 1) % edges.length];
+    const { ix: _ix, iy: _iy, ox: _ox, oy: _oy, ...node } = edge.node;
+    return { ...node, x: edge.curve[0].x, y: edge.curve[0].y,
+      ...(edge.outgoing ? { ox: edge.curve[1].x, oy: edge.curve[1].y } : {}),
+      ...(previous.incoming ? { ix: previous.curve[2].x, iy: previous.curve[2].y } : {}) };
+  });
+}
+
+/** Express the previous instance in the new basis before applying its width or feature deltas. */
+export function rebaseReference(reference: Drawn, mapping: MasterSubdivisionData, ch: string): Drawn {
+  const contours = mapping.glyphs[ch].map((ranges, ci) => assemble(ranges.map(range => {
+    const cubic = part(reference, { contour: ci, segment: range.segment, from: range.t0, to: range.t1 });
+    return { node: cubic[0], curve: cubic, outgoing: true, incoming: true };
+  })));
+  return identifyAuthored({ ...reference, contours }, { digest: mapping.to.digest, glyph: ch });
+}
+
+function rebasedPoint(origin: AuthoredPoint, ranges: SubdivisionSegment[], digest: string): AuthoredPoint {
+  const index = ranges.findIndex(r => r.segment === origin.segment
+    && origin.t >= Math.min(r.t0, r.t1) - 1e-12 && origin.t <= Math.max(r.t0, r.t1) + 1e-12);
+  if (index < 0) throw new Error('A validated basis transition is missing a saved source parameter');
+  const range = ranges[index], t = Math.max(0, Math.min(1, (origin.t - range.t0) / (range.t1 - range.t0)));
+  return { ...origin, digest, segments: ranges.length,
+    segment: t >= 1 - 1e-12 ? (index + 1) % ranges.length : index, t: t >= 1 - 1e-12 ? 0 : t };
+}
+
+function orientation(contour: Node[], reference: Drawn, source: AuthoredGlyph): { contour: number; direction: number } | null {
+  const edges = contour.map((node, i) => interval(node.authored, contour[(i + 1) % contour.length].authored, reference, source));
+  if (edges.some(range => !range)) return null;
+  const ranges = edges.flatMap(range => range && range.from !== range.to ? [range] : []);
+  if (ranges.length < 2) return null;
+  const first = ranges[0], direction = Math.sign(first.to - first.from);
+  return ranges.every(r => r.contour === first.contour && Math.sign(r.to - r.from) === direction)
+    ? { contour: first.contour, direction } : null;
+}
+
+/** Split saved curves exactly, including their edits, so every new master edge can move its own handles. */
+export function rebaseEdits(edited: Drawn, reference: Drawn, mapping: MasterSubdivisionData, ch: string): Drawn {
+  const source = { digest: mapping.from.digest, glyph: ch }, mapped = mapping.glyphs[ch];
+  const directions = edited.contours.map(c => orientation(c, reference, source));
+  const unaffected = directions.flatMap(d => d && mapped[d.contour][0].t1 > mapped[d.contour][0].t0 ? [d.direction] : []);
+  const common = unaffected.length && unaffected.every(d => d === unaffected[0]) ? unaffected[0] : null;
+  const contours = edited.contours.map((contour, ci) => {
+    const edges: RebasedEdge[] = [];
+    contour.forEach((node, ni) => {
+      const next = contour[(ni + 1) % contour.length], range = interval(node.authored, next.authored, reference, source);
+      const original = curve(edited, ci, ni);
+      const cuts = range && range.from !== range.to ? mapped[range.contour]
+        .filter(r => r.segment === range.segment).flatMap(r => [r.t0, r.t1])
+        .map(t => (t - range.from) / (range.to - range.from)).filter(t => t > 1e-12 && t < 1 - 1e-12) : [];
+      const boundaries = [0, ...[...new Set(cuts)].sort((a, b) => a - b), 1];
+      for (let i = 0; i < boundaries.length - 1; i++) {
+        const low = boundaries[i], high = boundaries[i + 1];
+        const head = high === 1 ? original : split(original, high)[0];
+        const cubic = low === 0 ? head : split(head, low / high)[1];
+        let start = node;
+        if (i && range) start = { ...cubic[0], s: 1, authored: { ...source, contour: range.contour, segment: range.segment,
+          t: range.from + (range.to - range.from) * low, segments: reference.contours[range.contour].length } };
+        edges.push({ node: start, curve: cubic,
+          outgoing: !!range || node.ox !== undefined && node.oy !== undefined,
+          incoming: !!range || next.ix !== undefined && next.iy !== undefined });
+      }
+    });
+    let result = assemble(edges).map(node => valid(node.authored, reference, source)
+      ? { ...node, authored: rebasedPoint(node.authored, mapped[node.authored.contour], mapping.to.digest) } : node);
+    const direction = directions[ci];
+    // Repair a source winding defect relative to the saved glyph's global orientation, retaining local reversals.
+    if (direction && direction.direction === common && mapped[direction.contour][0].t1 < mapped[direction.contour][0].t0) {
+      result = result.reverse().map(({ ix, iy, ox, oy, ...node }) => ({ ...node,
+        ...(ox !== undefined && oy !== undefined ? { ix: ox, iy: oy } : {}),
+        ...(ix !== undefined && iy !== undefined ? { ox: ix, oy: iy } : {}) }));
+    }
+    return result;
+  });
+  return { ...edited, contours };
 }
 
 function motions(a: Node[][], b: Node[][]): Motion[] {

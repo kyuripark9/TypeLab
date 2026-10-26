@@ -6,19 +6,22 @@ import { parseSourceRef, type MasterSourceRef, type SourceRef } from './model';
 import { decodeWeightMasters, parseWeightMasters, type WeightMasters } from './masters';
 import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from './program';
 import { decodeWidthMasters, parseWidthMasters } from './width-masters';
+import { decodeMasterSubdivision, parseMasterSubdivision, type MasterSubdivision } from './subdivision';
 
 export interface RegisteredSourceProgram {
   data: SourceProgramData;
   masters: WeightMasters;
   width: ReturnType<typeof decodeWidthMasters> | null;
   features: ReturnType<typeof decodeFeatureMasters> | null;
+  transitions: ReadonlyMap<string, MasterSubdivision>;
 }
 type RegisteredSource =
   | { kind: 'outline-v1'; font: FreeFont }
   | { kind: 'masters-v1'; font: FreeFont; masters: WeightMasters }
   | { kind: 'program-v1'; font: FreeFont; program: RegisteredSourceProgram }
   | { kind: 'width-masters-v1'; base: MasterSourceRef; masters: ReturnType<typeof decodeWidthMasters> }
-  | { kind: 'feature-masters-v1'; base: MasterSourceRef; masters: ReturnType<typeof decodeFeatureMasters> };
+  | { kind: 'feature-masters-v1'; base: MasterSourceRef; masters: ReturnType<typeof decodeFeatureMasters> }
+  | { kind: 'master-subdivision-v1'; subdivision: MasterSubdivision };
 const sources = new Map<string, RegisteredSource>();
 const listeners = new Set<(digest: string) => void>();
 const keyOf = (ref: SourceRef | ProgramAssetRef) => `${ref.kind}:${ref.digest}:${ref.fontId}`;
@@ -60,8 +63,19 @@ export function registerSource(ref: SourceRef | ProgramAssetRef, input: unknown)
     }
     case 'feature-masters-v1': {
       const data = parseFeatureMasters(input), basis = masterBasis(data.base, ref.fontId);
+      const compatibility = data.widthCompatibility;
+      const width = compatibility === 'base-only' ? undefined : sources.get(keyOf(compatibility.width));
+      if (compatibility !== 'base-only' && width?.kind !== 'width-masters-v1') throw new Error('Joint feature masters require their exact width package first');
       if (sources.has(key)) return;
-      entry = { kind: ref.kind, base: data.base, masters: decodeFeatureMasters(data, basis) };
+      entry = { kind: ref.kind, base: data.base, masters: decodeFeatureMasters(data, basis,
+        compatibility !== 'base-only' && width?.kind === 'width-masters-v1' ? { ref: compatibility.width, masters: width.masters } : undefined) };
+      break;
+    }
+    case 'master-subdivision-v1': {
+      const data = parseMasterSubdivision(input);
+      const from = masterBasis(data.from, ref.fontId), to = masterBasis(data.to, ref.fontId);
+      if (sources.has(key)) return;
+      entry = { kind: ref.kind, subdivision: decodeMasterSubdivision(data, { from, to }) };
       break;
     }
     case 'program-v1': {
@@ -83,12 +97,23 @@ export function registerSource(ref: SourceRef | ProgramAssetRef, input: unknown)
         && features.masters.data.widthCompatibility === 'base-only') {
         throw new Error('Authored width and base-only feature masters require a reviewed interaction');
       }
+      if (features?.kind === 'feature-masters-v1' && features.masters.data.widthCompatibility !== 'base-only'
+        && (!data.width || keyOf(features.masters.data.widthCompatibility.width) !== keyOf(data.width))) {
+        throw new Error('Source program requires the exact reviewed feature width');
+      }
+      const transitions = new Map<string, MasterSubdivision>();
+      for (const transition of data.transitions ?? []) {
+        const asset = sources.get(keyOf(transition.mapping));
+        if (asset?.kind !== 'master-subdivision-v1' || keyOf(asset.subdivision.data.from) !== keyOf(transition.from)
+          || keyOf(asset.subdivision.data.to) !== keyOf(data.base)) throw new Error('Source program requires its exact basis transition');
+        transitions.set(transition.from.digest, asset.subdivision);
+      }
       if (sources.has(key)) return;
       const original = basis.masters.masters.find(m => m.weight === basis.masters.defaultWeight);
       if (!original) throw new Error('Source program lacks its original drawing');
       entry = { kind: ref.kind, font: original.font, program: { data, masters: basis.masters,
         width: width?.kind === 'width-masters-v1' ? width.masters : null,
-        features: features?.kind === 'feature-masters-v1' ? features.masters : null } };
+        features: features?.kind === 'feature-masters-v1' ? features.masters : null, transitions } };
       break;
     }
     default: {
