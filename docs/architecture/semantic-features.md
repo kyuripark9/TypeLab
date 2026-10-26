@@ -169,6 +169,28 @@ The production evaluator passes 6,700 cases: Cotton 1,125, Gumdrop 625, Mainline
 
 `tests/feature-masters.test.ts` covers literal endpoints, weight/width interpolation, handle and advance changes, preserved baseline edits, neutral identity, exact dependency binding, complete knots, and coordinate conflicts introduced only by a width column. Candidate references do not enable capabilities until a program adopts them. Cotton and Gumdrop additionally require saved-edit transport across their changed master bases.
 
+## Remaining H coverage on the current width bases
+
+`tools/authored/remaining-crossbars.ts` authors H for the remaining nine styles. Its literal bindings identify original-sheet anchors, fixed ports, and stem rails. The pinned origin maps project those edits into the first-master curves; the exact width-subdivision maps then carry their deltas into each current weight/width drawing. Both handles move with each owned anchor. Fixed ports, advances, neutral bases, and unrelated feature assets remain unchanged.
+
+| Styles | Cap-height travel | Bound region |
+| --- | --- | --- |
+| Sonnet | ±7% | Separate hairline bar; each side follows its actual monotone stem curve at the new height. |
+| Jotter | ±6% | Curved bridge and both necks; interior points blend the two attachment frames. |
+| Funnies | ±8% | Diagonal bridge and the small boundary knees at its joins. |
+| Turnpike | ±10% | Horizontal bridge and four rounded necks. |
+| Ballyhoo, Timber | ±8% | Paired horizontal bar boundaries, with serifs fixed. |
+| Boardwalk, Serenade | ±2.5% | Complete bridge stubs and attachment ports; loops and flourishes stay fixed. |
+| Cathedral | ±3.5% | Central diagonal bridge, with four independently pinned angular attachments. |
+
+Applying the old horizontal width field to a translated Sonnet bar exceeded the existing curve-fit bound. The compiler therefore authors explicit joint endpoints in each width's own attachment frame. It does not relax that bound or add another neutral basis. Vertical-rail motion reduces to the commuting y-only construction. Sonnet retains its existing neutral overlap; this new construction is distinct from the earlier held recipe and does not claim that the earlier clearance review passed.
+
+All nine candidates contain compatible, finite endpoints and pass 75 stored weight/width neutral-identity cases. Those are compiler checks, not optical or filled-topology approval; the user deferred those reviews. Candidate files and complete binding records are in `.audit/masters/crossbars-remaining/manifest.json`. Reproduction reads immutable published dependencies, not previous scratch width files:
+
+```sh
+node --max-old-space-size=512 --import tsx tools/authored/remaining-crossbars.ts --all
+```
+
 ## Next: diagonal bars, legs, and terminals at native widths
 
 The next Mainline joint asset should extend the H coverage to A, R, and c using the exact published width dependency and compatible point basis. Its width knots are 75, 87.5, 100, 125, and 150, and its weight knots are 300, 400, 500, 600, 700, and 800. The remaining three letters require 180 low/high endpoint drawings across 30 weight/width cells.
