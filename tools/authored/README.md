@@ -29,3 +29,14 @@ NODE_OPTIONS=--max-old-space-size=512 node --import tsx tools/authored/review.ts
 ```
 
 Each source gets a full 127-character specimen and a seven-row height comparison, as SVG and PNG. Every row uses the same scale. SVGs include row labels; the JSON manifest lists the row order for the PNGs. The tool reads pinned source snapshots through the server loader and draws the same compiled glyphs used by preview and export. Review the images before accepting geometry changes.
+
+Publish a combined capability revision after generating its assets:
+
+```sh
+node --max-old-space-size=512 --import tsx tools/authored/build-programs.ts \
+  --components fonts/components/manifest.json \
+  --finish tools/authored/source-finishes.json
+node --max-old-space-size=384 --import tsx tools/authored/build-previews.ts
+```
+
+Additional `--features <asset.json>` arguments can join the same run. Changes are composed in argument order and only the final program for each family is published. Component selection requires the exact current weight and width bases. Historical program files remain immutable. `--check` validates the same result without writing; it is a separate verification step.

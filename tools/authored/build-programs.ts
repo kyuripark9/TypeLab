@@ -60,22 +60,19 @@ function describe(data: SourceProgramData, digest: string): ProgramInfo {
 }
 
 const entries = PROGRAM_REVISIONS.map(entry => describe(parseSourceProgram(readAsset('programs', entry.ref.digest)), entry.ref.digest));
-const args = process.argv.slice(2).filter(arg => arg !== '--check'), selected = new Set<string>();
+const args = process.argv.slice(2).filter(arg => arg !== '--check'), selected = new Map<string, SourceProgramData>();
+const previousProgram = (fontId: string) => selected.get(fontId) ?? entries.findLast(entry => entry.ref.fontId === fontId)?.data;
 function addProgram(data: SourceProgramData) {
-  if (selected.has(data.base.fontId)) throw Error('Publish one reviewed program per family in each run');
-  selected.add(data.base.fontId);
-  const digest = hash(JSON.stringify(data) + '\n'), entry = describe(data, digest);
-  publish('programs', data);
-  if (!entries.some(entry => entry.ref.digest === digest)) entries.push(entry);
+  selected.set(data.base.fontId, data);
 }
 for (let i = 0; i < args.length; i += 2) {
   const mode = args[i], file = args[i + 1];
-  if (!file || !['--width', '--features', '--finish', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
-    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
+  if (!file || !['--width', '--features', '--finish', '--components', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
+    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --components manifest.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
   }
   if (mode === '--program') {
     const data = parseSourceProgram(JSON.parse(readFileSync(file, 'utf8')));
-    const previous = entries.findLast(entry => entry.ref.fontId === data.base.fontId)?.data;
+    const previous = previousProgram(data.base.fontId);
     if (previous && previous.base.digest !== data.base.digest && !data.transitions?.some(t => t.from.digest === previous.base.digest)) {
       throw Error('A changed master basis requires an exact transition from the previous program');
     }
@@ -92,8 +89,27 @@ for (let i = 0; i < args.length; i += 2) {
   if (mode === '--finish') {
     const finish = parseSourceFinish(JSON.parse(readFileSync(file, 'utf8')));
     for (const { ref } of new Map(MASTER_REVISIONS.map(info => [info.ref.fontId, info])).values()) {
-      const previous = entries.findLast(entry => entry.ref.fontId === ref.fontId)?.data;
+      const previous = previousProgram(ref.fontId);
       addProgram(previous ? { ...previous, finish } : { format: 'source-program-v1', base: ref, width: null, features: null, finish });
+    }
+    continue;
+  }
+  if (mode === '--components') {
+    const input: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    if (!Array.isArray(input)) throw new TypeError('Expected a source component manifest');
+    const components = input.map(entry => {
+      if (!entry || typeof entry !== 'object' || !('base' in entry) || !('width' in entry) || !('ref' in entry)) {
+        throw new TypeError('Invalid source component manifest entry');
+      }
+      return parseSourceProgram({ format: 'source-program-v1', base: entry.base, width: entry.width, features: null, components: entry.ref });
+    });
+    for (const { ref } of new Map(MASTER_REVISIONS.map(info => [info.ref.fontId, info])).values()) {
+      const previous = previousProgram(ref.fontId);
+      if (!previous) throw Error(`Components require an existing program for ${ref.fontId}`);
+      const match = components.findLast(item => item.base.fontId === previous.base.fontId && item.base.digest === previous.base.digest
+        && item.width?.digest === previous.width?.digest);
+      if (!match?.components) throw Error(`No components match the current weight/width bases for ${ref.fontId}`);
+      addProgram({ ...previous, components: match.components });
     }
     continue;
   }
@@ -118,16 +134,21 @@ for (let i = 0; i < args.length; i += 2) {
     asset = { kind: 'feature-masters-v1', digest: publish('features', data), fontId: base.fontId };
     if (mode === '--feature-asset') continue;
   }
-  const previous = entries.findLast(entry => entry.ref.fontId === base.fontId)?.data;
+  const previous = previousProgram(base.fontId);
   if (previous && previous.base.digest !== base.digest) throw Error('A changed weight basis requires compatible replacements for every existing program asset');
   const data: SourceProgramData = { ...previous, format: 'source-program-v1', base,
     width: asset.kind === 'width-masters-v1' ? asset : previous?.width ?? null,
     features: asset.kind === 'feature-masters-v1' ? asset : previous?.features ?? null };
   addProgram(data);
 }
+for (const data of selected.values()) {
+  const digest = hash(JSON.stringify(data) + '\n'), entry = describe(data, digest);
+  publish('programs', data);
+  if (!entries.some(entry => entry.ref.digest === digest)) entries.push(entry);
+}
 const catalogFile = resolve(root, 'shared/source/program-catalog.ts'), template = readFileSync(catalogFile, 'utf8');
 const catalog = template.replace(/export const PROGRAM_REVISIONS: readonly ProgramInfo\[\] = [\s\S]*?;\n/, `export const PROGRAM_REVISIONS: readonly ProgramInfo[] = ${JSON.stringify(entries, null, 2)};\n`);
 if (!check) mkdirSync(resolve(root, 'fonts/programs'), { recursive: true });
 write(resolve(root, 'fonts/programs/manifest.json'), JSON.stringify(entries, null, 2) + '\n');
 write(catalogFile, catalog);
-process.stdout.write(JSON.stringify({ programs: entries.length, selected: [...selected], check }) + '\n');
+process.stdout.write(JSON.stringify({ programs: entries.length, selected: [...selected.keys()], check }) + '\n');
