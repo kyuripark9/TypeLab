@@ -27,6 +27,7 @@ import { componentMembership, componentOwnership, componentPlan, mapComponents, 
 import { sourceMonoAdvance, spaceSourceDrawing, unspaceSourceDrawing, type SourceMonoPlan } from './spacing';
 import { omitMarkComponents, sourceMarkAnchor, sourceMarkDrawing } from './marks';
 import { dotShapeContour, shapeSourceDots, sourceDotShape } from './dots';
+import { contrastWeights, mixAxes, mixDrawn } from './contrast';
 
 export interface SourceStatus { ref: SourceRef | ProgramAssetRef; state: 'missing' | 'ready'; missingCharacters: string[] }
 interface SourceInstance {
@@ -52,8 +53,14 @@ function formOf(p: Params, ch: string): GlyphForm | null {
 }
 /** A form at the weight and width `p` draws its letters at. */
 function formDrawing(form: GlyphForm, p: Params): Drawn {
-  const program = sourceProgram(p.sourceProgram!)!, info = masterInfo(p.sourceProgram)!;
-  return glyphFormDrawing(form, weightAt(p, info), widthAt(p, program.width!.data.axis));
+  const program = sourceProgram(p.sourceProgram!)!, width = widthAt(p, program.width!.data.axis), { x, y } = strokeWeights(p);
+  return mixDrawn(glyphFormDrawing(form, x, width), glyphFormDrawing(form, y, width));
+}
+
+/** The weights `p` draws its letters' widths (`x`) and heights (`y`) at: both its weight, but under Contrast. */
+function strokeWeights(p: Params): { x: number; y: number } {
+  const info = masterInfo(p.sourceProgram)!, weight = weightAt(p, info), policy = programInfo(p.sourceProgram)?.data.contrast;
+  return policy ? contrastWeights(policy, weight, info, p.contrast, p.freeAt.contrast ?? DEFAULTS.contrast) : { x: weight, y: weight };
 }
 
 /** `form`: the letter draws an alternate form, which the original letter's dot binding doesn't reach. */
@@ -146,7 +153,7 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
     const sameFrame = sourceControls.every(key => p[key] === at[key]) && p.weight === at.weight
       && p.sourceProgram?.digest === at.sourceProgram?.digest
       && (!programInfo(p.sourceProgram)?.data.features || FEATURE_CONTROLS.every(key => p[key] === at[key]))
-      && dotShapeOf(p) === dotShapeOf(at);
+      && dotShapeOf(p) === dotShapeOf(at) && (!programInfo(p.sourceProgram)?.data.contrast || p.contrast === at.contrast);
     if (sameFrame && (!programInfo(p.sourceProgram)?.data.components || p.dotSize === at.dotSize)) {
       return asGlyph(ch, edited, target.M, p.sourceProgram?.kind === 'program-v1');
     }
@@ -242,11 +249,15 @@ function variedFont(p: Params): FreeFont | undefined {
   if (!p.sourceProgram) return undefined;
   const authored = sourceProgram(p.sourceProgram), info = masterInfo(p.sourceProgram);
   if (authored && info) {
-    const weight = weightAt(p, info), width = authored.width ? widthAt(p, authored.width.data.axis) : null;
-    const baseline = authored.width && width !== null ? interpolateWidthMasters(authored.width, weight, width) : interpolateMasters(authored.masters, weight);
-    const featured = authored.features ? evaluateFeatureMasters(authored.features, { baseline, weight,
-      width,
-      values: { crossbar: p.crossbar, tail: p.tail, terminalLength: p.terminalLength } }) : baseline;
+    const width = authored.width ? widthAt(p, authored.width.data.axis) : null, strokes = strokeWeights(p);
+    const at = (weight: number) => {
+      const baseline = authored.width && width !== null ? interpolateWidthMasters(authored.width, weight, width) : interpolateMasters(authored.masters, weight);
+      return authored.features ? evaluateFeatureMasters(authored.features, { baseline, weight,
+        width,
+        values: { crossbar: p.crossbar, tail: p.tail, terminalLength: p.terminalLength } }) : baseline;
+    };
+    // under Contrast the letters' widths and heights come from two weights, point for point
+    const across = at(strokes.x), featured = strokes.y === strokes.x ? across : mixAxes(across, at(strokes.y));
     // round or square dots replace the bound ones point for point, before proportions, edits and Size
     const dots = dotShapeOf(p);
     return dots && authored.components && authored.data.dots ? shapeSourceDots(featured, authored.components, authored.data.dots, dots) : featured;
@@ -285,7 +296,8 @@ function composedAccent(font: FreeFont, p: Params, ch: string): Glyph | null {
     const nominal = p.outlines[recipe.base] ? evaluated(font, { ...p, outlines: {} }, recipe.base)?.drawn : letter;
     at = sourceMarkAnchor(recipe, letter, nominal ?? letter, identity);
   }
-  const drawnMark = sourceMarkDrawing(marks, ch, weightAt(p, info), widthAt(p, program.width.data.axis)), dots = dotShapeOf(p);
+  const strokes = strokeWeights(p), width = widthAt(p, program.width.data.axis), dots = dotShapeOf(p);
+  const drawnMark = mixDrawn(sourceMarkDrawing(marks, ch, strokes.x, width), sourceMarkDrawing(marks, ch, strokes.y, width));
   // a diaeresis or a dot above takes the shape the letters' dots do
   const mark = dots && program.data.dots?.marks.includes(ch)
     ? { ...drawnMark, contours: drawnMark.contours.map(contour => dotShapeContour(contour, dots, program.data.dots!)) } : drawnMark;

@@ -28,6 +28,8 @@ export function sourceSupports(p: Pick<Params, 'sourceProgram'> & Partial<Pick<P
   if (key in SOURCE_FORM_CONTROLS) return sourceFormLetters(p, key, glyph).length > 0;
   if (glyph && p.sourceForms?.[glyph] && (key === 'dotSize' || key === 'crossbar' || key === 'tail' || key === 'terminalLength')) return false;
   if (key === 'mono') return !!programInfo(p.sourceProgram)?.data.spacing;
+  // Contrast mixes the style's own weights: the whole font, or a letter alone in any form
+  if (key === 'contrast') return !!programInfo(p.sourceProgram)?.data.contrast;
   // round and square dots reach the whole font, or a letter alone that has dots (and isn't drawn in another form)
   if (key === 'dots') return !!programInfo(p.sourceProgram)?.data.dots
     && (!glyph || !p.sourceForms?.[glyph] && (programInfo(p.sourceProgram)?.componentGlyphs?.includes(glyph) ?? false));

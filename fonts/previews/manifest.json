@@ -1732,5 +1732,294 @@
     "ascent": 700,
     "descent": 280,
     "endCorrections": {}
+  },
+  {
+    "styleId": "grotesque",
+    "source": {
+      "kind": "program-v1",
+      "digest": "a0ac63e891a456d42719dda8f93ba71df052d26a256b99a3e8f5cfd3d99855eb",
+      "fontId": "Mainline:600"
+    },
+    "paramsDigest": "a64bb319b4c234119d7ca5a5c4c382c18b874fcf83b75a9e9588ec2249864f26",
+    "digest": "5a7b4a7ecde425f763654acf3df5dd0b76b37f0a38af4ef933c9c9a1135d080c",
+    "ascent": 711,
+    "descent": 284.40000000000003,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "humanist",
+    "source": {
+      "kind": "program-v1",
+      "digest": "139b214e73a7582f2854665d725456a51fea4acb75568c663fd268ae7aa9abb1",
+      "fontId": "Parlance:500"
+    },
+    "paramsDigest": "6a9c03856eec0a1f970bda21e65295267d066bfa9118fcf8e0217446408b6293",
+    "digest": "4f1aea95d2cc9e76586714aaae57c8253df13140110c9e0893fd1c8f886adb56",
+    "ascent": 771,
+    "descent": 308.40000000000003,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "geometric",
+    "source": {
+      "kind": "program-v1",
+      "digest": "ee61eed802bb94881fe6abb3c99592aac6f72c81ae8eafb8f851cc76831260f8",
+      "fontId": "Compass:300"
+    },
+    "paramsDigest": "ac0dfb44e09efdeab1349c4677f242b7e2f01fe358d9b0faca4a9f5c7ab79f61",
+    "digest": "d2d9c7a80916819812efd9d931daaf9528d7f23d6ca7a0cde2981377b6e79dd5",
+    "ascent": 708,
+    "descent": 283.2,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "soft",
+    "source": {
+      "kind": "program-v1",
+      "digest": "8f4a2fa68b27e15eb8ec3541ea967a43a22901cd4dd9467b8ffeba7774f2cc0e",
+      "fontId": "Cotton:300"
+    },
+    "paramsDigest": "cefcbfdd678bb47fa420123a5f64b361fa005daa558a76328fef9d51f26cb764",
+    "digest": "ceedd4952522ecb4713f0e604469883e4d049ef720d2307741330a24354a451f",
+    "ascent": 705,
+    "descent": 282,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "industrial",
+    "source": {
+      "kind": "program-v1",
+      "digest": "2bd01d5d827475d44ba0221e4e283d402365ec03d1e3e61e9ed3790a6af893b7",
+      "fontId": "Turnpike:500"
+    },
+    "paramsDigest": "ea5b099b0d0a5b452f6385c6039f6cd7b578ddb814f3422a6df07612d74af7b9",
+    "digest": "761a8df7f79d5b5e4cbc8a4a0b53a6d778d2245c67a0ba1dfdd813ecc9499449",
+    "ascent": 634,
+    "descent": 253.60000000000002,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "squircle",
+    "source": {
+      "kind": "program-v1",
+      "digest": "ddb7a8a92786bfae223af28085f5cd1cc5dbf62acc09cc24e761dd21b869ef68",
+      "fontId": "Orbital:600"
+    },
+    "paramsDigest": "6601b2b3a56506bb0afafa73ef4dd96dcb8f384248b8caa8c8060ecd06122022",
+    "digest": "e6792c4b6b545828493c2b5c074a887474cdea550e5f3e05c8927891fc8e4cc9",
+    "ascent": 768,
+    "descent": 307.20000000000005,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "chunkyround",
+    "source": {
+      "kind": "program-v1",
+      "digest": "e31f822f09b6a95dab2816aa8d5da21f910f158b1ca2c832553e4c24d04155bf",
+      "fontId": "Gumdrop:700"
+    },
+    "paramsDigest": "d86a4ccb065b58af59fd6892d8cdb29e31fa6151c421419d7d7cc853336cbb36",
+    "digest": "ba9eb1ee533c49b5f53a1041ddb1491e0f4924c8e4f6885a3112a5d96f41f60b",
+    "ascent": 690,
+    "descent": 276,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "serif",
+    "source": {
+      "kind": "program-v1",
+      "digest": "4b136e3daf306f91cfbe77160133276dc1e4715e934980997d23244ad2dd7b54",
+      "fontId": "Almanac:500"
+    },
+    "paramsDigest": "d0e1e98ec37ee62b64b7ce6690c4a9d425c4962ccaf7a5654c34074fe60723e7",
+    "digest": "22b9f07df8cf912e6546c8019ac7d1f92f35dc9f1ae05d883b77ae09926e09ce",
+    "ascent": 770,
+    "descent": 308,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "oldstyle",
+    "source": {
+      "kind": "program-v1",
+      "digest": "c10065cbd5dddb3792882b2867c7566f1573c5fcd5a7394eab3223cb5692b4f0",
+      "fontId": "Vellum:400"
+    },
+    "paramsDigest": "b6db939363c579914eb741d7ca0bcd50d3424332f1158177c04ea7be1d13c589",
+    "digest": "abde8a53875c7ecb74a501da7c67312f582a8ebb963d43130cdb53285f721fa6",
+    "ascent": 731,
+    "descent": 292.40000000000003,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "didone",
+    "source": {
+      "kind": "program-v1",
+      "digest": "340e807c83fd3e20fd3e9d2159f21b03c01e74846aaf87ce9aa0461388a349f5",
+      "fontId": "Couture:600"
+    },
+    "paramsDigest": "8e3885bda178dd671031375d1b40c2dbde1de06c40b7131be507c1a6a9cf56c3",
+    "digest": "de8461b8c0e165f7c5d8de771525f2cc9177fe5e9f26037f8664f2c00595f104",
+    "ascent": 717,
+    "descent": 286.8,
+    "endCorrections": {
+      " ": 2.842170943040401e-14,
+      " ": 2.842170943040401e-14
+    }
+  },
+  {
+    "styleId": "serifitalic",
+    "source": {
+      "kind": "program-v1",
+      "digest": "eb7a8316e4f0832f7e1afb5a6278a7c7579e369f19078cf731281f3547fedca5",
+      "fontId": "Sonnet:400i"
+    },
+    "paramsDigest": "fd82de885fbf3cd28d2badee8a7c4285358de60c8136ca51fd912c2ffaaae244",
+    "digest": "3c26f0609698b04341901f591aa12c3b57f7d292d09525c0dbd8ca4d0f5e7a4f",
+    "ascent": 708,
+    "descent": 283.2,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "fatface",
+    "source": {
+      "kind": "program-v1",
+      "digest": "54edcba4af295ad04d640e8692710e206bbf99446fca7be0539ee98b6a8ebc7b",
+      "fontId": "Ballyhoo:400"
+    },
+    "paramsDigest": "2fed262ed5a522321e4b9dcfc075c017b7561b3b5a24f1e52699ac73161a3a67",
+    "digest": "726231c8ae8d7cf291455dd1ae9314103730e95037adba29d74df3ab77889ac2",
+    "ascent": 700,
+    "descent": 280,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "softslab",
+    "source": {
+      "kind": "program-v1",
+      "digest": "6f9067b2f146cc4c5a53542aab52e0fd1c514209d1999153dd7a62e886f97157",
+      "fontId": "Hearth:600"
+    },
+    "paramsDigest": "b2667d265987cefa712a9d27d8d98517537c71a8154eef1a8fd0c32a85af4c29",
+    "digest": "81751423321f2161ea4daee9f9a829762012ae2899fa25c380a702604d0e61d4",
+    "ascent": 711,
+    "descent": 284.40000000000003,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "woodtype",
+    "source": {
+      "kind": "program-v1",
+      "digest": "db3742a5ff2afc65898883b4cb8a690f4d558618a32ead11cedba7af7631d4fb",
+      "fontId": "Timber:400"
+    },
+    "paramsDigest": "278e55c7190dfb3f7b4867021afa70b8ef52d830b9b0fbd931b4387e29255dc4",
+    "digest": "6a74423abdcde018e5e5acfbadd26bbbef32d0d9a64b1597d3603fc18aab577a",
+    "ascent": 778,
+    "descent": 311.20000000000005,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "code",
+    "source": {
+      "kind": "program-v1",
+      "digest": "1bfc42b79ece104986563952db1e9cc2c2eaa58ef11c377b1be3ef867210e89d",
+      "fontId": "Kernel:500"
+    },
+    "paramsDigest": "875dbcd968ebfd98d6a3c5045281275f024cd592c4aac07b2f243548e9f4e334",
+    "digest": "da7e70d00fab27b0231e2ec74e09a7b483fef295f7c09b96223bda0492db4e82",
+    "ascent": 698,
+    "descent": 279.2,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "typewriter",
+    "source": {
+      "kind": "program-v1",
+      "digest": "8e5f0d0a1e57a37f1bb2ea008c057895051fce04d95a732d15dc8a1c8149ab51",
+      "fontId": "Dispatch:400"
+    },
+    "paramsDigest": "580a4ae36af8270fa95c9d2b8438a71900d17d8b82ae024c199b64105f30823b",
+    "digest": "718d997f132c1f18fc39a0596b0997ac37bc23d47fe1f57a36b6678e809859b3",
+    "ascent": 568,
+    "descent": 227.20000000000002,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "comic",
+    "source": {
+      "kind": "program-v1",
+      "digest": "f17e8047c4748c8c77992f7dbe4a2d01edecbaaf9d1b3494df3a1b0a8bbb4750",
+      "fontId": "Funnies:400"
+    },
+    "paramsDigest": "9fa86f7f4e023abd68306bbe61fcf9586fcf8e225bf41c20d589da910b0bcd29",
+    "digest": "226ae8b735cec523c5392f4f0c05ccc5ca0e6ee4fd9fd7d488c239256dfb2293",
+    "ascent": 782,
+    "descent": 312.8,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "casual",
+    "source": {
+      "kind": "program-v1",
+      "digest": "4cef2d6b9d3a670821820fa4a44ed7405e0807bd08c39cc08844b52d4a679801",
+      "fontId": "Jotter:400"
+    },
+    "paramsDigest": "0a7bc78d8991dde644b747b212aa8ab0b15357bdd2f73d29299a77e501ef26d8",
+    "digest": "344c76e1d435a09aa8313d927595d82f55d62a44c3b7067f7e6e819cb78203e2",
+    "ascent": 606,
+    "descent": 242.4,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "informal",
+    "source": {
+      "kind": "program-v1",
+      "digest": "bb518a9b773f8749379707e76a922e35ef448be753cb10da62091ee66e1f930d",
+      "fontId": "Boardwalk:400"
+    },
+    "paramsDigest": "4f3fdb62ef9dd53f0e959b5ffe125b034b17314c988ffa9ef47ac44e00a5c0f8",
+    "digest": "f75d3f5ad4056362dab59ca477359eb6e44297f014a34a8d69ffe056827b2611",
+    "ascent": 822,
+    "descent": 328.8,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "chancery",
+    "source": {
+      "kind": "program-v1",
+      "digest": "6a8c7b25c7cbe6d641eec18102a8550bbf733812a33ae0b821c5749fa66d1ec2",
+      "fontId": "Serenade:400"
+    },
+    "paramsDigest": "018a4194780881cb2c679e85dd9611363a8c76801b090f12be15b9bd4c0aab1c",
+    "digest": "2a66b27f01fc0a8be781cb67cee90401f60c44b629d80a8609457691f2dee59f",
+    "ascent": 750,
+    "descent": 300,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "blackletter",
+    "source": {
+      "kind": "program-v1",
+      "digest": "c8c21a3c2c33e374de1acdd4e737d1dbb04caac272a34f22fbda22665884a1a8",
+      "fontId": "Cathedral:400"
+    },
+    "paramsDigest": "2d146edb6f1041e0ffeb7b1cfa2ca32b3cf0b8ab7d458c32c8f0a89610307753",
+    "digest": "b1035c0e26d14e6f31a4f7ba254f9de170ad6613f67165a7b3eb677726430a48",
+    "ascent": 694,
+    "descent": 277.6,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "block",
+    "source": {
+      "kind": "program-v1",
+      "digest": "c4f2901ce6b997f04a1186ab5508bb4aa373d6b7d4f910ccbbf0a7c3c534c433",
+      "fontId": "Bulwark:700"
+    },
+    "paramsDigest": "12d1a1fd4ef8796e581611c76e8bc856d44e1788d3065f9f1c6c3065de9623a7",
+    "digest": "3484510a2a6d4f16b2342f59f356a56f21cb817ac36e55292d2ff2039b14efb5",
+    "ascent": 700,
+    "descent": 280,
+    "endCorrections": {}
   }
 ]

@@ -1,5 +1,5 @@
 /* Explicit program upgrades preserve existing coordinates and initialize newly authored controls. */
-import type { Params } from '../params';
+import { DEFAULTS, type Params } from '../params';
 import { FEATURE_CONTROLS } from './feature-masters';
 import { masterInfo, masterBasisForEditing } from './master-catalog';
 import type { SourceRef } from './model';
@@ -8,6 +8,7 @@ import { widthAt, widthSliderAt } from './width-masters';
 import { sourceFinishDefaults, sourceFinishExtends } from './finish';
 import { sourceSpacingExtends } from './spacing';
 import { sourceDotsExtend } from './dots';
+import { sourceContrastExtends } from './contrast';
 
 export interface ProgramUpgrade { program: ProgramInfo; resetWidth: boolean }
 
@@ -27,6 +28,7 @@ export function programUpgrade(ref: SourceRef | null): ProgramUpgrade | null {
   if (previous?.data.components && !target.data.components) return null;
   if (previous?.componentGlyphs?.some(glyph => !target.componentGlyphs?.includes(glyph))) return null;
   if (previous?.data.dots && (!target.data.dots || !sourceDotsExtend(previous.data.dots, target.data.dots))) return null;
+  if (previous?.data.contrast && (!target.data.contrast || !sourceContrastExtends(previous.data.contrast, target.data.contrast))) return null;
   if (previous?.data.forms?.some(choice => !target.data.forms?.some(next => next.ref.digest === choice.ref.digest))) return null;
   return { program: target, resetWidth: !!target.width && !previous?.width };
 }
@@ -73,6 +75,11 @@ export function adoptProgram(params: Params): Params | null {
     }
   }
   if (program.data.spacing && !previous?.data.spacing) { out.mono = 0; out.freeAt.mono = 0; }
+  // a Contrast saved where the program drew none drew the style's own: it starts there
+  if (program.data.contrast && !previous?.data.contrast) {
+    out.contrast = out.freeAt.contrast ?? DEFAULTS.contrast;
+    for (const own of Object.values(glyphs)) delete own.contrast;
+  }
   // a Dots value saved where the program had no shapes drew the style's own: it starts there
   if (program.data.dots && !previous?.data.dots) {
     out.dots = 'auto'; out.freeAt.dots = 'auto';

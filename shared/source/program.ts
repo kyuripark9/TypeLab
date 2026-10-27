@@ -4,6 +4,7 @@ import { parseSourceFinish, type SourceFinishPolicy } from './finish';
 import { parseSourceSpacing, type SourceSpacingPolicy } from './spacing';
 import { parseSourceFormChoices, type GlyphFormRef, type SourceFormChoice } from './forms';
 import { parseSourceDots, type SourceDotPolicy } from './dots';
+import { parseSourceContrast, type SourceContrastPolicy } from './contrast';
 
 export interface WidthMasterRef { readonly kind: 'width-masters-v1'; readonly digest: string; readonly fontId: string }
 export interface FeatureMasterRef { readonly kind: 'feature-masters-v1'; readonly digest: string; readonly fontId: string }
@@ -26,6 +27,8 @@ export interface SourceProgramData {
   forms?: SourceFormChoice[];
   /** the round and square dots it offers, drawn in place of its bound dots */
   dots?: SourceDotPolicy;
+  /** Contrast drawn from its own weights */
+  contrast?: SourceContrastPolicy;
   finish?: SourceFinishPolicy;
   spacing?: SourceSpacingPolicy;
   transitions?: BasisTransition[];
@@ -46,7 +49,7 @@ function assetRef<K extends ProgramAssetRef['kind'] | SourceMarksRef['kind']>(in
 
 /** Dependencies name the same family; their payloads must also be validated against the complete base reference. */
 export function parseSourceProgram(input: unknown): SourceProgramData {
-  const value = object(input), fields = ['format', 'base', 'width', 'features', 'components', 'marks', 'forms', 'dots', 'finish', 'spacing', 'transitions'];
+  const value = object(input), fields = ['format', 'base', 'width', 'features', 'components', 'marks', 'forms', 'dots', 'contrast', 'finish', 'spacing', 'transitions'];
   if (value.format !== 'source-program-v1' || Object.keys(value).some(key => !fields.includes(key))) {
     throw new TypeError('Invalid or unsupported source program');
   }
@@ -69,6 +72,7 @@ export function parseSourceProgram(input: unknown): SourceProgramData {
     ...(marks ? { marks } : {}),
     ...(forms ? { forms } : {}),
     ...(dots ? { dots } : {}),
+    ...('contrast' in value ? { contrast: parseSourceContrast(value.contrast) } : {}),
     ...('finish' in value ? { finish: parseSourceFinish(value.finish) } : {}),
     ...('spacing' in value ? { spacing: parseSourceSpacing(value.spacing) } : {}),
     ...('transitions' in value ? { transitions: transitions(value.transitions, base) } : {}),

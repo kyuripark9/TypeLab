@@ -12,6 +12,7 @@ import { parseSourceSpacing } from '../../shared/source/spacing';
 import { parseSourceMarks } from '../../shared/source/marks';
 import { parseGlyphForm } from '../../shared/source/forms';
 import { parseSourceDots } from '../../shared/source/dots';
+import { parseSourceContrast } from '../../shared/source/contrast';
 import { decodeWeightMasters, parseWeightMasters } from '../../shared/source/masters';
 import type { MasterSourceRef } from '../../shared/source/model';
 import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from '../../shared/source/program';
@@ -80,8 +81,8 @@ function addProgram(data: SourceProgramData) {
 }
 for (let i = 0; i < args.length; i += 2) {
   const mode = args[i], file = args[i + 1];
-  if (!file || !['--width', '--features', '--finish', '--spacing', '--components', '--marks', '--forms', '--dots', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
-    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --spacing policy.json, --components manifest.json, --marks manifest.json, --forms manifest.json, --dots manifest.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
+  if (!file || !['--width', '--features', '--finish', '--spacing', '--components', '--marks', '--forms', '--dots', '--contrast', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
+    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --spacing policy.json, --components manifest.json, --marks manifest.json, --forms manifest.json, --dots manifest.json, --contrast policy.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
   }
   if (mode === '--program') {
     const data = parseSourceProgram(JSON.parse(readFileSync(file, 'utf8')));
@@ -99,9 +100,10 @@ for (let i = 0; i < args.length; i += 2) {
     publish('widths', parseWidthMasters(input, basis(parsed.base)));
     continue;
   }
-  if (mode === '--finish' || mode === '--spacing') {
+  if (mode === '--finish' || mode === '--spacing' || mode === '--contrast') {
     const input: unknown = JSON.parse(readFileSync(file, 'utf8'));
-    const extension = mode === '--finish' ? { finish: parseSourceFinish(input) } : { spacing: parseSourceSpacing(input) };
+    const extension = mode === '--finish' ? { finish: parseSourceFinish(input) } : mode === '--spacing' ? { spacing: parseSourceSpacing(input) }
+      : { contrast: parseSourceContrast(input) };
     for (const { ref } of new Map(MASTER_REVISIONS.map(info => [info.ref.fontId, info])).values()) {
       const previous = previousProgram(ref.fontId);
       addProgram(previous ? { ...previous, ...extension } : { format: 'source-program-v1', base: ref, width: null, features: null, ...extension });

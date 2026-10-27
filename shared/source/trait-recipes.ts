@@ -44,6 +44,15 @@ export function sourceTraitOptions(p: Params, id: TraitId, legacy: readonly Trai
       { id: 'steep', label: 'Right 15°', angle: 15 }
     ].map(o => ({ id: o.id, label: o.label, set: { slant: base.slant + o.angle / 20 } }))
       .filter(o => o.set.slant >= 0 && o.set.slant <= 1);
+  } else if (id === 'contrast') {
+    // from the style's own contrast toward either end of the weights it mixes
+    const pick = base.contrast;
+    options = [
+      { id: 'reverse', label: 'Reversed', set: { contrast: 0 } },
+      { id: 'even', label: 'Lower', set: { contrast: pick / 2 } },
+      { id: 'moderate', label: 'Original', set: { contrast: pick } },
+      { id: 'high', label: 'Higher', set: { contrast: (1 + pick) / 2 } }
+    ];
   } else if (id === 'cuts') {
     options = legacy.map(o => o.id === 'slice' ? { ...o, set: { slice: .5, slicePos: .5, sliceRound: 0 } } : o);
   }
