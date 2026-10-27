@@ -19,7 +19,8 @@ function useReach(k: keyof Params, skip: boolean): Reach | null {
   useEffect(() => {
     if (skip) return;
     let t: ReturnType<typeof setTimeout> | undefined;
-    const show = (reach: Reach) => setR(o => o?.view === view && o.reach.shows === reach.shows && o.reach.elsewhere.join() === reach.elsewhere.join() ? o : { view, reach });
+    const show = (reach: Reach) => setR(o => o?.view === view && o.reach.shows === reach.shows && o.reach.reason === reach.reason
+      && o.reach.elsewhere.join() === reach.elsewhere.join() ? o : { view, reach });
     const work = () => {
       const p = useEditor.getState().params;
       let reach = cached(p);
@@ -51,6 +52,7 @@ export function useReachNote(k: keyof Params) {
 function ReachNote({ k, reach }: { k: keyof Params; reach: Reach }) {
   const ch = useEditor(s => s.inspect), letter = useEditor(letterOf);
   const own = useEditor(s => !!s.inspect && !letterOf(s) && isGlyphKey(k) && s.params.glyphs[s.inspect]?.[k] !== undefined);
+  if (reach.reason === 'monospace') return <p className="reach-note">Full Mono gives spaces the same advance as letters. Reduce Mono to adjust word spacing.</p>;
   if (own && ch) {
     return (
       <p className="reach-note">

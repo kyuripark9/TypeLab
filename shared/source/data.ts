@@ -20,7 +20,7 @@ function number(value: unknown, at: string): number {
   return value;
 }
 
-function packedNode(value: unknown, at: string): PackedNode {
+export function parsePackedNode(value: unknown, at = 'node'): PackedNode {
   const node = array(value, at);
   const x = number(node[0], `${at}.x`), y = number(node[1], `${at}.y`);
   if (node.length === 2) return [x, y];
@@ -47,7 +47,7 @@ export function parseSourceData(value: unknown, at = 'source'): FreeFontData {
       const contourAt = `${glyphAt}.contours[${i}]`;
       const contour = array(value, contourAt);
       if (!contour.length) throw Error(`${contourAt}: empty contour`);
-      return contour.map((node, j) => packedNode(node, `${contourAt}[${j}]`));
+      return contour.map((node, j) => parsePackedNode(node, `${contourAt}[${j}]`));
     });
     glyphs[ch] = [advance, contours];
   }

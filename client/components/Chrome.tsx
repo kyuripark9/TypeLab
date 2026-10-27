@@ -3,7 +3,7 @@ import { memo, useDeferredValue, useEffect, useLayoutEffect, useRef, useState, t
 import { CATEGORIES, GROUPS, controlFor, controlInUse, findSettings, pagesFor, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
 import { Link } from 'react-router';
 import { CHARSET, type Font, type Glyph } from '../../shared/engine';
-import { sourceVisible } from '../../shared/source/capabilities';
+import { sourceAllows, sourceVisible } from '../../shared/source/capabilities';
 import { DRAWER_QUERY, n1, shortcut } from '../lib/hooks';
 import { ink } from '../lib/preview';
 import { DESIGNS } from '../lib/routes';
@@ -88,7 +88,9 @@ export function Nav() {
   const letter = useEditor(letterOf);
   const [query, setQuery] = useState(''), [pick, setPick] = useState(0);
   const found = query.trim() ? findSettings(query, 100) : null;
-  const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm, gridRows, sourceProgram, fill }, letter) && sourceVisible({ sourceProgram, fill }, h.key, letter)).slice(0, 12) ?? null;
+  const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm, gridRows, sourceProgram, fill }, letter)
+    && sourceVisible({ sourceProgram, fill }, h.key, letter)
+    && Object.entries(h.optionValues ?? {}).every(([key, value]) => sourceAllows({ sourceProgram }, key, value, letter))).slice(0, 12) ?? null;
   // the list under the search: the settings found, or the pages
   const list = useRef<HTMLDivElement>(null), rows = navRows(pagesFor({ build, blockForm, gridRows, sourceProgram, fill }, letter));
   useEffect(() => { list.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }, [pick]);

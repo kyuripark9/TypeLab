@@ -35,7 +35,8 @@ Publish a combined capability revision after generating its assets:
 ```sh
 node --max-old-space-size=512 --import tsx tools/authored/build-programs.ts \
   --components fonts/components/manifest.json \
-  --finish tools/authored/source-finishes.json
+  --finish tools/authored/source-finishes.json \
+  --spacing tools/authored/source-spacing.json
 node --max-old-space-size=384 --import tsx tools/authored/build-previews.ts
 ```
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildFont } from '../shared/engine';
-import { DEFAULTS, freeAtOf, type Params } from '../shared/params';
+import { DEFAULTS, drawnAtOf, freeAtOf, type Params } from '../shared/params';
 import { programForFont, programInfo } from '../shared/source/program-catalog';
 import { masterInfo } from '../shared/source/master-catalog';
 import { sourceSupports } from '../shared/source/capabilities';
@@ -22,9 +22,12 @@ function params(fontId: string): Params {
 
 describe('source spacing', () => {
   it('uses the installed advances in text, word wrapping, and hard wrapping, including narrow marks and spaces', () => {
-    const before = params('Serenade:400');
+    const base: Params = { ...params('Serenade:400'), sideBearing: 0, wordSpacing: 0 }, mark = buildFont(base).glyph("'")?.drawn;
+    assert.ok(mark);
+    // no bundled width draws a mark narrower than the tightest tracking, so the apostrophe is redrawn narrow in Points
+    const before: Params = { ...base, outlines: { "'": { ...mark, adv: 55, at: drawnAtOf(base, "'") } } };
     for (const letterSpacing of [0, .2, .4]) {
-      const p = { ...before, weight: 0, width: 0, sideBearing: 0, wordSpacing: 0, letterSpacing }, preview = buildFont(p);
+      const p = { ...before, letterSpacing }, preview = buildFont(p);
       const bytes = buildOTF(p, 'Source spacing proof');
       const installed = opentype.parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
       if (letterSpacing === 0) {
@@ -77,9 +80,11 @@ describe('source spacing', () => {
     assert.equal(useEditor.getState().traits.spacing, 'loose'); assert.equal(p.letterSpacing, .4);
     assert.equal(p.sourceProgram?.fontId, 'Couture:600');
     assert.ok(buildFont(p).layout('HH', 10000)[0].items[1].x > buildFont({ ...p, letterSpacing: .2 }).layout('HH', 10000)[0].items[1].x);
-    assert.equal(sourceSupports(p, 'mono'), false);
-    actions.setTrait('spacing', 'mono'); assert.equal(useEditor.getState().traits.spacing, undefined);
-    assert.equal(useEditor.getState().params.mono, 0);
+    assert.equal(p.mono, 0);
+    assert.equal(sourceSupports(p, 'mono'), !!programInfo(p.sourceProgram)?.data.spacing);
+    actions.setTrait('spacing', 'mono'); assert.equal(useEditor.getState().traits.spacing, 'mono');
+    assert.equal(useEditor.getState().params.mono, 1);
+    actions.setTrait('spacing', 'normal'); assert.equal(useEditor.getState().params.mono, 0);
   });
 
   it('keeps legacy text placement on its original unrounded rule', () => {

@@ -12,6 +12,7 @@ import { DEFAULTS, freeAtOf } from '../shared/params';
 import { LIT_MS, actions, designInput, hasWork, hlKeyOf, isDirty, useEditor } from '../client/state/editor';
 import { sourceForFont } from '../shared/source/catalog';
 import { designSourceForFont } from '../shared/source/master-catalog';
+import { programInfo } from '../shared/source/program-catalog';
 
 const state = () => useEditor.getState();
 const serif = STYLES.find(s => s.id === 'serif')!;
@@ -69,7 +70,10 @@ describe('the editor', () => {
   it('starts a style in its free font, spaced as the font spaces its letters', () => {
     actions.loadStyle('serif');
     assert.equal(state().params.freeFont, STYLE_FONTS.serif);
-    assert.deepEqual(state().params.freeAt, { ...freeAtOf(serif.params), weight: 0.5, crossbar: .5, tail: .5, terminalLength: .5, fill: 'solid' });
+    const width = programInfo(designSourceForFont(STYLE_FONTS.serif))?.width; assert.ok(width);
+    const neutralWidth = (width.neutral - width.min) / (width.max - width.min);
+    assert.deepEqual(state().params.freeAt, { ...freeAtOf(serif.params), weight: 0.5, width: neutralWidth, crossbar: .5, tail: .5, terminalLength: .5, fill: 'solid' });
+    assert.equal(state().params.width, neutralWidth);
     assert.deepEqual([state().params.letterSpacing, state().params.wordSpacing], [DEFAULTS.letterSpacing, DEFAULTS.wordSpacing]);
     assert.deepEqual(state().params.sourceProgram, designSourceForFont(STYLE_FONTS.serif));
   });

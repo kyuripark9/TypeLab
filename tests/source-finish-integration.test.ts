@@ -7,6 +7,8 @@ import { DEFAULTS, drawnAtOf, freeAtOf, sanitizeParams, type Params } from '../s
 import { MASTER_REVISIONS, masterInfo } from '../shared/source/master-catalog';
 import { PROGRAM_REVISIONS, programForFont, programInfo } from '../shared/source/program-catalog';
 import { sourceAllows, sourceSupports } from '../shared/source/capabilities';
+import { sourceFinishFills } from '../shared/source/finish';
+import { FILLS } from '../shared/params/options';
 import { loadDesignSources, loadSource } from '../server/sources';
 import { buildOTF } from '../server/export';
 import { opentype } from '../server/opentype';
@@ -30,8 +32,10 @@ describe('published source finishes', () => {
       assert.equal(sourceSupports(current, 'fill'), true);
       assert.equal(sourceAllows(current, 'fill', 'solid'), true);
       assert.equal(sourceAllows(current, 'fill', 'shadow'), true);
-      assert.equal(sourceAllows(current, 'fill', 'pixels'), false);
-      assert.equal(sourceSupports(current, 'dotGain'), false);
+      const reviewed = program.data.finish ? sourceFinishFills(program.data.finish) : [];
+      for (const fill of FILLS) assert.equal(sourceAllows(current, 'fill', fill), reviewed.includes(fill), `${info.ref.fontId} ${fill}`);
+      for (const fill of ['inline', 'wire'] as const) assert.equal(sourceAllows(current, 'fill', fill), false);
+      assert.equal(sourceSupports(current, 'dotGain'), !!program.data.finish?.patterns);
       assert.ok(program.data.finish?.slice);
       for (const key of ['slice', 'slicePos', 'sliceRound'] as const) assert.equal(sourceSupports(current, key), true);
       const old: Params = { ...current, sourceProgram: program.data.base, width: DEFAULTS.width,
@@ -88,7 +92,8 @@ describe('published source finishes', () => {
     assert.deepEqual(buildFont(adopted).glyph('R')?.cmds, buildFont(original).glyph('R')?.cmds);
     actions.travel(-1); assert.deepEqual(useEditor.getState().params, original);
     actions.travel(1); assert.deepEqual(useEditor.getState().params, adopted);
-    actions.setOption('fill', 'pixels'); assert.equal(useEditor.getState().params.fill, 'solid');
+    actions.setOption('fill', 'inline'); assert.equal(useEditor.getState().params.fill, 'solid');
+    actions.setOption('fill', 'pixels'); assert.equal(useEditor.getState().params.fill, 'pixels');
     actions.setOption('fill', 'shadow'); assert.equal(useEditor.getState().params.fill, 'shadow');
     actions.resetParam('fill'); assert.equal(useEditor.getState().params.fill, 'solid');
   });
@@ -109,7 +114,10 @@ describe('published source finishes', () => {
     assert.equal(adopted.slice, 0); assert.equal(adopted.slicePos, .5); assert.equal(adopted.sliceRound, 0);
     assert.deepEqual(adopted.glyphs.R, { tail: .9 });
     assert.deepEqual(adopted.outlines, original.outlines);
-    assert.deepEqual(buildFont(adopted).glyph('R')?.cmds, buildFont(original).glyph('R')?.cmds);
+    // the clean saved R moves onto the current program's repaired basis: it draws as that program's own R (to rounding)
+    const moved = buildFont(adopted).glyph('R')?.cmds, own = buildFont({ ...adopted, outlines: {} }).glyph('R')?.cmds;
+    assert.ok(moved && own); assert.equal(moved.length, own.length);
+    moved.forEach((c, i) => c.forEach((v, j) => typeof v === 'number' ? assert.ok(Math.abs(v - (own[i][j] as number)) < 1e-6) : assert.equal(v, own[i][j])));
     actions.travel(-1); assert.deepEqual(useEditor.getState().params, original);
     actions.travel(1); assert.deepEqual(useEditor.getState().params, adopted);
   });

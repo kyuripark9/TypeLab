@@ -25,12 +25,11 @@ export type SourceFinishPlan = ({ kind: 'solid' } | {
   kind: 'shadow'; dx: number; dy: number; gap: number; tolerance: number; minArea: number;
 } | ({ kind: 'outline' } & HollowPlan) | { kind: 'pattern'; pattern: SourcePatternPlan }) & { slice?: SlicePlan; texture?: SourceTexturePlan };
 const FILLS: readonly Params['fill'][] = ['solid', 'shadow'];
-const CONTROLS: readonly (keyof Params)[] = ['fill', 'module'];
 export const sourceFinishFills = (policy: SourceFinishPolicy): readonly Params['fill'][] => [
   ...FILLS, ...(policy.outline ? ['outline' as const] : []), ...(policy.patterns ? sourcePatternFills(policy.patterns) : [])
 ];
 export const sourceFinishControls = (policy: SourceFinishPolicy, fill?: Params['fill']): readonly (keyof Params)[] => [...new Set<keyof Params>([
-  ...CONTROLS, ...(policy.slice ? ['slice', 'slicePos', 'sliceRound'] as const : []),
+  'fill', ...(fill === 'solid' ? [] : ['module'] as const), ...(policy.slice ? ['slice', 'slicePos', 'sliceRound'] as const : []),
   ...(policy.patterns ? sourcePatternControls(policy.patterns, fill) : []),
   ...(policy.texture ? ['wobble', 'rough'] as const : [])
 ])];

@@ -3,7 +3,7 @@
 import { FORM_OPTIONS, CONTROLS, SUBS, BAR_END_OPTIONS, FILL_OPTIONS, SERIF_BASE_OPTIONS, SERIF_INNER_OPTIONS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS,
   SERIF_TIP_OPTIONS, STORY_OPTIONS, TERMINAL_SHAPES, controlFor, type ActiveKey, type ControlKey, type FormKey } from './controls';
 import { CATEGORIES } from './pages';
-import type { CategoryId } from '../params';
+import type { CategoryId, Params } from '../params';
 
 /* ---------- finding a setting by name */
 
@@ -29,31 +29,37 @@ export interface SettingHit {
   parent?: string;
   /** the named shape the search found it by, as Slab under Serifs */
   option?: string;
+  /** The settings represented by that named option, for source capability filtering. */
+  optionValues?: Partial<Params>;
 }
 
-type Entry = SettingHit & { fields: [string, number][]; shapes: string[] };
+interface NamedOption { label: string; values: Partial<Params> }
+type Entry = SettingHit & { fields: [string, number][]; shapes: NamedOption[] };
 /** The words of `s`, lowercase: its runs of letters and digits. */
 export const searchTerms = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 /** Whether every word of `q` starts a word of `text` (both already lowercase, split by spaces): how settings search
     and style search (searchMatches in tags.ts) both match what is typed. */
 export const startsWords = (text: string, q: string[]) => q.every(w => ` ${text}`.includes(` ${w}`));
-const opt = (list: readonly (readonly [string, string])[]) => list.map(o => o[1]);
+const opt = <K extends keyof Params>(key: K, list: readonly (readonly [Params[K], string])[]): NamedOption[] => list.map(([value, label]) => {
+  const values: Partial<Params> = {}; values[key] = value;
+  return { label, values };
+});
 
 let INDEX: Entry[] | null = null;
 function settingIndex(): Entry[] {
   if (INDEX) return INDEX;
   // the named shapes each control lets you pick
-  const shapes: Partial<Record<ControlKey, string[]>> = {
-    terminal: [...TERMINAL_SHAPES.flatMap(g => [g.label, ...g.shapes.map(s => s.label)]), ...opt(FORM_OPTIONS.terminalRun.options)],
-    serif: opt(SERIF_SHAPE_OPTIONS), serifTip: opt(SERIF_TIP_OPTIONS), serifBase: opt(SERIF_BASE_OPTIONS), serifSides: opt(SERIF_SIDE_OPTIONS),
-    serifInner: opt(SERIF_INNER_OPTIONS), story: [...opt(STORY_OPTIONS), ...opt(FORM_OPTIONS.aForm.options)], fill: opt(FILL_OPTIONS), crossbar: opt(BAR_END_OPTIONS)
+  const shapes: Partial<Record<ControlKey, NamedOption[]>> = {
+    terminal: [...TERMINAL_SHAPES.flatMap(g => [{ label: g.label, values: {} }, ...g.shapes.map(s => ({ label: s.label, values: { terminal: s.terminal, terminalForm: s.form } }))]), ...opt('terminalRun', FORM_OPTIONS.terminalRun.options)],
+    serif: opt('serifShape', SERIF_SHAPE_OPTIONS), serifTip: opt('serifTip', SERIF_TIP_OPTIONS), serifBase: opt('serifBase', SERIF_BASE_OPTIONS), serifSides: opt('serifSides', SERIF_SIDE_OPTIONS),
+    serifInner: opt('serifInner', SERIF_INNER_OPTIONS), story: [...opt('story', STORY_OPTIONS), ...opt('aForm', FORM_OPTIONS.aForm.options)], fill: opt('fill', FILL_OPTIONS), crossbar: opt('barEnds', BAR_END_OPTIONS)
   };
-  for (const k of Object.keys(FORM_OPTIONS) as FormKey[]) if (k in CONTROLS) shapes[k as ControlKey] = opt(FORM_OPTIONS[k].options);
+  for (const k of Object.keys(FORM_OPTIONS) as FormKey[]) if (k in CONTROLS) shapes[k as ControlKey] = opt(k, FORM_OPTIONS[k].options);
   const pageName = (c: ControlKey) => CATEGORIES.find(x => x.id === CONTROLS[c].cat)!.label;
   const entries: Entry[] = (Object.keys(CONTROLS) as ControlKey[]).map(k => {
-    const c = CONTROLS[k], named = [...new Set(shapes[k] ?? [])];
+    const c = CONTROLS[k], named = (shapes[k] ?? []).filter((shape, i, all) => all.findIndex(other => other.label === shape.label) === i);
     return { key: k, page: c.cat, label: c.label, shapes: named, fields: [[c.label, 100], [ALSO[k] ?? '', 85], [c.tech, 60], [c.friendly, 50],
-      [`${c.lo ?? ''} ${c.hi ?? ''}`, 40], [named.join(' '), 65], [pageName(k), 20], [c.explain, 10]] };
+      [`${c.lo ?? ''} ${c.hi ?? ''}`, 40], [named.map(shape => shape.label).join(' '), 65], [pageName(k), 20], [c.explain, 10]] };
   });
   for (const k of Object.keys(SUBS) as (keyof typeof SUBS)[]) {
     const d = SUBS[k], parent = controlFor(k), c = CONTROLS[parent];
@@ -83,8 +89,10 @@ export function findSettings(query: string, limit = 12): SettingHit[] {
     if (!score) continue;
     const label = e.fields[0][0];
     if (label.startsWith(q.join(' '))) score += 30;
-    const option = startsWords(label, q) ? undefined : e.shapes.find(n => startsWords(searchTerms(n).join(' '), q));
-    hits.push({ key: e.key, page: e.page, label: e.label, parent: e.parent, option, score });
+    const optionWords = q.filter(word => !startsWords(label, [word]));
+    const option = optionWords.length ? e.shapes.find(n => startsWords(searchTerms(n.label).join(' '), optionWords)) : undefined;
+    hits.push({ key: e.key, page: e.page, label: e.label, parent: e.parent, option: option?.label,
+      ...(option ? { optionValues: option.values } : {}), score });
   }
   return hits.sort((a, b) => b.score - a.score || order(a) - order(b)).slice(0, limit).map(({ score: _, ...h }) => h);
 }

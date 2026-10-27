@@ -190,8 +190,8 @@ describe('explicit source-program adoption', () => {
   it('adopts feature controls at neutral while retaining earlier Points frames and unrelated letter settings', () => {
     const sourceProgram = mastersForFont('Couture:600');
     assert.ok(sourceProgram);
-    const original: Params = { ...params(), sourceProgram, width: .8, crossbar: .17, tail: .81, terminalLength: .33,
-      glyphs: { H: { crossbar: .3, width: .4 }, R: { tail: .9 }, c: { terminalLength: .7 } } };
+    const original: Params = { ...params(), sourceProgram, slant: .7, crossbar: .17, tail: .81, terminalLength: .33,
+      glyphs: { H: { crossbar: .3, slant: .4 }, R: { tail: .9 }, c: { terminalLength: .7 } } };
     original.outlines = { H: { adv: 500, contours: [[{ x: 40, y: 0 }, { x: 40, y: 700 }, { x: 400, y: 700 }, { x: 400, y: 0 }]], at: drawnAtOf(original, 'H') } };
     actions.loadDesign({ id: 'old-features', name: 'Old features', styleId: 'didone', params: original, createdAt: '', updatedAt: '' });
     useEditor.setState({ scope: 'all', inspect: null });
@@ -202,8 +202,8 @@ describe('explicit source-program adoption', () => {
     assert.deepEqual([adopted.crossbar, adopted.tail, adopted.terminalLength], [.5, .5, .5]);
     assert.deepEqual([adopted.freeAt.crossbar, adopted.freeAt.tail, adopted.freeAt.terminalLength], [.5, .5, .5]);
     assert.deepEqual([adopted.glyphs.H?.crossbar, adopted.glyphs.R?.tail, adopted.glyphs.c?.terminalLength], [undefined, undefined, undefined]);
-    assert.equal(adopted.width, .8);
-    assert.equal(adopted.glyphs.H?.width, .4);
+    assert.equal(adopted.slant, .7);
+    assert.equal(adopted.glyphs.H?.slant, .4);
     assert.deepEqual(adopted.outlines, before.outlines);
     assert.equal(adopted.outlines.H.at?.crossbar, .3);
     actions.travel(-1);

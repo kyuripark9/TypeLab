@@ -8,6 +8,7 @@ import { decodeFeatureMasters, FEATURE_CONTROLS, featureSupportedGlyphs, parseFe
 import { decodeSourceComponents, parseSourceComponents } from '../../shared/source/components';
 import { masterInfo, MASTER_REVISIONS } from '../../shared/source/master-catalog';
 import { parseSourceFinish } from '../../shared/source/finish';
+import { parseSourceSpacing } from '../../shared/source/spacing';
 import { decodeWeightMasters, parseWeightMasters } from '../../shared/source/masters';
 import type { MasterSourceRef } from '../../shared/source/model';
 import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from '../../shared/source/program';
@@ -67,8 +68,8 @@ function addProgram(data: SourceProgramData) {
 }
 for (let i = 0; i < args.length; i += 2) {
   const mode = args[i], file = args[i + 1];
-  if (!file || !['--width', '--features', '--finish', '--components', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
-    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --components manifest.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
+  if (!file || !['--width', '--features', '--finish', '--spacing', '--components', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
+    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --spacing policy.json, --components manifest.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
   }
   if (mode === '--program') {
     const data = parseSourceProgram(JSON.parse(readFileSync(file, 'utf8')));
@@ -86,11 +87,12 @@ for (let i = 0; i < args.length; i += 2) {
     publish('widths', parseWidthMasters(input, basis(parsed.base)));
     continue;
   }
-  if (mode === '--finish') {
-    const finish = parseSourceFinish(JSON.parse(readFileSync(file, 'utf8')));
+  if (mode === '--finish' || mode === '--spacing') {
+    const input: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    const extension = mode === '--finish' ? { finish: parseSourceFinish(input) } : { spacing: parseSourceSpacing(input) };
     for (const { ref } of new Map(MASTER_REVISIONS.map(info => [info.ref.fontId, info])).values()) {
       const previous = previousProgram(ref.fontId);
-      addProgram(previous ? { ...previous, finish } : { format: 'source-program-v1', base: ref, width: null, features: null, finish });
+      addProgram(previous ? { ...previous, ...extension } : { format: 'source-program-v1', base: ref, width: null, features: null, ...extension });
     }
     continue;
   }

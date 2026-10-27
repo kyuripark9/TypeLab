@@ -148,7 +148,8 @@ describe('published partial feature drawings', () => {
         width = { ref, masters: decodeWidthMasters(parseWidthMasters(JSON.parse(content.toString()), dependency), basis) };
       }
       const features = decodeFeatureMasters(data, dependency, width);
-      const pilot = data.widthCompatibility === 'base-only' && ['Couture:600', 'Hearth:600', 'Mainline:600'].includes(data.base.fontId);
+      const pilot = ['Couture:600', 'Hearth:600'].includes(data.base.fontId)
+        || data.widthCompatibility === 'base-only' && data.base.fontId === 'Mainline:600';
       const expected: Record<FeatureControl, string[]> = pilot
         ? { crossbar: ['H', 'A'], tail: ['R'], terminalLength: ['c'] }
         : { crossbar: ['H'], tail: [], terminalLength: [] };

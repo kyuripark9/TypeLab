@@ -26,7 +26,7 @@ export interface FreeFont extends Omit<FreeFontData, 'glyphs'> { glyphs: Record<
 const fonts = new Map<string, FreeFont>();
 const listeners = new Set<(id: string) => void>();
 
-const unpack = (n: PackedNode): Node => {
+export const unpackNode = (n: PackedNode): Node => {
   const out: Node = { x: n[0], y: n[1] };
   if (n.length > 2 && n[2] != null && n[3] != null) { out.ix = n[2]; out.iy = n[3]; }
   if (n.length > 4) { out.ox = n[4] as number; out.oy = n[5] as number; }
@@ -43,7 +43,7 @@ export const packNode = (n: Node): PackedNode =>
 /** Make a font's letters available to draw with. */
 export function decodeFreeFont(data: FreeFontData): FreeFont {
   const glyphs: Record<string, Drawn> = {};
-  for (const [ch, [adv, contours]] of Object.entries(data.glyphs)) glyphs[ch] = { adv, contours: contours.map(c => c.map(unpack)) };
+  for (const [ch, [adv, contours]] of Object.entries(data.glyphs)) glyphs[ch] = { adv, contours: contours.map(c => c.map(unpackNode)) };
   return { ...data, glyphs };
 }
 export function registerFreeFont(data: FreeFontData) {

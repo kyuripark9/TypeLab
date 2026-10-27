@@ -145,6 +145,7 @@ export function looksOf(p: Params, original: readonly Look[] = []): Look[] {
   const finishLooks = new Set<Look>(['pixel', 'stencil', 'outline', 'inline', 'shadow']);
   const result = original.filter(look => !finishLooks.has(look));
   const program = programInfo(p.sourceProgram), info = masterInfo(p.sourceProgram);
+  if (program?.data.spacing && p.mono === 1) result.push('mono');
   if (program?.data.finish) {
     if (p.fill === 'outline' || p.fill === 'wire') result.push('outline');
     else if (p.fill === 'shadow') result.push('shadow');

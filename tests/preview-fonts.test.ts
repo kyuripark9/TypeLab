@@ -19,8 +19,10 @@ import { opentype } from '../server/opentype';
 
 const parseFont = (bytes: Buffer) => opentype.parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
 function expectedPath(cmds: Cmd[]) {
-  return cmds.map(c => c[0] === 'M' || c[0] === 'L' ? { type: c[0], x: Math.round(c[1]), y: Math.round(c[2]) }
-    : c[0] === 'C' ? { type: 'C', x1: Math.round(c[1]), y1: Math.round(c[2]), x2: Math.round(c[3]), y2: Math.round(c[4]), x: Math.round(c[5]), y: Math.round(c[6]) }
+  // a font file stores whole units, with no negative zero
+  const r = (v: number) => Math.round(v) || 0;
+  return cmds.map(c => c[0] === 'M' || c[0] === 'L' ? { type: c[0], x: r(c[1]), y: r(c[2]) }
+    : c[0] === 'C' ? { type: 'C', x1: r(c[1]), y1: r(c[2]), x2: r(c[3]), y2: r(c[4]), x: r(c[5]), y: r(c[6]) }
       : { type: 'Z' });
 }
 

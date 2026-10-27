@@ -16,6 +16,7 @@ import { adoptProgram } from '../../shared/source/adoption';
 import { onSource, sourceReady } from '../../shared/source/registry';
 import { sourceAllows, sourceControl, sourceSupports, sourceVisible } from '../../shared/source/capabilities';
 import { sourceStyleParams } from '../../shared/source/style';
+import { sourceFinishDefaults } from '../../shared/source/finish';
 import { DEFAULT_NAME, cleanName, slug, type Design, type DesignInput } from '../../shared/design';
 import { cleanLog, mergeLogs, ownOf, packLog, recordEdits, sameOwn, withOwn, type LetterEdit, type LetterLog } from '../../shared/letter-log';
 import { cleanVersions, keyOf, mergeVersions, packVersions, recordVersion, sameDesign, type FontLog, type FontVersion, type Made, type Snapshot } from '../../shared/font-log';
@@ -546,11 +547,11 @@ export const actions = {
     }
     const st = styleById(s.styleId) ?? STYLES[0];
     const info = masterInfo(s.params.sourceProgram), program = programInfo(s.params.sourceProgram);
+    const finishDefaults: Partial<Params> = program?.data.finish ? sourceFinishDefaults(program.data.finish) : {};
     actions.setOption(key, s.params.sourceProgram && key === 'height' ? DEFAULTS[key]
       : program?.width && key === 'width' ? (program.width.neutral - program.width.min) / (program.width.max - program.width.min)
       : program?.data.features && (key === 'crossbar' || key === 'tail' || key === 'terminalLength') ? .5
-      : program?.data.finish && key === 'fill' ? 'solid'
-      : program?.data.finish && key === 'module' ? .5
+      : finishDefaults[key] !== undefined ? finishDefaults[key]
       : program?.data.spacing && key === 'mono' ? 0
       : info && key === 'weight' ? (info.defaultWeight - info.min) / (info.max - info.min) : st.params[key]);
   },
