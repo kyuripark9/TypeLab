@@ -2,7 +2,7 @@
 import { useLayoutEffect, type ReactNode } from 'react';
 import { PINCH_SUBS, SERIF_ARM_SUBS, CATEGORIES, CONTROLS, DOT_SUBS, ROUND_SUBS, TERMINAL_SUBS, WEIGHT_SUBS, controlFor, controlInUse, pagesFor, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
 import type { NumericParam, SubControlDef } from '../../../shared/params';
-import { sourceControl, sourceNotice, sourceVisible } from '../../../shared/source/capabilities';
+import { SOURCE_FORM_CONTROLS, sourceControl, sourceNotice, sourceVisible } from '../../../shared/source/capabilities';
 import { mastersForFont, masterInfo } from '../../../shared/source/master-catalog';
 import { programInfo } from '../../../shared/source/program-catalog';
 import { programUpgrade } from '../../../shared/source/adoption';
@@ -12,7 +12,7 @@ import { ScopeIcon, letterControls } from '../Inspector';
 import { Explainer } from './heads';
 import { SliderControl, BarEndsControl, CutControl } from './SliderControl';
 import { EachCorner, EachStroke } from './LetterOwn';
-import { TerminalControl, StoryControl, type LetterFormKey, FormControl, SerifControl, type SerifFormKey, SerifFormControl, FillControl } from './ShapeControls';
+import { TerminalControl, StoryControl, type LetterFormKey, FormControl, SerifControl, type SerifFormKey, SerifFormControl, FillControl, SourceFormControl } from './ShapeControls';
 
 export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
   const serifs = useParam('serif'), shape = useParam('serifShape'), pointed = shape === 'wedge' || shape === 'diamond', outside = useParam('serifSides') === 'outside';
@@ -144,6 +144,7 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
     : sourceProgram && k === 'roundness' ? { ...CONTROLS[k], label: 'Pattern corners' } : CONTROLS[k];
   if (sourceProgram && k === 'terminal') return <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} parts={parts} />;
   if (sourceProgram && k === 'dots') return <SliderControl k="dotSize" def={{ ...DOT_SUBS.dotSize, label: 'Dot size' }} parts={parts} />;
+  if (sourceProgram && k in SOURCE_FORM_CONTROLS) return <SourceFormControl k={k} parts={parts} />;
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'story') return <StoryControl parts={parts} />;
   if (c.type === 'form') return <FormControl k={k as LetterFormKey} parts={parts} />;

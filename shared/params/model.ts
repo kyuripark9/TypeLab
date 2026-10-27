@@ -3,6 +3,7 @@
    entry there (the compiler asks for it). */
 import type { Drawn } from '../engine/outline';
 import type { SourceRef } from '../source/model';
+import type { GlyphFormRef } from '../source/forms';
 import type { FreeAt, GlyphParams } from './spec';
 import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Build, CellJoin, Diagonals, GridRows, Dots, Fill, GForm, IForm, JForm, KForm, MForm, Mirror, QForm, RForm,
   SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from './options';
@@ -124,6 +125,9 @@ export interface Params {
   geoHuman: number; softSharp: number; classicFuture: number; playfulFormal: number;
   /** letters customized on their own: each overrides some of the settings above, by character */ glyphs: Record<string, GlyphParams>;
   /** letters drawn by hand with the pen, by character: drawn as they are, the settings above no longer shape them */ outlines: Record<string, Drawn>;
+  /** a source letter's alternate form, by character: drawn in place of the original letter (none, the original) */ sourceForms: Record<string, GlyphFormRef>;
+  /** Points drawings of a source letter's forms not in use, kept under the form each was drawn on (formEditKey) to come
+      back when that form is picked again */ sourceFormEdits: Record<string, Drawn>;
   /** the free font the letters are written in (a font id, see fontId in shared/free-fonts.ts), '' for letters built from the settings:
       drawn as the font has them, and moved by the settings as far as they're moved from those it was picked at (freeAt) */ freeFont: string;
   /** the settings (of FREE_AT_KEYS) the free font's own letters stand for, as its style had them when it was picked:

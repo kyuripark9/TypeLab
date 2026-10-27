@@ -4,13 +4,14 @@ import { parseSourceData } from './data';
 import { decodeFeatureMasters, parseFeatureMasters } from './feature-masters';
 import { parseSourceRef, type MasterSourceRef, type SourceRef } from './model';
 import { decodeWeightMasters, parseWeightMasters, type WeightMasters } from './masters';
-import { parseSourceProgram, type OutlineMasterMapRef, type ProgramAssetRef, type SourceProgramData, type SubdivisionRef } from './program';
+import { parseSourceProgram, type OutlineMasterMapRef, type ProgramAssetRef, type SourceProgramData, type SubdivisionRef, type WidthMasterRef } from './program';
 import { decodeWidthMasters, parseWidthMasters } from './width-masters';
 import { decodeMasterSubdivision, parseMasterSubdivision, type MasterSubdivision } from './subdivision';
 import { decodeOutlineMasterMap, parseOutlineMasterMap, type OutlineMasterMap } from './outline-master-map';
 import { decodeSourceComponents, parseSourceComponents, type SourceComponents } from './components';
 import { decodeSourceMarks, parseSourceMarks, type SourceMarks } from './marks';
 import type { SourceMarksRef } from './program';
+import { decodeGlyphForm, parseGlyphForm, type GlyphForm, type GlyphFormRef } from './forms';
 
 export interface RegisteredSourceProgram {
   data: SourceProgramData;
@@ -28,7 +29,8 @@ type RegisteredSource =
   | { kind: 'feature-masters-v1'; base: MasterSourceRef; masters: ReturnType<typeof decodeFeatureMasters> }
   | { kind: 'source-components-v1'; components: SourceComponents }
   | { kind: 'master-subdivision-v1'; subdivision: MasterSubdivision }
-  | { kind: 'outline-master-map-v1'; mapping: OutlineMasterMap };
+  | { kind: 'outline-master-map-v1'; mapping: OutlineMasterMap }
+  | { kind: 'glyph-form-masters-v1'; form: GlyphForm };
 const sources = new Map<string, RegisteredSource>();
 const listeners = new Set<(digest: string) => void>();
 const keyOf = (ref: SourceRef | ProgramAssetRef) => `${ref.kind}:${ref.digest}:${ref.fontId}`;
@@ -101,6 +103,15 @@ export function registerSource(ref: SourceRef | ProgramAssetRef, input: unknown)
       entry = { kind: ref.kind, mapping: decodeOutlineMasterMap(data, { from: { ref: data.from, font }, to }) };
       break;
     }
+    case 'glyph-form-masters-v1': {
+      const value = input && typeof input === 'object' ? input as Record<string, unknown> : {};
+      const basis = masterBasis(value.base, ref.fontId), width = sources.get(keyOf(parseWidthRef(value.width, ref.fontId)));
+      if (width?.kind !== 'width-masters-v1' || keyOf(width.base) !== keyOf(basis.ref)) throw new Error('A letter form requires its exact width package first');
+      const data = parseGlyphForm(input, basis, { ref: parseWidthRef(value.width, ref.fontId), masters: width.masters });
+      if (sources.has(key)) return;
+      entry = { kind: ref.kind, form: decodeGlyphForm(data, ref) };
+      break;
+    }
     case 'program-v1': {
       const data = parseSourceProgram(input), basis = masterBasis(data.base, ref.fontId);
       const width = data.width ? sources.get(keyOf(data.width)) : undefined;
@@ -155,6 +166,12 @@ export function registerSource(ref: SourceRef | ProgramAssetRef, input: unknown)
   for (const listener of listeners) listener(ref.digest);
 }
 
+function parseWidthRef(input: unknown, fontId: string): WidthMasterRef {
+  const value = input && typeof input === 'object' ? input as Record<string, unknown> : {};
+  if (value.kind !== 'width-masters-v1' || typeof value.digest !== 'string' || value.fontId !== fontId) throw new Error('Authored asset does not name its width package');
+  return { kind: 'width-masters-v1', digest: value.digest, fontId };
+}
+
 export const sourceReady = (ref: SourceRef | ProgramAssetRef): boolean => sources.has(keyOf(ref));
 
 /* Accent marks are large and only an export of accented letters reads them, so they register apart from the program
@@ -170,6 +187,10 @@ export function registerSourceMarks(ref: SourceMarksRef, input: unknown): void {
   for (const listener of listeners) listener(ref.digest);
 }
 export const sourceMarks = (ref: SourceMarksRef): SourceMarks | undefined => marks.get(`${ref.kind}:${ref.digest}:${ref.fontId}`);
+export function sourceForm(ref: GlyphFormRef): GlyphForm | undefined {
+  const source = sources.get(keyOf(ref));
+  return source?.kind === 'glyph-form-masters-v1' ? source.form : undefined;
+}
 export function sourceSubdivision(ref: SubdivisionRef): MasterSubdivision | undefined {
   const source = sources.get(keyOf(ref));
   return source?.kind === 'master-subdivision-v1' ? source.subdivision : undefined;

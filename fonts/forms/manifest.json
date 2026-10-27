@@ -1,0 +1,242 @@
+[
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "c4d54a2dc341eac86d230d6458ea88374f679d16440906656ce02a008efbc23d",
+      "fontId": "Mainline:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "44ce1daebc31f46d098f0f37a84023aba0f2689404d5aa529a8c0bcb261d3033",
+      "fontId": "Mainline:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "55e40c9a42f15d14cbd44011cbb107ef5c9b2ce08d12bbc7cf937009b19ca017",
+      "fontId": "Mainline:600"
+    },
+    "glyph": "g",
+    "id": "ss01",
+    "label": "Two-storey"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "6232a7a33e4ccdcff305ec609f8532f95f8b8b1bdba1416edc355dc01ae0a401",
+      "fontId": "Mainline:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "44ce1daebc31f46d098f0f37a84023aba0f2689404d5aa529a8c0bcb261d3033",
+      "fontId": "Mainline:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "55e40c9a42f15d14cbd44011cbb107ef5c9b2ce08d12bbc7cf937009b19ca017",
+      "fontId": "Mainline:600"
+    },
+    "glyph": "R",
+    "id": "ss03",
+    "label": "Curved leg"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "f148caa30c46e624258c8c3d53b217274cbcfccc051513fcba8d037c5005db23",
+      "fontId": "Parlance:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3f5e7e22afe6910db983a6532ae90df62aa3b3611b2698f4caedd34193ee5b95",
+      "fontId": "Parlance:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4bd6f693c92546671858f839a603219dca3811764becf18f587256a4d0f246b5",
+      "fontId": "Parlance:500"
+    },
+    "glyph": "g",
+    "id": "ss01",
+    "label": "One-storey"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "8ec4c06aca61b4d764dcdecda0b4c5b75a800a90b833881a74a457ec4668990d",
+      "fontId": "Parlance:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3f5e7e22afe6910db983a6532ae90df62aa3b3611b2698f4caedd34193ee5b95",
+      "fontId": "Parlance:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4bd6f693c92546671858f839a603219dca3811764becf18f587256a4d0f246b5",
+      "fontId": "Parlance:500"
+    },
+    "glyph": "I",
+    "id": "ss01",
+    "label": "Bars"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "0443d5e908f8db139826eaf5f73e5bc6dd45495f27efdc1504117200f02292b5",
+      "fontId": "Compass:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
+      "fontId": "Compass:300"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "692ef6a1d7e545f0f7da2ef2b512dd500c334d89599fdb3c9eb7a84e3223fbae",
+      "fontId": "Compass:300"
+    },
+    "glyph": "a",
+    "id": "ss02",
+    "label": "Two-storey"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "8740b911b5021a80dc7aa72dd26f8594b64f5cb80f611cbf61edc1906e96f477",
+      "fontId": "Cotton:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e79ee882db3b4b75825be583381d1f791886c305b9b6cbecf8cce410856b14fa",
+      "fontId": "Cotton:300"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "2ef1047e72e7d515e876e30a12a0ded6f1aca412cdea57af6ff47dc1c78f18c1",
+      "fontId": "Cotton:300"
+    },
+    "glyph": "a",
+    "id": "ss01",
+    "label": "One-storey"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "ac53cb2e1bc34239b67622bd2ee95663c6235a8272891a9694c8525f10ac27c0",
+      "fontId": "Cotton:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e79ee882db3b4b75825be583381d1f791886c305b9b6cbecf8cce410856b14fa",
+      "fontId": "Cotton:300"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "2ef1047e72e7d515e876e30a12a0ded6f1aca412cdea57af6ff47dc1c78f18c1",
+      "fontId": "Cotton:300"
+    },
+    "glyph": "l",
+    "id": "ss02",
+    "label": "Plain"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "97c16c8b30bbe02aac1885e39b11851b2476300844069cb8a51ee26c87129276",
+      "fontId": "Vellum:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "db318a507de92d6adcea03fca0522125e2b08f14156125bd5bbe10f0926d1356",
+      "fontId": "Vellum:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "bb1d04b31de89d3901c4836a29061e451be1b0fb4bb20eed93f772b1ec212f0f",
+      "fontId": "Vellum:400"
+    },
+    "glyph": "Q",
+    "id": "ss06",
+    "label": "Long tail"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "248e40a35022a7e81c47403b2d294821ac10e8f0126746f504b54f242dbd857e",
+      "fontId": "Hearth:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e56354a4417393b45cb5b47023524b5da7ee29ad4b13bb5cb6b52c36bd0dac8e",
+      "fontId": "Hearth:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "d79b734ecc433284d4c053af742252d0a3dac6b11a1efce97d73c5a55d6862af",
+      "fontId": "Hearth:600"
+    },
+    "glyph": "g",
+    "id": "ss01",
+    "label": "Two-storey"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "667e2c12f4d275904967048e83bfc99ef8aab0bcd5b53af3e2ca27a8b87bba93",
+      "fontId": "Hearth:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e56354a4417393b45cb5b47023524b5da7ee29ad4b13bb5cb6b52c36bd0dac8e",
+      "fontId": "Hearth:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "d79b734ecc433284d4c053af742252d0a3dac6b11a1efce97d73c5a55d6862af",
+      "fontId": "Hearth:600"
+    },
+    "glyph": "R",
+    "id": "ss05",
+    "label": "Curved leg"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "528c22db4b0cf2bbfc9bed4e78ed42ff704e18ab19fd722feff76d44f7c72356",
+      "fontId": "Kernel:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+      "fontId": "Kernel:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4f69862ce989ddc287ea2c59fc09802b151c8f584c95950229e520fca889eb20",
+      "fontId": "Kernel:500"
+    },
+    "glyph": "a",
+    "id": "ss01",
+    "label": "One-storey"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "85b4ccb1fa29f603d21c9bce87896538eb7d0a216631bee8b1cc01eaa6dbffbb",
+      "fontId": "Kernel:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+      "fontId": "Kernel:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4f69862ce989ddc287ea2c59fc09802b151c8f584c95950229e520fca889eb20",
+      "fontId": "Kernel:500"
+    },
+    "glyph": "g",
+    "id": "ss02",
+    "label": "One-storey"
+  }
+]

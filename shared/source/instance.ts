@@ -9,7 +9,8 @@ import { DEFAULTS, type Params } from '../params';
 import { inverseTransform, mapPoint, type OutlineTransform } from './geometry';
 import type { SourceRef } from './model';
 import { designSourceDependencies } from './dependencies';
-import { sourceFont, sourceMarks, sourceMasters, sourceOriginMap, sourceProgram, sourceReady, sourceSubdivision } from './registry';
+import { sourceFont, sourceForm, sourceMarks, sourceMasters, sourceOriginMap, sourceProgram, sourceReady, sourceSubdivision } from './registry';
+import { glyphFormDrawing, type GlyphForm } from './forms';
 import { sourceControls } from './capabilities';
 import { sourceDot } from './features';
 import { interpolateMasters, weightAt } from './masters';
@@ -41,7 +42,21 @@ function axis(value: number, pick: number, low: number, high: number): number {
   return value < pick ? 1 + (low - 1) * (pick - value) / pick : 1 + (high - 1) * (value - pick) / (1 - pick);
 }
 
-function shape(font: FreeFont, p: Params, ch: string): OutlineTransform {
+/** The form letter `ch` draws in `p`: the one its letter picked, where it was authored on the program's exact weight and
+    width bases; null for the original letter. */
+function formOf(p: Params, ch: string): GlyphForm | null {
+  const ref = p.sourceForms?.[ch], program = ref && p.sourceProgram ? sourceProgram(p.sourceProgram) : undefined;
+  const form = ref && program?.width ? sourceForm(ref) : undefined;
+  return form && form.data.base.digest === program?.data.base.digest && form.data.width.digest === program.data.width?.digest ? form : null;
+}
+/** A form at the weight and width `p` draws its letters at. */
+function formDrawing(form: GlyphForm, p: Params): Drawn {
+  const program = sourceProgram(p.sourceProgram!)!, info = masterInfo(p.sourceProgram)!;
+  return glyphFormDrawing(form, weightAt(p, info), widthAt(p, program.width!.data.axis));
+}
+
+/** `form`: the letter draws an alternate form, which the original letter's dot binding doesn't reach. */
+function shape(font: FreeFont, p: Params, ch: string, form = false): OutlineTransform {
   const base = { ...DEFAULTS, ...p.freeAt };
   const sy = axis(p.height, DEFAULTS.height, 0.78, 1.28);
   const sx = programInfo(p.sourceProgram)?.width ? 1 : axis(p.width, base.width, 0.65, 1.55);
@@ -54,7 +69,7 @@ function shape(font: FreeFont, p: Params, ch: string): OutlineTransform {
     [font.xh, xh * sy], [font.cap, (xh + (font.cap - font.xh) * ext) * sy]
   ] };
   const originalRef = masterInfo(p.sourceProgram)?.source ?? p.sourceProgram;
-  const dot = originalRef && sourceDot(originalRef.digest, ch);
+  const dot = !form && originalRef && sourceDot(originalRef.digest, ch);
   if (!dot) return transform;
   const drawn = font.glyphs[ch];
   const dotBox = masterInfo(p.sourceProgram) && drawn
@@ -80,8 +95,8 @@ function inverse(M: Mat): Mat {
   return [d / det, -b / det, -c / det, a / det, (c * f - d * e) / det, (b * e - a * f) / det];
 }
 
-function pose(font: FreeFont, original: Drawn, p: Params, ch: string) {
-  const transform = shape(font, p, ch), base = { ...DEFAULTS, ...p.freeAt };
+function pose(font: FreeFont, original: Drawn, p: Params, ch: string, form = false) {
+  const transform = shape(font, p, ch, form), base = { ...DEFAULTS, ...p.freeAt };
   const box = cmdsBox(drawnCmds(original.contours)) ?? { x0: font.cap * 0.1, x1: font.cap * 0.65, y0: 0, y1: font.cap }, sx = transform.xScale;
   const bearing = 2 ** ((p.sideBearing - base.sideBearing) * 2);
   const dx = box.x0 * sx * (bearing - 1);
@@ -99,27 +114,34 @@ function pose(font: FreeFont, original: Drawn, p: Params, ch: string) {
 function componentPlanFor(source: Drawn, p: Params, ch: string, transform: OutlineTransform) {
   const components = p.sourceProgram && sourceProgram(p.sourceProgram)?.components;
   const neutral = p.freeAt.dotSize ?? DEFAULTS.dotSize;
-  if (!components || p.dotSize === neutral || !components.data.glyphs.some(entry => entry.glyph === ch)) return null;
+  // an alternate form has none of the original letter's components
+  if (!components || p.dotSize === neutral || formOf(p, ch) || !components.data.glyphs.some(entry => entry.glyph === ch)) return null;
   const identity = { digest: components.data.base.digest, glyph: ch };
   const reference = mapAuthored(identifyAuthored(source, identity), transform, source, identity);
   return componentPlan(components, ch, reference, p.dotSize, neutral);
 }
 
 function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
-  const original = font.glyphs[ch];
+  const form = formOf(p, ch);
+  const original = form ? formDrawing(form, p) : font.glyphs[ch];
   let edited = p.outlines[ch];
   if (!original && !edited) return null;
   // A new character has a fixed placement frame. Using each posed edit as its frame would accumulate drift.
   const source = original ?? { adv: font.cap * 0.75, contours: [] };
-  const target = pose(font, source, p, ch);
-  const digest = p.sourceProgram?.kind === 'outline-v1' ? p.sourceProgram.digest : masterBasisForEditing(p.sourceProgram)?.digest ?? '';
+  const target = pose(font, source, p, ch, !!form);
+  // a form's points carry its own identity: edits on it never reach the original letter or another form
+  const digest = form ? form.ref!.digest : p.sourceProgram?.kind === 'outline-v1' ? p.sourceProgram.digest : masterBasisForEditing(p.sourceProgram)?.digest ?? '';
   const identity = { digest, glyph: ch };
   let canonical = digest ? identifyAuthored(source, identity) : source, extraAdvance = 0;
   let componentEligible: boolean[] | undefined;
   let componentOwners: ComponentMembership[] | undefined;
   let sizeOnly = false;
   if (edited) {
-    const at: Params = { ...p, ...edited.at, glyphs: {}, outlines: {} };
+    const at: Params = { ...p, ...edited.at, sourceForms: edited.at?.sourceForms ?? {}, glyphs: {}, outlines: {} };
+    // a drawing made on another of the letter's forms (a letter's History brought it back) stands as it was drawn
+    if ((at.sourceForms[ch]?.digest ?? null) !== (p.sourceForms?.[ch]?.digest ?? null) || !!form !== !!formOf(at, ch)) {
+      return asGlyph(ch, edited, target.M, p.sourceProgram?.kind === 'program-v1');
+    }
     const sameFrame = sourceControls.every(key => p[key] === at[key]) && p.weight === at.weight
       && p.sourceProgram?.digest === at.sourceProgram?.digest
       && (!programInfo(p.sourceProgram)?.data.features || FEATURE_CONTROLS.every(key => p[key] === at[key]));
@@ -129,14 +151,14 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
     edited = unspaceSourceDrawing(edited);
     sizeOnly = sameFrame;
     const beforeFont = variedFont(at) ?? font;
-    let beforeSource = beforeFont.glyphs[ch] ?? source;
-    let beforeBasis = masterBasisForEditing(at.sourceProgram);
-    let beforeIdentity = { digest: at.sourceProgram?.kind === 'outline-v1' ? at.sourceProgram.digest : beforeBasis?.digest ?? '', glyph: ch };
-    const from = pose(beforeFont, beforeSource, at, ch);
+    let beforeSource = (form ? formDrawing(form, at) : beforeFont.glyphs[ch]) ?? source;
+    let beforeBasis = form ? undefined : masterBasisForEditing(at.sourceProgram);
+    let beforeIdentity = { digest: form ? digest : at.sourceProgram?.kind === 'outline-v1' ? at.sourceProgram.digest : beforeBasis?.digest ?? '', glyph: ch };
+    const from = pose(beforeFont, beforeSource, at, ch, !!form);
     const previousComponents = componentPlanFor(beforeSource, at, ch, from.transform);
     const beforeComponents = at.sourceProgram && sourceProgram(at.sourceProgram)?.components;
     const currentComponents = p.sourceProgram && sourceProgram(p.sourceProgram)?.components;
-    const ownership = componentOwnership(beforeComponents || (currentComponents?.data.base.digest === beforeIdentity.digest ? currentComponents : null), ch);
+    const ownership = form ? null : componentOwnership(beforeComponents || (currentComponents?.data.base.digest === beforeIdentity.digest ? currentComponents : null), ch);
     if (ownership) componentOwners = componentMembership(edited, ownership);
     componentEligible = edited.contours.map(c => c.length > 0 && c.every(n => n.authored?.glyph === ch
       && (n.authored.digest === beforeIdentity.digest || at.sourceProgram?.kind === 'outline-v1' && n.authored.digest === beforeBasis?.digest)));
@@ -186,7 +208,7 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
     if (changedBasis) {
       // Curve subdivision and repaired masters can change handle bounds, spacing and the placement center.
       const rebasedFont = { ...beforeFont, glyphs: { ...beforeFont.glyphs, [ch]: beforeSource } };
-      const rebasedPose = pose(rebasedFont, beforeSource, { ...at, sourceProgram: p.sourceProgram }, ch);
+      const rebasedPose = pose(rebasedFont, beforeSource, { ...at, sourceProgram: p.sourceProgram }, ch, !!form);
       const posed = move(mapAuthored(canonical, from.transform, beforeSource, beforeIdentity), from.M);
       canonical = mapAuthored(move(posed, inverse(rebasedPose.M)), inverseTransform(rebasedPose.transform), beforeSource, beforeIdentity);
       extraAdvance = (edited.adv - rebasedPose.adv) / rebasedPose.transform.xScale;
@@ -238,8 +260,23 @@ function composedAccent(font: FreeFont, p: Params, ch: string): Glyph | null {
   if (!base?.drawn) return null;
   const letter = unspaceSourceDrawing(base.drawn), kept = omitMarkComponents(letter, marks, recipe);
   if (!recipe.mark) return asGlyph(ch, kept, base.M);
-  const nominal = p.outlines[recipe.base] ? evaluated(font, { ...p, outlines: {} }, recipe.base)?.drawn : letter;
-  const at = sourceMarkAnchor(recipe, letter, nominal ?? letter, { digest: basis.digest, glyph: recipe.base });
+  const identity = { digest: basis.digest, glyph: recipe.base };
+  let at: { x: number; y: number };
+  if (formOf(p, recipe.base)) {
+    // the ports are the original letter's: the mark takes its place there, moved as far as the form's ink stands from it
+    const { [recipe.base]: _form, ...forms } = p.sourceForms, { [recipe.base]: _drawn, ...outlines } = p.outlines;
+    const plain = evaluated(font, { ...p, sourceForms: forms, outlines }, recipe.base)?.drawn;
+    if (!plain) return null;
+    const original = unspaceSourceDrawing(plain), port = sourceMarkAnchor(recipe, original, original, identity);
+    const a = cmdsBox(drawnCmds(original.contours)), b = cmdsBox(drawnCmds(kept.contours)), kind = recipe.mark.attachment;
+    if (!a || !b) return null;
+    const dx = kind === 'above' || kind === 'below' ? (b.x0 + b.x1 - a.x0 - a.x1) / 2 : b.x1 - a.x1;
+    const dy = kind === 'above' || kind === 'side' ? b.y1 - a.y1 : b.y0 - a.y0;
+    at = { x: port.x + dx, y: port.y + dy };
+  } else {
+    const nominal = p.outlines[recipe.base] ? evaluated(font, { ...p, outlines: {} }, recipe.base)?.drawn : letter;
+    at = sourceMarkAnchor(recipe, letter, nominal ?? letter, identity);
+  }
   const mark = sourceMarkDrawing(marks, ch, weightAt(p, info), widthAt(p, program.width.data.axis));
   // the mark is drawn about its port and posed as the letter is: only the pose's turn, lean and mirror reach it
   const [a, b, c, d] = base.M, turn = (x: number, y: number) => [a * x + c * y, b * x + d * y];
@@ -278,8 +315,8 @@ export function sourceInstance(p: Params, fallback: Metrics, parentMonoCell?: nu
     if (cell === undefined) {
       cell = Math.max(20, font.space * lower.xScale);
       for (const ch of ALL_CHARS) {
-        const original = font.glyphs[ch];
-        if (original) cell = Math.max(cell, pose(font, original, p, ch).adv);
+        const form = formOf(p, ch), original = form ? formDrawing(form, p) : font.glyphs[ch];
+        if (original) cell = Math.max(cell, pose(font, original, p, ch, !!form).adv);
       }
     }
     mono = { cell, amount: p.mono };

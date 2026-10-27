@@ -25,6 +25,7 @@ export function programUpgrade(ref: SourceRef | null): ProgramUpgrade | null {
   if (previous?.data.spacing && (!target.data.spacing || !sourceSpacingExtends(previous.data.spacing, target.data.spacing))) return null;
   if (previous?.data.components && !target.data.components) return null;
   if (previous?.componentGlyphs?.some(glyph => !target.componentGlyphs?.includes(glyph))) return null;
+  if (previous?.data.forms?.some(choice => !target.data.forms?.some(next => next.ref.digest === choice.ref.digest))) return null;
   return { program: target, resetWidth: !!target.width && !previous?.width };
 }
 

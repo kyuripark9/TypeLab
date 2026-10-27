@@ -480,7 +480,7 @@ function fontRoutes(api: Router, { fonts, exports }: Ctx) {
   // the first time). An own font is asked after each time (its ETag answers), as an import can change it
   api.get('/sources/:digest', (req, res) => {
     const ref = SOURCE_REVISIONS.find(r => r.digest === req.params.digest) ?? MASTER_REVISIONS.find(m => m.ref.digest === req.params.digest)?.ref
-      ?? PROGRAM_REVISIONS.flatMap(p => [p.ref, ...sourceProgramDependencies(p.data)]).find(r => r.digest === req.params.digest)
+      ?? PROGRAM_REVISIONS.flatMap(p => [p.ref, ...sourceProgramDependencies(p.data), ...(p.data.forms ?? []).map(choice => choice.ref)]).find(r => r.digest === req.params.digest)
       ?? ORIGIN_MAP_REVISIONS.find(m => m.ref.digest === req.params.digest)?.ref;
     if (!ref) throw new HttpError(404, 'This saved source is unavailable');
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');

@@ -10,6 +10,7 @@ import { masterInfo, MASTER_REVISIONS } from '../../shared/source/master-catalog
 import { parseSourceFinish } from '../../shared/source/finish';
 import { parseSourceSpacing } from '../../shared/source/spacing';
 import { parseSourceMarks } from '../../shared/source/marks';
+import { parseGlyphForm } from '../../shared/source/forms';
 import { decodeWeightMasters, parseWeightMasters } from '../../shared/source/masters';
 import type { MasterSourceRef } from '../../shared/source/model';
 import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from '../../shared/source/program';
@@ -51,6 +52,11 @@ function describe(data: SourceProgramData, digest: string): ProgramInfo {
   const components = data.components ? decodeSourceComponents(parseSourceComponents(readAsset('components', data.components.digest)), base,
     width && data.width ? { ref: data.width, masters: decodeWidthMasters(width, base.masters) } : undefined) : null;
   if (width && features?.data.widthCompatibility === 'base-only') throw Error('Width and feature combinations require reviewed interaction masters');
+  for (const choice of data.forms ?? []) {
+    if (!width || !data.width) throw Error('Letter forms require the program\'s width masters');
+    const form = parseGlyphForm(readAsset('forms', choice.ref.digest), base, { ref: data.width, masters: decodeWidthMasters(width, base.masters) });
+    if (form.glyph !== choice.glyph || !base.masters.masters[0].font.glyphs[choice.glyph]) throw Error(`A letter form must replace a letter its program draws: ${choice.ref.digest}`);
+  }
   for (const transition of data.transitions ?? []) {
     decodeMasterSubdivision(parseMasterSubdivision(readAsset('subdivisions', transition.mapping.digest)), { from: basis(transition.from), to: base });
   }
@@ -70,8 +76,8 @@ function addProgram(data: SourceProgramData) {
 }
 for (let i = 0; i < args.length; i += 2) {
   const mode = args[i], file = args[i + 1];
-  if (!file || !['--width', '--features', '--finish', '--spacing', '--components', '--marks', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
-    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --spacing policy.json, --components manifest.json, --marks manifest.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
+  if (!file || !['--width', '--features', '--finish', '--spacing', '--components', '--marks', '--forms', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
+    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --spacing policy.json, --components manifest.json, --marks manifest.json, --forms manifest.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
   }
   if (mode === '--program') {
     const data = parseSourceProgram(JSON.parse(readFileSync(file, 'utf8')));
@@ -111,6 +117,20 @@ for (let i = 0; i < args.length; i += 2) {
       const marks = parseSourceMarks(readAsset('marks', match.ref.digest));
       if (marks.base.fontId !== ref.fontId) throw Error(`Marks name another font: ${match.ref.digest}`);
       addProgram({ ...previous, marks: { kind: 'source-marks-v1', digest: match.ref.digest, fontId: ref.fontId } });
+    }
+    continue;
+  }
+  if (mode === '--forms') {
+    // each style's newest program offers the forms published on its exact weight and width bases, in manifest order
+    const input: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    if (!Array.isArray(input)) throw new TypeError('Expected a letter form manifest');
+    for (const { ref } of new Map(MASTER_REVISIONS.map(info => [info.ref.fontId, info])).values()) {
+      const previous = previousProgram(ref.fontId);
+      const forms = input.filter(entry => entry?.ref?.kind === 'glyph-form-masters-v1' && entry.ref.fontId === ref.fontId)
+        .filter(entry => entry.base?.digest === previous?.base.digest && entry.width?.digest === previous?.width?.digest)
+        .map(entry => ({ glyph: entry.glyph, id: entry.id, label: entry.label, ref: entry.ref }));
+      if (input.some(entry => entry?.ref?.fontId === ref.fontId) && !forms.length) throw Error(`No letter forms match the current weight and width bases for ${ref.fontId}`);
+      if (forms.length && previous) addProgram({ ...previous, forms });
     }
     continue;
   }

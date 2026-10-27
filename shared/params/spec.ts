@@ -350,6 +350,8 @@ export const SPECS = {
   sourceProgram: value(null, { global: true }),
   glyphs: value({}, { global: true }),
   outlines: value({}, { global: true }),
+  sourceForms: value({}, { global: true }),
+  sourceFormEdits: value({}, { global: true }),
   freeFont: fontSpec({ global: true }),
   freeAt: value({}, { global: true }),
 };
@@ -384,9 +386,9 @@ export type FreeAt = Partial<Pick<Params, FreeKey>>;
 export const freeAtOf = (p: Params): FreeAt => Object.fromEntries(FREE_AT_KEYS.map(k => [k, p[k]]));
 
 /** The settings a letter drawn in Points was drawn at (Drawn.at, in shared/engine/outline.ts): every one but the
-    letters' own maps, its own values laid in. Moved away from these, the drawing moves with them (family-drawn.ts). */
-export type DrawnKey = Exclude<keyof Params, 'glyphs' | 'outlines'>;
-export const DRAWN_AT_KEYS = PARAM_KEYS.filter(k => k !== 'glyphs' && k !== 'outlines') as DrawnKey[];
+    letters' own maps (and the drawings of forms not in use), its own values laid in. Moved away from these, the drawing moves with them (family-drawn.ts). */
+export type DrawnKey = Exclude<keyof Params, 'glyphs' | 'outlines' | 'sourceFormEdits'>;
+export const DRAWN_AT_KEYS = PARAM_KEYS.filter(k => k !== 'glyphs' && k !== 'outlines' && k !== 'sourceFormEdits') as DrawnKey[];
 export type DrawnAt = Partial<Pick<Params, DrawnKey>>;
 /** The settings letter `ch` of `p` is drawn at now: what a drawing of it made now records. */
 export function drawnAtOf(p: Params, ch: string): DrawnAt {

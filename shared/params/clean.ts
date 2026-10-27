@@ -7,6 +7,7 @@ import { cleanDrawn, type Drawn } from '../engine/outline';
 import { ownFontOf, parseFontId } from '../free-fonts';
 import type { Params } from './model';
 import { parseSourceRef } from '../source/model';
+import { parseFormEditKey, parseGlyphFormRef } from '../source/forms';
 import { GRID_FILLS } from './options';
 import { contrastFromOld, dotGainFromOld, moduleFromOld, moduleFromV5, xHeightFromOld } from './scales';
 import { DEFAULTS, DRAWN_AT_KEYS, FREE_AT_KEYS, ID_KEYS, PARAM_KEYS, SPECS, drawnAtOf, isGlyphKey, type DrawnAt, type FreeAt, type GlyphParams, type Spec } from './spec';
@@ -106,6 +107,7 @@ function cleanValue(k: keyof Params, v: unknown): unknown {
     }
     case 'value': {
       if (k === 'sourceProgram') return parseSourceRef(v);
+      if (k === 'sourceForms') return cleanForms(v);
       if (k !== 'freeAt' || !v || typeof v !== 'object' || Array.isArray(v)) return undefined;
       const out: Record<string, unknown> = {};
       for (const a of FREE_AT_KEYS) { const c = a in v ? cleanValue(a, (v as Record<string, unknown>)[a]) : undefined; if (c !== undefined) out[a] = c; }
@@ -140,6 +142,30 @@ function cleanOutlines(v: unknown): Record<string, Drawn> {
     if (!c) continue;
     const at = cleanAt((d as { at?: unknown }).at);
     out[ch] = at ? { ...c, at } : c;
+  }
+  return out;
+}
+
+/** A source letter's picked forms: one character per key, each an exact form reference. */
+function cleanForms(v: unknown): Record<string, ReturnType<typeof parseGlyphFormRef>> | undefined {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+  const out: Record<string, ReturnType<typeof parseGlyphFormRef>> = {};
+  for (const [ch, ref] of Object.entries(v)) {
+    if ([...ch].length !== 1) continue;
+    try { out[ch] = parseGlyphFormRef(ref); } catch { /* dropped, as an unknown value is */ }
+  }
+  return out;
+}
+
+/** The drawings of forms not in use: each under the form and letter it was drawn on, with the settings it was drawn at. */
+function cleanFormEdits(v: unknown): Record<string, Drawn> {
+  const out: Record<string, Drawn> = {};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
+  for (const [key, d] of Object.entries(v)) {
+    const c = parseFormEditKey(key) ? cleanDrawn(d) : undefined;
+    if (!c) continue;
+    const at = cleanAt((d as { at?: unknown }).at);
+    out[key] = at ? { ...c, at } : c;
   }
   return out;
 }
@@ -183,7 +209,7 @@ export function sanitizeParams(input: unknown): Params {
   if (typeof src.reverse === 'number') src = fromOldContrast(src);
   const out = { ...DEFAULTS } as Record<string, unknown>;
   for (const k of PARAM_KEYS) {
-    const c = k === 'glyphs' ? cleanGlyphs(src[k]) : k === 'outlines' ? cleanOutlines(src[k]) : cleanValue(k, src[k]);
+    const c = k === 'glyphs' ? cleanGlyphs(src[k]) : k === 'outlines' ? cleanOutlines(src[k]) : k === 'sourceFormEdits' ? cleanFormEdits(src[k]) : cleanValue(k, src[k]);
     if (c !== undefined) out[k] = c;
   }
   // a free font's letters stand for the settings it was picked at (freeAt). A free setting freeAt leaves out (an older
@@ -209,7 +235,7 @@ export function isValidParams(input: unknown): input is Params {
   if (!input || typeof input !== 'object') return false;
   try { if ('sourceProgram' in input) parseSourceRef(input.sourceProgram); } catch { return false; }
   const given = input as Record<string, unknown>, glyphs = given.glyphs;
-  const src: Record<string, unknown> = { sourceProgram: null, ...given, freeAt: withoutRetired(given.freeAt),
+  const src: Record<string, unknown> = { sourceProgram: null, sourceForms: {}, sourceFormEdits: {}, ...given, freeAt: withoutRetired(given.freeAt),
     glyphs: glyphs && typeof glyphs === 'object' && !Array.isArray(glyphs) ? Object.fromEntries(Object.entries(glyphs).map(([ch, g]) => [ch, withoutRetired(g)])) : glyphs };
   if (!('freeAt' in given)) delete src.freeAt;
   if (!('glyphs' in given)) delete src.glyphs;

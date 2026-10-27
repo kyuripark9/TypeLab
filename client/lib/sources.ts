@@ -24,7 +24,7 @@ onSource(changed);
 
 function dependencyError(ref: DependencyRef): Error {
   const label = ref.kind === 'width-masters-v1' ? 'width masters' : ref.kind === 'feature-masters-v1' ? 'feature masters'
-    : ref.kind === 'source-components-v1' ? 'letter components'
+    : ref.kind === 'source-components-v1' ? 'letter components' : ref.kind === 'glyph-form-masters-v1' ? 'letter form'
     : ref.kind === 'master-subdivision-v1' ? 'basis transition' : ref.kind === 'outline-master-map-v1' ? 'original drawing correspondence'
     : ref.kind === 'outline-v1' ? 'original drawing' : 'weight masters';
   return new Error(`Could not load ${label}: ${errors.get(keyOf(ref)) ?? 'the source is unavailable'}`);
@@ -71,6 +71,18 @@ function loadDependency(ref: DependencyRef, expectedBase?: MasterSourceRef, expe
           if (!await loadDependency(components.base)) throw dependencyError(components.base);
           if (components.width && !await loadDependency(components.width, components.base)) throw dependencyError(components.width);
           registerSource(ref, components);
+        } else if (ref.kind === 'glyph-form-masters-v1') {
+          // a letter form needs its exact weight and width packages registered first
+          const value = data && typeof data === 'object' ? data as Record<string, unknown> : {};
+          const base = parseSourceRef(value.base), width = value.width && typeof value.width === 'object' ? value.width as Record<string, unknown> : {};
+          if (base?.kind !== 'masters-v1' || base.fontId !== ref.fontId || width.kind !== 'width-masters-v1' || typeof width.digest !== 'string' || width.fontId !== ref.fontId) {
+            throw new Error('Letter form does not name its exact bases');
+          }
+          const widthRef = { kind: 'width-masters-v1' as const, digest: width.digest, fontId: ref.fontId };
+          dependencies.set(key, [base, widthRef]);
+          if (!await loadDependency(base)) throw dependencyError(base);
+          if (!await loadDependency(widthRef, base)) throw dependencyError(widthRef);
+          registerSource(ref, data);
         } else if (ref.kind === 'program-v1') {
           const program = parseSourceProgram(data);
           if (program.base.fontId !== ref.fontId) throw new Error('Source program does not match the saved font');
@@ -101,7 +113,7 @@ function loadDependency(ref: DependencyRef, expectedBase?: MasterSourceRef, expe
 }
 export const loadSource = (ref: DependencyRef): Promise<boolean> => loadDependency(ref);
 
-export async function loadDesignSources(p: Pick<Params, 'sourceProgram' | 'outlines'>): Promise<boolean> {
+export async function loadDesignSources(p: Pick<Params, 'sourceProgram' | 'outlines'> & Partial<Pick<Params, 'sourceForms' | 'sourceFormEdits'>>): Promise<boolean> {
   return (await Promise.all(designSourceDependencies(p).map(loadSource))).every(Boolean);
 }
 

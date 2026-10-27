@@ -249,3 +249,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     failures: review.failures.map(({ ch, weight, width }) => ({ ch, weight, width })) }) + '\n');
   if (!review.neutralExact || review.failures.length) process.exitCode = 1;
 }
+
+/** The same field and fitting, for drawings other than a family's own letters (its alternate letter forms). */
+export { curve as widthCurve, density as widthField, mappedGlyph as widthMap, fit as fitWidth, error as widthFitError, nodes as widthNodes };

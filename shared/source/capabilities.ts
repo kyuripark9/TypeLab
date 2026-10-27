@@ -3,15 +3,30 @@ import type { ControlKey, Params } from '../params';
 import { masterInfo } from './master-catalog';
 import { programInfo } from './program-catalog';
 import { sourceFinishControls, sourceFinishFills } from './finish';
+import type { SourceFormChoice } from './forms';
 
 export const sourceControls: readonly (keyof Params)[] = [
   'width', 'height', 'xHeight', 'extenders', 'descender', 'slant', 'rotation', 'mirror',
   'sideBearing', 'letterSpacing', 'wordSpacing'
 ];
 
-/** A glyph is supplied only when an edit targets that letter alone. */
-export function sourceSupports(p: Pick<Params, 'sourceProgram'>, key: string, glyph?: string | null): boolean {
+/** The letter-shape pickers a source's alternate letter forms take the place of, with the letters each picks for. */
+export const SOURCE_FORM_CONTROLS: Readonly<Partial<Record<ControlKey, string>>> = { story: 'a', gForm: 'g', iForm: 'IJil', qForm: 'Q', rForm: 'R' };
+
+/** The forms a source's program offers letter `glyph`, besides its original. */
+export const sourceFormChoices = (p: Pick<Params, 'sourceProgram'>, glyph: string): SourceFormChoice[] =>
+  programInfo(p.sourceProgram)?.data.forms?.filter(choice => choice.glyph === glyph) ?? [];
+
+/** The letters with forms to pick that control `key` shows: all it covers, or only the letter being edited alone. */
+export const sourceFormLetters = (p: Pick<Params, 'sourceProgram'>, key: string, glyph?: string | null): string[] =>
+  [...SOURCE_FORM_CONTROLS[key as ControlKey] ?? ''].filter(ch => (!glyph || ch === glyph) && sourceFormChoices(p, ch).length > 0);
+
+/** A glyph is supplied only when an edit targets that letter alone. A letter drawn in an alternate form has none of the
+    original letter's reviewed features or components. */
+export function sourceSupports(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Params, 'sourceForms'>>, key: string, glyph?: string | null): boolean {
   if (!p.sourceProgram || sourceControls.some(control => control === key) || key === 'weight' && !!masterInfo(p.sourceProgram)) return true;
+  if (key in SOURCE_FORM_CONTROLS) return sourceFormLetters(p, key, glyph).length > 0;
+  if (glyph && p.sourceForms?.[glyph] && (key === 'dotSize' || key === 'crossbar' || key === 'tail' || key === 'terminalLength')) return false;
   if (key === 'mono') return !!programInfo(p.sourceProgram)?.data.spacing;
   const finish = programInfo(p.sourceProgram)?.data.finish;
   if (finish && sourceFinishControls(finish).some(control => control === key)) return true;
@@ -25,15 +40,17 @@ export function sourceSupports(p: Pick<Params, 'sourceProgram'>, key: string, gl
 export const sourceAccents = (p: Pick<Params, 'sourceProgram'>): boolean => !p.sourceProgram || !!programInfo(p.sourceProgram)?.data.marks;
 
 /** Named options must be reviewed as well as their parent control. */
-export function sourceAllows(p: Pick<Params, 'sourceProgram'>, key: string, value: unknown, glyph?: string | null): boolean {
+export function sourceAllows(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Params, 'sourceForms'>>, key: string, value: unknown, glyph?: string | null): boolean {
   if (!sourceSupports(p, key, glyph)) return false;
+  // a source's letter forms are picked by form, never by the generated letters' shape names
+  if (p.sourceProgram && key in SOURCE_FORM_CONTROLS) return false;
   if (!p.sourceProgram || key !== 'fill') return true;
   const finish = programInfo(p.sourceProgram)?.data.finish;
   return !!finish && sourceFinishFills(finish).some(fill => fill === value);
 }
 
 /** A supported effect parameter is shown only while the selected fill uses it. */
-export function sourceVisible(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Params, 'fill'>>, key: string, glyph?: string | null): boolean {
+export function sourceVisible(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Params, 'fill' | 'sourceForms'>>, key: string, glyph?: string | null): boolean {
   if (!sourceSupports(p, key, glyph)) return false;
   const finish = programInfo(p.sourceProgram)?.data.finish;
   return !finish || !sourceFinishControls(finish).some(control => control === key)
@@ -41,7 +58,7 @@ export function sourceVisible(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Pa
 }
 
 /** A source may offer an authored sub-slider without its generated shape picker. */
-export function sourceControl(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Params, 'fill'>>, key: ControlKey, glyph?: string | null): ControlKey | 'terminalLength' | 'dotSize' | undefined {
+export function sourceControl(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Params, 'fill' | 'sourceForms'>>, key: ControlKey, glyph?: string | null): ControlKey | 'terminalLength' | 'dotSize' | undefined {
   if (sourceVisible(p, key, glyph)) return key;
   if (key === 'terminal' && sourceSupports(p, 'terminalLength', glyph)) return 'terminalLength';
   if (key === 'dots' && sourceSupports(p, 'dotSize', glyph)) return 'dotSize';
@@ -51,9 +68,11 @@ export function sourceControl(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Pa
 export function sourceNotice(p: Pick<Params, 'sourceProgram'>): string {
   const program = programInfo(p.sourceProgram);
   const glyphs = [...new Set([...Object.values(program?.featureGlyphs ?? {}).flat(), ...(program?.componentGlyphs ?? [])])].join(', ');
+  const shapes = [...new Set(program?.data.forms?.map(choice => choice.glyph))].join(', ');
   if (program?.data.finish) {
     return 'This style has authored weight variations and effects. Points edits stay editable after applying an effect.'
-      + (glyphs ? ` Letter controls are available for ${glyphs} while editing that letter alone.` : '');
+      + (glyphs ? ` Letter controls are available for ${glyphs} while editing that letter alone.` : '')
+      + (shapes ? ` The Letters page offers other shapes of ${shapes}.` : '');
   }
   if (program?.data.components) return `This style has weight variations and letter controls for ${glyphs}. Inspect one and switch from All letters to that letter alone.`;
   if (program?.width) return 'This style has designed width and weight variations. Heights, spacing and slant remain editable.';

@@ -11271,6 +11271,1167 @@ export const PROGRAM_REVISIONS: readonly ProgramInfo[] = [
       "tail": [],
       "terminalLength": []
     }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "fd82712041e11fbaa6f2738577c9fccb50f976e62cdcb6e0321c0857cfd66759",
+      "fontId": "Mainline:600"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "44ce1daebc31f46d098f0f37a84023aba0f2689404d5aa529a8c0bcb261d3033",
+        "fontId": "Mainline:600"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "55e40c9a42f15d14cbd44011cbb107ef5c9b2ce08d12bbc7cf937009b19ca017",
+        "fontId": "Mainline:600"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "d65057ada06ffaeff1b65f0d6418cbeb03c8a0847d436e5d5f08da6f6b7c09f1",
+        "fontId": "Mainline:600"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "6ef2edb3fb51b38adb7dd768d690ebe1b9bff7db094dcbba30faf315f41bf314",
+        "fontId": "Mainline:600"
+      },
+      "marks": {
+        "kind": "source-marks-v1",
+        "digest": "0996abc6f7e92d4442232fff4c4208e670a93f4f5a0de1fd2a928f27fa6a4dea",
+        "fontId": "Mainline:600"
+      },
+      "forms": [
+        {
+          "glyph": "g",
+          "id": "ss01",
+          "label": "Two-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "c4d54a2dc341eac86d230d6458ea88374f679d16440906656ce02a008efbc23d",
+            "fontId": "Mainline:600"
+          }
+        },
+        {
+          "glyph": "R",
+          "id": "ss03",
+          "label": "Curved leg",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "6232a7a33e4ccdcff305ec609f8532f95f8b8b1bdba1416edc355dc01ae0a401",
+            "fontId": "Mainline:600"
+          }
+        }
+      ],
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      }
+    },
+    "width": {
+      "min": 75,
+      "neutral": 100,
+      "max": 150
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "71e553913a9a5d838378e048c79623f9d3c77142228fe7c6cf401b82d8c8c9d8",
+      "fontId": "Hearth:600"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "e56354a4417393b45cb5b47023524b5da7ee29ad4b13bb5cb6b52c36bd0dac8e",
+        "fontId": "Hearth:600"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "d79b734ecc433284d4c053af742252d0a3dac6b11a1efce97d73c5a55d6862af",
+        "fontId": "Hearth:600"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "ecb1c5040d148e2442ff933cda1f32ca8d68a8a97326784351e328c79dd69b44",
+        "fontId": "Hearth:600"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "634ac216284a36c0e32b254cfe63c7c782af15b166ce454fc7ed6c44cec444fe",
+        "fontId": "Hearth:600"
+      },
+      "marks": {
+        "kind": "source-marks-v1",
+        "digest": "0c734924f88589f7a068c4ecee68496c2963ce993e81f3194d832823af6f33e6",
+        "fontId": "Hearth:600"
+      },
+      "forms": [
+        {
+          "glyph": "g",
+          "id": "ss01",
+          "label": "Two-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "248e40a35022a7e81c47403b2d294821ac10e8f0126746f504b54f242dbd857e",
+            "fontId": "Hearth:600"
+          }
+        },
+        {
+          "glyph": "R",
+          "id": "ss05",
+          "label": "Curved leg",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "667e2c12f4d275904967048e83bfc99ef8aab0bcd5b53af3e2ca27a8b87bba93",
+            "fontId": "Hearth:600"
+          }
+        }
+      ],
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "a5b2b12dbd85c33f2619533efb9309a27cabb3b95a07890bbd54d22675fda623",
+            "fontId": "Hearth:600"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "3a225c811cf18905ad6ca36f850d158a48dd72564b14fcbf9b3fe22433ce4a3d",
+            "fontId": "Hearth:600"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H",
+        "A"
+      ],
+      "tail": [
+        "R"
+      ],
+      "terminalLength": [
+        "c"
+      ]
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "23344808f9ba98193bdcbb338fd18a69338688bc7eaaca5cc4ce9cb034946656",
+      "fontId": "Vellum:400"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "db318a507de92d6adcea03fca0522125e2b08f14156125bd5bbe10f0926d1356",
+        "fontId": "Vellum:400"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "bb1d04b31de89d3901c4836a29061e451be1b0fb4bb20eed93f772b1ec212f0f",
+        "fontId": "Vellum:400"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "d0477c090793455ede48a2a660ae7d9ba07f3742841a73a95f3e35da2ac750f3",
+        "fontId": "Vellum:400"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "08855d50d421169fef4d59f86395eeb8008b984f5041cf97a3e8b114a586bb3d",
+        "fontId": "Vellum:400"
+      },
+      "marks": {
+        "kind": "source-marks-v1",
+        "digest": "c1783a7381831724f76b4ee19297dce8177f41d19d5c073653df3616b1427e4a",
+        "fontId": "Vellum:400"
+      },
+      "forms": [
+        {
+          "glyph": "Q",
+          "id": "ss06",
+          "label": "Long tail",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "97c16c8b30bbe02aac1885e39b11851b2476300844069cb8a51ee26c87129276",
+            "fontId": "Vellum:400"
+          }
+        }
+      ],
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "c72eda230c2c2d7e7489bc6ab119c3d6468b5ee7ae1c56c3ee5efd33762249c9",
+            "fontId": "Vellum:400"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "2bd46f7c810016eb5590536d98eb62a09674856560c09fe5475c36e638435828",
+            "fontId": "Vellum:400"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 92,
+      "neutral": 100,
+      "max": 108
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "689dd8389eeb3663ea62f959cf06ba7e073a067bdcf17638151489772802c91e",
+      "fontId": "Parlance:500"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "3f5e7e22afe6910db983a6532ae90df62aa3b3611b2698f4caedd34193ee5b95",
+        "fontId": "Parlance:500"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "4bd6f693c92546671858f839a603219dca3811764becf18f587256a4d0f246b5",
+        "fontId": "Parlance:500"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "e19b13b2363c84ba043201a4bd066f130151b04cc51223db9999069a3feef015",
+        "fontId": "Parlance:500"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "93dedc371e1d64d5276ed32c00f7c541fb200e23106a0a5ce5831ecc7ca4e0b3",
+        "fontId": "Parlance:500"
+      },
+      "marks": {
+        "kind": "source-marks-v1",
+        "digest": "91ccc08c109f358845318113ea47343d7772e5d262b6bccdc2f07d3b0d284dbb",
+        "fontId": "Parlance:500"
+      },
+      "forms": [
+        {
+          "glyph": "g",
+          "id": "ss01",
+          "label": "One-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "f148caa30c46e624258c8c3d53b217274cbcfccc051513fcba8d037c5005db23",
+            "fontId": "Parlance:500"
+          }
+        },
+        {
+          "glyph": "I",
+          "id": "ss01",
+          "label": "Bars",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "8ec4c06aca61b4d764dcdecda0b4c5b75a800a90b833881a74a457ec4668990d",
+            "fontId": "Parlance:500"
+          }
+        }
+      ],
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      }
+    },
+    "width": {
+      "min": 75,
+      "neutral": 100,
+      "max": 150
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "d7a2a30aa6f5be03bf2b0fd728fd78e278bd3024b519c089af3fcdfde1d0d65d",
+      "fontId": "Cotton:300"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "e79ee882db3b4b75825be583381d1f791886c305b9b6cbecf8cce410856b14fa",
+        "fontId": "Cotton:300"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "2ef1047e72e7d515e876e30a12a0ded6f1aca412cdea57af6ff47dc1c78f18c1",
+        "fontId": "Cotton:300"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "ae6079f2b8ef914b3205f9e91d711da80c26e614df8236505a2038ed798427ed",
+        "fontId": "Cotton:300"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "667b3a68dcbef5f943bd2edf74f31feed495084d77c0593752f1e703d7081ead",
+        "fontId": "Cotton:300"
+      },
+      "marks": {
+        "kind": "source-marks-v1",
+        "digest": "aa4e89744691dd8007002c639dea0c97b21f88bc07d0dfc38a72ad125a4d9772",
+        "fontId": "Cotton:300"
+      },
+      "forms": [
+        {
+          "glyph": "a",
+          "id": "ss01",
+          "label": "One-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "8740b911b5021a80dc7aa72dd26f8594b64f5cb80f611cbf61edc1906e96f477",
+            "fontId": "Cotton:300"
+          }
+        },
+        {
+          "glyph": "l",
+          "id": "ss02",
+          "label": "Plain",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "ac53cb2e1bc34239b67622bd2ee95663c6235a8272891a9694c8525f10ac27c0",
+            "fontId": "Cotton:300"
+          }
+        }
+      ],
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "bbef63cb6315effcfd88971ea84aa20324700567c771b1ddbbc7e6ae215682c4",
+            "fontId": "Cotton:300"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "3e40a8be674e2e3da35c2937b6ee6192598a25373f2c46f9dc18c0e33907bd52",
+            "fontId": "Cotton:300"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 85,
+      "neutral": 100,
+      "max": 115
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "4e44920b628812d66a81f34012de9fdab779c37928dd032327b84098e43aa087",
+      "fontId": "Compass:300"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
+        "fontId": "Compass:300"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "692ef6a1d7e545f0f7da2ef2b512dd500c334d89599fdb3c9eb7a84e3223fbae",
+        "fontId": "Compass:300"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "68c813d9642fd5e1ac83aeac1bbd437ab6f60b3e2cf20c4758db0474eefbf0a5",
+        "fontId": "Compass:300"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "78e72d64a2be264965cbfb3ca8f415ae5bda54a131e7af1571d35fb86e645bf6",
+        "fontId": "Compass:300"
+      },
+      "marks": {
+        "kind": "source-marks-v1",
+        "digest": "351889efc5270a9121a3df118faa984f1f0c36c31376969151459c7293c02432",
+        "fontId": "Compass:300"
+      },
+      "forms": [
+        {
+          "glyph": "a",
+          "id": "ss02",
+          "label": "Two-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "0443d5e908f8db139826eaf5f73e5bc6dd45495f27efdc1504117200f02292b5",
+            "fontId": "Compass:300"
+          }
+        }
+      ],
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "01baf750ad45fa49fe3cf3fb768cd729534a416d0c63407ce179763aed49f91d",
+            "fontId": "Compass:300"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "c9a8e4966e20cac79d6ce8c48eecc62974c48c4262634f25184afce950a925f0",
+            "fontId": "Compass:300"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 85,
+      "neutral": 100,
+      "max": 115
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "e317e421b5987ac5c43d401657b67bbdeb256f8e0daefac66c307c26a47d355f",
+      "fontId": "Kernel:500"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+        "fontId": "Kernel:500"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "4f69862ce989ddc287ea2c59fc09802b151c8f584c95950229e520fca889eb20",
+        "fontId": "Kernel:500"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "97c68a67e7bc55ed87852c6810c19d33613926eafec8d0c83a4f179a0dffd843",
+        "fontId": "Kernel:500"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "3232b948d053239b87a91ad858ae1923e0f2144ba7f8cc660cbcee3ea1e262a8",
+        "fontId": "Kernel:500"
+      },
+      "marks": {
+        "kind": "source-marks-v1",
+        "digest": "ecca544965ba302da82dd754b9f021636c7f886ee86db7870c76b24950d25742",
+        "fontId": "Kernel:500"
+      },
+      "forms": [
+        {
+          "glyph": "a",
+          "id": "ss01",
+          "label": "One-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "528c22db4b0cf2bbfc9bed4e78ed42ff704e18ab19fd722feff76d44f7c72356",
+            "fontId": "Kernel:500"
+          }
+        },
+        {
+          "glyph": "g",
+          "id": "ss02",
+          "label": "One-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "85b4ccb1fa29f603d21c9bce87896538eb7d0a216631bee8b1cc01eaa6dbffbb",
+            "fontId": "Kernel:500"
+          }
+        }
+      ],
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "edf4313600883ebd93ff0f398e95ade1d952bbc3d4fa79ef3e2c9a8f27bc654f",
+            "fontId": "Kernel:500"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "f4650806f6d3612c6c9334eb6ec3dba9c252095383ada4b49f3b853bffbfd7c8",
+            "fontId": "Kernel:500"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
   }
 ];
 

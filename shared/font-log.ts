@@ -6,7 +6,7 @@
    cleanVersions plays them back, checking each as sanitizeParams checks settings. */
 import { STYLES, styleById } from './content';
 import type { Drawn } from './engine/outline';
-import { DRAWN_AT_KEYS, PARAM_KEYS, sanitizeParams, upgradeParams, type GlyphParams, type Params } from './params';
+import { PARAM_KEYS, sanitizeParams, upgradeParams, type GlyphParams, type Params } from './params';
 
 /** The design after one change, and what the change was. */
 export interface FontVersion {
@@ -37,6 +37,8 @@ export const keyOf = (v: FontVersion) => {
   if (k === undefined) { k = JSON.stringify([v.styleId, v.params]); keys.set(v, k); }
   return k;
 };
+/** The settings a version holds whole, beside the letters' own maps it packs letter by letter. */
+const TOP_KEYS = PARAM_KEYS.filter(k => k !== 'glyphs' && k !== 'outlines');
 /** A design as the editor's undo history has it: its style, its settings and their JSON. */
 export interface Snapshot { styleId: string; params: Params; key: string }
 const version = (v: FontVersion, key: string) => { keys.set(v, key); return v; };
@@ -46,14 +48,14 @@ export function sameDesign(v: FontVersion, d: Snapshot): boolean {
   if (keyOf(v) === d.key) return true;
   if (v.styleId !== d.styleId) return false;
   const a = v.params, b = d.params;
-  if (DRAWN_AT_KEYS.some(k => a[k] !== b[k] && sorted(a[k]) !== sorted(b[k]))) return false;
+  if (TOP_KEYS.some(k => a[k] !== b[k] && sorted(a[k]) !== sorted(b[k]))) return false;
   const chars = new Set([...Object.keys(a.glyphs), ...Object.keys(b.glyphs), ...Object.keys(a.outlines), ...Object.keys(b.outlines)]);
   return ![...chars].some(ch => differs(a.glyphs[ch], b.glyphs[ch]) || differs(a.outlines[ch], b.outlines[ch]));
 }
 
 /** The settings for every letter, and the letters, that differ from `a` to `b`. */
 export function changesOf(a: Params, b: Params): { keys: string[]; letters: string[] } {
-  const changed: string[] = DRAWN_AT_KEYS.filter(k => a[k] !== b[k] && sorted(a[k]) !== sorted(b[k]));
+  const changed: string[] = TOP_KEYS.filter(k => a[k] !== b[k] && sorted(a[k]) !== sorted(b[k]));
   const chars = new Set([...Object.keys(a.glyphs), ...Object.keys(b.glyphs), ...Object.keys(a.outlines), ...Object.keys(b.outlines)]);
   const letters = [...chars].filter(ch => differs(a.glyphs[ch], b.glyphs[ch]) || differs(a.outlines[ch], b.outlines[ch])).sort();
   return { keys: changed, letters };
@@ -83,7 +85,7 @@ export interface Packed {
   t: number; keys: string[]; letters: string[]; made?: Made; back?: number; base?: true;
   styleId?: string; set?: Record<string, unknown>; glyphs?: Record<string, GlyphParams | null>; outlines?: Record<string, Drawn | null>;
 }
-const top = (p: Params) => Object.fromEntries(DRAWN_AT_KEYS.map(k => [k, p[k]]));
+const top = (p: Params) => Object.fromEntries(TOP_KEYS.map(k => [k, p[k]]));
 /** Version `v` packed against `prev`, the version before it, or whole without one. */
 function packOne(v: FontVersion, prev?: FontVersion): Packed {
   const head = { t: v.t, keys: v.keys, letters: v.letters, ...(v.made ? { made: v.made } : {}), ...(v.back !== undefined ? { back: v.back } : {}) };

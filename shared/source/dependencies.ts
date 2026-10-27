@@ -1,5 +1,7 @@
 /* Saved Points frames can retain an earlier source program than the design now uses. */
 import type { Params } from '../params';
+import type { Drawn } from '../engine/outline';
+import { parseFormEditKey, type GlyphFormRef } from './forms';
 import { parseSourceRef, type SourceRef } from './model';
 import { masterBasisForEditing } from './master-catalog';
 import { originMapFor } from './origin-catalog';
@@ -28,11 +30,19 @@ export function designOriginRefs(p: Pick<Params, 'sourceProgram' | 'outlines'>):
   });
 }
 
-export function designSourceDependencies(p: Pick<Params, 'sourceProgram' | 'outlines'>): (SourceRef | ProgramAssetRef)[] {
+/** The letter forms a design draws: those its letters have picked, and those its saved Points were drawn on. */
+export function designFormRefs(p: Pick<Params, 'outlines'> & Partial<Pick<Params, 'sourceForms' | 'sourceFormEdits'>>): GlyphFormRef[] {
+  const drawnOn = (ch: string, drawing: Drawn) => drawing.at?.sourceForms?.[ch];
+  return [...Object.values(p.sourceForms ?? {}), ...Object.entries(p.outlines).flatMap(([ch, d]) => drawnOn(ch, d) ?? []),
+    ...Object.entries(p.sourceFormEdits ?? {}).flatMap(([key, d]) => { const at = parseFormEditKey(key); return at && drawnOn(at.glyph, d) || []; })];
+}
+
+export function designSourceDependencies(p: Pick<Params, 'sourceProgram' | 'outlines'> & Partial<Pick<Params, 'sourceForms' | 'sourceFormEdits'>>): (SourceRef | ProgramAssetRef)[] {
   const sources = designSourceRefs(p), current = p.sourceProgram;
   const transitions = current ? sources.flatMap(ref => {
     const from = masterBasisForEditing(ref), mapping = from && basisTransition(from, current);
     return mapping ? [mapping] : [];
   }) : [];
-  return [...new Map([...sources, ...designOriginRefs(p), ...transitions].map(ref => [`${ref.kind}:${ref.digest}:${ref.fontId}`, ref])).values()];
+  const forms = current ? designFormRefs(p) : [];
+  return [...new Map([...sources, ...designOriginRefs(p), ...transitions, ...forms].map(ref => [`${ref.kind}:${ref.digest}:${ref.fontId}`, ref])).values()];
 }

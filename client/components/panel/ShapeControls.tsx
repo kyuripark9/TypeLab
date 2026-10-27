@@ -1,19 +1,23 @@
-/* The controls that pick a named shape: stroke ends, the a, the letter forms, the serifs (their shape, tips, base, sides and inside ones) and the fill. */
+/* The controls that pick a named shape: stroke ends, the a, the letter forms (a source's own forms too), the serifs (their shape, tips, base, sides and inside ones) and the fill. */
+import { useDeferredValue, useEffect, useMemo } from 'react';
 import {
   BOWL_SUBS, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS,
   SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS,
   STORY_OPTIONS, TERMINAL_DETAILS, TERMINAL_SHAPES, TERMINAL_SUBS, controlFor, terminalLabel, type FillSubKey, type FormKey,
-  type SerifInnerSubKey
+  type SerifInnerSubKey, type ControlKey
 } from '../../../shared/content';
-import { GRID_FILLS, formOf, type Terminal, type TerminalForm } from '../../../shared/params';
+import { GRID_FILLS, formOf, type Params, type Terminal, type TerminalForm } from '../../../shared/params';
 import { autoIBars } from '../../../shared/engine';
-import { actions, useEditor, useParam, useScopedFont } from '../../state/editor';
+import { actions, fontFor, letterOf, useEditor, useParam, useScopedFont } from '../../state/editor';
 import { FillIcon, FormIcon, SerifIcon, SerifSidesIcon, StoryIcon, TerminalIcon } from '../Diagram';
 import { CtlHead, FoldHead, Fold, Quiet, useControlFocus } from './heads';
 import { useReachNote } from './reach';
 import { SliderControl } from './SliderControl';
 import { EachEnd } from './LetterOwn';
-import { sourceAllows, sourceVisible } from '../../../shared/source/capabilities';
+import { sourceAllows, sourceFormChoices, sourceFormLetters, sourceVisible } from '../../../shared/source/capabilities';
+import type { GlyphFormRef } from '../../../shared/source/forms';
+import { loadSource, useSources } from '../../lib/sources';
+import { n1 } from '../../lib/hooks';
 
 /** Picks a stroke end's kind and its form together, as one change to undo. */
 const pickEnd = (t: Terminal, form: TerminalForm) => { actions.setParam('terminal', t); actions.setParam('terminalForm', form); actions.commit(); };
@@ -80,6 +84,50 @@ export function StoryControl({ parts }: { parts?: string[] }) {
       </>}
     </div>
   );
+}
+
+/** A source letter's shapes: its original and each form its style's program offers, drawn in the design's letters as
+    they stand (without Points edits). A letter in another form keeps its Points edits with the form they were made on. */
+export function SourceFormControl({ k, parts }: { k: ControlKey; parts?: string[] }) {
+  const active = useEditor(s => controlFor(s.active) === k), letter = useEditor(letterOf), sourceProgram = useParam('sourceProgram');
+  const letters = sourceFormLetters({ sourceProgram }, k, letter);
+  return (
+    <div className={['ctl', active && 'active'].filter(Boolean).join(' ')} data-ctl={k} {...useControlFocus(k)}>
+      <CtlHead k={k} label={letters.length === 1 ? `Letter ${letters[0]}` : CONTROLS[k].label} parts={parts} />
+      {letters.map(ch => <SourceFormOptions key={ch} ch={ch} named={letters.length > 1} />)}
+    </div>
+  );
+}
+
+function SourceFormOptions({ ch, named }: { ch: string; named: boolean }) {
+  const params = useDeferredValue(useEditor(s => s.params)), picked = useEditor(s => s.params.sourceForms[ch]?.digest ?? null);
+  const choices = sourceFormChoices(params, ch);
+  useSources();
+  useEffect(() => { for (const choice of choices) void loadSource(choice.ref); }, [choices]);
+  const options = [{ id: 'original', label: 'Original', ref: null }, ...choices];
+  return <>
+    {named && <div className="sub-label">Letter <span className="ch">{ch}</span></div>}
+    <div className={options.length === 3 ? 'opts three' : options.length > 3 ? 'opts four' : 'opts two'} role="radiogroup" aria-label={`Shape of ${ch}`}>
+      {options.map(o => {
+        const on = (o.ref?.digest ?? null) === picked;
+        return (
+          <button key={o.id} role="radio" aria-checked={on} className={on ? 'opt on' : 'opt'} onClick={() => actions.setSourceForm(ch, o.ref)}>
+            <SourceFormIcon params={params} ch={ch} form={o.ref} /><span>{o.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  </>;
+}
+
+/** Letter `ch` of the design drawn in `form`, as the option shows it. */
+function SourceFormIcon({ params, ch, form }: { params: Params; ch: string; form: GlyphFormRef | null }) {
+  const p = useMemo(() => {
+    const { [ch]: _picked, ...forms } = params.sourceForms, { [ch]: _drawn, ...outlines } = params.outlines;
+    return { ...params, outlines, sourceForms: form ? { ...forms, [ch]: form } : forms };
+  }, [params, ch, form]);
+  const f = fontFor(p), g = f.glyph(ch), m = f.m;
+  return <svg viewBox={`0 ${n1(-m.asc - 30)} ${n1(g?.adv ?? m.cap * .6)} ${n1(m.asc - m.desc + 60)}`} width="46" height="40" aria-hidden="true">{g && <path d={g.d} />}</svg>;
 }
 
 export type LetterFormKey = Exclude<FormKey, 'terminalRun' | 'aForm'>;

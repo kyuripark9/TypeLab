@@ -17,6 +17,7 @@ import { onSource, sourceReady } from '../../shared/source/registry';
 import { sourceAllows, sourceControl, sourceSupports, sourceVisible } from '../../shared/source/capabilities';
 import { sourceStyleParams } from '../../shared/source/style';
 import { sourceFinishDefaults } from '../../shared/source/finish';
+import { formEditKey, type GlyphFormRef } from '../../shared/source/forms';
 import { DEFAULT_NAME, cleanName, slug, type Design, type DesignInput } from '../../shared/design';
 import { cleanLog, mergeLogs, ownOf, packLog, recordEdits, sameOwn, withOwn, type LetterEdit, type LetterLog } from '../../shared/letter-log';
 import { cleanVersions, keyOf, mergeVersions, packVersions, recordVersion, sameDesign, type FontLog, type FontVersion, type Made, type Snapshot } from '../../shared/font-log';
@@ -589,6 +590,20 @@ export const actions = {
     delete rest[id];
     set({ params: withGlyph(s.params, ch, key, Object.keys(rest).length ? rest : undefined), faded: true });
     actions.commit();
+  },
+  /** Draw source letter `ch` in form `ref` (null: its original), in one undo step. Its Points drawing stays with the form
+      it was drawn on, kept in sourceFormEdits, and the drawing kept for the form picked comes back. */
+  setSourceForm(ch: string, ref: GlyphFormRef | null) {
+    const p = get().params, was = p.sourceForms[ch] ?? null;
+    if ((was?.digest ?? null) === (ref?.digest ?? null)) return;
+    const forms = { ...p.sourceForms }, outlines = { ...p.outlines }, edits = { ...p.sourceFormEdits }, drawn = outlines[ch];
+    if (drawn) edits[formEditKey(ch, drawn.at?.sourceForms?.[ch])] = drawn;
+    delete outlines[ch];
+    const back = edits[formEditKey(ch, ref)];
+    if (back) { outlines[ch] = back; delete edits[formEditKey(ch, ref)]; }
+    if (ref) forms[ch] = ref; else delete forms[ch];
+    set({ params: { ...p, sourceForms: forms, sourceFormEdits: edits, outlines }, faded: true });
+    step();
   },
   /** Put a letter back in step with the rest of the alphabet: its own settings dropped, and its edits in Points. */
   syncLetter(ch: string) {

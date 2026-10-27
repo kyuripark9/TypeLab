@@ -6,7 +6,7 @@ import type { Params } from '../shared/params';
 import { designSourceDependencies } from '../shared/source/dependencies';
 import { parseSourceData } from '../shared/source/data';
 import { parseFeatureMasters, type FeatureMasterData } from '../shared/source/feature-masters';
-import { registerSource, registerSourceMarks, sourceMarks, sourceMasters } from '../shared/source/registry';
+import { registerSource, registerSourceMarks, sourceForm, sourceMarks, sourceMasters } from '../shared/source/registry';
 import type { MasterSourceRef, SourceRef } from '../shared/source/model';
 import type { FreeFontData } from '../shared/engine/free';
 import { ownLicense } from '../shared/free-fonts';
@@ -20,8 +20,9 @@ import { originMapInfo } from '../shared/source/origin-catalog';
 import { parseOutlineMasterMap, type OutlineMasterMapData } from '../shared/source/outline-master-map';
 import { parseSourceComponents, type SourceComponentData } from '../shared/source/components';
 import { parseSourceMarks } from '../shared/source/marks';
+import type { GlyphFormData } from '../shared/source/forms';
 
-type Payload = FreeFontData | WeightMasterData | SourceProgramData | WidthMasterData | FeatureMasterData | MasterSubdivisionData | OutlineMasterMapData | SourceComponentData;
+type Payload = FreeFontData | WeightMasterData | SourceProgramData | WidthMasterData | FeatureMasterData | MasterSubdivisionData | OutlineMasterMapData | SourceComponentData | GlyphFormData;
 const cached = new Map<string, FreeFontData>();
 const packages = new Map<string, Payload>();
 const keyOf = (ref: SourceRef | ProgramAssetRef) => `${ref.kind}:${ref.digest}:${ref.fontId}`;
@@ -37,6 +38,16 @@ function assetBase(ref: ProgramAssetRef): MasterSourceRef | undefined {
   }
   return base;
 }
+/** The program a letter form is offered in names its exact bases; every program offering it must agree. */
+function formProgram(ref: ProgramAssetRef): SourceProgramData | undefined {
+  let found: SourceProgramData | undefined;
+  for (const program of PROGRAM_REVISIONS) {
+    if (!program.data.forms?.some(choice => sameRef(choice.ref, ref))) continue;
+    if (found && (!sameRef(found.base, program.data.base) || !sameRef(found.width, program.data.width))) throw new Error('A letter form has conflicting catalog bases');
+    found = program.data;
+  }
+  return found;
+}
 function readPayload(ref: SourceRef | ProgramAssetRef | SourceMarksRef, directory: string): unknown {
   const bytes = readFileSync(new URL(`../fonts/${directory}/${ref.digest}.json`, import.meta.url));
   if (createHash('sha256').update(bytes).digest('hex') !== ref.digest) throw new Error('Source integrity check failed');
@@ -48,8 +59,10 @@ export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
   const origin = ref.kind === 'outline-master-map-v1' ? originMapInfo(ref) : undefined;
   const base = ref.kind === 'width-masters-v1' || ref.kind === 'feature-masters-v1' || ref.kind === 'master-subdivision-v1'
     || ref.kind === 'source-components-v1' ? assetBase(ref) : undefined;
+  const form = ref.kind === 'glyph-form-masters-v1' ? formProgram(ref) : undefined;
   const known = ref.kind === 'outline-v1' ? SOURCE_REVISIONS.some(r => sameRef(r, ref))
-    : ref.kind === 'masters-v1' ? !!masterInfo(ref) : ref.kind === 'program-v1' ? !!program : ref.kind === 'outline-master-map-v1' ? !!origin : !!base;
+    : ref.kind === 'masters-v1' ? !!masterInfo(ref) : ref.kind === 'program-v1' ? !!program : ref.kind === 'outline-master-map-v1' ? !!origin
+      : ref.kind === 'glyph-form-masters-v1' ? !!form : !!base;
   if (!known) throw new Error('This saved source is unavailable');
   const key = keyOf(ref), kept = packages.get(key);
   if (kept) return kept;
@@ -79,6 +92,7 @@ export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
         || !sameRef(data.features, program.data.features)
         || !sameRef(data.components ?? null, program.data.components ?? null)
         || JSON.stringify(data.marks) !== JSON.stringify(program.data.marks)
+        || JSON.stringify(data.forms) !== JSON.stringify(program.data.forms)
         || JSON.stringify(data.transitions) !== JSON.stringify(program.data.transitions)
         || JSON.stringify(data.finish) !== JSON.stringify(program.data.finish)
         || JSON.stringify(data.spacing) !== JSON.stringify(program.data.spacing)) throw new Error('Source program does not match its catalog');
@@ -136,6 +150,15 @@ export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
       registerSource(ref, data);
       break;
     }
+    case 'glyph-form-masters-v1': {
+      if (!form?.width) throw new Error('A letter form is missing its catalog bases');
+      loadSource(form.base); sourcePayload(form.width);
+      registerSource(ref, readPayload(ref, 'forms'));
+      const registered = sourceForm(ref);
+      if (!registered || !sameRef(registered.data.base, form.base) || !sameRef(registered.data.width, form.width)) throw new Error('A letter form does not match its catalog bases');
+      data = registered.data;
+      break;
+    }
     default: {
       const exhaustive: never = ref;
       throw new Error(`Unsupported source ${exhaustive}`);
@@ -153,7 +176,7 @@ export function loadSource(ref: SourceRef): FreeFontData {
   return font;
 }
 
-export function loadDesignSources(p: Pick<Params, 'sourceProgram' | 'outlines'>): void {
+export function loadDesignSources(p: Pick<Params, 'sourceProgram' | 'outlines'> & Partial<Pick<Params, 'sourceForms' | 'sourceFormEdits'>>): void {
   for (const ref of designSourceDependencies(p)) sourcePayload(ref);
 }
 

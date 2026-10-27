@@ -2,6 +2,7 @@
 import { parseSourceRef, type MasterSourceRef } from './model';
 import { parseSourceFinish, type SourceFinishPolicy } from './finish';
 import { parseSourceSpacing, type SourceSpacingPolicy } from './spacing';
+import { parseSourceFormChoices, type GlyphFormRef, type SourceFormChoice } from './forms';
 
 export interface WidthMasterRef { readonly kind: 'width-masters-v1'; readonly digest: string; readonly fontId: string }
 export interface FeatureMasterRef { readonly kind: 'feature-masters-v1'; readonly digest: string; readonly fontId: string }
@@ -10,7 +11,8 @@ export interface OutlineMasterMapRef { readonly kind: 'outline-master-map-v1'; r
 export interface SourceComponentRef { readonly kind: 'source-components-v1'; readonly digest: string; readonly fontId: string }
 /** Accent marks are loaded only where a font asks for its accented letters (an export), never with the program. */
 export interface SourceMarksRef { readonly kind: 'source-marks-v1'; readonly digest: string; readonly fontId: string }
-export type ProgramAssetRef = WidthMasterRef | FeatureMasterRef | SubdivisionRef | OutlineMasterMapRef | SourceComponentRef;
+/** A letter form is loaded where a design picks it (or the editor shows it to pick), not with its program. */
+export type ProgramAssetRef = WidthMasterRef | FeatureMasterRef | SubdivisionRef | OutlineMasterMapRef | SourceComponentRef | GlyphFormRef;
 export interface BasisTransition { from: MasterSourceRef; mapping: SubdivisionRef }
 export interface SourceProgramData {
   format: 'source-program-v1';
@@ -19,6 +21,8 @@ export interface SourceProgramData {
   features: FeatureMasterRef | null;
   components?: SourceComponentRef;
   marks?: SourceMarksRef;
+  /** the alternate forms its letters offer, each a complete drawing on the program's weight and width grid */
+  forms?: SourceFormChoice[];
   finish?: SourceFinishPolicy;
   spacing?: SourceSpacingPolicy;
   transitions?: BasisTransition[];
@@ -39,7 +43,7 @@ function assetRef<K extends ProgramAssetRef['kind'] | SourceMarksRef['kind']>(in
 
 /** Dependencies name the same family; their payloads must also be validated against the complete base reference. */
 export function parseSourceProgram(input: unknown): SourceProgramData {
-  const value = object(input), fields = ['format', 'base', 'width', 'features', 'components', 'marks', 'finish', 'spacing', 'transitions'];
+  const value = object(input), fields = ['format', 'base', 'width', 'features', 'components', 'marks', 'forms', 'finish', 'spacing', 'transitions'];
   if (value.format !== 'source-program-v1' || Object.keys(value).some(key => !fields.includes(key))) {
     throw new TypeError('Invalid or unsupported source program');
   }
@@ -50,12 +54,15 @@ export function parseSourceProgram(input: unknown): SourceProgramData {
   const marks = 'marks' in value ? assetRef(value.marks, 'source-marks-v1', base.fontId) : undefined;
   const width = assetRef(value.width, 'width-masters-v1', base.fontId);
   if (marks === null || marks && (!components || !width)) throw new TypeError('Source marks require the program\'s width masters and components');
+  const forms = 'forms' in value ? parseSourceFormChoices(value.forms, base.fontId) : undefined;
+  if (forms && !width) throw new TypeError('Letter forms require the program\'s width masters');
   return {
     format: 'source-program-v1', base,
     width,
     features: assetRef(value.features, 'feature-masters-v1', base.fontId),
     ...(components ? { components } : {}),
     ...(marks ? { marks } : {}),
+    ...(forms ? { forms } : {}),
     ...('finish' in value ? { finish: parseSourceFinish(value.finish) } : {}),
     ...('spacing' in value ? { spacing: parseSourceSpacing(value.spacing) } : {}),
     ...('transitions' in value ? { transitions: transitions(value.transitions, base) } : {}),
