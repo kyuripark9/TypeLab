@@ -1,7 +1,7 @@
 /* Server-side export: the same engine that draws the live preview builds the font files. */
 import { crc32, deflateRawSync } from 'node:zlib';
 import type { FontConstructorOptions } from 'opentype.js';
-import { ACCENTED, CHARSET, ALL_CHARS, accentGlyph, buildFont, cmdsToD } from '../shared/engine';
+import { ACCENTED, CHARSET, ALL_CHARS, accentGlyph, accentOf, buildFont, cmdsToD } from '../shared/engine';
 import type { Cmd, Font, Glyph } from '../shared/engine';
 import { TEXTS } from '../shared/content';
 import { slug } from '../shared/design';
@@ -16,6 +16,8 @@ import { encodedAdvance } from '../shared/engine/spacing';
 import { preciseCFF, type PreciseCFFGlyph } from './cff-precision';
 import { sourceFinishPrecision } from '../shared/source/finish';
 import type { SourceEffect } from '../shared/source/effect-error';
+import { loadSourceMarks } from './sources';
+import { sourceAccents } from '../shared/source/capabilities';
 
 const R = Math.round;
 
@@ -73,7 +75,7 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
   const font = buildFont(params), m = font.m, free = font.free, licensed = free?.license ? free : null;
   const credits = exportCredits(params, font);
   if (font.source?.state === 'missing') throw new Error('The saved source must be loaded before exporting');
-  if (params.sourceProgram && accents) throw new Error('This source has no authored accented glyphs');
+  if (params.sourceProgram && accents && !loadSourceMarks(params)) throw new Error('This source has no authored accented glyphs');
   if (params.sourceProgram && as === REGULAR) {
     const original = parseFontId(params.sourceProgram.fontId), info = masterInfo(params.sourceProgram);
     const cls = Math.round(info ? weightAt(params, info) : original?.weight ?? 400);
@@ -115,7 +117,13 @@ export function buildOTF(params: Params, name: string, as: FontStyle = REGULAR, 
   }
   if (accents) for (const ch of ACCENTED) {
     const g = accentGlyph(font, ch); if (!g) continue;
-    preciseGlyphs.push({ cmds: g.cmds.map(command => command.map((v, i) => i ? R(v as number) : v) as Cmd), advance: encodedAdvance(g.adv, m.track) });
+    // a source's accents are finished as their letter is (its own settings decide how): the dotless ones on the i
+    const letter = params.sourceProgram ? font.letter((accentOf(ch)?.base ?? 'ı').replace('ı', 'i')).params : null;
+    const finish = letter?.sourceProgram && sourceProgram(letter.sourceProgram)?.data.finish;
+    const effect = finish && letter ? sourceFinishPrecision(finish, letter) : null;
+    precisionEffect ??= effect;
+    preciseGlyphs.push({ cmds: effect ? g.cmds : g.cmds.map(command => command.map((v, i) => i ? R(v as number) : v) as Cmd),
+      advance: encodedAdvance(g.adv, m.track), ...(effect ? { effect } : {}) });
     glyphs.push(new opentype.Glyph({
       name: 'uni' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'),
       unicode: ch.charCodeAt(0),
@@ -249,6 +257,7 @@ const escapeXml = (s: string) => s.replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': 
 /** A vector specimen sheet: the name, every character and a pangram; with `accents`, the accented letters (ACCENTED)
     too, capitals and small letters each a row, under the rest. */
 export function buildSpecimenSVG(params: Params, name: string, accents = false): string {
+  if (params.sourceProgram && accents && !loadSourceMarks(params)) throw new Error('This source has no authored accented glyphs');
   const font = buildFont(params), m = font.m;
   const rows = [name, CHARSET.upper, CHARSET.lower, CHARSET.digits + ' ' + CHARSET.punct, CHARSET.symbols, TEXTS.sentence];
   if (accents) rows.push(...[true, false].map(caps => [...ACCENTED].filter(ch => (ch !== ch.toLowerCase()) === caps).join('')));
@@ -290,7 +299,7 @@ export interface Built { file: string; type: string; data: Buffer }
     its free font reserves, and for the member picked (`<slug>-<Style>.otf`), as the family's .zip names it. */
 export function buildExport(job: ExportJob): Built {
   const { name, params, accents = false } = job;
-  if (params.sourceProgram && (accents || !masterInfo(params.sourceProgram) && (job.kind === 'family' || job.kind === 'otf' && job.member))) {
+  if (params.sourceProgram && (accents && !sourceAccents(params) || !masterInfo(params.sourceProgram) && (job.kind === 'family' || job.kind === 'otf' && job.member))) {
     throw new Error('This source does not contain the requested authored variations');
   }
   if (params.sourceProgram && buildFont(params).source?.state !== 'ready') throw new Error('The saved source must be loaded before exporting');

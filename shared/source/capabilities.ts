@@ -20,6 +20,10 @@ export function sourceSupports(p: Pick<Params, 'sourceProgram'>, key: string, gl
   return programInfo(p.sourceProgram)?.featureGlyphs[key]?.includes(glyph) ?? false;
 }
 
+/** Whether an export can add the accented letters: always for other designs (accents.ts draws them), and for a source
+    only when its program pins authored marks. */
+export const sourceAccents = (p: Pick<Params, 'sourceProgram'>): boolean => !p.sourceProgram || !!programInfo(p.sourceProgram)?.data.marks;
+
 /** Named options must be reviewed as well as their parent control. */
 export function sourceAllows(p: Pick<Params, 'sourceProgram'>, key: string, value: unknown, glyph?: string | null): boolean {
   if (!sourceSupports(p, key, glyph)) return false;

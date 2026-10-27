@@ -1,0 +1,674 @@
+{
+  "format": "mark-authoring-v1",
+  "characters": [
+    {
+      "glyph": "À",
+      "base": "A",
+      "mark": "grave"
+    },
+    {
+      "glyph": "Á",
+      "base": "A",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Â",
+      "base": "A",
+      "mark": "circumflex"
+    },
+    {
+      "glyph": "Ã",
+      "base": "A",
+      "mark": "tilde"
+    },
+    {
+      "glyph": "Ä",
+      "base": "A",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "Å",
+      "base": "A",
+      "mark": "ring"
+    },
+    {
+      "glyph": "Ç",
+      "base": "C",
+      "mark": "cedilla"
+    },
+    {
+      "glyph": "È",
+      "base": "E",
+      "mark": "grave"
+    },
+    {
+      "glyph": "É",
+      "base": "E",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Ê",
+      "base": "E",
+      "mark": "circumflex"
+    },
+    {
+      "glyph": "Ë",
+      "base": "E",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "Ì",
+      "base": "I",
+      "mark": "grave"
+    },
+    {
+      "glyph": "Í",
+      "base": "I",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Î",
+      "base": "I",
+      "mark": "circumflex"
+    },
+    {
+      "glyph": "Ï",
+      "base": "I",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "Ñ",
+      "base": "N",
+      "mark": "tilde"
+    },
+    {
+      "glyph": "Ò",
+      "base": "O",
+      "mark": "grave"
+    },
+    {
+      "glyph": "Ó",
+      "base": "O",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Ô",
+      "base": "O",
+      "mark": "circumflex"
+    },
+    {
+      "glyph": "Õ",
+      "base": "O",
+      "mark": "tilde"
+    },
+    {
+      "glyph": "Ö",
+      "base": "O",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "Ù",
+      "base": "U",
+      "mark": "grave"
+    },
+    {
+      "glyph": "Ú",
+      "base": "U",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Û",
+      "base": "U",
+      "mark": "circumflex"
+    },
+    {
+      "glyph": "Ü",
+      "base": "U",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "Ý",
+      "base": "Y",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Ā",
+      "base": "A",
+      "mark": "macron"
+    },
+    {
+      "glyph": "Ă",
+      "base": "A",
+      "mark": "breve"
+    },
+    {
+      "glyph": "Ą",
+      "base": "A",
+      "mark": "ogonek"
+    },
+    {
+      "glyph": "Ć",
+      "base": "C",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Č",
+      "base": "C",
+      "mark": "caron"
+    },
+    {
+      "glyph": "Ď",
+      "base": "D",
+      "mark": "caron"
+    },
+    {
+      "glyph": "Ē",
+      "base": "E",
+      "mark": "macron"
+    },
+    {
+      "glyph": "Ė",
+      "base": "E",
+      "mark": "dot"
+    },
+    {
+      "glyph": "Ę",
+      "base": "E",
+      "mark": "ogonek"
+    },
+    {
+      "glyph": "Ě",
+      "base": "E",
+      "mark": "caron"
+    },
+    {
+      "glyph": "Ğ",
+      "base": "G",
+      "mark": "breve"
+    },
+    {
+      "glyph": "Ģ",
+      "base": "G",
+      "mark": "commabelow"
+    },
+    {
+      "glyph": "Ī",
+      "base": "I",
+      "mark": "macron"
+    },
+    {
+      "glyph": "Į",
+      "base": "I",
+      "mark": "ogonek"
+    },
+    {
+      "glyph": "İ",
+      "base": "I",
+      "mark": "dot"
+    },
+    {
+      "glyph": "Ķ",
+      "base": "K",
+      "mark": "commabelow"
+    },
+    {
+      "glyph": "Ĺ",
+      "base": "L",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Ļ",
+      "base": "L",
+      "mark": "commabelow"
+    },
+    {
+      "glyph": "Ľ",
+      "base": "L",
+      "mark": "caroncomma"
+    },
+    {
+      "glyph": "Ń",
+      "base": "N",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Ņ",
+      "base": "N",
+      "mark": "commabelow"
+    },
+    {
+      "glyph": "Ň",
+      "base": "N",
+      "mark": "caron"
+    },
+    {
+      "glyph": "Ō",
+      "base": "O",
+      "mark": "macron"
+    },
+    {
+      "glyph": "Ő",
+      "base": "O",
+      "mark": "hungarumlaut"
+    },
+    {
+      "glyph": "Ŕ",
+      "base": "R",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Ř",
+      "base": "R",
+      "mark": "caron"
+    },
+    {
+      "glyph": "Ś",
+      "base": "S",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Ş",
+      "base": "S",
+      "mark": "cedilla"
+    },
+    {
+      "glyph": "Š",
+      "base": "S",
+      "mark": "caron"
+    },
+    {
+      "glyph": "Ţ",
+      "base": "T",
+      "mark": "cedilla"
+    },
+    {
+      "glyph": "Ť",
+      "base": "T",
+      "mark": "caron"
+    },
+    {
+      "glyph": "Ū",
+      "base": "U",
+      "mark": "macron"
+    },
+    {
+      "glyph": "Ů",
+      "base": "U",
+      "mark": "ring"
+    },
+    {
+      "glyph": "Ű",
+      "base": "U",
+      "mark": "hungarumlaut"
+    },
+    {
+      "glyph": "Ų",
+      "base": "U",
+      "mark": "ogonek"
+    },
+    {
+      "glyph": "Ÿ",
+      "base": "Y",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "Ź",
+      "base": "Z",
+      "mark": "acute"
+    },
+    {
+      "glyph": "Ż",
+      "base": "Z",
+      "mark": "dot"
+    },
+    {
+      "glyph": "Ž",
+      "base": "Z",
+      "mark": "caron"
+    },
+    {
+      "glyph": "Ș",
+      "base": "S",
+      "mark": "commabelow"
+    },
+    {
+      "glyph": "Ț",
+      "base": "T",
+      "mark": "commabelow"
+    },
+    {
+      "glyph": "à",
+      "base": "a",
+      "mark": "grave"
+    },
+    {
+      "glyph": "á",
+      "base": "a",
+      "mark": "acute"
+    },
+    {
+      "glyph": "â",
+      "base": "a",
+      "mark": "circumflex"
+    },
+    {
+      "glyph": "ã",
+      "base": "a",
+      "mark": "tilde"
+    },
+    {
+      "glyph": "ä",
+      "base": "a",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "å",
+      "base": "a",
+      "mark": "ring"
+    },
+    {
+      "glyph": "ç",
+      "base": "c",
+      "mark": "cedilla"
+    },
+    {
+      "glyph": "è",
+      "base": "e",
+      "mark": "grave"
+    },
+    {
+      "glyph": "é",
+      "base": "e",
+      "mark": "acute"
+    },
+    {
+      "glyph": "ê",
+      "base": "e",
+      "mark": "circumflex"
+    },
+    {
+      "glyph": "ë",
+      "base": "e",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "ì",
+      "base": "ı",
+      "mark": "grave"
+    },
+    {
+      "glyph": "í",
+      "base": "ı",
+      "mark": "acute"
+    },
+    {
+      "glyph": "î",
+      "base": "ı",
+      "mark": "circumflex"
+    },
+    {
+      "glyph": "ï",
+      "base": "ı",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "ñ",
+      "base": "n",
+      "mark": "tilde"
+    },
+    {
+      "glyph": "ò",
+      "base": "o",
+      "mark": "grave"
+    },
+    {
+      "glyph": "ó",
+      "base": "o",
+      "mark": "acute"
+    },
+    {
+      "glyph": "ô",
+      "base": "o",
+      "mark": "circumflex"
+    },
+    {
+      "glyph": "õ",
+      "base": "o",
+      "mark": "tilde"
+    },
+    {
+      "glyph": "ö",
+      "base": "o",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "ù",
+      "base": "u",
+      "mark": "grave"
+    },
+    {
+      "glyph": "ú",
+      "base": "u",
+      "mark": "acute"
+    },
+    {
+      "glyph": "û",
+      "base": "u",
+      "mark": "circumflex"
+    },
+    {
+      "glyph": "ü",
+      "base": "u",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "ý",
+      "base": "y",
+      "mark": "acute"
+    },
+    {
+      "glyph": "ÿ",
+      "base": "y",
+      "mark": "dieresis"
+    },
+    {
+      "glyph": "ā",
+      "base": "a",
+      "mark": "macron"
+    },
+    {
+      "glyph": "ă",
+      "base": "a",
+      "mark": "breve"
+    },
+    {
+      "glyph": "ą",
+      "base": "a",
+      "mark": "ogonek"
+    },
+    {
+      "glyph": "ć",
+      "base": "c",
+      "mark": "acute"
+    },
+    {
+      "glyph": "č",
+      "base": "c",
+      "mark": "caron"
+    },
+    {
+      "glyph": "ď",
+      "base": "d",
+      "mark": "caroncomma"
+    },
+    {
+      "glyph": "ē",
+      "base": "e",
+      "mark": "macron"
+    },
+    {
+      "glyph": "ė",
+      "base": "e",
+      "mark": "dot"
+    },
+    {
+      "glyph": "ę",
+      "base": "e",
+      "mark": "ogonek"
+    },
+    {
+      "glyph": "ě",
+      "base": "e",
+      "mark": "caron"
+    },
+    {
+      "glyph": "ğ",
+      "base": "g",
+      "mark": "breve"
+    },
+    {
+      "glyph": "ģ",
+      "base": "g",
+      "mark": "commaturned"
+    },
+    {
+      "glyph": "ī",
+      "base": "ı",
+      "mark": "macron"
+    },
+    {
+      "glyph": "į",
+      "base": "i",
+      "mark": "ogonek"
+    },
+    {
+      "glyph": "ı"
+    },
+    {
+      "glyph": "ķ",
+      "base": "k",
+      "mark": "commabelow"
+    },
+    {
+      "glyph": "ĺ",
+      "base": "l",
+      "mark": "acute"
+    },
+    {
+      "glyph": "ļ",
+      "base": "l",
+      "mark": "commabelow"
+    },
+    {
+      "glyph": "ľ",
+      "base": "l",
+      "mark": "caroncomma"
+    },
+    {
+      "glyph": "ń",
+      "base": "n",
+      "mark": "acute"
+    },
+    {
+      "glyph": "ņ",
+      "base": "n",
+      "mark": "commabelow"
+    },
+    {
+      "glyph": "ň",
+      "base": "n",
+      "mark": "caron"
+    },
+    {
+      "glyph": "ō",
+      "base": "o",
+      "mark": "macron"
+    },
+    {
+      "glyph": "ő",
+      "base": "o",
+      "mark": "hungarumlaut"
+    },
+    {
+      "glyph": "ŕ",
+      "base": "r",
+      "mark": "acute"
+    },
+    {
+      "glyph": "ř",
+      "base": "r",
+      "mark": "caron"
+    },
+    {
+      "glyph": "ś",
+      "base": "s",
+      "mark": "acute"
+    },
+    {
+      "glyph": "ş",
+      "base": "s",
+      "mark": "cedilla"
+    },
+    {
+      "glyph": "š",
+      "base": "s",
+      "mark": "caron"
+    },
+    {
+      "glyph": "ţ",
+      "base": "t",
+      "mark": "cedilla"
+    },
+    {
+      "glyph": "ť",
+      "base": "t",
+      "mark": "caroncomma"
+    },
+    {
+      "glyph": "ū",
+      "base": "u",
+      "mark": "macron"
+    },
+    {
+      "glyph": "ů",
+      "base": "u",
+      "mark": "ring"
+    },
+    {
+      "glyph": "ű",
+      "base": "u",
+      "mark": "hungarumlaut"
+    },
+    {
+      "glyph": "ų",
+      "base": "u",
+      "mark": "ogonek"
+    },
+    {
+      "glyph": "ź",
+      "base": "z",
+      "mark": "acute"
+    },
+    {
+      "glyph": "ż",
+      "base": "z",
+      "mark": "dot"
+    },
+    {
+      "glyph": "ž",
+      "base": "z",
+      "mark": "caron"
+    },
+    {
+      "glyph": "ș",
+      "base": "s",
+      "mark": "commabelow"
+    },
+    {
+      "glyph": "ț",
+      "base": "t",
+      "mark": "commabelow"
+    }
+  ],
+  "localPolicy": "Missing marks are constructed offline from this same style grave, caret, tilde, degree, period, hyphen, parenthesis, comma, or apostrophe. Runtime receives final curves and explicit ports, never anatomy rules."
+}

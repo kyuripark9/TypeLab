@@ -9,7 +9,7 @@ import { DEFAULTS, type Params } from '../params';
 import { inverseTransform, mapPoint, type OutlineTransform } from './geometry';
 import type { SourceRef } from './model';
 import { designSourceDependencies } from './dependencies';
-import { sourceFont, sourceMasters, sourceOriginMap, sourceProgram, sourceReady, sourceSubdivision } from './registry';
+import { sourceFont, sourceMarks, sourceMasters, sourceOriginMap, sourceProgram, sourceReady, sourceSubdivision } from './registry';
 import { sourceControls } from './capabilities';
 import { sourceDot } from './features';
 import { interpolateMasters, weightAt } from './masters';
@@ -24,9 +24,16 @@ import { identifyAuthored, inheritAuthored, mapAuthored, rebaseEdits, rebaseRefe
 import { compileSourceFinish, finishSourceGlyph, sourceFinishBounds } from './finish';
 import { componentMembership, componentOwnership, componentPlan, mapComponents, type ComponentMembership } from './components';
 import { sourceMonoAdvance, spaceSourceDrawing, unspaceSourceDrawing, type SourceMonoPlan } from './spacing';
+import { omitMarkComponents, sourceMarkAnchor, sourceMarkDrawing } from './marks';
 
 export interface SourceStatus { ref: SourceRef | ProgramAssetRef; state: 'missing' | 'ready'; missingCharacters: string[] }
-interface SourceInstance { m: Metrics; free?: FreeFont; monoCell?: number; status: SourceStatus; glyph(ch: string): Glyph | null }
+interface SourceInstance {
+  m: Metrics; free?: FreeFont; monoCell?: number; status: SourceStatus; glyph(ch: string): Glyph | null;
+  /** The letter an accented character is composed on, where the program's marks are loaded; null otherwise. */
+  accentBase(ch: string): string | null;
+  /** Accented character `ch` on its letter as this font draws it, Points edits included; null where it has none. */
+  accent(ch: string): Glyph | null;
+}
 
 /** Each side of the pick uses its complete slider range, with positive endpoints. */
 function axis(value: number, pick: number, low: number, high: number): number {
@@ -218,6 +225,33 @@ function variedFont(p: Params): FreeFont | undefined {
   return program && info ? interpolateMasters(program, weightAt(p, info)) : sourceFont(p.sourceProgram);
 }
 
+/** Accented `ch` before spacing and finishing: its letter as evaluated (saved Points, per-letter values and component
+    sizes included), any component its recipe omits taken off (ı's dot), and the authored mark for this weight and width
+    set at the port on the letter as it stands, or as the source draws it where an edit took the port away. The mark is
+    placed after proportions and posed with the letter, so it keeps its drawn size whatever the heights. */
+function composedAccent(font: FreeFont, p: Params, ch: string): Glyph | null {
+  const program = p.sourceProgram && sourceProgram(p.sourceProgram), info = masterInfo(p.sourceProgram);
+  const marks = program?.data.marks && sourceMarks(program.data.marks), recipe = marks?.recipes.get(ch);
+  const basis = masterBasisForEditing(p.sourceProgram);
+  if (!program?.width || !marks || !recipe || !info || !basis) return null;
+  const base = evaluated(font, p, recipe.base);
+  if (!base?.drawn) return null;
+  const letter = unspaceSourceDrawing(base.drawn), kept = omitMarkComponents(letter, marks, recipe);
+  if (!recipe.mark) return asGlyph(ch, kept, base.M);
+  const nominal = p.outlines[recipe.base] ? evaluated(font, { ...p, outlines: {} }, recipe.base)?.drawn : letter;
+  const at = sourceMarkAnchor(recipe, letter, nominal ?? letter, { digest: basis.digest, glyph: recipe.base });
+  const mark = sourceMarkDrawing(marks, ch, weightAt(p, info), widthAt(p, program.width.data.axis));
+  // the mark is drawn about its port and posed as the letter is: only the pose's turn, lean and mirror reach it
+  const [a, b, c, d] = base.M, turn = (x: number, y: number) => [a * x + c * y, b * x + d * y];
+  const placed = mark.contours.map(contour => contour.map(n => {
+    const [x, y] = turn(n.x, n.y), out: Node = { x: at.x + x, y: at.y + y };
+    if (n.ix !== undefined && n.iy !== undefined) { const [ix, iy] = turn(n.ix, n.iy); out.ix = at.x + ix; out.iy = at.y + iy; }
+    if (n.ox !== undefined && n.oy !== undefined) { const [ox, oy] = turn(n.ox, n.oy); out.ox = at.x + ox; out.oy = at.y + oy; }
+    return out;
+  }));
+  return asGlyph(ch, { adv: kept.adv + mark.adv, contours: [...kept.contours, ...placed] }, base.M);
+}
+
 function asGlyph(ch: string, drawn: Drawn, M: Mat, editable = false): Glyph {
   const cmds = drawnCmds(drawn.contours), box = cmdsBox(cmds) ?? { x0: 0, x1: 0, y0: 0, y1: 0 };
   return { ch, ...blankParts(), strokes: [{ part: 'drawn', cmds, curved: true }],
@@ -225,14 +259,17 @@ function asGlyph(ch: string, drawn: Drawn, M: Mat, editable = false): Glyph {
     M, drawn, ...(editable ? { editable: drawn } : {}), cmds, d: cmdsToD(cmds) };
 }
 
+/** A source still loading draws nothing. */
+const NOTHING = { glyph: () => null, accentBase: () => null, accent: () => null };
+
 export function sourceInstance(p: Params, fallback: Metrics, parentMonoCell?: number): SourceInstance | null {
   const ref = p.sourceProgram;
   if (!ref) return null;
   for (const baseline of designSourceDependencies(p)) {
-    if (!sourceReady(baseline)) return { m: fallback, status: { ref: baseline, state: 'missing', missingCharacters: [] }, glyph: () => null };
+    if (!sourceReady(baseline)) return { m: fallback, status: { ref: baseline, state: 'missing', missingCharacters: [] }, ...NOTHING };
   }
   const font = variedFont(p);
-  if (!font) return { m: fallback, status: { ref, state: 'missing', missingCharacters: [] }, glyph: () => null };
+  if (!font) return { m: fallback, status: { ref, state: 'missing', missingCharacters: [] }, ...NOTHING };
   const base = { ...DEFAULTS, ...p.freeAt }, sy = axis(p.height, DEFAULTS.height, 0.78, 1.28);
   const lower = shape(font, p, 'x'), xh = lower.y[2]?.[1] ?? font.xh * sy;
   let mono: SourceMonoPlan | null = null;
@@ -276,17 +313,24 @@ export function sourceInstance(p: Params, fallback: Metrics, parentMonoCell?: nu
     m: { ...m, cap: font.cap * sy, xh, asc: (lower.y[3]?.[1] ?? font.cap * sy) + componentRise + bounds.above,
       desc: lower.y[0][1] - componentFall - bounds.below, ws: lower.xScale, slant: Math.tan((p.slant - base.slant) * 20 * Math.PI / 180),
       space: sourceMonoAdvance(Math.max(20, font.space * lower.xScale + (p.wordSpacing - DEFAULTS.wordSpacing) * 520), mono) + spaceExtension },
-    glyph: ch => {
-      let glyph = evaluated(font, p, ch);
-      if (glyph?.drawn && (mono || glyph.drawn.spacing)) {
-        const drawn = spaceSourceDrawing(glyph.drawn, mono), shift = drawn.spacing?.shift ?? 0;
-        if (drawn !== glyph.drawn || shift !== 0) {
-          const M: Mat = [...glyph.M]; M[4] += shift;
-          glyph = asGlyph(ch, drawn, M, !!glyph.editable);
-        }
-      }
-      const finished = glyph && finish ? finishSourceGlyph(glyph, finish) : glyph;
-      return finished && !finished.cmds.length && spaceExtension ? { ...finished, adv: finished.adv + spaceExtension, rsb: finished.rsb + spaceExtension } : finished;
-    }
+    accentBase: ch => {
+      const marks = programInfo(ref)?.data.marks;
+      return (marks && sourceMarks(marks)?.recipes.get(ch)?.base) ?? null;
+    },
+    accent: ch => placed(composedAccent(font, p, ch)),
+    glyph: ch => placed(evaluated(font, p, ch))
   };
+  /** A letter or an accented one spaced (Mono) and finished as every glyph of the font is. */
+  function placed(evaluatedGlyph: Glyph | null): Glyph | null {
+    let glyph = evaluatedGlyph;
+    if (glyph?.drawn && (mono || glyph.drawn.spacing)) {
+      const drawn = spaceSourceDrawing(glyph.drawn, mono), shift = drawn.spacing?.shift ?? 0;
+      if (drawn !== glyph.drawn || shift !== 0) {
+        const M: Mat = [...glyph.M]; M[4] += shift;
+        glyph = asGlyph(glyph.ch, drawn, M, !!glyph.editable);
+      }
+    }
+    const finished = glyph && finish ? finishSourceGlyph(glyph, finish) : glyph;
+    return finished && !finished.cmds.length && spaceExtension ? { ...finished, adv: finished.adv + spaceExtension, rsb: finished.rsb + spaceExtension } : finished;
+  }
 }

@@ -1,0 +1,376 @@
+[
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "44ce1daebc31f46d098f0f37a84023aba0f2689404d5aa529a8c0bcb261d3033",
+      "fontId": "Mainline:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "55e40c9a42f15d14cbd44011cbb107ef5c9b2ce08d12bbc7cf937009b19ca017",
+      "fontId": "Mainline:600"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "6ef2edb3fb51b38adb7dd768d690ebe1b9bff7db094dcbba30faf315f41bf314",
+      "fontId": "Mainline:600"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3f5e7e22afe6910db983a6532ae90df62aa3b3611b2698f4caedd34193ee5b95",
+      "fontId": "Parlance:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4bd6f693c92546671858f839a603219dca3811764becf18f587256a4d0f246b5",
+      "fontId": "Parlance:500"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "93dedc371e1d64d5276ed32c00f7c541fb200e23106a0a5ce5831ecc7ca4e0b3",
+      "fontId": "Parlance:500"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "2d9d079c67fee2c0300b5e2eb15284df14fdf10ee9bfe3f64c0816bd4e99c800",
+      "fontId": "Gumdrop:700"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "6294549f2cff3a88c3937d1b3435d8521e2ecfddc5f7b12bddd31552bda0e360",
+      "fontId": "Gumdrop:700"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "83d0b94f2ff1d61ea777f8e96ab6678452f7ebcf07c8fbb8b0d0abee8da04ff4",
+      "fontId": "Gumdrop:700"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "cc1a63a8a92ca1a4dee1fde8f0fd63e633d6db2a49dc6d0eca38a0d6d5588818",
+      "fontId": "Couture:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "6d469e47838ea9fb2c32b7bedec7fae1e0288bb526c87e1c4b42646bb15981ba",
+      "fontId": "Couture:600"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "53f43510bab1e61954bcfef0ec9dd684ac7059366ddc9a5e1b389ce51abc3b99",
+      "fontId": "Couture:600"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e56354a4417393b45cb5b47023524b5da7ee29ad4b13bb5cb6b52c36bd0dac8e",
+      "fontId": "Hearth:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "d79b734ecc433284d4c053af742252d0a3dac6b11a1efce97d73c5a55d6862af",
+      "fontId": "Hearth:600"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "634ac216284a36c0e32b254cfe63c7c782af15b166ce454fc7ed6c44cec444fe",
+      "fontId": "Hearth:600"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "db318a507de92d6adcea03fca0522125e2b08f14156125bd5bbe10f0926d1356",
+      "fontId": "Vellum:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "bb1d04b31de89d3901c4836a29061e451be1b0fb4bb20eed93f772b1ec212f0f",
+      "fontId": "Vellum:400"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "08855d50d421169fef4d59f86395eeb8008b984f5041cf97a3e8b114a586bb3d",
+      "fontId": "Vellum:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "01c05c7518e7883dcce4edb75e81bf6bf27cd9321b97e147620876edb16a4e7e",
+      "fontId": "Almanac:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "d91cb84dff52cada3e127017f766aeed03bac9b8d1bba8303038d96cf2b4515e",
+      "fontId": "Almanac:500"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "4c96c38a51cb96ca3258d60c993e027d0f52c321d0b629495fb3e391673d3848",
+      "fontId": "Almanac:500"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
+      "fontId": "Compass:300"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "692ef6a1d7e545f0f7da2ef2b512dd500c334d89599fdb3c9eb7a84e3223fbae",
+      "fontId": "Compass:300"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "78e72d64a2be264965cbfb3ca8f415ae5bda54a131e7af1571d35fb86e645bf6",
+      "fontId": "Compass:300"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "faf347e750555ff1f0d52cdf08a53a71002d92f63e35e4c7ceedf8bb02034998",
+      "fontId": "Dispatch:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "7dee622133f210f4f6fb49b79666e98fa64433cb6bd95f1f134506a20bf6320a",
+      "fontId": "Dispatch:400"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "1c3c1062a53fcb387ad17118847797a7e7a1c19e1435abe5d7c4963985bbf51d",
+      "fontId": "Dispatch:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+      "fontId": "Kernel:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4f69862ce989ddc287ea2c59fc09802b151c8f584c95950229e520fca889eb20",
+      "fontId": "Kernel:500"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "3232b948d053239b87a91ad858ae1923e0f2144ba7f8cc660cbcee3ea1e262a8",
+      "fontId": "Kernel:500"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "b27f1855b7fc6d539ba811886c5247ecf8489d440838bea26f80fe8ff3f2183d",
+      "fontId": "Orbital:600"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "69a55c173810c97dc2f564de33eb44813c4e7144f88163fcc19717f19af8fb44",
+      "fontId": "Orbital:600"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "920b6c139239014ad400145427a208b624b45b4b9af4036c06d379d009aa68e5",
+      "fontId": "Orbital:600"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "6511630f95c63e312e8d9e315d039ffa2a8f3864cc99ff5242a2de339a8b7b72",
+      "fontId": "Bulwark:700"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "153bfd0631c65b089e2acf0205cfea3e7172c515876d2fad079f3d10dd77514d",
+      "fontId": "Bulwark:700"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "a0a6d92b8ed7ee0dd849ca0b1f0f20354e52615def556437fc51f2708585ccd4",
+      "fontId": "Bulwark:700"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c1fb623848b9d9dbccb4ab63606295ac5a01eadd535183b8190a76a2af39e696",
+      "fontId": "Sonnet:400i"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "db4c4df661b213706048499f53410280b7b2eba1eb04fb20b7f2158869f1cfdb",
+      "fontId": "Sonnet:400i"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "255975661798c0bfa6f6d3697febf47702f51af64d4c4b846421a692aea3fe19",
+      "fontId": "Sonnet:400i"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e79ee882db3b4b75825be583381d1f791886c305b9b6cbecf8cce410856b14fa",
+      "fontId": "Cotton:300"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "2ef1047e72e7d515e876e30a12a0ded6f1aca412cdea57af6ff47dc1c78f18c1",
+      "fontId": "Cotton:300"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "667b3a68dcbef5f943bd2edf74f31feed495084d77c0593752f1e703d7081ead",
+      "fontId": "Cotton:300"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "620337576cbca76b92ce43079a30bbef8a3b6c216fc85ae6bdfb7ea4af07761f",
+      "fontId": "Jotter:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "0754423289cb08aaf62505ae272b8b5c5354de400dedd62b61d3e1f7e946591c",
+      "fontId": "Jotter:400"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "263a84138be185372dbd7e348a4aac5714fcafe50845a351ea12c2c729bb26ec",
+      "fontId": "Jotter:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "bb4244f6a5d72fb159210a8eb6ed3fd31006cb173c0e81ad84b0d450023b9db9",
+      "fontId": "Funnies:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "444a5e73b00ca92ed00e4daa214217c9aba297b8feb889244ffd501727f384dc",
+      "fontId": "Funnies:400"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "0e9091d9b8a334dd65a84f0eba6134bcdd3412a966036f49b4b95a5696cc6f27",
+      "fontId": "Funnies:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c00b5828a7da02a51c03d14756b9749b047da64df7313367ed2d3fee6e0818fc",
+      "fontId": "Turnpike:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "31f2ca74a2e5c5d303d383a6e5b68f825792cda3294f20c9961046cffb03be77",
+      "fontId": "Turnpike:500"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "e783e81f5eee444685c2c6b8a132c3cca7e7fb1f89351a905619916852992ddf",
+      "fontId": "Turnpike:500"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "38254154a914ca28caf9ac68bb09162ccd12726acb0af2b8474c30c1075e499a",
+      "fontId": "Ballyhoo:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "dbda2bf5581ac29af2751778308f64aed5cc60acb43a7975fb6c31da994ae539",
+      "fontId": "Ballyhoo:400"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "69b2adb00adc1d7916a99bb8d18190f2aa1228015a6bf24b0647414669e71fbe",
+      "fontId": "Ballyhoo:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "66b994c2eef41abb8ab9e342d22c35721a4fe5f6779e8f7f9d887ab3a06fcc9e",
+      "fontId": "Boardwalk:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "8a1e743181d22b1e63fcb783340ddb43b82b2ed746a00e576577c25ed1a04d10",
+      "fontId": "Boardwalk:400"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "e4a17d3d284118569a71e5d5ecd1c5705c026118f6cbc5b0f8f3c0e8ebdbfa32",
+      "fontId": "Boardwalk:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "2e8599cee21b0e375dd962225489ea5c25a63140ebb28cefd8c546fee1253311",
+      "fontId": "Cathedral:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4bb17f42ab0f598bd4863d5913033a25c91f8f521af81183813a00b1c32f08b3",
+      "fontId": "Cathedral:400"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "2b022221f97b8dfb1a7fea488c4a5fb90d19abb6eccda35ccf1adfaf1a733284",
+      "fontId": "Cathedral:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c8b00335571caebf83c29befdb10044e5311f4c10e1e31723888bfcdbc2d510c",
+      "fontId": "Serenade:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "f33cad27209dfe5537fd0260bb2a3d36f17fe7d1c97df48b41ff43a460e9f375",
+      "fontId": "Serenade:400"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "ab4bd605117e021801b326623d65ca2709600e4f2eb793807e7e4096b56004a1",
+      "fontId": "Serenade:400"
+    }
+  },
+  {
+    "base": {
+      "kind": "masters-v1",
+      "digest": "be3978db257ccd22c1563f1fe85fb23e00726cf15bc1dbb2bc3b0b06d90fc23a",
+      "fontId": "Timber:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4940867c1443d44b2284acea93aee09a3939318931c395615841ecec7ff2f892",
+      "fontId": "Timber:400"
+    },
+    "components": {
+      "kind": "source-components-v1",
+      "digest": "d74b3644c2f4bf5bb76c9105fae07a7f7fa1144e39c5dbfad198c2486298abdf",
+      "fontId": "Timber:400"
+    }
+  }
+]

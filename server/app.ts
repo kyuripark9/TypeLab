@@ -24,6 +24,7 @@ import { PROGRAM_REVISIONS } from '../shared/source/program-catalog';
 import { sourceProgramDependencies } from '../shared/source/program';
 import { ORIGIN_MAP_REVISIONS } from '../shared/source/origin-catalog';
 import { SourceEffectError, sourceEffectMessage } from '../shared/source/effect-error';
+import { sourceAccents } from '../shared/source/capabilities';
 import { previewFontFile } from './preview-fonts';
 
 class HttpError extends Error {
@@ -49,7 +50,7 @@ function readExport(body: unknown) {
   const b = fields(body);
   if (!isValidParams(b.params)) throw new HttpError(400, 'This design has settings TypeLab can’t read');
   if (b.accents !== undefined && typeof b.accents !== 'boolean') throw new HttpError(400, 'accents must be true or false');
-  if (b.params.sourceProgram && b.accents === true) throw new HttpError(400, 'This source has no authored accented glyphs');
+  if (b.accents === true && !sourceAccents(b.params)) throw new HttpError(400, 'This source has no authored accented glyphs');
   const source = b.params.sourceProgram;
   if (source && !masterInfo(source) && !SOURCE_REVISIONS.some(ref => ref.kind === source.kind && ref.digest === source.digest && ref.fontId === source.fontId)) {
     throw new HttpError(409, 'The original font revision saved with this design is unavailable');

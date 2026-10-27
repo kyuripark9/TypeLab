@@ -9,6 +9,7 @@ import { decodeSourceComponents, parseSourceComponents } from '../../shared/sour
 import { masterInfo, MASTER_REVISIONS } from '../../shared/source/master-catalog';
 import { parseSourceFinish } from '../../shared/source/finish';
 import { parseSourceSpacing } from '../../shared/source/spacing';
+import { parseSourceMarks } from '../../shared/source/marks';
 import { decodeWeightMasters, parseWeightMasters } from '../../shared/source/masters';
 import type { MasterSourceRef } from '../../shared/source/model';
 import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from '../../shared/source/program';
@@ -64,12 +65,13 @@ const entries = PROGRAM_REVISIONS.map(entry => describe(parseSourceProgram(readA
 const args = process.argv.slice(2).filter(arg => arg !== '--check'), selected = new Map<string, SourceProgramData>();
 const previousProgram = (fontId: string) => selected.get(fontId) ?? entries.findLast(entry => entry.ref.fontId === fontId)?.data;
 function addProgram(data: SourceProgramData) {
-  selected.set(data.base.fontId, data);
+  // published in the order a program reads back, so its manifest entry matches the file
+  selected.set(data.base.fontId, parseSourceProgram(JSON.parse(JSON.stringify(data))));
 }
 for (let i = 0; i < args.length; i += 2) {
   const mode = args[i], file = args[i + 1];
-  if (!file || !['--width', '--features', '--finish', '--spacing', '--components', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
-    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --spacing policy.json, --components manifest.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
+  if (!file || !['--width', '--features', '--finish', '--spacing', '--components', '--marks', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
+    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --spacing policy.json, --components manifest.json, --marks manifest.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
   }
   if (mode === '--program') {
     const data = parseSourceProgram(JSON.parse(readFileSync(file, 'utf8')));
@@ -93,6 +95,22 @@ for (let i = 0; i < args.length; i += 2) {
     for (const { ref } of new Map(MASTER_REVISIONS.map(info => [info.ref.fontId, info])).values()) {
       const previous = previousProgram(ref.fontId);
       addProgram(previous ? { ...previous, ...extension } : { format: 'source-program-v1', base: ref, width: null, features: null, ...extension });
+    }
+    continue;
+  }
+  if (mode === '--marks') {
+    // each style's newest program pins the marks published for its exact weight, width and component bases
+    const input: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    if (!Array.isArray(input)) throw new TypeError('Expected a source mark manifest');
+    for (const { ref } of new Map(MASTER_REVISIONS.map(info => [info.ref.fontId, info])).values()) {
+      const previous = previousProgram(ref.fontId);
+      if (!previous?.width || !previous.components) throw Error(`Marks require a program with widths and components for ${ref.fontId}`);
+      const match = input.findLast(entry => entry?.ref?.kind === 'source-marks-v1' && entry.base?.digest === previous.base.digest
+        && entry.width?.digest === previous.width?.digest && entry.components?.digest === previous.components?.digest);
+      if (!match) throw Error(`No marks match the current weight, width and component bases for ${ref.fontId}`);
+      const marks = parseSourceMarks(readAsset('marks', match.ref.digest));
+      if (marks.base.fontId !== ref.fontId) throw Error(`Marks name another font: ${match.ref.digest}`);
+      addProgram({ ...previous, marks: { kind: 'source-marks-v1', digest: match.ref.digest, fontId: ref.fontId } });
     }
     continue;
   }

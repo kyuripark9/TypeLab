@@ -93,6 +93,8 @@ const looks = new WeakMap<Font, Look>(), made = new WeakMap<Font, Map<string, Ac
 /** Accented letter `ch` (one of ACCENTED) in `font`, or null where the font has no letter to put it on. Kept with the
     font, as an export asks for each once. */
 export function accentGlyph(font: Font, ch: string): AccentGlyph | null {
+  // a source's accented letters are its program's authored marks on its own letters (shared/source/marks.ts)
+  if (font.params.sourceProgram) { const g = font.accent(ch); return g && { cmds: g.cmds, adv: g.adv }; }
   let kept = made.get(font);
   if (!kept) { kept = new Map(); made.set(font, kept); }
   if (!kept.has(ch)) kept.set(ch, compose(font, ch));

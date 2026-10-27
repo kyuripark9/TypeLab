@@ -136,6 +136,10 @@ export interface Font {
       picked while the weight or italic the settings ask for is on its way */ freePending: boolean;
   /** the free fonts it draws from that weren't registered when it was built (see freeFontsWanted) */ freeMissing: string[];
   glyph(ch: string): Glyph | null;
+  /** A source's accented character, composed on its letter as that letter is drawn (its own settings and Points
+      included), where the program's marks are loaded (an export); null otherwise, and always for other designs, whose
+      accents accents.ts draws. */
+  accent(ch: string): Glyph | null;
   /** The font `ch` is drawn from: one built with its own settings when it has any, else this one. */
   letter(ch: string): Font;
   /** SVG path data of the part of `ch` that parameter `key` affects ('' if none). */
@@ -438,7 +442,7 @@ export function buildFont(params: Params, from?: Font, sourceMonoCell?: number):
   const m = source ? source.m : free && fl ? { ...m0, space: Math.max(20, free.space * fl.k * fl.sx + (e.wordSpacing - 0.35) * 520) } : m0;
   // a family member's drawn letters are moved from the design they were drawn in (family-drawn.ts)
   const at = drawnDesign(params);
-  const cache = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
+  const cache = new Map<string, Glyph | null>(), accents = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
   const built = (from && from.free === free && sameSettings(from.params, params) && settingsGlyphs.get(from)) || new Map<string, Glyph | null>();
   /** Letter `ch` as the settings draw it: its own letter's font's, a free font's (in a form the font hasn't got, its
       twin's), a block letter, or the glyph table's form of it (variantOf). */
@@ -477,6 +481,15 @@ export function buildFont(params: Params, from?: Font, sourceMonoCell?: number):
     glyph(ch) {
       let g = cache.get(ch);
       if (g === undefined) { g = pickGlyph(ch); cache.set(ch, g); }
+      return g;
+    },
+    accent(ch) {
+      let g = accents.get(ch);
+      if (g === undefined) {
+        const base = source?.accentBase(ch), lf = base ? font.letter(base) : font;
+        g = !source || !base ? null : lf === font ? source.accent(ch) : lf.accent(ch);
+        accents.set(ch, g);
+      }
       return g;
     },
     hl(ch, key) {

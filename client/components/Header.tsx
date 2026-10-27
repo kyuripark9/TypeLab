@@ -11,6 +11,7 @@ import { cleanLog, upgradeLog } from '../../shared/letter-log';
 import { sanitizeParams, upgradeParams } from '../../shared/params';
 import { anchorOf, familyStylesFor, ownStyle } from '../../shared/family';
 import { masterInfo } from '../../shared/source/master-catalog';
+import { sourceAccents } from '../../shared/source/capabilities';
 import { parseFontId, withoutReserved } from '../../shared/free-fonts';
 import { api, download, errorMessage } from '../lib/api';
 import { PREFS, prefFlag, setPrefFlag } from '../lib/prefs';
@@ -208,6 +209,8 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   // the accented letters (é ñ ü …) in the fonts and the specimen too: off at first, then as this browser last left it
   const [accents, setAccents] = useState(() => prefFlag(PREFS.exportAccents));
   const toggleAccents = () => { setAccents(!accents); setPrefFlag(PREFS.exportAccents, !accents); };
+  // a source has them only where its program pins authored marks
+  const marked = sourceAccents(params);
 
   const saveFonts = async () => {
     takeName();
@@ -215,14 +218,14 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     setBusy('fonts'); setError(null);
     try {
       if (s.params.sourceProgram && (!masterInfo(s.params.sourceProgram) || current)) {
-        download(`${slug(name)}.otf`, await api.exportFile('otf', { name, params: s.params, accents: false }));
+        download(`${slug(name)}.otf`, await api.exportFile('otf', { name, params: s.params, accents: accents && sourceAccents(s.params) }));
         actions.toast(`${name} exported. Open the .otf to install it.`);
       } else if (styles.length === 1) {
         const [f] = styles;
-        download(fontFile(name, styles), await api.exportFile('otf', { name, params: s.params, member: { anchor, weight: f.weight, italic: f.italic }, accents: s.params.sourceProgram ? false : accents }));
+        download(fontFile(name, styles), await api.exportFile('otf', { name, params: s.params, member: { anchor, weight: f.weight, italic: f.italic }, accents: accents && sourceAccents(s.params) }));
         actions.toast(`${name} ${f.style} exported — open the .otf to install it`);
       } else {
-        download(fontFile(name, styles), await api.exportFamily({ name, params: s.params, family: { anchor, styles: styles.map(f => ({ weight: f.weight, italic: f.italic })) }, accents: s.params.sourceProgram ? false : accents }));
+        download(fontFile(name, styles), await api.exportFamily({ name, params: s.params, family: { anchor, styles: styles.map(f => ({ weight: f.weight, italic: f.italic })) }, accents: accents && sourceAccents(s.params) }));
         actions.toast(`${styles.length} fonts exported — unzip them and open each to install`);
       }
       onClose();
@@ -237,7 +240,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     const s = useEditor.getState(), name = cleanName(s.name);
     setBusy('svg'); setError(null);
     try {
-      download(`${slug(name)}-specimen.svg`, await api.exportFile('svg', { name, params: s.params, accents: s.params.sourceProgram ? false : accents }));
+      download(`${slug(name)}-specimen.svg`, await api.exportFile('svg', { name, params: s.params, accents: accents && sourceAccents(s.params) }));
       setDone('svg');
     } catch (e) {
       setError({ at: 'files', text: `Export failed: ${errorMessage(e)}` });
@@ -298,12 +301,12 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
             <ReservedNote name={draft} />
           </div>
           <div className="export-send">
-            {!params.sourceProgram && <label className="export-accents">
+            {marked && <label className="export-accents">
               <span>Accented letters<span className="export-ext"> é ñ ü …</span></span>
               <button type="button" className={accents ? 'switch on' : 'switch'} role="switch" aria-checked={accents} disabled={!!busy}
                 title="Add À to ž: Western, Central and Eastern European, Turkish and Baltic letters" onClick={toggleAccents}><i /></button>
             </label>}
-            {params.sourceProgram && <p className="export-note">Exports the characters in this source. Additional accented forms are not authored yet.</p>}
+            {!marked && <p className="export-note">Exports the characters in this source. This saved revision of the style has no accented letters.</p>}
             <button ref={go} type="button" className="btn primary" disabled={!!busy || !n} onClick={saveFonts}>
               <Glyph d="down" />
               {busy === 'fonts' ? 'Building…' : !n ? 'Pick a style' : n > 1 ? `Download ${n} fonts` : 'Download font'}

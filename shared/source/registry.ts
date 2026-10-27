@@ -9,6 +9,8 @@ import { decodeWidthMasters, parseWidthMasters } from './width-masters';
 import { decodeMasterSubdivision, parseMasterSubdivision, type MasterSubdivision } from './subdivision';
 import { decodeOutlineMasterMap, parseOutlineMasterMap, type OutlineMasterMap } from './outline-master-map';
 import { decodeSourceComponents, parseSourceComponents, type SourceComponents } from './components';
+import { decodeSourceMarks, parseSourceMarks, type SourceMarks } from './marks';
+import type { SourceMarksRef } from './program';
 
 export interface RegisteredSourceProgram {
   data: SourceProgramData;
@@ -154,6 +156,20 @@ export function registerSource(ref: SourceRef | ProgramAssetRef, input: unknown)
 }
 
 export const sourceReady = (ref: SourceRef | ProgramAssetRef): boolean => sources.has(keyOf(ref));
+
+/* Accent marks are large and only an export of accented letters reads them, so they register apart from the program
+   they belong to, after its exact weight, width and component packages. */
+const marks = new Map<string, SourceMarks>();
+export function registerSourceMarks(ref: SourceMarksRef, input: unknown): void {
+  const key = `${ref.kind}:${ref.digest}:${ref.fontId}`;
+  if (marks.has(key)) return;
+  const data = parseSourceMarks(input), basis = masterBasis(data.base, ref.fontId);
+  const width = sources.get(keyOf(data.width)), components = sources.get(keyOf(data.components));
+  if (width?.kind !== 'width-masters-v1' || components?.kind !== 'source-components-v1') throw new Error('Source marks require their exact width and component packages first');
+  marks.set(key, decodeSourceMarks(data, basis, { ref: data.width, masters: width.masters }, { ref: data.components, components: components.components }));
+  for (const listener of listeners) listener(ref.digest);
+}
+export const sourceMarks = (ref: SourceMarksRef): SourceMarks | undefined => marks.get(`${ref.kind}:${ref.digest}:${ref.fontId}`);
 export function sourceSubdivision(ref: SubdivisionRef): MasterSubdivision | undefined {
   const source = sources.get(keyOf(ref));
   return source?.kind === 'master-subdivision-v1' ? source.subdivision : undefined;

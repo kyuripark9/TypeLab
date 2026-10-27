@@ -6,19 +6,20 @@ import type { Params } from '../shared/params';
 import { designSourceDependencies } from '../shared/source/dependencies';
 import { parseSourceData } from '../shared/source/data';
 import { parseFeatureMasters, type FeatureMasterData } from '../shared/source/feature-masters';
-import { registerSource, sourceMasters } from '../shared/source/registry';
+import { registerSource, registerSourceMarks, sourceMarks, sourceMasters } from '../shared/source/registry';
 import type { MasterSourceRef, SourceRef } from '../shared/source/model';
 import type { FreeFontData } from '../shared/engine/free';
 import { ownLicense } from '../shared/free-fonts';
 import { masterInfo } from '../shared/source/master-catalog';
 import { parseWeightMasters, type WeightMasterData } from '../shared/source/masters';
-import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from '../shared/source/program';
+import { parseSourceProgram, type ProgramAssetRef, type SourceMarksRef, type SourceProgramData } from '../shared/source/program';
 import { PROGRAM_REVISIONS, programInfo } from '../shared/source/program-catalog';
 import { parseWidthMasters, type WidthMasterData } from '../shared/source/width-masters';
 import { parseMasterSubdivision, type MasterSubdivisionData } from '../shared/source/subdivision';
 import { originMapInfo } from '../shared/source/origin-catalog';
 import { parseOutlineMasterMap, type OutlineMasterMapData } from '../shared/source/outline-master-map';
 import { parseSourceComponents, type SourceComponentData } from '../shared/source/components';
+import { parseSourceMarks } from '../shared/source/marks';
 
 type Payload = FreeFontData | WeightMasterData | SourceProgramData | WidthMasterData | FeatureMasterData | MasterSubdivisionData | OutlineMasterMapData | SourceComponentData;
 const cached = new Map<string, FreeFontData>();
@@ -36,7 +37,7 @@ function assetBase(ref: ProgramAssetRef): MasterSourceRef | undefined {
   }
   return base;
 }
-function readPayload(ref: SourceRef | ProgramAssetRef, directory: string): unknown {
+function readPayload(ref: SourceRef | ProgramAssetRef | SourceMarksRef, directory: string): unknown {
   const bytes = readFileSync(new URL(`../fonts/${directory}/${ref.digest}.json`, import.meta.url));
   if (createHash('sha256').update(bytes).digest('hex') !== ref.digest) throw new Error('Source integrity check failed');
   return JSON.parse(bytes.toString());
@@ -77,6 +78,7 @@ export function sourcePayload(ref: SourceRef | ProgramAssetRef): Payload {
       if (!program || !sameRef(data.base, program.data.base) || !sameRef(data.width, program.data.width)
         || !sameRef(data.features, program.data.features)
         || !sameRef(data.components ?? null, program.data.components ?? null)
+        || JSON.stringify(data.marks) !== JSON.stringify(program.data.marks)
         || JSON.stringify(data.transitions) !== JSON.stringify(program.data.transitions)
         || JSON.stringify(data.finish) !== JSON.stringify(program.data.finish)
         || JSON.stringify(data.spacing) !== JSON.stringify(program.data.spacing)) throw new Error('Source program does not match its catalog');
@@ -153,4 +155,19 @@ export function loadSource(ref: SourceRef): FreeFontData {
 
 export function loadDesignSources(p: Pick<Params, 'sourceProgram' | 'outlines'>): void {
   for (const ref of designSourceDependencies(p)) sourcePayload(ref);
+}
+
+/** The accent marks a design's program pins, for an export of its accented letters; false where it has none. */
+export function loadSourceMarks(p: Pick<Params, 'sourceProgram'>): boolean {
+  const program = programInfo(p.sourceProgram)?.data, ref = program?.marks;
+  if (!ref || !program || !p.sourceProgram) return false;
+  loadSource(p.sourceProgram);
+  if (!sourceMarks(ref)) {
+    const data = parseSourceMarks(readPayload(ref, 'marks'));
+    if (!sameRef(data.base, program.base) || !sameRef(data.width, program.width) || !sameRef(data.components, program.components ?? null)) {
+      throw new Error('Source marks do not match their program\'s bases');
+    }
+    registerSourceMarks(ref, data);
+  }
+  return true;
 }

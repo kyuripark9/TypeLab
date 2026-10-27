@@ -8,6 +8,8 @@ export interface FeatureMasterRef { readonly kind: 'feature-masters-v1'; readonl
 export interface SubdivisionRef { readonly kind: 'master-subdivision-v1'; readonly digest: string; readonly fontId: string }
 export interface OutlineMasterMapRef { readonly kind: 'outline-master-map-v1'; readonly digest: string; readonly fontId: string }
 export interface SourceComponentRef { readonly kind: 'source-components-v1'; readonly digest: string; readonly fontId: string }
+/** Accent marks are loaded only where a font asks for its accented letters (an export), never with the program. */
+export interface SourceMarksRef { readonly kind: 'source-marks-v1'; readonly digest: string; readonly fontId: string }
 export type ProgramAssetRef = WidthMasterRef | FeatureMasterRef | SubdivisionRef | OutlineMasterMapRef | SourceComponentRef;
 export interface BasisTransition { from: MasterSourceRef; mapping: SubdivisionRef }
 export interface SourceProgramData {
@@ -16,6 +18,7 @@ export interface SourceProgramData {
   width: WidthMasterRef | null;
   features: FeatureMasterRef | null;
   components?: SourceComponentRef;
+  marks?: SourceMarksRef;
   finish?: SourceFinishPolicy;
   spacing?: SourceSpacingPolicy;
   transitions?: BasisTransition[];
@@ -26,7 +29,7 @@ function object(input: unknown): Record<string, unknown> {
   return Object.fromEntries(Object.entries(input));
 }
 
-function assetRef<K extends ProgramAssetRef['kind']>(input: unknown, kind: K, fontId: string): { kind: K; digest: string; fontId: string } | null {
+function assetRef<K extends ProgramAssetRef['kind'] | SourceMarksRef['kind']>(input: unknown, kind: K, fontId: string): { kind: K; digest: string; fontId: string } | null {
   if (input === null) return null;
   const value = object(input);
   if (value.kind !== kind || typeof value.digest !== 'string' || !/^[a-f0-9]{64}$/.test(value.digest)
@@ -36,7 +39,7 @@ function assetRef<K extends ProgramAssetRef['kind']>(input: unknown, kind: K, fo
 
 /** Dependencies name the same family; their payloads must also be validated against the complete base reference. */
 export function parseSourceProgram(input: unknown): SourceProgramData {
-  const value = object(input), fields = ['format', 'base', 'width', 'features', 'components', 'finish', 'spacing', 'transitions'];
+  const value = object(input), fields = ['format', 'base', 'width', 'features', 'components', 'marks', 'finish', 'spacing', 'transitions'];
   if (value.format !== 'source-program-v1' || Object.keys(value).some(key => !fields.includes(key))) {
     throw new TypeError('Invalid or unsupported source program');
   }
@@ -44,11 +47,15 @@ export function parseSourceProgram(input: unknown): SourceProgramData {
   if (base?.kind !== 'masters-v1') throw new TypeError('A source program requires an immutable weight-master base');
   const components = 'components' in value ? assetRef(value.components, 'source-components-v1', base.fontId) : undefined;
   if (components === null) throw new TypeError('A source component reference must be present or omitted');
+  const marks = 'marks' in value ? assetRef(value.marks, 'source-marks-v1', base.fontId) : undefined;
+  const width = assetRef(value.width, 'width-masters-v1', base.fontId);
+  if (marks === null || marks && (!components || !width)) throw new TypeError('Source marks require the program\'s width masters and components');
   return {
     format: 'source-program-v1', base,
-    width: assetRef(value.width, 'width-masters-v1', base.fontId),
+    width,
     features: assetRef(value.features, 'feature-masters-v1', base.fontId),
     ...(components ? { components } : {}),
+    ...(marks ? { marks } : {}),
     ...('finish' in value ? { finish: parseSourceFinish(value.finish) } : {}),
     ...('spacing' in value ? { spacing: parseSourceSpacing(value.spacing) } : {}),
     ...('transitions' in value ? { transitions: transitions(value.transitions, base) } : {}),

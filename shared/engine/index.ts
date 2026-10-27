@@ -4,7 +4,7 @@
 import './glyphs';
 
 export { ALL_CHARS, CHARSET, SLANT_PIVOT, buildFont, termSpec } from './font';
-export { ACCENTED, accentGlyph } from './accents';
+export { ACCENTED, accentGlyph, accentOf } from './accents';
 export type { AccentGlyph } from './accents';
 export type { Font, Glyph, Line, LineItem } from './font';
 export { autoIBars } from './glyphs/shared';
