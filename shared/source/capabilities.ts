@@ -28,6 +28,9 @@ export function sourceSupports(p: Pick<Params, 'sourceProgram'> & Partial<Pick<P
   if (key in SOURCE_FORM_CONTROLS) return sourceFormLetters(p, key, glyph).length > 0;
   if (glyph && p.sourceForms?.[glyph] && (key === 'dotSize' || key === 'crossbar' || key === 'tail' || key === 'terminalLength')) return false;
   if (key === 'mono') return !!programInfo(p.sourceProgram)?.data.spacing;
+  // round and square dots reach the whole font, or a letter alone that has dots (and isn't drawn in another form)
+  if (key === 'dots') return !!programInfo(p.sourceProgram)?.data.dots
+    && (!glyph || !p.sourceForms?.[glyph] && (programInfo(p.sourceProgram)?.componentGlyphs?.includes(glyph) ?? false));
   const finish = programInfo(p.sourceProgram)?.data.finish;
   if (finish && sourceFinishControls(finish).some(control => control === key)) return true;
   if (key === 'dotSize') return !!glyph && (programInfo(p.sourceProgram)?.componentGlyphs?.includes(glyph) ?? false);
@@ -44,6 +47,8 @@ export function sourceAllows(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Par
   if (!sourceSupports(p, key, glyph)) return false;
   // a source's letter forms are picked by form, never by the generated letters' shape names
   if (p.sourceProgram && key in SOURCE_FORM_CONTROLS) return false;
+  // the style's own dots, and the shapes its program offers besides
+  if (p.sourceProgram && key === 'dots') return value === 'auto' || (programInfo(p.sourceProgram)?.data.dots?.shapes.some(shape => shape === value) ?? false);
   if (!p.sourceProgram || key !== 'fill') return true;
   const finish = programInfo(p.sourceProgram)?.data.finish;
   return !!finish && sourceFinishFills(finish).some(fill => fill === value);
@@ -68,11 +73,12 @@ export function sourceControl(p: Pick<Params, 'sourceProgram'> & Partial<Pick<Pa
 export function sourceNotice(p: Pick<Params, 'sourceProgram'>): string {
   const program = programInfo(p.sourceProgram);
   const glyphs = [...new Set([...Object.values(program?.featureGlyphs ?? {}).flat(), ...(program?.componentGlyphs ?? [])])].join(', ');
-  const shapes = [...new Set(program?.data.forms?.map(choice => choice.glyph))].join(', ');
+  const shapes = [...new Set(program?.data.forms?.map(choice => choice.glyph))].join(', '), dots = program?.data.dots?.shapes.join(' or ');
+  const offers = [shapes && `other shapes of ${shapes}`, dots && `${dots} dots`].filter(Boolean).join(' and ');
   if (program?.data.finish) {
     return 'This style has authored weight variations and effects. Points edits stay editable after applying an effect.'
       + (glyphs ? ` Letter controls are available for ${glyphs} while editing that letter alone.` : '')
-      + (shapes ? ` The Letters page offers other shapes of ${shapes}.` : '');
+      + (offers ? ` The Letters page offers ${offers}.` : '');
   }
   if (program?.data.components) return `This style has weight variations and letter controls for ${glyphs}. Inspect one and switch from All letters to that letter alone.`;
   if (program?.width) return 'This style has designed width and weight variations. Heights, spacing and slant remain editable.';

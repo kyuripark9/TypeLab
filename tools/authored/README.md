@@ -42,4 +42,6 @@ node --max-old-space-size=384 --import tsx tools/authored/build-previews.ts
 
 Alternate letter forms (docs/architecture/source-forms.md): extract `.audit/forms/alternates.json` with `extract-alternates.py --programs fonts/programs/manifest.json --recipes <recipes.json>`, publish with `node --import tsx tools/authored/build-forms.ts` (`--check` verifies), then add them with `build-programs.ts --forms fonts/forms/manifest.json`.
 
+Round and square dots (docs/architecture/source-dots.md): measure with `node --import tsx tools/authored/build-dots.ts` (`--report` prints the measures, `--check` verifies `fonts/dots/manifest.json`), then add them with `build-programs.ts --dots fonts/dots/manifest.json`.
+
 Additional `--features <asset.json>` arguments can join the same run. Changes are composed in argument order and only the final program for each family is published. Component selection requires the exact current weight and width bases. Historical program files remain immutable. `--check` validates the same result without writing; it is a separate verification step.

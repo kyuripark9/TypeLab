@@ -7,6 +7,7 @@ import { programForFont, programInfo, type ProgramInfo } from './program-catalog
 import { widthAt, widthSliderAt } from './width-masters';
 import { sourceFinishDefaults, sourceFinishExtends } from './finish';
 import { sourceSpacingExtends } from './spacing';
+import { sourceDotsExtend } from './dots';
 
 export interface ProgramUpgrade { program: ProgramInfo; resetWidth: boolean }
 
@@ -25,6 +26,7 @@ export function programUpgrade(ref: SourceRef | null): ProgramUpgrade | null {
   if (previous?.data.spacing && (!target.data.spacing || !sourceSpacingExtends(previous.data.spacing, target.data.spacing))) return null;
   if (previous?.data.components && !target.data.components) return null;
   if (previous?.componentGlyphs?.some(glyph => !target.componentGlyphs?.includes(glyph))) return null;
+  if (previous?.data.dots && (!target.data.dots || !sourceDotsExtend(previous.data.dots, target.data.dots))) return null;
   if (previous?.data.forms?.some(choice => !target.data.forms?.some(next => next.ref.digest === choice.ref.digest))) return null;
   return { program: target, resetWidth: !!target.width && !previous?.width };
 }
@@ -71,6 +73,11 @@ export function adoptProgram(params: Params): Params | null {
     }
   }
   if (program.data.spacing && !previous?.data.spacing) { out.mono = 0; out.freeAt.mono = 0; }
+  // a Dots value saved where the program had no shapes drew the style's own: it starts there
+  if (program.data.dots && !previous?.data.dots) {
+    out.dots = 'auto'; out.freeAt.dots = 'auto';
+    for (const own of Object.values(glyphs)) delete own.dots;
+  }
   if (program.data.components && !previous?.data.components) {
     out.dotSize = .5;
     out.freeAt.dotSize = .5;

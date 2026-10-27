@@ -16,7 +16,9 @@ export function sourceStyleParams(style: StyleDef): Params | null {
   const components = program?.data.components ? { dotSize: .5 } : {};
   const finish: Partial<Params> = program?.data.finish ? sourceFinishDefaults(program.data.finish) : {};
   const spacing = program?.data.spacing ? { mono: 0 } : {};
-  return { ...style.params, ...features, ...components, ...finish, ...spacing, freeFont: id,
-    freeAt: { ...freeAtOf(style.params), ...features, ...components, ...spacing, ...(program?.data.finish ? { fill: 'solid' as const } : {}), weight, width },
+  // the style's own dots, whatever shape a generated style of the same look would give them
+  const dots = program?.data.dots ? { dots: 'auto' as const } : {};
+  return { ...style.params, ...features, ...components, ...finish, ...spacing, ...dots, freeFont: id,
+    freeAt: { ...freeAtOf(style.params), ...features, ...components, ...spacing, ...dots, ...(program?.data.finish ? { fill: 'solid' as const } : {}), weight, width },
     weight, width, letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAULTS.wordSpacing, height: DEFAULTS.height, sourceProgram: source };
 }

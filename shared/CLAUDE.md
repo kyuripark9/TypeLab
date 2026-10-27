@@ -36,7 +36,9 @@ A source letter's alternate form is `Params.sourceForms[ch]` (an exact `glyph-fo
 original); `outlines[ch]` holds the drawing of the form in use, and drawings of forms not in use wait in
 `sourceFormEdits` under `formEditKey` (`<digest or original>:<ch>`), swapped by `actions.setSourceForm`
 (docs/architecture/source-forms.md). Both keys are read by `cleanForms`/`cleanFormEdits`, filled with `{}` when older
-settings lack them, and never change shape.
+settings lack them, and never change shape. A source's `dots` is `auto` for its own dots and `round` or `square` where
+its program's `source-dots-v1` policy offers the shape (`sourceDotShape`, docs/architecture/source-dots.md); the shapes
+replace the bound dots point for point in `variedFont`, so Dots is part of a drawing's frame like weight.
 
 `SPECS` in `params/spec.ts` has exactly one entry per `Params` key, of that key's type; the compiler checks both ways,
 so `model.ts` and `spec.ts` change together. An entry is written inline with `num`, `bool`, `option`, `ids`,

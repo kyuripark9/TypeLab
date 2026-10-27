@@ -98,7 +98,7 @@ The panel (`components/Panel.tsx`, then `panel/`): `StylePanel.tsx` (the Style p
 Category and Feeling chips, and its Adjust tab; on phones a sheet over the cards, opened from Filter in the stage's bar,
 as under them it would come after every card),
 `ControlsPanel.tsx` (a page of controls, only its own: while a letter is inspected, those shaping its parts lead under
-Parts of <letter>; `Control` picks the component for each key), `ShapeControls.tsx` (stroke ends, the a, letter forms (a source's own forms: `SourceFormControl`, in place of Letter a, g, I/l, Q and R where its program offers them),
+Parts of <letter>; `Control` picks the component for each key), `ShapeControls.tsx` (stroke ends, the a, letter forms (a source's own forms: `SourceFormControl`, in place of Letter a, g, I/l, Q and R where its program offers them; its dots: `SourceDotsControl`, Original and the shapes its program offers, with Dot size under it for a letter alone),
 serifs, fill), `SliderControl.tsx` (a slider with its number box, the crossbar's ends, Stencil and Slice), `inputs.tsx`, `LetterOwn.tsx` (a customized letter's own values), `heads.tsx` (titles, folds,
 the explainer, which control is active), `reach.tsx` (the "changes nothing here" note, worked out 150 ms after the
 params stop changing). A nested slider shows only where `Control` or `ShapeControls.tsx` places it

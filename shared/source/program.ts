@@ -3,6 +3,7 @@ import { parseSourceRef, type MasterSourceRef } from './model';
 import { parseSourceFinish, type SourceFinishPolicy } from './finish';
 import { parseSourceSpacing, type SourceSpacingPolicy } from './spacing';
 import { parseSourceFormChoices, type GlyphFormRef, type SourceFormChoice } from './forms';
+import { parseSourceDots, type SourceDotPolicy } from './dots';
 
 export interface WidthMasterRef { readonly kind: 'width-masters-v1'; readonly digest: string; readonly fontId: string }
 export interface FeatureMasterRef { readonly kind: 'feature-masters-v1'; readonly digest: string; readonly fontId: string }
@@ -23,6 +24,8 @@ export interface SourceProgramData {
   marks?: SourceMarksRef;
   /** the alternate forms its letters offer, each a complete drawing on the program's weight and width grid */
   forms?: SourceFormChoice[];
+  /** the round and square dots it offers, drawn in place of its bound dots */
+  dots?: SourceDotPolicy;
   finish?: SourceFinishPolicy;
   spacing?: SourceSpacingPolicy;
   transitions?: BasisTransition[];
@@ -43,7 +46,7 @@ function assetRef<K extends ProgramAssetRef['kind'] | SourceMarksRef['kind']>(in
 
 /** Dependencies name the same family; their payloads must also be validated against the complete base reference. */
 export function parseSourceProgram(input: unknown): SourceProgramData {
-  const value = object(input), fields = ['format', 'base', 'width', 'features', 'components', 'marks', 'forms', 'finish', 'spacing', 'transitions'];
+  const value = object(input), fields = ['format', 'base', 'width', 'features', 'components', 'marks', 'forms', 'dots', 'finish', 'spacing', 'transitions'];
   if (value.format !== 'source-program-v1' || Object.keys(value).some(key => !fields.includes(key))) {
     throw new TypeError('Invalid or unsupported source program');
   }
@@ -56,6 +59,8 @@ export function parseSourceProgram(input: unknown): SourceProgramData {
   if (marks === null || marks && (!components || !width)) throw new TypeError('Source marks require the program\'s width masters and components');
   const forms = 'forms' in value ? parseSourceFormChoices(value.forms, base.fontId) : undefined;
   if (forms && !width) throw new TypeError('Letter forms require the program\'s width masters');
+  const dots = 'dots' in value ? parseSourceDots(value.dots) : undefined;
+  if (dots && !components) throw new TypeError('Dot shapes require the program\'s bound dots');
   return {
     format: 'source-program-v1', base,
     width,
@@ -63,6 +68,7 @@ export function parseSourceProgram(input: unknown): SourceProgramData {
     ...(components ? { components } : {}),
     ...(marks ? { marks } : {}),
     ...(forms ? { forms } : {}),
+    ...(dots ? { dots } : {}),
     ...('finish' in value ? { finish: parseSourceFinish(value.finish) } : {}),
     ...('spacing' in value ? { spacing: parseSourceSpacing(value.spacing) } : {}),
     ...('transitions' in value ? { transitions: transitions(value.transitions, base) } : {}),

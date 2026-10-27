@@ -2,7 +2,7 @@
    Points edits, accents, export, saved settings and the Letters page. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { pagesFor } from '../shared/content';
+import { controlInUse, pagesFor } from '../shared/content';
 import { buildFont } from '../shared/engine';
 import { cmdsBox, inPoly, toPolys } from '../shared/engine/geom';
 import { drawnCmds, type Drawn, type Node } from '../shared/engine/outline';
@@ -137,15 +137,15 @@ describe('source letter forms', () => {
     assert.deepEqual(otf.charToGlyph('n').path.commands, plain.charToGlyph('n').path.commands);
   });
 
-  it('shows the Letters page only where a style offers forms, by form and never by the generated letters\' shape names', () => {
+  it('offers a letter\'s shapes only where a style has forms of it, by form and never by the generated letters\' shape names', () => {
     const hearth = params('Hearth:600'), dispatch = params('Dispatch:400');
-    assert.ok(pagesFor(hearth).some(page => page.id === 'letters'));
-    assert.equal(pagesFor(dispatch).some(page => page.id === 'letters'), false);
+    assert.ok(controlInUse('gForm', hearth) && pagesFor(hearth).some(page => page.id === 'letters'));
+    assert.equal(controlInUse('gForm', dispatch), false);
     assert.deepEqual(sourceFormChoices(hearth, 'g').map(c => c.label), ['Two-storey']);
     assert.ok(sourceSupports(hearth, 'gForm') && sourceSupports(hearth, 'gForm', 'g'));
     assert.equal(sourceSupports(hearth, 'gForm', 'e'), false);
     assert.equal(sourceAllows(hearth, 'gForm', 'double'), false);
-    assert.equal(pagesFor(hearth, 'e').some(page => page.id === 'letters'), false);
+    assert.equal(controlInUse('gForm', hearth, 'e'), false);
     // a letter in another form has none of the original letter's features
     assert.ok(sourceSupports(hearth, 'tail', 'R'));
     assert.equal(sourceSupports({ ...hearth, sourceForms: { R: choice('Hearth:600', 'R').ref } }, 'tail', 'R'), false);

@@ -1,4 +1,4 @@
-/* The controls that pick a named shape: stroke ends, the a, the letter forms (a source's own forms too), the serifs (their shape, tips, base, sides and inside ones) and the fill. */
+/* The controls that pick a named shape: stroke ends, the a, the letter forms (a source's own forms and dots too), the serifs (their shape, tips, base, sides and inside ones) and the fill. */
 import { useDeferredValue, useEffect, useMemo } from 'react';
 import {
   BOWL_SUBS, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS,
@@ -16,6 +16,7 @@ import { SliderControl } from './SliderControl';
 import { EachEnd } from './LetterOwn';
 import { sourceAllows, sourceFormChoices, sourceFormLetters, sourceVisible } from '../../../shared/source/capabilities';
 import type { GlyphFormRef } from '../../../shared/source/forms';
+import { programInfo } from '../../../shared/source/program-catalog';
 import { loadSource, useSources } from '../../lib/sources';
 import { n1 } from '../../lib/hooks';
 
@@ -128,6 +129,44 @@ function SourceFormIcon({ params, ch, form }: { params: Params; ch: string; form
   }, [params, ch, form]);
   const f = fontFor(p), g = f.glyph(ch), m = f.m;
   return <svg viewBox={`0 ${n1(-m.asc - 30)} ${n1(g?.adv ?? m.cap * .6)} ${n1(m.asc - m.desc + 60)}`} width="46" height="40" aria-hidden="true">{g && <path d={g.d} />}</svg>;
+}
+
+/** A source's dots: its own, and the round and square ones its program offers besides, each pictured in the design's
+    letters; a letter's Size below while that letter is edited alone. */
+export function SourceDotsControl({ parts }: { parts?: string[] }) {
+  const active = useEditor(s => controlFor(s.active) === 'dots'), letter = useEditor(letterOf), sourceProgram = useParam('sourceProgram');
+  const value = useParam('dots'), params = useDeferredValue(useEditor(s => s.params));
+  const shapes = programInfo(sourceProgram)?.data.dots?.shapes ?? [];
+  const options: [Params['dots'], string][] = [['auto', 'Original'], ...shapes.map(shape => [shape, shape === 'round' ? 'Round' : 'Square'] as [Params['dots'], string])];
+  const current = options.some(([id]) => id === value) ? value : 'auto';
+  return (
+    <div className={['ctl', active && 'active'].filter(Boolean).join(' ')} data-ctl="dots" {...useControlFocus('dots')}>
+      <CtlHead k="dots" label={CONTROLS.dots.label} parts={parts} />
+      <div className={options.length === 3 ? 'opts three' : 'opts two'} role="radiogroup" aria-label={CONTROLS.dots.tech}>
+        {options.map(([id, name]) => (
+          <button key={id} role="radio" aria-checked={current === id} className={current === id ? 'opt on' : 'opt'}
+            onClick={() => actions.setOption('dots', id)}>
+            <SourceDotsIcon params={params} dots={id} text={letter ?? 'i.'} /><span>{name}</span>
+          </button>
+        ))}
+      </div>
+      {sourceVisible({ sourceProgram }, 'dotSize', letter) && <SliderControl k="dotSize" def={{ ...DOT_SUBS.dotSize, label: 'Dot size' }} />}
+    </div>
+  );
+}
+
+/** `text` in the design with its dots drawn `dots`, as the option shows it. */
+function SourceDotsIcon({ params, dots, text }: { params: Params; dots: Params['dots']; text: string }) {
+  const p = useMemo(() => [...text].length === 1 && params.glyphs[text]
+    ? { ...params, glyphs: { ...params.glyphs, [text]: { ...params.glyphs[text], dots } } } : { ...params, dots }, [params, dots, text]);
+  const f = fontFor(p), m = f.m;
+  let x = 0;
+  const paths = [...text].map(ch => {
+    const g = f.glyph(ch), at = x;
+    x += g?.adv ?? 0;
+    return g && <path key={ch} d={g.d} transform={at ? `translate(${n1(at)} 0)` : undefined} />;
+  });
+  return <svg viewBox={`0 ${n1(-m.asc - 30)} ${n1(Math.max(x, m.cap * .6))} ${n1(m.asc - m.desc + 60)}`} width="46" height="40" aria-hidden="true">{paths}</svg>;
 }
 
 export type LetterFormKey = Exclude<FormKey, 'terminalRun' | 'aForm'>;

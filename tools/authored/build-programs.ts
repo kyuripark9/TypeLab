@@ -11,6 +11,7 @@ import { parseSourceFinish } from '../../shared/source/finish';
 import { parseSourceSpacing } from '../../shared/source/spacing';
 import { parseSourceMarks } from '../../shared/source/marks';
 import { parseGlyphForm } from '../../shared/source/forms';
+import { parseSourceDots } from '../../shared/source/dots';
 import { decodeWeightMasters, parseWeightMasters } from '../../shared/source/masters';
 import type { MasterSourceRef } from '../../shared/source/model';
 import { parseSourceProgram, type ProgramAssetRef, type SourceProgramData } from '../../shared/source/program';
@@ -57,6 +58,9 @@ function describe(data: SourceProgramData, digest: string): ProgramInfo {
     const form = parseGlyphForm(readAsset('forms', choice.ref.digest), base, { ref: data.width, masters: decodeWidthMasters(width, base.masters) });
     if (form.glyph !== choice.glyph || !base.masters.masters[0].font.glyphs[choice.glyph]) throw Error(`A letter form must replace a letter its program draws: ${choice.ref.digest}`);
   }
+  if (data.dots && data.dots.baseline.some(key => !components?.data.glyphs.some(binding => `${binding.glyph}:${binding.id}` === key))) {
+    throw Error('A dot policy may stand only bound dots on the baseline');
+  }
   for (const transition of data.transitions ?? []) {
     decodeMasterSubdivision(parseMasterSubdivision(readAsset('subdivisions', transition.mapping.digest)), { from: basis(transition.from), to: base });
   }
@@ -76,8 +80,8 @@ function addProgram(data: SourceProgramData) {
 }
 for (let i = 0; i < args.length; i += 2) {
   const mode = args[i], file = args[i + 1];
-  if (!file || !['--width', '--features', '--finish', '--spacing', '--components', '--marks', '--forms', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
-    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --spacing policy.json, --components manifest.json, --marks manifest.json, --forms manifest.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
+  if (!file || !['--width', '--features', '--finish', '--spacing', '--components', '--marks', '--forms', '--dots', '--width-asset', '--feature-asset', '--program'].includes(mode)) {
+    throw Error('Use --width prototype.json, --features asset.json, --finish policy.json, --spacing policy.json, --components manifest.json, --marks manifest.json, --forms manifest.json, --dots manifest.json, --width-asset asset.json, --feature-asset asset.json, or --program manifest.json');
   }
   if (mode === '--program') {
     const data = parseSourceProgram(JSON.parse(readFileSync(file, 'utf8')));
@@ -131,6 +135,19 @@ for (let i = 0; i < args.length; i += 2) {
         .map(entry => ({ glyph: entry.glyph, id: entry.id, label: entry.label, ref: entry.ref }));
       if (input.some(entry => entry?.ref?.fontId === ref.fontId) && !forms.length) throw Error(`No letter forms match the current weight and width bases for ${ref.fontId}`);
       if (forms.length && previous) addProgram({ ...previous, forms });
+    }
+    continue;
+  }
+  if (mode === '--dots') {
+    // each style's newest program offers the round and square dots measured on its exact weight, width and dot bindings
+    const input: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    if (!Array.isArray(input)) throw new TypeError('Expected a source dot manifest');
+    for (const { ref } of new Map(MASTER_REVISIONS.map(info => [info.ref.fontId, info])).values()) {
+      const previous = previousProgram(ref.fontId), entry = input.find(item => item?.fontId === ref.fontId);
+      if (!entry) continue;
+      if (!previous?.components || entry.base?.digest !== previous.base.digest || entry.width?.digest !== previous.width?.digest
+        || entry.components?.digest !== previous.components.digest) throw Error(`The dot policy for ${ref.fontId} was measured on other bases`);
+      addProgram({ ...previous, dots: parseSourceDots(entry.dots) });
     }
     continue;
   }

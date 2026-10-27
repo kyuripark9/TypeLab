@@ -12,7 +12,7 @@ import { ScopeIcon, letterControls } from '../Inspector';
 import { Explainer } from './heads';
 import { SliderControl, BarEndsControl, CutControl } from './SliderControl';
 import { EachCorner, EachStroke } from './LetterOwn';
-import { TerminalControl, StoryControl, type LetterFormKey, FormControl, SerifControl, type SerifFormKey, SerifFormControl, FillControl, SourceFormControl } from './ShapeControls';
+import { TerminalControl, StoryControl, type LetterFormKey, FormControl, SerifControl, type SerifFormKey, SerifFormControl, FillControl, SourceFormControl, SourceDotsControl } from './ShapeControls';
 
 export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'style'> }) {
   const serifs = useParam('serif'), shape = useParam('serifShape'), pointed = shape === 'wedge' || shape === 'diamond', outside = useParam('serifSides') === 'outside';
@@ -143,7 +143,8 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
     : sourceProgram && k === 'mono' ? { ...CONTROLS[k], lo: 'Original spacing' }
     : sourceProgram && k === 'roundness' ? { ...CONTROLS[k], label: 'Pattern corners' } : CONTROLS[k];
   if (sourceProgram && k === 'terminal') return <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} parts={parts} />;
-  if (sourceProgram && k === 'dots') return <SliderControl k="dotSize" def={{ ...DOT_SUBS.dotSize, label: 'Dot size' }} parts={parts} />;
+  if (sourceProgram && k === 'dots') return sourceVisible({ sourceProgram }, 'dots', letter) ? <SourceDotsControl parts={parts} />
+    : <SliderControl k="dotSize" def={{ ...DOT_SUBS.dotSize, label: 'Dot size' }} parts={parts} />;
   if (sourceProgram && k in SOURCE_FORM_CONTROLS) return <SourceFormControl k={k} parts={parts} />;
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'story') return <StoryControl parts={parts} />;

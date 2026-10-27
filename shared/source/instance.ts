@@ -26,6 +26,7 @@ import { compileSourceFinish, finishSourceGlyph, sourceFinishBounds } from './fi
 import { componentMembership, componentOwnership, componentPlan, mapComponents, type ComponentMembership } from './components';
 import { sourceMonoAdvance, spaceSourceDrawing, unspaceSourceDrawing, type SourceMonoPlan } from './spacing';
 import { omitMarkComponents, sourceMarkAnchor, sourceMarkDrawing } from './marks';
+import { dotShapeContour, shapeSourceDots, sourceDotShape } from './dots';
 
 export interface SourceStatus { ref: SourceRef | ProgramAssetRef; state: 'missing' | 'ready'; missingCharacters: string[] }
 interface SourceInstance {
@@ -144,7 +145,8 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
     }
     const sameFrame = sourceControls.every(key => p[key] === at[key]) && p.weight === at.weight
       && p.sourceProgram?.digest === at.sourceProgram?.digest
-      && (!programInfo(p.sourceProgram)?.data.features || FEATURE_CONTROLS.every(key => p[key] === at[key]));
+      && (!programInfo(p.sourceProgram)?.data.features || FEATURE_CONTROLS.every(key => p[key] === at[key]))
+      && dotShapeOf(p) === dotShapeOf(at);
     if (sameFrame && (!programInfo(p.sourceProgram)?.data.components || p.dotSize === at.dotSize)) {
       return asGlyph(ch, edited, target.M, p.sourceProgram?.kind === 'program-v1');
     }
@@ -233,15 +235,21 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
   return asGlyph(ch, placed, target.M, p.sourceProgram?.kind === 'program-v1');
 }
 
+/** The shape `p`'s program draws its dots in for `p`'s Dots, or null for the style's own. */
+const dotShapeOf = (p: Params) => sourceDotShape(programInfo(p.sourceProgram)?.data.dots, p.dots);
+
 function variedFont(p: Params): FreeFont | undefined {
   if (!p.sourceProgram) return undefined;
   const authored = sourceProgram(p.sourceProgram), info = masterInfo(p.sourceProgram);
   if (authored && info) {
     const weight = weightAt(p, info), width = authored.width ? widthAt(p, authored.width.data.axis) : null;
     const baseline = authored.width && width !== null ? interpolateWidthMasters(authored.width, weight, width) : interpolateMasters(authored.masters, weight);
-    return authored.features ? evaluateFeatureMasters(authored.features, { baseline, weight,
+    const featured = authored.features ? evaluateFeatureMasters(authored.features, { baseline, weight,
       width,
       values: { crossbar: p.crossbar, tail: p.tail, terminalLength: p.terminalLength } }) : baseline;
+    // round or square dots replace the bound ones point for point, before proportions, edits and Size
+    const dots = dotShapeOf(p);
+    return dots && authored.components && authored.data.dots ? shapeSourceDots(featured, authored.components, authored.data.dots, dots) : featured;
   }
   const program = sourceMasters(p.sourceProgram);
   return program && info ? interpolateMasters(program, weightAt(p, info)) : sourceFont(p.sourceProgram);
@@ -277,7 +285,10 @@ function composedAccent(font: FreeFont, p: Params, ch: string): Glyph | null {
     const nominal = p.outlines[recipe.base] ? evaluated(font, { ...p, outlines: {} }, recipe.base)?.drawn : letter;
     at = sourceMarkAnchor(recipe, letter, nominal ?? letter, identity);
   }
-  const mark = sourceMarkDrawing(marks, ch, weightAt(p, info), widthAt(p, program.width.data.axis));
+  const drawnMark = sourceMarkDrawing(marks, ch, weightAt(p, info), widthAt(p, program.width.data.axis)), dots = dotShapeOf(p);
+  // a diaeresis or a dot above takes the shape the letters' dots do
+  const mark = dots && program.data.dots?.marks.includes(ch)
+    ? { ...drawnMark, contours: drawnMark.contours.map(contour => dotShapeContour(contour, dots, program.data.dots!)) } : drawnMark;
   // the mark is drawn about its port and posed as the letter is: only the pose's turn, lean and mirror reach it
   const [a, b, c, d] = base.M, turn = (x: number, y: number) => [a * x + c * y, b * x + d * y];
   const placed = mark.contours.map(contour => contour.map(n => {
