@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { packNode } from '../../shared/engine/free';
 import { FEATURE_CONTROLS, decodeFeatureMasters, featureSupportedGlyphs, parseFeatureMasters, type FeatureControl, type FeatureMasterData } from '../../shared/source/feature-masters';
-import { mastersForFont } from '../../shared/source/master-catalog';
+import { MASTER_REVISIONS } from '../../shared/source/master-catalog';
 import { decodeWeightMasters, parseWeightMasters } from '../../shared/source/masters';
 import type { MasterSourceRef } from '../../shared/source/model';
 import type { FeatureMasterRef } from '../../shared/source/program';
@@ -53,8 +53,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (!check) mkdirSync(output, { recursive: true });
   const published: FeatureMasterRef[] = [];
   for (const bindings of selected) {
-    const ref = mastersForFont(bindings.fontId);
-    if (!ref) throw Error(`Missing weight masters for ${bindings.fontId}`);
+    // a pilot is authored on the weight masters its bindings name, not a later revision of them
+    const ref = MASTER_REVISIONS.find(info => info.ref.fontId === bindings.fontId && info.ref.digest === bindings.digest)?.ref;
+    if (!ref) throw Error(`Missing the weight masters ${bindings.fontId} was bound on`);
     const baseBytes = readFileSync(resolve(root, 'fonts/masters', ref.digest + '.json'));
     if (createHash('sha256').update(baseBytes).digest('hex') !== ref.digest) throw Error('Weight basis integrity check failed');
     const base = parseWeightMasters(JSON.parse(baseBytes.toString())), data = compileFeatureMasters(authorFeatures(ref, base, bindings));

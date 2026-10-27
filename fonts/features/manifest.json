@@ -2,6 +2,29 @@
   {
     "ref": {
       "kind": "feature-masters-v1",
+      "digest": "98911fd9486d7ad36f226cbd6142b15b19cead779c445ff00b23af5644f48602",
+      "fontId": "Almanac:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "01c05c7518e7883dcce4edb75e81bf6bf27cd9321b97e147620876edb16a4e7e",
+      "fontId": "Almanac:500"
+    },
+    "weightRange": [
+      400,
+      600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
       "digest": "cf997a7a3ee6ad0068dbd5e2f8736f0a331622b3a73912327428ea22f848dadf",
       "fontId": "Almanac:500"
     },
@@ -13,6 +36,52 @@
     "weightRange": [
       400,
       600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "52aa7bf675eb121c160ec61bca2321ba8fe9fb4a8aa8e295f920b8ae25a49180",
+      "fontId": "Ballyhoo:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "38254154a914ca28caf9ac68bb09162ccd12726acb0af2b8474c30c1075e499a",
+      "fontId": "Ballyhoo:400"
+    },
+    "weightRange": [
+      300,
+      500
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "411ba9b90b6b6a65446530adfafe6510fbfbf4230330fa77aab39c182d92a0ea",
+      "fontId": "Boardwalk:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "66b994c2eef41abb8ab9e342d22c35721a4fe5f6779e8f7f9d887ab3a06fcc9e",
+      "fontId": "Boardwalk:400"
+    },
+    "weightRange": [
+      300,
+      500
     ],
     "coverage": {
       "crossbar": [
@@ -48,12 +117,81 @@
   {
     "ref": {
       "kind": "feature-masters-v1",
+      "digest": "6c1b5650e508d5731cb137380e2c4bab137b584b314389116d8d92554a5fd194",
+      "fontId": "Bulwark:700"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "6511630f95c63e312e8d9e315d039ffa2a8f3864cc99ff5242a2de339a8b7b72",
+      "fontId": "Bulwark:700"
+    },
+    "weightRange": [
+      100,
+      700
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "126af3d64c9f455da9ded22cd2c63b25faa46f5aa40f06798f6e5cf45a24b28f",
+      "fontId": "Cathedral:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "2e8599cee21b0e375dd962225489ea5c25a63140ebb28cefd8c546fee1253311",
+      "fontId": "Cathedral:400"
+    },
+    "weightRange": [
+      300,
+      500
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
       "digest": "5a940dde81178a4677de5afbb05c97d738a5224589eb93fe4d340e98d47b868b",
       "fontId": "Compass:300"
     },
     "base": {
       "kind": "masters-v1",
       "digest": "01baf750ad45fa49fe3cf3fb768cd729534a416d0c63407ce179763aed49f91d",
+      "fontId": "Compass:300"
+    },
+    "weightRange": [
+      300,
+      450
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "68c813d9642fd5e1ac83aeac1bbd437ab6f60b3e2cf20c4758db0474eefbf0a5",
+      "fontId": "Compass:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
       "fontId": "Compass:300"
     },
     "weightRange": [
@@ -89,6 +227,34 @@
       ],
       "tail": [],
       "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "1bc6faed932f4f1992ddf7809aae51aae14f38eacdffa3a7608fea57fbff82b4",
+      "fontId": "Couture:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "cc1a63a8a92ca1a4dee1fde8f0fd63e633d6db2a49dc6d0eca38a0d6d5588818",
+      "fontId": "Couture:600"
+    },
+    "weightRange": [
+      500,
+      700
+    ],
+    "coverage": {
+      "crossbar": [
+        "H",
+        "A"
+      ],
+      "tail": [
+        "R"
+      ],
+      "terminalLength": [
+        "c"
+      ]
     }
   },
   {
@@ -133,6 +299,52 @@
     "weightRange": [
       400,
       600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "67a43f98247dd560010241a58b766bb858d022ad884e846e6d2048bb719dec60",
+      "fontId": "Dispatch:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "faf347e750555ff1f0d52cdf08a53a71002d92f63e35e4c7ceedf8bb02034998",
+      "fontId": "Dispatch:400"
+    },
+    "weightRange": [
+      400,
+      600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "5cceb7a080973693e81ac1575ab3d73fca5441cd243ee60f75d4e09e9d9ee9c4",
+      "fontId": "Funnies:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "bb4244f6a5d72fb159210a8eb6ed3fd31006cb173c0e81ad84b0d450023b9db9",
+      "fontId": "Funnies:400"
+    },
+    "weightRange": [
+      300,
+      500
     ],
     "coverage": {
       "crossbar": [
@@ -196,12 +408,86 @@
   {
     "ref": {
       "kind": "feature-masters-v1",
+      "digest": "ecb1c5040d148e2442ff933cda1f32ca8d68a8a97326784351e328c79dd69b44",
+      "fontId": "Hearth:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e56354a4417393b45cb5b47023524b5da7ee29ad4b13bb5cb6b52c36bd0dac8e",
+      "fontId": "Hearth:600"
+    },
+    "weightRange": [
+      300,
+      800
+    ],
+    "coverage": {
+      "crossbar": [
+        "H",
+        "A"
+      ],
+      "tail": [
+        "R"
+      ],
+      "terminalLength": [
+        "c"
+      ]
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "38d9b2a70154dd3022562ae49f25bb76b55db46d0697642a30aa4717eba2298e",
+      "fontId": "Jotter:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "620337576cbca76b92ce43079a30bbef8a3b6c216fc85ae6bdfb7ea4af07761f",
+      "fontId": "Jotter:400"
+    },
+    "weightRange": [
+      400,
+      500
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
       "digest": "228ed640295144cda0ab06c7cbeb8103e70e6a6ec60c16ec80b3fea2cd5bdf49",
       "fontId": "Kernel:500"
     },
     "base": {
       "kind": "masters-v1",
       "digest": "edf4313600883ebd93ff0f398e95ade1d952bbc3d4fa79ef3e2c9a8f27bc654f",
+      "fontId": "Kernel:500"
+    },
+    "weightRange": [
+      450,
+      600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "97c68a67e7bc55ed87852c6810c19d33613926eafec8d0c83a4f179a0dffd843",
+      "fontId": "Kernel:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
       "fontId": "Kernel:500"
     },
     "weightRange": [
@@ -293,6 +579,29 @@
   {
     "ref": {
       "kind": "feature-masters-v1",
+      "digest": "edb5f840cf4327bc9b5acc91a68d9f1b96eee2ae945d01b3c07318716f7f9e97",
+      "fontId": "Orbital:600"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "b27f1855b7fc6d539ba811886c5247ecf8489d440838bea26f80fe8ff3f2183d",
+      "fontId": "Orbital:600"
+    },
+    "weightRange": [
+      300,
+      700
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
       "digest": "e19b13b2363c84ba043201a4bd066f130151b04cc51223db9999069a3feef015",
       "fontId": "Parlance:500"
     },
@@ -316,12 +625,127 @@
   {
     "ref": {
       "kind": "feature-masters-v1",
+      "digest": "edada45fc3430c3fca96983d313c4c22f561ce6a372b0df18898ef9d6a321670",
+      "fontId": "Serenade:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c8b00335571caebf83c29befdb10044e5311f4c10e1e31723888bfcdbc2d510c",
+      "fontId": "Serenade:400"
+    },
+    "weightRange": [
+      300,
+      500
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "b4ff5616d71e94855931362ce6ce66e4d4e471033bf437a275b02bd9684df2fb",
+      "fontId": "Sonnet:400i"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c1fb623848b9d9dbccb4ab63606295ac5a01eadd535183b8190a76a2af39e696",
+      "fontId": "Sonnet:400i"
+    },
+    "weightRange": [
+      400,
+      500
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "f93a0d84e210b8928f4eeba86bf4b63d96d0a892e7bb13e213b1a9838ecf3566",
+      "fontId": "Timber:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "be3978db257ccd22c1563f1fe85fb23e00726cf15bc1dbb2bc3b0b06d90fc23a",
+      "fontId": "Timber:400"
+    },
+    "weightRange": [
+      300,
+      500
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "33b842d5d4459a033497e9bf90aa0d09cb864dfbea190d65dbf998c35ca7cbfd",
+      "fontId": "Turnpike:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c00b5828a7da02a51c03d14756b9749b047da64df7313367ed2d3fee6e0818fc",
+      "fontId": "Turnpike:500"
+    },
+    "weightRange": [
+      400,
+      600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
       "digest": "10a7438d8039527bc56423327fcd1460df603270882a0c46bb76efda9d03380b",
       "fontId": "Vellum:400"
     },
     "base": {
       "kind": "masters-v1",
       "digest": "c72eda230c2c2d7e7489bc6ab119c3d6468b5ee7ae1c56c3ee5efd33762249c9",
+      "fontId": "Vellum:400"
+    },
+    "weightRange": [
+      400,
+      600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "d0477c090793455ede48a2a660ae7d9ba07f3742841a73a95f3e35da2ac750f3",
+      "fontId": "Vellum:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "db318a507de92d6adcea03fca0522125e2b08f14156125bd5bbe10f0926d1356",
       "fontId": "Vellum:400"
     },
     "weightRange": [
