@@ -56,8 +56,9 @@ describe('source trait recipes', () => {
     }
     const clear = { ...base('grotesque'), fill: 'solid' as const, slice: 0, joints: 0, stencil: 0 };
     assert.strictEqual(applyTraits(clear, { fill: 'solid', cuts: 'none' }), clear, 'unchanged reset fields keep the same object');
-    const cut = { ...clear, stencil: .7 };
-    assert.strictEqual(applyTraits(cut, { cuts: 'none' }), cut, 'an unsupported legacy reset cannot switch renderers');
+    const cut = { ...clear, stencil: .7, joints: .4 }, none = applyTraits(cut, { cuts: 'none' });
+    assert.equal(none.stencil, 0, 'None clears a stencil now a source cuts one'); assert.equal(none.joints, 0);
+    assert.deepEqual(none.sourceProgram, cut.sourceProgram);
   });
 
   it('keeps endpoint aliases on the neutral source card while retaining their intent', () => {

@@ -6,6 +6,7 @@ import { cmdsBox, cmdsToD, cubicAt, inPoly, roundContour, signedArea, subCubic, 
 import type { Cmd, Pt } from '../engine/types';
 import { compileHollow, hollowSource, type HollowPlan } from './hollow';
 import { compileTraps, parseSourceTraps, sourceTrapsExtend, trapSourceInk, type SourceTrapPolicy, type TrapPlan } from './traps';
+import { compileStencil, parseSourceStencil, sourceStencilExtends, stencilSourceInk, type SourceStencilPolicy, type StencilPlan } from './stencil';
 import { compileInline, compileWire, inlineSourceInk, parseSourceInline, parseSourceWire, sourceInlineExtends, sourceWireExtends, wireSourceInk,
   type InlinePlan, type SourceInlinePolicy, type SourceWirePolicy, type WirePlan } from './inline';
 import { compileSourcePattern, parseSourcePatterns, patternSourceInk, sourcePatternControls, sourcePatternFills,
@@ -22,14 +23,15 @@ export interface SourceFinishPolicy {
   inline?: SourceInlinePolicy;
   wire?: SourceWirePolicy;
   traps?: SourceTrapPolicy;
+  stencil?: SourceStencilPolicy;
   patterns?: SourcePatternPolicy;
   texture?: SourceTexturePolicy;
 }
-type FinishCoordinates = Pick<Params, 'fill' | 'module' | 'slice' | 'slicePos' | 'sliceRound' | 'dotGain' | 'roundness' | 'wobble' | 'rough' | 'joints'>;
+type FinishCoordinates = Pick<Params, 'fill' | 'module' | 'slice' | 'slicePos' | 'sliceRound' | 'dotGain' | 'roundness' | 'wobble' | 'rough' | 'joints' | 'stencil' | 'stencilPos' | 'stencilRound'>;
 interface SlicePlan { at: number; gap: number; rounding: number; tolerance: number }
 export type SourceFinishPlan = ({ kind: 'solid' } | {
   kind: 'shadow'; dx: number; dy: number; gap: number; tolerance: number; minArea: number;
-} | ({ kind: 'outline' } & HollowPlan) | InlinePlan | WirePlan | { kind: 'pattern'; pattern: SourcePatternPlan }) & { slice?: SlicePlan; texture?: SourceTexturePlan; traps?: TrapPlan };
+} | ({ kind: 'outline' } & HollowPlan) | InlinePlan | WirePlan | { kind: 'pattern'; pattern: SourcePatternPlan }) & { slice?: SlicePlan; texture?: SourceTexturePlan; traps?: TrapPlan; stencil?: StencilPlan };
 const FILLS: readonly Params['fill'][] = ['solid', 'shadow'];
 export const sourceFinishFills = (policy: SourceFinishPolicy): readonly Params['fill'][] => [
   ...FILLS, ...(policy.outline ? ['outline' as const] : []), ...(policy.inline ? ['inline' as const] : []), ...(policy.wire ? ['wire' as const] : []),
@@ -38,15 +40,17 @@ export const sourceFinishFills = (policy: SourceFinishPolicy): readonly Params['
 export const sourceFinishControls = (policy: SourceFinishPolicy, fill?: Params['fill']): readonly (keyof Params)[] => [...new Set<keyof Params>([
   'fill', ...(fill === 'solid' ? [] : ['module'] as const), ...(policy.slice ? ['slice', 'slicePos', 'sliceRound'] as const : []),
   ...(policy.patterns ? sourcePatternControls(policy.patterns, fill) : []), ...(policy.traps ? ['joints'] as const : []),
+  ...(policy.stencil ? ['stencil', 'stencilPos', 'stencilRound'] as const : []),
   ...(policy.texture ? ['wobble', 'rough'] as const : [])
 ])];
-export function sourceFinishPrecision(policy: SourceFinishPolicy, request: Pick<Params, 'fill' | 'wobble' | 'rough' | 'joints'>): SourceEffect | null {
+export function sourceFinishPrecision(policy: SourceFinishPolicy, request: Pick<Params, 'fill' | 'wobble' | 'rough' | 'joints' | 'stencil'>): SourceEffect | null {
   const { fill } = request;
   if (policy.texture && (request.wobble > 0 || request.rough > 0)) return 'texture';
   if (fill === 'outline' && policy.outline) return 'outline';
   if (fill === 'inline' && policy.inline) return 'inline';
   if (fill === 'wire' && policy.wire) return 'wire';
   if (policy.patterns && sourcePatternFills(policy.patterns).some(kind => kind === fill)) return 'pattern';
+  if (policy.stencil && request.stencil > 0) return 'stencil';
   return policy.traps && request.joints > 0 ? 'traps' : null;
 }
 export function sourceFinishDefaults(policy: SourceFinishPolicy, previous?: SourceFinishPolicy): Partial<FinishCoordinates> {
@@ -54,7 +58,8 @@ export function sourceFinishDefaults(policy: SourceFinishPolicy, previous?: Sour
     ...(policy.slice && !previous?.slice ? { slice: 0, slicePos: .5, sliceRound: 0 } : {}),
     ...(policy.patterns && !previous?.patterns ? { dotGain: .5, roundness: 0 } : {}),
     ...(policy.texture && !previous?.texture ? { wobble: 0, rough: 0 } : {}),
-    ...(policy.traps && !previous?.traps ? { joints: 0 } : {}) };
+    ...(policy.traps && !previous?.traps ? { joints: 0 } : {}),
+    ...(policy.stencil && !previous?.stencil ? { stencil: 0, stencilPos: 0, stencilRound: 0 } : {}) };
 }
 export function sourceFinishBounds(plan: SourceFinishPlan): { above: number; below: number } {
   return { above: (plan.slice?.gap ?? 0) + (plan.texture?.reach ?? 0),
@@ -71,6 +76,7 @@ export function sourceFinishExtends(previous: SourceFinishPolicy, next: SourceFi
     && (!previous.inline || !!next.inline && sourceInlineExtends(previous.inline, next.inline))
     && (!previous.wire || !!next.wire && sourceWireExtends(previous.wire, next.wire))
     && (!previous.traps || !!next.traps && sourceTrapsExtend(previous.traps, next.traps))
+    && (!previous.stencil || !!next.stencil && sourceStencilExtends(previous.stencil, next.stencil))
     && (!previous.patterns || !!next.patterns && sourcePatternsExtend(previous.patterns, next.patterns))
     && (!previous.texture || !!next.texture && sourceTextureExtends(previous.texture, next.texture));
 }
@@ -86,7 +92,7 @@ function number(input: unknown): number {
   return input;
 }
 export function parseSourceFinish(input: unknown): SourceFinishPolicy {
-  const value = object(input, ['format', 'tolerance', 'shadow', 'slice', 'outline', 'inline', 'wire', 'traps', 'patterns', 'texture']), shadow = object(value.shadow, ['depth', 'gap', 'minAreaRatio']);
+  const value = object(input, ['format', 'tolerance', 'shadow', 'slice', 'outline', 'inline', 'wire', 'traps', 'stencil', 'patterns', 'texture']), shadow = object(value.shadow, ['depth', 'gap', 'minAreaRatio']);
   if (value.format !== 'source-finish-v1' || !Array.isArray(shadow.depth) || shadow.depth.length !== 2) throw new TypeError('Unsupported source finishing policy');
   const tolerance = number(value.tolerance), low = number(shadow.depth[0]), high = number(shadow.depth[1]);
   const gap = number(shadow.gap), minAreaRatio = number(shadow.minAreaRatio);
@@ -111,10 +117,11 @@ export function parseSourceFinish(input: unknown): SourceFinishPolicy {
   const inline = 'inline' in value ? parseSourceInline(value.inline) : undefined;
   const wire = 'wire' in value ? parseSourceWire(value.wire) : undefined;
   const traps = 'traps' in value ? parseSourceTraps(value.traps) : undefined;
+  const stencil = 'stencil' in value ? parseSourceStencil(value.stencil) : undefined;
   const patterns = 'patterns' in value ? parseSourcePatterns(value.patterns) : undefined;
   const texture = 'texture' in value ? parseSourceTexture(value.texture) : undefined;
   return { format: 'source-finish-v1', tolerance, shadow: { depth: [low, high], gap, minAreaRatio },
-    ...(slice ? { slice } : {}), ...(outline ? { outline } : {}), ...(inline ? { inline } : {}), ...(wire ? { wire } : {}), ...(traps ? { traps } : {}),
+    ...(slice ? { slice } : {}), ...(outline ? { outline } : {}), ...(inline ? { inline } : {}), ...(wire ? { wire } : {}), ...(traps ? { traps } : {}), ...(stencil ? { stencil } : {}),
     ...(patterns ? { patterns } : {}), ...(texture ? { texture } : {}) };
 }
 
@@ -131,7 +138,8 @@ export function compileSourceFinish(policy: SourceFinishPolicy, request: FinishC
       rounding: request.sliceRound, tolerance: policy.tolerance };
   }
   const traps = policy.traps ? compileTraps(policy.traps, request.joints, capHeight) : undefined;
-  const additions = { ...(slice ? { slice } : {}), ...(texture ? { texture } : {}), ...(traps ? { traps } : {}) };
+  const stencil = policy.stencil ? compileStencil(policy.stencil, request, capHeight) : undefined;
+  const additions = { ...(slice ? { slice } : {}), ...(texture ? { texture } : {}), ...(traps ? { traps } : {}), ...(stencil ? { stencil } : {}) };
   if (request.fill === 'solid') return { kind: 'solid', ...additions };
   if (!Number.isFinite(capHeight) || capHeight <= 0 || !Number.isFinite(size) || size < 0 || size > 1) throw new RangeError('Invalid source finishing coordinates');
   if (request.fill === 'outline' && policy.outline) {
@@ -577,12 +585,14 @@ function visibleComponents(polys: Pt[][], minimum: number): Pt[][] {
 }
 
 export function finishSourceGlyph(glyph: Glyph, plan: SourceFinishPlan): Glyph {
-  if (plan.kind === 'solid' && !plan.slice && !plan.texture && !plan.traps || !glyph.cmds.length) return glyph;
+  if (plan.kind === 'solid' && !plan.slice && !plan.texture && !plan.traps && !plan.stencil || !glyph.cmds.length) return glyph;
   const editable = glyph.editable ?? glyph.drawn;
   if (!editable) throw new TypeError('A source finish requires its editable drawing');
   // ink traps carve the letter's joins before anything else finishes it
   const trapped = plan.traps ? trapSourceInk(glyph.cmds, plan.traps) : glyph.cmds;
-  const textured = plan.texture ? textureSourceInk(trapped, plan.texture, glyph.ch) : trapped;
+  // then a stencil cuts it apart, on the trapped ink
+  const cut = plan.stencil ? stencilSourceInk(trapped, plan.stencil) : trapped;
+  const textured = plan.texture ? textureSourceInk(cut, plan.texture, glyph.ch) : cut;
   const face = plan.slice ? openedSlice(textured, plan.slice) : textured;
   if (plan.kind === 'solid') {
     const box = cmdsBox(face);

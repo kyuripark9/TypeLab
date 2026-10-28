@@ -36,6 +36,19 @@
     "apart": 0.9,
     "tolerance": 0.1
   },
+  "stencil": {
+    "format": "source-stencil-v1",
+    "gap": 0.15,
+    "offset": 1.5,
+    "point": 120,
+    "span": 2,
+    "serif": 0.25,
+    "turn": [20, 60],
+    "reach": [0.01, 0.04],
+    "run": 1.5,
+    "apart": 0.9,
+    "tolerance": 0.1
+  },
   "patterns": {
     "format": "source-patterns-v1",
     "fills": ["pixels", "hex", "dots", "halftone", "lines", "blobs", "liquid"],
