@@ -34,7 +34,7 @@ describe('published source finishes', () => {
       assert.equal(sourceAllows(current, 'fill', 'shadow'), true);
       const reviewed = program.data.finish ? sourceFinishFills(program.data.finish) : [];
       for (const fill of FILLS) assert.equal(sourceAllows(current, 'fill', fill), reviewed.includes(fill), `${info.ref.fontId} ${fill}`);
-      for (const fill of ['inline', 'wire'] as const) assert.equal(sourceAllows(current, 'fill', fill), false);
+      for (const fill of ['inline', 'wire'] as const) assert.equal(sourceAllows(current, 'fill', fill), true);
       assert.equal(sourceSupports(current, 'dotGain'), !!program.data.finish?.patterns);
       assert.ok(program.data.finish?.slice);
       for (const key of ['slice', 'slicePos', 'sliceRound'] as const) assert.equal(sourceSupports(current, key), true);
@@ -92,7 +92,7 @@ describe('published source finishes', () => {
     assert.deepEqual(buildFont(adopted).glyph('R')?.cmds, buildFont(original).glyph('R')?.cmds);
     actions.travel(-1); assert.deepEqual(useEditor.getState().params, original);
     actions.travel(1); assert.deepEqual(useEditor.getState().params, adopted);
-    actions.setOption('fill', 'inline'); assert.equal(useEditor.getState().params.fill, 'solid');
+    actions.setOption('fill', 'inline'); assert.equal(useEditor.getState().params.fill, 'inline');
     actions.setOption('fill', 'pixels'); assert.equal(useEditor.getState().params.fill, 'pixels');
     actions.setOption('fill', 'shadow'); assert.equal(useEditor.getState().params.fill, 'shadow');
     actions.resetParam('fill'); assert.equal(useEditor.getState().params.fill, 'solid');

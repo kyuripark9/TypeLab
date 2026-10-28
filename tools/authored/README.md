@@ -44,6 +44,8 @@ Alternate letter forms (docs/architecture/source-forms.md): extract `.audit/form
 
 Contrast (docs/architecture/source-contrast.md): `build-programs.ts --contrast tools/authored/source-contrast.json` pins the policy in every style's newest program; `node --import tsx tools/authored/review-contrast.ts [ids] [--res 480]` checks every letter's ink pieces and holes at Contrast's ends.
 
+Inline and Wireframe (docs/architecture/source-inline.md) are the `inline` and `wire` entries of `tools/authored/source-finishes.json`, published with the rest of the finish by `build-programs.ts --finish`.
+
 Round and square dots (docs/architecture/source-dots.md): measure with `node --import tsx tools/authored/build-dots.ts` (`--report` prints the measures, `--check` verifies `fonts/dots/manifest.json`), then add them with `build-programs.ts --dots fonts/dots/manifest.json`.
 
 Additional `--features <asset.json>` arguments can join the same run. Changes are composed in argument order and only the final program for each family is published. Component selection requires the exact current weight and width bases. Historical program files remain immutable. `--check` validates the same result without writing; it is a separate verification step.

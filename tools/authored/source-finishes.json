@@ -14,6 +14,18 @@
     "rim": [0.006, 0.024],
     "tolerance": 0.1
   },
+  "inline": {
+    "format": "source-inline-v1",
+    "width": [0.12, 0.45],
+    "angle": [95, 150],
+    "rim": 0.006,
+    "tolerance": 0.1
+  },
+  "wire": {
+    "format": "source-wire-v1",
+    "line": [0.006, 0.04],
+    "tolerance": 0.1
+  },
   "patterns": {
     "format": "source-patterns-v1",
     "fills": ["pixels", "hex", "dots", "halftone", "lines", "blobs", "liquid"],
