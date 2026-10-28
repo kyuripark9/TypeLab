@@ -139,7 +139,7 @@ describe('published source finishes', () => {
     assert.deepEqual(buildFont(useEditor.getState().params).glyph('H')?.cmds, plain.glyph('H')?.cmds);
   });
 
-  it('applies the Slice Adjust choice through style selection and rejects unsupported cut choices', () => {
+  it('applies the Slice and Ink traps Adjust choices through style selection and rejects unsupported cut choices', () => {
     actions.newDesign(); actions.clearTraits(); actions.loadStyle('grotesque');
     loadDesignSources(useEditor.getState().params);
     const plain = buildFont(useEditor.getState().params).glyph('H'); assert.ok(plain);
@@ -154,7 +154,10 @@ describe('published source finishes', () => {
     actions.setTrait('cuts', 'none'); state = useEditor.getState();
     assert.equal(state.traits.cuts, 'none'); assert.equal(state.params.slice, 0);
     actions.setTrait('cuts', 'inktrap'); state = useEditor.getState();
-    assert.equal(state.traits.cuts, undefined); assert.equal(state.params.slice, 0); assert.equal(state.params.joints, 0);
+    assert.equal(state.traits.cuts, 'inktrap'); assert.equal(state.params.slice, 0); assert.equal(state.params.joints, .8);
+    assert.notDeepEqual(buildFont(state.params).glyph('H')?.cmds, buildFont({ ...state.params, joints: 0 }).glyph('H')?.cmds);
+    actions.setTrait('cuts', 'stencil'); state = useEditor.getState();
+    assert.equal(state.traits.cuts, undefined); assert.equal(state.params.stencil, 0);
   });
 
   it('exports the same finished paths and advance that the preview uses', () => {

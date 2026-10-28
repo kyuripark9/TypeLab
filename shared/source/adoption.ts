@@ -70,7 +70,9 @@ export function adoptProgram(params: Params): Params | null {
     const defaults = sourceFinishDefaults(program.data.finish, previous?.data.finish);
     Object.assign(out, defaults);
     if (defaults.fill) out.freeAt.fill = defaults.fill;
-    for (const own of Object.values(glyphs)) for (const key of ['slice', 'slicePos', 'sliceRound', 'wobble'] as const) {
+    // Ink traps saved where the program had none drew nothing: they start at none
+    if (defaults.joints !== undefined) out.freeAt.joints = defaults.joints;
+    for (const own of Object.values(glyphs)) for (const key of ['slice', 'slicePos', 'sliceRound', 'wobble', 'joints'] as const) {
       if (defaults[key] !== undefined) delete own[key];
     }
   }

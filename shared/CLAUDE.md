@@ -42,7 +42,8 @@ replace the bound dots point for point in `variedFont`, so Dots is part of a dra
 `contrast` mixes two of its own weights there too (`contrastWeights`, `mixAxes`: widths from one, heights from the other;
 docs/architecture/source-contrast.md). A source's `fill` Inline and Wireframe are finishes (`source/inline.ts`, from the
 finish policy's `inline` and `wire`): Inline's line follows each stroke's middle found from the filled ink
-(docs/architecture/source-inline.md).
+(docs/architecture/source-inline.md). Its `joints` (Ink traps) is a finish too, from the policy's `traps`
+(`source/traps.ts`, docs/architecture/source-traps.md), starting at 0 whatever a style's legacy preset says.
 
 `SPECS` in `params/spec.ts` has exactly one entry per `Params` key, of that key's type; the compiler checks both ways,
 so `model.ts` and `spec.ts` change together. An entry is written inline with `num`, `bool`, `option`, `ids`,
