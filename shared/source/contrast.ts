@@ -55,3 +55,33 @@ export function mixAxes(across: FreeFont, up: FreeFont): FreeFont {
   for (const [ch, drawn] of Object.entries(across.glyphs)) glyphs[ch] = up.glyphs[ch] ? mixDrawn(drawn, up.glyphs[ch]) : drawn;
   return { ...across, cap: up.cap, xh: up.xh, glyphs };
 }
+
+/** Verticals and Horizontals (`vWeight`, `hWeight`) about the style's own: Verticals moves the weight the widths come
+    from, Horizontals the heights', each up to `reach` of the style's weight range either way. Where one runs out of
+    authored weights, the other goes the other way by the rest, so the uprights and level strokes keep drawing apart. */
+export interface SourceStrokesPolicy { format: 'source-strokes-v1'; reach: number }
+export function parseSourceStrokes(input: unknown): SourceStrokesPolicy {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Invalid source strokes policy');
+  const value = Object.fromEntries(Object.entries(input));
+  if (value.format !== 'source-strokes-v1' || Object.keys(value).some(key => key !== 'format' && key !== 'reach')
+    || typeof value.reach !== 'number' || !(value.reach > 0 && value.reach <= 1)) throw new TypeError('Invalid source strokes policy');
+  return { format: 'source-strokes-v1', reach: value.reach };
+}
+export const sourceStrokesExtend = (before: SourceStrokesPolicy, after: SourceStrokesPolicy): boolean => after.reach === before.reach;
+
+/** The widths' and heights' weights `at`, moved by Verticals `v` and Horizontals `h` about the style's own (`vPick`,
+    `hPick`). */
+export function strokeAxes(policy: SourceStrokesPolicy, at: { x: number; y: number }, range: { min: number; max: number },
+  v: number, vPick: number, h: number, hPick: number): { x: number; y: number } {
+  const span = range.max - range.min;
+  const share = (value: number, pick: number) => value === pick ? 0 : value > pick ? (value - pick) / (1 - pick || 1) : -(pick - value) / (pick || 1);
+  let { x, y } = at;
+  /** `a` moved by `d`, what it can't take moving `b` the other way. */
+  const move = (a: number, b: number, d: number): [number, number] => {
+    const to = a + d, kept = Math.max(range.min, Math.min(range.max, to)), rest = to - kept;
+    return [kept, Math.max(range.min, Math.min(range.max, b - rest))];
+  };
+  [x, y] = move(x, y, share(v, vPick) * policy.reach * span);
+  [y, x] = move(y, x, share(h, hPick) * policy.reach * span);
+  return { x, y };
+}

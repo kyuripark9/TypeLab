@@ -6,9 +6,10 @@ import type { SourceRef } from './model';
 import { programForFont, programInfo, type ProgramInfo } from './program-catalog';
 import { widthAt, widthSliderAt } from './width-masters';
 import { sourceFinishDefaults, sourceFinishExtends } from './finish';
+import { SHAPE_CONTROLS } from './shapes';
 import { sourceSpacingExtends } from './spacing';
 import { sourceDotsExtend } from './dots';
-import { sourceContrastExtends } from './contrast';
+import { sourceContrastExtends, sourceStrokesExtend } from './contrast';
 
 export interface ProgramUpgrade { program: ProgramInfo; resetWidth: boolean }
 
@@ -29,6 +30,7 @@ export function programUpgrade(ref: SourceRef | null): ProgramUpgrade | null {
   if (previous?.componentGlyphs?.some(glyph => !target.componentGlyphs?.includes(glyph))) return null;
   if (previous?.data.dots && (!target.data.dots || !sourceDotsExtend(previous.data.dots, target.data.dots))) return null;
   if (previous?.data.contrast && (!target.data.contrast || !sourceContrastExtends(previous.data.contrast, target.data.contrast))) return null;
+  if (previous?.data.strokes && (!target.data.strokes || !sourceStrokesExtend(previous.data.strokes, target.data.strokes))) return null;
   if (previous?.data.forms?.some(choice => !target.data.forms?.some(next => next.ref.digest === choice.ref.digest))) return null;
   return { program: target, resetWidth: !!target.width && !previous?.width };
 }
@@ -72,6 +74,17 @@ export function adoptProgram(params: Params): Params | null {
     if (defaults.fill) out.freeAt.fill = defaults.fill;
     // Ink traps and a Stencil saved where the program had none drew nothing: they start at none
     for (const key of ['joints', 'stencil', 'stencilPos', 'stencilRound'] as const) if (defaults[key] !== undefined) out.freeAt[key] = defaults[key];
+    // shapes saved where the program drew none drew the style's own: they start there (Roundness kept where it rounds a
+    // pattern's corners)
+    if (program.data.finish.shapes && !previous?.data.finish?.shapes) {
+      const pattern = out.fill === 'pixels' || out.fill === 'hex';
+      for (const key of SHAPE_CONTROLS) {
+        if (key === 'roundness' && pattern) continue;
+        // a source's own corners are as drawn: Roundness rounds them from 0
+        if (key === 'roundness') { out.roundness = 0; out.freeAt.roundness = 0; } else Object.assign(out, { [key]: out.freeAt[key] ?? DEFAULTS[key] });
+        for (const own of Object.values(glyphs)) delete own[key];
+      }
+    }
     for (const own of Object.values(glyphs)) for (const key of ['slice', 'slicePos', 'sliceRound', 'wobble', 'joints', 'stencil', 'stencilPos', 'stencilRound'] as const) {
       if (defaults[key] !== undefined) delete own[key];
     }
@@ -81,6 +94,11 @@ export function adoptProgram(params: Params): Params | null {
   if (program.data.contrast && !previous?.data.contrast) {
     out.contrast = out.freeAt.contrast ?? DEFAULTS.contrast;
     for (const own of Object.values(glyphs)) delete own.contrast;
+  }
+  // Verticals and Horizontals saved where the program drew neither drew the style's own: they start there
+  if (program.data.strokes && !previous?.data.strokes) {
+    out.vWeight = out.freeAt.vWeight ?? DEFAULTS.vWeight; out.hWeight = out.freeAt.hWeight ?? DEFAULTS.hWeight;
+    for (const own of Object.values(glyphs)) { delete own.vWeight; delete own.hWeight; }
   }
   // a Dots value saved where the program had no shapes drew the style's own: it starts there
   if (program.data.dots && !previous?.data.dots) {

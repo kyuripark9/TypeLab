@@ -27,7 +27,7 @@ import { componentMembership, componentOwnership, componentPlan, mapComponents, 
 import { sourceMonoAdvance, spaceSourceDrawing, unspaceSourceDrawing, type SourceMonoPlan } from './spacing';
 import { omitMarkComponents, sourceMarkAnchor, sourceMarkDrawing } from './marks';
 import { dotShapeContour, shapeSourceDots, sourceDotShape } from './dots';
-import { contrastWeights, mixAxes, mixDrawn } from './contrast';
+import { contrastWeights, mixAxes, mixDrawn, strokeAxes } from './contrast';
 
 export interface SourceStatus { ref: SourceRef | ProgramAssetRef; state: 'missing' | 'ready'; missingCharacters: string[] }
 interface SourceInstance {
@@ -59,8 +59,9 @@ function formDrawing(form: GlyphForm, p: Params): Drawn {
 
 /** The weights `p` draws its letters' widths (`x`) and heights (`y`) at: both its weight, but under Contrast. */
 function strokeWeights(p: Params): { x: number; y: number } {
-  const info = masterInfo(p.sourceProgram)!, weight = weightAt(p, info), policy = programInfo(p.sourceProgram)?.data.contrast;
-  return policy ? contrastWeights(policy, weight, info, p.contrast, p.freeAt.contrast ?? DEFAULTS.contrast) : { x: weight, y: weight };
+  const info = masterInfo(p.sourceProgram)!, weight = weightAt(p, info), program = programInfo(p.sourceProgram)?.data;
+  const at = program?.contrast ? contrastWeights(program.contrast, weight, info, p.contrast, p.freeAt.contrast ?? DEFAULTS.contrast) : { x: weight, y: weight };
+  return program?.strokes ? strokeAxes(program.strokes, at, info, p.vWeight, p.freeAt.vWeight ?? DEFAULTS.vWeight, p.hWeight, p.freeAt.hWeight ?? DEFAULTS.hWeight) : at;
 }
 
 /** `form`: the letter draws an alternate form, which the original letter's dot binding doesn't reach. */
@@ -153,7 +154,8 @@ function evaluated(font: FreeFont, p: Params, ch: string): Glyph | null {
     const sameFrame = sourceControls.every(key => p[key] === at[key]) && p.weight === at.weight
       && p.sourceProgram?.digest === at.sourceProgram?.digest
       && (!programInfo(p.sourceProgram)?.data.features || FEATURE_CONTROLS.every(key => p[key] === at[key]))
-      && dotShapeOf(p) === dotShapeOf(at) && (!programInfo(p.sourceProgram)?.data.contrast || p.contrast === at.contrast);
+      && dotShapeOf(p) === dotShapeOf(at) && (!programInfo(p.sourceProgram)?.data.contrast || p.contrast === at.contrast)
+      && (!programInfo(p.sourceProgram)?.data.strokes || p.vWeight === at.vWeight && p.hWeight === at.hWeight);
     if (sameFrame && (!programInfo(p.sourceProgram)?.data.components || p.dotSize === at.dotSize)) {
       return asGlyph(ch, edited, target.M, p.sourceProgram?.kind === 'program-v1');
     }

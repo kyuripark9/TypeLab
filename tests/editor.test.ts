@@ -72,7 +72,9 @@ describe('the editor', () => {
     assert.equal(state().params.freeFont, STYLE_FONTS.serif);
     const width = programInfo(designSourceForFont(STYLE_FONTS.serif))?.width; assert.ok(width);
     const neutralWidth = (width.neutral - width.min) / (width.max - width.min);
-    assert.deepEqual(state().params.freeAt, { ...freeAtOf(serif.params), weight: 0.5, width: neutralWidth, crossbar: .5, tail: .5, terminalLength: .5, fill: 'solid' });
+    // a source's own corners are as drawn: its Roundness starts at 0
+    assert.deepEqual(state().params.freeAt, { ...freeAtOf(serif.params), weight: 0.5, width: neutralWidth, crossbar: .5, tail: .5, terminalLength: .5, fill: 'solid',
+      roundness: 0 });
     assert.equal(state().params.width, neutralWidth);
     assert.deepEqual([state().params.letterSpacing, state().params.wordSpacing], [DEFAULTS.letterSpacing, DEFAULTS.wordSpacing]);
     assert.deepEqual(state().params.sourceProgram, designSourceForFont(STYLE_FONTS.serif));
@@ -91,7 +93,8 @@ describe('the editor', () => {
     assert.equal(state().params.width, 0.8);
     assert.equal(controlInUse('weight', state().params), true);
     assert.equal(controlInUse('width', state().params), true);
-    assert.equal(pagesFor(state().params).some(page => page.id === 'serifs'), false);
+    // a sans can take added serifs (source-shapes-v1)
+    assert.equal(pagesFor(state().params).some(page => page.id === 'serifs'), true);
     actions.setCategory('weight');
     assert.equal(state().category, 'weight');
     actions.setTrait('weight', 'black');

@@ -21,6 +21,8 @@ export function sourceStyleParams(style: StyleDef): Params | null {
   return { ...style.params, ...features, ...components, ...finish, ...spacing, ...dots, freeFont: id,
     freeAt: { ...freeAtOf(style.params), ...features, ...components, ...spacing, ...dots, ...(program?.data.finish ? { fill: 'solid' as const } : {}),
       ...(program?.data.finish?.traps ? { joints: 0 } : {}), ...(program?.data.finish?.stencil ? { stencil: 0, stencilPos: 0, stencilRound: 0 } : {}),
+      // a source's own corners are as drawn: Roundness rounds them from 0
+      ...(program?.data.finish?.shapes ? { roundness: 0 } : {}),
       weight, width },
     weight, width, letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAULTS.wordSpacing, height: DEFAULTS.height, sourceProgram: source };
 }

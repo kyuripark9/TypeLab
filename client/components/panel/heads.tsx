@@ -122,7 +122,8 @@ export function Explainer() {
   const c = CONTROLS[controlFor(active)], sub = SUBS[active as keyof typeof SUBS];
   const sourceSlice = !!font.params.sourceProgram && controlFor(active) === 'slice' && sourceSupports(font.params, 'slice');
   const sourceDot = active === 'dotSize' && !!font.params.sourceProgram && sourceSupports(font.params, 'dotSize', letter);
-  const sourcePattern = active === 'roundness' && !!font.params.sourceProgram && sourceVisible(font.params, 'roundness');
+  const sourcePattern = active === 'roundness' && !!font.params.sourceProgram && (font.params.fill === 'pixels' || font.params.fill === 'hex')
+    && sourceVisible(font.params, 'roundness');
   const sourceMono = active === 'mono' && !!font.params.sourceProgram && sourceSupports(font.params, 'mono');
   const sliceTitle = active === 'slice' ? 'Open a gap through the letters' : active === 'slicePos' ? 'Move the gap up or down' : 'Round the new cut edges';
   // two levels only, a title and its explanation; a part says which setting shapes it in the explanation

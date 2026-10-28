@@ -49,6 +49,18 @@
     "apart": 0.9,
     "tolerance": 0.1
   },
+  "shapes": {
+    "format": "source-shapes-v1",
+    "square": 6,
+    "box": [24, 4],
+    "facet": 0.04,
+    "round": 0.06,
+    "step": 0.5,
+    "peak": 0.5,
+    "pinch": [0.6, 0.18],
+    "serif": [0.8, 0.55],
+    "tolerance": 0.1
+  },
   "patterns": {
     "format": "source-patterns-v1",
     "fills": ["pixels", "hex", "dots", "halftone", "lines", "blobs", "liquid"],
