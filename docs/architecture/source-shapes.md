@@ -40,6 +40,43 @@ shapes: { format: 'source-shapes-v1', square: 6, box: [24, 4], facet: 0.04, roun
 | Pinch, Position | **Pinch:** every stroke is drawn in toward its middle round a height (Position, as a share of the cap height), up to 60% of its half-thickness, over 18% of the cap height either way. |
 | Serifs (shape, Length, Thickness, Angle, Bracket) | **Serifs:** on a style drawn without serifs, a foot is set across every flat end of an upright stroke. The shape is slab, bracketed, unbracketed, wedge or diamond. Length reaches up to 0.8 of the stroke's width either side, Thickness up to 0.55 of it, Angle slopes the top toward the tip, and Bracket curves a bracketed foot into the stroke. |
 
+### Stroke ends
+
+The Stroke ends picker draws its forms on every flat stroke end of the style: a straight edge between two outer corners
+near square, as wide as the stroke behind it. It uses its own policy, `ends: { format: 'source-ends-v1', reach: 1.6,
+bulge: 0.45 }`. A shape reaches back along the stroke up to 1.6 times its width, short of where the stroke turns, and
+swells or cuts across it up to 0.45 of it. The style's own form, and Flat, draw the ends as they are.
+
+| Form | What it draws |
+| --- | --- |
+| Flared | The end widens. |
+| Scooped | The end is hollowed by an arc. |
+| Round | Both corners rounded, a semicircle at Roundness 100. |
+| Droplet, Ball | A ball at a curving stroke's end (c, a, f, r, y), never a stem's foot. |
+| Pointed | A point, with Lean moving it across the end. |
+| Clipped | A point with its tip cut flat. |
+| Slant out, Slant in | The end cut on a slant, back on the stroke's inner or outer side. |
+| Level | The end re-cut at Tilt. |
+| Notched | A V cut into the end, then tilted. |
+| Taper | The stroke narrows into its end. |
+| Brush | The stroke narrows on one side only. |
+
+Each form's own sliders shape it. Direction, Curl, and the values of each end alone have no construction here and are
+not shown. Length stays for a letter alone where the program authors it.
+
+### Inner space and Openness
+
+Inner space and Openness have their own policy, `insides: { format: 'source-insides-v1', counter: [0.75, 1.18],
+open: 0.9, close: 0.3 }`.
+
+- **Inner space.** Every closed counter (O, B, D, 8, a, e, g) is scaled about its own middle, from 0.75 at 0 to 1.18
+  at 100. Larger counters thin the strokes round them and smaller ones thicken them. Each piece loses only its own
+  counters, so the a inside @ stays, and a counter grown so far it would cut a stroke halves back. Open counters (n, u,
+  h) stay as drawn.
+- **Openness.** The free ends of curving strokes (c, e, a, s) are cut back along their sides by up to 0.9 of their
+  width, opening the letter. Toward Closed they are run on straight by up to 0.3 of it. Stems' flat feet are left
+  alone, and so are round ends.
+
 Every corner shape is bounded by the straight run of the edges either side and by the thickness of the strokes. Pieces
 added to the ink must overlap it, so none comes loose. Corner cuts that would split a stroke shrink toward their
 corners by halves until it holds. A letter with nothing to change keeps its curves exactly.
@@ -62,6 +99,10 @@ letters with fractional coordinates.
   (Gumdrop) sharpens.
 - **Pinch and serifs.** Pinch narrows H at the waist and leaves it elsewhere. Serifs give l a foot in each shape with
   its advance kept, and a serif style keeps its own.
+- **Stroke ends.** Every form changes the style's flat ends, the style's own form draws them as they are, balls go on
+  c and not l, and each form's sliders move it.
+- **Inner space and Openness.** Small counters add ink to O and large ones take it, the a in @ stays, n is drawn as it
+  was, and Openness opens and closes c.
 - **Every style.** In all 22 at strong settings of every control, letters are finite, keep their advance and don't
   come apart.
 - **Adoption and export.** Adoption starts at the style's own with the letters as they were, the editable drawing is
@@ -76,6 +117,12 @@ Squareness, Box and Serifs on Gumdrop, Compass and Orbital.
   many short segments, so reshaping handles changes nothing visible, and no honest construction was found.
 - **Squareness reach.** Squareness leaves styles with no round contours unchanged: Bulwark, Funnies, Boardwalk,
   Cathedral and Serenade.
+- **Openness.** Ends run on straight to close a letter, not along the stroke's curve, so the closed end of the slider
+  is kept small.
+- **Inner space.** Counters are scaled whole, not shaped: a bowl's counter grows evenly, not where its stroke is
+  thickest.
+- **Stroke ends.** End shapes need a flat end, so round ends (Gumdrop's) and ends cut into curves keep their own.
+  Pointed, Round and the rest reach every stem's foot as well as the free ends.
 - **Serifs.** Serifs are added only where a stroke ends flat and near level, so round ends (Gumdrop), curved strokes
   (c, s) and slanted cuts (x) stay bare. A serif style's own serifs can't be removed or reshaped, and its Serifs switch
   changes nothing. Tips, Base, Sides, Inside serifs, Balance, Top serifs and Arm serifs are not offered.

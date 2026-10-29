@@ -6,7 +6,7 @@ import { controlInUse, pagesFor } from '../shared/content';
 import { DEFAULTS, drawnAtOf, freeAtOf, type Params } from '../shared/params';
 import { masterInfo, mastersForFont } from '../shared/source/master-catalog';
 import { sourceForFont } from '../shared/source/catalog';
-import { programForFont } from '../shared/source/program-catalog';
+import { PROGRAM_REVISIONS, programForFont } from '../shared/source/program-catalog';
 import { sourceControl, sourceSupports } from '../shared/source/capabilities';
 import { loadSource } from '../server/sources';
 import { actions, letterOf, useEditor } from '../client/state/editor';
@@ -50,30 +50,39 @@ describe('reviewed feature scope', () => {
       assert.equal(sourceSupports(p, 'tail', 'j'), false);
       assert.equal(sourceSupports(p, 'terminalLength', 'c'), true);
       assert.equal(sourceSupports(p, 'terminalLength', 'C'), false);
-      assert.equal(sourceSupports(p, 'terminal', 'c'), false);
+      // stroke-end shapes reach every flat end (source-ends-v1); the program before them had none
+      assert.equal(sourceSupports(p, 'terminal', 'c'), true);
+      const older = PROGRAM_REVISIONS.findLast(entry => entry.ref.fontId === fontId && !entry.data.finish?.ends)!.ref;
+      assert.equal(sourceSupports({ ...p, sourceProgram: older }, 'terminal', 'c'), false);
       assert.equal(sourceSupports({ sourceProgram: info.ref }, 'crossbar', 'H'), false);
       assert.equal(sourceSupports({ sourceProgram: info.source }, 'crossbar', 'H'), false);
     }
   });
 
-  it('uses the same glyph scope for the terminal page, its standalone length control and reach', () => {
+  it('shows the stroke ends page for the whole font, with a covered letter\'s Length, and the older program\'s Length alone', () => {
     const p = params(), whole = pagesFor(p), covered = pagesFor(p, 'c');
-    assert.equal(whole.some(page => page.id === 'ends'), false);
+    assert.equal(whole.some(page => page.id === 'ends'), true);
     assert.equal(covered.some(page => page.id === 'ends'), true);
     assert.equal(pagesFor(p, 'c'), covered);
     assert.equal(pagesFor(p), whole);
-    assert.equal(pagesFor(p, 'H').some(page => page.id === 'ends'), false);
-    assert.equal(pagesFor(params('Mainline:600'), 'c').some(page => page.id === 'ends'), false);
-    assert.equal(controlInUse('terminal', p, 'c'), true);
-    assert.equal(sourceControl(p, 'terminal', 'c'), 'terminalLength');
-    assert.equal(controlInUse('terminal', p), false);
+    assert.equal(controlInUse('terminal', p), true);
+    assert.equal(sourceControl(p, 'terminal', 'c'), 'terminal');
+    assert.equal(sourceSupports(p, 'terminalLength'), false);
+    assert.equal(sourceSupports(p, 'terminalLength', 'c'), true);
     assert.equal(controlInUse('crossbar', p, 'H'), true);
     assert.equal(controlInUse('crossbar', p, 'R'), false);
     assert.deepEqual(reachOf(p, 'crossbar', ['H']), { shows: false, elsewhere: [] });
     assert.deepEqual(reachOf(p, 'crossbar', ['H'], 'H'), { shows: true, elsewhere: [] });
     assert.deepEqual(reachOf(p, 'crossbar', ['R'], 'R'), { shows: false, elsewhere: [] });
     assert.deepEqual(reachOf(p, 'terminalLength', ['c'], 'c'), { shows: true, elsewhere: [] });
-    assert.deepEqual(reachOf(p, 'terminal', ['c'], 'c'), { shows: false, elsewhere: [] });
+    // a program from before stroke-end shapes: the page only for a covered letter, its Length alone
+    const old: Params = { ...p, sourceProgram: PROGRAM_REVISIONS.findLast(entry => entry.ref.fontId === p.freeFont && !entry.data.finish?.ends)!.ref };
+    assert.equal(pagesFor(old).some(page => page.id === 'ends'), false);
+    assert.equal(pagesFor(old, 'c').some(page => page.id === 'ends'), true);
+    assert.equal(pagesFor(old, 'H').some(page => page.id === 'ends'), false);
+    assert.equal(sourceControl(old, 'terminal', 'c'), 'terminalLength');
+    assert.equal(controlInUse('terminal', old), false);
+    assert.deepEqual(reachOf(old, 'terminal', ['c'], 'c'), { shows: false, elsewhere: [] });
   });
 });
 
@@ -105,7 +114,7 @@ describe('source detail editor actions', () => {
     assert.equal(buildFont(useEditor.getState().params).glyph('H')?.d, originalH);
   });
 
-  it('rejects unsupported letters and shape options while allowing the covered terminal length', () => {
+  it('rejects unsupported letters and per-end values while allowing the covered terminal length', () => {
     actions.openInspector('B');
     actions.setScope('letter');
     actions.setParam('crossbar', .8);
@@ -113,18 +122,18 @@ describe('source detail editor actions', () => {
     actions.openInspector('c');
     actions.setCategory('ends');
     assert.equal(useEditor.getState().category, 'ends');
-    assert.equal(useEditor.getState().active, 'terminalLength');
+    assert.equal(useEditor.getState().active, 'terminal');
     actions.setParam('terminalLength', .8);
     assert.equal(useEditor.getState().params.glyphs.c?.terminalLength, .8);
     actions.setParam('terminal', DEFAULTS.terminal);
     actions.setEnd('unreviewed-end', .8);
-    assert.equal(useEditor.getState().params.glyphs.c?.terminal, undefined);
+    assert.equal(useEditor.getState().params.glyphs.c?.terminal, DEFAULTS.terminal, 'a letter alone takes its own end shape');
     assert.equal(useEditor.getState().params.glyphs.c?.terminalEnds, undefined);
     actions.setScope('all');
     actions.setParam('terminalLength', .2);
     actions.setCategory('ends');
-    assert.notEqual(useEditor.getState().category, 'ends');
-    assert.equal(useEditor.getState().params.terminalLength, .5);
+    assert.equal(useEditor.getState().category, 'ends', 'the end shapes reach the whole font');
+    assert.equal(useEditor.getState().params.terminalLength, .5, 'Length is a covered letter\'s alone');
     assert.equal(useEditor.getState().params.glyphs.c?.terminalLength, .8);
   });
 });

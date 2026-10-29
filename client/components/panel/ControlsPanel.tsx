@@ -142,7 +142,9 @@ function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
     : width ? { ...CONTROLS[k], lo: widthLabel(width.min), hi: widthLabel(width.max) }
     : sourceProgram && k === 'mono' ? { ...CONTROLS[k], lo: 'Original spacing' }
     : sourceProgram && k === 'roundness' && (fill === 'pixels' || fill === 'hex') ? { ...CONTROLS[k], label: 'Pattern corners' } : CONTROLS[k];
-  if (sourceProgram && k === 'terminal') return <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} parts={parts} />;
+  // a source's stroke ends where its program draws them, else the authored Length of a letter alone
+  if (sourceProgram && k === 'terminal') return sourceVisible({ sourceProgram }, 'terminal', letter) ? <TerminalControl parts={parts} />
+    : <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} parts={parts} />;
   if (sourceProgram && k === 'dots') return sourceVisible({ sourceProgram }, 'dots', letter) ? <SourceDotsControl parts={parts} />
     : <SliderControl k="dotSize" def={{ ...DOT_SUBS.dotSize, label: 'Dot size' }} parts={parts} />;
   if (sourceProgram && k in SOURCE_FORM_CONTROLS) return <SourceFormControl k={k} parts={parts} />;

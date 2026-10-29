@@ -61,6 +61,17 @@
     "serif": [0.8, 0.55],
     "tolerance": 0.1
   },
+  "ends": {
+    "format": "source-ends-v1",
+    "reach": 1.6,
+    "bulge": 0.45
+  },
+  "insides": {
+    "format": "source-insides-v1",
+    "counter": [0.75, 1.18],
+    "open": 0.9,
+    "close": 0.3
+  },
   "patterns": {
     "format": "source-patterns-v1",
     "fills": ["pixels", "hex", "dots", "halftone", "lines", "blobs", "liquid"],

@@ -1,8 +1,9 @@
 /* Verticals and Horizontals (`source-strokes-v1`) and the shape controls (`source-shapes-v1` in the finish policy) on
    sources: each about the style's own, drawing what the program before drew there; the widths' and heights' weights
    moved apart; round contours squared or boxed; facets; corners rounded, sharpened, stepped and cut flat; joins and
-   counters filled; a waist pinched; serifs added to a sans; every style kept whole at strong settings; adoption and
-   export. */
+   counters filled; a waist pinched; serifs added to a sans; every stroke-end form (`source-ends-v1`); counters grown
+   and shrunk and curving ends opened and closed (`source-insides-v1`); every style kept whole at strong settings;
+   adoption and export. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { Clipper64, ClipType, FillRule, PolyTree64, type PolyPath64 } from 'clipper2-ts';
@@ -16,7 +17,7 @@ import { sourceFinishPolygons, sourceFinishPrecision } from '../shared/source/fi
 import { masterInfo } from '../shared/source/master-catalog';
 import { PROGRAM_REVISIONS, programInfo } from '../shared/source/program-catalog';
 import type { ProgramSourceRef } from '../shared/source/model';
-import { SHAPE_CONTROLS } from '../shared/source/shapes';
+import { END_CONTROLS, INSIDE_CONTROLS, SHAPE_CONTROLS } from '../shared/source/shapes';
 import { loadDesignSources, loadSource } from '../server/sources';
 import { buildOTF } from '../server/export';
 import { opentype } from '../server/opentype';
@@ -59,6 +60,7 @@ function across(cmds: Cmd[], y: number): number {
 
 const current = [...new Map(PROGRAM_REVISIONS.map(entry => [entry.ref.fontId, entry])).values()];
 const before = (fontId: string) => PROGRAM_REVISIONS.findLast(entry => entry.ref.fontId === fontId && !entry.data.finish?.shapes && !entry.data.strokes)!;
+const beforeEnds = (fontId: string) => PROGRAM_REVISIONS.findLast(entry => entry.ref.fontId === fontId && !entry.data.finish?.ends)!;
 const of = (fontId: string) => current.find(entry => entry.ref.fontId === fontId)!.ref;
 function params(ref: ProgramSourceRef, set: Partial<Params> = {}): Params {
   const info = masterInfo(ref), width = programInfo(ref)?.width;
@@ -134,9 +136,60 @@ describe('source strokes and shapes', () => {
     assert.deepEqual(glyph(couture, 'l').cmds, glyph({ ...couture, serif: false, freeAt: { ...couture.freeAt, serif: false } }, 'l').cmds, 'a serif style keeps its own');
   });
 
+  it('draws every stroke-end form on the style\'s flat ends, and the style\'s own as it was', () => {
+    for (const entry of current) {
+      assert.deepEqual(entry.data.finish?.ends, { format: 'source-ends-v1', reach: 1.6, bulge: .45 }, entry.ref.fontId);
+      const older = params(beforeEnds(entry.ref.fontId).ref);
+      assert.equal(sourceSupports(params(entry.ref), 'terminal'), true); assert.equal(sourceSupports(older, 'terminal'), false);
+      for (const key of END_CONTROLS) assert.equal(sourceSupports(params(entry.ref), key), true, key);
+    }
+    const p = params(of('Mainline:600'), { freeAt: { ...params(of('Mainline:600')).freeAt, terminal: 'flat', terminalForm: 'plain' } });
+    const plain = (ch: string) => glyph(p, ch).cmds;
+    for (const [terminal, form] of [['flat', 'flared'], ['flat', 'scooped'], ['round', 'round'], ['sharp', 'pointed'], ['sharp', 'clipped'],
+      ['angled', 'outer'], ['angled', 'inner'], ['cut', 'notched'], ['tapered', 'taper'], ['tapered', 'brush']] as const) {
+      assert.notDeepEqual(glyph({ ...p, terminal, terminalForm: form }, 'n').cmds, plain('n'), form);
+    }
+    // a ball ends a curving stroke, not a stem's foot
+    for (const form of ['droplet', 'ball'] as const) {
+      assert.notDeepEqual(glyph({ ...p, terminal: 'round', terminalForm: form }, 'c').cmds, plain('c'), form);
+      assert.deepEqual(glyph({ ...p, terminal: 'round', terminalForm: form }, 'l').cmds, plain('l'), form);
+    }
+    assert.deepEqual(glyph({ ...p, terminal: 'flat', terminalForm: 'plain', terminalFlare: 1 }, 'n').cmds, plain('n'), 'the style\'s own');
+    // the sliders move it
+    const area = (set: Partial<Params>) => measure(glyph({ ...p, terminal: 'sharp', terminalForm: 'pointed', ...set }, 'l').cmds).area;
+    assert.ok(area({ terminalPoint: 1 }) < area({ terminalPoint: 0 }));
+    const round = (r: number) => measure(glyph({ ...p, terminal: 'round', terminalForm: 'round', terminalRound: r }, 'l').cmds).area;
+    assert.ok(round(1) < round(0));
+    // adopting the first program with stroke ends starts at the style's own
+    const saved: Params = { ...params(beforeEnds('Mainline:600').ref), terminal: 'round', terminalForm: 'ball', glyphs: { c: { terminal: 'sharp' } } };
+    const adopted = adoptProgram(saved)!;
+    assert.equal(adopted.terminal, saved.freeAt.terminal); assert.equal(adopted.glyphs.c?.terminal, undefined);
+  });
+
+  it('grows and shrinks closed counters, and opens and closes curving strokes\' ends', () => {
+    for (const entry of current) {
+      assert.deepEqual(entry.data.finish?.insides, { format: 'source-insides-v1', counter: [.75, 1.18], open: .9, close: .3 }, entry.ref.fontId);
+      for (const key of INSIDE_CONTROLS) assert.equal(sourceSupports(params(entry.ref), key), true, key);
+    }
+    const p = params(of('Mainline:600')), O = measure(glyph(p, 'O').cmds).area;
+    assert.ok(measure(glyph({ ...p, counter: 0 }, 'O').cmds).area > O * 1.05, 'small counters, more ink');
+    assert.ok(measure(glyph({ ...p, counter: 1 }, 'O').cmds).area < O * .95, 'large counters, less ink');
+    const at = measure(glyph(p, '@').cmds);
+    assert.equal(measure(glyph({ ...p, counter: 1 }, '@').cmds).pieces, at.pieces, 'the a in @ stays');
+    assert.deepEqual(glyph({ ...p, counter: 1 }, 'n').cmds, glyph(p, 'n').cmds, 'an open counter as drawn');
+    const c = measure(glyph(p, 'c').cmds).area;
+    assert.ok(measure(glyph({ ...p, aperture: 1 }, 'c').cmds).area < c, 'opened');
+    assert.ok(measure(glyph({ ...p, aperture: 0 }, 'c').cmds).area > c, 'closed');
+    const saved: Params = { ...params(beforeEnds('Mainline:600').ref), counter: .9, aperture: .1 };
+    const adopted = adoptProgram(saved)!;
+    assert.equal(adopted.counter, saved.freeAt.counter); assert.equal(adopted.aperture, saved.freeAt.aperture);
+  });
+
   it('keeps every style\'s letters whole and spaced at strong settings', () => {
     const strong: Partial<Params>[] = [{ squareness: 1 }, { bowlForm: 'box' }, { chamfer: 1 }, { roundness: 1 }, { joinRound: 1, innerRound: 1 },
-      { steps: 1 }, { apex: 1 }, { bends: 'round' }, { pinch: 1 }, { serif: true }, { vWeight: 1, hWeight: 0 }];
+      { steps: 1 }, { apex: 1 }, { bends: 'round' }, { pinch: 1 }, { serif: true }, { vWeight: 1, hWeight: 0 },
+      { terminal: 'round', terminalForm: 'ball' }, { terminal: 'sharp', terminalForm: 'pointed', terminalPoint: 1 }, { terminal: 'tapered', terminalForm: 'taper' },
+      { terminal: 'flat', terminalForm: 'flared', terminalFlare: 1 }, { counter: 0 }, { counter: 1 }, { aperture: 0 }, { aperture: 1 }];
     for (const entry of current) {
       const p = params(entry.ref), plain = buildFont(p);
       for (const set of strong) {

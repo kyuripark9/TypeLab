@@ -46,7 +46,7 @@ describe('source trait recipes', () => {
       const traits = { weight: 'regular', width: 'normal', xHeight: 'medium', slant: 'upright' };
       assert.strictEqual(applyTraits(p, traits), p, p.freeFont);
       assert.strictEqual(adjustedParams(style, traits), p, p.freeFont);
-      assert.strictEqual(adjustedParams(style, { ends: 'round' }), p, p.freeFont);
+      assert.strictEqual(adjustedParams(style, { joined: 'script' }), p, p.freeFont);
       assert.strictEqual(adjustedParams(style, { weight: undefined }), p, p.freeFont);
       assert.deepEqual([p.slice, p.letterSpacing, p.fill], [0, .2, 'solid']);
       assert.strictEqual(adjustedParams(style, { cuts: 'none', spacing: 'normal', fill: 'solid' }), p, 'unsupported reset keys do not change the source');
@@ -187,12 +187,14 @@ describe('source Adjust actions', () => {
     assert.notDeepEqual(sliced.glyph('H')?.cmds, before.glyph('H')?.cmds);
     actions.loadStyle('didone'); state = useEditor.getState(); assert.equal(state.params.slice, .5);
     assert.deepEqual(traitLabels(base('didone'), state.traits), [{ id: 'cuts', label: 'Cuts: Slice' }]);
-    for (const id of ['ends', 'joined'] as const) assert.deepEqual(traitOptions(state.params, id), []);
+    assert.deepEqual(traitOptions(state.params, 'joined'), []);
+    // stroke ends are drawn on a source's own flat ends (source-ends-v1)
+    assert.ok(traitOptions(state.params, 'ends').some(o => o.set.terminal === 'round'));
     // serifs are added to a sans (source-shapes-v1)
     assert.ok(traitOptions(state.params, 'serif').some(o => o.set.serif === true));
     // corners round or sharpen a source's own (source-shapes-v1)
     assert.deepEqual(traitOptions(state.params, 'corners').map(o => o.label), ['Sharp', 'Soft', 'Round']);
-    actions.setTrait('ends', 'round'); assert.equal(useEditor.getState().traits.ends, undefined);
+    actions.setTrait('joined', 'script'); assert.equal(useEditor.getState().traits.joined, undefined);
   });
 
   it('drops source-only Left tilt when choosing a generated style and keeps legacy choices working', () => {
@@ -213,7 +215,7 @@ describe('source Adjust actions', () => {
     for (const def of TRAITS) if (state.traits[def.id]) {
       assert.ok(traitOptions(base('chancery'), def.id).some(o => o.id === state.traits[def.id]));
     }
-    assert.equal(state.traits.ends, undefined);
+    assert.equal(state.traits.joined, undefined);
   });
 
   it('leaves loaded params and Points frames untouched and undoes an explicit preset application', () => {

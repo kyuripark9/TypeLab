@@ -14,7 +14,7 @@ import { CtlHead, FoldHead, Fold, Quiet, useControlFocus } from './heads';
 import { useReachNote } from './reach';
 import { SliderControl } from './SliderControl';
 import { EachEnd } from './LetterOwn';
-import { sourceAllows, sourceFormChoices, sourceFormLetters, sourceVisible } from '../../../shared/source/capabilities';
+import { sourceAllows, sourceFormChoices, sourceFormLetters, sourceSupports, sourceVisible } from '../../../shared/source/capabilities';
 import type { GlyphFormRef } from '../../../shared/source/forms';
 import { programInfo } from '../../../shared/source/program-catalog';
 import { loadSource, useSources } from '../../lib/sources';
@@ -26,11 +26,12 @@ const pickEnd = (t: Terminal, form: TerminalForm) => { actions.setParam('termina
 /** Stroke ends: every shape in one list, in its families, then the sliders that fine-tune the shape picked. */
 export function TerminalControl({ parts }: { parts?: string[] }) {
   const terminal = useParam('terminal'), form = formOf(terminal, useParam('terminalForm')), run = useParam('terminalRun'), active = useEditor(s => controlFor(s.active) === 'terminal');
+  const source = useParam('sourceProgram'), letter = useEditor(letterOf);
   const c = CONTROLS.terminal;
   const reach = useReachNote('terminal');
   return (
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="terminal" {...useControlFocus('terminal')}>
-      <FoldHead k="terminal" label={c.label} parts={parts} summary={`${terminalLabel(terminal, form)}${run === 'straight' ? ' · Runs straight' : ''}`} />
+      <FoldHead k="terminal" label={c.label} parts={parts} summary={`${terminalLabel(terminal, form)}${run === 'straight' && !source ? ' · Runs straight' : ''}`} />
       {reach.note}
       <Fold k="terminal" quiet={reach.quiet}>
         <div role="radiogroup" aria-label={c.tech}>
@@ -51,11 +52,15 @@ export function TerminalControl({ parts }: { parts?: string[] }) {
           ))}
         </div>
         {TERMINAL_DETAILS[form].map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}
-        <div className="sub-label">Direction</div>
-        <FormOptions k="terminalRun" label="Direction of curved stroke ends" />
-        <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} />
-        <SliderControl k="terminalCurl" def={TERMINAL_SUBS.terminalCurl} />
-        <EachEnd />
+        {/* a source draws its ends' shapes on its own strokes: Direction, Curl and each end's own aren't there, and
+            Length only for a letter alone whose program authors it */}
+        {source ? sourceSupports({ sourceProgram: source }, 'terminalLength', letter) && <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} /> : <>
+          <div className="sub-label">Direction</div>
+          <FormOptions k="terminalRun" label="Direction of curved stroke ends" />
+          <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} />
+          <SliderControl k="terminalCurl" def={TERMINAL_SUBS.terminalCurl} />
+          <EachEnd />
+        </>}
       </Fold>
     </div>
   );

@@ -6,7 +6,7 @@ import type { SourceRef } from './model';
 import { programForFont, programInfo, type ProgramInfo } from './program-catalog';
 import { widthAt, widthSliderAt } from './width-masters';
 import { sourceFinishDefaults, sourceFinishExtends } from './finish';
-import { SHAPE_CONTROLS } from './shapes';
+import { END_CONTROLS, INSIDE_CONTROLS, SHAPE_CONTROLS } from './shapes';
 import { sourceSpacingExtends } from './spacing';
 import { sourceDotsExtend } from './dots';
 import { sourceContrastExtends, sourceStrokesExtend } from './contrast';
@@ -84,6 +84,15 @@ export function adoptProgram(params: Params): Params | null {
         if (key === 'roundness') { out.roundness = 0; out.freeAt.roundness = 0; } else Object.assign(out, { [key]: out.freeAt[key] ?? DEFAULTS[key] });
         for (const own of Object.values(glyphs)) delete own[key];
       }
+    }
+    // stroke ends saved where the program drew none drew the style's own: they start there
+    if (program.data.finish.insides && !previous?.data.finish?.insides) for (const key of INSIDE_CONTROLS) {
+      out[key] = out.freeAt[key] ?? DEFAULTS[key];
+      for (const own of Object.values(glyphs)) delete own[key];
+    }
+    if (program.data.finish.ends && !previous?.data.finish?.ends) for (const key of END_CONTROLS) {
+      Object.assign(out, { [key]: out.freeAt[key] ?? DEFAULTS[key] });
+      for (const own of Object.values(glyphs)) delete own[key];
     }
     for (const own of Object.values(glyphs)) for (const key of ['slice', 'slicePos', 'sliceRound', 'wobble', 'joints', 'stencil', 'stencilPos', 'stencilRound'] as const) {
       if (defaults[key] !== undefined) delete own[key];

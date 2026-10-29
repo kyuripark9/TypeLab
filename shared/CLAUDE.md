@@ -47,7 +47,9 @@ finish policy's `inline` and `wire`): Inline's line follows each stroke's middle
 are `stencil`, `stencilPos` and `stencilRound` (`source/stencil.ts`, docs/architecture/source-stencil.md); both find
 joins with `source/joins.ts`. Verticals and Horizontals move Contrast's two weights apart (`strokeAxes`, the program's
 `source-strokes-v1`), and Squareness, Bowls, Facets, Roundness and its Joins and Counters, Steps, Peaks, Bends, Pinch
-and Serifs on a sans are finishes about the style's own values (`source/shapes.ts`, docs/architecture/source-shapes.md).
+Serifs on a sans, the stroke-end forms (`source-ends-v1`) and Inner space and Openness (`source-insides-v1`) are
+finishes about the style's own values
+(`source/shapes.ts`, docs/architecture/source-shapes.md).
 
 `SPECS` in `params/spec.ts` has exactly one entry per `Params` key, of that key's type; the compiler checks both ways,
 so `model.ts` and `spec.ts` change together. An entry is written inline with `num`, `bool`, `option`, `ids`,
