@@ -72,6 +72,18 @@
     "open": 0.9,
     "close": 0.3
   },
+  "serifs": {
+    "format": "source-serifs-v1",
+    "reach": 0.3,
+    "across": 5,
+    "height": 0.25,
+    "side": 0.08,
+    "length": [0.25, 1.75],
+    "thick": [0.3, 2],
+    "size": [0.25, 1.4],
+    "slope": 0.8,
+    "bracket": [0.05, 2.5]
+  },
   "patterns": {
     "format": "source-patterns-v1",
     "fills": ["pixels", "hex", "dots", "halftone", "lines", "blobs", "liquid"],
@@ -89,5 +101,8 @@
     "tolerance": 0.004,
     "maxSegments": 65536,
     "seed": 2654435769
+  },
+  "overrides": {
+    "Cathedral": { "serifs": null }
   }
 }

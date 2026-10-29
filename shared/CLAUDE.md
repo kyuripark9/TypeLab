@@ -49,7 +49,8 @@ joins with `source/joins.ts`. Verticals and Horizontals move Contrast's two weig
 `source-strokes-v1`), and Squareness, Bowls, Facets, Roundness and its Joins and Counters, Steps, Peaks, Bends, Pinch
 Serifs on a sans, the stroke-end forms (`source-ends-v1`) and Inner space and Openness (`source-insides-v1`) are
 finishes about the style's own values
-(`source/shapes.ts`, docs/architecture/source-shapes.md).
+(`source/shapes.ts`, docs/architecture/source-shapes.md). A serif style's own serifs are found on the ink and taken off,
+redrawn or reshaped by the serif settings (`source/serifs.ts`, `source-serifs-v1`, docs/architecture/source-serifs.md).
 
 `SPECS` in `params/spec.ts` has exactly one entry per `Params` key, of that key's type; the compiler checks both ways,
 so `model.ts` and `spec.ts` change together. An entry is written inline with `num`, `bool`, `option`, `ids`,

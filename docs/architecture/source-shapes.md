@@ -38,7 +38,7 @@ shapes: { format: 'source-shapes-v1', square: 6, box: [24, 4], facet: 0.04, roun
 | Peaks | **Peaks:** toward Flat, points sharper than 80° are cut flat, up to half the stroke deep. Toward Pointed, flat tops are carried back to the point their sides meet at. |
 | Bends | **Bends:** Round rounds each sharp inside corner where a stroke turns, and the outer corner across the stroke from it, as at the turns of Z, N, M and V. |
 | Pinch, Position | **Pinch:** every stroke is drawn in toward its middle round a height (Position, as a share of the cap height), up to 60% of its half-thickness, over 18% of the cap height either way. |
-| Serifs (shape, Length, Thickness, Angle, Bracket) | **Serifs:** on a style drawn without serifs, a foot is set across every flat end of an upright stroke. The shape is slab, bracketed, unbracketed, wedge or diamond. Length reaches up to 0.8 of the stroke's width either side, Thickness up to 0.55 of it, Angle slopes the top toward the tip, and Bracket curves a bracketed foot into the stroke. |
+| Serifs (shape, Length, Thickness, Angle, Bracket) | **Serifs:** on a style drawn without serifs, a foot is set across every flat end of an upright stroke. The shape is slab, bracketed, unbracketed, wedge or diamond. Length reaches up to 0.8 of the stroke's width either side, Thickness up to 0.55 of it, Angle slopes the top toward the tip, and Bracket curves a bracketed foot into the stroke. With the serif policy, Top serifs sizes those on top, Sides keeps one side's, and Balance reaches further to one side. On a style drawn with serifs, these reshape its own ([source serifs](source-serifs.md)). |
 
 ### Stroke ends
 
@@ -124,8 +124,9 @@ Squareness, Box and Serifs on Gumdrop, Compass and Orbital.
 - **Stroke ends.** End shapes need a flat end, so round ends (Gumdrop's) and ends cut into curves keep their own.
   Pointed, Round and the rest reach every stem's foot as well as the free ends.
 - **Serifs.** Serifs are added only where a stroke ends flat and near level, so round ends (Gumdrop), curved strokes
-  (c, s) and slanted cuts (x) stay bare. A serif style's own serifs can't be removed or reshaped, and its Serifs switch
-  changes nothing. Tips, Base, Sides, Inside serifs, Balance, Top serifs and Arm serifs are not offered.
+  (c, s) and slanted cuts (x) stay bare. Before the serif policy a serif style's own serifs can't be removed or
+  reshaped; with it they can ([source serifs](source-serifs.md)). Tips, Base and Inside serifs are not offered, and Arm
+  serifs reaches only a serif style's own beaks.
 - **Sharpening.** Roundness only rounds, from the corners as drawn: a rounded style's corners can't be sharpened.
 - **Steps and Pinch.** At small sizes Steps reads as notches. Pinch thins every stroke at the height, curves included.
 - **Optical review.** Combinations of these controls, and with the effects, have had no optical review.

@@ -9,6 +9,7 @@ import { compileTraps, parseSourceTraps, sourceTrapsExtend, trapSourceInk, type 
 import { compileStencil, parseSourceStencil, sourceStencilExtends, stencilSourceInk, type SourceStencilPolicy, type StencilPlan } from './stencil';
 import { compileShapes, END_CONTROLS, INSIDE_CONTROLS, parseSourceEnds, parseSourceInsides, parseSourceShapes, shapeSourceInk, SHAPE_CONTROLS, sourceEndsExtend,
   sourceInsidesExtend, sourceShapesExtend, type ShapesPlan, type SourceEndsPolicy, type SourceInsidesPolicy, type SourceShapesPolicy } from './shapes';
+import { parseSourceSerifs, SERIF_CONTROLS, sourceSerifsExtend, type SourceSerifsPolicy } from './serifs';
 import { compileInline, compileWire, inlineSourceInk, parseSourceInline, parseSourceWire, sourceInlineExtends, sourceWireExtends, wireSourceInk,
   type InlinePlan, type SourceInlinePolicy, type SourceWirePolicy, type WirePlan } from './inline';
 import { compileSourcePattern, parseSourcePatterns, patternSourceInk, sourcePatternControls, sourcePatternFills,
@@ -29,10 +30,11 @@ export interface SourceFinishPolicy {
   shapes?: SourceShapesPolicy;
   ends?: SourceEndsPolicy;
   insides?: SourceInsidesPolicy;
+  serifs?: SourceSerifsPolicy;
   patterns?: SourcePatternPolicy;
   texture?: SourceTexturePolicy;
 }
-type FinishCoordinates = Pick<Params, 'fill' | 'module' | 'slice' | 'slicePos' | 'sliceRound' | 'dotGain' | 'roundness' | 'wobble' | 'rough' | 'joints' | 'stencil' | 'stencilPos' | 'stencilRound' | typeof SHAPE_CONTROLS[number] | typeof END_CONTROLS[number] | 'counter' | 'aperture' | 'freeAt'>;
+type FinishCoordinates = Pick<Params, 'fill' | 'module' | 'slice' | 'slicePos' | 'sliceRound' | 'dotGain' | 'roundness' | 'wobble' | 'rough' | 'joints' | 'stencil' | 'stencilPos' | 'stencilRound' | typeof SHAPE_CONTROLS[number] | typeof END_CONTROLS[number] | typeof SERIF_CONTROLS[number] | 'counter' | 'aperture' | 'freeAt'>;
 interface SlicePlan { at: number; gap: number; rounding: number; tolerance: number }
 export type SourceFinishPlan = ({ kind: 'solid' } | {
   kind: 'shadow'; dx: number; dy: number; gap: number; tolerance: number; minArea: number;
@@ -45,10 +47,10 @@ export const sourceFinishFills = (policy: SourceFinishPolicy): readonly Params['
 export const sourceFinishControls = (policy: SourceFinishPolicy, fill?: Params['fill']): readonly (keyof Params)[] => [...new Set<keyof Params>([
   'fill', ...(fill === 'solid' ? [] : ['module'] as const), ...(policy.slice ? ['slice', 'slicePos', 'sliceRound'] as const : []),
   ...(policy.patterns ? sourcePatternControls(policy.patterns, fill) : []), ...(policy.traps ? ['joints'] as const : []),
-  ...(policy.stencil ? ['stencil', 'stencilPos', 'stencilRound'] as const : []), ...(policy.shapes ? SHAPE_CONTROLS : []), ...(policy.shapes && policy.ends ? END_CONTROLS : []), ...(policy.shapes && policy.insides ? INSIDE_CONTROLS : []),
+  ...(policy.stencil ? ['stencil', 'stencilPos', 'stencilRound'] as const : []), ...(policy.shapes ? SHAPE_CONTROLS : []), ...(policy.shapes && policy.ends ? END_CONTROLS : []), ...(policy.shapes && policy.insides ? INSIDE_CONTROLS : []), ...(policy.shapes && policy.serifs ? SERIF_CONTROLS : []),
   ...(policy.texture ? ['wobble', 'rough'] as const : [])
 ])];
-export function sourceFinishPrecision(policy: SourceFinishPolicy, request: Pick<Params, 'fill' | 'wobble' | 'rough' | 'joints' | 'stencil' | typeof SHAPE_CONTROLS[number] | typeof END_CONTROLS[number] | 'counter' | 'aperture' | 'freeAt'>): SourceEffect | null {
+export function sourceFinishPrecision(policy: SourceFinishPolicy, request: Pick<Params, 'fill' | 'wobble' | 'rough' | 'joints' | 'stencil' | typeof SHAPE_CONTROLS[number] | typeof END_CONTROLS[number] | typeof SERIF_CONTROLS[number] | 'counter' | 'aperture' | 'freeAt'>): SourceEffect | null {
   const { fill } = request;
   if (policy.texture && (request.wobble > 0 || request.rough > 0)) return 'texture';
   if (fill === 'outline' && policy.outline) return 'outline';
@@ -56,7 +58,7 @@ export function sourceFinishPrecision(policy: SourceFinishPolicy, request: Pick<
   if (fill === 'wire' && policy.wire) return 'wire';
   if (policy.patterns && sourcePatternFills(policy.patterns).some(kind => kind === fill)) return 'pattern';
   if (policy.stencil && request.stencil > 0) return 'stencil';
-  if (policy.shapes && [...SHAPE_CONTROLS, ...(policy.ends ? END_CONTROLS : []), ...(policy.insides ? INSIDE_CONTROLS : [])].some(key => request[key] !== (request.freeAt[key] ?? request[key]))) return 'shapes';
+  if (policy.shapes && [...SHAPE_CONTROLS, ...(policy.ends ? END_CONTROLS : []), ...(policy.insides ? INSIDE_CONTROLS : []), ...(policy.serifs ? SERIF_CONTROLS : [])].some(key => request[key] !== (request.freeAt[key] ?? request[key]))) return 'shapes';
   return policy.traps && request.joints > 0 ? 'traps' : null;
 }
 export function sourceFinishDefaults(policy: SourceFinishPolicy, previous?: SourceFinishPolicy): Partial<FinishCoordinates> {
@@ -86,6 +88,7 @@ export function sourceFinishExtends(previous: SourceFinishPolicy, next: SourceFi
     && (!previous.shapes || !!next.shapes && sourceShapesExtend(previous.shapes, next.shapes))
     && (!previous.ends || !!next.ends && sourceEndsExtend(previous.ends, next.ends))
     && (!previous.insides || !!next.insides && sourceInsidesExtend(previous.insides, next.insides))
+    && (!previous.serifs || !!next.serifs && sourceSerifsExtend(previous.serifs, next.serifs))
     && (!previous.patterns || !!next.patterns && sourcePatternsExtend(previous.patterns, next.patterns))
     && (!previous.texture || !!next.texture && sourceTextureExtends(previous.texture, next.texture));
 }
@@ -101,7 +104,7 @@ function number(input: unknown): number {
   return input;
 }
 export function parseSourceFinish(input: unknown): SourceFinishPolicy {
-  const value = object(input, ['format', 'tolerance', 'shadow', 'slice', 'outline', 'inline', 'wire', 'traps', 'stencil', 'shapes', 'ends', 'insides', 'patterns', 'texture']), shadow = object(value.shadow, ['depth', 'gap', 'minAreaRatio']);
+  const value = object(input, ['format', 'tolerance', 'shadow', 'slice', 'outline', 'inline', 'wire', 'traps', 'stencil', 'shapes', 'ends', 'insides', 'serifs', 'patterns', 'texture']), shadow = object(value.shadow, ['depth', 'gap', 'minAreaRatio']);
   if (value.format !== 'source-finish-v1' || !Array.isArray(shadow.depth) || shadow.depth.length !== 2) throw new TypeError('Unsupported source finishing policy');
   const tolerance = number(value.tolerance), low = number(shadow.depth[0]), high = number(shadow.depth[1]);
   const gap = number(shadow.gap), minAreaRatio = number(shadow.minAreaRatio);
@@ -130,10 +133,11 @@ export function parseSourceFinish(input: unknown): SourceFinishPolicy {
   const shapes = 'shapes' in value ? parseSourceShapes(value.shapes) : undefined;
   const ends = 'ends' in value ? parseSourceEnds(value.ends) : undefined;
   const insides = 'insides' in value ? parseSourceInsides(value.insides) : undefined;
+  const serifs = 'serifs' in value ? parseSourceSerifs(value.serifs) : undefined;
   const patterns = 'patterns' in value ? parseSourcePatterns(value.patterns) : undefined;
   const texture = 'texture' in value ? parseSourceTexture(value.texture) : undefined;
   return { format: 'source-finish-v1', tolerance, shadow: { depth: [low, high], gap, minAreaRatio },
-    ...(slice ? { slice } : {}), ...(outline ? { outline } : {}), ...(inline ? { inline } : {}), ...(wire ? { wire } : {}), ...(traps ? { traps } : {}), ...(stencil ? { stencil } : {}), ...(shapes ? { shapes } : {}), ...(ends ? { ends } : {}), ...(insides ? { insides } : {}),
+    ...(slice ? { slice } : {}), ...(outline ? { outline } : {}), ...(inline ? { inline } : {}), ...(wire ? { wire } : {}), ...(traps ? { traps } : {}), ...(stencil ? { stencil } : {}), ...(shapes ? { shapes } : {}), ...(ends ? { ends } : {}), ...(insides ? { insides } : {}), ...(serifs ? { serifs } : {}),
     ...(patterns ? { patterns } : {}), ...(texture ? { texture } : {}) };
 }
 
@@ -152,7 +156,7 @@ export function compileSourceFinish(policy: SourceFinishPolicy, request: FinishC
   const traps = policy.traps ? compileTraps(policy.traps, request.joints, capHeight) : undefined;
   const stencil = policy.stencil ? compileStencil(policy.stencil, request, capHeight) : undefined;
   // Roundness rounds the pattern's cells where a pattern has corners, the letters' corners elsewhere
-  const shapes = policy.shapes ? compileShapes(policy.shapes, request, capHeight, request.fill === 'pixels' || request.fill === 'hex', policy.ends, policy.insides) : undefined;
+  const shapes = policy.shapes ? compileShapes(policy.shapes, request, capHeight, request.fill === 'pixels' || request.fill === 'hex', policy.ends, policy.insides, policy.serifs) : undefined;
   const additions = { ...(slice ? { slice } : {}), ...(texture ? { texture } : {}), ...(traps ? { traps } : {}), ...(stencil ? { stencil } : {}),
     ...(shapes ? { shapes } : {}) };
   if (request.fill === 'solid') return { kind: 'solid', ...additions };

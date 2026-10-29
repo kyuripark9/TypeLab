@@ -9,7 +9,8 @@
    - Bends: where a stroke turns sharply (M, N, V, W, Z) the turn rounded.
    - Pinch: every stroke drawn in toward its middle round a height.
    - Serifs: on a style drawn without them, a foot set across every flat end of an upright stroke, slab, bracketed,
-     unbracketed, wedge or diamond, as long, thick and sloped as Length, Thickness and Angle say.
+     unbracketed, wedge or diamond, as long, thick and sloped as Length, Thickness and Angle say; with the serif policy
+     (`source-serifs-v1`, serifs.ts), a style's own serifs taken off, drawn in another shape or reshaped first.
    - Stroke ends (its own policy, `source-ends-v1`): every flat stroke end flared, scooped, rounded, given a droplet or
      a ball, pointed, clipped, slanted out or in, cut level or notched, tapered or brushed, as its sliders say.
    - Inner space and Openness (their own policy, `source-insides-v1`): every closed counter grown or shrunk about its
@@ -20,8 +21,9 @@ import { ClipType, Clipper64, FillRule, PolyTree64, type Paths64, type PolyPath6
 import type { Params } from '../params';
 import { formOf, type TerminalForm } from '../params/options';
 import type { Cmd, Pt } from '../engine/types';
-import { area, ball, clip, commands, failure, flatten, fromGrid, toGrid, tree, type Tree } from './ink';
+import { area, ball, clip, commands, failure, flatten, fromGrid, nearest, toGrid, tree, type Tree } from './ink';
 import { crotches } from './joins';
+import { reshapeSerifs, type SERIF_CONTROLS, type SerifPlan, type SerifSite, type SourceSerifsPolicy } from './serifs';
 
 export interface SourceShapesPolicy {
   format: 'source-shapes-v1';
@@ -58,7 +60,13 @@ export interface ShapesPlan {
   point: number;
   /** the serifs added: their shape, how far past the stroke and how thick as shares of its width, how far their tops
       slope toward the tip, and the bracket's radius as a share of their thickness */
-  serif: { shape: Params['serifShape']; reach: number; thick: number; slope: number; bracket: number } | null;
+  serif: { shape: Params['serifShape']; reach: number; thick: number; slope: number; bracket: number; tops: number; balance: number; sides: Params['serifSides'];
+    /** a serif style's serifs in another shape: `reach` and `thick` multiply its own serifs' measures, and they are
+        set only where its own were, on the sides they reached to, each as long and as thick as the one it replaces */
+    measured?: boolean; sites?: SerifSite[] } | null;
+  /** what becomes of a serif style's own serifs; whether a stroke's end may arch a little between its corners (with
+      the serif policy, as a serif style's ends do once its serifs are off) */
+  own: SerifPlan | null; arched: boolean;
   /** the stroke ends drawn: their form, and its sliders */
   end: EndPlan | null;
   /** how much each closed counter is scaled about its middle, and how far the free ends of curving strokes are cut
@@ -89,9 +97,9 @@ export function parseSourceShapes(input: unknown): SourceShapesPolicy {
 export const sourceShapesExtend = (a: SourceShapesPolicy, b: SourceShapesPolicy): boolean =>
   KEYS.every(key => JSON.stringify(a[key as keyof SourceShapesPolicy]) === JSON.stringify(b[key as keyof SourceShapesPolicy]));
 
-type Request = Pick<Params, ShapeKeys | EndKeys | 'counter' | 'aperture' | 'freeAt'>;
+type Request = Pick<Params, ShapeKeys | EndKeys | typeof SERIF_CONTROLS[number] | 'counter' | 'aperture' | 'freeAt'>;
 /** How far a setting has moved from the style's own, as a share of the way to the end it moves toward: -1 to 1. */
-function moved(request: Request, key: Exclude<ShapeKeys, 'bowlForm' | 'bends' | 'serif' | 'serifShape'> | 'counter' | 'aperture'): number {
+function moved(request: Request, key: Exclude<ShapeKeys, 'bowlForm' | 'bends' | 'serif' | 'serifShape'> | Exclude<typeof SERIF_CONTROLS[number], 'serifSides'> | 'counter' | 'aperture'): number {
   const value = request[key], own = request.freeAt[key] ?? value;
   if (value === own) return 0;
   return value > own ? (value - own) / (1 - own || 1) : -(own - value) / (own || 1);
@@ -134,8 +142,14 @@ export const sourceInsidesExtend = (a: SourceInsidesPolicy, b: SourceInsidesPoli
 export const INSIDE_CONTROLS: readonly ('counter' | 'aperture')[] = ['counter', 'aperture'];
 
 export function compileShapes(policy: SourceShapesPolicy, request: Request, capHeight: number, patternCorners: boolean,
-  ends?: SourceEndsPolicy, insides?: SourceInsidesPolicy): ShapesPlan | undefined {
+  ends?: SourceEndsPolicy, insides?: SourceInsidesPolicy, serifs?: SourceSerifsPolicy): ShapesPlan | undefined {
   if (!Number.isFinite(capHeight) || capHeight <= 0) throw new RangeError('Invalid source shape coordinates');
+  // serifs set across a stroke's flat ends; with the serif policy, smaller or larger on top, more to one side, or on
+  // one side alone
+  const added = () => ({ shape: request.serifShape, reach: policy.serif[0] * (.1 + .9 * request.serifSize),
+    thick: policy.serif[1] * (.15 + .85 * request.serifThickness), slope: request.serifAngle * .8, bracket: request.serifBracket,
+    tops: serifs ? scale(serifs.size, moved(request, 'serifTops')) : 1, balance: serifs ? moved(request, 'serifBalance') * .75 : 0,
+    sides: serifs ? request.serifSides : 'both' as const });
   const square = moved(request, 'squareness'), boxed = request.bowlForm === 'box' && (request.freeAt.bowlForm ?? 'oval') !== 'box';
   const plan: ShapesPlan = {
     square, most: policy.square, box: boxed ? policy.box[0] + (policy.box[1] - policy.box[0]) * request.boxRound : null,
@@ -150,21 +164,36 @@ export function compileShapes(policy: SourceShapesPolicy, request: Request, capH
     pinch: Math.max(0, moved(request, 'pinch')) * policy.pinch[0],
     waist: request.pinchPos * capHeight, reach: policy.pinch[1] * capHeight,
     tolerance: policy.tolerance, cap: capHeight,
-    serif: request.serif && !(request.freeAt.serif ?? false) ? { shape: request.serifShape, reach: policy.serif[0] * (.1 + .9 * request.serifSize),
-      thick: policy.serif[1] * (.15 + .85 * request.serifThickness), slope: request.serifAngle * .8, bracket: request.serifBracket } : null,
+    serif: request.serif && !(request.freeAt.serif ?? false) ? added() : null, own: null, arched: !!serifs,
     end: ends ? compileEnds(ends, request) : null,
     counter: 1, open: 0,
   };
+  if (serifs && (request.freeAt.serif ?? false)) {
+    // a serif style's own serifs: taken off, replaced by another shape, or reshaped about their own
+    const shape = request.serifShape !== (request.freeAt.serifShape ?? request.serifShape), off = !request.serif || shape;
+    // another shape takes the place of the style's own, as long and as thick as they were
+    if (request.serif && shape) plan.serif = { ...added(), reach: scale(serifs.length, moved(request, 'serifSize')),
+      thick: scale(serifs.thick, moved(request, 'serifThickness')), measured: true };
+    const own: SerifPlan = { off, finding: serifs, length: scale(serifs.length, moved(request, 'serifSize')),
+      thick: scale(serifs.thick, moved(request, 'serifThickness')), slope: moved(request, 'serifAngle') * serifs.slope,
+      bracket: scale(serifs.bracket, moved(request, 'serifBracket')), tops: scale(serifs.size, moved(request, 'serifTops')),
+      arms: scale(serifs.size, moved(request, 'serifArms')), armThick: scale(serifs.thick, moved(request, 'serifArmThickness')),
+      balance: moved(request, 'serifBalance') * .75, sides: request.serifSides === (request.freeAt.serifSides ?? request.serifSides) ? 'both' : request.serifSides };
+    if (off || own.length !== 1 || own.thick !== 1 || own.slope || own.bracket !== 1 || own.tops !== 1 || own.arms !== 1 || own.armThick !== 1
+      || own.balance || own.sides !== 'both') plan.own = own;
+  }
   if (insides) {
     const c = moved(request, 'counter'), o = moved(request, 'aperture');
     plan.counter = c >= 0 ? 1 + (insides.counter[1] - 1) * c : 1 + (insides.counter[0] - 1) * -c;
     plan.open = o >= 0 ? insides.open * o : insides.close * o;
   }
   const idle = !plan.square && plan.box === null && !plan.facet && !plan.round && !plan.inner && !plan.join
-    && !plan.step && !plan.peak && !plan.bends && !plan.pinch && !plan.point && !plan.serif && !plan.end && plan.counter === 1 && !plan.open;
+    && !plan.step && !plan.peak && !plan.bends && !plan.pinch && !plan.point && !plan.serif && !plan.own && !plan.end && plan.counter === 1 && !plan.open;
   return idle ? undefined : plan;
 }
 
+/** A multiple about 1, toward `range`'s low end as `m` falls to -1 and its high end as it rises to 1. */
+const scale = (range: readonly [number, number], m: number) => m >= 0 ? 1 + (range[1] - 1) * m : 1 + (1 - range[0]) * m;
 const sub = (a: Pt, b: Pt): Pt => ({ x: a.x - b.x, y: a.y - b.y });
 const add = (a: Pt, b: Pt, k = 1): Pt => ({ x: a.x + b.x * k, y: a.y + b.y * k });
 const len = (v: Pt) => Math.hypot(v.x, v.y);
@@ -288,7 +317,7 @@ function faceted(cmds: Cmd[], tolerance: number): Cmd[] {
     ink, positive), and how far its edges run straight either side. */
 export interface Corner { at: Pt; back: Pt; on: Pt; turn: number; runBack: number; runOn: number; poly: Pt[]; i: number }
 const STRAIGHT = 20 * Math.PI / 180;
-function cornersOf(polys: Pt[][]): Corner[] {
+export function cornersOf(polys: Pt[][]): Corner[] {
   const sign = area(polys.reduce((big, p) => Math.abs(area(p)) > Math.abs(area(big)) ? p : big)) > 0 ? 1 : -1;
   const out: Corner[] = [];
   for (const poly of polys) {
@@ -375,13 +404,23 @@ export function shapeSourceInk(cmds: Cmd[], plan: ShapesPlan): Cmd[] {
   }
   const curved = plan.facet ? faceted(squared, plan.facet) : squared;
   if (!plan.round && !plan.inner && !plan.join && !plan.step && !plan.peak && !plan.bends && !plan.pinch && !plan.point && !plan.serif
-    && !plan.end && plan.counter === 1 && !plan.open) return curved;
+    && !plan.own && !plan.end && plan.counter === 1 && !plan.open) return curved;
   let ink: Paths64 = clip(ClipType.Union, flatten(curved, plan.tolerance / 4, 'shapes').map(toGrid), [], 'shapes');
   if (!ink.length) return curved;
   let polys = ink.map(fromGrid);
   const edges = () => polys.flatMap(p => p.map((a, i) => ({ a, b: p[(i + 1) % p.length] })));
   let root = tree(edges()), start = Math.hypot(root.x1 - root.x0, root.y1 - root.y0);
   const sign = area(polys.reduce((big, p) => Math.abs(area(p)) > Math.abs(area(big)) ? p : big)) > 0 ? 1 : -1;
+  // a serif style's own serifs first, so every shape after works on the letter as they leave it
+  let reserifed = false, serif = plan.serif?.measured ? null : plan.serif;
+  if (plan.own) {
+    const reshaped = reshapeSerifs(ink, polys, plan.own, plan.cap, root, start);
+    if (reshaped?.ink.length) {
+      ink = reshaped.ink; reserifed = true;
+      polys = ink.map(fromGrid); root = tree(edges()); start = Math.hypot(root.x1 - root.x0, root.y1 - root.y0);
+      if (plan.serif?.measured) serif = { ...plan.serif, sites: reshaped.sites };
+    }
+  }
   if (plan.pinch) {
     ink = clip(ClipType.Union, pinched(polys, plan, root, start).map(toGrid), [], 'shapes');
     polys = ink.map(fromGrid); root = tree(edges()); start = Math.hypot(root.x1 - root.x0, root.y1 - root.y0);
@@ -428,7 +467,7 @@ export function shapeSourceInk(cmds: Cmd[], plan: ShapesPlan): Cmd[] {
   }
   // Peaks below the style's own carries its flat tops back toward a point
   if (plan.point) fill.push(...sharpened(polys, plan));
-  const ends = plan.serif || plan.end || plan.open ? flatEnds(corners, root, start, sign, plan.tolerance) : [];
+  const ends = serif || plan.end || plan.open ? flatEnds(corners, root, start, sign, plan.tolerance, plan.arched) : [];
   // Openness: a curving stroke's free end (c, e, s, a) cut back along its sides, or run on past its end
   if (plan.open) for (const { a, b, width, depth } of ends) {
     if (Math.min(a.runBack, b.runOn) > width * 1.5) continue;
@@ -440,10 +479,10 @@ export function shapeSourceInk(cmds: Cmd[], plan: ShapesPlan): Cmd[] {
       fill.push([a.at, b.at, add(b.at, b.on, -l), add(a.at, a.back, -l)]);
     }
   }
-  if (plan.serif) fill.push(...serifs(ends, plan.serif, plan.tolerance));
+  if (serif) fill.push(...serifs(ends, serif, plan.tolerance, polys));
   if (plan.end) { const shaped = endShapes(ends, plan.end, polys, plan.tolerance); fill.push(...shaped.fill); cut.push(...shaped.cut); }
   // a letter with nothing to round, step or point keeps its curves
-  if (!fill.length && !cut.length && !plan.pinch && !countered) return curved;
+  if (!fill.length && !cut.length && !plan.pinch && !countered && !reserifed) return curved;
   // every piece turned one way round, so overlapping pieces add rather than cancel
   const orient = (poly: Pt[]) => area(poly) < 0 ? [...poly].reverse() : poly;
   if (fill.length) ink = attached(clip(ClipType.Union, ink, fill.map(orient).map(toGrid), 'shapes'), ink);
@@ -490,7 +529,7 @@ function sharpened(polys: Pt[][], plan: ShapesPlan): Pt[][] {
     into the stroke, as wide as the stroke behind it (not the flat top of a bowl or a bar's end), `depth` being how far
     the stroke runs on behind it. */
 export interface End { a: Corner; b: Corner; along: Pt; inward: Pt; width: number; depth: number; mid: Pt }
-export function flatEnds(corners: Corner[], root: Tree, start: number, sign: number, tolerance: number): End[] {
+export function flatEnds(corners: Corner[], root: Tree, start: number, sign: number, tolerance: number, arched = false): End[] {
   const out: End[] = [];
   const square = (c: Corner) => { const a = Math.acos(Math.max(-1, Math.min(1, c.back.x * c.on.x + c.back.y * c.on.y))); return c.turn > 0 && a > Math.PI * .3 && a < Math.PI * .72; };
   for (const a of corners) {
@@ -503,24 +542,44 @@ export function flatEnds(corners: Corner[], root: Tree, start: number, sign: num
     // the edge leaving the one corner is the edge reaching the other: not two stems' feet across a counter
     if (along.x * a.on.x + along.y * a.on.y < .999 || -(along.x * b.back.x + along.y * b.back.y) < .999) continue;
     if (width < tolerance * 10) continue;
-    const mid = add(a.at, edge, .5), depth = 2 * (ball(root, mid, inward, start)?.r ?? 0);
+    // how far the stroke runs on, from the end's middle; an `arched` end's middle lies on its outline, off the line
+    // between its corners, and the stroke is measured square to the outline there
+    const mid = add(a.at, edge, .5);
+    let from = mid, normal = inward;
+    if (arched) {
+      const on = (p: Pt) => nearest(root, p).point, way = unit(sub(on(add(mid, along, 1)), on(add(mid, along, -1))));
+      from = on(mid); normal = { x: -way.y * sign, y: way.x * sign };
+    }
+    const depth = 2 * (ball(root, from, normal, start)?.r ?? 0);
     if (depth < width * .7) continue;
     out.push({ a, b, along, inward, width, depth, mid });
   }
   return out;
 }
 
-function serifs(ends: End[], serif: NonNullable<ShapesPlan['serif']>, tolerance: number): Pt[][] {
-  const out: Pt[][] = [];
-  for (const { a, b, along, inward, width, depth } of ends) {
+function serifs(ends: End[], serif: NonNullable<ShapesPlan['serif']>, tolerance: number, polys: Pt[][]): Pt[][] {
+  const out: Pt[][] = [], xs = polys.flat().map(p => p.x), middle = (Math.min(...xs) + Math.max(...xs)) / 2;
+  for (const { a, b, along, inward, width, depth, mid } of ends) {
     // only across an upright stroke: its end lies level
     if (Math.abs(inward.y) < .9) continue;
-    const reach = serif.reach * width, thick = Math.min(serif.thick * width, depth * .45), low = thick * (1 - serif.slope);
+    // a top's serifs as large as Top serifs says; each side's as Balance and Sides say
+    const top = inward.y < 0 ? serif.tops : 1, leftA = along.x > 0;
+    const keep = (left: boolean) => serif.sides === 'both' || serif.sides === (left ? 'left' : 'right')
+      || serif.sides === 'inside' && (left ? mid.x < middle : mid.x > middle) || serif.sides === 'outside' && (left ? mid.x >= middle : mid.x <= middle);
+    // in place of a serif style's own, only where a serif of its own reached from that corner, as long and as thick
+    const had = (c: Corner, way: Pt) => serif.sites?.find(site => len(sub(site.f, c.at)) < width * .15 && site.out.x * way.x + site.out.y * way.y > .5);
+    const siteA = had(a, { x: -along.x, y: -along.y }), siteB = had(b, along);
+    const reachOf = (left: boolean, site?: SerifSite) => keep(left) && (!serif.sites || site)
+      ? serif.reach * (site ? site.reach : width) * top * Math.max(.1, left ? 1 - serif.balance : 1 + serif.balance) : 0;
+    const reachA = reachOf(leftA, siteA), reachB = reachOf(!leftA, siteB);
+    if (!reachA && !reachB) continue;
+    const own = serif.sites ? Math.max(siteA?.thick ?? 0, siteB?.thick ?? 0) : width;
+    const thick = Math.min(serif.thick * own * top, depth * .45), low = thick * (1 - serif.slope);
     // each side of the stroke, up from its corner as far as the serif is thick
     const up = (c: Corner, way: Pt) => { const d = way.x * inward.x + way.y * inward.y; return d > .2 ? add(c.at, way, thick / d) : null; };
     const left = up(a, a.back), right = up(b, b.on);
     if (!left || !right) continue;
-    const outL = add(a.at, along, -reach), outR = add(b.at, along, reach);
+    const outL = add(a.at, along, -reachA), outR = add(b.at, along, reachB);
     const half = add(outL, inward, low / 2), halfR = add(outR, inward, low / 2);
     // each shape one piece across the stroke's end, over its ink, so it joins along more than an edge
     if (serif.shape === 'wedge') out.push([outL, outR, right, left]);
@@ -529,8 +588,9 @@ function serifs(ends: End[], serif: NonNullable<ShapesPlan['serif']>, tolerance:
       const t = serif.shape === 'slab' ? 1 : .7, l = add(a.at, sub(left, a.at), t), r = add(b.at, sub(right, b.at), t);
       out.push([outL, outR, add(outR, inward, low * t), r, l, add(outL, inward, low * t)]);
       // a bracket curves the foot's top into the stroke
-      if (serif.shape === 'bracketed' && serif.bracket > 0) for (const [at, foot, side] of [[l, unit(sub(add(outL, inward, low * t), l)), a.back],
-        [r, unit(sub(add(outR, inward, low * t), r)), b.on]] as const) {
+      if (serif.shape === 'bracketed' && serif.bracket > 0) for (const [at, foot, side, reach] of [[l, unit(sub(add(outL, inward, low * t), l)), a.back, reachA],
+        [r, unit(sub(add(outR, inward, low * t), r)), b.on, reachB]] as const) {
+        if (!reach) continue;
         const f = fillet({ at, back: foot, on: side, turn: -1, runBack: reach, runOn: Infinity, poly: a.poly, i: a.i }, thick * t * 2 * serif.bracket, reach * .9, tolerance);
         if (f) out.push(f);
       }

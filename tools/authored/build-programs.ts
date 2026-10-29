@@ -102,11 +102,18 @@ for (let i = 0; i < args.length; i += 2) {
   }
   if (mode === '--finish' || mode === '--spacing' || mode === '--contrast' || mode === '--strokes') {
     const input: unknown = JSON.parse(readFileSync(file, 'utf8'));
-    const extension = mode === '--finish' ? { finish: parseSourceFinish(input) } : mode === '--spacing' ? { spacing: parseSourceSpacing(input) }
+    // a finish's `overrides` change it for a family by name: a policy set to null is left out of that family's programs
+    const { overrides = {}, ...shared } = (mode === '--finish' && input && typeof input === 'object' ? input : {}) as { overrides?: Record<string, Record<string, unknown>> };
+    const finishFor = (family: string) => {
+      const merged: Record<string, unknown> = { ...shared };
+      for (const [key, value] of Object.entries(overrides[family] ?? {})) if (value === null) delete merged[key]; else merged[key] = value;
+      return { finish: parseSourceFinish(merged) };
+    };
+    const extension = mode === '--finish' ? null : mode === '--spacing' ? { spacing: parseSourceSpacing(input) }
       : mode === '--strokes' ? { strokes: parseSourceStrokes(input) } : { contrast: parseSourceContrast(input) };
     for (const { ref } of new Map(MASTER_REVISIONS.map(info => [info.ref.fontId, info])).values()) {
-      const previous = previousProgram(ref.fontId);
-      addProgram(previous ? { ...previous, ...extension } : { format: 'source-program-v1', base: ref, width: null, features: null, ...extension });
+      const previous = previousProgram(ref.fontId), own = extension ?? finishFor(ref.fontId.split(':')[0]);
+      addProgram(previous ? { ...previous, ...own } : { format: 'source-program-v1', base: ref, width: null, features: null, ...own });
     }
     continue;
   }
