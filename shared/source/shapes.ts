@@ -7,8 +7,8 @@
    - Steps: a step cut into each sharp outer corner.
    - Peaks: sharp points cut flat, or flat tops sharpened back to a point.
    - Bends: where a stroke turns sharply (M, N, V, W, Z) the turn rounded.
-   - Pinch: the sides of upright and round strokes drawn in level toward their middles round a height, to a point at
-     100 with the pinch policy (`source-pinch-v1`); bars, cut ends and dots as drawn, every letter kept whole.
+   - Pinch: every stroke but a level one drawn in toward its middle round a height, to a point at 100 with the pinch
+     policy (`source-pinch-v1`); joins held, bars, cut ends and dots as drawn, every letter kept whole.
    - Serifs: on a style drawn without them, a foot set across every flat end of an upright stroke, slab, bracketed,
      unbracketed, wedge or diamond, as long, thick and sloped as Length, Thickness and Angle say; with the serif policy
      (`source-serifs-v1`, serifs.ts), a style's own serifs taken off, drawn in another shape or reshaped first.
@@ -381,15 +381,6 @@ function thickness(c: Corner, root: Tree, start: number, sign: number): number {
   return Math.min(side(c.back, c.runBack, { x: -c.back.x, y: -c.back.y }), side(c.on, c.runOn, c.on));
 }
 
-/** Whether `p` lies in the ink (the united contours, holes turned the other way). */
-function inInk(polys: Pt[][], p: Pt): boolean {
-  let inside = false;
-  for (const poly of polys) for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const a = poly[i], b = poly[j];
-    if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
-  }
-  return inside;
-}
 /** How far a ray from `o` along the unit `d` runs before it crosses an edge (Infinity when it crosses none), and the
     edge it crosses. */
 function rayHit(root: Tree, o: Pt, d: Pt): { run: number; edge?: Edge } {
@@ -421,20 +412,23 @@ function rayHit(root: Tree, o: Pt, d: Pt): { run: number; edge?: Edge } {
 const rayRun = (root: Tree, o: Pt, d: Pt) => rayHit(root, o, d).run;
 const smoothstep = (low: number, high: number, x: number) => { const t = Math.max(0, Math.min(1, (x - low) / (high - low))); return t * t * (3 - 2 * t); };
 
-/** The ink drawn in round the waist. Each point of the outline moves level by the level part of a push toward its
-    stroke's middle: the stroke's half-width times Pinch's share, most at the waist and easing off up and down it. So
-    an upright side moves the whole way (a stem narrows to an hourglass, to a point at the waist when the share is all
-    of it), a slanting side less, and a level edge not at all (a bar, the top of a bowl), and level edges stay level.
+/** The ink drawn in round the waist. Each point of the outline is pushed along its normal toward its stroke's middle,
+    by the stroke's half-width times Pinch's share, most at the waist and easing off up and down it, and times how
+    steeply the stroke runs: all of it from 20° up (a stem, a bowl's side, an S's spine), none for a stroke lying level
+    (a bar, an e's bar, the top of a bowl), so a stroke narrows to an hourglass, to a point at the waist when the share
+    is all of it, and level edges stay level.
     - The half-width is the middle of the circles read along the outline within two of its strokes' widths, each read
-      along an edge (a circle touching a curve's flattened corner fits no ink): one that fails at a kink, those
-      shrinking toward a stroke's end and those swelling at a join are read as the stroke round them.
+      along an edge (a circle touching a curve's flattened corner fits no ink) and taken between points: one that fails
+      at a kink, those shrinking toward a stroke's end and those swelling at a join are read as the stroke round them.
+    - A join holds: an inside corner where two thinning strokes meet (sharp, or rounded tighter than a counter: a K's
+      arm on its stem, an n's arch, an x's crossing) stays where it is drawn, the sides easing into it, so a stroke on
+      the waist hangs on to what it joins. A bar holds its own join, as an H's bar its stems, which thin to meet it.
     - Cut ends stay as they are cut: a flat one between square corners, or a short upright run as long as its stroke is
       thick with rounded corners; so do dots. A level cut carries its two corners' moves between them.
-    - A corner goes where its two moved sides meet: on a bar's level line as its stem thins, down its stem as an arm
-      and the stem thin apart, as two thinner strokes meet, no further than half the ink they share.
-    - Moves are taken back to their neighbours' where a few points go their own way, then eased along each smooth run,
-      and never take a side past the middle of its stroke. */
-function pinched(polys: Pt[][], plan: ShapesPlan, root: Tree, start: number, slide = true): Pt[][] {
+    - An outer corner goes where its two pushed sides cross.
+    - Moves are taken back to their neighbours' where a few points go their own way, then eased over a set length of
+      each smooth run, and never take a side past the middle of its stroke. */
+function pinched(polys: Pt[][], plan: ShapesPlan, root: Tree, start: number): Pt[][] {
   const sign = area(polys.reduce((big, p) => Math.abs(area(p)) > Math.abs(area(big)) ? p : big)) > 0 ? 1 : -1;
   const step = plan.reach / 12, near = plan.reach / 8;
   const fallOf = (p: Pt) => Math.abs(p.y - plan.waist) / plan.reach;
@@ -488,10 +482,16 @@ function pinched(polys: Pt[][], plan: ShapesPlan, root: Tree, start: number, sli
       while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (along[mid] <= t) lo = mid; else hi = mid - 1; }
       return lo;
     };
+    // (a read between two points is taken between theirs, so the window's middle read slides on as smoothly as the
+    // outline does; a half-width that stepped as the window passed a point would ripple the moved outline)
+    const readAt = (d: number) => {
+      const j = pointAt(d), k = (j + 1) % n, t = seg[j] ? ((((d % round) + round) % round) - along[j]) / seg[j] : 0;
+      return Number.isNaN(read[j]) ? read[k] : Number.isNaN(read[k]) ? read[j] : read[j] + (read[k] - read[j]) * Math.max(0, Math.min(1, t));
+    };
     const half = (i: number) => {
       const values = [read[i]], every = reach / 12;
       for (let k = 1; k <= 12 && 2 * k * every < round; k++) for (const way of [-1, 1]) {
-        const v = read[pointAt(along[i] + way * k * every)];
+        const v = readAt(along[i] + way * k * every);
         if (!Number.isNaN(v)) values.push(v);
       }
       values.sort((a, b) => a - b);
@@ -503,13 +503,14 @@ function pinched(polys: Pt[][], plan: ShapesPlan, root: Tree, start: number, sli
       return cut.some(([a, b]) => { const e = sub(b, a), l = len(e), t = ((m.x - a.x) * e.x + (m.y - a.y) * e.y) / (l * l);
         return t >= 0 && t <= 1 && Math.abs((m.x - a.x) * e.y - (m.y - a.y) * e.x) / l < plan.tolerance; }); });
     // so is an upright cut whose corners are rounded, which the ends found above miss: a short upright run of the
-    // outline, about as long as the stroke is thick, behind which the stroke runs on, its rounded corners with it
+    // outline, about as long as the stroke is thick (not a kink where two drawn pieces were united), behind which the
+    // stroke runs on, its rounded corners with it
     const upright = (i: number) => Math.abs(edgeNormals[i].x) > .9;
     for (let i = 0; i < n; i++) {
       if (!upright(i) || upright((i + n - 1) % n)) continue;
       let e = i, length = 0, thick = 0;
       while (upright(e % n) && e - i < n) { length += arc(e, e + 1); if (!Number.isNaN(reads[e % n])) thick = Math.max(thick, 2 * reads[e % n]); e++; }
-      if (!thick || length > thick * 1.3) continue;
+      if (!thick || length > thick * 1.3 || length < thick * .6) continue;
       let gone = 0, k = i;
       while (k < e - 1 && gone + arc(k, k + 1) < length / 2) { gone += arc(k, k + 1); k++; }
       const middle = add(at(k), sub(at(k + 1), at(k)), Math.min(1, (length / 2 - gone) / (arc(k, k + 1) || 1))), inward = edgeNormals[k % n];
@@ -524,88 +525,126 @@ function pinched(polys: Pt[][], plan: ShapesPlan, root: Tree, start: number, sli
     }
     const held = dense.map((_, i) => { const j = (i + n - 1) % n;
       return smooth[i] ? endEdge[j] || endEdge[i] : endEdge[Math.abs(edgeNormals[j].x) >= Math.abs(edgeNormals[i].x) ? j : i]; });
+    // where strokes join (an inside corner, sharp or rounded: a K's arm on its stem, an n's arch), the join holds: the corner stays where it is drawn and the sides meeting it ease into it over about a
+    // stroke's half-width, so a stroke on the waist hangs on to what it joins rather than on a thread
+    const typical = known[known.length >> 1] ?? 0;
+    // a dot (an i's, a full stop's: a piece hardly bigger than the circle inside it, not a counter) stays as drawn
+    const xs = dense.map(p => p.x), ys = dense.map(p => p.y);
+    if (area(poly) * sign > 0 && Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) < typical * 3) return dense;
+    const turn = dense.map((_, i) => {
+      const a = edgeNormals[(i + n - 1) % n], b = edgeNormals[i];
+      return Math.atan2(a.x * b.y - a.y * b.x, a.x * b.x + a.y * b.y) * sign;
+    });
+    // (only where both strokes meeting there thin: a bar is level and holds its join itself, as an H's bar its stems)
+    const steep = (s: number) => smoothstep(Math.sin(Math.PI / 36), Math.sin(Math.PI / 9), s);
+    // (a crotch between strokes on a letter's outside may be rounded wide, a Gumdrop's; on a counter only a corner
+    // turned tightly is a join, not the counter's own round)
+    const window = area(poly) * sign > 0 ? typical / 2 : typical / 4;
+    const join = dense.map((_, i) => {
+      if (turn[i] >= 0) return false;
+      let inward = -turn[i];
+      const ends: Pt[] = [];
+      for (const way of [-1, 1]) {
+        let gone = 0, m = i;
+        for (let k = 1; k < n && gone < window; k++) {
+          m = ((i + way * k) % n + n) % n;
+          gone += arc(i + way * (k - 1), i + way * k);
+          inward -= Math.min(0, turn[m]);
+        }
+        ends.push(edgeNormals[way < 0 ? m : ((m - 1) % n + n) % n]);
+      }
+      return inward > Math.PI * 50 / 180 && ends.every(e => steep(Math.abs(e.x)) > .5);
+    });
+    const fromJoin = dense.map(() => Infinity);
+    for (let pass = 0; pass < 2; pass++) for (const way of [1, -1]) for (let k = 0; k < 2 * n; k++) {
+      const i = way > 0 ? k % n : (2 * n - 1 - k) % n, before = ((i - way) % n + n) % n;
+      fromJoin[i] = join[i] ? 0 : Math.min(fromJoin[i], fromJoin[before] + arc(i, before));
+    }
+    // how much of the push a stroke takes goes by how steeply it runs (`steep`): all of it from 20° up (an S's spine
+    // too), none lying level (a bar, an e's bar); judged over three of its strokes' half-widths of each smooth run either
+    // way, so a round turning level at its top (a bowl's, a counter's) thins with its shoulders rather than dipping
+    // between them
+    const leaning = dense.map((_, i) => {
+      let sum = steep(Math.abs(normals[i].x)), weights = 1;
+      if (smooth[i]) for (const way of [-1, 1]) {
+        let gone = 0;
+        for (let k = 1; k < n; k++) {
+          const m = ((i + way * k) % n + n) % n;
+          gone += arc(i + way * (k - 1), i + way * k);
+          if (gone >= typical * 3 || !smooth[m]) break;
+          const w = 1 - gone / (typical * 3);
+          sum += steep(Math.abs(normals[m].x)) * w; weights += w;
+        }
+      }
+      return sum / weights;
+    });
     const caps = dense.map(() => Infinity);
     const moves = dense.map((p, i) => {
-      const nrm = normals[i];
-      if (held[i] || Math.abs(nrm.x) < 1e-3) return 0;
+      const nrm = normals[i], w = leaning[i] * smoothstep(0, typical * 1.8, fromJoin[i]);
+      if (held[i] || !w) return 0;
       const r = half(i), c = add(p, nrm, r), fall = fallOf(c);
       if (!(r > 0) || fall >= 1) return 0;
-      // a stroke runs on along its side past its middle one way or the other (a round stroke as far as its own
-      // roundness allows, √2 of its half-width or more); a dot no further than its own half-width either way
-      const along = { x: nrm.y, y: -nrm.x }, run = Math.max(rayRun(root, c, along), rayRun(root, c, { x: -along.x, y: -along.y }));
-      const side = smoothstep(1.1, 1.35, run / r);
-      // the level part of the push toward the stroke's middle, never past the middle of the stroke across from here
-      // (where the level line reaches its other side, facing back; not where it leaves by an end)
-      const move = nrm.x * r * plan.pinch * (1 + Math.cos(Math.PI * fall)) / 2 * side, way = Math.sign(nrm.x);
-      const { run: level, edge } = rayHit(root, p, { x: way, y: 0 });
-      const facing = edge ? (edge.b.y - edge.a.y) * sign * way / (len(sub(edge.b, edge.a)) || 1) : 0;
-      caps[i] = facing > .5 ? level / 2 * plan.pinch : Infinity;
-      return way * Math.min(Math.abs(move), caps[i]);
+      // the push toward the stroke's middle, never past the middle of the stroke across from here (where the push
+      // reaches its other side, facing back; not where it leaves by an end)
+      const { run: across, edge } = rayHit(root, p, nrm), e = edge && unit(sub(edge.b, edge.a));
+      caps[i] = e && (-e.y * sign * nrm.x + e.x * sign * nrm.y) < -.5 ? across / 2 * plan.pinch : Infinity;
+      return Math.min(r * plan.pinch * (1 + Math.cos(Math.PI * fall)) / 2 * w, caps[i]);
     });
     // a few points moving on their own (round a tiny rounded corner, partway between a level edge and a cut end) are
     // taken back to the moves round them: the middle move within a short way either way along a smooth run
     {
       const was = [...moves];
       for (let i = 0; i < n; i++) {
-        if (!smooth[i] || held[i]) continue;
+        if (!smooth[i] || held[i] || join[i]) continue;
         const values = [was[i]];
         for (const way of [-1, 1]) {
           let gone = 0;
           for (let k = 1; k < n && gone < near / 2; k++) {
-            const at = ((i + way * k) % n + n) % n;
+            const m = ((i + way * k) % n + n) % n;
             gone += arc(i + way * (k - 1), i + way * k);
-            if (!smooth[at]) break;
-            values.push(was[at]);
+            if (!smooth[m]) break;
+            values.push(was[m]);
           }
         }
         values.sort((a, b) => a - b);
         moves[i] = values[values.length >> 1];
       }
     }
-    // eased along each smooth run, never across a corner
-    for (let pass = 0; pass < 2; pass++) {
-      const was = [...moves];
-      // (a corner is eased with the side whose normal it took, and holds its own move there)
-      for (let i = 0; i < n; i++) if (smooth[i] && !held[i]) {
-        const j = (i + n - 1) % n, k = (i + 1) % n;
-        const l = smooth[j] || !fromBack[j] ? was[j] : was[i], r = smooth[k] || fromBack[k] ? was[k] : was[i];
-        const eased = (l + 2 * was[i] + r) / 4;
-        moves[i] = Math.sign(eased) * Math.min(Math.abs(eased), caps[i]);
+    // eased along each smooth run over a set length of outline (points stand closer on a curve than on a straight run,
+    // and a move that changed from one to the next, however little, would turn the outline there), never across a
+    // corner; a corner is eased with the side whose normal it took
+    {
+      const was = [...moves], width = near;
+      for (let i = 0; i < n; i++) {
+        if (!smooth[i] || held[i] || join[i]) continue;
+        let sum = was[i], weights = 1;
+        for (const way of [-1, 1]) {
+          let gone = 0;
+          for (let k = 1; k < n; k++) {
+            const m = ((i + way * k) % n + n) % n;
+            gone += arc(i + way * (k - 1), i + way * k);
+            if (gone >= width) break;
+            const w = 1 - gone / width;
+            // (a corner counts on the side whose normal it took, and the run ends at it)
+            if (!smooth[m]) { if (way < 0 ? !fromBack[m] : fromBack[m]) { sum += was[m] * w; weights += w; } break; }
+            if (held[m] || join[m]) break;
+            sum += was[m] * w; weights += w;
+          }
+        }
+        moves[i] = Math.min(sum / weights, caps[i]);
       }
     }
-    // a corner goes where its two sides meet as they are moved, each run on past the corner as the waist moves it
-    // there: a join's corner stays on a bar's level line as its stem thins, and slides down its stem as an arm and the
-    // stem it meets thin apart, as two thinner strokes would meet; where the sides cross before the corner, the loop
-    // past their crossing turns the other way round and the union drops it
-    const bell = (y: number) => { const f = Math.abs(y - plan.waist) / plan.reach; return f < 1 ? (1 + Math.cos(Math.PI * f)) / 2 : 0; };
-    const carried = (m: number, from: number, to: number) => { const b = bell(from); return b > 1e-6 ? m * Math.min(2, bell(to) / b) : 0; };
-    const shifts: Pt[] = moves.map(x => ({ x, y: 0 }));
+    // each point pushed along its normal; an outer corner goes where its two pushed sides cross (on a cut's or a bar's
+    // level line, as its side thins; back where two sides narrowing toward it cross before it, the loop past their
+    // crossing turning the other way round for the union to drop)
+    const shifts: Pt[] = moves.map((m, i) => ({ x: normals[i].x * m, y: normals[i].y * m }));
     for (let i = 0; i < n; i++) {
-      if (smooth[i] || held[i]) continue;
-      if (!slide) { shifts[i] = { x: moves[i], y: 0 }; continue; }
-      const j = (i + n - 1) % n, k = (i + 1) % n, p = dense[i], da = unit(sub(p, dense[j])), db = unit(sub(dense[k], p));
-      // a corner on a level line moves as its upright side does there
-      if (Math.abs(db.y) < 1e-3 || Math.abs(da.y) < 1e-3) { shifts[i] = { x: moves[i], y: 0 }; continue; }
-      const across = da.x * db.y - da.y * db.x, most = 4 * Math.max(Math.abs(moves[j]), Math.abs(moves[k])) + plan.tolerance;
-      // how far each side's level move runs ahead of the other's at the height a side runs on to
-      const gap = (y: number) => carried(moves[j], dense[j].y, y) - carried(moves[k], dense[k].y, y);
-      // where the sides meet: the run along the side before the corner (on past it, or back short of it) at which the
-      // side after it, run on to the same height, has been moved level to the same place
-      const miss = (t: number) => t * across / db.y + gap(p.y + t * da.y);
-      const toward = Math.sign(miss(0)) === Math.sign(miss(most)) ? -most : most;
-      if (Math.abs(across) < .05 || Math.sign(miss(0)) === Math.sign(miss(toward))) { shifts[i] = { x: moves[i], y: 0 }; continue; }
-      let lo = 0, hi = toward;
-      for (let step = 0; step < 40; step++) { const mid = (lo + hi) / 2; if (Math.sign(miss(mid)) === Math.sign(miss(lo))) lo = mid; else hi = mid; }
-      let u = (lo + hi) / 2, v = -u * da.y / db.y;
-      // a corner sliding on into the ink two strokes share goes no more than half the way across it, so two corners
-      // sliding toward each other (above and below an arch's join) leave the join between them
-      // (a way on that leaves the ink at once gives the corner no room at all)
-      const into = (dir: Pt) => { const from = add(p, dir, plan.tolerance); return inInk(polys, from) ? rayRun(root, from, dir) / 2 : 0; };
-      const room = Math.min(u > 0 ? into(da) : Infinity, v > 0 ? into({ x: -db.x, y: -db.y }) : Infinity);
-      const fit = Math.min(1, room / Math.max(Math.abs(u), Math.abs(v), 1e-9));
-      u *= fit; v *= fit;
-      const at = add(p, da, u), shift = { x: at.x + carried(moves[j], dense[j].y, at.y) - p.x, y: at.y - p.y };
-      shifts[i] = Math.abs(u) <= most && Math.abs(v) <= most ? shift : { x: (moves[j] + moves[k]) / 2, y: 0 };
+      if (smooth[i] || held[i] || join[i] || turn[i] < 0) continue;
+      const j = (i + n - 1) % n, k = (i + 1) % n, da = unit(sub(dense[i], dense[j])), db = unit(sub(dense[k], dense[i]));
+      const a = add(dense[j], shifts[j]), b = add(dense[k], shifts[k]), across = da.x * db.y - da.y * db.x;
+      if (Math.abs(across) < .05) continue;
+      const t = ((b.x - a.x) * db.y - (b.y - a.y) * db.x) / across, crossing = add(a, da, t), shift = sub(crossing, dense[i]);
+      if (len(shift) <= 3 * Math.max(moves[j], moves[k]) + plan.tolerance) shifts[i] = shift;
     }
     // a straight level edge (a bar's top, a level cut) is carried between its two ends, so a cut narrows with its
     // stroke's sides rather than folding back under a corner
@@ -628,9 +667,9 @@ function pinched(polys: Pt[][], plan: ShapesPlan, root: Tree, start: number, sli
 /** The pinched ink, filled by the way round the ink runs, so the loops a crossing leaves, turned the other way, fall
     away; a crumb such a crossing can leave, a piece the letter didn't have that is far smaller than its strokes, goes
     too, and so does a pinhole where the outline touched itself. */
-function pinchedInk(polys: Pt[][], plan: ShapesPlan, root: Tree, start: number, sign: number, whole: number, slide: boolean): { ink: Paths64; pieces: number } {
+function pinchedInk(polys: Pt[][], plan: ShapesPlan, root: Tree, start: number, sign: number, whole: number): { ink: Paths64; pieces: number } {
   const clipper = new Clipper64(), solution = new PolyTree64(), out: Paths64 = [];
-  clipper.addSubject(pinched(polys, plan, root, start, slide).map(toGrid));
+  clipper.addSubject(pinched(polys, plan, root, start).map(toGrid));
   if (!clipper.execute(ClipType.Union, sign > 0 ? FillRule.Positive : FillRule.Negative, solution)) failure('shapes', 'normalization', 'Source line clipping did not complete');
   const found: { path: Paths64; area: number }[] = [];
   const visit = (node: PolyTree64 | PolyPath64) => {
@@ -681,13 +720,13 @@ export function shapeSourceInk(cmds: Cmd[], plan: ShapesPlan): Cmd[] {
     }
   }
   if (plan.pinch) {
-    // a waist that would part a letter (strokes meeting right on its line, drawn to a point) is drawn again with its
-    // joins' corners held, then shallower (each way), till the letter holds together
+    // a waist that would part a letter (strokes meeting right on its line, drawn to a point) is drawn again shallower
+    // till the letter holds together
     // (the ink is united already: its pieces are its contours running the way the letter's outside does)
     const whole = ink.filter(path => area(fromGrid(path)) * sign > 1).length;
-    for (const [share, slide] of [1, .8, .6, .4, .2].flatMap(share => [[share, true], [share, false]] as const)) {
-      const tried = pinchedInk(polys, { ...plan, pinch: plan.pinch * share }, root, start, sign, whole, slide);
-      if (tried.pieces <= whole || share === .2 && !slide) { ink = tried.ink; break; }
+    for (const share of [1, .8, .6, .4, .2]) {
+      const tried = pinchedInk(polys, { ...plan, pinch: plan.pinch * share }, root, start, sign, whole);
+      if (tried.pieces <= whole || share === .2) { ink = tried.ink; break; }
     }
     polys = ink.map(fromGrid);
     // (read again only for the shapes after the waist that search the ink)

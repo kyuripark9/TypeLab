@@ -1,8 +1,8 @@
 /* Verticals and Horizontals (`source-strokes-v1`) and the shape controls (`source-shapes-v1` in the finish policy) on
    sources: each about the style's own, drawing what the program before drew there; the widths' and heights' weights
    moved apart; round contours squared or boxed; facets; corners rounded, sharpened, stepped and cut flat; joins and
-   counters filled; a waist pinched, level, on upright and round strokes only, to a point at 100 (`source-pinch-v1`),
-   smooth round a bowl and whole at every height; serifs added to a sans; every stroke-end form (`source-ends-v1`); counters grown
+   counters filled; a waist pinched to a point at 100 (`source-pinch-v1`) on every stroke but a level one (an S's
+   spine too), joins held (a K's arm on its stem), smooth round a bowl and whole at every height; serifs added to a sans; every stroke-end form (`source-ends-v1`); counters grown
    and shrunk and curving ends opened and closed (`source-insides-v1`); every style kept whole at strong settings;
    adoption and export. */
 import assert from 'node:assert/strict';
@@ -151,7 +151,7 @@ describe('source strokes and shapes', () => {
     assert.deepEqual(glyph(couture, 'l').cmds, glyph({ ...couture, serif: false, freeAt: { ...couture.freeAt, serif: false } }, 'l').cmds, 'a serif style keeps its own');
   });
 
-  it('draws the waist level, to a point at 100, on upright and round strokes only, smooth and whole', () => {
+  it('draws the waist to a point at 100 on every stroke but a level one, holds joins, and keeps letters smooth and whole', () => {
     for (const entry of current) assert.deepEqual(entry.data.finish?.pinch, { format: 'source-pinch-v1', depth: .985, reach: .18 }, entry.ref.fontId);
     const p = params(of('Mainline:600')), cap = buildFont(p).m.cap, waist = cap * .5, reach = cap * .18;
     // a stem takes about half at 50 and comes to a point at 100, about its middle; the program before took 60% at 100
@@ -170,6 +170,16 @@ describe('source strokes and shapes', () => {
     assert.equal(measure(pinched.cmds).pieces, 1);
     const armAt = (bar[0] + bar[1]) / 2, arm = runsAt(glyph(p, 'E').cmds, armAt).at(-1)!, armThere = runsAt(glyph({ ...p, pinch: 1 }, 'E').cmds, armAt).at(-1)!;
     assert.ok(Math.abs(armThere[1] - arm[1]) < .5, 'the arm\'s end where it was');
+    // a stroke running at a slant thins as an upright one does: an S's spine, at its middle
+    const spine = (q: Params) => { const S = glyph(q, 'S'), b = box(S.cmds), [, [y0, y1]] = runsAt(S.cmds, (b.x0 + b.x1) / 2, true); return y1 - y0; };
+    assert.ok(spine({ ...p, pinch: .5 }) < spine(p) * .65 && spine({ ...p, pinch: 1 }) < spine(p) * .15, 'the S\'s spine');
+    // a join holds: a K's arm and leg hang on to its stem at the waist by the ink they share, not by a thread
+    const stemOf = (q: Params) => runsAt(glyph(q, 'K').cmds, waist)[0], [s0, s1] = stemOf(p), joined = stemOf({ ...p, pinch: 1 });
+    assert.ok(joined[1] > s1 + (s1 - s0) * .5, 'the K\'s stem and the arm\'s root one run at the waist');
+    for (let y = waist - 60; y <= waist + 60; y += 3) {
+      const [a0, a1] = runsAt(glyph({ ...p, pinch: 1 }, 'K').cmds, y)[0];
+      assert.ok(a1 - a0 > (s1 - s0) * .6, `the K held together ${(y - waist).toFixed(0)} from the waist`);
+    }
     // round a bowl the waist narrows smoothly: the side of an O nowhere wider nearer the waist (no spike, no notch)
     for (const set of [{ pinch: .5 }, { pinch: 1 }, { pinch: .5, weight: 1, vWeight: 1, hWeight: .85, contrast: 1 }]) {
       const O = glyph({ ...p, ...set }, 'O');
