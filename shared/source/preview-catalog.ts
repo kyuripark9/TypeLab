@@ -4358,6 +4358,97 @@ export const PREVIEW_FONTS: readonly PreviewFontInfo[] = [
     "ascent": 700,
     "descent": 280,
     "endCorrections": {}
+  },
+  {
+    "styleId": "industrial",
+    "source": {
+      "kind": "program-v1",
+      "digest": "f60e56257e4946bbe39f0f785fe4409c9131cd1cf0dd47c7c4212b8f45088512",
+      "fontId": "Turnpike:500"
+    },
+    "paramsDigest": "2cb76411147e9916bf4a8079e268cb67096316ef7c5696b1f50ba64806040704",
+    "digest": "6abff0317b2fdffe3fd3ef40389d572453f7a0b8d6a982032d899ab7e5a2efb7",
+    "ascent": 634,
+    "descent": 253.60000000000002,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "fatface",
+    "source": {
+      "kind": "program-v1",
+      "digest": "90dd901d609e20e9da39a4bae374eb44d211a5d37c55ec402d77f868c019fab5",
+      "fontId": "Ballyhoo:400"
+    },
+    "paramsDigest": "6491c9bfdcd43e9b82787dd5cfa29a9d3b7822a26f7c0d8a4dccef56ad72dd9e",
+    "digest": "ef596f2a29a77e578dc18213e829a11a6e66eec3da5deee4f089032fe7cea619",
+    "ascent": 700,
+    "descent": 280,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "woodtype",
+    "source": {
+      "kind": "program-v1",
+      "digest": "5c18535aff80edb03ebc9e045de17b422eef3c07aab92ef069a7edf63f691ba4",
+      "fontId": "Timber:400"
+    },
+    "paramsDigest": "90f8f91c171172fee3b9c9a9d7f406a243ff3321353217abe01c46670b2c9b29",
+    "digest": "3304e260d62dfdf53a50704e71a2c9d73dfbc978959c4b2cc106142d2e2df15d",
+    "ascent": 778,
+    "descent": 311.20000000000005,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "comic",
+    "source": {
+      "kind": "program-v1",
+      "digest": "56fa41fcccf4c9f53011a000f2ea80fb68af55b2b88e30b8afac52f815ad7037",
+      "fontId": "Funnies:400"
+    },
+    "paramsDigest": "455d385f677bd4ad29a3217c74cfdb9bdee2ba3087b9b7e08a64e8166eb35263",
+    "digest": "6f343c974ee29199f14ddf7de8eb6bc77e8fa09bf80413c1f8976001a760861f",
+    "ascent": 782,
+    "descent": 312.8,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "informal",
+    "source": {
+      "kind": "program-v1",
+      "digest": "d0e2ab9698b5ddb789233618b67b6c64370bd2ba5daa1edc806d903c3a4ec04c",
+      "fontId": "Boardwalk:400"
+    },
+    "paramsDigest": "62139cea087e37422ad903ca7cef11a814fdfe1af23235d9e42225ade38c0df3",
+    "digest": "5c7e61c0d1f323d316699e1869cfc1886d38a15f6d7a8220364bd7f9b4bf867e",
+    "ascent": 822,
+    "descent": 328.8,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "chancery",
+    "source": {
+      "kind": "program-v1",
+      "digest": "d78dc88b5865cbe0031194d77394494b26bc57931d9ef9dbfbd2ae7ab6874469",
+      "fontId": "Serenade:400"
+    },
+    "paramsDigest": "e54a96254115e6a701f4cb649dca381a5dedccf40a8db2e9dc29563ac9ed99c1",
+    "digest": "5379fcd7f06ade16adb8c8c943cbf2355fc6a996a52d1021a102838341f4168b",
+    "ascent": 750,
+    "descent": 300,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "blackletter",
+    "source": {
+      "kind": "program-v1",
+      "digest": "3dfa1b58f10c4b94214e10516f1c6f637a8c0775d46cb1bcdd3b7cc2121482c4",
+      "fontId": "Cathedral:400"
+    },
+    "paramsDigest": "551c11256a8cb0512c5b7c2287eef39a91cfdba7bce82640bfa9b1f973331dc7",
+    "digest": "a77aa32d741f609cf58717b6085a952fc69b9c0395667bcfbb2d9956b31551bf",
+    "ascent": 694,
+    "descent": 277.6,
+    "endCorrections": {}
   }
 ];
 

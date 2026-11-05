@@ -556,17 +556,17 @@
     "fontId": "Funnies:400",
     "base": {
       "kind": "masters-v1",
-      "digest": "bb4244f6a5d72fb159210a8eb6ed3fd31006cb173c0e81ad84b0d450023b9db9",
+      "digest": "cdd28e8e4a9f32653d27dfb6ff11980eb1f225b897ab0ae7ad6fa8bfda86dd85",
       "fontId": "Funnies:400"
     },
     "width": {
       "kind": "width-masters-v1",
-      "digest": "444a5e73b00ca92ed00e4daa214217c9aba297b8feb889244ffd501727f384dc",
+      "digest": "e4d11728119b22641945ccf0f10663b749b368a01aded6a5ae2c1fd8b0def2f4",
       "fontId": "Funnies:400"
     },
     "components": {
       "kind": "source-components-v1",
-      "digest": "0e9091d9b8a334dd65a84f0eba6134bcdd3412a966036f49b4b95a5696cc6f27",
+      "digest": "a07774809b6aea51d9ba471b3f283362daeff10aa5967794595f9c57ad420a65",
       "fontId": "Funnies:400"
     },
     "dots": {
@@ -593,17 +593,17 @@
     "fontId": "Turnpike:500",
     "base": {
       "kind": "masters-v1",
-      "digest": "c00b5828a7da02a51c03d14756b9749b047da64df7313367ed2d3fee6e0818fc",
+      "digest": "f1a7c2e7e5546ee85049db11862574df3530afd8660d1136cdca7afbb3a80fc8",
       "fontId": "Turnpike:500"
     },
     "width": {
       "kind": "width-masters-v1",
-      "digest": "31f2ca74a2e5c5d303d383a6e5b68f825792cda3294f20c9961046cffb03be77",
+      "digest": "8d9b34e267dc9423304f1dc28e07a56c3e0fb09ee891071858e7903025c82275",
       "fontId": "Turnpike:500"
     },
     "components": {
       "kind": "source-components-v1",
-      "digest": "e783e81f5eee444685c2c6b8a132c3cca7e7fb1f89351a905619916852992ddf",
+      "digest": "268abcc7e8d982a92535aa42a2cb0165c3786a959a14d66e8b4dcfdc3eec9f21",
       "fontId": "Turnpike:500"
     },
     "dots": {
@@ -630,17 +630,17 @@
     "fontId": "Ballyhoo:400",
     "base": {
       "kind": "masters-v1",
-      "digest": "38254154a914ca28caf9ac68bb09162ccd12726acb0af2b8474c30c1075e499a",
+      "digest": "9397299934d96573d1ed1c53ae1ed9557332e153fb8332a2baa207178979d9f1",
       "fontId": "Ballyhoo:400"
     },
     "width": {
       "kind": "width-masters-v1",
-      "digest": "dbda2bf5581ac29af2751778308f64aed5cc60acb43a7975fb6c31da994ae539",
+      "digest": "f6cd36a324f174409cad744034201be1562b40e2bcdc3da61e8051ba403fca68",
       "fontId": "Ballyhoo:400"
     },
     "components": {
       "kind": "source-components-v1",
-      "digest": "69b2adb00adc1d7916a99bb8d18190f2aa1228015a6bf24b0647414669e71fbe",
+      "digest": "6e1ca2e43760b9c510a93fb233c3020aa5fdd7690a07eafab21edc0041fc35d9",
       "fontId": "Ballyhoo:400"
     },
     "dots": {
@@ -667,17 +667,17 @@
     "fontId": "Boardwalk:400",
     "base": {
       "kind": "masters-v1",
-      "digest": "66b994c2eef41abb8ab9e342d22c35721a4fe5f6779e8f7f9d887ab3a06fcc9e",
+      "digest": "574f43eb01536fdaa939785116d3784c317d9242c4be81956dc4b8c4f6d75daf",
       "fontId": "Boardwalk:400"
     },
     "width": {
       "kind": "width-masters-v1",
-      "digest": "8a1e743181d22b1e63fcb783340ddb43b82b2ed746a00e576577c25ed1a04d10",
+      "digest": "33d1d8d5ac585fe3fcbfa02625525c7406e09a43027ff5cc44fdcc44dbe44303",
       "fontId": "Boardwalk:400"
     },
     "components": {
       "kind": "source-components-v1",
-      "digest": "e4a17d3d284118569a71e5d5ecd1c5705c026118f6cbc5b0f8f3c0e8ebdbfa32",
+      "digest": "f9744b323e39805c604ec88d73dbd4f4fced4523902c33dbfcfcec3560d207d0",
       "fontId": "Boardwalk:400"
     },
     "dots": {
@@ -706,17 +706,17 @@
     "fontId": "Cathedral:400",
     "base": {
       "kind": "masters-v1",
-      "digest": "2e8599cee21b0e375dd962225489ea5c25a63140ebb28cefd8c546fee1253311",
+      "digest": "aa0f586135d0a890d26e978cc405aa9fee28e9734d9a0211a31716ed78a81b05",
       "fontId": "Cathedral:400"
     },
     "width": {
       "kind": "width-masters-v1",
-      "digest": "4bb17f42ab0f598bd4863d5913033a25c91f8f521af81183813a00b1c32f08b3",
+      "digest": "4cdacdf84f6750a704ec7c25f8509786ed546ae596b1f6b3be71c76398f40b80",
       "fontId": "Cathedral:400"
     },
     "components": {
       "kind": "source-components-v1",
-      "digest": "2b022221f97b8dfb1a7fea488c4a5fb90d19abb6eccda35ccf1adfaf1a733284",
+      "digest": "0932d4f41aaf9faa57471d15400f8239b7a763e4e18ef1fa8299bf6b754edcb1",
       "fontId": "Cathedral:400"
     },
     "dots": {
@@ -726,7 +726,7 @@
         "square"
       ],
       "corner": 0,
-      "overshoot": 0.0365,
+      "overshoot": 0.0362,
       "slant": 0,
       "baseline": [
         ".:dot",
@@ -744,17 +744,17 @@
     "fontId": "Serenade:400",
     "base": {
       "kind": "masters-v1",
-      "digest": "c8b00335571caebf83c29befdb10044e5311f4c10e1e31723888bfcdbc2d510c",
+      "digest": "c69c38881c74a74daf2e790db1950b41532768b090050c9e099692cddcb8b3b1",
       "fontId": "Serenade:400"
     },
     "width": {
       "kind": "width-masters-v1",
-      "digest": "f33cad27209dfe5537fd0260bb2a3d36f17fe7d1c97df48b41ff43a460e9f375",
+      "digest": "04b061ed9962c8da6da343593d49f289d22f6b15f3684fa8569cea98e0e697b9",
       "fontId": "Serenade:400"
     },
     "components": {
       "kind": "source-components-v1",
-      "digest": "ab4bd605117e021801b326623d65ca2709600e4f2eb793807e7e4096b56004a1",
+      "digest": "f8010d9f7bcf1ec27e2587d714b0c01412ad6df01fe5dead64f7c3aaaae3f690",
       "fontId": "Serenade:400"
     },
     "dots": {
@@ -774,17 +774,17 @@
     "fontId": "Timber:400",
     "base": {
       "kind": "masters-v1",
-      "digest": "be3978db257ccd22c1563f1fe85fb23e00726cf15bc1dbb2bc3b0b06d90fc23a",
+      "digest": "bea986376e003c9f400af3067e16b64dbe1bf49a09de2b5137cc8d30778b1fe5",
       "fontId": "Timber:400"
     },
     "width": {
       "kind": "width-masters-v1",
-      "digest": "4940867c1443d44b2284acea93aee09a3939318931c395615841ecec7ff2f892",
+      "digest": "daf75c4ceeed6788cba2837d087ec7d4efbbfefab9a71abbacd0bbe560be2abc",
       "fontId": "Timber:400"
     },
     "components": {
       "kind": "source-components-v1",
-      "digest": "d74b3644c2f4bf5bb76c9105fae07a7f7fa1144e39c5dbfad198c2486298abdf",
+      "digest": "6bb79821962527c0cfca439781673c361e4d37ee62b75c61298d96bf0b55e298",
       "fontId": "Timber:400"
     },
     "dots": {

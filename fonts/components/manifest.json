@@ -4966,5 +4966,1090 @@
         "separationCollisionScale": 1.9261744966442953
       }
     ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "a07774809b6aea51d9ba471b3f283362daeff10aa5967794595f9c57ad420a65",
+      "fontId": "Funnies:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "cdd28e8e4a9f32653d27dfb6ff11980eb1f225b897ab0ae7ad6fa8bfda86dd85",
+      "fontId": "Funnies:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "e4d11728119b22641945ccf0f10663b749b368a01aded6a5ae2c1fd8b0def2f4",
+      "fontId": "Funnies:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.370681412551999,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.226524065046145,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ".",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.4507373007297426,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ":",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.4507198093913451,
+        "separationCollisionScale": 2.8587872358590567
+      },
+      {
+        "glyph": ":",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.4507198093913451,
+        "separationCollisionScale": 2.8587872358590567
+      },
+      {
+        "glyph": ";",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7669223074879508,
+        "separationCollisionScale": 4.7891754108278874
+      },
+      {
+        "glyph": "…",
+        "id": "left-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7775559363530584,
+        "separationCollisionScale": 1.7312348348150959
+      },
+      {
+        "glyph": "…",
+        "id": "middle-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7775559363530584,
+        "separationCollisionScale": 1.7312348348150959
+      },
+      {
+        "glyph": "…",
+        "id": "right-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7775559363530584,
+        "separationCollisionScale": 1.7312348348150959
+      },
+      {
+        "glyph": "!",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.14898909158977,
+        "separationCollisionScale": 1.4840307572090439
+      },
+      {
+        "glyph": "¡",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.165527614776873,
+        "separationCollisionScale": 1.4702069089904881
+      },
+      {
+        "glyph": "?",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.972242417365887,
+        "separationCollisionScale": 1.6807120430993712
+      },
+      {
+        "glyph": "¿",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.900642472831526,
+        "separationCollisionScale": 1.6468339866787305
+      },
+      {
+        "glyph": "·",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.64177596842912,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "•",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.4626780008424285,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "÷",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.017442,
+        "normalSpacingCollisionScale": 3.9677004876169466,
+        "separationCollisionScale": 1.0218032742205145
+      },
+      {
+        "glyph": "÷",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.017442,
+        "normalSpacingCollisionScale": 3.9677004876169466,
+        "separationCollisionScale": 1.0218032742205145
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "268abcc7e8d982a92535aa42a2cb0165c3786a959a14d66e8b4dcfdc3eec9f21",
+      "fontId": "Turnpike:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "f1a7c2e7e5546ee85049db11862574df3530afd8660d1136cdca7afbb3a80fc8",
+      "fontId": "Turnpike:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "8d9b34e267dc9423304f1dc28e07a56c3e0fb09ee891071858e7903025c82275",
+      "fontId": "Turnpike:500"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.765525675213003,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7356797470040015,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ".",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.9221291827263172,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ":",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.3664307935794735,
+        "separationCollisionScale": 2.4615421757043485
+      },
+      {
+        "glyph": ":",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.3664307935794735,
+        "separationCollisionScale": 2.4615421757043485
+      },
+      {
+        "glyph": ";",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.891975316870309,
+        "separationCollisionScale": 3.4158247695407895
+      },
+      {
+        "glyph": "…",
+        "id": "left-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.0324009681008333,
+        "separationCollisionScale": 1.749358282514521
+      },
+      {
+        "glyph": "…",
+        "id": "middle-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.0324009681008333,
+        "separationCollisionScale": 1.749358282514521
+      },
+      {
+        "glyph": "…",
+        "id": "right-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.0324009681008333,
+        "separationCollisionScale": 1.749358282514521
+      },
+      {
+        "glyph": "!",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.2478174371693047,
+        "separationCollisionScale": 2.389485018723927
+      },
+      {
+        "glyph": "¡",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.2645273562048307,
+        "separationCollisionScale": 2.3943377275696287
+      },
+      {
+        "glyph": "?",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.290787274636533,
+        "separationCollisionScale": 2.0635749626302076
+      },
+      {
+        "glyph": "¿",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.2834287748593405,
+        "separationCollisionScale": 2.0563987033920625
+      },
+      {
+        "glyph": "·",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.5495705310139827,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "•",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.13074,
+        "normalSpacingCollisionScale": 1.1634255702251552,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "÷",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.7292736685219086,
+        "separationCollisionScale": 1.7862276966088055
+      },
+      {
+        "glyph": "÷",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.7292736685219086,
+        "separationCollisionScale": 1.7862276966088055
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "6e1ca2e43760b9c510a93fb233c3020aa5fdd7690a07eafab21edc0041fc35d9",
+      "fontId": "Ballyhoo:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "9397299934d96573d1ed1c53ae1ed9557332e153fb8332a2baa207178979d9f1",
+      "fontId": "Ballyhoo:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "f6cd36a324f174409cad744034201be1562b40e2bcdc3da61e8051ba403fca68",
+      "fontId": "Ballyhoo:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.272256,
+        "normalSpacingCollisionScale": 1.340320753932072,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.2436,
+        "normalSpacingCollisionScale": 1.3045007869075715,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ".",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.251528,
+        "normalSpacingCollisionScale": 1.3144101320567498,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ":",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.251569,
+        "normalSpacingCollisionScale": 1.3144621845146849,
+        "separationCollisionScale": 1.6169230057687027
+      },
+      {
+        "glyph": ":",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.251569,
+        "normalSpacingCollisionScale": 1.3144621845146849,
+        "separationCollisionScale": 1.6169230057687027
+      },
+      {
+        "glyph": ";",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.239416,
+        "normalSpacingCollisionScale": 1.2992704101754398,
+        "separationCollisionScale": 2.182847904051152
+      },
+      {
+        "glyph": "…",
+        "id": "left-dot",
+        "min": 0.7,
+        "max": 1.187752,
+        "normalSpacingCollisionScale": 1.443183103738739,
+        "separationCollisionScale": 1.234690442068343
+      },
+      {
+        "glyph": "…",
+        "id": "middle-dot",
+        "min": 0.7,
+        "max": 1.187752,
+        "normalSpacingCollisionScale": 1.443183103738739,
+        "separationCollisionScale": 1.234690442068343
+      },
+      {
+        "glyph": "…",
+        "id": "right-dot",
+        "min": 0.7,
+        "max": 1.187752,
+        "normalSpacingCollisionScale": 1.443183103738739,
+        "separationCollisionScale": 1.234690442068343
+      },
+      {
+        "glyph": "!",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.181916,
+        "normalSpacingCollisionScale": 2.07003936039363,
+        "separationCollisionScale": 1.2273961164272784
+      },
+      {
+        "glyph": "¡",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.18181,
+        "normalSpacingCollisionScale": 2.0700182355427916,
+        "separationCollisionScale": 1.2272632705266648
+      },
+      {
+        "glyph": "?",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.144235,
+        "normalSpacingCollisionScale": 3.196879714612377,
+        "separationCollisionScale": 1.1802940669747046
+      },
+      {
+        "glyph": "¿",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.145299,
+        "normalSpacingCollisionScale": 3.196892809269432,
+        "separationCollisionScale": 1.1816247893845524
+      },
+      {
+        "glyph": "·",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.4768680816381698,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "•",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.286729,
+        "normalSpacingCollisionScale": 1.3584120146015028,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "÷",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.78728406476691,
+        "separationCollisionScale": 1.5786309449073923
+      },
+      {
+        "glyph": "÷",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.78728406476691,
+        "separationCollisionScale": 1.5786309449073923
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "f9744b323e39805c604ec88d73dbd4f4fced4523902c33dbfcfcec3560d207d0",
+      "fontId": "Boardwalk:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "574f43eb01536fdaa939785116d3784c317d9242c4be81956dc4b8c4f6d75daf",
+      "fontId": "Boardwalk:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "33d1d8d5ac585fe3fcbfa02625525c7406e09a43027ff5cc44fdcc44dbe44303",
+      "fontId": "Boardwalk:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.1,
+        "normalSpacingCollisionScale": 1.599802709110888,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.055293,
+        "normalSpacingCollisionScale": 1.0691172983379023,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ".",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.9144224157454273,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ":",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.8954036382267223,
+        "separationCollisionScale": 1.8954036382267223
+      },
+      {
+        "glyph": ":",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.8954036382267223,
+        "separationCollisionScale": 1.8954036382267223
+      },
+      {
+        "glyph": ";",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.8700481982289667,
+        "separationCollisionScale": 2.74053884842128
+      },
+      {
+        "glyph": "…",
+        "id": "left-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.8457601631767169,
+        "separationCollisionScale": 1.5587696958727622
+      },
+      {
+        "glyph": "…",
+        "id": "middle-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.8457601631767169,
+        "separationCollisionScale": 1.5587696958727622
+      },
+      {
+        "glyph": "…",
+        "id": "right-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.8457601631767169,
+        "separationCollisionScale": 1.5587696958727622
+      },
+      {
+        "glyph": "!",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.360408092707825,
+        "separationCollisionScale": 2.135044380330762
+      },
+      {
+        "glyph": "¡",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.9462466262103115,
+        "separationCollisionScale": 2.1348857412491036
+      },
+      {
+        "glyph": "?",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.941507310084596,
+        "separationCollisionScale": 2.1376725903106975
+      },
+      {
+        "glyph": "¿",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.7132823130873733,
+        "separationCollisionScale": 2.137663065163568
+      },
+      {
+        "glyph": "·",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.5024674317158058,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "•",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.619614637347039,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "÷",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 4.650222063038578,
+        "separationCollisionScale": 2.6138677982593714
+      },
+      {
+        "glyph": "÷",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 4.650222063038578,
+        "separationCollisionScale": 2.6138677982593714
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "0932d4f41aaf9faa57471d15400f8239b7a763e4e18ef1fa8299bf6b754edcb1",
+      "fontId": "Cathedral:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "aa0f586135d0a890d26e978cc405aa9fee28e9734d9a0211a31716ed78a81b05",
+      "fontId": "Cathedral:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "4cdacdf84f6750a704ec7c25f8509786ed546ae596b1f6b3be71c76398f40b80",
+      "fontId": "Cathedral:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.9978760444285175,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7505986973672387,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ".",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.175733,
+        "normalSpacingCollisionScale": 1.2196665844559842,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ":",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.192592,
+        "normalSpacingCollisionScale": 1.240741090170065,
+        "separationCollisionScale": 1.880683100739493
+      },
+      {
+        "glyph": ":",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.192592,
+        "normalSpacingCollisionScale": 1.240741090170065,
+        "separationCollisionScale": 1.880683100739493
+      },
+      {
+        "glyph": ";",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.049258,
+        "normalSpacingCollisionScale": 1.0615730820371534,
+        "separationCollisionScale": 2.763969743273855
+      },
+      {
+        "glyph": "…",
+        "id": "left-dot",
+        "min": 0.7,
+        "max": 1.207692,
+        "normalSpacingCollisionScale": 1.2826109952742066,
+        "separationCollisionScale": 1.2596157147741716
+      },
+      {
+        "glyph": "…",
+        "id": "middle-dot",
+        "min": 0.7,
+        "max": 1.207692,
+        "normalSpacingCollisionScale": 1.2826109952742066,
+        "separationCollisionScale": 1.2596157147741716
+      },
+      {
+        "glyph": "…",
+        "id": "right-dot",
+        "min": 0.7,
+        "max": 1.207692,
+        "normalSpacingCollisionScale": 1.2826109952742066,
+        "separationCollisionScale": 1.2596157147741716
+      },
+      {
+        "glyph": "!",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.322151,
+        "normalSpacingCollisionScale": 1.4026896939333888,
+        "separationCollisionScale": 1.9250109934344528
+      },
+      {
+        "glyph": "¡",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.188159,
+        "normalSpacingCollisionScale": 1.2351996613163143,
+        "separationCollisionScale": 1.9265712532979604
+      },
+      {
+        "glyph": "?",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.863201030982263,
+        "separationCollisionScale": 1.445575467370259
+      },
+      {
+        "glyph": "¿",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.751934719444738,
+        "separationCollisionScale": 1.4503602333923902
+      },
+      {
+        "glyph": "·",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.190047,
+        "normalSpacingCollisionScale": 1.2375597440484336,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "•",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.190006,
+        "normalSpacingCollisionScale": 1.2375083966654672,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "÷",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 4.139437900024593,
+        "separationCollisionScale": 1.7704771548855294
+      },
+      {
+        "glyph": "÷",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 4.139437900024593,
+        "separationCollisionScale": 1.7704771548855294
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "f8010d9f7bcf1ec27e2587d714b0c01412ad6df01fe5dead64f7c3aaaae3f690",
+      "fontId": "Serenade:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "c69c38881c74a74daf2e790db1950b41532768b090050c9e099692cddcb8b3b1",
+      "fontId": "Serenade:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "04b061ed9962c8da6da343593d49f289d22f6b15f3684fa8569cea98e0e697b9",
+      "fontId": "Serenade:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.3926435780986637,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.2271715760797184,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ".",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.2184496570202272,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ":",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.5304949810353374,
+        "separationCollisionScale": 2.5304949810353374
+      },
+      {
+        "glyph": ":",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.5304949810353374,
+        "separationCollisionScale": 2.5304949810353374
+      },
+      {
+        "glyph": ";",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.1674897576752663,
+        "separationCollisionScale": 4.043872904006593
+      },
+      {
+        "glyph": "…",
+        "id": "left-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7613218467365364,
+        "separationCollisionScale": 2.0372267540638633
+      },
+      {
+        "glyph": "…",
+        "id": "middle-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7613218467365364,
+        "separationCollisionScale": 2.0372267540638633
+      },
+      {
+        "glyph": "…",
+        "id": "right-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7613218467365364,
+        "separationCollisionScale": 2.0372267540638633
+      },
+      {
+        "glyph": "!",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.388931244674855,
+        "separationCollisionScale": 1.7703626610204224
+      },
+      {
+        "glyph": "¡",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 4.2480197322830255,
+        "separationCollisionScale": 1.7689251642185502
+      },
+      {
+        "glyph": "?",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 4.3734889657006475,
+        "separationCollisionScale": 2.8232176585433115
+      },
+      {
+        "glyph": "¿",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 4.497366188786517,
+        "separationCollisionScale": 2.8234998545140435
+      },
+      {
+        "glyph": "·",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.039897070861825,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "•",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7585438703622014,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "÷",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.817183216728306,
+        "separationCollisionScale": 1.9648370173374472
+      },
+      {
+        "glyph": "÷",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.817183216728306,
+        "separationCollisionScale": 1.9648370173374472
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "6bb79821962527c0cfca439781673c361e4d37ee62b75c61298d96bf0b55e298",
+      "fontId": "Timber:400"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "bea986376e003c9f400af3067e16b64dbe1bf49a09de2b5137cc8d30778b1fe5",
+      "fontId": "Timber:400"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "daf75c4ceeed6788cba2837d087ec7d4efbbfefab9a71abbacd0bbe560be2abc",
+      "fontId": "Timber:400"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.5877711623519288,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.345826,
+        "normalSpacingCollisionScale": 1.4322837271032451,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ".",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.204918,
+        "normalSpacingCollisionScale": 1.256148041863542,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ":",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.204918,
+        "normalSpacingCollisionScale": 1.2561480418635418,
+        "separationCollisionScale": 2.1474251387619647
+      },
+      {
+        "glyph": ":",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.204918,
+        "normalSpacingCollisionScale": 1.2561480418635418,
+        "separationCollisionScale": 2.1474251387619647
+      },
+      {
+        "glyph": ";",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.212668,
+        "normalSpacingCollisionScale": 1.265836097353075,
+        "separationCollisionScale": 3.296098830984939
+      },
+      {
+        "glyph": "…",
+        "id": "left-dot",
+        "min": 0.7,
+        "max": 1.129385,
+        "normalSpacingCollisionScale": 1.3717294563779534,
+        "separationCollisionScale": 1.1617321312913667
+      },
+      {
+        "glyph": "…",
+        "id": "middle-dot",
+        "min": 0.7,
+        "max": 1.129385,
+        "normalSpacingCollisionScale": 1.3717294563779534,
+        "separationCollisionScale": 1.1617321312913667
+      },
+      {
+        "glyph": "…",
+        "id": "right-dot",
+        "min": 0.7,
+        "max": 1.129385,
+        "normalSpacingCollisionScale": 1.3717294563779534,
+        "separationCollisionScale": 1.1617321312913667
+      },
+      {
+        "glyph": "!",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.33411,
+        "normalSpacingCollisionScale": 1.4253919318744108,
+        "separationCollisionScale": 1.4176380631553493
+      },
+      {
+        "glyph": "¡",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.32738,
+        "normalSpacingCollisionScale": 1.4446918209459376,
+        "separationCollisionScale": 1.4092251801288582
+      },
+      {
+        "glyph": "?",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.339999,
+        "normalSpacingCollisionScale": 2.58498138194533,
+        "separationCollisionScale": 1.424999910567051
+      },
+      {
+        "glyph": "¿",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.3256,
+        "normalSpacingCollisionScale": 2.571025648892783,
+        "separationCollisionScale": 1.4070005600885809
+      },
+      {
+        "glyph": "·",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.083394,
+        "normalSpacingCollisionScale": 1.104243541293806,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "•",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.119548,
+        "normalSpacingCollisionScale": 1.149435010857193,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "÷",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.2327431097748516,
+        "separationCollisionScale": 1.4930459137588123
+      },
+      {
+        "glyph": "÷",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.2327431097748516,
+        "separationCollisionScale": 1.4930459137588123
+      }
+    ]
   }
 ]
