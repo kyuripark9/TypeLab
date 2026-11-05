@@ -2,7 +2,7 @@
 
 A saved Points edit identifies an anchor by its master digest, glyph, contour, source segment, and parameter. Adding curve cuts or reversing a contour changes that identity even when the curve stays exact. A new master package therefore needs an explicit correspondence map before older edits can adopt it.
 
-Cotton's local width drawings use common curve cuts across all five weights. Gumdrop's H repair reverses its left-stem contour at all three weights. Both revisions are published separately from their original masters. The catalog contains 24 revisions for 22 styles; all older source, master, width, and program files remain unchanged.
+Cotton's local width drawings use common curve cuts across all five weights. Gumdrop's H repair reverses its left-stem contour at all three weights. Compass's and Kernel's repairs redraw letters at their weights away from the default (weight-masters.md). All are published separately from their original masters. The catalog contains 26 revisions for 22 styles; all older source, master, width, and program files remain unchanged.
 
 ## Exact correspondence
 
@@ -51,6 +51,8 @@ node --max-old-space-size=512 --import tsx tools/authored/build-revisions.ts \
 ```
 
 The base publisher requires an already published parent and validates the complete map before writing. Both publishers preserve immutable files and validate all selected inputs before mutation. `TYPELAB_PUBLICATION_ROOT` directs them to an isolated publication directory for tests.
+
+A repair that keeps a basis's points is carried onto it by `repair-weight-masters.ts <Family> <repaired-package.json> <out>`, which first rebuilds the published basis and width drawings from the first package exactly, then writes the repaired basis, its maps from the published basis and from the first package (naming the redrawn letters), the recompiled width drawings and the crossbar on the new basis. Compass and Kernel were published with `build-masters.ts --derived base.json from-current.json`, `build-revisions.ts` with both maps, `build-programs.ts --width-asset --feature-asset`, `build-components.ts` on the new bases, an interim `--program` (the newest program's policies on the new assets, its marks, forms and dots left out, both maps as transitions), the marks and forms charted with `--aligned`, then `--marks --forms`, `build-dots.ts`, and `--dots`.
 
 Publish the compatible width and feature assets, then the complete program manifest:
 

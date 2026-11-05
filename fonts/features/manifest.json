@@ -163,6 +163,29 @@
   {
     "ref": {
       "kind": "feature-masters-v1",
+      "digest": "3ef15706141602a9b559b7594ea832ef74bda79e22964c46f83e56250056cc41",
+      "fontId": "Compass:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "7474f7f33e65de6d22363f481cc7294d3c39de41f9c1d18e671a87f64875bf73",
+      "fontId": "Compass:300"
+    },
+    "weightRange": [
+      300,
+      450
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
       "digest": "5a940dde81178a4677de5afbb05c97d738a5224589eb93fe4d340e98d47b868b",
       "fontId": "Compass:300"
     },
@@ -488,6 +511,29 @@
     "base": {
       "kind": "masters-v1",
       "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+      "fontId": "Kernel:500"
+    },
+    "weightRange": [
+      450,
+      600
+    ],
+    "coverage": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "feature-masters-v1",
+      "digest": "ba57be645e79b97ef71b5ba5cc4472af9a7459d4601df62ba06c31d281922191",
+      "fontId": "Kernel:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "9addbb3907d8d2ece5f6228b057cd85451b5446853c33a3702948aff712653fa",
       "fontId": "Kernel:500"
     },
     "weightRange": [

@@ -4656,5 +4656,315 @@
         "separationCollisionScale": 1.479929610288481
       }
     ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "c823e6acfcb5bfd2587960350d4ae677f5a87f92261930e4f027761d4955f50d",
+      "fontId": "Compass:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "7474f7f33e65de6d22363f481cc7294d3c39de41f9c1d18e671a87f64875bf73",
+      "fontId": "Compass:300"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "c3624b20ba67dddbc6aa81b5e3e2eb485b3e7e94203e9430cb9e2c996ae2df3d",
+      "fontId": "Compass:300"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.5991453993564444,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.6186574543773362,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ".",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.336387,
+        "normalSpacingCollisionScale": 1.4204842974560707,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ":",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.4418986335986248,
+        "separationCollisionScale": 2.998423541776144
+      },
+      {
+        "glyph": ":",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.4418986335986248,
+        "separationCollisionScale": 2.998423541776144
+      },
+      {
+        "glyph": ";",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.7916661239270033,
+        "separationCollisionScale": 4.963822304862768
+      },
+      {
+        "glyph": "…",
+        "id": "left-dot",
+        "min": 0.7,
+        "max": 1.112191,
+        "normalSpacingCollisionScale": 1.5657136926011486,
+        "separationCollisionScale": 1.14023888405611
+      },
+      {
+        "glyph": "…",
+        "id": "middle-dot",
+        "min": 0.7,
+        "max": 1.112191,
+        "normalSpacingCollisionScale": 1.5657136926011486,
+        "separationCollisionScale": 1.14023888405611
+      },
+      {
+        "glyph": "…",
+        "id": "right-dot",
+        "min": 0.7,
+        "max": 1.112191,
+        "normalSpacingCollisionScale": 1.5657136926011486,
+        "separationCollisionScale": 1.14023888405611
+      },
+      {
+        "glyph": "!",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.9278055846557764,
+        "separationCollisionScale": 1.9742511823436684
+      },
+      {
+        "glyph": "¡",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.9278055846557764,
+        "separationCollisionScale": 1.974251182343668
+      },
+      {
+        "glyph": "?",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.3453096910203195,
+        "separationCollisionScale": 2.0171793524394683
+      },
+      {
+        "glyph": "¿",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.3240471294248484,
+        "separationCollisionScale": 2.017179352439469
+      },
+      {
+        "glyph": "·",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.347808,
+        "normalSpacingCollisionScale": 1.4347605215511066,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "•",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.261224,
+        "normalSpacingCollisionScale": 1.3265306122448979,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "÷",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 4.636436503788587,
+        "separationCollisionScale": 2.5167377263708897
+      },
+      {
+        "glyph": "÷",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 4.636436503788587,
+        "separationCollisionScale": 2.5167377263708897
+      }
+    ]
+  },
+  {
+    "ref": {
+      "kind": "source-components-v1",
+      "digest": "9cd3020de41c8880f3ff11b09838e2ec6e92a1495390ac1db173ee809184eb07",
+      "fontId": "Kernel:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "9addbb3907d8d2ece5f6228b057cd85451b5446853c33a3702948aff712653fa",
+      "fontId": "Kernel:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "69f4818f6907ce6c48a9f7fc0c55edf579c76cb70ac3114d4ecde5415dc58334",
+      "fontId": "Kernel:500"
+    },
+    "glyphs": [
+      {
+        "glyph": "i",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.292682926829268,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "j",
+        "id": "tittle",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.2926829268292686,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ".",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.8125,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": ":",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.8125,
+        "separationCollisionScale": 1.9505494505494505
+      },
+      {
+        "glyph": ":",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.8125,
+        "separationCollisionScale": 1.9505494505494505
+      },
+      {
+        "glyph": ";",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.8125,
+        "separationCollisionScale": 2.989010989010989
+      },
+      {
+        "glyph": "…",
+        "id": "left-dot",
+        "min": 0.7,
+        "max": 1.188721,
+        "normalSpacingCollisionScale": 1.404197672616159,
+        "separationCollisionScale": 1.2359015179439203
+      },
+      {
+        "glyph": "…",
+        "id": "middle-dot",
+        "min": 0.7,
+        "max": 1.188721,
+        "normalSpacingCollisionScale": 1.404197672616159,
+        "separationCollisionScale": 1.2359015179439203
+      },
+      {
+        "glyph": "…",
+        "id": "right-dot",
+        "min": 0.7,
+        "max": 1.188721,
+        "normalSpacingCollisionScale": 1.404197672616159,
+        "separationCollisionScale": 1.2359015179439203
+      },
+      {
+        "glyph": "!",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.967032967032967,
+        "separationCollisionScale": 1.9186046511627906
+      },
+      {
+        "glyph": "¡",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.967032967032967,
+        "separationCollisionScale": 1.9186046511627906
+      },
+      {
+        "glyph": "?",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.967032967032967,
+        "separationCollisionScale": 1.7790697674418605
+      },
+      {
+        "glyph": "¿",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.9670329670329667,
+        "separationCollisionScale": 1.7790697674418605
+      },
+      {
+        "glyph": "·",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 2.8125,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "•",
+        "id": "dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 1.875,
+        "separationCollisionScale": null
+      },
+      {
+        "glyph": "÷",
+        "id": "lower-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.43561576630903,
+        "separationCollisionScale": 1.9261744966442953
+      },
+      {
+        "glyph": "÷",
+        "id": "upper-dot",
+        "min": 0.7,
+        "max": 1.35,
+        "normalSpacingCollisionScale": 3.43561576630903,
+        "separationCollisionScale": 1.9261744966442953
+      }
+    ]
   }
 ]

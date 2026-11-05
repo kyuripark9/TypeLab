@@ -64220,5 +64220,1841 @@
       "tail": [],
       "terminalLength": []
     }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "d9ba7e1911a07c7ada45d97cbf48dabf0eb5421540bc3154a20a1f4323eaf3c0",
+      "fontId": "Compass:300"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "7474f7f33e65de6d22363f481cc7294d3c39de41f9c1d18e671a87f64875bf73",
+        "fontId": "Compass:300"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "c3624b20ba67dddbc6aa81b5e3e2eb485b3e7e94203e9430cb9e2c996ae2df3d",
+        "fontId": "Compass:300"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "3ef15706141602a9b559b7594ea832ef74bda79e22964c46f83e56250056cc41",
+        "fontId": "Compass:300"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "c823e6acfcb5bfd2587960350d4ae677f5a87f92261930e4f027761d4955f50d",
+        "fontId": "Compass:300"
+      },
+      "contrast": {
+        "format": "source-contrast-v1",
+        "reach": 0.5
+      },
+      "strokes": {
+        "format": "source-strokes-v1",
+        "reach": 0.5
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "inline": {
+          "format": "source-inline-v1",
+          "width": [
+            0.12,
+            0.45
+          ],
+          "angle": [
+            95,
+            150
+          ],
+          "rim": 0.006,
+          "tolerance": 0.1
+        },
+        "wire": {
+          "format": "source-wire-v1",
+          "line": [
+            0.006,
+            0.04
+          ],
+          "tolerance": 0.1
+        },
+        "traps": {
+          "format": "source-traps-v1",
+          "depth": 0.35,
+          "mouth": 0.6,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "stencil": {
+          "format": "source-stencil-v1",
+          "gap": 0.15,
+          "offset": 1.5,
+          "point": 120,
+          "span": 2,
+          "serif": 0.25,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "shapes": {
+          "format": "source-shapes-v1",
+          "square": 6,
+          "box": [
+            24,
+            4
+          ],
+          "facet": 0.04,
+          "round": 0.06,
+          "step": 0.5,
+          "peak": 0.5,
+          "pinch": [
+            0.6,
+            0.18
+          ],
+          "serif": [
+            0.8,
+            0.55
+          ],
+          "tolerance": 0.1
+        },
+        "ends": {
+          "format": "source-ends-v1",
+          "reach": 1.6,
+          "bulge": 0.45
+        },
+        "insides": {
+          "format": "source-insides-v1",
+          "counter": [
+            0.75,
+            1.18
+          ],
+          "open": 0.9,
+          "close": 0.3
+        },
+        "serifs": {
+          "format": "source-serifs-v1",
+          "reach": 0.3,
+          "across": 5,
+          "height": 0.25,
+          "side": 0.08,
+          "length": [
+            0.25,
+            1.75
+          ],
+          "thick": [
+            0.3,
+            2
+          ],
+          "size": [
+            0.25,
+            1.4
+          ],
+          "slope": 0.8,
+          "bracket": [
+            0.05,
+            2.5
+          ]
+        },
+        "pinch": {
+          "format": "source-pinch-v1",
+          "depth": 0.985,
+          "reach": 0.18
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
+            "fontId": "Compass:300"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "59d4ef9e5a4d8e1a178feef06e9040896376ca405dbc2ed0424c5783ab116b64",
+            "fontId": "Compass:300"
+          }
+        },
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "01baf750ad45fa49fe3cf3fb768cd729534a416d0c63407ce179763aed49f91d",
+            "fontId": "Compass:300"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "b29f5d7a19b3fc475dfc9ec468e355d5e9366dbc3af8ee48dec420da3dd5ffaa",
+            "fontId": "Compass:300"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 85,
+      "neutral": 100,
+      "max": 115
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "6495bdd1c6095362286a5c3ab515bbdbefc42990a9a94fd38e3fe264f6241cab",
+      "fontId": "Kernel:500"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "9addbb3907d8d2ece5f6228b057cd85451b5446853c33a3702948aff712653fa",
+        "fontId": "Kernel:500"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "69f4818f6907ce6c48a9f7fc0c55edf579c76cb70ac3114d4ecde5415dc58334",
+        "fontId": "Kernel:500"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "ba57be645e79b97ef71b5ba5cc4472af9a7459d4601df62ba06c31d281922191",
+        "fontId": "Kernel:500"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "9cd3020de41c8880f3ff11b09838e2ec6e92a1495390ac1db173ee809184eb07",
+        "fontId": "Kernel:500"
+      },
+      "contrast": {
+        "format": "source-contrast-v1",
+        "reach": 0.5
+      },
+      "strokes": {
+        "format": "source-strokes-v1",
+        "reach": 0.5
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "inline": {
+          "format": "source-inline-v1",
+          "width": [
+            0.12,
+            0.45
+          ],
+          "angle": [
+            95,
+            150
+          ],
+          "rim": 0.006,
+          "tolerance": 0.1
+        },
+        "wire": {
+          "format": "source-wire-v1",
+          "line": [
+            0.006,
+            0.04
+          ],
+          "tolerance": 0.1
+        },
+        "traps": {
+          "format": "source-traps-v1",
+          "depth": 0.35,
+          "mouth": 0.6,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "stencil": {
+          "format": "source-stencil-v1",
+          "gap": 0.15,
+          "offset": 1.5,
+          "point": 120,
+          "span": 2,
+          "serif": 0.25,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "shapes": {
+          "format": "source-shapes-v1",
+          "square": 6,
+          "box": [
+            24,
+            4
+          ],
+          "facet": 0.04,
+          "round": 0.06,
+          "step": 0.5,
+          "peak": 0.5,
+          "pinch": [
+            0.6,
+            0.18
+          ],
+          "serif": [
+            0.8,
+            0.55
+          ],
+          "tolerance": 0.1
+        },
+        "ends": {
+          "format": "source-ends-v1",
+          "reach": 1.6,
+          "bulge": 0.45
+        },
+        "insides": {
+          "format": "source-insides-v1",
+          "counter": [
+            0.75,
+            1.18
+          ],
+          "open": 0.9,
+          "close": 0.3
+        },
+        "serifs": {
+          "format": "source-serifs-v1",
+          "reach": 0.3,
+          "across": 5,
+          "height": 0.25,
+          "side": 0.08,
+          "length": [
+            0.25,
+            1.75
+          ],
+          "thick": [
+            0.3,
+            2
+          ],
+          "size": [
+            0.25,
+            1.4
+          ],
+          "slope": 0.8,
+          "bracket": [
+            0.05,
+            2.5
+          ]
+        },
+        "pinch": {
+          "format": "source-pinch-v1",
+          "depth": 0.985,
+          "reach": 0.18
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+            "fontId": "Kernel:500"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "947323bf8dc0a431d5890c51a817ee379458f8e6a2523165c5f67cfc2212e3c8",
+            "fontId": "Kernel:500"
+          }
+        },
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "edf4313600883ebd93ff0f398e95ade1d952bbc3d4fa79ef3e2c9a8f27bc654f",
+            "fontId": "Kernel:500"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "52a903ccaf9a40829fae0b63fe050de0a4a2bea766a5f83d943f5b49d8ec02d2",
+            "fontId": "Kernel:500"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "2433f1f54eb093a6676f820ff99890fd019b6cd59752cd43765bc8f20bd7b44a",
+      "fontId": "Compass:300"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "7474f7f33e65de6d22363f481cc7294d3c39de41f9c1d18e671a87f64875bf73",
+        "fontId": "Compass:300"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "c3624b20ba67dddbc6aa81b5e3e2eb485b3e7e94203e9430cb9e2c996ae2df3d",
+        "fontId": "Compass:300"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "3ef15706141602a9b559b7594ea832ef74bda79e22964c46f83e56250056cc41",
+        "fontId": "Compass:300"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "c823e6acfcb5bfd2587960350d4ae677f5a87f92261930e4f027761d4955f50d",
+        "fontId": "Compass:300"
+      },
+      "marks": {
+        "kind": "source-marks-v1",
+        "digest": "7b7ca793c56bf928feff6affbe8d26165ed1a22849d403c629042b118eab54bc",
+        "fontId": "Compass:300"
+      },
+      "forms": [
+        {
+          "glyph": "a",
+          "id": "ss02",
+          "label": "Two-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "b6bb0f01d8ea0ab65f49467ed90fb3a159526f9597c8c0f3a14d21b771bc93e3",
+            "fontId": "Compass:300"
+          }
+        }
+      ],
+      "contrast": {
+        "format": "source-contrast-v1",
+        "reach": 0.5
+      },
+      "strokes": {
+        "format": "source-strokes-v1",
+        "reach": 0.5
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "inline": {
+          "format": "source-inline-v1",
+          "width": [
+            0.12,
+            0.45
+          ],
+          "angle": [
+            95,
+            150
+          ],
+          "rim": 0.006,
+          "tolerance": 0.1
+        },
+        "wire": {
+          "format": "source-wire-v1",
+          "line": [
+            0.006,
+            0.04
+          ],
+          "tolerance": 0.1
+        },
+        "traps": {
+          "format": "source-traps-v1",
+          "depth": 0.35,
+          "mouth": 0.6,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "stencil": {
+          "format": "source-stencil-v1",
+          "gap": 0.15,
+          "offset": 1.5,
+          "point": 120,
+          "span": 2,
+          "serif": 0.25,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "shapes": {
+          "format": "source-shapes-v1",
+          "square": 6,
+          "box": [
+            24,
+            4
+          ],
+          "facet": 0.04,
+          "round": 0.06,
+          "step": 0.5,
+          "peak": 0.5,
+          "pinch": [
+            0.6,
+            0.18
+          ],
+          "serif": [
+            0.8,
+            0.55
+          ],
+          "tolerance": 0.1
+        },
+        "ends": {
+          "format": "source-ends-v1",
+          "reach": 1.6,
+          "bulge": 0.45
+        },
+        "insides": {
+          "format": "source-insides-v1",
+          "counter": [
+            0.75,
+            1.18
+          ],
+          "open": 0.9,
+          "close": 0.3
+        },
+        "serifs": {
+          "format": "source-serifs-v1",
+          "reach": 0.3,
+          "across": 5,
+          "height": 0.25,
+          "side": 0.08,
+          "length": [
+            0.25,
+            1.75
+          ],
+          "thick": [
+            0.3,
+            2
+          ],
+          "size": [
+            0.25,
+            1.4
+          ],
+          "slope": 0.8,
+          "bracket": [
+            0.05,
+            2.5
+          ]
+        },
+        "pinch": {
+          "format": "source-pinch-v1",
+          "depth": 0.985,
+          "reach": 0.18
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
+            "fontId": "Compass:300"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "59d4ef9e5a4d8e1a178feef06e9040896376ca405dbc2ed0424c5783ab116b64",
+            "fontId": "Compass:300"
+          }
+        },
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "01baf750ad45fa49fe3cf3fb768cd729534a416d0c63407ce179763aed49f91d",
+            "fontId": "Compass:300"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "b29f5d7a19b3fc475dfc9ec468e355d5e9366dbc3af8ee48dec420da3dd5ffaa",
+            "fontId": "Compass:300"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 85,
+      "neutral": 100,
+      "max": 115
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "91bccbd9a044ff41969488dd4991067b305cfbe763eb335efff901e89dfcd8a3",
+      "fontId": "Kernel:500"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "9addbb3907d8d2ece5f6228b057cd85451b5446853c33a3702948aff712653fa",
+        "fontId": "Kernel:500"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "69f4818f6907ce6c48a9f7fc0c55edf579c76cb70ac3114d4ecde5415dc58334",
+        "fontId": "Kernel:500"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "ba57be645e79b97ef71b5ba5cc4472af9a7459d4601df62ba06c31d281922191",
+        "fontId": "Kernel:500"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "9cd3020de41c8880f3ff11b09838e2ec6e92a1495390ac1db173ee809184eb07",
+        "fontId": "Kernel:500"
+      },
+      "marks": {
+        "kind": "source-marks-v1",
+        "digest": "06373094e0ff965ceb0a32f37479ceb09f17c3b3e138896179368dd0677df6ff",
+        "fontId": "Kernel:500"
+      },
+      "forms": [
+        {
+          "glyph": "a",
+          "id": "ss01",
+          "label": "One-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "39661e16e018ce8a8c4b820c98256f5d62fd0a7391b626ff5e08b3a8f621e6e8",
+            "fontId": "Kernel:500"
+          }
+        },
+        {
+          "glyph": "g",
+          "id": "ss02",
+          "label": "One-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "1b56b61a8dde84770ec18c6dfb42b660127a54b4c1070699ffb2d7fac4999d7b",
+            "fontId": "Kernel:500"
+          }
+        }
+      ],
+      "contrast": {
+        "format": "source-contrast-v1",
+        "reach": 0.5
+      },
+      "strokes": {
+        "format": "source-strokes-v1",
+        "reach": 0.5
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "inline": {
+          "format": "source-inline-v1",
+          "width": [
+            0.12,
+            0.45
+          ],
+          "angle": [
+            95,
+            150
+          ],
+          "rim": 0.006,
+          "tolerance": 0.1
+        },
+        "wire": {
+          "format": "source-wire-v1",
+          "line": [
+            0.006,
+            0.04
+          ],
+          "tolerance": 0.1
+        },
+        "traps": {
+          "format": "source-traps-v1",
+          "depth": 0.35,
+          "mouth": 0.6,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "stencil": {
+          "format": "source-stencil-v1",
+          "gap": 0.15,
+          "offset": 1.5,
+          "point": 120,
+          "span": 2,
+          "serif": 0.25,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "shapes": {
+          "format": "source-shapes-v1",
+          "square": 6,
+          "box": [
+            24,
+            4
+          ],
+          "facet": 0.04,
+          "round": 0.06,
+          "step": 0.5,
+          "peak": 0.5,
+          "pinch": [
+            0.6,
+            0.18
+          ],
+          "serif": [
+            0.8,
+            0.55
+          ],
+          "tolerance": 0.1
+        },
+        "ends": {
+          "format": "source-ends-v1",
+          "reach": 1.6,
+          "bulge": 0.45
+        },
+        "insides": {
+          "format": "source-insides-v1",
+          "counter": [
+            0.75,
+            1.18
+          ],
+          "open": 0.9,
+          "close": 0.3
+        },
+        "serifs": {
+          "format": "source-serifs-v1",
+          "reach": 0.3,
+          "across": 5,
+          "height": 0.25,
+          "side": 0.08,
+          "length": [
+            0.25,
+            1.75
+          ],
+          "thick": [
+            0.3,
+            2
+          ],
+          "size": [
+            0.25,
+            1.4
+          ],
+          "slope": 0.8,
+          "bracket": [
+            0.05,
+            2.5
+          ]
+        },
+        "pinch": {
+          "format": "source-pinch-v1",
+          "depth": 0.985,
+          "reach": 0.18
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+            "fontId": "Kernel:500"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "947323bf8dc0a431d5890c51a817ee379458f8e6a2523165c5f67cfc2212e3c8",
+            "fontId": "Kernel:500"
+          }
+        },
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "edf4313600883ebd93ff0f398e95ade1d952bbc3d4fa79ef3e2c9a8f27bc654f",
+            "fontId": "Kernel:500"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "52a903ccaf9a40829fae0b63fe050de0a4a2bea766a5f83d943f5b49d8ec02d2",
+            "fontId": "Kernel:500"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "943555683172e6192863a95ded9d98a592ad88d29289f07f0587c30577899659",
+      "fontId": "Compass:300"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "7474f7f33e65de6d22363f481cc7294d3c39de41f9c1d18e671a87f64875bf73",
+        "fontId": "Compass:300"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "c3624b20ba67dddbc6aa81b5e3e2eb485b3e7e94203e9430cb9e2c996ae2df3d",
+        "fontId": "Compass:300"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "3ef15706141602a9b559b7594ea832ef74bda79e22964c46f83e56250056cc41",
+        "fontId": "Compass:300"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "c823e6acfcb5bfd2587960350d4ae677f5a87f92261930e4f027761d4955f50d",
+        "fontId": "Compass:300"
+      },
+      "marks": {
+        "kind": "source-marks-v1",
+        "digest": "7b7ca793c56bf928feff6affbe8d26165ed1a22849d403c629042b118eab54bc",
+        "fontId": "Compass:300"
+      },
+      "forms": [
+        {
+          "glyph": "a",
+          "id": "ss02",
+          "label": "Two-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "b6bb0f01d8ea0ab65f49467ed90fb3a159526f9597c8c0f3a14d21b771bc93e3",
+            "fontId": "Compass:300"
+          }
+        }
+      ],
+      "dots": {
+        "format": "source-dots-v1",
+        "shapes": [
+          "square"
+        ],
+        "corner": 0,
+        "overshoot": 0.0385,
+        "slant": 0,
+        "baseline": [
+          ".:dot",
+          "::lower-dot",
+          "…:left-dot",
+          "…:middle-dot",
+          "…:right-dot",
+          "!:dot",
+          "?:dot"
+        ],
+        "marks": "ÄËÏÖÜĖİŸŻäëïöüÿėż"
+      },
+      "contrast": {
+        "format": "source-contrast-v1",
+        "reach": 0.5
+      },
+      "strokes": {
+        "format": "source-strokes-v1",
+        "reach": 0.5
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "inline": {
+          "format": "source-inline-v1",
+          "width": [
+            0.12,
+            0.45
+          ],
+          "angle": [
+            95,
+            150
+          ],
+          "rim": 0.006,
+          "tolerance": 0.1
+        },
+        "wire": {
+          "format": "source-wire-v1",
+          "line": [
+            0.006,
+            0.04
+          ],
+          "tolerance": 0.1
+        },
+        "traps": {
+          "format": "source-traps-v1",
+          "depth": 0.35,
+          "mouth": 0.6,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "stencil": {
+          "format": "source-stencil-v1",
+          "gap": 0.15,
+          "offset": 1.5,
+          "point": 120,
+          "span": 2,
+          "serif": 0.25,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "shapes": {
+          "format": "source-shapes-v1",
+          "square": 6,
+          "box": [
+            24,
+            4
+          ],
+          "facet": 0.04,
+          "round": 0.06,
+          "step": 0.5,
+          "peak": 0.5,
+          "pinch": [
+            0.6,
+            0.18
+          ],
+          "serif": [
+            0.8,
+            0.55
+          ],
+          "tolerance": 0.1
+        },
+        "ends": {
+          "format": "source-ends-v1",
+          "reach": 1.6,
+          "bulge": 0.45
+        },
+        "insides": {
+          "format": "source-insides-v1",
+          "counter": [
+            0.75,
+            1.18
+          ],
+          "open": 0.9,
+          "close": 0.3
+        },
+        "serifs": {
+          "format": "source-serifs-v1",
+          "reach": 0.3,
+          "across": 5,
+          "height": 0.25,
+          "side": 0.08,
+          "length": [
+            0.25,
+            1.75
+          ],
+          "thick": [
+            0.3,
+            2
+          ],
+          "size": [
+            0.25,
+            1.4
+          ],
+          "slope": 0.8,
+          "bracket": [
+            0.05,
+            2.5
+          ]
+        },
+        "pinch": {
+          "format": "source-pinch-v1",
+          "depth": 0.985,
+          "reach": 0.18
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
+            "fontId": "Compass:300"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "59d4ef9e5a4d8e1a178feef06e9040896376ca405dbc2ed0424c5783ab116b64",
+            "fontId": "Compass:300"
+          }
+        },
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "01baf750ad45fa49fe3cf3fb768cd729534a416d0c63407ce179763aed49f91d",
+            "fontId": "Compass:300"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "b29f5d7a19b3fc475dfc9ec468e355d5e9366dbc3af8ee48dec420da3dd5ffaa",
+            "fontId": "Compass:300"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 85,
+      "neutral": 100,
+      "max": 115
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
+  },
+  {
+    "ref": {
+      "kind": "program-v1",
+      "digest": "8bea9f5a9c2b414a9d2fa832ed4c1160f95e5c0fd960b0698cfa4eb02a72bfb1",
+      "fontId": "Kernel:500"
+    },
+    "data": {
+      "format": "source-program-v1",
+      "base": {
+        "kind": "masters-v1",
+        "digest": "9addbb3907d8d2ece5f6228b057cd85451b5446853c33a3702948aff712653fa",
+        "fontId": "Kernel:500"
+      },
+      "width": {
+        "kind": "width-masters-v1",
+        "digest": "69f4818f6907ce6c48a9f7fc0c55edf579c76cb70ac3114d4ecde5415dc58334",
+        "fontId": "Kernel:500"
+      },
+      "features": {
+        "kind": "feature-masters-v1",
+        "digest": "ba57be645e79b97ef71b5ba5cc4472af9a7459d4601df62ba06c31d281922191",
+        "fontId": "Kernel:500"
+      },
+      "components": {
+        "kind": "source-components-v1",
+        "digest": "9cd3020de41c8880f3ff11b09838e2ec6e92a1495390ac1db173ee809184eb07",
+        "fontId": "Kernel:500"
+      },
+      "marks": {
+        "kind": "source-marks-v1",
+        "digest": "06373094e0ff965ceb0a32f37479ceb09f17c3b3e138896179368dd0677df6ff",
+        "fontId": "Kernel:500"
+      },
+      "forms": [
+        {
+          "glyph": "a",
+          "id": "ss01",
+          "label": "One-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "39661e16e018ce8a8c4b820c98256f5d62fd0a7391b626ff5e08b3a8f621e6e8",
+            "fontId": "Kernel:500"
+          }
+        },
+        {
+          "glyph": "g",
+          "id": "ss02",
+          "label": "One-storey",
+          "ref": {
+            "kind": "glyph-form-masters-v1",
+            "digest": "1b56b61a8dde84770ec18c6dfb42b660127a54b4c1070699ffb2d7fac4999d7b",
+            "fontId": "Kernel:500"
+          }
+        }
+      ],
+      "dots": {
+        "format": "source-dots-v1",
+        "shapes": [
+          "square"
+        ],
+        "corner": 0.25,
+        "overshoot": 0.0444,
+        "slant": 0,
+        "baseline": [
+          ".:dot",
+          "::lower-dot",
+          "…:left-dot",
+          "…:middle-dot",
+          "…:right-dot",
+          "!:dot",
+          "?:dot"
+        ],
+        "marks": "ÄËÏÖÜĖİŸŻäëïöüÿėż"
+      },
+      "contrast": {
+        "format": "source-contrast-v1",
+        "reach": 0.5
+      },
+      "strokes": {
+        "format": "source-strokes-v1",
+        "reach": 0.5
+      },
+      "finish": {
+        "format": "source-finish-v1",
+        "tolerance": 0.04,
+        "shadow": {
+          "depth": [
+            0.04,
+            0.12
+          ],
+          "gap": 0.012,
+          "minAreaRatio": 0.25
+        },
+        "slice": {
+          "maxGap": 0.14,
+          "position": [
+            0.12,
+            0.88
+          ]
+        },
+        "outline": {
+          "rim": [
+            0.006,
+            0.024
+          ],
+          "tolerance": 0.1
+        },
+        "inline": {
+          "format": "source-inline-v1",
+          "width": [
+            0.12,
+            0.45
+          ],
+          "angle": [
+            95,
+            150
+          ],
+          "rim": 0.006,
+          "tolerance": 0.1
+        },
+        "wire": {
+          "format": "source-wire-v1",
+          "line": [
+            0.006,
+            0.04
+          ],
+          "tolerance": 0.1
+        },
+        "traps": {
+          "format": "source-traps-v1",
+          "depth": 0.35,
+          "mouth": 0.6,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "stencil": {
+          "format": "source-stencil-v1",
+          "gap": 0.15,
+          "offset": 1.5,
+          "point": 120,
+          "span": 2,
+          "serif": 0.25,
+          "turn": [
+            20,
+            60
+          ],
+          "reach": [
+            0.01,
+            0.04
+          ],
+          "run": 1.5,
+          "apart": 0.9,
+          "tolerance": 0.1
+        },
+        "shapes": {
+          "format": "source-shapes-v1",
+          "square": 6,
+          "box": [
+            24,
+            4
+          ],
+          "facet": 0.04,
+          "round": 0.06,
+          "step": 0.5,
+          "peak": 0.5,
+          "pinch": [
+            0.6,
+            0.18
+          ],
+          "serif": [
+            0.8,
+            0.55
+          ],
+          "tolerance": 0.1
+        },
+        "ends": {
+          "format": "source-ends-v1",
+          "reach": 1.6,
+          "bulge": 0.45
+        },
+        "insides": {
+          "format": "source-insides-v1",
+          "counter": [
+            0.75,
+            1.18
+          ],
+          "open": 0.9,
+          "close": 0.3
+        },
+        "serifs": {
+          "format": "source-serifs-v1",
+          "reach": 0.3,
+          "across": 5,
+          "height": 0.25,
+          "side": 0.08,
+          "length": [
+            0.25,
+            1.75
+          ],
+          "thick": [
+            0.3,
+            2
+          ],
+          "size": [
+            0.25,
+            1.4
+          ],
+          "slope": 0.8,
+          "bracket": [
+            0.05,
+            2.5
+          ]
+        },
+        "pinch": {
+          "format": "source-pinch-v1",
+          "depth": 0.985,
+          "reach": 0.18
+        },
+        "patterns": {
+          "format": "source-patterns-v1",
+          "fills": [
+            "pixels",
+            "hex",
+            "dots",
+            "halftone",
+            "lines",
+            "blobs",
+            "liquid"
+          ],
+          "cell": [
+            0.04,
+            0.18
+          ],
+          "gain": [
+            0.22,
+            1
+          ],
+          "corner": [
+            0,
+            0.5
+          ],
+          "smallComponentScale": 4,
+          "maxCells": 16384,
+          "maxPoints": 131072
+        },
+        "texture": {
+          "format": "source-texture-v1",
+          "wobble": {
+            "amplitude": 0.009,
+            "wavelength": 0.42
+          },
+          "rough": {
+            "amplitude": 0.0009,
+            "wavelength": 0.018
+          },
+          "tolerance": 0.004,
+          "maxSegments": 65536,
+          "seed": 2654435769
+        }
+      },
+      "spacing": {
+        "format": "source-spacing-v1",
+        "mono": {
+          "cell": "widest-advance",
+          "align": "advance-center"
+        }
+      },
+      "transitions": [
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+            "fontId": "Kernel:500"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "947323bf8dc0a431d5890c51a817ee379458f8e6a2523165c5f67cfc2212e3c8",
+            "fontId": "Kernel:500"
+          }
+        },
+        {
+          "from": {
+            "kind": "masters-v1",
+            "digest": "edf4313600883ebd93ff0f398e95ade1d952bbc3d4fa79ef3e2c9a8f27bc654f",
+            "fontId": "Kernel:500"
+          },
+          "mapping": {
+            "kind": "master-subdivision-v1",
+            "digest": "52a903ccaf9a40829fae0b63fe050de0a4a2bea766a5f83d943f5b49d8ec02d2",
+            "fontId": "Kernel:500"
+          }
+        }
+      ]
+    },
+    "width": {
+      "min": 90,
+      "neutral": 100,
+      "max": 110
+    },
+    "componentGlyphs": [
+      "i",
+      "j",
+      ".",
+      ":",
+      ";",
+      "…",
+      "!",
+      "¡",
+      "?",
+      "¿",
+      "·",
+      "•",
+      "÷"
+    ],
+    "featureGlyphs": {
+      "crossbar": [
+        "H"
+      ],
+      "tail": [],
+      "terminalLength": []
+    }
   }
 ]

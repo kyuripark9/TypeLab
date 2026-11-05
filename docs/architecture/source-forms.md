@@ -65,7 +65,7 @@ Accents on a form use the original letter's mark ports, moved by how far the for
 
 ## Authoring
 
-1. `python3 -I tools/authored/extract-alternates.py --upstream .tools/master-upstream --programs fonts/programs/manifest.json --recipes <FORM_RECIPES as JSON> --out .audit/forms/alternates.json` extracts every native weight knot and width cell, with the paired original, from the pinned fonts. Static weights between two files are mixed from compatible drawings.
+1. `python3 -I tools/authored/extract-alternates.py --upstream .tools/master-upstream --programs fonts/programs/manifest.json --recipes <FORM_RECIPES as JSON> --out .audit/forms/alternates.json` extracts every native weight knot and width cell, with the paired original, from the pinned fonts. Static weights between two files are mixed from compatible drawings; `--aligned Compass,Kernel` charts those drawings from their corners and extremes (source-marks.md), and `build-forms.ts --style Compass,Kernel` publishes only those families' forms from a candidate extracted for them alone.
 2. `node --import tsx tools/authored/build-forms.ts` fits each published form to its style and writes `fonts/forms/` and its manifest (`--check` verifies).
    - **Across.** An affine map takes the upstream original's ink to the style's own original in each cell; the alternate is moved the same way, and its advance is the style's original plus the upstream difference.
    - **Up.** Heights go through the foot, baseline, x-height or cap height, and an ascender's top. Extra length (Cotton's taller l) goes into the middle of the stretch, where a stem runs straight.

@@ -161,6 +161,63 @@ def path_table(contour):
     return [(distance / total, i, t) for distance, i, t in rows], [0] + [v / total for v in lengths]
 
 
+# Styles whose cells are charted from their corners and extremes (set by --aligned): static upstream weights keep a
+# design's corners and curve extremes but split the curves between them in places of their own, so equal point counts
+# need not mean the same points, and plain arc-length shares land one weight's corner inside another's curve.
+ALIGNED = False
+
+
+def direction(c, end):
+    """The unit direction a cubic leaves its start (or arrives at its end), skipping controls on the point."""
+    p = list(reversed(c)) if end else c
+    q = next((v for v in p[1:] if math.dist(v, p[0]) > 1e-9), p[-1])
+    d = [q[0] - p[0][0], q[1] - p[0][1]]
+    length = math.hypot(*d) or 1
+    return [-d[0] / length, -d[1] / length] if end else [d[0] / length, d[1] / length]
+
+
+def kinds(contour):
+    """Each point's kind: a corner, an extreme running level or upright one way or the other, or free."""
+    result = []
+    for i in range(len(contour)):
+        a, b = direction(curve(contour, i - 1), True), direction(curve(contour, i), False)
+        if math.degrees(math.acos(max(-1, min(1, a[0] * b[0] + a[1] * b[1])))) > 12:
+            result.append('corner')
+            continue
+        angle = math.degrees(math.atan2(a[1] + b[1], a[0] + b[0]))
+        near = lambda deg: abs((angle - deg + 540) % 360 - 180) < 2.5
+        result.append('level+' if near(0) else 'level-' if near(180) else 'upright+' if near(90) else 'upright-' if near(-90) else 'free')
+    return result
+
+
+def anchored(contours):
+    """The contours started at the same corner or extreme, with their anchors in order, where every contour has the
+    same run of corners and extremes; None otherwise."""
+    marked = [kinds(c) for c in contours]
+    runs = [[i for i, k in enumerate(ks) if k != 'free'] for ks in marked]
+    if not runs[0] or any(len(r) != len(runs[0]) for r in runs):
+        return None
+    reference = [marked[0][i] for i in runs[0]]
+    box0 = bounds([contours[0]])
+    out = []
+    for contour, ks, run in zip(contours, marked, runs):
+        box = bounds([contour])
+        place = lambda c, i, b: [(c[i][0] - b[0]) / max(1, b[2] - b[0]), (c[i][1] - b[1]) / max(1, b[3] - b[1])]
+        best = None
+        for shift in range(len(run)):
+            order = run[shift:] + run[:shift]
+            if [ks[i] for i in order] != reference:
+                continue
+            cost = sum(math.dist(place(contour, i, box), place(contours[0], j, box0)) for i, j in zip(order, runs[0]))
+            if best is None or cost < best[0]:
+                best = (cost, order)
+        if best is None:
+            return None
+        start = best[1][0]
+        out.append((contour[start:] + contour[:start], [(i - start) % len(contour) for i in best[1]]))
+    return out
+
+
 def compatible(drawings):
     """Exact curve subdivision gives every cell a common approximate-arclength chart.
 
@@ -195,8 +252,9 @@ def compatible(drawings):
     outputs = [[] for _ in ordered]
     for ci in range(count):
         contours = [cs[ci] for cs in ordered]
-        # A direct compatible chart retains the original authoring node structure.
-        if len({len(c) for c in contours}) == 1:
+        # A direct compatible chart retains the original authoring node structure (aligned: only where every point is
+        # the same kind as its partner).
+        if len({len(c) for c in contours}) == 1 and not (ALIGNED and len({tuple(kinds(c)) for c in contours}) > 1):
             first = contours[0]
             def normalized(contour):
                 b = bounds([contour])
@@ -208,8 +266,24 @@ def compatible(drawings):
                 contour = contour[offset:] + contour[:offset]
                 outputs[i].append(pack([curve(contour, k) for k in range(len(contour))]))
             continue
-        contours = [canonical_start(c) for c in contours]
+        charted = anchored(contours) if ALIGNED else None
+        contours = [c for c, _ in charted] if charted else [canonical_start(c) for c in contours]
         tables = [path_table(c) for c in contours]
+        if charted:
+            # each contour's arc length laid on the first's piecewise between anchors, so anchors share their cuts
+            def chart(ends, anchors, reference):
+                knots = [ends[i] for i in anchors] + [1]
+                goals = [reference[0][i] for i in reference[1]] + [1]
+                def forward(s):
+                    k = max(j for j in range(len(knots) - 1) if knots[j] <= s + 1e-15)
+                    return goals[k] + (s - knots[k]) / max(1e-20, knots[k + 1] - knots[k]) * (goals[k + 1] - goals[k])
+                def backward(u):
+                    k = max(j for j in range(len(goals) - 1) if goals[j] <= u + 1e-15)
+                    return knots[k] + (u - goals[k]) / max(1e-20, goals[k + 1] - goals[k]) * (knots[k + 1] - knots[k])
+                return forward, backward
+            reference = (tables[0][1], charted[0][1])
+            charts = [chart(ends, anchors, reference) for (_, ends), (_, anchors) in zip(tables, charted)]
+            tables = [([(forward(s), i, t) for s, i, t in table], [forward(e) for e in ends]) for (table, ends), (forward, _) in zip(tables, charts)]
         cuts = sorted(set(round(t, 12) for _, ends in tables for t in ends))
         for oi, (contour, (table, ends)) in enumerate(zip(contours, tables)):
             def locate(value, si):
@@ -590,7 +664,9 @@ def main():
     parser.add_argument('--out', required=True)
     parser.add_argument('--upstream-dir', default=os.environ.get('TYPELAB_MASTER_UPSTREAM', str(ROOT / '.tools/master-upstream')))
     parser.add_argument('--style', help='Optional comma-separated style names')
+    parser.add_argument('--aligned', default='', help='Comma-separated styles whose cells are charted from their corners and extremes')
     args = parser.parse_args()
+    global ALIGNED
     inventory = json.loads((ROOT / 'tools/masters/upstream.json').read_text())
     targets = json.loads((ROOT / 'tools/authored/mark-recipes.json').read_text())['characters']
     entries = json.loads(Path(args.input).read_text())
@@ -599,6 +675,7 @@ def main():
     for entry in entries:
         if args.style and entry['base']['fontId'].split(':')[0] not in args.style.split(','):
             continue
+        ALIGNED = entry['base']['fontId'].split(':')[0] in args.aligned.split(',')
         data, evidence = author(entry, inventory, targets, Path(args.upstream_dir))
         name = entry['base']['fontId'].split(':')[0]
         (directory / (name + '.json')).write_text(json.dumps(data, separators=(',', ':')) + '\n')

@@ -48,4 +48,6 @@ Inline and Wireframe (docs/architecture/source-inline.md), Ink traps (docs/archi
 
 Round and square dots (docs/architecture/source-dots.md): measure with `node --import tsx tools/authored/build-dots.ts` (`--report` prints the measures, `--check` verifies `fonts/dots/manifest.json`), then add them with `build-programs.ts --dots fonts/dots/manifest.json`.
 
+Repaired weights (Compass and Kernel, docs/architecture/weight-masters.md): rebuild the package with `sample-masters.ts ... --aligned` (`rebuild-masters.py Compass Kernel`), carry it onto the published basis with `node --import tsx tools/authored/repair-weight-masters.ts <Family> <package.json> <out>`, and publish in the order master-basis-revisions.md gives; marks and forms take `--aligned <families>`.
+
 Additional `--features <asset.json>` arguments can join the same run. Changes are composed in argument order and only the final program for each family is published. Component selection requires the exact current weight and width bases. Historical program files remain immutable. `--check` validates the same result without writing; it is a separate verification step.

@@ -1,5 +1,6 @@
 /* Fit pinned upstream alternate letters to each style's own drawings and publish them as letter forms. --check
-   verifies the published forms, and that the candidate still compiles to them where it is present. */
+   verifies the published forms, and that the candidate still compiles to them where it is present; --style Compass,Kernel
+   publishes only those families' forms, from a candidate extracted for them alone. */
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -18,7 +19,8 @@ import { PUBLISHED_FORMS, type FormRecipe } from './form-recipes';
 import { COTTON_WIDTH, fitWidth, widthCurve, widthField, widthFitError, widthMap, widthNodes, type LocalWidthRecipe } from './local-width-masters';
 
 const root = fileURLToPath(new URL('../..', import.meta.url)), check = process.argv.includes('--check');
-const candidateFile = process.argv.slice(2).find(arg => !arg.startsWith('--')) ?? resolve(root, '.audit/forms/alternates.json');
+const styleArg = process.argv.indexOf('--style'), only = styleArg < 0 ? null : process.argv[styleArg + 1]?.split(',') ?? [];
+const candidateFile = process.argv.slice(2).find((arg, i, all) => !arg.startsWith('--') && all[i - 1] !== '--style') ?? resolve(root, '.audit/forms/alternates.json');
 const hash = (bytes: string) => createHash('sha256').update(bytes).digest('hex');
 function readAsset(directory: string, digest: string): unknown {
   const bytes = readFileSync(resolve(root, 'fonts', directory, digest + '.json'), 'utf8');
@@ -198,7 +200,8 @@ const manifest: FormManifestEntry[] = existsSync(manifestFile) ? JSON.parse(read
 if (!check) mkdirSync(dir, { recursive: true });
 if (existsSync(candidateFile)) {
   const candidate: { forms: CandidateForm[] } = JSON.parse(readFileSync(candidateFile, 'utf8'));
-  for (const published of PUBLISHED_FORMS) {
+  // --style: only these families' forms, from a candidate extracted for them alone
+  for (const published of PUBLISHED_FORMS.filter(form => !only || only.includes(form.style))) {
     const form = candidate.forms.find(f => f.recipe.style === published.style && f.recipe.glyph === published.glyph && f.recipe.id === published.id);
     if (!form) throw Error(`${published.style} ${published.glyph} ${published.id}: missing from the candidate`);
     const data = author(form), bytes = JSON.stringify(data) + '\n', digest = hash(bytes), file = resolve(dir, digest + '.json');

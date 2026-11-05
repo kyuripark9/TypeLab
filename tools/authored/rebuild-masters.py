@@ -11,8 +11,9 @@ RECIPES = {
     'Cotton': ('sample-masters.ts', '200,300,400,500,600'),
     'Gumdrop': ('sample-masters.ts', '500,600,700'),
     'Jotter': ('sample-masters.ts', '400,500'),
-    'Kernel': ('sample-masters.ts', '450,500,600'),
-    'Compass': ('sample-masters.ts', '300,400,450'),
+    # static upstream weights whose points sit in different places: matched by their corners and extremes
+    'Kernel': ('sample-masters.ts', '450,500,600', '--aligned'),
+    'Compass': ('sample-masters.ts', '300,400,450', '--aligned'),
     'Dispatch': ('sample-masters.ts', '400,600'),
     'Turnpike': ('local-masters.mjs', ''),
     'Funnies': ('local-masters.mjs', ''),
@@ -32,7 +33,7 @@ if __name__ == '__main__':
     destination = Path(args.out)
     destination.mkdir(parents=True, exist_ok=True)
     for style in selected:
-        script, weights = RECIPES[style]
+        script, weights, *flags = RECIPES[style]
         source = next(Path('fonts').glob(style + '-*.json'))
         extracted = destination / (style + '-extracted.json')
         output = destination / (style + '-package.json')
@@ -45,4 +46,5 @@ if __name__ == '__main__':
                   str(source), str(extracted), str(output)]
         if weights:
             author.append(weights)
+        author += flags
         subprocess.run(author, check=True)

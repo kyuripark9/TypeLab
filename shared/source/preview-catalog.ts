@@ -4043,6 +4043,32 @@ export const PREVIEW_FONTS: readonly PreviewFontInfo[] = [
     "ascent": 700,
     "descent": 280,
     "endCorrections": {}
+  },
+  {
+    "styleId": "geometric",
+    "source": {
+      "kind": "program-v1",
+      "digest": "943555683172e6192863a95ded9d98a592ad88d29289f07f0587c30577899659",
+      "fontId": "Compass:300"
+    },
+    "paramsDigest": "cf0689eabcbd533afa199c99a4e94a3086d3f0cb613555bbc0b9f497c30cb473",
+    "digest": "9fe86ba271baca632654878c9805045a37959fc8f66b185b5fd7bfd491c10303",
+    "ascent": 708,
+    "descent": 283.2,
+    "endCorrections": {}
+  },
+  {
+    "styleId": "code",
+    "source": {
+      "kind": "program-v1",
+      "digest": "8bea9f5a9c2b414a9d2fa832ed4c1160f95e5c0fd960b0698cfa4eb02a72bfb1",
+      "fontId": "Kernel:500"
+    },
+    "paramsDigest": "5ff9f03e1af3ca94cd90b39ca3aedf22bbb47a0e62a24e6efb859b990980ded3",
+    "digest": "7a24e93d41feb0feee4dd89c2ac90c5952f3aa83432c4ca2524b608a96a25c97",
+    "ascent": 698,
+    "descent": 279.2,
+    "endCorrections": {}
   }
 ];
 

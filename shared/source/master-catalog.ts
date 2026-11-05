@@ -636,6 +636,36 @@ export const MASTER_REVISIONS: readonly MasterInfo[] = [
     "min": 100,
     "max": 700,
     "defaultWeight": 700
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "7474f7f33e65de6d22363f481cc7294d3c39de41f9c1d18e671a87f64875bf73",
+      "fontId": "Compass:300"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "552a68b0a230d7344c6e538c0367d4a4182fef80ef3085034f676d50f3c93baf",
+      "fontId": "Compass:300"
+    },
+    "min": 300,
+    "max": 450,
+    "defaultWeight": 300
+  },
+  {
+    "ref": {
+      "kind": "masters-v1",
+      "digest": "9addbb3907d8d2ece5f6228b057cd85451b5446853c33a3702948aff712653fa",
+      "fontId": "Kernel:500"
+    },
+    "source": {
+      "kind": "outline-v1",
+      "digest": "148815302716f99a57ce4ee13edc167fa5fee3baa81387b705a22f200a375cb2",
+      "fontId": "Kernel:500"
+    },
+    "min": 450,
+    "max": 600,
+    "defaultWeight": 500
   }
 ];
 export function masterInfo(ref: SourceRef | null): MasterInfo | undefined {

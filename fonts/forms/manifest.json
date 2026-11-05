@@ -238,5 +238,65 @@
     "glyph": "g",
     "id": "ss02",
     "label": "One-storey"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "b6bb0f01d8ea0ab65f49467ed90fb3a159526f9597c8c0f3a14d21b771bc93e3",
+      "fontId": "Compass:300"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "7474f7f33e65de6d22363f481cc7294d3c39de41f9c1d18e671a87f64875bf73",
+      "fontId": "Compass:300"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "c3624b20ba67dddbc6aa81b5e3e2eb485b3e7e94203e9430cb9e2c996ae2df3d",
+      "fontId": "Compass:300"
+    },
+    "glyph": "a",
+    "id": "ss02",
+    "label": "Two-storey"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "39661e16e018ce8a8c4b820c98256f5d62fd0a7391b626ff5e08b3a8f621e6e8",
+      "fontId": "Kernel:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "9addbb3907d8d2ece5f6228b057cd85451b5446853c33a3702948aff712653fa",
+      "fontId": "Kernel:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "69f4818f6907ce6c48a9f7fc0c55edf579c76cb70ac3114d4ecde5415dc58334",
+      "fontId": "Kernel:500"
+    },
+    "glyph": "a",
+    "id": "ss01",
+    "label": "One-storey"
+  },
+  {
+    "ref": {
+      "kind": "glyph-form-masters-v1",
+      "digest": "1b56b61a8dde84770ec18c6dfb42b660127a54b4c1070699ffb2d7fac4999d7b",
+      "fontId": "Kernel:500"
+    },
+    "base": {
+      "kind": "masters-v1",
+      "digest": "9addbb3907d8d2ece5f6228b057cd85451b5446853c33a3702948aff712653fa",
+      "fontId": "Kernel:500"
+    },
+    "width": {
+      "kind": "width-masters-v1",
+      "digest": "69f4818f6907ce6c48a9f7fc0c55edf579c76cb70ac3114d4ecde5415dc58334",
+      "fontId": "Kernel:500"
+    },
+    "glyph": "g",
+    "id": "ss02",
+    "label": "One-storey"
   }
 ]

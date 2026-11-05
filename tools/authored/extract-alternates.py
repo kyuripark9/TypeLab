@@ -48,7 +48,7 @@ def feature_label(font, feature):
     return None
 
 
-def prepare_forms(result, recipes):
+def prepare_forms(result, recipes, aligned=()):
     spec = importlib.util.spec_from_file_location('mark_authoring', Path(__file__).with_name('extract-marks.py'))
     authoring = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(authoring)
@@ -74,6 +74,7 @@ def prepare_forms(result, recipes):
         if len(set(coordinates)) != len(coordinates):
             raise ValueError(f'{recipe}: ambiguous native coordinates')
         before = [[len(contour) for contour in cell['drawing']['contours']] for cell in cells]
+        authoring.ALIGNED = recipe['style'] in aligned
         contours = authoring.compatible([cell['drawing']['contours'] for cell in cells])
         for cell, compatible in zip(cells, contours):
             cell['drawing']['contours'] = compatible
@@ -83,7 +84,7 @@ def prepare_forms(result, recipes):
     return forms
 
 
-def extract(upstream, inventory, output, programs=None, recipes=None):
+def extract(upstream, inventory, output, programs=None, recipes=None, aligned=()):
     pinned = json.loads(Path(inventory).read_text())
     families = pinned['families']
     targets = program_targets(programs)
@@ -182,7 +183,7 @@ def extract(upstream, inventory, output, programs=None, recipes=None):
     if recipes:
         if not programs:
             raise ValueError('--recipes requires --programs')
-        result['forms'] = prepare_forms(result, json.loads(Path(recipes).read_text()))
+        result['forms'] = prepare_forms(result, json.loads(Path(recipes).read_text()), aligned)
     destination = Path(output)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(result, separators=(',', ':')) + '\n')
@@ -197,5 +198,6 @@ if __name__ == '__main__':
     parser.add_argument('--out', required=True)
     parser.add_argument('--programs', help='Published program manifest; extract every current weight knot and native width column')
     parser.add_argument('--recipes', help='Explicit selected forms; compile their native cells to one exact common curve chart')
+    parser.add_argument('--aligned', default='', help='Comma-separated styles whose cells are charted from their corners and extremes')
     args = parser.parse_args()
-    extract(args.upstream, args.inventory, args.out, args.programs, args.recipes)
+    extract(args.upstream, args.inventory, args.out, args.programs, args.recipes, tuple(args.aligned.split(',')) if args.aligned else ())

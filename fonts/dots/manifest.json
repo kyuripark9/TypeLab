@@ -263,17 +263,17 @@
     "fontId": "Compass:300",
     "base": {
       "kind": "masters-v1",
-      "digest": "3bf17805dbf19fc4766a2b53da2cf5b400bfa19fd1560a5e1296f4fde00d47f8",
+      "digest": "7474f7f33e65de6d22363f481cc7294d3c39de41f9c1d18e671a87f64875bf73",
       "fontId": "Compass:300"
     },
     "width": {
       "kind": "width-masters-v1",
-      "digest": "692ef6a1d7e545f0f7da2ef2b512dd500c334d89599fdb3c9eb7a84e3223fbae",
+      "digest": "c3624b20ba67dddbc6aa81b5e3e2eb485b3e7e94203e9430cb9e2c996ae2df3d",
       "fontId": "Compass:300"
     },
     "components": {
       "kind": "source-components-v1",
-      "digest": "78e72d64a2be264965cbfb3ca8f415ae5bda54a131e7af1571d35fb86e645bf6",
+      "digest": "c823e6acfcb5bfd2587960350d4ae677f5a87f92261930e4f027761d4955f50d",
       "fontId": "Compass:300"
     },
     "dots": {
@@ -337,17 +337,17 @@
     "fontId": "Kernel:500",
     "base": {
       "kind": "masters-v1",
-      "digest": "e297ac982b3c497021a5c14609fb0a51487d38cf071b40531b78b2e792bb023e",
+      "digest": "9addbb3907d8d2ece5f6228b057cd85451b5446853c33a3702948aff712653fa",
       "fontId": "Kernel:500"
     },
     "width": {
       "kind": "width-masters-v1",
-      "digest": "4f69862ce989ddc287ea2c59fc09802b151c8f584c95950229e520fca889eb20",
+      "digest": "69f4818f6907ce6c48a9f7fc0c55edf579c76cb70ac3114d4ecde5415dc58334",
       "fontId": "Kernel:500"
     },
     "components": {
       "kind": "source-components-v1",
-      "digest": "3232b948d053239b87a91ad858ae1923e0f2144ba7f8cc660cbcee3ea1e262a8",
+      "digest": "9cd3020de41c8880f3ff11b09838e2ec6e92a1495390ac1db173ee809184eb07",
       "fontId": "Kernel:500"
     },
     "dots": {

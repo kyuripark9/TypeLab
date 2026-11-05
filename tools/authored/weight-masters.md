@@ -20,13 +20,15 @@ Append family names to rebuild a subset. Set `TYPELAB_MASTER_UPSTREAM` or pass `
 | Cotton | 200–600 | Upstream deltas with contour correspondence |
 | Gumdrop | 500–700 | Upstream deltas with contour correspondence |
 | Jotter | 400–500 | Upstream deltas with contour correspondence |
-| Kernel | 450–600 | Upstream deltas; 450 is between authored instances |
-| Compass | 300–450 | Upstream deltas; 450 is between authored instances |
+| Kernel | 450–600 | Upstream deltas matched by corners and extremes (`--aligned`); 450 is between authored instances |
+| Compass | 300–450 | Upstream deltas matched by corners and extremes (`--aligned`); 450 is between authored instances |
 | Dispatch | 400–600 | Upstream deltas with serif gap constraints |
 | Turnpike | 400–600 | Newly authored local weight drawings |
 | Funnies | 300–500 | Newly authored local weight drawings |
 
 `transfer-masters.ts` matches contour assignment, winding and cyclic start positions, then adds authored upstream deltas to the edited source. Missing handles become degenerate cubic handles without changing the source ink. `sample-masters.ts` uses monotone contour correspondence where source edits or static-font optimization changed the node counts. The ranges stop before the wider variants introduce closed gaps or spurious fragments.
+
+Static upstream weights can keep the same number of points in different places (Poppins's s at 300 and 400), so a count says nothing about which points match. Matching them by count, or by arc length where counts differ, moved points by other points' motion and drew dents, flags, tapering stems and tilted baselines into Compass's 400 and 450 and Kernel's 450 and 600. `sample-masters.ts --aligned` (`node-alignment.ts`) redraws each upstream weight on the default weight's points first: corners pair with corners and curve extremes with extremes running the same way, in contour order, and every other point keeps its share of the curve between them; pieces inside one upstream curve are cut from it exactly, pieces spanning several fitted with their end directions kept (at most 3 units off). Where the sheet keeps other points than the upstream default (Compass's 3, f, parentheses and braces), its points are matched the same way, within each contour's bounds where the sheet stretched the letter. `repair-weight-masters.ts` carries the repaired packages onto the published bases (below).
 
 The repairs are explicit recipes:
 

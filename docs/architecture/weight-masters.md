@@ -4,7 +4,7 @@ All 22 bundled outline families have compatible weight masters for the full 127-
 
 Each `weight-masters-v1` package records its original `outline-v1` reference, default weight, compatible drawings, provenance, licenses, and authoring notes. Publication creates an immutable `masters-v1` snapshot under `fonts/masters/<sha256>.json`. The historical files in `fonts/` and `fonts/sources/` remain unchanged, so saved designs retain their original geometry.
 
-The catalog now has 24 revisions for these 22 families. Cotton adds exact shared curve cuts for its local width drawings, and Gumdrop repairs H's left-stem winding. Their original weight ranges and curves remain available. [Master basis revisions](master-basis-revisions.md) describes the exact maps that carry older Points edits into these new representations.
+The catalog now has 26 revisions for these 22 families. Cotton adds exact shared curve cuts for its local width drawings, and Gumdrop repairs H's left-stem winding. Compass and Kernel repair their weights away from the default, which had been transferred through mismatched upstream points (below). Their original weight ranges and curves remain available. [Master basis revisions](master-basis-revisions.md) describes the exact maps that carry older Points edits into these new representations.
 
 ## Coverage
 
@@ -17,7 +17,7 @@ An **upstream transfer** adds the original designer's weight deltas to TypeLab's
 | Boardwalk | Pacifico | 400 | 300–500 | Local variants |
 | Bulwark | Bundled Bulwark drawings | 700 | 100–700 | Existing authored weights |
 | Cathedral | UnifrakturMaguntia | 400 | 300–500 | Local variants |
-| Compass | Poppins | 300 | 300–450 | Upstream transfer |
+| Compass | Poppins | 300 | 300–450 | Upstream transfer, points matched by corners and extremes |
 | Cotton | Nunito | 300 | 200–600 | Upstream transfer |
 | Couture | Playfair Display | 600 | 500–700 | Upstream transfer |
 | Dispatch | Courier Prime | 400 | 400–600 | Upstream transfer |
@@ -25,7 +25,7 @@ An **upstream transfer** adds the original designer's weight deltas to TypeLab's
 | Gumdrop | Fredoka | 700 | 500–700 | Upstream transfer |
 | Hearth | Roboto Slab | 600 | 300–800 | Upstream transfer |
 | Jotter | Caveat | 400 | 400–500 | Upstream transfer |
-| Kernel | IBM Plex Mono | 500 | 450–600 | Upstream transfer |
+| Kernel | IBM Plex Mono | 500 | 450–600 | Upstream transfer, points matched by corners and extremes |
 | Mainline | Roboto | 600 | 300–800 | Upstream transfer |
 | Orbital | Unbounded | 600 | 300–700 | Upstream transfer |
 | Parlance | Open Sans | 500 | 300–800 | Upstream transfer |
@@ -58,6 +58,7 @@ These changes belong to the new master packages. They do not overwrite the origi
 - Cathedral's missing minus reuses an equals bar. Divide adds two scaled colon dots. Backslash mirrors the slash within its advance, correcting the original direction and oversized outline.
 - Bulwark gains collapsed segments to make j and parentheses compatible. The 600 and 700 single guillemet notches are repaired. Double guillemets use two 190-unit chevrons with a 24-unit gap. The 800 and 900 drawings are excluded because their counters fail review.
 - Gumdrop's later basis revision reverses H contour 2, preserving its exact curves while removing the canceled overlap at the left bar attachment. The older master and width snapshots retain their original winding.
+- Compass's 400 and 450 and Kernel's 450 and 600 were transferred from static upstream weights matched point for point by count, though those weights keep their points in different places: 36 of Compass's letters (c e g m n s u, 2 3 6 8 9, B G P R U and punctuation) and 38 of Kernel's drew dents, flags, tapering stems and tilted baselines there, and Verticals, Horizontals and Contrast, which take a letter's widths and heights from two weights, showed them at any weight. Their repaired bases keep the default weight, every advance and every point; only those letters change, only at the other weights, and only as the matched upstream motion says (no smooth point turns a corner, no level or upright edge tilts; tests/weight-repair.test.ts). The width drawings are recompiled through the same field, and the accent marks and letter forms charted by their corners and extremes too (source-marks.md, source-forms.md). The maps from the earlier bases name the redrawn letters (`redrawn`, master-basis-revisions.md), so saved designs are offered the repair.
 
 ## Reconstruct the packages
 
