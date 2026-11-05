@@ -2,7 +2,7 @@
 
 A saved Points edit identifies an anchor by its master digest, glyph, contour, source segment, and parameter. Adding curve cuts or reversing a contour changes that identity even when the curve stays exact. A new master package therefore needs an explicit correspondence map before older edits can adopt it.
 
-Cotton's local width drawings use common curve cuts across all five weights. Gumdrop's H repair reverses its left-stem contour at all three weights. Compass's and Kernel's repairs redraw letters at their weights away from the default (weight-masters.md). All are published separately from their original masters. The catalog contains 26 revisions for 22 styles; all older source, master, width, and program files remain unchanged.
+Cotton's local width drawings use common curve cuts across all five weights. Gumdrop's H repair reverses its left-stem contour at all three weights. Compass's and Kernel's repairs redraw letters at their weights away from the default, and the seven local-variant families (Turnpike, Funnies, Ballyhoo, Boardwalk, Cathedral, Serenade, Timber) have a repair each that redraws their lighter and heavier weights smoothly ([weight masters](weight-masters.md#smoothed-local-variants)). All are published separately from their original masters. The catalog contains 51 revisions for 22 styles; all older source, master, width, and program files remain unchanged.
 
 ## Exact correspondence
 

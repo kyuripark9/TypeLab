@@ -1,5 +1,7 @@
 /* Designed widths through the real renderer, saved point edits, and installable exports. */
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import { ALL_CHARS, buildFont, packNode } from '../shared/engine';
 import { cmdsBox } from '../shared/engine/geom';
@@ -76,7 +78,22 @@ describe('designed width interpolation', () => {
 
 describe('published source programs', () => {
   it('preserves the complete weight family at neutral and draws every glyph across width and height corners', () => {
-    for (const definition of PROGRAM_REVISIONS) {
+    // every revision of every family, each family in a process of its own: what a process loads stays loaded, and all
+    // the published weight and width drawings together outgrow one
+    const selected = process.env.TYPELAB_WIDTH_FAMILY;
+    if (!selected) {
+      const failures: string[] = [];
+      for (const fontId of new Set(PROGRAM_REVISIONS.map(entry => entry.ref.fontId))) {
+        const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('NODE_TEST_')));
+        const result = spawnSync(process.execPath, ['--max-old-space-size=1536', '--import', 'tsx', '--test',
+          '--test-name-pattern=preserves the complete weight family', fileURLToPath(import.meta.url)], {
+          encoding: 'utf8', env: { ...environment, TYPELAB_WIDTH_FAMILY: fontId }, maxBuffer: 8 * 1024 * 1024,
+        });
+        if (result.status !== 0 || !result.stdout.includes('preserves the complete weight family')) failures.push(`${fontId}: ${result.stdout.slice(-3000)}\n${result.stderr.slice(-3000)}`);
+      }
+      assert.deepEqual(failures, []); return;
+    }
+    for (const definition of PROGRAM_REVISIONS.filter(entry => entry.ref.fontId === selected)) {
       const { program, params, info } = family(definition.ref.fontId, definition.ref);
       for (const weight of [0, .37, 1]) {
         const original = buildFont({ ...params, sourceProgram: info.ref, width: DEFAULTS.width, freeAt: { ...params.freeAt, width: DEFAULTS.width }, weight });

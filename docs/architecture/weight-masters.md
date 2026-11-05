@@ -4,7 +4,7 @@ All 22 bundled outline families have compatible weight masters for the full 127-
 
 Each `weight-masters-v1` package records its original `outline-v1` reference, default weight, compatible drawings, provenance, licenses, and authoring notes. Publication creates an immutable `masters-v1` snapshot under `fonts/masters/<sha256>.json`. The historical files in `fonts/` and `fonts/sources/` remain unchanged, so saved designs retain their original geometry.
 
-The catalog now has 26 revisions for these 22 families. Cotton adds exact shared curve cuts for its local width drawings, and Gumdrop repairs H's left-stem winding. Compass and Kernel repair their weights away from the default, which had been transferred through mismatched upstream points (below). Their original weight ranges and curves remain available. [Master basis revisions](master-basis-revisions.md) describes the exact maps that carry older Points edits into these new representations.
+The catalog now has 51 revisions for these 22 families. Cotton adds exact shared curve cuts for its local width drawings, and every family but Mainline and Parlance has such cuts for its widths; Gumdrop repairs H's left-stem winding. Compass and Kernel repair their weights away from the default, which had been transferred through mismatched upstream points (below), and the seven local-variant families redraw their lighter and heavier weights smoothly (below). Their original weight ranges and curves remain available. [Master basis revisions](master-basis-revisions.md) describes the exact maps that carry older Points edits into these new representations.
 
 ## Coverage
 
@@ -13,15 +13,15 @@ An **upstream transfer** adds the original designer's weight deltas to TypeLab's
 | TypeLab family | Original family | Default | Reviewed range | Method |
 | --- | --- | ---: | --- | --- |
 | Almanac | Libre Baskerville | 500 | 400–600 | Upstream transfer |
-| Ballyhoo | Abril Fatface | 400 | 300–500 | Local variants |
-| Boardwalk | Pacifico | 400 | 300–500 | Local variants |
+| Ballyhoo | Abril Fatface | 400 | 300–500 | Local variants, smoothed |
+| Boardwalk | Pacifico | 400 | 300–500 | Local variants, smoothed |
 | Bulwark | Bundled Bulwark drawings | 700 | 100–700 | Existing authored weights |
-| Cathedral | UnifrakturMaguntia | 400 | 300–500 | Local variants |
+| Cathedral | UnifrakturMaguntia | 400 | 300–500 | Local variants, smoothed |
 | Compass | Poppins | 300 | 300–450 | Upstream transfer, points matched by corners and extremes |
 | Cotton | Nunito | 300 | 200–600 | Upstream transfer |
 | Couture | Playfair Display | 600 | 500–700 | Upstream transfer |
 | Dispatch | Courier Prime | 400 | 400–600 | Upstream transfer |
-| Funnies | Comic Neue | 400 | 300–500 | Local variants |
+| Funnies | Comic Neue | 400 | 300–500 | Local variants, smoothed |
 | Gumdrop | Fredoka | 700 | 500–700 | Upstream transfer |
 | Hearth | Roboto Slab | 600 | 300–800 | Upstream transfer |
 | Jotter | Caveat | 400 | 400–500 | Upstream transfer |
@@ -29,10 +29,10 @@ An **upstream transfer** adds the original designer's weight deltas to TypeLab's
 | Mainline | Roboto | 600 | 300–800 | Upstream transfer |
 | Orbital | Unbounded | 600 | 300–700 | Upstream transfer |
 | Parlance | Open Sans | 500 | 300–800 | Upstream transfer |
-| Serenade | Great Vibes | 400 | 300–500 | Local variants |
+| Serenade | Great Vibes | 400 | 300–500 | Local variants, smoothed |
 | Sonnet | Playfair Display Italic | 400 | 400–500 | Upstream transfer |
-| Timber | Alfa Slab One | 400 | 300–500 | Local variants |
-| Turnpike | Barlow | 500 | 400–600 | Local variants |
+| Timber | Alfa Slab One | 400 | 300–500 | Local variants, smoothed |
+| Turnpike | Barlow | 500 | 400–600 | Local variants, smoothed |
 | Vellum | EB Garamond | 400 | 400–600 | Upstream transfer |
 
 The ranges stop before wider experiments produce closed gaps, fragments, or lost counters. Compass and Kernel use interpolated 450 endpoints. Playfair's math operators, slashes, and daggers retain their upstream fixed strokes. Couture's degree sign and Sonnet's bullet also stay fixed.
@@ -44,6 +44,12 @@ The transfer tools match contour assignment, winding, and cyclic starting points
 The seven local-variant families use a shared deformation of the plane around each glyph. Every overlapping component follows the same map. Exact Bézier subdivision at triangle boundaries lets the generator transform each curve piece with one affine map. The generator checks the determinant throughout interpolation and rejects a minimum below 0.05. The five single-weight originals use a separate positive affine stretch for slash and backslash, preserving their straight diagonal sides.
 
 Local variants keep their original vertical extent and left ink edge; advance follows the change in ink width. The single-weight generator rounds final coordinates to 0.00001 font unit. These ranges remain deliberately limited and require visual review. The map certificate establishes that the geometry does not fold, not that a design is typographically successful.
+
+## Smoothed local variants
+
+The triangle mesh broke every curve where it crossed a triangle edge: each piece moved by its own affine map, so the lighter and heavier drawings carried thousands of small kinks a weight (Turnpike's 400 and 600: about 10,700 against 1,029 in its own 500) and their straight edges zigzagged by up to 11 units. A repair revision of each family's newest base redraws them ([`tools/masters/smooth-masters.ts`](../../tools/masters/smooth-masters.ts)). Every point of the default drawing moves by the same ink field, evaluated at the point itself rather than at mesh vertices, and both of its handles move by the field's linear map there, so a smooth point stays smooth. Straight edges at least 20 units long return to the least-squares line through their moved points; a corner of up to 24 units between two of them keeps its shape and moves to where the new edges meet, as an offset would, so light corners no longer flare and heavy ones no longer round. A curve beside a moved edge end eases into the move over 24 units.
+
+Each weight's field amount is matched to the drawing it replaces by the ink of `HOnoaesd`, and every letter keeps its advance, so spacing and boldness are unchanged. Slash and backslash in the five single-weight families keep their affine drawings. Each package passes the topology review at every master and quarter (Cathedral has two sliver-only threshold crossings), and its `redrawn` maps from the newest and the first base let saved Points cross ([master basis revisions](master-basis-revisions.md)). Width columns are compiled on the new bases' own cuts, with sampled fit errors of at most 0.09 font units; components, marks and the H crossbar are republished on them by [`tools/masters/publish-smooth.ts`](../../tools/masters/publish-smooth.ts).
 
 ## Recorded repairs
 
