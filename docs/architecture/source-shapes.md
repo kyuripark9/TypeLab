@@ -8,13 +8,19 @@ the way the control's name says.
 ## Verticals and Horizontals
 
 Verticals and Horizontals (`vWeight`, `hWeight`) move the two weights that [Contrast](source-contrast.md) mixes:
-Verticals the weight the widths come from, Horizontals the weight the heights come from. Each reaches up to half the
-style's weight range either way, about the style's own. Where one runs out of authored weights, the other goes the
+Verticals the weight the widths come from, Horizontals the weight the heights come from. Each reaches up to a third of
+the style's weight range either way, about the style's own. Where one runs out of authored weights, the other goes the
 other way by the rest, so the uprights and the level strokes keep drawing apart all the way along.
 
-They are pinned as a program policy, `strokes: { format: 'source-strokes-v1', reach: 0.5 }`. It is published from
-`tools/authored/source-strokes.json` with `build-programs.ts --strokes`, and works with `strokeAxes` in
-`shared/source/contrast.ts`. They are part of a drawing's frame, like Weight and Contrast, so Points edits ride them.
+They are pinned as a program policy, `strokes: { format: 'source-strokes-v2', reach: 0.33, apart: 0.33 }`. It is
+published from `tools/authored/source-strokes.json` with `build-programs.ts --strokes`, and works with `strokeAxes` and
+`heldApart` in `shared/source/contrast.ts`. However Contrast, Verticals and Horizontals stack, the two weights stand no
+more than `apart` of the range apart: past it, each is drawn back toward the weight in use by the same share, so
+neither moves the other way from the Weight slider. The first programs' `source-strokes-v1` reached half the range
+with no such hold, so the three sliders together could set a light weight's heights on a heavy one's widths and tear
+bowls open at their stems ([source contrast](source-contrast.md)); designs saved on them draw as they did until they
+take up the newer program, which keeps what their sliders drew as far as it reaches. They are part of a drawing's
+frame, like Weight and Contrast, so Points edits ride them.
 
 ## The shape controls
 
@@ -98,7 +104,9 @@ letters with fractional coordinates.
 - **Programs.** Every program pins both policies. At the style's own settings the letters are exactly what the program
   before drew, and that program doesn't offer the controls.
 - **Verticals and Horizontals.** `strokeAxes` moves and overflows, Verticals thickens and thins Mainline's stems, and
-  Horizontals thickens E's arms.
+  Horizontals thickens E's arms. `heldApart` holds stacked settings to one slider's distance, toward the weight in use,
+  and Parlance at its lightest with Verticals Lighter, Horizontals Heavier and Contrast Reversed draws as Contrast
+  Reversed alone (its d, h, q and E).
 - **Curves.** Squareness squares O and leaves S, Box boxes O, and Facets cuts every curve into lines, finer lower down.
 - **Corners.** Roundness, Steps, Joins, Counters, Peaks and Bends each change what they should. A rounded style
   (Gumdrop) sharpens.

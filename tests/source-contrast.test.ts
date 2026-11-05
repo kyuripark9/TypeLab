@@ -53,7 +53,7 @@ describe('source contrast', () => {
   it('is pinned in every current program, and the style\'s own contrast draws what the program before it drew', () => {
     assert.equal(programForFont('Mainline:600')?.digest, of('Mainline:600').digest);
     for (const entry of current) {
-      assert.deepEqual(entry.data.contrast, { format: 'source-contrast-v1', reach: .5 }, entry.ref.fontId);
+      assert.deepEqual(entry.data.contrast, { format: 'source-contrast-v1', reach: .33 }, entry.ref.fontId);
       const now = buildFont(params(entry.ref)), then = buildFont(params(before(entry.ref.fontId).ref));
       for (const ch of 'HOeaij.') assert.deepEqual(now.glyph(ch)?.cmds, then.glyph(ch)?.cmds, `${entry.ref.fontId} ${ch}`);
     }
@@ -141,5 +141,23 @@ describe('source contrast', () => {
     const bold = familyMember({ ...p, contrast: 1 }, 'semibold', 'bold', false);
     assert.equal(bold.params.contrast, 1);
     assert.ok(buildFont(bold.params).glyph('H')!.drawn);
+  });
+
+  it('keeps the weights a design drew at half the range apart when it takes up the milder reach, as far as that goes', () => {
+    // the newest program whose Contrast, Verticals and Horizontals reached half the weight range
+    const wide = PROGRAM_REVISIONS.findLast(entry => entry.ref.fontId === 'Mainline:600' && entry.data.contrast?.reach === .5)!;
+    assert.equal(wide.data.strokes?.format, 'source-strokes-v1');
+    const near = (a: Drawn, b: Drawn, what: string) => a.contours.forEach((c, ci) => c.forEach((n, ni) =>
+      assert.ok(Math.hypot(n.x - b.contours[ci][ni].x, n.y - b.contours[ci][ni].y) < 1e-6, `${what} ${ci}:${ni}`)));
+    for (const set of [{ contrast: .582 / 2, glyphs: { n: { contrast: .582 * .8 } } }, { vWeight: .3 }, { hWeight: .75 }] as Partial<Params>[]) {
+      const older: Params = { ...params(wide.ref, .582), ...set };
+      assert.equal(programUpgrade(older.sourceProgram)?.program.ref.digest, of('Mainline:600').digest);
+      const adopted = adoptProgram(older)!;
+      loadDesignSources(adopted);
+      for (const ch of 'Hneo') near(buildFont(adopted).glyph(ch)!.drawn!, buildFont(older).glyph(ch)!.drawn!, `${JSON.stringify(set)} ${ch}`);
+    }
+    // a Contrast past the milder reach draws as far as it goes
+    const reversed = adoptProgram({ ...params(wide.ref, .582), contrast: .1 })!;
+    assert.equal(reversed.contrast, 0);
   });
 });

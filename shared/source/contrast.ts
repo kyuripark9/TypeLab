@@ -2,7 +2,8 @@
    strokes thin while the uprights stay; reversed, a heavier weight's, so they thicken past the uprights. The letters'
    widths, and so their spacing, stay. Where the weight in use leaves the level strokes too little room, the uprights
    take the rest the other way. Every point keeps its identity, so Points edits ride Contrast as they ride Weight, and
-   nothing is drawn past the authored weights. */
+   nothing is drawn past the authored weights, nor (with Verticals and Horizontals) two weights further apart than one
+   slider draws them. */
 import type { FreeFont } from '../engine/free';
 import type { Drawn } from '../engine/outline';
 
@@ -21,8 +22,18 @@ export function parseSourceContrast(input: unknown): SourceContrastPolicy {
   return { format: 'source-contrast-v1', reach: value.reach };
 }
 
-/** A newer policy reaches as far. */
-export const sourceContrastExtends = (before: SourceContrastPolicy, after: SourceContrastPolicy): boolean => after.reach === before.reach;
+/** A newer policy reaches as far, or less far: a design taking it up keeps the weights its Contrast drew, as far as the
+    newer reach goes (`rescaled`). */
+export const sourceContrastExtends = (before: SourceContrastPolicy, after: SourceContrastPolicy): boolean => after.reach <= before.reach;
+
+/** A slider's `value` about the style's own, `pick`, drawn `k` times as far from it, no further than the slider's end:
+    a design's settings taken from a policy reaching further to one reaching less far (`k`, the one's reach over the
+    other's) draw the weights they drew. */
+export function rescaled(value: number, pick: number, k: number): number {
+  if (value === pick || k === 1) return value;
+  const share = value > pick ? (value - pick) / (1 - pick || 1) : -(pick - value) / (pick || 1), to = Math.max(-1, Math.min(1, share * k));
+  return to >= 0 ? pick + to * (1 - pick) : pick + to * pick;
+}
 
 /** The weights the letters take their widths (`x`) and heights (`y`) from, drawn at `weight` with Contrast `value`
     about the style's own, `pick`: at either end `reach` of the range apart, the level strokes' weight moving as far as
@@ -58,16 +69,24 @@ export function mixAxes(across: FreeFont, up: FreeFont): FreeFont {
 
 /** Verticals and Horizontals (`vWeight`, `hWeight`) about the style's own: Verticals moves the weight the widths come
     from, Horizontals the heights', each up to `reach` of the style's weight range either way. Where one runs out of
-    authored weights, the other goes the other way by the rest, so the uprights and level strokes keep drawing apart. */
-export interface SourceStrokesPolicy { format: 'source-strokes-v1'; reach: number }
+    authored weights, the other goes the other way by the rest, so the uprights and level strokes keep drawing apart.
+    `source-strokes-v2` also holds the two weights no more than `apart` of the range apart, however Contrast,
+    Verticals and Horizontals add up: stacked, they had drawn them the whole range apart, where a light weight's heights
+    on a heavy one's widths tore bowls open at their stems. */
+export type SourceStrokesPolicy = { format: 'source-strokes-v1'; reach: number } | { format: 'source-strokes-v2'; reach: number; apart: number };
 export function parseSourceStrokes(input: unknown): SourceStrokesPolicy {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Invalid source strokes policy');
-  const value = Object.fromEntries(Object.entries(input));
-  if (value.format !== 'source-strokes-v1' || Object.keys(value).some(key => key !== 'format' && key !== 'reach')
-    || typeof value.reach !== 'number' || !(value.reach > 0 && value.reach <= 1)) throw new TypeError('Invalid source strokes policy');
-  return { format: 'source-strokes-v1', reach: value.reach };
+  const value = Object.fromEntries(Object.entries(input)), share = (v: unknown): v is number => typeof v === 'number' && v > 0 && v <= 1;
+  const keys = value.format === 'source-strokes-v1' ? ['format', 'reach'] : value.format === 'source-strokes-v2' ? ['format', 'reach', 'apart'] : null;
+  if (!keys || Object.keys(value).some(key => !keys.includes(key)) || !share(value.reach)) throw new TypeError('Invalid source strokes policy');
+  if (value.format === 'source-strokes-v1') return { format: 'source-strokes-v1', reach: value.reach };
+  if (!share(value.apart)) throw new TypeError('Invalid source strokes policy');
+  return { format: 'source-strokes-v2', reach: value.reach, apart: value.apart };
 }
-export const sourceStrokesExtend = (before: SourceStrokesPolicy, after: SourceStrokesPolicy): boolean => after.reach === before.reach;
+/** A newer policy reaches as far, or less far (a design taking it up keeps what its Verticals and Horizontals drew as far
+    as it goes, `rescaled`), and holds the weights as close together. */
+export const sourceStrokesExtend = (before: SourceStrokesPolicy, after: SourceStrokesPolicy): boolean => after.reach <= before.reach
+  && (after.format === 'source-strokes-v2' ? before.format === 'source-strokes-v1' || after.apart <= before.apart : before.format === 'source-strokes-v1');
 
 /** The widths' and heights' weights `at`, moved by Verticals `v` and Horizontals `h` about the style's own (`vPick`,
     `hPick`). */
@@ -84,4 +103,15 @@ export function strokeAxes(policy: SourceStrokesPolicy, at: { x: number; y: numb
   [x, y] = move(x, y, share(v, vPick) * policy.reach * span);
   [y, x] = move(y, x, share(h, hPick) * policy.reach * span);
   return { x, y };
+}
+
+/** The widths' and heights' weights `at`, under `source-strokes-v2` held no more than `apart` of the range apart: each
+    drawn back toward the weight in use (`weight`) by the same share, so neither turns the other way from the weight the
+    Weight slider draws. */
+export function heldApart(policy: SourceStrokesPolicy, at: { x: number; y: number }, weight: number,
+  range: { min: number; max: number }): { x: number; y: number } {
+  const gap = Math.abs(at.x - at.y);
+  if (policy.format === 'source-strokes-v1' || gap <= policy.apart * (range.max - range.min)) return at;
+  const k = policy.apart * (range.max - range.min) / gap;
+  return { x: weight + (at.x - weight) * k, y: weight + (at.y - weight) * k };
 }

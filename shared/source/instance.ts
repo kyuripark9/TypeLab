@@ -27,7 +27,7 @@ import { componentMembership, componentOwnership, componentPlan, mapComponents, 
 import { sourceMonoAdvance, spaceSourceDrawing, unspaceSourceDrawing, type SourceMonoPlan } from './spacing';
 import { omitMarkComponents, sourceMarkAnchor, sourceMarkDrawing } from './marks';
 import { dotShapeContour, shapeSourceDots, sourceDotShape } from './dots';
-import { contrastWeights, mixAxes, mixDrawn, strokeAxes } from './contrast';
+import { contrastWeights, heldApart, mixAxes, mixDrawn, strokeAxes } from './contrast';
 
 export interface SourceStatus { ref: SourceRef | ProgramAssetRef; state: 'missing' | 'ready'; missingCharacters: string[] }
 interface SourceInstance {
@@ -57,11 +57,13 @@ function formDrawing(form: GlyphForm, p: Params): Drawn {
   return mixDrawn(glyphFormDrawing(form, x, width), glyphFormDrawing(form, y, width));
 }
 
-/** The weights `p` draws its letters' widths (`x`) and heights (`y`) at: both its weight, but under Contrast. */
+/** The weights `p` draws its letters' widths (`x`) and heights (`y`) at: both its weight, but under Contrast, Verticals
+    and Horizontals, never further apart than its program holds them. */
 function strokeWeights(p: Params): { x: number; y: number } {
   const info = masterInfo(p.sourceProgram)!, weight = weightAt(p, info), program = programInfo(p.sourceProgram)?.data;
   const at = program?.contrast ? contrastWeights(program.contrast, weight, info, p.contrast, p.freeAt.contrast ?? DEFAULTS.contrast) : { x: weight, y: weight };
-  return program?.strokes ? strokeAxes(program.strokes, at, info, p.vWeight, p.freeAt.vWeight ?? DEFAULTS.vWeight, p.hWeight, p.freeAt.hWeight ?? DEFAULTS.hWeight) : at;
+  return program?.strokes ? heldApart(program.strokes, strokeAxes(program.strokes, at, info, p.vWeight, p.freeAt.vWeight ?? DEFAULTS.vWeight,
+    p.hWeight, p.freeAt.hWeight ?? DEFAULTS.hWeight), weight, info) : at;
 }
 
 /** `form`: the letter draws an alternate form, which the original letter's dot binding doesn't reach. */

@@ -1,6 +1,6 @@
-/* Verticals and Horizontals (`source-strokes-v1`) and the shape controls (`source-shapes-v1` in the finish policy) on
+/* Verticals and Horizontals (`source-strokes-v2`) and the shape controls (`source-shapes-v1` in the finish policy) on
    sources: each about the style's own, drawing what the program before drew there; the widths' and heights' weights
-   moved apart; round contours squared or boxed; facets; corners rounded, sharpened, stepped and cut flat; joins and
+   moved apart, and stacked with Contrast held no further apart than one slider draws them; round contours squared or boxed; facets; corners rounded, sharpened, stepped and cut flat; joins and
    counters filled; a waist pinched to a point at 100 (`source-pinch-v1`) on every stroke but a level one (an S's
    spine too), joins held (a K's arm on its stem), smooth round a bowl and whole at every height; serifs added to a sans; every stroke-end form (`source-ends-v1`); counters grown
    and shrunk and curving ends opened and closed (`source-insides-v1`); every style kept whole at strong settings;
@@ -13,7 +13,7 @@ import type { Cmd } from '../shared/engine/types';
 import { DEFAULTS, freeAtOf, type Params } from '../shared/params';
 import { adoptProgram } from '../shared/source/adoption';
 import { sourceSupports } from '../shared/source/capabilities';
-import { strokeAxes } from '../shared/source/contrast';
+import { heldApart, strokeAxes } from '../shared/source/contrast';
 import { sourceFinishPolygons, sourceFinishPrecision } from '../shared/source/finish';
 import { masterInfo } from '../shared/source/master-catalog';
 import { PROGRAM_REVISIONS, programInfo } from '../shared/source/program-catalog';
@@ -90,7 +90,7 @@ const glyph = (p: Params, ch: string) => buildFont(p).glyph(ch)!;
 describe('source strokes and shapes', () => {
   it('is pinned in every current program, and the style\'s own settings draw what the program before drew', () => {
     for (const entry of current) {
-      assert.deepEqual(entry.data.strokes, { format: 'source-strokes-v1', reach: .5 }, entry.ref.fontId);
+      assert.deepEqual(entry.data.strokes, { format: 'source-strokes-v2', reach: .33, apart: .33 }, entry.ref.fontId);
       assert.ok(entry.data.finish?.shapes, entry.ref.fontId);
       const p = params(entry.ref), older = params(before(entry.ref.fontId).ref);
       for (const key of ['vWeight', 'hWeight', ...SHAPE_CONTROLS] as const) {
@@ -112,6 +112,24 @@ describe('source strokes and shapes', () => {
     assert.ok(stem({ ...p, vWeight: 0 }) < stem(p) * .95);
     assert.ok(measure(glyph({ ...p, hWeight: 1 }, 'E').cmds).area > measure(glyph(p, 'E').cmds).area, 'Horizontals thickens the arms');
     void bar;
+  });
+
+  it('holds the two weights no further apart than one slider draws them, however Contrast, Verticals and Horizontals stack', () => {
+    const policy = { format: 'source-strokes-v2' as const, reach: .33, apart: .33 }, range = { min: 300, max: 800 };
+    assert.deepEqual(heldApart(policy, { x: 600, y: 435 }, 600, range), { x: 600, y: 435 }, 'one slider\'s reach stands');
+    const light = heldApart(policy, { x: 300, y: 795 }, 300, range);
+    assert.equal(light.x, 300); assert.ok(Math.abs(light.y - 465) < 1e-9, 'drawn back toward the weight in use');
+    const both = heldApart(policy, { x: 765, y: 435 }, 600, range);
+    assert.ok(Math.abs(both.x - both.y - 165) < 1e-9 && both.x > 600 && both.y < 600, 'neither turned the other way from it');
+    assert.deepEqual(heldApart({ format: 'source-strokes-v1', reach: .5 }, { x: 300, y: 800 }, 300, range), { x: 300, y: 800 }, 'an older program as it drew');
+    // Parlance at its lightest with its verticals lighter, horizontals heavier and contrast reversed drew a light weight's
+    // widths on its heaviest weight's heights, its bowls torn at their stems; now it draws as contrast reversed alone
+    const p = params(of('Parlance:500'));
+    for (const ch of 'dhqE') {
+      const stacked = glyph({ ...p, weight: 0, vWeight: 0, hWeight: 1, contrast: 0 }, ch).cmds.flat(), alone = glyph({ ...p, weight: 0, contrast: 0 }, ch).cmds.flat();
+      assert.equal(stacked.length, alone.length, ch);
+      stacked.forEach((v, i) => assert.ok(typeof v === 'string' ? v === alone[i] : Math.abs(v - (alone[i] as number)) < 1e-6, `${ch} ${i}`));
+    }
   });
 
   it('squares round contours, boxes them, and cuts curves into facets', () => {

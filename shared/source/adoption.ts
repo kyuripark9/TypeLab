@@ -10,7 +10,7 @@ import { END_CONTROLS, INSIDE_CONTROLS, SHAPE_CONTROLS } from './shapes';
 import { SERIF_CONTROLS } from './serifs';
 import { sourceSpacingExtends } from './spacing';
 import { sourceDotsExtend } from './dots';
-import { sourceContrastExtends, sourceStrokesExtend } from './contrast';
+import { rescaled, sourceContrastExtends, sourceStrokesExtend } from './contrast';
 
 export interface ProgramUpgrade { program: ProgramInfo; resetWidth: boolean }
 
@@ -141,6 +141,16 @@ export function adoptProgram(params: Params): Params | null {
     out.vWeight = out.freeAt.vWeight ?? DEFAULTS.vWeight; out.hWeight = out.freeAt.hWeight ?? DEFAULTS.hWeight;
     for (const own of Object.values(glyphs)) { delete own.vWeight; delete own.hWeight; }
   }
+  // Contrast, Verticals and Horizontals saved where they reached further keep the weights they drew, as far as the
+  // newer reach goes (stacked past what the newer program holds apart, they draw as far apart as it allows)
+  const rescale = (key: 'contrast' | 'vWeight' | 'hWeight', from: number | undefined, to: number | undefined) => {
+    if (from === undefined || to === undefined || from === to) return;
+    const pick = out.freeAt[key] ?? DEFAULTS[key];
+    out[key] = rescaled(out[key], pick, from / to);
+    for (const own of Object.values(glyphs)) { const value = own[key]; if (value !== undefined) own[key] = rescaled(value, pick, from / to); }
+  };
+  rescale('contrast', previous?.data.contrast?.reach, program.data.contrast?.reach);
+  for (const key of ['vWeight', 'hWeight'] as const) rescale(key, previous?.data.strokes?.reach, program.data.strokes?.reach);
   // a Dots value saved where the program had no shapes drew the style's own: it starts there
   if (program.data.dots && !previous?.data.dots) {
     out.dots = 'auto'; out.freeAt.dots = 'auto';
