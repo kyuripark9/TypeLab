@@ -32,7 +32,9 @@ export function programUpgrade(ref: SourceRef | null): ProgramUpgrade | null {
   if (previous?.data.dots && (!target.data.dots || !sourceDotsExtend(previous.data.dots, target.data.dots))) return null;
   if (previous?.data.contrast && (!target.data.contrast || !sourceContrastExtends(previous.data.contrast, target.data.contrast))) return null;
   if (previous?.data.strokes && (!target.data.strokes || !sourceStrokesExtend(previous.data.strokes, target.data.strokes))) return null;
-  if (previous?.data.forms?.some(choice => !target.data.forms?.some(next => next.ref.digest === choice.ref.digest))) return null;
+  // a form republished on a repaired basis (the same letter and id) is the same choice
+  if (previous?.data.forms?.some(choice => !target.data.forms?.some(next => next.ref.digest === choice.ref.digest
+    || previousBase.digest !== base.ref.digest && next.glyph === choice.glyph && next.id === choice.id))) return null;
   return { program: target, resetWidth: !!target.width && !previous?.width };
 }
 
@@ -43,6 +45,18 @@ export function adoptProgram(params: Params): Params | null {
   if (!info) return null;
   const previous = programInfo(original), glyphs = Object.fromEntries(Object.entries(params.glyphs).map(([ch, values]) => [ch, { ...values }]));
   const out: Params = { ...params, sourceProgram: program.ref, glyphs, freeAt: { ...params.freeAt } };
+  // the letters' forms, and the drawings waiting on them, move to the same forms republished on a repaired basis
+  const republished = new Map((previous?.data.forms ?? []).flatMap(choice => {
+    const next = program.data.forms?.find(form => form.glyph === choice.glyph && form.id === choice.id);
+    return next && next.ref.digest !== choice.ref.digest ? [[choice.ref.digest, next.ref] as const] : [];
+  }));
+  if (republished.size) {
+    out.sourceForms = Object.fromEntries(Object.entries(params.sourceForms).map(([ch, ref]) => [ch, republished.get(ref.digest) ?? ref]));
+    out.sourceFormEdits = Object.fromEntries(Object.entries(params.sourceFormEdits).map(([key, drawn]) => {
+      const at = key.indexOf(':'), next = republished.get(key.slice(0, at));
+      return [next ? `${next.digest}${key.slice(at)}` : key, drawn];
+    }));
+  }
   if (original.kind === 'outline-v1') {
     out.weight = (info.defaultWeight - info.min) / (info.max - info.min);
     out.freeAt.weight = out.weight;
@@ -99,6 +113,14 @@ export function adoptProgram(params: Params): Params | null {
         Object.assign(out, { [key]: out.freeAt[key] ?? DEFAULTS[key] });
         for (const values of Object.values(glyphs)) delete values[key];
       }
+    }
+    // a Pinch saved where the waist took a share of a stroke (60%) at 100 takes as deep a waist where it can take all
+    // of it, so the letters are as they were
+    const shaped = previous?.data.finish?.shapes, depth = program.data.finish.pinch?.depth;
+    if (shaped && depth && !previous?.data.finish?.pinch) {
+      const own = out.freeAt.pinch ?? DEFAULTS.pinch, keep = (v: number) => v > own ? own + (v - own) * shaped.pinch[0] / depth : v;
+      out.pinch = keep(out.pinch);
+      for (const values of Object.values(glyphs)) if (values.pinch !== undefined) values.pinch = keep(values.pinch);
     }
     if (program.data.finish.ends && !previous?.data.finish?.ends) for (const key of END_CONTROLS) {
       Object.assign(out, { [key]: out.freeAt[key] ?? DEFAULTS[key] });

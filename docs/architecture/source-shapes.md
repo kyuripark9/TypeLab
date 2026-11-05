@@ -25,7 +25,12 @@ clean editable drawing.
 ```ts
 shapes: { format: 'source-shapes-v1', square: 6, box: [24, 4], facet: 0.04, round: 0.06, step: 0.5, peak: 0.5,
           pinch: [0.6, 0.18], serif: [0.8, 0.55], tolerance: 0.1 }
+pinch: { format: 'source-pinch-v1', depth: 0.985, reach: 0.18 }
 ```
+
+The waist's own policy, `source-pinch-v1`, lets Pinch 100 take all but a thread of a stroke. A program without it keeps
+the shape policy's `pinch`, 60% of the stroke at 100; a design adopting the program with it has its Pinch scaled
+(by 0.6 / 0.985 above the style's own) so its waist is as deep as it was.
 
 | Control | What it draws |
 | --- | --- |
@@ -37,7 +42,7 @@ shapes: { format: 'source-shapes-v1', square: 6, box: [24, 4], facet: 0.04, roun
 | Steps | **Steps:** a square step is cut into each sharp outer corner, up to half the stroke. |
 | Peaks | **Peaks:** toward Flat, points sharper than 80° are cut flat, up to half the stroke deep. Toward Pointed, flat tops are carried back to the point their sides meet at. |
 | Bends | **Bends:** Round rounds each sharp inside corner where a stroke turns, and the outer corner across the stroke from it, as at the turns of Z, N, M and V. |
-| Pinch, Position | **Pinch:** every stroke is drawn in toward its middle round a height (Position, as a share of the cap height), up to 60% of its half-thickness, over 18% of the cap height either way. |
+| Pinch, Position | **Pinch:** the strokes narrow toward a level line (Position, as a share of the cap height) and swell out again over 18% of the cap height either way, to a point at 100 (a thread of 3–4% of the stroke, so the letter holds together). Each point of the outline moves level by the level part of a push toward its stroke's middle, so upright sides (stems, bowls' sides) narrow fully, slanting ones less, and level strokes (bars, the tops of bowls) keep their thickness; a bar on the waist runs on to meet its thinner stems. A stroke's half-width is the middle of the circles read along its outline within two stroke widths, so a read that fails at a kink, or shrinks toward an end, or swells at a join, takes the stroke's. Cut ends stay where they are cut (square or with rounded corners), and so do dots; a level cut narrows with its stroke. A join's corner goes where its two thinner sides meet, no further than half the ink they share. A letter whose strokes meet right on the line, drawn to a point, is drawn again with its joins held, then shallower, till it holds together. |
 | Serifs (shape, Length, Thickness, Angle, Bracket) | **Serifs:** on a style drawn without serifs, a foot is set across every flat end of an upright stroke. The shape is slab, bracketed, unbracketed, wedge or diamond. Length reaches up to 0.8 of the stroke's width either side, Thickness up to 0.55 of it, Angle slopes the top toward the tip, and Bracket curves a bracketed foot into the stroke. With the serif policy, Top serifs sizes those on top, Sides keeps one side's, and Balance reaches further to one side. On a style drawn with serifs, these reshape its own ([source serifs](source-serifs.md)). |
 
 ### Stroke ends
@@ -97,14 +102,17 @@ letters with fractional coordinates.
 - **Curves.** Squareness squares O and leaves S, Box boxes O, and Facets cuts every curve into lines, finer lower down.
 - **Corners.** Roundness, Steps, Joins, Counters, Peaks and Bends each change what they should. A rounded style
   (Gumdrop) sharpens.
-- **Pinch and serifs.** Pinch narrows H at the waist and leaves it elsewhere. Serifs give l a foot in each shape with
-  its advance kept, and a serif style keeps its own.
+- **Pinch and serifs.** Pinch narrows H at the waist and leaves it elsewhere; every program pins the pinch policy; an
+  l takes about half at 50 and comes to a thread at 100 about its middle (the program before, 40%); an H's bar on the
+  waist keeps its thickness and an E's middle arm its end; an O's side narrows smoothly toward the waist at 50, at 100
+  and at the heaviest weights; a design adopting the policy keeps as deep a waist. Serifs give l a foot in each shape
+  with its advance kept, and a serif style keeps its own.
 - **Stroke ends.** Every form changes the style's flat ends, the style's own form draws them as they are, balls go on
   c and not l, and each form's sliders move it.
 - **Inner space and Openness.** Small counters add ink to O and large ones take it, the a in @ stays, n is drawn as it
   was, and Openness opens and closes c.
-- **Every style.** In all 22 at strong settings of every control, letters are finite, keep their advance and don't
-  come apart.
+- **Every style.** In all 22 at strong settings of every control (Pinch at four heights), letters are finite, keep
+  their advance and don't come apart.
 - **Adoption and export.** Adoption starts at the style's own with the letters as they were, the editable drawing is
   kept, and export matches the preview.
 
@@ -128,5 +136,8 @@ Squareness, Box and Serifs on Gumdrop, Compass and Orbital.
   reshaped; with it they can ([source serifs](source-serifs.md)). Tips, Base and Inside serifs are not offered, and Arm
   serifs reaches only a serif style's own beaks.
 - **Sharpening.** Roundness only rounds, from the corners as drawn: a rounded style's corners can't be sharpened.
-- **Steps and Pinch.** At small sizes Steps reads as notches. Pinch thins every stroke at the height, curves included.
+- **Steps and Pinch.** At small sizes Steps reads as notches. Pinch keeps level strokes as they are, so a style's
+  S spine or e bar on the waist hardly thins. Where an arm meets its stem on the waist (K, k), the join slides down
+  the stem as both thin, which at 100 leaves the arm on a thread. Pinch costs about 1.4 times what the first
+  construction did (3 ms a letter on Mainline).
 - **Optical review.** Combinations of these controls, and with the effects, have had no optical review.

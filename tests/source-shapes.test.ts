@@ -1,7 +1,8 @@
 /* Verticals and Horizontals (`source-strokes-v1`) and the shape controls (`source-shapes-v1` in the finish policy) on
    sources: each about the style's own, drawing what the program before drew there; the widths' and heights' weights
    moved apart; round contours squared or boxed; facets; corners rounded, sharpened, stepped and cut flat; joins and
-   counters filled; a waist pinched; serifs added to a sans; every stroke-end form (`source-ends-v1`); counters grown
+   counters filled; a waist pinched, level, on upright and round strokes only, to a point at 100 (`source-pinch-v1`),
+   smooth round a bowl and whole at every height; serifs added to a sans; every stroke-end form (`source-ends-v1`); counters grown
    and shrunk and curving ends opened and closed (`source-insides-v1`); every style kept whole at strong settings;
    adoption and export. */
 import assert from 'node:assert/strict';
@@ -58,7 +59,21 @@ function across(cmds: Cmd[], y: number): number {
   return w;
 }
 
+/** The ink's level runs at `y` (or, `upright`, its upright runs at x = `y`), in order. */
+function runsAt(cmds: Cmd[], y: number, upright = false): [number, number][] {
+  const hits: number[] = [];
+  for (const poly of sourceFinishPolygons(cmds, .05)) poly.forEach((p, i) => {
+    const q = poly[(i + 1) % poly.length], [a, b, u, v] = upright ? [p.x, q.x, p.y, q.y] : [p.y, q.y, p.x, q.x];
+    if ((a - y) * (b - y) < 0) hits.push(u + (v - u) * (y - a) / (b - a));
+  });
+  hits.sort((a, b) => a - b);
+  const out: [number, number][] = [];
+  for (let i = 0; i + 1 < hits.length; i += 2) out.push([hits[i], hits[i + 1]]);
+  return out;
+}
+
 const current = [...new Map(PROGRAM_REVISIONS.map(entry => [entry.ref.fontId, entry])).values()];
+const beforePinch = (fontId: string) => PROGRAM_REVISIONS.findLast(entry => entry.ref.fontId === fontId && entry.data.finish?.shapes && !entry.data.finish.pinch)!;
 const before = (fontId: string) => PROGRAM_REVISIONS.findLast(entry => entry.ref.fontId === fontId && !entry.data.finish?.shapes && !entry.data.strokes)!;
 const beforeEnds = (fontId: string) => PROGRAM_REVISIONS.findLast(entry => entry.ref.fontId === fontId && !entry.data.finish?.ends)!;
 const of = (fontId: string) => current.find(entry => entry.ref.fontId === fontId)!.ref;
@@ -136,6 +151,45 @@ describe('source strokes and shapes', () => {
     assert.deepEqual(glyph(couture, 'l').cmds, glyph({ ...couture, serif: false, freeAt: { ...couture.freeAt, serif: false } }, 'l').cmds, 'a serif style keeps its own');
   });
 
+  it('draws the waist level, to a point at 100, on upright and round strokes only, smooth and whole', () => {
+    for (const entry of current) assert.deepEqual(entry.data.finish?.pinch, { format: 'source-pinch-v1', depth: .985, reach: .18 }, entry.ref.fontId);
+    const p = params(of('Mainline:600')), cap = buildFont(p).m.cap, waist = cap * .5, reach = cap * .18;
+    // a stem takes about half at 50 and comes to a point at 100, about its middle; the program before took 60% at 100
+    const stem = (q: Params) => runsAt(glyph(q, 'l').cmds, waist)[0], [a, b] = stem(p), thick = b - a;
+    const half = stem({ ...p, pinch: .5 }), point = stem({ ...p, pinch: 1 });
+    assert.ok(Math.abs((half[1] - half[0]) / thick - .51) < .05, 'half a pinch, half the stroke');
+    assert.ok(point[1] - point[0] < thick * .05, 'to a point (a thread of it, the stroke held together)');
+    assert.ok(Math.abs(point[0] + point[1] - a - b) < 1, 'about the stroke\'s middle');
+    const older = stem(params(beforePinch('Mainline:600').ref, { pinch: 1 }));
+    assert.ok(Math.abs((older[1] - older[0]) / thick - .4) < .05, 'the program before');
+    // a bar on the waist keeps its thickness and runs on to its thinner stems; an arm's cut end stays where it was
+    const H = glyph(p, 'H'), middle = (box(H.cmds).x0 + box(H.cmds).x1) / 2, bar = runsAt(H.cmds, middle, true)[0];
+    assert.ok(bar[0] < waist && bar[1] > waist, 'the H\'s bar lies on the waist');
+    const pinched = glyph({ ...p, pinch: 1 }, 'H'), barThere = runsAt(pinched.cmds, middle, true)[0];
+    assert.ok(Math.abs(barThere[0] - bar[0]) < .5 && Math.abs(barThere[1] - bar[1]) < .5, 'the bar as thick');
+    assert.equal(measure(pinched.cmds).pieces, 1);
+    const armAt = (bar[0] + bar[1]) / 2, arm = runsAt(glyph(p, 'E').cmds, armAt).at(-1)!, armThere = runsAt(glyph({ ...p, pinch: 1 }, 'E').cmds, armAt).at(-1)!;
+    assert.ok(Math.abs(armThere[1] - arm[1]) < .5, 'the arm\'s end where it was');
+    // round a bowl the waist narrows smoothly: the side of an O nowhere wider nearer the waist (no spike, no notch)
+    for (const set of [{ pinch: .5 }, { pinch: 1 }, { pinch: .5, weight: 1, vWeight: 1, hWeight: .85, contrast: 1 }]) {
+      const O = glyph({ ...p, ...set }, 'O');
+      for (const way of [1, -1]) {
+        let last = 0;
+        for (let k = 0; k < 20; k++) {
+          const [l, r] = runsAt(O.cmds, waist + way * k * reach / 20)[0], width = r - l;
+          assert.ok(width >= last - .5, `${JSON.stringify(set)}: the O's side ${k} twentieths from the waist`);
+          last = width;
+        }
+      }
+    }
+    // a design on the program before keeps as deep a waist when it adopts this one
+    const old = params(beforePinch('Mainline:600').ref, { pinch: .5 }), adopted = adoptProgram(old)!;
+    assert.equal(adopted.sourceProgram?.kind === 'program-v1' && adopted.sourceProgram.digest, of('Mainline:600').digest);
+    assert.ok(Math.abs(adopted.pinch - .5 * .6 / .985) < 1e-9);
+    const was = stem(old), now = stem(adopted);
+    assert.ok(Math.abs(was[1] - was[0] - (now[1] - now[0])) < .05, 'as deep a waist');
+  });
+
   it('draws every stroke-end form on the style\'s flat ends, and the style\'s own as it was', () => {
     for (const entry of current) {
       assert.deepEqual(entry.data.finish?.ends, { format: 'source-ends-v1', reach: 1.6, bulge: .45 }, entry.ref.fontId);
@@ -187,7 +241,8 @@ describe('source strokes and shapes', () => {
 
   it('keeps every style\'s letters whole and spaced at strong settings', () => {
     const strong: Partial<Params>[] = [{ squareness: 1 }, { bowlForm: 'box' }, { chamfer: 1 }, { roundness: 1 }, { joinRound: 1, innerRound: 1 },
-      { steps: 1 }, { apex: 1 }, { bends: 'round' }, { pinch: 1 }, { serif: true }, { vWeight: 1, hWeight: 0 },
+      { steps: 1 }, { apex: 1 }, { bends: 'round' }, { pinch: 1 }, { pinch: 1, pinchPos: 0 }, { pinch: 1, pinchPos: .25 }, { pinch: 1, pinchPos: .75 },
+      { serif: true }, { vWeight: 1, hWeight: 0 },
       { terminal: 'round', terminalForm: 'ball' }, { terminal: 'sharp', terminalForm: 'pointed', terminalPoint: 1 }, { terminal: 'tapered', terminalForm: 'taper' },
       { terminal: 'flat', terminalForm: 'flared', terminalFlare: 1 }, { counter: 0 }, { counter: 1 }, { aperture: 0 }, { aperture: 1 }];
     for (const entry of current) {
@@ -199,7 +254,7 @@ describe('source strokes and shapes', () => {
           if (!a?.cmds.length) continue;
           assert.ok(b && b.cmds.every(c => c.slice(1).every(n => Number.isFinite(n))), what);
           if (!('vWeight' in set)) assert.equal(b.adv, a.adv, what);
-          assert.ok(measure(b.cmds).pieces <= measure(a.cmds).pieces + (set.pinch ? 1 : 0), `${what}: came apart`);
+          assert.ok(measure(b.cmds).pieces <= measure(a.cmds).pieces, `${what}: came apart`);
         }
       }
     }

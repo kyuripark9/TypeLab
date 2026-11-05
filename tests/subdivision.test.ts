@@ -83,4 +83,20 @@ describe('master subdivision references', () => {
     assert.throws(() => decodeMasterSubdivision(definition, { from: { ref: to, masters: decodeWeightMasters(masters(oldFont)) },
       to: { ref: from, masters: decodeWeightMasters(masters(newFont)) } }), /exact source/);
   });
+
+  it('lets a repair redraw the letters it names away from the default weight, and nothing else', () => {
+    // the 600 weight's A redrawn, its points and advance kept
+    const repaired = structuredClone(masters(newFont));
+    repaired.masters[1].data.glyphs.A[1][0][1][2] = 26;
+    const named: MasterSubdivisionData = { ...definition, redrawn: 'A' };
+    assert.deepEqual(parseMasterSubdivision(JSON.parse(JSON.stringify(named))), named);
+    assert.deepEqual(decode(named, repaired).data, named);
+    // the default weight stays exact, and so do advances, metrics and the letters it doesn't name
+    const own = structuredClone(masters(newFont)); own.masters[0].data.glyphs.A[1][0][1][2] = 26;
+    assert.throws(() => decode(named, own), /exact curve controls.*400/);
+    const advance = structuredClone(repaired); advance.masters[1].data.glyphs.A[0]++;
+    assert.throws(() => decode(named, advance), /advance/);
+    assert.throws(() => decode(definition, repaired), /exact curve controls.*600/);
+    for (const redrawn of ['', 'B', 'AA', 7, ['A']]) assert.throws(() => parseMasterSubdivision({ ...definition, redrawn }), /Redrawn/);
+  });
 });

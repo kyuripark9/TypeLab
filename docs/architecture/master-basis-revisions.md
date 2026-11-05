@@ -23,6 +23,8 @@ Each target edge identifies one interval of an old edge on the same contour. Des
 
 The exact control check also covers intermediate weights because compatible master interpolation and cubic subdivision are linear in the control coordinates. It permits representation changes and whole-contour reversal. It does not permit optical redrawing. Reversal can change nonzero-filled overlaps, as intended for Gumdrop's H, so a passing map still requires filled-geometry and visual review.
 
+A repair names the letters it redraws in an optional `redrawn` string (distinct mapped glyphs in code point order). For those letters only, and only at weights other than the default, the control check is skipped: their structure, advances, metrics and default-weight curves stay exact, so every point keeps its identity and the style's own weight draws exactly as before. Saved Points cross a repair as they cross any basis change: the edits move with the difference between the old and the new letter at the saved frame. A program reached through such a map may republish its letter forms on the new basis; an upgrade carries a design's chosen form, and the drawings waiting on its forms, to the republished form with the same letter and id.
+
 Immutable maps live in `fonts/subdivisions/<sha256>.json`. A program's optional `transitions` array pairs a historical `from` master reference with a `master-subdivision-v1` mapping reference. Each mapping targets the program's current base directly. Runtime evaluation does not follow a chain of intermediate bases.
 
 ## Saved edits

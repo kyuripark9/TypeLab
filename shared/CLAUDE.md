@@ -47,7 +47,7 @@ finish policy's `inline` and `wire`): Inline's line follows each stroke's middle
 are `stencil`, `stencilPos` and `stencilRound` (`source/stencil.ts`, docs/architecture/source-stencil.md); both find
 joins with `source/joins.ts`. Verticals and Horizontals move Contrast's two weights apart (`strokeAxes`, the program's
 `source-strokes-v1`), and Squareness, Bowls, Facets, Roundness and its Joins and Counters, Steps, Peaks, Bends, Pinch
-Serifs on a sans, the stroke-end forms (`source-ends-v1`) and Inner space and Openness (`source-insides-v1`) are
+(to a point with `source-pinch-v1`), Serifs on a sans, the stroke-end forms (`source-ends-v1`) and Inner space and Openness (`source-insides-v1`) are
 finishes about the style's own values
 (`source/shapes.ts`, docs/architecture/source-shapes.md). A serif style's own serifs are found on the ink and taken off,
 redrawn or reshaped by the serif settings (`source/serifs.ts`, `source-serifs-v1`, docs/architecture/source-serifs.md).

@@ -1,4 +1,6 @@
-/* Exact correspondence between two immutable point bases, including whole-contour reversal. */
+/* Exact correspondence between two immutable point bases, including whole-contour reversal. A revision that repairs
+   letters away from the style's own weight names them (`redrawn`): their curves stay exact at the default weight and
+   their points keep their identity, but their other weights' curves are the new basis's own. */
 import { subCubic } from '../engine/geom';
 import { segment, type Node } from '../engine/outline';
 import type { WeightMasters } from './masters';
@@ -10,6 +12,8 @@ export interface MasterSubdivisionData {
   from: MasterSourceRef;
   to: MasterSourceRef;
   glyphs: Record<string, SubdivisionSegment[][]>;
+  /** letters whose curves at weights other than the default were redrawn, in code point order; absent for none */
+  redrawn?: string;
 }
 export interface MasterSubdivision { data: MasterSubdivisionData }
 interface Basis { ref: MasterSourceRef; masters: WeightMasters }
@@ -39,7 +43,7 @@ function interval(input: unknown): SubdivisionSegment {
 
 /** Parse the pinned map before either basis has been loaded. Geometry is checked by decodeMasterSubdivision. */
 export function parseMasterSubdivision(input: unknown): MasterSubdivisionData {
-  const value = object(input, ['format', 'from', 'to', 'glyphs']);
+  const value = object(input, ['format', 'from', 'to', 'glyphs', 'redrawn']);
   const from = parseSourceRef(value.from), to = parseSourceRef(value.to);
   if (value.format !== 'master-subdivision-v1' || from?.kind !== 'masters-v1' || to?.kind !== 'masters-v1'
     || from.fontId !== to.fontId || from.digest === to.digest) throw new TypeError('Invalid master subdivision bases');
@@ -52,7 +56,12 @@ export function parseMasterSubdivision(input: unknown): MasterSubdivisionData {
       return ranges.map(interval);
     });
   }
-  return { format: 'master-subdivision-v1', from, to, glyphs };
+  if (!('redrawn' in value)) return { format: 'master-subdivision-v1', from, to, glyphs };
+  const redrawn = value.redrawn, letters = typeof redrawn === 'string' ? [...redrawn] : [];
+  if (!letters.length || letters.some((ch, i) => !(ch in glyphs) || i && ch.codePointAt(0)! <= letters[i - 1].codePointAt(0)!)) {
+    throw new TypeError('Redrawn letters must be distinct mapped glyphs in code point order');
+  }
+  return { format: 'master-subdivision-v1', from, to, glyphs, redrawn: redrawn as string };
 }
 
 function sameReference(a: MasterSourceRef, b: MasterSourceRef): boolean {
@@ -88,7 +97,8 @@ function coverage(ranges: SubdivisionSegment[], count: number): void {
   }
 }
 
-/** A basis revision changes representation and winding, never its curves, metrics, or weight coordinates. */
+/** A basis revision changes representation and winding, never its curves, metrics, or weight coordinates; a repair
+    also redraws the letters it names at weights other than the default, their points and advances kept. */
 export function decodeMasterSubdivision(data: MasterSubdivisionData, bases: { from: Basis; to: Basis }): MasterSubdivision {
   const { from, to } = bases, before = from.masters, after = to.masters;
   if (!sameReference(data.from, from.ref) || !sameReference(data.to, to.ref)
@@ -109,12 +119,14 @@ export function decodeMasterSubdivision(data: MasterSubdivisionData, bases: { fr
       coverage(contours[ci], oldGlyphs[ch].contours[ci].length);
     }
   }
+  const redrawn = new Set(data.redrawn ?? '');
   for (let wi = 0; wi < before.masters.length; wi++) {
-    const a = before.masters[wi].font, b = after.masters[wi].font;
+    const a = before.masters[wi].font, b = after.masters[wi].font, own = before.masters[wi].weight === before.defaultWeight;
     if (a.cap !== b.cap || a.xh !== b.xh || a.space !== b.space) throw new TypeError('Subdivision changed font metrics');
     for (const [ch, contours] of Object.entries(data.glyphs)) {
       const old = a.glyphs[ch], next = b.glyphs[ch];
       if (old.adv !== next.adv) throw new TypeError('Subdivision changed a glyph advance');
+      if (!own && redrawn.has(ch)) continue;
       for (let ci = 0; ci < contours.length; ci++) for (let si = 0; si < contours[ci].length; si++) {
         const range = contours[ci][si], source = curve(old.contours[ci], range.segment);
         const part = subCubic(source, Math.min(range.t0, range.t1), Math.max(range.t0, range.t1));
