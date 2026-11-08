@@ -609,7 +609,7 @@ export const STYLES: StyleDef[] = [
    since a setting moves the letters furthest and cleanest from a family's own nearest weight. The heavy
    and wide, the fat face, the heavy slab, the slab mono and the italic have cards of their own because
    rebuilding them from a nearer card with their own settings breaks their letters up; every other style
-   rebuilds cleanly from a card here, and the display looks (box bowls, octagons, pinches, steps,
+   rebuilds cleanly from a card here, and the display looks (box bowls, octagons, steps,
    hairlines) are settings over these. Letters built from blocks or arcs are builds of their own, picked only here
    (no control changes a build): under Blocks, Bulwark, the basic block letters made a font, then the slot and the
    grid blocks, and under Arcs the arc letters; no font stands behind those, so their cards draw the engine's

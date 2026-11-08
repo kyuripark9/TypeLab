@@ -120,10 +120,11 @@ export const SPECS = {
   /* ---- Weight */
   contrast: num(0.5, { free: true, control: { cat: 'weight', label: 'Contrast', friendly: 'Vary thick and thin strokes', tech: 'Contrast · Reverse contrast', lo: 'Reversed', hi: 'High', demo: 'HOe', bipolar: true,
     explain: 'Thins the horizontals against heavy stems; reversed, it thins the stems instead.' } }),
-  pinch: num(0, { free: true, control: { cat: 'weight', off: 0, label: 'Pinch', friendly: 'Thin the strokes to a point', tech: 'Pinch · Waist', lo: 'Slight', hi: 'To a point', demo: 'aplo',
-    explain: 'Strokes narrow toward a level line and swell out again, like an hourglass.' } }),
-  pinchPos: num(0.5, { free: true,
-    sub: { parent: 'pinch', label: 'Position', friendly: 'Move the pinch up or down', tech: 'Pinch height', lo: 'Baseline', hi: 'Cap height' } }),
+  /* Pinch and the height of its line are no longer on any page: on a font's letters it thinned each stroke by its
+     height alone, whatever the letter (an H's stems to a point where its bar meets them, a bowl on one side only).
+     Kept, and drawn as before, so designs saved with them (and the Pinched style, off the Style page) look as they did. */
+  pinch: num(0, { free: true }),
+  pinchPos: num(0.5, { free: true }),
 
   /* ---- Build & curves. What the letters are built from, and which blocks, come with the style they start from (the
      Style page's Blocks and Arcs cards), not a control: a change of build is new letters, none of the style's left */

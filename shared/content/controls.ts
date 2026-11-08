@@ -50,13 +50,13 @@ export const BLOCK_CONTROLS: Record<BlockForm, readonly ControlKey[]> = {
 };
 /** On seven rows (Grid rows) the grid letters' small letters have an x-height, ascenders and descenders to set. */
 const GRID7_CONTROLS: readonly ControlKey[] = ['xHeight', 'extenders', 'descender'];
-/** The controls that shape the arc letters (arcs.ts): their size, weight, contrast and pinch, Width stretching every cut
+/** The controls that shape the arc letters (arcs.ts): their size, weight and contrast, Width stretching every cut
     of the circle at once, Squareness squaring it off, Curves and Facets as on any curve; the x-height, the ascenders
     and descenders, the bars' height (Crossbar height), the tails (Tails & hooks), how far the open bowls run round
     (Openness) and a stem stepped off its bowl (Bowl overlap); their ends' shapes and Length (run on round the circle),
     the corners of a square end, the dots, the hand, spacing and the effects that run on any outline. They have no
     joins, serifs or other letter forms to pick. */
-export const ARC_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'contrast', 'pinch', 'squareness', 'curve', 'chamfer',
+export const ARC_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'contrast', 'squareness', 'curve', 'chamfer',
   'overlap', 'xHeight', 'extenders', 'descender', 'crossbar', 'tail', 'aperture', 'terminal', 'roundness', 'dots', 'mirror', 'wobble',
   'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice', 'rough'];
 /** Whether control `k` shapes letters built as `p` says: letters built from blocks take their kind's BLOCK_CONTROLS
@@ -121,13 +121,12 @@ export const DOT_SUBS = subsOf('dots');
 export const BOWL_SUBS = subsOf('bowlForm');
 export const WEIGHT_SUBS = subsOf('weight');
 export const ROUND_SUBS = subsOf('roundness');
-export const PINCH_SUBS = subsOf('pinch');
 export const CROSSBAR_SUBS = subsOf('crossbar');
 /** A stencil's and a slice's own value is their thickness, so it sits among their sub-sliders. */
 export const STENCIL_SUBS = subsOf('stencil');
 export const SLICE_SUBS = subsOf('slice');
 const ALL_SUBS = { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...SERIF_ARM_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS,
-  ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...PINCH_SUBS, ...CROSSBAR_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
+  ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...CROSSBAR_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
 // (a slider nested under a control with no *_SUBS above would be missing from SUBS, so from search and the explainer)
 ({}) as { [K in Exclude<SubKey, keyof typeof ALL_SUBS>]: K } satisfies Record<string, never>;
 /** Every nested slider, whichever control it sits under. */

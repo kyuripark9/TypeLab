@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  ANATOMY, CATEGORIES, CONTROLS, FILL_SUBS, GROUPS, PART_CONTROL, PINCH_SUBS, ROUND_SUBS, SERIF_ARM_SUBS, SERIF_DETAILS, SERIF_INNER_SUBS, SERIF_SIZES,
+  ANATOMY, CATEGORIES, CONTROLS, FILL_SUBS, GROUPS, PART_CONTROL, ROUND_SUBS, SERIF_ARM_SUBS, SERIF_DETAILS, SERIF_INNER_SUBS, SERIF_SIZES,
   SERIF_TIP_DETAILS, SLICE_SUBS, STENCIL_SUBS, SUBS, TERMINAL_DETAILS, TERMINAL_SHAPES, WEIGHT_SUBS, controlFor, controlInUse, findSettings, firstControl, pageOf, pagesFor,
   type ActiveKey, type CategoryId, type ControlKey
 } from '../shared/content';
@@ -151,7 +151,7 @@ describe('editor pages', () => {
     // panel/ControlsPanel.tsx; the fill, serif inside, stencil and slice controls), as the finer shape of a form
     // or kind picked (stroke ends, serifs, serif tips), or by name (panel/ShapeControls.tsx, SliderControl.tsx)
     const placed = new Set<string>([
-      ...[FILL_SUBS, SERIF_INNER_SUBS, STENCIL_SUBS, SLICE_SUBS, WEIGHT_SUBS, ROUND_SUBS, PINCH_SUBS, SERIF_ARM_SUBS].flatMap(m => Object.keys(m)),
+      ...[FILL_SUBS, SERIF_INNER_SUBS, STENCIL_SUBS, SLICE_SUBS, WEIGHT_SUBS, ROUND_SUBS, SERIF_ARM_SUBS].flatMap(m => Object.keys(m)),
       ...[TERMINAL_DETAILS, SERIF_DETAILS, SERIF_TIP_DETAILS].flatMap(m => Object.values(m).flat()),
       ...SERIF_SIZES, 'terminalLength', 'terminalCurl', 'serifCup', 'dotSize', 'boxRound', 'barGap'
     ]);

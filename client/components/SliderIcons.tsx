@@ -14,10 +14,6 @@ const SLIDER: Record<string, ReactNode> = {
   hWeight: <><path className="faint" d="M4.5 3.5v13M15.5 3.5v13" /><rect className="solid" x="4.5" y="8.2" width="11" height="3.6" rx=".6" /></>,
   // an O, heavy at the sides and thin at top and bottom
   contrast: <path className="solid" fillRule="evenodd" d="M10 3a6.5 7 0 1 1 0 14 6.5 7 0 1 1 0-14zm0 1.4a2.6 5.6 0 1 0 0 11.2 2.6 5.6 0 1 0 0-11.2z" />,
-  // a stem thinned to a waist on a line
-  pinch: <><path className="faint" d="M2.5 10h15" /><path d="M5.5 3.5h9L11 10l3.5 6.5h-9L9 10z" /></>,
-  // a waist and the arrow moving it up and down
-  pinchPos: <><path d="M3.5 3.5h7L8 10l2.5 6.5h-7L6 10z" /><path d="M15 4v12M13.3 5.7 15 4l1.7 1.7M13.3 14.3 15 16l1.7-1.7" /></>,
 
   // —— Size & slant
   // stretched sideways
