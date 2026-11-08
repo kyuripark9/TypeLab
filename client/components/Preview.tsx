@@ -3,8 +3,7 @@
    the controls, for a moment and until a value is changed there (`faded`), of the active control's highlight (#h65),
    with the guides or spacing bands that control is about, each keyed by the control so its fade starts over. Clicking a letter opens it in the inspector. */
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
-import type { ControlKey } from '../../shared/content';
-import { RING_KEYS, type Font, type Line } from '../../shared/engine';
+import { RING_KEYS, type Font, type HlKey, type Line } from '../../shared/engine';
 import { n1 } from '../lib/hooks';
 import { overhang, sampleText } from '../lib/preview';
 import { actions, hlKeyOf, useEditor, useFont } from '../state/editor';
@@ -37,7 +36,7 @@ export function Preview({ width }: { width: number }) {
   );
 }
 
-function PreviewLine({ line, y, font, hl, topU, LH, widthU }: { line: Line; y: number; font: Font; hl: ControlKey | null; topU: number; LH: number; widthU: number }) {
+function PreviewLine({ line, y, font, hl, topU, LH, widthU }: { line: Line; y: number; font: Font; hl: HlKey | null; topU: number; LH: number; widthU: number }) {
   const m = font.m, out: ReactNode[] = [];
   const band = (key: string, x: number, w: number) => out.push(<rect key={key + hl} className="pv-band" x={n1(x)} y={n1(y - m.cap)} width={n1(Math.max(0, w))} height={n1(m.cap)} />);
   if (hl === 'xHeight' || hl === 'height') {

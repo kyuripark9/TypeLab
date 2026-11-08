@@ -8,7 +8,7 @@ export { ACCENTED, accentGlyph } from './accents';
 export type { AccentGlyph } from './accents';
 export type { Font, Glyph, Line, LineItem } from './font';
 export { autoIBars } from './glyphs/shared';
-export { RING_KEYS } from './highlight';
+export { RING_KEYS, type HlKey } from './highlight';
 export { freeFontsWanted } from './free-letters';
 export { drawnFrom, drawnLetter } from './family-drawn';
 export { buildSerif, expandStroke, serifCup, serifSides } from './stroke';

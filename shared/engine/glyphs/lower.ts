@@ -243,7 +243,7 @@ def('n', [1, 1], (g, m) => {
   g.stem(hs, 0, X, { serifS: 'both', serifE: en ? null : 'a' }); arch(g, m, hs, W - hs, true); return W;
 }, { params: ['xHeight', 'curve', 'weight', 'width'] });
 def('o', [0.55, 0.55], (g, m) => { const { hs, yt, yb } = lc(m), W = m.W(490, 'r'); oval(g, hs, W - hs, yb, yt); return W; },
-  { params: ['counter', 'curve', 'xHeight', 'contrast'] });
+  { params: ['counter', 'curve', 'xHeight'] });
 def('p', [1, 0.55], (g, m) => {
   const { X, hs, yt, yb } = lc(m), W = m.W(480, 'r') + bowlGap(m);
   const en = entry(g, m, hs, X);

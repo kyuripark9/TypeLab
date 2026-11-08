@@ -78,7 +78,7 @@ function LetterControls({ keys, category, note }: { keys: ControlKey[]; category
       {customizing && <div className="scope-note"><ScopeIcon id="letter" /><span>Only {ch} changes. Settings tagged <em>Whole font</em> still change every letter.</span></div>}
       {hand && (
         <div className="reach-banner">
-          <span>{`${ch} was edited in Points: weight, contrast, width, heights, crossbar and slant move it, and its shape stays as you drew it.`}</span>
+          <span>{`${ch} was edited in Points: weight, width, heights, crossbar and slant move it, and its shape stays as you drew it.`}</span>
           <button className="link small" onClick={() => actions.syncLetter(ch)}>{`Reset ${ch}`}</button>
         </div>
       )}

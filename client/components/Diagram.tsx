@@ -14,7 +14,7 @@ const ICON_XH = 0.871;
 
 export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
   // the control the active key belongs to, whose demo and parts the figure shows (for Horizontals, Weight's, where
-  // the preview lights the horizontals Contrast thins: see hlKey in state/editor.ts)
+  // the preview lights the level strokes: see hlKey in state/editor.ts)
   const ctlKey = controlFor(k), ctl = CONTROLS[ctlKey];
   const m = font.m, text = ctl.demo, line = font.layout(text, Infinity)[0];
   const hasDesc = /[gjpqy]/.test(text);
@@ -89,10 +89,6 @@ export function Diagram({ font, k }: { font: Font; k: ActiveKey }) {
     if (k === 'weight') dim('w', body(it0, 0, m.xh * 0.42), body(it0, m.s, m.xh * 0.42), 'd-dim light');
     if (k === 'width') dim('w', body(it0, 0, -95), body(it0, g0.bodyW, -95), 'd-dim');
     if (k === 'height') { const x = X(it0.x) - 12; dim('h', [x, Y(0)], [x, Y(m.cap)], 'd-dim'); }
-    if (k === 'contrast') {
-      dim('v', body(it0, 0, m.cap / 2), body(it0, m.s, m.cap / 2), 'd-dim light');
-      dim('h', body(it0, g0.bodyW / 2, m.cap + m.os - m.hT), body(it0, g0.bodyW / 2, m.cap + m.os), 'd-dim light');
-    }
     if (k === 'slant') {
       const cx = it0.x + g0.adv / 2, y0 = -70, y1 = m.cap + 90;
       over.push(<line key="a0" className="d-axis ghost" x1={X(cx)} x2={X(cx)} y1={Y(y0)} y2={Y(y1)} />);

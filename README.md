@@ -93,7 +93,8 @@ middleware, so the app and `/api` share an origin with no proxy or CORS setup.
 Glyphs are not font files and not CSS transforms. Each glyph is a small function that draws
 **skeleton strokes** from shared metrics (cap height, x-height, stem, curve tension, aperture,
 crossbar, apex…). A stroke expander turns skeletons into outlines, so *Weight* really thickens
-strokes, *Contrast* thins horizontals and *Width* stretches the skeleton without distorting stems.
+strokes, *Horizontals* thins or thickens the level strokes and *Width* stretches the skeleton
+without distorting stems.
 One slider reshapes the whole alphabet coherently.
 
 The engine is pure math with no DOM, so **the same code** draws the live preview in the browser
@@ -306,7 +307,7 @@ on to them as soon as it is done, in the same undo step (the pill in the corner 
 with Only R, the edit changes the letter in view alone, and after it those letters are offered, each drawn with
 the change in, to make it in them too. `⌘`-scroll zooms, Space-drag pans, `⌘0` fits the letter.
 The first edit makes the letter a drawing, saved with the design (`params.outlines`) with the settings it
-was drawn at: it keeps the shape you give it, and weight, contrast, width, the heights, crossbar, inner space
+was drawn at: it keeps the shape you give it, and weight, width, the heights, crossbar, inner space
 and slant still move it as they move from those, for all letters or only this one. **Reset** gives it back to
 the font. **History** (the clock beside it) keeps every version of the letter its edits made, with Only R or in
 Points, a Reset too, saved with the design: newest first, each drawn small, and picking one brings the letter back

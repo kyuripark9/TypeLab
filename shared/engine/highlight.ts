@@ -16,17 +16,19 @@ const RINGS = new Map<ControlKey, { types: MarkType[]; min: number; stem: number
   ['overlap', { types: ['overlap'], min: 30, stem: 0.8 }],
   ['tail', { types: ['tail'], min: 30, stem: 0.7 }]
 ]);
+/** What a highlight lights: a control's parts, or Horizontals' level strokes (its own: under Weight, it isn't a control). */
+export type HlKey = ControlKey | 'hWeight';
 /** The settings highlighted as rings (see RINGS), which the preview, the inspector and the explainer outline
     rather than fill. */
-export const RING_KEYS: Partial<Record<ControlKey, true>> = Object.fromEntries([...RINGS.keys()].map(k => [k, true as const]));
+export const RING_KEYS: Partial<Record<HlKey, true>> = Object.fromEntries([...RINGS.keys()].map(k => [k, true as const]));
 
-export function highlightD(g: Glyph, key: ControlKey, m: Metrics): string {
+export function highlightD(g: Glyph, key: HlKey, m: Metrics): string {
   const strokes = (f: (s: GlyphStroke) => boolean | undefined) => g.strokes.filter(f).map(s => cmdsToD(s.cmds)).join('');
-  const ring = RINGS.get(key);
+  const ring = key === 'hWeight' ? undefined : RINGS.get(key);
   if (ring) return ringsD(g.marks.filter(k => ring.types.includes(k.type)), Math.max(ring.min, m.s * ring.stem));
   switch (key) {
     case 'weight': return strokes(s => s.part === 'stem' || s.part === 'diagonal');
-    case 'contrast': return strokes(s => s.horizontal || s.part === 'crossbar' || s.part === 'arm');
+    case 'hWeight': return strokes(s => s.horizontal || s.part === 'crossbar' || s.part === 'arm');
     case 'counter': return g.counters.map(cmdsToD).join('');
     case 'curve': return strokes(s => s.curved);
     case 'crossbar': return strokes(s => s.part === 'crossbar' || s.part === 'bar');

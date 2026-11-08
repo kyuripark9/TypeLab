@@ -32,31 +32,31 @@ const subsOf = <P extends ControlKey>(parent: P) => Object.fromEntries(PARAM_KEY
 })) as Record<SubKeyOf<P>, SubControlDef>;
 /** The controls that shape letters built from blocks, by kind of blocks (blockForm): every kind's size, weight and
     corners, the hand, spacing and the effects that run on any outline; the basic block letters' (basic-blocks.ts)
-    also their contrast, bowls, peaks and steps, the crossbars' height and how open C S G are, and the lowercase's
-    ascenders and descenders; the slot blocks' (blocks.ts) and the grid letters' (grid-blocks.ts) their contrast and
-    the corners cut alike (block-corners.ts: Facets, Steps, Ink traps) and Stencil (counters cut open, cells drawn
+    also their bowls, peaks and steps, the crossbars' height and how open C S G are, and the lowercase's
+    ascenders and descenders; the slot blocks' (blocks.ts) and the grid letters' (grid-blocks.ts) the corners cut
+    alike (block-corners.ts: Facets, Steps, Ink traps) and Stencil (counters cut open, cells drawn
     apart), the slot blocks' also the size of their slots and counters (Inner space), how deep their slots run
     (Openness) and the bars' height, the grid letters' how their cells meeting at a corner join; and the letter forms
     each draws (blocks.ts: I, J, M, Q and the dots; GRID_FORMS in grid-blocks.ts). The rest shape strokes, which
     blocks don't have. */
 const SLOT_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'roundness', 'mirror', 'wobble',
   'xHeight', 'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice', 'rough'];
-const CUT_CONTROLS: readonly ControlKey[] = ['contrast', 'chamfer', 'steps', 'joints', 'stencil'];
+const CUT_CONTROLS: readonly ControlKey[] = ['chamfer', 'steps', 'joints', 'stencil'];
 export const BLOCK_CONTROLS: Record<BlockForm, readonly ControlKey[]> = {
-  basic: [...SLOT_CONTROLS, 'contrast', 'bowlForm', 'apex', 'steps', 'crossbar', 'aperture', 'extenders', 'descender'],
+  basic: [...SLOT_CONTROLS, 'bowlForm', 'apex', 'steps', 'crossbar', 'aperture', 'extenders', 'descender'],
   slots: [...SLOT_CONTROLS, ...CUT_CONTROLS, 'counter', 'aperture', 'crossbar', 'iForm', 'jForm', 'mForm', 'qForm', 'dots'],
   // grid letters stand on the same five cells in either case, so the x-height doesn't reach them
   grid: [...SLOT_CONTROLS.filter(k => k !== 'xHeight'), ...CUT_CONTROLS, 'cellJoin', 'gridRows', 'story', 'kForm', 'iForm', 'jForm', 'mForm', 'qForm', 'rForm', 'yForm', 'sForm', 'dots']
 };
 /** On seven rows (Grid rows) the grid letters' small letters have an x-height, ascenders and descenders to set. */
 const GRID7_CONTROLS: readonly ControlKey[] = ['xHeight', 'extenders', 'descender'];
-/** The controls that shape the arc letters (arcs.ts): their size, weight and contrast, Width stretching every cut
+/** The controls that shape the arc letters (arcs.ts): their size and weight, Width stretching every cut
     of the circle at once, Squareness squaring it off, Curves and Facets as on any curve; the x-height, the ascenders
     and descenders, the bars' height (Crossbar height), the tails (Tails & hooks), how far the open bowls run round
     (Openness) and a stem stepped off its bowl (Bowl overlap); their ends' shapes and Length (run on round the circle),
     the corners of a square end, the dots, the hand, spacing and the effects that run on any outline. They have no
     joins, serifs or other letter forms to pick. */
-export const ARC_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'contrast', 'squareness', 'curve', 'chamfer',
+export const ARC_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'squareness', 'curve', 'chamfer',
   'overlap', 'xHeight', 'extenders', 'descender', 'crossbar', 'tail', 'aperture', 'terminal', 'roundness', 'dots', 'mirror', 'wobble',
   'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice', 'rough'];
 /** Whether control `k` shapes letters built as `p` says: letters built from blocks take their kind's BLOCK_CONTROLS

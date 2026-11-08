@@ -176,7 +176,7 @@ export function Inspector() {
         {/* one short line over the canvas for what the switches above don't say: what an edit here does, and what
             still moves a letter drawn as it is (`banner-more`, left out on a phone); the whole story is in its tooltip */}
         {pen && (own ? (
-          <div className="scope-banner" role="status" title={`An edit here changes ${ch} alone, and ${ch} keeps the shape you give it; after it, the letters shaped the same way are offered the change. Weight, contrast, width, the heights and slant still move ${ch}, as they move the other letters; Reset ${ch} gives it back to the font`}>
+          <div className="scope-banner" role="status" title={`An edit here changes ${ch} alone, and ${ch} keeps the shape you give it; after it, the letters shaped the same way are offered the change. Weight, width, the heights and slant still move ${ch}, as they move the other letters; Reset ${ch} gives it back to the font`}>
             <ScopeIcon id="letter" /><span>Only <b>{ch}</b> changes here<span className="banner-more"> · weight, width and heights still move it</span></span>
           </div>
         ) : cells ? (

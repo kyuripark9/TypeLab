@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
 import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
-import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../shared/engine';
+import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font, type HlKey } from '../../shared/engine';
 import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
 import { DEFAULT_NAME, cleanName, slug, type Design, type DesignInput } from '../../shared/design';
@@ -249,10 +249,10 @@ export function designFile(s: EditorState): { file: string; blob: Blob } {
 }
 
 /** The key whose affected parts are highlighted, or null. Serif sub-sliders highlight serifs. */
-export const hlKeyOf = (s: EditorState): ControlKey | null =>
+export const hlKeyOf = (s: EditorState): HlKey | null =>
   s.hot && !s.faded && s.category !== 'style' ? hlKey(s.active) : null;
-/** The key whose parts `active` highlights: Horizontals the level strokes Contrast thins, else its control's. */
-export const hlKey = (active: ActiveKey): ControlKey => (active === 'hWeight' ? 'contrast' : controlFor(active));
+/** The key whose parts `active` highlights: Horizontals its own, the level strokes, else its control's. */
+export const hlKey = (active: ActiveKey): HlKey => (active === 'hWeight' ? 'hWeight' : controlFor(active));
 
 /** The letter that edits go to instead of the whole alphabet, or null. */
 export const letterOf = (s: EditorState) => (s.scope === 'letter' ? s.inspect : null);

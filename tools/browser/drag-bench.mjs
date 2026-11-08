@@ -2,7 +2,7 @@
    gaps between frames (anything over 100 ms is felt). Chrome on CDP_PORT (tools/browser/chrome.sh), driven through
    cdp.mjs in a fresh tab; the app on port APP (default 5199, the test server's port in CLAUDE.md).
      APP=5199 node tools/browser/drag-bench.mjs <style> <active-control> <slider label> [label...]
-     APP=5199 node tools/browser/drag-bench.mjs didone weight Weight "Contrast · Reverse contrast"
+     APP=5199 node tools/browser/drag-bench.mjs didone weight Weight "Bar weight"
    A slider's label here is its aria-label, its setting's `tech` (shared/params/spec.ts), not the title on screen.
    PROF=<dir> also writes a .cpuprofile per slider. Before and after a speed-up, compare golden outlines too
    (npm run golden) so it can't have changed the letters. */

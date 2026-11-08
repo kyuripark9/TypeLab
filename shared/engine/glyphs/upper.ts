@@ -53,7 +53,7 @@ def('C', [0.55, 0.4], (g, m) => {
   const W = m.W(640, 'r'), C = m.cap, hs = m.s / 2, hh = m.hT / 2, { u, w } = capAperture(m);
   openBowl(g, hs, W - hs, -m.os + hh, C + m.os - hh, u, 1 - u);
   return W * w;
-}, { params: ['bowlForm', 'aperture', 'terminal', 'curve', 'contrast'] });
+}, { params: ['bowlForm', 'aperture', 'terminal', 'curve'] });
 
 def('D', [1, 0.55], (g, m) => {
   const W = m.W(610, 'r'), C = m.cap, hs = m.s / 2, hh = m.hT / 2;
@@ -80,7 +80,7 @@ def('G', [0.55, 0.7], (g, m) => {
   g.path([['M', xr, cy], ['vh', cx, yt, { u0: u }], ['hv', xl, cy], ['vh', cx, yb], ['hv', xr, gb + hh]], { s: T, e: 'flat', part: 'bowl' });
   g.line(W * 0.54, gb, W, gb, { s: T, part: 'bar' });
   return W;
-}, { params: ['aperture', 'terminal', 'curve', 'contrast'] });
+}, { params: ['aperture', 'terminal', 'curve'] });
 
 def('H', [1, 1], (g, m) => {
   // (skin.ts's BARS.H moves a free font's H's bar as far, 0.26 of the cap height across Crossbar)
@@ -149,7 +149,7 @@ def('M', [1, 1], (g, m) => {
   g.stem(W - hs, 0, C, { serifS: 'both', serifE: 'b' });
   zig(g, m, [hs, W / 2, W - hs], C, yv, true, { serifS: null, serifE: null }, { x0: 0, x1: W });
   return W;
-}, { params: ['mForm', 'bends', 'apex', 'weight', 'contrast'] });
+}, { params: ['mForm', 'bends', 'apex', 'weight'] });
 
 def('N', [1, 1], (g, m) => {
   const W = m.W(600), C = m.cap, hs = m.s / 2;
@@ -170,7 +170,7 @@ def('O', [0.55, 0.55], (g, m) => {
   const W = m.W(690, 'r'), hs = m.s / 2, hh = m.hT / 2;
   oval(g, hs, W - hs, -m.os + hh, m.cap + m.os - hh);
   return W;
-}, { params: ['bowlForm', 'counter', 'curve', 'contrast', 'width'] });
+}, { params: ['bowlForm', 'counter', 'curve', 'width'] });
 
 def('P', [1, 0.5], (g, m) => {
   const W = m.W(510, 'c'), C = m.cap, hs = m.s / 2, hh = m.hT / 2;
@@ -250,7 +250,7 @@ def('V', [0.2, 0.2], (g, m) => {
   if (arched(m)) cup(g, m, W, m.cap);
   else if (upright(m)) uprightV(g, m, W, m.cap); else zig(g, m, [l, W / 2, W - l], m.cap, 0, true);
   return W;
-}, { params: ['diagonals', 'bends', 'apex', 'weight', 'contrast'] });
+}, { params: ['diagonals', 'bends', 'apex', 'weight'] });
 
 def('W', [0.2, 0.2], (g, m) => {
   if (arched(m)) { const W = m.W(740); cup(g, m, W, m.cap); g.stem(W / 2, 0, m.cap, { s: J, serifE: 'both' }); return W; }

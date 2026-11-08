@@ -126,7 +126,7 @@ describe('saved slot and grid designs', () => {
 describe('the controls slot and grid blocks offer', () => {
   it('shows each setting where it reaches the letters', () => {
     const on = (k: ControlKey, p: Partial<Params>) => controlInUse(k, { build: 'blocks', blockForm: 'grid', ...p } as Params);
-    for (const k of ['contrast', 'chamfer', 'steps', 'joints', 'stencil', 'iForm', 'jForm', 'mForm', 'qForm', 'dots'] as ControlKey[]) {
+    for (const k of ['chamfer', 'steps', 'joints', 'stencil', 'iForm', 'jForm', 'mForm', 'qForm', 'dots'] as ControlKey[]) {
       assert.ok(controlInUse(k, { build: 'blocks', blockForm: 'slots' }), `slots ${k}`);
       assert.ok(on(k, {}), `grid ${k}`);
     }

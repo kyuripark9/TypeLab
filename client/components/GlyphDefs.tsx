@@ -7,8 +7,7 @@
    move can interrupt it, and dragging a slider stays smooth. While the opening title card is up none is built
    (lib/opening.ts): it covers them all, and building them stalled its steps. */
 import { memo, useDeferredValue } from 'react';
-import type { ControlKey } from '../../shared/content';
-import { ALL_CHARS, type Font } from '../../shared/engine';
+import { ALL_CHARS, type Font, type HlKey } from '../../shared/engine';
 import { hlKeyOf, useEditor, useFont } from '../state/editor';
 import { useOpeningHolds } from '../lib/opening';
 import { useVisibleChars } from '../lib/preview';
@@ -17,7 +16,7 @@ const CHARS = [...ALL_CHARS];
 
 /** One glyph's paths, on its own so the deferred render of those off screen can stop between glyphs for the next
     slider move. Without a `font` (while the opening card is up) it stays as it was drawn last, blank at first. */
-const GlyphDef = memo(function GlyphDef({ ch, font, hl }: { ch: string; font: Font | null; hl: ControlKey | null }) {
+const GlyphDef = memo(function GlyphDef({ ch, font, hl }: { ch: string; font: Font | null; hl: HlKey | null }) {
   const c = ch.charCodeAt(0), g = font?.glyph(ch);
   return (
     <g>

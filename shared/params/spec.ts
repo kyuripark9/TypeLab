@@ -118,8 +118,12 @@ export const SPECS = {
     explain: 'Turns each letter about its middle. Customize a letter to give it its own angle.' } }),
 
   /* ---- Weight */
-  contrast: num(0.5, { free: true, control: { cat: 'weight', label: 'Contrast', friendly: 'Vary thick and thin strokes', tech: 'Contrast · Reverse contrast', lo: 'Reversed', hi: 'High', demo: 'HOe', bipolar: true,
-    explain: 'Thins the horizontals against heavy stems; reversed, it thins the stems instead.' } }),
+  /* Contrast is no longer on any page, nor a trait on the Style page: Weight's Verticals and Horizontals thin and
+     thicken the same strokes, so four sliders set two thicknesses, and on a font's letters they pushed the same
+     outline (Contrast up was Horizontals down; at Verticals and Horizontals 100, Reversed drew the bars no heavier than
+     the stems). Kept, and drawn as before, so the styles that set it and designs saved with it look as they did, a
+     family's lighter weights keep their hairlines by it (family.ts), and the Style page's High Contrast look reads it. */
+  contrast: num(0.5, { free: true }),
   /* Pinch and the height of its line are no longer on any page: on a font's letters it thinned each stroke by its
      height alone, whatever the letter (an H's stems to a point where its bar meets them, a bowl on one side only).
      Kept, and drawn as before, so designs saved with them (and the Pinched style, off the Style page) look as they did. */

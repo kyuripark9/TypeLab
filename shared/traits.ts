@@ -5,7 +5,7 @@
    each style has. */
 import { TERMINAL_FORMS, TERMINALS, type Params } from './params';
 
-export type TraitId = 'weight' | 'width' | 'contrast' | 'slant' | 'serif' | 'curves' | 'corners' | 'ends'
+export type TraitId = 'weight' | 'width' | 'slant' | 'serif' | 'curves' | 'corners' | 'ends'
   | 'xHeight' | 'spacing' | 'fill' | 'cuts' | 'hand' | 'joined';
 export interface TraitOption { id: string; label: string; set: Partial<Params> }
 export interface TraitDef {
@@ -29,9 +29,6 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
     { id: 'width', label: 'Width', hint: 'How narrow or wide the letters are', sample: 'n', options: [
       opt('condensed', 'Condensed', { width: 0.12 }), opt('narrow', 'Narrow', { width: 0.34 }), opt('normal', 'Normal', { width: 0.52 }),
       opt('wide', 'Wide', { width: 0.76 }), opt('extended', 'Extended', { width: 1 })] },
-    { id: 'contrast', label: 'Contrast', hint: 'How much thick and thin strokes differ', sample: 'o', options: [
-      opt('reverse', 'Reverse', { contrast: 0.12 }), opt('even', 'Even', { contrast: 0.5 }), opt('moderate', 'Moderate', { contrast: 0.7 }),
-      opt('high', 'High', { contrast: 0.95 })] },
     { id: 'slant', label: 'Slant', hint: 'How far the letters lean', sample: 'H', options: [
       opt('upright', 'Upright', { slant: 0 }), opt('italic', 'Italic', { slant: 0.35 }), opt('steep', 'Steep', { slant: 0.75 })] }
   ] },

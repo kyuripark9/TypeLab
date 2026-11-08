@@ -35,7 +35,7 @@ import { buildBlock, buildGlyph } from './glyph';
 import { buildArc } from './arcs';
 import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
 import { drawnDesign, drawnFrom, drawnLetter } from './family-drawn';
-import { highlightD } from './highlight';
+import { highlightD, type HlKey } from './highlight';
 
 export const CHARSET = {
   upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower: 'abcdefghijklmnopqrstuvwxyz',
@@ -132,7 +132,7 @@ export interface Font {
   /** The font `ch` is drawn from: one built with its own settings when it has any, else this one. */
   letter(ch: string): Font;
   /** SVG path data of the part of `ch` that parameter `key` affects ('' if none). */
-  hl(ch: string, key: ControlKey): string;
+  hl(ch: string, key: HlKey): string;
   advance(ch: string): number;
   /** Lay out text into lines. maxWidth in font units (Infinity = no wrap). */
   layout(text: string, maxWidth: number): Line[];

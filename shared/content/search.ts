@@ -10,13 +10,14 @@ import type { CategoryId } from '../params';
 /** Words people reach for that a control's own copy doesn't use. */
 const ALSO: Partial<Record<ActiveKey, string>> = {
   weight: 'bold heavy light thick thin black', slant: 'italic oblique lean', width: 'condensed expanded narrow wide', height: 'cap height size tall',
-  rotation: 'rotate turn angle', mirror: 'flip reverse backwards', contrast: 'thick thin stress', letterSpacing: 'kerning tracking',
+  rotation: 'rotate turn angle', mirror: 'flip reverse backwards', letterSpacing: 'kerning tracking',
   mono: 'typewriter code fixed width', wobble: 'rough sketchy organic jitter', cursive: 'script connected joined', fill: 'outline texture pattern halftone bitmap honeycomb metaball bubbles goo drip ink splotch',
   dotGain: 'bleed merge join apart gap cloud puffy bubble', rough: 'distressed worn letterpress grunge ink bleed texture stamp',
   terminal: 'tip ending finish sharp angled slanted cut tapered rounded teardrop wedge', serif: 'feet slab', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
   aperture: 'opening mouth', extenders: 'ascender descender', stencil: 'gap cut break', slice: 'cut line split',
   squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', joinRound: 'crotch fillet', innerRound: 'inside corners', dots: 'tittle period i j',
   apexForm: 'apex peak serif top latin clarendon', mForm: 'vertex middle point short raised', jForm: 'hook cup tail', gForm: 'ear loop',
+  vWeight: 'contrast reverse stress stems', hWeight: 'contrast reverse stress hairline bars',
   iForm: 'flag', cellJoin: 'neck diagonal pixel nodes grid cells corner', gridRows: 'matrix 5x7 5x5 rows cells ascender descender grid'
 };
 

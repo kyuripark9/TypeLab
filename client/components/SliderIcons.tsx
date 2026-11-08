@@ -12,8 +12,6 @@ const SLIDER: Record<string, ReactNode> = {
   vWeight: <><path className="faint" d="M7 10h6" /><rect className="solid" x="3.5" y="3.5" width="3.5" height="13" rx=".6" /><rect className="solid" x="13" y="3.5" width="3.5" height="13" rx=".6" /></>,
   // an H with thin stems and a heavy bar
   hWeight: <><path className="faint" d="M4.5 3.5v13M15.5 3.5v13" /><rect className="solid" x="4.5" y="8.2" width="11" height="3.6" rx=".6" /></>,
-  // an O, heavy at the sides and thin at top and bottom
-  contrast: <path className="solid" fillRule="evenodd" d="M10 3a6.5 7 0 1 1 0 14 6.5 7 0 1 1 0-14zm0 1.4a2.6 5.6 0 1 0 0 11.2 2.6 5.6 0 1 0 0-11.2z" />,
 
   // —— Size & slant
   // stretched sideways
