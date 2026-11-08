@@ -26,11 +26,15 @@ interface P { x: number; y: number; line?: boolean }
 
 /** How far each setting pushes a letter out, either side, as a share of the font's stem, at the end of its slider
     past where the font was picked (`out`), and in at the other end (`in`): Weight sideways and up and down, Verticals
-    sideways, Horizontals up and down, Contrast up and down (higher, in); and no further in, all told, than HAIR_KEEP of
-    the font's thinnest strokes. */
+    sideways, Horizontals up and down, Contrast up and down (higher, in; lower, out, and as far again turned round to
+    Reversed); and no further in, all told, than HAIR_KEEP of the font's thinnest strokes. */
 export const PEN = {
   weight: { out: 0.15, in: 0.1 }, verticals: { out: 0.12, in: 0.08 }, horizontals: { out: 0.12, in: 0.08 }, contrast: { out: 0.08, in: 0.08 }
 }, HAIR_KEEP = 0.25;
+/** How far Contrast turned round to Reversed pushes a letter in sideways, either side, as a share of the font's stem,
+    its bars going out the while (PEN.contrast): the stems thinned, so Reversed draws the bars heavier than the stems;
+    no further in, on its own, than HAIR_KEEP of the font's thinnest strokes. */
+export const PEN_REVERSED = 0.2;
 /** How far apart a curve is cut, and a straight edge, in the font's units; how many times the push a corner may reach
     out before it is cut across; how close the traced curves keep to the polygon. */
 const STEP = 3, EDGE_STEP = 6, MITRE = 3, FIT_TOL = 0.8;

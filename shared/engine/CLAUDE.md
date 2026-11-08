@@ -97,7 +97,7 @@ file.
 | `family-drawn.ts` | Letters drawn in Points as the settings move (`drawnLetter`): from the settings a drawing was drawn at (`Drawn.at`, as a design of its own: `atDesign`), or, in a family's other members, from the design (found by the member's params object: `drawnFrom`, `drawnDesign`); rigged from that design (`RigLetters`: its drawn letters and its h p x n H), moved by `skinEdges` as far toward the new measures as their edges don't cross, in eighths, or by `skinMove`, whichever keeps it most as drawn and goes furthest (`keptMove`: how much more its outline turns than the drawing's, the edges' shortfall in eighths or in ink counted too; a letter of bars and corners keeps its edges, one traced off a font's curves is moved as the font's are), spaced and leaned (`movedDrawn`). Settings that reshape a letter (curves, corners, ends, forms) don't reach a drawing; the effects it was drawn without (slice, fill, rough edges) run on it (`withEffects`), while one it was drawn under stays in its points whatever it is set to now |
 | `lines.ts` | A letter's straight strokes read off its outline (`lineSkeleton`): straight edges facing each other across the ink a stroke apart paired, their middle lines run on to where they cross, the skeleton a letter of them alone is drawn on at its lighter weights; a stroke run level along a line, and a slab along its face, kept there as it thins (`FLUSH`) |
 | `fair-light.ts` | A lighter weight's outline run smooth (`fairLighter`): waves, kinks, knots and nicks smoothed away at the scale its sides moved in, the design's corners kept, each corner drawn again where its two sides, smoothed, meet |
-| `even-weight.ts` | Weight, Verticals, Horizontals and Contrast on a free font's letter, its drawing kept (`evenWeight`): its outline pushed out or in evenly, sideways and up and down by their own distances (each edge as far as it faces either way, corners mitred), each setting no further than `PEN` of the font's stem at its slider's end, never further in than `HAIR_KEEP` of the font's thinnest strokes, drawn back onto its lines, needles and slivers gone; a letter whose counter would close, a stroke part or two pieces run into one is moved only as far as it can be without |
+| `even-weight.ts` | Weight, Verticals, Horizontals and Contrast on a free font's letter, its drawing kept (`evenWeight`): its outline pushed out or in evenly, sideways and up and down by their own distances (each edge as far as it faces either way, corners mitred), each setting no further than `PEN` of the font's stem at its slider's end (Contrast turned round to Reversed, the stems in by `PEN_REVERSED`), never further in than `HAIR_KEEP` of the font's thinnest strokes, drawn back onto its lines, needles and slivers gone; a letter whose counter would close, a stroke part or two pieces run into one is moved only as far as it can be without |
 | `slabs.ts` | A slab serif's slabs read off a letter's outline (`slabsOf`): a stroke's end cut across (its face) run out past its sides in a tab either side or one (a flag, a beak), and the letter without them, each stroke's sides run on to its face |
 | `restyle.ts` | The engine's shapes redrawn on a free font's letter: dots, bowls, ends, serifs, stencil, peaks, corners |
 | `highlight.ts` | `highlightD` and `RING_KEYS` |
@@ -672,14 +672,21 @@ A design with `freeFont` set draws its letters from a free font instead of build
    takes and stays so is found once per letter at Corners' squarest (`boxLimits`, uncut and fully cut by Facets), and
    every setting takes as much of its own, so both sliders move it steadily, squarer the sharper.
    Weight, Verticals, Horizontals and Contrast are not moved on the skeleton: `freeLetters` hands `skinMove`, `restyled`
-   and `skinRoom` the measures asked for at the weight, Verticals, Horizontals and Contrast the font stands for (`rest`),
-   and `freeGlyph` then pushes the restyled outline out or in evenly (`weighedOut`, `evenWeight` in `even-weight.ts`):
-   sideways by Weight and Verticals, up and down by Weight, Horizontals and Contrast (`pen`, as far along each slider
-   from where the font was picked toward either end as it is moved), in no further than `HAIR_KEEP` of the font's
-   thinnest strokes (`thinnest`, read off its letters' skeletons), and spaces it by that outline. Read stroke by stroke
-   and drawn again from the skeleton, the letters reached every weight but broke on the way (2026-10-22: joins notched,
-   edges waved, hairlines thinned away, bowls beaded at Verticals or Horizontals 0 and 100); kept as drawn, they reach
-   only so far.
+   and `skinRoom` the measures asked for at the weight, Verticals, Horizontals and Contrast the font stands for (`rest`,
+   Contrast's turn round, `reverse`, with it: left as asked, reversed contrast thinned the stems on the skeleton and
+   notched every join), and `freeGlyph` then pushes the restyled outline out or in evenly (`weighedOut`, `evenWeight` in
+   `even-weight.ts`): sideways by Weight and Verticals, up and down by Weight, Horizontals and Contrast (`pen`, as far
+   along each slider from where the font was picked toward either end as it is moved), in no further than `HAIR_KEEP`
+   of the font's thinnest strokes (`thinnest`, read off its letters' skeletons), and spaces it by that outline.
+   Contrast is read by which way round it is as well as how much (its amount turned round below none, -1 at
+   Reversed): lowered, the bars go out as far as the amount drops toward none (0.45); turned round past none, the stems
+   go in sideways (`pen.rev`, `PEN_REVERSED` of the stem at Reversed, within a `HAIR_KEEP` room of its own, so Weight's
+   and Verticals' reach in is as before), and what the stems can't give the bars take (a Didone's hairlines go out
+   further). So Reversed draws a grotesque's bars 1.4 to 1.5 times its stems; with the bars out alone they
+   came to as thick as its stems and no further, and out twice as far a heavy grotesque's e, a and s closed. Read
+   stroke by stroke and drawn again from the skeleton, the letters reached every weight but broke on the way
+   (2026-10-22: joins notched, edges waved, hairlines thinned away, bowls beaded at Verticals or Horizontals 0 and 100);
+   kept as drawn, they reach only so far.
 5. The twin: `formChanged(ch, asked, picked)` says a letter is asked for in a form the font hasn't got (another build,
    the a's storeys, a `FORM_LETTERS` setting; the Letter a left on auto keeps the font's own form, and a font is written
    in its own letters, script or print, whatever Cursive asks; a family `ownForms` (Cathedral, Serenade, Boardwalk,

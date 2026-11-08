@@ -747,6 +747,58 @@ describe("TypeLab's own fonts", () => {
     }
   });
 
+  it('turn Contrast round on their outline: the bars heavier down to none, then the stems thinner at every step to Reversed', async () => {
+    // (the bars out alone, a grotesque's H's bar came to as thick as its stems at Contrast 0 and no further, its stems
+    // as drawn all along the slider; turned round on the skeleton, its n's leg kinked and its d's stem stepped)
+    const fonts = new FreeFonts(null, noFetch);
+    const card = async (style: string) => {
+      const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
+      if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+      return { own: st.params.contrast, at: (contrast: number) => buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params), contrast } as Params) };
+    };
+    // the ink's runs along a line across the letter, level at height `v` or upright at x `v`
+    const runs = (g: Glyph, way: 'x' | 'y', v: number) => {
+      const hits = toPolys(g.cmds).flatMap(r => r.flatMap((a, i) => {
+        const b = r[(i + 1) % r.length], [pa, pb, qa, qb] = way === 'y' ? [a.y, b.y, a.x, b.x] : [a.x, b.x, a.y, b.y];
+        return (pa <= v) !== (pb <= v) ? [qa + (qb - qa) * (v - pa) / (pb - pa)] : [];
+      })).sort((p, q) => p - q);
+      return hits.flatMap((h, i) => (i % 2 ? [h - hits[i - 1]] : []));
+    };
+    const mid = (g: Glyph) => { const xs = toPolys(g.cmds).flat().map(p => p.x); return (Math.min(...xs) + Math.max(...xs)) / 2; };
+    const look = (f: ReturnType<typeof buildFont>) => {
+      const n = f.glyph('n')!, o = f.glyph('o')!, H = f.glyph('H')!;
+      return { stem: runs(n, 'y', f.m.xh / 3)[0], foot: runs(o, 'x', mid(o))[0], hStem: runs(H, 'y', f.m.cap / 4)[0], hBar: runs(H, 'x', mid(H))[0] };
+    };
+    const area = (r: { x: number; y: number }[]) => r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p.x * q.y - q.x * p.y; }, 0) / 2;
+    const parts = (g: Glyph) => { const sh = shape(toPolys(g.cmds)), rings = combine([sh], sh.has); return [rings.filter(r => area(r) > 0).length, rings.filter(r => area(r) < 0).length]; };
+    const grotesque = await card('grotesque'), pick = look(grotesque.at(grotesque.own));
+    const steps = [0.5, 0.45, 0.4, 0.3, 0.2, 0.1, 0].map(c => ({ c, ...look(grotesque.at(c)) }));
+    let was = { c: grotesque.own, ...pick };
+    for (const s of steps) {
+      const at = `Mainline at Contrast ${s.c}, ${was.c} a step before`;
+      // (lowered to none, 0.45, the bars out and the stems as drawn; turned round past it, the stems in and the bars kept)
+      assert.ok(s.foot >= was.foot - 0.5, `${at}: the o's foot ${s.foot.toFixed(1)}, ${was.foot.toFixed(1)}`);
+      if (s.c >= 0.45) {
+        assert.ok(s.foot > was.foot + 0.5, `${at}: the o's foot heavier, ${s.foot.toFixed(1)}, ${was.foot.toFixed(1)}`);
+        assert.ok(Math.abs(s.stem - pick.stem) < 0.5, `${at}: the n's stem ${s.stem.toFixed(1)}, ${pick.stem.toFixed(1)} as drawn`);
+      } else assert.ok(s.stem < was.stem - 2, `${at}: the n's stem thinner, ${s.stem.toFixed(1)}, ${was.stem.toFixed(1)}`);
+      was = s;
+    }
+    // at Reversed the bars heavier than the stems by a third and more (the code before this: the H's bar 1.01 of its stem)
+    const rev = steps.at(-1)!;
+    assert.ok(rev.hBar > 1.3 * rev.hStem && rev.foot > 1.3 * rev.stem, `Mainline reversed: the H's bar ${rev.hBar.toFixed(1)} on stems ${rev.hStem.toFixed(1)}, the o's foot ${rev.foot.toFixed(1)} on the n's ${rev.stem.toFixed(1)}`);
+    assert.ok(pick.hBar < pick.hStem, `Mainline as drawn: the H's bar ${pick.hBar.toFixed(1)} on stems ${pick.hStem.toFixed(1)}`);
+    // and its letters whole: as many pieces and counters as drawn
+    const own = grotesque.at(grotesque.own), reversed = grotesque.at(0);
+    for (const ch of 'aegnosdyHRBk') assert.deepEqual(parts(reversed.glyph(ch)!), parts(own.glyph(ch)!), `Mainline's ${ch} reversed`);
+    // High leaves the stems as drawn
+    assert.ok(Math.abs(look(grotesque.at(1)).stem - pick.stem) < 0.5, 'Mainline at Contrast 100: the n\'s stem as drawn');
+    // a Didone's stems hardly thin (no further in than HAIR_KEEP of its hairlines), so its hairlines take the turn: out
+    // further at Reversed than lowered to none
+    const didone = await card('didone'), none = look(didone.at(0.45)), back = look(didone.at(0));
+    assert.ok(back.stem > 0.9 * none.stem && back.foot > none.foot + 1, `Couture: the n's stem ${none.stem.toFixed(1)} → ${back.stem.toFixed(1)}, the o's foot ${none.foot.toFixed(1)} → ${back.foot.toFixed(1)}`);
+  });
+
   it('answer every setting on their letters without breaking them, and each setting changes what it says', async () => {
     const fonts = new FreeFonts(null, noFetch);
     const design = async (style: string, moves: Partial<Params> = {}) => {

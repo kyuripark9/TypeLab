@@ -7,7 +7,7 @@ import { applyM, clamp } from './geom';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { drawnCmds, type Drawn, type Node } from './outline';
-import { HAIR_KEEP, PEN, evenWeight } from './even-weight';
+import { HAIR_KEEP, PEN, PEN_REVERSED, evenWeight } from './even-weight';
 import { FORM_LETTERS, SPAN_TOL, ascTo, descTo, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, type SkinMeasures, type SkinRig } from './skin';
 import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBlockBowls, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
@@ -34,8 +34,9 @@ interface FreeLetters {
   /** the engine's measures of the settings the font's letters stand for, and of those asked for */ from: SkinMeasures; to: SkinMeasures;
   /** what moves its letters on their skeletons (skin.ts): those asked for at the weight, Verticals, Horizontals and
       Contrast the font stands for; and how far those then push their outline out (in where negative), sideways and up
-      and down, as shares of the font's stem (PEN in even-weight.ts, in step along each slider) */
-  rest: SkinMeasures; pen: { x: number; y: number };
+      and down, as shares of the font's stem (PEN in even-weight.ts, in step along each slider); and how far Contrast
+      is turned round past the font's (0 to 1), its stems in by PEN_REVERSED of that (see weighedOut) */
+  rest: SkinMeasures; pen: { x: number; y: number; rev: number };
   /** whether its letters move on their skeletons (not a pixel font's, which are only stretched) */ skin: boolean;
   /** the side bearings' scale */ sb: number;
   /** how far a monospaced font is drawn back toward proportional spacing, Monospace moved below where it was picked (0
@@ -70,15 +71,29 @@ export function freeLetters(params: Params, e: Effective, m: Metrics): FreeLette
   const to = skinMeasures(m), had = mb.ctx.serif, asked = m.ctx.serif, other = !!had && (!asked || serifLook(had) !== serifLook(asked));
   if (other) to.serif = 0;
   // Weight, Verticals, Horizontals and Contrast push the outline (even-weight.ts), each as far along its slider from
-  // where the font was picked toward either end (-1 to 1) as it is moved; the rest move it on its skeleton
-  const thick = { weight: drawnAt, vWeight: b.vWeight, hWeight: b.hWeight, contrast: b.contrast };
+  // where the font was picked toward either end (-1 to 1) as it is moved; the rest move it on its skeleton. Contrast's
+  // turn round (`reverse`) stays the font's too: left as asked, it thinned the stems on the skeleton, a notch at every
+  // join, a grotesque's n's leg kinked half way down and its d's stem stepped at its foot at Contrast 0
+  const thick = { weight: drawnAt, vWeight: b.vWeight, hWeight: b.hWeight, contrast: b.contrast, reverse: b.reverse };
   const moved = (Object.keys(thick) as (keyof typeof thick)[]).some(k => Math.abs(e[k] - thick[k]) > 1e-4);
   const rest = moved ? skinMeasures(metrics({ ...e, ...thick })) : to;
   if (other) rest.serif = 0;
   const along = (now: number, at: number) => (now > at ? Math.min(1, (now - at) / Math.max(1e-4, 1 - at)) : -Math.min(1, (at - now) / Math.max(1e-4, at)));
   const reach = (t: number, r: { out: number; in: number }) => (t > 0 ? t * r.out : t * r.in);
   const w = reach(along(e.weight, drawnAt), PEN.weight);
-  const pen = { x: w + reach(along(e.vWeight, b.vWeight), PEN.verticals), y: w + reach(along(e.hWeight, b.hWeight), PEN.horizontals) + reach(-along(e.contrast, b.contrast), PEN.contrast) };
+  // (Contrast by which way round it is as well as how much, its amount turned round below none, to -1 at Reversed:
+  // lowered, the bars go out as far as the amount drops toward none; turned round past none, or past the font's own
+  // turn, the stems go in (`rev`, PEN_REVERSED, weighedOut), so Reversed draws the bars heavier than the stems. By the
+  // amount alone, turned round read as more contrast, the bars thinned toward Reversed as toward High; spread evenly
+  // from High to Reversed, the bars went out a third as far from a book face's Contrast to none, and its family's
+  // lighter weights no longer kept its hairline; with the bars out alone, as far again turned round, a grotesque's H's
+  // bar came to as thick as its stems at Contrast 0 and no further, its stems as drawn all along the slider, and a heavy
+  // grotesque's e, a and s (Bulwark's, Timber's) closed to slits)
+  const signed = (x: Effective) => (1 - 2 * x.reverse) * x.contrast, c = signed(e), c0 = signed(b);
+  const dropped = c0 > 0 ? Math.min(1, (c0 - Math.max(c, 0)) / Math.max(1e-4, c0)) : 0;
+  const turned = Math.max(0, (Math.min(0, c0) - Math.min(0, c)) / Math.max(1e-4, 1 + Math.min(0, c0)));
+  const con = c > c0 ? reach(-along(c, c0), PEN.contrast) : dropped * PEN.contrast.out;
+  const pen = { x: w + reach(along(e.vWeight, b.vWeight), PEN.verticals), y: w + reach(along(e.hWeight, b.hWeight), PEN.horizontals) + con, rev: turned };
   // Weight alone draws the font's bars no heavier than its stems, but as far as the design's are: a heavy design's
   // Horizontals, raised to draw its bars as heavy as the font's where the measures hold them under a share of the
   // x-height, draw a lighter weight's bars as much as twice its stems (Orbital's, Gumdrop's, Timber's). The bars as
@@ -334,12 +349,17 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
 /** A letter as the settings but Weight, Verticals, Horizontals and Contrast move it, `cs`, pushed out (or in) evenly
     as far as they ask (`pen`, of the font's stem, its n's), set back on its lines as moved. In, no further all told
     than HAIR_KEEP of the font's thinnest strokes: as many times less far along each way in as the most the settings
-    could ask is past that. Kept by the outline and the push. */
+    could ask is past that. Contrast turned round (`rev`) thins the stems within a room of its own, as many times less
+    far as PEN_REVERSED is past HAIR_KEEP of those strokes (counted in with Weight's and Verticals', it drew every card's
+    lighter weights heavier), and what they can't give the bars take, out by as much of PEN.contrast.out: a Didone's
+    stems hardly thin, so its hairlines go out. Kept by the outline and the push. */
 function weighedOut(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
-  if (!fl.pen.x && !fl.pen.y) return cs;
+  if (!fl.pen.x && !fl.pen.y && !fl.pen.rev) return cs;
   const stem = rig.ref().stem, room = fl.font ? HAIR_KEEP * thinnest(fl.font) : Infinity;
   const inX = Math.min(1, room / ((PEN.weight.in + PEN.verticals.in) * stem)), inY = Math.min(1, room / ((PEN.weight.in + PEN.horizontals.in + PEN.contrast.in) * stem));
-  const dx = fl.pen.x * stem * (fl.pen.x < 0 ? inX : 1), dy = fl.pen.y * stem * (fl.pen.y < 0 ? inY : 1);
+  const inR = Math.min(1, room / (PEN_REVERSED * stem));
+  const dx = fl.pen.x * stem * (fl.pen.x < 0 ? inX : 1) - fl.pen.rev * PEN_REVERSED * inR * stem;
+  const dy = fl.pen.y * stem * (fl.pen.y < 0 ? inY : 1) + fl.pen.rev * PEN.contrast.out * (1 - inR) * stem;
   const x = rig.ctx, xh = x.lower ? x.xh * fl.rest.xr / fl.from.xr : x.xh, asc = ascTo(rig, xh, fl.from.asc, fl.rest.asc);
   const desc = descTo(rig, fl.from.desc, fl.rest.desc);
   const lines = x.lower ? { tops: [xh, asc], feet: [0, desc] } : { tops: [x.cap], feet: [0, desc] };
