@@ -809,6 +809,53 @@ describe("TypeLab's own fonts", () => {
     assert.ok(back.stem > 0.9 * none.stem && back.foot > none.foot + 1, `Couture: the n's stem ${none.stem.toFixed(1)} → ${back.stem.toFixed(1)}, the o's foot ${none.foot.toFixed(1)} → ${back.foot.toFixed(1)}`);
   });
 
+  it('keep a heavy letter\'s openings open and push it as far as the rest: Mainline\'s a, e, s and g at Weight 95 and 100', async () => {
+    // (pushed out alike all round, the openings between a terminal and the stroke it nears closed to a slit, a level jog
+    // where it was: the a's terminal run into its bowl, the e's onto its bar, the s's onto its spine, the g's tail onto its
+    // bowl; and the letter pushed only as far as kept them that open, the e 0.78 of the way at Weight 100, lighter than its o)
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'grotesque')!, id = STYLE_FONTS.grotesque;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, own = buildFont(p);
+    // the narrowest opening of a letter: two points of its outline nearest each other across paper, a long way apart
+    // round it (a crotch's two sides meet a short way round)
+    const narrowest = (g: Glyph) => {
+      const rs = toPolys(g.cmds), ink = shape(rs), pts: { x: number; y: number; r: number; s: number }[] = [], round: number[] = [];
+      rs.forEach((r, k) => {
+        let s = 0;
+        r.forEach((a, i) => {
+          const b = r[(i + 1) % r.length], l = Math.hypot(b.x - a.x, b.y - a.y);
+          for (let t = 0; t < l; t += 4) pts.push({ x: a.x + (b.x - a.x) * t / l, y: a.y + (b.y - a.y) * t / l, r: k, s: s + t });
+          s += l;
+        });
+        round.push(s);
+      });
+      let best = Infinity;
+      for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+        const a = pts[i], b = pts[j], d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d >= best) continue;
+        if (a.r === b.r) { const u = Math.abs(a.s - b.s); if (Math.min(u, round[a.r] - u) < 6 * d + 40) continue; }
+        if ([0.25, 0.5, 0.75].some(t => ink.has(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t))) continue;
+        best = d;
+      }
+      return best;
+    };
+    // the ink's runs along a level line at height y, left to right
+    const runs = (g: Glyph, y: number) => {
+      const xs = toPolys(g.cmds).flatMap(r => r.flatMap((a, i) => { const b = r[(i + 1) % r.length]; return (a.y <= y) !== (b.y <= y) ? [a.x + (b.x - a.x) * (y - a.y) / (b.y - a.y)] : []; })).sort((p, q) => p - q);
+      return xs.flatMap((x, i) => (i % 2 ? [x - xs[i - 1]] : []));
+    };
+    for (const weight of [0.95, 1]) {
+      const heavy = buildFont({ ...p, weight });
+      for (const ch of 'aesgc') {
+        const was = narrowest(own.glyph(ch)!), now = narrowest(heavy.glyph(ch)!);
+        assert.ok(now > 0.3 * was, `Mainline's ${ch} at Weight ${weight * 100}: its narrowest opening ${now.toFixed(1)} units, ${was.toFixed(1)} as drawn`);
+      }
+      // (and the a's and e's left sides as much heavier as the o's, at a third of the x-height)
+      const side = (f: typeof own, ch: string) => runs(f.glyph(ch)!, f.m.xh / 3)[0], grew = (ch: string) => side(heavy, ch) - side(own, ch);
+      for (const ch of 'ae') assert.ok(grew(ch) > 0.9 * grew('o'), `Mainline's ${ch} at Weight ${weight * 100}: its left side ${grew(ch).toFixed(1)} units heavier, the o's ${grew('o').toFixed(1)}`);
+    }
+  });
+
   it('answer every setting on their letters without breaking them, and each setting changes what it says', async () => {
     const fonts = new FreeFonts(null, noFetch);
     const design = async (style: string, moves: Partial<Params> = {}) => {
