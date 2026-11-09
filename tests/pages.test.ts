@@ -78,6 +78,14 @@ describe('editor pages', () => {
     // and their corners' Roundness without its Joins and Counters, which blot their crossings
     assert.deepEqual(Object.keys(ROUND_SUBS).filter(s => !subInUse(s, { build: 'arcs' })), ['joinRound', 'innerRound']);
     assert.ok(Object.keys(ROUND_SUBS).every(s => subInUse(s, { build: 'strokes' })));
+    // letters drawn from a font without the serif tips' and the inside serifs' sliders, which broke them moved with
+    // Weight and the rest; letters the engine draws keep them
+    const serifSubs = [...Object.values(SERIF_TIP_DETAILS).flat(), ...Object.keys(SERIF_INNER_SUBS)];
+    assert.ok(serifSubs.length === 4 && serifSubs.every(s => !subInUse(s, { build: 'strokes', freeFont: 'Couture:600' }) && subInUse(s, { build: 'strokes', freeFont: '' })));
+    assert.ok(subInUse('serifCup', { build: 'strokes', freeFont: 'Couture:600' }));
+    // letters built from blocks or arcs without Weight's Verticals and Horizontals, which thinned apart broke them
+    for (const build of ['blocks', 'arcs'] as const) assert.deepEqual(Object.keys(WEIGHT_SUBS).filter(s => !subInUse(s, { build })), ['vWeight', 'hWeight']);
+    assert.ok(Object.keys(WEIGHT_SUBS).every(s => subInUse(s, { build: 'strokes' })));
     // what the letters are built from comes with the style they start from: no control changes it
     assert.ok(!('build' in CONTROLS) && !('blockForm' in CONTROLS));
   });

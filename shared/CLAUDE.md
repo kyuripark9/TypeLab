@@ -18,7 +18,7 @@ Everything here runs in the browser and on the server alike, so nothing touches 
 | `content/search.ts` | Find a setting: `findSettings`, `ALSO` (words people use that the copy doesn't) |
 | `free-fonts.ts` | TypeLab's own fonts (`OWN_FAMILIES`) and the Google families (`FREE_FAMILIES`), each style's font (`STYLE_FONTS`), the fonts the own ones replaced (`OLD_FONTS`, `ownFontOf`), font ids, `nearestFont`, `withoutReserved`; the opening title card's letters (`INTRO_CHARS`, its scramble's `INTRO_SYMBOLS`) and the own fonts it mixes in (`INTRO_OWN`, `introFontUrl`) |
 | `font-widths.ts` | `FONT_WIDTHS`: how far Width may stretch and squeeze each free font's letters (by font id) and leave them whole, the least and most of its own width; written by `npm run widths:update` (tools/widths.ts), read by `freeWidth` (engine/free-letters.ts) |
-| `font-reins.ts` | `FONT_REINS`: how far each other slider may carry each of TypeLab's own fonts' letters from where its card picks them and leave them whole (by font id and setting, the least and most of the slider); written by `npm run breaks -- --update` (tools/breaks.ts), read by `freeReins` (engine/free-letters.ts). Not Weight, Verticals, Horizontals, Contrast or Slant (a family is solved on them), nor Width or Bowl overlap |
+| `font-reins.ts` | `FONT_REINS`: how far each other slider may carry each of TypeLab's own fonts' letters from where its card picks them and leave them whole (by font id and setting, the least and most of the slider); written by `npm run breaks -- --update` (tools/breaks.ts), read by `freeReins` (engine/free-letters.ts). Not Weight, Verticals, Horizontals, Contrast or Slant (a family is solved on them), nor Width or Bowl overlap, but the Block card's Weight and Horizontals, set from the sliders' mixes (`REINS_BY_MIXES` in tools/breaks.ts). `BUILT_REINS`: the same for the letters the engine builds, the slot and grid blocks and the arcs (by `lettersOf`, the least, the most and the card's own value; the body's sliders with the rest), written by `npm run breaks -- --update-built`, read by `builtReins` |
 | `font-offs.ts` | `FONT_OFFS`: the choices of a picker or switch that break a card's letters (by font id, or `blocks:<form>` and `arcs`), which the panel leaves out there (`choicesOff`, `controlOff` and `keepWhole` in content/controls.ts); written by `npm run breaks -- --offs` |
 | `trait-offs.ts` | `TRAIT_OFFS`: the Adjust tab's steps that break a card's letters together (by font id, as FONT_OFFS keys them; sets of steps in `TRAITS` order), whose last step `traitsOn` (traits.ts) leaves out where a set is picked whole; written by `npm run breaks -- --shuffle-offs` from the Shuffle button's mixes drawn by `--shuffle` |
 | `family.ts` | A font family: `WEIGHTS`, `FAMILY_STYLES`, `familyMember(s)`, the anchor weight, `ownStyle`, `SLANTED`; lighter weights keep the design's hairline (`keepHairline`) |
@@ -156,7 +156,10 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   `SERIF_TIP_DETAILS`; `BLOCK_CONTROLS` and `ARC_CONTROLS` (all that shows on letters built from blocks, by kind, or from arcs),
   `STROKES_OFF` (what letters built from strokes, every card in a font, leave out: Stencil, whole only on the slot and
   grid blocks; Cell joins and Grid rows, the grid's own), `ARC_SUBS_OFF` (Roundness's Joins and Counters, which blot
-  arc letters), `controlInUse`, `subInUse`
+  arc letters), `FONT_SUBS_OFF` (the serif tips' and inside serifs' sliders, left out on letters drawn from a font:
+  moved with Weight and the rest, they broke the serif cards), `BUILT_SUBS_OFF` (Weight's Verticals and Horizontals,
+  left out on letters built from blocks or arcs: thinned apart, the grid's corners and the arcs' bowls came off), `controlInUse`, `subInUse` (given
+  the font too)
   and `pagesFor` (the controls and pages a design's letters take: the navigation, the page steps and Find a setting
   offer only those; given the design, less any control `controlOff` leaves out on its font, FONT_OFFS); `PART_CONTROL`
   (anatomy part to the control that shapes it); `controlFor` (a sub to its parent).

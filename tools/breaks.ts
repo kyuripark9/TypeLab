@@ -21,6 +21,14 @@
                                                      picks most traits in each mix
      npm run breaks -- --shuffle-offs                each mix that broke a card cut down to the fewest steps that still
                                                      break it, those sets added to shared/trait-offs.ts
+     npm run breaks -- --sliders 200 [--seed 1]     that many mixes of sliders on each card, as the editor moves them
+                                                     (one to three of Weight, Verticals, Horizontals, Contrast, Width
+                                                     and Slant, none to two others, each at a value at random), the
+                                                     ones that break it kept (writes .tools/out/breaks-sliders.json)
+     npm run breaks -- --sliders-cut                 each mix of sliders that broke a card cut down to the fewest
+                                                     that still break it, printed
+     npm run breaks -- --update-built                how far each slider carries the blocks' and arcs' letters whole,
+                                                     Weight and the rest with them (rewrites BUILT_REINS)
      npm run breaks -- --try 'weight:bold,width:condensed' --cards grotesque     one mix (steps, or key=value) on a card
 
    A letter is broken where the setting puts a fault on it (look, in tools/weights.ts) that the letter moved a hair the
@@ -45,13 +53,14 @@
 
    The Adjust tab's traits are measured as mixes: --shuffle draws the Shuffle button's mixes on each card and keeps
    those that break it in form (shatters: a piece or a counter on two letters or more), and --shuffle-offs cuts each down
-   to the fewest steps that still break the card, the sets traitsOn then leaves the last step of (TRAIT_OFFS). */
+   to the fewest steps that still break the card, the sets traitsOn then leaves the last step of (TRAIT_OFFS). The
+   editor's sliders are measured the same way (--sliders): mixes of them at random values, read as a mix is. */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildFont, type Font } from '../shared/engine';
-import { PAGE_STYLES, TERMINAL_SHAPES, controlInUse, keepWhole, lettersOf, subInUse, type ControlKey } from '../shared/content';
-import { FONT_REINS } from '../shared/font-reins';
+import { PAGE_STYLES, TERMINAL_SHAPES, choicesOff, controlInUse, controlOff, keepWhole, lettersOf, subInUse, type ControlKey } from '../shared/content';
+import { BUILT_REINS, FONT_REINS } from '../shared/font-reins';
 import { OWN_FAMILIES, STYLE_FONTS } from '../shared/free-fonts';
 import { FREE_AT_KEYS, SPECS, freeAtOf, type Params } from '../shared/params';
 import { TRAIT_OFFS } from '../shared/trait-offs';
@@ -108,7 +117,7 @@ const bent = (cmds: Cmd[]) => bendsBack(cmds, BEND_FLAT).sort((p, q) => p - q);
 
 /** A design's letters as drawn, each read for faults (sharp points down to 120°, as a baseline reads them) when asked. */
 type Parts = { pieces: number; counters: number; open: number };
-class Drawn {
+export class Drawn {
   readonly f: Font;
   readonly p: Params;
   private read = new Map<string, { look: Look; bends: number[]; parts?: Parts; fine?: Parts } | null>();
@@ -234,11 +243,13 @@ const listed = (bad: Map<string, Kind[]>) => [...bad].map(([ch, k]) => `${ch}:${
     by the control they sit in. (The Serifs control's shapes were one, off the panel since 2026-11-09.) */
 const IN_CONTROL: Record<string, string> = { barEnds: 'crossbar' };
 
+/** The control setting `k` is, or sits in. */
+const parentOf = (k: string) => { const s = specOf(k); return (s.control ? k : s.sub?.parent ?? IN_CONTROL[k]) as ControlKey; };
 /** The settings the panel offers on design `p`: its controls in use and the sliders nested under them, less SKIP. */
 function keysOf(p: Params): string[] {
   return Object.keys(SPECS).filter(k => {
     if (SKIP.has(k)) return false;
-    const s = specOf(k), parent = s.control ? k : s.sub?.parent ?? IN_CONTROL[k];
+    const parent = parentOf(k);
     if (!parent) return false;
     if ((parent === 'cellJoin' || parent === 'gridRows') && !(p.build === 'blocks' && p.blockForm === 'grid')) return false;
     return controlInUse(parent as ControlKey, p) && subInUse(k, p);
@@ -247,7 +258,7 @@ function keysOf(p: Params): string[] {
 
 /** Card `id`'s design: its settings in its own font, the font registered (in `held`); the engine's letters for a card
     no font stands behind (the slot and grid blocks, the arcs). */
-function designOf(id: string, held: Set<string>): Params | null {
+export function designOf(id: string, held: Set<string>): Params | null {
   const st = PAGE_STYLES.find(s => s.id === id)!, fid = STYLE_FONTS[id];
   if (!fid) return st.params;
   if (!existsSync(fontFile(FONTS_DIR, fid))) return null;
@@ -411,15 +422,22 @@ const WALKED_BY_EYE: Record<string, Record<string, ('lo' | 'hi')[]>> = {
   'Boardwalk:400': { squareness: ['hi'] },
   'Serenade:400': { squareness: ['hi'] }
 };
+/** Reins on the sliders the walk leaves free (NOT_REINED), set from the sliders' mixes (--sliders, --try): the Block
+    card's Weight, past 80 its 6's and 9's counters shut and its G slit (whole at 80 with Verticals at 100), and its
+    Horizontals past its own 98, the a and e pinched. Kept by --update. */
+const REINS_BY_MIXES: Record<string, Record<string, [number, number]>> = {
+  'Bulwark:700': { weight: [0, 0.8], hWeight: [0, 0.98] }
+};
 /** The walk's steps (of the way from the card's own value to the slider's end), and the halvings after. */
 const REIN_STEPS = 16, HALVINGS = 4;
 const REINS_FILE = resolve(ROOT, 'shared/font-reins.ts');
 
-/** `fn` run with the reins off: FONT_REINS emptied, and put back after. */
+/** `fn` run with the reins off: FONT_REINS and BUILT_REINS emptied, and put back after. */
 function reinsOff<T>(fn: () => T): T {
-  const kept = Object.entries(FONT_REINS);
+  const kept = Object.entries(FONT_REINS), built = Object.entries(BUILT_REINS);
   for (const [k] of kept) delete FONT_REINS[k];
-  try { return fn(); } finally { for (const [k, v] of kept) FONT_REINS[k] = v; }
+  for (const [k] of built) delete BUILT_REINS[k];
+  try { return fn(); } finally { for (const [k, v] of kept) FONT_REINS[k] = v; for (const [k, v] of built) BUILT_REINS[k] = v; }
 }
 
 /** The sliders reined on card design `p` (in a font of TypeLab's own): those the panel offers that its font follows. */
@@ -433,7 +451,7 @@ const reinKeysOf = (p: Params) => keysOf(p).filter(k => specOf(k).kind === 'numb
     looked at drawn, and doesn't stop the walk (on the industrial, blackletter and chancery cards a contour re-fitted as
     the letters leave the font's own outline, read as bends or a hairline's needle, unseen drawn; counted, it held a
     dozen of their sliders at the card's own value). */
-function walkTo(base: Params, k: string, end: number, held: Set<string>): { reach: number; whole: boolean; past: string[]; onset: string[] } {
+function walkTo(base: Params, k: string, end: number, held: Set<string>, broken: (c: Cell) => boolean = breaks): { reach: number; whole: boolean; past: string[]; onset: string[] } {
   const a = base[k as keyof Params] as number, was = new Drawn(base, held);
   const toward = (s: number) => ({ ...base, [k]: a + (end - a) * s }) as Params;
   const ref = new Drawn(toward(NUDGE), held);
@@ -453,17 +471,17 @@ function walkTo(base: Params, k: string, end: number, held: Set<string>): { reac
   let ok = a, over = NaN, past: string[] = [];
   for (let i = 1; i <= REIN_STEPS; i++) {
     const v = a + (end - a) * i / REIN_STEPS, c = read(v);
-    if (breaks(c)) { over = v; past = c.bad; break; }
+    if (broken(c)) { over = v; past = c.bad; break; }
     ok = v;
   }
   if (Number.isNaN(over)) return { reach: end, whole: true, past, onset: told };
   for (let h = 0; h < HALVINGS; h++) {
     const v = (ok + over) / 2, c = read(v);
-    if (breaks(c)) { over = v; past = c.bad; } else ok = v;
+    if (broken(c)) { over = v; past = c.bad; } else ok = v;
   }
   const back = (v: number) => (end > a ? Math.max(a, v - WINDOW) : Math.min(a, v + WINDOW));
   ok = back(ok);
-  while (ok !== a && breaks(read(ok))) ok = back(ok);
+  while (ok !== a && broken(read(ok))) ok = back(ok);
   return { reach: ok, whole: false, past, onset: told };
 }
 
@@ -490,9 +508,57 @@ function reinsOf(id: string, keys: string[]): { font: string; reins: Map<string,
   return { font: fid, reins: out };
 }
 
+/** Whether a value broke letters in form as a mix is read (shatters): a piece or a counter lost or gained, or a counter
+    pinched, on two letters or more, the counters of letters whose strokes cross (CROSSED) not read. The blocks' and
+    arcs' corners and joins bend, and a slice's or step's edges come to needles and slits, on letters whole drawn: read
+    as breaks, they held Joints on the slot and grid blocks to a twentieth. */
+const inForm = (crossed: string) => (c: Cell) => c.bad.filter(b => {
+  const [ch, k] = b.split(':'), kinds = k.split('+').filter(x => !(crossed.includes(ch) && (x === 'counters' || x === 'pinched')));
+  return kinds.some(x => x === 'pieces' || x === 'counters' || x === 'pinched');
+}).length >= 2;
+/** The reins of card `id` whose letters the engine builds (the slot and grid blocks, the arcs): each slider it offers
+    walked as reinsOf walks a font's, broken in form alone (inForm), Weight, Verticals, Horizontals, Contrast, Slant and
+    Width with them; null for a card in a font. */
+function builtReinsOf(id: string, keys: string[]): { letters: string; reins: Map<string, Rein> } | null {
+  if (STYLE_FONTS[id]) return null;
+  const held = new Set<string>(), design = designOf(id, held)!, out = new Map<string, Rein>(), read = inForm(CROSSED[lettersOf(design)] ?? '');
+  reinsOff(() => {
+    for (const k of keysOf(design).filter(k => specOf(k).kind === 'number' && (!keys.length || keys.includes(k)))) {
+      const base = { ...design, ...showContext(k) } as Params, at = base[k as keyof Params] as number;
+      const lo = at > 0 ? walkTo(base, k, 0, held, read) : { reach: 0, whole: true, past: [], onset: [] };
+      const hi = at < 1 ? walkTo(base, k, 1, held, read) : { reach: 1, whole: true, past: [], onset: [] };
+      out.set(k, { lo: lo.reach, hi: hi.reach, past: [lo.past, hi.past], onset: [lo.onset, hi.onset], at });
+    }
+  });
+  letGo(held);
+  return { letters: lettersOf(design), reins: out };
+}
+/** Reins on the engine's letters drawn in further than the walk found, from the sliders' mixes (--sliders): the arcs'
+    Weight to 60, past which most stroke ends but the card's own broke them, the flat and angled ends' P's and R's
+    counters shut and their F's and G's slit (OFFS_BY_MIXES leaves out those that broke sooner), and from 16, below
+    which a wider Width or Wobble took the b's and p's bowls off their stems (walked alone, whole to 7); and their
+    Wobble to 70, past which a wider or lighter letter's bowls came off too. */
+const BUILT_BY_MIXES: Record<string, Record<string, [number, number]>> = {
+  'arcs': { weight: [0.16, 0.6], wobble: [0, 0.7] }
+};
+/** shared/font-reins.ts with `table` for BUILT_REINS: by letters, each setting reined to its least and most and the
+    card's own value, BUILT_BY_MIXES laid over it. */
+function writeBuiltReins(table: Map<string, Map<string, [number, number, number]>>) {
+  for (const [id, r] of Object.entries(BUILT_BY_MIXES)) {
+    const row = table.get(id) ?? new Map<string, [number, number, number]>();
+    for (const [k, [lo, hi]] of Object.entries(r)) { const was = row.get(k); row.set(k, [Math.max(lo, was?.[0] ?? 0), Math.min(hi, was?.[1] ?? 1), was?.[2] ?? NaN]); }
+    table.set(id, row);
+  }
+  const src = readFileSync(REINS_FILE, 'utf8'), at = src.indexOf('BUILT_REINS'), open = src.indexOf('= {\n', at) + 4, close = src.indexOf('};', open);
+  const rows = [...table].filter(([, r]) => r.size)
+    .map(([id, r]) => `  '${id}': { ${[...r].map(([k, [lo, hi, own]]) => `${k}: [${lo}, ${hi}, ${own}]`).join(', ')} }`).join(',\n');
+  writeFileSync(REINS_FILE, src.slice(0, open) + rows + (rows ? '\n' : '') + src.slice(close));
+}
+
 /** shared/font-reins.ts with `table` for its table: by font id, each setting reined to its least and most, rounded in
     toward the card's own (a thousandth), the sliders whole to both ends left out. */
 function writeReins(table: Map<string, Map<string, [number, number]>>) {
+  for (const [fid, r] of Object.entries(REINS_BY_MIXES)) { const row = table.get(fid) ?? new Map(); for (const [k, v] of Object.entries(r)) row.set(k, v); table.set(fid, row); }
   const src = readFileSync(REINS_FILE, 'utf8'), open = src.indexOf('= {\n') + 4, close = src.indexOf('};', open);
   const rows = [...table].filter(([, r]) => r.size)
     .map(([fid, r]) => `  '${fid}': { ${[...r].map(([k, [lo, hi]]) => `${k}: [${lo}, ${hi}]`).join(', ')} }`).join(',\n');
@@ -571,9 +637,16 @@ const OFFS_BY_EYE: Record<string, Record<string, string[]>> = {
   'Vellum:400': { serif: ['false'] },
   'Couture:600': { serif: ['false'] }
 };
+/** Choices that break a card's letters with a slider moved too, from the sliders' mixes (--sliders): the arcs' scooped,
+    notched, ball and droplet stroke ends shut their Z's and 4's counters and parted their h's and i's dots from 40 to
+    60 on Weight, which BUILT_REINS stops at 60 for the ends left (BUILT_BY_MIXES). */
+const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
+  'arcs': { terminal: ['flat/scooped', 'cut/notched', 'round/ball', 'round/droplet'] }
+};
 
 /** shared/font-offs.ts from map `m`: each card's pickers' and switches' choices that break it (`breaks`), by what its
-    letters are drawn from, for the pickers the panel offers on it, and those left out by eye (OFFS_BY_EYE). */
+    letters are drawn from, for the pickers the panel offers on it, and those left out by eye (OFFS_BY_EYE) or from
+    the sliders' mixes (OFFS_BY_MIXES). */
 function writeOffs(m: Map_) {
   const rows: string[] = [];
   for (const id of PAGE_STYLES.map(s => s.id)) {
@@ -586,7 +659,7 @@ function writeOffs(m: Map_) {
     const offered = new Set(keysOf(design));
     const offs = Object.entries(c.keys).filter(([k, r]) => offered.has(k) && r.changed && specOf(k).kind !== 'number')
       .map(([k, r]) => [k, Object.entries(r.values).filter(([, cell]) => breaks(cell)).map(([v]) => v)] as [string, string[]]);
-    for (const [k, vs] of Object.entries(OFFS_BY_EYE[lettersKey(design)] ?? {})) {
+    for (const [k, vs] of [OFFS_BY_EYE, OFFS_BY_MIXES].flatMap(by => Object.entries(by[lettersKey(design)] ?? {}))) {
       const row = offs.find(([o]) => o === k);
       if (row) row[1] = [...new Set([...row[1], ...vs])]; else offs.push([k, vs]);
     }
@@ -626,7 +699,7 @@ const CROSSED: Record<string, string> = { arcs: 'QP&' };
 
 /** The letters `now` breaks in form against `was`: a piece or counter more or fewer, a needle or a slit (a contour
     bending alone is unseen drawn, as --tighten reads it), the marks the settings `keys` draw on purpose left out. */
-function brokenInForm(now: Drawn, was: Drawn, keys: string[]): { n: number; bad: Map<string, Kind[]> } {
+export function brokenInForm(now: Drawn, was: Drawn, keys: string[]): { n: number; bad: Map<string, Kind[]> } {
   let n = 0;
   const bad = new Map<string, Kind[]>(), crossed = CROSSED[lettersKey(was.p)] ?? '';
   for (const ch of CHARS) {
@@ -701,12 +774,12 @@ function shuffled(rand: () => number, dense = false): Step[] {
     gained on two letters or more. Needles and slits alone aren't counted: under a mix of several steps they were read
     on letters that look whole drawn (the industrial card's corners, the fat face's hairlines at Light, the wood type's
     crotches at Narrow; 2026-11-09). */
-const shatters = (bad: Map<string, Kind[]>) =>
+export const shatters = (bad: Map<string, Kind[]>) =>
   [...bad.values()].filter(k => k.some(x => x === 'pieces' || x === 'counters' || x === 'pinched')).length >= 2;
 
 /** Card `id` under `n` shuffles of the Adjust tab's traits, each against the card as drawn: the shuffles that break it
     and the letters they break, and how many were drawn. */
-export interface ShuffleOut { seconds: number; n: number; broken: { steps: Step[]; bad: string[] }[] }
+export interface ShuffleOut { seconds: number; n: number; broken: { steps: Step[]; bad: string[]; ctx?: string[] }[] }
 function shuffleCard(id: string, n: number, seed = 0, dense = false): ShuffleOut | null {
   const t0 = Date.now(), held = new Set<string>(), design = designOf(id, held);
   if (!design) return null;
@@ -764,6 +837,81 @@ function writeTraitOffs(cards: string[]) {
   console.log(`${Object.values(table).flat().length} sets on ${rows.length} cards' letters; wrote ${TRAIT_OFFS_FILE}`);
 }
 
+// ---- the sliders moved together ----
+
+/** Mixes of sliders drawn on each card (--sliders), and the file they are written to. */
+export const SLIDERS_FILE = resolve(OUT, 'breaks-sliders.json');
+/** The sliders a design's body is set on, first on the Weight and Size pages, unreined (a family is solved on them):
+    the ones moved most, and together. */
+const BODY = ['weight', 'vWeight', 'hWeight', 'contrast', 'width', 'slant'];
+/** Card `id` with sliders moved together as the editor moves them: in each of `n` mixes, one to three of the body's
+    sliders (BODY) and none to two of the others the panel offers on it (less a control left out on its letters,
+    controlOff), each at a value at random (to a hundredth, as the slider steps), the rest as the card has them (reined
+    as the editor reins them: FONT_REINS and FONT_WIDTHS draw a slider's whole way over what stays whole alone). A
+    slider shown only under a choice (a stroke end's Length under Taper: showContext) comes with that choice picked,
+    if the card offers it (choicesOff), and the mix is read against the card with it picked, so the choice's own
+    shape isn't read. The mixes that break the card in form (shatters), each as 'key=value' steps and the choices. */
+function slidersCard(id: string, n: number, seed = 0): ShuffleOut | null {
+  const t0 = Date.now();
+  let held = new Set<string>(), design = designOf(id, held);
+  if (!design) return null;
+  const keys = keysOf(design).filter(k => specOf(k).kind === 'number' && !controlOff(parentOf(k), design!));
+  const body = keys.filter(k => BODY.includes(k)), rest = keys.filter(k => !BODY.includes(k));
+  const rand = seeded([...id].reduce((h, c) => Math.imul(h, 31) + c.charCodeAt(0), 11) + seed), out: ShuffleOut = { seconds: 0, n, broken: [] };
+  const some = (from: string[], k: number) => { const pool = [...from]; return Array.from({ length: Math.min(k, pool.length) }, () => pool.splice(Math.floor(rand() * pool.length), 1)[0]); };
+  let bases = new Map<string, Drawn>();
+  for (let i = 0; i < n; i++) {
+    const ctx: Record<string, unknown> = {}, steps: string[] = [];
+    for (const key of [...some(body, 1 + Math.floor(rand() * 3)), ...some(rest, Math.floor(rand() * 3))]) {
+      const v = Math.round(rand() * 100) / 100, c = showContext(key);
+      if (Object.entries(c).some(([k, x]) => (k in ctx && ctx[k] !== x) || offered(design!, c, k))) continue;
+      Object.assign(ctx, c);
+      steps.push(`${key}=${v}`);
+    }
+    const ctxSteps = Object.entries(ctx).map(([k, v]) => `${k}=${v}`), was = baseOf(bases, design, ctxSteps, held);
+    const r = brokenInForm(new Drawn(withSliders(was.p, steps), held), was, steps.map(s => s.split('=')[0]));
+    if (shatters(r.bad)) out.broken.push({ steps, bad: listed(r.bad), ...ctxSteps.length ? { ctx: ctxSteps } : {} });
+    if (i % 50 === 49) { letGo(held); held = new Set(); design = designOf(id, held)!; bases = new Map(); }
+  }
+  letGo(held);
+  out.seconds = Math.round((Date.now() - t0) / 1000);
+  return out;
+}
+/** Whether choice `k` of `c` (a slider's showContext) is left out on design `p`'s letters (choicesOff): a stroke end
+    as kind and form together. */
+const offered = (p: Params, c: Partial<Params>, k: string) =>
+  k === 'terminalForm' ? false : choicesOff(p, k).has(k === 'terminal' ? `${c.terminal}/${c.terminalForm}` : String(c[k as keyof Params]));
+/** Design `p` with choices `ctx` ('key=value') picked, drawn once (in `bases`). */
+function baseOf(bases: Map<string, Drawn>, p: Params, ctx: string[], held: Set<string>): Drawn {
+  const tag = ctx.join(',');
+  if (!bases.has(tag)) bases.set(tag, new Drawn(withSliders(p, ctx), held));
+  return bases.get(tag)!;
+}
+/** Each mix of sliders that broke a card (SLIDERS_FILE) cut down, one slider put back at a time, to the fewest that
+    still break it, printed: the sliders that break a card together. */
+function slidersCut(cards: string[]) {
+  const file: { cards: Record<string, ShuffleOut> } = JSON.parse(readFileSync(SLIDERS_FILE, 'utf8'));
+  for (const id of cards) {
+    const mixes = file.cards[id]?.broken ?? [];
+    if (!mixes.length) continue;
+    let held = new Set<string>(), design = designOf(id, held)!, bases = new Map<string, Drawn>(), drawn = 0;
+    const read = (steps: string[], ctx: string[]) => {
+      if (++drawn % 50 === 0) { letGo(held); held = new Set(); design = designOf(id, held)!; bases = new Map(); }
+      const was = baseOf(bases, design, ctx, held);
+      return brokenInForm(new Drawn(withSliders(was.p, steps), held), was, steps.map(s => s.split('=')[0])).bad;
+    };
+    for (const { steps, ctx = [] } of mixes) {
+      let set = [...steps];
+      for (const s of steps) if (set.length > 1 && shatters(read(set.filter(x => x !== s), ctx))) set = set.filter(x => x !== s);
+      console.log(`${id.padEnd(14)} ${[...set, ...ctx.map(c => `(${c})`)].join(' ').padEnd(44)} ${listed(read(set, ctx)).join(' ')}`);
+    }
+    letGo(held);
+  }
+}
+/** Design `p` with sliders `steps` ('key=value') set. */
+export const withSliders = (p: Params, steps: string[]): Params =>
+  ({ ...p, ...Object.fromEntries(steps.map(s => { const [k, v] = s.split('='); return [k, v === 'true' ? true : v === 'false' ? false : Number.isNaN(+v) ? v : +v]; })) });
+
 // ---- the run ----
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -785,6 +933,21 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     }
   }
   else if (args.includes('--shuffle-offs')) await oneAtATime('breaks', () => writeTraitOffs(askedCards.length ? askedCards : CARDS));
+  else if (args.includes('--sliders-cut')) await oneAtATime('breaks', () => slidersCut(askedCards.length ? askedCards : CARDS));
+  else if (args.includes('--sliders')) await oneAtATime('breaks', () => {
+    const t0 = Date.now(), n = Number(opt('--sliders')[0]) || 200, seed = Number(opt('--seed')[0]) || 0;
+    const file: { date: string; cards: Record<string, ShuffleOut> } = existsSync(SLIDERS_FILE) ? JSON.parse(readFileSync(SLIDERS_FILE, 'utf8')) : { date: '', cards: {} };
+    mkdirSync(dirname(SLIDERS_FILE), { recursive: true });
+    for (const id of askedCards.length ? askedCards : CARDS) {
+      const r = slidersCard(id, n, seed);
+      if (!r) { console.log(`${id.padEnd(14)} no font file for ${STYLE_FONTS[id]}; skipped`); continue; }
+      file.cards[id] = r;
+      file.date = new Date().toISOString().slice(0, 10);
+      writeFileSync(SLIDERS_FILE, JSON.stringify(file));
+      console.log(`${id.padEnd(14)} ${r.broken.length} of ${n} mixes of sliders break it (${r.seconds} s)`);
+    }
+    console.log(`${((Date.now() - t0) / 1000).toFixed(0)} s; wrote ${SLIDERS_FILE}`);
+  });
   else if (args.includes('--shuffle')) await oneAtATime('breaks', () => {
     const t0 = Date.now(), n = Number(opt('--shuffle')[0]) || 400, seed = Number(opt('--seed')[0]) || 0;
     const file: { date: string; cards: Record<string, ShuffleOut> } = existsSync(SHUFFLE_FILE) ? JSON.parse(readFileSync(SHUFFLE_FILE, 'utf8')) : { date: '', cards: {} };
@@ -816,6 +979,29 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   else if (args.includes('--report')) report(kept, askedKeys);
   else if (args.includes('--offs')) writeOffs(kept);
   else if (args.includes('--tighten')) tightenReins(kept);
+  else if (args.includes('--update-built')) await oneAtATime('breaks', () => {
+    const table = new Map<string, Map<string, [number, number, number]>>(Object.entries(BUILT_REINS).map(([f, r]) => [f, new Map(Object.entries(r) as [string, [number, number, number]][])]));
+    for (const id of askedCards.length ? askedCards : CARDS) {
+      const t1 = Date.now(), r = builtReinsOf(id, askedKeys);
+      if (!r) continue;
+      const row = table.get(r.letters) ?? new Map<string, [number, number, number]>(), told: string[] = [];
+      for (const [k, v] of r.reins) {
+        // (rounded in toward the card's own, as a font's are)
+        const lo = Math.ceil(v.lo * 1000) / 1000, hi = Math.floor(v.hi * 1000) / 1000;
+        if (lo <= 0 && hi >= 1) { row.delete(k); continue; }
+        row.set(k, [Math.max(0, Math.min(lo, v.at)), Math.min(1, Math.max(hi, v.at)), v.at]);
+        told.push(`${k} ${lo.toFixed(3)}..${hi.toFixed(3)} (at ${v.at.toFixed(3)}) past ${v.past[0].join(' ')} | ${v.past[1].join(' ')}`);
+      }
+      for (const [k, v] of r.reins) {
+        const on = [...v.onset[0].map(f => `${f}<`), ...v.onset[1].map(f => `${f}>`)];
+        if (on.length) told.push(`${k} onset ${on.join(' ')}`);
+      }
+      table.set(r.letters, row);
+      writeBuiltReins(table);
+      console.log(`${id.padEnd(14)} ${r.letters.padEnd(14)} ${row.size} of ${r.reins.size} reined (${Math.round((Date.now() - t1) / 1000)} s)`);
+      for (const t of told) console.log(`  ${t}`);
+    }
+  });
   else if (args.includes('--update')) await oneAtATime('breaks', () => {
     const t0 = Date.now();
     // (the table as it stands, each font's settings measured now laid over its own)

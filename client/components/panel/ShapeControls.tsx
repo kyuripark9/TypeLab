@@ -2,7 +2,7 @@
 import {
   BOWL_SUBS, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_INNER_OPTIONS,
   SERIF_INNER_SUBS, SERIF_SIDE_OPTIONS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS,
-  STORY_OPTIONS, TERMINAL_DETAILS, TERMINAL_SHAPES, TERMINAL_SUBS, choicesOff, controlFor, terminalLabel, type FillSubKey, type FormKey,
+  STORY_OPTIONS, TERMINAL_DETAILS, TERMINAL_SHAPES, TERMINAL_SUBS, choicesOff, controlFor, subInUse, terminalLabel, type FillSubKey, type FormKey,
   type SerifInnerSubKey
 } from '../../../shared/content';
 import { GRID_FILLS, formOf, type Terminal, type TerminalForm } from '../../../shared/params';
@@ -151,8 +151,10 @@ export type SerifFormKey = 'serifTip' | 'serifBase' | 'serifSides' | 'serifInner
 export function SerifFormControl({ k }: { k: SerifFormKey }) {
   const shape = useParam('serifShape'), tip = useParam('serifTip'), base = useParam('serifBase'), sides = useParam('serifSides'), inner = useParam('serifInner');
   const active = useEditor(s => controlFor(s.active) === k), c = CONTROLS[k], reach = useReachNote(k);
-  // (the choices that break this design's letters left out, choicesOff: a card's own serifs gave way to the engine's)
-  const off = choicesOff(useHere(), k), keep = ([id]: readonly [string, string]) => !off.has(id);
+  // (the choices that break this design's letters left out, choicesOff: a card's own serifs gave way to the engine's;
+  // and the sliders letters drawn from a font leave out, subInUse)
+  const here = useHere(), off = choicesOff(here, k), keep = ([id]: readonly [string, string]) => !off.has(id);
+  const shown = (s: string) => subInUse(s, here);
   return (
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl={k} {...useControlFocus(k)}>
       <CtlHead k={k} label={c.label} />
@@ -167,7 +169,7 @@ export function SerifFormControl({ k }: { k: SerifFormKey }) {
                 </button>
               ))}
             </div>
-            {SERIF_TIP_DETAILS[tip].map(s => <SliderControl key={s} k={s} def={SERIF_TIP_SUBS[s]} />)}
+            {SERIF_TIP_DETAILS[tip].filter(shown).map(s => <SliderControl key={s} k={s} def={SERIF_TIP_SUBS[s]} />)}
           </>
         ) : k === 'serifSides' ? (
           <div className="opts five" role="radiogroup" aria-label={c.tech}>
@@ -186,7 +188,7 @@ export function SerifFormControl({ k }: { k: SerifFormKey }) {
                 </button>
               ))}
             </div>
-            {(Object.keys(SERIF_INNER_SUBS) as SerifInnerSubKey[]).map(s => <SliderControl key={s} k={s} def={SERIF_INNER_SUBS[s]} />)}
+            {(Object.keys(SERIF_INNER_SUBS) as SerifInnerSubKey[]).filter(shown).map(s => <SliderControl key={s} k={s} def={SERIF_INNER_SUBS[s]} />)}
           </>
         ) : (
           <>

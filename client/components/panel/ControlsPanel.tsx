@@ -108,14 +108,14 @@ const NESTED: Partial<Record<ControlKey, { subs?: Record<string, SubControlDef>;
     entry), 'serifForm' the four finer serif choices. A control with no type is a slider; a few keys nest
     sliders or a letter's own values below theirs, and Stencil and Slice are cuts with a switch. */
 function Control({ k, parts }: { k: ControlKey; parts?: string[] }) {
-  const c = CONTROLS[k], n = NESTED[k], build = useEditor(s => s.params.build);
+  const c = CONTROLS[k], n = NESTED[k], build = useEditor(s => s.params.build), freeFont = useEditor(s => s.params.freeFont);
   if (c.type === 'options') return <TerminalControl parts={parts} />;
   if (c.type === 'story') return <StoryControl parts={parts} />;
   if (c.type === 'form') return <FormControl k={k as LetterFormKey} parts={parts} />;
   if (n) {
     return (
       <SliderControl k={k as NumericParam & ControlKey} def={c} parts={parts}>
-        {Object.entries(n.subs ?? {}).filter(([s]) => subInUse(s, { build })).map(([s, d]) => <SliderControl key={s} k={s as NumericParam & ActiveKey} def={d} />)}
+        {Object.entries(n.subs ?? {}).filter(([s]) => subInUse(s, { build, freeFont })).map(([s, d]) => <SliderControl key={s} k={s as NumericParam & ActiveKey} def={d} />)}
         {n.more}
       </SliderControl>
     );

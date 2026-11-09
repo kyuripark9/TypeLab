@@ -6,7 +6,9 @@
    drawn over the way to the most kept here, each step its share, so the end draws the most that stays whole and every
    step still moves the letters; a twin's letters (a form the font hasn't drawn) are reined by as much. A setting whole
    to both ends isn't listed. Weight, Verticals, Horizontals, Contrast and Slant aren't reined (a family's weights and
-   italics are solved on them, shared/family.ts), nor Width (shared/font-widths.ts), nor Bowl overlap (its way to a
+   italics are solved on them, shared/family.ts), but on the Block card (Bulwark), where Weight past 80 shut its 6's
+   and 9's counters and slit its G, Horizontals past its own pinched its a and e, moved with the other sliders
+   (npm run breaks -- --sliders; REINS_BY_MIXES in tools/breaks.ts), nor Width (shared/font-widths.ts), nor Bowl overlap (its way to a
    bowl apart from its stem passes through the bowl just leaving it). Measured on each card by tools/breaks.ts, the
    rein off, a side looked at drawn and found whole left free (BY_EYE there), then drawn in where the map, run again
    with the reins, still broke a letter's form: npm run breaks -- --update, npm run breaks, npm run breaks -- --tighten
@@ -35,5 +37,20 @@ export const FONT_REINS: Record<string, Partial<Record<NumericParam, [number, nu
   'Boardwalk:400': { curve: [0.174, 1], squareness: [0, 0.269], chamfer: [0, 0.8], apex: [0, 0.536], joints: [0, 0.816], terminalLean: [0, 0.982], terminalTip: [0, 0.789], xHeight: [0, 0.859], counter: [0.043, 1] },
   'Serenade:400': { squareness: [0, 0.226], chamfer: [0, 0.394], terminalLength: [0, 0.672], terminalCurl: [0.141, 1], xHeight: [0.191, 1] },
   'Cathedral:400': { chamfer: [0.743, 1], steps: [0, 0.878], joints: [0, 0.421], terminalLength: [0, 0.839], xHeight: [0.489, 1], counter: [0, 0.856] },
-  'Bulwark:700': { terminalLength: [0.032, 1], terminalCurl: [0, 0.79], serifTipRound: [0.18, 1], serifTipSlant: [0.625, 1], serifCup: [0.204, 1], serifInnerSize: [0, 0.656], wobble: [0, 0.644], xHeight: [0.528, 0.887], crossbar: [0.212, 0.887], counter: [0, 0.966] }
+  'Bulwark:700': { terminalLength: [0.032, 1], terminalCurl: [0, 0.79], serifTipRound: [0.18, 1], serifTipSlant: [0.625, 1], serifCup: [0.204, 1], serifInnerSize: [0, 0.656], wobble: [0, 0.644], xHeight: [0.528, 0.887], crossbar: [0.212, 0.887], counter: [0, 0.966], weight: [0, 0.8], hWeight: [0, 0.98] }
+};
+
+/* How far each slider may carry the letters the engine builds, the slot and grid blocks' and the arcs' (as lettersOf
+   names them), from where their card on the Style page sets it and leave them whole: the least and the most of the
+   slider and the card's own value (0..1). Carried further, the arcs' b and p bowls came off their stems at the lightest
+   weight (with Width or Wobble moved too, below 16) and at Wobble past 70 wider and their P's and R's counters shut at the heaviest (and from 60 with most stroke ends but the card's own:
+   Weight stops there, BUILT_BY_MIXES in tools/breaks.ts), the D's and L's strokes parted at a short Length, the
+   stroke ends' sizes and points shut the B's and R's counters (npm run breaks -- --sliders, 2026-11-09). builtReins
+   (engine/free-letters.ts) reins each in as freeReins does a font's, Weight with them (a family is solved on the
+   slider; drawn, a weight past the rein draws the most kept). The blocks' sliders each keep them whole alone; what broke
+   them, Verticals and Horizontals thinned apart, is off the panel there (BUILT_SUBS_OFF, shared/content/controls.ts).
+   Measured by tools/breaks.ts, a value broken where a piece or counter changes on two letters or more (inForm, the
+   blocks' bends and a slice's needles left out): npm run breaks -- --update-built rewrites the table. */
+export const BUILT_REINS: Record<string, Partial<Record<NumericParam, [number, number, number]>>> = {
+  'arcs': { weight: [0.16, 0.6, 0.2], terminalLength: [0.356, 0.769, 0.5], terminalDepth: [0, 0.837, 0.5], terminalSize: [0.141, 1, 0.5], terminalPoint: [0.043, 1, 0.5], terminalLean: [0.043, 1, 0.5], terminalTip: [0, 0.755, 0.5], wobble: [0, 0.7, 0] }
 };

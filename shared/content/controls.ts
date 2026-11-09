@@ -75,8 +75,23 @@ export const controlInUse = (k: ControlKey, p: Pick<Params, 'build' | 'blockForm
     an arc letter's crossings and inside corners with blots of ink, the H's, K's and A's, from a quarter on (npm run
     breaks, 2026-11-09). */
 const ARC_SUBS_OFF: readonly string[] = ['joinRound', 'innerRound'];
-/** Whether nested slider `s` shapes letters built as `p` says (its control in use too: controlInUse). */
-export const subInUse = (s: string, p: Pick<Params, 'build'>) => !(p.build === 'arcs' && ARC_SUBS_OFF.includes(s));
+/** The nested sliders letters drawn from a font leave out: the serif tips' Roundness and Slant and the inside serifs'
+    Length and Thickness. Moved, the font's own serifs give way to the engine's, whole alone (reined, FONT_REINS) but
+    not with Weight, Verticals, Horizontals or Slant moved too: the Didone card's a, d and p came apart at a light
+    weight with its tips slanted, the Old Style card's N and & shut heavier with its tips rounded, the Fat Face's
+    inside serifs longer at Condensed shut its g (npm run breaks -- --sliders, 2026-11-09). */
+const FONT_SUBS_OFF: readonly string[] = ['serifTipRound', 'serifTipSlant', 'serifInnerSize', 'serifInnerThickness'];
+/** The nested sliders letters built from blocks or arcs leave out: Weight's Verticals and Horizontals. Thinned apart,
+    the grid blocks' round corners came off their bars and the slot blocks' B, b and & thinned to hairline rings, from
+    a third on with the other below the card's own; the arcs' b and p bowls came off their stems with Verticals thin at
+    a light weight, and their & shut and b notched with Verticals at 100. Weight alone keeps them whole to both ends
+    (reined on the arcs, BUILT_REINS; npm run breaks -- --sliders, 2026-11-09). */
+const BUILT_SUBS_OFF: readonly string[] = ['vWeight', 'hWeight'];
+/** Whether nested slider `s` shapes letters built as `p` says, and drawn from its font if it has one (its control in
+    use too: controlInUse). */
+export const subInUse = (s: string, p: Pick<Params, 'build'> & { freeFont?: string }) =>
+  !(p.build === 'arcs' && ARC_SUBS_OFF.includes(s)) && !((p.build === 'blocks' || p.build === 'arcs') && BUILT_SUBS_OFF.includes(s)) &&
+  !(p.freeFont && FONT_SUBS_OFF.includes(s));
 const PAGES = new Map<string, typeof CATEGORIES>();
 /** The pages, in order, with something to shape in letters built as `p` says: the Style page and each page holding a
     control in use. Letters built from blocks have no stroke ends, serifs or other letter forms, so those pages go (and

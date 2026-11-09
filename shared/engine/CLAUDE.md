@@ -145,7 +145,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    the last tenth, a grotesque's widest third moved its letters 2%.) The other sliders on TypeLab's own fonts are reined
    in alike after it (`freeReins`, to `FONT_REINS` in shared/font-reins.ts, measured by `npm run breaks -- --update`),
    on the effective value, so a personality macro's push is reined too, then resolved again with each setting moved by as much, so what resolve derives from them follows (`square` from Squareness, the stress from Curves and Cursive), and a twin's letters by as much; not Weight,
-   Verticals, Horizontals, Contrast or Slant, which a family is solved on, nor Bowl overlap. Width isn't moved on the skeleton (`freeLetters` hands it the pick's, with Weight's
+   Verticals, Horizontals, Contrast or Slant, which a family is solved on, nor Bowl overlap (but the Block card's Weight and Horizontals). The letters the engine builds, the slot and grid blocks and the arcs, are reined alike (`builtReins`, to `BUILT_REINS` there, measured by `npm run breaks -- --update-built`, anchored at their card's own value, Weight and the rest with them). Width isn't moved on the skeleton (`freeLetters` hands it the pick's, with Weight's
    and the rest's): `widened` squeezes or stretches the moved outline across about the font's lean, its own curves
    kept, then pushes its stems back out or in evenly (`evenWeight`) to the square root of how much wider as thick
    (`WIDTH_STEM`, as a family's condensed and extended widths: kept as drawn, a grotesque's counters pinched to pointed

@@ -662,7 +662,9 @@ describe("TypeLab's own fonts", () => {
     assert.deepEqual(own.weights, [100, 200, 300, 400, 500, 600, 700, 800, 900], 'nine weights');
     for (const w of own.weights!) if (!freeFont(`Bulwark:${w}`)) registerFreeFont(await fonts.load(`Bulwark:${w}`));
     const p = { ...st.params, freeFont: STYLE_FONTS.block, freeAt: freeAtOf(st.params) } as Params;
-    for (const [weight, id] of [[0.2, 'Bulwark:200'], [0.42, 'Bulwark:400'], [0.95, 'Bulwark:900']] as const) {
+    // (Weight reined at 80 on the card, FONT_REINS: past it the heaviest's 6 and 9 shut and its G slit, so 95 draws
+    // from the 800, the heaviest kept whole)
+    for (const [weight, id] of [[0.2, 'Bulwark:200'], [0.42, 'Bulwark:400'], [0.95, 'Bulwark:800']] as const) {
       const f = buildFont({ ...p, weight });
       assert.equal(f.free?.id, id, `Weight ${weight * 100} draws from ${id}, not ${f.free?.id}`);
       // (at a weight it comes in, its letters are that font's as they are: as a design picked in it draws them)

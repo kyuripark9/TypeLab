@@ -7,7 +7,7 @@ import { applyM, clamp } from './geom';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { FONT_WIDTHS } from '../font-widths';
-import { FONT_REINS } from '../font-reins';
+import { BUILT_REINS, FONT_REINS } from '../font-reins';
 import { drawnCmds, type Drawn, type Node } from './outline';
 import { HAIR_KEEP, PEN, PEN_REVERSED, evenWeight, type EvenLines } from './even-weight';
 import { FORM_LETTERS, SPAN_TOL, ascTo, descTo, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, type SkinMeasures, type SkinRig } from './skin';
@@ -229,6 +229,22 @@ export function freeReins(params: Params, e: Effective): Effective {
     if (to !== v) (moved ??= {})[k] = clamp((params[k] as number) + to - v);
   }
   return moved ? { ...resolve({ ...params, ...moved }), width: e.width } : e;
+}
+
+/** Letters the engine builds (the slot and grid blocks, the arcs) reined in as far as they stay whole (BUILT_REINS),
+    as freeReins reins a font's: each setting's way from its card's own value to its slider's end drawn over the way to
+    the most the table keeps, so the end draws the most and every step its share, and the settings resolved again. */
+export function builtReins(params: Params, e: Effective): Effective {
+  const reins = e.freeFont ? undefined : BUILT_REINS[e.build === 'blocks' ? `blocks:${e.blockForm}` : e.build === 'arcs' ? 'arcs' : ''];
+  if (!reins) return e;
+  let moved: Record<string, number> | null = null;
+  for (const [k, [lo, hi, at]] of Object.entries(reins) as [NumericParam, [number, number, number]][]) {
+    const v = e[k] as number;
+    if (v === at) continue;
+    const to = v > at ? at + (v - at) * (Math.max(hi, at) - at) / (1 - at) : at - (at - v) * (at - Math.min(lo, at)) / at;
+    if (to !== v) (moved ??= {})[k] = clamp((params[k] as number) + to - v);
+  }
+  return moved ? resolve({ ...params, ...moved }) : e;
 }
 
 /** The ink's runs along a row at height y (across) or down a column at x (down), as [start, end] pairs. */

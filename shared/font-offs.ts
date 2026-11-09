@@ -7,7 +7,8 @@
    but the design's own is here (choicesOff, controlOff in content/controls.ts). Measured by tools/breaks.ts: npm run
    breaks, then npm run breaks -- --offs rewrites the table from what it found, with the choices left out by eye
    (OFFS_BY_EYE there: Serifs off on the Didone and Old Style cards, hairline stubs where their serifs were; on on the
-   Squircle and Chunky Round cards, an E shut and a ragged W). */
+   Squircle and Chunky Round cards, an E shut and a ragged W; and OFFS_BY_MIXES, from the sliders moved too: the arcs'
+   scooped, notched, ball and droplet ends at a heavier weight). */
 export const FONT_OFFS: Record<string, Record<string, string[]>> = {
   'Mainline:600': { bends: ['round'], serifBase: ['cupped'], apexForm: ['serif'], gForm: ['mirrored'], qForm: ['inside'], sForm: ['flat'] },
   'Parlance:500': { serifBase: ['cupped'], gForm: ['mirrored'], qForm: ['inside'], sForm: ['flat'] },
@@ -32,5 +33,5 @@ export const FONT_OFFS: Record<string, Record<string, string[]>> = {
   'Bulwark:700': { serif: ['true'], serifBase: ['cupped'], story: ['single'], apexForm: ['serif'], gForm: ['mirrored'], kForm: ['stem'], qForm: ['sweep'], sForm: ['flat'] },
   'blocks:slots': { iForm: ['bars'] },
   'blocks:grid': { cellJoin: ['pixel'] },
-  'arcs': { terminal: ['sharp/pointed', 'sharp/clipped'] }
+  'arcs': { terminal: ['sharp/pointed', 'sharp/clipped', 'flat/scooped', 'cut/notched', 'round/ball', 'round/droplet'] }
 };

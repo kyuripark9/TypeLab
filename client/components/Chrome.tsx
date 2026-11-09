@@ -86,7 +86,7 @@ export function Nav() {
   const [query, setQuery] = useState(''), [pick, setPick] = useState(0);
   const found = query.trim() ? findSettings(query, 100) : null;
   const here = useHere();
-  const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm, gridRows }) && subInUse(h.key, { build }) && !controlOff(controlFor(h.key), here)).slice(0, 12) ?? null;
+  const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm, gridRows }) && subInUse(h.key, here) && !controlOff(controlFor(h.key), here)).slice(0, 12) ?? null;
   // the list under the search: the settings found, or the pages
   const list = useRef<HTMLDivElement>(null), rows = navRows(pagesFor(here));
   useEffect(() => { list.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }, [pick]);
