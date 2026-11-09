@@ -52,7 +52,7 @@ fatface@KphbS9:extralight DZES3MqHf5z7EyRb-l-zG3vaakJzX2t-Tr2TxFmi-vgICKPQG51UxU
 fatface@KphbS9:faults thin:E:needle,thin:F:needle,thin:S:needle,thin:a:needle,thin:s:needle,thin:z:needle,thin:2:needle,thin:5:needle,thin:7:needle,extralight:C:needle,extralight:E:needle,extralight:F:needle,extralight:G:needle,extralight:S:needle,extralight:s:needle,extralight:z:needle,extralight:2:needle,extralight:5:needle,extralight:7:needle,light:C:needle,light:E:needle,light:F:needle,light:S:needle,light:s:needle,light:z:needle,regular:C:needle,regular:G:needle,regular:S:needle,regular:s:needle
 fatface@KphbS9:light hCqSnAKD9J1RBIM4OudKiu_mzdeTsh7SDh4dsL9jEKaTEdcxzEcYwu2szoHc6sEgxSOJsjNDXGeqviUNrD_-ct90U-KBT2LXzrkCkMeYId5oaJCMx_u6cPTYh1vGAnXiy5MLK3Ox89suWN_BPoDX63TownDW6RLmgtDsKkx4ddWc_M7ReicblviS8rVMD2jX
 fatface@KphbS9:regular OL6mFHzVr4K914hRORVJc5KmpHmfoSQ4KKGZSF9rjuVAB1te04kYq2s0SHT6snYysVLUIvP8hvosACgxpGdyfzLg0SYOaP9qzaBwS0ugLSspWBh3_D5zZkByrnLZv2QEc0ulaS7L9qFshqmzEI3-fG3gaM7J1WTNJsAH-FuYDzT2zjz3qkmRO77Dqlbg9MyY
-fatface@KphbS9:sweep a@0.9:ink,a@0.92:ink,g@0.9:room,g@0.9:ink,s@0.9:room,s@0.9:ink,s@0.92:room,s@0.92:ink,s@0.94:room,s@0.94:ink
+fatface@KphbS9:sweep -
 fatface@KphbS9:thin JgGLpCKTfKQRjnGo9Zy911ZqbDtzuOov_hGpRThnx6qibUY6rf3fZ9w7iSWQZBZd_ROCqRCDgEpfBNflF_RwTt0qP3bk-F_h_LdfC3ZSx3QOEyrZH8hS5L_0_LDPHGqg5fq0BvabZBySuDYA5aQGcYhxCcFy_MEcBNhEUk_kIwDy0iXH9aTXRPlM6quGgj3A
 geometric@p3-noO:extralight Klo9wJECLdihRr66ljGg9vX04r2oYtbXuYBdAEzRHyVUYIJtdn46PdoMyCwJkQNr4as8VOj18ubWozbzH10YVxdVPSjRElGzm85IjKDFYQHxTQIUF1H85EOQpjuFwbX1HThZT_At8hAmFlEAmP7UXq97C78LhNw4LAZvE9qrtIw48HIF8qQGzX7js0J63hTn
 geometric@p3-noO:faults -
@@ -100,7 +100,7 @@ serifitalic@a-QN49:extralight Kvu20gXv0bmaHgkiQg6xAZPWG_UaRUa_i5AOnSiRJpJr9TOsO7
 serifitalic@a-QN49:faults thin:Q:needle,thin:d:slit,thin:p:crossing,thin:q:needle,thin:8:crossing,extralight:p:crossing,extralight:q:needle,extralight:8:crossing,light:p:crossing,light:q:needle,light:5:needle,light:8:crossing,regular:p:crossing,thin:X:ink,thin:b:ink,extralight:b:ink,light:b:ink,thin:d:ink,thin:p:ink,extralight:p:ink,extralight:q:ink,thin:8:ink,extralight:8:ink
 serifitalic@a-QN49:light riQ4SVeb0Dm4FDDCaZhdC46o5jtAncI1ZPSVOUwr9ptxMV1WJQIPaPjj52yBmI9j1IsR9VHKv0Uk26iDA33aOFH-Fav2vdE6ziXWb4fwb6c1zcg9r6CCLs32DLg7q0uqXxusS-zRcrhquG8ZNaxEXBKXsFOpF-UgwJe_KkzCG6610ZwlBQ7CVI0j32mjo01D
 serifitalic@a-QN49:regular TAYNk0OMonbzeub7Dy1hze-4OrUK_S5ApWv2PS1-Q25kFtpEG2D-PfZ1z4poUWrXtAphdfs6_6E95kK6ks0nvI5X9Y2j3IMrx10kuXJM_ZCi4FV-MsetryykXdNpLymvmLobw78Vz_A-aGU7W4ddD8VfEi_rfHOw3hqDb_0nYPaDWG0Nl9k5rE9MrG0gDejp
-serifitalic@a-QN49:sweep H@0.44:ink,q@0.44:ink,s@0.32:ink,&@0.32:ink,G@0.12:ink
+serifitalic@a-QN49:sweep H@0.44:ink,s@0.32:ink,&@0.32:ink,G@0.12:ink
 serifitalic@a-QN49:thin nnZrgdzeLamYfn5ofkGAsucVc5_KJhizxaz_XVfW6M_dvQTmBmiBsEaJhuozEt4OlhNm5Retuprma34Ul33a2Kpm6XJbG4eT3BFMjdLDmdUOeEMB7DvvCkgi7M-7q0JRURBiYaytBRpuew8nx9zrceYf4hyCrVmZ2w-1VlUxhFWvSeambCaq63JmqSQEeGiK
 soft@Obc_Zw:extralight DzjCicPdaT9AoLMpqlDfk9fqFZKdmB_IjqnO19JjAzOEeAFJMYtPDbQ287JD-HLmVkRqHq_V5nCvmOZWSAHOLGyT0Pmgz3ZOKLrKcLS_VYc0d5bfQLxbGkuSijDzQeYWSVVpD4p5snBnjm4ue4ZHCw4tRi5vSsYty0t7o29QtZCILBY8joh12qpw7o_hbn1K
 soft@Obc_Zw:faults -

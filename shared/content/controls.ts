@@ -2,6 +2,7 @@
    shared/params/spec.ts), which shapes each picker offers, and which control a key belongs to. */
 import { PARAM_KEYS, SPECS, formOf, type CategoryId, type ControlDef, type ControlKey, type SubControlDef, type SubKey, type SubKeyOf } from '../params';
 import { CATEGORIES } from './pages';
+import { FONT_OFFS } from '../font-offs';
 import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, CellJoin, Diagonals, GridRows, Dots, Fill, GForm, IForm, JForm, KForm, MForm, Mirror, Params, QForm, RForm, SerifBase, SerifInner, SerifShape, SerifSide, SerifTip, SForm, Story, Terminal, TerminalForm, TerminalRun, YForm } from '../params';
 
 export type { CategoryId, ControlKey } from '../params';
@@ -60,27 +61,88 @@ export const ARC_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height',
   'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice', 'rough'];
 /** The controls letters built from strokes leave out, every card in a font among them: Stencil cut 17 of the 22 cards'
     letters into slivers and stray points at any Thickness (npm run breaks, 2026-11-09), where the slot and grid
-    blocks' own stencil (block-corners.ts), cells drawn apart, stays whole. */
-const STROKES_OFF: readonly ControlKey[] = ['stencil'];
+    blocks' own stencil (block-corners.ts), cells drawn apart, stays whole; Cell joins and Grid rows shape only the
+    grid blocks' cells (grid-blocks.ts), and offered on the Corners and Heights pages of every stroke card changed
+    nothing there. */
+const STROKES_OFF: readonly ControlKey[] = ['stencil', 'cellJoin', 'gridRows'];
 /** Whether control `k` shapes letters built as `p` says: letters built from blocks take their kind's BLOCK_CONTROLS
     alone (grid letters on seven rows GRID7_CONTROLS too), letters built from arcs ARC_CONTROLS, strokes every control
     but STROKES_OFF. */
 export const controlInUse = (k: ControlKey, p: Pick<Params, 'build' | 'blockForm'> & { gridRows?: GridRows }) =>
   p.build === 'blocks' ? BLOCK_CONTROLS[p.blockForm].includes(k) || (p.blockForm === 'grid' && p.gridRows === 'seven' && GRID7_CONTROLS.includes(k))
     : p.build === 'arcs' ? ARC_CONTROLS.includes(k) : !STROKES_OFF.includes(k);
+/** The nested sliders letters built from arcs leave out of a control they take: Roundness's Joins and Counters filled
+    an arc letter's crossings and inside corners with blots of ink, the H's, K's and A's, from a quarter on (npm run
+    breaks, 2026-11-09). */
+const ARC_SUBS_OFF: readonly string[] = ['joinRound', 'innerRound'];
+/** Whether nested slider `s` shapes letters built as `p` says (its control in use too: controlInUse). */
+export const subInUse = (s: string, p: Pick<Params, 'build'>) => !(p.build === 'arcs' && ARC_SUBS_OFF.includes(s));
 const PAGES = new Map<string, typeof CATEGORIES>();
 /** The pages, in order, with something to shape in letters built as `p` says: the Style page and each page holding a
     control in use. Letters built from blocks have no stroke ends, serifs or other letter forms, so those pages go (and
     Inner space and Heights for the blocks that don't take their settings); letters built from arcs keep their ends,
-    have no serifs, and of the letter forms only their dots. The same array each time for the same letters. */
-export function pagesFor(p: Pick<Params, 'build' | 'blockForm'>): typeof CATEGORIES {
-  const id = p.build === 'blocks' ? p.blockForm : p.build;
+    have no serifs, and of the letter forms only their dots. Given the design's font and choices, a page whose every
+    control is left out on its letters goes too (controlOff). The same array each time for the same letters. */
+export function pagesFor(p: Pick<Params, 'build' | 'blockForm'> & Partial<Params>): typeof CATEGORIES {
+  const id = `${p.build === 'blocks' ? p.blockForm : p.build}${'freeFont' in p ? ` ${offsKey(p as Here)}` : ''}`;
   let pages = PAGES.get(id);
   if (!pages) {
-    const keys = (Object.keys(CONTROLS) as ControlKey[]).filter(k => controlInUse(k, p));
+    const keys = (Object.keys(CONTROLS) as ControlKey[]).filter(k => controlInUse(k, { build: p.build, blockForm: p.blockForm }) && !('freeFont' in p && controlOff(k, p as Here)));
     PAGES.set(id, pages = CATEGORIES.filter(c => c.id === 'style' || keys.some(k => CONTROLS[k].cat === c.id)));
   }
   return pages;
+}
+
+/** A design as the choices left out on its letters are read (FONT_OFFS): its font or build, and its choices. */
+export type Here = Pick<Params, 'freeFont' | 'build' | 'blockForm'> & Partial<Params>;
+/** What the letters of design `p` are drawn from, as FONT_OFFS keys them: its font, or the engine's blocks or arcs. */
+export const lettersOf = (p: Here) => p.freeFont || (p.build === 'blocks' ? `blocks:${p.blockForm}` : p.build === 'arcs' ? 'arcs' : '');
+/** Setting `k`'s choice in design `p`, as FONT_OFFS writes it. */
+const choiceOf = (p: Here, k: string) => (k === 'terminal' ? `${p.terminal}/${p.terminalForm}` : String(p[k as keyof Params]));
+/** Every choice of setting `k` the panel offers, as FONT_OFFS writes them. */
+function choicesOf(k: string): string[] {
+  if (k === 'terminal') return TERMINAL_SHAPES.flatMap(g => g.shapes.map(s => `${s.terminal}/${s.form}`));
+  const s = SPECS[k as keyof typeof SPECS] as { kind: string; options?: readonly unknown[] };
+  return s.kind === 'boolean' ? ['true', 'false'] : (s.options ?? []).filter(o => o !== 'auto').map(String);
+}
+const NONE: ReadonlySet<string> = new Set();
+/** The choices of setting `k` that break design `p`'s letters (FONT_OFFS), which the panel leaves out: never the
+    design's own. */
+export function choicesOff(p: Here, k: string): ReadonlySet<string> {
+  const off = FONT_OFFS[lettersOf(p)]?.[k];
+  if (!off) return NONE;
+  const own = choiceOf(p, k);
+  return new Set(off.filter(v => v !== own));
+}
+/** Whether control `k` is left out on design `p`'s letters: every choice but the design's own breaks them (on a serif
+    card the Serifs switch, whose letters came out ragged with their serifs off); and the serifs' shapes where the design
+    has none and its Serifs switch is left out, so nothing could switch them on (the Formal Script card, its letters
+    broken with serifs, kept a Serifs page with nothing on it). */
+export function controlOff(k: ControlKey, p: Here): boolean {
+  if (k !== 'serif' && CONTROLS[k].cat === 'serifs' && p.serif === false && controlOff('serif', p)) return true;
+  const off = choicesOff(p, k);
+  if (!off.size) return false;
+  const own = choiceOf(p, k);
+  return choicesOf(k).every(v => v === own || off.has(v));
+}
+/** Design `p` with each choice that breaks its letters (FONT_OFFS, read as `letters`) put back as `was` has it: a trait
+    of the Style page's Adjust tab laid over a card takes no shape the card's letters break in. */
+export function keepWhole(p: Params, was: Params, letters: string): Params {
+  const offs = FONT_OFFS[letters];
+  if (!offs) return p;
+  let out = p;
+  for (const [k, vs] of Object.entries(offs)) {
+    const now = choiceOf(p, k);
+    if (!vs.includes(now) || now === choiceOf(was, k)) continue;
+    out = { ...out, ...(k === 'terminal' ? { terminal: was.terminal, terminalForm: was.terminalForm } : { [k]: was[k as keyof Params] }) };
+  }
+  return out;
+}
+/** A key that changes whenever what controlOff and choicesOff say of design `p` may: its letters, and its own choice of
+    each setting left out in part on them. */
+export function offsKey(p: Here): string {
+  const id = lettersOf(p), o = FONT_OFFS[id];
+  return o ? `${id}|${Object.keys(o).map(k => choiceOf(p, k)).join('|')}` : id;
 }
 export const SERIF_TIP_SUBS = subsOf('serifTip');
 /** The finer shape sliders of each kind of serif tip, shown while that kind is picked. */

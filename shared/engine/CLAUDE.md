@@ -142,7 +142,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    keeps them whole: each way from the pick, the slider's way to its end drawn over the way to the most, each step its
    share of it, so the end draws the most and every eighth moves them alike (`widthScale` in font.ts, `widthOfScale`
    undoing it), and the twin by as much. (Drawn as asked up to nine tenths of the most and the rest of the slider over
-   the last tenth, a grotesque's widest third moved its letters 2%.) Width isn't moved on the skeleton (`freeLetters` hands it the pick's, with Weight's
+   the last tenth, a grotesque's widest third moved its letters 2%.) The other sliders on TypeLab's own fonts are reined
+   in alike after it (`freeReins`, to `FONT_REINS` in shared/font-reins.ts, measured by `npm run breaks -- --update`),
+   on the effective value, so a personality macro's push is reined too, then resolved again with each setting moved by as much, so what resolve derives from them follows (`square` from Squareness, the stress from Curves and Cursive), and a twin's letters by as much; not Weight,
+   Verticals, Horizontals, Contrast or Slant, which a family is solved on, nor Bowl overlap. Width isn't moved on the skeleton (`freeLetters` hands it the pick's, with Weight's
    and the rest's): `widened` squeezes or stretches the moved outline across about the font's lean, its own curves
    kept, then pushes its stems back out or in evenly (`evenWeight`) to the square root of how much wider as thick
    (`WIDTH_STEM`, as a family's condensed and extended widths: kept as drawn, a grotesque's counters pinched to pointed

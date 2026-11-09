@@ -2,11 +2,12 @@
    italic, moved on their skeletons by the settings (skin.ts) and restyled where the settings ask for the
    engine's shapes (restyle.ts); letters in a form the font hasn't got come from its twin, the font read
    as the engine's own settings. Called by buildFont (font.ts) for a design with a freeFont. */
-import { slantDeg, xHeightOfRatio, type Params } from '../params';
+import { slantDeg, xHeightOfRatio, type NumericParam, type Params } from '../params';
 import { applyM, clamp } from './geom';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { FONT_WIDTHS } from '../font-widths';
+import { FONT_REINS } from '../font-reins';
 import { drawnCmds, type Drawn, type Node } from './outline';
 import { HAIR_KEEP, PEN, PEN_REVERSED, evenWeight, type EvenLines } from './even-weight';
 import { FORM_LETTERS, SPAN_TOL, ascTo, descTo, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, type SkinMeasures, type SkinRig } from './skin';
@@ -210,6 +211,26 @@ export function freeWidth(params: Params, e: Effective): Effective {
   return { ...e, width: widthOfScale(at * (1 + (r - 1) * (most - 1) / (end - 1))) };
 }
 
+/** A free font's other sliders reined in as far as its letters stay whole (FONT_REINS): each setting's way from where
+    the font was picked to its slider's end drawn over the way to the most the table keeps, so the end draws the most
+    and every step its share. Read where the font was picked, so the letters stand as the font draws them there. The
+    settings are resolved again, each moved by as much as it is reined, so what resolve draws from them follows (how
+    square the bowls are from Squareness, the pen's stress from Curves and Cursive: reined on the effective value
+    alone, Squareness drew its letters unreined); Width stays as freeWidth reined it. */
+export function freeReins(params: Params, e: Effective): Effective {
+  const reins = e.freeFont ? FONT_REINS[e.freeFont] : undefined;
+  if (!reins) return e;
+  const b = resolve({ ...params, ...params.freeAt });
+  let moved: Record<string, number> | null = null;
+  for (const [k, reach] of Object.entries(reins) as [NumericParam, [number, number]][]) {
+    const at = b[k] as number, v = e[k] as number;
+    if (v === at) continue;
+    const to = v > at ? at + (v - at) * (Math.max(reach[1], at) - at) / (1 - at) : at - (at - v) * (at - Math.min(reach[0], at)) / at;
+    if (to !== v) (moved ??= {})[k] = clamp((params[k] as number) + to - v);
+  }
+  return moved ? { ...resolve({ ...params, ...moved }), width: e.width } : e;
+}
+
 /** The ink's runs along a row at height y (across) or down a column at x (down), as [start, end] pairs. */
 function inkRuns(cs: Node[][], at: number, down = false): [number, number][] {
   const xs: number[] = [];
@@ -305,9 +326,12 @@ export function twinGlyph(ch: string, fl: FreeLetters): Glyph | null {
   if (!fl.font) return null;
   const fit = twinFit(fl.font, fl.rawPick), now = fl.raw, pick = fl.rawPick;
   const moved = (k: 'weight' | 'contrast' | 'xHeight' | 'width' | 'slant', by = 0) => clamp((fit[k] as number) + (now[k] as number) - (pick[k] as number) + by);
-  // (Width reined in as the font's own letters are, freeWidth: a twin's a no wider than the letters beside it)
-  const p: Params = { ...now, freeFont: '', freeAt: {}, glyphs: {}, outlines: {}, weight: moved('weight'), contrast: moved('contrast'), xHeight: moved('xHeight'),
-    width: moved('width', fl.now.width - resolve(now).width), slant: moved('slant'), serif: now.serif !== pick.serif ? now.serif : !!fit.serif };
+  // (Width and the other sliders reined in as the font's own letters are, freeWidth and freeReins: a twin's a no wider
+  // than the letters beside it, its x-height theirs)
+  const asked = resolve(now), reined = (k: NumericParam) => (fl.now[k] as number) - (asked[k] as number);
+  const p: Params = { ...now, freeFont: '', freeAt: {}, glyphs: {}, outlines: {}, weight: moved('weight'), contrast: moved('contrast'), xHeight: moved('xHeight', reined('xHeight')),
+    width: moved('width', reined('width')), slant: moved('slant'), serif: now.serif !== pick.serif ? now.serif : !!fit.serif };
+  for (const k of Object.keys(FONT_REINS[fl.now.freeFont] ?? {}) as NumericParam[]) if (k !== 'xHeight') (p as unknown as Record<string, number>)[k] = clamp((now[k] as number) + reined(k));
   const key = JSON.stringify(p);
   let f = twinFonts.get(key);
   if (!f) { f = buildFont(p); if (twinFonts.size > 8) twinFonts.delete(twinFonts.keys().next().value!); twinFonts.set(key, f); }

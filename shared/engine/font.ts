@@ -33,7 +33,7 @@ import { autoThickness, organicK, type SerifPlace } from './stroke';
 import type { Cmd, Mark, MarkType, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
 import { buildBlock, buildGlyph } from './glyph';
 import { buildArc } from './arcs';
-import { formChanged, freeFontsWanted, freeGlyph, freeLetters, freeWidth, twinGlyph } from './free-letters';
+import { formChanged, freeFontsWanted, freeGlyph, freeLetters, freeReins, freeWidth, twinGlyph } from './free-letters';
 import { drawnDesign, drawnFrom, drawnLetter } from './family-drawn';
 import { highlightD, type HlKey } from './highlight';
 
@@ -429,8 +429,8 @@ function sameSettings(a: Params, b: Params): boolean {
 
 /** The font `params` describe; `from`, an earlier build, lends its letters where only the drawings differ. */
 export function buildFont(params: Params, from?: Font): Font {
-  // (a free font's Width no further than its letters stay whole, freeWidth)
-  const e = freeWidth(params, resolve(params)), m0 = metrics(e);
+  // (a free font's Width, and its other sliders, no further than its letters stay whole: freeWidth, freeReins)
+  const e = freeReins(params, freeWidth(params, resolve(params))), m0 = metrics(e);
   // a free font's letters stand as tall as the design's capitals, and its space is the font's own, wider or
   // narrower by Word spacing
   const fl = e.freeFont ? freeLetters(params, e, m0) : null, free = fl?.font;

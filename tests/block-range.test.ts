@@ -132,6 +132,8 @@ describe('the controls slot and grid blocks offer', () => {
     }
     for (const k of ['counter', 'aperture', 'crossbar'] as ControlKey[]) assert.ok(controlInUse(k, { build: 'blocks', blockForm: 'slots' }) && !on(k, {}), k);
     assert.ok(on('cellJoin', {}) && on('gridRows', {}) && !controlInUse('cellJoin', { build: 'blocks', blockForm: 'slots' }));
+    // (and letters built from strokes, which have no cells, aren't offered them)
+    assert.ok(!controlInUse('cellJoin', { build: 'strokes', blockForm: 'basic' }) && !controlInUse('gridRows', { build: 'strokes', blockForm: 'basic' }));
     // the heights of the small letters only on seven rows
     for (const k of ['xHeight', 'extenders', 'descender'] as ControlKey[]) assert.ok(!on(k, { gridRows: 'five' }) && on(k, { gridRows: 'seven' }), k);
     assert.equal(CONTROLS.gridRows.cat, 'heights');

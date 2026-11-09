@@ -2,12 +2,12 @@
 import {
   BOWL_SUBS, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_INNER_OPTIONS,
   SERIF_INNER_SUBS, SERIF_SIDE_OPTIONS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS,
-  STORY_OPTIONS, TERMINAL_DETAILS, TERMINAL_SHAPES, TERMINAL_SUBS, controlFor, terminalLabel, type FillSubKey, type FormKey,
+  STORY_OPTIONS, TERMINAL_DETAILS, TERMINAL_SHAPES, TERMINAL_SUBS, choicesOff, controlFor, terminalLabel, type FillSubKey, type FormKey,
   type SerifInnerSubKey
 } from '../../../shared/content';
 import { GRID_FILLS, formOf, type Terminal, type TerminalForm } from '../../../shared/params';
 import { autoIBars } from '../../../shared/engine';
-import { actions, useEditor, useParam, useScopedFont } from '../../state/editor';
+import { actions, useEditor, useHere, useParam, useScopedFont } from '../../state/editor';
 import { FillIcon, FormIcon, SerifIcon, SerifSidesIcon, StoryIcon, TerminalIcon } from '../Diagram';
 import { CtlHead, FoldHead, Fold, Quiet, useControlFocus } from './heads';
 import { useReachNote } from './reach';
@@ -22,13 +22,16 @@ export function TerminalControl({ parts }: { parts?: string[] }) {
   const terminal = useParam('terminal'), form = formOf(terminal, useParam('terminalForm')), run = useParam('terminalRun'), active = useEditor(s => controlFor(s.active) === 'terminal');
   const c = CONTROLS.terminal;
   const reach = useReachNote('terminal');
+  // (the shapes that break this design's letters left out, choicesOff; a family left with none goes)
+  const off = choicesOff(useHere(), 'terminal');
+  const groups = TERMINAL_SHAPES.map(g => ({ ...g, shapes: g.shapes.filter(sh => !off.has(`${sh.terminal}/${sh.form}`)) })).filter(g => g.shapes.length);
   return (
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="terminal" {...useControlFocus('terminal')}>
       <FoldHead k="terminal" label={c.label} parts={parts} summary={`${terminalLabel(terminal, form)}${run === 'straight' ? ' · Runs straight' : ''}`} />
       {reach.note}
       <Fold k="terminal" quiet={reach.quiet}>
         <div role="radiogroup" aria-label={c.tech}>
-          {TERMINAL_SHAPES.map(g => (
+          {groups.map(g => (
             <div key={g.label} role="group" aria-label={g.label}>
               <div className="sub-label">{g.label}</div>
               <div className="opts three">
@@ -60,13 +63,13 @@ export function TerminalControl({ parts }: { parts?: string[] }) {
 export function StoryControl({ parts }: { parts?: string[] }) {
   const font = useScopedFont(), grid = font.eff.build === 'blocks' && font.eff.blockForm === 'grid', active = useEditor(s => s.active === 'story');
   const single = grid ? font.eff.story === 'single' : font.eff.singleStory;
-  const c = CONTROLS.story, current = single ? 'single' : 'double', reach = useReachNote('story');
+  const c = CONTROLS.story, current = single ? 'single' : 'double', reach = useReachNote('story'), off = choicesOff(useHere(), 'story');
   return (
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="story" {...useControlFocus('story')}>
       <CtlHead k="story" label={c.label} parts={parts} />
       {reach.note}
       <div className="opts two" role="radiogroup" aria-label={c.tech}>
-        {STORY_OPTIONS.map(([id, label]) => (
+        {STORY_OPTIONS.filter(([id]) => !off.has(id)).map(([id, label]) => (
           <button key={id} role="radio" aria-checked={current === id} className={current === id ? 'opt on' : 'opt'}
             onClick={() => actions.setOption('story', id)}>
             <StoryIcon story={id} grid={grid} /><span>{label}</span>
@@ -102,7 +105,7 @@ export function FormControl({ k, parts }: { k: LetterFormKey; parts?: string[] }
 
 /** The named shapes of `k` as a row of pictured options. */
 function FormOptions({ k, label }: { k: FormKey; label: string }) {
-  const value = useParam(k), font = useScopedFont(), { options } = FORM_OPTIONS[k];
+  const value = useParam(k), font = useScopedFont(), off = choicesOff(useHere(), k), options = FORM_OPTIONS[k].options.filter(([id]) => !off.has(id));
   // letters built from slot or grid blocks are pictured in their own blocks
   const build = useParam('build'), blockForm = useParam('blockForm'), blocks = build === 'blocks' && blockForm !== 'basic' ? blockForm : undefined;
   // the option 'auto' stands for, as the engine picks it
@@ -148,6 +151,8 @@ export type SerifFormKey = 'serifTip' | 'serifBase' | 'serifSides' | 'serifInner
 export function SerifFormControl({ k }: { k: SerifFormKey }) {
   const shape = useParam('serifShape'), tip = useParam('serifTip'), base = useParam('serifBase'), sides = useParam('serifSides'), inner = useParam('serifInner');
   const active = useEditor(s => controlFor(s.active) === k), c = CONTROLS[k], reach = useReachNote(k);
+  // (the choices that break this design's letters left out, choicesOff: a card's own serifs gave way to the engine's)
+  const off = choicesOff(useHere(), k), keep = ([id]: readonly [string, string]) => !off.has(id);
   return (
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl={k} {...useControlFocus(k)}>
       <CtlHead k={k} label={c.label} />
@@ -156,7 +161,7 @@ export function SerifFormControl({ k }: { k: SerifFormKey }) {
         {k === 'serifTip' ? (
           <>
             <div className="opts four" role="radiogroup" aria-label={c.tech}>
-              {SERIF_TIP_OPTIONS.map(([id, label]) => (
+              {SERIF_TIP_OPTIONS.filter(keep).map(([id, label]) => (
                 <button key={id} role="radio" aria-checked={tip === id} className={tip === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifTip', id)}>
                   <SerifIcon shape={shape} tip={id} view="tip" /><span>{label}</span>
                 </button>
@@ -166,7 +171,7 @@ export function SerifFormControl({ k }: { k: SerifFormKey }) {
           </>
         ) : k === 'serifSides' ? (
           <div className="opts five" role="radiogroup" aria-label={c.tech}>
-            {SERIF_SIDE_OPTIONS.map(([id, label]) => (
+            {SERIF_SIDE_OPTIONS.filter(keep).map(([id, label]) => (
               <button key={id} role="radio" aria-checked={sides === id} className={sides === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifSides', id)}>
                 <SerifSidesIcon shape={shape} sides={id} /><span>{label}</span>
               </button>
@@ -175,7 +180,7 @@ export function SerifFormControl({ k }: { k: SerifFormKey }) {
         ) : k === 'serifInner' ? (
           <>
             <div className="opts three" role="radiogroup" aria-label={c.tech}>
-              {SERIF_INNER_OPTIONS.map(([id, label]) => (
+              {SERIF_INNER_OPTIONS.filter(keep).map(([id, label]) => (
                 <button key={id} role="radio" aria-checked={inner === id} className={inner === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifInner', id)}>
                   <SerifSidesIcon shape={shape} sides={sides === 'outside' ? 'both' : sides} inner={id} large /><span>{label}</span>
                 </button>
@@ -186,7 +191,7 @@ export function SerifFormControl({ k }: { k: SerifFormKey }) {
         ) : (
           <>
             <div className="opts two" role="radiogroup" aria-label={c.tech}>
-              {SERIF_BASE_OPTIONS.map(([id, label]) => (
+              {SERIF_BASE_OPTIONS.filter(keep).map(([id, label]) => (
                 <button key={id} role="radio" aria-checked={base === id} className={base === id ? 'opt on' : 'opt'} onClick={() => actions.setOption('serifBase', id)}>
                   <SerifIcon shape={shape} tip={tip} cupped={id === 'cupped'} view="base" /><span>{label}</span>
                 </button>

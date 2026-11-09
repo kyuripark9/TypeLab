@@ -12,15 +12,16 @@ import { ALL_CHARS, CHARSET, buildFont, fitOutline, freeFont, freeFontsWanted, p
 import { combine, shape, unite } from '../shared/engine/boolean';
 import { toPolys } from '../shared/engine/geom';
 import { metrics, resolve } from '../shared/engine/font';
-import { formChanged, widthOfScale } from '../shared/engine/free-letters';
+import { formChanged, freeReins, widthOfScale } from '../shared/engine/free-letters';
 import { bowlLook, cornerLooks, restyleBowls, restyleCorners, restyleDots, restyleEnds, restylePeaks, restyleStencil, stencilLook } from '../shared/engine/restyle';
 import { skeleton } from '../shared/engine/scan';
 import { lineSkeleton } from '../shared/engine/lines';
 import { SKIN_KEYS, skinFollows, skinRig } from '../shared/engine/skin';
 import { familyMember } from '../shared/family';
+import { FONT_REINS } from '../shared/font-reins';
 import { FONT_WIDTHS } from '../shared/font-widths';
 import { INTRO_CHARS, INTRO_OWN, OLD_FONTS, OWN_FAMILIES, STYLE_FONTS, fontId, isOwnFont, nearestFont, parseFontId } from '../shared/free-fonts';
-import { DEFAULTS, FREE_AT_KEYS, freeAtOf, sanitizeParams, xHeightOfRatio, xHeightRatio, type Params } from '../shared/params';
+import { DEFAULTS, FREE_AT_KEYS, freeAtOf, sanitizeParams, xHeightOfRatio, xHeightRatio, type NumericParam, type Params } from '../shared/params';
 import { createApp } from '../server/app';
 import { bendsBack } from '../tools/weights';
 import { DesignStore } from '../server/db';
@@ -511,6 +512,52 @@ describe("TypeLab's own fonts", () => {
     // (and the font's letters as drawn at the card's own Width; an engine design's Width as asked)
     assert.equal(at(p.width).glyph('L')!.d, buildFont(p).glyph('L')!.d);
     assert.equal(buildFont({ ...DEFAULTS, width: 1 }).m.ws, 1.5);
+  });
+
+  it('carry each slider no further than their letters stay whole, every step still moving them (FONT_REINS)', async () => {
+    // (carried to its end, a grotesque's V and W lumped where their diagonals meet the cap line at Lowercase height 0,
+    // its D and G spurred at Inner space 100)
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'grotesque')!, id = STYLE_FONTS.grotesque;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params;
+    const reins = Object.entries(FONT_REINS[id] ?? {}) as [NumericParam, [number, number]][];
+    assert.ok(['xHeight', 'counter'].every(k => reins.some(([r]) => r === k)), `Mainline's reins: ${reins.map(([k]) => k).join(' ')}`);
+    for (const [k, [lo, hi]] of reins) {
+      const own = p[k] as number, at = (v: number) => freeReins({ ...p, [k]: v }, resolve({ ...p, [k]: v }))[k] as number;
+      // (its own value as asked, the slider's ends the least and most the table keeps)
+      assert.equal(at(own), own, `Mainline's ${k} at its own ${own}`);
+      assert.ok(Math.abs(at(0) - Math.min(lo, own)) < 1e-9 && Math.abs(at(1) - Math.max(hi, own)) < 1e-9, `Mainline's ${k} drawn ${at(0)} to ${at(1)}, its reach ${lo} to ${hi}`);
+      // (every sixteenth further than the one before, each side of its own value that moves at all)
+      const vs = Array.from({ length: 17 }, (_, i) => at(i / 16));
+      for (let i = 1; i < vs.length; i++) {
+        const moves = (i / 16 <= own ? lo < own : hi > own);
+        assert.ok(moves ? vs[i] > vs[i - 1] : vs[i] >= vs[i - 1], `Mainline's ${k} by sixteenths: ${vs.map(v => v.toFixed(3)).join(', ')}`);
+      }
+    }
+    // (the slider's end draws what the table's least or most draws unreined; Width, Weight and an engine design's
+    // sliders aren't reined here)
+    const q0 = { ...p, xHeight: 0 }, least = freeReins(q0, resolve(q0)).xHeight, end = buildFont(q0).glyph('n')!.d;
+    assert.notEqual(end, buildFont(p).glyph('n')!.d);
+    // (Squareness too, though the letters read how square their bowls are as resolve works it out from it: reined on
+    // the effective value alone, its C drew unreined)
+    const s1 = { ...p, squareness: 1 }, most = freeReins(s1, resolve(s1)), squared = buildFont(s1).glyph('C')!.d;
+    assert.ok(most.squareness < 1 && Math.abs(most.square - most.squareness) < 1e-9, `Mainline's Squareness 100 drawn ${most.squareness}, its bowls ${most.square}`);
+    const kept = FONT_REINS[id]!;
+    delete FONT_REINS[id];
+    try {
+      assert.equal(end, buildFont({ ...p, xHeight: least }).glyph('n')!.d);
+      assert.equal(squared, buildFont({ ...p, squareness: most.squareness }).glyph('C')!.d);
+      assert.notEqual(squared, buildFont(s1).glyph('C')!.d);
+    } finally { FONT_REINS[id] = kept; }
+    for (const q of [{ ...p, width: 0, weight: 1 }, { ...DEFAULTS, xHeight: 0, counter: 1 }] as Params[]) {
+      const e = resolve(q);
+      assert.equal(freeReins(q, e), e);
+    }
+    // (and a letter the engine draws in a form the font hasn't got, a single-storey a, by as much: as tall as the n
+    // beside it at Lowercase height 0 as at the card's own; unreined, its top stood 166 units under the n's 384)
+    const top = (g: Glyph) => Math.max(...toPolys(g.cmds).flat().map(q => q.y));
+    const off = (xHeight: number) => { const f = buildFont({ ...p, story: 'single', xHeight }); assert.ok(!f.glyph('a')!.drawn); return top(f.glyph('n')!) - top(f.glyph('a')!); };
+    assert.ok(Math.abs(off(0) - off(p.xHeight)) < 2, `the twin a ${off(0).toFixed(1)} units under the n at Lowercase height 0, ${off(p.xHeight).toFixed(1)} at its own`);
   });
 
   it('start each card with no personality macro holding part of a slider flat', () => {

@@ -13,11 +13,13 @@ Everything here runs in the browser and on the server alike, so nothing touches 
 | `content/styles.ts` | The starting styles (`STYLES`), the Style page's cards (`PAGE_STYLES`) and Feeling chips (`FEELINGS`, those `FEELING_MIN` cards carry), `styleById` |
 | `content/tags.ts` | Style tags: Category (`StyleGroup`), Classification (`Kind`, `KIND_SECTIONS`), Appearance (`Look`, read off the settings), Feeling (`Mood`, `MOODS`, each with the `card` whose own font names its chip); `styleMatches`, `searchMatches` |
 | `content/pages.ts` | The editor's pages (`CATEGORIES`), their groups (`GROUPS`), older page names (`OLD_GROUPS`), `pageOf` |
-| `content/controls.ts` | `CONTROLS`, `SUBS` and each control's `*_SUBS`, the pickers' options and finer sliders, `PART_CONTROL`, `controlFor`, `firstControl` |
+| `content/controls.ts` | `CONTROLS`, `SUBS` and each control's `*_SUBS`, the pickers' options and finer sliders, `PART_CONTROL`, `controlFor`, `firstControl`, `controlInUse` and `subInUse` (what letters built from blocks, arcs or strokes take); the choices left out on a card's letters (`choicesOff`, a control with none but its own left `controlOff`, and the serifs' shapes with it where serifs are off and the switch left out, `pagesFor` given the design, a trait's choice put back `keepWhole`, `offsKey` for memos) |
 | `content/copy.ts` | `ANATOMY` (part id to name and definition), `TEXTS` (sample text) |
 | `content/search.ts` | Find a setting: `findSettings`, `ALSO` (words people use that the copy doesn't) |
 | `free-fonts.ts` | TypeLab's own fonts (`OWN_FAMILIES`) and the Google families (`FREE_FAMILIES`), each style's font (`STYLE_FONTS`), the fonts the own ones replaced (`OLD_FONTS`, `ownFontOf`), font ids, `nearestFont`, `withoutReserved`; the opening title card's letters (`INTRO_CHARS`, its scramble's `INTRO_SYMBOLS`) and the own fonts it mixes in (`INTRO_OWN`, `introFontUrl`) |
 | `font-widths.ts` | `FONT_WIDTHS`: how far Width may stretch and squeeze each free font's letters (by font id) and leave them whole, the least and most of its own width; written by `npm run widths:update` (tools/widths.ts), read by `freeWidth` (engine/free-letters.ts) |
+| `font-reins.ts` | `FONT_REINS`: how far each other slider may carry each of TypeLab's own fonts' letters from where its card picks them and leave them whole (by font id and setting, the least and most of the slider); written by `npm run breaks -- --update` (tools/breaks.ts), read by `freeReins` (engine/free-letters.ts). Not Weight, Verticals, Horizontals, Contrast or Slant (a family is solved on them), nor Width or Bowl overlap |
+| `font-offs.ts` | `FONT_OFFS`: the choices of a picker or switch that break a card's letters (by font id, or `blocks:<form>` and `arcs`), which the panel leaves out there (`choicesOff`, `controlOff` and `keepWhole` in content/controls.ts); written by `npm run breaks -- --offs` |
 | `family.ts` | A font family: `WEIGHTS`, `FAMILY_STYLES`, `familyMember(s)`, the anchor weight, `ownStyle`, `SLANTED`; lighter weights keep the design's hairline (`keepHairline`) |
 | `traits.ts` | The Style page's Adjust tab: `TRAIT_SECTIONS`, `applyTraits`, `traitsKey` |
 | `letter-log.ts` | Each letter's record of its own edits, kept with a design beside its settings: `LetterEdit`, `recordEdits`, `withOwn`, `sameOwn`, `packLog`/`cleanLog` (saved packed: a drawing leaves out the settings it was drawn at where the one before it has them), `upgradeLog`, `mergeLogs`; `LOG_KEEP` edits a letter, `LOG_BYTES` a design |
@@ -152,9 +154,10 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   families; tests/pages.test.ts checks each is there once), `TERMINAL_DETAILS`,
   `SERIF_TIP_DETAILS`; `BLOCK_CONTROLS` and `ARC_CONTROLS` (all that shows on letters built from blocks, by kind, or from arcs),
   `STROKES_OFF` (what letters built from strokes, every card in a font, leave out: Stencil, whole only on the slot and
-  grid blocks), `controlInUse`
+  grid blocks; Cell joins and Grid rows, the grid's own), `ARC_SUBS_OFF` (Roundness's Joins and Counters, which blot
+  arc letters), `controlInUse`, `subInUse`
   and `pagesFor` (the controls and pages a design's letters take: the navigation, the page steps and Find a setting
-  offer only those); `PART_CONTROL`
+  offer only those; given the design, less any control `controlOff` leaves out on its font, FONT_OFFS); `PART_CONTROL`
   (anatomy part to the control that shapes it); `controlFor` (a sub to its parent).
 - **Copy and search**: `ANATOMY` in `content/copy.ts` names every part the inspector can point at; `findSettings`
   searches the controls' words, `ALSO`, and the shapes they offer.

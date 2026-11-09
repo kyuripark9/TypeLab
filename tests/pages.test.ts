@@ -1,15 +1,18 @@
 /* The editor's pages and controls (shared/content/pages.ts, controls.ts, search.ts): every control on one
    page, the order of pages and of the controls on each, the pages letters built from blocks are offered, links naming
    a page or group (and reading a link into the editor, client/lib/routes.ts), finding a setting, every nested slider
-   placed in the panel, and the parts the letter inspector names. */
+   placed in the panel, the parts the letter inspector names, and the choices left out on a card's letters. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   ANATOMY, CATEGORIES, CONTROLS, FILL_SUBS, GROUPS, PART_CONTROL, ROUND_SUBS, SERIF_INNER_SUBS,
-  SERIF_TIP_DETAILS, SLICE_SUBS, STENCIL_SUBS, SUBS, TERMINAL_DETAILS, TERMINAL_SHAPES, WEIGHT_SUBS, controlFor, controlInUse, findSettings, firstControl, pageOf, pagesFor,
+  SERIF_TIP_DETAILS, SLICE_SUBS, STENCIL_SUBS, STYLES, SUBS, TERMINAL_DETAILS, TERMINAL_SHAPES, WEIGHT_SUBS, choicesOff, controlFor, controlInUse, controlOff, findSettings, firstControl,
+  keepWhole, offsKey, pageOf, pagesFor, subInUse,
   type ActiveKey, type CategoryId, type ControlKey
 } from '../shared/content';
-import { BLOCK_FORMS, DEFAULTS, TERMINAL_FORMS } from '../shared/params';
+import { BLOCK_FORMS, DEFAULTS, TERMINAL_FORMS, type Params } from '../shared/params';
+import { FONT_OFFS } from '../shared/font-offs';
+import { STYLE_FONTS } from '../shared/free-fonts';
 import { readDeepLink } from '../client/lib/routes';
 
 const controls = Object.keys(CONTROLS) as ControlKey[];
@@ -72,6 +75,9 @@ describe('editor pages', () => {
     const arcs = pagesFor({ build: 'arcs', blockForm: 'basic' }).map(c => c.id);
     assert.ok(['ends', 'heights', 'insides'].every(id => arcs.includes(id as CategoryId)) && !arcs.includes('serifs'), arcs.join());
     assert.deepEqual(controls.filter(k => CONTROLS[k].cat === 'letters' && controlInUse(k, { build: 'arcs', blockForm: 'basic' })), ['dots']);
+    // and their corners' Roundness without its Joins and Counters, which blot their crossings
+    assert.deepEqual(Object.keys(ROUND_SUBS).filter(s => !subInUse(s, { build: 'arcs' })), ['joinRound', 'innerRound']);
+    assert.ok(Object.keys(ROUND_SUBS).every(s => subInUse(s, { build: 'strokes' })));
     // what the letters are built from comes with the style they start from: no control changes it
     assert.ok(!('build' in CONTROLS) && !('blockForm' in CONTROLS));
   });
@@ -107,6 +113,38 @@ describe('editor pages', () => {
     assert.equal(CONTROLS.crossbar.cat, 'heights');
     assert.equal(CONTROLS.mirror.cat, 'size');
     for (const c of CATEGORIES) assert.ok(c.hint.length > 0, c.id);
+  });
+
+  it("leaves out on a card's letters the choices that break them (FONT_OFFS), never the design's own", () => {
+    const card = (id: string) => ({ ...DEFAULTS, ...STYLES.find(s => s.id === id)!.params, freeFont: STYLE_FONTS[id] }) as Params;
+    // (switched off, the Transitional card's serifs came out ragged: its switch is off the panel, and so is the Serifs
+    // page where nothing else is left on it)
+    const serif = card('serif');
+    assert.deepEqual(FONT_OFFS[STYLE_FONTS.serif]?.serif, ['false']);
+    assert.deepEqual([...choicesOff(serif, 'serif')], ['false']);
+    assert.ok(controlOff('serif', serif));
+    assert.ok(!controlOff('serif', card('grotesque')), "the grotesque's serifs switch on whole");
+    // (switched off already, as a design saved so has it, the switch is offered, to switch them back on)
+    assert.ok(!controlOff('serif', { ...serif, serif: false }));
+    assert.equal(choicesOff({ ...serif, serif: false }, 'serif').size, 0);
+    // (on the Formal Script card, whose letters serifs break, serifs are off and stay off: nothing on the Serifs page
+    // could take, so the page goes)
+    const script = card('chancery');
+    assert.ok(controlOff('serif', script) && controlOff('serifTip', script) && !pagesFor(script).some(c => c.id === 'serifs'));
+    assert.ok(pagesFor(card('grotesque')).some(c => c.id === 'serifs') && !controlOff('serifTip', card('grotesque')));
+    // (and each choice left out on a card is one its picker offers, and never the card's own)
+    for (const [letters, offs] of Object.entries(FONT_OFFS)) for (const [k, vs] of Object.entries(offs)) {
+      const id = Object.keys(STYLE_FONTS).find(s => STYLE_FONTS[s] === letters);
+      if (!id) continue;
+      assert.ok(!choicesOff(card(id), k).has(k === 'terminal' ? `${card(id).terminal}/${card(id).terminalForm}` : String(card(id)[k as keyof Params])), `${id}'s own ${k}`);
+      assert.ok(vs.length, `${letters} ${k}`);
+    }
+    // (a trait of the Adjust tab laid over the card takes no shape its letters break in: the serifs stay on)
+    assert.equal(keepWhole({ ...serif, serif: false }, serif, STYLE_FONTS.serif).serif, true);
+    assert.equal(keepWhole({ ...serif, weight: 0.2 }, serif, STYLE_FONTS.serif).weight, 0.2);
+    // (the pages and what the panel leaves out are read again when the design's own choice changes)
+    assert.notEqual(offsKey(serif), offsKey({ ...serif, serif: false }));
+    assert.equal(pagesFor(serif), pagesFor({ ...serif, weight: 0.2 }));
   });
 
   it('finds a setting by its name, a word people use for it, or a shape it offers', () => {

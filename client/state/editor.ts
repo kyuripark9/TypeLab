@@ -3,8 +3,9 @@
    builds the open design's font (fontFor, one build per params object), matches starting styles against
    the Style page's filters and traits. Importing it subscribes to free fonts arriving, so a design written
    in one draws again once its letters come. */
+import { useMemo } from 'react';
 import { create } from 'zustand';
-import { STYLES, controlFor, firstControl, looksOf, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
+import { STYLES, controlFor, firstControl, keepWhole, lettersOf, looksOf, offsKey, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
 import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
 import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font, type HlKey } from '../../shared/engine';
 import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
@@ -140,8 +141,10 @@ const FREE_SPACING = { letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAU
     otherwise). Its free font's letters are spaced as the font spaces them, so letter and word spacing start at FREE_SPACING. Traits laid over the style move the
     font's letters as they move the settings (Bold makes it heavier). */
 function startParams(st: StyleDef, traits: Traits, free = true): Params {
-  const p = { ...applyTraits(st.params, traits) }, id = STYLE_FONTS[st.id];
-  return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING } : p;
+  const id = STYLE_FONTS[st.id], font = free && id ? id : '';
+  // (a step that breaks the letters it starts in, FONT_OFFS, isn't laid over them, as the card drew it: adjustedParams)
+  const p = { ...keepWhole(applyTraits(st.params, traits), st.params, font || lettersOf({ ...st.params, freeFont: '' })) };
+  return font ? { ...p, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING } : p;
 }
 /** A new design: the first style, in its font, as picking its card starts it (so the card shows picked and Customize
     shapes the letters the card shows). */
@@ -263,6 +266,13 @@ export function paramOf<K extends keyof Params>(s: EditorState, key: K): Params[
   return (own ?? s.params[key]) as Params[K];
 }
 export const useParam = <K extends keyof Params>(key: K) => useEditor(s => paramOf(s, key));
+/** The design as the panel reads the choices left out on its letters (choicesOff, controlOff in shared/content) and the
+    pages it offers (pagesFor), read again only when what they say may change (its build, offsKey), so a slider's drag
+    draws the panel no more often. */
+export function useHere(): Params {
+  const key = useEditor(s => `${s.params.build} ${s.params.blockForm} ${offsKey(s.params)}`);
+  return useMemo(() => useEditor.getState().params, [key]);
+}
 /** The length of one stroke end of the letter being customized: its own, else the letter's Length
     (or for the tip of a hook, tail or cursive stroke, the usual length its own control draws it at). */
 export const endOf = (s: EditorState, id: string, hook = false) =>
@@ -343,7 +353,8 @@ export function adjustedParams(s: StyleDef, traits: Traits): Params {
   let p = adjustedCache.get(key);
   if (!p) {
     if (adjustedCache.size > 3000) adjustedCache.clear();
-    p = Object.keys(traits).length ? applyTraits(s.params, traits) : s.params;
+    // (a step that breaks the card's letters, FONT_OFFS, isn't laid over it: the card keeps its own)
+    p = Object.keys(traits).length ? keepWhole(applyTraits(s.params, traits), s.params, STYLE_FONTS[s.id] || lettersOf({ ...s.params, freeFont: '' })) : s.params;
     adjustedCache.set(key, p);
   }
   return p;

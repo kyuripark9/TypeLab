@@ -8,6 +8,12 @@
      npm run breaks -- --keys aperture,counter       only these settings
      npm run breaks -- --report                      the ranking from the file, nothing drawn
      npm run breaks -- --report --keys aperture      and where each card breaks, value by value
+     npm run breaks -- --update                      how far each slider carries each own-font card whole, the reins
+                                                     off (rewrites shared/font-reins.ts; about an hour and a half)
+     npm run breaks -- --tighten                     then, after the map run again: the reins drawn in where it still
+                                                     breaks a letter's form (rewrites shared/font-reins.ts)
+     npm run breaks -- --offs                        the pickers' choices that break each card, from the last map
+                                                     (rewrites shared/font-offs.ts)
 
    A letter is broken where the setting puts a fault on it (look, in tools/weights.ts) that the letter moved a hair the
    same way hasn't (NUDGE: a stencil's cuts, there as soon as Stencil is up, aren't pieces broken off), found again
@@ -15,7 +21,8 @@
    fewer, a counter more or fewer, a needle out of the ink or a slit into it where the letter had no point or notch as
    sharp near and no more of them, or an outline bending back the other way BENDS times more (a nick, a lump, a wave).
    What moving a hair breaks at once (the letters leaving the font's own outline) is the side's `onset`, and counts at
-   every eighth that side. Crossings aren't read (a fold within a unit, unseen, flickers along a slider; tools/widths.ts).
+   every eighth that side, but for a contour bending back more (the font's outline re-fitted as it leaves it: on the
+   industrial, blackletter and chancery cards, where it was read most, unseen drawn). Crossings aren't read (a fold within a unit, unseen, flickers along a slider; tools/widths.ts).
    Settings that change no letter's shape (Height, spacing) or are textures by design (Fill, Rough edges) aren't tried,
    and a setting's own marks aren't read as faults (INTENDED: a stencil's cuts, a tapered end's point, an ink trap's
    notch, Hand-drawn's waves, a letter form's other counters; a picker's choice draws its own curves, so only its pieces,
@@ -30,11 +37,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildFont, type Font } from '../shared/engine';
-import { PAGE_STYLES, TERMINAL_SHAPES, controlInUse, type ControlKey } from '../shared/content';
-import { STYLE_FONTS } from '../shared/free-fonts';
-import { SPECS, freeAtOf, type Params } from '../shared/params';
+import { PAGE_STYLES, TERMINAL_SHAPES, controlInUse, subInUse, type ControlKey } from '../shared/content';
+import { FONT_REINS } from '../shared/font-reins';
+import { OWN_FAMILIES, STYLE_FONTS } from '../shared/free-fonts';
+import { FREE_AT_KEYS, SPECS, freeAtOf, type Params } from '../shared/params';
 import { fontFile } from '../server/free-fonts';
-import { FONTS_DIR, OUT, holdFonts, letGo, oneAtATime, polys, showContext } from './lib';
+import { FONTS_DIR, OUT, ROOT, holdFonts, letGo, oneAtATime, polys, showContext } from './lib';
 import { bendsBack, look, newSharp, type Look } from './weights';
 import type { Cmd } from '../shared/engine/types';
 
@@ -49,8 +57,9 @@ const EIGHTHS = Array.from({ length: 9 }, (_, i) => i / 8);
 /** Not tried: the size, the spacing, the fills and rough edges (textures drawn over the letters on purpose). */
 const SKIP = new Set(['height', 'letterSpacing', 'wordSpacing', 'sideBearing', 'fill', 'module', 'dotGain', 'rough']);
 type Kind = 'pieces' | 'counters' | 'needle' | 'slit' | 'bends';
-/** The pickers that draw a letter in another form, its counters its own. */
-const FORM_KEYS = ['story', 'diagonals', 'apexForm', 'gForm', 'iForm', 'jForm', 'kForm', 'mForm', 'qForm', 'rForm', 'sForm', 'yForm', 'cellJoin', 'gridRows'];
+/** The pickers whose forms have other counters of their own: a two-storey g, an R's looped leg, the grid's joins and
+    rows. (Read for every letter form, an A's top serif closing its counter to a teardrop passed.) */
+const FORM_KEYS = ['gForm', 'rForm', 'cellJoin', 'gridRows'];
 /** What a setting draws on purpose, not read as a fault on it: a stencil's and a slice's cuts part the strokes and open
     the counters, and each part's cut edge bends back against its curve; a tapered end comes to a point, an ink trap is a
     notch. A picker's every choice (PICKED) draws another shape, its curves its own, so its bends aren't read either. */
@@ -61,6 +70,8 @@ const INTENDED: Record<string, Kind[]> = {
   // (Gap parts the bar from the stems; Bowl overlap steps a bowl off its stem; Steps and Cursive's flicks turn
   // a corner or an entry back on itself)
   barGap: CUTS, overlap: ['pieces'], steps: ['bends'], cursive: ['bends'],
+  // (square joins meet a bowl and its stem in a corner, a raised M's vertex comes to a point: looked at drawn, whole)
+  bowlJoin: ['needle', 'slit'], mForm: ['needle'],
   terminal: ['needle'], terminalPoint: ['needle'], terminalTaper: ['needle'], terminalTip: ['needle'],
   serifTip: ['needle'], serifTipSlant: ['needle'], apex: ['needle'], joints: ['slit'], wobble: ['bends']
 };
@@ -197,7 +208,7 @@ function keysOf(p: Params): string[] {
     const s = specOf(k), parent = s.control ? k : s.sub?.parent ?? IN_CONTROL[k];
     if (!parent) return false;
     if ((parent === 'cellJoin' || parent === 'gridRows') && !(p.build === 'blocks' && p.blockForm === 'grid')) return false;
-    return controlInUse(parent as ControlKey, p);
+    return controlInUse(parent as ControlKey, p) && subInUse(k, p);
   });
 }
 
@@ -246,7 +257,7 @@ function card(id: string, keys: string[]): CardOut | null {
             const near = new Drawn({ ...base, [k]: w } as Params, held);
             for (const ch of [...bad.keys()]) if (!faultsOf(ch, near, ref, k).length) bad.delete(ch);
           }
-          for (const [ch, kinds] of onset) if (!bad.has(ch)) bad.set(ch, kinds);
+          for (const [ch, kinds] of onset) { const seen = kinds.filter(x => x !== 'bends'); if (seen.length && !bad.has(ch)) bad.set(ch, seen); }
           res.values[fmt(v)] = { n, bad: listed(bad) };
         }
       }
@@ -345,6 +356,197 @@ function report(m: Map_, keys: string[]) {
   }
 }
 
+// ---- the reins ----
+
+/** Not reined per font: Weight, Verticals, Horizontals, Contrast and Slant, which a family's weights and italics are
+    solved on (shared/family.ts), Width, reined by its own measure (tools/widths.ts), and Bowl overlap, whose way to
+    a bowl stood apart from its stem passes through the bowl just leaving it, notched where they part (reined, a
+    grotesque's b and p kept their bowls on their stems at Bowl overlap 0). */
+const NOT_REINED = new Set(['weight', 'vWeight', 'hWeight', 'contrast', 'slant', 'width', 'overlap']);
+/** Sides of a slider the walk reads broken that were looked at drawn and left free, by font: the setting and its side
+    ('lo' toward 0, 'hi' toward 100). The geometric's serif tips either way, the chunky round's apex down to 0, and the
+    blackletter's inner corners, joins and roundness up to 100 stay whole at 120 px to the cap: a contour re-fitted, read as
+    bends (2026-11-09). */
+const BY_EYE: Record<string, Record<string, ('lo' | 'hi')[]>> = {
+  'Compass:300': { serifTipSlant: ['lo', 'hi'] },
+  'Gumdrop:700': { apex: ['lo'] },
+  'Cathedral:400': { innerRound: ['hi'], roundness: ['hi'], joinRound: ['hi'] }
+};
+/** Sides `--tighten` leaves as the walk found them, looked at drawn and whole that far: the script and the informal
+    cards' Squareness, read with a slit in the H's join and the A's swash that isn't there drawn (2026-11-09). */
+const WALKED_BY_EYE: Record<string, Record<string, ('lo' | 'hi')[]>> = {
+  'Boardwalk:400': { squareness: ['hi'] },
+  'Serenade:400': { squareness: ['hi'] }
+};
+/** The walk's steps (of the way from the card's own value to the slider's end), and the halvings after. */
+const REIN_STEPS = 16, HALVINGS = 4;
+const REINS_FILE = resolve(ROOT, 'shared/font-reins.ts');
+
+/** `fn` run with the reins off: FONT_REINS emptied, and put back after. */
+function reinsOff<T>(fn: () => T): T {
+  const kept = Object.entries(FONT_REINS);
+  for (const [k] of kept) delete FONT_REINS[k];
+  try { return fn(); } finally { for (const [k, v] of kept) FONT_REINS[k] = v; }
+}
+
+/** The sliders reined on card design `p` (in a font of TypeLab's own): those the panel offers that its font follows. */
+const reinKeysOf = (p: Params) => keysOf(p).filter(k => specOf(k).kind === 'number' && !NOT_REINED.has(k) && (FREE_AT_KEYS as readonly string[]).includes(k));
+
+/** How far slider `k` carries design `base`'s letters from its own value toward `end` and leaves them whole, the reins
+    off: walked in sixteenths of the way, then halved between the last whole step and the first broken one, and taken
+    a WINDOW back toward the card's own (further while a fault is found there). A value is broken as the check reads it
+    (`breaks`: faults against the letters moved a hair that way, found again WINDOW either side). What that hair's move
+    puts on the letters at once (`onset`) is there at every value that side, so no rein keeps it off: it is told, to be
+    looked at drawn, and doesn't stop the walk (on the industrial, blackletter and chancery cards a contour re-fitted as
+    the letters leave the font's own outline, read as bends or a hairline's needle, unseen drawn; counted, it held a
+    dozen of their sliders at the card's own value). */
+function walkTo(base: Params, k: string, end: number, held: Set<string>): { reach: number; whole: boolean; past: string[]; onset: string[] } {
+  const a = base[k as keyof Params] as number, was = new Drawn(base, held);
+  const toward = (s: number) => ({ ...base, [k]: a + (end - a) * s }) as Params;
+  const ref = new Drawn(toward(NUDGE), held);
+  let onset = compare(ref, was, k).bad;
+  if (onset.size) { const two = new Drawn(toward(2 * NUDGE), held); onset = new Map([...onset].filter(([ch]) => faultsOf(ch, two, was, k).length)); }
+  const told = listed(onset);
+  const side = (v: number) => (end > a ? v > a : v < a);
+  const read = (v: number): Cell => {
+    const now = new Drawn({ ...base, [k]: v } as Params, held), { n, bad } = compare(now, ref, k);
+    for (const w of [v - WINDOW, v + WINDOW].filter(w => w >= 0 && w <= 1 && side(w))) {
+      if (!bad.size) break;
+      const near = new Drawn({ ...base, [k]: w } as Params, held);
+      for (const ch of [...bad.keys()]) if (!faultsOf(ch, near, ref, k).length) bad.delete(ch);
+    }
+    return { n, bad: listed(bad) };
+  };
+  let ok = a, over = NaN, past: string[] = [];
+  for (let i = 1; i <= REIN_STEPS; i++) {
+    const v = a + (end - a) * i / REIN_STEPS, c = read(v);
+    if (breaks(c)) { over = v; past = c.bad; break; }
+    ok = v;
+  }
+  if (Number.isNaN(over)) return { reach: end, whole: true, past, onset: told };
+  for (let h = 0; h < HALVINGS; h++) {
+    const v = (ok + over) / 2, c = read(v);
+    if (breaks(c)) { over = v; past = c.bad; } else ok = v;
+  }
+  const back = (v: number) => (end > a ? Math.max(a, v - WINDOW) : Math.min(a, v + WINDOW));
+  ok = back(ok);
+  while (ok !== a && breaks(read(ok))) ok = back(ok);
+  return { reach: ok, whole: false, past, onset: told };
+}
+
+/** A slider's rein on a card: its least and most whole value, what broke past each, what a hair's move put on the
+    letters at once each way, and the card's own value. */
+interface Rein { lo: number; hi: number; past: [string[], string[]]; onset: [string[], string[]]; at: number }
+/** Card `id`'s reins, each slider's least and most whole value, for the sliders in `keys` (all it reins when empty);
+    null where its font isn't one of TypeLab's own or isn't kept here. */
+function reinsOf(id: string, keys: string[]): { font: string; reins: Map<string, Rein> } | null {
+  const fid = STYLE_FONTS[id];
+  if (!fid || !((fid.split(':')[0]) in OWN_FAMILIES)) return null;
+  const held = new Set<string>(), design = designOf(id, held);
+  if (!design) return null;
+  const out = new Map<string, Rein>();
+  reinsOff(() => {
+    for (const k of reinKeysOf(design).filter(k => !keys.length || keys.includes(k))) {
+      const base = { ...design, ...showContext(k) } as Params, at = base[k as keyof Params] as number;
+      const lo = at > 0 ? walkTo(base, k, 0, held) : { reach: 0, whole: true, past: [], onset: [] };
+      const hi = at < 1 ? walkTo(base, k, 1, held) : { reach: 1, whole: true, past: [], onset: [] };
+      out.set(k, { lo: lo.reach, hi: hi.reach, past: [lo.past, hi.past], onset: [lo.onset, hi.onset], at });
+    }
+  });
+  letGo(held);
+  return { font: fid, reins: out };
+}
+
+/** shared/font-reins.ts with `table` for its table: by font id, each setting reined to its least and most, rounded in
+    toward the card's own (a thousandth), the sliders whole to both ends left out. */
+function writeReins(table: Map<string, Map<string, [number, number]>>) {
+  const src = readFileSync(REINS_FILE, 'utf8'), open = src.indexOf('= {\n') + 4, close = src.indexOf('};', open);
+  const rows = [...table].filter(([, r]) => r.size)
+    .map(([fid, r]) => `  '${fid}': { ${[...r].map(([k, [lo, hi]]) => `${k}: [${lo}, ${hi}]`).join(', ')} }`).join(',\n');
+  writeFileSync(REINS_FILE, src.slice(0, open) + rows + (rows ? '\n' : '') + src.slice(close));
+}
+
+/** Whether broken letter `b` (as `listed` writes it, 'C:needle+bends') changed its form: a piece or counter more or
+    fewer, a needle or a slit, not its contour bending back alone. */
+const shaped = (b: string) => b.split(':')[1].split('+').some(x => x !== 'bends');
+
+/** The reins drawn in further where the last map, drawn with them, still finds a value broken with a letter changed
+    in form (`shaped`), the letters a hair's move broke at once (onset) left out: the side's rein taken back to as the slider
+    draws it at the last eighth before. The walk reads the letters with the reins off against a hair's move as asked,
+    the map reads them reined against a hair's move as drawn, and near BREAK letters the two read otherwise (Almanac's
+    Squareness, walked whole to 0.359, broke drawn at 0.31: the C's terminal notched, the S's spine slit). A contour
+    bending back alone isn't followed: read on a few letters past most reins, the 8's and the &'s, it is unseen drawn.
+    A side left free by eye (BY_EYE) stays free, and one looked at whole as far as walked (WALKED_BY_EYE) stays so.
+    Writes shared/font-reins.ts; run the map again after. */
+function tightenReins(m: Map_) {
+  const table = new Map(Object.entries(FONT_REINS).map(([f, r]) => [f, new Map(Object.entries(r) as [string, [number, number]][])]));
+  let n = 0;
+  for (const id of PAGE_STYLES.map(s => s.id)) {
+    const fid = STYLE_FONTS[id], c = m.cards[id];
+    if (!fid || !c || !((fid.split(':')[0]) in OWN_FAMILIES)) continue;
+    const held = new Set<string>(), design = designOf(id, held);
+    letGo(held);
+    if (!design) continue;
+    const row = table.get(fid) ?? new Map<string, [number, number]>();
+    for (const k of reinKeysOf(design)) {
+      const r = c.keys[k];
+      if (!r?.changed) continue;
+      const at = +r.at, [lo, hi] = row.get(k) ?? [0, 1], eye = [...BY_EYE[fid]?.[k] ?? [], ...WALKED_BY_EYE[fid]?.[k] ?? []];
+      let nlo = lo, nhi = hi;
+      for (const end of [0, 1]) {
+        if (eye.includes(end ? 'hi' : 'lo')) continue;
+        const onset = new Set(r.onset[end ? 'hi' : 'lo'].map(b => b.split(':')[0]));
+        let last = at;
+        for (const v of EIGHTHS.filter(v => (end ? v > at : v < at)).sort((a, b) => Math.abs(a - at) - Math.abs(b - at))) {
+          // (read without the letters a hair's move already broke: no rein keeps them whole)
+          const cell = r.values[fmt(v)], rest = cell ? { n: cell.n, bad: cell.bad.filter(b => !onset.has(b.split(':')[0])) } : null;
+          if (rest && breaks(rest) && rest.bad.some(shaped)) {
+            // (as the rein draws the slider at the last whole eighth, rounded in toward the card's own)
+            if (end) nhi = Math.max(at, Math.floor((at + (last - at) * (hi - at) / (1 - at)) * 1000) / 1000);
+            else nlo = Math.min(at, Math.ceil((at - (at - last) * (at - lo) / at) * 1000) / 1000);
+            break;
+          }
+          last = v;
+        }
+      }
+      if (nlo === lo && nhi === hi) continue;
+      row.set(k, [nlo, nhi]);
+      n++;
+      console.log(`${id.padEnd(14)} ${fid.padEnd(16)} ${k} ${lo}..${hi} -> ${nlo}..${nhi} (at ${at})`);
+    }
+    table.set(fid, row);
+  }
+  writeReins(table);
+  console.log(`${n} reins drawn in; wrote ${REINS_FILE}`);
+}
+
+// ---- the choices left out ----
+
+const OFFS_FILE = resolve(ROOT, 'shared/font-offs.ts');
+/** What a card's letters are drawn from, as FONT_OFFS keys them (lettersOf in shared/content/controls.ts). */
+const lettersKey = (p: Params) => p.freeFont || (p.build === 'blocks' ? `blocks:${p.blockForm}` : p.build === 'arcs' ? 'arcs' : '');
+
+/** shared/font-offs.ts from map `m`: each card's pickers' and switches' choices that break it (`breaks`), by what its
+    letters are drawn from, for the pickers the panel offers on it. */
+function writeOffs(m: Map_) {
+  const rows: string[] = [];
+  for (const id of PAGE_STYLES.map(s => s.id)) {
+    const c = m.cards[id];
+    if (!c) continue;
+    const held = new Set<string>(), design = designOf(id, held);
+    letGo(held);
+    if (!design) continue;
+    // (the settings the panel offers on it now: a run's older finds for one taken off since, Serif shape's, aren't kept)
+    const offered = new Set(keysOf(design));
+    const offs = Object.entries(c.keys).filter(([k, r]) => offered.has(k) && r.changed && specOf(k).kind !== 'number')
+      .map(([k, r]) => [k, Object.entries(r.values).filter(([, cell]) => breaks(cell)).map(([v]) => v)] as const).filter(([, vs]) => vs.length);
+    if (offs.length) rows.push(`  '${lettersKey(design)}': { ${offs.map(([k, vs]) => `${k}: [${vs.map(v => `'${v}'`).join(', ')}]`).join(', ')} }`);
+  }
+  const src = readFileSync(OFFS_FILE, 'utf8'), open = src.indexOf('= {\n') + 4, close = src.indexOf('};', open);
+  writeFileSync(OFFS_FILE, src.slice(0, open) + rows.join(',\n') + (rows.length ? '\n' : '') + src.slice(close));
+  console.log(`${rows.length} cards with choices left out; wrote ${OFFS_FILE}`);
+}
+
 // ---- the run ----
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -355,6 +557,38 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const kept: Map_ = existsSync(FILE) ? JSON.parse(readFileSync(FILE, 'utf8')) : { date: '', chars: CHARS, cards: {} };
 
   if (args.includes('--report')) report(kept, askedKeys);
+  else if (args.includes('--offs')) writeOffs(kept);
+  else if (args.includes('--tighten')) tightenReins(kept);
+  else if (args.includes('--update')) await oneAtATime('breaks', () => {
+    const t0 = Date.now();
+    // (the table as it stands, each font's settings measured now laid over its own)
+    const table = new Map<string, Map<string, [number, number]>>(Object.entries(FONT_REINS).map(([f, r]) => [f, new Map(Object.entries(r) as [string, [number, number]][])]));
+    for (const id of askedCards.length ? askedCards : CARDS) {
+      const t1 = Date.now(), r = reinsOf(id, askedKeys);
+      if (!r) continue;
+      const row = table.get(r.font) ?? new Map<string, [number, number]>();
+      const told: string[] = [];
+      for (const [k, v] of r.reins) {
+        // (rounded in toward the card's own, so the rein stops short of where the walk found them broken)
+        // (a side looked at drawn and found whole, BY_EYE, left free)
+        const eye = BY_EYE[r.font]?.[k] ?? [];
+        const lo = eye.includes('lo') ? 0 : Math.ceil(v.lo * 1000) / 1000, hi = eye.includes('hi') ? 1 : Math.floor(v.hi * 1000) / 1000;
+        const dead = (lo >= v.at && v.at > 0 ? ' DEAD below' : '') + (hi <= v.at && v.at < 1 ? ' DEAD above' : '');
+        if (lo <= 0 && hi >= 1) { row.delete(k); if (eye.length) told.push(`${k} free by eye`); continue; }
+        row.set(k, [Math.max(0, Math.min(lo, v.at)), Math.min(1, Math.max(hi, v.at))]);
+        told.push(`${k} ${lo.toFixed(3)}..${hi.toFixed(3)} (at ${v.at.toFixed(3)})${dead}`);
+      }
+      for (const [k, v] of r.reins) {
+        const on = [...v.onset[0].map(f => `${f}<`), ...v.onset[1].map(f => `${f}>`)];
+        if (on.length) told.push(`${k} onset ${on.join(' ')}`);
+      }
+      table.set(r.font, row);
+      writeReins(table);
+      console.log(`${id.padEnd(14)} ${r.font.padEnd(18)} ${told.length} of ${r.reins.size} reined (${Math.round((Date.now() - t1) / 1000)} s)`);
+      for (const t of told) console.log(`    ${t}`);
+    }
+    console.log(`${((Date.now() - t0) / 1000).toFixed(0)} s; wrote ${REINS_FILE}`);
+  });
   else await oneAtATime('breaks', () => {
     const t0 = Date.now();
     mkdirSync(dirname(FILE), { recursive: true });

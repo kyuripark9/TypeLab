@@ -1,12 +1,12 @@
 /* The frame around the stage: category navigation, glyph strip and toast. */
 import { memo, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
-import { CATEGORIES, GROUPS, controlFor, controlInUse, findSettings, pagesFor, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
+import { CATEGORIES, GROUPS, controlFor, controlInUse, controlOff, findSettings, pagesFor, subInUse, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
 import { Link } from 'react-router';
 import { CHARSET, widthGrown, type Font, type Glyph } from '../../shared/engine';
 import { DRAWER_QUERY, n1, shortcut } from '../lib/hooks';
 import { ink } from '../lib/preview';
 import { DESIGNS } from '../lib/routes';
-import { actions, useEditor, useFont } from '../state/editor';
+import { actions, useEditor, useFont, useHere } from '../state/editor';
 import { AccountButton } from './Account';
 import { PageIcon, SearchIcon } from './Icons';
 
@@ -85,9 +85,10 @@ export function Nav() {
   const build = useEditor(s => s.params.build), blockForm = useEditor(s => s.params.blockForm), gridRows = useEditor(s => s.params.gridRows), blocks = build === 'blocks';
   const [query, setQuery] = useState(''), [pick, setPick] = useState(0);
   const found = query.trim() ? findSettings(query, 100) : null;
-  const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm, gridRows })).slice(0, 12) ?? null;
+  const here = useHere();
+  const hits = found?.filter(h => controlInUse(controlFor(h.key), { build, blockForm, gridRows }) && subInUse(h.key, { build }) && !controlOff(controlFor(h.key), here)).slice(0, 12) ?? null;
   // the list under the search: the settings found, or the pages
-  const list = useRef<HTMLDivElement>(null), rows = navRows(pagesFor({ build, blockForm }));
+  const list = useRef<HTMLDivElement>(null), rows = navRows(pagesFor(here));
   useEffect(() => { list.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }, [pick]);
   const edges = useScrolledEdges(list, [hits, rows]);
   const choose = (h: SettingHit) => { setQuery(''); openSetting(h); (document.activeElement as HTMLElement | null)?.blur(); };
