@@ -22,11 +22,12 @@ The owner's Mac has no system Node: `tools/node.sh <cmd>` runs any command with 
 | Accept the lighter weights you meant to change | `npm run weights:update` |
 | Width on every free-font card: no letters broken at any eighth (about two minutes); measure how far each font stretches whole again and rewrite `shared/font-widths.ts` (about twenty) | `npm run widths [-- --cards grotesque]`, `npm run widths:update` |
 | Full engine output against a git ref (about five minutes; see tools/README.md) | `npm run compare -- [ref] [--free] [--only <style-regex>]` |
+| Where the settings break the Style page's cards: every setting at every eighth, ranked (about half an hour; `--report` reads the last run) | `npm run breaks [-- --cards grotesque] [--keys aperture] [--report]` |
 | Sliders that stop changing part way | `npm run sweep [-- keys...]` |
 | TypeLab's own fonts from their sheets (`Asset/After/<n>.ai` into `fonts/`; `--check` writes nothing) | `npm run fonts:import [-- names...]` |
 | A dev server of your own | `PORT=5199 DB_PATH=.tools/test.db npm run dev` |
 
-The heavy checks (`npm run golden`, `npm run weights`, `npm run widths`) take a lock, so only one runs on the machine at a time (from
+The heavy checks (`npm run golden`, `npm run weights`, `npm run widths`, `npm run breaks`) take a lock, so only one runs on the machine at a time (from
 any checkout or copy); a second waits for the first. Don't get around it by starting several sweeps, renders or checks
 side by side: each holds up to a few GB, and on 2026-10-19 about 90 of them at once took the owner's 24 GB Mac into
 swap until it stalled. Check `sysctl vm.swapusage` before starting a long job while other sessions run.

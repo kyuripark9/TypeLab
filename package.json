@@ -19,6 +19,7 @@
     "weights:update": "node --import tsx tools/weights.ts --update",
     "widths": "node --import tsx tools/widths.ts",
     "widths:update": "node --import tsx tools/widths.ts --update",
+    "breaks": "node --import tsx tools/breaks.ts",
     "compare": "node --import tsx tools/compare.ts",
     "render": "node --import tsx tools/render.ts",
     "sweep": "node --import tsx tools/sweep.ts",
