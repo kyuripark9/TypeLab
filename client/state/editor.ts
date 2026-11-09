@@ -6,7 +6,7 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { STYLES, controlFor, firstControl, keepWhole, lettersOf, looksOf, offsKey, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
-import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, type TraitId, type Traits } from '../../shared/traits';
+import { TRAIT_SECTIONS, applyTraits, traitOption, traitsKey, traitsOn, type TraitId, type Traits } from '../../shared/traits';
 import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font, type HlKey } from '../../shared/engine';
 import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { loadFreeFont } from '../lib/free';
@@ -142,8 +142,10 @@ const FREE_SPACING = { letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAU
     font's letters as they move the settings (Bold makes it heavier). */
 function startParams(st: StyleDef, traits: Traits, free = true): Params {
   const id = STYLE_FONTS[st.id], font = free && id ? id : '';
-  // (a step that breaks the letters it starts in, FONT_OFFS, isn't laid over them, as the card drew it: adjustedParams)
-  const p = { ...keepWhole(applyTraits(st.params, traits), st.params, font || lettersOf({ ...st.params, freeFont: '' })) };
+  // (a step that breaks the letters it starts in, FONT_OFFS, or with the other steps picked, TRAIT_OFFS, isn't laid over
+  // them, as the card drew it: adjustedParams)
+  const letters = font || lettersOf({ ...st.params, freeFont: '' });
+  const p = { ...keepWhole(applyTraits(st.params, traitsOn(traits, letters)), st.params, letters) };
   return font ? { ...p, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING } : p;
 }
 /** A new design: the first style, in its font, as picking its card starts it (so the card shows picked and Customize
@@ -353,8 +355,10 @@ export function adjustedParams(s: StyleDef, traits: Traits): Params {
   let p = adjustedCache.get(key);
   if (!p) {
     if (adjustedCache.size > 3000) adjustedCache.clear();
-    // (a step that breaks the card's letters, FONT_OFFS, isn't laid over it: the card keeps its own)
-    p = Object.keys(traits).length ? keepWhole(applyTraits(s.params, traits), s.params, STYLE_FONTS[s.id] || lettersOf({ ...s.params, freeFont: '' })) : s.params;
+    // (a step that breaks the card's letters, FONT_OFFS, or with the other steps picked, TRAIT_OFFS, isn't laid over it:
+    // the card keeps its own)
+    const letters = STYLE_FONTS[s.id] || lettersOf({ ...s.params, freeFont: '' });
+    p = Object.keys(traits).length ? keepWhole(applyTraits(s.params, traitsOn(traits, letters)), s.params, letters) : s.params;
     adjustedCache.set(key, p);
   }
   return p;

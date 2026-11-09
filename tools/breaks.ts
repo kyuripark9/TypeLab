@@ -14,11 +14,20 @@
                                                      breaks a letter's form (rewrites shared/font-reins.ts)
      npm run breaks -- --offs                        the pickers' choices that break each card, from the last map
                                                      (rewrites shared/font-offs.ts)
+     npm run breaks -- --traits                      the Adjust tab's steps on each card, each alone and each two
+                                                     together (writes .tools/out/breaks-traits.json)
+     npm run breaks -- --shuffle 200 [--seed 1]      that many of the Shuffle button's mixes on each card, the ones that
+       [--dense]                                     break it kept (writes .tools/out/breaks-shuffle.json); --dense
+                                                     picks most traits in each mix
+     npm run breaks -- --shuffle-offs                each mix that broke a card cut down to the fewest steps that still
+                                                     break it, those sets added to shared/trait-offs.ts
+     npm run breaks -- --try 'weight:bold,width:condensed' --cards grotesque     one mix (steps, or key=value) on a card
 
    A letter is broken where the setting puts a fault on it (look, in tools/weights.ts) that the letter moved a hair the
    same way hasn't (NUDGE: a stencil's cuts, there as soon as Stencil is up, aren't pieces broken off), found again
    WINDOW either side along the slider (a notch read sharp at one step and not the next flickers): a piece more or
-   fewer, a counter more or fewer, a needle out of the ink or a slit into it where the letter had no point or notch as
+   fewer, a counter more or fewer or one pinched to a hairline (each found again drawn FINE times finer, so a hairline
+   coming apart in the pixels isn't read), a needle out of the ink or a slit into it where the letter had no point or notch as
    sharp near and no more of them, or an outline bending back the other way BENDS times more (a nick, a lump, a wave).
    What moving a hair breaks at once (the letters leaving the font's own outline) is the side's `onset`, and counts at
    every eighth that side, but for a contour bending back more (the font's outline re-fitted as it leaves it: on the
@@ -32,15 +41,21 @@
    The report ranks the settings by the share of cards each breaks somewhere, and says how far from the card's own value
    each side stays whole: a setting that breaks only toward its ends can be reined in (as Width is, shared/font-widths.ts);
    one that breaks a step away on most cards is better off the panel (as Contrast and Pinch are). It takes the heavy
-   checks' lock (oneAtATime). */
+   checks' lock (oneAtATime).
+
+   The Adjust tab's traits are measured as mixes: --shuffle draws the Shuffle button's mixes on each card and keeps
+   those that break it in form (shatters: a piece or a counter on two letters or more), and --shuffle-offs cuts each down
+   to the fewest steps that still break the card, the sets traitsOn then leaves the last step of (TRAIT_OFFS). */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildFont, type Font } from '../shared/engine';
-import { PAGE_STYLES, TERMINAL_SHAPES, controlInUse, subInUse, type ControlKey } from '../shared/content';
+import { PAGE_STYLES, TERMINAL_SHAPES, controlInUse, keepWhole, lettersOf, subInUse, type ControlKey } from '../shared/content';
 import { FONT_REINS } from '../shared/font-reins';
 import { OWN_FAMILIES, STYLE_FONTS } from '../shared/free-fonts';
 import { FREE_AT_KEYS, SPECS, freeAtOf, type Params } from '../shared/params';
+import { TRAIT_OFFS } from '../shared/trait-offs';
+import { TRAITS, TRAIT_SECTIONS, applyTraits, traitOption, traitsOn, type TraitId, type Traits } from '../shared/traits';
 import { fontFile } from '../server/free-fonts';
 import { FONTS_DIR, OUT, ROOT, holdFonts, letGo, oneAtATime, polys, showContext } from './lib';
 import { bendsBack, look, newSharp, type Look } from './weights';
@@ -56,16 +71,16 @@ const EIGHTHS = Array.from({ length: 9 }, (_, i) => i / 8);
 
 /** Not tried: the size, the spacing, the fills and rough edges (textures drawn over the letters on purpose). */
 const SKIP = new Set(['height', 'letterSpacing', 'wordSpacing', 'sideBearing', 'fill', 'module', 'dotGain', 'rough']);
-type Kind = 'pieces' | 'counters' | 'needle' | 'slit' | 'bends';
+type Kind = 'pieces' | 'counters' | 'pinched' | 'needle' | 'slit' | 'bends';
 /** The pickers whose forms have other counters of their own: a two-storey g, an R's looped leg, the grid's joins and
     rows. (Read for every letter form, an A's top serif closing its counter to a teardrop passed.) */
 const FORM_KEYS = ['gForm', 'rForm', 'cellJoin', 'gridRows'];
 /** What a setting draws on purpose, not read as a fault on it: a stencil's and a slice's cuts part the strokes and open
     the counters, and each part's cut edge bends back against its curve; a tapered end comes to a point, an ink trap is a
     notch. A picker's every choice (PICKED) draws another shape, its curves its own, so its bends aren't read either. */
-const CUTS: Kind[] = ['pieces', 'counters', 'bends'];
+const CUTS: Kind[] = ['pieces', 'counters', 'pinched', 'bends'];
 const INTENDED: Record<string, Kind[]> = {
-  ...Object.fromEntries(FORM_KEYS.map(k => [k, ['counters'] as Kind[]])),
+  ...Object.fromEntries(FORM_KEYS.map(k => [k, ['counters', 'pinched'] as Kind[]])),
   stencil: CUTS, stencilPos: CUTS, stencilRound: CUTS, slice: CUTS, slicePos: CUTS, sliceRound: CUTS,
   // (Gap parts the bar from the stems; Bowl overlap steps a bowl off its stem; Steps and Cursive's flicks turn
   // a corner or an entry back on itself)
@@ -92,10 +107,12 @@ const sum = (v: number[]) => v.reduce((a, b) => a + b, 0);
 const bent = (cmds: Cmd[]) => bendsBack(cmds, BEND_FLAT).sort((p, q) => p - q);
 
 /** A design's letters as drawn, each read for faults (sharp points down to 120°, as a baseline reads them) when asked. */
+type Parts = { pieces: number; counters: number; open: number };
 class Drawn {
   readonly f: Font;
-  private read = new Map<string, { look: Look; bends: number[] } | null>();
-  constructor(p: Params, held: Set<string>) { holdFonts(p, held); this.f = buildFont(p); }
+  readonly p: Params;
+  private read = new Map<string, { look: Look; bends: number[]; parts?: Parts; fine?: Parts } | null>();
+  constructor(p: Params, held: Set<string>) { holdFonts(p, held); this.p = p; this.f = buildFont(p); }
   glyph(ch: string) { return this.f.letter(ch).glyph(ch); }
   ref(ch: string) {
     if (!this.read.has(ch)) { const g = this.glyph(ch); this.read.set(ch, g ? { look: look(g.cmds, this.f.m.cap, 120), bends: bent(g.cmds) } : null); }
@@ -105,13 +122,18 @@ class Drawn {
 
 /** How many pieces of ink and counters outline `cmds` shows drawn PX_CAP pixels to the cap height (nonzero fill): ink
     joined across a pixel's corner is one piece, a counter is white the ink closes all round; a speck under SPECK pixels
-    isn't counted. */
-const PX_CAP = 120, SPECK = 6;
-function inkParts(cmds: Cmd[], cap: number): { pieces: number; counters: number } {
-  const rings = polys(cmds, 8), s = PX_CAP / cap;
+    isn't counted. `open`, the counters with room in them: an OPEN pixels' square of white (a counter pinched to a
+    hairline, as a box a's on a condensed bold grotesque, is shut to the eye though the ink still parts round it). */
+const PX_CAP = 120, SPECK = 6, OPEN = 4;
+/** How much finer a fault in the ink is drawn again to be kept (FINE times PX_CAP to the cap, the speck and room as
+    large on the letter): a hairline a pixel or two wide at 120 px comes apart, or shuts a counter, in the pixels alone
+    (the script card's swashes and its I's and s's hairlines at Black, the blackletter's d at Wide). */
+const FINE = 3;
+export function inkParts(cmds: Cmd[], cap: number, fine = 1): Parts {
+  const rings = polys(cmds, 8), s = PX_CAP * fine / cap, speck = SPECK * fine * fine, side = Math.round(OPEN * fine);
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const r of rings) for (const q of r) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
-  if (!rings.length) return { pieces: 0, counters: 0 };
+  if (!rings.length) return { pieces: 0, counters: 0, open: 0 };
   // (a pixel's margin all round, so the white outside is one piece)
   const W = Math.ceil((x1 - x0) * s) + 3, H = Math.ceil((y1 - y0) * s) + 3, ink = new Uint8Array(W * H);
   for (let row = 0; row < H; row++) {
@@ -131,15 +153,22 @@ function inkParts(cmds: Cmd[], cap: number): { pieces: number; counters: number 
   }
   // (ink joined across corners, white only along sides, so a counter pinched to a corner is shut)
   const seen = new Uint8Array(W * H), stack: number[] = [];
-  let pieces = 0, counters = 0;
+  let pieces = 0, counters = 0, open = 0;
+  const room = (i: number) => {
+    const x = i % W, y = (i / W) | 0;
+    if (x + side > W || y + side > H) return false;
+    for (let dy = 0; dy < side; dy++) for (let dx = 0; dx < side; dx++) if (ink[(y + dy) * W + x + dx]) return false;
+    return true;
+  };
   for (let start = 0; start < W * H; start++) {
     if (seen[start]) continue;
     const v = ink[start], diag = v === 1;
-    let size = 0, edge = false;
+    let size = 0, edge = false, roomy = false;
     seen[start] = 1; stack.push(start);
     while (stack.length) {
       const i = stack.pop()!, x = i % W, y = (i / W) | 0;
       size++;
+      if (!v && !roomy && room(i)) roomy = true;
       if (x === 0 || y === 0 || x === W - 1 || y === H - 1) edge = true;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if ((!dx && !dy) || (!diag && dx && dy)) continue;
@@ -149,23 +178,27 @@ function inkParts(cmds: Cmd[], cap: number): { pieces: number; counters: number 
         if (!seen[j] && ink[j] === v) { seen[j] = 1; stack.push(j); }
       }
     }
-    if (size < SPECK) continue;
-    if (v) pieces++; else if (!edge) counters++;
+    if (size < speck) continue;
+    if (v) pieces++; else if (!edge) { counters++; if (roomy) open++; }
   }
-  return { pieces, counters };
+  return { pieces, counters, open };
 }
 
-/** The faults letter `ch` has drawn in `now` that it hasn't in `was`, setting `key`'s own marks left out. */
-function faultsOf(ch: string, now: Drawn, was: Drawn, key: string): Kind[] {
+/** The faults letter `ch` has drawn in `now` that it hasn't in `was`, setting `key`'s own marks left out (each one's,
+    given several). */
+function faultsOf(ch: string, now: Drawn, was: Drawn, key: string | readonly string[]): Kind[] {
   const g = now.glyph(ch), wg = was.glyph(ch);
   if (!g || !wg || g.d === wg.d) return [];
   const r = was.ref(ch)!, cap = was.f.m.cap, l = look(g.cmds, cap), out: Kind[] = [];
   // (counted again as drawn when the contours say otherwise: a k's arm drawn as its own contour over the stem is one
   // piece of ink to the eye, two to the contours)
-  if (l.pieces !== r.look.pieces || l.counters !== r.look.counters) {
-    const a = inkParts(g.cmds, cap), b = inkParts(wg.cmds, cap);
-    if (a.pieces !== b.pieces) out.push('pieces');
-    if (a.counters !== b.counters) out.push('counters');
+  // (and a letter with counters read for one pinched shut: fewer with room in them than it had)
+  // (each kept only where it is there drawn FINE times finer too)
+  if (l.pieces !== r.look.pieces || l.counters !== r.look.counters || r.look.counters) {
+    const kinds = (a: Parts, b: Parts) => [...a.pieces !== b.pieces ? ['pieces' as const] : [], ...a.counters !== b.counters ? ['counters' as const] : [],
+      ...a.open < b.open && a.counters >= b.counters ? ['pinched' as const] : []];
+    const found = kinds(inkParts(g.cmds, cap), r.parts ??= inkParts(wg.cmds, cap));
+    if (found.length) { const fine = kinds(inkParts(g.cmds, cap, FINE), r.fine ??= inkParts(wg.cmds, cap, FINE)); out.push(...found.filter(k => fine.includes(k))); }
   }
   // (a point new where the letter had none near, and more of them than it had: a serif's tip carried up with the
   // x-height is the same point moved, not a new one)
@@ -176,7 +209,7 @@ function faultsOf(ch: string, now: Drawn, was: Drawn, key: string): Kind[] {
   }
   const bn = bent(g.cmds), bp = r.bends;
   if (bn.length === bp.length ? bn.some((v, i) => v >= bp[i] + BENDS) : sum(bn) >= sum(bp) + BENDS) out.push('bends');
-  const own = [...(INTENDED[key] ?? []), ...(specOf(key).kind === 'number' ? [] : PICKED)];
+  const own = (typeof key === 'string' ? [key] : key).flatMap(k => [...(INTENDED[k] ?? []), ...(specOf(k)?.kind === 'number' ? [] : PICKED)]);
   return out.filter(k => !own.includes(k));
 }
 
@@ -526,8 +559,21 @@ const OFFS_FILE = resolve(ROOT, 'shared/font-offs.ts');
 /** What a card's letters are drawn from, as FONT_OFFS keys them (lettersOf in shared/content/controls.ts). */
 const lettersKey = (p: Params) => p.freeFont || (p.build === 'blocks' ? `blocks:${p.blockForm}` : p.build === 'arcs' ? 'arcs' : '');
 
+/** Choices that break a card's letters drawn where the check reads a letter or two broken, by font: the Serifs switch
+    off on the Didone (Couture) and Old Style (Vellum) cards leaves their serifs' roots behind, hairline stubs along the
+    baseline, and tears Vellum's arches and its 0 (read as R's slit and E's and h's; drawn on 2026-11-09, and on every
+    Shuffle mix with Serifs None that broke either card); switched on, the squircle's (Orbital) shuts its E's counters
+    to slits and the chunky round's (Gumdrop) puts ragged serifs on its W and a bar on its 4 (read as the E alone, and
+    with almost any other step, on the Shuffle's mixes). */
+const OFFS_BY_EYE: Record<string, Record<string, string[]>> = {
+  'Orbital:600': { serif: ['true'] },
+  'Gumdrop:700': { serif: ['true'] },
+  'Vellum:400': { serif: ['false'] },
+  'Couture:600': { serif: ['false'] }
+};
+
 /** shared/font-offs.ts from map `m`: each card's pickers' and switches' choices that break it (`breaks`), by what its
-    letters are drawn from, for the pickers the panel offers on it. */
+    letters are drawn from, for the pickers the panel offers on it, and those left out by eye (OFFS_BY_EYE). */
 function writeOffs(m: Map_) {
   const rows: string[] = [];
   for (const id of PAGE_STYLES.map(s => s.id)) {
@@ -539,24 +585,235 @@ function writeOffs(m: Map_) {
     // (the settings the panel offers on it now: a run's older finds for one taken off since, Serif shape's, aren't kept)
     const offered = new Set(keysOf(design));
     const offs = Object.entries(c.keys).filter(([k, r]) => offered.has(k) && r.changed && specOf(k).kind !== 'number')
-      .map(([k, r]) => [k, Object.entries(r.values).filter(([, cell]) => breaks(cell)).map(([v]) => v)] as const).filter(([, vs]) => vs.length);
-    if (offs.length) rows.push(`  '${lettersKey(design)}': { ${offs.map(([k, vs]) => `${k}: [${vs.map(v => `'${v}'`).join(', ')}]`).join(', ')} }`);
+      .map(([k, r]) => [k, Object.entries(r.values).filter(([, cell]) => breaks(cell)).map(([v]) => v)] as [string, string[]]);
+    for (const [k, vs] of Object.entries(OFFS_BY_EYE[lettersKey(design)] ?? {})) {
+      const row = offs.find(([o]) => o === k);
+      if (row) row[1] = [...new Set([...row[1], ...vs])]; else offs.push([k, vs]);
+    }
+    const out = offs.filter(([, vs]) => vs.length);
+    if (out.length) rows.push(`  '${lettersKey(design)}': { ${out.map(([k, vs]) => `${k}: [${vs.map(v => `'${v}'`).join(', ')}]`).join(', ')} }`);
   }
   const src = readFileSync(OFFS_FILE, 'utf8'), open = src.indexOf('= {\n') + 4, close = src.indexOf('};', open);
   writeFileSync(OFFS_FILE, src.slice(0, open) + rows.join(',\n') + (rows.length ? '\n' : '') + src.slice(close));
   console.log(`${rows.length} cards with choices left out; wrote ${OFFS_FILE}`);
 }
 
+// ---- the Adjust tab's traits ----
+
+export const TRAITS_FILE = resolve(OUT, 'breaks-traits.json');
+/** A trait's step as the file names it, 'weight:black'; two together 'weight:black+curves:box'. */
+type Step = string;
+/** The steps tried: every step of every trait the Adjust tab offers but Fill's (textures drawn over the letters, left
+    out of the map too) and Spacing's room between the letters (Mono, which redraws them to one width, kept). */
+const STEPS: Step[] = TRAITS.filter(t => t.id !== 'fill')
+  .flatMap(t => t.options.filter(o => t.id !== 'spacing' || o.id === 'mono').map(o => `${t.id}:${o.id}`));
+const traitsOf = (steps: Step[]): Traits => Object.fromEntries(steps.map(s => s.split(':'))) as Traits;
+const keysOfSteps = (steps: Step[]) => steps.flatMap(s => { const [t, o] = s.split(':'); return Object.keys(traitOption(t as TraitId, o)!.set); });
+
+/** Card design `design` as the Style page draws it under traits `t` (adjustedParams, client/state/editor.ts): the card's
+    settings with the steps laid over, a choice its letters break put back (keepWhole), in its font picked where the
+    card picks it; a set of steps its letters break together, TRAIT_OFFS, less its last (traitsOn). */
+function underTraits(id: string, design: Params, t: Traits): Params {
+  const st = PAGE_STYLES.find(s => s.id === id)!, letters = design.freeFont || lettersOf({ ...st.params, freeFont: '' });
+  const p = keepWhole(applyTraits(st.params, traitsOn(t, letters)), st.params, letters);
+  return design.freeFont ? { ...p, freeFont: design.freeFont, freeAt: design.freeAt } : p;
+}
+
+/** Letters whose strokes cross themselves, by what they are drawn from, whose counters aren't read under the traits:
+    the arc letters' Q (its tail over the bowl), P (the stem through the bowl's top) and & (its loops) close and open
+    small counters where the strokes cross as they grow heavier, narrower or squarer, whole drawn (2026-11-09). */
+const CROSSED: Record<string, string> = { arcs: 'QP&' };
+
+/** The letters `now` breaks in form against `was`: a piece or counter more or fewer, a needle or a slit (a contour
+    bending alone is unseen drawn, as --tighten reads it), the marks the settings `keys` draw on purpose left out. */
+function brokenInForm(now: Drawn, was: Drawn, keys: string[]): { n: number; bad: Map<string, Kind[]> } {
+  let n = 0;
+  const bad = new Map<string, Kind[]>(), crossed = CROSSED[lettersKey(was.p)] ?? '';
+  for (const ch of CHARS) {
+    const g = now.glyph(ch), wg = was.glyph(ch);
+    if (!g || !wg || g.d === wg.d) continue;
+    n++;
+    const k = faultsOf(ch, now, was, keys).filter(x => x !== 'bends' && !(crossed.includes(ch) && (x === 'counters' || x === 'pinched')));
+    if (k.length) bad.set(ch, k);
+  }
+  return { n, bad };
+}
+
+/** Card `id` under the Adjust tab's traits: each step alone against the card, and each two steps of two traits
+    together against the card, less what either breaks alone (what they break only together). Null where its font isn't
+    kept here. */
+export interface TraitsOut { seconds: number; singles: Record<Step, Cell>; pairs: Record<string, Cell> }
+function traitsCard(id: string): TraitsOut | null {
+  const t0 = Date.now(), held = new Set<string>(), design = designOf(id, held);
+  if (!design) return null;
+  const was = new Drawn(design, held), out: TraitsOut = { seconds: 0, singles: {}, pairs: {} };
+  const alone = new Map<Step, Map<string, Kind[]>>();
+  for (const s of STEPS) {
+    const r = brokenInForm(new Drawn(underTraits(id, design, traitsOf([s])), held), was, keysOfSteps([s]));
+    // (a step this card takes already, or that its letters break and keepWhole puts back, changes nothing here)
+    if (!r.n) continue;
+    out.singles[s] = { n: r.n, bad: listed(r.bad) };
+    alone.set(s, r.bad);
+  }
+  // (two steps where neither breaks the card alone)
+  const live = [...alone.keys()].filter(s => !breaks(out.singles[s]));
+  for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
+    const a = live[i], b = live[j];
+    if (a.split(':')[0] === b.split(':')[0]) continue;
+    const r = brokenInForm(new Drawn(underTraits(id, design, traitsOf([a, b])), held), was, keysOfSteps([a, b]));
+    for (const [ch, ks] of [...r.bad]) {
+      const left = ks.filter(k => !alone.get(a)!.get(ch)?.includes(k) && !alone.get(b)!.get(ch)?.includes(k));
+      if (left.length) r.bad.set(ch, left); else r.bad.delete(ch);
+    }
+    if (r.bad.size) out.pairs[`${a}+${b}`] = { n: r.n, bad: listed(r.bad) };
+  }
+  letGo(held);
+  out.seconds = Math.round((Date.now() - t0) / 1000);
+  return out;
+}
+
+/** Shuffles drawn on each card (--shuffle), and the file they are written to. */
+export const SHUFFLE_FILE = resolve(OUT, 'breaks-shuffle.json');
+/** A seeded random number from 0 to 1 (mulberry32): a run draws the same shuffles again. */
+function seeded(seed: number) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/** Steps as the Adjust tab's Shuffle picks them (shuffleTraits, client/state/editor.ts): each trait of the Body,
+    Proportion and Details sections at a chance of 0.55, of Finish 0.12, one of its steps at random; Fill's and
+    Spacing's room left out as STEPS leaves them. Dense, each trait at 0.85: a mix holds most traits, and so most sets of
+    three steps a card breaks together, which the button's own odds draw a few times in a thousand (Neo Grotesque's
+    Bold, Condensed and Box). */
+function shuffled(rand: () => number, dense = false): Step[] {
+  const out: Step[] = [];
+  for (const sec of TRAIT_SECTIONS) for (const t of sec.traits) {
+    if (rand() >= (dense ? 0.85 : sec.id === 'finish' ? 0.12 : 0.55)) continue;
+    const step = `${t.id}:${t.options[Math.floor(rand() * t.options.length)].id}`;
+    if (STEPS.includes(step)) out.push(step);
+  }
+  return out;
+}
+/** Whether letters broken in form `bad` break the card under a mix: a piece, a counter or the room in one lost or
+    gained on two letters or more. Needles and slits alone aren't counted: under a mix of several steps they were read
+    on letters that look whole drawn (the industrial card's corners, the fat face's hairlines at Light, the wood type's
+    crotches at Narrow; 2026-11-09). */
+const shatters = (bad: Map<string, Kind[]>) =>
+  [...bad.values()].filter(k => k.some(x => x === 'pieces' || x === 'counters' || x === 'pinched')).length >= 2;
+
+/** Card `id` under `n` shuffles of the Adjust tab's traits, each against the card as drawn: the shuffles that break it
+    and the letters they break, and how many were drawn. */
+export interface ShuffleOut { seconds: number; n: number; broken: { steps: Step[]; bad: string[] }[] }
+function shuffleCard(id: string, n: number, seed = 0, dense = false): ShuffleOut | null {
+  const t0 = Date.now(), held = new Set<string>(), design = designOf(id, held);
+  if (!design) return null;
+  const was = new Drawn(design, held), rand = seeded([...id].reduce((h, c) => Math.imul(h, 31) + c.charCodeAt(0), 7) + seed), out: ShuffleOut = { seconds: 0, n, broken: [] };
+  for (let i = 0; i < n; i++) {
+    const steps = shuffled(rand, dense);
+    if (!steps.length) continue;
+    const r = brokenInForm(new Drawn(underTraits(id, design, traitsOf(steps)), held), was, keysOfSteps(steps));
+    if (shatters(r.bad)) out.broken.push({ steps, bad: listed(r.bad) });
+    // (the fonts drawn are let go every so often: each shuffle is a new design)
+    if (i % 50 === 49) { letGo(held); designOf(id, held); }
+  }
+  letGo(held);
+  out.seconds = Math.round((Date.now() - t0) / 1000);
+  return out;
+}
+
+const TRAIT_OFFS_FILE = resolve(ROOT, 'shared/trait-offs.ts');
+/** shared/trait-offs.ts with the mixes that broke each card (SHUFFLE_FILE) added: each drawn again under the sets in
+    the table and found so far (a mix one of them mends isn't looked at again), and if it still breaks the card, its
+    steps left out one at a time where it breaks without them, to the fewest that still do, a set kept in STEPS order
+    (traitsOn leaves out its last). Sets of one step break the card alone. The sets already there stay, so a run of other
+    mixes (--seed, --dense) adds to them; to start again, empty the table. */
+function writeTraitOffs(cards: string[]) {
+  const file: { cards: Record<string, ShuffleOut> } = JSON.parse(readFileSync(SHUFFLE_FILE, 'utf8'));
+  const table = TRAIT_OFFS;
+  for (const id of cards) {
+    const mixes = file.cards[id]?.broken.map(b => b.steps) ?? [];
+    if (!mixes.length) continue;
+    let held = new Set<string>(), design = designOf(id, held)!, drawn = 0;
+    const was = new Drawn(design, held), key = lettersKey(design), sets: string[][] = (table[key] ??= []);
+    const breaksIt = (steps: Step[]) => {
+      if (++drawn % 50 === 0) { letGo(held); held = new Set(); design = designOf(id, held)!; }
+      const r = brokenInForm(new Drawn(underTraits(id, design, traitsOf(steps)), held), was, keysOfSteps(steps));
+      return shatters(r.bad) ? listed(r.bad) : null;
+    };
+    for (const mix of mixes) {
+      let bad = breaksIt(mix);
+      if (!bad) continue;
+      let set = [...mix];
+      for (const s of mix) {
+        const less = set.filter(x => x !== s), b = less.length ? breaksIt(less) : null;
+        if (b) { set = less; bad = b; }
+      }
+      set.sort((a, b) => STEPS.indexOf(a) - STEPS.indexOf(b));
+      sets.push(set);
+      console.log(`${id.padEnd(14)} ${set.join(' + ').padEnd(48)} ${bad.join(' ')}`);
+    }
+    letGo(held);
+    if (!sets.length) delete table[key];
+  }
+  const rows = Object.entries(table).map(([k, sets]) => `  '${k}': [\n${sets.map(s => `    [${s.map(x => `'${x}'`).join(', ')}]`).join(',\n')}\n  ]`);
+  const src = readFileSync(TRAIT_OFFS_FILE, 'utf8'), open = src.indexOf('= {\n') + 4, close = src.lastIndexOf('};');
+  writeFileSync(TRAIT_OFFS_FILE, src.slice(0, open) + rows.join(',\n') + (rows.length ? '\n' : '') + src.slice(close));
+  console.log(`${Object.values(table).flat().length} sets on ${rows.length} cards' letters; wrote ${TRAIT_OFFS_FILE}`);
+}
+
 // ---- the run ----
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const args = process.argv.slice(2), opt = (f: string) => (args.includes(f) ? args[args.indexOf(f) + 1].split(',') : []);
+  const args = process.argv.slice(2), opt = (f: string) => (args.includes(f) ? (args[args.indexOf(f) + 1] ?? '').split(',') : []);
   const CARDS = PAGE_STYLES.map(s => s.id), askedCards = opt('--cards'), askedKeys = opt('--keys');
   for (const c of askedCards) if (!CARDS.includes(c)) throw new Error(`'${c}' isn't a card on the Style page; one of: ${CARDS.join(' ')}`);
   for (const k of askedKeys) if (!(k in SPECS)) throw new Error(`unknown setting '${k}'`);
   const kept: Map_ = existsSync(FILE) ? JSON.parse(readFileSync(FILE, 'utf8')) : { date: '', chars: CHARS, cards: {} };
 
-  if (args.includes('--report')) report(kept, askedKeys);
+  if (args.includes('--try')) {
+    // (one design against its card: --try 'weight:bold,width:condensed,curves:box' --cards grotesque, steps or k=v)
+    for (const id of askedCards) {
+      const held = new Set<string>(), design = designOf(id, held)!, spec = opt('--try');
+      const steps = spec.filter(x => x.includes(':')), sets = Object.fromEntries(spec.filter(x => x.includes('=')).map(x => { const [k, v] = x.split('='); return [k, Number.isNaN(+v) ? v : +v]; }));
+      const p = { ...underTraits(id, design, traitsOf(steps)), ...sets } as Params;
+      const r = brokenInForm(new Drawn(p, held), new Drawn(design, held), [...keysOfSteps(steps), ...Object.keys(sets)]);
+      console.log(`${id}: ${r.n} letters changed, ${r.bad.size} broken: ${listed(r.bad).join(' ')}`);
+      letGo(held);
+    }
+  }
+  else if (args.includes('--shuffle-offs')) await oneAtATime('breaks', () => writeTraitOffs(askedCards.length ? askedCards : CARDS));
+  else if (args.includes('--shuffle')) await oneAtATime('breaks', () => {
+    const t0 = Date.now(), n = Number(opt('--shuffle')[0]) || 400, seed = Number(opt('--seed')[0]) || 0;
+    const file: { date: string; cards: Record<string, ShuffleOut> } = existsSync(SHUFFLE_FILE) ? JSON.parse(readFileSync(SHUFFLE_FILE, 'utf8')) : { date: '', cards: {} };
+    mkdirSync(dirname(SHUFFLE_FILE), { recursive: true });
+    for (const id of askedCards.length ? askedCards : CARDS) {
+      const r = shuffleCard(id, n, seed, args.includes('--dense'));
+      if (!r) { console.log(`${id.padEnd(14)} no font file for ${STYLE_FONTS[id]}; skipped`); continue; }
+      file.cards[id] = r;
+      file.date = new Date().toISOString().slice(0, 10);
+      writeFileSync(SHUFFLE_FILE, JSON.stringify(file));
+      console.log(`${id.padEnd(14)} ${r.broken.length} of ${n} shuffles break it (${r.seconds} s)`);
+    }
+    console.log(`${((Date.now() - t0) / 1000).toFixed(0)} s; wrote ${SHUFFLE_FILE}`);
+  });
+  else if (args.includes('--traits')) await oneAtATime('breaks', () => {
+    const t0 = Date.now(), file: { date: string; cards: Record<string, TraitsOut> } = existsSync(TRAITS_FILE) ? JSON.parse(readFileSync(TRAITS_FILE, 'utf8')) : { date: '', cards: {} };
+    mkdirSync(dirname(TRAITS_FILE), { recursive: true });
+    for (const id of askedCards.length ? askedCards : CARDS) {
+      const r = traitsCard(id);
+      if (!r) { console.log(`${id.padEnd(14)} no font file for ${STYLE_FONTS[id]}; skipped`); continue; }
+      file.cards[id] = r;
+      file.date = new Date().toISOString().slice(0, 10);
+      writeFileSync(TRAITS_FILE, JSON.stringify(file));
+      const s = Object.entries(r.singles).filter(([, c]) => breaks(c)).map(([k]) => k), p = Object.entries(r.pairs).filter(([, c]) => breaks(c)).map(([k]) => k);
+      console.log(`${id.padEnd(14)} ${Object.keys(r.singles).length} steps, ${s.length} break it${s.length ? ` (${s.join(' ')})` : ''}; ${p.length} pairs break it only together${p.length ? ` (${p.join(' ')})` : ''} (${r.seconds} s)`);
+    }
+    console.log(`${((Date.now() - t0) / 1000).toFixed(0)} s; wrote ${TRAITS_FILE}`);
+  });
+  else if (args.includes('--report')) report(kept, askedKeys);
   else if (args.includes('--offs')) writeOffs(kept);
   else if (args.includes('--tighten')) tightenReins(kept);
   else if (args.includes('--update')) await oneAtATime('breaks', () => {

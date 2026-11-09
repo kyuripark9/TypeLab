@@ -124,6 +124,8 @@ describe('editor pages', () => {
     assert.deepEqual([...choicesOff(serif, 'serif')], ['false']);
     assert.ok(controlOff('serif', serif));
     assert.ok(!controlOff('serif', card('grotesque')), "the grotesque's serifs switch on whole");
+    // (nor the Didone's and the Old Style's, which leave hairline stubs where their serifs were, looked at drawn)
+    assert.ok(controlOff('serif', card('didone')) && controlOff('serif', card('oldstyle')));
     // (switched off already, as a design saved so has it, the switch is offered, to switch them back on)
     assert.ok(!controlOff('serif', { ...serif, serif: false }));
     assert.equal(choicesOff({ ...serif, serif: false }, 'serif').size, 0);

@@ -4,6 +4,7 @@
    any mix of traits, so the page reaches far past its cards. A trait left unpicked keeps what
    each style has. */
 import { TERMINAL_FORMS, TERMINALS, type Params } from './params';
+import { TRAIT_OFFS } from './trait-offs';
 
 export type TraitId = 'weight' | 'width' | 'slant' | 'serif' | 'curves' | 'corners' | 'ends'
   | 'xHeight' | 'spacing' | 'fill' | 'cuts' | 'hand' | 'joined';
@@ -84,6 +85,18 @@ export function applyTraits(p: Params, t: Traits): Params {
   for (const def of TRAITS) {
     const o = traitOption(def.id, t[def.id]);
     if (o) out = { ...out, ...o.set };
+  }
+  return out;
+}
+
+/** Traits `t` as laid over the letters of `letters` (a font id, as TRAIT_OFFS keys them): each set of steps that broke
+    those letters together loses its last step, so the card takes the rest. */
+export function traitsOn(t: Traits, letters: string): Traits {
+  let out = t;
+  for (const set of TRAIT_OFFS[letters] ?? []) {
+    if (!set.every(s => { const [id, o] = s.split(':'); return out[id as TraitId] === o; })) continue;
+    out = { ...out };
+    delete out[set[set.length - 1].split(':')[0] as TraitId];
   }
   return out;
 }

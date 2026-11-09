@@ -4,7 +4,9 @@ import { describe, it } from 'node:test';
 import { PAGE_STYLES, searchMatches, styleById } from '../shared/content';
 import { buildFont } from '../shared/engine';
 import { DEFAULTS, isValidParams } from '../shared/params';
-import { TRAITS, applyTraits, traitsKey } from '../shared/traits';
+import { STYLE_FONTS } from '../shared/free-fonts';
+import { TRAIT_OFFS } from '../shared/trait-offs';
+import { TRAITS, applyTraits, traitsKey, traitsOn, type Traits } from '../shared/traits';
 
 describe('style page traits', () => {
   it('give every step a unique id and valid params that draw letters', () => {
@@ -28,6 +30,26 @@ describe('style page traits', () => {
     assert.equal(p.contrast, didone.contrast);
     assert.equal(applyTraits(didone, {}), didone);
     assert.notEqual(traitsKey({ weight: 'bold' }), traitsKey({ width: 'bold' }));
+  });
+  it("leave out the last step of a set a card's letters break together (TRAIT_OFFS), picked whole", () => {
+    const order = TRAITS.flatMap(t => t.options.map(o => `${t.id}:${o.id}`)), drawn = new Set([...Object.values(STYLE_FONTS), 'blocks:slots', 'blocks:grid', 'arcs']);
+    const traitsOfSet = (set: string[]) => Object.fromEntries(set.map(s => s.split(':'))) as Traits;
+    for (const [letters, sets] of Object.entries(TRAIT_OFFS)) {
+      assert.ok(drawn.has(letters), `${letters} draws a card`);
+      for (const set of sets) {
+        // (steps the tab offers, of as many traits, in TRAITS order)
+        assert.ok(set.length && set.every(s => order.includes(s)), `${letters}: ${set}`);
+        assert.deepEqual([...set].sort((a, b) => order.indexOf(a) - order.indexOf(b)), set, `${letters}: ${set} in order`);
+        assert.equal(new Set(set.map(s => s.split(':')[0])).size, set.length, `${letters}: ${set}`);
+        const last = set[set.length - 1].split(':')[0] as keyof Traits, on = traitsOn(traitsOfSet(set), letters);
+        assert.equal(on[last], undefined, `${letters}: ${set} less its last`);
+        for (const [id, o] of Object.entries(on)) assert.ok(set.includes(`${id}:${o}`));
+      }
+    }
+    // (another card's letters, or none of a set's steps picked, take the steps as picked)
+    const t: Traits = { weight: 'bold' };
+    assert.equal(traitsOn(t, 'not a font'), t);
+    assert.deepEqual(traitsOn({}, STYLE_FONTS.grotesque), {});
   });
 });
 

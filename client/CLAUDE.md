@@ -36,7 +36,8 @@ without subscribing.
   shape: there is no switch to letters built from the settings (only Blocks styles and designs saved before free fonts
   have those). When a free font arrives, the open design gets a fresh params object so it draws again.
 - The Style page: filters (`groups`, the Category chips; `moods`; `query`), traits (`traits`, `adjustedParams`,
-  cached per style and trait set), and `picked`: while the design's params still equal the JSON picked on the Style
+  cached per style and trait set; a card, and a design started from it, takes the steps `traitsOn` leaves its letters
+  and keeps a choice they break, `keepWhole`), and `picked`: while the design's params still equal the JSON picked on the Style
   page, trait changes re-apply to it.
 - Saving: `designInput(s)` is what a save sends (with its name's sample, `withSample` in lib/name-sample.ts), and `designFile(s)` the design file Export writes (and the crash page); EditorPage registers its save flow with `onSaveRequest`, and
   `actions.requestSave()` reaches it from anywhere (the panel's last page).
