@@ -10,19 +10,26 @@
 export const TRAIT_OFFS: Record<string, string[][]> = {
   'Mainline:600': [
     ['weight:black', 'width:narrow', 'slant:italic', 'curves:box'],
-    ['serif:serifs', 'curves:box']
+    ['serif:serifs', 'curves:box'],
+    ['weight:bold', 'width:condensed', 'curves:box'],
+    ['weight:black', 'width:condensed', 'curves:box']
   ],
   'Parlance:500': [
-    ['weight:bold', 'serif:serifs', 'curves:box']
+    ['weight:bold', 'serif:serifs', 'curves:box'],
+    ['weight:black', 'serif:serifs', 'curves:box']
   ],
   'Compass:300': [
     ['width:extended', 'curves:box', 'hand:rough'],
     ['weight:black', 'width:extended', 'xHeight:caps', 'serif:serifs'],
-    ['weight:black', 'width:normal', 'xHeight:caps', 'serif:serifs', 'hand:rough', 'joined:script']
+    ['weight:black', 'width:normal', 'xHeight:caps', 'serif:serifs', 'hand:rough', 'joined:script'],
+    ['xHeight:caps', 'curves:box', 'hand:rough'],
+    ['weight:black', 'width:wide', 'xHeight:small', 'serif:serifs', 'hand:rough'],
+    ['weight:bold', 'serif:serifs', 'curves:box', 'joined:script']
   ],
   'Cotton:300': [
     ['curves:box', 'hand:rough'],
-    ['weight:black', 'width:condensed', 'curves:box']
+    ['weight:black', 'width:condensed', 'curves:box'],
+    ['weight:black', 'serif:serifs', 'curves:box']
   ],
   'Orbital:600': [
     ['weight:light', 'curves:box'],
@@ -31,25 +38,30 @@ export const TRAIT_OFFS: Record<string, string[][]> = {
     ['serif:serifs', 'ends:cut'],
     ['curves:box', 'hand:slight'],
     ['weight:regular', 'curves:box'],
-    ['width:extended', 'xHeight:medium', 'serif:serifs']
+    ['width:extended', 'xHeight:medium', 'serif:serifs'],
+    ['xHeight:small', 'joined:script']
   ],
   'Gumdrop:700': [
     ['xHeight:caps', 'serif:serifs'],
-    ['width:condensed', 'serif:serifs']
+    ['width:condensed', 'serif:serifs'],
+    ['weight:thin', 'width:extended', 'xHeight:caps', 'curves:box', 'hand:rough', 'joined:script']
   ],
   'Almanac:500': [
     ['curves:box', 'hand:rough'],
     ['weight:black', 'width:condensed', 'curves:box']
   ],
   'Vellum:400': [
-    ['weight:black', 'curves:box']
+    ['weight:black', 'curves:box'],
+    ['curves:box', 'hand:rough'],
+    ['weight:bold', 'width:condensed', 'curves:box']
   ],
   'Couture:600': [
     ['weight:light', 'xHeight:small', 'hand:rough'],
     ['width:extended', 'hand:rough'],
     ['xHeight:small', 'curves:faceted', 'corners:round', 'hand:rough'],
     ['curves:box', 'hand:rough'],
-    ['weight:black', 'spacing:mono', 'curves:box']
+    ['weight:black', 'spacing:mono', 'curves:box'],
+    ['weight:black', 'xHeight:small', 'curves:box', 'corners:round']
   ],
   'Sonnet:400i': [
     ['width:wide', 'corners:round'],
@@ -74,7 +86,11 @@ export const TRAIT_OFFS: Record<string, string[][]> = {
     ['weight:thin', 'slant:upright', 'xHeight:small', 'spacing:mono'],
     ['width:extended', 'xHeight:small'],
     ['width:normal', 'slant:upright'],
-    ['weight:thin', 'xHeight:medium']
+    ['weight:thin', 'xHeight:medium'],
+    ['width:normal', 'xHeight:medium', 'curves:squarish', 'ends:tapered', 'hand:rough', 'joined:script'],
+    ['weight:light', 'slant:upright', 'hand:rough'],
+    ['width:wide', 'joined:script'],
+    ['weight:light', 'width:extended', 'corners:round', 'joined:print']
   ],
   'Ballyhoo:400': [
     ['weight:thin', 'width:extended'],
@@ -82,12 +98,14 @@ export const TRAIT_OFFS: Record<string, string[][]> = {
     ['weight:regular', 'width:extended', 'corners:soft', 'ends:angled'],
     ['weight:black', 'width:condensed', 'corners:soft'],
     ['weight:light', 'width:extended', 'ends:sharp'],
-    ['weight:light', 'width:extended', 'ends:cut']
+    ['weight:light', 'width:extended', 'ends:cut'],
+    ['width:normal', 'curves:box', 'corners:round', 'hand:slight']
   ],
   'Hearth:600': [
     ['weight:black', 'curves:box', 'joined:script'],
     ['curves:box', 'hand:rough'],
-    ['weight:black', 'width:condensed', 'slant:italic', 'curves:box']
+    ['weight:black', 'width:condensed', 'slant:italic', 'curves:box'],
+    ['weight:bold', 'slant:italic', 'xHeight:small', 'curves:box', 'corners:round', 'hand:slight']
   ],
   'Timber:400': [
     ['xHeight:small', 'curves:box', 'joined:script'],
@@ -122,11 +140,18 @@ export const TRAIT_OFFS: Record<string, string[][]> = {
     ['slant:upright', 'corners:round'],
     ['weight:bold', 'spacing:mono'],
     ['weight:bold', 'width:condensed'],
-    ['weight:thin', 'width:extended', 'slant:steep']
+    ['weight:thin', 'width:extended', 'slant:steep'],
+    ['hand:rough', 'joined:print'],
+    ['spacing:mono', 'curves:squarish', 'hand:rough'],
+    ['curves:squarish', 'ends:round', 'hand:rough'],
+    ['weight:thin', 'width:normal', 'slant:steep'],
+    ['weight:thin', 'width:extended', 'corners:soft', 'hand:slight']
   ],
   'Cathedral:400': [
     ['weight:thin', 'width:extended', 'xHeight:medium', 'serif:none', 'curves:faceted'],
-    ['width:extended', 'xHeight:small', 'serif:none']
+    ['width:extended', 'xHeight:small', 'serif:none'],
+    ['width:wide', 'xHeight:caps', 'joined:script'],
+    ['weight:thin', 'width:narrow', 'hand:rough']
   ],
   'Bulwark:700': [
     ['weight:black'],
@@ -135,7 +160,10 @@ export const TRAIT_OFFS: Record<string, string[][]> = {
     ['weight:thin', 'xHeight:medium', 'curves:faceted'],
     ['weight:thin', 'width:normal', 'curves:circle'],
     ['weight:thin', 'xHeight:medium', 'curves:circle'],
-    ['weight:thin', 'curves:faceted', 'corners:soft']
+    ['weight:thin', 'curves:faceted', 'corners:soft'],
+    ['weight:light', 'curves:faceted', 'joined:script'],
+    ['weight:thin', 'width:wide', 'curves:squarish'],
+    ['weight:light', 'xHeight:small', 'curves:faceted']
   ],
   'blocks:slots': [
     ['weight:thin', 'curves:faceted']
@@ -147,6 +175,18 @@ export const TRAIT_OFFS: Record<string, string[][]> = {
     ['width:wide', 'spacing:mono', 'serif:serifs', 'ends:tapered'],
     ['ends:tapered', 'hand:rough'],
     ['width:wide', 'xHeight:caps', 'curves:squarish'],
-    ['width:extended', 'ends:tapered']
+    ['width:extended', 'ends:tapered'],
+    ['width:extended', 'hand:rough'],
+    ['weight:light', 'width:wide', 'curves:box', 'hand:rough', 'joined:script'],
+    ['width:wide', 'xHeight:caps', 'hand:slight']
+  ],
+  'Turnpike:500': [
+    ['weight:bold', 'serif:serifs', 'curves:box', 'joined:script'],
+    ['weight:black', 'serif:serifs', 'curves:box'],
+    ['width:extended', 'curves:box', 'hand:rough'],
+    ['curves:box', 'hand:rough']
+  ],
+  'blocks:grid': [
+    ['weight:thin', 'hand:rough']
   ]
 };
