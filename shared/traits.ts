@@ -41,12 +41,14 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
       opt('loose', 'Loose', { letterSpacing: 0.4, mono: 0 }), opt('mono', 'Mono', { mono: 1 })] }
   ] },
   { id: 'details', label: 'Details', traits: [
+    // (each a shape alone: the serifs' Length, Thickness and Angle are off the panel, as a step off a card's own broke
+    // its serifs, params/spec.ts; so a hairline's thickness is the card's own, and the step is Unbracketed)
     { id: 'serif', label: 'Serifs', hint: 'The small feet at the ends of stems', sample: 'n', options: [
       opt('none', 'None', { serif: false }),
-      opt('bracketed', 'Bracketed', { serif: true, serifShape: 'bracketed', serifSize: 0.4, serifThickness: 0.2, serifAngle: 0.2 }),
-      opt('hairline', 'Hairline', { serif: true, serifShape: 'unbracketed', serifSize: 0.28, serifThickness: 0.06, serifAngle: 0 }),
-      opt('slab', 'Slab', { serif: true, serifShape: 'slab', serifSize: 0.32, serifThickness: 0.65, serifAngle: 0 }),
-      opt('wedge', 'Wedge', { serif: true, serifShape: 'wedge', serifSize: 0.42, serifThickness: 0.5, serifAngle: 0.35 })] },
+      opt('bracketed', 'Bracketed', { serif: true, serifShape: 'bracketed' }),
+      opt('unbracketed', 'Unbracketed', { serif: true, serifShape: 'unbracketed' }),
+      opt('slab', 'Slab', { serif: true, serifShape: 'slab' }),
+      opt('wedge', 'Wedge', { serif: true, serifShape: 'wedge' })] },
     { id: 'curves', label: 'Curves', hint: 'How round letters like O are drawn', sample: 'o', options: [
       opt('circle', 'Circle', { bowlForm: 'oval', squareness: 0, chamfer: 0 }),
       opt('squarish', 'Squarish', { bowlForm: 'oval', squareness: 0.6, chamfer: 0 }),
@@ -66,8 +68,9 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
       opt('inline', 'Inline', { fill: 'inline', module: 0.35 }),
       opt('outline', 'Outline', { fill: 'outline', module: 0.5 }), opt('shadow', 'Shadow', { fill: 'shadow', module: 0.35 })] },
     { id: 'cuts', label: 'Cuts', hint: 'Gaps cut into the letters', sample: 'B', options: [
+      // (no Stencil step: a font's letters, every card's but the blocks', come apart under it, content/controls.ts)
       opt('none', 'None', { joints: 0, stencil: 0, slice: 0 }), opt('inktrap', 'Ink traps', { joints: 0.8, stencil: 0, slice: 0 }),
-      opt('stencil', 'Stencil', { stencil: 0.15, joints: 0, slice: 0 }), opt('slice', 'Slice', { slice: 0.05, joints: 0, stencil: 0 })] },
+      opt('slice', 'Slice', { slice: 0.05, joints: 0, stencil: 0 })] },
     { id: 'hand', label: 'Hand-drawn', hint: 'Precise, or a little shaky like a pen', sample: 'a', options: [
       opt('precise', 'Precise', { wobble: 0 }), opt('slight', 'Slight', { wobble: 0.3 }), opt('rough', 'Rough', { wobble: 0.75 })] },
     { id: 'joined', label: 'Joined-up', hint: 'Separate printed letters, or script that flows on', sample: 'nu', options: [

@@ -1,6 +1,6 @@
 /* A page of controls: the explainer, the page's controls (grouped by the parts of an inspected letter), and the steps to the pages beside it. */
 import { useLayoutEffect, type ReactNode } from 'react';
-import { SERIF_ARM_SUBS, CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, controlFor, controlInUse, pagesFor, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
+import { CATEGORIES, CONTROLS, ROUND_SUBS, WEIGHT_SUBS, controlFor, controlInUse, pagesFor, type ActiveKey, type CategoryId, type ControlKey } from '../../../shared/content';
 import type { NumericParam, SubControlDef } from '../../../shared/params';
 import { actions, letterOf, useEditor, useFont, useParam } from '../../state/editor';
 import { ScopeIcon, letterControls } from '../Inspector';
@@ -98,7 +98,6 @@ function LetterControls({ keys, category, note }: { keys: ControlKey[]; category
 const NESTED: Partial<Record<ControlKey, { subs?: Record<string, SubControlDef>; more?: ReactNode }>> = {
   roundness: { subs: ROUND_SUBS, more: <EachCorner /> },
   weight: { subs: WEIGHT_SUBS, more: <EachStroke /> },
-  serifArms: { subs: SERIF_ARM_SUBS },
   crossbar: { more: <BarEndsControl /> }
 };
 

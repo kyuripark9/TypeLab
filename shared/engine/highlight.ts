@@ -33,9 +33,7 @@ export function highlightD(g: Glyph, key: HlKey, m: Metrics): string {
     case 'curve': return strokes(s => s.curved);
     case 'crossbar': return strokes(s => s.part === 'crossbar' || s.part === 'bar');
     case 'serif': case 'serifTip': case 'serifBase': return g.serifs.map(cmdsToD).join('');
-    case 'serifBalance': case 'serifSides': case 'serifInner': return g.serifs.filter((_, i) => g.serifAt[i] !== 'arm').map(cmdsToD).join('');
-    case 'serifTops': return g.serifs.filter((_, i) => g.serifAt[i] === 'top').map(cmdsToD).join('');
-    case 'serifArms': return g.serifs.filter((_, i) => g.serifAt[i] === 'arm').map(cmdsToD).join('');
+    case 'serifSides': case 'serifInner': return g.serifs.filter((_, i) => g.serifAt[i] !== 'arm').map(cmdsToD).join('');
     case 'story': return g.ch === 'a' ? g.d : '';
     case 'gForm': return g.ch === 'g' ? g.d : '';
     case 'sForm': return /[sS$]/.test(g.ch) ? strokes(s => s.part === 'spine') : '';

@@ -66,7 +66,7 @@ bends before apex.
    `client/components/SliderIcons.tsx` (`SLIDER_ICON_KEYS` is read off it; tests/icons.test.ts fails on a slider
    without one, or an entry that isn't a slider).
 5. A sub shows only where the panel places it: through `FILL_SUBS`, `SERIF_INNER_SUBS`, `STENCIL_SUBS`, `SLICE_SUBS`,
-   `TERMINAL_DETAILS`, `SERIF_SIZES`/`SERIF_DETAILS` or `SERIF_TIP_DETAILS`, or by hand in `Control`
+   `TERMINAL_DETAILS` or `SERIF_TIP_DETAILS`, or by hand in `Control`
    (`client/components/panel/ControlsPanel.tsx`), `client/components/panel/ShapeControls.tsx`, or `BarEndsControl`
    (`client/components/panel/SliderControl.tsx`). Nothing tests this.
    A sub under a control with no `*_SUBS` yet needs one in `content/controls.ts`, spread into `SUBS` (compile check).
@@ -149,8 +149,10 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   (which opens its first page).
 - **Controls** (`content/controls.ts`): `CONTROLS` and `SUBS` come from the specs; `FORM_OPTIONS` (each shape drawn as
   a letter `ch`), the option label lists, `TERMINAL_SHAPES` (every kind and form of stroke end as one list, in
-  families; tests/pages.test.ts checks each is there once), `TERMINAL_DETAILS`, `SERIF_SIZES`, `SERIF_DETAILS`,
-  `SERIF_TIP_DETAILS`; `BLOCK_CONTROLS` and `ARC_CONTROLS` (all that shows on letters built from blocks, by kind, or from arcs), `controlInUse`
+  families; tests/pages.test.ts checks each is there once), `TERMINAL_DETAILS`,
+  `SERIF_TIP_DETAILS`; `BLOCK_CONTROLS` and `ARC_CONTROLS` (all that shows on letters built from blocks, by kind, or from arcs),
+  `STROKES_OFF` (what letters built from strokes, every card in a font, leave out: Stencil, whole only on the slot and
+  grid blocks), `controlInUse`
   and `pagesFor` (the controls and pages a design's letters take: the navigation, the page steps and Find a setting
   offer only those); `PART_CONTROL`
   (anatomy part to the control that shapes it); `controlFor` (a sub to its parent).

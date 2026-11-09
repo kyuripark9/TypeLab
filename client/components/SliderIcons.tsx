@@ -80,24 +80,6 @@ const SLIDER: Record<string, ReactNode> = {
   joints: <path className="solid" d="M3 4h4l2.4 6.3L10 8.2l.6 2.1L13 4h4l-5 12.5H8z" />,
 
   // —— Serifs
-  // an I with long feet
-  serifSize: <><path className="faint" d="M10 4v12" /><path d="M3.5 4h13M3.5 16h13" /></>,
-  // an I with heavy feet
-  serifThickness: <><path className="faint" d="M10 6v8" /><rect className="solid" x="4" y="3" width="12" height="3" rx=".5" /><rect className="solid" x="4" y="14" width="12" height="3" rx=".5" /></>,
-  // a foot whose top slopes into the stem
-  serifAngle: <><path d="M10 3.5v9M4 16.5h12V15l-4.5-2.5h-3L4 15z" /></>,
-  // a foot curving up into its stem
-  serifBracket: <path d="M8 3.5v8c0 2.5-1.5 3.5-4.5 3.5v1.5h13V15c-3 0-4.5-1-4.5-3.5v-8" />,
-  // an I whose serifs reach further to one side
-  serifBalance: <><path className="faint" d="M5 3.5h10M5 16.5h10" /><path d="M12.5 3.5v13M3 3.5h12M3 16.5h12" /></>,
-  // an I whose top serif grows
-  serifTops: <><path className="faint" d="M10 5.5v11M6.5 16.5h7" /><path d="M3.5 4.2h13" /><path d="M3.5 2v4.4M16.5 2v4.4" /></>,
-  // an E with serifs across the ends of its arms
-  serifArms: <><path className="faint" d="M5 3.5v13M5 3.5h9M5 10h6.5M5 16.5h9" /><path d="M14 3.5v3.5M14 16.5V13" /></>,
-  // the serifs on an E's arms made heavy
-  serifArmThickness: <><path className="faint" d="M5 3.5v13M5 3.5h9M5 10h6M5 16.5h9" /><rect className="solid" x="12.5" y="3" width="3" height="5" rx=".5" /><rect className="solid" x="12.5" y="12" width="3" height="5" rx=".5" /></>,
-  // the serifs on an E's arms leaning out
-  serifArmLean: <><path className="faint" d="M5 3.5v13M5 10h6M14 4v4.5M14 16v-4.5" /><path d="M5 4h9l2.2 4.5M5 16h9l2.2-4.5" /></>,
   // a foot with round tips
   serifTipRound: <><path className="faint" d="M10 3.5v9" /><path d="M5 12.5h10a2 2 0 0 1 0 4H5a2 2 0 0 1 0-4z" /></>,
   // a foot with its tips cut on a slant

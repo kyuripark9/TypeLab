@@ -276,7 +276,9 @@ function ConstructionToggle() {
 
 
 /** Parts that can be clicked but not dragged. */
-const FIXED_PARTS = new Set(['baseline']);
+/** Parts that can be clicked (to their control) but not dragged: the baseline, and a serif, whose Length and Thickness
+    are off the panel (client/lib/drag.ts). */
+const FIXED_PARTS = new Set(['baseline', 'serif']);
 
 const defOf = (k: NumericParam): { label: string; lo?: string; hi?: string } | undefined =>
   k in CONTROLS ? CONTROLS[k as ControlKey] : SUBS[k as keyof typeof SUBS];
@@ -372,7 +374,7 @@ function InspectorCanvas({ ch, g, font, grid, group }: { ch: string; g: Glyph; f
     const hi = def?.hi ?? 'More', lo = def?.lo ?? 'Less', plus = up ? hi : lo, minus = up ? lo : hi;
     return { axis: a, label: tipLabel(d), ends: a === 'x' ? [`← ${minus}`, `${plus} →`] : [`↑ ${plus}`, `↓ ${minus}`] };
   });
-  const guideKey = hotKey === 'serif' ? 'serifSize' : hotKey === 'terminal' ? 'terminalLength' : hotKey;
+  const guideKey = hotKey === 'serif' ? null : hotKey === 'terminal' ? 'terminalLength' : hotKey;
   const showKey = hover || dragging ? null : guideKey && typeof font.params[guideKey as keyof Params] === 'number' ? guideKey as NumericParam : intro ? 'weight' : null;
   const handles: Handle[] = showKey ? handlesFor(showKey, lf, ch, [...parts, ...guides.map(([id]) => id), 'advance']) : [];
 

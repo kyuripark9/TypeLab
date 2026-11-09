@@ -7,7 +7,6 @@ import type { AForm, ApexForm, BarEnds, Bends, BlockForm, BowlForm, BowlJoin, Ce
 export type { CategoryId, ControlKey } from '../params';
 
 /* The sliders nested under each control (see `sub` in shared/params/spec.ts). */
-export type SerifSubKey = SubKeyOf<'serif'>;
 export type SerifTipSubKey = SubKeyOf<'serifTip'>;
 export type SerifInnerSubKey = SubKeyOf<'serifInner'>;
 export type FillSubKey = SubKeyOf<'fill'>;
@@ -59,11 +58,16 @@ const GRID7_CONTROLS: readonly ControlKey[] = ['xHeight', 'extenders', 'descende
 export const ARC_CONTROLS: readonly ControlKey[] = ['weight', 'width', 'height', 'slant', 'rotation', 'squareness', 'curve', 'chamfer',
   'overlap', 'xHeight', 'extenders', 'descender', 'crossbar', 'tail', 'aperture', 'terminal', 'roundness', 'dots', 'mirror', 'wobble',
   'letterSpacing', 'wordSpacing', 'mono', 'sideBearing', 'fill', 'slice', 'rough'];
+/** The controls letters built from strokes leave out, every card in a font among them: Stencil cut 17 of the 22 cards'
+    letters into slivers and stray points at any Thickness (npm run breaks, 2026-11-09), where the slot and grid
+    blocks' own stencil (block-corners.ts), cells drawn apart, stays whole. */
+const STROKES_OFF: readonly ControlKey[] = ['stencil'];
 /** Whether control `k` shapes letters built as `p` says: letters built from blocks take their kind's BLOCK_CONTROLS
-    alone (grid letters on seven rows GRID7_CONTROLS too), letters built from arcs ARC_CONTROLS, strokes every control. */
+    alone (grid letters on seven rows GRID7_CONTROLS too), letters built from arcs ARC_CONTROLS, strokes every control
+    but STROKES_OFF. */
 export const controlInUse = (k: ControlKey, p: Pick<Params, 'build' | 'blockForm'> & { gridRows?: GridRows }) =>
   p.build === 'blocks' ? BLOCK_CONTROLS[p.blockForm].includes(k) || (p.blockForm === 'grid' && p.gridRows === 'seven' && GRID7_CONTROLS.includes(k))
-    : p.build === 'arcs' ? ARC_CONTROLS.includes(k) : true;
+    : p.build === 'arcs' ? ARC_CONTROLS.includes(k) : !STROKES_OFF.includes(k);
 const PAGES = new Map<string, typeof CATEGORIES>();
 /** The pages, in order, with something to shape in letters built as `p` says: the Style page and each page holding a
     control in use. Letters built from blocks have no stroke ends, serifs or other letter forms, so those pages go (and
@@ -78,16 +82,11 @@ export function pagesFor(p: Pick<Params, 'build' | 'blockForm'>): typeof CATEGOR
   }
   return pages;
 }
-export const SERIF_SUBS = subsOf('serif');
-/** The sliders every serif shape has, and the finer ones of each shape, shown while that shape is picked. */
-export const SERIF_SIZES: SerifSubKey[] = ['serifSize', 'serifThickness', 'serifAngle'];
-export const SERIF_DETAILS: Record<SerifShape, SerifSubKey[]> = { bracketed: ['serifBracket'], unbracketed: [], slab: [], wedge: [], diamond: [] };
 export const SERIF_TIP_SUBS = subsOf('serifTip');
 /** The finer shape sliders of each kind of serif tip, shown while that kind is picked. */
 export const SERIF_TIP_DETAILS: Record<SerifTip, SerifTipSubKey[]> = { square: [], round: ['serifTipRound'], pointed: [], angled: ['serifTipSlant'] };
 export const SERIF_BASE_SUBS = subsOf('serifBase');
 export const SERIF_INNER_SUBS = subsOf('serifInner');
-export const SERIF_ARM_SUBS = subsOf('serifArms');
 export const FILL_SUBS = subsOf('fill');
 export const TERMINAL_SUBS = subsOf('terminal');
 /** The Stroke ends picker: every shape a stroke end takes, each a kind (`terminal`) and its form (`terminalForm`)
@@ -125,7 +124,7 @@ export const CROSSBAR_SUBS = subsOf('crossbar');
 /** A stencil's and a slice's own value is their thickness, so it sits among their sub-sliders. */
 export const STENCIL_SUBS = subsOf('stencil');
 export const SLICE_SUBS = subsOf('slice');
-const ALL_SUBS = { ...SERIF_SUBS, ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...SERIF_ARM_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS,
+const ALL_SUBS = { ...SERIF_TIP_SUBS, ...SERIF_BASE_SUBS, ...SERIF_INNER_SUBS, ...FILL_SUBS, ...TERMINAL_SUBS, ...DOT_SUBS,
   ...BOWL_SUBS, ...WEIGHT_SUBS, ...ROUND_SUBS, ...CROSSBAR_SUBS, ...STENCIL_SUBS, ...SLICE_SUBS };
 // (a slider nested under a control with no *_SUBS above would be missing from SUBS, so from search and the explainer)
 ({}) as { [K in Exclude<SubKey, keyof typeof ALL_SUBS>]: K } satisfies Record<string, never>;

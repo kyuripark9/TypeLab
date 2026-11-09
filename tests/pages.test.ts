@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  ANATOMY, CATEGORIES, CONTROLS, FILL_SUBS, GROUPS, PART_CONTROL, ROUND_SUBS, SERIF_ARM_SUBS, SERIF_DETAILS, SERIF_INNER_SUBS, SERIF_SIZES,
+  ANATOMY, CATEGORIES, CONTROLS, FILL_SUBS, GROUPS, PART_CONTROL, ROUND_SUBS, SERIF_INNER_SUBS,
   SERIF_TIP_DETAILS, SLICE_SUBS, STENCIL_SUBS, SUBS, TERMINAL_DETAILS, TERMINAL_SHAPES, WEIGHT_SUBS, controlFor, controlInUse, findSettings, firstControl, pageOf, pagesFor,
   type ActiveKey, type CategoryId, type ControlKey
 } from '../shared/content';
@@ -133,7 +133,6 @@ describe('editor pages', () => {
       assert.ok(controlFor(k) in CONTROLS, k);
       assert.equal(typeof DEFAULTS[k as keyof typeof DEFAULTS], 'number', k);
     }
-    assert.equal(controlFor('serifBracket'), 'serif');
     assert.equal(controlFor('serifTipSlant'), 'serifTip');
     assert.equal(controlFor('serifCup'), 'serifBase');
     assert.equal(controlFor('serifInnerSize'), 'serifInner');
@@ -149,11 +148,11 @@ describe('editor pages', () => {
   it('places every nested slider in the control panel', () => {
     // a nested slider shows only where the panel places it: under its control as a whole map (NESTED in
     // panel/ControlsPanel.tsx; the fill, serif inside, stencil and slice controls), as the finer shape of a form
-    // or kind picked (stroke ends, serifs, serif tips), or by name (panel/ShapeControls.tsx, SliderControl.tsx)
+    // or kind picked (stroke ends, serif tips), or by name (panel/ShapeControls.tsx, SliderControl.tsx)
     const placed = new Set<string>([
-      ...[FILL_SUBS, SERIF_INNER_SUBS, STENCIL_SUBS, SLICE_SUBS, WEIGHT_SUBS, ROUND_SUBS, SERIF_ARM_SUBS].flatMap(m => Object.keys(m)),
-      ...[TERMINAL_DETAILS, SERIF_DETAILS, SERIF_TIP_DETAILS].flatMap(m => Object.values(m).flat()),
-      ...SERIF_SIZES, 'terminalLength', 'terminalCurl', 'serifCup', 'dotSize', 'boxRound', 'barGap'
+      ...[FILL_SUBS, SERIF_INNER_SUBS, STENCIL_SUBS, SLICE_SUBS, WEIGHT_SUBS, ROUND_SUBS].flatMap(m => Object.keys(m)),
+      ...[TERMINAL_DETAILS, SERIF_TIP_DETAILS].flatMap(m => Object.values(m).flat()),
+      'terminalLength', 'terminalCurl', 'serifCup', 'dotSize', 'boxRound', 'barGap'
     ]);
     for (const k of Object.keys(SUBS)) assert.ok(placed.has(k), `${k} is placed nowhere in the panel`);
   });

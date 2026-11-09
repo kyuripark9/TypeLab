@@ -216,14 +216,9 @@ export function dragSpec(part: string, font: Font, ch: string, grab: { x: number
   if (part === 'counter') {
     return { x: { key: 'counter', sign: sx, gain: 2, measure: f => { const p = piece(f); return p && p.x1 - p.x0; }, at: { x: ex, y: grab.y } } };
   }
-  if (part === 'serif') {
-    // a serif's free edge faces away from the letter: up for a foot serif, down for one on top
-    const gb = cmdsBox(g.cmds), foot = !gb || cy < (gb.y0 + gb.y1) / 2;
-    return {
-      x: { key: 'serifSize', sign: sx, gain: 2, measure: f => { const p = piece(f); return p && p.x1 - p.x0; }, at: { x: ex, y: cy } },
-      y: { key: 'serifThickness', sign: foot ? 1 : -1, measure: f => { const p = piece(f); return p && p.y1 - p.y0; }, at: { x: cx, y: foot ? b.y1 : b.y0 } }
-    };
-  }
+  // (a serif isn't dragged: its Length and Thickness, which a drag set, are off the panel, as a step off a card's own
+  // broke its serifs; shared/params/spec.ts)
+  if (part === 'serif') return null;
   // every other part is a stroke, and dragging it outward makes the letters heavier: a tall
   // stroke by its side, a flat one by its top or bottom, a round one by the side it was grabbed on.
   // While customizing a letter, only the stroke grabbed gets heavier

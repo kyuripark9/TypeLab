@@ -26,8 +26,8 @@ describe('serif details', () => {
     assert.deepEqual(f.glyph('I')!.serifAt.slice().sort(), ['foot', 'top']);
     assert.ok(at(f.glyph('E')!, 'arm').length >= 2);
     for (const ch of ALL_CHARS) { const g = f.glyph(ch)!; assert.equal(g.serifAt.length, g.serifs.length, ch); }
-    assert.ok(f.hl('E', 'serifArms') && f.hl('I', 'serifTops'));
-    assert.equal(f.hl('I', 'serifArms'), '');
+    // (the sides and the inside serifs light the serifs on stems, not an arm's)
+    assert.ok(f.hl('E', 'serifSides').length < f.hl('E', 'serif').length && f.hl('I', 'serifSides') === f.hl('I', 'serif'));
   });
 
   it('draws every shape with every tip and base', () => {

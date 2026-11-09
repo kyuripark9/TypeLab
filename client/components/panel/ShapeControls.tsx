@@ -1,7 +1,7 @@
 /* The controls that pick a named shape: stroke ends, the a, the letter forms, the serifs (their shape, tips, base, sides and inside ones) and the fill. */
 import {
-  BOWL_SUBS, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_DETAILS, SERIF_INNER_OPTIONS,
-  SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_SIZES, SERIF_SUBS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS,
+  BOWL_SUBS, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_INNER_OPTIONS,
+  SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS,
   STORY_OPTIONS, TERMINAL_DETAILS, TERMINAL_SHAPES, TERMINAL_SUBS, controlFor, terminalLabel, type FillSubKey, type FormKey,
   type SerifInnerSubKey
 } from '../../../shared/content';
@@ -124,7 +124,8 @@ function FormOptions({ k, label }: { k: FormKey; label: string }) {
 
 export function SerifControl({ parts }: { parts?: string[] }) {
   const p = { serif: useParam('serif'), serifShape: useParam('serifShape') }, active = useEditor(s => controlFor(s.active) === 'serif');
-  // the shapes say when they change nothing in view, as for a free font's letters, whose serifs Length still moves
+  // the shapes say when they change nothing in view. (Their Length, Thickness, Angle and Bracket are off the panel:
+  // a step off a card's own broke its serifs, spec.ts)
   const c = CONTROLS.serif, reach = useReachNote('serif'), shapes = useReachNote('serifShape');
   return (
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="serif" {...useControlFocus('serif')}>
@@ -145,7 +146,6 @@ export function SerifControl({ parts }: { parts?: string[] }) {
             ))}
           </div>
         </div>
-        {[...SERIF_SIZES, ...SERIF_DETAILS[p.serifShape]].map(k => <SliderControl key={k} k={k} def={SERIF_SUBS[k]} />)}
       </Fold>
     </div>
   );

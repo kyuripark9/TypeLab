@@ -200,15 +200,17 @@ export const SPECS = {
 
   /* ---- Serifs */
   serif: bool(false, { free: true, control: { cat: 'serifs', type: 'serif', label: 'Serifs', friendly: 'Add small feet to the strokes', tech: 'Serifs', demo: 'In',
-    explain: 'Small finishing strokes at the ends of stems: their shape, length, weight and slope.' } }),
-  serifSize: num(0.45, { free: true,
-    sub: { parent: 'serif', label: 'Length', friendly: 'Make the feet longer', tech: 'Serif size', lo: 'Short', hi: 'Long' } }),
-  serifThickness: num(0.35, { free: true,
-    sub: { parent: 'serif', label: 'Thickness', friendly: 'Make the feet heavier', tech: 'Serif thickness', lo: 'Hairline', hi: 'Heavy' } }),
-  serifAngle: num(0.2, { free: true,
-    sub: { parent: 'serif', label: 'Angle', friendly: 'Slope the top of the feet', tech: 'Serif angle', lo: 'Flat', hi: 'Sloped' } }),
-  serifBracket: num(0.5, { free: true,
-    sub: { parent: 'serif', label: 'Bracket', friendly: 'Curve the feet into the stem', tech: 'Bracket', lo: 'Tight', hi: 'Long', bipolar: true } }),
+    explain: 'Small finishing strokes at the ends of stems, in the shape you pick.' } }),
+  /* The serifs' Length, Thickness, Angle and Bracket, and below their Balance and the top and arm serifs' sizes, are no
+     longer on any page: on a card's letters a step off its own value broke them (npm run breaks, 2026-11-09). A font's
+     own serifs gave way to the engine's at once, ragged or notched (Vellum's at Thickness 32 for its 30, Ballyhoo's), the
+     top serifs grew into each other and shut a V's and an H's counters, and a sans's serifs at Thickness 0 came to
+     needles: each broke 11 to 21 of the 17 to 22 cards it reaches. Kept, and drawn as before, so designs saved with them
+     look as they did. */
+  serifSize: num(0.45, { free: true }),
+  serifThickness: num(0.35, { free: true }),
+  serifAngle: num(0.2, { free: true }),
+  serifBracket: num(0.5, { free: true }),
   serifTip: option(SERIF_TIPS, 'square', { free: true, control: { cat: 'serifs', type: 'serifForm', zoom: true, label: 'Tips', friendly: 'Choose how the serifs finish', tech: 'Serif tips', demo: 'I',
     explain: 'The outer end of each serif: square, rounded, pointed, or cut on a slant.' } }),
   serifTipRound: num(1, { free: true,
@@ -227,16 +229,12 @@ export const SPECS = {
     sub: { parent: 'serifInner', label: 'Length', friendly: 'Lengthen the inside serifs', tech: 'Inner serif size', lo: 'Shorter', hi: 'Longer', bipolar: true } }),
   serifInnerThickness: num(0.5, { free: true,
     sub: { parent: 'serifInner', label: 'Thickness', friendly: 'Thin or thicken inside serifs', tech: 'Inner serif thickness', lo: 'Lighter', hi: 'Heavier', bipolar: true } }),
-  serifBalance: num(0.5, { free: true, control: { cat: 'serifs', zoom: true, bipolar: true, label: 'Balance', friendly: 'Reach further to one side', tech: 'Serif balance', lo: 'Left', hi: 'Right', demo: 'I',
-    explain: 'Serifs on stems reach further to one side; in the middle both sides match.' } }),
-  serifTops: num(0.5, { free: true, control: { cat: 'serifs', bipolar: true, label: 'Top serifs', friendly: 'Size the serifs on top', tech: 'Head serifs', lo: 'Small', hi: 'Large', demo: 'Hdn',
-    explain: 'The serifs on top of stems, set apart from the feet on the baseline.' } }),
-  serifArms: num(0.5, { free: true, control: { cat: 'serifs', bipolar: true, label: 'Arm serifs', friendly: 'Size the serifs on arms', tech: 'Arm serifs · Beaks', lo: 'Small', hi: 'Large', demo: 'ETZ',
-    explain: 'The serifs at the ends of arms, as on E, F, L, T and Z: their size, weight and lean.' } }),
-  serifArmThickness: num(0.5, { free: true,
-    sub: { parent: 'serifArms', label: 'Thickness', friendly: 'Thin or thicken arm serifs', tech: 'Arm serif thickness', lo: 'Lighter', hi: 'Heavier', bipolar: true } }),
-  serifArmLean: num(0.5, { free: true,
-    sub: { parent: 'serifArms', label: 'Lean', friendly: 'Lean the arm serifs in or out', tech: 'Splayed arm serifs', lo: 'In', hi: 'Out', bipolar: true } }),
+  /* (off the panel with Length and Thickness above, and kept the same way) */
+  serifBalance: num(0.5, { free: true }),
+  serifTops: num(0.5, { free: true }),
+  serifArms: num(0.5, { free: true }),
+  serifArmThickness: num(0.5, { free: true }),
+  serifArmLean: num(0.5, { free: true }),
 
   /* ---- Letters */
   story: option(STORIES, 'auto', { free: true, control: { cat: 'letters', type: 'story', label: 'Letter a', friendly: 'Choose the shape of the a', tech: 'Double / single storey a', demo: 'data',
