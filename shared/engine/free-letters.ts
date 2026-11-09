@@ -6,19 +6,21 @@ import { slantDeg, xHeightOfRatio, type Params } from '../params';
 import { applyM, clamp } from './geom';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
+import { FONT_WIDTHS } from '../font-widths';
 import { drawnCmds, type Drawn, type Node } from './outline';
-import { HAIR_KEEP, PEN, PEN_REVERSED, evenWeight } from './even-weight';
+import { HAIR_KEEP, PEN, PEN_REVERSED, evenWeight, type EvenLines } from './even-weight';
 import { FORM_LETTERS, SPAN_TOL, ascTo, descTo, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, type SkinMeasures, type SkinRig } from './skin';
 import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBlockBowls, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
-import { SERIF_SB, buildFont, type Effective, type Font, type Glyph, glyphDefOf, type Metrics, metrics, resolve, termSpec } from './font';
+import { SERIF_SB, buildFont, type Effective, type Font, type Glyph, glyphDefOf, type Metrics, metrics, resolve, termSpec, widthScale } from './font';
 import { blankParts, placeGlyph, wobbler, type Unplaced } from './glyph';
 
 /* ---- free fonts' letters (see shared/free-fonts.ts), moved by the settings as far as they're moved from the
    ones the font was picked at (Params.freeAt): heavier is a heavier font of the family where it has one;
-   Width, the heights, Inner space, the dots' size, Pinch, Ink traps and the serifs' size move its letters on their
-   skeletons as the engine's own letters move (skin.ts), and Weight the rest of the way, Verticals, Horizontals and
+   the heights, Inner space, the dots' size, Pinch, Ink traps and the serifs' size move its letters on their
+   skeletons as the engine's own letters move (skin.ts); Width squeezes or stretches its outline across, its stems
+   pushed back toward their thickness (widened), and Weight the rest of the way, Verticals, Horizontals and
    Contrast push its outline out or in evenly, as far as they can its drawing kept (even-weight.ts); then the shapes
    the engine draws are set on them where the settings ask for others than the font's (restyle.ts): its dots,
    bowls (and a bowl parted from its stem), stroke ends (their kind, length, curl, openness, tails), Cursive's flicks,
@@ -73,8 +75,9 @@ export function freeLetters(params: Params, e: Effective, m: Metrics): FreeLette
   // Weight, Verticals, Horizontals and Contrast push the outline (even-weight.ts), each as far along its slider from
   // where the font was picked toward either end (-1 to 1) as it is moved; the rest move it on its skeleton. Contrast's
   // turn round (`reverse`) stays the font's too: left as asked, it thinned the stems on the skeleton, a notch at every
-  // join, a grotesque's n's leg kinked half way down and its d's stem stepped at its foot at Contrast 0
-  const thick = { weight: drawnAt, vWeight: b.vWeight, hWeight: b.hWeight, contrast: b.contrast, reverse: b.reverse };
+  // join, a grotesque's n's leg kinked half way down and its d's stem stepped at its foot at Contrast 0. Width the
+  // skeleton leaves too: the outline is squeezed or stretched across after (widened)
+  const thick = { weight: drawnAt, vWeight: b.vWeight, hWeight: b.hWeight, contrast: b.contrast, reverse: b.reverse, width: b.width };
   const moved = (Object.keys(thick) as (keyof typeof thick)[]).some(k => Math.abs(e[k] - thick[k]) > 1e-4);
   const rest = moved ? skinMeasures(metrics({ ...e, ...thick })) : to;
   if (other) rest.serif = 0;
@@ -190,6 +193,23 @@ export function formChanged(ch: string, a: Effective, b: Effective, font?: FreeF
     and lerp(1, 1.5) above it undone. */
 export const widthOfScale = (ws: number) => clamp(ws < 1 ? (ws - 0.6) / 0.8 : 0.5 + (ws - 1));
 
+/** Design `e` (params `params`, resolved) with Width reined in to as far as its free font's letters stay whole
+    (FONT_WIDTHS): each way from where the font was picked, the slider's way to its end drawn over the way to the most
+    they take, each step its share of it, so that end draws the most and every step moves them alike; a font whole all
+    the way to the slider's end that way, as asked. Moved on their skeletons further, the letters broke: a stem's
+    corners lipped out past its sides (a grotesque's L's foot 30 units past its stem at Width 100), crotches notched,
+    diagonals kinked, its a's bowl squashed flat. (Drawn as asked up to nine tenths of the way to the most and the rest
+    of the slider over the last tenth, a grotesque's widest third of the slider moved its letters 2%: dead.) */
+export function freeWidth(params: Params, e: Effective): Effective {
+  const reach = e.freeFont ? FONT_WIDTHS[e.freeFont] : undefined;
+  if (!reach) return e;
+  const at = widthScale(resolve({ ...params, ...params.freeAt }).width), r = widthScale(e.width) / at;
+  // (how far the slider's end that way carries the letters, against the font's own width, and the most they take)
+  const end = (r > 1 ? widthScale(1) : widthScale(0)) / at, most = r > 1 ? reach[1] : reach[0];
+  if (r === 1 || (r > 1 ? end <= most : end >= most)) return e;
+  return { ...e, width: widthOfScale(at * (1 + (r - 1) * (most - 1) / (end - 1))) };
+}
+
 /** The ink's runs along a row at height y (across) or down a column at x (down), as [start, end] pairs. */
 function inkRuns(cs: Node[][], at: number, down = false): [number, number][] {
   const xs: number[] = [];
@@ -284,9 +304,10 @@ const twinFonts = new Map<string, Font>();
 export function twinGlyph(ch: string, fl: FreeLetters): Glyph | null {
   if (!fl.font) return null;
   const fit = twinFit(fl.font, fl.rawPick), now = fl.raw, pick = fl.rawPick;
-  const moved = (k: 'weight' | 'contrast' | 'xHeight' | 'width' | 'slant') => clamp((fit[k] as number) + (now[k] as number) - (pick[k] as number));
+  const moved = (k: 'weight' | 'contrast' | 'xHeight' | 'width' | 'slant', by = 0) => clamp((fit[k] as number) + (now[k] as number) - (pick[k] as number) + by);
+  // (Width reined in as the font's own letters are, freeWidth: a twin's a no wider than the letters beside it)
   const p: Params = { ...now, freeFont: '', freeAt: {}, glyphs: {}, outlines: {}, weight: moved('weight'), contrast: moved('contrast'), xHeight: moved('xHeight'),
-    width: moved('width'), slant: moved('slant'), serif: now.serif !== pick.serif ? now.serif : !!fit.serif };
+    width: moved('width', fl.now.width - resolve(now).width), slant: moved('slant'), serif: now.serif !== pick.serif ? now.serif : !!fit.serif };
   const key = JSON.stringify(p);
   let f = twinFonts.get(key);
   if (!f) { f = buildFont(p); if (twinFonts.size > 8) twinFonts.delete(twinFonts.keys().next().value!); twinFonts.set(key, f); }
@@ -327,7 +348,7 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
     const scan = (o: Node[][]) => { let sk: Skeleton | undefined; return () => (sk ??= o === rig.contours ? rigSkeleton(rig) : skeleton(o)); };
     // (a bowl parted from its stem is the font's o, moved as the letter is)
     const oRig = fl.now.overlap < fl.pick.overlap && OVERLAP_LETTERS.includes(x.ch) && fl.font ? skinRig(fl.font, 'o') : null;
-    out = restyleOverlap(cs, c, fl.pick.overlap, fl.now.overlap, oRig && skinMove(oRig, fl.from, fl.to));
+    out = restyleOverlap(cs, c, fl.pick.overlap, fl.now.overlap, oRig && widened(oRig, skinMove(oRig, fl.from, fl.to), fl));
     out = restyleDots(out, c, fl.pick, fl.now);
     // (a font of block letters turns its bowls in corners: those are drawn again)
     out = c.stubs ? restyleBlockBowls(out, ba, bb, c.stem) : restyleBowls(out, ba, bb, scan(out), fl.font ? Math.tan(fontLook(fl.font).lean * Math.PI / 180) : 0, 1 / fl.k);
@@ -349,32 +370,79 @@ function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
 /** A letter as the settings but Weight, Verticals, Horizontals and Contrast move it, `cs`, pushed out (or in) evenly
     as far as they ask (`pen`, of the font's stem, its n's), set back on its lines as moved. In, no further all told
     than HAIR_KEEP of the font's thinnest strokes: as many times less far along each way in as the most the settings
-    could ask is past that. Contrast turned round (`rev`) thins the stems within a room of its own, as many times less
-    far as PEN_REVERSED is past HAIR_KEEP of those strokes (counted in with Weight's and Verticals', it drew every card's
-    lighter weights heavier), and what they can't give the bars take, out by as much of PEN.contrast.out: a Didone's
-    stems hardly thin, so its hairlines go out. Kept by the outline and the push. */
+    could ask is past that. Out sideways, a share of the stems as Width draws them (widened: lighter squeezed, heavier
+    stretched), as its sides' room is. Contrast turned round (`rev`) thins the stems within a room of its own, as many times less far as
+    PEN_REVERSED is past HAIR_KEEP of those strokes (counted in with Weight's and Verticals', it drew every card's lighter
+    weights heavier), and what they can't give the bars take, out by as much of PEN.contrast.out: a Didone's stems hardly
+    thin, so its hairlines go out. Kept by the outline and the push. */
 function weighedOut(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   if (!fl.pen.x && !fl.pen.y && !fl.pen.rev) return cs;
   const stem = rig.ref().stem, room = fl.font ? HAIR_KEEP * thinnest(fl.font) : Infinity;
   const inX = Math.min(1, room / ((PEN.weight.in + PEN.verticals.in) * stem)), inY = Math.min(1, room / ((PEN.weight.in + PEN.horizontals.in + PEN.contrast.in) * stem));
   const inR = Math.min(1, room / (PEN_REVERSED * stem));
-  const dx = fl.pen.x * stem * (fl.pen.x < 0 ? inX : 1) - fl.pen.rev * PEN_REVERSED * inR * stem;
+  const dx = fl.pen.x * stem * (fl.pen.x < 0 ? inX : Math.pow(fl.sx, WIDTH_STEM)) - fl.pen.rev * PEN_REVERSED * inR * stem;
   const dy = fl.pen.y * stem * (fl.pen.y < 0 ? inY : 1) + fl.pen.rev * PEN.contrast.out * (1 - inR) * stem;
-  const x = rig.ctx, xh = x.lower ? x.xh * fl.rest.xr / fl.from.xr : x.xh, asc = ascTo(rig, xh, fl.from.asc, fl.rest.asc);
-  const desc = descTo(rig, fl.from.desc, fl.rest.desc);
-  const lines = x.lower ? { tops: [xh, asc], feet: [0, desc] } : { tops: [x.cap], feet: [0, desc] };
+  const lines = linesOf(rig, fl);
   let kept = WEIGHED.get(cs);
   if (!kept) WEIGHED.set(cs, kept = new Map());
   const key = [dx, dy, ...lines.tops, ...lines.feet].map(v => v.toFixed(3)).join();
   let out = kept.get(key);
   if (!out) {
-    out = evenWeight(cs, dx, dy, lines, x.cap);
+    out = evenWeight(cs, dx, dy, lines, rig.ctx.cap);
     if (kept.size >= 40) kept.delete(kept.keys().next().value!);
     kept.set(key, out);
   }
   return out;
 }
 const WEIGHED = new WeakMap<Node[][], Map<string, Node[][]>>();
+
+/** The lines a letter moved on its skeleton (`fl.rest`) stands on, for evenWeight to set it back on: the x-height and
+    ascenders' or the capitals', the baseline and the descenders'. */
+function linesOf(rig: SkinRig, fl: FreeLetters): EvenLines {
+  const x = rig.ctx, xh = x.lower ? x.xh * fl.rest.xr / fl.from.xr : x.xh, asc = ascTo(rig, xh, fl.from.asc, fl.rest.asc);
+  const desc = descTo(rig, fl.from.desc, fl.rest.desc);
+  return x.lower ? { tops: [xh, asc], feet: [0, desc] } : { tops: [x.cap], feet: [0, desc] };
+}
+
+/** A letter moved on its skeleton by every setting but Width (and those weighedOut pushes), `cs`, as wide as Width asks
+    (`sx`): squeezed or stretched across about the font's own lean, its curves its own, then its stems pushed back out,
+    or in, evenly (evenWeight), to as many times as thick as the square root of how much wider (WIDTH_STEM): a little
+    lighter squeezed and heavier stretched, as a family's condensed and extended widths are (kept as drawn, a
+    grotesque's counters pinched to pointed slits at Width 0, its n's arch a Gothic arch inside, and pushed in 31 units
+    at 1.55 times its width, its a's counter pinched and its s's spine waved); out no further than leaves the font's
+    thinnest strokes WIDE_HAIR heavier than drawn and in none thinner than drawn (a Didone's hairlines, a fat face's
+    beaks, pushed in a quarter thinner, needles; its stems lighter squeezed and heavier stretched instead). Moved on
+    their skeletons, the strokes' middles moved across
+    and their thickness kept (moveMap in skin.ts), the letters broke at their joins at any Width but the font's: a
+    grotesque's n nicked where its arch leaves its stem at Width 35, its d's and o's bowls lumpy and its e's and s's
+    ends cut askew at 0, spurs at its d's, g's and a's joins at 100. Kept by the outline and the width. */
+function widened(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
+  const sx = fl.sx;
+  if (Math.abs(sx - 1) < 1e-4) return cs;
+  const lines = linesOf(rig, fl);
+  let kept = WIDENED.get(cs);
+  if (!kept) WIDENED.set(cs, kept = new Map());
+  const key = [sx, ...lines.tops, ...lines.feet].map(v => v.toFixed(4)).join();
+  let out = kept.get(key);
+  if (!out) {
+    const t = fl.font ? Math.tan(fontLook(fl.font).lean * Math.PI / 180) : 0;
+    const scaled = mapDrawn({ adv: 0, contours: cs }, 0, (x, y) => [(x - y * t) * sx + y * t, y]).contours;
+    // (each side out by half what the squeeze took off the stems past WIDTH_STEM's, or in by half what the stretch put on
+    // them past it)
+    const stem = rig.ref().stem * fl.rest.v / fl.from.v, hair = Math.min(stem, fl.font ? thinnest(fl.font) : stem);
+    const dx = sx < 1 ? Math.min((Math.pow(sx, WIDTH_STEM) - sx) * stem / 2, (1 + WIDE_HAIR - sx) * hair / 2) : Math.max((Math.pow(sx, WIDTH_STEM) - sx) * stem / 2, (1 - sx) * hair / 2);
+    out = evenWeight(scaled, dx, 0, lines, rig.ctx.cap);
+    if (kept.size >= 40) kept.delete(kept.keys().next().value!);
+    kept.set(key, out);
+  }
+  return out;
+}
+const WIDENED = new WeakMap<Node[][], Map<string, Node[][]>>();
+/** How much heavier than drawn Width squeezing a font's letters may leave its thinnest strokes, pushing its stems back
+    out (a share of them). */
+const WIDE_HAIR = 0.5;
+/** Drawn by Width `sx` times as wide, a font's stems are drawn sx to this power as thick. */
+const WIDTH_STEM = 0.5;
 
 /** How thick a font's thinnest strokes are: twice the radius its letters' skeletons (scan.ts) read at a tenth of their
     points, the thinnest of THIN_LETTERS' (a Didone's hairlines, a serif's brackets and feet), once a font. */
@@ -396,21 +464,24 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   // bearings as the font has them, wider or narrower with the letters and by Side margins
   // (the letter keeps the room it took before its ends, serifs and corners were drawn again, as an engine's letter's
   // serifs reach out into its side bearings, which grow by a little of their length)
-  // (every setting on the letter's skeleton but Weight, Verticals, Horizontals and Contrast, as the font stands at
-  // them; then those)
+  // (every setting on the letter's skeleton but Width, Weight, Verticals, Horizontals and Contrast, as the font stands
+  // at them; then Width across its outline, the restyles, and the rest)
   const rest = { ...fl, to: fl.rest }, rig = fl.skin && fl.font && skinRig(fl.font, ch), skinned = rig ? skinMove(rig, fl.from, fl.rest) : null;
-  const styled = rig ? restyled(rig, skinned!, rest) : null, weighed = rig ? weighedOut(rig, styled!, fl) : null, pushed = weighed !== styled;
+  const wide = rig ? widened(rig, skinned!, fl) : null;
+  const styled = rig ? restyled(rig, wide!, rest) : null, weighed = rig ? weighedOut(rig, styled!, fl) : null, pushed = weighed !== styled;
   const moved: Drawn = rig ? { adv: src.adv, contours: weighed! } : mapDrawn(src, src.adv * fl.sx, (x, y) => [x * fl.sx, y]);
   const sized = mapDrawn(moved, moved.adv * fl.k, (x, y) => [x * fl.k, y * fl.k]);
   // (unmoved, by the font's own outline: the rig's has its pieces united, and a speck a corner's curl leaves outside it
-  // dropped, which would move the letter's room a little as it is picked; pushed out by Weight, by its outline so)
-  const own = pushed ? weighed : rig && skinned === rig.contours ? src.contours : skinned;
+  // dropped, which would move the letter's room a little as it is picked; pushed out by Weight, or squeezed or stretched by
+  // Width, by its outline so)
+  const own = pushed ? weighed : wide !== skinned ? wide : rig && skinned === rig.contours ? src.contours : skinned;
   const [i0, i1] = inkSpan(sized);
   let [x0, x1] = own ? inkSpan({ adv: 0, contours: own }).map(v => v * fl.k) : [i0, i1];
   // (a lighter weight's letter keeps the room its outline took as moved, where tidying it cut off a tip whose sides crossed
   // as they thinned, more than SPAN_TOL of it: cut all at once, a blackletter b's foot's spur took 46 units of room with
   // it in a step of Weight)
-  const sp = rig && skinned !== rig.contours && !pushed ? skinSpan(skinned!) : undefined;
+  // (as wide as Width draws it)
+  const sp = rig && skinned !== rig.contours && !pushed ? skinSpan(skinned!)?.map(v => v * fl.sx) : undefined;
   if (sp) { x0 = Math.min(x0, (sp[0] + SPAN_TOL) * fl.k); x1 = Math.max(x1, (sp[1] - SPAN_TOL) * fl.k); }
   // (a bowl parted from its stem takes its room with it)
   if (rig && fl.now.overlap < fl.pick.overlap && OVERLAP_LETTERS.includes(ch)) { x0 = Math.min(x0, i0); x1 = Math.max(x1, i1); }

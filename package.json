@@ -17,6 +17,8 @@
     "golden:update": "node --import tsx tools/golden.ts --update",
     "weights": "node --import tsx tools/weights.ts",
     "weights:update": "node --import tsx tools/weights.ts --update",
+    "widths": "node --import tsx tools/widths.ts",
+    "widths:update": "node --import tsx tools/widths.ts --update",
     "compare": "node --import tsx tools/compare.ts",
     "render": "node --import tsx tools/render.ts",
     "sweep": "node --import tsx tools/sweep.ts",

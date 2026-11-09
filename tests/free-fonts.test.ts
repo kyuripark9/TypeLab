@@ -18,9 +18,11 @@ import { skeleton } from '../shared/engine/scan';
 import { lineSkeleton } from '../shared/engine/lines';
 import { SKIN_KEYS, skinFollows, skinRig } from '../shared/engine/skin';
 import { familyMember } from '../shared/family';
+import { FONT_WIDTHS } from '../shared/font-widths';
 import { INTRO_CHARS, INTRO_OWN, OLD_FONTS, OWN_FAMILIES, STYLE_FONTS, fontId, isOwnFont, nearestFont, parseFontId } from '../shared/free-fonts';
 import { DEFAULTS, FREE_AT_KEYS, freeAtOf, sanitizeParams, xHeightOfRatio, xHeightRatio, type Params } from '../shared/params';
 import { createApp } from '../server/app';
+import { bendsBack } from '../tools/weights';
 import { DesignStore } from '../server/db';
 import { buildOTF } from '../server/export';
 import { FreeFonts } from '../server/free-fonts';
@@ -472,6 +474,45 @@ describe("TypeLab's own fonts", () => {
     for (let i = 1; i < steps.length; i++) assert.ok(steps[i].d < steps[i - 1].d - 1 && steps[i].p > steps[i - 1].p + 1, `the d's top ${steps.map(s => s.d.toFixed(0)).join(', ')}; the p's foot ${steps.map(s => s.p.toFixed(0)).join(', ')}`);
   });
 
+  it('stretch and squeeze their letters by Width no further than they stay whole, wider at every step', async () => {
+    // (carried as far as the engine's own letters go, a grotesque's stems' corners lipped out past their sides, its L's
+    // foot 30 units past its stem at Width 100, its t's bar and its M's and N's crotches notched, its y kinked)
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'grotesque')!, id = STYLE_FONTS.grotesque;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, at = (width: number) => buildFont({ ...p, width });
+    // (how far the L's foot runs out past its stem's side, at the bottom left)
+    const lip = (f: ReturnType<typeof at>) => {
+      const ps = toPolys(f.glyph('L')!.cmds).flat(), left = (qs: typeof ps) => Math.min(...qs.map(q => q.x));
+      return left(ps.filter(q => q.y > f.m.cap / 2)) - left(ps.filter(q => q.y < 1));
+    };
+    for (const w of [0, 1]) assert.ok(Math.abs(lip(at(w))) < 12, `Mainline's L's foot ${lip(at(w)).toFixed(1)} units past its stem at Width ${w * 100}`);
+    // (every eighth wider than the one before, the slider's ends drawing the least and most FONT_WIDTHS keeps, or the
+    // slider's own where that is nearer)
+    const ws = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1].map(w => at(w).m.ws), own = at(p.width).m.ws, [lo, hi] = FONT_WIDTHS[id];
+    for (let i = 1; i < ws.length; i++) assert.ok(ws[i] > ws[i - 1] + 0.005, `Mainline's width by eighths: ${ws.map(v => v.toFixed(3)).join(', ')}`);
+    // (and each eighth either side of the card's own Width as far as the one beside it: drawn as asked up to nine tenths
+    // of the most and the rest of the slider over the last tenth, Width 0.75 to 1 moved the letters 1.3%, 0.5 to 0.75 16%)
+    for (const [a, b] of [[0, 3], [4, 8]]) {
+      const steps = ws.slice(a + 1, b + 1).map((v, i) => v - ws[a + i]);
+      assert.ok(Math.max(...steps) < Math.min(...steps) * 1.02, `Mainline's steps by eighths from ${a / 8} to ${b / 8}: ${steps.map(v => v.toFixed(4)).join(', ')}`);
+    }
+    assert.ok(Math.abs(ws[0] / own - Math.max(lo, 0.6 / own)) < 1e-6 && Math.abs(ws[8] / own - Math.min(hi, 1.5 / own)) < 1e-6,
+      `Mainline's ends ${(ws[0] / own).toFixed(3)} and ${(ws[8] / own).toFixed(3)} of its own width, its reach ${lo} to ${hi}`);
+    // (and no contour waving more than once more than the font draws it, squeezed or stretched (one wave, two turns, is a
+    // gentle curve read a hair either side of the count's threshold): moved on their skeletons, its n nicked where
+    // its arch leaves its stem at Width 35, its d's and o's bowls came out lumpy at 0, its d's, g's and a's joins spurred
+    // at 100)
+    const own0 = buildFont(p);
+    for (const w of [0, 0.35, 1]) for (const ch of 'adnoegshum') {
+      // (the contours in either order: pushed out evenly, an a's counter came back first)
+      const was = bendsBack(own0.glyph(ch)!.cmds).sort((p, q) => p - q), now = bendsBack(at(w).glyph(ch)!.cmds).sort((p, q) => p - q);
+      assert.ok(now.length === was.length && now.every((n, i) => n <= was[i] + 2), `Mainline's ${ch} at Width ${w * 100}: as clean as drawn (${was.join(' ')} → ${now.join(' ')} turns round each contour)`);
+    }
+    // (and the font's letters as drawn at the card's own Width; an engine design's Width as asked)
+    assert.equal(at(p.width).glyph('L')!.d, buildFont(p).glyph('L')!.d);
+    assert.equal(buildFont({ ...DEFAULTS, width: 1 }).m.ws, 1.5);
+  });
+
   it('start each card with no personality macro holding part of a slider flat', () => {
     // (resolve() pushes a slider by a macro as far as 0 or 1 and no further, so a card setting one off its middle leaves
     // a stretch of every slider it pushes doing nothing: Blackletter's Roundness below 70, Wood Type's Squareness above
@@ -549,37 +590,6 @@ describe("TypeLab's own fonts", () => {
       for (let x = x0; x <= x1; x += 4) for (let y = y0; y <= y1; y += 4) { all++; if (ink.has(x, y)) n++; }
       return n / all;
     };
-    // its contours as points along them, each curve read finely (a long curve cut in a few straight pieces reads kinked)
-    const rings = (g: Glyph) => {
-      const out: { x: number; y: number }[][] = [];
-      let r: { x: number; y: number }[] = [], x = 0, y = 0;
-      for (const c of g.cmds) {
-        if (c[0] === 'M') { if (r.length > 2) out.push(r); r = [{ x: c[1], y: c[2] }]; x = c[1]; y = c[2]; }
-        else if (c[0] === 'L') { r.push({ x: c[1], y: c[2] }); x = c[1]; y = c[2]; }
-        else if (c[0] === 'C') {
-          for (let i = 1; i <= 48; i++) { const t = i / 48, u = 1 - t; r.push({ x: u * u * u * x + 3 * u * u * t * c[1] + 3 * u * t * t * c[3] + t * t * t * c[5], y: u * u * u * y + 3 * u * u * t * c[2] + 3 * u * t * t * c[4] + t * t * t * c[6] }); }
-          x = c[5]; y = c[6];
-        }
-      }
-      if (r.length > 2) out.push(r);
-      return out;
-    };
-    // how often each contour turns from bending one way to the other, read every 6 units over a few at a time, a bend
-    // gentler than a circle 400 units round not counted (a dent or a wave each turn it twice)
-    const turns = (g: Glyph) => rings(g).map(r => {
-      const even: { x: number; y: number }[] = [];
-      let left = 0, count = 0;
-      r.forEach((a, i) => {
-        const b = r[(i + 1) % r.length], l = Math.hypot(b.x - a.x, b.y - a.y);
-        for (; left < l; left += 6) even.push({ x: a.x + (b.x - a.x) * left / l, y: a.y + (b.y - a.y) * left / l });
-        left -= l;
-      });
-      const m = even.length, head = even.map((p, i) => Math.atan2(even[(i + 1) % m].y - p.y, even[(i + 1) % m].x - p.x));
-      const bend = head.map((_, i) => { let t = 0; for (let j = -2; j < 2; j++) { let d = head[(i + j + 1 + m) % m] - head[(i + j + m) % m]; d -= 2 * Math.PI * Math.round(d / (2 * Math.PI)); t += d; } return t / 4; });
-      let last = 0;
-      for (const b of [...bend, ...bend]) { if (Math.abs(b) < 6 / 400) continue; if (last && Math.sign(b) !== last) count++; last = Math.sign(b); }
-      return count / 2;
-    });
     for (const id of ['geometric', 'grotesque', 'humanist', 'soft', 'serif', 'squircle', 'industrial', 'didone']) {
       const st = STYLES.find(s => s.id === id)!, font = STYLE_FONTS[id];
       if (!freeFont(font)) registerFreeFont(await fonts.load(font));
@@ -594,7 +604,7 @@ describe("TypeLab's own fonts", () => {
       // no wave along a side, no notch at an end or where an e's eye meets its lower curve, an n's, an h's and a u's
       // stems straight, at the card's Corners and at their sharpest)
       for (const f of [box, sharp]) for (const ch of 'OocdbeasgqnhumprCDGS') {
-        const was = turns(oval.glyph(ch)!), now = turns(f.glyph(ch)!);
+        const was = bendsBack(oval.glyph(ch)!.cmds), now = bendsBack(f.glyph(ch)!.cmds);
         assert.ok(now.length === was.length && now.every((n, i) => n <= was[i]), `${id} ${ch}: as clean as drawn (${was.join(' ')} → ${now.join(' ')} turns round each contour)`);
       }
     }

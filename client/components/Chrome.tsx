@@ -1,8 +1,8 @@
 /* The frame around the stage: category navigation, glyph strip and toast. */
-import { memo, useDeferredValue, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
+import { memo, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
 import { CATEGORIES, GROUPS, controlFor, controlInUse, findSettings, pagesFor, type CategoryId, type GroupId, type SettingHit } from '../../shared/content';
 import { Link } from 'react-router';
-import { CHARSET, type Font, type Glyph } from '../../shared/engine';
+import { CHARSET, widthGrown, type Font, type Glyph } from '../../shared/engine';
 import { DRAWER_QUERY, n1, shortcut } from '../lib/hooks';
 import { ink } from '../lib/preview';
 import { DESIGNS } from '../lib/routes';
@@ -150,26 +150,33 @@ export function Nav() {
 /** A strip cell's usual frame, in font units with y down: 1000 wide around the glyph centred on its advance,
     from 880 above the baseline to 300 below. */
 const CELL = '0 -880 1000 1180';
-/** A strip cell's view of glyph `g`, centred in it: the usual frame, or one drawn back far enough to take
-    in ink that reaches well out of it (a long tail or loop), so it doesn't spill over its neighbours. Ink may
-    reach 150 units past either side and 120 above or below the frame before the cell draws back, and then
-    the view is the usual frame scaled up, centred on the ink, until the ink fits with 6% to spare. */
-function cellBox(g: Glyph) {
+/** A strip cell's view of glyph `g`, centred in it: the usual frame (`k` times as large, the font's: frameOf), or one
+    drawn back far enough to take in ink that reaches well out of it (a long tail or loop), so it doesn't spill over
+    its neighbours. Ink may reach 150 units past either side and 120 above or below the frame before the cell draws
+    back, and then the view is the usual frame scaled up, centred on the ink, until the ink fits with 6% to spare. */
+function cellBox(g: Glyph, k = 1) {
   const b = ink(g), dx = (1000 - g.adv) / 2, x0 = b.x0 + dx, x1 = b.x1 + dx, top = -b.y1, bottom = -b.y0;
-  if (x0 >= -150 && x1 <= 1150 && top >= -1000 && bottom <= 420) return CELL;
-  const cx = (x0 + x1) / 2, cy = (top + bottom) / 2, k = Math.max((x1 - x0) / 1000, (bottom - top) / 1180) * 1.06;
-  return `${n1(cx - 500 * k)} ${n1(cy - 590 * k)} ${n1(1000 * k)} ${n1(1180 * k)}`;
+  if (x0 >= 500 - 650 * k && x1 <= 500 + 650 * k && top >= -290 - 710 * k && bottom <= -290 + 710 * k) {
+    return k === 1 ? CELL : `${n1(500 - 500 * k)} ${n1(-290 - 590 * k)} ${n1(1000 * k)} ${n1(1180 * k)}`;
+  }
+  const cx = (x0 + x1) / 2, cy = (top + bottom) / 2, fit = Math.max((x1 - x0) / 1000, (bottom - top) / 1180) * 1.06, kg = k === 1 ? fit : Math.max(k, fit);
+  return `${n1(cx - 500 * kg)} ${n1(cy - 590 * kg)} ${n1(1000 * kg)} ${n1(1180 * kg)}`;
 }
+/** How much larger than the usual the strip's frame is for `font`: as many times as Width draws its letters wider than
+    where its font was picked (widthGrown), so every cell draws back alike and a letter that fitted its cell still does.
+    (Each cell drawn back on its own, a grotesque at Width 100 drew its M and W smaller than the capitals beside them, as
+    small capitals; framed by the widest letter, a script's swash M drew its whole strip small.) */
+const frameOf = (font: Font) => Math.max(1, widthGrown(font));
 /** One letter of the strip, drawn on its own so that, while a slider moves, the strip's deferred redraw can stop between
     letters for the next move (drawn all at once, the whole strip would hold up every move). */
-const StripCell = memo(function StripCell({ ch, font, on, mark, cells }: { ch: string; font: Font; on: boolean; mark: 'drawn' | 'custom' | null; cells: Map<string, HTMLButtonElement> }) {
+const StripCell = memo(function StripCell({ ch, font, frame, on, mark, cells }: { ch: string; font: Font; frame: number; on: boolean; mark: 'drawn' | 'custom' | null; cells: Map<string, HTMLButtonElement> }) {
   const c = ch.charCodeAt(0), g = font.glyph(ch);
   return (
     <button className={['cell', on && 'on', mark && 'custom'].filter(Boolean).join(' ')}
       title={mark === 'drawn' ? `Inspect ${ch} (edited in Points)` : mark ? `Inspect ${ch} (customized)` : `Inspect ${ch}`}
       ref={el => { if (el) cells.set(ch, el); else cells.delete(ch); }}
       onClick={() => actions.openInspector(ch)}>
-      <svg viewBox={g ? cellBox(g) : CELL} aria-hidden="true"><use href={`#g${c}`} x={g ? n1((1000 - g.adv) / 2) : 0} /></svg>
+      <svg viewBox={g ? cellBox(g, frame) : CELL} aria-hidden="true"><use href={`#g${c}`} x={g ? n1((1000 - g.adv) / 2) : 0} /></svg>
     </button>
   );
 });
@@ -177,7 +184,7 @@ const STRIP_GROUPS: [string, string][] = [['Uppercase', CHARSET.upper], ['Lowerc
 
 export function GlyphStrip() {
   // the strip is off-screen detail: let it lag a frame behind while sliders move
-  const font = useDeferredValue(useFont());
+  const font = useDeferredValue(useFont()), frame = useMemo(() => frameOf(font), [font]);
   const inspect = useEditor(s => s.inspect), custom = useEditor(s => s.params.glyphs), drawn = useEditor(s => s.params.outlines);
   const cells = useRef(new Map<string, HTMLButtonElement>());
   const scroller = useRef<HTMLDivElement>(null), groups = useRef<(HTMLDivElement | null)[]>([]);
@@ -231,7 +238,7 @@ export function GlyphStrip() {
           <span className="strip-label">{label}</span>
           <div className="strip-cells">
             {[...chars].map(ch => (
-              <StripCell key={ch.charCodeAt(0)} ch={ch} font={font} on={ch === inspect} mark={drawn[ch] ? 'drawn' : custom[ch] ? 'custom' : null} cells={cells.current} />
+              <StripCell key={ch.charCodeAt(0)} ch={ch} font={font} frame={frame} on={ch === inspect} mark={drawn[ch] ? 'drawn' : custom[ch] ? 'custom' : null} cells={cells.current} />
             ))}
           </div>
         </div>

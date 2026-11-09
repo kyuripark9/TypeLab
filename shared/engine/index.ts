@@ -3,7 +3,7 @@
    unless this file was imported, so code outside the engine imports shared/engine, not font.ts. */
 import './glyphs';
 
-export { ALL_CHARS, CHARSET, SLANT_PIVOT, buildFont, termSpec } from './font';
+export { ALL_CHARS, CHARSET, SLANT_PIVOT, buildFont, termSpec, widthGrown } from './font';
 export { ACCENTED, accentGlyph } from './accents';
 export type { AccentGlyph } from './accents';
 export type { Font, Glyph, Line, LineItem } from './font';

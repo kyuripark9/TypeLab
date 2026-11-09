@@ -33,7 +33,7 @@ import { autoThickness, organicK, type SerifPlace } from './stroke';
 import type { Cmd, Mark, MarkType, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
 import { buildBlock, buildGlyph } from './glyph';
 import { buildArc } from './arcs';
-import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
+import { formChanged, freeFontsWanted, freeGlyph, freeLetters, freeWidth, twinGlyph } from './free-letters';
 import { drawnDesign, drawnFrom, drawnLetter } from './family-drawn';
 import { highlightD, type HlKey } from './highlight';
 
@@ -248,6 +248,12 @@ export const SLANT_PIVOT = 0.4;
 
 /** How much lighter and heavier Verticals draw the stems, and Horizontals the bars, at either end of their sliders. */
 const SIDE_WEIGH = [0.6, 1.6];
+/** How many times as wide as at its middle Width `w` draws the letters (Metrics.ws): 0.6 at 0, 1.5 at 1.
+    widthOfScale (free-letters.ts) undoes it. */
+export const widthScale = (w: number) => (w < 0.5 ? lerp(0.6, 1, w * 2) : lerp(1, 1.5, (w - 0.5) * 2));
+/** How many times as wide as where its free font was picked Width draws `f`'s letters (the engine's own letters: as at
+    Width's middle). The glyph strip draws its cells back by as much (client/components/Chrome.tsx). */
+export const widthGrown = (f: Font) => f.m.ws / (f.params.freeFont ? widthScale(resolve({ ...f.params, ...f.params.freeAt }).width) : 1);
 
 export function metrics(e: Effective): Metrics {
   // Verticals weigh the stems on their own, and Horizontals the bars: each scales its side of the
@@ -257,7 +263,7 @@ export function metrics(e: Effective): Metrics {
   const s0 = 18 + 200 * Math.pow(e.weight, 1.25), s = weighed(s0, e.vWeight, s0 * SIDE_WEIGH[0], s0 * SIDE_WEIGH[1]);
   const cap = lerp(560, 840, e.height);
   const xh = cap * xHeightRatio(e.xHeight);
-  const ws = e.width < 0.5 ? lerp(0.6, 1, e.width * 2) : lerp(1, 1.5, (e.width - 0.5) * 2);
+  const ws = widthScale(e.width);
   // the bars thin with contrast, from no heavier than a fifth of the x-height to no lighter than 8; past
   // its gentle start, contrast runs the whole way between the two, so neither limit stops it part way
   const thinAt = (c: number) => Math.max(8, Math.min(s0 * (1 - 0.08 - 0.84 * c), xh * 0.2));
@@ -423,7 +429,8 @@ function sameSettings(a: Params, b: Params): boolean {
 
 /** The font `params` describe; `from`, an earlier build, lends its letters where only the drawings differ. */
 export function buildFont(params: Params, from?: Font): Font {
-  const e = resolve(params), m0 = metrics(e);
+  // (a free font's Width no further than its letters stay whole, freeWidth)
+  const e = freeWidth(params, resolve(params)), m0 = metrics(e);
   // a free font's letters stand as tall as the design's capitals, and its space is the font's own, wider or
   // narrower by Word spacing
   const fl = e.freeFont ? freeLetters(params, e, m0) : null, free = fl?.font;

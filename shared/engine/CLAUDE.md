@@ -137,7 +137,23 @@ A design with `freeFont` set draws its letters from a free font instead of build
    with what is asked (`now`). `want` is the family's nearest weight, and its italic past half of a 12° lean
    (`nearestFont`); until it is registered the font is `freePending`, and `freeMissing` / `freeFontsWanted` say what
    to fetch. Placement effects (fill, mirror, monospacing, bounce, slant, rotation, wobble, slice) count only as far as
-   they move from the pick.
+   they move from the pick. Before any of it, `buildFont` reins Width in (`freeWidth`): a free font's letters stretch
+   and squeeze no further than `FONT_WIDTHS` (shared/font-widths.ts, measured on each card by `npm run widths:update`)
+   keeps them whole: each way from the pick, the slider's way to its end drawn over the way to the most, each step its
+   share of it, so the end draws the most and every eighth moves them alike (`widthScale` in font.ts, `widthOfScale`
+   undoing it), and the twin by as much. (Drawn as asked up to nine tenths of the most and the rest of the slider over
+   the last tenth, a grotesque's widest third moved its letters 2%.) Width isn't moved on the skeleton (`freeLetters` hands it the pick's, with Weight's
+   and the rest's): `widened` squeezes or stretches the moved outline across about the font's lean, its own curves
+   kept, then pushes its stems back out or in evenly (`evenWeight`) to the square root of how much wider as thick
+   (`WIDTH_STEM`, as a family's condensed and extended widths: kept as drawn, a grotesque's counters pinched to pointed
+   slits at Width 0, and pushed in 31 units at Width 100 its a's counter pinched and its s's spine waved), no further
+   than leaves its thinnest strokes `WIDE_HAIR` heavier or any lighter than drawn (a fat face's beaks, pushed in,
+   needles); the restyles then draw on the widened letter, and Weight pushes it out by a share of its stems as widened.
+   Moved on the skeleton (`moveMap` stretching the strokes' middles across, their thickness kept), the letters broke at
+   their joins at any Width but the font's (2026-11-07: a grotesque's n nicked where its arch leaves its stem at Width
+   35, its bowls lumpy at 0, spurs at its d's, g's and a's joins at 100, its L's foot 30 units past its stem).
+   `FONT_WIDTHS` is measured on the outline so drawn (tools/widths.ts), against the letters squeezed or stretched
+   plainly across: where a counter is pushed shut, a new point or notch stands out, or a letter waves twice more.
 3. `skin.ts` with `scan.ts`: `skinRig` first makes the letter's overlapping pieces one outline (`unite` in
    `boolean.ts`: the same ink and curves; many fonts, TypeLab's own among them, draw a stem whole and run a bowl into
    it, and the edges inside the ink, moved as stroke sides, came out as notches and spurs at the joins), takes out any
@@ -145,7 +161,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    in and out of, made one; moved, their corners met 35 units out, a needle on an italic's n at Thin), keeps that as
    `rig.contours`, and hangs every outline sample (a `Bone`) on the letter's scanned skeleton; `strokeEnds` finds where
    the outline turns back across a stroke (a cap, a round end, a serif's end). `skinMove` moves it by the change in
-   `skinMeasures` from `pick` to `now` (stem, bar, width, x-height, crossbar, serif length, Stem length, Inner space,
+   `skinMeasures` from `pick` to `now` (stem, bar, x-height, crossbar, serif length, Stem length, Inner space,
    dots, Pinch, Ink traps): each side by its stroke's middle (half its thickness in from the edge, not the skeleton
    point, which forks out to a square end's corners), each end carried with the two sides it joins, so a cap stays as
    wide as its stroke and a round end round, but a ball (`ballEnd`: an end much thicker than the neck it hangs from, a

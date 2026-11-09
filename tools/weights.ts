@@ -82,6 +82,38 @@ export function look(cmds: Cmd[], cap: number, turn = 155): Look {
 export const newSharp = (now: Sharp[], design: Sharp[], cap: number) =>
   now.filter(q => !design.some(d => d.convex === q.convex && d.turn >= (q.convex ? 120 : 145) && Math.hypot(d.x - q.x, d.y - q.y) < 0.1 * cap));
 
+/** How often each contour of outline `cmds` turns from bending one way to the other, read every 6 units over a few at a
+    time, its curves read finely (a long curve cut in a few straight pieces reads kinked), a bend gentler than a circle
+    `flat` units round not counted: a dent, a wave, a nick or a lump each turn it twice. More than a letter as drawn, or
+    squeezed or stretched plainly across, and its outline is less clean (tests/free-fonts.test.ts, tools/widths.ts). */
+export function bendsBack(cmds: Cmd[], flat = 400): number[] {
+  const rings: P[][] = [];
+  let r: P[] = [], x = 0, y = 0;
+  for (const c of cmds) {
+    if (c[0] === 'M') { if (r.length > 2) rings.push(r); r = [{ x: c[1], y: c[2] }]; x = c[1]; y = c[2]; }
+    else if (c[0] === 'L') { r.push({ x: c[1], y: c[2] }); x = c[1]; y = c[2]; }
+    else if (c[0] === 'C') {
+      for (let i = 1; i <= 48; i++) { const t = i / 48, u = 1 - t; r.push({ x: u * u * u * x + 3 * u * u * t * c[1] + 3 * u * t * t * c[3] + t * t * t * c[5], y: u * u * u * y + 3 * u * u * t * c[2] + 3 * u * t * t * c[4] + t * t * t * c[6] }); }
+      x = c[5]; y = c[6];
+    }
+  }
+  if (r.length > 2) rings.push(r);
+  return rings.map(ring => {
+    const even: P[] = [];
+    let left = 0, count = 0;
+    ring.forEach((a, i) => {
+      const b = ring[(i + 1) % ring.length], l = Math.hypot(b.x - a.x, b.y - a.y);
+      for (; left < l; left += 6) even.push({ x: a.x + (b.x - a.x) * left / l, y: a.y + (b.y - a.y) * left / l });
+      left -= l;
+    });
+    const m = even.length, head = even.map((p, i) => Math.atan2(even[(i + 1) % m].y - p.y, even[(i + 1) % m].x - p.x));
+    const bend = head.map((_, i) => { let t = 0; for (let j = -2; j < 2; j++) { let d = head[(i + j + 1 + m) % m] - head[(i + j + m) % m]; d -= 2 * Math.PI * Math.round(d / (2 * Math.PI)); t += d; } return t / 4; });
+    let last = 0;
+    for (const b of [...bend, ...bend]) { if (Math.abs(b) < 6 / flat) continue; if (last && Math.sign(b) !== last) count++; last = Math.sign(b); }
+    return count / 2;
+  });
+}
+
 /** How many times the outlines' edges cross (not counting edges that meet end to end), found cell by cell. */
 function crossings(rs: P[][], cap: number): number {
   type Seg = { a: P; b: P; r: number; i: number };
