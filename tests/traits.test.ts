@@ -20,9 +20,10 @@ describe('style page traits', () => {
   });
   it('lay the picked steps over a style and leave the rest as it was', () => {
     const didone = styleById('didone')!.params;
-    const p = applyTraits(didone, { weight: 'black', serif: 'slab', fill: 'dots' });
+    const p = applyTraits(didone, { weight: 'black', serif: 'none', fill: 'dots' });
     assert.equal(p.weight, 0.94);
-    assert.equal(p.serifShape, 'slab');
+    assert.equal(p.serif, false);
+    assert.equal(p.serifShape, didone.serifShape);
     assert.equal(p.fill, 'dots');
     assert.equal(p.contrast, didone.contrast);
     assert.equal(applyTraits(didone, {}), didone);

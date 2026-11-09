@@ -118,7 +118,8 @@ describe('editor pages', () => {
     assert.equal(first('x-height').key, 'xHeight');
     assert.equal(first('verticals').key, 'vWeight');
     assert.equal(first('verticals').parent, 'Weight');
-    assert.deepEqual([first('slab').key, first('slab').option], ['serif', 'Slab']);
+    // (the serifs' own shapes are off the panel; the inside serifs still take a shape of their own)
+    assert.deepEqual([first('slab').key, first('slab').option], ['serifInner', 'Slab']);
     assert.deepEqual([first('droplet').key, first('droplet').option], ['terminal', 'Droplet']);
     assert.equal(first('stencil position').key, 'stencilPos');
     // every word must match, and nothing comes back for nothing

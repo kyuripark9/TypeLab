@@ -1,6 +1,6 @@
 /* Finding a setting by name: a control or nested slider, by its own words, words people use for it, or a
    shape it offers. */
-import { FORM_OPTIONS, CONTROLS, SUBS, BAR_END_OPTIONS, FILL_OPTIONS, SERIF_BASE_OPTIONS, SERIF_INNER_OPTIONS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS,
+import { FORM_OPTIONS, CONTROLS, SUBS, BAR_END_OPTIONS, FILL_OPTIONS, SERIF_BASE_OPTIONS, SERIF_INNER_OPTIONS, SERIF_SIDE_OPTIONS,
   SERIF_TIP_OPTIONS, STORY_OPTIONS, TERMINAL_SHAPES, controlFor, type ActiveKey, type ControlKey, type FormKey } from './controls';
 import { CATEGORIES } from './pages';
 import type { CategoryId } from '../params';
@@ -13,7 +13,7 @@ const ALSO: Partial<Record<ActiveKey, string>> = {
   rotation: 'rotate turn angle', mirror: 'flip reverse backwards', letterSpacing: 'kerning tracking',
   mono: 'typewriter code fixed width', wobble: 'rough sketchy organic jitter', cursive: 'script connected joined', fill: 'outline texture pattern halftone bitmap honeycomb metaball bubbles goo drip ink splotch',
   dotGain: 'bleed merge join apart gap cloud puffy bubble', rough: 'distressed worn letterpress grunge ink bleed texture stamp',
-  terminal: 'tip ending finish sharp angled slanted cut tapered rounded teardrop wedge', serif: 'feet slab', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
+  terminal: 'tip ending finish sharp angled slanted cut tapered rounded teardrop wedge', serif: 'feet', roundness: 'soft rounded radius', xHeight: 'lowercase', counter: 'bowl inside',
   aperture: 'opening mouth', extenders: 'ascender descender', stencil: 'gap cut break', slice: 'cut line split',
   squareness: 'squircle', chamfer: 'octagon angular', joints: 'traps notch', joinRound: 'crotch fillet', innerRound: 'inside corners', dots: 'tittle period i j',
   apexForm: 'apex peak serif top latin clarendon', mForm: 'vertex middle point short raised', jForm: 'hook cup tail', gForm: 'ear loop',
@@ -46,7 +46,7 @@ function settingIndex(): Entry[] {
   // the named shapes each control lets you pick
   const shapes: Partial<Record<ControlKey, string[]>> = {
     terminal: [...TERMINAL_SHAPES.flatMap(g => [g.label, ...g.shapes.map(s => s.label)]), ...opt(FORM_OPTIONS.terminalRun.options)],
-    serif: opt(SERIF_SHAPE_OPTIONS), serifTip: opt(SERIF_TIP_OPTIONS), serifBase: opt(SERIF_BASE_OPTIONS), serifSides: opt(SERIF_SIDE_OPTIONS),
+    serifTip: opt(SERIF_TIP_OPTIONS), serifBase: opt(SERIF_BASE_OPTIONS), serifSides: opt(SERIF_SIDE_OPTIONS),
     serifInner: opt(SERIF_INNER_OPTIONS), story: [...opt(STORY_OPTIONS), ...opt(FORM_OPTIONS.aForm.options)], fill: opt(FILL_OPTIONS), crossbar: opt(BAR_END_OPTIONS)
   };
   for (const k of Object.keys(FORM_OPTIONS) as FormKey[]) if (k in CONTROLS) shapes[k as ControlKey] = opt(FORM_OPTIONS[k].options);

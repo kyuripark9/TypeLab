@@ -41,14 +41,10 @@ export const TRAIT_SECTIONS: { id: string; label: string; traits: TraitDef[] }[]
       opt('loose', 'Loose', { letterSpacing: 0.4, mono: 0 }), opt('mono', 'Mono', { mono: 1 })] }
   ] },
   { id: 'details', label: 'Details', traits: [
-    // (each a shape alone: the serifs' Length, Thickness and Angle are off the panel, as a step off a card's own broke
-    // its serifs, params/spec.ts; so a hairline's thickness is the card's own, and the step is Unbracketed)
+    // (on or off, in the design's own shape: the serifs' shape, Length, Thickness and Angle are off the panel, as on a
+    // card's letters another shape or a step off its own size broke them, params/spec.ts)
     { id: 'serif', label: 'Serifs', hint: 'The small feet at the ends of stems', sample: 'n', options: [
-      opt('none', 'None', { serif: false }),
-      opt('bracketed', 'Bracketed', { serif: true, serifShape: 'bracketed' }),
-      opt('unbracketed', 'Unbracketed', { serif: true, serifShape: 'unbracketed' }),
-      opt('slab', 'Slab', { serif: true, serifShape: 'slab' }),
-      opt('wedge', 'Wedge', { serif: true, serifShape: 'wedge' })] },
+      opt('none', 'None', { serif: false }), opt('serifs', 'Serifs', { serif: true })] },
     { id: 'curves', label: 'Curves', hint: 'How round letters like O are drawn', sample: 'o', options: [
       opt('circle', 'Circle', { bowlForm: 'oval', squareness: 0, chamfer: 0 }),
       opt('squarish', 'Squarish', { bowlForm: 'oval', squareness: 0.6, chamfer: 0 }),

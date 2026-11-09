@@ -200,7 +200,7 @@ export const SPECS = {
 
   /* ---- Serifs */
   serif: bool(false, { free: true, control: { cat: 'serifs', type: 'serif', label: 'Serifs', friendly: 'Add small feet to the strokes', tech: 'Serifs', demo: 'In',
-    explain: 'Small finishing strokes at the ends of stems, in the shape you pick.' } }),
+    explain: 'Small finishing strokes at the ends of stems, in the shape the style draws them.' } }),
   /* The serifs' Length, Thickness, Angle and Bracket, and below their Balance and the top and arm serifs' sizes, are no
      longer on any page: on a card's letters a step off its own value broke them (npm run breaks, 2026-11-09). A font's
      own serifs gave way to the engine's at once, ragged or notched (Vellum's at Thickness 32 for its 30, Ballyhoo's), the
@@ -331,7 +331,8 @@ export const SPECS = {
     explain: 'The edges wander a little, as ink spreads into paper or a worn block prints.' } }),
 
   /* ---- not a control of their own: pickers inside another control (barEnds under Crossbar height,
-     terminalRun and terminalForm under Stroke ends, aForm under Letter a, serifShape under Serifs), the
+     terminalRun and terminalForm under Stroke ends, aForm under Letter a; serifShape was under Serifs, off the panel
+     now as another shape broke a card's serifs, 12 of 22, npm run breaks), the
      per-id values a letter sets one by one, the personality macros (see Params.geoHuman), and what the design
      carries (its customized and drawn letters, its free font and the settings that font was picked at) */
   strokeWeights: ids(isStrokeId),

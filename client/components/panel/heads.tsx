@@ -44,7 +44,7 @@ function scopeTag(inspect: string | null, letter: string | null, own: boolean, k
 }
 
 /** The long controls, whose settings fold away under their heading. */
-type FoldKey = 'terminal' | 'serif' | 'fill';
+type FoldKey = 'terminal' | 'fill';
 
 /** A long control's heading: its title, then a chevron that folds the rest of it away. Folded, it
     names the current choice. `tools` sit before the chevron (the serif switch); while `shut` (serifs

@@ -1,7 +1,7 @@
 /* The controls that pick a named shape: stroke ends, the a, the letter forms, the serifs (their shape, tips, base, sides and inside ones) and the fill. */
 import {
   BOWL_SUBS, CONTROLS, DOT_SUBS, FILL_OPTIONS, FILL_SUBS, FORM_OPTIONS, SERIF_BASE_OPTIONS, SERIF_BASE_SUBS, SERIF_INNER_OPTIONS,
-  SERIF_INNER_SUBS, SERIF_SHAPE_OPTIONS, SERIF_SIDE_OPTIONS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS,
+  SERIF_INNER_SUBS, SERIF_SIDE_OPTIONS, SERIF_TIP_DETAILS, SERIF_TIP_OPTIONS, SERIF_TIP_SUBS,
   STORY_OPTIONS, TERMINAL_DETAILS, TERMINAL_SHAPES, TERMINAL_SUBS, controlFor, terminalLabel, type FillSubKey, type FormKey,
   type SerifInnerSubKey
 } from '../../../shared/content';
@@ -122,31 +122,22 @@ function FormOptions({ k, label }: { k: FormKey; label: string }) {
   );
 }
 
+/** The Serifs switch. The serifs keep the design's own shape: the shape picker, with Length, Thickness, Angle and
+    Bracket, is off the panel, as on a card with serifs of its own, or a script's, another shape broke its letters and a
+    step off its own size broke its serifs (npm run breaks; params/spec.ts). */
 export function SerifControl({ parts }: { parts?: string[] }) {
-  const p = { serif: useParam('serif'), serifShape: useParam('serifShape') }, active = useEditor(s => controlFor(s.active) === 'serif');
-  // the shapes say when they change nothing in view. (Their Length, Thickness, Angle and Bracket are off the panel:
-  // a step off a card's own broke its serifs, spec.ts)
-  const c = CONTROLS.serif, reach = useReachNote('serif'), shapes = useReachNote('serifShape');
+  const on = useParam('serif'), active = useEditor(s => controlFor(s.active) === 'serif');
+  const c = CONTROLS.serif, reach = useReachNote('serif');
   return (
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="serif" {...useControlFocus('serif')}>
-      <FoldHead k="serif" label={c.label} parts={parts} shut={!p.serif} summary={SERIF_SHAPE_OPTIONS.find(([id]) => id === p.serifShape)?.[1] ?? ''}
-        tools={<button className={p.serif ? 'switch on' : 'switch'} role="switch" aria-checked={p.serif} aria-label="Serifs"
-          onClick={() => actions.setOption('serif', !p.serif)}><i /></button>} />
-      {reach.note}
-      <Fold k="serif" shut={!p.serif} quiet={reach.quiet}>
-        <div className={shapes.idle ? 'serif-shapes idle' : 'serif-shapes'}>
-          <div className="sub-label">Serif shape</div>
-          {shapes.note}
-          <div className="opts four" role="radiogroup" aria-label="Serif shape">
-            {SERIF_SHAPE_OPTIONS.map(([id, label]) => (
-              <button key={id} role="radio" aria-checked={p.serifShape === id} className={p.serifShape === id ? 'opt on' : 'opt'}
-                onClick={() => actions.setOption('serifShape', id)}>
-                <SerifIcon shape={id} /><span>{label}</span>
-              </button>
-            ))}
-          </div>
+      <div className="ctl-top">
+        <CtlHead k="serif" label={c.label} parts={parts} />
+        <div className="ctl-tools">
+          <button className={on ? 'switch on' : 'switch'} role="switch" aria-checked={on} aria-label="Serifs"
+            onClick={() => actions.setOption('serif', !on)}><i /></button>
         </div>
-      </Fold>
+      </div>
+      {reach.note}
     </div>
   );
 }

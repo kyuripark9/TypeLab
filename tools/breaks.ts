@@ -186,9 +186,9 @@ const listed = (bad: Map<string, Kind[]>) => [...bad].map(([ch, k]) => `${ch}:${
 
 // ---- one card ----
 
-/** Pickers the panel draws by name inside a control, not read off the spec: the Serifs control's shapes and the
-    crossbar's ends (panel/ShapeControls.tsx, SliderControl.tsx), by the control they sit in. */
-const IN_CONTROL: Record<string, string> = { serifShape: 'serif', barEnds: 'crossbar' };
+/** Pickers the panel draws by name inside a control, not read off the spec: the crossbar's ends (panel/SliderControl.tsx),
+    by the control they sit in. (The Serifs control's shapes were one, off the panel since 2026-11-09.) */
+const IN_CONTROL: Record<string, string> = { barEnds: 'crossbar' };
 
 /** The settings the panel offers on design `p`: its controls in use and the sliders nested under them, less SKIP. */
 function keysOf(p: Params): string[] {
@@ -275,7 +275,7 @@ function card(id: string, keys: string[]): CardOut | null {
 
 /** Whether a value breaks the card: BREAK letters or more broken, or all it changes when it changes fewer. */
 export const breaks = (c: Cell) => c.bad.length > 0 && c.bad.length >= Math.min(BREAK, Math.max(1, c.n));
-const IN_CONTROL_LABEL: Record<string, string> = { serifShape: 'Serif shape', barEnds: 'Bar ends' };
+const IN_CONTROL_LABEL: Record<string, string> = { barEnds: 'Bar ends' };
 export const labelOf = (k: string) => {
   const s = specOf(k);
   if (s.control) return s.control.label;
