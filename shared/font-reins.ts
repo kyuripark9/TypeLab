@@ -11,7 +11,8 @@
    (npm run breaks -- --sliders; REINS_BY_MIXES in tools/breaks.ts; and from the pickers and sliders moved together,
    npm run breaks -- --mixed: the Didone's Apex below 50, which cut off its V's and W's points at a light Weight, the
    code card's Weight and Verticals below 20, spurs and notches at its lightest, the Wood Type's Weight below 30 and
-   Verticals below 20, its notches cutting through, the Formal Script's Wobble past 50), nor Width
+   Verticals below 20, its notches cutting through, the Formal Script's Wobble past 50 and the Didone's past 60, its H
+   slit and its 8 shut at a wide Width), nor Width
    (shared/font-widths.ts), nor Bowl overlap (its way to a bowl apart from its stem passes through the bowl just
    leaving it). Measured on each card by tools/breaks.ts, the
    rein off, a side looked at drawn and found whole left free (BY_EYE there), then drawn in where the map, run again
@@ -29,7 +30,7 @@ export const FONT_REINS: Record<string, Partial<Record<NumericParam, [number, nu
   'Gumdrop:700': { squareness: [0, 0.855], terminalTip: [0, 0.945], serifInnerSize: [0, 0.63], xHeight: [0.369, 1] },
   'Almanac:500': { curve: [0, 0.767], squareness: [0, 0.359], chamfer: [0, 0.898], steps: [0, 0.46], serifTipRound: [0.911, 1], serifTipSlant: [0.561, 1], serifCup: [0.313, 0.587], serifInnerSize: [0, 0.802], serifInnerThickness: [0.272, 1], xHeight: [0.429, 0.942], counter: [0.113, 1] },
   'Vellum:400': { squareness: [0, 0.757], roundness: [0, 0.514], terminalLength: [0.045, 1], serifTipRound: [0.165, 1], serifCup: [0.411, 0.552], serifInnerSize: [0, 0.658], xHeight: [0.168, 1] },
-  'Couture:600': { curve: [0, 0.962], squareness: [0, 0.478], roundness: [0, 0.757], joints: [0, 0.781], terminalCurl: [0, 0.678], serifCup: [0, 0.857], xHeight: [0.389, 1], counter: [0.156, 1], apex: [0.5, 1] },
+  'Couture:600': { curve: [0, 0.962], squareness: [0, 0.478], roundness: [0, 0.757], joints: [0, 0.781], terminalCurl: [0, 0.678], serifCup: [0, 0.857], xHeight: [0.389, 1], counter: [0.156, 1], apex: [0.5, 1], wobble: [0, 0.6] },
   'Sonnet:400i': { curve: [0.274, 1], squareness: [0.03, 0.704], chamfer: [0, 0.453], steps: [0, 0.554], joints: [0, 0.921], serifTipSlant: [0, 0.926], serifCup: [0, 0.664], serifInnerThickness: [0, 0.732], cursive: [0, 0.851], wobble: [0, 0.734], xHeight: [0.479, 0.929], tail: [0, 0.16], counter: [0, 0.961], mono: [0, 0.687], slice: [0, 0.464] },
   'Ballyhoo:400': { curve: [0, 0.736], squareness: [0, 0.43], chamfer: [0, 0.539], steps: [0, 0.464], joints: [0, 0.699], terminalCurl: [0, 0.462], terminalTip: [0, 0.783], serifTipRound: [0.719, 1], serifCup: [0.268, 0.593], serifInnerSize: [0, 0.666], xHeight: [0.513, 0.932], extenders: [0, 0.811], tail: [0, 0.861], counter: [0, 0.828], slice: [0, 0.933] },
   'Hearth:600': { serifTipRound: [0.833, 1], serifTipSlant: [0.026, 1], serifInnerSize: [0, 0.914], serifInnerThickness: [0.081, 1], wobble: [0, 0.761], xHeight: [0.449, 0.961], extenders: [0, 0.858], crossbar: [0.221, 0.88], counter: [0, 0.97] },
@@ -51,7 +52,8 @@ export const FONT_REINS: Record<string, Partial<Record<NumericParam, [number, nu
    Weight stops there, BUILT_BY_MIXES in tools/breaks.ts), the D's and L's strokes parted at a short Length, the
    stroke ends' sizes and points shut the B's and R's counters (npm run breaks -- --sliders, 2026-11-09), and a Length
    shorter than 45 parted the K's arms and the L's foot at a wide Width (--mixed: the pickers and sliders moved
-   together, as the slot blocks' Inner space below 15 shut their a's, p's and r's slots at Weight 90 and up). builtReins
+   together, as the slot blocks' Inner space below 15 shut their a's, p's and r's slots at Weight 90 and up, and their
+   Facets past 60 cut the counters through the sides at the lightest and narrowest). builtReins
    (engine/free-letters.ts) reins each in as freeReins does a font's, Weight with them (a family is solved on the
    slider; drawn, a weight past the rein draws the most kept). The blocks' other sliders each keep them whole alone; what broke
    them, Verticals and Horizontals thinned apart, is off the panel there (BUILT_SUBS_OFF, shared/content/controls.ts).
@@ -59,5 +61,5 @@ export const FONT_REINS: Record<string, Partial<Record<NumericParam, [number, nu
    blocks' bends and a slice's needles left out): npm run breaks -- --update-built rewrites the table. */
 export const BUILT_REINS: Record<string, Partial<Record<NumericParam, [number, number, number]>>> = {
   'arcs': { weight: [0.16, 0.6, 0.2], terminalLength: [0.45, 0.769, 0.5], terminalDepth: [0, 0.837, 0.5], terminalSize: [0.141, 1, 0.5], terminalPoint: [0.043, 1, 0.5], terminalLean: [0.043, 1, 0.5], terminalTip: [0, 0.755, 0.5], wobble: [0, 0.35, 0] },
-  'blocks:slots': { counter: [0.15, 1, 0.5] }
+  'blocks:slots': { counter: [0.15, 1, 0.5], chamfer: [0, 0.6, 0] }
 };

@@ -164,6 +164,9 @@ describe('editor pages', () => {
       assert.equal(keepWhole({ ...card(id), cursive: 1 }, card(id), STYLE_FONTS[id]).cursive, card(id).cursive, id);
     }
     assert.ok(!controlOff('cursive', card('grotesque')) && keepWhole({ ...card('grotesque'), cursive: 1 }, card('grotesque'), STYLE_FONTS.grotesque).cursive === 1);
+    // (Steps off the slot blocks, its notches cutting their sides with Facets; offered on the grid blocks)
+    assert.ok(controlOff('steps', card('slotblocks')) && !controlOff('steps', card('gridblocks')));
+    assert.equal(keepWhole({ ...card('slotblocks'), steps: 1 }, card('slotblocks'), 'blocks:slots').steps, card('slotblocks').steps);
     // (the pages and what the panel leaves out are read again when the design's own choice changes)
     assert.notEqual(offsKey(serif), offsKey({ ...serif, serif: false }));
     assert.equal(pagesFor(serif), pagesFor({ ...serif, weight: 0.2 }));

@@ -435,10 +435,11 @@ const WALKED_BY_EYE: Record<string, Record<string, ('lo' | 'hi')[]>> = {
     Didone's Apex below 50, its V's and W's points cut off at a light Weight or Horizontals (below 40 at any); the code
     card's Weight and Verticals below 20, spurs on its C, a, g and 6 and its p's bowl notched at the stem with Inner
     space low; the Wood Type's Weight below 30 and Verticals below 20, its notches cutting through the d, g and q; the
-    Formal Script's Wobble past 50, its o and R apart. Kept by --update. */
+    Formal Script's Wobble past 50, its o and R apart; the Didone's Wobble past 60, which slit its H's crossbar and
+    shut the 8's and p's counters at a wide Width or a light Weight (2026-11-10). Kept by --update. */
 const REINS_BY_MIXES: Record<string, Record<string, [number, number]>> = {
   'Bulwark:700': { weight: [0, 0.8], hWeight: [0, 0.98] },
-  'Couture:600': { apex: [0.5, 1] },
+  'Couture:600': { apex: [0.5, 1], wobble: [0, 0.6] },
   'Kernel:500': { weight: [0.2, 1], vWeight: [0.2, 1] },
   'Timber:400': { weight: [0.3, 1], vWeight: [0.2, 1] },
   'Serenade:400': { wobble: [0, 0.5] }
@@ -556,11 +557,13 @@ function builtReinsOf(id: string, keys: string[]): { letters: string; reins: Map
     npm run breaks -- --sliders). */
 const BUILT_BY_MIXES: Record<string, Record<string, [number, number] | [number, number, number]>> = {
   'arcs': { weight: [0.16, 0.6], wobble: [0, 0.35], terminalLength: [0.45, 0.769] },
-  'blocks:slots': { counter: [0.15, 1, 0.5] }
+  'blocks:slots': { counter: [0.15, 1, 0.5], chamfer: [0, 0.6, 0] }
 };
 /* (and from the pickers and sliders moved together, --mixed: the arcs' stroke ends shorter than 45 parted the K's arms
    and the L's foot at a wide Width; the slot blocks' Inner space below 15 shut their a's, p's and r's slots to
-   hairlines at Weight 90 and up; a third number is the card's own value, where the walk kept no row for it) */
+   hairlines at Weight 90 and up, and their Facets past 60 cut the counters through the sides at the lightest Weight
+   and narrowest Width (2026-11-10; Steps, whose notches cut them with any Facets, is off the panel there, SLIDERS_OFF
+   in shared/content/controls.ts); a third number is the card's own value, where the walk kept no row for it) */
 /** shared/font-reins.ts with `table` for BUILT_REINS: by letters, each setting reined to its least and most and the
     card's own value, BUILT_BY_MIXES laid over it. */
 function writeBuiltReins(table: Map<string, Map<string, [number, number, number]>>) {

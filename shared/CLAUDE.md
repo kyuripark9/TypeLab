@@ -160,7 +160,8 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   moved with Weight and the rest, they broke the serif cards), `BUILT_SUBS_OFF` (Weight's Verticals and Horizontals,
   left out on letters built from blocks or arcs: thinned apart, the grid's corners and the arcs' bowls came off), `SLIDERS_OFF`
   (sliders a card's font leaves out, through `controlOff` and `keepWhole`: Cursive on the seven cards with feet of serifs,
-  whose strokes it parts or tangles, and on the Block card, its hooks slit at the stems), `controlInUse`, `subInUse` (given
+  whose strokes it parts or tangles, and on the Block card, its hooks slit at the stems; Steps on the slot blocks, which
+  with Facets cut their sides), `controlInUse`, `subInUse` (given
   the font too)
   and `pagesFor` (the controls and pages a design's letters take: the navigation, the page steps and Find a setting
   offer only those; given the design, less any control `controlOff` leaves out on its font, FONT_OFFS); `PART_CONTROL`

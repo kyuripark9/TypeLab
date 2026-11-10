@@ -91,11 +91,13 @@ const BUILT_SUBS_OFF: readonly string[] = ['vWeight', 'hWeight'];
     the cards with feet of serifs, whose entry and exit strokes run into them. Low, the i's and l's feet come away from
     their stems (the typewriter's and code card's, npm run breaks -- --sliders, 2026-11-09); high, the strokes cross the
     serifs in a tangle (the Old Style, Didone, Fat Face, Transitional and Soft Slab cards, looked at drawn); and on the
-    Block card, whose hooks slit at the joins with its stems at a heavy Verticals (npm run breaks -- --mixed). The
-    Adjust tab's Print and Script keep the card's own (keepWhole). */
+    Block card, whose hooks slit at the joins with its stems at a heavy Verticals (npm run breaks -- --mixed). And
+    Steps on the slot blocks, whose notches stand off their round corners as tabs and, with any Facets, cut every
+    letter's sides (--mixed, 2026-11-10). The Adjust tab's Print and Script keep the card's own (keepWhole). */
 const SLIDERS_OFF: Record<string, readonly string[]> = {
   'Dispatch:400': ['cursive'], 'Kernel:500': ['cursive'], 'Vellum:400': ['cursive'], 'Couture:600': ['cursive'],
-  'Ballyhoo:400': ['cursive'], 'Almanac:500': ['cursive'], 'Hearth:600': ['cursive'], 'Bulwark:700': ['cursive']
+  'Ballyhoo:400': ['cursive'], 'Almanac:500': ['cursive'], 'Hearth:600': ['cursive'], 'Bulwark:700': ['cursive'],
+  'blocks:slots': ['steps']
 };
 /** Whether nested slider `s` shapes letters built as `p` says, and drawn from its font if it has one (its control in
     use too: controlInUse). */
