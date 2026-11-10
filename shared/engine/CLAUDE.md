@@ -721,7 +721,10 @@ A design with `freeFont` set draws its letters from a free font instead of build
    straight point, `fontVertexed`); `twinGlyph` draws the engine's own
    letter at the settings the font reads as (`twinFit`: the weight and contrast whose stems and bars match the font's
    own, read off its n and H by `fontLook` with the design's Verticals and Horizontals counted, its x-height, width,
-   serifs, and its stems' lean as slant), moved as far as the design moves from the pick.
+   serifs, and its stems' lean as slant), moved as far as the design moves from the pick; its weight as the font's own
+   letters take Weight, its stems as many times as thick as their push (`penW`, Weight's share of the pen) makes theirs
+   (moved by Weight's own steps, a twin went to a hairline at Weight 0 beside letters a fifth thinner, and twice as
+   bold at 100), never the slider's own on a card whose Weight is reined.
 6. `freeGlyph` sizes the letter to the design, gives it side bearings, places it with `placeGlyph`, and keeps the placed
    outline as `Glyph.drawn`, so Points opens with the font's own points (its overlapping pieces made one; with an effect
    on, `Glyph.fx`, Points traces the outline the effect draws instead, so an edit keeps it). An unmoved

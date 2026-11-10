@@ -40,6 +40,7 @@ interface FreeLetters {
       and down, as shares of the font's stem (PEN in even-weight.ts, in step along each slider); and how far Contrast
       is turned round past the font's (0 to 1), its stems in by PEN_REVERSED of that (see weighedOut) */
   rest: SkinMeasures; pen: { x: number; y: number; rev: number };
+  /** Weight's own share of the pen's push sideways (pen.x less Verticals'), of the font's stem each side */ penW: number;
   /** whether its letters move on their skeletons (not a pixel font's, which are only stretched) */ skin: boolean;
   /** the side bearings' scale */ sb: number;
   /** how far a monospaced font is drawn back toward proportional spacing, Monospace moved below where it was picked (0
@@ -107,7 +108,7 @@ export function freeLetters(params: Params, e: Effective, m: Metrics): FreeLette
     if (rw > most) to.hT *= most / rw;
   }
   return {
-    font, want, k: font ? m.cap / font.cap : 1, sx: m.ws / mb.ws, from, to, rest, pen, skin: !FREE_FAMILIES[r.family]?.grid, pick: b, now: e,
+    font, want, k: font ? m.cap / font.cap : 1, sx: m.ws / mb.ws, from, to, rest, pen, penW: w, skin: !FREE_FAMILIES[r.family]?.grid, pick: b, now: e,
     serif: asked ?? null, serifs: !!asked && (!had || other), raw: params, rawPick: { ...params, ...params.freeAt },
     sb: Math.pow(2, (e.sideBearing - b.sideBearing) * 3), unmono: b.mono > 0 && e.mono < b.mono ? (b.mono - e.mono) / b.mono : 0,
     m: { ...m, p, slant: Math.tan((lean - (ref.italic ? ITALIC_DEG : 0)) * Math.PI / 180), rot: m.rot - mb.rot,
@@ -342,17 +343,23 @@ function twinFit(font: FreeFont, pick: Params): Partial<Params> {
 
 const twinFonts = new Map<string, Font>();
 /** Letter `ch` as the free font's twin draws it: the engine's, at the settings the font reads as (twinFit) moved as far
-    as the design moves them from those it was picked at. */
+    as the design moves them from those it was picked at, its weight as far as the font's own letters move. */
 export function twinGlyph(ch: string, fl: FreeLetters): Glyph | null {
   if (!fl.font) return null;
   const fit = twinFit(fl.font, fl.rawPick), now = fl.raw, pick = fl.rawPick;
-  const moved = (k: 'weight' | 'contrast' | 'xHeight' | 'width' | 'slant', by = 0) => clamp((fit[k] as number) + (now[k] as number) - (pick[k] as number) + by);
+  const moved = (k: 'contrast' | 'xHeight' | 'width' | 'slant', by = 0) => clamp((fit[k] as number) + (now[k] as number) - (pick[k] as number) + by);
   // (Width and the other sliders reined in as the font's own letters are, freeWidth and freeReins: a twin's a no wider
   // than the letters beside it, its x-height theirs)
   const asked = resolve(now), reined = (k: NumericParam) => (fl.now[k] as number) - (asked[k] as number);
-  const p: Params = { ...now, freeFont: '', freeAt: {}, glyphs: {}, outlines: {}, weight: moved('weight'), contrast: moved('contrast'), xHeight: moved('xHeight', reined('xHeight')),
+  // (Weight as the font's own letters take it, their stems pushed out or in by its share of the pen, penW of their stem
+  // each side: the twin's stems as many times as thick as at the weight it reads as. Moved by Weight's own steps from
+  // there, a twin thinned to a hairline as the font's letters thinned a fifth, a fat face's double-storey g and
+  // sweeping Q at Weight 0 drawn in outline beside its bold a)
+  const sAt = (w: number) => metrics(resolve({ ...pick, ...fit, weight: w })).s0, weight = solve(sAt, sAt(fit.weight as number) * Math.max(0.05, 1 + 2 * fl.penW));
+  const p: Params = { ...now, freeFont: '', freeAt: {}, glyphs: {}, outlines: {}, weight, contrast: moved('contrast'), xHeight: moved('xHeight', reined('xHeight')),
     width: moved('width', reined('width')), slant: moved('slant'), serif: now.serif !== pick.serif ? now.serif : !!fit.serif };
-  for (const k of Object.keys(FONT_REINS[fl.now.freeFont] ?? {}) as NumericParam[]) if (k !== 'xHeight') (p as unknown as Record<string, number>)[k] = clamp((now[k] as number) + reined(k));
+  // (Weight reined as the font's letters are by their push, penW, above: set again here, a reined card's twin took the slider's own)
+  for (const k of Object.keys(FONT_REINS[fl.now.freeFont] ?? {}) as NumericParam[]) if (k !== 'xHeight' && k !== 'weight') (p as unknown as Record<string, number>)[k] = clamp((now[k] as number) + reined(k));
   const key = JSON.stringify(p);
   let f = twinFonts.get(key);
   if (!f) { f = buildFont(p); if (twinFonts.size > 8) twinFonts.delete(twinFonts.keys().next().value!); twinFonts.set(key, f); }
