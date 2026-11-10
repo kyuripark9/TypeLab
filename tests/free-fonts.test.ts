@@ -18,7 +18,7 @@ import { skeleton } from '../shared/engine/scan';
 import { lineSkeleton } from '../shared/engine/lines';
 import { SKIN_KEYS, skinFollows, skinRig } from '../shared/engine/skin';
 import { familyMember } from '../shared/family';
-import { FONT_REINS } from '../shared/font-reins';
+import { FONT_REACH, FONT_REINS } from '../shared/font-reins';
 import { FONT_WIDTHS } from '../shared/font-widths';
 import { INTRO_CHARS, INTRO_OWN, OLD_FONTS, OWN_FAMILIES, STYLE_FONTS, fontId, isOwnFont, nearestFont, parseFontId } from '../shared/free-fonts';
 import { DEFAULTS, FREE_AT_KEYS, freeAtOf, sanitizeParams, xHeightOfRatio, xHeightRatio, type NumericParam, type Params } from '../shared/params';
@@ -522,8 +522,10 @@ describe("TypeLab's own fonts", () => {
     const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params;
     const reins = Object.entries(FONT_REINS[id] ?? {}) as [NumericParam, [number, number]][];
     assert.ok(['xHeight', 'counter'].every(k => reins.some(([r]) => r === k)), `Mainline's reins: ${reins.map(([k]) => k).join(' ')}`);
-    for (const [k, [lo, hi]] of reins) {
+    for (const [k, [lo0, hi0]] of reins) {
       const own = p[k] as number, at = (v: number) => freeReins({ ...p, [k]: v }, resolve({ ...p, [k]: v }))[k] as number;
+      // (a slider reshaping the letters on their skeleton carries them its share of the way kept, FONT_REACH)
+      const share = FONT_REACH[k] ?? 1, lo = own - share * (own - Math.min(lo0, own)), hi = own + share * (Math.max(hi0, own) - own);
       // (its own value as asked, the slider's ends the least and most the table keeps)
       assert.equal(at(own), own, `Mainline's ${k} at its own ${own}`);
       assert.ok(Math.abs(at(0) - Math.min(lo, own)) < 1e-9 && Math.abs(at(1) - Math.max(hi, own)) < 1e-9, `Mainline's ${k} drawn ${at(0)} to ${at(1)}, its reach ${lo} to ${hi}`);

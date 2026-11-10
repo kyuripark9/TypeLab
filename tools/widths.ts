@@ -75,12 +75,16 @@ const BEND_FLAT = 150;
     Verticals: its own Width 0.4, narrower than 0.3 with Verticals past 0.6 shut its a and g (npm run breaks -- --sliders,
     2026-11-09), so Width 0 draws as 0.3 did; and its wide end by its mixes with Weight: at the widest, lighter than 10,
     its g's ear came off and its ? and serifs stood out in needles (npm run breaks -- --mixed --seed 4), so wider than
-    1.55 of its own width is reined (1.63 measured). */
+    1.55 of its own width is reined (1.63 measured). And by eye at 80 px in words (2026-11-10): the two scripts'
+    swashes run into the letter beside them wider (Serenade's I into its f and its 5 into its &, from 1.17 of its own
+    width; Jotter's f's bar into its I from 1.15), so they stop at 1.12 and 1.1; the Squircle's tight spacing runs its
+    letters together and its word spaces shut narrower than 0.88 (Orbital), and the Chunky Round's e, a, g and &
+    counters clog narrower than 0.83 (Gumdrop). */
 const BY_EYE: Record<string, [number, number] | null> = {
   'Bungee Inline:400': null, 'Cabin Sketch:700': null, 'Cormorant:500i': null, 'Libre Caslon Text:400i': null,
-  'Turnpike:500': null, 'Serenade:400': null, 'Permanent Marker:400': null, 'Kernel:500': null, 'Martian Mono:400': null,
+  'Turnpike:500': null, 'Serenade:400': [0.7009, 1.12], 'Permanent Marker:400': null, 'Kernel:500': null, 'Martian Mono:400': null,
   'Bricolage Grotesque:700': null, 'Marcellus:400': null, 'Sonnet:400i': null, 'Ballyhoo:400': [0.913, 1.55], 'Space Grotesk:400': null,
-  'Cathedral:400': null
+  'Cathedral:400': null, 'Jotter:400': [0.7846, 1.1], 'Orbital:600': [0.88, 1.2], 'Gumdrop:700': [0.8268, 1.6318]
 };
 
 /** The cards drawn in a free font, by style id. */

@@ -454,15 +454,18 @@ const WALKED_BY_EYE: Record<string, Record<string, ('lo' | 'hi')[]>> = {
     its i's into its dot (read on every card with Curl at its most). Kept by --update. */
 const REINS_BY_MIXES: Record<string, Record<string, [number, number]>> = {
   'Bulwark:700': { weight: [0, 0.8], hWeight: [0, 0.98], crossbar: [0.33, 0.887], terminalCurl: [0, 0.45] },
-  'Couture:600': { apex: [0.5, 1], wobble: [0, 0.5] },
+  'Couture:600': { apex: [0.5, 1], wobble: [0, 0.5], weight: [0, 0.85] },
   'Kernel:500': { weight: [0.2, 1], vWeight: [0.2, 1] },
-  'Timber:400': { weight: [0.3, 1], vWeight: [0.2, 1] },
+  'Timber:400': { weight: [0.3, 1], vWeight: [0.2, 1], terminalLength: [0, 0.6] },
   'Serenade:400': { wobble: [0, 0.3], terminalCurl: [0.141, 0.7] },
-  'Gumdrop:700': { wobble: [0, 0.6], weight: [0, 0.9], vWeight: [0, 0.7] },
+  'Gumdrop:700': { wobble: [0, 0.6], weight: [0, 0.9], vWeight: [0, 0.7], aperture: [0, 0.64] },
   'Sonnet:400i': { joints: [0, 0.7], wobble: [0, 0.65] },
   'Cathedral:400': { wobble: [0, 0.6] },
   'Compass:300': { weight: [0, 0.9] },
-  'Cotton:300': { wobble: [0, 0.8] }
+  'Cotton:300': { wobble: [0, 0.8] },
+  'Turnpike:500': { weight: [0, 0.8] },
+  'Parlance:500': { aperture: [0.4, 1] },
+  'Ballyhoo:400': { weight: [0, 0.92], vWeight: [0, 0.75] }
 };
 /** The walk's steps (of the way from the card's own value to the slider's end), and the halvings after. */
 const REIN_STEPS = 16, HALVINGS = 4;

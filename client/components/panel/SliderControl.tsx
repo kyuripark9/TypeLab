@@ -1,6 +1,6 @@
 /* Sliders: a setting's slider with its number box, the crossbars' Gap and where it opens, and the Stencil and Slice cuts. */
 import type { ReactNode } from 'react';
-import { BAR_END_OPTIONS, CROSSBAR_SUBS, CONTROLS, SLICE_SUBS, STENCIL_SUBS, controlFor, type ActiveKey } from '../../../shared/content';
+import { BAR_END_OPTIONS, CROSSBAR_SUBS, CONTROLS, SLICE_SUBS, STENCIL_SUBS, controlFor, subInUse, type ActiveKey } from '../../../shared/content';
 import type { NumericParam } from '../../../shared/params';
 import { actions, isOn, useEditor, useParam } from '../../state/editor';
 import { BarEndsIcon } from '../Diagram';
@@ -65,10 +65,11 @@ export function SliderControl({ k, def, parts, children, holdsOn, icon = k }: { 
 
 /** The crossbars' Gap and where it opens: at the bar's ends, or above and below it with the bar run
     through the strokes it meets. Picking a way while the bars are joined opens a gap to show it. Block and arc
-    letters have no joins to open, so they show neither (their crossbars still move with Crossbar height). */
+    letters have no joins to open, so they show neither (their crossbars still move with Crossbar height), nor do
+    letters drawn from a font, whose bars came off as specks (subInUse). */
 export function BarEndsControl() {
-  const ends = useParam('barEnds'), gap = useParam('barGap'), joined = useParam('build') === 'strokes';
-  if (!joined) return null;
+  const ends = useParam('barEnds'), gap = useParam('barGap'), build = useParam('build'), freeFont = useParam('freeFont');
+  if (build !== 'strokes' || !subInUse('barGap', { build, freeFont })) return null;
   return (
     <>
       <div className="sub-label">Ends</div>

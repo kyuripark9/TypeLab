@@ -195,6 +195,13 @@ describe('editor pages', () => {
     assert.equal(keepWhole({ ...card('arcs'), wobble: 1 }, card('arcs'), 'arcs').wobble, card('arcs').wobble);
     assert.equal(keepWhole({ ...card('fatface'), wobble: 1 }, card('fatface'), STYLE_FONTS.fatface).wobble, card('fatface').wobble);
     for (const end of ['round/ball', 'round/droplet']) assert.ok(choicesOff(card('block'), 'terminal').has(end), end);
+    // (Bowl overlap and Tails & hooks off every card in a font, a d parting into an o and an l and the tails curling
+    // into hooks under the letters beside them; offered on the engine's own letters)
+    for (const id of ['grotesque', 'serif', 'chancery', 'block']) {
+      assert.ok(controlOff('overlap', card(id)) && controlOff('tail', card(id)), id);
+      assert.equal(keepWhole({ ...card(id), overlap: 0, tail: 1 }, card(id), STYLE_FONTS[id]).tail, card(id).tail, id);
+    }
+    assert.ok(!controlOff('tail', card('arcs')) || !controlOff('overlap', card('arcs')));
     // (the pages and what the panel leaves out are read again when the design's own choice changes)
     assert.notEqual(offsKey(serif), offsKey({ ...serif, serif: false }));
     assert.equal(pagesFor(serif), pagesFor({ ...serif, weight: 0.2 }));

@@ -5,6 +5,7 @@
    reins Width in to these, its ends on them. Measured on each card by tools/widths.ts: npm run widths:update rewrites
    the table. */
 export const FONT_WIDTHS: Record<string, [number, number]> = {
+  'Serenade:400': [0.7009, 1.12],
   'Compass:300': [0.6757, 1.6891],
   'Mainline:600': [0.6199, 1.5495],
   'Parlance:500': [0.6303, 1.5756],
@@ -12,7 +13,7 @@ export const FONT_WIDTHS: Record<string, [number, number]> = {
   'Cotton:300': [0.6545, 1.6361],
   'Michroma:400': [0.4257, 1.0791],
   'Outfit:700': [0.6571, 1.4422],
-  'Orbital:600': [0.5988, 1.2],
+  'Orbital:600': [0.88, 1.2],
   'Libre Franklin:600': [0.6363, 1.5787],
   'Dela Gothic One:400': [0.7788, 1.2886],
   'Noto Sans:500': [0.6303, 1.5756],
@@ -21,7 +22,7 @@ export const FONT_WIDTHS: Record<string, [number, number]> = {
   'Rubik Mono One:400': [0.7511, 1.25],
   'Raleway:100': [0.5883, 1.4705],
   'Kanit:700i': [0.729, 1.3982],
-  'Gumdrop:700': [0.6528, 1.6318],
+  'Gumdrop:700': [0.8268, 1.6318],
   'Vellum:400': [0.7143, 1.7857],
   'Almanac:500': [0.6054, 1.5133],
   'Couture:600': [0.6411, 1.6025],
@@ -49,7 +50,7 @@ export const FONT_WIDTHS: Record<string, [number, number]> = {
   'Space Mono:700': [0.8927, 1.5495],
   'Xanh Mono:400': [0.8621, 2.1551],
   'Share Tech Mono:400': [0.6757, 1.6891],
-  'Jotter:400': [0.7846, 1.9612],
+  'Jotter:400': [0.7846, 1.1],
   'Patrick Hand:400': [0.733, 1.8119],
   'Boardwalk:400': [0.7904, 1.9757],
   'Kaushan Script:400': [0.7598, 1.8957],

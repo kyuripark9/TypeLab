@@ -7,7 +7,7 @@ import { applyM, clamp } from './geom';
 import { freeFont, type FreeFont } from './free';
 import { FREE_FAMILIES, nearestFont, parseFontId, type FreeFontRef } from '../free-fonts';
 import { FONT_WIDTHS } from '../font-widths';
-import { BUILT_REINS, FONT_REINS } from '../font-reins';
+import { BUILT_REINS, FONT_REACH, FONT_REINS } from '../font-reins';
 import { drawnCmds, type Drawn, type Node } from './outline';
 import { HAIR_KEEP, PEN, PEN_REVERSED, evenWeight, type EvenLines } from './even-weight';
 import { FORM_LETTERS, SPAN_TOL, ascTo, descTo, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, type SkinMeasures, type SkinRig } from './skin';
@@ -222,10 +222,15 @@ export function freeReins(params: Params, e: Effective): Effective {
   if (!reins) return e;
   const b = resolve({ ...params, ...params.freeAt });
   let moved: Record<string, number> | null = null;
-  for (const [k, reach] of Object.entries(reins) as [NumericParam, [number, number]][]) {
-    const at = b[k] as number, v = e[k] as number;
-    if (v === at) continue;
-    const to = v > at ? at + (v - at) * (Math.max(reach[1], at) - at) / (1 - at) : at - (at - v) * (at - Math.min(reach[0], at)) / at;
+  // (the sliders that reshape the letters on their skeleton carry them a share of the way kept, FONT_REACH; a
+  // setting whole to both ends is reined by its share alone)
+  const keys = [...new Set([...Object.keys(reins), ...Object.keys(FONT_REACH)])] as NumericParam[];
+  for (const k of keys) {
+    const reach = reins[k] ?? [0, 1], share = FONT_REACH[k] ?? 1, at = b[k] as number, v = e[k] as number;
+    if (v === at || typeof v !== 'number' || typeof at !== 'number') continue;
+    const hi = share === 1 ? Math.max(reach[1], at) : at + share * (Math.max(reach[1], at) - at);
+    const lo = share === 1 ? Math.min(reach[0], at) : at - share * (at - Math.min(reach[0], at));
+    const to = v > at ? at + (v - at) * (hi - at) / (1 - at) : at - (at - v) * (at - lo) / at;
     if (to !== v) (moved ??= {})[k] = clamp((params[k] as number) + to - v);
   }
   return moved ? { ...resolve({ ...params, ...moved }), width: e.width } : e;

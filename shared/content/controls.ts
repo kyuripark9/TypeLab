@@ -79,8 +79,12 @@ const ARC_SUBS_OFF: readonly string[] = ['joinRound', 'innerRound'];
     Length and Thickness. Moved, the font's own serifs give way to the engine's, whole alone (reined, FONT_REINS) but
     not with Weight, Verticals, Horizontals or Slant moved too: the Didone card's a, d and p came apart at a light
     weight with its tips slanted, the Old Style card's N and & shut heavier with its tips rounded, the Fat Face's
-    inside serifs longer at Condensed shut its g (npm run breaks -- --sliders, 2026-11-09). */
-const FONT_SUBS_OFF: readonly string[] = ['serifTipRound', 'serifTipSlant', 'serifInnerSize', 'serifInnerThickness'];
+    inside serifs longer at Condensed shut its g (npm run breaks -- --sliders, 2026-11-09). And Crossbar height's Gap:
+    parted from their stems, a font's f's and t's bars came off as specks (the casual card's f a long s) and its R's
+    bowl stood off its stem in a crack; and Roundness's Joins and Counters, which filled a font's crotches and the
+    corners round its counters with blots of ink (an e's bar's end, an a's bowl by its stem, a y's crotch); and a round
+    end's Roundness, which cut the Chunky Round's c short, a gap in its word (looked at drawn on every card, 2026-11-10). */
+const FONT_SUBS_OFF: readonly string[] = ['serifTipRound', 'serifTipSlant', 'serifInnerSize', 'serifInnerThickness', 'barGap', 'joinRound', 'innerRound', 'terminalRound'];
 /** The nested sliders letters built from blocks or arcs leave out: Weight's Verticals and Horizontals. Thinned apart,
     the grid blocks' round corners came off their bars and the slot blocks' B, b and & thinned to hairline rings, from
     a third on with the other below the card's own; the arcs' b and p bowls came off their stems with Verticals thin at
@@ -103,14 +107,28 @@ const BUILT_SUBS_OFF: readonly string[] = ['vWeight', 'hWeight'];
     And Wobble on the Fat Face, whose small counters it shuts from as little as 20 to 30 at a heavy Weight or Verticals
     (the a's and g's), and on the Arcs, whose b's and p's bowls it shook off their stems at a light Weight and a wide
     Width from 20 (--mixed, --seed 10; reined to 35 there before, and read with the cards' other sliders at their ends).
+    And, looked at drawn at every slider's ends on every card (2026-11-10): Roundness on the Fat Face, whose f's ball
+    shot a spike out at 0, and on the Block card, whose comma lost its tail to a full stop at any other; Openness on
+    the Block card, its a's arm cut to a wedge (an à) open and its e's end run past its bowl shut; and Cursive on the
+    Industrial card, its i's exit flick kinked and run into the g.
     The Adjust tab's Print and Script, and its slants, keep the card's own (keepWhole). */
 const SLIDERS_OFF: Record<string, readonly string[]> = {
   'Dispatch:400': ['cursive'], 'Kernel:500': ['cursive'], 'Vellum:400': ['cursive'], 'Couture:600': ['cursive'],
-  'Ballyhoo:400': ['cursive', 'wobble'], 'Almanac:500': ['cursive'], 'Hearth:600': ['cursive'], 'Bulwark:700': ['cursive'],
+  'Ballyhoo:400': ['cursive', 'wobble', 'roundness'], 'Almanac:500': ['cursive'], 'Hearth:600': ['cursive'], 'Bulwark:700': ['cursive', 'roundness', 'aperture'],
   'Cathedral:400': ['cursive'], 'Mainline:600': ['cursive'], 'Parlance:500': ['cursive'], 'Compass:300': ['cursive'],
   'Orbital:600': ['cursive'], 'Gumdrop:700': ['cursive'], 'Timber:400': ['cursive'], 'Funnies:400': ['cursive'],
-  'Serenade:400': ['slant'], 'Sonnet:400i': ['slant'], 'blocks:slots': ['steps'], 'arcs': ['wobble']
+  'Serenade:400': ['slant'], 'Sonnet:400i': ['slant'], 'blocks:slots': ['steps'], 'arcs': ['wobble'], 'Turnpike:500': ['cursive']
 };
+/** And on every card in a font, Bowl overlap and Tails & hooks: drawn apart from its stem a font's d reads as an o
+    and an l and its b, p and q come apart likewise, from a little under the card's own, merged further it barely
+    moves them; and its tails drawn longer curl into hooks, a t's foot and a g's and f's tails running in under the
+    letters beside them, from a little past the card's own (looked at in the app on the Neo Grotesque, 2026-11-10:
+    apart from 80 of 90, hooked from 25 of 14, and still at half their way, FONT_REACH); and Steps, whose notches on a
+    font's corners read as chips and nicks, an i's dot a comma (looked at drawn on every card). */
+const FONT_SLIDERS_OFF: readonly string[] = ['overlap', 'tail', 'steps'];
+/** The sliders letters drawn from `letters` (as lettersOf names them) leave out. */
+const slidersOff = (letters: string): readonly string[] =>
+  !letters || letters === 'arcs' || letters.startsWith('blocks:') ? SLIDERS_OFF[letters] ?? [] : [...SLIDERS_OFF[letters] ?? [], ...FONT_SLIDERS_OFF];
 /** Whether nested slider `s` shapes letters built as `p` says, and drawn from its font if it has one (its control in
     use too: controlInUse). */
 export const subInUse = (s: string, p: Pick<Params, 'build'> & { freeFont?: string }) =>
@@ -158,7 +176,7 @@ export function choicesOff(p: Here, k: string): ReadonlySet<string> {
     has none and its Serifs switch is left out, so nothing could switch them on (the Formal Script card, its letters
     broken with serifs, kept a Serifs page with nothing on it). */
 export function controlOff(k: ControlKey, p: Here): boolean {
-  if (SLIDERS_OFF[lettersOf(p)]?.includes(k)) return true;
+  if (slidersOff(lettersOf(p)).includes(k)) return true;
   if (k !== 'serif' && CONTROLS[k].cat === 'serifs' && p.serif === false && controlOff('serif', p)) return true;
   const off = choicesOff(p, k);
   if (!off.size) return false;
@@ -170,7 +188,7 @@ export function controlOff(k: ControlKey, p: Here): boolean {
     card's letters break in. */
 export function keepWhole(p: Params, was: Params, letters: string): Params {
   let out = p;
-  for (const k of SLIDERS_OFF[letters] ?? []) if (out[k as keyof Params] !== was[k as keyof Params]) out = { ...out, [k]: was[k as keyof Params] };
+  for (const k of slidersOff(letters)) if (out[k as keyof Params] !== was[k as keyof Params]) out = { ...out, [k]: was[k as keyof Params] };
   const offs = FONT_OFFS[letters];
   if (!offs) return out;
   for (const [k, vs] of Object.entries(offs)) {
