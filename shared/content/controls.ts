@@ -100,13 +100,16 @@ const BUILT_SUBS_OFF: readonly string[] = ['vWeight', 'hWeight'];
     J's and W's swashes come out ragged (--mixed, --seed 6; Slant isn't reined, as its family's uprights stand it up),
     and on the serif italic, where slanted further, from 60 to 65 at a Width of 57, its 4's diagonal drops out and its
     e's eye lumps (--seed 9; a glitch of one Width step, whole at 56 and 58 and at the card's own slant).
+    And Wobble on the Fat Face, whose small counters it shuts from as little as 20 to 30 at a heavy Weight or Verticals
+    (the a's and g's), and on the Arcs, whose b's and p's bowls it shook off their stems at a light Weight and a wide
+    Width from 20 (--mixed, --seed 10; reined to 35 there before, and read with the cards' other sliders at their ends).
     The Adjust tab's Print and Script, and its slants, keep the card's own (keepWhole). */
 const SLIDERS_OFF: Record<string, readonly string[]> = {
   'Dispatch:400': ['cursive'], 'Kernel:500': ['cursive'], 'Vellum:400': ['cursive'], 'Couture:600': ['cursive'],
-  'Ballyhoo:400': ['cursive'], 'Almanac:500': ['cursive'], 'Hearth:600': ['cursive'], 'Bulwark:700': ['cursive'],
+  'Ballyhoo:400': ['cursive', 'wobble'], 'Almanac:500': ['cursive'], 'Hearth:600': ['cursive'], 'Bulwark:700': ['cursive'],
   'Cathedral:400': ['cursive'], 'Mainline:600': ['cursive'], 'Parlance:500': ['cursive'], 'Compass:300': ['cursive'],
   'Orbital:600': ['cursive'], 'Gumdrop:700': ['cursive'], 'Timber:400': ['cursive'], 'Funnies:400': ['cursive'],
-  'Serenade:400': ['slant'], 'Sonnet:400i': ['slant'], 'blocks:slots': ['steps']
+  'Serenade:400': ['slant'], 'Sonnet:400i': ['slant'], 'blocks:slots': ['steps'], 'arcs': ['wobble']
 };
 /** Whether nested slider `s` shapes letters built as `p` says, and drawn from its font if it has one (its control in
     use too: controlInUse). */

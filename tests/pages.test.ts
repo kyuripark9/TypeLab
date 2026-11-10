@@ -188,6 +188,13 @@ describe('editor pages', () => {
     for (const id of ['typewriter', 'oldstyle', 'didone', 'informal', 'humanist', 'serif', 'serifitalic', 'fatface']) {
       assert.ok(choicesOff(card(id), 'bowlForm').has('box'), id);
     }
+    // (Wobble off the Fat Face, its small counters shut heavy, and the Arcs, their b's and p's bowls shaken off light
+    // and wide, the Adjust tab keeping their own; offered on a sans; the Block card's ball and droplet ends off, its
+    // e's slit filled narrow)
+    assert.ok(controlOff('wobble', card('fatface')) && controlOff('wobble', card('arcs')) && !controlOff('wobble', card('grotesque')));
+    assert.equal(keepWhole({ ...card('arcs'), wobble: 1 }, card('arcs'), 'arcs').wobble, card('arcs').wobble);
+    assert.equal(keepWhole({ ...card('fatface'), wobble: 1 }, card('fatface'), STYLE_FONTS.fatface).wobble, card('fatface').wobble);
+    for (const end of ['round/ball', 'round/droplet']) assert.ok(choicesOff(card('block'), 'terminal').has(end), end);
     // (the pages and what the panel leaves out are read again when the design's own choice changes)
     assert.notEqual(offsKey(serif), offsKey({ ...serif, serif: false }));
     assert.equal(pagesFor(serif), pagesFor({ ...serif, weight: 0.2 }));
