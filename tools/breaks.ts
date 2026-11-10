@@ -448,13 +448,16 @@ const WALKED_BY_EYE: Record<string, Record<string, ('lo' | 'hi')[]>> = {
     Wobble past 80, which at its lightest wound its d's and q's stems through their bowls and broke the 6's join off,
     and the serif italic's past 65, which broke its R and filled its b with Verticals heavy and the Crossbar low
     (--seed 10); and the Block card's Crossbar below 33, which at its lowest shut its e's aperture and with Wobble at
-    Black filled its a's and e's counters (read with Wobble at its most against every slider's ends). Kept by --update. */
+    Black filled its a's and e's counters (read with Wobble at its most against every slider's ends), and its stroke
+    ends' Curl past 45, which at a Width below a third curled the C's, e's and 9's ends into their counters (--seed 11),
+    and the Formal Script's Curl past 70, which with a long Length curled its c's, e's, u's and x's exits shut and ran
+    its i's into its dot (read on every card with Curl at its most). Kept by --update. */
 const REINS_BY_MIXES: Record<string, Record<string, [number, number]>> = {
-  'Bulwark:700': { weight: [0, 0.8], hWeight: [0, 0.98], crossbar: [0.33, 0.887] },
+  'Bulwark:700': { weight: [0, 0.8], hWeight: [0, 0.98], crossbar: [0.33, 0.887], terminalCurl: [0, 0.45] },
   'Couture:600': { apex: [0.5, 1], wobble: [0, 0.5] },
   'Kernel:500': { weight: [0.2, 1], vWeight: [0.2, 1] },
   'Timber:400': { weight: [0.3, 1], vWeight: [0.2, 1] },
-  'Serenade:400': { wobble: [0, 0.3] },
+  'Serenade:400': { wobble: [0, 0.3], terminalCurl: [0.141, 0.7] },
   'Gumdrop:700': { wobble: [0, 0.6], weight: [0, 0.9], vWeight: [0, 0.7] },
   'Sonnet:400i': { joints: [0, 0.7], wobble: [0, 0.65] },
   'Cathedral:400': { wobble: [0, 0.6] },

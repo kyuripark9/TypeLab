@@ -13,7 +13,7 @@
    code card's Weight and Verticals below 20, spurs and notches at its lightest, the Wood Type's Weight below 30 and
    Verticals below 20, its notches cutting through, the Formal Script's Wobble past 30, the serif italic's past 65,
    the Rounded card's past 80, the Didone's past 50 and the Chunky Round's and Blackletter's past 60, the Didone's H
-   slit and its 8 shut at a wide Width, the Rounded's d and q wound through at its lightest, the Block card's Crossbar below 33, its e shut, the Chunky Round's
+   slit and its 8 shut at a wide Width, the Rounded's d and q wound through at its lightest, the Block card's Crossbar below 33, its e shut, and its Curl past 45, its ends curled in narrow, the Formal Script's Curl past 70, its exits curled shut, the Chunky Round's
    Weight past 90 and Verticals past 70, its A's and &'s
    counters filled in narrow, the serif italic's Joints past 70, its 4 and 8 cut to needles at its lightest, and the
    Geometric's Weight past 90, its b's, p's and q's bowls spurred at the stem with Serifs on),
@@ -45,9 +45,9 @@ export const FONT_REINS: Record<string, Partial<Record<NumericParam, [number, nu
   'Funnies:400': { squareness: [0, 0.667], chamfer: [0, 0.871], serifInnerSize: [0, 0.656], xHeight: [0.35, 1] },
   'Jotter:400': { curve: [0.168, 1], squareness: [0, 0.936], chamfer: [0, 0.558], cursive: [0, 0.3], xHeight: [0.071, 0.751] },
   'Boardwalk:400': { curve: [0.174, 1], squareness: [0, 0.269], chamfer: [0, 0.8], apex: [0, 0.536], joints: [0, 0.816], terminalLean: [0, 0.982], terminalTip: [0, 0.789], xHeight: [0, 0.859], counter: [0.043, 1] },
-  'Serenade:400': { squareness: [0, 0.226], chamfer: [0, 0.394], terminalLength: [0, 0.672], terminalCurl: [0.141, 1], xHeight: [0.191, 1], wobble: [0, 0.3] },
+  'Serenade:400': { squareness: [0, 0.226], chamfer: [0, 0.394], terminalLength: [0, 0.672], terminalCurl: [0.141, 0.7], xHeight: [0.191, 1], wobble: [0, 0.3] },
   'Cathedral:400': { chamfer: [0.743, 1], steps: [0, 0.878], joints: [0, 0.421], terminalLength: [0, 0.839], xHeight: [0.489, 1], counter: [0, 0.856], wobble: [0, 0.6] },
-  'Bulwark:700': { terminalLength: [0.032, 1], terminalCurl: [0, 0.79], serifTipRound: [0.18, 1], serifTipSlant: [0.625, 1], serifCup: [0.204, 1], serifInnerSize: [0, 0.656], wobble: [0, 0.644], xHeight: [0.528, 0.887], crossbar: [0.33, 0.887], counter: [0, 0.966], weight: [0, 0.8], hWeight: [0, 0.98] }
+  'Bulwark:700': { terminalLength: [0.032, 1], terminalCurl: [0, 0.45], serifTipRound: [0.18, 1], serifTipSlant: [0.625, 1], serifCup: [0.204, 1], serifInnerSize: [0, 0.656], wobble: [0, 0.644], xHeight: [0.528, 0.887], crossbar: [0.33, 0.887], counter: [0, 0.966], weight: [0, 0.8], hWeight: [0, 0.98] }
 };
 
 /* How far each slider may carry the letters the engine builds, the slot and grid blocks' and the arcs' (as lettersOf
