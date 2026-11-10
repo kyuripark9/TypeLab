@@ -684,6 +684,7 @@ const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
   'arcs': { terminal: ['flat/scooped', 'cut/notched', 'round/ball', 'round/droplet', 'angled/outer', 'angled/inner', 'tapered/taper', 'tapered/brush', 'flat/flared', 'cut/level'] },
   'Bulwark:700': { qForm: ['inside'], bowlForm: ['oval'], terminal: ['flat/flared'] },
   'Gumdrop:700': { jForm: ['cup'] },
+  'Cotton:300': { bowlForm: ['box'] },
   'blocks:grid': { kForm: ['stem'] }
 };
 /* And from the pickers and sliders moved together (--mixed, 2026-11-09): the arcs' angled ends blotted the R and parted
@@ -692,7 +693,9 @@ const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
    card's inside Q tail came out ragged, its oval bowls split at their corners at a light Weight, and its flared ends
    tore its C, 2 and 5 with Facets; the Chunky Round's J with a cup shut into a d at a narrow Width; the grid blocks'
    K with a stem took its arms off it; and (--seed 4, 2026-11-10) the arcs' level ends, which shut the R and crossed
-   the F's arms from Length 75 at most weights (the Arcs keep Flat and Round). */
+   the F's arms from Length 75 at most weights (the Arcs keep Flat and Round); and (--seed 5) the Rounded card's box
+   bowls, which lost their side against the stem at a sharp Box roundness and, at a light Weight with Contrast low,
+   cut into the b's, d's, p's and q's stems (off on the Geometric and code cards before). */
 /** Choices left out on every card in a font, from the pickers and sliders moved together (--mixed, 2026-11-09): square
     bowl joins, whole alone on most cards, notched the bowls of the a, b, d, g, p and q and shut the h's, m's and n's
     with Weight, Verticals, Joints or Wobble moved on 13 of the 22 cards (alone on the Squircle and Chunky Round); upright

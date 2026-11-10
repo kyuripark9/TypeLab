@@ -170,6 +170,8 @@ describe('editor pages', () => {
     assert.equal(keepWhole({ ...card('slotblocks'), steps: 1 }, card('slotblocks'), 'blocks:slots').steps, card('slotblocks').steps);
     // (the arcs keep their flat and round ends; the level ends, which shut the R at a long Length, are off)
     assert.ok(choicesOff(card('arcs'), 'terminal').has('cut/level') && !choicesOff(card('arcs'), 'terminal').has('flat/plain'));
+    // (the Rounded card's box bowls off, their sides cutting into the stems at a light Weight; offered on the Neo Grotesque)
+    assert.ok(choicesOff(card('soft'), 'bowlForm').has('box') && !choicesOff(card('grotesque'), 'bowlForm').has('box'));
     // (the pages and what the panel leaves out are read again when the design's own choice changes)
     assert.notEqual(offsKey(serif), offsKey({ ...serif, serif: false }));
     assert.equal(pagesFor(serif), pagesFor({ ...serif, weight: 0.2 }));
