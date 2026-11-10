@@ -178,6 +178,9 @@ describe('editor pages', () => {
     assert.ok(choicesOff(card('chunkyround'), 'rForm').has('loop') && choicesOff(card('woodtype'), 'terminal').has('flat/scooped'));
     assert.ok(choicesOff(card('chancery'), 'bowlForm').has('box'));
     assert.ok(controlOff('slant', card('chancery')) && !controlOff('slant', card('grotesque')));
+    // (and off the serif italic, its 4's diagonal dropping out slanted further at one Width)
+    assert.ok(controlOff('slant', card('serifitalic')));
+    assert.equal(keepWhole({ ...card('serifitalic'), slant: 1 }, card('serifitalic'), STYLE_FONTS.serifitalic).slant, card('serifitalic').slant);
     assert.equal(keepWhole({ ...card('chancery'), slant: 0 }, card('chancery'), STYLE_FONTS.chancery).slant, card('chancery').slant);
     // (the looped R off on every card in a font, filled solid heavy and narrow; the box bowls of eight more cards off,
     // apart from or spurred at their stems at the lightest)

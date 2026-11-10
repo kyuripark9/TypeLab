@@ -162,7 +162,8 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   (sliders a card's font leaves out, through `controlOff` and `keepWhole`: Cursive on the seven cards with feet of serifs,
   whose strokes it parts or tangles, on the Block card, its hooks slit at the stems, and on the Blackletter and the
   Neo Grotesque, Humanist, Geometric, Squircle, Chunky Round, Wood Type and Comic cards, their i's and j's dots run
-  into the stems at a short Lowercase height; Slant on the Formal Script, its swashes ragged stood up; Steps on
+  into the stems at a short Lowercase height; Slant on the Formal Script, its swashes ragged stood up, and on the serif italic, its 4's diagonal dropping out
+  slanted further at one Width; Steps on
   the slot blocks, which with Facets cut their sides), `controlInUse`, `subInUse` (given
   the font too)
   and `pagesFor` (the controls and pages a design's letters take: the navigation, the page steps and Find a setting
