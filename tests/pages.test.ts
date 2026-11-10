@@ -141,7 +141,12 @@ describe('editor pages', () => {
     // could take, so the page goes)
     const script = card('chancery');
     assert.ok(controlOff('serif', script) && controlOff('serifTip', script) && !pagesFor(script).some(c => c.id === 'serifs'));
-    assert.ok(pagesFor(card('grotesque')).some(c => c.id === 'serifs') && !controlOff('serifTip', card('grotesque')));
+    // (on a card in a font the serifs keep their own shapes, their tips', sides' and inside serifs' pickers off, and the
+    // Serifs page its switch; square bowl joins, upright and arched diagonals, the k's stem and bar, round bends, the
+    // cupped Y and the raised M are off too, OFFS_ON_FONTS, so their pickers go)
+    assert.ok(pagesFor(card('grotesque')).some(c => c.id === 'serifs') && controlOff('serifTip', card('grotesque')) && !controlOff('serif', card('grotesque')));
+    for (const id of Object.keys(STYLE_FONTS).filter(s => STYLE_FONTS[s] in FONT_OFFS)) for (const k of ['serifTip', 'serifSides', 'serifInner', 'bowlJoin', 'diagonals', 'kForm', 'bends', 'yForm', 'mForm'] as ControlKey[]) assert.ok(controlOff(k, card(id)), `${id} ${k}`);
+    assert.ok(choicesOff(card('grotesque'), 'diagonals').has('arch') && choicesOff(card('grotesque'), 'kForm').has('bar') && !choicesOff(card('grotesque'), 'kForm').has('arm'));
     // (and each choice left out on a card is one its picker offers, and never the card's own)
     for (const [letters, offs] of Object.entries(FONT_OFFS)) for (const [k, vs] of Object.entries(offs)) {
       const id = Object.keys(STYLE_FONTS).find(s => STYLE_FONTS[s] === letters);
@@ -152,6 +157,13 @@ describe('editor pages', () => {
     // (a trait of the Adjust tab laid over the card takes no shape its letters break in: the serifs stay on)
     assert.equal(keepWhole({ ...serif, serif: false }, serif, STYLE_FONTS.serif).serif, true);
     assert.equal(keepWhole({ ...serif, weight: 0.2 }, serif, STYLE_FONTS.serif).weight, 0.2);
+    // (Cursive off the panel on the cards with feet of serifs, its strokes running into them, and the Adjust tab's
+    // Script keeping the card's own there, and on the Block card, its hooks slit at the stems; offered on a sans)
+    for (const id of ['typewriter', 'code', 'oldstyle', 'didone', 'fatface', 'serif', 'softslab', 'block']) {
+      assert.ok(controlOff('cursive', card(id)), id);
+      assert.equal(keepWhole({ ...card(id), cursive: 1 }, card(id), STYLE_FONTS[id]).cursive, card(id).cursive, id);
+    }
+    assert.ok(!controlOff('cursive', card('grotesque')) && keepWhole({ ...card('grotesque'), cursive: 1 }, card('grotesque'), STYLE_FONTS.grotesque).cursive === 1);
     // (the pages and what the panel leaves out are read again when the design's own choice changes)
     assert.notEqual(offsKey(serif), offsKey({ ...serif, serif: false }));
     assert.equal(pagesFor(serif), pagesFor({ ...serif, weight: 0.2 }));

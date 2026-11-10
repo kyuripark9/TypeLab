@@ -25,6 +25,7 @@ export const FONT_WIDTHS: Record<string, [number, number]> = {
   'Vellum:400': [0.7143, 1.7857],
   'Almanac:500': [0.6054, 1.5133],
   'Couture:600': [0.6411, 1.6025],
+  'Ballyhoo:400': [0.913, 1.6304],
   'Cinzel:400': [0.6475, 1.0302],
   'PT Serif:400': [0.6437, 1.5611],
   'Caprasimo:400': [0.662, 1.4784],

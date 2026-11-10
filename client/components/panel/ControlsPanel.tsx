@@ -33,9 +33,12 @@ export function ControlsPanel({ category }: { category: Exclude<CategoryId, 'sty
     const ks = keyList.split(',') as ControlKey[];
     if (keyList && !ks.includes(controlFor(useEditor.getState().active))) actions.setActive(ks[0]);
   }, [keyList]);
+  // (switched on, a font's serifs keep their own shapes where its letters break under the others, FONT_OFFS: then the
+  // switch is all there is, and the note doesn't promise more)
+  const shapes = category === 'serifs' && !serifs && all.some(k => k !== 'serif' && controlInUse(k, { build, blockForm, gridRows }) && !controlOff(k, { ...here, serif: true }));
   const note = build !== 'strokes' && keys.length < all.length
     ? <p className="page-note">Letters built from {build} take only these settings here.</p>
-    : category === 'serifs' && !serifs && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
+    : shapes && <p className="page-note">Switch serifs on to shape their tips, their base and where they reach.</p>;
   if (!shown) return null;
   return (
     <div className="controls-page">

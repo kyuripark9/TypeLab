@@ -71,11 +71,13 @@ const BEND_FLAT = 150;
     flared stems, Sonnet's hairlines, Ballyhoo's beaks, Space Grotesk's M, N and W and Cathedral's blackletter points,
     read as slit, bent or needled within a sixteenth of the way (looked at M N W w 4 6, I J h i j l n, H d u, C G S, R o
     u L r at Width 0 to 100; so the Radial card's narrow a, its own Width 0.15, draws as it did). Look at them again when the engine's moves
-    change (npm run render -- --style inline --free --sweep width). */
+    change (npm run render -- --style inline --free --sweep width). Ballyhoo's narrow end is reined by its mixes with
+    Verticals: its own Width 0.4, narrower than 0.3 with Verticals past 0.6 shut its a and g (npm run breaks -- --sliders,
+    2026-11-09), so Width 0 draws as 0.3 did, wider not reined. */
 const BY_EYE: Record<string, [number, number] | null> = {
   'Bungee Inline:400': null, 'Cabin Sketch:700': null, 'Cormorant:500i': null, 'Libre Caslon Text:400i': null,
   'Turnpike:500': null, 'Serenade:400': null, 'Permanent Marker:400': null, 'Kernel:500': null, 'Martian Mono:400': null,
-  'Bricolage Grotesque:700': null, 'Marcellus:400': null, 'Sonnet:400i': null, 'Ballyhoo:400': null, 'Space Grotesk:400': null,
+  'Bricolage Grotesque:700': null, 'Marcellus:400': null, 'Sonnet:400i': null, 'Ballyhoo:400': [0.913, 1.6304], 'Space Grotesk:400': null,
   'Cathedral:400': null
 };
 

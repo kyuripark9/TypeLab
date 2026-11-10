@@ -27,6 +27,11 @@
                                                      ones that break it kept (writes .tools/out/breaks-sliders.json)
      npm run breaks -- --sliders-cut                 each mix of sliders that broke a card cut down to the fewest
                                                      that still break it, printed
+     npm run breaks -- --mixed 200 [--seed 1]       that many mixes of pickers and sliders on each card together (one or
+                                                     two choices, none to three body sliders, none to two others), the
+                                                     ones that break it kept (writes .tools/out/breaks-mixed.json)
+     npm run breaks -- --mixed-cut                   each of those cut down to the fewest steps that still break it,
+                                                     printed (and written to .tools/out/breaks-mixed-cut.json)
      npm run breaks -- --update-built                how far each slider carries the blocks' and arcs' letters whole,
                                                      Weight and the rest with them (rewrites BUILT_REINS)
      npm run breaks -- --try 'weight:bold,width:condensed' --cards grotesque     one mix (steps, or key=value) on a card
@@ -54,7 +59,9 @@
    The Adjust tab's traits are measured as mixes: --shuffle draws the Shuffle button's mixes on each card and keeps
    those that break it in form (shatters: a piece or a counter on two letters or more), and --shuffle-offs cuts each down
    to the fewest steps that still break the card, the sets traitsOn then leaves the last step of (TRAIT_OFFS). The
-   editor's sliders are measured the same way (--sliders): mixes of them at random values, read as a mix is. */
+   editor's sliders are measured the same way (--sliders): mixes of them at random values, read as a mix is; and with
+   the pickers' and switches' choices picked too (--mixed): the choices read against the card, the sliders against the
+   card with the choices picked. */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -424,9 +431,17 @@ const WALKED_BY_EYE: Record<string, Record<string, ('lo' | 'hi')[]>> = {
 };
 /** Reins on the sliders the walk leaves free (NOT_REINED), set from the sliders' mixes (--sliders, --try): the Block
     card's Weight, past 80 its 6's and 9's counters shut and its G slit (whole at 80 with Verticals at 100), and its
-    Horizontals past its own 98, the a and e pinched. Kept by --update. */
+    Horizontals past its own 98, the a and e pinched; and from the pickers and sliders moved together (--mixed): the
+    Didone's Apex below 50, its V's and W's points cut off at a light Weight or Horizontals (below 40 at any); the code
+    card's Weight and Verticals below 20, spurs on its C, a, g and 6 and its p's bowl notched at the stem with Inner
+    space low; the Wood Type's Weight below 30 and Verticals below 20, its notches cutting through the d, g and q; the
+    Formal Script's Wobble past 50, its o and R apart. Kept by --update. */
 const REINS_BY_MIXES: Record<string, Record<string, [number, number]>> = {
-  'Bulwark:700': { weight: [0, 0.8], hWeight: [0, 0.98] }
+  'Bulwark:700': { weight: [0, 0.8], hWeight: [0, 0.98] },
+  'Couture:600': { apex: [0.5, 1] },
+  'Kernel:500': { weight: [0.2, 1], vWeight: [0.2, 1] },
+  'Timber:400': { weight: [0.3, 1], vWeight: [0.2, 1] },
+  'Serenade:400': { wobble: [0, 0.5] }
 };
 /** The walk's steps (of the way from the card's own value to the slider's end), and the halvings after. */
 const REIN_STEPS = 16, HALVINGS = 4;
@@ -537,16 +552,21 @@ function builtReinsOf(id: string, keys: string[]): { letters: string; reins: Map
     Weight to 60, past which most stroke ends but the card's own broke them, the flat and angled ends' P's and R's
     counters shut and their F's and G's slit (OFFS_BY_MIXES leaves out those that broke sooner), and from 16, below
     which a wider Width or Wobble took the b's and p's bowls off their stems (walked alone, whole to 7); and their
-    Wobble to 70, past which a wider or lighter letter's bowls came off too. */
-const BUILT_BY_MIXES: Record<string, Record<string, [number, number]>> = {
-  'arcs': { weight: [0.16, 0.6], wobble: [0, 0.7] }
+    Wobble to 35, past which a wider or lighter letter's bowls came off too (70 still broke them at Width 85 to 100,
+    npm run breaks -- --sliders). */
+const BUILT_BY_MIXES: Record<string, Record<string, [number, number] | [number, number, number]>> = {
+  'arcs': { weight: [0.16, 0.6], wobble: [0, 0.35], terminalLength: [0.45, 0.769] },
+  'blocks:slots': { counter: [0.15, 1, 0.5] }
 };
+/* (and from the pickers and sliders moved together, --mixed: the arcs' stroke ends shorter than 45 parted the K's arms
+   and the L's foot at a wide Width; the slot blocks' Inner space below 15 shut their a's, p's and r's slots to
+   hairlines at Weight 90 and up; a third number is the card's own value, where the walk kept no row for it) */
 /** shared/font-reins.ts with `table` for BUILT_REINS: by letters, each setting reined to its least and most and the
     card's own value, BUILT_BY_MIXES laid over it. */
 function writeBuiltReins(table: Map<string, Map<string, [number, number, number]>>) {
   for (const [id, r] of Object.entries(BUILT_BY_MIXES)) {
     const row = table.get(id) ?? new Map<string, [number, number, number]>();
-    for (const [k, [lo, hi]] of Object.entries(r)) { const was = row.get(k); row.set(k, [Math.max(lo, was?.[0] ?? 0), Math.min(hi, was?.[1] ?? 1), was?.[2] ?? NaN]); }
+    for (const [k, [lo, hi, own]] of Object.entries(r)) { const was = row.get(k); row.set(k, [Math.max(lo, was?.[0] ?? 0), Math.min(hi, was?.[1] ?? 1), was?.[2] ?? own ?? NaN]); }
     table.set(id, row);
   }
   const src = readFileSync(REINS_FILE, 'utf8'), at = src.indexOf('BUILT_REINS'), open = src.indexOf('= {\n', at) + 4, close = src.indexOf('};', open);
@@ -632,21 +652,60 @@ const lettersKey = (p: Params) => p.freeFont || (p.build === 'blocks' ? `blocks:
     to slits and the chunky round's (Gumdrop) puts ragged serifs on its W and a bar on its 4 (read as the E alone, and
     with almost any other step, on the Shuffle's mixes). */
 const OFFS_BY_EYE: Record<string, Record<string, string[]>> = {
-  'Orbital:600': { serif: ['true'] },
-  'Gumdrop:700': { serif: ['true'] },
+  'Orbital:600': { serif: ['true'], bends: ['round'] },
+  'Gumdrop:700': { serif: ['true'], kForm: ['bar'] },
   'Vellum:400': { serif: ['false'] },
-  'Couture:600': { serif: ['false'] }
+  'Couture:600': { serif: ['false'], bends: ['round'], kForm: ['bar'] },
+  'Almanac:500': { bends: ['round'], kForm: ['bar'] },
+  'Ballyhoo:400': { bends: ['round'] },
+  'Timber:400': { rForm: ['loop'], yForm: ['cup'], mForm: ['raised'] },
+  'Kernel:500': { bowlForm: ['box'], serif: ['true'] },
+  'Compass:300': { bowlForm: ['box'] }
 };
+/* And from the pickers and sliders moved together (--mixed, 2026-11-09), each looked at drawn alone where the mix read a
+   letter or two: round bends on the Squircle, Transitional, Didone and Fat Face cards turned their M's vertex and V's
+   point to notches and their Z's diagonal to a hairline loop; a barred k blotted the Chunky Round's k and K and cut the
+   Transitional's and Didone's K to a hairline; the Wood Type's looped r, cupped y and raised M shut its R and y and
+   notched its M at a narrow Width; the code card's box bowls slit their joins at a wide Width and its Serifs switched
+   on blotted its 4; the Geometric's box bowls came to wedges where they meet the stems. */
 /** Choices that break a card's letters with a slider moved too, from the sliders' mixes (--sliders): the arcs' scooped,
     notched, ball and droplet stroke ends shut their Z's and 4's counters and parted their h's and i's dots from 40 to
     60 on Weight, which BUILT_REINS stops at 60 for the ends left (BUILT_BY_MIXES). */
 const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
-  'arcs': { terminal: ['flat/scooped', 'cut/notched', 'round/ball', 'round/droplet'] }
+  'arcs': { terminal: ['flat/scooped', 'cut/notched', 'round/ball', 'round/droplet', 'angled/outer', 'angled/inner', 'tapered/taper', 'tapered/brush', 'flat/flared'] },
+  'Bulwark:700': { qForm: ['inside'], bowlForm: ['oval'], terminal: ['flat/flared'] },
+  'Gumdrop:700': { jForm: ['cup'] },
+  'blocks:grid': { kForm: ['stem'] }
+};
+/* And from the pickers and sliders moved together (--mixed, 2026-11-09): the arcs' angled ends blotted the R and parted
+   the F's arm at a narrow Width, and their tapered ends parted the B's stem from its bowl and the L's foot from its stem
+   at a wide one, and their flared ends blotted the F and notched the b's and p's bowls at a long Length; the Block
+   card's inside Q tail came out ragged, its oval bowls split at their corners at a light Weight, and its flared ends
+   tore its C, 2 and 5 with Facets; the Chunky Round's J with a cup shut into a d at a narrow Width; the grid blocks'
+   K with a stem took its arms off it. */
+/** Choices left out on every card in a font, from the pickers and sliders moved together (--mixed, 2026-11-09): square
+    bowl joins, whole alone on most cards, notched the bowls of the a, b, d, g, p and q and shut the h's, m's and n's
+    with Weight, Verticals, Joints or Wobble moved on 13 of the 22 cards (alone on the Squircle and Chunky Round); upright
+    diagonals broke the A and v on 8 cards, a foot ragged on the serif cards; the serif tips', sides' and inside serifs'
+    shapes, laid on a font's own serifs, shut the Didone's d and broke its p and R with almost any slider moved, and
+    the Old Style's A and &, the Soft Slab's x and 3, the Block card's E and F and the Formal Script's s and z alone;
+    and from a second round (--mixed 200 --seed 1): arched diagonals filled in the W, v and w at a heavy Verticals or
+    a narrow Width on the Neo Grotesque, Industrial, Fat Face, Wood Type and Block cards (off on two more before); the
+    k's stem and bar forms mashed the k and K together with serifs on or a narrow Width (Neo Grotesque, Old Style,
+    Wood Type, Block; off on ten more before); round bends turned the Humanist's M to a U at a heavy Verticals (off on
+    eleven before); cupped serif bases put a blob on the Typewriter's A and spurs on its S and 6 (off on all but six,
+    those with no serifs to cup); and from a third (seed 2): the cupped Y came to a 4 at a narrow Width on the Neo
+    Grotesque (off on four more before), the raised M to a hairline on the Fat Face at a wide one (off on six more). */
+const OFFS_ON_FONTS: Record<string, string[]> = {
+  bowlJoin: ['square'], diagonals: ['upright', 'arch'], kForm: ['stem', 'bar'], bends: ['round'], serifBase: ['cupped'],
+  yForm: ['cup'], mForm: ['raised'],
+  serifTip: ['round', 'pointed', 'angled'], serifSides: ['left', 'right', 'inside', 'outside'],
+  serifInner: ['bracketed', 'unbracketed', 'slab', 'wedge', 'diamond']
 };
 
 /** shared/font-offs.ts from map `m`: each card's pickers' and switches' choices that break it (`breaks`), by what its
     letters are drawn from, for the pickers the panel offers on it, and those left out by eye (OFFS_BY_EYE) or from
-    the sliders' mixes (OFFS_BY_MIXES). */
+    the sliders' mixes (OFFS_BY_MIXES, and OFFS_ON_FONTS on every card in a font). */
 function writeOffs(m: Map_) {
   const rows: string[] = [];
   for (const id of PAGE_STYLES.map(s => s.id)) {
@@ -659,7 +718,8 @@ function writeOffs(m: Map_) {
     const offered = new Set(keysOf(design));
     const offs = Object.entries(c.keys).filter(([k, r]) => offered.has(k) && r.changed && specOf(k).kind !== 'number')
       .map(([k, r]) => [k, Object.entries(r.values).filter(([, cell]) => breaks(cell)).map(([v]) => v)] as [string, string[]]);
-    for (const [k, vs] of [OFFS_BY_EYE, OFFS_BY_MIXES].flatMap(by => Object.entries(by[lettersKey(design)] ?? {}))) {
+    const byMixes = [OFFS_BY_EYE, OFFS_BY_MIXES].flatMap(by => Object.entries(by[lettersKey(design)] ?? {}));
+    for (const [k, vs] of [...byMixes, ...STYLE_FONTS[id] ? Object.entries(OFFS_ON_FONTS) : []]) {
       const row = offs.find(([o]) => o === k);
       if (row) row[1] = [...new Set([...row[1], ...vs])]; else offs.push([k, vs]);
     }
@@ -696,17 +756,27 @@ function underTraits(id: string, design: Params, t: Traits): Params {
     the arc letters' Q (its tail over the bowl), P (the stem through the bowl's top) and & (its loops) close and open
     small counters where the strokes cross as they grow heavier, narrower or squarer, whole drawn (2026-11-09). */
 const CROSSED: Record<string, string> = { arcs: 'QP&' };
+/** Letters whose hairline swashes and joins cross, touch and part as the settings move, by font, whose pieces and
+    counters aren't read under mixes: the Formal Script's (Serenade) swashes over its K, Q, H, W and &, and the small
+    loops of its b, f and & at a heavy weight; the serif italic's (Sonnet) a, p, q and d where the bowl meets the stem in
+    a hairline, and its w's and X's hairlines at a wide Width; the informal card's (Boardwalk) a and g at the lightest;
+    the blackletter's (Cathedral) G, V, e and d, whose hairline slits inside close as it grows heavier, and its q and w at
+    the lightest; the slot blocks' B, b and & rotated or slanted, whose slots meet at a corner. Every one looked
+    at drawn large, whole, at the mixes that read them broken (--mixed, 2026-11-09): read, they were 36, 7, 1 and 5 of
+    200 mixes broken. */
+const SWASHED: Record<string, string> = { 'Serenade:400': '&KfbHQCWYgVj23', 'Sonnet:400i': 'apqdwX', 'Boardwalk:400': 'ag', 'Cathedral:400': 'GVedqw', 'blocks:slots': 'B&b' };
 
 /** The letters `now` breaks in form against `was`: a piece or counter more or fewer, a needle or a slit (a contour
     bending alone is unseen drawn, as --tighten reads it), the marks the settings `keys` draw on purpose left out. */
 export function brokenInForm(now: Drawn, was: Drawn, keys: string[]): { n: number; bad: Map<string, Kind[]> } {
   let n = 0;
-  const bad = new Map<string, Kind[]>(), crossed = CROSSED[lettersKey(was.p)] ?? '';
+  const bad = new Map<string, Kind[]>(), crossed = CROSSED[lettersKey(was.p)] ?? '', swashed = SWASHED[lettersKey(was.p)] ?? '';
   for (const ch of CHARS) {
     const g = now.glyph(ch), wg = was.glyph(ch);
     if (!g || !wg || g.d === wg.d) continue;
     n++;
-    const k = faultsOf(ch, now, was, keys).filter(x => x !== 'bends' && !(crossed.includes(ch) && (x === 'counters' || x === 'pinched')));
+    const k = faultsOf(ch, now, was, keys).filter(x => x !== 'bends' && !(crossed.includes(ch) && (x === 'counters' || x === 'pinched'))
+      && !(swashed.includes(ch) && (x === 'pieces' || x === 'counters' || x === 'pinched')));
     if (k.length) bad.set(ch, k);
   }
   return { n, bad };
@@ -908,6 +978,93 @@ function slidersCut(cards: string[]) {
     letGo(held);
   }
 }
+// ---- the pickers and sliders moved together ----
+
+/** Mixes of pickers and sliders drawn on each card (--mixed), and the file they are written to; those cut down. */
+export const MIXED_FILE = resolve(OUT, 'breaks-mixed.json'), MIXED_CUT_FILE = resolve(OUT, 'breaks-mixed-cut.json');
+/** Each choice the panel offers on design `p` for picker or switch `k` but its own, as a step ('key=value'; a stroke
+    end 'terminal=kind/form', as the stroke-end picker sets both), less those left out on its letters (choicesOff). */
+function choicesOf(p: Params, k: string): string[] {
+  const off = choicesOff(p, k), spec = specOf(k), at = p[k as keyof Params];
+  if (k === 'terminal') return TERMINAL_SHAPES.flatMap(g => g.shapes)
+    .filter(s => (s.terminal !== p.terminal || s.form !== p.terminalForm) && !off.has(`${s.terminal}/${s.form}`)).map(s => `terminal=${s.terminal}/${s.form}`);
+  if (spec.kind === 'boolean') return off.has(String(!at)) ? [] : [`${k}=${!at}`];
+  return (spec.options ?? []).filter(o => o !== 'auto' && o !== at && !off.has(String(o))).map(o => `${k}=${o}`);
+}
+/** Steps as settings ('key=value'): a stroke end's kind and form from its one step. */
+const expand = (steps: string[]) => steps.flatMap(s => /^terminal=.+\//.test(s) ? [`terminal=${s.slice(9).split('/')[0]}`, `terminalForm=${s.split('/')[1]}`] : [s]);
+const keyOfStep = (s: string) => s.split('=')[0];
+/** The pickers a design's panel offers to pick (a control left out on its letters, controlOff, isn't; the stroke end's
+    form is picked with its kind). */
+const pickersOf = (p: Params) => keysOf(p).filter(k => !isSlider(k) && k !== 'terminalForm' && !controlOff(parentOf(k), p) && choicesOf(p, k).length);
+/** The letters design `design` breaks under choices `picks` and sliders `slid` ('key=value'), the sliders shown in
+    choices `ctx`: the choices against the card (two together breaking what each alone the map read whole), the sliders
+    against the card with the choices and `ctx` picked; each read in form, as a mix is (brokenInForm). */
+function readMix(design: Params, picks: string[], slid: string[], ctx: string[], bases: Map<string, Drawn>, held: Set<string>) {
+  const card = baseOf(bases, design, [], held), bad = new Map<string, Kind[]>();
+  if (picks.length) for (const [ch, k] of brokenInForm(baseOf(bases, design, expand(picks), held), card, expand(picks).map(keyOfStep)).bad) bad.set(ch, k);
+  const picked = picks.length || ctx.length ? baseOf(bases, design, [...expand(picks), ...ctx], held) : card;
+  if (slid.length) for (const [ch, k] of brokenInForm(new Drawn(withSliders(picked.p, slid), held), picked, slid.map(keyOfStep)).bad) bad.set(ch, [...new Set([...bad.get(ch) ?? [], ...k])]);
+  return bad;
+}
+/** Card `id` under `n` mixes of the panel's pickers and sliders together, as a designer might set them in the editor:
+    in each, one or two pickers or switches at a choice the panel offers on the card (choicesOff), then none to three of
+    the body's sliders (BODY) and none to two of the others the panel offers with those choices picked, at values at
+    random (a slider shown only under another choice comes with it, as --sliders has it, unless a choice picked says
+    otherwise). The mixes that break the card in form (shatters), each as its choices, its sliders and their context. */
+function mixedCard(id: string, n: number, seed = 0): ShuffleOut | null {
+  const t0 = Date.now();
+  let held = new Set<string>(), design = designOf(id, held);
+  if (!design) return null;
+  const rand = seeded([...id].reduce((h, c) => Math.imul(h, 31) + c.charCodeAt(0), 17) + seed), out: ShuffleOut = { seconds: 0, n, broken: [] };
+  const some = (from: string[], k: number) => { const pool = [...from]; return Array.from({ length: Math.min(k, pool.length) }, () => pool.splice(Math.floor(rand() * pool.length), 1)[0]); };
+  let bases = new Map<string, Drawn>();
+  const pickers = pickersOf(design);
+  for (let i = 0; i < n; i++) {
+    const picks = some(pickers, 1 + Math.floor(rand() * 2)).map(k => { const c = choicesOf(design!, k); return c[Math.floor(rand() * c.length)]; });
+    const p = withSliders(design, expand(picks)), set = new Map(expand(picks).map(s => s.split('=') as [string, string]));
+    const keys = keysOf(p).filter(k => isSlider(k) && !controlOff(parentOf(k), p));
+    const ctx: Record<string, unknown> = {}, slid: string[] = [];
+    for (const key of [...some(keys.filter(k => BODY.includes(k)), Math.floor(rand() * 4)), ...some(keys.filter(k => !BODY.includes(k)), Math.floor(rand() * 3))]) {
+      const v = Math.round(rand() * 100) / 100, c = showContext(key);
+      if (Object.entries(c).some(([k, x]) => (k in ctx && ctx[k] !== x) || (set.has(k) && set.get(k) !== String(x)) || offered(p, c, k))) continue;
+      for (const [k, x] of Object.entries(c)) if (!set.has(k)) ctx[k] = x;
+      slid.push(`${key}=${v}`);
+    }
+    const ctxSteps = Object.entries(ctx).map(([k, v]) => `${k}=${v}`), bad = readMix(design, picks, slid, ctxSteps, bases, held);
+    if (shatters(bad)) out.broken.push({ steps: [...picks, ...slid], bad: listed(bad), ...ctxSteps.length ? { ctx: ctxSteps } : {} });
+    if (i % 25 === 24) { letGo(held); held = new Set(); design = designOf(id, held)!; bases = new Map(); }
+  }
+  letGo(held);
+  out.seconds = Math.round((Date.now() - t0) / 1000);
+  return out;
+}
+/** Each mix of pickers and sliders that broke a card (MIXED_FILE) cut down, one step put back at a time, to the fewest
+    that still break it: printed, and written to MIXED_CUT_FILE by card. */
+function mixedCut(cards: string[]) {
+  const file: { cards: Record<string, ShuffleOut> } = JSON.parse(readFileSync(MIXED_FILE, 'utf8'));
+  const cut: Record<string, { steps: string[]; ctx: string[]; bad: string[] }[]> = existsSync(MIXED_CUT_FILE) ? JSON.parse(readFileSync(MIXED_CUT_FILE, 'utf8')) : {};
+  for (const id of cards) {
+    const mixes = file.cards[id]?.broken ?? [];
+    cut[id] = [];
+    if (!mixes.length) { writeFileSync(MIXED_CUT_FILE, JSON.stringify(cut, null, 1)); continue; }
+    let held = new Set<string>(), design = designOf(id, held)!, bases = new Map<string, Drawn>(), drawn = 0;
+    const read = (steps: string[], ctx: string[]) => {
+      if (++drawn % 25 === 0) { letGo(held); held = new Set(); design = designOf(id, held)!; bases = new Map(); }
+      return readMix(design, steps.filter(s => !isSlider(keyOfStep(s))), steps.filter(s => isSlider(keyOfStep(s))), ctx, bases, held);
+    };
+    for (const { steps, ctx = [] } of mixes) {
+      let set = [...steps];
+      for (const s of steps) if (set.length > 1 && shatters(read(set.filter(x => x !== s), ctx))) set = set.filter(x => x !== s);
+      const bad = listed(read(set, ctx));
+      cut[id].push({ steps: set, ctx, bad });
+      console.log(`${id.padEnd(14)} ${[...set, ...ctx.map(c => `(${c})`)].join(' ').padEnd(52)} ${bad.join(' ')}`);
+    }
+    letGo(held);
+    writeFileSync(MIXED_CUT_FILE, JSON.stringify(cut, null, 1));
+  }
+}
+
 /** Design `p` with sliders `steps` ('key=value') set. */
 export const withSliders = (p: Params, steps: string[]): Params =>
   ({ ...p, ...Object.fromEntries(steps.map(s => { const [k, v] = s.split('='); return [k, v === 'true' ? true : v === 'false' ? false : Number.isNaN(+v) ? v : +v]; })) });
@@ -933,6 +1090,21 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     }
   }
   else if (args.includes('--shuffle-offs')) await oneAtATime('breaks', () => writeTraitOffs(askedCards.length ? askedCards : CARDS));
+  else if (args.includes('--mixed-cut')) await oneAtATime('breaks', () => mixedCut(askedCards.length ? askedCards : CARDS));
+  else if (args.includes('--mixed')) await oneAtATime('breaks', () => {
+    const t0 = Date.now(), n = Number(opt('--mixed')[0]) || 200, seed = Number(opt('--seed')[0]) || 0;
+    const file: { date: string; cards: Record<string, ShuffleOut> } = existsSync(MIXED_FILE) ? JSON.parse(readFileSync(MIXED_FILE, 'utf8')) : { date: '', cards: {} };
+    mkdirSync(dirname(MIXED_FILE), { recursive: true });
+    for (const id of askedCards.length ? askedCards : CARDS) {
+      const r = mixedCard(id, n, seed);
+      if (!r) { console.log(`${id.padEnd(14)} no font file for ${STYLE_FONTS[id]}; skipped`); continue; }
+      file.cards[id] = r;
+      file.date = new Date().toISOString().slice(0, 10);
+      writeFileSync(MIXED_FILE, JSON.stringify(file));
+      console.log(`${id.padEnd(14)} ${r.broken.length} of ${n} mixes of pickers and sliders break it (${r.seconds} s)`);
+    }
+    console.log(`${((Date.now() - t0) / 1000).toFixed(0)} s; wrote ${MIXED_FILE}`);
+  });
   else if (args.includes('--sliders-cut')) await oneAtATime('breaks', () => slidersCut(askedCards.length ? askedCards : CARDS));
   else if (args.includes('--sliders')) await oneAtATime('breaks', () => {
     const t0 = Date.now(), n = Number(opt('--sliders')[0]) || 200, seed = Number(opt('--seed')[0]) || 0;

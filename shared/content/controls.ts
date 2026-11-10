@@ -87,6 +87,16 @@ const FONT_SUBS_OFF: readonly string[] = ['serifTipRound', 'serifTipSlant', 'ser
     a light weight, and their & shut and b notched with Verticals at 100. Weight alone keeps them whole to both ends
     (reined on the arcs, BUILT_REINS; npm run breaks -- --sliders, 2026-11-09). */
 const BUILT_SUBS_OFF: readonly string[] = ['vWeight', 'hWeight'];
+/** The sliders a card's letters leave out, by what they are drawn from (a font id, as FONT_OFFS keys them): Cursive on
+    the cards with feet of serifs, whose entry and exit strokes run into them. Low, the i's and l's feet come away from
+    their stems (the typewriter's and code card's, npm run breaks -- --sliders, 2026-11-09); high, the strokes cross the
+    serifs in a tangle (the Old Style, Didone, Fat Face, Transitional and Soft Slab cards, looked at drawn); and on the
+    Block card, whose hooks slit at the joins with its stems at a heavy Verticals (npm run breaks -- --mixed). The
+    Adjust tab's Print and Script keep the card's own (keepWhole). */
+const SLIDERS_OFF: Record<string, readonly string[]> = {
+  'Dispatch:400': ['cursive'], 'Kernel:500': ['cursive'], 'Vellum:400': ['cursive'], 'Couture:600': ['cursive'],
+  'Ballyhoo:400': ['cursive'], 'Almanac:500': ['cursive'], 'Hearth:600': ['cursive'], 'Bulwark:700': ['cursive']
+};
 /** Whether nested slider `s` shapes letters built as `p` says, and drawn from its font if it has one (its control in
     use too: controlInUse). */
 export const subInUse = (s: string, p: Pick<Params, 'build'> & { freeFont?: string }) =>
@@ -134,18 +144,21 @@ export function choicesOff(p: Here, k: string): ReadonlySet<string> {
     has none and its Serifs switch is left out, so nothing could switch them on (the Formal Script card, its letters
     broken with serifs, kept a Serifs page with nothing on it). */
 export function controlOff(k: ControlKey, p: Here): boolean {
+  if (SLIDERS_OFF[lettersOf(p)]?.includes(k)) return true;
   if (k !== 'serif' && CONTROLS[k].cat === 'serifs' && p.serif === false && controlOff('serif', p)) return true;
   const off = choicesOff(p, k);
   if (!off.size) return false;
   const own = choiceOf(p, k);
   return choicesOf(k).every(v => v === own || off.has(v));
 }
-/** Design `p` with each choice that breaks its letters (FONT_OFFS, read as `letters`) put back as `was` has it: a trait
-    of the Style page's Adjust tab laid over a card takes no shape the card's letters break in. */
+/** Design `p` with each choice that breaks its letters (FONT_OFFS, read as `letters`) put back as `was` has it, and
+    each slider they leave out (SLIDERS_OFF): a trait of the Style page's Adjust tab laid over a card takes no shape the
+    card's letters break in. */
 export function keepWhole(p: Params, was: Params, letters: string): Params {
-  const offs = FONT_OFFS[letters];
-  if (!offs) return p;
   let out = p;
+  for (const k of SLIDERS_OFF[letters] ?? []) if (out[k as keyof Params] !== was[k as keyof Params]) out = { ...out, [k]: was[k as keyof Params] };
+  const offs = FONT_OFFS[letters];
+  if (!offs) return out;
   for (const [k, vs] of Object.entries(offs)) {
     const now = choiceOf(p, k);
     if (!vs.includes(now) || now === choiceOf(was, k)) continue;
