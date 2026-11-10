@@ -10,7 +10,7 @@ import { FONT_WIDTHS } from '../font-widths';
 import { BUILT_REINS, FONT_REACH, FONT_REINS } from '../font-reins';
 import { drawnCmds, type Drawn, type Node } from './outline';
 import { HAIR_KEEP, PEN, PEN_REVERSED, evenWeight, type EvenLines } from './even-weight';
-import { FORM_LETTERS, SPAN_TOL, ascTo, descTo, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, type SkinMeasures, type SkinRig } from './skin';
+import { FORM_LETTERS, SPAN_TOL, ascTo, descTo, fontVertexed, rigSkeleton, skinMeasures, skinMove, skinRig, skinRoom, skinSpan, skinTail, type SkinMeasures, type SkinRig } from './skin';
 import { ENTRY_LETTERS, EXIT_LETTERS, OVERLAP_LETTERS, bowlLook, cornerLooks, dotLook, restyleBlockBowls, restyleBowls, restyleCursive, restyleDots, restyleOverlap, restylePeaks, restyleCorners, restyleEnds, restyleSerifs, restyleStencil, serifLook, stencilLook, type RestyleCtx } from './restyle';
 import { nearestOn, skeleton, type Skeleton } from './scan';
 import type { Pt, SerifSpec } from './types';
@@ -535,6 +535,10 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   const sl = fl.serifs && fl.serif && withSerifs.has(moved.contours) ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * SERIF_SB, over + sl * 0.15) : v);
   const [a0, a1] = inkSpan(src);
   let lsb = room(a0 * fl.k * fl.sx * fl.sb, x0 - i0), rsb = room((src.adv - a1) * fl.k * fl.sx * fl.sb, i1 - x1);
+  // (a tail drawn on at its slant, reaching further out past the letter's ink, runs on under the letter beside it, the
+  // letter standing where it did: given room, a blackletter h stood off from the b before it, skinTail)
+  const tail = rig && skinned !== rig.contours ? skinTail(skinned!) : undefined;
+  if (tail) { lsb += tail[0] * fl.k * fl.sx; rsb -= tail[1] * fl.k * fl.sx; }
   // (a heavier letter's strokes keep the room the design gives them beside the letters either side, where they grow out
   // under a serif's tip or a bar's end its room is read off: skinRoom)
   if (rig && skinned !== rig.contours) {

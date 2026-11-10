@@ -175,7 +175,15 @@ A design with `freeFont` set draws its letters from a free font instead of build
    of its b d f h k l and f g j p q y, the least share of their reach each keeps every opening between two strokes past
    the line half as tall at (an f's hook over its bar, a script's loops, a g's lower bowl), and never under half, and
    the slider's end lands there (carried as far as the engine's letters go, a grotesque's d read as an a, its f's hook
-   folded flat). How much each
+   folded flat). Drawn out longer (Stem length, Descender length, or a lower Lowercase height under the ascenders), an
+   ascender or a descender that runs on past its line as one straight stroke alone (`tailRun`, read once: a g's stem
+   between its bowl and its hook, a j's, a p's, a y's tail, an f's stem between its bar and its hook) is drawn out
+   along that run only, what lies past it (a hook, a foot, a serif) carried whole, as a designer draws a longer tail;
+   stretched over the whole reach, a g's and a j's hooks were pulled into beaks. A tail that leans (a y's, an italic's
+   stems) is then drawn on at its slant (`tailSlant`, in `skinMove`): on the line of the stroke over the baseline where
+   it runs straight on from it, at its own where it turns off it (a blackletter h's); moved only up and down, a y's tail
+   bent at the baseline. As far as the tail so reaches further out, the letter's side bearing gives way (`skinTail`,
+   read by `freeGlyph`), so the letter stands where it did and the tail runs on under the one beside it. How much each
    edge's stroke thickens is `weighsOf`: by the way it runs (upright by the upright pen's weight, `SkinMeasures.v`,
    which reversed contrast thins; level by the bars', which Weight alone, lighter, draws no heavier than the stems but
    as far as the font's are, `freeLetters`: a heavy design's raised Horizontals would draw Orbital's, Gumdrop's and

@@ -2232,6 +2232,105 @@ function stemKeep(font: RigLetters, letters: string, s: 1 | -1): number {
     stem, runs along a stroke; how far apart its columns are, of the capitals' height; and the steps it reads the share in. */
 const STEM_OPEN = 0.5, STEM_LEAST = 0.5, OPEN_LEAST = 0.5, STEM_ALONG = 1.5, STEM_COLUMN = 0.01, STEM_STEP = 0.01;
 
+/** Where a lowercase letter's descender (s -1), or its ascender (s 1), runs on past its line as one straight stroke
+    alone, no wider than TAIL_WIDE of the font's stem: a g's stem under its bowl and over its hook, a j's or a p's
+    stem, a y's tail, an f's stem over its bar and under its hook, a d's stem. Its heights nearest the line and furthest
+    from it, and, where both its sides lean the same way (TAIL_PLUMB or more off upright, for TAIL_LEAST of the reach or
+    more: a y's tail, an italic's stems, not a j's stem, upright down one side and turning into its hook on the other),
+    how far across it runs a unit up (x over y), else 0, and whether it runs on straight from a stroke over the
+    baseline (through); null where none runs on so for TAIL_SHORT of the reach (a script's loop, a double-storey g's
+    bowl), or the letter reaches less than TAIL_REACH of the way to the line past it. Found from within TAIL_FROM of the reach past
+    the line (under a bowl's overshoot, over an f's bar), and ended where a side bends off its line by TAIL_BEND of the
+    stem (where a hook turns, or a terminal comes in beside it). Read once off the letter. */
+function tailRun(rig: SkinRig, s: 1 | -1): TailRun | null {
+  let kept = tailRuns.get(rig);
+  if (!kept) { kept = [readTail(rig, -1), readTail(rig, 1)]; tailRuns.set(rig, kept); }
+  return kept[s > 0 ? 1 : 0];
+}
+interface TailRun { near: number; far: number; m: number; through: boolean }
+const tailRuns = new WeakMap<SkinRig, [TailRun | null, TailRun | null]>();
+function readTail(rig: SkinRig, s: 1 | -1): TailRun | null {
+  const c = rig.ctx, line = s > 0 ? c.xh : 0, reach = Math.abs((s > 0 ? c.asc : c.desc) - line);
+  if (!c.lower || reach < c.cap * 0.1) return null;
+  const polys = outlineOf(rig), stem = rig.ref().stem, rows: ({ y: number; l: number; r: number } | null)[] = [];
+  // (a letter reaching TAIL_REACH of the way to the line past it, as Stem length and Descender length reach it
+  // (skinFollows): an o's overshoot, read as a tail, was drawn out into a beak)
+  const ys = polys.flat().map(q => q.y);
+  if (s > 0 ? Math.max(...ys) < line + TAIL_REACH * reach : Math.min(...ys) > line - TAIL_REACH * reach) return null;
+  // (where the outline crosses height y, left to right)
+  const across = (y: number) => {
+    const xs: number[] = [];
+    for (const p of polys) for (let i = 0; i < p.length; i++) {
+      const a = p[i], b = p[(i + 1) % p.length];
+      if ((a.y <= y) !== (b.y <= y)) xs.push(a.x + (y - a.y) / (b.y - a.y) * (b.x - a.x));
+    }
+    return xs.sort((u, v) => u - v);
+  };
+  for (let k = 1; k < TAIL_ROWS; k++) {
+    const y = line + s * reach * k / TAIL_ROWS, xs = across(y);
+    // (and only as far as ink runs on from the line: not an i's dot)
+    if (!xs.length) break;
+    rows.push(xs.length === 2 && xs[1] - xs[0] <= TAIL_WIDE * stem ? { y, l: xs[0], r: xs[1] } : null);
+  }
+  const i0 = rows.findIndex(r => r);
+  if (i0 < 0 || i0 > TAIL_FROM * TAIL_ROWS) return null;
+  let i1 = i0;
+  while (i1 + 1 < rows.length && rows[i1 + 1]) i1++;
+  // (a side's slope over the run, and whether it keeps to that line)
+  const side = (run: { y: number; l: number; r: number }[], e: 'l' | 'r') => {
+    const a = run[0], z = run[run.length - 1], m = (z[e] - a[e]) / (z.y - a.y);
+    return { m, straight: run.every(q => Math.abs(a[e] + (q.y - a.y) * m - q[e]) <= TAIL_BEND * stem) };
+  };
+  for (; i1 - i0 + 1 >= TAIL_SHORT * TAIL_ROWS; i1--) {
+    const run = rows.slice(i0, i1 + 1) as { y: number; l: number; r: number }[], L = side(run, 'l'), R = side(run, 'r');
+    if (!L.straight || !R.straight) continue;
+    const m = run.length >= TAIL_LEAST * TAIL_ROWS && L.m * R.m > 0 && Math.min(Math.abs(L.m), Math.abs(R.m)) >= TAIL_PLUMB ? (L.m + R.m) / 2 : 0;
+    // (and whether it runs on straight from a stroke over its line, one side of it at least on its line through THROUGH
+    // of the x-height over it: a y's outer side up its arm (its inner meets the other arm), an italic's stem; not a
+    // blackletter h's tail, turned off its upright leg at the baseline)
+    const a = run[0], through = !!m && ([[a.l, L.m], [a.r, R.m]] as const).some(([x, k]) => THROUGH.every(f => {
+      const y = line - s * f * c.xh, want = x + (y - a.y) * k;
+      return across(y).some(v => Math.abs(v - want) <= THROUGH_NEAR * stem);
+    }));
+    return { near: a.y, far: run[run.length - 1].y, m, through };
+  }
+  return null;
+}
+const THROUGH = [0.15, 0.25, 0.35, 0.45], THROUGH_NEAR = 0.25, TAIL_ROWS = 60, TAIL_REACH = 0.5, TAIL_WIDE = 1.8, TAIL_FROM = 0.35, TAIL_SHORT = 0.06, TAIL_LEAST = 0.25, TAIL_BEND = 0.06;
+/** A slanted tail under the baseline (a y's, an italic's stems: tailRun) drawn on at its slant as the heights move
+    it: each point under the baseline moved across as far as the tail leans over the way the heights moved it, what
+    lies past the tail's run (a y's foot) with it whole. A tail running on straight from the stroke over the baseline
+    (TailRun.through) keeps on that stroke's line as the x-height moves it (Lowercase height lower, the descenders
+    drawn out), one turned off it at the baseline (a blackletter h's) its own slant. Moved only up and down, a
+    grotesque's y's tail bent at the baseline, steeper under it than its arm over it. As far as the tail so reaches
+    further out past the letter's ink, or less far, its side bearing gives way (skinTail, read by freeGlyph), so the
+    letter stands where it did and the tail runs on under the one beside it, as a long tail does. */
+function tailSlant(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures, out: Node[][]): Node[][] {
+  const run = tailRun(rig, -1);
+  if (!run?.m || out === rig.contours) return out;
+  const { gy, sx } = moveMap(rig, m0, m1), k0 = run.through ? gy(1) - gy(0) : 1, lo = gy(run.far);
+  // (where a height under the baseline came from: gy is piecewise linear and rising, read back by halving)
+  const from = (Y: number) => { let a = Y - rig.ctx.cap, b = Y + rig.ctx.cap; for (let i = 0; i < 40; i++) { const m = (a + b) / 2; if (gy(m) < Y) a = m; else b = m; } return (a + b) / 2; };
+  const dx = (Y: number) => { if (Y >= 0) return 0; const y = Y <= lo ? run.far : from(Y); return sx * run.m * (gy(y) / k0 - y); };
+  if (Math.abs(dx(lo)) < 0.5) return out;
+  const moved = out.map(cn => cn.map(n => {
+    const q: Node = { ...n, x: n.x + dx(n.y) };
+    if (n.ix !== undefined) q.ix = n.ix + dx(n.iy!);
+    if (n.ox !== undefined) q.ox = n.ox + dx(n.oy!);
+    return q;
+  }));
+  out.forEach((cn, i) => { const t = TRACED.get(cn); if (t) TRACED.set(moved[i], t.map(p => ({ x: p.x + dx(p.y), y: p.y }))); });
+  // (the room it took kept: the tail's reach is given way for by its side bearing, skinTail)
+  const span = SPANS.get(out), [a0, a1] = curvesReach(out), [b0, b1] = curvesReach(moved);
+  if (span) SPANS.set(moved, span);
+  TAIL_ROOM.set(moved, [b0 - a0, b1 - a1]);
+  return moved;
+}
+const TAIL_PLUMB = 0.12;
+/** How much further left and right (less, the other way) a letter's ink reaches for its tail drawn on at its slant
+    (tailSlant), in the font's units, by the outline skinMove gave. */
+const TAIL_ROOM = new WeakMap<Node[][], [number, number]>();
+export const skinTail = (out: Node[][]) => TAIL_ROOM.get(out);
 /** A piecewise-linear map with knots [from, to], carried on beyond them unscaled. */
 const piecewise = (knots: [number, number][]) => (y: number) => {
   if (y <= knots[0][0]) return y + knots[0][1] - knots[0][0];
@@ -2534,7 +2633,7 @@ export function skinMove(rig: SkinRig, m0: SkinMeasures, to: SkinMeasures): Node
   const key = [m0, m1].map(m => MEASURES.map(k => m[k].toFixed(4)).join()).join('|');
   const kept = rig.moves.get(key);
   if (kept) return kept;
-  const out = fairMoved(rig, m0, m1, moveRig(rig, m0, m1));
+  const out = tailSlant(rig, m0, m1, fairMoved(rig, m0, m1, moveRig(rig, m0, m1)));
   if (rig.moves.size >= MOVES_KEPT) rig.moves.delete(rig.moves.keys().next().value!);
   rig.moves.set(key, out);
   return out;
@@ -4036,8 +4135,19 @@ function moveMap(rig: SkinRig, m0: SkinMeasures, m1: SkinMeasures): MoveMap {
   // Stem length draws the ascenders up and the descenders down, from a little way past the x-height and the
   // baseline (so an overshoot there stays as it is), no shorter than the font's letters keep their shapes at
   const pad = c.cap * 0.04;
-  if (c.lower) knots.push([c.asc, ascTo(rig, top1, m0.asc, m1.asc)]);
-  if (c.lower && Math.abs(m1.desc - m0.desc) > 1e-4 && c.desc < -pad * 2) knots.unshift([c.desc, Math.min(-pad * 2, descTo(rig, m0.desc, m1.desc))]);
+  // (drawn out further than it reached, an ascender or a descender that runs on past its line as one straight stroke
+  // is drawn out along that run alone, what lies past it carried whole, as a longer one is drawn: stretched over its
+  // reach, a g's and a j's hooks were pulled long into beaks and an f's hook up, tailRun)
+  if (c.lower) {
+    const up = ascTo(rig, top1, m0.asc, m1.asc), run = tailRun(rig, 1);
+    if (run && run.near > knots[knots.length - 1][0] && up - top1 > c.asc - top + 1e-6) knots.push([run.near, run.near + top1 - top], [run.far, run.far + up - c.asc]);
+    else knots.push([c.asc, up]);
+  }
+  if (c.lower && Math.abs(m1.desc - m0.desc) > 1e-4 && c.desc < -pad * 2) {
+    const to = Math.min(-pad * 2, descTo(rig, m0.desc, m1.desc)), run = tailRun(rig, -1);
+    if (run && to < c.desc - 1e-6) knots.unshift([run.far, run.far + to - c.desc], [run.near, run.near]);
+    else knots.unshift([c.desc, to]);
+  }
   const gy = piecewise(knots), gx = (x: number) => mid + (x - mid) * sx;
   // a dot sits over the x-height, where the x-height puts it, whatever the ascenders do
   const gyDot = piecewise(knots.filter(([y]) => y >= 0 && y <= top));
