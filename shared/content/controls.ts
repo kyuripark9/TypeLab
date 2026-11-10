@@ -94,11 +94,13 @@ const BUILT_SUBS_OFF: readonly string[] = ['vWeight', 'hWeight'];
     Block card, whose hooks slit at the joins with its stems at a heavy Verticals (npm run breaks -- --mixed), and the
     Blackletter, where it barely shows but at a short Lowercase height ran the i's and j's dots into their stems. And
     Steps on the slot blocks, whose notches stand off their round corners as tabs and, with any Facets, cut every
-    letter's sides (--mixed, 2026-11-10). The Adjust tab's Print and Script keep the card's own (keepWhole). */
+    letter's sides (--mixed, 2026-11-10). And Slant on the Formal Script, drawn italic: stood up below half, its I's,
+    J's and W's swashes come out ragged (--mixed, --seed 6; Slant isn't reined, as its family's uprights stand it up).
+    The Adjust tab's Print and Script, and its slants, keep the card's own (keepWhole). */
 const SLIDERS_OFF: Record<string, readonly string[]> = {
   'Dispatch:400': ['cursive'], 'Kernel:500': ['cursive'], 'Vellum:400': ['cursive'], 'Couture:600': ['cursive'],
   'Ballyhoo:400': ['cursive'], 'Almanac:500': ['cursive'], 'Hearth:600': ['cursive'], 'Bulwark:700': ['cursive'],
-  'Cathedral:400': ['cursive'], 'blocks:slots': ['steps']
+  'Cathedral:400': ['cursive'], 'Serenade:400': ['slant'], 'blocks:slots': ['steps']
 };
 /** Whether nested slider `s` shapes letters built as `p` says, and drawn from its font if it has one (its control in
     use too: controlInUse). */

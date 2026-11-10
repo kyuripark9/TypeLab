@@ -438,14 +438,18 @@ const WALKED_BY_EYE: Record<string, Record<string, ('lo' | 'hi')[]>> = {
     Formal Script's Wobble past 50, its o and R apart; the Didone's Wobble past 60, which slit its H's crossbar and
     shut the 8's and p's counters at a wide Width or a light Weight (2026-11-10); the Chunky Round's past 60, which
     slit its D's counter and shut its a's and &'s at a heavy Weight slanted, and the Blackletter's past 60, which broke
-    its B's and P's bowls slanted at a middling Width (--seed 4). Kept by --update. */
+    its B's and P's bowls slanted at a middling Width (--seed 4); the Chunky Round's Weight past 90 and Verticals past
+    70, which filled its A's and &'s counters at a narrow Width (at its own width with both heavy), and the serif
+    italic's Joints past 70, which cut its
+    4's and 8's joins to needles at its lightest and narrowest (--seed 6). Kept by --update. */
 const REINS_BY_MIXES: Record<string, Record<string, [number, number]>> = {
   'Bulwark:700': { weight: [0, 0.8], hWeight: [0, 0.98] },
   'Couture:600': { apex: [0.5, 1], wobble: [0, 0.6] },
   'Kernel:500': { weight: [0.2, 1], vWeight: [0.2, 1] },
   'Timber:400': { weight: [0.3, 1], vWeight: [0.2, 1] },
   'Serenade:400': { wobble: [0, 0.5] },
-  'Gumdrop:700': { wobble: [0, 0.6] },
+  'Gumdrop:700': { wobble: [0, 0.6], weight: [0, 0.9], vWeight: [0, 0.7] },
+  'Sonnet:400i': { joints: [0, 0.7] },
   'Cathedral:400': { wobble: [0, 0.6] }
 };
 /** The walk's steps (of the way from the card's own value to the slider's end), and the halvings after. */
@@ -683,8 +687,10 @@ const OFFS_BY_EYE: Record<string, Record<string, string[]>> = {
 const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
   'arcs': { terminal: ['flat/scooped', 'cut/notched', 'round/ball', 'round/droplet', 'angled/outer', 'angled/inner', 'tapered/taper', 'tapered/brush', 'flat/flared', 'cut/level'] },
   'Bulwark:700': { qForm: ['inside'], bowlForm: ['oval'], terminal: ['flat/flared'] },
-  'Gumdrop:700': { jForm: ['cup'] },
+  'Gumdrop:700': { jForm: ['cup'], rForm: ['loop'] },
   'Cotton:300': { bowlForm: ['box'] },
+  'Timber:400': { terminal: ['flat/scooped'] },
+  'Serenade:400': { bowlForm: ['box'] },
   'blocks:grid': { kForm: ['stem'] }
 };
 /* And from the pickers and sliders moved together (--mixed, 2026-11-09): the arcs' angled ends blotted the R and parted
@@ -695,7 +701,10 @@ const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
    K with a stem took its arms off it; and (--seed 4, 2026-11-10) the arcs' level ends, which shut the R and crossed
    the F's arms from Length 75 at most weights (the Arcs keep Flat and Round); and (--seed 5) the Rounded card's box
    bowls, which lost their side against the stem at a sharp Box roundness and, at a light Weight with Contrast low,
-   cut into the b's, d's, p's and q's stems (off on the Geometric and code cards before). */
+   cut into the b's, d's, p's and q's stems (off on the Geometric and code cards before); and (--seed 6) the Chunky
+   Round's looped R, which tangled at a narrow Width slanted, the Wood Type's scooped ends, which bit its C's and G's
+   ends to pieces at a long Curl, and the Formal Script's box bowls, which pinched its I's and s's loops at a narrow
+   Width with heavy Verticals. */
 /** Choices left out on every card in a font, from the pickers and sliders moved together (--mixed, 2026-11-09): square
     bowl joins, whole alone on most cards, notched the bowls of the a, b, d, g, p and q and shut the h's, m's and n's
     with Weight, Verticals, Joints or Wobble moved on 13 of the 22 cards (alone on the Squircle and Chunky Round); upright

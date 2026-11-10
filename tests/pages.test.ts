@@ -172,6 +172,12 @@ describe('editor pages', () => {
     assert.ok(choicesOff(card('arcs'), 'terminal').has('cut/level') && !choicesOff(card('arcs'), 'terminal').has('flat/plain'));
     // (the Rounded card's box bowls off, their sides cutting into the stems at a light Weight; offered on the Neo Grotesque)
     assert.ok(choicesOff(card('soft'), 'bowlForm').has('box') && !choicesOff(card('grotesque'), 'bowlForm').has('box'));
+    // (the Chunky Round's looped R, the Wood Type's scooped ends and the Formal Script's box bowls off; Slant off the
+    // Formal Script, its swashes ragged stood up, and the Adjust tab's slants keeping its own; offered on a sans)
+    assert.ok(choicesOff(card('chunkyround'), 'rForm').has('loop') && choicesOff(card('woodtype'), 'terminal').has('flat/scooped'));
+    assert.ok(choicesOff(card('chancery'), 'bowlForm').has('box'));
+    assert.ok(controlOff('slant', card('chancery')) && !controlOff('slant', card('grotesque')));
+    assert.equal(keepWhole({ ...card('chancery'), slant: 0 }, card('chancery'), STYLE_FONTS.chancery).slant, card('chancery').slant);
     // (the pages and what the panel leaves out are read again when the design's own choice changes)
     assert.notEqual(offsKey(serif), offsKey({ ...serif, serif: false }));
     assert.equal(pagesFor(serif), pagesFor({ ...serif, weight: 0.2 }));
