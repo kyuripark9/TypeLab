@@ -441,7 +441,8 @@ const WALKED_BY_EYE: Record<string, Record<string, ('lo' | 'hi')[]>> = {
     its B's and P's bowls slanted at a middling Width (--seed 4); the Chunky Round's Weight past 90 and Verticals past
     70, which filled its A's and &'s counters at a narrow Width (at its own width with both heavy), and the serif
     italic's Joints past 70, which cut its
-    4's and 8's joins to needles at its lightest and narrowest (--seed 6). Kept by --update. */
+    4's and 8's joins to needles at its lightest and narrowest (--seed 6); the Geometric's Weight past 90, which with
+    Serifs on spurred its b's, p's and q's bowls at the stem at a Width near two thirds (--seed 7). Kept by --update. */
 const REINS_BY_MIXES: Record<string, Record<string, [number, number]>> = {
   'Bulwark:700': { weight: [0, 0.8], hWeight: [0, 0.98] },
   'Couture:600': { apex: [0.5, 1], wobble: [0, 0.6] },
@@ -450,7 +451,8 @@ const REINS_BY_MIXES: Record<string, Record<string, [number, number]>> = {
   'Serenade:400': { wobble: [0, 0.5] },
   'Gumdrop:700': { wobble: [0, 0.6], weight: [0, 0.9], vWeight: [0, 0.7] },
   'Sonnet:400i': { joints: [0, 0.7] },
-  'Cathedral:400': { wobble: [0, 0.6] }
+  'Cathedral:400': { wobble: [0, 0.6] },
+  'Compass:300': { weight: [0, 0.9] }
 };
 /** The walk's steps (of the way from the card's own value to the slider's end), and the halvings after. */
 const REIN_STEPS = 16, HALVINGS = 4;
@@ -691,6 +693,14 @@ const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
   'Cotton:300': { bowlForm: ['box'] },
   'Timber:400': { terminal: ['flat/scooped'] },
   'Serenade:400': { bowlForm: ['box'] },
+  'Vellum:400': { bowlForm: ['box'] },
+  'Couture:600': { bowlForm: ['box'] },
+  'Dispatch:400': { bowlForm: ['box'] },
+  'Boardwalk:400': { bowlForm: ['box'] },
+  'Parlance:500': { bowlForm: ['box'] },
+  'Almanac:500': { bowlForm: ['box'] },
+  'Sonnet:400i': { bowlForm: ['box'] },
+  'Ballyhoo:400': { bowlForm: ['box'] },
   'blocks:grid': { kForm: ['stem'] }
 };
 /* And from the pickers and sliders moved together (--mixed, 2026-11-09): the arcs' angled ends blotted the R and parted
@@ -704,7 +714,10 @@ const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
    cut into the b's, d's, p's and q's stems (off on the Geometric and code cards before); and (--seed 6) the Chunky
    Round's looped R, which tangled at a narrow Width slanted, the Wood Type's scooped ends, which bit its C's and G's
    ends to pieces at a long Curl, and the Formal Script's box bowls, which pinched its I's and s's loops at a narrow
-   Width with heavy Verticals. */
+   Width with heavy Verticals; and (--seed 7) the box bowls of the Typewriter, Old Style, Didone and Informal cards,
+   which came off or notched their b's, d's, p's and q's stems at Weight 10 or lighter and a sharp Box roundness, and
+   of the Humanist, Transitional, serif italic and Fat Face cards, which spurred their a's, b's, 6's and 9's joins
+   there with Horizontals at their lightest (the nine cards keeping them read whole at ten more corners). */
 /** Choices left out on every card in a font, from the pickers and sliders moved together (--mixed, 2026-11-09): square
     bowl joins, whole alone on most cards, notched the bowls of the a, b, d, g, p and q and shut the h's, m's and n's
     with Weight, Verticals, Joints or Wobble moved on 13 of the 22 cards (alone on the Squircle and Chunky Round); upright
@@ -717,10 +730,12 @@ const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
     Wood Type, Block; off on ten more before); round bends turned the Humanist's M to a U at a heavy Verticals (off on
     eleven before); cupped serif bases put a blob on the Typewriter's A and spurs on its S and 6 (off on all but six,
     those with no serifs to cup); and from a third (seed 2): the cupped Y came to a 4 at a narrow Width on the Neo
-    Grotesque (off on four more before), the raised M to a hairline on the Fat Face at a wide one (off on six more). */
+    Grotesque (off on four more before), the raised M to a hairline on the Fat Face at a wide one (off on six more); and
+    from the eighth (seed 7): the looped R, a form no font here draws, filled its counter solid at a heavy Weight and a
+    narrow Width on the casual card and most of the others (off on two before). */
 const OFFS_ON_FONTS: Record<string, string[]> = {
   bowlJoin: ['square'], diagonals: ['upright', 'arch'], kForm: ['stem', 'bar'], bends: ['round'], serifBase: ['cupped'],
-  yForm: ['cup'], mForm: ['raised'],
+  yForm: ['cup'], mForm: ['raised'], rForm: ['loop'],
   serifTip: ['round', 'pointed', 'angled'], serifSides: ['left', 'right', 'inside', 'outside'],
   serifInner: ['bracketed', 'unbracketed', 'slab', 'wedge', 'diamond']
 };

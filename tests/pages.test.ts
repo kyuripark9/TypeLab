@@ -158,13 +158,14 @@ describe('editor pages', () => {
     assert.equal(keepWhole({ ...serif, serif: false }, serif, STYLE_FONTS.serif).serif, true);
     assert.equal(keepWhole({ ...serif, weight: 0.2 }, serif, STYLE_FONTS.serif).weight, 0.2);
     // (Cursive off the panel on the cards with feet of serifs, its strokes running into them, and the Adjust tab's
-    // Script keeping the card's own there, on the Block card, its hooks slit at the stems, and on the Blackletter, its
-    // dots run into the stems; offered on a sans)
-    for (const id of ['typewriter', 'code', 'oldstyle', 'didone', 'fatface', 'serif', 'softslab', 'block', 'blackletter']) {
+    // Script keeping the card's own there, on the Block card, its hooks slit at the stems, and on the Blackletter and
+    // seven sans cards, the i's and j's dots run into the stems at a short Lowercase height; offered on the Rounded card)
+    for (const id of ['typewriter', 'code', 'oldstyle', 'didone', 'fatface', 'serif', 'softslab', 'block', 'blackletter',
+      'grotesque', 'humanist', 'geometric', 'squircle', 'chunkyround', 'woodtype', 'comic']) {
       assert.ok(controlOff('cursive', card(id)), id);
       assert.equal(keepWhole({ ...card(id), cursive: 1 }, card(id), STYLE_FONTS[id]).cursive, card(id).cursive, id);
     }
-    assert.ok(!controlOff('cursive', card('grotesque')) && keepWhole({ ...card('grotesque'), cursive: 1 }, card('grotesque'), STYLE_FONTS.grotesque).cursive === 1);
+    assert.ok(!controlOff('cursive', card('soft')) && keepWhole({ ...card('soft'), cursive: 1 }, card('soft'), STYLE_FONTS.soft).cursive === 1);
     // (Steps off the slot blocks, its notches cutting their sides with Facets; offered on the grid blocks)
     assert.ok(controlOff('steps', card('slotblocks')) && !controlOff('steps', card('gridblocks')));
     assert.equal(keepWhole({ ...card('slotblocks'), steps: 1 }, card('slotblocks'), 'blocks:slots').steps, card('slotblocks').steps);
@@ -178,6 +179,12 @@ describe('editor pages', () => {
     assert.ok(choicesOff(card('chancery'), 'bowlForm').has('box'));
     assert.ok(controlOff('slant', card('chancery')) && !controlOff('slant', card('grotesque')));
     assert.equal(keepWhole({ ...card('chancery'), slant: 0 }, card('chancery'), STYLE_FONTS.chancery).slant, card('chancery').slant);
+    // (the looped R off on every card in a font, filled solid heavy and narrow; the box bowls of eight more cards off,
+    // apart from or spurred at their stems at the lightest)
+    for (const id of ['casual', 'grotesque', 'serif', 'block']) assert.ok(controlOff('rForm', card(id)), id);
+    for (const id of ['typewriter', 'oldstyle', 'didone', 'informal', 'humanist', 'serif', 'serifitalic', 'fatface']) {
+      assert.ok(choicesOff(card(id), 'bowlForm').has('box'), id);
+    }
     // (the pages and what the panel leaves out are read again when the design's own choice changes)
     assert.notEqual(offsKey(serif), offsKey({ ...serif, serif: false }));
     assert.equal(pagesFor(serif), pagesFor({ ...serif, weight: 0.2 }));

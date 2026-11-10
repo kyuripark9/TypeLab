@@ -13,7 +13,8 @@
    code card's Weight and Verticals below 20, spurs and notches at its lightest, the Wood Type's Weight below 30 and
    Verticals below 20, its notches cutting through, the Formal Script's Wobble past 50 and the Didone's, Chunky Round's and Blackletter's past 60, the Didone's H
    slit and its 8 shut at a wide Width, the Chunky Round's Weight past 90 and Verticals past 70, its A's and &'s
-   counters filled in narrow, and the serif italic's Joints past 70, its 4 and 8 cut to needles at its lightest),
+   counters filled in narrow, the serif italic's Joints past 70, its 4 and 8 cut to needles at its lightest, and the
+   Geometric's Weight past 90, its b's, p's and q's bowls spurred at the stem with Serifs on),
    nor Width
    (shared/font-widths.ts), nor Bowl overlap (its way to a bowl apart from its stem passes through the bowl just
    leaving it). Measured on each card by tools/breaks.ts, the
@@ -25,7 +26,7 @@ import type { NumericParam } from './params';
 export const FONT_REINS: Record<string, Partial<Record<NumericParam, [number, number]>>> = {
   'Mainline:600': { squareness: [0, 0.873], terminalTip: [0, 0.953], serifInnerSize: [0, 0.652], wobble: [0, 0.718], xHeight: [0.421, 1], crossbar: [0, 0.933], counter: [0, 0.649] },
   'Parlance:500': { squareness: [0, 0.893], serifTipRound: [0.625, 1], serifTipSlant: [0.769, 1], serifInnerSize: [0, 0.685], wobble: [0, 0.8], xHeight: [0.314, 1], slice: [0, 0.636] },
-  'Compass:300': { curve: [0, 0.839], squareness: [0, 0.666], serifTipRound: [0.684, 1], serifCup: [0.143, 1], serifInnerSize: [0, 0.871], xHeight: [0.563, 1], counter: [0.024, 1], slice: [0, 0.652] },
+  'Compass:300': { curve: [0, 0.839], squareness: [0, 0.666], serifTipRound: [0.684, 1], serifCup: [0.143, 1], serifInnerSize: [0, 0.871], xHeight: [0.563, 1], counter: [0.024, 1], slice: [0, 0.652], weight: [0, 0.9] },
   'Cotton:300': { squareness: [0, 0.599], chamfer: [0, 0.917], steps: [0, 0.66], serifCup: [0, 0.81], serifInnerSize: [0, 0.943], slice: [0, 0.832] },
   'Turnpike:500': { curve: [0, 0.183], squareness: [0, 0.964], joinRound: [0, 0.027], terminalCurl: [0, 0.83], serifCup: [0.229, 0.554], serifInnerSize: [0.084, 0.759], cursive: [0, 0.816], wobble: [0, 0.917], xHeight: [0.456, 0.983], counter: [0, 0.783] },
   'Orbital:600': { serifTipSlant: [0, 0.905], serifInnerSize: [0.049, 0.63], wobble: [0, 0.929], xHeight: [0.537, 1], crossbar: [0.239, 0.822], counter: [0, 0.862] },
