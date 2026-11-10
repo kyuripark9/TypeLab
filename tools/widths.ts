@@ -73,11 +73,13 @@ const BEND_FLAT = 150;
     u L r at Width 0 to 100; so the Radial card's narrow a, its own Width 0.15, draws as it did). Look at them again when the engine's moves
     change (npm run render -- --style inline --free --sweep width). Ballyhoo's narrow end is reined by its mixes with
     Verticals: its own Width 0.4, narrower than 0.3 with Verticals past 0.6 shut its a and g (npm run breaks -- --sliders,
-    2026-11-09), so Width 0 draws as 0.3 did, wider not reined. */
+    2026-11-09), so Width 0 draws as 0.3 did; and its wide end by its mixes with Weight: at the widest, lighter than 10,
+    its g's ear came off and its ? and serifs stood out in needles (npm run breaks -- --mixed --seed 4), so wider than
+    1.55 of its own width is reined (1.63 measured). */
 const BY_EYE: Record<string, [number, number] | null> = {
   'Bungee Inline:400': null, 'Cabin Sketch:700': null, 'Cormorant:500i': null, 'Libre Caslon Text:400i': null,
   'Turnpike:500': null, 'Serenade:400': null, 'Permanent Marker:400': null, 'Kernel:500': null, 'Martian Mono:400': null,
-  'Bricolage Grotesque:700': null, 'Marcellus:400': null, 'Sonnet:400i': null, 'Ballyhoo:400': [0.913, 1.6304], 'Space Grotesk:400': null,
+  'Bricolage Grotesque:700': null, 'Marcellus:400': null, 'Sonnet:400i': null, 'Ballyhoo:400': [0.913, 1.55], 'Space Grotesk:400': null,
   'Cathedral:400': null
 };
 

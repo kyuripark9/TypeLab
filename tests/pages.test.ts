@@ -158,8 +158,9 @@ describe('editor pages', () => {
     assert.equal(keepWhole({ ...serif, serif: false }, serif, STYLE_FONTS.serif).serif, true);
     assert.equal(keepWhole({ ...serif, weight: 0.2 }, serif, STYLE_FONTS.serif).weight, 0.2);
     // (Cursive off the panel on the cards with feet of serifs, its strokes running into them, and the Adjust tab's
-    // Script keeping the card's own there, and on the Block card, its hooks slit at the stems; offered on a sans)
-    for (const id of ['typewriter', 'code', 'oldstyle', 'didone', 'fatface', 'serif', 'softslab', 'block']) {
+    // Script keeping the card's own there, on the Block card, its hooks slit at the stems, and on the Blackletter, its
+    // dots run into the stems; offered on a sans)
+    for (const id of ['typewriter', 'code', 'oldstyle', 'didone', 'fatface', 'serif', 'softslab', 'block', 'blackletter']) {
       assert.ok(controlOff('cursive', card(id)), id);
       assert.equal(keepWhole({ ...card(id), cursive: 1 }, card(id), STYLE_FONTS[id]).cursive, card(id).cursive, id);
     }
@@ -167,6 +168,8 @@ describe('editor pages', () => {
     // (Steps off the slot blocks, its notches cutting their sides with Facets; offered on the grid blocks)
     assert.ok(controlOff('steps', card('slotblocks')) && !controlOff('steps', card('gridblocks')));
     assert.equal(keepWhole({ ...card('slotblocks'), steps: 1 }, card('slotblocks'), 'blocks:slots').steps, card('slotblocks').steps);
+    // (the arcs keep their flat and round ends; the level ends, which shut the R at a long Length, are off)
+    assert.ok(choicesOff(card('arcs'), 'terminal').has('cut/level') && !choicesOff(card('arcs'), 'terminal').has('flat/plain'));
     // (the pages and what the panel leaves out are read again when the design's own choice changes)
     assert.notEqual(offsKey(serif), offsKey({ ...serif, serif: false }));
     assert.equal(pagesFor(serif), pagesFor({ ...serif, weight: 0.2 }));

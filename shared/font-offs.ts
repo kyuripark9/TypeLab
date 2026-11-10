@@ -37,5 +37,5 @@ export const FONT_OFFS: Record<string, Record<string, string[]>> = {
   'Bulwark:700': { bowlForm: ['oval'], bowlJoin: ['square'], bends: ['round'], terminal: ['flat/flared'], serif: ['true'], serifTip: ['round', 'pointed', 'angled'], serifBase: ['cupped'], serifSides: ['left', 'right', 'inside', 'outside'], serifInner: ['bracketed', 'unbracketed', 'slab', 'wedge', 'diamond'], story: ['single'], diagonals: ['upright', 'arch'], apexForm: ['serif'], gForm: ['mirrored'], kForm: ['stem', 'bar'], mForm: ['raised'], qForm: ['sweep', 'inside'], sForm: ['flat'], yForm: ['cup'] },
   'blocks:slots': { iForm: ['bars'] },
   'blocks:grid': { cellJoin: ['pixel'], kForm: ['stem'] },
-  'arcs': { terminal: ['sharp/pointed', 'sharp/clipped', 'flat/scooped', 'cut/notched', 'round/ball', 'round/droplet', 'angled/outer', 'angled/inner', 'tapered/taper', 'tapered/brush', 'flat/flared'] }
+  'arcs': { terminal: ['sharp/pointed', 'sharp/clipped', 'flat/scooped', 'cut/notched', 'round/ball', 'round/droplet', 'angled/outer', 'angled/inner', 'tapered/taper', 'tapered/brush', 'flat/flared', 'cut/level'] }
 };

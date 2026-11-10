@@ -436,13 +436,17 @@ const WALKED_BY_EYE: Record<string, Record<string, ('lo' | 'hi')[]>> = {
     card's Weight and Verticals below 20, spurs on its C, a, g and 6 and its p's bowl notched at the stem with Inner
     space low; the Wood Type's Weight below 30 and Verticals below 20, its notches cutting through the d, g and q; the
     Formal Script's Wobble past 50, its o and R apart; the Didone's Wobble past 60, which slit its H's crossbar and
-    shut the 8's and p's counters at a wide Width or a light Weight (2026-11-10). Kept by --update. */
+    shut the 8's and p's counters at a wide Width or a light Weight (2026-11-10); the Chunky Round's past 60, which
+    slit its D's counter and shut its a's and &'s at a heavy Weight slanted, and the Blackletter's past 60, which broke
+    its B's and P's bowls slanted at a middling Width (--seed 4). Kept by --update. */
 const REINS_BY_MIXES: Record<string, Record<string, [number, number]>> = {
   'Bulwark:700': { weight: [0, 0.8], hWeight: [0, 0.98] },
   'Couture:600': { apex: [0.5, 1], wobble: [0, 0.6] },
   'Kernel:500': { weight: [0.2, 1], vWeight: [0.2, 1] },
   'Timber:400': { weight: [0.3, 1], vWeight: [0.2, 1] },
-  'Serenade:400': { wobble: [0, 0.5] }
+  'Serenade:400': { wobble: [0, 0.5] },
+  'Gumdrop:700': { wobble: [0, 0.6] },
+  'Cathedral:400': { wobble: [0, 0.6] }
 };
 /** The walk's steps (of the way from the card's own value to the slider's end), and the halvings after. */
 const REIN_STEPS = 16, HALVINGS = 4;
@@ -556,14 +560,16 @@ function builtReinsOf(id: string, keys: string[]): { letters: string; reins: Map
     Wobble to 35, past which a wider or lighter letter's bowls came off too (70 still broke them at Width 85 to 100,
     npm run breaks -- --sliders). */
 const BUILT_BY_MIXES: Record<string, Record<string, [number, number] | [number, number, number]>> = {
-  'arcs': { weight: [0.16, 0.6], wobble: [0, 0.35], terminalLength: [0.45, 0.769] },
-  'blocks:slots': { counter: [0.15, 1, 0.5], chamfer: [0, 0.6, 0] }
+  'arcs': { weight: [0.16, 0.6], wobble: [0, 0.35], terminalLength: [0.45, 0.58] },
+  'blocks:slots': { counter: [0.15, 1, 0.5], chamfer: [0, 0.6, 0], crossbar: [0, 0.8, 0.5] }
 };
 /* (and from the pickers and sliders moved together, --mixed: the arcs' stroke ends shorter than 45 parted the K's arms
    and the L's foot at a wide Width; the slot blocks' Inner space below 15 shut their a's, p's and r's slots to
    hairlines at Weight 90 and up, and their Facets past 60 cut the counters through the sides at the lightest Weight
    and narrowest Width (2026-11-10; Steps, whose notches cut them with any Facets, is off the panel there, SLIDERS_OFF
-   in shared/content/controls.ts); a third number is the card's own value, where the walk kept no row for it) */
+   in shared/content/controls.ts); and (--seed 4) the arcs' stroke ends longer than 58 shut the R and crossed the F's
+   arms at a heavy Weight, even the card's own round ends at Length 100, and the slot blocks' Crossbar past 80 pinched
+   their a's and r's slots shut at Weight 100; a third number is the card's own value, where the walk kept no row for it) */
 /** shared/font-reins.ts with `table` for BUILT_REINS: by letters, each setting reined to its least and most and the
     card's own value, BUILT_BY_MIXES laid over it. */
 function writeBuiltReins(table: Map<string, Map<string, [number, number, number]>>) {
@@ -675,7 +681,7 @@ const OFFS_BY_EYE: Record<string, Record<string, string[]>> = {
     notched, ball and droplet stroke ends shut their Z's and 4's counters and parted their h's and i's dots from 40 to
     60 on Weight, which BUILT_REINS stops at 60 for the ends left (BUILT_BY_MIXES). */
 const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
-  'arcs': { terminal: ['flat/scooped', 'cut/notched', 'round/ball', 'round/droplet', 'angled/outer', 'angled/inner', 'tapered/taper', 'tapered/brush', 'flat/flared'] },
+  'arcs': { terminal: ['flat/scooped', 'cut/notched', 'round/ball', 'round/droplet', 'angled/outer', 'angled/inner', 'tapered/taper', 'tapered/brush', 'flat/flared', 'cut/level'] },
   'Bulwark:700': { qForm: ['inside'], bowlForm: ['oval'], terminal: ['flat/flared'] },
   'Gumdrop:700': { jForm: ['cup'] },
   'blocks:grid': { kForm: ['stem'] }
@@ -685,7 +691,8 @@ const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
    at a wide one, and their flared ends blotted the F and notched the b's and p's bowls at a long Length; the Block
    card's inside Q tail came out ragged, its oval bowls split at their corners at a light Weight, and its flared ends
    tore its C, 2 and 5 with Facets; the Chunky Round's J with a cup shut into a d at a narrow Width; the grid blocks'
-   K with a stem took its arms off it. */
+   K with a stem took its arms off it; and (--seed 4, 2026-11-10) the arcs' level ends, which shut the R and crossed
+   the F's arms from Length 75 at most weights (the Arcs keep Flat and Round). */
 /** Choices left out on every card in a font, from the pickers and sliders moved together (--mixed, 2026-11-09): square
     bowl joins, whole alone on most cards, notched the bowls of the a, b, d, g, p and q and shut the h's, m's and n's
     with Weight, Verticals, Joints or Wobble moved on 13 of the 22 cards (alone on the Squircle and Chunky Round); upright
