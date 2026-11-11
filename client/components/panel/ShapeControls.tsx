@@ -23,7 +23,7 @@ export function TerminalControl({ parts }: { parts?: string[] }) {
   const c = CONTROLS.terminal;
   const reach = useReachNote('terminal');
   // (the shapes that break this design's letters left out, choicesOff; a family left with none goes)
-  const off = choicesOff(useHere(), 'terminal');
+  const here = useHere(), off = choicesOff(here, 'terminal'), runsOff = choicesOff(here, 'terminalRun');
   const groups = TERMINAL_SHAPES.map(g => ({ ...g, shapes: g.shapes.filter(sh => !off.has(`${sh.terminal}/${sh.form}`)) })).filter(g => g.shapes.length);
   return (
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="terminal" {...useControlFocus('terminal')}>
@@ -47,9 +47,13 @@ export function TerminalControl({ parts }: { parts?: string[] }) {
             </div>
           ))}
         </div>
-        {TERMINAL_DETAILS[form].map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}
-        <div className="sub-label">Direction</div>
-        <FormOptions k="terminalRun" label="Direction of curved stroke ends" />
+        {/* (less those a font's letters leave out, subInUse: a round end's Roundness cut the Chunky Round's c short) */}
+        {TERMINAL_DETAILS[form].filter(k => subInUse(k, here)).map(k => <SliderControl key={k} k={k} def={TERMINAL_SUBS[k]} />)}
+        {/* (one direction left, the other off on the card's letters, there is nothing to pick: the label goes with it) */}
+        {FORM_OPTIONS.terminalRun.options.filter(([id]) => !runsOff.has(id)).length > 1 && <>
+          <div className="sub-label">Direction</div>
+          <FormOptions k="terminalRun" label="Direction of curved stroke ends" />
+        </>}
         <SliderControl k="terminalLength" def={TERMINAL_SUBS.terminalLength} />
         <SliderControl k="terminalCurl" def={TERMINAL_SUBS.terminalCurl} />
         <EachEnd />

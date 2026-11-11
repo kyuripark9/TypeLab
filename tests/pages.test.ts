@@ -208,6 +208,8 @@ describe('editor pages', () => {
     // as bites; the Wood Type's, Block's and Fat Face's picker gone, all but their own off; the Chunky Round's cut ends off)
     for (const id of ['grotesque', 'serif', 'casual', 'block']) for (const end of ['cut/notched', 'flat/scooped']) assert.ok(choicesOff(card(id), 'terminal').has(end), `${id} ${end}`);
     for (const id of ['woodtype', 'block', 'fatface']) assert.ok(controlOff('terminal', card(id)), id);
+    // (and the ends' Direction, which drew the engine's letters for the font's, off every card in a font)
+    for (const id of ['grotesque', 'serif', 'chunkyround']) assert.ok(choicesOff(card(id), 'terminalRun').has('straight'), id);
     assert.ok(choicesOff(card('chunkyround'), 'terminal').has('flat/plain') && !choicesOff(card('chunkyround'), 'terminal').has('round/droplet'));
     // (Curves off the panel on every card, whatever its letters are drawn from, the owner's asking; the card's own kept)
     for (const id of ['grotesque', 'serif', 'block', 'arcs', 'slotblocks', 'gridblocks']) assert.ok(controlOff('curve', card(id)), id);

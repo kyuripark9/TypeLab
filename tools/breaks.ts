@@ -785,10 +785,12 @@ const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
     plain ones with them, which left alone drew the engine's I, i, l and J for the font's own all but alike (a J's hook
     thinned to a wedge, a Chunky Round's serifed), so the picker goes from a font's Letters page. And the notched and
     scooped stroke ends, each drawn on every card at Weight 0, its own and 100 and its Depth's and Tilt's ends: their
-    notches and horns read as bites and barbs on the ends of 15 of the 22 (2026-11-11). */
+    notches and horns read as bites and barbs on the ends of 15 of the 22 (2026-11-11); and the stroke ends' Direction,
+    which drew the engine's own a, c, e, f, j, r, s, t, y, C, G, J, S and figures for the font's, its ends run
+    straight: a serif card's line came out a sans, a grotesque's y a γ. */
 const OFFS_ON_FONTS: Record<string, string[]> = {
   bowlJoin: ['square'], diagonals: ['upright', 'arch'], kForm: ['stem', 'bar'], bends: ['round'], serifBase: ['cupped'],
-  yForm: ['cup'], mForm: ['raised'], rForm: ['loop'], iForm: ['bars', 'plain'], terminal: ['cut/notched', 'flat/scooped'],
+  yForm: ['cup'], mForm: ['raised'], rForm: ['loop'], iForm: ['bars', 'plain'], terminal: ['cut/notched', 'flat/scooped'], terminalRun: ['straight', 'curved'],
   serifTip: ['round', 'pointed', 'angled'], serifSides: ['left', 'right', 'inside', 'outside'],
   serifInner: ['bracketed', 'unbracketed', 'slab', 'wedge', 'diamond']
 };
