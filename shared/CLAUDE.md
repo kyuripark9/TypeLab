@@ -169,7 +169,7 @@ read as `'outline'`, `xHeightFromOld` and `XH_OLD` (engine/font.ts), `freeAt` fi
   the Arcs, their b's and p's bowls shaken off light and wide; and on every card in a font Bowl overlap, Tails &
   hooks and Steps, `FONT_SLIDERS_OFF`: a d parted into an o and an l, tails curled into hooks under the next letter,
   corners chipped; and, by eye, Roundness on the Fat Face and Block cards, Openness on the Block card, Cursive on the
-  Industrial),
+  Industrial; and Curves on every card, whatever its letters are drawn from, `ALL_SLIDERS_OFF`, at the owner's asking),
   `controlInUse`, `subInUse` (given
   the font too)
   and `pagesFor` (the controls and pages a design's letters take: the navigation, the page steps and Find a setting

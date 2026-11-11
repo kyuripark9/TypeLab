@@ -126,9 +126,12 @@ const SLIDERS_OFF: Record<string, readonly string[]> = {
     apart from 80 of 90, hooked from 25 of 14, and still at half their way, FONT_REACH); and Steps, whose notches on a
     font's corners read as chips and nicks, an i's dot a comma (looked at drawn on every card). */
 const FONT_SLIDERS_OFF: readonly string[] = ['overlap', 'tail', 'steps'];
+/** And on every card, whatever its letters are drawn from, Curves (Build & curves): taken off the panel at the owner's
+    asking (2026-11-10); a design keeps the value it was saved with, and the Adjust tab its card's own (keepWhole). */
+const ALL_SLIDERS_OFF: readonly string[] = ['curve'];
 /** The sliders letters drawn from `letters` (as lettersOf names them) leave out. */
 const slidersOff = (letters: string): readonly string[] =>
-  !letters || letters === 'arcs' || letters.startsWith('blocks:') ? SLIDERS_OFF[letters] ?? [] : [...SLIDERS_OFF[letters] ?? [], ...FONT_SLIDERS_OFF];
+  [...ALL_SLIDERS_OFF, ...SLIDERS_OFF[letters] ?? [], ...(!letters || letters === 'arcs' || letters.startsWith('blocks:') ? [] : FONT_SLIDERS_OFF)];
 /** Whether nested slider `s` shapes letters built as `p` says, and drawn from its font if it has one (its control in
     use too: controlInUse). */
 export const subInUse = (s: string, p: Pick<Params, 'build'> & { freeFont?: string }) =>

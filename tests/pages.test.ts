@@ -195,6 +195,10 @@ describe('editor pages', () => {
     assert.equal(keepWhole({ ...card('arcs'), wobble: 1 }, card('arcs'), 'arcs').wobble, card('arcs').wobble);
     assert.equal(keepWhole({ ...card('fatface'), wobble: 1 }, card('fatface'), STYLE_FONTS.fatface).wobble, card('fatface').wobble);
     for (const end of ['round/ball', 'round/droplet']) assert.ok(choicesOff(card('block'), 'terminal').has(end), end);
+    // (Curves off the panel on every card, whatever its letters are drawn from, the owner's asking; the card's own kept)
+    for (const id of ['grotesque', 'serif', 'block', 'arcs', 'slotblocks', 'gridblocks']) assert.ok(controlOff('curve', card(id)), id);
+    assert.ok(controlOff('curve', { ...DEFAULTS, freeFont: '' }));
+    assert.equal(keepWhole({ ...card('grotesque'), curve: 1 }, card('grotesque'), STYLE_FONTS.grotesque).curve, card('grotesque').curve);
     // (Bowl overlap and Tails & hooks off every card in a font, a d parting into an o and an l and the tails curling
     // into hooks under the letters beside them; offered on the engine's own letters)
     for (const id of ['grotesque', 'serif', 'chancery', 'block']) {
