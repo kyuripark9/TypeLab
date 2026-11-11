@@ -729,7 +729,7 @@ A design with `freeFont` set draws its letters from a free font instead of build
    outline as `Glyph.drawn`, so Points opens with the font's own points (its overlapping pieces made one; with an effect
    on, `Glyph.fx`, Points traces the outline the effect draws instead, so an edit keeps it). An unmoved
    letter is spaced by the font's own outline, the united one leaving out a speck under a unit square. A parted bowl and
-   Cursive's flicks get the room they reach out into; the engine's serifs get room only on a letter they were set on, its room read off it without them, pushed by Weight or not;
+   Cursive's flicks get the room they reach out into; the engine's serifs get room only on a letter they were set on, its room read off it without them (and without Cursive's flicks), pushed by Weight or not;
    a monospaced font with Monospace lowered loses the
    padding its narrow letters stand in; and Hand-drawn moves the letter through the engine's field (`wobbler` in
    `glyph.ts`), its long straight sides split so they bend.

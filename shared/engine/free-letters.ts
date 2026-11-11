@@ -526,10 +526,11 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   // (unmoved, by the font's own outline: the rig's has its pieces united, and a speck a corner's curl leaves outside it
   // dropped, which would move the letter's room a little as it is picked; pushed out by Weight, or squeezed or stretched by
   // Width, by its outline so)
-  // (pushed with the engine's serifs set on, by its outline pushed without them, as unpushed it is read before them:
-  // read off it serifs and all, the font's side bearings stood past the serifs' tips at any Weight but the card's own,
-  // "Ham burg")
-  const own = pushed ? (rig && withSerifs.has(styled!) ? weighedOut(rig, wide!, fl) : weighed) : wide !== skinned ? wide : rig && skinned === rig.contours ? src.contours : skinned;
+  // (pushed with the engine's serifs set on, or Cursive's flicks drawn on, by its outline pushed without them, as
+  // unpushed it is read before them: read off it serifs, flicks and all, the font's side bearings stood past the
+  // serifs' and flicks' tips at any Weight but the card's own, "Ham burg", "Ha m bu rgefon stiv")
+  const flicks = !!rig && fl.now.cursive > fl.pick.cursive && (EXIT_LETTERS.includes(ch) || ENTRY_LETTERS.includes(ch));
+  const own = pushed ? (rig && (withSerifs.has(styled!) || flicks) ? weighedOut(rig, wide!, fl) : weighed) : wide !== skinned ? wide : rig && skinned === rig.contours ? src.contours : skinned;
   const [i0, i1] = inkSpan(sized);
   let [x0, x1] = own ? inkSpan({ adv: 0, contours: own }).map(v => v * fl.k) : [i0, i1];
   // (a lighter weight's letter keeps the room its outline took as moved, where tidying it cut off a tip whose sides crossed
