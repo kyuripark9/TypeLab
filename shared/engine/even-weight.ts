@@ -64,7 +64,7 @@ export interface EvenLines { tops: number[]; feet: number[] }
     capitals' height. */
 export function evenWeight(cs: Node[][], dx: number, dy: number, lines: EvenLines, cap: number): Node[][] {
   if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) return cs;
-  let rings = cs.map(polygon).filter(r => r.length > 2);
+  let rings = cs.map(polygon).filter(r => r.length > 2).map(r => sharpened(r, Math.max(Math.abs(dx), Math.abs(dy))));
   // (as the engine reads ink: anticlockwise round it, clockwise round a hole; a font drawn the other way round turned)
   const lead = rings.reduce((a, r) => (Math.abs(signedArea(r)) > Math.abs(signedArea(a)) ? r : a), rings[0] ?? []);
   if (signedArea(lead) < 0) rings = rings.map(r => r.slice().reverse());
@@ -248,6 +248,55 @@ function straightRuns(r: P[]): number[] {
   }
   return run;
 }
+
+/** A ring with its tiny edges taken into the corners they turn: an edge shorter than the push `d` (by TINY_SHARE),
+    turning by TINY_TURN or more at both its ends (a font's corners rounded or stepped a few units, at its stroke ends
+    and joins), drawn as the one corner where the edges either side of it meet, pass by pass, so a tiny round comes to
+    the sharp corner it rounds. Pushed further than they are long, they turned inside out and were traced as spikes
+    and nicks (an industrial's c's, s's and G's ends at Weight 0, a grotesque's at Width 100); a curve's points, turning
+    a little each, are left as they are. */
+function sharpened(r: P[], d: number): P[] {
+  if (d < 0.5) return r;
+  // (first the points nearer the last one kept than half the push, and than TINY_GAP, let go, but where the outline
+  // turns a corner (TINY_CORNER): a font's tiny round, cut in points a fraction of a unit apart, each pushed by its own
+  // turn, threw the edge past it out a dozen units, a fin; a curve's points, STEP apart, stay)
+  const n0 = r.length, bend = (i: number) => {
+    const a = r[(i - 1 + n0) % n0], b = r[i], c = r[(i + 1) % n0], ux = b.x - a.x, uy = b.y - a.y, vx = c.x - b.x, vy = c.y - b.y;
+    return Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy));
+  };
+  let pts: P[] = [];
+  for (let i = 0; i < n0; i++) {
+    const p = r[i], last = pts[pts.length - 1];
+    if (!last || bend(i) > TINY_CORNER || Math.hypot(p.x - last.x, p.y - last.y) >= Math.min(d / 2, TINY_GAP)) pts.push(p);
+  }
+  if (pts.length < 4) pts = r;
+  for (let pass = 0; pass < 8 && pts.length > 4; pass++) {
+    const n = pts.length, at = (i: number) => pts[((i % n) + n) % n];
+    const turn = (i: number) => {
+      const a = at(i - 1), b = at(i), c = at(i + 1), ux = b.x - a.x, uy = b.y - a.y, vx = c.x - b.x, vy = c.y - b.y;
+      return Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy));
+    };
+    const out: P[] = [];
+    let changed = false;
+    for (let i = 0; i < n; i++) {
+      const b = at(i), c = at(i + 1), l = Math.hypot(c.x - b.x, c.y - b.y);
+      if (i < n - 1 && l < TINY_SHARE * d && turn(i) > TINY_TURN && turn(i + 1) > TINY_TURN) {
+        // (where the edge in and the edge out meet, near the tiny edge; else its middle)
+        const a = at(i - 1), e = at(i + 2), ux = b.x - a.x, uy = b.y - a.y, vx = e.x - c.x, vy = e.y - c.y, den = ux * vy - uy * vx;
+        let m = { x: (b.x + c.x) / 2, y: (b.y + c.y) / 2 };
+        if (Math.abs(den) > 1e-9) {
+          const t = ((c.x - b.x) * vy - (c.y - b.y) * vx) / den, q = { x: b.x + ux * t, y: b.y + uy * t };
+          if (Math.hypot(q.x - b.x, q.y - b.y) < 2 * d && Math.hypot(q.x - c.x, q.y - c.y) < 2 * d) m = q;
+        }
+        out.push(m); i++; changed = true;
+      } else out.push(b);
+    }
+    if (!changed) break;
+    pts = out;
+  }
+  return pts.length > 2 ? pts : r;
+}
+const TINY_SHARE = 1, TINY_TURN = 15 * Math.PI / 180, TINY_CORNER = 30 * Math.PI / 180, TINY_GAP = 2.5;
 
 /** A ring without its needles: a point the outline runs out to and straight back from (a mitre's leftover where edges
     met nearly head on round a sharp tip), traced, came out a loop of no width. */
