@@ -34,6 +34,8 @@ export interface RestyleCtx {
   /** a font of block letters (FreeFamily.blocks), whose ends stand out short and heavy from the strokes they leave: an
       r's arm, a y's tail (see measureEnd and restyleEnds) */
   stubs?: true;
+  /** how many times as wide Width draws the letters as the font was picked at (restyleDots: a dot stretched with them) */
+  sx?: number;
 }
 
 /** The skeleton of the very contours passed with it, scanned only when first asked for (see restyled in
@@ -49,6 +51,9 @@ const FIT_TOL = 1.2;
 const ON_LINE = 0.035;
 /** The most a dot is wide or tall, in its letter's strokes (the thicker of stem and bar). */
 const DOT_MAX = 2.6;
+/** How far under the baseline, as a share of its own height, a comma's or semicolon's dot may reach (a full stop's
+    overshoot); the comma's tail hangs further (TAILED: the marks with one). */
+const DOT_UNDER = 0.3, TAILED = ',;';
 
 /** How much of a setting the font takes on that it hasn't any of (steps, a stencil, a pinch, thinned joints): none
     until the setting is moved past where the font was picked at, then all of it by the end of the scale. skin.ts
@@ -2670,12 +2675,16 @@ export function restyleDots(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
   const out = rings.map(r => {
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
     for (const p of r) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
-    const w = x1 - x0, h = y1 - y0, a = Math.abs(signedArea(r));
+    // (read as wide as the font draws it, Width's stretch taken off: stretched wide, a dot was read as no dot and kept the
+    // font's round, square dots lost at Width 100)
+    const sx = c.sx ?? 1, w = (x1 - x0) / sx, h = y1 - y0, a = Math.abs(signedArea(r)) / sx;
     // (on its own: no other outline round it or in it; small, and filling much of its box, as a dot does, unlike a comma;
-    // and well under the x-height, as a fat face's i's stem, as heavy as it is tall, is not)
+    // and well under the x-height, as a fat face's i's stem, as heavy as it is tall, is not; nor a comma's or a
+    // semicolon's tail, hanging under the baseline past DOT_UNDER of its height: a block face's squat comma, filling its
+    // box, drawn a dot, read its ; a colon; a dot matrix's dots under the baseline are dots all the same)
     const alone = !rings.some(o => o !== r && o.some(p => p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1));
     if (!alone || signedArea(r) < 0 || w > Math.max(c.stem, c.bar) * DOT_MAX || h > Math.max(c.stem, c.bar) * DOT_MAX || Math.max(w, h) > c.xh * 0.5
-      || w / h > 1.6 || h / w > 1.6 || a < w * h * 0.6) return r;
+      || w / h > 1.6 || h / w > 1.6 || a < w * h * 0.6 || (TAILED.includes(c.ch) && y0 < -DOT_UNDER * h)) return r;
     changed = true;
     const side = (w + h) / 2, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, hs = side / 2, rr = hs * round;
     return toPolygon(roundContour([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => ({ x: cx + u * hs, y: cy + v * hs, r: rr })), 0));

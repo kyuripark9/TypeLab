@@ -374,7 +374,7 @@ const withSerifs = new WeakSet<Node[][]>();
     it stands for (restyle.ts); kept with the moved outline, by the settings, as dragging a slider asks again. */
 function restyled(rig: SkinRig, cs: Node[][], fl: FreeLetters): Node[][] {
   const k = fl.to.s / fl.from.s, x = rig.ctx, fam = fl.font && FREE_FAMILIES[fl.font.family], exits = fam?.freeExits;
-  const c: RestyleCtx = { ch: x.ch, cap: x.cap, xh: x.xh, stem: rig.stem * x.cap * k, bar: rig.bar * x.cap * k, ...(exits ? { exits: { stem: rig.ref().stem * k } } : {}),
+  const c: RestyleCtx = { ch: x.ch, cap: x.cap, xh: x.xh, stem: rig.stem * x.cap * k, bar: rig.bar * x.cap * k, sx: fl.sx, ...(exits ? { exits: { stem: rig.ref().stem * k } } : {}),
     ...(fam?.blocks ? { stubs: true as const } : {}) };
   const a = cornerLooks(fl.pick, c), b = cornerLooks(fl.now, c);
   // the engine's serifs, set on the stems the letter's own were taken off (or on a sans's), in the font's units; the

@@ -683,15 +683,27 @@ const lettersKey = (p: Params) => p.freeFont || (p.build === 'blocks' ? `blocks:
     to slits and the chunky round's (Gumdrop) puts ragged serifs on its W and a bar on its 4 (read as the E alone, and
     with almost any other step, on the Shuffle's mixes). */
 const OFFS_BY_EYE: Record<string, Record<string, string[]>> = {
-  'Orbital:600': { serif: ['true'], bends: ['round'] },
-  'Gumdrop:700': { serif: ['true'], kForm: ['bar'] },
+  'Orbital:600': { serif: ['true'], bends: ['round'], dots: ['square', 'round'] },
+  'Gumdrop:700': { serif: ['true'], kForm: ['bar'], gForm: ['double'], story: ['double'] },
   'Vellum:400': { serif: ['false'] },
-  'Couture:600': { serif: ['false'], bends: ['round'], kForm: ['bar'] },
-  'Almanac:500': { bends: ['round'], kForm: ['bar'] },
-  'Ballyhoo:400': { bends: ['round'] },
-  'Timber:400': { rForm: ['loop'], yForm: ['cup'], mForm: ['raised'] },
-  'Kernel:500': { bowlForm: ['box'], serif: ['true'] },
-  'Compass:300': { bowlForm: ['box'] }
+  'Couture:600': { serif: ['false'], bends: ['round'], kForm: ['bar'], qForm: ['crossing'] },
+  'Almanac:500': { bends: ['round'], kForm: ['bar'], qForm: ['crossing'] },
+  'Ballyhoo:400': { bends: ['round'], qForm: ['sweep'] },
+  'Timber:400': { rForm: ['loop'], yForm: ['cup'], mForm: ['raised'], jForm: ['cup'] },
+  'Kernel:500': { bowlForm: ['box'], serif: ['true'], jForm: ['cup'] },
+  'Compass:300': { bowlForm: ['box'] },
+  // (the Letters page's shapes, each drawn on every card at its own settings, Weight 0 and 100, Width 0 and 100, and
+  // looked at, 2026-11-10: the engine's stand-in letters a font hasn't got clog or stand apart from it: a double-storey
+  // g an 8 or a blot narrow (Neo Grotesque, Industrial, Chunky Round, Block) or half again as heavy as a light hand's
+  // letters (the casual card), the Neo Grotesque's single-storey a and the Chunky Round's double-storey a shut heavy or
+  // narrow, the Squircle's square dots sat on its stems as one bar (and round, the one left, its own all but alike), the Fat Face's sweeping Q's tail knotted and the Soft
+  // Slab's squat, the Didone's, Transitional's and casual card's crossing Q light or an O, the cupped J a U or shut on
+  // the casual, Wood Type and code cards)
+  'Mainline:600': { gForm: ['double'], story: ['single'] },
+  'Turnpike:500': { gForm: ['double'] },
+  'Bulwark:700': { gForm: ['double'] },
+  'Jotter:400': { gForm: ['double'], jForm: ['cup'], qForm: ['crossing'] },
+  'Hearth:600': { qForm: ['sweep'] }
 };
 /* And from the pickers and sliders moved together (--mixed, 2026-11-09), each looked at drawn alone where the mix read a
    letter or two: round bends on the Squircle, Transitional, Didone and Fat Face cards turned their M's vertex and V's
@@ -750,10 +762,14 @@ const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
     those with no serifs to cup); and from a third (seed 2): the cupped Y came to a 4 at a narrow Width on the Neo
     Grotesque (off on four more before), the raised M to a hairline on the Fat Face at a wide one (off on six more); and
     from the eighth (seed 7): the looped R, a form no font here draws, filled its counter solid at a heavy Weight and a
-    narrow Width on the casual card and most of the others (off on two before). */
+    narrow Width on the casual card and most of the others (off on two before). And from the Letters page's shapes drawn
+    on every card and looked at (2026-11-10): the barred I, i, l and J, whose J's bar across its whole width read as a
+    bracket ("コ") on eight cards and whose l read as a 1, the engine's slabs standing apart from the font's; and the
+    plain ones with them, which left alone drew the engine's I, i, l and J for the font's own all but alike (a J's hook
+    thinned to a wedge, a Chunky Round's serifed), so the picker goes from a font's Letters page. */
 const OFFS_ON_FONTS: Record<string, string[]> = {
   bowlJoin: ['square'], diagonals: ['upright', 'arch'], kForm: ['stem', 'bar'], bends: ['round'], serifBase: ['cupped'],
-  yForm: ['cup'], mForm: ['raised'], rForm: ['loop'],
+  yForm: ['cup'], mForm: ['raised'], rForm: ['loop'], iForm: ['bars', 'plain'],
   serifTip: ['round', 'pointed', 'angled'], serifSides: ['left', 'right', 'inside', 'outside'],
   serifInner: ['bracketed', 'unbracketed', 'slab', 'wedge', 'diamond']
 };

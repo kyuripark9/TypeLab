@@ -195,6 +195,12 @@ describe('editor pages', () => {
     assert.equal(keepWhole({ ...card('arcs'), wobble: 1 }, card('arcs'), 'arcs').wobble, card('arcs').wobble);
     assert.equal(keepWhole({ ...card('fatface'), wobble: 1 }, card('fatface'), STYLE_FONTS.fatface).wobble, card('fatface').wobble);
     for (const end of ['round/ball', 'round/droplet']) assert.ok(choicesOff(card('block'), 'terminal').has(end), end);
+    // (the Letters page's shapes looked at on every card: the I, i, l and J picker off every card in a font, its barred
+    // J a bracket and its plain ones the engine's for the font's own; the double-storey g off where it clogs, an 8
+    // narrow; the Squircle's dots picker, its square dots sat on its stems as a bar)
+    for (const id of ['grotesque', 'typewriter', 'casual', 'block']) assert.ok(controlOff('iForm', card(id)), id);
+    for (const id of ['grotesque', 'industrial', 'chunkyround', 'block', 'casual']) assert.ok(choicesOff(card(id), 'gForm').has('double'), id);
+    assert.ok(controlOff('dots', card('squircle')) && !choicesOff(card('grotesque'), 'dots').has('square'));
     // (Curves off the panel on every card, whatever its letters are drawn from, the owner's asking; the card's own kept)
     for (const id of ['grotesque', 'serif', 'block', 'arcs', 'slotblocks', 'gridblocks']) assert.ok(controlOff('curve', card(id)), id);
     assert.ok(controlOff('curve', { ...DEFAULTS, freeFont: '' }));

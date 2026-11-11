@@ -68,14 +68,15 @@ export function StoryControl({ parts }: { parts?: string[] }) {
     <div className={['ctl', active && 'active', reach.idle && 'idle'].filter(Boolean).join(' ')} data-ctl="story" {...useControlFocus('story')}>
       <CtlHead k="story" label={c.label} parts={parts} />
       {reach.note}
-      <div className="opts two" role="radiogroup" aria-label={c.tech}>
+      {/* (one storey left, the other breaking the card's letters, there is nothing to pick: only the Foot shows) */}
+      {STORY_OPTIONS.filter(([id]) => !off.has(id)).length > 1 && <div className="opts two" role="radiogroup" aria-label={c.tech}>
         {STORY_OPTIONS.filter(([id]) => !off.has(id)).map(([id, label]) => (
           <button key={id} role="radio" aria-checked={current === id} className={current === id ? 'opt on' : 'opt'}
             onClick={() => actions.setOption('story', id)}>
             <StoryIcon story={id} grid={grid} /><span>{label}</span>
           </button>
         ))}
-      </div>
+      </div>}
       {!grid && <>
         <div className="sub-label">Foot</div>
         <FormOptions k="aForm" label="Foot of the a" />
