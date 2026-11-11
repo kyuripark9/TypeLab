@@ -204,6 +204,11 @@ describe('editor pages', () => {
     for (const id of ['grotesque', 'typewriter', 'casual', 'block']) assert.ok(controlOff('iForm', card(id)), id);
     for (const id of ['grotesque', 'industrial', 'chunkyround', 'block', 'casual']) assert.ok(choicesOff(card(id), 'gForm').has('double'), id);
     assert.ok(controlOff('dots', card('squircle')) && !choicesOff(card('grotesque'), 'dots').has('square'));
+    // (the stroke ends looked at on every card: notched and scooped off every card in a font, their notches and horns read
+    // as bites; the Wood Type's, Block's and Fat Face's picker gone, all but their own off; the Chunky Round's cut ends off)
+    for (const id of ['grotesque', 'serif', 'casual', 'block']) for (const end of ['cut/notched', 'flat/scooped']) assert.ok(choicesOff(card(id), 'terminal').has(end), `${id} ${end}`);
+    for (const id of ['woodtype', 'block', 'fatface']) assert.ok(controlOff('terminal', card(id)), id);
+    assert.ok(choicesOff(card('chunkyround'), 'terminal').has('flat/plain') && !choicesOff(card('chunkyround'), 'terminal').has('round/droplet'));
     // (Curves off the panel on every card, whatever its letters are drawn from, the owner's asking; the card's own kept)
     for (const id of ['grotesque', 'serif', 'block', 'arcs', 'slotblocks', 'gridblocks']) assert.ok(controlOff('curve', card(id)), id);
     assert.ok(controlOff('curve', { ...DEFAULTS, freeFont: '' }));

@@ -27,7 +27,7 @@ import type { NumericParam } from './params';
 
 export const FONT_REINS: Record<string, Partial<Record<NumericParam, [number, number]>>> = {
   'Mainline:600': { squareness: [0, 0.873], terminalTip: [0, 0.953], serifInnerSize: [0, 0.652], wobble: [0, 0.718], xHeight: [0.421, 1], crossbar: [0, 0.933], counter: [0, 0.649] },
-  'Parlance:500': { squareness: [0, 0.893], serifTipRound: [0.625, 1], serifTipSlant: [0.769, 1], serifInnerSize: [0, 0.685], wobble: [0, 0.8], xHeight: [0.314, 1], slice: [0, 0.636], aperture: [0.4, 1] },
+  'Parlance:500': { squareness: [0, 0.893], serifTipRound: [0.625, 1], serifTipSlant: [0.769, 1], serifInnerSize: [0, 0.685], wobble: [0, 0.8], xHeight: [0.314, 1], slice: [0, 0.636], aperture: [0.4, 1], terminalSize: [0, 0.7] },
   'Compass:300': { curve: [0, 0.839], squareness: [0, 0.666], serifTipRound: [0.684, 1], serifCup: [0.143, 1], serifInnerSize: [0, 0.871], xHeight: [0.563, 1], counter: [0.024, 1], slice: [0, 0.652], weight: [0, 0.9] },
   'Cotton:300': { squareness: [0, 0.599], chamfer: [0, 0.917], steps: [0, 0.66], serifCup: [0, 0.81], serifInnerSize: [0, 0.943], slice: [0, 0.832], wobble: [0, 0.8] },
   'Turnpike:500': { curve: [0, 0.183], squareness: [0, 0.964], joinRound: [0, 0.027], terminalCurl: [0, 0.83], serifCup: [0.229, 0.554], serifInnerSize: [0.084, 0.759], cursive: [0, 0.816], wobble: [0, 0.917], xHeight: [0.456, 0.983], counter: [0, 0.783], weight: [0, 0.8] },

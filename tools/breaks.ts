@@ -464,7 +464,7 @@ const REINS_BY_MIXES: Record<string, Record<string, [number, number]>> = {
   'Compass:300': { weight: [0, 0.9] },
   'Cotton:300': { wobble: [0, 0.8] },
   'Turnpike:500': { weight: [0, 0.8] },
-  'Parlance:500': { aperture: [0.4, 1] },
+  'Parlance:500': { aperture: [0.4, 1], terminalSize: [0, 0.7] },
   'Ballyhoo:400': { weight: [0, 0.92], vWeight: [0, 0.75] }
 };
 /** The walk's steps (of the way from the card's own value to the slider's end), and the halvings after. */
@@ -684,13 +684,13 @@ const lettersKey = (p: Params) => p.freeFont || (p.build === 'blocks' ? `blocks:
     with almost any other step, on the Shuffle's mixes). */
 const OFFS_BY_EYE: Record<string, Record<string, string[]>> = {
   'Orbital:600': { serif: ['true'], bends: ['round'], dots: ['square', 'round'] },
-  'Gumdrop:700': { serif: ['true'], kForm: ['bar'], gForm: ['double'], story: ['double'] },
+  'Gumdrop:700': { serif: ['true'], kForm: ['bar'], gForm: ['double'], story: ['double'], terminal: ['flat/plain', 'flat/flared', 'angled/outer', 'angled/inner', 'cut/level', 'round/ball', 'sharp/pointed', 'sharp/clipped', 'tapered/taper', 'tapered/brush'] },
   'Vellum:400': { serif: ['false'] },
-  'Couture:600': { serif: ['false'], bends: ['round'], kForm: ['bar'], qForm: ['crossing'] },
+  'Couture:600': { serif: ['false'], bends: ['round'], kForm: ['bar'], qForm: ['crossing'], terminal: ['flat/plain', 'flat/flared', 'angled/outer', 'angled/inner', 'cut/level', 'round/round', 'sharp/pointed', 'sharp/clipped', 'tapered/taper', 'tapered/brush'] },
   'Almanac:500': { bends: ['round'], kForm: ['bar'], qForm: ['crossing'] },
-  'Ballyhoo:400': { bends: ['round'], qForm: ['sweep'] },
-  'Timber:400': { rForm: ['loop'], yForm: ['cup'], mForm: ['raised'], jForm: ['cup'] },
-  'Kernel:500': { bowlForm: ['box'], serif: ['true'], jForm: ['cup'] },
+  'Ballyhoo:400': { bends: ['round'], qForm: ['sweep'], terminal: ['flat/plain', 'flat/flared', 'angled/outer', 'angled/inner', 'cut/level', 'round/round', 'round/droplet', 'sharp/pointed', 'sharp/clipped', 'tapered/taper', 'tapered/brush'] },
+  'Timber:400': { rForm: ['loop'], yForm: ['cup'], mForm: ['raised'], jForm: ['cup'], terminal: ['flat/flared', 'angled/outer', 'angled/inner', 'cut/level', 'round/round', 'round/droplet', 'round/ball', 'sharp/pointed', 'sharp/clipped', 'tapered/taper', 'tapered/brush'] },
+  'Kernel:500': { bowlForm: ['box'], serif: ['true'], jForm: ['cup'], terminal: ['tapered/taper', 'tapered/brush'] },
   'Compass:300': { bowlForm: ['box'], serif: ['true'] },
   // (the Letters page's shapes, each drawn on every card at its own settings, Weight 0 and 100, Width 0 and 100, and
   // looked at, 2026-11-10: the engine's stand-in letters a font hasn't got clog or stand apart from it: a double-storey
@@ -701,16 +701,26 @@ const OFFS_BY_EYE: Record<string, Record<string, string[]>> = {
   // the casual, Wood Type and code cards)
   'Mainline:600': { gForm: ['double'], story: ['single'], serif: ['true'] },
   'Turnpike:500': { gForm: ['double'], serif: ['true'] },
-  'Bulwark:700': { gForm: ['double'] },
+  'Bulwark:700': { gForm: ['double'], terminal: ['flat/flared', 'angled/outer', 'angled/inner', 'cut/level', 'round/round', 'round/droplet', 'round/ball', 'sharp/pointed', 'sharp/clipped', 'tapered/taper', 'tapered/brush'] },
   'Jotter:400': { gForm: ['double'], jForm: ['cup'], qForm: ['crossing'], serif: ['true'] },
-  'Hearth:600': { qForm: ['sweep'] },
+  'Hearth:600': { qForm: ['sweep'], terminal: ['flat/flared', 'angled/outer', 'cut/level', 'round/droplet', 'tapered/taper', 'tapered/brush'] },
   // (and the Serifs switch, flipped on every card that offers it and drawn at Weight's, Width's and Slant's ends: set on
   // the casual hand, its letters stood apart where a stem took a serif and the next none, "ni d bpq"; taken off the
   // Typewriter, specks and spurs were left at its W's and k's and x's feet; set on the Neo Grotesque, Humanist,
   // Geometric and Industrial, a serif blotted the 3's top end (and the Geometric's 6 and g, the Humanist's 4 and 5) and
   // the Humanist's x came apart in spikes at a wide Width; the Rounded and Comic cards take them clean)
   'Dispatch:400': { serif: ['false'] },
-  'Parlance:500': { serif: ['true'] }
+  'Parlance:500': { serif: ['true'] },
+  // (and the stroke ends, each drawn on every card at Weight 0, its own and 100 and its finer sliders' ends, read by
+  // five reviewers and the rows flagged looked at again, 2026-11-11: those that read as damage or foreign to the face
+  // off its card. The Chunky Round's cut, pointed and tapered ends left its c and r standing apart from the next letter
+  // and its r a dotless i; the Didone's and Fat Face's ends but their balls left the r a bare hairline, an i; the Soft
+  // Slab's flare, slant, level, drop and tapers lightened its C or stood its caps apart heavy; the Wood Type's spiked
+  // its f's top and stood its r apart; the Block card's cut its c's arms back ("c easr") and its t's foot to a nub; the
+  // code card's and Comic's tapers thinned their c and C a weight lighter on a monoline face; the Blackletter's drops
+  // and balls hung cedillas on its c's and e's ends)
+  'Funnies:400': { terminal: ['tapered/taper', 'tapered/brush'] },
+  'Cathedral:400': { terminal: ['round/droplet', 'round/ball'] }
 };
 /* And from the pickers and sliders moved together (--mixed, 2026-11-09), each looked at drawn alone where the mix read a
    letter or two: round bends on the Squircle, Transitional, Didone and Fat Face cards turned their M's vertex and V's
@@ -773,10 +783,12 @@ const OFFS_BY_MIXES: Record<string, Record<string, string[]>> = {
     on every card and looked at (2026-11-10): the barred I, i, l and J, whose J's bar across its whole width read as a
     bracket ("コ") on eight cards and whose l read as a 1, the engine's slabs standing apart from the font's; and the
     plain ones with them, which left alone drew the engine's I, i, l and J for the font's own all but alike (a J's hook
-    thinned to a wedge, a Chunky Round's serifed), so the picker goes from a font's Letters page. */
+    thinned to a wedge, a Chunky Round's serifed), so the picker goes from a font's Letters page. And the notched and
+    scooped stroke ends, each drawn on every card at Weight 0, its own and 100 and its Depth's and Tilt's ends: their
+    notches and horns read as bites and barbs on the ends of 15 of the 22 (2026-11-11). */
 const OFFS_ON_FONTS: Record<string, string[]> = {
   bowlJoin: ['square'], diagonals: ['upright', 'arch'], kForm: ['stem', 'bar'], bends: ['round'], serifBase: ['cupped'],
-  yForm: ['cup'], mForm: ['raised'], rForm: ['loop'], iForm: ['bars', 'plain'],
+  yForm: ['cup'], mForm: ['raised'], rForm: ['loop'], iForm: ['bars', 'plain'], terminal: ['cut/notched', 'flat/scooped'],
   serifTip: ['round', 'pointed', 'angled'], serifSides: ['left', 'right', 'inside', 'outside'],
   serifInner: ['bracketed', 'unbracketed', 'slab', 'wedge', 'diamond']
 };

@@ -860,6 +860,27 @@ describe("TypeLab's own fonts", () => {
     assert.ok(back.stem > 0.9 * none.stem && back.foot > none.foot + 1, `Couture: the n's stem ${none.stem.toFixed(1)} → ${back.stem.toFixed(1)}, the o's foot ${none.foot.toFixed(1)} → ${back.foot.toFixed(1)}`);
   });
 
+  it('keep a t\'s foot and a g\'s, j\'s and y\'s tails as the font draws them under another kind of stroke end', async () => {
+    // (drawn as the kind picked, out along the way the skeleton turns at a short hook's tip, the Neo Grotesque's t's foot
+    // hung a knob or a spike or curled a ball back under the baseline, and its y's and j's tails ended in blades; the
+    // c's and the f's top ends take the kind picked)
+    const fonts = new FreeFonts(null, noFetch), st = STYLES.find(s => s.id === 'grotesque')!, id = STYLE_FONTS.grotesque;
+    if (!freeFont(id)) registerFreeFont(await fonts.load(id));
+    const p = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params, own = buildFont(p);
+    // (each letter's ink as far down, left and right as the font's, within 2% of the capitals' height: a round end's
+    // corners may round, but no knob, spike or ball hangs off them)
+    const box = (g: Glyph) => { const ps = toPolys(g.cmds).flat(); return [Math.min(...ps.map(q => q.y)), Math.max(...ps.map(q => q.y)), Math.min(...ps.map(q => q.x)), Math.max(...ps.map(q => q.x))]; };
+    const tol = 0.02 * own.m.cap;
+    for (const [terminal, terminalForm] of [['round', 'round'], ['round', 'ball'], ['sharp', 'pointed'], ['tapered', 'taper']] as const) {
+      const f = buildFont({ ...p, terminal, terminalForm });
+      for (const ch of 'tjy') {
+        const a = box(own.glyph(ch)!), b = box(f.glyph(ch)!);
+        assert.ok(a.every((v, i) => Math.abs(v - b[i]) <= tol), `${ch} under ${terminal}/${terminalForm}: ${b.map(v => v.toFixed(0))} against ${a.map(v => v.toFixed(0))}`);
+      }
+      assert.notDeepEqual(f.glyph('c')!.cmds, own.glyph('c')!.cmds, `c under ${terminal}/${terminalForm}`);
+    }
+  });
+
   it('keep a heavy letter\'s openings open and push it as far as the rest: Mainline\'s a, e, s and g at Weight 95 and 100', async () => {
     // (pushed out alike all round, the openings between a terminal and the stroke it nears closed to a slit, a level jog
     // where it was: the a's terminal run into its bowl, the e's onto its bar, the s's onto its spine, the g's tail onto its

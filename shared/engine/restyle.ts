@@ -692,6 +692,8 @@ function crossings(ring: P[], p: P, n: P, max: number): [Cross, Cross] | null {
   return pos && neg ? [pos, neg] : null;
 }
 
+/** The letters whose low ends, under FOOT_LOW of the x-height (a t's foot, a tail), keep the font's own end. */
+const FOOT_KEEP = 'tgjy', FOOT_LOW = 0.3;
 /** Points along a polyline at the same shares of its length as `us` (0 its start, 1 its end). */
 function atShares(line: P[], us: number[]): P[] {
   const arc = arcOf(line);
@@ -727,8 +729,11 @@ export function restyleEnds(cs: Node[][], c: RestyleCtx, from: Effective, to: Ef
   const xs = rings.flat().map(q => q.x), ys = rings.flat().map(q => q.y);
   const mid = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
   for (const end of ends) {
-    // (an exit stroke keeps the font's own end, whatever kind is picked: only Length and Curl move it)
-    const restyle = reshape && !end.exit;
+    // (an exit stroke keeps the font's own end, whatever kind is picked: only Length and Curl move it; and so does a t's
+    // foot and a g's, j's and y's tail, low in the letter (FOOT_KEEP): drawn as the kind picked, out along the way the
+    // skeleton turns at a short hook's tip, the Neo Grotesque's t's foot hung a knob, a spike or a ball curled back under
+    // the baseline and its y's and j's tails ended in blades pointing down)
+    const tip = end.pts[0], restyle = reshape && !end.exit && !(FOOT_KEEP.includes(c.ch) && tip.y < FOOT_LOW * c.xh);
     const { pts, body } = end, arc = arcOf(pts);
     // how much longer (or shorter) the end is drawn, and how much further round it bends, by the radius it curves at
     const kEnd = endCurvature(pts, arc, body), mv = moves ? moves(end, kEnd) : { len: 0, bend: 0 };
