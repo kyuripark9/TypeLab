@@ -79,11 +79,13 @@ const BEND_FLAT = 150;
     swashes run into the letter beside them wider (Serenade's I into its f and its 5 into its &, from 1.17 of its own
     width; Jotter's f's bar into its I from 1.15), so they stop at 1.12 and 1.1; the Squircle's tight spacing runs its
     letters together and its word spaces shut narrower than 0.88 (Orbital), and the Chunky Round's e, a, g and &
-    counters clog narrower than 0.83 (Gumdrop). */
+    counters clog narrower than 0.83 (Gumdrop). And the serif italic's g's lower loops, its own touching in "gg", run into
+    one another and into a comma or a y beside them wider than 1.25 of its width (Sonnet; drawn at every eighth,
+    2026-11-10), its narrowest the slider's own. */
 const BY_EYE: Record<string, [number, number] | null> = {
   'Bungee Inline:400': null, 'Cabin Sketch:700': null, 'Cormorant:500i': null, 'Libre Caslon Text:400i': null,
   'Turnpike:500': null, 'Serenade:400': [0.7009, 1.12], 'Permanent Marker:400': null, 'Kernel:500': null, 'Martian Mono:400': null,
-  'Bricolage Grotesque:700': null, 'Marcellus:400': null, 'Sonnet:400i': null, 'Ballyhoo:400': [0.913, 1.55], 'Space Grotesk:400': null,
+  'Bricolage Grotesque:700': null, 'Marcellus:400': null, 'Sonnet:400i': [0.7576, 1.25], 'Ballyhoo:400': [0.913, 1.55], 'Space Grotesk:400': null,
   'Cathedral:400': null, 'Jotter:400': [0.7846, 1.1], 'Orbital:600': [0.88, 1.2], 'Gumdrop:700': [0.8268, 1.6318]
 };
 

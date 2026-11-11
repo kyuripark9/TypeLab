@@ -6,6 +6,7 @@
    the table. */
 export const FONT_WIDTHS: Record<string, [number, number]> = {
   'Serenade:400': [0.7009, 1.12],
+  'Sonnet:400i': [0.7576, 1.25],
   'Compass:300': [0.6757, 1.6891],
   'Mainline:600': [0.6199, 1.5495],
   'Parlance:500': [0.6303, 1.5756],
