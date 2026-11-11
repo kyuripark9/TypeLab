@@ -526,7 +526,10 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   // (unmoved, by the font's own outline: the rig's has its pieces united, and a speck a corner's curl leaves outside it
   // dropped, which would move the letter's room a little as it is picked; pushed out by Weight, or squeezed or stretched by
   // Width, by its outline so)
-  const own = pushed ? weighed : wide !== skinned ? wide : rig && skinned === rig.contours ? src.contours : skinned;
+  // (pushed with the engine's serifs set on, by its outline pushed without them, as unpushed it is read before them:
+  // read off it serifs and all, the font's side bearings stood past the serifs' tips at any Weight but the card's own,
+  // "Ham burg")
+  const own = pushed ? (rig && withSerifs.has(styled!) ? weighedOut(rig, wide!, fl) : weighed) : wide !== skinned ? wide : rig && skinned === rig.contours ? src.contours : skinned;
   const [i0, i1] = inkSpan(sized);
   let [x0, x1] = own ? inkSpan({ adv: 0, contours: own }).map(v => v * fl.k) : [i0, i1];
   // (a lighter weight's letter keeps the room its outline took as moved, where tidying it cut off a tip whose sides crossed
@@ -539,7 +542,9 @@ export function freeGlyph(ch: string, src: Drawn, fl: FreeLetters): Glyph {
   if (rig && fl.now.overlap < fl.pick.overlap && OVERLAP_LETTERS.includes(ch)) { x0 = Math.min(x0, i0); x1 = Math.max(x1, i1); }
   // (and as far again as a serif reaches out past it, less a little, so two side by side don't run into one another: a
   // font's own side bearings are drawn for letters with no serifs)
-  const sl = fl.serifs && fl.serif && withSerifs.has(moved.contours) ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * SERIF_SB, over + sl * 0.15) : v);
+  // (the serifs set on the letter as restyled, before Weight pushes its outline: read off the pushed one, a letter with
+  // serifs at any Weight but the card's own kept the font's whole side bearings past them, "Ham burg")
+  const sl = fl.serifs && fl.serif && withSerifs.has(styled ?? moved.contours) ? fl.serif.len : 0, room = (v: number, over: number) => (sl ? Math.max(v + sl * SERIF_SB, over + sl * 0.15) : v);
   const [a0, a1] = inkSpan(src);
   let lsb = room(a0 * fl.k * fl.sx * fl.sb, x0 - i0), rsb = room((src.adv - a1) * fl.k * fl.sx * fl.sb, i1 - x1);
   // (a tail drawn on at its slant, reaching further out past the letter's ink, runs on under the letter beside it, the

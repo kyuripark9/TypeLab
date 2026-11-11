@@ -691,7 +691,7 @@ const OFFS_BY_EYE: Record<string, Record<string, string[]>> = {
   'Ballyhoo:400': { bends: ['round'], qForm: ['sweep'] },
   'Timber:400': { rForm: ['loop'], yForm: ['cup'], mForm: ['raised'], jForm: ['cup'] },
   'Kernel:500': { bowlForm: ['box'], serif: ['true'], jForm: ['cup'] },
-  'Compass:300': { bowlForm: ['box'] },
+  'Compass:300': { bowlForm: ['box'], serif: ['true'] },
   // (the Letters page's shapes, each drawn on every card at its own settings, Weight 0 and 100, Width 0 and 100, and
   // looked at, 2026-11-10: the engine's stand-in letters a font hasn't got clog or stand apart from it: a double-storey
   // g an 8 or a blot narrow (Neo Grotesque, Industrial, Chunky Round, Block) or half again as heavy as a light hand's
@@ -699,11 +699,18 @@ const OFFS_BY_EYE: Record<string, Record<string, string[]>> = {
   // narrow, the Squircle's square dots sat on its stems as one bar (and round, the one left, its own all but alike), the Fat Face's sweeping Q's tail knotted and the Soft
   // Slab's squat, the Didone's, Transitional's and casual card's crossing Q light or an O, the cupped J a U or shut on
   // the casual, Wood Type and code cards)
-  'Mainline:600': { gForm: ['double'], story: ['single'] },
-  'Turnpike:500': { gForm: ['double'] },
+  'Mainline:600': { gForm: ['double'], story: ['single'], serif: ['true'] },
+  'Turnpike:500': { gForm: ['double'], serif: ['true'] },
   'Bulwark:700': { gForm: ['double'] },
-  'Jotter:400': { gForm: ['double'], jForm: ['cup'], qForm: ['crossing'] },
-  'Hearth:600': { qForm: ['sweep'] }
+  'Jotter:400': { gForm: ['double'], jForm: ['cup'], qForm: ['crossing'], serif: ['true'] },
+  'Hearth:600': { qForm: ['sweep'] },
+  // (and the Serifs switch, flipped on every card that offers it and drawn at Weight's, Width's and Slant's ends: set on
+  // the casual hand, its letters stood apart where a stem took a serif and the next none, "ni d bpq"; taken off the
+  // Typewriter, specks and spurs were left at its W's and k's and x's feet; set on the Neo Grotesque, Humanist,
+  // Geometric and Industrial, a serif blotted the 3's top end (and the Geometric's 6 and g, the Humanist's 4 and 5) and
+  // the Humanist's x came apart in spikes at a wide Width; the Rounded and Comic cards take them clean)
+  'Dispatch:400': { serif: ['false'] },
+  'Parlance:500': { serif: ['true'] }
 };
 /* And from the pickers and sliders moved together (--mixed, 2026-11-09), each looked at drawn alone where the mix read a
    letter or two: round bends on the Squircle, Transitional, Didone and Fat Face cards turned their M's vertex and V's

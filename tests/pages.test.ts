@@ -131,7 +131,10 @@ describe('editor pages', () => {
     assert.deepEqual(FONT_OFFS[STYLE_FONTS.serif]?.serif, ['false']);
     assert.deepEqual([...choicesOff(serif, 'serif')], ['false']);
     assert.ok(controlOff('serif', serif));
-    assert.ok(!controlOff('serif', card('grotesque')), "the grotesque's serifs switch on whole");
+    assert.ok(!controlOff('serif', card('soft')), "the Rounded card's serifs switch on whole");
+    // (and on the Neo Grotesque, Humanist, Geometric and Industrial, where a serif blotted the 3's top end, nor off the
+    // Typewriter, specks left at its feet, nor on the casual hand, its letters standing apart)
+    for (const id of ['grotesque', 'humanist', 'geometric', 'industrial', 'typewriter', 'casual']) assert.ok(controlOff('serif', card(id)), id);
     // (nor the Didone's and the Old Style's, which leave hairline stubs where their serifs were, looked at drawn)
     assert.ok(controlOff('serif', card('didone')) && controlOff('serif', card('oldstyle')));
     // (switched off already, as a design saved so has it, the switch is offered, to switch them back on)
@@ -144,7 +147,7 @@ describe('editor pages', () => {
     // (on a card in a font the serifs keep their own shapes, their tips', sides' and inside serifs' pickers off, and the
     // Serifs page its switch; square bowl joins, upright and arched diagonals, the k's stem and bar, round bends, the
     // cupped Y and the raised M are off too, OFFS_ON_FONTS, so their pickers go)
-    assert.ok(pagesFor(card('grotesque')).some(c => c.id === 'serifs') && controlOff('serifTip', card('grotesque')) && !controlOff('serif', card('grotesque')));
+    assert.ok(pagesFor(card('soft')).some(c => c.id === 'serifs') && controlOff('serifTip', card('soft')) && !controlOff('serif', card('soft')));
     for (const id of Object.keys(STYLE_FONTS).filter(s => STYLE_FONTS[s] in FONT_OFFS)) for (const k of ['serifTip', 'serifSides', 'serifInner', 'bowlJoin', 'diagonals', 'kForm', 'bends', 'yForm', 'mForm'] as ControlKey[]) assert.ok(controlOff(k, card(id)), `${id} ${k}`);
     assert.ok(choicesOff(card('grotesque'), 'diagonals').has('arch') && choicesOff(card('grotesque'), 'kForm').has('bar') && !choicesOff(card('grotesque'), 'kForm').has('arm'));
     // (and each choice left out on a card is one its picker offers, and never the card's own)
