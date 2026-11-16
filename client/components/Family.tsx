@@ -10,7 +10,6 @@ import { anchorOf, FAMILY_STYLES, familyMember, familyStylesFor, ownStyle, WEIGH
 import { masterInfo } from '../../shared/source/master-catalog';
 import type { Params } from '../../shared/params';
 import { useEditor } from '../state/editor';
-import { useFreeFonts } from '../lib/free';
 import { useSources } from '../lib/sources';
 import { n1 } from '../lib/hooks';
 import { fontFor } from '../state/editor';
@@ -99,7 +98,7 @@ function LegacyFamilyPicker({ params, anchor, picked, onPick }: PickerProps) {
 
 /** The samples' letters drawn in Points, moved to every style of the family ahead of the Export window, a letter of a
     style at a time while the editor is idle (a second after the settings last changed), so the window opens with its
-    samples drawn: moving them takes a moment the first time (family-drawn.ts in the engine keeps what it moved). */
+    samples drawn. */
 export function useFamilySamplesAhead() {
   const params = useEditor(s => s.params);
   useEffect(() => {
@@ -129,7 +128,6 @@ function MemberSample({ member, label }: { member: FamilyMember; label: string }
 }
 
 function FontSample({ params, label }: { params: Params; label: string }) {
-  useFreeFonts();
   useSources();
   const f = fontFor(params), ln = f.layout(SAMPLE, Infinity)[0];
   // room on the right for an italic's lean

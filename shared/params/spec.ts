@@ -62,11 +62,9 @@ interface Extra {
       A letter can't own it: cleanGlyphs (clean.ts) drops a letter's value for a global setting on reading,
       so making a setting global loses the values letters were saved with. */
   global?: boolean;
-  /** a free font's letters follow it, as far as it is moved from where the font was picked (Params.freeAt).
-      It joins FREE_AT_KEYS, and sanitizeParams takes an older design's value of it as the one the font's
-      letters stand for. The free-font code has to move the letters for it (freeLetters in
-      shared/engine/free-letters.ts, skin.ts, restyle.ts), or the setting does nothing on a free font: check
-      with npm run golden. */
+  /** an own font's letters stand for a value of it as drawn (Params.freeAt), and a source style moves them as far as
+      it is moved from there. It joins FREE_AT_KEYS, and sanitizeParams takes an older design's value of it as the one
+      the font's letters stand for. A source follows it only once shared/source/capabilities.ts lists it. */
   free?: boolean;
   /** shown as a control on a page */
   control?: ControlDef;
@@ -386,7 +384,7 @@ export type FreeAt = Partial<Pick<Params, FreeKey>>;
 export const freeAtOf = (p: Params): FreeAt => Object.fromEntries(FREE_AT_KEYS.map(k => [k, p[k]]));
 
 /** The settings a letter drawn in Points was drawn at (Drawn.at, in shared/engine/outline.ts): every one but the
-    letters' own maps (and the drawings of forms not in use), its own values laid in. Moved away from these, the drawing moves with them (family-drawn.ts). */
+    letters' own maps (and the drawings of forms not in use), its own values laid in. Moved away from these, a drawing in a design the engine builds keeps its shape and only leans with the slant (drawn-letter.ts). */
 export type DrawnKey = Exclude<keyof Params, 'glyphs' | 'outlines' | 'sourceFormEdits'>;
 export const DRAWN_AT_KEYS = PARAM_KEYS.filter(k => k !== 'glyphs' && k !== 'outlines' && k !== 'sourceFormEdits') as DrawnKey[];
 export type DrawnAt = Partial<Pick<Params, DrawnKey>>;

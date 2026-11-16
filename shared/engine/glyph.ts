@@ -75,8 +75,7 @@ function weighFillets(b: Builder, m: Metrics) {
 const hash = (n: number, k: number) => { const v = Math.sin(n * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
 
 /* Hand-drawn irregularity: a smooth displacement field, different for every glyph. Every
-   stroke of a glyph moves through the same field, so strokes that touch keep touching. (A free font's letters are
-   moved through it too, as drawn: see freeGlyph in free-letters.ts.) */
+   stroke of a glyph moves through the same field, so strokes that touch keep touching. */
 export function wobbler(code: number, m: Metrics) {
   const A0 = m.wob * m.xh * 0.085, f = 2 * Math.PI / (m.xh * 1.1);
   const p = [1, 2, 3, 4, 5, 6].map(k => hash(code, k + 10) * 2 * Math.PI);
@@ -489,10 +488,7 @@ function blockCuts(e: Metrics['p'], T: number): CornerCuts {
 const TRAP = 0.55, TRAP_W = 0.6;
 
 /** Place a glyph drawn `W` wide between side bearings lsb and rsb: rotation, monospacing, the pixel grid,
-    playful bounce and hand jitter, slant, then the slice, the fills and rough edges, which run on its final outline.
-    A free font's letters are placed here too, each of these effects counted only as far as the settings move it from
-    where the font was picked (freeLetters, in free-letters.ts, hands them Metrics that do so): a new effect needs the
-    same there. */
+    playful bounce and hand jitter, slant, then the slice, the fills and rough edges, which run on its final outline. */
 export function placeGlyph(out: Unplaced, W: number, lsb: number, rsb: number, code: number, m: Metrics): Glyph {
   const turn = m.rot ? turnAbout(out, m.rot) : null;
   if (turn) { lsb += turn.grow; rsb += turn.grow; }

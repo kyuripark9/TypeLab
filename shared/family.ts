@@ -4,7 +4,7 @@
    how thick their stems are drawn, so a design whose Verticals already draw them heavy still steps
    evenly to its Thin; a lighter weight of a design with much contrast keeps its hairlines as thick as
    the design's, with less contrast, as a Didone family's do. */
-import { buildFont, drawnFrom, freeFont, type Cmd } from './engine';
+import { buildFont, type Cmd } from './engine';
 import { metrics, resolve } from './engine/font';
 import { cmdsBox, toPolys } from './engine/geom';
 import { DEFAULTS, slantDeg, type GlyphParams, type Params } from './params';
@@ -172,7 +172,7 @@ function stemOfLetters(p: Params): number | null {
     measures (the skin in the engine keeps a font's own contrast, its strokes between hairline and stem drawn as far
     between the new ones), and block letters as their corners do, so those are read off the letters (barOf,
     stemOfLetters). Where they can't be read, the measures stand in. */
-function lookOf(p: Params, read = !!p.freeFont || p.build === 'blocks'): Look {
+function lookOf(p: Params, read = p.build === 'blocks'): Look {
   const m = metrics(resolve(p)), measured = { hair: m.hT, stem: m.tDir(0, 1), read: false };
   if (!read) return measured;
   const hair = barOf(p), stem = stemOfLetters(p);
@@ -226,8 +226,6 @@ function keepHairline(p: Params, look: Look, q: Params): Pick<Params, 'contrast'
     design at that weight's stems: its upright and its italic share them. */
 const hairlines = new WeakMap<Params, { look: Look; kept: Map<string, Pick<Params, 'contrast' | 'hWeight'> | null> }>();
 function hairlineOf(params: Params, anchor: WeightId, weight: WeightId, q: Params) {
-  // (a free font not here yet has no letters to read: measured as the engine draws, and not kept)
-  if (params.freeFont && !freeFont(params.freeFont)) return keepHairline(params, lookOf(params, false), q);
   let h = hairlines.get(params);
   if (!h) { h = { look: lookOf(params), kept: new Map() }; hairlines.set(params, h); }
   const key = `${anchor} ${weight}`;
@@ -275,10 +273,8 @@ export function familyStylesFor(params: Params) {
     either end of it its Verticals) and upright or italic. A letter with its own weight or slant keeps how it differs
     from the rest. A lighter weight keeps its hairlines as thick as the design's, with less contrast (keepHairline),
     and a letter with its own contrast or Horizontals has them lowered or raised as much. Letters drawn by hand in
-    Points mode, which no setting shapes, are moved from the design instead: their strokes thickened or thinned and the
-    letters leaned as the member's are (family-drawn.ts in the engine, which finds the design by the
-    member's params object). A design written in a free font follows the weight and slant to the
-    family's heavier or lighter fonts and its italic, as the editor does (see freeLetters in the engine). */
+    Points mode, which no setting shapes, keep their shape at every weight and lean in the italics (drawn-letter.ts in
+    the engine). A source style's family is drawn from its own weights instead (masterInfo, below). */
 export function familyMember(params: Params, anchor: WeightId, weight: WeightId, italic: boolean): FamilyMember {
   const info = masterInfo(params.sourceProgram);
   if (info) {
@@ -313,7 +309,7 @@ export function familyMember(params: Params, anchor: WeightId, weight: WeightId,
   return {
     weight, italic, style: styleName(weight, italic), cls,
     angle: slantDeg(slant),
-    params: drawnFrom({ ...params, ...weighs, ...hair, slant, glyphs }, params)
+    params: { ...params, ...weighs, ...hair, slant, glyphs }
   };
 }
 

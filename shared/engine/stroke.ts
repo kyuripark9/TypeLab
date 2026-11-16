@@ -13,7 +13,7 @@
       (capEnds).
    4. serifs: buildSerif's profiles, cupped bases and blackletter diamonds.
    Pure, loading only geom.ts (all else it imports is types). Among its callers: buildGlyph (glyph.ts), the
-   glyph files' turns (glyphs/turns.ts), the stencil's turn pieces (stencil.ts), restyle.ts and the client's
+   glyph files' turns (glyphs/turns.ts), the stencil's turn pieces (stencil.ts) and the client's
    diagrams (Diagram.tsx), each with a PenCtx of its own; font.ts, corners.ts and serif-sides.ts take helpers
    from it. */
 import { clamp, clipPoly, cubicAt, lerp, lerpP, quarter, smoothstep, subCubic } from './geom';
@@ -29,8 +29,7 @@ const SAME_TANGENT = 0.9994;
 /** The share of its weight a stroke keeps at full Ink traps, both where it runs into another and into a sharp turn. */
 const JOINT_THIN = 0.45;
 /** How deep a square step at 1 on Steps cuts, as a share of the thinner of the strokes it cuts into, so they stay
-    joined across it: a turn's here (TurnR.step), an end's corner's (corners.ts) and a free font's corner's
-    (restyleCorners in restyle.ts). */
+    joined across it: a turn's here (TurnR.step) and an end's corner's (corners.ts). */
 export const STEP_DEPTH = 0.85;
 
 interface Sample {
@@ -367,11 +366,8 @@ function cap(A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, type: EndType, ctx: Pe
 }
 
 /** A styled stroke end (a terminal) drawn on sides A (left of the way out, d) and B, ending at p, t thick, as the
-    stroke expander draws one: the points to insert between the two sides' ends, which it may move too (see
-    restyle.ts, which draws a free font's ends so). */
+    stroke expander draws one: the points to insert between the two sides' ends, which it may move too. */
 export const termCap = (A: Pt[], B: Pt[], p: Dir, d: Dir, t: number, ctx: PenCtx, outerIsA: boolean) => cap(A, B, p, d, t, 'term', ctx, outerIsA);
-/** How much shorter a stroke is drawn under a drop on its end (see drop), for an end t thick. */
-export const termDropBack = (T: TermSpec, t: number) => dropBack(T, t);
 
 /** Whether an end of this type is drawn square across, with two corners of its own to round (corners.ts
     rounds them). Keep in step with cap(): a terminal form added there that ends square belongs here too. */

@@ -1,15 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
-import { buildFont, freeFont, registerFreeFont } from '../shared/engine';
+import { buildFont } from '../shared/engine';
 import { glyphIds } from '../shared/engine/font';
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { DEFAULTS, freeAtOf, isValidParams, sanitizeParams, type Params } from '../shared/params';
-import { FreeFonts } from '../server/free-fonts';
 
 /* The Handwriting page's Cursive, and what was taken out of it: Letterforms (Print or Script) and Swell, with the
-   engine's own joined script letters they drew. Scripts are the script fonts' (the Style page's script cards), and a
-   design is written in its font's own letters, script or print. The Lowercase height scale, down to a copperplate's
+   engine's own joined script letters they drew. Scripts are the script fonts' (the Style page's script cards). The Lowercase height scale, down to a copperplate's
    x-height, and moving older designs onto it are in params.test.ts. */
 
 describe('cursive', () => {
@@ -30,20 +28,10 @@ describe('cursive', () => {
 });
 
 describe('Letterforms and Swell, taken out', () => {
-  const ownFonts = new FreeFonts(null, async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); });
   const inFont = async (id: string): Promise<Params> => {
     const style = STYLES.find(s => s.id === id)!.params, fid = STYLE_FONTS[id];
-    if (!freeFont(fid)) registerFreeFont(await ownFonts.load(fid));
     return { ...style, freeFont: fid, freeAt: freeAtOf(style) } as Params;
   };
-
-  it('writes a design in its font\'s own letters, print or script, however cursive', async () => {
-    for (const id of ['geometric', 'informal']) {
-      const p = await inFont(id), f = buildFont(p), cur = buildFont({ ...p, cursive: 1 });
-      // (Cursive gives a print font's letters flicks; a script font's are its own as they are)
-      for (const ch of 'naoR') assert.ok(cur.glyph(ch)!.drawn && f.glyph(ch)!.drawn, `${id} ${ch}`);
-    }
-  });
 
   it('opens and saves a design that still carries them, without them', async () => {
     const p = await inFont('geometric');

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
 import { DEFAULT_NAME, cleanName, type Design } from '../../shared/design';
 import { ApiError, api, errorMessage } from '../lib/api';
-import { useFreeFonts } from '../lib/free';
+import { useSources } from '../lib/sources';
 import { isTyping } from '../lib/hooks';
 import { drawName, keptSample, withSample } from '../lib/name-sample';
 import { useOpeningHolds } from '../lib/opening';
@@ -140,7 +140,7 @@ function useSave() {
     again in a moment the editor is idle, and kept with it where it differs from the one it was saved with: it was
     saved without one, or the engine has moved its letters since. My designs then shows it as it opens. */
 function useSampleCheck(d: Design | null) {
-  const holds = useOpeningHolds(), free = useFreeFonts(), sent = useRef('');
+  const holds = useOpeningHolds(), free = useSources(), sent = useRef('');
   useEffect(() => {
     if (!d || holds) return;
     const check = () => {

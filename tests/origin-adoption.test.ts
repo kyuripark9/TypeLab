@@ -162,7 +162,7 @@ describe('original-sheet saved Points adoption', () => {
       assert.deepEqual(result.drawing, [expected.adv, expected.drawn.contours.map(c => c.map(packNode))]);
       const pool = new ExportPool(1);
       try {
-        const built = await pool.run({ kind: 'otf', name: 'Original Points ' + destination, params: after, member: null }, []);
+        const built = await pool.run({ kind: 'otf', name: 'Original Points ' + destination, params: after, member: null });
         const actual = opentype.parse(Uint8Array.from(built.data).buffer);
         const local = opentype.parse(Uint8Array.from(buildOTF(after, 'Original Points ' + destination)).buffer);
         assert.deepEqual(actual.charToGlyph('R').path.commands, local.charToGlyph('R').path.commands);

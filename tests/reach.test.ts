@@ -41,12 +41,12 @@ describe('whether a setting changes what is in view', () => {
   it('while customizing, a letter-only setting that misses the letter reaches nothing else', () => {
     assert.deepEqual(reachOf(base, 'crossbar', ['o'], 'o'), { shows: false, elsewhere: [] });
   });
-  it('a letter edited in Points is moved by its weight and slant, not reshaped by its corners', () => {
+  it('a letter edited in Points leans with the slant, and is reshaped by neither its weight nor its corners', () => {
     const l = { adv: 320, contours: [[{ x: 60, y: 0 }, { x: 260, y: 0 }, { x: 260, y: 700 }, { x: 60, y: 700 }]], at: drawnAtOf(base, 'l') };
     const p = { ...base, outlines: { l } };
-    assert.equal(reachOf(p, 'weight', ['l']).shows, true);
+    assert.equal(reachOf(p, 'weight', ['l']).shows, false);
     assert.equal(reachOf(p, 'slant', ['l']).shows, true);
-    assert.equal(reachOf(p, 'weight', ['l'], 'l').shows, true);
+    assert.equal(reachOf(p, 'weight', ['l'], 'l').shows, false);
     const r = reachOf(p, 'roundness', ['l']);
     assert.equal(r.shows, false);
     assert.ok(r.elsewhere.length > 0, r.elsewhere.join());

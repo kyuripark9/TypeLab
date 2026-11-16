@@ -142,10 +142,10 @@ describe('letters drawn in Points', () => {
     assert.equal(up.outlines.l.at.width, 0.3);
     assert.equal(up.outlines.l.at.slant, DEFAULTS.slant);
     assert.deepEqual(up.outlines.l.contours, l.contours);
-    // read since, it is drawn just as it was, and moves once the settings do
+    // read since, it is drawn just as it was, and keeps its shape when the settings move
     const before = buildFont(sanitizeParams(v3)).glyph('l')!, now = sanitizeParams(up);
     assert.equal(buildFont(now).glyph('l')!.d, before.d);
-    assert.notEqual(buildFont({ ...now, weight: 0.2 }).glyph('l')!.d, before.d);
+    assert.equal(buildFont({ ...now, weight: 0.2 }).glyph('l')!.d, before.d);
     // a drawing that keeps its settings, and settings written since, are left as they are
     const kept = { ...v3, outlines: { l: { ...l, at: { weight: 0.1 } } } };
     assert.deepEqual(upgradeParams(structuredClone(kept), 3), kept);

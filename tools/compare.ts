@@ -7,21 +7,19 @@
 
      npm run compare                            the working tree against HEAD
      npm run compare -- 32b1635                 ... against another commit (any git ref)
-     npm run compare -- 32b1635 --free          the free fonts kept in data/free-fonts as well
      npm run compare -- --only 'modular|slab'   only the styles whose id matches ('defaults' for the defaults)
 
+   These are the letters the engine builds itself (strokes, blocks, arcs); the source styles have their own tests.
    The other commit is checked out into .tools/compare/<commit> (a git worktree, kept for next time, with
-   node_modules and data/free-fonts linked in). Each side is dumped by this file in child processes
-   (--dump <root> <out>), which import the engine from <root>, both sides at once and in the same slices: a
-   design can draw otherwise after others drawn in the same process (the twin's fit of a free font is kept by
-   the font, whichever style drew with it first), so each side draws every design after the same ones. The
+   node_modules linked in). Each side is dumped by this file in child processes
+   (--dump <root> <out>), which import the engine from <root>, both sides at once and in the same slices. The
    commit's dump is kept in .tools/compare/ under the commit, this file's text, the options and the slices, so
    comparing against it again dumps only the working tree. It lists each design and the characters that differ,
-   and exits 1 if any do. A whole run takes about five minutes (with --free, closer to half an hour); --only cuts
+   and exits 1 if any do. A whole run takes about five minutes; --only cuts
    it to seconds. */
 import { spawn, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -30,9 +28,6 @@ import { parseArgs } from 'node:util';
 const SELF = fileURLToPath(import.meta.url);
 const ROOT = resolve(dirname(SELF), '..');
 const WORK = resolve(ROOT, '.tools/compare');
-/** Where the server keeps the free fonts (as tools/lib.ts's FONTS_DIR, which this file can't import: it loads
-    the engine of the working tree, and a dump loads only the engine of its own checkout). */
-const FONTS_DIR = process.env.FONTS_DIR ?? resolve(ROOT, 'data/free-fonts');
 
 type Design = Record<string, unknown>;
 
@@ -75,44 +70,24 @@ const thrown = (e: unknown) => 'THROW ' + String(e).replace(/\s+/g, ' ').slice(0
 /* ---------- one side's dump (run in a child process) ---------- */
 
 /** Every design one checkout's dump covers, by name, built from that checkout's own styles and settings. */
-async function designsOf(root: string, free: boolean, only: RegExp | null): Promise<[string, Design][]> {
+async function designsOf(root: string, only: RegExp | null): Promise<[string, Design][]> {
   const load = (f: string) => import(pathToFileURL(join(root, f)).href);
-  const [{ STYLES }, { DEFAULTS, FREE_AT_KEYS }, { STYLE_FONTS }] = await Promise.all([load('shared/content/index.ts'), load('shared/params/index.ts'), load('shared/free-fonts.ts')]);
+  const [{ STYLES }, { DEFAULTS }] = await Promise.all([load('shared/content/index.ts'), load('shared/params/index.ts')]);
   const styles = (STYLES as { id: string; params: Design }[]).filter(st => !only || only.test(st.id));
   const named = (base: string, mn: string) => (mn ? `${base}:${mn}` : base);
   const out: [string, Design][] = [];
   for (const st of styles) for (const [mn, mv] of MOVES) out.push([named(st.id, mn), { ...st.params, ...mv }]);
   if (!only || only.test('defaults')) for (const [mn, mv] of MOVES) out.push([named('defaults', mn), { ...DEFAULTS, ...mv }]);
-  if (free) for (const st of styles) {
-    const fid = STYLE_FONTS[st.id] as string | undefined;
-    if (!fid || !(existsSync(keptFile(fid)) || existsSync(ownFile(root, fid)))) continue;
-    const freeAt = Object.fromEntries((FREE_AT_KEYS as string[]).map(k => [k, st.params[k]]));
-    for (const [mn, mv] of MOVES) out.push([named(`free:${st.id}`, mn), { ...st.params, freeFont: fid, freeAt, ...mv }]);
-  }
   return out;
 }
-
-/** A free font's file's name (as server/free-fonts.ts's keptFile names it). */
-const fileName = (id: string) => id.replace(/[^A-Za-z0-9]+/g, '-') + '.json';
-/** The file a free font is kept in. */
-const keptFile = (id: string) => join(FONTS_DIR, fileName(id));
-/** Where a checkout keeps TypeLab's own fonts (part of the commit, so its dump's key needn't name them). */
-const ownFile = (root: string, id: string) => join(root, 'fonts', fileName(id));
-/** Every .json file in a folder, in name order. */
-const jsonIn = (dir: string) => (existsSync(dir) ? readdirSync(dir).filter(f => f.endsWith('.json')).sort().map(f => join(dir, f)) : []);
-/** Every free font kept in FONTS_DIR. */
-const keptFonts = () => jsonIn(FONTS_DIR);
 
 /** Writes to `out` a line for each design's layout and metrics ('#layout'; '#font' with the error if the design
     can't be built) and for each of its glyphs: the design, the character and a hash of all of it. Slice `i/n` takes every n-th design from the i-th. On stdout it says how
     many designs it has ('of <n>'), then '+' for each one done, for the progress line. */
-async function dump(root: string, out: string, free: boolean, only: RegExp | null, slice: [number, number]) {
+async function dump(root: string, out: string, only: RegExp | null, slice: [number, number]) {
   const E = await import(pathToFileURL(join(root, 'shared/engine/index.ts')).href);
-  // every kept font, registered before anything is drawn, so a design draws the same whichever slice it is in
-  // (a setting can reach for another weight or the italic of a style's font)
-  if (free) for (const f of [...keptFonts(), ...jsonIn(join(root, 'fonts'))]) E.registerFreeFont(JSON.parse(readFileSync(f, 'utf8')));
   const lines: string[] = [];
-  const mine = (await designsOf(root, free, only)).filter((_, k) => k % slice[1] === slice[0]);
+  const mine = (await designsOf(root, only)).filter((_, k) => k % slice[1] === slice[0]);
   process.stdout.write(`of ${mine.length}\n`);
   for (const [name, p] of mine) {
     process.stdout.write('+\n');
@@ -143,7 +118,7 @@ async function dump(root: string, out: string, free: boolean, only: RegExp | nul
 
 const git = (...args: string[]) => execFileSync('git', ['-C', ROOT, ...args], { encoding: 'utf8' }).trim();
 
-/** A checkout of `commit` under .tools/compare, made once and kept, with the packages and free fonts linked in. */
+/** A checkout of `commit` under .tools/compare, made once and kept, with the packages linked in. */
 function checkout(commit: string): string {
   const dir = join(WORK, commit.slice(0, 12));
   let head = '';
@@ -161,7 +136,6 @@ function checkout(commit: string): string {
     symlinkSync(realpathSync(to), at);
   };
   link(resolve(ROOT, 'node_modules'), join(dir, 'node_modules'));
-  link(FONTS_DIR, join(dir, 'data/free-fonts'));
   return dir;
 }
 
@@ -175,9 +149,9 @@ function showProgress() {
 }
 
 /** Dumps checkout `root` into `out`, in `jobs` child processes at once; resolves when all are done. */
-function dumpIn(root: string, out: string, free: boolean, only: string | undefined, jobs: number): Promise<void>[] {
+function dumpIn(root: string, out: string, only: string | undefined, jobs: number): Promise<void>[] {
   return Array.from({ length: jobs }, (_, i) => new Promise<void>((done, fail) => {
-    const args = ['--import', 'tsx', SELF, '--dump', root, `${out}.${i}`, '--slice', `${i}/${jobs}`, ...(free ? ['--free'] : []), ...(only ? ['--only', only] : [])];
+    const args = ['--import', 'tsx', SELF, '--dump', root, `${out}.${i}`, '--slice', `${i}/${jobs}`, ...(only ? ['--only', only] : [])];
     const child = spawn(process.execPath, args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'inherit'] });
     progress.waiting++;
     let rest = '';
@@ -243,22 +217,20 @@ function diff(base: Map<string, Map<string, string>>, now: Map<string, Map<strin
   return report;
 }
 
-async function compare(ref: string, free: boolean, only: string | undefined) {
+async function compare(ref: string, only: string | undefined) {
   const t0 = Date.now();
   if (only) new RegExp(only); // a pattern that doesn't parse stops here, before anything is dumped
   const commit = git('rev-parse', '--verify', `${ref}^{commit}`);
-  // each side's designs shared out among the same number of child processes (half the cores, at most 4, as a dump
-  // of the free fonts holds a gigabyte or so)
+  // each side's designs shared out among the same number of child processes (half the cores, at most 4)
   const jobs = Math.max(1, Math.min(4, Math.floor(availableParallelism() / 2)));
-  // the base's dump is kept by commit and by what made it: this file, the options, the slices and the fonts it drew
-  const fonts = free ? keptFonts().map(f => readFileSync(f, 'utf8')).join('\n') : '';
-  const key = sha([readFileSync(SELF, 'utf8'), free, only ?? '', jobs, fonts].join('\n')).slice(0, 10);
+  // the base's dump is kept by commit and by what made it: this file, the options and the slices
+  const key = sha([readFileSync(SELF, 'utf8'), only ?? '', jobs].join('\n')).slice(0, 10);
   mkdirSync(WORK, { recursive: true });
   const baseFile = join(WORK, `${commit.slice(0, 12)}-${key}.tsv`), nowFile = join(WORK, `working-${process.pid}.tsv`);
   const cached = existsSync(baseFile);
-  console.log(`compare: ${ref}${commit.startsWith(ref) ? '' : ` (${commit.slice(0, 7)})`}${cached ? ', dumped before,' : ''} against the working tree${free ? ', with the free fonts' : ''}${only ? `, styles matching /${only}/` : ''}`);
-  const runs = dumpIn(ROOT, nowFile, free, only, jobs);
-  if (!cached) runs.push(...dumpIn(checkout(commit), baseFile, free, only, jobs));
+  console.log(`compare: ${ref}${commit.startsWith(ref) ? '' : ` (${commit.slice(0, 7)})`}${cached ? ', dumped before,' : ''} against the working tree${only ? `, styles matching /${only}/` : ''}`);
+  const runs = dumpIn(ROOT, nowFile, only, jobs);
+  if (!cached) runs.push(...dumpIn(checkout(commit), baseFile, only, jobs));
   await Promise.all(runs);
   if (process.stderr.isTTY) process.stderr.write('\r\x1b[K');
   if (!cached) writeFileSync(baseFile, joinSlices(baseFile, jobs));
@@ -273,13 +245,13 @@ async function compare(ref: string, free: boolean, only: string | undefined) {
 
 const { values: a, positionals } = parseArgs({
   allowPositionals: true,
-  options: { dump: { type: 'boolean', default: false }, free: { type: 'boolean', default: false }, only: { type: 'string' }, slice: { type: 'string', default: '0/1' } }
+  options: { dump: { type: 'boolean', default: false }, only: { type: 'string' }, slice: { type: 'string', default: '0/1' } }
 });
 if (a.dump) {
   const [root, out] = positionals;
   const [i, n] = a.slice!.split('/').map(Number);
-  await dump(resolve(root), resolve(out), a.free!, a.only ? new RegExp(a.only) : null, [i, n]);
+  await dump(resolve(root), resolve(out), a.only ? new RegExp(a.only) : null, [i, n]);
 } else {
-  try { await compare(positionals[0] ?? 'HEAD', a.free!, a.only); }
+  try { await compare(positionals[0] ?? 'HEAD', a.only); }
   catch (e) { console.error(String((e as Error).message ?? e)); process.exitCode = 2; }
 }

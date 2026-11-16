@@ -4,10 +4,9 @@
    step. Each letter keeps a History of its own in the inspector (LetterHistory.tsx). */
 import { memo, useMemo, useRef, useState } from 'react';
 import { styleById } from '../../shared/content';
-import { buildFont, freeFont, type Font } from '../../shared/engine';
+import { buildFont, type Font } from '../../shared/engine';
 import { sameDesign, type FontVersion } from '../../shared/font-log';
 import type { Params } from '../../shared/params';
-import { loadFreeFont } from '../lib/free';
 import { settingName, someOf, useDrawnRows, useInWindow, when } from '../lib/history';
 import { n1, shortcut, useDismiss } from '../lib/hooks';
 import { actions, useEditor, useFont } from '../state/editor';
@@ -78,14 +77,12 @@ const VersionRow = memo(function VersionRow({ v, font, draw, now, off, onPick }:
   );
 });
 
-/** The font a version draws, built once (from the design's, which lends its letters where only drawings differ),
-    and again once a free font it was missing arrives. */
+/** The font a version draws, built once (from the design's, which lends its letters where only drawings differ). */
 const built = new WeakMap<Params, Font>();
 function versionFont(p: Params, design: Font): Font {
   if (p === design.params) return design;
   let f = built.get(p);
-  if (!f || f.freeMissing.some(id => freeFont(id))) { f = buildFont(p, design); built.set(p, f); }
-  for (const id of f.freeMissing) void loadFreeFont(id);
+  if (!f) { f = buildFont(p, design); built.set(p, f); }
   return f;
 }
 

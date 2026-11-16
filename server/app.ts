@@ -7,13 +7,13 @@ import { cleanName, cleanSample, type DesignInput } from '../shared/design';
 import { cleanVersions, packVersions } from '../shared/font-log';
 import { cleanLog } from '../shared/letter-log';
 import { isValidParams, type Params } from '../shared/params';
-import { FREE_FAMILIES, INTRO_CHARS, parseFontId } from '../shared/free-fonts';
+import { INTRO_CHARS, parseFontId } from '../shared/free-fonts';
 import type { DesignStore } from './db';
 import { AccountStore, RESET_MINUTES, SESSION_DAYS } from './accounts';
 import type { Mail, Mailer } from './mail';
 import { AUTH_CHANNEL, GOOGLE_RESULT_PARAM, cleanEmail, cleanUserName, isEmail, passwordProblem, type GoogleIntent, type GoogleResult, type User } from '../shared/account';
 import { pkce, type GoogleAuth } from './google';
-import { familyMember, familyMembers, familyStylesFor, isWeightId, type FamilyRequest, type MemberRequest, type WeightId, type FamilyStyle } from '../shared/family';
+import { familyStylesFor, isWeightId, type FamilyRequest, type MemberRequest, type WeightId, type FamilyStyle } from '../shared/family';
 import type { ExportJob } from './export';
 import { Busy, ExportPool } from './export-pool';
 import { FreeFonts } from './free-fonts';
@@ -461,13 +461,10 @@ function designRoutes(api: Router, { store }: Ctx) {
 
 /** Free fonts' letters, and the exports: a font, a family and a specimen sheet. */
 function fontRoutes(api: Router, { fonts, exports }: Ctx) {
-  /** Build an export on a worker, from the free fonts the design and `more` (its family's members) are written in,
-      and send it as a download; or answer that those fonts couldn't be fetched, or that too many exports wait. */
-  const send = async (res: Response, job: ExportJob, ...more: Params[]) => {
-    let wanted;
-    try { wanted = await fonts.wanted(job.params, ...more); } catch (e) { console.error(e); throw new HttpError(502, 'Couldn’t fetch the free font this design is written in. Try again in a moment.'); }
+  /** Build an export on a worker and send it as a download; or answer that too many exports wait. */
+  const send = async (res: Response, job: ExportJob) => {
     let built;
-    try { built = await exports.run(job, wanted); } catch (e) {
+    try { built = await exports.run(job); } catch (e) {
       if (e instanceof Busy) throw new HttpError(503, 'TypeLab is busy building other fonts. Try again in a minute.');
       if (e instanceof SourceEffectError) throw new HttpError(422, sourceEffectMessage(e));
       throw e;
@@ -486,20 +483,11 @@ function fontRoutes(api: Router, { fonts, exports }: Ctx) {
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.json(sourcePayload(ref));
   });
-  api.get('/free-fonts/:id', async (req, res) => {
-    const ref = parseFontId(req.params.id);
-    if (!ref) throw new HttpError(404, 'No such free font');
-    let data;
-    try { data = await fonts.load(req.params.id); } catch (e) { console.error(e); throw new HttpError(502, 'Couldn’t fetch the font from Google Fonts'); }
-    res.setHeader('Cache-Control', FREE_FAMILIES[ref.family].own ? 'no-cache' : 'public, max-age=86400');
-    res.json(data);
-  });
-
   // one of TypeLab's own fonts as an OpenType file: whole, for the browser to set a style's name in (fontFileUrl), or
   // cut to the letters the opening title card sets (introFontUrl), so a first visit fetches little before it plays
   const ownFile = (cut?: string) => async (req: Request<{ id: string }>, res: Response) => {
     const ref = parseFontId(req.params.id);
-    if (!ref || !FREE_FAMILIES[ref.family].own) throw new HttpError(404, 'No such font');
+    if (!ref) throw new HttpError(404, 'No such font');
     const file = await fonts.file(req.params.id, cut);
     res.setHeader('Cache-Control', 'no-cache');
     res.type('font/otf').send(file);
@@ -518,15 +506,14 @@ function fontRoutes(api: Router, { fonts, exports }: Ctx) {
     const { name, params, accents } = readExport(req.body), pick = readMember(req.body);
     if (params.sourceProgram && !masterInfo(params.sourceProgram) && pick) throw new HttpError(400, 'This source has no authored weight family');
     if (pick) checkMembers(params, [pick]);
-    const member = pick && familyMember(params, pick.anchor, pick.weight, pick.italic);
-    await send(res, { kind: 'otf', name, params, member: pick, accents }, ...(member ? [member.params] : []));
+    await send(res, { kind: 'otf', name, params, member: pick, accents });
   });
 
   api.post('/export/family', async (req, res) => {
     const { name, params, accents } = readExport(req.body), family = readFamily(req.body);
     if (params.sourceProgram && !masterInfo(params.sourceProgram)) throw new HttpError(400, 'This source has no authored weight family');
     checkMembers(params, family.styles);
-    await send(res, { kind: 'family', name, params, family, accents }, ...familyMembers(params, family).map(f => f.params));
+    await send(res, { kind: 'family', name, params, family, accents });
   });
 
   api.post('/export/svg', async (req, res) => {
@@ -535,7 +522,7 @@ function fontRoutes(api: Router, { fonts, exports }: Ctx) {
   });
 }
 
-export function createApp(store: DesignStore, { google = null, mail = null, fonts = new FreeFonts(null), exports = new ExportPool() }: { google?: GoogleAuth | null; mail?: Mailer | null; fonts?: FreeFonts; exports?: ExportPool } = {}) {
+export function createApp(store: DesignStore, { google = null, mail = null, fonts = new FreeFonts(), exports = new ExportPool() }: { google?: GoogleAuth | null; mail?: Mailer | null; fonts?: FreeFonts; exports?: ExportPool } = {}) {
   const ctx: Ctx = { store, accounts: new AccountStore(store.db), google, mail, fonts, exports };
   const app = express();
   app.disable('x-powered-by');

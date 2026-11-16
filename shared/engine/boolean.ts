@@ -1,12 +1,10 @@
 /* Boolean operations on outlines: the Inline, Outline and Shadow fills (effects.ts) cut one shape out of
-   another or join them, and a free font's letters are read as one ink and cut or added to (restyle.ts;
-   skin.ts, where moved strokes thickened into each other are read back as one ink), so the free fonts'
-   outlines depend on it too. Every input is a set of polygons read with the nonzero rule, like the font
+   another or join them. Every input is a set of polygons read with the nonzero rule, like the font
    itself (or, with shape's `positive`, only where they wind anticlockwise on balance). The edges of all of
    them are split where they cross, and an edge piece is kept when the region asked for lies on one side of
    it and not the other, turned so the region is on its left (anticlockwise outlines, clockwise holes). The
    kept pieces are then chained into contours. `unite` does the same for a letter's own curves without
-   flattening them: a free font drawn in overlapping pieces, made one outline before skin.ts rigs it; and
+   flattening them: a letter drawn in overlapping pieces made one outline (the pen's Unite, the logo's web font); and
    `cutOut` takes one outline's ink out of another's that way (the pen's Cut out and Break). */
 import type { Node } from './outline';
 import type { Pt } from './types';
@@ -167,7 +165,7 @@ export function combine(shapes: Shape[], keep: (x: number, y: number) => boolean
 
 /* ---- a letter's contours made one ink, their curves kept: a font drawn in overlapping pieces (a stem drawn whole and
    a bowl run into it, as a variable font's are, and as pieces drawn on a sheet and never united come) has edges inside
-   its ink, which anything reading the outline's edges as the ink's own takes for the sides of strokes (skin.ts) */
+   its ink, which a browser fills unevenly and the pen shows as points inside the letter */
 
 /** A cubic by its four control points; a line's handles sit on its ends, and it is read evenly along. */
 interface Curve { p0: Pt; p1: Pt; p2: Pt; p3: Pt; line: boolean }

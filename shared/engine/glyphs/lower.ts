@@ -23,8 +23,7 @@ def('a', [0.6, 0.9], (g, m) => {
   g.path([['M', xr, 0], ['L', xr, X - ra], ['vh', cxa, yt], ['hv', xl + W * 0.05, X - ra, { u1: lerp(0.85, 0.5, m.ap) }]],
     { e: T, part: 'stem', serifS: r ? null : 'b' });
   if (r) footStem(g, m, xr, X * 0.5);
-  // the bowl's top is the a's waist, and Crossbar moves it like the bar of an e (0.3 of the x-height, as skin.ts's
-  // BARS.a moves a free font's)
+  // the bowl's top is the a's waist, and Crossbar moves it like the bar of an e (0.3 of the x-height)
   const bt = X * (0.57 + (m.bar - 0.5) * 0.3), cxb = (xl + xr) / 2 + W * 0.04, bcy = (bt + yb) / 2;
   // square-joined, the bowl is a D whose flat top and bottom run straight into the stem
   if (m.p.bowlJoin === 'square') branchBowl(g, m, xr, xl, bt + m.os, yb);
@@ -53,7 +52,6 @@ def('d', [0.55, 1], (g, m) => {
 });
 def('e', [0.55, 0.5], (g, m) => {
   const { X, hs, hh, yt, yb } = lc(m), W = m.W(460, 'r'), xl = hs, xr = W - hs, cx = W / 2, cy = X / 2;
-  // (skin.ts's BARS.e moves a free font's e's bar as far, 0.22 of the x-height across Crossbar)
   const by = X * (0.38 + 0.22 * m.bar);
   g.path([['M', xr, by - hh], ['vh', cx, yt], ['hv', xl, cy], ['vh', cx, yb], ['hv', xr, cy * 0.9, { u1: lerp(0.85, 0.5, m.ap) }]], { e: T, part: 'bowl' });
   g.line(xl, by, xr, by, { s: J, e: J, part: 'crossbar' });

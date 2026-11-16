@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router';
 import { styleById } from '../../shared/content';
 import { NAME_MAX, cleanName, slug, type Design, type NameSample } from '../../shared/design';
 import { api, download, errorMessage } from '../lib/api';
-import { useFreeFonts } from '../lib/free';
+import { useSources } from '../lib/sources';
 import { isTyping, useDismiss } from '../lib/hooks';
 import { drawName, keptSample } from '../lib/name-sample';
 import { useOpeningHolds } from '../lib/opening';
@@ -233,11 +233,11 @@ export function LibraryPage() {
 function DesignCard({ d, list, recent, onDownload, onDuplicate, onDelete, onRename }: { d: Design; list: boolean; recent: boolean; onDownload: () => void; onDuplicate: () => void; onDelete: () => void; onRename: (name: string) => void }) {
   const [editing, setEditing] = useState(false);
   const style = styleById(d.styleId)?.name;
-  useFreeFonts();
+  useSources();
   // its name in its letters as it was saved; one saved without it (or before samples) has its letters built here,
   // once the opening title card lets go of them (lib/opening.ts: the card covers the page, and every card's built as
-  // the list came stalled its first steps), and the sample drawn from them is kept with it, once its free font, if it
-  // is written in one, has come
+  // the list came stalled its first steps), and the sample drawn from them is kept with it, once its source drawings, if it
+  // is written in a source style, have come
   const holds = useOpeningHolds(), saved = d.sample?.name === d.name ? d.sample : null;
   const f = saved || holds ? null : fontFor(d.params);
   const drawn = useMemo(() => (f ? drawName(f, d.name) : null), [f, d.name]);

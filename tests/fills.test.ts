@@ -63,7 +63,7 @@ describe('fills: fill, module', () => {
   it('an inline only takes ink away, in joined-up scripts too, and runs on where letters join', () => {
     // a script goes back over its own lines and swells beside them, where an inline cut that comes apart
     // would fill whole counters in
-    for (const id of ['monoline', 'swash', 'brush', 'signature']) {
+    for (const id of ['informal', 'chancery', 'casual']) {
       const p = { ...STYLES.find(s => s.id === id)!.params, weight: 0.55 }, solid = buildFont(p), f = buildFont({ ...p, fill: 'inline' });
       for (const ch of 'youcandesigthr') {
         const ink = shape(toPolys(f.glyph(ch)!.cmds)), full = shape(toPolys(solid.glyph(ch)!.cmds));
@@ -94,7 +94,7 @@ describe('fills: fill, module', () => {
 
   it('the coarsest grid leaves a lowercase letter four cells tall or more, so its curves hold together', () => {
     // (the defaults, and a narrow hairline serif whose c and e came apart into specks on a coarser one)
-    for (const p of [DEFAULTS, STYLES.find(s => s.id === 'hairserif')!.params]) {
+    for (const p of [DEFAULTS, STYLES.find(s => s.id === 'didone')!.params]) {
       const f = buildFont({ ...p, fill: 'blobs', module: 1 });
       assert.ok(f.m.xh / f.m.cell >= 4, `${f.m.xh / f.m.cell} cells`);
     }

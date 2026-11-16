@@ -42,7 +42,6 @@ Bodies are JSON (up to 8 MB: a design brings its Histories). Errors answer `{ er
 | POST | `/api/designs` | `{ name, styleId, params, log?, versions?, sample? }` → 201, the design |
 | GET, PUT, PATCH, DELETE | `/api/designs/:id` | Read; replace (`{ name, styleId, params, log?, versions?, sample? }`, a save without a sample has none); rename (`{ name }`, the sample goes); delete (204) |
 | PUT | `/api/designs/:id/sample` | `{ sample, updatedAt }`: the name's sample (`NameSample`, shared/design.ts) drawn on My designs or as the design opened, kept without touching `updatedAt` → 204; 409 once it has been saved or renamed since |
-| GET | `/api/free-fonts/:id` | A free font's letters (`FreeFontData`): an own font's from `fonts/` (`no-cache`, its ETag answers), any other fetched from Google Fonts the first time; 502 when that fails |
 | GET | `/api/free-fonts/:id/font.otf` | One of TypeLab's own fonts as an OpenType file, for the style cards' web fonts (`fontFileUrl`); 404 for any other |
 | GET | `/api/free-fonts/:id/intro.otf` | The same cut to the letters the opening title card sets (`INTRO_CHARS`, `introFontUrl`), for the own fonts it mixes in; 404 for any other |
 | GET | `/api/source-previews/:digest.otf` | A published neutral source preview from `fonts/previews/`, with immutable caching and digest verification; serves compact font bytes without loading the master package |
@@ -52,19 +51,17 @@ Bodies are JSON (up to 8 MB: a design brings its Histories). Errors answer `{ er
 
 Designs and exports take `params` only when `isValidParams` holds (complete, current-version settings, every value
 in range), and a design's `styleId` must be a known style (`styleById`). Add a route to `client/lib/api.ts` when you
-add it here. An `HttpError` sends its message, written for the person asking (a 502 when a free font couldn't be
-fetched, logged where that was caught; a 503 when too many exports wait); anything else is logged and answered with a
+add it here. An `HttpError` sends its message, written for the person asking (a 503 when too many exports wait); anything else is logged and answered with a
 generic 500 (Express 5 passes async throws to the error handler). An unknown `/api` path is a JSON 404.
 
 Exports are built on worker threads (`ExportPool`, `export-pool.ts`, running `export-worker.ts`): a family's members
-take up to a second or two a font where a free font's letters move, and on the main thread every request would wait.
-The route loads the free fonts the design and its members draw from (`FreeFonts.wanted`) and hands them to the pool
-with the job (`ExportJob`). The pool cuts it into pieces (`exportPieces` in export.ts: each member of a family a
+take a while to draw, and on the main thread every request would wait.
+The route hands the pool the job (`ExportJob`). The pool cuts it into pieces (`exportPieces` in export.ts: each member of a family a
 piece, and its licence and name one more; any other export whole), the workers build them side by side
 (`buildPiece`: a member's font deflated as its file of the `.zip`), and `joinPieces` writes the `.zip` around them on
 the main thread, which takes no time; the exports in hand take turns at the workers, so one font asked for during a
-family starts at the next free worker. A worker is sent each free font once and keeps its rigged letters from piece
-to piece, so a font's second export is quicker. There is a worker for each core but one, up to four
+family starts at the next free worker. A worker loads the sources a piece's design draws from and keeps them from piece
+to piece. There is a worker for each core but one, up to four
 (`availableParallelism`), and at most that many exports and eight more are in hand; past that the route answers 503.
 An 18-style family in an own font takes some 6 to 10 seconds the first time on two or three workers, 3 to 4 after
 (three times that on one).
@@ -121,20 +118,14 @@ tests/api.test.ts build one).
 
 Pinned source designs use `sources.ts` and `/api/sources/:digest`. The loader checks the catalog, font ID and exact
 file hash before registering a source; export workers load the same immutable dependencies, including origin and
-subdivision maps required by saved Points frames. `FreeFonts.ready/wanted` routes
-source designs through that loader and keeps the font-name cache for legacy designs. Missing source revisions fail
+subdivision maps required by saved Points frames. Missing source revisions fail
 explicitly. Source family, family-member and generated-accent export requests are rejected until supported.
 
-TypeLab's own fonts are part of the repository, in `fonts/<Family>-<weight>.json` (`ownFontFile`): `load(id)` reads
-one from there, never fetching. The rest: `FreeFonts(dir)` keeps fonts in memory and, when `dir` is set, as JSON
-files there: `dirname(DB_PATH)/free-fonts` (`data/free-fonts` by default; none for `DB_PATH=:memory:`). `load(id)`
-takes only ids `parseFontId` accepts, runs one fetch per id at a time and forgets a failed one so the next call
-retries. A kept file is reused only when it has
-`licenseText` and its heights look right (`cap > 300`, `xh > 150`); otherwise the font is fetched again from the
-Google Fonts CSS API (which answers with TrueType), converted (`convertFont`: 1000 to the em, quadratics made
-cubic) and its licence fetched from github.com/google/fonts. `keptFile` names the files, and `tools/golden.ts` reads
-them by the same name. The file format is the engine's `FreeFontData` (shared/engine/free.ts): changing it means
-throwing the kept files away. `ready(...params)` registers every free font the settings draw from before an export.
+TypeLab's own fonts are part of the repository, in `fonts/<Family>-<weight>.json` (`ownFontFile`): `FreeFonts.load(id)`
+reads one from there (only ids `parseFontId` accepts), laying `ownLicense` into it, and `file(id, cut?)` makes it the
+web font a card or the opening title card sets a name in. Nothing is fetched from anywhere else, and no export reads
+them: a design's letters come from its source (`server/sources.ts`, `loadDesignSources`). The file format is the
+engine's `FreeFontData` (shared/engine/free.ts).
 
 ## Export
 
@@ -143,13 +134,11 @@ throwing the kept files away. `ready(...params)` registers every free font the s
 engine's outline unless the caller passes another (`outline`: tools/fonts/ui.ts writes the logo font's overlapping
 pieces made one). Regular, Italic, Bold and Bold Italic share one family name; other weights get a family of their
 own plus the typographic names.
-Written in a free font from Google Fonts, it carries the font's copyright notice and full licence, and its name loses
-the font's own and reserved names (`withoutReserved`); TypeLab's own fonts carry theirs the same way, as `load` lays
-`ownLicense` (TypeLab's notice, and the Open Font License from `fonts/OFL.txt`) into each as it reads it, and `webFont`
-writes it into the cards' web fonts too. `buildFamilyZip` builds every `familyMember` into `<slug>/<slug>-<Style>.otf`
-(and `LICENSE.txt` for a Google font), through the same pieces the pool builds side by side, one after another.
-`buildSpecimenSVG` sets the name, every character and a pangram. Every export route first loads the free fonts the
-design and its members need (`FreeFonts.wanted`), or answers 502, and builds on a worker (above).
+Written in one of TypeLab's own fonts, it carries the notices and licence of the drawings its source was made from
+(`exportCredits`); `webFont` writes TypeLab's notice and the Open Font License (`ownLicense`, `fonts/OFL.txt`) into
+the cards' web fonts too. `buildFamilyZip` builds every `familyMember` into `<slug>/<slug>-<Style>.otf`, through the same pieces the pool builds side by side, one after another.
+`buildSpecimenSVG` sets the name, every character and a pangram. Every export route builds on a worker (above), which loads
+the sources its design draws from itself.
 
 Asked for with `accents`, the fonts and the specimen also have the accented letters (`ACCENTED`, `accentGlyph` in
 shared/engine/accents.ts: Latin-1's, Latin Extended-A's for Central and Eastern Europe, Turkish and the Baltic
@@ -164,7 +153,7 @@ their apostrophe needs the room before a tall letter); they leave the font's lin
 | --- | --- | --- |
 | `PORT` | 5173 | The port |
 | `NODE_ENV` | | `production` serves `dist/` (after `npm run build`) instead of Vite |
-| `DB_PATH` | `data/typelab.db` | The database; free fonts are kept in `free-fonts/` beside it; `:memory:` keeps nothing |
+| `DB_PATH` | `data/typelab.db` | The database; `:memory:` keeps nothing |
 | `TRUST_PROXY` | | Set behind an HTTPS proxy: cookies get Secure and throttles count each visitor |
 | `PUBLIC_URL` | | The site's address for Google's redirect, when it differs from the one requests arrive on |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Both set: Google sign-in is offered, in development too. Without them no Google is offered |
@@ -186,7 +175,6 @@ echo $!            # the server's PID (tools/node.sh execs node); later: kill <p
 
 `npm run dev` with the same variables also works and restarts on server changes, but its PID is npm's. Never
 `pkill` by pattern. A test server reads the owner's `.env` too, Google's keys included, but Google knows only
-5173's address: to try signing in with Google there, add `GOOGLE_STAND_IN=1`. With `.tools/test.db`, free fonts are
-kept in `.tools/free-fonts` and fetched from Google the first time; copy `data/free-fonts/*.json` there to skip that.
-tests/api.test.ts and tests/free-fonts.test.ts mount `createApp` on `DesignStore(':memory:')` with a stand-in Google
-and stand-in font fetches, so they need no network.
+5173's address: to try signing in with Google there, add `GOOGLE_STAND_IN=1`.
+tests/api.test.ts and tests/free-fonts.test.ts mount `createApp` on `DesignStore(':memory:')` with a stand-in Google,
+so they need no network.

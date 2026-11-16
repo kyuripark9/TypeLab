@@ -46,10 +46,10 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 | `traits.test.ts` | The Adjust tab's trait steps and the style search |
 | `family.test.ts` | `shared/family.ts` and the family `.zip` (`server/export.ts`): weights, members, names and style bits; a design read by its stems (`anchorOf`) and stepped evenly where Verticals draw them heavy; letters drawn in Points thinner, heavier and leaning in the other members, exact in the design's own; a high-contrast design's lighter weights keeping its hairlines (less contrast, `keepHairline`) while their stems still step lighter, read across the letters as drawn upright (an italic unleaned) with each curve cut in four (`finer`) |
 | `accents.test.ts` | The accented letters an export can add (`ACCENTED`, shared/engine/accents.ts) on the engine's serif and a leaning grotesque and on Couture, Mainline, Boardwalk, Cathedral and Bulwark: each keeps its letter's advance (ď ľ ť Ľ as wide or a little wider, their apostrophe clear of the letter's ink and of a tall letter after them: ďl ľk ťh Ľl, Mainline's Ľ unwidened); a dieresis at the heaviest weights (Boardwalk, Couture, Mainline, Cathedral, ExtraBold and Black, upright and italic) in proportion, its dots apart and clear of the letter, and two letters' dots side by side apart; marks over the letter's ink and the x-height or cap height (not too tall), centred along the lean; cedilla and ogonek meeting the foot and hanging under the baseline, commas below, ď ť ľ Ľ's caron beside the stem; ı without its dot, ¨ two of ˙'s dots; none of them in `ALL_CHARS`; in an exported font only when asked for (and the specimen), the line spacing unchanged; a family's `.zip` built side by side on the export pool the same, file for file, as one after another (`buildFamilyZip`) |
-| `free-fonts.test.ts` | Every style's free font id (none for one built from blocks); Bulwark, the Block card's: drawn from its nearest of nine weights; its short heavy ends (an r's arm, a y's tail) under other stroke ends, its bowls oval, square or cut by their corners; Stencil on heavy letters (Bulwark, Gumdrop) leaving no sliver, Bulwark's R A K y cut and its Q not opened into a C; serifs on every foot of R N K (Bulwark, Mainline); converting a font file as the server does; drawing a design in a free font and moving its letters (skin, restyle, the twin, `formChanged`); the export's notice; the API route; TypeLab's own fonts, and their letters moved whole (Mainline's u drawn in pieces, an l's foot, Gumdrop's round ends); their stroke ends (Couture's balls, Almanac's e and serifs, Mainline's slanted cuts under balls, Curl and Length; drawn shorter without folding; Serenade's exits under Length and Curl, Boardwalk's joins kept) |
+| `free-fonts.test.ts` | TypeLab's own fonts: every style's font id (none for a card built from blocks or arcs), ids kept in the settings only when they are own fonts, the nearest weight of a family, every card's font in `fonts/` with every letter under the Open Font License, the opening title card's fonts, an export's notice, and the web-font routes. How their letters are drawn is the source tests' |
 | `api.test.ts` | The HTTP API on an in-memory store: designs (their letters' records and History: cleaned, out of the list, kept by a save without one; the name's sample: in the list, gone with a save without one or a rename, kept alone without touching when it was edited), accounts, Google sign-in, development's stand-in for Google, password reset (against the mail stand-in), export (on a worker; the busy limit), a database from before owners (and letters' records) |
 | `boundaries.test.ts` | Nothing under `shared/` imports `client/` or `server/` or touches the DOM (a regex: a comment saying `window.` trips it) |
-| `golden.test.ts` | The engine's golden outlines; the free fonts' too with `GOLDEN_FREE=1` |
+| `golden.test.ts` | The golden outlines of the letters the engine builds |
 
 | `stroke-order.test.ts` | Every glyph draws its strokes in the order `tests/stroke-order.txt` keeps (the defaults, each letter form, and the settings that draw strokes of their own), so saved per-letter values stay on their strokes. An order changed on purpose: `UPDATE_STROKE_ORDER=1 node --import tsx --test tests/stroke-order.test.ts` rewrites the file |
 | `editor.test.ts` | `client/state/editor.ts` without a browser: a design written in its style's free font and back, a style built from blocks started without one, a customized letter's own values, a drawing keeping the settings it was drawn at and Reset dropping it with the letter's own values, loading a style over changes, renaming, a change folded into the newest undo step (`amend`), the 200-step undo limit, each letter's record of its edits (kept past undo, brought back in one step, a Reset and the letters Points carried an edit on to, saved and loaded; nothing for a style, and a design file's taken in), and the font's History (every change kept past undo, a version brought back in one step, saved and loaded and gone on from) |
@@ -70,8 +70,7 @@ relative to it). Drop `tools/node.sh` where `node` is 22.13 or newer.
 Invariants other files also pin: every handle's id is one a saved design keeps (handles.test.ts); deep links parse,
 every nested slider has a place in the panel, and every part a control shapes names a real control (pages.test.ts);
 every option setting is tried at its other choices (reach.test.ts); `weightUnscale` undoes `weightScale`
-(family.test.ts); `skinFollows` weighs only settings free letters follow, every restyle hands an unmoved letter back
-as it is, and the twin's fit undoes `metrics()` (free-fonts.test.ts); an accounts table from before Google sign-in is
+(family.test.ts); an accounts table from before Google sign-in is
 upgraded, and `joinGoogle`'s three outcomes (api.test.ts).
 
 ## Helpers and fixtures
@@ -83,27 +82,22 @@ upgraded, and `joinGoogle`'s three outcomes (api.test.ts).
 - `api.test.ts` mounts `createApp` on `DesignStore(':memory:')` at a random port; `browser()` is a client with its own
   cookie jar; a stand-in `GoogleAuth` names a person per code and checks the PKCE verifier. The `it`s of each
   `describe` run in order and build on the designs and accounts the earlier ones made.
-- `free-fonts.test.ts` builds a small font with opentype.js (`fontFile()`: an H, an o of quadratic curves, a space)
-  and stands in for Google Fonts (`googleFonts()`), so nothing is fetched.
+- `carry.test.ts` reads an own font's drawings straight from `fonts/` (`ownFont`): each letter a drawing in a design
+  the engine builds, its pieces united and set at its style's cap height, which is what carrying reads.
 - `params.test.ts` and api.test.ts's `design storage` write a database in an older shape into a temporary directory
   and open it with `DesignStore`; keep those shapes as they are when the schema grows.
 
 ## The golden files
 
-`tests/golden/outlines.txt` (the engine set) and `tests/golden/free-outlines.txt` (the free set) hold three base64url
+`tests/golden/outlines.txt` holds three base64url
 characters per glyph: a SHA-1 of its placed outline to a hundredth of a unit, with its left side bearing and advance.
 `tools/golden.ts` computes them.
 
-- Engine probes: `style:<id>` for every style, `defaults`, `<key>=<value>` for every setting at its ends and in each
+- Probes: `style:<id>` for every style, `defaults`, `<key>=<value>` for every setting at its ends and in each
   option (tried where it shows), the stroke-end forms, a `glyphs` probe with letters of their own, block probes (basic, slots and grid),
   and stencil, crossbar-gap and join-gap probes on ten styles. `npm test` checks them.
-- Free probes: `<style>@<hash of the font file>[:<move>]`, each style in its free font as picked and moved by a
-  few settings. TypeLab's own fonts are always there (`fonts/`); the Google ones need to be in `data/free-fonts`
-  (`FONTS_DIR`). `npm run golden` checks them, or `npm test` with `GOLDEN_FREE=1`. A check draws only the probes the
-  file keeps, one font at a time, letting each go after (`letGo`: all kept at once they took it to 18 GB); a font
-  that isn't kept, or whose file changed (an own font imported again), drops out, counted as `kept probes not drawn`:
-  after an import, `golden:update`. An update rewrites the styles the file already has; `--all-fonts` adds every
-  font kept in `FONTS_DIR` (the server keeps each one anybody picked, so that set only grows).
+- They cover the letters the engine builds from each style's preset (strokes, blocks, arcs). The 22 cards in an own
+  font draw their source drawings instead, checked by the `source-*`, masters and adoption tests.
 - What golden misses: letter and word spacing (layout only), marks, counters, skeletons, highlights, metrics, and
   per-letter values beyond its probes. `npm run compare` covers those.
 
@@ -111,13 +105,3 @@ Update them (`npm run golden:update`) only for a change you meant, after looking
 that change. Renaming a setting key, an option or a style id shows as `new probe` and `probe gone`. A failure names
 each probe and the letters that moved.
 
-## The lighter weights' baseline
-
-`tests/golden/weights.txt` is `npm run weights`'s (tools/weights.ts): for each card in an own font
-(`<style>@<hash of the font file>`), the hashes of A–Z, a–z, 0–9, & and ? at Thin, ExtraLight, Light and Regular as
-its family draws them (`:<weight>`, as the golden files keep them), the faults found then (`:faults`,
-`<weight>:<letter>:<kind>`: pieces, counters, crossing, needle, slit, ink; see the tool's header) and the jumps of its Weight
-sweep (`:sweep`, `<letter>@<weight>:room|ink`). The check fails on a fault or jump the file doesn't keep, reports
-those it keeps that are gone, and lists the letters that moved. The faults kept are what is left to fix at the
-lighter weights; `npm run weights -- --list` prints them all with what was seen. Update it (`npm run weights:update`,
-or with `--cards` for some) after looking at the letters that moved, with the change.

@@ -77,9 +77,8 @@ export function drawName(f: Font, name: string): NameSample {
   return { name, glyphs, list: set(line), ...(best && fit(best) > fit(line) * BREAK_GAIN ? { card: set(best) } : {}) };
 }
 
-/** `s`, drawn in `f`, as it is kept: none while some of `f`'s letters are drawn from another font (a free font on its
-    way), or where it doesn't keep (cleanSample: an outline in other commands, or too much of it). */
-export const keptSample = (f: Font, s: NameSample) => (f.freeMissing.length || f.freePending ? undefined : cleanSample(s));
+/** `s`, drawn in `f`, as it is kept: none while `f`'s source drawings are still on their way, or where it doesn't keep (cleanSample: an outline in other commands, or too much of it). */
+export const keptSample = (f: Font, s: NameSample) => (f.freePending ? undefined : cleanSample(s));
 
 /** A save's design with its name's sample, drawn from the settings it saves; without one where it can't be had (a
     sample never stands in a save's way). */

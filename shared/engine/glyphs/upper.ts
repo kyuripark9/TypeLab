@@ -9,7 +9,6 @@ import { POINTED, bendTurn, placeTurns, roundBends, turnStroke } from './turns';
 def('A', [0.25, 0.25], (g, m) => {
   if (arched(m)) {
     // an arch with a bar across, like an H whose stems bend together at the top
-    // (Crossbar moves the bar 0.26 of the cap height, as skin.ts's BARS.A moves a free font's A's)
     const W = m.W(590), C = m.cap, hs = m.s / 2, by = C * (0.34 + 0.26 * m.bar);
     archUp(g, m, W, C);
     g.line(hs, by, W - hs, by, { s: J, e: J, part: 'crossbar' });
@@ -24,7 +23,6 @@ def('A', [0.25, 0.25], (g, m) => {
   const W = m.W(620), C = m.cap, l = m.s * 0.55, r = W - l, cx = W / 2, topSerif = m.p.apexForm === 'serif' && m.serif;
   // (under a serif the peak stops at the cap height, whatever Peaks asks)
   const ys = zig(g, m, [l, cx, r], C, 0, false, { part: 'stem' }, topSerif ? { y1: C } : undefined);
-  // (Crossbar moves this bar 0.36 of the cap height; skin.ts's BARS.A moves a free font's A's 0.26, as the arched A's)
   const by = C * (0.12 + 0.36 * m.bar), f = by / ys[1];
   const xl = lerp(l, cx, f), xr = lerp(r, cx, f);
   g.line(xl, by, xr, by, { s: J, e: J, part: 'crossbar' });
@@ -41,7 +39,6 @@ def('A', [0.25, 0.25], (g, m) => {
 }, { params: ['diagonals', 'apexForm', 'bends', 'apex', 'crossbar', 'weight'] });
 
 def('B', [1, 0.55], (g, m) => {
-  // (skin.ts's BARS.B moves a free font's B's waist as far, 0.14 of the cap height across Crossbar)
   const W = m.W(540, 'c'), C = m.cap, hs = m.s / 2, hh = m.hT / 2, mid = C * (0.45 + 0.14 * m.bar);
   g.stem(hs, 0, C, { serifS: 'a', serifE: 'a' });
   capBowl(g, m, hs, C - hh, mid, W * 0.93 - hs);
@@ -63,7 +60,6 @@ def('D', [1, 0.55], (g, m) => {
 });
 
 function armsE(g: Builder, m: Metrics, W: number, bottom: boolean) {
-  // (skin.ts's BARS.E and BARS.F move a free font's middle arm as far, 0.14 of the cap height across Crossbar)
   const C = m.cap, hs = m.s / 2, hh = m.hT / 2, mid = C * (0.43 + 0.14 * m.bar);
   g.stem(hs, 0, C, { serifS: bottom ? 'a' : 'both', serifE: 'a' });
   g.line(0, C - hh, W, C - hh, { e: T, part: 'arm', serifE: 'a', serifScale: 0.75 });
@@ -83,7 +79,6 @@ def('G', [0.55, 0.7], (g, m) => {
 }, { params: ['aperture', 'terminal', 'curve', 'contrast'] });
 
 def('H', [1, 1], (g, m) => {
-  // (skin.ts's BARS.H moves a free font's H's bar as far, 0.26 of the cap height across Crossbar)
   const W = m.W(570), C = m.cap, hs = m.s / 2, by = C * (0.38 + 0.26 * m.bar);
   g.stem(hs, 0, C, { serifS: 'both', serifE: 'both' });
   g.stem(W - hs, 0, C, { serifS: 'both', serifE: 'both' });
@@ -175,7 +170,6 @@ def('O', [0.55, 0.55], (g, m) => {
 def('P', [1, 0.5], (g, m) => {
   const W = m.W(510, 'c'), C = m.cap, hs = m.s / 2, hh = m.hT / 2;
   g.stem(hs, 0, C, { serifS: 'both', serifE: 'a' });
-  // (skin.ts's BARS.P moves a free font's P's bowl foot as far, 0.16 of the cap height across Crossbar)
   capBowl(g, m, hs, C - hh, C * (0.36 + 0.16 * m.bar), W - hs);
   return W;
 });
@@ -212,7 +206,6 @@ def('Q', [0.55, 0.55], (g, m) => {
 }, { params: ['qForm', 'tail', 'counter', 'curve', 'weight'] });
 
 def('R', [1, 0.2], (g, m) => {
-  // (skin.ts's BARS.R moves a free font's R's bowl foot as far, 0.14 of the cap height across Crossbar)
   const W = m.W(550, 'c'), C = m.cap, hs = m.s / 2, hh = m.hT / 2, mid = C * (0.4 + 0.14 * m.bar), R1 = W * 0.94 - hs;
   g.stem(hs, 0, C, { serifS: 'both', serifE: 'a' });
   if (m.p.rForm === 'loop') {

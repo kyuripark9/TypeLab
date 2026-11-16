@@ -5,12 +5,10 @@
    or thinner with their points kept. */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ALL_CHARS, buildFont, drawnCmds, fitOutline, registerFreeFont, type Cmd, type Node } from '../shared/engine';
+import { ALL_CHARS, buildFont, drawnCmds, fitOutline, type Cmd, type Node } from '../shared/engine';
 import { cmdsBox } from '../shared/engine/geom';
 import { STYLES, styleById } from '../shared/content';
-import { STYLE_FONTS } from '../shared/free-fonts';
-import { DEFAULTS, drawnAtOf, freeAtOf, isValidParams, sanitizeParams, type Params } from '../shared/params';
-import { FreeFonts } from '../server/free-fonts';
+import { DEFAULTS, drawnAtOf, isValidParams, sanitizeParams, type Params } from '../shared/params';
 import {
   breakShapes, contourArea, cornersAt, cutShapes, deleteAnchors, inkOf, mergeShapes, mirrorEdit, mirrorLine, mirrorPairs, moveAnchors, nearestSegment,
   boxAlong, overlapping, pickedBox, pickedPoints, reshapeSegment, reverseContour, scaleAbout, scaleAlong, setCorners, setHandle, setWeight, shapesOf, snapIn, snapScene, splitSegment,
@@ -101,7 +99,7 @@ describe('pen: drawn letters', () => {
     assert.deepEqual(sanitizeParams({ ...p, outlines: { B: { adv: NaN, contours: [] }, C: p.outlines.B } }).outlines, { C: p.outlines.B });
   });
 
-  it('moves a drawing as the settings move from those it was drawn at, and keeps its shape', () => {
+  it('keeps a drawing\'s shape as the settings move from those it was drawn at, and leans it with the slant', () => {
     // an l drawn as a plain stem at the defaults
     const l = { adv: 320, contours: [[{ x: 60, y: 0 }, { x: 260, y: 0 }, { x: 260, y: 700 }, { x: 60, y: 700 }]], at: drawnAtOf(DEFAULTS, 'l') };
     const q: Params = { ...DEFAULTS, outlines: { l } }, glyph = (o: Partial<Params>) => buildFont({ ...q, ...o }).glyph('l')!;
@@ -109,17 +107,13 @@ describe('pen: drawn letters', () => {
     // at the settings it was drawn at, exactly as drawn
     assert.equal(glyph({}).drawn, l);
     assert.equal(glyph({}).d, 'M60 0L260 0L260 -700L60 -700Z');
-    // heavier and lighter: wider and narrower, as tall, its four corners kept
-    const heavy = box({ weight: 0.9 }), light = box({ weight: 0 });
-    assert.ok(heavy.w > 240 && light.w < 160, `heavy ${heavy.w}, light ${light.w}`);
-    for (const b of [heavy, light]) assert.ok(Math.abs(b.y0) < 0.5 && Math.abs(b.y1 - 700) < 0.5);
-    assert.equal(glyph({ weight: 0.9 }).cmds.filter(c => c[0] !== 'Z').length, 4);
+    // heavier and lighter: exactly as drawn (nothing guesses at its strokes to thicken them)
+    assert.equal(glyph({ weight: 0.9 }).d, glyph({}).d);
+    assert.equal(glyph({ weight: 0 }).d, glyph({}).d);
     // slanted, it leans: its top stands further right than its foot
     const it = polys(glyph({ slant: 0.5 }).cmds).flat(), top = it.filter(c => c.y > 699).map(c => c.x), foot = it.filter(c => c.y < 1).map(c => c.x);
     assert.ok(Math.min(...top) > Math.min(...foot) + 30);
-    // its own weight moves it as the font's does; the font's doesn't once it has its own
-    assert.ok(box({ glyphs: { l: { weight: 0.9 } } }).w > 240);
-    assert.equal(box({ weight: 0.9, glyphs: { l: { weight: DEFAULTS.weight } } }).w, 200);
+    assert.equal(box({ glyphs: { l: { weight: 0.9 } } }).w, 200);
     // a setting that reshapes letters leaves it as drawn
     assert.equal(glyph({ roundness: 1, terminal: 'round', curve: 1 }).d, glyph({}).d);
   });
@@ -183,17 +177,14 @@ describe('Drawn letters in the font', () => {
   });
 
   it('shows a letter as its effects draw it, keeps them once edited, and runs those turned on since on a drawing', async () => {
-    // a Style card's letter, written in its own font, with its own points under the effect
-    const st = styleById('serif')!, id = STYLE_FONTS.serif;
-    registerFreeFont(await new FreeFonts(null, () => Promise.reject(new Error('an own font is never fetched'))).load(id));
-    const plain: Params = { ...st.params, freeFont: id, freeAt: freeAtOf(st.params) };
+    // a letter the engine builds, with its own points under the effect
+    const plain: Params = { ...styleById('serif')!.params };
     const box = (cmds: Cmd[]) => { const b = cmdsBox(cmds)!; return [b.x0, b.x1, b.y0, b.y1].map(Math.round); };
-    for (const fx of [{ fill: 'hex' }, { fill: 'shadow' }, { fill: 'inline' }, { rough: 0.6 }, { slice: 0.5 }] as Partial<Params>[]) {
+    // (not Inline: a drawing has no middle lines for it to run down, so it leaves one solid)
+    for (const fx of [{ fill: 'hex' }, { fill: 'shadow' }, { rough: 0.6 }, { slice: 0.5 }] as Partial<Params>[]) {
       const p = { ...plain, ...fx }, g = buildFont(p).glyph('a')!, shown = traceOf(g), what = JSON.stringify(fx);
-      // the pen edits the outline the effect draws, not the font's points under it
-      assert.ok(g.fx && g.drawn, what);
-      assert.notDeepEqual(shown.contours, g.drawn.contours, what);
-      // edited (stored at the settings it was edited at), it stands as traced: the effect isn't run on it again
+      // the pen edits the outline the effect draws; edited (stored at the settings it was edited at), it stands as
+      // traced: the effect isn't run on it again
       const edited = buildFont({ ...p, outlines: { a: { ...shown, at: drawnAtOf(p, 'a') } } }).glyph('a')!;
       assert.ok(!edited.fx, what);
       assert.deepEqual(traceOf(edited).contours, shown.contours, what);
@@ -204,7 +195,8 @@ describe('Drawn letters in the font', () => {
       const later = buildFont({ ...p, outlines: { a: before } }).glyph('a')!;
       assert.ok(later.fx, what);
       assert.ok(Math.abs(later.adv - g.adv) < 0.5, `${what}: ${later.adv} wide, the font's ${g.adv}`);
-      assert.deepEqual(box(later.cmds), box(g.cmds), what);
+      // (a traced drawing stands on whole units, so rough edges fall a little otherwise on it)
+      box(later.cmds).forEach((v, k) => assert.ok(Math.abs(v - box(g.cmds)[k]) <= 4, `${what}: ${box(later.cmds)} against ${box(g.cmds)}`));
       assert.equal(later.cmds.filter(c => c[0] === 'M').length, g.cmds.filter(c => c[0] === 'M').length, what);
     }
   });

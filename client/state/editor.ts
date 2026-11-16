@@ -6,9 +6,8 @@
 import { create } from 'zustand';
 import { CONTROLS, STYLES, controlFor, firstControl, looksOf, pagesFor, styleById, styleMatches, type ActiveKey, type CategoryId, type ControlKey, type Look, type Mood, type StyleDef, type StyleFilter, type StyleGroup } from '../../shared/content';
 import { TRAIT_SECTIONS, applyTraits, traitOption, traitOptions, traitsKey, type TraitId, type Traits } from '../../shared/traits';
-import { ALL_CHARS, buildFont, freeFont, onFreeFont, type Font } from '../../shared/engine';
+import { ALL_CHARS, buildFont, type Font } from '../../shared/engine';
 import { STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
-import { loadFreeFont } from '../lib/free';
 import { loadDesignSources } from '../lib/sources';
 import { designSourceForFont as sourceForFont, masterInfo, mastersForFont } from '../../shared/source/master-catalog';
 import { programInfo } from '../../shared/source/program-catalog';
@@ -23,7 +22,7 @@ import { cleanLog, mergeLogs, ownOf, packLog, recordEdits, sameOwn, withOwn, typ
 import { cleanVersions, keyOf, mergeVersions, packVersions, recordVersion, sameDesign, type FontLog, type FontVersion, type Made, type Snapshot } from '../../shared/font-log';
 import { SNAP_KINDS, type SnapKind } from '../lib/pen';
 import { PREFS, prefFlag, prefJson, prefOneOf, setPrefFlag, writePref } from '../lib/prefs';
-import { DEFAULTS, PARAMS_VERSION, drawnAtOf, endCurl, endLength, freeAtOf, isGlyphKey, type GlyphParams, type IdKey, type NumericParam, type Params } from '../../shared/params';
+import { DEFAULTS, PARAMS_VERSION, drawnAtOf, endCurl, endLength, isGlyphKey, type GlyphParams, type IdKey, type NumericParam, type Params } from '../../shared/params';
 
 export type CardView = 'grid' | 'list';
 /** The Style page's panel: filters that narrow the cards, or traits laid over every card. */
@@ -146,20 +145,10 @@ export const savedName = (s: EditorState) => readDoc(s.saved).name;
 export const designInput = (s: EditorState): DesignInput => ({ name: cleanName(s.name), styleId: s.styleId, params: s.params, log: packLog(s.log), versions: packVersions(s.versions) });
 
 /** The settings a style's free font stands for as it comes: moved from these, its letters move too. */
-/** Letter and word spacing where the engine adds nothing to a free font's own spacing: the settings' defaults,
-    which `track` and `space` in shared/engine/font.ts take as their zero (written there as 0.2 and 0.35, so a new
-    default has to reach both; Formal nudges letter spacing before `track` reads it). */
-const FREE_SPACING = { letterSpacing: DEFAULTS.letterSpacing, wordSpacing: DEFAULTS.wordSpacing };
-/** A style's settings to start from, written in its free font (unless a design built from the settings asks
-    otherwise). Its free font's letters are spaced as the font spaces them, so letter and word spacing start at FREE_SPACING. Traits laid over the style move the
-    font's letters as they move the settings (Bold makes it heavier). */
-function startParams(st: StyleDef, traits: Traits, free = true): Params {
-  const id = STYLE_FONTS[st.id], base = free ? sourceStyleParams(st) : null;
-  if (!base) {
-    const p = applyTraits(st.params, traits);
-    return free && id ? { ...p, freeFont: id, freeAt: freeAtOf(st.params), ...FREE_SPACING } : p;
-  }
-  return applyTraits(base, traits);
+/** A style's settings to start from: written in its own font's source drawings, or, for a card no font draws (the
+    block and arc letters), the preset the engine builds. Traits are laid over either. */
+function startParams(st: StyleDef, traits: Traits): Params {
+  return applyTraits(sourceStyleParams(st) ?? st.params, traits);
 }
 /** Unsupported traits stay out of a source design, including when picked before switching styles. */
 function supportedTraits(p: Params, traits: Traits): Traits {
@@ -341,14 +330,11 @@ const fonts = new WeakMap<Params, Font>();
 let lastFont: Font | undefined;
 export function fontFor(p: Params): Font {
   let f = fonts.get(p);
-  // written in a free font that has arrived since: built again with its letters
-  if (!f || f.freeMissing.some(id => freeFont(id)) || (f.source?.state === 'missing' && sourceReady(f.source.ref))) { f = lastFont = buildFont(p, lastFont); fonts.set(p, f); }
-  for (const id of f.freeMissing) void loadFreeFont(id);
+  // a source whose drawings have arrived since: built again with its letters
+  if (!f || (f.source?.state === 'missing' && sourceReady(f.source.ref))) { f = lastFont = buildFont(p, lastFont); fonts.set(p, f); }
   if (f.source?.state === 'missing') void loadDesignSources(p);
   return f;
 }
-// the open design draws again when the free font it's written in arrives (its settings unchanged)
-onFreeFont(() => { const s = useEditor.getState(); if (s.params.freeFont && !s.params.sourceProgram) useEditor.setState({ params: { ...s.params } }); });
 onSource(digest => {
   const s = useEditor.getState();
   const source = fonts.get(s.params)?.source;
@@ -418,7 +404,7 @@ function setTraits(traits: Traits) {
   const s = get(), st = styleById(s.styleId);
   traits = supportedTraits(st ? startParams(st, {}) : s.params, traits);
   if (st && s.picked !== null && s.picked === JSON.stringify(s.params)) {
-    const params = startParams(st, traits, !!s.params.freeFont);
+    const params = startParams(st, traits);
     set({ traits, params, picked: JSON.stringify(params) });
     step({ quiet: true, made: 'traits' });
   } else set({ traits });

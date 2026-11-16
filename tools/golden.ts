@@ -6,25 +6,18 @@
      npm run golden          check, listing what changed
      npm run golden:update   accept the current outlines as the new golden ones (after looking at them)
 
-   A second set, tests/golden/free-outlines.txt, covers the free fonts' letters (skin.ts, restyle.ts, the twin):
-   each style written in its free font, as picked and moved by a few settings. TypeLab's own fonts are in fonts/;
-   the others need to be in data/free-fonts (the server keeps them there once asked for; FONTS_DIR points
-   elsewhere), and a font that isn't kept, or isn't the same file it was, is left out of the check rather than
-   failed. */
+   These are the letters the engine builds itself (strokes, blocks, arcs). The source styles' letters are checked by
+   their own tests (tests/source-*.test.ts) against the published drawings. */
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ALL_CHARS, buildFont, registerFreeFont, type Cmd, type FreeFontData } from '../shared/engine';
-import { STYLE_FONTS } from '../shared/free-fonts';
-import { STYLES, type StyleDef } from '../shared/content';
-import { DEFAULTS, SPECS, TERMINAL_FORMS, freeAtOf, type Params } from '../shared/params';
-import { fontFile } from '../server/free-fonts';
-import { FONTS_DIR, holdFonts, letGo, oneAtATime, ROOT, showContext } from './lib';
+import { ALL_CHARS, buildFont, type Cmd } from '../shared/engine';
+import { STYLES } from '../shared/content';
+import { DEFAULTS, SPECS, TERMINAL_FORMS, type Params } from '../shared/params';
+import { oneAtATime, ROOT, showContext } from './lib';
 
-export type GoldenSet = 'engine' | 'free';
-
-export const GOLDEN_FILE: Record<GoldenSet, string> = { engine: resolve(ROOT, 'tests/golden/outlines.txt'), free: resolve(ROOT, 'tests/golden/free-outlines.txt') };
+export const GOLDEN_FILE = resolve(ROOT, 'tests/golden/outlines.txt');
 
 /** The designs the outlines are kept for, by name: every starting style, and every setting at its ends (Rotation
     at its quarters too, as both its ends are a half turn) and in each of its options, each tried where it shows
@@ -70,43 +63,13 @@ function engineProbes(): [string, Params][] {
   // the cuts on styles of other builds: stencil gaps, crossbar gaps and a letter's own join gaps clip strokes
   // on slants (K k y), on serifs and on blackletter's diamonds, which the defaults alone don't reach
   const joinGaps = { K: { joinGaps: { '1s': 1 } }, k: { joinGaps: { '1s': 1, '2s': 1 } }, y: { joinGaps: { '1s': 1 } }, A: { joinGaps: { '0t0': 1, '1s': 0.5 } } };
-  for (const id of ['modular', 'stadium', 'serif', 'didone', 'grotesque', 'slab', 'woodtype', 'industrial', 'typewriter', 'blackletter']) {
+  for (const id of ['serif', 'didone', 'grotesque', 'woodtype', 'industrial', 'typewriter', 'blackletter']) {
     const st = STYLES.find(s => s.id === id)!.params;
     out.push([`style:${id},stencil=0.4`, { ...st, stencil: 0.4 }]);
     out.push([`style:${id},barGap=0.6,through`, { ...st, barGap: 0.6, barEnds: 'through' }]);
     out.push([`style:${id},stencil=0.8,joinGaps`, { ...st, stencil: 0.8, stencilPos: 1, stencilRound: 1, glyphs: { ...st.glyphs, ...joinGaps } }]);
   }
   return out;
-}
-
-/** The settings a free font's letters are moved by in the free set: each through a different part of the
-    machinery (nearer weight, skin, the restyles of ends, serifs, bowls, dots, peaks, corners, joins and stencil,
-    the twin's forms). */
-const FREE_MOVES: [string, (st: StyleDef) => Partial<Params>][] = [
-  ['', () => ({})], ['weight=0.75', () => ({ weight: 0.75 })], ['contrast=0.8', () => ({ contrast: 0.8 })], ['width=0.3', () => ({ width: 0.3 })],
-  ['xHeight=0.9', () => ({ xHeight: 0.9 })], ['terminal=round', () => ({ terminal: 'round', terminalForm: 'ball' })],
-  ['serif=flip', st => ({ serif: !st.params.serif })], ['squareness=1', () => ({ squareness: 1 })], ['roundness=1', () => ({ roundness: 1 })],
-  ['stencil=0.5', () => ({ stencil: 0.5 })], ['gForm=double', () => ({ gForm: 'double' })], ['slant=1', () => ({ slant: 1 })],
-  ['dots=square', () => ({ dots: 'square' })], ['apex=1', () => ({ apex: 1 })], ['steps=1', () => ({ steps: 1 })], ['joinRound=1', () => ({ joinRound: 1 })],
-  ['innerRound=1', () => ({ innerRound: 1 })], ['barGap=0.6', () => ({ barGap: 0.6 })], ['barEnds=through', () => ({ barGap: 0.6, barEnds: 'through' })],
-  ['terminalLength=1', () => ({ terminalLength: 1 })], ['terminalCurl=1', () => ({ terminalCurl: 1 })], ['tail=1', () => ({ tail: 1 })],
-  ['aperture=1', () => ({ aperture: 1 })], ['chamfer=1', () => ({ chamfer: 1 })], ['bowlForm=box', () => ({ bowlForm: 'box' })],
-  ['boxRound=0', () => ({ bowlForm: 'box', boxRound: 0 })], ['boxRound=1', () => ({ bowlForm: 'box', boxRound: 1 })],
-  ['overlap=0', () => ({ overlap: 0 })], ['cursive=0.7', () => ({ cursive: 0.7 })],
-  ['wobble=1', () => ({ wobble: 1 })], ['mono=0', () => ({ mono: 0 })]
-];
-const FREE_CHARS = 'ABCDEGHKMNOQRSWabegikmnoprsty0258&?';
-/** Each free font kept (TypeLab's own in fonts/, the others in FONTS_DIR), with its style's free-set designs, named
-    with a hash of the font's file. */
-function* freeStyles(): Generator<{ fid: string; data: FreeFontData; probes: [string, Params][] }> {
-  for (const st of STYLES) {
-    const fid = STYLE_FONTS[st.id], file = fid && fontFile(FONTS_DIR, fid);
-    if (!file || !existsSync(file)) continue;
-    const text = readFileSync(file, 'utf8');
-    const tag = createHash('sha1').update(text).digest('base64url').slice(0, 6);
-    const freeAt = freeAtOf(st.params);
-    yield { fid, data: JSON.parse(text), probes: FREE_MOVES.map(([name, move]) => [`${st.id}@${tag}${name ? ':' + name : ''}`, { ...st.params, freeFont: fid, freeAt, ...move(st) } as Params]) };
-  }
 }
 
 const r = (v: number) => Math.round(v * 100) / 100;
@@ -116,53 +79,33 @@ export function glyphHash(cmds: Cmd[], lsb: number, adv: number): string {
   return createHash('sha1').update(text).digest('base64url').slice(0, 3);
 }
 
-const charsOf = (set: GoldenSet) => (set === 'engine' ? ALL_CHARS : FREE_CHARS);
-/** Every probe's glyph hashes, in the set's character order ('...' where the font has no glyph): only those `only`
-    takes, when given. The free set draws one font at a time and lets it go after (letGo), so what is read off its
-    letters goes with it: all kept at once, they took the free set to 18 GB. */
-export function compute(set: GoldenSet, only?: (name: string) => boolean): Map<string, string> {
+/** Every probe's glyph hashes, in ALL_CHARS order ('...' where the font has no glyph): only those `only` takes, when
+    given. */
+export function compute(only?: (name: string) => boolean): Map<string, string> {
   const out = new Map<string, string>();
-  const hash = (name: string, p: Params) => {
-    if (only && !only(name)) return;
+  for (const [name, p] of engineProbes()) {
+    if (only && !only(name)) continue;
     const f = buildFont(p);
     let line = '';
-    for (const ch of charsOf(set)) {
+    for (const ch of ALL_CHARS) {
       const g = f.letter(ch).glyph(ch);
       line += g ? glyphHash(g.cmds, g.lsb, g.adv) : '...';
     }
     out.set(name, line);
-  };
-  if (set === 'engine') for (const [name, p] of engineProbes()) hash(name, p);
-  else for (const { fid, data, probes } of freeStyles()) {
-    if (only && !probes.some(([name]) => only(name))) continue;
-    // (with the nearer weights of its family a design would rather, where they're kept too)
-    const held = new Set([fid]);
-    registerFreeFont(data);
-    for (const [name, p] of probes) { if (!only || only(name)) holdFonts(p, held); hash(name, p); }
-    letGo(held);
   }
   return out;
 }
 
-/** The probes the golden file of `set` keeps, and the styles they're of: a check draws only those (a font kept here
-    and not when the file was written can't be compared), an update only those styles (a font fetched since doesn't
-    join the set unless asked, --all-fonts). */
-export function kept(set: GoldenSet): { names: Set<string>; styles: Set<string> } {
-  if (!existsSync(GOLDEN_FILE[set])) return { names: new Set(), styles: new Set() };
-  const names = new Set(read(set).hashes.keys());
-  return { names, styles: new Set([...names].map(n => n.split(/[@:]/)[0])) };
-}
-
-/** Writes these hashes as the golden file of `set`, under its character order. */
-function write(hashes: Map<string, string>, set: GoldenSet) {
-  const lines = [`# golden outlines: npm run golden:update rewrites this file; see tools/golden.ts`, `chars ${JSON.stringify(charsOf(set))}`];
+/** Writes these hashes as the golden file, under its character order. */
+function write(hashes: Map<string, string>) {
+  const lines = [`# golden outlines: npm run golden:update rewrites this file; see tools/golden.ts`, `chars ${JSON.stringify(ALL_CHARS)}`];
   for (const [k, v] of hashes) lines.push(`${k} ${v}`);
-  writeFileSync(GOLDEN_FILE[set], lines.join('\n') + '\n');
+  writeFileSync(GOLDEN_FILE, lines.join('\n') + '\n');
 }
 
-/** The golden file of `set` as kept: its character order and each probe's hashes. */
-function read(set: GoldenSet): { chars: string; hashes: Map<string, string> } {
-  const lines = readFileSync(GOLDEN_FILE[set], 'utf8').split('\n').filter(l => l && !l.startsWith('#'));
+/** The golden file as kept: its character order and each probe's hashes. */
+function read(): { chars: string; hashes: Map<string, string> } {
+  const lines = readFileSync(GOLDEN_FILE, 'utf8').split('\n').filter(l => l && !l.startsWith('#'));
   const chars = JSON.parse(lines[0].slice('chars '.length)) as string;
   const hashes = new Map<string, string>();
   for (const l of lines.slice(1)) { const at = l.lastIndexOf(' '); hashes.set(l.slice(0, at), l.slice(at + 1)); }
@@ -170,37 +113,27 @@ function read(set: GoldenSet): { chars: string; hashes: Map<string, string> } {
 }
 
 /** What differs between the kept outlines and these: each probe that changed with the letters that did. */
-export function diff(now: Map<string, string>, set: GoldenSet): string[] {
-  const { chars, hashes: was } = read(set), report: string[] = [];
+export function diff(now: Map<string, string>): string[] {
+  const { chars, hashes: was } = read(), report: string[] = [];
   const cs = [...chars];
   for (const [k, v] of now) {
     const old = was.get(k);
-    // (in the free set, a font kept here and not there, or another file of it, isn't compared)
-    if (old === undefined) { if (set === 'engine') report.push(`${k}: new probe`); continue; }
+    if (old === undefined) { report.push(`${k}: new probe`); continue; }
     if (old === v) continue;
     const moved = cs.filter((_, i) => old.slice(i * 3, i * 3 + 3) !== v.slice(i * 3, i * 3 + 3));
     report.push(`${k}: ${moved.length} glyph${moved.length === 1 ? '' : 's'} changed: ${moved.join('')}`);
   }
-  if (set === 'engine') for (const k of was.keys()) if (!now.has(k)) report.push(`${k}: probe gone`);
+  for (const k of was.keys()) if (!now.has(k)) report.push(`${k}: probe gone`);
   return report;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const update = process.argv.includes('--update'), allFonts = process.argv.includes('--all-fonts');
+  const update = process.argv.includes('--update');
   await oneAtATime('golden', () => {
-    for (const set of ['engine', 'free'] as const) {
-      const { names, styles } = kept(set);
-      const only = set === 'engine' ? undefined : update ? (allFonts || !styles.size ? undefined : (n: string) => styles.has(n.split(/[@:]/)[0])) : (n: string) => names.has(n);
-      const now = compute(set, only);
-      if (set === 'free' && !now.size) { console.log('free: no free fonts kept in', FONTS_DIR, '(skipped)'); continue; }
-      if (update) { write(now, set); console.log(`${set}: wrote ${now.size} probes to ${GOLDEN_FILE[set]}`); }
-      else {
-        const d = diff(now, set);
-        const unseen = set === 'free' ? names.size - now.size : 0;
-        console.log(d.length ? d.map(l => `${set}: ${l}`).join('\n') : `${set}: all ${now.size} probes match`);
-        if (unseen > 0) console.log(`${set}: ${unseen} kept probes not drawn (their fonts not kept here, or not the same files)`);
-        if (d.length) process.exitCode = 1;
-      }
-    }
+    const now = compute();
+    if (update) { write(now); console.log(`wrote ${now.size} probes to ${GOLDEN_FILE}`); return; }
+    const d = diff(now);
+    console.log(d.length ? d.join('\n') : `all ${now.size} probes match`);
+    if (d.length) process.exitCode = 1;
   });
 }

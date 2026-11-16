@@ -176,8 +176,8 @@ describe('the editor', () => {
   it('loads a style in place of changes, with a way back to them', () => {
     actions.loadStyle('serif');
     actions.setOption('width', 0.9);
-    actions.loadStyle('slab');
-    assert.equal(state().styleId, 'slab');
+    actions.loadStyle('softslab');
+    assert.equal(state().styleId, 'softslab');
     assert.equal(state().toast?.action?.label, 'Undo');
     state().toast!.action!.run();
     assert.equal(state().styleId, 'serif');
@@ -264,7 +264,7 @@ describe('the editor', () => {
   it('records nothing for a style or a design file taking the settings\' place, and takes in the file\'s record', () => {
     useEditor.setState({ scope: 'letter', inspect: 'a' });
     actions.setOption('weight', 0.8);
-    actions.loadStyle('slab');
+    actions.loadStyle('softslab');
     assert.ok(!('a' in state().params.glyphs));
     assert.equal(state().log.a.length, 1);
     const b = { t: 5, keys: ['width'], own: { width: 0.2 } };
@@ -276,7 +276,7 @@ describe('the editor', () => {
     actions.setOption('weight', 0.8);
     useEditor.setState({ scope: 'letter', inspect: 'a' });
     actions.setOption('width', 0.3);
-    actions.loadStyle('slab');
+    actions.loadStyle('softslab');
     const loadedWeight = state().params.weight;
     assert.deepEqual(state().versions.map(v => [v.keys, v.letters, v.made ?? null]),
       [[[], [], null], [['weight'], [], null], [[], ['a'], null], [state().versions[3].keys, ['a'], 'style']]);

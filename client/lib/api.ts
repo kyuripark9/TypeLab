@@ -2,7 +2,6 @@
    are served by server/app.ts. */
 import type { EmailCheck, GoogleIntent, User } from '../../shared/account';
 import type { Design, DesignInput, NameSample } from '../../shared/design';
-import type { FreeFontData } from '../../shared/engine';
 import type { FamilyRequest, MemberRequest } from '../../shared/family';
 import type { Params } from '../../shared/params';
 
@@ -68,7 +67,6 @@ export const api = {
   /** keepalive, so a delete still goes through when the page is left while it waits out its Undo */
   deleteDesign: async (id: string) => { await send('DELETE', `/api/designs/${encodeURIComponent(id)}`, undefined, { keepalive: true }); },
   /** A free font's letters, as the engine draws them (see lib/free.ts). */
-  freeFont: (id: string) => json<FreeFontData>('GET', `/api/free-fonts/${encodeURIComponent(id)}`),
   /** The exact outline revision pinned by a design. */
   source: (digest: string) => json<unknown>('GET', `/api/sources/${encodeURIComponent(digest)}`),
   /** Build a font file or specimen on the server; a font file can be one member of the design's family. With `accents`,

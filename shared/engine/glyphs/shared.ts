@@ -357,6 +357,5 @@ export function zed(g: Builder, m: Metrics, W: number, top: number) {
 /** The lowercase's measures: the x-height X, half a stem hs and half a bar hh, and the centerlines of a round
     letter's top yt and bottom yb, which overshoot the x-height and the baseline. */
 export const lc = (m: Metrics) => ({ X: m.xh, hs: m.s / 2, hh: m.hT / 2, yt: m.xh + m.os - m.hT / 2, yb: -m.os + m.hT / 2 });
-/** How much bigger or smaller than usual Dot size makes the dots. A free font's dots grow alike (dot in skinMeasures,
-    skin.ts, the same line with its sums in another order): keep the two in step. */
+/** How much bigger or smaller than usual Dot size makes the dots. */
 export const dotK = (m: Metrics) => (m.p.dotSize < 0.5 ? lerp(0.7, 1, m.p.dotSize * 2) : lerp(1, 1.5, m.p.dotSize * 2 - 1));

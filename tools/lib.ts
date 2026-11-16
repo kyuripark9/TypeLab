@@ -1,15 +1,16 @@
-/* Shared helpers for the command-line tools: finding a style's settings, loading free fonts from the
-   server's cache, flattening outlines and drawing them to a PNG without a browser. */
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+/* Shared helpers for the command-line tools: finding a style's settings, loading its source drawings,
+   flattening outlines and drawing them to a PNG without a browser. */
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { deflateSync } from 'node:zlib';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildFont, forgetFreeFont, freeFont, freeFontsWanted, registerFreeFont, type Cmd, type Font } from '../shared/engine';
+import { buildFont, type Cmd, type Font } from '../shared/engine';
 import { STYLES, TERMINAL_DETAILS } from '../shared/content';
-import { STYLE_FONTS } from '../shared/free-fonts';
-import { DEFAULTS, TERMINAL_FORMS, freeAtOf, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
-import { FreeFonts, fontFile } from '../server/free-fonts';
+import { DEFAULTS, TERMINAL_FORMS, sanitizeParams, type Params, type TerminalForm } from '../shared/params';
+import { sourceStyleParams } from '../shared/source/style';
+import { FreeFonts } from '../server/free-fonts';
+import { loadDesignSources } from '../server/sources';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** Where tools write what they make, unless told otherwise (git-ignored). */
@@ -46,41 +47,19 @@ export async function oneAtATime<T>(name: string, fn: () => T | Promise<T>): Pro
   try { return await fn(); } finally { free(); }
 }
 
-/** Where the server keeps the free fonts it has fetched, unless FONTS_DIR points elsewhere. */
-export const FONTS_DIR = process.env.FONTS_DIR ?? resolve(ROOT, 'data/free-fonts');
 let fonts: FreeFonts | null = null;
-/** The free fonts as the server has them: TypeLab's own from fonts/, the rest kept in FONTS_DIR (fetched from Google Fonts when missing). */
-export const freeFonts = () => (fonts ??= new FreeFonts(FONTS_DIR));
+/** TypeLab's own fonts as the server has them, from fonts/. */
+export const freeFonts = () => (fonts ??= new FreeFonts());
 
-/** Registers the fonts design `p` draws with that are kept here (never fetched): its own, and a nearer weight of its
-    family it would rather (freeFontsWanted), noting each it registers in `held`, for letGo when done with them. */
-export function holdFonts(p: Params, held: Set<string>) {
-  const take = (id: string) => {
-    if (freeFont(id)) return;
-    const file = fontFile(FONTS_DIR, id);
-    if (!existsSync(file)) return;
-    registerFreeFont(JSON.parse(readFileSync(file, 'utf8')));
-    held.add(id);
-  };
-  if (p.freeFont) take(p.freeFont);
-  for (const id of freeFontsWanted(p)) take(id);
-}
-/** Forgets the fonts holdFonts registered, and everything read off their letters with them (forgetFreeFont). */
-export function letGo(held: Set<string>) {
-  for (const id of held) forgetFreeFont(id);
-  held.clear();
-}
-
-/** Style `id`'s settings, written in its free font when `free` (the font is loaded and registered first). Its spacing
-    stays the style's: the editor's startParams (client/state/editor.ts) also sets letter and word spacing to their
-    defaults (FREE_SPACING) for a free font, so `render --free` spaces letters differently from the app. */
-export async function styleParams(id: string, free = false): Promise<Params> {
+/** Style `id`'s settings: the preset the engine builds its letters from, or, with `source`, the style as its card
+    starts it, written in its own font's source drawings (loaded first). */
+export async function styleParams(id: string, source = false): Promise<Params> {
   const st = styleOf(id);
-  if (!free) return st.params;
-  const fid = STYLE_FONTS[id];
-  if (!fid) throw new Error(`style '${id}' has no free font`);
-  registerFreeFont(await freeFonts().load(fid));
-  return { ...st.params, freeFont: fid, freeAt: freeAtOf(st.params) } as Params;
+  if (!source) return st.params;
+  const p = sourceStyleParams(st);
+  if (!p) throw new Error(`style '${id}' has no source drawings`);
+  loadDesignSources(p);
+  return p;
 }
 
 /** The settings that make setting `k` show at all: serifs on for the serif sliders (and the tip, base or inside

@@ -2,7 +2,7 @@
 
      npm run render -- --style serif --text "Rag Hamburg" --out .tools/out/serif.png
      npm run render -- --style serif --set weight=0.8 --set serifTip=round --size 400 --text R
-     npm run render -- --style didone --free --text Rag             (in the style's free font)
+     npm run render -- --style didone --free --text Rag             (the style as its card starts it, in its own font)
      npm run render -- --params design.typelab.json --text Rag      (a saved design's params)
      npm run render -- --style geometric --sweep weight --text Rag  (one row per eighth, 0 to 1)
      npm run render -- --params design.typelab.json --family        (one row per weight of its family; --italic its italics)

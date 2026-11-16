@@ -12,10 +12,11 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { buildOTF } from '../../server/export';
 import { slug } from '../../shared/design';
-import { cmdsContours, drawnCmds, freeFontsWanted, registerFreeFont, unite } from '../../shared/engine';
+import { cmdsContours, drawnCmds, unite } from '../../shared/engine';
 import { INTRO_CHARS, STYLE_FONTS, parseFontId } from '../../shared/free-fonts';
 import { PARAMS_VERSION, sanitizeParams, upgradeParams } from '../../shared/params';
-import { ROOT, freeFonts } from '../lib';
+import { loadDesignSources } from '../../server/sources';
+import { ROOT } from '../lib';
 
 const SRC = join(ROOT, 'Asset/intro'), OUT = join(ROOT, 'client/fonts/intro');
 const CHARS = new Set(INTRO_CHARS);
@@ -48,13 +49,20 @@ if (at >= 0) {
   db.close();
 }
 
-rmSync(OUT, { recursive: true, force: true });
-mkdirSync(OUT, { recursive: true });
-for (const f of readdirSync(SRC).filter(f => f.endsWith('.typelab.json')).sort()) {
+const designs = readdirSync(SRC).filter(f => f.endsWith('.typelab.json')).sort().map(f => {
   const file = JSON.parse(readFileSync(join(SRC, f), 'utf8'));
   // a design file carries the version its settings were written in, as the editor's import reads it
-  const params = sanitizeParams(upgradeParams(file.params, typeof file.version === 'number' ? file.version : 1));
-  for (const id of freeFontsWanted(params)) registerFreeFont(await freeFonts().load(id));
+  return { f, file, params: sanitizeParams(upgradeParams(file.params, typeof file.version === 'number' ? file.version : 1)) };
+});
+// a design written in one of the fonts needs its source drawings: one saved before sources has none to draw from, and
+// nothing is written (or cleared) until every design can be drawn
+const old = designs.filter(d => d.params.freeFont && !d.params.sourceProgram).map(d => d.f);
+if (old.length) throw new Error(`saved without source drawings, so they can't be drawn: ${old.join(', ')}. Start each again from its style's card and save it here.`);
+
+rmSync(OUT, { recursive: true, force: true });
+mkdirSync(OUT, { recursive: true });
+for (const { f, file, params } of designs) {
+  loadDesignSources(params);
   // each letter's overlapping pieces made one (a browser fills a web font's overlaps unevenly), the others left blank
   const drawn = new Set<string>();
   const otf = buildOTF(params, file.name, undefined, g => {

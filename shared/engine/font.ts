@@ -14,27 +14,25 @@
      corners.ts       turns and square ends rounded and stepped
      joins.ts         the inside corners where strokes meet, filled with fillets
      serif-sides.ts   which way each stem's serifs reach, and cupped serif feet
-     free-letters.ts  a free font's letters, moved by the settings
+     drawn-letter.ts  a letter drawn in Points, as drawn
      highlight.ts     the part of a letter a setting shapes, for the explainer
-   Most modules this file loads, directly or not, call back into it (glyph.ts and its stages, free-letters.ts,
-   skin.ts, restyle.ts): any of them may use what it exports only inside functions, never at module load. The
+   Most modules this file loads, directly or not, call back into it (glyph.ts and its stages,
+   drawn-letter.ts): any of them may use what it exports only inside functions, never at module load. The
    letter files (glyphs/) fill the glyph table as they load, so index.ts imports them and
    this file never does.
 
    Beside metrics() stand the pieces of it other files share, so they stay in step with it: serifLen,
    counterScale, roundnessR, innerRoundR, stencilOff, bowlK, bowlOrg, dotRoundOf and cursiveHookR, and the
-   constants SERIF_SB, SLANT_PIVOT and CURSIVE_FORMS, read by the glyph files and by the free fonts' letters
-   (skin.ts, restyle.ts, free-letters.ts), which move as far as the engine's own. */
+   constants SERIF_SB, SLANT_PIVOT and CURSIVE_FORMS, read by the glyph files. */
 import { DEFAULTS, GRID_FILLS, contrastOf, formOf, gridCells, joinGap, rotationDeg, slantDeg, weighed, weightScale, xHeightRatio, type ControlKey, type Params } from '../params';
 import { CIRCLE_K, clamp, cubicAt, lerp, quarter } from './geom';
-import { freeFont, type FreeFont } from './free';
+import type { FreeFont } from './free';
 import type { Drawn } from './outline';
 import { autoThickness, organicK, type SerifPlace } from './stroke';
 import type { Cmd, Mark, MarkType, Mat, PenCtx, Pt, StrokeOpts, Tangent, TermSpec } from './types';
 import { buildBlock, buildGlyph } from './glyph';
 import { buildArc } from './arcs';
-import { formChanged, freeFontsWanted, freeGlyph, freeLetters, twinGlyph } from './free-letters';
-import { drawnDesign, drawnFrom, drawnLetter } from './family-drawn';
+import { drawnLetter } from './drawn-letter';
 import { highlightD } from './highlight';
 import { sourceInstance, type SourceStatus } from '../source/instance';
 import { encodedAdvance } from './spacing';
@@ -131,10 +129,8 @@ export interface Font {
   params: Params;
   eff: Effective;
   m: Metrics;
-  /** the free font the letters are written in, once registered (see free.ts) */ free?: FreeFont;
-  /** written in a free font that isn't registered yet: the letters are built meanwhile, or drawn from the font
-      picked while the weight or italic the settings ask for is on its way */ freePending: boolean;
-  /** the free fonts it draws from that weren't registered when it was built (see freeFontsWanted) */ freeMissing: string[];
+  /** the source's own font the letters are drawn from, once loaded (see free.ts) */ free?: FreeFont;
+  /** a source style whose drawings haven't loaded yet: it draws nothing meanwhile */ freePending: boolean;
   glyph(ch: string): Glyph | null;
   /** A source's accented character, composed on its letter as that letter is drawn (its own settings and Points
       included), where the program's marks are loaded (an export); null otherwise, and always for other designs, whose
@@ -212,14 +208,12 @@ const pinchY = (pos: number, xh: number, cap: number) => (pos < 0.5 ? lerp(0, xh
 
 /** A serif measure at `v` on a scale centred on 0.5, where it is as drawn: `lo` times that at 0, `hi` times at 1. */
 const serifScale = (v: number, lo: number, hi: number) => (v < 0.5 ? lerp(lo, 1, v * 2) : lerp(1, hi, v * 2 - 1));
-/** A serif's length at `v` on Serif size, in letters `ws` times as wide as usual (Metrics.ws). A free font's serifs
-    move by it too (skinMeasures in skin.ts). */
+/** A serif's length at `v` on Serif size, in letters `ws` times as wide as usual (Metrics.ws). */
 export const serifLen = (v: number, ws: number) => lerp(28, 175, v) * (0.75 + 0.25 * ws);
 /** How thick a serif of each shape is at `v` on the Thickness scale. A diamond reads the Thickness back out of it
     (diamondK in stroke.ts undoes the 8 to 95): keep the two in step. */
 const serifTh = (v: number, shape: string) => lerp(8, 95, v) * ({ unbracketed: 0.6, slab: 1.5 }[shape] ?? 1);
-/** How much of a serif's length the side bearings grow by, so serifed letters keep apart. A free font's letters
-    given the engine's serifs grow theirs as much (freeGlyph in free-letters.ts). */
+/** How much of a serif's length the side bearings grow by, so serifed letters keep apart. */
 export const SERIF_SB = 0.3;
 /** How far the serifs on arms lean from upright at either end of the Lean scale, in radians (35°). */
 const ARM_LEAN = 0.61;
@@ -227,27 +221,25 @@ const ARM_LEAN = 0.61;
     narrows the side bearings. */
 const REGULAR_STEM = 80;
 /** How much wider Inner space (`cnt`, -1..1) draws a letter: one built round a counter (`cls` 'r') 0.22 a unit, any
-    other 0.06 (see Metrics.W). A free font's letters widen by it too (skinMeasures in skin.ts). */
+    other 0.06 (see Metrics.W). */
 export const counterScale = (cls: 'r' | 'c' | undefined, cnt: number) => 1 + (cls === 'r' ? 0.22 : 0.06) * cnt;
-/** The tension of a quarter turn's handles (Metrics.k): CIRCLE_K a circle, fuller with Curves and Squareness. A free
-    font's bowls are drawn again by it (bowlLook in restyle.ts). */
+/** The tension of a quarter turn's handles (Metrics.k): CIRCLE_K a circle, fuller with Curves and Squareness. */
 export const bowlK = (e: Effective) => CIRCLE_K + 0.05 * e.curve + 0.36 * e.square;
 /** How organic the bowls are (Metrics.org, see organicK). Organic bowls are fuller on the diagonal a slant leans into a
     sharp corner (top right, bottom left): the two together pinch a bowl into a lumpy parallelogram, so a slant, which
-    leans a bowl that way itself, takes the place of as much of it. A free font's bowls follow it too (bowlLook). */
+    leans a bowl that way itself, takes the place of as much of it. */
 export const bowlOrg = (e: Effective) => e.curve * (1 - clamp(e.slant));
-/** The corner radius Roundness gives at `v`, for stems `s` thick (Metrics.R): half a stem at 1. A free font's corners
-    round by it too (cornerLooks in restyle.ts). */
+/** The corner radius Roundness gives at `v`, for stems `s` thick (Metrics.R): half a stem at 1. */
 export const roundnessR = (v: number, s: number) => v * s * 0.5;
 /** The radius Counters (innerRound) rounds the counters' corners by at `v`, in letters `cap` high, whatever the weight
-    (Metrics.innerR). A free font's inside corners round by it too (cornerLooks in restyle.ts). */
+    (Metrics.innerR). */
 export const innerRoundR = (v: number, cap: number) => v * cap * 0.4;
 /** How far out from a join its stencil gap opens at `pos` on Stencil's Position, for stems `s` thick in letters with
     x-height `xh` (Metrics.gapOff): a gap moved out starts a stub's width out, so it never leaves a hairline on the
-    stroke it joins. A free font's gaps move out as far (restyleStencil in restyle.ts). */
+    stroke it joins. */
 export const stencilOff = (pos: number, s: number, xh: number) => (pos > 0 ? lerp(s * 0.55, xh * 0.4, pos) : 0);
 /** How round the dots are, 0 square to 1 round (Metrics.dotRound): as Dots picks them, or on auto as round as
-    Roundness or as round ends' own Roundness. A free font's dots are drawn again by it (dotLook in restyle.ts). */
+    Roundness or as round ends' own Roundness. */
 export const dotRoundOf = (e: Params) => (e.dots === 'round' ? 1 : e.dots === 'square' ? 0 : Math.max(e.roundness, e.terminal === 'round' ? e.terminalRound : 0));
 /** The radius of the cursive hooks, for stems `s` thick and an x-height `xh`, at `cur` on Cursive; 0 in a design with
     no cursive at all. The letters' hooks are drawn by it (hookR in glyphs/shared.ts), and the word space widens by
@@ -315,7 +307,6 @@ export function metrics(e: Effective): Metrics {
   const sliceH = e.slice > 0 ? lerp(4, Math.max(xh * 0.14, Math.min(xh * 0.5, xh - 2 * thin)), e.slice) : 0;
   return {
     p: e, s, s0, cap, xh,
-    // (skinMeasures, skin.ts, moves a free font's ascenders by the Stem length term, as a share of the cap height)
     asc: Math.max(xh * 1.12, Math.max(cap * 1.05, xh * 1.18) + (e.extenders - 0.5) * cap * 0.5),
     desc: -cap * 0.3 * lerp(0.55, 1.45, e.extenders) * (e.descender < 0.5 ? lerp(0.45, 1, e.descender * 2) : lerp(1, 1.6, e.descender * 2 - 1)),
     os: cap * 0.014,
@@ -436,31 +427,24 @@ function sameSettings(a: Params, b: Params): boolean {
 export function buildFont(params: Params, from?: Font, sourceMonoCell?: number): Font {
   const e = resolve(params), m0 = metrics(e);
   const source = sourceInstance(params, m0, sourceMonoCell);
-  // a free font's letters stand as tall as the design's capitals, and its space is the font's own, wider or
-  // narrower by Word spacing
-  const fl = !source && e.freeFont ? freeLetters(params, e, m0) : null, free = source?.free ?? fl?.font;
-  const m = source ? source.m : free && fl ? { ...m0, space: Math.max(20, free.space * fl.k * fl.sx + (e.wordSpacing - 0.35) * 520) } : m0;
-  // a family member's drawn letters are moved from the design they were drawn in (family-drawn.ts)
-  const at = drawnDesign(params);
+  const free = source?.free, m = source ? source.m : m0;
   const cache = new Map<string, Glyph | null>(), accents = new Map<string, Glyph | null>(), hlCache = new Map<string, string>(), letters = new Map<string, Font>();
   const built = (from && from.free === free && sameSettings(from.params, params) && settingsGlyphs.get(from)) || new Map<string, Glyph | null>();
-  /** Letter `ch` as the settings draw it: its own letter's font's, a free font's (in a form the font hasn't got, its
-      twin's), a block letter, or the glyph table's form of it (variantOf). */
+  /** Letter `ch` as the settings draw it: its own letter's font's, the source's, a block or arc letter, or the glyph
+      table's form of it (variantOf). */
   const fromSettings = (ch: string): Glyph | null => {
     const lf = font.letter(ch);
     if (lf !== font) return lf.glyph(ch);
     if (source) return source.glyph(ch);
-    if (free?.glyphs[ch]) return (fl!.skin && formChanged(ch, fl!.now, fl!.pick, fl!.font) && twinGlyph(ch, fl!)) || freeGlyph(ch, free.glyphs[ch], fl!);
     if (e.build === 'blocks') { const b = buildBlock(ch, m); if (b) return b; }
     if (e.build === 'arcs') { const a = buildArc(ch, m); if (a) return a; }
     return buildGlyph(variantOf(ch, e), m, ch);
   };
-  /** Letter `ch`: as drawn, if it is (moved as far as the settings move from those it was drawn at, or, in a family
-      member, from its design); else as built before with the same settings, or built now and kept. */
+  /** Letter `ch`: as drawn, if it is; else as built before with the same settings, or built now and kept. */
   const pickGlyph = (ch: string): Glyph | null => {
     if (source) return fromSettings(ch);
     const drawn = params.outlines?.[ch];
-    if (drawn && !source) return drawnLetter(ch, drawn, font, at);
+    if (drawn) return drawnLetter(ch, drawn, font);
     const before = built.get(ch);
     if (before !== undefined) return before;
     const g = fromSettings(ch);
@@ -469,13 +453,12 @@ export function buildFont(params: Params, from?: Font, sourceMonoCell?: number):
   };
   const font: Font = {
     params, eff: e, m, free, source: source?.status ?? null,
-    freePending: source ? source.status.state === 'missing' : !!fl && free?.id !== fl.want,
-    freeMissing: freeFontsWanted(params).filter(id => !freeFont(id)),
+    freePending: source?.status.state === 'missing',
     letter(ch) {
       const own = params.glyphs?.[ch];
       if (!own) return font;
       let f = letters.get(ch);
-      if (!f) { const lp: Params = { ...params, ...own, glyphs: {} }; f = buildFont(at ? drawnFrom(lp, at) : lp, undefined, source?.monoCell); letters.set(ch, f); }
+      if (!f) { const lp: Params = { ...params, ...own, glyphs: {} }; f = buildFont(lp, undefined, source?.monoCell); letters.set(ch, f); }
       return f;
     },
     glyph(ch) {

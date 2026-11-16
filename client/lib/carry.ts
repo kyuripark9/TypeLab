@@ -736,7 +736,7 @@ export function carryInto(ch: Change, doc: Drawn, places: Place[]): Drawn {
 export const kindOf = (ch: string) => (/[a-z]/.test(ch) ? 'a' : /[A-Z]/.test(ch) ? 'A' : /[0-9]/.test(ch) ? '0' : '.');
 
 /** Whether letter `ch` of `p` stands in a grid fill's cells (pixels, hexagons, dots, lines…) as Points shows it: drawn
-    under one, or drawn without a fill and taking one now (family-drawn's withEffects), or not drawn and set in one.
+    under one, or drawn without a fill and taking one now (drawn-letter.ts's withEffects), or not drawn and set in one.
     Every cell is shaped as every other, the letter's own and every other letter's, so a change to one is never carried:
     it would go to all of them. */
 export function inCells(p: Params, ch: string): boolean {

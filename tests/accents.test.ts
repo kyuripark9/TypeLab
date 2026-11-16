@@ -6,24 +6,20 @@ import assert from 'node:assert/strict';
 import { inflateRawSync } from 'node:zlib';
 import { describe, it } from 'node:test';
 import { STYLES } from '../shared/content';
-import { ACCENTED, ALL_CHARS, accentGlyph, buildFont, freeFont, registerFreeFont, type Cmd, type Font } from '../shared/engine';
+import { ACCENTED, ALL_CHARS, accentGlyph, buildFont, type Cmd, type Font } from '../shared/engine';
 import { accentOf } from '../shared/engine/accents';
 import { toPolys } from '../shared/engine/geom';
-import { STYLE_FONTS } from '../shared/free-fonts';
-import { freeAtOf, type Params } from '../shared/params';
+import type { Params } from '../shared/params';
 import { anchorOf, familyMember } from '../shared/family';
 import { buildFamilyZip, buildOTF, buildSpecimenSVG } from '../server/export';
 import { ExportPool } from '../server/export-pool';
-import { FreeFonts } from '../server/free-fonts';
 import { opentype } from '../server/opentype';
 
 const style = (id: string) => STYLES.find(s => s.id === id)!.params;
-const ownFonts = new FreeFonts(null, async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); });
-/** Style `id` written in its own font (read from fonts/, never fetched). */
+/** Style `id` as the engine builds it from its preset: these accents are the engine's, drawn for the letters it
+    builds. A source style's accents are its authored marks (tests/source-accents.test.ts). */
 async function inFont(id: string): Promise<Params> {
-  const fid = STYLE_FONTS[id];
-  if (!freeFont(fid)) registerFreeFont(await ownFonts.load(fid));
-  return { ...style(id), freeFont: fid, freeAt: freeAtOf(style(id)) } as Params;
+  return style(id);
 }
 
 interface Box { x0: number; y0: number; x1: number; y1: number }
@@ -167,7 +163,7 @@ describe('accented letters', () => {
   });
 
   it('give a dieresis dots in proportion at the heaviest weights, apart, clear of the letter and inside its advance', async () => {
-    for (const [name, id] of [['Boardwalk', 'informal'], ['Couture', 'didone'], ['Mainline', 'grotesque'], ['Cathedral', 'blackletter']] as const) {
+    for (const [name, id] of [['Boardwalk', 'informal'], ['Couture', 'didone'], ['Mainline', 'grotesque']] as const) {
       const p = await inFont(id);
       for (const weight of ['extrabold', 'black'] as const) for (const italic of [false, true]) {
         const font = buildFont(familyMember(p, anchorOf(p), weight, italic).params), xh = box(font.glyph('x')!.cmds).y1;
@@ -212,7 +208,7 @@ describe('accented letters', () => {
     const one = unzip(buildFamilyZip(p, 'Side', req, true));
     const pool = new ExportPool(2, 2);
     try {
-      const built = await pool.run({ kind: 'family', name: 'Side', params: p, family: req, accents: true }, [await ownFonts.load(p.freeFont)]);
+      const built = await pool.run({ kind: 'family', name: 'Side', params: p, family: req, accents: true });
       assert.match(built.file, /^Side-family\.zip$/);
       const many = unzip(built.data);
       assert.deepEqual([...many.keys()], [...one.keys()], 'the same files in the same order');

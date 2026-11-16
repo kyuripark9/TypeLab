@@ -8,12 +8,24 @@
 import { before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { STYLES } from '../shared/content';
-import { buildFont, freeFont, registerFreeFont, type Drawn, type Font, type Node } from '../shared/engine';
+import { buildFont, unite, type Drawn, type Font, type Node } from '../shared/engine';
+import { decodeFreeFont } from '../shared/engine/free';
+import { metrics, resolve } from '../shared/engine/font';
 import { STYLE_FONTS } from '../shared/free-fonts';
-import { freeAtOf, type Params } from '../shared/params';
+import { DEFAULTS, type Params } from '../shared/params';
 import { FreeFonts } from '../server/free-fonts';
 import { carryChange, carryLetter, changesOf, inCells, sameDrawing } from '../client/lib/carry';
 import { contourArea, moveAnchors, splitSegment, deleteAnchors, traceOf, type Ref } from '../client/lib/pen';
+
+/** Style `id`'s own font as it is kept in fonts/, each letter a drawing: the points the font's designer set, which is
+    what carrying reads. */
+async function ownFont(id: string): Promise<Font> {
+  const data = decodeFreeFont(await new FreeFonts().load(STYLE_FONTS[id]));
+  // set as tall as its style's capitals, a letter drawn in overlapping pieces made one outline (as Points shows it)
+  const k = metrics(resolve(STYLES.find(s => s.id === id)!.params)).cap / data.cap, z = (v: number | undefined) => (v === undefined ? undefined : v * k);
+  const scaled = (n: Node): Node => JSON.parse(JSON.stringify({ ...n, x: n.x * k, y: n.y * k, ix: z(n.ix), iy: z(n.iy), ox: z(n.ox), oy: z(n.oy) }));
+  return buildFont({ ...DEFAULTS, outlines: Object.fromEntries(Object.entries(data.glyphs).map(([ch, d]) => [ch, { adv: d.adv * k, contours: unite(d.contours).map(c => c.map(scaled)) }])) });
+}
 
 describe('carry: reading what changed', () => {
   // a square of eight points, three to a side
@@ -82,9 +94,7 @@ describe('carry: to the other letters of an own font', () => {
   let font: Font;
   const outline = (ch: string): Drawn | null => { const g = font.glyph(ch); return g ? traceOf(g) : null; };
   before(async () => {
-    const st = STYLES.find(s => s.id === 'serif')!, id = STYLE_FONTS.serif;
-    if (!freeFont(id)) registerFreeFont(await new FreeFonts(null, async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); }).load(id));
-    font = buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params);
+    font = await ownFont('serif');
   });
   /** The two points at the end of a letter's top-left serif: the furthest left up by the ascender. */
   const tip = (d: Drawn): Ref[] => {
@@ -217,9 +227,7 @@ describe('carry: to the other letters of a font drawn by hand', () => {
   let font: Font, script: Font;
   const outline = (ch: string, f = font): Drawn | null => { const g = f.glyph(ch); return g ? traceOf(g) : null; };
   const load = async (style: string) => {
-    const st = STYLES.find(s => s.id === style)!, id = STYLE_FONTS[style];
-    if (!freeFont(id)) registerFreeFont(await new FreeFonts(null, async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); }).load(id));
-    return buildFont({ ...st.params, freeFont: id, freeAt: freeAtOf(st.params) } as Params);
+    return ownFont(style);
   };
   before(async () => { font = await load('blackletter'); script = await load('chancery'); });
   /** The biggest of a letter's counters (the contours wound against its outside). */

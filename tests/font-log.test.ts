@@ -39,9 +39,9 @@ describe('the font\'s History', () => {
     const p2 = withOwn(p1, 'a', { own: { weight: 0.3 } });
     log = recordVersion(log, snap(p1), snap(p2), { t: 2 });
     assert.deepEqual([log[2].keys, log[2].letters], [[], ['a']]);
-    log = recordVersion(log, snap(p2), snap(serif.params, 'slab'), { t: 3, made: 'style' });
+    log = recordVersion(log, snap(p2), snap(serif.params, 'softslab'), { t: 3, made: 'style' });
     assert.equal(log[3].made, 'style');
-    assert.equal(log[3].styleId, 'slab');
+    assert.equal(log[3].styleId, 'softslab');
     // nothing changed, nothing recorded
     assert.equal(recordVersion(log, snap(p2), snap({ ...p2 }), { t: 4 }), log);
   });
@@ -75,9 +75,9 @@ describe('the font\'s History', () => {
       { t: 1, keys: ['weight', 'nope', 'glyphs'], letters: ['a', 'ab', 3], base: true, styleId: 'nope', set: { weight: 3 }, glyphs: { a: { weight: 0.2, xHeight: 0.5 }, ab: { weight: 1 } } },
       'x',
       { keys: [], letters: [], set: { contrast: 0.9 } },
-      { t: 3, keys: ['width'], letters: ['a'], made: 'nope', back: 'x', styleId: 'slab', set: { width: 0.1 }, glyphs: { a: null } }
+      { t: 3, keys: ['width'], letters: ['a'], made: 'nope', back: 'x', styleId: 'softslab', set: { width: 0.1 }, glyphs: { a: null } }
     ]);
-    assert.deepEqual(log.map(v => [v.t, v.keys, v.letters, v.styleId, v.made, v.back]), [[1, ['weight'], ['a'], STYLES[0].id, undefined, undefined], [3, ['width'], ['a'], 'slab', undefined, undefined]]);
+    assert.deepEqual(log.map(v => [v.t, v.keys, v.letters, v.styleId, v.made, v.back]), [[1, ['weight'], ['a'], STYLES[0].id, undefined, undefined], [3, ['width'], ['a'], 'softslab', undefined, undefined]]);
     assert.equal(log[0].params.weight, 1);
     assert.deepEqual(log[0].params.glyphs, { a: { weight: 0.2 } });
     // a change in a version that doesn't read still holds for those after it

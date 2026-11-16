@@ -1,7 +1,6 @@
 /* Letters drawn by hand with the pen: outlines of anchor points and bézier handles, like a vector
    editor's paths, instead of strokes the parameters build. A generated letter becomes one by fitting
-   curves to its outline (fitOutline), which the engine draws as dense polylines. A free font's letters
-   reshaped by skin.ts and restyle.ts are fitted the same way, a little closer (within 1.2 units). A corner
+   curves to its outline (fitOutline), which the engine draws as dense polylines. A corner
    point can carry a radius, a live corner: the point stays where the corner is, and the outline is drawn
    rounded, cut or scooped there (drawnCmds), so the radius can be changed again at any time.
 
@@ -41,7 +40,7 @@ export type CornerKind = 'round' | 'cut' | 'scoop';
 export const CORNER_KINDS: CornerKind[] = ['round', 'cut', 'scoop'];
 /** A drawn letter: its advance width and closed contours. Nonzero fill, so a contour running the
     other way round from the one around it cuts a hole. `at`: the settings it was drawn at, which it is drawn as it
-    stands at (moved from them as they move: family-drawn.ts); a drawing from before drawings kept them has none
+    stands at (it only leans as the slant moves from them: drawn-letter.ts); a drawing from before drawings kept them has none
     until upgradeParams (shared/params/clean.ts) gives it its design's. */
 export interface SourceSpacingFrame { format: 'source-mono-v1'; originalAdvance: number; advance: number; shift: number }
 export interface Drawn { adv: number; contours: Node[][]; at?: DrawnAt; spacing?: SourceSpacingFrame }

@@ -99,7 +99,7 @@ describe('diagonal letters', () => {
   });
 
   it('leaves no gap after a Q whose tail curls out', () => {
-    for (const id of ['swash', 'nouveau']) {
+    for (const id of ['chancery', 'informal']) {
       const f = buildFont(STYLES.find(s => s.id === id)!.params);
       assert.ok(f.glyph('Q')!.adv < f.glyph('O')!.adv * 1.1, id);
     }

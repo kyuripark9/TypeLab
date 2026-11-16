@@ -7,20 +7,18 @@
    export it was building fails. */
 import { availableParallelism } from 'node:os';
 import { Worker } from 'node:worker_threads';
-import type { FreeFontData } from '../shared/engine';
 import { SourceEffectError } from '../shared/source/effect-error';
 import { exportPieces, joinPieces, type Built, type ExportJob, type ExportPiece, type PieceBuilt } from './export';
 import type { ExportWorkerReply } from './export-protocol';
 
 export type { Built };
 
-/** The most workers a pool starts by itself: each holds its own copy of the fonts' rigged letters, a few hundred MB
-    at its busiest. */
+/** The most workers a pool starts by itself: each holds its own copy of the sources it has drawn from. */
 const MOST = 4;
 
 /** An export in hand: its pieces, how many have been handed out and built, and what they built. */
 interface Export {
-  job: ExportJob; pieces: ExportPiece[]; fonts: FreeFontData[]; next: number; done: number; out: PieceBuilt[];
+  job: ExportJob; pieces: ExportPiece[]; next: number; done: number; out: PieceBuilt[];
   resolve: (b: Built) => void; reject: (e: Error) => void; failed?: boolean;
 }
 
@@ -31,17 +29,15 @@ export class ExportPool {
   private live = new Set<Worker>();
   private idle: Worker[] = [];
   private busy = new Map<Worker, { exp: Export; k: number }>();
-  /** the free fonts each worker has been sent (it registers each once) */
-  private sent = new Map<Worker, Set<string>>();
   private exports: Export[] = [];
   private turn = 0;
   constructor(private size = Math.max(1, Math.min(MOST, availableParallelism() - 1)), private waiting = 8) {}
 
-  /** Build `job` from `fonts`, every free font it and its family's members draw from. */
-  run(job: ExportJob, fonts: FreeFontData[]): Promise<Built> {
+  /** Build `job`; each worker loads the sources its design draws from (export-worker.ts). */
+  run(job: ExportJob): Promise<Built> {
     if (this.exports.length >= this.size + this.waiting) return Promise.reject(new Busy('Too many exports are waiting'));
     return new Promise((resolve, reject) => {
-      this.exports.push({ job, pieces: exportPieces(job), fonts, next: 0, done: 0, out: [], resolve, reject });
+      this.exports.push({ job, pieces: exportPieces(job), next: 0, done: 0, out: [], resolve, reject });
       this.pump();
     });
   }
@@ -65,13 +61,9 @@ export class ExportPool {
       if (!exp) return;
       const w = this.idle.pop() ?? this.spawn(), k = exp.next++;
       this.busy.set(w, { exp, k });
-      // (only the fonts this worker hasn't been sent yet go with the piece)
-      const had = this.sent.get(w) ?? new Set<string>(), fonts = exp.fonts.filter(f => !had.has(f.id));
-      for (const f of fonts) had.add(f.id);
-      this.sent.set(w, had);
       // (a worker holds the process open only while it builds)
       w.ref();
-      w.postMessage({ piece: exp.pieces[k], fonts });
+      w.postMessage({ piece: exp.pieces[k] });
     }
   }
 
@@ -106,7 +98,6 @@ export class ExportPool {
     // a worker that throws or stops takes its piece's export with it; the next piece starts a new worker
     const lost = (e: Error) => {
       if (!this.live.delete(w)) return;
-      this.sent.delete(w);
       this.idle = this.idle.filter(x => x !== w);
       const t = this.busy.get(w);
       this.busy.delete(w);

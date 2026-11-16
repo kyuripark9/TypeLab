@@ -21,8 +21,7 @@ import { type Builder, type Metrics, strokeWt } from './font';
 export const CROTCH = Math.PI / 3;
 /** The share of Counters' radius (innerRound) a corner whose inside is `angle` across rounds by: all of it at a
     right angle or wider, easing off as it narrows to none at CROTCH, leaving the crotches (the arms of a K, the
-    shoulder of an n) to Joins. A free font's inside corners split the same way, but for those no narrower than CROTCH
-    and not between upright and level strokes, which go by what they face (restyleCorners in restyle.ts). */
+    shoulder of an n) to Joins. */
 export const innerShare = (angle: number) => smoothstep((angle - CROTCH) / (Math.PI / 2 - CROTCH));
 /** The share of Joins' radius (joinRound) a corner whose inside is `angle` across rounds by: what Counters
     leaves (innerShare), all of it in a crotch narrower than CROTCH, none at a right angle or wider. */
@@ -32,8 +31,7 @@ export const innerFor = (m: Metrics, angle: number) => m.innerR * innerShare(ang
 /** How far Joins (joinRound) rounds a corner whose inside is `angle` across (see crotchShare). */
 export const crotchFor = (m: Metrics, angle: number) => joinR(m.p.joinRound, m.s) * crotchShare(angle);
 
-/** The radius of a join's round at roundness v, in a font with stems `s` thick: two stems at 1. A free font's
-    crotches round by it too (cornerLooks in restyle.ts). */
+/** The radius of a join's round at roundness v, in a font with stems `s` thick: two stems at 1. */
 export const joinR = (v: number, s: number) => 2 * s * clamp(v);
 
 /** One way out of a join's crossing, along an edge of a stroke's outline: its direction (x, y), and the

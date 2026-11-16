@@ -46,7 +46,7 @@ describe('saved Points source dependencies', () => {
   it('loads prior feature frames in a fresh export worker and matches the loaded preview', async () => {
     const { params } = savedFeatureFrame(), name = 'Saved source frame', pool = new ExportPool(1);
     try {
-      const built = await pool.run({ kind: 'otf', name, params, member: null }, []);
+      const built = await pool.run({ kind: 'otf', name, params, member: null });
       const actual = opentype.parse(Uint8Array.from(built.data).buffer);
       const expected = opentype.parse(Uint8Array.from(buildOTF(params, name)).buffer);
       assert.equal(actual.charToGlyph('R').advanceWidth, 686);

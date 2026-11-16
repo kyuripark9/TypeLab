@@ -105,7 +105,7 @@ describe('published point-basis adoption', () => {
     assert.deepEqual(result.drawing, [expected.adv, expected.drawn.contours.map(c => c.map(packNode))]);
     const pool = new ExportPool(1);
     try {
-      const built = await pool.run({ kind: 'otf', name: 'Rebased Cotton', params: after, member: null }, []);
+      const built = await pool.run({ kind: 'otf', name: 'Rebased Cotton', params: after, member: null });
       const actual = opentype.parse(Uint8Array.from(built.data).buffer);
       const local = opentype.parse(Uint8Array.from(buildOTF(after, 'Rebased Cotton')).buffer);
       assert.deepEqual(actual.charToGlyph('R').path.commands, local.charToGlyph('R').path.commands);

@@ -146,7 +146,7 @@ describe('neutral source preview fonts', () => {
         assert.ok(Math.abs(line.width - x - (info.endCorrections[line.items.at(-1)?.ch ?? ''] ?? 0)) < 1e-9,
           'the original card and SVG use the same longest-word fitting width');
       }
-      const original = parseFont(await new FreeFonts(null).file(params.freeFont));
+      const original = parseFont(await new FreeFonts().file(params.freeFont));
       assert.notDeepEqual(installed.charToGlyph(repaired).path.commands, original.charToGlyph(repaired).path.commands, `${styleId} contains its master repair`);
       if (styleId === 'blackletter') assert.equal(installed.charToGlyph('\\').advanceWidth, 585);
     }

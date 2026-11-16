@@ -125,8 +125,7 @@ const endAt = (cmds: Cmd[], which: 's' | 'e', m: Metrics): Pt | null => stretchE
    tip, is redrawn by following its own tangents and turning more at every step, gently where it
    leaves the stroke and most toward the tip. Above 0.5 the end curls on round the way it already
    turns (a straight end toward the middle of the letter); below it a curved end unbends and turns
-   out the other way. At either end of Curl it turns CURL_BEND further round by its tip, as a
-   TypeLab font's own end does (endMoves in restyle.ts), or as far of that as keeps it CURL_CLEAR
+   out the other way. At either end of Curl it turns CURL_BEND further round by its tip, or as far of that as keeps it CURL_CLEAR
    of the stroke width clear of the rest of the letter (centerline to centerline) and CURL_GAP
    clear of the rest of its own stroke; Curl moves it its share of that, all the way along.
    Its length changes as with stretchEnd, and length drawn on runs on straight past its tip. */
@@ -168,8 +167,7 @@ function widthsOn(pts: Pt[], m: Metrics): CrowdPt[] {
     only the ink of a dot) or near its own earlier turns, up to `most`. */
 function curlCrowd(cmds: Cmd[], which: 's' | 'e', S0: number, at: (s: number) => Pt, m: Metrics, crowd: () => CrowdPt[], extra = 0) {
   // how near the curl may come to a point: `most`, or near enough to keep ROOM_KEEP of the gap the end as drawn already
-  // leaves there (across a narrow opening, say: centerline to centerline, less a stroke's width), as a TypeLab font's
-  // own end may (roomFor in restyle.ts); the gap is read past the width of the widest side of the pen (the bars, on a
+  // leaves there (across a narrow opening, say: centerline to centerline, less a stroke's width); the gap is read past the width of the widest side of the pen (the bars, on a
   // letter whose bars outweigh its stems)
   const nOwn = Math.ceil(S0 / m.s * 10), own = Array.from({ length: nOwn + 1 }, (_, k) => at(S0 * k / nOwn));
   const wide = Math.max(m.s, m.ctx.thin), room = (q: Pt, most: number) => {
@@ -532,7 +530,7 @@ function widenClip(clip: ClipBox, from: Pt, before: Cmd[], after: Cmd[], m: Metr
 /** How near a styled end that reaches out past its stroke (a drop, a point, a flare, a slant) may come to the rest of
     the letter: ROOM_KEEP of as near as the stroke's end cut plain across comes, though never kept further off than
     ROOM_MAX of the stroke's width. One that came nearer would close a heavy letter's opening (a C into an O, an s into
-    an 8) or run into its bowl. A free font's ends are fitted by the same (fittedEnd in restyle.ts). */
+    an 8) or run into its bowl. */
 export const ROOM_KEEP = 0.75, ROOM_MAX = 0.6;
 /** The smallest drop the engine draws, in the stroke's thickness (dropR in stroke.ts). */
 export const DROP_MIN = 0.525;

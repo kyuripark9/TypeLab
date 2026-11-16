@@ -1,7 +1,8 @@
 # TypeLab: notes for agents
 
-An interactive font design playground: a React editor (`client/`), an Express API (`server/`), and a pure-math font
-engine (`shared/engine/`) that both of them run, with the settings (`shared/params/`) and the starting styles and UI
+An interactive font design playground: a React editor (`client/`), an Express API (`server/`), and the pure-math code
+that draws letters, which both of them run: the source interpreter (`shared/source/`) for the 22 cards written in
+TypeLab's own fonts and the font engine (`shared/engine/`) for the block and arc cards, with the settings (`shared/params/`) and the starting styles and UI
 copy (`shared/content/`) beside it. This file routes you; each area's CLAUDE.md holds the detail.
 
 ## Commands
@@ -16,16 +17,14 @@ The owner's Mac has no system Node: `tools/node.sh <cmd>` runs any command with 
 | Tests by name (the flag goes before the file; after it, it is ignored) | `node --import tsx --test --test-name-pattern "the slice" tests/cuts.test.ts` |
 | Type check (client, server, shared, tests, tools) | `npm run typecheck` |
 | Look at letters without the app (read the PNG) | `npm run render -- --style serif --text "Rag" --out .tools/out/x.png` |
-| Golden outlines, engine and free fonts (needs `data/free-fonts`; about two and a half minutes, under 2 GB) | `npm run golden` |
+| Golden outlines of the letters the engine builds, listing what changed | `npm run golden` |
 | Accept outlines you meant to change | `npm run golden:update` |
-| The own-font cards at Thin to Regular: letters moved, faults new or gone, Weight jumps (a card: seconds to half a minute; all 22: about five minutes, about 2 GB) | `npm run weights [-- --cards fatface,softslab] [--no-sweep] [--list]` |
-| Accept the lighter weights you meant to change | `npm run weights:update` |
-| Full engine output against a git ref (about five minutes; see tools/README.md) | `npm run compare -- [ref] [--free] [--only <style-regex>]` |
+| Full engine output against a git ref (about five minutes; see tools/README.md) | `npm run compare -- [ref] [--only <style-regex>]` |
 | Sliders that stop changing part way | `npm run sweep [-- keys...]` |
 | TypeLab's own fonts from their sheets (`Asset/After/<n>.ai` into `fonts/`; `--check` writes nothing) | `npm run fonts:import [-- names...]` |
 | A dev server of your own | `PORT=5199 DB_PATH=.tools/test.db npm run dev` |
 
-The heavy checks (`npm run golden`, `npm run weights`) take a lock, so only one runs on the machine at a time (from
+The heavy check (`npm run golden`) takes a lock, so only one runs on the machine at a time (from
 any checkout or copy); a second waits for the first. Don't get around it by starting several sweeps, renders or checks
 side by side: each holds up to a few GB, and on 2026-10-19 about 90 of them at once took the owner's 24 GB Mac into
 swap until it stalled. Check `sysctl vm.swapusage` before starting a long job while other sessions run.
@@ -33,9 +32,8 @@ swap until it stalled. Check `sysctl vm.swapusage` before starting a long job wh
 The owner keeps `npm run dev` running on port 5173 with the real database (`data/typelab.db`). Run your own servers
 on another port with their own database, and stop them by PID; never `pkill` by pattern. Other sessions may already
 hold 5199 and Chrome's 9333: pick your own (`PORT=52xx DB_PATH=.tools/test-52xx.db`, `CDP_PORT=93xx`); `lsof -i :<port>`
-shows whether one is taken. A new `git worktree` has no `node_modules` or `data/free-fonts` (both ignored): symlink
-`node_modules` from the main checkout and run golden with `FONTS_DIR=<main checkout>/data/free-fonts`, or the free set
-is skipped without failing. For one PID that stops
+shows whether one is taken. A new `git worktree` has no `node_modules` (ignored): symlink
+it from the main checkout. For one PID that stops
 cleanly, start it as `PORT=5199 DB_PATH=.tools/test.db tools/node.sh node --import tsx server/index.ts &`
 (server/CLAUDE.md). Browser checks: `tools/browser/` (client/CLAUDE.md, tools/README.md).
 
@@ -44,8 +42,8 @@ cleanly, start it as `PORT=5199 DB_PATH=.tools/test.db tools/node.sh node --impo
 | You changed | Run | Done means |
 | --- | --- | --- |
 | Engine code (`shared/engine/`, the scales in `shared/params/scales.ts`) | `npm test`; `npm run compare` for a refactor | Tests pass and the golden outlines are unchanged, or changed only where you meant and updated in the same commit |
-| Free-font code (`free*.ts`, `skin.ts`, `scan.ts`, `restyle.ts`) or a formula they share from `font.ts` | the above, plus `npm run golden`; for the lighter weights (thinner than a card's design), `npm run weights` | The free set matches too; no new fault or jump, and the letters it lists as moved looked at rendered (`npm run render -- --style <id> --free --family`) |
-| An own font (a sheet in `Asset/After/`, `tools/fonts/`) | `npm run fonts:import`, look at it (`npm run render -- --style <id> --free`), `npm test`, `npm run golden:update`, `npm run weights:update -- --cards <id>` | Only the letters you meant changed (the import lists them); its golden lines looked at and accepted |
+| The source interpreter (`shared/source/`) | `npm test` (the `source-*`, masters and adoption tests), `npm run typecheck`; `npm run masters:check` and `npm run programs:check` for published data | Tests pass; the letters looked at rendered (`npm run render -- --style <id> --free`) |
+| An own font (a sheet in `Asset/After/`, `tools/fonts/`) | `npm run fonts:import`, `npm test` | Only the letters you meant changed (the import lists them). A card's letters come from its published source drawings (tools/authored/), which a changed sheet doesn't reach by itself |
 | How a slider maps to geometry | the above, plus `npm run sweep -- <key>` | No new dead eighths |
 | A setting's spec, a style preset, pages, copy | `npm test`, `npm run typecheck` | Pages, icons and styles tests pass; changed `style:<id>` golden lines looked at and accepted |
 | Client UI | `npm run typecheck`; `npm test` if `client/lib/` or `client/components/SliderIcons.tsx` changed; a browser check | Screenshots at 1440×900 and 390×844 look right, no console errors |
@@ -67,7 +65,10 @@ A visible change is done only once you have looked at it rendered (`npm run rend
   (`shared/params/clean.ts`). Compatibility code (old columns, old option names, older contrast) stays.
 - A glyph function keeps its strokes in their order and adds a new one after them: saved designs key a letter's own
   values by stroke index.
-- A free font's letters are the font's exactly until a setting moves away from where it was picked (`freeAt`).
+- An own font's letters are the font's exactly until a setting moves away from where it was picked (`freeAt`).
+- Every font is TypeLab's own, with authored drawings to move. Nothing reads a skeleton off a finished outline or
+  redraws parts of one: the code that did (the free-font path, for fonts drawn elsewhere) was removed on 2026-11-16.
+  A control a source style can't draw from its drawings is left off it (`shared/source/capabilities.ts`), not guessed.
 - Params objects are never mutated; every change makes a new one. Fonts are built once per params object.
 - Anything that draws many glyphs renders one memo component per glyph, so slider drags stay smooth.
 - Code style: each file opens with a plain-language comment saying what it holds; comments say what and why in the
@@ -89,7 +90,7 @@ A visible change is done only once you have looked at it rendered (`npm run rend
 | Fills, the slice and rough edges | `shared/engine/effects.ts`, `boolean.ts`, `rough.ts` | shared/engine/CLAUDE.md |
 | The construction grid | `shared/engine/grid.ts`, `client/components/ConstructionGrid.tsx` | shared/engine/CLAUDE.md |
 | Points mode: tracing, drawn letters, pen tools | `shared/engine/outline.ts`, `client/lib/pen.ts`, `client/components/PenCanvas.tsx` | client/CLAUDE.md |
-| A free font's letters under the settings | `shared/engine/free-letters.ts`, `skin.ts`, `scan.ts`, `restyle.ts` | shared/engine/CLAUDE.md |
+| An own font's letters under the settings | `shared/source/` (`instance.ts`, `capabilities.ts`, and a file per control family) | shared/CLAUDE.md, docs/architecture/ |
 | Which free font a style is written in; families, licences | `shared/free-fonts.ts` | shared/CLAUDE.md |
 | TypeLab's own fonts (the Style page's 22, Block's Bulwark from the block letters): their names, sheets and letters | `OWN_FAMILIES` in `shared/free-fonts.ts`; `Asset/After/<n>.ai`; `tools/fonts/` (`blocks.ts` for Bulwark); `fonts/` (generated) | shared/CLAUDE.md, tools/README.md |
 | A starting style's preset | `shared/content/styles.ts` (ids never change; `tools/fit/apply.ts` rewrites presets) | shared/CLAUDE.md |

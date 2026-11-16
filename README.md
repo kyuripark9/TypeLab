@@ -68,7 +68,6 @@ development as in production; without them it offers email and password only.
 
 Other scripts: `npm test` (engine and API tests, and the golden outlines), `npm run typecheck`,
 `npm run render` (text in a design to a PNG, no browser needed), `npm run golden` / `golden:update`,
-`npm run weights` / `weights:update` (the own-font cards' lighter weights against their baseline),
 `npm run sweep` (sliders that stop changing part way). One test file runs with
 `node --import tsx --test tests/cuts.test.ts`, and tests by name with
 `node --import tsx --test --test-name-pattern "the slice" tests/cuts.test.ts` (the pattern before the file).
@@ -120,36 +119,24 @@ and builds exported fonts on the server. A full rebuild of every glyph takes a f
 | `arcs.ts` | Arc letters: every letter a few cuts of one circle, drawn as centreline strokes (the Arcs card) |
 | `outline.ts` | Letters drawn by hand with the pen: anchor points and bézier handles, and the curve fitting that traces a generated letter into them |
 | `grid.ts` | Construction grids: the lines and circles a letter is built on, and the groups of letters that share a grid |
-| `free.ts`, `free-letters.ts` | Free fonts' letters: registered fonts, and a design's letters drawn from its free font (nearest weight, the twin for other forms) |
-| `skin.ts`, `scan.ts`, `restyle.ts` | Free fonts' letters moved by the settings: hung on their scanned skeletons and moved by the engine's own measures, then restyled where a setting asks for the engine's shapes |
+| `free.ts` | A font's letters as they are kept and travel: TypeLab's own fonts in `fonts/`, and a source's drawings |
 | `highlight.ts` | The part of a glyph a setting shapes, for the explainer and the inspector |
 | `geom.ts`, `types.ts` | Béziers, polygon clipping, corner rounding, SVG path output; shared types |
 
-Every starting style can also be written in a ready-made font (`shared/free-fonts.ts` names one per style),
-except those built from blocks, which no font draws. The 22 on the Style page are TypeLab's own fonts, drawn for
-it and free to use, change and share under the SIL Open Font License: the server lays TypeLab's notice and the
-licence into the fonts it serves and every export (`ownLicense` in `shared/free-fonts.ts`, `fonts/OFL.txt`). Each
-was drawn on a specimen sheet (`Asset/After/<n>.ai`),
-which `npm run fonts:import` (`tools/fonts/`) turns into the outlines the engine draws, kept in `fonts/`; Block's,
-Bulwark, is the engine's block letters made a font (`npm run fonts:blocks`), so serifs, stroke ends, letter forms
-and the rest reach it as they reach the other cards. The other styles use a free
-font from Google Fonts (SIL Open Font License or Apache 2.0): the server fetches it the first time it's
-asked for, converts it (`server/free-fonts.ts`) and keeps it in `data/free-fonts/`; an export made from
-one carries the font's copyright notice and licence, and never its name. A design
-remembers the settings its font was picked at (`freeAt`), and as the settings move from them the font's
-letters move too: heavier or lighter is the family's nearer weight, slanting past half an italic's lean
-takes the italic, and slant, rotation, mirroring, monospacing, spacing, the slice and the fills apply on top.
-The rest of the way in weight, and contrast, width, x-height, crossbar height, stem length, inner space,
-dot size, pinch, ink traps and the serifs' size, move the letters on their skeletons
-(`shared/engine/skin.ts`): each outline is sampled, every sample hung on the middle of its stroke, and the
-settings move those middles and thicken or thin the strokes round them by the same measures the engine
-builds its own letters with, keeping the font's heights. Where a setting asks for one of the engine's own
-shapes (its dots, bowls, stroke ends, serifs, stencil gaps, peaks or corners), that shape is drawn onto the
-font's letter (`shared/engine/restyle.ts`), and a letter asked for in a form the font hasn't got (a
-single-storey a, a k on a bar) is the engine's own, drawn at the settings the font reads as. Unmoved,
-the letters are the font's exactly. A pixel font's letters (VT323, Silkscreen) would lose their grid on their
-skeletons, so they only stretch and take the family's own weights. Points opens its letters with the font's
-own anchor points.
+The 22 font cards on the Style page are written in TypeLab's own fonts (`shared/free-fonts.ts` names one per style),
+drawn for it and free to use, change and share under the SIL Open Font License. Each was drawn on a specimen sheet
+(`Asset/After/<n>.ai`), which `npm run fonts:import` (`tools/fonts/`) turns into outlines kept in `fonts/`; Block's,
+Bulwark, is the engine's block letters made a font (`npm run fonts:blocks`). The cards built from blocks or arcs have
+no font: the engine builds their letters.
+
+A design written in one of the fonts is a source style (`shared/source/`): the font's own drawings at several
+weights and widths, with matching points, published as immutable data. It remembers the settings its font stands for
+(`freeAt`), and as the settings move from them the interpreter moves the drawings' points: Weight and Width between
+the font's own weights and widths, and each other control from data authored for that font (alternate letter forms,
+dots, serifs, stroke ends, stencil, ink traps and the rest). A control a font has no drawings for is left off it
+rather than guessed at. Unmoved, the letters are the font's exactly, and Points opens them with the font's own
+anchor points. Every font is TypeLab's own: nothing reads a skeleton off a finished outline or redraws parts of one,
+and no font is fetched from anywhere else.
 
 Beyond weight, width and contrast, the pen model also does squircle bowls (*Squareness*),
 faceted octagonal curves (*Facets*), reverse contrast and ink traps, and glyph assembly
@@ -243,7 +230,6 @@ empty cells read as round nodes.
 | `POST` | `/api/designs` | create `{ name, styleId, params, sample? }` |
 | `GET` / `PUT` / `PATCH` / `DELETE` | `/api/designs/:id` | read · update `{ name, styleId, params, sample? }` · rename `{ name }` · delete |
 | `PUT` | `/api/designs/:id/sample` | keep the name's sample My designs shows, drawn from the design as saved at `updatedAt` `{ sample, updatedAt }` |
-| `GET` | `/api/free-fonts/:id` | a free font's letters, as the engine draws them (TypeLab's own from `fonts/`, others fetched from Google Fonts the first time) |
 | `GET` | `/api/free-fonts/:id/font.otf` | one of TypeLab's own fonts as an OpenType file, for the style cards |
 | `GET` | `/api/free-fonts/:id/intro.otf` | the same, cut to the letters the opening title card sets |
 | `POST` | `/api/export/otf` | `{ name, params, member?, accents? }` → OpenType font file (one member of the design's family with `member`; with `accents: true`, the accented letters é ñ ü … too) |

@@ -2,14 +2,14 @@
    Development: Vite runs inside this server as middleware (with hot reload).
    Production (`npm run build` then `npm start`): serves the built files from dist/.
    It reads from the environment, or from a .env file at the root: PORT (5173), NODE_ENV (`production`
-   serves dist/), DB_PATH (data/typelab.db; the free fonts are kept beside it, in free-fonts/) and
+   serves dist/), DB_PATH (data/typelab.db) and
    TRUST_PROXY here, PUBLIC_URL in app.ts, GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in google.ts (without
    them no Google is offered; GOOGLE_STAND_IN, in development only, signs in with a stand-in for it), and RESEND_API_KEY or SMTP_URL, and
    MAIL_FROM, in mail.ts (without them, or in production without PUBLIC_URL, development shows the password reset's mail at
    /dev/mail and production offers no reset). */
 import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import express from 'express';
 import { createApp } from './app';
 import { ExportPool } from './export-pool';
@@ -26,8 +26,8 @@ const prod = process.env.NODE_ENV === 'production';
 
 const dbFile = process.env.DB_PATH || resolve(root, 'data/typelab.db');
 const store = new DesignStore(dbFile);
-// free fonts are fetched once and kept beside the database
-const fonts = new FreeFonts(dbFile === ':memory:' ? null : resolve(dirname(dbFile), 'free-fonts'));
+// TypeLab's own fonts, read from fonts/
+const fonts = new FreeFonts();
 // Google itself when its keys are set, in development as in production. The stand-in, a page here to pick a made-up
 // account, only when asked for (GOOGLE_STAND_IN, development only): for a test server, whose port Google doesn't know
 const standIn = !prod && process.env.GOOGLE_STAND_IN ? googleStandIn() : null, google = standIn ? null : googleFromEnv();
